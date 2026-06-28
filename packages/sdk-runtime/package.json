@@ -1,0 +1,52 @@
+{
+  "name": "@talmeh/sdk-runtime",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Production Talmeh SDK runtime surface: loader, runtime/player, semantic resolver, and renderers. Framework-free — must never import React or Lexical.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./loader": {
+      "types": "./dist/loader/index.d.ts",
+      "import": "./dist/loader/index.js"
+    },
+    "./runtime": {
+      "types": "./dist/runtime/index.d.ts",
+      "import": "./dist/runtime/index.js"
+    },
+    "./resolver": {
+      "types": "./dist/resolver/index.d.ts",
+      "import": "./dist/resolver/index.js"
+    },
+    "./renderers/tour": {
+      "types": "./dist/renderers/tour.d.ts",
+      "import": "./dist/renderers/tour.js"
+    },
+    "./local-dev": {
+      "types": "./dist/local-dev/index.d.ts",
+      "import": "./dist/local-dev/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "@floating-ui/dom": "^1.6.13",
+    "@talmeh/compiler": "workspace:*",
+    "@talmeh/schema": "workspace:*"
+  },
+  "devDependencies": {
+    "tsup": "^8.3.5",
+    "typescript": "^5.7.2"
+  }
+}

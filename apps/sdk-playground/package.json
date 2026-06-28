@@ -1,0 +1,23 @@
+{
+  "name": "@talmeh/sdk-playground",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Visual SDK playground for exercising compile + tour playback in isolation (PRD §16.0).",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "@talmeh/compiler": "workspace:*",
+    "@talmeh/schema": "workspace:*",
+    "@talmeh/sdk-runtime": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.2",
+    "vite": "^6.0.7"
+  }
+}

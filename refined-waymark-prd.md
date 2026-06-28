@@ -3,7 +3,7 @@
 Version: 1.9 talmeh brand naming  
 Status: Implementation-ready draft pending founder review  
 Source reviewed: `C:\Users\shayeb\Downloads\waymark.md`  
-Note: the source PRD uses the name "ScriptFlow"; this refinement uses **Talmeh** (Arabic تلميح — *hint*), reflecting the product's hint/tooltip-first UX and contextual in-app guidance model.
+Note: the source PRD uses the name "ScriptFlow"; this refinement uses **Talmeh** (Arabic تلميح — _hint_), reflecting the product's hint/tooltip-first UX and contextual in-app guidance model.
 
 ---
 
@@ -46,31 +46,31 @@ The feedback is directionally correct and should be adopted. This revision also 
 
 ## Feedback Disposition
 
-| Area | Original PRD | Decision | Refined PRD Change |
-|---|---|---|---|
-| Primary editor | Floating Markdown panel | Change | Floating Document Builder using a dedicated Lexical-based SDK authoring editor boundary. |
-| CodeMirror | CodeMirror 6 | Reposition | Optional advanced source mode, generated Markdown preview, or internal tooling. |
-| Source of truth | Markdown | Change | Canonical structured block JSON; Markdown is export/interchange/source mode only. |
-| Slash commands | Durable command syntax | Change | Temporary insertion gestures that become rendered blocks. |
-| Parser | Custom grammar unspecified | Defer | Lezer only needed if advanced source mode ships; primary UX uses Lexical commands and typed block transactions. |
-| SDK | Single vanilla JS SDK | Change | SDK-first TypeScript implementation with separate loader, runtime/player, authoring bridge, renderer, resolver, compiler, and local development entry points. |
-| Isolation | Shadow DOM sandbox | Change | Shadow DOM for overlays; sandboxed iframe for authoring panel. |
-| Positioning | Not specified | Add | Floating UI for tooltips, hotspots, menus, coach marks. |
-| Selectors | Ordered CSS-first fallback | Change | Weighted semantic resolver with confidence thresholds. |
-| Target attachment UX | Selector-like configuration | Change | Direct canvas selection mode with cursor change, hover outline, target chip, and target health. |
-| Customer data access | Implied app/backend knowledge | Change | Only use page context, identify traits, tracked events, Talmeh activity, and approved integrations. |
-| Customer values UX | Manual event/trait memorization | Add | Workspace data catalog powers grouped dropdowns with source, environment, last-seen, and safe sample values. |
-| Dashboard | React + Tailwind | Keep, update | Use Next.js 16, Tailwind, shadcn/ui, TanStack Query, Zustand where needed, React Hook Form, TanStack Table, and Recharts. Deploy the dashboard on Fly.io next to the API; do not use Vercel. |
-| Backend | Node + Fastify | Keep, update | Use Node.js 24 LTS, Fastify 5, TypeScript, TypeBox/JSON Schema, Ajv, and OpenAPI clients. |
-| Database | PostgreSQL | Keep, update | Use Neon PostgreSQL plus Drizzle for the three-person AI-assisted team; store block JSON, optional source serialization, compiled JSON, immutable publications, and normalized metadata. |
-| Queue | Redis + BullMQ | Limit | Defer Redis entirely until a real async job exists; then prefer self-hosted Redis/Valkey on Fly.io (or Upstash on a fixed plan) for BullMQ worker jobs. Avoid queue infrastructure before async jobs exist. |
-| CDN | S3 + CloudFront + Cloudflare | Change | Choose Cloudflare R2 plus Cloudflare CDN/DNS/WAF initially; avoid combining Cloudflare and CloudFront unless a specific enterprise requirement appears. |
-| Analytics | ClickHouse Phase 1 | Defer | PostgreSQL first; ClickHouse Cloud later. |
-| Media | gifski for WebP/GIF | Correct | img2webp/libwebp for WebP; gifski for GIF. |
-| Content model | Fixed per-type command lists | Change | Global block registry with context-aware ranking and broad composition rules. |
-| Validation | Parser-style validity | Change | Save almost always succeeds; publish blocks only critical runtime errors. |
-| Security | Basic content and PII controls | Strengthen | Sanitizers, URL/CSS allowlists, Trusted Types, no arbitrary HTML/CSS. |
-| Observability | Not explicit | Add | OpenTelemetry, Sentry, correlation IDs, selector diagnostics. |
+| Area                 | Original PRD                    | Decision     | Refined PRD Change                                                                                                                                                                                          |
+| -------------------- | ------------------------------- | ------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Primary editor       | Floating Markdown panel         | Change       | Floating Document Builder using a dedicated Lexical-based SDK authoring editor boundary.                                                                                                                    |
+| CodeMirror           | CodeMirror 6                    | Reposition   | Optional advanced source mode, generated Markdown preview, or internal tooling.                                                                                                                             |
+| Source of truth      | Markdown                        | Change       | Canonical structured block JSON; Markdown is export/interchange/source mode only.                                                                                                                           |
+| Slash commands       | Durable command syntax          | Change       | Temporary insertion gestures that become rendered blocks.                                                                                                                                                   |
+| Parser               | Custom grammar unspecified      | Defer        | Lezer only needed if advanced source mode ships; primary UX uses Lexical commands and typed block transactions.                                                                                             |
+| SDK                  | Single vanilla JS SDK           | Change       | SDK-first TypeScript implementation with separate loader, runtime/player, authoring bridge, renderer, resolver, compiler, and local development entry points.                                               |
+| Isolation            | Shadow DOM sandbox              | Change       | Shadow DOM for overlays; sandboxed iframe for authoring panel.                                                                                                                                              |
+| Positioning          | Not specified                   | Add          | Floating UI for tooltips, hotspots, menus, coach marks.                                                                                                                                                     |
+| Selectors            | Ordered CSS-first fallback      | Change       | Weighted semantic resolver with confidence thresholds.                                                                                                                                                      |
+| Target attachment UX | Selector-like configuration     | Change       | Direct canvas selection mode with cursor change, hover outline, target chip, and target health.                                                                                                             |
+| Customer data access | Implied app/backend knowledge   | Change       | Only use page context, identify traits, tracked events, Talmeh activity, and approved integrations.                                                                                                         |
+| Customer values UX   | Manual event/trait memorization | Add          | Workspace data catalog powers grouped dropdowns with source, environment, last-seen, and safe sample values.                                                                                                |
+| Dashboard            | React + Tailwind                | Keep, update | Use Next.js 16, Tailwind, shadcn/ui, TanStack Query, Zustand where needed, React Hook Form, TanStack Table, and Recharts. Deploy the dashboard on Fly.io next to the API; do not use Vercel.                |
+| Backend              | Node + Fastify                  | Keep, update | Use Node.js 24 LTS, Fastify 5, TypeScript, TypeBox/JSON Schema, Ajv, and OpenAPI clients.                                                                                                                   |
+| Database             | PostgreSQL                      | Keep, update | Use Neon PostgreSQL plus Drizzle for the three-person AI-assisted team; store block JSON, optional source serialization, compiled JSON, immutable publications, and normalized metadata.                    |
+| Queue                | Redis + BullMQ                  | Limit        | Defer Redis entirely until a real async job exists; then prefer self-hosted Redis/Valkey on Fly.io (or Upstash on a fixed plan) for BullMQ worker jobs. Avoid queue infrastructure before async jobs exist. |
+| CDN                  | S3 + CloudFront + Cloudflare    | Change       | Choose Cloudflare R2 plus Cloudflare CDN/DNS/WAF initially; avoid combining Cloudflare and CloudFront unless a specific enterprise requirement appears.                                                     |
+| Analytics            | ClickHouse Phase 1              | Defer        | PostgreSQL first; ClickHouse Cloud later.                                                                                                                                                                   |
+| Media                | gifski for WebP/GIF             | Correct      | img2webp/libwebp for WebP; gifski for GIF.                                                                                                                                                                  |
+| Content model        | Fixed per-type command lists    | Change       | Global block registry with context-aware ranking and broad composition rules.                                                                                                                               |
+| Validation           | Parser-style validity           | Change       | Save almost always succeeds; publish blocks only critical runtime errors.                                                                                                                                   |
+| Security             | Basic content and PII controls  | Strengthen   | Sanitizers, URL/CSS allowlists, Trusted Types, no arbitrary HTML/CSS.                                                                                                                                       |
+| Observability        | Not explicit                    | Add          | OpenTelemetry, Sentry, correlation IDs, selector diagnostics.                                                                                                                                               |
 
 ---
 
@@ -147,21 +147,25 @@ Early geographic focus can remain MENA and EU, with EU data residency designed i
 ## 4.2 Personas
 
 Product Marketing Manager:
+
 - Creates feature launches, onboarding tours, announcements, and demo assets.
 - Needs faster content updates after product changes.
 - Success metric: time from UI change to updated content drops from days to minutes.
 
 Sales or Solutions Engineer:
+
 - Builds prospect-specific interactive demos and email snippets.
 - Needs personalization without maintaining brittle sandbox recordings.
 - Success metric: demo creation time under 60 minutes.
 
 Product Manager:
+
 - Owns adoption and activation workflows.
 - Needs in-app guidance with review, targeting, and analytics.
 - Success metric: increased feature adoption and onboarding completion.
 
 Customer Success or Enablement:
+
 - Builds post-sale guidance, checklists, and contextual help.
 - Needs low-code updates and visibility into user progress.
 - Success metric: lower support burden and higher expansion readiness.
@@ -216,30 +220,31 @@ Customer install:
   data-workspace="wk_live_xxx"
   data-env="production"
   async
-  crossorigin="anonymous"></script>
+  crossorigin="anonymous"
+></script>
 ```
 
 Identification:
 
 ```ts
 Talmeh.identify({
-  userId: "user_abc123",
-  email: "user@company.com",
-  plan: "pro",
-  role: "admin",
+  userId: 'user_abc123',
+  email: 'user@company.com',
+  plan: 'pro',
+  role: 'admin',
   custom: {
-    company: "Acme Corp",
-    industry: "fintech"
-  }
+    company: 'Acme Corp',
+    industry: 'fintech',
+  },
 });
 ```
 
 Customer events:
 
 ```ts
-Talmeh.track("project_created", {
-  source: "dashboard",
-  plan: "pro"
+Talmeh.track('project_created', {
+  source: 'dashboard',
+  plan: 'pro',
 });
 ```
 
@@ -269,12 +274,12 @@ Catalog entries:
 ```ts
 interface DataCatalogEntry {
   id: string;
-  source: "identify_trait" | "track_event" | "talmeh_activity" | "page_context" | "integration";
+  source: 'identify_trait' | 'track_event' | 'talmeh_activity' | 'page_context' | 'integration';
   key: string;
   displayName?: string;
-  environments: Array<"development" | "staging" | "production">;
+  environments: Array<'development' | 'staging' | 'production'>;
   lastSeenAt?: string;
-  valueType?: "string" | "number" | "boolean" | "date" | "enum" | "unknown";
+  valueType?: 'string' | 'number' | 'boolean' | 'date' | 'enum' | 'unknown';
   sampleValues?: string[];
   isHighCardinality?: boolean;
   isSensitive?: boolean;
@@ -419,8 +424,8 @@ Example:
 interface TalmehDocument {
   id: string;
   workspaceId: string;
-  type: "tour" | "announcement" | "checklist" | "survey" | "hotspot" | "knowledge";
-  status: "draft" | "review" | "approved" | "live" | "archived";
+  type: 'tour' | 'announcement' | 'checklist' | 'survey' | 'hotspot' | 'knowledge';
+  status: 'draft' | 'review' | 'approved' | 'live' | 'archived';
   title: string;
   trigger: TriggerDefinition;
   audience: AudienceDefinition;
@@ -435,7 +440,7 @@ interface TalmehBlock {
   content?: string;
   props: Record<string, unknown>;
   children: TalmehBlock[];
-  status?: "ready" | "incomplete" | "invalid";
+  status?: 'ready' | 'incomplete' | 'invalid';
   diagnostics?: BlockDiagnostic[];
 }
 ```
@@ -649,14 +654,14 @@ Required behavior:
 
 ## 7.5 Document Types as Root Renderers
 
-| Type | MVP Phase | Use Case | Output Modes |
-|---|---:|---|---|
-| `tour` | 1 | Step-by-step interactive guide | In-app, hosted demo, media export |
-| `announcement` | 3 | Modal, banner, slide-in | In-app |
-| `checklist` | 3 | Persistent onboarding checklist | In-app |
-| `survey` | 3 | NPS, CSAT, CES, custom feedback | In-app |
-| `hotspot` | 3 | Persistent beacon and tooltip | In-app |
-| `knowledge` | 3 or later | Lightweight help widget | In-app |
+| Type           |  MVP Phase | Use Case                        | Output Modes                      |
+| -------------- | ---------: | ------------------------------- | --------------------------------- |
+| `tour`         |          1 | Step-by-step interactive guide  | In-app, hosted demo, media export |
+| `announcement` |          3 | Modal, banner, slide-in         | In-app                            |
+| `checklist`    |          3 | Persistent onboarding checklist | In-app                            |
+| `survey`       |          3 | NPS, CSAT, CES, custom feedback | In-app                            |
+| `hotspot`      |          3 | Persistent beacon and tooltip   | In-app                            |
+| `knowledge`    | 3 or later | Lightweight help widget         | In-app                            |
 
 Document types control:
 
@@ -731,18 +736,18 @@ The slash menu should prioritize contextually relevant blocks. For example, NPS 
 
 Talmeh should be permissive about content and structured about behavior.
 
-| User Behavior | Talmeh Response |
-|---|---|
-| Types ordinary unexpected text | Preserve as paragraph text. |
-| Types an unknown slash command | Search the slash menu; if no command is selected, leave as normal text. |
-| Adds a button without action | Save as incomplete button and show "Choose action." |
-| Deletes a required target | Keep the block and show "Target needed." |
-| Pastes from Google Docs or Word | Convert recognized headings, lists, links, and images; sanitize the rest. |
-| Pastes unsupported formatting | Preserve text, remove unsafe or unsupported formatting, and show an optional import note. |
-| Drags a block somewhere invalid | Show valid drop locations; do not accept invalid nesting. |
-| References a deleted tour | Show a broken-reference chip and relink action. |
-| Creates incomplete survey | Save as draft; block publish until required pieces exist. |
-| Changes document type | Migrate compatible blocks; place incompatible blocks in a review section. |
+| User Behavior                   | Talmeh Response                                                                           |
+| ------------------------------- | ----------------------------------------------------------------------------------------- |
+| Types ordinary unexpected text  | Preserve as paragraph text.                                                               |
+| Types an unknown slash command  | Search the slash menu; if no command is selected, leave as normal text.                   |
+| Adds a button without action    | Save as incomplete button and show "Choose action."                                       |
+| Deletes a required target       | Keep the block and show "Target needed."                                                  |
+| Pastes from Google Docs or Word | Convert recognized headings, lists, links, and images; sanitize the rest.                 |
+| Pastes unsupported formatting   | Preserve text, remove unsafe or unsupported formatting, and show an optional import note. |
+| Drags a block somewhere invalid | Show valid drop locations; do not accept invalid nesting.                                 |
+| References a deleted tour       | Show a broken-reference chip and relink action.                                           |
+| Creates incomplete survey       | Save as draft; block publish until required pieces exist.                                 |
+| Changes document type           | Migrate compatible blocks; place incompatible blocks in a review section.                 |
 
 Validation levels:
 
@@ -850,11 +855,11 @@ Target selection flow:
 
 Cursor states:
 
-| State | Cursor | Meaning |
-|---|---|---|
-| Normal authoring | `default` | Creator edits document and panel normally. |
-| Target selection | `crosshair` or custom target cursor | Creator is selecting an element in the product. |
-| Blocked target | `not-allowed` | Element cannot be selected, such as Talmeh UI, hidden elements, or unsafe controls. |
+| State            | Cursor                              | Meaning                                                                             |
+| ---------------- | ----------------------------------- | ----------------------------------------------------------------------------------- |
+| Normal authoring | `default`                           | Creator edits document and panel normally.                                          |
+| Target selection | `crosshair` or custom target cursor | Creator is selecting an element in the product.                                     |
+| Blocked target   | `not-allowed`                       | Element cannot be selected, such as Talmeh UI, hidden elements, or unsafe controls. |
 
 Hover label examples should stay mechanical and honest:
 
@@ -934,17 +939,17 @@ interface ElementFingerprint {
 
 Candidates are scored instead of resolved by ordered fallback.
 
-| Signal | Score |
-|---|---:|
-| `data-talmeh-id` match | +100 |
-| Customer configured stable attribute | +90 |
-| Role and accessible name | +70 |
-| Associated label, placeholder, title, or alt | +65 |
-| Same ancestor landmark | +30 |
-| Same nearby text | +20 |
-| Same tag/input type | +15 |
-| Same relative position | +10 |
-| Scoped short CSS selector | +10 |
+| Signal                                       | Score |
+| -------------------------------------------- | ----: |
+| `data-talmeh-id` match                       |  +100 |
+| Customer configured stable attribute         |   +90 |
+| Role and accessible name                     |   +70 |
+| Associated label, placeholder, title, or alt |   +65 |
+| Same ancestor landmark                       |   +30 |
+| Same nearby text                             |   +20 |
+| Same tag/input type                          |   +15 |
+| Same relative position                       |   +10 |
+| Scoped short CSS selector                    |   +10 |
 
 Resolution succeeds only when:
 
@@ -972,7 +977,7 @@ interface RuntimeLifecycleHints {
   waitForText?: string;
   waitForElement?: ElementFingerprint;
   scrollContainer?: ElementFingerprint;
-  scrollStrategy?: "nearest" | "top" | "center" | "bottom" | "virtualized-search";
+  scrollStrategy?: 'nearest' | 'top' | 'center' | 'bottom' | 'virtualized-search';
   openPanel?: ElementFingerprint;
   selectTab?: ElementFingerprint;
   waitForNetworkIdle?: boolean;
@@ -1106,7 +1111,8 @@ Iframe example:
 ```html
 <iframe
   src="https://editor.talmeh.io/session/..."
-  sandbox="allow-scripts allow-same-origin"></iframe>
+  sandbox="allow-scripts allow-same-origin"
+></iframe>
 ```
 
 The bridge may inspect the customer page; the iframe owns authentication, document state, editor UI, block transactions, validation, and review controls.
@@ -1141,11 +1147,11 @@ Example bridge messages:
 
 ```ts
 type BridgeMessage =
-  | { type: "target.pick.start"; sessionId: string }
-  | { type: "target.pick.result"; blockId: string; fingerprint: ElementFingerprint }
-  | { type: "preview.patch"; blockId: string; patch: PreviewPatch }
-  | { type: "page.lifecycle.update"; route: string; scrollState: ScrollState }
-  | { type: "resolver.diagnostic"; stepId: string; diagnostic: ResolverDiagnostic };
+  | { type: 'target.pick.start'; sessionId: string }
+  | { type: 'target.pick.result'; blockId: string; fingerprint: ElementFingerprint }
+  | { type: 'preview.patch'; blockId: string; patch: PreviewPatch }
+  | { type: 'page.lifecycle.update'; route: string; scrollState: ScrollState }
+  | { type: 'resolver.diagnostic'; stepId: string; diagnostic: ResolverDiagnostic };
 ```
 
 Performance targets:
@@ -1996,12 +2002,12 @@ The original MAU plus document-volume pricing is directionally reasonable, but p
 
 Recommended starting tiers:
 
-| Tier | Indicative Price | Best For | Limits |
-|---|---:|---|---|
-| Starter | $49/month | Early teams validating tours | 1,000 MAU, 10 active docs, staging plus hosted demos |
-| Growth | $149/month | PMM and product teams | 5,000 MAU, 50 active docs, announcements/checklists/surveys |
-| Pro | $299/month | Multi-team SaaS orgs | 20,000 MAU, unlimited docs, A/B testing, webhooks/API |
-| Enterprise | Custom | Larger and regulated teams | SSO, SCIM, audit log, residency, SLA, custom limits |
+| Tier       | Indicative Price | Best For                     | Limits                                                      |
+| ---------- | ---------------: | ---------------------------- | ----------------------------------------------------------- |
+| Starter    |        $49/month | Early teams validating tours | 1,000 MAU, 10 active docs, staging plus hosted demos        |
+| Growth     |       $149/month | PMM and product teams        | 5,000 MAU, 50 active docs, announcements/checklists/surveys |
+| Pro        |       $299/month | Multi-team SaaS orgs         | 20,000 MAU, unlimited docs, A/B testing, webhooks/API       |
+| Enterprise |           Custom | Larger and regulated teams   | SSO, SCIM, audit log, residency, SLA, custom limits         |
 
 Billing notes:
 
@@ -2065,7 +2071,7 @@ Billing notes:
 
 # 19. Open Decisions
 
-1. ~~Brand naming~~ **Resolved:** product name is **Talmeh** (Arabic تلميح — *hint*). Retired draft names: ScriptFlow (original PRD), Waymark (intermediate refinement).
+1. ~~Brand naming~~ **Resolved:** product name is **Talmeh** (Arabic تلميح — _hint_). Retired draft names: ScriptFlow (original PRD), Waymark (intermediate refinement).
 2. Knowledge widget timing: include in Phase 3 only if it does not slow core in-app delivery.
 3. Branching: decide when Flow Map authoring becomes customer-visible instead of schema-only.
 4. Data catalog display names: decide whether friendly names are configured manually, imported from analytics integrations, or inferred only after user confirmation.

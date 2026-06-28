@@ -1,0 +1,63 @@
+{
+  "id": "doc_tour_welcome",
+  "workspaceId": "wk_local_dev",
+  "type": "tour",
+  "status": "draft",
+  "title": "Welcome tour",
+  "schemaVersion": "1.0.0",
+  "trigger": { "type": "manual" },
+  "audience": { "environments": ["development", "staging"] },
+  "targets": [
+    {
+      "id": "target_new_project",
+      "fingerprint": {
+        "tagName": "button",
+        "role": "button",
+        "accessibleName": "New project",
+        "label": "New project",
+        "stableAttributes": { "data-talmeh-id": "new-project" },
+        "nearbyText": ["Projects"],
+        "ancestorLandmarks": [{ "role": "main", "accessibleName": "Dashboard" }]
+      }
+    }
+  ],
+  "blocks": [
+    {
+      "id": "block_step_1",
+      "type": "tourStep",
+      "props": { "index": 0 },
+      "status": "ready",
+      "children": [
+        {
+          "id": "block_tooltip_1",
+          "type": "tooltip",
+          "props": { "placement": "bottom", "targetId": "target_new_project" },
+          "status": "ready",
+          "children": [
+            {
+              "id": "block_heading_1",
+              "type": "heading",
+              "props": { "level": 2 },
+              "content": "Create your first project",
+              "children": []
+            },
+            {
+              "id": "block_paragraph_1",
+              "type": "paragraph",
+              "content": "Projects help organize your team's work.",
+              "props": {},
+              "children": []
+            },
+            {
+              "id": "block_button_1",
+              "type": "button",
+              "content": "Continue",
+              "props": { "variant": "primary", "action": { "type": "next" } },
+              "children": []
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

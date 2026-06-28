@@ -1,0 +1,13 @@
+{
+  "extends": "./tsconfig.base.json",
+  "files": [],
+  "references": [
+    { "path": "./packages/schema" },
+    { "path": "./packages/compiler" },
+    { "path": "./packages/sdk-runtime" },
+    { "path": "./packages/sdk-authoring" },
+    { "path": "./packages/tests" },
+    { "path": "./apps/fixture-host" },
+    { "path": "./apps/sdk-playground" }
+  ]
+}

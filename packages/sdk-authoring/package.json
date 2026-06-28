@@ -1,0 +1,45 @@
+{
+  "name": "@talmeh/sdk-authoring",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Authenticated-creator-only Talmeh authoring SDK: authoring shell, host-page bridge, and the Lexical-based editor boundary. Loads React and Lexical; never shipped to production viewers.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./bridge": {
+      "types": "./dist/bridge/index.d.ts",
+      "import": "./dist/bridge/index.js"
+    },
+    "./editor": {
+      "types": "./dist/editor/index.d.ts",
+      "import": "./dist/editor/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "@floating-ui/dom": "^1.6.13",
+    "@lexical/rich-text": "^0.21.0",
+    "@talmeh/schema": "workspace:*",
+    "lexical": "^0.21.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.0.2",
+    "@types/react-dom": "^19.0.2",
+    "tsup": "^8.3.5",
+    "typescript": "^5.7.2"
+  }
+}

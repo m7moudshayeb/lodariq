@@ -1,0 +1,35 @@
+{
+  "name": "talmeh",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Talmeh — universal product-content platform (interactive demos, tours, onboarding, announcements, surveys, hotspots, knowledge widgets) built on one document-driven authoring model.",
+  "type": "module",
+  "packageManager": "pnpm@9.15.9",
+  "engines": {
+    "node": ">=22.12.0",
+    "pnpm": ">=9"
+  },
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "typecheck": "turbo run typecheck",
+    "lint": "turbo run lint",
+    "test": "turbo run test",
+    "size": "turbo run size",
+    "boundaries": "depcruise --config .dependency-cruiser.cjs packages apps",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "verify": "pnpm run typecheck && pnpm run lint && pnpm run boundaries && pnpm run test && pnpm run build"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.17.0",
+    "@types/node": "^22.10.5",
+    "dependency-cruiser": "^16.8.0",
+    "eslint": "^9.17.0",
+    "prettier": "^3.4.2",
+    "turbo": "^2.3.3",
+    "typescript": "^5.7.2",
+    "typescript-eslint": "^8.19.0",
+    "vitest": "^2.1.8"
+  }
+}
