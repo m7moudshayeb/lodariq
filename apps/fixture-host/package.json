@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@talmeh/schema": "workspace:*",
+    "@talmeh/sdk-authoring": "workspace:*",
     "@talmeh/sdk-runtime": "workspace:*"
   },
   "devDependencies": {

@@ -1,3 +1,4 @@
+import { accessibleNameOf, roleOf } from '@talmeh/schema/dom';
 import type { ElementFingerprint } from '@talmeh/schema';
 
 /**
@@ -28,70 +29,19 @@ interface ScoredCandidate {
   method: string;
 }
 
-function accessibleNameOf(el: Element): string | undefined {
-  const aria = el.getAttribute('aria-label');
-  if (aria) return aria.trim();
-  const labelledby = el.getAttribute('aria-labelledby');
-  if (labelledby) {
-    const text = labelledby
-      .split(/\s+/)
-      .map((id) => el.ownerDocument.getElementById(id)?.textContent ?? '')
-      .join(' ')
-      .trim();
-    if (text) return text;
-  }
-  const text = el.textContent?.trim();
-  return text ? text : undefined;
-}
-
-function roleOf(el: Element): string | undefined {
-  const explicit = el.getAttribute('role');
-  if (explicit) return explicit;
-  const tag = el.tagName.toLowerCase();
-  if (tag === 'button') return 'button';
-  if (tag === 'a' && el.hasAttribute('href')) return 'link';
-  if (tag === 'textarea') return 'textbox';
-  if (tag === 'select') {
-    const select = el as HTMLSelectElement;
-    return select.multiple || select.size > 1 ? 'listbox' : 'combobox';
-  }
-  if (tag === 'input') {
-    const inputType = (el.getAttribute('type') ?? 'text').toLowerCase();
-    switch (inputType) {
-      case 'button':
-      case 'image':
-      case 'reset':
-      case 'submit':
-        return 'button';
-      case 'checkbox':
-        return 'checkbox';
-      case 'email':
-      case 'password':
-      case 'tel':
-      case 'text':
-      case 'url':
-        return 'textbox';
-      case 'number':
-        return 'spinbutton';
-      case 'radio':
-        return 'radio';
-      case 'range':
-        return 'slider';
-      case 'search':
-        return 'searchbox';
-      default:
-        return 'textbox';
-    }
-  }
-  return undefined;
-}
-
 function isVisible(el: Element): boolean {
   if (!(el instanceof HTMLElement)) return true;
   if (el.hidden) return false;
   if (el.getAttribute('aria-hidden') === 'true') return false;
   const style = el.ownerDocument.defaultView?.getComputedStyle(el);
   if (style && (style.display === 'none' || style.visibility === 'hidden')) return false;
+  return true;
+}
+
+function isEnabled(el: Element): boolean {
+  if (!(el instanceof HTMLElement)) return true;
+  if (el.getAttribute('aria-disabled') === 'true') return false;
+  if ('disabled' in el && Boolean(el.disabled)) return false;
   return true;
 }
 
@@ -154,6 +104,7 @@ export function resolve(fp: ElementFingerprint, root: ParentNode = document): Re
   const candidates: ScoredCandidate[] = [];
   for (const el of root.querySelectorAll('*')) {
     if (!isVisible(el)) continue;
+    if (!isEnabled(el)) continue;
     const { score, method } = scoreCandidate(fp, el);
     if (score > 0) candidates.push({ element: el, score, method });
   }

@@ -1,4 +1,6 @@
 import { Type, type Static } from '@sinclair/typebox';
+import { TalmehBlock } from './block';
+import { TalmehDocument } from './document';
 import { ElementFingerprint } from './target';
 
 /**
@@ -32,8 +34,36 @@ export const ScrollState = Type.Object(
 );
 export type ScrollState = Static<typeof ScrollState>;
 
+export const PreviewPatchOperation = Type.Union(
+  [
+    Type.Object({ op: Type.Literal('insertBlock'), block: TalmehBlock }),
+    Type.Object({ op: Type.Literal('insertBlocks'), blocks: Type.Array(TalmehBlock) }),
+    Type.Object({
+      op: Type.Literal('moveBlock'),
+      direction: Type.Union([Type.Literal('up'), Type.Literal('down')]),
+    }),
+    Type.Object({ op: Type.Literal('reorderBlock'), beforeBlockId: Type.String() }),
+    Type.Object({
+      op: Type.Literal('transformBlock'),
+      type: Type.Union([
+        Type.Literal('paragraph'),
+        Type.Literal('heading'),
+        Type.Literal('button'),
+      ]),
+    }),
+    Type.Object({
+      op: Type.Literal('attachTarget'),
+      targetId: Type.String(),
+      fingerprint: ElementFingerprint,
+    }),
+    Type.Object({ op: Type.Literal('replaceDocument'), document: TalmehDocument }),
+  ],
+  { $id: 'PreviewPatchOperation' },
+);
+export type PreviewPatchOperation = Static<typeof PreviewPatchOperation>;
+
 export const PreviewPatch = Type.Object(
-  { ops: Type.Array(Type.Record(Type.String(), Type.Unknown())) },
+  { ops: Type.Array(PreviewPatchOperation) },
   { $id: 'PreviewPatch' },
 );
 export type PreviewPatch = Static<typeof PreviewPatch>;
@@ -53,7 +83,10 @@ export type ResolverDiagnostic = Static<typeof ResolverDiagnostic>;
 export const BridgeMessage = Type.Intersect([
   BridgeEnvelope,
   Type.Union([
-    Type.Object({ type: Type.Literal('target.pick.start') }),
+    Type.Object({
+      type: Type.Literal('target.pick.start'),
+      blockId: Type.String(),
+    }),
     Type.Object({
       type: Type.Literal('target.pick.result'),
       blockId: Type.String(),

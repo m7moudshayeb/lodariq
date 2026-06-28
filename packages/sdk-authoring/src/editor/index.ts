@@ -1,4 +1,6 @@
 import { createEditor, type LexicalEditor } from 'lexical';
+import { HeadingNode } from '@lexical/rich-text';
+import { TalmehBlockNode } from './nodes';
 
 /**
  * Talmeh editor boundary on top of Lexical (PRD §7.2).
@@ -15,8 +17,7 @@ import { createEditor, type LexicalEditor } from 'lexical';
 export function createTalmehEditor(): LexicalEditor {
   return createEditor({
     namespace: 'talmeh',
-    // Custom Talmeh nodes are registered here during Pre-phase editor work.
-    nodes: [],
+    nodes: [HeadingNode, TalmehBlockNode],
     onError: (error) => {
       throw error;
     },
@@ -24,4 +25,6 @@ export function createTalmehEditor(): LexicalEditor {
 }
 
 export * from './ids';
+export * from './nodes';
+export * from './paste';
 export * from './serialize';

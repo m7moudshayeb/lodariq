@@ -38,6 +38,27 @@ describe('semantic resolver (PRD §8.4)', () => {
     expect(result.element).toBeNull();
   });
 
+  it('ignores disabled candidates before scoring', () => {
+    document.body.innerHTML = `
+      <button data-talmeh-id="new-project" aria-label="New project" disabled>New project</button>`;
+    const result = resolve(fingerprint);
+    expect(result.state).toBe('missing');
+    expect(result.element).toBeNull();
+  });
+
+  it('does not use diagnostic coordinates to resolve a production target', () => {
+    document.body.innerHTML = `<button>Somewhere else</button>`;
+    const result = resolve({
+      ...fingerprint,
+      stableAttributes: {},
+      accessibleName: undefined,
+      label: undefined,
+      diagnosticCoordinates: { x: 10, y: 20 },
+    });
+    expect(result.state).toBe('missing');
+    expect(result.element).toBeNull();
+  });
+
   it('reports ambiguous when two strong candidates are too close', () => {
     document.body.innerHTML = `
       <button role="button" aria-label="New project">New project</button>

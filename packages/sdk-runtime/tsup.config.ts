@@ -6,6 +6,9 @@ import { defineConfig } from 'tsup';
 export default defineConfig({
   entry: {
     index: 'src/index.ts',
+    'talmeh-loader': 'src/loader/index.ts',
+    'talmeh-runtime': 'src/runtime/index.ts',
+    'talmeh-local-dev': 'src/local-dev/index.ts',
     'loader/index': 'src/loader/index.ts',
     'runtime/index': 'src/runtime/index.ts',
     'resolver/index': 'src/resolver/index.ts',

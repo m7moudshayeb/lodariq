@@ -1,0 +1,5 @@
+{
+  "documentId": "doc_tour_welcome",
+  "currentVersion": "local-preview",
+  "environments": ["development", "staging"]
+}
