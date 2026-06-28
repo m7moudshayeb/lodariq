@@ -15,6 +15,22 @@ describe('compile', () => {
     expect(step?.body.map((b) => b.type)).toEqual(['heading', 'paragraph', 'button']);
   });
 
+  it('copies target lifecycle hints onto compiled steps', () => {
+    const mutableDocument = JSON.parse(JSON.stringify(document)) as TalmehDocument;
+    mutableDocument.targets[0]!.lifecycle = {
+      waitForText: 'Projects loaded',
+      scrollStrategy: 'bottom',
+    };
+
+    const compiled = compile(mutableDocument);
+    mutableDocument.targets[0]!.lifecycle.waitForText = 'Changed later';
+
+    expect(compiled.steps[0]?.lifecycle).toEqual({
+      waitForText: 'Projects loaded',
+      scrollStrategy: 'bottom',
+    });
+  });
+
   it('content-addresses the artifact and validates against the schema', async () => {
     const compiled = await compileDocument(document);
     expect(compiled.contentHash).toMatch(/^sha256-[0-9a-f]{64}$/);
@@ -45,8 +61,6 @@ describe('compile', () => {
 
     const compiledHeading = compiled.steps[0]?.body.find((block) => block.id === 'block_heading_1');
     expect(compiledHeading?.props).toEqual({ level: 2 });
-    expect(compiled.targets[0]?.fingerprint.stableAttributes['data-talmeh-id']).toBe(
-      'new-project',
-    );
+    expect(compiled.targets[0]?.fingerprint.stableAttributes['data-talmeh-id']).toBe('new-project');
   });
 });

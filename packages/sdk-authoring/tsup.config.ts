@@ -6,6 +6,7 @@ import { defineConfig } from 'tsup';
 export default defineConfig({
   entry: {
     index: 'src/index.ts',
+    'talmeh-authoring': 'src/index.ts',
     'bridge/index': 'src/bridge/index.ts',
     'editor/index': 'src/editor/index.ts',
   },

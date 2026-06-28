@@ -17,7 +17,10 @@ function collectBody(block: TalmehBlock, acc: CompiledStep['body']): void {
   for (const child of block.children) collectBody(child, acc);
 }
 
-function compileTourStep(step: TalmehBlock): CompiledStep {
+function compileTourStep(
+  step: TalmehBlock,
+  targetsById: ReadonlyMap<string, TalmehDocument['targets'][number]>,
+): CompiledStep {
   const body: CompiledStep['body'] = [];
   for (const child of step.children) collectBody(child, body);
 
@@ -25,11 +28,13 @@ function compileTourStep(step: TalmehBlock): CompiledStep {
   const tooltip = step.children.find((c) => c.type === 'tooltip');
   const targetId = tooltip?.props['targetId'];
   const placement = tooltip?.props['placement'];
+  const lifecycle = typeof targetId === 'string' ? targetsById.get(targetId)?.lifecycle : null;
 
   return {
     id: step.id,
     ...(typeof targetId === 'string' ? { targetId } : {}),
     ...(typeof placement === 'string' ? { placement } : {}),
+    ...(lifecycle ? { lifecycle: structuredClone(lifecycle) } : {}),
     body,
   };
 }
@@ -39,14 +44,20 @@ function compileTourStep(step: TalmehBlock): CompiledStep {
  * (without the content hash). No DOM, no Node APIs (PRD §9.1).
  */
 export function compile(document: TalmehDocument): Omit<CompiledDocument, 'contentHash'> {
-  const steps = document.blocks.filter((b) => b.type === 'tourStep').map(compileTourStep);
+  const targetsById = new Map(document.targets.map((target) => [target.id, target]));
+  const steps = document.blocks
+    .filter((b) => b.type === 'tourStep')
+    .map((step) => compileTourStep(step, targetsById));
 
   return {
     documentId: document.id,
     type: document.type,
     schemaVersion: document.schemaVersion,
     compilerVersion: COMPILER_VERSION,
-    targets: document.targets.map((t) => ({ id: t.id, fingerprint: structuredClone(t.fingerprint) })),
+    targets: document.targets.map((t) => ({
+      id: t.id,
+      fingerprint: structuredClone(t.fingerprint),
+    })),
     steps,
   };
 }

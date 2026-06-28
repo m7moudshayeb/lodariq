@@ -11,6 +11,10 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     },
+    "./talmeh-authoring": {
+      "types": "./dist/talmeh-authoring.d.ts",
+      "import": "./dist/talmeh-authoring.js"
+    },
     "./bridge": {
       "types": "./dist/bridge/index.d.ts",
       "import": "./dist/bridge/index.js"

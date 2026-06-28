@@ -15,6 +15,7 @@ import {
   BridgeEnvelope,
   ScrollState,
   PreviewPatch,
+  PreviewPatchOperation,
   ResolverDiagnostic,
   BridgeMessage,
 } from './bridge';
@@ -46,6 +47,7 @@ export const SCHEMA_REGISTRY: TSchema[] = [
   DataCatalogEntry,
   BridgeEnvelope,
   ScrollState,
+  PreviewPatchOperation,
   PreviewPatch,
   ResolverDiagnostic,
   BridgeMessage,
