@@ -1,7 +1,7 @@
 # Agent Guardrails Memory
 
 Keep these PRD guardrails in mind before implementing Talmeh changes. The source
-of truth is `refined-waymark-prd.md` §20; this file is a short memory aid for AI
+of truth is `refined-talmeh-prd.md` §20; this file is a short memory aid for AI
 agents working in the repo.
 
 - Product name is Talmeh. Use `@talmeh/*` packages and `*.talmeh.io` canonical origins.

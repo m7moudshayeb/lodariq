@@ -2,10 +2,16 @@ import { describe, expect, it } from 'vitest';
 import type { TalmehBlock } from '@talmeh/schema';
 import {
   attachTargetToBlocks,
+  blocksReferenceTarget,
+  createTourStep,
   hasBlock,
   moveTopLevelBlock,
+  renumberTourSteps,
+  removeTargetFromBlocks,
   reorderTopLevelBlock,
+  setBlockAction,
   transformBlocks,
+  updateBlockContent,
 } from '@talmeh/sdk-authoring';
 
 const blocks: TalmehBlock[] = [
@@ -27,6 +33,44 @@ const blocks: TalmehBlock[] = [
 ];
 
 describe('authoring document ops', () => {
+  it('creates a canonical editable tour step with heading, body, and next button', () => {
+    const step = createTourStep(2);
+
+    expect(step).toMatchObject({
+      type: 'tourStep',
+      props: { index: 2 },
+      status: 'incomplete',
+      children: [
+        {
+          type: 'tooltip',
+          props: { placement: 'bottom' },
+          status: 'incomplete',
+        },
+      ],
+    });
+    expect(step.children[0]?.children.map((block) => block.type)).toEqual([
+      'heading',
+      'paragraph',
+      'button',
+    ]);
+    expect(step.children[0]?.children[2]).toMatchObject({
+      content: 'Continue',
+      props: { variant: 'primary', action: { type: 'next' } },
+    });
+  });
+
+  it('updates nested content and renumbers authored tour steps', () => {
+    const step = createTourStep(9);
+    const headingId = step.children[0]?.children[0]?.id ?? '';
+    const updated = updateBlockContent([step], headingId, 'Updated heading');
+
+    expect(updated[0]?.children[0]?.children[0]?.content).toBe('Updated heading');
+    expect(step.children[0]?.children[0]?.content).toBe('Untitled step');
+    expect(
+      renumberTourSteps([step, { ...step, id: 'step_2' }]).map((block) => block.props),
+    ).toEqual([{ index: 0 }, { index: 1 }]);
+  });
+
   it('finds nested blocks and transforms block types', () => {
     expect(hasBlock(blocks, 'copy_1')).toBe(true);
 
@@ -36,9 +80,29 @@ describe('authoring document ops', () => {
       id: 'copy_2',
       type: 'button',
       content: 'Second',
-      props: { variant: 'primary', action: { type: 'next' } },
+      status: 'incomplete',
+      props: { variant: 'primary' },
     });
     expect(blocks[1]?.type).toBe('paragraph');
+  });
+
+  it('sets and clears button actions without losing local draft content', () => {
+    const transformed = transformBlocks(blocks, 'copy_2', 'button');
+    const withAction = setBlockAction(transformed, 'copy_2', { type: 'clickTarget' });
+    const withoutAction = setBlockAction(withAction, 'copy_2', null);
+
+    expect(withAction[1]).toMatchObject({
+      type: 'button',
+      content: 'Second',
+      status: 'ready',
+      props: { variant: 'primary', action: { type: 'clickTarget' } },
+    });
+    expect(withoutAction[1]).toMatchObject({
+      type: 'button',
+      content: 'Second',
+      status: 'incomplete',
+      props: { variant: 'primary' },
+    });
   });
 
   it('attaches target chips to tour step tooltips', () => {
@@ -46,12 +110,28 @@ describe('authoring document ops', () => {
     const tooltip = next[0]?.children[0];
 
     expect(next[0]?.status).toBe('ready');
-    expect(tooltip?.props['targetId']).toBe('target_1');
-    expect(tooltip?.children.at(-1)).toMatchObject({
+    expect(tooltip?.props.targetId).toBe('target_1');
+    expect(tooltip?.children[tooltip.children.length - 1]).toMatchObject({
       type: 'targetChip',
       content: 'New project',
       props: { targetId: 'target_1' },
     });
+  });
+
+  it('removes target chips and marks tour steps incomplete without deleting content', () => {
+    const withTarget = attachTargetToBlocks(blocks, 'step_1', 'target_1', 'New project');
+    const next = removeTargetFromBlocks(withTarget, 'step_1', 'target_1');
+    const step = next[0];
+    const tooltip = step?.children[0];
+
+    expect(step).toMatchObject({ id: 'step_1', status: 'incomplete' });
+    expect(tooltip).toMatchObject({ id: 'tooltip_1', status: 'incomplete', props: {} });
+    expect(tooltip?.children).toEqual([
+      { id: 'copy_1', type: 'paragraph', content: 'Hello', props: {}, children: [] },
+    ]);
+    expect(blocksReferenceTarget(withTarget, 'target_1')).toBe(true);
+    expect(blocksReferenceTarget(next, 'target_1')).toBe(false);
+    expect(blocks[0]?.children[0]?.props).toEqual({});
   });
 
   it('moves and reorders top-level blocks without mutating input', () => {

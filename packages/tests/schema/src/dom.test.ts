@@ -5,6 +5,8 @@ import {
   accessibleNameOf,
   ancestorLandmarksOf,
   attributeEntry,
+  createNonceStyleElement,
+  cspNonceOf,
   nearbyTextOf,
   roleOf,
   stableAttributesOf,
@@ -24,6 +26,7 @@ function fingerprintFrom(element: Element): ElementFingerprint {
 
 describe('@talmeh/schema/dom', () => {
   beforeEach(() => {
+    document.head.innerHTML = '';
     document.body.innerHTML = '';
   });
 
@@ -137,6 +140,19 @@ describe('@talmeh/schema/dom', () => {
       { role: 'form', accessibleName: 'Create project' },
       { role: 'nav', accessibleName: 'Primary' },
     ]);
+  });
+
+  it('reads CSP nonces from meta or script tags and applies them to style elements', () => {
+    document.head.innerHTML = '<meta property="csp-nonce" nonce="nonce_meta">';
+
+    expect(cspNonceOf(document)).toBe('nonce_meta');
+    expect(createNonceStyleElement(document, ':host { display: block; }').nonce).toBe('nonce_meta');
+
+    document.head.innerHTML = '<meta name="csp-nonce" content="nonce_content">';
+    expect(cspNonceOf(document)).toBe('nonce_content');
+
+    document.head.innerHTML = '<script nonce="nonce_script"></script>';
+    expect(cspNonceOf(document)).toBe('nonce_script');
   });
 
   it('keeps capture semantics aligned with runtime resolution for named controls', () => {

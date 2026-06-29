@@ -1,4 +1,9 @@
-import type { TalmehBlockType, ValidationLevel } from '@talmeh/schema';
+import {
+  sanitizeBlockProps,
+  type TalmehBlockProps,
+  type TalmehBlockType,
+  type ValidationLevel,
+} from '@talmeh/schema';
 import {
   $applyNodeReplacement,
   ElementNode,
@@ -25,14 +30,14 @@ export interface SerializedTalmehBlockNode extends SerializedElementNode {
   version: 1;
   talmehBlockId: string;
   blockType: TalmehMvpBlockType;
-  props: Record<string, unknown>;
+  props: TalmehBlockProps;
   status?: ValidationLevel;
 }
 
 export class TalmehBlockNode extends ElementNode {
   __talmehBlockId: string;
   __blockType: TalmehMvpBlockType;
-  __props: Record<string, unknown>;
+  __props: TalmehBlockProps;
   __status: ValidationLevel | undefined;
 
   static override getType(): string {
@@ -53,7 +58,7 @@ export class TalmehBlockNode extends ElementNode {
     return new TalmehBlockNode(
       serializedNode.talmehBlockId,
       serializedNode.blockType,
-      serializedNode.props,
+      sanitizeBlockProps(serializedNode.props),
       serializedNode.status,
     );
   }
@@ -68,7 +73,7 @@ export class TalmehBlockNode extends ElementNode {
     super(key);
     this.__talmehBlockId = talmehBlockId;
     this.__blockType = blockType;
-    this.__props = props;
+    this.__props = sanitizeBlockProps(props);
     this.__status = status;
   }
 

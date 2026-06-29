@@ -1,4 +1,10 @@
-import type { TalmehBlock, TalmehBlockType, TalmehDocument, ValidationLevel } from '@talmeh/schema';
+import {
+  sanitizeBlockProps,
+  type TalmehBlock,
+  type TalmehBlockType,
+  type TalmehDocument,
+  type ValidationLevel,
+} from '@talmeh/schema';
 import {
   TALMEH_MVP_BLOCK_TYPES,
   type SerializedTalmehBlockNode,
@@ -62,7 +68,7 @@ function blockToNode(block: TalmehBlock): SerializedTalmehBlockNode {
     version: 1,
     talmehBlockId: block.id,
     blockType: block.type,
-    props: block.props,
+    props: sanitizeBlockProps(block.props),
     ...(block.status ? { status: block.status } : {}),
     children: [
       ...(block.content ? [textChild(block.content)] : []),
@@ -83,7 +89,7 @@ function nodeToBlock(node: SerializedTalmehBlockNode): TalmehBlock {
     id: node.talmehBlockId,
     type: node.blockType,
     ...(text ? { content: text } : {}),
-    props: node.props,
+    props: sanitizeBlockProps(node.props),
     ...(node.status ? { status: node.status as ValidationLevel } : {}),
     children: node.children.filter(isSerializedTalmehBlockNode).map(nodeToBlock),
   };

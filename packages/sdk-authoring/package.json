@@ -22,6 +22,22 @@
     "./editor": {
       "types": "./dist/editor/index.d.ts",
       "import": "./dist/editor/index.js"
+    },
+    "./local-dev": {
+      "types": "./dist/local-dev/index.d.ts",
+      "import": "./dist/local-dev/index.js"
+    },
+    "./local-dev/install": {
+      "types": "./dist/local-dev/install.d.ts",
+      "import": "./dist/local-dev/install.js"
+    },
+    "./local-dev/frame": {
+      "types": "./dist/local-dev/frame.d.ts",
+      "import": "./dist/local-dev/frame.js"
+    },
+    "./local-dev/*": {
+      "types": "./dist/local-dev/*.d.ts",
+      "import": "./dist/local-dev/*.js"
     }
   },
   "files": [
@@ -35,8 +51,13 @@
   "dependencies": {
     "@floating-ui/dom": "^1.6.13",
     "@lexical/rich-text": "^0.21.0",
+    "@radix-ui/react-popover": "^1.1.17",
+    "@radix-ui/react-select": "^2.3.1",
+    "@radix-ui/react-tabs": "^1.1.15",
     "@talmeh/schema": "workspace:*",
+    "@talmeh/sdk-runtime": "workspace:*",
     "lexical": "^0.21.0",
+    "lucide-react": "^1.22.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },

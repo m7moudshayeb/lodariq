@@ -21,6 +21,7 @@ const compiledDoc: CompiledDocument = {
 describe('loader config (PRD §6.2, §9.2)', () => {
   beforeEach(() => {
     delete window.Talmeh;
+    sessionStorage.clear();
   });
 
   it('derives the default CDN manifest URL from workspace and environment', () => {
@@ -211,6 +212,74 @@ describe('loader config (PRD §6.2, §9.2)', () => {
 
     expect(helperManifests).toEqual(['doc_tour_welcome:local-preview']);
     expect(starts).toEqual(['doc_tour_welcome']);
+  });
+
+  it('resumes the pending tour step after a same-tab navigation reload', async () => {
+    const doc: CompiledDocument = {
+      ...compiledDoc,
+      contentHash: 'sha256-local-preview-doc',
+      steps: [
+        {
+          id: 'step_1',
+          body: [{ id: 'heading_1', type: 'heading', text: 'Open projects', props: {} }],
+        },
+        {
+          id: 'step_2',
+          body: [{ id: 'heading_2', type: 'heading', text: 'Project details', props: {} }],
+        },
+      ],
+    };
+    const starts: Array<{ documentId: string; initialStepId?: string }> = [];
+    let latestOptions:
+      | {
+          initialStepId?: string;
+          onBeforeStepChange?: (index: number, step: CompiledDocument['steps'][number]) => void;
+          onStepChange?: (index: number, step: CompiledDocument['steps'][number]) => void;
+        }
+      | undefined;
+
+    class FakeTourPlayer {
+      constructor(
+        private readonly tour: CompiledDocument,
+        options?: typeof latestOptions,
+      ) {
+        latestOptions = options;
+        starts.push({ documentId: tour.documentId, initialStepId: options?.initialStepId });
+      }
+
+      start(): void {
+        const index = this.tour.steps.findIndex((step) => step.id === latestOptions?.initialStepId);
+        const stepIndex = index >= 0 ? index : 0;
+        latestOptions?.onStepChange?.(stepIndex, this.tour.steps[stepIndex]!);
+      }
+
+      stop(): void {}
+    }
+
+    const config = {
+      workspaceId: 'wk_local_dev',
+      environment: 'development' as const,
+      manifestUrl: '/talmeh-local/manifest.json',
+    };
+    const installOptions = {
+      fetchManifest: async () => ({
+        documentId: 'doc_tour_welcome',
+        currentVersion: 'local-preview',
+      }),
+      loadCurrentTour: async () => doc,
+      loadTourRenderer: async () => ({ TourPlayer: FakeTourPlayer }) as never,
+    };
+
+    const api = await installTalmeh(config, installOptions);
+    await api.playTour(doc);
+    latestOptions?.onBeforeStepChange?.(1, doc.steps[1]!);
+
+    delete window.Talmeh;
+    starts.length = 0;
+
+    await installTalmeh(config, installOptions);
+
+    expect(starts).toEqual([{ documentId: 'doc_tour_welcome', initialStepId: 'step_2' }]);
   });
 
   it('ignores stale concurrent playTour starts', async () => {

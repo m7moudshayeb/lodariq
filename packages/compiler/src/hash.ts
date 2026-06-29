@@ -1,6 +1,6 @@
 /**
  * Isomorphic SHA-256 content hashing via the Web Crypto API, available in both
- * browsers and Node 22+ (PRD §11.3 content-addressed publications).
+ * browsers and Node 24+ (PRD §11.3 content-addressed publications).
  *
  * Real publications are hashed and stored server-side; browser hashing here is
  * for local-dev preview only (PRD §9.1, §20).

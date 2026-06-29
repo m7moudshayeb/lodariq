@@ -17,11 +17,14 @@ jobs:
 
       - uses: actions/setup-node@v6
         with:
-          node-version: 22.12.0
+          node-version: 24
           cache: pnpm
 
       - name: Install
         run: pnpm install --frozen-lockfile --ignore-scripts
+
+      - name: Install Playwright browser
+        run: pnpm exec playwright install --with-deps chromium firefox webkit
 
       - name: Verify
         run: pnpm verify

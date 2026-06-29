@@ -18,9 +18,14 @@ export interface TalmehBrowserApi {
   manifest: ManifestPointer;
   identify: (traits: IdentifyTraits) => void;
   track: (name: string, props?: Record<string, unknown>) => void;
-  playTour: (doc?: CompiledDocument) => Promise<void>;
+  playTour: (doc?: CompiledDocument, options?: TourPlaybackOptions) => Promise<void>;
   openAuthoring: () => Promise<void>;
   stopTour: () => void;
+}
+
+export interface TourPlaybackOptions {
+  initialStepId?: string;
+  initialStepIndex?: number;
 }
 
 interface TourPlayerLike {
@@ -29,7 +34,15 @@ interface TourPlayerLike {
 }
 
 interface TourRendererModule {
-  TourPlayer: new (doc: CompiledDocument, options?: { onComplete?: () => void }) => TourPlayerLike;
+  TourPlayer: new (
+    doc: CompiledDocument,
+    options?: TourPlaybackOptions & {
+      onBeforeStepChange?: (index: number, step: CompiledDocument['steps'][number]) => void;
+      onComplete?: () => void;
+      onDismiss?: () => void;
+      onStepChange?: (index: number, step: CompiledDocument['steps'][number]) => void;
+    },
+  ) => TourPlayerLike;
 }
 
 interface RuntimeModule {
@@ -52,6 +65,16 @@ declare global {
 
 const DEFAULT_CDN_ORIGIN = 'https://cdn.talmeh.io';
 const ENVIRONMENTS = new Set<LoaderConfig['environment']>(['development', 'staging', 'production']);
+const TOUR_RESUME_PREFIX = 'talmeh:tour-resume:';
+const TOUR_RESUME_MAX_AGE_MS = 30 * 60 * 1000;
+
+interface TourResumeState {
+  documentId: string;
+  manifestVersion: string;
+  contentHash: string;
+  stepId: string;
+  updatedAt: number;
+}
 
 function isEnvironment(value: string): value is LoaderConfig['environment'] {
   return ENVIRONMENTS.has(value as LoaderConfig['environment']);
@@ -104,6 +127,72 @@ function assertCompiledDocument(value: unknown): asserts value is CompiledDocume
   }
 }
 
+function resumeKey(config: LoaderConfig): string {
+  return `${TOUR_RESUME_PREFIX}${config.workspaceId}:${config.environment}`;
+}
+
+function readResumeState(config: LoaderConfig, manifest: ManifestPointer): TourResumeState | null {
+  try {
+    const raw = sessionStorage.getItem(resumeKey(config));
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<TourResumeState>;
+    const fresh =
+      typeof parsed.updatedAt === 'number' &&
+      Date.now() - parsed.updatedAt <= TOUR_RESUME_MAX_AGE_MS;
+    if (
+      fresh &&
+      parsed.documentId === manifest.documentId &&
+      parsed.manifestVersion === manifest.currentVersion &&
+      typeof parsed.contentHash === 'string' &&
+      typeof parsed.stepId === 'string'
+    ) {
+      return parsed as TourResumeState;
+    }
+    clearResumeState(config);
+  } catch {
+    clearResumeState(config);
+  }
+  return null;
+}
+
+function writeResumeState(
+  config: LoaderConfig,
+  manifest: ManifestPointer,
+  doc: CompiledDocument,
+  step: CompiledDocument['steps'][number],
+): void {
+  try {
+    sessionStorage.setItem(
+      resumeKey(config),
+      JSON.stringify({
+        documentId: doc.documentId,
+        manifestVersion: manifest.currentVersion,
+        contentHash: doc.contentHash,
+        stepId: step.id,
+        updatedAt: Date.now(),
+      }),
+    );
+  } catch {
+    /* Tour resume is best-effort and must never break the host app. */
+  }
+}
+
+function clearResumeState(config: LoaderConfig): void {
+  try {
+    sessionStorage.removeItem(resumeKey(config));
+  } catch {
+    /* Ignore unavailable storage. */
+  }
+}
+
+function resumeMatchesTour(resume: TourResumeState, tour: CompiledDocument): boolean {
+  return (
+    resume.documentId === tour.documentId &&
+    resume.contentHash === tour.contentHash &&
+    tour.steps.some((step) => step.id === resume.stepId)
+  );
+}
+
 /**
  * Lazy-load the runtime/player. The authoring bundle is NEVER loaded for
  * ordinary production viewers (PRD §6.2, §20).
@@ -133,7 +222,10 @@ export async function installTalmeh(
   let activeTour: TourPlayerLike | null = null;
   let tourRequestId = 0;
 
-  async function playTour(doc?: CompiledDocument): Promise<void> {
+  async function playTour(
+    doc?: CompiledDocument,
+    playbackOptions: TourPlaybackOptions = {},
+  ): Promise<void> {
     const requestId = ++tourRequestId;
     if (!isManifestEligible(manifest, config.environment)) {
       throw new Error(`Talmeh manifest is not eligible for ${config.environment}`);
@@ -145,9 +237,18 @@ export async function installTalmeh(
     const { TourPlayer } = await loadTourRendererFn();
     if (requestId !== tourRequestId) return;
     const player = new TourPlayer(tour, {
+      ...playbackOptions,
+      onBeforeStepChange: (_index, step) => writeResumeState(config, manifest, tour, step),
+      onStepChange: (_index, step) => writeResumeState(config, manifest, tour, step),
       onComplete: () => {
         if (activeTour === player) activeTour = null;
+        clearResumeState(config);
         runtime.track('tour_completed', { documentId: tour.documentId });
+      },
+      onDismiss: () => {
+        if (activeTour === player) activeTour = null;
+        clearResumeState(config);
+        runtime.track('tour_dismissed', { documentId: tour.documentId });
       },
     });
     activeTour = player;
@@ -163,6 +264,27 @@ export async function installTalmeh(
   function stopTour(): void {
     activeTour?.stop();
     activeTour = null;
+    clearResumeState(config);
+  }
+
+  async function resumeTourIfPending(): Promise<void> {
+    const resume = readResumeState(config, manifest);
+    if (!resume) return;
+    if (!loadCurrentTourFn) {
+      clearResumeState(config);
+      return;
+    }
+    try {
+      const tour = await loadCurrentTourFn(manifest);
+      assertCompiledDocument(tour);
+      if (!resumeMatchesTour(resume, tour)) {
+        clearResumeState(config);
+        return;
+      }
+      await playTour(tour, { initialStepId: resume.stepId });
+    } catch {
+      clearResumeState(config);
+    }
   }
 
   const api: TalmehBrowserApi = {
@@ -175,6 +297,7 @@ export async function installTalmeh(
   };
 
   window.Talmeh = api;
+  await resumeTourIfPending();
   return api;
 }
 
