@@ -6,7 +6,7 @@ import {
   ValidationLevel,
   BlockDiagnostic,
 } from './common';
-import { TalmehBlockType, TalmehBlock } from './block';
+import { BlockActionProps, TalmehBlockProps, TalmehBlockType, TalmehBlock } from './block';
 import { ElementFingerprint, RuntimeLifecycleHints, Target } from './target';
 import { TriggerDefinition, AudienceDefinition, TalmehDocument } from './document';
 import { CompiledStep, CompiledTarget, CompiledDocument, ManifestPointer } from './compiled';
@@ -32,6 +32,8 @@ export const SCHEMA_REGISTRY: TSchema[] = [
   DocumentStatus,
   ValidationLevel,
   BlockDiagnostic,
+  BlockActionProps,
+  TalmehBlockProps,
   TalmehBlockType,
   TalmehBlock,
   ElementFingerprint,

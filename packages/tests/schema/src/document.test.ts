@@ -20,4 +20,27 @@ describe('canonical tour fixture', () => {
     const result = validate(TalmehDocument, broken);
     expect(result.valid).toBe(false);
   });
+
+  it('rejects arbitrary CSS, JavaScript, and raw HTML props', () => {
+    const broken = JSON.parse(JSON.stringify(tourFixture));
+    broken.blocks[0].children[0].children[0].props = {
+      level: 2,
+      style: 'color: red',
+      onclick: 'alert(1)',
+      html: '<script>alert(1)</script>',
+    };
+
+    const result = validate(TalmehDocument, broken);
+
+    expect(result.valid).toBe(false);
+  });
+
+  it('accepts typed product-click button actions without code-like payloads', () => {
+    const document = JSON.parse(JSON.stringify(tourFixture));
+    document.blocks[0].children[0].children[2].props.action = { type: 'clickTarget' };
+
+    const result = validate(TalmehDocument, document);
+
+    expect(result.valid).toBe(true);
+  });
 });

@@ -31,6 +31,63 @@ export const TalmehBlockType = Type.Union(
 );
 export type TalmehBlockType = Static<typeof TalmehBlockType>;
 
+export const BlockActionProps = Type.Object(
+  {
+    type: Type.Union([Type.Literal('next'), Type.Literal('dismiss'), Type.Literal('clickTarget')]),
+  },
+  { $id: 'BlockActionProps', additionalProperties: false },
+);
+export type BlockActionProps = Static<typeof BlockActionProps>;
+
+/**
+ * Narrow author-controlled block props. Documents must not carry arbitrary
+ * CSS, JavaScript, raw HTML, or code-like attributes (PRD §7.10, §14.2, §20).
+ */
+export const TalmehBlockProps = Type.Object(
+  {
+    action: Type.Optional(BlockActionProps),
+    index: Type.Optional(Type.Number()),
+    level: Type.Optional(Type.Union([Type.Literal(1), Type.Literal(2), Type.Literal(3)])),
+    placement: Type.Optional(
+      Type.Union([
+        Type.Literal('top'),
+        Type.Literal('right'),
+        Type.Literal('bottom'),
+        Type.Literal('left'),
+      ]),
+    ),
+    targetId: Type.Optional(Type.String({ minLength: 1 })),
+    variant: Type.Optional(Type.Union([Type.Literal('primary'), Type.Literal('secondary')])),
+  },
+  { $id: 'TalmehBlockProps', additionalProperties: false },
+);
+export type TalmehBlockProps = Static<typeof TalmehBlockProps>;
+
+export function sanitizeBlockProps(props: Record<string, unknown>): TalmehBlockProps {
+  const next: TalmehBlockProps = {};
+  if (isRecord(props.action)) {
+    const type = props.action['type'];
+    if (type === 'next' || type === 'dismiss' || type === 'clickTarget') next.action = { type };
+  }
+  if (typeof props.index === 'number' && Number.isFinite(props.index)) next.index = props.index;
+  if (props.level === 1 || props.level === 2 || props.level === 3) next.level = props.level;
+  if (
+    props.placement === 'top' ||
+    props.placement === 'right' ||
+    props.placement === 'bottom' ||
+    props.placement === 'left'
+  ) {
+    next.placement = props.placement;
+  }
+  if (typeof props.targetId === 'string' && props.targetId.trim()) next.targetId = props.targetId;
+  if (props.variant === 'primary' || props.variant === 'secondary') next.variant = props.variant;
+  return next;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value && typeof value === 'object' && !Array.isArray(value));
+}
+
 /**
  * Canonical recursive block node (PRD §7.1).
  *
@@ -43,7 +100,7 @@ export const TalmehBlock = Type.Recursive(
       id: Type.String({ minLength: 1 }),
       type: TalmehBlockType,
       content: Type.Optional(Type.String()),
-      props: Type.Record(Type.String(), Type.Unknown()),
+      props: TalmehBlockProps,
       children: Type.Array(Self),
       status: Type.Optional(ValidationLevel),
       diagnostics: Type.Optional(Type.Array(BlockDiagnostic)),

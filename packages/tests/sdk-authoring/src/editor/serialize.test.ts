@@ -29,7 +29,7 @@ describe('editor document migrations (PRD §16.1)', () => {
     const blocks = toBlockJson(parsed as ReturnType<typeof fromBlockJson>);
 
     expect(blocks.map((block) => block.id)).toEqual(fixture.blocks.map((block) => block.id));
-    expect(blocks[0]?.children[0]?.props['targetId']).toBe('target_new_project');
+    expect(blocks[0]?.children[0]?.props.targetId).toBe('target_new_project');
     expect(blocks[0]?.children[0]?.children.map((block) => block.id)).toEqual([
       'block_heading_1',
       'block_paragraph_1',

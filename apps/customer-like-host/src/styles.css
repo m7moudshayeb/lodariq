@@ -1,0 +1,87 @@
+:root {
+  color: #172033;
+  font-family:
+    Inter,
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: #f7f8fb;
+}
+
+.workspace-shell {
+  min-height: 100vh;
+}
+
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 24px;
+  border-bottom: 1px solid #dfe3ee;
+  background: #fff;
+}
+
+button {
+  min-height: 36px;
+  border: 1px solid #c8d0df;
+  border-radius: 6px;
+  background: #fff;
+  color: #172033;
+  cursor: pointer;
+  font: inherit;
+  padding: 8px 12px;
+}
+
+[data-talmeh-id='new-project'] {
+  border-color: #0f766e;
+  background: #0f766e;
+  color: #fff;
+}
+
+.content {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: 20px;
+  padding: 24px;
+}
+
+.pipeline {
+  display: grid;
+  gap: 14px;
+}
+
+article,
+.activity {
+  border: 1px solid #dfe3ee;
+  border-radius: 8px;
+  background: #fff;
+  padding: 18px;
+}
+
+.transformed-card {
+  transform: translateZ(0) scale(0.99);
+}
+
+.activity {
+  position: relative;
+  z-index: 5;
+}
+
+.skeleton {
+  height: 12px;
+  margin: 8px 0 14px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #eef2f7, #dbe4f0, #eef2f7);
+}

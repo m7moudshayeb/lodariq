@@ -1,4 +1,10 @@
-import type { CompiledDocument, CompiledStep, TalmehBlock, TalmehDocument } from '@talmeh/schema';
+import {
+  sanitizeBlockProps,
+  type CompiledDocument,
+  type CompiledStep,
+  type TalmehBlock,
+  type TalmehDocument,
+} from '@talmeh/schema';
 import { canonicalJson, sha256Hex } from './hash';
 import { COMPILER_VERSION } from './version';
 
@@ -11,7 +17,7 @@ function collectBody(block: TalmehBlock, acc: CompiledStep['body']): void {
       id: block.id,
       type: block.type,
       ...(block.content !== undefined ? { text: block.content } : {}),
-      props: structuredClone(block.props),
+      props: sanitizeBlockProps(block.props),
     });
   }
   for (const child of block.children) collectBody(child, acc);
@@ -26,8 +32,8 @@ function compileTourStep(
 
   // The tooltip child (if any) carries the target binding + placement.
   const tooltip = step.children.find((c) => c.type === 'tooltip');
-  const targetId = tooltip?.props['targetId'];
-  const placement = tooltip?.props['placement'];
+  const targetId = tooltip?.props.targetId;
+  const placement = tooltip?.props.placement;
   const lifecycle = typeof targetId === 'string' ? targetsById.get(targetId)?.lifecycle : null;
 
   return {

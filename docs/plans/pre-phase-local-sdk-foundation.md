@@ -22,9 +22,9 @@ backend. (PRD §16.1)
       (PRD §16.1)
 - [x] Runtime/authoring package boundaries are separated and guarded.
       (PRD §16.0, §20)
-- [x] Full local SDK validation, Lexical editor MVP, Playwright, clipboard,
-      accessibility, and lifecycle gates are completed for the local pre-phase
-      scope. (PRD §16.1)
+- [x] Full local SDK validation, Lexical editor boundary, Playwright, clipboard,
+      accessibility, lifecycle, prop-safety, and audit gates are completed for
+      the local pre-phase scope. (PRD §16.1)
 
 ## Milestones And Tasks
 
@@ -72,6 +72,8 @@ backend. (PRD §16.1)
       bridge; §20)
 - [x] Send semantic preview patches, not every editor keystroke. (PRD §16.1
       Authoring bridge; §20)
+- [x] Emit coalesced route and scroll lifecycle updates from the host bridge
+      with acknowledgement/timeout handling. (PRD §9.5)
 - [x] Keep bridge/runtime imports separated from authoring-only code. (PRD
       §16.1 Bundle and dependency checks; §20)
 
@@ -105,11 +107,32 @@ backend. (PRD §16.1)
       (PRD §16.1 acceptance)
 - [x] Capture host-page element fingerprints. (PRD §16.1 Resolver)
 - [x] Attach selected targets as target chips. (PRD §16.1 acceptance)
+- [x] Add target chip actions for view target, change target, test target,
+      target health, remove target, and advanced fingerprint details. Removing
+      a target marks the step incomplete without deleting creator-authored
+      content. (PRD §8.2, §16.3)
+- [x] Add parent/deeper controls for nested target candidates and a one-click
+      product click-through path while selection remains active. (PRD §8.2)
+- [x] Add a typed `clickTarget` button action so a tour step can advance after
+      the user clicks the resolved product target. (PRD §7.1, §8.6)
+- [x] Persist the next step in same-tab session state before a `clickTarget`
+      product click runs, allowing the loader to resume the tour after a real
+      page navigation or reload when the current manifest/document still match.
+      (PRD §8.6, §16.1)
 - [x] Keep coordinates diagnostic-only. (PRD §16.1 Resolver; §20)
 - [x] Add visible/enabled checks. (PRD §16.1 Resolver)
+- [x] Score all PRD §8.4 semantic signals currently captured by the local
+      picker: stable attributes, role/name, labels, ancestor landmarks, nearby
+      text, tag/input type, relative position, and scoped short CSS.
 - [x] Add lifecycle waits for route transitions, async state, drawers, tabs,
       scroll containers, virtualized lists, and lazy-loaded UI. (PRD §8.6, §16.1
       Resolver, §20)
+- [x] Resolve configured `openPanel` and `selectTab` lifecycle controls
+      semantically before resolving targets hidden in drawers, modals, or tabs.
+      (PRD §8.6)
+- [x] Honor `waitForNetworkIdle` by tracking fetch/XHR requests that start
+      during step lifecycle resolution and waiting for a bounded quiet window.
+      (PRD §8.6)
 - [x] Add scroll-container handling. (PRD §16.1 Resolver; §20)
 - [x] Report found, missing, and ambiguous resolver diagnostics. (PRD §16.1
       Resolver; §16.1 acceptance)
@@ -150,8 +173,9 @@ backend. (PRD §16.1)
 - [x] Add size gate for loader under 3 KB gzipped. (PRD §16.1 acceptance)
 - [x] Add size gate for runtime plus tour renderer under 40 KB gzipped. (PRD
       §16.1 acceptance)
-- [x] Add CI workflow running typecheck, lint, boundaries, tests, build, and
-      size checks. (PRD §16.0 acceptance; §16.1 Bundle and dependency checks)
+- [x] Add CI workflow running typecheck, lint, boundaries, tests, build, size,
+      Playwright e2e, and audit checks. (PRD §16.0 acceptance; §16.1 Bundle and
+      dependency checks)
 - [x] Preserve dependency-cruiser checks blocking runtime imports of React,
       Lexical, dashboard code, or authoring code. (PRD §16.1 Bundle and dependency
       checks; §20)

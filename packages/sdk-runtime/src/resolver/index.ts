@@ -1,4 +1,4 @@
-import { accessibleNameOf, roleOf } from '@talmeh/schema/dom';
+import { accessibleNameOf, ancestorLandmarksOf, roleOf } from '@talmeh/schema/dom';
 import type { ElementFingerprint } from '@talmeh/schema';
 
 /**
@@ -85,12 +85,37 @@ export function scoreCandidate(
   }
 
   if (fp.tagName && el.tagName.toLowerCase() === fp.tagName.toLowerCase()) {
-    score += 15;
+    const inputTypeMatches =
+      !fp.inputType ||
+      (el instanceof HTMLInputElement && el.type.toLowerCase() === fp.inputType.toLowerCase());
+    if (inputTypeMatches) score += 15;
   }
 
   if (fp.nearbyText?.length) {
     const haystack = el.parentElement?.textContent ?? '';
     if (fp.nearbyText.some((t) => haystack.includes(t))) score += 20;
+  }
+
+  if (fp.ancestorLandmarks?.length) {
+    const candidateLandmarks = ancestorLandmarksOf(el) ?? [];
+    if (
+      fp.ancestorLandmarks.some((expected) =>
+        candidateLandmarks.some((actual) => landmarkMatches(expected, actual)),
+      )
+    ) {
+      score += 30;
+      if (method === 'none') method = 'ancestor_landmark';
+    }
+  }
+
+  if (relativePositionMatches(fp, el)) {
+    score += 10;
+    if (method === 'none') method = 'relative_position';
+  }
+
+  if (fp.scopedCss && safeMatches(el, fp.scopedCss)) {
+    score += 10;
+    if (method === 'none') method = 'scoped_css';
   }
 
   return { score, method };
@@ -139,4 +164,37 @@ export function resolve(fp: ElementFingerprint, root: ParentNode = document): Re
     candidateCount: candidates.length,
     resolutionMethod: top.method,
   };
+}
+
+function landmarkMatches(
+  expected: NonNullable<ElementFingerprint['ancestorLandmarks']>[number],
+  actual: NonNullable<ElementFingerprint['ancestorLandmarks']>[number],
+): boolean {
+  if (expected.role && actual.role !== expected.role) return false;
+  if (expected.accessibleName && actual.accessibleName !== expected.accessibleName) return false;
+  return Boolean(expected.role || expected.accessibleName);
+}
+
+function relativePositionMatches(fp: ElementFingerprint, el: Element): boolean {
+  const expected = fp.relativePosition;
+  if (!expected) return false;
+  if (expected.parentRole === undefined && expected.siblingIndex === undefined) return false;
+  if (expected.parentRole !== undefined) {
+    if (!el.parentElement || roleOf(el.parentElement) !== expected.parentRole) return false;
+  }
+  if (
+    expected.siblingIndex !== undefined &&
+    (!el.parentElement || [...el.parentElement.children].indexOf(el) !== expected.siblingIndex)
+  ) {
+    return false;
+  }
+  return true;
+}
+
+function safeMatches(el: Element, selector: string): boolean {
+  try {
+    return el.matches(selector);
+  } catch {
+    return false;
+  }
 }

@@ -12,9 +12,17 @@ export interface BridgeOptions {
   allowedOrigins: string[];
   /** Exact origin to post outbound messages to. */
   targetOrigin: string;
+  /** Optional scoped authoring session; inbound messages outside it are dropped. */
+  expectedSessionId?: ScopedBridgeValue;
+  /** Optional scoped document; inbound messages outside it are dropped. */
+  expectedDocumentId?: ScopedBridgeValue;
   onMessage: (message: BridgeMessageType) => void;
   autoAck?: boolean;
+  /** Drop inbound and refuse outbound messages above this serialized byte size. */
+  maxMessageBytes?: number;
 }
+
+export type ScopedBridgeValue = string | (() => string);
 
 export interface SendWithAckOptions {
   timeoutMs?: number;
@@ -29,25 +37,31 @@ interface PendingAck {
 export class AuthoringBridge {
   private listener: ((event: MessageEvent) => void) | null = null;
   private readonly pendingAcks = new Map<string, PendingAck>();
+  private readonly maxMessageBytes: number;
 
   constructor(
     private readonly peer: Window,
     private readonly options: BridgeOptions,
-  ) {}
+  ) {
+    this.maxMessageBytes = options.maxMessageBytes ?? 64 * 1024;
+  }
 
   start(): void {
     if (this.listener) return;
     this.listener = (event: MessageEvent): void => {
       if (event.source !== this.peer) return;
       if (!this.options.allowedOrigins.includes(event.origin)) return;
+      if (messageSizeBytes(event.data) > this.maxMessageBytes) return;
       const result = validate(BridgeMessage, event.data);
       if (!result.valid) return;
-      if (result.value.type === 'ack') {
-        this.resolveAck(result.value.ackOf);
+      const message = result.value;
+      if (!this.isExpectedScope(message)) return;
+      if (message.type === 'ack') {
+        this.resolveAck(message.ackOf);
         return;
       }
-      if (this.options.autoAck !== false) this.ack(result.value);
-      this.options.onMessage(result.value);
+      if (this.options.autoAck !== false) this.ack(message);
+      this.options.onMessage(message);
     };
     window.addEventListener('message', this.listener);
   }
@@ -89,6 +103,9 @@ export class AuthoringBridge {
     if (this.options.targetOrigin === '*') {
       throw new Error('Refusing to send bridge message to wildcard target origin');
     }
+    if (messageSizeBytes(message) > this.maxMessageBytes) {
+      throw new Error(`Refusing to send bridge message over ${this.maxMessageBytes} bytes`);
+    }
     const result = validate(BridgeMessage, message);
     if (!result.valid) {
       throw new Error(`Refusing to send invalid bridge message: ${result.errors[0]?.message}`);
@@ -113,6 +130,33 @@ export class AuthoringBridge {
     clearTimeout(pending.timer);
     this.pendingAcks.delete(correlationId);
     pending.resolve();
+  }
+
+  private isExpectedScope(message: BridgeMessageType): boolean {
+    const expectedSessionId = scopedBridgeValue(this.options.expectedSessionId);
+    if (expectedSessionId !== undefined && message.sessionId !== expectedSessionId) {
+      return false;
+    }
+    const expectedDocumentId = scopedBridgeValue(this.options.expectedDocumentId);
+    if (expectedDocumentId !== undefined && message.documentId !== expectedDocumentId) {
+      return false;
+    }
+    return true;
+  }
+}
+
+function scopedBridgeValue(value: ScopedBridgeValue | undefined): string | undefined {
+  return typeof value === 'function' ? value() : value;
+}
+
+function messageSizeBytes(message: unknown): number {
+  try {
+    const json = JSON.stringify(message);
+    if (typeof json !== 'string') return 0;
+    if (typeof TextEncoder !== 'undefined') return new TextEncoder().encode(json).byteLength;
+    return json.length;
+  } catch {
+    return Number.POSITIVE_INFINITY;
   }
 }
 

@@ -81,4 +81,31 @@ describe('semantic resolver (PRD §8.4)', () => {
     expect(result.resolutionMethod).toBe('role_and_name');
     expect(result.element?.tagName.toLowerCase()).toBe('input');
   });
+
+  it('scores ancestor landmarks, input type, relative position, and scoped CSS semantically', () => {
+    document.body.innerHTML = `
+      <main aria-label="Dashboard">
+        <form aria-label="Project form">
+          <input type="email" placeholder="Owner email" />
+          <button type="button">Invite</button>
+        </form>
+      </main>`;
+
+    const fp: ElementFingerprint = {
+      tagName: 'input',
+      inputType: 'email',
+      placeholder: 'Owner email',
+      stableAttributes: {},
+      ancestorLandmarks: [{ role: 'main', accessibleName: 'Dashboard' }],
+      relativePosition: { parentRole: 'form', siblingIndex: 0 },
+      scopedCss: 'main form input',
+    };
+
+    const result = resolve(fp);
+
+    expect(result.state).toBe('found');
+    expect(result.confidence).toBeGreaterThanOrEqual(120);
+    expect(result.resolutionMethod).toBe('label');
+    expect(result.element?.tagName.toLowerCase()).toBe('input');
+  });
 });

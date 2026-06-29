@@ -1,5 +1,5 @@
 import { Type, type Static } from '@sinclair/typebox';
-import { TalmehBlock } from './block';
+import { BlockActionProps, TalmehBlock } from './block';
 import { TalmehDocument } from './document';
 import { ElementFingerprint } from './target';
 
@@ -38,6 +38,7 @@ export const PreviewPatchOperation = Type.Union(
   [
     Type.Object({ op: Type.Literal('insertBlock'), block: TalmehBlock }),
     Type.Object({ op: Type.Literal('insertBlocks'), blocks: Type.Array(TalmehBlock) }),
+    Type.Object({ op: Type.Literal('updateContent'), content: Type.String() }),
     Type.Object({
       op: Type.Literal('moveBlock'),
       direction: Type.Union([Type.Literal('up'), Type.Literal('down')]),
@@ -52,9 +53,17 @@ export const PreviewPatchOperation = Type.Union(
       ]),
     }),
     Type.Object({
+      op: Type.Literal('setAction'),
+      action: Type.Optional(BlockActionProps),
+    }),
+    Type.Object({
       op: Type.Literal('attachTarget'),
       targetId: Type.String(),
       fingerprint: ElementFingerprint,
+    }),
+    Type.Object({
+      op: Type.Literal('removeTarget'),
+      targetId: Type.String(),
     }),
     Type.Object({ op: Type.Literal('replaceDocument'), document: TalmehDocument }),
   ],
@@ -73,11 +82,19 @@ export const ResolverDiagnostic = Type.Object(
     state: Type.Union([Type.Literal('found'), Type.Literal('missing'), Type.Literal('ambiguous')]),
     confidence: Type.Number(),
     candidateCount: Type.Number(),
+    resolutionMethod: Type.Optional(Type.String()),
     message: Type.Optional(Type.String()),
   },
   { $id: 'ResolverDiagnostic' },
 );
 export type ResolverDiagnostic = Static<typeof ResolverDiagnostic>;
+
+export const TargetInspectAction = Type.Union([
+  Type.Literal('view'),
+  Type.Literal('test'),
+  Type.Literal('health'),
+]);
+export type TargetInspectAction = Static<typeof TargetInspectAction>;
 
 /** Discriminated union of bridge message bodies (PRD §9.5). */
 export const BridgeMessage = Type.Intersect([
@@ -93,9 +110,34 @@ export const BridgeMessage = Type.Intersect([
       fingerprint: ElementFingerprint,
     }),
     Type.Object({
+      type: Type.Literal('target.pick.canceled'),
+      blockId: Type.String(),
+    }),
+    Type.Object({
+      type: Type.Literal('target.inspect.request'),
+      blockId: Type.String(),
+      targetId: Type.String(),
+      action: TargetInspectAction,
+      fingerprint: ElementFingerprint,
+    }),
+    Type.Object({
+      type: Type.Literal('target.inspect.result'),
+      blockId: Type.String(),
+      targetId: Type.String(),
+      action: TargetInspectAction,
+      diagnostic: ResolverDiagnostic,
+    }),
+    Type.Object({
       type: Type.Literal('preview.patch'),
       blockId: Type.String(),
       patch: PreviewPatch,
+    }),
+    Type.Object({
+      type: Type.Literal('authoring.save.request'),
+    }),
+    Type.Object({
+      type: Type.Literal('authoring.save.result'),
+      requestCorrelationId: Type.String(),
     }),
     Type.Object({
       type: Type.Literal('page.lifecycle.update'),

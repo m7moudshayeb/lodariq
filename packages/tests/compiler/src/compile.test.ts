@@ -13,6 +13,10 @@ describe('compile', () => {
     expect(step?.targetId).toBe('target_new_project');
     expect(step?.placement).toBe('bottom');
     expect(step?.body.map((b) => b.type)).toEqual(['heading', 'paragraph', 'button']);
+    expect(step?.body.find((block) => block.type === 'button')?.props).toEqual({
+      variant: 'primary',
+      action: { type: 'next' },
+    });
   });
 
   it('copies target lifecycle hints onto compiled steps', () => {
@@ -28,6 +32,21 @@ describe('compile', () => {
     expect(compiled.steps[0]?.lifecycle).toEqual({
       waitForText: 'Projects loaded',
       scrollStrategy: 'bottom',
+    });
+  });
+
+  it('preserves user-action gated button actions in delivery JSON', () => {
+    const mutableDocument = JSON.parse(JSON.stringify(document)) as TalmehDocument;
+    const button = mutableDocument.blocks[0]?.children[0]?.children.find(
+      (block) => block.type === 'button',
+    );
+    if (!button) throw new Error('fixture button missing');
+    button.props.action = { type: 'clickTarget' };
+
+    const compiled = compile(mutableDocument);
+
+    expect(compiled.steps[0]?.body.find((block) => block.type === 'button')?.props.action).toEqual({
+      type: 'clickTarget',
     });
   });
 
@@ -56,11 +75,30 @@ describe('compile', () => {
     );
     if (!heading) throw new Error('fixture heading missing');
 
-    heading.props['level'] = 3;
+    heading.props.level = 3;
     mutableDocument.targets[0]!.fingerprint.stableAttributes['data-talmeh-id'] = 'changed';
 
     const compiledHeading = compiled.steps[0]?.body.find((block) => block.id === 'block_heading_1');
     expect(compiledHeading?.props).toEqual({ level: 2 });
     expect(compiled.targets[0]?.fingerprint.stableAttributes['data-talmeh-id']).toBe('new-project');
+  });
+
+  it('strips arbitrary block props from compiled delivery JSON', async () => {
+    const mutableDocument = JSON.parse(JSON.stringify(document)) as TalmehDocument;
+    const heading = mutableDocument.blocks[0]?.children[0]?.children.find(
+      (block) => block.id === 'block_heading_1',
+    );
+    if (!heading) throw new Error('fixture heading missing');
+    Object.assign(heading.props, {
+      level: 2,
+      style: 'background:url(javascript:alert(1))',
+      html: '<script>alert(1)</script>',
+      onclick: 'alert(1)',
+    });
+
+    const compiled = await compileDocument(mutableDocument);
+    const compiledHeading = compiled.steps[0]?.body.find((block) => block.id === 'block_heading_1');
+
+    expect(compiledHeading?.props).toEqual({ level: 2 });
   });
 });
