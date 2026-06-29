@@ -1,6 +1,6 @@
 # Local SDK Installation
 
-This is the Phase 0 evaluator path for installing the local Talmeh SDK without
+This is the Phase 0 evaluator path for installing the local Lodariq SDK without
 dashboard, backend, or production publication infrastructure.
 
 ## Prerequisites
@@ -18,16 +18,16 @@ pnpm exec playwright install chromium firefox webkit
 ```bash
 pnpm install
 pnpm build
-pnpm --filter @talmeh/fixture-host dev
+pnpm --filter @lodariq/fixture-host dev
 ```
 
 Open the Vite URL, then use the fixed **Author** button to open local authoring.
-The host page loads Talmeh through the script tag in
+The host page loads Lodariq through the script tag in
 `apps/fixture-host/index.html`, using:
 
 - `data-workspace="wk_local_dev"`
 - `data-env="development"`
-- `data-manifest="/talmeh-local/manifest.json"`
+- `data-manifest="/lodariq-local/manifest.json"`
 
 The script lazy-loads runtime, authoring, and the tour renderer from local
 workspace builds. Browser compilation is preview-only.
@@ -46,7 +46,7 @@ hosted iframe/runtime work.
 ## Secondary Customer-Like Host
 
 ```bash
-pnpm --filter @talmeh/customer-like-host dev
+pnpm --filter @lodariq/customer-like-host dev
 ```
 
 This app installs the same local loader into a different page structure with
@@ -65,5 +65,5 @@ bundle-size gates, SDK-host Playwright e2e, and `pnpm audit`.
 For optional installed Edge-channel coverage:
 
 ```bash
-TALMEH_E2E_EDGE=1 pnpm test:e2e
+LODARIQ_E2E_EDGE=1 pnpm test:e2e
 ```

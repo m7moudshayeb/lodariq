@@ -1,4 +1,4 @@
-import type { ResolverDiagnostic, TalmehDocument, TargetInspectAction } from '@talmeh/schema';
+import type { ResolverDiagnostic, LodariqDocument, TargetInspectAction } from '@lodariq/schema';
 
 export const SLASH_COMMANDS = [
   { value: 'step', label: 'Step' },
@@ -9,7 +9,7 @@ export const SLASH_COMMANDS = [
 ] as const;
 
 export type SlashCommand = (typeof SLASH_COMMANDS)[number]['value'];
-export type DocumentTarget = TalmehDocument['targets'][number];
+export type DocumentTarget = LodariqDocument['targets'][number];
 
 export interface TargetInspectionState {
   action: TargetInspectAction;
@@ -23,7 +23,7 @@ export interface FocusRequest {
 }
 
 export interface LocalAuthoringFrameSnapshot {
-  documentState: TalmehDocument;
+  documentState: LodariqDocument;
   status: string;
   slashText: string;
   slashOpen: boolean;

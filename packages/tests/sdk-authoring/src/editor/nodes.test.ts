@@ -1,15 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import {
-  createTalmehEditor,
-  TALMEH_MVP_BLOCK_TYPES,
-  type SerializedTalmehBlockNode,
-} from '@talmeh/sdk-authoring/editor';
+  createLodariqEditor,
+  LODARIQ_MVP_BLOCK_TYPES,
+  type SerializedLodariqBlockNode,
+} from '@lodariq/sdk-authoring/editor';
 
-function serializedBlock(type: (typeof TALMEH_MVP_BLOCK_TYPES)[number]): SerializedTalmehBlockNode {
+function serializedBlock(type: (typeof LODARIQ_MVP_BLOCK_TYPES)[number]): SerializedLodariqBlockNode {
   return {
-    type: 'talmeh-block',
+    type: 'lodariq-block',
     version: 1,
-    talmehBlockId: `block_${type}`,
+    lodariqBlockId: `block_${type}`,
     blockType: type,
     props: {},
     children: [],
@@ -19,9 +19,9 @@ function serializedBlock(type: (typeof TALMEH_MVP_BLOCK_TYPES)[number]): Seriali
   };
 }
 
-describe('Talmeh Lexical nodes (PRD §16.1)', () => {
+describe('Lodariq Lexical nodes (PRD §16.1)', () => {
   it('exports a registered MVP node shape for every pre-phase block type', () => {
-    expect(TALMEH_MVP_BLOCK_TYPES).toEqual([
+    expect(LODARIQ_MVP_BLOCK_TYPES).toEqual([
       'paragraph',
       'heading',
       'media',
@@ -31,8 +31,8 @@ describe('Talmeh Lexical nodes (PRD §16.1)', () => {
       'targetChip',
       'validationBadge',
     ]);
-    const editor = createTalmehEditor();
-    for (const type of TALMEH_MVP_BLOCK_TYPES) {
+    const editor = createLodariqEditor();
+    for (const type of LODARIQ_MVP_BLOCK_TYPES) {
       const state = editor.parseEditorState(
         JSON.stringify({
           root: {
@@ -46,15 +46,15 @@ describe('Talmeh Lexical nodes (PRD §16.1)', () => {
         }),
       );
       expect(state.toJSON().root.children[0]).toMatchObject({
-        type: 'talmeh-block',
-        talmehBlockId: `block_${type}`,
+        type: 'lodariq-block',
+        lodariqBlockId: `block_${type}`,
         blockType: type,
       });
     }
   });
 
-  it('round-trips Talmeh block IDs without exposing Lexical node keys', () => {
-    const editor = createTalmehEditor();
+  it('round-trips Lodariq block IDs without exposing Lexical node keys', () => {
+    const editor = createLodariqEditor();
     const state = editor.parseEditorState(
       JSON.stringify({
         root: {
@@ -71,8 +71,8 @@ describe('Talmeh Lexical nodes (PRD §16.1)', () => {
     const json = state.toJSON();
 
     expect(json.root.children[0]).toMatchObject({
-      type: 'talmeh-block',
-      talmehBlockId: 'block_tourStep',
+      type: 'lodariq-block',
+      lodariqBlockId: 'block_tourStep',
       blockType: 'tourStep',
     });
     expect(JSON.stringify(json)).not.toContain('"key"');

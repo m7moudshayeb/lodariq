@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { TalmehBlock } from '@talmeh/schema';
+import type { LodariqBlock } from '@lodariq/schema';
 import {
   attachTargetToBlocks,
   blocksReferenceTarget,
@@ -16,9 +16,9 @@ import {
   setBlockAction,
   transformBlocks,
   updateBlockContent,
-} from '@talmeh/sdk-authoring';
+} from '@lodariq/sdk-authoring';
 
-const blocks: TalmehBlock[] = [
+const blocks: LodariqBlock[] = [
   {
     id: 'step_1',
     type: 'tourStep',

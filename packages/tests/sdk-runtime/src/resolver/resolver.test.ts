@@ -1,14 +1,14 @@
 // @vitest-environment jsdom
 import { describe, expect, it, beforeEach } from 'vitest';
-import type { ElementFingerprint } from '@talmeh/schema';
-import { resolve } from '@talmeh/sdk-runtime/resolver';
+import type { ElementFingerprint } from '@lodariq/schema';
+import { resolve } from '@lodariq/sdk-runtime/resolver';
 
 const fingerprint: ElementFingerprint = {
   tagName: 'button',
   role: 'button',
   accessibleName: 'New project',
   label: 'New project',
-  stableAttributes: { 'data-talmeh-id': 'new-project' },
+  stableAttributes: { 'data-lodariq-id': 'new-project' },
   nearbyText: ['Projects'],
 };
 
@@ -21,14 +21,14 @@ describe('semantic resolver (PRD §8.4)', () => {
     document.body.innerHTML = `
       <main aria-label="Dashboard">
         <section>Projects
-          <button class="totally-different-class-now" data-talmeh-id="new-project"
+          <button class="totally-different-class-now" data-lodariq-id="new-project"
             aria-label="New project">New project</button>
         </section>
       </main>`;
     const result = resolve(fingerprint);
     expect(result.state).toBe('found');
-    expect(result.resolutionMethod).toBe('talmeh_id');
-    expect((result.element as HTMLElement).getAttribute('data-talmeh-id')).toBe('new-project');
+    expect(result.resolutionMethod).toBe('lodariq_id');
+    expect((result.element as HTMLElement).getAttribute('data-lodariq-id')).toBe('new-project');
   });
 
   it('reports missing when no candidate clears the confidence threshold', () => {
@@ -40,7 +40,7 @@ describe('semantic resolver (PRD §8.4)', () => {
 
   it('ignores disabled candidates before scoring', () => {
     document.body.innerHTML = `
-      <button data-talmeh-id="new-project" aria-label="New project" disabled>New project</button>`;
+      <button data-lodariq-id="new-project" aria-label="New project" disabled>New project</button>`;
     const result = resolve(fingerprint);
     expect(result.state).toBe('missing');
     expect(result.element).toBeNull();

@@ -1,6 +1,6 @@
 import { Type, type Static } from '@sinclair/typebox';
 import { DocumentStatus, DocumentType, Environment } from './common';
-import { TalmehBlock } from './block';
+import { LodariqBlock } from './block';
 import { Target } from './target';
 
 /**
@@ -33,10 +33,10 @@ export const AudienceDefinition = Type.Object(
 export type AudienceDefinition = Static<typeof AudienceDefinition>;
 
 /**
- * Canonical Talmeh document — the source of truth (PRD §3.1, §7.1).
+ * Canonical Lodariq document — the source of truth (PRD §3.1, §7.1).
  * NOT Markdown. Markdown is export/interchange/source-mode only.
  */
-export const TalmehDocument = Type.Object(
+export const LodariqDocument = Type.Object(
   {
     id: Type.String({ minLength: 1 }),
     workspaceId: Type.String({ minLength: 1 }),
@@ -47,9 +47,9 @@ export const TalmehDocument = Type.Object(
     audience: AudienceDefinition,
     themeRef: Type.Optional(Type.String()),
     targets: Type.Array(Target),
-    blocks: Type.Array(TalmehBlock),
+    blocks: Type.Array(LodariqBlock),
     schemaVersion: Type.String(),
   },
-  { $id: 'TalmehDocument' },
+  { $id: 'LodariqDocument' },
 );
-export type TalmehDocument = Static<typeof TalmehDocument>;
+export type LodariqDocument = Static<typeof LodariqDocument>;

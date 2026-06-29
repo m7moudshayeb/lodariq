@@ -6,7 +6,7 @@ broad code generation. Each record is short and traceable back to the PRD.
 | #                                                   | Decision                                                        | Status   |
 | --------------------------------------------------- | --------------------------------------------------------------- | -------- |
 | [0001](0001-runtime-authoring-package-split.md)     | Physical `sdk-runtime` vs `sdk-authoring` split                 | Accepted |
-| [0002](0002-schema-and-compiler-ownership.md)       | `@talmeh/schema` + `@talmeh/compiler` shared isomorphic core    | Accepted |
+| [0002](0002-schema-and-compiler-ownership.md)       | `@lodariq/schema` + `@lodariq/compiler` shared isomorphic core    | Accepted |
 | [0003](0003-server-side-publication-compilation.md) | Real publications compiled server-side; browser is preview-only | Accepted |
 | [0004](0004-authoring-editor-boundary.md)           | Lexical confined to `sdk-authoring/src/editor`                  | Accepted |
 | [0005](0005-iframe-bridge.md)                       | Versioned iframe `postMessage` bridge (no WebSockets early)     | Accepted |

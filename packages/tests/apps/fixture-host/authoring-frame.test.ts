@@ -1,12 +1,12 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { BRIDGE_PROTOCOL_VERSION, type BridgeMessage, type TalmehDocument } from '@talmeh/schema';
-import tourFixture from '@talmeh/schema/fixtures/tour.linear.v1.json';
+import { BRIDGE_PROTOCOL_VERSION, type BridgeMessage, type LodariqDocument } from '@lodariq/schema';
+import tourFixture from '@lodariq/schema/fixtures/tour.linear.v1.json';
 import {
   LOCAL_AUTHORING_SESSION_ID,
   mountLocalAuthoringFrame,
   type LocalAuthoringFrameServices,
-} from '@talmeh/sdk-authoring';
+} from '@lodariq/sdk-authoring';
 
 async function loadFrame(): Promise<void> {
   vi.resetModules();
@@ -54,7 +54,7 @@ function localFrameServices(): LocalAuthoringFrameServices {
     loadDocument: () => null,
     saveDocument: vi.fn(),
     exportDocument: (doc) => JSON.stringify(doc, null, 2),
-    importDocument: (json) => JSON.parse(json) as TalmehDocument,
+    importDocument: (json) => JSON.parse(json) as LodariqDocument,
     resetDocuments: vi.fn(),
     compilePreview: async () => ({}),
     recordMetric: vi.fn(),
@@ -126,7 +126,7 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     expect(json).toContain('"type": "heading"');
     expect(json).toContain('Untitled heading');
     expect(json).not.toContain('/heading');
-    expect(localStorage.getItem('talmeh:doc:doc_tour_welcome')).toContain('Untitled heading');
+    expect(localStorage.getItem('lodariq:doc:doc_tour_welcome')).toContain('Untitled heading');
   });
 
   it('authors a real editable tour step with text and a continue button', async () => {
@@ -408,7 +408,7 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
 
     mountLocalAuthoringFrame({
       root,
-      baseDocument: tourFixture as TalmehDocument,
+      baseDocument: tourFixture as LodariqDocument,
       services: localFrameServices(),
       sessionId,
       peerWindow: peer,
@@ -475,7 +475,7 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
 
     mountLocalAuthoringFrame({
       root,
-      baseDocument: tourFixture as TalmehDocument,
+      baseDocument: tourFixture as LodariqDocument,
       services: localFrameServices(),
       sessionId,
       peerWindow: peer,
@@ -621,10 +621,10 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     expect(textarea?.value).toContain('Imported tour');
 
     saveButton?.click();
-    expect(localStorage.getItem('talmeh:doc:doc_tour_welcome')).toContain('Imported tour');
+    expect(localStorage.getItem('lodariq:doc:doc_tour_welcome')).toContain('Imported tour');
 
     resetButton?.click();
-    expect(localStorage.getItem('talmeh:doc:doc_tour_welcome')).toBeNull();
+    expect(localStorage.getItem('lodariq:doc:doc_tour_welcome')).toBeNull();
     expect(textarea?.value).toContain('Welcome tour');
   });
 
@@ -636,7 +636,7 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     const exportButton = document.querySelector<HTMLButtonElement>('[data-action="export"]');
     const originalJson = textarea.value;
 
-    const wrongDocument = JSON.parse(originalJson) as TalmehDocument;
+    const wrongDocument = JSON.parse(originalJson) as LodariqDocument;
     wrongDocument.id = 'doc_wrong';
     textarea.value = JSON.stringify(wrongDocument);
     importButton?.click();
@@ -646,9 +646,9 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     );
     exportButton?.click();
     expect(documentJson().value).toBe(originalJson);
-    expect(localStorage.getItem('talmeh:doc:doc_wrong')).toBeNull();
+    expect(localStorage.getItem('lodariq:doc:doc_wrong')).toBeNull();
 
-    const wrongWorkspace = JSON.parse(originalJson) as TalmehDocument;
+    const wrongWorkspace = JSON.parse(originalJson) as LodariqDocument;
     wrongWorkspace.workspaceId = 'wk_wrong';
     textarea.value = JSON.stringify(wrongWorkspace);
     importButton?.click();
@@ -783,7 +783,7 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
         role: 'button',
         accessibleName: 'New project',
         label: 'New project',
-        stableAttributes: { 'data-talmeh-id': 'new-project' },
+        stableAttributes: { 'data-lodariq-id': 'new-project' },
       },
     };
 
@@ -821,7 +821,7 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
         tagName: 'button',
         role: 'button',
         accessibleName: 'New project',
-        stableAttributes: { 'data-talmeh-id': 'new-project' },
+        stableAttributes: { 'data-lodariq-id': 'new-project' },
       },
     };
 

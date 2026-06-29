@@ -1,6 +1,6 @@
 import { computePosition, flip, offset, shift, type Placement } from '@floating-ui/dom';
-import type { CompiledDocument, CompiledStep, RuntimeLifecycleHints } from '@talmeh/schema';
-import { createNonceStyleElement } from '@talmeh/schema/dom';
+import type { CompiledDocument, CompiledStep, RuntimeLifecycleHints } from '@lodariq/schema';
+import { createNonceStyleElement } from '@lodariq/schema/dom';
 import { resolve } from '../resolver';
 
 const NETWORK_IDLE_QUIET_MS = 80;
@@ -37,11 +37,11 @@ export class TourPlayer {
     private readonly options: TourPlayerOptions = {},
   ) {
     this.index = initialStepIndex(doc, options);
-    this.host = document.createElement('talmeh-tour');
+    this.host = document.createElement('lodariq-tour');
     this.shadow = this.host.attachShadow({ mode: 'open' });
     this.card = document.createElement('div');
     this.card.setAttribute('role', 'dialog');
-    this.card.setAttribute('aria-label', 'Talmeh tour');
+    this.card.setAttribute('aria-label', 'Lodariq tour');
     this.card.setAttribute('aria-live', 'polite');
     this.card.tabIndex = -1;
     this.shadow.appendChild(createStyles());
@@ -88,7 +88,7 @@ export class TourPlayer {
     this.card.innerHTML = '';
     for (const node of step.body) {
       const el = document.createElement(node.type === 'button' ? 'button' : 'div');
-      el.dataset['talmehNodeType'] = node.type;
+      el.dataset['lodariqNodeType'] = node.type;
       el.textContent = node.text ?? '';
       if (node.type === 'button') this.configureButton(el as HTMLButtonElement, node.props.action);
       this.card.appendChild(el);
@@ -467,21 +467,21 @@ function createStyles(): HTMLStyleElement {
       pointer-events: auto;
     }
 
-    [data-talmeh-node-type="heading"] {
+    [data-lodariq-node-type="heading"] {
       margin-bottom: 6px;
       font-size: 15px;
       font-weight: 700;
       line-height: 1.3;
     }
 
-    [data-talmeh-node-type="paragraph"] {
+    [data-lodariq-node-type="paragraph"] {
       margin-bottom: 12px;
       color: #4b5563;
       font-size: 14px;
       line-height: 1.45;
     }
 
-    [data-talmeh-node-type="media"] {
+    [data-lodariq-node-type="media"] {
       margin: 8px 0 12px;
       padding: 14px;
       border: 1px dashed #cbd5e1;

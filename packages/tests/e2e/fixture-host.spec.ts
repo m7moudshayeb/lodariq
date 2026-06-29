@@ -5,17 +5,17 @@ test('fixture host installs the local SDK build and plays a tour', async ({ page
   page.on('request', (request) => loadedUrls.push(request.url()));
 
   await page.goto('/');
-  await page.waitForFunction(() => Boolean((window as { Talmeh?: unknown }).Talmeh));
+  await page.waitForFunction(() => Boolean((window as { Lodariq?: unknown }).Lodariq));
 
   expect(
-    loadedUrls.some((url) => url.includes('/packages/sdk-runtime/dist/talmeh-loader.js')),
+    loadedUrls.some((url) => url.includes('/packages/sdk-runtime/dist/lodariq-loader.js')),
   ).toBe(true);
 
   await page.evaluate(() =>
-    (window as { Talmeh: { playTour: () => Promise<void> } }).Talmeh.playTour(),
+    (window as { Lodariq: { playTour: () => Promise<void> } }).Lodariq.playTour(),
   );
 
-  await expect(page.getByRole('dialog', { name: 'Talmeh tour' })).toContainText(
+  await expect(page.getByRole('dialog', { name: 'Lodariq tour' })).toContainText(
     'Create your first project',
   );
 });
@@ -25,8 +25,8 @@ test('creator authors an editable tour step, attaches a target, and replays it',
 }) => {
   await page.goto('/');
 
-  await page.getByRole('button', { name: 'Open Talmeh authoring' }).click();
-  const frame = page.frameLocator('iframe[title="Talmeh authoring"]');
+  await page.getByRole('button', { name: 'Open Lodariq authoring' }).click();
+  const frame = page.frameLocator('iframe[title="Lodariq authoring"]');
 
   await expect(frame.locator('.block')).toHaveCount(1);
   const initialBlockCount = await frame.locator('.block').count();
@@ -57,8 +57,8 @@ test('creator authors an editable tour step, attaches a target, and replays it',
   await expect(frame.locator('#status')).toContainText('Found by');
   await openTargetActions(stepBlock, 'New project');
   await stepBlock.getByRole('button', { name: 'View target' }).click();
-  await expect(page.locator('[data-talmeh-bridge="target-reveal"]')).toHaveCount(1);
-  await expect(page.getByRole('dialog', { name: 'Talmeh tour' })).toContainText('Invite teammates');
+  await expect(page.locator('[data-lodariq-bridge="target-reveal"]')).toHaveCount(1);
+  await expect(page.getByRole('dialog', { name: 'Lodariq tour' })).toContainText('Invite teammates');
   await expect(page.getByRole('button', { name: 'Finish' })).toBeVisible();
 
   await compilePreview(frame);
@@ -70,17 +70,17 @@ test('creator authors an editable tour step, attaches a target, and replays it',
   await expect(frame.getByLabel('Local metrics')).toContainText('"previewOpenRate": 1');
 
   await page.reload();
-  await page.waitForFunction(() => Boolean((window as { Talmeh?: unknown }).Talmeh));
+  await page.waitForFunction(() => Boolean((window as { Lodariq?: unknown }).Lodariq));
   await page.getByRole('button', { name: 'Start tour' }).click();
   await page.getByRole('button', { name: 'Continue' }).click();
-  await expect(page.getByRole('dialog', { name: 'Talmeh tour' })).toContainText('Invite teammates');
+  await expect(page.getByRole('dialog', { name: 'Lodariq tour' })).toContainText('Invite teammates');
   await expect(page.getByRole('button', { name: 'Finish' })).toBeVisible();
 });
 
 test('creator can add an editable tour step from the primary action', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: 'Open Talmeh authoring' }).click();
-  const frame = page.frameLocator('iframe[title="Talmeh authoring"]');
+  await page.getByRole('button', { name: 'Open Lodariq authoring' }).click();
+  const frame = page.frameLocator('iframe[title="Lodariq authoring"]');
   await expect(frame.locator('.block')).toHaveCount(1);
   const initialBlockCount = await frame.locator('.block').count();
 
@@ -98,8 +98,8 @@ test('creator can add an editable tour step from the primary action', async ({ p
 
 test('creator can insert nested step content inline', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: 'Open Talmeh authoring' }).click();
-  const frame = page.frameLocator('iframe[title="Talmeh authoring"]');
+  await page.getByRole('button', { name: 'Open Lodariq authoring' }).click();
+  const frame = page.frameLocator('iframe[title="Lodariq authoring"]');
 
   await frame.getByRole('button', { name: 'Add step' }).click();
   const stepBlock = frame.locator('.block').last();
@@ -121,27 +121,27 @@ test('creator can cancel target picking with Escape from the authoring iframe', 
   page,
 }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: 'Open Talmeh authoring' }).click();
-  const frame = page.frameLocator('iframe[title="Talmeh authoring"]');
+  await page.getByRole('button', { name: 'Open Lodariq authoring' }).click();
+  const frame = page.frameLocator('iframe[title="Lodariq authoring"]');
   const targetButton = frame.getByRole('button', { name: /select target|change target/i }).first();
   await expect(targetButton).toBeVisible();
   const initialChipCount = await frame.locator('.target-chip').count();
 
   await targetButton.click();
-  await expect(page.locator('[data-talmeh-bridge="target-outline"]')).toHaveCount(1);
-  await expect(page.locator('[data-talmeh-bridge="target-veil"]')).toHaveCount(1);
+  await expect(page.locator('[data-lodariq-bridge="target-outline"]')).toHaveCount(1);
+  await expect(page.locator('[data-lodariq-bridge="target-veil"]')).toHaveCount(1);
 
   await page.getByRole('button', { name: 'New project' }).hover();
-  const hoverLabel = page.locator('[data-talmeh-bridge="target-label"]');
+  const hoverLabel = page.locator('[data-lodariq-bridge="target-label"]');
   await expect(hoverLabel).toContainText('Button');
   await expect(hoverLabel).toContainText('New project');
   await expect(hoverLabel).toContainText('Click to attach');
 
   await page.keyboard.press('Escape');
 
-  await expect(page.locator('[data-talmeh-bridge="target-outline"]')).toHaveCount(0);
-  await expect(page.locator('[data-talmeh-bridge="target-veil"]')).toHaveCount(0);
-  await expect(page.locator('[data-talmeh-bridge="target-label"]')).toHaveCount(0);
+  await expect(page.locator('[data-lodariq-bridge="target-outline"]')).toHaveCount(0);
+  await expect(page.locator('[data-lodariq-bridge="target-veil"]')).toHaveCount(0);
+  await expect(page.locator('[data-lodariq-bridge="target-label"]')).toHaveCount(0);
   await expect(frame.locator('#status')).toContainText('Target picker canceled');
 
   await page.getByRole('button', { name: 'New project' }).click();
@@ -151,15 +151,15 @@ test('creator can cancel target picking with Escape from the authoring iframe', 
 test('local authoring and tour playback pass accessibility smoke checks', async ({ page }) => {
   await page.goto('/');
 
-  const authoringTrigger = page.getByRole('button', { name: 'Open Talmeh authoring' });
+  const authoringTrigger = page.getByRole('button', { name: 'Open Lodariq authoring' });
   await expect(authoringTrigger).toBeVisible();
   await authoringTrigger.focus();
   await expect(authoringTrigger).toBeFocused();
   await authoringTrigger.press('Enter');
   await expect(authoringTrigger).toHaveAttribute('aria-expanded', 'true');
   const anchoredPanel = await page.evaluate(() => {
-    const trigger = document.querySelector<HTMLElement>('[data-talmeh-authoring-trigger="true"]');
-    const panel = document.querySelector<HTMLElement>('talmeh-authoring-panel');
+    const trigger = document.querySelector<HTMLElement>('[data-lodariq-authoring-trigger="true"]');
+    const panel = document.querySelector<HTMLElement>('lodariq-authoring-panel');
     const triggerRect = trigger?.getBoundingClientRect();
     const panelRect = panel?.getBoundingClientRect();
     return {
@@ -174,7 +174,7 @@ test('local authoring and tour playback pass accessibility smoke checks', async 
   expect(anchoredPanel.panelTop).toBeGreaterThan(72);
   expect(anchoredPanel.panelBottom).toBeLessThanOrEqual(18);
 
-  const frame = page.frameLocator('iframe[title="Talmeh authoring"]');
+  const frame = page.frameLocator('iframe[title="Lodariq authoring"]');
   const slashInput = frame.getByLabel('Block composer', { exact: true });
   await expect(slashInput).toBeVisible();
   await slashInput.focus();
@@ -200,7 +200,7 @@ test('local authoring and tour playback pass accessibility smoke checks', async 
   expect(actionBarTopAfterScroll).toBeLessThanOrEqual(88);
 
   await page.getByRole('button', { name: 'Start tour' }).click();
-  const tourDialog = page.getByRole('dialog', { name: 'Talmeh tour' });
+  const tourDialog = page.getByRole('dialog', { name: 'Lodariq tour' });
   await expect(tourDialog).toBeVisible();
   await expect(page.getByRole('button', { name: 'Continue' })).toBeFocused();
 });
@@ -209,8 +209,8 @@ test('creator can reposition the opened authoring panel from the bubble and head
   page,
 }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: 'Open Talmeh authoring' }).click();
-  await expect(page.locator('talmeh-authoring-panel')).toBeVisible();
+  await page.getByRole('button', { name: 'Open Lodariq authoring' }).click();
+  await expect(page.locator('lodariq-authoring-panel')).toBeVisible();
 
   const initial = await authoringPanelRects(page);
   await dragFromPoint(page, centerPoint(initial.trigger), { dx: -420, dy: 20 }, { steps: 8 });
@@ -219,7 +219,7 @@ test('creator can reposition the opened authoring panel from the bubble and head
   expect(afterBubbleDrag.trigger.left).toBeLessThan(initial.trigger.left - 300);
   expect(afterBubbleDrag.panel.left).toBeLessThan(initial.panel.left - 20);
   expect(afterBubbleDrag.panel.top).toBeGreaterThan(initial.panel.top);
-  await expect(page.getByRole('button', { name: 'Open Talmeh authoring' })).toHaveAttribute(
+  await expect(page.getByRole('button', { name: 'Open Lodariq authoring' })).toHaveAttribute(
     'aria-expanded',
     'true',
   );
@@ -242,8 +242,8 @@ test('creator can reposition the opened authoring panel from the bubble and head
 
 test('creator can save an incomplete button action without data loss', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: 'Open Talmeh authoring' }).click();
-  let frame = page.frameLocator('iframe[title="Talmeh authoring"]');
+  await page.getByRole('button', { name: 'Open Lodariq authoring' }).click();
+  let frame = page.frameLocator('iframe[title="Lodariq authoring"]');
 
   await frame.getByLabel('Block composer', { exact: true }).fill('/button');
   await frame.getByLabel('Block composer', { exact: true }).press('Enter');
@@ -258,8 +258,8 @@ test('creator can save an incomplete button action without data loss', async ({ 
   await frame.getByRole('button', { name: 'Save', exact: true }).click();
 
   await page.reload();
-  await page.getByRole('button', { name: 'Open Talmeh authoring' }).click();
-  frame = page.frameLocator('iframe[title="Talmeh authoring"]');
+  await page.getByRole('button', { name: 'Open Lodariq authoring' }).click();
+  frame = page.frameLocator('iframe[title="Lodariq authoring"]');
   const reloadedButton = frame.locator('.block').last();
 
   await expect(reloadedButton.getByLabel('Button label')).toHaveValue('Learn more');
@@ -269,8 +269,8 @@ test('creator can save an incomplete button action without data loss', async ({ 
 
 test('creator can remove a target without losing step content', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: 'Open Talmeh authoring' }).click();
-  const frame = page.frameLocator('iframe[title="Talmeh authoring"]');
+  await page.getByRole('button', { name: 'Open Lodariq authoring' }).click();
+  const frame = page.frameLocator('iframe[title="Lodariq authoring"]');
   const stepBlock = frame.locator('.block').first();
 
   await expect(stepBlock.getByLabel('Heading')).toHaveValue('Create your first project');
@@ -292,9 +292,9 @@ test('creator can remove a target without losing step content', async ({ page })
   await expect(frame.locator('#status')).toContainText('Removed target');
 
   await page.reload();
-  await page.getByRole('button', { name: 'Open Talmeh authoring' }).click();
+  await page.getByRole('button', { name: 'Open Lodariq authoring' }).click();
   const reloadedStep = page
-    .frameLocator('iframe[title="Talmeh authoring"]')
+    .frameLocator('iframe[title="Lodariq authoring"]')
     .locator('.block')
     .first();
   await expect(reloadedStep.locator('.target-chip')).toHaveCount(0);
@@ -304,8 +304,8 @@ test('creator can remove a target without losing step content', async ({ page })
 
 test('tour advances after a real product target click opens a modal', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: 'Open Talmeh authoring' }).click();
-  const frame = page.frameLocator('iframe[title="Talmeh authoring"]');
+  await page.getByRole('button', { name: 'Open Lodariq authoring' }).click();
+  const frame = page.frameLocator('iframe[title="Lodariq authoring"]');
   const textarea = await documentJson(frame);
   const document = JSON.parse(await textarea.inputValue()) as Record<string, unknown>;
   const clickTargetDocument = {
@@ -318,7 +318,7 @@ test('tour advances after a real product target click opens a modal', async ({ p
           role: 'button',
           accessibleName: 'Open import modal',
           label: 'Open import modal',
-          stableAttributes: { 'data-talmeh-id': 'open-modal' },
+          stableAttributes: { 'data-lodariq-id': 'open-modal' },
         },
       },
       {
@@ -328,14 +328,14 @@ test('tour advances after a real product target click opens a modal', async ({ p
           role: 'button',
           accessibleName: 'Review import',
           label: 'Review import',
-          stableAttributes: { 'data-talmeh-id': 'confirm-import' },
+          stableAttributes: { 'data-lodariq-id': 'confirm-import' },
         },
         lifecycle: {
           waitForElement: {
             tagName: 'button',
             role: 'button',
             accessibleName: 'Review import',
-            stableAttributes: { 'data-talmeh-id': 'confirm-import' },
+            stableAttributes: { 'data-lodariq-id': 'confirm-import' },
           },
           timeoutMs: 1200,
         },
@@ -417,18 +417,18 @@ test('tour advances after a real product target click opens a modal', async ({ p
   await compilePreview(frame);
   await expect(frame.getByLabel('Compiled preview')).toContainText('clickTarget');
 
-  await page.getByRole('button', { name: 'Close Talmeh authoring' }).click();
+  await page.getByRole('button', { name: 'Close Lodariq authoring' }).click();
   await page.evaluate(() =>
-    (window as { Talmeh: { playTour: () => Promise<void> } }).Talmeh.playTour(),
+    (window as { Lodariq: { playTour: () => Promise<void> } }).Lodariq.playTour(),
   );
 
-  await expect(page.getByRole('dialog', { name: 'Talmeh tour' })).toContainText(
+  await expect(page.getByRole('dialog', { name: 'Lodariq tour' })).toContainText(
     'Open the import modal',
   );
   await page.waitForFunction(`
     Boolean(
       document
-        .querySelector('talmeh-tour')
+        .querySelector('lodariq-tour')
         ?.shadowRoot
         ?.querySelector('[role="dialog"]')
         ?.style.left
@@ -437,7 +437,7 @@ test('tour advances after a real product target click opens a modal', async ({ p
   await page.getByRole('button', { name: 'Open import modal' }).click();
 
   await expect(page.getByRole('dialog', { name: 'Import projects' })).toBeVisible();
-  await expect(page.getByRole('dialog', { name: 'Talmeh tour' })).toContainText(
+  await expect(page.getByRole('dialog', { name: 'Lodariq tour' })).toContainText(
     'Review imported data',
   );
 });
@@ -446,8 +446,8 @@ test('tour resumes the next step after a real product click navigates the page',
   page,
 }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: 'Open Talmeh authoring' }).click();
-  const frame = page.frameLocator('iframe[title="Talmeh authoring"]');
+  await page.getByRole('button', { name: 'Open Lodariq authoring' }).click();
+  const frame = page.frameLocator('iframe[title="Lodariq authoring"]');
   const textarea = await documentJson(frame);
   const sourceDocument = JSON.parse(await textarea.inputValue()) as Record<string, unknown>;
   const navigationDocument = {
@@ -460,7 +460,7 @@ test('tour resumes the next step after a real product click navigates the page',
           role: 'button',
           accessibleName: 'New project',
           label: 'New project',
-          stableAttributes: { 'data-talmeh-id': 'new-project' },
+          stableAttributes: { 'data-lodariq-id': 'new-project' },
         },
       },
     ],
@@ -541,23 +541,23 @@ test('tour resumes the next step after a real product click navigates the page',
   await compilePreview(frame);
   await expect(frame.getByLabel('Compiled preview')).toContainText('clickTarget');
 
-  await page.getByRole('button', { name: 'Close Talmeh authoring' }).click();
+  await page.getByRole('button', { name: 'Close Lodariq authoring' }).click();
   await page.evaluate(() => {
-    document.querySelector('[data-talmeh-id="new-project"]')?.addEventListener('click', () => {
+    document.querySelector('[data-lodariq-id="new-project"]')?.addEventListener('click', () => {
       window.location.assign('/?createdProject=1#details');
     });
   });
   await page.evaluate(() =>
-    (window as { Talmeh: { playTour: () => Promise<void> } }).Talmeh.playTour(),
+    (window as { Lodariq: { playTour: () => Promise<void> } }).Lodariq.playTour(),
   );
 
-  await expect(page.getByRole('dialog', { name: 'Talmeh tour' })).toContainText(
+  await expect(page.getByRole('dialog', { name: 'Lodariq tour' })).toContainText(
     'Open the project page',
   );
   await page.waitForFunction(`
     Boolean(
       document
-        .querySelector('talmeh-tour')
+        .querySelector('lodariq-tour')
         ?.shadowRoot
         ?.querySelector('[role="dialog"]')
         ?.style.left
@@ -566,19 +566,19 @@ test('tour resumes the next step after a real product click navigates the page',
 
   await Promise.all([
     page.waitForURL(/createdProject=1/),
-    page.locator('[data-talmeh-id="new-project"]').click(),
+    page.locator('[data-lodariq-id="new-project"]').click(),
   ]);
-  await page.waitForFunction(() => Boolean((window as { Talmeh?: unknown }).Talmeh));
+  await page.waitForFunction(() => Boolean((window as { Lodariq?: unknown }).Lodariq));
 
-  await expect(page.getByRole('dialog', { name: 'Talmeh tour' })).toContainText(
+  await expect(page.getByRole('dialog', { name: 'Lodariq tour' })).toContainText(
     'Navigation resumed',
   );
 });
 
 test('runtime lifecycle opens a configured panel before resolving a target', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: 'Open Talmeh authoring' }).click();
-  const frame = page.frameLocator('iframe[title="Talmeh authoring"]');
+  await page.getByRole('button', { name: 'Open Lodariq authoring' }).click();
+  const frame = page.frameLocator('iframe[title="Lodariq authoring"]');
   const textarea = await documentJson(frame);
   const document = JSON.parse(await textarea.inputValue()) as Record<string, unknown>;
   const lifecycleDocument = {
@@ -591,20 +591,20 @@ test('runtime lifecycle opens a configured panel before resolving a target', asy
           role: 'button',
           accessibleName: 'Review import',
           label: 'Review import',
-          stableAttributes: { 'data-talmeh-id': 'confirm-import' },
+          stableAttributes: { 'data-lodariq-id': 'confirm-import' },
         },
         lifecycle: {
           openPanel: {
             tagName: 'button',
             role: 'button',
             accessibleName: 'Open import modal',
-            stableAttributes: { 'data-talmeh-id': 'open-modal' },
+            stableAttributes: { 'data-lodariq-id': 'open-modal' },
           },
           waitForElement: {
             tagName: 'button',
             role: 'button',
             accessibleName: 'Review import',
-            stableAttributes: { 'data-talmeh-id': 'confirm-import' },
+            stableAttributes: { 'data-lodariq-id': 'confirm-import' },
           },
           timeoutMs: 1200,
         },
@@ -656,23 +656,23 @@ test('runtime lifecycle opens a configured panel before resolving a target', asy
   await compilePreview(frame);
   await expect(frame.getByLabel('Compiled preview')).toContainText('openPanel');
 
-  await page.getByRole('button', { name: 'Close Talmeh authoring' }).click();
+  await page.getByRole('button', { name: 'Close Lodariq authoring' }).click();
   await page.evaluate(() =>
-    (window as { Talmeh: { playTour: () => Promise<void> } }).Talmeh.playTour(),
+    (window as { Lodariq: { playTour: () => Promise<void> } }).Lodariq.playTour(),
   );
 
   await expect(page.getByRole('dialog', { name: 'Import projects' })).toBeVisible();
-  await expect(page.getByRole('dialog', { name: 'Talmeh tour' })).toContainText(
+  await expect(page.getByRole('dialog', { name: 'Lodariq tour' })).toContainText(
     'Review imported data',
   );
 });
 
 test('creator exports, re-imports, recompiles, and replays a local fixture', async ({ page }) => {
   await page.goto('/');
-  await page.waitForFunction(() => Boolean((window as { Talmeh?: unknown }).Talmeh));
+  await page.waitForFunction(() => Boolean((window as { Lodariq?: unknown }).Lodariq));
 
-  await page.getByRole('button', { name: 'Open Talmeh authoring' }).click();
-  const frame = page.frameLocator('iframe[title="Talmeh authoring"]');
+  await page.getByRole('button', { name: 'Open Lodariq authoring' }).click();
+  const frame = page.frameLocator('iframe[title="Lodariq authoring"]');
   const textarea = await documentJson(frame);
   const doc = JSON.parse(await textarea.inputValue()) as { blocks: BlockIdNode[] };
   const originalIds = collectBlockIds(doc.blocks);
@@ -699,10 +699,10 @@ test('creator exports, re-imports, recompiles, and replays a local fixture', asy
   await expect(frame.getByLabel('Compiled preview')).toContainText('Imported replay heading');
 
   await page.evaluate(() =>
-    (window as { Talmeh: { playTour: () => Promise<void> } }).Talmeh.playTour(),
+    (window as { Lodariq: { playTour: () => Promise<void> } }).Lodariq.playTour(),
   );
 
-  await expect(page.getByRole('dialog', { name: 'Talmeh tour' })).toContainText(
+  await expect(page.getByRole('dialog', { name: 'Lodariq tour' })).toContainText(
     'Imported replay heading',
   );
 });
@@ -714,9 +714,9 @@ test('creator attaches targets in route, drawer, modal, scroll, and lazy states'
   await page.locator('[data-route="projects"]').click();
   await expect(page.getByText('Project 40')).toBeVisible();
 
-  await page.getByRole('button', { name: 'Open Talmeh authoring' }).click();
+  await page.getByRole('button', { name: 'Open Lodariq authoring' }).click();
   await moveAuthoringPanelAside(page);
-  const frame = page.frameLocator('iframe[title="Talmeh authoring"]');
+  const frame = page.frameLocator('iframe[title="Lodariq authoring"]');
 
   const list = page.locator('#project-list');
   await list.evaluate((element) => {
@@ -729,7 +729,7 @@ test('creator attaches targets in route, drawer, modal, scroll, and lazy states'
   await page.getByRole('button', { name: 'Open settings' }).click();
   const drawer = page.locator('#settings-drawer');
   await expect(drawer).toHaveClass(/open/);
-  await attachTarget(page, frame, page.locator('[data-talmeh-id="close-drawer"]'), ['Close']);
+  await attachTarget(page, frame, page.locator('[data-lodariq-id="close-drawer"]'), ['Close']);
   await expect(drawer).toHaveClass(/open/);
   await drawer.evaluate((element) => element.classList.remove('open'));
 
@@ -744,16 +744,16 @@ test('customer-like host installs the local SDK and opens SDK authoring', async 
   page.on('request', (request) => loadedUrls.push(request.url()));
 
   await page.goto('http://127.0.0.1:4188/');
-  await page.waitForFunction(() => Boolean((window as { Talmeh?: unknown }).Talmeh));
+  await page.waitForFunction(() => Boolean((window as { Lodariq?: unknown }).Lodariq));
 
   expect(
-    loadedUrls.some((url) => url.includes('/packages/sdk-runtime/dist/talmeh-loader.js')),
+    loadedUrls.some((url) => url.includes('/packages/sdk-runtime/dist/lodariq-loader.js')),
   ).toBe(true);
 
   await expect(page.getByRole('button', { name: 'New project' })).toBeVisible();
 
-  await page.getByRole('button', { name: 'Open Talmeh authoring' }).click();
-  const frame = page.frameLocator('iframe[title="Talmeh authoring"]');
+  await page.getByRole('button', { name: 'Open Lodariq authoring' }).click();
+  const frame = page.frameLocator('iframe[title="Lodariq authoring"]');
   await frame.getByLabel('Block composer', { exact: true }).fill('/step');
   await frame.getByLabel('Block composer', { exact: true }).press('Enter');
   await attachTarget(page, frame, page.getByRole('button', { name: 'New project' }), [
@@ -766,17 +766,17 @@ test('customer-like host installs the local SDK and opens SDK authoring', async 
   await expect(frame.getByLabel('Local metrics')).toContainText('"sessionId"');
 
   await page.evaluate(() =>
-    (window as { Talmeh: { playTour: () => Promise<void> } }).Talmeh.playTour(),
+    (window as { Lodariq: { playTour: () => Promise<void> } }).Lodariq.playTour(),
   );
 
-  await expect(page.getByRole('dialog', { name: 'Talmeh tour' })).toContainText(
+  await expect(page.getByRole('dialog', { name: 'Lodariq tour' })).toContainText(
     'Create your first project',
   );
 });
 
 async function moveAuthoringPanelAside(page: Page): Promise<void> {
   await page.evaluate(() => {
-    const host = document.querySelector<HTMLElement>('talmeh-authoring-panel');
+    const host = document.querySelector<HTMLElement>('lodariq-authoring-panel');
     const panel = host?.shadowRoot?.querySelector<HTMLElement>('.panel');
     if (!panel) return;
     if (host) {
@@ -807,8 +807,8 @@ async function authoringPanelRects(page: Page): Promise<{
   trigger: PageRect;
 }> {
   return page.evaluate(() => {
-    const trigger = document.querySelector<HTMLElement>('[data-talmeh-authoring-trigger="true"]');
-    const panel = document.querySelector<HTMLElement>('talmeh-authoring-panel');
+    const trigger = document.querySelector<HTMLElement>('[data-lodariq-authoring-trigger="true"]');
+    const panel = document.querySelector<HTMLElement>('lodariq-authoring-panel');
     const header = panel?.shadowRoot?.querySelector<HTMLElement>('header');
     if (!trigger || !panel || !header) {
       throw new Error('Authoring panel, trigger, or header missing');
@@ -891,7 +891,7 @@ async function attachTarget(
     .getByRole('button', { name: /select target|change target/i })
     .first()
     .click();
-  const panel = page.locator('talmeh-authoring-panel');
+  const panel = page.locator('lodariq-authoring-panel');
   await panel.evaluate((element) => {
     (element as HTMLElement).style.visibility = 'hidden';
   });
@@ -906,7 +906,7 @@ async function attachTarget(
   for (const label of expectedLabels) {
     await expect(chips.last()).toContainText(label);
   }
-  await expect(page.locator('[data-talmeh-bridge="target-outline"]')).toHaveCount(0);
+  await expect(page.locator('[data-lodariq-bridge="target-outline"]')).toHaveCount(0);
 }
 
 interface BlockIdNode {

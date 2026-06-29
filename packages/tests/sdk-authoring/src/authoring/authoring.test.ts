@@ -1,18 +1,18 @@
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { compile } from '@talmeh/compiler';
+import { compile } from '@lodariq/compiler';
 import {
   BRIDGE_PROTOCOL_VERSION,
   type BridgeMessage,
   type CompiledDocument,
-  type TalmehDocument,
-} from '@talmeh/schema';
+  type LodariqDocument,
+} from '@lodariq/schema';
 import {
   LOCAL_AUTHORING_SESSION_ID,
   openLocalAuthoringPanel,
-} from '@talmeh/sdk-authoring/talmeh-authoring';
+} from '@lodariq/sdk-authoring/lodariq-authoring';
 
-const baseDocument: TalmehDocument = {
+const baseDocument: LodariqDocument = {
   id: 'doc_tour_welcome',
   workspaceId: 'wk_local_dev',
   type: 'tour',
@@ -74,16 +74,16 @@ describe('local authoring panel (PRD §16.1)', () => {
         workspaceId: 'wk_local_dev',
         environment: 'development',
       },
-      { iframeSrc: '/talmeh-local/authoring.html' },
+      { iframeSrc: '/lodariq-local/authoring.html' },
     );
 
-    const host = document.querySelector('talmeh-authoring-panel');
+    const host = document.querySelector('lodariq-authoring-panel');
     const dialog = host?.shadowRoot?.querySelector('[role="dialog"]');
     const iframe = host?.querySelector('iframe');
 
-    expect(dialog?.getAttribute('aria-label')).toBe('Talmeh authoring');
+    expect(dialog?.getAttribute('aria-label')).toBe('Lodariq authoring');
     expect(iframe?.getAttribute('sandbox')).toBe('allow-scripts allow-same-origin');
-    expect(iframe?.getAttribute('src')).toBe('/talmeh-local/authoring.html');
+    expect(iframe?.getAttribute('src')).toBe('/lodariq-local/authoring.html');
     expect(iframe?.getAttribute('slot')).toBe('authoring-frame');
     const styles = host?.shadowRoot?.querySelector('style')?.textContent ?? '';
     expect(styles).toContain('top: 82px');
@@ -93,12 +93,12 @@ describe('local authoring panel (PRD §16.1)', () => {
     expect(styles).toContain('pointer-events: auto');
     expect(styles).not.toContain('pointer-events: none');
     expect(host?.shadowRoot?.querySelector('style')?.nonce).toBe('nonce_authoring');
-    expect(document.documentElement.hasAttribute('data-talmeh-authoring-panel-open')).toBe(true);
+    expect(document.documentElement.hasAttribute('data-lodariq-authoring-panel-open')).toBe(true);
 
     panel.close();
 
-    expect(document.querySelector('talmeh-authoring-panel')).toBeNull();
-    expect(document.documentElement.hasAttribute('data-talmeh-authoring-panel-open')).toBe(false);
+    expect(document.querySelector('lodariq-authoring-panel')).toBeNull();
+    expect(document.documentElement.hasAttribute('data-lodariq-authoring-panel-open')).toBe(false);
   });
 
   it('uses the iframe origin for bridge messages', () => {
@@ -109,10 +109,10 @@ describe('local authoring panel (PRD §16.1)', () => {
         workspaceId: 'wk_local_dev',
         environment: 'development',
       },
-      { iframeSrc: 'https://editor.talmeh.io/authoring.html' },
+      { iframeSrc: 'https://editor.lodariq.com/authoring.html' },
     );
 
-    const host = document.querySelector('talmeh-authoring-panel');
+    const host = document.querySelector('lodariq-authoring-panel');
     const iframe = host?.querySelector('iframe');
     if (!iframe) throw new Error('iframe missing');
     const peer = { postMessage: vi.fn() } as unknown as Window;
@@ -129,14 +129,14 @@ describe('local authoring panel (PRD §16.1)', () => {
           type: 'target.pick.start',
           blockId: 'block_1',
         },
-        origin: 'https://editor.talmeh.io',
+        origin: 'https://editor.lodariq.com',
         source: peer,
       }),
     );
 
     expect(peer.postMessage).toHaveBeenCalledWith(
       expect.objectContaining({ type: 'ack', ackOf: 'target_pick_start_1' }),
-      'https://editor.talmeh.io',
+      'https://editor.lodariq.com',
     );
 
     panel.close();
@@ -150,10 +150,10 @@ describe('local authoring panel (PRD §16.1)', () => {
         workspaceId: 'wk_local_dev',
         environment: 'development',
       },
-      { iframeSrc: '/talmeh-local/authoring.html' },
+      { iframeSrc: '/lodariq-local/authoring.html' },
     );
 
-    const host = document.querySelector('talmeh-authoring-panel');
+    const host = document.querySelector('lodariq-authoring-panel');
     const iframe = host?.querySelector('iframe');
     if (!iframe) throw new Error('iframe missing');
     const peer = { postMessage: vi.fn() } as unknown as Window;
@@ -182,10 +182,10 @@ describe('local authoring panel (PRD §16.1)', () => {
         workspaceId: 'wk_local_dev',
         environment: 'development',
       },
-      { iframeSrc: '/talmeh-local/authoring.html' },
+      { iframeSrc: '/lodariq-local/authoring.html' },
     );
 
-    const host = document.querySelector('talmeh-authoring-panel');
+    const host = document.querySelector('lodariq-authoring-panel');
     const iframe = host?.querySelector('iframe');
     if (!iframe) throw new Error('iframe missing');
     const peer = { postMessage: vi.fn() } as unknown as Window;
@@ -217,7 +217,7 @@ describe('local authoring panel (PRD §16.1)', () => {
 
   it('resolves target inspection requests through the host bridge', () => {
     const productButton = document.createElement('button');
-    productButton.dataset['talmehId'] = 'new-project';
+    productButton.dataset['lodariqId'] = 'new-project';
     productButton.textContent = 'New project';
     document.body.appendChild(productButton);
 
@@ -228,10 +228,10 @@ describe('local authoring panel (PRD §16.1)', () => {
         workspaceId: 'wk_local_dev',
         environment: 'development',
       },
-      { iframeSrc: '/talmeh-local/authoring.html' },
+      { iframeSrc: '/lodariq-local/authoring.html' },
     );
 
-    const host = document.querySelector('talmeh-authoring-panel');
+    const host = document.querySelector('lodariq-authoring-panel');
     const iframe = host?.querySelector('iframe');
     if (!iframe) throw new Error('iframe missing');
     const peer = { postMessage: vi.fn() } as unknown as Window;
@@ -253,7 +253,7 @@ describe('local authoring panel (PRD §16.1)', () => {
             tagName: 'button',
             role: 'button',
             accessibleName: 'New project',
-            stableAttributes: { 'data-talmeh-id': 'new-project' },
+            stableAttributes: { 'data-lodariq-id': 'new-project' },
           },
         },
         origin: window.location.origin,
@@ -275,13 +275,13 @@ describe('local authoring panel (PRD §16.1)', () => {
         state: 'found',
         confidence: expect.any(Number),
         candidateCount: 1,
-        resolutionMethod: 'talmeh_id',
+        resolutionMethod: 'lodariq_id',
       }),
     });
     expect(
       (result as { diagnostic?: { confidence?: number } }).diagnostic?.confidence,
     ).toBeGreaterThanOrEqual(100);
-    expect(document.querySelector('[data-talmeh-bridge="target-reveal"]')).toBeTruthy();
+    expect(document.querySelector('[data-lodariq-bridge="target-reveal"]')).toBeTruthy();
 
     window.dispatchEvent(
       new MessageEvent('message', {
@@ -299,14 +299,14 @@ describe('local authoring panel (PRD §16.1)', () => {
     );
 
     panel.close();
-    expect(document.querySelector('[data-talmeh-bridge="target-reveal"]')).toBeNull();
+    expect(document.querySelector('[data-lodariq-bridge="target-reveal"]')).toBeNull();
   });
 
   it('applies semantic preview patches and plays the affected step', async () => {
     const peer = { postMessage: vi.fn() } as unknown as Window;
     const playPreview = vi.fn(() => Promise.resolve());
     const stopPreview = vi.fn();
-    const compilePreview = vi.fn(async (doc: TalmehDocument): Promise<CompiledDocument> => {
+    const compilePreview = vi.fn(async (doc: LodariqDocument): Promise<CompiledDocument> => {
       return { ...compile(doc), contentHash: 'local-preview' };
     });
     const panel = openLocalAuthoringPanel(
@@ -317,7 +317,7 @@ describe('local authoring panel (PRD §16.1)', () => {
         environment: 'development',
       },
       {
-        iframeSrc: '/talmeh-local/authoring.html',
+        iframeSrc: '/lodariq-local/authoring.html',
         preview: {
           loadDocument: () => structuredClone(baseDocument),
           compilePreview,
@@ -327,7 +327,7 @@ describe('local authoring panel (PRD §16.1)', () => {
       },
     );
 
-    const host = document.querySelector('talmeh-authoring-panel');
+    const host = document.querySelector('lodariq-authoring-panel');
     const iframe = host?.querySelector('iframe');
     if (!iframe) throw new Error('iframe missing');
     Object.defineProperty(iframe, 'contentWindow', { value: peer, configurable: true });
@@ -351,7 +351,7 @@ describe('local authoring panel (PRD §16.1)', () => {
                   tagName: 'button',
                   role: 'button',
                   accessibleName: 'New project',
-                  stableAttributes: { 'data-talmeh-id': 'new-project' },
+                  stableAttributes: { 'data-lodariq-id': 'new-project' },
                 },
               },
             ],
@@ -423,7 +423,7 @@ describe('local authoring panel (PRD §16.1)', () => {
   it('ignores iframe messages outside the active authoring session scope', async () => {
     const peer = { postMessage: vi.fn() } as unknown as Window;
     const playPreview = vi.fn(() => Promise.resolve());
-    const compilePreview = vi.fn(async (doc: TalmehDocument): Promise<CompiledDocument> => {
+    const compilePreview = vi.fn(async (doc: LodariqDocument): Promise<CompiledDocument> => {
       return { ...compile(doc), contentHash: 'local-preview' };
     });
     const panel = openLocalAuthoringPanel(
@@ -434,7 +434,7 @@ describe('local authoring panel (PRD §16.1)', () => {
         environment: 'development',
       },
       {
-        iframeSrc: '/talmeh-local/authoring.html',
+        iframeSrc: '/lodariq-local/authoring.html',
         preview: {
           loadDocument: () => structuredClone(baseDocument),
           compilePreview,
@@ -443,7 +443,7 @@ describe('local authoring panel (PRD §16.1)', () => {
       },
     );
 
-    const host = document.querySelector('talmeh-authoring-panel');
+    const host = document.querySelector('lodariq-authoring-panel');
     const iframe = host?.querySelector('iframe');
     if (!iframe) throw new Error('iframe missing');
     Object.defineProperty(iframe, 'contentWindow', { value: peer, configurable: true });

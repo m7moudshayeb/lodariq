@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { TalmehBlock } from '@talmeh/schema';
+import type { LodariqBlock } from '@lodariq/schema';
 import type { LocalAuthoringFrameController } from '../controller';
 import {
   ArrowDown,
@@ -28,7 +28,7 @@ export function BlockCard({
   controller,
   snapshot,
 }: {
-  block: TalmehBlock;
+  block: LodariqBlock;
   controller: LocalAuthoringFrameController;
   snapshot: LocalAuthoringFrameSnapshot;
 }) {

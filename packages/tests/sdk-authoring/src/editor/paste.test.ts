@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from 'vitest';
-import { blocksFromSafePasteData } from '@talmeh/sdk-authoring/editor';
+import { blocksFromSafePasteData } from '@lodariq/sdk-authoring/editor';
 
 describe('safe editor paste (PRD §16.1)', () => {
   it('turns pasted HTML into plain paragraph blocks', () => {

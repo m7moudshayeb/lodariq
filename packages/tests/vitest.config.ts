@@ -15,79 +15,79 @@ export default defineConfig({
   resolve: {
     alias: [
       {
-        find: /^@talmeh\/schema\/dom$/,
+        find: /^@lodariq\/schema\/dom$/,
         replacement: fromRoot('packages/schema/src/dom.ts'),
       },
       {
-        find: /^@talmeh\/schema$/,
+        find: /^@lodariq\/schema$/,
         replacement: fromRoot('packages/schema/src/index.ts'),
       },
       {
-        find: /^@talmeh\/compiler$/,
+        find: /^@lodariq\/compiler$/,
         replacement: fromRoot('packages/compiler/src/index.ts'),
       },
       {
-        find: /^@talmeh\/sdk-runtime\/talmeh-loader$/,
+        find: /^@lodariq\/sdk-runtime\/lodariq-loader$/,
         replacement: fromRoot('packages/sdk-runtime/src/loader/index.ts'),
       },
       {
-        find: /^@talmeh\/sdk-runtime\/talmeh-runtime$/,
+        find: /^@lodariq\/sdk-runtime\/lodariq-runtime$/,
         replacement: fromRoot('packages/sdk-runtime/src/runtime/index.ts'),
       },
       {
-        find: /^@talmeh\/sdk-runtime\/talmeh-local-dev$/,
+        find: /^@lodariq\/sdk-runtime\/lodariq-local-dev$/,
         replacement: fromRoot('packages/sdk-runtime/src/local-dev/index.ts'),
       },
       {
-        find: /^@talmeh\/sdk-runtime\/loader$/,
+        find: /^@lodariq\/sdk-runtime\/loader$/,
         replacement: fromRoot('packages/sdk-runtime/src/loader/index.ts'),
       },
       {
-        find: /^@talmeh\/sdk-runtime\/runtime$/,
+        find: /^@lodariq\/sdk-runtime\/runtime$/,
         replacement: fromRoot('packages/sdk-runtime/src/runtime/index.ts'),
       },
       {
-        find: /^@talmeh\/sdk-runtime\/resolver$/,
+        find: /^@lodariq\/sdk-runtime\/resolver$/,
         replacement: fromRoot('packages/sdk-runtime/src/resolver/index.ts'),
       },
       {
-        find: /^@talmeh\/sdk-runtime\/renderers\/tour$/,
+        find: /^@lodariq\/sdk-runtime\/renderers\/tour$/,
         replacement: fromRoot('packages/sdk-runtime/src/renderers/tour.ts'),
       },
       {
-        find: /^@talmeh\/sdk-runtime\/local-dev$/,
+        find: /^@lodariq\/sdk-runtime\/local-dev$/,
         replacement: fromRoot('packages/sdk-runtime/src/local-dev/index.ts'),
       },
       {
-        find: /^@talmeh\/sdk-runtime$/,
+        find: /^@lodariq\/sdk-runtime$/,
         replacement: fromRoot('packages/sdk-runtime/src/index.ts'),
       },
       {
-        find: /^@talmeh\/sdk-authoring\/talmeh-authoring$/,
+        find: /^@lodariq\/sdk-authoring\/lodariq-authoring$/,
         replacement: fromRoot('packages/sdk-authoring/src/index.ts'),
       },
       {
-        find: /^@talmeh\/sdk-authoring\/bridge$/,
+        find: /^@lodariq\/sdk-authoring\/bridge$/,
         replacement: fromRoot('packages/sdk-authoring/src/bridge/index.ts'),
       },
       {
-        find: /^@talmeh\/sdk-authoring\/editor$/,
+        find: /^@lodariq\/sdk-authoring\/editor$/,
         replacement: fromRoot('packages/sdk-authoring/src/editor/index.ts'),
       },
       {
-        find: /^@talmeh\/sdk-authoring\/local-dev$/,
+        find: /^@lodariq\/sdk-authoring\/local-dev$/,
         replacement: fromRoot('packages/sdk-authoring/src/local-dev/index.ts'),
       },
       {
-        find: /^@talmeh\/sdk-authoring\/local-dev\/install$/,
+        find: /^@lodariq\/sdk-authoring\/local-dev\/install$/,
         replacement: fromRoot('packages/sdk-authoring/src/local-dev/install.ts'),
       },
       {
-        find: /^@talmeh\/sdk-authoring\/local-dev\/frame$/,
+        find: /^@lodariq\/sdk-authoring\/local-dev\/frame$/,
         replacement: fromRoot('packages/sdk-authoring/src/local-dev/frame.ts'),
       },
       {
-        find: /^@talmeh\/sdk-authoring$/,
+        find: /^@lodariq\/sdk-authoring$/,
         replacement: fromRoot('packages/sdk-authoring/src/index.ts'),
       },
     ],

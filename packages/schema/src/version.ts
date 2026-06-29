@@ -1,5 +1,5 @@
 /**
- * Canonical schema version stamped onto every Talmeh document.
+ * Canonical schema version stamped onto every Lodariq document.
  *
  * Bump this whenever a breaking change to the block JSON shape requires a
  * migration (PRD §7.2 "Versioned migrations for older block JSON").

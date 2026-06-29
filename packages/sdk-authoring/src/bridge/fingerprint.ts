@@ -1,4 +1,4 @@
-import type { ElementFingerprint } from '@talmeh/schema';
+import type { ElementFingerprint } from '@lodariq/schema';
 import {
   accessibleNameOf,
   ancestorLandmarksOf,
@@ -6,7 +6,7 @@ import {
   nearbyTextOf,
   roleOf,
   stableAttributesOf,
-} from '@talmeh/schema/dom';
+} from '@lodariq/schema/dom';
 
 export function captureElementFingerprint(
   element: Element,

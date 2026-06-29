@@ -10,9 +10,9 @@ the server (trusted publication). Duplicating them risks drift.
 
 ## Decision
 
-`@talmeh/schema` owns canonical TypeBox/JSON Schema contracts (documents,
+`@lodariq/schema` owns canonical TypeBox/JSON Schema contracts (documents,
 blocks, targets, compiled JSON, bridge messages, catalog, events) with zero
-runtime deps beyond TypeBox. `@talmeh/compiler` is a pure isomorphic function
+runtime deps beyond TypeBox. `@lodariq/compiler` is a pure isomorphic function
 from canonical block JSON to delivery JSON with no DOM or Node-only deps. Both
 are consumed by the SDK and the server worker.
 

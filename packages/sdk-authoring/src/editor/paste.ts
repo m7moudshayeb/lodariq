@@ -1,11 +1,11 @@
-import type { TalmehBlock } from '@talmeh/schema';
+import type { LodariqBlock } from '@lodariq/schema';
 import { createBlockId } from './ids';
 
 export interface ClipboardLike {
   getData: (type: string) => string;
 }
 
-export function blocksFromSafePasteData(data: ClipboardLike): TalmehBlock[] {
+export function blocksFromSafePasteData(data: ClipboardLike): LodariqBlock[] {
   const text = safeClipboardText(data);
   return text
     .split(/\n+/)

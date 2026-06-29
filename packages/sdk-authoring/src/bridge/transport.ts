@@ -3,7 +3,7 @@ import {
   BridgeMessage,
   validate,
   type BridgeMessage as BridgeMessageType,
-} from '@talmeh/schema';
+} from '@lodariq/schema';
 
 export { BRIDGE_PROTOCOL_VERSION };
 

@@ -1,5 +1,5 @@
-import { accessibleNameOf, ancestorLandmarksOf, roleOf } from '@talmeh/schema/dom';
-import type { ElementFingerprint } from '@talmeh/schema';
+import { accessibleNameOf, ancestorLandmarksOf, roleOf } from '@lodariq/schema/dom';
+import type { ElementFingerprint } from '@lodariq/schema';
 
 /**
  * Confidence-scored semantic resolver (PRD §8.4).
@@ -55,9 +55,9 @@ export function scoreCandidate(
 
   for (const [name, value] of Object.entries(fp.stableAttributes)) {
     if (el.getAttribute(name) === value) {
-      if (name === 'data-talmeh-id') {
+      if (name === 'data-lodariq-id') {
         score += 100;
-        method = 'talmeh_id';
+        method = 'lodariq_id';
       } else {
         score += 90;
         if (method === 'none') method = 'stable_attribute';

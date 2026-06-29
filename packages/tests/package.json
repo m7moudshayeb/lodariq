@@ -1,5 +1,5 @@
 {
-  "name": "@talmeh/tests",
+  "name": "@lodariq/tests",
   "version": "0.0.0",
   "private": true,
   "description": "Centralized test suite. Tests mirror the source path of the package under test (packages/tests/<pkg>/src/...) and exercise each package through its public entry points.",
@@ -11,10 +11,10 @@
     "lint": "eslint ."
   },
   "devDependencies": {
-    "@talmeh/compiler": "workspace:*",
-    "@talmeh/schema": "workspace:*",
-    "@talmeh/sdk-authoring": "workspace:*",
-    "@talmeh/sdk-runtime": "workspace:*",
+    "@lodariq/compiler": "workspace:*",
+    "@lodariq/schema": "workspace:*",
+    "@lodariq/sdk-authoring": "workspace:*",
+    "@lodariq/sdk-runtime": "workspace:*",
     "@types/node": "^24.0.0",
     "jsdom": "^25.0.1",
     "typescript": "^5.7.2",

@@ -11,8 +11,8 @@ agent or a refactor.
 
 ## Decision
 
-Ship two physically separate packages: `@talmeh/sdk-runtime` (framework-free
-loader/runtime/resolver/renderers) and `@talmeh/sdk-authoring` (React + Lexical,
+Ship two physically separate packages: `@lodariq/sdk-runtime` (framework-free
+loader/runtime/resolver/renderers) and `@lodariq/sdk-authoring` (React + Lexical,
 authenticated-creator only). The runtime package does not depend on the
 authoring package, so the module system itself prevents React/Lexical from
 entering the runtime bundle.

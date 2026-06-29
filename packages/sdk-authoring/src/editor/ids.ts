@@ -1,5 +1,5 @@
 /**
- * Stable Talmeh block IDs (PRD §7.2, §20).
+ * Stable Lodariq block IDs (PRD §7.2, §20).
  *
  * These IDs must survive editing, drag/drop, copy/paste, and migrations.
  * Lexical node keys are EPHEMERAL and must NEVER be used as persistent block

@@ -4,7 +4,7 @@ import { SCHEMA_REGISTRY } from './registry';
 
 /**
  * Lightweight validation helpers built on TypeBox's own Value module so
- * @talmeh/schema stays dependency-light. The Fastify API uses Ajv against the
+ * @lodariq/schema stays dependency-light. The Fastify API uses Ajv against the
  * same JSON Schemas (PRD §11.1); this is for fixtures, tests, and local-dev.
  *
  * The whole registry is passed as references so `Type.Ref(...)` schemas

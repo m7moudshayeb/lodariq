@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { TalmehRuntime } from '@talmeh/sdk-runtime/runtime';
+import { LodariqRuntime } from '@lodariq/sdk-runtime/runtime';
 
-describe('Talmeh runtime analytics (PRD §16.1)', () => {
+describe('Lodariq runtime analytics (PRD §16.1)', () => {
   afterEach(() => {
     vi.unstubAllGlobals();
   });
@@ -10,7 +10,7 @@ describe('Talmeh runtime analytics (PRD §16.1)', () => {
   it('batches tracked events and flushes them over HTTP', () => {
     const fetch = vi.fn().mockResolvedValue({ ok: true });
     vi.stubGlobal('fetch', fetch);
-    const runtime = new TalmehRuntime({
+    const runtime = new LodariqRuntime({
       workspaceId: 'wk_local_dev',
       environment: 'development',
       ingestUrl: '/events',
@@ -50,7 +50,7 @@ describe('Talmeh runtime analytics (PRD §16.1)', () => {
       configurable: true,
       value: sendBeacon,
     });
-    const runtime = new TalmehRuntime({
+    const runtime = new LodariqRuntime({
       workspaceId: 'wk_local_dev',
       environment: 'development',
       ingestUrl: '/events',

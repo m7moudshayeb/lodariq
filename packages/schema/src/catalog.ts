@@ -5,7 +5,7 @@ import { Environment } from './common';
  * Workspace data catalog entry (PRD §6.3).
  *
  * Built from observed SDK/API/integration inputs. Powers grouped dropdowns in
- * the rule builder. Talmeh NEVER queries the customer database — every entry
+ * the rule builder. Lodariq NEVER queries the customer database — every entry
  * maps to an explicitly provided data source.
  */
 export const DataCatalogEntry = Type.Object(
@@ -14,7 +14,7 @@ export const DataCatalogEntry = Type.Object(
     source: Type.Union([
       Type.Literal('identify_trait'),
       Type.Literal('track_event'),
-      Type.Literal('talmeh_activity'),
+      Type.Literal('lodariq_activity'),
       Type.Literal('page_context'),
       Type.Literal('integration'),
     ]),

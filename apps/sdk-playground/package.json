@@ -1,5 +1,5 @@
 {
-  "name": "@talmeh/sdk-playground",
+  "name": "@lodariq/sdk-playground",
   "version": "0.0.0",
   "private": true,
   "description": "Visual SDK playground for exercising compile + tour playback in isolation (PRD §16.0).",
@@ -12,9 +12,9 @@
     "lint": "eslint ."
   },
   "dependencies": {
-    "@talmeh/compiler": "workspace:*",
-    "@talmeh/schema": "workspace:*",
-    "@talmeh/sdk-runtime": "workspace:*"
+    "@lodariq/compiler": "workspace:*",
+    "@lodariq/schema": "workspace:*",
+    "@lodariq/sdk-runtime": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5.7.2",

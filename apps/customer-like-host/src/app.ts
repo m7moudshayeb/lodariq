@@ -3,7 +3,7 @@ export function renderCustomerLikeApp(root: HTMLElement): void {
     <div class="workspace-shell">
       <header class="topbar">
         <strong>Northstar CRM</strong>
-        <button data-talmeh-id="new-project" aria-label="New project">New project</button>
+        <button data-lodariq-id="new-project" aria-label="New project">New project</button>
       </header>
       <main class="content">
         <section class="pipeline" aria-label="Pipeline">

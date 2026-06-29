@@ -1,4 +1,4 @@
-import type { TalmehDocument } from '@talmeh/schema';
+import type { LodariqDocument } from '@lodariq/schema';
 
 export type LocalAuthoringFrameMetricName =
   | 'authoring.opened'
@@ -18,12 +18,12 @@ export interface LocalAuthoringFrameMetricEvent {
 }
 
 export interface LocalAuthoringFrameServices {
-  loadDocument: (id: string) => TalmehDocument | null;
-  saveDocument: (doc: TalmehDocument) => void;
-  exportDocument: (doc: TalmehDocument) => string;
-  importDocument: (json: string) => TalmehDocument;
+  loadDocument: (id: string) => LodariqDocument | null;
+  saveDocument: (doc: LodariqDocument) => void;
+  exportDocument: (doc: LodariqDocument) => string;
+  importDocument: (json: string) => LodariqDocument;
   resetDocuments: () => void;
-  compilePreview: (doc: TalmehDocument) => Promise<unknown>;
+  compilePreview: (doc: LodariqDocument) => Promise<unknown>;
   recordMetric: (event: LocalAuthoringFrameMetricEvent) => void;
   getMetricsSummary: (sessionId: string) => unknown;
   exportMetricsReport: (sessionId: string) => string;
@@ -31,7 +31,7 @@ export interface LocalAuthoringFrameServices {
 
 export interface LocalAuthoringFrameOptions {
   root: HTMLElement;
-  baseDocument: TalmehDocument;
+  baseDocument: LodariqDocument;
   services: LocalAuthoringFrameServices;
   sessionId?: string;
   peerWindow?: Window;

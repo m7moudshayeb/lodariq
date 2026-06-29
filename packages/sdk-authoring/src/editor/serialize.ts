@@ -1,21 +1,21 @@
 import {
   sanitizeBlockProps,
-  type TalmehBlock,
-  type TalmehBlockType,
-  type TalmehDocument,
+  type LodariqBlock,
+  type LodariqBlockType,
+  type LodariqDocument,
   type ValidationLevel,
-} from '@talmeh/schema';
+} from '@lodariq/schema';
 import {
-  TALMEH_MVP_BLOCK_TYPES,
-  type SerializedTalmehBlockNode,
-  type TalmehMvpBlockType,
+  LODARIQ_MVP_BLOCK_TYPES,
+  type SerializedLodariqBlockNode,
+  type LodariqMvpBlockType,
 } from './nodes';
 
 /**
- * Serialization boundary between Lexical editor state and canonical Talmeh
+ * Serialization boundary between Lexical editor state and canonical Lodariq
  * block JSON (PRD §7.2 required capabilities).
  *
- * Stable Talmeh block IDs are serialized as `talmehBlockId`; Lexical node keys
+ * Stable Lodariq block IDs are serialized as `lodariqBlockId`; Lexical node keys
  * remain ephemeral and are never used as persistent IDs (PRD §7.2, §20).
  */
 
@@ -33,7 +33,7 @@ export interface SerializedEditorState {
   root: {
     type: 'root';
     version: 1;
-    children: Array<SerializedTalmehBlockNode | SerializedTextChild>;
+    children: Array<SerializedLodariqBlockNode | SerializedTextChild>;
     direction: null;
     format: '';
     indent: 0;
@@ -41,12 +41,12 @@ export interface SerializedEditorState {
 }
 
 /** Lexical state -> canonical block JSON (PRD §7.2). */
-export function toBlockJson(state: SerializedEditorState): TalmehBlock[] {
-  return state.root.children.filter(isSerializedTalmehBlockNode).map(nodeToBlock);
+export function toBlockJson(state: SerializedEditorState): LodariqBlock[] {
+  return state.root.children.filter(isSerializedLodariqBlockNode).map(nodeToBlock);
 }
 
 /** Canonical block JSON -> Lexical-ready state (PRD §7.2). */
-export function fromBlockJson(blocks: TalmehBlock[]): SerializedEditorState {
+export function fromBlockJson(blocks: LodariqBlock[]): SerializedEditorState {
   return {
     root: {
       type: 'root',
@@ -59,14 +59,14 @@ export function fromBlockJson(blocks: TalmehBlock[]): SerializedEditorState {
   };
 }
 
-function blockToNode(block: TalmehBlock): SerializedTalmehBlockNode {
-  if (!isTalmehMvpBlockType(block.type)) {
-    throw new Error(`Unsupported Talmeh MVP editor block type: ${block.type}`);
+function blockToNode(block: LodariqBlock): SerializedLodariqBlockNode {
+  if (!isLodariqMvpBlockType(block.type)) {
+    throw new Error(`Unsupported Lodariq MVP editor block type: ${block.type}`);
   }
   return {
-    type: 'talmeh-block',
+    type: 'lodariq-block',
     version: 1,
-    talmehBlockId: block.id,
+    lodariqBlockId: block.id,
     blockType: block.type,
     props: sanitizeBlockProps(block.props),
     ...(block.status ? { status: block.status } : {}),
@@ -80,18 +80,18 @@ function blockToNode(block: TalmehBlock): SerializedTalmehBlockNode {
   };
 }
 
-function nodeToBlock(node: SerializedTalmehBlockNode): TalmehBlock {
+function nodeToBlock(node: SerializedLodariqBlockNode): LodariqBlock {
   const text = node.children
     .filter(isSerializedTextChild)
     .map((child) => child.text)
     .join('');
   return {
-    id: node.talmehBlockId,
+    id: node.lodariqBlockId,
     type: node.blockType,
     ...(text ? { content: text } : {}),
     props: sanitizeBlockProps(node.props),
     ...(node.status ? { status: node.status as ValidationLevel } : {}),
-    children: node.children.filter(isSerializedTalmehBlockNode).map(nodeToBlock),
+    children: node.children.filter(isSerializedLodariqBlockNode).map(nodeToBlock),
   };
 }
 
@@ -99,9 +99,9 @@ function textChild(text: string): SerializedTextChild {
   return { type: 'text', version: 1, text, format: 0, style: '', mode: 'normal', detail: 0 };
 }
 
-function isSerializedTalmehBlockNode(value: unknown): value is SerializedTalmehBlockNode {
+function isSerializedLodariqBlockNode(value: unknown): value is SerializedLodariqBlockNode {
   return Boolean(
-    value && typeof value === 'object' && (value as { type?: unknown }).type === 'talmeh-block',
+    value && typeof value === 'object' && (value as { type?: unknown }).type === 'lodariq-block',
   );
 }
 
@@ -111,21 +111,21 @@ function isSerializedTextChild(value: unknown): value is SerializedTextChild {
   );
 }
 
-function isTalmehMvpBlockType(value: TalmehBlockType): value is TalmehMvpBlockType {
-  return TALMEH_MVP_BLOCK_TYPES.some((type) => type === value);
+function isLodariqMvpBlockType(value: LodariqBlockType): value is LodariqMvpBlockType {
+  return LODARIQ_MVP_BLOCK_TYPES.some((type) => type === value);
 }
 
 /**
  * Versioned migration entry point for older block JSON (PRD §7.2, §16.1).
  * Each step upgrades one schemaVersion to the next; register migrations here.
  */
-export type Migration = (doc: TalmehDocument) => TalmehDocument;
+export type Migration = (doc: LodariqDocument) => LodariqDocument;
 
 const MIGRATIONS: Record<string, Migration> = {
   '0.9.0': (doc) => ({ ...doc, schemaVersion: '1.0.0' }),
 };
 
-export function migrate(doc: TalmehDocument): TalmehDocument {
+export function migrate(doc: LodariqDocument): LodariqDocument {
   let current = doc;
   let migration = MIGRATIONS[current.schemaVersion];
   while (migration) {

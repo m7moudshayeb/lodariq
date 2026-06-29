@@ -1,4 +1,4 @@
-import type { TalmehDocument } from '@talmeh/schema';
+import type { LodariqDocument } from '@lodariq/schema';
 import {
   compilePreview,
   exportDocument,
@@ -10,7 +10,7 @@ import {
   resetLocalDocuments,
   saveDocument,
   summarizeLocalMetrics,
-} from '@talmeh/sdk-runtime/talmeh-local-dev';
+} from '@lodariq/sdk-runtime/lodariq-local-dev';
 import { LOCAL_AUTHORING_SESSION_ID } from '../authoring/constants';
 import {
   mountLocalAuthoringFrame,
@@ -19,7 +19,7 @@ import {
 
 export interface MountLocalAuthoringDevFrameOptions {
   root: HTMLElement;
-  baseDocument: TalmehDocument;
+  baseDocument: LodariqDocument;
   sessionId?: string;
   targetOrigin?: string;
   peerWindow?: Window;

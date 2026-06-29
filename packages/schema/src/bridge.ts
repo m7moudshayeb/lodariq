@@ -1,6 +1,6 @@
 import { Type, type Static } from '@sinclair/typebox';
-import { BlockActionProps, TalmehBlock } from './block';
-import { TalmehDocument } from './document';
+import { BlockActionProps, LodariqBlock } from './block';
+import { LodariqDocument } from './document';
 import { ElementFingerprint } from './target';
 
 /**
@@ -11,7 +11,7 @@ import { ElementFingerprint } from './target';
  * patches. Every message carries protocol version + correlation metadata, and
  * payloads must be runtime-validated against these schemas before dispatch.
  *
- * These schemas are owned here in @talmeh/schema so the iframe and host bridge
+ * These schemas are owned here in @lodariq/schema so the iframe and host bridge
  * validate against EXACTLY the same definitions (PRD §11.1).
  */
 export const BRIDGE_PROTOCOL_VERSION = '1' as const;
@@ -36,8 +36,8 @@ export type ScrollState = Static<typeof ScrollState>;
 
 export const PreviewPatchOperation = Type.Union(
   [
-    Type.Object({ op: Type.Literal('insertBlock'), block: TalmehBlock }),
-    Type.Object({ op: Type.Literal('insertBlocks'), blocks: Type.Array(TalmehBlock) }),
+    Type.Object({ op: Type.Literal('insertBlock'), block: LodariqBlock }),
+    Type.Object({ op: Type.Literal('insertBlocks'), blocks: Type.Array(LodariqBlock) }),
     Type.Object({ op: Type.Literal('updateContent'), content: Type.String() }),
     Type.Object({
       op: Type.Literal('moveBlock'),
@@ -66,7 +66,7 @@ export const PreviewPatchOperation = Type.Union(
       op: Type.Literal('removeTarget'),
       targetId: Type.String(),
     }),
-    Type.Object({ op: Type.Literal('replaceDocument'), document: TalmehDocument }),
+    Type.Object({ op: Type.Literal('replaceDocument'), document: LodariqDocument }),
   ],
   { $id: 'PreviewPatchOperation' },
 );

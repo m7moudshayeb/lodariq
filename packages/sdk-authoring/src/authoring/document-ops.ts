@@ -1,11 +1,11 @@
-import { sanitizeBlockProps, type BlockActionProps, type TalmehBlock } from '@talmeh/schema';
+import { sanitizeBlockProps, type BlockActionProps, type LodariqBlock } from '@lodariq/schema';
 import { createBlockId } from '../editor/ids';
 
 export type EditableBlockType = 'paragraph' | 'heading' | 'button' | 'media';
 export type BlockDirection = 'up' | 'down';
 export type BlockInsertPosition = 'before' | 'after';
 
-export function createContentBlock(type: EditableBlockType, contentOverride?: string): TalmehBlock {
+export function createContentBlock(type: EditableBlockType, contentOverride?: string): LodariqBlock {
   const content =
     contentOverride ??
     (type === 'heading'
@@ -25,7 +25,7 @@ export function createContentBlock(type: EditableBlockType, contentOverride?: st
   };
 }
 
-export function createTourStep(index: number): TalmehBlock {
+export function createTourStep(index: number): LodariqBlock {
   return {
     id: createBlockId(),
     type: 'tourStep',
@@ -68,15 +68,15 @@ export function createTourStep(index: number): TalmehBlock {
   };
 }
 
-export function hasBlock(blocks: TalmehBlock[], blockId: string): boolean {
+export function hasBlock(blocks: LodariqBlock[], blockId: string): boolean {
   return blocks.some((block) => block.id === blockId || hasBlock(block.children, blockId));
 }
 
 export function updateBlockContent(
-  blocks: TalmehBlock[],
+  blocks: LodariqBlock[],
   blockId: string,
   content: string,
-): TalmehBlock[] {
+): LodariqBlock[] {
   return blocks.map((block) =>
     block.id === blockId
       ? { ...block, content }
@@ -85,14 +85,14 @@ export function updateBlockContent(
 }
 
 export function setBlockAction(
-  blocks: TalmehBlock[],
+  blocks: LodariqBlock[],
   blockId: string,
   action: BlockActionProps | null,
-): TalmehBlock[] {
+): LodariqBlock[] {
   return blocks.map((block) => normalizeBlockStatus(setAction(block, blockId, action)));
 }
 
-export function renumberTourSteps(blocks: TalmehBlock[]): TalmehBlock[] {
+export function renumberTourSteps(blocks: LodariqBlock[]): LodariqBlock[] {
   let index = 0;
   return blocks.map((block) =>
     block.type === 'tourStep'
@@ -102,41 +102,41 @@ export function renumberTourSteps(blocks: TalmehBlock[]): TalmehBlock[] {
 }
 
 export function transformBlocks(
-  blocks: TalmehBlock[],
+  blocks: LodariqBlock[],
   blockId: string,
   type: EditableBlockType,
-): TalmehBlock[] {
+): LodariqBlock[] {
   return blocks.map((block) => normalizeBlockStatus(transformBlock(block, blockId, type)));
 }
 
 export function attachTargetToBlocks(
-  blocks: TalmehBlock[],
+  blocks: LodariqBlock[],
   blockId: string,
   targetId: string,
   label: string,
-): TalmehBlock[] {
+): LodariqBlock[] {
   return blocks.map((block) => normalizeBlockStatus(attachTarget(block, blockId, targetId, label)));
 }
 
 export function removeTargetFromBlocks(
-  blocks: TalmehBlock[],
+  blocks: LodariqBlock[],
   blockId: string,
   targetId: string,
-): TalmehBlock[] {
+): LodariqBlock[] {
   return blocks.map((block) => normalizeBlockStatus(removeTarget(block, blockId, targetId)));
 }
 
-export function blocksReferenceTarget(blocks: TalmehBlock[], targetId: string): boolean {
+export function blocksReferenceTarget(blocks: LodariqBlock[], targetId: string): boolean {
   return blocks.some(
     (block) => block.props.targetId === targetId || blocksReferenceTarget(block.children, targetId),
   );
 }
 
 export function moveTopLevelBlock(
-  blocks: TalmehBlock[],
+  blocks: LodariqBlock[],
   blockId: string,
   direction: BlockDirection,
-): TalmehBlock[] | null {
+): LodariqBlock[] | null {
   const index = blocks.findIndex((block) => block.id === blockId);
   const nextIndex = direction === 'up' ? index - 1 : index + 1;
   if (index < 0 || nextIndex < 0 || nextIndex >= blocks.length) return null;
@@ -146,10 +146,10 @@ export function moveTopLevelBlock(
 }
 
 export function reorderTopLevelBlock(
-  blocks: TalmehBlock[],
+  blocks: LodariqBlock[],
   blockId: string,
   beforeBlockId: string,
-): TalmehBlock[] | null {
+): LodariqBlock[] | null {
   if (blockId === beforeBlockId) return null;
   const current = blocks.find((block) => block.id === blockId);
   if (!current) return null;
@@ -160,11 +160,11 @@ export function reorderTopLevelBlock(
 }
 
 export function insertTopLevelBlock(
-  blocks: TalmehBlock[],
+  blocks: LodariqBlock[],
   anchorBlockId: string,
-  block: TalmehBlock,
+  block: LodariqBlock,
   position: BlockInsertPosition,
-): TalmehBlock[] | null {
+): LodariqBlock[] | null {
   const anchorIndex = blocks.findIndex((item) => item.id === anchorBlockId);
   if (anchorIndex < 0) return null;
   const insertIndex = position === 'before' ? anchorIndex : anchorIndex + 1;
@@ -172,11 +172,11 @@ export function insertTopLevelBlock(
 }
 
 export function insertBlockInsideTourStep(
-  blocks: TalmehBlock[],
+  blocks: LodariqBlock[],
   stepBlockId: string,
-  block: TalmehBlock,
+  block: LodariqBlock,
   index: number,
-): TalmehBlock[] | null {
+): LodariqBlock[] | null {
   let inserted = false;
   const next = blocks.map((item) => {
     const updated = insertInsideStep(item, stepBlockId, block, index);
@@ -187,11 +187,11 @@ export function insertBlockInsideTourStep(
 }
 
 export function moveStepChildBlock(
-  blocks: TalmehBlock[],
+  blocks: LodariqBlock[],
   stepBlockId: string,
   childBlockId: string,
   direction: BlockDirection,
-): TalmehBlock[] | null {
+): LodariqBlock[] | null {
   let moved = false;
   const next = blocks.map((item) => {
     const updated = moveInsideStep(item, stepBlockId, childBlockId, direction);
@@ -201,7 +201,7 @@ export function moveStepChildBlock(
   return moved ? next : null;
 }
 
-function transformBlock(block: TalmehBlock, blockId: string, type: EditableBlockType): TalmehBlock {
+function transformBlock(block: LodariqBlock, blockId: string, type: EditableBlockType): LodariqBlock {
   if (block.id !== blockId) {
     return {
       ...block,
@@ -225,11 +225,11 @@ function transformBlock(block: TalmehBlock, blockId: string, type: EditableBlock
 }
 
 function insertInsideStep(
-  block: TalmehBlock,
+  block: LodariqBlock,
   stepBlockId: string,
-  blockToInsert: TalmehBlock,
+  blockToInsert: LodariqBlock,
   index: number,
-): TalmehBlock {
+): LodariqBlock {
   if (block.id !== stepBlockId) {
     let changed = false;
     const children = block.children.map((child) => {
@@ -251,11 +251,11 @@ function insertInsideStep(
 }
 
 function moveInsideStep(
-  block: TalmehBlock,
+  block: LodariqBlock,
   stepBlockId: string,
   childBlockId: string,
   direction: BlockDirection,
-): TalmehBlock {
+): LodariqBlock {
   if (block.id !== stepBlockId) {
     let changed = false;
     const children = block.children.map((child) => {
@@ -277,9 +277,9 @@ function moveInsideStep(
 }
 
 function stepTooltipChildren(
-  step: TalmehBlock,
-  update: (children: TalmehBlock[]) => TalmehBlock[],
-): TalmehBlock[] {
+  step: LodariqBlock,
+  update: (children: LodariqBlock[]) => LodariqBlock[],
+): LodariqBlock[] {
   const existingTooltip = step.children.find((child) => child.type === 'tooltip');
   if (!existingTooltip) {
     const children = update([]);
@@ -303,10 +303,10 @@ function stepTooltipChildren(
 }
 
 function insertBeforeUtilityChildren(
-  children: TalmehBlock[],
-  blockToInsert: TalmehBlock,
+  children: LodariqBlock[],
+  blockToInsert: LodariqBlock,
   index: number,
-): TalmehBlock[] {
+): LodariqBlock[] {
   const utilityStart = firstUtilityChildIndex(children);
   const editableChildren = children.slice(0, utilityStart);
   const utilityChildren = children.slice(utilityStart);
@@ -320,10 +320,10 @@ function insertBeforeUtilityChildren(
 }
 
 function moveEditableTooltipChild(
-  children: TalmehBlock[],
+  children: LodariqBlock[],
   childBlockId: string,
   direction: BlockDirection,
-): TalmehBlock[] {
+): LodariqBlock[] {
   const utilityStart = firstUtilityChildIndex(children);
   const editableChildren = children.slice(0, utilityStart);
   const utilityChildren = children.slice(utilityStart);
@@ -335,7 +335,7 @@ function moveEditableTooltipChild(
   return [...next, ...utilityChildren];
 }
 
-function firstUtilityChildIndex(children: TalmehBlock[]): number {
+function firstUtilityChildIndex(children: LodariqBlock[]): number {
   const index = children.findIndex(
     (child) => child.type === 'targetChip' || child.type === 'validationBadge',
   );
@@ -343,10 +343,10 @@ function firstUtilityChildIndex(children: TalmehBlock[]): number {
 }
 
 function setAction(
-  block: TalmehBlock,
+  block: LodariqBlock,
   blockId: string,
   action: BlockActionProps | null,
-): TalmehBlock {
+): LodariqBlock {
   if (block.id !== blockId) {
     return {
       ...block,
@@ -364,11 +364,11 @@ function setAction(
 }
 
 function attachTarget(
-  block: TalmehBlock,
+  block: LodariqBlock,
   blockId: string,
   targetId: string,
   label: string,
-): TalmehBlock {
+): LodariqBlock {
   if (block.id !== blockId) {
     return {
       ...block,
@@ -376,7 +376,7 @@ function attachTarget(
     };
   }
 
-  const targetChip: TalmehBlock = {
+  const targetChip: LodariqBlock = {
     id: createBlockId(),
     type: 'targetChip',
     content: label,
@@ -407,7 +407,7 @@ function attachTarget(
   };
 }
 
-function removeTarget(block: TalmehBlock, blockId: string, targetId: string): TalmehBlock {
+function removeTarget(block: LodariqBlock, blockId: string, targetId: string): LodariqBlock {
   if (block.id !== blockId) {
     return {
       ...block,
@@ -434,7 +434,7 @@ function removeTarget(block: TalmehBlock, blockId: string, targetId: string): Ta
   };
 }
 
-function removeTargetFromTooltip(block: TalmehBlock, targetId: string): TalmehBlock {
+function removeTargetFromTooltip(block: LodariqBlock, targetId: string): LodariqBlock {
   return {
     ...block,
     props:
@@ -445,7 +445,7 @@ function removeTargetFromTooltip(block: TalmehBlock, targetId: string): TalmehBl
   };
 }
 
-function normalizeBlockStatus(block: TalmehBlock): TalmehBlock {
+function normalizeBlockStatus(block: LodariqBlock): LodariqBlock {
   if (block.status === 'invalid') return block;
   const children = block.children.map(normalizeBlockStatus);
   if (block.type === 'button') {
@@ -474,7 +474,7 @@ function normalizeBlockStatus(block: TalmehBlock): TalmehBlock {
   return { ...block, children };
 }
 
-function hasIncompleteRequiredConfig(block: TalmehBlock): boolean {
+function hasIncompleteRequiredConfig(block: LodariqBlock): boolean {
   if (block.status === 'invalid') return true;
   if (block.type === 'button') return !block.props.action;
   if (block.type === 'media') return true;

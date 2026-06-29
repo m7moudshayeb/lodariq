@@ -34,7 +34,7 @@ export default tseslint.config(
           patterns: [
             { group: ['@lexical/*'], message: 'Lexical is authoring-only.' },
             {
-              group: ['@talmeh/sdk-authoring', '@talmeh/sdk-authoring/*'],
+              group: ['@lodariq/sdk-authoring', '@lodariq/sdk-authoring/*'],
               message: 'Production runtime must not import authoring code.',
             },
           ],

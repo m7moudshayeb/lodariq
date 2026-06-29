@@ -65,7 +65,7 @@ export const RuntimeLifecycleHints = Type.Object(
 export type RuntimeLifecycleHints = Static<typeof RuntimeLifecycleHints>;
 
 /**
- * A target binds a Talmeh block to a host-page element. The canonical model
+ * A target binds a Lodariq block to a host-page element. The canonical model
  * stores the fingerprint plus optional lifecycle hints; the resolver turns
  * this into a live element at runtime.
  */

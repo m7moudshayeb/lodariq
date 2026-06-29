@@ -14,7 +14,7 @@ The authoring panel runs in a sandboxed iframe from a dedicated origin and
 communicates over a versioned `postMessage` bridge. Keystrokes never cross the
 bridge; Lexical updates are batched into semantic patches. Every message carries
 protocol version, session, document, and correlation IDs and is runtime
-validated against `@talmeh/schema`. No standalone WebSocket gateway in Pre-phase,
+validated against `@lodariq/schema`. No standalone WebSocket gateway in Pre-phase,
 Phase 0, or Phase 1.
 
 ## Consequences

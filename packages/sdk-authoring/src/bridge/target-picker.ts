@@ -1,5 +1,5 @@
-import type { ElementFingerprint } from '@talmeh/schema';
-import { accessibleNameOf, createNonceStyleElement, roleOf } from '@talmeh/schema/dom';
+import type { ElementFingerprint } from '@lodariq/schema';
+import { accessibleNameOf, createNonceStyleElement, roleOf } from '@lodariq/schema/dom';
 import { captureElementFingerprint } from './fingerprint';
 
 export interface TargetPickResult {
@@ -20,7 +20,7 @@ export interface TargetPickerOptions {
 export function startTargetPicker(options: TargetPickerOptions): TargetPicker {
   const doc = options.root ?? document;
   const veil = doc.createElement('div');
-  veil.dataset['talmehBridge'] = 'target-veil';
+  veil.dataset['lodariqBridge'] = 'target-veil';
   veil.setAttribute('aria-hidden', 'true');
   Object.assign(veil.style, {
     position: 'fixed',
@@ -31,7 +31,7 @@ export function startTargetPicker(options: TargetPickerOptions): TargetPicker {
   });
 
   const outline = doc.createElement('div');
-  outline.dataset['talmehBridge'] = 'target-outline';
+  outline.dataset['lodariqBridge'] = 'target-outline';
   outline.setAttribute('aria-hidden', 'true');
   Object.assign(outline.style, {
     position: 'fixed',
@@ -44,7 +44,7 @@ export function startTargetPicker(options: TargetPickerOptions): TargetPicker {
   });
 
   const label = doc.createElement('div');
-  label.dataset['talmehBridge'] = 'target-label';
+  label.dataset['lodariqBridge'] = 'target-label';
   label.setAttribute('aria-hidden', 'true');
   Object.assign(label.style, {
     position: 'fixed',
@@ -62,10 +62,10 @@ export function startTargetPicker(options: TargetPickerOptions): TargetPicker {
   });
 
   const labelText = doc.createElement('div');
-  labelText.dataset['talmehBridge'] = 'target-label-text';
+  labelText.dataset['lodariqBridge'] = 'target-label-text';
   Object.assign(labelText.style, { pointerEvents: 'none' });
   const controls = doc.createElement('div');
-  controls.dataset['talmehBridge'] = 'target-controls';
+  controls.dataset['lodariqBridge'] = 'target-controls';
   Object.assign(controls.style, {
     position: 'fixed',
     left: '50%',
@@ -86,14 +86,14 @@ export function startTargetPicker(options: TargetPickerOptions): TargetPicker {
     font: '12px/1.35 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
   });
   controls.innerHTML = `
-    <div data-talmeh-bridge="target-card-header" style="display:grid; gap:2px;">
-      <strong data-talmeh-bridge="target-card-title" style="font-size:13px;">Pick a target</strong>
-      <span data-talmeh-bridge="target-card-copy" style="color:#64748b;">Select the product element this step should point to. Press Escape to cancel.</span>
+    <div data-lodariq-bridge="target-card-header" style="display:grid; gap:2px;">
+      <strong data-lodariq-bridge="target-card-title" style="font-size:13px;">Pick a target</strong>
+      <span data-lodariq-bridge="target-card-copy" style="color:#64748b;">Select the product element this step should point to. Press Escape to cancel.</span>
     </div>
-    <div data-talmeh-bridge="target-card-actions" style="display:grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap:6px;">
-      <button type="button" data-talmeh-bridge="target-control" data-action="deeper">Select inner element</button>
-      <button type="button" data-talmeh-bridge="target-control" data-action="parent">Select parent</button>
-      <button type="button" data-talmeh-bridge="target-control" data-action="click-through">Interact with page</button>
+    <div data-lodariq-bridge="target-card-actions" style="display:grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap:6px;">
+      <button type="button" data-lodariq-bridge="target-control" data-action="deeper">Select inner element</button>
+      <button type="button" data-lodariq-bridge="target-control" data-action="parent">Select parent</button>
+      <button type="button" data-lodariq-bridge="target-control" data-action="click-through">Interact with page</button>
     </div>
   `;
   for (const button of controls.querySelectorAll<HTMLButtonElement>('button')) {
@@ -114,21 +114,21 @@ export function startTargetPicker(options: TargetPickerOptions): TargetPicker {
   const cursor = createNonceStyleElement(
     doc,
     `
-    html[data-talmeh-target-picker="active"],
-    html[data-talmeh-target-picker="active"] body,
-    html[data-talmeh-target-picker="active"] body * {
+    html[data-lodariq-target-picker="active"],
+    html[data-lodariq-target-picker="active"] body,
+    html[data-lodariq-target-picker="active"] body * {
       cursor: crosshair !important;
     }
 
-    html[data-talmeh-target-picker="blocked"],
-    html[data-talmeh-target-picker="blocked"] body,
-    html[data-talmeh-target-picker="blocked"] body * {
+    html[data-lodariq-target-picker="blocked"],
+    html[data-lodariq-target-picker="blocked"] body,
+    html[data-lodariq-target-picker="blocked"] body * {
       cursor: not-allowed !important;
     }
   `,
   );
-  const previousPickerState = doc.documentElement.getAttribute('data-talmeh-target-picker');
-  doc.documentElement.setAttribute('data-talmeh-target-picker', 'active');
+  const previousPickerState = doc.documentElement.getAttribute('data-lodariq-target-picker');
+  doc.documentElement.setAttribute('data-lodariq-target-picker', 'active');
   doc.head.appendChild(cursor);
   doc.body.appendChild(veil);
   doc.body.appendChild(outline);
@@ -155,9 +155,9 @@ export function startTargetPicker(options: TargetPickerOptions): TargetPicker {
     doc.removeEventListener('keydown', onKeyDown, true);
     controls.removeEventListener('click', onControlClick);
     if (previousPickerState === null) {
-      doc.documentElement.removeAttribute('data-talmeh-target-picker');
+      doc.documentElement.removeAttribute('data-lodariq-target-picker');
     } else {
-      doc.documentElement.setAttribute('data-talmeh-target-picker', previousPickerState);
+      doc.documentElement.setAttribute('data-lodariq-target-picker', previousPickerState);
     }
     veil.remove();
     outline.remove();
@@ -176,13 +176,13 @@ export function startTargetPicker(options: TargetPickerOptions): TargetPicker {
     if (isBridgeEvent(event)) return;
     const target = targetsFromEvent(event);
     if (target.blocked) {
-      doc.documentElement.setAttribute('data-talmeh-target-picker', 'blocked');
+      doc.documentElement.setAttribute('data-lodariq-target-picker', 'blocked');
       outline.style.display = 'none';
       controls.style.display = 'none';
-      showLabel('Talmeh UI\nCannot attach', event);
+      showLabel('Lodariq UI\nCannot attach', event);
       return;
     }
-    doc.documentElement.setAttribute('data-talmeh-target-picker', 'active');
+    doc.documentElement.setAttribute('data-lodariq-target-picker', 'active');
     if (!target.elements.length) {
       hideTargetUi();
       return;
@@ -364,8 +364,8 @@ function targetsFromEvent(event: Event): TargetFromEventResult {
   const elements: Element[] = [];
   for (const item of event.composedPath()) {
     if (!(item instanceof Element)) continue;
-    if (item.hasAttribute('data-talmeh-bridge')) continue;
-    if (item.closest('talmeh-authoring-panel')) return { elements: [], blocked: true };
+    if (item.hasAttribute('data-lodariq-bridge')) continue;
+    if (item.closest('lodariq-authoring-panel')) return { elements: [], blocked: true };
     if (item === item.ownerDocument.documentElement || item === item.ownerDocument.body) continue;
     elements.push(item);
   }
@@ -374,7 +374,7 @@ function targetsFromEvent(event: Event): TargetFromEventResult {
 
 function isBridgeEvent(event: Event): boolean {
   return event.composedPath().some((item) => {
-    return item instanceof Element && item.hasAttribute('data-talmeh-bridge');
+    return item instanceof Element && item.hasAttribute('data-lodariq-bridge');
   });
 }
 
@@ -387,7 +387,7 @@ function candidateKey(elements: Element[]): string {
 }
 
 function elementPathLabel(element: Element): string {
-  const stable = element.getAttribute('data-talmeh-id') ?? element.id;
+  const stable = element.getAttribute('data-lodariq-id') ?? element.id;
   return `${element.tagName.toLowerCase()}${stable ? `#${stable}` : ''}`;
 }
 

@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { SCHEMA_VERSION, TalmehDocument, validate } from '@talmeh/schema';
-import tourFixture from '@talmeh/schema/fixtures/tour.linear.v1.json';
+import { SCHEMA_VERSION, LodariqDocument, validate } from '@lodariq/schema';
+import tourFixture from '@lodariq/schema/fixtures/tour.linear.v1.json';
 
 describe('canonical tour fixture', () => {
-  it('validates against the TalmehDocument schema (PRD §16.0 acceptance)', () => {
-    const result = validate(TalmehDocument, tourFixture);
+  it('validates against the LodariqDocument schema (PRD §16.0 acceptance)', () => {
+    const result = validate(LodariqDocument, tourFixture);
     if (!result.valid) {
       throw new Error(`fixture invalid:\n${JSON.stringify(result.errors, null, 2)}`);
     }
@@ -17,7 +17,7 @@ describe('canonical tour fixture', () => {
 
   it('rejects a document missing required fields', () => {
     const broken = { ...tourFixture, blocks: undefined };
-    const result = validate(TalmehDocument, broken);
+    const result = validate(LodariqDocument, broken);
     expect(result.valid).toBe(false);
   });
 
@@ -30,7 +30,7 @@ describe('canonical tour fixture', () => {
       html: '<script>alert(1)</script>',
     };
 
-    const result = validate(TalmehDocument, broken);
+    const result = validate(LodariqDocument, broken);
 
     expect(result.valid).toBe(false);
   });
@@ -39,7 +39,7 @@ describe('canonical tour fixture', () => {
     const document = JSON.parse(JSON.stringify(tourFixture));
     document.blocks[0].children[0].children[2].props.action = { type: 'clickTarget' };
 
-    const result = validate(TalmehDocument, document);
+    const result = validate(LodariqDocument, document);
 
     expect(result.valid).toBe(true);
   });

@@ -1,7 +1,7 @@
 import type { ElementFingerprint } from './target';
 
 const STABLE_ATTRIBUTE_NAMES = [
-  'data-talmeh-id',
+  'data-lodariq-id',
   'data-testid',
   'data-test',
   'data-cy',

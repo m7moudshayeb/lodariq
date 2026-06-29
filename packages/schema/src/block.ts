@@ -7,7 +7,7 @@ import { BlockDiagnostic, ValidationLevel } from './common';
  * knowledge, layout) are intentionally schema-only for now (PRD §7.2) and can
  * be added here as they are validated, without breaking the document shape.
  */
-export const TalmehBlockType = Type.Union(
+export const LodariqBlockType = Type.Union(
   [
     // Text / content
     Type.Literal('paragraph'),
@@ -27,9 +27,9 @@ export const TalmehBlockType = Type.Union(
     Type.Literal('targetChip'),
     Type.Literal('validationBadge'),
   ],
-  { $id: 'TalmehBlockType' },
+  { $id: 'LodariqBlockType' },
 );
-export type TalmehBlockType = Static<typeof TalmehBlockType>;
+export type LodariqBlockType = Static<typeof LodariqBlockType>;
 
 export const BlockActionProps = Type.Object(
   {
@@ -43,7 +43,7 @@ export type BlockActionProps = Static<typeof BlockActionProps>;
  * Narrow author-controlled block props. Documents must not carry arbitrary
  * CSS, JavaScript, raw HTML, or code-like attributes (PRD §7.10, §14.2, §20).
  */
-export const TalmehBlockProps = Type.Object(
+export const LodariqBlockProps = Type.Object(
   {
     action: Type.Optional(BlockActionProps),
     index: Type.Optional(Type.Number()),
@@ -59,12 +59,12 @@ export const TalmehBlockProps = Type.Object(
     targetId: Type.Optional(Type.String({ minLength: 1 })),
     variant: Type.Optional(Type.Union([Type.Literal('primary'), Type.Literal('secondary')])),
   },
-  { $id: 'TalmehBlockProps', additionalProperties: false },
+  { $id: 'LodariqBlockProps', additionalProperties: false },
 );
-export type TalmehBlockProps = Static<typeof TalmehBlockProps>;
+export type LodariqBlockProps = Static<typeof LodariqBlockProps>;
 
-export function sanitizeBlockProps(props: Record<string, unknown>): TalmehBlockProps {
-  const next: TalmehBlockProps = {};
+export function sanitizeBlockProps(props: Record<string, unknown>): LodariqBlockProps {
+  const next: LodariqBlockProps = {};
   if (isRecord(props.action)) {
     const type = props.action['type'];
     if (type === 'next' || type === 'dismiss' || type === 'clickTarget') next.action = { type };
@@ -91,20 +91,20 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 /**
  * Canonical recursive block node (PRD §7.1).
  *
- * `id` is a stable Talmeh block ID that must survive editing, drag/drop,
+ * `id` is a stable Lodariq block ID that must survive editing, drag/drop,
  * copy/paste, and migrations. Lexical node keys are NEVER used here (PRD §7.2, §20).
  */
-export const TalmehBlock = Type.Recursive(
+export const LodariqBlock = Type.Recursive(
   (Self) =>
     Type.Object({
       id: Type.String({ minLength: 1 }),
-      type: TalmehBlockType,
+      type: LodariqBlockType,
       content: Type.Optional(Type.String()),
-      props: TalmehBlockProps,
+      props: LodariqBlockProps,
       children: Type.Array(Self),
       status: Type.Optional(ValidationLevel),
       diagnostics: Type.Optional(Type.Array(BlockDiagnostic)),
     }),
-  { $id: 'TalmehBlock' },
+  { $id: 'LodariqBlock' },
 );
-export type TalmehBlock = Static<typeof TalmehBlock>;
+export type LodariqBlock = Static<typeof LodariqBlock>;

@@ -1,12 +1,12 @@
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it } from 'vitest';
-import type { CompiledDocument } from '@talmeh/schema';
+import type { CompiledDocument } from '@lodariq/schema';
 import {
   defaultManifestUrl,
-  installTalmeh,
+  installLodariq,
   isManifestEligible,
   readConfigFromScript,
-} from '@talmeh/sdk-runtime/talmeh-loader';
+} from '@lodariq/sdk-runtime/lodariq-loader';
 
 const compiledDoc: CompiledDocument = {
   documentId: 'doc_tour_welcome',
@@ -20,7 +20,7 @@ const compiledDoc: CompiledDocument = {
 
 describe('loader config (PRD §6.2, §9.2)', () => {
   beforeEach(() => {
-    delete window.Talmeh;
+    delete window.Lodariq;
     sessionStorage.clear();
   });
 
@@ -32,7 +32,7 @@ describe('loader config (PRD §6.2, §9.2)', () => {
     expect(readConfigFromScript(script)).toEqual({
       workspaceId: 'wk_live_xxx',
       environment: 'production',
-      manifestUrl: 'https://cdn.talmeh.io/workspaces/wk_live_xxx/production/manifest.json',
+      manifestUrl: 'https://cdn.lodariq.com/workspaces/wk_live_xxx/production/manifest.json',
     });
   });
 
@@ -55,7 +55,7 @@ describe('loader config (PRD §6.2, §9.2)', () => {
 
   it('encodes workspace IDs in derived URLs', () => {
     expect(defaultManifestUrl('wk live/xxx', 'staging')).toBe(
-      'https://cdn.talmeh.io/workspaces/wk%20live%2Fxxx/staging/manifest.json',
+      'https://cdn.lodariq.com/workspaces/wk%20live%2Fxxx/staging/manifest.json',
     );
   });
 
@@ -104,11 +104,11 @@ describe('loader config (PRD §6.2, §9.2)', () => {
       }
     }
 
-    const api = await installTalmeh(
+    const api = await installLodariq(
       {
         workspaceId: 'wk_local_dev',
         environment: 'development',
-        manifestUrl: '/talmeh-local/manifest.json',
+        manifestUrl: '/lodariq-local/manifest.json',
       },
       {
         fetchManifest: async (url) => ({
@@ -119,9 +119,9 @@ describe('loader config (PRD §6.2, §9.2)', () => {
       },
     );
 
-    expect(window.Talmeh).toBe(api);
+    expect(window.Lodariq).toBe(api);
     expect(api.manifest).toEqual({
-      documentId: '/talmeh-local/manifest.json',
+      documentId: '/lodariq-local/manifest.json',
       currentVersion: 'local-preview',
     });
 
@@ -135,11 +135,11 @@ describe('loader config (PRD §6.2, §9.2)', () => {
   });
 
   it('rejects playTour calls without compiled delivery JSON', async () => {
-    const api = await installTalmeh(
+    const api = await installLodariq(
       {
         workspaceId: 'wk_local_dev',
         environment: 'development',
-        manifestUrl: '/talmeh-local/manifest.json',
+        manifestUrl: '/lodariq-local/manifest.json',
       },
       {
         fetchManifest: async () => ({
@@ -150,16 +150,16 @@ describe('loader config (PRD §6.2, §9.2)', () => {
     );
 
     await expect(api.playTour(undefined as never)).rejects.toThrow(
-      'Talmeh.playTour requires compiled delivery JSON with documentId and steps',
+      'Lodariq.playTour requires compiled delivery JSON with documentId and steps',
     );
   });
 
   it('rejects invalid current-tour helper results before reading document fields', async () => {
-    const api = await installTalmeh(
+    const api = await installLodariq(
       {
         workspaceId: 'wk_local_dev',
         environment: 'development',
-        manifestUrl: '/talmeh-local/manifest.json',
+        manifestUrl: '/lodariq-local/manifest.json',
       },
       {
         fetchManifest: async () => ({
@@ -171,7 +171,7 @@ describe('loader config (PRD §6.2, §9.2)', () => {
     );
 
     await expect(api.playTour()).rejects.toThrow(
-      'Talmeh.playTour requires compiled delivery JSON with documentId and steps',
+      'Lodariq.playTour requires compiled delivery JSON with documentId and steps',
     );
   });
 
@@ -189,11 +189,11 @@ describe('loader config (PRD §6.2, §9.2)', () => {
       stop(): void {}
     }
 
-    const api = await installTalmeh(
+    const api = await installLodariq(
       {
         workspaceId: 'wk_local_dev',
         environment: 'development',
-        manifestUrl: '/talmeh-local/manifest.json',
+        manifestUrl: '/lodariq-local/manifest.json',
       },
       {
         fetchManifest: async () => ({
@@ -259,7 +259,7 @@ describe('loader config (PRD §6.2, §9.2)', () => {
     const config = {
       workspaceId: 'wk_local_dev',
       environment: 'development' as const,
-      manifestUrl: '/talmeh-local/manifest.json',
+      manifestUrl: '/lodariq-local/manifest.json',
     };
     const installOptions = {
       fetchManifest: async () => ({
@@ -270,14 +270,14 @@ describe('loader config (PRD §6.2, §9.2)', () => {
       loadTourRenderer: async () => ({ TourPlayer: FakeTourPlayer }) as never,
     };
 
-    const api = await installTalmeh(config, installOptions);
+    const api = await installLodariq(config, installOptions);
     await api.playTour(doc);
     latestOptions?.onBeforeStepChange?.(1, doc.steps[1]!);
 
-    delete window.Talmeh;
+    delete window.Lodariq;
     starts.length = 0;
 
-    await installTalmeh(config, installOptions);
+    await installLodariq(config, installOptions);
 
     expect(starts).toEqual([{ documentId: 'doc_tour_welcome', initialStepId: 'step_2' }]);
   });
@@ -303,11 +303,11 @@ describe('loader config (PRD §6.2, §9.2)', () => {
       }
     }
 
-    const api = await installTalmeh(
+    const api = await installLodariq(
       {
         workspaceId: 'wk_local_dev',
         environment: 'development',
-        manifestUrl: '/talmeh-local/manifest.json',
+        manifestUrl: '/lodariq-local/manifest.json',
       },
       {
         fetchManifest: async () => ({
@@ -334,11 +334,11 @@ describe('loader config (PRD §6.2, §9.2)', () => {
   });
 
   it('does not play tours when manifest environment metadata excludes the page', async () => {
-    const api = await installTalmeh(
+    const api = await installLodariq(
       {
         workspaceId: 'wk_local_dev',
         environment: 'production',
-        manifestUrl: '/talmeh-local/manifest.json',
+        manifestUrl: '/lodariq-local/manifest.json',
       },
       {
         fetchManifest: async () =>
@@ -351,17 +351,17 @@ describe('loader config (PRD §6.2, §9.2)', () => {
     );
 
     await expect(api.playTour(compiledDoc)).rejects.toThrow(
-      'Talmeh manifest is not eligible for production',
+      'Lodariq manifest is not eligible for production',
     );
   });
 
   it('opens authoring through the injected authoring callback', async () => {
     const opened: string[] = [];
-    const api = await installTalmeh(
+    const api = await installLodariq(
       {
         workspaceId: 'wk_local_dev',
         environment: 'development',
-        manifestUrl: '/talmeh-local/manifest.json',
+        manifestUrl: '/lodariq-local/manifest.json',
       },
       {
         fetchManifest: async () => ({
@@ -380,11 +380,11 @@ describe('loader config (PRD §6.2, §9.2)', () => {
   });
 
   it('rejects openAuthoring when authoring is not configured', async () => {
-    const api = await installTalmeh(
+    const api = await installLodariq(
       {
         workspaceId: 'wk_local_dev',
         environment: 'development',
-        manifestUrl: '/talmeh-local/manifest.json',
+        manifestUrl: '/lodariq-local/manifest.json',
       },
       {
         fetchManifest: async () => ({
@@ -394,6 +394,6 @@ describe('loader config (PRD §6.2, §9.2)', () => {
       },
     );
 
-    await expect(api.openAuthoring()).rejects.toThrow('Talmeh.openAuthoring is not configured');
+    await expect(api.openAuthoring()).rejects.toThrow('Lodariq.openAuthoring is not configured');
   });
 });

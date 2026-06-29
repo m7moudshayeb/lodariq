@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { TalmehBlock } from '@talmeh/schema';
+import type { LodariqBlock } from '@lodariq/schema';
 import type { LocalAuthoringFrameController } from '../controller';
 import {
   Activity,
@@ -21,7 +21,7 @@ export function TargetControls({
   snapshot,
   controller,
 }: {
-  block: TalmehBlock;
+  block: LodariqBlock;
   targetId: string;
   targetLabel: string;
   snapshot: LocalAuthoringFrameSnapshot;

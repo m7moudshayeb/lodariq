@@ -1,6 +1,6 @@
-# Talmeh Implementation Progress
+# Lodariq Implementation Progress
 
-Tracks what has been implemented against `refined-talmeh-prd.md`. Section
+Tracks what has been implemented against `refined-lodariq-prd.md`. Section
 references like (PRD §16.0) point to that document.
 
 - Current phase: **Phase 0 — SDK UX and Integration Validation** (PRD §16.2)
@@ -19,24 +19,24 @@ Status legend:
 
 | Item                                                             | Status | Where / Notes                                              |
 | ---------------------------------------------------------------- | ------ | ---------------------------------------------------------- |
-| Product naming: `Talmeh`, `@talmeh/*`, `*.talmeh.io` (PRD §16.0) | ✅     | Used across packages, ADRs, origin model                   |
+| Product naming: `Lodariq`, `@lodariq/*`, `*.lodariq.com` (PRD §16.0) | ✅     | Used across packages, ADRs, origin model                   |
 | One repo with pnpm workspaces (PRD §12.1, §16.0)                 | ✅     | `pnpm-workspace.yaml`                                      |
 | Turborepo for task caching (PRD §16.0)                           | ✅     | `turbo.json`                                               |
 | Strict TypeScript (PRD §16.0)                                    | ✅     | `tsconfig.base.json` (strict + extras)                     |
 | ESLint + Prettier (PRD §16.0)                                    | ✅     | `eslint.config.mjs`, `.prettierrc.json`                    |
-| Vitest (PRD §16.0)                                               | ✅     | Centralized `@talmeh/tests` (jsdom per-file)               |
+| Vitest (PRD §16.0)                                               | ✅     | Centralized `@lodariq/tests` (jsdom per-file)               |
 | Playwright (PRD §16.0)                                           | ✅     | Fixture-host e2e runs through `pnpm verify`                |
 | Bundle-size gates (PRD §16.0, §9.1)                              | ✅     | Runtime gzip gate for loader + runtime/tour                |
 | dependency-cruiser (PRD §16.0)                                   | ✅     | `.dependency-cruiser.cjs` + ESLint guards                  |
-| `packages/schema` `@talmeh/schema` (PRD §16.0)                   | ✅     | TypeBox contracts + registry + validate                    |
-| `packages/compiler` `@talmeh/compiler` (PRD §16.0)               | ✅     | Pure isomorphic compile + content hash                     |
-| `packages/sdk-runtime` `@talmeh/sdk-runtime` (PRD §16.0)         | ✅     | loader, runtime, resolver, renderers, local-dev            |
+| `packages/schema` `@lodariq/schema` (PRD §16.0)                   | ✅     | TypeBox contracts + registry + validate                    |
+| `packages/compiler` `@lodariq/compiler` (PRD §16.0)               | ✅     | Pure isomorphic compile + content hash                     |
+| `packages/sdk-runtime` `@lodariq/sdk-runtime` (PRD §16.0)         | ✅     | loader, runtime, resolver, renderers, local-dev            |
 | └ `src/loader` (PRD §16.0)                                       | 🟡     | Config read, manifest fetch, lazy loaders                  |
 | └ `src/runtime` (PRD §16.0)                                      | 🟡     | identify/track + analytics batching/beacon                 |
 | └ `src/resolver` (PRD §16.0)                                     | ✅     | Confidence scoring + found/missing/ambiguous               |
 | └ `src/renderers` (PRD §16.0)                                    | 🟡     | Linear tour renderer, focus, lifecycle waits, scroll       |
 | └ `src/local-dev` (PRD §16.0)                                    | 🟡     | Local persistence, import/export, preview compile, metrics |
-| `packages/sdk-authoring` `@talmeh/sdk-authoring` (PRD §16.0)     | ✅     | authoring, bridge, editor                                  |
+| `packages/sdk-authoring` `@lodariq/sdk-authoring` (PRD §16.0)     | ✅     | authoring, bridge, editor                                  |
 | └ `src/authoring` (PRD §16.0)                                    | 🟡     | Local iframe shell + target-pick wiring                    |
 | └ `src/bridge` (PRD §16.0)                                       | 🟡     | Origin checks, validation, ack/timeouts, target pick       |
 | └ `src/editor` (PRD §16.0)                                       | 🟡     | Lexical boundary, stable IDs, serialize/migrate hooks      |
@@ -56,7 +56,7 @@ Status legend:
 | CI runs typecheck, lint, tests, e2e, audit, and bundle-size checks            | ✅     | Workflow runs `pnpm verify`, including Playwright and `pnpm audit` |
 | Repo builds loader, runtime, authoring, compiler, fixture-host artifacts      | ✅     | tsup + Vite; `dist/` is Node-ESM runnable                          |
 | Package-boundary checks fail on forbidden imports                             | ✅     | Proven with `react` and `lexical` probes                           |
-| First block JSON fixture versioned and validated by `@talmeh/schema`          | ✅     | Validated in `packages/tests/schema/src/document.test.ts`          |
+| First block JSON fixture versioned and validated by `@lodariq/schema`          | ✅     | Validated in `packages/tests/schema/src/document.test.ts`          |
 | No production code depends on Markdown parsing, custom grammar, or WebSockets | ✅     | None present anywhere                                              |
 
 ---

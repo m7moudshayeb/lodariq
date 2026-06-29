@@ -1,9 +1,9 @@
 import { createEditor, type LexicalEditor } from 'lexical';
 import { HeadingNode } from '@lexical/rich-text';
-import { TalmehBlockNode } from './nodes';
+import { LodariqBlockNode } from './nodes';
 
 /**
- * Talmeh editor boundary on top of Lexical (PRD §7.2).
+ * Lodariq editor boundary on top of Lexical (PRD §7.2).
  *
  * This directory (`packages/sdk-authoring/src/editor`) is the ONLY source area
  * allowed to import `lexical` / `@lexical/*`. Enforced by package separation,
@@ -11,13 +11,13 @@ import { TalmehBlockNode } from './nodes';
  *
  * Node policy (PRD §7.2): use Lexical's standard text/element nodes for
  * paragraphs, headings, and lists; reserve custom/decorator nodes for
- * Talmeh-specific UI (target chips, validation badges, tooltips, tour steps,
+ * Lodariq-specific UI (target chips, validation badges, tooltips, tour steps,
  * action buttons). MVP nodes are implemented in the Pre-phase (PRD §16.1).
  */
-export function createTalmehEditor(): LexicalEditor {
+export function createLodariqEditor(): LexicalEditor {
   return createEditor({
-    namespace: 'talmeh',
-    nodes: [HeadingNode, TalmehBlockNode],
+    namespace: 'lodariq',
+    nodes: [HeadingNode, LodariqBlockNode],
     onError: (error) => {
       throw error;
     },

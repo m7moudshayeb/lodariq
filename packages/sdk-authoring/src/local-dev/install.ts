@@ -1,20 +1,20 @@
-import type { TalmehDocument } from '@talmeh/schema';
-import { createNonceStyleElement } from '@talmeh/schema/dom';
+import type { LodariqDocument } from '@lodariq/schema';
+import { createNonceStyleElement } from '@lodariq/schema/dom';
 import type {
   InstallOptions,
   LoaderConfig,
-  TalmehBrowserApi,
-} from '@talmeh/sdk-runtime/talmeh-loader';
-import { installTalmeh, readConfigFromScript } from '@talmeh/sdk-runtime/talmeh-loader';
-import { compilePreview, loadDocument } from '@talmeh/sdk-runtime/talmeh-local-dev';
+  LodariqBrowserApi,
+} from '@lodariq/sdk-runtime/lodariq-loader';
+import { installLodariq, readConfigFromScript } from '@lodariq/sdk-runtime/lodariq-loader';
+import { compilePreview, loadDocument } from '@lodariq/sdk-runtime/lodariq-local-dev';
 import {
   LOCAL_AUTHORING_ANCHOR_CHANGE_EVENT,
   LOCAL_AUTHORING_OPEN_MANUAL_PLACEMENT_KEY,
   LOCAL_AUTHORING_SESSION_ID,
 } from '../authoring/constants';
 
-export interface InstallLocalTalmehAuthoringOptions {
-  baseDocument: TalmehDocument;
+export interface InstallLocalLodariqAuthoringOptions {
+  baseDocument: LodariqDocument;
   script?: HTMLScriptElement;
   scriptSelector?: string;
   iframeSrc?: string;
@@ -30,17 +30,17 @@ export interface LocalAuthoringTriggerOptions {
   container?: HTMLElement;
 }
 
-const DEFAULT_LOADER_SELECTOR = 'script[data-talmeh-loader]';
+const DEFAULT_LOADER_SELECTOR = 'script[data-lodariq-loader]';
 const DEFAULT_AUTHORING_IFRAME_SRC = '/authoring.html';
-const DEFAULT_AUTHORING_TRIGGER_CLASS = 'talmeh-authoring-trigger';
+const DEFAULT_AUTHORING_TRIGGER_CLASS = 'lodariq-authoring-trigger';
 const DEFAULT_AUTHORING_TRIGGER_LABEL = 'T';
-const DEFAULT_AUTHORING_TRIGGER_ARIA_LABEL = 'Open Talmeh authoring';
-const AUTHORING_PANEL_OPEN_ATTRIBUTE = 'data-talmeh-authoring-panel-open';
-const LOCAL_AUTHORING_TRIGGER_STYLE_ID = 'talmeh-local-authoring-trigger-style';
-const LOCAL_AUTHORING_TRIGGER_SELECTOR = '[data-talmeh-authoring-trigger="true"]';
-const MANUAL_TRIGGER_PLACEMENT_KEY = 'talmehAuthoringManualPlacement';
+const DEFAULT_AUTHORING_TRIGGER_ARIA_LABEL = 'Open Lodariq authoring';
+const AUTHORING_PANEL_OPEN_ATTRIBUTE = 'data-lodariq-authoring-panel-open';
+const LOCAL_AUTHORING_TRIGGER_STYLE_ID = 'lodariq-local-authoring-trigger-style';
+const LOCAL_AUTHORING_TRIGGER_SELECTOR = '[data-lodariq-authoring-trigger="true"]';
+const MANUAL_TRIGGER_PLACEMENT_KEY = 'lodariqAuthoringManualPlacement';
 const LOCAL_AUTHORING_TRIGGER_CSS = `
-[data-talmeh-authoring-trigger='true'] {
+[data-lodariq-authoring-trigger='true'] {
   position: fixed;
   right: 18px;
   bottom: 18px;
@@ -67,12 +67,12 @@ const LOCAL_AUTHORING_TRIGGER_CSS = `
     background 160ms ease;
 }
 
-[data-talmeh-authoring-trigger='true'][data-talmeh-authoring-dragging='true'] {
+[data-lodariq-authoring-trigger='true'][data-lodariq-authoring-dragging='true'] {
   cursor: grabbing;
   transition: none;
 }
 
-[data-talmeh-authoring-trigger='true']:hover {
+[data-lodariq-authoring-trigger='true']:hover {
   transform: translateY(-1px);
   background: #0e5244;
   box-shadow:
@@ -80,19 +80,19 @@ const LOCAL_AUTHORING_TRIGGER_CSS = `
     0 0 0 1px rgba(15, 23, 42, 0.04);
 }
 
-[data-talmeh-authoring-trigger='true']:focus-visible {
+[data-lodariq-authoring-trigger='true']:focus-visible {
   outline: 3px solid rgba(37, 99, 235, 0.42);
   outline-offset: 3px;
 }
 
 @supports (width: 100dvw) {
-  [data-talmeh-authoring-trigger='true'] {
+  [data-lodariq-authoring-trigger='true'] {
     right: calc((100vw - 100dvw) + 18px);
     bottom: calc((100vh - 100dvh) + 18px);
   }
 }
 
-html[data-talmeh-authoring-panel-open='true'] [data-talmeh-authoring-trigger='true'] {
+html[data-lodariq-authoring-panel-open='true'] [data-lodariq-authoring-trigger='true'] {
   top: 18px;
   right: 20px;
   bottom: auto;
@@ -100,18 +100,18 @@ html[data-talmeh-authoring-panel-open='true'] [data-talmeh-authoring-trigger='tr
 }
 
 @supports (width: 100dvw) {
-  html[data-talmeh-authoring-panel-open='true'] [data-talmeh-authoring-trigger='true'] {
+  html[data-lodariq-authoring-panel-open='true'] [data-lodariq-authoring-trigger='true'] {
     right: calc((100vw - 100dvw) + 20px);
   }
 }
 
 @media (max-width: 600px) {
-  html[data-talmeh-authoring-panel-open='true'] [data-talmeh-authoring-trigger='true'] {
+  html[data-lodariq-authoring-panel-open='true'] [data-lodariq-authoring-trigger='true'] {
     right: 16px;
   }
 
   @supports (width: 100dvw) {
-    html[data-talmeh-authoring-panel-open='true'] [data-talmeh-authoring-trigger='true'] {
+    html[data-lodariq-authoring-panel-open='true'] [data-lodariq-authoring-trigger='true'] {
       right: calc((100vw - 100dvw) + 16px);
     }
   }
@@ -120,9 +120,9 @@ html[data-talmeh-authoring-panel-open='true'] [data-talmeh-authoring-trigger='tr
 
 type LocalAuthoringEnvironment = 'development' | 'staging';
 
-export async function installLocalTalmehAuthoringFromScript(
-  options: InstallLocalTalmehAuthoringOptions,
-): Promise<TalmehBrowserApi | null> {
+export async function installLocalLodariqAuthoringFromScript(
+  options: InstallLocalLodariqAuthoringOptions,
+): Promise<LodariqBrowserApi | null> {
   const script =
     options.script ??
     document.querySelector<HTMLScriptElement>(options.scriptSelector ?? DEFAULT_LOADER_SELECTOR);
@@ -131,11 +131,11 @@ export async function installLocalTalmehAuthoringFromScript(
   const config = readConfigFromScript(script);
   if (!config) return null;
 
-  let talmeh: TalmehBrowserApi | null = null;
+  let lodariq: LodariqBrowserApi | null = null;
   const sessionId = options.sessionId ?? LOCAL_AUTHORING_SESSION_ID;
   const environment = localAuthoringEnvironment(config.environment);
 
-  const api = await installTalmeh(config, {
+  const api = await installLodariq(config, {
     ...options.installOptions,
     loadCurrentTour: (manifest) =>
       compilePreview(currentDocument(config, options.baseDocument, manifest.documentId)),
@@ -155,23 +155,23 @@ export async function installLocalTalmehAuthoringFromScript(
             loadDocument: (documentId) => currentDocument(config, options.baseDocument, documentId),
             compilePreview,
             playPreview: (doc, previewOptions) => {
-              if (!talmeh) throw new Error('Talmeh local preview is not installed');
-              return talmeh.playTour(doc, { initialStepId: previewOptions?.stepId });
+              if (!lodariq) throw new Error('Lodariq local preview is not installed');
+              return lodariq.playTour(doc, { initialStepId: previewOptions?.stepId });
             },
-            stopPreview: () => talmeh?.stopTour(),
+            stopPreview: () => lodariq?.stopTour(),
           },
         },
       );
     },
   });
 
-  talmeh = api;
+  lodariq = api;
   installLocalAuthoringTrigger(api, options.authoringTrigger);
   return api;
 }
 
 function installLocalAuthoringTrigger(
-  api: TalmehBrowserApi,
+  api: LodariqBrowserApi,
   triggerOptions: LocalAuthoringTriggerOptions | false | undefined,
 ): HTMLButtonElement | null {
   if (triggerOptions === false) return null;
@@ -185,7 +185,7 @@ function installLocalAuthoringTrigger(
 
   const button = doc.createElement('button');
   button.type = 'button';
-  button.dataset['talmehAuthoringTrigger'] = 'true';
+  button.dataset['lodariqAuthoringTrigger'] = 'true';
   button.textContent = options.label ?? DEFAULT_AUTHORING_TRIGGER_LABEL;
   button.setAttribute('aria-label', options.ariaLabel ?? DEFAULT_AUTHORING_TRIGGER_ARIA_LABEL);
   button.setAttribute('aria-expanded', 'false');
@@ -235,7 +235,7 @@ function makeLocalAuthoringTriggerDraggable(
     if (!drag.moved && Math.hypot(dx, dy) < 4) return;
     drag.moved = true;
     event.preventDefault();
-    button.dataset['talmehAuthoringDragging'] = 'true';
+    button.dataset['lodariqAuthoringDragging'] = 'true';
     moveLocalAuthoringTrigger(button, event.clientX - drag.offsetX, event.clientY - drag.offsetY);
   };
 
@@ -283,7 +283,7 @@ function makeLocalAuthoringTriggerDraggable(
     }
     dragShield?.remove();
     dragShield = null;
-    delete button.dataset['talmehAuthoringDragging'];
+    delete button.dataset['lodariqAuthoringDragging'];
     if (drag.moved) onDragEnd();
     drag = null;
   };
@@ -294,7 +294,7 @@ function makeLocalAuthoringTriggerDraggable(
 
 function createAuthoringDragShield(doc: Document): HTMLElement {
   const shield = doc.createElement('div');
-  shield.dataset['talmehAuthoringDragShield'] = 'true';
+  shield.dataset['lodariqAuthoringDragShield'] = 'true';
   shield.setAttribute('aria-hidden', 'true');
   Object.assign(shield.style, {
     position: 'fixed',
@@ -333,7 +333,7 @@ function startLocalAuthoringTriggerViewportSync(button: HTMLButtonElement): void
 }
 
 function syncLocalAuthoringTriggerToViewport(button: HTMLButtonElement): void {
-  if (!button.isConnected || button.dataset['talmehAuthoringDragging'] === 'true') return;
+  if (!button.isConnected || button.dataset['lodariqAuthoringDragging'] === 'true') return;
   if (button.ownerDocument.documentElement.hasAttribute(AUTHORING_PANEL_OPEN_ATTRIBUTE)) return;
   delete button.dataset[LOCAL_AUTHORING_OPEN_MANUAL_PLACEMENT_KEY];
 
@@ -408,17 +408,17 @@ function ensureLocalAuthoringTriggerStyle(doc: Document): void {
 
 function currentDocument(
   config: LoaderConfig,
-  baseDocument: TalmehDocument,
+  baseDocument: LodariqDocument,
   documentId: string,
-): TalmehDocument {
+): LodariqDocument {
   return loadDocument(documentId) ?? baseDocumentFor(config, baseDocument, documentId);
 }
 
 function baseDocumentFor(
   config: LoaderConfig,
-  baseDocument: TalmehDocument,
+  baseDocument: LodariqDocument,
   documentId: string,
-): TalmehDocument {
+): LodariqDocument {
   const doc = structuredClone(baseDocument);
   return { ...doc, id: documentId, workspaceId: config.workspaceId };
 }
@@ -427,7 +427,7 @@ function localAuthoringEnvironment(
   environment: LoaderConfig['environment'],
 ): LocalAuthoringEnvironment {
   if (environment === 'production') {
-    throw new Error('Talmeh local authoring is only available in development or staging');
+    throw new Error('Lodariq local authoring is only available in development or staging');
   }
   return environment;
 }

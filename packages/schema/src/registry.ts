@@ -6,9 +6,9 @@ import {
   ValidationLevel,
   BlockDiagnostic,
 } from './common';
-import { BlockActionProps, TalmehBlockProps, TalmehBlockType, TalmehBlock } from './block';
+import { BlockActionProps, LodariqBlockProps, LodariqBlockType, LodariqBlock } from './block';
 import { ElementFingerprint, RuntimeLifecycleHints, Target } from './target';
-import { TriggerDefinition, AudienceDefinition, TalmehDocument } from './document';
+import { TriggerDefinition, AudienceDefinition, LodariqDocument } from './document';
 import { CompiledStep, CompiledTarget, CompiledDocument, ManifestPointer } from './compiled';
 import { DataCatalogEntry } from './catalog';
 import {
@@ -33,15 +33,15 @@ export const SCHEMA_REGISTRY: TSchema[] = [
   ValidationLevel,
   BlockDiagnostic,
   BlockActionProps,
-  TalmehBlockProps,
-  TalmehBlockType,
-  TalmehBlock,
+  LodariqBlockProps,
+  LodariqBlockType,
+  LodariqBlock,
   ElementFingerprint,
   RuntimeLifecycleHints,
   Target,
   TriggerDefinition,
   AudienceDefinition,
-  TalmehDocument,
+  LodariqDocument,
   CompiledStep,
   CompiledTarget,
   CompiledDocument,

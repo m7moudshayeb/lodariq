@@ -1,8 +1,8 @@
 {
-  "name": "@talmeh/sdk-runtime",
+  "name": "@lodariq/sdk-runtime",
   "version": "0.0.0",
   "private": true,
-  "description": "Production Talmeh SDK runtime surface: loader, runtime/player, semantic resolver, and renderers. Framework-free — must never import React or Lexical.",
+  "description": "Production Lodariq SDK runtime surface: loader, runtime/player, semantic resolver, and renderers. Framework-free — must never import React or Lexical.",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -11,17 +11,17 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     },
-    "./talmeh-loader": {
-      "types": "./dist/talmeh-loader.d.ts",
-      "import": "./dist/talmeh-loader.js"
+    "./lodariq-loader": {
+      "types": "./dist/lodariq-loader.d.ts",
+      "import": "./dist/lodariq-loader.js"
     },
-    "./talmeh-runtime": {
-      "types": "./dist/talmeh-runtime.d.ts",
-      "import": "./dist/talmeh-runtime.js"
+    "./lodariq-runtime": {
+      "types": "./dist/lodariq-runtime.d.ts",
+      "import": "./dist/lodariq-runtime.js"
     },
-    "./talmeh-local-dev": {
-      "types": "./dist/talmeh-local-dev.d.ts",
-      "import": "./dist/talmeh-local-dev.js"
+    "./lodariq-local-dev": {
+      "types": "./dist/lodariq-local-dev.d.ts",
+      "import": "./dist/lodariq-local-dev.js"
     },
     "./loader": {
       "types": "./dist/loader/index.d.ts",
@@ -55,8 +55,8 @@
   },
   "dependencies": {
     "@floating-ui/dom": "^1.6.13",
-    "@talmeh/compiler": "workspace:*",
-    "@talmeh/schema": "workspace:*"
+    "@lodariq/compiler": "workspace:*",
+    "@lodariq/schema": "workspace:*"
   },
   "devDependencies": {
     "tsup": "^8.3.5",

@@ -1,9 +1,9 @@
 import type {
   ResolverDiagnostic,
-  TalmehBlock,
-  TalmehDocument,
+  LodariqBlock,
+  LodariqDocument,
   TargetInspectAction,
-} from '@talmeh/schema';
+} from '@lodariq/schema';
 import {
   SLASH_COMMANDS,
   type DocumentTarget,
@@ -12,22 +12,22 @@ import {
 } from './types';
 
 export function targetById(
-  documentState: TalmehDocument,
+  documentState: LodariqDocument,
   targetId: string,
 ): DocumentTarget | undefined {
   return documentState.targets.find((item) => item.id === targetId);
 }
 
-export function targetLabelOf(documentState: TalmehDocument, targetId: string): string {
+export function targetLabelOf(documentState: LodariqDocument, targetId: string): string {
   const target = targetById(documentState, targetId);
   return (
     target?.fingerprint.accessibleName ??
-    target?.fingerprint.stableAttributes['data-talmeh-id'] ??
+    target?.fingerprint.stableAttributes['data-lodariq-id'] ??
     targetId
   );
 }
 
-export function targetIdOf(block: TalmehBlock): string | null {
+export function targetIdOf(block: LodariqBlock): string | null {
   if (block.props.targetId) return block.props.targetId;
   for (const child of block.children) {
     const targetId = targetIdOf(child);
@@ -36,21 +36,21 @@ export function targetIdOf(block: TalmehBlock): string | null {
   return null;
 }
 
-export function blockStatus(block: TalmehBlock): 'ready' | 'incomplete' | 'invalid' {
+export function blockStatus(block: LodariqBlock): 'ready' | 'incomplete' | 'invalid' {
   if (block.status === 'invalid') return 'invalid';
   if (block.status === 'incomplete') return 'incomplete';
   if (!block.id || !block.type) return 'invalid';
   return 'ready';
 }
 
-export function blockKicker(block: TalmehBlock): string {
+export function blockKicker(block: LodariqBlock): string {
   if (block.type === 'tourStep' && typeof block.props.index === 'number') {
     return `Step ${block.props.index + 1}`;
   }
   return blockTypeLabel(block.type);
 }
 
-export function blockDisplayTitle(block: TalmehBlock): string {
+export function blockDisplayTitle(block: LodariqBlock): string {
   if (block.type === 'tourStep') {
     const heading = firstHeadingText(block);
     if (heading) return heading;
@@ -60,7 +60,7 @@ export function blockDisplayTitle(block: TalmehBlock): string {
   return blockKicker(block);
 }
 
-export function firstHeadingText(block: TalmehBlock): string {
+export function firstHeadingText(block: LodariqBlock): string {
   if (block.type === 'heading' && block.content?.trim()) return block.content.trim();
   for (const child of block.children) {
     const text = firstHeadingText(child);
@@ -69,12 +69,12 @@ export function firstHeadingText(block: TalmehBlock): string {
   return '';
 }
 
-export function blockText(block: TalmehBlock): string {
+export function blockText(block: LodariqBlock): string {
   if (block.type === 'targetChip' || block.type === 'validationBadge') return '';
   return [block.content, ...block.children.map(blockText)].filter(Boolean).join(' ');
 }
 
-export function isEditableContentBlock(block: TalmehBlock): boolean {
+export function isEditableContentBlock(block: LodariqBlock): boolean {
   return (
     block.type === 'heading' ||
     block.type === 'paragraph' ||
@@ -83,7 +83,7 @@ export function isEditableContentBlock(block: TalmehBlock): boolean {
   );
 }
 
-export function propertyChipLabels(block: TalmehBlock): string[] {
+export function propertyChipLabels(block: LodariqBlock): string[] {
   const labels: string[] = [];
   if (typeof block.props.index === 'number') labels.push(`Step ${block.props.index + 1}`);
   if (block.props.level) labels.push(`Heading level ${block.props.level}`);
@@ -137,8 +137,8 @@ export function targetInspectionStatus(
 
 export function humanResolutionMethod(method: string): string {
   switch (method) {
-    case 'talmeh_id':
-      return 'Found by Talmeh ID';
+    case 'lodariq_id':
+      return 'Found by Lodariq ID';
     case 'stable_attribute':
       return 'Found by stable attribute';
     case 'role_and_name':
@@ -181,7 +181,7 @@ export function capitalize(value: string): string {
   return value.charAt(0).toUpperCase() + value.slice(1);
 }
 
-export function findBlockById(blocks: TalmehBlock[], blockId: string): TalmehBlock | null {
+export function findBlockById(blocks: LodariqBlock[], blockId: string): LodariqBlock | null {
   for (const block of blocks) {
     if (block.id === blockId) return block;
     const child = findBlockById(block.children, blockId);

@@ -1,8 +1,8 @@
 {
-  "name": "talmeh",
+  "name": "lodariq",
   "version": "0.0.0",
   "private": true,
-  "description": "Talmeh — universal product-content platform (interactive demos, tours, onboarding, announcements, surveys, hotspots, knowledge widgets) built on one document-driven authoring model.",
+  "description": "Lodariq — universal product-content platform (interactive demos, tours, onboarding, announcements, surveys, hotspots, knowledge widgets) built on one document-driven authoring model.",
   "type": "module",
   "packageManager": "pnpm@9.15.9",
   "engines": {

@@ -1,5 +1,5 @@
 {
-  "name": "@talmeh/customer-like-host",
+  "name": "@lodariq/customer-like-host",
   "version": "0.0.0",
   "private": true,
   "description": "Secondary customer-like host app for Phase 0 SDK integration validation.",
@@ -12,9 +12,9 @@
     "lint": "eslint ."
   },
   "dependencies": {
-    "@talmeh/schema": "workspace:*",
-    "@talmeh/sdk-authoring": "workspace:*",
-    "@talmeh/sdk-runtime": "workspace:*"
+    "@lodariq/schema": "workspace:*",
+    "@lodariq/sdk-authoring": "workspace:*",
+    "@lodariq/sdk-runtime": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5.7.2",

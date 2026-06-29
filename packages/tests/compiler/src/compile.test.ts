@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { CompiledDocument, validate, type TalmehDocument } from '@talmeh/schema';
-import { compile, compileDocument } from '@talmeh/compiler';
-import tourFixture from '@talmeh/schema/fixtures/tour.linear.v1.json';
+import { CompiledDocument, validate, type LodariqDocument } from '@lodariq/schema';
+import { compile, compileDocument } from '@lodariq/compiler';
+import tourFixture from '@lodariq/schema/fixtures/tour.linear.v1.json';
 
-const document = tourFixture as TalmehDocument;
+const document = tourFixture as LodariqDocument;
 
 describe('compile', () => {
   it('produces one step per tourStep block with body + target binding', () => {
@@ -20,7 +20,7 @@ describe('compile', () => {
   });
 
   it('copies target lifecycle hints onto compiled steps', () => {
-    const mutableDocument = JSON.parse(JSON.stringify(document)) as TalmehDocument;
+    const mutableDocument = JSON.parse(JSON.stringify(document)) as LodariqDocument;
     mutableDocument.targets[0]!.lifecycle = {
       waitForText: 'Projects loaded',
       scrollStrategy: 'bottom',
@@ -36,7 +36,7 @@ describe('compile', () => {
   });
 
   it('preserves user-action gated button actions in delivery JSON', () => {
-    const mutableDocument = JSON.parse(JSON.stringify(document)) as TalmehDocument;
+    const mutableDocument = JSON.parse(JSON.stringify(document)) as LodariqDocument;
     const button = mutableDocument.blocks[0]?.children[0]?.children.find(
       (block) => block.type === 'button',
     );
@@ -51,7 +51,7 @@ describe('compile', () => {
   });
 
   it('keeps placeholder media as structured delivery body content', () => {
-    const mutableDocument = JSON.parse(JSON.stringify(document)) as TalmehDocument;
+    const mutableDocument = JSON.parse(JSON.stringify(document)) as LodariqDocument;
     mutableDocument.blocks[0]?.children[0]?.children.splice(2, 0, {
       id: 'block_media_placeholder',
       type: 'media',
@@ -94,7 +94,7 @@ describe('compile', () => {
   });
 
   it('clones mutable source props and target fingerprints into the compiled artifact', async () => {
-    const mutableDocument = JSON.parse(JSON.stringify(document)) as TalmehDocument;
+    const mutableDocument = JSON.parse(JSON.stringify(document)) as LodariqDocument;
     const compiled = await compileDocument(mutableDocument);
 
     const heading = mutableDocument.blocks[0]?.children[0]?.children.find(
@@ -103,15 +103,15 @@ describe('compile', () => {
     if (!heading) throw new Error('fixture heading missing');
 
     heading.props.level = 3;
-    mutableDocument.targets[0]!.fingerprint.stableAttributes['data-talmeh-id'] = 'changed';
+    mutableDocument.targets[0]!.fingerprint.stableAttributes['data-lodariq-id'] = 'changed';
 
     const compiledHeading = compiled.steps[0]?.body.find((block) => block.id === 'block_heading_1');
     expect(compiledHeading?.props).toEqual({ level: 2 });
-    expect(compiled.targets[0]?.fingerprint.stableAttributes['data-talmeh-id']).toBe('new-project');
+    expect(compiled.targets[0]?.fingerprint.stableAttributes['data-lodariq-id']).toBe('new-project');
   });
 
   it('strips arbitrary block props from compiled delivery JSON', async () => {
-    const mutableDocument = JSON.parse(JSON.stringify(document)) as TalmehDocument;
+    const mutableDocument = JSON.parse(JSON.stringify(document)) as LodariqDocument;
     const heading = mutableDocument.blocks[0]?.children[0]?.children.find(
       (block) => block.id === 'block_heading_1',
     );

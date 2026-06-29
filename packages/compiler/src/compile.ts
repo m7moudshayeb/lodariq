@@ -2,16 +2,16 @@ import {
   sanitizeBlockProps,
   type CompiledDocument,
   type CompiledStep,
-  type TalmehBlock,
-  type TalmehDocument,
-} from '@talmeh/schema';
+  type LodariqBlock,
+  type LodariqDocument,
+} from '@lodariq/schema';
 import { canonicalJson, sha256Hex } from './hash';
 import { COMPILER_VERSION } from './version';
 
 /** Block types that carry render-ready leaf content into compiled steps. */
 const LEAF_CONTENT_TYPES = new Set(['heading', 'paragraph', 'list', 'button', 'link', 'media']);
 
-function collectBody(block: TalmehBlock, acc: CompiledStep['body']): void {
+function collectBody(block: LodariqBlock, acc: CompiledStep['body']): void {
   if (LEAF_CONTENT_TYPES.has(block.type)) {
     acc.push({
       id: block.id,
@@ -24,8 +24,8 @@ function collectBody(block: TalmehBlock, acc: CompiledStep['body']): void {
 }
 
 function compileTourStep(
-  step: TalmehBlock,
-  targetsById: ReadonlyMap<string, TalmehDocument['targets'][number]>,
+  step: LodariqBlock,
+  targetsById: ReadonlyMap<string, LodariqDocument['targets'][number]>,
 ): CompiledStep {
   const body: CompiledStep['body'] = [];
   for (const child of step.children) collectBody(child, body);
@@ -49,7 +49,7 @@ function compileTourStep(
  * Pure synchronous compile pass: canonical block JSON -> delivery JSON
  * (without the content hash). No DOM, no Node APIs (PRD §9.1).
  */
-export function compile(document: TalmehDocument): Omit<CompiledDocument, 'contentHash'> {
+export function compile(document: LodariqDocument): Omit<CompiledDocument, 'contentHash'> {
   const targetsById = new Map(document.targets.map((target) => [target.id, target]));
   const steps = document.blocks
     .filter((b) => b.type === 'tourStep')
@@ -72,7 +72,7 @@ export function compile(document: TalmehDocument): Omit<CompiledDocument, 'conte
  * Compile and content-address the document (PRD §11.3).
  * Server-side for real publications; browser-side for local-dev preview only.
  */
-export async function compileDocument(document: TalmehDocument): Promise<CompiledDocument> {
+export async function compileDocument(document: LodariqDocument): Promise<CompiledDocument> {
   const compiled = compile(document);
   const contentHash = `sha256-${await sha256Hex(canonicalJson(compiled))}`;
   return { ...compiled, contentHash };

@@ -2,10 +2,10 @@ import {
   BRIDGE_PROTOCOL_VERSION,
   type BridgeMessage,
   type PreviewPatchOperation,
-  type TalmehBlock,
-  type TalmehDocument,
+  type LodariqBlock,
+  type LodariqDocument,
   type TargetInspectAction,
-} from '@talmeh/schema';
+} from '@lodariq/schema';
 import type { ClipboardEvent, DragEvent, KeyboardEvent } from 'react';
 import {
   attachTargetToBlocks,
@@ -31,7 +31,7 @@ import { LOCAL_AUTHORING_SESSION_ID } from '../constants';
 import { AuthoringBridge, createBridgeCorrelationId } from '../../bridge';
 import {
   blocksFromSafePasteData,
-  createTalmehEditor,
+  createLodariqEditor,
   createTargetId,
   fromBlockJson,
   toBlockJson,
@@ -63,8 +63,8 @@ import {
 export class LocalAuthoringFrameController {
   private readonly services: LocalAuthoringFrameOptions['services'];
   private readonly sessionId: string;
-  private readonly lexicalEditor = createTalmehEditor();
-  private readonly baseDocument: TalmehDocument;
+  private readonly lexicalEditor = createLodariqEditor();
+  private readonly baseDocument: LodariqDocument;
   private readonly metricsSessionId: string;
   private readonly peerWindow: Window;
   private readonly isHostedInParent: boolean;
@@ -73,13 +73,13 @@ export class LocalAuthoringFrameController {
   private readonly canceledTargetBlockIds = new Set<string>();
   private readonly targetDiagnostics = new Map<string, TargetInspectionState>();
   private readonly advancedTargetIds = new Set<string>();
-  private readonly undoStack: TalmehDocument[] = [];
-  private readonly redoStack: TalmehDocument[] = [];
+  private readonly undoStack: LodariqDocument[] = [];
+  private readonly redoStack: LodariqDocument[] = [];
   private readonly pendingPreviewPatches: Array<{
     blockId: string;
     ops: PreviewPatchOperation[];
   }> = [];
-  private documentState: TalmehDocument;
+  private documentState: LodariqDocument;
   private snapshotValue: LocalAuthoringFrameSnapshot;
   private slashText = '';
   private slashOpen = false;
@@ -789,7 +789,7 @@ export class LocalAuthoringFrameController {
     const targetId = createTargetId();
     const label =
       message.fingerprint.accessibleName ??
-      message.fingerprint.stableAttributes['data-talmeh-id'] ??
+      message.fingerprint.stableAttributes['data-lodariq-id'] ??
       message.fingerprint.tagName;
 
     this.recordChange();
@@ -807,7 +807,7 @@ export class LocalAuthoringFrameController {
     this.setStatus(`Attached target ${label}`);
   }
 
-  private appendPastedBlocks(blocksToAdd: TalmehBlock[]): void {
+  private appendPastedBlocks(blocksToAdd: LodariqBlock[]): void {
     if (!blocksToAdd.length) return;
     this.recordChange();
     this.documentState = {
@@ -888,8 +888,8 @@ export class LocalAuthoringFrameController {
     this.jsonText = textarea.value;
   }
 
-  private importScopedDocument(json: string): TalmehDocument | null {
-    let imported: TalmehDocument;
+  private importScopedDocument(json: string): LodariqDocument | null {
+    let imported: LodariqDocument;
     try {
       imported = this.normalizeDocument(this.services.importDocument(json));
     } catch (error) {
@@ -944,17 +944,17 @@ export class LocalAuthoringFrameController {
     return this.documentState.blocks.filter((block) => block.type === 'tourStep').length;
   }
 
-  private normalizeDocument(doc: TalmehDocument): TalmehDocument {
+  private normalizeDocument(doc: LodariqDocument): LodariqDocument {
     const lexicalState = fromBlockJson(doc.blocks);
     const parsed = this.lexicalEditor.parseEditorState(JSON.stringify(lexicalState)).toJSON();
     return { ...doc, blocks: toBlockJson(parsed as SerializedEditorState) };
   }
 
-  private createBaseDocument(): TalmehDocument {
+  private createBaseDocument(): LodariqDocument {
     return this.normalizeDocument(structuredClone(this.baseDocument));
   }
 
-  private snapshot(): TalmehDocument {
+  private snapshot(): LodariqDocument {
     return structuredClone(this.documentState);
   }
 

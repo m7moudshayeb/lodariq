@@ -9,12 +9,12 @@ const dist = new URL('../dist/', import.meta.url);
 const checks = [
   {
     name: 'loader',
-    entries: ['talmeh-loader.js'],
+    entries: ['lodariq-loader.js'],
     limit: 3 * 1024,
   },
   {
     name: 'runtime+tour',
-    entries: ['talmeh-runtime.js', 'renderers/tour.js'],
+    entries: ['lodariq-runtime.js', 'renderers/tour.js'],
     limit: 40 * 1024,
   },
 ];

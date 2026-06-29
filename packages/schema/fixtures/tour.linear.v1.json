@@ -15,7 +15,7 @@
         "role": "button",
         "accessibleName": "New project",
         "label": "New project",
-        "stableAttributes": { "data-talmeh-id": "new-project" },
+        "stableAttributes": { "data-lodariq-id": "new-project" },
         "nearbyText": ["Projects"],
         "ancestorLandmarks": [{ "role": "main", "accessibleName": "Dashboard" }]
       }

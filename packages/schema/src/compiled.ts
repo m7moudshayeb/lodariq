@@ -1,5 +1,5 @@
 import { Type, type Static } from '@sinclair/typebox';
-import { TalmehBlockProps } from './block';
+import { LodariqBlockProps } from './block';
 import { ElementFingerprint, RuntimeLifecycleHints } from './target';
 
 /**
@@ -20,7 +20,7 @@ export const CompiledStep = Type.Object(
         id: Type.String(),
         type: Type.String(),
         text: Type.Optional(Type.String()),
-        props: TalmehBlockProps,
+        props: LodariqBlockProps,
       }),
     ),
     lifecycle: Type.Optional(RuntimeLifecycleHints),

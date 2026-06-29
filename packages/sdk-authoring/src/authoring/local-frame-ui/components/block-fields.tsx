@@ -1,4 +1,4 @@
-import type { TalmehBlock } from '@talmeh/schema';
+import type { LodariqBlock } from '@lodariq/schema';
 import type { LocalAuthoringFrameController } from '../controller';
 import { ArrowDown, ArrowUp, AuthoringButton, AuthoringSelect, Image } from '../design-system';
 import { blockText, blockTypeLabel, isEditableContentBlock } from '../utils';
@@ -8,7 +8,7 @@ export function BlockBody({
   block,
   controller,
 }: {
-  block: TalmehBlock;
+  block: LodariqBlock;
   controller: LocalAuthoringFrameController;
 }) {
   if (block.type === 'tourStep') {
@@ -48,7 +48,7 @@ function StepChildBlock({
   stepBlockId,
   total,
 }: {
-  block: TalmehBlock;
+  block: LodariqBlock;
   controller: LocalAuthoringFrameController;
   index: number;
   stepBlockId: string;
@@ -93,7 +93,7 @@ function ContentField({
   block,
   controller,
 }: {
-  block: TalmehBlock;
+  block: LodariqBlock;
   controller: LocalAuthoringFrameController;
 }) {
   const value = block.content ?? '';
@@ -164,7 +164,7 @@ function ButtonActionControl({
   block,
   controller,
 }: {
-  block: TalmehBlock;
+  block: LodariqBlock;
   controller: LocalAuthoringFrameController;
 }) {
   const action = block.props.action?.type ?? '';
@@ -209,7 +209,7 @@ export function TransformControl({
   block,
   controller,
 }: {
-  block: TalmehBlock;
+  block: LodariqBlock;
   controller: LocalAuthoringFrameController;
 }) {
   if (!isEditableContentBlock(block)) return null;

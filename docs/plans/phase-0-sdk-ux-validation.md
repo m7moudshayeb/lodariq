@@ -1,6 +1,6 @@
 # Phase 0 SDK UX And Integration Validation Plan
 
-Source of truth: `refined-talmeh-prd.md`.
+Source of truth: `refined-lodariq-prd.md`.
 
 ## Goal
 
@@ -16,7 +16,7 @@ production backend, dashboard, publication, and billing architecture. (PRD
 - [x] Creator target attachment is verified in route, drawer, modal,
       scroll-container, and lazy-loaded states. (PRD §16.2 acceptance)
 - [x] Target picking shows cursor state, selection veil, hover outline,
-      mechanical hover label, and blocked Talmeh UI state. (PRD §8.2, §16.2
+      mechanical hover label, and blocked Lodariq UI state. (PRD §8.2, §16.2
       acceptance)
 - [x] Target chips expose view, change, test, health, remove target, and
       advanced details actions; health/view requests resolve the saved
@@ -58,7 +58,7 @@ production backend, dashboard, publication, and billing architecture. (PRD
       document the remaining strict-CSP assumption around dynamic inline overlay
       positioning. (PRD §16.2)
 - [x] Browser e2e coverage for Chromium, Firefox, and WebKit; Edge channel is
-      opt-in with `TALMEH_E2E_EDGE=1` when installed. (PRD §16.2)
+      opt-in with `LODARIQ_E2E_EDGE=1` when installed. (PRD §16.2)
 - [x] Local installation docs for engineering evaluators. (PRD §16.2)
 - [x] No backend database, server compiler, authenticated iframe requirement,
       standalone WebSocket service, hosted demo, or production runtime. (PRD

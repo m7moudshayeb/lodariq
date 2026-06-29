@@ -1,9 +1,9 @@
 import {
   sanitizeBlockProps,
-  type TalmehBlockProps,
-  type TalmehBlockType,
+  type LodariqBlockProps,
+  type LodariqBlockType,
   type ValidationLevel,
-} from '@talmeh/schema';
+} from '@lodariq/schema';
 import {
   $applyNodeReplacement,
   ElementNode,
@@ -13,7 +13,7 @@ import {
   type SerializedElementNode,
 } from 'lexical';
 
-export const TALMEH_MVP_BLOCK_TYPES = [
+export const LODARIQ_MVP_BLOCK_TYPES = [
   'paragraph',
   'heading',
   'media',
@@ -22,32 +22,32 @@ export const TALMEH_MVP_BLOCK_TYPES = [
   'button',
   'targetChip',
   'validationBadge',
-] as const satisfies readonly TalmehBlockType[];
+] as const satisfies readonly LodariqBlockType[];
 
-export type TalmehMvpBlockType = (typeof TALMEH_MVP_BLOCK_TYPES)[number];
+export type LodariqMvpBlockType = (typeof LODARIQ_MVP_BLOCK_TYPES)[number];
 
-export interface SerializedTalmehBlockNode extends SerializedElementNode {
-  type: 'talmeh-block';
+export interface SerializedLodariqBlockNode extends SerializedElementNode {
+  type: 'lodariq-block';
   version: 1;
-  talmehBlockId: string;
-  blockType: TalmehMvpBlockType;
-  props: TalmehBlockProps;
+  lodariqBlockId: string;
+  blockType: LodariqMvpBlockType;
+  props: LodariqBlockProps;
   status?: ValidationLevel;
 }
 
-export class TalmehBlockNode extends ElementNode {
-  __talmehBlockId: string;
-  __blockType: TalmehMvpBlockType;
-  __props: TalmehBlockProps;
+export class LodariqBlockNode extends ElementNode {
+  __lodariqBlockId: string;
+  __blockType: LodariqMvpBlockType;
+  __props: LodariqBlockProps;
   __status: ValidationLevel | undefined;
 
   static override getType(): string {
-    return 'talmeh-block';
+    return 'lodariq-block';
   }
 
-  static override clone(node: TalmehBlockNode): TalmehBlockNode {
-    return new TalmehBlockNode(
-      node.__talmehBlockId,
+  static override clone(node: LodariqBlockNode): LodariqBlockNode {
+    return new LodariqBlockNode(
+      node.__lodariqBlockId,
       node.__blockType,
       node.__props,
       node.__status,
@@ -55,9 +55,9 @@ export class TalmehBlockNode extends ElementNode {
     );
   }
 
-  static override importJSON(serializedNode: SerializedTalmehBlockNode): TalmehBlockNode {
-    return new TalmehBlockNode(
-      serializedNode.talmehBlockId,
+  static override importJSON(serializedNode: SerializedLodariqBlockNode): LodariqBlockNode {
+    return new LodariqBlockNode(
+      serializedNode.lodariqBlockId,
       serializedNode.blockType,
       sanitizeBlockProps(serializedNode.props),
       serializedNode.status,
@@ -65,14 +65,14 @@ export class TalmehBlockNode extends ElementNode {
   }
 
   constructor(
-    talmehBlockId: string,
-    blockType: TalmehMvpBlockType,
+    lodariqBlockId: string,
+    blockType: LodariqMvpBlockType,
     props: Record<string, unknown> = {},
     status?: ValidationLevel,
     key?: NodeKey,
   ) {
     super(key);
-    this.__talmehBlockId = talmehBlockId;
+    this.__lodariqBlockId = lodariqBlockId;
     this.__blockType = blockType;
     this.__props = sanitizeBlockProps(props);
     this.__status = status;
@@ -80,56 +80,56 @@ export class TalmehBlockNode extends ElementNode {
 
   override createDOM(_config: EditorConfig): HTMLElement {
     const element = document.createElement(tagForBlockType(this.__blockType));
-    element.dataset['talmehBlockId'] = this.__talmehBlockId;
-    element.dataset['talmehBlockType'] = this.__blockType;
-    if (this.__status) element.dataset['talmehStatus'] = this.__status;
+    element.dataset['lodariqBlockId'] = this.__lodariqBlockId;
+    element.dataset['lodariqBlockType'] = this.__blockType;
+    if (this.__status) element.dataset['lodariqStatus'] = this.__status;
     return element;
   }
 
-  override updateDOM(prevNode: TalmehBlockNode, dom: HTMLElement): boolean {
+  override updateDOM(prevNode: LodariqBlockNode, dom: HTMLElement): boolean {
     if (prevNode.__blockType !== this.__blockType) return true;
-    dom.dataset['talmehBlockId'] = this.__talmehBlockId;
-    dom.dataset['talmehBlockType'] = this.__blockType;
-    if (this.__status) dom.dataset['talmehStatus'] = this.__status;
-    else delete dom.dataset['talmehStatus'];
+    dom.dataset['lodariqBlockId'] = this.__lodariqBlockId;
+    dom.dataset['lodariqBlockType'] = this.__blockType;
+    if (this.__status) dom.dataset['lodariqStatus'] = this.__status;
+    else delete dom.dataset['lodariqStatus'];
     return false;
   }
 
-  override exportJSON(): SerializedTalmehBlockNode {
+  override exportJSON(): SerializedLodariqBlockNode {
     return {
       ...super.exportJSON(),
-      type: 'talmeh-block',
+      type: 'lodariq-block',
       version: 1,
-      talmehBlockId: this.__talmehBlockId,
+      lodariqBlockId: this.__lodariqBlockId,
       blockType: this.__blockType,
       props: this.__props,
       ...(this.__status ? { status: this.__status } : {}),
     };
   }
 
-  getTalmehBlockId(): string {
-    return this.__talmehBlockId;
+  getLodariqBlockId(): string {
+    return this.__lodariqBlockId;
   }
 
-  getBlockType(): TalmehMvpBlockType {
+  getBlockType(): LodariqMvpBlockType {
     return this.__blockType;
   }
 }
 
-export function $createTalmehBlockNode(
-  talmehBlockId: string,
-  blockType: TalmehMvpBlockType,
+export function $createLodariqBlockNode(
+  lodariqBlockId: string,
+  blockType: LodariqMvpBlockType,
   props?: Record<string, unknown>,
   status?: ValidationLevel,
-): TalmehBlockNode {
-  return $applyNodeReplacement(new TalmehBlockNode(talmehBlockId, blockType, props, status));
+): LodariqBlockNode {
+  return $applyNodeReplacement(new LodariqBlockNode(lodariqBlockId, blockType, props, status));
 }
 
-export function $isTalmehBlockNode(node: LexicalNode | null | undefined): node is TalmehBlockNode {
-  return node instanceof TalmehBlockNode;
+export function $isLodariqBlockNode(node: LexicalNode | null | undefined): node is LodariqBlockNode {
+  return node instanceof LodariqBlockNode;
 }
 
-function tagForBlockType(blockType: TalmehMvpBlockType): keyof HTMLElementTagNameMap {
+function tagForBlockType(blockType: LodariqMvpBlockType): keyof HTMLElementTagNameMap {
   switch (blockType) {
     case 'paragraph':
       return 'p';

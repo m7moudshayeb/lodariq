@@ -1,4 +1,4 @@
-import type { TalmehBlock } from '@talmeh/schema';
+import type { LodariqBlock } from '@lodariq/schema';
 import type { LocalAuthoringFrameController } from '../controller';
 import { AuthoringButton, AuthoringTabs, Braces, Eye, FileJson, Save } from '../design-system';
 import type { LocalAuthoringFrameSnapshot } from '../types';
@@ -151,11 +151,11 @@ export function Inspector({
   );
 }
 
-function documentIssues(blocks: TalmehBlock[]): string[] {
+function documentIssues(blocks: LodariqBlock[]): string[] {
   return blocks.flatMap((block) => blockIssues(block));
 }
 
-function blockIssues(block: TalmehBlock): string[] {
+function blockIssues(block: LodariqBlock): string[] {
   const issues: string[] = [];
   if (block.type === 'tourStep' && !targetIdOf(block)) {
     issues.push(`${blockKicker(block)} needs a target.`);

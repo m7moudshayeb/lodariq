@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it } from 'vitest';
-import type { ElementFingerprint } from '@talmeh/schema';
+import type { ElementFingerprint } from '@lodariq/schema';
 import {
   accessibleNameOf,
   ancestorLandmarksOf,
@@ -10,8 +10,8 @@ import {
   nearbyTextOf,
   roleOf,
   stableAttributesOf,
-} from '@talmeh/schema/dom';
-import { resolve } from '@talmeh/sdk-runtime/resolver';
+} from '@lodariq/schema/dom';
+import { resolve } from '@lodariq/sdk-runtime/resolver';
 
 function fingerprintFrom(element: Element): ElementFingerprint {
   const role = roleOf(element);
@@ -24,7 +24,7 @@ function fingerprintFrom(element: Element): ElementFingerprint {
   };
 }
 
-describe('@talmeh/schema/dom', () => {
+describe('@lodariq/schema/dom', () => {
   beforeEach(() => {
     document.head.innerHTML = '';
     document.body.innerHTML = '';
@@ -32,12 +32,12 @@ describe('@talmeh/schema/dom', () => {
 
   it('collects only non-empty stable attributes', () => {
     const button = document.createElement('button');
-    button.dataset['talmehId'] = 'save';
+    button.dataset['lodariqId'] = 'save';
     button.id = '   ';
     button.setAttribute('data-testid', 'save-btn');
 
     expect(stableAttributesOf(button)).toEqual({
-      'data-talmeh-id': 'save',
+      'data-lodariq-id': 'save',
       'data-testid': 'save-btn',
     });
   });
@@ -129,7 +129,7 @@ describe('@talmeh/schema/dom', () => {
       <nav aria-label="Primary">
         <form aria-label="Create project">
           <main aria-label="Workspace">
-            <button data-talmeh-id="new-project">New project</button>
+            <button data-lodariq-id="new-project">New project</button>
           </main>
         </form>
       </nav>`;
@@ -158,7 +158,7 @@ describe('@talmeh/schema/dom', () => {
   it('keeps capture semantics aligned with runtime resolution for named controls', () => {
     const cases = [
       {
-        html: `<button data-talmeh-id="new-project">New project</button>`,
+        html: `<button data-lodariq-id="new-project">New project</button>`,
         selector: 'button',
       },
       {

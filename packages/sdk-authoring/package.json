@@ -1,8 +1,8 @@
 {
-  "name": "@talmeh/sdk-authoring",
+  "name": "@lodariq/sdk-authoring",
   "version": "0.0.0",
   "private": true,
-  "description": "Authenticated-creator-only Talmeh authoring SDK: authoring shell, host-page bridge, and the Lexical-based editor boundary. Loads React and Lexical; never shipped to production viewers.",
+  "description": "Authenticated-creator-only Lodariq authoring SDK: authoring shell, host-page bridge, and the Lexical-based editor boundary. Loads React and Lexical; never shipped to production viewers.",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -11,9 +11,9 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     },
-    "./talmeh-authoring": {
-      "types": "./dist/talmeh-authoring.d.ts",
-      "import": "./dist/talmeh-authoring.js"
+    "./lodariq-authoring": {
+      "types": "./dist/lodariq-authoring.d.ts",
+      "import": "./dist/lodariq-authoring.js"
     },
     "./bridge": {
       "types": "./dist/bridge/index.d.ts",
@@ -54,8 +54,8 @@
     "@radix-ui/react-popover": "^1.1.17",
     "@radix-ui/react-select": "^2.3.1",
     "@radix-ui/react-tabs": "^1.1.15",
-    "@talmeh/schema": "workspace:*",
-    "@talmeh/sdk-runtime": "workspace:*",
+    "@lodariq/schema": "workspace:*",
+    "@lodariq/sdk-runtime": "workspace:*",
     "lexical": "^0.21.0",
     "lucide-react": "^1.22.0",
     "react": "^19.0.0",

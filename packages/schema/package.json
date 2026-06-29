@@ -1,8 +1,8 @@
 {
-  "name": "@talmeh/schema",
+  "name": "@lodariq/schema",
   "version": "0.0.0",
   "private": true,
-  "description": "Canonical TypeBox/JSON Schema contracts for Talmeh documents, blocks, targets, bridge messages, catalog entries, and events. Zero runtime deps beyond TypeBox.",
+  "description": "Canonical TypeBox/JSON Schema contracts for Lodariq documents, blocks, targets, bridge messages, catalog entries, and events. Zero runtime deps beyond TypeBox.",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",

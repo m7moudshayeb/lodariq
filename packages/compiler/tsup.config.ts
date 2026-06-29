@@ -1,6 +1,6 @@
 import { defineConfig } from 'tsup';
 
-// Pure isomorphic compiler. Internal modules are bundled; @talmeh/schema stays
+// Pure isomorphic compiler. Internal modules are bundled; @lodariq/schema stays
 // external (and is type-only here). Output is self-contained Node-runnable ESM.
 export default defineConfig({
   entry: { index: 'src/index.ts' },

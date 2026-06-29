@@ -44,7 +44,7 @@ button {
   padding: 8px 12px;
 }
 
-[data-talmeh-id='new-project'] {
+[data-lodariq-id='new-project'] {
   border-color: #0f766e;
   background: #0f766e;
   color: #fff;

@@ -1,10 +1,10 @@
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { compile } from '@talmeh/compiler';
-import type { CompiledDocument, TalmehDocument } from '@talmeh/schema';
-import tourFixture from '@talmeh/schema/fixtures/tour.linear.v1.json';
-import { exportDocument, importDocument } from '@talmeh/sdk-runtime/local-dev';
-import { TourPlayer } from '@talmeh/sdk-runtime/renderers/tour';
+import { compile } from '@lodariq/compiler';
+import type { CompiledDocument, LodariqDocument } from '@lodariq/schema';
+import tourFixture from '@lodariq/schema/fixtures/tour.linear.v1.json';
+import { exportDocument, importDocument } from '@lodariq/sdk-runtime/local-dev';
+import { TourPlayer } from '@lodariq/sdk-runtime/renderers/tour';
 
 const compiledDoc: CompiledDocument = {
   documentId: 'doc_tour_welcome',
@@ -19,7 +19,7 @@ const compiledDoc: CompiledDocument = {
         tagName: 'button',
         role: 'button',
         accessibleName: 'New project',
-        stableAttributes: { 'data-talmeh-id': 'new-project' },
+        stableAttributes: { 'data-lodariq-id': 'new-project' },
       },
     },
   ],
@@ -50,7 +50,7 @@ describe('tour renderer (PRD §16.1)', () => {
   beforeEach(() => {
     document.head.innerHTML = '';
     document.body.innerHTML = `
-      <button data-talmeh-id="new-project" aria-label="New project">New project</button>
+      <button data-lodariq-id="new-project" aria-label="New project">New project</button>
     `;
   });
 
@@ -58,7 +58,7 @@ describe('tour renderer (PRD §16.1)', () => {
     new TourPlayer(compiledDoc).start();
     new TourPlayer(compiledDoc).start();
 
-    expect(document.querySelectorAll('talmeh-tour')).toHaveLength(1);
+    expect(document.querySelectorAll('lodariq-tour')).toHaveLength(1);
   });
 
   it('renders a styled dialog and completes the tour from the button', () => {
@@ -72,21 +72,21 @@ describe('tour renderer (PRD §16.1)', () => {
 
     player.start();
 
-    const host = document.querySelector('talmeh-tour');
+    const host = document.querySelector('lodariq-tour');
     const dialog = host?.shadowRoot?.querySelector('[role="dialog"]');
     const button = host?.shadowRoot?.querySelector('button');
 
     const styles = host?.shadowRoot?.querySelector('style');
     expect(styles?.textContent).toContain('position: fixed');
     expect(styles?.nonce).toBe('nonce_runtime');
-    expect(dialog?.getAttribute('aria-label')).toBe('Talmeh tour');
+    expect(dialog?.getAttribute('aria-label')).toBe('Lodariq tour');
     expect(dialog?.textContent).toContain('Create your first project');
     expect(host?.shadowRoot?.activeElement).toBe(button);
 
     button?.click();
 
     expect(completed).toBe(true);
-    expect(document.querySelector('talmeh-tour')).toBeNull();
+    expect(document.querySelector('lodariq-tour')).toBeNull();
   });
 
   it('can start preview playback at a requested step', () => {
@@ -117,19 +117,19 @@ describe('tour renderer (PRD §16.1)', () => {
 
     new TourPlayer(previewDoc, { initialStepId: 'step_2' }).start();
 
-    expect(document.querySelector('talmeh-tour')?.shadowRoot?.textContent).toContain(
+    expect(document.querySelector('lodariq-tour')?.shadowRoot?.textContent).toContain(
       'Invite teammates',
     );
-    expect(document.querySelector('talmeh-tour')?.shadowRoot?.textContent).not.toContain(
+    expect(document.querySelector('lodariq-tour')?.shadowRoot?.textContent).not.toContain(
       'Create your first project',
     );
   });
 
   it('replays an exported, re-imported, and recompiled tour fixture', () => {
     document.body.innerHTML = `
-      <button data-talmeh-id="new-project" aria-label="New project">New project</button>
+      <button data-lodariq-id="new-project" aria-label="New project">New project</button>
     `;
-    const fixture = tourFixture as TalmehDocument;
+    const fixture = tourFixture as LodariqDocument;
     const imported = importDocument(exportDocument(fixture));
     const compiled: CompiledDocument = {
       ...compile(imported),
@@ -139,7 +139,7 @@ describe('tour renderer (PRD §16.1)', () => {
     new TourPlayer(compiled).start();
 
     expect(compiled.steps.map((step) => step.id)).toEqual(fixture.blocks.map((block) => block.id));
-    expect(document.querySelector('talmeh-tour')?.shadowRoot?.textContent).toContain(
+    expect(document.querySelector('lodariq-tour')?.shadowRoot?.textContent).toContain(
       'Create your first project',
     );
   });
@@ -162,14 +162,14 @@ describe('tour renderer (PRD §16.1)', () => {
 
     player.start();
 
-    const button = document.querySelector('talmeh-tour')?.shadowRoot?.querySelector('button');
+    const button = document.querySelector('lodariq-tour')?.shadowRoot?.querySelector('button');
     button?.click();
 
     expect(button?.disabled).toBe(true);
-    expect(document.querySelector('talmeh-tour')?.shadowRoot?.textContent).toContain(
+    expect(document.querySelector('lodariq-tour')?.shadowRoot?.textContent).toContain(
       'Choose later',
     );
-    expect(document.querySelector('talmeh-tour')?.shadowRoot?.textContent).not.toContain(
+    expect(document.querySelector('lodariq-tour')?.shadowRoot?.textContent).not.toContain(
       'Second step',
     );
   });
@@ -198,11 +198,11 @@ describe('tour renderer (PRD §16.1)', () => {
     );
 
     player.start();
-    document.querySelector('talmeh-tour')?.shadowRoot?.querySelector('button')?.click();
+    document.querySelector('lodariq-tour')?.shadowRoot?.querySelector('button')?.click();
 
     expect(dismissed).toHaveBeenCalledOnce();
     expect(completed).not.toHaveBeenCalled();
-    expect(document.querySelector('talmeh-tour')).toBeNull();
+    expect(document.querySelector('lodariq-tour')).toBeNull();
   });
 
   it('advances after the user clicks the resolved product target', async () => {
@@ -210,12 +210,12 @@ describe('tour renderer (PRD §16.1)', () => {
     const productClick = vi.fn(() => {
       sequence.push('product-click');
       const modal = document.createElement('section');
-      modal.dataset['talmehId'] = 'import-modal';
+      modal.dataset['lodariqId'] = 'import-modal';
       modal.textContent = 'Import modal';
       document.body.appendChild(modal);
     });
     document
-      .querySelector<HTMLButtonElement>('[data-talmeh-id="new-project"]')
+      .querySelector<HTMLButtonElement>('[data-lodariq-id="new-project"]')
       ?.addEventListener('click', productClick);
 
     const doc: CompiledDocument = {
@@ -252,7 +252,7 @@ describe('tour renderer (PRD §16.1)', () => {
           lifecycle: {
             waitForElement: {
               tagName: 'section',
-              stableAttributes: { 'data-talmeh-id': 'import-modal' },
+              stableAttributes: { 'data-lodariq-id': 'import-modal' },
             },
             timeoutMs: 80,
           },
@@ -264,7 +264,7 @@ describe('tour renderer (PRD §16.1)', () => {
           id: 'target_import_modal',
           fingerprint: {
             tagName: 'section',
-            stableAttributes: { 'data-talmeh-id': 'import-modal' },
+            stableAttributes: { 'data-lodariq-id': 'import-modal' },
           },
         },
       ],
@@ -279,13 +279,13 @@ describe('tour renderer (PRD §16.1)', () => {
     player.start();
     await new Promise((resolve) => setTimeout(resolve, 0));
 
-    document.querySelector<HTMLButtonElement>('[data-talmeh-id="new-project"]')?.click();
+    document.querySelector<HTMLButtonElement>('[data-lodariq-id="new-project"]')?.click();
     await new Promise((resolve) => setTimeout(resolve, 70));
 
     expect(sequence).toEqual(['persist:1:step_2', 'product-click']);
     expect(productClick).toHaveBeenCalledOnce();
-    expect(document.querySelector('[data-talmeh-id="import-modal"]')).toBeTruthy();
-    expect(document.querySelector('talmeh-tour')?.shadowRoot?.textContent).toContain(
+    expect(document.querySelector('[data-lodariq-id="import-modal"]')).toBeTruthy();
+    expect(document.querySelector('lodariq-tour')?.shadowRoot?.textContent).toContain(
       'Modal opened',
     );
   });
@@ -317,17 +317,17 @@ describe('tour renderer (PRD §16.1)', () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
     player.stop();
 
-    document.querySelector<HTMLButtonElement>('[data-talmeh-id="new-project"]')?.click();
+    document.querySelector<HTMLButtonElement>('[data-lodariq-id="new-project"]')?.click();
     await new Promise((resolve) => setTimeout(resolve, 0));
 
-    expect(document.querySelector('talmeh-tour')).toBeNull();
+    expect(document.querySelector('lodariq-tour')).toBeNull();
   });
 
   it('waits for lifecycle text before resolving an async target', async () => {
     document.body.innerHTML = '<main></main>';
     const scrollIntoView = vi.fn();
     const button = document.createElement('button');
-    button.dataset['talmehId'] = 'new-project';
+    button.dataset['lodariqId'] = 'new-project';
     button.setAttribute('aria-label', 'New project');
     button.textContent = 'New project';
     button.scrollIntoView = scrollIntoView;
@@ -345,11 +345,11 @@ describe('tour renderer (PRD §16.1)', () => {
 
   it('opens a configured lifecycle panel before resolving the step target', async () => {
     document.body.innerHTML = `
-      <button data-talmeh-id="open-settings" aria-label="Open settings">Settings</button>
-      <button data-talmeh-id="close-settings" aria-label="Close settings" hidden>Close</button>
+      <button data-lodariq-id="open-settings" aria-label="Open settings">Settings</button>
+      <button data-lodariq-id="close-settings" aria-label="Close settings" hidden>Close</button>
     `;
-    const opener = document.querySelector<HTMLButtonElement>('[data-talmeh-id="open-settings"]')!;
-    const target = document.querySelector<HTMLButtonElement>('[data-talmeh-id="close-settings"]')!;
+    const opener = document.querySelector<HTMLButtonElement>('[data-lodariq-id="open-settings"]')!;
+    const target = document.querySelector<HTMLButtonElement>('[data-lodariq-id="close-settings"]')!;
     const openPanel = vi.fn(() => {
       target.hidden = false;
     });
@@ -365,7 +365,7 @@ describe('tour renderer (PRD §16.1)', () => {
             tagName: 'button',
             role: 'button',
             accessibleName: 'Close settings',
-            stableAttributes: { 'data-talmeh-id': 'close-settings' },
+            stableAttributes: { 'data-lodariq-id': 'close-settings' },
           },
         },
       ],
@@ -379,7 +379,7 @@ describe('tour renderer (PRD §16.1)', () => {
               tagName: 'button',
               role: 'button',
               accessibleName: 'Open settings',
-              stableAttributes: { 'data-talmeh-id': 'open-settings' },
+              stableAttributes: { 'data-lodariq-id': 'open-settings' },
             },
             timeoutMs: 80,
           },
@@ -392,20 +392,20 @@ describe('tour renderer (PRD §16.1)', () => {
     expect(openPanel).toHaveBeenCalledOnce();
     expect(target.hidden).toBe(false);
     expect(target.scrollIntoView).toHaveBeenCalled();
-    expect(document.querySelector('talmeh-tour')?.shadowRoot?.textContent).toContain(
+    expect(document.querySelector('lodariq-tour')?.shadowRoot?.textContent).toContain(
       'Close settings',
     );
   });
 
   it('selects a configured lifecycle tab before resolving the step target', async () => {
     document.body.innerHTML = `
-      <button role="tab" data-talmeh-id="billing-tab" aria-label="Billing" aria-selected="false">
+      <button role="tab" data-lodariq-id="billing-tab" aria-label="Billing" aria-selected="false">
         Billing
       </button>
-      <button data-talmeh-id="update-plan" aria-label="Update plan" hidden>Update</button>
+      <button data-lodariq-id="update-plan" aria-label="Update plan" hidden>Update</button>
     `;
-    const tab = document.querySelector<HTMLButtonElement>('[data-talmeh-id="billing-tab"]')!;
-    const target = document.querySelector<HTMLButtonElement>('[data-talmeh-id="update-plan"]')!;
+    const tab = document.querySelector<HTMLButtonElement>('[data-lodariq-id="billing-tab"]')!;
+    const target = document.querySelector<HTMLButtonElement>('[data-lodariq-id="update-plan"]')!;
     const selectTab = vi.fn(() => {
       tab.setAttribute('aria-selected', 'true');
       target.hidden = false;
@@ -422,7 +422,7 @@ describe('tour renderer (PRD §16.1)', () => {
             tagName: 'button',
             role: 'button',
             accessibleName: 'Update plan',
-            stableAttributes: { 'data-talmeh-id': 'update-plan' },
+            stableAttributes: { 'data-lodariq-id': 'update-plan' },
           },
         },
       ],
@@ -436,7 +436,7 @@ describe('tour renderer (PRD §16.1)', () => {
               tagName: 'button',
               role: 'tab',
               accessibleName: 'Billing',
-              stableAttributes: { 'data-talmeh-id': 'billing-tab' },
+              stableAttributes: { 'data-lodariq-id': 'billing-tab' },
             },
             timeoutMs: 80,
           },
@@ -450,13 +450,13 @@ describe('tour renderer (PRD §16.1)', () => {
     expect(tab.getAttribute('aria-selected')).toBe('true');
     expect(target.hidden).toBe(false);
     expect(target.scrollIntoView).toHaveBeenCalled();
-    expect(document.querySelector('talmeh-tour')?.shadowRoot?.textContent).toContain('Update plan');
+    expect(document.querySelector('lodariq-tour')?.shadowRoot?.textContent).toContain('Update plan');
   });
 
   it('waits for fetch network idle before resolving an available target', async () => {
     document.body.innerHTML = `
-      <button data-talmeh-id="load-data" aria-label="Load data">Load</button>
-      <button data-talmeh-id="loaded-target" aria-label="Loaded target">Loaded</button>
+      <button data-lodariq-id="load-data" aria-label="Load data">Load</button>
+      <button data-lodariq-id="loaded-target" aria-label="Loaded target">Loaded</button>
     `;
     const originalFetch = window.fetch;
     let responseText = '';
@@ -471,8 +471,8 @@ describe('tour renderer (PRD §16.1)', () => {
       configurable: true,
       writable: true,
     });
-    const opener = document.querySelector<HTMLButtonElement>('[data-talmeh-id="load-data"]')!;
-    const target = document.querySelector<HTMLButtonElement>('[data-talmeh-id="loaded-target"]')!;
+    const opener = document.querySelector<HTMLButtonElement>('[data-lodariq-id="load-data"]')!;
+    const target = document.querySelector<HTMLButtonElement>('[data-lodariq-id="loaded-target"]')!;
     opener.addEventListener('click', () => {
       void fetch('/api/items', { headers: { accept: 'text/plain' } }).then(async (response) => {
         responseText = await response.text();
@@ -490,7 +490,7 @@ describe('tour renderer (PRD §16.1)', () => {
               tagName: 'button',
               role: 'button',
               accessibleName: 'Loaded target',
-              stableAttributes: { 'data-talmeh-id': 'loaded-target' },
+              stableAttributes: { 'data-lodariq-id': 'loaded-target' },
             },
           },
         ],
@@ -504,7 +504,7 @@ describe('tour renderer (PRD §16.1)', () => {
                 tagName: 'button',
                 role: 'button',
                 accessibleName: 'Load data',
-                stableAttributes: { 'data-talmeh-id': 'load-data' },
+                stableAttributes: { 'data-lodariq-id': 'load-data' },
               },
               waitForNetworkIdle: true,
               timeoutMs: 220,
@@ -532,16 +532,16 @@ describe('tour renderer (PRD §16.1)', () => {
 
   it('waits for XHR network idle before resolving an available target', async () => {
     document.body.innerHTML = `
-      <button data-talmeh-id="load-xhr" aria-label="Load XHR">Load</button>
-      <button data-talmeh-id="xhr-target" aria-label="XHR target">Loaded</button>
+      <button data-lodariq-id="load-xhr" aria-label="Load XHR">Load</button>
+      <button data-lodariq-id="xhr-target" aria-label="XHR target">Loaded</button>
     `;
     const send = vi.spyOn(XMLHttpRequest.prototype, 'send').mockImplementation(function mockSend(
       this: XMLHttpRequest,
     ): void {
       setTimeout(() => this.dispatchEvent(new Event('loadend')), 40);
     });
-    const opener = document.querySelector<HTMLButtonElement>('[data-talmeh-id="load-xhr"]')!;
-    const target = document.querySelector<HTMLButtonElement>('[data-talmeh-id="xhr-target"]')!;
+    const opener = document.querySelector<HTMLButtonElement>('[data-lodariq-id="load-xhr"]')!;
+    const target = document.querySelector<HTMLButtonElement>('[data-lodariq-id="xhr-target"]')!;
     opener.addEventListener('click', () => {
       const request = new XMLHttpRequest();
       request.open('GET', '/api/items');
@@ -559,7 +559,7 @@ describe('tour renderer (PRD §16.1)', () => {
               tagName: 'button',
               role: 'button',
               accessibleName: 'XHR target',
-              stableAttributes: { 'data-talmeh-id': 'xhr-target' },
+              stableAttributes: { 'data-lodariq-id': 'xhr-target' },
             },
           },
         ],
@@ -573,7 +573,7 @@ describe('tour renderer (PRD §16.1)', () => {
                 tagName: 'button',
                 role: 'button',
                 accessibleName: 'Load XHR',
-                stableAttributes: { 'data-talmeh-id': 'load-xhr' },
+                stableAttributes: { 'data-lodariq-id': 'load-xhr' },
               },
               waitForNetworkIdle: true,
               timeoutMs: 220,
@@ -595,12 +595,12 @@ describe('tour renderer (PRD §16.1)', () => {
 
   it('scrolls the declared lifecycle container before positioning a target', async () => {
     document.body.innerHTML = `
-      <main data-talmeh-id="scroll-pane" style="overflow: auto">
-        <button data-talmeh-id="new-project" aria-label="New project">New project</button>
+      <main data-lodariq-id="scroll-pane" style="overflow: auto">
+        <button data-lodariq-id="new-project" aria-label="New project">New project</button>
       </main>
     `;
-    const container = document.querySelector<HTMLElement>('[data-talmeh-id="scroll-pane"]')!;
-    const button = document.querySelector<HTMLButtonElement>('[data-talmeh-id="new-project"]')!;
+    const container = document.querySelector<HTMLElement>('[data-lodariq-id="scroll-pane"]')!;
+    const button = document.querySelector<HTMLButtonElement>('[data-lodariq-id="new-project"]')!;
     container.scrollIntoView = vi.fn();
     button.scrollIntoView = vi.fn();
 
@@ -612,7 +612,7 @@ describe('tour renderer (PRD §16.1)', () => {
           id: 'target_scroll_pane',
           fingerprint: {
             tagName: 'main',
-            stableAttributes: { 'data-talmeh-id': 'scroll-pane' },
+            stableAttributes: { 'data-lodariq-id': 'scroll-pane' },
           },
         },
       ],
@@ -622,7 +622,7 @@ describe('tour renderer (PRD §16.1)', () => {
           lifecycle: {
             scrollContainer: {
               tagName: 'main',
-              stableAttributes: { 'data-talmeh-id': 'scroll-pane' },
+              stableAttributes: { 'data-lodariq-id': 'scroll-pane' },
             },
             scrollStrategy: 'center',
           },
@@ -642,9 +642,9 @@ describe('tour renderer (PRD §16.1)', () => {
       ['bottom', 'end'],
     ] as const) {
       document.body.innerHTML = `
-        <button data-talmeh-id="new-project" aria-label="New project">New project</button>
+        <button data-lodariq-id="new-project" aria-label="New project">New project</button>
       `;
-      const button = document.querySelector<HTMLButtonElement>('[data-talmeh-id="new-project"]')!;
+      const button = document.querySelector<HTMLButtonElement>('[data-lodariq-id="new-project"]')!;
       button.scrollIntoView = vi.fn();
 
       new TourPlayer({
@@ -659,15 +659,15 @@ describe('tour renderer (PRD §16.1)', () => {
   });
 
   it('nudges virtualized scroll containers while waiting for lazy targets', async () => {
-    document.body.innerHTML = '<main data-talmeh-id="virtual-list" style="overflow: auto"></main>';
-    const container = document.querySelector<HTMLElement>('[data-talmeh-id="virtual-list"]')!;
+    document.body.innerHTML = '<main data-lodariq-id="virtual-list" style="overflow: auto"></main>';
+    const container = document.querySelector<HTMLElement>('[data-lodariq-id="virtual-list"]')!;
     const scrollIntoView = vi.fn();
     container.addEventListener(
       'scroll',
       () => {
-        if (container.querySelector('[data-talmeh-id="new-project"]')) return;
+        if (container.querySelector('[data-lodariq-id="new-project"]')) return;
         const button = document.createElement('button');
-        button.dataset['talmehId'] = 'new-project';
+        button.dataset['lodariqId'] = 'new-project';
         button.setAttribute('aria-label', 'New project');
         button.textContent = 'New project';
         button.scrollIntoView = scrollIntoView;
@@ -684,7 +684,7 @@ describe('tour renderer (PRD §16.1)', () => {
           id: 'target_virtual_list',
           fingerprint: {
             tagName: 'main',
-            stableAttributes: { 'data-talmeh-id': 'virtual-list' },
+            stableAttributes: { 'data-lodariq-id': 'virtual-list' },
           },
         },
       ],
@@ -694,7 +694,7 @@ describe('tour renderer (PRD §16.1)', () => {
           lifecycle: {
             scrollContainer: {
               tagName: 'main',
-              stableAttributes: { 'data-talmeh-id': 'virtual-list' },
+              stableAttributes: { 'data-lodariq-id': 'virtual-list' },
             },
             scrollStrategy: 'virtualized-search',
             timeoutMs: 80,

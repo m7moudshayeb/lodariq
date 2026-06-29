@@ -2,7 +2,7 @@ import * as RadixSelect from '@radix-ui/react-select';
 import type { ReactNode } from 'react';
 import { Check, ChevronDown } from './icons';
 
-const EMPTY_SELECT_VALUE = '__talmeh_empty__';
+const EMPTY_SELECT_VALUE = '__lodariq_empty__';
 
 export interface AuthoringSelectOption {
   label: string;

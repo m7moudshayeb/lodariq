@@ -4,12 +4,12 @@ import type {
   ElementFingerprint,
   PreviewPatchOperation,
   ResolverDiagnostic,
-  TalmehBlock,
-  TalmehDocument,
+  LodariqBlock,
+  LodariqDocument,
   TargetInspectAction,
-} from '@talmeh/schema';
-import { createNonceStyleElement } from '@talmeh/schema/dom';
-import { resolve } from '@talmeh/sdk-runtime/resolver';
+} from '@lodariq/schema';
+import { createNonceStyleElement } from '@lodariq/schema/dom';
+import { resolve } from '@lodariq/sdk-runtime/resolver';
 import {
   AuthoringBridge,
   BRIDGE_PROTOCOL_VERSION,
@@ -40,7 +40,7 @@ export * from './local-frame';
  *
  * Loaded ONLY for authenticated creators entering authoring mode. Owns the
  * floating toolbar, element picker handoff, and the sandboxed iframe editor
- * served from a dedicated Talmeh origin (editor.talmeh.io, PRD §12.5).
+ * served from a dedicated Lodariq origin (editor.lodariq.com, PRD §12.5).
  *
  * Ownership split (PRD §9.5):
  * - iframe: Lexical editor state, drafts, auth, selection, validation/review UI.
@@ -67,8 +67,8 @@ export interface LocalAuthoringPreviewOptions {
 }
 
 export interface LocalAuthoringPreviewServices {
-  loadDocument: (documentId: string) => TalmehDocument | null;
-  compilePreview: (doc: TalmehDocument) => Promise<CompiledDocument>;
+  loadDocument: (documentId: string) => LodariqDocument | null;
+  compilePreview: (doc: LodariqDocument) => Promise<CompiledDocument>;
   playPreview: (doc: CompiledDocument, options?: LocalAuthoringPreviewOptions) => Promise<void>;
   stopPreview?: () => void;
   onPreviewError?: (error: unknown) => void;
@@ -81,8 +81,8 @@ export interface LocalAuthoringPanel {
 }
 
 let activePanel: LocalAuthoringPanel | null = null;
-const AUTHORING_PANEL_OPEN_ATTRIBUTE = 'data-talmeh-authoring-panel-open';
-const LOCAL_AUTHORING_TRIGGER_SELECTOR = '[data-talmeh-authoring-trigger="true"]';
+const AUTHORING_PANEL_OPEN_ATTRIBUTE = 'data-lodariq-authoring-panel-open';
+const LOCAL_AUTHORING_TRIGGER_SELECTOR = '[data-lodariq-authoring-trigger="true"]';
 const DEFAULT_AUTHORING_PANEL_WIDTH = 550;
 const MIN_AUTHORING_PANEL_WIDTH = 320;
 
@@ -95,7 +95,7 @@ export function openLocalAuthoringPanel(
     return activePanel;
   }
 
-  const host = document.createElement('talmeh-authoring-panel');
+  const host = document.createElement('lodariq-authoring-panel');
   const shadow = host.attachShadow({ mode: 'open' });
   const iframeOrigin = new URL(options.iframeSrc, window.location.href).origin;
   const preview = options.preview;
@@ -115,15 +115,15 @@ export function openLocalAuthoringPanel(
   const panelElement = document.createElement('section');
   panelElement.className = 'panel';
   panelElement.setAttribute('role', 'dialog');
-  panelElement.setAttribute('aria-label', 'Talmeh authoring');
+  panelElement.setAttribute('aria-label', 'Lodariq authoring');
   panelElement.innerHTML = `
     <div class="panel-surface">
       <header>
         <span class="panel-title">
           <span class="panel-mark" aria-hidden="true">T</span>
-          <strong>Talmeh</strong>
+          <strong>Lodariq</strong>
         </span>
-        <button type="button" aria-label="Close Talmeh authoring">
+        <button type="button" aria-label="Close Lodariq authoring">
           <span aria-hidden="true">Close</span>
         </button>
       </header>
@@ -134,7 +134,7 @@ export function openLocalAuthoringPanel(
 
   const iframe = document.createElement('iframe');
   iframe.slot = 'authoring-frame';
-  iframe.title = 'Talmeh authoring';
+  iframe.title = 'Lodariq authoring';
   iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin');
   iframe.setAttribute('src', options.iframeSrc);
   host.appendChild(iframe);
@@ -451,7 +451,7 @@ function attachPanelDrag(host: HTMLElement, panelHeader: HTMLElement | null): vo
       moved: false,
     };
     dragShield = createAuthoringDragShield(host.ownerDocument);
-    panelHeader.dataset['talmehAuthoringDragging'] = 'true';
+    panelHeader.dataset['lodariqAuthoringDragging'] = 'true';
 
     if (pointerId === 'mouse') {
       ownerWindow.addEventListener('mousemove', move, true);
@@ -482,7 +482,7 @@ function attachPanelDrag(host: HTMLElement, panelHeader: HTMLElement | null): vo
     }
     dragShield?.remove();
     dragShield = null;
-    delete panelHeader.dataset['talmehAuthoringDragging'];
+    delete panelHeader.dataset['lodariqAuthoringDragging'];
     drag = null;
   };
 
@@ -492,7 +492,7 @@ function attachPanelDrag(host: HTMLElement, panelHeader: HTMLElement | null): vo
 
 function createAuthoringDragShield(doc: Document): HTMLElement {
   const shield = doc.createElement('div');
-  shield.dataset['talmehAuthoringDragShield'] = 'true';
+  shield.dataset['lodariqAuthoringDragShield'] = 'true';
   shield.setAttribute('aria-hidden', 'true');
   Object.assign(shield.style, {
     position: 'fixed',
@@ -551,7 +551,7 @@ function movePanelWithAuthoringTrigger(host: HTMLElement, left: number, top: num
 }
 
 function setPanelArrow(host: HTMLElement, x: number, panelWidth: number): void {
-  host.style.setProperty('--talmeh-panel-arrow-x', `${clamp(x, 28, panelWidth - 28)}px`);
+  host.style.setProperty('--lodariq-panel-arrow-x', `${clamp(x, 28, panelWidth - 28)}px`);
 }
 
 function visibleViewportBounds(ownerWindow: Window): {
@@ -750,7 +750,7 @@ function revealTarget(element: Element): void {
   const doc = element.ownerDocument;
   const rect = element.getBoundingClientRect();
   const marker = doc.createElement('div');
-  marker.dataset['talmehBridge'] = 'target-reveal';
+  marker.dataset['lodariqBridge'] = 'target-reveal';
   marker.setAttribute('aria-hidden', 'true');
   Object.assign(marker.style, {
     position: 'fixed',
@@ -770,14 +770,14 @@ function revealTarget(element: Element): void {
 
 function clearTargetReveal(): void {
   document
-    .querySelectorAll('[data-talmeh-bridge="target-reveal"]')
+    .querySelectorAll('[data-lodariq-bridge="target-reveal"]')
     .forEach((marker) => marker.remove());
 }
 
 function humanResolutionMethod(method: string): string {
   switch (method) {
-    case 'talmeh_id':
-      return 'Talmeh ID';
+    case 'lodariq_id':
+      return 'Lodariq ID';
     case 'stable_attribute':
       return 'stable attribute';
     case 'role_and_name':
@@ -796,10 +796,10 @@ function humanResolutionMethod(method: string): string {
 }
 
 function applyPreviewPatch(
-  document: TalmehDocument,
+  document: LodariqDocument,
   blockId: string,
   ops: PreviewPatchOperation[],
-): TalmehDocument {
+): LodariqDocument {
   let next = structuredClone(document);
   for (const op of ops) {
     if (op.op === 'insertBlock') {
@@ -831,7 +831,7 @@ function applyPreviewPatch(
     if (op.op === 'attachTarget') {
       const label =
         op.fingerprint.accessibleName ??
-        op.fingerprint.stableAttributes['data-talmeh-id'] ??
+        op.fingerprint.stableAttributes['data-lodariq-id'] ??
         op.fingerprint.tagName;
       next = {
         ...next,
@@ -860,7 +860,7 @@ function applyPreviewPatch(
 }
 
 function findContainingTourStepId(
-  blocks: TalmehBlock[],
+  blocks: LodariqBlock[],
   blockId: string,
   currentStepId?: string,
 ): string | undefined {
@@ -899,7 +899,7 @@ function createPanelStyles(): HTMLStyleElement {
     .panel::before {
       position: absolute;
       top: -7px;
-      left: var(--talmeh-panel-arrow-x, calc(100% - 42px));
+      left: var(--lodariq-panel-arrow-x, calc(100% - 42px));
       width: 14px;
       height: 14px;
       border-top: 1px solid rgba(203, 213, 225, 0.78);
@@ -939,7 +939,7 @@ function createPanelStyles(): HTMLStyleElement {
       user-select: none;
     }
 
-    header[data-talmeh-authoring-dragging="true"] {
+    header[data-lodariq-authoring-dragging="true"] {
       cursor: grabbing;
     }
 

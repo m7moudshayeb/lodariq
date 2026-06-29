@@ -3,7 +3,7 @@
  *
  * Intentionally includes the host-page conditions the resolver/runtime must
  * survive: client-side routes, a scroll container, a drawer, repeated labels,
- * and lazy-loaded content. Stable elements carry `data-talmeh-id` so the
+ * and lazy-loaded content. Stable elements carry `data-lodariq-id` so the
  * semantic resolver has a high-confidence signal.
  */
 export function renderApp(root: HTMLElement): void {
@@ -19,12 +19,12 @@ export function renderApp(root: HTMLElement): void {
       </aside>
       <main class="main">
         <div class="toolbar">
-          <button class="primary" data-talmeh-id="new-project" aria-label="New project">
+          <button class="primary" data-lodariq-id="new-project" aria-label="New project">
             New project
           </button>
-          <button data-talmeh-id="open-drawer" aria-label="Open settings">Settings</button>
-          <button data-talmeh-id="open-modal" aria-label="Open import modal">Import</button>
-          <button data-talmeh-id="start-tour" aria-label="Start tour">Start tour</button>
+          <button data-lodariq-id="open-drawer" aria-label="Open settings">Settings</button>
+          <button data-lodariq-id="open-modal" aria-label="Open import modal">Import</button>
+          <button data-lodariq-id="start-tour" aria-label="Start tour">Start tour</button>
         </div>
         <section data-view="dashboard"><h1>Dashboard</h1><p>Welcome back.</p></section>
         <section data-view="projects" hidden>
@@ -35,14 +35,14 @@ export function renderApp(root: HTMLElement): void {
       </main>
       <div class="drawer" id="settings-drawer">
         <h2>Settings</h2>
-        <button data-talmeh-id="close-drawer">Close</button>
+        <button data-lodariq-id="close-drawer">Close</button>
       </div>
       <div class="modal-backdrop" id="import-modal" hidden>
         <section class="modal" role="dialog" aria-label="Import projects">
           <h2>Import projects</h2>
           <p>Upload a CSV to create projects in bulk.</p>
-          <button data-talmeh-id="confirm-import" aria-label="Review import">Review</button>
-          <button data-talmeh-id="close-modal" aria-label="Close import modal">Close</button>
+          <button data-lodariq-id="confirm-import" aria-label="Review import">Review</button>
+          <button data-lodariq-id="close-modal" aria-label="Close import modal">Close</button>
         </section>
       </div>
     </div>
@@ -70,20 +70,20 @@ function wireRouting(root: HTMLElement): void {
 
 function wireDrawer(root: HTMLElement): void {
   const drawer = root.querySelector<HTMLElement>('#settings-drawer');
-  root.querySelector('[data-talmeh-id="open-drawer"]')?.addEventListener('click', () => {
+  root.querySelector('[data-lodariq-id="open-drawer"]')?.addEventListener('click', () => {
     drawer?.classList.add('open');
   });
-  root.querySelector('[data-talmeh-id="close-drawer"]')?.addEventListener('click', () => {
+  root.querySelector('[data-lodariq-id="close-drawer"]')?.addEventListener('click', () => {
     drawer?.classList.remove('open');
   });
 }
 
 function wireModal(root: HTMLElement): void {
   const modal = root.querySelector<HTMLElement>('#import-modal');
-  root.querySelector('[data-talmeh-id="open-modal"]')?.addEventListener('click', () => {
+  root.querySelector('[data-lodariq-id="open-modal"]')?.addEventListener('click', () => {
     if (modal) modal.hidden = false;
   });
-  root.querySelector('[data-talmeh-id="close-modal"]')?.addEventListener('click', () => {
+  root.querySelector('[data-lodariq-id="close-modal"]')?.addEventListener('click', () => {
     if (modal) modal.hidden = true;
   });
 }

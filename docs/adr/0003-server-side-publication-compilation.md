@@ -12,7 +12,7 @@ be trusted as the publication of record.
 
 Real publications are compiled server-side and stored as immutable,
 content-addressed (`sha256-…`) objects, with a tiny manifest pointer for
-rollback. Browser compilation (`@talmeh/compiler` via `sdk-runtime/local-dev`)
+rollback. Browser compilation (`@lodariq/compiler` via `sdk-runtime/local-dev`)
 is preview-only.
 
 ## Consequences

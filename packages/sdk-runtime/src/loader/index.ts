@@ -1,5 +1,5 @@
-import type { CompiledDocument, ManifestPointer } from '@talmeh/schema';
-import type { IdentifyTraits, RuntimeConfig, TalmehRuntime } from '../runtime';
+import type { CompiledDocument, ManifestPointer } from '@lodariq/schema';
+import type { IdentifyTraits, RuntimeConfig, LodariqRuntime } from '../runtime';
 
 /**
  * Tiny install-script bootstrap (PRD §6.2, §9.2).
@@ -14,7 +14,7 @@ export interface LoaderConfig {
   manifestUrl: string;
 }
 
-export interface TalmehBrowserApi {
+export interface LodariqBrowserApi {
   manifest: ManifestPointer;
   identify: (traits: IdentifyTraits) => void;
   track: (name: string, props?: Record<string, unknown>) => void;
@@ -46,7 +46,7 @@ interface TourRendererModule {
 }
 
 interface RuntimeModule {
-  TalmehRuntime: new (config: RuntimeConfig) => TalmehRuntime;
+  LodariqRuntime: new (config: RuntimeConfig) => LodariqRuntime;
 }
 
 export interface InstallOptions {
@@ -59,13 +59,13 @@ export interface InstallOptions {
 
 declare global {
   interface Window {
-    Talmeh?: TalmehBrowserApi;
+    Lodariq?: LodariqBrowserApi;
   }
 }
 
-const DEFAULT_CDN_ORIGIN = 'https://cdn.talmeh.io';
+const DEFAULT_CDN_ORIGIN = 'https://cdn.lodariq.com';
 const ENVIRONMENTS = new Set<LoaderConfig['environment']>(['development', 'staging', 'production']);
-const TOUR_RESUME_PREFIX = 'talmeh:tour-resume:';
+const TOUR_RESUME_PREFIX = 'lodariq:tour-resume:';
 const TOUR_RESUME_MAX_AGE_MS = 30 * 60 * 1000;
 
 interface TourResumeState {
@@ -100,9 +100,9 @@ export function readConfigFromScript(script: HTMLScriptElement): LoaderConfig | 
 }
 
 export async function fetchManifest(url: string): Promise<ManifestPointer> {
-  if (!url.trim()) throw new Error('Talmeh manifest URL is required');
+  if (!url.trim()) throw new Error('Lodariq manifest URL is required');
   const res = await fetch(url, { credentials: 'omit' });
-  if (!res.ok) throw new Error(`Talmeh manifest fetch failed: ${res.status}`);
+  if (!res.ok) throw new Error(`Lodariq manifest fetch failed: ${res.status}`);
   return (await res.json()) as ManifestPointer;
 }
 
@@ -123,7 +123,7 @@ function assertCompiledDocument(value: unknown): asserts value is CompiledDocume
     typeof (value as Partial<CompiledDocument>).documentId !== 'string' ||
     !Array.isArray((value as Partial<CompiledDocument>).steps)
   ) {
-    throw new Error('Talmeh.playTour requires compiled delivery JSON with documentId and steps');
+    throw new Error('Lodariq.playTour requires compiled delivery JSON with documentId and steps');
   }
 }
 
@@ -205,10 +205,10 @@ export async function loadTourRenderer(): Promise<TourRendererModule> {
   return import('../renderers/tour');
 }
 
-export async function installTalmeh(
+export async function installLodariq(
   config: LoaderConfig,
   options: InstallOptions = {},
-): Promise<TalmehBrowserApi> {
+): Promise<LodariqBrowserApi> {
   const fetchManifestFn = options.fetchManifest ?? fetchManifest;
   const loadRuntimeFn = options.loadRuntime ?? loadRuntime;
   const loadTourRendererFn = options.loadTourRenderer ?? loadTourRenderer;
@@ -218,7 +218,7 @@ export async function installTalmeh(
     fetchManifestFn(config.manifestUrl),
     loadRuntimeFn(),
   ]);
-  const runtime = new runtimeModule.TalmehRuntime(config);
+  const runtime = new runtimeModule.LodariqRuntime(config);
   let activeTour: TourPlayerLike | null = null;
   let tourRequestId = 0;
 
@@ -228,7 +228,7 @@ export async function installTalmeh(
   ): Promise<void> {
     const requestId = ++tourRequestId;
     if (!isManifestEligible(manifest, config.environment)) {
-      throw new Error(`Talmeh manifest is not eligible for ${config.environment}`);
+      throw new Error(`Lodariq manifest is not eligible for ${config.environment}`);
     }
     const tour = doc ?? (await loadCurrentTourFn?.(manifest));
     if (requestId !== tourRequestId) return;
@@ -257,7 +257,7 @@ export async function installTalmeh(
   }
 
   async function openAuthoring(): Promise<void> {
-    if (!openAuthoringFn) throw new Error('Talmeh.openAuthoring is not configured');
+    if (!openAuthoringFn) throw new Error('Lodariq.openAuthoring is not configured');
     await openAuthoringFn(manifest);
   }
 
@@ -287,7 +287,7 @@ export async function installTalmeh(
     }
   }
 
-  const api: TalmehBrowserApi = {
+  const api: LodariqBrowserApi = {
     manifest,
     identify: (traits) => runtime.identify(traits),
     track: (name, props) => runtime.track(name, props),
@@ -296,15 +296,15 @@ export async function installTalmeh(
     stopTour,
   };
 
-  window.Talmeh = api;
+  window.Lodariq = api;
   await resumeTourIfPending();
   return api;
 }
 
-export async function installTalmehFromScript(
+export async function installLodariqFromScript(
   script: HTMLScriptElement,
   options?: InstallOptions,
-): Promise<TalmehBrowserApi | null> {
+): Promise<LodariqBrowserApi | null> {
   const config = readConfigFromScript(script);
-  return config ? installTalmeh(config, options) : null;
+  return config ? installLodariq(config, options) : null;
 }

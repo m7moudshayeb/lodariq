@@ -45,13 +45,13 @@ importers:
 
   apps/customer-like-host:
     dependencies:
-      '@talmeh/schema':
+      '@lodariq/schema':
         specifier: workspace:*
         version: link:../../packages/schema
-      '@talmeh/sdk-authoring':
+      '@lodariq/sdk-authoring':
         specifier: workspace:*
         version: link:../../packages/sdk-authoring
-      '@talmeh/sdk-runtime':
+      '@lodariq/sdk-runtime':
         specifier: workspace:*
         version: link:../../packages/sdk-runtime
     devDependencies:
@@ -64,13 +64,13 @@ importers:
 
   apps/fixture-host:
     dependencies:
-      '@talmeh/schema':
+      '@lodariq/schema':
         specifier: workspace:*
         version: link:../../packages/schema
-      '@talmeh/sdk-authoring':
+      '@lodariq/sdk-authoring':
         specifier: workspace:*
         version: link:../../packages/sdk-authoring
-      '@talmeh/sdk-runtime':
+      '@lodariq/sdk-runtime':
         specifier: workspace:*
         version: link:../../packages/sdk-runtime
     devDependencies:
@@ -83,13 +83,13 @@ importers:
 
   apps/sdk-playground:
     dependencies:
-      '@talmeh/compiler':
+      '@lodariq/compiler':
         specifier: workspace:*
         version: link:../../packages/compiler
-      '@talmeh/schema':
+      '@lodariq/schema':
         specifier: workspace:*
         version: link:../../packages/schema
-      '@talmeh/sdk-runtime':
+      '@lodariq/sdk-runtime':
         specifier: workspace:*
         version: link:../../packages/sdk-runtime
     devDependencies:
@@ -102,7 +102,7 @@ importers:
 
   packages/compiler:
     dependencies:
-      '@talmeh/schema':
+      '@lodariq/schema':
         specifier: workspace:*
         version: link:../schema
     devDependencies:
@@ -146,10 +146,10 @@ importers:
       '@radix-ui/react-tabs':
         specifier: ^1.1.15
         version: 1.1.15(@types/react-dom@19.2.3(@types/react@19.2.17))(@types/react@19.2.17)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
-      '@talmeh/schema':
+      '@lodariq/schema':
         specifier: workspace:*
         version: link:../schema
-      '@talmeh/sdk-runtime':
+      '@lodariq/sdk-runtime':
         specifier: workspace:*
         version: link:../sdk-runtime
       lexical:
@@ -183,10 +183,10 @@ importers:
       '@floating-ui/dom':
         specifier: ^1.6.13
         version: 1.7.6
-      '@talmeh/compiler':
+      '@lodariq/compiler':
         specifier: workspace:*
         version: link:../compiler
-      '@talmeh/schema':
+      '@lodariq/schema':
         specifier: workspace:*
         version: link:../schema
     devDependencies:
@@ -199,16 +199,16 @@ importers:
 
   packages/tests:
     devDependencies:
-      '@talmeh/compiler':
+      '@lodariq/compiler':
         specifier: workspace:*
         version: link:../compiler
-      '@talmeh/schema':
+      '@lodariq/schema':
         specifier: workspace:*
         version: link:../schema
-      '@talmeh/sdk-authoring':
+      '@lodariq/sdk-authoring':
         specifier: workspace:*
         version: link:../sdk-authoring
-      '@talmeh/sdk-runtime':
+      '@lodariq/sdk-runtime':
         specifier: workspace:*
         version: link:../sdk-runtime
       '@types/node':

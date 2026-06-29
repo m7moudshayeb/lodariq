@@ -12,12 +12,12 @@ and block identity must be stable across edits.
 
 All Lexical usage lives only in `packages/sdk-authoring/src/editor`. Standard
 Lexical text/element nodes back paragraphs/headings/lists; custom/decorator
-nodes back Talmeh-specific UI (target chips, validation badges, tooltips, tour
-steps, action buttons). Stable Talmeh block IDs come from `editor/ids.ts`;
+nodes back Lodariq-specific UI (target chips, validation badges, tooltips, tour
+steps, action buttons). Stable Lodariq block IDs come from `editor/ids.ts`;
 Lexical node keys are never persisted as block IDs.
 
 ## Consequences
 
-- Extraction to a standalone `@talmeh/editor` is allowed later only if justified.
+- Extraction to a standalone `@lodariq/editor` is allowed later only if justified.
 - Every node ships serialization, deserialization, migration, validation, paste,
   and accessibility coverage before it lands (§20).

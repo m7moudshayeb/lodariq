@@ -1,30 +1,30 @@
 import { describe, expect, it } from 'vitest';
-import type { TalmehDocument } from '@talmeh/schema';
+import type { LodariqDocument } from '@lodariq/schema';
 import {
-  createTalmehEditor,
+  createLodariqEditor,
   fromBlockJson,
   migrate,
   toBlockJson,
-} from '@talmeh/sdk-authoring/editor';
-import tourFixture from '@talmeh/schema/fixtures/tour.linear.v1.json';
+} from '@lodariq/sdk-authoring/editor';
+import tourFixture from '@lodariq/schema/fixtures/tour.linear.v1.json';
 
 describe('editor document migrations (PRD §16.1)', () => {
   it('serializes canonical blocks to Lexical JSON without stable ID loss', () => {
-    const fixture = tourFixture as TalmehDocument;
+    const fixture = tourFixture as LodariqDocument;
     const lexicalState = fromBlockJson(fixture.blocks);
 
-    expect(JSON.stringify(lexicalState)).toContain('talmehBlockId');
+    expect(JSON.stringify(lexicalState)).toContain('lodariqBlockId');
     expect(JSON.stringify(lexicalState)).not.toContain('"key"');
     expect(lexicalState.root.children[0]).toMatchObject({
-      type: 'talmeh-block',
-      talmehBlockId: 'block_step_1',
+      type: 'lodariq-block',
+      lodariqBlockId: 'block_step_1',
       blockType: 'tourStep',
     });
   });
 
   it('deserializes Lexical JSON back to canonical blocks without stable ID loss', () => {
-    const fixture = tourFixture as TalmehDocument;
-    const editor = createTalmehEditor();
+    const fixture = tourFixture as LodariqDocument;
+    const editor = createLodariqEditor();
     const parsed = editor.parseEditorState(JSON.stringify(fromBlockJson(fixture.blocks))).toJSON();
     const blocks = toBlockJson(parsed as ReturnType<typeof fromBlockJson>);
 
@@ -47,8 +47,8 @@ describe('editor document migrations (PRD §16.1)', () => {
         status: 'incomplete',
         children: [],
       },
-    ] as TalmehDocument['blocks'];
-    const editor = createTalmehEditor();
+    ] as LodariqDocument['blocks'];
+    const editor = createLodariqEditor();
     const parsed = editor.parseEditorState(JSON.stringify(fromBlockJson(blocks))).toJSON();
 
     expect(toBlockJson(parsed as ReturnType<typeof fromBlockJson>)).toEqual(blocks);
@@ -56,7 +56,7 @@ describe('editor document migrations (PRD §16.1)', () => {
 
   it('upgrades an older fixture version without changing stable IDs', () => {
     const legacy = {
-      ...(tourFixture as TalmehDocument),
+      ...(tourFixture as LodariqDocument),
       schemaVersion: '0.9.0',
     };
 

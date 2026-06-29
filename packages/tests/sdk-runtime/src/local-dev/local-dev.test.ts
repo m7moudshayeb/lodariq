@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from 'vitest';
-import type { TalmehDocument } from '@talmeh/schema';
+import type { LodariqDocument } from '@lodariq/schema';
 import {
   compilePreview,
   createLocalMetricsReport,
@@ -11,19 +11,19 @@ import {
   recordLocalMetric,
   resetLocalMetrics,
   summarizeLocalMetrics,
-} from '@talmeh/sdk-runtime/local-dev';
-import tourFixture from '@talmeh/schema/fixtures/tour.linear.v1.json';
+} from '@lodariq/sdk-runtime/local-dev';
+import tourFixture from '@lodariq/schema/fixtures/tour.linear.v1.json';
 
 describe('local-dev document import', () => {
   it('validates shared document JSON before returning it', () => {
     const imported = importDocument(JSON.stringify(tourFixture));
 
-    expect(imported.id).toBe((tourFixture as TalmehDocument).id);
+    expect(imported.id).toBe((tourFixture as LodariqDocument).id);
   });
 
   it('rejects malformed document JSON', () => {
     expect(() => importDocument(JSON.stringify({ id: 'doc_missing_shape' }))).toThrow(
-      /Invalid Talmeh document import/,
+      /Invalid Lodariq document import/,
     );
   });
 
@@ -35,11 +35,11 @@ describe('local-dev document import', () => {
       html: '<script>alert(1)</script>',
     };
 
-    expect(() => importDocument(JSON.stringify(broken))).toThrow(/Invalid Talmeh document import/);
+    expect(() => importDocument(JSON.stringify(broken))).toThrow(/Invalid Lodariq document import/);
   });
 
   it('exports, re-imports, and compiles without losing stable IDs', async () => {
-    const fixture = tourFixture as TalmehDocument;
+    const fixture = tourFixture as LodariqDocument;
     const imported = importDocument(exportDocument(fixture));
     const compiled = await compilePreview(imported);
 
@@ -56,7 +56,7 @@ describe('local-dev document import', () => {
   });
 
   it('compiles canonical tourStep blocks without wrapping loose top-level content', async () => {
-    const doc = JSON.parse(JSON.stringify(tourFixture)) as TalmehDocument;
+    const doc = JSON.parse(JSON.stringify(tourFixture)) as LodariqDocument;
     doc.blocks.push({
       id: 'block_loose_heading',
       type: 'heading',
@@ -196,7 +196,7 @@ describe('local-dev usability metrics', () => {
   });
 
   it('ignores corrupted local metric storage', () => {
-    localStorage.setItem('talmeh:metrics:broken', '{bad json');
+    localStorage.setItem('lodariq:metrics:broken', '{bad json');
 
     expect(listLocalMetrics('broken')).toEqual([]);
   });

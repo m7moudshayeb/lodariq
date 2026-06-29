@@ -1,10 +1,10 @@
 # Pre-Phase Local SDK Foundation Plan
 
-Source of truth: `refined-talmeh-prd.md`.
+Source of truth: `refined-lodariq-prd.md`.
 
 ## Goal
 
-Build the local Talmeh SDK foundation before app/backend MVP work. This phase must
+Build the local Lodariq SDK foundation before app/backend MVP work. This phase must
 prove that a customer can install the script into a realistic page, open local
 authoring, create a linear tour, select targets, preview playback, serialize the
 document, reload it, and play it again through SDK bundles without a production
@@ -12,8 +12,8 @@ backend. (PRD §16.1)
 
 ## Current Baseline
 
-- [x] SDK-first package skeleton exists: `@talmeh/schema`, `@talmeh/compiler`,
-      `@talmeh/sdk-runtime`, and `@talmeh/sdk-authoring`. (PRD §16.0)
+- [x] SDK-first package skeleton exists: `@lodariq/schema`, `@lodariq/compiler`,
+      `@lodariq/sdk-runtime`, and `@lodariq/sdk-authoring`. (PRD §16.0)
 - [x] `apps/fixture-host` exists as the primary SaaS-like integration surface.
       (PRD §16.0, §16.1)
 - [x] Canonical block JSON fixture exists and compiles for local preview.
@@ -30,10 +30,10 @@ backend. (PRD §16.1)
 
 ### M1. Local SDK Install Flow
 
-- [x] Build local SDK entry outputs: `talmeh-loader.js`,
-      `talmeh-runtime.js`, `talmeh-authoring.js`, `talmeh-local-dev.js`, and
+- [x] Build local SDK entry outputs: `lodariq-loader.js`,
+      `lodariq-runtime.js`, `lodariq-authoring.js`, `lodariq-local-dev.js`, and
       `renderers/tour.js`. (PRD §16.1 SDK entry points)
-- [x] Make `apps/fixture-host` load Talmeh through a script tag and local
+- [x] Make `apps/fixture-host` load Lodariq through a script tag and local
       manifest fixture instead of direct Vite imports. (PRD §16.1 Loader bootstrap;
       §16.1 acceptance)
 - [x] Read workspace and environment config from script attributes. (PRD §16.1
@@ -45,8 +45,8 @@ backend. (PRD §16.1)
 
 ### M2. Runtime Playback Hardening
 
-- [x] Expose and verify `Talmeh.identify()`. (PRD §16.1 Runtime/player)
-- [x] Expose and verify `Talmeh.track()`. (PRD §16.1 Runtime/player)
+- [x] Expose and verify `Lodariq.identify()`. (PRD §16.1 Runtime/player)
+- [x] Expose and verify `Lodariq.track()`. (PRD §16.1 Runtime/player)
 - [x] Load compiled local tour JSON from the local manifest/helper. (PRD §16.1
       Runtime/player)
 - [x] Evaluate minimal local eligibility rules. (PRD §16.1 Runtime/player)
@@ -65,7 +65,7 @@ backend. (PRD §16.1)
       bridge; §16.1 acceptance)
 - [x] Open authoring mode inside the fixture host. (PRD §16.1 acceptance)
 - [x] Use same-origin iframe mode for local development while keeping the
-      architecture compatible with a future Talmeh-hosted iframe. (PRD §16.1
+      architecture compatible with a future Lodariq-hosted iframe. (PRD §16.1
       Authoring bridge)
 - [x] Use versioned `postMessage` envelopes with origin checks,
       acknowledgements, timeouts, and runtime validation. (PRD §16.1 Authoring
@@ -95,7 +95,7 @@ backend. (PRD §16.1)
 - [x] Add undo/redo. (PRD §16.1 Authoring editor)
 - [x] Add safe basic paste handling. (PRD §16.1 Authoring editor; §16.1
       acceptance)
-- [x] Ensure Lexical node keys are never persistent Talmeh block IDs. (PRD
+- [x] Ensure Lexical node keys are never persistent Lodariq block IDs. (PRD
       §16.1 acceptance; §20)
 
 ### M5. Target Picker And Resolver Lifecycle
@@ -182,12 +182,12 @@ backend. (PRD §16.1)
 
 ## Public Interfaces
 
-- Browser global: `Talmeh.identify()` and `Talmeh.track()`. (PRD §16.1
+- Browser global: `Lodariq.identify()` and `Lodariq.track()`. (PRD §16.1
   Runtime/player)
-- Local SDK files: `talmeh-loader.js`, `talmeh-runtime.js`,
-  `talmeh-authoring.js`, `talmeh-local-dev.js`, and `renderers/tour.js`. (PRD
+- Local SDK files: `lodariq-loader.js`, `lodariq-runtime.js`,
+  `lodariq-authoring.js`, `lodariq-local-dev.js`, and `renderers/tour.js`. (PRD
   §16.1 SDK entry points)
-- Canonical document contract remains TypeBox/JSON Schema in `@talmeh/schema`.
+- Canonical document contract remains TypeBox/JSON Schema in `@lodariq/schema`.
   (PRD §16.1 Schema and compiler; §20)
 - Browser compilation remains preview-only; real publication artifacts are
   server-side later. (PRD §20)
@@ -212,7 +212,7 @@ backend. (PRD §16.1)
 
 ## Acceptance Checklist
 
-- [x] Fixture host can load `talmeh-loader.js` from the local build. (PRD
+- [x] Fixture host can load `lodariq-loader.js` from the local build. (PRD
       §16.1 acceptance)
 - [x] Loader can lazy-load runtime, authoring, and tour renderer bundles. (PRD
       §16.1 acceptance)
@@ -237,7 +237,7 @@ backend. (PRD §16.1)
       label, text, or stable attributes remain. (PRD §16.1 acceptance)
 - [x] Resolver reports found, missing, and ambiguous states. (PRD §16.1
       acceptance)
-- [x] Lexical node keys are not used as persistent Talmeh block IDs. (PRD §16.1
+- [x] Lexical node keys are not used as persistent Lodariq block IDs. (PRD §16.1
       acceptance; §20)
 - [x] Migrations can upgrade at least one older fixture version. (PRD §16.1
       acceptance)
@@ -256,9 +256,9 @@ backend. (PRD §16.1)
 
 ## Documentation Test Plan
 
-- [x] Every milestone and task cites `refined-talmeh-prd.md` by section.
+- [x] Every milestone and task cites `refined-lodariq-prd.md` by section.
 - [x] The document does not claim unfinished implementation is complete.
-- [x] Terminology uses Talmeh, `@talmeh/*`, and local SDK language consistently.
+- [x] Terminology uses Lodariq, `@lodariq/*`, and local SDK language consistently.
 - [x] `docs/PROGRESS.md` remains unchanged unless actual implementation status
       changes.
 - [x] `pnpm format:check` passes.

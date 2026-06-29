@@ -1,4 +1,4 @@
-import { createNonceStyleElement } from '@talmeh/schema/dom';
+import { createNonceStyleElement } from '@lodariq/schema/dom';
 import { flushSync } from 'react-dom';
 import { createRoot } from 'react-dom/client';
 import type { LocalAuthoringFrameOptions } from './local-frame-types';

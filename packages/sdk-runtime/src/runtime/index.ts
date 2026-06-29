@@ -1,4 +1,4 @@
-import type { AnalyticsEvent } from '@talmeh/schema';
+import type { AnalyticsEvent } from '@lodariq/schema';
 import { SDK_VERSION } from '../version';
 
 /**
@@ -21,7 +21,7 @@ export interface RuntimeConfig {
   ingestUrl?: string;
 }
 
-export class TalmehRuntime {
+export class LodariqRuntime {
   private traits: IdentifyTraits | null = null;
   private readonly queue: AnalyticsEvent[] = [];
 

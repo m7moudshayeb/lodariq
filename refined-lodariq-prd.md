@@ -1,9 +1,9 @@
-# Talmeh Product Requirements Document
+# Lodariq Product Requirements Document
 
-Version: 1.9 talmeh brand naming  
+Version: 1.9 lodariq brand naming  
 Status: Implementation-ready draft pending founder review  
 Source reviewed: `C:\Users\shayeb\Downloads\waymark.md`  
-Note: the source PRD uses the name "ScriptFlow"; this refinement uses **Talmeh** (Arabic تلميح — _hint_), reflecting the product's hint/tooltip-first UX and contextual in-app guidance model.
+Note: the source PRD uses the name "ScriptFlow"; this refinement uses **Lodariq** (Arabic تلميح — _hint_), reflecting the product's hint/tooltip-first UX and contextual in-app guidance model.
 
 ---
 
@@ -18,7 +18,7 @@ The feedback is directionally correct and should be adopted. This revision also 
 3. Treat slash commands as temporary insertion gestures that create rendered blocks, not durable syntax creators must maintain.
 4. Use Lexical as the committed primary editor foundation; keep CodeMirror and Lezer only for optional advanced source mode or internal tooling.
 5. Split the SDK into loader, runtime, and authoring bundles.
-6. Run the authoring panel in a sandboxed Talmeh-hosted iframe; use Shadow DOM only for rendered overlays and lightweight controls.
+6. Run the authoring panel in a sandboxed Lodariq-hosted iframe; use Shadow DOM only for rendered overlays and lightweight controls.
 7. Replace ordered selector fallback with confidence-scored semantic resolution.
 8. Use Floating UI for all anchored overlays.
 9. Use Playwright live screenshots, Sharp/libvips, libwebp/img2webp for WebP, and gifski only for GIF fallback.
@@ -33,12 +33,12 @@ The feedback is directionally correct and should be adopted. This revision also 
 18. Add media export cost controls for Playwright-based screenshot jobs.
 19. Add a Flow Map view for branching and non-linear tour logic.
 20. Add explicit target-selection mode UX, including cursor state, hover outlines, and target chips.
-21. Add a customer data boundary: Talmeh cannot query customer databases and can only use data explicitly sent through SDK/API/integrations.
+21. Add a customer data boundary: Lodariq cannot query customer databases and can only use data explicitly sent through SDK/API/integrations.
 22. Add a workspace data catalog so customer-provided traits and events appear in dropdowns without requiring creators to memorize event or trait names.
-23. Add an SDK-first pre-phase to build the full local Talmeh SDK foundation before app/backend MVP work begins: loader, runtime/player, authoring bridge, editor integration, resolver, compiler, renderers, local persistence, fixture host, and browser tests. Collaboration remains explicitly out of scope.
+23. Add an SDK-first pre-phase to build the full local Lodariq SDK foundation before app/backend MVP work begins: loader, runtime/player, authoring bridge, editor integration, resolver, compiler, renderers, local persistence, fixture host, and browser tests. Collaboration remains explicitly out of scope.
 24. Do not introduce a Markdown-to-JSON compiler, custom Markdown grammar, or standalone WebSocket gateway in the starting phases; those conflict with the structured block model and iframe bridge.
-25. Physically split the SDK into separate packages so the production runtime cannot import React or Lexical through the module system, not just through lint rules: `@talmeh/sdk-runtime` versus `@talmeh/sdk-authoring`.
-26. Extract `@talmeh/schema` and `@talmeh/compiler` as a shared isomorphic core consumed by both client and server. Real publications must be compiled server-side; browser compilation is for local-dev preview only.
+25. Physically split the SDK into separate packages so the production runtime cannot import React or Lexical through the module system, not just through lint rules: `@lodariq/sdk-runtime` versus `@lodariq/sdk-authoring`.
+26. Extract `@lodariq/schema` and `@lodariq/compiler` as a shared isomorphic core consumed by both client and server. Real publications must be compiled server-side; browser compilation is for local-dev preview only.
 27. Make the origin architecture an explicit security boundary: serve the authoring iframe from a dedicated origin distinct from both the customer page and the dashboard, and serve hosted public demos from an origin separate from the authenticated dashboard.
 28. Host the Next.js dashboard on Fly.io rather than Vercel to reduce vendor surface and simplify the origin and deployment model.
 29. Adopt a single secrets manager (such as Doppler or Infisical) given the multi-vendor surface, and add PostgreSQL row-level security as defense-in-depth for tenant isolation.
@@ -58,7 +58,7 @@ The feedback is directionally correct and should be adopted. This revision also 
 | Positioning          | Not specified                   | Add          | Floating UI for tooltips, hotspots, menus, coach marks.                                                                                                                                                     |
 | Selectors            | Ordered CSS-first fallback      | Change       | Weighted semantic resolver with confidence thresholds.                                                                                                                                                      |
 | Target attachment UX | Selector-like configuration     | Change       | Direct canvas selection mode with cursor change, hover outline, target chip, and target health.                                                                                                             |
-| Customer data access | Implied app/backend knowledge   | Change       | Only use page context, identify traits, tracked events, Talmeh activity, and approved integrations.                                                                                                         |
+| Customer data access | Implied app/backend knowledge   | Change       | Only use page context, identify traits, tracked events, Lodariq activity, and approved integrations.                                                                                                         |
 | Customer values UX   | Manual event/trait memorization | Add          | Workspace data catalog powers grouped dropdowns with source, environment, last-seen, and safe sample values.                                                                                                |
 | Dashboard            | React + Tailwind                | Keep, update | Use Next.js 16, Tailwind, shadcn/ui, TanStack Query, Zustand where needed, React Hook Form, TanStack Table, and Recharts. Deploy the dashboard on Fly.io next to the API; do not use Vercel.                |
 | Backend              | Node + Fastify                  | Keep, update | Use Node.js 24 LTS, Fastify 5, TypeScript, TypeBox/JSON Schema, Ajv, and OpenAPI clients.                                                                                                                   |
@@ -76,14 +76,14 @@ The feedback is directionally correct and should be adopted. This revision also 
 
 # 1. Product Vision
 
-Talmeh is a universal product-content platform for creating and maintaining interactive demos, product tours, onboarding checklists, feature announcements, surveys, hotspots, and lightweight knowledge widgets through one document-driven authoring model.
+Lodariq is a universal product-content platform for creating and maintaining interactive demos, product tours, onboarding checklists, feature announcements, surveys, hotspots, and lightweight knowledge widgets through one document-driven authoring model.
 
 The creation workflow is consistent across content types:
 
 1. A developer installs one script and one identify call.
-2. A creator opens Talmeh in a staging or demo environment.
+2. A creator opens Lodariq in a staging or demo environment.
 3. The creator records or authors a document using a block-based Floating Document Builder and live canvas.
-4. Talmeh compiles that document into safe, typed delivery JSON.
+4. Lodariq compiles that document into safe, typed delivery JSON.
 5. The same document can render in-app, as a hosted demo, or as exportable media when supported.
 
 North Star: a PMM, sales engineer, product manager, or customer success operator can create, publish, measure, and maintain product content in minutes, without re-recording from scratch after ordinary UI changes and without learning a separate builder for every content type.
@@ -94,23 +94,23 @@ North Star: a PMM, sales engineer, product manager, or customer success operator
 
 Existing demo and in-app guidance tools usually depend on screenshots, DOM snapshots, or brittle visual builders. These approaches are fast to create initially but costly to maintain when a product ships frequent UI changes.
 
-Talmeh reduces maintenance by storing product-content intent in a typed document model that can be recompiled, retargeted, versioned, reviewed, and repaired independently of any one captured visual state.
+Lodariq reduces maintenance by storing product-content intent in a typed document model that can be recompiled, retargeted, versioned, reviewed, and repaired independently of any one captured visual state.
 
 ## 2.2 Fragmentation Tax
 
 Teams often use separate tools for demos, onboarding, announcements, surveys, and feature adoption campaigns. Each tool has its own SDK, authoring model, billing plan, analytics surface, and governance process.
 
-Talmeh consolidates these jobs into one SDK, one document system, one dashboard, and one publication pipeline.
+Lodariq consolidates these jobs into one SDK, one document system, one dashboard, and one publication pipeline.
 
 ## 2.3 Cognitive Overhead Tax
 
-Visual builders tend to grow into separate configuration UIs for each feature type. Talmeh uses document types, reusable visual blocks, explicit configuration chips, and contextual controls so new content formats extend a single authoring paradigm rather than creating a new builder for every job.
+Visual builders tend to grow into separate configuration UIs for each feature type. Lodariq uses document types, reusable visual blocks, explicit configuration chips, and contextual controls so new content formats extend a single authoring paradigm rather than creating a new builder for every job.
 
 # 3. Solution Overview
 
 ## 3.1 Core Model
 
-The canonical source of truth is a typed Talmeh block document. Creators edit rendered blocks and explicit controls. Markdown can exist as an export, interchange format, or optional advanced source mode, but it is not the primary PM-facing editing surface and not the internal database.
+The canonical source of truth is a typed Lodariq block document. Creators edit rendered blocks and explicit controls. Markdown can exist as an export, interchange format, or optional advanced source mode, but it is not the primary PM-facing editing surface and not the internal database.
 
 ```text
 Block editor interaction ----\
@@ -122,7 +122,7 @@ Canvas interaction ----------/                         |
                                                         -> Publication manifest
 ```
 
-This preserves the original PRD's document-first thesis while avoiding unsafe string-based state management and code-like authoring. Talmeh should feel like the speed of a document, the clarity of a visual builder, and the safety of a structured runtime model.
+This preserves the original PRD's document-first thesis while avoiding unsafe string-based state management and code-like authoring. Lodariq should feel like the speed of a document, the clarity of a visual builder, and the safety of a structured runtime model.
 
 ## 3.2 Key Product Capabilities
 
@@ -172,14 +172,14 @@ Customer Success or Enablement:
 
 # 5. Competitive Positioning
 
-Talmeh's advantage is not only that content is written in a document. The advantage is that every document has a typed canonical model, stable IDs, semantic element fingerprints, deterministic compilation, and multiple render targets.
+Lodariq's advantage is not only that content is written in a document. The advantage is that every document has a typed canonical model, stable IDs, semantic element fingerprints, deterministic compilation, and multiple render targets.
 
 Competitive claims should be sharpened:
 
-- Against screenshot demo tools: Talmeh stores intent and semantic targets, not only pixels.
-- Against DOM snapshot tools: Talmeh supports live product execution, compiler validation, and semantic repair.
-- Against in-app guidance tools: Talmeh offers source-level review, versioning, and a unified document type system.
-- Against enterprise DAP platforms: Talmeh starts lighter, faster, and more creator-friendly while preserving a path to governance.
+- Against screenshot demo tools: Lodariq stores intent and semantic targets, not only pixels.
+- Against DOM snapshot tools: Lodariq supports live product execution, compiler validation, and semantic repair.
+- Against in-app guidance tools: Lodariq offers source-level review, versioning, and a unified document type system.
+- Against enterprise DAP platforms: Lodariq starts lighter, faster, and more creator-friendly while preserving a path to governance.
 
 The moat is the document compiler plus runtime resolver plus authoring workflow, not Markdown alone.
 
@@ -192,7 +192,7 @@ Authoring Layer
   Toolbar, element picker, iframe editor, live preview
 
 Document Model Layer
-  Lexical editor state, Talmeh block JSON, commands, validation states
+  Lexical editor state, Lodariq block JSON, commands, validation states
 
 Compiler Layer
   Schema validation, semantic fingerprints, delivery JSON, media jobs
@@ -216,7 +216,7 @@ Customer install:
 
 ```html
 <script
-  src="https://cdn.talmeh.io/loader/v1/talmeh-loader.js"
+  src="https://cdn.lodariq.com/loader/v1/lodariq-loader.js"
   data-workspace="wk_live_xxx"
   data-env="production"
   async
@@ -227,7 +227,7 @@ Customer install:
 Identification:
 
 ```ts
-Talmeh.identify({
+Lodariq.identify({
   userId: 'user_abc123',
   email: 'user@company.com',
   plan: 'pro',
@@ -242,7 +242,7 @@ Talmeh.identify({
 Customer events:
 
 ```ts
-Talmeh.track('project_created', {
+Lodariq.track('project_created', {
   source: 'dashboard',
   plan: 'pro',
 });
@@ -257,24 +257,24 @@ Rules:
 
 ## 6.3 Customer Data Boundary and Catalog
 
-Talmeh does not query or inspect the customer's database. Targeting, checklist completion, survey branching, visibility rules, and conditional logic can use only these data sources:
+Lodariq does not query or inspect the customer's database. Targeting, checklist completion, survey branching, visibility rules, and conditional logic can use only these data sources:
 
 - Page context: URL, route, query params, page title, and visible DOM state.
-- Identify traits explicitly sent through `Talmeh.identify()`.
-- Events explicitly sent through `Talmeh.track()`.
-- Talmeh-owned activity: document viewed, tour completed, announcement dismissed, survey submitted, checklist item completed, CTA clicked.
+- Identify traits explicitly sent through `Lodariq.identify()`.
+- Events explicitly sent through `Lodariq.track()`.
+- Lodariq-owned activity: document viewed, tour completed, announcement dismissed, survey submitted, checklist item completed, CTA clicked.
 - Approved integrations that the customer intentionally connects.
 
-The UI must never imply that Talmeh knows backend state unless the customer has instrumented it.
+The UI must never imply that Lodariq knows backend state unless the customer has instrumented it.
 
-Talmeh should maintain a workspace data catalog built from observed SDK/API/integration inputs. This catalog powers dropdowns and search pickers in the builder.
+Lodariq should maintain a workspace data catalog built from observed SDK/API/integration inputs. This catalog powers dropdowns and search pickers in the builder.
 
 Catalog entries:
 
 ```ts
 interface DataCatalogEntry {
   id: string;
-  source: 'identify_trait' | 'track_event' | 'talmeh_activity' | 'page_context' | 'integration';
+  source: 'identify_trait' | 'track_event' | 'lodariq_activity' | 'page_context' | 'integration';
   key: string;
   displayName?: string;
   environments: Array<'development' | 'staging' | 'production'>;
@@ -289,7 +289,7 @@ interface DataCatalogEntry {
 Builder pickers should group options by source:
 
 ```text
-Talmeh activity
+Lodariq activity
   Tour completed
   Announcement dismissed
   Survey submitted
@@ -316,19 +316,19 @@ Each customer-specific option should show its source, environment, and last-seen
 - High-cardinality or sensitive fields require manual entry and should not expose raw samples by default.
 - Email, name, token, URL with secrets, and similar values are treated as sensitive unless explicitly configured otherwise.
 
-If a creator searches for a trait or event Talmeh has never seen, the UI should provide an implementation handoff:
+If a creator searches for a trait or event Lodariq has never seen, the UI should provide an implementation handoff:
 
 ```text
 No matching event found.
 Ask engineering to send it with:
-Talmeh.track("project_created")
+Lodariq.track("project_created")
 ```
 
-This keeps the builder easy without pretending Talmeh has native access to customer backend data.
+This keeps the builder easy without pretending Lodariq has native access to customer backend data.
 
 ## 6.4 Rule Builder UX for Customer-Provided Data
 
-Rule configuration should feel like a native Talmeh picker, but every option must map to an explicit data source.
+Rule configuration should feel like a native Lodariq picker, but every option must map to an explicit data source.
 
 Top-level rule options:
 
@@ -338,10 +338,10 @@ Show when
 [ URL or page ]
 [ User trait ]
 [ Event happened ]
-[ Talmeh activity ]
+[ Lodariq activity ]
 ```
 
-If the creator chooses `User trait`, Talmeh opens a trait picker from the data catalog:
+If the creator chooses `User trait`, Lodariq opens a trait picker from the data catalog:
 
 ```text
 Choose trait
@@ -366,7 +366,7 @@ Value
 [ pro ]
 ```
 
-If the creator chooses `Event happened`, Talmeh opens an event picker:
+If the creator chooses `Event happened`, Lodariq opens an event picker:
 
 ```text
 Choose event
@@ -384,7 +384,7 @@ Show when
 [ Event: project_created occurred ]
 ```
 
-Avoid summaries that imply business meaning Talmeh did not receive:
+Avoid summaries that imply business meaning Lodariq did not receive:
 
 ```text
 Show when user created their first project
@@ -397,7 +397,7 @@ Checklist completion should use the same explicit source model:
 ```text
 Complete item when
 [ User checks it manually ]
-[ Talmeh tour completes ]
+[ Lodariq tour completes ]
 [ Host app sends event ]
 ```
 
@@ -406,7 +406,7 @@ If `Host app sends event` is selected:
 ```text
 Event
 [ project_created ]
-Source: Talmeh.track()
+Source: Lodariq.track()
 Last seen: staging, 2 hours ago
 ```
 
@@ -421,7 +421,7 @@ The canonical document model stores stable block IDs, typed content, typed behav
 Example:
 
 ```ts
-interface TalmehDocument {
+interface LodariqDocument {
   id: string;
   workspaceId: string;
   type: 'tour' | 'announcement' | 'checklist' | 'survey' | 'hotspot' | 'knowledge';
@@ -430,16 +430,16 @@ interface TalmehDocument {
   trigger: TriggerDefinition;
   audience: AudienceDefinition;
   themeRef?: string;
-  blocks: TalmehBlock[];
+  blocks: LodariqBlock[];
   schemaVersion: string;
 }
 
-interface TalmehBlock {
+interface LodariqBlock {
   id: string;
-  type: TalmehBlockType;
+  type: LodariqBlockType;
   content?: string;
   props: Record<string, unknown>;
-  children: TalmehBlock[];
+  children: LodariqBlock[];
   status?: 'ready' | 'incomplete' | 'invalid';
   diagnostics?: BlockDiagnostic[];
 }
@@ -486,7 +486,7 @@ Example tooltip block:
 
 ## 7.2 SDK Authoring Editor Boundary
 
-Talmeh should build a dedicated authoring editor boundary on top of Lexical, and it should live inside the authoring package `@talmeh/sdk-authoring`, which is physically separate from the production runtime package. This is a product foundation, not a throwaway wrapper around a generic rich-text editor. The split is deliberate: because React and Lexical are dependencies of `@talmeh/sdk-authoring` and not of `@talmeh/sdk-runtime`, the production runtime cannot import them through the module system, not just by convention.
+Lodariq should build a dedicated authoring editor boundary on top of Lexical, and it should live inside the authoring package `@lodariq/sdk-authoring`, which is physically separate from the production runtime package. This is a product foundation, not a throwaway wrapper around a generic rich-text editor. The split is deliberate: because React and Lexical are dependencies of `@lodariq/sdk-authoring` and not of `@lodariq/sdk-runtime`, the production runtime cannot import them through the module system, not just by convention.
 
 Package boundary:
 
@@ -505,13 +505,13 @@ packages/sdk-authoring/src/editor
   Test fixtures and harnesses
 ```
 
-The editor lives within `@talmeh/sdk-authoring`. It may later be extracted into a dedicated `@talmeh/editor` package if the dashboard, SDK authoring iframe, tests, and future tools need a separately versioned package. Do not extract it just to satisfy an abstract monorepo shape.
+The editor lives within `@lodariq/sdk-authoring`. It may later be extracted into a dedicated `@lodariq/editor` package if the dashboard, SDK authoring iframe, tests, and future tools need a separately versioned package. Do not extract it just to satisfy an abstract monorepo shape.
 
 Import boundary:
 
 - `packages/sdk-authoring/src/editor` is the only source area allowed to import from `lexical` or `@lexical/*`.
 - SDK authoring, iframe editor, tests, and compiler-facing code consume editor APIs through this boundary.
-- `@talmeh/sdk-runtime` and production SDK bundles do not depend on `@talmeh/sdk-authoring` or any authoring editor code; this is enforced by package boundaries and verified by dependency-cruiser in CI.
+- `@lodariq/sdk-runtime` and production SDK bundles do not depend on `@lodariq/sdk-authoring` or any authoring editor code; this is enforced by package boundaries and verified by dependency-cruiser in CI.
 
 Node implementation policy:
 
@@ -519,7 +519,7 @@ Node implementation policy:
 - Define future block types in the shared schema.
 - Add placeholder renderers only when needed to load older documents, migration fixtures, or intentionally deferred document types.
 - Do not maintain fake fully registered nodes for product ideas that have not been validated.
-- Do not make every block a Lexical `DecoratorNode`. Use Lexical's standard text and element patterns for paragraphs, headings, lists, and inline text. Reserve custom/decorator-style nodes for Talmeh-specific UI such as target chips, validation badges, survey questions, tooltips, tour step cards, and action buttons.
+- Do not make every block a Lexical `DecoratorNode`. Use Lexical's standard text and element patterns for paragraphs, headings, lists, and inline text. Reserve custom/decorator-style nodes for Lodariq-specific UI such as target chips, validation badges, survey questions, tooltips, tour step cards, and action buttons.
 
 MVP node families:
 
@@ -560,12 +560,12 @@ Required editor capabilities:
 - Undo/redo across editor and canvas-originated transactions.
 - Clipboard and paste normalization from Google Docs, Word, Notion-like editors, and plain HTML.
 - Accessibility labels, focus rings, and screen-reader behavior for custom nodes.
-- Serialization from Lexical state to canonical Talmeh block JSON.
-- Deserialization from canonical Talmeh block JSON into Lexical state.
+- Serialization from Lexical state to canonical Lodariq block JSON.
+- Deserialization from canonical Lodariq block JSON into Lexical state.
 - Versioned migrations for older block JSON.
 - Validation decorations for ready, incomplete, and invalid blocks.
-- Stable Talmeh block IDs that survive editing, drag/drop, copy/paste, and migrations.
-- Lexical node keys must never be treated as persistent Talmeh block IDs.
+- Stable Lodariq block IDs that survive editing, drag/drop, copy/paste, and migrations.
+- Lexical node keys must never be treated as persistent Lodariq block IDs.
 - Deterministic test fixtures for every supported block type.
 
 Explicitly out of scope for the editor SDK pre-phase:
@@ -616,7 +616,7 @@ The editor may display the final block as:
   Starts "Dashboard 2.0 Tour"
 ```
 
-This phrasing is allowed only after the creator explicitly chooses the action and selects the tour from Talmeh's own document list. The builder must not invent product semantics or rewrite customer data into polished natural language.
+This phrasing is allowed only after the creator explicitly chooses the action and selects the tour from Lodariq's own document list. The builder must not invent product semantics or rewrite customer data into polished natural language.
 
 The creator should not see or maintain:
 
@@ -676,7 +676,7 @@ Document types should not force rigid content forms. An announcement can contain
 
 ## 7.6 Global Block Registry
 
-Talmeh should use a global block registry with context-aware ranking rather than separate hardcoded command lists for every document type.
+Lodariq should use a global block registry with context-aware ranking rather than separate hardcoded command lists for every document type.
 
 Content blocks:
 
@@ -734,9 +734,9 @@ The slash menu should prioritize contextually relevant blocks. For example, NPS 
 
 ## 7.7 Unexpected Content and Validation
 
-Talmeh should be permissive about content and structured about behavior.
+Lodariq should be permissive about content and structured about behavior.
 
-| User Behavior                   | Talmeh Response                                                                           |
+| User Behavior                   | Lodariq Response                                                                           |
 | ------------------------------- | ----------------------------------------------------------------------------------------- |
 | Types ordinary unexpected text  | Preserve as paragraph text.                                                               |
 | Types an unknown slash command  | Search the slash menu; if no command is selected, leave as normal text.                   |
@@ -764,7 +764,7 @@ Markdown remains useful for portability, version history, exports, support workf
 Optional advanced source mode:
 
 - Uses CodeMirror.
-- Uses Lezer only if Talmeh offers a real custom source language.
+- Uses Lezer only if Lodariq offers a real custom source language.
 - Shows tolerant inline errors.
 - Keeps unknown text visible and editable.
 - Preserves the last valid compiled version.
@@ -775,7 +775,7 @@ Optional advanced source mode:
 
 The block document is the primary editing surface, but branching tours and conditional onboarding flows also need a map view. Lexical should own the editable step blocks and inline controls, while the Flow Map renders and mutates graph relationships over the same canonical model.
 
-Talmeh should provide a Flow Map view for tours and any future document type with branching behavior.
+Lodariq should provide a Flow Map view for tours and any future document type with branching behavior.
 
 Flow Map responsibilities:
 
@@ -839,7 +839,7 @@ The original CSS-first fallback chain is too brittle and dangerous. CSS selector
 
 ## 8.2 Target Selection Mode
 
-Creators attach Talmeh blocks to the product through direct canvas selection. They should not write selectors, inspect DOM paths, or memorize product implementation details.
+Creators attach Lodariq blocks to the product through direct canvas selection. They should not write selectors, inspect DOM paths, or memorize product implementation details.
 
 Target selection flow:
 
@@ -859,7 +859,7 @@ Cursor states:
 | ---------------- | ----------------------------------- | ----------------------------------------------------------------------------------- |
 | Normal authoring | `default`                           | Creator edits document and panel normally.                                          |
 | Target selection | `crosshair` or custom target cursor | Creator is selecting an element in the product.                                     |
-| Blocked target   | `not-allowed`                       | Element cannot be selected, such as Talmeh UI, hidden elements, or unsafe controls. |
+| Blocked target   | `not-allowed`                       | Element cannot be selected, such as Lodariq UI, hidden elements, or unsafe controls. |
 
 Hover label examples should stay mechanical and honest:
 
@@ -903,7 +903,7 @@ Interaction rules:
 
 - While target selection is active, normal product clicks are intercepted.
 - `Esc` cancels selection.
-- Talmeh UI cannot be selected as a product target.
+- Lodariq UI cannot be selected as a product target.
 - Nested targets can be cycled with parent/deeper controls.
 - A click-through modifier may temporarily restore product interaction if the creator needs to open a menu before selecting an item.
 - The selection overlay must not permanently mutate host-page DOM styles.
@@ -941,7 +941,7 @@ Candidates are scored instead of resolved by ordered fallback.
 
 | Signal                                       | Score |
 | -------------------------------------------- | ----: |
-| `data-talmeh-id` match                       |  +100 |
+| `data-lodariq-id` match                       |  +100 |
 | Customer configured stable attribute         |   +90 |
 | Role and accessible name                     |   +70 |
 | Associated label, placeholder, title, or alt |   +65 |
@@ -967,7 +967,7 @@ The browser SDK should derive semantics from DOM attributes and accessible-name 
 
 ## 8.6 Runtime Lifecycle and Virtualized UI Handling
 
-Semantic scoring only works after the target element exists in the DOM. Modern SaaS applications often hide, destroy, or lazily create DOM nodes through virtualized lists, async tables, route transitions, tabs, drawers, popovers, and infinite scrolling. Talmeh therefore needs a runtime lifecycle layer around the resolver.
+Semantic scoring only works after the target element exists in the DOM. Modern SaaS applications often hide, destroy, or lazily create DOM nodes through virtualized lists, async tables, route transitions, tabs, drawers, popovers, and infinite scrolling. Lodariq therefore needs a runtime lifecycle layer around the resolver.
 
 Each targetable step may include optional page-state hints:
 
@@ -1025,22 +1025,22 @@ SDK bundle rules:
 
 - Build SDK bundles with Rollup plus esbuild or an equivalent production bundling path.
 - Target ES2020 for the first release unless customer browser requirements force a lower target.
-- `talmeh-loader.js` should stay tiny and only bootstrap configuration, manifest lookup, and lazy bundle loading.
+- `lodariq-loader.js` should stay tiny and only bootstrap configuration, manifest lookup, and lazy bundle loading.
 - Runtime/player bundles must not depend on React, Lexical, dashboard code, or authoring UI.
 - Floating UI DOM is the only allowed default third-party dependency in the runtime/player bundle.
 - Authoring bundles may use React and Lexical because they load only for authenticated creators.
 - Initial CI budget gates:
-  - `talmeh-loader.js` under 3 KB gzipped.
+  - `lodariq-loader.js` under 3 KB gzipped.
   - Core runtime plus tour renderer under 40 KB gzipped for Phase 1.
   - Authoring bundle tracked but not size-blocked in Phase 1 because it is authenticated-creator-only.
 
 Bundles:
 
 ```text
-talmeh-loader.js
-talmeh-runtime.js
-talmeh-authoring.js
-talmeh-local-dev.js
+lodariq-loader.js
+lodariq-runtime.js
+lodariq-authoring.js
+lodariq-local-dev.js
 renderers/tour.js
 renderers/announcement.js
 renderers/checklist.js
@@ -1053,21 +1053,21 @@ Package and source boundaries:
 
 ```text
 packages/
-  schema/          @talmeh/schema        canonical TypeBox/JSON Schema contracts; zero runtime deps
-  compiler/        @talmeh/compiler       pure isomorphic block JSON to preview/delivery JSON
-  sdk-runtime/     @talmeh/sdk-runtime    no React or Lexical; production runtime surface
+  schema/          @lodariq/schema        canonical TypeBox/JSON Schema contracts; zero runtime deps
+  compiler/        @lodariq/compiler       pure isomorphic block JSON to preview/delivery JSON
+  sdk-runtime/     @lodariq/sdk-runtime    no React or Lexical; production runtime surface
     loader/        install script bootstrap, manifest pointer, lazy loading
     runtime/       identify, track, targeting, analytics batching, lifecycle
     resolver/      semantic target capture, scoring, diagnostics
     renderers/     tour first, future document renderers behind lazy entry points
     local-dev/     local persistence, fixture host helpers, debug panel
-  sdk-authoring/   @talmeh/sdk-authoring  React + Lexical; authenticated-creator only
+  sdk-authoring/   @lodariq/sdk-authoring  React + Lexical; authenticated-creator only
     authoring/     authoring shell and iframe integration
     bridge/        host-page bridge, postMessage protocol, target picking
     editor/        Lexical nodes, commands, serialization, migrations
 ```
 
-The runtime and authoring packages must be physically separate, not folders inside one `@talmeh/sdk` package. This is the single load-bearing boundary in the SDK: the production runtime bundle must never include React or Lexical, and physical package separation makes that a module-system guarantee rather than a lint rule an agent can accidentally violate. `@talmeh/schema` and `@talmeh/compiler` form a shared isomorphic core consumed by both the SDK and the server worker; the compiler must be a pure function with no DOM or Node-only dependencies. Browser compilation is used only for local-dev preview, while the trusted, content-addressed publication artifact is always compiled server-side. Enforce the remaining boundaries (no `sdk-runtime` to `sdk-authoring`, no `lexical` imports outside `sdk-authoring`) with dependency-cruiser in CI in addition to package separation. Split further only if bundle ownership, dependency boundaries, or build times justify it.
+The runtime and authoring packages must be physically separate, not folders inside one `@lodariq/sdk` package. This is the single load-bearing boundary in the SDK: the production runtime bundle must never include React or Lexical, and physical package separation makes that a module-system guarantee rather than a lint rule an agent can accidentally violate. `@lodariq/schema` and `@lodariq/compiler` form a shared isomorphic core consumed by both the SDK and the server worker; the compiler must be a pure function with no DOM or Node-only dependencies. Browser compilation is used only for local-dev preview, while the trusted, content-addressed publication artifact is always compiled server-side. Enforce the remaining boundaries (no `sdk-runtime` to `sdk-authoring`, no `lexical` imports outside `sdk-authoring`) with dependency-cruiser in CI in addition to package separation. Split further only if bundle ownership, dependency boundaries, or build times justify it.
 
 ## 9.2 Loader
 
@@ -1101,8 +1101,8 @@ Responsibilities:
 
 - Floating toolbar and element picker.
 - Host-page bridge for DOM inspection and highlight rendering.
-- Sandboxed iframe editor hosted from a Talmeh domain.
-- Lexical-based Floating Document Builder with custom Talmeh nodes.
+- Sandboxed iframe editor hosted from a Lodariq domain.
+- Lexical-based Floating Document Builder with custom Lodariq nodes.
 - Slash menu, drag handles, property chips, validation states, review UI, and document sync.
 - Versioned `postMessage` protocol between iframe and host bridge.
 
@@ -1110,7 +1110,7 @@ Iframe example:
 
 ```html
 <iframe
-  src="https://editor.talmeh.io/session/..."
+  src="https://editor.lodariq.com/session/..."
   sandbox="allow-scripts allow-same-origin"
 ></iframe>
 ```
@@ -1138,7 +1138,7 @@ Bridge protocol rules:
 - All messages include protocol version, session ID, document ID, and correlation ID.
 - Every bridge command has an acknowledgement or timeout path.
 - The iframe and host bridge negotiate allowed origins during session creation.
-- Incoming iframe messages must validate the customer app parent origin, not the iframe's own Talmeh origin.
+- Incoming iframe messages must validate the customer app parent origin, not the iframe's own Lodariq origin.
 - Outbound messages must use the exact allowed target origin; do not use `postMessage(..., "*")` outside local development fixtures.
 - Message payloads must be runtime-validated before dispatching Lexical commands.
 - Session tokens must be short-lived and scoped to one workspace, environment, document, and authoring session.
@@ -1196,7 +1196,7 @@ Core dashboard areas:
 
 For a three-person AI-assisted team, Next.js is preferred over a plain Vite dashboard because the App Router, middleware examples, and community patterns give AI agents more useful context. The dashboard is deployed as a Next.js Node server on Fly.io alongside the API rather than on Vercel; this removes a vendor, simplifies the origin and deployment model, and avoids Vercel-specific lock-in, at the cost of giving up Vercel's preview-deploy convenience. Vite remains appropriate for isolated playgrounds, SDK fixtures, and lightweight test hosts.
 
-Use shadcn/ui for dashboard primitives because the generated components live in the repository and can be customized deeply for Talmeh-specific screens such as the editor shell, target diagnostics, data catalog, and analytics. Use React Aria selectively when a component has complex keyboard or accessibility requirements that exceed the default shadcn/Radix behavior.
+Use shadcn/ui for dashboard primitives because the generated components live in the repository and can be customized deeply for Lodariq-specific screens such as the editor shell, target diagnostics, data catalog, and analytics. Use React Aria selectively when a component has complex keyboard or accessibility requirements that exceed the default shadcn/Radix behavior.
 
 # 11. Backend and Data Model
 
@@ -1213,7 +1213,7 @@ Use:
 - OpenAPI-generated clients.
 - Modular monolith initially.
 
-Canonical API and SDK schemas should live in `@talmeh/schema` as TypeBox/JSON Schema definitions with inferred TypeScript types. This package also owns the bridge `postMessage` message schemas, so the iframe and host bridge validate against exactly the same definitions. Zod may be used inside dashboard forms when it improves React Hook Form ergonomics, but Zod is not the canonical cross-system contract.
+Canonical API and SDK schemas should live in `@lodariq/schema` as TypeBox/JSON Schema definitions with inferred TypeScript types. This package also owns the bridge `postMessage` message schemas, so the iframe and host bridge validate against exactly the same definitions. Zod may be used inside dashboard forms when it improves React Hook Form ergonomics, but Zod is not the canonical cross-system contract.
 
 A single `correlationId` should be minted at the start of an authoring session and at each publish, then propagated through the bridge envelope, API requests, worker job payloads, and OpenTelemetry baggage, so authoring, compilation, publication, playback, and export can be traced end to end.
 
@@ -1257,7 +1257,7 @@ Store:
 - Content hashes.
 - Immutable publication records.
 - Targeting definitions.
-- Customer data catalog entries for observed identify traits, tracked events, page-context fields, integration fields, and Talmeh-owned activity.
+- Customer data catalog entries for observed identify traits, tracked events, page-context fields, integration fields, and Lodariq-owned activity.
 - Billing metadata.
 - Workflow state.
 
@@ -1298,13 +1298,13 @@ Language and repo
   Turborepo early for task caching (cheap to add; high CI churn from AI-assisted work)
 
 Packages
-  @talmeh/schema        canonical contracts, zero runtime deps
-  @talmeh/compiler      pure isomorphic block JSON to delivery JSON
-  @talmeh/sdk-runtime   loader, runtime, resolver, renderers; no React or Lexical
-  @talmeh/sdk-authoring React, Lexical, editor, authoring bridge; creator-only
+  @lodariq/schema        canonical contracts, zero runtime deps
+  @lodariq/compiler      pure isomorphic block JSON to delivery JSON
+  @lodariq/sdk-runtime   loader, runtime, resolver, renderers; no React or Lexical
+  @lodariq/sdk-authoring React, Lexical, editor, authoring bridge; creator-only
 
 Pre-phase product surface
-  @talmeh/sdk-runtime and @talmeh/sdk-authoring as the primary deliverables
+  @lodariq/sdk-runtime and @lodariq/sdk-authoring as the primary deliverables
   Fixture host app as the primary integration test surface
   Local demo/debug server only as needed
   Dashboard and production API deferred until the SDK contract is real
@@ -1325,8 +1325,8 @@ Runtime and dashboard
 Authoring editor
   Lexical
   packages/sdk-authoring/src/editor
-  Extract @talmeh/editor later only if needed
-  Custom Talmeh nodes
+  Extract @lodariq/editor later only if needed
+  Custom Lodariq nodes
   CodeMirror only for optional advanced source mode
 
 API and workers
@@ -1431,20 +1431,20 @@ Use one of:
 For an iframe-based authoring product the origin boundaries are a security design, not an incidental detail, and they should be fixed early.
 
 ```text
-cdn.talmeh.io     Cloudflare R2 + CDN: loader, runtime/renderer bundles, compiled
+cdn.lodariq.com     Cloudflare R2 + CDN: loader, runtime/renderer bundles, compiled
                    manifests, hosted demo assets, exports (immutable, content-addressed)
-editor.talmeh.io  Authoring iframe app; a distinct origin from BOTH the customer
+editor.lodariq.com  Authoring iframe app; a distinct origin from BOTH the customer
                    page and the dashboard
-app.talmeh.io     Next.js dashboard on Fly.io
-api.talmeh.io     Fastify API on Fly.io (api service)
+app.lodariq.com     Next.js dashboard on Fly.io
+api.lodariq.com     Fastify API on Fly.io (api service)
                    plus a separate Fly.io worker service for compile/screenshot/export jobs
-demos.talmeh.io   Hosted public demo player; a separate origin from the authenticated
+demos.lodariq.com   Hosted public demo player; a separate origin from the authenticated
                    dashboard so viewer sessions never share cookies with it
 ```
 
 Rules:
 
-- The authoring iframe origin (`editor.talmeh.io`) must be distinct from the dashboard origin. Even if the editor is later embedded in the dashboard, it must remain served from its own canonical origin so cross-origin isolation and `postMessage` origin checks stay meaningful.
+- The authoring iframe origin (`editor.lodariq.com`) must be distinct from the dashboard origin. Even if the editor is later embedded in the dashboard, it must remain served from its own canonical origin so cross-origin isolation and `postMessage` origin checks stay meaningful.
 - Public, unauthenticated demo traffic must not run on the authenticated dashboard origin.
 - The dashboard, API, and worker run on Fly.io. The API and worker are separate deployables because Playwright export jobs need their own scaling tier and isolation, as described in section 13.
 - Vercel is not used.
@@ -1454,12 +1454,12 @@ Rules:
 Every published tour can generate a hosted URL:
 
 ```text
-https://app.talmeh.io/demo/acme-enterprise-demo
+https://app.lodariq.com/demo/acme-enterprise-demo
 ```
 
 Requirements:
 
-- No Talmeh account required to view unless restricted.
+- No Lodariq account required to view unless restricted.
 - Optional password protection.
 - Optional expiry.
 - Optional allowed domains.
@@ -1513,7 +1513,7 @@ Cost-control targets:
 ## 14.1 Authoring Safety
 
 - Authoring disabled in production by default.
-- Creator must authenticate with Talmeh before authoring.
+- Creator must authenticate with Lodariq before authoring.
 - Environment-scoped SDK tokens.
 - Sandboxed editor iframe.
 - Narrow versioned `postMessage` protocol.
@@ -1602,20 +1602,20 @@ Goal: lock the SDK-first implementation contract before agents or humans generat
 
 Scope:
 
-- Product name confirmed as **Talmeh**; use `Talmeh` for SDK globals, `@talmeh/*` for packages, and `*.talmeh.io` for canonical origins before generating implementation artifacts.
+- Product name confirmed as **Lodariq**; use `Lodariq` for SDK globals, `@lodariq/*` for packages, and `*.lodariq.com` for canonical origins before generating implementation artifacts.
 - Create one repository with pnpm workspaces.
 - Add Turborepo for task caching; it is cheap to add and AI-assisted work generates high CI churn.
 - Add strict TypeScript, ESLint, Prettier, Vitest, Playwright, size-limit, and dependency-cruiser.
 - Create initial packages:
-  - `packages/schema` (`@talmeh/schema`) for TypeBox/JSON Schema, inferred TypeScript types, and bridge message schemas.
-  - `packages/compiler` (`@talmeh/compiler`) for the pure isomorphic block JSON to preview/delivery JSON compiler.
-  - `packages/sdk-runtime` (`@talmeh/sdk-runtime`), with no React or Lexical, containing:
+  - `packages/schema` (`@lodariq/schema`) for TypeBox/JSON Schema, inferred TypeScript types, and bridge message schemas.
+  - `packages/compiler` (`@lodariq/compiler`) for the pure isomorphic block JSON to preview/delivery JSON compiler.
+  - `packages/sdk-runtime` (`@lodariq/sdk-runtime`), with no React or Lexical, containing:
     - `src/loader` for install-script bootstrap.
     - `src/runtime` for production runtime/player behavior.
     - `src/resolver` for semantic target capture, scoring, and diagnostics.
     - `src/renderers` for tour renderer first and future lazy renderers.
     - `src/local-dev` for local persistence, debug UI, and fixture helpers.
-  - `packages/sdk-authoring` (`@talmeh/sdk-authoring`), creator-only, containing:
+  - `packages/sdk-authoring` (`@lodariq/sdk-authoring`), creator-only, containing:
     - `src/authoring` for the authoring UI shell.
     - `src/bridge` for host-page inspection, target picking, and `postMessage`.
     - `src/editor` for Lexical integration and editor primitives.
@@ -1624,7 +1624,7 @@ Scope:
   - `apps/sdk-playground` if a separate visual SDK playground is useful.
   - No production dashboard, API, or worker app yet.
 - Add package-boundary checks enforced by package separation and dependency-cruiser:
-  - `@talmeh/sdk-runtime` cannot import `react`, `lexical`, `@lexical/*`, `@talmeh/sdk-authoring`, or dashboard-only dependencies.
+  - `@lodariq/sdk-runtime` cannot import `react`, `lexical`, `@lexical/*`, `@lodariq/sdk-authoring`, or dashboard-only dependencies.
   - `lexical` imports are allowed only inside `packages/sdk-authoring/src/editor`.
   - No production runtime imports from authoring-only code.
 - Add the first canonical block JSON fixture before editor UI is built.
@@ -1635,30 +1635,30 @@ Acceptance criteria:
 - CI runs typecheck, lint, tests, and bundle-size checks.
 - The repo can build SDK loader, runtime, authoring, compiler, and fixture-host artifacts.
 - Package-boundary checks fail on forbidden imports.
-- The first block JSON fixture is versioned and validated by `@talmeh/schema`.
+- The first block JSON fixture is versioned and validated by `@lodariq/schema`.
 - No production product code depends on Markdown parsing, custom grammar parsing, or WebSockets.
 
 ## 16.1 Pre-Phase: Full Local SDK Foundation
 
 Timeline: weeks 1-6  
-Goal: build the entire local Talmeh SDK foundation before app/backend MVP work begins. This phase should prove that a customer can install the script into a realistic page, open local authoring, create a linear tour, select targets, preview playback, serialize the document, reload it, and play it again through SDK bundles without a production backend.
+Goal: build the entire local Lodariq SDK foundation before app/backend MVP work begins. This phase should prove that a customer can install the script into a realistic page, open local authoring, create a linear tour, select targets, preview playback, serialize the document, reload it, and play it again through SDK bundles without a production backend.
 
 Scope:
 
 - `packages/sdk-runtime` and `packages/sdk-authoring` as the primary implementation surfaces, with `packages/schema` and `packages/compiler` as the shared core.
 - SDK entry points:
-  - `talmeh-loader.js`.
-  - `talmeh-runtime.js`.
-  - `talmeh-authoring.js`.
-  - `talmeh-local-dev.js`.
+  - `lodariq-loader.js`.
+  - `lodariq-runtime.js`.
+  - `lodariq-authoring.js`.
+  - `lodariq-local-dev.js`.
   - `renderers/tour.js`.
 - Loader bootstrap:
   - Reads workspace/environment config from script attributes.
   - Supports local manifest fixtures.
   - Lazy-loads runtime, authoring, and tour renderer bundles.
 - Runtime/player:
-  - Exposes `Talmeh.identify()`.
-  - Exposes `Talmeh.track()`.
+  - Exposes `Lodariq.identify()`.
+  - Exposes `Lodariq.track()`.
   - Loads compiled local tour JSON.
   - Evaluates minimal local eligibility rules.
   - Renders linear tour playback with Floating UI placement.
@@ -1666,7 +1666,7 @@ Scope:
 - Authoring bridge:
   - Host-page bridge for DOM inspection, target picking, hover outlines, and preview patches.
   - Versioned `postMessage` envelope with origin checks, acknowledgements, timeouts, and runtime validation.
-  - Same-origin iframe mode for local development, with architecture compatible with future Talmeh-hosted iframe.
+  - Same-origin iframe mode for local development, with architecture compatible with future Lodariq-hosted iframe.
 - Authoring editor:
   - Lexical integration limited to `packages/sdk-authoring/src/editor`.
   - MVP nodes for paragraph, heading, tour step, tooltip, button, target chip, and validation badge.
@@ -1686,10 +1686,10 @@ Scope:
   - Coordinates are diagnostic only.
 - Fixture and local development:
   - `apps/fixture-host` with realistic SaaS-like routes, table/list, drawer/modal, scroll container, and lazy-loaded content.
-  - `talmeh-local-dev.js` or equivalent helper for local persistence, debug panel, fixture manifest, document import/export, and reset controls.
+  - `lodariq-local-dev.js` or equivalent helper for local persistence, debug panel, fixture manifest, document import/export, and reset controls.
   - Playwright tests that install the local SDK into the fixture host and exercise authoring plus playback.
 - Bundle and dependency checks:
-  - `@talmeh/sdk-runtime` (loader/runtime/renderers) cannot import React, Lexical, dashboard code, or `@talmeh/sdk-authoring`, enforced by package separation and dependency-cruiser.
+  - `@lodariq/sdk-runtime` (loader/runtime/renderers) cannot import React, Lexical, dashboard code, or `@lodariq/sdk-authoring`, enforced by package separation and dependency-cruiser.
   - Lexical imports are allowed only inside `packages/sdk-authoring/src/editor`.
   - Size checks for loader and runtime/tour renderer.
 
@@ -1716,7 +1716,7 @@ Explicitly out of scope:
 
 Pre-phase acceptance criteria:
 
-- Fixture host can load `talmeh-loader.js` from the local build.
+- Fixture host can load `lodariq-loader.js` from the local build.
 - Loader can lazy-load runtime, authoring, and tour renderer bundles.
 - Creator can open local authoring mode inside the fixture host.
 - Creator can add blocks with slash commands.
@@ -1729,7 +1729,7 @@ Pre-phase acceptance criteria:
 - A tour fixture can be exported, re-imported, recompiled, and replayed without losing stable block IDs.
 - Resolver succeeds when non-semantic CSS selector details change but role, label, text, or stable attributes remain.
 - Resolver reports found, missing, and ambiguous states.
-- Lexical node keys are not used as persistent Talmeh block IDs.
+- Lexical node keys are not used as persistent Lodariq block IDs.
 - Migrations can upgrade at least one older fixture version.
 - Validation badges render ready, incomplete, and invalid states.
 - Clipboard paste preserves safe basic content and strips unsupported or unsafe formatting.
@@ -1748,7 +1748,7 @@ Scope:
 
 - Local SDK from Pre-phase.
 - Hardening the loader/runtime/authoring/compiler/resolver/renderers against realistic host-page behavior.
-- Same-origin iframe bridge remains acceptable locally, but the protocol must match the future cross-origin Talmeh-hosted iframe design.
+- Same-origin iframe bridge remains acceptable locally, but the protocol must match the future cross-origin Lodariq-hosted iframe design.
 - Tour document type only.
 - Expanded fixture host coverage:
   - Multiple client-side routes.
@@ -1794,7 +1794,7 @@ Goal: productionize the validated SDK and add the minimum control plane required
 Scope:
 
 - Single repository with minimal workspace boundaries.
-- `@talmeh/schema` with TypeBox/JSON Schema as the canonical contract.
+- `@lodariq/schema` with TypeBox/JSON Schema as the canonical contract.
 - Production-ready SDK build pipeline for loader, runtime, authoring, bridge, compiler, resolver, and tour renderer.
 - Productionization of the SDK authoring editor boundary.
 - Canonical typed block JSON.
@@ -1893,7 +1893,7 @@ Scope:
 
 - Production delivery mode.
 - Client-side targeting evaluator using signed manifests.
-- Workspace data catalog for identify traits, tracked events, page context, Talmeh activity, and approved integrations.
+- Workspace data catalog for identify traits, tracked events, page context, Lodariq activity, and approved integrations.
 - Segment builder.
 - Announcement renderer.
 - Checklist renderer.
@@ -1919,7 +1919,7 @@ Acceptance criteria:
 ## 16.6 Phase 4: Workflow and Governance
 
 Timeline: weeks 34-41  
-Goal: make Talmeh governable for teams. Collaboration beyond review comments remains out of scope until customer demand is proven.
+Goal: make Lodariq governable for teams. Collaboration beyond review comments remains out of scope until customer demand is proven.
 
 Scope:
 
@@ -2021,7 +2021,7 @@ Billing notes:
 ## 18.1 Pre-Phase Through Phase 1 Metrics
 
 - 100 percent of MVP Lexical nodes have serialization, deserialization, migration, and validation fixtures.
-- Zero direct `lexical` imports outside `packages/sdk-authoring/src/editor` unless the editor boundary has been intentionally extracted into `@talmeh/editor`.
+- Zero direct `lexical` imports outside `packages/sdk-authoring/src/editor` unless the editor boundary has been intentionally extracted into `@lodariq/editor`.
 - Editor playground covers every MVP node, command, and validation state.
 - Slash menu command execution under 100 ms at p95.
 - Drag/drop reorder interaction under 100 ms at p95 for a 50-block document.
@@ -2071,13 +2071,13 @@ Billing notes:
 
 # 19. Open Decisions
 
-1. ~~Brand naming~~ **Resolved:** product name is **Talmeh** (Arabic تلميح — _hint_). Retired draft names: ScriptFlow (original PRD), Waymark (intermediate refinement).
+1. ~~Brand naming~~ **Resolved:** product name is **Lodariq** (Arabic تلميح — _hint_). Retired draft names: ScriptFlow (original PRD), Waymark (intermediate refinement).
 2. Knowledge widget timing: include in Phase 3 only if it does not slow core in-app delivery.
 3. Branching: decide when Flow Map authoring becomes customer-visible instead of schema-only.
 4. Data catalog display names: decide whether friendly names are configured manually, imported from analytics integrations, or inferred only after user confirmation.
-5. Lexical editor boundary: decide which UI components live inside `packages/sdk-authoring/src/editor`, which live in the generic `@talmeh/sdk-authoring` UI, and whether extraction to a standalone `@talmeh/editor` package is justified later.
+5. Lexical editor boundary: decide which UI components live inside `packages/sdk-authoring/src/editor`, which live in the generic `@lodariq/sdk-authoring` UI, and whether extraction to a standalone `@lodariq/editor` package is justified later.
 6. Drag/drop implementation: decide whether to use native pointer logic first or a dedicated DnD library around Lexical nodes.
-7. Flow Map rendering: decide whether the first implementation is custom canvas/SVG or a graph library wrapped behind Talmeh primitives.
+7. Flow Map rendering: decide whether the first implementation is custom canvas/SVG or a graph library wrapped behind Lodariq primitives.
 8. Redis introduction and provider: define the first real async job that justifies introducing Redis at all, whether to self-host Redis/Valkey on Fly.io or use Upstash on a fixed plan, and the command-volume, cost, or latency threshold that later triggers moving worker jobs to Cloudflare Queues, SQS, or another durable queue.
 9. R2 object privacy model: decide which generated assets are public, signed, password-protected, expiring, or workspace-private.
 10. Fly.io region strategy: choose initial regions and latency targets for the dashboard, API, authoring sessions, and ingestion, and confirm they satisfy the MENA/EU data-residency goal across Fly.io, Neon, and Clerk.
@@ -2086,9 +2086,9 @@ Billing notes:
 
 - Do not build canvas editing directly against raw Markdown strings.
 - Do not add a Markdown-to-JSON compiler or custom Markdown grammar in Pre-phase, Phase 0, or Phase 1.
-- Do not import Lexical outside `packages/sdk-authoring/src/editor`; if that boundary is later extracted, use the extracted `@talmeh/editor` package.
-- Do not collapse `@talmeh/sdk-runtime` and `@talmeh/sdk-authoring` into one package; the runtime must be unable to import React or Lexical through the module system, not just by lint rule.
-- Do not let the production runtime depend on `@talmeh/sdk-authoring`.
+- Do not import Lexical outside `packages/sdk-authoring/src/editor`; if that boundary is later extracted, use the extracted `@lodariq/editor` package.
+- Do not collapse `@lodariq/sdk-runtime` and `@lodariq/sdk-authoring` into one package; the runtime must be unable to import React or Lexical through the module system, not just by lint rule.
+- Do not let the production runtime depend on `@lodariq/sdk-authoring`.
 - Do not compile a real publication artifact in the browser; browser compilation is preview-only and the content-addressed artifact must be compiled server-side.
 - Do not serve the authoring iframe or the hosted public demo from the authenticated dashboard origin.
 - Do not adopt Vercel; host the dashboard on Fly.io.
@@ -2096,19 +2096,19 @@ Billing notes:
 - Do not introduce Redis, dedicated log aggregation, or a separate internal product-analytics vendor before a real need exists.
 - Do not apply a destructive database migration to a shared environment without explicit human sign-off.
 - Do not rely on application-level workspace scoping alone; back it with PostgreSQL row-level security.
-- Do not use Zod as the canonical cross-system schema contract; use `@talmeh/schema` with TypeBox/JSON Schema and keep Zod limited to dashboard form ergonomics if used.
+- Do not use Zod as the canonical cross-system schema contract; use `@lodariq/schema` with TypeBox/JSON Schema and keep Zod limited to dashboard form ergonomics if used.
 - Do not make PMs maintain code-like attributes such as `src=""`, `action=""`, or `target=""` in the primary editor.
 - Do not treat slash commands as durable syntax; they are insertion and transformation gestures.
 - Do not send every keystroke or pointer movement across the iframe bridge.
 - Do not create a standalone WebSocket gateway in Pre-phase, Phase 0, or Phase 1.
 - Do not require server compilation before the local authoring UX is validated.
-- Do not make dashboard code the owner of Talmeh editor behavior; the SDK authoring/editor boundary owns it first.
+- Do not make dashboard code the owner of Lodariq editor behavior; the SDK authoring/editor boundary owns it first.
 - Do not ship editor nodes without serialization, deserialization, migration, validation, paste, and accessibility coverage.
-- Do not use Lexical node keys as persistent Talmeh block IDs.
+- Do not use Lexical node keys as persistent Lodariq block IDs.
 - Do not implement future document-type nodes before the product behavior is validated; define schema placeholders instead.
 - Do not ship authoring code in the normal production runtime.
 - Do not allow coordinates to trigger production interactions.
-- Do not imply Talmeh can access customer database values that were not explicitly sent through SDK/API/integrations.
+- Do not imply Lodariq can access customer database values that were not explicitly sent through SDK/API/integrations.
 - Do not turn event or trait keys into polished business-language summaries unless the customer configured those display names.
 - Do not show sensitive or high-cardinality observed values in dropdowns by default.
 - Do not assume semantic scoring can find elements that are not mounted in the DOM.

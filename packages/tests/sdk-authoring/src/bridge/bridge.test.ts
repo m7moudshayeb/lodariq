@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
 import { describe, expect, it, vi } from 'vitest';
-import { BRIDGE_PROTOCOL_VERSION, type BridgeMessage } from '@talmeh/schema';
-import { AuthoringBridge, startTargetPicker } from '@talmeh/sdk-authoring/bridge';
-import { resolve } from '@talmeh/sdk-runtime/resolver';
+import { BRIDGE_PROTOCOL_VERSION, type BridgeMessage } from '@lodariq/schema';
+import { AuthoringBridge, startTargetPicker } from '@lodariq/sdk-authoring/bridge';
+import { resolve } from '@lodariq/sdk-runtime/resolver';
 
 function makeMessage(): BridgeMessage {
   return {
@@ -297,7 +297,7 @@ describe('AuthoringBridge (PRD §9.5)', () => {
     const productMouseDown = vi.fn();
     const productMouseUp = vi.fn();
     const button = document.createElement('button');
-    button.dataset['talmehId'] = 'new-project';
+    button.dataset['lodariqId'] = 'new-project';
     button.textContent = 'New project';
     button.addEventListener('pointerdown', productPointerDown);
     button.addEventListener('pointerup', productPointerUp);
@@ -337,7 +337,7 @@ describe('AuthoringBridge (PRD §9.5)', () => {
       tagName: 'button',
       role: 'button',
       accessibleName: 'New project',
-      stableAttributes: { 'data-talmeh-id': 'new-project' },
+      stableAttributes: { 'data-lodariq-id': 'new-project' },
       diagnosticCoordinates: { x: 12, y: 18 },
     });
     expect(resolve(onPick.mock.calls[0]![0].fingerprint).state).toBe('found');
@@ -346,7 +346,7 @@ describe('AuthoringBridge (PRD §9.5)', () => {
   it('shows a veil and mechanical hover label while picking targets', () => {
     document.head.innerHTML = '<meta property="csp-nonce" nonce="nonce_picker">';
     const button = document.createElement('button');
-    button.dataset['talmehId'] = 'new-project';
+    button.dataset['lodariqId'] = 'new-project';
     button.textContent = 'New project';
     document.body.appendChild(button);
 
@@ -356,29 +356,29 @@ describe('AuthoringBridge (PRD §9.5)', () => {
       new MouseEvent('pointermove', { bubbles: true, clientX: 12, clientY: 18 }),
     );
 
-    expect(document.documentElement.getAttribute('data-talmeh-target-picker')).toBe('active');
-    expect(document.querySelector('[data-talmeh-bridge="target-veil"]')).toBeTruthy();
+    expect(document.documentElement.getAttribute('data-lodariq-target-picker')).toBe('active');
+    expect(document.querySelector('[data-lodariq-bridge="target-veil"]')).toBeTruthy();
     expect(document.head.querySelector('style')?.nonce).toBe('nonce_picker');
     expect(
-      document.querySelector<HTMLElement>('[data-talmeh-bridge="target-outline"]')?.style.display,
+      document.querySelector<HTMLElement>('[data-lodariq-bridge="target-outline"]')?.style.display,
     ).toBe('block');
-    expect(document.querySelector('[data-talmeh-bridge="target-label"]')?.textContent).toContain(
+    expect(document.querySelector('[data-lodariq-bridge="target-label"]')?.textContent).toContain(
       'Button',
     );
-    expect(document.querySelector('[data-talmeh-bridge="target-label"]')?.textContent).toContain(
+    expect(document.querySelector('[data-lodariq-bridge="target-label"]')?.textContent).toContain(
       'New project',
     );
-    expect(document.querySelector('[data-talmeh-bridge="target-label"]')?.textContent).toContain(
+    expect(document.querySelector('[data-lodariq-bridge="target-label"]')?.textContent).toContain(
       'Click to attach',
     );
 
     picker.cancel();
   });
 
-  it('marks Talmeh UI as blocked and does not select it as a target', () => {
+  it('marks Lodariq UI as blocked and does not select it as a target', () => {
     const onPick = vi.fn();
     const picker = startTargetPicker({ onPick });
-    const panel = document.createElement('talmeh-authoring-panel');
+    const panel = document.createElement('lodariq-authoring-panel');
     const close = document.createElement('button');
     close.textContent = 'Close';
     panel.appendChild(close);
@@ -387,11 +387,11 @@ describe('AuthoringBridge (PRD §9.5)', () => {
     close.dispatchEvent(new MouseEvent('pointermove', { bubbles: true, clientX: 4, clientY: 5 }));
     close.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
 
-    expect(document.documentElement.getAttribute('data-talmeh-target-picker')).toBe('blocked');
-    expect(document.querySelector('[data-talmeh-bridge="target-label"]')?.textContent).toContain(
-      'Talmeh UI',
+    expect(document.documentElement.getAttribute('data-lodariq-target-picker')).toBe('blocked');
+    expect(document.querySelector('[data-lodariq-bridge="target-label"]')?.textContent).toContain(
+      'Lodariq UI',
     );
-    expect(document.querySelector('[data-talmeh-bridge="target-label"]')?.textContent).toContain(
+    expect(document.querySelector('[data-lodariq-bridge="target-label"]')?.textContent).toContain(
       'Cannot attach',
     );
     expect(onPick).not.toHaveBeenCalled();
@@ -402,7 +402,7 @@ describe('AuthoringBridge (PRD §9.5)', () => {
   it('cycles nested targets with parent and deeper controls', () => {
     const onPick = vi.fn();
     const button = document.createElement('button');
-    button.dataset['talmehId'] = 'nested-button';
+    button.dataset['lodariqId'] = 'nested-button';
     const label = document.createElement('span');
     label.textContent = 'Nested label';
     button.appendChild(label);
@@ -413,7 +413,7 @@ describe('AuthoringBridge (PRD §9.5)', () => {
     label.dispatchEvent(new MouseEvent('pointermove', { bubbles: true }));
     document
       .querySelector<HTMLButtonElement>(
-        '[data-talmeh-bridge="target-control"][data-action="parent"]',
+        '[data-lodariq-bridge="target-control"][data-action="parent"]',
       )
       ?.click();
     label.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
@@ -422,7 +422,7 @@ describe('AuthoringBridge (PRD §9.5)', () => {
     expect(onPick.mock.calls[0]?.[0].element).toBe(button);
     expect(onPick.mock.calls[0]?.[0].fingerprint).toMatchObject({
       tagName: 'button',
-      stableAttributes: { 'data-talmeh-id': 'nested-button' },
+      stableAttributes: { 'data-lodariq-id': 'nested-button' },
     });
   });
 
@@ -430,7 +430,7 @@ describe('AuthoringBridge (PRD §9.5)', () => {
     const onPick = vi.fn();
     const productClick = vi.fn();
     const button = document.createElement('button');
-    button.dataset['talmehId'] = 'menu-trigger';
+    button.dataset['lodariqId'] = 'menu-trigger';
     button.textContent = 'Open menu';
     button.addEventListener('click', productClick);
     document.body.appendChild(button);
@@ -440,14 +440,14 @@ describe('AuthoringBridge (PRD §9.5)', () => {
     button.dispatchEvent(new MouseEvent('pointermove', { bubbles: true }));
     document
       .querySelector<HTMLButtonElement>(
-        '[data-talmeh-bridge="target-control"][data-action="click-through"]',
+        '[data-lodariq-bridge="target-control"][data-action="click-through"]',
       )
       ?.click();
     button.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
 
     expect(productClick).toHaveBeenCalledOnce();
     expect(onPick).not.toHaveBeenCalled();
-    expect(document.querySelector('[data-talmeh-bridge="target-veil"]')).toBeTruthy();
+    expect(document.querySelector('[data-lodariq-bridge="target-veil"]')).toBeTruthy();
 
     button.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
     expect(onPick).toHaveBeenCalledOnce();
@@ -458,17 +458,17 @@ describe('AuthoringBridge (PRD §9.5)', () => {
     const onCancel = vi.fn();
     const picker = startTargetPicker({ onPick: vi.fn(), onCancel });
 
-    expect(document.querySelector('[data-talmeh-bridge="target-outline"]')).toBeTruthy();
-    expect(document.querySelector('[data-talmeh-bridge="target-veil"]')).toBeTruthy();
-    expect(document.querySelector('[data-talmeh-bridge="target-label"]')).toBeTruthy();
+    expect(document.querySelector('[data-lodariq-bridge="target-outline"]')).toBeTruthy();
+    expect(document.querySelector('[data-lodariq-bridge="target-veil"]')).toBeTruthy();
+    expect(document.querySelector('[data-lodariq-bridge="target-label"]')).toBeTruthy();
 
     picker.cancel();
     picker.cancel();
 
     expect(onCancel).toHaveBeenCalledOnce();
-    expect(document.querySelector('[data-talmeh-bridge="target-outline"]')).toBeNull();
-    expect(document.querySelector('[data-talmeh-bridge="target-veil"]')).toBeNull();
-    expect(document.querySelector('[data-talmeh-bridge="target-label"]')).toBeNull();
-    expect(document.documentElement.hasAttribute('data-talmeh-target-picker')).toBe(false);
+    expect(document.querySelector('[data-lodariq-bridge="target-outline"]')).toBeNull();
+    expect(document.querySelector('[data-lodariq-bridge="target-veil"]')).toBeNull();
+    expect(document.querySelector('[data-lodariq-bridge="target-label"]')).toBeNull();
+    expect(document.documentElement.hasAttribute('data-lodariq-target-picker')).toBe(false);
   });
 });

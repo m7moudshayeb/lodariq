@@ -1,4 +1,4 @@
-// Talmeh package-boundary enforcement (PRD §9.1, §16.0, §20).
+// Lodariq package-boundary enforcement (PRD §9.1, §16.0, §20).
 //
 // The single load-bearing boundary in the SDK: the production runtime bundle
 // must never include React or Lexical. Physical package separation makes that a
@@ -9,14 +9,14 @@ module.exports = {
   forbidden: [
     {
       name: 'runtime-no-react',
-      comment: '@talmeh/sdk-runtime must not depend on React (PRD §9.1).',
+      comment: '@lodariq/sdk-runtime must not depend on React (PRD §9.1).',
       severity: 'error',
       from: { path: '^packages/sdk-runtime/src' },
       to: { path: 'node_modules/(react|react-dom)(/|$)' },
     },
     {
       name: 'runtime-no-lexical',
-      comment: '@talmeh/sdk-runtime must not depend on Lexical (PRD §9.1, §20).',
+      comment: '@lodariq/sdk-runtime must not depend on Lexical (PRD §9.1, §20).',
       severity: 'error',
       from: { path: '^packages/sdk-runtime/src' },
       to: { path: 'node_modules/(lexical|@lexical)(/|$)' },
@@ -40,7 +40,7 @@ module.exports = {
     },
     {
       name: 'schema-zero-runtime-deps',
-      comment: '@talmeh/schema must have zero runtime deps beyond TypeBox (PRD §12.1).',
+      comment: '@lodariq/schema must have zero runtime deps beyond TypeBox (PRD §12.1).',
       severity: 'error',
       from: { path: '^packages/schema/src' },
       to: {

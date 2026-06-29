@@ -1,5 +1,5 @@
 {
-  "name": "@talmeh/fixture-host",
+  "name": "@lodariq/fixture-host",
   "version": "0.0.0",
   "private": true,
   "description": "Realistic SaaS-like host app used as the primary SDK integration + Playwright test surface (PRD §16.0, §16.1).",
@@ -12,9 +12,9 @@
     "lint": "eslint ."
   },
   "dependencies": {
-    "@talmeh/schema": "workspace:*",
-    "@talmeh/sdk-authoring": "workspace:*",
-    "@talmeh/sdk-runtime": "workspace:*"
+    "@lodariq/schema": "workspace:*",
+    "@lodariq/sdk-authoring": "workspace:*",
+    "@lodariq/sdk-runtime": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5.7.2",
