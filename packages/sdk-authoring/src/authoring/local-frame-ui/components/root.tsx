@@ -64,7 +64,7 @@ export function LocalAuthoringFrameRoot({ options }: { options: LocalAuthoringFr
 
   useLayoutEffect(() => {
     if (!snapshot.focusRequest) return;
-    const blockSelector = `.block[data-block-id="${cssString(snapshot.focusRequest.blockId)}"]`;
+    const blockSelector = `[data-block-id="${cssString(snapshot.focusRequest.blockId)}"]`;
     const selector =
       snapshot.focusRequest.target === 'block'
         ? blockSelector

@@ -1,6 +1,8 @@
+import type { TalmehBlock } from '@talmeh/schema';
 import type { LocalAuthoringFrameController } from '../controller';
 import { AuthoringButton, AuthoringTabs, Braces, Eye, FileJson, Save } from '../design-system';
 import type { LocalAuthoringFrameSnapshot } from '../types';
+import { blockDisplayTitle, blockKicker, targetIdOf } from '../utils';
 
 export function Inspector({
   controller,
@@ -9,35 +11,62 @@ export function Inspector({
   controller: LocalAuthoringFrameController;
   snapshot: LocalAuthoringFrameSnapshot;
 }) {
+  const issues = documentIssues(snapshot.documentState.blocks);
   return (
     <aside className="inspector document-utilities" aria-label="Authoring utilities">
       <section className="preview-workbench" aria-label="Preview workflow">
         <div className="preview-copy">
           <span className="eyebrow">Preview</span>
-          <strong>Run the current tour</strong>
-          <span>
-            {snapshot.compiledText
-              ? 'Preview is prepared from the latest document.'
-              : 'Prepare a test preview when you want to try the tour.'}
-          </span>
+          <strong>Try the tour</strong>
+          <span>{snapshot.compiledText ? 'Preview ready' : 'Preview has not run yet'}</span>
         </div>
         <AuthoringButton
-          data-action="compile"
+          data-action="preview-current"
           icon={<Eye size={14} strokeWidth={2.2} />}
-          onClick={() => controller.compilePreview()}
+          onClick={() => controller.previewCurrentStep()}
           tone="primary"
         >
-          Prepare preview
+          Preview current step
+        </AuthoringButton>
+        <AuthoringButton
+          data-action="preview-full"
+          icon={<Eye size={14} strokeWidth={2.2} />}
+          onClick={() => controller.previewFullTour()}
+        >
+          Preview full tour
+        </AuthoringButton>
+        <AuthoringButton
+          data-action="save"
+          icon={<Save size={14} strokeWidth={2.2} />}
+          onClick={() => controller.saveCurrentDocument()}
+        >
+          Save state
         </AuthoringButton>
         <div className="preview-state" aria-label="Preview status">
-          {snapshot.compiledText ? 'Ready to test' : 'Not prepared yet'}
+          {snapshot.compiledText ? 'Ready' : 'Needs preview'}
         </div>
+      </section>
+
+      <section className="issue-panel" aria-label="Tour issues">
+        <div className="preview-copy">
+          <span className="eyebrow">Issues</span>
+          <strong>{issues.length === 0 ? 'No issues found' : `${issues.length} to finish`}</strong>
+        </div>
+        {issues.length === 0 ? (
+          <p>Ready when you are.</p>
+        ) : (
+          <ul>
+            {issues.slice(0, 5).map((issue) => (
+              <li key={issue}>{issue}</li>
+            ))}
+          </ul>
+        )}
       </section>
 
       <details className="utilities-drawer">
         <summary>
           <span>Developer tools</span>
-          <small>Payload, JSON, metrics</small>
+          <small>JSON, payload, metrics</small>
         </summary>
         <AuthoringTabs
           defaultValue="preview"
@@ -120,4 +149,23 @@ export function Inspector({
       </details>
     </aside>
   );
+}
+
+function documentIssues(blocks: TalmehBlock[]): string[] {
+  return blocks.flatMap((block) => blockIssues(block));
+}
+
+function blockIssues(block: TalmehBlock): string[] {
+  const issues: string[] = [];
+  if (block.type === 'tourStep' && !targetIdOf(block)) {
+    issues.push(`${blockKicker(block)} needs a target.`);
+  }
+  if (block.type === 'button' && !block.props.action) {
+    const label = block.content?.trim() || 'CTA';
+    issues.push(`Button "${label}" needs a purpose.`);
+  }
+  if (block.type === 'media') {
+    issues.push(`${blockDisplayTitle(block)} is a placeholder.`);
+  }
+  return [...issues, ...block.children.flatMap((child) => blockIssues(child))];
 }

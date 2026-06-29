@@ -37,6 +37,23 @@ describe('editor document migrations (PRD §16.1)', () => {
     ]);
   });
 
+  it('round-trips media placeholder blocks through the authoring editor boundary', () => {
+    const blocks = [
+      {
+        id: 'block_media_1',
+        type: 'media',
+        content: 'Media placeholder',
+        props: {},
+        status: 'incomplete',
+        children: [],
+      },
+    ] as TalmehDocument['blocks'];
+    const editor = createTalmehEditor();
+    const parsed = editor.parseEditorState(JSON.stringify(fromBlockJson(blocks))).toJSON();
+
+    expect(toBlockJson(parsed as ReturnType<typeof fromBlockJson>)).toEqual(blocks);
+  });
+
   it('upgrades an older fixture version without changing stable IDs', () => {
     const legacy = {
       ...(tourFixture as TalmehDocument),

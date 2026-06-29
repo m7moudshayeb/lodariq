@@ -16,6 +16,7 @@ import {
 export const TALMEH_MVP_BLOCK_TYPES = [
   'paragraph',
   'heading',
+  'media',
   'tourStep',
   'tooltip',
   'button',
@@ -136,6 +137,8 @@ function tagForBlockType(blockType: TalmehMvpBlockType): keyof HTMLElementTagNam
       return 'h2';
     case 'button':
       return 'button';
+    case 'media':
+      return 'figure';
     case 'targetChip':
     case 'validationBadge':
       return 'span';

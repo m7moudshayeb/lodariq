@@ -186,6 +186,64 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     postMessage.mockRestore();
   });
 
+  it('inserts blocks between top-level blocks without manual reordering', async () => {
+    await loadFrame();
+    importTwoBlocks();
+
+    document
+      .querySelector<HTMLButtonElement>('[aria-label="Insert block after this block"]')
+      ?.click();
+    await Promise.resolve();
+    const headingCommand = [
+      ...document.querySelectorAll<HTMLButtonElement>(
+        '.inline-command-menu:not([hidden]) .inline-command',
+      ),
+    ].find((button) => button.textContent?.includes('Heading'));
+    headingCommand?.click();
+
+    const doc = JSON.parse(documentJson().value) as {
+      blocks: Array<{ id: string; type: string; content?: string }>;
+    };
+    expect(doc.blocks.map((block) => block.id)).toEqual([
+      'block_a',
+      expect.stringMatching(/^block_/),
+      'block_b',
+    ]);
+    expect(doc.blocks.map((block) => block.type)).toEqual(['paragraph', 'heading', 'heading']);
+    expect(doc.blocks[1]?.content).toBe('Untitled heading');
+  });
+
+  it('inserts nested paragraph, button, and media placeholders inside a step', async () => {
+    await loadFrame();
+
+    const step = document.querySelector<HTMLElement>('.block[data-block-type="tourStep"]')!;
+    step.querySelector<HTMLButtonElement>('[aria-label="Insert content at end of step"]')?.click();
+    await Promise.resolve();
+    const mediaCommand = [
+      ...step.querySelectorAll<HTMLButtonElement>(
+        '.inline-command-menu:not([hidden]) .inline-command',
+      ),
+    ].find((button) => button.textContent?.includes('Media'));
+    mediaCommand?.click();
+
+    const mediaInput = step.querySelector<HTMLInputElement>('[aria-label="Media placeholder"]');
+    expect(mediaInput?.value).toBe('Media placeholder');
+    expect(step.textContent).toContain('Placeholder only');
+
+    const doc = JSON.parse(documentJson().value) as {
+      blocks: Array<{
+        children: Array<{ children: Array<{ type: string; content?: string; status?: string }> }>;
+      }>;
+    };
+    const childTypes = doc.blocks[0]?.children[0]?.children.map((block) => block.type);
+    expect(childTypes).toEqual(['heading', 'paragraph', 'button', 'media']);
+    expect(doc.blocks[0]?.children[0]?.children[3]).toMatchObject({
+      type: 'media',
+      content: 'Media placeholder',
+      status: 'incomplete',
+    });
+  });
+
   it('saves incomplete button actions and sends typed setAction patches', async () => {
     const postMessage = vi.spyOn(window, 'postMessage').mockImplementation(() => undefined);
     await loadFrame();
@@ -199,7 +257,7 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     const actionSelect = buttonBlock.querySelector<HTMLSelectElement>(
       '[data-action="set-action"][aria-label="Button action"]',
     )!;
-    expect(buttonBlock.textContent).toContain('Choose action');
+    expect(buttonBlock.textContent).toContain('Needs purpose');
     expect(actionSelect.value).toBe('');
 
     actionSelect.value = 'clickTarget';
@@ -477,7 +535,7 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
       }),
     );
 
-    expect(document.querySelector('.target-health-chip')?.textContent).toBe('Healthy');
+    expect(document.querySelector('.target-chip')?.textContent).toContain('Healthy');
     expect(document.querySelector('#status')?.textContent).toBe('Found by role and label');
 
     document.querySelector<HTMLButtonElement>('[data-action="target-advanced"]')?.click();
@@ -745,7 +803,7 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     const target = doc.targets[doc.targets.length - 1];
     expect(target?.fingerprint.accessibleName).toBe('New project');
     expect(doc.blocks[0]?.children[0]?.props.targetId).toBe(target?.id);
-    expect(document.querySelector('.target-chip')?.textContent).toBe('New project');
+    expect(document.querySelector('.target-chip-label')?.textContent).toBe('New project');
   });
 
   it('ignores bridge-picked targets outside the active local frame scope', async () => {

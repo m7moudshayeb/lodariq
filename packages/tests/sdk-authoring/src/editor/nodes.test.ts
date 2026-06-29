@@ -24,6 +24,7 @@ describe('Talmeh Lexical nodes (PRD §16.1)', () => {
     expect(TALMEH_MVP_BLOCK_TYPES).toEqual([
       'paragraph',
       'heading',
+      'media',
       'tourStep',
       'tooltip',
       'button',

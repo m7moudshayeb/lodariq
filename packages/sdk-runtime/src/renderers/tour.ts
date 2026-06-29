@@ -481,6 +481,18 @@ function createStyles(): HTMLStyleElement {
       line-height: 1.45;
     }
 
+    [data-talmeh-node-type="media"] {
+      margin: 8px 0 12px;
+      padding: 14px;
+      border: 1px dashed #cbd5e1;
+      border-radius: 7px;
+      background: #f8fafc;
+      color: #64748b;
+      font-size: 13px;
+      line-height: 1.35;
+      text-align: center;
+    }
+
     button {
       display: inline-flex;
       align-items: center;

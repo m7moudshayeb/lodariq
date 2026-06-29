@@ -75,7 +75,12 @@ export function blockText(block: TalmehBlock): string {
 }
 
 export function isEditableContentBlock(block: TalmehBlock): boolean {
-  return block.type === 'heading' || block.type === 'paragraph' || block.type === 'button';
+  return (
+    block.type === 'heading' ||
+    block.type === 'paragraph' ||
+    block.type === 'button' ||
+    block.type === 'media'
+  );
 }
 
 export function propertyChipLabels(block: TalmehBlock): string[] {
@@ -87,7 +92,8 @@ export function propertyChipLabels(block: TalmehBlock): string[] {
   if (block.props.action?.type === 'next') labels.push('Continues tour');
   if (block.props.action?.type === 'dismiss') labels.push('Dismisses tour');
   if (block.props.action?.type === 'clickTarget') labels.push('Waits for target click');
-  if (block.type === 'button' && !block.props.action) labels.push('Choose action');
+  if (block.type === 'button' && !block.props.action) labels.push('Needs purpose');
+  if (block.type === 'media') labels.push('Placeholder media');
   return labels;
 }
 

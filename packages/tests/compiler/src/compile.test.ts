@@ -50,6 +50,33 @@ describe('compile', () => {
     });
   });
 
+  it('keeps placeholder media as structured delivery body content', () => {
+    const mutableDocument = JSON.parse(JSON.stringify(document)) as TalmehDocument;
+    mutableDocument.blocks[0]?.children[0]?.children.splice(2, 0, {
+      id: 'block_media_placeholder',
+      type: 'media',
+      content: 'Media placeholder',
+      props: {},
+      status: 'incomplete',
+      children: [],
+    });
+
+    const compiled = compile(mutableDocument);
+
+    expect(compiled.steps[0]?.body.map((block) => block.type)).toEqual([
+      'heading',
+      'paragraph',
+      'media',
+      'button',
+    ]);
+    expect(compiled.steps[0]?.body.find((block) => block.type === 'media')).toEqual({
+      id: 'block_media_placeholder',
+      type: 'media',
+      text: 'Media placeholder',
+      props: {},
+    });
+  });
+
   it('content-addresses the artifact and validates against the schema', async () => {
     const compiled = await compileDocument(document);
     expect(compiled.contentHash).toMatch(/^sha256-[0-9a-f]{64}$/);
