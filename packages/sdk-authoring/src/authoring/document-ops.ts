@@ -1,8 +1,29 @@
 import { sanitizeBlockProps, type BlockActionProps, type TalmehBlock } from '@talmeh/schema';
 import { createBlockId } from '../editor/ids';
 
-export type EditableBlockType = 'paragraph' | 'heading' | 'button';
+export type EditableBlockType = 'paragraph' | 'heading' | 'button' | 'media';
 export type BlockDirection = 'up' | 'down';
+export type BlockInsertPosition = 'before' | 'after';
+
+export function createContentBlock(type: EditableBlockType, contentOverride?: string): TalmehBlock {
+  const content =
+    contentOverride ??
+    (type === 'heading'
+      ? 'Untitled heading'
+      : type === 'button'
+        ? 'Continue'
+        : type === 'media'
+          ? 'Media placeholder'
+          : 'Write supporting copy');
+  return {
+    id: createBlockId(),
+    type,
+    content,
+    props: type === 'heading' ? { level: 2 } : type === 'button' ? { variant: 'primary' } : {},
+    status: type === 'button' || type === 'media' ? 'incomplete' : 'ready',
+    children: [],
+  };
+}
 
 export function createTourStep(index: number): TalmehBlock {
   return {
@@ -138,6 +159,48 @@ export function reorderTopLevelBlock(
   return [...withoutCurrent.slice(0, beforeIndex), current, ...withoutCurrent.slice(beforeIndex)];
 }
 
+export function insertTopLevelBlock(
+  blocks: TalmehBlock[],
+  anchorBlockId: string,
+  block: TalmehBlock,
+  position: BlockInsertPosition,
+): TalmehBlock[] | null {
+  const anchorIndex = blocks.findIndex((item) => item.id === anchorBlockId);
+  if (anchorIndex < 0) return null;
+  const insertIndex = position === 'before' ? anchorIndex : anchorIndex + 1;
+  return [...blocks.slice(0, insertIndex), block, ...blocks.slice(insertIndex)];
+}
+
+export function insertBlockInsideTourStep(
+  blocks: TalmehBlock[],
+  stepBlockId: string,
+  block: TalmehBlock,
+  index: number,
+): TalmehBlock[] | null {
+  let inserted = false;
+  const next = blocks.map((item) => {
+    const updated = insertInsideStep(item, stepBlockId, block, index);
+    if (updated !== item) inserted = true;
+    return normalizeBlockStatus(updated);
+  });
+  return inserted ? next : null;
+}
+
+export function moveStepChildBlock(
+  blocks: TalmehBlock[],
+  stepBlockId: string,
+  childBlockId: string,
+  direction: BlockDirection,
+): TalmehBlock[] | null {
+  let moved = false;
+  const next = blocks.map((item) => {
+    const updated = moveInsideStep(item, stepBlockId, childBlockId, direction);
+    if (updated !== item) moved = true;
+    return normalizeBlockStatus(updated);
+  });
+  return moved ? next : null;
+}
+
 function transformBlock(block: TalmehBlock, blockId: string, type: EditableBlockType): TalmehBlock {
   if (block.id !== blockId) {
     return {
@@ -150,15 +213,133 @@ function transformBlock(block: TalmehBlock, blockId: string, type: EditableBlock
     type,
     props: type === 'heading' ? { level: 2 } : type === 'button' ? { variant: 'primary' } : {},
     children: [],
-    status: type === 'button' ? 'incomplete' : 'ready',
+    status: type === 'button' || type === 'media' ? 'incomplete' : 'ready',
     content:
       block.content ??
       block.children
         .map((child) => child.content)
         .filter(Boolean)
         .join(' ') ??
-      type,
+      (type === 'media' ? 'Media placeholder' : type),
   };
+}
+
+function insertInsideStep(
+  block: TalmehBlock,
+  stepBlockId: string,
+  blockToInsert: TalmehBlock,
+  index: number,
+): TalmehBlock {
+  if (block.id !== stepBlockId) {
+    let changed = false;
+    const children = block.children.map((child) => {
+      const updated = insertInsideStep(child, stepBlockId, blockToInsert, index);
+      if (updated !== child) changed = true;
+      return updated;
+    });
+    return changed ? { ...block, children } : block;
+  }
+  if (block.type !== 'tourStep') return block;
+  const children = stepTooltipChildren(block, (currentChildren) =>
+    insertBeforeUtilityChildren(currentChildren, blockToInsert, index),
+  );
+  if (children === block.children) return block;
+  return {
+    ...block,
+    children,
+  };
+}
+
+function moveInsideStep(
+  block: TalmehBlock,
+  stepBlockId: string,
+  childBlockId: string,
+  direction: BlockDirection,
+): TalmehBlock {
+  if (block.id !== stepBlockId) {
+    let changed = false;
+    const children = block.children.map((child) => {
+      const updated = moveInsideStep(child, stepBlockId, childBlockId, direction);
+      if (updated !== child) changed = true;
+      return updated;
+    });
+    return changed ? { ...block, children } : block;
+  }
+  if (block.type !== 'tourStep') return block;
+  const children = stepTooltipChildren(block, (currentChildren) =>
+    moveEditableTooltipChild(currentChildren, childBlockId, direction),
+  );
+  if (children === block.children) return block;
+  return {
+    ...block,
+    children,
+  };
+}
+
+function stepTooltipChildren(
+  step: TalmehBlock,
+  update: (children: TalmehBlock[]) => TalmehBlock[],
+): TalmehBlock[] {
+  const existingTooltip = step.children.find((child) => child.type === 'tooltip');
+  if (!existingTooltip) {
+    const children = update([]);
+    if (children.length === 0) return step.children;
+    return [
+      {
+        id: createBlockId(),
+        type: 'tooltip',
+        props: { placement: 'bottom' },
+        status: 'incomplete',
+        children,
+      },
+      ...step.children,
+    ];
+  }
+  const updatedChildren = update(existingTooltip.children);
+  if (updatedChildren === existingTooltip.children) return step.children;
+  return step.children.map((child) =>
+    child.id === existingTooltip.id ? { ...child, children: updatedChildren } : child,
+  );
+}
+
+function insertBeforeUtilityChildren(
+  children: TalmehBlock[],
+  blockToInsert: TalmehBlock,
+  index: number,
+): TalmehBlock[] {
+  const utilityStart = firstUtilityChildIndex(children);
+  const editableChildren = children.slice(0, utilityStart);
+  const utilityChildren = children.slice(utilityStart);
+  const insertIndex = Math.min(Math.max(0, index), editableChildren.length);
+  return [
+    ...editableChildren.slice(0, insertIndex),
+    blockToInsert,
+    ...editableChildren.slice(insertIndex),
+    ...utilityChildren,
+  ];
+}
+
+function moveEditableTooltipChild(
+  children: TalmehBlock[],
+  childBlockId: string,
+  direction: BlockDirection,
+): TalmehBlock[] {
+  const utilityStart = firstUtilityChildIndex(children);
+  const editableChildren = children.slice(0, utilityStart);
+  const utilityChildren = children.slice(utilityStart);
+  const index = editableChildren.findIndex((child) => child.id === childBlockId);
+  const nextIndex = direction === 'up' ? index - 1 : index + 1;
+  if (index < 0 || nextIndex < 0 || nextIndex >= editableChildren.length) return children;
+  const next = [...editableChildren];
+  [next[index], next[nextIndex]] = [next[nextIndex]!, next[index]!];
+  return [...next, ...utilityChildren];
+}
+
+function firstUtilityChildIndex(children: TalmehBlock[]): number {
+  const index = children.findIndex(
+    (child) => child.type === 'targetChip' || child.type === 'validationBadge',
+  );
+  return index < 0 ? children.length : index;
 }
 
 function setAction(
@@ -270,6 +451,9 @@ function normalizeBlockStatus(block: TalmehBlock): TalmehBlock {
   if (block.type === 'button') {
     return { ...block, children, status: block.props.action ? 'ready' : 'incomplete' };
   }
+  if (block.type === 'media') {
+    return { ...block, children, status: 'incomplete' };
+  }
   if (block.type === 'tooltip') {
     return {
       ...block,
@@ -293,6 +477,7 @@ function normalizeBlockStatus(block: TalmehBlock): TalmehBlock {
 function hasIncompleteRequiredConfig(block: TalmehBlock): boolean {
   if (block.status === 'invalid') return true;
   if (block.type === 'button') return !block.props.action;
+  if (block.type === 'media') return true;
   if (block.type === 'tooltip')
     return !block.props.targetId || block.children.some(hasIncompleteRequiredConfig);
   return block.children.some(hasIncompleteRequiredConfig);

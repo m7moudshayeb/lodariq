@@ -5,6 +5,7 @@ import { blockStatus, isEditableControl } from '../utils';
 import { BlockCard } from './block-card';
 import { CanvasActions } from './canvas-actions';
 import { InsertBar } from './insert-bar';
+import { InlineTopLevelInsert } from './insert-menu';
 import { Inspector } from './inspector';
 
 export function AuthoringCanvas({
@@ -63,8 +64,24 @@ export function AuthoringCanvas({
         </header>
 
         <section className="document" aria-label="Canonical document blocks">
-          {blocks.map((block) => (
-            <BlockCard key={block.id} block={block} controller={controller} snapshot={snapshot} />
+          {blocks.map((block, index) => (
+            <div className="document-block-group" key={block.id}>
+              {index === 0 ? (
+                <InlineTopLevelInsert
+                  anchorBlockId={block.id}
+                  controller={controller}
+                  label="Insert block before first block"
+                  position="before"
+                />
+              ) : null}
+              <BlockCard block={block} controller={controller} snapshot={snapshot} />
+              <InlineTopLevelInsert
+                anchorBlockId={block.id}
+                controller={controller}
+                label="Insert block after this block"
+                position="after"
+              />
+            </div>
           ))}
         </section>
 
@@ -81,7 +98,7 @@ function isInteractiveCanvasTarget(target: EventTarget): boolean {
   if (isEditableControl(target)) return true;
   return Boolean(
     target.closest(
-      'button, summary, select, [role="button"], [role="menuitem"], .block, .target-menu, .ui-popover-content, .ui-select-content, .panel',
+      'button, summary, select, [role="button"], [role="menuitem"], .block, .inline-insert, .step-child, .target-menu, .ui-popover-content, .ui-select-content, .panel',
     ),
   );
 }

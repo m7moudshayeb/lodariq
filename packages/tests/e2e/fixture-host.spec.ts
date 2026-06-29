@@ -53,7 +53,7 @@ test('creator authors an editable tour step, attaches a target, and replays it',
   await expect(stepBlock.locator('.target-chip')).toContainText('New project');
   await openTargetActions(stepBlock, 'New project');
   await stepBlock.getByRole('button', { name: 'Target health' }).click();
-  await expect(stepBlock.locator('.target-health-chip')).toContainText('Healthy');
+  await expect(stepBlock.locator('.target-chip')).toContainText('Healthy');
   await expect(frame.locator('#status')).toContainText('Found by');
   await openTargetActions(stepBlock, 'New project');
   await stepBlock.getByRole('button', { name: 'View target' }).click();
@@ -94,6 +94,27 @@ test('creator can add an editable tour step from the primary action', async ({ p
   await expect(stepBlock.getByLabel('Button label')).toHaveValue('Continue');
   await expect(stepBlock.getByLabel('Button action')).toHaveValue('next');
   await expect(stepBlock.getByRole('button', { name: /select target/i })).toBeVisible();
+});
+
+test('creator can insert nested step content inline', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Open Talmeh authoring' }).click();
+  const frame = page.frameLocator('iframe[title="Talmeh authoring"]');
+
+  await frame.getByRole('button', { name: 'Add step' }).click();
+  const stepBlock = frame.locator('.block').last();
+
+  await stepBlock.getByLabel('Insert content at start of step').click();
+  await stepBlock.getByRole('menuitem', { name: /Paragraph/ }).click();
+  await expect(stepBlock.getByLabel('Body text')).toHaveCount(2);
+
+  await stepBlock.getByLabel('Insert content at end of step').click();
+  await stepBlock.getByRole('menuitem', { name: /Media/ }).click();
+  await expect(stepBlock.getByLabel('Media placeholder')).toHaveValue('Media placeholder');
+  await expect(stepBlock).toContainText('Placeholder only');
+
+  await compilePreview(frame);
+  await expect(frame.getByLabel('Compiled preview')).toContainText('"type": "media"');
 });
 
 test('creator can cancel target picking with Escape from the authoring iframe', async ({
@@ -160,7 +181,7 @@ test('local authoring and tour playback pass accessibility smoke checks', async 
   await expect(slashInput).toBeFocused();
   await openUtilityTab(frame, 'JSON');
   await expect(frame.getByRole('textbox', { name: 'Document JSON' })).toBeVisible();
-  await expect(frame.getByRole('button', { name: 'Prepare preview' })).toBeVisible();
+  await expect(frame.getByRole('button', { name: 'Preview full tour' })).toBeVisible();
   const editorHasHorizontalOverflow = await frame.locator('body').evaluate(() => {
     const html = document.documentElement;
     const body = document.body;
@@ -230,11 +251,11 @@ test('creator can save an incomplete button action without data loss', async ({ 
   const buttonBlock = frame.locator('.block').last();
   await expect(buttonBlock.locator('.badge')).toContainText('incomplete');
   await expect(buttonBlock.getByLabel('Button action')).toHaveValue('');
-  await expect(buttonBlock).toContainText('Choose action');
+  await expect(buttonBlock).toContainText('Needs purpose');
 
   await buttonBlock.getByLabel('Button label').fill('Learn more');
   await buttonBlock.getByLabel('Button label').blur();
-  await frame.getByRole('button', { name: 'Save' }).click();
+  await frame.getByRole('button', { name: 'Save', exact: true }).click();
 
   await page.reload();
   await page.getByRole('button', { name: 'Open Talmeh authoring' }).click();
@@ -516,7 +537,7 @@ test('tour resumes the next step after a real product click navigates the page',
     JSON.stringify(navigationDocument, null, 2),
   );
   await frame.getByRole('button', { name: 'Import' }).click();
-  await frame.getByRole('button', { name: 'Save' }).click();
+  await frame.getByRole('button', { name: 'Save', exact: true }).click();
   await compilePreview(frame);
   await expect(frame.getByLabel('Compiled preview')).toContainText('clickTarget');
 
@@ -852,7 +873,7 @@ async function documentJson(frame: FrameLocator): Promise<Locator> {
 }
 
 async function compilePreview(frame: FrameLocator): Promise<void> {
-  await frame.getByRole('button', { name: 'Prepare preview' }).click();
+  await frame.getByRole('button', { name: 'Preview full tour' }).click();
   await openUtilityTab(frame, 'Preview');
 }
 

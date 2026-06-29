@@ -10,8 +10,12 @@ import type { ClipboardEvent, DragEvent, KeyboardEvent } from 'react';
 import {
   attachTargetToBlocks,
   blocksReferenceTarget,
+  createContentBlock,
   createTourStep,
   hasBlock,
+  insertBlockInsideTourStep,
+  insertTopLevelBlock,
+  moveStepChildBlock,
   moveTopLevelBlock as moveTopLevelBlocks,
   renumberTourSteps,
   removeTargetFromBlocks,
@@ -20,12 +24,13 @@ import {
   transformBlocks,
   updateBlockContent,
   type BlockDirection,
+  type BlockInsertPosition,
+  type EditableBlockType,
 } from '../document-ops';
 import { LOCAL_AUTHORING_SESSION_ID } from '../constants';
 import { AuthoringBridge, createBridgeCorrelationId } from '../../bridge';
 import {
   blocksFromSafePasteData,
-  createBlockId,
   createTalmehEditor,
   createTargetId,
   fromBlockJson,
@@ -308,7 +313,12 @@ export class LocalAuthoringFrameController {
     if (target.dataset['action'] !== 'transform-block') return;
     const blockId = target.dataset['blockId'];
     const type = target.value;
-    if (!blockId || (type !== 'paragraph' && type !== 'heading' && type !== 'button')) return;
+    if (
+      !blockId ||
+      (type !== 'paragraph' && type !== 'heading' && type !== 'button' && type !== 'media')
+    ) {
+      return;
+    }
     this.transformBlock(blockId, type);
   }
 
@@ -341,26 +351,12 @@ export class LocalAuthoringFrameController {
     this.setAction(blockId, actionType);
   }
 
-  transformEditableBlock(blockId: string, type: 'paragraph' | 'heading' | 'button'): void {
+  transformEditableBlock(blockId: string, type: EditableBlockType): void {
     this.transformBlock(blockId, type);
   }
 
-  appendBlock(type: 'heading' | 'paragraph' | 'button', contentOverride?: string): void {
-    const content =
-      contentOverride ??
-      (type === 'heading'
-        ? 'Untitled heading'
-        : type === 'button'
-          ? 'Continue'
-          : 'Write supporting copy');
-    const block: TalmehBlock = {
-      id: createBlockId(),
-      type,
-      content,
-      props: type === 'button' ? { variant: 'primary' } : {},
-      status: type === 'button' ? 'incomplete' : 'ready',
-      children: [],
-    };
+  appendBlock(type: EditableBlockType, contentOverride?: string): void {
+    const block = createContentBlock(type, contentOverride);
     this.recordChange();
     this.documentState = {
       ...this.documentState,
@@ -373,6 +369,58 @@ export class LocalAuthoringFrameController {
     this.setStatus(`Added ${blockTypeLabel(type).toLowerCase()}`);
     this.recordMetric('block.inserted');
     this.sendPreviewPatch(block.id, [{ op: 'insertBlock', block }]);
+  }
+
+  insertTopLevelCommand(
+    command: SlashCommand,
+    anchorBlockId: string,
+    position: BlockInsertPosition,
+  ): void {
+    if (!hasBlock(this.documentState.blocks, anchorBlockId)) return;
+    const block =
+      command === 'step' ? createTourStep(this.nextStepIndex()) : createContentBlock(command);
+    const blocks = insertTopLevelBlock(this.documentState.blocks, anchorBlockId, block, position);
+    if (!blocks) return;
+    this.recordChange();
+    this.documentState = { ...this.documentState, blocks: renumberTourSteps(blocks) };
+    this.afterDocumentMutation();
+    this.focusInsertedBlock(block.id);
+    this.services.saveDocument(this.documentState);
+    this.setStatus(`Inserted ${blockTypeLabel(block.type).toLowerCase()}`);
+    this.recordMetric('block.inserted');
+    this.sendPreviewPatch(block.id, [{ op: 'replaceDocument', document: this.documentState }]);
+  }
+
+  insertStepContent(stepBlockId: string, type: EditableBlockType, index: number): void {
+    if (!hasBlock(this.documentState.blocks, stepBlockId)) return;
+    const block = createContentBlock(type);
+    const blocks = insertBlockInsideTourStep(this.documentState.blocks, stepBlockId, block, index);
+    if (!blocks) return;
+    this.recordChange();
+    this.documentState = { ...this.documentState, blocks };
+    this.afterDocumentMutation();
+    this.focusInsertedBlock(block.id);
+    this.services.saveDocument(this.documentState);
+    this.setStatus(`Inserted ${blockTypeLabel(type).toLowerCase()} in step`);
+    this.recordMetric('block.inserted');
+    this.sendPreviewPatch(block.id, [{ op: 'replaceDocument', document: this.documentState }]);
+  }
+
+  moveStepContentBlock(stepBlockId: string, childBlockId: string, direction: BlockDirection): void {
+    const blocks = moveStepChildBlock(
+      this.documentState.blocks,
+      stepBlockId,
+      childBlockId,
+      direction,
+    );
+    if (!blocks) return;
+    this.recordChange();
+    this.documentState = { ...this.documentState, blocks };
+    this.afterDocumentMutation();
+    this.services.saveDocument(this.documentState);
+    this.focusBlock(childBlockId);
+    this.setStatus('Moved step content');
+    this.sendPreviewPatch(childBlockId, [{ op: 'replaceDocument', document: this.documentState }]);
   }
 
   appendStep(): void {
@@ -574,7 +622,42 @@ export class LocalAuthoringFrameController {
     void this.services.compilePreview(this.documentState).then((doc) => {
       this.compiledText = JSON.stringify(doc, null, 2);
       this.recordMetric('preview.opened');
-      this.setStatus('Compiled preview JSON');
+      this.setStatus('Preview ready');
+    });
+    this.emit();
+  }
+
+  previewCurrentStep(): void {
+    this.syncFocusedEditControl();
+    this.documentState = this.normalizeDocument(this.documentState);
+    this.jsonText = this.services.exportDocument(this.documentState);
+    this.services.saveDocument(this.documentState);
+    const step = this.documentState.blocks.find((block) => block.type === 'tourStep');
+    if (!step) {
+      this.setStatus('Add a tour step before previewing');
+      return;
+    }
+    this.sendPreviewPatch(step.id, [{ op: 'replaceDocument', document: this.documentState }]);
+    void this.services.compilePreview(this.documentState).then((doc) => {
+      this.compiledText = JSON.stringify(doc, null, 2);
+      this.recordMetric('preview.opened');
+      this.setStatus('Current step preview ready');
+    });
+    this.emit();
+  }
+
+  previewFullTour(): void {
+    this.syncFocusedEditControl();
+    this.documentState = this.normalizeDocument(this.documentState);
+    this.jsonText = this.services.exportDocument(this.documentState);
+    this.services.saveDocument(this.documentState);
+    this.sendPreviewPatch(this.documentState.id, [
+      { op: 'replaceDocument', document: this.documentState },
+    ]);
+    void this.services.compilePreview(this.documentState).then((doc) => {
+      this.compiledText = JSON.stringify(doc, null, 2);
+      this.recordMetric('preview.opened');
+      this.setStatus('Full tour preview ready');
     });
     this.emit();
   }
@@ -623,6 +706,8 @@ export class LocalAuthoringFrameController {
     if (action === 'import') this.importJson();
     if (action === 'reset') this.reset();
     if (action === 'compile') this.compilePreview();
+    if (action === 'preview-current') this.previewCurrentStep();
+    if (action === 'preview-full') this.previewFullTour();
     if (action === 'export-metrics') this.exportMetrics();
     if (action === 'target-pick' || action === 'target-change') {
       const blockId = button.dataset['blockId'];
@@ -757,7 +842,7 @@ export class LocalAuthoringFrameController {
     );
   }
 
-  private transformBlock(blockId: string, type: 'paragraph' | 'heading' | 'button'): void {
+  private transformBlock(blockId: string, type: EditableBlockType): void {
     if (!hasBlock(this.documentState.blocks, blockId)) return;
     this.recordChange();
     this.documentState = {
@@ -913,6 +998,10 @@ export class LocalAuthoringFrameController {
   private focusEditableField(blockId: string): void {
     this.focusRequest = { blockId, target: 'edit', token: ++this.focusToken };
     this.emit();
+  }
+
+  private focusInsertedBlock(blockId: string): void {
+    this.focusEditableField(blockId);
   }
 
   private setStatus(message: string): void {

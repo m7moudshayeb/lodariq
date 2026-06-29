@@ -5,6 +5,7 @@ export const SLASH_COMMANDS = [
   { value: 'heading', label: 'Heading' },
   { value: 'paragraph', label: 'Paragraph' },
   { value: 'button', label: 'Button' },
+  { value: 'media', label: 'Media' },
 ] as const;
 
 export type SlashCommand = (typeof SLASH_COMMANDS)[number]['value'];

@@ -50,6 +50,7 @@ export const PreviewPatchOperation = Type.Union(
         Type.Literal('paragraph'),
         Type.Literal('heading'),
         Type.Literal('button'),
+        Type.Literal('media'),
       ]),
     }),
     Type.Object({

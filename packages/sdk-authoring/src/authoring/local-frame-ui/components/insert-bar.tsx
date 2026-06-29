@@ -1,26 +1,8 @@
-import type { ReactNode, RefObject } from 'react';
+import type { RefObject } from 'react';
 import type { LocalAuthoringFrameController } from '../controller';
-import { AuthoringButton, Heading, Plus, Type, Wand2 } from '../design-system';
-import { SLASH_COMMANDS, type LocalAuthoringFrameSnapshot, type SlashCommand } from '../types';
-
-const COMMAND_DETAILS: Record<SlashCommand, { description: string; icon: ReactNode }> = {
-  button: {
-    description: 'Add a tour button',
-    icon: <Wand2 size={14} strokeWidth={2.2} />,
-  },
-  heading: {
-    description: 'Add a section title',
-    icon: <Heading size={14} strokeWidth={2.2} />,
-  },
-  paragraph: {
-    description: 'Add supporting copy',
-    icon: <Type size={14} strokeWidth={2.2} />,
-  },
-  step: {
-    description: 'Add a guided tour step',
-    icon: <Plus size={14} strokeWidth={2.25} />,
-  },
-};
+import { AuthoringButton, Heading, Image, Plus, Type, Wand2 } from '../design-system';
+import { SLASH_COMMANDS, type LocalAuthoringFrameSnapshot } from '../types';
+import { COMMAND_DETAILS } from './insert-menu';
 
 export function InsertBar({
   controller,
@@ -161,6 +143,13 @@ export function InsertBar({
           onClick={() => controller.appendBlock('button')}
         >
           Button
+        </AuthoringButton>
+        <AuthoringButton
+          data-command="media"
+          icon={<Image size={14} strokeWidth={2.2} />}
+          onClick={() => controller.appendBlock('media')}
+        >
+          Media
         </AuthoringButton>
       </div>
     </div>

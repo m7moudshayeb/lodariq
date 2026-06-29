@@ -3,8 +3,12 @@ import type { TalmehBlock } from '@talmeh/schema';
 import {
   attachTargetToBlocks,
   blocksReferenceTarget,
+  createContentBlock,
   createTourStep,
   hasBlock,
+  insertBlockInsideTourStep,
+  insertTopLevelBlock,
+  moveStepChildBlock,
   moveTopLevelBlock,
   renumberTourSteps,
   removeTargetFromBlocks,
@@ -103,6 +107,51 @@ describe('authoring document ops', () => {
       status: 'incomplete',
       props: { variant: 'primary' },
     });
+  });
+
+  it('creates media placeholders as structured incomplete block JSON', () => {
+    const media = createContentBlock('media');
+
+    expect(media).toMatchObject({
+      type: 'media',
+      content: 'Media placeholder',
+      props: {},
+      status: 'incomplete',
+      children: [],
+    });
+    expect(media.id).toMatch(/^block_/);
+  });
+
+  it('inserts top-level blocks before and after existing blocks without reordering', () => {
+    const heading = { ...createContentBlock('heading'), id: 'heading_new' };
+    const media = { ...createContentBlock('media'), id: 'media_new' };
+    const afterFirst = insertTopLevelBlock(blocks, 'step_1', heading, 'after');
+    const beforeSecond = afterFirst
+      ? insertTopLevelBlock(afterFirst, 'copy_2', media, 'before')
+      : null;
+
+    expect(beforeSecond?.map((block) => block.id)).toEqual([
+      'step_1',
+      'heading_new',
+      'media_new',
+      'copy_2',
+    ]);
+    expect(blocks.map((block) => block.id)).toEqual(['step_1', 'copy_2']);
+  });
+
+  it('inserts and reorders editable content inside a tour step', () => {
+    const paragraph = { ...createContentBlock('paragraph', 'Nested copy'), id: 'copy_nested' };
+    const button = { ...createContentBlock('button'), id: 'button_nested' };
+    const withCopy = insertBlockInsideTourStep(blocks, 'step_1', paragraph, 1);
+    const withButton = withCopy ? insertBlockInsideTourStep(withCopy, 'step_1', button, 2) : null;
+    const moved = withButton
+      ? moveStepChildBlock(withButton, 'step_1', 'button_nested', 'up')
+      : null;
+    const children = moved?.[0]?.children[0]?.children ?? [];
+
+    expect(children.map((block) => block.id)).toEqual(['copy_1', 'button_nested', 'copy_nested']);
+    expect(children[0]).toMatchObject({ id: 'copy_1', content: 'Hello' });
+    expect(blocks[0]?.children[0]?.children.map((block) => block.id)).toEqual(['copy_1']);
   });
 
   it('attaches target chips to tour step tooltips', () => {

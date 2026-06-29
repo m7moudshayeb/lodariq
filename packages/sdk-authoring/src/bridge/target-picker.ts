@@ -74,29 +74,38 @@ export function startTargetPicker(options: TargetPickerOptions): TargetPicker {
     zIndex: '2147483646',
     pointerEvents: 'auto',
     display: 'none',
-    flexWrap: 'wrap',
-    gap: '4px',
-    maxWidth: '240px',
-    padding: '4px',
-    borderRadius: '6px',
-    background: '#172033',
+    gap: '8px',
+    width: 'min(340px, calc(100vw - 24px))',
+    padding: '10px',
+    border: '1px solid rgba(203, 213, 225, 0.92)',
+    borderRadius: '10px',
+    background: '#fff',
+    color: '#172033',
     boxShadow: '0 10px 26px rgba(15, 23, 42, 0.24)',
     whiteSpace: 'normal',
+    font: '12px/1.35 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
   });
   controls.innerHTML = `
-    <button type="button" data-talmeh-bridge="target-control" data-action="deeper">Deeper</button>
-    <button type="button" data-talmeh-bridge="target-control" data-action="parent">Parent</button>
-    <button type="button" data-talmeh-bridge="target-control" data-action="click-through">Click through</button>
+    <div data-talmeh-bridge="target-card-header" style="display:grid; gap:2px;">
+      <strong data-talmeh-bridge="target-card-title" style="font-size:13px;">Pick a target</strong>
+      <span data-talmeh-bridge="target-card-copy" style="color:#64748b;">Select the product element this step should point to. Press Escape to cancel.</span>
+    </div>
+    <div data-talmeh-bridge="target-card-actions" style="display:grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap:6px;">
+      <button type="button" data-talmeh-bridge="target-control" data-action="deeper">Select inner element</button>
+      <button type="button" data-talmeh-bridge="target-control" data-action="parent">Select parent</button>
+      <button type="button" data-talmeh-bridge="target-control" data-action="click-through">Interact with page</button>
+    </div>
   `;
   for (const button of controls.querySelectorAll<HTMLButtonElement>('button')) {
     Object.assign(button.style, {
-      minHeight: '24px',
-      padding: '3px 6px',
-      border: '1px solid rgba(255, 255, 255, 0.45)',
-      borderRadius: '5px',
-      background: 'rgba(255, 255, 255, 0.12)',
-      color: '#fff',
+      minHeight: '32px',
+      padding: '5px 7px',
+      border: '1px solid #dce2ea',
+      borderRadius: '7px',
+      background: '#f8fafc',
+      color: '#172033',
       font: 'inherit',
+      fontWeight: '650',
       cursor: 'pointer',
     });
   }
@@ -221,7 +230,7 @@ export function startTargetPicker(options: TargetPickerOptions): TargetPicker {
   }
 
   function showControls(): void {
-    controls.style.display = 'flex';
+    controls.style.display = 'grid';
   }
 
   function updateControlState(): void {
@@ -269,7 +278,7 @@ export function startTargetPicker(options: TargetPickerOptions): TargetPicker {
       currentCandidates.length > 1
         ? `Target ${currentIndex + 1} of ${currentCandidates.length}`
         : undefined;
-    return [type, name, depth, 'Click to attach'].filter(Boolean).join('\n');
+    return [type, name, depth, 'Click to attach this target'].filter(Boolean).join('\n');
   }
 
   function onControlClick(event: Event): void {
@@ -291,7 +300,7 @@ export function startTargetPicker(options: TargetPickerOptions): TargetPicker {
     if (action === 'click-through') {
       clickThroughNext = true;
       showLabel(
-        'Click through armed\nNext product click will pass through',
+        'Interact with page\nNext product click will pass through',
         current?.getBoundingClientRect() ?? { left: 12, top: 56, width: 0, height: 0 },
       );
       controls.style.display = 'none';

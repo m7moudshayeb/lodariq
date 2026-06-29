@@ -32,11 +32,14 @@ export function TargetControls({
   const advancedOpen = snapshot.advancedTargetIds.has(targetId);
   const [menuOpen, setMenuOpen] = useState(false);
   const closeMenu = (): void => setMenuOpen(false);
+  const status = inspection?.diagnostic.state ?? 'unchecked';
+  const statusText = inspection ? targetHealthTitle(inspection.diagnostic.state) : 'Not checked';
 
   return (
-    <div className="target-control">
+    <div className={`target-control ${status}`.trim()}>
       <span className="target-chip" title={targetId}>
-        {targetLabel}
+        <span className="target-chip-label">{targetLabel}</span>
+        <span className="target-chip-status">{statusText}</span>
       </span>
       <AuthoringPopover
         align="start"
@@ -167,7 +170,6 @@ export function TargetControls({
           />
         }
       />
-      {inspection ? <TargetHealthChip inspection={inspection} /> : null}
     </div>
   );
 }
@@ -187,16 +189,5 @@ function TargetHealth({ inspection }: { inspection: TargetInspectionState | unde
       <strong>{targetHealthTitle(inspection.diagnostic.state)}</strong>
       {targetHealthDetails(inspection)}
     </p>
-  );
-}
-
-function TargetHealthChip({ inspection }: { inspection: TargetInspectionState }) {
-  const title = `${targetHealthTitle(inspection.diagnostic.state)}: ${targetHealthDetails(
-    inspection,
-  )}`;
-  return (
-    <span className={`target-health-chip ${inspection.diagnostic.state}`} title={title}>
-      {targetHealthTitle(inspection.diagnostic.state)}
-    </span>
   );
 }
