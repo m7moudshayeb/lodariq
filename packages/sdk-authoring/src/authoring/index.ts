@@ -422,42 +422,89 @@ function positionOpenAuthoringTrigger(
 function attachPanelDrag(host: HTMLElement, panelHeader: HTMLElement | null): void {
   if (!panelHeader) return;
   let drag: {
-    pointerId: number;
+    pointerId: number | 'mouse';
     offsetX: number;
     offsetY: number;
     moved: boolean;
   } | null = null;
+  let dragShield: HTMLElement | null = null;
 
-  panelHeader.addEventListener('pointerdown', (event) => {
-    if (event.button !== 0) return;
+  const move = (event: MouseEvent | PointerEvent): void => {
+    if (!drag) return;
+    if ('pointerId' in event && drag.pointerId !== event.pointerId) return;
+    if (!('pointerId' in event) && drag.pointerId !== 'mouse') return;
+    drag.moved = true;
+    event.preventDefault();
+    movePanelWithAuthoringTrigger(host, event.clientX - drag.offsetX, event.clientY - drag.offsetY);
+  };
+
+  const start = (event: MouseEvent | PointerEvent): void => {
+    if (drag || event.button !== 0) return;
     if ((event.target as Element | null)?.closest('button')) return;
     const rect = host.getBoundingClientRect();
+    const ownerWindow = host.ownerDocument.defaultView ?? window;
+    const pointerId = 'pointerId' in event ? event.pointerId : 'mouse';
     drag = {
-      pointerId: event.pointerId,
+      pointerId,
       offsetX: event.clientX - rect.left,
       offsetY: event.clientY - rect.top,
       moved: false,
     };
+    dragShield = createAuthoringDragShield(host.ownerDocument);
     panelHeader.dataset['talmehAuthoringDragging'] = 'true';
-    panelHeader.setPointerCapture?.(event.pointerId);
-  });
 
-  panelHeader.addEventListener('pointermove', (event) => {
-    if (!drag || event.pointerId !== drag.pointerId) return;
-    drag.moved = true;
-    event.preventDefault();
-    movePanelWithAuthoringTrigger(host, event.clientX - drag.offsetX, event.clientY - drag.offsetY);
-  });
+    if (pointerId === 'mouse') {
+      ownerWindow.addEventListener('mousemove', move, true);
+      ownerWindow.addEventListener('mouseup', finish, true);
+      return;
+    }
 
-  const finish = (event: PointerEvent): void => {
-    if (!drag || event.pointerId !== drag.pointerId) return;
-    panelHeader.releasePointerCapture?.(event.pointerId);
+    panelHeader.setPointerCapture?.(pointerId);
+    ownerWindow.addEventListener('pointermove', move, true);
+    ownerWindow.addEventListener('pointerup', finish, true);
+    ownerWindow.addEventListener('pointercancel', finish, true);
+  };
+
+  const finish = (event: MouseEvent | PointerEvent): void => {
+    if (!drag) return;
+    if ('pointerId' in event && drag.pointerId !== event.pointerId) return;
+    if (!('pointerId' in event) && drag.pointerId !== 'mouse') return;
+    const ownerWindow = host.ownerDocument.defaultView ?? window;
+    const pointerId = drag.pointerId;
+    if (pointerId === 'mouse') {
+      ownerWindow.removeEventListener('mousemove', move, true);
+      ownerWindow.removeEventListener('mouseup', finish, true);
+    } else {
+      panelHeader.releasePointerCapture?.(pointerId);
+      ownerWindow.removeEventListener('pointermove', move, true);
+      ownerWindow.removeEventListener('pointerup', finish, true);
+      ownerWindow.removeEventListener('pointercancel', finish, true);
+    }
+    dragShield?.remove();
+    dragShield = null;
     delete panelHeader.dataset['talmehAuthoringDragging'];
     drag = null;
   };
 
-  panelHeader.addEventListener('pointerup', finish);
-  panelHeader.addEventListener('pointercancel', finish);
+  panelHeader.addEventListener('pointerdown', start);
+  panelHeader.addEventListener('mousedown', start);
+}
+
+function createAuthoringDragShield(doc: Document): HTMLElement {
+  const shield = doc.createElement('div');
+  shield.dataset['talmehAuthoringDragShield'] = 'true';
+  shield.setAttribute('aria-hidden', 'true');
+  Object.assign(shield.style, {
+    position: 'fixed',
+    inset: '0',
+    zIndex: '2147483647',
+    cursor: 'grabbing',
+    pointerEvents: 'auto',
+    userSelect: 'none',
+    background: 'transparent',
+  });
+  doc.body.appendChild(shield);
+  return shield;
 }
 
 function movePanelWithAuthoringTrigger(host: HTMLElement, left: number, top: number): void {

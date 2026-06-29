@@ -62,10 +62,6 @@ const LOCAL_AUTHORING_TRIGGER_CSS = `
   touch-action: none;
   user-select: none;
   transition:
-    top 180ms ease,
-    left 180ms ease,
-    right 180ms ease,
-    bottom 180ms ease,
     transform 160ms ease,
     box-shadow 160ms ease,
     background 160ms ease;
@@ -221,30 +217,19 @@ function makeLocalAuthoringTriggerDraggable(
   onDragEnd: () => void,
 ): void {
   let drag: {
-    pointerId: number;
+    pointerId: number | 'mouse';
     startX: number;
     startY: number;
     offsetX: number;
     offsetY: number;
     moved: boolean;
   } | null = null;
+  let dragShield: HTMLElement | null = null;
 
-  button.addEventListener('pointerdown', (event) => {
-    if (event.button !== 0) return;
-    const rect = button.getBoundingClientRect();
-    drag = {
-      pointerId: event.pointerId,
-      startX: event.clientX,
-      startY: event.clientY,
-      offsetX: event.clientX - rect.left,
-      offsetY: event.clientY - rect.top,
-      moved: false,
-    };
-    button.setPointerCapture?.(event.pointerId);
-  });
-
-  button.addEventListener('pointermove', (event) => {
-    if (!drag || event.pointerId !== drag.pointerId) return;
+  const move = (event: MouseEvent | PointerEvent): void => {
+    if (!drag) return;
+    if ('pointerId' in event && drag.pointerId !== event.pointerId) return;
+    if (!('pointerId' in event) && drag.pointerId !== 'mouse') return;
     const dx = event.clientX - drag.startX;
     const dy = event.clientY - drag.startY;
     if (!drag.moved && Math.hypot(dx, dy) < 4) return;
@@ -252,18 +237,76 @@ function makeLocalAuthoringTriggerDraggable(
     event.preventDefault();
     button.dataset['talmehAuthoringDragging'] = 'true';
     moveLocalAuthoringTrigger(button, event.clientX - drag.offsetX, event.clientY - drag.offsetY);
-  });
+  };
 
-  const finish = (event: PointerEvent): void => {
-    if (!drag || event.pointerId !== drag.pointerId) return;
-    button.releasePointerCapture?.(event.pointerId);
+  const start = (event: MouseEvent | PointerEvent): void => {
+    if (drag || event.button !== 0) return;
+    const rect = button.getBoundingClientRect();
+    const ownerWindow = button.ownerDocument.defaultView ?? window;
+    const pointerId = 'pointerId' in event ? event.pointerId : 'mouse';
+    drag = {
+      pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      offsetX: event.clientX - rect.left,
+      offsetY: event.clientY - rect.top,
+      moved: false,
+    };
+    dragShield = createAuthoringDragShield(button.ownerDocument);
+
+    if (pointerId === 'mouse') {
+      ownerWindow.addEventListener('mousemove', move, true);
+      ownerWindow.addEventListener('mouseup', finish, true);
+      return;
+    }
+
+    button.setPointerCapture?.(pointerId);
+    ownerWindow.addEventListener('pointermove', move, true);
+    ownerWindow.addEventListener('pointerup', finish, true);
+    ownerWindow.addEventListener('pointercancel', finish, true);
+  };
+
+  const finish = (event: MouseEvent | PointerEvent): void => {
+    if (!drag) return;
+    if ('pointerId' in event && drag.pointerId !== event.pointerId) return;
+    if (!('pointerId' in event) && drag.pointerId !== 'mouse') return;
+    const ownerWindow = button.ownerDocument.defaultView ?? window;
+    const pointerId = drag.pointerId;
+    if (pointerId === 'mouse') {
+      ownerWindow.removeEventListener('mousemove', move, true);
+      ownerWindow.removeEventListener('mouseup', finish, true);
+    } else {
+      button.releasePointerCapture?.(pointerId);
+      ownerWindow.removeEventListener('pointermove', move, true);
+      ownerWindow.removeEventListener('pointerup', finish, true);
+      ownerWindow.removeEventListener('pointercancel', finish, true);
+    }
+    dragShield?.remove();
+    dragShield = null;
     delete button.dataset['talmehAuthoringDragging'];
     if (drag.moved) onDragEnd();
     drag = null;
   };
 
-  button.addEventListener('pointerup', finish);
-  button.addEventListener('pointercancel', finish);
+  button.addEventListener('pointerdown', start);
+  button.addEventListener('mousedown', start);
+}
+
+function createAuthoringDragShield(doc: Document): HTMLElement {
+  const shield = doc.createElement('div');
+  shield.dataset['talmehAuthoringDragShield'] = 'true';
+  shield.setAttribute('aria-hidden', 'true');
+  Object.assign(shield.style, {
+    position: 'fixed',
+    inset: '0',
+    zIndex: '2147483647',
+    cursor: 'grabbing',
+    pointerEvents: 'auto',
+    userSelect: 'none',
+    background: 'transparent',
+  });
+  doc.body.appendChild(shield);
+  return shield;
 }
 
 function moveLocalAuthoringTrigger(button: HTMLButtonElement, left: number, top: number): void {
