@@ -12,6 +12,78 @@ const fingerprint: ElementFingerprint = {
   nearbyText: ['Projects'],
 };
 
+const selectorChangeCorpus: Array<{
+  name: string;
+  html: string;
+  fingerprint: ElementFingerprint;
+  expectedText: string;
+  expectedMethod: string;
+}> = [
+  {
+    name: 'class names churn while role and accessible name remain stable',
+    html: `
+      <main aria-label="Dashboard">
+        <section class="projects-v2">Projects
+          <button class="button-new-v2" aria-label="New project">New project</button>
+        </section>
+      </main>`,
+    fingerprint: {
+      tagName: 'button',
+      role: 'button',
+      accessibleName: 'New project',
+      stableAttributes: {},
+      nearbyText: ['Projects'],
+      scopedCss: '.projects-v1 .button-new-v1',
+    },
+    expectedText: 'New project',
+    expectedMethod: 'role_and_name',
+  },
+  {
+    name: 'wrapper markup changes while label and landmark stay stable',
+    html: `
+      <main aria-label="Dashboard">
+        <section aria-label="Projects">
+          <div class="toolbar-redesign">
+            <button type="button" title="New project">
+              <span>Create</span>
+            </button>
+          </div>
+        </section>
+      </main>`,
+    fingerprint: {
+      tagName: 'button',
+      title: 'New project',
+      stableAttributes: {},
+      ancestorLandmarks: [{ role: 'main', accessibleName: 'Dashboard' }],
+      scopedCss: 'main > section.old-projects > button.primary',
+    },
+    expectedText: 'Create',
+    expectedMethod: 'label',
+  },
+  {
+    name: 'input classes change while placeholder and input type remain stable',
+    html: `
+      <main aria-label="Settings">
+        <form aria-label="Billing contact">
+          <label>
+            Billing email
+            <input class="field-new" type="email" placeholder="Owner email" />
+          </label>
+        </form>
+      </main>`,
+    fingerprint: {
+      tagName: 'input',
+      inputType: 'email',
+      placeholder: 'Owner email',
+      stableAttributes: {},
+      ancestorLandmarks: [{ role: 'main', accessibleName: 'Settings' }],
+      scopedCss: '.legacy-billing .field-old',
+    },
+    expectedText: '',
+    expectedMethod: 'label',
+  },
+];
+
 describe('semantic resolver (PRD §8.4)', () => {
   beforeEach(() => {
     document.body.innerHTML = '';
@@ -108,4 +180,19 @@ describe('semantic resolver (PRD §8.4)', () => {
     expect(result.resolutionMethod).toBe('label');
     expect(result.element?.tagName.toLowerCase()).toBe('input');
   });
+
+  it.each(selectorChangeCorpus)(
+    'survives stale CSS selectors when semantic signals stay stable: $name',
+    ({ html, fingerprint: corpusFingerprint, expectedText, expectedMethod }) => {
+      document.body.innerHTML = html;
+
+      const result = resolve(corpusFingerprint);
+
+      expect(result.state).toBe('found');
+      expect(result.resolutionMethod).toBe(expectedMethod);
+      expect(result.confidence).toBeGreaterThanOrEqual(60);
+      expect(result.element?.matches(corpusFingerprint.scopedCss ?? '')).toBe(false);
+      expect(result.element?.textContent?.trim()).toBe(expectedText);
+    },
+  );
 });

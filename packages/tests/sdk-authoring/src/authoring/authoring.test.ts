@@ -92,6 +92,9 @@ describe('local authoring panel (PRD §16.1)', () => {
     expect(styles).toContain('slot[name="authoring-frame"]');
     expect(styles).toContain('pointer-events: auto');
     expect(styles).not.toContain('pointer-events: none');
+    expect(styles).toContain('background: rgba(12, 24, 22, 0.98)');
+    expect(styles).toContain('background: #07110f');
+    expect(styles).toContain('border-radius: 8px');
     expect(host?.shadowRoot?.querySelector('style')?.nonce).toBe('nonce_authoring');
     expect(document.documentElement.hasAttribute('data-lodariq-authoring-panel-open')).toBe(true);
 

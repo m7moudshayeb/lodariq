@@ -1,0 +1,23 @@
+{
+  "name": "@lodariq/editor",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Hosted Lodariq authoring iframe app served from the dedicated editor origin.",
+  "type": "module",
+  "scripts": {
+    "build": "tsc --noEmit && vite build",
+    "dev": "vite",
+    "lint": "eslint .",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@lodariq/compiler": "workspace:*",
+    "@lodariq/schema": "workspace:*",
+    "@lodariq/sdk-authoring": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.2",
+    "vite": "^6.0.7"
+  }
+}

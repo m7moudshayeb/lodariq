@@ -1,4 +1,4 @@
-import type { CompiledDocument, ManifestPointer } from '@lodariq/schema';
+import type { CompiledDocument, ManifestPointer, SdkInstallContext } from '@lodariq/schema';
 import type { IdentifyTraits, RuntimeConfig, LodariqRuntime } from '../runtime';
 
 /**
@@ -9,13 +9,20 @@ import type { IdentifyTraits, RuntimeConfig, LodariqRuntime } from '../runtime';
  * budget: under 3 KB gzipped (PRD §9.1) — keep this dependency-free.
  */
 export interface LoaderConfig {
-  workspaceId: string;
+  workspaceId?: string;
   environment: 'development' | 'staging' | 'production';
-  manifestUrl: string;
+  manifestUrl?: string;
+  apiBaseUrl?: string;
+  clientToken?: string;
+  authoringSessionToken?: string;
 }
 
 export interface LodariqBrowserApi {
   manifest: ManifestPointer;
+  authoring: {
+    enabled: boolean;
+    iframeSrc?: string;
+  };
   identify: (traits: IdentifyTraits) => void;
   track: (name: string, props?: Record<string, unknown>) => void;
   playTour: (doc?: CompiledDocument, options?: TourPlaybackOptions) => Promise<void>;
@@ -50,11 +57,15 @@ interface RuntimeModule {
 }
 
 export interface InstallOptions {
+  fetchInstallContext?: (config: LoaderConfig) => Promise<SdkInstallContext>;
   fetchManifest?: (url: string) => Promise<ManifestPointer>;
   loadRuntime?: () => Promise<RuntimeModule>;
   loadTourRenderer?: () => Promise<TourRendererModule>;
-  loadCurrentTour?: (manifest: ManifestPointer) => Promise<CompiledDocument>;
-  openAuthoring?: (manifest: ManifestPointer) => Promise<void>;
+  loadCurrentTour?: (
+    manifest: ManifestPointer,
+    context: SdkInstallContext,
+  ) => Promise<CompiledDocument>;
+  openAuthoring?: (manifest: ManifestPointer, context: SdkInstallContext) => Promise<void>;
 }
 
 declare global {
@@ -67,6 +78,7 @@ const DEFAULT_CDN_ORIGIN = 'https://cdn.lodariq.com';
 const ENVIRONMENTS = new Set<LoaderConfig['environment']>(['development', 'staging', 'production']);
 const TOUR_RESUME_PREFIX = 'lodariq:tour-resume:';
 const TOUR_RESUME_MAX_AGE_MS = 30 * 60 * 1000;
+const AUTO_INSTALL_ATTRIBUTE = 'data-lodariq-installed';
 
 interface TourResumeState {
   documentId: string;
@@ -90,13 +102,35 @@ export function defaultManifestUrl(
 }
 
 export function readConfigFromScript(script: HTMLScriptElement): LoaderConfig | null {
-  const workspaceId = script.dataset['workspace'];
-  const rawEnvironment = script.dataset['env'] ?? 'production';
-  if (!workspaceId) return null;
+  const workspaceId =
+    script.dataset['workspace']?.trim() || script.dataset['lodariqWorkspace']?.trim();
+  const rawEnvironment =
+    script.dataset['env']?.trim() ?? script.dataset['lodariqEnvironment']?.trim() ?? 'production';
   if (!isEnvironment(rawEnvironment)) return null;
   const manifestUrl =
-    script.dataset['manifest']?.trim() || defaultManifestUrl(workspaceId, rawEnvironment);
-  return { workspaceId, environment: rawEnvironment, manifestUrl };
+    script.dataset['manifest']?.trim() || script.dataset['lodariqManifest']?.trim();
+  const apiBaseUrl = script.dataset['lodariqApi']?.trim();
+  const clientToken = script.dataset['lodariqToken']?.trim();
+  const authoringSessionToken = script.dataset['lodariqAuthoringSession']?.trim();
+
+  if (apiBaseUrl || clientToken) {
+    if (!apiBaseUrl || !clientToken) return null;
+    return {
+      ...(workspaceId ? { workspaceId } : {}),
+      environment: rawEnvironment,
+      ...(manifestUrl ? { manifestUrl } : {}),
+      apiBaseUrl,
+      clientToken,
+      ...(authoringSessionToken ? { authoringSessionToken } : {}),
+    };
+  }
+
+  if (!workspaceId) return null;
+  return {
+    workspaceId,
+    environment: rawEnvironment,
+    manifestUrl: manifestUrl || defaultManifestUrl(workspaceId, rawEnvironment),
+  };
 }
 
 export async function fetchManifest(url: string): Promise<ManifestPointer> {
@@ -104,6 +138,65 @@ export async function fetchManifest(url: string): Promise<ManifestPointer> {
   const res = await fetch(url, { credentials: 'omit' });
   if (!res.ok) throw new Error(`Lodariq manifest fetch failed: ${res.status}`);
   return (await res.json()) as ManifestPointer;
+}
+
+export async function fetchInstallContext(
+  config: LoaderConfig,
+  fetchManifestFn: (url: string) => Promise<ManifestPointer> = fetchManifest,
+): Promise<SdkInstallContext> {
+  if (config.clientToken && config.apiBaseUrl) {
+    const headers: Record<string, string> = {
+      authorization: `Bearer ${config.clientToken}`,
+      'content-type': 'application/json',
+    };
+    if (config.authoringSessionToken) {
+      headers['x-lodariq-authoring-session'] = config.authoringSessionToken;
+    }
+    const response = await fetch(new URL('/v1/sdk/bootstrap', config.apiBaseUrl), {
+      method: 'POST',
+      credentials: 'omit',
+      headers,
+      body: JSON.stringify({
+        environment: config.environment,
+        ...(typeof location !== 'undefined'
+          ? { href: location.href, origin: location.origin }
+          : {}),
+      }),
+    });
+    if (!response.ok) throw new Error(`Lodariq SDK bootstrap failed: ${response.status}`);
+    return (await response.json()) as SdkInstallContext;
+  }
+
+  if (!config.workspaceId || !config.manifestUrl) {
+    throw new Error(
+      'Lodariq loader requires either workspace/manifest config or an API token config',
+    );
+  }
+
+  const manifest = await fetchManifestFn(config.manifestUrl);
+  return {
+    workspaceId: config.workspaceId,
+    environment: config.environment,
+    correlationId: `local_${manifest.currentVersion}`,
+    manifest,
+    currentDocumentUrl: '',
+    ingestUrl: '',
+  };
+}
+
+export async function fetchCurrentDocument(
+  url: string,
+  clientToken?: string,
+): Promise<CompiledDocument> {
+  if (!url.trim()) throw new Error('Lodariq current document URL is required');
+  const headers: Record<string, string> = {};
+  if (clientToken) headers['authorization'] = `Bearer ${clientToken}`;
+  const response = await fetch(url, {
+    credentials: 'omit',
+    headers,
+  });
+  if (!response.ok) throw new Error(`Lodariq current document fetch failed: ${response.status}`);
+  return (await response.json()) as CompiledDocument;
 }
 
 export function isManifestEligible(
@@ -127,11 +220,14 @@ function assertCompiledDocument(value: unknown): asserts value is CompiledDocume
   }
 }
 
-function resumeKey(config: LoaderConfig): string {
+function resumeKey(config: Pick<RuntimeConfig, 'workspaceId' | 'environment'>): string {
   return `${TOUR_RESUME_PREFIX}${config.workspaceId}:${config.environment}`;
 }
 
-function readResumeState(config: LoaderConfig, manifest: ManifestPointer): TourResumeState | null {
+function readResumeState(
+  config: Pick<RuntimeConfig, 'workspaceId' | 'environment'>,
+  manifest: ManifestPointer,
+): TourResumeState | null {
   try {
     const raw = sessionStorage.getItem(resumeKey(config));
     if (!raw) return null;
@@ -156,7 +252,7 @@ function readResumeState(config: LoaderConfig, manifest: ManifestPointer): TourR
 }
 
 function writeResumeState(
-  config: LoaderConfig,
+  config: Pick<RuntimeConfig, 'workspaceId' | 'environment'>,
   manifest: ManifestPointer,
   doc: CompiledDocument,
   step: CompiledDocument['steps'][number],
@@ -177,7 +273,7 @@ function writeResumeState(
   }
 }
 
-function clearResumeState(config: LoaderConfig): void {
+function clearResumeState(config: Pick<RuntimeConfig, 'workspaceId' | 'environment'>): void {
   try {
     sessionStorage.removeItem(resumeKey(config));
   } catch {
@@ -210,15 +306,32 @@ export async function installLodariq(
   options: InstallOptions = {},
 ): Promise<LodariqBrowserApi> {
   const fetchManifestFn = options.fetchManifest ?? fetchManifest;
+  const fetchInstallContextFn =
+    options.fetchInstallContext ??
+    ((input: LoaderConfig) => fetchInstallContext(input, fetchManifestFn));
   const loadRuntimeFn = options.loadRuntime ?? loadRuntime;
   const loadTourRendererFn = options.loadTourRenderer ?? loadTourRenderer;
-  const loadCurrentTourFn = options.loadCurrentTour;
   const openAuthoringFn = options.openAuthoring;
-  const [manifest, runtimeModule] = await Promise.all([
-    fetchManifestFn(config.manifestUrl),
+  const [context, runtimeModule] = await Promise.all([
+    fetchInstallContextFn(config),
     loadRuntimeFn(),
   ]);
-  const runtime = new runtimeModule.LodariqRuntime(config);
+  const manifest = context.manifest;
+  const loadCurrentTourFn =
+    options.loadCurrentTour ??
+    (context.currentDocumentUrl
+      ? (_manifest: ManifestPointer, installContext: SdkInstallContext) =>
+          fetchCurrentDocument(installContext.currentDocumentUrl, config.clientToken)
+      : undefined);
+  const runtimeConfig: RuntimeConfig = {
+    workspaceId: context.workspaceId,
+    environment: context.environment,
+    ...(context.correlationId ? { correlationId: context.correlationId } : {}),
+    ...(context.ingestUrl ? { ingestUrl: context.ingestUrl } : {}),
+    ...(config.clientToken ? { authorizationToken: config.clientToken } : {}),
+  };
+  const runtime = new runtimeModule.LodariqRuntime(runtimeConfig);
+  const authoring = createAuthoringStatus(config, context, Boolean(openAuthoringFn));
   let activeTour: TourPlayerLike | null = null;
   let tourRequestId = 0;
 
@@ -226,69 +339,81 @@ export async function installLodariq(
     doc?: CompiledDocument,
     playbackOptions: TourPlaybackOptions = {},
   ): Promise<void> {
-    const requestId = ++tourRequestId;
-    if (!isManifestEligible(manifest, config.environment)) {
-      throw new Error(`Lodariq manifest is not eligible for ${config.environment}`);
+    try {
+      const requestId = ++tourRequestId;
+      if (!isManifestEligible(manifest, context.environment)) {
+        throw new Error(`Lodariq manifest is not eligible for ${context.environment}`);
+      }
+      const tour = doc ?? (await loadCurrentTourFn?.(manifest, context));
+      if (requestId !== tourRequestId) return;
+      assertCompiledDocument(tour);
+      stopTour();
+      const { TourPlayer } = await loadTourRendererFn();
+      if (requestId !== tourRequestId) return;
+      const player = new TourPlayer(tour, {
+        ...playbackOptions,
+        onBeforeStepChange: (_index, step) => writeResumeState(runtimeConfig, manifest, tour, step),
+        onStepChange: (_index, step) => writeResumeState(runtimeConfig, manifest, tour, step),
+        onComplete: () => {
+          if (activeTour === player) activeTour = null;
+          clearResumeState(runtimeConfig);
+          runtime.track('tour_completed', { documentId: tour.documentId });
+        },
+        onDismiss: () => {
+          if (activeTour === player) activeTour = null;
+          clearResumeState(runtimeConfig);
+          runtime.track('tour_dismissed', { documentId: tour.documentId });
+        },
+      });
+      activeTour = player;
+      runtime.track('tour_started', { documentId: tour.documentId });
+      player.start();
+    } catch (error) {
+      runtime.reportError(error, {
+        phase: 'playback',
+        documentId: manifest.documentId,
+        ...(context.correlationId ? { correlationId: context.correlationId } : {}),
+      });
+      throw error;
     }
-    const tour = doc ?? (await loadCurrentTourFn?.(manifest));
-    if (requestId !== tourRequestId) return;
-    assertCompiledDocument(tour);
-    stopTour();
-    const { TourPlayer } = await loadTourRendererFn();
-    if (requestId !== tourRequestId) return;
-    const player = new TourPlayer(tour, {
-      ...playbackOptions,
-      onBeforeStepChange: (_index, step) => writeResumeState(config, manifest, tour, step),
-      onStepChange: (_index, step) => writeResumeState(config, manifest, tour, step),
-      onComplete: () => {
-        if (activeTour === player) activeTour = null;
-        clearResumeState(config);
-        runtime.track('tour_completed', { documentId: tour.documentId });
-      },
-      onDismiss: () => {
-        if (activeTour === player) activeTour = null;
-        clearResumeState(config);
-        runtime.track('tour_dismissed', { documentId: tour.documentId });
-      },
-    });
-    activeTour = player;
-    runtime.track('tour_started', { documentId: tour.documentId });
-    player.start();
   }
 
   async function openAuthoring(): Promise<void> {
-    if (!openAuthoringFn) throw new Error('Lodariq.openAuthoring is not configured');
-    await openAuthoringFn(manifest);
+    if (!openAuthoringFn || !authoring.enabled) {
+      throw new Error('Lodariq authoring is not enabled for this session');
+    }
+    await openAuthoringFn(manifest, context);
   }
 
   function stopTour(): void {
     activeTour?.stop();
     activeTour = null;
-    clearResumeState(config);
+    clearResumeState(runtimeConfig);
   }
 
   async function resumeTourIfPending(): Promise<void> {
-    const resume = readResumeState(config, manifest);
+    const resume = readResumeState(runtimeConfig, manifest);
     if (!resume) return;
     if (!loadCurrentTourFn) {
-      clearResumeState(config);
+      clearResumeState(runtimeConfig);
       return;
     }
     try {
-      const tour = await loadCurrentTourFn(manifest);
+      const tour = await loadCurrentTourFn(manifest, context);
       assertCompiledDocument(tour);
       if (!resumeMatchesTour(resume, tour)) {
-        clearResumeState(config);
+        clearResumeState(runtimeConfig);
         return;
       }
       await playTour(tour, { initialStepId: resume.stepId });
     } catch {
-      clearResumeState(config);
+      clearResumeState(runtimeConfig);
     }
   }
 
   const api: LodariqBrowserApi = {
     manifest,
+    authoring,
     identify: (traits) => runtime.identify(traits),
     track: (name, props) => runtime.track(name, props),
     playTour,
@@ -301,10 +426,83 @@ export async function installLodariq(
   return api;
 }
 
+function createAuthoringStatus(
+  config: LoaderConfig,
+  context: SdkInstallContext,
+  hasOpenAuthoring: boolean,
+): LodariqBrowserApi['authoring'] {
+  if (!hasOpenAuthoring || context.environment === 'production') return { enabled: false };
+
+  if (config.clientToken && context.authoring?.enabled !== true) {
+    return { enabled: false };
+  }
+
+  return {
+    enabled: true,
+    ...(context.authoring?.iframeSrc ? { iframeSrc: context.authoring.iframeSrc } : {}),
+  };
+}
+
 export async function installLodariqFromScript(
   script: HTMLScriptElement,
   options?: InstallOptions,
 ): Promise<LodariqBrowserApi | null> {
   const config = readConfigFromScript(script);
   return config ? installLodariq(config, options) : null;
+}
+
+function autoInstallFromScript(): void {
+  const script = findAutoInstallScript();
+  if (!script || script.getAttribute(AUTO_INSTALL_ATTRIBUTE) === 'true') return;
+  script.setAttribute(AUTO_INSTALL_ATTRIBUTE, 'true');
+  void installLodariqFromScript(script).catch((error: unknown) => {
+    window.dispatchEvent(
+      new CustomEvent('lodariq:error', {
+        detail: {
+          error,
+          phase: 'install',
+        },
+      }),
+    );
+  });
+}
+
+function findAutoInstallScript(): HTMLScriptElement | null {
+  if (typeof document === 'undefined') return null;
+  const moduleUrl = normalizedUrl(import.meta.url);
+  const scripts = [...document.scripts].reverse();
+  return (
+    scripts.find(
+      (script): script is HTMLScriptElement =>
+        script instanceof HTMLScriptElement &&
+        script.hasAttribute('data-lodariq-loader') &&
+        Boolean(readConfigFromScript(script)) &&
+        scriptMatchesModule(script, moduleUrl),
+    ) ?? null
+  );
+}
+
+function scriptMatchesModule(script: HTMLScriptElement, moduleUrl: string): boolean {
+  const scriptUrl = normalizedUrl(script.src);
+  if (!scriptUrl || !moduleUrl) return false;
+  if (scriptUrl === moduleUrl) return true;
+  const scriptLocation = new URL(scriptUrl);
+  const moduleLocation = new URL(moduleUrl);
+  return (
+    scriptLocation.origin === moduleLocation.origin &&
+    scriptLocation.pathname.endsWith('/lodariq-loader.js') &&
+    moduleLocation.pathname.startsWith(scriptLocation.pathname.replace(/lodariq-loader\.js$/, ''))
+  );
+}
+
+function normalizedUrl(value: string): string {
+  try {
+    return new URL(value, document.baseURI).href;
+  } catch {
+    return '';
+  }
+}
+
+if (typeof window !== 'undefined' && typeof document !== 'undefined') {
+  queueMicrotask(autoInstallFromScript);
 }

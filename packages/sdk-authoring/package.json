@@ -23,6 +23,14 @@
       "types": "./dist/editor/index.d.ts",
       "import": "./dist/editor/index.js"
     },
+    "./creator-toolbar": {
+      "types": "./dist/creator-toolbar/index.d.ts",
+      "import": "./dist/creator-toolbar/index.js"
+    },
+    "./creator-install": {
+      "types": "./dist/creator-install/index.d.ts",
+      "import": "./dist/creator-install/index.js"
+    },
     "./local-dev": {
       "types": "./dist/local-dev/index.d.ts",
       "import": "./dist/local-dev/index.js"
@@ -46,7 +54,8 @@
   "scripts": {
     "build": "tsup",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "size": "node ./scripts/check-size.mjs"
   },
   "dependencies": {
     "@floating-ui/dom": "^1.6.13",

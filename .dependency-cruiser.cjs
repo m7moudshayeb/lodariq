@@ -85,7 +85,7 @@ module.exports = {
     // Keep node_modules edges visible (so the React/Lexical rules can fire) but
     // do not traverse into them.
     doNotFollow: { path: 'node_modules' },
-    exclude: { path: '(^|/)(dist|build|coverage|\\.turbo)/' },
+    exclude: { path: '(^|/)(dist|build|coverage|\\.turbo|\\.next)/' },
     tsConfig: { fileName: 'tsconfig.json' },
     tsPreCompilationDeps: true,
     enhancedResolveOptions: {

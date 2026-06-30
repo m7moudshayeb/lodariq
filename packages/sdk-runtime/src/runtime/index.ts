@@ -17,9 +17,22 @@ export interface IdentifyTraits {
 export interface RuntimeConfig {
   workspaceId: string;
   environment: 'development' | 'staging' | 'production';
+  /** Publication or authoring-session trace key propagated into emitted events. */
+  correlationId?: string;
   /** Where batched analytics are flushed. Omitted in local-dev. */
   ingestUrl?: string;
+  /** Public environment token used only for SDK ingestion endpoints. */
+  authorizationToken?: string;
 }
+
+export interface RuntimeErrorContext {
+  phase?: 'authoring' | 'playback' | 'resume' | 'runtime';
+  documentId?: string;
+  stepId?: string;
+  correlationId?: string;
+}
+
+const MAX_ERROR_MESSAGE_LENGTH = 240;
 
 export class LodariqRuntime {
   private traits: IdentifyTraits | null = null;
@@ -40,23 +53,53 @@ export class LodariqRuntime {
       name,
       sdkVersion: SDK_VERSION,
       timestamp: new Date().toISOString(),
+      ...(this.config.correlationId ? { correlationId: this.config.correlationId } : {}),
       ...(props ? { props } : {}),
     });
+  }
+
+  reportError(error: unknown, context: RuntimeErrorContext = {}): void {
+    const normalized = normalizeRuntimeError(error);
+    this.queue.push({
+      name: 'sdk_error',
+      sdkVersion: SDK_VERSION,
+      timestamp: new Date().toISOString(),
+      ...(context.documentId ? { documentId: context.documentId } : {}),
+      ...(context.stepId ? { stepId: context.stepId } : {}),
+      ...(context.correlationId || this.config.correlationId
+        ? { correlationId: context.correlationId ?? this.config.correlationId }
+        : {}),
+      props: {
+        phase: context.phase ?? 'runtime',
+        errorName: normalized.name,
+        message: normalized.message,
+      },
+    });
+    this.flush();
   }
 
   /** Flush queued events. Uses sendBeacon on page exit (PRD §9.3). */
   flush(onExit = false): void {
     if (this.queue.length === 0 || !this.config.ingestUrl) return;
     const batch = this.queue.splice(0, this.queue.length);
-    const payload = JSON.stringify({ workspaceId: this.config.workspaceId, events: batch });
+    const payload = JSON.stringify({ events: batch });
+    const headers: Record<string, string> = { 'content-type': 'application/json' };
+    if (this.config.authorizationToken) {
+      headers['authorization'] = `Bearer ${this.config.authorizationToken}`;
+    }
 
-    if (onExit && typeof navigator !== 'undefined' && 'sendBeacon' in navigator) {
+    if (
+      onExit &&
+      !this.config.authorizationToken &&
+      typeof navigator !== 'undefined' &&
+      'sendBeacon' in navigator
+    ) {
       navigator.sendBeacon(this.config.ingestUrl, payload);
       return;
     }
     void fetch(this.config.ingestUrl, {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers,
       body: payload,
       keepalive: true,
     }).catch(() => {
@@ -66,5 +109,47 @@ export class LodariqRuntime {
 
   getTraits(): IdentifyTraits | null {
     return this.traits;
+  }
+}
+
+function normalizeRuntimeError(error: unknown): { name: string; message: string } {
+  if (error instanceof Error) {
+    return {
+      name: sanitizeErrorName(error.name),
+      message: sanitizeErrorMessage(error.message),
+    };
+  }
+  if (typeof error === 'string') {
+    return {
+      name: 'Error',
+      message: sanitizeErrorMessage(error),
+    };
+  }
+  return {
+    name: 'Error',
+    message: 'Unknown SDK error',
+  };
+}
+
+function sanitizeErrorName(name: string): string {
+  const safe = name.replace(/[^a-zA-Z0-9_. -]/g, '').trim();
+  return safe ? safe.slice(0, 80) : 'Error';
+}
+
+function sanitizeErrorMessage(message: string): string {
+  return message
+    .replace(/https?:\/\/[^\s"'<>]+/g, sanitizeUrl)
+    .replace(/lod_(?:development|staging|production|authoring)_[a-zA-Z0-9_-]+/g, 'lod_<redacted>')
+    .replace(/\b[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}\b/g, '<email>')
+    .slice(0, MAX_ERROR_MESSAGE_LENGTH);
+}
+
+function sanitizeUrl(rawUrl: string): string {
+  try {
+    const url = new URL(rawUrl);
+    const path = url.pathname.length > 120 ? `${url.pathname.slice(0, 120)}...` : url.pathname;
+    return `${url.origin}${path}`;
+  } catch {
+    return '<url>';
   }
 }

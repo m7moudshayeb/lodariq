@@ -4,9 +4,13 @@
   "references": [
     { "path": "./packages/schema" },
     { "path": "./packages/compiler" },
+    { "path": "./packages/database" },
     { "path": "./packages/sdk-runtime" },
     { "path": "./packages/sdk-authoring" },
     { "path": "./packages/tests" },
+    { "path": "./apps/api" },
+    { "path": "./apps/dashboard" },
+    { "path": "./apps/editor" },
     { "path": "./apps/fixture-host" },
     { "path": "./apps/sdk-playground" }
   ]

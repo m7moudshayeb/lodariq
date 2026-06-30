@@ -12,11 +12,17 @@
   },
   "devDependencies": {
     "@lodariq/compiler": "workspace:*",
+    "@lodariq/api": "workspace:*",
+    "@lodariq/database": "workspace:*",
     "@lodariq/schema": "workspace:*",
     "@lodariq/sdk-authoring": "workspace:*",
     "@lodariq/sdk-runtime": "workspace:*",
     "@types/node": "^24.0.0",
+    "@types/react": "^19.0.2",
+    "@types/react-dom": "^19.0.2",
     "jsdom": "^25.0.1",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
     "typescript": "^5.7.2",
     "vitest": "^4.1.9"
   }

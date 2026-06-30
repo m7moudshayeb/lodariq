@@ -1,8 +1,9 @@
 import { defineConfig } from 'tsup';
 
 // One output per public subpath export. Internal modules shared across entries
-// become hashed chunks (proper extensions, Node-safe). Deps (@floating-ui/dom,
-// @lodariq/*) stay external; React/Lexical are never present here by design.
+// become hashed chunks (proper extensions, Node-safe). Browser runtime deps used
+// by CDN-installed snippets are bundled so customer pages do not rely on
+// bare-specifier resolution; React/Lexical are never present here by design.
 export default defineConfig({
   entry: {
     index: 'src/index.ts',
@@ -20,7 +21,9 @@ export default defineConfig({
   platform: 'browser',
   dts: true,
   sourcemap: true,
+  minify: true,
   clean: true,
   splitting: true,
   treeshake: true,
+  noExternal: [/^@floating-ui\//, /^@lodariq\/schema\/dom$/],
 });

@@ -11,13 +11,36 @@ const checks = [
     name: 'loader',
     entries: ['lodariq-loader.js'],
     limit: 3 * 1024,
+    forbidden: productionRuntimeForbiddenPatterns(),
   },
   {
     name: 'runtime+tour',
     entries: ['lodariq-runtime.js', 'renderers/tour.js'],
     limit: 40 * 1024,
+    forbidden: productionRuntimeForbiddenPatterns(),
   },
 ];
+
+function productionRuntimeForbiddenPatterns() {
+  return [
+    {
+      name: 'React',
+      pattern: /(?:^|['"])react(?:['"]|\/)|react-dom/,
+    },
+    {
+      name: 'Lexical',
+      pattern: /(?:^|['"])lexical(?:['"]|\/)|@lexical\//,
+    },
+    {
+      name: 'SDK authoring package',
+      pattern: /@lodariq\/sdk-authoring|(?:^|['"`/])lodariq-authoring(?:\.js|['"`/])/,
+    },
+    {
+      name: 'dashboard-only code',
+      pattern: /@lodariq\/dashboard|@clerk\/nextjs|next\/headers|next-themes|server-only/,
+    },
+  ];
+}
 
 function distPath(relativePath) {
   return new URL(relativePath, dist).pathname;
@@ -26,8 +49,18 @@ function distPath(relativePath) {
 function staticImports(file) {
   const source = readFileSync(file, 'utf8');
   const imports = [
-    ...source.matchAll(/import\s+(?:[^'"]+\s+from\s+)?['"]([^'"]+)['"]/g),
-    ...source.matchAll(/export\s+[^'"]+\s+from\s+['"]([^'"]+)['"]/g),
+    ...source.matchAll(/import\s*(?:[^'"]+\s+from\s*)?['"]([^'"]+)['"]/g),
+    ...source.matchAll(/export\s*[^'"]+\s*from\s*['"]([^'"]+)['"]/g),
+  ];
+  return imports.map((match) => match[1]);
+}
+
+function literalModuleSpecifiers(file) {
+  const source = readFileSync(file, 'utf8');
+  const imports = [
+    ...source.matchAll(/import\s*(?:[^'"]+\s+from\s*)?['"]([^'"]+)['"]/g),
+    ...source.matchAll(/import\(\s*['"]([^'"]+)['"]\s*\)/g),
+    ...source.matchAll(/export\s*[^'"]+\s*from\s*['"]([^'"]+)['"]/g),
   ];
   return imports.map((match) => match[1]);
 }
@@ -98,9 +131,37 @@ function collect(files, seen = new Set()) {
 
 for (const check of checks) {
   const files = collect(check.entries.map(distPath));
+  assertNoBareBrowserImports(check, files);
+  assertNoForbiddenRuntimeDeps(check, files);
   const size = [...files].reduce((total, file) => total + gzipSync(readFileSync(file)).length, 0);
   if (size > check.limit) {
     throw new Error(`${check.name} is ${size} bytes gzipped; limit is ${check.limit}`);
   }
   process.stdout.write(`${check.name}: ${size}/${check.limit} bytes gzipped\n`);
+}
+
+function assertNoBareBrowserImports(check, files) {
+  for (const file of files) {
+    for (const specifier of literalModuleSpecifiers(file)) {
+      if (specifier.startsWith('.') || specifier.startsWith('/') || specifier.startsWith('node:')) {
+        continue;
+      }
+
+      throw new Error(
+        `${check.name} bundle contains browser-unresolvable bare import "${specifier}" in ${file}`,
+      );
+    }
+  }
+}
+
+function assertNoForbiddenRuntimeDeps(check, files) {
+  for (const file of files) {
+    const source = readFileSync(file, 'utf8');
+    for (const forbidden of check.forbidden ?? []) {
+      if (!forbidden.pattern.test(source)) continue;
+      throw new Error(
+        `${check.name} bundle includes forbidden ${forbidden.name} reference in ${file}`,
+      );
+    }
+  }
 }

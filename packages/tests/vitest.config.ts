@@ -15,6 +15,10 @@ export default defineConfig({
   resolve: {
     alias: [
       {
+        find: /^server-only$/,
+        replacement: fromRoot('packages/tests/shims/server-only.ts'),
+      },
+      {
         find: /^@lodariq\/schema\/dom$/,
         replacement: fromRoot('packages/schema/src/dom.ts'),
       },
@@ -25,6 +29,18 @@ export default defineConfig({
       {
         find: /^@lodariq\/compiler$/,
         replacement: fromRoot('packages/compiler/src/index.ts'),
+      },
+      {
+        find: /^@lodariq\/database$/,
+        replacement: fromRoot('packages/database/src/index.ts'),
+      },
+      {
+        find: /^@lodariq\/database\/schema$/,
+        replacement: fromRoot('packages/database/src/schema.ts'),
+      },
+      {
+        find: /^@lodariq\/api$/,
+        replacement: fromRoot('apps/api/src/index.ts'),
       },
       {
         find: /^@lodariq\/sdk-runtime\/lodariq-loader$/,
@@ -73,6 +89,14 @@ export default defineConfig({
       {
         find: /^@lodariq\/sdk-authoring\/editor$/,
         replacement: fromRoot('packages/sdk-authoring/src/editor/index.ts'),
+      },
+      {
+        find: /^@lodariq\/sdk-authoring\/creator-toolbar$/,
+        replacement: fromRoot('packages/sdk-authoring/src/creator-toolbar/index.ts'),
+      },
+      {
+        find: /^@lodariq\/sdk-authoring\/creator-install$/,
+        replacement: fromRoot('packages/sdk-authoring/src/creator-install/index.ts'),
       },
       {
         find: /^@lodariq\/sdk-authoring\/local-dev$/,

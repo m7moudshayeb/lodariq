@@ -1,0 +1,41 @@
+{
+  "name": "@lodariq/api",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Fastify modular-monolith API for Lodariq Phase 1 control-plane data, validation, compilation, and event ingestion.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "check:runtime-env": "node ./scripts/check-runtime-env.mjs",
+    "dev": "tsx watch src/server.ts",
+    "dev:e2e": "tsx src/server.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "@clerk/backend": "^3.8.5",
+    "@fastify/swagger": "^9.7.0",
+    "@lodariq/compiler": "workspace:*",
+    "@lodariq/database": "workspace:*",
+    "@lodariq/schema": "workspace:*",
+    "@sinclair/typebox": "^0.34.11",
+    "fastify": "^5.6.2"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "tsup": "^8.3.5",
+    "tsx": "^4.20.6",
+    "typescript": "^5.7.2"
+  }
+}

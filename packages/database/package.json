@@ -1,0 +1,41 @@
+{
+  "name": "@lodariq/database",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Lodariq control-plane persistence schema, tenant-scoped repositories, Neon/Drizzle connection helpers, and RLS migrations.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./schema": {
+      "types": "./dist/schema.d.ts",
+      "import": "./dist/schema.js"
+    }
+  },
+  "files": [
+    "dist",
+    "drizzle"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint .",
+    "check:migrations": "node ./scripts/check-migration-safety.mjs",
+    "provision:runtime-role": "node ./scripts/provision-runtime-role.mjs",
+    "verify:live-rls": "node ./scripts/verify-live-rls.mjs"
+  },
+  "dependencies": {
+    "@lodariq/schema": "workspace:*",
+    "@neondatabase/serverless": "^1.0.2",
+    "drizzle-orm": "^0.45.2"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "tsup": "^8.3.5",
+    "typescript": "^5.7.2"
+  }
+}

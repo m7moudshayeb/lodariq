@@ -753,6 +753,7 @@ export class LocalAuthoringFrameController {
         correlationId: createBridgeCorrelationId('authoring_save_result'),
         type: 'authoring.save.result',
         requestCorrelationId: message.correlationId,
+        document: structuredClone(this.documentState),
       });
       return;
     }

@@ -119,6 +119,7 @@ html[data-lodariq-authoring-panel-open='true'] [data-lodariq-authoring-trigger='
 `;
 
 type LocalAuthoringEnvironment = 'development' | 'staging';
+type LocalAuthoringLoaderConfig = LoaderConfig & { workspaceId: string };
 
 export async function installLocalLodariqAuthoringFromScript(
   options: InstallLocalLodariqAuthoringOptions,
@@ -130,15 +131,16 @@ export async function installLocalLodariqAuthoringFromScript(
 
   const config = readConfigFromScript(script);
   if (!config) return null;
+  const localConfig = requireLocalAuthoringConfig(config);
 
   let lodariq: LodariqBrowserApi | null = null;
   const sessionId = options.sessionId ?? LOCAL_AUTHORING_SESSION_ID;
-  const environment = localAuthoringEnvironment(config.environment);
+  const environment = localAuthoringEnvironment(localConfig.environment);
 
-  const api = await installLodariq(config, {
+  const api = await installLodariq(localConfig, {
     ...options.installOptions,
     loadCurrentTour: (manifest) =>
-      compilePreview(currentDocument(config, options.baseDocument, manifest.documentId)),
+      compilePreview(currentDocument(localConfig, options.baseDocument, manifest.documentId)),
     openAuthoring: async (manifest) => {
       const { openLocalAuthoringPanel } = await import('../authoring');
 
@@ -146,13 +148,14 @@ export async function installLocalLodariqAuthoringFromScript(
         {
           sessionId,
           documentId: manifest.documentId,
-          workspaceId: config.workspaceId,
+          workspaceId: localConfig.workspaceId,
           environment,
         },
         {
           iframeSrc: options.iframeSrc ?? DEFAULT_AUTHORING_IFRAME_SRC,
           preview: {
-            loadDocument: (documentId) => currentDocument(config, options.baseDocument, documentId),
+            loadDocument: (documentId) =>
+              currentDocument(localConfig, options.baseDocument, documentId),
             compilePreview,
             playPreview: (doc, previewOptions) => {
               if (!lodariq) throw new Error('Lodariq local preview is not installed');
@@ -407,7 +410,7 @@ function ensureLocalAuthoringTriggerStyle(doc: Document): void {
 }
 
 function currentDocument(
-  config: LoaderConfig,
+  config: LocalAuthoringLoaderConfig,
   baseDocument: LodariqDocument,
   documentId: string,
 ): LodariqDocument {
@@ -415,12 +418,19 @@ function currentDocument(
 }
 
 function baseDocumentFor(
-  config: LoaderConfig,
+  config: LocalAuthoringLoaderConfig,
   baseDocument: LodariqDocument,
   documentId: string,
 ): LodariqDocument {
   const doc = structuredClone(baseDocument);
   return { ...doc, id: documentId, workspaceId: config.workspaceId };
+}
+
+function requireLocalAuthoringConfig(config: LoaderConfig): LocalAuthoringLoaderConfig {
+  if (!config.workspaceId) {
+    throw new Error('Lodariq local authoring requires data-workspace on the loader script');
+  }
+  return config as LocalAuthoringLoaderConfig;
 }
 
 function localAuthoringEnvironment(
