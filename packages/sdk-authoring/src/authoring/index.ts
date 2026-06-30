@@ -33,8 +33,6 @@ import {
   LOCAL_AUTHORING_OPEN_MANUAL_PLACEMENT_KEY,
 } from './constants';
 
-export * from './local-frame';
-
 /**
  * Authoring shell (PRD §9.4).
  *
@@ -59,7 +57,9 @@ export interface AuthoringSession {
 
 export interface LocalAuthoringPanelOptions {
   iframeSrc: string;
+  initialDocument?: LodariqDocument;
   preview?: LocalAuthoringPreviewServices;
+  onSave?: (document: LodariqDocument) => Promise<void> | void;
 }
 
 export interface LocalAuthoringPreviewOptions {
@@ -86,6 +86,22 @@ const LOCAL_AUTHORING_TRIGGER_SELECTOR = '[data-lodariq-authoring-trigger="true"
 const DEFAULT_AUTHORING_PANEL_WIDTH = 550;
 const MIN_AUTHORING_PANEL_WIDTH = 320;
 
+function withTrustedParentOrigin(iframeSrc: string): string {
+  const parentOrigin = window.location.origin;
+  if (!parentOrigin || parentOrigin === 'null') return iframeSrc;
+
+  try {
+    const url = new URL(iframeSrc, window.location.href);
+    if (url.origin === parentOrigin || !['http:', 'https:'].includes(url.protocol)) {
+      return iframeSrc;
+    }
+    url.searchParams.set('parentOrigin', parentOrigin);
+    return url.toString();
+  } catch {
+    return iframeSrc;
+  }
+}
+
 export function openLocalAuthoringPanel(
   session: AuthoringSession,
   options: LocalAuthoringPanelOptions,
@@ -97,9 +113,13 @@ export function openLocalAuthoringPanel(
 
   const host = document.createElement('lodariq-authoring-panel');
   const shadow = host.attachShadow({ mode: 'open' });
-  const iframeOrigin = new URL(options.iframeSrc, window.location.href).origin;
+  const iframeSrc = withTrustedParentOrigin(options.iframeSrc);
+  const iframeOrigin = new URL(iframeSrc, window.location.href).origin;
   const preview = options.preview;
-  let previewDocument = preview?.loadDocument(session.documentId) ?? null;
+  let previewDocument =
+    (options.initialDocument ? structuredClone(options.initialDocument) : null) ??
+    preview?.loadDocument(session.documentId) ??
+    null;
   let previewRequestId = 0;
   let picker: TargetPicker | null = null;
   let bridge: AuthoringBridge | null = null;
@@ -136,7 +156,7 @@ export function openLocalAuthoringPanel(
   iframe.slot = 'authoring-frame';
   iframe.title = 'Lodariq authoring';
   iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin');
-  iframe.setAttribute('src', options.iframeSrc);
+  iframe.setAttribute('src', iframeSrc);
   host.appendChild(iframe);
 
   const closeButton = shadow.querySelector('button');
@@ -230,7 +250,18 @@ export function openLocalAuthoringPanel(
             pendingSaveBeforeClose &&
             message.requestCorrelationId === pendingSaveBeforeClose.requestCorrelationId
           ) {
-            close();
+            const documentToSave = message.document ?? previewDocument;
+            if (documentToSave && options.onSave) {
+              void Promise.resolve(options.onSave(structuredClone(documentToSave)))
+                .then(() => close())
+                .catch((error: unknown) => {
+                  pendingSaveBeforeClose?.resolve();
+                  pendingSaveBeforeClose = null;
+                  dispatchAuthoringSaveError(error);
+                });
+            } else {
+              close();
+            }
           }
           return;
         }
@@ -282,6 +313,18 @@ export function openLocalAuthoringPanel(
       },
     });
     bridge.start();
+    if (options.initialDocument) {
+      bridge.send({
+        protocol: BRIDGE_PROTOCOL_VERSION,
+        sessionId: session.sessionId,
+        documentId: session.documentId,
+        correlationId: createBridgeCorrelationId('authoring_init'),
+        type: 'authoring.init',
+        workspaceId: session.workspaceId,
+        environment: session.environment,
+        document: structuredClone(options.initialDocument),
+      });
+    }
     stopLifecycleObserver = startPageLifecycleObserver(bridge, session);
   });
 
@@ -589,6 +632,14 @@ function setAuthoringPanelOpenState(open: boolean): void {
       button.setAttribute('aria-expanded', open ? 'true' : 'false');
       if (!open) delete button.dataset[LOCAL_AUTHORING_OPEN_MANUAL_PLACEMENT_KEY];
     });
+}
+
+function dispatchAuthoringSaveError(error: unknown): void {
+  window.dispatchEvent(
+    new CustomEvent('lodariq:authoring-save-error', {
+      detail: { error },
+    }),
+  );
 }
 
 function startPageLifecycleObserver(
@@ -902,9 +953,9 @@ function createPanelStyles(): HTMLStyleElement {
       left: var(--lodariq-panel-arrow-x, calc(100% - 42px));
       width: 14px;
       height: 14px;
-      border-top: 1px solid rgba(203, 213, 225, 0.78);
-      border-left: 1px solid rgba(203, 213, 225, 0.78);
-      background: rgba(255, 255, 255, 0.98);
+      border-top: 1px solid rgba(53, 78, 72, 0.92);
+      border-left: 1px solid rgba(53, 78, 72, 0.92);
+      background: rgba(12, 24, 22, 0.98);
       content: "";
       transform: translateX(-50%) rotate(45deg);
       z-index: 1;
@@ -914,12 +965,12 @@ function createPanelStyles(): HTMLStyleElement {
       position: relative;
       width: 100%;
       height: 100%;
-      border: 1px solid rgba(203, 213, 225, 0.82);
-      border-radius: 10px;
-      background: rgba(255, 255, 255, 0.98);
+      border: 1px solid rgba(53, 78, 72, 0.92);
+      border-radius: 8px;
+      background: rgba(12, 24, 22, 0.98);
       box-shadow:
-        0 26px 70px rgba(15, 23, 42, 0.18),
-        0 0 0 1px rgba(255, 255, 255, 0.55) inset;
+        0 26px 70px rgba(0, 0, 0, 0.38),
+        0 0 0 1px rgba(255, 255, 255, 0.04) inset;
       overflow: hidden;
       backdrop-filter: blur(16px);
       box-sizing: border-box;
@@ -932,9 +983,9 @@ function createPanelStyles(): HTMLStyleElement {
       gap: 12px;
       height: 42px;
       padding: 0 10px 0 12px;
-      border-bottom: 1px solid rgba(226, 232, 240, 0.82);
-      background: rgba(255, 255, 255, 0.96);
-      color: #172033;
+      border-bottom: 1px solid rgba(53, 78, 72, 0.92);
+      background: rgba(8, 18, 16, 0.96);
+      color: #e8f2ef;
       cursor: grab;
       user-select: none;
     }
@@ -957,8 +1008,8 @@ function createPanelStyles(): HTMLStyleElement {
       height: 24px;
       place-items: center;
       border-radius: 999px;
-      background: #126451;
-      color: #fff;
+      background: #2e806f;
+      color: #f4faf8;
       font-size: 12px;
       font-weight: 800;
       line-height: 1;
@@ -966,21 +1017,22 @@ function createPanelStyles(): HTMLStyleElement {
 
     button {
       padding: 5px 10px;
-      border: 1px solid transparent;
+      border: 1px solid #263a36;
       border-radius: 7px;
-      background: #f6f8fb;
-      color: #334155;
+      background: #101b1a;
+      color: #dce9e5;
       font: inherit;
       cursor: pointer;
     }
 
     button:hover {
-      background: #e8edf6;
-      color: #111827;
+      border-color: #3a554f;
+      background: #172826;
+      color: #f4faf8;
     }
 
     button:focus-visible {
-      outline: 3px solid rgba(37, 99, 235, 0.32);
+      outline: 3px solid rgba(78, 207, 178, 0.36);
       outline-offset: 2px;
     }
 
@@ -996,7 +1048,7 @@ function createPanelStyles(): HTMLStyleElement {
       width: 100%;
       height: 100%;
       border: 0;
-      background: #fff;
+      background: #07110f;
       pointer-events: auto;
     }
 

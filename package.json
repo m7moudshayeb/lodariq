@@ -18,10 +18,26 @@
     "test:e2e": "playwright test",
     "size": "turbo run size",
     "boundaries": "depcruise --config .dependency-cruiser.cjs packages apps",
+    "migrations:check": "pnpm --filter @lodariq/database check:migrations",
+    "db:provision:runtime-role": "pnpm --filter @lodariq/database provision:runtime-role",
+    "rls:verify:live": "pnpm --filter @lodariq/database verify:live-rls",
+    "live:check-env": "pnpm --filter @lodariq/api check:runtime-env && pnpm --filter @lodariq/dashboard check:runtime-env",
+    "sdk:prepare-assets": "node scripts/prepare-sdk-assets.mjs",
+    "deploy:api": "fly deploy -c apps/api/fly.toml",
+    "deploy:api:production": "fly deploy -c apps/api/fly.toml",
+    "deploy:api:staging": "fly deploy -c apps/api/fly.staging.toml",
+    "deploy:dashboard": "fly deploy -c apps/dashboard/fly.toml",
+    "deploy:dashboard:production": "fly deploy -c apps/dashboard/fly.toml",
+    "deploy:dashboard:staging": "fly deploy -c apps/dashboard/fly.staging.toml",
+    "deploy:editor": "fly deploy -c apps/editor/fly.toml",
+    "deploy:editor:production": "fly deploy -c apps/editor/fly.toml",
+    "deploy:editor:staging": "fly deploy -c apps/editor/fly.staging.toml",
+    "deploy:production": "pnpm deploy:editor:production && pnpm deploy:api:production && pnpm deploy:dashboard:production",
+    "deploy:staging": "pnpm deploy:editor:staging && pnpm deploy:api:staging && pnpm deploy:dashboard:staging",
     "audit:security": "pnpm audit",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "verify": "pnpm run typecheck && pnpm run lint && pnpm run boundaries && pnpm run test && pnpm run build && pnpm run size && pnpm run test:e2e && pnpm run audit:security"
+    "verify": "pnpm run typecheck && pnpm run lint && pnpm run boundaries && pnpm run migrations:check && pnpm run test && pnpm run build && pnpm run size && pnpm sdk:prepare-assets && pnpm run test:e2e && pnpm run audit:security"
   },
   "devDependencies": {
     "@eslint/js": "^9.17.0",
@@ -38,6 +54,7 @@
   "pnpm": {
     "overrides": {
       "bundle-require>esbuild": "0.28.1",
+      "next>postcss": "8.5.15",
       "tsup>esbuild": "0.28.1"
     }
   }

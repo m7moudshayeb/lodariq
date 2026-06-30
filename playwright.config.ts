@@ -31,6 +31,29 @@ export default defineConfig({
   },
   webServer: [
     {
+      command: 'pnpm --filter @lodariq/api run dev:e2e',
+      url: 'http://127.0.0.1:3001/healthz',
+      reuseExistingServer: !process.env.CI,
+      timeout: 30_000,
+      env: {
+        HOST: '127.0.0.1',
+        PORT: '3001',
+        LODARIQ_DEV_WORKSPACE_ID: 'wk_dashboard_e2e',
+        LODARIQ_DEV_USER_ID: 'user_dashboard_e2e',
+      },
+    },
+    {
+      command: 'pnpm --filter @lodariq/dashboard run dev:e2e',
+      url: 'http://127.0.0.1:3002',
+      reuseExistingServer: !process.env.CI,
+      timeout: 60_000,
+      env: {
+        LODARIQ_API_BASE_URL: 'http://127.0.0.1:3001',
+        LODARIQ_WORKSPACE_ID: 'wk_dashboard_e2e',
+        LODARIQ_DASHBOARD_USER_ID: 'user_dashboard_e2e',
+      },
+    },
+    {
       command: 'pnpm --filter @lodariq/fixture-host exec vite --host 127.0.0.1 --port 4177',
       url: 'http://127.0.0.1:4177',
       reuseExistingServer: !process.env.CI,

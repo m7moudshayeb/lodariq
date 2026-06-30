@@ -7,7 +7,10 @@ export default defineConfig({
   entry: {
     index: 'src/index.ts',
     'lodariq-authoring': 'src/index.ts',
+    'lodariq-creator': 'src/creator-install/index.ts',
     'bridge/index': 'src/bridge/index.ts',
+    'creator-install/index': 'src/creator-install/index.ts',
+    'creator-toolbar/index': 'src/creator-toolbar/index.ts',
     'editor/index': 'src/editor/index.ts',
     'local-dev/index': 'src/local-dev/index.ts',
     'local-dev/install': 'src/local-dev/install.ts',
@@ -21,4 +24,5 @@ export default defineConfig({
   clean: true,
   splitting: true,
   treeshake: true,
+  noExternal: [/^@floating-ui\//, /^@lodariq\/schema(?:\/.*)?$/, /^@lodariq\/sdk-runtime(?:\/.*)?$/],
 });

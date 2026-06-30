@@ -20,6 +20,7 @@ import {
   BridgeMessage,
 } from './bridge';
 import { AnalyticsEvent, SelectorDiagnosticEvent } from './events';
+import { SdkBootstrapRequest, SdkInstallContext } from './sdk';
 
 /**
  * Every `$id`-tagged schema, so TypeBox's Value functions can dereference
@@ -55,4 +56,6 @@ export const SCHEMA_REGISTRY: TSchema[] = [
   BridgeMessage,
   AnalyticsEvent,
   SelectorDiagnosticEvent,
+  SdkBootstrapRequest,
+  SdkInstallContext,
 ];

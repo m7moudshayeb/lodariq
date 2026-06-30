@@ -111,6 +111,15 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     expect(document.head.querySelector('style')?.nonce).toBe('nonce_local_frame');
   });
 
+  it('loads the local authoring frame with dark theme styles', async () => {
+    await loadFrame();
+
+    const styles = document.head.querySelector('style')?.textContent ?? '';
+    expect(styles).toContain('color-scheme: dark');
+    expect(styles).toContain('background: #07110f');
+    expect(styles).toContain('background: #101b1a');
+  });
+
   it('turns a typed slash command into a rendered block and persists it', async () => {
     await loadFrame();
 

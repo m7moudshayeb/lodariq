@@ -1,4 +1,5 @@
 import { expect, test, type FrameLocator, type Locator, type Page } from '@playwright/test';
+import type { CompiledDocument } from '@lodariq/schema';
 
 test('fixture host installs the local SDK build and plays a tour', async ({ page }) => {
   const loadedUrls: string[] = [];
@@ -18,6 +19,27 @@ test('fixture host installs the local SDK build and plays a tour', async ({ page
   await expect(page.getByRole('dialog', { name: 'Lodariq tour' })).toContainText(
     'Create your first project',
   );
+});
+
+test('simple five-step tour completes under the Phase 1 time budget', async ({ page }) => {
+  await page.goto('/');
+  await page.waitForFunction(() => Boolean((window as { Lodariq?: unknown }).Lodariq));
+
+  const startedAt = Date.now();
+  await page.evaluate((doc) => {
+    return (
+      window as { Lodariq: { playTour: (doc: CompiledDocument) => Promise<void> } }
+    ).Lodariq.playTour(doc);
+  }, fiveStepTourDocument());
+
+  for (let index = 1; index <= 5; index += 1) {
+    const isLast = index === 5;
+    await expect(page.getByRole('dialog', { name: 'Lodariq tour' })).toContainText(`Step ${index}`);
+    await page.getByRole('button', { name: isLast ? 'Finish' : 'Continue' }).click();
+  }
+
+  await expect(page.getByRole('dialog', { name: 'Lodariq tour' })).toHaveCount(0);
+  expect(Date.now() - startedAt).toBeLessThan(5 * 60 * 1000);
 });
 
 test('creator authors an editable tour step, attaches a target, and replays it', async ({
@@ -58,7 +80,9 @@ test('creator authors an editable tour step, attaches a target, and replays it',
   await openTargetActions(stepBlock, 'New project');
   await stepBlock.getByRole('button', { name: 'View target' }).click();
   await expect(page.locator('[data-lodariq-bridge="target-reveal"]')).toHaveCount(1);
-  await expect(page.getByRole('dialog', { name: 'Lodariq tour' })).toContainText('Invite teammates');
+  await expect(page.getByRole('dialog', { name: 'Lodariq tour' })).toContainText(
+    'Invite teammates',
+  );
   await expect(page.getByRole('button', { name: 'Finish' })).toBeVisible();
 
   await compilePreview(frame);
@@ -73,7 +97,9 @@ test('creator authors an editable tour step, attaches a target, and replays it',
   await page.waitForFunction(() => Boolean((window as { Lodariq?: unknown }).Lodariq));
   await page.getByRole('button', { name: 'Start tour' }).click();
   await page.getByRole('button', { name: 'Continue' }).click();
-  await expect(page.getByRole('dialog', { name: 'Lodariq tour' })).toContainText('Invite teammates');
+  await expect(page.getByRole('dialog', { name: 'Lodariq tour' })).toContainText(
+    'Invite teammates',
+  );
   await expect(page.getByRole('button', { name: 'Finish' })).toBeVisible();
 });
 
@@ -94,6 +120,41 @@ test('creator can add an editable tour step from the primary action', async ({ p
   await expect(stepBlock.getByLabel('Button label')).toHaveValue('Continue');
   await expect(stepBlock.getByLabel('Button action')).toHaveValue('next');
   await expect(stepBlock.getByRole('button', { name: /select target/i })).toBeVisible();
+});
+
+test('dragging blocks updates canonical order and compiled preview order', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Open Lodariq authoring' }).click();
+  const frame = page.frameLocator('iframe[title="Lodariq authoring"]');
+  const blocks = frame.locator('.block');
+
+  await frame.getByRole('button', { name: 'Add step' }).click();
+  await blocks.nth(1).getByLabel('Heading').fill('Middle drag step');
+  await blocks.nth(1).getByLabel('Heading').blur();
+
+  await frame.getByRole('button', { name: 'Add step' }).click();
+  await blocks.nth(2).getByLabel('Heading').fill('First after drag');
+  await blocks.nth(2).getByLabel('Heading').blur();
+
+  const draggedBlockId = await blocks.nth(2).getAttribute('data-block-id');
+  await expect(blocks).toHaveCount(3);
+  await dispatchBlockDrag(frame, 2, 0);
+
+  await expect(blocks.first().getByLabel('Heading')).toHaveValue('First after drag');
+  const textarea = await documentJson(frame);
+  const documentAfterDrag = JSON.parse(await textarea.inputValue()) as {
+    blocks: Array<{ id: string; children?: Array<{ content?: string }> }>;
+  };
+  expect(documentAfterDrag.blocks[0]?.id).toBe(draggedBlockId);
+
+  await compilePreview(frame);
+  const compiledPreview = (await frame.getByLabel('Compiled preview').textContent()) ?? '';
+  expect(compiledPreview.indexOf('First after drag')).toBeLessThan(
+    compiledPreview.indexOf('Create your first project'),
+  );
+  expect(compiledPreview.indexOf('Create your first project')).toBeLessThan(
+    compiledPreview.indexOf('Middle drag step'),
+  );
 });
 
 test('creator can insert nested step content inline', async ({ page }) => {
@@ -837,6 +898,37 @@ function centerPoint(rect: PageRect): { x: number; y: number } {
   };
 }
 
+function fiveStepTourDocument(): CompiledDocument {
+  return {
+    schemaVersion: '1.0.0',
+    type: 'tour',
+    documentId: 'doc_five_step_budget',
+    contentHash: `sha256-${'5'.repeat(64)}`,
+    compilerVersion: 'e2e-five-step',
+    targets: [],
+    steps: Array.from({ length: 5 }, (_, index) => {
+      const stepNumber = index + 1;
+      return {
+        id: `step_${stepNumber}`,
+        body: [
+          {
+            id: `heading_${stepNumber}`,
+            type: 'heading',
+            text: `Step ${stepNumber}`,
+            props: {},
+          },
+          {
+            id: `button_${stepNumber}`,
+            type: 'button',
+            text: stepNumber === 5 ? 'Finish' : 'Continue',
+            props: { action: { type: 'next' } },
+          },
+        ],
+      };
+    }),
+  };
+}
+
 async function dragFromPoint(
   page: Page,
   point: { x: number; y: number },
@@ -879,6 +971,38 @@ async function compilePreview(frame: FrameLocator): Promise<void> {
 
 async function openTargetActions(block: Locator, targetLabel: string): Promise<void> {
   await block.getByRole('button', { name: `Target ${targetLabel} actions` }).click();
+}
+
+async function dispatchBlockDrag(
+  frame: FrameLocator,
+  sourceIndex: number,
+  targetIndex: number,
+): Promise<void> {
+  const targetHandle = await frame.locator('.block').nth(targetIndex).elementHandle();
+  if (!targetHandle) throw new Error('Block drop target missing');
+
+  try {
+    await frame
+      .locator('.block')
+      .nth(sourceIndex)
+      .evaluate((sourceElement, targetElement) => {
+        if (!(targetElement instanceof HTMLElement)) {
+          throw new Error('Block drop target is not an element');
+        }
+        const dataTransfer = new DataTransfer();
+        sourceElement.dispatchEvent(
+          new DragEvent('dragstart', { bubbles: true, cancelable: true, dataTransfer }),
+        );
+        targetElement.dispatchEvent(
+          new DragEvent('dragover', { bubbles: true, cancelable: true, dataTransfer }),
+        );
+        targetElement.dispatchEvent(
+          new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer }),
+        );
+      }, targetHandle);
+  } finally {
+    await targetHandle.dispose();
+  }
 }
 
 async function attachTarget(

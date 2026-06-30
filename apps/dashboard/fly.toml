@@ -1,0 +1,18 @@
+app = "lodariq-dashboard"
+primary_region = "fra"
+
+[build]
+  dockerfile = "apps/dashboard/Dockerfile"
+
+[env]
+  NODE_ENV = "production"
+  PORT = "3000"
+  LODARIQ_API_BASE_URL = "https://api.lodariq.com"
+
+[http_service]
+  internal_port = 3000
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 1
+  processes = ["app"]

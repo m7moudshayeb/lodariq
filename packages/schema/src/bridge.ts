@@ -139,6 +139,13 @@ export const BridgeMessage = Type.Intersect([
     Type.Object({
       type: Type.Literal('authoring.save.result'),
       requestCorrelationId: Type.String(),
+      document: Type.Optional(LodariqDocument),
+    }),
+    Type.Object({
+      type: Type.Literal('authoring.init'),
+      workspaceId: Type.String(),
+      environment: Type.Union([Type.Literal('development'), Type.Literal('staging')]),
+      document: LodariqDocument,
     }),
     Type.Object({
       type: Type.Literal('page.lifecycle.update'),

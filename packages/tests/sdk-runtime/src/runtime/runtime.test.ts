@@ -31,15 +31,43 @@ describe('Lodariq runtime analytics (PRD §16.1)', () => {
       }),
     );
     const body = JSON.parse(fetch.mock.calls[0]?.[1]?.body as string) as {
-      workspaceId: string;
       events: Array<{ name: string; props?: Record<string, unknown> }>;
     };
-    expect(body.workspaceId).toBe('wk_local_dev');
     expect(body.events.map((event) => event.name)).toEqual(['tour_started', 'tour_completed']);
     expect(body.events[0]?.props).toEqual({ documentId: 'doc_1' });
 
     runtime.flush();
     expect(fetch).toHaveBeenCalledOnce();
+  });
+
+  it('sends the environment token on authenticated SDK event flushes', () => {
+    const fetch = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetch);
+    const runtime = new LodariqRuntime({
+      workspaceId: 'wk_live',
+      environment: 'staging',
+      correlationId: 'corr_publish_1',
+      ingestUrl: 'https://api.lodariq.com/v1/sdk/events',
+      authorizationToken: 'lod_staging_token',
+    });
+
+    runtime.track('tour_started');
+    runtime.flush(true);
+
+    expect(fetch).toHaveBeenCalledWith(
+      'https://api.lodariq.com/v1/sdk/events',
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          authorization: 'Bearer lod_staging_token',
+          'content-type': 'application/json',
+        }),
+        keepalive: true,
+      }),
+    );
+    const body = JSON.parse(fetch.mock.calls[0]?.[1]?.body as string) as {
+      events: Array<{ correlationId?: string }>;
+    };
+    expect(body.events[0]?.correlationId).toBe('corr_publish_1');
   });
 
   it('uses sendBeacon for page-exit flushes', () => {
@@ -64,5 +92,53 @@ describe('Lodariq runtime analytics (PRD §16.1)', () => {
     expect(url).toBe('/events');
     expect(JSON.parse(payload ?? '').events[0].name).toBe('page_left');
     expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it('reports SDK errors with sanitized metadata through the event pipeline', () => {
+    const fetch = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetch);
+    const runtime = new LodariqRuntime({
+      workspaceId: 'wk_live',
+      environment: 'staging',
+      ingestUrl: 'https://api.lodariq.com/v1/sdk/events',
+      authorizationToken: 'lod_staging_public_token',
+    });
+
+    runtime.reportError(
+      new Error(
+        'Fetch failed for https://api.lodariq.com/v1/sdk/current-document?token=lod_staging_secret and owner@example.com',
+      ),
+      {
+        phase: 'playback',
+        documentId: 'doc_1',
+        stepId: 'step_1',
+        correlationId: 'corr_1',
+      },
+    );
+
+    expect(fetch).toHaveBeenCalledOnce();
+    const body = JSON.parse(fetch.mock.calls[0]?.[1]?.body as string) as {
+      events: Array<{
+        name: string;
+        documentId?: string;
+        stepId?: string;
+        correlationId?: string;
+        props?: Record<string, unknown>;
+      }>;
+    };
+    expect(body.events[0]).toMatchObject({
+      name: 'sdk_error',
+      documentId: 'doc_1',
+      stepId: 'step_1',
+      correlationId: 'corr_1',
+      props: {
+        phase: 'playback',
+        errorName: 'Error',
+      },
+    });
+    const message = String(body.events[0]?.props?.['message']);
+    expect(message).toContain('https://api.lodariq.com/v1/sdk/current-document');
+    expect(message).not.toContain('lod_staging_secret');
+    expect(message).not.toContain('owner@example.com');
   });
 });
