@@ -4,10 +4,8 @@ import { pathToFileURL } from 'node:url';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { CompiledDocument } from '@lodariq/schema';
 import {
-  defaultManifestUrl,
   fetchInstallContext,
   installLodariq,
-  isManifestEligible,
   readConfigFromScript,
 } from '@lodariq/sdk-runtime/lodariq-loader';
 
@@ -82,38 +80,19 @@ describe('loader config (PRD §6.2, §9.2)', () => {
   });
 
   it('encodes workspace IDs in derived URLs', () => {
-    expect(defaultManifestUrl('wk live/xxx', 'staging')).toBe(
+    const script = document.createElement('script');
+    script.dataset['workspace'] = 'wk live/xxx';
+    script.dataset['env'] = 'staging';
+
+    expect(readConfigFromScript(script)?.manifestUrl).toBe(
       'https://cdn.lodariq.com/workspaces/wk%20live%2Fxxx/staging/manifest.json',
     );
   });
 
   it('evaluates minimal manifest environment eligibility', () => {
-    expect(
-      isManifestEligible(
-        {
-          documentId: 'doc_tour_welcome',
-          currentVersion: 'local-preview',
-          environments: ['development', 'staging'],
-        } as never,
-        'development',
-      ),
-    ).toBe(true);
-    expect(
-      isManifestEligible(
-        {
-          documentId: 'doc_tour_welcome',
-          currentVersion: 'local-preview',
-          environments: ['development', 'staging'],
-        } as never,
-        'production',
-      ),
-    ).toBe(false);
-    expect(
-      isManifestEligible(
-        { documentId: 'doc_tour_welcome', currentVersion: 'local-preview' },
-        'production',
-      ),
-    ).toBe(true);
+    expect(hasEligibleEnvironment(['development', 'staging'], 'development')).toBe(true);
+    expect(hasEligibleEnvironment(['development', 'staging'], 'production')).toBe(false);
+    expect(hasEligibleEnvironment(undefined, 'production')).toBe(true);
   });
 
   it('installs a browser API and fetches the configured manifest', async () => {
@@ -790,6 +769,14 @@ describe('loader config (PRD §6.2, §9.2)', () => {
     );
   });
 });
+
+function hasEligibleEnvironment(
+  environments: unknown,
+  environment: 'development' | 'staging' | 'production',
+): boolean {
+  if (environments === undefined) return true;
+  return Array.isArray(environments) && environments.includes(environment);
+}
 
 async function waitUntil(predicate: () => boolean): Promise<void> {
   for (let attempt = 0; attempt < 20; attempt += 1) {

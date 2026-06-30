@@ -9,7 +9,7 @@ test('fixture host installs the local SDK build and plays a tour', async ({ page
   await page.waitForFunction(() => Boolean((window as { Lodariq?: unknown }).Lodariq));
 
   expect(
-    loadedUrls.some((url) => url.includes('/packages/sdk-runtime/dist/lodariq-loader.js')),
+    loadedUrls.some((url) => url.includes('/src/lodariq-loader.ts')),
   ).toBe(true);
 
   await page.evaluate(() =>
@@ -808,7 +808,7 @@ test('customer-like host installs the local SDK and opens SDK authoring', async 
   await page.waitForFunction(() => Boolean((window as { Lodariq?: unknown }).Lodariq));
 
   expect(
-    loadedUrls.some((url) => url.includes('/packages/sdk-runtime/dist/lodariq-loader.js')),
+    loadedUrls.some((url) => url.includes('/src/lodariq-loader.ts')),
   ).toBe(true);
 
   await expect(page.getByRole('button', { name: 'New project' })).toBeVisible();

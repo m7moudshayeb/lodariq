@@ -92,15 +92,6 @@ function isEnvironment(value: string): value is LoaderConfig['environment'] {
   return ENVIRONMENTS.has(value as LoaderConfig['environment']);
 }
 
-export function defaultManifestUrl(
-  workspaceId: string,
-  environment: LoaderConfig['environment'],
-): string {
-  return `${DEFAULT_CDN_ORIGIN}/workspaces/${encodeURIComponent(
-    workspaceId,
-  )}/${environment}/manifest.json`;
-}
-
 export function readConfigFromScript(script: HTMLScriptElement): LoaderConfig | null {
   const workspaceId =
     script.dataset['workspace']?.trim() || script.dataset['lodariqWorkspace']?.trim();
@@ -129,7 +120,9 @@ export function readConfigFromScript(script: HTMLScriptElement): LoaderConfig | 
   return {
     workspaceId,
     environment: rawEnvironment,
-    manifestUrl: manifestUrl || defaultManifestUrl(workspaceId, rawEnvironment),
+    manifestUrl:
+      manifestUrl ||
+      `${DEFAULT_CDN_ORIGIN}/workspaces/${encodeURIComponent(workspaceId)}/${rawEnvironment}/manifest.json`,
   };
 }
 
@@ -197,16 +190,6 @@ export async function fetchCurrentDocument(
   });
   if (!response.ok) throw new Error(`Lodariq current document fetch failed: ${response.status}`);
   return (await response.json()) as CompiledDocument;
-}
-
-export function isManifestEligible(
-  manifest: ManifestPointer,
-  environment: LoaderConfig['environment'],
-): boolean {
-  const rawEnvironments = (manifest as ManifestPointer & { environments?: unknown }).environments;
-  if (rawEnvironments === undefined) return true;
-  if (!Array.isArray(rawEnvironments)) return false;
-  return rawEnvironments.some((value) => value === environment);
 }
 
 function assertCompiledDocument(value: unknown): asserts value is CompiledDocument {
@@ -341,7 +324,11 @@ export async function installLodariq(
   ): Promise<void> {
     try {
       const requestId = ++tourRequestId;
-      if (!isManifestEligible(manifest, context.environment)) {
+      const rawEnvironments = (manifest as ManifestPointer & { environments?: unknown }).environments;
+      if (
+        rawEnvironments !== undefined &&
+        (!Array.isArray(rawEnvironments) || !rawEnvironments.includes(context.environment))
+      ) {
         throw new Error(`Lodariq manifest is not eligible for ${context.environment}`);
       }
       const tour = doc ?? (await loadCurrentTourFn?.(manifest, context));

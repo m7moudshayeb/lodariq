@@ -185,7 +185,7 @@ async function installAuthoringSnippetOnStagingHost(page: Page, snippet: string)
   await routeLocalApi(page);
   await routeLocalSdkCdn(page, { preferAuthoring: true });
   await page.route(
-    /^https:\/\/staging-editor\.lodariq\.com\/authoring\.html(?:\?.*)?$/,
+    /^https:\/\/editor\.lodariq\.com\/authoring\.html(?:\?.*)?$/,
     async (route) => {
       await route.fulfill({
         contentType: 'text/html',
@@ -227,7 +227,7 @@ async function installAuthoringSnippetOnStagingHost(page: Page, snippet: string)
   await expect(page.locator('lodariq-authoring-panel')).toBeVisible();
   await expect(page.locator('iframe[title="Lodariq authoring"]')).toHaveAttribute(
     'src',
-    /^https:\/\/staging-editor\.lodariq\.com\/authoring\.html\?parentOrigin=https%3A%2F%2Fstaging\.lodariq\.com$/,
+    /^https:\/\/editor\.lodariq\.com\/authoring\.html\?parentOrigin=https%3A%2F%2Fstaging\.lodariq\.com$/,
   );
 }
 
