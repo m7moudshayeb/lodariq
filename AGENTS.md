@@ -5,6 +5,9 @@ of truth is `refined-lodariq-prd.md` §20; this file is a short memory aid for A
 agents working in the repo.
 
 - Product name is Lodariq. Use `@lodariq/*` packages and `*.lodariq.com` canonical origins.
+- Always write clean, extendable code. Centralize literal value sets and labels in
+  constants/maps, avoid nested ternary conditions, and avoid nested switch
+  statements so future block types and actions can be added in one obvious place.
 - The canonical document is structured block JSON, not Markdown. Do not add a Markdown-to-JSON compiler or custom Markdown grammar in Pre-phase, Phase 0, or Phase 1.
 - Do not collapse `@lodariq/sdk-runtime` and `@lodariq/sdk-authoring`; production runtime must not depend on authoring code, React, or Lexical.
 - Lexical may be imported only inside `packages/sdk-authoring/src/editor`.

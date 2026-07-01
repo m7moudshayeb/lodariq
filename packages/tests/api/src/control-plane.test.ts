@@ -338,7 +338,10 @@ describe('@lodariq/api control-plane routes', () => {
       },
     });
     expect(blockedPublish.statusCode).toBe(409);
-    expect(blockedPublish.json<{ error: string }>().error).toBe('publish_blocked');
+    expect(blockedPublish.json<{ error: string; message: string }>()).toMatchObject({
+      error: 'publish_blocked',
+      message: '"Continue" needs an action before publishing.',
+    });
 
     await app.close();
   });

@@ -1365,8 +1365,8 @@ export const LOCAL_AUTHORING_FRAME_CSS = `
   }
 
   .step-document {
-    gap: 1px;
-    padding: 2px 0 0;
+    gap: 0;
+    padding: 1px 0 0;
   }
 
   .step-composer {
@@ -1519,16 +1519,16 @@ export const LOCAL_AUTHORING_FRAME_CSS = `
   .step-child {
     position: relative;
     display: grid;
-    grid-template-columns: 24px minmax(0, 1fr);
+    grid-template-columns: 18px minmax(0, 1fr);
     min-width: 0;
     align-items: start;
-    column-gap: 3px;
-    row-gap: 4px;
+    column-gap: 2px;
+    row-gap: 0;
     border: 1px solid transparent;
     border-radius: 4px;
     background: transparent;
     margin: 0;
-    padding: 3px 0 8px;
+    padding: 1px 0;
     transition:
       background 120ms ease,
       border-color 120ms ease;
@@ -1536,9 +1536,9 @@ export const LOCAL_AUTHORING_FRAME_CSS = `
 
   .step-child::before {
     position: absolute;
-    top: 7px;
-    bottom: 7px;
-    left: 3px;
+    top: 4px;
+    bottom: 4px;
+    left: 2px;
     width: 2px;
     border-radius: 999px;
     background: transparent;
@@ -1590,9 +1590,9 @@ export const LOCAL_AUTHORING_FRAME_CSS = `
 
   .step-child-toolbar {
     position: absolute;
-    top: 4px;
+    top: 2px;
     right: 4px;
-    left: -24px;
+    left: -20px;
     z-index: 12;
     display: flex;
     min-width: 0;
@@ -1632,8 +1632,34 @@ export const LOCAL_AUTHORING_FRAME_CSS = `
   }
 
   .step-child > .inline-insert {
+    position: absolute;
+    right: 30px;
+    bottom: -10px;
+    left: 18px;
+    min-height: 0;
+    margin: 0;
+  }
+
+  .step-child > .inline-insert.open,
+  .step-child > .inline-insert:focus-within,
+  .step-child:hover > .inline-insert {
     min-height: 18px;
-    margin: 4px 0 0;
+  }
+
+  .step-child-heading {
+    margin-bottom: 4px;
+  }
+
+  .step-child-paragraph,
+  .step-child-list,
+  .step-child-link,
+  .step-child-divider {
+    margin-bottom: 2px;
+  }
+
+  .step-child-button {
+    margin-top: 8px;
+    margin-bottom: 8px;
   }
 
   .step-child:hover .step-child-toolbar,
@@ -1849,7 +1875,7 @@ export const LOCAL_AUTHORING_FRAME_CSS = `
     font-family: inherit;
     font-size: 15px;
     line-height: 1.4;
-    padding: 4px 6px;
+    padding: 2px 6px;
     transition:
       background 120ms ease,
       box-shadow 120ms ease,
@@ -1876,14 +1902,14 @@ export const LOCAL_AUTHORING_FRAME_CSS = `
 
   textarea.block-input {
     field-sizing: content;
-    min-height: 30px;
+    min-height: 26px;
     overflow: hidden;
     resize: none;
   }
 
   textarea.block-input-heading,
   textarea.block-input[aria-label="Heading"] {
-    min-height: 32px;
+    min-height: 30px;
   }
 
   .block-input-button,
@@ -1909,6 +1935,30 @@ export const LOCAL_AUTHORING_FRAME_CSS = `
     box-shadow:
       0 5px 14px rgba(23, 79, 85, 0.16),
       inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+  }
+
+  .block-input-link,
+  .block-input[aria-label="Link label"] {
+    width: 100%;
+    min-height: 26px;
+    color: var(--lq-color-primary);
+    font-size: 14px;
+    font-weight: 720;
+    padding: 2px 6px;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+
+  .divider-field {
+    min-height: 12px;
+    justify-content: center;
+    padding: 3px 6px 2px;
+  }
+
+  .divider-preview {
+    width: 100%;
+    height: 1px;
+    background: var(--lq-color-border);
   }
 
   .media-field {
@@ -1954,8 +2004,8 @@ export const LOCAL_AUTHORING_FRAME_CSS = `
   }
 
   .button-field-shell {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr);
+    display: flex;
+    flex-direction: column;
     width: min(100%, 320px);
     min-width: 0;
     align-items: stretch;
@@ -1963,7 +2013,7 @@ export const LOCAL_AUTHORING_FRAME_CSS = `
     border: 0;
     border-radius: 7px;
     background: transparent;
-    padding: 2px 0 0;
+    padding: 0;
   }
 
   .button-field-shell.incomplete {
@@ -1974,15 +2024,43 @@ export const LOCAL_AUTHORING_FRAME_CSS = `
     min-width: 0;
   }
 
+  .link-field-shell {
+    width: min(100%, 360px);
+    gap: 0;
+  }
+
+  .action-url-field {
+    width: min(100%, 190px);
+    min-width: 0;
+    max-width: 100%;
+    padding-left: 0;
+  }
+
+  .cta-panel .action-url-field {
+    flex: 0 1 140px;
+    width: auto;
+    min-width: 120px;
+    max-width: 190px;
+  }
+
+  .block-input-url {
+    min-height: 26px;
+    border: 1px solid transparent;
+    border-radius: 5px;
+    color: var(--lq-color-ink-soft);
+    font-size: 12px;
+    padding: 2px 7px;
+  }
+
   .cta-panel {
-    display: inline-grid;
-    grid-template-columns: auto minmax(130px, max-content);
+    display: flex;
     align-items: center;
     justify-self: start;
     width: fit-content;
     max-width: 100%;
     min-width: 0;
-    gap: 4px;
+    flex-wrap: wrap;
+    gap: 2px 6px;
     border: 0;
     border-radius: 7px;
     background: transparent;
@@ -2026,9 +2104,10 @@ export const LOCAL_AUTHORING_FRAME_CSS = `
   }
 
   .cta-panel .ui-select-trigger {
-    width: 100%;
+    width: auto;
+    min-width: 132px;
     min-height: 26px;
-    justify-self: stretch;
+    flex: 0 0 auto;
     border-color: transparent;
     background: transparent;
     color: var(--lq-color-ink-soft);
@@ -3133,7 +3212,6 @@ export const LOCAL_AUTHORING_FRAME_CSS = `
     }
 
     .button-field-shell {
-      grid-template-columns: 1fr;
       width: min(100%, 340px);
     }
 

@@ -31,9 +31,36 @@ export const LodariqBlockType = Type.Union(
 );
 export type LodariqBlockType = Static<typeof LodariqBlockType>;
 
+export const BLOCK_ACTION_TYPES = [
+  'next',
+  'back',
+  'complete',
+  'dismiss',
+  'clickTarget',
+  'openPage',
+] as const;
+export type BlockActionTypeValue = (typeof BLOCK_ACTION_TYPES)[number];
+
+const BLOCK_ACTION_TYPE_SET = new Set<string>(BLOCK_ACTION_TYPES);
+const OPEN_PAGE_ACTION_TYPE: BlockActionTypeValue = 'openPage';
+const HEADING_LEVEL_VALUES = [1, 2, 3] as const;
+const HEADING_LEVEL_SET = new Set<number>(HEADING_LEVEL_VALUES);
+const PLACEMENT_VALUES = ['top', 'right', 'bottom', 'left'] as const;
+const PLACEMENT_SET = new Set<string>(PLACEMENT_VALUES);
+const BUTTON_VARIANT_VALUES = ['primary', 'secondary'] as const;
+const BUTTON_VARIANT_SET = new Set<string>(BUTTON_VARIANT_VALUES);
+
 export const BlockActionProps = Type.Object(
   {
-    type: Type.Union([Type.Literal('next'), Type.Literal('dismiss'), Type.Literal('clickTarget')]),
+    type: Type.Union([
+      Type.Literal('next'),
+      Type.Literal('back'),
+      Type.Literal('complete'),
+      Type.Literal('dismiss'),
+      Type.Literal('clickTarget'),
+      Type.Literal('openPage'),
+    ]),
+    url: Type.Optional(Type.String({ minLength: 1, maxLength: 2048 })),
   },
   { $id: 'BlockActionProps', additionalProperties: false },
 );
@@ -66,22 +93,52 @@ export type LodariqBlockProps = Static<typeof LodariqBlockProps>;
 export function sanitizeBlockProps(props: Record<string, unknown>): LodariqBlockProps {
   const next: LodariqBlockProps = {};
   if (isRecord(props.action)) {
-    const type = props.action['type'];
-    if (type === 'next' || type === 'dismiss' || type === 'clickTarget') next.action = { type };
+    const action = sanitizeActionProps(props.action);
+    if (action) next.action = action;
   }
   if (typeof props.index === 'number' && Number.isFinite(props.index)) next.index = props.index;
-  if (props.level === 1 || props.level === 2 || props.level === 3) next.level = props.level;
-  if (
-    props.placement === 'top' ||
-    props.placement === 'right' ||
-    props.placement === 'bottom' ||
-    props.placement === 'left'
-  ) {
-    next.placement = props.placement;
-  }
+  const level = headingLevelValue(props.level);
+  if (level) next.level = level;
+  const placement = placementValue(props.placement);
+  if (placement) next.placement = placement;
   if (typeof props.targetId === 'string' && props.targetId.trim()) next.targetId = props.targetId;
-  if (props.variant === 'primary' || props.variant === 'secondary') next.variant = props.variant;
+  const variant = buttonVariantValue(props.variant);
+  if (variant) next.variant = variant;
   return next;
+}
+
+function sanitizeActionProps(action: Record<string, unknown>): BlockActionProps | null {
+  const type = blockActionTypeValue(action['type']);
+  if (!type) return null;
+  if (type !== OPEN_PAGE_ACTION_TYPE) return { type };
+  const url = actionUrlValue(action['url']);
+  return url ? { type, url } : { type };
+}
+
+function blockActionTypeValue(value: unknown): BlockActionTypeValue | null {
+  if (typeof value !== 'string') return null;
+  return BLOCK_ACTION_TYPE_SET.has(value) ? (value as BlockActionTypeValue) : null;
+}
+
+function actionUrlValue(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  const url = value.trim();
+  return url || null;
+}
+
+function headingLevelValue(value: unknown): LodariqBlockProps['level'] | null {
+  if (typeof value !== 'number') return null;
+  return HEADING_LEVEL_SET.has(value) ? (value as LodariqBlockProps['level']) : null;
+}
+
+function placementValue(value: unknown): LodariqBlockProps['placement'] | null {
+  if (typeof value !== 'string') return null;
+  return PLACEMENT_SET.has(value) ? (value as LodariqBlockProps['placement']) : null;
+}
+
+function buttonVariantValue(value: unknown): LodariqBlockProps['variant'] | null {
+  if (typeof value !== 'string') return null;
+  return BUTTON_VARIANT_SET.has(value) ? (value as LodariqBlockProps['variant']) : null;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

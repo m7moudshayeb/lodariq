@@ -7,6 +7,7 @@ import {
   LodariqDocument,
   SdkBootstrapRequest,
   SdkInstallContext,
+  firstPublishBlocker,
   validate,
   type CompiledDocument as CompiledDocumentType,
   type SdkBootstrapRequest as SdkBootstrapRequestType,
@@ -376,7 +377,7 @@ export function registerControlPlaneRoutes(
       if (!environment)
         return reply.code(404).send({ error: 'not_found', message: 'Environment not found' });
 
-      const publishBlocker = findPublishBlocker(record.document);
+      const publishBlocker = firstPublishBlocker(record.document);
       if (publishBlocker) {
         return reply.code(409).send({
           error: 'publish_blocked',
@@ -463,7 +464,7 @@ export function registerControlPlaneRoutes(
         return reply.code(404).send({ error: 'not_found', message: 'Document not found' });
       }
       const publishBlocker = authoringDocument
-        ? findPublishBlocker(authoringDocument.document)
+        ? firstPublishBlocker(authoringDocument.document)
         : null;
       if (publishBlocker) {
         return reply.code(409).send({
@@ -658,27 +659,6 @@ async function ensureCurrentCompiledArtifact(
     throw new Error('failed to persist compiled artifact for publication');
   }
   return saved.latestArtifact;
-}
-
-function findPublishBlocker(document: LodariqDocument): string | null {
-  const blockingBlock = findBlockingBlock(document.blocks);
-  if (!blockingBlock) return null;
-  if (blockingBlock.type === 'button' && !blockingBlock.props.action) {
-    return 'Button blocks need an action before publishing';
-  }
-  return 'Document contains incomplete or invalid block configuration';
-}
-
-function findBlockingBlock(
-  blocks: LodariqDocument['blocks'],
-): LodariqDocument['blocks'][number] | null {
-  for (const block of blocks) {
-    if (block.status === 'incomplete' || block.status === 'invalid') return block;
-    if (block.type === 'button' && !block.props.action) return block;
-    const childBlocker = findBlockingBlock(block.children);
-    if (childBlocker) return childBlocker;
-  }
-  return null;
 }
 
 async function authenticateAuthoringSession(

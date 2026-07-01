@@ -21,6 +21,7 @@ export default defineConfig({
   platform: 'browser',
   dts: true,
   sourcemap: true,
+  minify: true,
   clean: true,
   splitting: true,
   treeshake: true,

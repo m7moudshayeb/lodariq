@@ -5,11 +5,73 @@ import type {
   TargetInspectAction,
 } from '@lodariq/schema';
 import {
+  EDITABLE_ACTION_OPTIONS,
+  EDITABLE_BLOCK_TYPES,
   SLASH_COMMANDS,
   type DocumentTarget,
+  type EditableActionType,
+  type EditableBlockTypeValue,
   type SlashCommand,
   type TargetInspectionState,
 } from './types';
+
+const EDITABLE_BLOCK_TYPE_SET = new Set<string>(EDITABLE_BLOCK_TYPES);
+const SLASH_COMMAND_LABELS = Object.fromEntries(
+  SLASH_COMMANDS.map((command) => [command.value, command.label]),
+) as Readonly<Record<SlashCommand, string>>;
+
+const PROPERTY_CHIP_FACTORIES: Readonly<
+  Record<string, (block: LodariqBlock) => string | null>
+> = {
+  index: (block: LodariqBlock) =>
+    typeof block.props.index === 'number' ? `Step ${block.props.index + 1}` : null,
+  level: (block: LodariqBlock) =>
+    block.props.level ? `Heading level ${block.props.level}` : null,
+  placement: (block: LodariqBlock) =>
+    block.props.placement ? `Placement: ${block.props.placement}` : null,
+  variant: (block: LodariqBlock) =>
+    block.props.variant ? `${capitalize(block.props.variant)} button` : null,
+};
+
+const ACTION_CHIP_LABELS: Readonly<Record<string, string>> = {
+  next: 'Goes to next step',
+  back: 'Goes to previous step',
+  complete: 'Completes tour',
+  dismiss: 'Closes experience',
+  clickTarget: 'Waits for placement',
+  openPage: 'Opens page',
+};
+
+const MISSING_ACTION_CHIP_LABELS: Readonly<Record<string, string>> = {
+  button: 'Choose next action',
+  link: 'Choose next action',
+};
+
+const STATIC_BLOCK_CHIP_LABELS: Readonly<Record<string, string>> = {
+  media: 'Add media later',
+};
+
+const RESOLUTION_METHOD_LABELS: Readonly<Record<string, string>> = {
+  lodariq_id: 'Uses Lodariq marker',
+  stable_attribute: 'Uses stable page marker',
+  role_and_name: 'Uses page label',
+  label: 'Uses label',
+  ancestor_landmark: 'Uses page area',
+  relative_position: 'Uses nearby position',
+  scoped_css: 'Uses support rule',
+};
+
+const DEFAULT_RESOLUTION_METHOD_LABEL = 'Uses page context';
+
+const BLOCK_TYPE_LABELS: Readonly<Record<string, string>> = {
+  tourStep: 'Step',
+  paragraph: 'Text',
+  list: 'List',
+  divider: 'Divider',
+  link: 'Link',
+  targetChip: 'Placement',
+  validationBadge: 'Validation',
+};
 
 export function targetById(
   documentState: LodariqDocument,
@@ -76,26 +138,16 @@ export function blockText(block: LodariqBlock): string {
 }
 
 export function isEditableContentBlock(block: LodariqBlock): boolean {
-  return (
-    block.type === 'heading' ||
-    block.type === 'paragraph' ||
-    block.type === 'button' ||
-    block.type === 'media'
-  );
+  return isEditableBlockType(block.type);
 }
 
 export function propertyChipLabels(block: LodariqBlock): string[] {
-  const labels: string[] = [];
-  if (typeof block.props.index === 'number') labels.push(`Step ${block.props.index + 1}`);
-  if (block.props.level) labels.push(`Heading level ${block.props.level}`);
-  if (block.props.placement) labels.push(`Placement: ${block.props.placement}`);
-  if (block.props.variant) labels.push(`${capitalize(block.props.variant)} button`);
-  if (block.props.action?.type === 'next') labels.push('Goes to next step');
-  if (block.props.action?.type === 'dismiss') labels.push('Closes experience');
-  if (block.props.action?.type === 'clickTarget') labels.push('Waits for placement');
-  if (block.type === 'button' && !block.props.action) labels.push('Choose next action');
-  if (block.type === 'media') labels.push('Add media later');
-  return labels;
+  return [
+    ...Object.values(PROPERTY_CHIP_FACTORIES).map((labelForBlock) => labelForBlock(block)),
+    block.props.action ? ACTION_CHIP_LABELS[block.props.action.type] ?? null : null,
+    block.props.action ? null : MISSING_ACTION_CHIP_LABELS[block.type] ?? null,
+    STATIC_BLOCK_CHIP_LABELS[block.type] ?? null,
+  ].filter(isPresent);
 }
 
 export function targetHealthTitle(state: ResolverDiagnostic['state']): string {
@@ -144,24 +196,7 @@ export function targetInspectionStatus(
 }
 
 export function humanResolutionMethod(method: string): string {
-  switch (method) {
-    case 'lodariq_id':
-      return 'Uses Lodariq marker';
-    case 'stable_attribute':
-      return 'Uses stable page marker';
-    case 'role_and_name':
-      return 'Uses page label';
-    case 'label':
-      return 'Uses label';
-    case 'ancestor_landmark':
-      return 'Uses page area';
-    case 'relative_position':
-      return 'Uses nearby position';
-    case 'scoped_css':
-      return 'Uses support rule';
-    default:
-      return 'Uses page context';
-  }
+  return RESOLUTION_METHOD_LABELS[method] ?? DEFAULT_RESOLUTION_METHOD_LABEL;
 }
 
 export function slashCommandType(text: string): SlashCommand | null {
@@ -172,19 +207,26 @@ export function slashCommandValue(value: string | undefined): SlashCommand | nul
   return SLASH_COMMANDS.some((command) => command.value === value) ? (value as SlashCommand) : null;
 }
 
+export function slashCommandLabel(command: SlashCommand): string {
+  return SLASH_COMMAND_LABELS[command];
+}
+
+export function editableActionValue(value: string): EditableActionType | null {
+  return EDITABLE_ACTION_OPTIONS.some((item) => item.value === value)
+    ? (value as EditableActionType)
+    : null;
+}
+
+export function editableBlockTypeValue(value: string): EditableBlockTypeValue | null {
+  return isEditableBlockType(value) ? value : null;
+}
+
+export function isEditableBlockType(type: string): type is EditableBlockTypeValue {
+  return EDITABLE_BLOCK_TYPE_SET.has(type);
+}
+
 export function blockTypeLabel(type: string): string {
-  switch (type) {
-    case 'tourStep':
-      return 'Step';
-    case 'paragraph':
-      return 'Text';
-    case 'targetChip':
-      return 'Placement';
-    case 'validationBadge':
-      return 'Validation';
-    default:
-      return capitalize(type);
-  }
+  return BLOCK_TYPE_LABELS[type] ?? capitalize(type);
 }
 
 export function capitalize(value: string): string {
@@ -227,4 +269,8 @@ export function isEditableControl(target: EventTarget | null): boolean {
 
 export function cssString(value: string): string {
   return value.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+}
+
+function isPresent<TValue>(value: TValue | null | undefined): value is TValue {
+  return value !== null && value !== undefined;
 }

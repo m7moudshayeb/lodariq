@@ -18,6 +18,7 @@ import {
   reorderStepChildBlock,
   reorderTopLevelBlock,
   setBlockAction,
+  setBlockActionUrl,
   transformBlocks,
   updateBlockContent,
 } from '@lodariq/sdk-authoring';
@@ -137,6 +138,48 @@ describe('authoring document ops', () => {
       children: [],
     });
     expect(media.id).toMatch(/^block_/);
+  });
+
+  it('creates list, divider, and link blocks with production-shaped defaults', () => {
+    const list = createContentBlock('list');
+    const divider = createContentBlock('divider');
+    const link = createContentBlock('link');
+
+    expect(list).toMatchObject({
+      type: 'list',
+      content: 'First item\nSecond item',
+      props: {},
+      status: 'ready',
+    });
+    expect(divider).toMatchObject({
+      type: 'divider',
+      props: {},
+      status: 'ready',
+      children: [],
+    });
+    expect(divider.content).toBeUndefined();
+    expect(link).toMatchObject({
+      type: 'link',
+      content: 'Learn more',
+      props: { action: { type: 'openPage' } },
+      status: 'incomplete',
+    });
+  });
+
+  it('marks openPage actions ready only after a URL is configured', () => {
+    const transformed = transformBlocks(blocks, 'copy_2', 'link');
+    const withUrl = setBlockActionUrl(transformed, 'copy_2', '/settings');
+
+    expect(transformed[1]).toMatchObject({
+      type: 'link',
+      status: 'incomplete',
+      props: { action: { type: 'openPage' } },
+    });
+    expect(withUrl[1]).toMatchObject({
+      type: 'link',
+      status: 'ready',
+      props: { action: { type: 'openPage', url: '/settings' } },
+    });
   });
 
   it('inserts top-level blocks before and after existing blocks without reordering', () => {

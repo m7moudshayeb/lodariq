@@ -1,9 +1,28 @@
-import { useEffect, useRef, useState, type DragEvent, type ReactNode } from 'react';
+import {
+  useEffect,
+  useRef,
+  useState,
+  type DragEvent,
+  type KeyboardEvent,
+  type ReactNode,
+} from 'react';
 import type { LocalAuthoringFrameController } from '../controller';
-import { AuthoringButton, Heading, Image, Plus, Type, Wand2 } from '../design-system';
-import { SLASH_COMMANDS, type SlashCommand } from '../types';
-
-export type StepContentCommand = Exclude<SlashCommand, 'step'>;
+import {
+  AuthoringButton,
+  Heading,
+  Image,
+  Link as LinkIcon,
+  List,
+  Minus,
+  Plus,
+  Type,
+  Wand2,
+} from '../design-system';
+import {
+  STEP_CONTENT_COMMANDS,
+  type SlashCommand,
+} from '../types';
+import { slashCommandLabel } from '../utils';
 
 export const COMMAND_DETAILS: Record<SlashCommand, { description: string; icon: ReactNode }> = {
   button: {
@@ -18,6 +37,18 @@ export const COMMAND_DETAILS: Record<SlashCommand, { description: string; icon: 
     description: 'Add an image or video',
     icon: <Image size={14} strokeWidth={2.2} />,
   },
+  link: {
+    description: 'Add a link',
+    icon: <LinkIcon size={14} strokeWidth={2.2} />,
+  },
+  list: {
+    description: 'Add a list',
+    icon: <List size={14} strokeWidth={2.2} />,
+  },
+  divider: {
+    description: 'Add a divider',
+    icon: <Minus size={14} strokeWidth={2.2} />,
+  },
   paragraph: {
     description: 'Add text',
     icon: <Type size={14} strokeWidth={2.2} />,
@@ -28,7 +59,6 @@ export const COMMAND_DETAILS: Record<SlashCommand, { description: string; icon: 
   },
 };
 
-export const STEP_CONTENT_COMMANDS = ['heading', 'paragraph', 'button', 'media'] as const;
 const TOP_LEVEL_COMMANDS = ['step'] as const;
 
 export function InlineTopLevelInsert({
@@ -110,7 +140,7 @@ function InlineInsertMenu<TCommand extends SlashCommand>({
   const searchRef = useRef<HTMLInputElement | null>(null);
   const filteredCommands = commands.filter((command) => {
     const details = COMMAND_DETAILS[command];
-    const labelText = SLASH_COMMANDS.find((item) => item.value === command)?.label ?? command;
+    const labelText = slashCommandLabel(command);
     const normalizedQuery = query.trim().toLowerCase();
     if (!normalizedQuery) return true;
     return [command, labelText, details.description].some((value) =>
@@ -180,33 +210,19 @@ function InlineInsertMenu<TCommand extends SlashCommand>({
           placeholder="Search content"
           value={query}
           onChange={(event) => setQuery(event.currentTarget.value)}
-          onKeyDown={(event) => {
-            if (event.key === 'Escape') {
-              event.preventDefault();
-              setOpen(false);
-              return;
-            }
-            if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
-              event.preventDefault();
-              if (filteredCommands.length === 0) return;
-              const currentIndex = activeCommandIndexRef.current;
-              const direction = event.key === 'ArrowDown' ? 1 : -1;
-              setActiveCommandIndexValue(
-                (currentIndex + direction + filteredCommands.length) % filteredCommands.length,
-              );
-              return;
-            }
-            if (event.key !== 'Enter') return;
-            event.preventDefault();
-            const command = filteredCommands[activeCommandIndexRef.current] ?? filteredCommands[0];
-            if (!command) return;
-            onCommand(command);
-            setOpen(false);
-          }}
+          onKeyDown={(event) =>
+            handleInlineCommandSearchKeyDown(event, {
+              activeCommandIndexRef,
+              commands: filteredCommands,
+              onCommand,
+              setActiveCommandIndex: setActiveCommandIndexValue,
+              setOpen,
+            })
+          }
         />
         {filteredCommands.map((command, index) => {
           const details = COMMAND_DETAILS[command];
-          const labelText = SLASH_COMMANDS.find((item) => item.value === command)?.label ?? command;
+          const labelText = slashCommandLabel(command);
           const active = index === activeCommandIndex;
           return (
             <AuthoringButton
@@ -234,4 +250,44 @@ function InlineInsertMenu<TCommand extends SlashCommand>({
       </div>
     </div>
   );
+}
+
+function handleInlineCommandSearchKeyDown<TCommand extends SlashCommand>(
+  event: KeyboardEvent<HTMLInputElement>,
+  {
+    activeCommandIndexRef,
+    commands,
+    onCommand,
+    setActiveCommandIndex,
+    setOpen,
+  }: {
+    activeCommandIndexRef: { current: number };
+    commands: readonly TCommand[];
+    onCommand: (command: TCommand) => void;
+    setActiveCommandIndex: (index: number) => void;
+    setOpen: (open: boolean) => void;
+  },
+): void {
+  if (event.key === 'Escape') {
+    event.preventDefault();
+    setOpen(false);
+    return;
+  }
+
+  if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+    event.preventDefault();
+    if (commands.length === 0) return;
+    const direction = event.key === 'ArrowDown' ? 1 : -1;
+    setActiveCommandIndex(
+      (activeCommandIndexRef.current + direction + commands.length) % commands.length,
+    );
+    return;
+  }
+
+  if (event.key !== 'Enter') return;
+  event.preventDefault();
+  const command = commands[activeCommandIndexRef.current] ?? commands[0];
+  if (!command) return;
+  onCommand(command);
+  setOpen(false);
 }

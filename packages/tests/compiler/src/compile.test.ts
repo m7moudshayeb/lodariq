@@ -50,6 +50,52 @@ describe('compile', () => {
     });
   });
 
+  it('keeps list, divider, link, and openPage actions in delivery JSON', () => {
+    const mutableDocument = JSON.parse(JSON.stringify(document)) as LodariqDocument;
+    mutableDocument.blocks[0]?.children[0]?.children.splice(
+      2,
+      0,
+      {
+        id: 'block_list_1',
+        type: 'list',
+        content: 'One\nTwo',
+        props: {},
+        status: 'ready',
+        children: [],
+      },
+      {
+        id: 'block_divider_1',
+        type: 'divider',
+        props: {},
+        status: 'ready',
+        children: [],
+      },
+      {
+        id: 'block_link_1',
+        type: 'link',
+        content: 'Open settings',
+        props: { action: { type: 'openPage', url: '/settings' } },
+        status: 'ready',
+        children: [],
+      },
+    );
+
+    const compiled = compile(mutableDocument);
+
+    expect(compiled.steps[0]?.body.map((block) => block.type)).toEqual([
+      'heading',
+      'paragraph',
+      'list',
+      'divider',
+      'link',
+      'button',
+    ]);
+    expect(compiled.steps[0]?.body.find((block) => block.type === 'link')?.props.action).toEqual({
+      type: 'openPage',
+      url: '/settings',
+    });
+  });
+
   it('keeps placeholder media as structured delivery body content', () => {
     const mutableDocument = JSON.parse(JSON.stringify(document)) as LodariqDocument;
     mutableDocument.blocks[0]?.children[0]?.children.splice(2, 0, {

@@ -74,6 +74,7 @@ export default defineConfig({
               LODARIQ_API_BASE_URL: apiBaseURL,
               LODARIQ_WORKSPACE_ID: 'wk_dashboard_e2e',
               LODARIQ_DASHBOARD_USER_ID: 'user_dashboard_e2e',
+              LODARIQ_NEXT_DIST_DIR: process.env.LODARIQ_NEXT_DIST_DIR ?? '.next-e2e',
             },
           },
         ]
