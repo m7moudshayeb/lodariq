@@ -2,8 +2,8 @@ import { expect, test, type Page } from '@playwright/test';
 import { existsSync, readFileSync } from 'node:fs';
 import type { LodariqDocument } from '@lodariq/schema';
 
-const apiBaseUrl = 'http://127.0.0.1:3001';
-const dashboardBaseUrl = 'http://127.0.0.1:3002';
+const apiBaseUrl = `http://127.0.0.1:${process.env.LODARIQ_E2E_API_PORT ?? '3001'}`;
+const dashboardBaseUrl = `http://127.0.0.1:${process.env.LODARIQ_E2E_DASHBOARD_PORT ?? '3002'}`;
 const workspaceId = 'wk_dashboard_e2e';
 const userId = 'user_dashboard_e2e';
 const baseDocument = JSON.parse(
@@ -36,10 +36,12 @@ test.describe('dashboard control plane', () => {
     expect(publishResponse.status()).toBe(201);
 
     await page.addInitScript(() => {
-      localStorage.setItem('lodariq-dashboard-color-scheme-v5', 'light');
+      localStorage.setItem('lodariq-dashboard-color-scheme-v7', 'light');
     });
     await page.goto(dashboardBaseUrl);
 
+    await expect(page.locator('html')).toHaveClass(/light/);
+    await page.getByRole('button', { name: 'Switch to dark theme' }).click();
     await expect(page.locator('html')).toHaveClass(/dark/);
     const themeColors = await page.evaluate(() => {
       const header = globalThis.document.querySelector('header');
@@ -58,22 +60,28 @@ test.describe('dashboard control plane', () => {
     await expect(page.locator('html')).toHaveClass(/light/);
     await page.getByRole('button', { name: 'Switch to dark theme' }).click();
     await expect(page.locator('html')).toHaveClass(/dark/);
-    await expect(page.getByRole('heading', { name: 'Control plane' })).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'Documents' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Experience workspace' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Experiences' })).toBeVisible();
     const documentsTable = page.getByRole('table');
     await expect(documentsTable.getByText(tourDocument.title)).toBeVisible();
-    await expect(documentsTable.getByText(tourDocument.id)).toBeVisible();
-    await expect(documentsTable.getByText(/sha256-[0-9a-f]{64}/)).toBeVisible();
-    await page.getByLabel('Search documents').fill('no matching document');
-    await expect(documentsTable.getByText('No matching documents.')).toBeVisible();
-    await page.getByRole('button', { name: 'Clear document search' }).click();
+    await expect(documentsTable.getByText('Tour', { exact: true })).toBeVisible();
+    await expect(documentsTable.getByText('Draft saved')).toBeVisible();
+    await expect(documentsTable.getByText('Workspace teammate')).toBeVisible();
+    await expect(documentsTable.getByText('Published')).toBeVisible();
+    await expect(documentsTable.getByText(tourDocument.id)).toHaveCount(0);
+    await expect(documentsTable.getByText(/sha256-[0-9a-f]{64}/)).toHaveCount(0);
+    await page.getByLabel('Search experiences').fill('no matching experience');
+    await expect(documentsTable.getByText('No matching experiences.')).toBeVisible();
+    await page.getByRole('button', { name: 'Clear experience search' }).click();
     await expect(documentsTable.getByText(tourDocument.title)).toBeVisible();
-    await expect(page.getByRole('combobox', { name: 'Environment', exact: true })).toContainText(
+
+    const setupPanel = page.locator('details').filter({ hasText: 'Connect your site' });
+    await setupPanel.locator(':scope > summary').click();
+    await expect(setupPanel.getByRole('combobox', { name: 'Site', exact: true })).toContainText(
       'Staging (staging)',
     );
-
-    await page.getByLabel('Token name').fill('Browser dashboard e2e');
-    await page.getByRole('button', { name: 'Create token' }).click();
+    await setupPanel.getByLabel('Site label').fill('Browser dashboard e2e');
+    await setupPanel.getByRole('button', { name: 'Prepare site handoff' }).click();
 
     const snippet = page.locator('pre').filter({ hasText: 'data-lodariq-loader' });
     await expect(snippet).toContainText('<script type="module" async crossorigin="anonymous"');
@@ -90,21 +98,20 @@ test.describe('dashboard control plane', () => {
       await installPage.close();
     }
     const tokenRow = page
-      .locator('[aria-label="Environment tokens"]')
+      .locator('[aria-label="Site connections"]')
       .getByText('Browser dashboard e2e');
     await expect(tokenRow).toBeVisible();
-    await page.getByRole('button', { name: 'Revoke' }).click();
-    await expect(page.locator('[aria-label="Environment tokens"]')).toContainText('Revoked');
+    await page.getByRole('button', { name: 'Disconnect' }).click();
+    await expect(page.locator('[aria-label="Site connections"]')).toContainText('Revoked');
 
-    await expect(page.getByRole('heading', { name: 'Authoring launch' })).toBeVisible();
-    await expect(page.getByRole('combobox', { name: 'Document', exact: true })).toContainText(
+    await expect(page.getByRole('heading', { name: 'Open the editor' })).toBeVisible();
+    await expect(page.getByRole('combobox', { name: 'Experience', exact: true })).toContainText(
       tourDocument.title,
     );
-    await expect(
-      page.getByRole('combobox', { name: 'Authoring environment', exact: true }),
-    ).toContainText('Staging (staging)');
-    await page.getByLabel('Launch name').fill('Browser authoring launch');
-    await page.getByRole('button', { name: 'Create launch snippet' }).click();
+    await expect(page.getByRole('combobox', { name: 'Site', exact: true }).first()).toContainText(
+      'Staging (staging)',
+    );
+    await page.getByRole('button', { name: 'Start editing' }).click();
 
     const authoringSnippet = page
       .locator('pre')
@@ -112,11 +119,29 @@ test.describe('dashboard control plane', () => {
     await expect(authoringSnippet).toContainText('data-lodariq-token="lod_staging_');
     await expect(authoringSnippet).toContainText('data-lodariq-authoring-session="lod_authoring_');
     await expect(authoringSnippet).toContainText('lodariq-creator.js');
+    await page.getByText('Session details').click();
     await expect(page.getByText('x-lodariq-authoring-session')).toBeVisible();
-    await expect(page.getByRole('link', { name: 'Open staging' })).toHaveAttribute(
+    await expect(page.getByRole('link', { name: 'Open staging site' })).toHaveAttribute(
       'href',
       /^https:\/\/staging\.lodariq\.com\/?$/,
     );
+
+    const supportPackage = page.locator('details').filter({ hasText: 'Help package' });
+    await supportPackage.locator('summary').click();
+    await expect(
+      supportPackage.getByText('Prepare an editable backup and customer version'),
+    ).toBeVisible();
+    await supportPackage.getByRole('button', { name: 'Prepare help package' }).click();
+    await expect(supportPackage.getByText('Editable backup', { exact: true })).toBeVisible();
+    await expect(supportPackage.getByText('Customer version', { exact: true })).toBeVisible();
+    await expect(
+      supportPackage.getByText('Customer version available', { exact: true }),
+    ).toBeVisible();
+    await expect(supportPackage.getByRole('button', { name: 'Copy details' })).toHaveCount(2);
+    await expect(page.getByText('Developer tools')).toHaveCount(0);
+    await expect(page.getByText('Delivery payloads')).toHaveCount(0);
+    await expect(page.getByText('Document data')).toHaveCount(0);
+
     const authoringInstallSnippet = await authoringSnippet.textContent();
     const authoringInstallPage = await page.context().newPage();
     try {
@@ -227,7 +252,7 @@ async function installAuthoringSnippetOnStagingHost(page: Page, snippet: string)
   await expect(page.locator('lodariq-authoring-panel')).toBeVisible();
   await expect(page.locator('iframe[title="Lodariq authoring"]')).toHaveAttribute(
     'src',
-    /^https:\/\/editor\.lodariq\.com\/authoring\.html\?parentOrigin=https%3A%2F%2Fstaging\.lodariq\.com$/,
+    /^https:\/\/editor\.lodariq\.com\/authoring\.html\?lodariqFrame=panel&parentOrigin=https%3A%2F%2Fstaging\.lodariq\.com$/,
   );
 }
 

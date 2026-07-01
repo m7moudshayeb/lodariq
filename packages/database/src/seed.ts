@@ -8,7 +8,7 @@ export function createDefaultControlPlaneEnvironments(workspaceId: string): Work
       workspaceId,
       kind: 'development',
       name: 'Development',
-      originAllowlist: ['http://localhost:5173', 'http://127.0.0.1:5173'],
+      originAllowlist: ['http://localhost:5175', 'http://127.0.0.1:5175'],
       createdAt: now,
       updatedAt: now,
     },

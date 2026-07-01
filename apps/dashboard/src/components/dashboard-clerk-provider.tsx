@@ -24,16 +24,16 @@ export function DashboardClerkProvider({
       afterSignOutUrl={config.signInPath}
       appearance={{
         variables: {
-          colorPrimary: '#34d399',
-          colorPrimaryForeground: '#052e2b',
-          colorBackground: '#111827',
-          colorForeground: '#f8fafc',
-          colorMutedForeground: '#94a3b8',
-          colorInput: '#020617',
-          colorInputForeground: '#f8fafc',
-          colorBorder: '#334155',
-          colorRing: '#34d399',
-          borderRadius: '0.5rem',
+          colorPrimary: '#174f55',
+          colorPrimaryForeground: '#ffffff',
+          colorBackground: '#ffffff',
+          colorForeground: '#18212f',
+          colorMutedForeground: '#697386',
+          colorInput: '#f6f7f9',
+          colorInputForeground: '#18212f',
+          colorBorder: '#dbe2ea',
+          colorRing: '#2458c7',
+          borderRadius: '0.625rem',
         },
         elements: {
           cardBox: 'shadow-none border border-border bg-card',

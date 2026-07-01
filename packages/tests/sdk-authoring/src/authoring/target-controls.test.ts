@@ -33,7 +33,6 @@ vi.mock('../../../../../packages/sdk-authoring/src/authoring/local-frame-ui/desi
     Activity: MockIcon,
     ArrowDown: MockIcon,
     ArrowUp: MockIcon,
-    Braces: MockIcon,
     ChevronDown: MockIcon,
     ChevronRight: MockIcon,
     Eye: MockIcon,
@@ -45,7 +44,7 @@ vi.mock('../../../../../packages/sdk-authoring/src/authoring/local-frame-ui/desi
 });
 
 describe('TargetControls', () => {
-  it('renders target health states and action labels for local inspection', () => {
+  it('renders creator-facing placement states and matching labels', () => {
     const block = {
       id: 'step_1',
       type: 'tourStep',
@@ -55,19 +54,20 @@ describe('TargetControls', () => {
     } as LodariqBlock;
     const controller = fakeController();
 
-    expect(render('found', block, controller)).toContain('Healthy');
-    expect(render('found', block, controller)).toContain('View target');
-    expect(render('found', block, controller)).toContain('Change target');
-    expect(render('found', block, controller)).toContain('Test target');
-    expect(render('found', block, controller)).toContain('Target health');
-    expect(render('found', block, controller)).toContain('Advanced details');
-    expect(render('found', block, controller)).toContain('Remove target');
+    expect(render('found', block, controller)).toContain('Ready');
+    expect(render('found', block, controller)).toContain('Show on page');
+    expect(render('found', block, controller)).toContain('Change placement');
+    expect(render('found', block, controller)).toContain('Check placement');
+    expect(render('found', block, controller)).toContain('Matching details');
+    expect(render('found', block, controller)).toContain('Match strength 100%');
+    expect(render('found', block, controller)).toContain('Item type');
+    expect(render('found', block, controller)).toContain('Remove placement');
 
-    expect(render('missing', block, controller)).toContain('Missing');
-    expect(render('missing', block, controller)).toContain('Target not found on the current page');
+    expect(render('missing', block, controller)).toContain('Needs attention');
+    expect(render('missing', block, controller)).toContain('We could not find this placement');
 
-    expect(render('ambiguous', block, controller)).toContain('Ambiguous');
-    expect(render('ambiguous', block, controller)).toContain('Multiple matching elements found');
+    expect(render('ambiguous', block, controller)).toContain('Review placement');
+    expect(render('ambiguous', block, controller)).toContain('More than one place matches');
   });
 });
 
@@ -123,6 +123,9 @@ function render(
     ]),
     advancedTargetIds: new Set(['target_1']),
     focusRequest: null,
+    selectedBlockId: null,
+    dragTargetBlockId: null,
+    dragTargetPosition: null,
   } satisfies LocalAuthoringFrameSnapshot;
 
   return renderToStaticMarkup(

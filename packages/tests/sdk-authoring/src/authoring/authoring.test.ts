@@ -83,7 +83,9 @@ describe('local authoring panel (PRD §16.1)', () => {
 
     expect(dialog?.getAttribute('aria-label')).toBe('Lodariq authoring');
     expect(iframe?.getAttribute('sandbox')).toBe('allow-scripts allow-same-origin');
-    expect(iframe?.getAttribute('src')).toBe('/lodariq-local/authoring.html');
+    const iframeUrl = new URL(iframe?.getAttribute('src') ?? '');
+    expect(iframeUrl.pathname).toBe('/lodariq-local/authoring.html');
+    expect(iframeUrl.searchParams.get('lodariqFrame')).toBe('panel');
     expect(iframe?.getAttribute('slot')).toBe('authoring-frame');
     const styles = host?.shadowRoot?.querySelector('style')?.textContent ?? '';
     expect(styles).toContain('top: 82px');
@@ -92,11 +94,15 @@ describe('local authoring panel (PRD §16.1)', () => {
     expect(styles).toContain('slot[name="authoring-frame"]');
     expect(styles).toContain('pointer-events: auto');
     expect(styles).not.toContain('pointer-events: none');
-    expect(styles).toContain('background: rgba(12, 24, 22, 0.98)');
-    expect(styles).toContain('background: #07110f');
-    expect(styles).toContain('border-radius: 8px');
+    expect(styles).toContain('background: #f8fbfc');
+    expect(styles).toContain('background: #edf2f5');
+    expect(styles).toContain('border-radius: 12px');
     expect(host?.shadowRoot?.querySelector('style')?.nonce).toBe('nonce_authoring');
     expect(document.documentElement.hasAttribute('data-lodariq-authoring-panel-open')).toBe(true);
+    const hostLayerStyles = document.getElementById('lodariq-authoring-host-layer-style');
+    expect(hostLayerStyles?.getAttribute('nonce')).toBe('nonce_authoring');
+    expect(hostLayerStyles?.textContent).toContain('lodariq-tour');
+    expect(hostLayerStyles?.textContent).toContain('--lodariq-tour-z-index: 2147483644');
 
     panel.close();
 

@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { ThemeProvider as NextThemesProvider } from 'next-themes';
 
-export const dashboardThemeStorageKey = 'lodariq-dashboard-color-scheme-v6';
+export const dashboardThemeStorageKey = 'lodariq-dashboard-color-scheme-v7';
 
 export function ThemeProvider({ children }: { children: React.ReactNode }): React.ReactElement {
   return (

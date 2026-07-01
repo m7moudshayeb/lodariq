@@ -17,7 +17,7 @@ export async function createEnvironmentTokenAction(
     return { status: 'error', error: 'Choose an environment.' };
   }
   if (typeof name !== 'string' || !name.trim()) {
-    return { status: 'error', error: 'Token name is required.' };
+    return { status: 'error', error: 'Site label is required.' };
   }
 
   try {
@@ -51,10 +51,10 @@ export async function createAuthoringLaunchAction(
     return { status: 'error', error: 'Choose a staging environment.' };
   }
   if (typeof documentId !== 'string' || !documentId.trim()) {
-    return { status: 'error', error: 'Choose a document.' };
+    return { status: 'error', error: 'Choose an experience.' };
   }
   if (typeof name !== 'string' || !name.trim()) {
-    return { status: 'error', error: 'Launch name is required.' };
+    return { status: 'error', error: 'Start a new editing session.' };
   }
 
   try {
@@ -65,7 +65,7 @@ export async function createAuthoringLaunchAction(
     });
 
     if (!response.authoringSession || !response.authoringSdkSnippet) {
-      return { status: 'error', error: 'API did not return an authoring launch snippet.' };
+      return { status: 'error', error: 'Editing setup was not returned.' };
     }
 
     return {
@@ -78,7 +78,7 @@ export async function createAuthoringLaunchAction(
   } catch (error) {
     return {
       status: 'error',
-      error: error instanceof Error ? error.message : 'Unable to create authoring launch.',
+      error: error instanceof Error ? error.message : 'Unable to create editing session.',
     };
   }
 }
@@ -90,7 +90,7 @@ export async function loadDocumentDebugAction(
   const documentId = formData.get('documentId');
 
   if (typeof documentId !== 'string' || !documentId.trim()) {
-    return { status: 'error', error: 'Choose a document.' };
+    return { status: 'error', error: 'Choose an experience.' };
   }
 
   try {
@@ -102,15 +102,15 @@ export async function loadDocumentDebugAction(
       documentId,
       canonicalJson: stableDebugJson(debug.canonical),
       compiledJson: stableDebugJson(debug.latestArtifact?.compiled ?? null),
-      latestContentHash: debug.latestArtifact?.contentHash ?? 'Not compiled',
-      compilerVersion: debug.latestArtifact?.compilerVersion ?? 'No compiler artifact',
+      latestContentHash: debug.latestArtifact?.contentHash ?? 'Not prepared',
+      compilerVersion: debug.latestArtifact?.compilerVersion ?? 'No delivery record',
       versionCount: debug.versions.length,
       latestVersionLabel: latestVersion ? `v${latestVersion.version}` : 'No versions',
     };
   } catch (error) {
     return {
       status: 'error',
-      error: error instanceof Error ? error.message : 'Unable to load document JSON.',
+      error: error instanceof Error ? error.message : 'Unable to load support details.',
     };
   }
 }

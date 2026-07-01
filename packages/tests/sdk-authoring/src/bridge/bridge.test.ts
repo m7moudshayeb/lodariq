@@ -343,7 +343,7 @@ describe('AuthoringBridge (PRD §9.5)', () => {
     expect(resolve(onPick.mock.calls[0]![0].fingerprint).state).toBe('found');
   });
 
-  it('shows a veil and mechanical hover label while picking targets', () => {
+  it('shows a veil and creator-facing hover label while choosing placement', () => {
     document.head.innerHTML = '<meta property="csp-nonce" nonce="nonce_picker">';
     const button = document.createElement('button');
     button.dataset['lodariqId'] = 'new-project';
@@ -369,7 +369,7 @@ describe('AuthoringBridge (PRD §9.5)', () => {
       'New project',
     );
     expect(document.querySelector('[data-lodariq-bridge="target-label"]')?.textContent).toContain(
-      'Click to attach',
+      'Click to use this placement',
     );
 
     picker.cancel();
@@ -389,10 +389,10 @@ describe('AuthoringBridge (PRD §9.5)', () => {
 
     expect(document.documentElement.getAttribute('data-lodariq-target-picker')).toBe('blocked');
     expect(document.querySelector('[data-lodariq-bridge="target-label"]')?.textContent).toContain(
-      'Lodariq UI',
+      'Editor panel',
     );
     expect(document.querySelector('[data-lodariq-bridge="target-label"]')?.textContent).toContain(
-      'Cannot attach',
+      'Cannot choose this area',
     );
     expect(onPick).not.toHaveBeenCalled();
 

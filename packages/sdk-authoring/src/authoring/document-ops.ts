@@ -25,7 +25,7 @@ export function createContentBlock(type: EditableBlockType, contentOverride?: st
   };
 }
 
-export function createTourStep(index: number): LodariqBlock {
+export function createTourStep(index: number, title = 'Untitled step'): LodariqBlock {
   return {
     id: createBlockId(),
     type: 'tourStep',
@@ -41,7 +41,7 @@ export function createTourStep(index: number): LodariqBlock {
           {
             id: createBlockId(),
             type: 'heading',
-            content: 'Untitled step',
+            content: title,
             props: { level: 2 },
             status: 'ready',
             children: [],
@@ -66,6 +66,14 @@ export function createTourStep(index: number): LodariqBlock {
       },
     ],
   };
+}
+
+export function normalizeTourRootBlocks(blocks: LodariqBlock[]): LodariqBlock[] {
+  return renumberTourSteps(
+    blocks.map((block, index) =>
+      normalizeBlockStatus(block.type === 'tourStep' ? block : createTourStepWrapper(block, index)),
+    ),
+  );
 }
 
 export function hasBlock(blocks: LodariqBlock[], blockId: string): boolean {
@@ -105,8 +113,11 @@ export function transformBlocks(
   blocks: LodariqBlock[],
   blockId: string,
   type: EditableBlockType,
+  contentOverride?: string,
 ): LodariqBlock[] {
-  return blocks.map((block) => normalizeBlockStatus(transformBlock(block, blockId, type)));
+  return blocks.map((block) =>
+    normalizeBlockStatus(transformBlock(block, blockId, type, contentOverride)),
+  );
 }
 
 export function attachTargetToBlocks(
@@ -145,18 +156,38 @@ export function moveTopLevelBlock(
   return next;
 }
 
+export function duplicateTopLevelBlock(
+  blocks: LodariqBlock[],
+  blockId: string,
+): LodariqBlock[] | null {
+  const index = blocks.findIndex((block) => block.id === blockId);
+  if (index < 0) return null;
+  const duplicate = duplicateBlock(blocks[index]!);
+  return [...blocks.slice(0, index + 1), duplicate, ...blocks.slice(index + 1)];
+}
+
+export function removeTopLevelBlock(
+  blocks: LodariqBlock[],
+  blockId: string,
+): LodariqBlock[] | null {
+  if (!blocks.some((block) => block.id === blockId)) return null;
+  return blocks.filter((block) => block.id !== blockId);
+}
+
 export function reorderTopLevelBlock(
   blocks: LodariqBlock[],
   blockId: string,
-  beforeBlockId: string,
+  targetBlockId: string,
+  position: BlockInsertPosition = 'before',
 ): LodariqBlock[] | null {
-  if (blockId === beforeBlockId) return null;
+  if (blockId === targetBlockId) return null;
   const current = blocks.find((block) => block.id === blockId);
   if (!current) return null;
   const withoutCurrent = blocks.filter((block) => block.id !== blockId);
-  const beforeIndex = withoutCurrent.findIndex((block) => block.id === beforeBlockId);
-  if (beforeIndex < 0) return null;
-  return [...withoutCurrent.slice(0, beforeIndex), current, ...withoutCurrent.slice(beforeIndex)];
+  const targetIndex = withoutCurrent.findIndex((block) => block.id === targetBlockId);
+  if (targetIndex < 0) return null;
+  const insertIndex = position === 'after' ? targetIndex + 1 : targetIndex;
+  return [...withoutCurrent.slice(0, insertIndex), current, ...withoutCurrent.slice(insertIndex)];
 }
 
 export function insertTopLevelBlock(
@@ -201,11 +232,66 @@ export function moveStepChildBlock(
   return moved ? next : null;
 }
 
-function transformBlock(block: LodariqBlock, blockId: string, type: EditableBlockType): LodariqBlock {
+export function reorderStepChildBlock(
+  blocks: LodariqBlock[],
+  stepBlockId: string,
+  childBlockId: string,
+  targetChildBlockId: string,
+  position: BlockInsertPosition = 'before',
+): LodariqBlock[] | null {
+  let moved = false;
+  const next = blocks.map((item) => {
+    const updated = reorderInsideStep(
+      item,
+      stepBlockId,
+      childBlockId,
+      targetChildBlockId,
+      position,
+    );
+    if (updated !== item) moved = true;
+    return normalizeBlockStatus(updated);
+  });
+  return moved ? next : null;
+}
+
+export function duplicateStepChildBlock(
+  blocks: LodariqBlock[],
+  stepBlockId: string,
+  childBlockId: string,
+): LodariqBlock[] | null {
+  let duplicated = false;
+  const next = blocks.map((item) => {
+    const updated = duplicateInsideStep(item, stepBlockId, childBlockId);
+    if (updated !== item) duplicated = true;
+    return normalizeBlockStatus(updated);
+  });
+  return duplicated ? next : null;
+}
+
+export function removeStepChildBlock(
+  blocks: LodariqBlock[],
+  stepBlockId: string,
+  childBlockId: string,
+): LodariqBlock[] | null {
+  let removed = false;
+  const next = blocks.map((item) => {
+    const updated = removeInsideStep(item, stepBlockId, childBlockId);
+    if (updated !== item) removed = true;
+    return normalizeBlockStatus(updated);
+  });
+  return removed ? next : null;
+}
+
+function transformBlock(
+  block: LodariqBlock,
+  blockId: string,
+  type: EditableBlockType,
+  contentOverride?: string,
+): LodariqBlock {
   if (block.id !== blockId) {
     return {
       ...block,
-      children: transformBlocks(block.children, blockId, type),
+      children: transformBlocks(block.children, blockId, type, contentOverride),
     };
   }
   return {
@@ -215,6 +301,7 @@ function transformBlock(block: LodariqBlock, blockId: string, type: EditableBloc
     children: [],
     status: type === 'button' || type === 'media' ? 'incomplete' : 'ready',
     content:
+      contentOverride ??
       block.content ??
       block.children
         .map((child) => child.content)
@@ -250,6 +337,31 @@ function insertInsideStep(
   };
 }
 
+function createTourStepWrapper(block: LodariqBlock, index: number): LodariqBlock {
+  const tooltip =
+    block.type === 'tooltip'
+      ? {
+          ...block,
+          props: sanitizeBlockProps({ ...block.props, placement: block.props.placement ?? 'bottom' }),
+          status: 'incomplete' as const,
+        }
+      : {
+          id: createBlockId(),
+          type: 'tooltip' as const,
+          props: { placement: 'bottom' as const },
+          status: 'incomplete' as const,
+          children: [block],
+        };
+
+  return {
+    id: createBlockId(),
+    type: 'tourStep',
+    props: { index },
+    status: 'incomplete',
+    children: [tooltip],
+  };
+}
+
 function moveInsideStep(
   block: LodariqBlock,
   stepBlockId: string,
@@ -268,6 +380,89 @@ function moveInsideStep(
   if (block.type !== 'tourStep') return block;
   const children = stepTooltipChildren(block, (currentChildren) =>
     moveEditableTooltipChild(currentChildren, childBlockId, direction),
+  );
+  if (children === block.children) return block;
+  return {
+    ...block,
+    children,
+  };
+}
+
+function reorderInsideStep(
+  block: LodariqBlock,
+  stepBlockId: string,
+  childBlockId: string,
+  targetChildBlockId: string,
+  position: BlockInsertPosition,
+): LodariqBlock {
+  if (block.id !== stepBlockId) {
+    let changed = false;
+    const children = block.children.map((child) => {
+      const updated = reorderInsideStep(
+        child,
+        stepBlockId,
+        childBlockId,
+        targetChildBlockId,
+        position,
+      );
+      if (updated !== child) changed = true;
+      return updated;
+    });
+    return changed ? { ...block, children } : block;
+  }
+  if (block.type !== 'tourStep') return block;
+  const children = stepTooltipChildren(block, (currentChildren) =>
+    reorderEditableTooltipChild(currentChildren, childBlockId, targetChildBlockId, position),
+  );
+  if (children === block.children) return block;
+  return {
+    ...block,
+    children,
+  };
+}
+
+function duplicateInsideStep(
+  block: LodariqBlock,
+  stepBlockId: string,
+  childBlockId: string,
+): LodariqBlock {
+  if (block.id !== stepBlockId) {
+    let changed = false;
+    const children = block.children.map((child) => {
+      const updated = duplicateInsideStep(child, stepBlockId, childBlockId);
+      if (updated !== child) changed = true;
+      return updated;
+    });
+    return changed ? { ...block, children } : block;
+  }
+  if (block.type !== 'tourStep') return block;
+  const children = stepTooltipChildren(block, (currentChildren) =>
+    duplicateEditableTooltipChild(currentChildren, childBlockId),
+  );
+  if (children === block.children) return block;
+  return {
+    ...block,
+    children,
+  };
+}
+
+function removeInsideStep(
+  block: LodariqBlock,
+  stepBlockId: string,
+  childBlockId: string,
+): LodariqBlock {
+  if (block.id !== stepBlockId) {
+    let changed = false;
+    const children = block.children.map((child) => {
+      const updated = removeInsideStep(child, stepBlockId, childBlockId);
+      if (updated !== child) changed = true;
+      return updated;
+    });
+    return changed ? { ...block, children } : block;
+  }
+  if (block.type !== 'tourStep') return block;
+  const children = stepTooltipChildren(block, (currentChildren) =>
+    removeEditableTooltipChild(currentChildren, childBlockId),
   );
   if (children === block.children) return block;
   return {
@@ -333,6 +528,76 @@ function moveEditableTooltipChild(
   const next = [...editableChildren];
   [next[index], next[nextIndex]] = [next[nextIndex]!, next[index]!];
   return [...next, ...utilityChildren];
+}
+
+function reorderEditableTooltipChild(
+  children: LodariqBlock[],
+  childBlockId: string,
+  targetChildBlockId: string,
+  position: BlockInsertPosition,
+): LodariqBlock[] {
+  if (childBlockId === targetChildBlockId) return children;
+  const utilityStart = firstUtilityChildIndex(children);
+  const editableChildren = children.slice(0, utilityStart);
+  const utilityChildren = children.slice(utilityStart);
+  const current = editableChildren.find((child) => child.id === childBlockId);
+  if (!current) return children;
+  const withoutCurrent = editableChildren.filter((child) => child.id !== childBlockId);
+  const targetIndex = withoutCurrent.findIndex((child) => child.id === targetChildBlockId);
+  if (targetIndex < 0) return children;
+  const insertIndex = position === 'after' ? targetIndex + 1 : targetIndex;
+  return [
+    ...withoutCurrent.slice(0, insertIndex),
+    current,
+    ...withoutCurrent.slice(insertIndex),
+    ...utilityChildren,
+  ];
+}
+
+function duplicateEditableTooltipChild(
+  children: LodariqBlock[],
+  childBlockId: string,
+): LodariqBlock[] {
+  const utilityStart = firstUtilityChildIndex(children);
+  const editableChildren = children.slice(0, utilityStart);
+  const utilityChildren = children.slice(utilityStart);
+  const index = editableChildren.findIndex((child) => child.id === childBlockId);
+  if (index < 0) return children;
+  const duplicate = duplicateBlock(editableChildren[index]!);
+  return [
+    ...editableChildren.slice(0, index + 1),
+    duplicate,
+    ...editableChildren.slice(index + 1),
+    ...utilityChildren,
+  ];
+}
+
+function removeEditableTooltipChild(
+  children: LodariqBlock[],
+  childBlockId: string,
+): LodariqBlock[] {
+  const utilityStart = firstUtilityChildIndex(children);
+  const editableChildren = children.slice(0, utilityStart);
+  const utilityChildren = children.slice(utilityStart);
+  const index = editableChildren.findIndex((child) => child.id === childBlockId);
+  if (index < 0) return children;
+  return [
+    ...editableChildren.slice(0, index),
+    ...editableChildren.slice(index + 1),
+    ...utilityChildren,
+  ];
+}
+
+function duplicateBlock(block: LodariqBlock): LodariqBlock {
+  const clonedChildren = block.children
+    .filter((child) => child.type !== 'targetChip' && child.type !== 'validationBadge')
+    .map(duplicateBlock);
+  return normalizeBlockStatus({
+    ...block,
+    id: createBlockId(),
+    props: sanitizeBlockProps(omitTargetId(block.props as Record<string, unknown>)),
+    children: clonedChildren,
+  });
 }
 
 function firstUtilityChildIndex(children: LodariqBlock[]): number {

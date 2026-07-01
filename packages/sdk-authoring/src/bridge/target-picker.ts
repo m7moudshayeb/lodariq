@@ -87,13 +87,13 @@ export function startTargetPicker(options: TargetPickerOptions): TargetPicker {
   });
   controls.innerHTML = `
     <div data-lodariq-bridge="target-card-header" style="display:grid; gap:2px;">
-      <strong data-lodariq-bridge="target-card-title" style="font-size:13px;">Pick a target</strong>
-      <span data-lodariq-bridge="target-card-copy" style="color:#64748b;">Select the product element this step should point to. Press Escape to cancel.</span>
+      <strong data-lodariq-bridge="target-card-title" style="font-size:13px;">Choose placement</strong>
+      <span data-lodariq-bridge="target-card-copy" style="color:#64748b;">Select where this step should appear. Press Escape to cancel.</span>
     </div>
     <div data-lodariq-bridge="target-card-actions" style="display:grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap:6px;">
-      <button type="button" data-lodariq-bridge="target-control" data-action="deeper">Select inner element</button>
-      <button type="button" data-lodariq-bridge="target-control" data-action="parent">Select parent</button>
-      <button type="button" data-lodariq-bridge="target-control" data-action="click-through">Interact with page</button>
+      <button type="button" data-lodariq-bridge="target-control" data-action="deeper">Use smaller area</button>
+      <button type="button" data-lodariq-bridge="target-control" data-action="parent">Use larger area</button>
+      <button type="button" data-lodariq-bridge="target-control" data-action="click-through">Interact first</button>
     </div>
   `;
   for (const button of controls.querySelectorAll<HTMLButtonElement>('button')) {
@@ -179,7 +179,7 @@ export function startTargetPicker(options: TargetPickerOptions): TargetPicker {
       doc.documentElement.setAttribute('data-lodariq-target-picker', 'blocked');
       outline.style.display = 'none';
       controls.style.display = 'none';
-      showLabel('Lodariq UI\nCannot attach', event);
+      showLabel('Editor panel\nCannot choose this area', event);
       return;
     }
     doc.documentElement.setAttribute('data-lodariq-target-picker', 'active');
@@ -276,9 +276,9 @@ export function startTargetPicker(options: TargetPickerOptions): TargetPicker {
     const type = capitalize(role ?? element.tagName.toLowerCase());
     const depth =
       currentCandidates.length > 1
-        ? `Target ${currentIndex + 1} of ${currentCandidates.length}`
+        ? `Area ${currentIndex + 1} of ${currentCandidates.length}`
         : undefined;
-    return [type, name, depth, 'Click to attach this target'].filter(Boolean).join('\n');
+    return [type, name, depth, 'Click to use this placement'].filter(Boolean).join('\n');
   }
 
   function onControlClick(event: Event): void {
@@ -300,7 +300,7 @@ export function startTargetPicker(options: TargetPickerOptions): TargetPicker {
     if (action === 'click-through') {
       clickThroughNext = true;
       showLabel(
-        'Interact with page\nNext product click will pass through',
+        'Interact with page\nYour next click will not place the step',
         current?.getBoundingClientRect() ?? { left: 12, top: 56, width: 0, height: 0 },
       );
       controls.style.display = 'none';

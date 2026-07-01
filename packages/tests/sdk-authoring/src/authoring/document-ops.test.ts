@@ -5,13 +5,17 @@ import {
   blocksReferenceTarget,
   createContentBlock,
   createTourStep,
+  duplicateStepChildBlock,
   hasBlock,
   insertBlockInsideTourStep,
   insertTopLevelBlock,
   moveStepChildBlock,
   moveTopLevelBlock,
+  normalizeTourRootBlocks,
   renumberTourSteps,
+  removeStepChildBlock,
   removeTargetFromBlocks,
+  reorderStepChildBlock,
   reorderTopLevelBlock,
   setBlockAction,
   transformBlocks,
@@ -90,6 +94,19 @@ describe('authoring document ops', () => {
     expect(blocks[1]?.type).toBe('paragraph');
   });
 
+  it('can transform a block while replacing command gesture text', () => {
+    const slashBlocks = [{ ...blocks[1]!, content: '/bu' }];
+    const next = transformBlocks(slashBlocks, 'copy_2', 'button', 'Continue');
+
+    expect(next[0]).toMatchObject({
+      id: 'copy_2',
+      type: 'button',
+      content: 'Continue',
+      status: 'incomplete',
+      props: { variant: 'primary' },
+    });
+  });
+
   it('sets and clears button actions without losing local draft content', () => {
     const transformed = transformBlocks(blocks, 'copy_2', 'button');
     const withAction = setBlockAction(transformed, 'copy_2', { type: 'clickTarget' });
@@ -147,11 +164,64 @@ describe('authoring document ops', () => {
     const moved = withButton
       ? moveStepChildBlock(withButton, 'step_1', 'button_nested', 'up')
       : null;
+    const reordered = moved
+      ? reorderStepChildBlock(moved, 'step_1', 'copy_1', 'copy_nested', 'after')
+      : null;
+    const duplicated = moved ? duplicateStepChildBlock(moved, 'step_1', 'copy_nested') : null;
+    const removed = duplicated
+      ? removeStepChildBlock(duplicated, 'step_1', 'button_nested')
+      : null;
     const children = moved?.[0]?.children[0]?.children ?? [];
+    const reorderedChildren = reordered?.[0]?.children[0]?.children ?? [];
+    const duplicatedChildren = duplicated?.[0]?.children[0]?.children ?? [];
+    const removedChildren = removed?.[0]?.children[0]?.children ?? [];
 
     expect(children.map((block) => block.id)).toEqual(['copy_1', 'button_nested', 'copy_nested']);
+    expect(reorderedChildren.map((block) => block.id)).toEqual([
+      'button_nested',
+      'copy_nested',
+      'copy_1',
+    ]);
     expect(children[0]).toMatchObject({ id: 'copy_1', content: 'Hello' });
+    expect(duplicatedChildren.map((block) => block.id).slice(0, 3)).toEqual([
+      'copy_1',
+      'button_nested',
+      'copy_nested',
+    ]);
+    expect(duplicatedChildren[3]).toMatchObject({
+      type: 'paragraph',
+      content: 'Nested copy',
+      props: {},
+      children: [],
+    });
+    expect(duplicatedChildren[3]?.id).not.toBe('copy_nested');
+    expect(removedChildren.map((block) => block.id)).toEqual([
+      'copy_1',
+      'copy_nested',
+      duplicatedChildren[3]?.id,
+    ]);
     expect(blocks[0]?.children[0]?.children.map((block) => block.id)).toEqual(['copy_1']);
+  });
+
+  it('wraps loose root content as tour steps for tour authoring', () => {
+    const next = normalizeTourRootBlocks([
+      { ...createContentBlock('paragraph', 'Alpha'), id: 'copy_alpha' },
+      createTourStep(9, 'Existing step'),
+      { ...createContentBlock('heading', 'Beta'), id: 'heading_beta' },
+    ]);
+
+    expect(next.map((block) => block.type)).toEqual(['tourStep', 'tourStep', 'tourStep']);
+    expect(next.map((block) => block.props.index)).toEqual([0, 1, 2]);
+    expect(next[0]?.children[0]?.children[0]).toMatchObject({
+      id: 'copy_alpha',
+      type: 'paragraph',
+      content: 'Alpha',
+    });
+    expect(next[2]?.children[0]?.children[0]).toMatchObject({
+      id: 'heading_beta',
+      type: 'heading',
+      content: 'Beta',
+    });
   });
 
   it('attaches target chips to tour step tooltips', () => {

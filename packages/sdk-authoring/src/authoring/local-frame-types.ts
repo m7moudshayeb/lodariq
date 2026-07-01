@@ -33,6 +33,7 @@ export interface LocalAuthoringFrameOptions {
   root: HTMLElement;
   baseDocument: LodariqDocument;
   services: LocalAuthoringFrameServices;
+  frameMode?: 'standalone' | 'panel';
   sessionId?: string;
   peerWindow?: Window;
   allowedOrigins?: string[];

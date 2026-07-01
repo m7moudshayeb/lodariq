@@ -6,13 +6,14 @@ import {
   targetHealthTitle,
   targetInspectFallbackMessage,
   targetInspectionStatus,
+  targetSupportDetails,
 } from '../../../../../packages/sdk-authoring/src/authoring/local-frame-ui/utils';
 
 describe('local frame target inspection helpers', () => {
   it('labels found, missing, and ambiguous states consistently', () => {
-    expect(targetHealthTitle('found')).toBe('Healthy');
-    expect(targetHealthTitle('missing')).toBe('Missing');
-    expect(targetHealthTitle('ambiguous')).toBe('Ambiguous');
+    expect(targetHealthTitle('found')).toBe('Ready');
+    expect(targetHealthTitle('missing')).toBe('Needs attention');
+    expect(targetHealthTitle('ambiguous')).toBe('Review placement');
   });
 
   it('formats target inspection status and fallback copy for each state', () => {
@@ -44,25 +45,31 @@ describe('local frame target inspection helpers', () => {
       },
     };
 
-    expect(targetHealthDetails(found)).toContain('Confidence 100%');
-    expect(targetHealthDetails(found)).toContain('Candidates 1.');
-    expect(targetHealthDetails(found)).toContain('Found by Lodariq ID');
-    expect(targetInspectFallbackMessage(found)).toBe('Target found and highlighted');
-    expect(targetInspectionStatus('view', found.diagnostic)).toBe('Found by Lodariq ID');
+    expect(targetHealthDetails(found)).toBe('Placement is highlighted.');
+    expect(targetSupportDetails(found)).toContain('Match strength 100%');
+    expect(targetSupportDetails(found)).toContain('Places found 1.');
+    expect(targetSupportDetails(found)).toContain('Uses Lodariq marker');
+    expect(targetSupportDetails(found)).not.toContain('Found by Lodariq ID');
+    expect(targetInspectFallbackMessage(found)).toBe('Placement is highlighted.');
+    expect(targetInspectionStatus('view', found.diagnostic)).toBe('Placement highlighted.');
 
-    expect(targetHealthDetails(missing)).toContain('Confidence 10%');
-    expect(targetInspectFallbackMessage(missing)).toBe('Target not found on the current page');
-    expect(targetInspectionStatus('test', missing.diagnostic)).toBe('Target is missing');
+    expect(targetHealthDetails(missing)).toContain('We could not find this placement');
+    expect(targetSupportDetails(missing)).toContain('Match strength 10%');
+    expect(targetInspectFallbackMessage(missing)).toContain('We could not find this placement');
+    expect(targetInspectionStatus('test', missing.diagnostic)).toBe('Placement needs attention.');
 
-    expect(targetHealthDetails(ambiguous)).toContain('Confidence 72%');
-    expect(targetHealthDetails(ambiguous)).toContain('Found by role and label');
-    expect(targetInspectFallbackMessage(ambiguous)).toBe('Multiple matching elements found');
-    expect(targetInspectionStatus('health', ambiguous.diagnostic)).toBe('Target is ambiguous');
+    expect(targetHealthDetails(ambiguous)).toContain('More than one place matches');
+    expect(targetSupportDetails(ambiguous)).toContain('Match strength 72%');
+    expect(targetSupportDetails(ambiguous)).toContain('Uses page label');
+    expect(targetInspectFallbackMessage(ambiguous)).toContain('More than one place matches');
+    expect(targetInspectionStatus('health', ambiguous.diagnostic)).toBe(
+      'Pick a more specific placement.',
+    );
   });
 
   it('maps resolution method labels to user-facing copy', () => {
-    expect(humanResolutionMethod('stable_attribute')).toBe('Found by stable attribute');
-    expect(humanResolutionMethod('scoped_css')).toBe('Found by scoped CSS');
-    expect(humanResolutionMethod('unknown')).toBe('Found by semantic match');
+    expect(humanResolutionMethod('stable_attribute')).toBe('Uses stable page marker');
+    expect(humanResolutionMethod('scoped_css')).toBe('Uses support rule');
+    expect(humanResolutionMethod('unknown')).toBe('Uses page context');
   });
 });

@@ -12,7 +12,7 @@ import {
   type SortingState,
   useReactTable,
 } from '@tanstack/react-table';
-import { ArrowDown, ArrowUp, ArrowUpDown, Search, X } from 'lucide-react';
+import { ArrowDown, ArrowUp, ArrowUpDown, CircleDot, Search, X } from 'lucide-react';
 import { Badge, type BadgeProps } from './ui/badge';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -37,72 +37,65 @@ const documentGlobalFilter: FilterFn<DocumentRow> = (row, _columnId, filterValue
     document.id,
     document.typeLabel,
     document.statusLabel,
-    document.ownerLabel,
+    document.editorLabel,
+    document.readinessDetail,
     document.updatedAtLabel,
     document.publicationLabel,
     document.publicationDetail,
     document.contentHashLabel,
+    document.contentHashDetail,
+    document.latestContentHash ?? '',
   ].some((value) => value.toLowerCase().includes(query));
 };
 
 const columns: Array<ColumnDef<DocumentRow>> = [
   {
     accessorKey: 'title',
-    header: ({ column }) => <SortableHeader column={column} label="Title" />,
+    header: ({ column }) => <SortableHeader column={column} label="Experience" />,
     cell: ({ row }) => (
-      <div className="max-w-80">
-        <p className="break-words font-semibold">{row.original.title}</p>
-        <p className="break-all text-xs text-muted-foreground">{row.original.id}</p>
+      <div className="grid min-w-72 max-w-96 gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <p className="break-words font-semibold">{row.original.title}</p>
+          <Badge variant="info">{row.original.typeLabel}</Badge>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge variant={statusVariant(row.original.status)}>{row.original.statusLabel}</Badge>
+          <span className="text-xs text-muted-foreground">{row.original.readinessDetail}</span>
+        </div>
       </div>
     ),
   },
   {
-    accessorKey: 'typeLabel',
-    header: ({ column }) => <SortableHeader column={column} label="Type" />,
-    cell: ({ row }) => row.original.typeLabel,
-  },
-  {
-    accessorKey: 'statusLabel',
-    header: ({ column }) => <SortableHeader column={column} label="Status" />,
-    cell: ({ row }) => (
-      <Badge variant={statusVariant(row.original.status)}>{row.original.statusLabel}</Badge>
-    ),
-  },
-  {
-    accessorKey: 'ownerLabel',
-    header: ({ column }) => <SortableHeader column={column} label="Owner" />,
-    cell: ({ row }) => (
-      <span className="block max-w-44 break-words text-sm text-muted-foreground">
-        {row.original.ownerLabel}
-      </span>
-    ),
-  },
-  {
-    accessorKey: 'updatedAt',
-    header: ({ column }) => <SortableHeader column={column} label="Last edit" />,
-    cell: ({ row }) => (
-      <span className="whitespace-nowrap text-sm text-muted-foreground">
-        {row.original.updatedAtLabel}
-      </span>
-    ),
-  },
-  {
     accessorKey: 'publicationLabel',
-    header: ({ column }) => <SortableHeader column={column} label="Publication" />,
+    header: ({ column }) => <SortableHeader column={column} label="Publishing" />,
     cell: ({ row }) => (
-      <div className="grid gap-1">
+      <div className="grid min-w-48 gap-1.5">
         <Badge variant={row.original.publicationVariant}>{row.original.publicationLabel}</Badge>
         <span className="text-xs text-muted-foreground">{row.original.publicationDetail}</span>
       </div>
     ),
   },
   {
-    accessorKey: 'contentHashLabel',
-    header: ({ column }) => <SortableHeader column={column} label="Artifact" />,
+    accessorKey: 'updatedAt',
+    header: ({ column }) => <SortableHeader column={column} label="Last edited" />,
     cell: ({ row }) => (
-      <span className="block max-w-72 break-all font-mono text-xs text-muted-foreground">
-        {row.original.contentHashLabel}
-      </span>
+      <div className="grid min-w-36 gap-1">
+        <span className="whitespace-nowrap text-sm font-medium">{row.original.updatedAtLabel}</span>
+        <span className="text-xs text-muted-foreground">{row.original.editorLabel}</span>
+      </div>
+    ),
+  },
+  {
+    accessorKey: 'contentHashLabel',
+    header: ({ column }) => <SortableHeader column={column} label="Draft" />,
+    cell: ({ row }) => (
+      <div className="grid min-w-44 gap-1.5 text-sm">
+        <span className="inline-flex items-center gap-2 font-medium">
+          <CircleDot aria-hidden="true" className="size-3.5 text-primary" />
+          {row.original.contentHashLabel}
+        </span>
+        <span className="text-xs text-muted-foreground">{row.original.contentHashDetail}</span>
+      </div>
     ),
   },
 ];
@@ -135,15 +128,15 @@ export function DocumentsTable({ rows }: DocumentsTableProps): React.ReactElemen
             className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
           />
           <Input
-            aria-label="Search documents"
+            aria-label="Search experiences"
             className="pl-9 pr-9"
             value={globalFilter}
             onChange={(event) => setGlobalFilter(event.target.value)}
-            placeholder="Search documents"
+            placeholder="Search experiences"
           />
           {globalFilter ? (
             <Button
-              aria-label="Clear document search"
+              aria-label="Clear experience search"
               className="absolute right-1 top-1/2 size-7 -translate-y-1/2"
               onClick={() => setGlobalFilter('')}
               size="icon"
@@ -156,47 +149,58 @@ export function DocumentsTable({ rows }: DocumentsTableProps): React.ReactElemen
         </div>
 
         <p className="text-sm text-muted-foreground">
-          {visibleRows.length} of {rows.length} documents
+          {visibleRows.length} of {rows.length} experiences
         </p>
       </div>
 
-      <Table className="min-w-[900px]">
-        <TableHeader>
-          {table.getHeaderGroups().map((headerGroup) => (
-            <TableRow key={headerGroup.id}>
-              {headerGroup.headers.map((header) => (
-                <TableHead key={header.id} aria-sort={ariaSort(header.column.getIsSorted())}>
-                  {header.isPlaceholder
-                    ? null
-                    : flexRender(header.column.columnDef.header, header.getContext())}
-                </TableHead>
-              ))}
-            </TableRow>
-          ))}
-        </TableHeader>
-        <TableBody>
-          {visibleRows.length ? (
-            visibleRows.map((row) => (
-              <TableRow key={row.id}>
-                {row.getVisibleCells().map((cell) => (
-                  <TableCell key={cell.id}>
-                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                  </TableCell>
+      {!rows.length ? (
+        <div className="grid min-h-48 place-items-center rounded-md border border-dashed bg-surface p-8 text-center">
+          <div className="grid max-w-sm gap-2">
+            <p className="text-sm font-semibold">No experiences yet</p>
+            <p className="text-sm leading-6 text-muted-foreground">
+              Start a tour in the creator, then it will appear here for review and publishing.
+            </p>
+          </div>
+        </div>
+      ) : (
+        <Table className="min-w-[760px]">
+          <TableHeader>
+            {table.getHeaderGroups().map((headerGroup) => (
+              <TableRow key={headerGroup.id}>
+                {headerGroup.headers.map((header) => (
+                  <TableHead key={header.id} aria-sort={ariaSort(header.column.getIsSorted())}>
+                    {header.isPlaceholder
+                      ? null
+                      : flexRender(header.column.columnDef.header, header.getContext())}
+                  </TableHead>
                 ))}
               </TableRow>
-            ))
-          ) : (
-            <TableRow>
-              <TableCell
-                colSpan={columns.length}
-                className="h-24 text-center text-muted-foreground"
-              >
-                {rows.length ? 'No matching documents.' : 'No documents.'}
-              </TableCell>
-            </TableRow>
-          )}
-        </TableBody>
-      </Table>
+            ))}
+          </TableHeader>
+          <TableBody>
+            {visibleRows.length ? (
+              visibleRows.map((row) => (
+                <TableRow key={row.id}>
+                  {row.getVisibleCells().map((cell) => (
+                    <TableCell key={cell.id}>
+                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                    </TableCell>
+                  ))}
+                </TableRow>
+              ))
+            ) : (
+              <TableRow>
+                <TableCell
+                  colSpan={columns.length}
+                  className="h-24 text-center text-muted-foreground"
+                >
+                  {rows.length ? 'No matching experiences.' : 'No experiences yet.'}
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      )}
     </div>
   );
 }
@@ -213,7 +217,7 @@ function SortableHeader({
 
   return (
     <Button
-      className="-ml-3 h-8 px-2 text-xs uppercase text-muted-foreground hover:text-foreground"
+      className="-ml-3 h-8 px-2 text-xs text-muted-foreground hover:text-foreground"
       onClick={() => column.toggleSorting(direction === 'asc')}
       type="button"
       variant="ghost"

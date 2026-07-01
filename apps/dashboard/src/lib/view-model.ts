@@ -12,9 +12,11 @@ export interface DashboardViewModel {
     DocumentSummaryDto & {
       statusLabel: string;
       typeLabel: string;
-      ownerLabel: string;
+      editorLabel: string;
+      readinessDetail: string;
       updatedAtLabel: string;
       contentHashLabel: string;
+      contentHashDetail: string;
       publicationLabel: string;
       publicationDetail: string;
       publicationVariant: PublicationVariant;
@@ -56,9 +58,10 @@ export function buildDashboardViewModel(data: DashboardDataDto): DashboardViewMo
         ...document,
         statusLabel: formatStatus(document.status),
         typeLabel: formatStatus(document.type),
-        ownerLabel: document.updatedByUserId ?? document.createdByUserId ?? 'Unknown',
+        editorLabel: formatEditorLabel(document),
+        readinessDetail: formatReadinessDetail(document.status),
         updatedAtLabel: formatDate(document.updatedAt),
-        contentHashLabel: document.latestContentHash ?? 'Not compiled',
+        ...buildDraftInfo(document),
         publicationLabel: publication.label,
         publicationDetail: publication.detail,
         publicationVariant: publication.variant,
@@ -85,6 +88,36 @@ function formatStatus(status: string): string {
     .join(' ');
 }
 
+function formatEditorLabel(document: DocumentSummaryDto): string {
+  if (document.updatedByUserId || document.createdByUserId) return 'Workspace teammate';
+  return 'Team update';
+}
+
+function formatReadinessDetail(status: string): string {
+  if (status === 'ready') return 'Ready to preview';
+  if (status === 'invalid') return 'Needs fixes before publishing';
+  if (status === 'draft') return 'Draft in progress';
+  return 'In progress';
+}
+
+function buildDraftInfo(
+  document: DocumentSummaryDto,
+): { contentHashLabel: string; contentHashDetail: string } {
+  if (document.latestContentHash) {
+    return {
+      contentHashLabel: 'Draft saved',
+      contentHashDetail: document.publications.length
+        ? 'Changes are being tracked'
+        : 'Ready for first publish',
+    };
+  }
+
+  return {
+    contentHashLabel: 'Needs preview',
+    contentHashDetail: 'Preview once to prepare publishing',
+  };
+}
+
 function buildPublicationInfo(
   document: DocumentSummaryDto,
   environmentById: Map<string, WorkspaceEnvironmentDto>,
@@ -92,12 +125,12 @@ function buildPublicationInfo(
   if (!document.publications.length) {
     return {
       label: 'Unpublished',
-      detail: 'No environment',
+      detail: 'Not live on any site yet',
       variant: 'outline',
     };
   }
 
-  const detail = document.publications
+  const siteList = document.publications
     .map(
       (publication) =>
         environmentById.get(publication.environmentId)?.name ?? publication.environment,
@@ -111,15 +144,15 @@ function buildPublicationInfo(
 
   if (hasDraftChanges) {
     return {
-      label: 'Draft changes',
-      detail,
+      label: 'Changes waiting',
+      detail: `Saved changes not live on ${siteList}`,
       variant: 'warning',
     };
   }
 
   return {
     label: 'Published',
-    detail,
+    detail: `Live on ${siteList}`,
     variant: 'success',
   };
 }

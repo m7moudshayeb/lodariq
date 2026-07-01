@@ -16,7 +16,7 @@ export function AuthoringTabs({
 }) {
   return (
     <RadixTabs.Root className="ui-tabs" defaultValue={defaultValue}>
-      <RadixTabs.List aria-label="Authoring utilities" className="ui-tabs-list">
+      <RadixTabs.List aria-label="Support package" className="ui-tabs-list">
         {items.map((item) => (
           <RadixTabs.Trigger key={item.value} className="ui-tabs-trigger" value={item.value}>
             {item.label}

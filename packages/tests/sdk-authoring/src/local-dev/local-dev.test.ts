@@ -44,9 +44,11 @@ describe('local-dev authoring install helper', () => {
     expect(starts).toEqual([baseDocument.id]);
 
     await lodariq?.openAuthoring();
-    expect(document.querySelector('iframe[title="Lodariq authoring"]')?.getAttribute('src')).toBe(
-      '/authoring.html',
+    const iframeUrl = new URL(
+      document.querySelector('iframe[title="Lodariq authoring"]')?.getAttribute('src') ?? '',
     );
+    expect(iframeUrl.pathname).toBe('/authoring.html');
+    expect(iframeUrl.searchParams.get('lodariqFrame')).toBe('panel');
     expect(trigger?.getAttribute('aria-expanded')).toBe('true');
     expect(document.documentElement.hasAttribute('data-lodariq-authoring-panel-open')).toBe(true);
   });

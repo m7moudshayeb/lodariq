@@ -38,6 +38,7 @@ export function targetIdOf(block: LodariqBlock): string | null {
 
 export function blockStatus(block: LodariqBlock): 'ready' | 'incomplete' | 'invalid' {
   if (block.status === 'invalid') return 'invalid';
+  if (block.children.some((child) => blockStatus(child) === 'invalid')) return 'invalid';
   if (block.status === 'incomplete') return 'incomplete';
   if (!block.id || !block.type) return 'invalid';
   return 'ready';
@@ -89,37 +90,42 @@ export function propertyChipLabels(block: LodariqBlock): string[] {
   if (block.props.level) labels.push(`Heading level ${block.props.level}`);
   if (block.props.placement) labels.push(`Placement: ${block.props.placement}`);
   if (block.props.variant) labels.push(`${capitalize(block.props.variant)} button`);
-  if (block.props.action?.type === 'next') labels.push('Continues tour');
-  if (block.props.action?.type === 'dismiss') labels.push('Dismisses tour');
-  if (block.props.action?.type === 'clickTarget') labels.push('Waits for target click');
-  if (block.type === 'button' && !block.props.action) labels.push('Needs purpose');
-  if (block.type === 'media') labels.push('Placeholder media');
+  if (block.props.action?.type === 'next') labels.push('Goes to next step');
+  if (block.props.action?.type === 'dismiss') labels.push('Closes experience');
+  if (block.props.action?.type === 'clickTarget') labels.push('Waits for placement');
+  if (block.type === 'button' && !block.props.action) labels.push('Choose next action');
+  if (block.type === 'media') labels.push('Add media later');
   return labels;
 }
 
 export function targetHealthTitle(state: ResolverDiagnostic['state']): string {
-  if (state === 'found') return 'Healthy';
-  if (state === 'ambiguous') return 'Ambiguous';
-  return 'Missing';
+  if (state === 'found') return 'Ready';
+  if (state === 'ambiguous') return 'Review placement';
+  return 'Needs attention';
 }
 
 export function targetHealthDetails(inspection: TargetInspectionState): string {
+  return targetInspectFallbackMessage(inspection);
+}
+
+export function targetSupportDetails(inspection: TargetInspectionState): string {
   const diagnostic = inspection.diagnostic;
-  const message = diagnostic.message ?? targetInspectFallbackMessage(inspection);
   const method = diagnostic.resolutionMethod
-    ? ` ${humanResolutionMethod(diagnostic.resolutionMethod)}`
+    ? ` ${humanResolutionMethod(diagnostic.resolutionMethod)}.`
     : '';
-  return `${message}. Confidence ${diagnostic.confidence}%. Candidates ${diagnostic.candidateCount}.${method}`;
+  return `Match strength ${diagnostic.confidence}%. Places found ${diagnostic.candidateCount}.${method}`;
 }
 
 export function targetInspectFallbackMessage(inspection: TargetInspectionState): string {
   if (inspection.diagnostic.state === 'found') {
-    if (inspection.action === 'view') return 'Target found and highlighted';
-    if (inspection.action === 'test') return 'Target test passed';
-    return 'Target found';
+    if (inspection.action === 'view') return 'Placement is highlighted.';
+    if (inspection.action === 'test') return 'Placement is ready.';
+    return 'Placement is easy to find.';
   }
-  if (inspection.diagnostic.state === 'ambiguous') return 'Multiple matching elements found';
-  return 'Target not found on the current page';
+  if (inspection.diagnostic.state === 'ambiguous') {
+    return 'More than one place matches. Pick the exact place again.';
+  }
+  return 'We could not find this placement. Choose it again or open the page state where it appears.';
 }
 
 export function targetInspectionStatus(
@@ -127,32 +133,34 @@ export function targetInspectionStatus(
   diagnostic: ResolverDiagnostic,
 ): string {
   if (diagnostic.state === 'found') {
-    if (action === 'view') return diagnostic.message ?? 'Target found and highlighted';
-    if (action === 'test') return diagnostic.message ?? 'Target test passed';
-    return diagnostic.message ?? 'Target is healthy';
+    if (action === 'view') return 'Placement highlighted.';
+    if (action === 'test') return 'Placement is ready.';
+    return 'Placement is ready.';
   }
-  if (diagnostic.state === 'ambiguous') return diagnostic.message ?? 'Target is ambiguous';
-  return diagnostic.message ?? 'Target is missing';
+  if (diagnostic.state === 'ambiguous') {
+    return 'Pick a more specific placement.';
+  }
+  return 'Placement needs attention.';
 }
 
 export function humanResolutionMethod(method: string): string {
   switch (method) {
     case 'lodariq_id':
-      return 'Found by Lodariq ID';
+      return 'Uses Lodariq marker';
     case 'stable_attribute':
-      return 'Found by stable attribute';
+      return 'Uses stable page marker';
     case 'role_and_name':
-      return 'Found by role and label';
+      return 'Uses page label';
     case 'label':
-      return 'Found by label';
+      return 'Uses label';
     case 'ancestor_landmark':
-      return 'Found by landmark';
+      return 'Uses page area';
     case 'relative_position':
-      return 'Found by relative position';
+      return 'Uses nearby position';
     case 'scoped_css':
-      return 'Found by scoped CSS';
+      return 'Uses support rule';
     default:
-      return 'Found by semantic match';
+      return 'Uses page context';
   }
 }
 
@@ -167,9 +175,11 @@ export function slashCommandValue(value: string | undefined): SlashCommand | nul
 export function blockTypeLabel(type: string): string {
   switch (type) {
     case 'tourStep':
-      return 'Tour step';
+      return 'Step';
+    case 'paragraph':
+      return 'Text';
     case 'targetChip':
-      return 'Target';
+      return 'Placement';
     case 'validationBadge':
       return 'Validation';
     default:
