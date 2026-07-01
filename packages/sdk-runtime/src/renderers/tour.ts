@@ -6,6 +6,26 @@ import { resolve } from '../resolver';
 const NETWORK_IDLE_QUIET_MS = 80;
 const NETWORK_IDLE_POLL_MS = 20;
 
+type RuntimeBodyNode = CompiledStep['body'][number];
+type RuntimeAction = NonNullable<RuntimeBodyNode['props']['action']>;
+type RuntimeActionType = RuntimeAction['type'];
+type RuntimeActionHandler = (player: TourPlayer, action: RuntimeAction) => void;
+type BodyNodeRenderer = (node: RuntimeBodyNode, context: BodyNodeRenderContext) => HTMLElement;
+
+interface BodyNodeRenderContext {
+  onAction: (action: RuntimeAction | undefined) => void;
+}
+
+const BODY_NODE_RENDERERS: Readonly<Record<string, BodyNodeRenderer>> = {
+  button: renderButtonNode,
+  divider: renderDividerNode,
+  heading: renderHeadingNode,
+  link: renderLinkNode,
+  list: renderListNode,
+  media: renderMediaNode,
+  paragraph: renderTextNode,
+};
+
 /**
  * Linear tour renderer (PRD §9.3, §16.1).
  *
@@ -24,6 +44,15 @@ export interface TourPlayerOptions {
 
 export class TourPlayer {
   private static active: TourPlayer | null = null;
+  private static readonly actionHandlers: Readonly<Record<RuntimeActionType, RuntimeActionHandler>> =
+    {
+      back: (player) => player.previous(),
+      clickTarget: (player) => player.focusCurrentTarget(),
+      complete: (player) => player.complete(),
+      dismiss: (player) => player.dismiss(),
+      next: (player) => player.next(),
+      openPage: (player, action) => player.openPage(action),
+    };
 
   private index: number;
   private readonly host: HTMLElement;
@@ -59,12 +88,20 @@ export class TourPlayer {
     this.advanceToNext(true);
   }
 
+  previous(): void {
+    const previousIndex = this.index - 1;
+    const previousStep = this.doc.steps[previousIndex];
+    if (!previousStep) return;
+    this.notifyBeforeStepChange(previousIndex, previousStep);
+    this.index = previousIndex;
+    this.render();
+  }
+
   private advanceToNext(notify: boolean): void {
     const nextIndex = this.index + 1;
     const nextStep = this.doc.steps[nextIndex];
     if (!nextStep) {
-      this.stop();
-      this.options.onComplete?.();
+      this.complete();
       return;
     }
     if (notify) this.notifyBeforeStepChange(nextIndex, nextStep);
@@ -87,14 +124,10 @@ export class TourPlayer {
 
     this.card.innerHTML = '';
     for (const node of step.body) {
-      const el = document.createElement(node.type === 'button' ? 'button' : 'div');
-      el.dataset['lodariqNodeType'] = node.type;
-      el.textContent = node.text ?? '';
-      if (node.type === 'button') this.configureButton(el as HTMLButtonElement, node.props.action);
-      this.card.appendChild(el);
+      this.card.appendChild(this.createBodyElement(node));
     }
 
-    (this.card.querySelector<HTMLElement>('button') ?? this.card).focus();
+    (this.card.querySelector<HTMLElement>('button, a[href]') ?? this.card).focus();
     void this.findTarget(step).then((target) => {
       if (!target || renderId !== this.renderId || !this.host.isConnected) return;
       this.scrollForLifecycle(target, step.lifecycle);
@@ -103,29 +136,30 @@ export class TourPlayer {
     });
   }
 
-  private configureButton(
-    button: HTMLButtonElement,
-    action: CompiledStep['body'][number]['props']['action'],
-  ): void {
-    if (!action) {
-      button.disabled = true;
-      button.setAttribute('aria-disabled', 'true');
-      return;
-    }
-    if (action.type === 'dismiss') {
-      button.addEventListener('click', () => this.dismiss());
-      return;
-    }
-    if (action.type === 'clickTarget') {
-      button.addEventListener('click', () => this.focusCurrentTarget());
-      return;
-    }
-    button.addEventListener('click', () => this.next());
+  private createBodyElement(node: RuntimeBodyNode): HTMLElement {
+    const renderer = BODY_NODE_RENDERERS[node.type] ?? renderTextNode;
+    return renderer(node, { onAction: (action) => this.handleAction(action) });
+  }
+
+  private handleAction(action: RuntimeAction | undefined): void {
+    if (!action) return;
+    TourPlayer.actionHandlers[action.type](this, action);
+  }
+
+  private complete(): void {
+    this.stop();
+    this.options.onComplete?.();
   }
 
   private dismiss(): void {
     this.stop();
     this.options.onDismiss?.();
+  }
+
+  private openPage(action: RuntimeAction): void {
+    const target = safeNavigationTarget(action.url);
+    if (!target) return;
+    window.location.assign(target);
   }
 
   private async findTarget(step: CompiledStep): Promise<Element | null> {
@@ -249,6 +283,119 @@ export class TourPlayer {
 
 function stepWaitsForTargetClick(step: CompiledStep): boolean {
   return step.body.some((node) => node.props.action?.type === 'clickTarget');
+}
+
+function renderHeadingNode(node: RuntimeBodyNode): HTMLElement {
+  const element = document.createElement('h2');
+  setBodyNodeText(element, node);
+  return element;
+}
+
+function renderTextNode(node: RuntimeBodyNode): HTMLElement {
+  const element = document.createElement('div');
+  setBodyNodeText(element, node);
+  return element;
+}
+
+function renderListNode(node: RuntimeBodyNode): HTMLElement {
+  const element = document.createElement('ul');
+  setBodyNodeAttributes(element, node);
+  for (const item of listItems(node.text)) {
+    const listItem = document.createElement('li');
+    listItem.textContent = item;
+    element.appendChild(listItem);
+  }
+  return element;
+}
+
+function renderDividerNode(node: RuntimeBodyNode): HTMLElement {
+  const element = document.createElement('hr');
+  setBodyNodeAttributes(element, node);
+  return element;
+}
+
+function renderMediaNode(node: RuntimeBodyNode): HTMLElement {
+  const element = document.createElement('div');
+  setBodyNodeText(element, node);
+  return element;
+}
+
+function renderButtonNode(node: RuntimeBodyNode, context: BodyNodeRenderContext): HTMLElement {
+  const element = document.createElement('button');
+  element.type = 'button';
+  setBodyNodeText(element, node);
+  configureActionElement(element, node.props.action, context);
+  return element;
+}
+
+function renderLinkNode(node: RuntimeBodyNode, context: BodyNodeRenderContext): HTMLElement {
+  const element = document.createElement('a');
+  const target = safeNavigationTarget(node.props.action?.url);
+  element.href = target ?? '#';
+  setBodyNodeText(element, node);
+  configureActionElement(element, node.props.action, context);
+  return element;
+}
+
+function setBodyNodeText(element: HTMLElement, node: RuntimeBodyNode): void {
+  setBodyNodeAttributes(element, node);
+  element.textContent = node.text ?? '';
+}
+
+function setBodyNodeAttributes(element: HTMLElement, node: RuntimeBodyNode): void {
+  element.dataset['lodariqNodeType'] = node.type;
+}
+
+function configureActionElement(
+  element: HTMLButtonElement | HTMLAnchorElement,
+  action: RuntimeAction | undefined,
+  context: BodyNodeRenderContext,
+): void {
+  if (!actionEnabled(action)) {
+    disableActionElement(element);
+    return;
+  }
+  element.addEventListener('click', (event) => {
+    event.preventDefault();
+    context.onAction(action);
+  });
+}
+
+function actionEnabled(action: RuntimeAction | undefined): action is RuntimeAction {
+  if (!action) return false;
+  if (action.type !== 'openPage') return true;
+  return Boolean(safeNavigationTarget(action.url));
+}
+
+function disableActionElement(element: HTMLButtonElement | HTMLAnchorElement): void {
+  element.setAttribute('aria-disabled', 'true');
+  if (element instanceof HTMLButtonElement) {
+    element.disabled = true;
+    return;
+  }
+  element.removeAttribute('href');
+  element.tabIndex = -1;
+}
+
+function listItems(text: string | undefined): string[] {
+  if (!text) return [];
+  return text
+    .split(/\r?\n/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function safeNavigationTarget(rawUrl: string | undefined): string | null {
+  const trimmed = rawUrl?.trim();
+  if (!trimmed) return null;
+  if (trimmed.startsWith('/') || trimmed.startsWith('#')) return trimmed;
+  try {
+    const url = new URL(trimmed);
+    if (url.protocol === 'https:' || url.protocol === 'http:') return url.href;
+  } catch {
+    return null;
+  }
+  return null;
 }
 
 function initialStepIndex(doc: CompiledDocument, options: TourPlayerOptions): number {
@@ -481,6 +628,24 @@ function createStyles(): HTMLStyleElement {
       line-height: 1.45;
     }
 
+    [data-lodariq-node-type="list"] {
+      margin: 0 0 12px 18px;
+      padding: 0;
+      color: #374151;
+      font-size: 14px;
+      line-height: 1.45;
+    }
+
+    [data-lodariq-node-type="list"] li + li {
+      margin-top: 4px;
+    }
+
+    [data-lodariq-node-type="divider"] {
+      margin: 10px 0 12px;
+      border: 0;
+      border-top: 1px solid #e2e8f0;
+    }
+
     [data-lodariq-node-type="media"] {
       margin: 8px 0 12px;
       padding: 14px;
@@ -491,6 +656,22 @@ function createStyles(): HTMLStyleElement {
       font-size: 13px;
       line-height: 1.35;
       text-align: center;
+    }
+
+    a {
+      display: inline-flex;
+      align-items: center;
+      min-height: 30px;
+      margin-top: 2px;
+      color: #1d4ed8;
+      font-size: 14px;
+      font-weight: 650;
+      text-decoration: none;
+      cursor: pointer;
+    }
+
+    a:hover {
+      text-decoration: underline;
     }
 
     button {
@@ -506,6 +687,12 @@ function createStyles(): HTMLStyleElement {
       font: inherit;
       font-weight: 600;
       cursor: pointer;
+    }
+
+    button[disabled],
+    [aria-disabled="true"] {
+      cursor: not-allowed;
+      opacity: 0.55;
     }
   `,
   );

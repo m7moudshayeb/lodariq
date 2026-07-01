@@ -1,26 +1,48 @@
 import { sanitizeBlockProps, type BlockActionProps, type LodariqBlock } from '@lodariq/schema';
 import { createBlockId } from '../editor/ids';
 
-export type EditableBlockType = 'paragraph' | 'heading' | 'button' | 'media';
+export type EditableBlockType =
+  | 'paragraph'
+  | 'heading'
+  | 'list'
+  | 'divider'
+  | 'button'
+  | 'link'
+  | 'media';
 export type BlockDirection = 'up' | 'down';
 export type BlockInsertPosition = 'before' | 'after';
 
+const DEFAULT_CONTENT_BY_TYPE = {
+  heading: 'Untitled heading',
+  paragraph: 'Write supporting copy',
+  list: 'First item\nSecond item',
+  divider: '',
+  button: 'Continue',
+  link: 'Learn more',
+  media: 'Media placeholder',
+} as const satisfies Record<EditableBlockType, string>;
+
+const DEFAULT_PROPS_BY_TYPE = {
+  heading: { level: 2 },
+  paragraph: {},
+  list: {},
+  divider: {},
+  button: { variant: 'primary' },
+  link: { action: { type: 'openPage' } },
+  media: {},
+} as const satisfies Record<EditableBlockType, LodariqBlock['props']>;
+
+const INCOMPLETE_ON_CREATE_TYPES = new Set<EditableBlockType>(['button', 'link', 'media']);
+const ACTION_CONFIG_BLOCK_TYPES = new Set<string>(['button', 'link']);
+
 export function createContentBlock(type: EditableBlockType, contentOverride?: string): LodariqBlock {
-  const content =
-    contentOverride ??
-    (type === 'heading'
-      ? 'Untitled heading'
-      : type === 'button'
-        ? 'Continue'
-        : type === 'media'
-          ? 'Media placeholder'
-          : 'Write supporting copy');
+  const content = contentOverride ?? defaultContentFor(type);
   return {
     id: createBlockId(),
     type,
-    content,
-    props: type === 'heading' ? { level: 2 } : type === 'button' ? { variant: 'primary' } : {},
-    status: type === 'button' || type === 'media' ? 'incomplete' : 'ready',
+    ...(content ? { content } : {}),
+    props: defaultPropsFor(type),
+    status: initialStatusForEditableType(type),
     children: [],
   };
 }
@@ -98,6 +120,14 @@ export function setBlockAction(
   action: BlockActionProps | null,
 ): LodariqBlock[] {
   return blocks.map((block) => normalizeBlockStatus(setAction(block, blockId, action)));
+}
+
+export function setBlockActionUrl(
+  blocks: LodariqBlock[],
+  blockId: string,
+  url: string,
+): LodariqBlock[] {
+  return blocks.map((block) => normalizeBlockStatus(setActionUrl(block, blockId, url)));
 }
 
 export function renumberTourSteps(blocks: LodariqBlock[]): LodariqBlock[] {
@@ -297,18 +327,36 @@ function transformBlock(
   return {
     ...block,
     type,
-    props: type === 'heading' ? { level: 2 } : type === 'button' ? { variant: 'primary' } : {},
+    props: defaultPropsFor(type),
     children: [],
-    status: type === 'button' || type === 'media' ? 'incomplete' : 'ready',
-    content:
-      contentOverride ??
-      block.content ??
-      block.children
-        .map((child) => child.content)
-        .filter(Boolean)
-        .join(' ') ??
-      (type === 'media' ? 'Media placeholder' : type),
+    status: initialStatusForEditableType(type),
+    content: transformedBlockContent(block, type, contentOverride),
   };
+}
+
+function defaultContentFor(type: EditableBlockType): string {
+  return DEFAULT_CONTENT_BY_TYPE[type];
+}
+
+function defaultPropsFor(type: EditableBlockType): LodariqBlock['props'] {
+  return DEFAULT_PROPS_BY_TYPE[type];
+}
+
+function initialStatusForEditableType(type: EditableBlockType): LodariqBlock['status'] {
+  return INCOMPLETE_ON_CREATE_TYPES.has(type) ? 'incomplete' : 'ready';
+}
+
+function transformedBlockContent(
+  block: LodariqBlock,
+  type: EditableBlockType,
+  contentOverride?: string,
+): string {
+  const childContent = block.children
+    .map((child) => child.content)
+    .filter(Boolean)
+    .join(' ');
+  const preservedContent = contentOverride ?? block.content ?? childContent;
+  return preservedContent || defaultContentFor(type);
 }
 
 function insertInsideStep(
@@ -621,10 +669,28 @@ function setAction(
   const props = sanitizeBlockProps(
     action ? { ...block.props, action } : omitAction(block.props as Record<string, unknown>),
   );
+  const status = actionConfigStatus(block, props);
   return {
     ...block,
     props,
-    status: block.type === 'button' ? (props.action ? 'ready' : 'incomplete') : block.status,
+    status,
+  };
+}
+
+function setActionUrl(block: LodariqBlock, blockId: string, url: string): LodariqBlock {
+  if (block.id !== blockId) {
+    return {
+      ...block,
+      children: block.children.map((child) => setActionUrl(child, blockId, url)),
+    };
+  }
+  const action: BlockActionProps = { type: 'openPage', url };
+  const props = sanitizeBlockProps({ ...block.props, action });
+  const status = actionConfigStatus(block, props);
+  return {
+    ...block,
+    props,
+    status,
   };
 }
 
@@ -713,8 +779,8 @@ function removeTargetFromTooltip(block: LodariqBlock, targetId: string): Lodariq
 function normalizeBlockStatus(block: LodariqBlock): LodariqBlock {
   if (block.status === 'invalid') return block;
   const children = block.children.map(normalizeBlockStatus);
-  if (block.type === 'button') {
-    return { ...block, children, status: block.props.action ? 'ready' : 'incomplete' };
+  if (requiresActionConfig(block)) {
+    return { ...block, children, status: actionConfigStatus(block, block.props) };
   }
   if (block.type === 'media') {
     return { ...block, children, status: 'incomplete' };
@@ -741,11 +807,29 @@ function normalizeBlockStatus(block: LodariqBlock): LodariqBlock {
 
 function hasIncompleteRequiredConfig(block: LodariqBlock): boolean {
   if (block.status === 'invalid') return true;
-  if (block.type === 'button') return !block.props.action;
+  if (requiresActionConfig(block)) return !isCompleteAction(block.props.action);
   if (block.type === 'media') return true;
   if (block.type === 'tooltip')
     return !block.props.targetId || block.children.some(hasIncompleteRequiredConfig);
   return block.children.some(hasIncompleteRequiredConfig);
+}
+
+function isCompleteAction(action: BlockActionProps | undefined): boolean {
+  if (!action) return false;
+  if (action.type === 'openPage') return Boolean(action.url?.trim());
+  return true;
+}
+
+function requiresActionConfig(block: LodariqBlock): boolean {
+  return ACTION_CONFIG_BLOCK_TYPES.has(block.type);
+}
+
+function actionConfigStatus(
+  block: LodariqBlock,
+  props: LodariqBlock['props'],
+): LodariqBlock['status'] {
+  if (!requiresActionConfig(block)) return block.status;
+  return isCompleteAction(props.action) ? 'ready' : 'incomplete';
 }
 
 function omitAction(props: Record<string, unknown>): Record<string, unknown> {

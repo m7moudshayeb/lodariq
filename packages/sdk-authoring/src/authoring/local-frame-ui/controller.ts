@@ -1,5 +1,6 @@
 import {
   BRIDGE_PROTOCOL_VERSION,
+  type BlockActionProps,
   type BridgeMessage,
   type PreviewPatchOperation,
   type LodariqBlock,
@@ -27,6 +28,7 @@ import {
   removeTargetFromBlocks,
   reorderTopLevelBlock as reorderTopLevelBlocks,
   setBlockAction,
+  setBlockActionUrl,
   transformBlocks,
   updateBlockContent,
   type BlockDirection,
@@ -45,6 +47,7 @@ import {
 } from '../../editor';
 import type {
   DocumentTarget,
+  EditableActionType,
   FocusRequest,
   LocalAuthoringFrameSnapshot,
   SlashCommand,
@@ -58,6 +61,8 @@ import {
   blockTypeLabel,
   closestBlockId,
   closestButton,
+  editableActionValue,
+  editableBlockTypeValue,
   findBlockById,
   isEditableContentBlock,
   isEditableControl,
@@ -401,32 +406,30 @@ export class LocalAuthoringFrameController {
       return;
     }
 
+    if (
+      (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) &&
+      target.dataset['action'] === 'edit-action-url'
+    ) {
+      const blockId = target.dataset['blockId'];
+      if (!blockId) return;
+      this.commitActionUrl(blockId, target.value);
+      return;
+    }
+
     if (!(target instanceof HTMLSelectElement)) return;
     if (target.dataset['action'] === 'set-action') {
       const blockId = target.dataset['blockId'];
-      const actionType = target.value;
+      const actionType = editableActionValue(target.value);
       if (!blockId) return;
-      if (
-        actionType !== '' &&
-        actionType !== 'next' &&
-        actionType !== 'clickTarget' &&
-        actionType !== 'dismiss'
-      ) {
-        return;
-      }
+      if (actionType === null) return;
       this.setAction(blockId, actionType);
       return;
     }
 
     if (target.dataset['action'] !== 'transform-block') return;
     const blockId = target.dataset['blockId'];
-    const type = target.value;
-    if (
-      !blockId ||
-      (type !== 'paragraph' && type !== 'heading' && type !== 'button' && type !== 'media')
-    ) {
-      return;
-    }
+    const type = editableBlockTypeValue(target.value);
+    if (!blockId || !type) return;
     this.transformBlock(blockId, type);
   }
 
@@ -657,8 +660,12 @@ export class LocalAuthoringFrameController {
     this.moveStepContentBlock(stepBlockId, childBlockId, event.key === 'ArrowUp' ? 'up' : 'down');
   }
 
-  setButtonAction(blockId: string, actionType: '' | 'next' | 'clickTarget' | 'dismiss'): void {
+  setButtonAction(blockId: string, actionType: EditableActionType): void {
     this.setAction(blockId, actionType);
+  }
+
+  setActionUrl(blockId: string, url: string): void {
+    this.commitActionUrl(blockId, url);
   }
 
   transformEditableBlock(blockId: string, type: EditableBlockType): void {
@@ -1308,8 +1315,7 @@ export class LocalAuthoringFrameController {
       const blockId = button.dataset['blockId'];
       const targetId = button.dataset['targetId'];
       if (!blockId || !targetId) return;
-      const inspectAction: TargetInspectAction =
-        action === 'target-view' ? 'view' : action === 'target-test' ? 'test' : 'health';
+      const inspectAction = targetInspectActionForButtonAction(action);
       this.requestTargetInspection(blockId, targetId, inspectAction);
     }
     if (action === 'target-advanced') {
@@ -1356,11 +1362,8 @@ export class LocalAuthoringFrameController {
     }
     if (action === 'transform-block') {
       const blockId = button.dataset['blockId'];
-      const type = button.dataset['blockType'];
-      if (
-        blockId &&
-        (type === 'paragraph' || type === 'heading' || type === 'button' || type === 'media')
-      ) {
+      const type = editableBlockTypeValue(button.dataset['blockType'] ?? '');
+      if (blockId && type) {
         if (findBlockById(this.documentState.blocks, blockId)?.type === type) return;
         this.transformEditableBlock(blockId, type);
       }
@@ -1455,26 +1458,41 @@ export class LocalAuthoringFrameController {
     this.sendPreviewPatch(blocks[0]!.id, [{ op: 'replaceDocument', document: this.documentState }]);
   }
 
-  private setAction(blockId: string, actionType: '' | 'next' | 'clickTarget' | 'dismiss'): void {
+  private setAction(blockId: string, actionType: EditableActionType): void {
     if (!hasBlock(this.documentState.blocks, blockId)) return;
+    const currentAction = findBlockById(this.documentState.blocks, blockId)?.props.action;
+    const nextAction = createNextAction(actionType, currentAction);
     this.recordChange();
     this.documentState = {
       ...this.documentState,
       blocks: setBlockAction(
         this.documentState.blocks,
         blockId,
-        actionType === '' ? null : { type: actionType },
+        nextAction,
       ),
     };
     this.afterDocumentMutation();
     this.selectedBlockId = blockId;
     this.services.saveDocument(this.documentState);
-    this.sendPreviewPatch(
-      blockId,
-      actionType === ''
-        ? [{ op: 'setAction' }]
-        : [{ op: 'setAction', action: { type: actionType } }],
-    );
+    this.sendPreviewPatch(blockId, previewPatchForAction(actionType, nextAction));
+  }
+
+  private commitActionUrl(blockId: string, value: string): void {
+    if (!hasBlock(this.documentState.blocks, blockId)) return;
+    const currentAction = findBlockById(this.documentState.blocks, blockId)?.props.action;
+    const currentValue = currentAction?.type === 'openPage' ? currentAction.url ?? '' : '';
+    if (currentValue === value) return;
+    this.recordChange();
+    this.documentState = {
+      ...this.documentState,
+      blocks: setBlockActionUrl(this.documentState.blocks, blockId, value),
+    };
+    this.afterDocumentMutation();
+    this.selectedBlockId = blockId;
+    this.services.saveDocument(this.documentState);
+    this.sendPreviewPatch(blockId, [
+      { op: 'setAction', action: { type: 'openPage', url: value } },
+    ]);
   }
 
   private transformBlock(blockId: string, type: EditableBlockType): void {
@@ -1513,10 +1531,15 @@ export class LocalAuthoringFrameController {
       this.commitDocumentTitle(active.value);
       return;
     }
-    if (active.dataset['action'] !== 'edit-content') return;
     const blockId = active.dataset['blockId'];
     if (!blockId || !hasBlock(this.documentState.blocks, blockId)) return;
-    this.commitContent(blockId, active.value);
+    if (active.dataset['action'] === 'edit-content') {
+      this.commitContent(blockId, active.value);
+      return;
+    }
+    if (active.dataset['action'] === 'edit-action-url') {
+      this.commitActionUrl(blockId, active.value);
+    }
   }
 
   private syncJsonTextControl(): void {
@@ -1716,6 +1739,54 @@ export class LocalAuthoringFrameController {
       subscriber(this.snapshotValue);
     }
   }
+}
+
+type ConcreteEditableActionType = Exclude<EditableActionType, ''>;
+type EditableActionFactory = (currentAction: BlockActionProps | undefined) => BlockActionProps;
+
+const EDITABLE_ACTION_FACTORIES: Readonly<
+  Record<ConcreteEditableActionType, EditableActionFactory>
+> = {
+  next: () => ({ type: 'next' }),
+  back: () => ({ type: 'back' }),
+  complete: () => ({ type: 'complete' }),
+  clickTarget: () => ({ type: 'clickTarget' }),
+  openPage: (currentAction) => ({
+    type: 'openPage',
+    url: currentOpenPageUrl(currentAction),
+  }),
+  dismiss: () => ({ type: 'dismiss' }),
+};
+
+const TARGET_INSPECT_ACTIONS: Readonly<Record<string, TargetInspectAction>> = {
+  'target-view': 'view',
+  'target-test': 'test',
+  'target-health': 'health',
+};
+
+function createNextAction(
+  actionType: EditableActionType,
+  currentAction: BlockActionProps | undefined,
+): BlockActionProps | null {
+  if (actionType === '') return null;
+  return EDITABLE_ACTION_FACTORIES[actionType](currentAction);
+}
+
+function currentOpenPageUrl(currentAction: BlockActionProps | undefined): string {
+  if (currentAction?.type !== 'openPage') return '';
+  return currentAction.url ?? '';
+}
+
+function previewPatchForAction(
+  actionType: EditableActionType,
+  action: BlockActionProps | null,
+): PreviewPatchOperation[] {
+  if (actionType === '' || !action) return [{ op: 'setAction' }];
+  return [{ op: 'setAction', action }];
+}
+
+function targetInspectActionForButtonAction(action: string): TargetInspectAction {
+  return TARGET_INSPECT_ACTIONS[action] ?? 'health';
 }
 
 function dropPosition(

@@ -21,7 +21,7 @@ export function AuthoringSelect({
   dataAction: string;
   dataBlockId: string;
   onValueChange?: (value: string) => void;
-  options: AuthoringSelectOption[];
+  options: readonly AuthoringSelectOption[];
   value: string;
 }) {
   const radixValue = toRadixSelectValue(value);
@@ -80,7 +80,7 @@ function NativeSelectMirror({
   ariaLabel: string;
   dataAction: string;
   dataBlockId: string;
-  options: AuthoringSelectOption[];
+  options: readonly AuthoringSelectOption[];
   value: string;
 }) {
   return (

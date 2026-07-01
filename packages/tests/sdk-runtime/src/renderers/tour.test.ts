@@ -174,6 +174,100 @@ describe('tour renderer (PRD §16.1)', () => {
     );
   });
 
+  it('renders list, divider, and link body nodes as semantic elements', () => {
+    const player = new TourPlayer({
+      ...compiledDoc,
+      steps: [
+        {
+          ...compiledDoc.steps[0]!,
+          body: [
+            { id: 'list_1', type: 'list', text: 'First\nSecond', props: {} },
+            { id: 'divider_1', type: 'divider', props: {} },
+            {
+              id: 'link_1',
+              type: 'link',
+              text: 'Open settings',
+              props: { action: { type: 'openPage', url: '/settings' } },
+            },
+          ],
+        },
+      ],
+    });
+
+    player.start();
+
+    const shadow = document.querySelector('lodariq-tour')?.shadowRoot;
+    expect([...(shadow?.querySelectorAll('li') ?? [])].map((item) => item.textContent)).toEqual([
+      'First',
+      'Second',
+    ]);
+    expect(shadow?.querySelector('hr')?.dataset['lodariqNodeType']).toBe('divider');
+    expect(shadow?.querySelector('a')?.getAttribute('href')).toBe('/settings');
+  });
+
+  it('goes back to the previous step from a back action', () => {
+    const player = new TourPlayer(
+      {
+        ...compiledDoc,
+        steps: [
+          {
+            ...compiledDoc.steps[0]!,
+            body: [{ id: 'heading_1', type: 'heading', text: 'First step', props: {} }],
+          },
+          {
+            ...compiledDoc.steps[0]!,
+            id: 'step_2',
+            body: [
+              {
+                id: 'button_back',
+                type: 'button',
+                text: 'Back',
+                props: { action: { type: 'back' } },
+              },
+            ],
+          },
+        ],
+      },
+      { initialStepIndex: 1 },
+    );
+
+    player.start();
+    document.querySelector('lodariq-tour')?.shadowRoot?.querySelector('button')?.click();
+
+    expect(document.querySelector('lodariq-tour')?.shadowRoot?.textContent).toContain('First step');
+  });
+
+  it('complete action closes playback and fires completion', () => {
+    const completed = vi.fn();
+    const dismissed = vi.fn();
+    const player = new TourPlayer(
+      {
+        ...compiledDoc,
+        steps: [
+          {
+            ...compiledDoc.steps[0]!,
+            body: [
+              {
+                id: 'button_complete',
+                type: 'button',
+                text: 'Finish',
+                props: { action: { type: 'complete' } },
+              },
+            ],
+          },
+        ],
+      },
+      { onComplete: completed, onDismiss: dismissed },
+    );
+
+    player.start();
+    document.querySelector('lodariq-tour')?.shadowRoot?.querySelector('button')?.click();
+
+    expect(completed).toHaveBeenCalledOnce();
+    expect(dismissed).not.toHaveBeenCalled();
+    expect(document.querySelector('lodariq-tour')).toBeNull();
+  });
+
   it('dismiss action closes playback without completing the tour', () => {
     const completed = vi.fn();
     const dismissed = vi.fn();

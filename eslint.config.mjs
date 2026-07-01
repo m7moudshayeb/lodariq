@@ -10,6 +10,7 @@ export default tseslint.config(
       '**/coverage/**',
       '**/.turbo/**',
       '**/.next/**',
+      '**/.next-*/**',
       '**/node_modules/**',
     ],
   },
@@ -22,6 +23,14 @@ export default tseslint.config(
         'error',
         { argsIgnorePattern: '^_', varsIgnorePattern: '^_' },
       ],
+    },
+  },
+  {
+    files: ['*.config.mjs', '**/*.config.mjs'],
+    languageOptions: {
+      globals: {
+        process: 'readonly',
+      },
     },
   },
   // The production runtime must never reach for authoring-only frameworks.

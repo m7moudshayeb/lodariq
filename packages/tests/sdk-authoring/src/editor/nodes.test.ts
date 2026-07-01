@@ -24,7 +24,10 @@ describe('Lodariq Lexical nodes (PRD §16.1)', () => {
     expect(LODARIQ_MVP_BLOCK_TYPES).toEqual([
       'paragraph',
       'heading',
+      'list',
+      'divider',
       'media',
+      'link',
       'tourStep',
       'tooltip',
       'button',

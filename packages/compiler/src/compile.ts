@@ -9,7 +9,15 @@ import { canonicalJson, sha256Hex } from './hash';
 import { COMPILER_VERSION } from './version';
 
 /** Block types that carry render-ready leaf content into compiled steps. */
-const LEAF_CONTENT_TYPES = new Set(['heading', 'paragraph', 'list', 'button', 'link', 'media']);
+const LEAF_CONTENT_TYPES = new Set([
+  'heading',
+  'paragraph',
+  'list',
+  'divider',
+  'button',
+  'link',
+  'media',
+]);
 
 function collectBody(block: LodariqBlock, acc: CompiledStep['body']): void {
   if (LEAF_CONTENT_TYPES.has(block.type)) {

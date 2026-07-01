@@ -1,4 +1,11 @@
-import { useEffect, useRef, useState, type DragEvent, type KeyboardEvent } from 'react';
+import {
+  useEffect,
+  useRef,
+  useState,
+  type DragEvent,
+  type KeyboardEvent,
+  type ReactNode,
+} from 'react';
 import type { LodariqBlock } from '@lodariq/schema';
 import type { LocalAuthoringFrameController } from '../controller';
 import {
@@ -16,9 +23,72 @@ import {
   Plus,
   Trash2,
 } from '../design-system';
-import type { StepContentCommand } from './insert-menu';
-import { blockText, blockTypeLabel, isEditableContentBlock } from '../utils';
-import { COMMAND_DETAILS, InlineStepInsert, STEP_CONTENT_COMMANDS } from './insert-menu';
+import {
+  EDITABLE_ACTION_OPTIONS,
+  EDITABLE_BLOCK_FIELD_CONFIG,
+  EDITABLE_BLOCK_TYPES,
+  STEP_CONTENT_COMMANDS,
+  type EditableBlockTypeValue,
+  type StepContentCommand,
+} from '../types';
+import {
+  blockText,
+  blockTypeLabel,
+  editableActionValue,
+  editableBlockTypeValue,
+  isEditableContentBlock,
+} from '../utils';
+import { COMMAND_DETAILS, InlineStepInsert } from './insert-menu';
+
+type ContentFieldProps = {
+  block: LodariqBlock;
+  controller: LocalAuthoringFrameController;
+  stepBlockId?: string;
+  totalStepContent?: number;
+};
+
+type FieldConfig = {
+  fieldLabel: string;
+  placeholder: string;
+};
+
+type ContentFieldContext = ContentFieldProps & {
+  fieldConfig: FieldConfig;
+  label: string;
+  value: string;
+};
+
+type ContentFieldRenderer = (context: ContentFieldContext) => ReactNode;
+
+const STEP_CONTENT_COMMAND_SET = new Set<string>(STEP_CONTENT_COMMANDS);
+
+const STEP_COMMAND_ALIASES: Readonly<Record<string, StepContentCommand>> = {
+  text: 'paragraph',
+};
+
+const COMMAND_NAVIGATION_DIRECTIONS: Readonly<Record<string, number>> = {
+  ArrowDown: 1,
+  ArrowUp: -1,
+};
+
+const NATIVE_ENTER_BLOCK_TYPES = new Set<string>(['list']);
+
+const STEP_CONTENT_ACTION_LABELS = {
+  heading: 'heading',
+  paragraph: 'text',
+  list: 'list',
+  divider: 'divider',
+  button: 'button',
+  link: 'link',
+  media: 'media',
+} as const satisfies Record<EditableBlockTypeValue, string>;
+
+const CONTENT_FIELD_RENDERERS: Readonly<Record<string, ContentFieldRenderer>> = {
+  divider: renderDividerField,
+  media: renderMediaField,
+  button: renderButtonField,
+  link: renderLinkField,
+};
 
 export function BlockBody({
   block,
@@ -84,16 +154,7 @@ function StepComposer({
   const isSlashCommand = trimmedValue.startsWith('/');
   const isPlainText = trimmedValue.length > 0 && !isSlashCommand;
   const commandQuery = isSlashCommand ? trimmedValue.slice(1).toLowerCase() : '';
-  const filteredCommands =
-    !isSlashCommand || commandQuery.length === 0
-      ? STEP_CONTENT_COMMANDS
-      : STEP_CONTENT_COMMANDS.filter((command) => {
-          const details = COMMAND_DETAILS[command];
-          const label = blockTypeLabel(command);
-          return [command, label, details.description].some((item) =>
-            item.toLowerCase().includes(commandQuery),
-          );
-        });
+  const filteredCommands = filterStepContentCommands(isSlashCommand, commandQuery);
   const insert = (type: StepContentCommand, content?: string): void => {
     controller.insertStepContent(stepBlockId, type, index, content);
     setValue('');
@@ -145,39 +206,19 @@ function StepComposer({
           placeholder="Write inside this step, or type /"
           value={value}
           onChange={(event) => setValue(event.currentTarget.value)}
-          onKeyDown={(event) => {
-            if (event.key === 'Escape') {
-              event.preventDefault();
-              setValue('');
-              setActiveCommandIndexValue(0);
-              return;
-            }
-            if (isSlashCommand && (event.key === 'ArrowDown' || event.key === 'ArrowUp')) {
-              event.preventDefault();
-              if (filteredCommands.length === 0) return;
-              const currentIndex = activeCommandIndexRef.current;
-              const direction = event.key === 'ArrowDown' ? 1 : -1;
-              setActiveCommandIndexValue(
-                (currentIndex + direction + filteredCommands.length) % filteredCommands.length,
-              );
-              return;
-            }
-            const currentValue = event.currentTarget.value.trim();
-            if (event.key !== 'Enter' || currentValue === '') return;
-            event.preventDefault();
-            if (!currentValue.startsWith('/')) {
-              insert('paragraph', currentValue);
-              return;
-            }
-            const currentCommand = stepCommandFromText(currentValue);
-            if (currentCommand) {
-              insert(currentCommand);
-              return;
-            }
-            const activeCommand =
-              filteredCommands[activeCommandIndexRef.current] ?? filteredCommands[0];
-            if (activeCommand) insert(activeCommand);
-          }}
+          onKeyDown={(event) =>
+            handleStepComposerKeyDown(event, {
+              activeCommandIndexRef,
+              clearComposer: () => {
+                setValue('');
+                setActiveCommandIndexValue(0);
+              },
+              commands: filteredCommands,
+              insert,
+              isSlashCommand,
+              setActiveCommandIndex: setActiveCommandIndexValue,
+            })
+          }
         />
         <div className="step-quick-insert" aria-label="Add content to this step">
           {STEP_CONTENT_COMMANDS.map((command) => (
@@ -281,10 +322,66 @@ function StepComposer({
     </div>
   );
 }
+
+function filterStepContentCommands(
+  isSlashCommand: boolean,
+  commandQuery: string,
+): readonly StepContentCommand[] {
+  if (!isSlashCommand || commandQuery.length === 0) return STEP_CONTENT_COMMANDS;
+  return STEP_CONTENT_COMMANDS.filter((command) => stepCommandMatchesQuery(command, commandQuery));
+}
+
+function handleStepComposerKeyDown(
+  event: KeyboardEvent<HTMLInputElement>,
+  {
+    activeCommandIndexRef,
+    clearComposer,
+    commands,
+    insert,
+    isSlashCommand,
+    setActiveCommandIndex,
+  }: {
+    activeCommandIndexRef: { current: number };
+    clearComposer: () => void;
+    commands: readonly StepContentCommand[];
+    insert: (type: StepContentCommand, content?: string) => void;
+    isSlashCommand: boolean;
+    setActiveCommandIndex: (index: number) => void;
+  },
+): void {
+  if (event.key === 'Escape') {
+    event.preventDefault();
+    clearComposer();
+    return;
+  }
+
+  const navigationDirection = COMMAND_NAVIGATION_DIRECTIONS[event.key];
+  if (isSlashCommand && navigationDirection !== undefined) {
+    event.preventDefault();
+    if (commands.length === 0) return;
+    setActiveCommandIndex(
+      (activeCommandIndexRef.current + navigationDirection + commands.length) % commands.length,
+    );
+    return;
+  }
+
+  const currentValue = event.currentTarget.value.trim();
+  if (event.key !== 'Enter' || currentValue === '') return;
+  event.preventDefault();
+
+  if (!currentValue.startsWith('/')) {
+    insert('paragraph', currentValue);
+    return;
+  }
+
+  const command =
+    stepCommandFromText(currentValue) ?? commands[activeCommandIndexRef.current] ?? commands[0];
+  if (command) insert(command);
+}
+
 function stepCommandFromText(value: string): StepContentCommand | null {
   const normalized = value.replace(/^\//, '').trim().toLowerCase();
-  if (normalized === 'text') return 'paragraph';
-  return STEP_CONTENT_COMMANDS.find((command) => command === normalized) ?? null;
+  return STEP_COMMAND_ALIASES[normalized] ?? stepContentCommandValue(normalized);
 }
 
 function stepCommandFromQuery(value: string): StepContentCommand | null {
@@ -292,24 +389,41 @@ function stepCommandFromQuery(value: string): StepContentCommand | null {
   if (!normalized) return null;
   const exactCommand = stepCommandFromText(value);
   if (exactCommand) return exactCommand;
-  if ('text'.startsWith(normalized)) return 'paragraph';
-  return (
-    STEP_CONTENT_COMMANDS.find((command) => {
-      const details = COMMAND_DETAILS[command];
-      const label = blockTypeLabel(command);
-      return [command, label, details.description].some((item) =>
-        item.toLowerCase().includes(normalized),
-      );
-    }) ?? null
+  const aliasCommand = stepAliasCommandFromQuery(normalized);
+  if (aliasCommand) return aliasCommand;
+  return STEP_CONTENT_COMMANDS.find((command) => stepCommandMatchesQuery(command, normalized)) ?? null;
+}
+
+function stepContentCommandValue(value: string): StepContentCommand | null {
+  return STEP_CONTENT_COMMAND_SET.has(value) ? (value as StepContentCommand) : null;
+}
+
+function stepAliasCommandFromQuery(query: string): StepContentCommand | null {
+  const match = Object.entries(STEP_COMMAND_ALIASES).find(([alias]) => alias.startsWith(query));
+  return match?.[1] ?? null;
+}
+
+function stepCommandMatchesQuery(command: StepContentCommand, query: string): boolean {
+  const details = COMMAND_DETAILS[command];
+  const label = blockTypeLabel(command);
+  return [command, label, details.description].some((item) =>
+    item.toLowerCase().includes(query),
   );
 }
 
 function stepQuickInsertLabel(command: StepContentCommand): string {
-  if (command === 'heading') return 'Title';
-  if (command === 'paragraph') return 'Text';
-  if (command === 'button') return 'Button';
-  return 'Media';
+  return STEP_QUICK_INSERT_LABELS[command];
 }
+
+const STEP_QUICK_INSERT_LABELS = {
+  heading: 'Title',
+  paragraph: 'Text',
+  list: 'List',
+  divider: 'Divider',
+  button: 'Button',
+  link: 'Link',
+  media: 'Media',
+} as const satisfies Record<StepContentCommand, string>;
 
 function StepChildBlock({
   block,
@@ -445,11 +559,8 @@ function StepChildInlineActions({
 }
 
 function stepContentActionLabel(type: LodariqBlock['type']): string {
-  if (type === 'heading') return 'title';
-  if (type === 'paragraph') return 'text';
-  if (type === 'button') return 'button';
-  if (type === 'media') return 'media';
-  return 'content';
+  const editableType = editableBlockTypeValue(type);
+  return editableType ? STEP_CONTENT_ACTION_LABELS[editableType] : 'content';
 }
 
 function StepChildActionMenu({
@@ -467,7 +578,7 @@ function StepChildActionMenu({
     setOpen(false);
     action();
   };
-  const transformTypes = ['heading', 'paragraph', 'button', 'media'] as const;
+  const transformTypes = EDITABLE_BLOCK_TYPES;
   return (
     <AuthoringPopover
       align="end"
@@ -553,84 +664,73 @@ function StepChildActionMenu({
   );
 }
 
-function ContentField({
-  block,
-  controller,
-  stepBlockId,
-  totalStepContent,
-}: {
-  block: LodariqBlock;
-  controller: LocalAuthoringFrameController;
-  stepBlockId?: string;
-  totalStepContent?: number;
-}) {
+function ContentField(props: ContentFieldProps) {
+  const { block } = props;
   const value = block.content ?? '';
-  const label =
-    block.type === 'heading'
-      ? 'Heading'
-      : block.type === 'button'
-        ? 'Button label'
-        : block.type === 'media'
-          ? 'Media placeholder'
-          : 'Body text';
+  const fieldConfig = fieldConfigForBlockType(block.type);
+  const label = fieldConfig.fieldLabel;
+  const renderer = CONTENT_FIELD_RENDERERS[block.type] ?? renderTextField;
+  return <>{renderer({ ...props, fieldConfig, label, value })}</>;
+}
 
-  if (block.type === 'media') {
-    return (
-      <label className="content-field media-field">
-        <span className="field-label">{label}</span>
-        <span className="media-placeholder-icon" aria-hidden="true">
-          <Image size={18} strokeWidth={2.1} />
-        </span>
-        <input
-          key={`${block.id}:${value}`}
-          className="block-input block-input-media"
-          data-action="edit-content"
-          data-block-id={block.id}
-          aria-label={label}
-          placeholder="Media placeholder"
-          defaultValue={value}
-          onKeyDown={(event) =>
-            handleStepContentFieldKeyDown(event, {
-              blockId: block.id,
-              controller,
-              stepBlockId,
-              totalStepContent,
-            })
-          }
-        />
-        <span className="media-placeholder-state">Add media later</span>
-      </label>
-    );
-  }
+function renderDividerField({ label }: ContentFieldContext): ReactNode {
+  return (
+    <div className="content-field divider-field" aria-label={label}>
+      <span className="field-label">{label}</span>
+      <div className="divider-preview" aria-hidden="true" />
+    </div>
+  );
+}
 
-  if (block.type === 'button') {
-    return (
-      <div className={`button-field-shell ${block.props.action?.type ? 'ready' : 'incomplete'}`}>
-        <label className="content-field button-label-field">
-          <span className="field-label">{label}</span>
-          <input
-            key={`${block.id}:${value}`}
-            className="block-input block-input-button"
-            data-action="edit-content"
-            data-block-id={block.id}
-            aria-label={label}
-            placeholder="Button label"
-            defaultValue={value}
-            onKeyDown={(event) =>
-              handleStepContentFieldKeyDown(event, {
-                blockId: block.id,
-                controller,
-                stepBlockId,
-                totalStepContent,
-              })
-            }
-          />
-        </label>
-        <ButtonActionControl block={block} controller={controller} />
-      </div>
-    );
-  }
+function renderMediaField(context: ContentFieldContext): ReactNode {
+  const { fieldConfig, label, value, block } = context;
+  return (
+    <label className="content-field media-field">
+      <span className="field-label">{label}</span>
+      <span className="media-placeholder-icon" aria-hidden="true">
+        <Image size={18} strokeWidth={2.1} />
+      </span>
+      <input
+        key={`${block.id}:${value}`}
+        className="block-input block-input-media"
+        data-action="edit-content"
+        data-block-id={block.id}
+        aria-label={label}
+        placeholder={fieldConfig.placeholder}
+        defaultValue={value}
+        onKeyDown={contentFieldKeyDownHandler(context)}
+      />
+      <span className="media-placeholder-state">Add media later</span>
+    </label>
+  );
+}
 
+function renderButtonField(context: ContentFieldContext): ReactNode {
+  const { block, controller } = context;
+  return (
+    <div className={`button-field-shell ${fieldStateClass(Boolean(block.props.action?.type))}`}>
+      {renderSingleLineField(context, 'button-label-field', 'block-input-button')}
+      <ButtonActionControl block={block} controller={controller} />
+    </div>
+  );
+}
+
+function renderLinkField(context: ContentFieldContext): ReactNode {
+  const { block, controller } = context;
+  return (
+    <div
+      className={`button-field-shell link-field-shell ${fieldStateClass(
+        Boolean(block.props.action?.url),
+      )}`}
+    >
+      {renderSingleLineField(context, 'button-label-field', 'block-input-link')}
+      <ActionUrlField block={block} controller={controller} />
+    </div>
+  );
+}
+
+function renderTextField(context: ContentFieldContext): ReactNode {
+  const { block, fieldConfig, label, value } = context;
   return (
     <label className={`content-field content-field-${block.type}`}>
       <span className="field-label">{label}</span>
@@ -640,31 +740,69 @@ function ContentField({
         data-action="edit-content"
         data-block-id={block.id}
         aria-label={label}
-        placeholder={block.type === 'heading' ? 'Untitled heading' : 'Write supporting copy'}
+        placeholder={fieldConfig.placeholder}
         defaultValue={value}
-        onKeyDown={(event) =>
-          handleStepContentFieldKeyDown(event, {
-            blockId: block.id,
-            controller,
-            stepBlockId,
-            totalStepContent,
-          })
-        }
+        onKeyDown={contentFieldKeyDownHandler(context)}
         rows={1}
       />
     </label>
   );
 }
 
+function renderSingleLineField(
+  context: ContentFieldContext,
+  fieldClassName: string,
+  inputClassName: string,
+): ReactNode {
+  const { block, fieldConfig, label, value } = context;
+  return (
+    <label className={`content-field ${fieldClassName}`}>
+      <span className="field-label">{label}</span>
+      <input
+        key={`${block.id}:${value}`}
+        className={`block-input ${inputClassName}`}
+        data-action="edit-content"
+        data-block-id={block.id}
+        aria-label={label}
+        placeholder={fieldConfig.placeholder}
+        defaultValue={value}
+        onKeyDown={contentFieldKeyDownHandler(context)}
+      />
+    </label>
+  );
+}
+
+function contentFieldKeyDownHandler({
+  block,
+  controller,
+  stepBlockId,
+  totalStepContent,
+}: ContentFieldContext): (event: KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>) => void {
+  return (event) =>
+    handleStepContentFieldKeyDown(event, {
+      blockId: block.id,
+      blockType: block.type,
+      controller,
+      stepBlockId,
+      totalStepContent,
+    });
+}
+
+function fieldStateClass(ready: boolean): 'ready' | 'incomplete' {
+  return ready ? 'ready' : 'incomplete';
+}
+
 function handleStepContentFieldKeyDown(
   event: KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>,
   {
     blockId,
+    blockType,
     controller,
     stepBlockId,
     totalStepContent,
   }: {
     blockId: string;
+    blockType: LodariqBlock['type'];
     controller: LocalAuthoringFrameController;
     stepBlockId?: string;
     totalStepContent?: number;
@@ -712,6 +850,7 @@ function handleStepContentFieldKeyDown(
       controller.applyStepContentCommand(stepBlockId, blockId, inlineCommand);
       return;
     }
+    if (usesNativeEnterForNewLine(blockType)) return;
     event.preventDefault();
     const isTextLine = event.currentTarget instanceof HTMLTextAreaElement;
     const currentLineValue = isTextLine ? rawValue.slice(0, selectionStart) : rawValue;
@@ -737,6 +876,10 @@ function handleStepContentFieldKeyDown(
   controller.deleteEmptyStepContentBlock(stepBlockId, blockId);
 }
 
+function usesNativeEnterForNewLine(blockType: LodariqBlock['type']): boolean {
+  return NATIVE_ENTER_BLOCK_TYPES.has(blockType);
+}
+
 function ButtonActionControl({
   block,
   controller,
@@ -747,7 +890,7 @@ function ButtonActionControl({
   const action = block.props.action?.type ?? '';
   const ready = action !== '';
   return (
-    <div className={`cta-panel ${ready ? 'ready' : 'incomplete'}`.trim()}>
+    <div className={`cta-panel ${fieldStateClass(ready)}`.trim()}>
       <span className="cta-panel-icon" aria-hidden="true">
         <MousePointer2 size={14} strokeWidth={2.2} />
       </span>
@@ -756,21 +899,77 @@ function ButtonActionControl({
         ariaLabel="After click"
         dataAction="set-action"
         dataBlockId={block.id}
-        onValueChange={(value) => {
-          if (value === '' || value === 'next' || value === 'clickTarget' || value === 'dismiss') {
-            controller.setButtonAction(block.id, value);
-          }
-        }}
-        options={[
-          { value: '', label: 'Choose next action' },
-          { value: 'next', label: 'Go to next step' },
-          { value: 'clickTarget', label: 'Wait for placement' },
-          { value: 'dismiss', label: 'Close experience' },
-        ]}
+        onValueChange={(value) => handleButtonActionChange(value, block, controller)}
+        options={EDITABLE_ACTION_OPTIONS}
         value={action}
       />
+      {showsActionUrlField(action) ? <ActionUrlField block={block} controller={controller} /> : null}
     </div>
   );
+}
+
+function handleButtonActionChange(
+  value: string,
+  block: LodariqBlock,
+  controller: LocalAuthoringFrameController,
+): void {
+  const actionType = editableActionValue(value);
+  if (actionType === null) return;
+  controller.setButtonAction(block.id, actionType);
+}
+
+function fieldConfigForBlockType(type: LodariqBlock['type']): FieldConfig {
+  const editableType = editableBlockTypeValue(type);
+  return editableType ? EDITABLE_BLOCK_FIELD_CONFIG[editableType] : FALLBACK_FIELD_CONFIG;
+}
+
+const FALLBACK_FIELD_CONFIG = {
+  fieldLabel: 'Body text',
+  placeholder: 'Write supporting copy',
+} as const satisfies { fieldLabel: string; placeholder: string };
+
+function ActionUrlField({
+  block,
+  controller,
+}: {
+  block: LodariqBlock;
+  controller: LocalAuthoringFrameController;
+}) {
+  const value = actionUrlValue(block);
+  return (
+    <label className="content-field action-url-field">
+      <span className="field-label">Page URL</span>
+      <input
+        key={`${block.id}:url:${value}`}
+        className="block-input block-input-url"
+        data-action="edit-action-url"
+        data-block-id={block.id}
+        aria-label="Page URL"
+        placeholder="/settings"
+        defaultValue={value}
+        onKeyDown={(event) => handleActionUrlKeyDown(event, block, controller)}
+      />
+    </label>
+  );
+}
+
+function actionUrlValue(block: LodariqBlock): string {
+  if (block.props.action?.type !== 'openPage') return '';
+  return block.props.action.url ?? '';
+}
+
+function showsActionUrlField(action: string): boolean {
+  return action === 'openPage';
+}
+
+function handleActionUrlKeyDown(
+  event: KeyboardEvent<HTMLInputElement>,
+  block: LodariqBlock,
+  controller: LocalAuthoringFrameController,
+): void {
+  if (event.key !== 'Enter') return;
+  event.preventDefault();
+  controller.setActionUrl(block.id, event.currentTarget.value);
 }
 
 export function TransformControl({
@@ -786,21 +985,22 @@ export function TransformControl({
       ariaLabel="Change content format"
       dataAction="transform-block"
       dataBlockId={block.id}
-      onValueChange={(value) => {
-        if (
-          value === 'paragraph' ||
-          value === 'heading' ||
-          value === 'button' ||
-          value === 'media'
-        ) {
-          controller.transformEditableBlock(block.id, value);
-        }
-      }}
-      options={(['paragraph', 'heading', 'button', 'media'] as const).map((type) => ({
+      onValueChange={(value) => handleTransformChange(value, block, controller)}
+      options={EDITABLE_BLOCK_TYPES.map((type) => ({
         value: type,
         label: blockTypeLabel(type),
       }))}
       value={block.type}
     />
   );
+}
+
+function handleTransformChange(
+  value: string,
+  block: LodariqBlock,
+  controller: LocalAuthoringFrameController,
+): void {
+  const blockType = editableBlockTypeValue(value);
+  if (!blockType) return;
+  controller.transformEditableBlock(block.id, blockType);
 }

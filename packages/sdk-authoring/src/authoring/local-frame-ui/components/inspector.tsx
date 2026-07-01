@@ -1,8 +1,7 @@
-import type { LodariqBlock } from '@lodariq/schema';
+import { validateTourPublishReadiness, type PublishReadinessIssue } from '@lodariq/schema';
 import type { LocalAuthoringFrameController } from '../controller';
 import { AuthoringButton, AuthoringTabs, Eye, FileJson, Save } from '../design-system';
 import type { LocalAuthoringFrameSnapshot } from '../types';
-import { blockDisplayTitle, blockKicker, targetIdOf } from '../utils';
 
 export function Inspector({
   controller,
@@ -11,15 +10,13 @@ export function Inspector({
   controller: LocalAuthoringFrameController;
   snapshot: LocalAuthoringFrameSnapshot;
 }) {
-  const issues = documentIssues(snapshot.documentState.blocks);
+  const issues = validateTourPublishReadiness(snapshot.documentState, {
+    targetDiagnostics: snapshot.targetDiagnostics,
+  });
   const previewReady = snapshot.compiledText !== '';
-  const reviewTitle = issues.length === 0 ? 'Ready to publish' : `${issues.length} to finish`;
-  const reviewDetail =
-    issues.length === 0
-      ? previewReady
-        ? 'Preview is ready'
-        : 'Preview before publishing'
-      : 'Complete these items first';
+  const reviewTitle = reviewTitleForIssueCount(issues.length);
+  const reviewDetail = reviewDetailForState(issues.length, previewReady);
+  const reviewStatus = reviewStatusForIssueCount(issues.length);
   return (
     <aside className="inspector document-review" aria-label="Review and preview">
       <details className="review-drawer">
@@ -28,8 +25,8 @@ export function Inspector({
             <strong>{reviewTitle}</strong>
             <span>{reviewDetail}</span>
           </div>
-          <span className={`review-status ${issues.length === 0 ? 'ready' : 'needs-work'}`}>
-            {issues.length === 0 ? 'Ready' : 'Needs review'}
+          <span className={`review-status ${reviewStatus.className}`}>
+            {reviewStatus.label}
           </span>
         </summary>
 
@@ -80,7 +77,7 @@ export function Inspector({
               </div>
               <ul>
                 {issues.slice(0, 5).map((issue) => (
-                  <li key={issue}>{issue}</li>
+                  <li key={issueKey(issue)}>{issue.message}</li>
                 ))}
               </ul>
             </section>
@@ -184,21 +181,22 @@ export function Inspector({
   );
 }
 
-function documentIssues(blocks: LodariqBlock[]): string[] {
-  return blocks.flatMap((block) => blockIssues(block));
+function reviewTitleForIssueCount(issueCount: number): string {
+  if (issueCount === 0) return 'Ready to publish';
+  return `${issueCount} to finish`;
 }
 
-function blockIssues(block: LodariqBlock): string[] {
-  const issues: string[] = [];
-  if (block.type === 'tourStep' && !targetIdOf(block)) {
-    issues.push(`${blockKicker(block)}: choose where this step appears.`);
-  }
-  if (block.type === 'button' && !block.props.action) {
-    const label = block.content?.trim() || 'CTA';
-    issues.push(`Button "${label}": choose what happens after click.`);
-  }
-  if (block.type === 'media') {
-    issues.push(`${blockDisplayTitle(block)}: add media or remove the placeholder.`);
-  }
-  return [...issues, ...block.children.flatMap((child) => blockIssues(child))];
+function reviewDetailForState(issueCount: number, previewReady: boolean): string {
+  if (issueCount > 0) return 'Complete these items first';
+  if (previewReady) return 'Preview is ready';
+  return 'Preview before publishing';
+}
+
+function reviewStatusForIssueCount(issueCount: number): { className: string; label: string } {
+  if (issueCount === 0) return { className: 'ready', label: 'Ready' };
+  return { className: 'needs-work', label: 'Needs review' };
+}
+
+function issueKey(issue: PublishReadinessIssue): string {
+  return [issue.code, issue.blockId, issue.targetId, issue.message].filter(Boolean).join(':');
 }

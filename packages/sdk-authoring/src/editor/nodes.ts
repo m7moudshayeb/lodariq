@@ -16,7 +16,10 @@ import {
 export const LODARIQ_MVP_BLOCK_TYPES = [
   'paragraph',
   'heading',
+  'list',
+  'divider',
   'media',
+  'link',
   'tourStep',
   'tooltip',
   'button',
