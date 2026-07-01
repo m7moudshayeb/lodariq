@@ -277,7 +277,7 @@ describe('control-plane repository', () => {
       workspaceId: 'wk_a',
       kind: 'development',
       name: 'Development',
-      originAllowlist: ['http://localhost:5173'],
+      originAllowlist: ['http://localhost:5175'],
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };

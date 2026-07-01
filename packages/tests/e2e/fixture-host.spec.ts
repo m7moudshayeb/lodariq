@@ -42,7 +42,7 @@ test('simple five-step tour completes under the Phase 1 time budget', async ({ p
   expect(Date.now() - startedAt).toBeLessThan(5 * 60 * 1000);
 });
 
-test('creator authors an editable tour step, attaches a target, and replays it', async ({
+test('creator authors an editable tour step, chooses placement, and replays it', async ({
   page,
 }) => {
   await page.goto('/');
@@ -50,15 +50,20 @@ test('creator authors an editable tour step, attaches a target, and replays it',
   await page.getByRole('button', { name: 'Open Lodariq authoring' }).click();
   const frame = page.frameLocator('iframe[title="Lodariq authoring"]');
 
+  await frame.getByLabel('Experience title').fill('Customer onboarding tour');
+  await frame.getByLabel('Experience title').blur();
+  await expect(frame.locator('#status')).toContainText('Title updated');
+  await expect(await documentJson(frame)).toHaveValue(/Customer onboarding tour/);
+
   await expect(frame.locator('.block')).toHaveCount(1);
   const initialBlockCount = await frame.locator('.block').count();
-  await frame.getByLabel('Block composer', { exact: true }).fill('/step');
-  await frame.getByLabel('Block composer', { exact: true }).press('Enter');
+  await frame.getByLabel('Experience composer', { exact: true }).fill('/step');
+  await frame.getByLabel('Experience composer', { exact: true }).press('Enter');
   await expect(frame.locator('.block')).toHaveCount(initialBlockCount + 1);
   const stepBlock = frame.locator('.block').last();
   await expect(stepBlock).toBeVisible();
 
-  const heading = stepBlock.getByLabel('Heading');
+  const heading = headingField(stepBlock);
   const body = stepBlock.getByLabel('Body text');
   const button = stepBlock.getByLabel('Button label');
   await expect(heading).toHaveValue('Untitled step');
@@ -69,16 +74,16 @@ test('creator authors an editable tour step, attaches a target, and replays it',
   await button.fill('Finish');
   await button.blur();
 
-  await stepBlock.getByRole('button', { name: /select target/i }).click();
+  await stepBlock.getByRole('button', { name: /choose placement/i }).click();
   await page.getByRole('button', { name: 'New project' }).click();
 
   await expect(stepBlock.locator('.target-chip')).toContainText('New project');
   await openTargetActions(stepBlock, 'New project');
-  await stepBlock.getByRole('button', { name: 'Target health' }).click();
-  await expect(stepBlock.locator('.target-chip')).toContainText('Healthy');
-  await expect(frame.locator('#status')).toContainText('Found by');
+  await stepBlock.getByRole('button', { name: 'Check placement' }).click();
+  await expect(stepBlock.locator('.target-chip')).toContainText('Ready');
+  await expect(frame.locator('#status')).toContainText('Placement is ready.');
   await openTargetActions(stepBlock, 'New project');
-  await stepBlock.getByRole('button', { name: 'View target' }).click();
+  await stepBlock.getByRole('button', { name: 'Show placement on page' }).click();
   await expect(page.locator('[data-lodariq-bridge="target-reveal"]')).toHaveCount(1);
   await expect(page.getByRole('dialog', { name: 'Lodariq tour' })).toContainText(
     'Invite teammates',
@@ -86,12 +91,12 @@ test('creator authors an editable tour step, attaches a target, and replays it',
   await expect(page.getByRole('button', { name: 'Finish' })).toBeVisible();
 
   await compilePreview(frame);
-  await expect(frame.getByLabel('Compiled preview')).toContainText('doc_tour_welcome');
-  await expect(frame.getByLabel('Compiled preview')).toContainText('Invite teammates');
-  await expect(frame.getByLabel('Compiled preview')).toContainText('Finish');
-  await openUtilityTab(frame, 'Metrics');
-  await expect(frame.getByLabel('Local metrics')).toContainText('"timeToAttachFirstTargetMs"');
-  await expect(frame.getByLabel('Local metrics')).toContainText('"previewOpenRate": 1');
+  await expect(previewRecord(frame)).toContainText('doc_tour_welcome');
+  await expect(previewRecord(frame)).toContainText('Invite teammates');
+  await expect(previewRecord(frame)).toContainText('Finish');
+  await openUtilityTab(frame, 'Activity report');
+  await expect(activityLog(frame)).toContainText('"timeToAttachFirstTargetMs"');
+  await expect(activityLog(frame)).toContainText('"previewOpenRate": 1');
 
   await page.reload();
   await page.waitForFunction(() => Boolean((window as { Lodariq?: unknown }).Lodariq));
@@ -110,37 +115,37 @@ test('creator can add an editable tour step from the primary action', async ({ p
   await expect(frame.locator('.block')).toHaveCount(1);
   const initialBlockCount = await frame.locator('.block').count();
 
-  await frame.getByRole('button', { name: 'Add step' }).click();
+  await frame.getByRole('button', { name: 'New step' }).click();
 
   await expect(frame.locator('.block')).toHaveCount(initialBlockCount + 1);
   const stepBlock = frame.locator('.block').last();
-  await expect(stepBlock.getByLabel('Heading')).toHaveValue('Untitled step');
-  await expect(stepBlock.getByLabel('Heading')).toBeFocused();
+  await expect(headingField(stepBlock)).toHaveValue('Untitled step');
+  await expect(headingField(stepBlock)).toBeFocused();
   await expect(stepBlock.getByLabel('Body text')).toHaveValue('Write supporting copy');
   await expect(stepBlock.getByLabel('Button label')).toHaveValue('Continue');
-  await expect(stepBlock.getByLabel('Button action')).toHaveValue('next');
-  await expect(stepBlock.getByRole('button', { name: /select target/i })).toBeVisible();
+  await expect(buttonActionSelect(stepBlock)).toHaveValue('next');
+  await expect(stepBlock.getByRole('button', { name: /choose placement/i })).toBeVisible();
 });
 
-test('dragging blocks updates canonical order and compiled preview order', async ({ page }) => {
+test('dragging steps updates the editor order and preview record', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: 'Open Lodariq authoring' }).click();
   const frame = page.frameLocator('iframe[title="Lodariq authoring"]');
   const blocks = frame.locator('.block');
 
-  await frame.getByRole('button', { name: 'Add step' }).click();
-  await blocks.nth(1).getByLabel('Heading').fill('Middle drag step');
-  await blocks.nth(1).getByLabel('Heading').blur();
+  await frame.getByRole('button', { name: 'New step' }).click();
+  await headingField(blocks.nth(1)).fill('Middle drag step');
+  await headingField(blocks.nth(1)).blur();
 
-  await frame.getByRole('button', { name: 'Add step' }).click();
-  await blocks.nth(2).getByLabel('Heading').fill('First after drag');
-  await blocks.nth(2).getByLabel('Heading').blur();
+  await frame.getByRole('button', { name: 'New step' }).click();
+  await headingField(blocks.nth(2)).fill('First after drag');
+  await headingField(blocks.nth(2)).blur();
 
   const draggedBlockId = await blocks.nth(2).getAttribute('data-block-id');
   await expect(blocks).toHaveCount(3);
   await dispatchBlockDrag(frame, 2, 0);
 
-  await expect(blocks.first().getByLabel('Heading')).toHaveValue('First after drag');
+  await expect(headingField(blocks.first())).toHaveValue('First after drag');
   const textarea = await documentJson(frame);
   const documentAfterDrag = JSON.parse(await textarea.inputValue()) as {
     blocks: Array<{ id: string; children?: Array<{ content?: string }> }>;
@@ -148,7 +153,7 @@ test('dragging blocks updates canonical order and compiled preview order', async
   expect(documentAfterDrag.blocks[0]?.id).toBe(draggedBlockId);
 
   await compilePreview(frame);
-  const compiledPreview = (await frame.getByLabel('Compiled preview').textContent()) ?? '';
+  const compiledPreview = (await previewRecord(frame).textContent()) ?? '';
   expect(compiledPreview.indexOf('First after drag')).toBeLessThan(
     compiledPreview.indexOf('Create your first project'),
   );
@@ -162,33 +167,41 @@ test('creator can insert nested step content inline', async ({ page }) => {
   await page.getByRole('button', { name: 'Open Lodariq authoring' }).click();
   const frame = page.frameLocator('iframe[title="Lodariq authoring"]');
 
-  await frame.getByRole('button', { name: 'Add step' }).click();
+  await frame.getByRole('button', { name: 'New step' }).click();
   const stepBlock = frame.locator('.block').last();
 
+  await stepBlock.hover();
   await stepBlock.getByLabel('Insert content at start of step').click();
-  await stepBlock.getByRole('menuitem', { name: /Paragraph/ }).click();
+  await visibleInlineMenu(frame).getByRole('menuitem', { name: /Text/ }).click();
   await expect(stepBlock.getByLabel('Body text')).toHaveCount(2);
 
+  await stepBlock.hover();
   await stepBlock.getByLabel('Insert content at end of step').click();
-  await stepBlock.getByRole('menuitem', { name: /Media/ }).click();
+  await visibleInlineMenu(frame).getByRole('menuitem', { name: /Media/ }).click();
   await expect(stepBlock.getByLabel('Media placeholder')).toHaveValue('Media placeholder');
-  await expect(stepBlock).toContainText('Placeholder only');
+  await expect(stepBlock).toContainText('Add media later');
+
+  await stepBlock.getByLabel('Step composer').fill('A composer-added note');
+  await stepBlock.getByLabel('Step composer').press('Enter');
+  await expect(stepBlock.getByLabel('Body text')).toHaveCount(3);
+  await expect(stepBlock.getByLabel('Body text').last()).toHaveValue('A composer-added note');
 
   await compilePreview(frame);
-  await expect(frame.getByLabel('Compiled preview')).toContainText('"type": "media"');
+  await expect(previewRecord(frame)).toContainText('"type": "media"');
+  await expect(previewRecord(frame)).toContainText('A composer-added note');
 });
 
-test('creator can cancel target picking with Escape from the authoring iframe', async ({
+test('creator can cancel placement picking with Escape from the authoring iframe', async ({
   page,
 }) => {
   await page.goto('/');
   await page.getByRole('button', { name: 'Open Lodariq authoring' }).click();
   const frame = page.frameLocator('iframe[title="Lodariq authoring"]');
-  const targetButton = frame.getByRole('button', { name: /select target|change target/i }).first();
-  await expect(targetButton).toBeVisible();
+  const stepBlock = frame.locator('.block').first();
+  await expect(stepBlock.locator('.target-chip')).toContainText('New project');
   const initialChipCount = await frame.locator('.target-chip').count();
 
-  await targetButton.click();
+  await startTargetPick(frame, stepBlock);
   await expect(page.locator('[data-lodariq-bridge="target-outline"]')).toHaveCount(1);
   await expect(page.locator('[data-lodariq-bridge="target-veil"]')).toHaveCount(1);
 
@@ -196,20 +209,22 @@ test('creator can cancel target picking with Escape from the authoring iframe', 
   const hoverLabel = page.locator('[data-lodariq-bridge="target-label"]');
   await expect(hoverLabel).toContainText('Button');
   await expect(hoverLabel).toContainText('New project');
-  await expect(hoverLabel).toContainText('Click to attach');
+  await expect(hoverLabel).toContainText('Click to use this placement');
 
   await page.keyboard.press('Escape');
 
   await expect(page.locator('[data-lodariq-bridge="target-outline"]')).toHaveCount(0);
   await expect(page.locator('[data-lodariq-bridge="target-veil"]')).toHaveCount(0);
   await expect(page.locator('[data-lodariq-bridge="target-label"]')).toHaveCount(0);
-  await expect(frame.locator('#status')).toContainText('Target picker canceled');
+  await expect(frame.locator('#status')).toContainText('Placement selection canceled');
 
   await page.getByRole('button', { name: 'New project' }).click();
   await expect(frame.locator('.target-chip')).toHaveCount(initialChipCount);
+  await expect(stepBlock.locator('.target-chip')).toContainText('New project');
 });
 
 test('local authoring and tour playback pass accessibility smoke checks', async ({ page }) => {
+  await page.setViewportSize({ width: 1080, height: 1500 });
   await page.goto('/');
 
   const authoringTrigger = page.getByRole('button', { name: 'Open Lodariq authoring' });
@@ -228,20 +243,21 @@ test('local authoring and tour playback pass accessibility smoke checks', async 
       triggerRight: window.innerWidth - (triggerRect?.right ?? 0),
       panelTop: panelRect?.top ?? Number.NaN,
       panelBottom: window.innerHeight - (panelRect?.bottom ?? 0),
+      panelHeight: panelRect?.height ?? Number.NaN,
     };
   });
   expect(anchoredPanel.triggerTop).toBeLessThan(32);
   expect(anchoredPanel.triggerRight).toBeLessThan(32);
   expect(anchoredPanel.panelTop).toBeGreaterThan(72);
-  expect(anchoredPanel.panelBottom).toBeLessThanOrEqual(18);
+  expect(anchoredPanel.panelHeight).toBeLessThanOrEqual(842);
+  expect(anchoredPanel.panelBottom).toBeGreaterThan(560);
 
   const frame = page.frameLocator('iframe[title="Lodariq authoring"]');
-  const slashInput = frame.getByLabel('Block composer', { exact: true });
+  const slashInput = frame.getByLabel('Experience composer', { exact: true });
   await expect(slashInput).toBeVisible();
   await slashInput.focus();
   await expect(slashInput).toBeFocused();
-  await openUtilityTab(frame, 'JSON');
-  await expect(frame.getByRole('textbox', { name: 'Document JSON' })).toBeVisible();
+  await expect(await documentJson(frame)).toBeVisible();
   await expect(frame.getByRole('button', { name: 'Preview full tour' })).toBeVisible();
   const editorHasHorizontalOverflow = await frame.locator('body').evaluate(() => {
     const html = document.documentElement;
@@ -257,8 +273,8 @@ test('local authoring and tour playback pass accessibility smoke checks', async 
   const actionBarTopAfterScroll = await actionBar.evaluate(
     (element) => element.getBoundingClientRect().top,
   );
-  expect(actionBarTopAfterScroll).toBeGreaterThanOrEqual(44);
-  expect(actionBarTopAfterScroll).toBeLessThanOrEqual(88);
+  expect(actionBarTopAfterScroll).toBeGreaterThanOrEqual(8);
+  expect(actionBarTopAfterScroll).toBeLessThanOrEqual(32);
 
   await page.getByRole('button', { name: 'Start tour' }).click();
   const tourDialog = page.getByRole('dialog', { name: 'Lodariq tour' });
@@ -306,51 +322,55 @@ test('creator can save an incomplete button action without data loss', async ({ 
   await page.getByRole('button', { name: 'Open Lodariq authoring' }).click();
   let frame = page.frameLocator('iframe[title="Lodariq authoring"]');
 
-  await frame.getByLabel('Block composer', { exact: true }).fill('/button');
-  await frame.getByLabel('Block composer', { exact: true }).press('Enter');
+  const stepBlock = frame.locator('.block').first();
+  await stepBlock.getByLabel('Step composer').fill('/button');
+  await stepBlock.getByLabel('Step composer').press('Enter');
 
-  const buttonBlock = frame.locator('.block').last();
-  await expect(buttonBlock.locator('.badge')).toContainText('incomplete');
-  await expect(buttonBlock.getByLabel('Button action')).toHaveValue('');
-  await expect(buttonBlock).toContainText('Needs purpose');
+  await expect(stepBlock.locator('.step-child-button')).toHaveCount(2);
+  const buttonBlock = stepBlock.locator('.step-child-button').last();
+  await expect(buttonBlock.locator('.button-field-shell.incomplete')).toHaveCount(1);
+  await expect(buttonActionSelect(buttonBlock)).toHaveValue('');
+  await expect(buttonBlock).toContainText('Choose next action');
 
   await buttonBlock.getByLabel('Button label').fill('Learn more');
   await buttonBlock.getByLabel('Button label').blur();
-  await frame.getByRole('button', { name: 'Save', exact: true }).click();
+  await openReviewPanel(frame);
+  await frame.getByRole('button', { name: 'Save draft', exact: true }).click();
 
   await page.reload();
   await page.getByRole('button', { name: 'Open Lodariq authoring' }).click();
   frame = page.frameLocator('iframe[title="Lodariq authoring"]');
-  const reloadedButton = frame.locator('.block').last();
+  const reloadedStep = frame.locator('.block').first();
+  const reloadedButton = reloadedStep.locator('.step-child-button').last();
 
   await expect(reloadedButton.getByLabel('Button label')).toHaveValue('Learn more');
-  await expect(reloadedButton.getByLabel('Button action')).toHaveValue('');
-  await expect(reloadedButton.locator('.badge')).toContainText('incomplete');
+  await expect(buttonActionSelect(reloadedButton)).toHaveValue('');
+  await expect(reloadedButton.locator('.button-field-shell.incomplete')).toHaveCount(1);
 });
 
-test('creator can remove a target without losing step content', async ({ page }) => {
+test('creator can remove a placement without losing step content', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: 'Open Lodariq authoring' }).click();
   const frame = page.frameLocator('iframe[title="Lodariq authoring"]');
   const stepBlock = frame.locator('.block').first();
 
-  await expect(stepBlock.getByLabel('Heading')).toHaveValue('Create your first project');
-  await stepBlock.getByRole('button', { name: /select target|change target/i }).click();
+  await expect(headingField(stepBlock)).toHaveValue('Create your first project');
+  await startTargetPick(frame, stepBlock);
   await page.getByRole('button', { name: 'New project', exact: true }).click();
 
   await expect(stepBlock.locator('.target-chip')).toContainText('New project');
-  await expect(stepBlock.locator('.badge')).toContainText('ready');
 
   await openTargetActions(stepBlock, 'New project');
-  await stepBlock.getByRole('button', { name: 'Remove target' }).click();
+  await stepBlock.getByRole('button', { name: 'Remove placement' }).click();
 
   await expect(stepBlock.locator('.target-chip')).toHaveCount(0);
-  await expect(stepBlock.locator('.badge')).toContainText('incomplete');
-  await expect(stepBlock.getByLabel('Heading')).toHaveValue('Create your first project');
+  await expect(stepBlock.locator('.block-header .badge')).toHaveCount(0);
+  await expect(stepBlock.getByRole('button', { name: 'Choose placement' })).toBeVisible();
+  await expect(headingField(stepBlock)).toHaveValue('Create your first project');
   await expect(stepBlock.getByLabel('Body text')).toHaveValue(
     "Projects help organize your team's work.",
   );
-  await expect(frame.locator('#status')).toContainText('Removed target');
+  await expect(frame.locator('#status')).toContainText('Removed placement; choose a new one');
 
   await page.reload();
   await page.getByRole('button', { name: 'Open Lodariq authoring' }).click();
@@ -359,8 +379,9 @@ test('creator can remove a target without losing step content', async ({ page })
     .locator('.block')
     .first();
   await expect(reloadedStep.locator('.target-chip')).toHaveCount(0);
-  await expect(reloadedStep.locator('.badge')).toContainText('incomplete');
-  await expect(reloadedStep.getByLabel('Heading')).toHaveValue('Create your first project');
+  await expect(reloadedStep.locator('.block-header .badge')).toHaveCount(0);
+  await expect(reloadedStep.getByRole('button', { name: 'Choose placement' })).toBeVisible();
+  await expect(headingField(reloadedStep)).toHaveValue('Create your first project');
 });
 
 test('tour advances after a real product target click opens a modal', async ({ page }) => {
@@ -474,9 +495,9 @@ test('tour advances after a real product target click opens a modal', async ({ p
     },
     JSON.stringify(clickTargetDocument, null, 2),
   );
-  await frame.getByRole('button', { name: 'Import' }).click();
+  await frame.getByRole('button', { name: 'Restore backup' }).click();
   await compilePreview(frame);
-  await expect(frame.getByLabel('Compiled preview')).toContainText('clickTarget');
+  await expect(previewRecord(frame)).toContainText('clickTarget');
 
   await page.getByRole('button', { name: 'Close Lodariq authoring' }).click();
   await page.evaluate(() =>
@@ -597,10 +618,10 @@ test('tour resumes the next step after a real product click navigates the page',
     },
     JSON.stringify(navigationDocument, null, 2),
   );
-  await frame.getByRole('button', { name: 'Import' }).click();
-  await frame.getByRole('button', { name: 'Save', exact: true }).click();
+  await frame.getByRole('button', { name: 'Restore backup' }).click();
+  await frame.getByRole('button', { name: 'Save draft', exact: true }).click();
   await compilePreview(frame);
-  await expect(frame.getByLabel('Compiled preview')).toContainText('clickTarget');
+  await expect(previewRecord(frame)).toContainText('clickTarget');
 
   await page.getByRole('button', { name: 'Close Lodariq authoring' }).click();
   await page.evaluate(() => {
@@ -713,9 +734,9 @@ test('runtime lifecycle opens a configured panel before resolving a target', asy
     },
     JSON.stringify(lifecycleDocument, null, 2),
   );
-  await frame.getByRole('button', { name: 'Import' }).click();
+  await frame.getByRole('button', { name: 'Restore backup' }).click();
   await compilePreview(frame);
-  await expect(frame.getByLabel('Compiled preview')).toContainText('openPanel');
+  await expect(previewRecord(frame)).toContainText('openPanel');
 
   await page.getByRole('button', { name: 'Close Lodariq authoring' }).click();
   await page.evaluate(() =>
@@ -750,14 +771,14 @@ test('creator exports, re-imports, recompiles, and replays a local fixture', asy
     JSON.stringify(doc, null, 2),
   );
   await expect(textarea).toHaveValue(/Imported replay heading/);
-  await frame.getByRole('button', { name: 'Import' }).click();
-  await frame.getByRole('button', { name: 'Export', exact: true }).click();
+  await frame.getByRole('button', { name: 'Restore backup' }).click();
+  await frame.getByRole('button', { name: 'Copy backup', exact: true }).click();
 
   const roundTripped = JSON.parse(await textarea.inputValue()) as typeof doc;
   expect(collectBlockIds(roundTripped.blocks)).toEqual(originalIds);
 
   await compilePreview(frame);
-  await expect(frame.getByLabel('Compiled preview')).toContainText('Imported replay heading');
+  await expect(previewRecord(frame)).toContainText('Imported replay heading');
 
   await page.evaluate(() =>
     (window as { Lodariq: { playTour: () => Promise<void> } }).Lodariq.playTour(),
@@ -768,7 +789,7 @@ test('creator exports, re-imports, recompiles, and replays a local fixture', asy
   );
 });
 
-test('creator attaches targets in route, drawer, modal, scroll, and lazy states', async ({
+test('creator chooses placements in route, drawer, modal, scroll, and lazy states', async ({
   page,
 }) => {
   await page.goto('/');
@@ -804,7 +825,9 @@ test('customer-like host installs the local SDK and opens SDK authoring', async 
   const loadedUrls: string[] = [];
   page.on('request', (request) => loadedUrls.push(request.url()));
 
-  await page.goto('http://127.0.0.1:4188/');
+  await page.goto(
+    `http://127.0.0.1:${process.env.LODARIQ_E2E_CUSTOMER_LIKE_HOST_PORT ?? '4188'}/`,
+  );
   await page.waitForFunction(() => Boolean((window as { Lodariq?: unknown }).Lodariq));
 
   expect(
@@ -815,16 +838,16 @@ test('customer-like host installs the local SDK and opens SDK authoring', async 
 
   await page.getByRole('button', { name: 'Open Lodariq authoring' }).click();
   const frame = page.frameLocator('iframe[title="Lodariq authoring"]');
-  await frame.getByLabel('Block composer', { exact: true }).fill('/step');
-  await frame.getByLabel('Block composer', { exact: true }).press('Enter');
+  await frame.getByLabel('Experience composer', { exact: true }).fill('/step');
+  await frame.getByLabel('Experience composer', { exact: true }).press('Enter');
   await attachTarget(page, frame, page.getByRole('button', { name: 'New project' }), [
     'New project',
   ]);
-  await openUtilityTab(frame, 'Metrics');
-  await expect(frame.getByLabel('Local metrics')).toContainText('"timeToAttachFirstTargetMs"');
-  await frame.getByRole('button', { name: 'Export metrics' }).click();
-  await expect(frame.getByLabel('Local metrics')).toContainText('"sessions"');
-  await expect(frame.getByLabel('Local metrics')).toContainText('"sessionId"');
+  await openUtilityTab(frame, 'Activity report');
+  await expect(activityLog(frame)).toContainText('"timeToAttachFirstTargetMs"');
+  await frame.getByRole('button', { name: 'Create activity report' }).click();
+  await expect(activityLog(frame)).toContainText('"sessions"');
+  await expect(activityLog(frame)).toContainText('"sessionId"');
 
   await page.evaluate(() =>
     (window as { Lodariq: { playTour: () => Promise<void> } }).Lodariq.playTour(),
@@ -945,13 +968,23 @@ async function dragFromPoint(
 
 async function openUtilityTab(
   frame: FrameLocator,
-  name: 'Preview' | 'JSON' | 'Metrics',
+  name: 'Preview package' | 'Restore backup' | 'Activity report',
 ): Promise<void> {
-  await openDeveloperTools(frame);
+  await openSupportDetails(frame);
   await frame.getByRole('tab', { name }).click();
 }
 
-async function openDeveloperTools(frame: FrameLocator): Promise<void> {
+async function openReviewPanel(frame: FrameLocator): Promise<void> {
+  const reviewDrawer = frame.locator('details.review-drawer');
+  const reviewOpen = await reviewDrawer.evaluate((element) => (element as HTMLDetailsElement).open);
+  if (!reviewOpen) {
+    await reviewDrawer.locator('summary').first().click();
+  }
+}
+
+async function openSupportDetails(frame: FrameLocator): Promise<void> {
+  await openReviewPanel(frame);
+
   const drawer = frame.locator('details.utilities-drawer');
   const isOpen = await drawer.evaluate((element) => (element as HTMLDetailsElement).open);
   if (!isOpen) {
@@ -960,17 +993,38 @@ async function openDeveloperTools(frame: FrameLocator): Promise<void> {
 }
 
 async function documentJson(frame: FrameLocator): Promise<Locator> {
-  await openUtilityTab(frame, 'JSON');
-  return frame.getByLabel('Document JSON', { exact: true });
+  await openUtilityTab(frame, 'Restore backup');
+  return frame.locator('textarea[data-action="edit-draft-backup"]');
 }
 
 async function compilePreview(frame: FrameLocator): Promise<void> {
+  await openReviewPanel(frame);
   await frame.getByRole('button', { name: 'Preview full tour' }).click();
-  await openUtilityTab(frame, 'Preview');
+  await openUtilityTab(frame, 'Preview package');
+}
+
+function headingField(block: Locator): Locator {
+  return block.getByRole('textbox', { name: 'Heading' });
+}
+
+function buttonActionSelect(block: Locator): Locator {
+  return block.locator('select[data-action="set-action"]');
+}
+
+function previewRecord(frame: FrameLocator): Locator {
+  return frame.locator('pre.compiled-output');
+}
+
+function activityLog(frame: FrameLocator): Locator {
+  return frame.locator('pre.metrics-output');
+}
+
+function visibleInlineMenu(frame: FrameLocator): Locator {
+  return frame.locator('.inline-command-menu:not([hidden])');
 }
 
 async function openTargetActions(block: Locator, targetLabel: string): Promise<void> {
-  await block.getByRole('button', { name: `Target ${targetLabel} actions` }).click();
+  await block.getByRole('button', { name: `Placement ${targetLabel} actions` }).click();
 }
 
 async function dispatchBlockDrag(
@@ -989,8 +1043,12 @@ async function dispatchBlockDrag(
         if (!(targetElement instanceof HTMLElement)) {
           throw new Error('Block drop target is not an element');
         }
+        const sourceHandle = sourceElement.querySelector('.block-grip');
+        if (!(sourceHandle instanceof HTMLElement)) {
+          throw new Error('Block drag handle missing');
+        }
         const dataTransfer = new DataTransfer();
-        sourceElement.dispatchEvent(
+        sourceHandle.dispatchEvent(
           new DragEvent('dragstart', { bubbles: true, cancelable: true, dataTransfer }),
         );
         targetElement.dispatchEvent(
@@ -1011,10 +1069,7 @@ async function attachTarget(
   target: Locator,
   expectedLabels: string[],
 ): Promise<void> {
-  await frame
-    .getByRole('button', { name: /select target|change target/i })
-    .first()
-    .click();
+  await startTargetPick(frame);
   const panel = page.locator('lodariq-authoring-panel');
   await panel.evaluate((element) => {
     (element as HTMLElement).style.visibility = 'hidden';
@@ -1031,6 +1086,18 @@ async function attachTarget(
     await expect(chips.last()).toContainText(label);
   }
   await expect(page.locator('[data-lodariq-bridge="target-outline"]')).toHaveCount(0);
+}
+
+async function startTargetPick(frame: FrameLocator, block?: Locator): Promise<void> {
+  const scope = block ?? frame.locator('.block').last();
+  const pickButton = scope.getByRole('button', { name: /choose placement/i }).first();
+  if ((await pickButton.count()) > 0) {
+    await pickButton.click();
+    return;
+  }
+
+  await scope.getByRole('button', { name: /^Placement .+ actions$/ }).first().click();
+  await scope.getByRole('button', { name: 'Change placement' }).click();
 }
 
 interface BlockIdNode {

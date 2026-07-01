@@ -111,8 +111,8 @@ function fromRadixSelectValue(value: string): string {
 }
 
 function selectTriggerLabel(dataAction: string): string {
-  if (dataAction === 'set-action') return 'Open action menu';
-  if (dataAction === 'transform-block') return 'Open block type menu';
+  if (dataAction === 'set-action') return 'Choose what happens after click';
+  if (dataAction === 'transform-block') return 'Change content format';
   return 'Open selection menu';
 }
 

@@ -16,7 +16,7 @@ async function loadFrame(): Promise<void> {
 }
 
 function documentJson(): HTMLTextAreaElement {
-  return document.querySelector<HTMLTextAreaElement>('textarea[aria-label="Document JSON"]')!;
+  return document.querySelector<HTMLTextAreaElement>('textarea[aria-label="Editable backup"]')!;
 }
 
 function importTwoBlocks(): void {
@@ -26,19 +26,59 @@ function importTwoBlocks(): void {
   doc.blocks = [
     {
       id: 'block_a',
-      type: 'paragraph',
-      content: 'Alpha',
-      props: {},
-      children: [],
-      status: 'ready',
+      type: 'tourStep',
+      props: { index: 0 },
+      status: 'incomplete',
+      children: [
+        {
+          id: 'tooltip_a',
+          type: 'tooltip',
+          props: { placement: 'bottom' },
+          status: 'incomplete',
+          children: [
+            {
+              id: 'block_a_heading',
+              type: 'heading',
+              content: 'Alpha',
+              props: { level: 2 },
+              children: [],
+              status: 'ready',
+            },
+            {
+              id: 'block_a_copy',
+              type: 'paragraph',
+              content: 'Alpha body',
+              props: {},
+              children: [],
+              status: 'ready',
+            },
+          ],
+        },
+      ],
     },
     {
       id: 'block_b',
-      type: 'heading',
-      content: 'Beta',
-      props: { level: 2 },
-      children: [],
-      status: 'ready',
+      type: 'tourStep',
+      props: { index: 1 },
+      status: 'incomplete',
+      children: [
+        {
+          id: 'tooltip_b',
+          type: 'tooltip',
+          props: { placement: 'bottom' },
+          status: 'incomplete',
+          children: [
+            {
+              id: 'block_b_heading',
+              type: 'heading',
+              content: 'Beta',
+              props: { level: 2 },
+              children: [],
+              status: 'ready',
+            },
+          ],
+        },
+      ],
     },
   ];
   textarea.value = JSON.stringify(doc);
@@ -74,34 +114,33 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     vi.restoreAllMocks();
   });
 
-  it('turns a slash command gesture into a rendered block', async () => {
+  it('keeps top-level slash commands limited to tour steps', async () => {
     await loadFrame();
 
-    const input = document.querySelector<HTMLInputElement>('input[aria-label="Block composer"]');
+    const input = document.querySelector<HTMLInputElement>('input[aria-label="Experience composer"]');
     const menu = document.querySelector<HTMLElement>('.menu');
-    const heading = document.querySelector<HTMLButtonElement>('[data-command="heading"]');
 
     expect(input).toBeTruthy();
     input!.value = '/';
     input!.dispatchEvent(new Event('input', { bubbles: true }));
 
     expect(menu?.hidden).toBe(false);
-    heading?.firstChild?.dispatchEvent(
+    expect(document.querySelector<HTMLButtonElement>('[data-command="heading"]')).toBeNull();
+    expect(document.querySelector<HTMLButtonElement>('[data-command="button"]')).toBeNull();
+    const step = document.querySelector<HTMLButtonElement>('[data-command="step"]');
+    step?.firstChild?.dispatchEvent(
       new Event('pointerdown', { bubbles: true, cancelable: true }),
     );
 
-    const renderedHeadings = [
-      ...document.querySelectorAll<HTMLInputElement>('[aria-label="Heading"]'),
-    ];
-    expect(renderedHeadings[renderedHeadings.length - 1]?.value).toBe('Untitled heading');
-    expect(documentJson().value).toContain('Untitled heading');
     const doc = JSON.parse(documentJson().value) as {
-      blocks: Array<{ type: string; content?: string }>;
+      blocks: Array<{ type: string; children?: Array<{ children?: Array<{ content?: string }> }> }>;
     };
     expect(doc.blocks[doc.blocks.length - 1]).toMatchObject({
-      type: 'heading',
-      content: 'Untitled heading',
+      type: 'tourStep',
     });
+    expect(doc.blocks[doc.blocks.length - 1]?.children?.[0]?.children?.[0]?.content).toBe(
+      'Untitled step',
+    );
   });
 
   it('applies the host CSP nonce to local authoring frame styles', async () => {
@@ -111,44 +150,97 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     expect(document.head.querySelector('style')?.nonce).toBe('nonce_local_frame');
   });
 
-  it('loads the local authoring frame with dark theme styles', async () => {
+  it('loads the local authoring frame with the editor theme styles', async () => {
     await loadFrame();
 
     const styles = document.head.querySelector('style')?.textContent ?? '';
-    expect(styles).toContain('color-scheme: dark');
-    expect(styles).toContain('background: #07110f');
-    expect(styles).toContain('background: #101b1a');
+    expect(styles).toContain('color-scheme: light');
+    expect(styles).toContain('background: var(--lq-color-page)');
+    expect(styles).toContain('background: linear-gradient(180deg, var(--lq-color-chrome), #091f1c)');
   });
 
-  it('turns a typed slash command into a rendered block and persists it', async () => {
+  it('removes duplicate inner chrome in embedded panel mode', async () => {
+    window.history.replaceState(null, '', '/authoring.html?lodariqFrame=panel');
     await loadFrame();
 
-    const input = document.querySelector<HTMLInputElement>('input[aria-label="Block composer"]')!;
+    expect(document.querySelector('.shell-panel')).toBeTruthy();
+    expect(document.querySelector('.topbar')).toBeNull();
+
+    window.history.replaceState(null, '', '/');
+  });
+
+  it('turns typed top-level text into a titled tour step and rejects content commands', async () => {
+    await loadFrame();
+
+    const input = document.querySelector<HTMLInputElement>('input[aria-label="Experience composer"]')!;
+    const initialDoc = JSON.parse(documentJson().value) as { blocks: unknown[] };
     input.value = '/heading';
     input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
 
-    const json = documentJson().value;
-    const renderedHeadings = [
-      ...document.querySelectorAll<HTMLInputElement>('[aria-label="Heading"]'),
-    ];
-    expect(renderedHeadings[renderedHeadings.length - 1]?.value).toBe('Untitled heading');
-    expect(json).toContain('"type": "heading"');
-    expect(json).toContain('Untitled heading');
-    expect(json).not.toContain('/heading');
-    expect(localStorage.getItem('lodariq:doc:doc_tour_welcome')).toContain('Untitled heading');
+    const rejectedDoc = JSON.parse(documentJson().value) as { blocks: unknown[] };
+    expect(rejectedDoc.blocks).toHaveLength(initialDoc.blocks.length);
+    expect(document.querySelector('#status')?.textContent).toBe('Open a step to add content.');
+
+    input.value = 'Invite teammates';
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+
+    const titledStepDoc = JSON.parse(documentJson().value) as {
+      blocks: Array<{ type: string; children?: Array<{ children?: Array<{ content?: string }> }> }>;
+    };
+    expect(titledStepDoc.blocks[titledStepDoc.blocks.length - 1]).toMatchObject({
+      type: 'tourStep',
+    });
+    expect(
+      titledStepDoc.blocks[titledStepDoc.blocks.length - 1]?.children?.[0]?.children?.[0]?.content,
+    ).toBe('Invite teammates');
+    expect(localStorage.getItem('lodariq:doc:doc_tour_welcome')).toContain('Invite teammates');
+  });
+
+  it('edits the experience title inline as document content', async () => {
+    const postMessage = vi.spyOn(window, 'postMessage').mockImplementation(() => undefined);
+    await loadFrame();
+
+    const title = document.querySelector<HTMLInputElement>('input[aria-label="Experience title"]')!;
+    expect(title.value).toBe('Welcome tour');
+
+    title.value = 'Customer onboarding tour';
+    title.dispatchEvent(new Event('change', { bubbles: true }));
+    await flushPreviewPatchQueue();
+
+    const doc = JSON.parse(documentJson().value) as { title: string };
+    expect(doc.title).toBe('Customer onboarding tour');
+    expect(localStorage.getItem('lodariq:doc:doc_tour_welcome')).toContain(
+      'Customer onboarding tour',
+    );
+    expect(document.querySelector('#status')?.textContent).toBe('Title updated');
+    expect(postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'preview.patch',
+        patch: {
+          ops: [
+            expect.objectContaining({
+              op: 'replaceDocument',
+              document: expect.objectContaining({ title: 'Customer onboarding tour' }),
+            }),
+          ],
+        },
+      }),
+      window.location.origin,
+    );
+    postMessage.mockRestore();
   });
 
   it('authors a real editable tour step with text and a continue button', async () => {
     const postMessage = vi.spyOn(window, 'postMessage').mockImplementation(() => undefined);
     await loadFrame();
 
-    const input = document.querySelector<HTMLInputElement>('input[aria-label="Block composer"]')!;
+    const input = document.querySelector<HTMLInputElement>('input[aria-label="Experience composer"]')!;
     input.value = '/step';
     input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
 
     const renderedBlocks = [...document.querySelectorAll<HTMLElement>('.block')];
     const step = renderedBlocks[renderedBlocks.length - 1]!;
-    expect(step.getAttribute('aria-label')).toBe('Tour step block');
+    expect(step.getAttribute('aria-label')).toBe('Step: Untitled step');
     expect(step.querySelector<HTMLInputElement>('[aria-label="Heading"]')?.value).toBe(
       'Untitled step',
     );
@@ -158,9 +250,7 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     expect(step.querySelector<HTMLInputElement>('[aria-label="Button label"]')?.value).toBe(
       'Continue',
     );
-    expect(step.querySelector<HTMLSelectElement>('[aria-label="Button action"]')?.value).toBe(
-      'next',
-    );
+    expect(step.querySelector<HTMLSelectElement>('[aria-label="After click"]')?.value).toBe('next');
 
     const heading = step.querySelector<HTMLInputElement>(
       '[data-action="edit-content"][aria-label="Heading"]',
@@ -195,20 +285,27 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     postMessage.mockRestore();
   });
 
-  it('inserts blocks between top-level blocks without manual reordering', async () => {
+  it('inserts tour steps between top-level blocks without exposing content blocks', async () => {
     await loadFrame();
     importTwoBlocks();
 
     document
-      .querySelector<HTMLButtonElement>('[aria-label="Insert block after this block"]')
+      .querySelector<HTMLButtonElement>('[aria-label="Add step after this step"]')
       ?.click();
     await Promise.resolve();
-    const headingCommand = [
+    expect(
+      [
+        ...document.querySelectorAll<HTMLButtonElement>(
+          '.inline-command-menu:not([hidden]) .inline-command',
+        ),
+      ].some((button) => button.textContent?.includes('Heading')),
+    ).toBe(false);
+    const stepCommand = [
       ...document.querySelectorAll<HTMLButtonElement>(
         '.inline-command-menu:not([hidden]) .inline-command',
       ),
-    ].find((button) => button.textContent?.includes('Heading'));
-    headingCommand?.click();
+    ].find((button) => button.textContent?.includes('Step'));
+    stepCommand?.click();
 
     const doc = JSON.parse(documentJson().value) as {
       blocks: Array<{ id: string; type: string; content?: string }>;
@@ -218,26 +315,66 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
       expect.stringMatching(/^block_/),
       'block_b',
     ]);
-    expect(doc.blocks.map((block) => block.type)).toEqual(['paragraph', 'heading', 'heading']);
-    expect(doc.blocks[1]?.content).toBe('Untitled heading');
+    expect(doc.blocks.map((block) => block.type)).toEqual(['tourStep', 'tourStep', 'tourStep']);
+  });
+
+  it('filters and closes inline insert menus like a document command palette', async () => {
+    await loadFrame();
+    importTwoBlocks();
+
+    document
+      .querySelector<HTMLButtonElement>('[aria-label="Add step after this step"]')
+      ?.click();
+    await Promise.resolve();
+
+    const search = document.querySelector<HTMLInputElement>(
+      '.inline-command-menu:not([hidden]) [aria-label="Search content"]',
+    );
+    expect(search).toBeTruthy();
+    const setInputValue = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
+    setInputValue?.call(search, 'button');
+    search!.dispatchEvent(new Event('input', { bubbles: true }));
+    await Promise.resolve();
+
+    const commandLabels = [
+      ...document.querySelectorAll<HTMLButtonElement>(
+        '.inline-command-menu:not([hidden]) .inline-command',
+      ),
+    ].map((button) => button.textContent ?? '');
+    expect(commandLabels).toHaveLength(0);
+
+    document.body.dispatchEvent(new Event('pointerdown', { bubbles: true }));
+    await Promise.resolve();
+    expect(document.querySelector('.inline-command-menu:not([hidden])')).toBeNull();
   });
 
   it('inserts nested paragraph, button, and media placeholders inside a step', async () => {
     await loadFrame();
 
     const step = document.querySelector<HTMLElement>('.block[data-block-type="tourStep"]')!;
-    step.querySelector<HTMLButtonElement>('[aria-label="Insert content at end of step"]')?.click();
-    await Promise.resolve();
-    const mediaCommand = [
-      ...step.querySelectorAll<HTMLButtonElement>(
-        '.inline-command-menu:not([hidden]) .inline-command',
-      ),
-    ].find((button) => button.textContent?.includes('Media'));
-    mediaCommand?.click();
+    const composer = step.querySelector<HTMLInputElement>('input[aria-label="Step composer"]')!;
+    composer.value = 'Composer paragraph';
+    composer.dispatchEvent(new Event('input', { bubbles: true }));
+    composer.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
 
-    const mediaInput = step.querySelector<HTMLInputElement>('[aria-label="Media placeholder"]');
+    await Promise.resolve();
+    const composerUpdatedStep =
+      document.querySelector<HTMLElement>('.block[data-block-type="tourStep"]')!;
+    expect(composerUpdatedStep.querySelector('[aria-label="Add title to this step"]')).toBeTruthy();
+    expect(composerUpdatedStep.querySelector('[aria-label="Add text to this step"]')).toBeTruthy();
+    expect(composerUpdatedStep.querySelector('[aria-label="Add button to this step"]')).toBeTruthy();
+    expect(composerUpdatedStep.querySelector('[aria-label="Add media to this step"]')).toBeTruthy();
+    const mediaButton = composerUpdatedStep.querySelector<HTMLButtonElement>(
+      '[aria-label="Add media to this step"]',
+    )!;
+    mediaButton.dispatchEvent(new Event('pointerdown', { bubbles: true, cancelable: true }));
+    await Promise.resolve();
+
+    const updatedStep = document.querySelector<HTMLElement>('.block[data-block-type="tourStep"]')!;
+    const mediaInput =
+      updatedStep.querySelector<HTMLInputElement>('[aria-label="Media placeholder"]');
     expect(mediaInput?.value).toBe('Media placeholder');
-    expect(step.textContent).toContain('Placeholder only');
+    expect(updatedStep.textContent).toContain('Add media later');
 
     const doc = JSON.parse(documentJson().value) as {
       blocks: Array<{
@@ -245,28 +382,450 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
       }>;
     };
     const childTypes = doc.blocks[0]?.children[0]?.children.map((block) => block.type);
-    expect(childTypes).toEqual(['heading', 'paragraph', 'button', 'media']);
+    expect(childTypes).toEqual(['heading', 'paragraph', 'button', 'paragraph', 'media']);
     expect(doc.blocks[0]?.children[0]?.children[3]).toMatchObject({
+      type: 'paragraph',
+      content: 'Composer paragraph',
+    });
+    expect(doc.blocks[0]?.children[0]?.children[4]).toMatchObject({
       type: 'media',
       content: 'Media placeholder',
       status: 'incomplete',
     });
   });
 
+  it('renders nested slash commands as readable step command rows', async () => {
+    await loadFrame();
+
+    const step = document.querySelector<HTMLElement>('.block[data-block-type="tourStep"]')!;
+    const composer = step.querySelector<HTMLInputElement>('input[aria-label="Step composer"]')!;
+    const setInputValue = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
+    setInputValue?.call(composer, '/');
+    composer.dispatchEvent(new Event('input', { bubbles: true }));
+    await Promise.resolve();
+
+    const menu = step.querySelector<HTMLElement>('.step-command-menu:not([hidden])');
+    expect(menu).toBeTruthy();
+    const firstCommand = menu!.querySelector<HTMLButtonElement>('.command-item');
+    expect(firstCommand).toBeTruthy();
+    expect(firstCommand!.querySelector(':scope > .ui-button-icon')).toBeNull();
+    expect(firstCommand!.querySelector('.ui-button-label > .command-icon')).toBeTruthy();
+    expect(firstCommand!.querySelector('.ui-button-label > .command-copy strong')?.textContent).toBe(
+      'Heading',
+    );
+  });
+
+  it('inserts nested content from partial slash queries and arrow-key selection', async () => {
+    await loadFrame();
+
+    const step = document.querySelector<HTMLElement>('.block[data-block-type="tourStep"]')!;
+    const composer = step.querySelector<HTMLInputElement>('input[aria-label="Step composer"]')!;
+    const setInputValue = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
+
+    setInputValue?.call(composer, '/bu');
+    composer.dispatchEvent(new Event('input', { bubbles: true }));
+    await Promise.resolve();
+    composer.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    await Promise.resolve();
+
+    setInputValue?.call(composer, '/');
+    composer.dispatchEvent(new Event('input', { bubbles: true }));
+    await Promise.resolve();
+    composer.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }));
+    composer.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    await Promise.resolve();
+
+    const doc = JSON.parse(documentJson().value) as {
+      blocks: Array<{ children: Array<{ children: Array<{ type: string; content?: string }> }> }>;
+    };
+    expect(doc.blocks[0]?.children[0]?.children.map((block) => block.type)).toEqual([
+      'heading',
+      'paragraph',
+      'button',
+      'button',
+      'paragraph',
+    ]);
+    expect(doc.blocks[0]?.children[0]?.children[4]?.content ?? '').toBe('');
+  });
+
+  it('supports keyboard selection in inline step insert menus', async () => {
+    await loadFrame();
+
+    const firstHeading = document.querySelector<HTMLElement>('.step-child-heading')!;
+    firstHeading.querySelector<HTMLButtonElement>('[aria-label="Insert content after this"]')?.click();
+    await Promise.resolve();
+
+    const search = document.querySelector<HTMLInputElement>(
+      '.inline-command-menu:not([hidden]) [aria-label="Search content"]',
+    )!;
+    const setInputValue = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
+    setInputValue?.call(search, 'but');
+    search.dispatchEvent(new Event('input', { bubbles: true }));
+    await Promise.resolve();
+    search.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    await Promise.resolve();
+
+    const doc = JSON.parse(documentJson().value) as {
+      blocks: Array<{ children: Array<{ children: Array<{ type: string }> }> }>;
+    };
+    expect(doc.blocks[0]?.children[0]?.children.map((block) => block.type)).toEqual([
+      'heading',
+      'button',
+      'paragraph',
+      'button',
+    ]);
+    expect(document.querySelector('.inline-command-menu:not([hidden])')).toBeNull();
+  });
+
+  it('continues and removes nested text blocks like a document editor', async () => {
+    await loadFrame();
+
+    const step = document.querySelector<HTMLElement>('.block[data-block-type="tourStep"]')!;
+    const heading = step.querySelector<HTMLTextAreaElement>('[aria-label="Heading"]')!;
+    const setTextareaValue =
+      Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')?.set;
+    setTextareaValue?.call(heading, 'Edited heading');
+    heading.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }),
+    );
+    await Promise.resolve();
+
+    let doc = JSON.parse(documentJson().value) as {
+      blocks: Array<{
+        children: Array<{ children: Array<{ type: string; content?: string }> }>;
+      }>;
+    };
+    expect(doc.blocks[0]?.children[0]?.children.map((block) => block.type)).toEqual([
+      'heading',
+      'paragraph',
+      'paragraph',
+      'button',
+    ]);
+    expect(doc.blocks[0]?.children[0]?.children[0]?.content).toBe('Edited heading');
+    expect(doc.blocks[0]?.children[0]?.children[1]?.type).toBe('paragraph');
+    expect(doc.blocks[0]?.children[0]?.children[1]?.content ?? '').toBe('');
+
+    const emptyParagraph = document.querySelector<HTMLTextAreaElement>(
+      '.step-child-paragraph [aria-label="Body text"]',
+    )!;
+    emptyParagraph.setSelectionRange(0, 0);
+    emptyParagraph.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Backspace', bubbles: true, cancelable: true }),
+    );
+    await Promise.resolve();
+    await Promise.resolve();
+
+    doc = JSON.parse(documentJson().value) as {
+      blocks: Array<{
+        children: Array<{ children: Array<{ type: string; content?: string }> }>;
+      }>;
+    };
+    expect(doc.blocks[0]?.children[0]?.children.map((block) => block.type)).toEqual([
+      'heading',
+      'paragraph',
+      'button',
+    ]);
+    expect(doc.blocks[0]?.children[0]?.children[0]?.content).toBe('Edited heading');
+    expect(document.activeElement?.getAttribute('aria-label')).toBe('Heading');
+
+    const bodyParagraph = document.querySelector<HTMLTextAreaElement>(
+      '.step-child-paragraph [aria-label="Body text"]',
+    )!;
+    const setBodyValue = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')?.set;
+    setBodyValue?.call(bodyParagraph, 'Alpha Beta');
+    bodyParagraph.setSelectionRange(5, 5);
+    bodyParagraph.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }),
+    );
+    await Promise.resolve();
+
+    doc = JSON.parse(documentJson().value) as {
+      blocks: Array<{
+        children: Array<{ children: Array<{ type: string; content?: string }> }>;
+      }>;
+    };
+    expect(doc.blocks[0]?.children[0]?.children.map((block) => block.type)).toEqual([
+      'heading',
+      'paragraph',
+      'paragraph',
+      'button',
+    ]);
+    expect(doc.blocks[0]?.children[0]?.children[1]).toMatchObject({
+      type: 'paragraph',
+      content: 'Alpha',
+    });
+    expect(doc.blocks[0]?.children[0]?.children[2]).toMatchObject({
+      type: 'paragraph',
+      content: ' Beta',
+    });
+
+    const paragraphFields = [...document.querySelectorAll<HTMLTextAreaElement>(
+      '.step-child-paragraph [aria-label="Body text"]',
+    )];
+    const firstParagraph = paragraphFields[0]!;
+    const splitParagraph = paragraphFields[1]!;
+    expect(document.activeElement).toBe(splitParagraph);
+    expect(splitParagraph.selectionStart).toBe(0);
+    expect(splitParagraph.selectionEnd).toBe(0);
+
+    firstParagraph.focus();
+    firstParagraph.setSelectionRange(firstParagraph.value.length, firstParagraph.value.length);
+    firstParagraph.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true, cancelable: true }),
+    );
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(document.activeElement).toBe(splitParagraph);
+    expect(splitParagraph.selectionStart).toBe(0);
+    expect(splitParagraph.selectionEnd).toBe(0);
+
+    splitParagraph.setSelectionRange(0, 0);
+    splitParagraph.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'ArrowUp', bubbles: true, cancelable: true }),
+    );
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(document.activeElement).toBe(firstParagraph);
+    expect(firstParagraph.selectionStart).toBe(firstParagraph.value.length);
+    expect(firstParagraph.selectionEnd).toBe(firstParagraph.value.length);
+
+    splitParagraph.focus();
+    splitParagraph.setSelectionRange(0, 0);
+    expect(document.activeElement?.getAttribute('aria-label')).toBe('Body text');
+    splitParagraph.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Backspace', bubbles: true, cancelable: true }),
+    );
+    await Promise.resolve();
+    await Promise.resolve();
+
+    doc = JSON.parse(documentJson().value) as {
+      blocks: Array<{
+        children: Array<{ children: Array<{ type: string; content?: string }> }>;
+      }>;
+    };
+    expect(doc.blocks[0]?.children[0]?.children.map((block) => block.type)).toEqual([
+      'heading',
+      'paragraph',
+      'button',
+    ]);
+    expect(doc.blocks[0]?.children[0]?.children[1]).toMatchObject({
+      type: 'paragraph',
+      content: 'Alpha Beta',
+    });
+    const mergedParagraph = document.querySelector<HTMLTextAreaElement>(
+      '[data-block-id="block_paragraph_1"][data-action="edit-content"]',
+    )!;
+    expect(document.activeElement).toBe(mergedParagraph);
+    expect(mergedParagraph.selectionStart).toBe('Alpha'.length);
+    expect(mergedParagraph.selectionEnd).toBe('Alpha'.length);
+  });
+
+  it('continues from nested button fields like a document editor', async () => {
+    await loadFrame();
+
+    const step = document.querySelector<HTMLElement>('.block[data-block-type="tourStep"]')!;
+    const buttonLabel = step.querySelector<HTMLInputElement>('[aria-label="Button label"]')!;
+    const setInputValue = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
+
+    setInputValue?.call(buttonLabel, 'Done');
+    buttonLabel.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }),
+    );
+    await Promise.resolve();
+
+    const doc = JSON.parse(documentJson().value) as {
+      blocks: Array<{
+        children: Array<{ children: Array<{ type: string; content?: string }> }>;
+      }>;
+    };
+    expect(doc.blocks[0]?.children[0]?.children.map((block) => block.type)).toEqual([
+      'heading',
+      'paragraph',
+      'button',
+      'paragraph',
+    ]);
+    expect(doc.blocks[0]?.children[0]?.children[2]).toMatchObject({
+      type: 'button',
+      content: 'Done',
+    });
+    expect(doc.blocks[0]?.children[0]?.children[3]?.type).toBe('paragraph');
+    expect(doc.blocks[0]?.children[0]?.children[3]?.content ?? '').toBe('');
+  });
+
+  it('turns inline slash text inside a step line into structured content', async () => {
+    await loadFrame();
+
+    const step = document.querySelector<HTMLElement>('.block[data-block-type="tourStep"]')!;
+    const heading = step.querySelector<HTMLTextAreaElement>('[aria-label="Heading"]')!;
+    const setTextareaValue =
+      Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')?.set;
+
+    setTextareaValue?.call(heading, 'Edited heading');
+    heading.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }),
+    );
+    await Promise.resolve();
+
+    const emptyLine = document.querySelector<HTMLTextAreaElement>(
+      '.step-child-paragraph [aria-label="Body text"]',
+    )!;
+    setTextareaValue?.call(emptyLine, '/bu');
+    emptyLine.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }),
+    );
+    await Promise.resolve();
+
+    const doc = JSON.parse(documentJson().value) as {
+      blocks: Array<{
+        children: Array<{ children: Array<{ type: string; content?: string; status?: string }> }>;
+      }>;
+    };
+    expect(doc.blocks[0]?.children[0]?.children.map((block) => block.type)).toEqual([
+      'heading',
+      'button',
+      'paragraph',
+      'button',
+    ]);
+    expect(doc.blocks[0]?.children[0]?.children[1]).toMatchObject({
+      type: 'button',
+      content: 'Continue',
+      status: 'incomplete',
+    });
+    expect(JSON.stringify(doc)).not.toContain('/bu');
+  });
+
+  it('exposes duplicate and delete actions on nested step content', async () => {
+    await loadFrame();
+
+    const firstParagraph = document.querySelector<HTMLElement>('.step-child-paragraph')!;
+    firstParagraph.querySelector<HTMLButtonElement>('[aria-label="Text move and format"]')?.click();
+    await Promise.resolve();
+
+    const popover = document.querySelector<HTMLElement>('.step-child-action-popover');
+    expect(popover?.textContent).toContain('Move up');
+    expect(popover?.textContent).toContain('Format as');
+    expect(popover?.textContent).not.toContain('Duplicate');
+    expect(popover?.textContent).not.toContain('Delete');
+
+    firstParagraph.querySelector<HTMLButtonElement>('[aria-label="Duplicate text"]')?.click();
+    await Promise.resolve();
+
+    let doc = JSON.parse(documentJson().value) as {
+      blocks: Array<{
+        children: Array<{ children: Array<{ id: string; type: string; content?: string }> }>;
+      }>;
+    };
+    let stepChildren = doc.blocks[0]?.children[0]?.children ?? [];
+    expect(stepChildren.map((child) => child.type)).toEqual([
+      'heading',
+      'paragraph',
+      'paragraph',
+      'button',
+    ]);
+    expect(stepChildren[2]?.content).toBe("Projects help organize your team's work.");
+
+    const duplicatedParagraphs = [
+      ...document.querySelectorAll<HTMLElement>('.step-child-paragraph'),
+    ];
+    const duplicatedParagraph = duplicatedParagraphs[1]!;
+    duplicatedParagraph.querySelector<HTMLButtonElement>('[aria-label="Delete text"]')?.click();
+    await Promise.resolve();
+
+    doc = JSON.parse(documentJson().value) as {
+      blocks: Array<{
+        children: Array<{ children: Array<{ id: string; type: string; content?: string }> }>;
+      }>;
+    };
+    stepChildren = doc.blocks[0]?.children[0]?.children ?? [];
+    expect(stepChildren.map((child) => child.type)).toEqual(['heading', 'paragraph', 'button']);
+  });
+
+  it('supports keyboard shortcuts on nested step content', async () => {
+    await loadFrame();
+
+    const paragraph = document.querySelector<HTMLElement>('.step-child-paragraph')!;
+    paragraph.focus();
+    paragraph.dispatchEvent(
+      new KeyboardEvent('keydown', {
+        key: 'ArrowDown',
+        altKey: true,
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+    await Promise.resolve();
+
+    let doc = JSON.parse(documentJson().value) as {
+      blocks: Array<{ children: Array<{ children: Array<{ id: string; type: string }> }> }>;
+    };
+    expect(doc.blocks[0]?.children[0]?.children.map((child) => child.type)).toEqual([
+      'heading',
+      'button',
+      'paragraph',
+    ]);
+
+    const movedParagraph = document.querySelector<HTMLElement>('.step-child-paragraph')!;
+    movedParagraph.focus();
+    movedParagraph.dispatchEvent(
+      new KeyboardEvent('keydown', {
+        key: 'd',
+        ctrlKey: true,
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+    await Promise.resolve();
+
+    doc = JSON.parse(documentJson().value) as {
+      blocks: Array<{ children: Array<{ children: Array<{ id: string; type: string }> }> }>;
+    };
+    expect(doc.blocks[0]?.children[0]?.children.map((child) => child.type)).toEqual([
+      'heading',
+      'button',
+      'paragraph',
+      'paragraph',
+    ]);
+
+    const duplicatedParagraphs = [
+      ...document.querySelectorAll<HTMLElement>('.step-child-paragraph'),
+    ];
+    const duplicatedParagraph = duplicatedParagraphs[1]!;
+    duplicatedParagraph.focus();
+    await Promise.resolve();
+    const focusedDuplicatedParagraph = [
+      ...document.querySelectorAll<HTMLElement>('.step-child-paragraph'),
+    ][1]!;
+    focusedDuplicatedParagraph.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Delete', bubbles: true, cancelable: true }),
+    );
+    await Promise.resolve();
+
+    doc = JSON.parse(documentJson().value) as {
+      blocks: Array<{ children: Array<{ children: Array<{ id: string; type: string }> }> }>;
+    };
+    expect(doc.blocks[0]?.children[0]?.children.map((child) => child.type)).toEqual([
+      'heading',
+      'button',
+      'paragraph',
+    ]);
+  });
+
   it('saves incomplete button actions and sends typed setAction patches', async () => {
     const postMessage = vi.spyOn(window, 'postMessage').mockImplementation(() => undefined);
     await loadFrame();
 
-    const input = document.querySelector<HTMLInputElement>('input[aria-label="Block composer"]')!;
-    input.value = '/button';
-    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    const step = document.querySelector<HTMLElement>('.block[data-block-type="tourStep"]')!;
+    const composer = step.querySelector<HTMLInputElement>('input[aria-label="Step composer"]')!;
+    composer.value = '/button';
+    composer.dispatchEvent(new Event('input', { bubbles: true }));
+    composer.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
 
-    const renderedBlocks = [...document.querySelectorAll<HTMLElement>('.block')];
-    const buttonBlock = renderedBlocks[renderedBlocks.length - 1]!;
+    const buttonBlocks = [...step.querySelectorAll<HTMLElement>('.step-child-button')];
+    const buttonBlock = buttonBlocks[buttonBlocks.length - 1]!;
     const actionSelect = buttonBlock.querySelector<HTMLSelectElement>(
-      '[data-action="set-action"][aria-label="Button action"]',
+      '[data-action="set-action"][aria-label="After click"]',
     )!;
-    expect(buttonBlock.textContent).toContain('Needs purpose');
+    expect(buttonBlock.textContent).toContain('Choose next action');
     expect(actionSelect.value).toBe('');
 
     actionSelect.value = 'clickTarget';
@@ -274,17 +833,20 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     await flushPreviewPatchQueue();
 
     const doc = JSON.parse(documentJson().value) as {
-      blocks: Array<{ type: string; status?: string; props: { action?: { type: string } } }>;
+      blocks: Array<{
+        children: Array<{
+          children: Array<{ type: string; status?: string; props: { action?: { type: string } } }>;
+        }>;
+      }>;
     };
-    const authoredButton = doc.blocks[doc.blocks.length - 1]!;
+    const stepChildren = doc.blocks[0]?.children[0]?.children ?? [];
+    const authoredButton = stepChildren[stepChildren.length - 1];
     expect(authoredButton).toMatchObject({
       type: 'button',
       status: 'ready',
       props: { variant: 'primary', action: { type: 'clickTarget' } },
     });
-    const updatedBlocks = [...document.querySelectorAll<HTMLElement>('.block')];
-    const updatedButtonBlock = updatedBlocks[updatedBlocks.length - 1]!;
-    expect(updatedButtonBlock.textContent).toContain('Waits for target click');
+    expect(buttonBlock.textContent).toContain('Wait for placement');
     expect(postMessage).toHaveBeenCalledWith(
       expect.objectContaining({
         type: 'preview.patch',
@@ -300,7 +862,7 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
   it('does not treat pasted slash text inside the slash input as document content', async () => {
     await loadFrame();
 
-    const input = document.querySelector<HTMLInputElement>('input[aria-label="Block composer"]');
+    const input = document.querySelector<HTMLInputElement>('input[aria-label="Experience composer"]');
     const textarea = documentJson();
     const initialDoc = JSON.parse(textarea!.value) as { blocks: unknown[] };
     const event = new Event('paste', { bubbles: true, cancelable: true });
@@ -315,30 +877,28 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     expect(textarea?.value).not.toContain('"content": "/"');
   });
 
-  it('keeps unknown slash text as ordinary paragraph content', async () => {
+  it('keeps unknown top-level slash commands out of the document', async () => {
     await loadFrame();
 
-    const input = document.querySelector<HTMLInputElement>('input[aria-label="Block composer"]')!;
+    const input = document.querySelector<HTMLInputElement>('input[aria-label="Experience composer"]')!;
+    const before = documentJson().value;
     input.value = '/not-a-command';
     input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
 
-    const json = documentJson().value;
-    expect(json).toContain('"type": "paragraph"');
-    expect(json).toContain('/not-a-command');
+    expect(documentJson().value).toBe(before);
+    expect(document.querySelector('#status')?.textContent).toBe('Open a step to add content.');
   });
 
   it('resets to a fresh fixture after inserted blocks', async () => {
     await loadFrame();
 
-    const input = document.querySelector<HTMLInputElement>('input[aria-label="Block composer"]');
-    const heading = document.querySelector<HTMLButtonElement>('[data-command="heading"]');
+    const input = document.querySelector<HTMLInputElement>('input[aria-label="Experience composer"]');
     const reset = document.querySelector<HTMLButtonElement>('[data-action="reset"]');
     const textarea = documentJson();
 
-    input!.value = '/';
-    input!.dispatchEvent(new Event('input', { bubbles: true }));
-    heading?.click();
-    expect(textarea?.value).toContain('Untitled heading');
+    input!.value = 'Temporary step';
+    input!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    expect(textarea?.value).toContain('Temporary step');
 
     reset?.click();
 
@@ -352,14 +912,14 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     await loadFrame();
     postMessage.mockClear();
 
-    const input = document.querySelector<HTMLInputElement>('input[aria-label="Block composer"]');
-    const heading = document.querySelector<HTMLButtonElement>('[data-command="heading"]');
+    const input = document.querySelector<HTMLInputElement>('input[aria-label="Experience composer"]');
     input!.value = '/';
     input!.dispatchEvent(new Event('input', { bubbles: true }));
+    const step = document.querySelector<HTMLButtonElement>('[data-command="step"]');
 
     expect(postMessage).not.toHaveBeenCalled();
 
-    heading?.click();
+    step?.click();
     await flushPreviewPatchQueue();
 
     expect(postMessage).toHaveBeenCalledWith(
@@ -380,14 +940,21 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     await flushPreviewPatchQueue();
     postMessage.mockClear();
 
-    const transform = document.querySelector<HTMLSelectElement>('select[data-block-id="block_a"]');
-    transform!.value = 'button';
-    transform!.dispatchEvent(new Event('change', { bubbles: true }));
     document
       .querySelector<HTMLButtonElement>(
-        '[data-action="move-block"][data-block-id="block_a"][data-direction="down"]',
+        '[data-block-id="block_a_copy"] [aria-label="Text move and format"]',
       )
       ?.click();
+    document
+      .querySelector<HTMLButtonElement>(
+        '[data-block-id="block_a_copy"] [aria-label="Turn content into button"]',
+      )
+      ?.click();
+    document
+      .querySelector<HTMLSelectElement>(
+        'select[aria-label="After click"][data-block-id="block_a_copy"]',
+      )
+      ?.dispatchEvent(new Event('change', { bubbles: true }));
 
     expect(postMessage).not.toHaveBeenCalled();
     await flushPreviewPatchQueue();
@@ -396,11 +963,11 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     expect(postMessage).toHaveBeenCalledWith(
       expect.objectContaining({
         type: 'preview.patch',
-        blockId: 'block_a',
+        blockId: 'block_a_copy',
         patch: {
           ops: [
             { op: 'transformBlock', type: 'button' },
-            { op: 'moveBlock', direction: 'down' },
+            { op: 'setAction' },
           ],
         },
       }),
@@ -426,8 +993,8 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
       now: () => 1000,
     });
 
-    const input = document.querySelector<HTMLInputElement>('input[aria-label="Block composer"]')!;
-    input.value = '/heading';
+    const input = document.querySelector<HTMLInputElement>('input[aria-label="Experience composer"]')!;
+    input.value = '/step';
     input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
     await flushPreviewPatchQueue();
 
@@ -476,7 +1043,7 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     window.dispatchEvent(new Event('pagehide'));
   });
 
-  it('requests target inspection and renders scoped health diagnostics', async () => {
+  it('requests placement checks and keeps support diagnostics out of the primary chip', async () => {
     document.body.innerHTML = '<div id="authoring"></div>';
     const root = document.getElementById('authoring')!;
     const peer = { postMessage: vi.fn() } as unknown as Window;
@@ -544,11 +1111,12 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
       }),
     );
 
-    expect(document.querySelector('.target-chip')?.textContent).toContain('Healthy');
-    expect(document.querySelector('#status')?.textContent).toBe('Found by role and label');
+    expect(document.querySelector('.target-chip')?.textContent).toContain('Ready');
+    expect(document.querySelector('#status')?.textContent).toBe('Placement is ready.');
 
     document.querySelector<HTMLButtonElement>('[data-action="target-advanced"]')?.click();
     expect(document.querySelector('.target-advanced')?.textContent).toContain('New project');
+    expect(document.querySelector('.target-advanced')?.textContent).toContain('Match strength 94%');
 
     window.dispatchEvent(new Event('pagehide'));
   });
@@ -557,48 +1125,51 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     await loadFrame();
 
     expect(document.querySelector('[aria-live="polite"]')?.id).toBe('status');
-    expect(document.querySelector('section[aria-label="Insert blocks"]')).toBeTruthy();
+    expect(document.querySelector('section[aria-label="Add step"]')).toBeTruthy();
     expect(
-      document.querySelector('input[aria-label="Block composer"]')?.getAttribute('aria-controls'),
+      document.querySelector('input[aria-label="Experience composer"]')?.getAttribute('aria-controls'),
     ).toBe('slash-command-menu');
     expect(
-      document.querySelector('input[aria-label="Block composer"]')?.getAttribute('aria-haspopup'),
+      document.querySelector('input[aria-label="Experience composer"]')?.getAttribute('aria-haspopup'),
     ).toBe('listbox');
     expect(
-      document.querySelector('[role="listbox"][aria-label="Block insert commands"]'),
+      document.querySelector('[role="listbox"][aria-label="Step insert commands"]'),
     ).toBeTruthy();
     expect(
       document.querySelector<HTMLButtonElement>('[data-command="step"]')?.textContent,
-    ).toContain('/step');
-    expect(document.querySelector('section[aria-label="Canonical document blocks"]')).toBeTruthy();
-    expect(document.querySelector('textarea[aria-label="Document JSON"]')).toBeTruthy();
+    ).toContain('Step');
+    expect(document.querySelector('section[aria-label="Experience content"]')).toBeTruthy();
+    expect(document.querySelector('textarea[aria-label="Editable backup"]')).toBeTruthy();
+    expect(document.body.textContent).toContain('Support package');
+    expect(document.body.textContent).toContain('Preview package');
+    expect(document.body.textContent).toContain('Update package');
     expect([...document.querySelectorAll('button')].map((button) => button.textContent)).toContain(
-      'Add step',
+      'New step',
     );
-    expect(
-      [...document.querySelectorAll('button')]
-        .map((button) => button.textContent)
-        .some((label) => label === 'Select target' || label === 'Change target'),
-    ).toBe(true);
+    const anchorHeader = document.querySelector<HTMLElement>('.block-header');
+    const pickButton = anchorHeader?.querySelector('[data-action="target-pick"]');
+    const attachedChip = anchorHeader?.querySelector('.target-chip');
+    expect(Boolean(pickButton) || Boolean(attachedChip)).toBe(true);
+    expect(Boolean(pickButton) && Boolean(attachedChip)).toBe(false);
     expect([...document.querySelectorAll('button')].map((button) => button.textContent)).toContain(
-      'Export metrics',
+      'Create activity report',
     );
   });
 
-  it('focuses the slash composer from blank document canvas clicks', async () => {
+  it('does not force composer focus from document chrome clicks', async () => {
     await loadFrame();
 
-    const input = document.querySelector<HTMLInputElement>('input[aria-label="Block composer"]')!;
+    const input = document.querySelector<HTMLInputElement>('input[aria-label="Experience composer"]')!;
     expect(document.activeElement).not.toBe(input);
 
     document
       .querySelector<HTMLElement>('.document-hero')!
       .dispatchEvent(new Event('pointerdown', { bubbles: true }));
 
-    expect(document.activeElement).toBe(input);
+    expect(document.activeElement).not.toBe(input);
   });
 
-  it('exports a local metrics report for Phase 0 sign-off evidence', async () => {
+  it('creates an activity report', async () => {
     await loadFrame();
 
     document.querySelector<HTMLButtonElement>('[data-action="export-metrics"]')?.click();
@@ -611,10 +1182,10 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     expect(report.sessions).toHaveLength(1);
     expect(report.sessions[0]?.sessionId).toMatch(/^local_authoring_session:/);
     expect(report.sessions[0]?.summary?.documentId).toBe('doc_tour_welcome');
-    expect(document.querySelector('#status')?.textContent).toBe('Exported metrics report');
+    expect(document.querySelector('#status')?.textContent).toBe('Activity report ready');
   });
 
-  it('imports, exports, saves, and resets canonical document JSON', async () => {
+  it('restores, exports recovery data, saves, and resets drafts', async () => {
     await loadFrame();
 
     const textarea = documentJson();
@@ -626,7 +1197,7 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     textarea!.value = textarea!.value.replace('Welcome tour', 'Imported tour');
     importButton?.click();
 
-    expect(document.querySelector('#status')?.textContent).toBe('Imported JSON');
+    expect(document.querySelector('#status')?.textContent).toBe('Backup restored');
     expect(textarea?.value).toContain('Imported tour');
 
     saveButton?.click();
@@ -637,7 +1208,7 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     expect(textarea?.value).toContain('Welcome tour');
   });
 
-  it('rejects imported documents outside the active local frame scope', async () => {
+  it('rejects draft backups from another experience or workspace', async () => {
     await loadFrame();
 
     const textarea = documentJson();
@@ -651,7 +1222,7 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     importButton?.click();
 
     expect(document.querySelector('#status')?.textContent).toBe(
-      'Import rejected: document id must remain doc_tour_welcome',
+      'This backup belongs to a different experience.',
     );
     exportButton?.click();
     expect(documentJson().value).toBe(originalJson);
@@ -663,7 +1234,7 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     importButton?.click();
 
     expect(document.querySelector('#status')?.textContent).toBe(
-      'Import rejected: workspace id must remain wk_local_dev',
+      'This backup belongs to a different workspace.',
     );
     exportButton?.click();
     expect(documentJson().value).toBe(originalJson);
@@ -673,11 +1244,18 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     await loadFrame();
     importTwoBlocks();
 
-    expect(document.querySelector('.property-chip')?.textContent).toBe('Heading level 2');
+    expect(document.querySelector('.property-chip')).toBeNull();
 
-    const transform = document.querySelector<HTMLSelectElement>('select[data-block-id="block_a"]');
-    transform!.value = 'button';
-    transform!.dispatchEvent(new Event('change', { bubbles: true }));
+    document
+      .querySelector<HTMLButtonElement>(
+        '[data-block-id="block_a_copy"] [aria-label="Text move and format"]',
+      )
+      ?.click();
+    document
+      .querySelector<HTMLButtonElement>(
+        '[data-block-id="block_a_copy"] [aria-label="Turn content into button"]',
+      )
+      ?.click();
     expect(documentJson().value).toContain('"type": "button"');
     expect(documentJson().value).toContain('"status": "incomplete"');
 
@@ -727,7 +1305,9 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     importTwoBlocks();
 
     const blocks = document.querySelectorAll<HTMLElement>('.block');
-    blocks[1]?.dispatchEvent(new Event('dragstart', { bubbles: true }));
+    blocks[1]
+      ?.querySelector<HTMLElement>('.block-grip')
+      ?.dispatchEvent(new Event('dragstart', { bubbles: true }));
     blocks[0]?.dispatchEvent(new Event('drop', { bubbles: true, cancelable: true }));
 
     const doc = JSON.parse(documentJson().value) as {
@@ -736,7 +1316,138 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     expect(doc.blocks.map((block) => block.id)).toEqual(['block_b', 'block_a']);
   });
 
-  it('renders ready, incomplete, and invalid validation badges', async () => {
+  it('supports dragging the first block below the second block', async () => {
+    await loadFrame();
+    importTwoBlocks();
+
+    const blocks = document.querySelectorAll<HTMLElement>('.block');
+    blocks[0]
+      ?.querySelector<HTMLElement>('.block-grip')
+      ?.dispatchEvent(new Event('dragstart', { bubbles: true }));
+    blocks[1]?.dispatchEvent(new Event('dragover', { bubbles: true, cancelable: true }));
+    await flushPreviewPatchQueue();
+    expect(blocks[1]?.dataset['dropPosition']).toBe('after');
+    blocks[1]?.dispatchEvent(new Event('drop', { bubbles: true, cancelable: true }));
+
+    const doc = JSON.parse(documentJson().value) as {
+      blocks: Array<{ id: string }>;
+    };
+    expect(doc.blocks.map((block) => block.id)).toEqual(['block_b', 'block_a']);
+  });
+
+  it('supports dropping a dragged step on the bottom insert row', async () => {
+    await loadFrame();
+    importTwoBlocks();
+
+    const blocks = document.querySelectorAll<HTMLElement>('.block');
+    const insertRows = document.querySelectorAll<HTMLElement>(
+      '.document > .document-block-group > .inline-insert',
+    );
+    const bottomInsertRow = insertRows[insertRows.length - 1];
+
+    blocks[0]
+      ?.querySelector<HTMLElement>('.block-grip')
+      ?.dispatchEvent(new Event('dragstart', { bubbles: true }));
+    bottomInsertRow?.dispatchEvent(new Event('dragover', { bubbles: true, cancelable: true }));
+    await flushPreviewPatchQueue();
+    expect(bottomInsertRow?.dataset['dropPosition']).toBe('after');
+    const activeBottomInsertRow = document.querySelector<HTMLElement>(
+      '.document > .document-block-group:last-child > .inline-insert[data-drop-position="after"]',
+    );
+    activeBottomInsertRow?.dispatchEvent(new Event('drop', { bubbles: true, cancelable: true }));
+
+    const doc = JSON.parse(documentJson().value) as {
+      blocks: Array<{ id: string }>;
+    };
+    expect(doc.blocks.map((block) => block.id)).toEqual(['block_b', 'block_a']);
+  });
+
+  it('supports dropping a dragged step onto content inside another step', async () => {
+    await loadFrame();
+    importTwoBlocks();
+
+    const firstStep = document.querySelector<HTMLElement>('[data-block-id="block_a"]')!;
+    const secondStepContent = document.querySelector<HTMLElement>(
+      '[data-block-id="block_b"] .step-child',
+    )!;
+
+    firstStep
+      .querySelector<HTMLElement>('.block-grip')
+      ?.dispatchEvent(new Event('dragstart', { bubbles: true }));
+    secondStepContent.dispatchEvent(new Event('dragover', { bubbles: true, cancelable: true }));
+    secondStepContent.dispatchEvent(new Event('drop', { bubbles: true, cancelable: true }));
+
+    const doc = JSON.parse(documentJson().value) as {
+      blocks: Array<{ id: string }>;
+    };
+    expect(doc.blocks.map((block) => block.id)).toEqual(['block_b', 'block_a']);
+  });
+
+  it('supports dragging content lines inside a step', async () => {
+    await loadFrame();
+
+    const step = document.querySelector<HTMLElement>('.block[data-block-type="tourStep"]')!;
+    const children = step.querySelectorAll<HTMLElement>('.step-child');
+    children[0]
+      ?.querySelector<HTMLElement>('.step-child-drag-handle')
+      ?.dispatchEvent(new Event('dragstart', { bubbles: true }));
+    children[1]?.dispatchEvent(new Event('dragover', { bubbles: true, cancelable: true }));
+    await flushPreviewPatchQueue();
+    expect(children[1]?.dataset['dropPosition']).toBe('after');
+    children[1]?.dispatchEvent(new Event('drop', { bubbles: true, cancelable: true }));
+
+    const doc = JSON.parse(documentJson().value) as {
+      blocks: Array<{ children: Array<{ children: Array<{ type: string }> }> }>;
+    };
+    expect(doc.blocks[0]?.children[0]?.children.map((block) => block.type)).toEqual([
+      'paragraph',
+      'heading',
+      'button',
+    ]);
+  });
+
+  it('exposes direct duplicate and delete controls on top-level items', async () => {
+    await loadFrame();
+    importTwoBlocks();
+
+    const firstBlock = document.querySelector<HTMLElement>('[data-block-id="block_a"]')!;
+    firstBlock.querySelector<HTMLButtonElement>('[aria-label="Step actions"]')?.click();
+    await Promise.resolve();
+
+    const popover = document.querySelector<HTMLElement>('.block-action-popover');
+    expect(popover?.textContent).toContain('Move up');
+    expect(popover?.textContent).toContain('Move down');
+    expect(popover?.textContent).not.toContain('Duplicate');
+    expect(popover?.textContent).not.toContain('Delete');
+
+    document
+      .querySelector<HTMLButtonElement>(
+        '[data-block-id="block_a"] [aria-label="Duplicate step"]',
+      )
+      ?.click();
+
+    let doc = JSON.parse(documentJson().value) as {
+      blocks: Array<{ id: string; type: string; children?: Array<{ children?: Array<{ content?: string }> }> }>;
+    };
+    expect(doc.blocks).toHaveLength(3);
+    expect(doc.blocks[1]).toMatchObject({ type: 'tourStep' });
+    expect(doc.blocks[1]?.children?.[0]?.children?.[0]?.content).toBe('Alpha');
+
+    const duplicatedBlockId = doc.blocks[1]?.id;
+    expect(duplicatedBlockId).toBeTruthy();
+    document
+      .querySelector<HTMLButtonElement>(
+        `[data-block-id="${duplicatedBlockId}"] [aria-label="Delete step"]`,
+      )
+      ?.click();
+
+    doc = JSON.parse(documentJson().value) as {
+      blocks: Array<{ id: string; type: string }>;
+    };
+    expect(doc.blocks.map((block) => block.id)).toEqual(['block_a', 'block_b']);
+  });
+
+  it('renders creator-facing validation badges', async () => {
     await loadFrame();
 
     const textarea = documentJson();
@@ -746,39 +1457,92 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     };
     doc.blocks = [
       {
-        id: 'block_ready',
-        type: 'paragraph',
-        content: 'Ready',
-        props: {},
-        children: [],
+        id: 'step_ready',
+        type: 'tourStep',
+        props: { index: 0 },
         status: 'ready',
+        children: [
+          {
+            id: 'tooltip_ready',
+            type: 'tooltip',
+            props: { placement: 'bottom', targetId: 'target_ready' },
+            status: 'ready',
+            children: [
+              {
+                id: 'heading_ready',
+                type: 'heading',
+                content: 'Ready',
+                props: { level: 2 },
+                children: [],
+                status: 'ready',
+              },
+            ],
+          },
+        ],
       },
       {
-        id: 'block_incomplete',
-        type: 'paragraph',
-        content: 'Incomplete',
-        props: {},
-        children: [],
+        id: 'step_incomplete',
+        type: 'tourStep',
+        props: { index: 1 },
         status: 'incomplete',
+        children: [
+          {
+            id: 'tooltip_incomplete',
+            type: 'tooltip',
+            props: { placement: 'bottom', targetId: 'target_incomplete' },
+            status: 'incomplete',
+            children: [
+              {
+                id: 'button_incomplete',
+                type: 'button',
+                content: 'Continue',
+                props: { variant: 'primary' },
+                children: [],
+                status: 'incomplete',
+              },
+            ],
+          },
+        ],
       },
       {
-        id: 'block_invalid',
-        type: 'paragraph',
-        content: 'Invalid',
-        props: {},
-        children: [],
-        status: 'invalid',
+        id: 'step_invalid',
+        type: 'tourStep',
+        props: { index: 2 },
+        status: 'incomplete',
+        children: [
+          {
+            id: 'tooltip_invalid',
+            type: 'tooltip',
+            props: { placement: 'bottom', targetId: 'target_invalid' },
+            status: 'incomplete',
+            children: [
+              {
+                id: 'copy_invalid',
+                type: 'paragraph',
+                content: 'Invalid',
+                props: {},
+                children: [],
+                status: 'invalid',
+              },
+            ],
+          },
+        ],
       },
     ];
     textarea!.value = JSON.stringify(doc);
     importButton?.click();
 
     const badges = [...document.querySelectorAll('.badge')].map((badge) => badge.textContent);
-    expect(badges).toEqual(['ready', 'incomplete', 'invalid']);
+    expect(badges).toEqual(['Needs review', 'Needs fix']);
   });
 
-  it('attaches a bridge-picked target as canonical JSON and a target chip', async () => {
+  it('sets a bridge-picked placement as canonical JSON and a placement chip', async () => {
     await loadFrame();
+
+    const stepBlock = document.querySelector<HTMLElement>('[data-block-type="tourStep"]');
+    expect(stepBlock?.querySelector('.block-header .target-chip')).toBeTruthy();
+    expect(stepBlock?.querySelector('.block-header [data-action="target-pick"]')).toBeNull();
+    expect(stepBlock?.querySelector('.block-section-target')).toBeNull();
 
     const message: BridgeMessage = {
       protocol: BRIDGE_PROTOCOL_VERSION,
@@ -812,7 +1576,10 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     const target = doc.targets[doc.targets.length - 1];
     expect(target?.fingerprint.accessibleName).toBe('New project');
     expect(doc.blocks[0]?.children[0]?.props.targetId).toBe(target?.id);
+    expect(stepBlock?.querySelector('.block-header [data-action="target-pick"]')).toBeNull();
+    expect(stepBlock?.querySelector('.block-header .target-chip')).toBeTruthy();
     expect(document.querySelector('.target-chip-label')?.textContent).toBe('New project');
+    expect(document.querySelector('#status')?.textContent).toBe('Placement set: New project');
   });
 
   it('ignores bridge-picked targets outside the active local frame scope', async () => {

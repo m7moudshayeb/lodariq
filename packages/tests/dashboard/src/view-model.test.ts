@@ -32,7 +32,7 @@ describe('@lodariq/dashboard view model', () => {
           workspaceId: 'wk_a',
           kind: 'development',
           name: 'Development',
-          originAllowlist: ['http://localhost:5173'],
+          originAllowlist: ['http://localhost:5175'],
           createdAt: '2026-06-30T00:00:00.000Z',
           updatedAt: '2026-06-30T00:00:00.000Z',
         },
@@ -72,11 +72,13 @@ describe('@lodariq/dashboard view model', () => {
     expect(viewModel.hasDocuments).toBe(true);
     expect(viewModel.documentRows[0]?.statusLabel).toBe('Draft');
     expect(viewModel.documentRows[0]?.typeLabel).toBe('Tour');
-    expect(viewModel.documentRows[0]?.ownerLabel).toBe('user_editor');
+    expect(viewModel.documentRows[0]?.editorLabel).toBe('Workspace teammate');
+    expect(viewModel.documentRows[0]?.readinessDetail).toBe('Draft in progress');
     expect(viewModel.documentRows[0]?.updatedAtLabel).toBe('Jun 30, 2026');
-    expect(viewModel.documentRows[0]?.contentHashLabel).toBe('sha256-draft');
-    expect(viewModel.documentRows[0]?.publicationLabel).toBe('Draft changes');
-    expect(viewModel.documentRows[0]?.publicationDetail).toBe('Staging');
+    expect(viewModel.documentRows[0]?.contentHashLabel).toBe('Draft saved');
+    expect(viewModel.documentRows[0]?.contentHashDetail).toBe('Changes are being tracked');
+    expect(viewModel.documentRows[0]?.publicationLabel).toBe('Changes waiting');
+    expect(viewModel.documentRows[0]?.publicationDetail).toBe('Saved changes not live on Staging');
     expect(viewModel.documentRows[0]?.publicationVariant).toBe('warning');
     expect(viewModel.defaultEnvironmentId).toBe('env_staging');
     expect(viewModel.defaultSdkEnvironmentId).toBe('env_staging');

@@ -69,12 +69,37 @@ export function LocalAuthoringFrameRoot({ options }: { options: LocalAuthoringFr
       snapshot.focusRequest.target === 'block'
         ? blockSelector
         : `${blockSelector} [data-action="edit-content"]`;
-    shellRef.current?.querySelector<HTMLElement>(selector)?.focus();
+    const element = shellRef.current?.querySelector<HTMLElement>(selector);
+    element?.focus();
+    if (
+      snapshot.focusRequest.caret !== undefined &&
+      (element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement)
+    ) {
+      const position =
+        typeof snapshot.focusRequest.caret === 'number'
+          ? Math.max(0, Math.min(snapshot.focusRequest.caret, element.value.length))
+          : snapshot.focusRequest.caret === 'start'
+            ? 0
+            : element.value.length;
+      element.setSelectionRange(position, position);
+    }
   }, [snapshot.focusRequest]);
 
+  const frameMode = options.frameMode ?? 'standalone';
+
   return (
-    <main ref={shellRef} className="shell" onPaste={(event) => controller.handlePaste(event)}>
-      <FrameHeader status={snapshot.status} />
+    <main
+      ref={shellRef}
+      className={`shell ${frameMode === 'panel' ? 'shell-panel' : ''}`.trim()}
+      onPaste={(event) => controller.handlePaste(event)}
+    >
+      {frameMode === 'panel' ? (
+        <p id="status" className="visually-hidden" aria-live="polite">
+          {snapshot.status}
+        </p>
+      ) : (
+        <FrameHeader status={snapshot.status} />
+      )}
       <div className="workspace">
         <AuthoringCanvas controller={controller} snapshot={snapshot} />
       </div>

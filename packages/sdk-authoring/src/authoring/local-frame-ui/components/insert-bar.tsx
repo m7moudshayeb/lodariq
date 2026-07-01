@@ -1,8 +1,10 @@
 import type { RefObject } from 'react';
 import type { LocalAuthoringFrameController } from '../controller';
-import { AuthoringButton, Heading, Image, Plus, Type, Wand2 } from '../design-system';
+import { AuthoringButton, Plus, Type } from '../design-system';
 import { SLASH_COMMANDS, type LocalAuthoringFrameSnapshot } from '../types';
 import { COMMAND_DETAILS } from './insert-menu';
+
+const TOP_LEVEL_COMMANDS = SLASH_COMMANDS.filter((command) => command.value === 'step');
 
 export function InsertBar({
   controller,
@@ -18,8 +20,8 @@ export function InsertBar({
   const isPlainText = trimmedComposerText.length > 0 && !trimmedComposerText.startsWith('/');
   const filteredCommands =
     commandQuery.length === 0
-      ? SLASH_COMMANDS
-      : SLASH_COMMANDS.filter((command) => {
+      ? TOP_LEVEL_COMMANDS
+      : TOP_LEVEL_COMMANDS.filter((command) => {
           const details = COMMAND_DETAILS[command.value];
           return (
             command.value.includes(commandQuery) ||
@@ -34,39 +36,39 @@ export function InsertBar({
         <span className="composer-plus" aria-hidden="true">
           <Plus size={15} strokeWidth={2.35} />
         </span>
-        <section aria-label="Insert blocks" className="slash">
+        <section aria-label="Add step" className="slash">
           <input
             ref={slashInputRef}
-            aria-label="Block composer"
+            aria-label="Experience composer"
             aria-controls="slash-command-menu"
             aria-expanded={snapshot.slashOpen}
             aria-haspopup="listbox"
-            placeholder="Type / for blocks, or write a paragraph"
+            placeholder="Write the next step title"
             value={snapshot.slashText}
             onInput={(event) => controller.setSlashText(event.currentTarget.value)}
             onKeyDown={(event) => controller.handleSlashKeyDown(event)}
           />
           <div
             id="slash-command-menu"
-            aria-label="Block insert commands"
+            aria-label="Step insert commands"
             className="menu command-menu"
             hidden={!snapshot.slashOpen}
             role="listbox"
           >
             <div className="command-menu-header">
-              <span>{isPlainText ? 'Create from text' : 'Insert block'}</span>
-              <kbd>Enter</kbd>
+              <span>{isPlainText ? 'Add step' : 'Add a step'}</span>
+              <kbd>Add</kbd>
             </div>
             {isPlainText ? (
               <AuthoringButton
                 className="command-item command-item-primary"
                 onPointerDown={(event) => {
                   event.preventDefault();
-                  controller.appendBlock('paragraph', trimmedComposerText);
+                  controller.appendStep(trimmedComposerText);
                 }}
                 onClick={(event) => {
                   if (event.detail !== 0) return;
-                  controller.appendBlock('paragraph', trimmedComposerText);
+                  controller.appendStep(trimmedComposerText);
                 }}
                 role="option"
               >
@@ -74,7 +76,7 @@ export function InsertBar({
                   <Type size={14} strokeWidth={2.2} />
                 </span>
                 <span className="command-copy">
-                  <strong>Add paragraph</strong>
+                  <strong>New step</strong>
                   <small>{trimmedComposerText}</small>
                 </span>
               </AuthoringButton>
@@ -101,56 +103,28 @@ export function InsertBar({
                   </span>
                   <span className="command-copy">
                     <strong>{command.label}</strong>
-                    <small>/{command.value}</small>
+                    <small>{details.description}</small>
                   </span>
-                  <span className="command-description">{details.description}</span>
+                  <span className="command-description">Add</span>
                 </AuthoringButton>
               );
             })}
             {!isPlainText && filteredCommands.length === 0 ? (
-              <div className="command-empty">No matching blocks</div>
+              <div className="command-empty">Open a step to add text, buttons, or media.</div>
             ) : null}
           </div>
         </section>
-      </div>
-      <div className="quick-insert" aria-label="Quick insert">
-        <AuthoringButton
-          className="add-step"
-          data-action="append-step"
-          icon={<Plus size={15} strokeWidth={2.3} />}
-          onClick={() => controller.appendStep()}
-          tone="primary"
-        >
-          Add step
-        </AuthoringButton>
-        <AuthoringButton
-          data-command="heading"
-          icon={<Heading size={14} strokeWidth={2.2} />}
-          onClick={() => controller.appendBlock('heading')}
-        >
-          Heading
-        </AuthoringButton>
-        <AuthoringButton
-          data-command="paragraph"
-          icon={<Type size={14} strokeWidth={2.2} />}
-          onClick={() => controller.appendBlock('paragraph')}
-        >
-          Paragraph
-        </AuthoringButton>
-        <AuthoringButton
-          data-command="button"
-          icon={<Wand2 size={14} strokeWidth={2.2} />}
-          onClick={() => controller.appendBlock('button')}
-        >
-          Button
-        </AuthoringButton>
-        <AuthoringButton
-          data-command="media"
-          icon={<Image size={14} strokeWidth={2.2} />}
-          onClick={() => controller.appendBlock('media')}
-        >
-          Media
-        </AuthoringButton>
+        <div className="quick-insert" aria-label="Quick insert">
+          <AuthoringButton
+            className="add-step"
+            data-action="append-step"
+            icon={<Plus size={15} strokeWidth={2.3} />}
+            onClick={() => controller.appendStep()}
+            tone="primary"
+          >
+            New step
+          </AuthoringButton>
+        </div>
       </div>
     </div>
   );

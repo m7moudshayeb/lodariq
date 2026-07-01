@@ -825,7 +825,7 @@ describe('@lodariq/api control-plane routes', () => {
       url: '/v1/sdk/current-document',
       headers: {
         authorization: `Bearer ${developmentClientToken}`,
-        origin: 'http://localhost:5173',
+        origin: 'http://localhost:5175',
       },
     });
     expect(unpublishedDevelopmentDocument.statusCode).toBe(404);

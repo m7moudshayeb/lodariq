@@ -19,7 +19,7 @@ export default async function DashboardPage(): Promise<React.ReactElement> {
     return (
       <DashboardAuthRequired
         title="Dashboard auth is not configured"
-        description="Set NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY and CLERK_SECRET_KEY for this deployment before using the control plane."
+        description="Set NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY and CLERK_SECRET_KEY for this deployment before using the experience workspace."
         showAction={false}
       />
     );
@@ -28,7 +28,7 @@ export default async function DashboardPage(): Promise<React.ReactElement> {
     return (
       <DashboardAuthRequired
         title="Sign in to Lodariq"
-        description="The control plane uses Clerk sessions and active organization claims before it can read or change workspace documents."
+        description="The workspace uses Clerk sessions and active organization claims before it can read or change experiences."
       />
     );
   }

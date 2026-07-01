@@ -82,20 +82,28 @@ export interface LocalAuthoringPanel {
 
 let activePanel: LocalAuthoringPanel | null = null;
 const AUTHORING_PANEL_OPEN_ATTRIBUTE = 'data-lodariq-authoring-panel-open';
+const AUTHORING_HOST_LAYER_STYLE_ID = 'lodariq-authoring-host-layer-style';
 const LOCAL_AUTHORING_TRIGGER_SELECTOR = '[data-lodariq-authoring-trigger="true"]';
 const DEFAULT_AUTHORING_PANEL_WIDTH = 550;
-const MIN_AUTHORING_PANEL_WIDTH = 320;
+const DEFAULT_AUTHORING_PANEL_HEIGHT = 820;
+const MIN_AUTHORING_PANEL_WIDTH = 340;
+const MIN_AUTHORING_PANEL_HEIGHT = 360;
+const SMALL_VIEWPORT_PANEL_HEIGHT = 260;
 
-function withTrustedParentOrigin(iframeSrc: string): string {
+function withPanelFrameParams(iframeSrc: string): string {
   const parentOrigin = window.location.origin;
-  if (!parentOrigin || parentOrigin === 'null') return iframeSrc;
 
   try {
     const url = new URL(iframeSrc, window.location.href);
-    if (url.origin === parentOrigin || !['http:', 'https:'].includes(url.protocol)) {
-      return iframeSrc;
+    url.searchParams.set('lodariqFrame', 'panel');
+    if (
+      parentOrigin &&
+      parentOrigin !== 'null' &&
+      url.origin !== parentOrigin &&
+      ['http:', 'https:'].includes(url.protocol)
+    ) {
+      url.searchParams.set('parentOrigin', parentOrigin);
     }
-    url.searchParams.set('parentOrigin', parentOrigin);
     return url.toString();
   } catch {
     return iframeSrc;
@@ -113,7 +121,7 @@ export function openLocalAuthoringPanel(
 
   const host = document.createElement('lodariq-authoring-panel');
   const shadow = host.attachShadow({ mode: 'open' });
-  const iframeSrc = withTrustedParentOrigin(options.iframeSrc);
+  const iframeSrc = withPanelFrameParams(options.iframeSrc);
   const iframeOrigin = new URL(iframeSrc, window.location.href).origin;
   const preview = options.preview;
   let previewDocument =
@@ -415,17 +423,40 @@ function positionPanelFromAuthoringTrigger(host: HTMLElement): void {
     Math.max(MIN_AUTHORING_PANEL_WIDTH, viewportWidth - margin * 2),
   );
   const centerX = triggerRect.left + triggerRect.width / 2;
-  const minHeight = Math.min(360, Math.max(260, viewportHeight * 0.42));
-  const top = clamp(triggerRect.bottom + 10, viewport.top + margin, viewport.bottom - minHeight);
+  const minHeight = authoringPanelMinimumHeight(viewportHeight, margin);
+  const minTop = viewport.top + margin;
+  const maxTop = Math.max(minTop, viewport.bottom - minHeight - margin);
+  const top = clamp(
+    triggerRect.bottom + 10,
+    minTop,
+    maxTop,
+  );
   const left = clamp(centerX - width / 2, viewport.left + margin, viewport.right - width - margin);
-  const bottom = Math.max(window.innerHeight - viewport.bottom + margin, margin);
+  const height = authoringPanelHeight(viewport, top, margin);
 
   host.style.left = `${left}px`;
   host.style.top = `${top}px`;
   host.style.right = 'auto';
-  host.style.bottom = `${bottom}px`;
+  host.style.bottom = 'auto';
   host.style.width = `${width}px`;
+  host.style.height = `${height}px`;
   setPanelArrow(host, centerX - left, width);
+}
+
+function authoringPanelMinimumHeight(viewportHeight: number, margin: number): number {
+  return Math.min(
+    MIN_AUTHORING_PANEL_HEIGHT,
+    Math.max(SMALL_VIEWPORT_PANEL_HEIGHT, viewportHeight - margin * 2),
+  );
+}
+
+function authoringPanelHeight(
+  viewport: ReturnType<typeof visibleViewportBounds>,
+  top: number,
+  margin: number,
+): number {
+  const availableHeight = Math.max(SMALL_VIEWPORT_PANEL_HEIGHT, viewport.bottom - top - margin);
+  return Math.min(DEFAULT_AUTHORING_PANEL_HEIGHT, availableHeight);
 }
 
 function positionOpenAuthoringTrigger(
@@ -562,16 +593,20 @@ function movePanelWithAuthoringTrigger(host: HTMLElement, left: number, top: num
     hostRect.width || DEFAULT_AUTHORING_PANEL_WIDTH,
     viewport.width - margin * 2,
   );
+  const minHeight = authoringPanelMinimumHeight(viewport.height, margin);
+  const minTop = viewport.top + triggerHeight + margin + 10;
+  const maxTop = Math.max(minTop, viewport.bottom - minHeight - margin);
   const nextLeft = clamp(left, viewport.left + margin, viewport.right - width - margin);
-  const nextTop = clamp(top, viewport.top + triggerHeight + margin + 10, viewport.bottom - 260);
-  const bottom = Math.max(window.innerHeight - viewport.bottom + margin, margin);
+  const nextTop = clamp(top, minTop, maxTop);
+  const height = authoringPanelHeight(viewport, nextTop, margin);
   const arrowX = clamp(width - 42, 28, width - 28);
 
   host.style.left = `${nextLeft}px`;
   host.style.top = `${nextTop}px`;
   host.style.right = 'auto';
-  host.style.bottom = `${bottom}px`;
+  host.style.bottom = 'auto';
   host.style.width = `${width}px`;
+  host.style.height = `${height}px`;
   setPanelArrow(host, arrowX, width);
 
   if (trigger) {
@@ -622,6 +657,7 @@ function visibleViewportBounds(ownerWindow: Window): {
 
 function setAuthoringPanelOpenState(open: boolean): void {
   if (open) {
+    ensureAuthoringHostLayerStyles(document);
     document.documentElement.setAttribute(AUTHORING_PANEL_OPEN_ATTRIBUTE, 'true');
   } else {
     document.documentElement.removeAttribute(AUTHORING_PANEL_OPEN_ATTRIBUTE);
@@ -632,6 +668,20 @@ function setAuthoringPanelOpenState(open: boolean): void {
       button.setAttribute('aria-expanded', open ? 'true' : 'false');
       if (!open) delete button.dataset[LOCAL_AUTHORING_OPEN_MANUAL_PLACEMENT_KEY];
     });
+}
+
+function ensureAuthoringHostLayerStyles(doc: Document): void {
+  if (doc.getElementById(AUTHORING_HOST_LAYER_STYLE_ID)) return;
+  const style = createNonceStyleElement(
+    doc,
+    `
+    :root[${AUTHORING_PANEL_OPEN_ATTRIBUTE}="true"] lodariq-tour {
+      --lodariq-tour-z-index: 2147483644;
+    }
+  `,
+  );
+  style.id = AUTHORING_HOST_LAYER_STYLE_ID;
+  doc.head.appendChild(style);
 }
 
 function dispatchAuthoringSaveError(error: unknown): void {
@@ -774,23 +824,21 @@ function inspectTarget(
     confidence: result.confidence,
     candidateCount: result.candidateCount,
     resolutionMethod: result.resolutionMethod,
-    message: targetInspectMessage(action, result.state, result.resolutionMethod),
+    message: targetInspectMessage(action, result.state),
   };
 }
 
 function targetInspectMessage(
   action: TargetInspectAction,
   state: ResolverDiagnostic['state'],
-  method: string,
 ): string {
   if (state === 'found') {
-    if (action === 'view')
-      return `Target found and highlighted by ${humanResolutionMethod(method)}`;
-    if (action === 'test') return `Target test passed by ${humanResolutionMethod(method)}`;
-    return `Found by ${humanResolutionMethod(method)}`;
+    if (action === 'view') return 'Anchor highlighted on the page';
+    if (action === 'test') return 'Anchor is ready';
+    return 'Anchor is ready';
   }
-  if (state === 'ambiguous') return 'Multiple matching elements found';
-  return 'Target not found on the current page';
+  if (state === 'ambiguous') return 'Anchor needs a more specific selection';
+  return 'Anchor needs attention on this page';
 }
 
 function revealTarget(element: Element): void {
@@ -823,27 +871,6 @@ function clearTargetReveal(): void {
   document
     .querySelectorAll('[data-lodariq-bridge="target-reveal"]')
     .forEach((marker) => marker.remove());
-}
-
-function humanResolutionMethod(method: string): string {
-  switch (method) {
-    case 'lodariq_id':
-      return 'Lodariq ID';
-    case 'stable_attribute':
-      return 'stable attribute';
-    case 'role_and_name':
-      return 'role and label';
-    case 'label':
-      return 'label';
-    case 'ancestor_landmark':
-      return 'landmark';
-    case 'relative_position':
-      return 'relative position';
-    case 'scoped_css':
-      return 'scoped CSS';
-    default:
-      return 'semantic match';
-  }
 }
 
 function applyPreviewPatch(
@@ -932,9 +959,12 @@ function createPanelStyles(): HTMLStyleElement {
       position: fixed;
       top: 82px;
       right: 18px;
-      bottom: 16px;
+      bottom: auto;
       display: block;
       width: min(550px, calc(100vw - 36px));
+      height: min(820px, calc(100dvh - 100px));
+      max-height: calc(100dvh - 100px);
+      min-height: min(360px, calc(100dvh - 100px));
       z-index: 2147483646;
       pointer-events: auto;
       font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -953,9 +983,9 @@ function createPanelStyles(): HTMLStyleElement {
       left: var(--lodariq-panel-arrow-x, calc(100% - 42px));
       width: 14px;
       height: 14px;
-      border-top: 1px solid rgba(53, 78, 72, 0.92);
-      border-left: 1px solid rgba(53, 78, 72, 0.92);
-      background: rgba(12, 24, 22, 0.98);
+      border-top: 1px solid rgba(199, 211, 218, 0.92);
+      border-left: 1px solid rgba(199, 211, 218, 0.92);
+      background: #f8fbfc;
       content: "";
       transform: translateX(-50%) rotate(45deg);
       z-index: 1;
@@ -965,12 +995,12 @@ function createPanelStyles(): HTMLStyleElement {
       position: relative;
       width: 100%;
       height: 100%;
-      border: 1px solid rgba(53, 78, 72, 0.92);
-      border-radius: 8px;
-      background: rgba(12, 24, 22, 0.98);
+      border: 1px solid rgba(199, 211, 218, 0.92);
+      border-radius: 12px;
+      background: #f8fbfc;
       box-shadow:
-        0 26px 70px rgba(0, 0, 0, 0.38),
-        0 0 0 1px rgba(255, 255, 255, 0.04) inset;
+        0 26px 70px rgba(15, 23, 42, 0.28),
+        0 0 0 1px rgba(255, 255, 255, 0.86) inset;
       overflow: hidden;
       backdrop-filter: blur(16px);
       box-sizing: border-box;
@@ -981,10 +1011,10 @@ function createPanelStyles(): HTMLStyleElement {
       align-items: center;
       justify-content: space-between;
       gap: 12px;
-      height: 42px;
-      padding: 0 10px 0 12px;
-      border-bottom: 1px solid rgba(53, 78, 72, 0.92);
-      background: rgba(8, 18, 16, 0.96);
+      height: 44px;
+      padding: 0 10px 0 14px;
+      border-bottom: 1px solid rgba(7, 25, 22, 0.9);
+      background: linear-gradient(180deg, #071916, #09211e);
       color: #e8f2ef;
       cursor: grab;
       user-select: none;
@@ -1017,17 +1047,17 @@ function createPanelStyles(): HTMLStyleElement {
 
     button {
       padding: 5px 10px;
-      border: 1px solid #263a36;
-      border-radius: 7px;
-      background: #101b1a;
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.06);
       color: #dce9e5;
       font: inherit;
       cursor: pointer;
     }
 
     button:hover {
-      border-color: #3a554f;
-      background: #172826;
+      border-color: rgba(255, 255, 255, 0.24);
+      background: rgba(255, 255, 255, 0.1);
       color: #f4faf8;
     }
 
@@ -1038,7 +1068,7 @@ function createPanelStyles(): HTMLStyleElement {
 
     slot[name="authoring-frame"] {
       display: block;
-      height: calc(100% - 42px);
+      height: calc(100% - 44px);
       min-height: 0;
       overflow: hidden;
     }
@@ -1048,7 +1078,7 @@ function createPanelStyles(): HTMLStyleElement {
       width: 100%;
       height: 100%;
       border: 0;
-      background: #07110f;
+      background: #edf2f5;
       pointer-events: auto;
     }
 
@@ -1056,9 +1086,12 @@ function createPanelStyles(): HTMLStyleElement {
       :host {
         top: 78px;
         right: 12px;
-        bottom: 12px;
+        bottom: auto;
         left: 12px;
         width: auto;
+        height: calc(100dvh - 90px);
+        max-height: calc(100dvh - 90px);
+        min-height: min(320px, calc(100dvh - 90px));
       }
 
       .panel::before {}

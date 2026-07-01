@@ -3,7 +3,7 @@ import type { ResolverDiagnostic, LodariqDocument, TargetInspectAction } from '@
 export const SLASH_COMMANDS = [
   { value: 'step', label: 'Step' },
   { value: 'heading', label: 'Heading' },
-  { value: 'paragraph', label: 'Paragraph' },
+  { value: 'paragraph', label: 'Text' },
   { value: 'button', label: 'Button' },
   { value: 'media', label: 'Media' },
 ] as const;
@@ -19,6 +19,7 @@ export interface TargetInspectionState {
 export interface FocusRequest {
   blockId: string;
   target: 'block' | 'edit';
+  caret?: 'start' | 'end' | number;
   token: number;
 }
 
@@ -30,6 +31,9 @@ export interface LocalAuthoringFrameSnapshot {
   jsonText: string;
   compiledText: string;
   metricsText: string;
+  selectedBlockId: string | null;
+  dragTargetBlockId: string | null;
+  dragTargetPosition: 'before' | 'after' | null;
   targetDiagnostics: Map<string, TargetInspectionState>;
   advancedTargetIds: Set<string>;
   focusRequest: FocusRequest | null;

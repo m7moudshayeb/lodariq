@@ -1,17 +1,9 @@
 import type { LocalAuthoringFrameController } from '../controller';
-import {
-  AuthoringButton,
-  AuthoringPopover,
-  MoreHorizontal,
-  RefreshCcw,
-  RotateCcw,
-  RotateCw,
-  Save,
-} from '../design-system';
+import { AuthoringButton, RefreshCcw, RotateCcw, RotateCw, Save } from '../design-system';
 
 export function CanvasActions({ controller }: { controller: LocalAuthoringFrameController }) {
   return (
-    <div className="canvas-actionbar" aria-label="Document actions">
+    <div className="canvas-actionbar" aria-label="Experience actions">
       <AuthoringButton
         aria-label="Save"
         className="canvas-icon-action"
@@ -34,28 +26,12 @@ export function CanvasActions({ controller }: { controller: LocalAuthoringFrameC
         icon={<RotateCw size={15} strokeWidth={2.2} />}
         onClick={() => controller.redo()}
       />
-      <AuthoringPopover
-        align="end"
-        content={
-          <div className="document-action-menu" role="menu" aria-label="More document actions">
-            <AuthoringButton
-              data-action="reset"
-              icon={<RefreshCcw size={14} strokeWidth={2.2} />}
-              onClick={() => controller.reset()}
-              role="menuitem"
-            >
-              Reset document
-            </AuthoringButton>
-          </div>
-        }
-        contentClassName="document-action-popover"
-        trigger={
-          <AuthoringButton
-            aria-label="More document actions"
-            className="canvas-icon-action"
-            icon={<MoreHorizontal size={16} strokeWidth={2.2} />}
-          />
-        }
+      <AuthoringButton
+        aria-label="Reset experience"
+        className="canvas-icon-action"
+        data-action="reset"
+        icon={<RefreshCcw size={15} strokeWidth={2.2} />}
+        onClick={() => controller.reset()}
       />
     </div>
   );

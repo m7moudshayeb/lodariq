@@ -4,8 +4,8 @@ import { ThemeProvider } from '../components/theme-provider';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Lodariq Control Plane',
-  description: 'Lodariq dashboard for staging SDK installation and document operations.',
+  title: 'Lodariq Experience Workspace',
+  description: 'Lodariq dashboard for authoring, installing, and publishing product experiences.',
 };
 
 export default function RootLayout({

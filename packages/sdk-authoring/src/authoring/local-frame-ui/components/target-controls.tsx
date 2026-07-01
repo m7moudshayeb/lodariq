@@ -5,14 +5,18 @@ import {
   Activity,
   AuthoringButton,
   AuthoringPopover,
-  Braces,
   Eye,
   MoreHorizontal,
   MousePointer2,
   Trash2,
 } from '../design-system';
-import type { LocalAuthoringFrameSnapshot, TargetInspectionState } from '../types';
-import { targetById, targetHealthDetails, targetHealthTitle } from '../utils';
+import type { DocumentTarget, LocalAuthoringFrameSnapshot, TargetInspectionState } from '../types';
+import {
+  targetById,
+  targetHealthDetails,
+  targetHealthTitle,
+  targetSupportDetails,
+} from '../utils';
 
 export function TargetControls({
   block,
@@ -33,25 +37,21 @@ export function TargetControls({
   const [menuOpen, setMenuOpen] = useState(false);
   const closeMenu = (): void => setMenuOpen(false);
   const status = inspection?.diagnostic.state ?? 'unchecked';
-  const statusText = inspection ? targetHealthTitle(inspection.diagnostic.state) : 'Not checked';
+  const statusText = inspection ? targetHealthTitle(inspection.diagnostic.state) : 'Needs check';
 
   return (
     <div className={`target-control ${status}`.trim()}>
-      <span className="target-chip" title={targetId}>
-        <span className="target-chip-label">{targetLabel}</span>
-        <span className="target-chip-status">{statusText}</span>
-      </span>
       <AuthoringPopover
-        align="start"
+        align="center"
         content={
           <div className="target-menu">
             <div className="target-menu-header">
-              <span>Attached target</span>
+              <span>Step placement</span>
               <strong title={targetLabel}>{targetLabel}</strong>
             </div>
             <div className="target-menu-actions">
               <AuthoringButton
-                aria-label="View target"
+                aria-label="Show placement on page"
                 className="target-menu-action target-menu-action-featured"
                 data-action="target-view"
                 data-block-id={block.id}
@@ -63,12 +63,12 @@ export function TargetControls({
                 }}
               >
                 <span className="target-action-copy">
-                  <strong>View target</strong>
-                  <small>Highlight it on the page</small>
+                  <strong>Show on page</strong>
+                  <small>Highlight where this step appears</small>
                 </span>
               </AuthoringButton>
               <AuthoringButton
-                aria-label="Change target"
+                aria-label="Change placement"
                 className="target-menu-action"
                 data-action="target-change"
                 data-block-id={block.id}
@@ -80,29 +80,12 @@ export function TargetControls({
                 }}
               >
                 <span className="target-action-copy">
-                  <strong>Change target</strong>
-                  <small>Pick a different product element</small>
+                  <strong>Change placement</strong>
+                  <small>Pick a different place for this step</small>
                 </span>
               </AuthoringButton>
               <AuthoringButton
-                aria-label="Test target"
-                className="target-menu-action"
-                data-action="target-test"
-                data-block-id={block.id}
-                data-target-id={targetId}
-                icon={<Activity size={14} strokeWidth={2.2} />}
-                onClick={() => {
-                  closeMenu();
-                  controller.requestTargetInspection(block.id, targetId, 'test');
-                }}
-              >
-                <span className="target-action-copy">
-                  <strong>Test target</strong>
-                  <small>Check whether it can be found now</small>
-                </span>
-              </AuthoringButton>
-              <AuthoringButton
-                aria-label="Target health"
+                aria-label="Check placement"
                 className="target-menu-action"
                 data-action="target-health"
                 data-block-id={block.id}
@@ -114,26 +97,26 @@ export function TargetControls({
                 }}
               >
                 <span className="target-action-copy">
-                  <strong>Target health</strong>
-                  <small>Inspect resolver confidence</small>
+                  <strong>Check placement</strong>
+                  <small>Make sure this place is still available</small>
                 </span>
               </AuthoringButton>
               <AuthoringButton
-                aria-label="Advanced details"
+                aria-label="View placement matching details"
                 className="target-menu-action"
                 data-action="target-advanced"
                 data-block-id={block.id}
                 data-target-id={targetId}
-                icon={<Braces size={14} strokeWidth={2.2} />}
+                icon={<Activity size={14} strokeWidth={2.2} />}
                 onClick={() => controller.toggleTargetAdvanced(targetId)}
               >
                 <span className="target-action-copy">
-                  <strong>Advanced details</strong>
-                  <small>Show fingerprint diagnostics</small>
+                  <strong>Matching details</strong>
+                  <small>Use when this step cannot find its place</small>
                 </span>
               </AuthoringButton>
               <AuthoringButton
-                aria-label="Remove target"
+                aria-label="Remove placement"
                 className="target-menu-action target-menu-action-danger"
                 data-action="target-remove"
                 data-block-id={block.id}
@@ -146,16 +129,25 @@ export function TargetControls({
                 tone="danger"
               >
                 <span className="target-action-copy">
-                  <strong>Remove target</strong>
-                  <small>Detach this block from the page</small>
+                  <strong>Remove placement</strong>
+                  <small>Detach this step from the page</small>
                 </span>
               </AuthoringButton>
             </div>
             <TargetHealth inspection={inspection} />
             {advancedOpen && target ? (
-              <pre className="target-advanced" aria-label="Target advanced details">
-                {JSON.stringify(target.fingerprint, null, 2)}
-              </pre>
+              <section className="target-advanced" aria-label="Placement matching details">
+                <strong>Matching details</strong>
+                {inspection ? <span>{targetSupportDetails(inspection)}</span> : null}
+                <dl>
+                  {anchorSupportRows(target).map((row) => (
+                    <div key={row.label}>
+                      <dt>{row.label}</dt>
+                      <dd>{row.value}</dd>
+                    </div>
+                  ))}
+                </dl>
+              </section>
             ) : null}
           </div>
         }
@@ -164,22 +156,53 @@ export function TargetControls({
         open={menuOpen}
         trigger={
           <AuthoringButton
-            aria-label={`Target ${targetLabel} actions`}
-            className="target-menu-trigger"
-            icon={<MoreHorizontal size={15} strokeWidth={2.2} />}
-          />
+            aria-label={`Placement ${targetLabel} actions`}
+            className="target-menu-trigger target-combo-trigger"
+            title={`Placement: ${targetLabel}`}
+          >
+            <span className="target-chip">
+              <MousePointer2 className="target-chip-icon" size={13} strokeWidth={2.3} />
+              <span className="target-chip-label">{targetLabel}</span>
+              <span className="target-chip-status">{statusText}</span>
+            </span>
+            <MoreHorizontal className="target-chip-more" size={15} strokeWidth={2.2} />
+          </AuthoringButton>
         }
       />
     </div>
   );
 }
 
+function anchorSupportRows(target: DocumentTarget): Array<{
+  label: string;
+  value: string;
+}> {
+  const fingerprint = target.fingerprint;
+  const landmarks = fingerprint.ancestorLandmarks
+    ?.map((item) => [item.role, item.accessibleName].filter(Boolean).join(' '))
+    .filter(Boolean);
+  const landmark = landmarks?.[landmarks.length - 1];
+  const nearbyText = fingerprint.nearbyText?.find((item) => item.trim())?.trim();
+  return [
+    {
+      label: 'Page label',
+      value: fingerprint.accessibleName ?? fingerprint.label ?? 'Not named',
+    },
+    { label: 'Item type', value: fingerprint.role ?? fingerprint.tagName.toLowerCase() },
+    {
+      label: 'Visible cue',
+      value: fingerprint.title ?? fingerprint.placeholder ?? nearbyText ?? 'None found',
+    },
+    { label: 'Page area', value: landmark ?? 'Current page' },
+  ];
+}
+
 function TargetHealth({ inspection }: { inspection: TargetInspectionState | undefined }) {
   if (!inspection) {
     return (
       <p className="target-health target-health-empty">
-        <strong>Target health</strong>
-        Not checked yet
+        <strong>Placement check</strong>
+        Check this placement before publishing.
       </p>
     );
   }

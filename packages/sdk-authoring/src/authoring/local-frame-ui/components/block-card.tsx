@@ -5,10 +5,12 @@ import {
   ArrowDown,
   ArrowUp,
   AuthoringButton,
-  ChevronDown,
-  ChevronRight,
+  AuthoringPopover,
+  Copy,
   GripVertical,
+  MoreHorizontal,
   MousePointer2,
+  Trash2,
 } from '../design-system';
 import type { LocalAuthoringFrameSnapshot } from '../types';
 import {
@@ -36,129 +38,225 @@ export function BlockCard({
   const targetId = targetIdOf(block);
   const targetLabel = targetId ? targetLabelOf(snapshot.documentState, targetId) : '';
   const title = blockDisplayTitle(block);
-  const headerTitle = block.type === 'tourStep' ? 'Tour step' : blockTypeLabel(block.type);
-  const targetActionLabel = targetId ? 'Change target' : 'Select target';
-  const [expanded, setExpanded] = useState(true);
+  const headerTitle = block.type === 'tourStep' ? title : blockTypeLabel(block.type);
+  const headerKicker = block.type === 'tourStep' ? blockKicker(block) : blockTypeLabel(block.type);
+  const statusLabel = blockStatusLabel(block, statusValue, targetId);
+  const needsPageElement = statusValue === 'incomplete' && block.type === 'tourStep' && !targetId;
+  const showStatusBadge = statusValue !== 'ready' && !needsPageElement;
+  const showAnchor = block.type === 'tourStep' || Boolean(targetId);
+  const selected = snapshot.selectedBlockId === block.id;
+  const dropPosition =
+    snapshot.dragTargetBlockId === block.id ? snapshot.dragTargetPosition : null;
 
   return (
     <article
-      className={`block ${statusValue === 'ready' ? '' : statusValue}`.trim()}
-      draggable
+      className={`block document-block ${statusValue === 'ready' ? '' : statusValue} ${
+        selected ? 'selected' : ''
+      } ${dropPosition ? `drop-${dropPosition}` : ''}`.trim()}
       tabIndex={0}
       data-block-id={block.id}
+      data-drop-position={dropPosition ?? undefined}
       data-block-status={statusValue}
       data-block-type={block.type}
-      aria-label={`${blockTypeLabel(block.type)} block`}
-      aria-keyshortcuts="Alt+ArrowUp Alt+ArrowDown"
-      onDragStart={() => controller.startDraggingBlock(block.id)}
+      aria-label={`${blockTypeLabel(block.type)}: ${title}`}
+      aria-keyshortcuts="Control+D Meta+D Delete Backspace Alt+ArrowUp Alt+ArrowDown"
       onDragOver={(event) => controller.handleBlockDragOver(event)}
       onDrop={(event) => controller.handleBlockDrop(event, block.id)}
+      onFocus={() => controller.selectBlock(block.id)}
       onKeyDown={(event) => controller.handleBlockKeyDown(event, block.id)}
+      onPointerDown={() => controller.selectBlock(block.id)}
     >
       <div className="block-side-rail" aria-label={`${blockTypeLabel(block.type)} controls`}>
-        <span className="block-grip" aria-hidden="true" title="Drag block">
+        <button
+          type="button"
+          className="block-grip"
+          draggable
+          aria-label={`Drag ${blockTypeLabel(block.type).toLowerCase()}`}
+          title="Drag to reorder"
+          onDragEnd={() => controller.endDraggingBlock()}
+          onDragStart={(event) => controller.startDraggingBlock(block.id, event)}
+        >
           <GripVertical size={15} strokeWidth={2.1} />
-        </span>
-        <div className="block-rail-moves">
-          <AuthoringButton
-            aria-label="Move block up"
-            className="rail-button"
-            data-action="move-block"
-            data-direction="up"
-            data-block-id={block.id}
-            icon={<ArrowUp size={14} strokeWidth={2.2} />}
-            onClick={() => controller.moveTopLevelBlock(block.id, 'up')}
-          />
-          <AuthoringButton
-            aria-label="Move block down"
-            className="rail-button"
-            data-action="move-block"
-            data-direction="down"
-            data-block-id={block.id}
-            icon={<ArrowDown size={14} strokeWidth={2.2} />}
-            onClick={() => controller.moveTopLevelBlock(block.id, 'down')}
-          />
-        </div>
+        </button>
       </div>
 
       <div className="block-content">
         <header className="block-header">
-          <button
-            type="button"
-            className="block-collapse"
-            aria-label={expanded ? 'Collapse block' : 'Expand block'}
-            aria-expanded={expanded}
-            onClick={() => setExpanded((value) => !value)}
-          >
-            {expanded ? (
-              <ChevronDown size={14} strokeWidth={2.2} />
-            ) : (
-              <ChevronRight size={14} strokeWidth={2.2} />
-            )}
-          </button>
           <div className="block-title">
-            <span className="block-kicker">{blockKicker(block)}</span>
-            <strong title={headerTitle}>{headerTitle}</strong>
-            {block.type === 'tourStep' ? (
-              <span className="block-title-preview" title={title}>
-                {title}
-              </span>
+            <span className="block-kicker">{headerKicker}</span>
+            {block.type === 'tourStep' ? null : <strong title={title}>{headerTitle}</strong>}
+            {showStatusBadge ? (
+              <span className={`badge ${statusValue}`.trim()}>{statusLabel}</span>
             ) : null}
           </div>
-          <span className={`badge ${statusValue === 'ready' ? '' : statusValue}`.trim()}>
-            {statusValue}
-          </span>
-        </header>
-
-        {expanded ? (
-          <>
-            <div className="block-section block-section-content">
-              <span className="block-section-label">Content</span>
-              <div className="block-body">
-                <BlockBody block={block} controller={controller} />
-              </div>
-            </div>
-
-            <div className="block-section block-section-target">
-              <span className="block-section-label">Target</span>
-              <div className="target-row">
+          {showAnchor ? (
+            <div className="block-anchor-slot">
+              {targetId ? (
+                <TargetControls
+                  block={block}
+                  targetId={targetId}
+                  targetLabel={targetLabel}
+                  snapshot={snapshot}
+                  controller={controller}
+                />
+              ) : (
                 <AuthoringButton
+                  aria-label="Choose placement"
+                  className={`anchor-button ${needsPageElement ? 'anchor-button-empty' : ''}`.trim()}
                   data-action="target-pick"
                   data-block-id={block.id}
-                  icon={<MousePointer2 size={14} strokeWidth={2.2} />}
+                  icon={<MousePointer2 size={13} strokeWidth={2.2} />}
                   onClick={() => controller.startTargetPick(block.id)}
                 >
-                  {targetActionLabel}
+                  Choose placement
                 </AuthoringButton>
-                {targetId ? (
-                  <TargetControls
-                    block={block}
-                    targetId={targetId}
-                    targetLabel={targetLabel}
-                    snapshot={snapshot}
-                    controller={controller}
-                  />
-                ) : (
-                  <span className="target-empty">No target selected</span>
-                )}
-              </div>
+              )}
             </div>
+          ) : null}
+          <div className="block-header-actions">
+            <BlockInlineActions block={block} controller={controller} />
+            <BlockActionMenu block={block} controller={controller} />
+          </div>
+        </header>
 
-            <div className="block-footer">
-              <div className="block-tools">
-                <TransformControl block={block} controller={controller} />
-              </div>
-              <div className="block-meta">
-                {propertyChipLabels(block).map((label) => (
-                  <span key={label} className="property-chip" title={label}>
-                    {label}
-                  </span>
-                ))}
-              </div>
+        <div className="block-section block-section-content">
+          <div className="block-body">
+            <BlockBody
+              block={block}
+              controller={controller}
+              dragTargetBlockId={snapshot.dragTargetBlockId}
+              dragTargetPosition={snapshot.dragTargetPosition}
+              selectedBlockId={snapshot.selectedBlockId}
+            />
+          </div>
+        </div>
+
+        {block.type === 'tourStep' ? null : (
+          <div className="block-footer">
+            <div className="block-tools">
+              <TransformControl block={block} controller={controller} />
             </div>
-          </>
-        ) : null}
+            <div className="block-meta">
+              {propertyChipLabels(block).map((label) => (
+                <span key={label} className="property-chip" title={label}>
+                  {label}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </article>
+  );
+}
+
+function blockStatusLabel(
+  block: LodariqBlock,
+  statusValue: 'ready' | 'incomplete' | 'invalid',
+  targetId: string | null,
+): string {
+  if (statusValue === 'invalid') return 'Needs fix';
+  if (statusValue === 'incomplete' && block.type === 'tourStep' && !targetId) {
+    return 'Choose placement';
+  }
+  if (statusValue === 'incomplete') return 'Needs review';
+  return 'Ready';
+}
+
+function BlockInlineActions({
+  block,
+  controller,
+}: {
+  block: LodariqBlock;
+  controller: LocalAuthoringFrameController;
+}) {
+  const label = blockTypeLabel(block.type).toLowerCase();
+  return (
+    <div className="block-inline-actions" aria-label={`${blockTypeLabel(block.type)} quick actions`}>
+      <AuthoringButton
+        aria-label={`Duplicate ${label}`}
+        className="block-inline-action"
+        data-action="duplicate-block"
+        data-block-id={block.id}
+        icon={<Copy size={13} strokeWidth={2.25} />}
+        onClick={() => controller.duplicateTopLevelBlock(block.id)}
+        title="Duplicate"
+        tone="ghost"
+      />
+      <AuthoringButton
+        aria-label={`Delete ${label}`}
+        className="block-inline-action block-inline-action-danger"
+        data-action="delete-block"
+        data-block-id={block.id}
+        icon={<Trash2 size={13} strokeWidth={2.25} />}
+        onClick={() => controller.deleteTopLevelBlock(block.id)}
+        title="Delete"
+        tone="ghost"
+      />
+    </div>
+  );
+}
+
+function BlockActionMenu({
+  block,
+  controller,
+}: {
+  block: LodariqBlock;
+  controller: LocalAuthoringFrameController;
+}) {
+  const [open, setOpen] = useState(false);
+  const runAction = (action: () => void): void => {
+    setOpen(false);
+    action();
+  };
+  return (
+    <AuthoringPopover
+      align="end"
+      content={
+        <div
+          className="block-action-menu"
+          role="menu"
+          aria-label={`${blockTypeLabel(block.type)} actions`}
+        >
+          <div className="block-action-menu-header">
+            <span>{blockTypeLabel(block.type)}</span>
+            <strong>Actions</strong>
+          </div>
+          <AuthoringButton
+            className="block-action-menu-item"
+            data-action="move-block"
+            data-block-id={block.id}
+            data-direction="up"
+            icon={<ArrowUp size={14} strokeWidth={2.2} />}
+            onClick={() => runAction(() => controller.moveTopLevelBlock(block.id, 'up'))}
+            role="menuitem"
+          >
+            Move up
+          </AuthoringButton>
+          <AuthoringButton
+            className="block-action-menu-item"
+            data-action="move-block"
+            data-block-id={block.id}
+            data-direction="down"
+            icon={<ArrowDown size={14} strokeWidth={2.2} />}
+            onClick={() => runAction(() => controller.moveTopLevelBlock(block.id, 'down'))}
+            role="menuitem"
+          >
+            Move down
+          </AuthoringButton>
+        </div>
+      }
+      contentClassName="block-action-popover"
+      onOpenChange={setOpen}
+      open={open}
+      trigger={
+        <AuthoringButton
+          aria-label={`${blockTypeLabel(block.type)} actions`}
+          className="block-action-trigger"
+          icon={<MoreHorizontal size={15} strokeWidth={2.2} />}
+          title={`${blockTypeLabel(block.type)} actions`}
+        />
+      }
+    />
   );
 }

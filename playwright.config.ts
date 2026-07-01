@@ -22,49 +22,84 @@ if (process.env.LODARIQ_E2E_EDGE === '1') {
   });
 }
 
+const apiPort = process.env.LODARIQ_E2E_API_PORT ?? '3001';
+const dashboardPort = process.env.LODARIQ_E2E_DASHBOARD_PORT ?? '3002';
+const fixtureHostPort = process.env.LODARIQ_E2E_FIXTURE_HOST_PORT ?? '4177';
+const customerLikeHostPort = process.env.LODARIQ_E2E_CUSTOMER_LIKE_HOST_PORT ?? '4188';
+const apiBaseURL = `http://127.0.0.1:${apiPort}`;
+const dashboardBaseURL = `http://127.0.0.1:${dashboardPort}`;
+const fixtureHostBaseURL = `http://127.0.0.1:${fixtureHostPort}`;
+const customerLikeHostBaseURL = `http://127.0.0.1:${customerLikeHostPort}`;
+const requestedWebServers = new Set(
+  (process.env.LODARIQ_E2E_WEB_SERVERS ?? 'api,dashboard,fixture-host,customer-like-host')
+    .split(',')
+    .map((name) => name.trim())
+    .filter(Boolean),
+);
+const shouldStartWebServer = (name: string): boolean => requestedWebServers.has(name);
+
 export default defineConfig({
   testDir: './packages/tests/e2e',
   timeout: 30_000,
   use: {
-    baseURL: 'http://127.0.0.1:4177',
+    baseURL: fixtureHostBaseURL,
     trace: 'retain-on-failure',
   },
   webServer: [
-    {
-      command: 'pnpm --filter @lodariq/api run dev:e2e',
-      url: 'http://127.0.0.1:3001/healthz',
-      reuseExistingServer: !process.env.CI,
-      timeout: 30_000,
-      env: {
-        HOST: '127.0.0.1',
-        PORT: '3001',
-        LODARIQ_DEV_WORKSPACE_ID: 'wk_dashboard_e2e',
-        LODARIQ_DEV_USER_ID: 'user_dashboard_e2e',
-      },
-    },
-    {
-      command: 'pnpm --filter @lodariq/dashboard run dev:e2e',
-      url: 'http://127.0.0.1:3002',
-      reuseExistingServer: !process.env.CI,
-      timeout: 60_000,
-      env: {
-        LODARIQ_API_BASE_URL: 'http://127.0.0.1:3001',
-        LODARIQ_WORKSPACE_ID: 'wk_dashboard_e2e',
-        LODARIQ_DASHBOARD_USER_ID: 'user_dashboard_e2e',
-      },
-    },
-    {
-      command: 'pnpm --filter @lodariq/fixture-host exec vite --host 127.0.0.1 --port 4177',
-      url: 'http://127.0.0.1:4177',
-      reuseExistingServer: !process.env.CI,
-      timeout: 30_000,
-    },
-    {
-      command: 'pnpm --filter @lodariq/customer-like-host exec vite --host 127.0.0.1 --port 4188',
-      url: 'http://127.0.0.1:4188',
-      reuseExistingServer: !process.env.CI,
-      timeout: 30_000,
-    },
+    ...(shouldStartWebServer('api')
+      ? [
+          {
+            command: 'pnpm --filter @lodariq/api run dev:e2e',
+            url: `${apiBaseURL}/healthz`,
+            reuseExistingServer: !process.env.CI,
+            timeout: 30_000,
+            env: {
+              HOST: '127.0.0.1',
+              PORT: apiPort,
+              LODARIQ_DEV_WORKSPACE_ID: 'wk_dashboard_e2e',
+              LODARIQ_DEV_USER_ID: 'user_dashboard_e2e',
+            },
+          },
+        ]
+      : []),
+    ...(shouldStartWebServer('dashboard')
+      ? [
+          {
+            command:
+              `pnpm --filter @lodariq/dashboard exec next dev --hostname 127.0.0.1 --port ${dashboardPort}`,
+            url: dashboardBaseURL,
+            reuseExistingServer: !process.env.CI,
+            timeout: 60_000,
+            env: {
+              LODARIQ_API_BASE_URL: apiBaseURL,
+              LODARIQ_WORKSPACE_ID: 'wk_dashboard_e2e',
+              LODARIQ_DASHBOARD_USER_ID: 'user_dashboard_e2e',
+            },
+          },
+        ]
+      : []),
+    ...(shouldStartWebServer('fixture-host')
+      ? [
+          {
+            command:
+              `pnpm --filter @lodariq/fixture-host exec vite --host 127.0.0.1 --port ${fixtureHostPort}`,
+            url: fixtureHostBaseURL,
+            reuseExistingServer: !process.env.CI,
+            timeout: 30_000,
+          },
+        ]
+      : []),
+    ...(shouldStartWebServer('customer-like-host')
+      ? [
+          {
+            command:
+              `pnpm --filter @lodariq/customer-like-host exec vite --host 127.0.0.1 --port ${customerLikeHostPort}`,
+            url: customerLikeHostBaseURL,
+            reuseExistingServer: !process.env.CI,
+            timeout: 30_000,
+          },
+        ]
+      : []),
   ],
   projects,
 });

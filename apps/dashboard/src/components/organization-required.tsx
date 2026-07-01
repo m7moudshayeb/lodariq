@@ -12,8 +12,8 @@ export function OrganizationRequired(): React.ReactElement {
           <p className="text-xs font-semibold uppercase text-muted-foreground">Workspace</p>
           <h1 className="text-2xl font-semibold tracking-normal">Choose an organization</h1>
           <p className="text-sm leading-6 text-muted-foreground">
-            The API scopes documents by the active Clerk organization. Choose or create one before
-            opening the control plane.
+            The API scopes experiences by the active Clerk organization. Choose or create one
+            before opening the experience workspace.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-3">

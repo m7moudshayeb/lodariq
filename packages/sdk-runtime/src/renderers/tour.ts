@@ -451,7 +451,7 @@ function createStyles(): HTMLStyleElement {
     :host {
       position: fixed;
       inset: 0;
-      z-index: 2147483647;
+      z-index: var(--lodariq-tour-z-index, 2147483647);
       pointer-events: none;
       font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     }

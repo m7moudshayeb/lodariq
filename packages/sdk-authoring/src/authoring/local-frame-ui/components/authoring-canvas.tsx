@@ -17,22 +17,19 @@ export function AuthoringCanvas({
 }) {
   const slashInputRef = useRef<HTMLInputElement | null>(null);
   const blocks = snapshot.documentState.blocks;
-  const readyCount = blocks.filter((block) => blockStatus(block) === 'ready').length;
-  const incompleteCount = blocks.filter((block) => blockStatus(block) === 'incomplete').length;
+  const tourSteps = blocks.filter((block) => block.type === 'tourStep');
+  const readyCount = tourSteps.filter((block) => blockStatus(block) === 'ready').length;
+  const needsReviewCount = tourSteps.filter((block) => blockStatus(block) === 'incomplete').length;
+  const needsFixCount = tourSteps.filter((block) => blockStatus(block) === 'invalid').length;
 
   return (
     <section
       className="canvas"
-      aria-label="Tour builder"
+      aria-label="Experience editor"
       tabIndex={-1}
       onPointerDown={(event) => {
         if (isCommandComposerTarget(event.target)) return;
-        if (isInteractiveCanvasTarget(event.target)) {
-          controller.closeSlashComposer();
-          return;
-        }
         controller.closeSlashComposer();
-        slashInputRef.current?.focus();
       }}
       onKeyDown={(event) => {
         if (
@@ -53,56 +50,74 @@ export function AuthoringCanvas({
         <CanvasActions controller={controller} />
         <header className="document-hero">
           <div className="document-hero-copy">
-            <p className="eyebrow">Tour document</p>
-            <h2>{snapshot.documentState.title}</h2>
+            <div className="document-context" aria-label="Experience type">
+              <span>Tour</span>
+            </div>
+            <input
+              key={snapshot.documentState.title}
+              aria-label="Experience title"
+              className="document-title-input"
+              data-action="edit-title"
+              defaultValue={snapshot.documentState.title}
+              placeholder="Untitled experience"
+              onBlur={(event) => controller.commitDocumentTitle(event.currentTarget.value)}
+            />
           </div>
-          <div className="document-stats" aria-label="Document status">
-            <span>{blocks.length} blocks</span>
-            <span>{readyCount} ready</span>
-            {incompleteCount > 0 ? <span>{incompleteCount} incomplete</span> : null}
+          <div className="document-hero-meta">
+            <div className="document-stats" aria-label="Experience status">
+              <span>{formatCount(tourSteps.length, 'step')}</span>
+              <span>{readyCount} ready</span>
+              {needsReviewCount > 0 ? <span>{needsReviewCount} need review</span> : null}
+              {needsFixCount > 0 ? <span>{needsFixCount} need fixes</span> : null}
+            </div>
           </div>
         </header>
 
-        <section className="document" aria-label="Canonical document blocks">
-          {blocks.map((block, index) => (
-            <div className="document-block-group" key={block.id}>
-              {index === 0 ? (
-                <InlineTopLevelInsert
-                  anchorBlockId={block.id}
-                  controller={controller}
-                  label="Insert block before first block"
-                  position="before"
-                />
-              ) : null}
-              <BlockCard block={block} controller={controller} snapshot={snapshot} />
-              <InlineTopLevelInsert
-                anchorBlockId={block.id}
-                controller={controller}
-                label="Insert block after this block"
-                position="after"
-              />
-            </div>
-          ))}
-        </section>
+        <div className="authoring-workspace">
+          <div className="document-main">
+            <section className="document" aria-label="Experience content">
+              {blocks.map((block, index) => (
+                <div className="document-block-group" key={block.id}>
+                  {index === 0 ? (
+                    <InlineTopLevelInsert
+                      anchorBlockId={block.id}
+                      controller={controller}
+                      dropActive={
+                        snapshot.dragTargetBlockId === block.id &&
+                        snapshot.dragTargetPosition === 'before'
+                      }
+                      label="Add step before the first step"
+                      position="before"
+                    />
+                  ) : null}
+                  <BlockCard block={block} controller={controller} snapshot={snapshot} />
+                  <InlineTopLevelInsert
+                    anchorBlockId={block.id}
+                    controller={controller}
+                    dropActive={
+                      snapshot.dragTargetBlockId === block.id &&
+                      snapshot.dragTargetPosition === 'after'
+                    }
+                    label="Add step after this step"
+                    position="after"
+                  />
+                </div>
+              ))}
+            </section>
 
-        <InsertBar controller={controller} snapshot={snapshot} slashInputRef={slashInputRef} />
-
-        <Inspector controller={controller} snapshot={snapshot} />
+            <InsertBar controller={controller} snapshot={snapshot} slashInputRef={slashInputRef} />
+            <Inspector controller={controller} snapshot={snapshot} />
+          </div>
+        </div>
       </div>
     </section>
   );
 }
 
-function isInteractiveCanvasTarget(target: EventTarget): boolean {
-  if (!(target instanceof Element)) return false;
-  if (isEditableControl(target)) return true;
-  return Boolean(
-    target.closest(
-      'button, summary, select, [role="button"], [role="menuitem"], .block, .inline-insert, .step-child, .target-menu, .ui-popover-content, .ui-select-content, .panel',
-    ),
-  );
-}
-
 function isCommandComposerTarget(target: EventTarget): boolean {
   return target instanceof Element && Boolean(target.closest('.slash, .command-menu'));
+}
+
+function formatCount(count: number, label: string): string {
+  return `${count} ${label}${count === 1 ? '' : 's'}`;
 }
