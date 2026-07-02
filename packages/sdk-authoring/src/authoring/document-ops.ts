@@ -1,4 +1,9 @@
-import { sanitizeBlockProps, type BlockActionProps, type LodariqBlock } from '@lodariq/schema';
+import {
+  isSafeNavigationUrl,
+  sanitizeBlockProps,
+  type BlockActionProps,
+  type LodariqBlock,
+} from '@lodariq/schema';
 import { createBlockId } from '../editor/ids';
 
 export type EditableBlockType =
@@ -829,6 +834,13 @@ function actionConfigStatus(
   props: LodariqBlock['props'],
 ): LodariqBlock['status'] {
   if (!requiresActionConfig(block)) return block.status;
+  if (
+    props.action?.type === 'openPage' &&
+    props.action.url &&
+    !isSafeNavigationUrl(props.action.url)
+  ) {
+    return 'invalid';
+  }
   return isCompleteAction(props.action) ? 'ready' : 'incomplete';
 }
 

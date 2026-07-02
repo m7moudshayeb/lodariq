@@ -25,5 +25,5 @@ export default defineConfig({
   clean: true,
   splitting: true,
   treeshake: true,
-  noExternal: [/^@floating-ui\//, /^@lodariq\/schema\/dom$/],
+  noExternal: [/^@floating-ui\//, /^@lodariq\/schema\/(?:dom|url)$/],
 });

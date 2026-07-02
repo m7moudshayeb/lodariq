@@ -9,7 +9,13 @@ import {
 import { BlockActionProps, LodariqBlockProps, LodariqBlockType, LodariqBlock } from './block';
 import { ElementFingerprint, RuntimeLifecycleHints, Target } from './target';
 import { TriggerDefinition, AudienceDefinition, LodariqDocument } from './document';
-import { CompiledStep, CompiledTarget, CompiledDocument, ManifestPointer } from './compiled';
+import {
+  CompiledStep,
+  CompiledTarget,
+  CompiledDocument,
+  ManifestArtifactPointer,
+  ManifestPointer,
+} from './compiled';
 import { DataCatalogEntry } from './catalog';
 import {
   BridgeEnvelope,
@@ -46,6 +52,7 @@ export const SCHEMA_REGISTRY: TSchema[] = [
   CompiledStep,
   CompiledTarget,
   CompiledDocument,
+  ManifestArtifactPointer,
   ManifestPointer,
   DataCatalogEntry,
   BridgeEnvelope,

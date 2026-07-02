@@ -3,9 +3,10 @@
 Tracks what has been implemented against `refined-lodariq-prd.md`. Section
 references like (PRD §16.0) point to that document.
 
-- Current phase: **Phase 1 — Foundation** (PRD §16.3)
-- Last updated: 2026-06-30
-- Current evidence audit: `docs/plans/phase-1-foundation-audit.md`
+- Current phase: **Phase 1 — Product hardening complete; live deployment smoke
+  pending** (PRD §16.3)
+- Last updated: 2026-07-02
+- Current evidence audit: `docs/plans/phase-1-product-hardening.md`
 
 Status legend:
 
@@ -171,6 +172,22 @@ Status legend:
 | Dependency security gate                                          | ✅     | `pnpm audit` is clean after patched Drizzle and PostCSS dependency graph                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | Phase 1 focused tests                                             | 🟡     | API, database, resolver stale-CSS fixture corpus, publication/authoring correlation propagation, direct document ID workspace isolation, API-backed dashboard, dashboard client/server-action boundary, debug JSON redaction, target-chip health copy helpers and component render states, real Next browser dashboard flow, generated SDK module snippet install/playback, token revocation, short-lived authoring launch install/save, creator toolbar gate, drag-to-reorder canonical/preview sync, five-step browser playback budget, SDK loader/runtime tests, target-controls render-state test |
 
+## Phase 1 Product Hardening Progress
+
+| Item                                      | Status | Where / Notes                                                                                                                                                                                                                 |
+| ----------------------------------------- | ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Hosted authoring default path             | ✅     | `apps/editor`, creator installer, API-backed document load/save, and dashboard launch snippets establish hosted authoring as the Phase 1 creator path                                                                          |
+| Semantic preview patches                  | ✅     | Bridge schema and authoring controller emit semantic batched operations for normal editing, lifecycle, target, action, and reorder updates; replacement remains reserved for hydration/restore/recovery                         |
+| Authoring reliability polish              | ✅     | Lifecycle-triggered update coverage avoids React warning output; text fields keep focus through commit; target popover is portalled for z-index/pointer safety; step dragging down and bottom-row drops are covered            |
+| Publish readiness UX                      | ✅     | `validateTourPublishReadiness` drives authoring badges and dashboard debug/publish surfaces with missing target, incomplete action, unsafe URL, and lifecycle-hint labels                                                     |
+| Target lifecycle controls                 | ✅     | Target menu exposes wait-for-text, scroll behavior, open-panel/select-tab toggles, health checks, test click, highlight, remove, and debug details without requiring JSON editing                                              |
+| Membership-backed authorization           | ✅     | API authorization resolves workspace roles from `users` and `workspace_memberships`; dev-header role fallback remains local/test-only                                                                                           |
+| Vendor-neutral observability              | ✅     | Internal observability sink and correlation IDs cover authoring sessions, save, compile, publish, runtime playback, SDK events, and SDK error paths                                                                            |
+| Content safety                            | ✅     | URL policy is centralized for `https:`, `mailto:`, safe relative paths, and approved app schemes; arbitrary CSS, JavaScript, and raw HTML remain outside canonical documents                                                    |
+| Publication artifact shape                | ✅     | Server-side compilation and DB-backed artifacts include manifest/pointer metadata for later object-storage upload while browser compilation remains preview-only                                                                |
+| Runtime/package boundary regressions      | ✅     | Build and deploy tests assert production runtime remains free of authoring, React, Lexical, and dashboard code                                                                                                                 |
+| Product hardening verification            | ✅     | Node 24 runs passed: `typecheck`, `lint`, `boundaries`, `migrations:check`, `size`, `test` (36 files / 293 tests), and `test:e2e` (52 passed / 2 planned browser skips)                                                        |
+
 ### Phase 1 Remaining
 
 - Apply the Fly/Neon/Clerk/Cloudflare setup in
@@ -185,8 +202,8 @@ Status legend:
   credentials once live service configuration is available.
 - Run a live Clerk-backed creator authoring-session smoke test against the
   deployed dashboard launch flow, staging API, and hosted editor iframe.
-- Expand `pnpm verify` coverage after the live API/database/dashboard paths are
-  connected.
+- Run deployed production runtime smoke coverage after CDN/object storage upload
+  is introduced.
 
 ## Remaining Before Full Phase 0 Product Sign-Off
 
@@ -200,8 +217,8 @@ Status legend:
 - **Phase 0 (PRD §16.2):** design-partner usability evidence and the optional
   Edge-channel browser run where the channel is installed.
 - **Phase 1 (PRD §16.3):** live Clerk auth, deployed staging dashboard/API
-  smoke coverage, staging authoring integration, and production SDK build
-  pipeline hardening.
+  smoke coverage, staging authoring integration, CDN/object-storage rollout,
+  and deployed production SDK smoke coverage.
 - **Phase 2+ (PRD §16.4–§16.8):** hosted demos, media export, in-app delivery,
   governance, analytics, platform maturity.
 - **Infrastructure (PRD §12):** Fly.io, Cloudflare R2/CDN, and deployed secrets

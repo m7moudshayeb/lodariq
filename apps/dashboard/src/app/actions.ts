@@ -106,6 +106,7 @@ export async function loadDocumentDebugAction(
       compilerVersion: debug.latestArtifact?.compilerVersion ?? 'No delivery record',
       versionCount: debug.versions.length,
       latestVersionLabel: latestVersion ? `v${latestVersion.version}` : 'No versions',
+      publishReadinessIssues: debug.publishReadinessIssues,
     };
   } catch (error) {
     return {

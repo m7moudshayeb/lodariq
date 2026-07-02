@@ -46,8 +46,26 @@ describe('SDK CDN asset packaging', () => {
       expect(existsSync(path)).toBe(true);
       expect(readFileSync(path, 'utf8')).not.toContain('sourceMappingURL=');
     }
+
+    const runtimeSource = manifest.files
+      .filter((file) => isRuntimeDeliveryAsset(file.path))
+      .map((file) => readFileSync(resolve(repoRoot, `dist/sdk-assets${file.path}`), 'utf8'))
+      .join('\n');
+    expect(runtimeSource).not.toMatch(/@lexical|Lexical/);
+    expect(runtimeSource).not.toMatch(/\bReact\b|from ["']react["']|react\/jsx-runtime/);
+    expect(runtimeSource).not.toMatch(/@lodariq\/sdk-authoring|sdk-authoring/);
+    expect(runtimeSource).not.toMatch(/@lodariq\/dashboard|apps\/dashboard/);
   });
 });
+
+function isRuntimeDeliveryAsset(path: string): boolean {
+  return (
+    path === '/sdk/lodariq-loader.js' ||
+    path.startsWith('/sdk/runtime/') ||
+    path.startsWith('/sdk/renderers/') ||
+    path.startsWith('/sdk/resolver/')
+  );
+}
 
 function readManifest(): SdkAssetManifest {
   return JSON.parse(

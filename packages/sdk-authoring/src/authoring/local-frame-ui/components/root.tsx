@@ -2,6 +2,7 @@ import { useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 import type { LocalAuthoringFrameOptions } from '../../local-frame-types';
 import { LocalAuthoringFrameController } from '../controller';
+import type { LocalAuthoringFrameSnapshot } from '../types';
 import { cssString } from '../utils';
 import { AuthoringCanvas } from './authoring-canvas';
 import { FrameHeader } from './frame-header';
@@ -10,18 +11,23 @@ export function LocalAuthoringFrameRoot({ options }: { options: LocalAuthoringFr
   const controller = useMemo(() => new LocalAuthoringFrameController(options), [options]);
   const [snapshot, setSnapshot] = useState(() => controller.getSnapshot());
   const shellRef = useRef<HTMLElement | null>(null);
+  const pendingSnapshotRef = useRef<LocalAuthoringFrameSnapshot | null>(null);
+  const snapshotFlushQueuedRef = useRef(false);
 
   useLayoutEffect(() => {
-    let mounted = false;
     const unsubscribe = controller.subscribe((nextSnapshot) => {
-      if (!mounted) {
-        setSnapshot(nextSnapshot);
-        return;
-      }
-      flushSync(() => setSnapshot(nextSnapshot));
+      pendingSnapshotRef.current = nextSnapshot;
+      if (snapshotFlushQueuedRef.current) return;
+      snapshotFlushQueuedRef.current = true;
+      queueMicrotask(() => {
+        snapshotFlushQueuedRef.current = false;
+        const pendingSnapshot = pendingSnapshotRef.current;
+        pendingSnapshotRef.current = null;
+        if (!pendingSnapshot) return;
+        flushSync(() => setSnapshot(pendingSnapshot));
+      });
     });
     controller.start();
-    mounted = true;
     return () => {
       unsubscribe();
       controller.destroy();
@@ -64,25 +70,42 @@ export function LocalAuthoringFrameRoot({ options }: { options: LocalAuthoringFr
 
   useLayoutEffect(() => {
     if (!snapshot.focusRequest) return;
-    const blockSelector = `[data-block-id="${cssString(snapshot.focusRequest.blockId)}"]`;
+    const blockIdSelector = `[data-block-id="${cssString(snapshot.focusRequest.blockId)}"]`;
+    const blockSelector = `.document-block${blockIdSelector}, .step-child${blockIdSelector}`;
+    const editSelector = `.document-block${blockIdSelector} [data-action="edit-content"], .step-child${blockIdSelector} [data-action="edit-content"]`;
     const selector =
       snapshot.focusRequest.target === 'block'
         ? blockSelector
-        : `${blockSelector} [data-action="edit-content"]`;
+        : editSelector;
     const element = shellRef.current?.querySelector<HTMLElement>(selector);
-    element?.focus();
-    if (
-      snapshot.focusRequest.caret !== undefined &&
-      (element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement)
-    ) {
-      const position =
-        typeof snapshot.focusRequest.caret === 'number'
-          ? Math.max(0, Math.min(snapshot.focusRequest.caret, element.value.length))
-          : snapshot.focusRequest.caret === 'start'
-            ? 0
-            : element.value.length;
-      element.setSelectionRange(position, position);
-    }
+    const applyFocusRequest = (): void => {
+      element?.focus();
+      if (
+        snapshot.focusRequest?.caret !== undefined &&
+        (element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement)
+      ) {
+        const position =
+          typeof snapshot.focusRequest.caret === 'number'
+            ? Math.max(0, Math.min(snapshot.focusRequest.caret, element.value.length))
+            : snapshot.focusRequest.caret === 'start'
+              ? 0
+              : element.value.length;
+        element.setSelectionRange(position, position);
+      }
+    };
+    applyFocusRequest();
+    let canceled = false;
+    const retryFocusRequest = (): void => {
+      if (canceled) return;
+      if (element?.isConnected && element.ownerDocument.activeElement !== element) {
+        applyFocusRequest();
+      }
+    };
+    queueMicrotask(retryFocusRequest);
+    element?.ownerDocument.defaultView?.setTimeout(retryFocusRequest, 0);
+    return () => {
+      canceled = true;
+    };
   }, [snapshot.focusRequest]);
 
   const frameMode = options.frameMode ?? 'standalone';

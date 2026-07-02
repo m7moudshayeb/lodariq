@@ -19,10 +19,24 @@ export interface RuntimeConfig {
   environment: 'development' | 'staging' | 'production';
   /** Publication or authoring-session trace key propagated into emitted events. */
   correlationId?: string;
+  observability?: RuntimeObservabilitySink;
   /** Where batched analytics are flushed. Omitted in local-dev. */
   ingestUrl?: string;
   /** Public environment token used only for SDK ingestion endpoints. */
   authorizationToken?: string;
+}
+
+export interface RuntimeObservabilityEvent {
+  name: string;
+  timestamp: string;
+  correlationId?: string;
+  documentId?: string;
+  stepId?: string;
+  attributes?: Record<string, unknown>;
+}
+
+export interface RuntimeObservabilitySink {
+  emit(event: RuntimeObservabilityEvent): void;
 }
 
 export interface RuntimeErrorContext {
@@ -49,27 +63,44 @@ export class LodariqRuntime {
   }
 
   track(name: string, props?: Record<string, unknown>): void {
+    const correlationId = this.config.correlationId;
     this.queue.push({
       name,
       sdkVersion: SDK_VERSION,
       timestamp: new Date().toISOString(),
-      ...(this.config.correlationId ? { correlationId: this.config.correlationId } : {}),
+      ...(correlationId ? { correlationId } : {}),
       ...(props ? { props } : {}),
+    });
+    this.emitObservability(`runtime.${name}`, {
+      ...(correlationId ? { correlationId } : {}),
+      ...(props?.['documentId'] && typeof props['documentId'] === 'string'
+        ? { documentId: props['documentId'] }
+        : {}),
+      attributes: props,
     });
   }
 
   reportError(error: unknown, context: RuntimeErrorContext = {}): void {
     const normalized = normalizeRuntimeError(error);
+    const correlationId = context.correlationId ?? this.config.correlationId;
     this.queue.push({
       name: 'sdk_error',
       sdkVersion: SDK_VERSION,
       timestamp: new Date().toISOString(),
       ...(context.documentId ? { documentId: context.documentId } : {}),
       ...(context.stepId ? { stepId: context.stepId } : {}),
-      ...(context.correlationId || this.config.correlationId
-        ? { correlationId: context.correlationId ?? this.config.correlationId }
-        : {}),
+      ...(correlationId ? { correlationId } : {}),
       props: {
+        phase: context.phase ?? 'runtime',
+        errorName: normalized.name,
+        message: normalized.message,
+      },
+    });
+    this.emitObservability('runtime.sdk_error', {
+      ...(correlationId ? { correlationId } : {}),
+      ...(context.documentId ? { documentId: context.documentId } : {}),
+      ...(context.stepId ? { stepId: context.stepId } : {}),
+      attributes: {
         phase: context.phase ?? 'runtime',
         errorName: normalized.name,
         message: normalized.message,
@@ -109,6 +140,17 @@ export class LodariqRuntime {
 
   getTraits(): IdentifyTraits | null {
     return this.traits;
+  }
+
+  private emitObservability(
+    name: string,
+    event: Omit<RuntimeObservabilityEvent, 'name' | 'timestamp'>,
+  ): void {
+    this.config.observability?.emit({
+      name,
+      timestamp: new Date().toISOString(),
+      ...event,
+    });
   }
 }
 

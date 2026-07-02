@@ -69,6 +69,7 @@ describe('@lodariq/dashboard API integration', () => {
       publications: [],
     });
     expect(dashboardData.documents[0]?.latestContentHash).toMatch(/^sha256-/);
+    expect(dashboardData.documents[0]?.publishReadinessIssues).toEqual([]);
     expect(dashboardData.environments.map((environment) => environment.kind)).toEqual([
       'development',
       'staging',
@@ -136,6 +137,7 @@ describe('@lodariq/dashboard API integration', () => {
     expect(debugState.latestContentHash).toMatch(/^sha256-/);
     expect(debugState.versionCount).toBe(1);
     expect(debugState.latestVersionLabel).toBe('v1');
+    expect(debugState.publishReadinessIssues).toEqual([]);
 
     const launchFormData = new FormData();
     launchFormData.set('environmentId', 'env_staging');
@@ -227,6 +229,14 @@ describe('@lodariq/dashboard API integration', () => {
               ],
             },
           },
+          publishReadinessIssues: [
+            {
+              code: 'open_page_unsafe_url',
+              label: 'Unsafe URL',
+              blockId: 'button_sensitive',
+              message: 'Unsafe URL fixture',
+            },
+          ],
           versions: [
             {
               id: 'version_sensitive',
@@ -273,6 +283,9 @@ describe('@lodariq/dashboard API integration', () => {
     expect(state.compiledJson).toContain('"label": "visible step value"');
     expect(state.compiledJson).not.toContain('lod_authoring_secret_session');
     expect(state.compiledJson).not.toContain('__session=secret-cookie');
+    expect(state.publishReadinessIssues).toEqual([
+      expect.objectContaining({ label: 'Unsafe URL', message: 'Unsafe URL fixture' }),
+    ]);
   });
 
   it('uses dev workspace headers only when no Clerk session is available', () => {

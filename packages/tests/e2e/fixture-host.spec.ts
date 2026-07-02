@@ -78,12 +78,12 @@ test('creator authors an editable tour step, chooses placement, and replays it',
   await page.getByRole('button', { name: 'New project' }).click();
 
   await expect(stepBlock.locator('.target-chip')).toContainText('New project');
-  await openTargetActions(stepBlock, 'New project');
-  await stepBlock.getByRole('button', { name: 'Check placement' }).click();
+  await openTargetActions(frame, stepBlock, 'New project');
+  await targetMenu(frame).getByRole('button', { name: 'Check placement' }).click();
   await expect(stepBlock.locator('.target-chip')).toContainText('Ready');
   await expect(frame.locator('#status')).toContainText('Placement is ready.');
-  await openTargetActions(stepBlock, 'New project');
-  await stepBlock.getByRole('button', { name: 'Show placement on page' }).click();
+  await expect(targetMenu(frame)).toBeVisible();
+  await targetMenu(frame).getByRole('button', { name: 'Show placement on page' }).click();
   await expect(page.locator('[data-lodariq-bridge="target-reveal"]')).toHaveCount(1);
   await expect(page.getByRole('dialog', { name: 'Lodariq tour' })).toContainText(
     'Invite teammates',
@@ -360,8 +360,8 @@ test('creator can remove a placement without losing step content', async ({ page
 
   await expect(stepBlock.locator('.target-chip')).toContainText('New project');
 
-  await openTargetActions(stepBlock, 'New project');
-  await stepBlock.getByRole('button', { name: 'Remove placement' }).click();
+  await openTargetActions(frame, stepBlock, 'New project');
+  await targetMenu(frame).getByRole('button', { name: 'Remove placement' }).click();
 
   await expect(stepBlock.locator('.target-chip')).toHaveCount(0);
   await expect(stepBlock.locator('.block-header .badge')).toHaveCount(0);
@@ -1023,8 +1023,17 @@ function visibleInlineMenu(frame: FrameLocator): Locator {
   return frame.locator('.inline-command-menu:not([hidden])');
 }
 
-async function openTargetActions(block: Locator, targetLabel: string): Promise<void> {
+function targetMenu(frame: FrameLocator): Locator {
+  return frame.locator('.target-menu:visible');
+}
+
+async function openTargetActions(
+  frame: FrameLocator,
+  block: Locator,
+  targetLabel: string,
+): Promise<void> {
   await block.getByRole('button', { name: `Placement ${targetLabel} actions` }).click();
+  await expect(targetMenu(frame)).toBeVisible();
 }
 
 async function dispatchBlockDrag(
@@ -1097,7 +1106,7 @@ async function startTargetPick(frame: FrameLocator, block?: Locator): Promise<vo
   }
 
   await scope.getByRole('button', { name: /^Placement .+ actions$/ }).first().click();
-  await scope.getByRole('button', { name: 'Change placement' }).click();
+  await targetMenu(frame).getByRole('button', { name: 'Change placement' }).click();
 }
 
 interface BlockIdNode {

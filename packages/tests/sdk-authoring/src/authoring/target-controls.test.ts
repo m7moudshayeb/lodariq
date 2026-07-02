@@ -25,11 +25,60 @@ vi.mock('../../../../../packages/sdk-authoring/src/authoring/local-frame-ui/desi
     return React.createElement('div', null, trigger, content);
   }
 
+  function MockSelect({
+    ariaLabel,
+    dataAction,
+    dataBlockId,
+    options,
+    value,
+  }: {
+    ariaLabel: string;
+    dataAction: string;
+    dataBlockId: string;
+    options: ReadonlyArray<{ label: string; value: string }>;
+    value: string;
+  }) {
+    return React.createElement(
+      'select',
+      {
+        'aria-label': ariaLabel,
+        'data-action': dataAction,
+        'data-block-id': dataBlockId,
+        value,
+        onChange: () => undefined,
+      },
+      options.map((option) =>
+        React.createElement('option', { key: option.value, value: option.value }, option.label),
+      ),
+    );
+  }
+
+  function MockTabs({
+    items,
+  }: {
+    items: Array<{ content: React.ReactNode; label: string; value: string }>;
+  }) {
+    return React.createElement(
+      'div',
+      null,
+      items.map((item) =>
+        React.createElement(
+          'section',
+          { key: item.value, 'data-tab-label': item.label },
+          item.label,
+          item.content,
+        ),
+      ),
+    );
+  }
+
   const MockIcon = () => React.createElement('span', { 'aria-hidden': true });
 
   return {
     AuthoringButton: MockButton,
     AuthoringPopover: MockPopover,
+    AuthoringSelect: MockSelect,
+    AuthoringTabs: MockTabs,
     Activity: MockIcon,
     ArrowDown: MockIcon,
     ArrowUp: MockIcon,
@@ -55,10 +104,16 @@ describe('TargetControls', () => {
     const controller = fakeController();
 
     expect(render('found', block, controller)).toContain('Ready');
-    expect(render('found', block, controller)).toContain('Show on page');
+    expect(render('found', block, controller)).toContain('Show placement on page');
     expect(render('found', block, controller)).toContain('Change placement');
     expect(render('found', block, controller)).toContain('Check placement');
-    expect(render('found', block, controller)).toContain('Matching details');
+    expect(render('found', block, controller)).toContain('Try target click');
+    expect(render('found', block, controller)).toContain('Debug data');
+    expect(render('found', block, controller)).toContain('Find conditions');
+    expect(render('found', block, controller)).toContain('Wait until text appears');
+    expect(render('found', block, controller)).toContain('Scroll into view');
+    expect(render('found', block, controller)).toContain('Open panel first');
+    expect(render('found', block, controller)).toContain('Select tab first');
     expect(render('found', block, controller)).toContain('Match strength 100%');
     expect(render('found', block, controller)).toContain('Item type');
     expect(render('found', block, controller)).toContain('Remove placement');
@@ -143,6 +198,9 @@ function fakeController(): LocalAuthoringFrameController {
   const controller = {
     requestTargetInspection: vi.fn(),
     startTargetPick: vi.fn(),
+    setTargetLifecycleControl: vi.fn(),
+    setTargetScrollStrategy: vi.fn(),
+    setTargetWaitForText: vi.fn(),
     toggleTargetAdvanced: vi.fn(),
     removeTargetFromBlock: vi.fn(),
   };

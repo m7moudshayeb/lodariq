@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  publishReadinessIssueLabel,
   validateTourPublishReadiness,
   type LodariqBlock,
   type LodariqDocument,
@@ -36,6 +37,14 @@ describe('tour publish readiness', () => {
     expect(issueCodes(document)).toContain('broken_target_reference');
   });
 
+  it('labels readiness blockers for creator-facing surfaces', () => {
+    expect(publishReadinessIssueLabel('missing_step_target')).toBe('Missing target');
+    expect(publishReadinessIssueLabel('button_missing_action')).toBe(
+      'Incomplete button action',
+    );
+    expect(publishReadinessIssueLabel('open_page_unsafe_url')).toBe('Unsafe URL');
+  });
+
   it('blocks unresolved target diagnostics from local authoring review', () => {
     const document = cloneFixture();
     const issues = validateTourPublishReadiness(document, {
@@ -65,6 +74,42 @@ describe('tour publish readiness', () => {
     expect(issueCodes(document)).toEqual(
       expect.arrayContaining(['open_page_missing_url', 'incomplete_media']),
     );
+  });
+
+  it('blocks openPage URLs outside the Phase 1 navigation policy', () => {
+    const document = cloneFixture();
+    tooltipBody(document).splice(2, 0, linkBlock('http://example.com/settings'));
+
+    const issues = validateTourPublishReadiness(document);
+
+    expect(issues).toContainEqual(
+      expect.objectContaining({
+        code: 'open_page_unsafe_url',
+        blockId: 'block_link_test',
+      }),
+    );
+  });
+
+  it('accepts safe openPage URL forms', () => {
+    for (const url of ['https://example.com/settings', 'mailto:support@example.com', '/settings']) {
+      const document = cloneFixture();
+      tooltipBody(document).splice(2, 0, linkBlock(url));
+
+      expect(issueCodes(document)).not.toContain('open_page_unsafe_url');
+    }
+  });
+
+  it('blocks lifecycle hints that cannot be resolved semantically', () => {
+    const document = cloneFixture();
+    document.targets[0]!.lifecycle = {
+      openPanel: {
+        tagName: 'button',
+        stableAttributes: {},
+        diagnosticCoordinates: { x: 10, y: 20 },
+      },
+    };
+
+    expect(issueCodes(document)).toContain('unresolved_lifecycle_hint');
   });
 });
 

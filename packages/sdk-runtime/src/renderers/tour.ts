@@ -1,6 +1,7 @@
 import { computePosition, flip, offset, shift, type Placement } from '@floating-ui/dom';
 import type { CompiledDocument, CompiledStep, RuntimeLifecycleHints } from '@lodariq/schema';
 import { createNonceStyleElement } from '@lodariq/schema/dom';
+import { resolveSafeNavigationUrl } from '@lodariq/schema/url';
 import { resolve } from '../resolver';
 
 const NETWORK_IDLE_QUIET_MS = 80;
@@ -386,16 +387,7 @@ function listItems(text: string | undefined): string[] {
 }
 
 function safeNavigationTarget(rawUrl: string | undefined): string | null {
-  const trimmed = rawUrl?.trim();
-  if (!trimmed) return null;
-  if (trimmed.startsWith('/') || trimmed.startsWith('#')) return trimmed;
-  try {
-    const url = new URL(trimmed);
-    if (url.protocol === 'https:' || url.protocol === 'http:') return url.href;
-  } catch {
-    return null;
-  }
-  return null;
+  return resolveSafeNavigationUrl(rawUrl, { baseUrl: window.location.href });
 }
 
 function initialStepIndex(doc: CompiledDocument, options: TourPlayerOptions): number {

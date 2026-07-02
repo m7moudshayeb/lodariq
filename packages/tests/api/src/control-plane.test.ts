@@ -262,9 +262,12 @@ describe('@lodariq/api control-plane routes', () => {
   });
 
   it('publishes current artifacts through a member-only server route and blocks incomplete documents', async () => {
+    const observabilityEvents: Array<{ name: string; correlationId?: string; documentId?: string }> =
+      [];
     const app = createApiApp({
       defaultWorkspaceId: 'wk_a',
       publicApiBaseUrl: 'https://api.lodariq.com',
+      observability: { emit: (event) => observabilityEvents.push(event) },
     });
     const document = withWorkspace(baseDocument, 'wk_a');
 
@@ -275,6 +278,7 @@ describe('@lodariq/api control-plane routes', () => {
       payload: document,
     });
     expect(createDocument.statusCode).toBe(201);
+    observabilityEvents.length = 0;
 
     const viewerPublish = await app.inject({
       method: 'POST',
@@ -319,6 +323,13 @@ describe('@lodariq/api control-plane routes', () => {
     expect(publication.contentHash).toMatch(/^sha256-/);
     expect(publication.artifact.contentHash).toBe(publication.contentHash);
     expect(JSON.stringify(publication)).not.toContain('"steps"');
+    expect(observabilityEvents).toContainEqual(
+      expect.objectContaining({
+        name: 'publish.completed',
+        correlationId: publication.correlationId,
+        documentId: document.id,
+      }),
+    );
 
     const incompleteDocument = makeIncompleteButtonDocument(document);
     const createIncomplete = await app.inject({
@@ -564,10 +575,13 @@ describe('@lodariq/api control-plane routes', () => {
   });
 
   it('creates short-lived authoring launch snippets scoped to a staging document', async () => {
+    const observabilityEvents: Array<{ name: string; correlationId?: string; documentId?: string }> =
+      [];
     const app = createApiApp({
       defaultWorkspaceId: 'wk_a',
       publicApiBaseUrl: 'https://api.lodariq.com',
       loaderSrc: 'https://cdn.lodariq.com/sdk/lodariq-loader.js',
+      observability: { emit: (event) => observabilityEvents.push(event) },
     });
     const document = withWorkspace(baseDocument, 'wk_a');
 
@@ -578,6 +592,7 @@ describe('@lodariq/api control-plane routes', () => {
       payload: document,
     });
     expect(createDocument.statusCode).toBe(201);
+    observabilityEvents.length = 0;
 
     const response = await app.inject({
       method: 'POST',
@@ -624,6 +639,20 @@ describe('@lodariq/api control-plane routes', () => {
     expect(body.publication.contentHash).toMatch(/^sha256-/);
     expect(body.publication.correlationId).toMatch(/^corr_publish_/);
     expect(body.authoringSession.correlationId).toMatch(/^corr_authoring_/);
+    expect(observabilityEvents).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          name: 'publish.completed',
+          correlationId: body.publication.correlationId,
+          documentId: document.id,
+        }),
+        expect.objectContaining({
+          name: 'authoring.session.created',
+          correlationId: body.authoringSession.correlationId,
+          documentId: document.id,
+        }),
+      ]),
+    );
     expect(Date.parse(body.authoringSession.expiresAt)).toBeGreaterThan(Date.now());
     expect(body.authoringSdkSnippet).toContain('data-lodariq-token="lod_staging_');
     expect(body.authoringSdkSnippet).toContain('data-lodariq-authoring-session="lod_authoring_');
@@ -850,7 +879,11 @@ describe('@lodariq/api control-plane routes', () => {
       workspaceId: string;
       environment: string;
       correlationId: string;
-      manifest: { documentId: string; currentVersion: string };
+      manifest: {
+        documentId: string;
+        currentVersion: string;
+        artifact: { contentHash: string; compilerVersion: string; documentVersionId?: string };
+      };
       currentDocumentUrl: string;
       ingestUrl: string;
       authoring: { enabled: boolean };
@@ -860,6 +893,10 @@ describe('@lodariq/api control-plane routes', () => {
     expect(context.correlationId).toMatch(/^corr_publish_/);
     expect(context.manifest.documentId).toBe(document.id);
     expect(context.manifest.currentVersion).toMatch(/^sha256-/);
+    expect(context.manifest.artifact).toMatchObject({
+      contentHash: context.manifest.currentVersion,
+      compilerVersion: expect.any(String),
+    });
     expect(context.currentDocumentUrl).toBe('https://api.lodariq.com/v1/sdk/current-document');
     expect(context.ingestUrl).toBe('https://api.lodariq.com/v1/sdk/events');
     expect(context.authoring.enabled).toBe(false);
@@ -1051,6 +1088,12 @@ describe('@lodariq/api control-plane routes', () => {
     };
     const app = createApiApp({
       defaultWorkspaceId: 'org_clerk_workspace',
+      repository: membershipRepository({
+        workspaceId: 'org_clerk_workspace',
+        userId: 'user_internal',
+        clerkUserId: 'user_clerk',
+        role: 'admin',
+      }),
       authProvider: createClerkAuthProvider({
         jwtKey: 'test-jwt-key',
         authorizedParties: ['https://app.lodariq.com'],
@@ -1075,6 +1118,68 @@ describe('@lodariq/api control-plane routes', () => {
         .environments.every((environment) => environment.workspaceId === 'org_clerk_workspace'),
     ).toBe(true);
 
+    await app.close();
+  });
+
+  it('uses database membership roles instead of Clerk organization role claims', async () => {
+    const app = createApiApp({
+      defaultWorkspaceId: 'org_clerk_workspace',
+      repository: membershipRepository({
+        workspaceId: 'org_clerk_workspace',
+        userId: 'user_internal',
+        clerkUserId: 'user_clerk',
+        role: 'viewer',
+      }),
+      authProvider: createClerkAuthProvider({
+        jwtKey: 'test-jwt-key',
+        requireAuthorizedParties: false,
+        verifyToken: async () =>
+          clerkClaims({
+            sub: 'user_clerk',
+            org_id: 'org_clerk_workspace',
+            org_role: 'org:admin',
+          }),
+      }),
+    });
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/v1/environment-tokens',
+      headers: { authorization: 'Bearer session.jwt' },
+      payload: {
+        environmentId: 'env_staging',
+        name: 'Clerk role should not win',
+      },
+    });
+
+    expect(response.statusCode).toBe(403);
+    await app.close();
+  });
+
+  it('uses database membership roles instead of development role headers', async () => {
+    const app = createApiApp({
+      defaultWorkspaceId: 'wk_a',
+      repository: membershipRepository({
+        workspaceId: 'wk_a',
+        userId: 'user_a',
+        role: 'viewer',
+      }),
+    });
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/v1/environment-tokens',
+      headers: {
+        ...authHeaders,
+        'x-lodariq-role': 'owner',
+      },
+      payload: {
+        environmentId: 'env_staging',
+        name: 'Header role should not win',
+      },
+    });
+
+    expect(response.statusCode).toBe(403);
     await app.close();
   });
 
@@ -1248,6 +1353,50 @@ function captureIngestedEvents(
       const value = Reflect.get(target, property, receiver);
       return typeof value === 'function' ? value.bind(target) : value;
     },
+  });
+}
+
+function membershipRepository({
+  workspaceId,
+  userId,
+  clerkUserId = userId,
+  role,
+}: {
+  workspaceId: string;
+  userId: string;
+  clerkUserId?: string;
+  role: string;
+}): ControlPlaneRepository {
+  const now = '2026-06-30T00:00:00.000Z';
+  return createInMemoryControlPlaneRepository({
+    users: [
+      {
+        id: userId,
+        clerkUserId,
+        email: `${userId}@lodariq.test`,
+        name: userId,
+        createdAt: now,
+      },
+    ],
+    workspaceMemberships: [
+      {
+        workspaceId,
+        userId,
+        role,
+        createdAt: now,
+      },
+    ],
+    environments: [
+      {
+        id: 'env_staging',
+        workspaceId,
+        kind: 'staging',
+        name: 'Staging',
+        originAllowlist: ['https://staging.lodariq.com'],
+        createdAt: now,
+        updatedAt: now,
+      },
+    ],
   });
 }
 

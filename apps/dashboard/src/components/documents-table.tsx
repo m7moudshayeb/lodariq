@@ -39,6 +39,7 @@ const documentGlobalFilter: FilterFn<DocumentRow> = (row, _columnId, filterValue
     document.statusLabel,
     document.editorLabel,
     document.readinessDetail,
+    document.readinessIssueSummary,
     document.updatedAtLabel,
     document.publicationLabel,
     document.publicationDetail,
@@ -62,6 +63,11 @@ const columns: Array<ColumnDef<DocumentRow>> = [
           <Badge variant={statusVariant(row.original.status)}>{row.original.statusLabel}</Badge>
           <span className="text-xs text-muted-foreground">{row.original.readinessDetail}</span>
         </div>
+        {row.original.readinessIssueCount ? (
+          <p className="line-clamp-2 text-xs text-destructive">
+            {row.original.readinessIssueSummary}
+          </p>
+        ) : null}
       </div>
     ),
   },
@@ -72,6 +78,12 @@ const columns: Array<ColumnDef<DocumentRow>> = [
       <div className="grid min-w-48 gap-1.5">
         <Badge variant={row.original.publicationVariant}>{row.original.publicationLabel}</Badge>
         <span className="text-xs text-muted-foreground">{row.original.publicationDetail}</span>
+        {row.original.readinessIssueCount ? (
+          <span className="text-xs font-medium text-destructive">
+            {row.original.readinessIssueCount} publish blocker
+            {row.original.readinessIssueCount === 1 ? '' : 's'}
+          </span>
+        ) : null}
       </div>
     ),
   },

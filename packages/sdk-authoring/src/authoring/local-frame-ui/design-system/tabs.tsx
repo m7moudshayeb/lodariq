@@ -8,15 +8,26 @@ export interface AuthoringTabItem {
 }
 
 export function AuthoringTabs({
+  ariaLabel = 'Support package',
   defaultValue,
   items,
+  onValueChange,
+  value,
 }: {
+  ariaLabel?: string;
   defaultValue: string;
   items: AuthoringTabItem[];
+  onValueChange?: (value: string) => void;
+  value?: string;
 }) {
   return (
-    <RadixTabs.Root className="ui-tabs" defaultValue={defaultValue}>
-      <RadixTabs.List aria-label="Support package" className="ui-tabs-list">
+    <RadixTabs.Root
+      className="ui-tabs"
+      defaultValue={defaultValue}
+      onValueChange={onValueChange}
+      value={value}
+    >
+      <RadixTabs.List aria-label={ariaLabel} className="ui-tabs-list">
         {items.map((item) => (
           <RadixTabs.Trigger key={item.value} className="ui-tabs-trigger" value={item.value}>
             {item.label}

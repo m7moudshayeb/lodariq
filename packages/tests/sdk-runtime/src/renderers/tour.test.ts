@@ -205,6 +205,74 @@ describe('tour renderer (PRD §16.1)', () => {
     expect(shadow?.querySelector('a')?.getAttribute('href')).toBe('/settings');
   });
 
+  it('disables openPage links outside the Phase 1 navigation policy', () => {
+    const player = new TourPlayer({
+      ...compiledDoc,
+      steps: [
+        {
+          ...compiledDoc.steps[0]!,
+          body: [
+            {
+              id: 'link_http',
+              type: 'link',
+              text: 'Open insecure page',
+              props: { action: { type: 'openPage', url: 'http://example.com/settings' } },
+            },
+          ],
+        },
+      ],
+    });
+
+    player.start();
+
+    const link = document.querySelector('lodariq-tour')?.shadowRoot?.querySelector('a');
+    expect(link?.getAttribute('aria-disabled')).toBe('true');
+    expect(link?.hasAttribute('href')).toBe(false);
+  });
+
+  it('allows HTTPS, mailto, and same-app relative openPage links', () => {
+    const player = new TourPlayer({
+      ...compiledDoc,
+      steps: [
+        {
+          ...compiledDoc.steps[0]!,
+          body: [
+            {
+              id: 'link_https',
+              type: 'link',
+              text: 'Open docs',
+              props: { action: { type: 'openPage', url: 'https://example.com/docs' } },
+            },
+            {
+              id: 'link_mailto',
+              type: 'link',
+              text: 'Email support',
+              props: { action: { type: 'openPage', url: 'mailto:support@example.com' } },
+            },
+            {
+              id: 'link_relative',
+              type: 'link',
+              text: 'Open settings',
+              props: { action: { type: 'openPage', url: '/settings' } },
+            },
+          ],
+        },
+      ],
+    });
+
+    player.start();
+
+    const links = [
+      ...(document.querySelector('lodariq-tour')?.shadowRoot?.querySelectorAll('a') ?? []),
+    ];
+    expect(links.map((link) => link.getAttribute('href'))).toEqual([
+      'https://example.com/docs',
+      'mailto:support@example.com',
+      '/settings',
+    ]);
+    expect(links.every((link) => link.getAttribute('aria-disabled') !== 'true')).toBe(true);
+  });
+
   it('goes back to the previous step from a back action', () => {
     const player = new TourPlayer(
       {

@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { and, desc, eq, isNull, sql } from 'drizzle-orm';
+import { and, desc, eq, isNull, or, sql } from 'drizzle-orm';
 import type { CompiledDocument } from '@lodariq/schema';
 import {
   type AuthoringSessionRecord,
@@ -17,6 +17,7 @@ import {
   type PublishCompiledArtifactInput,
   type ResolvedEnvironmentToken,
   type SaveDocumentInput,
+  type WorkspaceMembershipRecord,
   type WorkspaceEnvironment,
 } from './repository';
 import { assertWorkspaceScope } from './rls';
@@ -29,6 +30,8 @@ import {
   environmentTokens,
   events,
   publications,
+  users,
+  workspaceMemberships,
 } from './schema';
 import type { LodariqDatabase } from './neon';
 import { runWithEnvironmentTokenLookupScope, runWithWorkspaceScope } from './scoped-transaction';
@@ -43,6 +46,32 @@ export function createDrizzleControlPlaneRepository(
 
 class DrizzleControlPlaneRepository implements ControlPlaneRepository {
   constructor(private readonly database: LodariqDatabase) {}
+
+  async resolveWorkspaceMembership(
+    workspaceId: string,
+    userId: string,
+  ): Promise<WorkspaceMembershipRecord | null> {
+    return this.scoped(workspaceId, async (tx) => {
+      const [row] = await tx
+        .select({
+          workspaceId: workspaceMemberships.workspaceId,
+          userId: workspaceMemberships.userId,
+          role: workspaceMemberships.role,
+          createdAt: workspaceMemberships.createdAt,
+        })
+        .from(workspaceMemberships)
+        .innerJoin(users, eq(users.id, workspaceMemberships.userId))
+        .where(
+          and(
+            eq(workspaceMemberships.workspaceId, workspaceId),
+            or(eq(workspaceMemberships.userId, userId), eq(users.clerkUserId, userId)),
+          ),
+        )
+        .limit(1);
+
+      return row ? { ...row, createdAt: toIsoString(row.createdAt) } : null;
+    });
+  }
 
   async listDocuments(workspaceId: string): Promise<DocumentSummary[]> {
     return this.scoped(workspaceId, async (tx) => {
