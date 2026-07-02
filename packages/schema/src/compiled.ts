@@ -53,11 +53,25 @@ export const CompiledDocument = Type.Object(
 );
 export type CompiledDocument = Static<typeof CompiledDocument>;
 
+export const ManifestArtifactPointer = Type.Object(
+  {
+    contentHash: Type.String(),
+    compilerVersion: Type.String(),
+    createdAt: Type.String(),
+    documentVersionId: Type.Optional(Type.String()),
+    storageKey: Type.Optional(Type.String()),
+    storageUrl: Type.Optional(Type.String()),
+  },
+  { $id: 'ManifestArtifactPointer', additionalProperties: false },
+);
+export type ManifestArtifactPointer = Static<typeof ManifestArtifactPointer>;
+
 /** Tiny manifest pointer the edge loader reads (PRD §11.3). */
 export const ManifestPointer = Type.Object(
   {
     documentId: Type.String(),
     currentVersion: Type.String(),
+    artifact: Type.Optional(ManifestArtifactPointer),
   },
   { $id: 'ManifestPointer' },
 );

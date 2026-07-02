@@ -1,4 +1,9 @@
-import type { ResolverDiagnostic, LodariqDocument, TargetInspectAction } from '@lodariq/schema';
+import type {
+  LodariqDocument,
+  ResolverDiagnostic,
+  RuntimeLifecycleHints,
+  TargetInspectAction,
+} from '@lodariq/schema';
 
 export const SLASH_COMMANDS = [
   { value: 'step', label: 'Step' },
@@ -51,6 +56,28 @@ export const EDITABLE_ACTION_OPTIONS = [
 export type EditableActionType = (typeof EDITABLE_ACTION_OPTIONS)[number]['value'];
 
 export type DocumentTarget = LodariqDocument['targets'][number];
+export type TargetLifecycleScrollStrategy = NonNullable<RuntimeLifecycleHints['scrollStrategy']>;
+export type TargetLifecycleControl = 'openPanel' | 'selectTab';
+
+export const TARGET_LIFECYCLE_SCROLL_VALUES = [
+  'nearest',
+  'top',
+  'center',
+  'bottom',
+  'virtualized-search',
+] as const satisfies readonly TargetLifecycleScrollStrategy[];
+
+export const TARGET_LIFECYCLE_SCROLL_OPTIONS = [
+  { value: '', label: 'Default scroll' },
+  { value: 'nearest', label: 'Nearest edge' },
+  { value: 'top', label: 'Scroll to top' },
+  { value: 'center', label: 'Scroll to center' },
+  { value: 'bottom', label: 'Scroll to bottom' },
+  { value: 'virtualized-search', label: 'Virtualized list' },
+] as const satisfies ReadonlyArray<{
+  value: TargetLifecycleScrollStrategy | '';
+  label: string;
+}>;
 
 export interface TargetInspectionState {
   action: TargetInspectAction;

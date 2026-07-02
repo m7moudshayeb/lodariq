@@ -1,4 +1,8 @@
-import { validateTourPublishReadiness, type PublishReadinessIssue } from '@lodariq/schema';
+import {
+  publishReadinessIssueLabel,
+  validateTourPublishReadiness,
+  type PublishReadinessIssue,
+} from '@lodariq/schema';
 import type { LocalAuthoringFrameController } from '../controller';
 import { AuthoringButton, AuthoringTabs, Eye, FileJson, Save } from '../design-system';
 import type { LocalAuthoringFrameSnapshot } from '../types';
@@ -25,9 +29,7 @@ export function Inspector({
             <strong>{reviewTitle}</strong>
             <span>{reviewDetail}</span>
           </div>
-          <span className={`review-status ${reviewStatus.className}`}>
-            {reviewStatus.label}
-          </span>
+          <span className={`review-status ${reviewStatus.className}`}>{reviewStatus.label}</span>
         </summary>
 
         <div className="review-panel">
@@ -73,11 +75,16 @@ export function Inspector({
             <section className="issue-panel" aria-label="Tour issues">
               <div className="preview-copy">
                 <strong>Finish these first</strong>
-                <span>{issues.length} item{issues.length === 1 ? '' : 's'} need attention</span>
+                <span>
+                  {issues.length} item{issues.length === 1 ? '' : 's'} need attention
+                </span>
               </div>
               <ul>
                 {issues.slice(0, 5).map((issue) => (
-                  <li key={issueKey(issue)}>{issue.message}</li>
+                  <li key={issueKey(issue)}>
+                    <strong>{publishReadinessIssueLabel(issue.code)}</strong>
+                    <span>{issue.message}</span>
+                  </li>
                 ))}
               </ul>
             </section>
@@ -95,10 +102,7 @@ export function Inspector({
                   label: 'Preview package',
                   value: 'preview-details',
                   content: (
-                    <section
-                      className="utility-panel preview-utility"
-                      aria-label="Preview package"
-                    >
+                    <section className="utility-panel preview-utility" aria-label="Preview package">
                       <div className="preview-copy">
                         <strong>Preview package</strong>
                         <span>

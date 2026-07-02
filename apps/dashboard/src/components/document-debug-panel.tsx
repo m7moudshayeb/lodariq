@@ -16,9 +16,7 @@ interface DocumentDebugPanelProps {
   documentRows: DashboardViewModel['documentRows'];
 }
 
-export function DocumentDebugPanel({
-  documentRows,
-}: DocumentDebugPanelProps): React.ReactElement {
+export function DocumentDebugPanel({ documentRows }: DocumentDebugPanelProps): React.ReactElement {
   const [state, formAction] = useActionState(
     loadDocumentDebugAction,
     initialDocumentDebugActionState,
@@ -117,6 +115,8 @@ export function DocumentDebugPanel({
                 </div>
               </div>
 
+              <ReadinessIssueList issues={state.publishReadinessIssues} />
+
               <SupportRecordBlock
                 title="Editable backup"
                 description="The version support can use to restore editing."
@@ -133,16 +133,63 @@ export function DocumentDebugPanel({
               />
             </>
           ) : (
-            <p className="rounded-md border bg-surface-muted/50 p-3 text-sm text-muted-foreground">
-              {selectedDocument
-                ? `${selectedDocument.title} is ready for support review.`
-                : 'No experience selected.'}
-            </p>
+            <div className="grid gap-3 rounded-md border bg-surface-muted/50 p-3">
+              <p className="text-sm text-muted-foreground">
+                {selectedDocument
+                  ? `${selectedDocument.title} is ready for support review.`
+                  : 'No experience selected.'}
+              </p>
+              {selectedDocument ? (
+                <ReadinessIssueList issues={selectedDocument.publishReadinessIssues} />
+              ) : null}
+            </div>
           )}
         </CardContent>
       </details>
     </Card>
   );
+}
+
+function ReadinessIssueList({
+  issues,
+}: {
+  issues: Array<{ label: string; message: string; blockId?: string; targetId?: string }>;
+}): React.ReactElement {
+  if (!issues.length) {
+    return (
+      <div className="rounded-md border border-(--success-border) bg-(--success-bg) p-3">
+        <p className="text-sm font-semibold text-(--success-fg)">Ready to publish</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="grid gap-2 rounded-md border border-destructive/30 bg-destructive/5 p-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <p className="text-sm font-semibold text-destructive">Publish blockers</p>
+        <Badge variant="destructive">
+          {issues.length} item{issues.length === 1 ? '' : 's'}
+        </Badge>
+      </div>
+      <ul className="grid gap-2">
+        {issues.slice(0, 5).map((issue) => (
+          <li key={readinessIssueKey(issue)} className="grid gap-0.5 text-sm">
+            <span className="font-medium text-foreground">{issue.label}</span>
+            <span className="text-muted-foreground">{issue.message}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function readinessIssueKey(issue: {
+  label: string;
+  message: string;
+  blockId?: string;
+  targetId?: string;
+}): string {
+  return [issue.label, issue.blockId, issue.targetId, issue.message].filter(Boolean).join(':');
 }
 
 function SupportPackageSubmitButton({ disabled }: { disabled: boolean }): React.ReactElement {

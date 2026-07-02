@@ -5,6 +5,7 @@ import {
   type PreviewPatchOperation,
   type LodariqBlock,
   type LodariqDocument,
+  type RuntimeLifecycleHints,
   type TargetInspectAction,
 } from '@lodariq/schema';
 import type { ClipboardEvent, DragEvent, KeyboardEvent } from 'react';
@@ -52,6 +53,11 @@ import type {
   LocalAuthoringFrameSnapshot,
   SlashCommand,
   TargetInspectionState,
+} from './types';
+import {
+  TARGET_LIFECYCLE_SCROLL_VALUES,
+  type TargetLifecycleControl,
+  type TargetLifecycleScrollStrategy,
 } from './types';
 import type {
   LocalAuthoringFrameMetricName,
@@ -215,43 +221,34 @@ export class LocalAuthoringFrameController {
   }
 
   handleNativeInput(event: Event): void {
-    if (event.isTrusted) return;
     const target = event.target;
     if (
       target instanceof HTMLInputElement &&
       target.getAttribute('aria-label') === 'Experience composer'
     ) {
-      event.stopPropagation();
       this.setSlashText(target.value);
       return;
     }
-    if (
-      target instanceof HTMLInputElement &&
-      target.dataset['action'] === 'edit-title'
-    ) {
+    if (event.isTrusted) return;
+    if (target instanceof HTMLInputElement && target.dataset['action'] === 'edit-title') {
       event.stopPropagation();
       return;
     }
-    if (
-      target instanceof HTMLTextAreaElement &&
-      target.dataset['action'] === 'edit-draft-backup'
-    ) {
+    if (target instanceof HTMLTextAreaElement && target.dataset['action'] === 'edit-draft-backup') {
       event.stopPropagation();
       this.setJsonText(target.value);
     }
   }
 
   handleNativeKeyDown(event: Event): void {
-    if (event.isTrusted || !(event instanceof globalThis.KeyboardEvent)) return;
+    if (!(event instanceof globalThis.KeyboardEvent)) return;
     const target = event.target;
     if (!(target instanceof HTMLInputElement)) return;
     if (target.getAttribute('aria-label') !== 'Experience composer') return;
     if (event.key === 'Escape') {
-      event.stopPropagation();
       this.closeSlashComposer();
       return;
     }
-    event.stopPropagation();
     this.handleSlashEnter(event.key, target.value, () => event.preventDefault());
   }
 
@@ -315,6 +312,7 @@ export class LocalAuthoringFrameController {
 
   handleNativeDragOver(event: Event): void {
     if (event.isTrusted || !this.draggingBlockId) return;
+    this.autoScrollDuringDrag(event);
     if (this.draggingStepBlockId) {
       const target = closestStepContentDragTarget(event.target);
       if (!target || target.stepBlockId !== this.draggingStepBlockId) return;
@@ -380,11 +378,7 @@ export class LocalAuthoringFrameController {
     const targetBlockId = closestBlockId(event.target);
     if (this.draggingBlockId && targetBlockId) {
       const position = dropPosition(event, this.dropPositionFallback(targetBlockId));
-      this.reorderTopLevelBlock(
-        this.draggingBlockId,
-        targetBlockId,
-        position,
-      );
+      this.reorderTopLevelBlock(this.draggingBlockId, targetBlockId, position);
     }
     this.clearDragState();
   }
@@ -444,6 +438,7 @@ export class LocalAuthoringFrameController {
   handleBlockDragOver(event: DragEvent<HTMLElement>): void {
     if (!this.draggingBlockId || this.draggingStepBlockId) return;
     event.preventDefault();
+    this.autoScrollDuringDrag(event);
     const transfer = reactDataTransfer(event);
     if (transfer) transfer.dropEffect = 'move';
     this.updateDragTarget(
@@ -476,6 +471,7 @@ export class LocalAuthoringFrameController {
     if (!this.draggingBlockId || this.draggingStepBlockId) return;
     event.preventDefault();
     event.stopPropagation();
+    this.autoScrollDuringDrag(event);
     const transfer = reactDataTransfer(event);
     if (transfer) transfer.dropEffect = 'move';
     this.updateDragTarget(anchorBlockId, position);
@@ -525,6 +521,7 @@ export class LocalAuthoringFrameController {
     }
     event.preventDefault();
     event.stopPropagation();
+    this.autoScrollDuringDrag(event);
     const transfer = reactDataTransfer(event);
     if (transfer) transfer.dropEffect = 'move';
     this.updateDragTarget(
@@ -572,6 +569,28 @@ export class LocalAuthoringFrameController {
     const targetIndex = this.documentState.blocks.findIndex((block) => block.id === targetBlockId);
     if (draggingIndex < 0 || targetIndex < 0) return 'before';
     return draggingIndex < targetIndex ? 'after' : 'before';
+  }
+
+  private autoScrollDuringDrag(event: Event | DragEvent<HTMLElement>): void {
+    const clientY = 'clientY' in event ? event.clientY : null;
+    if (typeof clientY !== 'number' || !Number.isFinite(clientY) || clientY <= 0) return;
+
+    const view = this.options.root.ownerDocument.defaultView;
+    if (!view) return;
+    const viewportHeight = view.innerHeight;
+    if (!Number.isFinite(viewportHeight) || viewportHeight <= 0) return;
+
+    const topDistance = clientY;
+    const bottomDistance = viewportHeight - clientY;
+    const edge = DRAG_AUTO_SCROLL_EDGE_PX;
+    let delta = 0;
+    if (topDistance < edge) {
+      delta = -dragAutoScrollDelta(edge - topDistance);
+    } else if (bottomDistance < edge) {
+      delta = dragAutoScrollDelta(edge - bottomDistance);
+    }
+    if (delta === 0) return;
+    view.scrollBy(0, delta);
   }
 
   private stepContentDropPositionFallback(
@@ -694,7 +713,7 @@ export class LocalAuthoringFrameController {
     this.focusInsertedBlock(childBlockId);
     this.services.saveDocument(this.documentState);
     this.setStatus(`Changed line to ${blockTypeLabel(type).toLowerCase()}`);
-    this.sendPreviewPatch(childBlockId, [{ op: 'replaceDocument', document: this.documentState }]);
+    this.sendPreviewPatch(childBlockId, [{ op: 'transformBlock', type }]);
   }
 
   commitDocumentTitle(value: string): void {
@@ -705,9 +724,7 @@ export class LocalAuthoringFrameController {
     this.afterDocumentMutation();
     this.services.saveDocument(this.documentState);
     this.setStatus('Title updated');
-    this.sendPreviewPatch(this.documentState.id, [
-      { op: 'replaceDocument', document: this.documentState },
-    ]);
+    this.sendPreviewPatch(this.documentState.id, [{ op: 'setDocumentTitle', title }]);
   }
 
   appendBlock(type: EditableBlockType, contentOverride?: string): void {
@@ -739,7 +756,7 @@ export class LocalAuthoringFrameController {
     this.services.saveDocument(this.documentState);
     this.setStatus(`Inserted ${blockTypeLabel(block.type).toLowerCase()}`);
     this.recordMetric('block.inserted');
-    this.sendPreviewPatch(block.id, [{ op: 'replaceDocument', document: this.documentState }]);
+    this.sendPreviewPatch(block.id, [{ op: 'insertBlock', block, anchorBlockId, position }]);
   }
 
   insertStepContent(
@@ -760,7 +777,7 @@ export class LocalAuthoringFrameController {
     this.services.saveDocument(this.documentState);
     this.setStatus(`Inserted ${blockTypeLabel(type).toLowerCase()} in step`);
     this.recordMetric('block.inserted');
-    this.sendPreviewPatch(block.id, [{ op: 'replaceDocument', document: this.documentState }]);
+    this.sendPreviewPatch(block.id, [{ op: 'insertStepContent', stepBlockId, block, index }]);
   }
 
   continueStepContentBlock(
@@ -783,7 +800,10 @@ export class LocalAuthoringFrameController {
     this.focusEditableField(nextBlock.id, 'start');
     this.services.saveDocument(this.documentState);
     this.setStatus('Added text line');
-    this.sendPreviewPatch(nextBlock.id, [{ op: 'replaceDocument', document: this.documentState }]);
+    this.sendPreviewPatch(childBlockId, [
+      { op: 'updateContent', content: value },
+      { op: 'insertStepContent', stepBlockId, block: nextBlock, index: currentIndex + 1 },
+    ]);
   }
 
   deleteEmptyStepContentBlock(stepBlockId: string, childBlockId: string): void {
@@ -810,9 +830,7 @@ export class LocalAuthoringFrameController {
     this.selectedBlockId = nextSelection;
     this.focusEditableField(nextSelection, 'end');
     this.setStatus('Deleted empty line');
-    this.sendPreviewPatch(childBlockId, [
-      { op: 'replaceDocument', document: this.documentState },
-    ]);
+    this.sendPreviewPatch(childBlockId, [{ op: 'removeBlock', stepBlockId }]);
   }
 
   mergeStepContentBlockIntoPrevious(stepBlockId: string, childBlockId: string): boolean {
@@ -844,9 +862,10 @@ export class LocalAuthoringFrameController {
     this.selectedBlockId = previousBlock.id;
     this.focusEditableField(previousBlock.id, previousContent.length);
     this.setStatus('Merged text line');
-    this.sendPreviewPatch(childBlockId, [
-      { op: 'replaceDocument', document: this.documentState },
+    this.sendPreviewPatch(previousBlock.id, [
+      { op: 'updateContent', content: `${previousContent}${currentContent}` },
     ]);
+    this.sendPreviewPatch(childBlockId, [{ op: 'removeBlock', stepBlockId }]);
     return true;
   }
 
@@ -883,7 +902,7 @@ export class LocalAuthoringFrameController {
     this.selectedBlockId = childBlockId;
     this.focusBlock(childBlockId);
     this.setStatus('Moved step content');
-    this.sendPreviewPatch(childBlockId, [{ op: 'replaceDocument', document: this.documentState }]);
+    this.sendPreviewPatch(childBlockId, [{ op: 'moveStepContent', stepBlockId, direction }]);
   }
 
   reorderStepContentBlock(
@@ -907,7 +926,9 @@ export class LocalAuthoringFrameController {
     this.selectedBlockId = childBlockId;
     this.focusBlock(childBlockId);
     this.setStatus('Moved step content');
-    this.sendPreviewPatch(childBlockId, [{ op: 'replaceDocument', document: this.documentState }]);
+    this.sendPreviewPatch(childBlockId, [
+      { op: 'reorderStepContent', stepBlockId, targetChildBlockId, position },
+    ]);
   }
 
   duplicateStepContentBlock(stepBlockId: string, childBlockId: string): void {
@@ -925,9 +946,17 @@ export class LocalAuthoringFrameController {
     this.selectedBlockId = duplicatedBlockId;
     this.focusInsertedBlock(duplicatedBlockId);
     this.setStatus('Duplicated content');
-    this.sendPreviewPatch(childBlockId, [
-      { op: 'replaceDocument', document: this.documentState },
-    ]);
+    const duplicatedBlock = this.stepContentBlocks(blocks, stepBlockId)[currentIndex + 1];
+    if (duplicatedBlock) {
+      this.sendPreviewPatch(duplicatedBlock.id, [
+        {
+          op: 'insertStepContent',
+          stepBlockId,
+          block: duplicatedBlock,
+          index: currentIndex + 1,
+        },
+      ]);
+    }
   }
 
   deleteStepContentBlock(stepBlockId: string, childBlockId: string): void {
@@ -952,9 +981,7 @@ export class LocalAuthoringFrameController {
     this.selectedBlockId = nextSelection;
     this.focusBlock(nextSelection);
     this.setStatus('Deleted content');
-    this.sendPreviewPatch(childBlockId, [
-      { op: 'replaceDocument', document: this.documentState },
-    ]);
+    this.sendPreviewPatch(childBlockId, [{ op: 'removeBlock', stepBlockId }]);
   }
 
   appendStep(title?: string): void {
@@ -999,7 +1026,12 @@ export class LocalAuthoringFrameController {
     this.selectedBlockId = duplicatedBlockId;
     this.focusBlock(duplicatedBlockId);
     this.setStatus('Duplicated step');
-    this.sendPreviewPatch(blockId, [{ op: 'replaceDocument', document: this.documentState }]);
+    const duplicatedBlock = blocks[blockIndex + 1];
+    if (duplicatedBlock) {
+      this.sendPreviewPatch(duplicatedBlock.id, [
+        { op: 'insertBlock', block: duplicatedBlock, anchorBlockId: blockId, position: 'after' },
+      ]);
+    }
   }
 
   deleteTopLevelBlock(blockId: string): void {
@@ -1020,7 +1052,7 @@ export class LocalAuthoringFrameController {
     this.selectedBlockId = nextSelection;
     if (nextSelection) this.focusBlock(nextSelection);
     this.setStatus('Deleted step');
-    this.sendPreviewPatch(blockId, [{ op: 'replaceDocument', document: this.documentState }]);
+    this.sendPreviewPatch(blockId, [{ op: 'removeBlock' }]);
   }
 
   reorderTopLevelBlock(
@@ -1042,7 +1074,9 @@ export class LocalAuthoringFrameController {
     this.selectedBlockId = blockId;
     this.focusBlock(blockId);
     this.setStatus('Moved step');
-    this.sendPreviewPatch(blockId, [{ op: 'replaceDocument', document: this.documentState }]);
+    this.sendPreviewPatch(blockId, [
+      { op: 'reorderBlock', beforeBlockId: targetBlockId, position },
+    ]);
   }
 
   removeTargetFromBlock(blockId: string, targetId: string): void {
@@ -1071,6 +1105,49 @@ export class LocalAuthoringFrameController {
       this.advancedTargetIds.add(targetId);
     }
     this.setStatus('Placement details updated');
+  }
+
+  setTargetWaitForText(targetId: string, waitForText: string): void {
+    this.updateTargetLifecycle(targetId, (current) => {
+      const next = { ...current };
+      const trimmed = waitForText.trim();
+      if (trimmed) {
+        next.waitForText = trimmed;
+      } else {
+        delete next.waitForText;
+      }
+      return next;
+    });
+  }
+
+  setTargetScrollStrategy(targetId: string, scrollStrategy: string): void {
+    this.updateTargetLifecycle(targetId, (current) => {
+      const next = { ...current };
+      if (isTargetLifecycleScrollStrategy(scrollStrategy)) {
+        next.scrollStrategy = scrollStrategy;
+      } else {
+        delete next.scrollStrategy;
+      }
+      return next;
+    });
+  }
+
+  setTargetLifecycleControl(
+    targetId: string,
+    control: TargetLifecycleControl,
+    enabled: boolean,
+  ): void {
+    const target = this.targetById(targetId);
+    if (!target) return;
+    this.updateTargetLifecycle(targetId, (current) => {
+      const next = { ...current };
+      if (enabled) {
+        next[control] = structuredClone(target.fingerprint);
+      } else {
+        delete next[control];
+      }
+      return next;
+    });
   }
 
   startTargetPick(blockId: string): void {
@@ -1223,7 +1300,6 @@ export class LocalAuthoringFrameController {
       this.setStatus('Add a step before previewing');
       return;
     }
-    this.sendPreviewPatch(step.id, [{ op: 'replaceDocument', document: this.documentState }]);
     void this.services.compilePreview(this.documentState).then((doc) => {
       this.compiledText = JSON.stringify(doc, null, 2);
       this.recordMetric('preview.opened');
@@ -1237,9 +1313,6 @@ export class LocalAuthoringFrameController {
     this.documentState = this.normalizeDocument(this.documentState);
     this.jsonText = this.services.exportDocument(this.documentState);
     this.services.saveDocument(this.documentState);
-    this.sendPreviewPatch(this.documentState.id, [
-      { op: 'replaceDocument', document: this.documentState },
-    ]);
     void this.services.compilePreview(this.documentState).then((doc) => {
       this.compiledText = JSON.stringify(doc, null, 2);
       this.recordMetric('preview.opened');
@@ -1455,7 +1528,7 @@ export class LocalAuthoringFrameController {
     this.services.saveDocument(this.documentState);
     this.setStatus('Pasted as steps');
     this.recordMetric('block.inserted');
-    this.sendPreviewPatch(blocks[0]!.id, [{ op: 'replaceDocument', document: this.documentState }]);
+    this.sendPreviewPatch(blocks[0]!.id, [{ op: 'insertBlocks', blocks }]);
   }
 
   private setAction(blockId: string, actionType: EditableActionType): void {
@@ -1465,11 +1538,7 @@ export class LocalAuthoringFrameController {
     this.recordChange();
     this.documentState = {
       ...this.documentState,
-      blocks: setBlockAction(
-        this.documentState.blocks,
-        blockId,
-        nextAction,
-      ),
+      blocks: setBlockAction(this.documentState.blocks, blockId, nextAction),
     };
     this.afterDocumentMutation();
     this.selectedBlockId = blockId;
@@ -1480,7 +1549,7 @@ export class LocalAuthoringFrameController {
   private commitActionUrl(blockId: string, value: string): void {
     if (!hasBlock(this.documentState.blocks, blockId)) return;
     const currentAction = findBlockById(this.documentState.blocks, blockId)?.props.action;
-    const currentValue = currentAction?.type === 'openPage' ? currentAction.url ?? '' : '';
+    const currentValue = currentAction?.type === 'openPage' ? (currentAction.url ?? '') : '';
     if (currentValue === value) return;
     this.recordChange();
     this.documentState = {
@@ -1490,9 +1559,7 @@ export class LocalAuthoringFrameController {
     this.afterDocumentMutation();
     this.selectedBlockId = blockId;
     this.services.saveDocument(this.documentState);
-    this.sendPreviewPatch(blockId, [
-      { op: 'setAction', action: { type: 'openPage', url: value } },
-    ]);
+    this.sendPreviewPatch(blockId, [{ op: 'setAction', action: { type: 'openPage', url: value } }]);
   }
 
   private transformBlock(blockId: string, type: EditableBlockType): void {
@@ -1578,7 +1645,7 @@ export class LocalAuthoringFrameController {
     }
     if (this.previewPatchFlushQueued) return;
     this.previewPatchFlushQueued = true;
-    queueMicrotask(() => this.flushPreviewPatches());
+    globalThis.setTimeout(() => this.flushPreviewPatches(), 0);
   }
 
   private flushPreviewPatches(): void {
@@ -1600,6 +1667,34 @@ export class LocalAuthoringFrameController {
 
   private targetById(targetId: string): DocumentTarget | undefined {
     return this.documentState.targets.find((item) => item.id === targetId);
+  }
+
+  private updateTargetLifecycle(
+    targetId: string,
+    updater: (current: RuntimeLifecycleHints) => RuntimeLifecycleHints,
+  ): void {
+    const target = this.targetById(targetId);
+    if (!target) return;
+    const nextLifecycle = normalizeTargetLifecycle(updater(target.lifecycle ?? {}));
+    this.recordChange();
+    this.documentState = {
+      ...this.documentState,
+      targets: this.documentState.targets.map((item) => {
+        if (item.id !== targetId) return item;
+        return nextLifecycle
+          ? { ...item, lifecycle: nextLifecycle }
+          : { ...item, lifecycle: undefined };
+      }),
+    };
+    this.afterDocumentMutation();
+    this.services.saveDocument(this.documentState);
+    this.setStatus('Placement behavior updated');
+    const blockId =
+      firstBlockIdForTarget(this.documentState.blocks, targetId) ?? this.documentState.id;
+    const op: PreviewPatchOperation = nextLifecycle
+      ? { op: 'setTargetLifecycle', targetId, lifecycle: nextLifecycle }
+      : { op: 'setTargetLifecycle', targetId };
+    this.sendPreviewPatch(blockId, [op]);
   }
 
   private nextStepIndex(): number {
@@ -1676,10 +1771,7 @@ export class LocalAuthoringFrameController {
     this.focusEditableField(blockId);
   }
 
-  private updateDragTarget(
-    blockId: string | null,
-    position: BlockInsertPosition | null,
-  ): void {
+  private updateDragTarget(blockId: string | null, position: BlockInsertPosition | null): void {
     const nextBlockId =
       blockId && blockId !== this.draggingBlockId && hasBlock(this.documentState.blocks, blockId)
         ? blockId
@@ -1763,6 +1855,8 @@ const TARGET_INSPECT_ACTIONS: Readonly<Record<string, TargetInspectAction>> = {
   'target-test': 'test',
   'target-health': 'health',
 };
+const DRAG_AUTO_SCROLL_EDGE_PX = 88;
+const DRAG_AUTO_SCROLL_MAX_DELTA_PX = 28;
 
 function createNextAction(
   actionType: EditableActionType,
@@ -1799,19 +1893,20 @@ function dropPosition(
     return fallback;
   }
   const targetBlockElement =
-    event.target instanceof Element
-      ? event.target.closest<HTMLElement>(selector)
-      : null;
+    event.target instanceof Element ? event.target.closest<HTMLElement>(selector) : null;
   const currentTarget = event.currentTarget;
   const currentTargetBlockElement =
-    currentTarget instanceof HTMLElement && currentTarget.matches(selector)
-      ? currentTarget
-      : null;
+    currentTarget instanceof HTMLElement && currentTarget.matches(selector) ? currentTarget : null;
   const blockElement = targetBlockElement ?? currentTargetBlockElement;
   if (!blockElement) return fallback;
   const rect = blockElement.getBoundingClientRect();
   if (rect.height <= 0) return fallback;
   return clientY > rect.top + rect.height / 2 ? 'after' : 'before';
+}
+
+function dragAutoScrollDelta(edgeOverlap: number): number {
+  const progress = Math.max(0, Math.min(1, edgeOverlap / DRAG_AUTO_SCROLL_EDGE_PX));
+  return Math.ceil(6 + progress * (DRAG_AUTO_SCROLL_MAX_DELTA_PX - 6));
 }
 
 function closestStepContentDragTarget(
@@ -1858,6 +1953,35 @@ function primeDragTransfer(dataTransfer: DataTransfer | null, blockId: string): 
 function targetInspectionPendingStatus(action: TargetInspectAction): string {
   if (action === 'view') return 'Highlighting placement';
   return 'Checking placement';
+}
+
+function isTargetLifecycleScrollStrategy(value: string): value is TargetLifecycleScrollStrategy {
+  return TARGET_LIFECYCLE_SCROLL_VALUES.some((strategy) => strategy === value);
+}
+
+function normalizeTargetLifecycle(
+  lifecycle: RuntimeLifecycleHints,
+): RuntimeLifecycleHints | undefined {
+  const next = { ...lifecycle };
+  if (typeof next.waitForText === 'string') {
+    const trimmed = next.waitForText.trim();
+    if (trimmed) {
+      next.waitForText = trimmed;
+    } else {
+      delete next.waitForText;
+    }
+  }
+  if (!next.scrollStrategy) delete next.scrollStrategy;
+  return Object.keys(next).length > 0 ? next : undefined;
+}
+
+function firstBlockIdForTarget(blocks: LodariqBlock[], targetId: string): string | null {
+  for (const block of blocks) {
+    if (block.props.targetId === targetId) return block.id;
+    const childBlockId = firstBlockIdForTarget(block.children, targetId);
+    if (childBlockId) return childBlockId;
+  }
+  return null;
 }
 
 function slashCommandDefaultContent(type: EditableBlockType): string {

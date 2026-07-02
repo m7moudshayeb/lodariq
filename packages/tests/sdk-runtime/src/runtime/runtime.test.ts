@@ -40,6 +40,45 @@ describe('Lodariq runtime analytics (PRD §16.1)', () => {
     expect(fetch).toHaveBeenCalledOnce();
   });
 
+  it('emits vendor-neutral observability events for tracks and SDK errors', () => {
+    const fetch = vi.fn().mockResolvedValue({ ok: true });
+    const observability = { emit: vi.fn() };
+    vi.stubGlobal('fetch', fetch);
+    const runtime = new LodariqRuntime({
+      workspaceId: 'wk_live',
+      environment: 'staging',
+      correlationId: 'corr_publish_1',
+      ingestUrl: 'https://api.lodariq.com/v1/sdk/events',
+      authorizationToken: 'lod_staging_public_token',
+      observability,
+    });
+
+    runtime.track('tour_started', { documentId: 'doc_1' });
+    runtime.reportError(new Error('Playback failed'), {
+      phase: 'playback',
+      documentId: 'doc_1',
+      stepId: 'step_1',
+    });
+
+    expect(observability.emit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: 'runtime.tour_started',
+        correlationId: 'corr_publish_1',
+        documentId: 'doc_1',
+        attributes: { documentId: 'doc_1' },
+      }),
+    );
+    expect(observability.emit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: 'runtime.sdk_error',
+        correlationId: 'corr_publish_1',
+        documentId: 'doc_1',
+        stepId: 'step_1',
+        attributes: expect.objectContaining({ phase: 'playback', errorName: 'Error' }),
+      }),
+    );
+  });
+
   it('sends the environment token on authenticated SDK event flushes', () => {
     const fetch = vi.fn().mockResolvedValue({ ok: true });
     vi.stubGlobal('fetch', fetch);

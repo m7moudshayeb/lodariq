@@ -45,8 +45,7 @@ export function InsertBar({
             aria-haspopup="listbox"
             placeholder="Write the next step title"
             value={snapshot.slashText}
-            onInput={(event) => controller.setSlashText(event.currentTarget.value)}
-            onKeyDown={(event) => controller.handleSlashKeyDown(event)}
+            onInput={() => undefined}
           />
           <div
             id="slash-command-menu"
@@ -119,6 +118,7 @@ export function InsertBar({
             className="add-step"
             data-action="append-step"
             icon={<Plus size={15} strokeWidth={2.3} />}
+            onPointerDown={(event) => event.preventDefault()}
             onClick={() => controller.appendStep()}
             tone="primary"
           >

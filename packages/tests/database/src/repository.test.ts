@@ -15,6 +15,44 @@ import tourFixture from '@lodariq/schema/fixtures/tour.linear.v1.json';
 const baseDocument = tourFixture as LodariqDocument;
 
 describe('control-plane repository', () => {
+  it('resolves workspace memberships by internal and Clerk user ids', async () => {
+    const repository = createInMemoryControlPlaneRepository({
+      users: [
+        {
+          id: 'user_internal',
+          clerkUserId: 'user_clerk',
+          email: 'creator@lodariq.test',
+          name: 'Creator',
+          createdAt: new Date().toISOString(),
+        },
+      ],
+      workspaceMemberships: [
+        {
+          workspaceId: 'wk_a',
+          userId: 'user_internal',
+          role: 'member',
+          createdAt: new Date().toISOString(),
+        },
+      ],
+    });
+
+    await expect(repository.resolveWorkspaceMembership('wk_a', 'user_internal')).resolves.toMatchObject(
+      {
+        workspaceId: 'wk_a',
+        userId: 'user_internal',
+        role: 'member',
+      },
+    );
+    await expect(repository.resolveWorkspaceMembership('wk_a', 'user_clerk')).resolves.toMatchObject(
+      {
+        workspaceId: 'wk_a',
+        userId: 'user_internal',
+        role: 'member',
+      },
+    );
+    await expect(repository.resolveWorkspaceMembership('wk_b', 'user_clerk')).resolves.toBeNull();
+  });
+
   it('scopes documents and compiled artifacts by workspace', async () => {
     const document = withWorkspace(baseDocument, 'wk_a');
     const artifact = await compileDocument(document);

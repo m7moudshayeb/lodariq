@@ -15,6 +15,10 @@
       "types": "./dist/dom.d.ts",
       "import": "./dist/dom.js"
     },
+    "./url": {
+      "types": "./dist/url.d.ts",
+      "import": "./dist/url.js"
+    },
     "./package.json": "./package.json",
     "./fixtures/*": "./fixtures/*"
   },

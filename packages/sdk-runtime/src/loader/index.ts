@@ -66,6 +66,7 @@ export interface InstallOptions {
     context: SdkInstallContext,
   ) => Promise<CompiledDocument>;
   openAuthoring?: (manifest: ManifestPointer, context: SdkInstallContext) => Promise<void>;
+  observability?: RuntimeConfig['observability'];
 }
 
 declare global {
@@ -310,6 +311,7 @@ export async function installLodariq(
     workspaceId: context.workspaceId,
     environment: context.environment,
     ...(context.correlationId ? { correlationId: context.correlationId } : {}),
+    ...(options.observability ? { observability: options.observability } : {}),
     ...(context.ingestUrl ? { ingestUrl: context.ingestUrl } : {}),
     ...(config.clientToken ? { authorizationToken: config.clientToken } : {}),
   };
@@ -478,7 +480,7 @@ function scriptMatchesModule(script: HTMLScriptElement, moduleUrl: string): bool
   return (
     scriptLocation.origin === moduleLocation.origin &&
     scriptLocation.pathname.endsWith('/lodariq-loader.js') &&
-    moduleLocation.pathname.startsWith(scriptLocation.pathname.replace(/lodariq-loader\.js$/, ''))
+    moduleLocation.pathname.startsWith(scriptLocation.pathname.slice(0, -17))
   );
 }
 

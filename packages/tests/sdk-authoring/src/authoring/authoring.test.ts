@@ -62,6 +62,7 @@ describe('local authoring panel (PRD §16.1)', () => {
   beforeEach(() => {
     document.head.innerHTML = '';
     document.body.innerHTML = '';
+    document.documentElement.removeAttribute('data-lodariq-authoring-panel-open');
     window.history.replaceState(null, '', '/');
   });
 
@@ -398,6 +399,58 @@ describe('local authoring panel (PRD §16.1)', () => {
           protocol: BRIDGE_PROTOCOL_VERSION,
           sessionId: LOCAL_AUTHORING_SESSION_ID,
           documentId: 'doc_tour_welcome',
+          correlationId: 'preview_patch_lifecycle',
+          type: 'preview.patch',
+          blockId: 'step_1',
+          patch: {
+            ops: [
+              {
+                op: 'setTargetLifecycle',
+                targetId: 'target_1',
+                lifecycle: {
+                  waitForText: 'Projects loaded',
+                  scrollStrategy: 'center',
+                },
+              },
+            ],
+          },
+        },
+        origin: window.location.origin,
+        source: peer,
+      }),
+    );
+
+    await vi.waitFor(() => expect(playPreview).toHaveBeenCalledOnce());
+    expect(compilePreview).toHaveBeenCalledWith(
+      expect.objectContaining({
+        targets: [
+          expect.objectContaining({
+            id: 'target_1',
+            lifecycle: { waitForText: 'Projects loaded', scrollStrategy: 'center' },
+          }),
+        ],
+      }),
+    );
+    expect(playPreview).toHaveBeenCalledWith(
+      expect.objectContaining({
+        steps: [
+          expect.objectContaining({
+            id: 'step_1',
+            lifecycle: { waitForText: 'Projects loaded', scrollStrategy: 'center' },
+          }),
+        ],
+      }),
+      { stepId: 'step_1' },
+    );
+
+    compilePreview.mockClear();
+    playPreview.mockClear();
+    window.dispatchEvent(
+      new MessageEvent('message', {
+        data: {
+          protocol: BRIDGE_PROTOCOL_VERSION,
+          sessionId: LOCAL_AUTHORING_SESSION_ID,
+          documentId: 'doc_tour_welcome',
           correlationId: 'preview_patch_remove_target',
           type: 'preview.patch',
           blockId: 'step_1',
@@ -425,6 +478,109 @@ describe('local authoring panel (PRD §16.1)', () => {
     expect(JSON.stringify(removedTargetDocument)).toContain('Create your first project');
     expect(playPreview).not.toHaveBeenCalled();
     expect(stopPreview).toHaveBeenCalledOnce();
+
+    panel.close();
+  });
+
+  it('applies structural semantic preview patches without replacing the document', async () => {
+    const peer = { postMessage: vi.fn() } as unknown as Window;
+    const playPreview = vi.fn(() => Promise.resolve());
+    const compilePreview = vi.fn(async (doc: LodariqDocument): Promise<CompiledDocument> => {
+      return { ...compile(doc), contentHash: 'local-preview' };
+    });
+    const panel = openLocalAuthoringPanel(
+      {
+        sessionId: LOCAL_AUTHORING_SESSION_ID,
+        documentId: 'doc_tour_welcome',
+        workspaceId: 'wk_local_dev',
+        environment: 'development',
+      },
+      {
+        iframeSrc: '/lodariq-local/authoring.html',
+        preview: {
+          loadDocument: () => structuredClone(baseDocument),
+          compilePreview,
+          playPreview,
+        },
+      },
+    );
+
+    const host = document.querySelector('lodariq-authoring-panel');
+    const iframe = host?.querySelector('iframe');
+    if (!iframe) throw new Error('iframe missing');
+    Object.defineProperty(iframe, 'contentWindow', { value: peer, configurable: true });
+    iframe.dispatchEvent(new Event('load'));
+
+    window.dispatchEvent(
+      new MessageEvent('message', {
+        data: {
+          protocol: BRIDGE_PROTOCOL_VERSION,
+          sessionId: LOCAL_AUTHORING_SESSION_ID,
+          documentId: 'doc_tour_welcome',
+          correlationId: 'preview_patch_structural_1',
+          type: 'preview.patch',
+          blockId: 'heading_1',
+          patch: {
+            ops: [
+              { op: 'setDocumentTitle', title: 'Updated tour' },
+              { op: 'updateContent', content: 'Updated heading' },
+              {
+                op: 'insertStepContent',
+                stepBlockId: 'step_1',
+                index: 1,
+                block: {
+                  id: 'paragraph_inserted',
+                  type: 'paragraph',
+                  content: 'Inserted body',
+                  props: {},
+                  status: 'ready',
+                  children: [],
+                },
+              },
+            ],
+          },
+        },
+        origin: window.location.origin,
+        source: peer,
+      }),
+    );
+
+    await vi.waitFor(() => expect(compilePreview).toHaveBeenCalledOnce());
+    let previewDocument = compilePreview.mock.calls[0]?.[0];
+    expect(previewDocument?.title).toBe('Updated tour');
+    expect(previewDocument?.blocks[0]?.children[0]?.children.map((block) => block.id)).toEqual([
+      'heading_1',
+      'paragraph_inserted',
+      'button_1',
+    ]);
+    expect(previewDocument?.blocks[0]?.children[0]?.children[0]?.content).toBe(
+      'Updated heading',
+    );
+
+    compilePreview.mockClear();
+    window.dispatchEvent(
+      new MessageEvent('message', {
+        data: {
+          protocol: BRIDGE_PROTOCOL_VERSION,
+          sessionId: LOCAL_AUTHORING_SESSION_ID,
+          documentId: 'doc_tour_welcome',
+          correlationId: 'preview_patch_structural_2',
+          type: 'preview.patch',
+          blockId: 'button_1',
+          patch: { ops: [{ op: 'removeBlock', stepBlockId: 'step_1' }] },
+        },
+        origin: window.location.origin,
+        source: peer,
+      }),
+    );
+
+    await vi.waitFor(() => expect(compilePreview).toHaveBeenCalledOnce());
+    previewDocument = compilePreview.mock.calls[0]?.[0];
+    expect(previewDocument?.blocks[0]?.children[0]?.children.map((block) => block.id)).toEqual([
+      'heading_1',
+      'paragraph_inserted',
+    ]);
+    expect(JSON.stringify(previewDocument)).not.toContain('button_1');
 
     panel.close();
   });

@@ -44,6 +44,21 @@ export interface AuthoringSessionRecord {
   revokedAt?: string | null;
 }
 
+export interface UserRecord {
+  id: string;
+  clerkUserId: string;
+  email: string;
+  name?: string | null;
+  createdAt: string;
+}
+
+export interface WorkspaceMembershipRecord {
+  workspaceId: string;
+  userId: string;
+  role: string;
+  createdAt: string;
+}
+
 export interface DocumentSummary {
   id: string;
   workspaceId: string;
@@ -155,6 +170,10 @@ export interface ResolvedEnvironmentToken extends EnvironmentTokenRecord {
 }
 
 export interface ControlPlaneRepository {
+  resolveWorkspaceMembership(
+    workspaceId: string,
+    userId: string,
+  ): Promise<WorkspaceMembershipRecord | null>;
   listDocuments(workspaceId: string): Promise<DocumentSummary[]>;
   getDocument(workspaceId: string, documentId: string): Promise<PersistedDocument | null>;
   listDocumentVersions(
@@ -190,6 +209,8 @@ export interface ControlPlaneRepository {
 }
 
 export interface InMemoryControlPlaneSeed {
+  users?: UserRecord[];
+  workspaceMemberships?: WorkspaceMembershipRecord[];
   documents?: LodariqDocument[];
   environments?: WorkspaceEnvironment[];
   environmentTokens?: EnvironmentTokenRecord[];
@@ -211,12 +232,23 @@ class InMemoryControlPlaneRepository implements ControlPlaneRepository {
   private readonly environments = new Map<string, WorkspaceEnvironment>();
   private readonly environmentTokens = new Map<string, EnvironmentTokenRecord>();
   private readonly authoringSessions = new Map<string, AuthoringSessionRecord>();
+  private readonly users = new Map<string, UserRecord>();
+  private readonly workspaceMemberships = new Map<string, WorkspaceMembershipRecord>();
   private readonly publications = new Map<string, PersistedPublication[]>();
   private readonly events: Array<{ workspaceId: string; event: AnalyticsEvent }> = [];
 
   constructor(seed: InMemoryControlPlaneSeed) {
     for (const environment of seed.environments ?? []) {
       this.environments.set(this.key(environment.workspaceId, environment.id), clone(environment));
+    }
+    for (const user of seed.users ?? []) {
+      this.users.set(user.id, clone(user));
+    }
+    for (const membership of seed.workspaceMemberships ?? []) {
+      this.workspaceMemberships.set(
+        this.key(membership.workspaceId, membership.userId),
+        clone(membership),
+      );
     }
     for (const token of seed.environmentTokens ?? []) {
       this.environmentTokens.set(this.key(token.workspaceId, token.id), clone(token));
@@ -257,6 +289,18 @@ class InMemoryControlPlaneRepository implements ControlPlaneRepository {
         ...(latestArtifact ? { latestArtifact: clone(latestArtifact) } : {}),
       });
     }
+  }
+
+  async resolveWorkspaceMembership(
+    workspaceId: string,
+    userId: string,
+  ): Promise<WorkspaceMembershipRecord | null> {
+    const direct = this.workspaceMemberships.get(this.key(workspaceId, userId));
+    if (direct) return clone(direct);
+    const internalUser = [...this.users.values()].find((user) => user.clerkUserId === userId);
+    if (!internalUser) return null;
+    const membership = this.workspaceMemberships.get(this.key(workspaceId, internalUser.id));
+    return membership ? clone(membership) : null;
   }
 
   async listDocuments(workspaceId: string): Promise<DocumentSummary[]> {

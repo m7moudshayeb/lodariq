@@ -16,6 +16,14 @@ describe('@lodariq/dashboard view model', () => {
           updatedByUserId: 'user_editor',
           updatedAt: '2026-06-30T00:00:00.000Z',
           latestContentHash: 'sha256-draft',
+          publishReadinessIssues: [
+            {
+              code: 'missing_step_target',
+              label: 'Missing target',
+              blockId: 'step_1',
+              message: 'Step 1 needs a placement before publishing.',
+            },
+          ],
           publications: [
             {
               environmentId: 'env_staging',
@@ -73,7 +81,11 @@ describe('@lodariq/dashboard view model', () => {
     expect(viewModel.documentRows[0]?.statusLabel).toBe('Draft');
     expect(viewModel.documentRows[0]?.typeLabel).toBe('Tour');
     expect(viewModel.documentRows[0]?.editorLabel).toBe('Workspace teammate');
-    expect(viewModel.documentRows[0]?.readinessDetail).toBe('Draft in progress');
+    expect(viewModel.documentRows[0]?.readinessDetail).toBe('Missing target');
+    expect(viewModel.documentRows[0]?.readinessIssueCount).toBe(1);
+    expect(viewModel.documentRows[0]?.readinessIssueSummary).toBe(
+      'Step 1 needs a placement before publishing.',
+    );
     expect(viewModel.documentRows[0]?.updatedAtLabel).toBe('Jun 30, 2026');
     expect(viewModel.documentRows[0]?.contentHashLabel).toBe('Draft saved');
     expect(viewModel.documentRows[0]?.contentHashDetail).toBe('Changes are being tracked');

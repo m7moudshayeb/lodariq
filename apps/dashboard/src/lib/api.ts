@@ -13,7 +13,16 @@ export interface DocumentSummaryDto {
   updatedByUserId: string | null;
   updatedAt: string;
   latestContentHash?: string;
+  publishReadinessIssues: PublishReadinessIssueDto[];
   publications: DocumentPublicationDto[];
+}
+
+export interface PublishReadinessIssueDto {
+  code: string;
+  blockId?: string;
+  targetId?: string;
+  label: string;
+  message: string;
 }
 
 export interface DocumentPublicationDto {
@@ -62,6 +71,7 @@ export interface DocumentDebugDto {
     createdAt: string;
     compiled: unknown;
   } | null;
+  publishReadinessIssues: PublishReadinessIssueDto[];
   versions: Array<{
     id: string;
     workspaceId: string;

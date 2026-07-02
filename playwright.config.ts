@@ -30,6 +30,7 @@ const apiBaseURL = `http://127.0.0.1:${apiPort}`;
 const dashboardBaseURL = `http://127.0.0.1:${dashboardPort}`;
 const fixtureHostBaseURL = `http://127.0.0.1:${fixtureHostPort}`;
 const customerLikeHostBaseURL = `http://127.0.0.1:${customerLikeHostPort}`;
+const reuseExistingServer = process.env.LODARIQ_E2E_REUSE_SERVERS === '1' && !process.env.CI;
 const requestedWebServers = new Set(
   (process.env.LODARIQ_E2E_WEB_SERVERS ?? 'api,dashboard,fixture-host,customer-like-host')
     .split(',')
@@ -51,11 +52,13 @@ export default defineConfig({
           {
             command: 'pnpm --filter @lodariq/api run dev:e2e',
             url: `${apiBaseURL}/healthz`,
-            reuseExistingServer: !process.env.CI,
+            reuseExistingServer,
             timeout: 30_000,
             env: {
+              DATABASE_URL: '',
               HOST: '127.0.0.1',
               PORT: apiPort,
+              LODARIQ_AUTH_MODE: 'headers',
               LODARIQ_DEV_WORKSPACE_ID: 'wk_dashboard_e2e',
               LODARIQ_DEV_USER_ID: 'user_dashboard_e2e',
             },
@@ -68,7 +71,7 @@ export default defineConfig({
             command:
               `pnpm --filter @lodariq/dashboard exec next dev --hostname 127.0.0.1 --port ${dashboardPort}`,
             url: dashboardBaseURL,
-            reuseExistingServer: !process.env.CI,
+            reuseExistingServer,
             timeout: 60_000,
             env: {
               LODARIQ_API_BASE_URL: apiBaseURL,
@@ -85,7 +88,7 @@ export default defineConfig({
             command:
               `pnpm --filter @lodariq/fixture-host exec vite --host 127.0.0.1 --port ${fixtureHostPort}`,
             url: fixtureHostBaseURL,
-            reuseExistingServer: !process.env.CI,
+            reuseExistingServer,
             timeout: 30_000,
           },
         ]
@@ -96,7 +99,7 @@ export default defineConfig({
             command:
               `pnpm --filter @lodariq/customer-like-host exec vite --host 127.0.0.1 --port ${customerLikeHostPort}`,
             url: customerLikeHostBaseURL,
-            reuseExistingServer: !process.env.CI,
+            reuseExistingServer,
             timeout: 30_000,
           },
         ]

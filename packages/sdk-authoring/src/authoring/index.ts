@@ -20,8 +20,14 @@ import {
 import {
   attachTargetToBlocks,
   blocksReferenceTarget,
+  insertBlockInsideTourStep,
+  insertTopLevelBlock,
   moveTopLevelBlock,
+  moveStepChildBlock,
   renumberTourSteps,
+  removeStepChildBlock,
+  removeTopLevelBlock,
+  reorderStepChildBlock,
   reorderTopLevelBlock,
   removeTargetFromBlocks,
   setBlockAction,
@@ -880,14 +886,34 @@ function applyPreviewPatch(
 ): LodariqDocument {
   let next = structuredClone(document);
   for (const op of ops) {
+    if (op.op === 'setDocumentTitle') {
+      next = { ...next, title: op.title.trim() || 'Untitled experience' };
+    }
     if (op.op === 'insertBlock') {
-      next = { ...next, blocks: renumberTourSteps([...next.blocks, structuredClone(op.block)]) };
+      const inserted = op.anchorBlockId
+        ? insertTopLevelBlock(
+            next.blocks,
+            op.anchorBlockId,
+            structuredClone(op.block),
+            op.position ?? 'after',
+          )
+        : [...next.blocks, structuredClone(op.block)];
+      if (inserted) next = { ...next, blocks: renumberTourSteps(inserted) };
     }
     if (op.op === 'insertBlocks') {
       next = {
         ...next,
         blocks: renumberTourSteps([...next.blocks, ...structuredClone(op.blocks)]),
       };
+    }
+    if (op.op === 'insertStepContent') {
+      const blocks = insertBlockInsideTourStep(
+        next.blocks,
+        op.stepBlockId,
+        structuredClone(op.block),
+        op.index,
+      );
+      if (blocks) next = { ...next, blocks };
     }
     if (op.op === 'updateContent') {
       next = { ...next, blocks: updateBlockContent(next.blocks, blockId, op.content) };
@@ -896,9 +922,40 @@ function applyPreviewPatch(
       const blocks = moveTopLevelBlock(next.blocks, blockId, op.direction);
       if (blocks) next = { ...next, blocks: renumberTourSteps(blocks) };
     }
+    if (op.op === 'moveStepContent') {
+      const blocks = moveStepChildBlock(next.blocks, op.stepBlockId, blockId, op.direction);
+      if (blocks) next = { ...next, blocks };
+    }
     if (op.op === 'reorderBlock') {
-      const blocks = reorderTopLevelBlock(next.blocks, blockId, op.beforeBlockId);
+      const blocks = reorderTopLevelBlock(
+        next.blocks,
+        blockId,
+        op.beforeBlockId,
+        op.position ?? 'before',
+      );
       if (blocks) next = { ...next, blocks: renumberTourSteps(blocks) };
+    }
+    if (op.op === 'reorderStepContent') {
+      const blocks = reorderStepChildBlock(
+        next.blocks,
+        op.stepBlockId,
+        blockId,
+        op.targetChildBlockId,
+        op.position ?? 'before',
+      );
+      if (blocks) next = { ...next, blocks };
+    }
+    if (op.op === 'removeBlock') {
+      const blocks = op.stepBlockId
+        ? removeStepChildBlock(next.blocks, op.stepBlockId, blockId)
+        : removeTopLevelBlock(next.blocks, blockId);
+      if (blocks) {
+        next = {
+          ...next,
+          targets: next.targets.filter((target) => blocksReferenceTarget(blocks, target.id)),
+          blocks: renumberTourSteps(blocks),
+        };
+      }
     }
     if (op.op === 'transformBlock') {
       next = { ...next, blocks: transformBlocks(next.blocks, blockId, op.type) };
@@ -928,6 +985,16 @@ function applyPreviewPatch(
           ? next.targets
           : next.targets.filter((target) => target.id !== op.targetId),
         blocks,
+      };
+    }
+    if (op.op === 'setTargetLifecycle') {
+      next = {
+        ...next,
+        targets: next.targets.map((target) => {
+          if (target.id !== op.targetId) return target;
+          const lifecycle = op.lifecycle ? structuredClone(op.lifecycle) : undefined;
+          return lifecycle ? { ...target, lifecycle } : { ...target, lifecycle: undefined };
+        }),
       };
     }
     if (op.op === 'replaceDocument') {

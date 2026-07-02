@@ -1,10 +1,13 @@
 import {
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
   type DragEvent,
+  type InputHTMLAttributes,
   type KeyboardEvent,
   type ReactNode,
+  type TextareaHTMLAttributes,
 } from 'react';
 import type { LodariqBlock } from '@lodariq/schema';
 import type { LocalAuthoringFrameController } from '../controller';
@@ -690,14 +693,13 @@ function renderMediaField(context: ContentFieldContext): ReactNode {
       <span className="media-placeholder-icon" aria-hidden="true">
         <Image size={18} strokeWidth={2.1} />
       </span>
-      <input
-        key={`${block.id}:${value}`}
+      <SyncedInput
         className="block-input block-input-media"
         data-action="edit-content"
         data-block-id={block.id}
         aria-label={label}
+        committedValue={value}
         placeholder={fieldConfig.placeholder}
-        defaultValue={value}
         onKeyDown={contentFieldKeyDownHandler(context)}
       />
       <span className="media-placeholder-state">Add media later</span>
@@ -734,14 +736,13 @@ function renderTextField(context: ContentFieldContext): ReactNode {
   return (
     <label className={`content-field content-field-${block.type}`}>
       <span className="field-label">{label}</span>
-      <textarea
-        key={`${block.id}:${value}`}
+      <SyncedTextarea
         className={`block-input block-input-${block.type}`}
         data-action="edit-content"
         data-block-id={block.id}
         aria-label={label}
+        committedValue={value}
         placeholder={fieldConfig.placeholder}
-        defaultValue={value}
         onKeyDown={contentFieldKeyDownHandler(context)}
         rows={1}
       />
@@ -758,14 +759,13 @@ function renderSingleLineField(
   return (
     <label className={`content-field ${fieldClassName}`}>
       <span className="field-label">{label}</span>
-      <input
-        key={`${block.id}:${value}`}
+      <SyncedInput
         className={`block-input ${inputClassName}`}
         data-action="edit-content"
         data-block-id={block.id}
         aria-label={label}
+        committedValue={value}
         placeholder={fieldConfig.placeholder}
-        defaultValue={value}
         onKeyDown={contentFieldKeyDownHandler(context)}
       />
     </label>
@@ -939,14 +939,13 @@ function ActionUrlField({
   return (
     <label className="content-field action-url-field">
       <span className="field-label">Page URL</span>
-      <input
-        key={`${block.id}:url:${value}`}
+      <SyncedInput
         className="block-input block-input-url"
         data-action="edit-action-url"
         data-block-id={block.id}
         aria-label="Page URL"
+        committedValue={value}
         placeholder="/settings"
-        defaultValue={value}
         onKeyDown={(event) => handleActionUrlKeyDown(event, block, controller)}
       />
     </label>
@@ -970,6 +969,48 @@ function handleActionUrlKeyDown(
   if (event.key !== 'Enter') return;
   event.preventDefault();
   controller.setActionUrl(block.id, event.currentTarget.value);
+}
+
+type SyncedInputProps = Omit<InputHTMLAttributes<HTMLInputElement>, 'defaultValue' | 'value'> & {
+  committedValue: string;
+};
+
+type SyncedTextareaProps = Omit<
+  TextareaHTMLAttributes<HTMLTextAreaElement>,
+  'defaultValue' | 'value'
+> & {
+  committedValue: string;
+};
+
+function SyncedInput({ committedValue, ...props }: SyncedInputProps) {
+  const ref = useCommittedValueRef<HTMLInputElement>(committedValue);
+  return <input {...props} ref={ref} defaultValue={committedValue} />;
+}
+
+function SyncedTextarea({ committedValue, ...props }: SyncedTextareaProps) {
+  const ref = useCommittedValueRef<HTMLTextAreaElement>(committedValue);
+  return <textarea {...props} ref={ref} defaultValue={committedValue} />;
+}
+
+function useCommittedValueRef<T extends HTMLInputElement | HTMLTextAreaElement>(
+  committedValue: string,
+) {
+  const ref = useRef<T | null>(null);
+  const previousCommittedValueRef = useRef(committedValue);
+
+  useLayoutEffect(() => {
+    const node = ref.current;
+    const previousCommittedValue = previousCommittedValueRef.current;
+    previousCommittedValueRef.current = committedValue;
+    if (!node || node.value === committedValue) return;
+
+    const isFocused = node.ownerDocument.activeElement === node;
+    if (!isFocused || node.value === previousCommittedValue) {
+      node.value = committedValue;
+    }
+  }, [committedValue]);
+
+  return ref;
 }
 
 export function TransformControl({

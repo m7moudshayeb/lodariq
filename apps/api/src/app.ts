@@ -5,6 +5,7 @@ import {
   type ControlPlaneRepository,
 } from '@lodariq/database';
 import { createAuthProviderFromEnvironment, type AuthProvider } from './auth';
+import { noopObservability, type ObservabilitySink } from './observability';
 import { registerControlPlaneRoutes } from './routes/control-plane';
 
 export interface CreateApiAppOptions {
@@ -17,6 +18,7 @@ export interface CreateApiAppOptions {
   loaderSrc?: string;
   creatorLoaderSrc?: string;
   authoringIframeSrc?: string;
+  observability?: ObservabilitySink;
 }
 
 export function createApiApp(options: CreateApiAppOptions = {}): FastifyInstance {
@@ -41,6 +43,7 @@ export function createApiApp(options: CreateApiAppOptions = {}): FastifyInstance
     options.repository ??
     createControlPlaneRepositoryFromEnvironment({
       defaultWorkspaceId,
+      defaultUserId,
       allowInMemoryFallback: process.env.NODE_ENV !== 'production',
     });
   const authProvider =
@@ -106,6 +109,7 @@ export function createApiApp(options: CreateApiAppOptions = {}): FastifyInstance
       loaderSrc,
       creatorLoaderSrc,
       authoringIframeSrc,
+      observability: options.observability ?? noopObservability,
     });
   });
 

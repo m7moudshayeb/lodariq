@@ -1,7 +1,7 @@
 import { Type, type Static } from '@sinclair/typebox';
 import { BlockActionProps, LodariqBlock } from './block';
 import { LodariqDocument } from './document';
-import { ElementFingerprint } from './target';
+import { ElementFingerprint, RuntimeLifecycleHints } from './target';
 
 /**
  * Versioned iframe <-> host-page bridge protocol (PRD §9.5).
@@ -36,14 +36,48 @@ export type ScrollState = Static<typeof ScrollState>;
 
 export const PreviewPatchOperation = Type.Union(
   [
-    Type.Object({ op: Type.Literal('insertBlock'), block: LodariqBlock }),
+    Type.Object({
+      op: Type.Literal('setDocumentTitle'),
+      title: Type.String(),
+    }),
+    Type.Object({
+      op: Type.Literal('insertBlock'),
+      block: LodariqBlock,
+      anchorBlockId: Type.Optional(Type.String()),
+      position: Type.Optional(Type.Union([Type.Literal('before'), Type.Literal('after')])),
+    }),
     Type.Object({ op: Type.Literal('insertBlocks'), blocks: Type.Array(LodariqBlock) }),
+    Type.Object({
+      op: Type.Literal('insertStepContent'),
+      stepBlockId: Type.String(),
+      block: LodariqBlock,
+      index: Type.Number(),
+    }),
     Type.Object({ op: Type.Literal('updateContent'), content: Type.String() }),
     Type.Object({
       op: Type.Literal('moveBlock'),
       direction: Type.Union([Type.Literal('up'), Type.Literal('down')]),
     }),
-    Type.Object({ op: Type.Literal('reorderBlock'), beforeBlockId: Type.String() }),
+    Type.Object({
+      op: Type.Literal('moveStepContent'),
+      stepBlockId: Type.String(),
+      direction: Type.Union([Type.Literal('up'), Type.Literal('down')]),
+    }),
+    Type.Object({
+      op: Type.Literal('reorderBlock'),
+      beforeBlockId: Type.String(),
+      position: Type.Optional(Type.Union([Type.Literal('before'), Type.Literal('after')])),
+    }),
+    Type.Object({
+      op: Type.Literal('reorderStepContent'),
+      stepBlockId: Type.String(),
+      targetChildBlockId: Type.String(),
+      position: Type.Optional(Type.Union([Type.Literal('before'), Type.Literal('after')])),
+    }),
+    Type.Object({
+      op: Type.Literal('removeBlock'),
+      stepBlockId: Type.Optional(Type.String()),
+    }),
     Type.Object({
       op: Type.Literal('transformBlock'),
       type: Type.Union([
@@ -68,6 +102,11 @@ export const PreviewPatchOperation = Type.Union(
     Type.Object({
       op: Type.Literal('removeTarget'),
       targetId: Type.String(),
+    }),
+    Type.Object({
+      op: Type.Literal('setTargetLifecycle'),
+      targetId: Type.String(),
+      lifecycle: Type.Optional(RuntimeLifecycleHints),
     }),
     Type.Object({ op: Type.Literal('replaceDocument'), document: LodariqDocument }),
   ],

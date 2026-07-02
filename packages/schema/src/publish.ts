@@ -1,6 +1,7 @@
 import { BLOCK_ACTION_TYPES, type LodariqBlock } from './block';
 import type { LodariqDocument } from './document';
 import type { ResolverDiagnostic } from './bridge';
+import { isSafeNavigationUrl } from './url';
 
 export type PublishReadinessIssueCode =
   | 'unsupported_document_type'
@@ -18,6 +19,7 @@ export type PublishReadinessIssueCode =
   | 'open_page_unsafe_url'
   | 'action_not_allowed'
   | 'incomplete_media'
+  | 'unresolved_lifecycle_hint'
   | 'invalid_block'
   | 'incomplete_block';
 
@@ -36,6 +38,7 @@ export interface ValidateTourPublishReadinessOptions {
 
 type TargetDiagnosticValue = ResolverDiagnostic | { diagnostic: ResolverDiagnostic };
 type TargetDiagnosticSource = NonNullable<ValidateTourPublishReadinessOptions['targetDiagnostics']>;
+type TargetFingerprint = LodariqDocument['targets'][number]['fingerprint'];
 type ActionBlockKind = 'button' | 'link';
 type TooltipChildValidator = (block: LodariqBlock, issues: PublishReadinessIssue[]) => void;
 
@@ -55,10 +58,38 @@ const TOUR_STEP_CHILD_TYPES = new Set(['tooltip', 'targetChip', 'validationBadge
 const ACTION_TYPES = new Set<string>(BLOCK_ACTION_TYPES);
 const VISIBLE_WITHOUT_CONTENT_TYPES = new Set(['divider']);
 const HIDDEN_TOUR_CONTENT_TYPES = new Set(['media', 'targetChip', 'validationBadge']);
+const ACTIONABLE_FINGERPRINT_TEXT_FIELDS = [
+  'accessibleName',
+  'role',
+  'label',
+  'placeholder',
+  'title',
+  'alt',
+] as const satisfies ReadonlyArray<keyof TargetFingerprint>;
 const MISSING_ACTION_ISSUE_CODES = {
   button: 'button_missing_action',
   link: 'link_missing_action',
 } as const satisfies Record<ActionBlockKind, PublishReadinessIssueCode>;
+const PUBLISH_READINESS_ISSUE_LABELS = {
+  unsupported_document_type: 'Unsupported document',
+  empty_tour: 'Empty tour',
+  unsupported_tour_block: 'Unsupported block',
+  empty_step: 'Empty step',
+  missing_step_tooltip: 'Missing step content',
+  missing_step_target: 'Missing target',
+  broken_target_reference: 'Broken target',
+  target_unresolved: 'Unresolved target',
+  target_ambiguous: 'Ambiguous target',
+  button_missing_action: 'Incomplete button action',
+  link_missing_action: 'Incomplete link action',
+  open_page_missing_url: 'Missing URL',
+  open_page_unsafe_url: 'Unsafe URL',
+  action_not_allowed: 'Unsupported action',
+  incomplete_media: 'Incomplete media',
+  unresolved_lifecycle_hint: 'Unresolved lifecycle hint',
+  invalid_block: 'Invalid block',
+  incomplete_block: 'Incomplete block',
+} as const satisfies Record<PublishReadinessIssueCode, string>;
 
 const TOOLTIP_CHILD_VALIDATORS: Readonly<Record<string, TooltipChildValidator>> = {
   button: (block, issues) => validateActionBlock(block, 'button', issues),
@@ -86,7 +117,7 @@ export function validateTourPublishReadiness(
     ];
   }
 
-  const targetsById = new Set(document.targets.map((target) => target.id));
+  const targetsById = new Map(document.targets.map((target) => [target.id, target]));
   const steps = document.blocks.filter((block) => block.type === 'tourStep');
   if (steps.length === 0) {
     issues.push({ code: 'empty_tour', message: 'Add at least one step before publishing.' });
@@ -111,9 +142,13 @@ export function firstPublishBlocker(document: LodariqDocument): string | null {
   return validateTourPublishReadiness(document)[0]?.message ?? null;
 }
 
+export function publishReadinessIssueLabel(code: PublishReadinessIssueCode): string {
+  return PUBLISH_READINESS_ISSUE_LABELS[code];
+}
+
 function validateTourStep(
   step: LodariqBlock,
-  targetsById: ReadonlySet<string>,
+  targetsById: ReadonlyMap<string, LodariqDocument['targets'][number]>,
   options: ValidateTourPublishReadinessOptions,
   issues: PublishReadinessIssue[],
 ): void {
@@ -171,6 +206,7 @@ function validateTourStep(
       message: `${stepLabel(step)} references a placement that no longer exists.`,
     });
   } else {
+    validateTargetLifecycle(step, targetsById.get(targetId), issues);
     const diagnostic = targetDiagnostic(options.targetDiagnostics, targetId);
     if (diagnostic?.state === 'missing') {
       issues.push({
@@ -191,6 +227,39 @@ function validateTourStep(
   }
 
   for (const child of tooltip.children) validateTooltipChild(child, issues);
+}
+
+function validateTargetLifecycle(
+  step: LodariqBlock,
+  target: LodariqDocument['targets'][number] | undefined,
+  issues: PublishReadinessIssue[],
+): void {
+  const lifecycle = target?.lifecycle;
+  if (!lifecycle) return;
+  if (typeof lifecycle.waitForText === 'string' && !lifecycle.waitForText.trim()) {
+    issues.push({
+      code: 'unresolved_lifecycle_hint',
+      blockId: step.id,
+      targetId: target.id,
+      message: `${stepLabel(step)} has an empty lifecycle text wait. Add text or clear it.`,
+    });
+  }
+  for (const fingerprint of [
+    lifecycle.waitForElement,
+    lifecycle.scrollContainer,
+    lifecycle.openPanel,
+    lifecycle.selectTab,
+  ]) {
+    if (fingerprint && !hasActionableFingerprint(fingerprint)) {
+      issues.push({
+        code: 'unresolved_lifecycle_hint',
+        blockId: step.id,
+        targetId: target.id,
+        message: `${stepLabel(step)} has a lifecycle hint that cannot be resolved reliably.`,
+      });
+      return;
+    }
+  }
 }
 
 function validateTooltipChild(block: LodariqBlock, issues: PublishReadinessIssue[]): void {
@@ -276,6 +345,18 @@ function hasVisibleTourContent(block: LodariqBlock): boolean {
   return block.children.some(hasVisibleTourContent);
 }
 
+function hasActionableFingerprint(fingerprint: TargetFingerprint): boolean {
+  return (
+    ACTIONABLE_FINGERPRINT_TEXT_FIELDS.some((field) => hasText(fingerprint[field])) ||
+    fingerprint.nearbyText?.some(hasText) === true ||
+    Object.values(fingerprint.stableAttributes).some(hasText)
+  );
+}
+
+function hasText(value: unknown): value is string {
+  return typeof value === 'string' && value.trim().length > 0;
+}
+
 function targetDiagnostic(
   diagnostics: ValidateTourPublishReadinessOptions['targetDiagnostics'],
   targetId: string,
@@ -298,17 +379,6 @@ function isTargetDiagnosticMap(
   diagnostics: TargetDiagnosticSource,
 ): diagnostics is ReadonlyMap<string, TargetDiagnosticValue> {
   return typeof (diagnostics as ReadonlyMap<string, TargetDiagnosticValue>).get === 'function';
-}
-
-function isSafeNavigationUrl(rawUrl: string): boolean {
-  const trimmed = rawUrl.trim();
-  if (trimmed.startsWith('/') || trimmed.startsWith('#')) return true;
-  try {
-    const url = new URL(trimmed);
-    return url.protocol === 'https:' || url.protocol === 'http:';
-  } catch {
-    return false;
-  }
 }
 
 function blockLabel(block: LodariqBlock): string {

@@ -10,6 +10,15 @@ export type DocumentDebugActionState =
       compilerVersion: string;
       versionCount: number;
       latestVersionLabel: string;
+      publishReadinessIssues: DashboardPublishReadinessIssue[];
     };
 
 export const initialDocumentDebugActionState: DocumentDebugActionState = { status: 'idle' };
+
+export interface DashboardPublishReadinessIssue {
+  code: string;
+  blockId?: string;
+  targetId?: string;
+  label: string;
+  message: string;
+}

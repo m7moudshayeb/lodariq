@@ -7,9 +7,11 @@ import {
   LodariqDocument,
   SdkBootstrapRequest,
   SdkInstallContext,
-  firstPublishBlocker,
+  publishReadinessIssueLabel,
   validate,
+  validateTourPublishReadiness,
   type CompiledDocument as CompiledDocumentType,
+  type PublishReadinessIssue,
   type SdkBootstrapRequest as SdkBootstrapRequestType,
   type SdkInstallContext as SdkInstallContextType,
 } from '@lodariq/schema';
@@ -21,6 +23,7 @@ import {
   hashEnvironmentToken,
   type AuthoringSessionRecord,
   type ControlPlaneRepository,
+  type DocumentSummary,
   type EnvironmentTokenRecord,
   type PersistedCompiledArtifact,
   type PersistedDocument,
@@ -30,6 +33,7 @@ import {
 } from '@lodariq/database';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { AuthError, type AuthContext, type AuthProvider, type AuthRole } from '../auth';
+import { createObservabilityEvent, type ObservabilitySink } from '../observability';
 import { renderSdkInstallationSnippet } from '../snippets';
 
 const DocumentParams = Type.Object(
@@ -91,10 +95,26 @@ interface RegisterControlPlaneRoutesOptions {
   loaderSrc?: string;
   creatorLoaderSrc?: string;
   authoringIframeSrc: string;
+  observability: ObservabilitySink;
 }
 
 const AUTHORING_SESSION_HEADER = 'x-lodariq-authoring-session';
 const AUTHORING_SESSION_TTL_MS = 15 * 60 * 1000;
+
+type EnvironmentTokenResponse = Omit<EnvironmentTokenRecord, 'clientToken' | 'tokenHash'>;
+type CompiledArtifactResponse = Omit<PersistedCompiledArtifact, 'compiled'>;
+type PublicationResponse = Omit<PersistedPublication, 'artifact'> & {
+  artifact: CompiledArtifactResponse;
+};
+type AuthoringSessionResponse = Omit<AuthoringSessionRecord, 'tokenHash'>;
+
+interface AuthoringSessionLaunchPayload {
+  authoringSession: AuthoringSessionResponse;
+  authoringSessionToken: string;
+  bootstrapHeaderName: typeof AUTHORING_SESSION_HEADER;
+  publication?: PublicationResponse;
+  authoringSdkSnippet: string;
+}
 
 export function registerControlPlaneRoutes(
   fastify: FastifyInstance,
@@ -257,12 +277,34 @@ export function registerControlPlaneRoutes(
       }
 
       const compiled = await compileAndValidate(document);
+      options.observability.emit(
+        createObservabilityEvent({
+          name: 'compile.completed',
+          correlationId: authoringSession.correlationId,
+          workspaceId: token.workspaceId,
+          documentId: document.id,
+          environmentId: authoringSession.environmentId,
+          userId: authoringSession.createdByUserId,
+          attributes: { source: 'creator-save', contentHash: compiled.contentHash },
+        }),
+      );
       const saved = await options.repository.saveDocument({
         workspaceId: token.workspaceId,
         actorUserId: authoringSession.createdByUserId,
         document,
         artifact: compiled,
       });
+      options.observability.emit(
+        createObservabilityEvent({
+          name: 'authoring.save.completed',
+          correlationId: authoringSession.correlationId,
+          workspaceId: token.workspaceId,
+          documentId: document.id,
+          environmentId: authoringSession.environmentId,
+          userId: authoringSession.createdByUserId,
+          attributes: { contentHash: saved.latestArtifact?.contentHash },
+        }),
+      );
 
       return reply.code(200).send({
         document: {
@@ -285,16 +327,18 @@ export function registerControlPlaneRoutes(
   );
 
   fastify.get('/v1/documents', async (request, reply) => {
-    const auth = await authenticate(options.authProvider, request, reply);
+    const auth = await authenticate(options.repository, options.authProvider, request, reply);
     if (!auth) return;
-    return { documents: await options.repository.listDocuments(auth.workspaceId) };
+    return {
+      documents: await listDocumentSummariesWithReadiness(options.repository, auth.workspaceId),
+    };
   });
 
   fastify.get(
     '/v1/documents/:documentId',
     { schema: { params: DocumentParams } },
     async (request, reply) => {
-      const auth = await authenticate(options.authProvider, request, reply);
+      const auth = await authenticate(options.repository, options.authProvider, request, reply);
       if (!auth) return;
       const { documentId } = request.params as { documentId: string };
       const record = await options.repository.getDocument(auth.workspaceId, documentId);
@@ -305,7 +349,7 @@ export function registerControlPlaneRoutes(
   );
 
   fastify.post('/v1/documents', { schema: { body: Type.Unknown() } }, async (request, reply) => {
-    const auth = await authenticate(options.authProvider, request, reply);
+    const auth = await authenticate(options.repository, options.authProvider, request, reply);
     if (!auth) return;
     if (!requireRole(auth, 'member', reply)) return;
     const canonical = validate(LodariqDocument, request.body);
@@ -324,7 +368,18 @@ export function registerControlPlaneRoutes(
       });
     }
 
+    const compileCorrelationId = createCorrelationId('compile');
     const compiled = await compileAndValidate(document);
+    options.observability.emit(
+      createObservabilityEvent({
+        name: 'compile.completed',
+        correlationId: compileCorrelationId,
+        workspaceId: auth.workspaceId,
+        documentId: document.id,
+        userId: auth.userId,
+        attributes: { source: 'control-plane-save', contentHash: compiled.contentHash },
+      }),
+    );
     const saved = await options.repository.saveDocument({
       workspaceId: auth.workspaceId,
       actorUserId: auth.userId,
@@ -339,7 +394,7 @@ export function registerControlPlaneRoutes(
     '/v1/documents/:documentId/compile',
     { schema: { params: DocumentParams } },
     async (request, reply) => {
-      const auth = await authenticate(options.authProvider, request, reply);
+      const auth = await authenticate(options.repository, options.authProvider, request, reply);
       if (!auth) return;
       if (!requireRole(auth, 'member', reply)) return;
       const { documentId } = request.params as { documentId: string };
@@ -347,7 +402,18 @@ export function registerControlPlaneRoutes(
       if (!record)
         return reply.code(404).send({ error: 'not_found', message: 'Document not found' });
 
+      const compileCorrelationId = createCorrelationId('compile');
       const compiled = await compileAndValidate(record.document);
+      options.observability.emit(
+        createObservabilityEvent({
+          name: 'compile.completed',
+          correlationId: compileCorrelationId,
+          workspaceId: auth.workspaceId,
+          documentId,
+          userId: auth.userId,
+          attributes: { source: 'control-plane-compile', contentHash: compiled.contentHash },
+        }),
+      );
       const saved = await options.repository.saveDocument({
         workspaceId: auth.workspaceId,
         actorUserId: auth.userId,
@@ -363,7 +429,7 @@ export function registerControlPlaneRoutes(
     '/v1/documents/:documentId/publish',
     { schema: { params: DocumentParams, body: PublishDocumentBody } },
     async (request, reply) => {
-      const auth = await authenticate(options.authProvider, request, reply);
+      const auth = await authenticate(options.repository, options.authProvider, request, reply);
       if (!auth) return;
       if (!requireRole(auth, 'member', reply)) return;
       const { documentId } = request.params as { documentId: string };
@@ -377,22 +443,35 @@ export function registerControlPlaneRoutes(
       if (!environment)
         return reply.code(404).send({ error: 'not_found', message: 'Environment not found' });
 
-      const publishBlocker = firstPublishBlocker(record.document);
-      if (publishBlocker) {
+      const publishIssues = validateTourPublishReadiness(record.document);
+      if (publishIssues.length) {
         return reply.code(409).send({
           error: 'publish_blocked',
-          message: publishBlocker,
+          message: publishIssues[0]?.message ?? 'Document is not ready to publish',
+          issues: publishIssues.map(toPublishReadinessIssueResponse),
         });
       }
 
       const artifact = await ensureCurrentCompiledArtifact(options.repository, auth, record);
+      const publishCorrelationId = createCorrelationId('publish');
       const publication = await options.repository.publishCompiledArtifact({
         workspaceId: auth.workspaceId,
-        correlationId: createCorrelationId('publish'),
+        correlationId: publishCorrelationId,
         environmentId: environment.id,
         artifact,
         actorUserId: auth.userId,
       });
+      options.observability.emit(
+        createObservabilityEvent({
+          name: 'publish.completed',
+          correlationId: publishCorrelationId,
+          workspaceId: auth.workspaceId,
+          documentId,
+          environmentId: environment.id,
+          userId: auth.userId,
+          attributes: { contentHash: publication.contentHash },
+        }),
+      );
 
       return reply.code(201).send({ publication: toPublicationResponse(publication) });
     },
@@ -402,7 +481,7 @@ export function registerControlPlaneRoutes(
     '/v1/debug/documents/:documentId',
     { schema: { params: DocumentParams } },
     async (request, reply) => {
-      const auth = await authenticate(options.authProvider, request, reply);
+      const auth = await authenticate(options.repository, options.authProvider, request, reply);
       if (!auth) return;
       if (!requireRole(auth, 'member', reply)) return;
       const { documentId } = request.params as { documentId: string };
@@ -413,19 +492,22 @@ export function registerControlPlaneRoutes(
       return {
         canonical: record.document,
         latestArtifact: record.latestArtifact ?? null,
+        publishReadinessIssues: validateTourPublishReadiness(record.document).map(
+          toPublishReadinessIssueResponse,
+        ),
         versions,
       };
     },
   );
 
   fastify.get('/v1/environments', async (request, reply) => {
-    const auth = await authenticate(options.authProvider, request, reply);
+    const auth = await authenticate(options.repository, options.authProvider, request, reply);
     if (!auth) return;
     return { environments: await options.repository.listEnvironments(auth.workspaceId) };
   });
 
   fastify.get('/v1/environment-tokens', async (request, reply) => {
-    const auth = await authenticate(options.authProvider, request, reply);
+    const auth = await authenticate(options.repository, options.authProvider, request, reply);
     if (!auth) return;
     if (!requireRole(auth, 'member', reply)) return;
     const tokens = await options.repository.listEnvironmentTokens(auth.workspaceId);
@@ -436,7 +518,7 @@ export function registerControlPlaneRoutes(
     '/v1/environment-tokens',
     { schema: { body: CreateEnvironmentTokenBody } },
     async (request, reply) => {
-      const auth = await authenticate(options.authProvider, request, reply);
+      const auth = await authenticate(options.repository, options.authProvider, request, reply);
       if (!auth) return;
       if (!requireRole(auth, 'member', reply)) return;
       const body = request.body as {
@@ -463,17 +545,24 @@ export function registerControlPlaneRoutes(
       if (authoringDocumentId && !authoringDocument) {
         return reply.code(404).send({ error: 'not_found', message: 'Document not found' });
       }
-      const publishBlocker = authoringDocument
-        ? firstPublishBlocker(authoringDocument.document)
-        : null;
-      if (publishBlocker) {
+      const publishIssues = authoringDocument
+        ? validateTourPublishReadiness(authoringDocument.document)
+        : [];
+      if (publishIssues.length) {
         return reply.code(409).send({
           error: 'publish_blocked',
-          message: publishBlocker,
+          message: publishIssues[0]?.message ?? 'Document is not ready to publish',
+          issues: publishIssues.map(toPublishReadinessIssueResponse),
         });
       }
       const publication = authoringDocument
-        ? await publishCurrentDocument(options.repository, auth, environment, authoringDocument)
+        ? await publishCurrentDocument(
+            options.repository,
+            auth,
+            environment,
+            authoringDocument,
+            options.observability,
+          )
         : null;
 
       const clientToken = createEnvironmentClientToken(environment.kind);
@@ -487,19 +576,30 @@ export function registerControlPlaneRoutes(
         actorUserId: auth.userId,
       });
 
-      let authoringSessionPayload = {};
+      let authoringSessionPayload: AuthoringSessionLaunchPayload | null = null;
       if (authoringDocumentId) {
         const authoringSessionToken = createAuthoringSessionToken();
+        const correlationId = createCorrelationId('authoring');
         const authoringSession = await options.repository.createAuthoringSession({
           workspaceId: auth.workspaceId,
           environmentId: environment.id,
           documentId: authoringDocumentId,
-          correlationId: createCorrelationId('authoring'),
+          correlationId,
           tokenHash: hashAuthoringSessionToken(authoringSessionToken),
           iframeSrc: options.authoringIframeSrc,
           expiresAt: new Date(Date.now() + AUTHORING_SESSION_TTL_MS).toISOString(),
           actorUserId: auth.userId,
         });
+        options.observability.emit(
+          createObservabilityEvent({
+            name: 'authoring.session.created',
+            correlationId,
+            workspaceId: auth.workspaceId,
+            documentId: authoringDocumentId,
+            environmentId: environment.id,
+            userId: auth.userId,
+          }),
+        );
         authoringSessionPayload = {
           authoringSession: toAuthoringSessionResponse(authoringSession),
           authoringSessionToken,
@@ -525,7 +625,7 @@ export function registerControlPlaneRoutes(
           apiBaseUrl: options.publicApiBaseUrl,
           loaderSrc: options.loaderSrc,
         }),
-        ...authoringSessionPayload,
+        ...(authoringSessionPayload ?? {}),
       });
     },
   );
@@ -534,7 +634,7 @@ export function registerControlPlaneRoutes(
     '/v1/environment-tokens/:tokenId/revoke',
     { schema: { params: EnvironmentTokenParams } },
     async (request, reply) => {
-      const auth = await authenticate(options.authProvider, request, reply);
+      const auth = await authenticate(options.repository, options.authProvider, request, reply);
       if (!auth) return;
       if (!requireRole(auth, 'member', reply)) return;
 
@@ -556,7 +656,7 @@ export function registerControlPlaneRoutes(
     '/v1/authoring/sessions',
     { schema: { body: CreateAuthoringSessionBody } },
     async (request, reply) => {
-      const auth = await authenticate(options.authProvider, request, reply);
+      const auth = await authenticate(options.repository, options.authProvider, request, reply);
       if (!auth) return;
       if (!requireRole(auth, 'member', reply)) return;
 
@@ -582,16 +682,27 @@ export function registerControlPlaneRoutes(
       }
 
       const sessionToken = createAuthoringSessionToken();
+      const correlationId = createCorrelationId('authoring');
       const session = await options.repository.createAuthoringSession({
         workspaceId: auth.workspaceId,
         environmentId: environment.id,
         documentId: body.documentId,
-        correlationId: createCorrelationId('authoring'),
+        correlationId,
         tokenHash: hashAuthoringSessionToken(sessionToken),
         iframeSrc: options.authoringIframeSrc,
         expiresAt: new Date(Date.now() + AUTHORING_SESSION_TTL_MS).toISOString(),
         actorUserId: auth.userId,
       });
+      options.observability.emit(
+        createObservabilityEvent({
+          name: 'authoring.session.created',
+          correlationId,
+          workspaceId: auth.workspaceId,
+          documentId: body.documentId,
+          environmentId: environment.id,
+          userId: auth.userId,
+        }),
+      );
 
       return reply.code(201).send({
         authoringSession: toAuthoringSessionResponse(session),
@@ -602,13 +713,21 @@ export function registerControlPlaneRoutes(
   );
 
   fastify.post('/v1/events', { schema: { body: IngestEventsBody } }, async (request, reply) => {
-    const auth = await authenticate(options.authProvider, request, reply);
+    const auth = await authenticate(options.repository, options.authProvider, request, reply);
     if (!auth) return;
     const body = request.body as { events: AnalyticsEvent[] };
     const accepted = await options.repository.ingestEvents({
       workspaceId: auth.workspaceId,
       events: sanitizeAnalyticsEvents(body.events),
     });
+    options.observability.emit(
+      createObservabilityEvent({
+        name: 'sdk.events.ingested',
+        workspaceId: auth.workspaceId,
+        userId: auth.userId,
+        attributes: { accepted },
+      }),
+    );
     return reply.code(202).send({ accepted });
   });
 }
@@ -630,15 +749,29 @@ async function publishCurrentDocument(
   auth: AuthContext,
   environment: WorkspaceEnvironment,
   record: PersistedDocument,
+  observability: ObservabilitySink,
 ): Promise<PersistedPublication> {
   const artifact = await ensureCurrentCompiledArtifact(repository, auth, record);
-  return repository.publishCompiledArtifact({
+  const correlationId = createCorrelationId('publish');
+  const publication = await repository.publishCompiledArtifact({
     workspaceId: auth.workspaceId,
-    correlationId: createCorrelationId('publish'),
+    correlationId,
     environmentId: environment.id,
     artifact,
     actorUserId: auth.userId,
   });
+  observability.emit(
+    createObservabilityEvent({
+      name: 'publish.completed',
+      correlationId,
+      workspaceId: auth.workspaceId,
+      documentId: record.document.id,
+      environmentId: environment.id,
+      userId: auth.userId,
+      attributes: { contentHash: publication.contentHash, source: 'authoring-launch' },
+    }),
+  );
+  return publication;
 }
 
 async function ensureCurrentCompiledArtifact(
@@ -842,6 +975,14 @@ function createSdkInstallContext(
     manifest: {
       documentId: publication.documentId,
       currentVersion: publication.contentHash,
+      artifact: {
+        contentHash: publication.artifact.contentHash,
+        compilerVersion: publication.artifact.compilerVersion,
+        createdAt: publication.artifact.createdAt,
+        ...(publication.artifact.documentVersionId
+          ? { documentVersionId: publication.artifact.documentVersionId }
+          : {}),
+      },
     },
     currentDocumentUrl: new URL('/v1/sdk/current-document', publicApiBaseUrl).toString(),
     ingestUrl: new URL('/v1/sdk/events', publicApiBaseUrl).toString(),
@@ -866,7 +1007,7 @@ function createSdkInstallContext(
   return validation.value;
 }
 
-function createCorrelationId(scope: 'authoring' | 'publish'): string {
+function createCorrelationId(scope: 'authoring' | 'compile' | 'publish'): string {
   return `corr_${scope}_${randomUUID()}`;
 }
 
@@ -879,17 +1020,15 @@ function requireRole(auth: AuthContext, minimumRole: AuthRole, reply: FastifyRep
   return false;
 }
 
+const AUTH_ROLE_RANK = {
+  viewer: 0,
+  member: 1,
+  admin: 2,
+  owner: 3,
+} as const satisfies Record<AuthRole, number>;
+
 function roleRank(role: AuthRole): number {
-  switch (role) {
-    case 'owner':
-      return 3;
-    case 'admin':
-      return 2;
-    case 'member':
-      return 1;
-    case 'viewer':
-      return 0;
-  }
+  return AUTH_ROLE_RANK[role];
 }
 
 function sanitizeAnalyticsEvents(events: AnalyticsEvent[]): AnalyticsEvent[] {
@@ -940,12 +1079,21 @@ function isSensitiveEventKey(key: string): boolean {
 }
 
 async function authenticate(
+  repository: ControlPlaneRepository,
   authProvider: AuthProvider,
   request: FastifyRequest,
   reply: FastifyReply,
 ): Promise<AuthContext | null> {
   try {
-    return await authProvider.authenticate(request);
+    const auth = await authProvider.authenticate(request);
+    const membership = await repository.resolveWorkspaceMembership(auth.workspaceId, auth.userId);
+    if (membership) return { ...auth, role: authRoleFromMembership(membership.role) };
+    if (canUseAuthProviderRoleFallback(auth)) return auth;
+    await reply.code(403).send({
+      error: 'forbidden',
+      message: 'Workspace membership is required',
+    });
+    return null;
   } catch (error) {
     if (error instanceof AuthError) {
       await reply.code(error.statusCode).send({ error: 'unauthorized', message: error.message });
@@ -953,6 +1101,15 @@ async function authenticate(
     }
     throw error;
   }
+}
+
+function authRoleFromMembership(role: string): AuthRole {
+  if (role === 'owner' || role === 'admin' || role === 'member' || role === 'viewer') return role;
+  return 'viewer';
+}
+
+function canUseAuthProviderRoleFallback(auth: AuthContext): boolean {
+  return auth.provider === 'headers' && process.env.NODE_ENV !== 'production';
 }
 
 async function compileAndValidate(document: LodariqDocument): Promise<CompiledDocumentType> {
@@ -964,10 +1121,38 @@ async function compileAndValidate(document: LodariqDocument): Promise<CompiledDo
   return result.value;
 }
 
-function toTokenResponse(
-  token: EnvironmentTokenRecord,
-): Omit<EnvironmentTokenRecord, 'clientToken'> {
+async function listDocumentSummariesWithReadiness(
+  repository: ControlPlaneRepository,
+  workspaceId: string,
+): Promise<Array<DocumentSummary & { publishReadinessIssues: PublishReadinessIssueResponse[] }>> {
+  const summaries = await repository.listDocuments(workspaceId);
+  return Promise.all(
+    summaries.map(async (summary) => {
+      const record = await repository.getDocument(workspaceId, summary.id);
+      const issues = record ? validateTourPublishReadiness(record.document) : [];
+      return {
+        ...summary,
+        publishReadinessIssues: issues.map(toPublishReadinessIssueResponse),
+      };
+    }),
+  );
+}
+
+interface PublishReadinessIssueResponse extends PublishReadinessIssue {
+  label: string;
+}
+
+function toPublishReadinessIssueResponse(
+  issue: PublishReadinessIssue,
+): PublishReadinessIssueResponse {
   return {
+    ...issue,
+    label: publishReadinessIssueLabel(issue.code),
+  };
+}
+
+function toTokenResponse(token: EnvironmentTokenRecord): EnvironmentTokenResponse {
+  const response: EnvironmentTokenResponse = {
     id: token.id,
     workspaceId: token.workspaceId,
     environmentId: token.environmentId,
@@ -975,44 +1160,45 @@ function toTokenResponse(
     name: token.name,
     tokenPrefix: token.tokenPrefix,
     createdAt: token.createdAt,
-    revokedAt: token.revokedAt,
   };
+  if (token.revokedAt !== undefined) response.revokedAt = token.revokedAt;
+  return response;
 }
 
-function toPublicationResponse(publication: PersistedPublication): Omit<
-  PersistedPublication,
-  'artifact'
-> & {
-  artifact: Omit<PersistedCompiledArtifact, 'compiled'>;
-} {
-  return {
+function toPublicationResponse(publication: PersistedPublication): PublicationResponse {
+  const artifact: CompiledArtifactResponse = {
+    id: publication.artifact.id,
+    workspaceId: publication.artifact.workspaceId,
+    documentId: publication.artifact.documentId,
+    contentHash: publication.artifact.contentHash,
+    compilerVersion: publication.artifact.compilerVersion,
+    createdAt: publication.artifact.createdAt,
+  };
+  if (publication.artifact.documentVersionId !== undefined) {
+    artifact.documentVersionId = publication.artifact.documentVersionId;
+  }
+
+  const response: PublicationResponse = {
     id: publication.id,
     workspaceId: publication.workspaceId,
     correlationId: publication.correlationId,
     environmentId: publication.environmentId,
     environment: publication.environment,
     documentId: publication.documentId,
-    documentVersionId: publication.documentVersionId,
     compiledArtifactId: publication.compiledArtifactId,
     contentHash: publication.contentHash,
     publishedByUserId: publication.publishedByUserId,
     publishedAt: publication.publishedAt,
-    artifact: {
-      id: publication.artifact.id,
-      workspaceId: publication.artifact.workspaceId,
-      documentId: publication.artifact.documentId,
-      documentVersionId: publication.artifact.documentVersionId,
-      contentHash: publication.artifact.contentHash,
-      compilerVersion: publication.artifact.compilerVersion,
-      createdAt: publication.artifact.createdAt,
-    },
+    artifact,
   };
+  if (publication.documentVersionId !== undefined) {
+    response.documentVersionId = publication.documentVersionId;
+  }
+  return response;
 }
 
-function toAuthoringSessionResponse(
-  session: AuthoringSessionRecord,
-): Omit<AuthoringSessionRecord, 'tokenHash'> {
-  return {
+function toAuthoringSessionResponse(session: AuthoringSessionRecord): AuthoringSessionResponse {
+  const response: AuthoringSessionResponse = {
     id: session.id,
     workspaceId: session.workspaceId,
     environmentId: session.environmentId,
@@ -1023,6 +1209,7 @@ function toAuthoringSessionResponse(
     createdByUserId: session.createdByUserId,
     createdAt: session.createdAt,
     expiresAt: session.expiresAt,
-    revokedAt: session.revokedAt,
   };
+  if (session.revokedAt !== undefined) response.revokedAt = session.revokedAt;
+  return response;
 }

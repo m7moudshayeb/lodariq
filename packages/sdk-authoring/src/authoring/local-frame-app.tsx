@@ -9,7 +9,6 @@ export function mountLocalAuthoringReactFrame(options: LocalAuthoringFrameOption
   const style = createNonceStyleElement(options.root.ownerDocument, LOCAL_AUTHORING_FRAME_CSS);
   options.root.ownerDocument.head.appendChild(style);
   const reactRoot = createRoot(options.root);
-
   flushSync(() => {
     reactRoot.render(<LocalAuthoringFrameRoot options={options} />);
   });

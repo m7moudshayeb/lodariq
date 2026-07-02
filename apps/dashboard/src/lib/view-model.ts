@@ -14,6 +14,8 @@ export interface DashboardViewModel {
       typeLabel: string;
       editorLabel: string;
       readinessDetail: string;
+      readinessIssueCount: number;
+      readinessIssueSummary: string;
       updatedAtLabel: string;
       contentHashLabel: string;
       contentHashDetail: string;
@@ -59,7 +61,9 @@ export function buildDashboardViewModel(data: DashboardDataDto): DashboardViewMo
         statusLabel: formatStatus(document.status),
         typeLabel: formatStatus(document.type),
         editorLabel: formatEditorLabel(document),
-        readinessDetail: formatReadinessDetail(document.status),
+        readinessDetail: formatReadinessDetail(document),
+        readinessIssueCount: document.publishReadinessIssues.length,
+        readinessIssueSummary: formatReadinessIssueSummary(document),
         updatedAtLabel: formatDate(document.updatedAt),
         ...buildDraftInfo(document),
         publicationLabel: publication.label,
@@ -93,11 +97,22 @@ function formatEditorLabel(document: DocumentSummaryDto): string {
   return 'Team update';
 }
 
-function formatReadinessDetail(status: string): string {
-  if (status === 'ready') return 'Ready to preview';
-  if (status === 'invalid') return 'Needs fixes before publishing';
-  if (status === 'draft') return 'Draft in progress';
+function formatReadinessDetail(document: DocumentSummaryDto): string {
+  if (document.publishReadinessIssues.length) {
+    return document.publishReadinessIssues[0]?.label ?? 'Needs review';
+  }
+  if (document.status === 'ready') return 'Ready to preview';
+  if (document.status === 'invalid') return 'Needs fixes before publishing';
+  if (document.status === 'draft') return 'Draft in progress';
   return 'In progress';
+}
+
+function formatReadinessIssueSummary(document: DocumentSummaryDto): string {
+  const firstIssue = document.publishReadinessIssues[0];
+  if (!firstIssue) return 'No publish blockers';
+  const remaining = document.publishReadinessIssues.length - 1;
+  if (remaining === 0) return firstIssue.message;
+  return `${firstIssue.message} +${remaining} more`;
 }
 
 function buildDraftInfo(

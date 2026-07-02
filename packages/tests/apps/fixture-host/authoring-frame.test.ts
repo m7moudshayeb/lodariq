@@ -19,7 +19,7 @@ function documentJson(): HTMLTextAreaElement {
   return document.querySelector<HTMLTextAreaElement>('textarea[aria-label="Editable backup"]')!;
 }
 
-function importTwoBlocks(): void {
+async function importTwoBlocks(): Promise<void> {
   const textarea = documentJson();
   const importButton = document.querySelector<HTMLButtonElement>('[data-action="import"]')!;
   const doc = JSON.parse(textarea.value) as { blocks: Array<Record<string, unknown>> };
@@ -83,10 +83,12 @@ function importTwoBlocks(): void {
   ];
   textarea.value = JSON.stringify(doc);
   importButton.click();
+  await flushPreviewPatchQueue();
 }
 
 async function flushPreviewPatchQueue(): Promise<void> {
   await Promise.resolve();
+  await new Promise<void>((resolve) => window.setTimeout(resolve, 0));
 }
 
 function localFrameServices(): LocalAuthoringFrameServices {
@@ -123,6 +125,7 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     expect(input).toBeTruthy();
     input!.value = '/';
     input!.dispatchEvent(new Event('input', { bubbles: true }));
+    await flushPreviewPatchQueue();
 
     expect(menu?.hidden).toBe(false);
     expect(document.querySelector<HTMLButtonElement>('[data-command="heading"]')).toBeNull();
@@ -131,6 +134,7 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     step?.firstChild?.dispatchEvent(
       new Event('pointerdown', { bubbles: true, cancelable: true }),
     );
+    await flushPreviewPatchQueue();
 
     const doc = JSON.parse(documentJson().value) as {
       blocks: Array<{ type: string; children?: Array<{ children?: Array<{ content?: string }> }> }>;
@@ -159,6 +163,50 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     expect(styles).toContain('background: linear-gradient(180deg, var(--lq-color-chrome), #091f1c)');
   });
 
+  it('does not emit React flushSync warnings during lifecycle-driven updates', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    await loadFrame();
+
+    const composer = document.querySelector<HTMLInputElement>('input[aria-label="Experience composer"]')!;
+    composer.value = '/step';
+    composer.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    await flushPreviewPatchQueue();
+
+    const title = document.querySelector<HTMLInputElement>('input[aria-label="Experience title"]')!;
+    title.value = 'Lifecycle warning regression';
+    title.dispatchEvent(new Event('change', { bubbles: true }));
+    await flushPreviewPatchQueue();
+
+    const errorText = consoleError.mock.calls
+      .flat()
+      .map((value) => String(value))
+      .join('\n');
+    expect(errorText).not.toContain('flushSync');
+  });
+
+  it('keeps focus inside the authoring field after committing content edits', async () => {
+    await loadFrame();
+
+    const heading = document.querySelector<HTMLTextAreaElement>(
+      '[data-block-id="block_heading_1"][data-action="edit-content"]',
+    )!;
+    const setTextareaValue =
+      Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')?.set;
+
+    heading.focus();
+    setTextareaValue?.call(heading, 'Focus stays here');
+    heading.dispatchEvent(new Event('change', { bubbles: true }));
+    await flushPreviewPatchQueue();
+
+    expect(document.activeElement).toBe(heading);
+    expect(
+      document.querySelector<HTMLTextAreaElement>(
+        '[data-block-id="block_heading_1"][data-action="edit-content"]',
+      ),
+    ).toBe(heading);
+    expect(documentJson().value).toContain('Focus stays here');
+  });
+
   it('removes duplicate inner chrome in embedded panel mode', async () => {
     window.history.replaceState(null, '', '/authoring.html?lodariqFrame=panel');
     await loadFrame();
@@ -176,6 +224,7 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     const initialDoc = JSON.parse(documentJson().value) as { blocks: unknown[] };
     input.value = '/heading';
     input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    await flushPreviewPatchQueue();
 
     const rejectedDoc = JSON.parse(documentJson().value) as { blocks: unknown[] };
     expect(rejectedDoc.blocks).toHaveLength(initialDoc.blocks.length);
@@ -183,6 +232,7 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
 
     input.value = 'Invite teammates';
     input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    await flushPreviewPatchQueue();
 
     const titledStepDoc = JSON.parse(documentJson().value) as {
       blocks: Array<{ type: string; children?: Array<{ children?: Array<{ content?: string }> }> }>;
@@ -218,10 +268,7 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
         type: 'preview.patch',
         patch: {
           ops: [
-            expect.objectContaining({
-              op: 'replaceDocument',
-              document: expect.objectContaining({ title: 'Customer onboarding tour' }),
-            }),
+            { op: 'setDocumentTitle', title: 'Customer onboarding tour' },
           ],
         },
       }),
@@ -237,6 +284,7 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     const input = document.querySelector<HTMLInputElement>('input[aria-label="Experience composer"]')!;
     input.value = '/step';
     input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    await flushPreviewPatchQueue();
 
     const renderedBlocks = [...document.querySelectorAll<HTMLElement>('.block')];
     const step = renderedBlocks[renderedBlocks.length - 1]!;
@@ -287,12 +335,12 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
 
   it('inserts tour steps between top-level blocks without exposing content blocks', async () => {
     await loadFrame();
-    importTwoBlocks();
+    await importTwoBlocks();
 
     document
       .querySelector<HTMLButtonElement>('[aria-label="Add step after this step"]')
       ?.click();
-    await Promise.resolve();
+    await flushPreviewPatchQueue();
     expect(
       [
         ...document.querySelectorAll<HTMLButtonElement>(
@@ -306,6 +354,7 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
       ),
     ].find((button) => button.textContent?.includes('Step'));
     stepCommand?.click();
+    await flushPreviewPatchQueue();
 
     const doc = JSON.parse(documentJson().value) as {
       blocks: Array<{ id: string; type: string; content?: string }>;
@@ -320,12 +369,12 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
 
   it('filters and closes inline insert menus like a document command palette', async () => {
     await loadFrame();
-    importTwoBlocks();
+    await importTwoBlocks();
 
     document
       .querySelector<HTMLButtonElement>('[aria-label="Add step after this step"]')
       ?.click();
-    await Promise.resolve();
+    await flushPreviewPatchQueue();
 
     const search = document.querySelector<HTMLInputElement>(
       '.inline-command-menu:not([hidden]) [aria-label="Search content"]',
@@ -334,7 +383,7 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     const setInputValue = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
     setInputValue?.call(search, 'button');
     search!.dispatchEvent(new Event('input', { bubbles: true }));
-    await Promise.resolve();
+    await flushPreviewPatchQueue();
 
     const commandLabels = [
       ...document.querySelectorAll<HTMLButtonElement>(
@@ -344,7 +393,7 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     expect(commandLabels).toHaveLength(0);
 
     document.body.dispatchEvent(new Event('pointerdown', { bubbles: true }));
-    await Promise.resolve();
+    await flushPreviewPatchQueue();
     expect(document.querySelector('.inline-command-menu:not([hidden])')).toBeNull();
   });
 
@@ -357,7 +406,7 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     composer.dispatchEvent(new Event('input', { bubbles: true }));
     composer.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
 
-    await Promise.resolve();
+    await flushPreviewPatchQueue();
     const composerUpdatedStep =
       document.querySelector<HTMLElement>('.block[data-block-type="tourStep"]')!;
     expect(composerUpdatedStep.querySelector('[aria-label="Add title to this step"]')).toBeTruthy();
@@ -368,7 +417,7 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
       '[aria-label="Add media to this step"]',
     )!;
     mediaButton.dispatchEvent(new Event('pointerdown', { bubbles: true, cancelable: true }));
-    await Promise.resolve();
+    await flushPreviewPatchQueue();
 
     const updatedStep = document.querySelector<HTMLElement>('.block[data-block-type="tourStep"]')!;
     const mediaInput =
@@ -402,7 +451,7 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     const setInputValue = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
     setInputValue?.call(composer, '/');
     composer.dispatchEvent(new Event('input', { bubbles: true }));
-    await Promise.resolve();
+    await flushPreviewPatchQueue();
 
     const menu = step.querySelector<HTMLElement>('.step-command-menu:not([hidden])');
     expect(menu).toBeTruthy();
@@ -424,16 +473,16 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
 
     setInputValue?.call(composer, '/bu');
     composer.dispatchEvent(new Event('input', { bubbles: true }));
-    await Promise.resolve();
+    await flushPreviewPatchQueue();
     composer.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
-    await Promise.resolve();
+    await flushPreviewPatchQueue();
 
     setInputValue?.call(composer, '/');
     composer.dispatchEvent(new Event('input', { bubbles: true }));
-    await Promise.resolve();
+    await flushPreviewPatchQueue();
     composer.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }));
     composer.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
-    await Promise.resolve();
+    await flushPreviewPatchQueue();
 
     const doc = JSON.parse(documentJson().value) as {
       blocks: Array<{ children: Array<{ children: Array<{ type: string; content?: string }> }> }>;
@@ -453,7 +502,7 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
 
     const firstHeading = document.querySelector<HTMLElement>('.step-child-heading')!;
     firstHeading.querySelector<HTMLButtonElement>('[aria-label="Insert content after this"]')?.click();
-    await Promise.resolve();
+    await flushPreviewPatchQueue();
 
     const search = document.querySelector<HTMLInputElement>(
       '.inline-command-menu:not([hidden]) [aria-label="Search content"]',
@@ -461,9 +510,9 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     const setInputValue = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
     setInputValue?.call(search, 'but');
     search.dispatchEvent(new Event('input', { bubbles: true }));
-    await Promise.resolve();
+    await flushPreviewPatchQueue();
     search.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
-    await Promise.resolve();
+    await flushPreviewPatchQueue();
 
     const doc = JSON.parse(documentJson().value) as {
       blocks: Array<{ children: Array<{ children: Array<{ type: string }> }> }>;
@@ -478,7 +527,9 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
   });
 
   it('continues and removes nested text blocks like a document editor', async () => {
+    const postMessage = vi.spyOn(window, 'postMessage').mockImplementation(() => undefined);
     await loadFrame();
+    postMessage.mockClear();
 
     const step = document.querySelector<HTMLElement>('.block[data-block-type="tourStep"]')!;
     const heading = step.querySelector<HTMLTextAreaElement>('[aria-label="Heading"]')!;
@@ -488,7 +539,33 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     heading.dispatchEvent(
       new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }),
     );
-    await Promise.resolve();
+    await flushPreviewPatchQueue();
+    await flushPreviewPatchQueue();
+
+    expect(postMessage).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        type: 'preview.patch',
+        blockId: 'block_heading_1',
+        patch: {
+          ops: [
+            { op: 'updateContent', content: 'Edited heading' },
+            expect.objectContaining({
+              op: 'insertStepContent',
+              stepBlockId: 'block_step_1',
+              index: 1,
+            }),
+          ],
+        },
+      }),
+      window.location.origin,
+    );
+    expect(
+      postMessage.mock.calls
+        .map(([message]) => message as BridgeMessage)
+        .flatMap((message) =>
+          message.type === 'preview.patch' ? message.patch.ops.map((op) => op.op) : [],
+        ),
+    ).not.toContain('replaceDocument');
 
     let doc = JSON.parse(documentJson().value) as {
       blocks: Array<{
@@ -512,8 +589,8 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     emptyParagraph.dispatchEvent(
       new KeyboardEvent('keydown', { key: 'Backspace', bubbles: true, cancelable: true }),
     );
-    await Promise.resolve();
-    await Promise.resolve();
+    await flushPreviewPatchQueue();
+    await flushPreviewPatchQueue();
 
     doc = JSON.parse(documentJson().value) as {
       blocks: Array<{
@@ -533,11 +610,12 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     )!;
     const setBodyValue = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')?.set;
     setBodyValue?.call(bodyParagraph, 'Alpha Beta');
+    bodyParagraph.focus();
     bodyParagraph.setSelectionRange(5, 5);
     bodyParagraph.dispatchEvent(
       new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }),
     );
-    await Promise.resolve();
+    await flushPreviewPatchQueue();
 
     doc = JSON.parse(documentJson().value) as {
       blocks: Array<{
@@ -573,8 +651,8 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     firstParagraph.dispatchEvent(
       new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true, cancelable: true }),
     );
-    await Promise.resolve();
-    await Promise.resolve();
+    await flushPreviewPatchQueue();
+    await flushPreviewPatchQueue();
     expect(document.activeElement).toBe(splitParagraph);
     expect(splitParagraph.selectionStart).toBe(0);
     expect(splitParagraph.selectionEnd).toBe(0);
@@ -583,8 +661,8 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     splitParagraph.dispatchEvent(
       new KeyboardEvent('keydown', { key: 'ArrowUp', bubbles: true, cancelable: true }),
     );
-    await Promise.resolve();
-    await Promise.resolve();
+    await flushPreviewPatchQueue();
+    await flushPreviewPatchQueue();
     expect(document.activeElement).toBe(firstParagraph);
     expect(firstParagraph.selectionStart).toBe(firstParagraph.value.length);
     expect(firstParagraph.selectionEnd).toBe(firstParagraph.value.length);
@@ -595,8 +673,8 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     splitParagraph.dispatchEvent(
       new KeyboardEvent('keydown', { key: 'Backspace', bubbles: true, cancelable: true }),
     );
-    await Promise.resolve();
-    await Promise.resolve();
+    await flushPreviewPatchQueue();
+    await flushPreviewPatchQueue();
 
     doc = JSON.parse(documentJson().value) as {
       blocks: Array<{
@@ -618,6 +696,7 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     expect(document.activeElement).toBe(mergedParagraph);
     expect(mergedParagraph.selectionStart).toBe('Alpha'.length);
     expect(mergedParagraph.selectionEnd).toBe('Alpha'.length);
+    postMessage.mockRestore();
   });
 
   it('continues from nested button fields like a document editor', async () => {
@@ -631,7 +710,7 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     buttonLabel.dispatchEvent(
       new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }),
     );
-    await Promise.resolve();
+    await flushPreviewPatchQueue();
 
     const doc = JSON.parse(documentJson().value) as {
       blocks: Array<{
@@ -664,7 +743,7 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     heading.dispatchEvent(
       new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }),
     );
-    await Promise.resolve();
+    await flushPreviewPatchQueue();
 
     const emptyLine = document.querySelector<HTMLTextAreaElement>(
       '.step-child-paragraph [aria-label="Body text"]',
@@ -673,7 +752,7 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     emptyLine.dispatchEvent(
       new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }),
     );
-    await Promise.resolve();
+    await flushPreviewPatchQueue();
 
     const doc = JSON.parse(documentJson().value) as {
       blocks: Array<{
@@ -699,7 +778,7 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
 
     const firstParagraph = document.querySelector<HTMLElement>('.step-child-paragraph')!;
     firstParagraph.querySelector<HTMLButtonElement>('[aria-label="Text move and format"]')?.click();
-    await Promise.resolve();
+    await flushPreviewPatchQueue();
 
     const popover = document.querySelector<HTMLElement>('.step-child-action-popover');
     expect(popover?.textContent).toContain('Move up');
@@ -708,7 +787,7 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     expect(popover?.textContent).not.toContain('Delete');
 
     firstParagraph.querySelector<HTMLButtonElement>('[aria-label="Duplicate text"]')?.click();
-    await Promise.resolve();
+    await flushPreviewPatchQueue();
 
     let doc = JSON.parse(documentJson().value) as {
       blocks: Array<{
@@ -729,7 +808,7 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     ];
     const duplicatedParagraph = duplicatedParagraphs[1]!;
     duplicatedParagraph.querySelector<HTMLButtonElement>('[aria-label="Delete text"]')?.click();
-    await Promise.resolve();
+    await flushPreviewPatchQueue();
 
     doc = JSON.parse(documentJson().value) as {
       blocks: Array<{
@@ -753,7 +832,7 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
         cancelable: true,
       }),
     );
-    await Promise.resolve();
+    await flushPreviewPatchQueue();
 
     let doc = JSON.parse(documentJson().value) as {
       blocks: Array<{ children: Array<{ children: Array<{ id: string; type: string }> }> }>;
@@ -774,7 +853,7 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
         cancelable: true,
       }),
     );
-    await Promise.resolve();
+    await flushPreviewPatchQueue();
 
     doc = JSON.parse(documentJson().value) as {
       blocks: Array<{ children: Array<{ children: Array<{ id: string; type: string }> }> }>;
@@ -791,14 +870,14 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     ];
     const duplicatedParagraph = duplicatedParagraphs[1]!;
     duplicatedParagraph.focus();
-    await Promise.resolve();
+    await flushPreviewPatchQueue();
     const focusedDuplicatedParagraph = [
       ...document.querySelectorAll<HTMLElement>('.step-child-paragraph'),
     ][1]!;
     focusedDuplicatedParagraph.dispatchEvent(
       new KeyboardEvent('keydown', { key: 'Delete', bubbles: true, cancelable: true }),
     );
-    await Promise.resolve();
+    await flushPreviewPatchQueue();
 
     doc = JSON.parse(documentJson().value) as {
       blocks: Array<{ children: Array<{ children: Array<{ id: string; type: string }> }> }>;
@@ -819,6 +898,7 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     composer.value = '/button';
     composer.dispatchEvent(new Event('input', { bubbles: true }));
     composer.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    await flushPreviewPatchQueue();
 
     const buttonBlocks = [...step.querySelectorAll<HTMLElement>('.step-child-button')];
     const buttonBlock = buttonBlocks[buttonBlocks.length - 1]!;
@@ -884,6 +964,7 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     const before = documentJson().value;
     input.value = '/not-a-command';
     input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    await flushPreviewPatchQueue();
 
     expect(documentJson().value).toBe(before);
     expect(document.querySelector('#status')?.textContent).toBe('Open a step to add content.');
@@ -898,9 +979,11 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
 
     input!.value = 'Temporary step';
     input!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    await flushPreviewPatchQueue();
     expect(textarea?.value).toContain('Temporary step');
 
     reset?.click();
+    await flushPreviewPatchQueue();
 
     const doc = JSON.parse(textarea!.value) as { blocks: Array<{ id: string }> };
     expect(doc.blocks.map((block) => block.id)).toEqual(['block_step_1']);
@@ -915,6 +998,7 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     const input = document.querySelector<HTMLInputElement>('input[aria-label="Experience composer"]');
     input!.value = '/';
     input!.dispatchEvent(new Event('input', { bubbles: true }));
+    await flushPreviewPatchQueue();
     const step = document.querySelector<HTMLButtonElement>('[data-command="step"]');
 
     expect(postMessage).not.toHaveBeenCalled();
@@ -936,7 +1020,7 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
   it('batches consecutive semantic preview patches for the same block', async () => {
     const postMessage = vi.spyOn(window, 'postMessage').mockImplementation(() => undefined);
     await loadFrame();
-    importTwoBlocks();
+    await importTwoBlocks();
     await flushPreviewPatchQueue();
     postMessage.mockClear();
 
@@ -950,6 +1034,7 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
         '[data-block-id="block_a_copy"] [aria-label="Turn content into button"]',
       )
       ?.click();
+    await Promise.resolve();
     document
       .querySelector<HTMLSelectElement>(
         'select[aria-label="After click"][data-block-id="block_a_copy"]',
@@ -992,6 +1077,7 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
       targetOrigin: window.location.origin,
       now: () => 1000,
     });
+    await flushPreviewPatchQueue();
 
     const input = document.querySelector<HTMLInputElement>('input[aria-label="Experience composer"]')!;
     input.value = '/step';
@@ -1043,7 +1129,7 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     window.dispatchEvent(new Event('pagehide'));
   });
 
-  it('requests placement checks and keeps support diagnostics out of the primary chip', async () => {
+  it('groups placement actions, behavior controls, and diagnostics in the target menu', async () => {
     document.body.innerHTML = '<div id="authoring"></div>';
     const root = document.getElementById('authoring')!;
     const peer = { postMessage: vi.fn() } as unknown as Window;
@@ -1059,7 +1145,26 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
       targetOrigin: window.location.origin,
       now: () => 1000,
     });
+    await flushPreviewPatchQueue();
 
+    const targetMenu = document.querySelector<HTMLElement>('.target-menu')!;
+    expect(targetMenu.closest('.block')).toBeNull();
+    expect(targetMenu.closest('.step-child')).toBeNull();
+    expect(targetMenu.textContent).toContain('Find');
+    expect(targetMenu.textContent).toContain('Conditions');
+    expect(targetMenu.textContent).toContain('Debug');
+    expect(
+      [...targetMenu.querySelectorAll<HTMLButtonElement>('.target-menu-action')].map((button) =>
+        button.textContent?.trim(),
+      ),
+    ).toEqual(['Highlight', 'Try click', 'Run check', 'Change']);
+
+    const trigger = document.querySelector<HTMLButtonElement>(
+      '[aria-label="Placement New project actions"]',
+    )!;
+    trigger.click();
+    await flushPreviewPatchQueue();
+    expect(trigger.getAttribute('aria-expanded')).toBe('true');
     document.querySelector<HTMLButtonElement>('[data-action="target-health"]')?.click();
 
     const request = vi.mocked(peer.postMessage).mock.calls[0]?.[0] as BridgeMessage;
@@ -1071,6 +1176,7 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
       action: 'health',
       fingerprint: expect.objectContaining({ accessibleName: 'New project' }),
     });
+    expect(trigger.getAttribute('aria-expanded')).toBe('true');
 
     window.dispatchEvent(
       new MessageEvent('message', {
@@ -1110,13 +1216,61 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
         },
       }),
     );
+    await flushPreviewPatchQueue();
 
     expect(document.querySelector('.target-chip')?.textContent).toContain('Ready');
     expect(document.querySelector('#status')?.textContent).toBe('Placement is ready.');
 
     document.querySelector<HTMLButtonElement>('[data-action="target-advanced"]')?.click();
+    await flushPreviewPatchQueue();
     expect(document.querySelector('.target-advanced')?.textContent).toContain('New project');
     expect(document.querySelector('.target-advanced')?.textContent).toContain('Match strength 94%');
+
+    vi.mocked(peer.postMessage).mockClear();
+    const waitForText = document.querySelector<HTMLInputElement>(
+      '[data-action="set-lifecycle-wait-text"]',
+    )!;
+    const setInputValue = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
+    waitForText.focus();
+    setInputValue?.call(waitForText, 'Projects loaded');
+    waitForText.dispatchEvent(new Event('input', { bubbles: true }));
+    await flushPreviewPatchQueue();
+    expect(document.activeElement).toBe(waitForText);
+    expect(
+      document.querySelector<HTMLInputElement>('[data-action="set-lifecycle-wait-text"]'),
+    ).toBe(waitForText);
+    expect(peer.postMessage).not.toHaveBeenCalled();
+
+    waitForText.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }),
+    );
+    await flushPreviewPatchQueue();
+    expect(document.activeElement).toBe(waitForText);
+    expect(peer.postMessage).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        sessionId,
+        type: 'preview.patch',
+        patch: {
+          ops: [
+            expect.objectContaining({
+              op: 'setTargetLifecycle',
+              targetId: 'target_new_project',
+              lifecycle: expect.objectContaining({ waitForText: 'Projects loaded' }),
+            }),
+          ],
+        },
+      }),
+      window.location.origin,
+    );
+
+    expect(
+      vi
+        .mocked(peer.postMessage)
+        .mock.calls.map(([message]) => message as BridgeMessage)
+        .flatMap((message) =>
+          message.type === 'preview.patch' ? message.patch.ops.map((op) => op.op) : [],
+        ),
+    ).not.toContain('replaceDocument');
 
     window.dispatchEvent(new Event('pagehide'));
   });
@@ -1173,6 +1327,7 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     await loadFrame();
 
     document.querySelector<HTMLButtonElement>('[data-action="export-metrics"]')?.click();
+    await flushPreviewPatchQueue();
 
     const report = JSON.parse(
       document.querySelector<HTMLElement>('.metrics-output')!.textContent ?? '',
@@ -1196,14 +1351,17 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     expect(textarea).toBeTruthy();
     textarea!.value = textarea!.value.replace('Welcome tour', 'Imported tour');
     importButton?.click();
+    await flushPreviewPatchQueue();
 
     expect(document.querySelector('#status')?.textContent).toBe('Backup restored');
     expect(textarea?.value).toContain('Imported tour');
 
     saveButton?.click();
+    await flushPreviewPatchQueue();
     expect(localStorage.getItem('lodariq:doc:doc_tour_welcome')).toContain('Imported tour');
 
     resetButton?.click();
+    await flushPreviewPatchQueue();
     expect(localStorage.getItem('lodariq:doc:doc_tour_welcome')).toBeNull();
     expect(textarea?.value).toContain('Welcome tour');
   });
@@ -1220,11 +1378,13 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     wrongDocument.id = 'doc_wrong';
     textarea.value = JSON.stringify(wrongDocument);
     importButton?.click();
+    await flushPreviewPatchQueue();
 
     expect(document.querySelector('#status')?.textContent).toBe(
       'This backup belongs to a different experience.',
     );
     exportButton?.click();
+    await flushPreviewPatchQueue();
     expect(documentJson().value).toBe(originalJson);
     expect(localStorage.getItem('lodariq:doc:doc_wrong')).toBeNull();
 
@@ -1232,17 +1392,19 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     wrongWorkspace.workspaceId = 'wk_wrong';
     textarea.value = JSON.stringify(wrongWorkspace);
     importButton?.click();
+    await flushPreviewPatchQueue();
 
     expect(document.querySelector('#status')?.textContent).toBe(
       'This backup belongs to a different workspace.',
     );
     exportButton?.click();
+    await flushPreviewPatchQueue();
     expect(documentJson().value).toBe(originalJson);
   });
 
   it('supports transform controls, property chips, and undo/redo', async () => {
     await loadFrame();
-    importTwoBlocks();
+    await importTwoBlocks();
 
     expect(document.querySelector('.property-chip')).toBeNull();
 
@@ -1256,13 +1418,16 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
         '[data-block-id="block_a_copy"] [aria-label="Turn content into button"]',
       )
       ?.click();
+    await flushPreviewPatchQueue();
     expect(documentJson().value).toContain('"type": "button"');
     expect(documentJson().value).toContain('"status": "incomplete"');
 
     document.querySelector<HTMLButtonElement>('[data-action="undo"]')?.click();
+    await flushPreviewPatchQueue();
     expect(documentJson().value).toContain('"type": "paragraph"');
 
     document.querySelector<HTMLButtonElement>('[data-action="redo"]')?.click();
+    await flushPreviewPatchQueue();
     expect(documentJson().value).toContain('"type": "button"');
 
     document
@@ -1270,6 +1435,7 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
         '[data-action="move-block"][data-block-id="block_a"][data-direction="down"]',
       )
       ?.click();
+    await flushPreviewPatchQueue();
     const doc = JSON.parse(documentJson().value) as {
       blocks: Array<{ id: string }>;
     };
@@ -1278,7 +1444,7 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
 
   it('supports top-level keyboard reorder without losing block focus', async () => {
     await loadFrame();
-    importTwoBlocks();
+    await importTwoBlocks();
 
     const firstBlock = document.querySelector<HTMLElement>('.block[data-block-id="block_a"]')!;
     firstBlock.focus();
@@ -1290,6 +1456,7 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
         cancelable: true,
       }),
     );
+    await flushPreviewPatchQueue();
 
     const doc = JSON.parse(documentJson().value) as {
       blocks: Array<{ id: string }>;
@@ -1302,13 +1469,14 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
 
   it('supports top-level drag and drop reorder', async () => {
     await loadFrame();
-    importTwoBlocks();
+    await importTwoBlocks();
 
     const blocks = document.querySelectorAll<HTMLElement>('.block');
     blocks[1]
       ?.querySelector<HTMLElement>('.block-grip')
       ?.dispatchEvent(new Event('dragstart', { bubbles: true }));
     blocks[0]?.dispatchEvent(new Event('drop', { bubbles: true, cancelable: true }));
+    await flushPreviewPatchQueue();
 
     const doc = JSON.parse(documentJson().value) as {
       blocks: Array<{ id: string }>;
@@ -1318,7 +1486,7 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
 
   it('supports dragging the first block below the second block', async () => {
     await loadFrame();
-    importTwoBlocks();
+    await importTwoBlocks();
 
     const blocks = document.querySelectorAll<HTMLElement>('.block');
     blocks[0]
@@ -1328,6 +1496,7 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     await flushPreviewPatchQueue();
     expect(blocks[1]?.dataset['dropPosition']).toBe('after');
     blocks[1]?.dispatchEvent(new Event('drop', { bubbles: true, cancelable: true }));
+    await flushPreviewPatchQueue();
 
     const doc = JSON.parse(documentJson().value) as {
       blocks: Array<{ id: string }>;
@@ -1337,7 +1506,7 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
 
   it('supports dropping a dragged step on the bottom insert row', async () => {
     await loadFrame();
-    importTwoBlocks();
+    await importTwoBlocks();
 
     const blocks = document.querySelectorAll<HTMLElement>('.block');
     const insertRows = document.querySelectorAll<HTMLElement>(
@@ -1355,6 +1524,7 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
       '.document > .document-block-group:last-child > .inline-insert[data-drop-position="after"]',
     );
     activeBottomInsertRow?.dispatchEvent(new Event('drop', { bubbles: true, cancelable: true }));
+    await flushPreviewPatchQueue();
 
     const doc = JSON.parse(documentJson().value) as {
       blocks: Array<{ id: string }>;
@@ -1362,9 +1532,34 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     expect(doc.blocks.map((block) => block.id)).toEqual(['block_b', 'block_a']);
   });
 
+  it('scrolls the authoring frame downward while dragging near the bottom edge', async () => {
+    await loadFrame();
+    await importTwoBlocks();
+
+    const scrollBy = vi.spyOn(window, 'scrollBy').mockImplementation(() => undefined);
+    Object.defineProperty(window, 'innerHeight', { configurable: true, value: 500 });
+    const blocks = document.querySelectorAll<HTMLElement>('.block');
+    const insertRows = document.querySelectorAll<HTMLElement>(
+      '.document > .document-block-group > .inline-insert',
+    );
+    const bottomInsertRow = insertRows[insertRows.length - 1];
+    const dragOver = new Event('dragover', { bubbles: true, cancelable: true });
+    Object.defineProperty(dragOver, 'clientY', { value: 495 });
+
+    blocks[0]
+      ?.querySelector<HTMLElement>('.block-grip')
+      ?.dispatchEvent(new Event('dragstart', { bubbles: true }));
+    bottomInsertRow?.dispatchEvent(dragOver);
+    await flushPreviewPatchQueue();
+
+    expect(scrollBy).toHaveBeenCalled();
+    const calls = vi.mocked(scrollBy).mock.calls;
+    expect(calls[calls.length - 1]?.[1]).toBeGreaterThan(0);
+  });
+
   it('supports dropping a dragged step onto content inside another step', async () => {
     await loadFrame();
-    importTwoBlocks();
+    await importTwoBlocks();
 
     const firstStep = document.querySelector<HTMLElement>('[data-block-id="block_a"]')!;
     const secondStepContent = document.querySelector<HTMLElement>(
@@ -1376,6 +1571,7 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
       ?.dispatchEvent(new Event('dragstart', { bubbles: true }));
     secondStepContent.dispatchEvent(new Event('dragover', { bubbles: true, cancelable: true }));
     secondStepContent.dispatchEvent(new Event('drop', { bubbles: true, cancelable: true }));
+    await flushPreviewPatchQueue();
 
     const doc = JSON.parse(documentJson().value) as {
       blocks: Array<{ id: string }>;
@@ -1395,6 +1591,7 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     await flushPreviewPatchQueue();
     expect(children[1]?.dataset['dropPosition']).toBe('after');
     children[1]?.dispatchEvent(new Event('drop', { bubbles: true, cancelable: true }));
+    await flushPreviewPatchQueue();
 
     const doc = JSON.parse(documentJson().value) as {
       blocks: Array<{ children: Array<{ children: Array<{ type: string }> }> }>;
@@ -1407,12 +1604,15 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
   });
 
   it('exposes direct duplicate and delete controls on top-level items', async () => {
+    const postMessage = vi.spyOn(window, 'postMessage').mockImplementation(() => undefined);
     await loadFrame();
-    importTwoBlocks();
+    await importTwoBlocks();
+    await flushPreviewPatchQueue();
+    postMessage.mockClear();
 
     const firstBlock = document.querySelector<HTMLElement>('[data-block-id="block_a"]')!;
     firstBlock.querySelector<HTMLButtonElement>('[aria-label="Step actions"]')?.click();
-    await Promise.resolve();
+    await flushPreviewPatchQueue();
 
     const popover = document.querySelector<HTMLElement>('.block-action-popover');
     expect(popover?.textContent).toContain('Move up');
@@ -1425,6 +1625,30 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
         '[data-block-id="block_a"] [aria-label="Duplicate step"]',
       )
       ?.click();
+    await flushPreviewPatchQueue();
+
+    expect(postMessage).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        type: 'preview.patch',
+        patch: {
+          ops: [
+            expect.objectContaining({
+              op: 'insertBlock',
+              anchorBlockId: 'block_a',
+              position: 'after',
+            }),
+          ],
+        },
+      }),
+      window.location.origin,
+    );
+    expect(
+      postMessage.mock.calls
+        .map(([message]) => message as BridgeMessage)
+        .flatMap((message) =>
+          message.type === 'preview.patch' ? message.patch.ops.map((op) => op.op) : [],
+        ),
+    ).not.toContain('replaceDocument');
 
     let doc = JSON.parse(documentJson().value) as {
       blocks: Array<{ id: string; type: string; children?: Array<{ children?: Array<{ content?: string }> }> }>;
@@ -1435,16 +1659,28 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
 
     const duplicatedBlockId = doc.blocks[1]?.id;
     expect(duplicatedBlockId).toBeTruthy();
+    postMessage.mockClear();
     document
       .querySelector<HTMLButtonElement>(
         `[data-block-id="${duplicatedBlockId}"] [aria-label="Delete step"]`,
       )
       ?.click();
+    await flushPreviewPatchQueue();
+
+    expect(postMessage).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        type: 'preview.patch',
+        blockId: duplicatedBlockId,
+        patch: { ops: [{ op: 'removeBlock' }] },
+      }),
+      window.location.origin,
+    );
 
     doc = JSON.parse(documentJson().value) as {
       blocks: Array<{ id: string; type: string }>;
     };
     expect(doc.blocks.map((block) => block.id)).toEqual(['block_a', 'block_b']);
+    postMessage.mockRestore();
   });
 
   it('renders creator-facing validation badges', async () => {
@@ -1531,6 +1767,7 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     ];
     textarea!.value = JSON.stringify(doc);
     importButton?.click();
+    await flushPreviewPatchQueue();
 
     const badges = [...document.querySelectorAll('.badge')].map((badge) => badge.textContent);
     expect(badges).toEqual(['Needs review', 'Needs fix']);
@@ -1567,6 +1804,7 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
         source: window,
       }),
     );
+    await flushPreviewPatchQueue();
 
     const doc = JSON.parse(documentJson().value) as {
       targets: Array<{ id: string; fingerprint: { accessibleName?: string } }>;
@@ -1627,6 +1865,7 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     });
 
     document.querySelector('.shell')?.dispatchEvent(event);
+    await flushPreviewPatchQueue();
 
     const json = documentJson().value;
     expect(json).toContain('Safe copy');

@@ -182,6 +182,17 @@ describe('authoring document ops', () => {
     });
   });
 
+  it('marks openPage actions with unsafe URLs invalid', () => {
+    const transformed = transformBlocks(blocks, 'copy_2', 'link');
+    const withHttpUrl = setBlockActionUrl(transformed, 'copy_2', 'http://example.com/settings');
+
+    expect(withHttpUrl[1]).toMatchObject({
+      type: 'link',
+      status: 'invalid',
+      props: { action: { type: 'openPage', url: 'http://example.com/settings' } },
+    });
+  });
+
   it('inserts top-level blocks before and after existing blocks without reordering', () => {
     const heading = { ...createContentBlock('heading'), id: 'heading_new' };
     const media = { ...createContentBlock('media'), id: 'media_new' };
