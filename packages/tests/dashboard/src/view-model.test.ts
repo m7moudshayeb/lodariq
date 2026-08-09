@@ -1,9 +1,15 @@
 import { describe, expect, it } from 'vitest';
+import { LODARIQ_ACCESSIBLE_FALLBACK_THEME_V1 } from '@lodariq/schema';
+import type {
+  DocumentSummaryDto,
+  WorkspaceEnvironmentDto,
+} from '../../../../apps/dashboard/src/lib/api';
 import { buildDashboardViewModel } from '../../../../apps/dashboard/src/lib/view-model';
 
 describe('@lodariq/dashboard view model', () => {
   it('shapes API-backed documents, environments, and tokens for the Phase 1 dashboard', () => {
     const viewModel = buildDashboardViewModel({
+      controlPlaneContext: { userId: 'user_admin', workspaceId: 'wk_a', role: 'admin' },
       documents: [
         {
           id: 'doc_welcome',
@@ -75,9 +81,36 @@ describe('@lodariq/dashboard view model', () => {
           revokedAt: null,
         },
       ],
+      installations: [
+        {
+          installationId: 'ins_pub_application_1234',
+          workspaceId: 'wk_a',
+          name: 'Product application',
+          createdByUserId: 'user_admin',
+          createdAt: '2026-06-30T00:00:00.000Z',
+          updatedAt: '2026-06-30T00:00:00.000Z',
+          revokedAt: null,
+          sdkSnippet: '<script data-lodariq-installation="ins_pub_application_1234"></script>',
+          origins: [
+            {
+              installationId: 'ins_pub_application_1234',
+              workspaceId: 'wk_a',
+              environmentId: 'env_staging',
+              exactOrigin: 'https://staging.lodariq.com',
+              authoringEnabled: true,
+              createdAt: '2026-06-30T00:00:00.000Z',
+              updatedAt: '2026-06-30T00:00:00.000Z',
+            },
+          ],
+        },
+      ],
+      themes: [],
     });
 
     expect(viewModel.hasDocuments).toBe(true);
+    expect(viewModel.canManageSdkInstallations).toBe(true);
+    expect(viewModel.canEditBrandSystem).toBe(true);
+    expect(viewModel.canApproveBrandSystem).toBe(true);
     expect(viewModel.documentRows[0]?.statusLabel).toBe('Draft');
     expect(viewModel.documentRows[0]?.typeLabel).toBe('Tour');
     expect(viewModel.documentRows[0]?.editorLabel).toBe('Workspace teammate');
@@ -89,9 +122,19 @@ describe('@lodariq/dashboard view model', () => {
     expect(viewModel.documentRows[0]?.updatedAtLabel).toBe('Jun 30, 2026');
     expect(viewModel.documentRows[0]?.contentHashLabel).toBe('Draft saved');
     expect(viewModel.documentRows[0]?.contentHashDetail).toBe('Changes are being tracked');
-    expect(viewModel.documentRows[0]?.publicationLabel).toBe('Changes waiting');
-    expect(viewModel.documentRows[0]?.publicationDetail).toBe('Saved changes not live on Staging');
+    expect(viewModel.documentRows[0]?.publicationLabel).toBe('Newer draft');
+    expect(viewModel.documentRows[0]?.publicationDetail).toBe(
+      'Publication records for Staging use an earlier content hash',
+    );
     expect(viewModel.documentRows[0]?.publicationVariant).toBe('warning');
+    expect(viewModel.documentRows[0]?.pageScopeLabel).toBe('Not specified');
+    expect(viewModel.documentRows[0]?.queueStatusLabel).toBe('Needs review');
+    expect(viewModel.documentRows[0]?.queueStatusVariant).toBe('warning');
+    expect(viewModel.documentRows[0]?.releaseStages.map((stage) => stage.statusLabel)).toEqual([
+      'Needs review',
+      'Newer draft',
+      'No record',
+    ]);
     expect(viewModel.defaultEnvironmentId).toBe('env_staging');
     expect(viewModel.defaultSdkEnvironmentId).toBe('env_staging');
     expect(viewModel.environmentOptions[1]?.originLabel).toBe('https://staging.lodariq.com');
@@ -101,8 +144,239 @@ describe('@lodariq/dashboard view model', () => {
       'env_production',
     ]);
     expect(viewModel.sdkInstallEnvironmentOptions.map((environment) => environment.id)).toEqual([
+      'env_dev',
       'env_staging',
+      'env_production',
     ]);
+    expect(viewModel.openInProductUrl).toBe('https://staging.lodariq.com');
+    expect(viewModel.recentActivity[0]).toMatchObject({
+      documentId: 'doc_welcome',
+      title: 'Welcome tour was last updated',
+      typeLabel: 'Tour',
+    });
     expect(viewModel.tokenRows[0]?.stateLabel).toBe('Active');
   });
+
+  it('describes a matching production publication without claiming active delivery', () => {
+    const viewModel = buildDashboardViewModel({
+      controlPlaneContext: { userId: 'user_member', workspaceId: 'wk_a', role: 'member' },
+      documents: [
+        {
+          id: 'doc_production_recorded',
+          workspaceId: 'wk_a',
+          type: 'announcement',
+          status: 'ready',
+          title: 'Billing notice',
+          schemaVersion: '1.0.0',
+          createdByUserId: 'user_creator',
+          updatedByUserId: 'user_editor',
+          updatedAt: '2026-08-05T12:00:00.000Z',
+          latestContentHash: 'sha256-current',
+          publishReadinessIssues: [],
+          publications: [
+            {
+              environmentId: 'env_staging',
+              environment: 'staging',
+              contentHash: 'sha256-older',
+              publishedAt: '2026-08-04T12:00:00.000Z',
+            },
+            {
+              environmentId: 'env_production',
+              environment: 'production',
+              contentHash: 'sha256-current',
+              publishedAt: '2026-08-05T11:00:00.000Z',
+            },
+          ],
+        },
+      ],
+      environments: [
+        environment('env_staging', 'staging', 'Staging'),
+        environment('env_production', 'production', 'Production'),
+      ],
+      tokens: [],
+      installations: [],
+      themes: [],
+    });
+
+    const row = viewModel.documentRows[0];
+    expect(viewModel.canManageSdkInstallations).toBe(false);
+    expect(viewModel.canEditBrandSystem).toBe(true);
+    expect(viewModel.canApproveBrandSystem).toBe(false);
+    expect(row?.queueStatusLabel).toBe('Production published');
+    expect(row?.releaseSummary).toContain('active-delivery evidence is not available');
+    expect(row?.releaseStages.map((stage) => stage.statusLabel)).toEqual([
+      'Draft saved',
+      'Newer draft',
+      'Published',
+    ]);
+  });
+
+  it('derives verified staging evidence and a promotion review action when proof is present', () => {
+    const verifiedPublication = {
+      id: 'publication_staging_current_001',
+      publicationId: 'publication_staging_current_001',
+      environmentId: 'env_staging',
+      environment: 'staging' as const,
+      contentHash: 'sha256-current',
+      publishedAt: '2026-08-05T11:00:00.000Z',
+      compiledArtifactId: 'artifact_staging_current_001',
+      active: true,
+      generation: 1,
+      verification: {
+        status: 'passed' as const,
+        result: 'passed' as const,
+        verificationId: 'verification_staging_current_001',
+        verifiedAt: '2026-08-05T11:05:00.000Z',
+        createdAt: '2026-08-05T11:05:00.000Z',
+      },
+    } satisfies DocumentSummaryDto['publications'][number];
+    const viewModel = buildDashboardViewModel({
+      controlPlaneContext: { userId: 'user_admin', workspaceId: 'wk_a', role: 'admin' },
+      documents: [
+        {
+          id: 'doc_verified',
+          workspaceId: 'wk_a',
+          type: 'tour',
+          status: 'ready',
+          title: 'Verified onboarding',
+          schemaVersion: '1.0.0',
+          createdByUserId: 'user_admin',
+          updatedByUserId: 'user_admin',
+          updatedAt: '2026-08-05T12:00:00.000Z',
+          latestContentHash: 'sha256-current',
+          publishReadinessIssues: [],
+          publications: [verifiedPublication],
+        },
+      ],
+      environments: [environment('env_staging', 'staging', 'Staging')],
+      tokens: [],
+      installations: [],
+      themes: [],
+    });
+
+    const row = viewModel.documentRows[0];
+    expect(row?.queueStatusLabel).toBe('Staging verified');
+    expect(row?.releaseActionLabel).toBe('Review promotion');
+    expect(row?.releaseStages[1]).toMatchObject({ statusLabel: 'Verified', tone: 'complete' });
+    expect(row?.releaseEvidence.find((item) => item.id === 'artifact')?.value).toContain(
+      'Artifact',
+    );
+  });
+
+  it('uses the newest publication record when more than one staging environment exists', () => {
+    const viewModel = buildDashboardViewModel({
+      controlPlaneContext: { userId: 'user_owner', workspaceId: 'wk_a', role: 'owner' },
+      documents: [
+        {
+          id: 'doc_multi_staging',
+          workspaceId: 'wk_a',
+          type: 'tour',
+          status: 'ready',
+          title: 'Onboarding tour',
+          schemaVersion: '1.0.0',
+          createdByUserId: null,
+          updatedByUserId: null,
+          updatedAt: '2026-08-05T12:00:00.000Z',
+          latestContentHash: 'sha256-current',
+          publishReadinessIssues: [],
+          publications: [
+            {
+              environmentId: 'env_staging_eu',
+              environment: 'staging',
+              contentHash: 'sha256-current',
+              publishedAt: '2026-08-03T12:00:00.000Z',
+            },
+            {
+              environmentId: 'env_staging_us',
+              environment: 'staging',
+              contentHash: 'sha256-older',
+              publishedAt: '2026-08-05T11:00:00.000Z',
+            },
+          ],
+        },
+      ],
+      environments: [
+        environment('env_staging_eu', 'staging', 'Staging EU'),
+        environment('env_staging_us', 'staging', 'Staging US'),
+      ],
+      tokens: [],
+      installations: [],
+      themes: [],
+    });
+
+    const row = viewModel.documentRows[0];
+    expect(row?.queueStatusLabel).toBe('Staging update');
+    expect(row?.releaseStages[1]).toMatchObject({
+      statusLabel: 'Newer draft',
+      tone: 'attention',
+    });
+  });
+
+  it('shows the latest persisted product-style provenance without exposing raw CSS evidence', () => {
+    const definition = LODARIQ_ACCESSIBLE_FALLBACK_THEME_V1.definition;
+    const viewModel = buildDashboardViewModel({
+      controlPlaneContext: { userId: 'user_member', workspaceId: 'wk_a', role: 'member' },
+      documents: [],
+      environments: [environment('env_staging', 'staging', 'Staging')],
+      tokens: [],
+      installations: [],
+      themes: [
+        {
+          id: 'theme_product',
+          workspaceId: 'wk_a',
+          name: 'Product brand',
+          draft: definition,
+          revision: 3,
+          isDefault: true,
+          activeVersionId: null,
+          activeVersion: null,
+          createdByUserId: 'user_admin',
+          updatedByUserId: 'user_member',
+          createdAt: '2026-08-08T10:00:00.000Z',
+          updatedAt: '2026-08-08T10:05:00.000Z',
+          latestStyleSource: {
+            sourceId: 'lodariq.inferred.selected',
+            kind: 'selected_element',
+            confidence: 88,
+            fingerprintHash: contentHash('a'),
+            capturedAt: '2026-08-08T10:04:00.000Z',
+            recordId: 'style_source_product_1',
+            sourceHash: contentHash('b'),
+            environmentId: 'env_staging',
+            recordedAt: '2026-08-08T10:05:00.000Z',
+          },
+        },
+      ],
+    });
+
+    expect(viewModel.brandSourceSummary).toMatchObject({
+      sourceLabel: 'Selected product element',
+      statusLabel: 'Needs approval',
+      revisionLabel: 'Theme revision 3',
+      confidenceLabel: 'High-confidence evidence',
+    });
+    expect(viewModel.brandSourceSummary.sourceDetail).toContain('reviewed semantically');
+    expect(JSON.stringify(viewModel.brandSourceSummary)).not.toContain('selector');
+    expect(JSON.stringify(viewModel.brandSourceSummary)).not.toContain('css');
+  });
 });
+
+function environment(
+  id: string,
+  kind: 'development' | 'staging' | 'production',
+  name: string,
+): WorkspaceEnvironmentDto {
+  return {
+    id,
+    workspaceId: 'wk_a',
+    kind,
+    name,
+    originAllowlist: [`https://${id}.example.com`],
+    createdAt: '2026-08-01T00:00:00.000Z',
+    updatedAt: '2026-08-01T00:00:00.000Z',
+  };
+}
+
+function contentHash(digit: string): string {
+  return `sha256-${digit.repeat(64)}`;
+}

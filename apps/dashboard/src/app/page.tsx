@@ -1,62 +1,56 @@
-import { auth } from '@clerk/nextjs/server';
 import { DashboardAuthRequired } from '../components/dashboard-auth-required';
 import { DashboardShell } from '../components/dashboard-shell';
-import { OrganizationRequired } from '../components/organization-required';
-import { hasDashboardClerkRuntime, shouldProtectDashboardRoutes } from '../lib/clerk-config';
-import { DashboardApiError, loadDashboardData, type DashboardDataDto } from '../lib/api';
+import { WorkspaceRequired } from '../components/workspace-required';
+import {
+  DashboardApiError,
+  loadAuthSession,
+  loadDashboardData,
+  type DashboardDataDto,
+} from '../lib/api';
 
 export const dynamic = 'force-dynamic';
 
 const emptyData: DashboardDataDto = {
+  controlPlaneContext: null,
   documents: [],
   environments: [],
   tokens: [],
+  installations: [],
+  themes: [],
 };
 
 export default async function DashboardPage(): Promise<React.ReactElement> {
-  const authState = await readDashboardAuthState();
-  if (authState?.configurationError) {
+  let session;
+  try {
+    session = await loadAuthSession();
+  } catch (error) {
+    if (error instanceof DashboardApiError && error.statusCode === 401) {
+      return (
+        <DashboardAuthRequired
+          description="Your workspace and authoring tools stay protected by your Lodariq session."
+          title="Sign in to Lodariq"
+        />
+      );
+    }
     return (
       <DashboardAuthRequired
-        title="Dashboard auth is not configured"
-        description="Set NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY and CLERK_SECRET_KEY for this deployment before using the experience workspace."
-        showAction={false}
+        actionLabel="Try again"
+        description="Lodariq could not verify your session. The service may be temporarily unavailable."
+        title="We could not open your workspace"
       />
     );
   }
-  if (authState?.requiresSignIn) {
-    return (
-      <DashboardAuthRequired
-        title="Sign in to Lodariq"
-        description="The workspace uses Clerk sessions and active organization claims before it can read or change experiences."
-      />
-    );
-  }
-  if (authState?.requiresOrganization) {
-    return <OrganizationRequired />;
-  }
+
+  if (!session.activeWorkspaceId) return <WorkspaceRequired session={session} />;
 
   try {
     const data = await loadDashboardData();
-    return <DashboardShell data={data} />;
+    return <DashboardShell data={data} session={session} />;
   } catch (error) {
     const message =
       error instanceof DashboardApiError
         ? `API ${error.statusCode}: ${error.message}`
         : 'API unavailable.';
-    return <DashboardShell data={emptyData} apiError={message} />;
+    return <DashboardShell apiError={message} data={emptyData} session={session} />;
   }
-}
-
-async function readDashboardAuthState(): Promise<
-  | { configurationError?: boolean; requiresSignIn?: boolean; requiresOrganization?: boolean }
-  | undefined
-> {
-  if (!shouldProtectDashboardRoutes()) return undefined;
-  if (!hasDashboardClerkRuntime()) return { configurationError: true };
-
-  const session = await auth();
-  if (!session.userId) return { requiresSignIn: true };
-  if (!session.orgId) return { requiresOrganization: true };
-  return undefined;
 }

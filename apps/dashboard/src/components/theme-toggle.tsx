@@ -16,6 +16,7 @@ export function ThemeToggle(): React.ReactElement {
 
   return (
     <Button
+      className="size-11 sm:size-9"
       type="button"
       variant="outline"
       size="icon"

@@ -1,30 +1,41 @@
-import { SignUp } from '@clerk/nextjs';
-import { DashboardAuthRequired } from '../../../components/dashboard-auth-required';
-import {
-  dashboardAfterAuthPath,
-  dashboardSignInPath,
-  hasDashboardClerkProvider,
-} from '../../../lib/clerk-config';
+import Link from 'next/link';
+import { AuthForm } from '../../../components/auth-form';
+import { AuthShell } from '../../../components/auth-shell';
+import { buttonVariants } from '../../../components/ui/button';
+import { safeReturnTo } from '../../../lib/auth-contract';
+import { isPublicSignupEnabled } from '../../../lib/signup-config';
 
-export default function SignUpPage(): React.ReactElement {
-  if (!hasDashboardClerkProvider()) {
+interface SignUpPageProps {
+  searchParams: Promise<{ returnTo?: string | string[] }>;
+}
+
+export default async function SignUpPage({
+  searchParams,
+}: SignUpPageProps): Promise<React.ReactElement> {
+  const returnTo = safeReturnTo((await searchParams).returnTo);
+  if (!isPublicSignupEnabled()) {
     return (
-      <DashboardAuthRequired
-        title="Dashboard auth is not configured"
-        description="Set NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY for this deployment before signing up."
-        showAction={false}
-      />
+      <AuthShell
+        description="This deployment is not accepting new accounts. Existing creators can continue with their Lodariq account."
+        eyebrow="Account creation"
+        title="Sign-up is not available here"
+      >
+        <div className="grid gap-4 rounded-xl border border-[var(--info-border)] bg-[var(--info-bg)] p-4 text-sm leading-6 text-[var(--info-fg)]">
+          <p>Account creation is not available in this deployment.</p>
+          <Link className={buttonVariants({ className: 'h-11 w-full' })} href="/sign-in">
+            Sign in instead
+          </Link>
+        </div>
+      </AuthShell>
     );
   }
-
   return (
-    <main className="mx-auto grid min-h-screen w-full place-items-center bg-background p-4 text-foreground">
-      <SignUp
-        path="/sign-up"
-        routing="path"
-        signInUrl={dashboardSignInPath}
-        fallbackRedirectUrl={dashboardAfterAuthPath}
-      />
-    </main>
+    <AuthShell
+      description="Create your account and first workspace together—no setup detour."
+      eyebrow="Start authoring"
+      title="Bring the experience into the product"
+    >
+      <AuthForm mode="sign-up" returnTo={returnTo} />
+    </AuthShell>
   );
 }

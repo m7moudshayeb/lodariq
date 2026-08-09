@@ -1,5 +1,4 @@
 import type { Metadata } from 'next';
-import { DashboardClerkProvider } from '../components/dashboard-clerk-provider';
 import { ThemeProvider } from '../components/theme-provider';
 import './globals.css';
 
@@ -12,11 +11,9 @@ export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>): React.ReactElement {
   return (
-    <html lang="en" className="dark" suppressHydrationWarning>
+    <html lang="en" className="light" suppressHydrationWarning>
       <body>
-        <DashboardClerkProvider>
-          <ThemeProvider>{children}</ThemeProvider>
-        </DashboardClerkProvider>
+        <ThemeProvider>{children}</ThemeProvider>
       </body>
     </html>
   );
