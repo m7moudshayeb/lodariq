@@ -1,4 +1,5 @@
 import { execFileSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
@@ -9,6 +10,15 @@ const scriptPath = fileURLToPath(
 const consent = 'I_UNDERSTAND_THIS_CHANGES_DATABASE_PRIVILEGES';
 
 describe('runtime database role provisioning script', () => {
+  it('revokes mutation privileges from immutable Phase 2 evidence tables', () => {
+    const source = readFileSync(scriptPath, 'utf8');
+    for (const table of ['style_sources', 'publication_verifications', 'release_approvals']) {
+      expect(source).toContain(`'${table}'`);
+    }
+    expect(source).toContain('revoke update, delete on table');
+    expect(source).toContain("has_table_privilege(${roleName}, ${table}, 'UPDATE')");
+  });
+
   it('fails closed without an admin DATABASE_URL', () => {
     expect(() => runProvisioning({ DATABASE_URL: '' })).toThrow(
       /DATABASE_URL is required for runtime role provisioning/,

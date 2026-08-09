@@ -1,9 +1,11 @@
-import { createClerkAuthProvider } from './clerk-auth';
+import type { ControlPlaneRepository } from '@lodariq/database';
 import { createHeaderAuthProvider } from './header-auth';
+import { createLodariqAuthProvider } from './lodariq-auth';
 import type { AuthProvider } from './types';
 
 export interface CreateAuthProviderOptions {
-  mode?: 'clerk' | 'headers';
+  mode?: 'lodariq' | 'headers';
+  repository?: ControlPlaneRepository;
   defaultWorkspaceId?: string;
   defaultUserId?: string;
 }
@@ -13,9 +15,14 @@ export function createAuthProviderFromEnvironment(
 ): AuthProvider {
   const mode = readAuthMode(options.mode ?? process.env.LODARIQ_AUTH_MODE);
 
-  if (mode === 'clerk') return createClerkAuthProvider();
+  if (mode === 'lodariq') {
+    if (!options.repository) throw new Error('Lodariq auth requires an identity repository');
+    return createLodariqAuthProvider(options.repository);
+  }
   if (process.env.NODE_ENV === 'production') {
-    throw new Error('Header auth mode is not allowed in production; configure Clerk auth instead');
+    throw new Error(
+      'Header auth mode is not allowed in production; configure Lodariq auth instead',
+    );
   }
 
   return createHeaderAuthProvider({
@@ -24,9 +31,9 @@ export function createAuthProviderFromEnvironment(
   });
 }
 
-function readAuthMode(value: string | undefined): 'clerk' | 'headers' {
+function readAuthMode(value: string | undefined): 'lodariq' | 'headers' {
   const mode = value?.trim();
-  if (!mode) return process.env.NODE_ENV === 'production' ? 'clerk' : 'headers';
-  if (mode === 'clerk' || mode === 'headers') return mode;
-  throw new Error(`Invalid LODARIQ_AUTH_MODE "${mode}"; expected "clerk" or "headers"`);
+  if (!mode) return 'lodariq';
+  if (mode === 'lodariq' || mode === 'headers') return mode;
+  throw new Error(`Invalid LODARIQ_AUTH_MODE "${mode}"; expected "lodariq" or "headers"`);
 }

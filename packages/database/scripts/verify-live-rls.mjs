@@ -8,17 +8,123 @@ const tenantScopedTables = [
   'workspace_memberships',
   'environments',
   'environment_tokens',
+  'public_sdk_installations',
+  'public_sdk_installation_origins',
+  'public_sdk_bootstrap_grants',
+  'authoring_authorization_requests',
+  'authoring_activation_grants',
+  'themes',
+  'theme_versions',
+  'style_sources',
   'documents',
   'document_versions',
   'compiled_artifacts',
+  'visual_check_runs',
   'publications',
+  'publication_verifications',
+  'release_operations',
+  'release_approvals',
+  'document_deployments',
   'authoring_sessions',
   'events',
 ];
 
+const identityScopedTables = [
+  'users',
+  'password_credentials',
+  'auth_sessions',
+  'email_verification_challenges',
+  'auth_outbox',
+  'set_password_challenges',
+  'set_password_outbox',
+  'auth_rate_limits',
+];
+
+const rlsProtectedTables = [...tenantScopedTables, ...identityScopedTables];
+const appendOnlyPhase2Tables = ['style_sources', 'publication_verifications', 'release_approvals'];
+
 const tokenLookupPolicies = new Map([
   ['environments', 'environments_token_lookup'],
   ['environment_tokens', 'environment_tokens_token_lookup'],
+  ['authoring_sessions', 'authoring_sessions_token_lookup'],
+]);
+
+const identityPolicies = new Map([
+  [
+    'users',
+    [
+      'users_auth_self',
+      'users_workspace_reference',
+      'users_owned_signup',
+      'users_email_verification_update',
+      'users_set_password_email_lookup',
+      'users_set_password_update',
+    ],
+  ],
+  [
+    'password_credentials',
+    [
+      'password_credentials_email_lookup',
+      'password_credentials_owned_insert',
+      'password_credentials_owned_update',
+    ],
+  ],
+  [
+    'auth_sessions',
+    ['auth_sessions_token_lookup', 'auth_sessions_owned_insert', 'auth_sessions_token_update'],
+  ],
+  [
+    'email_verification_challenges',
+    [
+      'email_verification_challenges_owned_insert',
+      'email_verification_challenges_token_lookup',
+      'email_verification_challenges_token_consume',
+      'email_verification_challenges_set_password_invalidate',
+    ],
+  ],
+  [
+    'auth_outbox',
+    [
+      'auth_outbox_owned_insert',
+      'auth_outbox_set_password_cancel',
+      'auth_outbox_worker_select',
+      'auth_outbox_worker_update',
+    ],
+  ],
+  [
+    'set_password_challenges',
+    [
+      'set_password_challenges_owned_insert',
+      'set_password_challenges_token_lookup',
+      'set_password_challenges_token_consume',
+      'set_password_challenges_user_invalidate',
+    ],
+  ],
+  [
+    'set_password_outbox',
+    [
+      'set_password_outbox_owned_insert',
+      'set_password_outbox_user_cancel',
+      'set_password_outbox_worker_select',
+      'set_password_outbox_worker_update',
+    ],
+  ],
+  [
+    'auth_rate_limits',
+    [
+      'auth_rate_limits_bucket_lookup',
+      'auth_rate_limits_bucket_insert',
+      'auth_rate_limits_bucket_update',
+      'auth_rate_limits_prune_select',
+      'auth_rate_limits_prune_delete',
+    ],
+  ],
+]);
+
+const identityBridgePolicies = new Map([
+  ['workspaces', ['workspaces_user_discovery']],
+  ['workspace_memberships', ['workspace_memberships_user_discovery']],
+  ['authoring_authorization_requests', ['authoring_authorization_requests_auth_user_lookup']],
 ]);
 
 const writeCheckConsent = 'I_UNDERSTAND_THIS_WRITES_SCRATCH_ROWS';
@@ -62,30 +168,55 @@ async function verifyCatalogState(sql) {
     join pg_namespace n on n.oid = c.relnamespace
     where n.nspname = current_schema()
       and c.relkind = 'r'
-      and c.relname = any(${tenantScopedTables})
+      and c.relname = any(${rlsProtectedTables})
   `;
   const tableState = new Map(tableRows.map((row) => [row.relname, row]));
-  for (const table of tenantScopedTables) {
+  for (const table of rlsProtectedTables) {
     const row = tableState.get(table);
-    if (!row) fail(`Tenant table ${table} is missing from the live database.`);
-    if (!row.relrowsecurity) fail(`Tenant table ${table} does not have RLS enabled.`);
-    if (!row.relforcerowsecurity) fail(`Tenant table ${table} does not force RLS.`);
+    if (!row) fail(`RLS-protected table ${table} is missing from the live database.`);
+    if (!row.relrowsecurity) fail(`RLS-protected table ${table} does not have RLS enabled.`);
+    if (!row.relforcerowsecurity) fail(`RLS-protected table ${table} does not force RLS.`);
   }
 
   const policyRows = await sql`
-    select tablename, policyname
+    select tablename, policyname, cmd
     from pg_policies
     where schemaname = current_schema()
-      and tablename = any(${tenantScopedTables})
+      and tablename = any(${rlsProtectedTables})
   `;
   const policies = new Set(policyRows.map((row) => `${row.tablename}:${row.policyname}`));
   for (const table of tenantScopedTables) {
     const policy = `${table}:${table}_workspace_isolation`;
     if (!policies.has(policy)) fail(`Workspace isolation policy is missing for ${table}.`);
   }
+  for (const table of appendOnlyPhase2Tables) {
+    if (!policies.has(`${table}:${table}_workspace_insert`)) {
+      fail(`Append-only insert policy is missing for ${table}.`);
+    }
+    const mutablePolicy = policyRows.find(
+      (row) =>
+        row.tablename === table &&
+        (row.cmd === 'ALL' || row.cmd === 'UPDATE' || row.cmd === 'DELETE'),
+    );
+    if (mutablePolicy) {
+      fail(`Append-only table ${table} exposes mutable policy ${mutablePolicy.policyname}.`);
+    }
+  }
   for (const [table, policyName] of tokenLookupPolicies) {
     const policy = `${table}:${policyName}`;
     if (!policies.has(policy)) fail(`SDK token lookup policy is missing for ${table}.`);
+  }
+  verifyExpectedPolicies(policies, identityPolicies, 'Owned-auth');
+  verifyExpectedPolicies(policies, identityBridgePolicies, 'Identity bridge');
+}
+
+function verifyExpectedPolicies(actualPolicies, expectedPolicies, label) {
+  for (const [table, policyNames] of expectedPolicies) {
+    for (const policyName of policyNames) {
+      if (!actualPolicies.has(`${table}:${policyName}`)) {
+        fail(`${label} policy ${policyName} is missing for ${table}.`);
+      }
+    }
   }
 }
 
@@ -104,6 +235,7 @@ async function verifyScratchIsolation(sql) {
     await expectVisibleWorkspaces(sql, workspaceB, [workspaceA, workspaceB], [workspaceB]);
     await expectUnscopedTenantReadsAreClosed(sql, [workspaceA, workspaceB]);
     await expectVersionAndPublicationRecords(sql, workspaceA, environmentA);
+    await expectBrandRowsHiddenFromOtherWorkspace(sql, workspaceB, workspaceA);
     await expectTokenLookupScope(sql, tokenHashA, {
       workspaceId: workspaceA,
       environmentId: environmentA,
@@ -118,6 +250,29 @@ async function verifyScratchIsolation(sql) {
   }
 }
 
+async function expectBrandRowsHiddenFromOtherWorkspace(sql, workspaceScope, hiddenWorkspaceId) {
+  const [, themeRows, versionRows, styleSourceRows, visualRows, verificationRows, approvalRows] =
+    await sql.transaction((tx) => [
+      tx`select set_config('lodariq.workspace_id', ${workspaceScope}, true)`,
+      tx`select id from themes where workspace_id = ${hiddenWorkspaceId}`,
+      tx`select id from theme_versions where workspace_id = ${hiddenWorkspaceId}`,
+      tx`select id from style_sources where workspace_id = ${hiddenWorkspaceId}`,
+      tx`select id from visual_check_runs where workspace_id = ${hiddenWorkspaceId}`,
+      tx`select id from publication_verifications where workspace_id = ${hiddenWorkspaceId}`,
+      tx`select id from release_approvals where workspace_id = ${hiddenWorkspaceId}`,
+    ]);
+  if (
+    themeRows.length ||
+    versionRows.length ||
+    styleSourceRows.length ||
+    visualRows.length ||
+    verificationRows.length ||
+    approvalRows.length
+  ) {
+    fail('Workspace-scoped Phase 2 persistence leaked rows across tenants.');
+  }
+}
+
 async function expectVersionAndPublicationRecords(sql, workspaceId, environmentId) {
   const documentId = `doc_live_rls_${workspaceId.slice(-16)}`;
   const documentVersionA = `${documentId}_v_1`;
@@ -128,13 +283,52 @@ async function expectVersionAndPublicationRecords(sql, workspaceId, environmentI
   const publicationB = `pub_${documentId}_b`;
   const publicationCorrelationA = `corr_${publicationA}`;
   const publicationCorrelationB = `corr_${publicationB}`;
+  const themeId = `theme_live_rls_${workspaceId.slice(-16)}`;
+  const themeVersionId = `themev_live_rls_${workspaceId.slice(-16)}`;
+  const visualCheckRunId = `vcheck_live_rls_${workspaceId.slice(-16)}`;
   const firstHash = `sha256-${'a'.repeat(64)}`;
   const secondHash = `sha256-${'b'.repeat(64)}`;
+  const themeHash = `sha256-${'c'.repeat(64)}`;
   const firstDocument = createScratchDocument(workspaceId, documentId, 'Live RLS tour');
   const secondDocument = createScratchDocument(workspaceId, documentId, 'Live RLS tour revised');
+  const themeDraft = { tokens: {}, recipes: {} };
+  const themeSnapshot = {
+    schemaVersion: '1',
+    contractVersion: '1',
+    themeId,
+    themeVersionId,
+    version: 1,
+    name: 'Live RLS theme',
+    contentHash: themeHash,
+    definition: themeDraft,
+  };
+  const visualReport = {
+    schemaVersion: '1',
+    checkedAt: new Date().toISOString(),
+    status: 'passed',
+    issues: [],
+  };
 
-  const [, , , , , , , versions, latestPublicationBeforeRepublish] = await sql.transaction((tx) => [
+  const results = await sql.transaction((tx) => [
     tx`select set_config('lodariq.workspace_id', ${workspaceId}, true)`,
+    tx`
+        insert into themes (id, workspace_id, name, draft_json, revision, is_default)
+        values (${themeId}, ${workspaceId}, 'Live RLS theme', ${JSON.stringify(themeDraft)}::jsonb, 1, true)
+      `,
+    tx`
+        insert into theme_versions (
+          id, workspace_id, theme_id, version, schema_version, contract_version,
+          canonical_json, content_hash, approved_at
+        ) values (
+          ${themeVersionId}, ${workspaceId}, ${themeId}, 1, '1', '1',
+          ${JSON.stringify(themeSnapshot)}::jsonb, ${themeHash}, now()
+        )
+      `,
+    tx`
+        update themes
+        set active_version_id = ${themeVersionId}, revision = 2, updated_at = now()
+        where workspace_id = ${workspaceId} and id = ${themeId}
+      `,
     tx`
         insert into documents (id, workspace_id, type, status, title, schema_version, canonical)
         values (${documentId}, ${workspaceId}, 'tour', 'draft', ${firstDocument.title}, '1.0.0', ${JSON.stringify(firstDocument)}::jsonb)
@@ -144,12 +338,29 @@ async function expectVersionAndPublicationRecords(sql, workspaceId, environmentI
         values (${documentVersionA}, ${workspaceId}, ${documentId}, 1, ${JSON.stringify(firstDocument)}::jsonb)
       `,
     tx`
-        insert into compiled_artifacts (id, workspace_id, document_id, document_version_id, content_hash, compiler_version, compiled)
-        values (${artifactA}, ${workspaceId}, ${documentId}, ${documentVersionA}, ${firstHash}, 'live-smoke', ${JSON.stringify(createScratchArtifact(documentId, firstHash))}::jsonb)
+        insert into compiled_artifacts (
+          id, workspace_id, document_id, document_version_id, content_hash,
+          compiler_version, theme_version_id, theme_content_hash,
+          renderer_contract_version, compiled
+        ) values (
+          ${artifactA}, ${workspaceId}, ${documentId}, ${documentVersionA}, ${firstHash},
+          'live-smoke', ${themeVersionId}, ${themeHash}, '2',
+          ${JSON.stringify(createScratchArtifact(documentId, firstHash))}::jsonb
+        )
       `,
     tx`
         insert into publications (id, workspace_id, correlation_id, environment_id, document_id, document_version_id, compiled_artifact_id, content_hash)
         values (${publicationA}, ${workspaceId}, ${publicationCorrelationA}, ${environmentId}, ${documentId}, ${documentVersionA}, ${artifactA}, ${firstHash})
+      `,
+    tx`
+        insert into visual_check_runs (
+          id, workspace_id, document_id, document_version_id, compiled_artifact_id,
+          theme_version_id, environment_id, content_hash, report_json, status
+        ) values (
+          ${visualCheckRunId}, ${workspaceId}, ${documentId}, ${documentVersionA}, ${artifactA},
+          ${themeVersionId}, ${environmentId}, ${firstHash},
+          ${JSON.stringify(visualReport)}::jsonb, 'passed'
+        )
       `,
     tx`
         update documents
@@ -178,6 +389,8 @@ async function expectVersionAndPublicationRecords(sql, workspaceId, environmentI
         limit 1
       `,
   ]);
+  const versions = results.at(-2);
+  const latestPublicationBeforeRepublish = results.at(-1);
 
   if (
     JSON.stringify(versions.map((row) => [row.version, row.title])) !==
@@ -190,6 +403,32 @@ async function expectVersionAndPublicationRecords(sql, workspaceId, environmentI
   }
   if (latestPublicationBeforeRepublish[0]?.content_hash !== firstHash) {
     fail('Live publication changed before an explicit republish.');
+  }
+
+  const [, themeRows, visualRows, immutableUpdateRows] = await sql.transaction((tx) => [
+    tx`select set_config('lodariq.workspace_id', ${workspaceId}, true)`,
+    tx`
+      select id, active_version_id
+      from themes
+      where workspace_id = ${workspaceId} and id = ${themeId}
+    `,
+    tx`
+      select id, status
+      from visual_check_runs
+      where workspace_id = ${workspaceId} and id = ${visualCheckRunId}
+    `,
+    tx`
+      update theme_versions
+      set version = 99
+      where workspace_id = ${workspaceId} and id = ${themeVersionId}
+      returning id
+    `,
+  ]);
+  if (themeRows[0]?.active_version_id !== themeVersionId || visualRows[0]?.status !== 'passed') {
+    fail('Live Brand Theme or visual-check persistence did not round-trip.');
+  }
+  if (immutableUpdateRows.length !== 0) {
+    fail('Live runtime role unexpectedly mutated an immutable theme version.');
   }
 
   const [, , latestPublicationAfterRepublish] = await sql.transaction((tx) => [

@@ -1,45 +1,200 @@
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { Type } from '@sinclair/typebox';
-import { compileDocument } from '@lodariq/compiler';
+import {
+  canonicalJson,
+  compileDocument,
+  runBasicVisualPreflight,
+  sha256Hex,
+} from '@lodariq/compiler';
 import {
   AnalyticsEvent,
+  AUTHORING_ACTIVATION_GRANT_HEADER,
+  AUTHORING_ACTIVATION_PROTOCOL,
+  AUTHORING_BOOTSTRAP_GRANT_HEADER,
+  AUTHORING_SESSION_CAPABILITIES,
+  AUTHORING_SESSION_HEADER,
+  AuthoringAuthorizationContext,
+  AuthoringAuthorizationRequest,
+  AuthoringAuthorizationResult,
+  AuthoringCodeExchangeRequest,
+  AuthoringCodeExchangeResult,
+  AuthoringDocumentPayload,
+  AuthoringDocumentSessionResult,
+  AuthoringStagingPublicationResult,
+  AuthoringStagingReleaseState,
+  AuthoringStagingVerificationRequest,
+  AuthoringStagingVerificationResult,
+  BROWSER_VERIFICATION_CHECK_CODES,
+  BRAND_THEME_CONTRACT_VERSION,
+  BrandThemeDefinition,
+  BrowserVerificationReport,
+  COMPILED_ARTIFACT_SCHEMA_VERSION,
+  COMPILER_VERSION,
   CompiledDocument,
+  ControlPlaneAuthContext,
+  CreateAuthoringDocumentSessionRequest,
+  CreatorModuleDescriptor,
+  DEFAULT_EXPERIENCE_APPEARANCE,
+  LODARIQ_ACCESSIBLE_FALLBACK_THEME_V1,
+  LODARIQ_EDITOR_ORIGIN,
   LodariqDocument,
+  MAX_ACTIVE_DOCUMENT_MANIFESTS,
+  RENDERER_CONTRACT_VERSION,
+  LODARIQ_APP_ORIGIN,
+  LODARIQ_AUTHORING_ACTIVATION_URL,
+  PublicSdkBootstrapContext,
+  PublicSdkBootstrapRequest,
+  ProductStyleProposal,
+  PublicationVerification,
+  ProductionPromotionRequest,
+  ProductionPromotionResult,
+  QueryAuthoringDocumentsRequest,
+  QueryAuthoringDocumentsResult,
+  RevokeAuthoringActivationRequest,
   SdkBootstrapRequest,
   SdkInstallContext,
+  ThemeBinding,
+  basicVisualPreflightIssueLabel,
   publishReadinessIssueLabel,
   validate,
   validateTourPublishReadiness,
+  type AuthoringAuthorizationRequest as AuthoringAuthorizationRequestType,
+  type ActiveManifestPointerV2,
+  type BrandThemeDefinition as BrandThemeDefinitionType,
+  type BrandThemeSnapshot as BrandThemeSnapshotType,
+  type AuthoringCodeExchangeRequest as AuthoringCodeExchangeRequestType,
+  type AuthoringDocumentPayload as AuthoringDocumentPayloadType,
+  type AuthoringStagingPublicationResult as AuthoringStagingPublicationResultType,
+  type AuthoringStagingReleaseState as AuthoringStagingReleaseStateType,
+  type AuthoringStagingVerificationRequest as AuthoringStagingVerificationRequestType,
+  type AuthoringStagingVerificationResult as AuthoringStagingVerificationResultType,
+  type AuthoringSessionCapability,
+  type CreateAuthoringDocumentSessionRequest as CreateAuthoringDocumentSessionRequestType,
   type CompiledDocument as CompiledDocumentType,
+  type CreatorModuleDescriptor as CreatorModuleDescriptorType,
   type PublishReadinessIssue,
+  type PublicSdkBootstrapContext as PublicSdkBootstrapContextType,
+  type PublicSdkBootstrapRequest as PublicSdkBootstrapRequestType,
+  type ProductStyleProposal as ProductStyleProposalType,
+  type PublicationVerification as PublicationVerificationType,
+  type ProductionPromotionRequest as ProductionPromotionRequestType,
+  type ProductionPromotionResult as ProductionPromotionResultType,
+  type QueryAuthoringDocumentsRequest as QueryAuthoringDocumentsRequestType,
+  type RevokeAuthoringActivationRequest as RevokeAuthoringActivationRequestType,
   type SdkBootstrapRequest as SdkBootstrapRequestType,
   type SdkInstallContext as SdkInstallContextType,
+  type ThemeBinding as ThemeBindingType,
 } from '@lodariq/schema';
 import {
+  AMBIGUOUS_CURRENT_PUBLICATION_ERROR_CODE,
+  ActivePublicationChangedError,
+  AmbiguousCurrentPublicationError,
+  DeploymentChangedError,
+  EnvironmentReleasePolicyChangedError,
+  IdempotencyConflictError,
+  PublicationVerificationRequiredError,
+  ReleaseApprovalRejectedError,
+  ReleaseOperationInProgressError,
+  WorkspaceThemeApprovalRequiredError,
+  WorkspaceThemeChangedError,
+  AUTHORING_ACTIVATION_GRANT_MAX_TTL_MS,
+  AUTHORING_AUTHORIZATION_CODE_MAX_TTL_MS,
+  AUTHORING_AUTHORIZATION_CODE_MIN_TTL_MS,
+  AUTHORING_AUTHORIZATION_REQUEST_MAX_TTL_MS,
+  createAuthoringActivationGrant,
+  createAuthoringAuthorizationCode,
   createAuthoringSessionToken,
   createEnvironmentClientToken,
+  createPublicSdkBootstrapGrant,
+  createPublicSdkInstallationId,
   getEnvironmentTokenPrefix,
   hashAuthoringSessionToken,
+  hashAuthoringActivationGrant,
+  hashAuthoringAuthorizationCode,
+  hashAuthoringAuthorizationState,
   hashEnvironmentToken,
+  hashPublicSdkBootstrapGrant,
+  PUBLIC_SDK_BOOTSTRAP_GRANT_MAX_TTL_MS,
   type AuthoringSessionRecord,
+  type AuthoringAuthorizationRequestRecord,
   type ControlPlaneRepository,
   type DocumentSummary,
   type EnvironmentTokenRecord,
   type PersistedCompiledArtifact,
   type PersistedDocument,
+  type PersistedDocumentDeployment,
   type PersistedPublication,
+  type PersistedReleaseOperation,
+  type PublicationVerificationRecord,
+  type ReleaseApprovalRecord,
+  type ResolvedPublicSdkInstallation,
   type ResolvedEnvironmentToken,
+  type StyleSourceRecord,
+  type VisualCheckRunRecord,
+  type WorkspaceThemeRecord,
   type WorkspaceEnvironment,
 } from '@lodariq/database';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { AuthError, type AuthContext, type AuthProvider, type AuthRole } from '../auth';
-import { createObservabilityEvent, type ObservabilitySink } from '../observability';
-import { renderSdkInstallationSnippet } from '../snippets';
+import {
+  createObservabilityEvent,
+  type ObservabilityEvent,
+  type ObservabilitySink,
+} from '../observability';
+import { renderPublicSdkInstallationSnippet, renderSdkInstallationSnippet } from '../snippets';
+import { bootstrapClaimsMatchOrigin, parseExactBrowserOrigin } from '../sdk-origin';
+import { promoteExactVerifiedPublication } from '../releases/promotion';
 
 const DocumentParams = Type.Object(
   {
     documentId: Type.String({ minLength: 1 }),
   },
+  { additionalProperties: false },
+);
+
+const SdkDocumentParams = Type.Object(
+  {
+    workspaceId: Type.String({ minLength: 1, maxLength: 256 }),
+    environmentId: Type.String({ minLength: 1, maxLength: 256 }),
+    documentId: Type.String({ minLength: 1 }),
+  },
+  { additionalProperties: false },
+);
+
+const SdkDocumentArtifactParams = Type.Object(
+  {
+    workspaceId: Type.String({ minLength: 1, maxLength: 256 }),
+    environmentId: Type.String({ minLength: 1, maxLength: 256 }),
+    documentId: Type.String({ minLength: 1 }),
+    contentHash: Type.String({ pattern: '^sha256-[0-9a-f]{64}$' }),
+  },
+  { additionalProperties: false },
+);
+
+const SDK_DOCUMENT_PATH =
+  '/v1/sdk/workspaces/:workspaceId/environments/:environmentId/documents/:documentId';
+const SDK_DOCUMENT_MANIFEST_PATH = `${SDK_DOCUMENT_PATH}/manifest`;
+const SDK_DOCUMENT_ARTIFACT_PATH = `${SDK_DOCUMENT_PATH}/artifacts/:contentHash`;
+
+const ThemeParams = Type.Object(
+  {
+    themeId: Type.String({ minLength: 1, maxLength: 256 }),
+  },
+  { additionalProperties: false },
+);
+
+const EnvironmentParams = Type.Object(
+  { environmentId: Type.String({ minLength: 1, maxLength: 256 }) },
+  { additionalProperties: false },
+);
+
+const PublicationParams = Type.Object(
+  { publicationId: Type.String({ minLength: 1, maxLength: 256 }) },
+  { additionalProperties: false },
+);
+
+const ReleaseOperationParams = Type.Object(
+  { operationId: Type.String({ minLength: 1, maxLength: 256 }) },
   { additionalProperties: false },
 );
 
@@ -54,7 +209,98 @@ const CreateEnvironmentTokenBody = Type.Object(
   {
     environmentId: Type.String({ minLength: 1 }),
     name: Type.String({ minLength: 1, maxLength: 120 }),
-    authoringDocumentId: Type.Optional(Type.String({ minLength: 1 })),
+  },
+  { additionalProperties: false },
+);
+
+const CreatePublicSdkInstallationBody = Type.Object(
+  {
+    name: Type.String({ minLength: 1, maxLength: 120 }),
+  },
+  { additionalProperties: false },
+);
+
+const PublicSdkInstallationParams = Type.Object(
+  {
+    installationId: Type.String({ minLength: 1, maxLength: 256 }),
+  },
+  { additionalProperties: false },
+);
+
+const AuthoringAuthorizationRequestParams = Type.Object(
+  {
+    requestId: Type.String({ minLength: 1, maxLength: 256 }),
+  },
+  { additionalProperties: false },
+);
+
+const AuthoringSessionParams = Type.Object(
+  {
+    sessionId: Type.String({ minLength: 1, maxLength: 256 }),
+  },
+  { additionalProperties: false },
+);
+
+const ApproveAuthoringAuthorizationRequestBody = Type.Object(
+  {
+    state: Type.String({ minLength: 32, maxLength: 2048 }),
+  },
+  { additionalProperties: false },
+);
+
+const ConfigurePublicSdkInstallationOriginBody = Type.Object(
+  {
+    environmentId: Type.String({ minLength: 1 }),
+    origin: Type.String({ minLength: 1, maxLength: 2048 }),
+    authoringEnabled: Type.Boolean(),
+  },
+  { additionalProperties: false },
+);
+
+const SyncPublicSdkInstallationOriginsBody = Type.Object(
+  {
+    origins: Type.Array(ConfigurePublicSdkInstallationOriginBody, { maxItems: 100 }),
+  },
+  { additionalProperties: false },
+);
+
+const PublicSdkInstallationOriginResponse = Type.Object(
+  {
+    installationId: Type.String({ minLength: 1 }),
+    workspaceId: Type.String({ minLength: 1 }),
+    environmentId: Type.String({ minLength: 1 }),
+    exactOrigin: Type.String({ minLength: 1 }),
+    authoringEnabled: Type.Boolean(),
+    createdAt: Type.String({ minLength: 1 }),
+    updatedAt: Type.String({ minLength: 1 }),
+  },
+  { additionalProperties: false },
+);
+
+const PublicSdkInstallationResponse = Type.Object(
+  {
+    installationId: Type.String({ minLength: 1 }),
+    workspaceId: Type.String({ minLength: 1 }),
+    name: Type.String(),
+    createdByUserId: Type.Union([Type.String({ minLength: 1 }), Type.Null()]),
+    createdAt: Type.String({ minLength: 1 }),
+    updatedAt: Type.String({ minLength: 1 }),
+    revokedAt: Type.Union([Type.String({ minLength: 1 }), Type.Null()]),
+    origins: Type.Array(PublicSdkInstallationOriginResponse),
+    sdkSnippet: Type.String({ minLength: 1 }),
+  },
+  { additionalProperties: false },
+);
+
+const ListPublicSdkInstallationsResponse = Type.Object(
+  { installations: Type.Array(PublicSdkInstallationResponse) },
+  { additionalProperties: false },
+);
+
+const ApiErrorResponse = Type.Object(
+  {
+    error: Type.String({ minLength: 1 }),
+    message: Type.String({ minLength: 1 }),
   },
   { additionalProperties: false },
 );
@@ -63,14 +309,111 @@ const CreateAuthoringSessionBody = Type.Object(
   {
     environmentId: Type.String({ minLength: 1 }),
     documentId: Type.String({ minLength: 1 }),
+    environmentClientToken: Type.Optional(Type.String({ minLength: 1 })),
   },
   { additionalProperties: false },
 );
 
-const PublishDocumentBody = Type.Object(
+const CreateStagingPublicationBody = Type.Object(
   {
-    environmentId: Type.String({ minLength: 1 }),
+    environmentId: Type.String({ minLength: 1, maxLength: 256 }),
+    expectedGeneration: Type.Integer({ minimum: 0 }),
+    expectedArtifactId: Type.String({ minLength: 1, maxLength: 512 }),
+    expectedContentHash: Type.String({ pattern: '^sha256-[0-9a-f]{64}$' }),
   },
+  { additionalProperties: false },
+);
+
+const CreateAuthoringStagingPublicationBody = Type.Object(
+  {
+    expectedGeneration: Type.Integer({ minimum: 0 }),
+    expectedArtifactId: Type.String({ minLength: 1, maxLength: 512 }),
+    expectedContentHash: Type.String({ pattern: '^sha256-[0-9a-f]{64}$' }),
+  },
+  { additionalProperties: false },
+);
+
+const CreateDashboardStyleSourceBody = Type.Object(
+  {
+    environmentId: Type.String({ minLength: 1, maxLength: 256 }),
+    proposal: ProductStyleProposal,
+  },
+  { additionalProperties: false },
+);
+
+const CreateAuthoringStyleSourceBody = Type.Object(
+  { proposal: ProductStyleProposal },
+  { additionalProperties: false },
+);
+
+// Fastify's serializer cannot compile the nested discriminated unions in the
+// canonical success schema. The handler validates the complete canonical
+// result before sending it; this transport schema only controls serialization.
+const AuthoringStagingVerificationHttpSuccess = Type.Object(
+  {
+    ok: Type.Literal(true),
+    verification: Type.Unknown(),
+  },
+  { additionalProperties: false },
+);
+
+const AuthoringStagingVerificationHttpError = Type.Union([
+  ApiErrorResponse,
+  Type.Extract(AuthoringStagingVerificationResult, Type.Object({ ok: Type.Literal(false) })),
+]);
+
+const CreateDashboardPublicationVerificationBody = Type.Object(
+  {
+    environmentId: Type.String({ minLength: 1, maxLength: 256 }),
+    report: BrowserVerificationReport,
+  },
+  { additionalProperties: false },
+);
+
+const CreateReleaseApprovalBody = Type.Object(
+  {
+    decision: Type.Union([Type.Literal('approved'), Type.Literal('rejected')]),
+    reason: Type.Optional(Type.String({ minLength: 1, maxLength: 500 })),
+  },
+  { additionalProperties: false },
+);
+
+const UpdateEnvironmentReleasePolicyBody = Type.Object(
+  {
+    requiredApprovalCount: Type.Union([Type.Literal(0), Type.Literal(1)]),
+    expectedUpdatedAt: Type.String({ minLength: 20, maxLength: 64 }),
+  },
+  { additionalProperties: false },
+);
+
+const WorkspaceThemeMutationGuardBody = Type.Object(
+  {
+    expectedRevision: Type.Integer({ minimum: 1 }),
+    expectedUpdatedAt: Type.String({ minLength: 1, maxLength: 64 }),
+  },
+  { additionalProperties: false },
+);
+
+const CreateWorkspaceThemeBody = Type.Object(
+  {
+    name: Type.String({ minLength: 1, maxLength: 120 }),
+    draft: BrandThemeDefinition,
+  },
+  { additionalProperties: false },
+);
+
+const UpdateWorkspaceThemeBody = Type.Object(
+  {
+    name: Type.Optional(Type.String({ minLength: 1, maxLength: 120 })),
+    draft: BrandThemeDefinition,
+    expectedRevision: Type.Integer({ minimum: 1 }),
+    expectedUpdatedAt: Type.String({ minLength: 1, maxLength: 64 }),
+  },
+  { additionalProperties: false },
+);
+
+const SetDocumentThemeBindingBody = Type.Object(
+  { binding: ThemeBinding },
   { additionalProperties: false },
 );
 
@@ -93,13 +436,38 @@ interface RegisterControlPlaneRoutesOptions {
   authProvider: AuthProvider;
   publicApiBaseUrl: string;
   loaderSrc?: string;
+  publicLoaderSrc?: string;
   creatorLoaderSrc?: string;
+  creatorModule?: CreatorModuleDescriptorType;
   authoringIframeSrc: string;
   observability: ObservabilitySink;
 }
 
-const AUTHORING_SESSION_HEADER = 'x-lodariq-authoring-session';
+const PUBLIC_SDK_INSTALLATION_HEADER = 'x-lodariq-installation-id';
 const AUTHORING_SESSION_TTL_MS = 15 * 60 * 1000;
+const AUTHORING_AUTHORIZATION_REQUEST_TTL_MS = Math.min(
+  110 * 1000,
+  AUTHORING_AUTHORIZATION_REQUEST_MAX_TTL_MS,
+);
+const AUTHORING_AUTHORIZATION_CODE_TTL_MS = Math.max(
+  AUTHORING_AUTHORIZATION_CODE_MIN_TTL_MS,
+  Math.min(75 * 1000, AUTHORING_AUTHORIZATION_CODE_MAX_TTL_MS),
+);
+const AUTHORING_ACTIVATION_GRANT_TTL_MS = Math.min(
+  2 * 60 * 1000,
+  AUTHORING_ACTIVATION_GRANT_MAX_TTL_MS,
+);
+const PUBLIC_SDK_BOOTSTRAP_GRANT_TTL_MS = Math.min(
+  2 * 60 * 1000,
+  PUBLIC_SDK_BOOTSTRAP_GRANT_MAX_TTL_MS,
+);
+const CREATOR_MODULE_CONTENT_ADDRESS_PATTERN = /\/sha256-[0-9a-f]{64}(?:\/|$)/u;
+const DOCUMENT_SPECIFIC_DELIVERY_REQUIRED_ERROR = 'document_specific_delivery_required';
+const DOCUMENT_RELEASE_MIGRATION_REQUIRED_ERROR = 'document_release_migration_required';
+const IDEMPOTENCY_KEY_HEADER = 'idempotency-key';
+const RELEASE_CORRELATION_ID_HEADER = 'x-lodariq-correlation-id';
+const IDEMPOTENCY_KEY_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]{7,199}$/u;
+const RELEASE_CORRELATION_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]{7,255}$/u;
 
 type EnvironmentTokenResponse = Omit<EnvironmentTokenRecord, 'clientToken' | 'tokenHash'>;
 type CompiledArtifactResponse = Omit<PersistedCompiledArtifact, 'compiled'>;
@@ -108,25 +476,42 @@ type PublicationResponse = Omit<PersistedPublication, 'artifact'> & {
 };
 type AuthoringSessionResponse = Omit<AuthoringSessionRecord, 'tokenHash'>;
 
-interface AuthoringSessionLaunchPayload {
-  authoringSession: AuthoringSessionResponse;
-  authoringSessionToken: string;
-  bootstrapHeaderName: typeof AUTHORING_SESSION_HEADER;
-  publication?: PublicationResponse;
-  authoringSdkSnippet: string;
-}
-
 export function registerControlPlaneRoutes(
   fastify: FastifyInstance,
   options: RegisterControlPlaneRoutesOptions,
 ): void {
   fastify.get('/healthz', async () => ({ ok: true }));
 
+  fastify.get(
+    '/v1/auth/context',
+    { schema: { response: { 200: ControlPlaneAuthContext } } },
+    async (request, reply) => {
+      const auth = await authenticate(options.repository, options.authProvider, request, reply);
+      if (!auth) return;
+      return {
+        userId: auth.userId,
+        workspaceId: auth.workspaceId,
+        role: auth.role,
+      };
+    },
+  );
+
   for (const path of [
     '/v1/sdk/bootstrap',
     '/v1/sdk/current-document',
+    SDK_DOCUMENT_PATH,
+    SDK_DOCUMENT_MANIFEST_PATH,
+    SDK_DOCUMENT_ARTIFACT_PATH,
     '/v1/sdk/events',
+    '/v1/sdk/authoring/authorization-requests',
+    '/v1/sdk/authoring/exchange',
     '/v1/sdk/authoring/document',
+    '/v1/sdk/authoring/release-state',
+    '/v1/sdk/authoring/publications',
+    '/v1/sdk/authoring/style-sources',
+    '/v1/sdk/authoring/verifications',
+    '/v1/sdk/authoring/promotions',
+    '/v1/sdk/authoring/release-operations/:operationId/approvals',
   ]) {
     fastify.options(path, async (request, reply) => {
       setSdkPreflightCorsHeaders(request, reply);
@@ -134,15 +519,56 @@ export function registerControlPlaneRoutes(
     });
   }
 
+  for (const path of [
+    '/v1/authoring/authorization-requests/:requestId',
+    '/v1/authoring/authorization-requests/:requestId/approve',
+  ]) {
+    fastify.options(path, async (request, reply) => {
+      if (!requireFirstPartyAppOrigin(request, reply)) return;
+      return reply.code(204).send();
+    });
+  }
+
+  fastify.options('/v1/authoring/sessions', async (request, reply) => {
+    if (parseExactBrowserOrigin(request.headers.origin) === LODARIQ_EDITOR_ORIGIN) {
+      setEditorCorsHeaders(reply);
+      return reply.code(204).send();
+    }
+    if (!requireFirstPartyAppOrigin(request, reply)) return;
+    return reply.code(204).send();
+  });
+
+  for (const path of [
+    '/v1/authoring/document',
+    '/v1/authoring/documents/query',
+    '/v1/authoring/activation/revoke',
+    '/v1/authoring/release-state',
+    '/v1/authoring/publications',
+    '/v1/authoring/style-sources',
+    '/v1/authoring/verifications',
+    '/v1/authoring/promotions',
+    '/v1/authoring/release-operations/:operationId/approvals',
+    '/v1/authoring/sessions/:sessionId/revoke',
+  ]) {
+    fastify.options(path, async (request, reply) => {
+      if (!requireEditorOrigin(request, reply)) return;
+      return reply.code(204).send();
+    });
+  }
+
   fastify.post(
     '/v1/sdk/bootstrap',
-    { schema: { body: SdkBootstrapRequest } },
+    { schema: { body: Type.Union([PublicSdkBootstrapRequest, SdkBootstrapRequest]) } },
     async (request, reply) => {
+      const body = request.body as PublicSdkBootstrapRequestType | SdkBootstrapRequestType;
+      if ('installationId' in body) {
+        return bootstrapPublicSdkInstallation(options, body, request, reply);
+      }
+
       const token = await authenticateEnvironmentToken(options.repository, request, reply);
       if (!token) return;
       if (!requireSdkOrigin(token, request, reply)) return;
 
-      const body = request.body as SdkBootstrapRequestType;
       if (body.environment !== token.environment) {
         return reply.code(403).send({
           error: 'environment_mismatch',
@@ -150,10 +576,40 @@ export function registerControlPlaneRoutes(
         });
       }
 
-      const publication = await options.repository.getCurrentPublication(
+      if (readHeader(request, AUTHORING_SESSION_HEADER)) {
+        const authoringSession = await authenticateAuthoringSessionForToken(
+          options.repository,
+          token,
+          request,
+          reply,
+        );
+        if (!authoringSession) return;
+
+        const record = await options.repository.getDocument(
+          token.workspaceId,
+          authoringSession.documentId,
+        );
+        if (!record) {
+          return reply.code(404).send({ error: 'not_found', message: 'Document not found' });
+        }
+
+        return createAuthoringSdkInstallContext(
+          options.repository,
+          options.publicApiBaseUrl,
+          token,
+          record,
+          authoringSession,
+          reply,
+        );
+      }
+
+      const publication = await getLegacyCurrentPublication(
+        options.repository,
         token.workspaceId,
         token.environmentId,
+        reply,
       );
+      if (reply.sent) return;
       if (!publication) {
         return reply.code(404).send({
           error: 'artifact_not_found',
@@ -161,33 +617,285 @@ export function registerControlPlaneRoutes(
         });
       }
 
-      const authoringSession = await authenticateAuthoringSession(
+      return createViewerSdkInstallContext(options.publicApiBaseUrl, token, publication);
+    },
+  );
+
+  fastify.post(
+    '/v1/sdk/authoring/authorization-requests',
+    { schema: { body: AuthoringAuthorizationRequest } },
+    async (request, reply) => {
+      const body = request.body as AuthoringAuthorizationRequestType;
+      const exactOrigin = parseExactBrowserOrigin(request.headers.origin);
+      const bootstrapGrant = readHeader(request, AUTHORING_BOOTSTRAP_GRANT_HEADER);
+      if (!exactOrigin || !bootstrapGrant) {
+        return reply.code(400).send({
+          error: 'authoring_activation_scope_required',
+          message: 'Authoring activation requires a canonical browser Origin and bootstrap grant',
+        });
+      }
+      if (body.customerOrigin !== exactOrigin) {
+        return reply.code(403).send({
+          error: 'origin_claim_mismatch',
+          message: 'Authorization request origin does not match the browser Origin',
+        });
+      }
+
+      const resolved = await requirePublicAuthoringScope(
         options.repository,
-        token,
-        publication.artifact,
-        request,
+        body.installationId,
+        exactOrigin,
         reply,
       );
-      if (authoringSession === false) return;
+      if (!resolved) return;
+      setAllowedSdkCorsHeaders(exactOrigin, reply);
 
-      return createSdkInstallContext(
-        options.publicApiBaseUrl,
-        token,
-        publication,
-        authoringSession,
+      const expiresAt = new Date(Date.now() + AUTHORING_AUTHORIZATION_REQUEST_TTL_MS).toISOString();
+      const authorizationRequest = await options.repository.createAuthoringAuthorizationRequest({
+        installationId: body.installationId,
+        exactOrigin,
+        bootstrapGrantHash: hashPublicSdkBootstrapGrant(bootstrapGrant),
+        stateHash: hashAuthoringAuthorizationState(body.state),
+        codeChallenge: body.codeChallenge,
+        requestedCapabilities: [...body.requestedCapabilities],
+        ...(body.documentIntent ? { documentIntent: body.documentIntent } : {}),
+        expiresAt,
+      });
+      if (!authorizationRequest) {
+        return reply.code(403).send({
+          error: 'authoring_authorization_rejected',
+          message: 'Authoring authorization request is invalid, expired, or outside policy',
+        });
+      }
+
+      const context = validateAuthoringAuthorizationContext({
+        requestId: authorizationRequest.requestId,
+        installationId: authorizationRequest.installationId,
+        workspaceId: authorizationRequest.workspaceId,
+        environmentId: authorizationRequest.environmentId,
+        environment: authorizationRequest.environment,
+        customerOrigin: authorizationRequest.exactOrigin,
+        state: body.state,
+        codeChallenge: authorizationRequest.codeChallenge,
+        codeChallengeMethod: authorizationRequest.codeChallengeMethod,
+        requestedCapabilities: authorizationRequest.requestedCapabilities,
+        ...(authorizationRequest.documentIntent
+          ? { documentIntent: authorizationRequest.documentIntent }
+          : {}),
+        expiresAt: authorizationRequest.expiresAt,
+      });
+      setCredentialResponseHeaders(reply);
+      return reply.code(201).send(context);
+    },
+  );
+
+  fastify.get(
+    '/v1/authoring/authorization-requests/:requestId',
+    { schema: { params: AuthoringAuthorizationRequestParams } },
+    async (request, reply) => {
+      if (!requireFirstPartyAppOrigin(request, reply)) return;
+      const { requestId } = request.params as { requestId: string };
+      const resolved = await authenticateAuthoringAuthorizationRequest(
+        options.repository,
+        options.authProvider,
+        request,
+        reply,
+        requestId,
       );
+      if (!resolved) return;
+      const authorizationRequest = resolved.request;
+      if (authorizationRequest.approvedAt || authorizationRequest.authorizationCodeHash) {
+        return reply.code(409).send({
+          error: 'authorization_request_not_pending',
+          message: 'Authoring authorization request is no longer pending',
+        });
+      }
+
+      return {
+        requestId: authorizationRequest.requestId,
+        installationId: authorizationRequest.installationId,
+        environmentId: authorizationRequest.environmentId,
+        environment: authorizationRequest.environment,
+        customerOrigin: authorizationRequest.exactOrigin,
+        requestedCapabilities: authorizationRequest.requestedCapabilities,
+        ...(authorizationRequest.documentIntent
+          ? { documentIntent: authorizationRequest.documentIntent }
+          : {}),
+        expiresAt: authorizationRequest.expiresAt,
+      };
+    },
+  );
+
+  fastify.post(
+    '/v1/authoring/authorization-requests/:requestId/approve',
+    {
+      schema: {
+        params: AuthoringAuthorizationRequestParams,
+        body: ApproveAuthoringAuthorizationRequestBody,
+      },
+    },
+    async (request, reply) => {
+      if (!requireFirstPartyAppOrigin(request, reply)) return;
+      const { requestId } = request.params as { requestId: string };
+      const resolved = await authenticateAuthoringAuthorizationRequest(
+        options.repository,
+        options.authProvider,
+        request,
+        reply,
+        requestId,
+      );
+      if (!resolved) return;
+      const body = request.body as { state: string };
+      const authorizationCode = createAuthoringAuthorizationCode();
+      const authorizationCodeExpiresAt = new Date(
+        Date.now() + AUTHORING_AUTHORIZATION_CODE_TTL_MS,
+      ).toISOString();
+      const approved = await options.repository.approveAuthoringAuthorizationRequest({
+        workspaceId: resolved.request.workspaceId,
+        requestId,
+        stateHash: hashAuthoringAuthorizationState(body.state),
+        creatorId: resolved.auth.userId,
+        authorizationCodeHash: hashAuthoringAuthorizationCode(authorizationCode),
+        authorizationCodeExpiresAt,
+      });
+      if (!approved) {
+        return reply.code(409).send({
+          error: 'authorization_request_not_approvable',
+          message: 'Authoring authorization request is invalid, expired, or no longer pending',
+        });
+      }
+
+      const result = validateAuthoringAuthorizationResult({
+        protocol: AUTHORING_ACTIVATION_PROTOCOL,
+        type: 'authoring.authorization.result',
+        requestId: approved.requestId,
+        state: body.state,
+        authorizationCode,
+        expiresAt: approved.authorizationCodeExpiresAt,
+      });
+      setCredentialResponseHeaders(reply);
+      return reply.send(result);
+    },
+  );
+
+  fastify.post(
+    '/v1/sdk/authoring/exchange',
+    { schema: { body: AuthoringCodeExchangeRequest } },
+    async (request, reply) => {
+      const body = request.body as AuthoringCodeExchangeRequestType;
+      const exactOrigin = parseExactBrowserOrigin(request.headers.origin);
+      const bootstrapGrant = readHeader(request, AUTHORING_BOOTSTRAP_GRANT_HEADER);
+      if (!exactOrigin || !bootstrapGrant) {
+        return reply.code(400).send({
+          error: 'authoring_activation_scope_required',
+          message: 'Authoring exchange requires a canonical browser Origin and bootstrap grant',
+        });
+      }
+      if (body.customerOrigin !== exactOrigin) {
+        return reply.code(403).send({
+          error: 'origin_claim_mismatch',
+          message: 'Authorization exchange origin does not match the browser Origin',
+        });
+      }
+
+      const resolved = await requirePublicAuthoringScope(
+        options.repository,
+        body.installationId,
+        exactOrigin,
+        reply,
+      );
+      if (!resolved) return;
+      setAllowedSdkCorsHeaders(exactOrigin, reply);
+
+      const creatorModule = resolveCreatorModule(options.creatorModule);
+      if (!creatorModule) {
+        return reply.code(503).send({
+          error: 'creator_module_unavailable',
+          message: 'The hosted creator module is not configured',
+        });
+      }
+
+      const activationGrant = createAuthoringActivationGrant();
+      const activationGrantExpiresAt = new Date(
+        Date.now() + AUTHORING_ACTIVATION_GRANT_TTL_MS,
+      ).toISOString();
+      const exchanged = await options.repository.exchangeAuthoringAuthorizationCode({
+        installationId: body.installationId,
+        exactOrigin,
+        requestId: body.requestId,
+        bootstrapGrantHash: hashPublicSdkBootstrapGrant(bootstrapGrant),
+        stateHash: hashAuthoringAuthorizationState(body.state),
+        authorizationCodeHash: hashAuthoringAuthorizationCode(body.authorizationCode),
+        codeVerifier: body.codeVerifier,
+        activationGrantHash: hashAuthoringActivationGrant(activationGrant),
+        activationGrantExpiresAt,
+      });
+      if (!exchanged) {
+        return reply.code(403).send({
+          error: 'authoring_exchange_rejected',
+          message: 'Authorization exchange is invalid, expired, or already used',
+        });
+      }
+
+      const grant = exchanged.activationGrant;
+      const result = validateAuthoringCodeExchangeResult({
+        activationGrant,
+        context: {
+          grantId: grant.grantId,
+          requestId: grant.requestId,
+          installationId: grant.installationId,
+          workspaceId: grant.workspaceId,
+          environmentId: grant.environmentId,
+          environment: grant.environment,
+          customerOrigin: grant.exactOrigin,
+          editorOrigin: LODARIQ_EDITOR_ORIGIN,
+          creatorId: grant.creatorId,
+          capabilities: grant.capabilities,
+          ...(grant.documentIntent ? { documentIntent: grant.documentIntent } : {}),
+          expiresAt: grant.expiresAt,
+        },
+        creatorModule,
+      });
+      setCredentialResponseHeaders(reply);
+      return reply.send(result);
     },
   );
 
   fastify.get('/v1/sdk/current-document', async (request, reply) => {
+    // This compatibility endpoint is selected by a credential-bearing header,
+    // so a shared cache must never reuse one tenant's response for another.
+    setPrivateDocumentResponseHeaders(reply);
+    if (readHeader(request, PUBLIC_SDK_INSTALLATION_HEADER)) {
+      const resolved = await resolvePublicSdkRequest(options.repository, request, reply);
+      if (!resolved) return;
+      const publication = await getLegacyCurrentPublication(
+        options.repository,
+        resolved.installation.workspaceId,
+        resolved.environment.id,
+        reply,
+      );
+      if (reply.sent) return;
+      if (!publication) {
+        return reply.code(404).send({
+          error: 'artifact_not_found',
+          message: 'No published tour artifact is available for this environment',
+        });
+      }
+      return publication.artifact.compiled;
+    }
+
     const token = await authenticateEnvironmentToken(options.repository, request, reply);
     if (!token) return;
     if (!requireSdkOrigin(token, request, reply)) return;
 
-    const artifact = await options.repository.getCurrentPublishedArtifact(
+    const publication = await getLegacyCurrentPublication(
+      options.repository,
       token.workspaceId,
       token.environmentId,
+      reply,
     );
+    if (reply.sent) return;
+    const artifact = publication?.artifact ?? null;
     if (!artifact) {
       return reply.code(404).send({
         error: 'artifact_not_found',
@@ -198,7 +906,130 @@ export function registerControlPlaneRoutes(
     return artifact.compiled;
   });
 
+  fastify.get(
+    SDK_DOCUMENT_MANIFEST_PATH,
+    { schema: { params: SdkDocumentParams } },
+    async (request, reply) => {
+      const scope = await resolveSdkDeliveryScope(options.repository, request, reply);
+      if (!scope) return;
+      const params = request.params as SdkDocumentPathParams;
+      if (!requireSdkDeliveryPathScope(scope, params, reply)) return;
+      const { documentId } = params;
+      const deployment = await options.repository.getDocumentDeployment(
+        scope.workspaceId,
+        scope.environmentId,
+        documentId,
+      );
+      if (!deployment) {
+        return reply.code(404).send({
+          error: 'manifest_not_found',
+          message: 'No document deployment exists for this environment',
+        });
+      }
+
+      const manifest =
+        deployment.state === 'active'
+          ? await createActiveManifestPointer(
+              options.repository,
+              options.publicApiBaseUrl,
+              deployment,
+            )
+          : {
+              schemaVersion: '2' as const,
+              workspaceId: deployment.workspaceId,
+              environmentId: deployment.environmentId,
+              documentId: deployment.documentId,
+              state: 'inactive' as const,
+              generation: deployment.generation,
+              deactivatedAt: deployment.updatedAt,
+            };
+      if (!manifest) {
+        return reply.code(409).send({
+          error: 'deployment_publication_missing',
+          message: 'The active deployment does not resolve to an immutable publication',
+        });
+      }
+
+      const body = canonicalJson(manifest);
+      const etag = createJsonEtag(body);
+      setManifestResponseHeaders(reply, etag);
+      if (requestMatchesEtag(request, etag)) return reply.code(304).send();
+      return reply.type('application/json; charset=utf-8').send(body);
+    },
+  );
+
+  fastify.get(
+    SDK_DOCUMENT_ARTIFACT_PATH,
+    { schema: { params: SdkDocumentArtifactParams } },
+    async (request, reply) => {
+      const scope = await resolveSdkDeliveryScope(options.repository, request, reply);
+      if (!scope) return;
+      const params = request.params as SdkDocumentArtifactPathParams;
+      if (!requireSdkDeliveryPathScope(scope, params, reply)) return;
+      const { documentId, contentHash } = params;
+      const publication = (
+        await options.repository.listDocumentPublications(scope.workspaceId, documentId)
+      ).find(
+        (candidate) =>
+          candidate.environmentId === scope.environmentId && candidate.contentHash === contentHash,
+      );
+      if (!publication) {
+        return reply.code(404).send({
+          error: 'artifact_not_found',
+          message:
+            'The requested immutable document artifact was not published to this environment',
+        });
+      }
+
+      const body = canonicalJson(publication.artifact.compiled);
+      const etag = `"${contentHash}"`;
+      setImmutableArtifactResponseHeaders(reply, etag);
+      if (requestMatchesEtag(request, etag)) return reply.code(304).send();
+      return reply.type('application/json; charset=utf-8').send(body);
+    },
+  );
+
+  fastify.get(
+    SDK_DOCUMENT_PATH,
+    { schema: { params: SdkDocumentParams } },
+    async (request, reply) => {
+      const scope = await resolveSdkDeliveryScope(options.repository, request, reply);
+      if (!scope) return;
+      const params = request.params as SdkDocumentPathParams;
+      if (!requireSdkDeliveryPathScope(scope, params, reply)) return;
+      const { documentId } = params;
+      const publication = await options.repository.getCurrentPublicationForDocument(
+        scope.workspaceId,
+        scope.environmentId,
+        documentId,
+      );
+      if (!publication) {
+        return reply.code(404).send({
+          error: 'artifact_not_found',
+          message: 'No active artifact exists for this document in this environment',
+        });
+      }
+
+      const body = canonicalJson(publication.artifact.compiled);
+      const etag = `"${publication.contentHash}"`;
+      setManifestResponseHeaders(reply, etag);
+      if (requestMatchesEtag(request, etag)) return reply.code(304).send();
+      return reply.type('application/json; charset=utf-8').send(body);
+    },
+  );
+
   fastify.post('/v1/sdk/events', { schema: { body: IngestEventsBody } }, async (request, reply) => {
+    if (readHeader(request, PUBLIC_SDK_INSTALLATION_HEADER)) {
+      const resolved = await resolvePublicSdkRequest(options.repository, request, reply);
+      if (!resolved) return;
+      const body = request.body as { events: AnalyticsEvent[] };
+      const accepted = await options.repository.ingestEvents({
+        workspaceId: resolved.installation.workspaceId,
+        events: sanitizeAnalyticsEvents(body.events),
+      });
+      return reply.code(202).send({ accepted });
+    }
+
     const token = await authenticateEnvironmentToken(options.repository, request, reply);
     if (!token) return;
     if (!requireSdkOrigin(token, request, reply)) return;
@@ -211,29 +1042,48 @@ export function registerControlPlaneRoutes(
     return reply.code(202).send({ accepted });
   });
 
-  fastify.get('/v1/sdk/authoring/document', async (request, reply) => {
-    const token = await authenticateEnvironmentToken(options.repository, request, reply);
-    if (!token) return;
-    if (!requireSdkOrigin(token, request, reply)) return;
+  fastify.get(
+    '/v1/sdk/authoring/document',
+    {
+      schema: {
+        response: {
+          200: AuthoringDocumentPayload,
+          401: ApiErrorResponse,
+          403: ApiErrorResponse,
+          404: ApiErrorResponse,
+          409: ApiErrorResponse,
+        },
+      },
+    },
+    async (request, reply) => {
+      const token = await authenticateEnvironmentToken(options.repository, request, reply);
+      if (!token) return;
+      if (!requireDirectSdkAuthoringOrigin(token, request, reply)) return;
 
-    const authoringSession = await authenticateAuthoringSessionForToken(
-      options.repository,
-      token,
-      request,
-      reply,
-    );
-    if (!authoringSession) return;
+      const authoringSession = await authenticateAuthoringSessionForToken(
+        options.repository,
+        token,
+        request,
+        reply,
+      );
+      if (!authoringSession) return;
+      setCredentialResponseHeaders(reply);
 
-    const record = await options.repository.getDocument(
-      token.workspaceId,
-      authoringSession.documentId,
-    );
-    if (!record) {
-      return reply.code(404).send({ error: 'not_found', message: 'Document not found' });
-    }
+      const record = await options.repository.getDocument(
+        token.workspaceId,
+        authoringSession.documentId,
+      );
+      if (!record) {
+        return reply.code(404).send({ error: 'not_found', message: 'Document not found' });
+      }
+      const theme = await resolveDocumentTheme(options.repository, record.document);
+      if (!authoringSessionThemeMatches(authoringSession, theme)) {
+        return sendAuthoringSessionCompatibilityChanged(reply);
+      }
 
-    return { document: record.document };
-  });
+      return validateAuthoringDocumentPayload({ document: record.document, theme });
+    },
+  );
 
   fastify.post(
     '/v1/sdk/authoring/document',
@@ -241,7 +1091,16 @@ export function registerControlPlaneRoutes(
     async (request, reply) => {
       const token = await authenticateEnvironmentToken(options.repository, request, reply);
       if (!token) return;
-      if (!requireSdkOrigin(token, request, reply)) return;
+      if (!requireDirectSdkAuthoringOrigin(token, request, reply)) return;
+
+      const authoringSession = await authenticateAuthoringSessionForToken(
+        options.repository,
+        token,
+        request,
+        reply,
+      );
+      if (!authoringSession) return;
+      setCredentialResponseHeaders(reply);
 
       const body = request.body as { document: unknown };
       const canonical = validate(LodariqDocument, body.document);
@@ -261,23 +1120,19 @@ export function registerControlPlaneRoutes(
         });
       }
 
-      const authoringSession = await authenticateAuthoringSession(
-        options.repository,
-        token,
-        { documentId: document.id },
-        request,
-        reply,
-      );
-      if (authoringSession === false) return;
-      if (!authoringSession) {
-        return reply.code(401).send({
-          error: 'authoring_session_required',
-          message: 'A valid authoring session is required to save from the SDK',
+      if (document.id !== authoringSession.documentId) {
+        return reply.code(403).send({
+          error: 'authoring_session_mismatch',
+          message: 'Authoring session does not match the document being saved',
         });
       }
 
-      const compiled = await compileAndValidate(document);
-      options.observability.emit(
+      const compiled = await compileAndValidate(options.repository, document);
+      if (!authoringSessionArtifactMatches(authoringSession, compiled)) {
+        return sendAuthoringSessionCompatibilityChanged(reply);
+      }
+      emitObservability(
+        options.observability,
         createObservabilityEvent({
           name: 'compile.completed',
           correlationId: authoringSession.correlationId,
@@ -294,7 +1149,8 @@ export function registerControlPlaneRoutes(
         document,
         artifact: compiled,
       });
-      options.observability.emit(
+      emitObservability(
+        options.observability,
         createObservabilityEvent({
           name: 'authoring.save.completed',
           correlationId: authoringSession.correlationId,
@@ -326,6 +1182,190 @@ export function registerControlPlaneRoutes(
     },
   );
 
+  fastify.get(
+    '/v1/sdk/authoring/release-state',
+    { schema: { response: { 200: AuthoringStagingReleaseState } } },
+    async (request, reply) => {
+      const token = await authenticateEnvironmentToken(options.repository, request, reply);
+      if (!token) return;
+      if (!requireDirectSdkAuthoringOrigin(token, request, reply)) return;
+
+      const session = await authenticateAuthoringSessionForToken(
+        options.repository,
+        token,
+        request,
+        reply,
+      );
+      if (!session) return;
+      if (!(await requireDirectSdkReleaseStateCapability(options.repository, session, reply))) {
+        return;
+      }
+
+      setCredentialResponseHeaders(reply);
+      return handleAuthoringReleaseState(options, session, reply, 'direct-sdk');
+    },
+  );
+
+  fastify.post(
+    '/v1/sdk/authoring/publications',
+    {
+      schema: {
+        body: CreateAuthoringStagingPublicationBody,
+        response: {
+          200: AuthoringStagingPublicationResult,
+          201: AuthoringStagingPublicationResult,
+        },
+      },
+    },
+    async (request, reply) => {
+      const token = await authenticateEnvironmentToken(options.repository, request, reply);
+      if (!token) return;
+      if (!requireDirectSdkAuthoringOrigin(token, request, reply)) return;
+
+      const session = await authenticateAuthoringSessionForToken(
+        options.repository,
+        token,
+        request,
+        reply,
+      );
+      if (!session) return;
+      if (
+        !(await requireDirectSdkStagingPublicationCapability(options.repository, session, reply))
+      ) {
+        return;
+      }
+
+      setCredentialResponseHeaders(reply);
+      return handleAuthoringStagingPublication(options, session, request, reply, 'direct-sdk');
+    },
+  );
+
+  fastify.post(
+    '/v1/sdk/authoring/style-sources',
+    { schema: { body: CreateAuthoringStyleSourceBody } },
+    async (request, reply) => {
+      const scoped = await authenticateDirectAuthoringOperation(
+        options.repository,
+        request,
+        reply,
+        AUTHORING_SESSION_CAPABILITIES.SAMPLE_PRODUCT_STYLE,
+        'sample-product-style',
+      );
+      if (!scoped) return;
+      setCredentialResponseHeaders(reply);
+      return handleAuthoringStyleSource(
+        options.repository,
+        scoped.session,
+        (request.body as { proposal: ProductStyleProposalType }).proposal,
+        reply,
+      );
+    },
+  );
+
+  fastify.post(
+    '/v1/sdk/authoring/verifications',
+    {
+      schema: {
+        body: AuthoringStagingVerificationRequest,
+        response: {
+          201: AuthoringStagingVerificationHttpSuccess,
+          403: AuthoringStagingVerificationHttpError,
+        },
+      },
+    },
+    async (request, reply) => {
+      const scoped = await authenticateDirectAuthoringOperation(
+        options.repository,
+        request,
+        reply,
+        AUTHORING_SESSION_CAPABILITIES.VERIFY_STAGING,
+        'verify-staging',
+      );
+      if (!scoped) return;
+      const verifiedOrigin = parseExactBrowserOrigin(request.headers.origin);
+      if (!verifiedOrigin || !scoped.token.originAllowlist.includes(verifiedOrigin)) {
+        return reply.code(403).send({
+          ok: false,
+          code: 'origin_mismatch',
+          message: 'Verification must run on the exact allowlisted staging Origin',
+        } satisfies AuthoringStagingVerificationResultType);
+      }
+      setCredentialResponseHeaders(reply);
+      return createAuthoringPublicationVerification(
+        options.repository,
+        scoped.session,
+        request.body as AuthoringStagingVerificationRequestType,
+        verifiedOrigin,
+        reply,
+      );
+    },
+  );
+
+  fastify.post(
+    '/v1/sdk/authoring/promotions',
+    {
+      schema: {
+        body: ProductionPromotionRequest,
+        response: {
+          200: ProductionPromotionResult,
+          201: ProductionPromotionResult,
+          202: ProductionPromotionResult,
+        },
+      },
+    },
+    async (request, reply) => {
+      const scoped = await authenticateDirectAuthoringOperation(
+        options.repository,
+        request,
+        reply,
+        AUTHORING_SESSION_CAPABILITIES.PROMOTE_PRODUCTION,
+        'promote-production',
+      );
+      if (!scoped) return;
+      setCredentialResponseHeaders(reply);
+      return handleProductionPromotion(
+        options,
+        {
+          workspaceId: scoped.session.workspaceId,
+          documentId: scoped.session.documentId,
+          actorUserId: scoped.session.createdByUserId,
+          request: request.body as ProductionPromotionRequestType,
+        },
+        reply,
+      );
+    },
+  );
+
+  fastify.post(
+    '/v1/sdk/authoring/release-operations/:operationId/approvals',
+    { schema: { params: ReleaseOperationParams, body: CreateReleaseApprovalBody } },
+    async (request, reply) => {
+      const scoped = await authenticateDirectAuthoringOperation(
+        options.repository,
+        request,
+        reply,
+        AUTHORING_SESSION_CAPABILITIES.APPROVE_PRODUCTION,
+        'approve-production',
+      );
+      if (!scoped) return;
+      const { operationId } = request.params as { operationId: string };
+      const body = request.body as { decision: 'approved' | 'rejected'; reason?: string };
+      setCredentialResponseHeaders(reply);
+      return handleReleaseApproval(
+        options,
+        {
+          workspaceId: scoped.session.workspaceId,
+          documentId: scoped.session.documentId,
+          operationId,
+          actorUserId: scoped.session.createdByUserId,
+          decision: body.decision,
+          reason: body.reason,
+        },
+        reply,
+      );
+    },
+  );
+
   fastify.get('/v1/documents', async (request, reply) => {
     const auth = await authenticate(options.repository, options.authProvider, request, reply);
     if (!auth) return;
@@ -348,6 +1388,62 @@ export function registerControlPlaneRoutes(
     },
   );
 
+  fastify.post(
+    '/v1/documents/:documentId/theme-binding',
+    { schema: { params: DocumentParams, body: SetDocumentThemeBindingBody } },
+    async (request, reply) => {
+      const auth = await authenticate(options.repository, options.authProvider, request, reply);
+      if (!auth) return;
+      if (!requireRole(auth, 'member', reply)) return;
+      const { documentId } = request.params as { documentId: string };
+      const { binding } = request.body as { binding: ThemeBindingType };
+      const [record, theme] = await Promise.all([
+        options.repository.getDocument(auth.workspaceId, documentId),
+        options.repository.getWorkspaceTheme(auth.workspaceId, binding.themeId),
+      ]);
+      if (!record) {
+        return reply.code(404).send({ error: 'not_found', message: 'Document not found' });
+      }
+      if (!theme) {
+        return reply.code(404).send({ error: 'not_found', message: 'Brand theme not found' });
+      }
+      const versionId =
+        binding.policy === 'pinned' ? binding.themeVersionId : binding.acknowledgedThemeVersionId;
+      const versions = await options.repository.listWorkspaceThemeVersions(
+        auth.workspaceId,
+        binding.themeId,
+      );
+      if (!versions.some((version) => version.id === versionId)) {
+        return reply.code(409).send({
+          error: 'theme_version_unavailable',
+          message: 'Choose an approved Brand theme version',
+        });
+      }
+      if (
+        binding.policy === 'workspace-current' &&
+        theme.activeVersionId !== binding.acknowledgedThemeVersionId
+      ) {
+        return reply.code(409).send({
+          error: 'theme_version_changed',
+          message: 'Reload Brand impact before acknowledging the current approved version',
+          activeThemeVersionId: theme.activeVersionId,
+        });
+      }
+
+      const document = structuredClone(record.document);
+      delete document.themeRef;
+      document.themeBinding = binding;
+      const compiled = await compileAndValidate(options.repository, document);
+      const saved = await options.repository.saveDocument({
+        workspaceId: auth.workspaceId,
+        actorUserId: auth.userId,
+        document,
+        artifact: compiled,
+      });
+      return { document: saved.document, latestArtifact: saved.latestArtifact ?? null };
+    },
+  );
+
   fastify.post('/v1/documents', { schema: { body: Type.Unknown() } }, async (request, reply) => {
     const auth = await authenticate(options.repository, options.authProvider, request, reply);
     if (!auth) return;
@@ -360,17 +1456,22 @@ export function registerControlPlaneRoutes(
         issues: canonical.errors,
       });
     }
-    const document = canonical.value;
+    let document = canonical.value;
     if (document.workspaceId !== auth.workspaceId) {
       return reply.code(403).send({
         error: 'workspace_mismatch',
         message: 'Document workspaceId must match the authenticated workspace',
       });
     }
+    const existing = await options.repository.getDocument(auth.workspaceId, document.id);
+    if (!existing && !document.themeBinding && !document.themeRef) {
+      document = await bindNewDocumentToDefaultTheme(options.repository, document);
+    }
 
     const compileCorrelationId = createCorrelationId('compile');
-    const compiled = await compileAndValidate(document);
-    options.observability.emit(
+    const compiled = await compileAndValidate(options.repository, document);
+    emitObservability(
+      options.observability,
       createObservabilityEvent({
         name: 'compile.completed',
         correlationId: compileCorrelationId,
@@ -403,8 +1504,9 @@ export function registerControlPlaneRoutes(
         return reply.code(404).send({ error: 'not_found', message: 'Document not found' });
 
       const compileCorrelationId = createCorrelationId('compile');
-      const compiled = await compileAndValidate(record.document);
-      options.observability.emit(
+      const compiled = await compileAndValidate(options.repository, record.document);
+      emitObservability(
+        options.observability,
         createObservabilityEvent({
           name: 'compile.completed',
           correlationId: compileCorrelationId,
@@ -427,53 +1529,344 @@ export function registerControlPlaneRoutes(
 
   fastify.post(
     '/v1/documents/:documentId/publish',
-    { schema: { params: DocumentParams, body: PublishDocumentBody } },
+    { schema: { params: DocumentParams } },
     async (request, reply) => {
       const auth = await authenticate(options.repository, options.authProvider, request, reply);
       if (!auth) return;
       if (!requireRole(auth, 'member', reply)) return;
       const { documentId } = request.params as { documentId: string };
-      const body = request.body as { environmentId: string };
+      const document = await options.repository.getDocument(auth.workspaceId, documentId);
+      if (!document) {
+        return reply.code(404).send({ error: 'not_found', message: 'Document not found' });
+      }
+      return reply.code(409).send({
+        error: DOCUMENT_RELEASE_MIGRATION_REQUIRED_ERROR,
+        message:
+          'Legacy direct publishing is disabled; review an immutable artifact and use the document-scoped release API',
+      });
+    },
+  );
+
+  fastify.post(
+    '/v1/documents/:documentId/publications',
+    { schema: { params: DocumentParams, body: CreateStagingPublicationBody } },
+    async (request, reply) => {
+      const auth = await authenticate(options.repository, options.authProvider, request, reply);
+      if (!auth) return;
+      if (!requireReleaseCapability(auth, 'publish-staging', reply)) return;
+
+      const idempotencyKey = readHeader(request, IDEMPOTENCY_KEY_HEADER);
+      if (!idempotencyKey || !IDEMPOTENCY_KEY_PATTERN.test(idempotencyKey)) {
+        return reply.code(400).send({
+          error: 'invalid_idempotency_key',
+          message: 'A valid Idempotency-Key header is required for staging publication',
+        });
+      }
+      const correlationId = readHeader(request, RELEASE_CORRELATION_ID_HEADER);
+      if (!correlationId || !RELEASE_CORRELATION_ID_PATTERN.test(correlationId)) {
+        return reply.code(400).send({
+          error: 'invalid_correlation_id',
+          message: `A valid ${RELEASE_CORRELATION_ID_HEADER} header is required`,
+        });
+      }
+
+      const { documentId } = request.params as { documentId: string };
+      const body = request.body as {
+        environmentId: string;
+        expectedGeneration: number;
+        expectedArtifactId: string;
+        expectedContentHash: string;
+      };
       const [record, environment] = await Promise.all([
         options.repository.getDocument(auth.workspaceId, documentId),
         findEnvironment(options.repository, auth.workspaceId, body.environmentId),
       ]);
-      if (!record)
+      if (!record) {
         return reply.code(404).send({ error: 'not_found', message: 'Document not found' });
-      if (!environment)
+      }
+      if (!environment) {
         return reply.code(404).send({ error: 'not_found', message: 'Environment not found' });
-
-      const publishIssues = validateTourPublishReadiness(record.document);
-      if (publishIssues.length) {
+      }
+      if (environment.kind !== 'staging') {
         return reply.code(409).send({
-          error: 'publish_blocked',
-          message: publishIssues[0]?.message ?? 'Document is not ready to publish',
-          issues: publishIssues.map(toPublishReadinessIssueResponse),
+          error: 'staging_environment_required',
+          message: 'This Phase 2 publication path accepts the configured staging environment only',
         });
       }
 
-      const artifact = await ensureCurrentCompiledArtifact(options.repository, auth, record);
-      const publishCorrelationId = createCorrelationId('publish');
-      const publication = await options.repository.publishCompiledArtifact({
+      const requestHash = await createStagingPublicationRequestHash({
         workspaceId: auth.workspaceId,
-        correlationId: publishCorrelationId,
+        documentId,
         environmentId: environment.id,
-        artifact,
-        actorUserId: auth.userId,
+        artifactId: body.expectedArtifactId,
+        contentHash: body.expectedContentHash,
+        expectedGeneration: body.expectedGeneration,
       });
-      options.observability.emit(
-        createObservabilityEvent({
-          name: 'publish.completed',
-          correlationId: publishCorrelationId,
+      const existingOperation = await options.repository.getReleaseOperation(
+        auth.workspaceId,
+        environment.id,
+        documentId,
+        idempotencyKey,
+      );
+      let artifact: PersistedCompiledArtifact;
+      let visualCheck: VisualCheckRunRecord | null;
+      if (existingOperation) {
+        const existingArtifact = await options.repository.getCompiledArtifact(
+          auth.workspaceId,
+          documentId,
+          existingOperation.requestedArtifactId,
+        );
+        if (!existingArtifact) {
+          throw new Error('release operation references an unavailable compiled artifact');
+        }
+        artifact = existingArtifact;
+        visualCheck = await findVisualCheckForArtifact(
+          options.repository,
+          auth.workspaceId,
+          documentId,
+          environment.id,
+          artifact,
+        );
+      } else {
+        const reviewed = await loadReviewedReleaseArtifact(
+          options.repository,
+          auth.workspaceId,
+          documentId,
+          body.expectedArtifactId,
+          body.expectedContentHash,
+        );
+        if (!reviewed) {
+          return reply.code(409).send({
+            error: 'reviewed_artifact_unavailable',
+            message:
+              'The reviewed artifact changed or is no longer available; review staging again',
+          });
+        }
+        const publishIssues = validateTourPublishReadiness(reviewed.document);
+        if (publishIssues.length) {
+          return reply.code(409).send({
+            error: 'publish_blocked',
+            message: publishIssues[0]?.message ?? 'Document is not ready to publish',
+            issues: publishIssues.map(toPublishReadinessIssueResponse),
+          });
+        }
+        if (hasLegacyThemeReference(reviewed.document)) {
+          return reply.code(409).send({
+            error: 'theme_migration_required',
+            message: 'Choose an approved Brand theme before publishing this legacy draft',
+          });
+        }
+        const themeReview = await getThemeReleaseReview(options.repository, reviewed.document);
+        if (themeReview) {
+          return reply.code(409).send({
+            error: 'theme_review_required',
+            message: 'Review the latest approved Brand theme before publishing this draft',
+            ...themeReview,
+          });
+        }
+        artifact = reviewed.artifact;
+        visualCheck = await runAndPersistVisualPreflight({
+          repository: options.repository,
           workspaceId: auth.workspaceId,
           documentId,
           environmentId: environment.id,
-          userId: auth.userId,
-          attributes: { contentHash: publication.contentHash },
-        }),
-      );
+          artifact,
+          actorUserId: auth.userId,
+        });
+        if (visualCheck.status === 'blocked') {
+          return reply.code(409).send({
+            error: 'visual_preflight_blocked',
+            message: 'Brand and layout preflight found issues that must be fixed before staging',
+            visualCheck,
+          });
+        }
+      }
 
-      return reply.code(201).send({ publication: toPublicationResponse(publication) });
+      try {
+        const result = await options.repository.activateCompiledArtifact({
+          workspaceId: auth.workspaceId,
+          environmentId: environment.id,
+          correlationId,
+          artifact,
+          actorUserId: auth.userId,
+          idempotencyKey,
+          requestHash,
+          expectedGeneration: body.expectedGeneration,
+        });
+        emitObservability(
+          options.observability,
+          createObservabilityEvent({
+            name: result.replayed ? 'publish.replayed' : 'publish.completed',
+            correlationId,
+            workspaceId: auth.workspaceId,
+            documentId,
+            environmentId: environment.id,
+            userId: auth.userId,
+            attributes: {
+              contentHash: result.publication.contentHash,
+              generation: result.deployment.generation,
+            },
+          }),
+        );
+        return reply.code(result.replayed ? 200 : 201).send({
+          replayed: result.replayed,
+          operation: result.operation,
+          deployment: result.deployment,
+          publication: toPublicationResponse(result.publication),
+          visualCheck,
+        });
+      } catch (error) {
+        if (error instanceof IdempotencyConflictError) {
+          return reply.code(409).send({ error: error.code, message: error.message });
+        }
+        if (error instanceof DeploymentChangedError) {
+          return reply.code(409).send({
+            error: error.code,
+            message: error.message,
+            expectedGeneration: error.expectedGeneration,
+            actualGeneration: error.actualGeneration,
+          });
+        }
+        if (error instanceof ReleaseOperationInProgressError) {
+          return reply.code(409).send({ error: error.code, message: error.message });
+        }
+        throw error;
+      }
+    },
+  );
+
+  fastify.post(
+    '/v1/publications/:publicationId/verifications',
+    { schema: { params: PublicationParams, body: CreateDashboardPublicationVerificationBody } },
+    async (request, reply) => {
+      const auth = await authenticate(options.repository, options.authProvider, request, reply);
+      if (!auth) return;
+      if (!requireReleaseCapability(auth, 'verify-staging', reply)) return;
+      const { publicationId } = request.params as { publicationId: string };
+      const body = request.body as {
+        environmentId: string;
+        report: AuthoringStagingVerificationRequestType['report'];
+      };
+      const environment = await findEnvironment(
+        options.repository,
+        auth.workspaceId,
+        body.environmentId,
+      );
+      if (!environment) {
+        return reply.code(404).send({ error: 'not_found', message: 'Environment not found' });
+      }
+      const verifiedOrigin = requireVerificationOrigin(environment, request, reply);
+      if (!verifiedOrigin) return;
+      return createExactPublicationVerification(
+        options.repository,
+        {
+          workspaceId: auth.workspaceId,
+          environmentId: environment.id,
+          publicationId,
+          report: body.report,
+          verifiedOrigin,
+          actorUserId: auth.userId,
+        },
+        reply,
+      );
+    },
+  );
+
+  fastify.post(
+    '/v1/documents/:documentId/promotions',
+    { schema: { params: DocumentParams, body: ProductionPromotionRequest } },
+    async (request, reply) => {
+      const auth = await authenticate(options.repository, options.authProvider, request, reply);
+      if (!auth) return;
+      if (!requireReleaseCapability(auth, 'promote-production', reply)) return;
+      const { documentId } = request.params as { documentId: string };
+      return handleProductionPromotion(
+        options,
+        {
+          workspaceId: auth.workspaceId,
+          documentId,
+          actorUserId: auth.userId,
+          request: request.body as ProductionPromotionRequestType,
+        },
+        reply,
+      );
+    },
+  );
+
+  fastify.post(
+    '/v1/release-operations/:operationId/approvals',
+    { schema: { params: ReleaseOperationParams, body: CreateReleaseApprovalBody } },
+    async (request, reply) => {
+      const auth = await authenticate(options.repository, options.authProvider, request, reply);
+      if (!auth) return;
+      if (!requireReleaseCapability(auth, 'approve-production', reply)) return;
+      const { operationId } = request.params as { operationId: string };
+      const body = request.body as { decision: 'approved' | 'rejected'; reason?: string };
+      return handleReleaseApproval(
+        options,
+        {
+          workspaceId: auth.workspaceId,
+          operationId,
+          actorUserId: auth.userId,
+          decision: body.decision,
+          reason: body.reason,
+        },
+        reply,
+      );
+    },
+  );
+
+  fastify.get(
+    '/v1/documents/:documentId/deployments',
+    { schema: { params: DocumentParams } },
+    async (request, reply) => {
+      const auth = await authenticate(options.repository, options.authProvider, request, reply);
+      if (!auth) return;
+      const { documentId } = request.params as { documentId: string };
+      const document = await options.repository.getDocument(auth.workspaceId, documentId);
+      if (!document) {
+        return reply.code(404).send({ error: 'not_found', message: 'Document not found' });
+      }
+      const deployments = await options.repository.listDocumentDeployments(auth.workspaceId);
+      return {
+        deployments: deployments.filter((deployment) => deployment.documentId === documentId),
+      };
+    },
+  );
+
+  fastify.get(
+    '/v1/documents/:documentId/publications',
+    { schema: { params: DocumentParams } },
+    async (request, reply) => {
+      const auth = await authenticate(options.repository, options.authProvider, request, reply);
+      if (!auth) return;
+      const { documentId } = request.params as { documentId: string };
+      const document = await options.repository.getDocument(auth.workspaceId, documentId);
+      if (!document) {
+        return reply.code(404).send({ error: 'not_found', message: 'Document not found' });
+      }
+      const publications = await options.repository.listDocumentPublications(
+        auth.workspaceId,
+        documentId,
+      );
+      return { publications: publications.map(toPublicationResponse) };
+    },
+  );
+
+  fastify.get(
+    '/v1/documents/:documentId/visual-checks',
+    { schema: { params: DocumentParams } },
+    async (request, reply) => {
+      const auth = await authenticate(options.repository, options.authProvider, request, reply);
+      if (!auth) return;
+      const { documentId } = request.params as { documentId: string };
+      const document = await options.repository.getDocument(auth.workspaceId, documentId);
+      if (!document) {
+        return reply.code(404).send({ error: 'not_found', message: 'Document not found' });
+      }
+      return {
+        visualChecks: await options.repository.listVisualCheckRuns(auth.workspaceId, documentId),
+      };
     },
   );
 
@@ -500,11 +1893,458 @@ export function registerControlPlaneRoutes(
     },
   );
 
+  fastify.get('/v1/themes', async (request, reply) => {
+    const auth = await authenticate(options.repository, options.authProvider, request, reply);
+    if (!auth) return;
+    const [themes, sources] = await Promise.all([
+      options.repository.listWorkspaceThemes(auth.workspaceId),
+      options.repository.listStyleSources(auth.workspaceId),
+    ]);
+    return {
+      themes: themes.map((theme) =>
+        withLatestStyleSource(theme, sources.find((source) => source.themeId === theme.id) ?? null),
+      ),
+    };
+  });
+
+  fastify.post(
+    '/v1/themes',
+    { schema: { body: CreateWorkspaceThemeBody } },
+    async (request, reply) => {
+      const auth = await authenticate(options.repository, options.authProvider, request, reply);
+      if (!auth) return;
+      if (!requireRole(auth, 'member', reply)) return;
+      const body = request.body as {
+        name: string;
+        draft: BrandThemeDefinitionType;
+      };
+      const theme = await options.repository.createWorkspaceTheme({
+        workspaceId: auth.workspaceId,
+        name: body.name,
+        draft: body.draft,
+        actorUserId: auth.userId,
+      });
+      return reply.code(201).send({ theme });
+    },
+  );
+
+  fastify.get(
+    '/v1/themes/:themeId',
+    { schema: { params: ThemeParams } },
+    async (request, reply) => {
+      const auth = await authenticate(options.repository, options.authProvider, request, reply);
+      if (!auth) return;
+      const { themeId } = request.params as { themeId: string };
+      const theme = await options.repository.getWorkspaceTheme(auth.workspaceId, themeId);
+      if (!theme) {
+        return reply.code(404).send({ error: 'not_found', message: 'Brand theme not found' });
+      }
+      const [versions, impact] = await Promise.all([
+        options.repository.listWorkspaceThemeVersions(auth.workspaceId, themeId),
+        options.repository.listWorkspaceThemeImpact(auth.workspaceId, themeId),
+      ]);
+      const [latestStyleSource] = await options.repository.listStyleSources(
+        auth.workspaceId,
+        themeId,
+      );
+      return {
+        theme: withLatestStyleSource(theme, latestStyleSource ?? null),
+        versions,
+        impact,
+      };
+    },
+  );
+
+  fastify.get(
+    '/v1/themes/:themeId/style-sources',
+    { schema: { params: ThemeParams } },
+    async (request, reply) => {
+      const auth = await authenticate(options.repository, options.authProvider, request, reply);
+      if (!auth) return;
+      const { themeId } = request.params as { themeId: string };
+      const theme = await options.repository.getWorkspaceTheme(auth.workspaceId, themeId);
+      if (!theme) {
+        return reply.code(404).send({ error: 'not_found', message: 'Brand theme not found' });
+      }
+      return { sources: await options.repository.listStyleSources(auth.workspaceId, themeId) };
+    },
+  );
+
+  fastify.post(
+    '/v1/themes/:themeId/style-sources',
+    { schema: { params: ThemeParams, body: CreateDashboardStyleSourceBody } },
+    async (request, reply) => {
+      const auth = await authenticate(options.repository, options.authProvider, request, reply);
+      if (!auth) return;
+      if (!requireReleaseCapability(auth, 'sample-product-style', reply)) return;
+      const { themeId } = request.params as { themeId: string };
+      const body = request.body as {
+        environmentId: string;
+        proposal: ProductStyleProposalType;
+      };
+      const environment = await findEnvironment(
+        options.repository,
+        auth.workspaceId,
+        body.environmentId,
+      );
+      if (!environment) {
+        return reply.code(404).send({ error: 'not_found', message: 'Environment not found' });
+      }
+      if (environment.kind === 'production') {
+        return reply.code(409).send({
+          error: 'authoring_environment_required',
+          message: 'Product styles can be sampled only from development or staging',
+        });
+      }
+      const theme = await options.repository.getWorkspaceTheme(auth.workspaceId, themeId);
+      if (!theme) {
+        return reply.code(404).send({ error: 'not_found', message: 'Brand theme not found' });
+      }
+      try {
+        const applied = await applyProductStyleProposal({
+          repository: options.repository,
+          workspaceId: auth.workspaceId,
+          environmentId: environment.id,
+          theme,
+          proposal: body.proposal,
+          actorUserId: auth.userId,
+        });
+        return reply.code(201).send(applied);
+      } catch (error) {
+        return sendWorkspaceThemeMutationError(error, reply);
+      }
+    },
+  );
+
+  fastify.patch(
+    '/v1/themes/:themeId',
+    { schema: { params: ThemeParams, body: UpdateWorkspaceThemeBody } },
+    async (request, reply) => {
+      const auth = await authenticate(options.repository, options.authProvider, request, reply);
+      if (!auth) return;
+      if (!requireRole(auth, 'member', reply)) return;
+      const { themeId } = request.params as { themeId: string };
+      const body = request.body as {
+        name?: string;
+        draft: BrandThemeDefinitionType;
+        expectedRevision: number;
+        expectedUpdatedAt: string;
+      };
+      try {
+        const theme = await options.repository.updateWorkspaceThemeDraft({
+          workspaceId: auth.workspaceId,
+          themeId,
+          draft: body.draft,
+          expectedRevision: body.expectedRevision,
+          expectedUpdatedAt: body.expectedUpdatedAt,
+          actorUserId: auth.userId,
+          ...(body.name === undefined ? {} : { name: body.name }),
+        });
+        return theme
+          ? { theme }
+          : reply.code(404).send({ error: 'not_found', message: 'Brand theme not found' });
+      } catch (error) {
+        return sendWorkspaceThemeMutationError(error, reply);
+      }
+    },
+  );
+
+  fastify.post(
+    '/v1/themes/:themeId/approve',
+    { schema: { params: ThemeParams, body: WorkspaceThemeMutationGuardBody } },
+    async (request, reply) => {
+      const auth = await authenticate(options.repository, options.authProvider, request, reply);
+      if (!auth) return;
+      if (!requireRole(auth, 'admin', reply)) return;
+      const { themeId } = request.params as { themeId: string };
+      const body = request.body as { expectedRevision: number; expectedUpdatedAt: string };
+      try {
+        const approved = await options.repository.approveWorkspaceTheme({
+          workspaceId: auth.workspaceId,
+          themeId,
+          expectedRevision: body.expectedRevision,
+          expectedUpdatedAt: body.expectedUpdatedAt,
+          actorUserId: auth.userId,
+        });
+        return approved
+          ? { theme: approved.theme, approvedVersion: approved.approvedVersion }
+          : reply.code(404).send({ error: 'not_found', message: 'Brand theme not found' });
+      } catch (error) {
+        return sendWorkspaceThemeMutationError(error, reply);
+      }
+    },
+  );
+
+  fastify.post(
+    '/v1/themes/:themeId/default',
+    { schema: { params: ThemeParams, body: WorkspaceThemeMutationGuardBody } },
+    async (request, reply) => {
+      const auth = await authenticate(options.repository, options.authProvider, request, reply);
+      if (!auth) return;
+      if (!requireRole(auth, 'admin', reply)) return;
+      const { themeId } = request.params as { themeId: string };
+      const body = request.body as { expectedRevision: number; expectedUpdatedAt: string };
+      try {
+        const theme = await options.repository.setDefaultWorkspaceTheme({
+          workspaceId: auth.workspaceId,
+          themeId,
+          expectedRevision: body.expectedRevision,
+          expectedUpdatedAt: body.expectedUpdatedAt,
+          actorUserId: auth.userId,
+        });
+        return theme
+          ? { theme }
+          : reply.code(404).send({ error: 'not_found', message: 'Brand theme not found' });
+      } catch (error) {
+        return sendWorkspaceThemeMutationError(error, reply);
+      }
+    },
+  );
+
   fastify.get('/v1/environments', async (request, reply) => {
     const auth = await authenticate(options.repository, options.authProvider, request, reply);
     if (!auth) return;
     return { environments: await options.repository.listEnvironments(auth.workspaceId) };
   });
+
+  fastify.patch(
+    '/v1/environments/:environmentId/release-policy',
+    { schema: { params: EnvironmentParams, body: UpdateEnvironmentReleasePolicyBody } },
+    async (request, reply) => {
+      const auth = await authenticate(options.repository, options.authProvider, request, reply);
+      if (!auth) return;
+      if (!requireReleaseCapability(auth, 'manage-release-policy', reply)) return;
+      const { environmentId } = request.params as { environmentId: string };
+      const body = request.body as { requiredApprovalCount: 0 | 1; expectedUpdatedAt: string };
+      const environment = await findEnvironment(
+        options.repository,
+        auth.workspaceId,
+        environmentId,
+      );
+      if (!environment) {
+        return reply.code(404).send({ error: 'not_found', message: 'Environment not found' });
+      }
+      if (environment.kind !== 'production') {
+        return reply.code(409).send({
+          error: 'production_environment_required',
+          message: 'Release approval policy applies only to production',
+        });
+      }
+      try {
+        const updated = await options.repository.updateEnvironmentReleasePolicy({
+          workspaceId: auth.workspaceId,
+          environmentId,
+          requiredApprovalCount: body.requiredApprovalCount,
+          expectedUpdatedAt: body.expectedUpdatedAt,
+          actorUserId: auth.userId,
+        });
+        return updated
+          ? { environment: updated }
+          : reply.code(404).send({ error: 'not_found', message: 'Environment not found' });
+      } catch (error) {
+        if (error instanceof EnvironmentReleasePolicyChangedError) {
+          return reply.code(409).send({
+            error: error.code,
+            message: error.message,
+            expectedUpdatedAt: error.expectedUpdatedAt,
+            actualUpdatedAt: error.actualUpdatedAt,
+          });
+        }
+        throw error;
+      }
+    },
+  );
+
+  fastify.get(
+    '/v1/sdk-installations',
+    { schema: { response: { 200: ListPublicSdkInstallationsResponse } } },
+    async (request, reply) => {
+      const auth = await authenticate(options.repository, options.authProvider, request, reply);
+      if (!auth) return;
+      if (!requireRole(auth, 'member', reply)) return;
+
+      const installations = await options.repository.listPublicSdkInstallations(auth.workspaceId);
+      return {
+        installations: installations.map((installation) => ({
+          ...installation,
+          sdkSnippet: renderPublicSdkInstallationSnippet({
+            installationId: installation.installationId,
+            loaderSrc: options.publicLoaderSrc,
+          }),
+        })),
+      };
+    },
+  );
+
+  fastify.post(
+    '/v1/sdk-installations',
+    { schema: { body: CreatePublicSdkInstallationBody } },
+    async (request, reply) => {
+      const auth = await authenticate(options.repository, options.authProvider, request, reply);
+      if (!auth) return;
+      if (!requireRole(auth, 'admin', reply)) return;
+
+      const body = request.body as { name: string };
+      const installation = await options.repository.getOrCreatePublicSdkInstallation({
+        workspaceId: auth.workspaceId,
+        installationId: createPublicSdkInstallationId(),
+        name: body.name,
+        actorUserId: auth.userId,
+      });
+
+      return reply.code(201).send({
+        installation,
+        sdkSnippet: renderPublicSdkInstallationSnippet({
+          installationId: installation.installationId,
+          loaderSrc: options.publicLoaderSrc,
+        }),
+      });
+    },
+  );
+
+  fastify.put(
+    '/v1/sdk-installations/:installationId/origins',
+    {
+      schema: {
+        params: PublicSdkInstallationParams,
+        body: ConfigurePublicSdkInstallationOriginBody,
+      },
+    },
+    async (request, reply) => {
+      const auth = await authenticate(options.repository, options.authProvider, request, reply);
+      if (!auth) return;
+      if (!requireRole(auth, 'admin', reply)) return;
+
+      const { installationId } = request.params as { installationId: string };
+      const body = request.body as {
+        environmentId: string;
+        origin: string;
+        authoringEnabled: boolean;
+      };
+      const exactOrigin = parseExactBrowserOrigin(body.origin);
+      if (!exactOrigin) {
+        return reply.code(400).send({
+          error: 'invalid_origin',
+          message: 'Origin must be a canonical HTTP(S) browser origin without a path',
+        });
+      }
+
+      const environment = (await options.repository.listEnvironments(auth.workspaceId)).find(
+        (candidate) => candidate.id === body.environmentId,
+      );
+      if (!environment) {
+        return reply.code(404).send({ error: 'not_found', message: 'Environment not found' });
+      }
+      if (environment.kind === 'production' && !exactOrigin.startsWith('https://')) {
+        return reply.code(400).send({
+          error: 'production_https_required',
+          message: 'Production origins must use HTTPS',
+        });
+      }
+      if (environment.kind === 'production' && body.authoringEnabled) {
+        return reply.code(403).send({
+          error: 'production_authoring_forbidden',
+          message: 'Production origins cannot enable authoring',
+        });
+      }
+
+      try {
+        const mapping = await options.repository.setPublicSdkInstallationOrigin({
+          workspaceId: auth.workspaceId,
+          installationId,
+          environmentId: environment.id,
+          origin: exactOrigin,
+          authoringEnabled: body.authoringEnabled,
+        });
+        return { mapping };
+      } catch (error) {
+        if (
+          error instanceof Error &&
+          error.message === 'active public SDK installation not found in workspace'
+        ) {
+          return reply.code(404).send({ error: 'not_found', message: 'Installation not found' });
+        }
+        throw error;
+      }
+    },
+  );
+
+  fastify.put(
+    '/v1/sdk-installations/:installationId/origins/sync',
+    {
+      schema: {
+        params: PublicSdkInstallationParams,
+        body: SyncPublicSdkInstallationOriginsBody,
+        response: {
+          200: Type.Object(
+            { origins: Type.Array(PublicSdkInstallationOriginResponse) },
+            { additionalProperties: false },
+          ),
+          400: ApiErrorResponse,
+          403: ApiErrorResponse,
+          404: ApiErrorResponse,
+        },
+      },
+    },
+    async (request, reply) => {
+      const auth = await authenticate(options.repository, options.authProvider, request, reply);
+      if (!auth) return;
+      if (!requireRole(auth, 'admin', reply)) return;
+
+      const { installationId } = request.params as { installationId: string };
+      const body = request.body as {
+        origins: Array<{
+          environmentId: string;
+          origin: string;
+          authoringEnabled: boolean;
+        }>;
+      };
+      try {
+        const origins = await options.repository.syncPublicSdkInstallationOrigins({
+          workspaceId: auth.workspaceId,
+          installationId,
+          origins: body.origins,
+        });
+        return { origins };
+      } catch (error) {
+        if (!(error instanceof Error)) throw error;
+        if (error.message === 'active public SDK installation not found in workspace') {
+          return reply.code(404).send({ error: 'not_found', message: 'Installation not found' });
+        }
+        if (error.message === 'authoring cannot be enabled for a production environment') {
+          return reply.code(403).send({
+            error: 'production_authoring_forbidden',
+            message: 'Production origins cannot enable authoring',
+          });
+        }
+        return reply.code(400).send({
+          error: 'invalid_origin_sync',
+          message: error.message,
+        });
+      }
+    },
+  );
+
+  fastify.post(
+    '/v1/sdk-installations/:installationId/revoke',
+    { schema: { params: PublicSdkInstallationParams } },
+    async (request, reply) => {
+      const auth = await authenticate(options.repository, options.authProvider, request, reply);
+      if (!auth) return;
+      if (!requireRole(auth, 'admin', reply)) return;
+
+      const { installationId } = request.params as { installationId: string };
+      const installation = await options.repository.revokePublicSdkInstallation(
+        auth.workspaceId,
+        installationId,
+        auth.userId,
+      );
+      if (!installation) {
+        return reply.code(404).send({ error: 'not_found', message: 'Installation not found' });
+      }
+      return { installation };
+    },
+  );
 
   fastify.get('/v1/environment-tokens', async (request, reply) => {
     const auth = await authenticate(options.repository, options.authProvider, request, reply);
@@ -521,49 +2361,13 @@ export function registerControlPlaneRoutes(
       const auth = await authenticate(options.repository, options.authProvider, request, reply);
       if (!auth) return;
       if (!requireRole(auth, 'member', reply)) return;
-      const body = request.body as {
-        environmentId: string;
-        name: string;
-        authoringDocumentId?: string;
-      };
-      const authoringDocumentId = body.authoringDocumentId;
+      const body = request.body as { environmentId: string; name: string };
       const environment = (await options.repository.listEnvironments(auth.workspaceId)).find(
         (candidate) => candidate.id === body.environmentId,
       );
       if (!environment) {
         return reply.code(404).send({ error: 'not_found', message: 'Environment not found' });
       }
-      if (authoringDocumentId && environment.kind === 'production') {
-        return reply.code(403).send({
-          error: 'production_authoring_forbidden',
-          message: 'Production environments cannot create authoring sessions',
-        });
-      }
-      const authoringDocument = authoringDocumentId
-        ? await options.repository.getDocument(auth.workspaceId, authoringDocumentId)
-        : null;
-      if (authoringDocumentId && !authoringDocument) {
-        return reply.code(404).send({ error: 'not_found', message: 'Document not found' });
-      }
-      const publishIssues = authoringDocument
-        ? validateTourPublishReadiness(authoringDocument.document)
-        : [];
-      if (publishIssues.length) {
-        return reply.code(409).send({
-          error: 'publish_blocked',
-          message: publishIssues[0]?.message ?? 'Document is not ready to publish',
-          issues: publishIssues.map(toPublishReadinessIssueResponse),
-        });
-      }
-      const publication = authoringDocument
-        ? await publishCurrentDocument(
-            options.repository,
-            auth,
-            environment,
-            authoringDocument,
-            options.observability,
-          )
-        : null;
 
       const clientToken = createEnvironmentClientToken(environment.kind);
       const token = await options.repository.createEnvironmentToken({
@@ -576,46 +2380,6 @@ export function registerControlPlaneRoutes(
         actorUserId: auth.userId,
       });
 
-      let authoringSessionPayload: AuthoringSessionLaunchPayload | null = null;
-      if (authoringDocumentId) {
-        const authoringSessionToken = createAuthoringSessionToken();
-        const correlationId = createCorrelationId('authoring');
-        const authoringSession = await options.repository.createAuthoringSession({
-          workspaceId: auth.workspaceId,
-          environmentId: environment.id,
-          documentId: authoringDocumentId,
-          correlationId,
-          tokenHash: hashAuthoringSessionToken(authoringSessionToken),
-          iframeSrc: options.authoringIframeSrc,
-          expiresAt: new Date(Date.now() + AUTHORING_SESSION_TTL_MS).toISOString(),
-          actorUserId: auth.userId,
-        });
-        options.observability.emit(
-          createObservabilityEvent({
-            name: 'authoring.session.created',
-            correlationId,
-            workspaceId: auth.workspaceId,
-            documentId: authoringDocumentId,
-            environmentId: environment.id,
-            userId: auth.userId,
-          }),
-        );
-        authoringSessionPayload = {
-          authoringSession: toAuthoringSessionResponse(authoringSession),
-          authoringSessionToken,
-          bootstrapHeaderName: AUTHORING_SESSION_HEADER,
-          ...(publication ? { publication: toPublicationResponse(publication) } : {}),
-          authoringSdkSnippet: renderSdkInstallationSnippet({
-            clientToken,
-            environment: environment.kind,
-            apiBaseUrl: options.publicApiBaseUrl,
-            loaderSrc: options.loaderSrc,
-            creatorLoaderSrc: options.creatorLoaderSrc,
-            authoringSessionToken,
-          }),
-        };
-      }
-
       return reply.code(201).send({
         token: toTokenResponse(token),
         clientToken,
@@ -625,7 +2389,6 @@ export function registerControlPlaneRoutes(
           apiBaseUrl: options.publicApiBaseUrl,
           loaderSrc: options.loaderSrc,
         }),
-        ...(authoringSessionPayload ?? {}),
       });
     },
   );
@@ -653,14 +2416,135 @@ export function registerControlPlaneRoutes(
   );
 
   fastify.post(
-    '/v1/authoring/sessions',
-    { schema: { body: CreateAuthoringSessionBody } },
+    '/v1/authoring/documents/query',
+    {
+      schema: {
+        body: QueryAuthoringDocumentsRequest,
+        response: {
+          200: QueryAuthoringDocumentsResult,
+          400: ApiErrorResponse,
+          401: ApiErrorResponse,
+          403: ApiErrorResponse,
+        },
+      },
+    },
     async (request, reply) => {
+      if (!requireEditorOrigin(request, reply)) return;
+      setCredentialResponseHeaders(reply);
+      const activationGrant = readHeader(request, AUTHORING_ACTIVATION_GRANT_HEADER);
+      if (!activationGrant) {
+        return reply.code(401).send({
+          error: 'activation_grant_required',
+          message: 'The hosted editor must present an authoring activation grant',
+        });
+      }
+
+      const body = request.body as QueryAuthoringDocumentsRequestType;
+      const exactCustomerOrigin = parseExactBrowserOrigin(body.customerOrigin);
+      if (!exactCustomerOrigin || exactCustomerOrigin !== body.customerOrigin) {
+        return reply.code(400).send({
+          error: 'invalid_customer_origin',
+          message: 'Customer origin must be one canonical HTTP(S) browser origin',
+        });
+      }
+
+      const result = await options.repository.queryAuthoringDocumentsFromActivation({
+        installationId: body.installationId,
+        exactOrigin: exactCustomerOrigin,
+        activationGrantHash: hashAuthoringActivationGrant(activationGrant),
+        scope: body.scope,
+        pageContext: body.pageContext,
+      });
+      if (!result) {
+        return reply.code(403).send({
+          error: 'authoring_query_rejected',
+          message: 'The authoring activation scope is invalid or expired',
+        });
+      }
+      return result;
+    },
+  );
+
+  fastify.post(
+    '/v1/authoring/activation/revoke',
+    { schema: { body: RevokeAuthoringActivationRequest } },
+    async (request, reply) => {
+      if (!requireEditorOrigin(request, reply)) return;
+      setCredentialResponseHeaders(reply);
+      const activationGrant = readHeader(request, AUTHORING_ACTIVATION_GRANT_HEADER);
+      if (!activationGrant) {
+        return reply.code(401).send({
+          error: 'activation_grant_required',
+          message: 'The hosted editor must present an authoring activation grant',
+        });
+      }
+
+      const body = request.body as RevokeAuthoringActivationRequestType;
+      const exactCustomerOrigin = parseExactBrowserOrigin(body.customerOrigin);
+      if (exactCustomerOrigin && exactCustomerOrigin === body.customerOrigin) {
+        await options.repository.revokeAuthoringActivationGrant({
+          installationId: body.installationId,
+          exactOrigin: exactCustomerOrigin,
+          grantHash: hashAuthoringActivationGrant(activationGrant),
+        });
+      }
+      return reply.code(204).send();
+    },
+  );
+
+  fastify.post(
+    '/v1/authoring/sessions/:sessionId/revoke',
+    { schema: { params: AuthoringSessionParams } },
+    async (request, reply) => {
+      if (!requireEditorOrigin(request, reply)) return;
+      setCredentialResponseHeaders(reply);
+      const authoringSession = readHeader(request, AUTHORING_SESSION_HEADER);
+      if (!authoringSession) {
+        return reply.code(401).send({
+          error: 'authoring_session_required',
+          message: 'The hosted editor must present its authoring session bearer',
+        });
+      }
+
+      const { sessionId } = request.params as { sessionId: string };
+      await options.repository.revokeAuthoringSession({
+        sessionId,
+        tokenHash: hashAuthoringSessionToken(authoringSession),
+      });
+      return reply.code(204).send();
+    },
+  );
+
+  fastify.post(
+    '/v1/authoring/sessions',
+    {
+      schema: {
+        body: Type.Union([CreateAuthoringSessionBody, CreateAuthoringDocumentSessionRequest]),
+      },
+    },
+    async (request, reply) => {
+      const activationGrant = readHeader(request, AUTHORING_ACTIVATION_GRANT_HEADER);
+      if (activationGrant) {
+        return createActivatedAuthoringDocumentSession(options, request, reply, activationGrant);
+      }
+      if (validate(CreateAuthoringDocumentSessionRequest, request.body).valid) {
+        if (!requireEditorOrigin(request, reply)) return;
+        return reply.code(401).send({
+          error: 'activation_grant_required',
+          message: 'The editor must present a valid authoring activation grant',
+        });
+      }
+      if (!requireFirstPartyAppOrigin(request, reply)) return;
+
       const auth = await authenticate(options.repository, options.authProvider, request, reply);
       if (!auth) return;
       if (!requireRole(auth, 'member', reply)) return;
 
-      const body = request.body as { environmentId: string; documentId: string };
+      const body = request.body as {
+        environmentId: string;
+        documentId: string;
+        environmentClientToken?: string;
+      };
       const [environment, document] = await Promise.all([
         options.repository
           .listEnvironments(auth.workspaceId)
@@ -680,6 +2564,30 @@ export function registerControlPlaneRoutes(
           message: 'Production environments cannot create authoring sessions',
         });
       }
+      try {
+        await resolveDocumentTheme(options.repository, document.document);
+      } catch (error) {
+        if (error instanceof DocumentThemeResolutionError) {
+          return reply.code(error.statusCode).send({ error: error.code, message: error.message });
+        }
+        throw error;
+      }
+
+      if (body.environmentClientToken) {
+        const environmentToken = await options.repository.resolveEnvironmentToken(
+          hashEnvironmentToken(body.environmentClientToken),
+        );
+        const tokenMatchesAuthoringScope =
+          environmentToken?.workspaceId === auth.workspaceId &&
+          environmentToken.environmentId === environment.id &&
+          environmentToken.environment === environment.kind;
+        if (!tokenMatchesAuthoringScope) {
+          return reply.code(403).send({
+            error: 'environment_token_mismatch',
+            message: 'Environment token does not match the authoring workspace or environment',
+          });
+        }
+      }
 
       const sessionToken = createAuthoringSessionToken();
       const correlationId = createCorrelationId('authoring');
@@ -693,7 +2601,8 @@ export function registerControlPlaneRoutes(
         expiresAt: new Date(Date.now() + AUTHORING_SESSION_TTL_MS).toISOString(),
         actorUserId: auth.userId,
       });
-      options.observability.emit(
+      emitObservability(
+        options.observability,
         createObservabilityEvent({
           name: 'authoring.session.created',
           correlationId,
@@ -704,11 +2613,306 @@ export function registerControlPlaneRoutes(
         }),
       );
 
+      const authoringSdkSnippet = body.environmentClientToken
+        ? renderSdkInstallationSnippet({
+            clientToken: body.environmentClientToken,
+            environment: environment.kind,
+            apiBaseUrl: options.publicApiBaseUrl,
+            loaderSrc: options.loaderSrc,
+            creatorLoaderSrc: options.creatorLoaderSrc,
+            authoringSessionToken: sessionToken,
+          })
+        : undefined;
+
+      setCredentialResponseHeaders(reply);
       return reply.code(201).send({
         authoringSession: toAuthoringSessionResponse(session),
         authoringSessionToken: sessionToken,
         bootstrapHeaderName: AUTHORING_SESSION_HEADER,
+        ...(authoringSdkSnippet ? { authoringSdkSnippet } : {}),
       });
+    },
+  );
+
+  fastify.get('/v1/authoring/document', async (request, reply) => {
+    if (!requireEditorOrigin(request, reply)) return;
+    setCredentialResponseHeaders(reply);
+    const session = await authenticateHostedEditorSession(options.repository, request, reply);
+    if (!session) return;
+    if (
+      !requireAuthoringSessionCapability(
+        session,
+        AUTHORING_SESSION_CAPABILITIES.READ_DOCUMENT,
+        reply,
+      )
+    ) {
+      return;
+    }
+
+    const record = await options.repository.getDocument(session.workspaceId, session.documentId);
+    if (!record) {
+      return reply.code(404).send({ error: 'not_found', message: 'Authoring document not found' });
+    }
+    const theme = await resolveDocumentTheme(options.repository, record.document);
+    if (!authoringSessionThemeMatches(session, theme)) {
+      return sendAuthoringSessionCompatibilityChanged(reply);
+    }
+    return validateAuthoringDocumentPayload({
+      document: record.document,
+      theme,
+    });
+  });
+
+  fastify.post(
+    '/v1/authoring/document',
+    { schema: { body: SdkAuthoringDocumentBody } },
+    async (request, reply) => {
+      if (!requireEditorOrigin(request, reply)) return;
+      setCredentialResponseHeaders(reply);
+      const session = await authenticateHostedEditorSession(options.repository, request, reply);
+      if (!session) return;
+      if (
+        !requireAuthoringSessionCapability(
+          session,
+          AUTHORING_SESSION_CAPABILITIES.WRITE_DOCUMENT,
+          reply,
+        )
+      ) {
+        return;
+      }
+
+      const body = request.body as { document: unknown };
+      const payload = validate(LodariqDocument, body.document);
+      if (!payload.valid) {
+        return reply.code(400).send({
+          error: 'invalid_document',
+          message: 'Request body must contain canonical Lodariq block JSON',
+          issues: payload.errors,
+        });
+      }
+      const document = payload.value;
+      if (document.workspaceId !== session.workspaceId || document.id !== session.documentId) {
+        return reply.code(403).send({
+          error: 'authoring_session_mismatch',
+          message: 'Authoring session does not match the document being saved',
+        });
+      }
+
+      const compiled = await compileAndValidate(options.repository, document);
+      if (!authoringSessionArtifactMatches(session, compiled)) {
+        return sendAuthoringSessionCompatibilityChanged(reply);
+      }
+      emitObservability(
+        options.observability,
+        createObservabilityEvent({
+          name: 'compile.completed',
+          correlationId: session.correlationId,
+          workspaceId: session.workspaceId,
+          documentId: session.documentId,
+          environmentId: session.environmentId,
+          userId: session.createdByUserId,
+          attributes: { source: 'hosted-editor-save', contentHash: compiled.contentHash },
+        }),
+      );
+      const saved = await options.repository.saveDocument({
+        workspaceId: session.workspaceId,
+        actorUserId: session.createdByUserId,
+        document,
+        artifact: compiled,
+      });
+      emitObservability(
+        options.observability,
+        createObservabilityEvent({
+          name: 'authoring.save.completed',
+          correlationId: session.correlationId,
+          workspaceId: session.workspaceId,
+          documentId: session.documentId,
+          environmentId: session.environmentId,
+          userId: session.createdByUserId,
+          attributes: {
+            source: 'hosted-editor',
+            contentHash: saved.latestArtifact?.contentHash,
+          },
+        }),
+      );
+      return validateAuthoringDocumentPayload({
+        document: saved.document,
+        theme: await resolveDocumentTheme(options.repository, saved.document),
+      });
+    },
+  );
+
+  fastify.get('/v1/authoring/release-state', async (request, reply) => {
+    if (!requireEditorOrigin(request, reply)) return;
+    setCredentialResponseHeaders(reply);
+    const session = await authenticateHostedEditorSession(options.repository, request, reply);
+    if (!session) return;
+    if (!(await requireHostedReleaseStateCapability(options.repository, session, reply))) return;
+    return handleAuthoringReleaseState(options, session, reply, 'hosted-editor');
+  });
+
+  fastify.post(
+    '/v1/authoring/publications',
+    { schema: { body: CreateAuthoringStagingPublicationBody } },
+    async (request, reply) => {
+      if (!requireEditorOrigin(request, reply)) return;
+      setCredentialResponseHeaders(reply);
+      const session = await authenticateHostedEditorSession(options.repository, request, reply);
+      if (!session) return;
+      if (!(await requireHostedStagingPublicationCapability(options.repository, session, reply))) {
+        return;
+      }
+      return handleAuthoringStagingPublication(options, session, request, reply, 'hosted-editor');
+    },
+  );
+
+  fastify.post(
+    '/v1/authoring/style-sources',
+    { schema: { body: CreateAuthoringStyleSourceBody } },
+    async (request, reply) => {
+      if (!requireEditorOrigin(request, reply)) return;
+      setCredentialResponseHeaders(reply);
+      const session = await authenticateHostedEditorSession(options.repository, request, reply);
+      if (!session) return;
+      if (
+        !(await requireHostedAuthoringOperation(
+          options.repository,
+          session,
+          AUTHORING_SESSION_CAPABILITIES.SAMPLE_PRODUCT_STYLE,
+          'sample-product-style',
+          reply,
+        ))
+      ) {
+        return;
+      }
+      return handleAuthoringStyleSource(
+        options.repository,
+        session,
+        (request.body as { proposal: ProductStyleProposalType }).proposal,
+        reply,
+      );
+    },
+  );
+
+  fastify.post(
+    '/v1/authoring/verifications',
+    {
+      schema: {
+        body: AuthoringStagingVerificationRequest,
+        response: {
+          201: AuthoringStagingVerificationHttpSuccess,
+          409: AuthoringStagingVerificationHttpError,
+        },
+      },
+    },
+    async (request, reply) => {
+      if (!requireEditorOrigin(request, reply)) return;
+      setCredentialResponseHeaders(reply);
+      const session = await authenticateHostedEditorSession(options.repository, request, reply);
+      if (!session) return;
+      if (
+        !(await requireHostedAuthoringOperation(
+          options.repository,
+          session,
+          AUTHORING_SESSION_CAPABILITIES.VERIFY_STAGING,
+          'verify-staging',
+          reply,
+        ))
+      ) {
+        return;
+      }
+      const verifiedOrigin = parseExactBrowserOrigin(session.customerOrigin ?? undefined);
+      if (!verifiedOrigin) {
+        return reply.code(409).send({
+          ok: false,
+          code: 'origin_mismatch',
+          message: 'Authoring session is missing its exact customer Origin',
+        } satisfies AuthoringStagingVerificationResultType);
+      }
+      return createAuthoringPublicationVerification(
+        options.repository,
+        session,
+        request.body as AuthoringStagingVerificationRequestType,
+        verifiedOrigin,
+        reply,
+      );
+    },
+  );
+
+  fastify.post(
+    '/v1/authoring/promotions',
+    {
+      schema: {
+        body: ProductionPromotionRequest,
+        response: {
+          200: ProductionPromotionResult,
+          201: ProductionPromotionResult,
+          202: ProductionPromotionResult,
+        },
+      },
+    },
+    async (request, reply) => {
+      if (!requireEditorOrigin(request, reply)) return;
+      setCredentialResponseHeaders(reply);
+      const session = await authenticateHostedEditorSession(options.repository, request, reply);
+      if (!session) return;
+      if (
+        !(await requireHostedAuthoringOperation(
+          options.repository,
+          session,
+          AUTHORING_SESSION_CAPABILITIES.PROMOTE_PRODUCTION,
+          'promote-production',
+          reply,
+        ))
+      ) {
+        return;
+      }
+      return handleProductionPromotion(
+        options,
+        {
+          workspaceId: session.workspaceId,
+          documentId: session.documentId,
+          actorUserId: session.createdByUserId,
+          request: request.body as ProductionPromotionRequestType,
+        },
+        reply,
+      );
+    },
+  );
+
+  fastify.post(
+    '/v1/authoring/release-operations/:operationId/approvals',
+    { schema: { params: ReleaseOperationParams, body: CreateReleaseApprovalBody } },
+    async (request, reply) => {
+      if (!requireEditorOrigin(request, reply)) return;
+      setCredentialResponseHeaders(reply);
+      const session = await authenticateHostedEditorSession(options.repository, request, reply);
+      if (!session) return;
+      if (
+        !(await requireHostedAuthoringOperation(
+          options.repository,
+          session,
+          AUTHORING_SESSION_CAPABILITIES.APPROVE_PRODUCTION,
+          'approve-production',
+          reply,
+        ))
+      ) {
+        return;
+      }
+      const { operationId } = request.params as { operationId: string };
+      const body = request.body as { decision: 'approved' | 'rejected'; reason?: string };
+      return handleReleaseApproval(
+        options,
+        {
+          workspaceId: session.workspaceId,
+          documentId: session.documentId,
+          operationId,
+          actorUserId: session.createdByUserId,
+          decision: body.decision,
+          reason: body.reason,
+        },
+        reply,
+      );
     },
   );
 
@@ -720,7 +2924,8 @@ export function registerControlPlaneRoutes(
       workspaceId: auth.workspaceId,
       events: sanitizeAnalyticsEvents(body.events),
     });
-    options.observability.emit(
+    emitObservability(
+      options.observability,
       createObservabilityEvent({
         name: 'sdk.events.ingested',
         workspaceId: auth.workspaceId,
@@ -730,6 +2935,1632 @@ export function registerControlPlaneRoutes(
     );
     return reply.code(202).send({ accepted });
   });
+}
+
+type AuthoringReleaseClient = 'hosted-editor' | 'direct-sdk';
+
+async function handleAuthoringReleaseState(
+  options: RegisterControlPlaneRoutesOptions,
+  session: AuthoringSessionRecord,
+  reply: FastifyReply,
+  client: AuthoringReleaseClient,
+) {
+  const record = await options.repository.getDocument(session.workspaceId, session.documentId);
+  if (!record) {
+    return reply.code(404).send({ error: 'not_found', message: 'Authoring document not found' });
+  }
+  const deployment = await options.repository.getDocumentDeployment(
+    session.workspaceId,
+    session.environmentId,
+    session.documentId,
+  );
+  const activePublication = await options.repository.getCurrentPublicationForDocument(
+    session.workspaceId,
+    session.environmentId,
+    session.documentId,
+  );
+  const latestArtifactCandidate = record.latestArtifact ?? null;
+  if (
+    latestArtifactCandidate &&
+    !authoringSessionArtifactMatches(session, latestArtifactCandidate.compiled)
+  ) {
+    return sendAuthoringSessionCompatibilityChanged(reply);
+  }
+  const latestArtifact = latestArtifactCandidate;
+  const visualChecks = latestArtifact
+    ? await options.repository.listVisualCheckRuns(session.workspaceId, session.documentId)
+    : [];
+  const visualCheck =
+    visualChecks.find(
+      (run) =>
+        run.environmentId === session.environmentId &&
+        run.compiledArtifactId === latestArtifact?.id &&
+        run.contentHash === latestArtifact?.contentHash,
+    ) ?? null;
+  const publishIssues = validateTourPublishReadiness(record.document);
+  const themeMigrationRequired = hasLegacyThemeReference(record.document);
+  const themeReview = themeMigrationRequired
+    ? null
+    : await getThemeReleaseReview(options.repository, record.document);
+  const visualReport =
+    visualCheck?.report ??
+    (latestArtifact?.compiled.artifactSchemaVersion === '2'
+      ? await runBasicVisualPreflight(latestArtifact.compiled, new Date().toISOString())
+      : null);
+  const findings = [
+    ...publishIssues.map((issue) => ({
+      code: issue.code,
+      severity: 'blocker' as const,
+      label: issue.message,
+    })),
+    ...(themeMigrationRequired
+      ? [
+          {
+            code: 'theme_migration_required',
+            severity: 'blocker' as const,
+            label: 'Choose an approved Brand theme before publishing this legacy draft.',
+          },
+        ]
+      : []),
+    ...(themeReview
+      ? [
+          {
+            code: 'theme_review_required',
+            severity: 'blocker' as const,
+            label: 'Review the latest approved Brand theme before publishing this draft.',
+          },
+        ]
+      : []),
+    ...(visualReport?.issues.map((issue) => ({
+      code: issue.code,
+      severity: issue.severity,
+      label: basicVisualPreflightIssueLabel(issue.code),
+    })) ?? []),
+  ];
+  let state: 'open_in_staging' | 'no_saved_artifact' | 'ready' | 'current';
+  if (session.environment !== 'staging') {
+    state = 'open_in_staging';
+  } else if (!latestArtifact) {
+    state = 'no_saved_artifact';
+  } else if (activePublication?.contentHash === latestArtifact.contentHash) {
+    state = 'current';
+  } else {
+    state = 'ready';
+  }
+  const pipeline = await buildAuthoringReleasePipeline(
+    options.repository,
+    session.workspaceId,
+    session.documentId,
+    latestArtifact,
+    findings.some((finding) => finding.severity === 'blocker'),
+  );
+  const releaseState = {
+    available: session.environment === 'staging',
+    environment: session.environment,
+    environmentId: session.environmentId,
+    documentId: session.documentId,
+    expectedGeneration: deployment?.generation ?? 0,
+    draftArtifactId: latestArtifact?.id ?? null,
+    draftContentHash: latestArtifact?.contentHash ?? null,
+    activeContentHash: activePublication?.contentHash ?? null,
+    state,
+    findings,
+    ...(pipeline ? { pipeline } : {}),
+  };
+  if (client === 'direct-sdk') {
+    return validateAuthoringStagingReleaseState(releaseState);
+  }
+  return { ...releaseState, visualCheck };
+}
+
+async function buildAuthoringReleasePipeline(
+  repository: ControlPlaneRepository,
+  workspaceId: string,
+  documentId: string,
+  draftArtifact: PersistedCompiledArtifact | null,
+  hasBlockers: boolean,
+) {
+  const environments = await repository.listEnvironments(workspaceId);
+  const stagingEnvironment = environments.find((environment) => environment.kind === 'staging');
+  const productionEnvironment = environments.find(
+    (environment) => environment.kind === 'production',
+  );
+  if (!stagingEnvironment || !productionEnvironment) return null;
+
+  const [stagingDeployment, productionDeployment, stagingPublication, productionPublication] =
+    await Promise.all([
+      repository.getDocumentDeployment(workspaceId, stagingEnvironment.id, documentId),
+      repository.getDocumentDeployment(workspaceId, productionEnvironment.id, documentId),
+      repository.getCurrentPublicationForDocument(workspaceId, stagingEnvironment.id, documentId),
+      repository.getCurrentPublicationForDocument(
+        workspaceId,
+        productionEnvironment.id,
+        documentId,
+      ),
+    ]);
+  const verifications = stagingPublication
+    ? await repository.listPublicationVerifications(workspaceId, stagingPublication.id)
+    : [];
+  const latestVerification = verifications[0] ?? null;
+  const pendingOperation = productionDeployment?.pendingReleaseOperationId
+    ? await repository.getReleaseOperationById(
+        workspaceId,
+        productionDeployment.pendingReleaseOperationId,
+      )
+    : null;
+  const approvals = pendingOperation
+    ? await repository.listReleaseApprovals(workspaceId, pendingOperation.id)
+    : [];
+  const approvedCount = Math.min(
+    approvals.filter((approval) => approval.decision === 'approved').length,
+    1,
+  );
+  const rejected = approvals.some((approval) => approval.decision === 'rejected');
+  const presentation = deriveAuthoringReleasePipelinePresentation({
+    hasBlockers,
+    hasDraft: Boolean(draftArtifact),
+    stagingIsCurrent:
+      Boolean(draftArtifact) &&
+      stagingPublication?.compiledArtifactId === draftArtifact?.id &&
+      stagingPublication?.contentHash === draftArtifact?.contentHash,
+    stagingPublished: Boolean(stagingPublication),
+    verificationStatus: latestVerification?.result ?? null,
+    productionIsCurrent:
+      Boolean(stagingPublication) &&
+      productionPublication?.compiledArtifactId === stagingPublication?.compiledArtifactId &&
+      productionPublication?.contentHash === stagingPublication?.contentHash,
+    promotionStatus: pendingOperation?.status ?? null,
+    rejected,
+  });
+  return {
+    state: presentation.state,
+    nextAction: presentation.nextAction,
+    staging: {
+      environmentId: stagingEnvironment.id,
+      generation: stagingDeployment?.generation ?? 0,
+      publicationId: stagingPublication?.id ?? null,
+      sourcePublicationId: stagingPublication?.id ?? null,
+      compiledArtifactId: stagingPublication?.compiledArtifactId ?? null,
+      contentHash: stagingPublication?.contentHash ?? null,
+      verification: {
+        state: latestVerification?.result ?? 'not_run',
+        ...(latestVerification
+          ? {
+              verificationId: latestVerification.id,
+              verifiedAt: latestVerification.createdAt,
+            }
+          : {}),
+      },
+    },
+    production: {
+      environmentId: productionEnvironment.id,
+      generation: productionDeployment?.generation ?? 0,
+      publicationId: productionPublication?.id ?? null,
+      compiledArtifactId: productionPublication?.compiledArtifactId ?? null,
+      contentHash: productionPublication?.contentHash ?? null,
+    },
+    approvals: {
+      operationId: pendingOperation?.id ?? null,
+      requiredCount: productionEnvironment.requiredApprovalCount ?? 0,
+      approvedCount,
+      rejected,
+    },
+  };
+}
+
+interface ReleasePipelinePresentationInput {
+  hasBlockers: boolean;
+  hasDraft: boolean;
+  stagingIsCurrent: boolean;
+  stagingPublished: boolean;
+  verificationStatus: 'passed' | 'failed' | null;
+  productionIsCurrent: boolean;
+  promotionStatus: PersistedReleaseOperation['status'] | null;
+  rejected: boolean;
+}
+
+function deriveAuthoringReleasePipelinePresentation(input: ReleasePipelinePresentationInput): {
+  state:
+    | 'not_published'
+    | 'active_unverified'
+    | 'verified'
+    | 'update_available'
+    | 'awaiting_approval'
+    | 'failed';
+  nextAction:
+    | 'review_blockers'
+    | 'publish_staging'
+    | 'verify_staging'
+    | 'request_approval'
+    | 'promote_production'
+    | 'live_in_production';
+} {
+  if (input.hasBlockers) {
+    return { state: 'failed', nextAction: 'review_blockers' };
+  }
+  if (!input.hasDraft || !input.stagingPublished) {
+    return { state: 'not_published', nextAction: 'publish_staging' };
+  }
+  if (!input.stagingIsCurrent) {
+    return { state: 'update_available', nextAction: 'publish_staging' };
+  }
+  if (input.verificationStatus === null || input.verificationStatus === 'failed') {
+    return {
+      state: input.verificationStatus === 'failed' ? 'failed' : 'active_unverified',
+      nextAction: 'verify_staging',
+    };
+  }
+  if (input.rejected || input.promotionStatus === 'failed') {
+    return { state: 'failed', nextAction: 'promote_production' };
+  }
+  if (input.promotionStatus === 'awaiting_approval') {
+    return { state: 'awaiting_approval', nextAction: 'request_approval' };
+  }
+  if (!input.productionIsCurrent) {
+    return { state: 'verified', nextAction: 'promote_production' };
+  }
+  return { state: 'verified', nextAction: 'live_in_production' };
+}
+
+async function handleAuthoringStagingPublication(
+  options: RegisterControlPlaneRoutesOptions,
+  session: AuthoringSessionRecord,
+  request: FastifyRequest,
+  reply: FastifyReply,
+  client: AuthoringReleaseClient,
+) {
+  if (session.environment !== 'staging') {
+    return reply.code(409).send({
+      error: 'staging_authoring_session_required',
+      message: 'Open Lodariq on the configured staging origin to publish this draft',
+    });
+  }
+
+  const idempotencyKey = readHeader(request, IDEMPOTENCY_KEY_HEADER);
+  if (!idempotencyKey || !IDEMPOTENCY_KEY_PATTERN.test(idempotencyKey)) {
+    return reply.code(400).send({
+      error: 'invalid_idempotency_key',
+      message: 'A valid Idempotency-Key header is required for staging publication',
+    });
+  }
+  const correlationId = readHeader(request, RELEASE_CORRELATION_ID_HEADER);
+  if (!correlationId || !RELEASE_CORRELATION_ID_PATTERN.test(correlationId)) {
+    return reply.code(400).send({
+      error: 'invalid_correlation_id',
+      message: `A valid ${RELEASE_CORRELATION_ID_HEADER} header is required`,
+    });
+  }
+
+  const record = await options.repository.getDocument(session.workspaceId, session.documentId);
+  if (!record) {
+    return reply.code(404).send({ error: 'not_found', message: 'Authoring document not found' });
+  }
+  const { expectedGeneration, expectedArtifactId, expectedContentHash } = request.body as {
+    expectedGeneration: number;
+    expectedArtifactId: string;
+    expectedContentHash: string;
+  };
+  const requestHash = await createStagingPublicationRequestHash({
+    workspaceId: session.workspaceId,
+    documentId: session.documentId,
+    environmentId: session.environmentId,
+    artifactId: expectedArtifactId,
+    contentHash: expectedContentHash,
+    expectedGeneration,
+  });
+  const existingOperation = await options.repository.getReleaseOperation(
+    session.workspaceId,
+    session.environmentId,
+    session.documentId,
+    idempotencyKey,
+  );
+  let artifact: PersistedCompiledArtifact;
+  let visualCheck: VisualCheckRunRecord | null;
+  if (existingOperation) {
+    const existingArtifact = await options.repository.getCompiledArtifact(
+      session.workspaceId,
+      session.documentId,
+      existingOperation.requestedArtifactId,
+    );
+    if (!existingArtifact) {
+      throw new Error('release operation references an unavailable compiled artifact');
+    }
+    artifact = existingArtifact;
+    if (!authoringSessionArtifactMatches(session, artifact.compiled)) {
+      return sendAuthoringSessionCompatibilityChanged(reply);
+    }
+    visualCheck = await findVisualCheckForArtifact(
+      options.repository,
+      session.workspaceId,
+      session.documentId,
+      session.environmentId,
+      artifact,
+    );
+  } else {
+    const reviewed = await loadReviewedReleaseArtifact(
+      options.repository,
+      session.workspaceId,
+      session.documentId,
+      expectedArtifactId,
+      expectedContentHash,
+    );
+    if (!reviewed) {
+      return reply.code(409).send({
+        error: 'reviewed_artifact_unavailable',
+        message: 'The reviewed artifact changed or is no longer available; review staging again',
+      });
+    }
+    const publishIssues = validateTourPublishReadiness(reviewed.document);
+    if (publishIssues.length) {
+      return reply.code(409).send({
+        error: 'publish_blocked',
+        message: publishIssues[0]?.message ?? 'Document is not ready to publish',
+        issues: publishIssues.map(toPublishReadinessIssueResponse),
+      });
+    }
+    if (hasLegacyThemeReference(reviewed.document)) {
+      return reply.code(409).send({
+        error: 'theme_migration_required',
+        message: 'Choose an approved Brand theme before publishing this legacy draft',
+      });
+    }
+    const themeReview = await getThemeReleaseReview(options.repository, reviewed.document);
+    if (themeReview) {
+      return reply.code(409).send({
+        error: 'theme_review_required',
+        message: 'Review the latest approved Brand theme before publishing this draft',
+        ...themeReview,
+      });
+    }
+    artifact = reviewed.artifact;
+    if (!authoringSessionArtifactMatches(session, artifact.compiled)) {
+      return sendAuthoringSessionCompatibilityChanged(reply);
+    }
+    visualCheck = await runAndPersistVisualPreflight({
+      repository: options.repository,
+      workspaceId: session.workspaceId,
+      documentId: session.documentId,
+      environmentId: session.environmentId,
+      artifact,
+      actorUserId: session.createdByUserId,
+    });
+    if (visualCheck.status === 'blocked') {
+      return reply.code(409).send({
+        error: 'visual_preflight_blocked',
+        message: 'Brand and layout preflight found issues that must be fixed before staging',
+        visualCheck,
+      });
+    }
+  }
+  try {
+    const result = await options.repository.activateCompiledArtifact({
+      workspaceId: session.workspaceId,
+      environmentId: session.environmentId,
+      correlationId,
+      artifact,
+      actorUserId: session.createdByUserId,
+      idempotencyKey,
+      requestHash,
+      expectedGeneration,
+    });
+    emitObservability(
+      options.observability,
+      createObservabilityEvent({
+        name: result.replayed ? 'publish.replayed' : 'publish.completed',
+        correlationId,
+        workspaceId: session.workspaceId,
+        documentId: session.documentId,
+        environmentId: session.environmentId,
+        userId: session.createdByUserId,
+        attributes: {
+          source: client,
+          contentHash: result.publication.contentHash,
+          generation: result.deployment.generation,
+        },
+      }),
+    );
+    const statusCode = result.replayed ? 200 : 201;
+    if (client === 'direct-sdk') {
+      const publicationResult = validateAuthoringStagingPublicationResult({
+        ok: true,
+        replayed: result.replayed,
+        generation: result.deployment.generation,
+        findings:
+          visualCheck?.report.issues.map((issue) => ({
+            code: issue.code,
+            severity: issue.severity,
+            label: basicVisualPreflightIssueLabel(issue.code),
+          })) ?? [],
+      });
+      return reply.code(statusCode).send(publicationResult);
+    }
+    return reply.code(statusCode).send({
+      replayed: result.replayed,
+      operation: result.operation,
+      deployment: result.deployment,
+      publication: toPublicationResponse(result.publication),
+      visualCheck,
+    });
+  } catch (error) {
+    if (error instanceof IdempotencyConflictError) {
+      return reply.code(409).send({ error: error.code, message: error.message });
+    }
+    if (error instanceof DeploymentChangedError) {
+      return reply.code(409).send({
+        error: error.code,
+        message: error.message,
+        expectedGeneration: error.expectedGeneration,
+        actualGeneration: error.actualGeneration,
+      });
+    }
+    if (error instanceof ReleaseOperationInProgressError) {
+      return reply.code(409).send({ error: error.code, message: error.message });
+    }
+    throw error;
+  }
+}
+
+async function handleAuthoringStyleSource(
+  repository: ControlPlaneRepository,
+  session: AuthoringSessionRecord,
+  proposal: ProductStyleProposalType,
+  reply: FastifyReply,
+) {
+  const record = await repository.getDocument(session.workspaceId, session.documentId);
+  if (!record) {
+    return reply.code(404).send({ error: 'not_found', message: 'Authoring document not found' });
+  }
+  const resolvedTheme = await resolveDocumentTheme(repository, record.document);
+  const theme = await repository.getWorkspaceTheme(session.workspaceId, resolvedTheme.themeId);
+  if (!theme) {
+    return reply.code(409).send({
+      error: 'workspace_theme_required',
+      message: 'Choose or create a workspace Brand theme before applying Product match',
+    });
+  }
+  try {
+    const applied = await applyProductStyleProposal({
+      repository,
+      workspaceId: session.workspaceId,
+      environmentId: session.environmentId,
+      theme,
+      proposal,
+      actorUserId: session.createdByUserId,
+    });
+    return reply.code(201).send(applied);
+  } catch (error) {
+    return sendWorkspaceThemeMutationError(error, reply);
+  }
+}
+
+interface ApplyProductStyleProposalInput {
+  repository: ControlPlaneRepository;
+  workspaceId: string;
+  environmentId: string;
+  theme: WorkspaceThemeRecord;
+  proposal: ProductStyleProposalType;
+  actorUserId: string;
+}
+
+/**
+ * Applying Product match updates only the mutable workspace-theme draft. The
+ * approved version and every compiled/live artifact remain immutable until a
+ * later explicit approval and publication.
+ */
+async function applyProductStyleProposal(input: ApplyProductStyleProposalInput) {
+  const nextDraft = mergeProductStyleTokensIntoDraft(input.theme.draft, input.proposal);
+  const draftChanged = canonicalJson(nextDraft) !== canonicalJson(input.theme.draft);
+  let theme = input.theme;
+  if (draftChanged) {
+    const updated = await input.repository.updateWorkspaceThemeDraft({
+      workspaceId: input.workspaceId,
+      themeId: input.theme.id,
+      draft: nextDraft,
+      expectedRevision: input.theme.revision,
+      expectedUpdatedAt: input.theme.updatedAt,
+      actorUserId: input.actorUserId,
+    });
+    if (!updated) throw new Error('workspace Brand theme disappeared during Product match');
+    theme = updated;
+  }
+
+  // Proposal sources are priority ordered. Keep one append-only provenance
+  // record per explicit Product-match action so dashboard history remains an
+  // action history rather than a list of internal inference candidates.
+  const primarySource = input.proposal.sources[0];
+  if (!primarySource) throw new Error('Product match did not contain a provenance source');
+  const source = await input.repository.createStyleSource({
+    workspaceId: input.workspaceId,
+    themeId: input.theme.id,
+    environmentId: input.environmentId,
+    source: primarySource,
+    actorUserId: input.actorUserId,
+  });
+  return {
+    source,
+    theme: withLatestStyleSource(theme, source),
+    draftChanged,
+  };
+}
+
+function mergeProductStyleTokensIntoDraft(
+  current: BrandThemeDefinitionType,
+  proposal: ProductStyleProposalType,
+): BrandThemeDefinitionType {
+  const next = structuredClone(current);
+  const proposed = proposal.tokens;
+  mergeDefinedProperties(next.tokens.modes.light.colors, proposed.modes?.light?.colors);
+
+  const darkColors = proposed.modes?.dark?.colors;
+  if (darkColors) {
+    const currentDarkColors = next.tokens.modes.dark?.colors ?? next.tokens.modes.light.colors;
+    next.tokens.modes.dark = {
+      colors: {
+        ...structuredClone(currentDarkColors),
+        ...structuredClone(darkColors),
+      },
+    };
+  }
+
+  // The first Brand contract has one typography scale shared by color modes.
+  // Registered dark/global values provide a baseline; explicit light-mode
+  // values win because the creator reviews the light-first authoring preview.
+  mergeDefinedProperties(next.tokens.typography, proposed.modes?.dark?.typography);
+  mergeDefinedProperties(next.tokens.typography, proposed.typography);
+  mergeDefinedProperties(next.tokens.typography, proposed.modes?.light?.typography);
+  mergeDefinedProperties(next.tokens.spacing, proposed.spacing);
+  mergeDefinedProperties(next.tokens.radii, proposed.radii);
+  mergeDefinedProperties(next.tokens.borders, proposed.borders);
+  mergeDefinedProperties(next.tokens.sizing, proposed.sizing);
+  mergeDefinedProperties(next.tokens.motion, proposed.motion);
+  mergeDefinedProperties(next.tokens.elevations, proposed.elevations);
+
+  const validation = validate(BrandThemeDefinition, next);
+  if (!validation.valid) {
+    throw new Error(
+      `Product match produced an invalid Brand theme draft: ${JSON.stringify(validation.errors)}`,
+    );
+  }
+  return validation.value;
+}
+
+function mergeDefinedProperties<T extends object>(target: T, source: Partial<T> | undefined): void {
+  if (!source) return;
+  Object.assign(target, structuredClone(source));
+}
+
+function withLatestStyleSource(theme: WorkspaceThemeRecord, record: StyleSourceRecord | null) {
+  return {
+    ...theme,
+    latestStyleSource: record
+      ? {
+          ...record.source,
+          recordId: record.id,
+          sourceHash: record.sourceHash,
+          environmentId: record.environmentId,
+          recordedAt: record.createdAt,
+        }
+      : null,
+  };
+}
+
+interface ExactPublicationVerificationInput {
+  workspaceId: string;
+  environmentId: string;
+  publicationId: string;
+  report: AuthoringStagingVerificationRequestType['report'];
+  verifiedOrigin: string;
+  actorUserId: string;
+}
+
+async function createExactPublicationVerification(
+  repository: ControlPlaneRepository,
+  input: ExactPublicationVerificationInput,
+  reply: FastifyReply,
+) {
+  try {
+    const verification = await persistExactPublicationVerification(repository, input);
+    return reply.code(201).send({ verification });
+  } catch (error) {
+    if (error instanceof InvalidBrowserVerificationReportError) {
+      return reply.code(400).send({ error: 'invalid_report', message: error.message });
+    }
+    if (error instanceof ActivePublicationChangedError) {
+      return reply.code(409).send({
+        error: 'publication_not_active',
+        message: error.message,
+        expectedPublicationId: error.expectedPublicationId,
+        actualPublicationId: error.actualPublicationId,
+      });
+    }
+    throw error;
+  }
+}
+
+async function createAuthoringPublicationVerification(
+  repository: ControlPlaneRepository,
+  session: AuthoringSessionRecord,
+  request: AuthoringStagingVerificationRequestType,
+  verifiedOrigin: string,
+  reply: FastifyReply,
+) {
+  if (session.environment !== 'staging') {
+    return reply.code(409).send({
+      ok: false,
+      code: 'origin_mismatch',
+      message: 'Verification must run in the configured staging environment',
+    } satisfies AuthoringStagingVerificationResultType);
+  }
+  try {
+    const verification = await persistExactPublicationVerification(repository, {
+      workspaceId: session.workspaceId,
+      environmentId: session.environmentId,
+      publicationId: request.publicationId,
+      report: request.report,
+      verifiedOrigin,
+      actorUserId: session.createdByUserId,
+    });
+    return reply
+      .code(201)
+      .send(validateAuthoringStagingVerificationResult({ ok: true, verification }));
+  } catch (error) {
+    if (error instanceof InvalidBrowserVerificationReportError) {
+      return reply.code(400).send(
+        validateAuthoringStagingVerificationResult({
+          ok: false,
+          code: 'invalid_report',
+          message: error.message,
+        }),
+      );
+    }
+    if (error instanceof ActivePublicationChangedError) {
+      return reply.code(409).send(
+        validateAuthoringStagingVerificationResult({
+          ok: false,
+          code: 'publication_not_active',
+          message: error.message,
+        }),
+      );
+    }
+    throw error;
+  }
+}
+
+async function persistExactPublicationVerification(
+  repository: ControlPlaneRepository,
+  input: ExactPublicationVerificationInput,
+): Promise<PublicationVerificationType> {
+  assertCompleteBrowserVerificationReport(input.report);
+  const [environment, publication] = await Promise.all([
+    findEnvironment(repository, input.workspaceId, input.environmentId),
+    repository.getPublicationById(input.workspaceId, input.publicationId),
+  ]);
+  if (!environment || environment.kind !== 'staging') {
+    throw new Error('publication verification requires a configured staging environment');
+  }
+  if (!environment.originAllowlist.includes(input.verifiedOrigin)) {
+    throw new Error('verification Origin is not allowlisted for the staging environment');
+  }
+  if (
+    !publication ||
+    publication.environmentId !== environment.id ||
+    publication.workspaceId !== input.workspaceId
+  ) {
+    throw new ActivePublicationChangedError(input.publicationId, null);
+  }
+  const compiled = publication.artifact.compiled;
+  if (compiled.artifactSchemaVersion !== COMPILED_ARTIFACT_SCHEMA_VERSION) {
+    throw new Error('browser verification requires a Phase 2 compiled artifact');
+  }
+  const record = await repository.createPublicationVerification({
+    workspaceId: input.workspaceId,
+    environmentId: environment.id,
+    documentId: publication.documentId,
+    expectedPublicationId: publication.id,
+    report: input.report,
+    verifiedOrigin: input.verifiedOrigin,
+    actorUserId: input.actorUserId,
+  });
+  return toPublicationVerification(record, publication);
+}
+
+class InvalidBrowserVerificationReportError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'InvalidBrowserVerificationReportError';
+  }
+}
+
+function assertCompleteBrowserVerificationReport(
+  report: AuthoringStagingVerificationRequestType['report'],
+): void {
+  const seen = new Set(report.checks.map((check) => check.code));
+  const hasEveryRequiredCheck = BROWSER_VERIFICATION_CHECK_CODES.every((code) => seen.has(code));
+  if (
+    report.checks.length !== BROWSER_VERIFICATION_CHECK_CODES.length ||
+    seen.size !== BROWSER_VERIFICATION_CHECK_CODES.length ||
+    !hasEveryRequiredCheck
+  ) {
+    throw new InvalidBrowserVerificationReportError(
+      'Browser verification must report each required check exactly once',
+    );
+  }
+
+  let expectedStatus: AuthoringStagingVerificationRequestType['report']['status'] = 'passed';
+  if (report.checks.some((check) => check.status === 'failed')) expectedStatus = 'failed';
+  else if (report.checks.some((check) => check.status === 'warning')) expectedStatus = 'warning';
+  if (report.status !== expectedStatus) {
+    throw new InvalidBrowserVerificationReportError(
+      'Browser verification status must match its individual check results',
+    );
+  }
+}
+
+function toPublicationVerification(
+  record: PublicationVerificationRecord,
+  publication: PersistedPublication,
+): PublicationVerificationType {
+  const reportValidation = validate(BrowserVerificationReport, record.report);
+  const compiled = publication.artifact.compiled;
+  if (
+    !reportValidation.valid ||
+    compiled.artifactSchemaVersion !== COMPILED_ARTIFACT_SCHEMA_VERSION
+  ) {
+    throw new Error('stored browser verification no longer matches its canonical contract');
+  }
+  const value = {
+    id: record.id,
+    workspaceId: record.workspaceId,
+    environmentId: record.environmentId,
+    documentId: record.documentId,
+    publicationId: record.publicationId,
+    compiledArtifactId: publication.compiledArtifactId,
+    artifactSchemaVersion: compiled.artifactSchemaVersion,
+    contentHash: publication.contentHash,
+    themeVersionId: compiled.theme.themeVersionId,
+    themeContentHash: compiled.theme.contentHash,
+    verifiedOrigin: record.verifiedOrigin,
+    verifiedByUserId: record.verifiedByUserId,
+    createdAt: record.createdAt,
+    result: record.result,
+    report: reportValidation.value,
+  };
+  const validation = validate(PublicationVerification, value);
+  if (!validation.valid) {
+    throw new Error(
+      `Publication verification response failed schema validation: ${JSON.stringify(validation.errors)}`,
+    );
+  }
+  return validation.value;
+}
+
+interface ProductionPromotionScope {
+  workspaceId: string;
+  documentId: string;
+  actorUserId: string;
+  request: ProductionPromotionRequestType;
+}
+
+async function handleProductionPromotion(
+  options: RegisterControlPlaneRoutesOptions,
+  scope: ProductionPromotionScope,
+  reply: FastifyReply,
+) {
+  const [document, sourcePublication, targetEnvironment] = await Promise.all([
+    options.repository.getDocument(scope.workspaceId, scope.documentId),
+    options.repository.getPublicationById(scope.workspaceId, scope.request.sourcePublicationId),
+    findEnvironment(options.repository, scope.workspaceId, scope.request.productionEnvironmentId),
+  ]);
+  if (!document || !sourcePublication || sourcePublication.documentId !== scope.documentId) {
+    return sendProductionPromotionFailure(
+      reply,
+      404,
+      'source_not_active',
+      'Staging publication not found',
+    );
+  }
+  const sourceEnvironment = await findEnvironment(
+    options.repository,
+    scope.workspaceId,
+    sourcePublication.environmentId,
+  );
+  if (!sourceEnvironment || sourceEnvironment.kind !== 'staging') {
+    return sendProductionPromotionFailure(
+      reply,
+      409,
+      'source_not_active',
+      'Production promotion requires an active staging publication',
+    );
+  }
+  if (!targetEnvironment || targetEnvironment.kind !== 'production') {
+    return sendProductionPromotionFailure(
+      reply,
+      409,
+      'environment_not_configured',
+      'Choose a configured production environment',
+    );
+  }
+  try {
+    const result = await promoteExactVerifiedPublication(options.repository, {
+      workspaceId: scope.workspaceId,
+      sourceEnvironmentId: sourceEnvironment.id,
+      targetEnvironmentId: targetEnvironment.id,
+      documentId: scope.documentId,
+      expectedSourcePublicationId: sourcePublication.id,
+      correlationId: scope.request.correlationId,
+      actorUserId: scope.actorUserId,
+      idempotencyKey: scope.request.idempotencyKey,
+      expectedGeneration: scope.request.expectedGeneration,
+    });
+    const response = validateProductionPromotionResult(toProductionPromotionResult(result));
+    emitObservability(
+      options.observability,
+      createObservabilityEvent({
+        name: productionPromotionEventName(result.operation, result.replayed),
+        correlationId: scope.request.correlationId,
+        workspaceId: scope.workspaceId,
+        documentId: scope.documentId,
+        environmentId: targetEnvironment.id,
+        userId: scope.actorUserId,
+        attributes: {
+          sourcePublicationId: sourcePublication.id,
+          contentHash: sourcePublication.contentHash,
+        },
+      }),
+    );
+    let statusCode = 201;
+    if (response.state === 'awaiting_approval') statusCode = 202;
+    else if (result.replayed) statusCode = 200;
+    return reply.code(statusCode).send(response);
+  } catch (error) {
+    return sendProductionPromotionError(error, reply);
+  }
+}
+
+function productionPromotionEventName(
+  operation: PersistedReleaseOperation,
+  replayed: boolean,
+): 'promote.awaiting_approval' | 'promote.replayed' | 'promote.completed' {
+  if (operation.status === 'awaiting_approval') return 'promote.awaiting_approval';
+  return replayed ? 'promote.replayed' : 'promote.completed';
+}
+
+function toProductionPromotionResult(
+  result: Awaited<ReturnType<ControlPlaneRepository['promoteVerifiedPublication']>>,
+): ProductionPromotionResultType {
+  if (result.operation.status === 'awaiting_approval') {
+    return {
+      ok: true,
+      state: 'awaiting_approval',
+      replayed: result.replayed,
+      releaseOperationId: result.operation.id,
+      requiredApprovalCount: Math.max(1, Math.min(result.requiredApprovalCount, 1)),
+      approvalCount: Math.min(result.approvalCount, 1),
+    };
+  }
+  const publication = result.publication;
+  if (!publication || !result.deployment) {
+    throw new Error('completed promotion is missing its exact publication result');
+  }
+  const compiled = publication.artifact.compiled;
+  if (
+    compiled.artifactSchemaVersion !== COMPILED_ARTIFACT_SCHEMA_VERSION ||
+    compiled.rendererContractVersion !== RENDERER_CONTRACT_VERSION
+  ) {
+    throw new Error('production promotion requires a Phase 2 compiled artifact');
+  }
+  return {
+    ok: true,
+    state: 'completed',
+    replayed: result.replayed,
+    releaseOperationId: result.operation.id,
+    publicationId: publication.id,
+    generation: result.deployment.generation,
+    compiledArtifactId: publication.compiledArtifactId,
+    contentHash: publication.contentHash,
+    themeVersionId: compiled.theme.themeVersionId,
+    themeContentHash: compiled.theme.contentHash,
+    rendererContractVersion: compiled.rendererContractVersion,
+  };
+}
+
+function validateProductionPromotionResult(value: unknown): ProductionPromotionResultType {
+  const validation = validate(ProductionPromotionResult, value);
+  if (!validation.valid) {
+    throw new Error(
+      `Production promotion response failed schema validation: ${JSON.stringify(validation.errors)}`,
+    );
+  }
+  return validation.value;
+}
+
+function sendProductionPromotionFailure(
+  reply: FastifyReply,
+  statusCode: number,
+  code: Extract<ProductionPromotionResultType, { ok: false }>['code'],
+  message: string,
+  generation?: { expectedGeneration: number; actualGeneration: number },
+) {
+  return reply.code(statusCode).send(
+    validateProductionPromotionResult({
+      ok: false,
+      state: 'failed',
+      code,
+      message,
+      ...(generation ?? {}),
+    }),
+  );
+}
+
+function sendProductionPromotionError(error: unknown, reply: FastifyReply) {
+  const failure = productionPromotionFailureForError(error);
+  if (failure) {
+    return sendProductionPromotionFailure(
+      reply,
+      failure.statusCode,
+      failure.code,
+      failure.message,
+      failure.generation,
+    );
+  }
+  throw error;
+}
+
+interface ProductionPromotionFailureDetails {
+  statusCode: number;
+  code: Extract<ProductionPromotionResultType, { ok: false }>['code'];
+  message: string;
+  generation?: { expectedGeneration: number; actualGeneration: number };
+}
+
+function productionPromotionFailureForError(
+  error: unknown,
+): ProductionPromotionFailureDetails | null {
+  if (error instanceof ActivePublicationChangedError) {
+    return { statusCode: 409, code: 'source_not_active', message: error.message };
+  }
+  if (error instanceof PublicationVerificationRequiredError) {
+    return { statusCode: 409, code: 'source_not_verified', message: error.message };
+  }
+  if (error instanceof ReleaseApprovalRejectedError) {
+    return { statusCode: 409, code: 'approval_rejected', message: error.message };
+  }
+  if (error instanceof DeploymentChangedError) {
+    return {
+      statusCode: 409,
+      code: 'deployment_changed',
+      message: error.message,
+      generation: {
+        expectedGeneration: error.expectedGeneration,
+        actualGeneration: error.actualGeneration,
+      },
+    };
+  }
+  if (error instanceof IdempotencyConflictError) {
+    return { statusCode: 409, code: 'idempotency_conflict', message: error.message };
+  }
+  if (error instanceof ReleaseOperationInProgressError) {
+    return {
+      statusCode: 409,
+      code: 'release_operation_in_progress',
+      message: error.message,
+    };
+  }
+  return null;
+}
+
+interface ReleaseApprovalScope {
+  workspaceId: string;
+  documentId?: string;
+  operationId: string;
+  actorUserId: string;
+  decision: 'approved' | 'rejected';
+  reason?: string;
+}
+
+async function handleReleaseApproval(
+  options: RegisterControlPlaneRoutesOptions,
+  scope: ReleaseApprovalScope,
+  reply: FastifyReply,
+) {
+  const operation = await options.repository.getReleaseOperationById(
+    scope.workspaceId,
+    scope.operationId,
+  );
+  if (
+    !operation ||
+    operation.action !== 'promote' ||
+    (scope.documentId && operation.documentId !== scope.documentId)
+  ) {
+    return reply.code(404).send({
+      error: 'not_found',
+      message: 'Pending production release operation not found',
+    });
+  }
+  if (operation.status !== 'awaiting_approval') {
+    return reply.code(409).send({
+      error: 'release_not_awaiting_approval',
+      message: 'This production release operation is no longer awaiting approval',
+    });
+  }
+  let approval: ReleaseApprovalRecord;
+  try {
+    approval = await options.repository.createReleaseApproval({
+      workspaceId: scope.workspaceId,
+      releaseOperationId: operation.id,
+      decision: scope.decision,
+      reason: scope.reason,
+      actorUserId: scope.actorUserId,
+    });
+  } catch (error) {
+    if (isImmutableReleaseApprovalConflict(error)) {
+      return reply.code(409).send({
+        error: 'release_approval_already_recorded',
+        message: 'This approver already recorded an immutable decision',
+      });
+    }
+    if (isReleaseOperationNoLongerAwaitingApproval(error)) {
+      return reply.code(409).send({
+        error: 'release_not_awaiting_approval',
+        message: 'This production release operation is no longer awaiting approval',
+      });
+    }
+    throw error;
+  }
+  if (!operation.sourcePublicationId) {
+    throw new Error('promotion operation is missing staging publication provenance');
+  }
+  const sourcePublication = await options.repository.getPublicationById(
+    scope.workspaceId,
+    operation.sourcePublicationId,
+  );
+  if (!sourcePublication) {
+    throw new Error('promotion operation source publication is unavailable');
+  }
+  let promotion: ProductionPromotionResultType;
+  try {
+    const result = await promoteExactVerifiedPublication(options.repository, {
+      workspaceId: scope.workspaceId,
+      sourceEnvironmentId: sourcePublication.environmentId,
+      targetEnvironmentId: operation.environmentId,
+      documentId: operation.documentId,
+      expectedSourcePublicationId: sourcePublication.id,
+      correlationId: operation.correlationId,
+      actorUserId: scope.actorUserId,
+      idempotencyKey: operation.idempotencyKey,
+      expectedGeneration: operation.expectedGeneration,
+    });
+    promotion = validateProductionPromotionResult(toProductionPromotionResult(result));
+  } catch (error) {
+    const failure = productionPromotionFailureForError(error);
+    if (failure) {
+      promotion = validateProductionPromotionResult({
+        ok: false,
+        state: 'failed',
+        code: failure.code,
+        message: failure.message,
+        ...(failure.generation ?? {}),
+      });
+    } else {
+      throw error;
+    }
+  }
+  return reply.code(scope.decision === 'approved' && promotion.ok ? 200 : 201).send({
+    approval: toReleaseApproval(approval),
+    promotion,
+  });
+}
+
+function isImmutableReleaseApprovalConflict(error: unknown): boolean {
+  return (
+    error instanceof Error &&
+    error.message === 'release approver already recorded an immutable decision'
+  );
+}
+
+function isReleaseOperationNoLongerAwaitingApproval(error: unknown): boolean {
+  return error instanceof Error && error.message === 'release operation is not awaiting approval';
+}
+
+function toReleaseApproval(record: ReleaseApprovalRecord) {
+  return {
+    id: record.id,
+    workspaceId: record.workspaceId,
+    releaseOperationId: record.releaseOperationId,
+    decision: record.decision,
+    ...(record.reason ? { reason: record.reason } : {}),
+    decidedByUserId: record.decidedByUserId,
+    createdAt: record.createdAt,
+  };
+}
+
+function requireVerificationOrigin(
+  environment: WorkspaceEnvironment,
+  request: FastifyRequest,
+  reply: FastifyReply,
+): string | null {
+  const exactOrigin = parseExactBrowserOrigin(request.headers.origin);
+  if (exactOrigin && environment.originAllowlist.includes(exactOrigin)) return exactOrigin;
+  void reply.code(403).send({
+    error: 'origin_mismatch',
+    message: 'Browser verification must run on the exact allowlisted staging Origin',
+  });
+  return null;
+}
+
+async function authenticateHostedEditorSession(
+  repository: ControlPlaneRepository,
+  request: FastifyRequest,
+  reply: FastifyReply,
+): Promise<AuthoringSessionRecord | null> {
+  const rawToken = readHeader(request, AUTHORING_SESSION_HEADER);
+  if (!rawToken) {
+    await reply.code(401).send({
+      error: 'authoring_session_required',
+      message: 'A valid hosted-editor authoring session is required',
+    });
+    return null;
+  }
+
+  const session = await repository.resolveAuthoringSessionByTokenHash(
+    hashAuthoringSessionToken(rawToken),
+  );
+  if (!session) {
+    await reply.code(401).send({
+      error: 'unauthorized',
+      message: 'Authoring session is invalid, expired, or revoked',
+    });
+    return null;
+  }
+  const isActivatedHostedSession =
+    session.environment !== 'production' &&
+    Boolean(session.installationId) &&
+    Boolean(session.activationGrantId) &&
+    Boolean(session.customerOrigin) &&
+    Array.isArray(session.capabilities) &&
+    session.compilerVersion === COMPILER_VERSION &&
+    session.rendererContractVersion === RENDERER_CONTRACT_VERSION &&
+    session.themeContractVersion === BRAND_THEME_CONTRACT_VERSION &&
+    Boolean(session.themeVersionId) &&
+    isExactEditorIframeSource(session.iframeSrc);
+  if (!isActivatedHostedSession) {
+    await reply.code(403).send({
+      error: 'authoring_session_scope_forbidden',
+      message: 'Authoring session is not valid for the hosted editor',
+    });
+    return null;
+  }
+  return session;
+}
+
+function authoringSessionThemeMatches(
+  session: AuthoringSessionRecord,
+  theme: BrandThemeSnapshotType,
+): boolean {
+  return (
+    session.themeContractVersion === theme.contractVersion &&
+    session.themeVersionId === theme.themeVersionId
+  );
+}
+
+function authoringSessionArtifactMatches(
+  session: AuthoringSessionRecord,
+  compiled: CompiledDocumentType,
+): boolean {
+  return (
+    'theme' in compiled &&
+    'rendererContractVersion' in compiled &&
+    session.compilerVersion === compiled.compilerVersion &&
+    session.rendererContractVersion === compiled.rendererContractVersion &&
+    authoringSessionThemeMatches(session, compiled.theme)
+  );
+}
+
+function sendAuthoringSessionCompatibilityChanged(reply: FastifyReply) {
+  return reply.code(409).send({
+    error: 'authoring_session_compatibility_changed',
+    message: 'The document compatibility contract changed; reopen Lodariq authoring to continue',
+  });
+}
+
+function requireAuthoringSessionCapability(
+  session: AuthoringSessionRecord,
+  capability: AuthoringSessionCapability,
+  reply: FastifyReply,
+): boolean {
+  if (session.capabilities?.includes(capability)) return true;
+  void reply.code(403).send({
+    error: 'authoring_capability_forbidden',
+    message: 'Authoring session does not grant this document operation',
+  });
+  return false;
+}
+
+async function requireHostedStagingPublicationCapability(
+  repository: ControlPlaneRepository,
+  session: AuthoringSessionRecord,
+  reply: FastifyReply,
+): Promise<boolean> {
+  if (
+    !requireAuthoringSessionCapability(
+      session,
+      AUTHORING_SESSION_CAPABILITIES.PUBLISH_STAGING,
+      reply,
+    )
+  ) {
+    return false;
+  }
+  if (await currentAuthoringMemberCanPublishToStaging(repository, session)) return true;
+  void reply.code(403).send({
+    error: 'forbidden',
+    message: 'This workspace membership cannot publish to staging',
+  });
+  return false;
+}
+
+async function requireHostedReleaseStateCapability(
+  repository: ControlPlaneRepository,
+  session: AuthoringSessionRecord,
+  reply: FastifyReply,
+): Promise<boolean> {
+  if (
+    !requireAuthoringSessionCapability(
+      session,
+      AUTHORING_SESSION_CAPABILITIES.READ_RELEASE_STATE,
+      reply,
+    )
+  ) {
+    return false;
+  }
+  if ((await resolveCurrentAuthoringMembershipRole(repository, session)) !== null) return true;
+  void reply.code(403).send({
+    error: 'forbidden',
+    message: 'An active workspace membership is required to read release state',
+  });
+  return false;
+}
+
+async function requireDirectSdkStagingPublicationCapability(
+  repository: ControlPlaneRepository,
+  session: AuthoringSessionRecord,
+  reply: FastifyReply,
+): Promise<boolean> {
+  if (await directSdkSessionCanPublishToStaging(repository, session)) return true;
+  void reply.code(403).send({
+    error: 'authoring_capability_forbidden',
+    message: 'This authoring session cannot publish to staging',
+  });
+  return false;
+}
+
+async function requireDirectSdkReleaseStateCapability(
+  repository: ControlPlaneRepository,
+  session: AuthoringSessionRecord,
+  reply: FastifyReply,
+): Promise<boolean> {
+  if (await directSdkSessionCanReadReleaseState(repository, session)) return true;
+  void reply.code(403).send({
+    error: 'authoring_capability_forbidden',
+    message: 'This authoring session cannot read document release state',
+  });
+  return false;
+}
+
+async function directSdkSessionCanReadReleaseState(
+  repository: ControlPlaneRepository,
+  session: AuthoringSessionRecord,
+): Promise<boolean> {
+  if (session.environment === 'production') return false;
+  if (!directSdkSessionHasCapability(session, AUTHORING_SESSION_CAPABILITIES.READ_RELEASE_STATE)) {
+    return false;
+  }
+  return (await resolveCurrentAuthoringMembershipRole(repository, session)) !== null;
+}
+
+async function directSdkSessionCanPublishToStaging(
+  repository: ControlPlaneRepository,
+  session: AuthoringSessionRecord,
+): Promise<boolean> {
+  if (session.environment !== 'staging') return false;
+  if (!directSdkSessionHasCapability(session, AUTHORING_SESSION_CAPABILITIES.PUBLISH_STAGING)) {
+    return false;
+  }
+  return currentAuthoringMemberCanPublishToStaging(repository, session);
+}
+
+function directSdkSessionHasCapability(
+  session: AuthoringSessionRecord,
+  capability: AuthoringSessionCapability,
+): boolean {
+  return !Array.isArray(session.capabilities) || session.capabilities.includes(capability);
+}
+
+async function currentAuthoringMemberCanPublishToStaging(
+  repository: ControlPlaneRepository,
+  session: AuthoringSessionRecord,
+): Promise<boolean> {
+  return currentAuthoringMemberHasReleaseCapability(repository, session, 'publish-staging');
+}
+
+async function currentAuthoringMemberHasReleaseCapability(
+  repository: ControlPlaneRepository,
+  session: AuthoringSessionRecord,
+  capability: ReleaseCapability,
+): Promise<boolean> {
+  const role = await resolveCurrentAuthoringMembershipRole(repository, session);
+  if (!role) return false;
+  const capabilities: readonly ReleaseCapability[] = RELEASE_CAPABILITIES_BY_ROLE[role];
+  return capabilities.includes(capability);
+}
+
+async function requireHostedAuthoringOperation(
+  repository: ControlPlaneRepository,
+  session: AuthoringSessionRecord,
+  sessionCapability: AuthoringSessionCapability,
+  releaseCapability: ReleaseCapability,
+  reply: FastifyReply,
+): Promise<boolean> {
+  if (!requireAuthoringSessionCapability(session, sessionCapability, reply)) return false;
+  if (releaseCapability !== 'sample-product-style' && session.environment !== 'staging') {
+    void reply.code(409).send({
+      error: 'staging_authoring_session_required',
+      message: 'Open Lodariq on the configured staging Origin for this release action',
+    });
+    return false;
+  }
+  if (await currentAuthoringMemberHasReleaseCapability(repository, session, releaseCapability)) {
+    return true;
+  }
+  void reply.code(403).send({
+    error: 'forbidden',
+    message: RELEASE_CAPABILITY_FORBIDDEN_MESSAGES[releaseCapability],
+  });
+  return false;
+}
+
+async function requireDirectAuthoringOperation(
+  repository: ControlPlaneRepository,
+  session: AuthoringSessionRecord,
+  sessionCapability: AuthoringSessionCapability,
+  releaseCapability: ReleaseCapability,
+  reply: FastifyReply,
+): Promise<boolean> {
+  if (!directSdkSessionHasCapability(session, sessionCapability)) {
+    void reply.code(403).send({
+      error: 'authoring_capability_forbidden',
+      message: 'Authoring session does not grant this document operation',
+    });
+    return false;
+  }
+  if (releaseCapability !== 'sample-product-style' && session.environment !== 'staging') {
+    void reply.code(409).send({
+      error: 'staging_authoring_session_required',
+      message: 'Open Lodariq on the configured staging Origin for this release action',
+    });
+    return false;
+  }
+  if (await currentAuthoringMemberHasReleaseCapability(repository, session, releaseCapability)) {
+    return true;
+  }
+  void reply.code(403).send({
+    error: 'forbidden',
+    message: RELEASE_CAPABILITY_FORBIDDEN_MESSAGES[releaseCapability],
+  });
+  return false;
+}
+
+async function authenticateDirectAuthoringOperation(
+  repository: ControlPlaneRepository,
+  request: FastifyRequest,
+  reply: FastifyReply,
+  sessionCapability: AuthoringSessionCapability,
+  releaseCapability: ReleaseCapability,
+): Promise<{ token: ResolvedEnvironmentToken; session: AuthoringSessionRecord } | null> {
+  const token = await authenticateEnvironmentToken(repository, request, reply);
+  if (!token) return null;
+  if (!requireDirectSdkAuthoringOrigin(token, request, reply)) return null;
+  const session = await authenticateAuthoringSessionForToken(repository, token, request, reply);
+  if (!session) return null;
+  if (
+    !(await requireDirectAuthoringOperation(
+      repository,
+      session,
+      sessionCapability,
+      releaseCapability,
+      reply,
+    ))
+  ) {
+    return null;
+  }
+  return { token, session };
+}
+
+async function resolveCurrentAuthoringMembershipRole(
+  repository: ControlPlaneRepository,
+  session: AuthoringSessionRecord,
+): Promise<AuthRole | null> {
+  const membership = await repository.resolveWorkspaceMembership(
+    session.workspaceId,
+    session.createdByUserId,
+  );
+  return membership ? authRoleFromMembership(membership.role) : null;
+}
+
+function authoringSessionCapabilitiesForRole(
+  capabilities: readonly AuthoringSessionCapability[],
+  role: AuthRole,
+): AuthoringSessionCapability[] {
+  const allowedReleaseCapabilities: readonly ReleaseCapability[] =
+    RELEASE_CAPABILITIES_BY_ROLE[role];
+  return capabilities.filter((capability) => {
+    const releaseCapability = RELEASE_CAPABILITY_BY_AUTHORING_SESSION_CAPABILITY[capability];
+    return !releaseCapability || allowedReleaseCapabilities.includes(releaseCapability);
+  });
+}
+
+function sendWorkspaceThemeMutationError(error: unknown, reply: FastifyReply) {
+  if (error instanceof WorkspaceThemeApprovalRequiredError) {
+    return reply.code(409).send({
+      error: error.code,
+      message: error.message,
+      themeId: error.themeId,
+    });
+  }
+  if (error instanceof WorkspaceThemeChangedError) {
+    return reply.code(409).send({
+      error: error.code,
+      message: error.message,
+      expectedRevision: error.expectedRevision,
+      actualRevision: error.actualRevision,
+      expectedUpdatedAt: error.expectedUpdatedAt,
+      actualUpdatedAt: error.actualUpdatedAt,
+    });
+  }
+  throw error;
+}
+
+function validateAuthoringDocumentPayload(value: unknown): AuthoringDocumentPayloadType {
+  const result = validate(AuthoringDocumentPayload, value);
+  if (!result.valid) {
+    throw new Error(
+      `Authoring document response failed schema validation: ${JSON.stringify(result.errors)}`,
+    );
+  }
+  return result.value;
+}
+
+function validateAuthoringStagingReleaseState(value: unknown): AuthoringStagingReleaseStateType {
+  const result = validate(AuthoringStagingReleaseState, value);
+  if (!result.valid) {
+    throw new Error(
+      `Authoring staging release state failed schema validation: ${JSON.stringify(result.errors)}`,
+    );
+  }
+  return result.value;
+}
+
+function validateAuthoringStagingPublicationResult(
+  value: unknown,
+): AuthoringStagingPublicationResultType {
+  const result = validate(AuthoringStagingPublicationResult, value);
+  if (!result.valid) {
+    throw new Error(
+      `Authoring staging publication result failed schema validation: ${JSON.stringify(result.errors)}`,
+    );
+  }
+  return result.value;
+}
+
+function validateAuthoringStagingVerificationResult(
+  value: unknown,
+): AuthoringStagingVerificationResultType {
+  const result = validate(AuthoringStagingVerificationResult, value);
+  if (!result.valid) {
+    throw new Error(
+      `Authoring staging verification result failed schema validation: ${JSON.stringify(result.errors)}`,
+    );
+  }
+  return result.value;
+}
+
+async function createActivatedAuthoringDocumentSession(
+  options: RegisterControlPlaneRoutesOptions,
+  request: FastifyRequest,
+  reply: FastifyReply,
+  activationGrant: string,
+) {
+  if (!requireEditorOrigin(request, reply)) return;
+
+  const bodyValidation = validate(CreateAuthoringDocumentSessionRequest, request.body);
+  if (!bodyValidation.valid) {
+    return reply.code(400).send({
+      error: 'invalid_authoring_session_request',
+      message: 'Activation-grant sessions require one closed document intent',
+    });
+  }
+  const body: CreateAuthoringDocumentSessionRequestType = bodyValidation.value;
+  const exactCustomerOrigin = parseExactBrowserOrigin(body.customerOrigin);
+  if (!exactCustomerOrigin || exactCustomerOrigin !== body.customerOrigin) {
+    return reply.code(400).send({
+      error: 'invalid_customer_origin',
+      message: 'Customer origin must be one canonical HTTP(S) browser origin',
+    });
+  }
+  if (!isExactEditorIframeSource(options.authoringIframeSrc)) {
+    return reply.code(503).send({
+      error: 'authoring_editor_unavailable',
+      message: 'The hosted authoring editor is not configured',
+    });
+  }
+
+  const authoringSessionToken = createAuthoringSessionToken();
+  const correlationId = createCorrelationId('authoring');
+  const activated = await options.repository.createAuthoringDocumentSessionFromActivation({
+    installationId: body.installationId,
+    exactOrigin: exactCustomerOrigin,
+    activationGrantHash: hashAuthoringActivationGrant(activationGrant),
+    pageContext: body.pageContext,
+    selectionScope: body.selectionScope,
+    documentIntent: body.documentIntent,
+    correlationId,
+    sessionTokenHash: hashAuthoringSessionToken(authoringSessionToken),
+    iframeSrc: options.authoringIframeSrc,
+    expiresAt: new Date(Date.now() + AUTHORING_SESSION_TTL_MS).toISOString(),
+  });
+  if (!activated) {
+    return reply.code(403).send({
+      error: 'authoring_session_rejected',
+      message: 'Activation grant or requested document scope is invalid, expired, or already used',
+    });
+  }
+
+  const session = activated.session;
+  const membership = await options.repository.resolveWorkspaceMembership(
+    session.workspaceId,
+    session.creatorId,
+  );
+  const responseCapabilities = authoringSessionCapabilitiesForRole(
+    session.capabilities,
+    membership ? authRoleFromMembership(membership.role) : 'viewer',
+  );
+  emitObservability(
+    options.observability,
+    createObservabilityEvent({
+      name: 'authoring.session.created',
+      correlationId: session.correlationId,
+      workspaceId: session.workspaceId,
+      documentId: session.documentId,
+      environmentId: session.environmentId,
+      userId: session.creatorId,
+      attributes: {
+        source: 'activation-grant',
+        documentCreated: activated.documentCreated,
+      },
+    }),
+  );
+
+  const result = validateAuthoringDocumentSessionResult({
+    authoringSessionToken,
+    context: {
+      sessionId: session.sessionId,
+      correlationId: session.correlationId,
+      compilerVersion: session.compilerVersion,
+      rendererContractVersion: session.rendererContractVersion,
+      themeContractVersion: session.themeContractVersion,
+      themeVersionId: session.themeVersionId,
+      workspaceId: session.workspaceId,
+      environmentId: session.environmentId,
+      environment: session.environment,
+      documentId: session.documentId,
+      customerOrigin: session.customerOrigin,
+      editorOrigin: LODARIQ_EDITOR_ORIGIN,
+      creatorId: session.creatorId,
+      capabilities: responseCapabilities,
+      expiresAt: session.expiresAt,
+    },
+  });
+  setCredentialResponseHeaders(reply);
+  return reply.code(201).send(result);
 }
 
 async function findEnvironment(
@@ -744,94 +4575,120 @@ async function findEnvironment(
   );
 }
 
-async function publishCurrentDocument(
-  repository: ControlPlaneRepository,
-  auth: AuthContext,
-  environment: WorkspaceEnvironment,
-  record: PersistedDocument,
-  observability: ObservabilitySink,
-): Promise<PersistedPublication> {
-  const artifact = await ensureCurrentCompiledArtifact(repository, auth, record);
-  const correlationId = createCorrelationId('publish');
-  const publication = await repository.publishCompiledArtifact({
-    workspaceId: auth.workspaceId,
-    correlationId,
-    environmentId: environment.id,
-    artifact,
-    actorUserId: auth.userId,
-  });
-  observability.emit(
-    createObservabilityEvent({
-      name: 'publish.completed',
-      correlationId,
-      workspaceId: auth.workspaceId,
-      documentId: record.document.id,
-      environmentId: environment.id,
-      userId: auth.userId,
-      attributes: { contentHash: publication.contentHash, source: 'authoring-launch' },
-    }),
-  );
-  return publication;
+interface ReviewedReleaseArtifact {
+  artifact: PersistedCompiledArtifact;
+  document: PersistedDocument['document'];
 }
 
-async function ensureCurrentCompiledArtifact(
+async function loadReviewedReleaseArtifact(
   repository: ControlPlaneRepository,
-  auth: AuthContext,
-  record: PersistedDocument,
-): Promise<PersistedCompiledArtifact> {
-  const compiled = await compileAndValidate(record.document);
-  if (record.latestArtifact?.contentHash === compiled.contentHash) return record.latestArtifact;
-
-  const saved = await repository.saveDocument({
-    workspaceId: auth.workspaceId,
-    actorUserId: auth.userId,
-    document: record.document,
-    artifact: compiled,
-  });
-  if (!saved.latestArtifact) {
-    throw new Error('failed to persist compiled artifact for publication');
+  workspaceId: string,
+  documentId: string,
+  artifactId: string,
+  contentHash: string,
+): Promise<ReviewedReleaseArtifact | null> {
+  const artifact = await repository.getCompiledArtifact(workspaceId, documentId, artifactId);
+  if (!artifact || artifact.contentHash !== contentHash || !artifact.documentVersionId) {
+    return null;
   }
-  return saved.latestArtifact;
+  const version = await repository.getDocumentVersion(
+    workspaceId,
+    documentId,
+    artifact.documentVersionId,
+  );
+  if (
+    !version ||
+    version.canonical.id !== documentId ||
+    version.canonical.workspaceId !== workspaceId
+  ) {
+    return null;
+  }
+  return { artifact, document: version.canonical };
 }
 
-async function authenticateAuthoringSession(
+async function findVisualCheckForArtifact(
   repository: ControlPlaneRepository,
-  environmentToken: ResolvedEnvironmentToken,
-  artifact: { documentId: string },
-  request: FastifyRequest,
-  reply: FastifyReply,
-): Promise<AuthoringSessionRecord | null | false> {
-  const sessionToken = readHeader(request, AUTHORING_SESSION_HEADER);
-  if (!sessionToken) return null;
-
-  const session = await repository.resolveAuthoringSession(
-    environmentToken.workspaceId,
-    hashAuthoringSessionToken(sessionToken),
+  workspaceId: string,
+  documentId: string,
+  environmentId: string,
+  artifact: PersistedCompiledArtifact,
+): Promise<VisualCheckRunRecord | null> {
+  const runs = await repository.listVisualCheckRuns(workspaceId, documentId);
+  return (
+    runs.find(
+      (run) =>
+        run.environmentId === environmentId &&
+        run.compiledArtifactId === artifact.id &&
+        run.contentHash === artifact.contentHash,
+    ) ?? null
   );
-  if (!session) {
-    await reply.code(401).send({
-      error: 'unauthorized',
-      message: 'Authoring session is invalid, expired, or revoked',
-    });
-    return false;
+}
+
+interface StagingPublicationHashInput {
+  workspaceId: string;
+  documentId: string;
+  environmentId: string;
+  artifactId: string;
+  contentHash: string;
+  expectedGeneration: number;
+}
+
+async function createStagingPublicationRequestHash(
+  input: StagingPublicationHashInput,
+): Promise<string> {
+  const canonicalRequest = canonicalJson({
+    action: 'publish',
+    artifactId: input.artifactId,
+    contentHash: input.contentHash,
+    documentId: input.documentId,
+    environmentId: input.environmentId,
+    expectedGeneration: input.expectedGeneration,
+    workspaceId: input.workspaceId,
+  });
+  return `sha256-${await sha256Hex(canonicalRequest)}`;
+}
+
+interface RunVisualPreflightInput {
+  repository: ControlPlaneRepository;
+  workspaceId: string;
+  documentId: string;
+  environmentId: string;
+  artifact: PersistedCompiledArtifact;
+  actorUserId: string;
+}
+
+async function runAndPersistVisualPreflight(input: RunVisualPreflightInput) {
+  const existingRuns = await input.repository.listVisualCheckRuns(
+    input.workspaceId,
+    input.documentId,
+  );
+  const existing = existingRuns.find(
+    (run) =>
+      run.environmentId === input.environmentId &&
+      run.compiledArtifactId === input.artifact.id &&
+      run.contentHash === input.artifact.contentHash,
+  );
+  if (existing) return existing;
+
+  const compiled = input.artifact.compiled;
+  if (compiled.artifactSchemaVersion !== '2') {
+    throw new Error('visual preflight requires a Phase 2 compiled artifact');
   }
-
-  const matchesEnvironment =
-    session.workspaceId === environmentToken.workspaceId &&
-    session.environmentId === environmentToken.environmentId &&
-    session.environment === environmentToken.environment &&
-    session.documentId === artifact.documentId &&
-    environmentToken.environment !== 'production';
-
-  if (!matchesEnvironment) {
-    await reply.code(403).send({
-      error: 'authoring_session_mismatch',
-      message: 'Authoring session does not match the SDK environment or document',
-    });
-    return false;
+  if (!input.artifact.documentVersionId) {
+    throw new Error('visual preflight requires an immutable document version');
   }
-
-  return session;
+  const report = await runBasicVisualPreflight(compiled, new Date().toISOString());
+  return input.repository.createVisualCheckRun({
+    workspaceId: input.workspaceId,
+    documentId: input.documentId,
+    documentVersionId: input.artifact.documentVersionId,
+    compiledArtifactId: input.artifact.id,
+    themeVersionId: compiled.theme.themeVersionId,
+    environmentId: input.environmentId,
+    contentHash: input.artifact.contentHash,
+    report,
+    actorUserId: input.actorUserId,
+  });
 }
 
 async function authenticateAuthoringSessionForToken(
@@ -918,6 +4775,100 @@ function readHeader(request: FastifyRequest, name: string): string | null {
   return typeof value === 'string' && value.trim() ? value.trim() : null;
 }
 
+interface SdkDeliveryScope {
+  workspaceId: string;
+  environmentId: string;
+}
+
+interface SdkDocumentPathParams extends SdkDeliveryScope {
+  documentId: string;
+}
+
+interface SdkDocumentArtifactPathParams extends SdkDocumentPathParams {
+  contentHash: string;
+}
+
+function requireSdkDeliveryPathScope(
+  scope: SdkDeliveryScope,
+  params: SdkDocumentPathParams,
+  reply: FastifyReply,
+): boolean {
+  if (scope.workspaceId === params.workspaceId && scope.environmentId === params.environmentId) {
+    return true;
+  }
+  reply.code(403).send({
+    error: 'delivery_scope_mismatch',
+    message: 'The requested delivery path does not match the resolved SDK scope',
+  });
+  return false;
+}
+
+async function resolveSdkDeliveryScope(
+  repository: ControlPlaneRepository,
+  request: FastifyRequest,
+  reply: FastifyReply,
+): Promise<SdkDeliveryScope | null> {
+  if (readHeader(request, PUBLIC_SDK_INSTALLATION_HEADER)) {
+    const resolved = await resolvePublicSdkRequest(repository, request, reply);
+    return resolved
+      ? {
+          workspaceId: resolved.installation.workspaceId,
+          environmentId: resolved.environment.id,
+        }
+      : null;
+  }
+
+  const token = await authenticateEnvironmentToken(repository, request, reply);
+  if (!token || !requireSdkOrigin(token, request, reply)) return null;
+  return { workspaceId: token.workspaceId, environmentId: token.environmentId };
+}
+
+async function resolvePublicSdkRequest(
+  repository: ControlPlaneRepository,
+  request: FastifyRequest,
+  reply: FastifyReply,
+): Promise<ResolvedPublicSdkInstallation | null> {
+  const installationId = readHeader(request, PUBLIC_SDK_INSTALLATION_HEADER);
+  const exactOrigin = parseExactBrowserOrigin(request.headers.origin);
+  if (!installationId || !exactOrigin) {
+    await reply.code(400).send({
+      error: 'public_sdk_scope_required',
+      message: 'Public SDK requests require an installation ID and canonical browser Origin',
+    });
+    return null;
+  }
+
+  const resolved = await repository.resolvePublicSdkInstallation(installationId, exactOrigin);
+  if (!resolved) {
+    await reply.code(403).send({
+      error: 'installation_origin_forbidden',
+      message: 'Installation is not configured for this Origin',
+    });
+    return null;
+  }
+  setAllowedSdkCorsHeaders(exactOrigin, reply);
+  return resolved;
+}
+
+async function requirePublicAuthoringScope(
+  repository: ControlPlaneRepository,
+  installationId: string,
+  exactOrigin: string,
+  reply: FastifyReply,
+): Promise<ResolvedPublicSdkInstallation | null> {
+  const resolved = await repository.resolvePublicSdkInstallation(installationId, exactOrigin);
+  const canAuthor =
+    resolved?.authoringEnabled === true && resolved.environment.kind !== 'production';
+  if (!resolved || !canAuthor) {
+    await reply.code(403).send({
+      error: 'authoring_origin_forbidden',
+      message: 'Authoring is not enabled for this installation and Origin',
+    });
+    return null;
+  }
+  return resolved;
+}
+
 function requireSdkOrigin(
   token: ResolvedEnvironmentToken,
   request: FastifyRequest,
@@ -936,6 +4887,226 @@ function requireSdkOrigin(
     message: 'Origin is not allowed for this Lodariq environment token',
   });
   return false;
+}
+
+function requireDirectSdkAuthoringOrigin(
+  token: ResolvedEnvironmentToken,
+  request: FastifyRequest,
+  reply: FastifyReply,
+): boolean {
+  const exactOrigin = parseExactBrowserOrigin(request.headers.origin);
+  if (exactOrigin && token.originAllowlist.includes(exactOrigin)) {
+    setAllowedSdkCorsHeaders(exactOrigin, reply);
+    return true;
+  }
+
+  void reply.code(403).send({
+    error: 'authoring_origin_forbidden',
+    message: 'SDK authoring requires an exact allowlisted browser Origin',
+  });
+  return false;
+}
+
+function requireFirstPartyAppOrigin(request: FastifyRequest, reply: FastifyReply): boolean {
+  const origin = request.headers.origin;
+  if (!origin) return true;
+
+  const exactOrigin = parseExactBrowserOrigin(origin);
+  if (exactOrigin === LODARIQ_APP_ORIGIN) {
+    reply.header('access-control-allow-origin', exactOrigin);
+    reply.header('vary', 'Origin');
+    reply.header('access-control-allow-methods', 'GET,POST,OPTIONS');
+    reply.header('access-control-allow-headers', 'authorization,content-type');
+    reply.header('access-control-max-age', '600');
+    return true;
+  }
+
+  void reply.code(403).send({
+    error: 'origin_forbidden',
+    message: 'Authoring approval is available only from the Lodariq app origin',
+  });
+  return false;
+}
+
+function requireEditorOrigin(request: FastifyRequest, reply: FastifyReply): boolean {
+  const exactOrigin = parseExactBrowserOrigin(request.headers.origin);
+  if (exactOrigin === LODARIQ_EDITOR_ORIGIN) {
+    setEditorCorsHeaders(reply);
+    return true;
+  }
+
+  void reply.code(403).send({
+    error: 'editor_origin_forbidden',
+    message: 'Activation-grant sessions are available only to the hosted Lodariq editor',
+  });
+  return false;
+}
+
+function setEditorCorsHeaders(reply: FastifyReply): void {
+  reply.header('access-control-allow-origin', LODARIQ_EDITOR_ORIGIN);
+  reply.header('vary', 'Origin');
+  reply.header('access-control-allow-methods', 'GET,POST,OPTIONS');
+  reply.header(
+    'access-control-allow-headers',
+    `content-type,${AUTHORING_ACTIVATION_GRANT_HEADER},${AUTHORING_SESSION_HEADER},${IDEMPOTENCY_KEY_HEADER},${RELEASE_CORRELATION_ID_HEADER}`,
+  );
+  reply.header('access-control-max-age', '600');
+}
+
+function setCredentialResponseHeaders(reply: FastifyReply): void {
+  reply.header('cache-control', 'no-store');
+  reply.header('pragma', 'no-cache');
+}
+
+function isExactEditorIframeSource(value: string): boolean {
+  try {
+    const url = new URL(value);
+    return (
+      url.origin === LODARIQ_EDITOR_ORIGIN &&
+      !url.username &&
+      !url.password &&
+      !url.search &&
+      !url.hash
+    );
+  } catch {
+    return false;
+  }
+}
+
+async function bootstrapPublicSdkInstallation(
+  options: RegisterControlPlaneRoutesOptions,
+  body: PublicSdkBootstrapRequestType,
+  request: FastifyRequest,
+  reply: FastifyReply,
+): Promise<PublicSdkBootstrapContextType | FastifyReply> {
+  const exactOrigin = parseExactBrowserOrigin(request.headers.origin);
+  if (!exactOrigin) {
+    return reply.code(400).send({
+      error: 'origin_required',
+      message: 'Public SDK bootstrap requires one canonical browser Origin',
+    });
+  }
+  if (!bootstrapClaimsMatchOrigin(exactOrigin, body)) {
+    return reply.code(403).send({
+      error: 'origin_claim_mismatch',
+      message: 'Bootstrap page intent does not match the request Origin',
+    });
+  }
+
+  const resolved = await options.repository.resolvePublicSdkInstallation(
+    body.installationId,
+    exactOrigin,
+  );
+  if (!resolved) {
+    return reply.code(403).send({
+      error: 'installation_origin_forbidden',
+      message: 'Installation is not configured for this Origin',
+    });
+  }
+  setAllowedSdkCorsHeaders(exactOrigin, reply);
+
+  const deployments = await options.repository.listDocumentDeployments(
+    resolved.installation.workspaceId,
+    resolved.environment.id,
+  );
+  let publication: PersistedPublication | null = null;
+  let delivery: PublicSdkBootstrapContextType['delivery'];
+  if (deployments.length > 0) {
+    const activeDeployments = deployments
+      .filter((deployment) => deployment.state === 'active')
+      .sort((left, right) => left.documentId.localeCompare(right.documentId));
+    if (activeDeployments.length > MAX_ACTIVE_DOCUMENT_MANIFESTS) {
+      return reply.code(409).send({
+        error: 'active_document_limit_exceeded',
+        message: `This SDK installation has more than ${MAX_ACTIVE_DOCUMENT_MANIFESTS} active documents; deactivate documents before bootstrapping`,
+        maximum: MAX_ACTIVE_DOCUMENT_MANIFESTS,
+      });
+    }
+    const manifests = await Promise.all(
+      activeDeployments.map((deployment) =>
+        createActiveManifestPointer(options.repository, options.publicApiBaseUrl, deployment),
+      ),
+    );
+    if (manifests.some((manifest) => manifest === null)) {
+      return reply.code(409).send({
+        error: 'deployment_publication_missing',
+        message: 'An active document deployment does not resolve to an immutable publication',
+      });
+    }
+    const activeManifests = manifests.filter(
+      (manifest): manifest is ActiveManifestPointerV2 => manifest !== null,
+    );
+    delivery =
+      activeManifests.length > 0
+        ? {
+            state: 'available',
+            mode: 'document-scoped-v2',
+            manifests: activeManifests,
+            defaultDocumentId: activeManifests[0]!.documentId,
+            ingestUrl: new URL('/v1/sdk/events', options.publicApiBaseUrl).toString(),
+          }
+        : { state: 'unavailable' };
+  } else {
+    publication = await getLegacyCurrentPublication(
+      options.repository,
+      resolved.installation.workspaceId,
+      resolved.environment.id,
+      reply,
+    );
+    if (reply.sent) return reply;
+    delivery = publication
+      ? {
+          state: 'available',
+          manifest: createManifestPointer(publication),
+          currentDocumentUrl: new URL(
+            '/v1/sdk/current-document',
+            options.publicApiBaseUrl,
+          ).toString(),
+          ingestUrl: new URL('/v1/sdk/events', options.publicApiBaseUrl).toString(),
+        }
+      : { state: 'unavailable' };
+  }
+
+  let authoring: PublicSdkBootstrapContextType['authoring'] = { state: 'disabled' };
+  const canAuthor =
+    resolved.environment.kind !== 'production' && resolved.authoringEnabled === true;
+  if (canAuthor) {
+    const bootstrapGrant = createPublicSdkBootstrapGrant();
+    const bootstrapGrantExpiresAt = new Date(
+      Date.now() + PUBLIC_SDK_BOOTSTRAP_GRANT_TTL_MS,
+    ).toISOString();
+    await options.repository.createPublicSdkBootstrapGrant({
+      workspaceId: resolved.installation.workspaceId,
+      installationId: resolved.installation.installationId,
+      environmentId: resolved.environment.id,
+      exactOrigin,
+      grantHash: hashPublicSdkBootstrapGrant(bootstrapGrant),
+      expiresAt: bootstrapGrantExpiresAt,
+    });
+    authoring = {
+      state: 'available',
+      appOrigin: LODARIQ_APP_ORIGIN,
+      activationUrl: LODARIQ_AUTHORING_ACTIVATION_URL,
+      authorizationRequestUrl: new URL(
+        '/v1/sdk/authoring/authorization-requests',
+        options.publicApiBaseUrl,
+      ).toString(),
+      exchangeUrl: new URL('/v1/sdk/authoring/exchange', options.publicApiBaseUrl).toString(),
+      bootstrapGrant,
+      bootstrapGrantExpiresAt,
+    };
+    setCredentialResponseHeaders(reply);
+  }
+
+  return validatePublicSdkBootstrapContext({
+    installationId: resolved.installation.installationId,
+    environmentId: resolved.environment.id,
+    environment: resolved.environment.kind,
+    customerOrigin: exactOrigin,
+    correlationId: publication?.correlationId ?? createCorrelationId('bootstrap'),
+    delivery,
+    authoring,
+  });
 }
 
 function setSdkPreflightCorsHeaders(request: FastifyRequest, reply: FastifyReply): void {
@@ -957,47 +5128,336 @@ function setSdkCorsPolicyHeaders(reply: FastifyReply): void {
   reply.header('access-control-allow-methods', 'GET,POST,OPTIONS');
   reply.header(
     'access-control-allow-headers',
-    `authorization,content-type,${AUTHORING_SESSION_HEADER}`,
+    `authorization,content-type,${AUTHORING_SESSION_HEADER},${PUBLIC_SDK_INSTALLATION_HEADER},${AUTHORING_BOOTSTRAP_GRANT_HEADER},${IDEMPOTENCY_KEY_HEADER},${RELEASE_CORRELATION_ID_HEADER}`,
   );
   reply.header('access-control-max-age', '600');
 }
 
-function createSdkInstallContext(
+function resolveCreatorModule(
+  configured: CreatorModuleDescriptorType | undefined,
+): CreatorModuleDescriptorType | null {
+  const validation = validate(CreatorModuleDescriptor, configured);
+  if (!validation.valid) return null;
+
+  try {
+    const url = new URL(validation.value.url);
+    if (!CREATOR_MODULE_CONTENT_ADDRESS_PATTERN.test(url.pathname)) return null;
+  } catch {
+    return null;
+  }
+  return validation.value;
+}
+
+function validateAuthoringAuthorizationContext(context: unknown) {
+  const validation = validate(AuthoringAuthorizationContext, context);
+  if (!validation.valid) {
+    throw new Error(
+      `Authoring authorization context failed schema validation: ${JSON.stringify(validation.errors)}`,
+    );
+  }
+  return validation.value;
+}
+
+function validateAuthoringAuthorizationResult(result: unknown) {
+  const validation = validate(AuthoringAuthorizationResult, result);
+  if (!validation.valid) {
+    throw new Error(
+      `Authoring authorization result failed schema validation: ${JSON.stringify(validation.errors)}`,
+    );
+  }
+  return validation.value;
+}
+
+function validateAuthoringCodeExchangeResult(result: unknown) {
+  const validation = validate(AuthoringCodeExchangeResult, result);
+  if (!validation.valid) {
+    throw new Error(
+      `Authoring code exchange result failed schema validation: ${JSON.stringify(validation.errors)}`,
+    );
+  }
+  return validation.value;
+}
+
+function validateAuthoringDocumentSessionResult(result: unknown) {
+  const validation = validate(AuthoringDocumentSessionResult, result);
+  if (!validation.valid) {
+    throw new Error(
+      `Authoring document session result failed schema validation: ${JSON.stringify(validation.errors)}`,
+    );
+  }
+  return validation.value;
+}
+
+function createViewerSdkInstallContext(
   publicApiBaseUrl: string,
   token: ResolvedEnvironmentToken,
   publication: PersistedPublication,
-  authoringSession: AuthoringSessionRecord | null = null,
 ): SdkInstallContextType {
   const context = {
     workspaceId: token.workspaceId,
+    environmentId: token.environmentId,
     environment: token.environment,
     correlationId: publication.correlationId,
-    manifest: {
-      documentId: publication.documentId,
-      currentVersion: publication.contentHash,
-      artifact: {
-        contentHash: publication.artifact.contentHash,
-        compilerVersion: publication.artifact.compilerVersion,
-        createdAt: publication.artifact.createdAt,
-        ...(publication.artifact.documentVersionId
-          ? { documentVersionId: publication.artifact.documentVersionId }
-          : {}),
-      },
-    },
+    manifest: createManifestPointer(publication),
     currentDocumentUrl: new URL('/v1/sdk/current-document', publicApiBaseUrl).toString(),
     ingestUrl: new URL('/v1/sdk/events', publicApiBaseUrl).toString(),
-    authoring: authoringSession
-      ? {
-          enabled: true,
-          iframeSrc: authoringSession.iframeSrc,
-          sessionId: authoringSession.id,
-          correlationId: authoringSession.correlationId,
-          expiresAt: authoringSession.expiresAt,
-          documentUrl: new URL('/v1/sdk/authoring/document', publicApiBaseUrl).toString(),
-          saveDocumentUrl: new URL('/v1/sdk/authoring/document', publicApiBaseUrl).toString(),
-        }
-      : { enabled: false },
+    authoring: { enabled: false },
   };
+  return validateSdkInstallContext(context);
+}
+
+function createManifestPointer(
+  publication: PersistedPublication,
+): SdkInstallContextType['manifest'] {
+  return {
+    documentId: publication.documentId,
+    currentVersion: publication.contentHash,
+    artifact: {
+      contentHash: publication.artifact.contentHash,
+      compilerVersion: publication.artifact.compilerVersion,
+      createdAt: publication.artifact.createdAt,
+      ...(publication.artifact.documentVersionId
+        ? { documentVersionId: publication.artifact.documentVersionId }
+        : {}),
+    },
+  };
+}
+
+async function createActiveManifestPointer(
+  repository: ControlPlaneRepository,
+  publicApiBaseUrl: string,
+  deployment: PersistedDocumentDeployment,
+): Promise<ActiveManifestPointerV2 | null> {
+  if (deployment.state !== 'active') return null;
+  const publication = await repository.getCurrentPublicationForDocument(
+    deployment.workspaceId,
+    deployment.environmentId,
+    deployment.documentId,
+  );
+  return publication
+    ? createActiveManifestPointerFromPublication(publicApiBaseUrl, deployment, publication)
+    : null;
+}
+
+function createActiveManifestPointerFromPublication(
+  publicApiBaseUrl: string,
+  deployment: PersistedDocumentDeployment,
+  publication: PersistedPublication,
+): ActiveManifestPointerV2 | null {
+  const compiled = publication.artifact.compiled;
+  if (
+    deployment.state !== 'active' ||
+    compiled.artifactSchemaVersion !== COMPILED_ARTIFACT_SCHEMA_VERSION ||
+    compiled.compilerVersion !== COMPILER_VERSION ||
+    compiled.rendererContractVersion !== RENDERER_CONTRACT_VERSION ||
+    compiled.theme.contractVersion !== BRAND_THEME_CONTRACT_VERSION ||
+    publication.documentId !== deployment.documentId ||
+    publication.id !== deployment.activePublicationId ||
+    publication.contentHash !== compiled.contentHash
+  ) {
+    return null;
+  }
+
+  const encodedWorkspaceId = encodeURIComponent(deployment.workspaceId);
+  const encodedEnvironmentId = encodeURIComponent(deployment.environmentId);
+  const encodedDocumentId = encodeURIComponent(deployment.documentId);
+  const encodedContentHash = encodeURIComponent(compiled.contentHash);
+  const artifactUrl = new URL(
+    `/v1/sdk/workspaces/${encodedWorkspaceId}/environments/${encodedEnvironmentId}/documents/${encodedDocumentId}/artifacts/${encodedContentHash}`,
+    publicApiBaseUrl,
+  ).toString();
+  const canonicalArtifact = canonicalJson(compiled);
+  return {
+    schemaVersion: COMPILED_ARTIFACT_SCHEMA_VERSION,
+    workspaceId: deployment.workspaceId,
+    environmentId: deployment.environmentId,
+    documentId: deployment.documentId,
+    state: 'active',
+    generation: deployment.generation,
+    publicationId: publication.id,
+    activatedAt: publication.publishedAt,
+    artifact: {
+      artifactSchemaVersion: compiled.artifactSchemaVersion,
+      contentHash: compiled.contentHash,
+      compilerVersion: compiled.compilerVersion,
+      rendererContractVersion: compiled.rendererContractVersion,
+      themeContractVersion: compiled.theme.contractVersion,
+      themeVersionId: compiled.theme.themeVersionId,
+      themeContentHash: compiled.theme.contentHash,
+      url: artifactUrl,
+      integrity: `sha256-${createHash('sha256').update(canonicalArtifact).digest('base64')}`,
+    },
+  };
+}
+
+function createJsonEtag(body: string): string {
+  return `"sha256-${createHash('sha256').update(body).digest('hex')}"`;
+}
+
+function requestMatchesEtag(request: FastifyRequest, etag: string): boolean {
+  const header = readHeader(request, 'if-none-match');
+  if (!header) return false;
+  const normalized = etag.replace(/^W\//u, '');
+  return header
+    .split(',')
+    .map((value) => value.trim().replace(/^W\//u, ''))
+    .some((value) => value === '*' || value === normalized);
+}
+
+function setManifestResponseHeaders(reply: FastifyReply, etag: string): void {
+  setPrivateDocumentResponseHeaders(reply);
+  reply.header('etag', etag);
+}
+
+function setPrivateDocumentResponseHeaders(reply: FastifyReply): void {
+  reply.header('cache-control', 'private, no-store');
+  reply.header('x-content-type-options', 'nosniff');
+}
+
+function setImmutableArtifactResponseHeaders(reply: FastifyReply, etag: string): void {
+  reply.header('cache-control', 'public, max-age=31536000, immutable');
+  reply.header('etag', etag);
+  reply.header('x-content-type-options', 'nosniff');
+}
+
+async function createAuthoringSdkInstallContext(
+  repository: ControlPlaneRepository,
+  publicApiBaseUrl: string,
+  token: ResolvedEnvironmentToken,
+  record: PersistedDocument,
+  authoringSession: AuthoringSessionRecord,
+  reply: FastifyReply,
+): Promise<SdkInstallContextType | FastifyReply> {
+  if (
+    record.latestArtifact &&
+    !authoringSessionArtifactMatches(authoringSession, record.latestArtifact.compiled)
+  ) {
+    return sendAuthoringSessionCompatibilityChanged(reply);
+  }
+  const compiled =
+    record.latestArtifact?.compiled ?? (await compileAndValidate(repository, record.document));
+  if (!authoringSessionArtifactMatches(authoringSession, compiled)) {
+    return sendAuthoringSessionCompatibilityChanged(reply);
+  }
+  const artifact = record.latestArtifact;
+  const canReadReleaseState = await directSdkSessionCanReadReleaseState(
+    repository,
+    authoringSession,
+  );
+  const canPublishToStaging =
+    canReadReleaseState &&
+    (await directSdkSessionCanPublishToStaging(repository, authoringSession));
+  const canVerifyStaging =
+    canReadReleaseState &&
+    authoringSession.environment === 'staging' &&
+    directSdkSessionHasCapability(
+      authoringSession,
+      AUTHORING_SESSION_CAPABILITIES.VERIFY_STAGING,
+    ) &&
+    (await currentAuthoringMemberHasReleaseCapability(
+      repository,
+      authoringSession,
+      'verify-staging',
+    ));
+  const canPromoteProduction =
+    canReadReleaseState &&
+    authoringSession.environment === 'staging' &&
+    directSdkSessionHasCapability(
+      authoringSession,
+      AUTHORING_SESSION_CAPABILITIES.PROMOTE_PRODUCTION,
+    ) &&
+    (await currentAuthoringMemberHasReleaseCapability(
+      repository,
+      authoringSession,
+      'promote-production',
+    ));
+  const canApproveProduction =
+    canReadReleaseState &&
+    authoringSession.environment === 'staging' &&
+    directSdkSessionHasCapability(
+      authoringSession,
+      AUTHORING_SESSION_CAPABILITIES.APPROVE_PRODUCTION,
+    ) &&
+    (await currentAuthoringMemberHasReleaseCapability(
+      repository,
+      authoringSession,
+      'approve-production',
+    ));
+  const release = canReadReleaseState
+    ? {
+        releaseState: {
+          capability: AUTHORING_SESSION_CAPABILITIES.READ_RELEASE_STATE,
+          url: new URL('/v1/sdk/authoring/release-state', publicApiBaseUrl).toString(),
+        },
+        ...(canPublishToStaging
+          ? {
+              stagingPublication: {
+                capability: AUTHORING_SESSION_CAPABILITIES.PUBLISH_STAGING,
+                url: new URL('/v1/sdk/authoring/publications', publicApiBaseUrl).toString(),
+              },
+            }
+          : {}),
+        ...(canVerifyStaging
+          ? {
+              stagingVerification: {
+                capability: AUTHORING_SESSION_CAPABILITIES.VERIFY_STAGING,
+                url: new URL('/v1/sdk/authoring/verifications', publicApiBaseUrl).toString(),
+              },
+            }
+          : {}),
+        ...(canPromoteProduction
+          ? {
+              productionPromotion: {
+                capability: AUTHORING_SESSION_CAPABILITIES.PROMOTE_PRODUCTION,
+                url: new URL('/v1/sdk/authoring/promotions', publicApiBaseUrl).toString(),
+              },
+            }
+          : {}),
+        ...(canApproveProduction
+          ? {
+              productionApproval: {
+                capability: AUTHORING_SESSION_CAPABILITIES.APPROVE_PRODUCTION,
+                url: new URL(
+                  '/v1/sdk/authoring/release-operations/:operationId/approvals',
+                  publicApiBaseUrl,
+                ).toString(),
+              },
+            }
+          : {}),
+      }
+    : null;
+  const context = {
+    workspaceId: token.workspaceId,
+    environmentId: token.environmentId,
+    environment: token.environment,
+    correlationId: authoringSession.correlationId,
+    manifest: {
+      documentId: authoringSession.documentId,
+      currentVersion: compiled.contentHash,
+      artifact: {
+        contentHash: compiled.contentHash,
+        compilerVersion: compiled.compilerVersion,
+        createdAt: artifact?.createdAt ?? record.updatedAt,
+        ...(artifact?.documentVersionId ? { documentVersionId: artifact.documentVersionId } : {}),
+      },
+    },
+    currentDocumentUrl: '',
+    ingestUrl: new URL('/v1/sdk/events', publicApiBaseUrl).toString(),
+    authoring: {
+      enabled: true,
+      iframeSrc: authoringSession.iframeSrc,
+      sessionId: authoringSession.id,
+      correlationId: authoringSession.correlationId,
+      expiresAt: authoringSession.expiresAt,
+      documentUrl: new URL('/v1/sdk/authoring/document', publicApiBaseUrl).toString(),
+      saveDocumentUrl: new URL('/v1/sdk/authoring/document', publicApiBaseUrl).toString(),
+      ...(release ? { release } : {}),
+    },
+  };
+  return validateSdkInstallContext(context);
+}
+
+function validateSdkInstallContext(context: unknown): SdkInstallContextType {
   const validation = validate(SdkInstallContext, context);
   if (!validation.valid) {
     throw new Error(
@@ -1007,8 +5467,48 @@ function createSdkInstallContext(
   return validation.value;
 }
 
-function createCorrelationId(scope: 'authoring' | 'compile' | 'publish'): string {
+function validatePublicSdkBootstrapContext(context: unknown): PublicSdkBootstrapContextType {
+  const validation = validate(PublicSdkBootstrapContext, context);
+  if (!validation.valid) {
+    throw new Error(
+      `Public SDK bootstrap context failed schema validation: ${JSON.stringify(validation.errors)}`,
+    );
+  }
+  return validation.value;
+}
+
+async function getLegacyCurrentPublication(
+  repository: ControlPlaneRepository,
+  workspaceId: string,
+  environmentId: string,
+  reply: FastifyReply,
+): Promise<PersistedPublication | null> {
+  try {
+    return await repository.getCurrentPublication(workspaceId, environmentId);
+  } catch (error) {
+    if (!(error instanceof AmbiguousCurrentPublicationError)) throw error;
+    await reply.code(409).send({
+      error: DOCUMENT_SPECIFIC_DELIVERY_REQUIRED_ERROR,
+      code: AMBIGUOUS_CURRENT_PUBLICATION_ERROR_CODE,
+      message:
+        'Multiple documents are active in this environment; use document-specific SDK delivery',
+      documentIds: error.documentIds,
+    });
+    return null;
+  }
+}
+
+function createCorrelationId(scope: 'authoring' | 'bootstrap' | 'compile'): string {
   return `corr_${scope}_${randomUUID()}`;
+}
+
+function emitObservability(sink: ObservabilitySink, event: ObservabilityEvent): void {
+  try {
+    sink.emit(event);
+  } catch {
+    // Telemetry is deliberately non-blocking. A sink failure must never turn a
+    // committed document/session/release operation into a misleading 500.
+  }
 }
 
 function requireRole(auth: AuthContext, minimumRole: AuthRole, reply: FastifyReply): boolean {
@@ -1016,6 +5516,68 @@ function requireRole(auth: AuthContext, minimumRole: AuthRole, reply: FastifyRep
   void reply.code(403).send({
     error: 'forbidden',
     message: `Workspace role ${minimumRole} or higher is required`,
+  });
+  return false;
+}
+
+type ReleaseCapability =
+  | 'approve-production'
+  | 'manage-release-policy'
+  | 'promote-production'
+  | 'publish-staging'
+  | 'sample-product-style'
+  | 'verify-staging';
+
+const RELEASE_CAPABILITIES_BY_ROLE = {
+  viewer: [],
+  member: ['publish-staging', 'sample-product-style', 'verify-staging'],
+  admin: [
+    'approve-production',
+    'manage-release-policy',
+    'promote-production',
+    'publish-staging',
+    'sample-product-style',
+    'verify-staging',
+  ],
+  owner: [
+    'approve-production',
+    'manage-release-policy',
+    'promote-production',
+    'publish-staging',
+    'sample-product-style',
+    'verify-staging',
+  ],
+} as const satisfies Readonly<Record<AuthRole, readonly ReleaseCapability[]>>;
+
+const RELEASE_CAPABILITY_BY_AUTHORING_SESSION_CAPABILITY: Partial<
+  Readonly<Record<AuthoringSessionCapability, ReleaseCapability>>
+> = {
+  [AUTHORING_SESSION_CAPABILITIES.APPROVE_PRODUCTION]: 'approve-production',
+  [AUTHORING_SESSION_CAPABILITIES.PROMOTE_PRODUCTION]: 'promote-production',
+  [AUTHORING_SESSION_CAPABILITIES.PUBLISH_STAGING]: 'publish-staging',
+  [AUTHORING_SESSION_CAPABILITIES.SAMPLE_PRODUCT_STYLE]: 'sample-product-style',
+  [AUTHORING_SESSION_CAPABILITIES.VERIFY_STAGING]: 'verify-staging',
+};
+
+const RELEASE_CAPABILITY_FORBIDDEN_MESSAGES = {
+  'approve-production': 'This workspace membership cannot approve production releases',
+  'manage-release-policy': 'This workspace membership cannot manage release policy',
+  'promote-production': 'This workspace membership cannot promote to production',
+  'publish-staging': 'This workspace membership cannot publish to staging',
+  'sample-product-style': 'This workspace membership cannot save product style sources',
+  'verify-staging': 'This workspace membership cannot verify staging releases',
+} as const satisfies Record<ReleaseCapability, string>;
+
+function requireReleaseCapability(
+  auth: AuthContext,
+  capability: ReleaseCapability,
+  reply: FastifyReply,
+): boolean {
+  const capabilities: readonly ReleaseCapability[] = RELEASE_CAPABILITIES_BY_ROLE[auth.role];
+  if (capabilities.includes(capability)) return true;
+  void reply.code(403).send({
+    error: 'forbidden',
+    message: RELEASE_CAPABILITY_FORBIDDEN_MESSAGES[capability],
   });
   return false;
 }
@@ -1059,7 +5621,10 @@ function sanitizeEventString(value: string): string {
   return value
     .replace(/https?:\/\/[^\s"'<>]+/g, sanitizeEventUrl)
     .replace(/\bBearer\s+[\w.-]+/gi, 'Bearer <redacted>')
-    .replace(/lod_(?:development|staging|production|authoring)_[a-zA-Z0-9_-]+/g, 'lod_<redacted>')
+    .replace(
+      /lod_(?:development|staging|production|authoring|activation|authorization|bootstrap)_[a-zA-Z0-9_-]+/g,
+      'lod_<redacted>',
+    )
     .replace(/\b[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}\b/g, '<email>')
     .slice(0, 500);
 }
@@ -1075,7 +5640,9 @@ function sanitizeEventUrl(rawUrl: string): string {
 }
 
 function isSensitiveEventKey(key: string): boolean {
-  return /(authorization|bearer|cookie|jwt|password|secret|session|token|api[-_]?key)/i.test(key);
+  return /(authorization|bearer|bootstrap|cookie|grant|jwt|password|secret|session|token|api[-_]?key)/i.test(
+    key,
+  );
 }
 
 async function authenticate(
@@ -1087,13 +5654,58 @@ async function authenticate(
   try {
     const auth = await authProvider.authenticate(request);
     const membership = await repository.resolveWorkspaceMembership(auth.workspaceId, auth.userId);
-    if (membership) return { ...auth, role: authRoleFromMembership(membership.role) };
+    if (membership) {
+      return {
+        ...auth,
+        userId: membership.userId,
+        role: authRoleFromMembership(membership.role),
+      };
+    }
     if (canUseAuthProviderRoleFallback(auth)) return auth;
     await reply.code(403).send({
       error: 'forbidden',
       message: 'Workspace membership is required',
     });
     return null;
+  } catch (error) {
+    if (error instanceof AuthError) {
+      await reply.code(error.statusCode).send({ error: 'unauthorized', message: error.message });
+      return null;
+    }
+    throw error;
+  }
+}
+
+async function authenticateAuthoringAuthorizationRequest(
+  repository: ControlPlaneRepository,
+  authProvider: AuthProvider,
+  request: FastifyRequest,
+  reply: FastifyReply,
+  requestId: string,
+): Promise<{ auth: AuthContext; request: AuthoringAuthorizationRequestRecord } | null> {
+  setCredentialResponseHeaders(reply);
+  try {
+    const identity = await authProvider.authenticateIdentity(request);
+    const resolved = await repository.getAuthoringAuthorizationRequestForUser(
+      identity.userId,
+      requestId,
+    );
+    if (!resolved) {
+      await reply.code(404).send({
+        error: 'not_found',
+        message: 'Pending authoring authorization request not found',
+      });
+      return null;
+    }
+    return {
+      auth: {
+        userId: resolved.membership.userId,
+        workspaceId: resolved.request.workspaceId,
+        role: authRoleFromMembership(resolved.membership.role),
+        provider: identity.provider,
+      },
+      request: resolved.request,
+    };
   } catch (error) {
     if (error instanceof AuthError) {
       await reply.code(error.statusCode).send({ error: 'unauthorized', message: error.message });
@@ -1112,8 +5724,32 @@ function canUseAuthProviderRoleFallback(auth: AuthContext): boolean {
   return auth.provider === 'headers' && process.env.NODE_ENV !== 'production';
 }
 
-async function compileAndValidate(document: LodariqDocument): Promise<CompiledDocumentType> {
-  const compiled = await compileDocument(document);
+class DocumentThemeResolutionError extends Error {
+  readonly statusCode = 409;
+
+  constructor(
+    readonly code: 'theme_binding_unavailable' | 'theme_migration_required',
+    message: string,
+  ) {
+    super(message);
+    this.name = 'DocumentThemeResolutionError';
+  }
+}
+
+function hasLegacyThemeReference(document: PersistedDocument['document']): boolean {
+  return !document.themeBinding && Boolean(document.themeRef?.trim());
+}
+
+async function compileAndValidate(
+  repository: ControlPlaneRepository,
+  document: LodariqDocument,
+): Promise<CompiledDocumentType> {
+  const theme = await resolveDocumentTheme(repository, document);
+  const compiled = await compileDocument({
+    document,
+    theme,
+    rendererContractVersion: RENDERER_CONTRACT_VERSION,
+  });
   const result = validate(CompiledDocument, compiled);
   if (!result.valid) {
     throw new Error(`Compiled artifact failed schema validation: ${JSON.stringify(result.errors)}`);
@@ -1121,20 +5757,208 @@ async function compileAndValidate(document: LodariqDocument): Promise<CompiledDo
   return result.value;
 }
 
+async function resolveDocumentTheme(
+  repository: ControlPlaneRepository,
+  document: LodariqDocument,
+): Promise<BrandThemeSnapshotType> {
+  const binding = document.themeBinding;
+  if (!binding) {
+    if (hasLegacyThemeReference(document)) {
+      throw new DocumentThemeResolutionError(
+        'theme_migration_required',
+        'Choose an approved Brand theme before compiling this legacy draft',
+      );
+    }
+    return LODARIQ_ACCESSIBLE_FALLBACK_THEME_V1;
+  }
+
+  const theme = await repository.getWorkspaceTheme(document.workspaceId, binding.themeId);
+  if (!theme) {
+    throw new DocumentThemeResolutionError(
+      'theme_binding_unavailable',
+      'The document Brand theme no longer exists',
+    );
+  }
+  const expectedVersionId =
+    binding.policy === 'pinned' ? binding.themeVersionId : binding.acknowledgedThemeVersionId;
+  const versions = await repository.listWorkspaceThemeVersions(document.workspaceId, theme.id);
+  const version = versions.find((candidate) => candidate.id === expectedVersionId);
+  if (!version) {
+    throw new DocumentThemeResolutionError(
+      'theme_binding_unavailable',
+      'The document Brand theme version is unavailable or has not been approved',
+    );
+  }
+  return version.snapshot;
+}
+
+async function bindNewDocumentToDefaultTheme(
+  repository: ControlPlaneRepository,
+  document: LodariqDocument,
+): Promise<LodariqDocument> {
+  const next = structuredClone(document);
+  next.appearance ??= structuredClone(DEFAULT_EXPERIENCE_APPEARANCE);
+  const theme = await repository.getDefaultWorkspaceTheme(document.workspaceId);
+  if (!theme?.activeVersionId) return next;
+  next.themeBinding = {
+    policy: 'workspace-current',
+    themeId: theme.id,
+    acknowledgedThemeVersionId: theme.activeVersionId,
+  };
+  return next;
+}
+
+async function getThemeReleaseReview(
+  repository: ControlPlaneRepository,
+  document: LodariqDocument,
+): Promise<{
+  themeId: string;
+  acknowledgedThemeVersionId: string;
+  activeThemeVersionId: string;
+} | null> {
+  const binding = document.themeBinding;
+  if (!binding || binding.policy !== 'workspace-current') return null;
+  const theme = await repository.getWorkspaceTheme(document.workspaceId, binding.themeId);
+  const activeThemeVersionId = theme?.activeVersionId;
+  if (!activeThemeVersionId || activeThemeVersionId === binding.acknowledgedThemeVersionId) {
+    return null;
+  }
+  return {
+    themeId: binding.themeId,
+    acknowledgedThemeVersionId: binding.acknowledgedThemeVersionId,
+    activeThemeVersionId,
+  };
+}
+
 async function listDocumentSummariesWithReadiness(
   repository: ControlPlaneRepository,
   workspaceId: string,
-): Promise<Array<DocumentSummary & { publishReadinessIssues: PublishReadinessIssueResponse[] }>> {
-  const summaries = await repository.listDocuments(workspaceId);
+): Promise<DocumentSummaryWithReleaseEvidence[]> {
+  const [summaries, workspaceDeployments] = await Promise.all([
+    repository.listDocuments(workspaceId),
+    repository.listDocumentDeployments(workspaceId),
+  ]);
   return Promise.all(
     summaries.map(async (summary) => {
-      const record = await repository.getDocument(workspaceId, summary.id);
+      const [record, publicationRecords] = await Promise.all([
+        repository.getDocument(workspaceId, summary.id),
+        repository.listDocumentPublications(workspaceId, summary.id),
+      ]);
       const issues = record ? validateTourPublishReadiness(record.document) : [];
+      const deployments = workspaceDeployments.filter(
+        (deployment) => deployment.documentId === summary.id,
+      );
+      const publications = await latestDocumentPublicationEvidence(
+        repository,
+        publicationRecords,
+        deployments,
+      );
       return {
         ...summary,
+        publications,
+        deployments,
+        ...(record?.latestArtifact ? { latestCompiledArtifactId: record.latestArtifact.id } : {}),
         publishReadinessIssues: issues.map(toPublishReadinessIssueResponse),
       };
     }),
+  );
+}
+
+interface DocumentSummaryWithReleaseEvidence extends Omit<DocumentSummary, 'publications'> {
+  publications: DocumentPublicationEvidence[];
+  deployments: PersistedDocumentDeployment[];
+  latestCompiledArtifactId?: string;
+  publishReadinessIssues: PublishReadinessIssueResponse[];
+}
+
+interface DocumentPublicationEvidence {
+  id: string;
+  publicationId: string;
+  environmentId: string;
+  environment: PersistedPublication['environment'];
+  contentHash: string;
+  publishedAt: string;
+  compiledArtifactId: string;
+  action: PersistedPublication['action'];
+  sourcePublicationId: string | null;
+  previousPublicationId: string | null;
+  releaseOperationId: string | null;
+  active: boolean;
+  generation: number;
+  rendererContractVersion?: string;
+  themeVersionId?: string;
+  themeContentHash?: string;
+  verification:
+    | { status: 'not-run' }
+    | {
+        status: PublicationVerificationRecord['result'];
+        result: PublicationVerificationRecord['result'];
+        verificationId: string;
+        verifiedAt: string;
+        createdAt: string;
+      };
+}
+
+async function latestDocumentPublicationEvidence(
+  repository: ControlPlaneRepository,
+  publications: PersistedPublication[],
+  deployments: PersistedDocumentDeployment[],
+): Promise<DocumentPublicationEvidence[]> {
+  const latestByEnvironment = new Map<string, PersistedPublication>();
+  for (const publication of publications) {
+    if (!latestByEnvironment.has(publication.environmentId)) {
+      latestByEnvironment.set(publication.environmentId, publication);
+    }
+  }
+  return Promise.all(
+    [...latestByEnvironment.values()]
+      .sort((left, right) => left.environment.localeCompare(right.environment))
+      .map(async (publication) => {
+        const deployment = deployments.find(
+          (candidate) => candidate.environmentId === publication.environmentId,
+        );
+        const verifications =
+          publication.environment === 'staging'
+            ? await repository.listPublicationVerifications(publication.workspaceId, publication.id)
+            : [];
+        const verification = verifications[0];
+        const compiled = publication.artifact.compiled;
+        const exactThemeEvidence =
+          compiled.artifactSchemaVersion === COMPILED_ARTIFACT_SCHEMA_VERSION
+            ? {
+                rendererContractVersion: compiled.rendererContractVersion,
+                themeVersionId: compiled.theme.themeVersionId,
+                themeContentHash: compiled.theme.contentHash,
+              }
+            : {};
+        const isActive =
+          deployment?.state === 'active' && deployment.activePublicationId === publication.id;
+        return {
+          id: publication.id,
+          publicationId: publication.id,
+          environmentId: publication.environmentId,
+          environment: publication.environment,
+          contentHash: publication.contentHash,
+          publishedAt: publication.publishedAt,
+          compiledArtifactId: publication.compiledArtifactId,
+          action: publication.action,
+          sourcePublicationId: publication.sourcePublicationId,
+          previousPublicationId: publication.previousPublicationId,
+          releaseOperationId: publication.releaseOperationId,
+          active: isActive,
+          generation: deployment?.generation ?? 0,
+          ...exactThemeEvidence,
+          verification: verification
+            ? {
+                status: verification.result,
+                result: verification.result,
+                verificationId: verification.id,
+                verifiedAt: verification.createdAt,
+                createdAt: verification.createdAt,
+              }
+            : { status: 'not-run' as const },
+        };
+      }),
   );
 }
 
@@ -1177,6 +6001,15 @@ function toPublicationResponse(publication: PersistedPublication): PublicationRe
   if (publication.artifact.documentVersionId !== undefined) {
     artifact.documentVersionId = publication.artifact.documentVersionId;
   }
+  if (publication.artifact.themeVersionId !== undefined) {
+    artifact.themeVersionId = publication.artifact.themeVersionId;
+  }
+  if (publication.artifact.themeContentHash !== undefined) {
+    artifact.themeContentHash = publication.artifact.themeContentHash;
+  }
+  if (publication.artifact.rendererContractVersion !== undefined) {
+    artifact.rendererContractVersion = publication.artifact.rendererContractVersion;
+  }
 
   const response: PublicationResponse = {
     id: publication.id,
@@ -1187,6 +6020,10 @@ function toPublicationResponse(publication: PersistedPublication): PublicationRe
     documentId: publication.documentId,
     compiledArtifactId: publication.compiledArtifactId,
     contentHash: publication.contentHash,
+    action: publication.action,
+    sourcePublicationId: publication.sourcePublicationId,
+    previousPublicationId: publication.previousPublicationId,
+    releaseOperationId: publication.releaseOperationId,
     publishedByUserId: publication.publishedByUserId,
     publishedAt: publication.publishedAt,
     artifact,
@@ -1211,5 +6048,13 @@ function toAuthoringSessionResponse(session: AuthoringSessionRecord): AuthoringS
     expiresAt: session.expiresAt,
   };
   if (session.revokedAt !== undefined) response.revokedAt = session.revokedAt;
+  if (session.compilerVersion !== undefined) response.compilerVersion = session.compilerVersion;
+  if (session.rendererContractVersion !== undefined) {
+    response.rendererContractVersion = session.rendererContractVersion;
+  }
+  if (session.themeContractVersion !== undefined) {
+    response.themeContractVersion = session.themeContractVersion;
+  }
+  if (session.themeVersionId !== undefined) response.themeVersionId = session.themeVersionId;
   return response;
 }

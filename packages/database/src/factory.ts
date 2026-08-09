@@ -33,10 +33,18 @@ export function createControlPlaneRepositoryFromEnvironment(
   const defaultUserId = options.defaultUserId ?? 'user_local_dev';
   const now = new Date().toISOString();
   return createInMemoryControlPlaneRepository({
+    workspaces: [
+      {
+        id: defaultWorkspaceId,
+        name: 'Local workspace',
+        createdAt: now,
+        updatedAt: now,
+      },
+    ],
     users: [
       {
         id: defaultUserId,
-        clerkUserId: defaultUserId,
+        legacyIdentityId: defaultUserId,
         email: `${defaultUserId}@lodariq.local`,
         name: 'Local developer',
         createdAt: now,
