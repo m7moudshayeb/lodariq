@@ -10,15 +10,24 @@ import { fileURLToPath, URL } from 'node:url';
 const repoRoot = resolve(fileURLToPath(new URL('..', import.meta.url)));
 const outputPrefix = '/sdk/';
 const outputRoot = resolve(repoRoot, 'dist/sdk-assets/sdk');
+const creatorModuleCdnOrigin = 'https://cdn.lodariq.com';
+const creatorModuleSourceRoot = resolve(repoRoot, 'packages/sdk-authoring/dist');
+const creatorModuleSourceEntry = 'hosted-entry.js';
 
 const assetSets = [
   {
     sourceRoot: resolve(repoRoot, 'packages/sdk-runtime/dist'),
-    entries: ['lodariq-loader.js', 'lodariq-runtime.js', 'renderers/tour.js'],
-    publicEntries: ['lodariq-loader.js'],
+    entries: [
+      'lodariq-public-bootstrap.js',
+      'lodariq-loader.js',
+      'lodariq-runtime.js',
+      'runtime/index.js',
+      'renderers/tour.js',
+    ],
+    publicEntries: ['lodariq-public-bootstrap.js', 'lodariq-loader.js'],
   },
   {
-    sourceRoot: resolve(repoRoot, 'packages/sdk-authoring/dist'),
+    sourceRoot: creatorModuleSourceRoot,
     entries: ['lodariq-creator.js'],
     publicEntries: ['lodariq-creator.js'],
   },
@@ -28,9 +37,10 @@ const manifest = {
   generatedAt: new Date().toISOString(),
   prefix: outputPrefix,
   entries: {
-    runtime: ['lodariq-loader.js'],
+    runtime: ['lodariq-public-bootstrap.js', 'lodariq-loader.js'],
     authoring: ['lodariq-creator.js'],
   },
+  creatorModule: null,
   files: [],
 };
 
@@ -48,6 +58,8 @@ for (const assetSet of assetSets) {
     copiedPaths.add(outputPath);
   }
 }
+
+manifest.creatorModule = await copyContentAddressedCreatorModule();
 
 manifest.files.sort((a, b) => a.path.localeCompare(b.path));
 await writeFile(
@@ -100,17 +112,50 @@ function readTextSync(path) {
 
 function moduleSpecifiers(source) {
   return [
-    ...source.matchAll(/import\s*(?:[^'"]+\s+from\s*)?['"]([^'"]+)['"]/g),
+    ...source.matchAll(/import\s*(?:[^'"]+?\s*from\s*)?['"]([^'"]+)['"]/g),
     ...source.matchAll(/import\(\s*['"]([^'"]+)'\s*\)/g),
     ...source.matchAll(/import\(\s*"([^"]+)"\s*\)/g),
-    ...source.matchAll(/export\s*[^'"]+\s*from\s*['"]([^'"]+)['"]/g),
+    ...source.matchAll(/export\s*[^'"]+?\s*from\s*['"]([^'"]+)['"]/g),
   ].map((match) => match[1]);
+}
+
+async function copyContentAddressedCreatorModule() {
+  const entryPath = resolveFile(creatorModuleSourceRoot, creatorModuleSourceEntry);
+  const entryContent = publicJavaScriptContent(await readFile(entryPath, 'utf8'));
+  const entryBytes = Buffer.from(entryContent);
+  const digestHex = createHash('sha256').update(entryBytes).digest('hex');
+  const digestBase64 = createHash('sha256').update(entryBytes).digest('base64');
+  const version = `sha256-${digestHex}`;
+  const outputDirectory = version;
+  const entryOutputPath = `${outputDirectory}/creator.js`;
+  const files = collectReferencedFiles({
+    sourceRoot: creatorModuleSourceRoot,
+    entries: [creatorModuleSourceEntry],
+  });
+
+  for (const sourcePath of files) {
+    const sourceRelativePath = normalize(relative(creatorModuleSourceRoot, sourcePath));
+    if (sourceRelativePath.startsWith('..')) {
+      throw new Error(`Hosted creator asset escapes its source root: ${sourcePath}`);
+    }
+    const outputPath =
+      sourcePath === entryPath
+        ? entryOutputPath
+        : normalize(join(outputDirectory, sourceRelativePath));
+    await copyPublicJavaScript(sourcePath, outputPath, []);
+    copiedPaths.add(outputPath);
+  }
+
+  return {
+    url: `${creatorModuleCdnOrigin}${outputPrefix}${entryOutputPath}`,
+    version,
+    integrity: `sha256-${digestBase64}`,
+  };
 }
 
 async function copyPublicJavaScript(sourcePath, outputPath, publicEntries) {
   const source = await readFile(sourcePath, 'utf8');
-  const withoutSourceMapReference = source.replace(/\/\/# sourceMappingURL=.*$/gm, '').trimEnd();
-  const content = `${withoutSourceMapReference}\n`;
+  const content = publicJavaScriptContent(source);
   const destination = resolve(outputRoot, outputPath);
   await mkdir(dirname(destination), { recursive: true });
   await writeFile(destination, content, 'utf8');
@@ -124,8 +169,14 @@ async function copyPublicJavaScript(sourcePath, outputPath, publicEntries) {
   });
 }
 
+function publicJavaScriptContent(source) {
+  const withoutSourceMapReference = source.replace(/\/\/# sourceMappingURL=.*$/gm, '').trimEnd();
+  return `${withoutSourceMapReference}\n`;
+}
+
 function cachePolicy(outputPath, publicEntries) {
   if (publicEntries.includes(outputPath)) return 'short';
+  if (/^sha256-[0-9a-f]{64}\//u.test(outputPath)) return 'immutable';
   const fileName = outputPath.split('/').pop() ?? '';
   if (/^[a-z0-9]+(?:-[a-z0-9]+)*-[A-Z0-9_]{8}\.js$/.test(fileName)) return 'immutable';
   return 'short';

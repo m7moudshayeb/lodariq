@@ -1,4 +1,5 @@
 import { execFileSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -11,6 +12,11 @@ interface SdkAssetManifest {
   entries: {
     runtime: string[];
     authoring: string[];
+  };
+  creatorModule: {
+    url: string;
+    version: string;
+    integrity: string;
   };
   files: Array<{
     path: string;
@@ -31,7 +37,8 @@ describe('SDK CDN asset packaging', () => {
     const files = new Map(manifest.files.map((file) => [file.path, file]));
 
     expect(manifest.prefix).toBe('/sdk/');
-    expect(manifest.entries.runtime).toEqual(['lodariq-loader.js']);
+    expect(manifest.entries.runtime).toEqual(['lodariq-public-bootstrap.js', 'lodariq-loader.js']);
+    expect(files.get('/sdk/lodariq-public-bootstrap.js')).toMatchObject({ cache: 'short' });
     expect(manifest.entries.authoring).toEqual(['lodariq-creator.js']);
     expect(files.get('/sdk/lodariq-loader.js')).toMatchObject({ cache: 'short' });
     expect(files.get('/sdk/lodariq-creator.js')).toMatchObject({ cache: 'short' });
@@ -39,12 +46,41 @@ describe('SDK CDN asset packaging', () => {
     expect(files.has('/sdk/renderers/tour.js')).toBe(true);
     expect([...files.values()].some((file) => file.cache === 'immutable')).toBe(true);
 
+    const creatorModuleUrl = new URL(manifest.creatorModule.url);
+    const creatorModuleFile = files.get(creatorModuleUrl.pathname);
+    expect(creatorModuleUrl.origin).toBe('https://cdn.lodariq.com');
+    expect(creatorModuleUrl.pathname).toMatch(/^\/sdk\/sha256-[a-f0-9]{64}\/creator\.js$/u);
+    const creatorModulePathSegments = creatorModuleUrl.pathname.split('/');
+    expect(manifest.creatorModule.version).toBe(
+      creatorModulePathSegments[creatorModulePathSegments.length - 2],
+    );
+    expect(creatorModuleFile).toMatchObject({ cache: 'immutable' });
+    expect(files.has('/sdk/hosted-entry.js')).toBe(false);
+
+    const creatorModulePath = resolve(repoRoot, `dist/sdk-assets${creatorModuleUrl.pathname}`);
+    const creatorModuleBytes = readFileSync(creatorModulePath);
+    expect(manifest.creatorModule.integrity).toBe(
+      `sha256-${createHash('sha256').update(creatorModuleBytes).digest('base64')}`,
+    );
+
+    const creatorModuleDirectory = creatorModuleUrl.pathname.slice(
+      0,
+      creatorModuleUrl.pathname.lastIndexOf('/') + 1,
+    );
+    for (const specifier of moduleSpecifiers(creatorModuleBytes.toString('utf8'))) {
+      const referencedPath = new URL(specifier, creatorModuleUrl).pathname;
+      expect(referencedPath.startsWith(creatorModuleDirectory)).toBe(true);
+      expect(files.get(referencedPath)).toMatchObject({ cache: 'immutable' });
+    }
+
     for (const file of manifest.files) {
       expect(file.bytes).toBeGreaterThan(0);
       expect(file.sha256).toMatch(/^[a-f0-9]{64}$/);
       const path = resolve(repoRoot, `dist/sdk-assets${file.path}`);
       expect(existsSync(path)).toBe(true);
-      expect(readFileSync(path, 'utf8')).not.toContain('sourceMappingURL=');
+      const source = readFileSync(path, 'utf8');
+      expect(source).not.toContain('sourceMappingURL=');
+      expect(browserUnresolvableSpecifiers(source)).toEqual([]);
     }
 
     const runtimeSource = manifest.files
@@ -55,16 +91,35 @@ describe('SDK CDN asset packaging', () => {
     expect(runtimeSource).not.toMatch(/\bReact\b|from ["']react["']|react\/jsx-runtime/);
     expect(runtimeSource).not.toMatch(/@lodariq\/sdk-authoring|sdk-authoring/);
     expect(runtimeSource).not.toMatch(/@lodariq\/dashboard|apps\/dashboard/);
+    expect(runtimeSource).not.toContain('authoring.inline-content.commit');
+    expect(runtimeSource).not.toContain('authoring.inline-control.commit');
+    expect(runtimeSource).not.toContain('data-lodariq-authoring-context-toolbar');
+    expect(runtimeSource.toLowerCase()).not.toContain('contenteditable');
   });
 });
 
 function isRuntimeDeliveryAsset(path: string): boolean {
   return (
     path === '/sdk/lodariq-loader.js' ||
+    path === '/sdk/lodariq-public-bootstrap.js' ||
     path.startsWith('/sdk/runtime/') ||
     path.startsWith('/sdk/renderers/') ||
     path.startsWith('/sdk/resolver/')
   );
+}
+
+function browserUnresolvableSpecifiers(source: string): string[] {
+  return moduleSpecifiers(source).filter((specifier) => !specifier.startsWith('.'));
+}
+
+function moduleSpecifiers(source: string): string[] {
+  return [
+    ...source.matchAll(/import\s*(?:[^'"]+?\s*from\s*)?['"]([^'"]+)['"]/g),
+    ...source.matchAll(/import\(\s*['"]([^'"]+)['"]\s*\)/g),
+    ...source.matchAll(/export\s*[^'"]+?\s*from\s*['"]([^'"]+)['"]/g),
+  ]
+    .map((match) => match[1])
+    .filter((specifier): specifier is string => typeof specifier === 'string');
 }
 
 function readManifest(): SdkAssetManifest {

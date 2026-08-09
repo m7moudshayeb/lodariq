@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { Buffer } from 'node:buffer';
 import process, { stderr, stdout } from 'node:process';
 import { URL } from 'node:url';
 
@@ -9,9 +10,11 @@ function main(env = process.env) {
     failures.push('NODE_ENV must be production for the deployed dashboard runtime.');
   }
 
-  requireClerkPublishableKey(env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY, failures);
-  requireClerkSecretKey(env.CLERK_SECRET_KEY, failures);
+  requireOwnedAuthMode(env.LODARIQ_AUTH_MODE, failures);
   requireHttpsUrl('LODARIQ_API_BASE_URL', env.LODARIQ_API_BASE_URL, failures);
+  requireSecret('LODARIQ_AUTH_BFF_SOURCE_SECRET', env.LODARIQ_AUTH_BFF_SOURCE_SECRET, failures);
+  requireSignupMode(env.LODARIQ_PUBLIC_SIGNUP_MODE, failures);
+  requirePasswordRecoveryMode(env.LODARIQ_PASSWORD_RECOVERY_MODE, failures);
 
   if (failures.length) {
     fail(failures);
@@ -20,23 +23,35 @@ function main(env = process.env) {
   stdout.write('Lodariq dashboard production environment is ready for a live smoke check.\n');
 }
 
-function requireClerkPublishableKey(value, failures) {
-  if (!value?.trim()) {
-    failures.push('NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY is required for dashboard sign-in.');
-    return;
-  }
-  if (!/^pk_(test|live)_/.test(value)) {
-    failures.push('NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY must look like a Clerk publishable key.');
+function requirePasswordRecoveryMode(value, failures) {
+  if (value === undefined || value === '') return;
+  const mode = value.trim();
+  if (mode !== 'disabled' && mode !== 'email') {
+    failures.push('LODARIQ_PASSWORD_RECOVERY_MODE must be "disabled" or "email" when set.');
   }
 }
 
-function requireClerkSecretKey(value, failures) {
-  if (!value?.trim()) {
-    failures.push('CLERK_SECRET_KEY is required for dashboard route protection.');
-    return;
+function requireSignupMode(value, failures) {
+  if (value === undefined || value === '') return;
+  const mode = value.trim();
+  if (mode !== 'disabled' && mode !== 'email-verification') {
+    failures.push(
+      'LODARIQ_PUBLIC_SIGNUP_MODE must be "disabled" or "email-verification" when set.',
+    );
   }
-  if (!/^sk_(test|live)_/.test(value)) {
-    failures.push('CLERK_SECRET_KEY must look like a Clerk secret key.');
+}
+
+function requireSecret(name, value, failures) {
+  if (!value || Buffer.byteLength(value.trim()) < 32) {
+    failures.push(`${name} must be a server-only secret of at least 32 bytes.`);
+  }
+}
+
+function requireOwnedAuthMode(value, failures) {
+  if (value?.trim() !== 'lodariq') {
+    failures.push(
+      'LODARIQ_AUTH_MODE must be "lodariq" for the deployed dashboard runtime; header auth is local/test-only.',
+    );
   }
 }
 

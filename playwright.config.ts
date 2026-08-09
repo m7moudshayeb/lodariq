@@ -68,13 +68,13 @@ export default defineConfig({
     ...(shouldStartWebServer('dashboard')
       ? [
           {
-            command:
-              `pnpm --filter @lodariq/dashboard exec next dev --hostname 127.0.0.1 --port ${dashboardPort}`,
+            command: `pnpm --filter @lodariq/dashboard exec next dev --hostname 127.0.0.1 --port ${dashboardPort}`,
             url: dashboardBaseURL,
             reuseExistingServer,
             timeout: 60_000,
             env: {
               LODARIQ_API_BASE_URL: apiBaseURL,
+              LODARIQ_AUTH_MODE: 'headers',
               LODARIQ_WORKSPACE_ID: 'wk_dashboard_e2e',
               LODARIQ_DASHBOARD_USER_ID: 'user_dashboard_e2e',
               LODARIQ_NEXT_DIST_DIR: process.env.LODARIQ_NEXT_DIST_DIR ?? '.next-e2e',
@@ -85,8 +85,7 @@ export default defineConfig({
     ...(shouldStartWebServer('fixture-host')
       ? [
           {
-            command:
-              `pnpm --filter @lodariq/fixture-host exec vite --host 127.0.0.1 --port ${fixtureHostPort}`,
+            command: `pnpm --filter @lodariq/fixture-host exec vite --host 127.0.0.1 --port ${fixtureHostPort}`,
             url: fixtureHostBaseURL,
             reuseExistingServer,
             timeout: 30_000,
@@ -96,8 +95,7 @@ export default defineConfig({
     ...(shouldStartWebServer('customer-like-host')
       ? [
           {
-            command:
-              `pnpm --filter @lodariq/customer-like-host exec vite --host 127.0.0.1 --port ${customerLikeHostPort}`,
+            command: `pnpm --filter @lodariq/customer-like-host exec vite --host 127.0.0.1 --port ${customerLikeHostPort}`,
             url: customerLikeHostBaseURL,
             reuseExistingServer,
             timeout: 30_000,

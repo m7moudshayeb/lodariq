@@ -53,8 +53,13 @@
   },
   "pnpm": {
     "overrides": {
+      "brace-expansion@<1.1.18": "1.1.18",
+      "brace-expansion@>=4.0.0 <5.0.9": "5.0.9",
       "bundle-require>esbuild": "0.28.1",
-      "next>postcss": "8.5.15",
+      "fast-uri@>=3.0.0 <3.1.5": "3.1.5",
+      "find-my-way@<=9.6.0": "9.7.0",
+      "next>postcss": "8.5.25",
+      "postcss@<=8.5.22": "8.5.25",
       "tsup>esbuild": "0.28.1"
     }
   }

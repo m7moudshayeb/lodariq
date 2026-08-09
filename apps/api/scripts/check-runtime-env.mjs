@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { Buffer } from 'node:buffer';
 import process, { stderr, stdout } from 'node:process';
 import { URL } from 'node:url';
 
@@ -7,7 +8,9 @@ const forbiddenDatabaseRoles = new Set(['neondb_owner', 'postgres']);
 const requiredHttpsUrls = [
   'LODARIQ_PUBLIC_API_BASE_URL',
   'LODARIQ_LOADER_SRC',
+  'LODARIQ_PUBLIC_LOADER_SRC',
   'LODARIQ_CREATOR_LOADER_SRC',
+  'LODARIQ_CREATOR_MODULE_URL',
   'LODARIQ_AUTHORING_IFRAME_SRC',
 ];
 
@@ -18,9 +21,11 @@ function main(env = process.env) {
     failures.push('NODE_ENV must be production for the deployed API runtime.');
   }
 
-  if (env.LODARIQ_AUTH_MODE?.trim() && env.LODARIQ_AUTH_MODE.trim() !== 'clerk') {
-    failures.push('LODARIQ_AUTH_MODE must be unset or "clerk" for the deployed API runtime.');
-  }
+  requireOwnedAuthMode(env.LODARIQ_AUTH_MODE, failures);
+  requireInternalBffSecret(env.LODARIQ_AUTH_BFF_SOURCE_SECRET, failures);
+  requireEmailVerification(env, failures);
+  requirePublicAuthCapabilities(env, failures);
+  requirePasswordHashAdmission(env, failures);
 
   const databaseUrl = parseDatabaseUrl(env.DATABASE_URL, failures);
   if (databaseUrl) {
@@ -32,27 +37,121 @@ function main(env = process.env) {
     }
   }
 
-  if (!env.CLERK_SECRET_KEY?.trim() && !env.CLERK_JWT_KEY?.trim()) {
-    failures.push('CLERK_SECRET_KEY or CLERK_JWT_KEY is required for Clerk verification.');
-  }
-
-  const authorizedParties = parseCsv(env.CLERK_AUTHORIZED_PARTIES);
-  if (!authorizedParties.length) {
-    failures.push('CLERK_AUTHORIZED_PARTIES must include the exact dashboard origin(s).');
-  }
-  for (const party of authorizedParties) {
-    requireHttpsUrl(`CLERK_AUTHORIZED_PARTIES entry ${party}`, party, failures);
-  }
-
   for (const key of requiredHttpsUrls) {
     requireHttpsUrl(key, env[key], failures);
   }
+  requireCreatorModuleDescriptor(env, failures);
 
   if (failures.length) {
     fail(failures);
   }
 
   stdout.write('Lodariq API production environment is ready for a live smoke check.\n');
+}
+
+function requireInternalBffSecret(value, failures) {
+  if (!value?.trim() || Buffer.byteLength(value.trim()) < 32) {
+    failures.push('LODARIQ_AUTH_BFF_SOURCE_SECRET must contain at least 32 bytes.');
+  }
+}
+
+function requireEmailVerification(env, failures) {
+  const mode = env.LODARIQ_EMAIL_DELIVERY_MODE?.trim();
+  if (mode === 'disabled') return;
+  if (mode !== 'resend') {
+    failures.push('LODARIQ_EMAIL_DELIVERY_MODE must be "disabled" or "resend".');
+    return;
+  }
+
+  requireHttpsOrigin('LODARIQ_APP_BASE_URL', env.LODARIQ_APP_BASE_URL, failures);
+  if (!/^re_[A-Za-z0-9_-]{8,253}$/u.test(env.RESEND_API_KEY?.trim() ?? '')) {
+    failures.push('RESEND_API_KEY must be a valid Resend API key when email delivery is enabled.');
+  }
+  if (!env.LODARIQ_AUTH_EMAIL_FROM?.trim()) {
+    failures.push('LODARIQ_AUTH_EMAIL_FROM is required when email delivery is enabled.');
+  }
+  requireInternalSecret(
+    'LODARIQ_AUTH_EMAIL_TOKEN_SECRET',
+    env.LODARIQ_AUTH_EMAIL_TOKEN_SECRET,
+    failures,
+  );
+}
+
+function requirePublicAuthCapabilities(env, failures) {
+  const signupMode = env.LODARIQ_PUBLIC_SIGNUP_MODE?.trim();
+  const recoveryMode = env.LODARIQ_PASSWORD_RECOVERY_MODE?.trim();
+  if (signupMode !== 'disabled' && signupMode !== 'email-verification') {
+    failures.push('LODARIQ_PUBLIC_SIGNUP_MODE must be "disabled" or "email-verification".');
+  }
+  if (recoveryMode !== 'disabled' && recoveryMode !== 'email') {
+    failures.push('LODARIQ_PASSWORD_RECOVERY_MODE must be "disabled" or "email".');
+  }
+  if (
+    (signupMode === 'email-verification' || recoveryMode === 'email') &&
+    env.LODARIQ_EMAIL_DELIVERY_MODE?.trim() !== 'resend'
+  ) {
+    failures.push(
+      'Public signup and password recovery require LODARIQ_EMAIL_DELIVERY_MODE="resend".',
+    );
+  }
+}
+
+function requirePasswordHashAdmission(env, failures) {
+  requireBoundedInteger('LODARIQ_PASSWORD_HASH_MAX_ACTIVE', env, failures, 1, 4);
+  requireBoundedInteger('LODARIQ_PASSWORD_HASH_MAX_QUEUED', env, failures, 0, 100);
+  requireBoundedInteger('LODARIQ_PASSWORD_HASH_QUEUE_TIMEOUT_MS', env, failures, 100, 30_000);
+}
+
+function requireBoundedInteger(name, env, failures, minimum, maximum) {
+  const raw = env[name]?.trim();
+  const value = Number(raw);
+  if (!raw || !Number.isSafeInteger(value) || value < minimum || value > maximum) {
+    failures.push(`${name} must be an integer between ${minimum} and ${maximum}.`);
+  }
+}
+
+function requireInternalSecret(name, value, failures) {
+  if (!value?.trim() || Buffer.byteLength(value.trim()) < 32) {
+    failures.push(`${name} must contain at least 32 bytes.`);
+  }
+}
+
+function requireOwnedAuthMode(value, failures) {
+  if (value?.trim() !== 'lodariq') {
+    failures.push(
+      'LODARIQ_AUTH_MODE must be "lodariq" for the deployed API runtime; header auth is local/test-only.',
+    );
+  }
+}
+
+function requireCreatorModuleDescriptor(env, failures) {
+  const urlValue = env.LODARIQ_CREATOR_MODULE_URL?.trim();
+  const version = env.LODARIQ_CREATOR_MODULE_VERSION?.trim();
+  const integrity = env.LODARIQ_CREATOR_MODULE_INTEGRITY?.trim();
+  if (!version) failures.push('LODARIQ_CREATOR_MODULE_VERSION is required.');
+  if (!integrity) {
+    failures.push('LODARIQ_CREATOR_MODULE_INTEGRITY is required.');
+    return;
+  }
+  if (!/^sha256-[A-Za-z0-9+/]+={0,2}$/.test(integrity)) {
+    failures.push('LODARIQ_CREATOR_MODULE_INTEGRITY must be a sha256 SRI value.');
+    return;
+  }
+  if (!urlValue) return;
+  try {
+    const url = new URL(urlValue);
+    const pathDigest = /\/sha256-([0-9a-f]{64})(?:\/|$)/u.exec(url.pathname)?.[1];
+    const integrityDigest = Buffer.from(integrity.slice('sha256-'.length), 'base64').toString(
+      'hex',
+    );
+    if (!pathDigest || pathDigest !== integrityDigest) {
+      failures.push(
+        'LODARIQ_CREATOR_MODULE_URL content address must match LODARIQ_CREATOR_MODULE_INTEGRITY.',
+      );
+    }
+  } catch {
+    // The general URL validator reports malformed values.
+  }
 }
 
 function parseDatabaseUrl(value, failures) {
@@ -95,13 +194,28 @@ function requireHttpsUrl(name, value, failures) {
   }
 }
 
-function parseCsv(value) {
-  return (
-    value
-      ?.split(',')
-      .map((entry) => entry.trim())
-      .filter(Boolean) ?? []
-  );
+function requireHttpsOrigin(name, value, failures) {
+  if (!value?.trim()) {
+    failures.push(`${name} is required.`);
+    return;
+  }
+  try {
+    const url = new URL(value);
+    if (
+      url.protocol !== 'https:' ||
+      url.username ||
+      url.password ||
+      url.pathname !== '/' ||
+      url.search ||
+      url.hash ||
+      url.hostname === 'localhost' ||
+      url.hostname === '127.0.0.1'
+    ) {
+      failures.push(`${name} must be an absolute public HTTPS origin.`);
+    }
+  } catch {
+    failures.push(`${name} must be an absolute public HTTPS origin.`);
+  }
 }
 
 function fail(failures) {
