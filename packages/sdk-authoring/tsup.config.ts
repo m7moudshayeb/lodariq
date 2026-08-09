@@ -6,10 +6,13 @@ import { defineConfig } from 'tsup';
 export default defineConfig({
   entry: {
     index: 'src/index.ts',
+    'authoring-frame': 'src/authoring-frame.ts',
+    'hosted-entry': 'src/hosted-entry.ts',
     'lodariq-authoring': 'src/index.ts',
     'lodariq-creator': 'src/creator-install/index.ts',
     'bridge/index': 'src/bridge/index.ts',
     'creator-install/index': 'src/creator-install/index.ts',
+    'creator-experiences': 'src/creator-experiences.ts',
     'creator-toolbar/index': 'src/creator-toolbar/index.ts',
     'editor/index': 'src/editor/index.ts',
     'local-dev/index': 'src/local-dev/index.ts',
@@ -25,5 +28,10 @@ export default defineConfig({
   clean: true,
   splitting: true,
   treeshake: true,
-  noExternal: [/^@floating-ui\//, /^@lodariq\/schema(?:\/.*)?$/, /^@lodariq\/sdk-runtime(?:\/.*)?$/],
+  noExternal: [
+    /^@floating-ui\//,
+    /^@lodariq\/schema(?:\/.*)?$/,
+    /^@lodariq\/sdk-runtime(?:\/.*)?$/,
+    /^lucide$/,
+  ],
 });

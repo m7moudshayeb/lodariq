@@ -1,4 +1,4 @@
-import type { AnalyticsEvent } from '@lodariq/schema';
+import type { AnalyticsEvent, CompiledDocument, ManifestPointer } from '@lodariq/schema';
 import { SDK_VERSION } from '../version';
 
 /**
@@ -24,6 +24,8 @@ export interface RuntimeConfig {
   ingestUrl?: string;
   /** Public environment token used only for SDK ingestion endpoints. */
   authorizationToken?: string;
+  /** Revocable public installation identity used by the permanent SDK path. */
+  publicInstallationId?: string;
 }
 
 export interface RuntimeObservabilityEvent {
@@ -46,7 +48,27 @@ export interface RuntimeErrorContext {
   correlationId?: string;
 }
 
+/** Bounded resolver fields accepted by the runtime telemetry adapter. */
+export interface RuntimeTargetResolutionDiagnostic {
+  state: string;
+  confidence: number;
+  candidateCount: number;
+  reasonCode: string;
+  evidenceFamilies: readonly string[];
+  currentLocale: string | null;
+}
+
 const MAX_ERROR_MESSAGE_LENGTH = 240;
+const TOUR_RESUME_PREFIX = 'lodariq:tour-resume:';
+const TOUR_RESUME_MAX_AGE_MS = 30 * 60 * 1000;
+
+interface TourResumeState {
+  documentId: string;
+  manifestVersion: string;
+  contentHash: string;
+  stepId: string;
+  updatedAt: number;
+}
 
 export class LodariqRuntime {
   private traits: IdentifyTraits | null = null;
@@ -78,6 +100,86 @@ export class LodariqRuntime {
         : {}),
       attributes: props,
     });
+  }
+
+  trackTargetResolution(
+    documentId: string,
+    stepId: string,
+    targetId: string | undefined,
+    result: RuntimeTargetResolutionDiagnostic,
+  ): void {
+    this.track('target_resolution', {
+      documentId,
+      stepId,
+      ...(targetId ? { targetId } : {}),
+      result: result.state,
+      reasonCode: result.reasonCode,
+      evidenceFamilies: result.evidenceFamilies,
+      scoreBucket: targetScoreBucket(result.confidence),
+      candidateCountBucket: targetCandidateCountBucket(result.candidateCount),
+      ...(result.currentLocale ? { locale: result.currentLocale } : {}),
+    });
+  }
+
+  readTourResume(manifest: ManifestPointer): TourResumeState | null {
+    try {
+      const raw = sessionStorage.getItem(this.tourResumeKey());
+      if (!raw) return null;
+      const parsed = JSON.parse(raw) as Partial<TourResumeState>;
+      const fresh =
+        typeof parsed.updatedAt === 'number' &&
+        Date.now() - parsed.updatedAt <= TOUR_RESUME_MAX_AGE_MS;
+      if (
+        fresh &&
+        parsed.documentId === manifest.documentId &&
+        parsed.manifestVersion === manifest.currentVersion &&
+        typeof parsed.contentHash === 'string' &&
+        typeof parsed.stepId === 'string'
+      ) {
+        return parsed as TourResumeState;
+      }
+      this.clearTourResume();
+    } catch {
+      this.clearTourResume();
+    }
+    return null;
+  }
+
+  writeTourResume(
+    manifest: ManifestPointer,
+    document: CompiledDocument,
+    step: CompiledDocument['steps'][number],
+  ): void {
+    try {
+      sessionStorage.setItem(
+        this.tourResumeKey(),
+        JSON.stringify({
+          documentId: document.documentId,
+          manifestVersion: manifest.currentVersion,
+          contentHash: document.contentHash,
+          stepId: step.id,
+          updatedAt: Date.now(),
+        }),
+      );
+    } catch {
+      /* Tour resume is best-effort and must never break the host app. */
+    }
+  }
+
+  clearTourResume(): void {
+    try {
+      sessionStorage.removeItem(this.tourResumeKey());
+    } catch {
+      /* Ignore unavailable storage. */
+    }
+  }
+
+  canResumeTour(resume: TourResumeState, tour: CompiledDocument): boolean {
+    return (
+      resume.documentId === tour.documentId &&
+      resume.contentHash === tour.contentHash &&
+      tour.steps.some((step) => step.id === resume.stepId)
+    );
   }
 
   reportError(error: unknown, context: RuntimeErrorContext = {}): void {
@@ -118,10 +220,14 @@ export class LodariqRuntime {
     if (this.config.authorizationToken) {
       headers['authorization'] = `Bearer ${this.config.authorizationToken}`;
     }
+    if (this.config.publicInstallationId) {
+      headers['x-lodariq-installation-id'] = this.config.publicInstallationId;
+    }
 
     if (
       onExit &&
       !this.config.authorizationToken &&
+      !this.config.publicInstallationId &&
       typeof navigator !== 'undefined' &&
       'sendBeacon' in navigator
     ) {
@@ -151,6 +257,10 @@ export class LodariqRuntime {
       timestamp: new Date().toISOString(),
       ...event,
     });
+  }
+
+  private tourResumeKey(): string {
+    return `${TOUR_RESUME_PREFIX}${this.config.workspaceId}:${this.config.environment}`;
   }
 }
 
@@ -194,4 +304,16 @@ function sanitizeUrl(rawUrl: string): string {
   } catch {
     return '<url>';
   }
+}
+
+function targetScoreBucket(confidence: number): 'high' | 'medium' | 'low' {
+  if (confidence >= 90) return 'high';
+  if (confidence >= 55) return 'medium';
+  return 'low';
+}
+
+function targetCandidateCountBucket(candidateCount: number): 'zero' | 'one' | 'many' {
+  if (candidateCount <= 0) return 'zero';
+  if (candidateCount === 1) return 'one';
+  return 'many';
 }

@@ -9,6 +9,7 @@ import {
   type ReactNode,
   type TextareaHTMLAttributes,
 } from 'react';
+import { createPortal } from 'react-dom';
 import type { LodariqBlock } from '@lodariq/schema';
 import type { LocalAuthoringFrameController } from '../controller';
 import {
@@ -149,18 +150,24 @@ function StepComposer({
   stepBlockId: string;
 }) {
   const [value, setValue] = useState('');
+  const [isPickerOpen, setIsPickerOpen] = useState(false);
+  const [menuPosition, setMenuPosition] = useState<{ left: number; top: number } | null>(null);
   const [activeCommandIndex, setActiveCommandIndex] = useState(0);
   const activeCommandIndexRef = useRef(0);
   const composerRef = useRef<HTMLDivElement | null>(null);
+  const composerInputRef = useRef<HTMLInputElement | null>(null);
   const commandMenuRef = useRef<HTMLDivElement | null>(null);
   const trimmedValue = value.trim();
   const isSlashCommand = trimmedValue.startsWith('/');
   const isPlainText = trimmedValue.length > 0 && !isSlashCommand;
+  const isCommandMenuOpen = trimmedValue.length > 0 || isPickerOpen;
+  const showsCommands = isSlashCommand || (isPickerOpen && !isPlainText);
   const commandQuery = isSlashCommand ? trimmedValue.slice(1).toLowerCase() : '';
-  const filteredCommands = filterStepContentCommands(isSlashCommand, commandQuery);
+  const filteredCommands = filterStepContentCommands(showsCommands, commandQuery);
   const insert = (type: StepContentCommand, content?: string): void => {
     controller.insertStepContent(stepBlockId, type, index, content);
     setValue('');
+    setIsPickerOpen(false);
     setActiveCommandIndexValue(0);
   };
 
@@ -174,35 +181,79 @@ function StepComposer({
   }, [commandQuery, isSlashCommand]);
 
   useEffect(() => {
-    if (trimmedValue.length === 0) return;
+    if (!isCommandMenuOpen) return;
     const ownerDocument = composerRef.current?.ownerDocument ?? document;
     const handlePointerDown = (event: PointerEvent): void => {
       if (composerRef.current?.contains(event.target as Node)) return;
+      if (commandMenuRef.current?.contains(event.target as Node)) return;
       setValue('');
+      setIsPickerOpen(false);
     };
     ownerDocument.addEventListener('pointerdown', handlePointerDown, true);
     return () => ownerDocument.removeEventListener('pointerdown', handlePointerDown, true);
-  }, [trimmedValue.length]);
+  }, [isCommandMenuOpen]);
 
-  useEffect(() => {
-    if (trimmedValue.length === 0) return;
+  useLayoutEffect(() => {
+    if (!isCommandMenuOpen) {
+      setMenuPosition(null);
+      return;
+    }
+    const input = composerInputRef.current;
     const menu = commandMenuRef.current;
-    if (!menu || typeof menu.scrollIntoView !== 'function') return;
-    const frame = menu.ownerDocument.defaultView;
-    frame?.requestAnimationFrame(() => {
-      menu.scrollIntoView({ block: 'nearest', inline: 'nearest' });
-    });
-  }, [trimmedValue.length, filteredCommands.length, isPlainText]);
+    const frame = input?.ownerDocument.defaultView;
+    if (!input || !menu || !frame) return;
+    const positionMenu = (): void => {
+      const inputRect = input.getBoundingClientRect();
+      const menuHeight = menu.getBoundingClientRect().height;
+      const menuWidth = Math.min(236, frame.innerWidth - 16);
+      const left = Math.max(8, Math.min(inputRect.left, frame.innerWidth - menuWidth - 8));
+      const below = inputRect.bottom + 6;
+      const top =
+        below + menuHeight <= frame.innerHeight - 8
+          ? below
+          : Math.max(8, inputRect.top - menuHeight - 6);
+      setMenuPosition({ left, top });
+    };
+    positionMenu();
+    frame.addEventListener('resize', positionMenu);
+    frame.addEventListener('scroll', positionMenu, true);
+    return () => {
+      frame.removeEventListener('resize', positionMenu);
+      frame.removeEventListener('scroll', positionMenu, true);
+    };
+  }, [filteredCommands.length, isCommandMenuOpen, isPlainText]);
 
   return (
-    <div className="step-composer" ref={composerRef}>
-      <span className="step-composer-plus" aria-hidden="true">
+    <div
+      className="step-composer"
+      data-command-menu-open={isCommandMenuOpen ? 'true' : undefined}
+      ref={composerRef}
+    >
+      <button
+        type="button"
+        aria-controls={`step-command-menu-${stepBlockId}`}
+        aria-expanded={isCommandMenuOpen}
+        aria-haspopup="listbox"
+        aria-label="Open add content menu"
+        className="step-composer-plus"
+        onClick={() => {
+          if (isCommandMenuOpen) {
+            setValue('');
+            setIsPickerOpen(false);
+            return;
+          }
+          setIsPickerOpen(true);
+          setActiveCommandIndexValue(0);
+          queueMicrotask(() => composerInputRef.current?.focus());
+        }}
+      >
         <Plus size={15} strokeWidth={2.35} />
-      </span>
+      </button>
       <div className="step-composer-body">
         <input
+          ref={composerInputRef}
           aria-controls={`step-command-menu-${stepBlockId}`}
-          aria-expanded={trimmedValue.length > 0}
+          aria-expanded={isCommandMenuOpen}
           aria-label="Step composer"
           aria-haspopup="listbox"
           className="step-composer-input"
@@ -214,11 +265,12 @@ function StepComposer({
               activeCommandIndexRef,
               clearComposer: () => {
                 setValue('');
+                setIsPickerOpen(false);
                 setActiveCommandIndexValue(0);
               },
               commands: filteredCommands,
               insert,
-              isSlashCommand,
+              isCommandMenuOpen,
               setActiveCommandIndex: setActiveCommandIndexValue,
             })
           }
@@ -246,81 +298,90 @@ function StepComposer({
             />
           ))}
         </div>
-        <div
-          ref={commandMenuRef}
-          id={`step-command-menu-${stepBlockId}`}
-          aria-label="Step insert commands"
-          className="step-command-menu"
-          hidden={trimmedValue.length === 0}
-          role="listbox"
-        >
-          <div className="command-menu-header">
-            <span>{isPlainText ? 'Add text' : 'Add content'}</span>
-            <kbd>Add</kbd>
-          </div>
-          {isPlainText ? (
-            <AuthoringButton
-              className="command-item command-item-primary"
-              onPointerDown={(event) => {
-                event.preventDefault();
-                insert('paragraph', trimmedValue);
-              }}
-              onClick={(event) => {
-                if (event.detail !== 0) return;
-                insert('paragraph', trimmedValue);
-              }}
-              role="option"
-            >
-              <span className="command-icon" aria-hidden="true">
-                {COMMAND_DETAILS.paragraph.icon}
-              </span>
-              <span className="command-copy">
-                <strong>Add text</strong>
-                <small>{trimmedValue}</small>
-              </span>
-            </AuthoringButton>
-          ) : null}
-          {isSlashCommand
-            ? filteredCommands.map((command) => {
-                const details = COMMAND_DETAILS[command];
-                const label = blockTypeLabel(command);
-                const active = filteredCommands[activeCommandIndex] === command;
-                return (
+        {isCommandMenuOpen && composerRef.current
+          ? createPortal(
+              <div
+                ref={commandMenuRef}
+                id={`step-command-menu-${stepBlockId}`}
+                aria-label="Step insert commands"
+                className="step-command-menu"
+                role="listbox"
+                style={
+                  menuPosition
+                    ? { left: `${menuPosition.left}px`, top: `${menuPosition.top}px` }
+                    : { left: '-9999px', top: '-9999px' }
+                }
+              >
+                <div className="command-menu-header">
+                  <span>{isPlainText ? 'Add text' : 'Add content'}</span>
+                  <kbd>Add</kbd>
+                </div>
+                {isPlainText ? (
                   <AuthoringButton
-                    key={command}
-                    aria-selected={active}
-                    className={`command-item ${active ? 'active' : ''}`.trim()}
+                    className="command-item command-item-primary"
                     onPointerDown={(event) => {
                       event.preventDefault();
-                      insert(command);
+                      insert('paragraph', trimmedValue);
                     }}
                     onClick={(event) => {
                       if (event.detail !== 0) return;
-                      insert(command);
+                      insert('paragraph', trimmedValue);
                     }}
-                    onMouseEnter={() =>
-                      setActiveCommandIndexValue(
-                        filteredCommands.findIndex((item) => item === command),
-                      )
-                    }
                     role="option"
                   >
                     <span className="command-icon" aria-hidden="true">
-                      {details.icon}
+                      {COMMAND_DETAILS.paragraph.icon}
                     </span>
                     <span className="command-copy">
-                      <strong>{label}</strong>
-                      <small>{details.description}</small>
+                      <strong>Add text</strong>
+                      <small>{trimmedValue}</small>
                     </span>
-                    <span className="command-description">Add</span>
                   </AuthoringButton>
-                );
-              })
-            : null}
-          {isSlashCommand && filteredCommands.length === 0 ? (
-            <div className="command-empty">No matching content</div>
-          ) : null}
-        </div>
+                ) : null}
+                {showsCommands
+                  ? filteredCommands.map((command) => {
+                      const details = COMMAND_DETAILS[command];
+                      const label = blockTypeLabel(command);
+                      const active = filteredCommands[activeCommandIndex] === command;
+                      return (
+                        <AuthoringButton
+                          key={command}
+                          aria-selected={active}
+                          className={`command-item ${active ? 'active' : ''}`.trim()}
+                          onPointerDown={(event) => {
+                            event.preventDefault();
+                            insert(command);
+                          }}
+                          onClick={(event) => {
+                            if (event.detail !== 0) return;
+                            insert(command);
+                          }}
+                          onMouseEnter={() =>
+                            setActiveCommandIndexValue(
+                              filteredCommands.findIndex((item) => item === command),
+                            )
+                          }
+                          role="option"
+                        >
+                          <span className="command-icon" aria-hidden="true">
+                            {details.icon}
+                          </span>
+                          <span className="command-copy">
+                            <strong>{label}</strong>
+                            <small>{details.description}</small>
+                          </span>
+                          <span className="command-description">Add</span>
+                        </AuthoringButton>
+                      );
+                    })
+                  : null}
+                {showsCommands && filteredCommands.length === 0 ? (
+                  <div className="command-empty">No matching content</div>
+                ) : null}
+              </div>,
+              composerRef.current.ownerDocument.body,
+            )
+          : null}
       </div>
     </div>
   );
@@ -341,14 +402,14 @@ function handleStepComposerKeyDown(
     clearComposer,
     commands,
     insert,
-    isSlashCommand,
+    isCommandMenuOpen,
     setActiveCommandIndex,
   }: {
     activeCommandIndexRef: { current: number };
     clearComposer: () => void;
     commands: readonly StepContentCommand[];
     insert: (type: StepContentCommand, content?: string) => void;
-    isSlashCommand: boolean;
+    isCommandMenuOpen: boolean;
     setActiveCommandIndex: (index: number) => void;
   },
 ): void {
@@ -359,7 +420,7 @@ function handleStepComposerKeyDown(
   }
 
   const navigationDirection = COMMAND_NAVIGATION_DIRECTIONS[event.key];
-  if (isSlashCommand && navigationDirection !== undefined) {
+  if (isCommandMenuOpen && navigationDirection !== undefined) {
     event.preventDefault();
     if (commands.length === 0) return;
     setActiveCommandIndex(
@@ -369,8 +430,14 @@ function handleStepComposerKeyDown(
   }
 
   const currentValue = event.currentTarget.value.trim();
-  if (event.key !== 'Enter' || currentValue === '') return;
+  if (event.key !== 'Enter') return;
   event.preventDefault();
+
+  if (currentValue === '') {
+    const command = commands[activeCommandIndexRef.current] ?? commands[0];
+    if (isCommandMenuOpen && command) insert(command);
+    return;
+  }
 
   if (!currentValue.startsWith('/')) {
     insert('paragraph', currentValue);
@@ -394,7 +461,9 @@ function stepCommandFromQuery(value: string): StepContentCommand | null {
   if (exactCommand) return exactCommand;
   const aliasCommand = stepAliasCommandFromQuery(normalized);
   if (aliasCommand) return aliasCommand;
-  return STEP_CONTENT_COMMANDS.find((command) => stepCommandMatchesQuery(command, normalized)) ?? null;
+  return (
+    STEP_CONTENT_COMMANDS.find((command) => stepCommandMatchesQuery(command, normalized)) ?? null
+  );
 }
 
 function stepContentCommandValue(value: string): StepContentCommand | null {
@@ -409,9 +478,7 @@ function stepAliasCommandFromQuery(query: string): StepContentCommand | null {
 function stepCommandMatchesQuery(command: StepContentCommand, query: string): boolean {
   const details = COMMAND_DETAILS[command];
   const label = blockTypeLabel(command);
-  return [command, label, details.description].some((item) =>
-    item.toLowerCase().includes(query),
-  );
+  return [command, label, details.description].some((item) => item.toLowerCase().includes(query));
 }
 
 function stepQuickInsertLabel(command: StepContentCommand): string {
@@ -903,7 +970,9 @@ function ButtonActionControl({
         options={EDITABLE_ACTION_OPTIONS}
         value={action}
       />
-      {showsActionUrlField(action) ? <ActionUrlField block={block} controller={controller} /> : null}
+      {showsActionUrlField(action) ? (
+        <ActionUrlField block={block} controller={controller} />
+      ) : null}
     </div>
   );
 }

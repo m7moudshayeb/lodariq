@@ -1,26 +1,112 @@
-import { useRef } from 'react';
+import { useRef, type RefObject } from 'react';
+import type { LodariqBlock } from '@lodariq/schema';
 import type { LocalAuthoringFrameController } from '../controller';
 import type { LocalAuthoringFrameSnapshot } from '../types';
-import { blockStatus, isEditableControl } from '../utils';
+import { blockDisplayTitle, isEditableControl } from '../utils';
 import { BlockCard } from './block-card';
 import { CanvasActions } from './canvas-actions';
 import { InsertBar } from './insert-bar';
 import { InlineTopLevelInsert } from './insert-menu';
 import { Inspector } from './inspector';
+import { PanelBodyMode } from './panel-body-mode';
+import { TourSequenceRail, TourStepInspector } from './tour-sequence-rail';
+import { Check, Eye, Rocket } from '../design-system';
 
 export function AuthoringCanvas({
   controller,
+  frameMode,
   snapshot,
 }: {
   controller: LocalAuthoringFrameController;
+  frameMode: 'panel' | 'standalone';
   snapshot: LocalAuthoringFrameSnapshot;
 }) {
   const slashInputRef = useRef<HTMLInputElement | null>(null);
   const blocks = snapshot.documentState.blocks;
   const tourSteps = blocks.filter((block) => block.type === 'tourStep');
-  const readyCount = tourSteps.filter((block) => blockStatus(block) === 'ready').length;
-  const needsReviewCount = tourSteps.filter((block) => blockStatus(block) === 'incomplete').length;
-  const needsFixCount = tourSteps.filter((block) => blockStatus(block) === 'invalid').length;
+  const activeStepId = activeTourStepId(tourSteps, snapshot.selectedBlockId);
+  const activeStepIndex = tourSteps.findIndex((step) => step.id === activeStepId);
+  const activeStep = activeStepIndex >= 0 ? tourSteps[activeStepIndex] : null;
+  const advancedStep = tourSteps.find((step) => step.id === snapshot.advancedEditorStepId) ?? null;
+
+  if (frameMode === 'panel') {
+    if (snapshot.panelWorkflow.mode !== 'edit') {
+      return (
+        <section className="canvas panel-canvas" aria-label="Experience editor" tabIndex={-1}>
+          <div className="document-page">
+            <PanelBodyMode controller={controller} snapshot={snapshot} />
+          </div>
+        </section>
+      );
+    }
+    return (
+      <section className="canvas panel-canvas" aria-label="Experience editor" tabIndex={-1}>
+        <div className="document-page">
+          {advancedStep ? (
+            <div className="panel-hybrid-workspace panel-advanced-workspace">
+              <TourSequenceRail
+                activeStepId={advancedStep.id}
+                compact
+                controller={controller}
+                snapshot={snapshot}
+                steps={tourSteps}
+              />
+              <PanelAdvancedEditor
+                controller={controller}
+                slashInputRef={slashInputRef}
+                snapshot={snapshot}
+                step={advancedStep}
+              />
+            </div>
+          ) : (
+            <div className="panel-reference-workspace">
+              <div className="authoring-workspace panel-hybrid-workspace">
+                <TourSequenceRail
+                  activeStepId={activeStepId}
+                  compact
+                  controller={controller}
+                  snapshot={snapshot}
+                  steps={tourSteps}
+                />
+                {activeStep ? (
+                  <TourStepInspector
+                    controller={controller}
+                    snapshot={snapshot}
+                    step={activeStep}
+                    stepIndex={activeStepIndex}
+                  />
+                ) : null}
+              </div>
+              <footer
+                className="panel-workspace-footer"
+                aria-label="Release status"
+                data-release-status={snapshot.release.status}
+              >
+                <span className="panel-draft-state">
+                  <Check size={18} strokeWidth={2.2} aria-hidden="true" />
+                  Draft saved
+                </span>
+                <span className="panel-release-actions">
+                  <button type="button" onClick={() => controller.previewFullTour()}>
+                    <Eye size={16} strokeWidth={2} aria-hidden="true" />
+                    Preview
+                  </button>
+                  <button
+                    type="button"
+                    className="publish"
+                    onClick={() => controller.openReleaseVerificationMode()}
+                  >
+                    <Rocket size={16} strokeWidth={2} aria-hidden="true" />
+                    Release options
+                  </button>
+                </span>
+              </footer>
+            </div>
+          )}
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section
@@ -48,36 +134,22 @@ export function AuthoringCanvas({
     >
       <div className="document-page">
         <CanvasActions controller={controller} />
-        <header className="document-hero">
-          <div className="document-hero-copy">
-            <div className="document-context" aria-label="Experience type">
-              <span>Tour</span>
-            </div>
-            <input
-              key={snapshot.documentState.title}
-              aria-label="Experience title"
-              className="document-title-input"
-              data-action="edit-title"
-              defaultValue={snapshot.documentState.title}
-              placeholder="Untitled experience"
-              onBlur={(event) => controller.commitDocumentTitle(event.currentTarget.value)}
-            />
-          </div>
-          <div className="document-hero-meta">
-            <div className="document-stats" aria-label="Experience status">
-              <span>{formatCount(tourSteps.length, 'step')}</span>
-              <span>{readyCount} ready</span>
-              {needsReviewCount > 0 ? <span>{needsReviewCount} need review</span> : null}
-              {needsFixCount > 0 ? <span>{needsFixCount} need fixes</span> : null}
-            </div>
-          </div>
-        </header>
-
         <div className="authoring-workspace">
+          <TourSequenceRail
+            activeStepId={activeStepId}
+            controller={controller}
+            snapshot={snapshot}
+            steps={tourSteps}
+          />
           <div className="document-main">
             <section className="document" aria-label="Experience content">
               {blocks.map((block, index) => (
-                <div className="document-block-group" key={block.id}>
+                <div
+                  className={`document-block-group ${
+                    block.id === activeStepId ? 'active-step' : 'inactive-step'
+                  }`.trim()}
+                  key={block.id}
+                >
                   {index === 0 ? (
                     <InlineTopLevelInsert
                       anchorBlockId={block.id}
@@ -114,10 +186,57 @@ export function AuthoringCanvas({
   );
 }
 
+function PanelAdvancedEditor({
+  controller,
+  slashInputRef,
+  snapshot,
+  step,
+}: {
+  controller: LocalAuthoringFrameController;
+  slashInputRef: RefObject<HTMLInputElement | null>;
+  snapshot: LocalAuthoringFrameSnapshot;
+  step: LodariqBlock;
+}) {
+  return (
+    <div className="panel-advanced-editor">
+      <header className="panel-advanced-header">
+        <button
+          type="button"
+          className="panel-advanced-back"
+          onClick={() => controller.closeAdvancedEditor()}
+        >
+          Back
+        </button>
+        <span>
+          <small>Step settings</small>
+          <strong>{blockDisplayTitle(step)}</strong>
+        </span>
+      </header>
+      <div className="document-main panel-advanced-main">
+        <section className="document" aria-label="Advanced step settings">
+          <div className="document-block-group active-step">
+            <BlockCard block={step} controller={controller} snapshot={snapshot} />
+          </div>
+        </section>
+        <InsertBar controller={controller} snapshot={snapshot} slashInputRef={slashInputRef} />
+        <Inspector controller={controller} snapshot={snapshot} />
+      </div>
+    </div>
+  );
+}
+
 function isCommandComposerTarget(target: EventTarget): boolean {
   return target instanceof Element && Boolean(target.closest('.slash, .command-menu'));
 }
 
-function formatCount(count: number, label: string): string {
-  return `${count} ${label}${count === 1 ? '' : 's'}`;
+function activeTourStepId(steps: LodariqBlock[], selectedBlockId: string | null): string | null {
+  if (selectedBlockId) {
+    const selectedStep = steps.find((step) => containsBlock(step, selectedBlockId));
+    if (selectedStep) return selectedStep.id;
+  }
+  return steps[0]?.id ?? null;
+}
+
+function containsBlock(block: LodariqBlock, blockId: string): boolean {
+  return block.id === blockId || block.children.some((child) => containsBlock(child, blockId));
 }

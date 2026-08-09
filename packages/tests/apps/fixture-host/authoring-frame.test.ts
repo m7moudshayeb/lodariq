@@ -1,12 +1,21 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { BRIDGE_PROTOCOL_VERSION, type BridgeMessage, type LodariqDocument } from '@lodariq/schema';
+import {
+  AUTHORING_INLINE_CONTROL_COMMIT_TYPE,
+  AUTHORING_INLINE_CONTENT_COMMIT_TYPE,
+  BRIDGE_PROTOCOL_VERSION,
+  type BridgeMessage,
+  type LodariqDocument,
+} from '@lodariq/schema';
 import tourFixture from '@lodariq/schema/fixtures/tour.linear.v1.json';
 import {
   LOCAL_AUTHORING_SESSION_ID,
   mountLocalAuthoringFrame,
   type LocalAuthoringFrameServices,
 } from '@lodariq/sdk-authoring';
+import { LocalAuthoringFrameController } from '../../../../packages/sdk-authoring/src/authoring/local-frame-ui/controller';
+
+const HEAVY_FIXTURE_TEST_TIMEOUT_MS = 10_000;
 
 async function loadFrame(): Promise<void> {
   vi.resetModules();
@@ -17,6 +26,22 @@ async function loadFrame(): Promise<void> {
 
 function documentJson(): HTMLTextAreaElement {
   return document.querySelector<HTMLTextAreaElement>('textarea[aria-label="Editable backup"]')!;
+}
+
+function buttonWithText(label: string, root: ParentNode = document): HTMLButtonElement | null {
+  return (
+    [...root.querySelectorAll<HTMLButtonElement>('button')].find((button) =>
+      button.textContent?.includes(label),
+    ) ?? null
+  );
+}
+
+function panelModeView(): HTMLElement | null {
+  return (
+    document
+      .querySelector<HTMLButtonElement>('button[aria-label="Back to authoring"]')
+      ?.closest<HTMLElement>('section') ?? null
+  );
 }
 
 async function importTwoBlocks(): Promise<void> {
@@ -107,45 +132,65 @@ function localFrameServices(): LocalAuthoringFrameServices {
 
 describe('fixture host authoring frame (PRD §16.1)', () => {
   beforeEach(() => {
+    vi.stubGlobal(
+      'ResizeObserver',
+      class ResizeObserverStub {
+        observe(): void {}
+        unobserve(): void {}
+        disconnect(): void {}
+      },
+    );
     document.head.innerHTML = '';
     document.body.innerHTML = '';
+    window.history.replaceState(null, '', '/');
     localStorage.clear();
   });
 
   afterEach(() => {
+    window.dispatchEvent(new Event('pagehide'));
+    vi.unstubAllGlobals();
     vi.restoreAllMocks();
   });
 
-  it('keeps top-level slash commands limited to tour steps', async () => {
-    await loadFrame();
+  it(
+    'keeps top-level slash commands limited to tour steps',
+    async () => {
+      await loadFrame();
 
-    const input = document.querySelector<HTMLInputElement>('input[aria-label="Experience composer"]');
-    const menu = document.querySelector<HTMLElement>('.menu');
+      const input = document.querySelector<HTMLInputElement>(
+        'input[aria-label="Experience composer"]',
+      );
+      const menu = document.querySelector<HTMLElement>('.menu');
 
-    expect(input).toBeTruthy();
-    input!.value = '/';
-    input!.dispatchEvent(new Event('input', { bubbles: true }));
-    await flushPreviewPatchQueue();
+      expect(input).toBeTruthy();
+      input!.value = '/';
+      input!.dispatchEvent(new Event('input', { bubbles: true }));
+      await flushPreviewPatchQueue();
 
-    expect(menu?.hidden).toBe(false);
-    expect(document.querySelector<HTMLButtonElement>('[data-command="heading"]')).toBeNull();
-    expect(document.querySelector<HTMLButtonElement>('[data-command="button"]')).toBeNull();
-    const step = document.querySelector<HTMLButtonElement>('[data-command="step"]');
-    step?.firstChild?.dispatchEvent(
-      new Event('pointerdown', { bubbles: true, cancelable: true }),
-    );
-    await flushPreviewPatchQueue();
+      expect(menu?.hidden).toBe(false);
+      expect(document.querySelector<HTMLButtonElement>('[data-command="heading"]')).toBeNull();
+      expect(document.querySelector<HTMLButtonElement>('[data-command="button"]')).toBeNull();
+      const step = document.querySelector<HTMLButtonElement>('[data-command="step"]');
+      step?.firstChild?.dispatchEvent(
+        new Event('pointerdown', { bubbles: true, cancelable: true }),
+      );
+      await flushPreviewPatchQueue();
 
-    const doc = JSON.parse(documentJson().value) as {
-      blocks: Array<{ type: string; children?: Array<{ children?: Array<{ content?: string }> }> }>;
-    };
-    expect(doc.blocks[doc.blocks.length - 1]).toMatchObject({
-      type: 'tourStep',
-    });
-    expect(doc.blocks[doc.blocks.length - 1]?.children?.[0]?.children?.[0]?.content).toBe(
-      'Untitled step',
-    );
-  });
+      const doc = JSON.parse(documentJson().value) as {
+        blocks: Array<{
+          type: string;
+          children?: Array<{ children?: Array<{ content?: string }> }>;
+        }>;
+      };
+      expect(doc.blocks[doc.blocks.length - 1]).toMatchObject({
+        type: 'tourStep',
+      });
+      expect(doc.blocks[doc.blocks.length - 1]?.children?.[0]?.children?.[0]?.content).toBe(
+        'Untitled step',
+      );
+    },
+    HEAVY_FIXTURE_TEST_TIMEOUT_MS,
+  );
 
   it('applies the host CSP nonce to local authoring frame styles', async () => {
     document.head.innerHTML = '<meta property="csp-nonce" nonce="nonce_local_frame">';
@@ -158,31 +203,54 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     await loadFrame();
 
     const styles = document.head.querySelector('style')?.textContent ?? '';
-    expect(styles).toContain('color-scheme: light');
+    expect(styles).toContain('color-scheme: dark');
     expect(styles).toContain('background: var(--lq-color-page)');
-    expect(styles).toContain('background: linear-gradient(180deg, var(--lq-color-chrome), #091f1c)');
+    expect(styles).toContain(
+      'background: linear-gradient(180deg, var(--lq-color-chrome), #101216)',
+    );
   });
 
-  it('does not emit React flushSync warnings during lifecycle-driven updates', async () => {
-    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+  it('keeps the mounted frame intact when pagehide enters the back-forward cache', async () => {
     await loadFrame();
 
-    const composer = document.querySelector<HTMLInputElement>('input[aria-label="Experience composer"]')!;
-    composer.value = '/step';
-    composer.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
-    await flushPreviewPatchQueue();
+    const frameRoot = document.querySelector<HTMLElement>('#authoring')!;
+    const frameStyle = document.head.querySelector<HTMLStyleElement>('style')!;
+    const pageHide = new Event('pagehide');
+    Object.defineProperty(pageHide, 'persisted', { value: true });
+    window.dispatchEvent(pageHide);
 
-    const title = document.querySelector<HTMLInputElement>('input[aria-label="Experience title"]')!;
-    title.value = 'Lifecycle warning regression';
-    title.dispatchEvent(new Event('change', { bubbles: true }));
-    await flushPreviewPatchQueue();
-
-    const errorText = consoleError.mock.calls
-      .flat()
-      .map((value) => String(value))
-      .join('\n');
-    expect(errorText).not.toContain('flushSync');
+    expect(frameRoot.childElementCount).toBeGreaterThan(0);
+    expect(frameStyle.isConnected).toBe(true);
   });
+
+  it(
+    'does not emit React flushSync warnings during lifecycle-driven updates',
+    async () => {
+      const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+      await loadFrame();
+
+      const composer = document.querySelector<HTMLInputElement>(
+        'input[aria-label="Experience composer"]',
+      )!;
+      composer.value = '/step';
+      composer.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+      await flushPreviewPatchQueue();
+
+      const title = document.querySelector<HTMLInputElement>(
+        'input[aria-label="Experience title"]',
+      )!;
+      title.value = 'Lifecycle warning regression';
+      title.dispatchEvent(new Event('change', { bubbles: true }));
+      await flushPreviewPatchQueue();
+
+      const errorText = consoleError.mock.calls
+        .flat()
+        .map((value) => String(value))
+        .join('\n');
+      expect(errorText).not.toContain('flushSync');
+    },
+    HEAVY_FIXTURE_TEST_TIMEOUT_MS,
+  );
 
   it('keeps focus inside the authoring field after committing content edits', async () => {
     await loadFrame();
@@ -190,8 +258,10 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     const heading = document.querySelector<HTMLTextAreaElement>(
       '[data-block-id="block_heading_1"][data-action="edit-content"]',
     )!;
-    const setTextareaValue =
-      Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')?.set;
+    const setTextareaValue = Object.getOwnPropertyDescriptor(
+      HTMLTextAreaElement.prototype,
+      'value',
+    )?.set;
 
     heading.focus();
     setTextareaValue?.call(heading, 'Focus stays here');
@@ -213,14 +283,417 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
 
     expect(document.querySelector('.shell-panel')).toBeTruthy();
     expect(document.querySelector('.topbar')).toBeNull();
+    expect(document.querySelector('.tour-sequence-rail')).toBeTruthy();
+    expect(document.querySelector('.tour-step-inspector')).toBeTruthy();
+    expect(document.querySelector('.tour-workspace-toggle')).toBeNull();
+    expect(document.querySelector('.tour-appearance-entry')).toBeNull();
+    expect(document.querySelector('.document-main')).toBeNull();
+    expect(document.querySelector('.block')).toBeNull();
+    expect(document.querySelector('.tour-step-accordion')).toBeTruthy();
+    expect(document.querySelector('.rich-step-editor')).toBeTruthy();
+    expect(document.querySelector('.rich-step-toolbar')).toBeTruthy();
+    expect(document.querySelector('[role="group"][aria-label="Step content editor"]')).toBeTruthy();
+    expect(document.body.textContent).toContain('Edit content on page');
+    expect(document.body.textContent).toContain('Placement');
+    expect(document.body.textContent).toContain('Advance behavior');
+    expect(document.querySelector('.tour-position-options')).toBeTruthy();
+    expect(document.querySelector('.tour-advance-options')).toBeTruthy();
+    expect(document.body.textContent).not.toContain('Step details');
+    expect(document.body.textContent).toContain('Advanced settings');
+    expect(buttonWithText('Release options')).not.toBeNull();
 
     window.history.replaceState(null, '', '/');
+  });
+
+  it('edits and formats structured step copy through one rich-text surface', async () => {
+    document.body.innerHTML = '<div id="authoring"></div>';
+    const saveDocument = vi.fn<(document: LodariqDocument) => void>();
+    mountLocalAuthoringFrame({
+      root: document.getElementById('authoring')!,
+      baseDocument: tourFixture as LodariqDocument,
+      services: { ...localFrameServices(), saveDocument },
+      frameMode: 'panel',
+      sessionId: 'session_rich_step_content',
+      peerWindow: { postMessage: vi.fn() } as unknown as Window,
+      allowedOrigins: [window.location.origin],
+      targetOrigin: window.location.origin,
+    });
+    await flushPreviewPatchQueue();
+
+    const editor = document.querySelector<HTMLElement>(
+      '[role="group"][aria-label="Step content editor"]',
+    );
+    const heading = editor?.querySelector<HTMLElement>('[data-rich-block-id="block_heading_1"]');
+    const alignCenter = document.querySelector<HTMLButtonElement>('[aria-label="Align center"]');
+    const bold = document.querySelector<HTMLButtonElement>('[aria-label="Bold"]');
+    if (!editor || !heading || !alignCenter || !bold) {
+      throw new Error('rich step editor controls missing');
+    }
+
+    alignCenter.click();
+    bold.click();
+    heading.textContent = 'A better welcome';
+    heading.dispatchEvent(new FocusEvent('focusout', { bubbles: true }));
+    await flushPreviewPatchQueue();
+
+    const lastSave = saveDocument.mock.calls[saveDocument.mock.calls.length - 1]?.[0];
+    const serialized = JSON.stringify(lastSave, null, 2);
+    expect(serialized).toContain('A better welcome');
+    expect(serialized).toContain('"align": "center"');
+    expect(serialized).toContain('"fontWeight": 700');
+  });
+
+  it('opens advanced step details inside the panel workspace', async () => {
+    document.body.innerHTML = '<div id="authoring"></div>';
+    const peer = { postMessage: vi.fn() } as unknown as Window;
+    mountLocalAuthoringFrame({
+      root: document.getElementById('authoring')!,
+      baseDocument: tourFixture as LodariqDocument,
+      services: localFrameServices(),
+      frameMode: 'panel',
+      sessionId: 'session_workspace_layout',
+      peerWindow: peer,
+      allowedOrigins: [window.location.origin],
+      targetOrigin: window.location.origin,
+    });
+    await flushPreviewPatchQueue();
+
+    buttonWithText('Advanced settings')?.click();
+    await flushPreviewPatchQueue();
+    expect(document.querySelector('section[aria-label="Advanced step settings"]')).not.toBeNull();
+    expect(buttonWithText('Back')).not.toBeNull();
+    expect(peer.postMessage).not.toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'authoring.panel-layout.request' }),
+      expect.anything(),
+    );
+  });
+
+  it('keeps staging release gracefully unavailable in local preview', async () => {
+    document.body.innerHTML = '<div id="authoring"></div>';
+    mountLocalAuthoringFrame({
+      root: document.getElementById('authoring')!,
+      baseDocument: tourFixture as LodariqDocument,
+      services: localFrameServices(),
+      frameMode: 'panel',
+      sessionId: 'session_release_local',
+      peerWindow: { postMessage: vi.fn() } as unknown as Window,
+      allowedOrigins: [window.location.origin],
+      targetOrigin: window.location.origin,
+    });
+
+    const releaseFooter = document.querySelector<HTMLElement>('[aria-label="Release status"]');
+    expect(releaseFooter?.dataset['releaseStatus']).toBe('unavailable');
+    buttonWithText('Release options', releaseFooter ?? document)?.click();
+    await vi.waitFor(() => expect(panelModeView()).not.toBeNull());
+    expect(panelModeView()?.textContent).toContain('Local preview');
+    expect(buttonWithText('Publish to staging', panelModeView() ?? document)).toBeNull();
+  });
+
+  it('keeps development release truth read-only after document edits', async () => {
+    document.body.innerHTML = '<div id="authoring"></div>';
+    const getReleaseState = vi
+      .fn<NonNullable<LocalAuthoringFrameServices['getReleaseState']>>()
+      .mockResolvedValue({
+        available: false,
+        environment: 'development',
+        environmentId: 'env_development',
+        documentId: 'doc_tour_welcome',
+        expectedGeneration: 0,
+        draftArtifactId: null,
+        draftContentHash: null,
+        activeContentHash: null,
+        state: 'open_in_staging',
+        findings: [],
+      });
+    const controller = new LocalAuthoringFrameController({
+      root: document.getElementById('authoring')!,
+      baseDocument: tourFixture as LodariqDocument,
+      services: {
+        ...localFrameServices(),
+        persistDocument: vi.fn().mockResolvedValue(undefined),
+        getReleaseState,
+      },
+      sessionId: 'session_release_development',
+      peerWindow: { postMessage: vi.fn() } as unknown as Window,
+      allowedOrigins: [window.location.origin],
+      targetOrigin: window.location.origin,
+    });
+
+    controller.start();
+    await vi.waitFor(() => expect(controller.getSnapshot().release.reason).toBe('open_in_staging'));
+    controller.commitDocumentTitle('Changed in development');
+    expect(controller.getSnapshot().release).toMatchObject({
+      status: 'blocked',
+      reason: 'open_in_staging',
+    });
+    expect(controller.getSnapshot().release.reason).not.toBe('unsaved_changes');
+    controller.destroy();
+  });
+
+  it('publishes one reviewed staging artifact without leaving the compact popup', async () => {
+    document.body.innerHTML = '<div id="authoring"></div>';
+    const persistDocument = vi
+      .fn<NonNullable<LocalAuthoringFrameServices['persistDocument']>>()
+      .mockResolvedValue(undefined);
+    const draftContentHash = `sha256-${'b'.repeat(64)}`;
+    const getReleaseState = vi
+      .fn<NonNullable<LocalAuthoringFrameServices['getReleaseState']>>()
+      .mockResolvedValue({
+        available: true,
+        environment: 'staging',
+        environmentId: 'env_staging',
+        documentId: 'doc_tour_welcome',
+        expectedGeneration: 2,
+        draftArtifactId: 'artifact_reviewed_2',
+        draftContentHash,
+        activeContentHash: null,
+        state: 'ready',
+        findings: [],
+      });
+    const publishToStaging = vi
+      .fn<NonNullable<LocalAuthoringFrameServices['publishToStaging']>>()
+      .mockResolvedValue({
+        ok: true,
+        replayed: false,
+        generation: 3,
+        findings: [
+          {
+            code: 'compact_viewport_risk',
+            severity: 'warning',
+            label: 'Compact viewport may clip content',
+          },
+        ],
+      });
+    mountLocalAuthoringFrame({
+      root: document.getElementById('authoring')!,
+      baseDocument: tourFixture as LodariqDocument,
+      services: {
+        ...localFrameServices(),
+        persistDocument,
+        getReleaseState,
+        publishToStaging,
+      },
+      frameMode: 'panel',
+      sessionId: 'session_release_hosted',
+      peerWindow: { postMessage: vi.fn() } as unknown as Window,
+      allowedOrigins: [window.location.origin],
+      targetOrigin: window.location.origin,
+    });
+
+    await vi.waitFor(() =>
+      expect(
+        document.querySelector<HTMLElement>('[aria-label="Release status"]')?.dataset[
+          'releaseStatus'
+        ],
+      ).toBe('ready'),
+    );
+    buttonWithText('Release options')?.click();
+    await vi.waitFor(() => expect(buttonWithText('Publish to staging')).not.toBeNull());
+    buttonWithText('Publish to staging')?.click();
+
+    await vi.waitFor(() => expect(publishToStaging).toHaveBeenCalledOnce());
+    expect(persistDocument).toHaveBeenCalledOnce();
+    expect(getReleaseState).toHaveBeenCalledTimes(2);
+    expect(publishToStaging).toHaveBeenCalledWith({
+      expectedGeneration: 2,
+      expectedArtifactId: 'artifact_reviewed_2',
+      expectedContentHash: draftContentHash,
+      idempotencyKey: expect.stringMatching(/^staging_publish_/u),
+      correlationId: expect.stringMatching(/^release_/u),
+    });
+    await vi.waitFor(() =>
+      expect(panelModeView()?.textContent).toContain('Exact staging artifact'),
+    );
+    expect(panelModeView()?.textContent).toContain('Current');
+  });
+
+  it('shows visual-preflight blockers without exposing a publish action', async () => {
+    document.body.innerHTML = '<div id="authoring"></div>';
+    const getReleaseState = vi
+      .fn<NonNullable<LocalAuthoringFrameServices['getReleaseState']>>()
+      .mockResolvedValue({
+        available: true,
+        environment: 'staging',
+        environmentId: 'env_staging',
+        documentId: 'doc_tour_welcome',
+        expectedGeneration: 2,
+        draftArtifactId: 'artifact_blocked_2',
+        draftContentHash: `sha256-${'c'.repeat(64)}`,
+        activeContentHash: null,
+        state: 'ready',
+        findings: [
+          {
+            code: 'contrast_unusable',
+            severity: 'blocker',
+            label: 'Unusable contrast',
+          },
+        ],
+      });
+    mountLocalAuthoringFrame({
+      root: document.getElementById('authoring')!,
+      baseDocument: tourFixture as LodariqDocument,
+      services: {
+        ...localFrameServices(),
+        persistDocument: vi.fn().mockResolvedValue(undefined),
+        getReleaseState,
+        publishToStaging: vi.fn().mockRejectedValue(new Error('must not publish')),
+      },
+      frameMode: 'panel',
+      sessionId: 'session_release_blocked',
+      peerWindow: { postMessage: vi.fn() } as unknown as Window,
+      allowedOrigins: [window.location.origin],
+      targetOrigin: window.location.origin,
+    });
+
+    await vi.waitFor(() =>
+      expect(
+        document.querySelector<HTMLElement>('[aria-label="Release status"]')?.dataset[
+          'releaseStatus'
+        ],
+      ).toBe('blocked'),
+    );
+    buttonWithText('Release options')?.click();
+    await vi.waitFor(() =>
+      expect(panelModeView()?.textContent).toContain('Release needs attention'),
+    );
+    expect(buttonWithText('Publish to staging', panelModeView() ?? document)).toBeNull();
+  });
+
+  it('keeps compact placement context to one accordion fact and one element action', async () => {
+    document.body.innerHTML = '<div id="authoring"></div>';
+    const root = document.getElementById('authoring')!;
+    const peer = { postMessage: vi.fn() } as unknown as Window;
+    const sessionId = 'session_compact_placement';
+
+    mountLocalAuthoringFrame({
+      root,
+      baseDocument: tourFixture as LodariqDocument,
+      services: localFrameServices(),
+      frameMode: 'panel',
+      sessionId,
+      peerWindow: peer,
+      allowedOrigins: [window.location.origin],
+      targetOrigin: window.location.origin,
+      now: () => 1000,
+    });
+    await flushPreviewPatchQueue();
+
+    const accordion = document.querySelector<HTMLElement>('.tour-step-accordion');
+    expect(accordion?.textContent).toContain('Placement');
+    expect(accordion?.textContent).toContain('New project');
+    expect(accordion?.textContent).toContain('Unverified');
+    expect(accordion?.textContent).toContain('Behavior');
+    expect(accordion?.textContent).toContain('Below · Next button');
+    expect(accordion?.textContent).toContain('Edit content on page');
+    expect(accordion?.textContent).toContain('Edit details');
+    expect(accordion?.textContent).not.toContain('Target health');
+    expect(accordion?.textContent).not.toContain('Healthy');
+    expect(accordion?.textContent).not.toContain('Position');
+    expect(accordion?.textContent).not.toContain('Advance when');
+    expect(accordion?.querySelector('[aria-label^="Duplicate step"]')).toBeNull();
+    expect(accordion?.querySelector('[aria-label^="Delete step"]')).toBeNull();
+    expect(
+      accordion?.querySelector<HTMLButtonElement>('[aria-label="Change element for step 1"]'),
+    ).not.toBeNull();
+
+    window.dispatchEvent(
+      new MessageEvent('message', {
+        source: peer,
+        origin: window.location.origin,
+        data: {
+          protocol: BRIDGE_PROTOCOL_VERSION,
+          sessionId,
+          documentId: 'doc_tour_welcome',
+          correlationId: 'target_inspect_missing_compact',
+          type: 'target.inspect.result',
+          blockId: 'block_step_1',
+          targetId: 'target_new_project',
+          action: 'health',
+          diagnostic: {
+            state: 'missing',
+            confidence: 0,
+            candidateCount: 0,
+          },
+        },
+      }),
+    );
+    await flushPreviewPatchQueue();
+
+    expect(
+      document.querySelector<HTMLButtonElement>('[aria-label="Fix element for step 1"]'),
+    ).not.toBeNull();
+    expect(accordion?.textContent).toContain('Missing');
+
+    window.dispatchEvent(
+      new MessageEvent('message', {
+        source: peer,
+        origin: window.location.origin,
+        data: {
+          protocol: BRIDGE_PROTOCOL_VERSION,
+          sessionId,
+          documentId: 'doc_tour_welcome',
+          correlationId: 'target_inspect_found_compact',
+          type: 'target.inspect.result',
+          blockId: 'block_step_1',
+          targetId: 'target_new_project',
+          action: 'health',
+          diagnostic: {
+            state: 'found',
+            confidence: 1,
+            candidateCount: 1,
+          },
+        },
+      }),
+    );
+    await flushPreviewPatchQueue();
+
+    expect(accordion?.textContent).toContain('Placement');
+    expect(accordion?.textContent).toContain('New project');
+    expect(accordion?.textContent).toContain('Placed');
+    expect(accordion?.textContent).not.toContain('Needs check');
+    expect(accordion?.textContent).not.toContain('Missing');
+    expect(accordion?.textContent).not.toContain('Healthy');
+    expect(
+      document.querySelector<HTMLButtonElement>('[aria-label="Change element for step 1"]'),
+    ).not.toBeNull();
+  });
+
+  it('offers one choose-element action for an unplaced compact step', async () => {
+    document.body.innerHTML = '<div id="authoring"></div>';
+    const root = document.getElementById('authoring')!;
+    const unplacedDocument = structuredClone(tourFixture) as LodariqDocument;
+    unplacedDocument.targets = [];
+    const tooltip = unplacedDocument.blocks[0]?.children[0];
+    if (!tooltip) throw new Error('Tour fixture tooltip missing');
+    tooltip.props = { placement: 'bottom' };
+
+    mountLocalAuthoringFrame({
+      root,
+      baseDocument: unplacedDocument,
+      services: localFrameServices(),
+      frameMode: 'panel',
+      sessionId: 'session_compact_unplaced',
+      peerWindow: { postMessage: vi.fn() } as unknown as Window,
+      allowedOrigins: [window.location.origin],
+      targetOrigin: window.location.origin,
+      now: () => 1000,
+    });
+    await flushPreviewPatchQueue();
+
+    const accordion = document.querySelector<HTMLElement>('.tour-step-accordion');
+    expect(accordion?.textContent).toContain('Placement');
+    expect(accordion?.textContent).toContain('Not placed yet');
+    expect(
+      accordion?.querySelector<HTMLButtonElement>('[aria-label="Choose element for step 1"]'),
+    ).not.toBeNull();
   });
 
   it('turns typed top-level text into a titled tour step and rejects content commands', async () => {
     await loadFrame();
 
-    const input = document.querySelector<HTMLInputElement>('input[aria-label="Experience composer"]')!;
+    const input = document.querySelector<HTMLInputElement>(
+      'input[aria-label="Experience composer"]',
+    )!;
     const initialDoc = JSON.parse(documentJson().value) as { blocks: unknown[] };
     input.value = '/heading';
     input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
@@ -267,9 +740,7 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
       expect.objectContaining({
         type: 'preview.patch',
         patch: {
-          ops: [
-            { op: 'setDocumentTitle', title: 'Customer onboarding tour' },
-          ],
+          ops: [{ op: 'setDocumentTitle', title: 'Customer onboarding tour' }],
         },
       }),
       window.location.origin,
@@ -281,7 +752,9 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     const postMessage = vi.spyOn(window, 'postMessage').mockImplementation(() => undefined);
     await loadFrame();
 
-    const input = document.querySelector<HTMLInputElement>('input[aria-label="Experience composer"]')!;
+    const input = document.querySelector<HTMLInputElement>(
+      'input[aria-label="Experience composer"]',
+    )!;
     input.value = '/step';
     input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
     await flushPreviewPatchQueue();
@@ -337,9 +810,7 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     await loadFrame();
     await importTwoBlocks();
 
-    document
-      .querySelector<HTMLButtonElement>('[aria-label="Add step after this step"]')
-      ?.click();
+    document.querySelector<HTMLButtonElement>('[aria-label="Add step after this step"]')?.click();
     await flushPreviewPatchQueue();
     expect(
       [
@@ -371,9 +842,7 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     await loadFrame();
     await importTwoBlocks();
 
-    document
-      .querySelector<HTMLButtonElement>('[aria-label="Add step after this step"]')
-      ?.click();
+    document.querySelector<HTMLButtonElement>('[aria-label="Add step after this step"]')?.click();
     await flushPreviewPatchQueue();
 
     const search = document.querySelector<HTMLInputElement>(
@@ -407,11 +876,14 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     composer.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
 
     await flushPreviewPatchQueue();
-    const composerUpdatedStep =
-      document.querySelector<HTMLElement>('.block[data-block-type="tourStep"]')!;
+    const composerUpdatedStep = document.querySelector<HTMLElement>(
+      '.block[data-block-type="tourStep"]',
+    )!;
     expect(composerUpdatedStep.querySelector('[aria-label="Add title to this step"]')).toBeTruthy();
     expect(composerUpdatedStep.querySelector('[aria-label="Add text to this step"]')).toBeTruthy();
-    expect(composerUpdatedStep.querySelector('[aria-label="Add button to this step"]')).toBeTruthy();
+    expect(
+      composerUpdatedStep.querySelector('[aria-label="Add button to this step"]'),
+    ).toBeTruthy();
     expect(composerUpdatedStep.querySelector('[aria-label="Add media to this step"]')).toBeTruthy();
     const mediaButton = composerUpdatedStep.querySelector<HTMLButtonElement>(
       '[aria-label="Add media to this step"]',
@@ -420,8 +892,9 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     await flushPreviewPatchQueue();
 
     const updatedStep = document.querySelector<HTMLElement>('.block[data-block-type="tourStep"]')!;
-    const mediaInput =
-      updatedStep.querySelector<HTMLInputElement>('[aria-label="Media placeholder"]');
+    const mediaInput = updatedStep.querySelector<HTMLInputElement>(
+      '[aria-label="Media placeholder"]',
+    );
     expect(mediaInput?.value).toBe('Media placeholder');
     expect(updatedStep.textContent).toContain('Add media later');
 
@@ -453,15 +926,33 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     composer.dispatchEvent(new Event('input', { bubbles: true }));
     await flushPreviewPatchQueue();
 
-    const menu = step.querySelector<HTMLElement>('.step-command-menu:not([hidden])');
+    const menu = document.querySelector<HTMLElement>('.step-command-menu:not([hidden])');
     expect(menu).toBeTruthy();
+    expect(menu?.parentElement).toBe(document.body);
     const firstCommand = menu!.querySelector<HTMLButtonElement>('.command-item');
     expect(firstCommand).toBeTruthy();
     expect(firstCommand!.querySelector(':scope > .ui-button-icon')).toBeNull();
     expect(firstCommand!.querySelector('.ui-button-label > .command-icon')).toBeTruthy();
-    expect(firstCommand!.querySelector('.ui-button-label > .command-copy strong')?.textContent).toBe(
-      'Heading',
+    expect(
+      firstCommand!.querySelector('.ui-button-label > .command-copy strong')?.textContent,
+    ).toBe('Heading');
+  });
+
+  it('opens the nested content menu from the step plus control', async () => {
+    await loadFrame();
+
+    const openMenu = document.querySelector<HTMLButtonElement>(
+      'button[aria-label="Open add content menu"]',
     );
+    expect(openMenu).toBeTruthy();
+    openMenu?.click();
+    await flushPreviewPatchQueue();
+
+    const menu = document.querySelector<HTMLElement>('.step-command-menu');
+    expect(openMenu?.getAttribute('aria-expanded')).toBe('true');
+    expect(menu?.parentElement).toBe(document.body);
+    expect(menu?.getAttribute('role')).toBe('listbox');
+    expect(menu?.querySelectorAll('.command-item')).toHaveLength(7);
   });
 
   it('inserts nested content from partial slash queries and arrow-key selection', async () => {
@@ -501,7 +992,9 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     await loadFrame();
 
     const firstHeading = document.querySelector<HTMLElement>('.step-child-heading')!;
-    firstHeading.querySelector<HTMLButtonElement>('[aria-label="Insert content after this"]')?.click();
+    firstHeading
+      .querySelector<HTMLButtonElement>('[aria-label="Insert content after this"]')
+      ?.click();
     await flushPreviewPatchQueue();
 
     const search = document.querySelector<HTMLInputElement>(
@@ -533,8 +1026,10 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
 
     const step = document.querySelector<HTMLElement>('.block[data-block-type="tourStep"]')!;
     const heading = step.querySelector<HTMLTextAreaElement>('[aria-label="Heading"]')!;
-    const setTextareaValue =
-      Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')?.set;
+    const setTextareaValue = Object.getOwnPropertyDescriptor(
+      HTMLTextAreaElement.prototype,
+      'value',
+    )?.set;
     setTextareaValue?.call(heading, 'Edited heading');
     heading.dispatchEvent(
       new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }),
@@ -608,7 +1103,10 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     const bodyParagraph = document.querySelector<HTMLTextAreaElement>(
       '.step-child-paragraph [aria-label="Body text"]',
     )!;
-    const setBodyValue = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')?.set;
+    const setBodyValue = Object.getOwnPropertyDescriptor(
+      HTMLTextAreaElement.prototype,
+      'value',
+    )?.set;
     setBodyValue?.call(bodyParagraph, 'Alpha Beta');
     bodyParagraph.focus();
     bodyParagraph.setSelectionRange(5, 5);
@@ -637,9 +1135,11 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
       content: ' Beta',
     });
 
-    const paragraphFields = [...document.querySelectorAll<HTMLTextAreaElement>(
-      '.step-child-paragraph [aria-label="Body text"]',
-    )];
+    const paragraphFields = [
+      ...document.querySelectorAll<HTMLTextAreaElement>(
+        '.step-child-paragraph [aria-label="Body text"]',
+      ),
+    ];
     const firstParagraph = paragraphFields[0]!;
     const splitParagraph = paragraphFields[1]!;
     expect(document.activeElement).toBe(splitParagraph);
@@ -736,8 +1236,10 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
 
     const step = document.querySelector<HTMLElement>('.block[data-block-type="tourStep"]')!;
     const heading = step.querySelector<HTMLTextAreaElement>('[aria-label="Heading"]')!;
-    const setTextareaValue =
-      Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')?.set;
+    const setTextareaValue = Object.getOwnPropertyDescriptor(
+      HTMLTextAreaElement.prototype,
+      'value',
+    )?.set;
 
     setTextareaValue?.call(heading, 'Edited heading');
     heading.dispatchEvent(
@@ -771,6 +1273,31 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
       status: 'incomplete',
     });
     expect(JSON.stringify(doc)).not.toContain('/bu');
+  });
+
+  it('keeps unknown inline slash text as ordinary paragraph content', async () => {
+    await loadFrame();
+
+    const paragraph = document.querySelector<HTMLTextAreaElement>(
+      '.step-child-paragraph [aria-label="Body text"]',
+    )!;
+    const setTextareaValue = Object.getOwnPropertyDescriptor(
+      HTMLTextAreaElement.prototype,
+      'value',
+    )?.set;
+    setTextareaValue?.call(paragraph, '/not-a-command');
+    paragraph.dispatchEvent(new Event('change', { bubbles: true }));
+    await flushPreviewPatchQueue();
+
+    const doc = JSON.parse(documentJson().value) as {
+      blocks: Array<{
+        children: Array<{ children: Array<{ type: string; content?: string }> }>;
+      }>;
+    };
+    expect(doc.blocks[0]?.children[0]?.children[1]).toMatchObject({
+      type: 'paragraph',
+      content: '/not-a-command',
+    });
   });
 
   it('exposes duplicate and delete actions on nested step content', async () => {
@@ -942,7 +1469,9 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
   it('does not treat pasted slash text inside the slash input as document content', async () => {
     await loadFrame();
 
-    const input = document.querySelector<HTMLInputElement>('input[aria-label="Experience composer"]');
+    const input = document.querySelector<HTMLInputElement>(
+      'input[aria-label="Experience composer"]',
+    );
     const textarea = documentJson();
     const initialDoc = JSON.parse(textarea!.value) as { blocks: unknown[] };
     const event = new Event('paste', { bubbles: true, cancelable: true });
@@ -957,12 +1486,35 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     expect(textarea?.value).not.toContain('"content": "/"');
   });
 
-  it('keeps unknown top-level slash commands out of the document', async () => {
+  it('keeps unknown top-level slash text as ordinary creator content', async () => {
     await loadFrame();
 
-    const input = document.querySelector<HTMLInputElement>('input[aria-label="Experience composer"]')!;
-    const before = documentJson().value;
+    const input = document.querySelector<HTMLInputElement>(
+      'input[aria-label="Experience composer"]',
+    )!;
+    const before = JSON.parse(documentJson().value) as { blocks: unknown[] };
     input.value = '/not-a-command';
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    await flushPreviewPatchQueue();
+
+    const after = JSON.parse(documentJson().value) as {
+      blocks: Array<{ children?: Array<{ children?: Array<{ content?: string }> }> }>;
+    };
+    expect(after.blocks).toHaveLength(before.blocks.length + 1);
+    expect(after.blocks[after.blocks.length - 1]?.children?.[0]?.children?.[0]?.content).toBe(
+      '/not-a-command',
+    );
+    expect(document.querySelector('#status')?.textContent).toBe('Added step');
+  });
+
+  it('keeps recognized content commands out of the top-level step composer', async () => {
+    await loadFrame();
+
+    const input = document.querySelector<HTMLInputElement>(
+      'input[aria-label="Experience composer"]',
+    )!;
+    const before = documentJson().value;
+    input.value = '/button';
     input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
     await flushPreviewPatchQueue();
 
@@ -973,7 +1525,9 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
   it('resets to a fresh fixture after inserted blocks', async () => {
     await loadFrame();
 
-    const input = document.querySelector<HTMLInputElement>('input[aria-label="Experience composer"]');
+    const input = document.querySelector<HTMLInputElement>(
+      'input[aria-label="Experience composer"]',
+    );
     const reset = document.querySelector<HTMLButtonElement>('[data-action="reset"]');
     const textarea = documentJson();
 
@@ -995,7 +1549,9 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     await loadFrame();
     postMessage.mockClear();
 
-    const input = document.querySelector<HTMLInputElement>('input[aria-label="Experience composer"]');
+    const input = document.querySelector<HTMLInputElement>(
+      'input[aria-label="Experience composer"]',
+    );
     input!.value = '/';
     input!.dispatchEvent(new Event('input', { bubbles: true }));
     await flushPreviewPatchQueue();
@@ -1050,10 +1606,7 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
         type: 'preview.patch',
         blockId: 'block_a_copy',
         patch: {
-          ops: [
-            { op: 'transformBlock', type: 'button' },
-            { op: 'setAction' },
-          ],
+          ops: [{ op: 'transformBlock', type: 'button' }, { op: 'setAction' }],
         },
       }),
       window.location.origin,
@@ -1079,7 +1632,9 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     });
     await flushPreviewPatchQueue();
 
-    const input = document.querySelector<HTMLInputElement>('input[aria-label="Experience composer"]')!;
+    const input = document.querySelector<HTMLInputElement>(
+      'input[aria-label="Experience composer"]',
+    )!;
     input.value = '/step';
     input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
     await flushPreviewPatchQueue();
@@ -1129,7 +1684,691 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     window.dispatchEvent(new Event('pagehide'));
   });
 
-  it('groups placement actions, behavior controls, and diagnostics in the target menu', async () => {
+  it('synchronizes direct preview text commits with canonical JSON and the dock field once', async () => {
+    document.body.innerHTML = '<div id="authoring"></div>';
+    const root = document.getElementById('authoring')!;
+    const peer = { postMessage: vi.fn() } as unknown as Window;
+    const services = localFrameServices();
+    const sessionId = 'session_inline_preview';
+
+    mountLocalAuthoringFrame({
+      root,
+      baseDocument: tourFixture as LodariqDocument,
+      services,
+      sessionId,
+      peerWindow: peer,
+      allowedOrigins: [window.location.origin],
+      targetOrigin: window.location.origin,
+      now: () => 1000,
+    });
+    await flushPreviewPatchQueue();
+    vi.mocked(peer.postMessage).mockClear();
+
+    const dispatchCommit = (correlationId: string): void => {
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          source: peer,
+          origin: window.location.origin,
+          data: {
+            protocol: BRIDGE_PROTOCOL_VERSION,
+            sessionId,
+            documentId: 'doc_tour_welcome',
+            correlationId,
+            type: AUTHORING_INLINE_CONTENT_COMMIT_TYPE,
+            blockId: 'block_heading_1',
+            content: 'Launch your first project',
+          },
+        }),
+      );
+    };
+
+    dispatchCommit('inline_content_1');
+    await flushPreviewPatchQueue();
+
+    expect(
+      document.querySelector<HTMLInputElement>(
+        '[data-block-id="block_heading_1"][data-action="edit-content"]',
+      )?.value,
+    ).toBe('Launch your first project');
+    const canonicalDocument = JSON.parse(documentJson().value) as {
+      blocks: Array<{ children: Array<{ children: Array<{ id: string; content?: string }> }> }>;
+    };
+    expect(canonicalDocument.blocks[0]?.children[0]?.children[0]).toMatchObject({
+      id: 'block_heading_1',
+      content: 'Launch your first project',
+    });
+    expect(services.saveDocument).toHaveBeenCalledWith(
+      expect.objectContaining({
+        blocks: [
+          expect.objectContaining({
+            children: [
+              expect.objectContaining({
+                children: [
+                  expect.objectContaining({
+                    id: 'block_heading_1',
+                    content: 'Launch your first project',
+                  }),
+                  expect.anything(),
+                  expect.anything(),
+                ],
+              }),
+            ],
+          }),
+        ],
+      }),
+    );
+
+    const previewPatches = (): Array<Extract<BridgeMessage, { type: 'preview.patch' }>> =>
+      vi
+        .mocked(peer.postMessage)
+        .mock.calls.map(([message]) => message as BridgeMessage)
+        .filter(
+          (message): message is Extract<BridgeMessage, { type: 'preview.patch' }> =>
+            message.type === 'preview.patch',
+        );
+    expect(previewPatches()).toEqual([
+      expect.objectContaining({
+        blockId: 'block_heading_1',
+        patch: {
+          ops: [{ op: 'updateContent', content: 'Launch your first project' }],
+        },
+      }),
+    ]);
+    expect(document.querySelector('#status')?.textContent).toContain('Content updated in preview');
+
+    dispatchCommit('inline_content_duplicate');
+    await flushPreviewPatchQueue();
+    expect(previewPatches()).toHaveLength(1);
+
+    window.dispatchEvent(new Event('pagehide'));
+  });
+
+  it('shows a rail-selected tour step immediately through a semantic bridge request', async () => {
+    document.body.innerHTML = '<div id="authoring"></div>';
+    const root = document.getElementById('authoring')!;
+    const peer = { postMessage: vi.fn() } as unknown as Window;
+    const sessionId = 'session_selected_step_preview';
+
+    mountLocalAuthoringFrame({
+      root,
+      baseDocument: tourFixture as LodariqDocument,
+      services: localFrameServices(),
+      sessionId,
+      peerWindow: peer,
+      allowedOrigins: [window.location.origin],
+      targetOrigin: window.location.origin,
+      now: () => 1000,
+    });
+    await flushPreviewPatchQueue();
+    await importTwoBlocks();
+
+    vi.mocked(peer.postMessage).mockClear();
+    document.querySelector<HTMLButtonElement>('[aria-label="Edit step 2: Beta"]')?.click();
+    await flushPreviewPatchQueue();
+
+    expect(peer.postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sessionId,
+        type: 'authoring.preview.request',
+        mode: 'step',
+        stepId: 'block_b',
+      }),
+      window.location.origin,
+    );
+
+    window.dispatchEvent(new Event('pagehide'));
+  });
+
+  it('starts target selection immediately after Add step', async () => {
+    document.body.innerHTML = '<div id="authoring"></div>';
+    const root = document.getElementById('authoring')!;
+    const peer = { postMessage: vi.fn() } as unknown as Window;
+    const sessionId = 'session_add_step_target';
+
+    mountLocalAuthoringFrame({
+      root,
+      baseDocument: tourFixture as LodariqDocument,
+      services: localFrameServices(),
+      sessionId,
+      peerWindow: peer,
+      allowedOrigins: [window.location.origin],
+      targetOrigin: window.location.origin,
+      now: () => 1000,
+    });
+    await flushPreviewPatchQueue();
+    vi.mocked(peer.postMessage).mockClear();
+
+    document.querySelector<HTMLButtonElement>('.tour-add-step')?.click();
+
+    expect(peer.postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sessionId,
+        type: 'target.pick.start',
+        blockId: expect.stringMatching(/^block_/),
+      }),
+      window.location.origin,
+    );
+    await flushPreviewPatchQueue();
+    expect(document.querySelectorAll('.tour-step-row')).toHaveLength(2);
+
+    window.dispatchEvent(new Event('pagehide'));
+  });
+
+  it('applies live-preview placement controls and opens Advanced on demand', async () => {
+    document.body.innerHTML = '<div id="authoring"></div>';
+    const root = document.getElementById('authoring')!;
+    const peer = { postMessage: vi.fn() } as unknown as Window;
+    const services = localFrameServices();
+    const sessionId = 'session_inline_controls';
+
+    mountLocalAuthoringFrame({
+      root,
+      baseDocument: tourFixture as LodariqDocument,
+      services,
+      frameMode: 'panel',
+      sessionId,
+      peerWindow: peer,
+      allowedOrigins: [window.location.origin],
+      targetOrigin: window.location.origin,
+      now: () => 1000,
+    });
+    await flushPreviewPatchQueue();
+    expect(document.querySelector('.document-main')).toBeNull();
+
+    const dispatchControl = (
+      correlationId: string,
+      operation: Extract<
+        BridgeMessage,
+        { type: typeof AUTHORING_INLINE_CONTROL_COMMIT_TYPE }
+      >['operation'],
+    ): void => {
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          source: peer,
+          origin: window.location.origin,
+          data: {
+            protocol: BRIDGE_PROTOCOL_VERSION,
+            sessionId,
+            documentId: 'doc_tour_welcome',
+            correlationId,
+            type: AUTHORING_INLINE_CONTROL_COMMIT_TYPE,
+            operation,
+          },
+        }),
+      );
+    };
+
+    dispatchControl('inline_control_placement', {
+      kind: 'setPlacement',
+      blockId: 'block_tooltip_1',
+      placement: 'top',
+    });
+    await flushPreviewPatchQueue();
+    expect(services.saveDocument).toHaveBeenCalledWith(
+      expect.objectContaining({
+        blocks: [
+          expect.objectContaining({
+            children: [
+              expect.objectContaining({ props: expect.objectContaining({ placement: 'top' }) }),
+            ],
+          }),
+        ],
+      }),
+    );
+    expect(peer.postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'preview.patch',
+        blockId: 'block_tooltip_1',
+        patch: { ops: [{ op: 'setPlacement', placement: 'top' }] },
+      }),
+      window.location.origin,
+    );
+
+    dispatchControl('inline_control_action', {
+      kind: 'setAction',
+      blockId: 'block_button_1',
+      actionType: 'complete',
+    });
+    await flushPreviewPatchQueue();
+    expect(services.saveDocument).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        blocks: [
+          expect.objectContaining({
+            children: [
+              expect.objectContaining({
+                children: expect.arrayContaining([
+                  expect.objectContaining({
+                    id: 'block_button_1',
+                    props: expect.objectContaining({ action: { type: 'complete' } }),
+                  }),
+                ]),
+              }),
+            ],
+          }),
+        ],
+      }),
+    );
+    expect(peer.postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'preview.patch',
+        blockId: 'block_button_1',
+        patch: { ops: [{ op: 'setAction', action: { type: 'complete' } }] },
+      }),
+      window.location.origin,
+    );
+
+    dispatchControl('inline_control_advanced', {
+      kind: 'openAdvanced',
+      stepId: 'block_step_1',
+    });
+    await flushPreviewPatchQueue();
+    expect(document.querySelector('.panel-advanced-editor')).toBeTruthy();
+    expect(document.querySelector('.document-main')).toBeTruthy();
+
+    window.dispatchEvent(new Event('pagehide'));
+  });
+
+  it('keeps target identity and lifecycle hints when replacing a placement', async () => {
+    document.body.innerHTML = '<div id="authoring"></div>';
+    const root = document.getElementById('authoring')!;
+    const peer = { postMessage: vi.fn() } as unknown as Window;
+    const sessionId = 'session_target_replacement';
+    const baseDocument = structuredClone(tourFixture) as LodariqDocument;
+    baseDocument.targets[0]!.lifecycle = {
+      expectedRoute: '/projects',
+      waitForText: 'Projects loaded',
+      scrollStrategy: 'center',
+    };
+
+    mountLocalAuthoringFrame({
+      root,
+      baseDocument,
+      services: localFrameServices(),
+      sessionId,
+      peerWindow: peer,
+      allowedOrigins: [window.location.origin],
+      targetOrigin: window.location.origin,
+      now: () => 1000,
+    });
+    await flushPreviewPatchQueue();
+
+    window.dispatchEvent(
+      new MessageEvent('message', {
+        source: peer,
+        origin: window.location.origin,
+        data: {
+          protocol: BRIDGE_PROTOCOL_VERSION,
+          sessionId,
+          documentId: baseDocument.id,
+          correlationId: 'target_pick_replacement_1',
+          type: 'target.pick.result',
+          blockId: 'block_step_1',
+          fingerprint: {
+            tagName: 'button',
+            role: 'button',
+            accessibleName: 'Create project',
+            stableAttributes: { 'data-lodariq-id': 'create-project' },
+          },
+        },
+      }),
+    );
+    await flushPreviewPatchQueue();
+
+    const savedDocument = JSON.parse(documentJson().value) as LodariqDocument;
+    expect(savedDocument.targets).toHaveLength(1);
+    expect(savedDocument.targets[0]).toMatchObject({
+      id: 'target_new_project',
+      lifecycle: {
+        expectedRoute: '/projects',
+        waitForText: 'Projects loaded',
+        scrollStrategy: 'center',
+      },
+      fingerprint: {
+        accessibleName: 'Create project',
+        stableAttributes: { 'data-lodariq-id': 'create-project' },
+      },
+    });
+    expect(savedDocument.blocks[0]?.children[0]?.props.targetId).toBe('target_new_project');
+    expect(peer.postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'preview.patch',
+        blockId: 'block_step_1',
+        patch: {
+          ops: [
+            expect.objectContaining({
+              op: 'attachTarget',
+              targetId: 'target_new_project',
+            }),
+          ],
+        },
+      }),
+      window.location.origin,
+    );
+
+    window.dispatchEvent(new Event('pagehide'));
+  });
+
+  it('offers direct placement repair and truthful release readiness copy', async () => {
+    document.body.innerHTML = '<div id="authoring"></div>';
+    const root = document.getElementById('authoring')!;
+    const peer = { postMessage: vi.fn() } as unknown as Window;
+    const sessionId = 'session_direct_placement_repair';
+
+    mountLocalAuthoringFrame({
+      root,
+      baseDocument: tourFixture as LodariqDocument,
+      services: localFrameServices(),
+      sessionId,
+      peerWindow: peer,
+      allowedOrigins: [window.location.origin],
+      targetOrigin: window.location.origin,
+      now: () => 1000,
+    });
+    await flushPreviewPatchQueue();
+
+    expect(document.querySelector('.review-summary-copy strong')?.textContent).toBe(
+      '1 to fix before release',
+    );
+    expect(document.body.textContent).not.toContain('Ready to publish');
+    expect(
+      document.querySelector<HTMLButtonElement>('[aria-label="Fix placement for step 1"]'),
+    ).toBeNull();
+    expect(document.querySelector('.tour-step-health')?.textContent).toContain('Unverified');
+    expect(document.querySelector('.tour-health-count')?.textContent).toBe('0/1 verified');
+    expect(document.querySelector('.tour-active-step-footer')?.textContent).toContain('Unverified');
+
+    window.dispatchEvent(
+      new MessageEvent('message', {
+        source: peer,
+        origin: window.location.origin,
+        data: {
+          protocol: BRIDGE_PROTOCOL_VERSION,
+          sessionId,
+          documentId: 'doc_tour_welcome',
+          correlationId: 'target_inspect_missing_1',
+          type: 'target.inspect.result',
+          blockId: 'block_step_1',
+          targetId: 'target_new_project',
+          action: 'health',
+          diagnostic: {
+            state: 'missing',
+            confidence: 0,
+            candidateCount: 0,
+          },
+        },
+      }),
+    );
+    await flushPreviewPatchQueue();
+
+    expect(document.body.textContent).toContain('Fix before release');
+    const repairButton = document.querySelector<HTMLButtonElement>(
+      '[aria-label="Fix placement for step 1"]',
+    );
+    expect(repairButton?.textContent).toContain('Fix placement');
+
+    vi.mocked(peer.postMessage).mockClear();
+    repairButton?.click();
+    expect(peer.postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sessionId,
+        type: 'target.pick.start',
+        blockId: 'block_step_1',
+        fingerprint: expect.objectContaining({ accessibleName: 'New project' }),
+      }),
+      window.location.origin,
+    );
+
+    window.dispatchEvent(new Event('pagehide'));
+  });
+
+  it('does not let a stale inspection overwrite a newer placement pick', () => {
+    document.body.innerHTML = '<div id="authoring"></div>';
+    const root = document.getElementById('authoring')!;
+    const peer = { postMessage: vi.fn() } as unknown as Window;
+    const sessionId = 'session_stale_target_inspection';
+
+    const controller = new LocalAuthoringFrameController({
+      root,
+      baseDocument: tourFixture as LodariqDocument,
+      services: localFrameServices(),
+      sessionId,
+      peerWindow: peer,
+      allowedOrigins: [window.location.origin],
+      targetOrigin: window.location.origin,
+      now: () => 1000,
+    });
+    const internals = controller as unknown as {
+      bridge: {
+        sendWithAck: (message: BridgeMessage, options?: { timeoutMs?: number }) => Promise<void>;
+      };
+      handleBridgeMessage: (message: BridgeMessage) => void;
+    };
+    const sendWithAck = vi.spyOn(internals.bridge, 'sendWithAck').mockResolvedValue(undefined);
+    const outboundMessages = (): BridgeMessage[] => sendWithAck.mock.calls.map((call) => call[0]);
+    const receive = (message: BridgeMessage): void => internals.handleBridgeMessage(message);
+
+    expect(controller.getSnapshot().documentState.targets.map((target) => target.id)).toContain(
+      'target_new_project',
+    );
+    expect(controller.getSnapshot().documentState.blocks.map((block) => block.id)).toContain(
+      'block_step_1',
+    );
+    controller.requestTargetInspection('block_step_1', 'target_new_project', 'view');
+    expect(controller.getSnapshot().status).toBe('Highlighting placement');
+
+    const oldInspection = outboundMessages().find(
+      (message): message is Extract<BridgeMessage, { type: 'target.inspect.request' }> =>
+        message.type === 'target.inspect.request',
+    );
+    if (!oldInspection) throw new Error('initial inspection request missing');
+
+    controller.startTargetPick('block_step_1');
+
+    const pickStart = [...outboundMessages()]
+      .reverse()
+      .find(
+        (message): message is Extract<BridgeMessage, { type: 'target.pick.start' }> =>
+          message.type === 'target.pick.start',
+      );
+    if (!pickStart) throw new Error('replacement pick request missing');
+
+    receive({
+      protocol: BRIDGE_PROTOCOL_VERSION,
+      sessionId,
+      documentId: 'doc_tour_welcome',
+      correlationId: 'legacy_stale_inspection_result',
+      type: 'target.inspect.result',
+      blockId: 'block_step_1',
+      targetId: 'target_new_project',
+      action: 'view',
+      diagnostic: {
+        state: 'found',
+        confidence: 100,
+        candidateCount: 1,
+      },
+    });
+    expect(controller.getSnapshot().status).toBe('Select where this step appears');
+
+    receive({
+      protocol: BRIDGE_PROTOCOL_VERSION,
+      sessionId,
+      documentId: 'doc_tour_welcome',
+      correlationId: 'replacement_pick_result',
+      type: 'target.pick.result',
+      captureCorrelationId: pickStart.correlationId,
+      blockId: 'block_step_1',
+      fingerprint: {
+        tagName: 'button',
+        role: 'button',
+        accessibleName: 'Create replacement project',
+        stableAttributes: { 'data-testid': 'replacement-project' },
+      },
+    });
+    const newInspection = [...outboundMessages()]
+      .reverse()
+      .find(
+        (message): message is Extract<BridgeMessage, { type: 'target.inspect.request' }> =>
+          message.type === 'target.inspect.request' &&
+          message.correlationId !== oldInspection.correlationId,
+      );
+    if (!newInspection) throw new Error('replacement inspection request missing');
+
+    receive({
+      protocol: BRIDGE_PROTOCOL_VERSION,
+      sessionId,
+      documentId: 'doc_tour_welcome',
+      correlationId: 'correlated_stale_inspection_result',
+      type: 'target.inspect.result',
+      requestCorrelationId: oldInspection.correlationId,
+      blockId: 'block_step_1',
+      targetId: 'target_new_project',
+      action: 'view',
+      diagnostic: {
+        state: 'missing',
+        confidence: 0,
+        candidateCount: 0,
+      },
+    });
+    expect(controller.getSnapshot().status).toBe('Verifying placement');
+
+    receive({
+      protocol: BRIDGE_PROTOCOL_VERSION,
+      sessionId,
+      documentId: 'doc_tour_welcome',
+      correlationId: 'replacement_inspection_result',
+      type: 'target.inspect.result',
+      requestCorrelationId: newInspection.correlationId,
+      blockId: 'block_step_1',
+      targetId: 'target_new_project',
+      action: 'health',
+      diagnostic: {
+        state: 'found',
+        confidence: 100,
+        candidateCount: 1,
+      },
+    });
+    expect(controller.getSnapshot().status).toBe('Placement verified.');
+  });
+
+  it('invalidates placement readiness after the host route changes', async () => {
+    document.body.innerHTML = '<div id="authoring"></div>';
+    const root = document.getElementById('authoring')!;
+    const peer = { postMessage: vi.fn() } as unknown as Window;
+    const sessionId = 'session_route_readiness';
+
+    mountLocalAuthoringFrame({
+      root,
+      baseDocument: tourFixture as LodariqDocument,
+      services: localFrameServices(),
+      sessionId,
+      peerWindow: peer,
+      allowedOrigins: [window.location.origin],
+      targetOrigin: window.location.origin,
+      now: () => 1000,
+    });
+    await flushPreviewPatchQueue();
+
+    const sendHostMessage = (
+      message:
+        | Omit<
+            Extract<BridgeMessage, { type: 'page.lifecycle.update' }>,
+            'protocol' | 'sessionId' | 'documentId'
+          >
+        | Omit<
+            Extract<BridgeMessage, { type: 'target.inspect.result' }>,
+            'protocol' | 'sessionId' | 'documentId'
+          >,
+    ): void => {
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          source: peer,
+          origin: window.location.origin,
+          data: {
+            protocol: BRIDGE_PROTOCOL_VERSION,
+            sessionId,
+            documentId: 'doc_tour_welcome',
+            ...message,
+          },
+        }),
+      );
+    };
+
+    sendHostMessage({
+      correlationId: 'page_lifecycle_projects_1',
+      type: 'page.lifecycle.update',
+      route: '/projects',
+      scrollState: { x: 0, y: 0 },
+    });
+    sendHostMessage({
+      correlationId: 'target_inspect_found_1',
+      type: 'target.inspect.result',
+      blockId: 'block_step_1',
+      targetId: 'target_new_project',
+      action: 'health',
+      diagnostic: {
+        state: 'found',
+        confidence: 1,
+        candidateCount: 1,
+      },
+    });
+    await flushPreviewPatchQueue();
+
+    expect(document.querySelector('.tour-step-health')?.textContent).toContain('Verified');
+    expect(document.querySelector('.tour-health-count')?.textContent).toBe('1/1 verified');
+
+    sendHostMessage({
+      correlationId: 'page_lifecycle_projects_2',
+      type: 'page.lifecycle.update',
+      route: '/projects',
+      scrollState: { x: 0, y: 240 },
+    });
+    await flushPreviewPatchQueue();
+
+    expect(document.querySelector('.tour-step-health')?.textContent).toContain('Verified');
+
+    sendHostMessage({
+      correlationId: 'page_lifecycle_settings_1',
+      type: 'page.lifecycle.update',
+      route: '/settings',
+      scrollState: { x: 0, y: 0 },
+    });
+    await flushPreviewPatchQueue();
+
+    expect(document.querySelector('.tour-step-health')?.textContent).toContain('Unverified');
+    expect(document.querySelector('.tour-health-count')?.textContent).toBe('0/1 verified');
+    expect(document.querySelector('.tour-active-step-footer')?.textContent).toContain('Unverified');
+    expect(document.querySelector('#status')?.textContent).toBe('Verifying placement');
+    const reinspectionRequest = [...vi.mocked(peer.postMessage).mock.calls]
+      .reverse()
+      .map((call) => call[0] as BridgeMessage)
+      .find(
+        (message): message is Extract<BridgeMessage, { type: 'target.inspect.request' }> =>
+          message.type === 'target.inspect.request',
+      );
+    if (!reinspectionRequest) throw new Error('route-change inspection request missing');
+
+    sendHostMessage({
+      correlationId: 'target_inspect_found_2',
+      type: 'target.inspect.result',
+      requestCorrelationId: reinspectionRequest.correlationId,
+      blockId: 'block_step_1',
+      targetId: 'target_new_project',
+      action: 'health',
+      diagnostic: {
+        state: 'found',
+        confidence: 1,
+        candidateCount: 1,
+      },
+    });
+    await flushPreviewPatchQueue();
+
+    expect(document.querySelector('.tour-step-health')?.textContent).toContain('Verified');
+    expect(document.querySelector('.tour-health-count')?.textContent).toBe('1/1 verified');
+
+    window.dispatchEvent(new Event('pagehide'));
+  });
+
+  it('progressively discloses placement behavior and troubleshooting details', async () => {
     document.body.innerHTML = '<div id="authoring"></div>';
     const root = document.getElementById('authoring')!;
     const peer = { postMessage: vi.fn() } as unknown as Window;
@@ -1150,14 +2389,14 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     const targetMenu = document.querySelector<HTMLElement>('.target-menu')!;
     expect(targetMenu.closest('.block')).toBeNull();
     expect(targetMenu.closest('.step-child')).toBeNull();
-    expect(targetMenu.textContent).toContain('Find');
-    expect(targetMenu.textContent).toContain('Conditions');
-    expect(targetMenu.textContent).toContain('Debug');
+    expect(targetMenu.textContent).toContain('Placement');
+    expect(targetMenu.textContent).toContain('More placement options');
     expect(
       [...targetMenu.querySelectorAll<HTMLButtonElement>('.target-menu-action')].map((button) =>
         button.textContent?.trim(),
       ),
-    ).toEqual(['Highlight', 'Try click', 'Run check', 'Change']);
+    ).toEqual(['Show on page', 'Choose another', 'Use exact area']);
+    expect(targetMenu.textContent).not.toContain('Matching details');
 
     const trigger = document.querySelector<HTMLButtonElement>(
       '[aria-label="Placement New project actions"]',
@@ -1165,6 +2404,14 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     trigger.click();
     await flushPreviewPatchQueue();
     expect(trigger.getAttribute('aria-expanded')).toBe('true');
+    document.querySelector<HTMLElement>('[data-action="target-more-options"]')?.click();
+    await flushPreviewPatchQueue();
+    const troubleshootTab = [...document.querySelectorAll<HTMLButtonElement>('[role="tab"]')].find(
+      (button) => button.textContent?.trim() === 'Troubleshoot',
+    );
+    expect(troubleshootTab).toBeTruthy();
+    troubleshootTab!.click();
+    await flushPreviewPatchQueue();
     document.querySelector<HTMLButtonElement>('[data-action="target-health"]')?.click();
 
     const request = vi.mocked(peer.postMessage).mock.calls[0]?.[0] as BridgeMessage;
@@ -1203,6 +2450,7 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
           documentId: request.documentId,
           correlationId: 'target_inspect_result_1',
           type: 'target.inspect.result',
+          requestCorrelationId: request.correlationId,
           blockId: 'block_step_1',
           targetId: 'target_new_project',
           action: 'health',
@@ -1218,15 +2466,24 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     );
     await flushPreviewPatchQueue();
 
-    expect(document.querySelector('.target-chip')?.textContent).toContain('Ready');
-    expect(document.querySelector('#status')?.textContent).toBe('Placement is ready.');
+    expect(document.querySelector('.target-chip')?.textContent).toContain('Verified');
+    expect(document.querySelector('#status')?.textContent).toBe('Placement verified.');
 
-    document.querySelector<HTMLButtonElement>('[data-action="target-advanced"]')?.click();
+    document.querySelector<HTMLElement>('.target-matching-details > summary')?.click();
     await flushPreviewPatchQueue();
     expect(document.querySelector('.target-advanced')?.textContent).toContain('New project');
-    expect(document.querySelector('.target-advanced')?.textContent).toContain('Match strength 94%');
+    expect(document.querySelector('.target-advanced')?.textContent).toContain(
+      '1 candidate observed',
+    );
+    expect(document.querySelector('.target-advanced')?.textContent).toContain('Uses page label');
 
     vi.mocked(peer.postMessage).mockClear();
+    const behaviorTab = [...document.querySelectorAll<HTMLButtonElement>('[role="tab"]')].find(
+      (button) => button.textContent?.trim() === 'Before it appears',
+    );
+    expect(behaviorTab).toBeTruthy();
+    behaviorTab!.click();
+    await flushPreviewPatchQueue();
     const waitForText = document.querySelector<HTMLInputElement>(
       '[data-action="set-lifecycle-wait-text"]',
     )!;
@@ -1281,10 +2538,14 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     expect(document.querySelector('[aria-live="polite"]')?.id).toBe('status');
     expect(document.querySelector('section[aria-label="Add step"]')).toBeTruthy();
     expect(
-      document.querySelector('input[aria-label="Experience composer"]')?.getAttribute('aria-controls'),
+      document
+        .querySelector('input[aria-label="Experience composer"]')
+        ?.getAttribute('aria-controls'),
     ).toBe('slash-command-menu');
     expect(
-      document.querySelector('input[aria-label="Experience composer"]')?.getAttribute('aria-haspopup'),
+      document
+        .querySelector('input[aria-label="Experience composer"]')
+        ?.getAttribute('aria-haspopup'),
     ).toBe('listbox');
     expect(
       document.querySelector('[role="listbox"][aria-label="Step insert commands"]'),
@@ -1313,7 +2574,9 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
   it('does not force composer focus from document chrome clicks', async () => {
     await loadFrame();
 
-    const input = document.querySelector<HTMLInputElement>('input[aria-label="Experience composer"]')!;
+    const input = document.querySelector<HTMLInputElement>(
+      'input[aria-label="Experience composer"]',
+    )!;
     expect(document.activeElement).not.toBe(input);
 
     document
@@ -1561,7 +2824,7 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     await loadFrame();
     await importTwoBlocks();
 
-    const firstStep = document.querySelector<HTMLElement>('[data-block-id="block_a"]')!;
+    const firstStep = document.querySelector<HTMLElement>('.block[data-block-id="block_a"]')!;
     const secondStepContent = document.querySelector<HTMLElement>(
       '[data-block-id="block_b"] .step-child',
     )!;
@@ -1621,9 +2884,7 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     expect(popover?.textContent).not.toContain('Delete');
 
     document
-      .querySelector<HTMLButtonElement>(
-        '[data-block-id="block_a"] [aria-label="Duplicate step"]',
-      )
+      .querySelector<HTMLButtonElement>('[data-block-id="block_a"] [aria-label="Duplicate step"]')
       ?.click();
     await flushPreviewPatchQueue();
 
@@ -1651,7 +2912,11 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     ).not.toContain('replaceDocument');
 
     let doc = JSON.parse(documentJson().value) as {
-      blocks: Array<{ id: string; type: string; children?: Array<{ children?: Array<{ content?: string }> }> }>;
+      blocks: Array<{
+        id: string;
+        type: string;
+        children?: Array<{ children?: Array<{ content?: string }> }>;
+      }>;
     };
     expect(doc.blocks).toHaveLength(3);
     expect(doc.blocks[1]).toMatchObject({ type: 'tourStep' });
@@ -1817,7 +3082,9 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     expect(stepBlock?.querySelector('.block-header [data-action="target-pick"]')).toBeNull();
     expect(stepBlock?.querySelector('.block-header .target-chip')).toBeTruthy();
     expect(document.querySelector('.target-chip-label')?.textContent).toBe('New project');
-    expect(document.querySelector('#status')?.textContent).toBe('Placement set: New project');
+    expect(document.querySelector('#status')?.textContent).toBe(
+      'Open the editor on a preview page to check placements',
+    );
   });
 
   it('ignores bridge-picked targets outside the active local frame scope', async () => {

@@ -109,6 +109,37 @@ describe('Lodariq runtime analytics (PRD §16.1)', () => {
     expect(body.events[0]?.correlationId).toBe('corr_publish_1');
   });
 
+  it('uses the public installation header and skips sendBeacon for permanent installs', () => {
+    const fetch = vi.fn().mockResolvedValue({ ok: true });
+    const sendBeacon = vi.fn<(url: string, data?: string) => boolean>(() => true);
+    vi.stubGlobal('fetch', fetch);
+    Object.defineProperty(window.navigator, 'sendBeacon', {
+      configurable: true,
+      value: sendBeacon,
+    });
+    const runtime = new LodariqRuntime({
+      workspaceId: 'wk_public_runtime',
+      environment: 'production',
+      ingestUrl: 'https://api.lodariq.com/v1/sdk/events',
+      publicInstallationId: 'ins_pub_application_1234',
+    });
+
+    runtime.track('tour_started');
+    runtime.flush(true);
+
+    expect(fetch).toHaveBeenCalledWith(
+      'https://api.lodariq.com/v1/sdk/events',
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          'content-type': 'application/json',
+          'x-lodariq-installation-id': 'ins_pub_application_1234',
+        }),
+        keepalive: true,
+      }),
+    );
+    expect(sendBeacon).not.toHaveBeenCalled();
+  });
+
   it('uses sendBeacon for page-exit flushes', () => {
     const fetch = vi.fn();
     const sendBeacon = vi.fn<(url: string, data?: string) => boolean>(() => true);

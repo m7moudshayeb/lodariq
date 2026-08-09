@@ -9,17 +9,45 @@ const checks = [
   {
     name: 'authoring-owned',
     entries: ['lodariq-authoring.js'],
-    limit: 96 * 1024,
+    // Phase 2 baseline (2026-08-09): 213,517 bytes. This package-wide,
+    // authenticated-only surface includes the host shell and editor-frame UI;
+    // it remains entirely outside the production viewer.
+    baseline: 213_517,
+    limit: 220 * 1024,
+  },
+  {
+    name: 'authoring-frame',
+    entries: ['authoring-frame.js'],
+    // Phase 2 baseline (2026-08-09): 118,327 bytes. The editor-origin frame is
+    // creator-only and remains absent from every production-viewer graph.
+    baseline: 118_327,
+    limit: 122 * 1024,
   },
   {
     name: 'creator-toolbar',
     entries: ['creator-toolbar/index.js'],
+    // Phase 2 baseline (2026-08-09): 7,736 bytes.
+    baseline: 7_736,
     limit: 8 * 1024,
   },
   {
     name: 'creator-install',
     entries: ['lodariq-creator.js'],
-    limit: 96 * 1024,
+    // Phase 2 baseline (2026-08-09): 164,428 bytes. The compatibility creator
+    // entry owns exact-theme hydration, preview, durable save, and release. It
+    // is never part of the normal production-viewer graph.
+    baseline: 164_428,
+    limit: 168 * 1024,
+    forbidBareImports: true,
+  },
+  {
+    name: 'hosted-creator-entry',
+    entries: ['hosted-entry.js'],
+    // Phase 2 baseline (2026-08-09): 171,408 bytes. This integrity-loaded,
+    // post-activation creator module is absent from production bootstrap and
+    // the normal production-viewer graph.
+    baseline: 171_408,
+    limit: 176 * 1024,
     forbidBareImports: true,
   },
 ];
@@ -31,8 +59,8 @@ function distPath(relativePath) {
 function staticImports(file) {
   const source = readFileSync(file, 'utf8');
   const imports = [
-    ...source.matchAll(/import\s*(?:[^'"]+\s+from\s*)?['"]([^'"]+)['"]/g),
-    ...source.matchAll(/export\s*[^'"]+\s*from\s*['"]([^'"]+)['"]/g),
+    ...source.matchAll(/import\s*(?:[^'"]+?\s*from\s*)?['"]([^'"]+)['"]/g),
+    ...source.matchAll(/export\s*[^'"]+?\s*from\s*['"]([^'"]+)['"]/g),
   ];
   return imports.map((match) => match[1]);
 }
@@ -40,9 +68,9 @@ function staticImports(file) {
 function literalModuleSpecifiers(file) {
   const source = readFileSync(file, 'utf8');
   const imports = [
-    ...source.matchAll(/import\s*(?:[^'"]+\s+from\s*)?['"]([^'"]+)['"]/g),
+    ...source.matchAll(/import\s*(?:[^'"]+?\s*from\s*)?['"]([^'"]+)['"]/g),
     ...source.matchAll(/import\(\s*['"]([^'"]+)['"]\s*\)/g),
-    ...source.matchAll(/export\s*[^'"]+\s*from\s*['"]([^'"]+)['"]/g),
+    ...source.matchAll(/export\s*[^'"]+?\s*from\s*['"]([^'"]+)['"]/g),
   ];
   return imports.map((match) => match[1]);
 }
@@ -76,14 +104,37 @@ function collect(files, seen = new Set()) {
   return seen;
 }
 
+function collectBrowserGraph(files, seen = new Set()) {
+  for (const file of files) {
+    if (seen.has(file)) continue;
+    if (!existsSync(file)) throw new Error(`Missing authoring build artifact: ${file}`);
+    seen.add(file);
+    collectBrowserGraph(
+      literalModuleSpecifiers(file)
+        .filter((specifier) => specifier.startsWith('.'))
+        .map((specifier) => resolveImport(specifier, file))
+        .filter(Boolean),
+      seen,
+    );
+  }
+  return seen;
+}
+
 for (const check of checks) {
-  const files = collect(check.entries.map(distPath));
-  if (check.forbidBareImports) assertNoBareBrowserImports(check, files);
-  const size = [...files].reduce((total, file) => total + gzipSync(readFileSync(file)).length, 0);
+  const entries = check.entries.map(distPath);
+  const staticFiles = collect(entries);
+  const browserFiles = collectBrowserGraph(entries);
+  if (check.forbidBareImports) assertNoBareBrowserImports(check, browserFiles);
+  const size = [...staticFiles].reduce(
+    (total, file) => total + gzipSync(readFileSync(file)).length,
+    0,
+  );
   if (size > check.limit) {
     throw new Error(`${check.name} is ${size} bytes gzipped; limit is ${check.limit}`);
   }
-  process.stdout.write(`${check.name}: ${size}/${check.limit} bytes gzipped\n`);
+  process.stdout.write(
+    `${check.name}: ${size}/${check.limit} bytes gzipped (baseline ${check.baseline})\n`,
+  );
 }
 
 function assertNoBareBrowserImports(check, files) {

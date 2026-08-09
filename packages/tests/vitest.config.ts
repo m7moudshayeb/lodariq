@@ -23,6 +23,10 @@ export default defineConfig({
         replacement: fromRoot('packages/schema/src/dom.ts'),
       },
       {
+        find: /^@lodariq\/schema\/hosted-creator$/,
+        replacement: fromRoot('packages/schema/src/hosted-creator.ts'),
+      },
+      {
         find: /^@lodariq\/schema$/,
         replacement: fromRoot('packages/schema/src/index.ts'),
       },
@@ -55,6 +59,18 @@ export default defineConfig({
         replacement: fromRoot('packages/sdk-runtime/src/local-dev/index.ts'),
       },
       {
+        find: /^@lodariq\/sdk-runtime\/public-bootstrap$/,
+        replacement: fromRoot('packages/sdk-runtime/src/activation/public-bootstrap.ts'),
+      },
+      {
+        find: /^@lodariq\/sdk-runtime\/activation-client$/,
+        replacement: fromRoot('packages/sdk-runtime/src/activation/authoring-activation.ts'),
+      },
+      {
+        find: /^@lodariq\/sdk-runtime\/public-delivery$/,
+        replacement: fromRoot('packages/sdk-runtime/src/activation/public-delivery.ts'),
+      },
+      {
         find: /^@lodariq\/sdk-runtime\/loader$/,
         replacement: fromRoot('packages/sdk-runtime/src/loader/index.ts'),
       },
@@ -83,6 +99,14 @@ export default defineConfig({
         replacement: fromRoot('packages/sdk-authoring/src/index.ts'),
       },
       {
+        find: /^@lodariq\/sdk-authoring\/authoring-frame$/,
+        replacement: fromRoot('packages/sdk-authoring/src/authoring-frame.ts'),
+      },
+      {
+        find: /^@lodariq\/sdk-authoring\/hosted-entry$/,
+        replacement: fromRoot('packages/sdk-authoring/src/hosted-entry.ts'),
+      },
+      {
         find: /^@lodariq\/sdk-authoring\/bridge$/,
         replacement: fromRoot('packages/sdk-authoring/src/bridge/index.ts'),
       },
@@ -97,6 +121,10 @@ export default defineConfig({
       {
         find: /^@lodariq\/sdk-authoring\/creator-install$/,
         replacement: fromRoot('packages/sdk-authoring/src/creator-install/index.ts'),
+      },
+      {
+        find: /^@lodariq\/sdk-authoring\/creator-experiences$/,
+        replacement: fromRoot('packages/sdk-authoring/src/creator-experiences.ts'),
       },
       {
         find: /^@lodariq\/sdk-authoring\/local-dev$/,

@@ -20,13 +20,10 @@ const SLASH_COMMAND_LABELS = Object.fromEntries(
   SLASH_COMMANDS.map((command) => [command.value, command.label]),
 ) as Readonly<Record<SlashCommand, string>>;
 
-const PROPERTY_CHIP_FACTORIES: Readonly<
-  Record<string, (block: LodariqBlock) => string | null>
-> = {
+const PROPERTY_CHIP_FACTORIES: Readonly<Record<string, (block: LodariqBlock) => string | null>> = {
   index: (block: LodariqBlock) =>
     typeof block.props.index === 'number' ? `Step ${block.props.index + 1}` : null,
-  level: (block: LodariqBlock) =>
-    block.props.level ? `Heading level ${block.props.level}` : null,
+  level: (block: LodariqBlock) => (block.props.level ? `Heading level ${block.props.level}` : null),
   placement: (block: LodariqBlock) =>
     block.props.placement ? `Placement: ${block.props.placement}` : null,
   variant: (block: LodariqBlock) =>
@@ -59,9 +56,28 @@ const RESOLUTION_METHOD_LABELS: Readonly<Record<string, string>> = {
   ancestor_landmark: 'Uses page area',
   relative_position: 'Uses nearby position',
   scoped_css: 'Uses support rule',
+  registry_contract: 'Uses an app-provided target contract',
+  configured_attribute: 'Uses existing page attributes',
+  semantic_attribute: 'Uses semantic element attributes',
+  element_semantics: 'Uses the element type and role',
+  ancestor_context: 'Uses the surrounding page region',
+  relationship_context: 'Uses nearby structural relationships',
+  visual_topology: 'Uses normalized rendered layout',
+  localized_text: 'Uses text from the current locale',
 };
 
 const DEFAULT_RESOLUTION_METHOD_LABEL = 'Uses page context';
+
+const TARGET_EVIDENCE_FAMILY_LABELS: Readonly<Record<string, string>> = {
+  'registry-contract': 'app contract',
+  'configured-attribute': 'existing attributes',
+  'semantic-attribute': 'element semantics',
+  'element-semantics': 'control type',
+  'ancestor-context': 'page region',
+  'relationship-context': 'nearby structure',
+  'visual-topology': 'rendered layout',
+  'localized-text': 'current-locale text',
+};
 
 const BLOCK_TYPE_LABELS: Readonly<Record<string, string>> = {
   tourStep: 'Step',
@@ -83,6 +99,7 @@ export function targetById(
 export function targetLabelOf(documentState: LodariqDocument, targetId: string): string {
   const target = targetById(documentState, targetId);
   return (
+    target?.identity?.display.authorLabel ??
     target?.fingerprint.accessibleName ??
     target?.fingerprint.stableAttributes['data-lodariq-id'] ??
     targetId
@@ -144,16 +161,22 @@ export function isEditableContentBlock(block: LodariqBlock): boolean {
 export function propertyChipLabels(block: LodariqBlock): string[] {
   return [
     ...Object.values(PROPERTY_CHIP_FACTORIES).map((labelForBlock) => labelForBlock(block)),
-    block.props.action ? ACTION_CHIP_LABELS[block.props.action.type] ?? null : null,
-    block.props.action ? null : MISSING_ACTION_CHIP_LABELS[block.type] ?? null,
+    block.props.action ? (ACTION_CHIP_LABELS[block.props.action.type] ?? null) : null,
+    block.props.action ? null : (MISSING_ACTION_CHIP_LABELS[block.type] ?? null),
     STATIC_BLOCK_CHIP_LABELS[block.type] ?? null,
   ].filter(isPresent);
 }
 
-export function targetHealthTitle(state: ResolverDiagnostic['state']): string {
-  if (state === 'found') return 'Ready';
-  if (state === 'ambiguous') return 'Review placement';
-  return 'Needs attention';
+export function targetHealthTitle(
+  diagnosticOrState: ResolverDiagnostic | ResolverDiagnostic['state'],
+): string {
+  const state = typeof diagnosticOrState === 'string' ? diagnosticOrState : diagnosticOrState.state;
+  if (state === 'found') return 'Verified';
+  if (state === 'needs_review') {
+    return targetDiagnosticIsDrift(diagnosticOrState) ? 'Drift detected' : 'Needs verification';
+  }
+  if (state === 'ambiguous') return 'Ambiguous';
+  return 'Missing';
 }
 
 export function targetHealthDetails(inspection: TargetInspectionState): string {
@@ -162,17 +185,27 @@ export function targetHealthDetails(inspection: TargetInspectionState): string {
 
 export function targetSupportDetails(inspection: TargetInspectionState): string {
   const diagnostic = inspection.diagnostic;
+  const evidence = diagnostic.evidenceFamilies
+    ?.map((family) => TARGET_EVIDENCE_FAMILY_LABELS[family] ?? family)
+    .join(', ');
   const method = diagnostic.resolutionMethod
     ? ` ${humanResolutionMethod(diagnostic.resolutionMethod)}.`
     : '';
-  return `Match strength ${diagnostic.confidence}%. Places found ${diagnostic.candidateCount}.${method}`;
+  const candidateLabel = diagnostic.candidateCount === 1 ? 'candidate' : 'candidates';
+  const evidenceDetails = evidence ? ` Evidence observed: ${evidence}.` : '';
+  return `${diagnostic.candidateCount} ${candidateLabel} observed.${evidenceDetails}${method}`;
 }
 
 export function targetInspectFallbackMessage(inspection: TargetInspectionState): string {
   if (inspection.diagnostic.state === 'found') {
     if (inspection.action === 'view') return 'Placement is highlighted.';
-    if (inspection.action === 'test') return 'Placement is ready.';
-    return 'Placement is easy to find.';
+    if (inspection.action === 'test') return 'Placement check passed on this page state.';
+    return 'Verified on this page state.';
+  }
+  if (inspection.diagnostic.state === 'needs_review') {
+    return targetDiagnosticIsDrift(inspection.diagnostic)
+      ? 'The element was found, but its saved evidence has drifted. Verify it or choose it again.'
+      : 'This placement does not yet have enough reliable evidence. Verify it or choose it again.';
   }
   if (inspection.diagnostic.state === 'ambiguous') {
     return 'More than one place matches. Pick the exact place again.';
@@ -186,13 +219,28 @@ export function targetInspectionStatus(
 ): string {
   if (diagnostic.state === 'found') {
     if (action === 'view') return 'Placement highlighted.';
-    if (action === 'test') return 'Placement is ready.';
-    return 'Placement is ready.';
+    if (action === 'test') return 'Placement check passed.';
+    return 'Placement verified.';
+  }
+  if (diagnostic.state === 'needs_review') {
+    return targetDiagnosticIsDrift(diagnostic)
+      ? 'Placement drift detected.'
+      : 'Placement needs verification.';
   }
   if (diagnostic.state === 'ambiguous') {
     return 'Pick a more specific placement.';
   }
   return 'Placement needs attention.';
+}
+
+export function targetDiagnosticIsDrift(
+  diagnosticOrState: ResolverDiagnostic | ResolverDiagnostic['state'],
+): boolean {
+  if (typeof diagnosticOrState === 'string') return false;
+  return (
+    diagnosticOrState.reasonCode === 'evidence_drift' ||
+    diagnosticOrState.reasonCode === 'resolved_with_drift'
+  );
 }
 
 export function humanResolutionMethod(method: string): string {

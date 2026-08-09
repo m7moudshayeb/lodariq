@@ -4,7 +4,7 @@ import {
   type PublishReadinessIssue,
 } from '@lodariq/schema';
 import type { LocalAuthoringFrameController } from '../controller';
-import { AuthoringButton, AuthoringTabs, Eye, FileJson, Save } from '../design-system';
+import { AuthoringButton, AuthoringTabs, ChevronDown, Eye, FileJson, Save } from '../design-system';
 import type { LocalAuthoringFrameSnapshot } from '../types';
 
 export function Inspector({
@@ -16,6 +16,7 @@ export function Inspector({
 }) {
   const issues = validateTourPublishReadiness(snapshot.documentState, {
     targetDiagnostics: snapshot.targetDiagnostics,
+    requireVerifiedTargets: true,
   });
   const previewReady = snapshot.compiledText !== '';
   const reviewTitle = reviewTitleForIssueCount(issues.length);
@@ -24,22 +25,30 @@ export function Inspector({
   return (
     <aside className="inspector document-review" aria-label="Review and preview">
       <details className="review-drawer">
-        <summary>
+        <summary aria-label="Review and preview details">
           <div className="review-summary-copy">
             <strong>{reviewTitle}</strong>
             <span>{reviewDetail}</span>
           </div>
-          <span className={`review-status ${reviewStatus.className}`}>{reviewStatus.label}</span>
+          <span className="review-summary-end">
+            <span className={`review-status ${reviewStatus.className}`}>{reviewStatus.label}</span>
+            <ChevronDown
+              className="review-summary-chevron"
+              size={18}
+              strokeWidth={2.1}
+              aria-hidden="true"
+            />
+          </span>
         </summary>
 
         <div className="review-panel">
           <section className="preview-workbench" aria-label="Preview workflow">
             <div className="preview-copy">
-              <strong>Test before publishing</strong>
+              <strong>Preview in the product</strong>
               <span>
                 {previewReady
                   ? 'Latest preview is ready'
-                  : 'Try the experience on this page before publishing'}
+                  : 'Test the real placement and behavior before release'}
               </span>
             </div>
             <div className="preview-actions">
@@ -74,7 +83,7 @@ export function Inspector({
           {issues.length === 0 ? null : (
             <section className="issue-panel" aria-label="Tour issues">
               <div className="preview-copy">
-                <strong>Finish these first</strong>
+                <strong>Fix before release</strong>
                 <span>
                   {issues.length} item{issues.length === 1 ? '' : 's'} need attention
                 </span>
@@ -186,14 +195,14 @@ export function Inspector({
 }
 
 function reviewTitleForIssueCount(issueCount: number): string {
-  if (issueCount === 0) return 'Ready to publish';
-  return `${issueCount} to finish`;
+  if (issueCount === 0) return 'Ready to preview';
+  return `${issueCount} to fix before release`;
 }
 
 function reviewDetailForState(issueCount: number, previewReady: boolean): string {
-  if (issueCount > 0) return 'Complete these items first';
+  if (issueCount > 0) return 'Draft stays saved while you fix them';
   if (previewReady) return 'Preview is ready';
-  return 'Preview before publishing';
+  return 'Test this tour in the product';
 }
 
 function reviewStatusForIssueCount(issueCount: number): { className: string; label: string } {

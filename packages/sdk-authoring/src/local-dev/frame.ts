@@ -29,16 +29,50 @@ export interface MountLocalAuthoringDevFrameOptions {
 }
 
 export function mountLocalAuthoringDevFrame(options: MountLocalAuthoringDevFrameOptions): void {
+  const services = createLocalAuthoringDevFrameServices(options.services);
+  const frameContext = localFrameContextFromLocation(options.root.ownerDocument.defaultView);
+  let contextDocument: LodariqDocument | null = null;
+  if (frameContext.documentId === options.baseDocument.id) {
+    contextDocument = options.baseDocument;
+  } else if (frameContext.documentId) {
+    contextDocument = services.loadDocument(frameContext.documentId);
+  }
+  if (frameContext.documentId && !contextDocument) {
+    throw new Error(`Lodariq local authoring document not found: ${frameContext.documentId}`);
+  }
   mountLocalAuthoringFrame({
     root: options.root,
-    baseDocument: options.baseDocument,
+    baseDocument: contextDocument ?? options.baseDocument,
     frameMode: options.frameMode ?? frameModeFromLocation(options.root.ownerDocument.defaultView),
-    sessionId: options.sessionId ?? LOCAL_AUTHORING_SESSION_ID,
+    sessionId: options.sessionId ?? frameContext.sessionId ?? LOCAL_AUTHORING_SESSION_ID,
     targetOrigin: options.targetOrigin,
     peerWindow: options.peerWindow,
     now: options.now,
-    services: createLocalAuthoringDevFrameServices(options.services),
+    services,
   });
+}
+
+interface LocalFrameContext {
+  documentId: string | null;
+  sessionId: string | null;
+}
+
+function localFrameContextFromLocation(view: Window | null): LocalFrameContext {
+  if (!view) return { documentId: null, sessionId: null };
+  try {
+    const params = new URLSearchParams(view.location.search);
+    return {
+      documentId: nonEmptyParam(params.get('lodariqDocument')),
+      sessionId: nonEmptyParam(params.get('lodariqSession')),
+    };
+  } catch {
+    return { documentId: null, sessionId: null };
+  }
+}
+
+function nonEmptyParam(value: string | null): string | null {
+  const normalized = value?.trim();
+  return normalized ? normalized : null;
 }
 
 function frameModeFromLocation(view: Window | null): 'standalone' | 'panel' {

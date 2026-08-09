@@ -11,6 +11,7 @@
     "lint": "eslint ."
   },
   "devDependencies": {
+    "@floating-ui/dom": "^1.6.13",
     "@lodariq/compiler": "workspace:*",
     "@lodariq/api": "workspace:*",
     "@lodariq/database": "workspace:*",

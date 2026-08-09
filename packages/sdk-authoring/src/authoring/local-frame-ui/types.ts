@@ -4,6 +4,12 @@ import type {
   RuntimeLifecycleHints,
   TargetInspectAction,
 } from '@lodariq/schema';
+import type { AuthoringReleaseFinding } from '../local-frame-types';
+import type {
+  AuthoringBrandMatchProposal,
+  AuthoringBrandWorkspaceState,
+  AuthoringReleaseWorkflowState,
+} from '../local-frame-types';
 
 export const SLASH_COMMANDS = [
   { value: 'step', label: 'Step' },
@@ -39,10 +45,7 @@ export const EDITABLE_BLOCK_FIELD_CONFIG = {
   button: { fieldLabel: 'Button label', placeholder: 'Button label' },
   link: { fieldLabel: 'Link label', placeholder: 'Link label' },
   media: { fieldLabel: 'Media placeholder', placeholder: 'Media placeholder' },
-} as const satisfies Record<
-  EditableBlockTypeValue,
-  { fieldLabel: string; placeholder: string }
->;
+} as const satisfies Record<EditableBlockTypeValue, { fieldLabel: string; placeholder: string }>;
 
 export const EDITABLE_ACTION_OPTIONS = [
   { value: '', label: 'Choose next action' },
@@ -91,6 +94,73 @@ export interface FocusRequest {
   token: number;
 }
 
+export const AUTHORING_RELEASE_VIEW_STATUSES = [
+  'unavailable',
+  'checking',
+  'publishing',
+  'ready',
+  'current',
+  'blocked',
+  'error',
+] as const;
+export type AuthoringReleaseViewStatus = (typeof AUTHORING_RELEASE_VIEW_STATUSES)[number];
+
+export const AUTHORING_RELEASE_VIEW_REASONS = [
+  'local_preview',
+  'not_authorized',
+  'checking',
+  'publishing',
+  'open_in_staging',
+  'no_saved_artifact',
+  'ready',
+  'unsaved_changes',
+  'current',
+  'visual_preflight_blocked',
+  'publish_blocked',
+  'request_failed',
+] as const;
+export type AuthoringReleaseViewReason = (typeof AUTHORING_RELEASE_VIEW_REASONS)[number];
+
+export interface AuthoringReleaseViewState {
+  status: AuthoringReleaseViewStatus;
+  reason: AuthoringReleaseViewReason;
+  expectedGeneration: number | null;
+  findings: AuthoringReleaseFinding[];
+}
+
+export const AUTHORING_PANEL_MODES = [
+  'edit',
+  'appearance',
+  'brand-match-review',
+  'release-verification',
+  'promotion-confirmation',
+] as const;
+export type AuthoringPanelMode = (typeof AUTHORING_PANEL_MODES)[number];
+
+export type AuthoringPanelOperation =
+  | 'loading-brand'
+  | 'sampling-brand'
+  | 'applying-brand'
+  | 'loading-release'
+  | 'verifying-release'
+  | 'promoting-release'
+  | 'requesting-approval'
+  | 'approving-release'
+  | null;
+
+export interface AuthoringPanelWorkflowState {
+  mode: AuthoringPanelMode;
+  returnMode: AuthoringPanelMode;
+  focusToken: number;
+  returnFocus: 'appearance' | 'release' | null;
+  operation: AuthoringPanelOperation;
+  brand: AuthoringBrandWorkspaceState;
+  brandProposal: AuthoringBrandMatchProposal | null;
+  release: AuthoringReleaseWorkflowState | null;
+  error: string | null;
+  notice: string | null;
+}
+
 export interface LocalAuthoringFrameSnapshot {
   documentState: LodariqDocument;
   status: string;
@@ -100,9 +170,12 @@ export interface LocalAuthoringFrameSnapshot {
   compiledText: string;
   metricsText: string;
   selectedBlockId: string | null;
+  advancedEditorStepId: string | null;
   dragTargetBlockId: string | null;
   dragTargetPosition: 'before' | 'after' | null;
   targetDiagnostics: Map<string, TargetInspectionState>;
   advancedTargetIds: Set<string>;
   focusRequest: FocusRequest | null;
+  release: AuthoringReleaseViewState;
+  panelWorkflow: AuthoringPanelWorkflowState;
 }

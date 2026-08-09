@@ -73,10 +73,8 @@ export function LocalAuthoringFrameRoot({ options }: { options: LocalAuthoringFr
     const blockIdSelector = `[data-block-id="${cssString(snapshot.focusRequest.blockId)}"]`;
     const blockSelector = `.document-block${blockIdSelector}, .step-child${blockIdSelector}`;
     const editSelector = `.document-block${blockIdSelector} [data-action="edit-content"], .step-child${blockIdSelector} [data-action="edit-content"]`;
-    const selector =
-      snapshot.focusRequest.target === 'block'
-        ? blockSelector
-        : editSelector;
+    const selector = snapshot.focusRequest.target === 'block' ? blockSelector : editSelector;
+    const focusScope = shellRef.current?.querySelector<HTMLElement>(blockSelector);
     const element = shellRef.current?.querySelector<HTMLElement>(selector);
     const applyFocusRequest = (): void => {
       element?.focus();
@@ -96,10 +94,15 @@ export function LocalAuthoringFrameRoot({ options }: { options: LocalAuthoringFr
     applyFocusRequest();
     let canceled = false;
     const retryFocusRequest = (): void => {
-      if (canceled) return;
-      if (element?.isConnected && element.ownerDocument.activeElement !== element) {
-        applyFocusRequest();
-      }
+      if (canceled || !element?.isConnected) return;
+      const ownerDocument = element.ownerDocument;
+      const activeElement = ownerDocument.activeElement;
+      const focusMayBeRetried =
+        activeElement === null ||
+        activeElement === ownerDocument.body ||
+        activeElement === ownerDocument.documentElement ||
+        Boolean(focusScope?.contains(activeElement));
+      if (focusMayBeRetried) applyFocusRequest();
     };
     queueMicrotask(retryFocusRequest);
     element?.ownerDocument.defaultView?.setTimeout(retryFocusRequest, 0);
@@ -107,6 +110,21 @@ export function LocalAuthoringFrameRoot({ options }: { options: LocalAuthoringFr
       canceled = true;
     };
   }, [snapshot.focusRequest]);
+
+  useLayoutEffect(() => {
+    let target: HTMLElement | null | undefined;
+    if (snapshot.panelWorkflow.mode === 'edit') {
+      const returnFocus = snapshot.panelWorkflow.returnFocus;
+      target = returnFocus
+        ? shellRef.current?.querySelector<HTMLElement>(`[data-panel-entry="${returnFocus}"]`)
+        : null;
+    } else {
+      target = shellRef.current?.querySelector<HTMLElement>('[data-panel-mode-heading]');
+    }
+    if (!target) return;
+    const focusFrame = window.requestAnimationFrame(() => target.focus());
+    return () => window.cancelAnimationFrame(focusFrame);
+  }, [snapshot.panelWorkflow.focusToken, snapshot.panelWorkflow.mode]);
 
   const frameMode = options.frameMode ?? 'standalone';
 
@@ -124,7 +142,7 @@ export function LocalAuthoringFrameRoot({ options }: { options: LocalAuthoringFr
         <FrameHeader status={snapshot.status} />
       )}
       <div className="workspace">
-        <AuthoringCanvas controller={controller} snapshot={snapshot} />
+        <AuthoringCanvas controller={controller} frameMode={frameMode} snapshot={snapshot} />
       </div>
     </main>
   );

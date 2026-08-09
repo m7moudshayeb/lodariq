@@ -19,6 +19,7 @@ import {
   reorderTopLevelBlock,
   setBlockAction,
   setBlockActionUrl,
+  setBlockPresentationAnchor,
   transformBlocks,
   updateBlockContent,
 } from '@lodariq/sdk-authoring';
@@ -78,6 +79,30 @@ describe('authoring document ops', () => {
     expect(
       renumberTourSteps([step, { ...step, id: 'step_2' }]).map((block) => block.props),
     ).toEqual([{ index: 0 }, { index: 1 }]);
+  });
+
+  it('sets and clears normalized presentation geometry on the target-bearing block', () => {
+    const withTarget = structuredClone(blocks);
+    withTarget[0]!.children[0]!.props.targetId = 'target_1';
+
+    const exact = setBlockPresentationAnchor(withTarget, 'tooltip_1', {
+      kind: 'region',
+      xRatio: 0.2,
+      yRatio: 0.25,
+      widthRatio: 0.4,
+      heightRatio: 0.5,
+    });
+    const wholeElement = setBlockPresentationAnchor(exact, 'tooltip_1');
+
+    expect(exact[0]?.children[0]?.props.presentationAnchor).toEqual({
+      kind: 'region',
+      xRatio: 0.2,
+      yRatio: 0.25,
+      widthRatio: 0.4,
+      heightRatio: 0.5,
+    });
+    expect(wholeElement[0]?.children[0]?.props.presentationAnchor).toBeUndefined();
+    expect(withTarget[0]?.children[0]?.props.presentationAnchor).toBeUndefined();
   });
 
   it('finds nested blocks and transforms block types', () => {
@@ -222,9 +247,7 @@ describe('authoring document ops', () => {
       ? reorderStepChildBlock(moved, 'step_1', 'copy_1', 'copy_nested', 'after')
       : null;
     const duplicated = moved ? duplicateStepChildBlock(moved, 'step_1', 'copy_nested') : null;
-    const removed = duplicated
-      ? removeStepChildBlock(duplicated, 'step_1', 'button_nested')
-      : null;
+    const removed = duplicated ? removeStepChildBlock(duplicated, 'step_1', 'button_nested') : null;
     const children = moved?.[0]?.children[0]?.children ?? [];
     const reorderedChildren = reordered?.[0]?.children[0]?.children ?? [];
     const duplicatedChildren = duplicated?.[0]?.children[0]?.children ?? [];
@@ -291,9 +314,28 @@ describe('authoring document ops', () => {
     });
   });
 
+  it('drops exact-area geometry when replacing a tour step target', () => {
+    const withTarget = attachTargetToBlocks(blocks, 'step_1', 'target_1', 'New project');
+    const withExactArea = setBlockPresentationAnchor(withTarget, 'tooltip_1', {
+      kind: 'point',
+      xRatio: 0.4,
+      yRatio: 0.6,
+    });
+    const replaced = attachTargetToBlocks(withExactArea, 'step_1', 'target_1', 'Updated project', {
+      resetPresentationAnchor: true,
+    });
+
+    expect(replaced[0]?.children[0]?.props.presentationAnchor).toBeUndefined();
+  });
+
   it('removes target chips and marks tour steps incomplete without deleting content', () => {
     const withTarget = attachTargetToBlocks(blocks, 'step_1', 'target_1', 'New project');
-    const next = removeTargetFromBlocks(withTarget, 'step_1', 'target_1');
+    const withExactArea = setBlockPresentationAnchor(withTarget, 'tooltip_1', {
+      kind: 'point',
+      xRatio: 0.4,
+      yRatio: 0.6,
+    });
+    const next = removeTargetFromBlocks(withExactArea, 'step_1', 'target_1');
     const step = next[0];
     const tooltip = step?.children[0];
 
@@ -302,7 +344,7 @@ describe('authoring document ops', () => {
     expect(tooltip?.children).toEqual([
       { id: 'copy_1', type: 'paragraph', content: 'Hello', props: {}, children: [] },
     ]);
-    expect(blocksReferenceTarget(withTarget, 'target_1')).toBe(true);
+    expect(blocksReferenceTarget(withExactArea, 'target_1')).toBe(true);
     expect(blocksReferenceTarget(next, 'target_1')).toBe(false);
     expect(blocks[0]?.children[0]?.props).toEqual({});
   });

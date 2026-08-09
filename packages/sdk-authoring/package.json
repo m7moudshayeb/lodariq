@@ -15,6 +15,14 @@
       "types": "./dist/lodariq-authoring.d.ts",
       "import": "./dist/lodariq-authoring.js"
     },
+    "./authoring-frame": {
+      "types": "./dist/authoring-frame.d.ts",
+      "import": "./dist/authoring-frame.js"
+    },
+    "./hosted-entry": {
+      "types": "./dist/hosted-entry.d.ts",
+      "import": "./dist/hosted-entry.js"
+    },
     "./bridge": {
       "types": "./dist/bridge/index.d.ts",
       "import": "./dist/bridge/index.js"
@@ -30,6 +38,10 @@
     "./creator-install": {
       "types": "./dist/creator-install/index.d.ts",
       "import": "./dist/creator-install/index.js"
+    },
+    "./creator-experiences": {
+      "types": "./dist/creator-experiences.d.ts",
+      "import": "./dist/creator-experiences.js"
     },
     "./local-dev": {
       "types": "./dist/local-dev/index.d.ts",
@@ -60,12 +72,13 @@
   "dependencies": {
     "@floating-ui/dom": "^1.6.13",
     "@lexical/rich-text": "^0.21.0",
+    "@lodariq/schema": "workspace:*",
+    "@lodariq/sdk-runtime": "workspace:*",
     "@radix-ui/react-popover": "^1.1.17",
     "@radix-ui/react-select": "^2.3.1",
     "@radix-ui/react-tabs": "^1.1.15",
-    "@lodariq/schema": "workspace:*",
-    "@lodariq/sdk-runtime": "workspace:*",
     "lexical": "^0.21.0",
+    "lucide": "^1.29.0",
     "lucide-react": "^1.22.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"

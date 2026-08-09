@@ -16,7 +16,7 @@ export interface BridgeOptions {
   expectedSessionId?: ScopedBridgeValue;
   /** Optional scoped document; inbound messages outside it are dropped. */
   expectedDocumentId?: ScopedBridgeValue;
-  onMessage: (message: BridgeMessageType) => void;
+  onMessage: (message: BridgeMessageType) => Promise<void> | void;
   autoAck?: boolean;
   /** Drop inbound and refuse outbound messages above this serialized byte size. */
   maxMessageBytes?: number;
@@ -60,8 +60,16 @@ export class AuthoringBridge {
         this.resolveAck(message.ackOf);
         return;
       }
-      if (this.options.autoAck !== false) this.ack(message);
-      this.options.onMessage(message);
+      const handled = this.options.onMessage(message);
+      if (this.options.autoAck === false) return;
+      if (handled) {
+        void handled.then(
+          () => this.ack(message),
+          () => {},
+        );
+        return;
+      }
+      this.ack(message);
     };
     window.addEventListener('message', this.listener);
   }
