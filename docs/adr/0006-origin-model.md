@@ -2,6 +2,7 @@
 
 - Status: Accepted
 - PRD references: §12.5, §20
+- Related: ADR 0015, ADR 0017
 
 ## Context
 
@@ -16,7 +17,8 @@ Use distinct canonical origins:
   compiled manifests, demo assets, exports (immutable, content-addressed).
 - `editor.lodariq.com` — authoring iframe; distinct from both the customer page
   and the dashboard.
-- `app.lodariq.com` — Next.js dashboard on Fly.io.
+- `app.lodariq.com` — Next.js dashboard on Fly.io; it hosts the first-party
+  creator activation route at `/authoring/activate`.
 - `api.lodariq.com` — Fastify API on Fly.io, plus a separate worker service.
 - `demos.lodariq.com` — public demo player, separate from the authenticated
   dashboard so viewer sessions never share cookies.
@@ -25,3 +27,8 @@ Use distinct canonical origins:
 
 - Vercel is not used; the dashboard is a Next.js Node server on Fly.io.
 - Public demo traffic never runs on the authenticated dashboard origin.
+- Under ADRs 0015 and 0017, Lodariq-owned credential/session UI remains on
+  `app.lodariq.com`; the customer page receives only an exact-origin, one-time
+  authorization result, while the authoring iframe remains isolated on
+  `editor.lodariq.com`. The dashboard's HttpOnly session cookie is never exposed
+  to customer-page JavaScript.

@@ -9,6 +9,28 @@ validation are complete. Phase 1 productionizes the validated SDK and adds the
 minimum secure control plane required for staging authoring, persistence, and
 linear tour playback.
 
+## Canonical Authoring Entry Supersession
+
+This plan preserves the Phase 1 implementation target and evidence as it was
+defined at the time. Its dashboard-generated staging snippet and generic
+authenticated toolbar are historical foundations, not the current canonical
+creator entry workflow.
+
+The canonical hosted target is one permanent SDK installation that exposes a
+direct, draggable launcher only in configured development and staging products.
+The launcher starts a first-party top-level authentication popup, exchanges an
+exact-origin single-use code for a short-lived activation grant, creates a
+document-scoped session, and only then lazily loads authoring code. It opens the
+same modeless authoring popup and runtime overlay, with stable `New`,
+`Experiences on this page`, and `Preview` actions.
+No browser extension or second dashboard-installed creator snippet is part of
+the core path. The dashboard is limited to setup, administration, and support.
+
+This convergence is planned for Phase 2 Slice 1 and is **not implemented or
+proven by this historical Phase 1 plan**. Phase 2 adds contextual Brand and
+release actions to that shell. Phase 3 expands `New` into the broad
+outcome/type chooser.
+
 This phase must keep the PRD guardrails intact:
 
 - Do not add a Markdown-to-JSON compiler or custom Markdown grammar.
@@ -61,6 +83,9 @@ This phase must keep the PRD guardrails intact:
 
 ### Staging SDK Flow
 
+The bullets below record the historical Phase 1 flow. They do not supersede the
+canonical convergence target above.
+
 - Dashboard generates staging SDK snippets from environment tokens.
 - Staging toolbar appears only for authenticated creators.
 - Production viewer/runtime paths never load `@lodariq/sdk-authoring`, React,
@@ -93,6 +118,10 @@ This phase must keep the PRD guardrails intact:
   Lexical, or dashboard dependencies.
 
 ## Acceptance Criteria
+
+These are the historical Phase 1 acceptance criteria. They do not claim the
+later one-install launcher, direct popup authentication, or modeless-shell
+convergence.
 
 - Engineer can install a staging SDK snippet from the dashboard into a test app.
 - Staging toolbar appears only for authenticated creators.

@@ -2,6 +2,7 @@
 
 - Status: Accepted
 - PRD references: §9.1, §11.3, §20
+- Extended by: [ADR 0014](0014-environment-document-release-pointers.md)
 
 ## Context
 
@@ -19,4 +20,7 @@ is preview-only.
 
 - Rollback is a manifest pointer update; no recompilation, no broad CDN
   invalidation.
+- The active pointer is document-specific within a product environment;
+  environment-global current-document lookup is only a Phase 1 compatibility
+  limitation.
 - Do not compile a real publication artifact in the browser (§20).

@@ -5,8 +5,9 @@
 
 ## Context
 
-The vendor surface is multi-provider (Neon, Clerk, Stripe, Cloudflare, Sentry,
-Resend/SES, Fly.io). Scattered secrets are a liability.
+The vendor surface is multi-provider (Neon, Stripe, Cloudflare, Sentry,
+Resend/SES, Fly.io). Lodariq also has an internal dashboard/API BFF source
+secret. Scattered secrets are a liability.
 
 ## Decision
 
@@ -18,5 +19,15 @@ the start. `.env*` files are git-ignored and only `.env.example` is committed.
 ## Consequences
 
 - Provider choice (Doppler vs Infisical) to be finalized at Phase 1 kickoff.
-- Clerk is accessed only through a thin internal auth interface to contain
-  lock-in (§20).
+- API and dashboard receive the same strong
+  `LODARIQ_AUTH_BFF_SOURCE_SECRET` through their separate Fly secret sets. It is
+  server-only, rotated as one coordinated credential, and never exposed through
+  `NEXT_PUBLIC_*`, browser storage, logs, or customer-page code.
+- Owned auth session tokens are random opaque values; only hashes are persisted,
+  so there is no reusable session-signing secret to distribute.
+- Enabling auth email requires environment-specific `RESEND_API_KEY`,
+  `LODARIQ_AUTH_EMAIL_TOKEN_SECRET`, `LODARIQ_AUTH_EMAIL_FROM`, and
+  `LODARIQ_APP_BASE_URL`. The API key and token secret are server-only; the
+  delivery/signup/recovery capability flags are configuration and must be
+  enabled coherently in API and dashboard only after the provider/domain is
+  ready.
