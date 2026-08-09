@@ -1,4 +1,11 @@
 import { Type, type Static } from '@sinclair/typebox';
+import { TargetLocale, TargetSignalFamily, TargetViewportClass } from './target';
+import {
+  TargetCandidateCountBucket,
+  TargetResolutionStatus,
+  TargetScoreBucket,
+  TargetVerificationReasonCode,
+} from './target-verification';
 
 /**
  * Analytics / debug events batched by the runtime (PRD §9.3, §15).
@@ -19,7 +26,7 @@ export const AnalyticsEvent = Type.Object(
 );
 export type AnalyticsEvent = Static<typeof AnalyticsEvent>;
 
-/** Selector diagnostic event for resolver observability (PRD §15). */
+/** Legacy Phase 1 selector diagnostic event retained for immutable readers. */
 export const SelectorDiagnosticEvent = Type.Object(
   {
     documentId: Type.String(),
@@ -33,3 +40,28 @@ export const SelectorDiagnosticEvent = Type.Object(
   { $id: 'SelectorDiagnosticEvent' },
 );
 export type SelectorDiagnosticEvent = Static<typeof SelectorDiagnosticEvent>;
+
+/**
+ * Privacy-safe Target Identity V2 observability. It carries bounded outcomes,
+ * never selectors, DOM, customer text, coordinates, URLs, or screenshots.
+ */
+export const TargetDiagnosticEvent = Type.Object(
+  {
+    documentId: Type.String(),
+    stepId: Type.String(),
+    targetId: Type.String(),
+    result: TargetResolutionStatus,
+    reasonCode: TargetVerificationReasonCode,
+    evidenceFamilies: Type.Array(TargetSignalFamily, {
+      maxItems: 8,
+      uniqueItems: true,
+    }),
+    scoreBucket: TargetScoreBucket,
+    candidateCountBucket: TargetCandidateCountBucket,
+    locale: Type.Optional(TargetLocale),
+    viewportClass: Type.Optional(TargetViewportClass),
+    sdkVersion: Type.String(),
+  },
+  { $id: 'TargetDiagnosticEvent', additionalProperties: false },
+);
+export type TargetDiagnosticEvent = Static<typeof TargetDiagnosticEvent>;

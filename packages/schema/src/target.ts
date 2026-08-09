@@ -1,4 +1,432 @@
 import { Type, type Static } from '@sinclair/typebox';
+import { Value } from '@sinclair/typebox/value';
+import {
+  TARGET_ATTRIBUTE_VALUE_MAX_LENGTH,
+  TARGET_ATTRIBUTE_VALUE_PATTERN,
+  TARGET_AUTHOR_LABEL_MAX_LENGTH,
+  TARGET_CAPTURE_QUALITIES,
+  TARGET_CONFIGURED_ATTRIBUTE_NAME_PATTERN,
+  TARGET_ELEMENT_KINDS,
+  TARGET_ID_MAX_LENGTH,
+  TARGET_ID_PATTERN,
+  TARGET_IDENTITY_SCHEMA_VERSION,
+  TARGET_KEY_MAX_LENGTH,
+  TARGET_KEY_PATTERN,
+  TARGET_LOCALIZED_TEXT_MAX_LENGTH,
+  TARGET_LOCALE_PATTERN,
+  TARGET_MAX_ANCESTOR_ROLES,
+  TARGET_MAX_CANDIDATE_COUNT,
+  TARGET_MAX_CAPTURE_SAMPLES,
+  TARGET_MAX_CONFIGURED_ATTRIBUTES,
+  TARGET_MAX_CONTEXT_RELATIONSHIPS,
+  TARGET_MAX_LOCALE_VARIANTS,
+  TARGET_MAX_LAYOUT_SIBLINGS,
+  TARGET_MAX_NEARBY_TEXT_ITEMS,
+  TARGET_MAX_VISUAL_FINGERPRINT_VARIANTS,
+  TARGET_MAX_VISUAL_RELATIONS,
+  TARGET_MAX_VISUAL_TOPOLOGY_VARIANTS,
+  TARGET_OCCUPANCY_GRID_PATTERN,
+  TARGET_RELATIONSHIP_KINDS,
+  TARGET_REQUIRED_ACTIONS,
+  TARGET_RESOLUTION_MODES,
+  TARGET_ROLE_PATTERN,
+  TARGET_SEMANTIC_ATTRIBUTE_NAME_PATTERN,
+  TARGET_SIGNAL_FAMILIES,
+  TARGET_VIEWPORT_CLASSES,
+  TARGET_VISUAL_DISTANCE_BUCKETS,
+  TARGET_VISUAL_HASH_PATTERN,
+  TARGET_VISUAL_REFERENCE_KINDS,
+  TARGET_VISUAL_RELATION_KINDS,
+} from './target-runtime';
+
+export {
+  TARGET_CAPTURE_QUALITIES,
+  TARGET_CONFIGURED_ATTRIBUTE_NAME_PATTERN,
+  TARGET_CONTEXT_GROUP_ROLES,
+  TARGET_ELEMENT_KINDS,
+  TARGET_IDENTITY_SCHEMA_VERSION,
+  TARGET_IDENTITY_SCORE_BY_FAMILY,
+  TARGET_LOCALE_PATTERN,
+  TARGET_MAX_LAYOUT_SIBLINGS,
+  TARGET_MAX_VISUAL_FINGERPRINT_VARIANTS,
+  TARGET_OCCUPANCY_GRID_PATTERN,
+  TARGET_MAX_RESOLUTION_RUNNER_UP_MARGIN,
+  TARGET_MIN_CAPTURE_RUNNER_UP_MARGIN,
+  TARGET_MIN_RESOLUTION_RUNNER_UP_MARGIN,
+  TARGET_MIN_RESOLUTION_RUNNER_UP_RATIO,
+  TARGET_RELATIONSHIP_KINDS,
+  TARGET_REQUIRED_ACTIONS,
+  TARGET_RESOLUTION_MODES,
+  TARGET_SEMANTIC_ATTRIBUTE_NAME_PATTERN,
+  TARGET_SIGNAL_FAMILIES,
+  TARGET_STABLE_SIGNAL_MULTIPLIER,
+  TARGET_UNCONFIRMED_SIGNAL_MULTIPLIER,
+  TARGET_VIEWPORT_BREAKPOINTS,
+  TARGET_VIEWPORT_CLASSES,
+  TARGET_VISUAL_DISTANCE_BUCKETS,
+  TARGET_VISUAL_HASH_PATTERN,
+  TARGET_VISUAL_REFERENCE_KINDS,
+  TARGET_VISUAL_RELATION_KINDS,
+} from './target-runtime';
+
+const TargetIdentifier = Type.String({
+  minLength: 1,
+  maxLength: TARGET_ID_MAX_LENGTH,
+  pattern: TARGET_ID_PATTERN,
+});
+const TargetStableKey = Type.String({
+  minLength: 1,
+  maxLength: TARGET_KEY_MAX_LENGTH,
+  pattern: TARGET_KEY_PATTERN,
+});
+const TargetRoleName = Type.String({
+  minLength: 1,
+  maxLength: 64,
+  pattern: TARGET_ROLE_PATTERN,
+});
+
+export const TargetElementKind = Type.Union(
+  TARGET_ELEMENT_KINDS.map((value) => Type.Literal(value)),
+);
+export type TargetElementKind = Static<typeof TargetElementKind>;
+
+export const TargetRequiredAction = Type.Union(
+  TARGET_REQUIRED_ACTIONS.map((value) => Type.Literal(value)),
+);
+export type TargetRequiredAction = Static<typeof TargetRequiredAction>;
+
+export const TargetResolutionMode = Type.Union(
+  TARGET_RESOLUTION_MODES.map((value) => Type.Literal(value)),
+);
+export type TargetResolutionMode = Static<typeof TargetResolutionMode>;
+
+export const TargetRelationshipKind = Type.Union(
+  TARGET_RELATIONSHIP_KINDS.map((value) => Type.Literal(value)),
+);
+export type TargetRelationshipKind = Static<typeof TargetRelationshipKind>;
+
+export const TargetSignalFamily = Type.Union(
+  TARGET_SIGNAL_FAMILIES.map((value) => Type.Literal(value)),
+);
+export type TargetSignalFamily = Static<typeof TargetSignalFamily>;
+
+export const TargetCaptureQuality = Type.Union(
+  TARGET_CAPTURE_QUALITIES.map((value) => Type.Literal(value)),
+);
+export type TargetCaptureQuality = Static<typeof TargetCaptureQuality>;
+
+export const TargetViewportClass = Type.Union(
+  TARGET_VIEWPORT_CLASSES.map((value) => Type.Literal(value)),
+);
+export type TargetViewportClass = Static<typeof TargetViewportClass>;
+
+export const TargetVisualRelationKind = Type.Union(
+  TARGET_VISUAL_RELATION_KINDS.map((value) => Type.Literal(value)),
+);
+export type TargetVisualRelationKind = Static<typeof TargetVisualRelationKind>;
+
+export const TargetVisualReferenceKind = Type.Union(
+  TARGET_VISUAL_REFERENCE_KINDS.map((value) => Type.Literal(value)),
+);
+export type TargetVisualReferenceKind = Static<typeof TargetVisualReferenceKind>;
+
+export const TargetVisualDistanceBucket = Type.Union(
+  TARGET_VISUAL_DISTANCE_BUCKETS.map((value) => Type.Literal(value)),
+);
+export type TargetVisualDistanceBucket = Static<typeof TargetVisualDistanceBucket>;
+
+export const TargetLocale = Type.String({
+  minLength: 2,
+  maxLength: 64,
+  pattern: TARGET_LOCALE_PATTERN,
+});
+export type TargetLocale = Static<typeof TargetLocale>;
+
+export const TargetIntent = Type.Union([
+  Type.Object(
+    {
+      elementKind: TargetElementKind,
+      requiredAction: Type.Optional(TargetRequiredAction),
+      resolutionMode: Type.Optional(Type.Literal('semantic')),
+    },
+    { additionalProperties: false },
+  ),
+  Type.Object(
+    {
+      elementKind: TargetElementKind,
+      /** Visual modes are presentation-only and can never authorize host interactions. */
+      requiredAction: Type.Optional(Type.Literal('anchor')),
+      resolutionMode: Type.Union([Type.Literal('visual-anchor'), Type.Literal('layout-slot')]),
+    },
+    { additionalProperties: false },
+  ),
+]);
+export type TargetIntent = Static<typeof TargetIntent>;
+
+const TargetConfiguredAttributes = Type.Record(
+  Type.String({ pattern: TARGET_CONFIGURED_ATTRIBUTE_NAME_PATTERN }),
+  Type.String({
+    minLength: 1,
+    maxLength: TARGET_ATTRIBUTE_VALUE_MAX_LENGTH,
+    pattern: TARGET_ATTRIBUTE_VALUE_PATTERN,
+  }),
+  {
+    additionalProperties: false,
+    maxProperties: TARGET_MAX_CONFIGURED_ATTRIBUTES,
+  },
+);
+
+const TargetSemanticAttributes = Type.Record(
+  Type.String({ pattern: TARGET_SEMANTIC_ATTRIBUTE_NAME_PATTERN }),
+  Type.String({
+    minLength: 1,
+    maxLength: TARGET_ATTRIBUTE_VALUE_MAX_LENGTH,
+    pattern: TARGET_ATTRIBUTE_VALUE_PATTERN,
+  }),
+  {
+    additionalProperties: false,
+    maxProperties: TARGET_MAX_CONFIGURED_ATTRIBUTES,
+  },
+);
+
+export const TargetInvariants = Type.Object(
+  {
+    registryKey: Type.Optional(TargetStableKey),
+    configuredAttributes: Type.Optional(TargetConfiguredAttributes),
+    semanticAttributes: Type.Optional(TargetSemanticAttributes),
+  },
+  { additionalProperties: false },
+);
+export type TargetInvariants = Static<typeof TargetInvariants>;
+
+export const TargetSemantics = Type.Object(
+  {
+    tagName: Type.Optional(
+      Type.String({ minLength: 1, maxLength: 64, pattern: TARGET_ROLE_PATTERN }),
+    ),
+    role: Type.Optional(TargetRoleName),
+    inputType: Type.Optional(
+      Type.String({ minLength: 1, maxLength: 64, pattern: TARGET_ROLE_PATTERN }),
+    ),
+    controlGroup: Type.Optional(TargetStableKey),
+  },
+  { additionalProperties: false },
+);
+export type TargetSemantics = Static<typeof TargetSemantics>;
+
+export const TargetRelationship = Type.Object(
+  {
+    kind: TargetRelationshipKind,
+    semanticRole: Type.Optional(TargetRoleName),
+    stableKey: Type.Optional(TargetStableKey),
+  },
+  { additionalProperties: false },
+);
+export type TargetRelationship = Static<typeof TargetRelationship>;
+
+export const TargetContext = Type.Object(
+  {
+    routePatternId: Type.Optional(TargetStableKey),
+    stateId: Type.Optional(TargetStableKey),
+    ancestorRoles: Type.Optional(
+      Type.Array(TargetRoleName, {
+        maxItems: TARGET_MAX_ANCESTOR_ROLES,
+        uniqueItems: true,
+      }),
+    ),
+    relationships: Type.Optional(
+      Type.Array(TargetRelationship, { maxItems: TARGET_MAX_CONTEXT_RELATIONSHIPS }),
+    ),
+  },
+  { additionalProperties: false },
+);
+export type TargetContext = Static<typeof TargetContext>;
+
+const TargetNormalizedDimensions = Type.Object(
+  {
+    widthRatio: Type.Number({ minimum: 0, maximum: 1 }),
+    heightRatio: Type.Number({ minimum: 0, maximum: 1 }),
+  },
+  { additionalProperties: false },
+);
+
+const TargetNormalizedShape = Type.Object(
+  {
+    ...TargetNormalizedDimensions.properties,
+    aspectRatio: Type.Number({ minimum: 0.01, maximum: 100 }),
+    /** Present only inside a chosen semantic container, never for the viewport fallback. */
+    centerXRatio: Type.Optional(Type.Number({ minimum: 0, maximum: 1 })),
+    centerYRatio: Type.Optional(Type.Number({ minimum: 0, maximum: 1 })),
+  },
+  { additionalProperties: false },
+);
+
+export const TargetVisualRelation = Type.Object(
+  {
+    kind: TargetVisualRelationKind,
+    reference: TargetVisualReferenceKind,
+    referenceKey: Type.Optional(TargetStableKey),
+    distanceBucket: Type.Optional(TargetVisualDistanceBucket),
+    distanceRatio: Type.Optional(Type.Number({ minimum: 0, maximum: 1 })),
+  },
+  { additionalProperties: false },
+);
+export type TargetVisualRelation = Static<typeof TargetVisualRelation>;
+
+/**
+ * Coarse, normalized visual grouping evidence. These ratios may rank or group
+ * candidates but can never trigger an interaction. Absolute page/viewport
+ * coordinates, screenshots, styles, and DOM geometry are intentionally absent.
+ */
+export const TargetVisualTopology = Type.Object(
+  {
+    viewportClass: TargetViewportClass,
+    stateId: Type.Optional(TargetStableKey),
+    target: TargetNormalizedShape,
+    container: Type.Optional(TargetNormalizedDimensions),
+    relations: Type.Optional(
+      Type.Array(TargetVisualRelation, { maxItems: TARGET_MAX_VISUAL_RELATIONS }),
+    ),
+  },
+  { additionalProperties: false },
+);
+export type TargetVisualTopology = Static<typeof TargetVisualTopology>;
+
+export const TargetLayoutSlot = Type.Object(
+  {
+    siblingIndex: Type.Integer({ minimum: 0, maximum: TARGET_MAX_LAYOUT_SIBLINGS }),
+    siblingCount: Type.Integer({ minimum: 1, maximum: TARGET_MAX_LAYOUT_SIBLINGS }),
+  },
+  { additionalProperties: false },
+);
+export type TargetLayoutSlot = Static<typeof TargetLayoutSlot>;
+
+/**
+ * Privacy-safe rendered evidence for presentation-only visual anchors. Hashes
+ * are derived from bounded structural/appearance tokens; occupancyGrid is an
+ * 8x8 descendant-layout bitmask. No text, CSS values, HTML, or coordinates are
+ * persisted here.
+ */
+export const TargetVisualFingerprint = Type.Object(
+  {
+    viewportClass: TargetViewportClass,
+    stateId: Type.Optional(TargetStableKey),
+    structuralHash: Type.String({
+      minLength: 16,
+      maxLength: 16,
+      pattern: TARGET_VISUAL_HASH_PATTERN,
+    }),
+    occupancyGrid: Type.String({
+      minLength: 64,
+      maxLength: 64,
+      pattern: TARGET_OCCUPANCY_GRID_PATTERN,
+    }),
+    appearanceHash: Type.String({
+      minLength: 16,
+      maxLength: 16,
+      pattern: TARGET_VISUAL_HASH_PATTERN,
+    }),
+    neighborhoodHash: Type.String({
+      minLength: 16,
+      maxLength: 16,
+      pattern: TARGET_VISUAL_HASH_PATTERN,
+    }),
+    layoutSlot: Type.Optional(TargetLayoutSlot),
+  },
+  { additionalProperties: false },
+);
+export type TargetVisualFingerprint = Static<typeof TargetVisualFingerprint>;
+
+export const TargetLocalizedEvidence = Type.Object(
+  {
+    locale: TargetLocale,
+    accessibleName: Type.Optional(
+      Type.String({ minLength: 1, maxLength: TARGET_LOCALIZED_TEXT_MAX_LENGTH }),
+    ),
+    label: Type.Optional(
+      Type.String({ minLength: 1, maxLength: TARGET_LOCALIZED_TEXT_MAX_LENGTH }),
+    ),
+    placeholder: Type.Optional(
+      Type.String({ minLength: 1, maxLength: TARGET_LOCALIZED_TEXT_MAX_LENGTH }),
+    ),
+    title: Type.Optional(
+      Type.String({ minLength: 1, maxLength: TARGET_LOCALIZED_TEXT_MAX_LENGTH }),
+    ),
+    nearbyText: Type.Optional(
+      Type.Array(Type.String({ minLength: 1, maxLength: TARGET_LOCALIZED_TEXT_MAX_LENGTH }), {
+        maxItems: TARGET_MAX_NEARBY_TEXT_ITEMS,
+      }),
+    ),
+  },
+  { additionalProperties: false },
+);
+export type TargetLocalizedEvidence = Static<typeof TargetLocalizedEvidence>;
+
+export const TargetCaptureEvidence = Type.Object(
+  {
+    sampleCount: Type.Integer({ minimum: 1, maximum: TARGET_MAX_CAPTURE_SAMPLES }),
+    stableSignalFamilies: Type.Array(TargetSignalFamily, {
+      maxItems: TARGET_SIGNAL_FAMILIES.length,
+      uniqueItems: true,
+    }),
+    uniqueCandidateCount: Type.Integer({ minimum: 0, maximum: TARGET_MAX_CANDIDATE_COUNT }),
+    /** Normalized difference between the selected candidate and its runner-up. */
+    runnerUpMargin: Type.Number({ minimum: 0, maximum: 1 }),
+    quality: TargetCaptureQuality,
+  },
+  { additionalProperties: false },
+);
+export type TargetCaptureEvidence = Static<typeof TargetCaptureEvidence>;
+
+export const TargetDisplay = Type.Object(
+  {
+    /** Author-only copy; it must never participate in runtime resolution. */
+    authorLabel: Type.String({ minLength: 1, maxLength: TARGET_AUTHOR_LABEL_MAX_LENGTH }),
+  },
+  { additionalProperties: false },
+);
+export type TargetDisplay = Static<typeof TargetDisplay>;
+
+/**
+ * Versioned, selector-free identity captured alongside the readable Phase 1
+ * fingerprint. Locale text is supporting evidence only; display copy is never
+ * resolver input. The outer Target.id and identity.targetId must agree.
+ */
+export const TargetIdentityV2 = Type.Object(
+  {
+    schemaVersion: Type.Literal(TARGET_IDENTITY_SCHEMA_VERSION),
+    targetId: TargetIdentifier,
+    intent: TargetIntent,
+    invariants: TargetInvariants,
+    semantics: TargetSemantics,
+    context: TargetContext,
+    /** Confirmed viewport/state variants used as supporting topology evidence. */
+    visualTopologies: Type.Optional(
+      Type.Array(TargetVisualTopology, {
+        minItems: 1,
+        maxItems: TARGET_MAX_VISUAL_TOPOLOGY_VARIANTS,
+      }),
+    ),
+    visualFingerprints: Type.Optional(
+      Type.Array(TargetVisualFingerprint, {
+        minItems: 1,
+        maxItems: TARGET_MAX_VISUAL_FINGERPRINT_VARIANTS,
+      }),
+    ),
+    localizedEvidence: Type.Array(TargetLocalizedEvidence, {
+      maxItems: TARGET_MAX_LOCALE_VARIANTS,
+    }),
+    captureEvidence: TargetCaptureEvidence,
+    display: TargetDisplay,
+  },
+  { $id: 'TargetIdentityV2', additionalProperties: false },
+);
+export type TargetIdentityV2 = Static<typeof TargetIdentityV2>;
+
+/** Targeted runtime decoder; this schema contains no external references. */
+export function isTargetIdentityV2(value: unknown): value is TargetIdentityV2 {
+  return Value.Check(TargetIdentityV2, value);
+}
 
 /**
  * Semantic fingerprint of a host-page element (PRD §8.3).
@@ -19,23 +447,31 @@ export const ElementFingerprint = Type.Object(
     nearbyText: Type.Optional(Type.Array(Type.String())),
     ancestorLandmarks: Type.Optional(
       Type.Array(
-        Type.Object({
-          role: Type.Optional(Type.String()),
-          accessibleName: Type.Optional(Type.String()),
-        }),
+        Type.Object(
+          {
+            role: Type.Optional(Type.String()),
+            accessibleName: Type.Optional(Type.String()),
+          },
+          { additionalProperties: false },
+        ),
       ),
     ),
     relativePosition: Type.Optional(
-      Type.Object({
-        parentRole: Type.Optional(Type.String()),
-        siblingIndex: Type.Optional(Type.Number()),
-      }),
+      Type.Object(
+        {
+          parentRole: Type.Optional(Type.String()),
+          siblingIndex: Type.Optional(Type.Number()),
+        },
+        { additionalProperties: false },
+      ),
     ),
     scopedCss: Type.Optional(Type.String()),
     /** Diagnostic only — never used to trigger production clicks (PRD §8.4). */
-    diagnosticCoordinates: Type.Optional(Type.Object({ x: Type.Number(), y: Type.Number() })),
+    diagnosticCoordinates: Type.Optional(
+      Type.Object({ x: Type.Number(), y: Type.Number() }, { additionalProperties: false }),
+    ),
   },
-  { $id: 'ElementFingerprint' },
+  { $id: 'ElementFingerprint', additionalProperties: false },
 );
 export type ElementFingerprint = Static<typeof ElementFingerprint>;
 
@@ -43,6 +479,8 @@ export type ElementFingerprint = Static<typeof ElementFingerprint>;
 export const RuntimeLifecycleHints = Type.Object(
   {
     expectedRoute: Type.Optional(Type.String()),
+    /** Qualifies legacy waitForText; runtime compares it only in this locale. */
+    waitForTextLocale: Type.Optional(TargetLocale),
     waitForText: Type.Optional(Type.String()),
     waitForElement: Type.Optional(Type.Ref(ElementFingerprint)),
     scrollContainer: Type.Optional(Type.Ref(ElementFingerprint)),
@@ -60,7 +498,7 @@ export const RuntimeLifecycleHints = Type.Object(
     waitForNetworkIdle: Type.Optional(Type.Boolean()),
     timeoutMs: Type.Optional(Type.Number()),
   },
-  { $id: 'RuntimeLifecycleHints' },
+  { $id: 'RuntimeLifecycleHints', additionalProperties: false },
 );
 export type RuntimeLifecycleHints = Static<typeof RuntimeLifecycleHints>;
 
@@ -73,8 +511,10 @@ export const Target = Type.Object(
   {
     id: Type.String(),
     fingerprint: Type.Ref(ElementFingerprint),
+    /** Additive V2 identity; legacy fingerprints remain required and readable. */
+    identity: Type.Optional(Type.Ref(TargetIdentityV2)),
     lifecycle: Type.Optional(Type.Ref(RuntimeLifecycleHints)),
   },
-  { $id: 'Target' },
+  { $id: 'Target', additionalProperties: false },
 );
 export type Target = Static<typeof Target>;

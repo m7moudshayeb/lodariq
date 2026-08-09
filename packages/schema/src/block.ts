@@ -1,4 +1,5 @@
 import { Type, type Static } from '@sinclair/typebox';
+import { Value } from '@sinclair/typebox/value';
 import { BlockDiagnostic, ValidationLevel } from './common';
 
 /**
@@ -49,6 +50,12 @@ const PLACEMENT_VALUES = ['top', 'right', 'bottom', 'left'] as const;
 const PLACEMENT_SET = new Set<string>(PLACEMENT_VALUES);
 const BUTTON_VARIANT_VALUES = ['primary', 'secondary'] as const;
 const BUTTON_VARIANT_SET = new Set<string>(BUTTON_VARIANT_VALUES);
+export const TEXT_ALIGNMENT_VALUES = ['left', 'center', 'right'] as const;
+const TEXT_ALIGNMENT_SET = new Set<string>(TEXT_ALIGNMENT_VALUES);
+const TEXT_COLOR_PATTERN = '^#[0-9a-fA-F]{6}$';
+const TEXT_FONT_SIZE_BOUNDS = { minimum: 10, maximum: 72 } as const;
+const PRESENTATION_RATIO_BOUNDS = { minimum: 0, maximum: 1 } as const;
+const PRESENTATION_REGION_SIZE_BOUNDS = { exclusiveMinimum: 0, maximum: 1 } as const;
 
 export const BlockActionProps = Type.Object(
   {
@@ -65,6 +72,90 @@ export const BlockActionProps = Type.Object(
   { $id: 'BlockActionProps', additionalProperties: false },
 );
 export type BlockActionProps = Static<typeof BlockActionProps>;
+
+/** Safe block-level typography controls for structured rich-text authoring. */
+export const TextStyleProps = Type.Object(
+  {
+    align: Type.Optional(Type.Union(TEXT_ALIGNMENT_VALUES.map((value) => Type.Literal(value)))),
+    fontSizePx: Type.Optional(Type.Integer(TEXT_FONT_SIZE_BOUNDS)),
+    color: Type.Optional(Type.String({ pattern: TEXT_COLOR_PATTERN })),
+    fontWeight: Type.Optional(
+      Type.Union([Type.Literal(400), Type.Literal(500), Type.Literal(600), Type.Literal(700)]),
+    ),
+    fontStyle: Type.Optional(Type.Union([Type.Literal('normal'), Type.Literal('italic')])),
+  },
+  { $id: 'TextStyleProps', additionalProperties: false },
+);
+export type TextStyleProps = Static<typeof TextStyleProps>;
+
+/**
+ * Visual attachment inside a resolved target's live border box.
+ *
+ * This is presentation geometry, not target identity. Ratios are normalized to
+ * the resolved owner element so immutable artifacts remain independent of
+ * viewport pixels and diagnostic capture coordinates.
+ */
+export const PresentationAnchor = Type.Union(
+  [
+    Type.Object({ kind: Type.Literal('element-bounds') }, { additionalProperties: false }),
+    Type.Object(
+      {
+        kind: Type.Literal('point'),
+        xRatio: Type.Number(PRESENTATION_RATIO_BOUNDS),
+        yRatio: Type.Number(PRESENTATION_RATIO_BOUNDS),
+      },
+      { additionalProperties: false },
+    ),
+    Type.Object(
+      {
+        kind: Type.Literal('region'),
+        xRatio: Type.Number(PRESENTATION_RATIO_BOUNDS),
+        yRatio: Type.Number(PRESENTATION_RATIO_BOUNDS),
+        widthRatio: Type.Number(PRESENTATION_REGION_SIZE_BOUNDS),
+        heightRatio: Type.Number(PRESENTATION_REGION_SIZE_BOUNDS),
+      },
+      { additionalProperties: false },
+    ),
+  ],
+  { $id: 'PresentationAnchor' },
+);
+export type PresentationAnchor = Static<typeof PresentationAnchor>;
+
+/** A deliberate sub-element choice returned by direct-manipulation authoring. */
+export const ExactPresentationAnchor = Type.Exclude(
+  PresentationAnchor,
+  Type.Object({ kind: Type.Literal('element-bounds') }),
+  { $id: 'ExactPresentationAnchor' },
+);
+export type ExactPresentationAnchor = Static<typeof ExactPresentationAnchor>;
+
+/**
+ * JSON Schema can bound each ratio but cannot express the two cross-field sums.
+ * Use this semantic guard before accepting a draft anchor or compiling it for
+ * publication.
+ */
+export function isPresentationAnchor(value: unknown): value is PresentationAnchor {
+  if (!Value.Check(PresentationAnchor, value)) return false;
+  const anchor = value as PresentationAnchor;
+  if (anchor.kind !== 'region') return true;
+  return anchor.xRatio + anchor.widthRatio <= 1 && anchor.yRatio + anchor.heightRatio <= 1;
+}
+
+/** Returns an isolated canonical value, or omits malformed draft input. */
+export function sanitizePresentationAnchor(value: unknown): PresentationAnchor | undefined {
+  if (!isPresentationAnchor(value)) return undefined;
+  if (value.kind === 'element-bounds') return { kind: value.kind };
+  if (value.kind === 'point') {
+    return { kind: value.kind, xRatio: value.xRatio, yRatio: value.yRatio };
+  }
+  return {
+    kind: value.kind,
+    xRatio: value.xRatio,
+    yRatio: value.yRatio,
+    widthRatio: value.widthRatio,
+    heightRatio: value.heightRatio,
+  };
+}
 
 /**
  * Narrow author-controlled block props. Documents must not carry arbitrary
@@ -83,7 +174,9 @@ export const LodariqBlockProps = Type.Object(
         Type.Literal('left'),
       ]),
     ),
+    presentationAnchor: Type.Optional(Type.Ref(PresentationAnchor)),
     targetId: Type.Optional(Type.String({ minLength: 1 })),
+    textStyle: Type.Optional(Type.Ref(TextStyleProps)),
     variant: Type.Optional(Type.Union([Type.Literal('primary'), Type.Literal('secondary')])),
   },
   { $id: 'LodariqBlockProps', additionalProperties: false },
@@ -101,10 +194,40 @@ export function sanitizeBlockProps(props: Record<string, unknown>): LodariqBlock
   if (level) next.level = level;
   const placement = placementValue(props.placement);
   if (placement) next.placement = placement;
+  const presentationAnchor = sanitizePresentationAnchor(props.presentationAnchor);
+  if (presentationAnchor) next.presentationAnchor = presentationAnchor;
   if (typeof props.targetId === 'string' && props.targetId.trim()) next.targetId = props.targetId;
+  const textStyle = sanitizeTextStyleProps(props.textStyle);
+  if (textStyle) next.textStyle = textStyle;
   const variant = buttonVariantValue(props.variant);
   if (variant) next.variant = variant;
   return next;
+}
+
+export function sanitizeTextStyleProps(value: unknown): TextStyleProps | undefined {
+  if (!isRecord(value)) return undefined;
+  const next: TextStyleProps = {};
+  if (typeof value.align === 'string' && TEXT_ALIGNMENT_SET.has(value.align)) {
+    next.align = value.align as TextStyleProps['align'];
+  }
+  if (
+    typeof value.fontSizePx === 'number' &&
+    Number.isInteger(value.fontSizePx) &&
+    value.fontSizePx >= TEXT_FONT_SIZE_BOUNDS.minimum &&
+    value.fontSizePx <= TEXT_FONT_SIZE_BOUNDS.maximum
+  ) {
+    next.fontSizePx = value.fontSizePx;
+  }
+  if (typeof value.color === 'string' && new RegExp(TEXT_COLOR_PATTERN, 'u').test(value.color)) {
+    next.color = value.color.toLowerCase();
+  }
+  if ([400, 500, 600, 700].includes(value.fontWeight as number)) {
+    next.fontWeight = value.fontWeight as TextStyleProps['fontWeight'];
+  }
+  if (value.fontStyle === 'normal' || value.fontStyle === 'italic') {
+    next.fontStyle = value.fontStyle;
+  }
+  return Object.keys(next).length > 0 ? next : undefined;
 }
 
 function sanitizeActionProps(action: Record<string, unknown>): BlockActionProps | null {
@@ -153,15 +276,18 @@ function isRecord(value: unknown): value is Record<string, unknown> {
  */
 export const LodariqBlock = Type.Recursive(
   (Self) =>
-    Type.Object({
-      id: Type.String({ minLength: 1 }),
-      type: LodariqBlockType,
-      content: Type.Optional(Type.String()),
-      props: LodariqBlockProps,
-      children: Type.Array(Self),
-      status: Type.Optional(ValidationLevel),
-      diagnostics: Type.Optional(Type.Array(BlockDiagnostic)),
-    }),
+    Type.Object(
+      {
+        id: Type.String({ minLength: 1 }),
+        type: LodariqBlockType,
+        content: Type.Optional(Type.String()),
+        props: LodariqBlockProps,
+        children: Type.Array(Self),
+        status: Type.Optional(Type.Ref(ValidationLevel)),
+        diagnostics: Type.Optional(Type.Array(Type.Ref(BlockDiagnostic))),
+      },
+      { additionalProperties: false },
+    ),
   { $id: 'LodariqBlock' },
 );
 export type LodariqBlock = Static<typeof LodariqBlock>;

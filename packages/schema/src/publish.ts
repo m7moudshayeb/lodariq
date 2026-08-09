@@ -1,6 +1,7 @@
-import { BLOCK_ACTION_TYPES, type LodariqBlock } from './block';
+import { BLOCK_ACTION_TYPES, isPresentationAnchor, type LodariqBlock } from './block';
 import type { LodariqDocument } from './document';
 import type { ResolverDiagnostic } from './bridge';
+import { TARGET_MIN_CAPTURE_RUNNER_UP_MARGIN } from './target';
 import { isSafeNavigationUrl } from './url';
 
 export type PublishReadinessIssueCode =
@@ -11,6 +12,8 @@ export type PublishReadinessIssueCode =
   | 'missing_step_tooltip'
   | 'missing_step_target'
   | 'broken_target_reference'
+  | 'target_unverified'
+  | 'target_needs_review'
   | 'target_unresolved'
   | 'target_ambiguous'
   | 'button_missing_action'
@@ -20,6 +23,7 @@ export type PublishReadinessIssueCode =
   | 'action_not_allowed'
   | 'incomplete_media'
   | 'unresolved_lifecycle_hint'
+  | 'invalid_presentation_anchor'
   | 'invalid_block'
   | 'incomplete_block';
 
@@ -34,6 +38,8 @@ export interface ValidateTourPublishReadinessOptions {
   targetDiagnostics?:
     | ReadonlyMap<string, ResolverDiagnostic | { diagnostic: ResolverDiagnostic }>
     | Record<string, ResolverDiagnostic | { diagnostic: ResolverDiagnostic } | undefined>;
+  /** Require a fresh factual observation for every target in this publish attempt. */
+  requireVerifiedTargets?: boolean;
 }
 
 type TargetDiagnosticValue = ResolverDiagnostic | { diagnostic: ResolverDiagnostic };
@@ -78,6 +84,8 @@ const PUBLISH_READINESS_ISSUE_LABELS = {
   missing_step_tooltip: 'Missing step content',
   missing_step_target: 'Missing target',
   broken_target_reference: 'Broken target',
+  target_unverified: 'Unverified target',
+  target_needs_review: 'Target needs review',
   target_unresolved: 'Unresolved target',
   target_ambiguous: 'Ambiguous target',
   button_missing_action: 'Incomplete button action',
@@ -87,6 +95,7 @@ const PUBLISH_READINESS_ISSUE_LABELS = {
   action_not_allowed: 'Unsupported action',
   incomplete_media: 'Incomplete media',
   unresolved_lifecycle_hint: 'Unresolved lifecycle hint',
+  invalid_presentation_anchor: 'Invalid presentation area',
   invalid_block: 'Invalid block',
   incomplete_block: 'Incomplete block',
 } as const satisfies Record<PublishReadinessIssueCode, string>;
@@ -179,6 +188,8 @@ function validateTourStep(
     return;
   }
 
+  validatePresentationAnchorConfiguration(step, tooltip, issues);
+
   const editableChildren = tooltip.children.filter(
     (child) => child.type !== 'targetChip' && child.type !== 'validationBadge',
   );
@@ -206,8 +217,31 @@ function validateTourStep(
       message: `${stepLabel(step)} references a placement that no longer exists.`,
     });
   } else {
-    validateTargetLifecycle(step, targetsById.get(targetId), issues);
+    const target = targetsById.get(targetId);
+    validateTargetLifecycle(step, target, issues);
+    const captureNeedsReview = Boolean(
+      target?.identity &&
+      (target.identity.captureEvidence.quality === 'weak' ||
+        target.identity.captureEvidence.uniqueCandidateCount !== 1 ||
+        target.identity.captureEvidence.runnerUpMargin < TARGET_MIN_CAPTURE_RUNNER_UP_MARGIN),
+    );
+    if (captureNeedsReview) {
+      issues.push({
+        code: 'target_needs_review',
+        blockId: step.id,
+        targetId,
+        message: `${stepLabel(step)} placement needs a more specific selection before publishing.`,
+      });
+    }
     const diagnostic = targetDiagnostic(options.targetDiagnostics, targetId);
+    if (!diagnostic && options.requireVerifiedTargets) {
+      issues.push({
+        code: 'target_unverified',
+        blockId: step.id,
+        targetId,
+        message: `${stepLabel(step)} placement has not been verified on this environment and page state.`,
+      });
+    }
     if (diagnostic?.state === 'missing') {
       issues.push({
         code: 'target_unresolved',
@@ -224,9 +258,53 @@ function validateTourStep(
         message: `${stepLabel(step)} placement matches more than one element. Pick a more specific placement.`,
       });
     }
+    if (diagnostic?.state === 'needs_review' && !captureNeedsReview) {
+      issues.push({
+        code: 'target_needs_review',
+        blockId: step.id,
+        targetId,
+        message: `${stepLabel(step)} placement drifted from its saved evidence. Verify or choose it again.`,
+      });
+    }
   }
 
   for (const child of tooltip.children) validateTooltipChild(child, issues);
+}
+
+function validatePresentationAnchorConfiguration(
+  step: LodariqBlock,
+  tooltip: LodariqBlock,
+  issues: PublishReadinessIssue[],
+): void {
+  visitBlockTree(step, (block) => {
+    const presentationAnchor = block.props.presentationAnchor;
+    if (presentationAnchor === undefined) return;
+    if (block !== tooltip) {
+      issues.push({
+        code: 'invalid_presentation_anchor',
+        blockId: block.id,
+        message:
+          `${blockLabel(block)} has a presentation area outside the step placement. ` +
+          'Clear it and choose the area again.',
+      });
+      return;
+    }
+    if (!isPresentationAnchor(presentationAnchor)) {
+      issues.push({
+        code: 'invalid_presentation_anchor',
+        blockId: step.id,
+        targetId: typeof tooltip.props.targetId === 'string' ? tooltip.props.targetId : undefined,
+        message:
+          `${stepLabel(step)} has a presentation area outside its selected element. ` +
+          'Choose the area again.',
+      });
+    }
+  });
+}
+
+function visitBlockTree(block: LodariqBlock, visit: (candidate: LodariqBlock) => void): void {
+  visit(block);
+  for (const child of block.children) visitBlockTree(child, visit);
 }
 
 function validateTargetLifecycle(
@@ -236,12 +314,16 @@ function validateTargetLifecycle(
 ): void {
   const lifecycle = target?.lifecycle;
   if (!lifecycle) return;
-  if (typeof lifecycle.waitForText === 'string' && !lifecycle.waitForText.trim()) {
+  const lifecycleWaitText = lifecycle.waitForText?.trim();
+  if (
+    (typeof lifecycle.waitForText === 'string' && !lifecycleWaitText) ||
+    (lifecycle.waitForTextLocale && !lifecycleWaitText)
+  ) {
     issues.push({
       code: 'unresolved_lifecycle_hint',
       blockId: step.id,
       targetId: target.id,
-      message: `${stepLabel(step)} has an empty lifecycle text wait. Add text or clear it.`,
+      message: `${stepLabel(step)} has an incomplete lifecycle text wait. Add text or clear it.`,
     });
   }
   for (const fingerprint of [

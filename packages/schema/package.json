@@ -11,9 +11,37 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     },
+    "./version": {
+      "types": "./dist/version.d.ts",
+      "import": "./dist/version.js"
+    },
     "./dom": {
       "types": "./dist/dom.d.ts",
       "import": "./dist/dom.js"
+    },
+    "./csp": {
+      "types": "./dist/csp.d.ts",
+      "import": "./dist/csp.js"
+    },
+    "./target": {
+      "types": "./dist/target.d.ts",
+      "import": "./dist/target.js"
+    },
+    "./target-runtime": {
+      "types": "./dist/target-runtime.d.ts",
+      "import": "./dist/target-runtime.js"
+    },
+    "./brand-runtime": {
+      "types": "./dist/brand-runtime.d.ts",
+      "import": "./dist/brand-runtime.js"
+    },
+    "./brand-registration-runtime": {
+      "types": "./dist/brand-registration-runtime.d.ts",
+      "import": "./dist/brand-registration-runtime.js"
+    },
+    "./hosted-creator": {
+      "types": "./dist/hosted-creator.d.ts",
+      "import": "./dist/hosted-creator.js"
     },
     "./url": {
       "types": "./dist/url.d.ts",
