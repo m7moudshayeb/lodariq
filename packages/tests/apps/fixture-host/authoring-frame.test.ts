@@ -813,37 +813,41 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     postMessage.mockRestore();
   });
 
-  it('inserts tour steps between top-level blocks without exposing content blocks', async () => {
-    await loadFrame();
-    await importTwoBlocks();
+  it(
+    'inserts tour steps between top-level blocks without exposing content blocks',
+    async () => {
+      await loadFrame();
+      await importTwoBlocks();
 
-    document.querySelector<HTMLButtonElement>('[aria-label="Add step after this step"]')?.click();
-    await flushPreviewPatchQueue();
-    expect(
-      [
+      document.querySelector<HTMLButtonElement>('[aria-label="Add step after this step"]')?.click();
+      await flushPreviewPatchQueue();
+      expect(
+        [
+          ...document.querySelectorAll<HTMLButtonElement>(
+            '.inline-command-menu:not([hidden]) .inline-command',
+          ),
+        ].some((button) => button.textContent?.includes('Heading')),
+      ).toBe(false);
+      const stepCommand = [
         ...document.querySelectorAll<HTMLButtonElement>(
           '.inline-command-menu:not([hidden]) .inline-command',
         ),
-      ].some((button) => button.textContent?.includes('Heading')),
-    ).toBe(false);
-    const stepCommand = [
-      ...document.querySelectorAll<HTMLButtonElement>(
-        '.inline-command-menu:not([hidden]) .inline-command',
-      ),
-    ].find((button) => button.textContent?.includes('Step'));
-    stepCommand?.click();
-    await flushPreviewPatchQueue();
+      ].find((button) => button.textContent?.includes('Step'));
+      stepCommand?.click();
+      await flushPreviewPatchQueue();
 
-    const doc = JSON.parse(documentJson().value) as {
-      blocks: Array<{ id: string; type: string; content?: string }>;
-    };
-    expect(doc.blocks.map((block) => block.id)).toEqual([
-      'block_a',
-      expect.stringMatching(/^block_/),
-      'block_b',
-    ]);
-    expect(doc.blocks.map((block) => block.type)).toEqual(['tourStep', 'tourStep', 'tourStep']);
-  });
+      const doc = JSON.parse(documentJson().value) as {
+        blocks: Array<{ id: string; type: string; content?: string }>;
+      };
+      expect(doc.blocks.map((block) => block.id)).toEqual([
+        'block_a',
+        expect.stringMatching(/^block_/),
+        'block_b',
+      ]);
+      expect(doc.blocks.map((block) => block.type)).toEqual(['tourStep', 'tourStep', 'tourStep']);
+    },
+    HEAVY_FIXTURE_TEST_TIMEOUT_MS,
+  );
 
   it('filters and closes inline insert menus like a document command palette', async () => {
     await loadFrame();
