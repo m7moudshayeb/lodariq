@@ -13,6 +13,7 @@ export default defineConfig({
     'brand-runtime': 'src/brand-runtime.ts',
     'brand-registration-runtime': 'src/brand-registration-runtime.ts',
     'hosted-creator': 'src/hosted-creator.ts',
+    'events-runtime': 'src/events-runtime.ts',
     url: 'src/url.ts',
   },
   format: ['esm'],

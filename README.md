@@ -1,6 +1,6 @@
 # Lodariq
 
-Lodariq (Arabic تلميح — _hint_) is an in-product launch and adoption workspace
+Lodariq is an in-product launch and adoption workspace
 for Product Marketing teams at frequently shipping B2B SaaS companies. Creators
 work inside the live product, inherit a safe shared Brand System, verify an
 immutable staging artifact, and promote that exact artifact to production.
@@ -19,11 +19,10 @@ This repository is the **SDK-first monorepo** described in
 SDK, schema/compiler, API, dashboard, hosted editor, and publication foundation.
 Phase 2 adds hosted permanent-loader creator activation, converges the modeless
 in-product launcher/actions, and builds the safe Brand System and exact-artifact
-environment release pipeline. Slice 2 now implements the tokenized Tour
-renderer, persisted Brand Theme workflow, document-specific delivery,
-deterministic basic preflight, and guarded staging publication locally. Product
-matching, exact browser verification, production promotion, rollback, and
-analytics isolation remain. Option 2, **Editorial Air**, is the current
+environment release pipeline. Its local implementation now includes Product
+Match, atomic draft/provenance persistence, exact browser verification, Brand
+drift review, same-artifact promotion and rollback, unpublish, and authoritative
+environment-isolated analytics. Option 2, **Editorial Air**, is the current
 provisional visual target for dashboard and hosted authoring alignment; see
 `docs/product-design/design-system-exploration-2026-08-06/README.md`.
 
@@ -108,18 +107,15 @@ pnpm --filter @lodariq/sdk-playground dev    # run the SDK playground
 
 ## Status
 
-Phase -1, Pre-Phase, and the Phase 0/1 local code alignment are verified under
-Node 24. Phase 2 Slices 1 and 2 are locally verified, and Slice 3 Product Match,
-exact browser verification, and same-artifact production promotion are
-implemented locally. The 2026-08-09 repository stabilization gate passes the
-full Node 24 `pnpm verify`: 18 typecheck tasks, 12 lint tasks, dependency
-boundaries and migration safety, 86 Vitest files / 810 tests, 11 builds,
-runtime/authoring size gates, 95 prepared SDK assets, 77 Playwright tests with
-four intentional skips, and a zero-vulnerability dependency audit. Slice 3
-preview/persistence/findings hardening, Slice 4 reliability, the first clean-
-slate database deployment and live RLS evidence, production enablement,
-rollback/unpublish, analytics isolation, and external usability evidence remain.
-Phase 2 is not complete.
+Phase -1 through Phase 1 and the Phase 2 code milestone are verified locally
+under Node 24. The 2026-08-09 completion gate passes the full `pnpm verify`: 18
+typecheck tasks, 12 lint tasks, dependency boundaries and migration safety, 126
+Vitest files / 1,064 tests, 11 builds, runtime/authoring size gates, 109 prepared
+SDK assets, 77 Playwright tests with four intentional skips, and a
+zero-vulnerability dependency audit. Phase 2 is code-complete locally. The first
+clean-slate database deployment, non-owner live RLS evidence, DNS/TLS/secrets and
+email setup, deployed staging/production smokes, the measurement-backed B4 ADR,
+and external usability evidence remain unclaimed operational/product evidence.
 
 Start with:
 

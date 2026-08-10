@@ -96,6 +96,68 @@ describe('SDK CDN asset packaging', () => {
     expect(runtimeSource).not.toContain('data-lodariq-authoring-context-toolbar');
     expect(runtimeSource.toLowerCase()).not.toContain('contenteditable');
   });
+
+  it('creates a verified existing-bucket upload plan for the selected exact CDN origin', () => {
+    execFileSync('node', ['scripts/prepare-sdk-assets.mjs'], {
+      cwd: repoRoot,
+      env: { ...process.env, LODARIQ_CDN_ORIGIN: 'https://staging-cdn.lodariq.com' },
+      stdio: 'pipe',
+    });
+    const plan = JSON.parse(
+      execFileSync('node', ['scripts/publish-sdk-assets.mjs', '--plan'], {
+        cwd: repoRoot,
+        encoding: 'utf8',
+      }),
+    ) as {
+      creatorModule: { url: string; version: string; integrity: string };
+      files: Array<{
+        key: string;
+        path: string;
+        bytes: number;
+        sha256: string;
+        cache: 'short' | 'immutable';
+        cacheControl: string;
+      }>;
+    };
+
+    expect(new URL(plan.creatorModule.url).origin).toBe('https://staging-cdn.lodariq.com');
+    expect(plan.creatorModule.version).toMatch(/^sha256-[a-f0-9]{64}$/u);
+    expect(plan.creatorModule.integrity).toMatch(/^sha256-[A-Za-z0-9+/]+=*$/u);
+    expect(plan.files.length).toBeGreaterThan(3);
+    expect(plan.files.every((file) => file.path === `/${file.key}`)).toBe(true);
+    expect(plan.files.every((file) => file.bytes > 0 && /^[a-f0-9]{64}$/u.test(file.sha256))).toBe(
+      true,
+    );
+    expect(plan.files.find((file) => file.path === '/sdk/lodariq-loader.js')).toMatchObject({
+      cache: 'short',
+      cacheControl: 'public,max-age=300,must-revalidate',
+    });
+    expect(plan.files.find((file) => file.path === new URL(plan.creatorModule.url).pathname)).toMatchObject(
+      {
+        cache: 'immutable',
+        cacheControl: 'public,max-age=31536000,immutable',
+      },
+    );
+
+    const publisher = readFileSync(resolve(repoRoot, 'scripts/publish-sdk-assets.mjs'), 'utf8');
+    expect(publisher).toContain("'head-bucket'");
+    expect(publisher).toContain("'put-object'");
+    expect(publisher).toContain("'head-object'");
+    expect(publisher).not.toMatch(/delete-object|delete-bucket|create-bucket/iu);
+  });
+
+  it('rejects a non-origin CDN value before preparing uploadable assets', () => {
+    expect(() =>
+      execFileSync('node', ['scripts/prepare-sdk-assets.mjs'], {
+        cwd: repoRoot,
+        env: {
+          ...process.env,
+          LODARIQ_CDN_ORIGIN: 'https://cdn.lodariq.com/customer/path',
+        },
+        stdio: 'pipe',
+      }),
+    ).toThrow();
+  });
 });
 
 function isRuntimeDeliveryAsset(path: string): boolean {

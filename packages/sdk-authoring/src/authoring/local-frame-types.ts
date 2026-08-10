@@ -7,6 +7,14 @@ import {
   type AuthoringStagingReleaseStateName,
   type LodariqDocument,
   type ProductStyleProposal,
+  type AuthoringProductMatchApplyResult,
+  type AuthoringBrandDriftCheckResult,
+  type AuthoringBrandThemeAcknowledgementRequest,
+  type AuthoringBrandThemeAcknowledgementResult,
+  type BrandDriftCheckRequest,
+  type ReleaseRecoveryRequest,
+  type ReleaseRecoveryResult,
+  type ReleaseRecoveryStateResponse,
 } from '@lodariq/schema';
 
 export { AUTHORING_STAGING_RELEASE_STATES };
@@ -102,6 +110,7 @@ export interface AuthoringBrandMatchRequest {
 export interface AuthoringBrandMatchApplyResult {
   brand: AuthoringBrandWorkspaceState;
   savedAs: 'draft' | 'unchanged';
+  persisted: AuthoringProductMatchApplyResult;
 }
 
 export const AUTHORING_RELEASE_CHECK_STATUSES = ['passed', 'warning', 'failed'] as const;
@@ -139,6 +148,11 @@ export interface AuthoringStagingArtifactState extends AuthoringReleaseArtifactS
   verification: AuthoringReleaseVerification;
 }
 
+export interface AuthoringReleaseEnvironmentReference {
+  environment: 'staging' | 'production';
+  environmentId: string;
+}
+
 export interface AuthoringReleaseWorkflowState {
   draft: {
     version?: number;
@@ -147,6 +161,8 @@ export interface AuthoringReleaseWorkflowState {
   };
   staging: AuthoringStagingArtifactState | null;
   production: AuthoringReleaseArtifactState | null;
+  /** Exact pipeline scopes stay available even when an environment has no active artifact. */
+  environments?: readonly AuthoringReleaseEnvironmentReference[];
   rendererVersion?: string;
   theme?: { name: string; version: number };
   changes?: string[];
@@ -208,6 +224,13 @@ export interface LocalAuthoringFrameServices {
   compilePreview: (doc: LodariqDocument) => Promise<unknown>;
   /** Hosted, authoring-session-scoped staging truth. Absent in local preview. */
   getReleaseState?: () => Promise<AuthoringStagingReleaseState>;
+  /** Complete, server-vetted history for one exact selected environment. */
+  getReleaseRecoveryState?: (environmentId: string) => Promise<ReleaseRecoveryStateResponse>;
+  /** Guarded rollback/unpublish only; this boundary never accepts compiler input. */
+  recoverRelease?: (
+    environmentId: string,
+    request: ReleaseRecoveryRequest,
+  ) => Promise<ReleaseRecoveryResult>;
   /** Explains why release services are intentionally absent. */
   releaseUnavailableReason?: 'local-preview' | 'not-authorized';
   /**
@@ -224,9 +247,22 @@ export interface LocalAuthoringFrameServices {
    * interaction and returns only a privacy-safe semantic proposal.
    */
   sampleBrandStyle?: (request: AuthoringBrandMatchRequest) => Promise<AuthoringBrandMatchProposal>;
+  /** Converts a drift proposal into the existing Product Match review model without adopting it. */
+  prepareBrandMatchProposal?: (proposal: ProductStyleProposal) => AuthoringBrandMatchProposal;
+  /** Authenticated detection appends only an immutable bounded report. */
+  checkBrandDrift?: (request: BrandDriftCheckRequest) => Promise<AuthoringBrandDriftCheckResult>;
+  /** Explicit exact-version/document-CAS acknowledgement. */
+  acknowledgeBrandTheme?: (
+    request: AuthoringBrandThemeAcknowledgementRequest,
+  ) => Promise<AuthoringBrandThemeAcknowledgementResult>;
   applyBrandMatch?: (
     proposal: AuthoringBrandMatchProposal,
   ) => Promise<AuthoringBrandMatchApplyResult>;
+  /**
+   * Adopts only a server-returned, validated mutable draft for browser preview.
+   * Approved and published theme identities remain unchanged.
+   */
+  adoptBrandPreviewTheme?: (result: AuthoringProductMatchApplyResult) => boolean;
   /** Consolidated exact-artifact release truth. The host keeps credentials out of this frame. */
   getReleaseWorkflowState?: () => Promise<AuthoringReleaseWorkflowState>;
   /** Host temporarily removes creator chrome while this exact-artifact check runs. */

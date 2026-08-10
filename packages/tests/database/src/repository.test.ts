@@ -444,6 +444,14 @@ describe('control-plane repository', () => {
     const tokenHash = 'a'.repeat(64);
     const repository = createInMemoryControlPlaneRepository({
       environments: [createEnvironmentFixture('env_staging', 'staging')],
+      workspaceMemberships: [
+        {
+          workspaceId: 'wk_a',
+          userId: 'user_a',
+          role: 'member',
+          createdAt,
+        },
+      ],
       publicSdkInstallations: [
         {
           installationId,
@@ -497,6 +505,155 @@ describe('control-plane repository', () => {
       authoringEnabled: false,
     });
     await expect(repository.resolveAuthoringSession('wk_a', tokenHash)).resolves.toBeNull();
+  });
+
+  it('revokes direct and hosted authoring sessions after policy disable or membership removal', async () => {
+    const createdAt = '2026-08-07T00:00:00.000Z';
+    const installationId = 'ins_pub_sessionpolicy001';
+    const directTokenHash = 'c'.repeat(64);
+    const hostedTokenHash = 'd'.repeat(64);
+    const sessionSeed = {
+      environments: [
+        createEnvironmentFixture('env_development', 'development'),
+        createEnvironmentFixture('env_staging', 'staging'),
+        createEnvironmentFixture('env_production', 'production'),
+      ],
+      publicSdkInstallations: [
+        {
+          installationId,
+          workspaceId: 'wk_a',
+          name: 'Session policy fixture',
+          createdByUserId: 'user_a',
+          createdAt,
+          updatedAt: createdAt,
+          revokedAt: null,
+        },
+      ],
+      publicSdkInstallationOrigins: [
+        {
+          installationId,
+          workspaceId: 'wk_a',
+          environmentId: 'env_staging',
+          exactOrigin: 'https://app.example.com',
+          authoringEnabled: true,
+          createdAt,
+          updatedAt: createdAt,
+        },
+      ],
+      authoringSessions: [
+        {
+          id: 'authsess_direct_policy',
+          workspaceId: 'wk_a',
+          environmentId: 'env_staging',
+          environment: 'staging' as const,
+          documentId: 'doc_direct_policy',
+          correlationId: 'corr_direct_policy',
+          tokenHash: directTokenHash,
+          iframeSrc: 'https://editor.lodariq.com/authoring.html',
+          createdByUserId: 'user_a',
+          createdAt,
+          expiresAt: '2099-01-01T00:00:00.000Z',
+          revokedAt: null,
+        },
+        {
+          id: 'authsess_hosted_policy',
+          workspaceId: 'wk_a',
+          environmentId: 'env_staging',
+          environment: 'staging' as const,
+          documentId: 'doc_hosted_policy',
+          correlationId: 'corr_hosted_policy',
+          tokenHash: hostedTokenHash,
+          iframeSrc: 'https://editor.lodariq.com/authoring.html',
+          createdByUserId: 'user_a',
+          createdAt,
+          expiresAt: '2099-01-01T00:00:00.000Z',
+          revokedAt: null,
+          installationId,
+          activationGrantId: 'authgrant_hosted_policy',
+          customerOrigin: 'https://app.example.com',
+          capabilities: ['document:read' as const],
+        },
+      ],
+    };
+    const repository = createInMemoryControlPlaneRepository({
+      ...sessionSeed,
+      workspaceMemberships: [
+        {
+          workspaceId: 'wk_a',
+          userId: 'user_a',
+          role: 'member',
+          createdAt,
+        },
+      ],
+    });
+
+    await expect(
+      repository.resolveAuthoringSession('wk_a', directTokenHash),
+    ).resolves.not.toBeNull();
+    await expect(
+      repository.resolveAuthoringSessionByTokenHash(hostedTokenHash),
+    ).resolves.not.toBeNull();
+
+    const updateEnvironment = async (
+      environmentId: string,
+      enabled: boolean,
+      authoringEnabled: boolean,
+    ): Promise<void> => {
+      const current = (await repository.listEnvironments('wk_a')).find(
+        (environment) => environment.id === environmentId,
+      );
+      if (
+        !current?.releasePolicy ||
+        current.pipelinePosition === undefined ||
+        current.authoringEnabled === undefined
+      ) {
+        throw new Error('normalized environment policy fixture missing');
+      }
+      await repository.updateWorkspaceEnvironmentPolicy({
+        workspaceId: 'wk_a',
+        environmentId: current.id,
+        name: current.name,
+        originAllowlist: current.originAllowlist,
+        enabled,
+        pipelinePosition: current.pipelinePosition as 0 | 1 | 2,
+        authoringEnabled,
+        ...(current.promotionSourceEnvironmentId
+          ? { promotionSourceEnvironmentId: current.promotionSourceEnvironmentId }
+          : {}),
+        releasePolicy: current.releasePolicy,
+        expectedUpdatedAt: current.updatedAt,
+        actorUserId: 'user_a',
+      });
+    };
+
+    await updateEnvironment('env_staging', true, false);
+    await expect(repository.resolveAuthoringSession('wk_a', directTokenHash)).resolves.toBeNull();
+    await expect(
+      repository.resolveAuthoringSessionByTokenHash(hostedTokenHash),
+    ).resolves.toBeNull();
+
+    await updateEnvironment('env_staging', true, true);
+    await expect(
+      repository.resolveAuthoringSession('wk_a', directTokenHash),
+    ).resolves.not.toBeNull();
+    await expect(
+      repository.resolveAuthoringSessionByTokenHash(hostedTokenHash),
+    ).resolves.not.toBeNull();
+
+    await updateEnvironment('env_production', false, false);
+    await updateEnvironment('env_staging', false, true);
+    await expect(repository.resolveAuthoringSession('wk_a', directTokenHash)).resolves.toBeNull();
+    await expect(
+      repository.resolveAuthoringSessionByTokenHash(hostedTokenHash),
+    ).resolves.toBeNull();
+
+    const repositoryAfterMembershipRemoval = createInMemoryControlPlaneRepository(sessionSeed);
+    await expect(
+      repositoryAfterMembershipRemoval.resolveAuthoringSession('wk_a', directTokenHash),
+    ).resolves.toBeNull();
+    await expect(
+      repositoryAfterMembershipRemoval.resolveAuthoringSessionByTokenHash(hostedTokenHash),
+    ).resolves.toBeNull();
   });
 
   it('lists every workspace installation with deterministically sorted origin mappings for audit', async () => {
@@ -584,6 +741,14 @@ describe('control-plane repository', () => {
       environments: [
         createEnvironmentFixture('env_development', 'development'),
         createEnvironmentFixture('env_staging', 'staging'),
+      ],
+      workspaceMemberships: [
+        {
+          workspaceId: 'wk_a',
+          userId: 'user_a',
+          role: 'member',
+          createdAt: '2026-08-07T00:00:00.000Z',
+        },
       ],
       authoringSessions: [
         {
@@ -1049,6 +1214,149 @@ describe('control-plane repository', () => {
     }
   });
 
+  it('fails closed immediately when authoring policy is disabled after each issued grant', async () => {
+    const environments = [
+      createEnvironmentFixture('env_development', 'development'),
+      createEnvironmentFixture('env_staging', 'staging'),
+      createEnvironmentFixture('env_production', 'production'),
+    ];
+    const repository = createInMemoryControlPlaneRepository({
+      environments,
+      users: [
+        {
+          id: 'user_a',
+          legacyIdentityId: 'retired_provider_user_a',
+          email: 'creator@lodariq.test',
+          name: 'Creator',
+          createdAt: new Date().toISOString(),
+        },
+      ],
+      workspaceMemberships: [
+        {
+          workspaceId: 'wk_a',
+          userId: 'user_a',
+          role: 'member',
+          createdAt: new Date().toISOString(),
+        },
+      ],
+    });
+    const installationId = 'ins_pub_policyfreeze0010';
+    const exactOrigin = 'https://policy.example.com';
+    await repository.getOrCreatePublicSdkInstallation({
+      workspaceId: 'wk_a',
+      installationId,
+      name: 'Policy freeze application',
+      actorUserId: 'user_a',
+    });
+    await repository.setPublicSdkInstallationOrigin({
+      workspaceId: 'wk_a',
+      installationId,
+      environmentId: 'env_staging',
+      origin: exactOrigin,
+      authoringEnabled: true,
+    });
+
+    const setStagingAuthoringEnabled = async (authoringEnabled: boolean): Promise<void> => {
+      const current = (await repository.listEnvironments('wk_a')).find(
+        (environment) => environment.id === 'env_staging',
+      );
+      if (
+        !current?.releasePolicy ||
+        current.pipelinePosition !== 1 ||
+        current.authoringEnabled === undefined
+      ) {
+        throw new Error('normalized staging policy fixture missing');
+      }
+      await repository.updateWorkspaceEnvironmentPolicy({
+        workspaceId: 'wk_a',
+        environmentId: current.id,
+        name: current.name,
+        originAllowlist: current.originAllowlist,
+        enabled: current.enabled ?? true,
+        pipelinePosition: current.pipelinePosition,
+        authoringEnabled,
+        releasePolicy: current.releasePolicy,
+        expectedUpdatedAt: current.updatedAt,
+        actorUserId: 'user_a',
+      });
+    };
+
+    const rawBootstrapGrant = createPublicSdkBootstrapGrant();
+    const bootstrapGrantHash = hashPublicSdkBootstrapGrant(rawBootstrapGrant);
+    await repository.createPublicSdkBootstrapGrant({
+      workspaceId: 'wk_a',
+      installationId,
+      environmentId: 'env_staging',
+      exactOrigin,
+      grantHash: bootstrapGrantHash,
+      expiresAt: new Date(Date.now() + 270_000).toISOString(),
+    });
+    const rawState = `authoring_state_${'p'.repeat(32)}`;
+    const stateHash = hashAuthoringAuthorizationState(rawState);
+    const codeVerifier = 'v'.repeat(64);
+    const requestInput = {
+      installationId,
+      exactOrigin,
+      bootstrapGrantHash,
+      stateHash,
+      codeChallenge: deriveAuthoringPkceS256Challenge(codeVerifier),
+      requestedCapabilities: [
+        AUTHORING_ACTIVATION_CAPABILITIES.CREATE_DOCUMENT,
+      ] as AuthoringActivationCapability[],
+      expiresAt: new Date(Date.now() + 240_000).toISOString(),
+    };
+
+    await setStagingAuthoringEnabled(false);
+    await expect(repository.createAuthoringAuthorizationRequest(requestInput)).resolves.toBeNull();
+
+    await setStagingAuthoringEnabled(true);
+    const request = await repository.createAuthoringAuthorizationRequest(requestInput);
+    if (!request) throw new Error('authorization request fixture missing');
+    const authorizationCodeHash = hashAuthoringAuthorizationCode(
+      createAuthoringAuthorizationCode(),
+    );
+    const approveInput = {
+      workspaceId: 'wk_a',
+      requestId: request.requestId,
+      stateHash,
+      creatorId: 'user_a',
+      authorizationCodeHash,
+      authorizationCodeExpiresAt: new Date(Date.now() + 90_000).toISOString(),
+    } as const;
+
+    await setStagingAuthoringEnabled(false);
+    await expect(repository.approveAuthoringAuthorizationRequest(approveInput)).resolves.toBeNull();
+
+    await setStagingAuthoringEnabled(true);
+    await expect(
+      repository.approveAuthoringAuthorizationRequest(approveInput),
+    ).resolves.not.toBeNull();
+    const rawActivationGrant = createAuthoringActivationGrant();
+    const activationGrantHash = hashAuthoringActivationGrant(rawActivationGrant);
+    await expect(
+      repository.exchangeAuthoringAuthorizationCode({
+        installationId,
+        exactOrigin,
+        requestId: request.requestId,
+        bootstrapGrantHash,
+        stateHash,
+        authorizationCodeHash,
+        codeVerifier,
+        activationGrantHash,
+        activationGrantExpiresAt: new Date(Date.now() + 120_000).toISOString(),
+      }),
+    ).resolves.not.toBeNull();
+
+    await setStagingAuthoringEnabled(false);
+    await expect(
+      repository.consumeAuthoringActivationGrant({
+        installationId,
+        exactOrigin,
+        grantHash: activationGrantHash,
+      }),
+    ).resolves.toBeNull();
+  });
+
   it('revokes an unused activation grant exactly once', async () => {
     const fixture = await createAuthoringActivationFixture();
     const authorizationCodeHash = hashAuthoringAuthorizationCode(
@@ -1452,6 +1760,14 @@ describe('control-plane repository', () => {
     const repository = createInMemoryControlPlaneRepository({
       documents: [document],
       environments: [environment],
+      workspaceMemberships: [
+        {
+          workspaceId: 'wk_a',
+          userId: 'user_a',
+          role: 'member',
+          createdAt: environment.createdAt,
+        },
+      ],
     });
 
     const session = await repository.createAuthoringSession({
@@ -1731,7 +2047,23 @@ describe('control-plane repository', () => {
       'doc_secondary',
       'Secondary tour',
     );
-    const repository = createInMemoryControlPlaneRepository({ environments: [environment] });
+    const repository = createInMemoryControlPlaneRepository({
+      environments: [environment],
+      workspaceMemberships: [
+        {
+          workspaceId: 'wk_a',
+          userId: 'user_a',
+          role: 'member',
+          createdAt: environment.createdAt,
+        },
+        {
+          workspaceId: 'wk_a',
+          userId: 'user_b',
+          role: 'member',
+          createdAt: environment.createdAt,
+        },
+      ],
+    });
     const savedA = await repository.saveDocument({
       workspaceId: 'wk_a',
       actorUserId: 'user_a',
@@ -1757,6 +2089,7 @@ describe('control-plane repository', () => {
       idempotencyKey: 'publish:primary:1',
       requestHash: savedA.latestArtifact.contentHash,
       expectedGeneration: 0,
+      expectedEnvironmentPolicyUpdatedAt: environment.updatedAt,
     } as const;
     const activationA = await repository.activateCompiledArtifact(activationAInput);
     const publicationA = activationA.publication;
@@ -1775,6 +2108,7 @@ describe('control-plane repository', () => {
       idempotencyKey: 'publish:secondary:1',
       requestHash: savedB.latestArtifact.contentHash,
       expectedGeneration: 0,
+      expectedEnvironmentPolicyUpdatedAt: environment.updatedAt,
     });
     const publicationB = activationB.publication;
     expect(publicationB).toMatchObject({
@@ -1818,6 +2152,7 @@ describe('control-plane repository', () => {
       idempotencyKey: 'publish:primary:2',
       requestHash: savedA.latestArtifact.contentHash,
       expectedGeneration: 1,
+      expectedEnvironmentPolicyUpdatedAt: environment.updatedAt,
     });
     const publicationA2 = activationA2.publication;
     expect(publicationA2).toMatchObject({
@@ -2345,12 +2680,22 @@ function createEnvironmentFixture(
   kind: WorkspaceEnvironment['kind'],
 ): WorkspaceEnvironment {
   const timestamp = '2026-01-01T00:00:00.000Z';
+  const originAllowlist =
+    kind === 'production'
+      ? ['https://app.example.com']
+      : [
+          'http://localhost:4173',
+          'http://localhost:5175',
+          'https://app.example.com',
+          'https://policy.example.com',
+          'https://stale.example.com',
+        ];
   return {
     id,
     workspaceId: 'wk_a',
     kind,
     name: kind,
-    originAllowlist: [],
+    originAllowlist,
     createdAt: timestamp,
     updatedAt: timestamp,
   };

@@ -11,6 +11,7 @@ import {
   type CompiledDocument,
   type LodariqDocument,
 } from '@lodariq/schema';
+import { DEFAULT_EXPERIENCE_APPEARANCE } from '@lodariq/schema/brand-runtime';
 import tourFixture from '@lodariq/schema/fixtures/tour.linear.v1.json';
 import {
   LODARIQ_AUTHORING_PREVIEW_OWNER_ATTRIBUTE,
@@ -76,6 +77,21 @@ const compiledDoc: CompiledDocument = {
   ],
 };
 
+const outlineDisabledCompiledDoc = {
+  ...compiledDoc,
+  artifactSchemaVersion: COMPILED_ARTIFACT_SCHEMA_VERSION,
+  contentHash: `sha256-${'1'.repeat(64)}`,
+  compilerVersion: COMPILER_VERSION,
+  rendererContractVersion: RENDERER_CONTRACT_VERSION,
+  trigger: { type: 'manual' },
+  audience: { environments: ['staging'] },
+  theme: LODARIQ_ACCESSIBLE_FALLBACK_THEME_V1,
+  appearance: {
+    ...DEFAULT_EXPERIENCE_APPEARANCE,
+    displayTargetOutline: false,
+  },
+} as CompiledDocumentV2;
+
 const nativeGetBoundingClientRect = Element.prototype.getBoundingClientRect;
 
 describe('tour renderer (PRD §16.1)', () => {
@@ -98,6 +114,45 @@ describe('tour renderer (PRD §16.1)', () => {
     new TourPlayer(compiledDoc).start();
 
     expect(document.querySelectorAll('lodariq-tour')).toHaveLength(1);
+  });
+
+  it('keeps the target outline absent when delivery playback explicitly disables it', async () => {
+    const player = new TourPlayer(outlineDisabledCompiledDoc);
+    player.start();
+    await player.waitUntilReady();
+
+    const root = document.querySelector('lodariq-tour')?.shadowRoot;
+    expect(root?.querySelector('[data-lodariq-target-outline]')).toBeNull();
+    player.stop();
+  });
+
+  it('positions the default target outline around a legacy delivery owner as it moves', async () => {
+    const owner = document.querySelector<HTMLElement>('[data-lodariq-id="new-project"]')!;
+    let ownerRect = domRect({ x: 52, y: 76, width: 220, height: 84 });
+    owner.getBoundingClientRect = vi.fn(() => ownerRect);
+    const player = new TourPlayer(compiledDoc);
+
+    player.start();
+    await player.waitUntilReady();
+
+    const root = document.querySelector('lodariq-tour')?.shadowRoot;
+    const outline = root?.querySelector<HTMLElement>('[data-lodariq-target-outline]');
+    expect(outline?.hidden).toBe(false);
+    expect(outline?.getAttribute('aria-hidden')).toBe('true');
+    expect(outline?.style.left).toBe('49px');
+    expect(outline?.style.top).toBe('73px');
+    expect(outline?.style.width).toBe('226px');
+    expect(outline?.style.height).toBe('90px');
+
+    ownerRect = domRect({ x: 96, y: 128, width: 260, height: 104 });
+    window.dispatchEvent(new Event('scroll'));
+    await nextTask();
+
+    expect(outline?.style.left).toBe('93px');
+    expect(outline?.style.top).toBe('125px');
+    expect(outline?.style.width).toBe('266px');
+    expect(outline?.style.height).toBe('110px');
+    player.stop();
   });
 
   it('does not steal focus when a target-bound step cannot resolve safely', async () => {
@@ -649,6 +704,9 @@ describe('tour renderer (PRD §16.1)', () => {
       `lodariq-tour[${LODARIQ_AUTHORING_PREVIEW_OWNER_ATTRIBUTE}="authoring_owner_interactive"]`,
     );
     const card = host?.shadowRoot?.querySelector<HTMLElement>('[role="dialog"]');
+    expect(
+      host?.shadowRoot?.querySelector<HTMLElement>('[data-lodariq-target-outline]')?.hidden,
+    ).toBe(true);
     expect(card?.textContent).toContain('Create your first project');
     card?.querySelector<HTMLButtonElement>('button')?.click();
     await nextTask();
@@ -732,6 +790,8 @@ describe('tour renderer (PRD §16.1)', () => {
     document.body.innerHTML =
       '<article><span>Active projects</span><strong>18</strong><small>3 launched this month</small></article>';
     const selected = document.querySelector('article')!;
+    let selectedRect = domRect({ x: 80, y: 120, width: 240, height: 96 });
+    selected.getBoundingClientRect = vi.fn(() => selectedRect);
     const onTargetResolution = vi.fn();
     const player = new TourPlayer(compiledDoc, {
       authoringPreviewOwnerId: 'authoring_owner_exact_selection',
@@ -742,14 +802,24 @@ describe('tour renderer (PRD §16.1)', () => {
     player.start();
     await player.waitUntilReady();
 
-    const card = document
-      .querySelector(
-        `lodariq-tour[${LODARIQ_AUTHORING_PREVIEW_OWNER_ATTRIBUTE}="authoring_owner_exact_selection"]`,
-      )
-      ?.shadowRoot?.querySelector<HTMLElement>('[role="dialog"]');
+    const host = document.querySelector<HTMLElement>(
+      `lodariq-tour[${LODARIQ_AUTHORING_PREVIEW_OWNER_ATTRIBUTE}="authoring_owner_exact_selection"]`,
+    );
+    const card = host?.shadowRoot?.querySelector<HTMLElement>('[role="dialog"]');
+    const ring = host?.shadowRoot?.querySelector<HTMLElement>('[data-lodariq-target-outline]');
     expect(card?.hidden).toBe(false);
     expect(card?.style.left).toBe('12px');
     expect(card?.style.top).toBe('16px');
+    expect(ring?.hidden).toBe(false);
+    expect(ring?.getAttribute('aria-hidden')).toBe('true');
+    expect(ring?.style.left).toBe('77px');
+    expect(ring?.style.top).toBe('117px');
+    expect(ring?.style.width).toBe('246px');
+    expect(ring?.style.height).toBe('102px');
+    expect(host?.style.getPropertyValue('--lq-tour-focus-color')).toBe('#0b63ce');
+    const styles = host?.shadowRoot?.querySelector('style')?.textContent ?? '';
+    expect(styles).toContain('border: 2px solid var(--lq-tour-focus-color)');
+    expect(styles).toContain('pointer-events: none');
     expect(onTargetResolution).toHaveBeenCalledWith(
       expect.objectContaining({ id: 'step_1' }),
       expect.objectContaining({
@@ -758,6 +828,15 @@ describe('tour renderer (PRD §16.1)', () => {
         reasonCode: 'resolved',
       }),
     );
+
+    selectedRect = domRect({ x: 124, y: 164, width: 280, height: 112 });
+    window.dispatchEvent(new Event('scroll'));
+    await nextTask();
+
+    expect(ring?.style.left).toBe('121px');
+    expect(ring?.style.top).toBe('161px');
+    expect(ring?.style.width).toBe('286px');
+    expect(ring?.style.height).toBe('118px');
     player.stop();
   });
 
@@ -891,6 +970,7 @@ describe('tour renderer (PRD §16.1)', () => {
       density: 'comfortable',
       width: 'standard',
       colorMode: 'system',
+      displayTargetOutline: true,
     });
     expect(resolved.colorMode).toBe('dark');
   });
@@ -1541,6 +1621,51 @@ describe('tour renderer (PRD §16.1)', () => {
     owner.hidden = false;
     await revalidationTask();
     expect(card?.hidden).toBe(false);
+  });
+
+  it('keeps authoring preview focus while its visible owner and surrounding page mutate', async () => {
+    const owner = document.querySelector<HTMLElement>('[data-lodariq-id="new-project"]')!;
+    let ownerRect = domRect({ x: 40, y: 60, width: 300, height: 160 });
+    owner.getBoundingClientRect = vi.fn(() => ownerRect);
+    const player = new TourPlayer(compiledDoc, {
+      authoringPreviewOwnerId: 'authoring-preview-focus',
+    });
+    player.start();
+    await player.waitUntilReady();
+
+    const root = document.querySelector('lodariq-tour')?.shadowRoot;
+    const card = root?.querySelector<HTMLElement>('[role="dialog"]');
+    const ring = root?.querySelector<HTMLElement>('[data-lodariq-target-outline]');
+    const heading = root?.querySelector<HTMLElement>(
+      `[${LODARIQ_RENDERED_NODE_ID_ATTRIBUTE}="heading_1"]`,
+    );
+    if (!heading) throw new Error('Authoring preview heading missing');
+    heading.setAttribute('contenteditable', 'plaintext-only');
+    heading.focus();
+    expect(root?.activeElement).toBe(heading);
+
+    const unrelatedStatus = document.createElement('div');
+    unrelatedStatus.textContent = 'Unrelated application status';
+    document.body.appendChild(unrelatedStatus);
+    await revalidationTask();
+
+    expect(card?.hidden).toBe(false);
+    expect(ring?.hidden).toBe(false);
+    expect(root?.activeElement).toBe(heading);
+
+    ownerRect = domRect({ x: 72, y: 88, width: 320, height: 172 });
+    owner.dataset['renderState'] = 'updated';
+    await revalidationTask();
+
+    expect(card?.hidden).toBe(false);
+    expect(root?.querySelector('[data-lodariq-target-outline]')).toBe(ring);
+    expect(ring?.hidden).toBe(false);
+    expect(ring?.style.left).toBe('69px');
+    expect(ring?.style.top).toBe('85px');
+    expect(ring?.style.width).toBe('326px');
+    expect(ring?.style.height).toBe('178px');
+    expect(root?.activeElement).toBe(heading);
+    player.stop();
   });
 
   it('positions a presentation-only tour against an anonymous visual anchor', async () => {

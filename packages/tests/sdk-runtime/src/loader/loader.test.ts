@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { webcrypto } from 'node:crypto';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -24,6 +25,7 @@ import {
   fetchPublicSdkBootstrapContext,
   installPublicSdkFromScript,
   readPublicConfigFromScript,
+  type HostedCreatorActivation,
 } from '@lodariq/sdk-runtime/public-bootstrap';
 import { LodariqRuntime } from '@lodariq/sdk-runtime/runtime';
 import type { TargetResolutionContext } from '@lodariq/sdk-runtime/resolver';
@@ -725,6 +727,141 @@ describe('loader config (PRD §6.2, §9.2)', () => {
     expect(window.Lodariq).toBeUndefined();
     installed?.destroy();
     script.remove();
+  });
+
+  it('keeps the permanent-loader target-state provider live through hosted activation', async () => {
+    const customerOrigin = 'https://staging.customer.example';
+    const futureDate = '2099-01-01T00:00:00.000Z';
+    vi.stubGlobal('location', {
+      href: `${customerOrigin}/projects`,
+      origin: customerOrigin,
+    });
+
+    let applicationState = 'workspace.collapsed';
+    const getTargetStateId = vi.fn(() => applicationState);
+    let hostedProvider: HostedCreatorActivation['getTargetStateId'];
+    const popup = {
+      closed: false,
+      close: vi.fn(() => {
+        popup.closed = true;
+      }),
+      postMessage: vi.fn((message: unknown, targetOrigin: string) => {
+        expect(targetOrigin).toBe('https://app.lodariq.com');
+        if (!message || typeof message !== 'object') return;
+        const request = message as Record<string, unknown>;
+        window.dispatchEvent(
+          new MessageEvent('message', {
+            source: popup as unknown as Window,
+            origin: 'https://app.lodariq.com',
+            data: {
+              protocol: 'lodariq.authoring.activation.v1',
+              type: 'authoring.authorization.result',
+              requestId: request['requestId'],
+              state: request['state'],
+              authorizationCode: `lod_code_${'c'.repeat(40)}`,
+              expiresAt: futureDate,
+            },
+          }),
+        );
+      }),
+    };
+    const open = vi
+      .spyOn(window, 'open')
+      .mockReturnValue(popup as unknown as WindowProxy);
+
+    const fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.endsWith('/v1/sdk/bootstrap')) {
+        return new Response(
+          JSON.stringify({
+            ...publicBootstrapBase,
+            environment: 'staging',
+            authoring: availableAuthoring,
+          }),
+          { status: 200, headers: { 'content-type': 'application/json' } },
+        );
+      }
+      const body = JSON.parse(String(init?.body)) as Record<string, unknown>;
+      if (url.endsWith('/authorization-requests')) {
+        return new Response(
+          JSON.stringify({
+            requestId: 'authreq_permanent_loader',
+            installationId: publicInstallationId,
+            workspaceId: 'wk_permanent_loader',
+            environmentId: 'env_staging',
+            environment: 'staging',
+            customerOrigin,
+            state: body['state'],
+            codeChallenge: body['codeChallenge'],
+            codeChallengeMethod: 'S256',
+            requestedCapabilities: ['documents:create', 'documents:list', 'documents:select'],
+            expiresAt: futureDate,
+          }),
+          { status: 201, headers: { 'content-type': 'application/json' } },
+        );
+      }
+      if (url.endsWith('/authoring/exchange')) {
+        return new Response(
+          JSON.stringify({
+            activationGrant: `lod_activation_${'g'.repeat(40)}`,
+            context: {
+              grantId: 'grant_permanent_loader',
+              requestId: 'authreq_permanent_loader',
+              installationId: publicInstallationId,
+              workspaceId: 'wk_permanent_loader',
+              environmentId: 'env_staging',
+              environment: 'staging',
+              customerOrigin,
+              editorOrigin: 'https://editor.lodariq.com',
+              creatorId: 'creator_permanent_loader',
+              capabilities: ['documents:create', 'documents:list', 'documents:select'],
+              expiresAt: futureDate,
+            },
+            creatorModule: {
+              url: `https://cdn.lodariq.com/sdk/sha256-${'0'.repeat(64)}/creator.js`,
+              version: 'sha256-test',
+              integrity: `sha256-${'A'.repeat(43)}=`,
+            },
+          }),
+          { status: 200, headers: { 'content-type': 'application/json' } },
+        );
+      }
+      throw new Error(`Unexpected permanent-loader request: ${url}`);
+    });
+    vi.stubGlobal('fetch', fetch);
+    const script = document.createElement('script');
+    script.dataset['installation'] = publicInstallationId;
+    document.body.append(script);
+
+    const installed = await installPublicSdkFromScript({
+      crypto: webcrypto as unknown as Crypto,
+      fetchFn: fetch as unknown as typeof globalThis.fetch,
+      getTargetStateId,
+      loadCreatorModule: async () => ({
+        activateLodariqAuthoring: (input) => {
+          hostedProvider = input.getTargetStateId;
+        },
+      }),
+      pageIntent: { origin: customerOrigin },
+      script,
+      timeoutMs: 2_000,
+    });
+    if (!installed?.launcher) throw new Error('permanent authoring launcher missing');
+
+    await installed.launcher.activate();
+
+    expect(hostedProvider).toBe(getTargetStateId);
+    expect(getTargetStateId).not.toHaveBeenCalled();
+    expect(hostedProvider?.()).toBe('workspace.collapsed');
+    applicationState = 'workspace.expanded';
+    expect(hostedProvider?.()).toBe('workspace.expanded');
+    expect(getTargetStateId).toHaveBeenCalledTimes(2);
+    expect(document.documentElement.outerHTML).not.toContain('workspace.collapsed');
+    expect(sessionStorage.length).toBe(0);
+
+    installed.destroy();
+    script.remove();
+    open.mockRestore();
   });
 
   it('wires Preview as user to the installed public viewer runtime', async () => {

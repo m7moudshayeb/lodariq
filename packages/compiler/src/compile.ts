@@ -1,10 +1,10 @@
 import {
   BrandThemeSnapshot,
-  DEFAULT_EXPERIENCE_APPEARANCE,
   RendererContractVersion,
   COMPILED_ARTIFACT_SCHEMA_VERSION,
   isPresentationAnchor,
   isValid,
+  resolveExperienceAppearance,
   sanitizeBlockProps,
   sanitizePresentationAnchor,
   type BrandThemeSnapshot as BrandThemeSnapshotType,
@@ -102,7 +102,7 @@ export function compile(input: CompileInput): Omit<CompiledDocumentV2, 'contentH
     trigger: structuredClone(document.trigger),
     audience: structuredClone(document.audience),
     theme: structuredClone(input.theme),
-    appearance: structuredClone(document.appearance ?? DEFAULT_EXPERIENCE_APPEARANCE),
+    appearance: structuredClone(resolveExperienceAppearance(document.appearance)),
     targets: document.targets.map((t) => ({
       id: t.id,
       fingerprint: deliveryFingerprint(t.fingerprint, Boolean(t.identity)),

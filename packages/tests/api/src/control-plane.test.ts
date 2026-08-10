@@ -5,7 +5,11 @@ import {
   createHeaderAuthProvider,
 } from '@lodariq/api';
 import {
+  createAuthoringSessionToken,
+  createEnvironmentClientToken,
   createInMemoryControlPlaneRepository,
+  hashAuthoringSessionToken,
+  hashEnvironmentToken,
   type ControlPlaneRepository,
   type IngestEventsInput,
 } from '@lodariq/database';
@@ -29,6 +33,161 @@ const authHeaders = {
 };
 
 describe('@lodariq/api control-plane routes', () => {
+  it('updates the full opaque-id environment policy behind CAS and preserves the legacy approval toggle', async () => {
+    const createdAt = '2026-08-09T00:00:00.000Z';
+    const environments = [
+      {
+        id: 'env_opaque_dev_71',
+        workspaceId: 'wk_a',
+        kind: 'development' as const,
+        name: 'Development',
+        originAllowlist: ['http://localhost:5175'],
+        createdAt,
+        updatedAt: createdAt,
+      },
+      {
+        id: 'env_opaque_stage_28',
+        workspaceId: 'wk_a',
+        kind: 'staging' as const,
+        name: 'Staging',
+        originAllowlist: ['https://staging.customer.example'],
+        createdAt,
+        updatedAt: createdAt,
+      },
+      {
+        id: 'env_opaque_prod_93',
+        workspaceId: 'wk_a',
+        kind: 'production' as const,
+        name: 'Production',
+        originAllowlist: ['https://customer.example'],
+        createdAt,
+        updatedAt: createdAt,
+      },
+    ];
+    const repository = createInMemoryControlPlaneRepository({
+      environments,
+      workspaceMemberships: [{ workspaceId: 'wk_a', userId: 'user_a', role: 'owner', createdAt }],
+    });
+    const app = createApiApp({ repository });
+    const listed = await app.inject({
+      method: 'GET',
+      url: '/v1/environments',
+      headers: authHeaders,
+    });
+    expect(listed.statusCode).toBe(200);
+    const rows = listed.json<{
+      environments: Array<{
+        id: string;
+        name: string;
+        originAllowlist: string[];
+        enabled: boolean;
+        pipelinePosition: 0 | 1 | 2;
+        authoringEnabled: boolean;
+        promotionSourceEnvironmentId?: string;
+        requiredApprovalCount: 0 | 1;
+        releasePolicy: {
+          allowDirectPublish: boolean;
+          requireSourceVerification: boolean;
+          requiredApprovalCount: 0 | 1;
+          publisherRoles: Array<'owner' | 'admin' | 'member'>;
+          rollbackRoles: Array<'owner' | 'admin'>;
+          unpublishRoles: Array<'owner' | 'admin'>;
+          separationOfDuties: {
+            requireSeparateVerifier: boolean;
+            requireSeparateApprover: boolean;
+          };
+        };
+        updatedAt: string;
+      }>;
+    }>().environments;
+    const staging = rows.find((row) => row.id === 'env_opaque_stage_28');
+    const production = rows.find((row) => row.id === 'env_opaque_prod_93');
+    if (!staging || !production) throw new Error('environment policy fixture missing');
+    expect(rows.map((row) => row.pipelinePosition)).toEqual([0, 1, 2]);
+    expect(production.promotionSourceEnvironmentId).toBe(staging.id);
+    expect(production.requiredApprovalCount).toBe(production.releasePolicy.requiredApprovalCount);
+
+    const stagingUpdate = {
+      name: 'Pre-production',
+      originAllowlist: ['https://staging.customer.example'],
+      enabled: true,
+      pipelinePosition: 1 as const,
+      authoringEnabled: true,
+      releasePolicy: {
+        ...staging.releasePolicy,
+        requiredApprovalCount: 1 as const,
+      },
+      expectedUpdatedAt: staging.updatedAt,
+    };
+    const updated = await app.inject({
+      method: 'PATCH',
+      url: `/v1/environments/${staging.id}/policy`,
+      headers: authHeaders,
+      payload: stagingUpdate,
+    });
+    expect(updated.statusCode).toBe(200);
+    expect(updated.json()).toMatchObject({
+      environment: {
+        id: staging.id,
+        name: 'Pre-production',
+        requiredApprovalCount: 1,
+        releasePolicy: { requiredApprovalCount: 1 },
+      },
+    });
+
+    const stale = await app.inject({
+      method: 'PATCH',
+      url: `/v1/environments/${staging.id}/policy`,
+      headers: authHeaders,
+      payload: stagingUpdate,
+    });
+    expect(stale.statusCode).toBe(409);
+    expect(stale.json()).toMatchObject({ error: 'environment_release_policy_changed' });
+
+    const invalidSource = await app.inject({
+      method: 'PATCH',
+      url: `/v1/environments/${production.id}/policy`,
+      headers: authHeaders,
+      payload: {
+        name: production.name,
+        originAllowlist: production.originAllowlist,
+        enabled: production.enabled,
+        pipelinePosition: 2,
+        authoringEnabled: false,
+        promotionSourceEnvironmentId: 'env_opaque_dev_71',
+        releasePolicy: production.releasePolicy,
+        expectedUpdatedAt: production.updatedAt,
+      },
+    });
+    expect(invalidSource.statusCode).toBe(409);
+    expect(invalidSource.json()).toMatchObject({
+      error: 'workspace_environment_policy_invalid',
+      issues: expect.arrayContaining([
+        expect.objectContaining({ code: 'promotion_source_kind_forbidden' }),
+      ]),
+    });
+
+    const legacyToggle = await app.inject({
+      method: 'PATCH',
+      url: `/v1/environments/${production.id}/release-policy`,
+      headers: authHeaders,
+      payload: {
+        requiredApprovalCount: 0,
+        expectedUpdatedAt: production.updatedAt,
+      },
+    });
+    expect(legacyToggle.statusCode).toBe(200);
+    expect(legacyToggle.json()).toMatchObject({
+      environment: {
+        id: production.id,
+        requiredApprovalCount: 0,
+        releasePolicy: { requiredApprovalCount: 0 },
+      },
+    });
+
+    await app.close();
+  });
+
   it('exposes an OpenAPI document generated from the Fastify route schemas', async () => {
     const app = createApiApp({
       repository: createInMemoryControlPlaneRepository(),
@@ -155,6 +314,20 @@ describe('@lodariq/api control-plane routes', () => {
             updatedAt: '2026-08-07T00:00:00.000Z',
           },
         ],
+        workspaceMemberships: [
+          {
+            workspaceId: 'wk_a',
+            userId: 'user_a',
+            role: 'owner',
+            createdAt: '2026-08-07T00:00:00.000Z',
+          },
+          {
+            workspaceId: 'wk_a',
+            userId: 'user_member',
+            role: 'member',
+            createdAt: '2026-08-07T00:00:00.000Z',
+          },
+        ],
       }),
       publicApiBaseUrl: 'https://api.lodariq.com',
     });
@@ -192,7 +365,11 @@ describe('@lodariq/api control-plane routes', () => {
     const memberApproval = await app.inject({
       method: 'POST',
       url: `/v1/themes/${theme.id}/approve`,
-      headers: { ...authHeaders, 'x-lodariq-role': 'member' },
+      headers: {
+        ...authHeaders,
+        'x-lodariq-user-id': 'user_member',
+        'x-lodariq-role': 'member',
+      },
       payload: { expectedRevision: theme.revision, expectedUpdatedAt: theme.updatedAt },
     });
     expect(memberApproval.statusCode).toBe(403);
@@ -640,6 +817,14 @@ describe('@lodariq/api control-plane routes', () => {
           updatedAt: '2026-08-07T00:00:00.000Z',
         },
       ],
+      workspaceMemberships: [
+        {
+          workspaceId: 'wk_a',
+          userId: 'user_a',
+          role: 'owner',
+          createdAt: '2026-08-07T00:00:00.000Z',
+        },
+      ],
     });
     const app = createApiApp({ repository });
     const document = withWorkspace(baseDocument, 'wk_a');
@@ -845,7 +1030,17 @@ describe('@lodariq/api control-plane routes', () => {
       createdAt: '2026-08-06T00:00:00.000Z',
       updatedAt: '2026-08-06T00:00:00.000Z',
     };
-    const repository = createInMemoryControlPlaneRepository({ environments: [environment] });
+    const repository = createInMemoryControlPlaneRepository({
+      environments: [environment],
+      workspaceMemberships: [
+        {
+          workspaceId: 'wk_a',
+          userId: 'user_a',
+          role: 'owner',
+          createdAt: environment.createdAt,
+        },
+      ],
+    });
     const app = createApiApp({
       repository,
       publicApiBaseUrl: 'https://api.lodariq.com',
@@ -882,6 +1077,7 @@ describe('@lodariq/api control-plane routes', () => {
       idempotencyKey: 'publish:pointer:a',
       requestHash: recordA.latestArtifact.contentHash,
       expectedGeneration: 0,
+      expectedEnvironmentPolicyUpdatedAt: environment.updatedAt,
     });
     await repository.activateCompiledArtifact({
       workspaceId: 'wk_a',
@@ -892,6 +1088,7 @@ describe('@lodariq/api control-plane routes', () => {
       idempotencyKey: 'publish:pointer:b',
       requestHash: recordB.latestArtifact.contentHash,
       expectedGeneration: 0,
+      expectedEnvironmentPolicyUpdatedAt: environment.updatedAt,
     });
 
     const legacyPublish = await app.inject({
@@ -962,6 +1159,7 @@ describe('@lodariq/api control-plane routes', () => {
   it('creates staging environment tokens and returns the intended SDK snippet only on creation', async () => {
     const app = createApiApp({
       defaultWorkspaceId: 'wk_a',
+      defaultUserId: 'user_a',
       publicApiBaseUrl: 'https://api.lodariq.com',
       loaderSrc: 'https://cdn.lodariq.com/sdk/lodariq-loader.js',
       creatorLoaderSrc: 'https://cdn.lodariq.com/sdk/lodariq-creator.js',
@@ -1061,7 +1259,7 @@ describe('@lodariq/api control-plane routes', () => {
     await app.close();
   });
 
-  it('redacts sensitive event payload fields before persistence', async () => {
+  it('rejects unscoped SDK payloads and redacts legacy dashboard events before persistence', async () => {
     const capturedEvents: IngestEventsInput[] = [];
     const repository = captureIngestedEvents(
       createInMemoryControlPlaneRepository({
@@ -1123,6 +1321,11 @@ describe('@lodariq/api control-plane routes', () => {
       },
     });
     expect(sdkEvents.statusCode).toBe(202);
+    expect(sdkEvents.json()).toEqual({
+      accepted: 0,
+      rejected: 1,
+      diagnostics: [{ code: 'pointer_required', count: 1 }],
+    });
 
     const controlPlaneEvents = await app.inject({
       method: 'POST',
@@ -1141,13 +1344,13 @@ describe('@lodariq/api control-plane routes', () => {
     });
     expect(controlPlaneEvents.statusCode).toBe(202);
 
-    expect(capturedEvents).toHaveLength(2);
+    expect(capturedEvents).toHaveLength(1);
     expect(capturedEvents.every((eventBatch) => eventBatch.workspaceId === 'wk_a')).toBe(true);
-    const sdkProps = capturedEvents[0]?.events[0]?.props as Record<string, unknown>;
-    const nested = sdkProps['nested'] as Record<string, unknown>;
-    expect(sdkProps['token']).toBe('<redacted>');
-    expect(sdkProps['activationGrant']).toBe('<redacted>');
-    expect(sdkProps['reconnectHint']).toBe('retry lod_<redacted>');
+    const dashboardProps = capturedEvents[0]?.events[0]?.props as Record<string, unknown>;
+    const nested = dashboardProps['nested'] as Record<string, unknown>;
+    expect(dashboardProps['token']).toBe('<redacted>');
+    expect(dashboardProps['activationGrant']).toBe('<redacted>');
+    expect(dashboardProps['reconnectHint']).toBe('retry lod_<redacted>');
     expect(nested['authorization']).toBe('<redacted>');
     expect(nested['email']).toBe('<email>');
     expect(nested['callback']).toBe('https://api.lodariq.com/v1/sdk/current-document');
@@ -1172,6 +1375,7 @@ describe('@lodariq/api control-plane routes', () => {
     }> = [];
     const app = createApiApp({
       defaultWorkspaceId: 'wk_a',
+      defaultUserId: 'user_a',
       publicApiBaseUrl: 'https://api.lodariq.com',
       loaderSrc: 'https://cdn.lodariq.com/sdk/lodariq-loader.js',
       observability: { emit: (event) => observabilityEvents.push(event) },
@@ -1531,6 +1735,82 @@ describe('@lodariq/api control-plane routes', () => {
       },
     });
     expect(missingDocument.statusCode).toBe(404);
+
+    await app.close();
+  });
+
+  it('rejects retained direct authoring bearers after creator membership removal', async () => {
+    const createdAt = '2026-08-07T00:00:00.000Z';
+    const environmentClientToken = createEnvironmentClientToken('staging');
+    const authoringSessionToken = createAuthoringSessionToken();
+    const document = withWorkspace(baseDocument, 'wk_a');
+    document.id = 'doc_removed_creator';
+    const repository = createInMemoryControlPlaneRepository({
+      environments: [
+        {
+          id: 'env_staging',
+          workspaceId: 'wk_a',
+          kind: 'staging',
+          name: 'Staging',
+          originAllowlist: ['https://staging.lodariq.com'],
+          createdAt,
+          updatedAt: createdAt,
+        },
+      ],
+      documents: [document],
+      environmentTokens: [
+        {
+          id: 'envtok_removed_creator',
+          workspaceId: 'wk_a',
+          environmentId: 'env_staging',
+          environment: 'staging',
+          name: 'Removed creator environment token',
+          tokenHash: hashEnvironmentToken(environmentClientToken),
+          tokenPrefix: 'lod_staging_removed',
+          createdAt,
+          revokedAt: null,
+        },
+      ],
+      authoringSessions: [
+        {
+          id: 'authsess_removed_creator',
+          workspaceId: 'wk_a',
+          environmentId: 'env_staging',
+          environment: 'staging',
+          documentId: document.id,
+          correlationId: 'corr_removed_creator',
+          tokenHash: hashAuthoringSessionToken(authoringSessionToken),
+          iframeSrc: 'https://editor.lodariq.com/authoring.html',
+          createdByUserId: 'user_removed',
+          createdAt,
+          expiresAt: '2099-01-01T00:00:00.000Z',
+          revokedAt: null,
+        },
+      ],
+    });
+    const app = createApiApp({ repository });
+    const headers = {
+      authorization: `Bearer ${environmentClientToken}`,
+      'x-lodariq-authoring-session': authoringSessionToken,
+      origin: 'https://staging.lodariq.com',
+    };
+
+    const load = await app.inject({
+      method: 'GET',
+      url: '/v1/sdk/authoring/document',
+      headers,
+    });
+    expect(load.statusCode).toBe(401);
+    expect(load.json()).toMatchObject({ error: 'unauthorized' });
+
+    const save = await app.inject({
+      method: 'POST',
+      url: '/v1/sdk/authoring/document',
+      headers,
+      payload: { document: { ...document, title: 'Must not save' } },
+    });
+    expect(save.statusCode).toBe(401);
+    expect(save.json()).toMatchObject({ error: 'unauthorized' });
 
     await app.close();
   });
@@ -2142,6 +2422,7 @@ describe('@lodariq/api control-plane routes', () => {
   it('lets a staging SDK token bootstrap, fetch compiled JSON, and ingest events in its workspace', async () => {
     const app = createApiApp({
       defaultWorkspaceId: 'wk_a',
+      defaultUserId: 'user_a',
       publicApiBaseUrl: 'https://api.lodariq.com',
     });
     const document = withWorkspace(baseDocument, 'wk_a');
@@ -2261,6 +2542,12 @@ describe('@lodariq/api control-plane routes', () => {
       };
       currentDocumentUrl: string;
       ingestUrl: string;
+      analyticsPointers: Array<{
+        documentId: string;
+        generation: number;
+        publicationId: string;
+        contentHash: string;
+      }>;
       authoring: { enabled: boolean };
     }>();
     expect(context.workspaceId).toBe('wk_a');
@@ -2274,6 +2561,14 @@ describe('@lodariq/api control-plane routes', () => {
     });
     expect(context.currentDocumentUrl).toBe('https://api.lodariq.com/v1/sdk/current-document');
     expect(context.ingestUrl).toBe('https://api.lodariq.com/v1/sdk/events');
+    expect(context.analyticsPointers).toEqual([
+      {
+        documentId: document.id,
+        generation: 1,
+        publicationId: publish.json<{ publication: { id: string } }>().publication.id,
+        contentHash: context.manifest.currentVersion,
+      },
+    ]);
     expect(context.authoring.enabled).toBe(false);
 
     const createAuthoringSession = await app.inject({
@@ -2332,9 +2627,11 @@ describe('@lodariq/api control-plane routes', () => {
     expect(authoringBootstrap.statusCode).toBe(200);
     const authoringContext = authoringBootstrap.json<{
       correlationId: string;
+      ingestUrl: string;
       authoring: { enabled: boolean; sessionId: string; correlationId: string };
     }>();
     expect(authoringContext.authoring.enabled).toBe(true);
+    expect(authoringContext.ingestUrl).toBe('');
     expect(authoringContext.correlationId).toBe(authoringSession.authoringSession.correlationId);
     expect(authoringContext.authoring.correlationId).toBe(
       authoringSession.authoringSession.correlationId,
@@ -2361,6 +2658,11 @@ describe('@lodariq/api control-plane routes', () => {
           {
             name: 'tour_started',
             documentId: document.id,
+            pointer: {
+              generation: context.analyticsPointers[0]!.generation,
+              publicationId: context.analyticsPointers[0]!.publicationId,
+              contentHash: context.analyticsPointers[0]!.contentHash,
+            },
             sdkVersion: '0.0.0-test',
             timestamp: new Date().toISOString(),
           },

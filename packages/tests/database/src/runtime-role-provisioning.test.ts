@@ -12,11 +12,24 @@ const consent = 'I_UNDERSTAND_THIS_CHANGES_DATABASE_PRIVILEGES';
 describe('runtime database role provisioning script', () => {
   it('revokes mutation privileges from immutable Phase 2 evidence tables', () => {
     const source = readFileSync(scriptPath, 'utf8');
-    for (const table of ['style_sources', 'publication_verifications', 'release_approvals']) {
+    for (const table of [
+      'compiled_artifacts',
+      'publications',
+      'style_sources',
+      'product_style_applications',
+      'publication_verifications',
+      'release_approvals',
+      'analytics_events',
+    ]) {
       expect(source).toContain(`'${table}'`);
     }
     expect(source).toContain('revoke update, delete on table');
     expect(source).toContain("has_table_privilege(${roleName}, ${table}, 'UPDATE')");
+    expect(source).toContain('revoke update, delete on table "release_operations"');
+    expect(source).toContain(
+      "grant update (${releaseOperationLifecycleColumns.map(quoteIdent).join(', ')})",
+    );
+    expect(source).toContain("has_column_privilege(${roleName}, 'release_operations', 'reason', 'UPDATE')");
   });
 
   it('fails closed without an admin DATABASE_URL', () => {

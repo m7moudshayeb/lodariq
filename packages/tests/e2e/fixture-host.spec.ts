@@ -205,6 +205,117 @@ test('simple five-step tour completes under the Phase 1 time budget', async ({ p
   expect(Date.now() - startedAt).toBeLessThan(5 * 60 * 1000);
 });
 
+test('creator can display a themed outline around the selected tour target', async ({ page }) => {
+  test.setTimeout(60_000);
+  await page.goto('/');
+  await openAuthoringPanel(page);
+
+  const frame = page.frameLocator('iframe[title="Lodariq authoring"]');
+  const targetOutline = page.locator('[data-lodariq-target-outline]');
+  await expect(targetOutline).toBeVisible();
+
+  await frame.getByRole('button', { name: 'Customize' }).click();
+  await expect(frame.getByRole('region', { name: 'Feel native to this product' })).toBeVisible();
+  await expect(frame.locator('[data-appearance-step="3"]')).toContainText(
+    'Adjust this experience only',
+  );
+
+  const outlineChoice = frame.getByRole('group', { name: 'Display target outline' });
+  const outlineOff = outlineChoice.getByRole('button', { name: 'Off', exact: true });
+  const outlineOn = outlineChoice.getByRole('button', { name: 'On', exact: true });
+  await expect(outlineOn).toHaveAttribute('aria-pressed', 'true');
+  await expect(outlineOff).toHaveAttribute('aria-pressed', 'false');
+
+  await outlineOff.click();
+  await expect(outlineOff).toHaveAttribute('aria-pressed', 'true');
+  await expect(targetOutline).toHaveCount(0);
+
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const stored = JSON.parse(localStorage.getItem('lodariq:doc:doc_tour_welcome') ?? '{}') as {
+          appearance?: { displayTargetOutline?: boolean };
+        };
+        return stored.appearance?.displayTargetOutline;
+      }),
+    )
+    .toBe(false);
+
+  await page.reload();
+  await openAuthoringPanel(page);
+  await expect(targetOutline).toHaveCount(0);
+
+  const reopenedFrame = page.frameLocator('iframe[title="Lodariq authoring"]');
+  await reopenedFrame.getByRole('button', { name: 'Customize' }).click();
+  await expect(reopenedFrame.locator('[data-appearance-step="3"]')).toContainText(
+    'Adjust this experience only',
+  );
+  const reopenedOutlineChoice = reopenedFrame.getByRole('group', {
+    name: 'Display target outline',
+  });
+  await expect(
+    reopenedOutlineChoice.getByRole('button', { name: 'Off', exact: true }),
+  ).toHaveAttribute('aria-pressed', 'true');
+
+  await reopenedOutlineChoice.getByRole('button', { name: 'On', exact: true }).click();
+  await expect(targetOutline).toBeVisible();
+  await expect(targetOutline).toHaveAttribute('aria-hidden', 'true');
+
+  const target = page.getByRole('button', { name: 'New project', exact: true });
+  const [targetBox, outlineBox] = await Promise.all([
+    target.boundingBox(),
+    targetOutline.boundingBox(),
+  ]);
+  if (!targetBox || !outlineBox) throw new Error('Tour target or target outline is missing');
+
+  const leftGap = targetBox.x - outlineBox.x;
+  const topGap = targetBox.y - outlineBox.y;
+  const rightGap = outlineBox.x + outlineBox.width - (targetBox.x + targetBox.width);
+  const bottomGap = outlineBox.y + outlineBox.height - (targetBox.y + targetBox.height);
+  for (const gap of [leftGap, topGap, rightGap, bottomGap]) {
+    expect(gap).toBeGreaterThanOrEqual(2);
+    expect(gap).toBeLessThanOrEqual(4);
+  }
+
+  const outlineStyle = await targetOutline.evaluate((element) => {
+    const style = getComputedStyle(element);
+    const focusColor = style.getPropertyValue('--lq-tour-focus-color').trim();
+    const colorProbe = document.createElement('span');
+    colorProbe.style.color = focusColor;
+    document.body.appendChild(colorProbe);
+    const resolvedFocusColor = getComputedStyle(colorProbe).color;
+    colorProbe.remove();
+    return {
+      borderColor: style.borderTopColor,
+      boxShadow: style.boxShadow,
+      focusColor: resolvedFocusColor,
+      pointerEvents: style.pointerEvents,
+    };
+  });
+  expect(outlineStyle.pointerEvents).toBe('none');
+  expect(outlineStyle.borderColor).toBe(outlineStyle.focusColor);
+  expect(outlineStyle.boxShadow).not.toBe('none');
+
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const stored = JSON.parse(localStorage.getItem('lodariq:doc:doc_tour_welcome') ?? '{}') as {
+          appearance?: { displayTargetOutline?: boolean };
+        };
+        return stored.appearance?.displayTargetOutline;
+      }),
+    )
+    .toBe(true);
+
+  await closeAuthoringPanel(page);
+  await page.reload();
+  await expect(page.locator('[data-lodariq-target-outline]')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Start tour' }).click();
+  await expect(page.getByRole('dialog', { name: 'Lodariq tour' })).toBeVisible();
+  await expect(page.locator('[data-lodariq-target-outline]')).toBeVisible();
+  await expect(page.getByRole('textbox', { name: 'Edit heading in preview' })).toHaveCount(0);
+});
+
 test('creator authors an editable tour step, chooses placement, and replays it', async ({
   page,
 }) => {
@@ -215,7 +326,7 @@ test('creator authors an editable tour step, chooses placement, and replays it',
 
   await page.getByLabel('Experience title').fill('Customer onboarding tour');
   await page.getByLabel('Experience title').blur();
-  const saveState = page.locator('[data-save-state-label]');
+  const saveState = frame.locator('[data-save-state-label]');
   await expect
     .poll(async () => ({
       saveState: await saveState.textContent(),
@@ -390,16 +501,44 @@ test('creator edits rendered content directly and keeps the rail, JSON, and auto
   await expect(inlineButton).toBeVisible();
   await expect(toolbar).toBeVisible();
   await expect(toolbar.getByRole('combobox', { name: 'Tooltip placement' })).toBeVisible();
-  await expect(toolbar.getByRole('combobox', { name: 'Button action' })).toBeVisible();
+  const actionCombobox = toolbar.getByRole('combobox', { name: 'Button action' });
+  await expect(actionCombobox).toBeVisible();
   await expect(toolbar.getByRole('button', { name: 'Open advanced step settings' })).toBeVisible();
+  await actionCombobox.click();
+  const actionListbox = toolbar.locator('[role="listbox"]:not([hidden])');
+  await expect(actionListbox).toBeVisible();
+  await expect
+    .poll(() => actionListbox.evaluate((element) => getComputedStyle(element).backgroundColor))
+    .toBe('rgb(255, 255, 255)');
+  await actionCombobox.click();
 
-  await replaceInlineContent(page, inlineHeading, 'Launch your first project');
+  await moveAuthoringPanelIfCovering(page, inlineHeading);
+  await inlineHeading.click();
+  await expect(inlineHeading).toBeFocused();
+  await page.keyboard.press('ControlOrMeta+A');
+  await page.keyboard.insertText('Launch your');
+  await page.waitForTimeout(450);
+  await expect(inlineHeading).toBeFocused();
+  await page.keyboard.insertText(' first project');
+  await page.keyboard.press('Enter');
+  await expect(inlineHeading).toHaveText('Launch your first project');
   await replaceInlineContent(page, inlineBody, 'Open a project and invite your team.');
   await replaceInlineContent(page, inlineButton, 'Create project');
 
   await openAdvanced(frame);
   const stepBlock = frame.locator('.block').first();
+  await openTargetActions(frame, stepBlock, 'New project');
+  const targetSurface = frame.locator('.target-popover:visible');
+  await expect
+    .poll(() => targetSurface.evaluate((element) => getComputedStyle(element).backgroundColor))
+    .toBe('rgb(255, 255, 255)');
+  await targetMenu(frame).getByRole('button', { name: 'Choose another element' }).press('Escape');
   await stepBlock.getByLabel('Step composer').fill('/link');
+  const slashMenu = frame.locator('.step-command-menu:not([hidden])');
+  await expect(slashMenu).toBeVisible();
+  await expect
+    .poll(() => slashMenu.evaluate((element) => getComputedStyle(element).backgroundColor))
+    .toBe('rgb(255, 255, 255)');
   await stepBlock.getByLabel('Step composer').press('Enter');
   await expect(stepBlock.locator('.step-child-link')).toHaveCount(1);
   await stepBlock.getByLabel('Link label').fill('Learn more');
@@ -933,6 +1072,107 @@ test('authoring stays modeless, draggable, and clamped inside the viewport', asy
   expect(compact.host.top + compact.host.height).toBeLessThanOrEqual(568 - 12);
 });
 
+test('authoring chrome keeps workspace controls clear and primary actions in the footer', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto('/');
+  await openAuthoringPanel(page);
+
+  const frame = page.frameLocator('iframe[title="Lodariq authoring"]');
+  await expect(page.locator('[data-panel-action="options"]')).toHaveCount(0);
+  await expect(page.locator('.panel-options-menu')).toHaveCount(0);
+
+  const layoutTrigger = page.locator('[data-panel-action="layout"]');
+  await expect(layoutTrigger).toBeVisible();
+  await expect(layoutTrigger).toHaveAttribute('role', 'combobox');
+  await expect(layoutTrigger).toHaveAttribute('aria-label', 'Workspace width: Standard');
+  await expect(layoutTrigger.locator('.panel-layout-trigger-icon')).toBeVisible();
+  await expect(layoutTrigger.locator('.panel-layout-value')).toHaveText('Standard');
+  await expect(layoutTrigger.locator('.panel-layout-chevron')).toBeVisible();
+
+  await layoutTrigger.click();
+  const visibleLayoutOptions = page.locator('.panel-layout-option:visible');
+  await expect(visibleLayoutOptions).toHaveCount(2);
+  await expect(visibleLayoutOptions.locator('.panel-layout-option-icon')).toHaveCount(2);
+  await expect(page.locator('[data-panel-layout="compact"]:visible')).toContainText('Compact');
+  await expect(page.locator('[data-panel-layout="focus"]:visible')).toContainText('Focused');
+  await expect(page.locator('[data-panel-layout="standard"]:visible')).toHaveCount(0);
+
+  const footer = frame.locator('.panel-workspace-footer');
+  await expect(footer.getByRole('button', { name: 'Customize', exact: true })).toBeVisible();
+  await expect(footer.getByRole('button', { name: 'Preview', exact: true })).toBeVisible();
+  await expect(footer.getByRole('button', { name: 'Save & exit', exact: true })).toBeVisible();
+  await expect(page.locator('.authoring-bar [data-save-state-label]')).toHaveCount(0);
+  await expectAuthoringFooterStatusLayout(frame, 36);
+
+  const zoomTrigger = page.locator('[data-panel-action="zoom"]');
+  await expect(page.locator('select[aria-label="Editor zoom"]')).toHaveCount(0);
+  await expect(zoomTrigger).toBeVisible();
+  await expect(zoomTrigger).toHaveAttribute('role', 'combobox');
+  await expect(zoomTrigger).toHaveAttribute('aria-label', 'Canvas zoom: 100%');
+  await expect(zoomTrigger.locator('.panel-zoom-value')).toHaveText('100%');
+  expect(await zoomTrigger.evaluate((element) => element.tagName)).toBe('BUTTON');
+  expect(
+    await zoomTrigger.evaluate(
+      (element) => element.closest('.authoring-bar-actions') !== null,
+    ),
+  ).toBe(true);
+  expect(
+    await zoomTrigger.evaluate(
+      (element) =>
+        element.parentElement?.nextElementSibling?.querySelector(
+          '[data-panel-action="layout"]',
+        ) !== null,
+    ),
+  ).toBe(true);
+
+  const [zoomBox, layoutBox] = await Promise.all([
+    zoomTrigger.boundingBox(),
+    layoutTrigger.boundingBox(),
+  ]);
+  if (!zoomBox || !layoutBox) throw new Error('Authoring zoom or width control is missing');
+  expect(zoomBox.x + zoomBox.width).toBeLessThanOrEqual(layoutBox.x);
+  expect(Math.abs(zoomBox.y + zoomBox.height / 2 - (layoutBox.y + layoutBox.height / 2))).toBeLessThan(
+    1,
+  );
+
+  await zoomTrigger.click();
+  const visibleZoomOptions = page.locator('.panel-zoom-option:visible');
+  await expect(visibleZoomOptions).toHaveCount(3);
+  await expect(page.locator('[data-panel-zoom="50"]:visible')).toHaveText('50%');
+  await expect(page.locator('[data-panel-zoom="62"]:visible')).toHaveText('62%');
+  await expect(page.locator('[data-panel-zoom="75"]:visible')).toHaveText('75%');
+  await expect(page.locator('[data-panel-zoom="100"]:visible')).toHaveCount(0);
+  await page.locator('[data-panel-zoom="62"]:visible').click();
+
+  const iframe = page.locator('iframe[title="Lodariq authoring"]');
+  await expect(zoomTrigger).toHaveAttribute('aria-label', 'Canvas zoom: 62%');
+  await expect(zoomTrigger.locator('.panel-zoom-value')).toHaveText('62%');
+  await expect
+    .poll(() =>
+      iframe.evaluate((element) => ({
+        transform: element.style.transform,
+        zoom: element.dataset['lodariqEditorZoom'],
+      })),
+    )
+    .toEqual({
+      transform: 'scale(0.62)',
+      zoom: '62',
+    });
+  const zoomedDimensions = await iframe.evaluate((element) => ({
+    height: Number.parseFloat(element.style.height),
+    width: Number.parseFloat(element.style.width),
+  }));
+  expect(zoomedDimensions.height).toBeCloseTo(100 / 0.62, 2);
+  expect(zoomedDimensions.width).toBeCloseTo(100 / 0.62, 2);
+
+  await zoomTrigger.click();
+  await expect(page.locator('[data-panel-zoom="100"]:visible')).toHaveText('100%');
+  await expect(page.locator('[data-panel-zoom="62"]:visible')).toHaveCount(0);
+  await zoomTrigger.press('Escape');
+});
+
 test('hybrid workspace keeps details stable, compacts, restores, and resizes accessibly', async ({
   page,
 }) => {
@@ -956,8 +1196,7 @@ test('hybrid workspace keeps details stable, compacts, restores, and resizes acc
   await expect(frame.locator('.tour-step-position')).toHaveCount(0);
   await expect(frame.locator('.tour-step-advance')).toHaveCount(0);
 
-  await page.getByRole('button', { name: 'Experience menu' }).click();
-  await page.getByRole('menuitemradio', { name: 'Compact workspace' }).click();
+  await selectAuthoringLayout(page, 'compact');
   await expect(host).toHaveAttribute('data-lodariq-panel-layout', 'compact');
   await expect.poll(async () => (await authoringPopupRects(page)).host.width).toBe(320);
   await expect.poll(async () => (await authoringPopupRects(page)).host.height).toBe(520);
@@ -965,9 +1204,9 @@ test('hybrid workspace keeps details stable, compacts, restores, and resizes acc
   await expect(accordion).toBeVisible();
   await expect(accordion.getByText('Behavior', { exact: true })).toBeVisible();
   await expect(accordion.getByText('Below · Next button', { exact: true })).toBeVisible();
+  await expectAuthoringFooterStatusLayout(frame, 36);
 
-  await page.getByRole('button', { name: 'Experience menu' }).click();
-  await page.getByRole('menuitemradio', { name: 'Standard workspace' }).click();
+  await selectAuthoringLayout(page, 'standard');
   await expect(host).toHaveAttribute('data-lodariq-panel-layout', 'standard');
   await expect.poll(async () => (await authoringPopupRects(page)).host.width).toBe(700);
   await expect(inspector).toBeVisible();
@@ -995,6 +1234,13 @@ test('hybrid workspace keeps details stable, compacts, restores, and resizes acc
   await expect(inspector).toBeVisible();
 
   const resizeHandle = page.getByRole('button', { name: /Resize Lodariq authoring panel/ });
+  const resizeGrip = resizeHandle.locator('svg.panel-resize-icon path');
+  await expect(resizeGrip).toHaveCount(1);
+  expect(((await resizeGrip.getAttribute('d'))?.match(/M/g) ?? []).length).toBe(3);
+  const [hostBox, resizeBox] = await Promise.all([host.boundingBox(), resizeHandle.boundingBox()]);
+  if (!hostBox || !resizeBox) throw new Error('Authoring panel or resize grip is missing');
+  expect(resizeBox.x + resizeBox.width).toBeCloseTo(hostBox.x + hostBox.width, 0);
+  expect(resizeBox.y + resizeBox.height).toBeCloseTo(hostBox.y + hostBox.height, 0);
   await resizeHandle.focus();
   await resizeHandle.press('ArrowRight');
   await resizeHandle.press('Shift+ArrowDown');
@@ -1031,8 +1277,7 @@ test('resizing the rich-text editor keeps the inspector scrollable without resiz
 
   for (const workspace of ['standard', 'focus'] as const) {
     if (workspace === 'focus') {
-      await page.getByRole('button', { name: 'Experience menu' }).click();
-      await page.getByRole('menuitemradio', { name: 'Focus workspace' }).click();
+      await selectAuthoringLayout(page, 'focus');
     }
     await expect(host).toHaveAttribute('data-lodariq-panel-layout', workspace);
 
@@ -1079,16 +1324,13 @@ test('Step Details add-content menu overlays every workspace without resizing th
   const commandMenu = frame.getByRole('listbox', { name: 'Step insert commands' });
   const stepDocument = frame.locator('.step-document').first();
   const workspaceModes = [
-    { layout: 'standard', menuItem: null },
-    { layout: 'compact', menuItem: 'Compact workspace' },
-    { layout: 'focus', menuItem: 'Focus workspace' },
+    { layout: 'standard', select: false },
+    { layout: 'compact', select: true },
+    { layout: 'focus', select: true },
   ] as const;
 
   for (const workspace of workspaceModes) {
-    if (workspace.menuItem) {
-      await page.getByRole('button', { name: 'Experience menu' }).click();
-      await page.getByRole('menuitemradio', { name: workspace.menuItem }).click();
-    }
+    if (workspace.select) await selectAuthoringLayout(page, workspace.layout);
     await expect(host).toHaveAttribute('data-lodariq-panel-layout', workspace.layout);
 
     const closedStepHeight = await stepDocument.evaluate(
@@ -1128,10 +1370,13 @@ test('Step Details add-content menu overlays every workspace without resizing th
 
     await composer.fill('');
     await expect(commandMenu).toBeHidden();
+    const closedBeforeButtonOpen = await stepDocument.evaluate(
+      (element) => element.getBoundingClientRect().height,
+    );
     await openContentMenu.click();
     await expect(commandMenu).toBeVisible();
     expect(await stepDocument.evaluate((element) => element.getBoundingClientRect().height)).toBe(
-      closedStepHeight,
+      closedBeforeButtonOpen,
     );
     await openContentMenu.click();
     await expect(commandMenu).toBeHidden();
@@ -1632,8 +1877,7 @@ test('creator chooses placements in route, drawer, modal, scroll, and lazy state
   await expect(page.getByText('Project 40')).toBeVisible();
 
   await openAuthoringPanel(page);
-  await page.getByRole('button', { name: 'Experience menu' }).click();
-  await page.getByRole('menuitemradio', { name: 'Compact workspace' }).click();
+  await selectAuthoringLayout(page, 'compact');
   await expect(page.locator('lodariq-authoring-panel')).toHaveAttribute(
     'data-lodariq-panel-layout',
     'compact',
@@ -1944,9 +2188,102 @@ async function openAuthoringPanel(page: Page): Promise<void> {
 }
 
 async function closeAuthoringPanel(page: Page): Promise<void> {
-  await page.getByRole('button', { name: 'Experience menu' }).click();
-  await page.getByRole('menuitem', { name: 'Save & exit' }).click();
+  const frame = page.frameLocator('iframe[title="Lodariq authoring"]');
+  const footer = frame.locator('.panel-workspace-footer');
+  for (let attempt = 0; attempt < 3 && !(await footer.isVisible()); attempt += 1) {
+    const back = frame
+      .getByRole('button', { name: /^Back(?: to authoring)?$/ })
+      .filter({ visible: true })
+      .first();
+    await expect(back).toBeVisible();
+    await back.click();
+  }
+  await footer.getByRole('button', { name: 'Save & exit', exact: true }).click();
   await expect(page.locator('lodariq-authoring-panel')).toHaveCount(0);
+}
+
+async function expectAuthoringFooterStatusLayout(
+  frame: FrameLocator,
+  expectedControlHeight: number,
+): Promise<void> {
+  const footer = frame.locator('.panel-workspace-footer');
+  const footerState = frame.locator('.panel-footer-state');
+  const saveButton = footerState.getByRole('button', { name: 'Save & exit', exact: true });
+  const saveStatus = footerState.locator('.panel-save-status[data-save-state]');
+  const statusCopy = saveStatus.locator('.panel-save-status-copy');
+  const draftLabel = statusCopy.locator('[data-save-state-label]');
+  const releaseSummary = statusCopy.locator('.panel-release-summary');
+
+  await expect(saveStatus).toHaveAttribute('data-state', 'saved');
+  await expect(draftLabel).toBeVisible();
+  await expect(draftLabel).toHaveText('Draft saved');
+  await expect(releaseSummary).toContainText('Release unavailable');
+  expect(
+    await footerState.evaluate((element) =>
+      Array.from(element.children).map((child) => child.className),
+    ),
+  ).toEqual(['panel-save-exit', 'panel-save-status']);
+  expect(
+    await statusCopy.evaluate((element) =>
+      Array.from(element.children).map((child) => child.className),
+    ),
+  ).toEqual(['', 'panel-release-summary']);
+
+  const saveStyle = await saveButton.evaluate((element) => {
+    const style = getComputedStyle(element);
+    return {
+      backgroundColor: style.backgroundColor,
+      borderColor: style.borderTopColor,
+      color: style.color,
+    };
+  });
+  expect(saveStyle).toEqual({
+    backgroundColor: 'rgb(255, 247, 237)',
+    borderColor: 'rgb(217, 119, 6)',
+    color: 'rgb(154, 52, 18)',
+  });
+
+  const [saveBox, statusBox, draftBox, releaseBox] = await Promise.all([
+    saveButton.boundingBox(),
+    saveStatus.boundingBox(),
+    draftLabel.boundingBox(),
+    releaseSummary.boundingBox(),
+  ]);
+  if (!saveBox || !statusBox || !draftBox || !releaseBox) {
+    throw new Error('Authoring footer save status is missing');
+  }
+
+  expect(saveBox.height).toBeCloseTo(expectedControlHeight, 0);
+  expect(
+    Math.abs(saveBox.y + saveBox.height / 2 - (statusBox.y + statusBox.height / 2)),
+  ).toBeLessThan(
+    1,
+  );
+  expect(statusBox.x - (saveBox.x + saveBox.width)).toBeCloseTo(
+    expectedControlHeight === 36 ? 12 : 10,
+    0,
+  );
+  expect(releaseBox.x).toBeCloseTo(draftBox.x, 0);
+  expect(releaseBox.y).toBeGreaterThanOrEqual(draftBox.y + draftBox.height);
+
+  const footerPadding = await footer.evaluate((element) => {
+    const style = getComputedStyle(element);
+    return {
+      left: style.paddingLeft,
+      right: style.paddingRight,
+    };
+  });
+  expect(footerPadding.left).toBe(footerPadding.right);
+}
+
+async function selectAuthoringLayout(
+  page: Page,
+  mode: 'compact' | 'standard' | 'focus',
+): Promise<void> {
+  await page.locator('[data-panel-action="layout"]').click();
+  const option = page.locator(`[data-panel-layout="${mode}"]:visible`);
+  await expect(option).toBeVisible();
+  await option.click();
 }
 
 async function openUtilityTab(

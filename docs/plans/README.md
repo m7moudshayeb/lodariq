@@ -2,12 +2,12 @@
 
 ## Current
 
-| Plan                                                                                                   | Status                                                                                                  | Purpose                                                                                         |
-| ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| [Phase 2 In-Product Authoring, Brand, and Release Foundation](phase-2-brand-and-release-foundation.md) | Slices 0-2 and owned auth locally verified; Slice 3 implemented; full Node 24 stabilization gate passes | Permanent SDK creator entry, safe Brand System, and immutable environment promotion             |
-| [Phase 2 Technical Completion](phase-2-technical-completion.md)                                        | Workstream 0 complete and Workstream A ready; product research and paid pilots explicitly excluded      | Slice 3 hardening, Slice 4 reliability, clean-slate first deployment, and repository automation |
-| [UX Revamp](ux-revamp.md)                                                                              | Current interaction specification                                                                       | Outcome-first live-product authoring, Brand System, preview, release, and repair UX             |
-| [Phase 2 Brand/Release usability test](phase-2-brand-release-usability-test.md)                        | Planned evidence                                                                                        | Validate no-CSS styling and exact-artifact staging/production workflow                          |
+| Plan                                                                                                   | Status                                                                                 | Purpose                                                                                         |
+| ------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| [Phase 2 In-Product Authoring, Brand, and Release Foundation](phase-2-brand-and-release-foundation.md) | Local Phase 2 code milestone complete; live/external evidence remains unclaimed        | Permanent SDK creator entry, safe Brand System, and immutable environment promotion             |
+| [Phase 2 Technical Completion](phase-2-technical-completion.md)                                        | Local code complete; first deployment and measurement-backed B4 ADR remain operational | Slice 3 hardening, Slice 4 reliability, clean-slate first deployment, and repository automation |
+| [UX Revamp](ux-revamp.md)                                                                              | Current interaction specification                                                      | Outcome-first live-product authoring, Brand System, preview, release, and repair UX             |
+| [Phase 2 Brand/Release usability test](phase-2-brand-release-usability-test.md)                        | Planned evidence                                                                       | Validate no-CSS styling and exact-artifact staging/production workflow                          |
 
 ## Completed or Historical Completion Records
 

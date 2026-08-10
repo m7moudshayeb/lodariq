@@ -5,14 +5,27 @@ import {
   COMPILER_VERSION,
   RENDERER_CONTRACT_VERSION,
 } from './version';
+import {
+  RELEASE_RECOVERY_ACTIONS,
+  RELEASE_RECOVERY_FAILURE_CODES,
+  RELEASE_RECOVERY_FAILURE_MESSAGES,
+} from './release-recovery-constants';
+
+export {
+  RELEASE_RECOVERY_ACTIONS,
+  RELEASE_RECOVERY_FAILURE_CODES,
+  RELEASE_RECOVERY_FAILURE_MESSAGES,
+} from './release-recovery-constants';
 
 const CONTENT_HASH_PATTERN = '^sha256-[0-9a-f]{64}$';
 const INTEGRITY_PATTERN = '^sha256-[A-Za-z0-9+/]+={0,2}$';
 const ARTIFACT_URL_PATTERN = '^(?:https://|/)\\S+$';
 const IDEMPOTENCY_KEY_PATTERN = '^[A-Za-z0-9][A-Za-z0-9._:-]{7,199}$';
 const CORRELATION_ID_PATTERN = '^[A-Za-z0-9][A-Za-z0-9._:-]{7,255}$';
+const RELEASE_IDENTIFIER_PATTERN = '^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$';
 const EXACT_ORIGIN_PATTERN = '^https?://[^\\s/?#@]+$';
 const ISO_TIMESTAMP_PATTERN = '^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{1,9})?Z$';
+const TRIMMED_RELEASE_REASON_PATTERN = '^\\S(?:[\\s\\S]{0,498}\\S)?$';
 
 export const BROWSER_VERIFICATION_CHECK_CODES = [
   'artifact_integrity',
@@ -46,12 +59,37 @@ export const PRODUCTION_PROMOTION_FAILURE_CODES = [
   'internal_error',
 ] as const;
 
+export const RELEASE_HISTORY_ACTIONS = ['publish', 'promote', 'rollback', 'unpublish'] as const;
+
+/** Phase 2 serves one complete, non-paginated recovery history read. */
+export const RELEASE_RECOVERY_HISTORY_MAX_ITEMS = 500;
+export const RELEASE_RECOVERY_ROLLBACK_TARGET_MAX_ITEMS = RELEASE_RECOVERY_HISTORY_MAX_ITEMS;
+
 /** Renderer recipe contract pinned into a compiled artifact and manifest. */
 export const RendererContractVersion = Type.String({
   $id: 'RendererContractVersion',
+  minLength: 1,
+  maxLength: 32,
   pattern: '^[1-9][0-9]*$',
 });
 export type RendererContractVersion = Static<typeof RendererContractVersion>;
+
+const PersistedArtifactSchemaVersion = Type.String({
+  minLength: 1,
+  maxLength: 32,
+  pattern: '^[1-9][0-9]*$',
+});
+const PersistedCompilerVersion = Type.String({
+  minLength: 1,
+  maxLength: 64,
+  pattern:
+    '^(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?$',
+});
+const PersistedThemeContractVersion = Type.String({
+  minLength: 1,
+  maxLength: 32,
+  pattern: '^[1-9][0-9]*$',
+});
 
 /** Required guard carried by every document-scoped release mutation. */
 export const ReleaseMutationGuard = Type.Object(
@@ -108,10 +146,344 @@ export const InactiveDocumentDeployment = Type.Object(
 export type InactiveDocumentDeployment = Static<typeof InactiveDocumentDeployment>;
 
 export const DocumentDeployment = Type.Union(
-  [ActiveDocumentDeployment, InactiveDocumentDeployment],
+  [Type.Ref(ActiveDocumentDeployment), Type.Ref(InactiveDocumentDeployment)],
   { $id: 'DocumentDeployment' },
 );
 export type DocumentDeployment = Static<typeof DocumentDeployment>;
+
+const ReleaseIdentifier = Type.String({
+  minLength: 1,
+  maxLength: 256,
+  pattern: RELEASE_IDENTIFIER_PATTERN,
+});
+const ReleaseTimestamp = Type.String({
+  minLength: 20,
+  maxLength: 64,
+  pattern: ISO_TIMESTAMP_PATTERN,
+});
+const ReleaseIdempotencyKey = Type.String({
+  minLength: 8,
+  maxLength: 200,
+  pattern: IDEMPOTENCY_KEY_PATTERN,
+});
+const ReleaseCorrelationId = Type.String({
+  minLength: 8,
+  maxLength: 256,
+  pattern: CORRELATION_ID_PATTERN,
+});
+
+/** Human recovery intent is mandatory and must already be trimmed. */
+export const ReleaseReason = Type.String({
+  $id: 'ReleaseReason',
+  minLength: 1,
+  maxLength: 500,
+  pattern: TRIMMED_RELEASE_REASON_PATTERN,
+});
+export type ReleaseReason = Static<typeof ReleaseReason>;
+
+/** Immutable artifact and renderer inputs reused by recovery without compilation. */
+export const ReleaseArtifactPins = Type.Object(
+  {
+    compiledArtifactId: Type.String({ minLength: 1, maxLength: 512 }),
+    artifactSchemaVersion: PersistedArtifactSchemaVersion,
+    contentHash: Type.String({ pattern: CONTENT_HASH_PATTERN }),
+    compilerVersion: PersistedCompilerVersion,
+    rendererContractVersion: Type.Ref(RendererContractVersion),
+    themeContractVersion: PersistedThemeContractVersion,
+    themeVersionId: ReleaseIdentifier,
+    themeContentHash: Type.String({ pattern: CONTENT_HASH_PATTERN }),
+  },
+  { $id: 'ReleaseArtifactPins', additionalProperties: false },
+);
+export type ReleaseArtifactPins = Static<typeof ReleaseArtifactPins>;
+
+const RecoveryMutationFields = {
+  reason: Type.Ref(ReleaseReason),
+  expectedGeneration: Type.Integer({ minimum: 1 }),
+  expectedActivePublicationId: Type.Optional(ReleaseIdentifier),
+  idempotencyKey: ReleaseIdempotencyKey,
+  correlationId: ReleaseCorrelationId,
+} as const;
+
+/** Rollback selects one exact earlier successful publication, never artifact bytes. */
+export const RollbackReleaseRequest = Type.Object(
+  {
+    action: Type.Literal('rollback'),
+    targetPublicationId: ReleaseIdentifier,
+    ...RecoveryMutationFields,
+  },
+  { $id: 'RollbackReleaseRequest', additionalProperties: false },
+);
+export type RollbackReleaseRequest = Static<typeof RollbackReleaseRequest>;
+
+/** Unpublish deactivates the current pointer without deleting immutable releases. */
+export const UnpublishReleaseRequest = Type.Object(
+  {
+    action: Type.Literal('unpublish'),
+    ...RecoveryMutationFields,
+  },
+  { $id: 'UnpublishReleaseRequest', additionalProperties: false },
+);
+export type UnpublishReleaseRequest = Static<typeof UnpublishReleaseRequest>;
+
+export const ReleaseRecoveryRequest = Type.Union(
+  [Type.Ref(RollbackReleaseRequest), Type.Ref(UnpublishReleaseRequest)],
+  { $id: 'ReleaseRecoveryRequest' },
+);
+export type ReleaseRecoveryRequest = Static<typeof ReleaseRecoveryRequest>;
+
+export const ReleaseRecoveryFailureCode = Type.Union(
+  RELEASE_RECOVERY_FAILURE_CODES.map((code) => Type.Literal(code)),
+  { $id: 'ReleaseRecoveryFailureCode' },
+);
+export type ReleaseRecoveryFailureCode = Static<typeof ReleaseRecoveryFailureCode>;
+
+export const ReleaseRecoveryFailureDetail = Type.Union(
+  RELEASE_RECOVERY_FAILURE_CODES.map((code) =>
+    Type.Object(
+      {
+        code: Type.Literal(code),
+        message: Type.Literal(RELEASE_RECOVERY_FAILURE_MESSAGES[code]),
+      },
+      { additionalProperties: false },
+    ),
+  ),
+  { $id: 'ReleaseRecoveryFailureDetail' },
+);
+export type ReleaseRecoveryFailureDetail = Static<typeof ReleaseRecoveryFailureDetail>;
+
+export const RollbackReleaseSuccess = Type.Object(
+  {
+    ok: Type.Literal(true),
+    action: Type.Literal('rollback'),
+    state: Type.Literal('active'),
+    replayed: Type.Boolean(),
+    releaseOperationId: ReleaseIdentifier,
+    publicationId: ReleaseIdentifier,
+    targetPublicationId: ReleaseIdentifier,
+    previousPublicationId: ReleaseIdentifier,
+    generation: Type.Integer({ minimum: 2 }),
+    artifact: Type.Ref(ReleaseArtifactPins),
+    completedAt: ReleaseTimestamp,
+  },
+  { $id: 'RollbackReleaseSuccess', additionalProperties: false },
+);
+export type RollbackReleaseSuccess = Static<typeof RollbackReleaseSuccess>;
+
+export const UnpublishReleaseSuccess = Type.Object(
+  {
+    ok: Type.Literal(true),
+    action: Type.Literal('unpublish'),
+    state: Type.Literal('inactive'),
+    replayed: Type.Boolean(),
+    releaseOperationId: ReleaseIdentifier,
+    previousPublicationId: ReleaseIdentifier,
+    generation: Type.Integer({ minimum: 2 }),
+    deactivatedArtifact: Type.Ref(ReleaseArtifactPins),
+    completedAt: ReleaseTimestamp,
+  },
+  { $id: 'UnpublishReleaseSuccess', additionalProperties: false },
+);
+export type UnpublishReleaseSuccess = Static<typeof UnpublishReleaseSuccess>;
+
+export const ReleaseRecoveryFailure = Type.Union(
+  RELEASE_RECOVERY_FAILURE_CODES.map((code) =>
+    Type.Object(
+      {
+        ok: Type.Literal(false),
+        action: Type.Union(RELEASE_RECOVERY_ACTIONS.map((action) => Type.Literal(action))),
+        state: Type.Literal('failed'),
+        replayed: Type.Boolean(),
+        code: Type.Literal(code),
+        message: Type.Literal(RELEASE_RECOVERY_FAILURE_MESSAGES[code]),
+        releaseOperationId: Type.Optional(ReleaseIdentifier),
+        expectedGeneration: Type.Optional(Type.Integer({ minimum: 0 })),
+        actualGeneration: Type.Optional(Type.Integer({ minimum: 0 })),
+        expectedActivePublicationId: Type.Optional(ReleaseIdentifier),
+        actualActivePublicationId: Type.Optional(Type.Union([ReleaseIdentifier, Type.Null()])),
+      },
+      { additionalProperties: false },
+    ),
+  ),
+  { $id: 'ReleaseRecoveryFailure' },
+);
+export type ReleaseRecoveryFailure = Static<typeof ReleaseRecoveryFailure>;
+
+export const ReleaseRecoveryResult = Type.Union(
+  [
+    Type.Ref(RollbackReleaseSuccess),
+    Type.Ref(UnpublishReleaseSuccess),
+    Type.Ref(ReleaseRecoveryFailure),
+  ],
+  { $id: 'ReleaseRecoveryResult' },
+);
+export type ReleaseRecoveryResult = Static<typeof ReleaseRecoveryResult>;
+
+const ReleaseHistoryIdentity = {
+  id: ReleaseIdentifier,
+  workspaceId: ReleaseIdentifier,
+  environmentId: ReleaseIdentifier,
+  documentId: ReleaseIdentifier,
+  releaseOperationId: ReleaseIdentifier,
+  generation: Type.Integer({ minimum: 1 }),
+  idempotencyKey: ReleaseIdempotencyKey,
+  correlationId: ReleaseCorrelationId,
+  actorUserId: Type.Union([ReleaseIdentifier, Type.Null()]),
+  occurredAt: ReleaseTimestamp,
+} as const;
+
+export const PublishReleaseHistoryEntry = Type.Object(
+  {
+    ...ReleaseHistoryIdentity,
+    action: Type.Literal('publish'),
+    state: Type.Literal('active'),
+    publicationId: ReleaseIdentifier,
+    previousPublicationId: Type.Union([ReleaseIdentifier, Type.Null()]),
+    artifact: Type.Ref(ReleaseArtifactPins),
+  },
+  { $id: 'PublishReleaseHistoryEntry', additionalProperties: false },
+);
+export type PublishReleaseHistoryEntry = Static<typeof PublishReleaseHistoryEntry>;
+
+export const PromoteReleaseHistoryEntry = Type.Object(
+  {
+    ...ReleaseHistoryIdentity,
+    action: Type.Literal('promote'),
+    state: Type.Literal('active'),
+    publicationId: ReleaseIdentifier,
+    sourcePublicationId: ReleaseIdentifier,
+    previousPublicationId: Type.Union([ReleaseIdentifier, Type.Null()]),
+    artifact: Type.Ref(ReleaseArtifactPins),
+  },
+  { $id: 'PromoteReleaseHistoryEntry', additionalProperties: false },
+);
+export type PromoteReleaseHistoryEntry = Static<typeof PromoteReleaseHistoryEntry>;
+
+export const RollbackReleaseHistoryEntry = Type.Object(
+  {
+    ...ReleaseHistoryIdentity,
+    action: Type.Literal('rollback'),
+    state: Type.Literal('active'),
+    publicationId: ReleaseIdentifier,
+    targetPublicationId: ReleaseIdentifier,
+    previousPublicationId: ReleaseIdentifier,
+    reason: Type.Ref(ReleaseReason),
+    artifact: Type.Ref(ReleaseArtifactPins),
+  },
+  { $id: 'RollbackReleaseHistoryEntry', additionalProperties: false },
+);
+export type RollbackReleaseHistoryEntry = Static<typeof RollbackReleaseHistoryEntry>;
+
+export const UnpublishReleaseHistoryEntry = Type.Object(
+  {
+    ...ReleaseHistoryIdentity,
+    action: Type.Literal('unpublish'),
+    state: Type.Literal('inactive'),
+    previousPublicationId: ReleaseIdentifier,
+    reason: Type.Ref(ReleaseReason),
+    deactivatedArtifact: Type.Ref(ReleaseArtifactPins),
+  },
+  { $id: 'UnpublishReleaseHistoryEntry', additionalProperties: false },
+);
+export type UnpublishReleaseHistoryEntry = Static<typeof UnpublishReleaseHistoryEntry>;
+
+const FailedRecoveryHistoryIdentity = {
+  id: ReleaseIdentifier,
+  workspaceId: ReleaseIdentifier,
+  environmentId: ReleaseIdentifier,
+  documentId: ReleaseIdentifier,
+  releaseOperationId: ReleaseIdentifier,
+  idempotencyKey: ReleaseIdempotencyKey,
+  correlationId: ReleaseCorrelationId,
+  actorUserId: Type.Union([ReleaseIdentifier, Type.Null()]),
+  occurredAt: ReleaseTimestamp,
+  state: Type.Literal('failed'),
+  reason: Type.Ref(ReleaseReason),
+  expectedGeneration: Type.Integer({ minimum: 1 }),
+  actualGeneration: Type.Optional(Type.Integer({ minimum: 0 })),
+  expectedActivePublicationId: Type.Optional(ReleaseIdentifier),
+  actualActivePublicationId: Type.Optional(Type.Union([ReleaseIdentifier, Type.Null()])),
+  failure: Type.Ref(ReleaseRecoveryFailureDetail),
+} as const;
+
+export const RollbackReleaseFailureHistoryEntry = Type.Object(
+  {
+    ...FailedRecoveryHistoryIdentity,
+    action: Type.Literal('rollback'),
+    targetPublicationId: ReleaseIdentifier,
+  },
+  { $id: 'RollbackReleaseFailureHistoryEntry', additionalProperties: false },
+);
+export type RollbackReleaseFailureHistoryEntry = Static<typeof RollbackReleaseFailureHistoryEntry>;
+
+export const UnpublishReleaseFailureHistoryEntry = Type.Object(
+  {
+    ...FailedRecoveryHistoryIdentity,
+    action: Type.Literal('unpublish'),
+  },
+  { $id: 'UnpublishReleaseFailureHistoryEntry', additionalProperties: false },
+);
+export type UnpublishReleaseFailureHistoryEntry = Static<
+  typeof UnpublishReleaseFailureHistoryEntry
+>;
+
+export const ReleaseRecoveryFailureHistoryEntry = Type.Union(
+  [
+    Type.Ref(RollbackReleaseFailureHistoryEntry),
+    Type.Ref(UnpublishReleaseFailureHistoryEntry),
+  ],
+  { $id: 'ReleaseRecoveryFailureHistoryEntry' },
+);
+export type ReleaseRecoveryFailureHistoryEntry = Static<typeof ReleaseRecoveryFailureHistoryEntry>;
+
+/** Append-only release truth across publication, promotion, rollback, and deactivation. */
+export const ReleaseHistoryEntry = Type.Union(
+  [
+    Type.Ref(PublishReleaseHistoryEntry),
+    Type.Ref(PromoteReleaseHistoryEntry),
+    Type.Ref(RollbackReleaseHistoryEntry),
+    Type.Ref(UnpublishReleaseHistoryEntry),
+    Type.Ref(ReleaseRecoveryFailureHistoryEntry),
+  ],
+  { $id: 'ReleaseHistoryEntry' },
+);
+export type ReleaseHistoryEntry = Static<typeof ReleaseHistoryEntry>;
+
+/** Server-vetted recovery authority for the current member and environment policy. */
+export const ReleaseRecoveryPermissions = Type.Object(
+  {
+    rollback: Type.Boolean(),
+    unpublish: Type.Boolean(),
+  },
+  { $id: 'ReleaseRecoveryPermissions', additionalProperties: false },
+);
+export type ReleaseRecoveryPermissions = Static<typeof ReleaseRecoveryPermissions>;
+
+/**
+ * Bounded Phase 2 recovery read. The server returns the complete history within
+ * this contract's cap and must not silently truncate it. Historical entries stay
+ * visible even when their artifact pins are no longer deployable; only IDs in
+ * rollbackTargetPublicationIds have passed the server's current deployability
+ * and scope checks and may be submitted as rollback targets.
+ */
+export const ReleaseRecoveryStateResponse = Type.Object(
+  {
+    workspaceId: ReleaseIdentifier,
+    environmentId: ReleaseIdentifier,
+    documentId: ReleaseIdentifier,
+    permissions: Type.Ref(ReleaseRecoveryPermissions),
+    deployment: Type.Union([Type.Ref(DocumentDeployment), Type.Null()]),
+    history: Type.Array(Type.Ref(ReleaseHistoryEntry), {
+      maxItems: RELEASE_RECOVERY_HISTORY_MAX_ITEMS,
+    }),
+    rollbackTargetPublicationIds: Type.Array(ReleaseIdentifier, {
+      maxItems: RELEASE_RECOVERY_ROLLBACK_TARGET_MAX_ITEMS,
+      uniqueItems: true,
+    }),
+  },
+  { $id: 'ReleaseRecoveryStateResponse', additionalProperties: false },
+);
+export type ReleaseRecoveryStateResponse = Static<typeof ReleaseRecoveryStateResponse>;
 
 /** Existing Phase 1 artifact metadata retained for installed SDK compatibility. */
 export const ManifestArtifactPointerV1 = Type.Object(

@@ -9,6 +9,7 @@ primary_region = "fra"
   NODE_ENV = "production"
   PORT = "3001"
   LODARIQ_AUTH_MODE = "lodariq"
+  LODARIQ_AUTH_ALLOWED_ORIGINS = "https://staging-app.lodariq.com"
   LODARIQ_EMAIL_DELIVERY_MODE = "disabled"
   LODARIQ_PASSWORD_RECOVERY_MODE = "disabled"
   LODARIQ_PUBLIC_SIGNUP_MODE = "disabled"
@@ -28,3 +29,10 @@ primary_region = "fra"
   auto_start_machines = true
   min_machines_running = 1
   processes = ["app"]
+
+[[http_service.checks]]
+  grace_period = "15s"
+  interval = "15s"
+  method = "GET"
+  path = "/readyz"
+  timeout = "3s"

@@ -2,23 +2,28 @@ export const DASHBOARD_VIEW_IDS = [
   'overview',
   'experiences',
   'releases',
+  'analytics',
   'brand-system',
   'environments',
   'support',
 ] as const;
+
+export const DASHBOARD_ANALYTICS_AGGREGATE_LIMIT = 1_000;
 
 export type DashboardViewId = (typeof DASHBOARD_VIEW_IDS)[number];
 
 export interface DashboardNavigationItem {
   id: DashboardViewId;
   label: string;
-  icon: 'overview' | 'experiences' | 'releases' | 'brand' | 'environments' | 'support';
+  icon:
+    'overview' | 'experiences' | 'releases' | 'analytics' | 'brand' | 'environments' | 'support';
 }
 
 export const DASHBOARD_PRIMARY_NAVIGATION = [
   { id: 'overview', label: 'Overview', icon: 'overview' },
   { id: 'experiences', label: 'Experiences', icon: 'experiences' },
   { id: 'releases', label: 'Releases', icon: 'releases' },
+  { id: 'analytics', label: 'Analytics', icon: 'analytics' },
   { id: 'brand-system', label: 'Brand system', icon: 'brand' },
   { id: 'environments', label: 'Environments', icon: 'environments' },
 ] as const satisfies readonly DashboardNavigationItem[];
@@ -49,6 +54,10 @@ export const DASHBOARD_PAGE_COPY = {
   releases: {
     title: 'Release details',
     description: 'Review the environment state Lodariq can currently prove for each experience.',
+  },
+  analytics: {
+    title: 'Analytics',
+    description: 'Inspect release-scoped facts for one explicitly selected environment at a time.',
   },
   'brand-system': {
     title: 'Brand system',

@@ -8,6 +8,8 @@ import {
 } from './block';
 import { LodariqDocument } from './document';
 import {
+  AuthoringBrandDriftCheckResult,
+  BrandDriftCheckRequest,
   BrandThemeSnapshot,
   CustomerBrandTokenRegistration,
   ExperienceAppearance,
@@ -25,6 +27,9 @@ import {
 import { TargetResolutionStatus, TargetVerificationReasonCode } from './target-verification';
 import {
   AUTHORING_SESSION_CAPABILITIES,
+  AuthoringBrandThemeAcknowledgementRequest,
+  AuthoringBrandThemeAcknowledgementResult,
+  AuthoringProductMatchApplyResult,
   AuthoringStagingPublicationRequest,
   AuthoringStagingPublicationResult,
   AuthoringStagingReleaseState,
@@ -36,6 +41,9 @@ import {
   ProductionPromotionRequest,
   ProductionPromotionResult,
   ReleaseApproval,
+  ReleaseRecoveryRequest,
+  ReleaseRecoveryResult,
+  ReleaseRecoveryStateResponse,
 } from './release';
 
 /**
@@ -54,8 +62,17 @@ export const AUTHORING_INLINE_CONTENT_COMMIT_TYPE = 'authoring.inline-content.co
 export const AUTHORING_INLINE_CONTROL_COMMIT_TYPE = 'authoring.inline-control.commit' as const;
 export const AUTHORING_PANEL_MODE_OPEN_TYPE = 'authoring.panel-mode.open' as const;
 export const AUTHORING_PANEL_LAYOUT_REQUEST_TYPE = 'authoring.panel-layout.request' as const;
+export const AUTHORING_SAVE_AND_EXIT_REQUEST_TYPE = 'authoring.save-and-exit.request' as const;
+export const AUTHORING_SAVE_STATE_UPDATE_TYPE = 'authoring.save-state.update' as const;
 export const AUTHORING_RELEASE_STATE_REQUEST_TYPE = 'authoring.release-state.request' as const;
 export const AUTHORING_RELEASE_STATE_RESULT_TYPE = 'authoring.release-state.result' as const;
+export const AUTHORING_RELEASE_RECOVERY_STATE_REQUEST_TYPE =
+  'authoring.release-recovery-state.request' as const;
+export const AUTHORING_RELEASE_RECOVERY_STATE_RESULT_TYPE =
+  'authoring.release-recovery-state.result' as const;
+export const AUTHORING_RELEASE_RECOVERY_REQUEST_TYPE =
+  'authoring.release-recovery.request' as const;
+export const AUTHORING_RELEASE_RECOVERY_RESULT_TYPE = 'authoring.release-recovery.result' as const;
 export const AUTHORING_PUBLISH_STAGING_REQUEST_TYPE = 'authoring.publish-staging.request' as const;
 export const AUTHORING_PUBLISH_STAGING_RESULT_TYPE = 'authoring.publish-staging.result' as const;
 export const AUTHORING_BROWSER_VERIFY_REQUEST_TYPE = 'authoring.browser-verify.request' as const;
@@ -68,6 +85,16 @@ export const AUTHORING_STYLE_SOURCE_SAVE_REQUEST_TYPE =
   'authoring.style-source.save.request' as const;
 export const AUTHORING_STYLE_SOURCE_SAVE_RESULT_TYPE =
   'authoring.style-source.save.result' as const;
+export const AUTHORING_BRAND_DRIFT_CHECK_REQUEST_TYPE =
+  'authoring.brand-drift.check.request' as const;
+export const AUTHORING_BRAND_DRIFT_CHECK_RESULT_TYPE =
+  'authoring.brand-drift.check.result' as const;
+export const AUTHORING_BRAND_DRIFT_PREVIEW_TYPE = 'authoring.brand-drift.preview' as const;
+export const AUTHORING_BRAND_THEME_ACKNOWLEDGE_REQUEST_TYPE =
+  'authoring.brand-theme.acknowledge.request' as const;
+export const AUTHORING_BRAND_THEME_ACKNOWLEDGE_RESULT_TYPE =
+  'authoring.brand-theme.acknowledge.result' as const;
+export const AUTHORING_THEME_PREVIEW_APPLY_TYPE = 'authoring.theme-preview.apply' as const;
 export const AUTHORING_PROMOTE_PRODUCTION_REQUEST_TYPE =
   'authoring.promote-production.request' as const;
 export const AUTHORING_PROMOTE_PRODUCTION_RESULT_TYPE =
@@ -123,6 +150,35 @@ export const AuthoringPanelLayoutRequestMessage = Type.Object(
   { $id: 'AuthoringPanelLayoutRequestMessage', additionalProperties: false },
 );
 export type AuthoringPanelLayoutRequestMessage = Static<typeof AuthoringPanelLayoutRequestMessage>;
+
+/** Ask the verified host to persist the current draft and close the authoring session. */
+export const AuthoringSaveAndExitRequestMessage = Type.Object(
+  {
+    ...BridgeEnvelope.properties,
+    type: Type.Literal(AUTHORING_SAVE_AND_EXIT_REQUEST_TYPE),
+  },
+  { $id: 'AuthoringSaveAndExitRequestMessage', additionalProperties: false },
+);
+export type AuthoringSaveAndExitRequestMessage = Static<typeof AuthoringSaveAndExitRequestMessage>;
+
+export const AuthoringSaveState = Type.Union([
+  Type.Literal('saved'),
+  Type.Literal('saving'),
+  Type.Literal('error'),
+]);
+export type AuthoringSaveState = Static<typeof AuthoringSaveState>;
+
+/** Report the host-owned draft persistence state to the authoring frame. */
+export const AuthoringSaveStateUpdateMessage = Type.Object(
+  {
+    ...BridgeEnvelope.properties,
+    type: Type.Literal(AUTHORING_SAVE_STATE_UPDATE_TYPE),
+    state: AuthoringSaveState,
+    label: Type.String({ minLength: 1, maxLength: 160 }),
+  },
+  { $id: 'AuthoringSaveStateUpdateMessage', additionalProperties: false },
+);
+export type AuthoringSaveStateUpdateMessage = Static<typeof AuthoringSaveStateUpdateMessage>;
 
 export const ScrollState = Type.Object(
   { x: Type.Number(), y: Type.Number() },
@@ -472,6 +528,12 @@ export const AuthoringInitMessage = Type.Object(
     productStyleSamplingCapability: Type.Optional(
       Type.Literal(AUTHORING_SESSION_CAPABILITIES.SAMPLE_PRODUCT_STYLE),
     ),
+    brandDriftCheckCapability: Type.Optional(
+      Type.Literal(AUTHORING_SESSION_CAPABILITIES.SAMPLE_PRODUCT_STYLE),
+    ),
+    brandThemeAcknowledgementCapability: Type.Optional(
+      Type.Literal(AUTHORING_SESSION_CAPABILITIES.WRITE_DOCUMENT),
+    ),
   },
   { $id: 'AuthoringInitMessage', additionalProperties: false },
 );
@@ -578,6 +640,65 @@ export type AuthoringBrowserVerifyResultMessage = Static<
   typeof AuthoringBrowserVerifyResultMessage
 >;
 
+/** Reads complete, server-vetted recovery truth for one exact target environment. */
+export const AuthoringReleaseRecoveryStateRequestMessage = Type.Object(
+  {
+    ...BridgeEnvelope.properties,
+    type: Type.Literal(AUTHORING_RELEASE_RECOVERY_STATE_REQUEST_TYPE),
+    environmentId: Type.String(BRIDGE_REFERENCE_ID_OPTIONS),
+  },
+  { $id: 'AuthoringReleaseRecoveryStateRequestMessage', additionalProperties: false },
+);
+export type AuthoringReleaseRecoveryStateRequestMessage = Static<
+  typeof AuthoringReleaseRecoveryStateRequestMessage
+>;
+
+export const AuthoringReleaseRecoveryStateResultMessage = Type.Object(
+  {
+    ...BridgeEnvelope.properties,
+    type: Type.Literal(AUTHORING_RELEASE_RECOVERY_STATE_RESULT_TYPE),
+    requestCorrelationId: Type.String(BRIDGE_REFERENCE_ID_OPTIONS),
+    result: Type.Union([
+      Type.Object(
+        { ok: Type.Literal(true), state: ReleaseRecoveryStateResponse },
+        { additionalProperties: false },
+      ),
+      AuthoringHostOperationFailure,
+    ]),
+  },
+  { $id: 'AuthoringReleaseRecoveryStateResultMessage', additionalProperties: false },
+);
+export type AuthoringReleaseRecoveryStateResultMessage = Static<
+  typeof AuthoringReleaseRecoveryStateResultMessage
+>;
+
+/** Mutates only one exact pointer using the canonical recovery CAS request. */
+export const AuthoringReleaseRecoveryRequestMessage = Type.Object(
+  {
+    ...BridgeEnvelope.properties,
+    type: Type.Literal(AUTHORING_RELEASE_RECOVERY_REQUEST_TYPE),
+    environmentId: Type.String(BRIDGE_REFERENCE_ID_OPTIONS),
+    request: ReleaseRecoveryRequest,
+  },
+  { $id: 'AuthoringReleaseRecoveryRequestMessage', additionalProperties: false },
+);
+export type AuthoringReleaseRecoveryRequestMessage = Static<
+  typeof AuthoringReleaseRecoveryRequestMessage
+>;
+
+export const AuthoringReleaseRecoveryResultMessage = Type.Object(
+  {
+    ...BridgeEnvelope.properties,
+    type: Type.Literal(AUTHORING_RELEASE_RECOVERY_RESULT_TYPE),
+    requestCorrelationId: Type.String(BRIDGE_REFERENCE_ID_OPTIONS),
+    result: ReleaseRecoveryResult,
+  },
+  { $id: 'AuthoringReleaseRecoveryResultMessage', additionalProperties: false },
+);
+export type AuthoringReleaseRecoveryResultMessage = Static<
+  typeof AuthoringReleaseRecoveryResultMessage
+>;
+
 export const AuthoringSubmitVerificationRequestMessage = Type.Object(
   {
     ...BridgeEnvelope.properties,
@@ -626,6 +747,7 @@ export const AuthoringStyleSourceSaveResultMessage = Type.Object(
           ok: Type.Literal(true),
           sourceId: Type.String(BRIDGE_REFERENCE_ID_OPTIONS),
           sourceHash: Type.String({ pattern: '^sha256-[0-9a-f]{64}$' }),
+          productMatch: Type.Ref(AuthoringProductMatchApplyResult),
         },
         { additionalProperties: false },
       ),
@@ -637,6 +759,100 @@ export const AuthoringStyleSourceSaveResultMessage = Type.Object(
 export type AuthoringStyleSourceSaveResultMessage = Static<
   typeof AuthoringStyleSourceSaveResultMessage
 >;
+
+export const AuthoringBrandDriftCheckRequestMessage = Type.Object(
+  {
+    ...BridgeEnvelope.properties,
+    type: Type.Literal(AUTHORING_BRAND_DRIFT_CHECK_REQUEST_TYPE),
+    request: Type.Ref(BrandDriftCheckRequest),
+  },
+  { $id: 'AuthoringBrandDriftCheckRequestMessage', additionalProperties: false },
+);
+export type AuthoringBrandDriftCheckRequestMessage = Static<
+  typeof AuthoringBrandDriftCheckRequestMessage
+>;
+
+export const AuthoringBrandDriftCheckResultMessage = Type.Object(
+  {
+    ...BridgeEnvelope.properties,
+    type: Type.Literal(AUTHORING_BRAND_DRIFT_CHECK_RESULT_TYPE),
+    requestCorrelationId: Type.String(BRIDGE_REFERENCE_ID_OPTIONS),
+    result: Type.Union([
+      Type.Object(
+        {
+          ok: Type.Literal(true),
+          brandDrift: Type.Ref(AuthoringBrandDriftCheckResult),
+        },
+        { additionalProperties: false },
+      ),
+      AuthoringHostOperationFailure,
+    ]),
+  },
+  { $id: 'AuthoringBrandDriftCheckResultMessage', additionalProperties: false },
+);
+export type AuthoringBrandDriftCheckResultMessage = Static<
+  typeof AuthoringBrandDriftCheckResultMessage
+>;
+
+/** Selects one server-returned review snapshot; it never carries page or theme data itself. */
+export const AuthoringBrandDriftPreviewMessage = Type.Object(
+  {
+    ...BridgeEnvelope.properties,
+    type: Type.Literal(AUTHORING_BRAND_DRIFT_PREVIEW_TYPE),
+    mode: Type.Union([Type.Literal('current'), Type.Literal('proposed'), Type.Literal('restore')]),
+  },
+  { $id: 'AuthoringBrandDriftPreviewMessage', additionalProperties: false },
+);
+export type AuthoringBrandDriftPreviewMessage = Static<typeof AuthoringBrandDriftPreviewMessage>;
+
+export const AuthoringBrandThemeAcknowledgeRequestMessage = Type.Object(
+  {
+    ...BridgeEnvelope.properties,
+    type: Type.Literal(AUTHORING_BRAND_THEME_ACKNOWLEDGE_REQUEST_TYPE),
+    request: Type.Ref(AuthoringBrandThemeAcknowledgementRequest),
+  },
+  { $id: 'AuthoringBrandThemeAcknowledgeRequestMessage', additionalProperties: false },
+);
+export type AuthoringBrandThemeAcknowledgeRequestMessage = Static<
+  typeof AuthoringBrandThemeAcknowledgeRequestMessage
+>;
+
+export const AuthoringBrandThemeAcknowledgeResultMessage = Type.Object(
+  {
+    ...BridgeEnvelope.properties,
+    type: Type.Literal(AUTHORING_BRAND_THEME_ACKNOWLEDGE_RESULT_TYPE),
+    requestCorrelationId: Type.String(BRIDGE_REFERENCE_ID_OPTIONS),
+    result: Type.Union([
+      Type.Object(
+        {
+          ok: Type.Literal(true),
+          acknowledgement: Type.Ref(AuthoringBrandThemeAcknowledgementResult),
+        },
+        { additionalProperties: false },
+      ),
+      AuthoringHostOperationFailure,
+    ]),
+  },
+  { $id: 'AuthoringBrandThemeAcknowledgeResultMessage', additionalProperties: false },
+);
+export type AuthoringBrandThemeAcknowledgeResultMessage = Static<
+  typeof AuthoringBrandThemeAcknowledgeResultMessage
+>;
+
+/**
+ * One semantic, validated mutable-theme adoption. It carries no raw page data
+ * and is accepted only by the already-bound authoring host session.
+ */
+export const AuthoringThemePreviewApplyMessage = Type.Object(
+  {
+    ...BridgeEnvelope.properties,
+    type: Type.Literal(AUTHORING_THEME_PREVIEW_APPLY_TYPE),
+    draftRevision: Type.Integer({ minimum: 1 }),
+    previewTheme: Type.Ref(BrandThemeSnapshot),
+  },
+  { $id: 'AuthoringThemePreviewApplyMessage', additionalProperties: false },
+);
+export type AuthoringThemePreviewApplyMessage = Static<typeof AuthoringThemePreviewApplyMessage>;
 
 export const AuthoringPromoteProductionRequestMessage = Type.Object(
   {
@@ -869,6 +1085,8 @@ export const BridgeMessage = Type.Union(
     AuthoringInlineControlCommitMessage,
     AuthoringPanelModeOpenMessage,
     AuthoringPanelLayoutRequestMessage,
+    AuthoringSaveAndExitRequestMessage,
+    AuthoringSaveStateUpdateMessage,
     PresentationAnchorPickStartMessage,
     PresentationAnchorPickResultMessage,
     PresentationAnchorPickCanceledMessage,
@@ -877,6 +1095,10 @@ export const BridgeMessage = Type.Union(
     AuthoringInitMessage,
     AuthoringReleaseStateRequestMessage,
     AuthoringReleaseStateResultMessage,
+    AuthoringReleaseRecoveryStateRequestMessage,
+    AuthoringReleaseRecoveryStateResultMessage,
+    AuthoringReleaseRecoveryRequestMessage,
+    AuthoringReleaseRecoveryResultMessage,
     AuthoringPublishStagingRequestMessage,
     AuthoringPublishStagingResultMessage,
     AuthoringBrowserVerifyRequestMessage,
@@ -885,6 +1107,12 @@ export const BridgeMessage = Type.Union(
     AuthoringSubmitVerificationResultMessage,
     AuthoringStyleSourceSaveRequestMessage,
     AuthoringStyleSourceSaveResultMessage,
+    AuthoringBrandDriftCheckRequestMessage,
+    AuthoringBrandDriftCheckResultMessage,
+    AuthoringBrandDriftPreviewMessage,
+    AuthoringBrandThemeAcknowledgeRequestMessage,
+    AuthoringBrandThemeAcknowledgeResultMessage,
+    AuthoringThemePreviewApplyMessage,
     AuthoringPromoteProductionRequestMessage,
     AuthoringPromoteProductionResultMessage,
     AuthoringApproveProductionRequestMessage,

@@ -9,8 +9,9 @@ import { InsertBar } from './insert-bar';
 import { InlineTopLevelInsert } from './insert-menu';
 import { Inspector } from './inspector';
 import { PanelBodyMode } from './panel-body-mode';
+import { combinedReleaseFindings, releaseFooterSummary } from './release-findings';
 import { TourSequenceRail, TourStepInspector } from './tour-sequence-rail';
-import { Check, Eye, Rocket } from '../design-system';
+import { Check, CircleAlert, Eye, LoaderCircle, Palette, Rocket, Save } from '../design-system';
 
 export function AuthoringCanvas({
   controller,
@@ -77,16 +78,56 @@ export function AuthoringCanvas({
                   />
                 ) : null}
               </div>
-              <footer
-                className="panel-workspace-footer"
-                aria-label="Release status"
-                data-release-status={snapshot.release.status}
-              >
-                <span className="panel-draft-state">
-                  <Check size={18} strokeWidth={2.2} aria-hidden="true" />
-                  Draft saved
+              <footer className="panel-workspace-footer" aria-label="Authoring actions">
+                <span
+                  className="panel-footer-state"
+                  aria-label="Release status"
+                  data-release-status={snapshot.release.status}
+                >
+                  <button
+                    type="button"
+                    className="panel-save-exit"
+                    onClick={() => controller.requestSaveAndExit()}
+                  >
+                    <Save size={16} strokeWidth={2} aria-hidden="true" />
+                    Save &amp; exit
+                  </button>
+                  <span
+                    className="panel-save-status"
+                    data-save-state
+                    data-state={snapshot.saveState.state}
+                    role="status"
+                    aria-live="polite"
+                  >
+                    <SaveStateIcon state={snapshot.saveState.state} />
+                    <span className="panel-save-status-copy">
+                      <strong data-save-state-label>{snapshot.saveState.label}</strong>
+                      <small className="panel-release-summary">
+                        {releaseFooterSummary(
+                          snapshot.release.status,
+                          combinedReleaseFindings(
+                            snapshot.documentState,
+                            snapshot.release.findings,
+                          ),
+                        )}
+                      </small>
+                    </span>
+                  </span>
                 </span>
-                <span className="panel-release-actions">
+                <span
+                  className="panel-release-actions"
+                  role="group"
+                  aria-label="Experience actions"
+                >
+                  <button
+                    type="button"
+                    data-panel-entry="appearance"
+                    aria-label="Customize"
+                    onClick={() => controller.openAppearanceMode()}
+                  >
+                    <Palette size={16} strokeWidth={2} aria-hidden="true" />
+                    Customize
+                  </button>
                   <button type="button" onClick={() => controller.previewFullTour()}>
                     <Eye size={16} strokeWidth={2} aria-hidden="true" />
                     Preview
@@ -94,10 +135,13 @@ export function AuthoringCanvas({
                   <button
                     type="button"
                     className="publish"
+                    data-panel-entry="release"
+                    aria-label="Release options"
                     onClick={() => controller.openReleaseVerificationMode()}
                   >
                     <Rocket size={16} strokeWidth={2} aria-hidden="true" />
-                    Release options
+                    <span className="panel-release-full">Release options</span>
+                    <span className="panel-release-short">Release</span>
                   </button>
                 </span>
               </footer>
@@ -184,6 +228,14 @@ export function AuthoringCanvas({
       </div>
     </section>
   );
+}
+
+function SaveStateIcon({ state }: { state: LocalAuthoringFrameSnapshot['saveState']['state'] }) {
+  if (state === 'saving') {
+    return <LoaderCircle className="panel-save-state-spinner" size={16} aria-hidden="true" />;
+  }
+  if (state === 'error') return <CircleAlert size={16} aria-hidden="true" />;
+  return <Check size={16} strokeWidth={2.2} aria-hidden="true" />;
 }
 
 function PanelAdvancedEditor({

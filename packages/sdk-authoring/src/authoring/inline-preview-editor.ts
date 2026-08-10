@@ -8,16 +8,12 @@ import {
   LODARIQ_RENDERED_NODE_ID_ATTRIBUTE,
   LODARIQ_RENDERED_NODE_TYPE_ATTRIBUTE,
 } from '@lodariq/schema/dom';
+import { MousePointer2, MousePointerClick, PanelBottom, Settings2, createElement } from 'lucide';
 import {
-  Check,
-  ChevronDown,
-  MousePointer2,
-  MousePointerClick,
-  PanelBottom,
-  Settings2,
-  createElement,
-} from 'lucide';
-import { CREATOR_CHROME_FONT_STACK, CREATOR_CHROME_TOKENS } from '../creator-chrome-tokens';
+  AUTHORING_CONTEXT_SURFACE_TOKENS,
+  CREATOR_CHROME_FONT_STACK,
+} from '../creator-chrome-tokens';
+import { createAuthoringDomCombobox } from './dom-combobox';
 
 export const INLINE_PREVIEW_CONTENT_TYPES = ['heading', 'paragraph', 'button', 'link'] as const;
 export type InlinePreviewContentType = (typeof INLINE_PREVIEW_CONTENT_TYPES)[number];
@@ -27,7 +23,6 @@ const INLINE_EDITABLE_ATTRIBUTE = 'data-lodariq-authoring-inline-editable';
 const INLINE_STYLE_ATTRIBUTE = 'data-lodariq-authoring-inline-style';
 const INLINE_TOOLBAR_ATTRIBUTE = 'data-lodariq-authoring-context-toolbar';
 const INLINE_IDLE_COMMIT_MS = 300;
-let inlineToolbarControlSequence = 0;
 const INLINE_CONTENT_LABELS: Readonly<Record<InlinePreviewContentType, string>> = {
   heading: 'Edit heading in preview',
   paragraph: 'Edit body text in preview',
@@ -65,6 +60,7 @@ export interface InlinePreviewControlContext {
 export interface InlinePreviewEditor {
   refresh: () => void;
   focusPrimary: () => void;
+  isEditingBlock: (blockId: string) => boolean;
   destroy: () => void;
 }
 
@@ -182,8 +178,20 @@ export function createInlinePreviewEditor(
     selectElementContents(primary);
   };
 
+  const isEditingBlock = (blockId: string): boolean => {
+    for (const element of editableElements.keys()) {
+      if (element.getAttribute(LODARIQ_RENDERED_NODE_ID_ATTRIBUTE) !== blockId) continue;
+      const root = element.getRootNode();
+      const ownerWindow = element.ownerDocument.defaultView;
+      if (ownerWindow && root instanceof ownerWindow.ShadowRoot && root.activeElement === element) {
+        return true;
+      }
+    }
+    return false;
+  };
+
   sync();
-  return { refresh: sync, focusPrimary, destroy };
+  return { refresh: sync, focusPrimary, isEditingBlock, destroy };
 }
 
 export function isInlinePreviewContentType(value: unknown): value is InlinePreviewContentType {
@@ -452,33 +460,33 @@ function createPreviewToolbar(
   contextIndicator.appendChild(createToolbarIcon(MousePointer2, 16));
   toolbar.appendChild(contextIndicator);
 
-  const placement = createToolbarCombobox(
-    doc,
-    'Tooltip placement',
-    INLINE_PLACEMENT_OPTIONS,
-    context.placement,
-    PanelBottom,
-    (nextPlacement) => {
+  const placement = createAuthoringDomCombobox({
+    document: doc,
+    label: 'Tooltip placement',
+    items: INLINE_PLACEMENT_OPTIONS,
+    initialValue: context.placement,
+    triggerIcon: PanelBottom,
+    onChange: (nextPlacement) => {
       flushActiveInlineEdit();
       commit({ kind: 'setPlacement', blockId: context.tooltipBlockId, placement: nextPlacement });
     },
-  );
+  });
   toolbar.appendChild(placement.element);
 
   let action: PreviewToolbarCombobox | null = null;
   if (context.actionBlockId && context.actionType) {
     const actionBlockId = context.actionBlockId;
-    action = createToolbarCombobox(
-      doc,
-      'Button action',
-      INLINE_ACTION_OPTIONS,
-      context.actionType,
-      MousePointerClick,
-      (nextAction) => {
+    action = createAuthoringDomCombobox({
+      document: doc,
+      label: 'Button action',
+      items: INLINE_ACTION_OPTIONS,
+      initialValue: context.actionType,
+      triggerIcon: MousePointerClick,
+      onChange: (nextAction) => {
         flushActiveInlineEdit();
         commit({ kind: 'setAction', blockId: actionBlockId, actionType: nextAction });
       },
-    );
+    });
     toolbar.appendChild(action.element);
   }
 
@@ -514,143 +522,6 @@ function createPreviewToolbar(
       action?.cleanup();
       more.removeEventListener('click', onMoreClick, true);
       toolbar.remove();
-    },
-  };
-}
-
-function createToolbarCombobox<T extends string>(
-  doc: Document,
-  label: string,
-  items: ReadonlyArray<{ value: T; label: string }>,
-  initialValue: T,
-  icon: InlineToolbarIcon,
-  onChange: (value: T) => void,
-): PreviewToolbarCombobox {
-  const root = doc.createElement('div');
-  root.className = 'lodariq-inline-toolbar-combobox';
-
-  const controlId = `lodariq-inline-control-${++inlineToolbarControlSequence}`;
-  const trigger = doc.createElement('button');
-  trigger.type = 'button';
-  trigger.className = 'lodariq-inline-toolbar-trigger';
-  trigger.setAttribute('role', 'combobox');
-  trigger.setAttribute('aria-label', label);
-  trigger.setAttribute('aria-haspopup', 'listbox');
-  trigger.setAttribute('aria-controls', controlId);
-  trigger.setAttribute('aria-expanded', 'false');
-  trigger.appendChild(createToolbarIcon(icon, 15));
-
-  const valueLabel = doc.createElement('span');
-  valueLabel.className = 'lodariq-inline-toolbar-value';
-  trigger.appendChild(valueLabel);
-  const chevron = createToolbarIcon(ChevronDown, 14);
-  chevron.classList.add('lodariq-inline-toolbar-chevron');
-  trigger.appendChild(chevron);
-
-  const list = doc.createElement('div');
-  list.id = controlId;
-  list.className = 'lodariq-inline-toolbar-listbox';
-  list.setAttribute('role', 'listbox');
-  list.setAttribute('aria-label', label);
-  list.hidden = true;
-
-  let currentValue = initialValue;
-  let open = false;
-  const optionButtons: HTMLButtonElement[] = [];
-  const optionCleanups: Array<() => void> = [];
-
-  const updateSelection = (): void => {
-    valueLabel.textContent = items.find((item) => item.value === currentValue)?.label ?? '';
-    for (const option of optionButtons) {
-      const selected = option.dataset['value'] === currentValue;
-      option.setAttribute('aria-selected', String(selected));
-      option.querySelector('.lodariq-inline-toolbar-check')?.toggleAttribute('hidden', !selected);
-    }
-  };
-
-  const setOpen = (nextOpen: boolean, focusSelected = false): void => {
-    open = nextOpen;
-    trigger.setAttribute('aria-expanded', String(open));
-    list.hidden = !open;
-    root.toggleAttribute('data-open', open);
-    if (!open || !focusSelected) return;
-    const selected = optionButtons.find((option) => option.dataset['value'] === currentValue);
-    queueMicrotask(() => (selected ?? optionButtons[0])?.focus());
-  };
-
-  for (const item of items) {
-    const option = doc.createElement('button');
-    option.type = 'button';
-    option.className = 'lodariq-inline-toolbar-option';
-    option.dataset['value'] = item.value;
-    option.setAttribute('role', 'option');
-    const check = createToolbarIcon(Check, 14);
-    check.classList.add('lodariq-inline-toolbar-check');
-    option.append(check, item.label);
-    const onOptionClick = (event: MouseEvent): void => {
-      event.preventDefault();
-      event.stopPropagation();
-      currentValue = item.value;
-      updateSelection();
-      setOpen(false);
-      trigger.focus();
-      onChange(item.value);
-    };
-    option.addEventListener('click', onOptionClick);
-    optionCleanups.push(() => option.removeEventListener('click', onOptionClick));
-    optionButtons.push(option);
-    list.appendChild(option);
-  }
-
-  const onTriggerClick = (event: MouseEvent): void => {
-    event.preventDefault();
-    event.stopPropagation();
-    setOpen(!open, !open);
-  };
-  const onTriggerKeyDown = (event: KeyboardEvent): void => {
-    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
-      event.preventDefault();
-      setOpen(true, true);
-    }
-    if (event.key === 'Escape' && open) {
-      event.preventDefault();
-      setOpen(false);
-    }
-  };
-  const onListKeyDown = (event: KeyboardEvent): void => {
-    const currentIndex = optionButtons.indexOf(doc.activeElement as HTMLButtonElement);
-    if (event.key === 'Escape') {
-      event.preventDefault();
-      setOpen(false);
-      trigger.focus();
-      return;
-    }
-    if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return;
-    event.preventDefault();
-    const direction = event.key === 'ArrowDown' ? 1 : -1;
-    const nextIndex = (currentIndex + direction + optionButtons.length) % optionButtons.length;
-    optionButtons[nextIndex]?.focus();
-  };
-  const onDocumentPointerDown = (event: PointerEvent): void => {
-    if (!open || event.composedPath().includes(root)) return;
-    setOpen(false);
-  };
-
-  trigger.addEventListener('click', onTriggerClick);
-  trigger.addEventListener('keydown', onTriggerKeyDown);
-  list.addEventListener('keydown', onListKeyDown);
-  doc.addEventListener('pointerdown', onDocumentPointerDown, true);
-  root.append(trigger, list);
-  updateSelection();
-
-  return {
-    element: root,
-    cleanup: () => {
-      trigger.removeEventListener('click', onTriggerClick);
-      trigger.removeEventListener('keydown', onTriggerKeyDown);
-      list.removeEventListener('keydown', onListKeyDown);
-      doc.removeEventListener('pointerdown', onDocumentPointerDown, true);
-      optionCleanups.forEach((cleanup) => cleanup());
     },
   };
 }
@@ -729,7 +600,7 @@ function createInlineEditorStyles(doc: Document): HTMLStyleElement {
       }
 
       [${INLINE_EDITABLE_ATTRIBUTE}="true"]:focus {
-        outline: 2px solid ${CREATOR_CHROME_TOKENS.focus};
+        outline: 2px solid ${AUTHORING_CONTEXT_SURFACE_TOKENS.accent};
       }
 
       [${INLINE_TOOLBAR_ATTRIBUTE}="true"] {
@@ -740,10 +611,10 @@ function createInlineEditorStyles(doc: Document): HTMLStyleElement {
         flex-wrap: nowrap;
         gap: 4px;
         margin: 12px 0 0 auto;
-        border: 1px solid rgba(255, 255, 255, 0.1);
+        border: 1px solid ${AUTHORING_CONTEXT_SURFACE_TOKENS.border};
         border-radius: 12px;
-        background: color-mix(in srgb, ${CREATOR_CHROME_TOKENS.chrome} 94%, transparent);
-        box-shadow: 0 10px 24px rgba(0, 0, 0, 0.3), inset 0 1px rgba(255, 255, 255, 0.05);
+        background: color-mix(in srgb, ${AUTHORING_CONTEXT_SURFACE_TOKENS.surface} 96%, transparent);
+        box-shadow: ${AUTHORING_CONTEXT_SURFACE_TOKENS.shadow};
         padding: 5px;
         backdrop-filter: blur(14px);
       }
@@ -755,8 +626,8 @@ function createInlineEditorStyles(doc: Document): HTMLStyleElement {
         height: 34px;
         flex: 0 0 auto;
         place-items: center;
-        border-right: 1px solid rgba(255, 255, 255, 0.1);
-        color: ${CREATOR_CHROME_TOKENS.ink};
+        border-right: 1px solid ${AUTHORING_CONTEXT_SURFACE_TOKENS.borderSoft};
+        color: ${AUTHORING_CONTEXT_SURFACE_TOKENS.ink};
         margin-right: 1px;
       }
 
@@ -771,7 +642,7 @@ function createInlineEditorStyles(doc: Document): HTMLStyleElement {
         border: 1px solid transparent;
         background: transparent;
         box-shadow: none;
-        color: ${CREATOR_CHROME_TOKENS.ink};
+        color: ${AUTHORING_CONTEXT_SURFACE_TOKENS.ink};
         font: 600 12px/1.2 ${CREATOR_CHROME_FONT_STACK};
         cursor: pointer;
       }
@@ -782,13 +653,13 @@ function createInlineEditorStyles(doc: Document): HTMLStyleElement {
         align-items: center;
         gap: 6px;
         border-radius: 8px;
-        color: ${CREATOR_CHROME_TOKENS.ink};
+        color: ${AUTHORING_CONTEXT_SURFACE_TOKENS.ink};
         padding: 6px 8px;
       }
 
       [${INLINE_TOOLBAR_ATTRIBUTE}="true"] .lodariq-inline-toolbar-trigger > svg:first-child {
         flex: 0 0 auto;
-        color: ${CREATOR_CHROME_TOKENS.muted};
+        color: ${AUTHORING_CONTEXT_SURFACE_TOKENS.muted};
       }
 
       [${INLINE_TOOLBAR_ATTRIBUTE}="true"] .lodariq-inline-toolbar-value {
@@ -800,7 +671,7 @@ function createInlineEditorStyles(doc: Document): HTMLStyleElement {
 
       [${INLINE_TOOLBAR_ATTRIBUTE}="true"] .lodariq-inline-toolbar-chevron {
         flex: 0 0 auto;
-        color: ${CREATOR_CHROME_TOKENS.muted};
+        color: ${AUTHORING_CONTEXT_SURFACE_TOKENS.muted};
         transition: transform 120ms ease;
       }
 
@@ -817,7 +688,7 @@ function createInlineEditorStyles(doc: Document): HTMLStyleElement {
         min-height: 34px;
         flex: 0 0 auto;
         place-items: center;
-        border-left: 1px solid rgba(255, 255, 255, 0.1);
+        border-left: 1px solid ${AUTHORING_CONTEXT_SURFACE_TOKENS.borderSoft};
         border-radius: 8px;
         margin-left: 1px;
         padding: 0;
@@ -826,12 +697,12 @@ function createInlineEditorStyles(doc: Document): HTMLStyleElement {
       [${INLINE_TOOLBAR_ATTRIBUTE}="true"] .lodariq-inline-toolbar-trigger:hover,
       [${INLINE_TOOLBAR_ATTRIBUTE}="true"] .lodariq-inline-toolbar-trigger[aria-expanded="true"],
       [${INLINE_TOOLBAR_ATTRIBUTE}="true"] .lodariq-inline-toolbar-details:hover {
-        border-color: rgba(61, 232, 176, 0.4);
-        background: rgba(255, 255, 255, 0.06);
+        border-color: ${AUTHORING_CONTEXT_SURFACE_TOKENS.accent};
+        background: ${AUTHORING_CONTEXT_SURFACE_TOKENS.accentSoft};
       }
 
       [${INLINE_TOOLBAR_ATTRIBUTE}="true"] button:focus-visible {
-        outline: 2px solid ${CREATOR_CHROME_TOKENS.focus};
+        outline: 2px solid ${AUTHORING_CONTEXT_SURFACE_TOKENS.focus};
         outline-offset: 2px;
       }
 
@@ -847,11 +718,11 @@ function createInlineEditorStyles(doc: Document): HTMLStyleElement {
         max-width: min(220px, calc(100vw - 32px));
         gap: 2px;
         overflow: hidden;
-        border: 1px solid ${CREATOR_CHROME_TOKENS.border};
+        border: 1px solid ${AUTHORING_CONTEXT_SURFACE_TOKENS.border};
         border-radius: 10px;
-        background: ${CREATOR_CHROME_TOKENS.surface};
+        background: ${AUTHORING_CONTEXT_SURFACE_TOKENS.surface};
         padding: 5px;
-        box-shadow: 0 14px 32px rgba(0, 0, 0, 0.38);
+        box-shadow: ${AUTHORING_CONTEXT_SURFACE_TOKENS.shadow};
       }
 
       [${INLINE_TOOLBAR_ATTRIBUTE}="true"] .lodariq-inline-toolbar-combobox:last-of-type
@@ -872,18 +743,18 @@ function createInlineEditorStyles(doc: Document): HTMLStyleElement {
         align-items: center;
         gap: 7px;
         border-radius: 7px;
-        color: ${CREATOR_CHROME_TOKENS.ink};
+        color: ${AUTHORING_CONTEXT_SURFACE_TOKENS.ink};
         padding: 7px 9px;
         text-align: left;
       }
 
       [${INLINE_TOOLBAR_ATTRIBUTE}="true"] .lodariq-inline-toolbar-option:hover,
       [${INLINE_TOOLBAR_ATTRIBUTE}="true"] .lodariq-inline-toolbar-option[aria-selected="true"] {
-        background: rgba(255, 255, 255, 0.07);
+        background: ${AUTHORING_CONTEXT_SURFACE_TOKENS.accentSoft};
       }
 
       [${INLINE_TOOLBAR_ATTRIBUTE}="true"] .lodariq-inline-toolbar-check {
-        color: ${CREATOR_CHROME_TOKENS.action};
+        color: ${AUTHORING_CONTEXT_SURFACE_TOKENS.accent};
       }
 
       [${INLINE_TOOLBAR_ATTRIBUTE}="true"] .lodariq-inline-toolbar-check[hidden] {
@@ -897,10 +768,10 @@ function createInlineEditorStyles(doc: Document): HTMLStyleElement {
         z-index: 5;
         width: max-content;
         max-width: 180px;
-        border: 1px solid ${CREATOR_CHROME_TOKENS.border};
+        border: 1px solid ${AUTHORING_CONTEXT_SURFACE_TOKENS.border};
         border-radius: 7px;
-        background: ${CREATOR_CHROME_TOKENS.surface};
-        color: ${CREATOR_CHROME_TOKENS.ink};
+        background: ${AUTHORING_CONTEXT_SURFACE_TOKENS.surface};
+        color: ${AUTHORING_CONTEXT_SURFACE_TOKENS.ink};
         content: attr(data-tooltip);
         font: 600 11px/1.2 ${CREATOR_CHROME_FONT_STACK};
         opacity: 0;

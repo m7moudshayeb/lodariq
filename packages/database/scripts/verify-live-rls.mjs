@@ -16,6 +16,8 @@ const tenantScopedTables = [
   'themes',
   'theme_versions',
   'style_sources',
+  'product_style_applications',
+  'brand_drift_runs',
   'documents',
   'document_versions',
   'compiled_artifacts',
@@ -27,6 +29,7 @@ const tenantScopedTables = [
   'document_deployments',
   'authoring_sessions',
   'events',
+  'analytics_events',
 ];
 
 const identityScopedTables = [
@@ -41,7 +44,16 @@ const identityScopedTables = [
 ];
 
 const rlsProtectedTables = [...tenantScopedTables, ...identityScopedTables];
-const appendOnlyPhase2Tables = ['style_sources', 'publication_verifications', 'release_approvals'];
+const appendOnlyPhase2Tables = [
+  'compiled_artifacts',
+  'publications',
+  'style_sources',
+  'product_style_applications',
+  'brand_drift_runs',
+  'publication_verifications',
+  'release_approvals',
+  'analytics_events',
+];
 
 const tokenLookupPolicies = new Map([
   ['environments', 'environments_token_lookup'],
@@ -202,6 +214,19 @@ async function verifyCatalogState(sql) {
       fail(`Append-only table ${table} exposes mutable policy ${mutablePolicy.policyname}.`);
     }
   }
+  if (!policies.has('release_operations:release_operations_workspace_insert')) {
+    fail('Release-operation insert policy is missing.');
+  }
+  if (!policies.has('release_operations:release_operations_lifecycle_update')) {
+    fail('Release-operation lifecycle update policy is missing.');
+  }
+  const destructiveReleasePolicy = policyRows.find(
+    (row) =>
+      row.tablename === 'release_operations' && (row.cmd === 'ALL' || row.cmd === 'DELETE'),
+  );
+  if (destructiveReleasePolicy) {
+    fail(`Release operations expose destructive policy ${destructiveReleasePolicy.policyname}.`);
+  }
   for (const [table, policyName] of tokenLookupPolicies) {
     const policy = `${table}:${policyName}`;
     if (!policies.has(policy)) fail(`SDK token lookup policy is missing for ${table}.`);
@@ -251,23 +276,39 @@ async function verifyScratchIsolation(sql) {
 }
 
 async function expectBrandRowsHiddenFromOtherWorkspace(sql, workspaceScope, hiddenWorkspaceId) {
-  const [, themeRows, versionRows, styleSourceRows, visualRows, verificationRows, approvalRows] =
-    await sql.transaction((tx) => [
-      tx`select set_config('lodariq.workspace_id', ${workspaceScope}, true)`,
-      tx`select id from themes where workspace_id = ${hiddenWorkspaceId}`,
-      tx`select id from theme_versions where workspace_id = ${hiddenWorkspaceId}`,
-      tx`select id from style_sources where workspace_id = ${hiddenWorkspaceId}`,
-      tx`select id from visual_check_runs where workspace_id = ${hiddenWorkspaceId}`,
-      tx`select id from publication_verifications where workspace_id = ${hiddenWorkspaceId}`,
-      tx`select id from release_approvals where workspace_id = ${hiddenWorkspaceId}`,
-    ]);
+  const [
+    ,
+    themeRows,
+    versionRows,
+    styleSourceRows,
+    productStyleApplicationRows,
+    brandDriftRows,
+    visualRows,
+    verificationRows,
+    approvalRows,
+    analyticsRows,
+  ] = await sql.transaction((tx) => [
+    tx`select set_config('lodariq.workspace_id', ${workspaceScope}, true)`,
+    tx`select id from themes where workspace_id = ${hiddenWorkspaceId}`,
+    tx`select id from theme_versions where workspace_id = ${hiddenWorkspaceId}`,
+    tx`select id from style_sources where workspace_id = ${hiddenWorkspaceId}`,
+    tx`select id from product_style_applications where workspace_id = ${hiddenWorkspaceId}`,
+    tx`select id from brand_drift_runs where workspace_id = ${hiddenWorkspaceId}`,
+    tx`select id from visual_check_runs where workspace_id = ${hiddenWorkspaceId}`,
+    tx`select id from publication_verifications where workspace_id = ${hiddenWorkspaceId}`,
+    tx`select id from release_approvals where workspace_id = ${hiddenWorkspaceId}`,
+    tx`select id from analytics_events where workspace_id = ${hiddenWorkspaceId}`,
+  ]);
   if (
     themeRows.length ||
     versionRows.length ||
     styleSourceRows.length ||
+    productStyleApplicationRows.length ||
+    brandDriftRows.length ||
     visualRows.length ||
     verificationRows.length ||
-    approvalRows.length
+    approvalRows.length ||
+    analyticsRows.length
   ) {
     fail('Workspace-scoped Phase 2 persistence leaked rows across tenants.');
   }
@@ -281,6 +322,7 @@ async function expectVersionAndPublicationRecords(sql, workspaceId, environmentI
   const artifactB = `artifact_${documentId}_b`;
   const publicationA = `pub_${documentId}_a`;
   const publicationB = `pub_${documentId}_b`;
+  const analyticsEventId = `aevt_${documentId}_a`;
   const publicationCorrelationA = `corr_${publicationA}`;
   const publicationCorrelationB = `corr_${publicationB}`;
   const themeId = `theme_live_rls_${workspaceId.slice(-16)}`;
@@ -351,6 +393,15 @@ async function expectVersionAndPublicationRecords(sql, workspaceId, environmentI
     tx`
         insert into publications (id, workspace_id, correlation_id, environment_id, document_id, document_version_id, compiled_artifact_id, content_hash)
         values (${publicationA}, ${workspaceId}, ${publicationCorrelationA}, ${environmentId}, ${documentId}, ${documentVersionA}, ${artifactA}, ${firstHash})
+      `,
+    tx`
+        insert into analytics_events (
+          id, workspace_id, environment_id, document_id, publication_id,
+          content_hash, pointer_generation, name, sdk_version, occurred_at
+        ) values (
+          ${analyticsEventId}, ${workspaceId}, ${environmentId}, ${documentId}, ${publicationA},
+          ${firstHash}, 1, 'tour.opened', 'live-smoke', now()
+        )
       `,
     tx`
         insert into visual_check_runs (
@@ -450,6 +501,18 @@ async function expectVersionAndPublicationRecords(sql, workspaceId, environmentI
 }
 
 async function createScratchWorkspace(sql, workspaceId, environmentId, tokenHash) {
+  const stagingReleasePolicy = JSON.stringify({
+    allowDirectPublish: true,
+    requireSourceVerification: false,
+    requiredApprovalCount: 0,
+    publisherRoles: ['owner', 'admin', 'member'],
+    rollbackRoles: ['owner', 'admin'],
+    unpublishRoles: ['owner', 'admin'],
+    separationOfDuties: {
+      requireSeparateVerifier: false,
+      requireSeparateApprover: false,
+    },
+  });
   const queries = [
     (tx) => tx`select set_config('lodariq.workspace_id', ${workspaceId}, true)`,
     (tx) => tx`
@@ -460,8 +523,28 @@ async function createScratchWorkspace(sql, workspaceId, environmentId, tokenHash
   if (environmentId && tokenHash) {
     queries.push(
       (tx) => tx`
-        insert into environments (id, workspace_id, kind, name, origin_allowlist)
-        values (${environmentId}, ${workspaceId}, 'staging', 'Live RLS staging', '["https://staging.lodariq.com"]'::jsonb)
+        insert into environments (
+          id,
+          workspace_id,
+          kind,
+          name,
+          origin_allowlist,
+          required_approval_count,
+          pipeline_position,
+          authoring_enabled,
+          release_policy_json
+        )
+        values (
+          ${environmentId},
+          ${workspaceId},
+          'staging',
+          'Live RLS staging',
+          '["https://staging.lodariq.com"]'::jsonb,
+          0,
+          1,
+          true,
+          ${stagingReleasePolicy}::jsonb
+        )
       `,
       (tx) => tx`
         insert into environment_tokens (id, workspace_id, environment_id, name, token_hash, token_prefix)

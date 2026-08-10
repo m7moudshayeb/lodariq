@@ -198,6 +198,79 @@ describe('permanent SDK delivery adapter', () => {
     expect(window.Lodariq).toBe(api);
   });
 
+  it('keeps legacy delivery analytics inert when no active publication pointer exists', async () => {
+    const fetch = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetch);
+    const context: PublicSdkBootstrapContext = {
+      installationId: INSTALLATION_ID,
+      environmentId: 'env_production',
+      environment: 'production',
+      customerOrigin: 'https://customer.example',
+      correlationId: 'corr_legacy_delivery',
+      delivery: {
+        state: 'available',
+        manifest: {
+          documentId: LEGACY_COMPILED_DOCUMENT.documentId,
+          currentVersion: LEGACY_COMPILED_DOCUMENT.contentHash,
+        },
+        currentDocumentUrl: 'https://api.lodariq.com/v1/sdk/current-document',
+        ingestUrl: 'https://api.lodariq.com/v1/sdk/events',
+      },
+      authoring: { state: 'disabled' },
+    };
+
+    const api = await installPublicSdkDelivery(context);
+    api?.track('tour_started');
+    window.dispatchEvent(new Event('pagehide'));
+
+    expect(fetch).not.toHaveBeenCalledWith(
+      'https://api.lodariq.com/v1/sdk/events',
+      expect.anything(),
+    );
+  });
+
+  it('carries the exact active pointer as an analytics assertion', async () => {
+    const manifest = activeManifest(COMPILED_DOCUMENT, 'pub_public_delivery');
+    const fetch = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetch);
+    const context: PublicSdkBootstrapContext = {
+      installationId: INSTALLATION_ID,
+      environmentId: 'env_production',
+      environment: 'production',
+      customerOrigin: 'https://customer.example',
+      correlationId: 'corr_public_delivery',
+      delivery: {
+        state: 'available',
+        manifest,
+        currentDocumentUrl: 'https://api.lodariq.com/v1/sdk/current-document',
+        ingestUrl: 'https://api.lodariq.com/v1/sdk/events',
+      },
+      authoring: { state: 'disabled' },
+    };
+
+    const api = await installPublicSdkDelivery(context);
+    api?.track('tour_started', { documentId: COMPILED_DOCUMENT.documentId });
+    window.dispatchEvent(new Event('pagehide'));
+
+    const eventRequest = fetch.mock.calls.find(
+      ([url]) => url === 'https://api.lodariq.com/v1/sdk/events',
+    );
+    const body = JSON.parse(eventRequest?.[1]?.body as string) as {
+      events: Array<Record<string, unknown>>;
+    };
+    expect(body.events[0]).toMatchObject({
+      name: 'tour_started',
+      documentId: COMPILED_DOCUMENT.documentId,
+      pointer: {
+        generation: manifest.generation,
+        publicationId: manifest.publicationId,
+        contentHash: manifest.artifact.contentHash,
+      },
+    });
+    expect(body.events[0]).not.toHaveProperty('workspaceId');
+    expect(body.events[0]).not.toHaveProperty('environmentId');
+  });
+
   it('rejects an unsupported public manifest before installing a runtime', async () => {
     const supported = activeManifest(COMPILED_DOCUMENT, 'pub_public_delivery');
     const context = {

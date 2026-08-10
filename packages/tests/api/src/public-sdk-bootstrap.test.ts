@@ -1,7 +1,11 @@
 import { createHash } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import { createApiApp } from '@lodariq/api';
-import { createInMemoryControlPlaneRepository, type WorkspaceEnvironment } from '@lodariq/database';
+import {
+  createInMemoryControlPlaneRepository,
+  type InMemoryControlPlaneSeed,
+  type WorkspaceEnvironment,
+} from '@lodariq/database';
 import {
   BRAND_THEME_CONTRACT_VERSION,
   COMPILED_ARTIFACT_SCHEMA_VERSION,
@@ -20,7 +24,16 @@ const authHeaders = {
   'x-lodariq-user-id': 'user_public_sdk',
 };
 
-const memberHeaders = { ...authHeaders, 'x-lodariq-role': 'member' };
+const memberHeaders = {
+  ...authHeaders,
+  'x-lodariq-user-id': 'user_public_sdk_member',
+  'x-lodariq-role': 'member',
+};
+const viewerHeaders = {
+  ...authHeaders,
+  'x-lodariq-user-id': 'user_public_sdk_viewer',
+  'x-lodariq-role': 'viewer',
+};
 
 const environments: WorkspaceEnvironment[] = [
   environment('env_staging', 'staging'),
@@ -32,7 +45,7 @@ const baseDocument = tourFixture as LodariqDocument;
 
 describe('origin-resolved public SDK bootstrap', () => {
   it('returns the exact membership-resolved control-plane auth context', async () => {
-    const repository = createInMemoryControlPlaneRepository({
+    const repository = createPublicSdkRepository({
       environments,
       workspaceMemberships: [
         {
@@ -61,14 +74,50 @@ describe('origin-resolved public SDK bootstrap', () => {
   });
 
   it('creates one credential-free installation and bootstraps unpublished staging authoring', async () => {
-    const repository = createInMemoryControlPlaneRepository({ environments });
+    const repository = createPublicSdkRepository({ environments });
     const app = createApiApp({
       repository,
-      publicApiBaseUrl: 'https://api.lodariq.com',
-      loaderSrc: 'https://cdn.lodariq.com/loader/v1/lodariq-loader.js',
+      publicApiBaseUrl: 'https://staging-api.lodariq.com',
+      loaderSrc: 'https://staging-cdn.lodariq.com/loader/v1/lodariq-loader.js',
+      authoringIframeSrc: 'https://staging-editor.lodariq.com/authoring.html',
     });
 
     const installationId = await createInstallation(app, 'Customer application');
+    const disallowedMapping = await app.inject({
+      method: 'PUT',
+      url: `/v1/sdk-installations/${installationId}/origins`,
+      headers: authHeaders,
+      payload: {
+        environmentId: 'env_staging',
+        origin: 'https://other.customer.example',
+        authoringEnabled: true,
+      },
+    });
+    expect(disallowedMapping.statusCode).toBe(409);
+    expect(disallowedMapping.json()).toEqual({
+      error: 'environment_policy_forbidden',
+      message: 'Origin is not present in the environment origin allowlist',
+    });
+    const disallowedSync = await app.inject({
+      method: 'PUT',
+      url: `/v1/sdk-installations/${installationId}/origins/sync`,
+      headers: authHeaders,
+      payload: {
+        origins: [
+          {
+            environmentId: 'env_staging',
+            origin: 'https://other.customer.example',
+            authoringEnabled: true,
+          },
+        ],
+      },
+    });
+    expect(disallowedSync.statusCode).toBe(409);
+    expect(disallowedSync.json()).toEqual({
+      error: 'environment_policy_forbidden',
+      message: 'Origin is not present in the environment origin allowlist',
+    });
+
     const mapping = await app.inject({
       method: 'PUT',
       url: `/v1/sdk-installations/${installationId}/origins`,
@@ -153,10 +202,11 @@ describe('origin-resolved public SDK bootstrap', () => {
       delivery: { state: 'unavailable' },
       authoring: {
         state: 'available',
-        appOrigin: 'https://app.lodariq.com',
-        activationUrl: 'https://app.lodariq.com/authoring/activate',
-        authorizationRequestUrl: 'https://api.lodariq.com/v1/sdk/authoring/authorization-requests',
-        exchangeUrl: 'https://api.lodariq.com/v1/sdk/authoring/exchange',
+        appOrigin: 'https://staging-app.lodariq.com',
+        activationUrl: 'https://staging-app.lodariq.com/authoring/activate',
+        authorizationRequestUrl:
+          'https://staging-api.lodariq.com/v1/sdk/authoring/authorization-requests',
+        exchangeUrl: 'https://staging-api.lodariq.com/v1/sdk/authoring/exchange',
       },
     });
     expect(JSON.stringify(context)).not.toContain('creatorModule');
@@ -190,14 +240,18 @@ describe('origin-resolved public SDK bootstrap', () => {
       },
     });
     expect(event.statusCode).toBe(202);
-    expect(event.json()).toEqual({ accepted: 1 });
+    expect(event.json()).toEqual({
+      accepted: 0,
+      rejected: 1,
+      diagnostics: [{ code: 'pointer_required', count: 1 }],
+    });
 
     await app.close();
   });
 
   it('returns a structurally data-free authoring branch for production', async () => {
     const app = createApiApp({
-      repository: createInMemoryControlPlaneRepository({ environments }),
+      repository: createPublicSdkRepository({ environments }),
       publicApiBaseUrl: 'https://api.lodariq.com',
     });
     const installationId = await createInstallation(app, 'Production application');
@@ -261,7 +315,7 @@ describe('origin-resolved public SDK bootstrap', () => {
   });
 
   it('bootstraps multiple document pointers and serves immutable, integrity-pinned artifacts', async () => {
-    const repository = createInMemoryControlPlaneRepository({ environments });
+    const repository = createPublicSdkRepository({ environments });
     const app = createApiApp({
       repository,
       publicApiBaseUrl: 'https://api.lodariq.com',
@@ -331,6 +385,8 @@ describe('origin-resolved public SDK bootstrap', () => {
           workspaceId: string;
           documentId: string;
           environmentId: string;
+          generation: number;
+          publicationId: string;
           artifact: {
             artifactSchemaVersion: string;
             contentHash: string;
@@ -397,6 +453,29 @@ describe('origin-resolved public SDK bootstrap', () => {
       manifest.artifact.integrity,
     );
 
+    const analytics = await app.inject({
+      method: 'POST',
+      url: '/v1/sdk/events',
+      headers: publicHeaders,
+      payload: {
+        events: [
+          {
+            name: 'tour_started',
+            documentId: manifest.documentId,
+            pointer: {
+              generation: manifest.generation,
+              publicationId: manifest.publicationId,
+              contentHash: manifest.artifact.contentHash,
+            },
+            sdkVersion: '0.0.0-test',
+            timestamp: '2026-08-09T12:00:00.000Z',
+          },
+        ],
+      },
+    });
+    expect(analytics.statusCode).toBe(202);
+    expect(analytics.json()).toEqual({ accepted: 1, rejected: 0, diagnostics: [] });
+
     const wrongOrigin = await app.inject({
       method: 'GET',
       url: artifactPath,
@@ -410,7 +489,7 @@ describe('origin-resolved public SDK bootstrap', () => {
   });
 
   it('isolates delivery paths for two installations on the same browser origin', async () => {
-    const repository = createInMemoryControlPlaneRepository({ environments });
+    const repository = createPublicSdkRepository({ environments });
     const app = createApiApp({
       repository,
       publicApiBaseUrl: 'https://api.lodariq.com',
@@ -575,7 +654,7 @@ describe('origin-resolved public SDK bootstrap', () => {
   });
 
   it('returns a bounded error instead of serializing more than 100 active manifests', async () => {
-    const repository = createInMemoryControlPlaneRepository({
+    const repository = createPublicSdkRepository({
       environments,
       documentDeployments: Array.from(
         { length: MAX_ACTIVE_DOCUMENT_MANIFESTS + 1 },
@@ -622,7 +701,7 @@ describe('origin-resolved public SDK bootstrap', () => {
 
   it('fails closed for missing, mismatched, disallowed, and revoked origins', async () => {
     const app = createApiApp({
-      repository: createInMemoryControlPlaneRepository({ environments }),
+      repository: createPublicSdkRepository({ environments }),
     });
     const installationId = await createInstallation(app, 'Revocable application');
     await app.inject({
@@ -694,7 +773,7 @@ describe('origin-resolved public SDK bootstrap', () => {
 
   it('allows members to inspect installations but reserves mutations for admins and owners', async () => {
     const app = createApiApp({
-      repository: createInMemoryControlPlaneRepository({ environments }),
+      repository: createPublicSdkRepository({ environments }),
     });
     const memberCreate = await app.inject({
       method: 'POST',
@@ -740,14 +819,74 @@ describe('origin-resolved public SDK bootstrap', () => {
     const viewerList = await app.inject({
       method: 'GET',
       url: '/v1/sdk-installations',
-      headers: { ...authHeaders, 'x-lodariq-role': 'viewer' },
+      headers: viewerHeaders,
     });
     expect(viewerList.statusCode).toBe(403);
     await app.close();
   });
 
+  it.each([
+    {
+      name: 'the environment is disabled',
+      enabled: false,
+      authoringEnabled: false,
+      mappingAuthoringEnabled: false,
+      message: 'environment is disabled',
+    },
+    {
+      name: 'environment authoring is disabled',
+      enabled: true,
+      authoringEnabled: false,
+      mappingAuthoringEnabled: true,
+      message: 'authoring is disabled for the environment',
+    },
+  ])('returns a stable policy error for single and synced mappings when $name', async (policy) => {
+    const repository = createPublicSdkRepository({
+      environments: [
+        {
+          ...environment('env_staging', 'staging'),
+          enabled: policy.enabled,
+          authoringEnabled: policy.authoringEnabled,
+        },
+      ],
+    });
+    const app = createApiApp({ repository });
+    const installationId = await createInstallation(app, `Policy conflict: ${policy.name}`);
+    const payload = {
+      environmentId: 'env_staging',
+      origin: 'https://staging.customer.example',
+      authoringEnabled: policy.mappingAuthoringEnabled,
+    };
+
+    const single = await app.inject({
+      method: 'PUT',
+      url: `/v1/sdk-installations/${installationId}/origins`,
+      headers: authHeaders,
+      payload,
+    });
+    expect(single.statusCode).toBe(409);
+    expect(single.json()).toEqual({
+      error: 'environment_policy_forbidden',
+      message: policy.message,
+    });
+
+    const synced = await app.inject({
+      method: 'PUT',
+      url: `/v1/sdk-installations/${installationId}/origins/sync`,
+      headers: authHeaders,
+      payload: { origins: [payload] },
+    });
+    expect(synced.statusCode).toBe(409);
+    expect(synced.json()).toEqual({
+      error: 'environment_policy_forbidden',
+      message: policy.message,
+    });
+
+    await app.close();
+  });
+
   it('atomically removes stale origin authorization during installation sync', async () => {
-    const repository = createInMemoryControlPlaneRepository({ environments });
+    const repository = createPublicSdkRepository({ environments });
     const app = createApiApp({ repository });
     const installationId = await createInstallation(app, 'Synchronized application');
     for (const origin of ['https://keep.customer.example', 'https://stale.customer.example']) {
@@ -799,6 +938,32 @@ describe('origin-resolved public SDK bootstrap', () => {
   });
 });
 
+function createPublicSdkRepository(seed: InMemoryControlPlaneSeed) {
+  return createInMemoryControlPlaneRepository({
+    ...seed,
+    workspaceMemberships: seed.workspaceMemberships ?? [
+      {
+        workspaceId: 'wk_public_sdk',
+        userId: 'user_public_sdk',
+        role: 'owner',
+        createdAt: '2026-08-07T00:00:00.000Z',
+      },
+      {
+        workspaceId: 'wk_public_sdk',
+        userId: 'user_public_sdk_member',
+        role: 'member',
+        createdAt: '2026-08-07T00:00:00.000Z',
+      },
+      {
+        workspaceId: 'wk_public_sdk',
+        userId: 'user_public_sdk_viewer',
+        role: 'viewer',
+        createdAt: '2026-08-07T00:00:00.000Z',
+      },
+    ],
+  });
+}
+
 async function createInstallation(
   app: ReturnType<typeof createApiApp>,
   name: string,
@@ -826,12 +991,23 @@ async function createInstallation(
 }
 
 function environment(id: string, kind: WorkspaceEnvironment['kind']): WorkspaceEnvironment {
+  const originAllowlist =
+    kind === 'production'
+      ? ['https://app.customer.example']
+      : [
+          'http://localhost:4173',
+          'https://bounded.customer.example',
+          'https://keep.customer.example',
+          'https://shared.customer.example',
+          'https://staging.customer.example',
+          'https://stale.customer.example',
+        ];
   return {
     id,
     workspaceId: 'wk_public_sdk',
     kind,
     name: kind,
-    originAllowlist: [],
+    originAllowlist,
     createdAt: '2026-08-07T00:00:00.000Z',
     updatedAt: '2026-08-07T00:00:00.000Z',
   };

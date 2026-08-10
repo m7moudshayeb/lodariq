@@ -1,4 +1,5 @@
 import type {
+  AuthoringSaveState,
   LodariqDocument,
   ResolverDiagnostic,
   RuntimeLifecycleHints,
@@ -10,6 +11,12 @@ import type {
   AuthoringBrandWorkspaceState,
   AuthoringReleaseWorkflowState,
 } from '../local-frame-types';
+import type { AuthoringBrandDriftControllerSnapshot } from '../brand-drift-controller';
+import type {
+  AuthoringReleaseRecoveryIntent,
+  AuthoringReleaseRecoveryRequestIdentity,
+  AuthoringReleaseRecoveryViewModel,
+} from '../release-recovery-model';
 
 export const SLASH_COMMANDS = [
   { value: 'step', label: 'Step' },
@@ -134,6 +141,8 @@ export const AUTHORING_PANEL_MODES = [
   'brand-match-review',
   'release-verification',
   'promotion-confirmation',
+  'release-history',
+  'release-recovery-confirmation',
 ] as const;
 export type AuthoringPanelMode = (typeof AUTHORING_PANEL_MODES)[number];
 
@@ -146,17 +155,30 @@ export type AuthoringPanelOperation =
   | 'promoting-release'
   | 'requesting-approval'
   | 'approving-release'
+  | 'loading-release-recovery'
+  | 'recovering-release'
   | null;
+
+export interface AuthoringReleaseRecoveryWorkflowState {
+  available: boolean;
+  environmentId: string | null;
+  model: AuthoringReleaseRecoveryViewModel | null;
+  intent: AuthoringReleaseRecoveryIntent | null;
+  requestIdentity: AuthoringReleaseRecoveryRequestIdentity | null;
+}
 
 export interface AuthoringPanelWorkflowState {
   mode: AuthoringPanelMode;
   returnMode: AuthoringPanelMode;
   focusToken: number;
   returnFocus: 'appearance' | 'release' | null;
+  focusTarget: string | null;
   operation: AuthoringPanelOperation;
   brand: AuthoringBrandWorkspaceState;
   brandProposal: AuthoringBrandMatchProposal | null;
+  brandDrift: AuthoringBrandDriftControllerSnapshot;
   release: AuthoringReleaseWorkflowState | null;
+  releaseRecovery: AuthoringReleaseRecoveryWorkflowState;
   error: string | null;
   notice: string | null;
 }
@@ -164,6 +186,7 @@ export interface AuthoringPanelWorkflowState {
 export interface LocalAuthoringFrameSnapshot {
   documentState: LodariqDocument;
   status: string;
+  saveState: { state: AuthoringSaveState; label: string };
   slashText: string;
   slashOpen: boolean;
   jsonText: string;

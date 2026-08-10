@@ -312,6 +312,79 @@ describe('@lodariq/dashboard view model', () => {
     });
   });
 
+  it('omits disabled, non-authorable, production, and origin-revoked launcher mappings', () => {
+    const createdAt = '2026-08-09T00:00:00.000Z';
+    const environments: WorkspaceEnvironmentDto[] = [
+      {
+        ...environment('env_dev', 'development', 'Development'),
+        originAllowlist: ['http://localhost:5175'],
+        enabled: true,
+        authoringEnabled: false,
+      },
+      {
+        ...environment('env_staging_disabled', 'staging', 'Disabled staging'),
+        originAllowlist: ['https://disabled.customer.example'],
+        enabled: false,
+        authoringEnabled: true,
+      },
+      {
+        ...environment('env_staging_active', 'staging', 'Active staging'),
+        originAllowlist: ['https://active.customer.example'],
+        enabled: true,
+        authoringEnabled: true,
+      },
+      {
+        ...environment('env_production', 'production', 'Production'),
+        originAllowlist: ['https://app.customer.example'],
+        enabled: true,
+        authoringEnabled: false,
+      },
+    ];
+    const mappings = [
+      ['env_dev', 'http://localhost:5175', true],
+      ['env_staging_disabled', 'https://disabled.customer.example', true],
+      ['env_staging_active', 'https://active.customer.example', true],
+      ['env_staging_active', 'https://removed.customer.example', true],
+      ['env_production', 'https://app.customer.example', false],
+    ] as const;
+    const viewModel = buildDashboardViewModel({
+      controlPlaneContext: { userId: 'user_owner', workspaceId: 'wk_a', role: 'owner' },
+      documents: [],
+      environments,
+      tokens: [],
+      installations: [
+        {
+          installationId: 'ins_pub_policy_launcher',
+          workspaceId: 'wk_a',
+          name: 'Policy launcher',
+          createdByUserId: 'user_owner',
+          createdAt,
+          updatedAt: createdAt,
+          revokedAt: null,
+          sdkSnippet: '<script></script>',
+          origins: mappings.map(([environmentId, exactOrigin, authoringEnabled]) => ({
+            installationId: 'ins_pub_policy_launcher',
+            workspaceId: 'wk_a',
+            environmentId,
+            exactOrigin,
+            authoringEnabled,
+            createdAt,
+            updatedAt: createdAt,
+          })),
+        },
+      ],
+      themes: [],
+    });
+
+    expect(viewModel.authoringSiteOptions).toEqual([
+      expect.objectContaining({
+        environmentId: 'env_staging_active',
+        exactOrigin: 'https://active.customer.example',
+      }),
+    ]);
+    expect(viewModel.openInProductUrl).toBe('https://active.customer.example');
+  });
+
   it('shows the latest persisted product-style provenance without exposing raw CSS evidence', () => {
     const definition = LODARIQ_ACCESSIBLE_FALLBACK_THEME_V1.definition;
     const viewModel = buildDashboardViewModel({

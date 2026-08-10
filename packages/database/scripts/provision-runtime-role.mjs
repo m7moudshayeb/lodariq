@@ -4,7 +4,26 @@ import { neon } from '@neondatabase/serverless';
 
 const provisioningConsent = 'I_UNDERSTAND_THIS_CHANGES_DATABASE_PRIVILEGES';
 const roleNamePattern = /^[a-z_][a-z0-9_]{0,62}$/;
-const appendOnlyRuntimeTables = ['style_sources', 'publication_verifications', 'release_approvals'];
+const appendOnlyRuntimeTables = [
+  'compiled_artifacts',
+  'publications',
+  'style_sources',
+  'product_style_applications',
+  'brand_drift_runs',
+  'publication_verifications',
+  'release_approvals',
+  'analytics_events',
+];
+const releaseOperationLifecycleColumns = [
+  'status',
+  'requested_artifact_id',
+  'source_publication_id',
+  'actual_active_publication_id',
+  'result_publication_id',
+  'result_generation',
+  'error_code',
+  'completed_at',
+];
 
 async function main() {
   const databaseUrl = process.env.DATABASE_URL?.trim();
@@ -88,6 +107,12 @@ async function grantRuntimePrivileges(sql, roleName) {
     const appendOnlyTableList = existingAppendOnlyTables.map(quoteIdent).join(', ');
     await sql.query(`revoke update, delete on table ${appendOnlyTableList} from ${quotedRole}`);
   }
+  if (await tableExists(sql, 'release_operations')) {
+    await sql.query(`revoke update, delete on table "release_operations" from ${quotedRole}`);
+    await sql.query(
+      `grant update (${releaseOperationLifecycleColumns.map(quoteIdent).join(', ')}) on table "release_operations" to ${quotedRole}`,
+    );
+  }
 }
 
 async function verifyRuntimeRole(sql, roleName) {
@@ -112,6 +137,24 @@ async function verifyRuntimeRole(sql, roleName) {
       fail(`Runtime role ${roleName} can mutate append-only table ${table}.`);
     }
   }
+  if (await tableExists(sql, 'release_operations')) {
+    const [privileges] = await sql`
+      select
+        has_table_privilege(${roleName}, 'release_operations', 'DELETE') as can_delete,
+        has_column_privilege(${roleName}, 'release_operations', 'reason', 'UPDATE') as can_update_reason
+    `;
+    if (privileges?.can_delete || privileges?.can_update_reason) {
+      fail(`Runtime role ${roleName} can mutate immutable release-operation fields.`);
+    }
+    for (const column of releaseOperationLifecycleColumns) {
+      const [columnPrivilege] = await sql`
+        select has_column_privilege(${roleName}, 'release_operations', ${column}, 'UPDATE') as allowed
+      `;
+      if (!columnPrivilege?.allowed) {
+        fail(`Runtime role ${roleName} cannot update release_operations.${column}.`);
+      }
+    }
+  }
 }
 
 async function listExistingAppendOnlyTables(sql) {
@@ -132,6 +175,13 @@ function quoteIdent(value) {
 
 function quoteLiteral(value) {
   return `'${value.replaceAll("'", "''")}'`;
+}
+
+async function tableExists(sql, table) {
+  const [row] = await sql`
+    select to_regclass(${`public.${table}`}) is not null as exists
+  `;
+  return Boolean(row?.exists);
 }
 
 function log(message) {

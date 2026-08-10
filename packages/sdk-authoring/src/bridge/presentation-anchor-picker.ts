@@ -387,12 +387,12 @@ function createGuidance(doc: Document): HTMLDivElement {
     pointerEvents: 'auto',
   });
   guidance.innerHTML = `
-    <span style="display:grid; min-width:0; gap:1px; flex:1 1 auto;">
-      <strong id="lodariq-presentation-anchor-instructions" style="font-size:12px;">Choose an exact area</strong>
+    <span style="display:grid; min-width:0; gap: 1px; flex:1 1 auto;">
+      <strong id="lodariq-presentation-anchor-instructions" style="font-size: 12px;">Choose an exact area</strong>
       <span id="lodariq-presentation-anchor-status" data-lodariq-bridge="presentation-anchor-status" role="status" aria-live="polite">${defaultGuidance()}</span>
     </span>
     <button type="button" data-lodariq-bridge="presentation-anchor-cancel" data-action="cancel-presentation-anchor" aria-label="Cancel exact area selection">Cancel</button>
-  `;
+    `;
   const button = guidance.querySelector<HTMLButtonElement>('button');
   if (button) {
     Object.assign(button.style, {

@@ -1,5 +1,6 @@
 import {
   AUTHORING_SESSION_CAPABILITIES,
+  AuthoringProductMatchApplyResult as AuthoringProductMatchApplyResultSchema,
   AuthoringDocumentPayload as AuthoringDocumentPayloadSchema,
   AuthoringStagingPublicationResult as AuthoringStagingPublicationResultSchema,
   AuthoringStagingReleaseState as AuthoringStagingReleaseStateSchema,
@@ -7,8 +8,16 @@ import {
   ProductStyleProposal as ProductStyleProposalSchema,
   ProductionPromotionResult as ProductionPromotionResultSchema,
   ReleaseApproval as ReleaseApprovalSchema,
+  ReleaseRecoveryResult as ReleaseRecoveryResultSchema,
+  ReleaseRecoveryStateResponse as ReleaseRecoveryStateResponseSchema,
+  releaseRecoveryStateMatchesScope,
   validate,
   type AuthoringDocumentPayload,
+  type AuthoringBrandDriftCheckResult,
+  type AuthoringBrandThemeAcknowledgementRequest,
+  type AuthoringBrandThemeAcknowledgementResult,
+  type BrandDriftCheckRequest,
+  type BrandThemeSnapshot,
   type AuthoringReleaseFinding,
   type AuthoringStagingPublicationRequest,
   type AuthoringStagingPublicationResult,
@@ -20,6 +29,9 @@ import {
   type ProductionPromotionRequest,
   type ProductionPromotionResult,
   type ReleaseApproval,
+  type ReleaseRecoveryRequest,
+  type ReleaseRecoveryResult,
+  type ReleaseRecoveryStateResponse,
   type ManifestPointer,
   type SdkInstallContext,
 } from '@lodariq/schema';
@@ -31,7 +43,16 @@ import {
   type LodariqBrowserApi,
 } from '@lodariq/sdk-runtime/lodariq-loader';
 import { compilePreview } from '@lodariq/sdk-runtime/lodariq-local-dev';
-import { openLocalAuthoringPanel } from '../authoring';
+import type {
+  AuthoringSession,
+  AuthoringStyleSourceSaveResult,
+  LocalAuthoringPanel,
+  LocalAuthoringPanelOptions,
+} from '../authoring';
+import {
+  requestAuthoringBrandDrift,
+  requestAuthoringBrandThemeAcknowledgement,
+} from '../authoring/brand-drift-client';
 import { loadExactPublishedArtifact } from '../bridge/exact-publication-loader';
 import { installCreatorToolbar, type CreatorToolbarOptions } from '../creator-toolbar';
 
@@ -40,11 +61,37 @@ export interface InstallCreatorLodariqOptions {
   scriptSelector?: string;
   toolbar?: CreatorToolbarOptions | false;
   installOptions?: Omit<InstallOptions, 'openAuthoring'>;
+  /** Returns the customer's current opaque application-state key for target capture. */
+  getTargetStateId?: () => string | undefined;
 }
 
 const DEFAULT_CREATOR_SCRIPT_SELECTOR =
   'script[data-lodariq-loader][data-lodariq-authoring-session]';
 const AUTO_INSTALL_ATTRIBUTE = 'data-lodariq-creator-installed';
+
+interface CreatorAuthoringHostModule {
+  openLocalAuthoringPanel: (
+    session: AuthoringSession,
+    options: LocalAuthoringPanelOptions,
+  ) => LocalAuthoringPanel;
+}
+type CreatorAuthoringContext = SdkInstallContext & {
+  environment: 'development' | 'staging';
+  authoring: NonNullable<SdkInstallContext['authoring']> & {
+    enabled: true;
+    iframeSrc: string;
+    sessionId: string;
+  };
+};
+
+let creatorAuthoringHostPromise: Promise<CreatorAuthoringHostModule> | undefined;
+
+function loadCreatorAuthoringHost(): Promise<CreatorAuthoringHostModule> {
+  creatorAuthoringHostPromise ??= import('../authoring').then(({ openLocalAuthoringPanel }) => ({
+    openLocalAuthoringPanel,
+  }));
+  return creatorAuthoringHostPromise;
+}
 
 export async function installCreatorLodariqFromScript(
   options: InstallCreatorLodariqOptions = {},
@@ -63,9 +110,21 @@ export async function installCreatorLodariqFromScript(
   const api = await installLodariq(config, {
     ...options.installOptions,
     openAuthoring: async (manifest, context) => {
-      const payload = await loadCreatorDocument(config, context);
+      requireCreatorAuthoringContext(context);
+      const [payload, authoringHost] = await Promise.all([
+        loadCreatorDocument(config, context),
+        loadCreatorAuthoringHost(),
+      ]);
       if (!installedApi) throw new Error('Lodariq creator runtime is not ready');
-      openCreatorAuthoringPanel(config, manifest, context, payload, installedApi);
+      openCreatorAuthoringPanel(
+        config,
+        manifest,
+        context,
+        payload,
+        installedApi,
+        options.getTargetStateId,
+        authoringHost.openLocalAuthoringPanel,
+      );
     },
   });
   if (!api) return null;
@@ -81,22 +140,13 @@ function openCreatorAuthoringPanel(
   context: SdkInstallContext,
   payload: AuthoringDocumentPayload,
   api: LodariqBrowserApi,
+  getTargetStateId: InstallCreatorLodariqOptions['getTargetStateId'],
+  openLocalAuthoringPanel: CreatorAuthoringHostModule['openLocalAuthoringPanel'],
 ): void {
   const { document } = payload;
   const exactTheme = structuredClone(payload.theme);
-  if (context.environment === 'production') {
-    throw new Error('Lodariq creator authoring is not available in production');
-  }
-  if (context.environment !== 'development' && context.environment !== 'staging') {
-    throw new Error(`Unsupported Lodariq creator environment: ${context.environment}`);
-  }
-  if (
-    context.authoring?.enabled !== true ||
-    !context.authoring.sessionId ||
-    !context.authoring.iframeSrc
-  ) {
-    throw new Error('Lodariq creator authoring session is missing or disabled');
-  }
+  let brandSessionTheme = structuredClone(exactTheme);
+  requireCreatorAuthoringContext(context);
   if (document.id !== manifest.documentId || document.workspaceId !== context.workspaceId) {
     throw new Error('Lodariq creator document does not match the SDK bootstrap context');
   }
@@ -113,10 +163,17 @@ function openCreatorAuthoringPanel(
       iframeSrc: context.authoring.iframeSrc,
       initialDocument: document,
       initialTheme: exactTheme,
+      ...(getTargetStateId ? { getTargetStateId } : {}),
       preview: {
         loadDocument: (documentId) =>
           documentId === document.id ? structuredClone(document) : null,
-        compilePreview: (candidate) => compilePreview(candidate, exactTheme),
+        compilePreview: (candidate, themeOverride) => {
+          const requestedTheme = structuredClone(themeOverride ?? exactTheme);
+          if (!creatorPreviewThemeMatchesScope(requestedTheme, exactTheme)) {
+            throw new Error('Lodariq creator preview theme does not match this session');
+          }
+          return compilePreview(candidate, requestedTheme);
+        },
         loadExactPublishedArtifact: async (expectedContentHash) => {
           const releaseState = await loadCreatorReleaseState(config, context);
           if (
@@ -155,6 +212,33 @@ function openCreatorAuthoringPanel(
             release: {
               releaseStateCapability: AUTHORING_SESSION_CAPABILITIES.READ_RELEASE_STATE,
               getReleaseState: () => loadCreatorReleaseState(config, context),
+              ...(context.authoring.release.recoveryState?.capability ===
+              AUTHORING_SESSION_CAPABILITIES.READ_RELEASE_STATE
+                ? {
+                    releaseRecoveryStateCapability:
+                      AUTHORING_SESSION_CAPABILITIES.READ_RELEASE_STATE,
+                    getReleaseRecoveryState: (environmentId: string) =>
+                      loadCreatorReleaseRecoveryState(config, context, environmentId),
+                  }
+                : {}),
+              ...(context.authoring.release.rollback?.capability ===
+              AUTHORING_SESSION_CAPABILITIES.ROLLBACK_RELEASE
+                ? {
+                    rollbackReleaseCapability: AUTHORING_SESSION_CAPABILITIES.ROLLBACK_RELEASE,
+                  }
+                : {}),
+              ...(context.authoring.release.unpublish?.capability ===
+              AUTHORING_SESSION_CAPABILITIES.UNPUBLISH_RELEASE
+                ? {
+                    unpublishReleaseCapability: AUTHORING_SESSION_CAPABILITIES.UNPUBLISH_RELEASE,
+                  }
+                : {}),
+              ...(context.authoring.release.rollback || context.authoring.release.unpublish
+                ? {
+                    recoverRelease: (environmentId: string, request: ReleaseRecoveryRequest) =>
+                      recoverCreatorRelease(config, context, environmentId, request),
+                  }
+                : {}),
               ...(context.authoring.release.stagingPublication?.capability ===
               AUTHORING_SESSION_CAPABILITIES.PUBLISH_STAGING
                 ? {
@@ -193,12 +277,44 @@ function openCreatorAuthoringPanel(
                 : {}),
               productStyleSamplingCapability: AUTHORING_SESSION_CAPABILITIES.SAMPLE_PRODUCT_STYLE,
               saveStyleSource: (proposal: ProductStyleProposal) =>
-                saveCreatorStyleSource(config, proposal),
+                saveCreatorStyleSource(config, exactTheme.themeId, proposal),
+              brandDriftCheckCapability: AUTHORING_SESSION_CAPABILITIES.SAMPLE_PRODUCT_STYLE,
+              checkBrandDrift: (request: BrandDriftCheckRequest) =>
+                checkCreatorBrandDrift(config, context, brandSessionTheme, request),
+              brandThemeAcknowledgementCapability: AUTHORING_SESSION_CAPABILITIES.WRITE_DOCUMENT,
+              acknowledgeBrandTheme: async (request: AuthoringBrandThemeAcknowledgementRequest) => {
+                const acknowledgement = await acknowledgeCreatorBrandTheme(
+                  config,
+                  context,
+                  brandSessionTheme,
+                  request,
+                );
+                brandSessionTheme = structuredClone(acknowledgement.theme);
+                return acknowledgement;
+              },
             },
           }
         : {}),
     },
   );
+}
+
+function requireCreatorAuthoringContext(
+  context: SdkInstallContext,
+): asserts context is CreatorAuthoringContext {
+  if (context.environment === 'production') {
+    throw new Error('Lodariq creator authoring is not available in production');
+  }
+  if (context.environment !== 'development' && context.environment !== 'staging') {
+    throw new Error(`Unsupported Lodariq creator environment: ${context.environment}`);
+  }
+  if (
+    context.authoring?.enabled !== true ||
+    !context.authoring.sessionId ||
+    !context.authoring.iframeSrc
+  ) {
+    throw new Error('Lodariq creator authoring session is missing or disabled');
+  }
 }
 
 async function loadCreatorDocument(
@@ -293,6 +409,83 @@ async function loadCreatorReleaseState(
   return structuredClone(result.value);
 }
 
+async function loadCreatorReleaseRecoveryState(
+  config: LoaderConfig,
+  context: SdkInstallContext,
+  environmentId: string,
+): Promise<ReleaseRecoveryStateResponse> {
+  const endpoint = requireCreatorReleaseRecoveryEndpoint(config, context, environmentId, 'state');
+  const response = await fetchCreatorAuthoringEndpoint(config, endpoint, { method: 'GET' });
+  const validation = validate(ReleaseRecoveryStateResponseSchema, await readCreatorJson(response));
+  if (
+    !validation.valid ||
+    !releaseRecoveryStateMatchesScope(validation.value, {
+      workspaceId: context.workspaceId,
+      environmentId,
+      documentId: context.manifest.documentId,
+    })
+  ) {
+    throw new Error('Lodariq creator release recovery state response is invalid');
+  }
+  return structuredClone(validation.value);
+}
+
+async function recoverCreatorRelease(
+  config: LoaderConfig,
+  context: SdkInstallContext,
+  environmentId: string,
+  request: ReleaseRecoveryRequest,
+): Promise<ReleaseRecoveryResult> {
+  const endpoint = requireCreatorReleaseRecoveryEndpoint(
+    config,
+    context,
+    environmentId,
+    request.action,
+  );
+  const response = await fetchCreatorAuthoringResponse(config, endpoint, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(request),
+  });
+  const validation = validate(ReleaseRecoveryResultSchema, await readCreatorJson(response));
+  if (!validation.valid || validation.value.action !== request.action) {
+    throw new Error('Lodariq creator release recovery response is invalid');
+  }
+  return structuredClone(validation.value);
+}
+
+function requireCreatorReleaseRecoveryEndpoint(
+  config: LoaderConfig,
+  context: SdkInstallContext,
+  environmentId: string,
+  operation: 'state' | ReleaseRecoveryRequest['action'],
+): string {
+  const release = requireCreatorReleaseDescriptor(context);
+  const descriptors = {
+    state: release.recoveryState,
+    rollback: release.rollback,
+    unpublish: release.unpublish,
+  } as const;
+  const descriptor = descriptors[operation];
+  if (!descriptor) throw new Error('Lodariq creator release recovery is not authorized');
+  if (!config.apiBaseUrl) throw new Error('Lodariq creator release recovery scope is missing');
+  const url = new URL(descriptor.url);
+  const apiOrigin = new URL(config.apiBaseUrl).origin;
+  const expectedTemplatePath = '/v1/sdk/authoring/environments/:environmentId/release-recovery';
+  if (
+    url.origin !== apiOrigin ||
+    url.pathname !== expectedTemplatePath ||
+    url.search ||
+    url.hash ||
+    url.username ||
+    url.password
+  ) {
+    throw new Error('Lodariq creator release recovery route scope is invalid');
+  }
+  url.pathname = expectedTemplatePath.replace(':environmentId', encodeURIComponent(environmentId));
+  return url.toString();
+}
+
 async function publishCreatorToStaging(
   config: LoaderConfig,
   context: SdkInstallContext,
@@ -329,8 +522,9 @@ async function publishCreatorToStaging(
 
 async function saveCreatorStyleSource(
   config: LoaderConfig,
+  expectedThemeId: string,
   proposal: ProductStyleProposal,
-): Promise<{ sourceId: string; sourceHash: string }> {
+): Promise<AuthoringStyleSourceSaveResult> {
   const proposalValidation = validate(ProductStyleProposalSchema, proposal);
   if (!proposalValidation.valid || !config.apiBaseUrl) {
     throw new Error('Lodariq creator Brand proposal is invalid');
@@ -345,11 +539,67 @@ async function saveCreatorStyleSource(
     },
   );
   const payload = objectValue(await readCreatorJson(response));
-  const source = objectValue(payload?.['source']);
-  const sourceId = typeof source?.['id'] === 'string' ? source['id'] : null;
-  const sourceHash = typeof source?.['sourceHash'] === 'string' ? source['sourceHash'] : null;
-  if (!sourceId || !sourceHash) throw new Error('Lodariq creator Brand response is invalid');
-  return { sourceId, sourceHash };
+  const normalized = validate(AuthoringProductMatchApplyResultSchema, payload?.['productMatch']);
+  if (!normalized.valid || normalized.value.previewTheme.themeId !== expectedThemeId) {
+    throw new Error('Lodariq creator Brand response is invalid');
+  }
+  const source = normalized.value.sources[0];
+  if (!source) throw new Error('Lodariq creator Brand response is invalid');
+  return {
+    ...structuredClone(normalized.value),
+    sourceId: source.sourceId,
+    sourceHash: source.sourceHash,
+  };
+}
+
+async function checkCreatorBrandDrift(
+  config: LoaderConfig,
+  context: SdkInstallContext,
+  theme: BrandThemeSnapshot,
+  request: BrandDriftCheckRequest,
+): Promise<AuthoringBrandDriftCheckResult> {
+  if (!config.apiBaseUrl) throw new Error('Lodariq creator Brand scope is missing');
+  return requestAuthoringBrandDrift({
+    request,
+    expectedDocumentId: context.manifest.documentId,
+    expectedThemeId: theme.themeId,
+    expectedThemeVersionId: theme.themeVersionId,
+    fetchAuthorized: (body) =>
+      fetchCreatorAuthoringResponse(
+        config,
+        new URL('/v1/sdk/authoring/brand-drift', config.apiBaseUrl!).toString(),
+        {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body,
+        },
+      ),
+  });
+}
+
+async function acknowledgeCreatorBrandTheme(
+  config: LoaderConfig,
+  context: SdkInstallContext,
+  theme: BrandThemeSnapshot,
+  request: AuthoringBrandThemeAcknowledgementRequest,
+): Promise<AuthoringBrandThemeAcknowledgementResult> {
+  if (!config.apiBaseUrl) throw new Error('Lodariq creator Brand scope is missing');
+  return requestAuthoringBrandThemeAcknowledgement({
+    request,
+    expectedWorkspaceId: context.workspaceId,
+    expectedDocumentId: context.manifest.documentId,
+    expectedThemeId: theme.themeId,
+    fetchAuthorized: (body) =>
+      fetchCreatorAuthoringResponse(
+        config,
+        new URL('/v1/sdk/authoring/brand-theme-acknowledgement', config.apiBaseUrl!).toString(),
+        {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body,
+        },
+      ),
+  });
 }
 
 async function submitCreatorStagingVerification(
@@ -495,6 +745,17 @@ function releaseFindings(payload: Record<string, unknown> | null): AuthoringRele
     });
   }
   return findings;
+}
+
+function creatorPreviewThemeMatchesScope(
+  candidate: BrandThemeSnapshot,
+  approved: BrandThemeSnapshot,
+): boolean {
+  return (
+    candidate.themeId === approved.themeId &&
+    candidate.schemaVersion === approved.schemaVersion &&
+    candidate.contractVersion === approved.contractVersion
+  );
 }
 
 function objectValue(value: unknown): Record<string, unknown> | null {

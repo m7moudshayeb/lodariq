@@ -3,6 +3,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { computeBrandThemeContentHash } from '@lodariq/compiler';
 import {
   AUTHORING_ACTIVATION_CAPABILITIES,
+  AUTHORING_SAVE_AND_EXIT_REQUEST_TYPE,
+  AUTHORING_SAVE_STATE_UPDATE_TYPE,
   AUTHORING_SESSION_CAPABILITIES,
   BRAND_THEME_CONTRACT_VERSION,
   BRIDGE_PROTOCOL_VERSION,
@@ -19,6 +21,8 @@ import {
   LODARIQ_ACCESSIBLE_FALLBACK_THEME_V1,
   LODARIQ_EDITOR_ORIGIN,
   RENDERER_CONTRACT_VERSION,
+  BridgeMessage as BridgeMessageSchema,
+  validate,
   type BrandThemeSnapshot,
   type AuthoringActivationGrantContext,
   type BridgeMessage,
@@ -167,15 +171,15 @@ describe('content-addressed hosted creator entry', () => {
       blockId: tourDocument.blocks[0]?.id ?? 'step_1',
       patch: { ops: [{ op: 'setDocumentTitle', title: 'Persisted hosted tour' }] },
     });
-    expect(saveStateLabel()).toBe('Saving draft…');
+    expectLastSaveStateUpdate(peer, 'saving', 'Saving draft…');
 
     await waitForAutosave();
     const autosave = lastOutboundMessage(peer, 'authoring.save.request');
     expect(autosave).toBeDefined();
-    expect(saveStateLabel()).toBe('Saving draft…');
+    expectLastSaveStateUpdate(peer, 'saving', 'Saving draft…');
     dispatchEstablishedMessage(peer, saveResult(autosave!.correlationId));
     await flushMicrotasks();
-    expect(saveStateLabel()).toBe('Draft saved');
+    expectLastSaveStateUpdate(peer, 'saved', 'Draft saved');
 
     const closeButton = panelHost?.shadowRoot?.querySelector<HTMLButtonElement>(
       '[data-panel-action="close-panel"]',
@@ -206,6 +210,127 @@ describe('content-addressed hosted creator entry', () => {
     )?.ownerId;
     expect(previewOwnerId).toMatch(/^authoring_preview_owner_/);
     expect(stopAuthoringPreview).toHaveBeenCalledWith(previewOwnerId);
+  });
+
+  it('samples changing host application state across two hosted target picks', async () => {
+    const main = document.createElement('main');
+    const surface = document.createElement('section');
+    surface.dataset['testid'] = 'hosted-stateful-summary';
+    surface.innerHTML = '<h2>Workspace summary</h2><p>Three projects need review.</p>';
+    main.append(surface);
+    document.body.append(main);
+    let surfaceWidth = 360;
+    main.getBoundingClientRect = () =>
+      ({
+        x: 80,
+        y: 60,
+        left: 80,
+        top: 60,
+        right: 1_180,
+        bottom: 760,
+        width: 1_100,
+        height: 700,
+        toJSON: () => ({}),
+      }) as DOMRect;
+    surface.getBoundingClientRect = () =>
+      ({
+        x: 120,
+        y: 120,
+        left: 120,
+        top: 120,
+        right: 120 + surfaceWidth,
+        bottom: 300,
+        width: surfaceWidth,
+        height: 180,
+        toJSON: () => ({}),
+      }) as DOMRect;
+
+    let applicationState = 'workspace.collapsed';
+    const getTargetStateId = vi.fn(() => applicationState);
+    const input = activationInput();
+    input.getTargetStateId = getTargetStateId;
+    const creator = await loadRegisteredCreator();
+    const activation = creator.activateLodariqAuthoring(input);
+    const iframe = requireHostedIframe();
+    const peer = { postMessage: vi.fn() } as unknown as Window;
+    Object.defineProperty(iframe, 'contentWindow', { configurable: true, value: peer });
+
+    dispatchFromEditor(peer, editorReady());
+    const handoff = outboundMessages(peer, 'hosted-authoring.activation.handoff')[0] as {
+      handoffRequestId: string;
+      readyRequestId: string;
+      state: string;
+    };
+    expect(handoff).not.toHaveProperty('getTargetStateId');
+    dispatchFromEditor(peer, sessionReady(handoff));
+    await activation;
+    expect(getTargetStateId).not.toHaveBeenCalled();
+
+    const requestPick = async (
+      correlationId: string,
+      previous?: Extract<BridgeMessage, { type: 'target.pick.result' }>,
+    ): Promise<Extract<BridgeMessage, { type: 'target.pick.result' }>> => {
+      const previousResultCount = outboundMessages(peer, 'target.pick.result').length;
+      dispatchEstablishedMessage(peer, {
+        protocol: BRIDGE_PROTOCOL_VERSION,
+        sessionId: sessionContext().sessionId,
+        documentId: tourDocument.id,
+        correlationId,
+        type: 'target.pick.start',
+        blockId: 'block_step_1',
+        requiredAction: 'anchor',
+        ...(previous?.fingerprint ? { fingerprint: previous.fingerprint } : {}),
+        ...(previous?.identity ? { identity: previous.identity } : {}),
+      });
+      await vi.waitFor(() =>
+        expect(document.documentElement.getAttribute('data-lodariq-target-picker')).toBe('active'),
+      );
+      surface.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+      await vi.waitFor(() =>
+        expect(outboundMessages(peer, 'target.pick.result')).toHaveLength(previousResultCount + 1),
+      );
+      const result = outboundMessages(peer, 'target.pick.result')[
+        previousResultCount
+      ] as unknown as Extract<BridgeMessage, { type: 'target.pick.result' }> | undefined;
+      if (!result) throw new Error('hosted target pick result missing');
+      ackOutboundMessage(peer, result);
+      return result;
+    };
+
+    const collapsed = await requestPick('hosted_target_pick_collapsed');
+    expect(collapsed.identity?.visualTopologies?.map((variant) => variant.stateId)).toEqual([
+      'workspace.collapsed',
+    ]);
+
+    applicationState = 'workspace.expanded';
+    surfaceWidth = 760;
+    const expanded = await requestPick('hosted_target_pick_expanded', collapsed);
+    expect(new Set(expanded.identity?.visualTopologies?.map((variant) => variant.stateId))).toEqual(
+      new Set(['workspace.collapsed', 'workspace.expanded']),
+    );
+    expect(expanded.identity?.context.stateId).toBeUndefined();
+    expect(getTargetStateId).toHaveBeenCalledTimes(2);
+    expect(document.documentElement.outerHTML).not.toContain('workspace.collapsed');
+    expect(localStorage.length).toBe(0);
+    expect(sessionStorage.length).toBe(0);
+
+    const panelHost = document.querySelector<HTMLElement>('lodariq-authoring-panel');
+    panelHost?.shadowRoot
+      ?.querySelector<HTMLButtonElement>('[data-panel-action="close-panel"]')
+      ?.click();
+    await flushMicrotasks();
+    const closeRequest = lastItem(outboundMessages(peer, 'hosted-authoring.session.close.request'));
+    dispatchFromEditor(peer, {
+      protocol: HOSTED_AUTHORING_BRIDGE_PROTOCOL,
+      type: HOSTED_AUTHORING_SESSION_CLOSE_RESULT_TYPE,
+      requestId: closeRequest?.['requestId'],
+      sessionId: sessionContext().sessionId,
+      documentId: tourDocument.id,
+      ok: true,
+      retryable: false,
+    });
+    await flushMicrotasks();
+    expect(document.querySelector('lodariq-authoring-panel')).toBeNull();
   });
 
   it('opens a credential-free browser when no document intent was chosen', async () => {
@@ -350,8 +475,17 @@ describe('content-addressed hosted creator entry', () => {
     await activation;
 
     const host = document.querySelector<HTMLElement>('lodariq-authoring-panel');
-    host?.shadowRoot?.querySelector<HTMLButtonElement>('[data-panel-action="close"]')?.click();
+    dispatchEstablishedMessage(peer, {
+      protocol: BRIDGE_PROTOCOL_VERSION,
+      sessionId: sessionContext().sessionId,
+      documentId: tourDocument.id,
+      correlationId: 'hosted_save_and_exit_1',
+      type: AUTHORING_SAVE_AND_EXIT_REQUEST_TYPE,
+    });
     await flushMicrotasks();
+    expect(outboundMessages(peer, 'ack')).toContainEqual(
+      expect.objectContaining({ ackOf: 'hosted_save_and_exit_1' }),
+    );
     const save = lastOutboundMessage(peer, 'authoring.save.request');
     expect(save).toBeDefined();
     expect(host?.isConnected).toBe(true);
@@ -426,6 +560,17 @@ describe('content-addressed hosted creator entry', () => {
     expect(() => creator.activateLodariqAuthoring(input)).toThrow(
       'Lodariq hosted authoring activation is invalid',
     );
+    expect(document.querySelector('iframe')).toBeNull();
+  });
+
+  it('rejects a non-callable target-state provider before creating an iframe', async () => {
+    const creator = await loadRegisteredCreator();
+    const input = activationInput() as unknown as Record<string, unknown>;
+    input['getTargetStateId'] = 'workspace.private';
+
+    expect(() =>
+      creator.activateLodariqAuthoring(input as unknown as HostedCreatorActivation),
+    ).toThrow('Lodariq hosted authoring activation is invalid');
     expect(document.querySelector('iframe')).toBeNull();
   });
 });
@@ -589,6 +734,18 @@ function dispatchEstablishedMessage(source: Window, data: BridgeMessage): void {
   dispatchFromEditor(source, data);
 }
 
+function ackOutboundMessage(peer: Window, message: BridgeMessage): void {
+  if (message.type === 'ack') return;
+  dispatchEstablishedMessage(peer, {
+    protocol: BRIDGE_PROTOCOL_VERSION,
+    sessionId: message.sessionId,
+    documentId: message.documentId,
+    correlationId: `ack_${message.correlationId}`,
+    type: 'ack',
+    ackOf: message.correlationId,
+  });
+}
+
 function outboundMessages(peer: Window, type: string): Record<string, unknown>[] {
   const postMessage = peer.postMessage as ReturnType<typeof vi.fn>;
   return postMessage.mock.calls
@@ -607,10 +764,15 @@ function lastItem<T>(items: readonly T[]): T | undefined {
   return items[items.length - 1];
 }
 
-function saveStateLabel(): string | null | undefined {
-  return document
-    .querySelector('lodariq-authoring-panel')
-    ?.shadowRoot?.querySelector('[data-save-state-label]')?.textContent;
+function expectLastSaveStateUpdate(
+  peer: Window,
+  state: Extract<BridgeMessage, { type: typeof AUTHORING_SAVE_STATE_UPDATE_TYPE }>['state'],
+  label: string,
+): void {
+  const updates = outboundMessages(peer, AUTHORING_SAVE_STATE_UPDATE_TYPE);
+  const update = updates[updates.length - 1];
+  expect(update).toMatchObject({ state, label });
+  expect(validate(BridgeMessageSchema, update)).toMatchObject({ valid: true });
 }
 
 async function waitForAutosave(): Promise<void> {

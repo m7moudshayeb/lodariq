@@ -2,11 +2,14 @@
 
 import {
   BrandThemeDefinition as BrandThemeDefinitionSchema,
+  EnvironmentReleasePolicy as EnvironmentReleasePolicySchema,
   LODARIQ_ACCESSIBLE_FALLBACK_THEME_V1,
+  isEnvironmentPolicyId,
   validate,
   type BrandThemeDefinition,
+  type EnvironmentReleasePolicy,
 } from '@lodariq/schema';
-import { revalidatePath } from 'next/cache';
+import { revalidatePath } from '../lib/revalidation';
 import {
   approveWorkspaceTheme,
   createWorkspaceTheme,
@@ -22,6 +25,7 @@ import {
   setDocumentThemeBinding,
   syncPublicSdkInstallationOrigins,
   updateEnvironmentReleasePolicy,
+  updateWorkspaceEnvironmentPolicy,
   updateWorkspaceThemeDraft,
   DashboardApiError,
   type PublicSdkInstallationOriginDto,
@@ -67,7 +71,7 @@ export async function updateEnvironmentReleasePolicyAction(input: {
   expectedUpdatedAt: string;
 }): Promise<EnvironmentReleasePolicyActionState> {
   if (
-    !isSafeRecordId(input.environmentId) ||
+    !isEnvironmentPolicyId(input.environmentId) ||
     !input.expectedUpdatedAt ||
     input.expectedUpdatedAt.length > 64 ||
     (input.requiredApprovalCount !== 0 && input.requiredApprovalCount !== 1)
@@ -101,6 +105,72 @@ export async function updateEnvironmentReleasePolicyAction(input: {
     return {
       status: 'error',
       error: error instanceof Error ? error.message : 'Unable to update release approval.',
+    };
+  }
+}
+
+export async function updateWorkspaceEnvironmentPolicyAction(input: {
+  environmentId: string;
+  name: string;
+  originAllowlist: string[];
+  enabled: boolean;
+  pipelinePosition: 0 | 1 | 2;
+  authoringEnabled: boolean;
+  promotionSourceEnvironmentId?: string;
+  releasePolicy: EnvironmentReleasePolicy;
+  expectedUpdatedAt: string;
+}): Promise<EnvironmentReleasePolicyActionState> {
+  const policy = validate(EnvironmentReleasePolicySchema, input.releasePolicy);
+  const originsAreBounded =
+    input.originAllowlist.length <= 100 &&
+    input.originAllowlist.every(
+      (origin) => typeof origin === 'string' && origin.length > 0 && origin.length <= 2048,
+    );
+  if (
+    !isEnvironmentPolicyId(input.environmentId) ||
+    !input.name.trim() ||
+    input.name !== input.name.trim() ||
+    input.name.length > 120 ||
+    !originsAreBounded ||
+    !policy.valid ||
+    !Number.isInteger(input.pipelinePosition) ||
+    input.pipelinePosition < 0 ||
+    input.pipelinePosition > 2 ||
+    (input.promotionSourceEnvironmentId !== undefined &&
+      !isEnvironmentPolicyId(input.promotionSourceEnvironmentId)) ||
+    !input.expectedUpdatedAt ||
+    input.expectedUpdatedAt.length > 64
+  ) {
+    return { status: 'error', error: 'The environment policy is invalid.' };
+  }
+  try {
+    const response = await updateWorkspaceEnvironmentPolicy({
+      ...input,
+      releasePolicy: policy.value,
+    });
+    revalidatePath('/');
+    return {
+      status: 'success',
+      message: 'Environment policy updated.',
+      environment: response.environment,
+    };
+  } catch (error) {
+    if (error instanceof DashboardApiError && error.statusCode === 409) {
+      return {
+        status: 'error',
+        error:
+          'The environment policy changed or conflicts with the release pipeline. Refresh and try again.',
+      };
+    }
+    if (error instanceof DashboardApiError && error.statusCode === 403) {
+      return {
+        status: 'error',
+        error: 'Your workspace role does not allow environment-policy changes.',
+      };
+    }
+    return {
+      status: 'error',
+      error: error instanceof Error ? error.message : 'Unable to update the environment policy.',
     };
   }
 }
@@ -412,20 +482,22 @@ async function configureInstallationOrigins(
   installationId: string,
 ): Promise<{ origins: PublicSdkInstallationOriginDto[]; warning?: string }> {
   const environments = await loadWorkspaceEnvironments();
-  const candidates = environments.flatMap((environment) =>
-    environment.originAllowlist.flatMap((value) => {
+  const candidates = environments.flatMap((environment) => {
+    if (environment.enabled === false) return [];
+    return environment.originAllowlist.flatMap((value) => {
       const origin = normalizeExactOrigin(value);
       return origin
         ? [
             {
               environmentId: environment.id,
               origin,
-              authoringEnabled: environment.kind !== 'production',
+              authoringEnabled:
+                environment.kind !== 'production' && environment.authoringEnabled !== false,
             },
           ]
         : [];
-    }),
-  );
+    });
+  });
   const occurrenceCount = new Map<string, number>();
   for (const candidate of candidates) {
     occurrenceCount.set(candidate.origin, (occurrenceCount.get(candidate.origin) ?? 0) + 1);

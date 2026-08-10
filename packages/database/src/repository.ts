@@ -2,42 +2,87 @@ import { createHash, randomUUID } from 'node:crypto';
 import {
   AUTHORING_ACTIVATION_CAPABILITIES,
   AUTHORING_SESSION_CAPABILITIES,
+  ANALYTICS_EVENT_LIMITS,
+  ANALYTICS_FORBIDDEN_PAYLOAD_KEYS,
+  ANALYTICS_RESERVED_IDENTITY_KEYS,
+  ANALYTICS_TARGET_RESOLUTION_STATUSES,
   AuthoringPageContext as AuthoringPageContextSchema,
+  AuthoringProductMatchApplyResult as AuthoringProductMatchApplyResultSchema,
+  AnalyticsEnvironmentQuery as AnalyticsEnvironmentQuerySchema,
+  AuthoritativeAnalyticsEvent as AuthoritativeAnalyticsEventSchema,
   AuthoringDocumentIntent as AuthoringDocumentIntentSchema,
   BasicVisualPreflightReport as BasicVisualPreflightReportSchema,
   BrowserVerificationReport as BrowserVerificationReportSchema,
+  BrandDriftAuditReport as BrandDriftAuditReportSchema,
   BrandThemeDefinition as BrandThemeDefinitionSchema,
   BrandThemeSnapshot as BrandThemeSnapshotSchema,
   BRAND_THEME_CONTRACT_VERSION,
   BRAND_THEME_SCHEMA_VERSION,
   COMPILER_VERSION,
   DEFAULT_EXPERIENCE_APPEARANCE,
+  ENVIRONMENT_PIPELINE_POSITION_BY_KIND,
+  EnvironmentReleasePolicy as EnvironmentReleasePolicySchema,
   LODARIQ_ACCESSIBLE_FALLBACK_THEME_V1,
   LODARIQ_EDITOR_ORIGIN,
   LodariqDocument as LodariqDocumentSchema,
+  ProductStyleProposal as ProductStyleProposalSchema,
   ProductStyleSource as ProductStyleSourceSchema,
   RENDERER_CONTRACT_VERSION,
+  RELEASE_RECOVERY_FAILURE_CODES,
+  RELEASE_RECOVERY_FAILURE_MESSAGES,
+  RELEASE_RECOVERY_HISTORY_MAX_ITEMS,
+  ReleaseRecoveryRequest as ReleaseRecoveryRequestSchema,
   ReleaseMutationGuard,
+  WorkspaceEnvironmentPolicy as WorkspaceEnvironmentPolicySchema,
+  createDefaultEnvironmentReleasePolicy,
+  evaluateEnvironmentReleasePolicy,
+  evaluateReleaseRecovery,
   validate,
+  validateWorkspaceEnvironmentPolicy,
   type AnalyticsEvent,
+  type AnalyticsEventAggregate,
+  type AnalyticsEnvironmentQuery,
+  type AnalyticsTargetResolutionStatus,
+  type AuthoritativeAnalyticsEvent,
   type AuthoringActivationCapability,
   type AuthoringDocumentIntent,
   type AuthoringEnvironment,
   type AuthoringPageContext,
   type AuthoringPageDocumentSummary,
+  type AuthoringProductMatchSourceReceipt,
   type AuthoringDocumentQueryScope,
   type AuthoringSessionCapability,
   type BasicVisualPreflightReport,
   type BrowserVerificationReport,
+  type BrandDriftAuditReport,
   type BrandThemeDefinition,
   type BrandThemeSnapshot,
   type CompiledDocument,
+  type ControlPlaneRole,
   type DocumentDeployment,
   type Environment,
+  type EnvironmentPolicyValidationIssue,
+  type EnvironmentReleasePolicy,
   type LodariqDocument,
   type QueryAuthoringDocumentsResult,
+  type ProductStyleProposal,
   type ProductStyleSource,
+  type ReleaseHistoryEntry,
+  type ReleaseRecoveryFailure,
+  type ReleaseRecoveryFailureCode,
+  type ReleaseRecoveryOperationSnapshot,
+  type ReleaseRecoveryPublicationSnapshot,
+  type ReleaseRecoveryRequest,
+  type ReleaseRecoveryResult,
+  type ReleaseRecoveryStateResponse,
+  type WorkspaceEnvironmentPolicy,
+  type WorkspaceEnvironmentPolicyRow,
 } from '@lodariq/schema';
+import { isValidAuthoringSessionCapabilitySet } from './authoring-session-capabilities';
+import {
+  extractHistoricalReleaseArtifactPins,
+  isReleaseArtifactCurrentlyDeployable,
+} from './release-artifact-compatibility';
 import { assertWorkspaceScope } from './rls';
 import { verifyAuthoringPkceS256Challenge } from './tokens';
 
@@ -54,6 +99,12 @@ export interface WorkspaceEnvironment {
   originAllowlist: string[];
   /** Defaults to zero for pre-policy seeds and persisted rows. */
   requiredApprovalCount?: 0 | 1;
+  /** Additive policy fields. Legacy fixtures are normalized to safe defaults. */
+  enabled?: boolean;
+  pipelinePosition?: number;
+  authoringEnabled?: boolean;
+  promotionSourceEnvironmentId?: string;
+  releasePolicy?: EnvironmentReleasePolicy;
   createdAt: string;
   updatedAt: string;
 }
@@ -62,6 +113,20 @@ export interface UpdateEnvironmentReleasePolicyInput {
   workspaceId: string;
   environmentId: string;
   requiredApprovalCount: 0 | 1;
+  expectedUpdatedAt: string;
+  actorUserId: string;
+}
+
+export interface UpdateWorkspaceEnvironmentPolicyInput {
+  workspaceId: string;
+  environmentId: string;
+  name: string;
+  originAllowlist: string[];
+  enabled: boolean;
+  pipelinePosition: 0 | 1 | 2;
+  authoringEnabled: boolean;
+  promotionSourceEnvironmentId?: string;
+  releasePolicy: EnvironmentReleasePolicy;
   expectedUpdatedAt: string;
   actorUserId: string;
 }
@@ -81,11 +146,256 @@ export class EnvironmentReleasePolicyChangedError extends Error {
   }
 }
 
+export const WORKSPACE_ENVIRONMENT_POLICY_INVALID_ERROR_CODE =
+  'workspace_environment_policy_invalid' as const;
+
+export class WorkspaceEnvironmentPolicyInvalidError extends Error {
+  readonly code = WORKSPACE_ENVIRONMENT_POLICY_INVALID_ERROR_CODE;
+
+  constructor(readonly issues: EnvironmentPolicyValidationIssue[]) {
+    super('workspace environment policy is invalid');
+    this.name = 'WorkspaceEnvironmentPolicyInvalidError';
+  }
+}
+
+export class EnvironmentPolicyMutationForbiddenError extends Error {
+  readonly code = 'environment_policy_forbidden' as const;
+
+  constructor(
+    readonly decisionCode:
+      | 'environment_disabled'
+      | 'direct_publish_forbidden'
+      | 'promotion_source_mismatch'
+      | 'role_forbidden'
+      | 'separation_of_duties_required',
+  ) {
+    super('the current environment policy forbids this release mutation');
+    this.name = 'EnvironmentPolicyMutationForbiddenError';
+  }
+}
+
+export type NormalizedWorkspaceEnvironment = WorkspaceEnvironment & {
+  requiredApprovalCount: 0 | 1;
+  enabled: boolean;
+  pipelinePosition: 0 | 1 | 2;
+  authoringEnabled: boolean;
+  releasePolicy: EnvironmentReleasePolicy;
+};
+
+/**
+ * Compatibility adapter for legacy fixtures and the additive persisted fields.
+ * Production rows always resolve to the real opaque staging ID in this workspace.
+ */
+export function normalizeWorkspaceEnvironments(
+  environments: readonly WorkspaceEnvironment[],
+): NormalizedWorkspaceEnvironment[] {
+  const stagingIds = environments
+    .filter((environment) => environment.kind === 'staging')
+    .map((environment) => environment.id)
+    .sort();
+  const defaultPromotionSourceEnvironmentId = stagingIds.length === 1 ? stagingIds[0] : undefined;
+
+  return environments
+    .map((environment): NormalizedWorkspaceEnvironment => {
+      const defaultReleasePolicy = createDefaultEnvironmentReleasePolicy(environment.kind);
+      if (
+        environment.requiredApprovalCount !== undefined &&
+        environment.releasePolicy !== undefined &&
+        environment.requiredApprovalCount !== environment.releasePolicy.requiredApprovalCount
+      ) {
+        throw new WorkspaceEnvironmentPolicyInvalidError([
+          {
+            code: 'contract_invalid',
+            field: 'requiredApprovalCount',
+            environmentId: environment.id,
+          },
+        ]);
+      }
+      const requiredApprovalCount = normalizeEnvironmentApprovalCount(
+        environment.requiredApprovalCount ?? environment.releasePolicy?.requiredApprovalCount ?? 0,
+        environment.id,
+      );
+      const releasePolicyCandidate = environment.releasePolicy
+        ? clone(environment.releasePolicy)
+        : { ...defaultReleasePolicy, requiredApprovalCount };
+      const releasePolicyValidation = validate(
+        EnvironmentReleasePolicySchema,
+        releasePolicyCandidate,
+      );
+      if (!releasePolicyValidation.valid) {
+        throw new WorkspaceEnvironmentPolicyInvalidError([
+          { code: 'contract_invalid', field: 'releasePolicy', environmentId: environment.id },
+        ]);
+      }
+      const releasePolicy = releasePolicyValidation.value;
+      const originAllowlist = normalizeEnvironmentOriginAllowlist(
+        environment.originAllowlist,
+        environment.kind,
+        environment.id,
+      );
+      const promotionSourceEnvironmentId =
+        environment.promotionSourceEnvironmentId ??
+        (environment.kind === 'production' ? defaultPromotionSourceEnvironmentId : undefined);
+
+      return {
+        ...clone(environment),
+        originAllowlist,
+        requiredApprovalCount,
+        enabled: environment.enabled ?? true,
+        pipelinePosition: normalizeEnvironmentPipelinePosition(
+          environment.pipelinePosition,
+          environment.kind,
+          environment.id,
+        ),
+        authoringEnabled: environment.authoringEnabled ?? environment.kind !== 'production',
+        ...(promotionSourceEnvironmentId ? { promotionSourceEnvironmentId } : {}),
+        releasePolicy,
+      };
+    })
+    .sort(compareWorkspaceEnvironmentsByPipeline);
+}
+
+export function toWorkspaceEnvironmentPolicyRow(
+  environment: WorkspaceEnvironment,
+): WorkspaceEnvironmentPolicyRow {
+  const normalized = normalizeWorkspaceEnvironments([environment])[0];
+  if (!normalized) throw new Error('environment policy row is unavailable');
+  return {
+    id: normalized.id,
+    workspaceId: normalized.workspaceId,
+    kind: normalized.kind,
+    displayName: normalized.name,
+    enabled: normalized.enabled,
+    pipelinePosition: normalized.pipelinePosition,
+    allowedOrigins: [...normalized.originAllowlist],
+    authoringEnabled: normalized.authoringEnabled,
+    ...(normalized.promotionSourceEnvironmentId
+      ? { promotionSourceEnvironmentId: normalized.promotionSourceEnvironmentId }
+      : {}),
+    releasePolicy: clone(normalized.releasePolicy),
+  };
+}
+
+export function toWorkspaceEnvironmentPolicy(
+  workspaceId: string,
+  environments: readonly WorkspaceEnvironment[],
+): WorkspaceEnvironmentPolicy {
+  const normalized = normalizeWorkspaceEnvironments(environments);
+  return {
+    schemaVersion: '1',
+    workspaceId,
+    environments: normalized.map((environment) => ({
+      id: environment.id,
+      workspaceId: environment.workspaceId,
+      kind: environment.kind,
+      displayName: environment.name,
+      enabled: environment.enabled,
+      pipelinePosition: environment.pipelinePosition,
+      allowedOrigins: [...environment.originAllowlist],
+      authoringEnabled: environment.authoringEnabled,
+      ...(environment.promotionSourceEnvironmentId
+        ? { promotionSourceEnvironmentId: environment.promotionSourceEnvironmentId }
+        : {}),
+      releasePolicy: clone(environment.releasePolicy),
+    })),
+  };
+}
+
+export function assertValidWorkspaceEnvironmentPolicy(
+  workspaceId: string,
+  environments: readonly WorkspaceEnvironment[],
+): WorkspaceEnvironmentPolicy {
+  const policy = toWorkspaceEnvironmentPolicy(workspaceId, environments);
+  const contract = validate(WorkspaceEnvironmentPolicySchema, policy);
+  if (!contract.valid) {
+    throw new WorkspaceEnvironmentPolicyInvalidError([
+      { code: 'contract_invalid', field: 'policy' },
+    ]);
+  }
+  const result = validateWorkspaceEnvironmentPolicy(contract.value);
+  if (!result.valid) throw new WorkspaceEnvironmentPolicyInvalidError(result.issues);
+  return contract.value;
+}
+
+export function assertEnvironmentPolicyMutationAllowed(
+  environment: WorkspaceEnvironment,
+  input: {
+    action: 'direct-publish' | 'promote';
+    expectedUpdatedAt: string;
+    sourceEnvironmentId?: string;
+  },
+): NormalizedWorkspaceEnvironment {
+  const normalized = assertEnvironmentPolicySnapshot(environment, input.expectedUpdatedAt);
+  if (!normalized.enabled) {
+    throw new EnvironmentPolicyMutationForbiddenError('environment_disabled');
+  }
+  if (input.action === 'direct-publish' && !normalized.releasePolicy.allowDirectPublish) {
+    throw new EnvironmentPolicyMutationForbiddenError('direct_publish_forbidden');
+  }
+  if (
+    input.action === 'promote' &&
+    (!input.sourceEnvironmentId ||
+      normalized.promotionSourceEnvironmentId !== input.sourceEnvironmentId)
+  ) {
+    throw new EnvironmentPolicyMutationForbiddenError('promotion_source_mismatch');
+  }
+  return normalized;
+}
+
+export function assertEnvironmentPolicySnapshot(
+  environment: WorkspaceEnvironment,
+  expectedUpdatedAtInput: string,
+): NormalizedWorkspaceEnvironment {
+  const normalized = normalizeWorkspaceEnvironments([environment])[0];
+  if (!normalized) throw new Error('environment policy row is unavailable');
+  const expectedUpdatedAt = normalizeIsoTimestamp(
+    expectedUpdatedAtInput,
+    'environment policy expectedUpdatedAt',
+  );
+  if (normalized.updatedAt !== expectedUpdatedAt) {
+    throw new EnvironmentReleasePolicyChangedError(expectedUpdatedAt, normalized.updatedAt);
+  }
+  return normalized;
+}
+
+function normalizeEnvironmentApprovalCount(value: number, environmentId: string): 0 | 1 {
+  if (value === 0 || value === 1) return value;
+  throw new WorkspaceEnvironmentPolicyInvalidError([
+    { code: 'contract_invalid', field: 'requiredApprovalCount', environmentId },
+  ]);
+}
+
+function normalizeEnvironmentPipelinePosition(
+  value: number | undefined,
+  kind: WorkspaceEnvironment['kind'],
+  environmentId: string,
+): 0 | 1 | 2 {
+  if (value === undefined) return ENVIRONMENT_PIPELINE_POSITION_BY_KIND[kind];
+  if (value === 0 || value === 1 || value === 2) return value;
+  throw new WorkspaceEnvironmentPolicyInvalidError([
+    { code: 'contract_invalid', field: 'pipelinePosition', environmentId },
+  ]);
+}
+
+function compareWorkspaceEnvironmentsByPipeline(
+  left: NormalizedWorkspaceEnvironment,
+  right: NormalizedWorkspaceEnvironment,
+): number {
+  const pipelineDifference = left.pipelinePosition - right.pipelinePosition;
+  return pipelineDifference || left.id.localeCompare(right.id);
+}
+
 export interface StyleSourceRecord {
   id: string;
   workspaceId: string;
   themeId: string;
   environmentId: string;
+  proposalId: string;
+  proposalHash: string;
+  sourceOrdinal: number;
+  sourceCount: number;
+  appliedThemeRevision: number;
+  draftChanged: boolean;
   source: ProductStyleSource;
   sourceHash: string;
   createdByUserId: string;
@@ -98,6 +408,61 @@ export interface CreateStyleSourceInput {
   environmentId: string;
   source: ProductStyleSource;
   actorUserId: string;
+}
+
+export interface ApplyProductStyleProposalInput extends WorkspaceThemeMutationGuard {
+  workspaceId: string;
+  themeId: string;
+  environmentId: string;
+  proposal: ProductStyleProposal;
+  draft: BrandThemeDefinition;
+  actorUserId: string;
+}
+
+/**
+ * Immutable server-owned Product Match receipt. `replayed` is deliberately not
+ * persisted because it describes the current response, not the original
+ * application. Every other canonical response field is frozen here.
+ */
+export interface ProductStyleApplicationReceipt {
+  proposalId: string;
+  draftRevision: number;
+  draftUpdatedAt: string;
+  previewTheme: BrandThemeSnapshot;
+  sources: AuthoringProductMatchSourceReceipt[];
+  draftChanged: boolean;
+}
+
+export interface ProductStyleApplicationRecord {
+  id: string;
+  workspaceId: string;
+  themeId: string;
+  environmentId: string;
+  requestHash: string;
+  sourceSetHash: string;
+  receipt: ProductStyleApplicationReceipt;
+  createdByUserId: string;
+  createdAt: string;
+}
+
+export interface ProductStyleProposalApplicationResult {
+  theme: WorkspaceThemeRecord;
+  sources: StyleSourceRecord[];
+  application: ProductStyleApplicationRecord;
+  draftChanged: boolean;
+  replayed: boolean;
+}
+
+export const PRODUCT_STYLE_PROPOSAL_CONFLICT_ERROR_CODE =
+  'product_style_proposal_conflict' as const;
+
+export class ProductStyleProposalConflictError extends Error {
+  readonly code = PRODUCT_STYLE_PROPOSAL_CONFLICT_ERROR_CODE;
+
+  constructor(readonly proposalId: string) {
+    super('Product match proposal identity was already used for a different request');
+    this.name = 'ProductStyleProposalConflictError';
+  }
 }
 
 export interface WorkspaceThemeVersionRecord {
@@ -201,6 +566,31 @@ export interface CreateVisualCheckRunInput {
   environmentId: string;
   contentHash: string;
   report: BasicVisualPreflightReport;
+  actorUserId: string;
+}
+
+export interface BrandDriftRunRecord {
+  id: string;
+  workspaceId: string;
+  environmentId: string;
+  documentId: string;
+  themeId: string;
+  baselineThemeVersionId: string;
+  trigger: BrandDriftAuditReport['trigger'];
+  classification: BrandDriftAuditReport['classification'];
+  confidence: number;
+  report: BrandDriftAuditReport;
+  createdByUserId: string;
+  createdAt: string;
+}
+
+export interface CreateBrandDriftRunInput {
+  workspaceId: string;
+  environmentId: string;
+  documentId: string;
+  themeId: string;
+  baselineThemeVersionId: string;
+  report: BrandDriftAuditReport;
   actorUserId: string;
 }
 
@@ -412,6 +802,18 @@ export interface AuthoringSessionThemeReference {
   source: 'fallback' | 'workspace';
   themeId: string;
   themeVersionId: string;
+}
+
+export interface AcknowledgeDocumentThemeInput {
+  workspaceId: string;
+  sessionId: string;
+  documentId: string;
+  actorUserId: string;
+  expectedDocumentUpdatedAt: string;
+  expectedThemeVersionId: string;
+  reviewedThemeVersionId: string;
+  document: LodariqDocument;
+  artifact: CompiledDocument;
 }
 
 export interface ActivatedAuthoringDocumentSessionRecord {
@@ -788,8 +1190,14 @@ export interface PersistedReleaseOperation {
   workspaceId: string;
   environmentId: string;
   documentId: string;
-  action: 'publish' | 'promote';
-  requestedArtifactId: string;
+  action: 'publish' | 'promote' | 'rollback' | 'unpublish';
+  requestedArtifactId: string | null;
+  /** Raw caller-selected rollback target. Audit-only and deliberately has no FK. */
+  requestedSourcePublicationId: string | null;
+  /** Raw caller CAS assertion. Audit-only and deliberately has no FK. */
+  requestedActivePublicationId: string | null;
+  /** Server-resolved active publication at evaluation time, exact-scope FK-backed in SQL. */
+  actualActivePublicationId: string | null;
   sourcePublicationId: string | null;
   expectedGeneration: number;
   resultGeneration: number | null;
@@ -799,9 +1207,49 @@ export interface PersistedReleaseOperation {
   correlationId: string;
   requestedByUserId: string | null;
   resultPublicationId: string | null;
+  /** Required, already-trimmed human intent for rollback/unpublish; null otherwise. */
+  reason: string | null;
   errorCode: string | null;
   createdAt: string;
   completedAt: string | null;
+}
+
+export interface ReleaseRecoveryScopeInput {
+  workspaceId: string;
+  environmentId: string;
+  documentId: string;
+  actorUserId: string;
+}
+
+export interface RecoverDocumentReleaseInput extends ReleaseRecoveryScopeInput {
+  request: ReleaseRecoveryRequest;
+}
+
+interface ReleaseRecoveryPublicationMaterial {
+  publication: PersistedPublication;
+  operation: PersistedReleaseOperation;
+  snapshot: ReleaseRecoveryPublicationSnapshot;
+}
+
+export const RELEASE_RECOVERY_HISTORY_LIMIT_EXCEEDED_ERROR_CODE =
+  'release_recovery_history_limit_exceeded' as const;
+
+export class ReleaseRecoveryHistoryLimitExceededError extends Error {
+  readonly code = RELEASE_RECOVERY_HISTORY_LIMIT_EXCEEDED_ERROR_CODE;
+
+  constructor(readonly count: number) {
+    super(`release recovery history has ${count} entries, exceeding the complete response limit`);
+    this.name = 'ReleaseRecoveryHistoryLimitExceededError';
+  }
+}
+
+export class ReleaseRecoveryHistoryIntegrityError extends Error {
+  readonly code = 'release_recovery_history_integrity_error' as const;
+
+  constructor(readonly releaseOperationId: string) {
+    super(`terminal release operation ${releaseOperationId} cannot be represented truthfully`);
+    this.name = 'ReleaseRecoveryHistoryIntegrityError';
+  }
 }
 
 export interface PublicationVerificationRecord {
@@ -845,6 +1293,8 @@ export interface CreateReleaseApprovalInput {
   decision: ReleaseApprovalRecord['decision'];
   reason?: string | null;
   actorUserId: string;
+  /** CAS pin for the policy reviewed before recording an immutable decision. */
+  expectedEnvironmentPolicyUpdatedAt: string;
 }
 
 export interface PromoteVerifiedPublicationInput {
@@ -859,6 +1309,8 @@ export interface PromoteVerifiedPublicationInput {
   idempotencyKey: string;
   requestHash: string;
   expectedGeneration: number;
+  /** CAS pin for the server-authorized target policy read. */
+  expectedEnvironmentPolicyUpdatedAt: string;
 }
 
 export interface PromotionResult {
@@ -1128,6 +1580,8 @@ export interface ActivateCompiledArtifactInput extends PublishCompiledArtifactIn
   idempotencyKey: string;
   requestHash: string;
   expectedGeneration: number;
+  /** CAS pin for the server-authorized environment policy read. */
+  expectedEnvironmentPolicyUpdatedAt: string;
 }
 
 export interface ReleaseActivationResult {
@@ -1142,11 +1596,49 @@ export interface IngestEventsInput {
   events: AnalyticsEvent[];
 }
 
+/**
+ * A server-authoritative SDK analytics batch. The duplicated scope is
+ * intentional: repositories reject any event whose server-owned envelope does
+ * not match the transaction scope before writing any part of the batch.
+ */
+export interface IngestAuthoritativeEventsInput {
+  workspaceId: string;
+  environmentId: string;
+  events: AuthoritativeAnalyticsEvent[];
+}
+
+export interface PersistedAnalyticsEventRecord extends AuthoritativeAnalyticsEvent {
+  id: string;
+  ingestedAt: string;
+}
+
+export interface QueryAnalyticsEventsInput {
+  workspaceId: string;
+  query: AnalyticsEnvironmentQuery;
+}
+
+/**
+ * Aggregates retain every immutable delivery dimension. This prevents events
+ * before and after a rollback from being silently attributed to one release.
+ */
+export const DEFAULT_ANALYTICS_EVENT_QUERY_LIMIT = 100;
+
+export function assertAuthoritativeAnalyticsBatch(input: IngestAuthoritativeEventsInput): void {
+  if (input.events.length > ANALYTICS_EVENT_LIMITS.batchSize) {
+    throw new Error('authoritative analytics batch exceeds the event limit');
+  }
+  for (const event of input.events) {
+    assertAuthoritativeAnalyticsEvent(event, input.workspaceId, input.environmentId);
+  }
+}
+
 export interface ResolvedEnvironmentToken extends EnvironmentTokenRecord {
   originAllowlist: string[];
 }
 
 export interface ControlPlaneRepository extends IdentityRepository {
+  /** Fail closed when the repository's required backing store is unavailable. */
+  checkReadiness(): Promise<void>;
   resolveWorkspaceMembership(
     workspaceId: string,
     userId: string,
@@ -1162,6 +1654,9 @@ export interface ControlPlaneRepository extends IdentityRepository {
   updateWorkspaceThemeDraft(
     input: UpdateWorkspaceThemeDraftInput,
   ): Promise<WorkspaceThemeRecord | null>;
+  applyProductStyleProposal(
+    input: ApplyProductStyleProposalInput,
+  ): Promise<ProductStyleProposalApplicationResult | null>;
   approveWorkspaceTheme(
     input: ApproveWorkspaceThemeInput,
   ): Promise<WorkspaceThemeApprovalResult | null>;
@@ -1174,6 +1669,8 @@ export interface ControlPlaneRepository extends IdentityRepository {
   ): Promise<WorkspaceThemeImpactRecord[]>;
   createStyleSource(input: CreateStyleSourceInput): Promise<StyleSourceRecord>;
   listStyleSources(workspaceId: string, themeId?: string): Promise<StyleSourceRecord[]>;
+  createBrandDriftRun(input: CreateBrandDriftRunInput): Promise<BrandDriftRunRecord>;
+  listBrandDriftRuns(workspaceId: string, documentId: string): Promise<BrandDriftRunRecord[]>;
   listDocuments(workspaceId: string): Promise<DocumentSummary[]>;
   getDocument(workspaceId: string, documentId: string): Promise<PersistedDocument | null>;
   listDocumentVersions(
@@ -1232,6 +1729,10 @@ export interface ControlPlaneRepository extends IdentityRepository {
     workspaceId: string,
     operationId: string,
   ): Promise<PersistedReleaseOperation | null>;
+  getReleaseRecoveryState(
+    input: ReleaseRecoveryScopeInput,
+  ): Promise<ReleaseRecoveryStateResponse | null>;
+  recoverDocumentRelease(input: RecoverDocumentReleaseInput): Promise<ReleaseRecoveryResult | null>;
   publishCompiledArtifact(input: PublishCompiledArtifactInput): Promise<PersistedPublication>;
   activateCompiledArtifact(input: ActivateCompiledArtifactInput): Promise<ReleaseActivationResult>;
   createPublicationVerification(
@@ -1250,6 +1751,9 @@ export interface ControlPlaneRepository extends IdentityRepository {
   listEnvironments(workspaceId: string): Promise<WorkspaceEnvironment[]>;
   updateEnvironmentReleasePolicy(
     input: UpdateEnvironmentReleasePolicyInput,
+  ): Promise<WorkspaceEnvironment | null>;
+  updateWorkspaceEnvironmentPolicy(
+    input: UpdateWorkspaceEnvironmentPolicyInput,
   ): Promise<WorkspaceEnvironment | null>;
   listPublicSdkInstallations(workspaceId: string): Promise<PublicSdkInstallationWithOrigins[]>;
   getOrCreatePublicSdkInstallation(
@@ -1319,11 +1823,15 @@ export interface ControlPlaneRepository extends IdentityRepository {
     tokenHash: string,
   ): Promise<AuthoringSessionRecord | null>;
   resolveAuthoringSessionByTokenHash(tokenHash: string): Promise<AuthoringSessionRecord | null>;
+  acknowledgeDocumentTheme(input: AcknowledgeDocumentThemeInput): Promise<PersistedDocument | null>;
   revokeAuthoringSession(
     input: RevokeAuthoringSessionInput,
   ): Promise<AuthoringSessionRecord | null>;
   createVisualCheckRun(input: CreateVisualCheckRunInput): Promise<VisualCheckRunRecord>;
   listVisualCheckRuns(workspaceId: string, documentId: string): Promise<VisualCheckRunRecord[]>;
+  ingestAuthoritativeEvents(input: IngestAuthoritativeEventsInput): Promise<number>;
+  listAnalyticsEvents(input: QueryAnalyticsEventsInput): Promise<PersistedAnalyticsEventRecord[]>;
+  aggregateAnalyticsEvents(input: QueryAnalyticsEventsInput): Promise<AnalyticsEventAggregate[]>;
   ingestEvents(input: IngestEventsInput): Promise<number>;
 }
 
@@ -1355,8 +1863,11 @@ export interface InMemoryControlPlaneSeed {
   themeVersions?: WorkspaceThemeVersionRecord[];
   visualCheckRuns?: VisualCheckRunRecord[];
   styleSources?: StyleSourceRecord[];
+  productStyleApplications?: ProductStyleApplicationRecord[];
+  brandDriftRuns?: BrandDriftRunRecord[];
   publicationVerifications?: PublicationVerificationRecord[];
   releaseApprovals?: ReleaseApprovalRecord[];
+  analyticsEvents?: PersistedAnalyticsEventRecord[];
 }
 
 export function createInMemoryControlPlaneRepository(
@@ -1402,6 +1913,8 @@ class InMemoryControlPlaneRepository implements ControlPlaneRepository {
   private readonly themeVersions = new Map<string, WorkspaceThemeVersionRecord[]>();
   private readonly visualCheckRuns = new Map<string, VisualCheckRunRecord[]>();
   private readonly styleSources = new Map<string, StyleSourceRecord[]>();
+  private readonly productStyleApplications = new Map<string, ProductStyleApplicationRecord>();
+  private readonly brandDriftRuns = new Map<string, BrandDriftRunRecord[]>();
   private readonly publicationVerifications = new Map<string, PublicationVerificationRecord[]>();
   private readonly releaseApprovals = new Map<string, ReleaseApprovalRecord[]>();
   private readonly publications = new Map<string, PersistedPublication[]>();
@@ -1409,14 +1922,12 @@ class InMemoryControlPlaneRepository implements ControlPlaneRepository {
   private readonly compiledArtifactsById = new Map<string, PersistedCompiledArtifact>();
   private readonly documentDeployments = new Map<string, PersistedDocumentDeployment>();
   private readonly releaseOperations = new Map<string, PersistedReleaseOperation>();
+  private readonly analyticsEvents: PersistedAnalyticsEventRecord[] = [];
   private readonly events: Array<{ workspaceId: string; event: AnalyticsEvent }> = [];
 
   constructor(seed: InMemoryControlPlaneSeed) {
-    for (const environment of seed.environments ?? []) {
-      this.environments.set(this.key(environment.workspaceId, environment.id), {
-        ...clone(environment),
-        requiredApprovalCount: environment.requiredApprovalCount ?? 0,
-      });
+    for (const environment of normalizeWorkspaceEnvironments(seed.environments ?? [])) {
+      this.environments.set(this.key(environment.workspaceId, environment.id), clone(environment));
     }
     for (const installation of seed.publicSdkInstallations ?? []) {
       this.publicSdkInstallations.set(installation.installationId, clone(installation));
@@ -1484,6 +1995,25 @@ class InMemoryControlPlaneRepository implements ControlPlaneRepository {
     for (const source of seed.styleSources ?? []) {
       this.appendStyleSource(source);
     }
+    for (const application of seed.productStyleApplications ?? []) {
+      const sources = (
+        this.styleSources.get(this.key(application.workspaceId, application.themeId)) ?? []
+      )
+        .filter((source) => source.proposalId === application.receipt.proposalId)
+        .sort(compareStyleSourceOrdinal);
+      assertProductStyleApplicationIntegrity(application, sources);
+      this.productStyleApplications.set(
+        this.productStyleApplicationKey(
+          application.workspaceId,
+          application.themeId,
+          application.receipt.proposalId,
+        ),
+        clone(application),
+      );
+    }
+    for (const run of seed.brandDriftRuns ?? []) {
+      this.appendBrandDriftRun(run);
+    }
     for (const artifact of seed.compiledArtifacts ?? []) {
       this.rememberSeedArtifact(artifact);
     }
@@ -1505,6 +2035,11 @@ class InMemoryControlPlaneRepository implements ControlPlaneRepository {
     }
     for (const approval of seed.releaseApprovals ?? []) {
       this.appendReleaseApproval(approval);
+    }
+    for (const event of seed.analyticsEvents ?? []) {
+      const { id: _id, ingestedAt: _ingestedAt, ...authoritativeEvent } = event;
+      assertAuthoritativeAnalyticsEvent(authoritativeEvent, event.workspaceId, event.environmentId);
+      this.analyticsEvents.push(clone(event));
     }
     for (const version of seed.documentVersions ?? []) {
       this.appendDocumentVersion(version);
@@ -1538,6 +2073,10 @@ class InMemoryControlPlaneRepository implements ControlPlaneRepository {
     }
   }
 
+  async checkReadiness(): Promise<void> {
+    // Construction is the readiness boundary for this dependency-free adapter.
+  }
+
   async findPasswordCredentialByEmail(
     emailNormalized: string,
     emailLookupHash: string,
@@ -1553,6 +2092,12 @@ class InMemoryControlPlaneRepository implements ControlPlaneRepository {
   }
 
   async createIdentityAccount(input: CreateIdentityAccountInput): Promise<boolean> {
+    try {
+      assertValidWorkspaceEnvironmentPolicy(input.workspace.id, input.environments);
+    } catch (error) {
+      if (error instanceof WorkspaceEnvironmentPolicyInvalidError) return false;
+      throw error;
+    }
     if (
       this.users.has(input.user.id) ||
       [...this.users.values()].some(
@@ -1594,11 +2139,8 @@ class InMemoryControlPlaneRepository implements ControlPlaneRepository {
       this.key(input.membership.workspaceId, input.membership.userId),
       clone(input.membership),
     );
-    for (const environment of input.environments) {
-      this.environments.set(this.key(environment.workspaceId, environment.id), {
-        ...clone(environment),
-        requiredApprovalCount: environment.requiredApprovalCount ?? 0,
-      });
+    for (const environment of normalizeWorkspaceEnvironments(input.environments)) {
+      this.environments.set(this.key(environment.workspaceId, environment.id), clone(environment));
     }
     this.emailVerificationChallenges.set(
       input.emailVerificationChallenge.id,
@@ -2127,6 +2669,12 @@ class InMemoryControlPlaneRepository implements ControlPlaneRepository {
   }
 
   async createIdentityWorkspace(input: CreateIdentityWorkspaceInput): Promise<boolean> {
+    try {
+      assertValidWorkspaceEnvironmentPolicy(input.workspace.id, input.environments);
+    } catch (error) {
+      if (error instanceof WorkspaceEnvironmentPolicyInvalidError) return false;
+      throw error;
+    }
     if (
       !this.users.has(input.userId) ||
       this.workspaces.has(input.workspace.id) ||
@@ -2145,7 +2693,7 @@ class InMemoryControlPlaneRepository implements ControlPlaneRepository {
       this.key(input.membership.workspaceId, input.membership.userId),
       clone(input.membership),
     );
-    for (const environment of input.environments) {
+    for (const environment of normalizeWorkspaceEnvironments(input.environments)) {
       this.environments.set(this.key(environment.workspaceId, environment.id), clone(environment));
     }
     return true;
@@ -2234,6 +2782,110 @@ class InMemoryControlPlaneRepository implements ControlPlaneRepository {
     };
     this.themes.set(key, updated);
     return this.hydrateTheme(updated);
+  }
+
+  async applyProductStyleProposal(
+    input: ApplyProductStyleProposalInput,
+  ): Promise<ProductStyleProposalApplicationResult | null> {
+    assertSafeProductStyleProposal(input.proposal);
+    assertWorkspaceThemeDraft(input.draft);
+    const expectedUpdatedAt = normalizeThemeGuardUpdatedAt(input);
+    const proposalHash = productStyleProposalRequestHash(input);
+    const key = this.key(input.workspaceId, input.themeId);
+    const applicationKey = this.productStyleApplicationKey(
+      input.workspaceId,
+      input.themeId,
+      input.proposal.proposalId,
+    );
+    const existingApplication = this.productStyleApplications.get(applicationKey);
+    if (existingApplication) {
+      const existingSources = (this.styleSources.get(key) ?? [])
+        .filter((source) => source.proposalId === input.proposal.proposalId)
+        .sort(compareStyleSourceOrdinal);
+      assertProductStyleProposalReplay(input, proposalHash, existingApplication, existingSources);
+      const current = this.themes.get(key);
+      if (!current) return null;
+      return {
+        theme: this.hydrateTheme(current),
+        sources: existingSources.map((source) => clone(source)),
+        application: clone(existingApplication),
+        draftChanged: existingApplication.receipt.draftChanged,
+        replayed: true,
+      };
+    }
+
+    const orphanedSources = (this.styleSources.get(key) ?? []).some(
+      (source) => source.proposalId === input.proposal.proposalId,
+    );
+    if (orphanedSources) {
+      throw new Error('Product match provenance exists without its canonical application receipt');
+    }
+
+    const current = this.themes.get(key);
+    if (!current) return null;
+    assertWorkspaceThemeMutationGuard(current, input.expectedRevision, expectedUpdatedAt);
+    if (!this.workspaceMemberships.has(this.key(input.workspaceId, input.actorUserId))) {
+      throw new Error('Product match actor is not a workspace member');
+    }
+    if (!this.environments.has(this.key(input.workspaceId, input.environmentId))) {
+      throw new Error('environment not found in workspace');
+    }
+
+    const draftChanged = hashCanonicalJson(current.draft) !== hashCanonicalJson(input.draft);
+    const now = new Date().toISOString();
+    const appliedTheme: WorkspaceThemeRecord = draftChanged
+      ? {
+          ...current,
+          draft: clone(input.draft),
+          revision: current.revision + 1,
+          updatedByUserId: input.actorUserId,
+          updatedAt: now,
+        }
+      : current;
+    const appliedThemeRevision = appliedTheme.revision;
+    const sourceCount = input.proposal.sources.length;
+    const sources = input.proposal.sources.map((source, sourceOrdinal): StyleSourceRecord => ({
+      id: `style_source_${randomUUID()}`,
+      workspaceId: input.workspaceId,
+      themeId: input.themeId,
+      environmentId: input.environmentId,
+      proposalId: input.proposal.proposalId,
+      proposalHash,
+      sourceOrdinal,
+      sourceCount,
+      appliedThemeRevision,
+      draftChanged,
+      source: clone(source),
+      sourceHash: hashCanonicalJson(source),
+      createdByUserId: input.actorUserId,
+      createdAt: now,
+    }));
+    const application = createProductStyleApplicationRecord({
+      id: `product_style_application_${randomUUID()}`,
+      input,
+      requestHash: proposalHash,
+      appliedTheme,
+      sources,
+      createdAt: now,
+    });
+
+    // Build every next collection before committing any map. This mirrors the
+    // theme -> receipt -> provenance PostgreSQL transaction while keeping the
+    // in-memory implementation all-or-nothing.
+    const nextSources = [
+      ...(this.styleSources.get(key) ?? []).map((source) => clone(source)),
+      ...sources.map((source) => clone(source)),
+    ];
+    if (draftChanged) this.themes.set(key, appliedTheme);
+    this.productStyleApplications.set(applicationKey, clone(application));
+    this.styleSources.set(key, nextSources);
+    return {
+      theme: this.hydrateTheme(appliedTheme),
+      sources: sources.map((source) => clone(source)),
+      application: clone(application),
+      draftChanged,
+      replayed: false,
+    };
   }
 
   async approveWorkspaceTheme(
@@ -2344,11 +2996,23 @@ class InMemoryControlPlaneRepository implements ControlPlaneRepository {
     if (!this.environments.has(this.key(input.workspaceId, input.environmentId))) {
       throw new Error('environment not found in workspace');
     }
+    const id = `style_source_${randomUUID()}`;
     const source: StyleSourceRecord = {
-      id: `style_source_${randomUUID()}`,
+      id,
       workspaceId: input.workspaceId,
       themeId: input.themeId,
       environmentId: input.environmentId,
+      proposalId: `standalone.${id}`,
+      proposalHash: hashCanonicalJson({
+        themeId: input.themeId,
+        environmentId: input.environmentId,
+        source: input.source,
+      }),
+      sourceOrdinal: 0,
+      sourceCount: 1,
+      appliedThemeRevision:
+        this.themes.get(this.key(input.workspaceId, input.themeId))?.revision ?? 1,
+      draftChanged: false,
       source: clone(input.source),
       sourceHash: hashCanonicalJson(input.source),
       createdByUserId: input.actorUserId,
@@ -2365,7 +3029,61 @@ class InMemoryControlPlaneRepository implements ControlPlaneRepository {
         (source) => source.workspaceId === workspaceId && (!themeId || source.themeId === themeId),
       )
       .map((source) => clone(source))
-      .sort(compareAppendOnlyRecordsNewestFirst);
+      .sort(compareStyleSourceHistory);
+  }
+
+  async createBrandDriftRun(input: CreateBrandDriftRunInput): Promise<BrandDriftRunRecord> {
+    assertBrandDriftReport(input.report);
+    if (
+      input.report.themeId !== input.themeId ||
+      input.report.baselineThemeVersionId !== input.baselineThemeVersionId
+    ) {
+      throw new Error('Brand drift report theme identity does not match its persistence scope');
+    }
+    if (!this.workspaceMemberships.has(this.key(input.workspaceId, input.actorUserId))) {
+      throw new Error('Brand drift creator is not a workspace member');
+    }
+    if (!this.documents.has(this.key(input.workspaceId, input.documentId))) {
+      throw new Error('Brand drift document not found in workspace');
+    }
+    if (!this.environments.has(this.key(input.workspaceId, input.environmentId))) {
+      throw new Error('Brand drift environment not found in workspace');
+    }
+    if (!this.findThemeVersion(input.workspaceId, input.themeId, input.baselineThemeVersionId)) {
+      throw new Error('Brand drift baseline theme version not found in workspace');
+    }
+    const existing = (
+      this.brandDriftRuns.get(this.key(input.workspaceId, input.documentId)) ?? []
+    ).find((run) => run.id === input.report.checkId);
+    if (existing) throw new Error('Brand drift check identity already exists');
+    const run: BrandDriftRunRecord = {
+      id: input.report.checkId,
+      workspaceId: input.workspaceId,
+      environmentId: input.environmentId,
+      documentId: input.documentId,
+      themeId: input.themeId,
+      baselineThemeVersionId: input.baselineThemeVersionId,
+      trigger: input.report.trigger,
+      classification: input.report.classification,
+      confidence: input.report.confidence,
+      report: clone(input.report),
+      createdByUserId: input.actorUserId,
+      createdAt: new Date().toISOString(),
+    };
+    this.appendBrandDriftRun(run);
+    return clone(run);
+  }
+
+  async listBrandDriftRuns(
+    workspaceId: string,
+    documentId: string,
+  ): Promise<BrandDriftRunRecord[]> {
+    return (this.brandDriftRuns.get(this.key(workspaceId, documentId)) ?? [])
+      .map((run) => clone(run))
+      .sort(
+        (left, right) =>
+          right.createdAt.localeCompare(left.createdAt) || right.id.localeCompare(left.id),
+      );
   }
 
   async listDocuments(workspaceId: string): Promise<DocumentSummary[]> {
@@ -2569,6 +3287,204 @@ class InMemoryControlPlaneRepository implements ControlPlaneRepository {
     return operation ? clone(operation) : null;
   }
 
+  async getReleaseRecoveryState(
+    input: ReleaseRecoveryScopeInput,
+  ): Promise<ReleaseRecoveryStateResponse | null> {
+    const scope = this.resolveReleaseRecoveryScope(input);
+    if (!scope) return null;
+
+    const deployment = this.documentDeployments.get(
+      this.key(input.workspaceId, input.environmentId, input.documentId),
+    );
+    const history = this.buildReleaseRecoveryHistory(input);
+    if (history.length > RELEASE_RECOVERY_HISTORY_MAX_ITEMS) {
+      throw new ReleaseRecoveryHistoryLimitExceededError(history.length);
+    }
+    const snapshots = this.buildReleaseRecoveryPublicationSnapshots(input);
+    const rollbackTargetPublicationIds = snapshots
+      .filter(
+        ({ publication, operation }) =>
+          operation.status === 'completed' &&
+          operation.resultGeneration !== null &&
+          deployment?.state === 'active' &&
+          operation.resultGeneration < deployment.generation &&
+          publication.id !== deployment.activePublicationId &&
+          isReleaseArtifactCurrentlyDeployable(publication.artifact),
+      )
+      .map(({ publication }) => publication.id)
+      .sort();
+
+    return clone({
+      workspaceId: input.workspaceId,
+      environmentId: input.environmentId,
+      documentId: input.documentId,
+      permissions: releaseRecoveryPermissions(scope.environment, scope.membershipRole),
+      deployment: deployment ?? null,
+      history,
+      rollbackTargetPublicationIds: [...new Set(rollbackTargetPublicationIds)],
+    });
+  }
+
+  async recoverDocumentRelease(
+    input: RecoverDocumentReleaseInput,
+  ): Promise<ReleaseRecoveryResult | null> {
+    const requestContract = validate(ReleaseRecoveryRequestSchema, input.request);
+    if (!requestContract.valid) throw new Error('release recovery request is invalid');
+    const request = requestContract.value;
+    const scope = this.resolveReleaseRecoveryScope(input);
+    if (!scope) return null;
+
+    const operationKey = this.key(
+      input.workspaceId,
+      input.environmentId,
+      input.documentId,
+      request.idempotencyKey,
+    );
+    const requestHash = createReleaseRecoveryRequestHash(input, request);
+    const existingOperation = this.releaseOperations.get(operationKey);
+    if (existingOperation) {
+      if (!releaseRecoveryOperationMatchesRequest(existingOperation, input, request, requestHash)) {
+        return createNonPersistingRecoveryFailure(request, 'idempotency_conflict');
+      }
+      if (
+        existingOperation.status === 'activating' ||
+        existingOperation.status === 'awaiting_approval'
+      ) {
+        return createNonPersistingRecoveryFailure(
+          request,
+          'release_operation_in_progress',
+          existingOperation.id,
+        );
+      }
+      const replay = this.releaseRecoveryResultFromOperation(existingOperation, true);
+      return replay ?? createNonPersistingRecoveryFailure(request, 'internal_error');
+    }
+
+    const deploymentKey = this.key(input.workspaceId, input.environmentId, input.documentId);
+    const deployment = this.documentDeployments.get(deploymentKey) ?? null;
+    const occurredAt = new Date().toISOString();
+    const newReleaseOperationId = `relop_${randomUUID()}`;
+    const newPublicationId = request.action === 'rollback' ? `pub_${randomUUID()}` : undefined;
+    const policyFailure = releaseRecoveryPolicyFailure(
+      scope.environment,
+      scope.membershipRole,
+      input.actorUserId,
+      request.action,
+    );
+    if (policyFailure) {
+      const result = createPersistedRecoveryFailure(
+        request,
+        policyFailure,
+        newReleaseOperationId,
+        deployment,
+      );
+      this.persistFailedRecoveryOperation(
+        input,
+        request,
+        requestHash,
+        newReleaseOperationId,
+        occurredAt,
+        result,
+      );
+      return clone(result);
+    }
+
+    const publicationMaterials = this.buildReleaseRecoveryPublicationSnapshots(input);
+    const publicationSnapshots = publicationMaterials.map(({ snapshot }) => snapshot);
+    const operationSnapshots = this.buildReleaseRecoveryOperationSnapshots(input);
+    const deployableRollbackTargetPublicationIds = new Set(
+      publicationMaterials
+        .filter(({ publication }) => isReleaseArtifactCurrentlyDeployable(publication.artifact))
+        .map(({ publication }) => publication.id),
+    );
+    const decision =
+      request.action === 'rollback'
+        ? evaluateReleaseRecovery({
+            workspaceId: input.workspaceId,
+            environmentId: input.environmentId,
+            documentId: input.documentId,
+            actorUserId: input.actorUserId,
+            deployment,
+            publications: publicationSnapshots,
+            operations: operationSnapshots,
+            request,
+            newReleaseOperationId,
+            newPublicationId: newPublicationId!,
+            occurredAt,
+            deployableRollbackTargetPublicationIds,
+          })
+        : evaluateReleaseRecovery({
+            workspaceId: input.workspaceId,
+            environmentId: input.environmentId,
+            documentId: input.documentId,
+            actorUserId: input.actorUserId,
+            deployment,
+            publications: publicationSnapshots,
+            operations: operationSnapshots,
+            request,
+            newReleaseOperationId,
+            occurredAt,
+          });
+
+    if (decision.kind === 'replay') return clone(decision.result);
+    if (decision.kind === 'reject') {
+      if (decision.persistFailure) {
+        this.persistFailedRecoveryOperation(
+          input,
+          request,
+          requestHash,
+          newReleaseOperationId,
+          occurredAt,
+          decision.result,
+        );
+      }
+      return clone(decision.result);
+    }
+
+    const activePublicationId =
+      deployment?.state === 'active' ? deployment.activePublicationId : null;
+    if (!activePublicationId) {
+      return createNonPersistingRecoveryFailure(request, 'internal_error');
+    }
+    if (decision.action === 'rollback') {
+      const targetMaterial = publicationMaterials.find(
+        ({ publication }) => publication.id === decision.publication.sourcePublicationId,
+      );
+      if (
+        !targetMaterial ||
+        targetMaterial.publication.compiledArtifactId !==
+          decision.result.artifact.compiledArtifactId
+      ) {
+        return createNonPersistingRecoveryFailure(request, 'internal_error');
+      }
+      const publication: PersistedPublication = {
+        id: decision.publication.id,
+        workspaceId: input.workspaceId,
+        correlationId: request.correlationId,
+        environmentId: input.environmentId,
+        environment: scope.environment.kind,
+        documentId: input.documentId,
+        documentVersionId: targetMaterial.publication.documentVersionId,
+        compiledArtifactId: targetMaterial.publication.compiledArtifactId,
+        contentHash: targetMaterial.publication.contentHash,
+        action: 'rollback',
+        sourcePublicationId: targetMaterial.publication.id,
+        previousPublicationId: activePublicationId,
+        releaseOperationId: newReleaseOperationId,
+        publishedByUserId: input.actorUserId,
+        publishedAt: occurredAt,
+        artifact: clone(targetMaterial.publication.artifact),
+      };
+      this.appendPublication(publication);
+    }
+    this.documentDeployments.set(deploymentKey, clone(decision.deployment));
+    this.releaseOperations.set(
+      operationKey,
+      createCompletedRecoveryOperation(input, request, requestHash, decision.result, occurredAt),
+    );
+    return clone(decision.result);
+  }
+
   async publishCompiledArtifact(
     input: PublishCompiledArtifactInput,
   ): Promise<PersistedPublication> {
@@ -2590,6 +3506,21 @@ class InMemoryControlPlaneRepository implements ControlPlaneRepository {
     if (existingOperation) {
       return this.resolveExistingReleaseOperation(input, existingOperation);
     }
+    const environment = this.environments.get(this.key(input.workspaceId, input.environmentId));
+    if (!environment) throw new Error('environment not found in workspace');
+    const environmentPolicy = assertEnvironmentPolicyMutationAllowed(environment, {
+      action: 'direct-publish',
+      expectedUpdatedAt: input.expectedEnvironmentPolicyUpdatedAt,
+    });
+    const membership = this.workspaceMemberships.get(
+      this.key(input.workspaceId, input.actorUserId),
+    );
+    if (
+      !membership ||
+      !environmentPolicy.releasePolicy.publisherRoles.some((role) => role === membership.role)
+    ) {
+      throw new EnvironmentPolicyMutationForbiddenError('role_forbidden');
+    }
 
     const createdAt = new Date().toISOString();
     const action = input.action ?? 'publish';
@@ -2601,6 +3532,9 @@ class InMemoryControlPlaneRepository implements ControlPlaneRepository {
       documentId: input.artifact.documentId,
       action,
       requestedArtifactId: input.artifact.id,
+      requestedSourcePublicationId: null,
+      requestedActivePublicationId: null,
+      actualActivePublicationId: null,
       sourcePublicationId,
       expectedGeneration: input.expectedGeneration,
       resultGeneration: null,
@@ -2610,6 +3544,7 @@ class InMemoryControlPlaneRepository implements ControlPlaneRepository {
       correlationId: input.correlationId,
       requestedByUserId: input.actorUserId,
       resultPublicationId: null,
+      reason: null,
       errorCode: null,
       createdAt,
       completedAt: null,
@@ -2686,11 +3621,14 @@ class InMemoryControlPlaneRepository implements ControlPlaneRepository {
   ): Promise<PublicationVerificationRecord> {
     assertBrowserVerificationReport(input.report);
     const verifiedOrigin = requireExactHttpOrigin(input.verifiedOrigin);
-    if (!this.workspaceMemberships.has(this.key(input.workspaceId, input.actorUserId))) {
+    const verifierMembership = this.workspaceMemberships.get(
+      this.key(input.workspaceId, input.actorUserId),
+    );
+    if (!verifierMembership || !hasAuthoringWorkspaceRole(verifierMembership.role)) {
       throw new Error('publication verifier is not a workspace member');
     }
     const environment = this.environments.get(this.key(input.workspaceId, input.environmentId));
-    if (!environment || environment.kind !== 'staging') {
+    if (!environment || environment.enabled === false || environment.kind !== 'staging') {
       throw new Error('publication verification requires a staging environment');
     }
     if (!environment.originAllowlist.includes(verifiedOrigin)) {
@@ -2739,9 +3677,6 @@ class InMemoryControlPlaneRepository implements ControlPlaneRepository {
       throw new Error('release approval decision must be approved or rejected');
     }
     const reason = normalizeReleaseApprovalReason(input.reason);
-    if (!this.workspaceMemberships.has(this.key(input.workspaceId, input.actorUserId))) {
-      throw new Error('release approver is not a workspace member');
-    }
     const operation = [...this.releaseOperations.values()].find(
       (candidate) =>
         candidate.workspaceId === input.workspaceId && candidate.id === input.releaseOperationId,
@@ -2749,13 +3684,76 @@ class InMemoryControlPlaneRepository implements ControlPlaneRepository {
     if (!operation || operation.action !== 'promote') {
       throw new Error('promotion release operation not found in workspace');
     }
-    if (operation.status !== 'awaiting_approval') {
-      throw new Error('release operation is not awaiting approval');
-    }
     const existing = (
       this.releaseApprovals.get(this.key(input.workspaceId, operation.id)) ?? []
     ).find((approval) => approval.decidedByUserId === input.actorUserId);
+    if (
+      operation.status === 'failed' &&
+      operation.errorCode === RELEASE_APPROVAL_REJECTED_ERROR_CODE &&
+      existing?.decision === input.decision &&
+      existing.reason === reason
+    ) {
+      return clone(existing);
+    }
+    if (operation.status !== 'awaiting_approval') {
+      throw new Error('release operation is not awaiting approval');
+    }
+    const approverMembership = this.workspaceMemberships.get(
+      this.key(input.workspaceId, input.actorUserId),
+    );
+    if (
+      !approverMembership ||
+      (approverMembership.role !== 'owner' && approverMembership.role !== 'admin')
+    ) {
+      throw new Error('release approver is not a workspace member');
+    }
+    const targetEnvironment = this.environments.get(
+      this.key(input.workspaceId, operation.environmentId),
+    );
+    if (!targetEnvironment) throw new Error('promotion target environment not found');
+    let targetPolicy = assertEnvironmentPolicySnapshot(
+      targetEnvironment,
+      input.expectedEnvironmentPolicyUpdatedAt,
+    );
+    if (input.decision === 'approved') {
+      if (!operation.requestedByUserId || !operation.sourcePublicationId) {
+        throw new EnvironmentPolicyMutationForbiddenError('role_forbidden');
+      }
+      const sourcePublication = this.findPublicationById(
+        input.workspaceId,
+        operation.sourcePublicationId,
+      );
+      const sourceEnvironment = sourcePublication
+        ? this.environments.get(this.key(input.workspaceId, sourcePublication.environmentId))
+        : null;
+      if (!sourcePublication || !sourceEnvironment || sourceEnvironment.enabled === false) {
+        throw new EnvironmentPolicyMutationForbiddenError('promotion_source_mismatch');
+      }
+      targetPolicy = assertEnvironmentPolicyMutationAllowed(targetEnvironment, {
+        action: 'promote',
+        sourceEnvironmentId: sourcePublication.environmentId,
+        expectedUpdatedAt: input.expectedEnvironmentPolicyUpdatedAt,
+      });
+      const requesterMembership = operation.requestedByUserId
+        ? this.workspaceMemberships.get(this.key(input.workspaceId, operation.requestedByUserId))
+        : null;
+      if (
+        !requesterMembership ||
+        !targetPolicy.releasePolicy.publisherRoles.some((role) => role === requesterMembership.role)
+      ) {
+        throw new EnvironmentPolicyMutationForbiddenError('role_forbidden');
+      }
+      if (
+        targetPolicy.releasePolicy.separationOfDuties.requireSeparateApprover &&
+        input.actorUserId === operation.requestedByUserId
+      ) {
+        throw new EnvironmentPolicyMutationForbiddenError('separation_of_duties_required');
+      }
+    }
     if (existing) {
+      if (existing.decision === input.decision && existing.reason === reason) {
+        return clone(existing);
+      }
       throw new Error('release approver already recorded an immutable decision');
     }
     const approval: ReleaseApprovalRecord = {
@@ -2768,6 +3766,13 @@ class InMemoryControlPlaneRepository implements ControlPlaneRepository {
       createdAt: new Date().toISOString(),
     };
     this.appendReleaseApproval(approval);
+    if (input.decision === 'rejected') {
+      this.failPromotionOperation(
+        this.releaseOperationKey(operation),
+        operation,
+        RELEASE_APPROVAL_REJECTED_ERROR_CODE,
+      );
+    }
     return clone(approval);
   }
 
@@ -2839,6 +3844,25 @@ class InMemoryControlPlaneRepository implements ControlPlaneRepository {
         }
         throw new Error(operation.errorCode ?? 'promotion operation failed');
       }
+    }
+
+    const sourcePolicy = normalizeWorkspaceEnvironments([sourceEnvironment])[0];
+    if (!sourcePolicy?.enabled) {
+      throw new EnvironmentPolicyMutationForbiddenError('environment_disabled');
+    }
+    const targetPolicy = assertEnvironmentPolicyMutationAllowed(targetEnvironment, {
+      action: 'promote',
+      sourceEnvironmentId: input.sourceEnvironmentId,
+      expectedUpdatedAt: input.expectedEnvironmentPolicyUpdatedAt,
+    });
+    const membership = this.workspaceMemberships.get(
+      this.key(input.workspaceId, input.actorUserId),
+    );
+    if (
+      !membership ||
+      !targetPolicy.releasePolicy.publisherRoles.some((role) => role === membership.role)
+    ) {
+      throw new EnvironmentPolicyMutationForbiddenError('role_forbidden');
     }
 
     const sourceDeployment = this.documentDeployments.get(
@@ -2914,6 +3938,9 @@ class InMemoryControlPlaneRepository implements ControlPlaneRepository {
         documentId: input.documentId,
         action: 'promote',
         requestedArtifactId: sourcePublication.compiledArtifactId,
+        requestedSourcePublicationId: null,
+        requestedActivePublicationId: null,
+        actualActivePublicationId: null,
         sourcePublicationId: sourcePublication.id,
         expectedGeneration: input.expectedGeneration,
         resultGeneration: deploymentChanged ? actualGeneration : null,
@@ -2923,6 +3950,7 @@ class InMemoryControlPlaneRepository implements ControlPlaneRepository {
         correlationId: input.correlationId,
         requestedByUserId: input.actorUserId,
         resultPublicationId: null,
+        reason: null,
         errorCode: deploymentChanged ? DEPLOYMENT_CHANGED_ERROR_CODE : null,
         createdAt,
         completedAt: deploymentChanged ? createdAt : null,
@@ -3062,10 +4090,15 @@ class InMemoryControlPlaneRepository implements ControlPlaneRepository {
   }
 
   async listEnvironments(workspaceId: string): Promise<WorkspaceEnvironment[]> {
-    return [...this.environments.values()]
-      .filter((environment) => environment.workspaceId === workspaceId)
-      .map((environment) => clone(environment))
-      .sort((a, b) => a.kind.localeCompare(b.kind));
+    const normalized = normalizeWorkspaceEnvironments(
+      [...this.environments.values()].filter(
+        (environment) => environment.workspaceId === workspaceId,
+      ),
+    );
+    if (normalized.length > 0 && this.workspaces.has(workspaceId)) {
+      assertValidWorkspaceEnvironmentPolicy(workspaceId, normalized);
+    }
+    return normalized.map((environment) => clone(environment));
   }
 
   async updateEnvironmentReleasePolicy(
@@ -3085,10 +4118,60 @@ class InMemoryControlPlaneRepository implements ControlPlaneRepository {
     const updated: WorkspaceEnvironment = {
       ...current,
       requiredApprovalCount: input.requiredApprovalCount,
+      releasePolicy: {
+        ...(current.releasePolicy ?? createDefaultEnvironmentReleasePolicy(current.kind)),
+        requiredApprovalCount: input.requiredApprovalCount,
+      },
       updatedAt: new Date().toISOString(),
     };
     this.environments.set(key, updated);
-    return clone(updated);
+    return (
+      normalizeWorkspaceEnvironments([updated]).map((environment) => clone(environment))[0] ?? null
+    );
+  }
+
+  async updateWorkspaceEnvironmentPolicy(
+    input: UpdateWorkspaceEnvironmentPolicyInput,
+  ): Promise<WorkspaceEnvironment | null> {
+    const key = this.key(input.workspaceId, input.environmentId);
+    const current = this.environments.get(key);
+    if (!current) return null;
+    const expectedUpdatedAt = normalizeIsoTimestamp(
+      input.expectedUpdatedAt,
+      'workspace environment policy expectedUpdatedAt',
+    );
+    if (current.updatedAt !== expectedUpdatedAt) {
+      throw new EnvironmentReleasePolicyChangedError(expectedUpdatedAt, current.updatedAt);
+    }
+    const candidate: WorkspaceEnvironment = {
+      ...current,
+      name: input.name,
+      originAllowlist: [...input.originAllowlist],
+      requiredApprovalCount: input.releasePolicy.requiredApprovalCount,
+      enabled: input.enabled,
+      pipelinePosition: input.pipelinePosition,
+      authoringEnabled: input.authoringEnabled,
+      releasePolicy: clone(input.releasePolicy),
+      updatedAt: new Date().toISOString(),
+    };
+    if (input.promotionSourceEnvironmentId) {
+      candidate.promotionSourceEnvironmentId = input.promotionSourceEnvironmentId;
+    } else {
+      delete candidate.promotionSourceEnvironmentId;
+    }
+    const workspaceRows = [...this.environments.values()].filter(
+      (environment) => environment.workspaceId === input.workspaceId,
+    );
+    const candidates = workspaceRows.map((environment) =>
+      environment.id === input.environmentId ? candidate : environment,
+    );
+    assertValidWorkspaceEnvironmentPolicy(input.workspaceId, candidates);
+    this.environments.set(key, candidate);
+    return (
+      normalizeWorkspaceEnvironments(candidates)
+        .filter((environment) => environment.id === input.environmentId)
+        .map((environment) => clone(environment))[0] ?? null
+    );
   }
 
   async listPublicSdkInstallations(
@@ -3144,11 +4227,11 @@ class InMemoryControlPlaneRepository implements ControlPlaneRepository {
       throw new Error('active public SDK installation not found in workspace');
     }
     const environment = this.environments.get(this.key(input.workspaceId, input.environmentId));
-    if (!environment) {
-      throw new Error('environment not found in workspace');
-    }
+    if (!environment) throw new Error('environment not found in workspace');
+    assertPublicSdkInstallationEnvironmentPolicy(environment, input.authoringEnabled);
     const exactOrigin = requireExactHttpOrigin(input.origin);
     assertPublicSdkInstallationOriginPolicy(environment.kind, exactOrigin, input.authoringEnabled);
+    assertPublicSdkInstallationEnvironmentOrigin(environment, exactOrigin);
     const now = new Date().toISOString();
     const existingIndex = this.publicSdkInstallationOrigins.findIndex(
       (candidate) =>
@@ -3210,16 +4293,18 @@ class InMemoryControlPlaneRepository implements ControlPlaneRepository {
         this.key(input.workspaceId, candidate.environmentId),
       );
       if (!environment) throw new Error('environment not found in workspace');
+      assertPublicSdkInstallationEnvironmentPolicy(environment, candidate.authoringEnabled);
       const exactOrigin = requireExactHttpOrigin(candidate.origin);
-      if (seenOrigins.has(exactOrigin)) {
-        throw new Error('public SDK origin mappings must use unique exact origins');
-      }
-      seenOrigins.add(exactOrigin);
       assertPublicSdkInstallationOriginPolicy(
         environment.kind,
         exactOrigin,
         candidate.authoringEnabled,
       );
+      assertPublicSdkInstallationEnvironmentOrigin(environment, exactOrigin);
+      if (seenOrigins.has(exactOrigin)) {
+        throw new Error('public SDK origin mappings must use unique exact origins');
+      }
+      seenOrigins.add(exactOrigin);
       desiredOrigins.push({
         installationId: input.installationId,
         workspaceId: input.workspaceId,
@@ -3282,13 +4367,22 @@ class InMemoryControlPlaneRepository implements ControlPlaneRepository {
     const [mapping] = mappings;
     if (!mapping) return null;
     const environment = this.environments.get(this.key(mapping.workspaceId, mapping.environmentId));
-    if (!environment) return null;
+    if (
+      !environment ||
+      environment.enabled === false ||
+      !environment.originAllowlist.includes(exactOrigin)
+    ) {
+      return null;
+    }
 
     return clone({
       installation,
       environment,
       exactOrigin,
-      authoringEnabled: environment.kind === 'production' ? false : mapping.authoringEnabled,
+      authoringEnabled:
+        environment.kind === 'production'
+          ? false
+          : environment.authoringEnabled !== false && mapping.authoringEnabled,
     });
   }
 
@@ -3863,7 +4957,7 @@ class InMemoryControlPlaneRepository implements ControlPlaneRepository {
     );
     if (!token) return null;
     const environment = this.environments.get(this.key(token.workspaceId, token.environmentId));
-    if (!environment) return null;
+    if (!environment || environment.enabled === false) return null;
     return clone({
       ...token,
       environment: environment.kind,
@@ -3875,7 +4969,7 @@ class InMemoryControlPlaneRepository implements ControlPlaneRepository {
     input: CreateEnvironmentTokenInput,
   ): Promise<EnvironmentTokenRecord> {
     const environment = this.environments.get(this.key(input.workspaceId, input.environmentId));
-    if (!environment) {
+    if (!environment || environment.enabled === false) {
       throw new Error('environment not found in workspace');
     }
     const token: EnvironmentTokenRecord = {
@@ -3913,8 +5007,16 @@ class InMemoryControlPlaneRepository implements ControlPlaneRepository {
     input: CreateAuthoringSessionInput,
   ): Promise<AuthoringSessionRecord> {
     const environment = this.environments.get(this.key(input.workspaceId, input.environmentId));
-    if (!environment) {
+    if (
+      !environment ||
+      environment.enabled === false ||
+      environment.authoringEnabled === false ||
+      environment.kind === 'production'
+    ) {
       throw new Error('environment not found in workspace');
+    }
+    if (!this.hasAuthoringMembership(input.workspaceId, input.actorUserId)) {
+      throw new Error('authoring session creator is not an active workspace member');
     }
     const document = this.documents.get(this.key(input.workspaceId, input.documentId));
     if (!document) {
@@ -3954,7 +5056,18 @@ class InMemoryControlPlaneRepository implements ControlPlaneRepository {
         !candidate.revokedAt &&
         Date.parse(candidate.expiresAt) > Date.now(),
     );
-    return session ? clone(session) : null;
+    if (!session) return null;
+    const environment = this.environments.get(this.key(session.workspaceId, session.environmentId));
+    if (
+      !environment ||
+      environment.enabled === false ||
+      environment.authoringEnabled === false ||
+      environment.kind === 'production'
+    ) {
+      return null;
+    }
+    if (!this.hasAuthoringMembership(session.workspaceId, session.createdByUserId)) return null;
+    return clone(session);
   }
 
   async resolveAuthoringSessionByTokenHash(
@@ -3967,6 +5080,20 @@ class InMemoryControlPlaneRepository implements ControlPlaneRepository {
         !candidate.revokedAt &&
         Date.parse(candidate.expiresAt) > Date.now(),
     );
+    if (session) {
+      const environment = this.environments.get(
+        this.key(session.workspaceId, session.environmentId),
+      );
+      if (
+        !environment ||
+        environment.enabled === false ||
+        environment.authoringEnabled === false ||
+        environment.kind === 'production'
+      ) {
+        return null;
+      }
+      if (!this.hasAuthoringMembership(session.workspaceId, session.createdByUserId)) return null;
+    }
     if (session?.installationId && session.customerOrigin) {
       const scope = this.resolveActiveAuthoringScope(
         session.installationId,
@@ -3975,13 +5102,71 @@ class InMemoryControlPlaneRepository implements ControlPlaneRepository {
       if (
         !scope ||
         scope.installation.workspaceId !== session.workspaceId ||
-        scope.environment.id !== session.environmentId ||
-        !this.hasAuthoringMembership(session.workspaceId, session.createdByUserId)
+        scope.environment.id !== session.environmentId
       ) {
         return null;
       }
     }
     return session ? clone(session) : null;
+  }
+
+  async acknowledgeDocumentTheme(
+    input: AcknowledgeDocumentThemeInput,
+  ): Promise<PersistedDocument | null> {
+    assertWorkspaceScope(input.document.workspaceId, input.workspaceId);
+    assertArtifactMatchesDocument(input);
+    const key = this.key(input.workspaceId, input.sessionId);
+    const session = this.authoringSessions.get(key);
+    const documentKey = this.key(input.workspaceId, input.documentId);
+    const current = this.documents.get(documentKey);
+    const binding = current?.document.themeBinding;
+    const nextBinding = input.document.themeBinding;
+    const theme = binding
+      ? this.themes.get(this.key(input.workspaceId, binding.themeId))
+      : undefined;
+    if (
+      !session ||
+      !current ||
+      current.updatedAt !== input.expectedDocumentUpdatedAt ||
+      !binding ||
+      binding.policy !== 'workspace-current' ||
+      binding.acknowledgedThemeVersionId !== input.expectedThemeVersionId ||
+      !nextBinding ||
+      nextBinding.policy !== 'workspace-current' ||
+      nextBinding.themeId !== binding.themeId ||
+      nextBinding.acknowledgedThemeVersionId !== input.reviewedThemeVersionId ||
+      input.document.id !== input.documentId ||
+      theme?.activeVersionId !== input.reviewedThemeVersionId ||
+      session.documentId !== input.documentId ||
+      session.createdByUserId !== input.actorUserId ||
+      session.themeVersionId !== input.expectedThemeVersionId ||
+      session.revokedAt ||
+      Date.parse(session.expiresAt) <= Date.now()
+    ) {
+      return null;
+    }
+    const now = new Date().toISOString();
+    const documentVersion = this.createDocumentVersion(input, now);
+    const latestArtifact = this.persistCompiledArtifact(
+      input.workspaceId,
+      input.documentId,
+      documentVersion.id,
+      input.artifact,
+      now,
+    );
+    const saved: PersistedDocument = {
+      document: clone(input.document),
+      createdByUserId: current.createdByUserId,
+      updatedByUserId: input.actorUserId,
+      updatedAt: now,
+      latestArtifact: clone(latestArtifact),
+    };
+    this.documents.set(documentKey, saved);
+    this.authoringSessions.set(key, {
+      ...session,
+      themeVersionId: input.reviewedThemeVersionId,
+    });
+    return clone(saved);
   }
 
   async revokeAuthoringSession(
@@ -4081,6 +5266,93 @@ class InMemoryControlPlaneRepository implements ControlPlaneRepository {
     return input.events.length;
   }
 
+  async ingestAuthoritativeEvents(input: IngestAuthoritativeEventsInput): Promise<number> {
+    assertAuthoritativeAnalyticsBatch(input);
+    const ingestedAt = new Date().toISOString();
+    const records = input.events.map((event) => {
+      return {
+        ...clone(event),
+        id: `aevt_${randomUUID()}`,
+        ingestedAt,
+      } satisfies PersistedAnalyticsEventRecord;
+    });
+
+    this.analyticsEvents.push(...records);
+    return records.length;
+  }
+
+  async listAnalyticsEvents(
+    input: QueryAnalyticsEventsInput,
+  ): Promise<PersistedAnalyticsEventRecord[]> {
+    assertAnalyticsEnvironmentQuery(input.query);
+    return this.matchingAnalyticsEvents(input)
+      .sort(compareAnalyticsEventsNewestFirst)
+      .slice(0, input.query.limit ?? DEFAULT_ANALYTICS_EVENT_QUERY_LIMIT)
+      .map((event) => clone(event));
+  }
+
+  async aggregateAnalyticsEvents(
+    input: QueryAnalyticsEventsInput,
+  ): Promise<AnalyticsEventAggregate[]> {
+    assertAnalyticsEnvironmentQuery(input.query);
+    const aggregates = new Map<string, AnalyticsEventAggregate>();
+    for (const event of this.matchingAnalyticsEvents(input)) {
+      const key = analyticsAggregateKey(event);
+      const timestamp = new Date(event.timestamp).toISOString();
+      const current = aggregates.get(key);
+      if (current) {
+        current.count += 1;
+        if (timestamp < current.firstTimestamp) current.firstTimestamp = timestamp;
+        if (timestamp > current.lastTimestamp) current.lastTimestamp = timestamp;
+        continue;
+      }
+      const dimensions = {
+        workspaceId: event.workspaceId,
+        environmentId: event.environmentId,
+        documentId: event.documentId,
+        publicationId: event.publicationId,
+        contentHash: event.contentHash,
+        pointerGeneration: event.pointerGeneration,
+        count: 1,
+        firstTimestamp: timestamp,
+        lastTimestamp: timestamp,
+      };
+      aggregates.set(
+        key,
+        event.name === 'target_resolution'
+          ? {
+              ...dimensions,
+              name: 'target_resolution',
+              targetResolutionStatus: analyticsTargetResolutionStatus(event),
+            }
+          : { ...dimensions, name: event.name },
+      );
+    }
+    return [...aggregates.values()]
+      .sort(compareAnalyticsAggregates)
+      .slice(0, input.query.limit ?? DEFAULT_ANALYTICS_EVENT_QUERY_LIMIT)
+      .map((aggregate) => clone(aggregate));
+  }
+
+  private matchingAnalyticsEvents(
+    input: QueryAnalyticsEventsInput,
+  ): PersistedAnalyticsEventRecord[] {
+    const from = input.query.from ? Date.parse(input.query.from) : null;
+    const to = input.query.to ? Date.parse(input.query.to) : null;
+    return this.analyticsEvents.filter((event) => {
+      if (event.workspaceId !== input.workspaceId) return false;
+      if (event.environmentId !== input.query.environmentId) return false;
+      if (input.query.documentId && event.documentId !== input.query.documentId) return false;
+      if (input.query.publicationId && event.publicationId !== input.query.publicationId)
+        return false;
+      if (input.query.contentHash && event.contentHash !== input.query.contentHash) return false;
+      const timestamp = Date.parse(event.timestamp);
+      if (from !== null && timestamp < from) return false;
+      if (to !== null && timestamp > to) return false;
+      return true;
+    });
+  }
+
   private appendThemeVersion(version: WorkspaceThemeVersionRecord): void {
     const key = this.key(version.workspaceId, version.themeId);
     const versions = this.themeVersions.get(key) ?? [];
@@ -4152,6 +5424,13 @@ class InMemoryControlPlaneRepository implements ControlPlaneRepository {
     const sources = this.styleSources.get(key) ?? [];
     sources.push(clone(source));
     this.styleSources.set(key, sources);
+  }
+
+  private appendBrandDriftRun(run: BrandDriftRunRecord): void {
+    const key = this.key(run.workspaceId, run.documentId);
+    const runs = this.brandDriftRuns.get(key) ?? [];
+    runs.push(clone(run));
+    this.brandDriftRuns.set(key, runs);
   }
 
   private appendPublicationVerification(verification: PublicationVerificationRecord): void {
@@ -4421,6 +5700,407 @@ class InMemoryControlPlaneRepository implements ControlPlaneRepository {
     };
   }
 
+  private resolveReleaseRecoveryScope(input: ReleaseRecoveryScopeInput): {
+    environment: WorkspaceEnvironment;
+    membershipRole: ControlPlaneRole | null;
+  } | null {
+    const environment = this.environments.get(this.key(input.workspaceId, input.environmentId));
+    const document = this.documents.get(this.key(input.workspaceId, input.documentId));
+    if (!environment || !document) return null;
+    const membership = this.workspaceMemberships.get(
+      this.key(input.workspaceId, input.actorUserId),
+    );
+    const membershipRole = toControlPlaneRole(membership?.role);
+    if (!membershipRole) return null;
+    return {
+      environment: clone(environment),
+      membershipRole,
+    };
+  }
+
+  private buildReleaseRecoveryPublicationSnapshots(
+    input: Pick<ReleaseRecoveryScopeInput, 'workspaceId' | 'environmentId' | 'documentId'>,
+  ): ReleaseRecoveryPublicationMaterial[] {
+    const publications =
+      this.publications.get(this.key(input.workspaceId, input.environmentId)) ?? [];
+    const publicationById = new Map(
+      publications
+        .filter((publication) => publication.documentId === input.documentId)
+        .map((publication) => [publication.id, publication] as const),
+    );
+    const materials: ReleaseRecoveryPublicationMaterial[] = [];
+    for (const operation of this.releaseOperations.values()) {
+      if (
+        operation.workspaceId !== input.workspaceId ||
+        operation.environmentId !== input.environmentId ||
+        operation.documentId !== input.documentId ||
+        operation.status !== 'completed' ||
+        operation.action === 'unpublish'
+      ) {
+        continue;
+      }
+      if (
+        !operation.resultPublicationId ||
+        operation.resultGeneration === null ||
+        operation.resultGeneration < 1 ||
+        !operation.completedAt
+      ) {
+        throw new ReleaseRecoveryHistoryIntegrityError(operation.id);
+      }
+      const publication = publicationById.get(operation.resultPublicationId);
+      if (
+        !publication ||
+        publication.releaseOperationId !== operation.id ||
+        publication.action !== operation.action ||
+        publication.compiledArtifactId !== operation.requestedArtifactId ||
+        ((operation.action === 'promote' || operation.action === 'rollback') &&
+          (!operation.sourcePublicationId ||
+            publication.sourcePublicationId !== operation.sourcePublicationId)) ||
+        (operation.action === 'rollback' &&
+          (!operation.actualActivePublicationId ||
+            publication.previousPublicationId !== operation.actualActivePublicationId ||
+            !operation.reason))
+      ) {
+        throw new ReleaseRecoveryHistoryIntegrityError(operation.id);
+      }
+      const artifact = extractHistoricalReleaseArtifactPins(publication.artifact);
+      if (!artifact) throw new ReleaseRecoveryHistoryIntegrityError(operation.id);
+      materials.push({
+        publication: clone(publication),
+        operation: clone(operation),
+        snapshot: {
+          id: publication.id,
+          workspaceId: input.workspaceId,
+          environmentId: input.environmentId,
+          documentId: input.documentId,
+          generation: operation.resultGeneration,
+          outcome: 'succeeded',
+          artifact,
+        },
+      });
+    }
+    return materials.sort(
+      (left, right) =>
+        left.snapshot.generation - right.snapshot.generation ||
+        left.publication.id.localeCompare(right.publication.id),
+    );
+  }
+
+  private buildReleaseRecoveryOperationSnapshots(
+    input: Pick<ReleaseRecoveryScopeInput, 'workspaceId' | 'environmentId' | 'documentId'>,
+  ): ReleaseRecoveryOperationSnapshot[] {
+    const snapshots: ReleaseRecoveryOperationSnapshot[] = [];
+    for (const operation of this.releaseOperations.values()) {
+      if (
+        operation.workspaceId !== input.workspaceId ||
+        operation.environmentId !== input.environmentId ||
+        operation.documentId !== input.documentId ||
+        (operation.action !== 'rollback' && operation.action !== 'unpublish') ||
+        (operation.status !== 'completed' && operation.status !== 'failed')
+      ) {
+        continue;
+      }
+      const request = releaseRecoveryRequestFromOperation(operation);
+      const result = this.releaseRecoveryResultFromOperation(operation, false);
+      if (!request || !result) throw new ReleaseRecoveryHistoryIntegrityError(operation.id);
+      snapshots.push({
+        id: operation.id,
+        workspaceId: operation.workspaceId,
+        environmentId: operation.environmentId,
+        documentId: operation.documentId,
+        request,
+        result,
+      });
+    }
+    return snapshots;
+  }
+
+  private buildReleaseRecoveryHistory(
+    input: Pick<ReleaseRecoveryScopeInput, 'workspaceId' | 'environmentId' | 'documentId'>,
+  ): ReleaseHistoryEntry[] {
+    const history: ReleaseHistoryEntry[] = [];
+    const successfulMaterials = this.buildReleaseRecoveryPublicationSnapshots(input);
+    for (const { operation, publication, snapshot } of successfulMaterials) {
+      if (!operation.completedAt || operation.resultGeneration === null) {
+        throw new ReleaseRecoveryHistoryIntegrityError(operation.id);
+      }
+      const identity = {
+        id: operation.id,
+        workspaceId: operation.workspaceId,
+        environmentId: operation.environmentId,
+        documentId: operation.documentId,
+        releaseOperationId: operation.id,
+        generation: operation.resultGeneration,
+        idempotencyKey: operation.idempotencyKey,
+        correlationId: operation.correlationId,
+        actorUserId: operation.requestedByUserId,
+        occurredAt: operation.completedAt,
+      };
+      if (operation.action === 'publish') {
+        history.push({
+          ...identity,
+          action: 'publish',
+          state: 'active',
+          publicationId: publication.id,
+          previousPublicationId: publication.previousPublicationId,
+          artifact: clone(snapshot.artifact),
+        });
+      } else if (operation.action === 'promote' && operation.sourcePublicationId) {
+        history.push({
+          ...identity,
+          action: 'promote',
+          state: 'active',
+          publicationId: publication.id,
+          sourcePublicationId: operation.sourcePublicationId,
+          previousPublicationId: publication.previousPublicationId,
+          artifact: clone(snapshot.artifact),
+        });
+      } else if (
+        operation.action === 'rollback' &&
+        operation.sourcePublicationId &&
+        publication.previousPublicationId &&
+        operation.reason
+      ) {
+        history.push({
+          ...identity,
+          action: 'rollback',
+          state: 'active',
+          publicationId: publication.id,
+          targetPublicationId: operation.sourcePublicationId,
+          previousPublicationId: publication.previousPublicationId,
+          reason: operation.reason,
+          artifact: clone(snapshot.artifact),
+        });
+      } else {
+        throw new ReleaseRecoveryHistoryIntegrityError(operation.id);
+      }
+    }
+
+    for (const operation of this.releaseOperations.values()) {
+      if (
+        operation.workspaceId !== input.workspaceId ||
+        operation.environmentId !== input.environmentId ||
+        operation.documentId !== input.documentId ||
+        (operation.action !== 'rollback' && operation.action !== 'unpublish') ||
+        (operation.status !== 'completed' && operation.status !== 'failed')
+      ) {
+        continue;
+      }
+      if (!operation.completedAt || !operation.reason) {
+        throw new ReleaseRecoveryHistoryIntegrityError(operation.id);
+      }
+      const request = releaseRecoveryRequestFromOperation(operation);
+      const result = this.releaseRecoveryResultFromOperation(operation, false);
+      if (!request || !result) throw new ReleaseRecoveryHistoryIntegrityError(operation.id);
+      if (result.ok && result.action === 'unpublish') {
+        history.push({
+          id: operation.id,
+          workspaceId: operation.workspaceId,
+          environmentId: operation.environmentId,
+          documentId: operation.documentId,
+          releaseOperationId: operation.id,
+          generation: result.generation,
+          idempotencyKey: operation.idempotencyKey,
+          correlationId: operation.correlationId,
+          actorUserId: operation.requestedByUserId,
+          occurredAt: operation.completedAt,
+          action: 'unpublish',
+          state: 'inactive',
+          previousPublicationId: result.previousPublicationId,
+          reason: operation.reason,
+          deactivatedArtifact: clone(result.deactivatedArtifact),
+        });
+      } else if (!result.ok) {
+        const failureBase = {
+          id: operation.id,
+          workspaceId: operation.workspaceId,
+          environmentId: operation.environmentId,
+          documentId: operation.documentId,
+          releaseOperationId: operation.id,
+          idempotencyKey: operation.idempotencyKey,
+          correlationId: operation.correlationId,
+          actorUserId: operation.requestedByUserId,
+          occurredAt: operation.completedAt,
+          state: 'failed' as const,
+          reason: operation.reason,
+          expectedGeneration: operation.expectedGeneration,
+          ...(result.actualGeneration !== undefined
+            ? { actualGeneration: result.actualGeneration }
+            : {}),
+          ...(result.expectedActivePublicationId
+            ? { expectedActivePublicationId: result.expectedActivePublicationId }
+            : {}),
+          ...(result.actualActivePublicationId !== undefined
+            ? { actualActivePublicationId: result.actualActivePublicationId }
+            : {}),
+          failure: { code: result.code, message: result.message },
+        };
+        history.push(
+          request.action === 'rollback'
+            ? {
+                ...failureBase,
+                action: 'rollback',
+                targetPublicationId: request.targetPublicationId,
+              }
+            : { ...failureBase, action: 'unpublish' },
+        );
+      }
+    }
+    return history.sort(
+      (left, right) =>
+        right.occurredAt.localeCompare(left.occurredAt) || right.id.localeCompare(left.id),
+    );
+  }
+
+  private releaseRecoveryResultFromOperation(
+    operation: PersistedReleaseOperation,
+    replayed: boolean,
+  ): ReleaseRecoveryResult | null {
+    if (operation.action !== 'rollback' && operation.action !== 'unpublish') return null;
+    if (operation.status === 'failed') {
+      if (!isReleaseRecoveryFailureCode(operation.errorCode)) return null;
+      const result: ReleaseRecoveryFailure = {
+        ok: false,
+        action: operation.action,
+        state: 'failed',
+        replayed,
+        code: operation.errorCode,
+        message: RELEASE_RECOVERY_FAILURE_MESSAGES[operation.errorCode],
+        releaseOperationId: operation.id,
+        expectedGeneration: operation.expectedGeneration,
+        ...(operation.resultGeneration !== null
+          ? { actualGeneration: operation.resultGeneration }
+          : {}),
+        ...(operation.requestedActivePublicationId
+          ? { expectedActivePublicationId: operation.requestedActivePublicationId }
+          : {}),
+        ...(operation.actualActivePublicationId
+          ? { actualActivePublicationId: operation.actualActivePublicationId }
+          : operation.errorCode === 'already_inactive'
+            ? { actualActivePublicationId: null }
+            : {}),
+      };
+      return result;
+    }
+    if (
+      operation.status !== 'completed' ||
+      operation.resultGeneration === null ||
+      !operation.completedAt ||
+      !operation.actualActivePublicationId
+    ) {
+      return null;
+    }
+    if (operation.action === 'rollback') {
+      if (
+        !operation.sourcePublicationId ||
+        !operation.resultPublicationId ||
+        !operation.requestedSourcePublicationId
+      ) {
+        return null;
+      }
+      const publication = this.findPublicationById(
+        operation.workspaceId,
+        operation.resultPublicationId,
+      );
+      const artifact = publication
+        ? extractHistoricalReleaseArtifactPins(publication.artifact)
+        : null;
+      if (
+        !publication ||
+        !artifact ||
+        publication.environmentId !== operation.environmentId ||
+        publication.documentId !== operation.documentId ||
+        publication.releaseOperationId !== operation.id ||
+        publication.action !== 'rollback' ||
+        publication.sourcePublicationId !== operation.sourcePublicationId ||
+        publication.previousPublicationId !== operation.actualActivePublicationId ||
+        publication.compiledArtifactId !== operation.requestedArtifactId
+      ) {
+        return null;
+      }
+      return {
+        ok: true,
+        action: 'rollback',
+        state: 'active',
+        replayed,
+        releaseOperationId: operation.id,
+        publicationId: publication.id,
+        targetPublicationId: operation.sourcePublicationId,
+        previousPublicationId: operation.actualActivePublicationId,
+        generation: operation.resultGeneration,
+        artifact,
+        completedAt: operation.completedAt,
+      };
+    }
+    const previousPublication = this.findPublicationById(
+      operation.workspaceId,
+      operation.actualActivePublicationId,
+    );
+    const deactivatedArtifact = previousPublication
+      ? extractHistoricalReleaseArtifactPins(previousPublication.artifact)
+      : null;
+    if (
+      !previousPublication ||
+      !deactivatedArtifact ||
+      previousPublication.environmentId !== operation.environmentId ||
+      previousPublication.documentId !== operation.documentId
+    ) {
+      return null;
+    }
+    return {
+      ok: true,
+      action: 'unpublish',
+      state: 'inactive',
+      replayed,
+      releaseOperationId: operation.id,
+      previousPublicationId: operation.actualActivePublicationId,
+      generation: operation.resultGeneration,
+      deactivatedArtifact,
+      completedAt: operation.completedAt,
+    };
+  }
+
+  private persistFailedRecoveryOperation(
+    input: ReleaseRecoveryScopeInput,
+    request: ReleaseRecoveryRequest,
+    requestHash: string,
+    operationId: string,
+    occurredAt: string,
+    result: ReleaseRecoveryFailure,
+  ): void {
+    this.releaseOperations.set(
+      this.key(input.workspaceId, input.environmentId, input.documentId, request.idempotencyKey),
+      {
+        id: operationId,
+        workspaceId: input.workspaceId,
+        environmentId: input.environmentId,
+        documentId: input.documentId,
+        action: request.action,
+        requestedArtifactId: null,
+        requestedSourcePublicationId:
+          request.action === 'rollback' ? request.targetPublicationId : null,
+        requestedActivePublicationId: request.expectedActivePublicationId ?? null,
+        actualActivePublicationId:
+          typeof result.actualActivePublicationId === 'string'
+            ? result.actualActivePublicationId
+            : null,
+        sourcePublicationId: null,
+        expectedGeneration: request.expectedGeneration,
+        resultGeneration: result.actualGeneration ?? null,
+        idempotencyKey: request.idempotencyKey,
+        requestHash,
+        status: 'failed',
+        correlationId: request.correlationId,
+        requestedByUserId: input.actorUserId,
+        resultPublicationId: null,
+        reason: request.reason,
+        errorCode: result.code,
+        createdAt: occurredAt,
+        completedAt: occurredAt,
+      },
+    );
+  }
+
   private findPublicationById(
     workspaceId: string,
     publicationId: string,
@@ -4503,6 +6183,14 @@ class InMemoryControlPlaneRepository implements ControlPlaneRepository {
     return this.key(workspaceId, documentId, contentHash);
   }
 
+  private productStyleApplicationKey(
+    workspaceId: string,
+    themeId: string,
+    proposalId: string,
+  ): string {
+    return this.key(workspaceId, themeId, proposalId);
+  }
+
   private key(...parts: string[]): string {
     return parts.join('\u0000');
   }
@@ -4527,7 +6215,15 @@ class InMemoryControlPlaneRepository implements ControlPlaneRepository {
     const [mapping] = mappings;
     if (!mapping) return null;
     const environment = this.environments.get(this.key(mapping.workspaceId, mapping.environmentId));
-    if (!environment || environment.kind === 'production') return null;
+    if (
+      !environment ||
+      environment.kind === 'production' ||
+      environment.enabled === false ||
+      environment.authoringEnabled === false ||
+      !environment.originAllowlist.includes(exactOrigin)
+    ) {
+      return null;
+    }
     return {
       installation,
       environment: environment as WorkspaceEnvironment & { kind: AuthoringEnvironment },
@@ -4604,6 +6300,203 @@ class InMemoryControlPlaneRepository implements ControlPlaneRepository {
   }
 }
 
+export function createReleaseRecoveryRequestHash(
+  input: Pick<
+    ReleaseRecoveryScopeInput,
+    'workspaceId' | 'environmentId' | 'documentId' | 'actorUserId'
+  >,
+  request: ReleaseRecoveryRequest,
+): string {
+  const canonicalRequest = {
+    workspaceId: input.workspaceId,
+    environmentId: input.environmentId,
+    documentId: input.documentId,
+    actorUserId: input.actorUserId,
+    action: request.action,
+    reason: request.reason,
+    expectedGeneration: request.expectedGeneration,
+    expectedActivePublicationId: request.expectedActivePublicationId ?? null,
+    targetPublicationId: request.action === 'rollback' ? request.targetPublicationId : null,
+    idempotencyKey: request.idempotencyKey,
+    correlationId: request.correlationId,
+  };
+  return `sha256-${createHash('sha256').update(JSON.stringify(canonicalRequest)).digest('hex')}`;
+}
+
+function releaseRecoveryOperationMatchesRequest(
+  operation: PersistedReleaseOperation,
+  input: ReleaseRecoveryScopeInput,
+  request: ReleaseRecoveryRequest,
+  requestHash: string,
+): boolean {
+  return (
+    operation.workspaceId === input.workspaceId &&
+    operation.environmentId === input.environmentId &&
+    operation.documentId === input.documentId &&
+    operation.requestedByUserId === input.actorUserId &&
+    operation.action === request.action &&
+    operation.reason === request.reason &&
+    operation.expectedGeneration === request.expectedGeneration &&
+    operation.requestedActivePublicationId === (request.expectedActivePublicationId ?? null) &&
+    operation.requestedSourcePublicationId ===
+      (request.action === 'rollback' ? request.targetPublicationId : null) &&
+    operation.idempotencyKey === request.idempotencyKey &&
+    operation.correlationId === request.correlationId &&
+    operation.requestHash === requestHash
+  );
+}
+
+function releaseRecoveryRequestFromOperation(
+  operation: PersistedReleaseOperation,
+): ReleaseRecoveryRequest | null {
+  if ((operation.action !== 'rollback' && operation.action !== 'unpublish') || !operation.reason) {
+    return null;
+  }
+  const shared = {
+    reason: operation.reason,
+    expectedGeneration: operation.expectedGeneration,
+    ...(operation.requestedActivePublicationId
+      ? { expectedActivePublicationId: operation.requestedActivePublicationId }
+      : {}),
+    idempotencyKey: operation.idempotencyKey,
+    correlationId: operation.correlationId,
+  };
+  if (operation.action === 'rollback') {
+    if (!operation.requestedSourcePublicationId) return null;
+    return {
+      action: 'rollback',
+      targetPublicationId: operation.requestedSourcePublicationId,
+      ...shared,
+    };
+  }
+  return { action: 'unpublish', ...shared };
+}
+
+function createCompletedRecoveryOperation(
+  input: ReleaseRecoveryScopeInput,
+  request: ReleaseRecoveryRequest,
+  requestHash: string,
+  result: Exclude<ReleaseRecoveryResult, ReleaseRecoveryFailure>,
+  occurredAt: string,
+): PersistedReleaseOperation {
+  const rollback = result.action === 'rollback' ? result : null;
+  return {
+    id: result.releaseOperationId,
+    workspaceId: input.workspaceId,
+    environmentId: input.environmentId,
+    documentId: input.documentId,
+    action: request.action,
+    requestedArtifactId: rollback?.artifact.compiledArtifactId ?? null,
+    requestedSourcePublicationId:
+      request.action === 'rollback' ? request.targetPublicationId : null,
+    requestedActivePublicationId: request.expectedActivePublicationId ?? null,
+    actualActivePublicationId: result.previousPublicationId,
+    sourcePublicationId: rollback?.targetPublicationId ?? null,
+    expectedGeneration: request.expectedGeneration,
+    resultGeneration: result.generation,
+    idempotencyKey: request.idempotencyKey,
+    requestHash,
+    status: 'completed',
+    correlationId: request.correlationId,
+    requestedByUserId: input.actorUserId,
+    resultPublicationId: rollback?.publicationId ?? null,
+    reason: request.reason,
+    errorCode: null,
+    createdAt: occurredAt,
+    completedAt: occurredAt,
+  };
+}
+
+function createPersistedRecoveryFailure(
+  request: ReleaseRecoveryRequest,
+  code: ReleaseRecoveryFailureCode,
+  operationId: string,
+  deployment: PersistedDocumentDeployment | null,
+): ReleaseRecoveryFailure {
+  return {
+    ok: false,
+    action: request.action,
+    state: 'failed',
+    replayed: false,
+    code,
+    message: RELEASE_RECOVERY_FAILURE_MESSAGES[code],
+    releaseOperationId: operationId,
+    expectedGeneration: request.expectedGeneration,
+    ...(deployment ? { actualGeneration: deployment.generation } : {}),
+    ...(request.expectedActivePublicationId
+      ? { expectedActivePublicationId: request.expectedActivePublicationId }
+      : {}),
+    ...(deployment?.state === 'active'
+      ? {
+          actualActivePublicationId: deployment.activePublicationId,
+        }
+      : {}),
+  };
+}
+
+function createNonPersistingRecoveryFailure(
+  request: ReleaseRecoveryRequest,
+  code: ReleaseRecoveryFailureCode,
+  releaseOperationId?: string,
+): ReleaseRecoveryFailure {
+  return {
+    ok: false,
+    action: request.action,
+    state: 'failed',
+    replayed: false,
+    code,
+    message: RELEASE_RECOVERY_FAILURE_MESSAGES[code],
+    ...(releaseOperationId ? { releaseOperationId } : {}),
+    expectedGeneration: request.expectedGeneration,
+    ...(request.expectedActivePublicationId
+      ? { expectedActivePublicationId: request.expectedActivePublicationId }
+      : {}),
+  };
+}
+
+function releaseRecoveryPermissions(
+  environment: WorkspaceEnvironment,
+  membershipRole: ControlPlaneRole | null,
+): ReleaseRecoveryStateResponse['permissions'] {
+  if (!membershipRole) return { rollback: false, unpublish: false };
+  return {
+    rollback:
+      releaseRecoveryPolicyFailure(environment, membershipRole, 'permissions', 'rollback') === null,
+    unpublish:
+      releaseRecoveryPolicyFailure(environment, membershipRole, 'permissions', 'unpublish') ===
+      null,
+  };
+}
+
+function releaseRecoveryPolicyFailure(
+  environment: WorkspaceEnvironment,
+  membershipRole: ControlPlaneRole | null,
+  actorUserId: string,
+  action: ReleaseRecoveryRequest['action'],
+): ReleaseRecoveryFailureCode | null {
+  if (!membershipRole) return 'capability_denied';
+  const decision = evaluateEnvironmentReleasePolicy({
+    environment: toWorkspaceEnvironmentPolicyRow(environment),
+    actorRole: membershipRole,
+    actorUserId,
+    action,
+  });
+  if (decision.allowed) return null;
+  return decision.code === 'environment_disabled'
+    ? 'environment_not_configured'
+    : 'capability_denied';
+}
+
+function toControlPlaneRole(role: string | undefined): ControlPlaneRole | null {
+  return role === 'owner' || role === 'admin' || role === 'member' || role === 'viewer'
+    ? role
+    : null;
+}
+
+function isReleaseRecoveryFailureCode(code: string | null): code is ReleaseRecoveryFailureCode {
+  return Boolean(code && RELEASE_RECOVERY_FAILURE_CODES.some((candidate) => candidate === code));
+}
+
 function assertArtifactMatchesDocument(input: SaveDocumentInput): void {
   if (input.artifact && input.artifact.documentId !== input.document.id) {
     throw new Error('compiled artifact document mismatch');
@@ -4678,7 +6571,12 @@ export function getAuthoringDocumentSessionCapabilities(
       AUTHORING_SESSION_CAPABILITIES.VERIFY_STAGING,
       AUTHORING_SESSION_CAPABILITIES.PROMOTE_PRODUCTION,
       AUTHORING_SESSION_CAPABILITIES.APPROVE_PRODUCTION,
+      AUTHORING_SESSION_CAPABILITIES.ROLLBACK_RELEASE,
+      AUTHORING_SESSION_CAPABILITIES.UNPUBLISH_RELEASE,
     );
+  }
+  if (!isValidAuthoringSessionCapabilitySet(capabilities)) {
+    throw new Error('canonical authoring-session capability set is invalid');
   }
   return capabilities;
 }
@@ -4803,6 +6701,75 @@ export function assertPublicSdkInstallationOriginPolicy(
   }
 }
 
+export function assertPublicSdkInstallationEnvironmentPolicy(
+  environment: Pick<WorkspaceEnvironment, 'kind' | 'enabled' | 'authoringEnabled'>,
+  mappingAuthoringEnabled: boolean,
+): void {
+  if (environment.enabled === false) {
+    throw new Error('environment is disabled');
+  }
+  if (!mappingAuthoringEnabled) return;
+  if (environment.kind === 'production') {
+    throw new Error('authoring cannot be enabled for a production environment');
+  }
+  if (environment.authoringEnabled === false) {
+    throw new Error('authoring is disabled for the environment');
+  }
+}
+
+export function assertPublicSdkInstallationEnvironmentOrigin(
+  environment: Pick<WorkspaceEnvironment, 'id' | 'kind' | 'originAllowlist'>,
+  exactOrigin: string,
+): void {
+  const allowedOrigins = normalizeEnvironmentOriginAllowlist(
+    environment.originAllowlist,
+    environment.kind,
+    environment.id,
+  );
+  if (!allowedOrigins.includes(exactOrigin)) {
+    throw new Error('public SDK origin is not allowlisted for the environment');
+  }
+}
+
+export function normalizeEnvironmentOriginAllowlist(
+  value: unknown,
+  kind: Environment,
+  environmentId: string,
+): string[] {
+  const invalid = (): never => {
+    throw new WorkspaceEnvironmentPolicyInvalidError([
+      { code: 'origin_invalid', field: 'originAllowlist', environmentId },
+    ]);
+  };
+  if (!Array.isArray(value) || value.length > 100) return invalid();
+  const origins: string[] = [];
+  const seen = new Set<string>();
+  for (const candidate of value) {
+    if (
+      typeof candidate !== 'string' ||
+      candidate.length < 1 ||
+      candidate.length > 2048 ||
+      normalizeExactOrigin(candidate) !== candidate ||
+      seen.has(candidate)
+    ) {
+      return invalid();
+    }
+    const parsed = new URL(candidate);
+    if (kind === 'production' && parsed.protocol !== 'https:') return invalid();
+    if (
+      parsed.protocol === 'http:' &&
+      parsed.hostname !== 'localhost' &&
+      parsed.hostname !== '127.0.0.1' &&
+      parsed.hostname !== '[::1]'
+    ) {
+      return invalid();
+    }
+    origins.push(candidate);
+    seen.add(candidate);
+  }
+  return origins;
+}
+
 export function normalizeAuthoringPathname(value: string): string | null {
   const result = validate(AuthoringPageContextSchema, { pathname: value });
   return result.valid ? result.value.pathname : null;
@@ -4916,6 +6883,176 @@ export function assertSafeStyleSource(source: ProductStyleSource): void {
       throw new Error(`style source must not persist ${key}`);
     }
   });
+}
+
+export function assertSafeProductStyleProposal(proposal: ProductStyleProposal): void {
+  const validation = validate(ProductStyleProposalSchema, proposal);
+  if (!validation.valid) {
+    throw new Error('Product match proposal must match ProductStyleProposal');
+  }
+  assertBoundedJsonObject(proposal, 'Product match proposal');
+  const sourceIds = new Set<string>();
+  for (const source of proposal.sources) {
+    assertSafeStyleSource(source);
+    if (sourceIds.has(source.sourceId)) {
+      throw new Error('Product match proposal sourceId values must be unique');
+    }
+    sourceIds.add(source.sourceId);
+  }
+}
+
+export function createWorkspaceThemeDraftPreviewSnapshot(
+  theme: Pick<WorkspaceThemeRecord, 'id' | 'name' | 'draft' | 'revision'>,
+): BrandThemeSnapshot {
+  assertWorkspaceThemeDraft(theme.draft);
+  if (!Number.isSafeInteger(theme.revision) || theme.revision < 1) {
+    throw new Error('workspace theme revision must be a positive integer');
+  }
+  const identityHash = createHash('sha256')
+    .update(`${theme.id}\0${theme.revision}`)
+    .digest('hex')
+    .slice(0, 24);
+  const immutableContent = {
+    schemaVersion: BRAND_THEME_SCHEMA_VERSION,
+    contractVersion: BRAND_THEME_CONTRACT_VERSION,
+    themeId: theme.id,
+    themeVersionId: `themev_draft_${identityHash}_r${theme.revision}`,
+    version: theme.revision,
+    name: normalizeWorkspaceThemeName(theme.name),
+    definition: clone(theme.draft),
+  };
+  const contentHash = hashCanonicalJson(immutableContent);
+  const snapshot: BrandThemeSnapshot = { ...immutableContent, contentHash };
+  const validation = validate(BrandThemeSnapshotSchema, snapshot);
+  if (!validation.valid) {
+    throw new Error('workspace theme draft preview failed BrandThemeSnapshot validation');
+  }
+  return validation.value;
+}
+
+export function productStyleProposalRequestHash(
+  input: Pick<ApplyProductStyleProposalInput, 'environmentId' | 'proposal'>,
+): string {
+  return hashCanonicalJson({ environmentId: input.environmentId, proposal: input.proposal });
+}
+
+export function createProductStyleApplicationRecord(input: {
+  id: string;
+  input: ApplyProductStyleProposalInput;
+  requestHash: string;
+  appliedTheme: WorkspaceThemeRecord;
+  sources: readonly StyleSourceRecord[];
+  createdAt: string;
+}): ProductStyleApplicationRecord {
+  const sourceReceipts = [...input.sources]
+    .sort(compareStyleSourceOrdinal)
+    .map((source) => ({ sourceId: source.id, sourceHash: source.sourceHash }));
+  const application: ProductStyleApplicationRecord = {
+    id: input.id,
+    workspaceId: input.input.workspaceId,
+    themeId: input.input.themeId,
+    environmentId: input.input.environmentId,
+    requestHash: input.requestHash,
+    sourceSetHash: hashCanonicalJson(sourceReceipts),
+    receipt: {
+      proposalId: input.input.proposal.proposalId,
+      draftRevision: input.appliedTheme.revision,
+      draftUpdatedAt: input.appliedTheme.updatedAt,
+      previewTheme: createWorkspaceThemeDraftPreviewSnapshot(input.appliedTheme),
+      sources: sourceReceipts,
+      draftChanged: input.sources[0]?.draftChanged ?? false,
+    },
+    createdByUserId: input.input.actorUserId,
+    createdAt: input.createdAt,
+  };
+  assertProductStyleApplicationIntegrity(application, input.sources);
+  return application;
+}
+
+export function assertProductStyleProposalReplay(
+  input: Pick<
+    ApplyProductStyleProposalInput,
+    'workspaceId' | 'themeId' | 'environmentId' | 'proposal'
+  >,
+  proposalHash: string,
+  application: ProductStyleApplicationRecord,
+  sources: readonly StyleSourceRecord[],
+): void {
+  const requestMatches =
+    application.workspaceId === input.workspaceId &&
+    application.themeId === input.themeId &&
+    application.environmentId === input.environmentId &&
+    application.receipt.proposalId === input.proposal.proposalId &&
+    application.requestHash === proposalHash;
+  if (!requestMatches) throw new ProductStyleProposalConflictError(input.proposal.proposalId);
+  assertProductStyleApplicationIntegrity(application, sources);
+}
+
+export function assertProductStyleApplicationIntegrity(
+  application: ProductStyleApplicationRecord,
+  sources?: readonly StyleSourceRecord[],
+): void {
+  const canonicalReceipt = validate(AuthoringProductMatchApplyResultSchema, {
+    ...application.receipt,
+    replayed: false,
+  });
+  const previewTheme = application.receipt.previewTheme;
+  const { contentHash: _contentHash, ...previewThemeContent } = previewTheme;
+  const receiptIsValid =
+    canonicalReceipt.valid &&
+    application.id.trim().length > 0 &&
+    application.workspaceId.trim().length > 0 &&
+    application.themeId.trim().length > 0 &&
+    application.environmentId.trim().length > 0 &&
+    application.createdByUserId.trim().length > 0 &&
+    /^sha256-[0-9a-f]{64}$/u.test(application.requestHash) &&
+    /^sha256-[0-9a-f]{64}$/u.test(application.sourceSetHash) &&
+    previewTheme.themeId === application.themeId &&
+    previewTheme.version === application.receipt.draftRevision &&
+    previewTheme.contentHash === hashCanonicalJson(previewThemeContent) &&
+    application.sourceSetHash === hashCanonicalJson(application.receipt.sources);
+  if (!receiptIsValid) {
+    throw new Error('persisted Product match application receipt failed integrity validation');
+  }
+  if (!sources) return;
+
+  const orderedSources = [...sources].sort(compareStyleSourceOrdinal);
+  const sourceSetIsValid =
+    orderedSources.length === application.receipt.sources.length &&
+    orderedSources.every((source, ordinal) => {
+      const receipt = application.receipt.sources[ordinal];
+      return (
+        receipt !== undefined &&
+        source.workspaceId === application.workspaceId &&
+        source.themeId === application.themeId &&
+        source.environmentId === application.environmentId &&
+        source.proposalId === application.receipt.proposalId &&
+        source.proposalHash === application.requestHash &&
+        source.sourceOrdinal === ordinal &&
+        source.sourceCount === orderedSources.length &&
+        source.appliedThemeRevision === application.receipt.draftRevision &&
+        source.draftChanged === application.receipt.draftChanged &&
+        source.id === receipt.sourceId &&
+        source.sourceHash === receipt.sourceHash &&
+        source.sourceHash === hashCanonicalJson(source.source) &&
+        source.createdByUserId === application.createdByUserId &&
+        source.createdAt === application.createdAt
+      );
+    });
+  if (!sourceSetIsValid) {
+    throw new Error('persisted Product match source set does not match its application receipt');
+  }
+}
+
+function compareStyleSourceOrdinal(left: StyleSourceRecord, right: StyleSourceRecord): number {
+  return left.sourceOrdinal - right.sourceOrdinal || left.id.localeCompare(right.id);
+}
+
+function compareStyleSourceHistory(left: StyleSourceRecord, right: StyleSourceRecord): number {
+  const created = right.createdAt.localeCompare(left.createdAt);
+  if (created !== 0) return created;
+  if (left.proposalId === right.proposalId) return compareStyleSourceOrdinal(left, right);
+  return right.id.localeCompare(left.id);
 }
 
 export function hashCanonicalJson(value: unknown): string {
@@ -5065,6 +7202,12 @@ export function assertVisualCheckReport(report: BasicVisualPreflightReport): voi
   }
 }
 
+export function assertBrandDriftReport(report: BrandDriftAuditReport): void {
+  if (!validate(BrandDriftAuditReportSchema, report).valid) {
+    throw new Error('Brand drift report must match the bounded canonical schema');
+  }
+}
+
 function canonicalThemeJson(value: unknown): string {
   return JSON.stringify(sortThemeHashValue(value));
 }
@@ -5186,6 +7329,131 @@ function comparePublicSdkInstallationOrigins(
 ): number {
   const environmentOrder = left.environmentId.localeCompare(right.environmentId);
   return environmentOrder || left.exactOrigin.localeCompare(right.exactOrigin);
+}
+
+export function assertAuthoritativeAnalyticsEvent(
+  event: AuthoritativeAnalyticsEvent,
+  workspaceId: string,
+  environmentId: string,
+): void {
+  const validation = validate(AuthoritativeAnalyticsEventSchema, event);
+  if (!validation.valid) {
+    throw new Error('authoritative analytics event must match AuthoritativeAnalyticsEvent');
+  }
+  assertWorkspaceScope(event.workspaceId, workspaceId);
+  if (event.environmentId !== environmentId) {
+    throw new Error('analytics environment scope mismatch');
+  }
+  if (event.props) assertSafeAnalyticsProperties(event.props);
+}
+
+export function assertAnalyticsEnvironmentQuery(query: AnalyticsEnvironmentQuery): void {
+  if (!validate(AnalyticsEnvironmentQuerySchema, query).valid) {
+    throw new Error('analytics query must select one valid environment');
+  }
+  if (query.from && query.to && Date.parse(query.from) > Date.parse(query.to)) {
+    throw new Error('analytics query from must not be after to');
+  }
+}
+
+function compareAnalyticsEventsNewestFirst(
+  left: PersistedAnalyticsEventRecord,
+  right: PersistedAnalyticsEventRecord,
+): number {
+  return (
+    Date.parse(right.timestamp) - Date.parse(left.timestamp) || right.id.localeCompare(left.id)
+  );
+}
+
+const FORBIDDEN_ANALYTICS_PROPERTY_KEYS = new Set(
+  [...ANALYTICS_RESERVED_IDENTITY_KEYS, ...ANALYTICS_FORBIDDEN_PAYLOAD_KEYS].map((key) =>
+    normalizeAnalyticsPropertyKey(key),
+  ),
+);
+const RAW_ANALYTICS_URL_PATTERN = /https?:\/\//iu;
+const ANALYTICS_EMAIL_PATTERN = /\b[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}\b/u;
+const ANALYTICS_CREDENTIAL_PATTERN =
+  /\bBearer\s+|lod_(?:development|staging|production|authoring|activation|authorization|bootstrap)_/iu;
+
+function assertSafeAnalyticsProperties(value: unknown, depth = 0): void {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new Error('analytics event properties must be a bounded object');
+  }
+  if (depth > ANALYTICS_EVENT_LIMITS.nestingDepth) {
+    throw new Error('analytics event properties exceed the nesting depth limit');
+  }
+  for (const [key, nestedValue] of Object.entries(value)) {
+    if (FORBIDDEN_ANALYTICS_PROPERTY_KEYS.has(normalizeAnalyticsPropertyKey(key))) {
+      throw new Error('analytics event properties must not contain identity or raw host data');
+    }
+    assertSafeAnalyticsPropertyValue(nestedValue, depth + 1);
+  }
+}
+
+function assertSafeAnalyticsPropertyValue(value: unknown, depth: number): void {
+  if (depth > ANALYTICS_EVENT_LIMITS.nestingDepth) {
+    throw new Error('analytics event properties exceed the nesting depth limit');
+  }
+  if (typeof value === 'string') {
+    if (
+      RAW_ANALYTICS_URL_PATTERN.test(value) ||
+      ANALYTICS_EMAIL_PATTERN.test(value) ||
+      ANALYTICS_CREDENTIAL_PATTERN.test(value)
+    ) {
+      throw new Error('analytics event properties must not contain raw host or credential data');
+    }
+    return;
+  }
+  if (Array.isArray(value)) {
+    for (const item of value) assertSafeAnalyticsPropertyValue(item, depth + 1);
+    return;
+  }
+  if (value && typeof value === 'object') {
+    assertSafeAnalyticsProperties(value, depth);
+  }
+}
+
+function normalizeAnalyticsPropertyKey(value: string): string {
+  return value.replace(/[^a-zA-Z0-9]/gu, '').toLowerCase();
+}
+
+function analyticsAggregateKey(event: PersistedAnalyticsEventRecord): string {
+  return [
+    event.workspaceId,
+    event.environmentId,
+    event.documentId,
+    event.publicationId,
+    event.contentHash,
+    event.pointerGeneration,
+    event.name,
+    event.name === 'target_resolution' ? analyticsTargetResolutionStatus(event) : '',
+  ].join('\0');
+}
+
+function analyticsTargetResolutionStatus(
+  event: PersistedAnalyticsEventRecord,
+): AnalyticsTargetResolutionStatus {
+  const result = event.props?.['result'];
+  if (
+    typeof result === 'string' &&
+    (ANALYTICS_TARGET_RESOLUTION_STATUSES as readonly string[]).includes(result)
+  ) {
+    return result as AnalyticsTargetResolutionStatus;
+  }
+  return 'unknown';
+}
+
+function compareAnalyticsAggregates(
+  left: AnalyticsEventAggregate,
+  right: AnalyticsEventAggregate,
+): number {
+  return (
+    right.count - left.count ||
+    right.lastTimestamp.localeCompare(left.lastTimestamp) ||
+    left.name.localeCompare(right.name) ||
+    left.publicationId.localeCompare(right.publicationId) ||
+    left.pointerGeneration - right.pointerGeneration
+  );
 }
 
 function clone<T>(value: T): T {

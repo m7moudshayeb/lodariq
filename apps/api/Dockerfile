@@ -24,7 +24,8 @@ ENV PORT="3001"
 WORKDIR /app
 
 COPY --from=build /out ./
+COPY --from=build /workspace/apps/api/scripts/check-runtime-env.mjs ./check-runtime-env.mjs
 
 EXPOSE 3001
 
-CMD ["node", "dist/server.js"]
+CMD ["sh", "-c", "node check-runtime-env.mjs && exec node dist/server.js"]

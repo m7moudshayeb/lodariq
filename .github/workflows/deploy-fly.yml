@@ -1,0 +1,341 @@
+name: Deploy existing Fly apps
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Existing Fly environment to deploy
+        required: true
+        type: choice
+        options:
+          - staging
+          - production
+      production_confirmation:
+        description: Type DEPLOY PRODUCTION for production; leave blank for staging
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fly-deploy-${{ inputs.target }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Verify and deploy ${{ inputs.target }}
+    runs-on: ubuntu-latest
+    environment:
+      name: fly-${{ inputs.target }}
+    steps:
+      - name: Validate manual target
+        env:
+          TARGET: ${{ inputs.target }}
+          PRODUCTION_CONFIRMATION: ${{ inputs.production_confirmation }}
+        run: |
+          set -euo pipefail
+
+          case "$TARGET" in
+            staging)
+              if [[ -n "$PRODUCTION_CONFIRMATION" ]]; then
+                echo "The production confirmation must be blank for staging." >&2
+                exit 1
+              fi
+              ;;
+            production)
+              if [[ "$PRODUCTION_CONFIRMATION" != "DEPLOY PRODUCTION" ]]; then
+                echo "Production requires the exact confirmation phrase." >&2
+                exit 1
+              fi
+              ;;
+            *)
+              echo "Unsupported deployment target." >&2
+              exit 1
+              ;;
+          esac
+
+      - name: Resolve existing target
+        id: target
+        env:
+          TARGET: ${{ inputs.target }}
+        run: |
+          set -euo pipefail
+
+          case "$TARGET" in
+            staging)
+              {
+                echo "editor_app=lodariq-editor-staging"
+                echo "editor_config=apps/editor/fly.staging.toml"
+                echo "editor_origin=https://staging-editor.lodariq.com"
+                echo "api_app=lodariq-api-staging"
+                echo "api_config=apps/api/fly.staging.toml"
+                echo "api_origin=https://staging-api.lodariq.com"
+                echo "dashboard_app=lodariq-dashboard-staging"
+                echo "dashboard_config=apps/dashboard/fly.staging.toml"
+                echo "dashboard_origin=https://staging-app.lodariq.com"
+                echo "cdn_origin=https://staging-cdn.lodariq.com"
+                echo "r2_bucket=lodariq-assets-staging"
+              } >> "$GITHUB_OUTPUT"
+              ;;
+            production)
+              {
+                echo "editor_app=lodariq-editor"
+                echo "editor_config=apps/editor/fly.toml"
+                echo "editor_origin=https://editor.lodariq.com"
+                echo "api_app=lodariq-api"
+                echo "api_config=apps/api/fly.toml"
+                echo "api_origin=https://api.lodariq.com"
+                echo "dashboard_app=lodariq-dashboard"
+                echo "dashboard_config=apps/dashboard/fly.toml"
+                echo "dashboard_origin=https://app.lodariq.com"
+                echo "cdn_origin=https://cdn.lodariq.com"
+                echo "r2_bucket=lodariq-assets-production"
+              } >> "$GITHUB_OUTPUT"
+              ;;
+            *)
+              echo "Unsupported deployment target." >&2
+              exit 1
+              ;;
+          esac
+
+      # actions/checkout v6, verified from the official tag on 2026-08-09.
+      - name: Check out repository
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+
+      # pnpm/action-setup v6, verified from the official annotated tag on 2026-08-09.
+      - name: Set up pnpm
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86
+        with:
+          version: 9.15.9
+
+      # actions/setup-node v6, verified from the official tag on 2026-08-09.
+      - name: Set up Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile --ignore-scripts
+
+      - name: Install Playwright browsers
+        run: pnpm exec playwright install --with-deps chromium firefox webkit
+
+      - name: Verify repository
+        run: pnpm verify
+
+      - name: Validate target configuration
+        env:
+          EDITOR_APP: ${{ steps.target.outputs.editor_app }}
+          EDITOR_CONFIG: ${{ steps.target.outputs.editor_config }}
+          API_APP: ${{ steps.target.outputs.api_app }}
+          API_CONFIG: ${{ steps.target.outputs.api_config }}
+          DASHBOARD_APP: ${{ steps.target.outputs.dashboard_app }}
+          DASHBOARD_CONFIG: ${{ steps.target.outputs.dashboard_config }}
+        run: |
+          set -euo pipefail
+
+          assert_config_app() {
+            local expected_app="$1"
+            local config_path="$2"
+            local configured_app
+
+            configured_app="$(sed -nE 's/^app = "([^"]+)"$/\1/p' "$config_path")"
+            if [[ "$configured_app" != "$expected_app" ]]; then
+              echo "The selected Fly config does not match its expected existing app." >&2
+              exit 1
+            fi
+          }
+
+          assert_config_app "$EDITOR_APP" "$EDITOR_CONFIG"
+          assert_config_app "$API_APP" "$API_CONFIG"
+          assert_config_app "$DASHBOARD_APP" "$DASHBOARD_CONFIG"
+
+      # Fly's official setup-flyctl action, pinned from its official master branch on
+      # 2026-08-09. The CLI version is pinned to Fly's 2026-08-07 release.
+      - name: Install flyctl
+        uses: superfly/flyctl-actions/setup-flyctl@ed8efb33836e8b2096c7fd3ba1c8afe303ebbff1
+        with:
+          version: 0.4.80
+
+      - name: Require token and existing Fly resources
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+          EDITOR_APP: ${{ steps.target.outputs.editor_app }}
+          API_APP: ${{ steps.target.outputs.api_app }}
+          DASHBOARD_APP: ${{ steps.target.outputs.dashboard_app }}
+        run: |
+          set -euo pipefail
+
+          if [[ -z "${FLY_API_TOKEN:-}" ]]; then
+            echo "The selected GitHub Environment must provide FLY_API_TOKEN." >&2
+            exit 1
+          fi
+
+          require_existing_machines() {
+            local app_name="$1"
+            local machines_json
+
+            flyctl status --app "$app_name" >/dev/null
+            machines_json="$(flyctl machine list --app "$app_name" --json)"
+            MACHINES_JSON="$machines_json" node <<'NODE'
+          const machines = JSON.parse(process.env.MACHINES_JSON ?? 'null');
+          if (!Array.isArray(machines) || machines.length === 0) {
+            throw new Error('Each Fly app must already have at least one Machine.');
+          }
+          NODE
+          }
+
+          require_existing_machines "$EDITOR_APP"
+          require_existing_machines "$API_APP"
+          require_existing_machines "$DASHBOARD_APP"
+
+      - name: Publish verified SDK assets to existing R2 bucket
+        id: sdk_assets
+        env:
+          LODARIQ_CDN_ORIGIN: ${{ steps.target.outputs.cdn_origin }}
+          LODARIQ_SDK_ASSET_UPLOAD_CONFIRMATION: UPLOAD SDK ASSETS
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_BUCKET: ${{ steps.target.outputs.r2_bucket }}
+          R2_PUBLIC_BASE_URL: ${{ steps.target.outputs.cdn_origin }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+        run: |
+          set -euo pipefail
+
+          pnpm sdk:prepare-assets
+          node scripts/publish-sdk-assets.mjs
+          node <<'NODE' >> "$GITHUB_OUTPUT"
+          const { readFileSync } = require('node:fs');
+          const manifest = JSON.parse(readFileSync('dist/sdk-assets/manifest.json', 'utf8'));
+          const creator = manifest.creatorModule;
+          if (
+            typeof creator?.url !== 'string' ||
+            typeof creator?.version !== 'string' ||
+            typeof creator?.integrity !== 'string'
+          ) {
+            throw new Error('Prepared SDK manifest has no creator module identity.');
+          }
+          console.log(`creator_module_url=${creator.url}`);
+          console.log(`creator_module_version=${creator.version}`);
+          console.log(`creator_module_integrity=${creator.integrity}`);
+          NODE
+
+      - name: Deploy editor
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+          FLY_APP: ${{ steps.target.outputs.editor_app }}
+          FLY_CONFIG: ${{ steps.target.outputs.editor_config }}
+        run: >-
+          flyctl deploy --local-only --update-only --no-public-ips --skip-release-command
+          --app "$FLY_APP" --config "$FLY_CONFIG"
+
+      - name: Deploy API
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+          FLY_APP: ${{ steps.target.outputs.api_app }}
+          FLY_CONFIG: ${{ steps.target.outputs.api_config }}
+          CREATOR_MODULE_URL: ${{ steps.sdk_assets.outputs.creator_module_url }}
+          CREATOR_MODULE_VERSION: ${{ steps.sdk_assets.outputs.creator_module_version }}
+          CREATOR_MODULE_INTEGRITY: ${{ steps.sdk_assets.outputs.creator_module_integrity }}
+        run: |
+          set -euo pipefail
+
+          flyctl deploy --local-only --update-only --no-public-ips --skip-release-command \
+            --app "$FLY_APP" \
+            --config "$FLY_CONFIG" \
+            --env "LODARIQ_CREATOR_MODULE_URL=$CREATOR_MODULE_URL" \
+            --env "LODARIQ_CREATOR_MODULE_VERSION=$CREATOR_MODULE_VERSION" \
+            --env "LODARIQ_CREATOR_MODULE_INTEGRITY=$CREATOR_MODULE_INTEGRITY"
+
+      - name: Deploy dashboard
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+          FLY_APP: ${{ steps.target.outputs.dashboard_app }}
+          FLY_CONFIG: ${{ steps.target.outputs.dashboard_config }}
+        run: >-
+          flyctl deploy --local-only --update-only --no-public-ips --skip-release-command
+          --app "$FLY_APP" --config "$FLY_CONFIG"
+
+      - name: Probe deployed services
+        env:
+          EDITOR_ORIGIN: ${{ steps.target.outputs.editor_origin }}
+          API_ORIGIN: ${{ steps.target.outputs.api_origin }}
+          DASHBOARD_ORIGIN: ${{ steps.target.outputs.dashboard_origin }}
+        run: |
+          set -euo pipefail
+
+          fetch() {
+            local url="$1"
+            local destination="$2"
+
+            curl \
+              --fail \
+              --silent \
+              --show-error \
+              --location \
+              --proto '=https' \
+              --tlsv1.2 \
+              --retry 12 \
+              --retry-all-errors \
+              --retry-delay 5 \
+              --connect-timeout 10 \
+              --max-time 30 \
+              --output "$destination" \
+              "$url"
+          }
+
+          assert_health() {
+            local response_path="$1"
+
+            node - "$response_path" <<'NODE'
+          const { readFileSync } = require('node:fs');
+          const response = JSON.parse(readFileSync(process.argv[2], 'utf8'));
+          if (response.ok !== true || Object.keys(response).length !== 1) {
+            throw new Error('Health probe did not return the exact ok contract.');
+          }
+          NODE
+          }
+
+          fetch "$EDITOR_ORIGIN/healthz" "$RUNNER_TEMP/editor-health.json"
+          assert_health "$RUNNER_TEMP/editor-health.json"
+          fetch "$API_ORIGIN/readyz" "$RUNNER_TEMP/api-readiness.json"
+          assert_health "$RUNNER_TEMP/api-readiness.json"
+          fetch "$DASHBOARD_ORIGIN/healthz" "$RUNNER_TEMP/dashboard-health.json"
+          assert_health "$RUNNER_TEMP/dashboard-health.json"
+
+          fetch "$API_ORIGIN/openapi.json" "$RUNNER_TEMP/openapi.json"
+          node - "$RUNNER_TEMP/openapi.json" <<'NODE'
+          const { readFileSync } = require('node:fs');
+          const document = JSON.parse(readFileSync(process.argv[2], 'utf8'));
+          if (document.openapi !== '3.0.3' || document.info?.title !== 'Lodariq Control API') {
+            throw new Error('OpenAPI probe did not return the expected Lodariq contract.');
+          }
+          NODE
+
+          fetch "$EDITOR_ORIGIN/authoring.html" "$RUNNER_TEMP/authoring.html"
+          grep --fixed-strings '<div id="authoring" data-state="waiting">' \
+            "$RUNNER_TEMP/authoring.html" >/dev/null
+
+      - name: Record deployment evidence
+        env:
+          TARGET: ${{ inputs.target }}
+          EDITOR_APP: ${{ steps.target.outputs.editor_app }}
+          API_APP: ${{ steps.target.outputs.api_app }}
+          DASHBOARD_APP: ${{ steps.target.outputs.dashboard_app }}
+          CDN_ORIGIN: ${{ steps.target.outputs.cdn_origin }}
+          CREATOR_MODULE_VERSION: ${{ steps.sdk_assets.outputs.creator_module_version }}
+        run: |
+          set -euo pipefail
+
+          {
+            echo "## Lodariq deployment"
+            echo "- Target: $TARGET"
+            echo "- Commit: $GITHUB_SHA"
+            echo "- Fly apps: $EDITOR_APP, $API_APP, $DASHBOARD_APP"
+            echo "- SDK origin: $CDN_ORIGIN"
+            echo "- Creator module: $CREATOR_MODULE_VERSION"
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -9,19 +9,20 @@ const checks = [
   {
     name: 'authoring-owned',
     entries: ['lodariq-authoring.js'],
-    // Phase 2 baseline (2026-08-09): 213,517 bytes. This package-wide,
-    // authenticated-only surface includes the host shell and editor-frame UI;
-    // it remains entirely outside the production viewer.
-    baseline: 213_517,
-    limit: 220 * 1024,
+    // Phase 2 completion baseline (2026-08-09): 229,644 bytes. This package-wide,
+    // authenticated-only compatibility surface retains synchronous direct-host
+    // methods and recovery UI exports; it remains outside the production viewer.
+    baseline: 229_644,
+    limit: 235 * 1024,
   },
   {
     name: 'authoring-frame',
     entries: ['authoring-frame.js'],
-    // Phase 2 baseline (2026-08-09): 118,327 bytes. The editor-origin frame is
-    // creator-only and remains absent from every production-viewer graph.
-    baseline: 118_327,
-    limit: 122 * 1024,
+    // Phase 2 completion baseline (2026-08-09): 131,394 bytes. The editor-origin
+    // frame keeps its synchronous exported React surface and remains absent from
+    // every production-viewer graph.
+    baseline: 131_394,
+    limit: 135 * 1024,
   },
   {
     name: 'creator-toolbar',

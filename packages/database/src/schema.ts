@@ -16,19 +16,25 @@ import {
 import {
   BRAND_THEME_CONTRACT_VERSION,
   COMPILER_VERSION,
+  PRODUCT_STYLE_MAX_SOURCES,
   RENDERER_CONTRACT_VERSION,
   type AnalyticsEvent,
+  type AnalyticsEventProperties,
   type AuthoringActivationCapability,
   type AuthoringDocumentIntent,
   type AuthoringSessionCapability,
+  type AuthoringProductMatchSourceReceipt,
   type BasicVisualPreflightReport,
   type BrowserVerificationReport,
+  type BrandDriftAuditReport,
   type BrandThemeDefinition,
   type BrandThemeSnapshot,
   type CompiledDocument,
+  type EnvironmentReleasePolicy,
   type LodariqDocument,
   type ProductStyleSource,
 } from '@lodariq/schema';
+import { AUTHORING_SESSION_CAPABILITIES_CHECK_SQL } from './authoring-session-capabilities';
 
 const environmentValues = ['development', 'staging', 'production'] as const;
 const documentDeploymentStateValues = ['active', 'inactive'] as const;
@@ -367,15 +373,101 @@ export const environments = pgTable(
     name: text('name').notNull(),
     originAllowlist: jsonb('origin_allowlist').$type<string[]>().notNull().default([]),
     requiredApprovalCount: integer('required_approval_count').notNull().default(0),
+    enabled: boolean('enabled').notNull().default(true),
+    pipelinePosition: integer('pipeline_position').notNull(),
+    authoringEnabled: boolean('authoring_enabled').notNull(),
+    promotionSourceEnvironmentId: text('promotion_source_environment_id'),
+    releasePolicy: jsonb('release_policy_json').$type<EnvironmentReleasePolicy>().notNull(),
     ...timestamps,
   },
   (table) => [
     uniqueIndex('environments_workspace_kind_idx').on(table.workspaceId, table.kind),
     uniqueIndex('environments_workspace_id_idx').on(table.workspaceId, table.id),
+    uniqueIndex('environments_workspace_pipeline_position_idx').on(
+      table.workspaceId,
+      table.pipelinePosition,
+    ),
     index('environments_workspace_idx').on(table.workspaceId),
+    foreignKey({
+      name: 'environments_promotion_source_scope_fk',
+      columns: [table.workspaceId, table.promotionSourceEnvironmentId],
+      foreignColumns: [table.workspaceId, table.id],
+    }).onDelete('restrict'),
     check(
       'environments_required_approval_count_check',
       sql`${table.requiredApprovalCount} between 0 and 1`,
+    ),
+    check(
+      'environments_origin_allowlist_check',
+      sql`public.lodariq_is_valid_origin_allowlist(${table.originAllowlist})`,
+    ),
+    check(
+      'environments_pipeline_position_check',
+      sql`(${table.kind} = 'development' and ${table.pipelinePosition} = 0)
+        or (${table.kind} = 'staging' and ${table.pipelinePosition} = 1)
+        or (${table.kind} = 'production' and ${table.pipelinePosition} = 2 and not ${table.authoringEnabled})`,
+    ),
+    check(
+      'environments_promotion_source_kind_check',
+      sql`(${table.kind} = 'production' and ${table.promotionSourceEnvironmentId} is not null)
+        or (${table.kind} <> 'production' and ${table.promotionSourceEnvironmentId} is null)`,
+    ),
+    check(
+      'environments_promotion_source_not_self_check',
+      sql`${table.promotionSourceEnvironmentId} is null or ${table.promotionSourceEnvironmentId} <> ${table.id}`,
+    ),
+    check(
+      'environments_release_policy_check',
+      sql`jsonb_typeof(${table.releasePolicy}) = 'object'
+        and (${table.releasePolicy} - array[
+          'allowDirectPublish', 'requireSourceVerification', 'requiredApprovalCount',
+          'publisherRoles', 'rollbackRoles', 'unpublishRoles', 'separationOfDuties'
+        ]) = '{}'::jsonb
+        and ${table.releasePolicy} ?& array[
+          'allowDirectPublish', 'requireSourceVerification', 'requiredApprovalCount',
+          'publisherRoles', 'rollbackRoles', 'unpublishRoles', 'separationOfDuties'
+        ]
+        and jsonb_typeof(${table.releasePolicy}->'allowDirectPublish') = 'boolean'
+        and jsonb_typeof(${table.releasePolicy}->'requireSourceVerification') = 'boolean'
+        and jsonb_typeof(${table.releasePolicy}->'requiredApprovalCount') = 'number'
+        and ${table.releasePolicy}->>'requiredApprovalCount' in ('0', '1')
+        and (${table.releasePolicy}->>'requiredApprovalCount')::integer = ${table.requiredApprovalCount}
+        and jsonb_typeof(${table.releasePolicy}->'publisherRoles') = 'array'
+        and jsonb_array_length(${table.releasePolicy}->'publisherRoles') between 1 and 3
+        and ${table.releasePolicy}->'publisherRoles' <@ '["owner","admin","member"]'::jsonb
+        and jsonb_array_length(${table.releasePolicy}->'publisherRoles') =
+          (case when ${table.releasePolicy}->'publisherRoles' ? 'owner' then 1 else 0 end)
+          + (case when ${table.releasePolicy}->'publisherRoles' ? 'admin' then 1 else 0 end)
+          + (case when ${table.releasePolicy}->'publisherRoles' ? 'member' then 1 else 0 end)
+        and jsonb_typeof(${table.releasePolicy}->'rollbackRoles') = 'array'
+        and jsonb_array_length(${table.releasePolicy}->'rollbackRoles') between 1 and 2
+        and ${table.releasePolicy}->'rollbackRoles' <@ '["owner","admin"]'::jsonb
+        and jsonb_array_length(${table.releasePolicy}->'rollbackRoles') =
+          (case when ${table.releasePolicy}->'rollbackRoles' ? 'owner' then 1 else 0 end)
+          + (case when ${table.releasePolicy}->'rollbackRoles' ? 'admin' then 1 else 0 end)
+        and jsonb_typeof(${table.releasePolicy}->'unpublishRoles') = 'array'
+        and jsonb_array_length(${table.releasePolicy}->'unpublishRoles') between 1 and 2
+        and ${table.releasePolicy}->'unpublishRoles' <@ '["owner","admin"]'::jsonb
+        and jsonb_array_length(${table.releasePolicy}->'unpublishRoles') =
+          (case when ${table.releasePolicy}->'unpublishRoles' ? 'owner' then 1 else 0 end)
+          + (case when ${table.releasePolicy}->'unpublishRoles' ? 'admin' then 1 else 0 end)
+        and jsonb_typeof(${table.releasePolicy}->'separationOfDuties') = 'object'
+        and ((${table.releasePolicy}->'separationOfDuties') - array[
+          'requireSeparateVerifier', 'requireSeparateApprover'
+        ]) = '{}'::jsonb
+        and ${table.releasePolicy}->'separationOfDuties' ?& array[
+          'requireSeparateVerifier', 'requireSeparateApprover'
+        ]
+        and jsonb_typeof(${table.releasePolicy}->'separationOfDuties'->'requireSeparateVerifier') = 'boolean'
+        and jsonb_typeof(${table.releasePolicy}->'separationOfDuties'->'requireSeparateApprover') = 'boolean'
+        and (
+          ${table.kind} <> 'production'
+          or (
+            not (${table.releasePolicy}->'publisherRoles' ? 'member')
+            and not (${table.releasePolicy}->>'allowDirectPublish')::boolean
+            and (${table.releasePolicy}->>'requireSourceVerification')::boolean
+          )
+        )`,
     ),
   ],
 );
@@ -483,6 +575,12 @@ export const styleSources = pgTable(
       .references(() => workspaces.id, { onDelete: 'cascade' }),
     themeId: text('theme_id').notNull(),
     environmentId: text('environment_id').notNull(),
+    proposalId: text('proposal_id').notNull(),
+    proposalHash: text('proposal_hash').notNull(),
+    sourceOrdinal: integer('source_ordinal').notNull(),
+    sourceCount: integer('source_count').notNull(),
+    appliedThemeRevision: integer('applied_theme_revision').notNull(),
+    draftChanged: boolean('draft_changed').notNull(),
     source: jsonb('source_json').$type<ProductStyleSource>().notNull(),
     sourceHash: text('source_hash').notNull(),
     createdByUserId: text('created_by_user_id').notNull(),
@@ -506,8 +604,116 @@ export const styleSources = pgTable(
       foreignColumns: [workspaceMemberships.workspaceId, workspaceMemberships.userId],
     }).onDelete('restrict'),
     index('style_sources_theme_created_idx').on(table.workspaceId, table.themeId, table.createdAt),
+    uniqueIndex('style_sources_proposal_source_idx').on(
+      table.workspaceId,
+      table.themeId,
+      table.proposalId,
+      table.sourceOrdinal,
+    ),
+    check(
+      'style_sources_proposal_id_check',
+      sql`${table.proposalId} ~ '^[A-Za-z0-9][A-Za-z0-9._:-]{0,119}$'`,
+    ),
+    check(
+      'style_sources_proposal_hash_check',
+      sql`${table.proposalHash} ~ '^sha256-[0-9a-f]{64}$'`,
+    ),
+    check('style_sources_source_ordinal_check', sql`${table.sourceOrdinal} >= 0`),
+    check(
+      'style_sources_source_count_check',
+      sql`${table.sourceCount} between 1 and ${PRODUCT_STYLE_MAX_SOURCES}
+        and ${table.sourceOrdinal} < ${table.sourceCount}`,
+    ),
+    check('style_sources_theme_revision_check', sql`${table.appliedThemeRevision} >= 1`),
     check('style_sources_source_json_check', sql`jsonb_typeof(${table.source}) = 'object'`),
     check('style_sources_source_hash_check', sql`${table.sourceHash} ~ '^sha256-[0-9a-f]{64}$'`),
+  ],
+);
+
+/**
+ * Immutable canonical receipt for one Product Match application. This stores
+ * only approved semantic theme data plus server-owned source identities; raw
+ * CSS, DOM, URLs, selectors, and coordinates are never accepted here.
+ */
+export const productStyleApplications = pgTable(
+  'product_style_applications',
+  {
+    id: text('id').primaryKey(),
+    workspaceId: text('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    themeId: text('theme_id').notNull(),
+    environmentId: text('environment_id').notNull(),
+    proposalId: text('proposal_id').notNull(),
+    requestHash: text('request_hash').notNull(),
+    sourceSetHash: text('source_set_hash').notNull(),
+    draftRevision: integer('draft_revision').notNull(),
+    draftUpdatedAt: timestamp('draft_updated_at', { withTimezone: true }).notNull(),
+    previewTheme: jsonb('preview_theme_json').$type<BrandThemeSnapshot>().notNull(),
+    previewThemeHash: text('preview_theme_hash').notNull(),
+    sourceReceipts: jsonb('source_receipts_json')
+      .$type<AuthoringProductMatchSourceReceipt[]>()
+      .notNull(),
+    draftChanged: boolean('draft_changed').notNull(),
+    createdByUserId: text('created_by_user_id').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('product_style_applications_workspace_id_idx').on(table.workspaceId, table.id),
+    foreignKey({
+      name: 'product_style_applications_theme_scope_fk',
+      columns: [table.workspaceId, table.themeId],
+      foreignColumns: [themes.workspaceId, themes.id],
+    }).onDelete('restrict'),
+    foreignKey({
+      name: 'product_style_applications_environment_scope_fk',
+      columns: [table.workspaceId, table.environmentId],
+      foreignColumns: [environments.workspaceId, environments.id],
+    }).onDelete('restrict'),
+    foreignKey({
+      name: 'product_style_applications_creator_membership_scope_fk',
+      columns: [table.workspaceId, table.createdByUserId],
+      foreignColumns: [workspaceMemberships.workspaceId, workspaceMemberships.userId],
+    }).onDelete('restrict'),
+    uniqueIndex('product_style_applications_proposal_idx').on(
+      table.workspaceId,
+      table.themeId,
+      table.proposalId,
+    ),
+    index('product_style_applications_theme_created_idx').on(
+      table.workspaceId,
+      table.themeId,
+      table.createdAt,
+    ),
+    check(
+      'product_style_applications_proposal_id_check',
+      sql`${table.proposalId} ~ '^[A-Za-z0-9][A-Za-z0-9._:-]{0,119}$'`,
+    ),
+    check(
+      'product_style_applications_request_hash_check',
+      sql`${table.requestHash} ~ '^sha256-[0-9a-f]{64}$'`,
+    ),
+    check(
+      'product_style_applications_source_set_hash_check',
+      sql`${table.sourceSetHash} ~ '^sha256-[0-9a-f]{64}$'`,
+    ),
+    check('product_style_applications_draft_revision_check', sql`${table.draftRevision} >= 1`),
+    check(
+      'product_style_applications_preview_theme_check',
+      sql`jsonb_typeof(${table.previewTheme}) = 'object'
+        and ${table.previewTheme}->>'themeId' = ${table.themeId}
+        and (${table.previewTheme}->>'version')::integer = ${table.draftRevision}
+        and ${table.previewTheme}->>'contentHash' = ${table.previewThemeHash}`,
+    ),
+    check(
+      'product_style_applications_preview_theme_hash_check',
+      sql`${table.previewThemeHash} ~ '^sha256-[0-9a-f]{64}$'`,
+    ),
+    check(
+      'product_style_applications_source_receipts_check',
+      sql`jsonb_typeof(${table.sourceReceipts}) = 'array'
+        and jsonb_array_length(${table.sourceReceipts}) between 1 and ${PRODUCT_STYLE_MAX_SOURCES}`,
+    ),
   ],
 );
 
@@ -824,6 +1030,85 @@ export const documents = pgTable(
   ],
 );
 
+/** Immutable, privacy-bounded evidence for one authenticated Brand drift check. */
+export const brandDriftRuns = pgTable(
+  'brand_drift_runs',
+  {
+    id: text('id').primaryKey(),
+    workspaceId: text('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    environmentId: text('environment_id').notNull(),
+    documentId: text('document_id').notNull(),
+    themeId: text('theme_id').notNull(),
+    baselineThemeVersionId: text('baseline_theme_version_id').notNull(),
+    trigger: text('trigger').$type<BrandDriftAuditReport['trigger']>().notNull(),
+    classification: text('classification')
+      .$type<BrandDriftAuditReport['classification']>()
+      .notNull(),
+    confidence: integer('confidence').notNull(),
+    report: jsonb('report_json').$type<BrandDriftAuditReport>().notNull(),
+    createdByUserId: text('created_by_user_id').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('brand_drift_runs_workspace_id_idx').on(table.workspaceId, table.id),
+    foreignKey({
+      name: 'brand_drift_runs_environment_scope_fk',
+      columns: [table.workspaceId, table.environmentId],
+      foreignColumns: [environments.workspaceId, environments.id],
+    }).onDelete('restrict'),
+    foreignKey({
+      name: 'brand_drift_runs_document_scope_fk',
+      columns: [table.workspaceId, table.documentId],
+      foreignColumns: [documents.workspaceId, documents.id],
+    }).onDelete('restrict'),
+    foreignKey({
+      name: 'brand_drift_runs_theme_version_scope_fk',
+      columns: [table.workspaceId, table.themeId, table.baselineThemeVersionId],
+      foreignColumns: [themeVersions.workspaceId, themeVersions.themeId, themeVersions.id],
+    }).onDelete('restrict'),
+    foreignKey({
+      name: 'brand_drift_runs_creator_membership_scope_fk',
+      columns: [table.workspaceId, table.createdByUserId],
+      foreignColumns: [workspaceMemberships.workspaceId, workspaceMemberships.userId],
+    }).onDelete('restrict'),
+    index('brand_drift_runs_document_created_idx').on(
+      table.workspaceId,
+      table.documentId,
+      table.createdAt,
+    ),
+    index('brand_drift_runs_theme_created_idx').on(
+      table.workspaceId,
+      table.themeId,
+      table.createdAt,
+    ),
+    check(
+      'brand_drift_runs_trigger_check',
+      sql`${table.trigger} in ('authoring_open', 'creator_check')`,
+    ),
+    check(
+      'brand_drift_runs_classification_check',
+      sql`${table.classification} in ('unchanged', 'warning', 'actionable')`,
+    ),
+    check('brand_drift_runs_confidence_check', sql`${table.confidence} between 0 and 100`),
+    check(
+      'brand_drift_runs_report_check',
+      sql`jsonb_typeof(${table.report}) = 'object'
+        and ${table.report}->>'checkId' = ${table.id}
+        and ${table.report}->>'themeId' = ${table.themeId}
+        and ${table.report}->>'baselineThemeVersionId' = ${table.baselineThemeVersionId}
+        and ${table.report}->>'trigger' = ${table.trigger}
+        and ${table.report}->>'classification' = ${table.classification}
+        and (${table.report}->>'confidence')::integer = ${table.confidence}
+        and jsonb_typeof(${table.report}->'sourceComparisons') = 'array'
+        and jsonb_typeof(${table.report}->'changedRoles') = 'array'
+        and jsonb_typeof(${table.report}->'accessibilityConsequences') = 'array'
+        and jsonb_typeof(${table.report}->'affectedExperiences') = 'array'`,
+    ),
+  ],
+);
+
 export const documentVersions = pgTable(
   'document_versions',
   {
@@ -1018,6 +1303,13 @@ export const publications = pgTable(
       table.documentId,
       table.id,
     ),
+    uniqueIndex('publications_analytics_identity_idx').on(
+      table.workspaceId,
+      table.environmentId,
+      table.documentId,
+      table.id,
+      table.contentHash,
+    ),
     uniqueIndex('publications_document_identity_idx').on(
       table.workspaceId,
       table.documentId,
@@ -1132,6 +1424,9 @@ export const releaseOperations = pgTable(
     documentId: text('document_id').notNull(),
     action: releaseActionEnum('action').notNull(),
     requestedArtifactId: text('requested_artifact_id'),
+    requestedSourcePublicationId: text('requested_source_publication_id'),
+    requestedActivePublicationId: text('requested_active_publication_id'),
+    actualActivePublicationId: text('actual_active_publication_id'),
     sourcePublicationId: text('source_publication_id'),
     resultPublicationId: text('result_publication_id'),
     expectedGeneration: integer('expected_generation').notNull(),
@@ -1143,6 +1438,7 @@ export const releaseOperations = pgTable(
     requestedByUserId: text('requested_by_user_id').references(() => users.id, {
       onDelete: 'set null',
     }),
+    reason: text('reason'),
     errorCode: text('error_code'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     completedAt: timestamp('completed_at', { withTimezone: true }),
@@ -1201,6 +1497,21 @@ export const releaseOperations = pgTable(
         publications.id,
       ],
     }).onDelete('restrict'),
+    foreignKey({
+      name: 'release_operations_actual_active_publication_scope_fk',
+      columns: [
+        table.workspaceId,
+        table.environmentId,
+        table.documentId,
+        table.actualActivePublicationId,
+      ],
+      foreignColumns: [
+        publications.workspaceId,
+        publications.environmentId,
+        publications.documentId,
+        publications.id,
+      ],
+    }).onDelete('restrict'),
     check('release_operations_expected_generation_check', sql`${table.expectedGeneration} >= 0`),
     check(
       'release_operations_idempotency_key_check',
@@ -1213,6 +1524,97 @@ export const releaseOperations = pgTable(
     check(
       'release_operations_result_generation_check',
       sql`${table.resultGeneration} is null or ${table.resultGeneration} >= 0`,
+    ),
+    check(
+      'release_operations_requested_source_publication_check',
+      sql`(
+        ${table.action} = 'rollback'
+        and ${table.requestedSourcePublicationId} is not null
+        and ${table.requestedSourcePublicationId} ~ '^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$'
+      ) or (
+        ${table.action} <> 'rollback'
+        and ${table.requestedSourcePublicationId} is null
+      )`,
+    ),
+    check(
+      'release_operations_requested_active_publication_check',
+      sql`${table.requestedActivePublicationId} is null or (
+        ${table.action} in ('rollback', 'unpublish')
+        and ${table.requestedActivePublicationId} ~ '^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$'
+      )`,
+    ),
+    check(
+      'release_operations_recovery_reason_check',
+      sql`(
+        ${table.action} in ('rollback', 'unpublish')
+        and ${table.reason} is not null
+        and char_length(${table.reason}) between 1 and 500
+        and ${table.reason} !~ '^[[:space:]]'
+        and ${table.reason} !~ '[[:space:]]$'
+      ) or (
+        ${table.action} in ('publish', 'promote')
+        and ${table.reason} is null
+      )`,
+    ),
+    check(
+      'release_operations_action_shape_check',
+      sql`(
+        ${table.action} in ('publish', 'promote')
+        and ${table.requestedArtifactId} is not null
+        and ${table.requestedActivePublicationId} is null
+        and ${table.actualActivePublicationId} is null
+      ) or (
+        ${table.action} = 'rollback'
+        and ${table.status} <> 'awaiting_approval'
+        and (
+          (${table.status} = 'activating'
+            and ${table.requestedArtifactId} is null
+            and ${table.sourcePublicationId} is null
+            and ${table.resultPublicationId} is null
+            and ${table.actualActivePublicationId} is null)
+          or (${table.status} = 'failed'
+            and ${table.requestedArtifactId} is null
+            and ${table.sourcePublicationId} is null
+            and ${table.resultPublicationId} is null)
+          or (${table.status} = 'completed'
+            and ${table.requestedArtifactId} is not null
+            and ${table.sourcePublicationId} is not null
+            and ${table.resultPublicationId} is not null
+            and ${table.actualActivePublicationId} is not null)
+        )
+      ) or (
+        ${table.action} = 'unpublish'
+        and ${table.status} <> 'awaiting_approval'
+        and ${table.requestedArtifactId} is null
+        and ${table.sourcePublicationId} is null
+        and ${table.resultPublicationId} is null
+        and (
+          (${table.status} = 'activating' and ${table.actualActivePublicationId} is null)
+          or ${table.status} = 'failed'
+          or (${table.status} = 'completed' and ${table.actualActivePublicationId} is not null)
+        )
+      )`,
+    ),
+    check(
+      'release_operations_lifecycle_shape_check',
+      sql`(
+        ${table.status} in ('awaiting_approval', 'activating')
+        and ${table.resultGeneration} is null
+        and ${table.resultPublicationId} is null
+        and ${table.errorCode} is null
+        and ${table.completedAt} is null
+      ) or (
+        ${table.status} = 'completed'
+        and ${table.resultGeneration} is not null
+        and (${table.action} = 'unpublish' or ${table.resultPublicationId} is not null)
+        and ${table.errorCode} is null
+        and ${table.completedAt} is not null
+      ) or (
+        ${table.status} = 'failed'
+        and ${table.resultPublicationId} is null
+        and ${table.errorCode} is not null
+        and ${table.completedAt} is not null
+      )`,
     ),
     index('release_operations_deployment_created_idx').on(
       table.workspaceId,
@@ -1418,11 +1820,7 @@ export const authoringSessions = pgTable(
     ),
     check(
       'authoring_sessions_capabilities_check',
-      sql`${table.capabilities} is null or (
-        jsonb_typeof(${table.capabilities}) = 'array'
-        and jsonb_array_length(${table.capabilities}) between 1 and 6
-        and ${table.capabilities} <@ '["document:preview","document:publish-staging","document:read","document:read-release-state","target:select","document:write"]'::jsonb
-      )`,
+      sql.raw(AUTHORING_SESSION_CAPABILITIES_CHECK_SQL),
     ),
     check(
       'authoring_sessions_compatibility_pins_check',
@@ -1466,6 +1864,85 @@ export const events = pgTable(
   ],
 );
 
+/**
+ * Server-authoritative SDK analytics. The legacy `events` table remains for
+ * authenticated dashboard ingestion; SDK delivery identity is stored in
+ * required columns and cannot be supplied through an opaque payload.
+ */
+export const authoritativeAnalyticsEvents = pgTable(
+  'analytics_events',
+  {
+    id: text('id').primaryKey(),
+    workspaceId: text('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    environmentId: text('environment_id').notNull(),
+    documentId: text('document_id').notNull(),
+    publicationId: text('publication_id').notNull(),
+    contentHash: text('content_hash').notNull(),
+    pointerGeneration: integer('pointer_generation').notNull(),
+    name: text('name').notNull(),
+    stepId: text('step_id'),
+    sdkVersion: text('sdk_version').notNull(),
+    correlationId: text('correlation_id'),
+    occurredAt: timestamp('occurred_at', { withTimezone: true }).notNull(),
+    props: jsonb('props').$type<AnalyticsEventProperties>(),
+    ingestedAt: timestamp('ingested_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    foreignKey({
+      name: 'analytics_events_publication_identity_fk',
+      columns: [
+        table.workspaceId,
+        table.environmentId,
+        table.documentId,
+        table.publicationId,
+        table.contentHash,
+      ],
+      foreignColumns: [
+        publications.workspaceId,
+        publications.environmentId,
+        publications.documentId,
+        publications.id,
+        publications.contentHash,
+      ],
+    }).onDelete('restrict'),
+    index('analytics_events_environment_occurred_idx').on(
+      table.workspaceId,
+      table.environmentId,
+      table.occurredAt,
+    ),
+    index('analytics_events_document_occurred_idx').on(
+      table.workspaceId,
+      table.environmentId,
+      table.documentId,
+      table.occurredAt,
+    ),
+    index('analytics_events_publication_idx').on(
+      table.workspaceId,
+      table.environmentId,
+      table.publicationId,
+    ),
+    check(
+      'analytics_events_content_hash_check',
+      sql`${table.contentHash} ~ '^sha256-[0-9a-f]{64}$'`,
+    ),
+    check('analytics_events_pointer_generation_check', sql`${table.pointerGeneration} >= 1`),
+    check(
+      'analytics_events_name_check',
+      sql`char_length(${table.name}) between 1 and 80 and ${table.name} ~ '^[a-z][a-z0-9_.-]*$'`,
+    ),
+    check(
+      'analytics_events_sdk_version_check',
+      sql`char_length(${table.sdkVersion}) between 1 and 128`,
+    ),
+    check(
+      'analytics_events_props_check',
+      sql`${table.props} is null or jsonb_typeof(${table.props}) = 'object'`,
+    ),
+  ],
+);
+
 export const workspaceRelations = relations(workspaces, ({ many }) => ({
   memberships: many(workspaceMemberships),
   environments: many(environments),
@@ -1477,11 +1954,14 @@ export const workspaceRelations = relations(workspaces, ({ many }) => ({
   themes: many(themes),
   themeVersions: many(themeVersions),
   styleSources: many(styleSources),
+  productStyleApplications: many(productStyleApplications),
+  brandDriftRuns: many(brandDriftRuns),
   documents: many(documents),
   visualCheckRuns: many(visualCheckRuns),
   publicationVerifications: many(publicationVerifications),
   releaseApprovals: many(releaseApprovals),
   events: many(events),
+  analyticsEvents: many(authoritativeAnalyticsEvents),
 }));
 
 export const userRelations = relations(users, ({ many }) => ({
@@ -1493,6 +1973,7 @@ export const userRelations = relations(users, ({ many }) => ({
   updatedDocuments: many(documents, { relationName: 'updatedDocuments' }),
   approvedAuthoringRequests: many(authoringAuthorizationRequests),
   authoringActivationGrants: many(authoringActivationGrants),
+  brandDriftRuns: many(brandDriftRuns),
 }));
 
 export const passwordCredentialRelations = relations(passwordCredentials, ({ one }) => ({
@@ -1542,6 +2023,8 @@ export const environmentRelations = relations(environments, ({ one, many }) => (
   authoringActivationGrants: many(authoringActivationGrants),
   publications: many(publications),
   styleSources: many(styleSources),
+  productStyleApplications: many(productStyleApplications),
+  brandDriftRuns: many(brandDriftRuns),
   publicationVerifications: many(publicationVerifications),
   documentDeployments: many(documentDeployments),
   visualCheckRuns: many(visualCheckRuns),
@@ -1560,6 +2043,8 @@ export const themeRelations = relations(themes, ({ one, many }) => ({
   }),
   versions: many(themeVersions),
   styleSources: many(styleSources),
+  productStyleApplications: many(productStyleApplications),
+  brandDriftRuns: many(brandDriftRuns),
 }));
 
 export const themeVersionRelations = relations(themeVersions, ({ one }) => ({
@@ -1588,6 +2073,52 @@ export const styleSourceRelations = relations(styleSources, ({ one }) => ({
   }),
   creator: one(users, {
     fields: [styleSources.createdByUserId],
+    references: [users.id],
+  }),
+}));
+
+export const productStyleApplicationRelations = relations(productStyleApplications, ({ one }) => ({
+  workspace: one(workspaces, {
+    fields: [productStyleApplications.workspaceId],
+    references: [workspaces.id],
+  }),
+  theme: one(themes, {
+    fields: [productStyleApplications.themeId],
+    references: [themes.id],
+  }),
+  environment: one(environments, {
+    fields: [productStyleApplications.environmentId],
+    references: [environments.id],
+  }),
+  creator: one(users, {
+    fields: [productStyleApplications.createdByUserId],
+    references: [users.id],
+  }),
+}));
+
+export const brandDriftRunRelations = relations(brandDriftRuns, ({ one }) => ({
+  workspace: one(workspaces, {
+    fields: [brandDriftRuns.workspaceId],
+    references: [workspaces.id],
+  }),
+  environment: one(environments, {
+    fields: [brandDriftRuns.environmentId],
+    references: [environments.id],
+  }),
+  document: one(documents, {
+    fields: [brandDriftRuns.documentId],
+    references: [documents.id],
+  }),
+  theme: one(themes, {
+    fields: [brandDriftRuns.themeId],
+    references: [themes.id],
+  }),
+  baselineThemeVersion: one(themeVersions, {
+    fields: [brandDriftRuns.baselineThemeVersionId],
+    references: [themeVersions.id],
+  }),
+  creator: one(users, {
+    fields: [brandDriftRuns.createdByUserId],
     references: [users.id],
   }),
 }));
@@ -1706,6 +2237,7 @@ export const documentRelations = relations(documents, ({ one, many }) => ({
   publications: many(publications),
   deployments: many(documentDeployments),
   visualCheckRuns: many(visualCheckRuns),
+  brandDriftRuns: many(brandDriftRuns),
   authoringSessions: many(authoringSessions),
 }));
 
@@ -1850,6 +2382,8 @@ export const tenantScopedTableNames = [
   'themes',
   'theme_versions',
   'style_sources',
+  'product_style_applications',
+  'brand_drift_runs',
   'documents',
   'document_versions',
   'compiled_artifacts',
@@ -1861,6 +2395,7 @@ export const tenantScopedTableNames = [
   'document_deployments',
   'authoring_sessions',
   'events',
+  'analytics_events',
 ] as const;
 
 export type TenantScopedTableName = (typeof tenantScopedTableNames)[number];

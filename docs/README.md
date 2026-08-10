@@ -53,10 +53,9 @@ When documents conflict, use this order:
 - Styling: safe versioned Brand System and shared renderer recipes; no arbitrary
   CSS. Slice 2 implements persisted drafts, immutable approvals/defaults,
   document acknowledgement, impact, tokenized Tour rendering, and deterministic
-  basic preflight. Slice 3 implements bounded Product Match with
-  provenance/confidence and exact browser verification. Immediate preview
-  refresh, atomic draft/provenance persistence, compact findings presentation,
-  and reviewed drift repair remain Slice 3/4 work.
+  basic preflight. Slice 3 implements bounded Product Match with atomic
+  draft/provenance persistence, immediate runtime preview, and exact browser
+  verification. Slice 4 adds reviewed drift repair and acknowledgement.
 - Targeting: selector-free Target Identity V2 for new capture, with one-click
   control normalization, independent durable evidence gates, and a
   presentation-only visual quorum for anonymous informational regions. Visual
@@ -75,7 +74,8 @@ When documents conflict, use this order:
   state, and guarded staging publication with server-derived request hash,
   idempotency, expected-generation CAS, and explicit capabilities. Slice 3 adds
   exact browser verification and zero-recompile production promotion with
-  configurable zero-or-one approval. Rollback and unpublish remain Slice 4 work.
+  configurable zero-or-one approval. Slice 4 adds guarded same-artifact rollback,
+  unpublish, complete history, and environment-isolated analytics.
 - Commercial score: 48/50 is an evidence-gated target, not a roadmap claim.
 - Authentication: the active API/dashboard runtime and dependency graph are
   Clerk-free. Lodariq now owns password credentials, opaque database-backed
@@ -89,12 +89,11 @@ When documents conflict, use this order:
   coordinated API/dashboard flag enablement, deployment, and live probes remain
   required. Public production signup and recovery stay disabled until those
   gates pass.
-- Phase status: Slices 1 and 2 are locally verified, and Slice 3 Product Match,
-  exact browser verification, and exact-artifact promotion are implemented
-  locally. The 2026-08-09 full Node 24 `pnpm verify` stabilization gate passes
-  with 86 Vitest files / 810 tests and 77 Playwright tests with four intentional
-  skips. Slice 3 hardening, Slice 4, first deployment, and live/external evidence
-  remain; Phase 2 is not complete.
+- Phase status: the Phase 2 code milestone is complete locally. The 2026-08-09
+  full Node 24 `pnpm verify` gate passes with 126 Vitest files / 1,064 tests and
+  77 Playwright tests with four intentional skips. First deployment, live RLS,
+  deployed smoke/convergence evidence, the measurement-backed B4 ADR, production
+  enablement, and external usability evidence remain unclaimed.
 
 ## Current Plan
 

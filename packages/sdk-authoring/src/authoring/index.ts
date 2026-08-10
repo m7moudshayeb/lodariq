@@ -2,30 +2,29 @@ import {
   AUTHORING_INLINE_CONTROL_COMMIT_TYPE,
   AUTHORING_INLINE_CONTENT_COMMIT_TYPE,
   AUTHORING_PANEL_LAYOUT_REQUEST_TYPE,
-  AUTHORING_PANEL_MODE_OPEN_TYPE,
+  AUTHORING_SAVE_AND_EXIT_REQUEST_TYPE,
+  AUTHORING_SAVE_STATE_UPDATE_TYPE,
   AUTHORING_APPROVE_PRODUCTION_REQUEST_TYPE,
-  AUTHORING_APPROVE_PRODUCTION_RESULT_TYPE,
   AUTHORING_BROWSER_VERIFY_REQUEST_TYPE,
   AUTHORING_BROWSER_VERIFY_RESULT_TYPE,
+  AUTHORING_BRAND_DRIFT_CHECK_REQUEST_TYPE,
+  AUTHORING_BRAND_DRIFT_PREVIEW_TYPE,
+  AUTHORING_BRAND_THEME_ACKNOWLEDGE_REQUEST_TYPE,
   AUTHORING_PUBLISH_STAGING_REQUEST_TYPE,
-  AUTHORING_PUBLISH_STAGING_RESULT_TYPE,
   AUTHORING_PROMOTE_PRODUCTION_REQUEST_TYPE,
-  AUTHORING_PROMOTE_PRODUCTION_RESULT_TYPE,
+  AUTHORING_RELEASE_RECOVERY_REQUEST_TYPE,
+  AUTHORING_RELEASE_RECOVERY_STATE_REQUEST_TYPE,
   AUTHORING_RELEASE_STATE_REQUEST_TYPE,
   AUTHORING_RELEASE_STATE_RESULT_TYPE,
   AUTHORING_STYLE_SOURCE_SAVE_REQUEST_TYPE,
-  AUTHORING_STYLE_SOURCE_SAVE_RESULT_TYPE,
   AUTHORING_SUBMIT_VERIFICATION_REQUEST_TYPE,
-  AUTHORING_SUBMIT_VERIFICATION_RESULT_TYPE,
+  AUTHORING_THEME_PREVIEW_APPLY_TYPE,
   AUTHORING_SESSION_CAPABILITIES,
   HOSTED_AUTHORING_BRIDGE_PROTOCOL,
   HOSTED_AUTHORING_SESSION_CLOSE_REQUEST_TYPE,
   HOSTED_AUTHORING_SESSION_CLOSE_RESULT_TYPE,
   HOSTED_CREATOR_PANEL_STATE_EVENT,
   HOSTED_CREATOR_PANEL_TOGGLE_EVENT,
-  DEFAULT_EXPERIENCE_APPEARANCE,
-  STYLE_SAMPLE_CANCELED_TYPE,
-  STYLE_SAMPLE_RESULT_TYPE,
   STYLE_SAMPLE_START_TYPE,
   HostedAuthoringSessionCloseRequestMessage,
   HostedAuthoringSessionCloseResultMessage,
@@ -35,6 +34,11 @@ import {
   validate,
   type AuthoringInlineControlOperation,
   type AuthoringPanelLayoutMode,
+  type AuthoringSaveState,
+  type AuthoringProductMatchApplyResult,
+  type AuthoringBrandDriftCheckResult,
+  type AuthoringBrandThemeAcknowledgementRequest,
+  type AuthoringBrandThemeAcknowledgementResult,
   type AuthoringStagingPublicationRequest,
   type AuthoringStagingPublicationResult,
   type AuthoringStagingReleaseState,
@@ -42,11 +46,11 @@ import {
   type AuthoringStagingVerificationResult,
   type BlockActionProps,
   type BrandThemeSnapshot,
+  type BrandDriftCheckRequest,
   type BridgeMessage,
   type CompiledDocument,
   type NewCompiledDocument,
   type ElementFingerprint,
-  type ExperienceAppearance,
   type PreviewPatchOperation,
   type ResolverDiagnostic,
   type LodariqBlock,
@@ -55,6 +59,9 @@ import {
   type ProductionPromotionRequest,
   type ProductionPromotionResult,
   type ReleaseApproval,
+  type ReleaseRecoveryRequest,
+  type ReleaseRecoveryResult,
+  type ReleaseRecoveryStateResponse,
   type TargetInspectAction,
   type TargetIdentityV2,
   type TargetViewportClass,
@@ -63,29 +70,29 @@ import {
 } from '@lodariq/schema';
 import type { ResolutionResult } from '@lodariq/sdk-runtime/resolver';
 import { resolveTarget } from '@lodariq/sdk-runtime/resolver';
-import { readRegisteredBrandTokensForAuthoring } from '@lodariq/sdk-runtime/brand-token-registry';
 import type { InlinePreviewControlContext, InlinePreviewEditor } from './inline-preview-editor';
 import { createNonceStyleElement } from '@lodariq/schema/dom';
 import {
-  Check,
-  Ellipsis,
+  Focus,
   GripVertical,
   Maximize2,
   Minus,
-  Palette,
+  PanelRight,
+  PanelRightClose,
   X,
+  ZoomIn,
   createElement as createLucideElement,
   type IconNode,
 } from 'lucide';
 import {
   AuthoringBridge,
   BRIDGE_PROTOCOL_VERSION,
+  RELEASE_RECOVERY_BRIDGE_MESSAGE_BYTE_LIMITS,
   createBridgeCorrelationId,
 } from '../bridge/transport';
 import type { TargetPicker } from '../bridge/target-picker';
 import type { PresentationAnchorPicker } from '../bridge/presentation-anchor-picker';
 import { startProductStylePicker, type ProductStylePicker } from '../bridge/product-style-picker';
-import { sampleProductStyles } from '../bridge/product-style-sampler';
 import { runPublicationBrowserVerification } from '../bridge/publication-verifier';
 import {
   attachTargetToBlocks,
@@ -108,10 +115,11 @@ import {
   updateBlockContent,
 } from './document-ops';
 import { createInlinePreviewEditor } from './inline-preview-editor';
+import { createAuthoringDomCombobox, type AuthoringDomCombobox } from './dom-combobox';
 import { LOCAL_AUTHORING_PANEL_TOGGLE_EVENT } from './constants';
 import {
+  AUTHORING_CONTEXT_SURFACE_TOKENS,
   CREATOR_CHROME_FONT_STACK,
-  CREATOR_CHROME_STATUS_TOKENS,
   CREATOR_CHROME_TOKENS,
 } from '../creator-chrome-tokens';
 
@@ -141,23 +149,46 @@ export interface LocalAuthoringPanelOptions {
   iframeSrc: string;
   initialDocument?: LodariqDocument;
   initialTheme?: BrandThemeSnapshot;
+  /** Reads the host application's current opaque state at target-pick time. */
+  getTargetStateId?: () => string | undefined;
   autoPreview?: boolean;
   preview?: LocalAuthoringPreviewServices;
   release?: LocalAuthoringReleaseServices;
   onSave?: (document: LodariqDocument) => Promise<void> | void;
 }
 
+/**
+ * Product Match save result exposed to both bridge-v1 receipt consumers and
+ * consumers of the complete persisted Product Match draft.
+ */
+export type AuthoringStyleSourceSaveResult = AuthoringProductMatchApplyResult & {
+  sourceId: string;
+  sourceHash: string;
+};
+
 export interface LocalAuthoringReleaseServices {
   releaseStateCapability: typeof AUTHORING_SESSION_CAPABILITIES.READ_RELEASE_STATE;
   getReleaseState: () => Promise<AuthoringStagingReleaseState>;
+  releaseRecoveryStateCapability?: typeof AUTHORING_SESSION_CAPABILITIES.READ_RELEASE_STATE;
+  getReleaseRecoveryState?: (environmentId: string) => Promise<ReleaseRecoveryStateResponse>;
+  rollbackReleaseCapability?: typeof AUTHORING_SESSION_CAPABILITIES.ROLLBACK_RELEASE;
+  unpublishReleaseCapability?: typeof AUTHORING_SESSION_CAPABILITIES.UNPUBLISH_RELEASE;
+  recoverRelease?: (
+    environmentId: string,
+    request: ReleaseRecoveryRequest,
+  ) => Promise<ReleaseRecoveryResult>;
   stagingPublicationCapability?: typeof AUTHORING_SESSION_CAPABILITIES.PUBLISH_STAGING;
   publishToStaging?: (
     request: AuthoringStagingPublicationRequest,
   ) => Promise<AuthoringStagingPublicationResult>;
   productStyleSamplingCapability?: typeof AUTHORING_SESSION_CAPABILITIES.SAMPLE_PRODUCT_STYLE;
-  saveStyleSource?: (
-    proposal: ProductStyleProposal,
-  ) => Promise<{ sourceId: string; sourceHash: string }>;
+  saveStyleSource?: (proposal: ProductStyleProposal) => Promise<AuthoringStyleSourceSaveResult>;
+  brandDriftCheckCapability?: typeof AUTHORING_SESSION_CAPABILITIES.SAMPLE_PRODUCT_STYLE;
+  checkBrandDrift?: (request: BrandDriftCheckRequest) => Promise<AuthoringBrandDriftCheckResult>;
+  brandThemeAcknowledgementCapability?: typeof AUTHORING_SESSION_CAPABILITIES.WRITE_DOCUMENT;
+  acknowledgeBrandTheme?: (
+    request: AuthoringBrandThemeAcknowledgementRequest,
+  ) => Promise<AuthoringBrandThemeAcknowledgementResult>;
   stagingVerificationCapability?: typeof AUTHORING_SESSION_CAPABILITIES.VERIFY_STAGING;
   submitStagingVerification?: (
     request: AuthoringStagingVerificationRequest,
@@ -180,6 +211,10 @@ export interface LocalAuthoringReleaseServices {
 export interface HostedAuthoringPanelOptions {
   iframe: HTMLIFrameElement;
   initialDocument: LodariqDocument;
+  /** Optional for existing hosted callers; Brand preview actions fail closed without it. */
+  initialTheme?: BrandThemeSnapshot;
+  /** Reads the host application's current opaque state at target-pick time. */
+  getTargetStateId?: () => string | undefined;
   autoPreview?: boolean;
   preview?: LocalAuthoringPreviewServices;
   onClose?: () => void;
@@ -197,7 +232,10 @@ export interface LocalAuthoringPreviewOptions {
 
 export interface LocalAuthoringPreviewServices {
   loadDocument: (documentId: string) => LodariqDocument | null;
-  compilePreview: (doc: LodariqDocument) => Promise<CompiledDocument>;
+  compilePreview: (
+    doc: LodariqDocument,
+    themeOverride?: BrandThemeSnapshot,
+  ) => Promise<CompiledDocument>;
   /** Loads the active immutable staging artifact and verifies its expected hash. */
   loadExactPublishedArtifact?: (expectedContentHash: string) => Promise<NewCompiledDocument>;
   playPreview: (doc: CompiledDocument, options: LocalAuthoringPreviewOptions) => Promise<void>;
@@ -230,7 +268,27 @@ const AUTHORING_PANEL_LAYOUTS = {
   focus: { width: 860, height: 780 },
 } as const satisfies Readonly<Record<AuthoringPanelLayoutMode, AuthoringPanelSize>>;
 const AUTHORING_PANEL_LAYOUT_VALUES = new Set<string>(Object.keys(AUTHORING_PANEL_LAYOUTS));
+type AuthoringPanelLayoutChoice = AuthoringPanelLayoutMode | 'custom';
+const AUTHORING_PANEL_LAYOUT_OPTIONS = [
+  { value: 'compact', label: 'Compact', icon: PanelRightClose },
+  { value: 'standard', label: 'Standard', icon: PanelRight },
+  { value: 'focus', label: 'Focused', icon: Focus },
+  { value: 'custom', label: 'Custom', icon: Maximize2, omitFromList: true },
+] as const satisfies ReadonlyArray<{
+  value: AuthoringPanelLayoutChoice;
+  label: string;
+  icon: IconNode;
+  omitFromList?: boolean;
+}>;
 const DEFAULT_AUTHORING_PANEL_LAYOUT: AuthoringPanelLayoutMode = 'standard';
+const AUTHORING_PANEL_ZOOM_OPTIONS = [
+  { value: '50', label: '50%' },
+  { value: '62', label: '62%' },
+  { value: '75', label: '75%' },
+  { value: '100', label: '100%' },
+] as const;
+type AuthoringPanelZoomValue = (typeof AUTHORING_PANEL_ZOOM_OPTIONS)[number]['value'];
+const DEFAULT_AUTHORING_PANEL_ZOOM: AuthoringPanelZoomValue = '100';
 const DEFAULT_AUTHORING_PANEL_WIDTH = AUTHORING_PANEL_LAYOUTS.standard.width;
 const TARGET_PICKING_PANEL_WIDTH = 300;
 const MIN_AUTHORING_PANEL_WIDTH = 320;
@@ -249,74 +307,16 @@ const AUTHORING_AUTOSAVE_MAX_RETRIES = 2;
 const AUTHORING_SAVE_REQUEST_TIMEOUT_MS = 5_000;
 const HOSTED_SESSION_CLOSE_TIMEOUT_MS = 5_000;
 const AUTHORING_PANEL_LABELS = {
-  appearance: 'Experience appearance',
   close: 'Close authoring',
   draftSaved: 'Draft saved',
   minimize: 'Minimize authoring panel',
   movePanel: 'Move Lodariq authoring panel. Use arrow keys to reposition it.',
-  options: 'Experience menu',
-  preview: 'Preview experience',
   restore: 'Restore authoring panel',
-  saveAndExit: 'Save & exit',
   savingDraft: 'Saving draft…',
   discardingDraft: 'Closing authoring…',
   selectExactArea: 'Choose an exact area · Esc to cancel',
   selectTarget: 'Select an element · Esc to cancel',
 } as const;
-
-class ProductStyleSelectionCanceledError extends Error {
-  constructor() {
-    super('Product style selection was canceled');
-    this.name = 'ProductStyleSelectionCanceledError';
-  }
-}
-
-type AppearanceOptionKey = keyof ExperienceAppearance;
-
-const AUTHORING_APPEARANCE_OPTION_GROUPS = [
-  {
-    key: 'preset',
-    label: 'Style',
-    options: [
-      { label: 'Default', value: 'default' },
-      { label: 'Accent', value: 'accent' },
-      { label: 'Inverse', value: 'inverse' },
-      { label: 'Success', value: 'success' },
-      { label: 'Warning', value: 'warning' },
-      { label: 'Minimal', value: 'minimal' },
-    ],
-  },
-  {
-    key: 'density',
-    label: 'Density',
-    options: [
-      { label: 'Comfortable', value: 'comfortable' },
-      { label: 'Compact', value: 'compact' },
-    ],
-  },
-  {
-    key: 'width',
-    label: 'Width',
-    options: [
-      { label: 'Narrow', value: 'narrow' },
-      { label: 'Standard', value: 'standard' },
-      { label: 'Wide', value: 'wide' },
-    ],
-  },
-  {
-    key: 'colorMode',
-    label: 'Mode',
-    options: [
-      { label: 'System', value: 'system' },
-      { label: 'Light', value: 'light' },
-      { label: 'Dark', value: 'dark' },
-    ],
-  },
-] as const satisfies ReadonlyArray<{
-  key: AppearanceOptionKey;
-  label: string;
-  options: ReadonlyArray<{ label: string; value: string }>;
-}>;
 const AUTHORING_PANEL_KEYBOARD_OFFSETS: Readonly<
   Partial<Record<KeyboardEvent['key'], { x: number; y: number }>>
 > = {
@@ -363,14 +363,10 @@ interface AuthoringPanelOpenOptions extends LocalAuthoringPanelOptions {
 }
 
 const AUTHORING_PANEL_ICONS = {
-  appearance: Palette,
-  check: Check,
   close: X,
   drag: GripVertical,
   maximize: Maximize2,
   minimize: Minus,
-  options: Ellipsis,
-  resize: Maximize2,
 } as const satisfies Readonly<Record<string, IconNode>>;
 type AuthoringPanelIcon = keyof typeof AUTHORING_PANEL_ICONS;
 
@@ -437,7 +433,9 @@ export function adoptHostedAuthoringPanel(
     adoptedIframe: options.iframe,
     autoPreview: options.autoPreview,
     iframeSrc: options.iframe.src,
+    getTargetStateId: options.getTargetStateId,
     initialDocument: options.initialDocument,
+    initialTheme: options.initialTheme,
     onClose: options.onClose,
     persistenceOwner: 'iframe',
     preview: options.preview,
@@ -476,10 +474,35 @@ function openAuthoringPanel(
     releaseServices?.stagingPublicationCapability === AUTHORING_SESSION_CAPABILITIES.PUBLISH_STAGING
       ? releaseServices.publishToStaging
       : undefined;
+  const getReleaseRecoveryState =
+    releaseServices?.releaseRecoveryStateCapability ===
+    AUTHORING_SESSION_CAPABILITIES.READ_RELEASE_STATE
+      ? releaseServices.getReleaseRecoveryState
+      : undefined;
+  const recoverRelease = releaseServices?.recoverRelease;
+  const canRollbackRelease = Boolean(
+    recoverRelease &&
+    releaseServices?.rollbackReleaseCapability === AUTHORING_SESSION_CAPABILITIES.ROLLBACK_RELEASE,
+  );
+  const canUnpublishRelease = Boolean(
+    recoverRelease &&
+    releaseServices?.unpublishReleaseCapability ===
+      AUTHORING_SESSION_CAPABILITIES.UNPUBLISH_RELEASE,
+  );
   const saveStyleSource =
     releaseServices?.productStyleSamplingCapability ===
     AUTHORING_SESSION_CAPABILITIES.SAMPLE_PRODUCT_STYLE
       ? releaseServices.saveStyleSource
+      : undefined;
+  const checkBrandDrift =
+    releaseServices?.brandDriftCheckCapability ===
+    AUTHORING_SESSION_CAPABILITIES.SAMPLE_PRODUCT_STYLE
+      ? releaseServices.checkBrandDrift
+      : undefined;
+  const acknowledgeBrandTheme =
+    releaseServices?.brandThemeAcknowledgementCapability ===
+    AUTHORING_SESSION_CAPABILITIES.WRITE_DOCUMENT
+      ? releaseServices.acknowledgeBrandTheme
       : undefined;
   const submitStagingVerification =
     releaseServices?.stagingVerificationCapability === AUTHORING_SESSION_CAPABILITIES.VERIFY_STAGING
@@ -500,6 +523,8 @@ function openAuthoringPanel(
     (options.initialDocument ? structuredClone(options.initialDocument) : null) ??
     preview?.loadDocument(session.documentId) ??
     null;
+  let previewTheme = options.initialTheme ? structuredClone(options.initialTheme) : undefined;
+  let previewThemeRevision = 0;
   let previewRequestId = 0;
   let previewPending = false;
   let previewPresented = false;
@@ -515,6 +540,37 @@ function openAuthoringPanel(
     requestCorrelationId: string;
   } | null = null;
   let bridge: AuthoringBridge | null = null;
+  const hostOptionalPanelServices = import('./host-optional-panel-services').then(
+    ({ createAuthoringHostOptionalPanelServices }) =>
+      createAuthoringHostOptionalPanelServices({
+        session,
+        getActiveBridge: () => bridge,
+        getReleaseRecoveryState,
+        recoverRelease,
+        canRollbackRelease,
+        canUnpublishRelease,
+        checkBrandDrift,
+        acknowledgeBrandTheme,
+        brandDriftRuntimePreview: {
+          readPreviewTheme: () => (previewTheme ? structuredClone(previewTheme) : undefined),
+          playPreviewTheme: async (theme) => {
+            previewTheme = theme ? structuredClone(theme) : undefined;
+            await playPreviewDocument(pendingInlineFocusBlockId ?? undefined, true);
+          },
+        },
+        adoptDocument: (document) => {
+          previewDocument = document;
+        },
+        publishToStaging,
+        saveStyleSource,
+        submitStagingVerification,
+        promoteProduction,
+        approveProduction,
+        documentRoot: document,
+        resolveProductStyleElement,
+      }),
+  );
+  void hostOptionalPanelServices.catch(() => undefined);
   let inlinePreviewEditor: InlinePreviewEditor | null = null;
   let pendingInlineFocusBlockId: string | null = null;
   let stopLifecycleObserver: (() => void) | null = null;
@@ -551,6 +607,8 @@ function openAuthoringPanel(
   let iframeOwnedDiscardPromise: Promise<void> | null = null;
   let pendingHostedSessionClose: PendingHostedSessionClose | null = null;
   let closeNotified = false;
+  let currentSaveState: AuthoringSaveState = 'saved';
+  let currentSaveStateLabel: string = AUTHORING_PANEL_LABELS.draftSaved;
   const pendingIframeSaveRequests = new Map<string, PendingIframeSaveRequest>();
 
   shadow.appendChild(createPanelStyles());
@@ -578,47 +636,11 @@ function openAuthoringPanel(
             aria-label="Experience title"
             value="${escapeAuthoringText(previewDocument?.title ?? 'Untitled experience')}"
           />
-          <select
-            class="panel-zoom"
-            aria-label="Editor zoom"
-            title="Zoom editor content without changing the panel size"
-          >
-            <option value="50">50%</option>
-            <option value="62">62%</option>
-            <option value="75">75%</option>
-            <option value="100" selected>100%</option>
-          </select>
-        </span>
-        <span class="save-state" role="status" aria-live="polite">
-          <span class="save-state-icon" data-panel-icon="saved" aria-hidden="true"></span>
-          <span data-save-state-label>${AUTHORING_PANEL_LABELS.draftSaved}</span>
         </span>
       </span>
       <div class="authoring-bar-actions">
-        <button
-          type="button"
-          class="header-action secondary-header-action"
-          data-panel-action="appearance"
-          data-tooltip="${AUTHORING_PANEL_LABELS.appearance}"
-          aria-label="${AUTHORING_PANEL_LABELS.appearance}"
-          aria-expanded="false"
-          aria-controls="lodariq-appearance-sheet"
-          title="${AUTHORING_PANEL_LABELS.appearance}"
-        >
-          <span class="header-action-icon" data-panel-icon="appearance" aria-hidden="true"></span>
-        </button>
-        <button
-          type="button"
-          class="header-action"
-          data-panel-action="options"
-          data-tooltip="${AUTHORING_PANEL_LABELS.options}"
-          aria-label="${AUTHORING_PANEL_LABELS.options}"
-          aria-expanded="false"
-          aria-haspopup="menu"
-          title="${AUTHORING_PANEL_LABELS.options}"
-        >
-          <span class="header-action-icon" data-panel-icon="options" aria-hidden="true"></span>
-        </button>
+        <div data-panel-zoom-control></div>
+        <div data-panel-layout-control></div>
         <button
           type="button"
           class="header-action"
@@ -639,31 +661,8 @@ function openAuthoringPanel(
         >
           <span class="header-action-icon" data-panel-icon="close" aria-hidden="true"></span>
         </button>
-        <div class="panel-options-menu" role="menu" hidden>
-          <button type="button" role="menuitem" data-panel-action="appearance-menu">
-            ${AUTHORING_PANEL_LABELS.appearance}
-          </button>
-          <button type="button" role="menuitemradio" data-panel-layout="compact">
-            Compact workspace
-          </button>
-          <button type="button" role="menuitemradio" data-panel-layout="standard">
-            Standard workspace
-          </button>
-          <button type="button" role="menuitemradio" data-panel-layout="focus">
-            Focus workspace
-          </button>
-          ${
-            preview
-              ? `<button type="button" role="menuitem" data-panel-action="preview">${AUTHORING_PANEL_LABELS.preview}</button>`
-              : ''
-          }
-          <button type="button" role="menuitem" data-panel-action="close">
-            ${AUTHORING_PANEL_LABELS.saveAndExit}
-          </button>
-        </div>
       </div>
     </header>
-    ${renderAppearanceSheet()}
     <div class="panel-surface">
       <slot name="authoring-frame"></slot>
     </div>
@@ -674,7 +673,9 @@ function openAuthoringPanel(
       aria-label="Resize Lodariq authoring panel. Use arrow keys to resize it."
       title="Drag to resize the authoring panel"
     >
-      <span class="panel-resize-icon" data-panel-icon="resize" aria-hidden="true"></span>
+      <svg class="panel-resize-icon" viewBox="0 0 18 18" aria-hidden="true">
+        <path d="M3.5 15.5 15.5 3.5M8.5 15.5l7-7M13.5 15.5l2-2"></path>
+      </svg>
     </button>
   `;
   shadow.appendChild(panelElement);
@@ -688,44 +689,140 @@ function openAuthoringPanel(
   }
   host.appendChild(iframe);
 
-  const saveAndExitButton = shadow.querySelector<HTMLButtonElement>('[data-panel-action="close"]');
   const panelCloseButton = shadow.querySelector<HTMLButtonElement>(
     '[data-panel-action="close-panel"]',
   );
   const panelCloseIcon = shadow.querySelector<HTMLElement>('[data-panel-icon="close"]');
   const panelDragIcon = shadow.querySelector<HTMLElement>('[data-panel-icon="drag"]');
-  const panelSavedIcon = shadow.querySelector<HTMLElement>('[data-panel-icon="saved"]');
-  const previewButton = shadow.querySelector<HTMLButtonElement>('[data-panel-action="preview"]');
-  const appearanceButton = shadow.querySelector<HTMLButtonElement>(
-    '[data-panel-action="appearance"]',
-  );
-  const appearanceMenuButton = shadow.querySelector<HTMLButtonElement>(
-    '[data-panel-action="appearance-menu"]',
-  );
-  const appearanceIcon = shadow.querySelector<HTMLElement>('[data-panel-icon="appearance"]');
-  const appearanceSheet = shadow.querySelector<HTMLElement>('[data-appearance-sheet]');
   const minimizeButton = shadow.querySelector<HTMLButtonElement>('[data-panel-action="minimize"]');
   const minimizeIcon = shadow.querySelector<HTMLElement>('[data-panel-icon="minimize"]');
-  const optionsButton = shadow.querySelector<HTMLButtonElement>('[data-panel-action="options"]');
-  const optionsIcon = shadow.querySelector<HTMLElement>('[data-panel-icon="options"]');
-  const optionsMenu = shadow.querySelector<HTMLElement>('.panel-options-menu');
+  const panelLayoutControlSlot = shadow.querySelector<HTMLElement>('[data-panel-layout-control]');
+  const panelZoomControlSlot = shadow.querySelector<HTMLElement>('[data-panel-zoom-control]');
   const panelDragHandle = shadow.querySelector<HTMLElement>('.panel-drag-handle');
   const panelDragSurface = shadow.querySelector<HTMLElement>('.authoring-bar');
-  const panelZoom = shadow.querySelector<HTMLSelectElement>('.panel-zoom');
   const panelResizeHandle = shadow.querySelector<HTMLButtonElement>('.panel-resize-handle');
-  const panelResizeIcon = shadow.querySelector<HTMLElement>('[data-panel-icon="resize"]');
-  const panelLayoutButtons = [...shadow.querySelectorAll<HTMLButtonElement>('[data-panel-layout]')];
   const panelDocumentTitle = shadow.querySelector<HTMLInputElement>('[data-panel-document-title]');
-  const saveState = shadow.querySelector<HTMLElement>('.save-state');
-  const saveStateLabel = shadow.querySelector<HTMLElement>('[data-save-state-label]');
 
-  setAuthoringPanelIcon(optionsIcon, 'options');
-  setAuthoringPanelIcon(appearanceIcon, 'appearance');
   setAuthoringPanelIcon(panelCloseIcon, 'close');
   setAuthoringPanelIcon(panelDragIcon, 'drag');
-  setAuthoringPanelIcon(panelSavedIcon, 'check');
-  setAuthoringPanelIcon(panelResizeIcon, 'resize');
   setMinimizeButtonState(minimizeButton, minimizeIcon, false);
+
+  let panelLayoutControl: AuthoringDomCombobox<AuthoringPanelLayoutChoice> | null = null;
+  const syncPanelLayoutControl = (): void => {
+    const rawLayout = host.getAttribute(AUTHORING_PANEL_LAYOUT_ATTRIBUTE);
+    const activeLayout: AuthoringPanelLayoutChoice =
+      rawLayout === 'custom'
+        ? 'custom'
+        : (authoringPanelLayoutMode(rawLayout ?? undefined) ?? 'standard');
+    panelLayoutControl?.setValue(activeLayout);
+    const selectedOption = AUTHORING_PANEL_LAYOUT_OPTIONS.find(
+      (option) => option.value === activeLayout,
+    );
+    const trigger = panelLayoutControl?.element.querySelector<HTMLButtonElement>(
+      '[data-panel-action="layout"]',
+    );
+    if (trigger && selectedOption) {
+      trigger.setAttribute('aria-label', `Workspace width: ${selectedOption.label}`);
+      trigger.title = `Workspace width: ${selectedOption.label}`;
+    }
+  };
+  if (panelLayoutControlSlot) {
+    panelLayoutControl = createAuthoringDomCombobox<AuthoringPanelLayoutChoice>({
+      document,
+      initialValue: DEFAULT_AUTHORING_PANEL_LAYOUT,
+      items: AUTHORING_PANEL_LAYOUT_OPTIONS,
+      label: 'Workspace width',
+      omitSelectedOption: true,
+      showSelectionIndicator: false,
+      controlIdPrefix: 'lodariq-panel-layout',
+      classNames: {
+        root: 'panel-layout-combobox',
+        trigger: 'panel-layout-trigger',
+        triggerIcon: 'panel-layout-trigger-icon',
+        value: 'panel-layout-value',
+        chevron: 'panel-layout-chevron',
+        listbox: 'panel-layout-listbox',
+        option: 'panel-layout-option',
+        optionIcon: 'panel-layout-option-icon',
+        check: 'panel-layout-check',
+      },
+      onChange: (value) => {
+        const mode = authoringPanelLayoutMode(value);
+        if (!mode) return;
+        applyAuthoringPanelLayout(host, mode);
+        syncPanelLayoutControl();
+      },
+    });
+    const trigger =
+      panelLayoutControl.element.querySelector<HTMLButtonElement>('.panel-layout-trigger');
+    trigger?.setAttribute('data-panel-action', 'layout');
+    for (const option of panelLayoutControl.element.querySelectorAll<HTMLButtonElement>(
+      '.panel-layout-option',
+    )) {
+      const mode = authoringPanelLayoutMode(option.dataset['value']);
+      if (mode) option.dataset['panelLayout'] = mode;
+    }
+    panelLayoutControlSlot.replaceWith(panelLayoutControl.element);
+    syncPanelLayoutControl();
+  }
+
+  const applyPanelZoom = (value: AuthoringPanelZoomValue): void => {
+    const zoom = Number(value) / 100;
+    iframe.style.transform = `scale(${zoom})`;
+    iframe.style.transformOrigin = 'top left';
+    iframe.style.width = `${100 / zoom}%`;
+    iframe.style.height = `${100 / zoom}%`;
+    iframe.dataset['lodariqEditorZoom'] = value;
+  };
+  let panelZoomControl: AuthoringDomCombobox<AuthoringPanelZoomValue> | null = null;
+  if (panelZoomControlSlot) {
+    panelZoomControl = createAuthoringDomCombobox<AuthoringPanelZoomValue>({
+      document,
+      initialValue: DEFAULT_AUTHORING_PANEL_ZOOM,
+      items: AUTHORING_PANEL_ZOOM_OPTIONS,
+      label: 'Canvas zoom',
+      omitSelectedOption: true,
+      showSelectionIndicator: false,
+      triggerIcon: ZoomIn,
+      controlIdPrefix: 'lodariq-panel-zoom',
+      classNames: {
+        root: 'panel-zoom-combobox',
+        trigger: 'panel-zoom-trigger',
+        triggerIcon: 'panel-zoom-trigger-icon',
+        value: 'panel-zoom-value',
+        chevron: 'panel-zoom-chevron',
+        listbox: 'panel-zoom-listbox',
+        option: 'panel-zoom-option',
+        optionIcon: 'panel-zoom-option-icon',
+        check: 'panel-zoom-check',
+      },
+      onChange: (value) => {
+        applyPanelZoom(value);
+        const trigger = panelZoomControl?.element.querySelector<HTMLButtonElement>(
+          '[data-panel-action="zoom"]',
+        );
+        if (trigger) {
+          trigger.setAttribute('aria-label', `Canvas zoom: ${value}%`);
+          trigger.title = `Canvas zoom: ${value}%`;
+        }
+      },
+    });
+    const trigger =
+      panelZoomControl.element.querySelector<HTMLButtonElement>('.panel-zoom-trigger');
+    trigger?.setAttribute('data-panel-action', 'zoom');
+    if (trigger) {
+      trigger.setAttribute('aria-label', 'Canvas zoom: 100%');
+      trigger.title = 'Canvas zoom: 100%';
+    }
+    for (const option of panelZoomControl.element.querySelectorAll<HTMLButtonElement>(
+      '.panel-zoom-option',
+    )) {
+      const value = panelZoomValue(option.dataset['value']);
+      if (value) option.dataset['panelZoom'] = value;
+    }
+    panelZoomControlSlot.replaceWith(panelZoomControl.element);
+  }
+  applyPanelZoom(DEFAULT_AUTHORING_PANEL_ZOOM);
 
   const destroyPanel = (): void => {
     if (pendingSaveBeforeClose) {
@@ -769,6 +866,10 @@ function openAuthoringPanel(
     stopPanelViewportSync = null;
     stopPanelChrome?.();
     stopPanelChrome = null;
+    panelLayoutControl?.cleanup();
+    panelLayoutControl = null;
+    panelZoomControl?.cleanup();
+    panelZoomControl = null;
     stopLifecycleObserver?.();
     stopLifecycleObserver = null;
     inlinePreviewEditor?.destroy();
@@ -847,57 +948,6 @@ function openAuthoringPanel(
     });
   };
 
-  const closeOptionsMenu = (): void => {
-    if (!optionsMenu || !optionsButton) return;
-    optionsMenu.hidden = true;
-    optionsButton.setAttribute('aria-expanded', 'false');
-  };
-
-  let pendingAppearance = resolvedDocumentAppearance(previewDocument);
-  syncAppearanceControls(appearanceSheet, pendingAppearance);
-
-  const closeAppearanceSheet = (): void => {
-    if (!appearanceSheet || !appearanceButton) return;
-    appearanceSheet.hidden = true;
-    appearanceButton.setAttribute('aria-expanded', 'false');
-  };
-
-  const commitAppearanceOption = (button: HTMLButtonElement): void => {
-    const key = button.dataset['appearanceKey'];
-    const value = button.dataset['appearanceValue'];
-    if (!isAppearanceOption(key, value)) return;
-    const next = { ...pendingAppearance, [key]: value } as ExperienceAppearance;
-    if (next[key] === pendingAppearance[key]) return;
-    const previous = pendingAppearance;
-    pendingAppearance = next;
-    syncAppearanceControls(appearanceSheet, next);
-    const activeBridge = bridge;
-    if (!activeBridge) {
-      pendingAppearance = previous;
-      syncAppearanceControls(appearanceSheet, previous);
-      return;
-    }
-    setSaveState('saving', AUTHORING_PANEL_LABELS.savingDraft);
-    void activeBridge
-      .sendWithAck(
-        {
-          protocol: BRIDGE_PROTOCOL_VERSION,
-          sessionId: session.sessionId,
-          documentId: session.documentId,
-          correlationId: createBridgeCorrelationId('authoring_appearance_commit'),
-          type: AUTHORING_INLINE_CONTROL_COMMIT_TYPE,
-          operation: { kind: 'setAppearance', appearance: structuredClone(next) },
-        },
-        { timeoutMs: 2_000 },
-      )
-      .catch((error) => {
-        pendingAppearance = resolvedDocumentAppearance(previewDocument);
-        syncAppearanceControls(appearanceSheet, pendingAppearance);
-        setSaveState('error', 'Appearance could not be saved');
-        preview?.onPreviewError?.(error);
-      });
-  };
-
   const captureRestoreState = (): AuthoringPanelRestoreState => ({
     focusedElement: activePanelFocusElement(shadow),
     geometry: readAuthoringPanelGeometry(host),
@@ -906,8 +956,8 @@ function openAuthoringPanel(
   const minimize = (): void => {
     if (host.hasAttribute(AUTHORING_PANEL_MINIMIZED_ATTRIBUTE)) return;
     if (host.hasAttribute(AUTHORING_TARGET_PICKING_ATTRIBUTE)) return;
-    closeOptionsMenu();
-    closeAppearanceSheet();
+    panelLayoutControl?.close();
+    panelZoomControl?.close();
     minimizedRestoreState = captureRestoreState();
     host.setAttribute(AUTHORING_PANEL_MINIMIZED_ATTRIBUTE, 'true');
     const minimizedGeometry = {
@@ -1008,100 +1058,11 @@ function openAuthoringPanel(
     panelDocumentTitle.blur();
   });
 
-  saveAndExitButton?.addEventListener('click', () => {
-    closeOptionsMenu();
-    void saveAndClose().catch(() => {});
-  });
-  panelCloseButton?.addEventListener('click', () => {
-    closeOptionsMenu();
-    close();
-  });
-  previewButton?.addEventListener('click', () => {
-    closeOptionsMenu();
-    minimize();
-    void playPreviewDocument(undefined, false, true);
-  });
-  const syncPanelLayoutButtons = (): void => {
-    const activeLayout = host.getAttribute(AUTHORING_PANEL_LAYOUT_ATTRIBUTE);
-    for (const button of panelLayoutButtons) {
-      const selected = button.dataset['panelLayout'] === activeLayout;
-      button.setAttribute('aria-checked', selected ? 'true' : 'false');
-    }
-  };
-  const applyPanelZoom = (): void => {
-    const zoomPercent = Number.parseInt(panelZoom?.value ?? '100', 10);
-    const zoom = Number.isFinite(zoomPercent) ? clamp(zoomPercent / 100, 0.5, 1) : 1;
-    iframe.style.transform = `scale(${zoom})`;
-    iframe.style.transformOrigin = 'top left';
-    iframe.style.width = `${100 / zoom}%`;
-    iframe.style.height = `${100 / zoom}%`;
-    iframe.dataset['lodariqEditorZoom'] = String(Math.round(zoom * 100));
-  };
-  panelZoom?.addEventListener('change', applyPanelZoom);
-  applyPanelZoom();
-  for (const button of panelLayoutButtons) {
-    button.addEventListener('click', () => {
-      const mode = authoringPanelLayoutMode(button.dataset['panelLayout']);
-      if (!mode) return;
-      applyAuthoringPanelLayout(host, mode);
-      syncPanelLayoutButtons();
-      closeOptionsMenu();
-      optionsButton?.focus();
-    });
-  }
-  syncPanelLayoutButtons();
-  const openAppearanceMode = (): void => {
-    closeOptionsMenu();
-    closeAppearanceSheet();
-    bridge?.send({
-      protocol: BRIDGE_PROTOCOL_VERSION,
-      sessionId: session.sessionId,
-      documentId: session.documentId,
-      correlationId: createBridgeCorrelationId('authoring_open_appearance'),
-      type: AUTHORING_PANEL_MODE_OPEN_TYPE,
-      mode: 'appearance',
-    });
-  };
-  appearanceButton?.addEventListener('click', openAppearanceMode);
-  appearanceMenuButton?.addEventListener('click', openAppearanceMode);
-  appearanceSheet?.addEventListener('click', (event) => {
-    const target = event.target;
-    const button =
-      target instanceof Element
-        ? target.closest<HTMLButtonElement>('[data-appearance-key][data-appearance-value]')
-        : null;
-    if (button) commitAppearanceOption(button);
-  });
+  panelCloseButton?.addEventListener('click', close);
   minimizeButton?.addEventListener('click', () => {
     if (host.hasAttribute(AUTHORING_PANEL_MINIMIZED_ATTRIBUTE)) restore();
     else minimize();
   });
-  optionsButton?.addEventListener('click', () => {
-    if (!optionsMenu || !optionsButton) return;
-    const willOpen = optionsMenu.hidden;
-    if (willOpen) closeAppearanceSheet();
-    optionsMenu.hidden = !willOpen;
-    optionsButton.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
-    if (willOpen) optionsMenu.querySelector<HTMLElement>('button')?.focus();
-  });
-  const closeMenuOnEscape = (event: Event): void => {
-    if (!(event instanceof KeyboardEvent) || event.key !== 'Escape') return;
-    if (!appearanceSheet?.hidden) {
-      event.preventDefault();
-      closeAppearanceSheet();
-      appearanceButton?.focus();
-      return;
-    }
-    if (optionsMenu?.hidden) return;
-    event.preventDefault();
-    closeOptionsMenu();
-    optionsButton?.focus();
-  };
-  const closeMenuOutsidePanel = (event: Event): void => {
-    if (event.composedPath().includes(host)) return;
-    closeOptionsMenu();
-    closeAppearanceSheet();
-  };
   const togglePanelFromLauncher = (): void => {
     if (host.hasAttribute(AUTHORING_TARGET_PICKING_ATTRIBUTE)) {
       restore();
@@ -1110,21 +1071,17 @@ function openAuthoringPanel(
     if (host.hasAttribute(AUTHORING_PANEL_MINIMIZED_ATTRIBUTE)) restore();
     else minimize();
   };
-  shadow.addEventListener('keydown', closeMenuOnEscape);
-  document.addEventListener('pointerdown', closeMenuOutsidePanel, true);
   window.addEventListener(LOCAL_AUTHORING_PANEL_TOGGLE_EVENT, togglePanelFromLauncher);
   if (options.persistenceOwner === 'iframe') {
     window.addEventListener('message', receiveHostedSessionLifecycle);
     window.addEventListener(HOSTED_CREATOR_PANEL_TOGGLE_EVENT, togglePanelFromLauncher);
   }
   stopPanelChrome = () => {
-    shadow.removeEventListener('keydown', closeMenuOnEscape);
-    document.removeEventListener('pointerdown', closeMenuOutsidePanel, true);
     window.removeEventListener(LOCAL_AUTHORING_PANEL_TOGGLE_EVENT, togglePanelFromLauncher);
     window.removeEventListener(HOSTED_CREATOR_PANEL_TOGGLE_EVENT, togglePanelFromLauncher);
   };
   stopPanelDrag = attachPanelDrag(host, panelDragSurface, panelDragHandle);
-  stopPanelResize = attachPanelResize(host, panelResizeHandle, syncPanelLayoutButtons);
+  stopPanelResize = attachPanelResize(host, panelResizeHandle, syncPanelLayoutControl);
   const mountInlinePreviewEditor = (): void => {
     if (!preview || inlinePreviewEditor) return;
     inlinePreviewEditor = createInlinePreviewEditor({
@@ -1181,7 +1138,11 @@ function openAuthoringPanel(
       onMessage: (message) => {
         if (message.type === AUTHORING_PANEL_LAYOUT_REQUEST_TYPE) {
           applyAuthoringPanelLayout(host, message.mode);
-          syncPanelLayoutButtons();
+          syncPanelLayoutControl();
+          return;
+        }
+        if (message.type === AUTHORING_SAVE_AND_EXIT_REQUEST_TYPE) {
+          queueMicrotask(() => void saveAndClose().catch(() => {}));
           return;
         }
         if (message.type === 'authoring.save.result') {
@@ -1218,11 +1179,32 @@ function openAuthoringPanel(
         if (message.type === AUTHORING_RELEASE_STATE_REQUEST_TYPE) {
           return respondToReleaseStateRequest(message.correlationId);
         }
+        if (message.type === AUTHORING_RELEASE_RECOVERY_STATE_REQUEST_TYPE) {
+          return hostOptionalPanelServices.then((services) =>
+            services.respondToReleaseRecoveryStateRequest(
+              message.correlationId,
+              message.environmentId,
+            ),
+          );
+        }
+        if (message.type === AUTHORING_RELEASE_RECOVERY_REQUEST_TYPE) {
+          return hostOptionalPanelServices.then((services) =>
+            services.respondToReleaseRecoveryRequest(
+              message.correlationId,
+              message.environmentId,
+              message.request,
+            ),
+          );
+        }
         if (message.type === AUTHORING_PUBLISH_STAGING_REQUEST_TYPE) {
-          return respondToPublishStagingRequest(message.correlationId, message.request);
+          return hostOptionalPanelServices.then((services) =>
+            services.respondToPublishStagingRequest(message.correlationId, message.request),
+          );
         }
         if (message.type === STYLE_SAMPLE_START_TYPE) {
-          return respondToStyleSampleRequest(message.correlationId, message.request);
+          return hostOptionalPanelServices.then((services) =>
+            services.respondToStyleSampleRequest(message.correlationId, message.request),
+          );
         }
         if (message.type === AUTHORING_BROWSER_VERIFY_REQUEST_TYPE) {
           return respondToBrowserVerificationRequest(
@@ -1231,21 +1213,75 @@ function openAuthoringPanel(
           );
         }
         if (message.type === AUTHORING_STYLE_SOURCE_SAVE_REQUEST_TYPE) {
-          return respondToStyleSourceSaveRequest(message.correlationId, message.proposal);
+          return hostOptionalPanelServices.then((services) =>
+            services.respondToStyleSourceSaveRequest(message.correlationId, message.proposal),
+          );
+        }
+        if (message.type === AUTHORING_BRAND_DRIFT_CHECK_REQUEST_TYPE) {
+          return hostOptionalPanelServices.then((services) =>
+            services.respondToBrandDriftCheckRequest(message.correlationId, message.request),
+          );
+        }
+        if (message.type === AUTHORING_BRAND_THEME_ACKNOWLEDGE_REQUEST_TYPE) {
+          return hostOptionalPanelServices.then((services) =>
+            services.respondToBrandThemeAcknowledgementRequest(
+              message.correlationId,
+              message.request,
+            ),
+          );
+        }
+        if (message.type === AUTHORING_BRAND_DRIFT_PREVIEW_TYPE) {
+          return hostOptionalPanelServices.then((services) =>
+            services.playBrandDriftRuntimePreview(message.mode),
+          );
         }
         if (message.type === AUTHORING_SUBMIT_VERIFICATION_REQUEST_TYPE) {
-          return respondToVerificationSubmissionRequest(message.correlationId, message.request);
+          return hostOptionalPanelServices.then((services) =>
+            services.respondToVerificationSubmissionRequest(message.correlationId, message.request),
+          );
         }
         if (message.type === AUTHORING_PROMOTE_PRODUCTION_REQUEST_TYPE) {
-          return respondToProductionPromotionRequest(message.correlationId, message.request);
+          return hostOptionalPanelServices.then((services) =>
+            services.respondToProductionPromotionRequest(message.correlationId, message.request),
+          );
         }
         if (message.type === AUTHORING_APPROVE_PRODUCTION_REQUEST_TYPE) {
-          return respondToProductionApprovalRequest(
-            message.correlationId,
-            message.operationId,
-            message.decision,
-            message.reason,
+          return hostOptionalPanelServices.then((services) =>
+            services.respondToProductionApprovalRequest(
+              message.correlationId,
+              message.operationId,
+              message.decision,
+              message.reason,
+            ),
           );
+        }
+        if (message.type === AUTHORING_THEME_PREVIEW_APPLY_TYPE) {
+          if (!preview || !options.initialTheme) {
+            throw new Error('Lodariq mutable Brand preview is unavailable');
+          }
+          if (!previewThemeMatchesSession(message.previewTheme, options.initialTheme)) {
+            throw new Error('Lodariq mutable Brand preview does not match this session');
+          }
+          if (message.previewTheme.version !== message.draftRevision) {
+            throw new Error('Lodariq mutable Brand preview revision is inconsistent');
+          }
+          if (message.draftRevision < previewThemeRevision) return;
+          if (
+            message.draftRevision === previewThemeRevision &&
+            previewTheme?.contentHash !== message.previewTheme.contentHash
+          ) {
+            throw new Error('Lodariq mutable Brand preview revision conflicts');
+          }
+          const changed = previewTheme?.contentHash !== message.previewTheme.contentHash;
+          void hostOptionalPanelServices.then((services) =>
+            services.clearBrandDriftRuntimePreview(),
+          );
+          previewTheme = structuredClone(message.previewTheme);
+          previewThemeRevision = message.draftRevision;
+          if (changed && (previewPending || previewPresented)) {
+            return playPreviewDocument(pendingInlineFocusBlockId ?? undefined, true);
+          }
+          return;
         }
         if (message.type === 'authoring.preview.request') {
           if (message.mode === 'step') {
@@ -1299,6 +1335,7 @@ function openAuthoringPanel(
         if (message.type !== 'target.pick.start') return;
         void handleTargetPickStart(message);
       },
+      maxMessageBytesByType: RELEASE_RECOVERY_BRIDGE_MESSAGE_BYTE_LIMITS,
     });
     bridge.start();
     mountInlinePreviewEditor();
@@ -1327,6 +1364,17 @@ function openAuthoringPanel(
                       AUTHORING_SESSION_CAPABILITIES.SAMPLE_PRODUCT_STYLE,
                   }
                 : {}),
+              ...(checkBrandDrift
+                ? {
+                    brandDriftCheckCapability: AUTHORING_SESSION_CAPABILITIES.SAMPLE_PRODUCT_STYLE,
+                  }
+                : {}),
+              ...(acknowledgeBrandTheme
+                ? {
+                    brandThemeAcknowledgementCapability:
+                      AUTHORING_SESSION_CAPABILITIES.WRITE_DOCUMENT,
+                  }
+                : {}),
               ...(submitStagingVerification && preview?.loadExactPublishedArtifact
                 ? {
                     stagingVerificationCapability: AUTHORING_SESSION_CAPABILITIES.VERIFY_STAGING,
@@ -1347,6 +1395,7 @@ function openAuthoringPanel(
           : {}),
       });
     }
+    sendSaveStateUpdate();
     stopLifecycleObserver = startPageLifecycleObserver(bridge, session);
     if (options.autoPreview) {
       const firstStepId = previewDocument?.blocks.find((block) => block.type === 'tourStep')?.id;
@@ -1387,96 +1436,9 @@ function openAuthoringPanel(
     }
   }
 
-  async function respondToPublishStagingRequest(
-    requestCorrelationId: string,
-    request: AuthoringStagingPublicationRequest,
-  ): Promise<void> {
-    const activeBridge = bridge;
-    const release = releaseServices;
-    if (!activeBridge || !release || !publishToStaging) return;
-    let result: AuthoringStagingPublicationResult;
-    try {
-      result = await publishToStaging(request);
-    } catch {
-      result = {
-        ok: false,
-        code: 'release_request_failed',
-        message: 'Staging release could not be completed',
-        findings: [
-          {
-            code: 'release_request_failed',
-            severity: 'blocker',
-            label: 'Staging release could not be completed',
-          },
-        ],
-      };
-    }
-    activeBridge.send({
-      protocol: BRIDGE_PROTOCOL_VERSION,
-      sessionId: session.sessionId,
-      documentId: session.documentId,
-      correlationId: createBridgeCorrelationId('authoring_publish_staging_result'),
-      type: AUTHORING_PUBLISH_STAGING_RESULT_TYPE,
-      requestCorrelationId,
-      result,
-    });
-  }
-
-  async function respondToStyleSampleRequest(
-    requestCorrelationId: string,
-    request: Extract<BridgeMessage, { type: typeof STYLE_SAMPLE_START_TYPE }>['request'],
-  ): Promise<void> {
-    const activeBridge = bridge;
-    if (!activeBridge) return;
-    try {
-      const selectedElement = await resolveProductStyleElement(request);
-      const proposal = await sampleProductStyles({
-        document,
-        selectedElement,
-        registeredTokens: readRegisteredBrandTokensForAuthoring(),
-        proposalId: createBridgeCorrelationId('brand_proposal'),
-      });
-      activeBridge.send({
-        protocol: BRIDGE_PROTOCOL_VERSION,
-        sessionId: session.sessionId,
-        documentId: session.documentId,
-        correlationId: createBridgeCorrelationId('authoring_style_sample_result'),
-        type: STYLE_SAMPLE_RESULT_TYPE,
-        requestCorrelationId,
-        result: { ok: true, proposal },
-      });
-    } catch (error) {
-      if (error instanceof ProductStyleSelectionCanceledError) {
-        activeBridge.send({
-          protocol: BRIDGE_PROTOCOL_VERSION,
-          sessionId: session.sessionId,
-          documentId: session.documentId,
-          correlationId: createBridgeCorrelationId('authoring_style_sample_canceled'),
-          type: STYLE_SAMPLE_CANCELED_TYPE,
-          requestCorrelationId,
-          reason: 'creator_canceled',
-        });
-        return;
-      }
-      activeBridge.send({
-        protocol: BRIDGE_PROTOCOL_VERSION,
-        sessionId: session.sessionId,
-        documentId: session.documentId,
-        correlationId: createBridgeCorrelationId('authoring_style_sample_result'),
-        type: STYLE_SAMPLE_RESULT_TYPE,
-        requestCorrelationId,
-        result: {
-          ok: false,
-          code: 'no_selected_element',
-          message: 'Choose one visible product element to match.',
-        },
-      });
-    }
-  }
-
   async function resolveProductStyleElement(
     request: Extract<BridgeMessage, { type: typeof STYLE_SAMPLE_START_TYPE }>['request'],
-  ): Promise<Element> {
+  ): Promise<Element | null> {
     if (request.scope === 'selected-target') {
       const target = previewDocument?.targets.find(
         (candidate) => candidate.id === request.targetId,
@@ -1495,7 +1457,7 @@ function openAuthoringPanel(
     const previousVisibility = host.style.visibility;
     host.style.visibility = 'hidden';
     try {
-      return await new Promise<Element>((resolve, reject) => {
+      return await new Promise<Element | null>((resolve) => {
         productStylePicker?.cancel();
         productStylePicker = startProductStylePicker({
           root: document,
@@ -1505,7 +1467,7 @@ function openAuthoringPanel(
           },
           onCancel: () => {
             productStylePicker = null;
-            reject(new ProductStyleSelectionCanceledError());
+            resolve(null);
           },
         });
       });
@@ -1526,7 +1488,6 @@ function openAuthoringPanel(
     if (!preview || !loadExactPublishedArtifact) {
       sendHostOperationFailure(
         activeBridge,
-        AUTHORING_BROWSER_VERIFY_RESULT_TYPE,
         requestCorrelationId,
         'verification_unavailable',
         'Exact staging verification is unavailable on this page.',
@@ -1561,7 +1522,6 @@ function openAuthoringPanel(
     } catch {
       sendHostOperationFailure(
         activeBridge,
-        AUTHORING_BROWSER_VERIFY_RESULT_TYPE,
         requestCorrelationId,
         'verification_failed',
         'The exact staging artifact could not be verified.',
@@ -1574,141 +1534,21 @@ function openAuthoringPanel(
     }
   }
 
-  async function respondToStyleSourceSaveRequest(
-    requestCorrelationId: string,
-    proposal: ProductStyleProposal,
-  ): Promise<void> {
-    const activeBridge = bridge;
-    if (!activeBridge || !saveStyleSource) return;
-    try {
-      const result = await saveStyleSource(proposal);
-      activeBridge.send({
-        protocol: BRIDGE_PROTOCOL_VERSION,
-        sessionId: session.sessionId,
-        documentId: session.documentId,
-        correlationId: createBridgeCorrelationId('authoring_style_source_save_result'),
-        type: AUTHORING_STYLE_SOURCE_SAVE_RESULT_TYPE,
-        requestCorrelationId,
-        result: { ok: true, ...result },
-      });
-    } catch {
-      sendHostOperationFailure(
-        activeBridge,
-        AUTHORING_STYLE_SOURCE_SAVE_RESULT_TYPE,
-        requestCorrelationId,
-        'style_source_save_failed',
-        'The Brand proposal could not be saved.',
-      );
-    }
-  }
-
-  async function respondToVerificationSubmissionRequest(
-    requestCorrelationId: string,
-    request: AuthoringStagingVerificationRequest,
-  ): Promise<void> {
-    const activeBridge = bridge;
-    if (!activeBridge || !submitStagingVerification) return;
-    let result: AuthoringStagingVerificationResult;
-    try {
-      result = await submitStagingVerification(request);
-    } catch {
-      result = {
-        ok: false,
-        code: 'internal_error',
-        message: 'Staging verification could not be saved.',
-      };
-    }
-    activeBridge.send({
-      protocol: BRIDGE_PROTOCOL_VERSION,
-      sessionId: session.sessionId,
-      documentId: session.documentId,
-      correlationId: createBridgeCorrelationId('authoring_submit_verification_result'),
-      type: AUTHORING_SUBMIT_VERIFICATION_RESULT_TYPE,
-      requestCorrelationId,
-      result,
-    });
-  }
-
-  async function respondToProductionPromotionRequest(
-    requestCorrelationId: string,
-    request: ProductionPromotionRequest,
-  ): Promise<void> {
-    const activeBridge = bridge;
-    if (!activeBridge || !promoteProduction) return;
-    let result: ProductionPromotionResult;
-    try {
-      result = await promoteProduction(request);
-    } catch {
-      result = productionOperationFailure('Production promotion failed.');
-    }
-    activeBridge.send({
-      protocol: BRIDGE_PROTOCOL_VERSION,
-      sessionId: session.sessionId,
-      documentId: session.documentId,
-      correlationId: createBridgeCorrelationId('authoring_promote_production_result'),
-      type: AUTHORING_PROMOTE_PRODUCTION_RESULT_TYPE,
-      requestCorrelationId,
-      result,
-    });
-  }
-
-  async function respondToProductionApprovalRequest(
-    requestCorrelationId: string,
-    operationId: string,
-    decision: 'approved' | 'rejected',
-    reason?: string,
-  ): Promise<void> {
-    const activeBridge = bridge;
-    if (!activeBridge || !approveProduction) return;
-    try {
-      const result = await approveProduction(operationId, decision, reason);
-      activeBridge.send({
-        protocol: BRIDGE_PROTOCOL_VERSION,
-        sessionId: session.sessionId,
-        documentId: session.documentId,
-        correlationId: createBridgeCorrelationId('authoring_approve_production_result'),
-        type: AUTHORING_APPROVE_PRODUCTION_RESULT_TYPE,
-        requestCorrelationId,
-        result: { ok: true, ...result },
-      });
-    } catch {
-      sendHostOperationFailure(
-        activeBridge,
-        AUTHORING_APPROVE_PRODUCTION_RESULT_TYPE,
-        requestCorrelationId,
-        'approval_failed',
-        'The production decision could not be saved.',
-      );
-    }
-  }
-
   function sendHostOperationFailure(
     activeBridge: AuthoringBridge,
-    type:
-      | typeof AUTHORING_BROWSER_VERIFY_RESULT_TYPE
-      | typeof AUTHORING_STYLE_SOURCE_SAVE_RESULT_TYPE
-      | typeof AUTHORING_APPROVE_PRODUCTION_RESULT_TYPE,
     requestCorrelationId: string,
     code: string,
     message: string,
   ): void {
-    const envelope = {
+    activeBridge.send({
       protocol: BRIDGE_PROTOCOL_VERSION,
       sessionId: session.sessionId,
       documentId: session.documentId,
       correlationId: createBridgeCorrelationId('authoring_host_operation_result'),
+      type: AUTHORING_BROWSER_VERIFY_RESULT_TYPE,
       requestCorrelationId,
       result: { ok: false, code, message },
-    } as const;
-    if (type === AUTHORING_BROWSER_VERIFY_RESULT_TYPE) {
-      activeBridge.send({ ...envelope, type: AUTHORING_BROWSER_VERIFY_RESULT_TYPE });
-      return;
-    }
-    if (type === AUTHORING_STYLE_SOURCE_SAVE_RESULT_TYPE) {
-      activeBridge.send({ ...envelope, type: AUTHORING_STYLE_SOURCE_SAVE_RESULT_TYPE });
-      return;
-    }
-    activeBridge.send({ ...envelope, type: AUTHORING_APPROVE_PRODUCTION_RESULT_TYPE });
+    });
   }
   iframe.addEventListener('load', connectIframe);
 
@@ -1736,10 +1576,6 @@ function openAuthoringPanel(
       authoringTargetOverrides.delete(affectedStepId);
     }
     previewDocument = applyPreviewPatch(current, blockId, ops);
-    if (ops.some((operation) => operation.op === 'setAppearance')) {
-      pendingAppearance = resolvedDocumentAppearance(previewDocument);
-      syncAppearanceControls(appearanceSheet, pendingAppearance);
-    }
     scheduleAutoSave(previewDocument);
     const persistence = ops.some((operation) => operation.op === 'removeTarget')
       ? flushAutoSave()
@@ -1749,6 +1585,8 @@ function openAuthoringPanel(
     }
     if (!preview) return persistence;
     if (ops.every((operation) => operation.op === 'updateTargetEvidence')) return persistence;
+    const contentOnlyPatch = ops.every((operation) => operation.op === 'updateContent');
+    if (contentOnlyPatch && inlinePreviewEditor?.isEditingBlock(blockId)) return persistence;
     const stepId = findContainingTourStepId(previewDocument.blocks, blockId);
     if (pendingTargetPickCorrelationId || suspendedPreview) {
       suspendedPreview = stepId ? { stepId } : (suspendedPreview ?? {});
@@ -1809,7 +1647,10 @@ function openAuthoringPanel(
     const requestId = ++previewRequestId;
     previewPending = true;
     return preview
-      .compilePreview(structuredClone(previewDocument))
+      .compilePreview(
+        structuredClone(previewDocument),
+        previewTheme ? structuredClone(previewTheme) : undefined,
+      )
       .then((compiled) => {
         if (requestId !== previewRequestId || !host.isConnected) return;
         const previewStepId = stepId ?? compiled.steps[0]?.id;
@@ -2147,9 +1988,23 @@ function openAuthoringPanel(
     }
   }
 
-  function setSaveState(state: 'error' | 'saved' | 'saving', label: string): void {
-    if (saveState) saveState.dataset['state'] = state;
-    if (saveStateLabel) saveStateLabel.textContent = label;
+  function setSaveState(state: AuthoringSaveState, label: string): void {
+    if (state === currentSaveState && label === currentSaveStateLabel) return;
+    currentSaveState = state;
+    currentSaveStateLabel = label;
+    sendSaveStateUpdate();
+  }
+
+  function sendSaveStateUpdate(): void {
+    bridge?.send({
+      protocol: BRIDGE_PROTOCOL_VERSION,
+      sessionId: session.sessionId,
+      documentId: session.documentId,
+      correlationId: createBridgeCorrelationId('authoring_save_state'),
+      type: AUTHORING_SAVE_STATE_UPDATE_TYPE,
+      state: currentSaveState,
+      label: currentSaveStateLabel,
+    });
   }
 
   async function handleTargetPickStart(
@@ -2172,10 +2027,11 @@ function openAuthoringPanel(
     setPanelTargetPicking(host, true);
 
     try {
-      const [{ startTargetPicker }, { resolve, resolveTargetIdentity }] = await Promise.all([
-        import('../bridge/target-picker'),
-        import('@lodariq/sdk-runtime/resolver'),
-      ]);
+      const [{ normalizeTargetStateId, startTargetPicker }, { resolve, resolveTargetIdentity }] =
+        await Promise.all([
+          import('../bridge/target-picker'),
+          import('@lodariq/sdk-runtime/resolver'),
+        ]);
       if (pendingTargetPickCorrelationId !== message.correlationId || !host.isConnected) {
         return;
       }
@@ -2188,10 +2044,12 @@ function openAuthoringPanel(
       }
       const suggestedTarget =
         suggestedResolution?.state === 'found' ? suggestedResolution.element : null;
+      const stateId = normalizeTargetStateId(options.getTargetStateId?.());
 
       picker = startTargetPicker({
         ...(message.identity ? { initialIdentity: message.identity } : {}),
         ...(message.requiredAction ? { requiredAction: message.requiredAction } : {}),
+        ...(stateId ? { stateId } : {}),
         ...(suggestedTarget ? { initialTarget: suggestedTarget } : {}),
         onPick: ({ element, fingerprint, identity }) => {
           if (pendingTargetPickCorrelationId !== message.correlationId) return;
@@ -2465,6 +2323,17 @@ function authoringSessionKey(session: AuthoringSession): string {
   );
 }
 
+function previewThemeMatchesSession(
+  candidate: BrandThemeSnapshot,
+  initial: BrandThemeSnapshot,
+): boolean {
+  return (
+    candidate.themeId === initial.themeId &&
+    candidate.schemaVersion === initial.schemaVersion &&
+    candidate.contractVersion === initial.contractVersion
+  );
+}
+
 function dispatchHostedCreatorPanelState(state: HostedCreatorPanelState): void {
   window.dispatchEvent(new CustomEvent(HOSTED_CREATOR_PANEL_STATE_EVENT, { detail: state }));
 }
@@ -2571,6 +2440,12 @@ function authoringPanelMargin(viewportWidth: number): number {
 function authoringPanelLayoutMode(value: string | undefined): AuthoringPanelLayoutMode | null {
   return value && AUTHORING_PANEL_LAYOUT_VALUES.has(value)
     ? (value as AuthoringPanelLayoutMode)
+    : null;
+}
+
+function panelZoomValue(value: string | undefined): AuthoringPanelZoomValue | null {
+  return AUTHORING_PANEL_ZOOM_OPTIONS.some((option) => option.value === value)
+    ? (value as AuthoringPanelZoomValue)
     : null;
 }
 
@@ -3590,70 +3465,6 @@ function escapeAuthoringText(value: string): string {
   );
 }
 
-function renderAppearanceSheet(): string {
-  const groups = AUTHORING_APPEARANCE_OPTION_GROUPS.map((group) => {
-    const options = group.options
-      .map(
-        (option) => `
-          <button
-            type="button"
-            role="radio"
-            aria-checked="false"
-            data-appearance-key="${group.key}"
-            data-appearance-value="${option.value}"
-          >${option.label}</button>`,
-      )
-      .join('');
-    return `
-      <fieldset class="appearance-group" data-appearance-group="${group.key}">
-        <legend>${group.label}</legend>
-        <div class="appearance-options">${options}</div>
-      </fieldset>`;
-  }).join('');
-  return `
-    <section
-      id="lodariq-appearance-sheet"
-      class="appearance-sheet"
-      data-appearance-sheet
-      aria-label="Experience appearance"
-      hidden
-    >
-      <header>
-        <span>
-          <strong>Appearance</strong>
-          <small>Safe choices, applied in the live preview</small>
-        </span>
-      </header>
-      ${groups}
-    </section>`;
-}
-
-function resolvedDocumentAppearance(document: LodariqDocument | null): ExperienceAppearance {
-  return structuredClone(document?.appearance ?? DEFAULT_EXPERIENCE_APPEARANCE);
-}
-
-function syncAppearanceControls(sheet: HTMLElement | null, appearance: ExperienceAppearance): void {
-  if (!sheet) return;
-  for (const button of sheet.querySelectorAll<HTMLButtonElement>(
-    '[data-appearance-key][data-appearance-value]',
-  )) {
-    const key = button.dataset['appearanceKey'];
-    const value = button.dataset['appearanceValue'];
-    const selected = isAppearanceOption(key, value) && appearance[key] === value;
-    button.setAttribute('aria-checked', selected ? 'true' : 'false');
-    button.dataset['selected'] = selected ? 'true' : 'false';
-  }
-}
-
-function isAppearanceOption(
-  key: string | undefined,
-  value: string | undefined,
-): key is AppearanceOptionKey {
-  if (!key || !value) return false;
-  const group = AUTHORING_APPEARANCE_OPTION_GROUPS.find((candidate) => candidate.key === key);
-  return Boolean(group?.options.some((option) => option.value === value));
-}
-
 function createPanelStyles(): HTMLStyleElement {
   return createNonceStyleElement(
     document,
@@ -3682,7 +3493,7 @@ function createPanelStyles(): HTMLStyleElement {
       grid-template-rows: ${AUTHORING_PANEL_HEADER_HEIGHT}px minmax(0, 1fr);
       width: 100%;
       height: 100%;
-      border-radius: 14px;
+      border-radius: 16px;
       background: #ffffff;
       box-shadow:
         0 24px 60px rgba(15, 36, 31, 0.18),
@@ -3699,10 +3510,10 @@ function createPanelStyles(): HTMLStyleElement {
       height: ${AUTHORING_PANEL_HEADER_HEIGHT}px;
       align-items: center;
       justify-content: space-between;
-      gap: 6px;
+      gap: 8px;
       border: 1px solid #0a4f43;
       border-bottom-color: #0a4f43;
-      border-radius: 13px 13px 0 0;
+      border-radius: 12px 12px 0 0;
       background: #003f35;
       color: #ffffff;
       cursor: grab;
@@ -3737,7 +3548,7 @@ function createPanelStyles(): HTMLStyleElement {
       height: 100%;
       border: 1px solid #d8dfe1;
       border-top: 0;
-      border-radius: 0 0 13px 13px;
+      border-radius: 0 0 12px 12px;
       background: #ffffff;
       overflow: hidden;
       box-sizing: border-box;
@@ -3752,7 +3563,7 @@ function createPanelStyles(): HTMLStyleElement {
       align-items: center;
       justify-content: center;
       padding: 0;
-      border-radius: 13px 0 0 0;
+      border-radius: 12px 0 0 0;
       cursor: grab;
       touch-action: none;
       user-select: none;
@@ -3770,10 +3581,10 @@ function createPanelStyles(): HTMLStyleElement {
     .panel-drag-grip {
       display: grid;
       width: 20px;
-      height: 28px;
+      height: 36px;
       flex: 0 0 auto;
       place-items: center;
-      border-radius: 6px;
+      border-radius: 8px;
       color: rgba(255, 255, 255, 0.72);
       opacity: 0.82;
     }
@@ -3789,14 +3600,14 @@ function createPanelStyles(): HTMLStyleElement {
       min-width: 0;
       flex: 1 1 auto;
       align-items: center;
-      gap: 10px;
+      gap: 12px;
     }
 
     .panel-title-cluster {
       display: flex;
       min-width: 0;
       align-items: center;
-      gap: 18px;
+      gap: 16px;
     }
 
     .panel-document-title {
@@ -3805,17 +3616,17 @@ function createPanelStyles(): HTMLStyleElement {
       width: min(154px, 26vw);
       overflow: hidden;
       border: 1px solid transparent;
-      border-radius: 7px;
+      border-radius: 8px;
       background: transparent;
       color: #ffffff;
       font-family: inherit;
-      font-size: 15px;
+      font-size: 14px;
       font-weight: 700;
       letter-spacing: -0.01em;
       line-height: 1.25;
       margin: 0;
       outline: 0;
-      padding: 2px 4px;
+      padding: 4px 4px;
       text-overflow: ellipsis;
       white-space: nowrap;
     }
@@ -3824,23 +3635,6 @@ function createPanelStyles(): HTMLStyleElement {
     .panel-document-title:focus {
       border-color: rgba(255, 255, 255, 0.14);
       background: rgba(255, 255, 255, 0.07);
-    }
-
-    .panel-zoom {
-      width: 72px;
-      height: 30px;
-      border: 1px solid rgba(255, 255, 255, 0.42);
-      border-radius: 7px;
-      background: rgba(255, 255, 255, 0.06);
-      color: #ffffff;
-      font: inherit;
-      font-size: 12px;
-      font-weight: 650;
-      padding: 0 9px;
-    }
-
-    .panel-zoom option {
-      color: #162033;
     }
 
     .panel-document-title:focus-visible {
@@ -3852,7 +3646,7 @@ function createPanelStyles(): HTMLStyleElement {
       display: none;
       overflow: hidden;
       color: ${CREATOR_CHROME_TOKENS.ink};
-      font-size: 13px;
+      font-size: 12px;
       font-weight: 600;
       text-overflow: ellipsis;
       white-space: nowrap;
@@ -3863,41 +3657,15 @@ function createPanelStyles(): HTMLStyleElement {
       display: inline-flex;
       flex: 0 0 auto;
       align-items: center;
-      gap: 2px;
-    }
-
-    .save-state {
-      display: none;
-      align-items: center;
       gap: 4px;
-      color: ${CREATOR_CHROME_TOKENS.muted};
-      font-size: 11px;
-      font-weight: 550;
-      line-height: 1.25;
-      white-space: nowrap;
-    }
-
-    .save-state-icon,
-    .save-state-icon svg {
-      display: block;
-      width: 12px;
-      height: 12px;
-    }
-
-    .save-state[data-state="saving"] {
-      color: ${CREATOR_CHROME_TOKENS.muted};
-    }
-
-    .save-state[data-state="error"] {
-      color: ${CREATOR_CHROME_STATUS_TOKENS.danger};
     }
 
     .header-action {
       position: relative;
       display: grid;
-      width: 32px;
-      height: 32px;
-      min-height: 32px;
+      width: 36px;
+      height: 36px;
+      min-height: 36px;
       place-items: center;
       padding: 0;
       border: 1px solid transparent;
@@ -3915,10 +3683,6 @@ function createPanelStyles(): HTMLStyleElement {
       color: #ffffff;
     }
 
-    .secondary-header-action {
-      display: none;
-    }
-
     .header-action::after {
       position: absolute;
       top: calc(100% + 8px);
@@ -3930,11 +3694,11 @@ function createPanelStyles(): HTMLStyleElement {
       background: ${CREATOR_CHROME_TOKENS.surface};
       color: ${CREATOR_CHROME_TOKENS.ink};
       content: attr(data-tooltip);
-      font-size: 11px;
-      font-weight: 650;
+      font-size: 10px;
+      font-weight: 600;
       line-height: 1.2;
       opacity: 0;
-      padding: 7px 9px;
+      padding: 8px 8px;
       pointer-events: none;
       transform: translateY(-2px);
       transition: opacity 120ms ease, transform 120ms ease;
@@ -3951,65 +3715,213 @@ function createPanelStyles(): HTMLStyleElement {
     .header-action-icon svg {
       display: block;
       width: 18px;
-      height: 18px;
+      height: 16px;
     }
 
-    .panel-options-menu {
+    .panel-layout-combobox {
+      position: relative;
+      flex: 0 0 auto;
+    }
+
+    .panel-layout-trigger {
+      display: inline-flex;
+      height: 36px;
+      min-width: 112px;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 0 8px;
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.06);
+      color: #ffffff;
+      font: inherit;
+      font-size: 12px;
+      font-weight: 600;
+      line-height: 1;
+    }
+
+    .panel-layout-trigger:hover,
+    .panel-layout-trigger:focus-visible,
+    .panel-layout-combobox[data-open] .panel-layout-trigger {
+      border-color: rgba(255, 255, 255, 0.3);
+      background: rgba(255, 255, 255, 0.11);
+    }
+
+    .panel-layout-trigger-icon,
+    .panel-layout-option-icon,
+    .panel-layout-chevron {
+      display: block;
+      flex: 0 0 auto;
+    }
+
+    .panel-layout-value {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .panel-layout-chevron {
+      opacity: 0.72;
+      transition: transform 140ms ease;
+    }
+
+    .panel-layout-combobox[data-open] .panel-layout-chevron {
+      transform: rotate(180deg);
+    }
+
+    .panel-layout-listbox {
       position: absolute;
       top: calc(100% + 8px);
       right: 0;
-      z-index: 5;
+      z-index: 8;
       display: grid;
-      width: 184px;
-      gap: 2px;
-      border: 1px solid ${CREATOR_CHROME_TOKENS.border};
+      width: 176px;
+      gap: 4px;
+      border: 1px solid ${AUTHORING_CONTEXT_SURFACE_TOKENS.border};
       border-radius: 12px;
-      background: ${CREATOR_CHROME_TOKENS.surface};
-      padding: 6px;
-      box-shadow:
-        0 18px 46px rgba(0, 0, 0, 0.42),
-        0 0 0 1px rgba(255, 255, 255, 0.05) inset;
+      background: ${AUTHORING_CONTEXT_SURFACE_TOKENS.surface};
+      padding: 8px;
+      box-shadow: ${AUTHORING_CONTEXT_SURFACE_TOKENS.shadow};
+      box-sizing: border-box;
     }
 
-    .panel-options-menu[hidden] {
+    .panel-layout-listbox[hidden] {
       display: none;
     }
 
-    .panel-options-menu button {
+    .panel-layout-option {
+      display: flex;
       min-height: 40px;
+      align-items: center;
+      gap: 8px;
       border: 0;
       border-radius: 8px;
       background: transparent;
-      color: ${CREATOR_CHROME_TOKENS.ink};
+      color: ${AUTHORING_CONTEXT_SURFACE_TOKENS.ink};
       cursor: pointer;
       font: inherit;
       font-size: 12px;
       font-weight: 600;
-      padding: 8px 10px;
+      padding: 8px 12px;
       text-align: left;
     }
 
-    .panel-options-menu button:hover {
-      background: rgba(255, 255, 255, 0.07);
-      color: ${CREATOR_CHROME_TOKENS.action};
+    .panel-layout-option[hidden] {
+      display: none;
     }
 
-    .panel-options-menu button[role="menuitemradio"][aria-checked="true"] {
-      background: rgba(255, 255, 255, 0.07);
-      color: ${CREATOR_CHROME_TOKENS.action};
+    .panel-layout-option:hover,
+    .panel-layout-option:focus-visible {
+      background: ${AUTHORING_CONTEXT_SURFACE_TOKENS.accentSoft};
+      color: ${AUTHORING_CONTEXT_SURFACE_TOKENS.accent};
+    }
+
+    .panel-zoom-combobox {
+      position: relative;
+      flex: 0 0 auto;
+    }
+
+    .panel-zoom-trigger {
+      display: inline-flex;
+      height: 36px;
+      min-width: 84px;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 0 8px;
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.06);
+      color: #ffffff;
+      font: inherit;
+      font-size: 12px;
+      font-weight: 600;
+      line-height: 1;
+    }
+
+    .panel-zoom-trigger:hover,
+    .panel-zoom-trigger:focus-visible,
+    .panel-zoom-combobox[data-open] .panel-zoom-trigger {
+      border-color: rgba(255, 255, 255, 0.3);
+      background: rgba(255, 255, 255, 0.11);
+    }
+
+    .panel-zoom-trigger > svg,
+    .panel-zoom-chevron {
+      display: block;
+      flex: 0 0 auto;
+    }
+
+    .panel-zoom-value {
+      white-space: nowrap;
+    }
+
+    .panel-zoom-chevron {
+      opacity: 0.68;
+      transition: transform 140ms ease;
+    }
+
+    .panel-zoom-combobox[data-open] .panel-zoom-chevron {
+      transform: rotate(180deg);
+    }
+
+    .panel-zoom-listbox {
+      position: absolute;
+      top: calc(100% + 8px);
+      right: 0;
+      z-index: 8;
+      display: grid;
+      width: 104px;
+      gap: 4px;
+      border: 1px solid ${AUTHORING_CONTEXT_SURFACE_TOKENS.border};
+      border-radius: 12px;
+      background: ${AUTHORING_CONTEXT_SURFACE_TOKENS.surface};
+      padding: 4px;
+      box-shadow: ${AUTHORING_CONTEXT_SURFACE_TOKENS.shadow};
+      box-sizing: border-box;
+    }
+
+    .panel-zoom-listbox[hidden] {
+      display: none;
+    }
+
+    .panel-zoom-option {
+      min-height: 36px;
+      border: 0;
+      border-radius: 8px;
+      background: transparent;
+      color: ${AUTHORING_CONTEXT_SURFACE_TOKENS.ink};
+      cursor: pointer;
+      font: inherit;
+      font-size: 12px;
+      font-weight: 600;
+      padding: 8px 8px;
+      text-align: left;
+    }
+
+    .panel-zoom-option[hidden] {
+      display: none;
+    }
+
+    .panel-zoom-option:hover,
+    .panel-zoom-option:focus-visible {
+      background: ${AUTHORING_CONTEXT_SURFACE_TOKENS.accentSoft};
+      color: ${AUTHORING_CONTEXT_SURFACE_TOKENS.accent};
     }
 
     .panel-resize-handle {
       position: absolute;
-      right: 2px;
-      bottom: 2px;
+      right: 0;
+      bottom: 0;
       z-index: 5;
       display: grid;
-      width: 32px;
-      height: 32px;
-      place-items: center;
-      border: 1px solid transparent;
-      border-radius: 8px;
+      width: 24px;
+      height: 24px;
+      place-items: end;
+      padding: 0 4px 4px 0;
+      border: 0;
+      border-radius: 0 0 12px 0;
       background: transparent;
       color: #65716d;
       cursor: nwse-resize;
@@ -4019,112 +3931,19 @@ function createPanelStyles(): HTMLStyleElement {
     .panel-resize-handle:hover,
     .panel-resize-handle:focus-visible,
     .panel-resize-handle[data-lodariq-authoring-resizing="true"] {
-      border-color: rgba(255, 255, 255, 0.12);
-      background: #f4f7f6;
+      background: transparent;
       color: #003f35;
     }
 
-    .panel-resize-icon,
-    .panel-resize-icon svg {
+    .panel-resize-icon {
       display: block;
-      width: 16px;
+      width: 18px;
       height: 16px;
-    }
-
-    .appearance-sheet {
-      position: absolute;
-      top: 52px;
-      right: 8px;
-      z-index: 6;
-      display: grid;
-      width: min(296px, calc(100% - 16px));
-      gap: 14px;
-      border: 1px solid ${CREATOR_CHROME_TOKENS.border};
-      border-radius: 12px;
-      background: ${CREATOR_CHROME_TOKENS.surface};
-      color: ${CREATOR_CHROME_TOKENS.ink};
-      padding: 16px;
-      box-shadow:
-        0 22px 54px rgba(0, 0, 0, 0.44),
-        0 0 0 1px rgba(255, 255, 255, 0.05) inset;
-      box-sizing: border-box;
-    }
-
-    .appearance-sheet[hidden] {
-      display: none;
-    }
-
-    .appearance-sheet > header {
-      display: flex;
-      align-items: flex-start;
-      justify-content: space-between;
-      gap: 12px;
-    }
-
-    .appearance-sheet > header span {
-      display: grid;
-      gap: 3px;
-    }
-
-    .appearance-sheet > header strong {
-      font-family: inherit;
-      font-size: 15px;
-      font-weight: 640;
-      letter-spacing: -0.01em;
-    }
-
-    .appearance-sheet > header small {
-      color: ${CREATOR_CHROME_TOKENS.muted};
-      font-size: 11px;
-      line-height: 1.35;
-    }
-
-    .appearance-group {
-      display: grid;
-      min-width: 0;
-      gap: 7px;
-      margin: 0;
-      padding: 0;
-      border: 0;
-    }
-
-    .appearance-group legend {
-      color: ${CREATOR_CHROME_TOKENS.muted};
-      font-size: 11px;
-      font-weight: 700;
-      line-height: 1.2;
-      padding: 0;
-    }
-
-    .appearance-options {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(62px, 1fr));
-      gap: 6px;
-    }
-
-    .appearance-options button {
-      min-height: 36px;
-      border: 1px solid ${CREATOR_CHROME_TOKENS.border};
-      border-radius: 8px;
-      background: ${CREATOR_CHROME_TOKENS.canvas};
-      color: ${CREATOR_CHROME_TOKENS.ink};
-      cursor: pointer;
-      font: inherit;
-      font-size: 11px;
-      font-weight: 600;
-      padding: 7px 8px;
-    }
-
-    .appearance-options button:hover {
-      border-color: rgba(255, 255, 255, 0.2);
-      background: rgba(255, 255, 255, 0.05);
-    }
-
-    .appearance-options button[data-selected="true"] {
-      border-color: ${CREATOR_CHROME_TOKENS.action};
-      background: rgba(61, 232, 176, 0.1);
-      box-shadow: 0 0 0 1px ${CREATOR_CHROME_TOKENS.action} inset;
-      color: ${CREATOR_CHROME_TOKENS.action};
+      overflow: visible;
+      fill: none;
+      stroke: currentColor;
+      stroke-linecap: round;
+      stroke-width: 2;
     }
 
     button:disabled {
@@ -4177,13 +3996,12 @@ function createPanelStyles(): HTMLStyleElement {
       flex: 1 1 auto;
       justify-content: center;
       border-radius: 999px;
-      padding: 0 14px;
+      padding: 0 16px;
     }
 
     :host([${AUTHORING_TARGET_PICKING_ATTRIBUTE}="true"]) .panel-drag-grip,
     :host([${AUTHORING_TARGET_PICKING_ATTRIBUTE}="true"]) .panel-heading,
     :host([${AUTHORING_TARGET_PICKING_ATTRIBUTE}="true"]) .authoring-bar-actions,
-    :host([${AUTHORING_TARGET_PICKING_ATTRIBUTE}="true"]) .appearance-sheet,
     :host([${AUTHORING_TARGET_PICKING_ATTRIBUTE}="true"]) .panel-resize-handle,
     :host([${AUTHORING_TARGET_PICKING_ATTRIBUTE}="true"]) .panel-surface {
       display: none;
@@ -4213,11 +4031,42 @@ function createPanelStyles(): HTMLStyleElement {
       display: none;
     }
 
-    :host([${AUTHORING_PANEL_MINIMIZED_ATTRIBUTE}="true"]) .appearance-sheet {
+    :host([${AUTHORING_PANEL_MINIMIZED_ATTRIBUTE}="true"]) .panel-resize-handle {
       display: none;
     }
 
-    :host([${AUTHORING_PANEL_MINIMIZED_ATTRIBUTE}="true"]) .panel-resize-handle {
+    :host([${AUTHORING_PANEL_LAYOUT_ATTRIBUTE}="compact"]) .authoring-bar {
+      gap: 4px;
+      padding-right: 4px;
+    }
+
+    :host([${AUTHORING_PANEL_LAYOUT_ATTRIBUTE}="compact"]) .panel-heading {
+      gap: 4px;
+    }
+
+    :host([${AUTHORING_PANEL_LAYOUT_ATTRIBUTE}="compact"]) .panel-document-title {
+      width: 78px;
+    }
+
+    :host([${AUTHORING_PANEL_LAYOUT_ATTRIBUTE}="compact"]) .panel-layout-value {
+      display: none;
+    }
+
+    :host([${AUTHORING_PANEL_LAYOUT_ATTRIBUTE}="compact"]) .panel-layout-trigger {
+      width: 38px;
+      min-width: 38px;
+      gap: 4px;
+      padding: 0 4px;
+    }
+
+    :host([${AUTHORING_PANEL_LAYOUT_ATTRIBUTE}="compact"]) .panel-zoom-trigger {
+      width: 66px;
+      min-width: 66px;
+      gap: 4px;
+      padding: 0 4px;
+    }
+
+    :host([${AUTHORING_PANEL_LAYOUT_ATTRIBUTE}="compact"]) .panel-zoom-trigger-icon {
       display: none;
     }
 
@@ -4233,10 +4082,40 @@ function createPanelStyles(): HTMLStyleElement {
       }
 
       .authoring-bar {
-        padding-right: 5px;
+        padding-right: 4px;
       }
 
       .panel-drag-grip {
+        display: none;
+      }
+
+      .panel-heading {
+        gap: 4px;
+      }
+
+      .panel-document-title {
+        width: 78px;
+      }
+
+      .panel-layout-value {
+        display: none;
+      }
+
+      .panel-layout-trigger {
+        width: 38px;
+        min-width: 38px;
+        gap: 4px;
+        padding: 0 4px;
+      }
+
+      .panel-zoom-trigger {
+        width: 66px;
+        min-width: 66px;
+        gap: 4px;
+        padding: 0 4px;
+      }
+
+      .panel-zoom-trigger-icon {
         display: none;
       }
 
@@ -4251,13 +4130,4 @@ function createPanelStyles(): HTMLStyleElement {
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max);
-}
-
-function productionOperationFailure(message: string): ProductionPromotionResult {
-  return {
-    ok: false,
-    state: 'failed',
-    code: 'internal_error',
-    message,
-  };
 }

@@ -208,6 +208,12 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     expect(styles).toContain(
       'background: linear-gradient(180deg, var(--lq-color-chrome), #101216)',
     );
+    const contextualSurfaceRule = styles.match(
+      /\.menu,\s*\.inline-command-menu,\s*\.step-command-menu,\s*\.ui-popover-content \{[\s\S]*?\n {2}\}/,
+    )?.[0];
+    expect(contextualSurfaceRule).toContain('--lq-color-page: #ffffff');
+    expect(contextualSurfaceRule).toContain('--lq-color-panel: #f7faf9');
+    expect(contextualSurfaceRule).toContain('color-scheme: light');
   });
 
   it('keeps the mounted frame intact when pagehide enters the back-forward cache', async () => {
@@ -383,7 +389,8 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
 
     const releaseFooter = document.querySelector<HTMLElement>('[aria-label="Release status"]');
     expect(releaseFooter?.dataset['releaseStatus']).toBe('unavailable');
-    buttonWithText('Release options', releaseFooter ?? document)?.click();
+    // Release actions sit beside the status chip, not inside it.
+    buttonWithText('Release options')?.click();
     await vi.waitFor(() => expect(panelModeView()).not.toBeNull());
     expect(panelModeView()?.textContent).toContain('Local preview');
     expect(buttonWithText('Publish to staging', panelModeView() ?? document)).toBeNull();

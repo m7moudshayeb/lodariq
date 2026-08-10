@@ -5,10 +5,12 @@ import {
   BASIC_VISUAL_PREFLIGHT_ISSUE_LABELS,
   BasicVisualPreflightReport,
   BrandThemeSnapshot,
+  DEFAULT_EXPERIENCE_APPEARANCE,
   ExperienceAppearance,
   LODARIQ_ACCESSIBLE_FALLBACK_THEME_V1,
   ThemeBinding,
   basicVisualPreflightIssueLabel,
+  resolveExperienceAppearance,
   validate,
   type BrandThemeSnapshot as BrandThemeSnapshotType,
 } from '@lodariq/schema';
@@ -65,14 +67,33 @@ describe('Brand Theme contracts', () => {
       }).valid,
     ).toBe(false);
 
+    const legacyAppearance = {
+      preset: 'minimal',
+      density: 'compact',
+      width: 'narrow',
+      colorMode: 'system',
+    } as const;
+    expect(validate(ExperienceAppearance, legacyAppearance).valid).toBe(true);
     expect(
       validate(ExperienceAppearance, {
-        preset: 'minimal',
-        density: 'compact',
-        width: 'narrow',
-        colorMode: 'system',
+        ...legacyAppearance,
+        displayTargetOutline: true,
       }).valid,
     ).toBe(true);
+    expect(
+      validate(ExperienceAppearance, {
+        ...legacyAppearance,
+        displayTargetOutline: 'yes',
+      }).valid,
+    ).toBe(false);
+    expect(DEFAULT_EXPERIENCE_APPEARANCE.displayTargetOutline).toBe(true);
+    expect(resolveExperienceAppearance(legacyAppearance)).toEqual({
+      ...legacyAppearance,
+      displayTargetOutline: true,
+    });
+    expect(
+      resolveExperienceAppearance({ ...legacyAppearance, displayTargetOutline: false }),
+    ).toMatchObject({ displayTargetOutline: false });
     expect(
       validate(ExperienceAppearance, {
         preset: 'custom-css',

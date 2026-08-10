@@ -3,6 +3,8 @@ import { compileDocument } from '@lodariq/compiler';
 import {
   ActivePublicationChangedError,
   EnvironmentReleasePolicyChangedError,
+  RELEASE_APPROVAL_REJECTED_ERROR_CODE,
+  ReleaseApprovalRejectedError,
   createInMemoryControlPlaneRepository,
   type WorkspaceEnvironment,
 } from '@lodariq/database';
@@ -29,6 +31,16 @@ const STAGING: WorkspaceEnvironment = {
   createdAt: CREATED_AT,
   updatedAt: CREATED_AT,
 };
+const DEVELOPMENT: WorkspaceEnvironment = {
+  id: 'env_development',
+  workspaceId: 'wk_a',
+  kind: 'development',
+  name: 'Development',
+  originAllowlist: ['http://localhost:5175'],
+  requiredApprovalCount: 0,
+  createdAt: CREATED_AT,
+  updatedAt: CREATED_AT,
+};
 const PRODUCTION: WorkspaceEnvironment = {
   id: 'env_production',
   workspaceId: 'wk_a',
@@ -36,6 +48,18 @@ const PRODUCTION: WorkspaceEnvironment = {
   name: 'Production',
   originAllowlist: ['https://example.com'],
   requiredApprovalCount: 1,
+  releasePolicy: {
+    allowDirectPublish: false,
+    requireSourceVerification: true,
+    requiredApprovalCount: 1,
+    publisherRoles: ['owner', 'admin'],
+    rollbackRoles: ['owner', 'admin'],
+    unpublishRoles: ['owner', 'admin'],
+    separationOfDuties: {
+      requireSeparateVerifier: false,
+      requireSeparateApprover: true,
+    },
+  },
   createdAt: CREATED_AT,
   updatedAt: CREATED_AT,
 };
@@ -148,6 +172,7 @@ describe('Phase 2 style and promotion persistence', () => {
       idempotencyKey: 'publish:verified:1',
       requestHash: saved.latestArtifact.contentHash,
       expectedGeneration: 0,
+      expectedEnvironmentPolicyUpdatedAt: STAGING.updatedAt,
     });
 
     const verification = await repository.createPublicationVerification({
@@ -176,6 +201,7 @@ describe('Phase 2 style and promotion persistence', () => {
       idempotencyKey: 'promote:verified:1',
       requestHash: `sha256-${'d'.repeat(64)}`,
       expectedGeneration: 0,
+      expectedEnvironmentPolicyUpdatedAt: PRODUCTION.updatedAt,
     } as const;
     const pending = await repository.promoteVerifiedPublication(promotionInput);
     expect(pending).toMatchObject({
@@ -193,15 +219,67 @@ describe('Phase 2 style and promotion persistence', () => {
       pendingReleaseOperationId: pending.operation.id,
       generation: 0,
     });
-    await repository.createReleaseApproval({
+    const productionBeforePolicyChange = (await repository.listEnvironments('wk_a')).find(
+      (environment) => environment.id === PRODUCTION.id,
+    );
+    if (!productionBeforePolicyChange) throw new Error('production policy fixture missing');
+    await expect(
+      repository.createReleaseApproval({
+        workspaceId: 'wk_a',
+        releaseOperationId: pending.operation.id,
+        decision: 'approved',
+        actorUserId: 'user_admin',
+        expectedEnvironmentPolicyUpdatedAt: productionBeforePolicyChange.updatedAt,
+      }),
+    ).rejects.toMatchObject({
+      decisionCode: 'separation_of_duties_required',
+    });
+    await expect(repository.listReleaseApprovals('wk_a', pending.operation.id)).resolves.toEqual(
+      [],
+    );
+
+    await repository.updateEnvironmentReleasePolicy({
+      workspaceId: 'wk_a',
+      environmentId: PRODUCTION.id,
+      requiredApprovalCount: 1,
+      expectedUpdatedAt: productionBeforePolicyChange.updatedAt,
+      actorUserId: 'user_admin',
+    });
+    await expect(
+      repository.createReleaseApproval({
+        workspaceId: 'wk_a',
+        releaseOperationId: pending.operation.id,
+        decision: 'approved',
+        actorUserId: 'user_owner',
+        expectedEnvironmentPolicyUpdatedAt: productionBeforePolicyChange.updatedAt,
+      }),
+    ).rejects.toBeInstanceOf(EnvironmentReleasePolicyChangedError);
+    await expect(repository.listReleaseApprovals('wk_a', pending.operation.id)).resolves.toEqual(
+      [],
+    );
+    const currentProduction = (await repository.listEnvironments('wk_a')).find(
+      (environment) => environment.id === PRODUCTION.id,
+    );
+    if (!currentProduction) throw new Error('current production policy fixture missing');
+    const approvalInput = {
       workspaceId: 'wk_a',
       releaseOperationId: pending.operation.id,
-      decision: 'approved',
+      decision: 'approved' as const,
       reason: 'Ready for production',
       actorUserId: 'user_owner',
-    });
+      expectedEnvironmentPolicyUpdatedAt: currentProduction.updatedAt,
+    };
+    const approval = await repository.createReleaseApproval(approvalInput);
+    await expect(repository.createReleaseApproval(approvalInput)).resolves.toEqual(approval);
+    await expect(repository.listReleaseApprovals('wk_a', pending.operation.id)).resolves.toEqual([
+      approval,
+    ]);
 
-    const completed = await repository.promoteVerifiedPublication(promotionInput);
+    const currentPromotionInput = {
+      ...promotionInput,
+      expectedEnvironmentPolicyUpdatedAt: currentProduction.updatedAt,
+    };
+    const completed = await repository.promoteVerifiedPublication(currentPromotionInput);
     expect(completed).toMatchObject({
       operation: { id: pending.operation.id, status: 'completed' },
       sourcePublication: { id: stagingActivation.publication.id },
@@ -216,7 +294,9 @@ describe('Phase 2 style and promotion persistence', () => {
       requiredApprovalCount: 1,
       replayed: false,
     });
-    await expect(repository.promoteVerifiedPublication(promotionInput)).resolves.toMatchObject({
+    await expect(
+      repository.promoteVerifiedPublication(currentPromotionInput),
+    ).resolves.toMatchObject({
       operation: { id: pending.operation.id, status: 'completed' },
       replayed: true,
     });
@@ -247,13 +327,331 @@ describe('Phase 2 style and promotion persistence', () => {
       }),
     ).rejects.toBeInstanceOf(ActivePublicationChangedError);
   });
+
+  it.each([
+    {
+      name: 'the rejecting admin is excluded from publisher roles',
+      enabled: true,
+      publisherRoles: ['owner'] as const,
+    },
+    {
+      name: 'the production target was disabled after the request',
+      enabled: false,
+      publisherRoles: ['owner', 'admin'] as const,
+    },
+  ])('atomically clears a rejected pending promotion when $name', async (policyChange) => {
+    const fixture = await createPendingPromotionFixture(
+      `doc_rejected_${String(policyChange.enabled)}`,
+    );
+    const currentProduction = (await fixture.repository.listEnvironments('wk_a')).find(
+      (environment) => environment.id === PRODUCTION.id,
+    );
+    if (
+      !currentProduction?.releasePolicy ||
+      currentProduction.pipelinePosition !== 2 ||
+      currentProduction.authoringEnabled === undefined
+    ) {
+      throw new Error('production policy fixture missing');
+    }
+    const updated = await fixture.repository.updateWorkspaceEnvironmentPolicy({
+      workspaceId: 'wk_a',
+      environmentId: currentProduction.id,
+      name: currentProduction.name,
+      originAllowlist: currentProduction.originAllowlist,
+      enabled: policyChange.enabled,
+      pipelinePosition: currentProduction.pipelinePosition,
+      authoringEnabled: currentProduction.authoringEnabled,
+      promotionSourceEnvironmentId: STAGING.id,
+      releasePolicy: {
+        ...currentProduction.releasePolicy,
+        publisherRoles: [...policyChange.publisherRoles],
+      },
+      expectedUpdatedAt: currentProduction.updatedAt,
+      actorUserId: 'user_admin',
+    });
+    if (!updated) throw new Error('updated production policy fixture missing');
+
+    const rejectionInput = {
+      workspaceId: 'wk_a',
+      releaseOperationId: fixture.pending.operation.id,
+      decision: 'rejected' as const,
+      reason: 'Stop this release',
+      actorUserId: 'user_admin',
+      expectedEnvironmentPolicyUpdatedAt: updated.updatedAt,
+    };
+    const rejection = await fixture.repository.createReleaseApproval(rejectionInput);
+    await expect(fixture.repository.createReleaseApproval(rejectionInput)).resolves.toEqual(
+      rejection,
+    );
+    await expect(
+      fixture.repository.listReleaseApprovals('wk_a', fixture.pending.operation.id),
+    ).resolves.toEqual([rejection]);
+    await expect(
+      fixture.repository.getReleaseOperationById('wk_a', fixture.pending.operation.id),
+    ).resolves.toMatchObject({
+      status: 'failed',
+      errorCode: RELEASE_APPROVAL_REJECTED_ERROR_CODE,
+    });
+    await expect(
+      fixture.repository.getDocumentDeployment('wk_a', PRODUCTION.id, fixture.document.id),
+    ).resolves.toMatchObject({ pendingReleaseOperationId: null });
+    await expect(
+      fixture.repository.promoteVerifiedPublication({
+        ...fixture.promotionInput,
+        expectedEnvironmentPolicyUpdatedAt: updated.updatedAt,
+      }),
+    ).rejects.toBeInstanceOf(ReleaseApprovalRejectedError);
+    await expect(
+      fixture.repository.getReleaseOperationById('wk_a', fixture.pending.operation.id),
+    ).resolves.toMatchObject({
+      status: 'failed',
+      errorCode: RELEASE_APPROVAL_REJECTED_ERROR_CODE,
+    });
+    await expect(
+      fixture.repository.getDocumentDeployment('wk_a', PRODUCTION.id, fixture.document.id),
+    ).resolves.toMatchObject({ pendingReleaseOperationId: null });
+  });
+
+  it.each([
+    { name: 'requester identity is missing', requestedByUserId: null },
+    { name: 'requester membership was removed', requestedByUserId: 'user_removed' },
+  ])('allows an authorized admin to reject when $name', async ({ requestedByUserId }) => {
+    const documentId = `doc_orphaned_${requestedByUserId ?? 'null'}`;
+    const operationId = `relop_orphaned_${requestedByUserId ?? 'null'}`;
+    const repository = createInMemoryControlPlaneRepository({
+      environments: [PRODUCTION],
+      workspaceMemberships: MEMBERSHIPS,
+      documentDeployments: [
+        {
+          workspaceId: 'wk_a',
+          environmentId: PRODUCTION.id,
+          documentId,
+          state: 'inactive',
+          activePublicationId: null,
+          pendingReleaseOperationId: operationId,
+          generation: 0,
+          updatedAt: CREATED_AT,
+        },
+      ],
+      releaseOperations: [
+        {
+          id: operationId,
+          workspaceId: 'wk_a',
+          environmentId: PRODUCTION.id,
+          documentId,
+          action: 'promote',
+          requestedArtifactId: 'artifact_orphaned',
+          requestedSourcePublicationId: null,
+          requestedActivePublicationId: null,
+          actualActivePublicationId: null,
+          sourcePublicationId: 'publication_orphaned',
+          reason: null,
+          expectedGeneration: 0,
+          resultGeneration: null,
+          idempotencyKey: `promote:${documentId}:1`,
+          requestHash: `sha256-${'f'.repeat(64)}`,
+          status: 'awaiting_approval',
+          correlationId: `corr.${documentId}`,
+          requestedByUserId,
+          resultPublicationId: null,
+          errorCode: null,
+          createdAt: CREATED_AT,
+          completedAt: null,
+        },
+      ],
+    });
+
+    await expect(
+      repository.createReleaseApproval({
+        workspaceId: 'wk_a',
+        releaseOperationId: operationId,
+        decision: 'rejected',
+        reason: 'Cancel orphaned release',
+        actorUserId: 'user_admin',
+        expectedEnvironmentPolicyUpdatedAt: PRODUCTION.updatedAt,
+      }),
+    ).resolves.toMatchObject({ decision: 'rejected', decidedByUserId: 'user_admin' });
+    await expect(repository.getReleaseOperationById('wk_a', operationId)).resolves.toMatchObject({
+      status: 'failed',
+      errorCode: RELEASE_APPROVAL_REJECTED_ERROR_CODE,
+    });
+    await expect(
+      repository.getDocumentDeployment('wk_a', PRODUCTION.id, documentId),
+    ).resolves.toMatchObject({ pendingReleaseOperationId: null });
+  });
 });
 
+async function createPendingPromotionFixture(documentId: string) {
+  const repository = createInMemoryControlPlaneRepository({
+    environments: [DEVELOPMENT, STAGING, PRODUCTION],
+    workspaceMemberships: MEMBERSHIPS,
+  });
+  const document = documentFixture(documentId);
+  const artifact = await compileDocument({
+    document,
+    theme: LODARIQ_ACCESSIBLE_FALLBACK_THEME_V1,
+    rendererContractVersion: RENDERER_CONTRACT_VERSION,
+  });
+  const saved = await repository.saveDocument({
+    workspaceId: 'wk_a',
+    document,
+    artifact,
+    actorUserId: 'user_admin',
+  });
+  if (!saved.latestArtifact) throw new Error('test artifact missing');
+  const staging = await repository.activateCompiledArtifact({
+    workspaceId: 'wk_a',
+    environmentId: STAGING.id,
+    correlationId: `corr.${documentId}.staging`,
+    artifact: saved.latestArtifact,
+    actorUserId: 'user_admin',
+    idempotencyKey: `publish:${documentId}:1`,
+    requestHash: saved.latestArtifact.contentHash,
+    expectedGeneration: 0,
+    expectedEnvironmentPolicyUpdatedAt: STAGING.updatedAt,
+  });
+  await repository.createPublicationVerification({
+    workspaceId: 'wk_a',
+    environmentId: STAGING.id,
+    documentId,
+    expectedPublicationId: staging.publication.id,
+    report: VERIFICATION_REPORT,
+    verifiedOrigin: STAGING_ORIGIN,
+    actorUserId: 'user_admin',
+  });
+  const promotionInput = {
+    workspaceId: 'wk_a',
+    sourceEnvironmentId: STAGING.id,
+    targetEnvironmentId: PRODUCTION.id,
+    documentId,
+    expectedSourcePublicationId: staging.publication.id,
+    correlationId: `corr.${documentId}.production`,
+    actorUserId: 'user_admin',
+    idempotencyKey: `promote:${documentId}:1`,
+    requestHash: `sha256-${'e'.repeat(64)}`,
+    expectedGeneration: 0,
+    expectedEnvironmentPolicyUpdatedAt: PRODUCTION.updatedAt,
+  } as const;
+  const pending = await repository.promoteVerifiedPublication(promotionInput);
+  return { repository, document, pending, promotionInput };
+}
+
 describe('Phase 2 match and promotion baseline', () => {
+  it('locks current policy and membership while Drizzle authoring sessions are issued', () => {
+    const source = readFileSync(
+      fileURLToPath(new URL('../../../database/src/drizzle-repository.ts', import.meta.url)),
+      'utf8',
+    );
+    const createSession = source.slice(
+      source.indexOf('  async createAuthoringSession('),
+      source.indexOf('  async resolveAuthoringSession('),
+    );
+    expect(createSession).toContain(
+      'this.hasAuthoringMembership(tx, input.workspaceId, input.actorUserId)',
+    );
+    expect(createSession).toMatch(/from\(environments\)[\s\S]*?\.for\('share'\)/u);
+    expect(createSession.indexOf('this.hasAuthoringMembership(')).toBeLessThan(
+      createSession.indexOf('.insert(authoringSessions)'),
+    );
+    const membershipHelper = source.slice(
+      source.indexOf('  private async hasAuthoringMembership('),
+      source.indexOf('  private async hasActiveAuthoringScope('),
+    );
+    expect(membershipHelper).toMatch(/from\(workspaceMemberships\)[\s\S]*?\.for\('share'\)/u);
+
+    const hostedSession = source.slice(
+      source.indexOf('  async createAuthoringDocumentSessionFromActivation('),
+      source.indexOf('  async listEnvironmentTokens('),
+    );
+    expect(hostedSession.indexOf('this.hasActiveAuthoringScope(')).toBeLessThan(
+      hostedSession.indexOf('.insert(authoringSessions)'),
+    );
+    expect(hostedSession.indexOf('this.hasAuthoringMembership(')).toBeLessThan(
+      hostedSession.indexOf('.insert(authoringSessions)'),
+    );
+    const activeScopeHelper = source.slice(
+      source.indexOf('  private async hasActiveAuthoringScope('),
+      source.indexOf('  private activeAuthorizationRequestScopeCondition('),
+    );
+    expect(activeScopeHelper).toMatch(
+      /from\(publicSdkInstallationOrigins\)[\s\S]*?innerJoin\([\s\S]*?environments[\s\S]*?\.for\('share'\)/u,
+    );
+  });
+
+  it('locks release-authority membership rows before transactional mutations', () => {
+    const source = readFileSync(
+      fileURLToPath(new URL('../../../database/src/drizzle-repository.ts', import.meta.url)),
+      'utf8',
+    );
+    const method = (start: string, end: string): string =>
+      source.slice(source.indexOf(start), source.indexOf(end));
+    const membershipLock = /from\(workspaceMemberships\)[\s\S]{0,500}?\.for\('share'\)/gu;
+    const directPublish = method(
+      '  async activateCompiledArtifact(',
+      '  async createPublicationVerification(',
+    );
+    const verification = method(
+      '  async createPublicationVerification(',
+      '  async listPublicationVerifications(',
+    );
+    const approval = method('  async createReleaseApproval(', '  async listReleaseApprovals(');
+    const promotion = method('  async promoteVerifiedPublication(', '  async listEnvironments(');
+
+    expect(directPublish.match(membershipLock)).toHaveLength(1);
+    expect(verification.match(membershipLock)).toHaveLength(1);
+    expect(approval.match(membershipLock)).toHaveLength(2);
+    expect(promotion.match(membershipLock)).toHaveLength(1);
+  });
+
+  it('serializes approval and promotion through the same sorted document lock protocol', () => {
+    const source = readFileSync(
+      fileURLToPath(new URL('../../../database/src/drizzle-repository.ts', import.meta.url)),
+      'utf8',
+    );
+    const approval = source.slice(
+      source.indexOf('  async createReleaseApproval('),
+      source.indexOf('  async listReleaseApprovals('),
+    );
+    const promotion = source.slice(
+      source.indexOf('  async promoteVerifiedPublication('),
+      source.indexOf('  async listReleaseOperations('),
+    );
+    const lockHelper = source.slice(
+      source.indexOf('  private async lockSortedReleaseDocumentEnvironments('),
+      source.indexOf('  private async setWorkspaceScope('),
+    );
+
+    expect(approval).toContain('this.lockSortedReleaseDocumentEnvironments(');
+    expect(promotion).toContain('this.lockSortedReleaseDocumentEnvironments(');
+    expect(approval.indexOf('this.lockSortedReleaseDocumentEnvironments(')).toBeLessThan(
+      approval.indexOf(".for('update')"),
+    );
+    expect(promotion.indexOf('this.lockSortedReleaseDocumentEnvironments(')).toBeLessThan(
+      promotion.indexOf('this.findPromotionOperation('),
+    );
+    expect(lockHelper).toContain('[...new Set(environmentIds)].sort()');
+    expect(lockHelper).toContain('select pg_advisory_xact_lock(');
+    expect(lockHelper).toContain('hashtext(${`${workspaceId}:${environmentId}`})');
+    expect(lockHelper).toContain('hashtext(${documentId})');
+  });
+
   it('adds forced-RLS append-only evidence tables and scoped foreign keys', () => {
     const migration = readInitialBaseline();
     expect(migration).toContain('required_approval_count integer not null default 0');
     expect(migration).toContain('environments_required_approval_count_check');
+    expect(migration).toContain('pipeline_position integer not null');
+    expect(migration).toContain('authoring_enabled boolean not null');
+    expect(migration).toContain('release_policy_json jsonb not null');
+    expect(migration).toContain('lodariq_is_valid_origin_allowlist(candidate jsonb)');
+    expect(migration).toContain('count(*) = count(distinct entry.value');
+    expect(migration).toContain("(release_policy_json - array[");
+    expect(migration).toContain(") = '{}'::jsonb");
+    expect(migration).toContain("release_policy_json->'publisherRoles' <@");
+    expect(migration).toContain("jsonb_array_length(release_policy_json->'publisherRoles') =");
+    expect(migration).toContain(
+      "kind = 'production' and promotion_source_environment_id is not null",
+    );
+    expect(migration).toContain("kind <> 'production' and promotion_source_environment_id is null");
     for (const table of ['style_sources', 'publication_verifications', 'release_approvals']) {
       expect(migration).toContain(`create table if not exists ${table}`);
       expect(migration).toContain(`alter table ${table} enable row level security`);
@@ -278,3 +676,5 @@ function documentFixture(id: string): LodariqDocument {
   document.title = id;
   return document;
 }
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';

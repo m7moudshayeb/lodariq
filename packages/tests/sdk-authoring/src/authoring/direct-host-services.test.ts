@@ -3,12 +3,17 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   AUTHORING_SESSION_CAPABILITIES,
   BROWSER_VERIFICATION_CHECK_CODES,
+  LODARIQ_ACCESSIBLE_FALLBACK_THEME_V1,
+  RELEASE_RECOVERY_FAILURE_MESSAGES,
   RENDERER_CONTRACT_VERSION,
+  type AuthoringProductMatchApplyResult,
   type BridgeMessage,
   type BrowserVerificationReport,
   type LodariqDocument,
   type ProductStyleProposal,
   type ProductionPromotionResult,
+  type ReleaseRecoveryRequest,
+  type ReleaseRecoveryStateResponse,
 } from '@lodariq/schema';
 import {
   createDirectAuthoringHostServices,
@@ -80,6 +85,20 @@ const styleProposal: ProductStyleProposal = {
   confidence: 50,
   requiresConfirmation: true,
   createdAt: CREATED_AT,
+};
+const productMatchResult = {
+  proposalId: styleProposal.proposalId,
+  draftRevision: 2,
+  draftUpdatedAt: CREATED_AT,
+  previewTheme: {
+    ...structuredClone(LODARIQ_ACCESSIBLE_FALLBACK_THEME_V1),
+    themeVersionId: 'themev_draft_direct_2',
+    version: 2,
+    contentHash: THEME_HASH,
+  },
+  sources: [{ sourceId: 'style_source_1', sourceHash: SOURCE_HASH }],
+  draftChanged: true,
+  replayed: false,
 };
 const completedPromotion: Extract<ProductionPromotionResult, { ok: true; state: 'completed' }> = {
   ok: true,
@@ -191,9 +210,32 @@ describe('direct authoring host services', () => {
       correlationId: 'style_source_result_1',
       type: 'authoring.style-source.save.result',
       requestCorrelationId: sourceRequest!.correlationId,
-      result: { ok: true, sourceId: 'style_source_1', sourceHash: SOURCE_HASH },
+      result: {
+        ok: true,
+        sourceId: 'style_source_1',
+        sourceHash: SOURCE_HASH,
+        productMatch: productMatchResult,
+      },
     });
-    await expect(source).resolves.toEqual({
+    const savedSource = await source;
+    const consumeLegacyReceipt = (value: { sourceId: string; sourceHash: string }) => ({
+      sourceId: value.sourceId,
+      sourceHash: value.sourceHash,
+    });
+    const consumeProductMatch = (value: AuthoringProductMatchApplyResult) => ({
+      draftRevision: value.draftRevision,
+      previewThemeId: value.previewTheme.themeId,
+    });
+    expect(consumeLegacyReceipt(savedSource)).toEqual({
+      sourceId: 'style_source_1',
+      sourceHash: SOURCE_HASH,
+    });
+    expect(consumeProductMatch(savedSource)).toEqual({
+      draftRevision: productMatchResult.draftRevision,
+      previewThemeId: productMatchResult.previewTheme.themeId,
+    });
+    expect(savedSource).toEqual({
+      ...productMatchResult,
       sourceId: 'style_source_1',
       sourceHash: SOURCE_HASH,
     });
@@ -279,6 +321,70 @@ describe('direct authoring host services', () => {
     direct.stop();
   });
 
+  it('publishes the legacy receipt and current Product Match result in one success message', async () => {
+    const peer = { postMessage: vi.fn() } as unknown as Window;
+    const panel = openLocalAuthoringPanel(session, {
+      iframeSrc: 'https://editor.lodariq.com/authoring.html',
+      initialDocument: structuredClone(documentFixture),
+      onSave: async () => {},
+      release: {
+        releaseStateCapability: AUTHORING_SESSION_CAPABILITIES.READ_RELEASE_STATE,
+        getReleaseState: async () => ({
+          available: false,
+          environment: 'staging',
+          environmentId: 'env_staging',
+          documentId: session.documentId,
+          expectedGeneration: 0,
+          draftArtifactId: null,
+          draftContentHash: null,
+          activeContentHash: null,
+          state: 'no_saved_artifact',
+          findings: [],
+        }),
+        productStyleSamplingCapability: AUTHORING_SESSION_CAPABILITIES.SAMPLE_PRODUCT_STYLE,
+        saveStyleSource: async () => ({
+          ...structuredClone(productMatchResult),
+          sourceId: 'style_source_1',
+          sourceHash: SOURCE_HASH,
+        }),
+      },
+    });
+    const iframe = document.querySelector<HTMLIFrameElement>('lodariq-authoring-panel iframe');
+    if (!iframe) throw new Error('iframe missing');
+    Object.defineProperty(iframe, 'contentWindow', { value: peer, configurable: true });
+    iframe.dispatchEvent(new Event('load'));
+
+    dispatchFromPeer(peer, {
+      protocol: '1',
+      sessionId: session.sessionId,
+      documentId: session.documentId,
+      correlationId: 'style_source_request_compatibility_1',
+      type: 'authoring.style-source.save.request',
+      proposal: styleProposal,
+    });
+
+    await vi.waitFor(() =>
+      expect(outboundMessage(peer, 'authoring.style-source.save.result')).toBeDefined(),
+    );
+    const message = outboundMessage(peer, 'authoring.style-source.save.result');
+    expect(message).toMatchObject({
+      requestCorrelationId: 'style_source_request_compatibility_1',
+      result: {
+        ok: true,
+        sourceId: 'style_source_1',
+        sourceHash: SOURCE_HASH,
+        productMatch: productMatchResult,
+      },
+    });
+    if (message?.result.ok) {
+      expect(message.result.productMatch).toEqual(productMatchResult);
+      expect(message.result.productMatch).not.toHaveProperty('sourceId');
+      expect(message.result.productMatch).not.toHaveProperty('sourceHash');
+    }
+
+    panel.close();
+  });
+
   it('settles an explicit product-style cancellation without waiting for timeout', async () => {
     const peer = { postMessage: vi.fn() } as unknown as Window;
     const direct = createDirectServices(peer, true);
@@ -295,6 +401,242 @@ describe('direct authoring host services', () => {
     });
     await expect(sample).rejects.toThrow('selection was canceled');
     direct.stop();
+  });
+
+  it('round-trips the complete 500-entry recovery state and typed mutation result', async () => {
+    const peer = { postMessage: vi.fn() } as unknown as Window;
+    const environmentId = 'environment_production_recovery';
+    const state = largeRecoveryState(environmentId);
+    const getReleaseRecoveryState = vi.fn(async () => structuredClone(state));
+    const recoverRelease = vi.fn(
+      async (_selectedEnvironmentId, request: ReleaseRecoveryRequest) => ({
+        ok: false as const,
+        action: request.action,
+        state: 'failed' as const,
+        replayed: false,
+        code: 'deployment_changed' as const,
+        message: RELEASE_RECOVERY_FAILURE_MESSAGES.deployment_changed,
+        expectedGeneration: request.expectedGeneration,
+        actualGeneration: request.expectedGeneration + 1,
+        expectedActivePublicationId: request.expectedActivePublicationId,
+        actualActivePublicationId: 'publication_changed_6',
+      }),
+    );
+    const panel = openLocalAuthoringPanel(session, {
+      iframeSrc: 'https://editor.lodariq.com/authoring.html',
+      initialDocument: structuredClone(documentFixture),
+      onSave: async () => {},
+      release: {
+        releaseStateCapability: AUTHORING_SESSION_CAPABILITIES.READ_RELEASE_STATE,
+        getReleaseState: async () => unreleasedState(),
+        releaseRecoveryStateCapability: AUTHORING_SESSION_CAPABILITIES.READ_RELEASE_STATE,
+        getReleaseRecoveryState,
+        rollbackReleaseCapability: AUTHORING_SESSION_CAPABILITIES.ROLLBACK_RELEASE,
+        unpublishReleaseCapability: AUTHORING_SESSION_CAPABILITIES.UNPUBLISH_RELEASE,
+        recoverRelease,
+      },
+    });
+    attachPanelPeer(peer);
+    const direct = createDirectServices(peer, false, true);
+
+    const pendingState = direct.services.getReleaseRecoveryState!(environmentId);
+    const stateRequest = outboundMessage(peer, 'authoring.release-recovery-state.request');
+    dispatchFromPeer(peer, stateRequest);
+    await vi.waitFor(() =>
+      expect(outboundMessage(peer, 'authoring.release-recovery-state.result')).toBeDefined(),
+    );
+    const stateResult = outboundMessage(peer, 'authoring.release-recovery-state.result');
+    expect(new TextEncoder().encode(JSON.stringify(stateResult)).byteLength).toBeGreaterThan(
+      64 * 1024,
+    );
+    expect(new TextEncoder().encode(JSON.stringify(stateResult)).byteLength).toBeLessThanOrEqual(
+      4 * 1024 * 1024,
+    );
+    dispatchFromPeer(peer, stateResult);
+    await expect(pendingState).resolves.toEqual(state);
+    expect(getReleaseRecoveryState).toHaveBeenCalledWith(environmentId);
+
+    const request: ReleaseRecoveryRequest = {
+      action: 'unpublish',
+      reason: 'Pause delivery while the production incident is reviewed',
+      expectedGeneration: 5,
+      expectedActivePublicationId: 'publication_active_5',
+      idempotencyKey: 'recovery.unpublish.direct_1',
+      correlationId: 'recovery.correlation.direct_1',
+    };
+    const pendingRecovery = direct.services.recoverRelease!(environmentId, request);
+    const recoveryRequest = outboundMessage(peer, 'authoring.release-recovery.request');
+    dispatchFromPeer(peer, recoveryRequest);
+    await vi.waitFor(() =>
+      expect(outboundMessage(peer, 'authoring.release-recovery.result')).toBeDefined(),
+    );
+    const recoveryResult = outboundMessage(peer, 'authoring.release-recovery.result');
+    dispatchFromPeer(peer, recoveryResult);
+    await expect(pendingRecovery).resolves.toMatchObject({
+      ok: false,
+      action: 'unpublish',
+      code: 'deployment_changed',
+    });
+    expect(recoverRelease).toHaveBeenCalledWith(environmentId, request);
+
+    direct.stop();
+    panel.close();
+  });
+
+  it('rejects recovery scope/action mismatches and settles missing actions without sending', async () => {
+    const peer = { postMessage: vi.fn() } as unknown as Window;
+    const direct = createDirectServices(peer, false, true);
+    const pendingState = direct.services.getReleaseRecoveryState!('environment_production');
+    const stateRequest = outboundMessage(peer, 'authoring.release-recovery-state.request');
+    dispatchFromPeer(peer, {
+      protocol: '1',
+      sessionId: session.sessionId,
+      documentId: session.documentId,
+      correlationId: 'recovery_scope_mismatch_result',
+      type: 'authoring.release-recovery-state.result',
+      requestCorrelationId: stateRequest!.correlationId,
+      result: { ok: true, state: largeRecoveryState('environment_other', 0) },
+    });
+    await expect(pendingState).rejects.toThrow('scope mismatch');
+
+    const pendingRecovery = direct.services.recoverRelease!('environment_production', {
+      action: 'rollback',
+      targetPublicationId: 'publication_prior_3',
+      reason: 'Restore the prior verified publication',
+      expectedGeneration: 5,
+      expectedActivePublicationId: 'publication_active_5',
+      idempotencyKey: 'recovery.rollback.mismatch_1',
+      correlationId: 'recovery.correlation.mismatch_1',
+    });
+    const recoveryRequest = outboundMessage(peer, 'authoring.release-recovery.request');
+    dispatchFromPeer(peer, {
+      protocol: '1',
+      sessionId: session.sessionId,
+      documentId: session.documentId,
+      correlationId: 'recovery_action_mismatch_result',
+      type: 'authoring.release-recovery.result',
+      requestCorrelationId: recoveryRequest!.correlationId,
+      result: {
+        ok: false,
+        action: 'unpublish',
+        state: 'failed',
+        replayed: false,
+        code: 'capability_denied',
+        message: RELEASE_RECOVERY_FAILURE_MESSAGES.capability_denied,
+      },
+    });
+    await expect(pendingRecovery).rejects.toThrow('action mismatch');
+
+    direct.stop();
+    const readOnly = createDirectAuthoringHostServices({
+      peerWindow: peer,
+      allowedOrigins: ['https://editor.lodariq.com'],
+      targetOrigin: 'https://editor.lodariq.com',
+      sessionId: session.sessionId,
+      workspaceId: session.workspaceId,
+      documentId: session.documentId,
+      publishToStaging: false,
+      readReleaseRecovery: true,
+      rollbackRelease: true,
+      unpublishRelease: false,
+    });
+    const postCount = vi.mocked(peer.postMessage).mock.calls.length;
+    await expect(
+      readOnly.services.recoverRelease!('environment_production', {
+        action: 'unpublish',
+        reason: 'Pause delivery during investigation',
+        expectedGeneration: 5,
+        expectedActivePublicationId: 'publication_active_5',
+        idempotencyKey: 'recovery.unpublish.denied_1',
+        correlationId: 'recovery.correlation.denied_1',
+      }),
+    ).resolves.toMatchObject({ code: 'capability_denied', action: 'unpublish' });
+    expect(peer.postMessage).toHaveBeenCalledTimes(postCount);
+    readOnly.stop();
+  });
+
+  it('keeps legacy save and release-state requests working after an optional recovery timeout', async () => {
+    vi.useFakeTimers();
+    const peer = { postMessage: vi.fn() } as unknown as Window;
+    const onSave = vi.fn(async () => undefined);
+    const panel = openDirectPanel(peer, onSave);
+    const direct = createDirectServices(peer, false, true);
+    expect(outboundMessage(peer, 'authoring.release-recovery-state.request')).toBeUndefined();
+
+    const pendingRecoveryState = direct.services.getReleaseRecoveryState!('environment_production');
+    const recoveryRejection = expect(pendingRecoveryState).rejects.toThrow('timed out');
+    expect(outboundMessage(peer, 'authoring.release-recovery-state.request')).toBeDefined();
+
+    const persisted = direct.services.persistDocument(structuredClone(documentFixture));
+    const saveResult = outboundMessage(peer, 'authoring.save.result');
+    dispatchFromPeer(peer, saveResult);
+    await vi.advanceTimersByTimeAsync(0);
+    const ack = outboundAck(peer, saveResult?.correlationId);
+    expect(ack).toBeDefined();
+    dispatchFromPeer(peer, ack);
+    await persisted;
+    expect(onSave).toHaveBeenCalledOnce();
+
+    await vi.advanceTimersByTimeAsync(5_000);
+    await recoveryRejection;
+    const pendingReleaseState = direct.services.getReleaseState();
+    const releaseStateRequest = outboundMessage(peer, 'authoring.release-state.request');
+    dispatchFromPeer(peer, {
+      protocol: '1',
+      sessionId: session.sessionId,
+      documentId: session.documentId,
+      correlationId: 'legacy_release_state_result_after_recovery_timeout',
+      type: 'authoring.release-state.result',
+      requestCorrelationId: releaseStateRequest!.correlationId,
+      result: { ok: true, releaseState: unreleasedState() },
+    });
+    await expect(pendingReleaseState).resolves.toMatchObject({ state: 'no_saved_artifact' });
+
+    direct.stop();
+    panel.close();
+  });
+
+  it('returns typed capability denial immediately when the new host has no recovery services', async () => {
+    const peer = { postMessage: vi.fn() } as unknown as Window;
+    const panel = openDirectPanel(peer, async () => undefined);
+    dispatchFromPeer(peer, {
+      protocol: '1',
+      sessionId: session.sessionId,
+      documentId: session.documentId,
+      correlationId: 'unsupported_recovery_state_request',
+      type: 'authoring.release-recovery-state.request',
+      environmentId: 'environment_production',
+    });
+    await vi.waitFor(() =>
+      expect(outboundMessage(peer, 'authoring.release-recovery-state.result')).toMatchObject({
+        requestCorrelationId: 'unsupported_recovery_state_request',
+        result: { ok: false, code: 'capability_denied' },
+      }),
+    );
+
+    dispatchFromPeer(peer, {
+      protocol: '1',
+      sessionId: session.sessionId,
+      documentId: session.documentId,
+      correlationId: 'unsupported_recovery_mutation_request',
+      type: 'authoring.release-recovery.request',
+      environmentId: 'environment_production',
+      request: {
+        action: 'unpublish',
+        reason: 'Pause delivery during incident review',
+        expectedGeneration: 5,
+        expectedActivePublicationId: 'publication_active_5',
+        idempotencyKey: 'unsupported.unpublish.request_1',
+        correlationId: 'unsupported.unpublish.correlation_1',
+      },
+    });
+    await vi.waitFor(() =>
+      expect(outboundMessage(peer, 'authoring.release-recovery.result')).toMatchObject({
+        requestCorrelationId: 'unsupported_recovery_mutation_request',
+        result: { ok: false, action: 'unpublish', code: 'capability_denied' },
+      }),
+    );
+    panel.close();
   });
 });
 
@@ -333,12 +675,13 @@ function openDirectPanel(peer: Window, onSave: (document: LodariqDocument) => Pr
   return panel;
 }
 
-function createDirectServices(peer: Window, sliceThree = false) {
+function createDirectServices(peer: Window, sliceThree = false, recovery = false) {
   return createDirectAuthoringHostServices({
     peerWindow: peer,
     allowedOrigins: ['https://editor.lodariq.com'],
     targetOrigin: 'https://editor.lodariq.com',
     sessionId: session.sessionId,
+    workspaceId: session.workspaceId,
     documentId: session.documentId,
     publishToStaging: true,
     sampleProductStyle: sliceThree,
@@ -347,7 +690,81 @@ function createDirectServices(peer: Window, sliceThree = false) {
     submitStagingVerification: sliceThree,
     promoteProduction: sliceThree,
     approveProduction: sliceThree,
+    readReleaseRecovery: recovery,
+    rollbackRelease: recovery,
+    unpublishRelease: recovery,
   });
+}
+
+function attachPanelPeer(peer: Window): void {
+  const iframe = document.querySelector<HTMLIFrameElement>('lodariq-authoring-panel iframe');
+  if (!iframe) throw new Error('iframe missing');
+  Object.defineProperty(iframe, 'contentWindow', { value: peer, configurable: true });
+  iframe.dispatchEvent(new Event('load'));
+}
+
+function unreleasedState() {
+  return {
+    available: false,
+    environment: 'staging' as const,
+    environmentId: 'environment_staging',
+    documentId: session.documentId,
+    expectedGeneration: 0,
+    draftArtifactId: null,
+    draftContentHash: null,
+    activeContentHash: null,
+    state: 'no_saved_artifact' as const,
+    findings: [],
+  };
+}
+
+function largeRecoveryState(
+  environmentId: string,
+  historySize = 500,
+): ReleaseRecoveryStateResponse {
+  return {
+    workspaceId: session.workspaceId,
+    environmentId,
+    documentId: session.documentId,
+    permissions: { rollback: true, unpublish: true },
+    deployment: {
+      workspaceId: session.workspaceId,
+      environmentId,
+      documentId: session.documentId,
+      state: 'active',
+      generation: 5,
+      activePublicationId: 'publication_active_5',
+      updatedAt: CREATED_AT,
+    },
+    history: Array.from({ length: historySize }, (_, index) => ({
+      id: paddedRecoveryIdentifier('history', index, 240),
+      workspaceId: session.workspaceId,
+      environmentId,
+      documentId: session.documentId,
+      releaseOperationId: paddedRecoveryIdentifier('operation', index, 240),
+      idempotencyKey: paddedRecoveryIdentifier('idempotency', index, 190),
+      correlationId: paddedRecoveryIdentifier('correlation', index, 246),
+      actorUserId: paddedRecoveryIdentifier('actor', index, 240),
+      occurredAt: CREATED_AT,
+      action: 'rollback' as const,
+      state: 'failed' as const,
+      targetPublicationId: paddedRecoveryIdentifier('target', index, 240),
+      reason: `Recovery attempt ${index} ${'r'.repeat(470)}`.slice(0, 500),
+      expectedGeneration: 5,
+      actualGeneration: 6,
+      expectedActivePublicationId: 'publication_active_5',
+      actualActivePublicationId: 'publication_changed_6',
+      failure: {
+        code: 'deployment_changed' as const,
+        message: RELEASE_RECOVERY_FAILURE_MESSAGES.deployment_changed,
+      },
+    })),
+    rollbackTargetPublicationIds: [],
+  };
+}
+
+function paddedRecoveryIdentifier(prefix: string, index: number, length: number): string {
+  return `${prefix}_${index}_`.padEnd(length, 'x');
 }
 
 function publicationVerification() {

@@ -94,12 +94,52 @@ describe('Fly deployment packaging', () => {
     }
   });
 
+  it('routes Fly traffic only to services whose explicit health endpoint is ready', () => {
+    const apiFlyConfigs = ['apps/api/fly.toml', 'apps/api/fly.staging.toml'];
+    const livenessFlyConfigs = [
+      'apps/dashboard/fly.toml',
+      'apps/dashboard/fly.staging.toml',
+      'apps/editor/fly.toml',
+      'apps/editor/fly.staging.toml',
+    ];
+
+    for (const path of [...apiFlyConfigs, ...livenessFlyConfigs]) {
+      const config = read(path);
+      expect(config).toContain('[[http_service.checks]]');
+      expect(config).toContain('method = "GET"');
+      expect(config).toContain('timeout = "3s"');
+    }
+    for (const path of apiFlyConfigs) expect(read(path)).toContain('path = "/readyz"');
+    for (const path of livenessFlyConfigs) expect(read(path)).toContain('path = "/healthz"');
+    expect(read('apps/api/src/routes/control-plane.ts')).toContain(
+      'await options.repository.checkReadiness()',
+    );
+    expect(read('apps/dashboard/src/app/healthz/route.ts')).toContain('{ ok: true }');
+    expect(read('apps/editor/scripts/serve-static.mjs')).toContain(
+      "requestPathname(request.url) === '/healthz'",
+    );
+  });
+
+  it('runs push verification on the actual default branch', () => {
+    const workflow = read('.github/workflows/verify.yml');
+    expect(workflow).toContain('branches: [master]');
+    expect(workflow).not.toContain('branches: [main]');
+    const actionReferences = [...workflow.matchAll(/^\s*-?\s*uses:\s+[^@\s]+@([^\s]+)$/gmu)].map(
+      (match) => match[1] ?? '',
+    );
+    expect(actionReferences).toHaveLength(3);
+    expect(actionReferences.every((reference) => /^[a-f0-9]{40}$/u.test(reference))).toBe(true);
+  });
+
   it('packages the API with pnpm deploy after building the Fastify app', () => {
     const dockerfile = read('apps/api/Dockerfile');
     expect(dockerfile).toContain('FROM node:24-slim AS build');
     expect(dockerfile).toContain('pnpm --filter @lodariq/api build');
     expect(dockerfile).toContain('pnpm --filter @lodariq/api deploy --prod /out');
-    expect(dockerfile).toContain('CMD ["node", "dist/server.js"]');
+    expect(dockerfile).toContain('apps/api/scripts/check-runtime-env.mjs');
+    expect(dockerfile).toContain(
+      'CMD ["sh", "-c", "node check-runtime-env.mjs && exec node dist/server.js"]',
+    );
   });
 
   it('packages the Next standalone dashboard server without Vercel assumptions', () => {
@@ -107,7 +147,10 @@ describe('Fly deployment packaging', () => {
     expect(dockerfile).toContain('FROM node:24-slim AS build');
     expect(dockerfile).toContain('pnpm --filter @lodariq/dashboard build');
     expect(dockerfile).toContain('.next/standalone');
-    expect(dockerfile).toContain('CMD ["node", "server.js"]');
+    expect(dockerfile).toContain('apps/dashboard/scripts/check-runtime-env.mjs');
+    expect(dockerfile).toContain(
+      'CMD ["sh", "-c", "node check-runtime-env.mjs && exec node server.js"]',
+    );
   });
 
   it('packages the hosted editor iframe as a separate static Fly service', () => {

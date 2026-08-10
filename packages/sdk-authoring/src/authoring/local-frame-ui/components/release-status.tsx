@@ -1,4 +1,3 @@
-import { publishReadinessIssueLabel, validateTourPublishReadiness } from '@lodariq/schema';
 import type { LocalAuthoringFrameController } from '../controller';
 import { Check, CircleAlert, LoaderCircle, Rocket } from '../design-system';
 import {
@@ -6,6 +5,7 @@ import {
   type AuthoringReleaseAction,
 } from '../release-presentation';
 import type { LocalAuthoringFrameSnapshot } from '../types';
+import { combinedReleaseFindings, localPublishReadinessFindings } from './release-findings';
 
 export function ReleaseStatus({
   controller,
@@ -14,20 +14,13 @@ export function ReleaseStatus({
   controller: LocalAuthoringFrameController;
   snapshot: LocalAuthoringFrameSnapshot;
 }) {
-  const localIssues = validateTourPublishReadiness(snapshot.documentState);
+  const localFindings = localPublishReadinessFindings(snapshot.documentState);
   const presentation = deriveAuthoringReleasePresentation({
-    blockerCount: localIssues.length,
+    blockerCount: localFindings.length,
     release: snapshot.release,
     workflow: snapshot.panelWorkflow.release,
   });
-  const remoteFindings = deduplicateFindings(snapshot.release.findings);
-  const findings = localIssues.length
-    ? localIssues.map((issue) => ({
-        code: issue.code,
-        label: publishReadinessIssueLabel(issue.code),
-        severity: 'blocker' as const,
-      }))
-    : remoteFindings;
+  const findings = combinedReleaseFindings(snapshot.documentState, snapshot.release.findings);
 
   return (
     <section
@@ -111,12 +104,4 @@ function releaseStatusIcon(tone: ReturnType<typeof deriveAuthoringReleasePresent
     return <CircleAlert size={16} strokeWidth={2.2} />;
   }
   return <Rocket size={16} strokeWidth={2.2} />;
-}
-
-function deduplicateFindings(findings: LocalAuthoringFrameSnapshot['release']['findings']) {
-  const unique = new Map<string, (typeof findings)[number]>();
-  for (const finding of findings) {
-    unique.set(`${finding.severity}:${finding.code}`, finding);
-  }
-  return [...unique.values()];
 }

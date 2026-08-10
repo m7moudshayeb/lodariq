@@ -6,6 +6,7 @@ import {
   AUTHORING_SESSION_HEADER,
   AuthoringDocumentPayload,
   AuthoringDocumentSessionResult,
+  AuthoringProductMatchApplyResult as AuthoringProductMatchApplyResultSchema,
   AuthoringStagingReleaseState as AuthoringStagingReleaseStateSchema,
   AuthoringStagingVerificationResult as AuthoringStagingVerificationResultSchema,
   BRIDGE_PROTOCOL_VERSION,
@@ -30,14 +31,22 @@ import {
   ProductStyleProposal as ProductStyleProposalSchema,
   ProductionPromotionResult as ProductionPromotionResultSchema,
   ReleaseApproval as ReleaseApprovalSchema,
+  ReleaseRecoveryResult as ReleaseRecoveryResultSchema,
+  ReleaseRecoveryStateResponse as ReleaseRecoveryStateResponseSchema,
   BASIC_VISUAL_PREFLIGHT_ISSUE_CODES,
   QueryAuthoringDocumentsResult,
   RENDERER_CONTRACT_VERSION,
+  RELEASE_RECOVERY_FAILURE_MESSAGES,
   basicVisualPreflightIssueLabel,
+  releaseRecoveryStateMatchesScope,
   validate,
   type AuthoringDocumentIntent,
   type AuthoringDocumentQueryScope,
   type AuthoringPageDocumentSummary,
+  type AuthoringProductMatchApplyResult,
+  type AuthoringBrandDriftCheckResult,
+  type AuthoringBrandThemeAcknowledgementRequest,
+  type AuthoringBrandThemeAcknowledgementResult,
   type AuthoringSessionContext,
   type BasicVisualPreflightIssueCode,
   type BrandThemeSnapshot,
@@ -50,12 +59,18 @@ import {
   type HostedAuthoringSessionCloseRequestMessage as HostedAuthoringSessionCloseRequestMessageType,
   type HostedAuthoringSessionCloseResultMessage as HostedAuthoringSessionCloseResultMessageType,
   type ProductStyleProposal,
+  type BrandDriftCheckRequest,
   type ProductionPromotionRequest,
   type ProductionPromotionResult,
   type ReleaseApproval,
+  type ReleaseRecoveryRequest,
+  type ReleaseRecoveryResult,
+  type ReleaseRecoveryStateResponse,
 } from '@lodariq/schema';
 import {
   createDirectAuthoringHostServices,
+  requestAuthoringBrandDrift,
+  requestAuthoringBrandThemeAcknowledgement,
   brandMatchProposalForFrame,
   brandWorkspaceStateFromTheme,
   mountLocalAuthoringFrame,
@@ -842,6 +857,71 @@ async function loadHostedReleaseState(
   return requireHostedReleaseState(payload, context);
 }
 
+async function loadHostedReleaseRecoveryState(
+  apiOrigin: string,
+  context: AuthoringSessionContext,
+  environmentId: string,
+): Promise<ReleaseRecoveryStateResponse> {
+  const response = await fetchHostedReleaseRequest(
+    hostedReleaseRecoveryUrl(apiOrigin, environmentId),
+    { method: 'GET' },
+  );
+  if (!response.ok) throw new Error('Authoring release recovery state failed');
+  const payload = await response.json().catch(() => null);
+  const validation = validate(ReleaseRecoveryStateResponseSchema, payload);
+  const expectedScope = {
+    workspaceId: context.workspaceId,
+    environmentId,
+    documentId: context.documentId,
+  };
+  if (!validation.valid || !releaseRecoveryStateMatchesScope(validation.value, expectedScope)) {
+    throw new Error('Authoring release recovery state scope mismatch');
+  }
+  return structuredClone(validation.value);
+}
+
+async function recoverHostedRelease(
+  apiOrigin: string,
+  _context: AuthoringSessionContext,
+  environmentId: string,
+  request: ReleaseRecoveryRequest,
+): Promise<ReleaseRecoveryResult> {
+  const response = await fetchHostedReleaseRequest(
+    hostedReleaseRecoveryUrl(apiOrigin, environmentId),
+    {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(request),
+    },
+  );
+  const payload = await response.json().catch(() => null);
+  const validation = validate(ReleaseRecoveryResultSchema, payload);
+  if (!validation.valid || validation.value.action !== request.action) {
+    throw new Error('Authoring release recovery response is invalid');
+  }
+  return structuredClone(validation.value);
+}
+
+function hostedReleaseRecoveryUrl(apiOrigin: string, environmentId: string): URL {
+  return new URL(
+    `/v1/authoring/environments/${encodeURIComponent(environmentId)}/release-recovery`,
+    apiOrigin,
+  );
+}
+
+function releaseRecoveryCapabilityDenied(
+  action: ReleaseRecoveryRequest['action'],
+): Extract<ReleaseRecoveryResult, { ok: false }> {
+  return {
+    ok: false,
+    action,
+    state: 'failed',
+    replayed: false,
+    code: 'capability_denied',
+    message: RELEASE_RECOVERY_FAILURE_MESSAGES.capability_denied,
+  } as Extract<ReleaseRecoveryResult, { ok: false }>;
+}
+
 async function publishHostedTourToStaging(
   apiOrigin: string,
   context: AuthoringSessionContext,
@@ -903,8 +983,9 @@ async function publishHostedTourToStaging(
 async function saveHostedStyleSource(
   apiOrigin: string,
   context: AuthoringSessionContext,
+  expectedThemeId: string,
   proposal: ProductStyleProposal,
-): Promise<{ sourceId: string; sourceHash: string }> {
+): Promise<AuthoringProductMatchApplyResult> {
   const proposalValidation = validate(ProductStyleProposalSchema, proposal);
   if (!proposalValidation.valid) throw new Error('Brand proposal is invalid');
   const response = await fetchHostedReleaseRequest(
@@ -917,18 +998,67 @@ async function saveHostedStyleSource(
   );
   if (!response.ok) throw new Error('Brand proposal could not be saved');
   const payload = await readJsonObject(response);
-  const source = objectValue(payload['source']);
-  const sourceId = typeof source?.['id'] === 'string' ? source['id'] : null;
-  const sourceHash = typeof source?.['sourceHash'] === 'string' ? source['sourceHash'] : null;
-  if (
-    !sourceId ||
-    !sourceHash ||
-    source?.['workspaceId'] !== context.workspaceId ||
-    source?.['environmentId'] !== context.environmentId
-  ) {
+  const normalized = validate(AuthoringProductMatchApplyResultSchema, payload['productMatch']);
+  if (!normalized.valid || normalized.value.previewTheme.themeId !== expectedThemeId) {
     throw new Error('Brand proposal response is invalid');
   }
-  return { sourceId, sourceHash };
+  const persistedSources = Array.isArray(payload['sources']) ? payload['sources'] : [];
+  if (
+    persistedSources.length !== normalized.value.sources.length ||
+    normalized.value.sources.some((receipt) => {
+      const source = persistedSources
+        .map((value) => objectValue(value))
+        .find((value) => value?.['id'] === receipt.sourceId);
+      return (
+        source?.['workspaceId'] !== context.workspaceId ||
+        source?.['environmentId'] !== context.environmentId ||
+        source?.['sourceHash'] !== receipt.sourceHash
+      );
+    })
+  ) {
+    throw new Error('Brand proposal response scope is invalid');
+  }
+  return structuredClone(normalized.value);
+}
+
+async function checkHostedBrandDrift(
+  apiOrigin: string,
+  context: AuthoringSessionContext,
+  theme: BrandThemeSnapshot,
+  request: BrandDriftCheckRequest,
+): Promise<AuthoringBrandDriftCheckResult> {
+  return requestAuthoringBrandDrift({
+    request,
+    expectedDocumentId: context.documentId,
+    expectedThemeId: theme.themeId,
+    expectedThemeVersionId: theme.themeVersionId,
+    fetchAuthorized: (body) =>
+      fetchHostedReleaseRequest(new URL('/v1/authoring/brand-drift', apiOrigin), {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body,
+      }),
+  });
+}
+
+async function acknowledgeHostedBrandTheme(
+  apiOrigin: string,
+  context: AuthoringSessionContext,
+  theme: BrandThemeSnapshot,
+  request: AuthoringBrandThemeAcknowledgementRequest,
+): Promise<AuthoringBrandThemeAcknowledgementResult> {
+  return requestAuthoringBrandThemeAcknowledgement({
+    request,
+    expectedWorkspaceId: context.workspaceId,
+    expectedDocumentId: context.documentId,
+    expectedThemeId: theme.themeId,
+    fetchAuthorized: (body) =>
+      fetchHostedReleaseRequest(new URL('/v1/authoring/brand-theme-acknowledgement', apiOrigin), {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body,
+      }),
+  });
 }
 
 async function submitHostedStagingVerification(
@@ -1254,10 +1384,20 @@ function acceptAuthoringInit(message: AuthoringInitMessage, parentOrigin: string
         allowedOrigins: [parentOrigin],
         targetOrigin: parentOrigin,
         sessionId: message.sessionId,
+        workspaceId: message.workspaceId,
         documentId: message.documentId,
         publishToStaging:
           !session &&
           message.stagingPublicationCapability === AUTHORING_SESSION_CAPABILITIES.PUBLISH_STAGING,
+        readReleaseRecovery: session
+          ? session.context.capabilities.includes(AUTHORING_SESSION_CAPABILITIES.READ_RELEASE_STATE)
+          : message.releaseStateCapability === AUTHORING_SESSION_CAPABILITIES.READ_RELEASE_STATE,
+        rollbackRelease: session
+          ? session.context.capabilities.includes(AUTHORING_SESSION_CAPABILITIES.ROLLBACK_RELEASE)
+          : message.releaseStateCapability === AUTHORING_SESSION_CAPABILITIES.READ_RELEASE_STATE,
+        unpublishRelease: session
+          ? session.context.capabilities.includes(AUTHORING_SESSION_CAPABILITIES.UNPUBLISH_RELEASE)
+          : message.releaseStateCapability === AUTHORING_SESSION_CAPABILITIES.READ_RELEASE_STATE,
         sampleProductStyle: session
           ? session.context.capabilities.includes(
               AUTHORING_SESSION_CAPABILITIES.SAMPLE_PRODUCT_STYLE,
@@ -1268,6 +1408,13 @@ function acceptAuthoringInit(message: AuthoringInitMessage, parentOrigin: string
           !session &&
           message.productStyleSamplingCapability ===
             AUTHORING_SESSION_CAPABILITIES.SAMPLE_PRODUCT_STYLE,
+        checkBrandDrift:
+          !session &&
+          message.brandDriftCheckCapability === AUTHORING_SESSION_CAPABILITIES.SAMPLE_PRODUCT_STYLE,
+        acknowledgeBrandTheme:
+          !session &&
+          message.brandThemeAcknowledgementCapability ===
+            AUTHORING_SESSION_CAPABILITIES.WRITE_DOCUMENT,
         verifyBrowserPublication: session
           ? session.context.capabilities.includes(AUTHORING_SESSION_CAPABILITIES.VERIFY_STAGING)
           : message.stagingVerificationCapability === AUTHORING_SESSION_CAPABILITIES.VERIFY_STAGING,
@@ -1319,9 +1466,19 @@ function createHostedEditorServices(
   let currentTheme = structuredClone(
     hostedSession?.theme ?? directTheme ?? LODARIQ_ACCESSIBLE_FALLBACK_THEME_V1,
   );
+  let currentDraftRevision = 0;
   const canReadReleaseState = Boolean(
     hostedSession?.context.capabilities.includes(AUTHORING_SESSION_CAPABILITIES.READ_RELEASE_STATE),
   );
+  const canReadReleaseRecovery = hostedSession
+    ? hostedSession.context.capabilities.includes(AUTHORING_SESSION_CAPABILITIES.READ_RELEASE_STATE)
+    : Boolean(directHostServices?.getReleaseRecoveryState);
+  const canRollbackRelease = hostedSession
+    ? hostedSession.context.capabilities.includes(AUTHORING_SESSION_CAPABILITIES.ROLLBACK_RELEASE)
+    : Boolean(directHostServices?.recoverRelease);
+  const canUnpublishRelease = hostedSession
+    ? hostedSession.context.capabilities.includes(AUTHORING_SESSION_CAPABILITIES.UNPUBLISH_RELEASE)
+    : Boolean(directHostServices?.recoverRelease);
   const canPublishToStaging = Boolean(
     hostedSession?.context.capabilities.includes(AUTHORING_SESSION_CAPABILITIES.PUBLISH_STAGING),
   );
@@ -1330,6 +1487,14 @@ function createHostedEditorServices(
         AUTHORING_SESSION_CAPABILITIES.SAMPLE_PRODUCT_STYLE,
       )
     : Boolean(directHostServices?.sampleProductStyle && directHostServices.saveStyleSource);
+  const canCheckBrandDrift = hostedSession
+    ? hostedSession.context.capabilities.includes(
+        AUTHORING_SESSION_CAPABILITIES.SAMPLE_PRODUCT_STYLE,
+      )
+    : Boolean(directHostServices?.checkBrandDrift);
+  const canAcknowledgeBrandTheme = hostedSession
+    ? hostedSession.context.capabilities.includes(AUTHORING_SESSION_CAPABILITIES.WRITE_DOCUMENT)
+    : Boolean(directHostServices?.acknowledgeBrandTheme);
   const canVerifyStaging = hostedSession
     ? hostedSession.context.capabilities.includes(AUTHORING_SESSION_CAPABILITIES.VERIFY_STAGING)
     : Boolean(
@@ -1348,10 +1513,40 @@ function createHostedEditorServices(
   const loadReleaseState = releaseStateSource
     ? createCoalescedReleaseStateLoader(releaseStateSource)
     : undefined;
-  const saveStyleSource = hostedSession
-    ? (proposal: ProductStyleProposal) =>
-        saveHostedStyleSource(hostedSession.apiOrigin, hostedSession.context, proposal)
-    : directHostServices?.saveStyleSource;
+  const loadReleaseRecoveryState = hostedSession
+    ? (environmentId: string) =>
+        loadHostedReleaseRecoveryState(
+          hostedSession.apiOrigin,
+          hostedSession.context,
+          environmentId,
+        )
+    : directHostServices?.getReleaseRecoveryState;
+  const recoverRelease = hostedSession
+    ? (environmentId: string, request: ReleaseRecoveryRequest) => {
+        const allowed = request.action === 'rollback' ? canRollbackRelease : canUnpublishRelease;
+        return allowed
+          ? recoverHostedRelease(
+              hostedSession.apiOrigin,
+              hostedSession.context,
+              environmentId,
+              request,
+            )
+          : Promise.resolve(releaseRecoveryCapabilityDenied(request.action));
+      }
+    : directHostServices?.recoverRelease;
+  const saveStyleSource:
+    ((proposal: ProductStyleProposal) => Promise<AuthoringProductMatchApplyResult>) | undefined =
+    hostedSession
+      ? (proposal: ProductStyleProposal) =>
+          saveHostedStyleSource(
+            hostedSession.apiOrigin,
+            hostedSession.context,
+            currentTheme.themeId,
+            proposal,
+          )
+      : (directHostServices?.saveStyleSource as
+          | ((proposal: ProductStyleProposal) => Promise<AuthoringProductMatchApplyResult>)
+          | undefined);
   const submitVerification = hostedSession
     ? (request: AuthoringStagingVerificationRequest) =>
         submitHostedStagingVerification(hostedSession.apiOrigin, hostedSession.context, request)
@@ -1404,6 +1599,10 @@ function createHostedEditorServices(
             publishHostedTourToStaging(hostedSession.apiOrigin, hostedSession.context, request),
         }
       : {}),
+    ...(canReadReleaseRecovery && loadReleaseRecoveryState
+      ? { getReleaseRecoveryState: loadReleaseRecoveryState }
+      : {}),
+    ...((canRollbackRelease || canUnpublishRelease) && recoverRelease ? { recoverRelease } : {}),
     getBrandWorkflowState: async () => brandWorkspaceStateFromTheme(currentTheme),
     ...(canSampleProductStyle && directHostServices?.sampleProductStyle
       ? {
@@ -1419,14 +1618,85 @@ function createHostedEditorServices(
           },
         }
       : {}),
+    ...(canSampleProductStyle
+      ? {
+          prepareBrandMatchProposal: (proposal: ProductStyleProposal) =>
+            brandMatchProposalForFrame(proposal, currentTheme),
+        }
+      : {}),
+    ...(canCheckBrandDrift
+      ? {
+          checkBrandDrift: (request: BrandDriftCheckRequest) => {
+            if (hostedSession) {
+              return checkHostedBrandDrift(
+                hostedSession.apiOrigin,
+                hostedSession.context,
+                currentTheme,
+                request,
+              );
+            }
+            if (!directHostServices?.checkBrandDrift) {
+              throw new Error('Brand drift checking is unavailable');
+            }
+            return directHostServices.checkBrandDrift(request);
+          },
+        }
+      : {}),
+    ...(canAcknowledgeBrandTheme
+      ? {
+          acknowledgeBrandTheme: async (request: AuthoringBrandThemeAcknowledgementRequest) => {
+            let acknowledgement: AuthoringBrandThemeAcknowledgementResult;
+            if (hostedSession) {
+              acknowledgement = await acknowledgeHostedBrandTheme(
+                hostedSession.apiOrigin,
+                hostedSession.context,
+                currentTheme,
+                request,
+              );
+              hostedSession.context = {
+                ...hostedSession.context,
+                themeVersionId: acknowledgement.theme.themeVersionId,
+              };
+              if (activeHostedSession?.context.sessionId === hostedSession.context.sessionId) {
+                activeHostedSession = {
+                  ...activeHostedSession,
+                  context: hostedSession.context,
+                };
+              }
+            } else {
+              const acknowledge = directHostServices?.acknowledgeBrandTheme;
+              if (!acknowledge) throw new Error('Brand acknowledgement is unavailable');
+              acknowledgement = await acknowledge(request);
+            }
+            currentDocument = structuredClone(acknowledgement.document);
+            currentTheme = structuredClone(acknowledgement.theme);
+            return structuredClone(acknowledgement);
+          },
+        }
+      : {}),
     ...(canSampleProductStyle && saveStyleSource
       ? {
           applyBrandMatch: async (proposal) => {
-            await saveStyleSource(structuredClone(proposal.evidence));
+            const persisted = await saveStyleSource(structuredClone(proposal.evidence));
             return {
-              brand: brandWorkspaceStateFromTheme(currentTheme, proposal.evidence),
-              savedAs: proposal.changes.length === 0 ? ('unchanged' as const) : ('draft' as const),
+              brand: brandWorkspaceStateFromTheme(persisted.previewTheme, proposal.evidence),
+              savedAs: persisted.draftChanged ? ('draft' as const) : ('unchanged' as const),
+              persisted,
             };
+          },
+          adoptBrandPreviewTheme: (persisted: AuthoringProductMatchApplyResult) => {
+            if (persisted.previewTheme.themeId !== currentTheme.themeId) return false;
+            if (persisted.draftRevision < currentDraftRevision) return false;
+            if (
+              persisted.draftRevision === currentDraftRevision &&
+              currentDraftRevision > 0 &&
+              persisted.previewTheme.contentHash !== currentTheme.contentHash
+            ) {
+              return false;
+            }
+            currentDraftRevision = persisted.draftRevision;
+            currentTheme = structuredClone(persisted.previewTheme);
+            return true;
           },
         }
       : {}),

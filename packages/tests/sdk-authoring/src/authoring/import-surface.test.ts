@@ -3,14 +3,27 @@ import * as authoringCompatibility from '@lodariq/sdk-authoring/lodariq-authorin
 import * as authoringFrame from '@lodariq/sdk-authoring/authoring-frame';
 
 const AUTHORING_FRAME_RUNTIME_EXPORTS = [
+  'AUTHORING_RELEASE_RECOVERY_PREPARATION_FAILURES',
   'AUTHORING_STAGING_RELEASE_STATES',
+  'AuthoringBrandDriftController',
+  'AuthoringBrandDriftRequestError',
+  'ReleaseHistoryPanel',
+  'ReleaseRecoveryConfirmation',
+  'authoringReleaseRecoveryReasonFailure',
   'brandMatchProposalForFrame',
   'brandWorkspaceStateFromTheme',
+  'createAuthoringBrandDriftViewModel',
   'createDirectAuthoringHostServices',
+  'createAuthoringReleaseRecoveryIntent',
+  'createAuthoringReleaseRecoveryViewModel',
   'mountLocalAuthoringFrame',
+  'prepareAuthoringReleaseRecoveryRequest',
   'productionArtifactForFrame',
   'releaseWorkflowFromState',
+  'requestAuthoringBrandDrift',
+  'requestAuthoringBrandThemeAcknowledgement',
   'verificationForFrame',
+  'withAuthoringBrandDriftRuntimePreview',
 ] as const;
 
 describe('authoring frame import surface', () => {

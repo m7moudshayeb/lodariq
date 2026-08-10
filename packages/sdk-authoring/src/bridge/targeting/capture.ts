@@ -11,6 +11,12 @@ import {
   type TargetVisualTopology,
 } from '@lodariq/schema';
 import {
+  TARGET_MAX_VISUAL_FINGERPRINT_VARIANTS,
+  TARGET_MAX_VISUAL_TOPOLOGY_VARIANTS,
+  TARGET_KEY_MAX_LENGTH,
+  TARGET_KEY_PATTERN,
+} from '@lodariq/schema/target-runtime';
+import {
   accessibleNameOf,
   ancestorLandmarksOf,
   attributeEntry,
@@ -43,6 +49,8 @@ const MAX_ATTRIBUTE_VALUE_LENGTH = 512;
 const MAX_LOCALIZED_TEXT_LENGTH = 1_024;
 const MAX_AUTHOR_LABEL_LENGTH = 256;
 const STRONG_RUNNER_UP_MARGIN = 0.25;
+const MIN_VARIANT_CONTINUITY_FAMILIES = 2;
+const TARGET_STATE_ID_REGEX = new RegExp(TARGET_KEY_PATTERN);
 
 const INTERACTIVE_ROLES = new Set([
   'button',
@@ -131,6 +139,15 @@ const VISUAL_QUALITY_FAMILIES = new Set<TargetSignalFamily>([
   'visual-appearance',
   'visual-neighborhood',
   'layout-slot',
+]);
+
+const DURABLE_VARIANT_CONTINUITY_FAMILIES = new Set<TargetSignalFamily>([
+  'registry-contract',
+  'configured-attribute',
+  'semantic-attribute',
+  'element-semantics',
+  'ancestor-context',
+  'relationship-context',
 ]);
 
 export interface TargetCaptureOptions {
@@ -255,6 +272,69 @@ export function captureTargetEvidence(
   const fingerprint = captureElementFingerprint(element, event);
   const identity = createTargetIdentity(element, fingerprint, options);
   return { fingerprint, identity };
+}
+
+/** Accept only the same opaque, bounded stable-key envelope used by schema. */
+export function normalizeTargetStateId(value: unknown): string | undefined {
+  if (value === undefined) return undefined;
+  if (typeof value !== 'string') throw new Error('Target state ID is invalid');
+  const normalized = value.trim();
+  if (
+    normalized.length === 0 ||
+    normalized.length > TARGET_KEY_MAX_LENGTH ||
+    !TARGET_STATE_ID_REGEX.test(normalized)
+  ) {
+    throw new Error('Target state ID is invalid');
+  }
+  return normalized;
+}
+
+/**
+ * Keeps previously confirmed viewport/state evidence when the creator verifies
+ * the same durable target again. The fresh capture remains authoritative for
+ * the currently observed variant and for every semantic field. Existing
+ * variants are carried forward only when two independent stable, non-visual
+ * signal families still have exactly the same bounded value.
+ */
+export function mergeTargetCaptureVariants(
+  existingIdentity: TargetIdentityV2 | undefined,
+  capture: TargetEvidenceCapture,
+): TargetEvidenceCapture {
+  if (!existingIdentity || !hasDurableVariantContinuity(existingIdentity, capture.identity)) {
+    return capture;
+  }
+
+  const observedVariantKeys = variantKeysOf(capture.identity);
+  if (observedVariantKeys.size === 0) return capture;
+
+  const visualTopologies = mergeVisualVariantEvidence(
+    capture.identity.visualTopologies,
+    existingIdentity.visualTopologies,
+    observedVariantKeys,
+    TARGET_MAX_VISUAL_TOPOLOGY_VARIANTS,
+  );
+  const visualFingerprints = mergeVisualVariantEvidence(
+    capture.identity.visualFingerprints,
+    existingIdentity.visualFingerprints,
+    observedVariantKeys,
+    TARGET_MAX_VISUAL_FINGERPRINT_VARIANTS,
+  );
+  const context = mergedVariantContext(
+    existingIdentity,
+    capture.identity,
+    visualTopologies,
+    visualFingerprints,
+  );
+
+  return {
+    ...capture,
+    identity: {
+      ...capture.identity,
+      context,
+      ...(visualTopologies.length ? { visualTopologies } : {}),
+      ...(visualFingerprints.length ? { visualFingerprints } : {}),
+    },
+  };
 }
 
 /**
@@ -558,7 +638,7 @@ function mergeVisualTopologies(samples: readonly CaptureSample[]): TargetVisualT
       topologyByVariant.set(`${topology.viewportClass}:${topology.stateId ?? ''}`, topology);
     }
   }
-  return [...topologyByVariant.values()].slice(0, 12);
+  return [...topologyByVariant.values()].slice(0, TARGET_MAX_VISUAL_TOPOLOGY_VARIANTS);
 }
 
 function mergeVisualFingerprints(
@@ -576,7 +656,103 @@ function mergeVisualFingerprints(
       );
     }
   }
-  return [...fingerprintByVariant.values()].slice(0, 12);
+  return [...fingerprintByVariant.values()].slice(0, TARGET_MAX_VISUAL_FINGERPRINT_VARIANTS);
+}
+
+function hasDurableVariantContinuity(
+  existingIdentity: TargetIdentityV2,
+  currentIdentity: TargetIdentityV2,
+): boolean {
+  if (existingIdentity.targetId !== currentIdentity.targetId) return false;
+  if (existingIdentity.intent.elementKind !== currentIdentity.intent.elementKind) return false;
+  if (
+    (existingIdentity.intent.requiredAction ?? 'anchor') !==
+    (currentIdentity.intent.requiredAction ?? 'anchor')
+  ) {
+    return false;
+  }
+  if (
+    (existingIdentity.intent.resolutionMode ?? 'semantic') !==
+    (currentIdentity.intent.resolutionMode ?? 'semantic')
+  ) {
+    return false;
+  }
+
+  const existingValues = signalFamilyValues(existingIdentity);
+  const currentValues = signalFamilyValues(currentIdentity);
+  const currentStableFamilies = new Set(currentIdentity.captureEvidence.stableSignalFamilies);
+  const commonDurableFamilies = existingIdentity.captureEvidence.stableSignalFamilies.filter(
+    (family) =>
+      DURABLE_VARIANT_CONTINUITY_FAMILIES.has(family) && currentStableFamilies.has(family),
+  );
+
+  return (
+    commonDurableFamilies.length >= MIN_VARIANT_CONTINUITY_FAMILIES &&
+    commonDurableFamilies.every(
+      (family) =>
+        existingValues.get(family) !== undefined &&
+        existingValues.get(family) === currentValues.get(family),
+    )
+  );
+}
+
+function variantKeysOf(identity: TargetIdentityV2): Set<string> {
+  return new Set([
+    ...(identity.visualTopologies ?? []).map(visualVariantKey),
+    ...(identity.visualFingerprints ?? []).map(visualVariantKey),
+  ]);
+}
+
+function mergedVariantContext(
+  existingIdentity: TargetIdentityV2,
+  currentIdentity: TargetIdentityV2,
+  visualTopologies: readonly { stateId?: string }[],
+  visualFingerprints: readonly { stateId?: string }[],
+): TargetIdentityV2['context'] {
+  const context = structuredClone(currentIdentity.context);
+  const variantStateIds = [...visualTopologies, ...visualFingerprints].map(
+    (variant) => variant.stateId,
+  );
+  const sharedExplicitStateId = variantStateIds[0];
+  const allVariantsShareExplicitState = Boolean(
+    sharedExplicitStateId && variantStateIds.every((stateId) => stateId === sharedExplicitStateId),
+  );
+  if (!allVariantsShareExplicitState) {
+    delete context.stateId;
+    return context;
+  }
+
+  const currentStateId = currentIdentity.context.stateId;
+  if (currentStateId) {
+    if (currentStateId !== sharedExplicitStateId) delete context.stateId;
+    return context;
+  }
+  const existingStateId = existingIdentity.context.stateId;
+  if (existingStateId === sharedExplicitStateId) {
+    context.stateId = existingStateId;
+  }
+  return context;
+}
+
+function mergeVisualVariantEvidence<Variant extends { viewportClass: string; stateId?: string }>(
+  current: readonly Variant[] | undefined,
+  existing: readonly Variant[] | undefined,
+  observedVariantKeys: ReadonlySet<string>,
+  limit: number,
+): Variant[] {
+  const merged = (current ?? []).map((variant) => structuredClone(variant));
+  const includedKeys = new Set(merged.map(visualVariantKey));
+  for (const variant of existing ?? []) {
+    const key = visualVariantKey(variant);
+    if (observedVariantKeys.has(key) || includedKeys.has(key) || merged.length >= limit) continue;
+    merged.push(structuredClone(variant));
+    includedKeys.add(key);
+  }
+  return merged;
+}
+
+function visualVariantKey(variant: { viewportClass: string; stateId?: string }): string {
+  return `${variant.viewportClass}:${variant.stateId ?? ''}`;
 }
 
 function withoutVisualTopologies(identity: TargetIdentityV2): TargetIdentityV2 {

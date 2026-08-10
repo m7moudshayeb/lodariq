@@ -8,6 +8,7 @@ import {
   type VirtualElement,
 } from '@floating-ui/dom';
 import type { CompiledDocument, CompiledStep, RuntimeLifecycleHints } from '@lodariq/schema';
+import { resolveExperienceAppearance } from '@lodariq/schema/brand-runtime';
 import {
   createNonceStyleElement,
   LODARIQ_AUTHORING_PREVIEW_OWNER_ATTRIBUTE,
@@ -32,6 +33,7 @@ const NETWORK_IDLE_QUIET_MS = 80;
 const NETWORK_IDLE_POLL_MS = 20;
 const DEFAULT_TARGET_RESOLUTION_TIMEOUT_MS = 1_500;
 const TARGET_GLOBAL_REVALIDATION_THROTTLE_MS = 500;
+const TARGET_OUTLINE_GAP_PX = 3;
 
 type RuntimeBodyNode = CompiledStep['body'][number];
 type RuntimeAction = NonNullable<RuntimeBodyNode['props']['action']>;
@@ -41,6 +43,11 @@ type BodyNodeRenderer = (node: RuntimeBodyNode, context: BodyNodeRenderContext) 
 
 interface BodyNodeRenderContext {
   onAction: (action: RuntimeAction | undefined) => void;
+}
+
+interface TourPositionController {
+  stop: () => void;
+  update: () => void;
 }
 
 const BODY_NODE_RENDERERS: Readonly<Record<string, BodyNodeRenderer>> = {
@@ -117,6 +124,7 @@ export class TourPlayer {
   private readonly shadow: ShadowRoot;
   private readonly card: HTMLDivElement;
   private readonly arrow: HTMLDivElement;
+  private readonly targetOutline: HTMLDivElement | null;
   private readonly cleanups: Array<() => void> = [];
   private readonly lifetimeCleanups: Array<() => void> = [];
   private renderAbortController: AbortController | null = null;
@@ -158,8 +166,14 @@ export class TourPlayer {
     this.arrow = document.createElement('div');
     this.arrow.className = 'tour-arrow';
     this.arrow.setAttribute('aria-hidden', 'true');
+    this.targetOutline = resolveExperienceAppearance(
+      'appearance' in this.doc ? this.doc.appearance : undefined,
+    ).displayTargetOutline
+      ? createTargetOutline(document)
+      : null;
     this.lifetimeCleanups.push(applyCompiledTourTheme(this.host, this.doc));
     this.shadow.appendChild(createStyles());
+    if (this.targetOutline) this.shadow.appendChild(this.targetOutline);
     this.shadow.appendChild(this.card);
   }
 
@@ -233,6 +247,7 @@ export class TourPlayer {
       return;
     }
     this.clearStepEffects();
+    if (this.targetOutline) this.targetOutline.hidden = true;
     this.options.onStepChange?.(this.index, step);
 
     this.card.innerHTML = '';
@@ -393,6 +408,7 @@ export class TourPlayer {
     let currentAnchor: ResolvedAnchor | null = null;
     let currentTarget: Element | null = null;
     let clearPosition = (): void => {};
+    let updatePosition = (): void => {};
     let clearTargetAction = (): void => {};
     let revalidationTimer: ReturnType<typeof setTimeout> | null = null;
     let unavailable = false;
@@ -402,6 +418,7 @@ export class TourPlayer {
     const markUnavailable = (): void => {
       if (!unavailable) blurHiddenTourCard(this.shadow, this.card);
       this.card.hidden = true;
+      if (this.targetOutline) this.targetOutline.hidden = true;
       unavailable = true;
       clearTargetAction();
       clearTargetAction = () => {};
@@ -418,7 +435,7 @@ export class TourPlayer {
       if (!this.options.authoringPreviewOwnerId || this.options.authoringPreviewInteractive) {
         this.scrollForLifecycle(target, step.lifecycle);
       }
-      clearPosition = this.position(
+      const position = this.position(
         anchor,
         (step.placement as Placement) ?? 'bottom',
         step.presentationAnchor,
@@ -426,6 +443,8 @@ export class TourPlayer {
         () => this.resolveReadiness(renderId),
         (error) => this.rejectReadiness(renderId, normalizeTourPresentationError(error)),
       );
+      clearPosition = position.stop;
+      updatePosition = position.update;
       if (!canOwnPresentation(anchor)) {
         markUnavailable();
         if (this.options.authoringPreviewOwnerId) {
@@ -472,6 +491,8 @@ export class TourPlayer {
         unavailable
       ) {
         bind(safelyResolvedAnchor);
+      } else {
+        updatePosition();
       }
     };
 
@@ -525,7 +546,9 @@ export class TourPlayer {
             records.some((record) => mutationAffectsPresentationOwner(record, currentTarget!)),
           );
           if (ownerChanged) {
-            markUnavailable();
+            // Routine SPA updates may change owner evidence without making the
+            // live owner unusable. Hiding eagerly would blur authoring fields.
+            if (!currentAnchor || !canOwnPresentation(currentAnchor)) markUnavailable();
             scheduleRevalidation(true);
             return;
           }
@@ -538,6 +561,7 @@ export class TourPlayer {
       if (revalidationTimer) clearTimeout(revalidationTimer);
       revalidationTimer = null;
       clearPosition();
+      updatePosition = () => {};
       clearTargetAction();
       currentAnchor = null;
       currentTarget = null;
@@ -551,7 +575,7 @@ export class TourPlayer {
     onOwnerAvailabilityChange: (available: boolean) => void,
     onPositioned: () => void,
     onPositionError: (error: unknown) => void,
-  ): () => void {
+  ): TourPositionController {
     let active = true;
     const owner = anchor.element;
     const reference = positioningReference(anchor, presentationAnchor);
@@ -561,6 +585,7 @@ export class TourPlayer {
         return;
       }
       onOwnerAvailabilityChange(true);
+      positionTargetOutline(this.targetOutline, anchor.element);
       void computePosition(reference, this.card, {
         placement,
         strategy: 'fixed',
@@ -578,21 +603,32 @@ export class TourPlayer {
           onPositioned();
         })
         .catch((error: unknown) => {
-          if (active) onPositionError(error);
+          if (active) {
+            if (this.targetOutline) this.targetOutline.hidden = true;
+            onPositionError(error);
+          }
         });
     };
     const ownerWindow = owner.ownerDocument.defaultView ?? window;
     const ResizeObserverConstructor = ownerWindow.ResizeObserver;
     const resizeObserver = ResizeObserverConstructor ? new ResizeObserverConstructor(update) : null;
+    const scrollTargets: EventTarget[] = [
+      ownerWindow,
+      ...presentationOwnerObservationRoots(owner).filter((root) => shadowRootHost(root)),
+    ];
     resizeObserver?.observe(owner);
     update();
-    ownerWindow.addEventListener('scroll', update, true);
+    for (const target of scrollTargets) target.addEventListener?.('scroll', update, true);
     ownerWindow.addEventListener('resize', update);
-    return () => {
-      active = false;
-      resizeObserver?.disconnect();
-      ownerWindow.removeEventListener?.('scroll', update, true);
-      ownerWindow.removeEventListener?.('resize', update);
+    return {
+      update,
+      stop: () => {
+        active = false;
+        if (this.targetOutline) this.targetOutline.hidden = true;
+        resizeObserver?.disconnect();
+        for (const target of scrollTargets) target.removeEventListener?.('scroll', update, true);
+        ownerWindow.removeEventListener?.('resize', update);
+      },
     };
   }
 
@@ -806,6 +842,27 @@ function focusTourCard(card: HTMLElement): void {
   (card.querySelector<HTMLElement>('button, a[href]') ?? card).focus();
 }
 
+function createTargetOutline(doc: Document): HTMLDivElement {
+  const outline = doc.createElement('div');
+  outline.className = 'tour-target-outline';
+  outline.setAttribute('data-lodariq-target-outline', '');
+  outline.setAttribute('aria-hidden', 'true');
+  outline.hidden = true;
+  return outline;
+}
+
+function positionTargetOutline(outline: HTMLElement | null, owner: Element): void {
+  if (!outline) return;
+  const rect = owner.getBoundingClientRect();
+  Object.assign(outline.style, {
+    left: `${rect.left - TARGET_OUTLINE_GAP_PX}px`,
+    top: `${rect.top - TARGET_OUTLINE_GAP_PX}px`,
+    width: `${rect.width + TARGET_OUTLINE_GAP_PX * 2}px`,
+    height: `${rect.height + TARGET_OUTLINE_GAP_PX * 2}px`,
+  });
+  outline.hidden = false;
+}
+
 function blurHiddenTourCard(shadow: ShadowRoot, card: HTMLElement): void {
   const activeElement = shadow.activeElement as (Element & { blur?: () => void }) | null;
   if (activeElement && card.contains(activeElement)) activeElement.blur?.();
@@ -814,7 +871,8 @@ function blurHiddenTourCard(shadow: ShadowRoot, card: HTMLElement): void {
 function mutationAffectsPresentationOwner(record: MutationRecord, owner: Element): boolean {
   const changedNode = record.target;
   if (changedNode === owner || owner.contains(changedNode)) return true;
-  if (changedNode.contains(owner)) return true;
+  if (record.type === 'attributes' && changedNode.contains(owner)) return true;
+  if (record.type !== 'childList') return false;
   return [...record.removedNodes, ...record.addedNodes].some(
     (node) => node === owner || node.contains(owner),
   );
@@ -1289,6 +1347,27 @@ function createStyles(): HTMLStyleElement {
       font-family: var(--lq-tour-font-family);
     }
 
+    .tour-target-outline {
+      box-sizing: border-box;
+      position: fixed;
+      z-index: 0;
+      border: 2px solid var(--lq-tour-focus-color);
+      border-radius: calc(var(--lq-tour-radius) + 2px);
+      box-shadow: 0 0 0 4px var(--lq-tour-focus-halo-color);
+      pointer-events: none;
+      animation: tour-target-outline-in var(--lq-tour-motion-duration)
+        var(--lq-tour-motion-easing) both;
+    }
+
+    .tour-target-outline[hidden] {
+      display: none;
+    }
+
+    @keyframes tour-target-outline-in {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
     div[role="dialog"] {
       box-sizing: border-box;
       width: min(var(--lq-tour-width), calc(100vw - 24px));
@@ -1298,6 +1377,7 @@ function createStyles(): HTMLStyleElement {
       background: var(--lq-tour-surface);
       box-shadow: var(--lq-tour-elevation);
       color: var(--lq-tour-text-color);
+      z-index: 1;
       pointer-events: auto;
       transition:
         background-color var(--lq-tour-motion-duration) var(--lq-tour-motion-easing),

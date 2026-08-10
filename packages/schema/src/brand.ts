@@ -569,12 +569,328 @@ export const ThemeBinding = Type.Union(
 );
 export type ThemeBinding = Static<typeof ThemeBinding>;
 
+export const BRAND_DRIFT_TRIGGERS = ['authoring_open', 'creator_check'] as const;
+export const BRAND_DRIFT_CLASSIFICATIONS = ['unchanged', 'warning', 'actionable'] as const;
+export const BRAND_DRIFT_SOURCE_CHANGES = ['added', 'removed', 'changed'] as const;
+export const BRAND_DRIFT_SEMANTIC_ROLES = [
+  'accent',
+  'surface',
+  'text',
+  'focus',
+  'status',
+  'typography',
+  'spacing',
+  'radius',
+  'border',
+  'sizing',
+  'motion',
+  'elevation',
+] as const;
+export const BRAND_DRIFT_ACCESSIBILITY_CONSEQUENCES = [
+  'primary_control_contrast',
+  'body_text_contrast',
+  'supporting_text_contrast',
+  'focus_visibility',
+  'status_contrast',
+  'text_legibility',
+  'motion_preference',
+  'none_detected',
+] as const;
+export const BRAND_DRIFT_ACCESSIBILITY_SEVERITIES = ['review', 'blocking'] as const;
+export const BRAND_DRIFT_EXPERIENCE_IMPACTS = [
+  'would_require_review_on_approval',
+  'needs_review',
+] as const;
+export const BRAND_DOCUMENT_THEME_REVIEW_STATES = ['current', 'needs_review', 'pinned'] as const;
+export const BRAND_DRIFT_MAX_AFFECTED_EXPERIENCES = 250;
+
+export const BRAND_DRIFT_SEMANTIC_ROLE_LABELS = {
+  accent: 'Accent colors',
+  surface: 'Surfaces',
+  text: 'Text colors',
+  focus: 'Focus indicator',
+  status: 'Status colors',
+  typography: 'Typography',
+  spacing: 'Spacing',
+  radius: 'Corner radius',
+  border: 'Borders',
+  sizing: 'Experience sizing',
+  motion: 'Motion',
+  elevation: 'Elevation',
+} as const satisfies Record<(typeof BRAND_DRIFT_SEMANTIC_ROLES)[number], string>;
+
+export const BRAND_DRIFT_ACCESSIBILITY_CONSEQUENCE_LABELS = {
+  primary_control_contrast: 'Primary-control contrast must be rechecked.',
+  body_text_contrast: 'Body-text contrast must be rechecked.',
+  supporting_text_contrast: 'Supporting-text contrast must be rechecked.',
+  focus_visibility: 'Keyboard focus visibility must be rechecked.',
+  status_contrast: 'Success, warning, and danger contrast must be rechecked.',
+  text_legibility: 'Text size, weight, and line height must be rechecked.',
+  motion_preference: 'Reduced-motion behavior must be rechecked.',
+  none_detected: 'No known accessibility consequence was inferred.',
+} as const satisfies Record<(typeof BRAND_DRIFT_ACCESSIBILITY_CONSEQUENCES)[number], string>;
+
+export const BrandDriftTrigger = Type.Union(
+  BRAND_DRIFT_TRIGGERS.map((value) => Type.Literal(value)),
+  { $id: 'BrandDriftTrigger' },
+);
+export type BrandDriftTrigger = Static<typeof BrandDriftTrigger>;
+
+export const BrandDriftClassification = Type.Union(
+  BRAND_DRIFT_CLASSIFICATIONS.map((value) => Type.Literal(value)),
+  { $id: 'BrandDriftClassification' },
+);
+export type BrandDriftClassification = Static<typeof BrandDriftClassification>;
+
+export const BrandDriftSourceChange = Type.Union(
+  BRAND_DRIFT_SOURCE_CHANGES.map((value) => Type.Literal(value)),
+  { $id: 'BrandDriftSourceChange' },
+);
+export type BrandDriftSourceChange = Static<typeof BrandDriftSourceChange>;
+
+export const BrandDriftSemanticRole = Type.Union(
+  BRAND_DRIFT_SEMANTIC_ROLES.map((value) => Type.Literal(value)),
+  { $id: 'BrandDriftSemanticRole' },
+);
+export type BrandDriftSemanticRole = Static<typeof BrandDriftSemanticRole>;
+
+export const BrandDriftAccessibilityConsequenceCode = Type.Union(
+  BRAND_DRIFT_ACCESSIBILITY_CONSEQUENCES.map((value) => Type.Literal(value)),
+  { $id: 'BrandDriftAccessibilityConsequenceCode' },
+);
+export type BrandDriftAccessibilityConsequenceCode = Static<
+  typeof BrandDriftAccessibilityConsequenceCode
+>;
+
+export const BrandDriftAccessibilitySeverity = Type.Union(
+  BRAND_DRIFT_ACCESSIBILITY_SEVERITIES.map((value) => Type.Literal(value)),
+  { $id: 'BrandDriftAccessibilitySeverity' },
+);
+export type BrandDriftAccessibilitySeverity = Static<typeof BrandDriftAccessibilitySeverity>;
+
+export const BrandDriftExperienceImpact = Type.Union(
+  BRAND_DRIFT_EXPERIENCE_IMPACTS.map((value) => Type.Literal(value)),
+  { $id: 'BrandDriftExperienceImpact' },
+);
+export type BrandDriftExperienceImpact = Static<typeof BrandDriftExperienceImpact>;
+
+/** A comparison of privacy-safe normalized fingerprints, never page or CSS data. */
+const BrandDriftSourceComparisonProperties = {
+  sourceId: Type.String({ minLength: 1, maxLength: 120, pattern: PRODUCT_STYLE_ID_PATTERN }),
+  kind: Type.Ref(ProductStyleSourceKind),
+  confidence: Type.Integer({ minimum: 0, maximum: 100 }),
+};
+const BrandDriftSourceRevision = Type.String({
+  minLength: 1,
+  maxLength: 120,
+  pattern: PRODUCT_STYLE_ID_PATTERN,
+});
+const BrandDriftSourceFingerprint = Type.String({ pattern: CONTENT_HASH_PATTERN });
+
+export const BrandDriftSourceComparison = Type.Union(
+  [
+    Type.Object(
+      {
+        ...BrandDriftSourceComparisonProperties,
+        change: Type.Literal('added'),
+        observedFingerprintHash: BrandDriftSourceFingerprint,
+        observedRevision: Type.Optional(BrandDriftSourceRevision),
+      },
+      { additionalProperties: false },
+    ),
+    Type.Object(
+      {
+        ...BrandDriftSourceComparisonProperties,
+        change: Type.Literal('removed'),
+        previousFingerprintHash: BrandDriftSourceFingerprint,
+        previousRevision: Type.Optional(BrandDriftSourceRevision),
+      },
+      { additionalProperties: false },
+    ),
+    Type.Object(
+      {
+        ...BrandDriftSourceComparisonProperties,
+        change: Type.Literal('changed'),
+        previousFingerprintHash: BrandDriftSourceFingerprint,
+        observedFingerprintHash: BrandDriftSourceFingerprint,
+        previousRevision: Type.Optional(BrandDriftSourceRevision),
+        observedRevision: Type.Optional(BrandDriftSourceRevision),
+      },
+      { additionalProperties: false },
+    ),
+  ],
+  { $id: 'BrandDriftSourceComparison' },
+);
+export type BrandDriftSourceComparison = Static<typeof BrandDriftSourceComparison>;
+
+export const BrandDriftAccessibilityConsequence = Type.Object(
+  {
+    code: Type.Ref(BrandDriftAccessibilityConsequenceCode),
+    severity: Type.Ref(BrandDriftAccessibilitySeverity),
+    roles: Type.Array(Type.Ref(BrandDriftSemanticRole), {
+      minItems: 1,
+      maxItems: BRAND_DRIFT_SEMANTIC_ROLES.length,
+      uniqueItems: true,
+    }),
+  },
+  { $id: 'BrandDriftAccessibilityConsequence', additionalProperties: false },
+);
+export type BrandDriftAccessibilityConsequence = Static<typeof BrandDriftAccessibilityConsequence>;
+
+export const BrandDriftAffectedExperience = Type.Object(
+  {
+    documentId: Type.String({ minLength: 1, maxLength: 120 }),
+    bindingPolicy: Type.Literal('workspace-current'),
+    impact: Type.Ref(BrandDriftExperienceImpact),
+  },
+  { $id: 'BrandDriftAffectedExperience', additionalProperties: false },
+);
+export type BrandDriftAffectedExperience = Static<typeof BrandDriftAffectedExperience>;
+
+const BrandDriftCheckResultProperties = {
+  schemaVersion: Type.Literal('1'),
+  checkId: Type.String({ minLength: 1, maxLength: 120, pattern: PRODUCT_STYLE_ID_PATTERN }),
+  checkedAt: Type.String({
+    minLength: 20,
+    maxLength: 64,
+    pattern: PRODUCT_STYLE_TIMESTAMP_PATTERN,
+  }),
+  trigger: Type.Ref(BrandDriftTrigger),
+  themeId: Type.String({ minLength: 1, maxLength: 120 }),
+  baselineThemeVersionId: Type.String({ minLength: 1, maxLength: 120 }),
+  confidence: Type.Integer({ minimum: 0, maximum: 100 }),
+  sourceComparisons: Type.Array(Type.Ref(BrandDriftSourceComparison), {
+    maxItems: PRODUCT_STYLE_MAX_SOURCES * 2,
+  }),
+  changedRoles: Type.Array(Type.Ref(BrandDriftSemanticRole), {
+    maxItems: BRAND_DRIFT_SEMANTIC_ROLES.length,
+    uniqueItems: true,
+  }),
+  accessibilityConsequences: Type.Array(Type.Ref(BrandDriftAccessibilityConsequence), {
+    maxItems: BRAND_DRIFT_ACCESSIBILITY_CONSEQUENCES.length,
+  }),
+  affectedExperiences: Type.Array(Type.Ref(BrandDriftAffectedExperience), {
+    maxItems: BRAND_DRIFT_MAX_AFFECTED_EXPERIENCES,
+  }),
+};
+
+export const BrandDriftCheckResult = Type.Union(
+  [
+    Type.Object(
+      { ...BrandDriftCheckResultProperties, classification: Type.Literal('unchanged') },
+      { additionalProperties: false },
+    ),
+    Type.Object(
+      { ...BrandDriftCheckResultProperties, classification: Type.Literal('warning') },
+      { additionalProperties: false },
+    ),
+    Type.Object(
+      {
+        ...BrandDriftCheckResultProperties,
+        classification: Type.Literal('actionable'),
+        proposal: Type.Ref(ProductStyleProposal),
+      },
+      { additionalProperties: false },
+    ),
+  ],
+  { $id: 'BrandDriftCheckResult' },
+);
+export type BrandDriftCheckResult = Static<typeof BrandDriftCheckResult>;
+
+/** Append-only audit evidence intentionally omits the reviewable token proposal. */
+export const BrandDriftAuditReport = Type.Object(
+  {
+    ...BrandDriftCheckResultProperties,
+    classification: Type.Ref(BrandDriftClassification),
+  },
+  { $id: 'BrandDriftAuditReport', additionalProperties: false },
+);
+export type BrandDriftAuditReport = Static<typeof BrandDriftAuditReport>;
+
+/** Authenticated authoring supplies one bounded normalized observation. */
+export const BrandDriftCheckRequest = Type.Object(
+  {
+    trigger: Type.Ref(BrandDriftTrigger),
+    proposal: Type.Ref(ProductStyleProposal),
+  },
+  { $id: 'BrandDriftCheckRequest', additionalProperties: false },
+);
+export type BrandDriftCheckRequest = Static<typeof BrandDriftCheckRequest>;
+
+/** Explicit acknowledgement truth for one document; pinned versions never drift with the default. */
+export const BrandDocumentThemeReviewState = Type.Union(
+  [
+    Type.Object(
+      {
+        policy: Type.Literal('workspace-current'),
+        reviewState: Type.Literal('current'),
+        themeId: Type.String({ minLength: 1, maxLength: 120 }),
+        approvedThemeVersionId: Type.String({ minLength: 1, maxLength: 120 }),
+        acknowledgedThemeVersionId: Type.String({ minLength: 1, maxLength: 120 }),
+      },
+      { additionalProperties: false },
+    ),
+    Type.Object(
+      {
+        policy: Type.Literal('workspace-current'),
+        reviewState: Type.Literal('needs_review'),
+        themeId: Type.String({ minLength: 1, maxLength: 120 }),
+        approvedThemeVersionId: Type.String({ minLength: 1, maxLength: 120 }),
+        acknowledgedThemeVersionId: Type.String({ minLength: 1, maxLength: 120 }),
+      },
+      { additionalProperties: false },
+    ),
+    Type.Object(
+      {
+        policy: Type.Literal('pinned'),
+        reviewState: Type.Literal('pinned'),
+        themeId: Type.String({ minLength: 1, maxLength: 120 }),
+        themeVersionId: Type.String({ minLength: 1, maxLength: 120 }),
+      },
+      { additionalProperties: false },
+    ),
+  ],
+  { $id: 'BrandDocumentThemeReviewState' },
+);
+export type BrandDocumentThemeReviewState = Static<typeof BrandDocumentThemeReviewState>;
+
+/**
+ * Server-derived immutable inputs for a temporary production-runtime review.
+ * The proposed snapshot is never approved, adopted, or published by checking.
+ */
+export const BrandDriftRuntimePreview = Type.Object(
+  {
+    currentTheme: Type.Ref(BrandThemeSnapshot),
+    proposedTheme: Type.Ref(BrandThemeSnapshot),
+  },
+  { $id: 'BrandDriftRuntimePreview', additionalProperties: false },
+);
+export type BrandDriftRuntimePreview = Static<typeof BrandDriftRuntimePreview>;
+
+export const AuthoringBrandDriftCheckResult = Type.Object(
+  {
+    documentId: Type.String({ minLength: 1, maxLength: 256 }),
+    drift: Type.Ref(BrandDriftCheckResult),
+    documentThemeReview: Type.Union([Type.Ref(BrandDocumentThemeReviewState), Type.Null()]),
+    documentUpdatedAt: Type.String({
+      minLength: 20,
+      maxLength: 64,
+      pattern: PRODUCT_STYLE_TIMESTAMP_PATTERN,
+    }),
+    runtimePreview: Type.Optional(Type.Ref(BrandDriftRuntimePreview)),
+  },
+  { $id: 'AuthoringBrandDriftCheckResult', additionalProperties: false },
+);
+export type AuthoringBrandDriftCheckResult = Static<typeof AuthoringBrandDriftCheckResult>;
+
 export const ExperienceAppearance = Type.Object(
   {
     preset: Type.Union(EXPERIENCE_APPEARANCE_PRESETS.map((value) => Type.Literal(value))),
     density: Type.Union(EXPERIENCE_APPEARANCE_DENSITIES.map((value) => Type.Literal(value))),
     width: Type.Union(EXPERIENCE_APPEARANCE_WIDTHS.map((value) => Type.Literal(value))),
     colorMode: Type.Union(EXPERIENCE_COLOR_MODES.map((value) => Type.Literal(value))),
+    /** Additive for compatibility with existing saved documents and artifacts. */
+    displayTargetOutline: Type.Optional(Type.Boolean()),
   },
   { $id: 'ExperienceAppearance', additionalProperties: false },
 );

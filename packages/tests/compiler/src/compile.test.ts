@@ -38,8 +38,34 @@ describe('compile', () => {
       colorMode: 'dark',
     };
     const compiled = compile(themedInput(legacyDocument));
-    expect(compiled.appearance).toEqual(legacyDocument.appearance);
+    expect(compiled.appearance).toEqual({
+      ...legacyDocument.appearance,
+      displayTargetOutline: true,
+    });
     expect(compiled.appearance).not.toBe(legacyDocument.appearance);
+
+    legacyDocument.appearance.displayTargetOutline = false;
+    expect(compile(themedInput(legacyDocument)).appearance.displayTargetOutline).toBe(false);
+  });
+
+  it('content-addresses the target-outline appearance choice', async () => {
+    const withoutOutline = structuredClone(document);
+    const withOutline = structuredClone(document);
+    withoutOutline.appearance = {
+      ...DEFAULT_EXPERIENCE_APPEARANCE,
+      displayTargetOutline: false,
+    };
+    withOutline.appearance = {
+      ...DEFAULT_EXPERIENCE_APPEARANCE,
+      displayTargetOutline: true,
+    };
+
+    const [baseline, outlined] = await Promise.all([
+      compileDocument(themedInput(withoutOutline)),
+      compileDocument(themedInput(withOutline)),
+    ]);
+
+    expect(outlined.contentHash).not.toBe(baseline.contentHash);
   });
 
   it('copies canonical trigger and audience behavior into the closed artifact', () => {

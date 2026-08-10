@@ -3,13 +3,19 @@ import {
   AUTHORING_INLINE_CONTENT_COMMIT_TYPE,
   AUTHORING_PANEL_LAYOUT_REQUEST_TYPE,
   AUTHORING_PANEL_MODE_OPEN_TYPE,
+  AUTHORING_SAVE_AND_EXIT_REQUEST_TYPE,
+  AUTHORING_SAVE_STATE_UPDATE_TYPE,
+  AUTHORING_BRAND_DRIFT_PREVIEW_TYPE,
+  AUTHORING_THEME_PREVIEW_APPLY_TYPE,
   BASIC_VISUAL_PREFLIGHT_ISSUE_CODES,
   BRIDGE_PROTOCOL_VERSION,
   isPresentationAnchor,
   DEFAULT_EXPERIENCE_APPEARANCE,
+  resolveExperienceAppearance,
   type BlockActionProps,
   type BridgeMessage,
   type AuthoringPanelLayoutMode,
+  type AuthoringSaveState,
   type PreviewPatchOperation,
   type LodariqBlock,
   type LodariqDocument,
@@ -22,6 +28,8 @@ import {
   type TargetRequiredAction,
   type TargetViewportClass,
   type TextStyleProps,
+  type ReleaseRecoveryRequest,
+  type ReleaseRecoveryResult,
 } from '@lodariq/schema';
 import type { ClipboardEvent, DragEvent, KeyboardEvent } from 'react';
 import {
@@ -82,6 +90,7 @@ import {
   type TargetLifecycleScrollStrategy,
 } from './types';
 import type {
+  AuthoringBrandMatchApplyResult,
   AuthoringBrandMatchProposal,
   AuthoringBrandMatchRequest,
   AuthoringBrandWorkspaceState,
@@ -112,6 +121,18 @@ import {
   isInlinePreviewContentType,
   normalizeInlinePreviewContent,
 } from '../inline-preview-editor';
+import {
+  AuthoringBrandDriftController,
+  type AuthoringBrandDriftControllerSnapshot,
+} from '../brand-drift-controller';
+import { createAuthoringBrandDriftViewModel } from '../brand-drift-model';
+import {
+  createAuthoringReleaseRecoveryIntent,
+  createAuthoringReleaseRecoveryViewModel,
+  type AuthoringReleaseRecoveryIntent,
+  type AuthoringReleaseRecoveryRequestIdentity,
+  type AuthoringReleaseRecoveryViewModel,
+} from '../release-recovery-model';
 
 export class LocalAuthoringFrameController {
   private readonly services: LocalAuthoringFrameOptions['services'];
@@ -161,6 +182,10 @@ export class LocalAuthoringFrameController {
   private focusRequest: FocusRequest | null = null;
   private focusToken = 0;
   private release: AuthoringReleaseViewState;
+  private saveState: { state: AuthoringSaveState; label: string } = {
+    state: 'saved',
+    label: 'Draft saved',
+  };
   private releaseRequestVersion = 0;
   private documentChangeSequence = 0;
   private pendingPublicationRequest: AuthoringStagingPublicationRequest | null = null;
@@ -168,11 +193,27 @@ export class LocalAuthoringFrameController {
   private panelReturnMode: AuthoringPanelMode = 'edit';
   private panelFocusToken = 0;
   private panelReturnFocus: 'appearance' | 'release' | null = null;
+  private panelFocusTarget: string | null = null;
   private panelOperation: AuthoringPanelOperation = null;
   private brandWorkflow = accessibleFallbackBrandState();
   private brandProposal: AuthoringBrandMatchProposal | null = null;
+  private readonly brandDriftController: AuthoringBrandDriftController | null;
+  private brandDrift: AuthoringBrandDriftControllerSnapshot = {
+    operation: 'idle',
+    error: null,
+    previewActive: false,
+    previewMode: 'current',
+    model: createAuthoringBrandDriftViewModel(null, null),
+  };
   private releaseWorkflow: AuthoringReleaseWorkflowState | null = null;
+  private releaseRecoveryEnvironmentId: string | null = null;
+  private releaseRecoveryEntryFocusTarget: string | null = null;
+  private releaseRecoveryModel: AuthoringReleaseRecoveryViewModel | null = null;
+  private releaseRecoveryIntent: AuthoringReleaseRecoveryIntent | null = null;
+  private releaseRecoveryRequestIdentity: AuthoringReleaseRecoveryRequestIdentity | null = null;
+  private releaseRecoveryRequestVersion = 0;
   private panelWorkflowRequestVersion = 0;
+  private highestAdoptedBrandDraftRevision = 0;
   private panelWorkflowError: string | null = null;
   private panelWorkflowNotice: string | null = null;
   private started = false;
@@ -188,6 +229,7 @@ export class LocalAuthoringFrameController {
     this.documentState = this.normalizeDocument(
       this.services.loadDocument(this.baseDocument.id) ?? this.createBaseDocument(),
     );
+    this.brandDriftController = this.createBrandDriftController();
     this.metricsSessionId = `${this.sessionId}:${options.now?.() ?? Date.now()}`;
     this.peerWindow = options.peerWindow ?? window.parent;
     this.isHostedInParent = this.peerWindow !== window;
@@ -222,13 +264,16 @@ export class LocalAuthoringFrameController {
     this.recordMetric('authoring.opened');
     this.refreshStagingRelease();
     this.refreshPanelWorkflowState();
+    this.brandDriftController?.initialize();
   }
 
   destroy(): void {
     if (!this.started) return;
     this.started = false;
     this.releaseRequestVersion += 1;
+    this.releaseRecoveryRequestVersion += 1;
     this.panelWorkflowRequestVersion += 1;
+    this.brandDriftController?.dispose();
     window.removeEventListener('pagehide', this.handlePageHide);
     window.removeEventListener('keydown', this.handleWindowKeyDown);
     this.flushPreviewPatches();
@@ -885,21 +930,26 @@ export class LocalAuthoringFrameController {
   }
 
   setDocumentAppearance(appearance: ExperienceAppearance): void {
-    const current = this.documentState.appearance ?? DEFAULT_EXPERIENCE_APPEARANCE;
+    const current = resolveExperienceAppearance(
+      this.documentState.appearance ?? DEFAULT_EXPERIENCE_APPEARANCE,
+    );
+    const next = resolveExperienceAppearance(appearance);
     if (
-      current.preset === appearance.preset &&
-      current.density === appearance.density &&
-      current.width === appearance.width &&
-      current.colorMode === appearance.colorMode
+      current.preset === next.preset &&
+      current.density === next.density &&
+      current.width === next.width &&
+      current.colorMode === next.colorMode &&
+      current.displayTargetOutline === next.displayTargetOutline
     ) {
       return;
     }
     this.recordChange();
-    this.documentState = { ...this.documentState, appearance: structuredClone(appearance) };
+    this.documentState = { ...this.documentState, appearance: structuredClone(next) };
     this.afterDocumentMutation();
     this.services.saveDocument(this.documentState);
-    this.sendPreviewPatch(this.documentState.id, [
-      { op: 'setAppearance', appearance: structuredClone(appearance) },
+    const previewContextId = this.selectedTourStep()?.id ?? this.documentState.id;
+    this.sendPreviewPatch(previewContextId, [
+      { op: 'setAppearance', appearance: structuredClone(next) },
     ]);
     this.setStatus('Appearance updated');
   }
@@ -1526,6 +1576,20 @@ export class LocalAuthoringFrameController {
     this.setStatus('Saved draft');
   }
 
+  requestSaveAndExit(): void {
+    if (!this.isHostedInParent) {
+      this.saveCurrentDocument();
+      return;
+    }
+    this.bridge.send({
+      protocol: BRIDGE_PROTOCOL_VERSION,
+      sessionId: this.sessionId,
+      documentId: this.documentState.id,
+      correlationId: createBridgeCorrelationId('authoring_save_and_exit'),
+      type: AUTHORING_SAVE_AND_EXIT_REQUEST_TYPE,
+    });
+  }
+
   refreshStagingRelease(): void {
     void this.loadStagingReleaseState(true);
   }
@@ -1549,8 +1613,76 @@ export class LocalAuthoringFrameController {
     this.openPanelMode('promotion-confirmation', 'release-verification');
   }
 
+  openReleaseHistoryMode(environmentId: string): void {
+    if (!this.services.getReleaseRecoveryState || !environmentId.trim()) return;
+    this.releaseRecoveryEnvironmentId = environmentId;
+    this.releaseRecoveryEntryFocusTarget = releaseHistoryEntryFocusTarget(
+      this.releaseWorkflow,
+      environmentId,
+    );
+    this.releaseRecoveryIntent = null;
+    this.releaseRecoveryRequestIdentity = null;
+    this.openPanelMode('release-history', 'release-verification');
+    void this.loadReleaseRecoveryState(environmentId);
+  }
+
+  startReleaseRecovery(intent: AuthoringReleaseRecoveryIntent): void {
+    const currentIntent = this.releaseRecoveryModel
+      ? createAuthoringReleaseRecoveryIntent(this.releaseRecoveryModel, intent.action)
+      : null;
+    if (!currentIntent || currentIntent.confirmationKey !== intent.confirmationKey) return;
+    this.releaseRecoveryIntent = structuredClone(currentIntent);
+    this.releaseRecoveryRequestIdentity = {
+      idempotencyKey: createBridgeCorrelationId('release_recovery'),
+      correlationId: createBridgeCorrelationId('release_recovery'),
+    };
+    this.panelMode = 'release-recovery-confirmation';
+    this.panelReturnMode = 'release-history';
+    this.panelFocusTarget = null;
+    this.panelWorkflowError = null;
+    this.panelWorkflowNotice = null;
+    this.panelFocusToken += 1;
+    this.emit();
+  }
+
+  cancelReleaseRecoveryConfirmation(): void {
+    const action = this.releaseRecoveryIntent?.action;
+    this.releaseRecoveryIntent = null;
+    this.releaseRecoveryRequestIdentity = null;
+    this.panelMode = 'release-history';
+    this.panelReturnMode = 'release-verification';
+    this.panelOperation = null;
+    this.panelFocusTarget = action ? `release-recovery-${action}` : 'release-history-result';
+    this.panelWorkflowError = null;
+    this.panelWorkflowNotice = null;
+    this.panelFocusToken += 1;
+    this.emit();
+  }
+
+  confirmReleaseRecovery(request: ReleaseRecoveryRequest): Promise<void> {
+    return this.confirmReleaseRecoveryAsync(request);
+  }
+
   closePanelMode(): void {
     if (this.panelMode === 'edit') return;
+    if (this.panelMode === 'release-recovery-confirmation') {
+      this.cancelReleaseRecoveryConfirmation();
+      return;
+    }
+    if (this.panelMode === 'release-history') {
+      this.releaseRecoveryIntent = null;
+      this.releaseRecoveryRequestIdentity = null;
+      this.panelMode = 'release-verification';
+      this.panelReturnMode = 'edit';
+      this.panelOperation = null;
+      this.panelFocusTarget = this.releaseRecoveryEntryFocusTarget;
+      this.panelWorkflowError = null;
+      this.panelWorkflowNotice = null;
+      this.panelFocusToken += 1;
+      this.emit();
+      return;
+    }
+    this.brandDriftController?.restorePreview();
     this.panelWorkflowRequestVersion += 1;
     this.panelOperation = null;
     const nextMode = this.panelReturnMode;
@@ -1558,12 +1690,43 @@ export class LocalAuthoringFrameController {
     this.panelReturnMode = nextMode === 'edit' ? 'edit' : 'appearance';
     this.panelWorkflowError = null;
     this.panelWorkflowNotice = null;
+    this.panelFocusTarget = null;
     this.panelFocusToken += 1;
     this.emit();
   }
 
   matchProductBrand(strategy: AuthoringBrandMatchRequest['strategy']): void {
     void this.matchProductBrandAsync(strategy);
+  }
+
+  checkBrandDrift(): void {
+    this.brandDriftController?.checkExplicitly();
+  }
+
+  previewCurrentBrandDrift(): void {
+    this.brandDriftController?.preview('current');
+  }
+
+  previewProposedBrandDrift(): void {
+    this.brandDriftController?.preview('proposed');
+  }
+
+  reviewBrandDriftProposal(): void {
+    const proposal = this.brandDriftController?.reviewProposal();
+    const prepare = this.services.prepareBrandMatchProposal;
+    if (!proposal || !prepare) return;
+    this.brandProposal = prepare(proposal);
+    this.panelMode = 'brand-match-review';
+    this.panelReturnMode = 'appearance';
+    this.panelWorkflowError = null;
+    this.panelWorkflowNotice =
+      'Review the drift proposal. The Brand draft changes only after you explicitly use it.';
+    this.panelFocusToken += 1;
+    this.emit();
+  }
+
+  acknowledgeBrandTheme(): void {
+    this.brandDriftController?.acknowledge();
   }
 
   acceptBrandMatch(): void {
@@ -1918,6 +2081,12 @@ export class LocalAuthoringFrameController {
       return this.persistRequestedDocument(message.correlationId);
     }
 
+    if (message.type === AUTHORING_SAVE_STATE_UPDATE_TYPE) {
+      this.saveState = { state: message.state, label: message.label };
+      this.emit();
+      return;
+    }
+
     if (message.type === AUTHORING_PANEL_MODE_OPEN_TYPE) {
       this.openAppearanceMode();
       return;
@@ -2133,6 +2302,7 @@ export class LocalAuthoringFrameController {
   private openPanelMode(mode: AuthoringPanelMode, returnMode: AuthoringPanelMode): void {
     this.panelMode = mode;
     this.panelReturnMode = returnMode;
+    this.panelFocusTarget = null;
     this.panelWorkflowError = null;
     this.panelWorkflowNotice = null;
     this.panelFocusToken += 1;
@@ -2208,6 +2378,36 @@ export class LocalAuthoringFrameController {
     try {
       const result = await applyBrandMatch(structuredClone(proposal));
       if (!this.panelWorkflowRequestIsCurrent(requestVersion)) return;
+      if (result.persisted.draftRevision < this.highestAdoptedBrandDraftRevision) {
+        this.panelOperation = null;
+        this.panelWorkflowError =
+          'A newer Brand draft is already active. Run Product match again to review the latest draft.';
+        this.emit();
+        return;
+      }
+      const adopted = this.services.adoptBrandPreviewTheme?.(structuredClone(result.persisted));
+      if (adopted === false) {
+        this.panelOperation = null;
+        this.panelWorkflowError =
+          'The saved Brand draft conflicts with the active preview. Run Product match again.';
+        this.emit();
+        return;
+      }
+      this.highestAdoptedBrandDraftRevision = Math.max(
+        this.highestAdoptedBrandDraftRevision,
+        result.persisted.draftRevision,
+      );
+      try {
+        await this.sendBrandPreviewTheme(result.persisted);
+      } catch {
+        if (!this.panelWorkflowRequestIsCurrent(requestVersion)) return;
+        this.panelOperation = null;
+        this.panelWorkflowError =
+          'Product match was saved, but the preview could not refresh. Try again.';
+        this.emit();
+        return;
+      }
+      if (!this.panelWorkflowRequestIsCurrent(requestVersion)) return;
       this.brandWorkflow = structuredClone(result.brand);
       this.brandProposal = null;
       this.panelOperation = null;
@@ -2225,6 +2425,24 @@ export class LocalAuthoringFrameController {
       this.panelWorkflowError = 'The Brand proposal could not be saved.';
       this.emit();
     }
+  }
+
+  private sendBrandPreviewTheme(
+    result: AuthoringBrandMatchApplyResult['persisted'],
+  ): Promise<void> {
+    if (!this.isHostedInParent) return Promise.resolve();
+    return this.bridge.sendWithAck(
+      {
+        protocol: BRIDGE_PROTOCOL_VERSION,
+        sessionId: this.sessionId,
+        documentId: this.documentState.id,
+        correlationId: createBridgeCorrelationId('authoring_theme_preview_apply'),
+        type: AUTHORING_THEME_PREVIEW_APPLY_TYPE,
+        draftRevision: result.draftRevision,
+        previewTheme: structuredClone(result.previewTheme),
+      },
+      { timeoutMs: 2_000 },
+    );
   }
 
   private async verifyCurrentStagingArtifactAsync(): Promise<void> {
@@ -2437,6 +2655,134 @@ export class LocalAuthoringFrameController {
     return this.started && requestVersion === this.panelWorkflowRequestVersion;
   }
 
+  private async loadReleaseRecoveryState(
+    environmentId: string,
+    feedback?: { kind: 'error' | 'notice'; message: string },
+  ): Promise<void> {
+    const getReleaseRecoveryState = this.services.getReleaseRecoveryState;
+    if (!getReleaseRecoveryState) return;
+    const requestVersion = ++this.releaseRecoveryRequestVersion;
+    this.releaseRecoveryEnvironmentId = environmentId;
+    this.releaseRecoveryModel = null;
+    this.releaseRecoveryIntent = null;
+    this.releaseRecoveryRequestIdentity = null;
+    this.panelOperation = 'loading-release-recovery';
+    this.panelWorkflowError = null;
+    this.panelWorkflowNotice = null;
+    this.emit();
+    try {
+      const state = await getReleaseRecoveryState(environmentId);
+      if (!this.releaseRecoveryRequestIsCurrent(requestVersion, environmentId)) return;
+      this.releaseRecoveryModel = createAuthoringReleaseRecoveryViewModel({
+        workspaceId: this.documentState.workspaceId,
+        environmentId,
+        documentId: this.documentState.id,
+        state,
+      });
+      this.panelOperation = null;
+      if (feedback?.kind === 'error') this.panelWorkflowError = feedback.message;
+      if (feedback?.kind === 'notice') this.panelWorkflowNotice = feedback.message;
+      this.emit();
+    } catch {
+      if (!this.releaseRecoveryRequestIsCurrent(requestVersion, environmentId)) return;
+      this.releaseRecoveryModel = null;
+      this.panelOperation = null;
+      this.panelWorkflowError = 'Release history could not be loaded for this environment.';
+      this.emit();
+    }
+  }
+
+  private async confirmReleaseRecoveryAsync(request: ReleaseRecoveryRequest): Promise<void> {
+    const recoverRelease = this.services.recoverRelease;
+    const environmentId = this.releaseRecoveryEnvironmentId;
+    const intent = this.releaseRecoveryIntent;
+    const requestIdentity = this.releaseRecoveryRequestIdentity;
+    if (
+      !recoverRelease ||
+      !environmentId ||
+      !intent ||
+      !requestIdentity ||
+      !releaseRecoveryRequestMatchesConfirmation(request, intent, requestIdentity)
+    ) {
+      this.panelWorkflowError = 'This release recovery confirmation is no longer current.';
+      this.emit();
+      return;
+    }
+    if (this.panelOperation === 'recovering-release') return;
+
+    const requestVersion = ++this.releaseRecoveryRequestVersion;
+    const confirmationKey = intent.confirmationKey;
+    this.panelOperation = 'recovering-release';
+    this.panelWorkflowError = null;
+    this.panelWorkflowNotice = null;
+    this.emit();
+    let result: ReleaseRecoveryResult;
+    try {
+      result = await recoverRelease(environmentId, structuredClone(request));
+      if (
+        !this.releaseRecoveryRequestIsCurrent(requestVersion, environmentId) ||
+        this.releaseRecoveryIntent?.confirmationKey !== confirmationKey
+      ) {
+        return;
+      }
+      if (result.action !== request.action) {
+        throw new Error('Release recovery response action mismatch');
+      }
+    } catch {
+      if (
+        !this.releaseRecoveryRequestIsCurrent(requestVersion, environmentId) ||
+        this.releaseRecoveryIntent?.confirmationKey !== confirmationKey
+      ) {
+        return;
+      }
+      this.panelOperation = null;
+      this.panelWorkflowError =
+        'The recovery response was uncertain. Retry this confirmation to reuse the same request identity.';
+      this.emit();
+      return;
+    }
+
+    this.panelMode = 'release-history';
+    this.panelReturnMode = 'release-verification';
+    this.panelFocusTarget = 'release-history-result';
+    this.panelFocusToken += 1;
+    const feedback = releaseRecoveryResultFeedback(result);
+    const [, releaseTruthRefreshed] = await Promise.all([
+      this.loadReleaseRecoveryState(environmentId, feedback),
+      result.ok ? this.refreshReleaseTruthAfterRecovery() : Promise.resolve(true),
+    ]);
+    if (!releaseTruthRefreshed && this.panelMode === 'release-history') {
+      this.panelWorkflowError =
+        'Recovery completed, but the surrounding release summary could not be refreshed.';
+      this.panelWorkflowNotice = null;
+      this.emit();
+    }
+  }
+
+  private releaseRecoveryRequestIsCurrent(requestVersion: number, environmentId: string): boolean {
+    return (
+      this.started &&
+      requestVersion === this.releaseRecoveryRequestVersion &&
+      environmentId === this.releaseRecoveryEnvironmentId
+    );
+  }
+
+  private async refreshReleaseTruthAfterRecovery(): Promise<boolean> {
+    await this.loadStagingReleaseState(false);
+    const getReleaseWorkflowState = this.services.getReleaseWorkflowState;
+    if (!getReleaseWorkflowState) return true;
+    const requestVersion = ++this.panelWorkflowRequestVersion;
+    try {
+      const release = await getReleaseWorkflowState();
+      if (!this.panelWorkflowRequestIsCurrent(requestVersion)) return false;
+      this.releaseWorkflow = structuredClone(release);
+      this.emit();
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
   private async publishCurrentTourToStagingAsync(): Promise<void> {
     const getReleaseState = this.services.getReleaseState;
     const publishToStaging = this.services.publishToStaging;
@@ -2597,6 +2943,7 @@ export class LocalAuthoringFrameController {
     const draftContentHash = remote.draftContentHash;
     if (!draftArtifactId || !draftContentHash) return;
     const currentWorkflow = this.releaseWorkflow;
+    const environments = releaseEnvironmentReferencesFromRemote(remote, currentWorkflow);
     const stagingMatchesRemote =
       currentWorkflow?.staging?.artifactId === draftArtifactId &&
       currentWorkflow.staging.contentHash === draftContentHash;
@@ -2628,6 +2975,7 @@ export class LocalAuthoringFrameController {
         : {}),
       ...(currentWorkflow?.theme ? { theme: structuredClone(currentWorkflow.theme) } : {}),
       ...(currentWorkflow?.changes ? { changes: structuredClone(currentWorkflow.changes) } : {}),
+      ...(environments ? { environments } : {}),
       canVerify: Boolean(this.services.verifyStagingRelease),
       canPromote: Boolean(this.services.promoteExactArtifact),
       approval: currentWorkflow?.approval ?? 'not-required',
@@ -3096,10 +3444,71 @@ export class LocalAuthoringFrameController {
     this.emit();
   }
 
+  private createBrandDriftController(): AuthoringBrandDriftController | null {
+    const sampleProductStyle = this.services.sampleBrandStyle;
+    const checkProductStyle = this.services.checkBrandDrift;
+    if (!sampleProductStyle || !checkProductStyle) return null;
+
+    const acknowledgeBrandTheme = this.services.acknowledgeBrandTheme;
+    return new AuthoringBrandDriftController(
+      {
+        sampleProductStyle: async () => {
+          const sampled = await sampleProductStyle({
+            documentId: this.documentState.id,
+            strategy: 'current-target',
+          });
+          return structuredClone(sampled.evidence);
+        },
+        checkProductStyle: (request) => checkProductStyle(request),
+        previewRuntime: (mode) => {
+          if (!this.isHostedInParent) {
+            return Promise.reject(new Error('Brand drift runtime preview requires a host page'));
+          }
+          return this.bridge.sendWithAck(
+            {
+              protocol: BRIDGE_PROTOCOL_VERSION,
+              sessionId: this.sessionId,
+              documentId: this.documentState.id,
+              correlationId: createBridgeCorrelationId('authoring_brand_drift_preview'),
+              type: AUTHORING_BRAND_DRIFT_PREVIEW_TYPE,
+              mode,
+            },
+            { timeoutMs: 4_000 },
+          );
+        },
+        ...(acknowledgeBrandTheme
+          ? {
+              acknowledgeThemeVersion: async (request) => {
+                const acknowledgement = await acknowledgeBrandTheme({
+                  ...request,
+                  document: structuredClone(this.documentState),
+                });
+                this.documentState = this.normalizeDocument(
+                  structuredClone(acknowledgement.document),
+                );
+                this.services.saveDocument(this.documentState);
+                this.jsonText = this.services.exportDocument(this.documentState);
+                const getBrandWorkflowState = this.services.getBrandWorkflowState;
+                if (getBrandWorkflowState) {
+                  this.brandWorkflow = structuredClone(await getBrandWorkflowState());
+                }
+                return acknowledgement;
+              },
+            }
+          : {}),
+      },
+      (snapshot) => {
+        this.brandDrift = snapshot;
+        if (this.started) this.emit();
+      },
+    );
+  }
+
   private makeSnapshot(): LocalAuthoringFrameSnapshot {
     return {
       documentState: this.documentState,
       status: this.status,
+      saveState: { ...this.saveState },
       slashText: this.slashText,
       slashOpen: this.slashOpen,
       jsonText: this.jsonText,
@@ -3121,10 +3530,21 @@ export class LocalAuthoringFrameController {
         returnMode: this.panelReturnMode,
         focusToken: this.panelFocusToken,
         returnFocus: this.panelReturnFocus,
+        focusTarget: this.panelFocusTarget,
         operation: this.panelOperation,
         brand: structuredClone(this.brandWorkflow),
         brandProposal: this.brandProposal ? structuredClone(this.brandProposal) : null,
+        brandDrift: structuredClone(this.brandDrift),
         release: this.releaseWorkflow ? structuredClone(this.releaseWorkflow) : null,
+        releaseRecovery: {
+          available: Boolean(this.services.getReleaseRecoveryState),
+          environmentId: this.releaseRecoveryEnvironmentId,
+          model: this.releaseRecoveryModel ? structuredClone(this.releaseRecoveryModel) : null,
+          intent: this.releaseRecoveryIntent ? structuredClone(this.releaseRecoveryIntent) : null,
+          requestIdentity: this.releaseRecoveryRequestIdentity
+            ? { ...this.releaseRecoveryRequestIdentity }
+            : null,
+        },
         error: this.panelWorkflowError,
         notice: this.panelWorkflowNotice,
       },
@@ -3137,6 +3557,41 @@ export class LocalAuthoringFrameController {
       subscriber(this.snapshotValue);
     }
   }
+}
+
+function releaseRecoveryRequestMatchesConfirmation(
+  request: ReleaseRecoveryRequest,
+  intent: AuthoringReleaseRecoveryIntent,
+  identity: AuthoringReleaseRecoveryRequestIdentity,
+): boolean {
+  if (request.action !== intent.action) return false;
+  if (request.idempotencyKey !== identity.idempotencyKey) return false;
+  if (request.correlationId !== identity.correlationId) return false;
+  if (request.expectedGeneration !== intent.guard.expectedGeneration) return false;
+  if (request.expectedActivePublicationId !== intent.guard.expectedActivePublicationId) {
+    return false;
+  }
+  if (request.action === 'rollback' && intent.action === 'rollback') {
+    return intent.targets.some((target) => target.publicationId === request.targetPublicationId);
+  }
+  return request.action === 'unpublish' && intent.action === 'unpublish';
+}
+
+function releaseRecoveryResultFeedback(result: ReleaseRecoveryResult): {
+  kind: 'error' | 'notice';
+  message: string;
+} {
+  if (!result.ok) return { kind: 'error', message: result.message };
+  if (result.action === 'rollback') {
+    return {
+      kind: 'notice',
+      message: `Rolled back to ${result.targetPublicationId} at generation ${result.generation}.`,
+    };
+  }
+  return {
+    kind: 'notice',
+    message: `Delivery is inactive at generation ${result.generation}.`,
+  };
 }
 
 function initialReleaseView(
@@ -3223,11 +3678,50 @@ function releaseWorkflowAfterStagingPublication(
     ...(current?.rendererVersion ? { rendererVersion: current.rendererVersion } : {}),
     ...(current?.theme ? { theme: structuredClone(current.theme) } : {}),
     ...(current?.changes ? { changes: structuredClone(current.changes) } : {}),
+    ...(current?.environments ? { environments: structuredClone(current.environments) } : {}),
     canVerify,
     canPromote,
     canApprove: current?.canApprove ?? false,
     approval,
   };
+}
+
+function releaseHistoryEntryFocusTarget(
+  workflow: AuthoringReleaseWorkflowState | null,
+  environmentId: string,
+): string | null {
+  let environment = workflow?.environments?.find(
+    (candidate) => candidate.environmentId === environmentId,
+  )?.environment;
+  if (!environment && workflow?.staging?.environmentId === environmentId) {
+    environment = 'staging';
+  }
+  if (!environment && workflow?.production?.environmentId === environmentId) {
+    environment = 'production';
+  }
+  return environment ? `release-history-${environment}` : null;
+}
+
+function releaseEnvironmentReferencesFromRemote(
+  remote: AuthoringStagingReleaseState,
+  current: AuthoringReleaseWorkflowState | null,
+): AuthoringReleaseWorkflowState['environments'] {
+  const pipeline = remote.pipeline;
+  if (!pipeline) {
+    return current?.environments ? structuredClone(current.environments) : undefined;
+  }
+  const staging = {
+    environment: 'staging' as const,
+    environmentId: pipeline.staging.environmentId,
+  };
+  if (pipeline.production.environmentId === pipeline.staging.environmentId) return [staging];
+  return [
+    staging,
+    {
+      environment: 'production',
+      environmentId: pipeline.production.environmentId,
+    },
+  ];
 }
 
 function releaseViewFromRemote(remote: AuthoringStagingReleaseState): AuthoringReleaseViewState {

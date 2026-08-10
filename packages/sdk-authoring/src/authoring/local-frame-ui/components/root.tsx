@@ -119,7 +119,10 @@ export function LocalAuthoringFrameRoot({ options }: { options: LocalAuthoringFr
         ? shellRef.current?.querySelector<HTMLElement>(`[data-panel-entry="${returnFocus}"]`)
         : null;
     } else {
-      target = shellRef.current?.querySelector<HTMLElement>('[data-panel-mode-heading]');
+      const focusTarget = snapshot.panelWorkflow.focusTarget;
+      target = focusTarget
+        ? shellRef.current?.querySelector<HTMLElement>(`[data-panel-entry="${focusTarget}"]`)
+        : shellRef.current?.querySelector<HTMLElement>('[data-panel-mode-heading]');
     }
     if (!target) return;
     const focusFrame = window.requestAnimationFrame(() => target.focus());

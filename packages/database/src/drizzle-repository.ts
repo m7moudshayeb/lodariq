@@ -1,16 +1,51 @@
 import { randomUUID } from 'node:crypto';
-import { and, asc, desc, eq, inArray, isNotNull, isNull, lt, ne, or, sql } from 'drizzle-orm';
+import {
+  and,
+  asc,
+  desc,
+  eq,
+  gte,
+  inArray,
+  isNotNull,
+  isNull,
+  lt,
+  lte,
+  ne,
+  or,
+  sql,
+} from 'drizzle-orm';
 import {
   AUTHORING_ACTIVATION_CAPABILITIES,
+  ANALYTICS_TARGET_RESOLUTION_STATUSES,
   BRAND_THEME_CONTRACT_VERSION,
   COMPILER_VERSION,
   RENDERER_CONTRACT_VERSION,
+  RELEASE_RECOVERY_FAILURE_CODES,
+  RELEASE_RECOVERY_FAILURE_MESSAGES,
+  RELEASE_RECOVERY_HISTORY_MAX_ITEMS,
+  ReleaseRecoveryRequest as ReleaseRecoveryRequestSchema,
+  evaluateEnvironmentReleasePolicy,
+  evaluateReleaseRecovery,
+  validate,
+  type AnalyticsEventAggregate,
+  type AnalyticsTargetResolutionStatus,
   type CompiledDocument,
+  type ControlPlaneRole,
   type LodariqDocument,
   type QueryAuthoringDocumentsResult,
+  type ReleaseHistoryEntry,
+  type ReleaseRecoveryFailure,
+  type ReleaseRecoveryFailureCode,
+  type ReleaseRecoveryOperationSnapshot,
+  type ReleaseRecoveryPublicationSnapshot,
+  type ReleaseRecoveryRequest,
+  type ReleaseRecoveryResult,
+  type ReleaseRecoveryStateResponse,
 } from '@lodariq/schema';
 import {
   type ActivateCompiledArtifactInput,
+  type BrandDriftRunRecord,
+  type CreateBrandDriftRunInput,
   type ActivatedAuthoringDocumentSessionRecord,
   type AcknowledgeAuthEmailRowInput,
   type ApproveAuthoringAuthorizationRequestInput,
@@ -18,6 +53,7 @@ import {
   type AuthoringAuthorizationRequestRecord,
   type AuthoringCodeExchangeRecord,
   type AuthoringDocumentSessionRecord,
+  type AcknowledgeDocumentThemeInput,
   type AuthoringSessionRecord,
   authoringSessionThemeReference,
   type AuthSessionRecord,
@@ -39,6 +75,9 @@ import {
   type CreatePublicSdkBootstrapGrantInput,
   type CreateVisualCheckRunInput,
   type CreateStyleSourceInput,
+  type ApplyProductStyleProposalInput,
+  type ProductStyleApplicationRecord,
+  type ProductStyleProposalApplicationResult,
   type StyleSourceRecord,
   type CreatePublicationVerificationInput,
   type PublicationVerificationRecord,
@@ -47,6 +86,7 @@ import {
   type PromoteVerifiedPublicationInput,
   type PromotionResult,
   type UpdateEnvironmentReleasePolicyInput,
+  type UpdateWorkspaceEnvironmentPolicyInput,
   type CreateWorkspaceThemeInput,
   createAuthoringSessionCompatibilityPins,
   type ConsumePublicSdkBootstrapGrantInput,
@@ -54,6 +94,7 @@ import {
   type DocumentPublicationSummary,
   type DocumentSummary,
   type EnvironmentTokenRecord,
+  type IngestAuthoritativeEventsInput,
   type IngestEventsInput,
   type IdentityWorkspaceRecord,
   type GetOrCreatePublicSdkInstallationInput,
@@ -63,14 +104,23 @@ import {
   DEPLOYMENT_CHANGED_ERROR_CODE,
   DeploymentChangedError,
   EnvironmentReleasePolicyChangedError,
+  EnvironmentPolicyMutationForbiddenError,
+  WorkspaceEnvironmentPolicyInvalidError,
+  assertValidWorkspaceEnvironmentPolicy,
+  assertEnvironmentPolicyMutationAllowed,
+  assertEnvironmentPolicySnapshot,
   IdempotencyConflictError,
+  type PersistedAnalyticsEventRecord,
   type PersistedCompiledArtifact,
   type PersistedDocumentDeployment,
   type PersistedDocument,
   type PersistedDocumentVersion,
   type PersistedPublication,
   type PersistedReleaseOperation,
+  type RecoverDocumentReleaseInput,
+  type ReleaseRecoveryScopeInput,
   type PublishCompiledArtifactInput,
+  type QueryAnalyticsEventsInput,
   type QueryAuthoringDocumentsFromActivationInput,
   type RequestSetPasswordChallengeInput,
   type PublicSdkBootstrapGrantRecord,
@@ -106,20 +156,35 @@ import {
   type WorkspaceEnvironment,
   type PasswordCredentialRecord,
   type UserRecord,
+  assertAnalyticsEnvironmentQuery,
+  assertAuthoritativeAnalyticsBatch,
   assertReleaseMutationGuardInput,
   assertBrowserVerificationReport,
   assertRequiredApprovalCount,
+  assertSafeProductStyleProposal,
+  assertProductStyleApplicationIntegrity,
+  assertProductStyleProposalReplay,
+  createProductStyleApplicationRecord,
   assertSafeStyleSource,
   hashCanonicalJson,
   normalizeIsoTimestamp,
+  normalizeEnvironmentOriginAllowlist,
+  normalizeWorkspaceEnvironments,
+  createReleaseRecoveryRequestHash,
+  ReleaseRecoveryHistoryLimitExceededError,
+  ReleaseRecoveryHistoryIntegrityError,
+  toWorkspaceEnvironmentPolicyRow,
   normalizeReleaseApprovalReason,
   assertVisualCheckReport,
+  assertBrandDriftReport,
   assertWorkspaceThemeDraft,
   assertWorkspaceThemeMutationGuard,
   assertPublicSdkBootstrapGrantHash,
   assertPublicSdkBootstrapGrantLifetime,
   assertPublicSdkInstallationId,
   assertPublicSdkInstallationOriginPolicy,
+  assertPublicSdkInstallationEnvironmentPolicy,
+  assertPublicSdkInstallationEnvironmentOrigin,
   AUTHORING_ACTIVATION_GRANT_MAX_TTL_MS,
   AUTHORING_AUTHORIZATION_CODE_MAX_TTL_MS,
   AUTHORING_AUTHORIZATION_CODE_MIN_TTL_MS,
@@ -136,6 +201,7 @@ import {
   normalizeAuthEmailClaimInput,
   normalizeThemeGuardUpdatedAt,
   normalizeWorkspaceThemeName,
+  productStyleProposalRequestHash,
   themeImpactBinding,
   sanitizeAuthEmailFailureCode,
   isSha256Hash,
@@ -147,7 +213,12 @@ import {
   normalizeExactOrigin,
   isPublicSdkBootstrapGrantHash,
   requireExactHttpOrigin,
+  DEFAULT_ANALYTICS_EVENT_QUERY_LIMIT,
 } from './repository';
+import {
+  extractHistoricalReleaseArtifactPins,
+  isReleaseArtifactCurrentlyDeployable,
+} from './release-artifact-compatibility';
 import { assertWorkspaceScope } from './rls';
 import {
   authoringActivationGrants,
@@ -157,6 +228,7 @@ import {
   authRateLimits,
   compiledArtifacts,
   authoringSessions,
+  authoritativeAnalyticsEvents,
   documentDeployments,
   documents,
   documentVersions,
@@ -170,6 +242,7 @@ import {
   publicSdkInstallations,
   publications,
   publicationVerifications,
+  productStyleApplications,
   releaseOperations,
   releaseApprovals,
   setPasswordChallenges,
@@ -177,6 +250,7 @@ import {
   themes,
   themeVersions,
   styleSources,
+  brandDriftRuns,
   users,
   visualCheckRuns,
   workspaces,
@@ -245,6 +319,12 @@ type PromotionOutcome =
   | { kind: 'deployment_changed'; expectedGeneration: number; actualGeneration: number }
   | { kind: 'failed'; errorCode: string };
 
+interface DrizzleReleaseRecoveryPublicationMaterial {
+  publication: PersistedPublication;
+  operation: PersistedReleaseOperation;
+  snapshot: ReleaseRecoveryPublicationSnapshot;
+}
+
 export function createDrizzleControlPlaneRepository(
   database: LodariqDatabase,
 ): ControlPlaneRepository {
@@ -253,6 +333,10 @@ export function createDrizzleControlPlaneRepository(
 
 class DrizzleControlPlaneRepository implements ControlPlaneRepository {
   constructor(private readonly database: LodariqDatabase) {}
+
+  async checkReadiness(): Promise<void> {
+    await this.database.execute(sql`select 1`);
+  }
 
   async findPasswordCredentialByEmail(
     emailNormalized: string,
@@ -281,6 +365,12 @@ class DrizzleControlPlaneRepository implements ControlPlaneRepository {
   }
 
   async createIdentityAccount(input: CreateIdentityAccountInput): Promise<boolean> {
+    try {
+      assertValidWorkspaceEnvironmentPolicy(input.workspace.id, input.environments);
+    } catch (error) {
+      if (error instanceof WorkspaceEnvironmentPolicyInvalidError) return false;
+      throw error;
+    }
     try {
       return await this.database.transaction(async (tx) => {
         await tx.execute(
@@ -1282,6 +1372,12 @@ class DrizzleControlPlaneRepository implements ControlPlaneRepository {
 
   async createIdentityWorkspace(input: CreateIdentityWorkspaceInput): Promise<boolean> {
     try {
+      assertValidWorkspaceEnvironmentPolicy(input.workspace.id, input.environments);
+    } catch (error) {
+      if (error instanceof WorkspaceEnvironmentPolicyInvalidError) return false;
+      throw error;
+    }
+    try {
       await this.database.transaction(async (tx) => {
         await tx.execute(
           sql`select
@@ -1459,6 +1555,234 @@ class DrizzleControlPlaneRepository implements ControlPlaneRepository {
         throw new Error('workspace theme draft update failed');
       }
       return this.hydrateWorkspaceTheme(tx, updated);
+    });
+  }
+
+  async applyProductStyleProposal(
+    input: ApplyProductStyleProposalInput,
+  ): Promise<ProductStyleProposalApplicationResult | null> {
+    // Validate the complete closed contract before opening a transaction or
+    // attempting any write. Only bounded schema-owned provenance reaches SQL.
+    assertSafeProductStyleProposal(input.proposal);
+    assertWorkspaceThemeDraft(input.draft);
+    const expectedUpdatedAt = normalizeThemeGuardUpdatedAt(input);
+    const proposalHash = productStyleProposalRequestHash(input);
+
+    return this.scoped(input.workspaceId, async (tx) => {
+      // Serialize proposal replays and Product-match draft updates for this
+      // theme. The row CAS below remains authoritative for writers that do not
+      // participate in this advisory-lock protocol.
+      await tx.execute(
+        sql`select pg_advisory_xact_lock(hashtext(${input.workspaceId}), hashtext(${input.themeId}))`,
+      );
+
+      const [existingApplicationRow] = await tx
+        .select()
+        .from(productStyleApplications)
+        .where(
+          and(
+            eq(productStyleApplications.workspaceId, input.workspaceId),
+            eq(productStyleApplications.themeId, input.themeId),
+            eq(productStyleApplications.proposalId, input.proposal.proposalId),
+          ),
+        )
+        .limit(1);
+      if (existingApplicationRow) {
+        const existingRows = await tx
+          .select()
+          .from(styleSources)
+          .where(
+            and(
+              eq(styleSources.workspaceId, input.workspaceId),
+              eq(styleSources.themeId, input.themeId),
+              eq(styleSources.proposalId, input.proposal.proposalId),
+            ),
+          )
+          .orderBy(asc(styleSources.sourceOrdinal), asc(styleSources.id));
+        const existingSources = existingRows.map(toStyleSourceRecord);
+        const application = toProductStyleApplicationRecord(existingApplicationRow);
+        assertProductStyleProposalReplay(input, proposalHash, application, existingSources);
+        const current = await this.findWorkspaceTheme(tx, input.workspaceId, input.themeId);
+        if (!current) return null;
+        return {
+          theme: await this.hydrateWorkspaceTheme(tx, current),
+          sources: existingSources,
+          application,
+          draftChanged: application.receipt.draftChanged,
+          replayed: true,
+        };
+      }
+
+      const [orphanedSource] = await tx
+        .select({ id: styleSources.id })
+        .from(styleSources)
+        .where(
+          and(
+            eq(styleSources.workspaceId, input.workspaceId),
+            eq(styleSources.themeId, input.themeId),
+            eq(styleSources.proposalId, input.proposal.proposalId),
+          ),
+        )
+        .limit(1);
+      if (orphanedSource) {
+        throw new Error(
+          'Product match provenance exists without its canonical application receipt',
+        );
+      }
+
+      const current = await this.findWorkspaceTheme(tx, input.workspaceId, input.themeId);
+      if (!current) return null;
+      assertWorkspaceThemeMutationGuard(
+        toWorkspaceThemeRecord(current, null),
+        input.expectedRevision,
+        expectedUpdatedAt,
+      );
+      const [environment] = await tx
+        .select({ id: environments.id })
+        .from(environments)
+        .where(
+          and(
+            eq(environments.workspaceId, input.workspaceId),
+            eq(environments.id, input.environmentId),
+            eq(environments.enabled, true),
+          ),
+        )
+        .limit(1);
+      if (!environment) throw new Error('environment not found in workspace');
+      const [membership] = await tx
+        .select({ userId: workspaceMemberships.userId })
+        .from(workspaceMemberships)
+        .where(
+          and(
+            eq(workspaceMemberships.workspaceId, input.workspaceId),
+            eq(workspaceMemberships.userId, input.actorUserId),
+          ),
+        )
+        .limit(1);
+      if (!membership) throw new Error('Product match actor is not a workspace member');
+
+      const draftChanged = hashCanonicalJson(current.draft) !== hashCanonicalJson(input.draft);
+      const now = new Date();
+      const appliedThemeRevision = current.revision + (draftChanged ? 1 : 0);
+      const [updated] = await tx
+        .update(themes)
+        .set(
+          draftChanged
+            ? {
+                draft: input.draft,
+                revision: appliedThemeRevision,
+                updatedByUserId: input.actorUserId,
+                updatedAt: now,
+              }
+            : { draft: input.draft },
+        )
+        .where(
+          and(
+            eq(themes.workspaceId, input.workspaceId),
+            eq(themes.id, input.themeId),
+            eq(themes.revision, input.expectedRevision),
+            eq(themes.updatedAt, new Date(expectedUpdatedAt)),
+          ),
+        )
+        .returning();
+      if (!updated) {
+        const actual = await this.findWorkspaceTheme(tx, input.workspaceId, input.themeId);
+        if (!actual) return null;
+        assertWorkspaceThemeMutationGuard(
+          toWorkspaceThemeRecord(actual, null),
+          input.expectedRevision,
+          expectedUpdatedAt,
+        );
+        throw new Error('workspace theme Product match update failed');
+      }
+
+      const appliedTheme = await this.hydrateWorkspaceTheme(tx, updated);
+      const sourceCount = input.proposal.sources.length;
+      const sourceRecords = input.proposal.sources.map(
+        (source, sourceOrdinal): StyleSourceRecord => ({
+          id: `style_source_${randomUUID()}`,
+          workspaceId: input.workspaceId,
+          themeId: input.themeId,
+          environmentId: input.environmentId,
+          proposalId: input.proposal.proposalId,
+          proposalHash,
+          sourceOrdinal,
+          sourceCount,
+          appliedThemeRevision,
+          draftChanged,
+          source,
+          sourceHash: hashCanonicalJson(source),
+          createdByUserId: input.actorUserId,
+          createdAt: now.toISOString(),
+        }),
+      );
+      const applicationCandidate = createProductStyleApplicationRecord({
+        id: `product_style_application_${randomUUID()}`,
+        input,
+        requestHash: proposalHash,
+        appliedTheme,
+        sources: sourceRecords,
+        createdAt: now.toISOString(),
+      });
+      const [insertedApplicationRow] = await tx
+        .insert(productStyleApplications)
+        .values({
+          id: applicationCandidate.id,
+          workspaceId: applicationCandidate.workspaceId,
+          themeId: applicationCandidate.themeId,
+          environmentId: applicationCandidate.environmentId,
+          proposalId: applicationCandidate.receipt.proposalId,
+          requestHash: applicationCandidate.requestHash,
+          sourceSetHash: applicationCandidate.sourceSetHash,
+          draftRevision: applicationCandidate.receipt.draftRevision,
+          draftUpdatedAt: new Date(applicationCandidate.receipt.draftUpdatedAt),
+          previewTheme: applicationCandidate.receipt.previewTheme,
+          previewThemeHash: applicationCandidate.receipt.previewTheme.contentHash,
+          sourceReceipts: applicationCandidate.receipt.sources,
+          draftChanged: applicationCandidate.receipt.draftChanged,
+          createdByUserId: applicationCandidate.createdByUserId,
+          createdAt: new Date(applicationCandidate.createdAt),
+        })
+        .returning();
+      if (!insertedApplicationRow) {
+        throw new Error('failed to persist the canonical Product match application receipt');
+      }
+      const insertedRows = await tx
+        .insert(styleSources)
+        .values(
+          sourceRecords.map((source) => ({
+            id: source.id,
+            workspaceId: source.workspaceId,
+            themeId: source.themeId,
+            environmentId: source.environmentId,
+            proposalId: source.proposalId,
+            proposalHash: source.proposalHash,
+            sourceOrdinal: source.sourceOrdinal,
+            sourceCount: source.sourceCount,
+            appliedThemeRevision: source.appliedThemeRevision,
+            draftChanged: source.draftChanged,
+            source: source.source,
+            sourceHash: source.sourceHash,
+            createdByUserId: source.createdByUserId,
+            createdAt: new Date(source.createdAt),
+          })),
+        )
+        .returning();
+      if (insertedRows.length !== sourceCount) {
+        throw new Error('failed to persist the complete Product match provenance set');
+      }
+      const application = toProductStyleApplicationRecord(insertedApplicationRow);
+      const persistedSources = insertedRows
+        .map(toStyleSourceRecord)
+        .sort(compareStyleSourceRecords);
+      assertProductStyleApplicationIntegrity(application, persistedSources);
+      return {
+        theme: appliedTheme,
+        sources: persistedSources,
+        application,
+        draftChanged,
+        replayed: false,
+      };
     });
   }
 
@@ -1676,7 +2000,7 @@ class DrizzleControlPlaneRepository implements ControlPlaneRepository {
     assertSafeStyleSource(input.source);
     return this.scoped(input.workspaceId, async (tx) => {
       const [theme] = await tx
-        .select({ id: themes.id })
+        .select({ id: themes.id, revision: themes.revision })
         .from(themes)
         .where(and(eq(themes.workspaceId, input.workspaceId), eq(themes.id, input.themeId)))
         .limit(1);
@@ -1692,13 +2016,24 @@ class DrizzleControlPlaneRepository implements ControlPlaneRepository {
         )
         .limit(1);
       if (!environment) throw new Error('environment not found in workspace');
+      const id = `style_source_${randomUUID()}`;
       const [source] = await tx
         .insert(styleSources)
         .values({
-          id: `style_source_${randomUUID()}`,
+          id,
           workspaceId: input.workspaceId,
           themeId: input.themeId,
           environmentId: input.environmentId,
+          proposalId: `standalone.${id}`,
+          proposalHash: hashCanonicalJson({
+            themeId: input.themeId,
+            environmentId: input.environmentId,
+            source: input.source,
+          }),
+          sourceOrdinal: 0,
+          sourceCount: 1,
+          appliedThemeRevision: theme.revision,
+          draftChanged: false,
           source: input.source,
           sourceHash: hashCanonicalJson(input.source),
           createdByUserId: input.actorUserId,
@@ -1719,8 +2054,63 @@ class DrizzleControlPlaneRepository implements ControlPlaneRepository {
         .select()
         .from(styleSources)
         .where(condition)
-        .orderBy(desc(styleSources.createdAt), desc(styleSources.id));
+        .orderBy(
+          desc(styleSources.createdAt),
+          desc(styleSources.proposalId),
+          asc(styleSources.sourceOrdinal),
+          desc(styleSources.id),
+        );
       return rows.map(toStyleSourceRecord);
+    });
+  }
+
+  async createBrandDriftRun(input: CreateBrandDriftRunInput): Promise<BrandDriftRunRecord> {
+    assertBrandDriftReport(input.report);
+    if (
+      input.report.themeId !== input.themeId ||
+      input.report.baselineThemeVersionId !== input.baselineThemeVersionId
+    ) {
+      throw new Error('Brand drift report theme identity does not match its persistence scope');
+    }
+    return this.scoped(input.workspaceId, async (tx) => {
+      const [run] = await tx
+        .insert(brandDriftRuns)
+        .values({
+          id: input.report.checkId,
+          workspaceId: input.workspaceId,
+          environmentId: input.environmentId,
+          documentId: input.documentId,
+          themeId: input.themeId,
+          baselineThemeVersionId: input.baselineThemeVersionId,
+          trigger: input.report.trigger,
+          classification: input.report.classification,
+          confidence: input.report.confidence,
+          report: input.report,
+          createdByUserId: input.actorUserId,
+          createdAt: new Date(),
+        })
+        .returning();
+      if (!run) throw new Error('failed to persist Brand drift evidence');
+      return toBrandDriftRunRecord(run);
+    });
+  }
+
+  async listBrandDriftRuns(
+    workspaceId: string,
+    documentId: string,
+  ): Promise<BrandDriftRunRecord[]> {
+    return this.scoped(workspaceId, async (tx) => {
+      const rows = await tx
+        .select()
+        .from(brandDriftRuns)
+        .where(
+          and(
+            eq(brandDriftRuns.workspaceId, workspaceId),
+            eq(brandDriftRuns.documentId, documentId),
+          ),
+        )
+        .orderBy(desc(brandDriftRuns.createdAt), desc(brandDriftRuns.id));
+      return rows.map(toBrandDriftRunRecord);
     });
   }
 
@@ -1956,6 +2346,315 @@ class DrizzleControlPlaneRepository implements ControlPlaneRepository {
     });
   }
 
+  async getReleaseRecoveryState(
+    input: ReleaseRecoveryScopeInput,
+  ): Promise<ReleaseRecoveryStateResponse | null> {
+    return this.scoped(input.workspaceId, async (tx) => {
+      const scope = await this.loadReleaseRecoveryScope(tx, input, false);
+      if (!scope) return null;
+      const deploymentRow = await this.findDocumentDeployment(
+        tx,
+        input.workspaceId,
+        input.environmentId,
+        input.documentId,
+      );
+      const deployment = deploymentRow ? toPersistedDocumentDeployment(deploymentRow) : null;
+      const operations = await this.loadReleaseRecoveryOperations(tx, input);
+      const materials = await this.loadReleaseRecoveryPublicationMaterials(
+        tx,
+        input,
+        scope.environment.kind,
+        operations,
+      );
+      const history = buildDrizzleReleaseRecoveryHistory(materials, operations);
+      if (history.length > RELEASE_RECOVERY_HISTORY_MAX_ITEMS) {
+        throw new ReleaseRecoveryHistoryLimitExceededError(history.length);
+      }
+      const rollbackTargetPublicationIds = materials
+        .filter(
+          ({ publication, operation }) =>
+            deployment?.state === 'active' &&
+            operation.resultGeneration !== null &&
+            operation.resultGeneration < deployment.generation &&
+            publication.id !== deployment.activePublicationId &&
+            isReleaseArtifactCurrentlyDeployable(publication.artifact),
+        )
+        .map(({ publication }) => publication.id)
+        .sort();
+      return {
+        workspaceId: input.workspaceId,
+        environmentId: input.environmentId,
+        documentId: input.documentId,
+        permissions: drizzleReleaseRecoveryPermissions(
+          scope.environment,
+          scope.membershipRole,
+          input.actorUserId,
+        ),
+        deployment,
+        history,
+        rollbackTargetPublicationIds: [...new Set(rollbackTargetPublicationIds)],
+      };
+    });
+  }
+
+  async recoverDocumentRelease(
+    input: RecoverDocumentReleaseInput,
+  ): Promise<ReleaseRecoveryResult | null> {
+    const requestContract = validate(ReleaseRecoveryRequestSchema, input.request);
+    if (!requestContract.valid) throw new Error('release recovery request is invalid');
+    const request = requestContract.value;
+    return this.scoped(input.workspaceId, async (tx) => {
+      await this.lockSortedReleaseDocumentEnvironments(tx, input.workspaceId, input.documentId, [
+        input.environmentId,
+      ]);
+      const scope = await this.loadReleaseRecoveryScope(tx, input, true);
+      if (!scope) return null;
+
+      const requestHash = createReleaseRecoveryRequestHash(input, request);
+      const [existingRow] = await tx
+        .select()
+        .from(releaseOperations)
+        .where(
+          and(
+            eq(releaseOperations.workspaceId, input.workspaceId),
+            eq(releaseOperations.environmentId, input.environmentId),
+            eq(releaseOperations.documentId, input.documentId),
+            eq(releaseOperations.idempotencyKey, request.idempotencyKey),
+          ),
+        )
+        .limit(1)
+        .for('update');
+      if (existingRow) {
+        const existing = toPersistedReleaseOperation(existingRow);
+        if (!drizzleRecoveryOperationMatchesRequest(existing, input, request, requestHash)) {
+          return drizzleNonPersistingRecoveryFailure(request, 'idempotency_conflict');
+        }
+        if (existing.status === 'activating' || existing.status === 'awaiting_approval') {
+          return drizzleNonPersistingRecoveryFailure(
+            request,
+            'release_operation_in_progress',
+            existing.id,
+          );
+        }
+        const replay = await this.materializeReleaseRecoveryResult(tx, existing, true);
+        return replay ?? drizzleNonPersistingRecoveryFailure(request, 'internal_error');
+      }
+
+      const deploymentRow = await this.findDocumentDeploymentForUpdate(tx, input);
+      const deployment = deploymentRow ? toPersistedDocumentDeployment(deploymentRow) : null;
+      const occurredAt = new Date();
+      const occurredAtIso = occurredAt.toISOString();
+      const operationId = `relop_${randomUUID()}`;
+      const publicationId = request.action === 'rollback' ? `pub_${randomUUID()}` : undefined;
+      const policyFailure = drizzleReleaseRecoveryPolicyFailure(
+        scope.environment,
+        scope.membershipRole,
+        input.actorUserId,
+        request.action,
+      );
+      if (policyFailure) {
+        const result = drizzlePersistedRecoveryFailure(
+          request,
+          policyFailure,
+          operationId,
+          deployment,
+        );
+        await this.insertFailedReleaseRecoveryOperation(
+          tx,
+          input,
+          request,
+          requestHash,
+          operationId,
+          occurredAt,
+          result,
+        );
+        return result;
+      }
+
+      const operations = await this.loadReleaseRecoveryOperations(tx, input);
+      const materials = await this.loadReleaseRecoveryPublicationMaterials(
+        tx,
+        input,
+        scope.environment.kind,
+        operations,
+      );
+      const operationSnapshots = await this.materializeReleaseRecoveryOperationSnapshots(
+        tx,
+        operations,
+      );
+      const deployableRollbackTargetPublicationIds = new Set(
+        materials
+          .filter(({ publication }) => isReleaseArtifactCurrentlyDeployable(publication.artifact))
+          .map(({ publication }) => publication.id),
+      );
+      const evaluationBase = {
+        workspaceId: input.workspaceId,
+        environmentId: input.environmentId,
+        documentId: input.documentId,
+        actorUserId: input.actorUserId,
+        deployment,
+        publications: materials.map(({ snapshot }) => snapshot),
+        operations: operationSnapshots,
+        request,
+        newReleaseOperationId: operationId,
+        occurredAt: occurredAtIso,
+      };
+      const decision =
+        request.action === 'rollback'
+          ? evaluateReleaseRecovery({
+              ...evaluationBase,
+              request,
+              newPublicationId: publicationId!,
+              deployableRollbackTargetPublicationIds,
+            })
+          : evaluateReleaseRecovery({ ...evaluationBase, request });
+
+      if (decision.kind === 'replay') return decision.result;
+      if (decision.kind === 'reject') {
+        if (decision.persistFailure) {
+          await this.insertFailedReleaseRecoveryOperation(
+            tx,
+            input,
+            request,
+            requestHash,
+            operationId,
+            occurredAt,
+            decision.result,
+          );
+        }
+        return decision.result;
+      }
+
+      if (
+        !deploymentRow ||
+        deploymentRow.state !== 'active' ||
+        !deploymentRow.activePublicationId
+      ) {
+        return drizzleNonPersistingRecoveryFailure(request, 'internal_error');
+      }
+      const targetMaterial =
+        decision.action === 'rollback'
+          ? materials.find(
+              ({ publication }) => publication.id === decision.publication.sourcePublicationId,
+            )
+          : null;
+      if (
+        decision.action === 'rollback' &&
+        (!targetMaterial ||
+          targetMaterial.publication.compiledArtifactId !==
+            decision.result.artifact.compiledArtifactId)
+      ) {
+        return drizzleNonPersistingRecoveryFailure(request, 'internal_error');
+      }
+
+      const [activatingOperation] = await tx
+        .insert(releaseOperations)
+        .values({
+          id: operationId,
+          workspaceId: input.workspaceId,
+          environmentId: input.environmentId,
+          documentId: input.documentId,
+          action: request.action,
+          requestedArtifactId: null,
+          requestedSourcePublicationId:
+            request.action === 'rollback' ? request.targetPublicationId : null,
+          requestedActivePublicationId: request.expectedActivePublicationId ?? null,
+          actualActivePublicationId: null,
+          sourcePublicationId: null,
+          expectedGeneration: request.expectedGeneration,
+          resultGeneration: null,
+          idempotencyKey: request.idempotencyKey,
+          requestHash,
+          status: 'activating',
+          correlationId: request.correlationId,
+          requestedByUserId: input.actorUserId,
+          resultPublicationId: null,
+          reason: request.reason,
+          errorCode: null,
+          createdAt: occurredAt,
+          completedAt: null,
+        })
+        .returning();
+      if (!activatingOperation) throw new Error('failed to create release recovery operation');
+
+      if (decision.action === 'rollback' && targetMaterial) {
+        const [publication] = await tx
+          .insert(publications)
+          .values({
+            id: decision.publication.id,
+            workspaceId: input.workspaceId,
+            correlationId: request.correlationId,
+            environmentId: input.environmentId,
+            documentId: input.documentId,
+            documentVersionId: targetMaterial.publication.documentVersionId,
+            compiledArtifactId: targetMaterial.publication.compiledArtifactId,
+            contentHash: targetMaterial.publication.contentHash,
+            action: 'rollback',
+            sourcePublicationId: targetMaterial.publication.id,
+            previousPublicationId: deploymentRow.activePublicationId,
+            releaseOperationId: operationId,
+            publishedByUserId: input.actorUserId,
+            publishedAt: occurredAt,
+          })
+          .returning({ id: publications.id });
+        if (!publication) throw new Error('failed to create rollback publication');
+      }
+
+      const [updatedDeployment] = await tx
+        .update(documentDeployments)
+        .set(
+          decision.action === 'rollback'
+            ? {
+                state: 'active',
+                activePublicationId: decision.result.publicationId,
+                pendingReleaseOperationId: null,
+                generation: decision.result.generation,
+                updatedAt: occurredAt,
+              }
+            : {
+                state: 'inactive',
+                activePublicationId: null,
+                pendingReleaseOperationId: null,
+                generation: decision.result.generation,
+                updatedAt: occurredAt,
+              },
+        )
+        .where(
+          and(
+            eq(documentDeployments.workspaceId, input.workspaceId),
+            eq(documentDeployments.environmentId, input.environmentId),
+            eq(documentDeployments.documentId, input.documentId),
+            eq(documentDeployments.state, 'active'),
+            eq(documentDeployments.generation, request.expectedGeneration),
+            eq(documentDeployments.activePublicationId, deploymentRow.activePublicationId),
+            isNull(documentDeployments.pendingReleaseOperationId),
+          ),
+        )
+        .returning({ generation: documentDeployments.generation });
+      if (!updatedDeployment) throw new Error('release recovery deployment CAS failed');
+
+      const [completedOperation] = await tx
+        .update(releaseOperations)
+        .set({
+          status: 'completed',
+          requestedArtifactId: targetMaterial?.publication.compiledArtifactId ?? null,
+          sourcePublicationId: targetMaterial?.publication.id ?? null,
+          actualActivePublicationId: deploymentRow.activePublicationId,
+          resultPublicationId:
+            decision.action === 'rollback' ? decision.result.publicationId : null,
+          resultGeneration: decision.result.generation,
+          errorCode: null,
+          completedAt: occurredAt,
+        })
+        .where(
+          and(eq(releaseOperations.id, operationId), eq(releaseOperations.status, 'activating')),
+        )
+        .returning({ id: releaseOperations.id });
+      if (!completedOperation) throw new Error('failed to complete release recovery operation');
+      return decision.result;
+    });
+  }
+
   async getCurrentPublication(
     workspaceId: string,
     environmentId: string,
@@ -2115,6 +2814,9 @@ class DrizzleControlPlaneRepository implements ControlPlaneRepository {
       if (!environment) {
         throw new Error('environment not found in workspace');
       }
+      if (!(await this.hasAuthoringMembership(tx, input.workspaceId, input.actorUserId))) {
+        throw new Error('authoring session creator is not an active workspace member');
+      }
 
       const [artifact] = await tx
         .select()
@@ -2179,7 +2881,8 @@ class DrizzleControlPlaneRepository implements ControlPlaneRepository {
             eq(environments.id, input.environmentId),
           ),
         )
-        .limit(1);
+        .limit(1)
+        .for('share');
       if (!environment) throw new Error('environment not found in workspace');
 
       const [artifact] = await tx
@@ -2210,6 +2913,9 @@ class DrizzleControlPlaneRepository implements ControlPlaneRepository {
           documentId: artifact.documentId,
           action,
           requestedArtifactId: artifact.id,
+          requestedSourcePublicationId: null,
+          requestedActivePublicationId: null,
+          actualActivePublicationId: null,
           sourcePublicationId,
           expectedGeneration: input.expectedGeneration,
           idempotencyKey: input.idempotencyKey,
@@ -2217,6 +2923,7 @@ class DrizzleControlPlaneRepository implements ControlPlaneRepository {
           status: 'activating',
           correlationId: input.correlationId,
           requestedByUserId: input.actorUserId,
+          reason: null,
           createdAt: now,
         })
         .onConflictDoNothing({
@@ -2233,6 +2940,31 @@ class DrizzleControlPlaneRepository implements ControlPlaneRepository {
         const existingOperation = await this.findReleaseOperation(tx, input);
         if (!existingOperation) throw new Error('failed to resolve idempotent release operation');
         return this.resolveExistingReleaseOperation(tx, input, existingOperation);
+      }
+
+      const environmentPolicy = assertEnvironmentPolicyMutationAllowed(
+        toWorkspaceEnvironment(environment),
+        {
+          action: 'direct-publish',
+          expectedUpdatedAt: input.expectedEnvironmentPolicyUpdatedAt,
+        },
+      );
+      const [membership] = await tx
+        .select({ role: workspaceMemberships.role })
+        .from(workspaceMemberships)
+        .where(
+          and(
+            eq(workspaceMemberships.workspaceId, input.workspaceId),
+            eq(workspaceMemberships.userId, input.actorUserId),
+          ),
+        )
+        .limit(1)
+        .for('share');
+      if (
+        !membership ||
+        !environmentPolicy.releasePolicy.publisherRoles.some((role) => role === membership.role)
+      ) {
+        throw new EnvironmentPolicyMutationForbiddenError('role_forbidden');
       }
 
       await tx.execute(
@@ -2368,8 +3100,22 @@ class DrizzleControlPlaneRepository implements ControlPlaneRepository {
         )
         .limit(1)
         .for('share');
-      if (!environment || environment.kind !== 'staging') {
+      if (!environment || !environment.enabled || environment.kind !== 'staging') {
         throw new Error('publication verification requires a staging environment');
+      }
+      const [verifierMembership] = await tx
+        .select({ role: workspaceMemberships.role })
+        .from(workspaceMemberships)
+        .where(
+          and(
+            eq(workspaceMemberships.workspaceId, input.workspaceId),
+            eq(workspaceMemberships.userId, input.actorUserId),
+          ),
+        )
+        .limit(1)
+        .for('share');
+      if (!verifierMembership || !hasAuthoringWorkspaceRole(verifierMembership.role)) {
+        throw new Error('publication verifier is not a workspace member');
       }
       if (!environment.originAllowlist.includes(verifiedOrigin)) {
         throw new Error('publication verification origin is not allowlisted for the environment');
@@ -2440,7 +3186,24 @@ class DrizzleControlPlaneRepository implements ControlPlaneRepository {
     }
     const reason = normalizeReleaseApprovalReason(input.reason);
     return this.scoped(input.workspaceId, async (tx) => {
-      const [operation] = await tx
+      const [approverMembership] = await tx
+        .select({ role: workspaceMemberships.role })
+        .from(workspaceMemberships)
+        .where(
+          and(
+            eq(workspaceMemberships.workspaceId, input.workspaceId),
+            eq(workspaceMemberships.userId, input.actorUserId),
+          ),
+        )
+        .limit(1)
+        .for('share');
+      if (
+        !approverMembership ||
+        (approverMembership.role !== 'owner' && approverMembership.role !== 'admin')
+      ) {
+        throw new Error('release approver is not a workspace member');
+      }
+      const [operationSnapshot] = await tx
         .select()
         .from(releaseOperations)
         .where(
@@ -2450,11 +3213,142 @@ class DrizzleControlPlaneRepository implements ControlPlaneRepository {
           ),
         )
         .limit(1);
+      if (!operationSnapshot || operationSnapshot.action !== 'promote') {
+        throw new Error('promotion release operation not found in workspace');
+      }
+      const sourcePublicationRows = operationSnapshot.sourcePublicationId
+        ? await tx
+            .select({ environmentId: publications.environmentId })
+            .from(publications)
+            .where(
+              and(
+                eq(publications.workspaceId, input.workspaceId),
+                eq(publications.id, operationSnapshot.sourcePublicationId),
+              ),
+            )
+            .limit(1)
+        : [];
+      const sourcePublication = sourcePublicationRows[0];
+      const environmentIds = [
+        operationSnapshot.environmentId,
+        ...(sourcePublication ? [sourcePublication.environmentId] : []),
+      ];
+      const environmentRows = await tx
+        .select()
+        .from(environments)
+        .where(
+          and(
+            eq(environments.workspaceId, input.workspaceId),
+            inArray(environments.id, environmentIds),
+          ),
+        )
+        .for('share');
+      const targetEnvironment = environmentRows.find(
+        (environment) => environment.id === operationSnapshot.environmentId,
+      );
+      const sourceEnvironment = environmentRows.find(
+        (environment) => environment.id === sourcePublication?.environmentId,
+      );
+      if (!targetEnvironment) throw new Error('promotion target environment not found');
+      await this.lockSortedReleaseDocumentEnvironments(
+        tx,
+        input.workspaceId,
+        operationSnapshot.documentId,
+        environmentIds,
+      );
+      const [operation] = await tx
+        .select()
+        .from(releaseOperations)
+        .where(
+          and(
+            eq(releaseOperations.workspaceId, input.workspaceId),
+            eq(releaseOperations.id, input.releaseOperationId),
+          ),
+        )
+        .limit(1)
+        .for('update');
       if (!operation || operation.action !== 'promote') {
         throw new Error('promotion release operation not found in workspace');
       }
+      const [existingApproval] = await tx
+        .select()
+        .from(releaseApprovals)
+        .where(
+          and(
+            eq(releaseApprovals.workspaceId, input.workspaceId),
+            eq(releaseApprovals.releaseOperationId, operation.id),
+            eq(releaseApprovals.decidedByUserId, input.actorUserId),
+          ),
+        )
+        .limit(1);
+      if (
+        operation.status === 'failed' &&
+        operation.errorCode === RELEASE_APPROVAL_REJECTED_ERROR_CODE &&
+        existingApproval?.decision === input.decision &&
+        existingApproval.reason === reason
+      ) {
+        return toReleaseApprovalRecord(existingApproval);
+      }
       if (operation.status !== 'awaiting_approval') {
         throw new Error('release operation is not awaiting approval');
+      }
+      if (
+        operation.environmentId !== operationSnapshot.environmentId ||
+        operation.sourcePublicationId !== operationSnapshot.sourcePublicationId
+      ) {
+        throw new EnvironmentPolicyMutationForbiddenError('role_forbidden');
+      }
+      if (input.decision === 'approved' && !operation.requestedByUserId) {
+        throw new EnvironmentPolicyMutationForbiddenError('role_forbidden');
+      }
+      let targetPolicy = assertEnvironmentPolicySnapshot(
+        toWorkspaceEnvironment(targetEnvironment),
+        input.expectedEnvironmentPolicyUpdatedAt,
+      );
+      if (input.decision === 'approved') {
+        if (!sourcePublication || !sourceEnvironment?.enabled) {
+          throw new EnvironmentPolicyMutationForbiddenError('promotion_source_mismatch');
+        }
+        targetPolicy = assertEnvironmentPolicyMutationAllowed(
+          toWorkspaceEnvironment(targetEnvironment),
+          {
+            action: 'promote',
+            sourceEnvironmentId: sourcePublication.environmentId,
+            expectedUpdatedAt: input.expectedEnvironmentPolicyUpdatedAt,
+          },
+        );
+        const [requesterMembership] = await tx
+          .select({ role: workspaceMemberships.role })
+          .from(workspaceMemberships)
+          .where(
+            and(
+              eq(workspaceMemberships.workspaceId, input.workspaceId),
+              eq(workspaceMemberships.userId, operation.requestedByUserId!),
+            ),
+          )
+          .limit(1)
+          .for('share');
+        if (
+          !requesterMembership ||
+          !targetPolicy.releasePolicy.publisherRoles.some(
+            (role) => role === requesterMembership.role,
+          )
+        ) {
+          throw new EnvironmentPolicyMutationForbiddenError('role_forbidden');
+        }
+      }
+      if (
+        input.decision === 'approved' &&
+        targetPolicy.releasePolicy.separationOfDuties.requireSeparateApprover &&
+        input.actorUserId === operation.requestedByUserId
+      ) {
+        throw new EnvironmentPolicyMutationForbiddenError('separation_of_duties_required');
+      }
+      if (existingApproval) {
+        if (existingApproval.decision === input.decision && existingApproval.reason === reason) {
+          return toReleaseApprovalRecord(existingApproval);
+        }
+        throw new Error('release approver already recorded an immutable decision');
       }
       const [approval] = await tx
         .insert(releaseApprovals)
@@ -2475,8 +3369,43 @@ class DrizzleControlPlaneRepository implements ControlPlaneRepository {
           ],
         })
         .returning();
-      if (!approval) throw new Error('release approver already recorded an immutable decision');
-      return toReleaseApprovalRecord(approval);
+      const [racedApproval] = approval
+        ? [approval]
+        : await tx
+            .select()
+            .from(releaseApprovals)
+            .where(
+              and(
+                eq(releaseApprovals.workspaceId, input.workspaceId),
+                eq(releaseApprovals.releaseOperationId, operation.id),
+                eq(releaseApprovals.decidedByUserId, input.actorUserId),
+              ),
+            )
+            .limit(1);
+      if (
+        !racedApproval ||
+        racedApproval.decision !== input.decision ||
+        racedApproval.reason !== reason
+      ) {
+        throw new Error('release approver already recorded an immutable decision');
+      }
+      if (input.decision === 'rejected') {
+        await tx
+          .update(releaseOperations)
+          .set({
+            status: 'failed',
+            errorCode: RELEASE_APPROVAL_REJECTED_ERROR_CODE,
+            completedAt: new Date(),
+          })
+          .where(
+            and(
+              eq(releaseOperations.id, operation.id),
+              eq(releaseOperations.status, 'awaiting_approval'),
+            ),
+          );
+        await this.clearPendingReleaseOperation(tx, operation.id);
+      }
+      return toReleaseApprovalRecord(racedApproval);
     });
   }
 
@@ -2530,14 +3459,10 @@ class DrizzleControlPlaneRepository implements ControlPlaneRepository {
         throw new Error('production promotion target must be production');
       }
 
-      for (const environmentId of [input.sourceEnvironmentId, input.targetEnvironmentId].sort()) {
-        await tx.execute(
-          sql`select pg_advisory_xact_lock(
-              hashtext(${`${input.workspaceId}:${environmentId}`}),
-              hashtext(${input.documentId})
-            )`,
-        );
-      }
+      await this.lockSortedReleaseDocumentEnvironments(tx, input.workspaceId, input.documentId, [
+        input.sourceEnvironmentId,
+        input.targetEnvironmentId,
+      ]);
 
       let operation = await this.findPromotionOperation(tx, input);
       const replayedRequest = Boolean(operation);
@@ -2614,6 +3539,38 @@ class DrizzleControlPlaneRepository implements ControlPlaneRepository {
             errorCode: operation.errorCode ?? 'promotion_operation_failed',
           };
         }
+      }
+
+      const sourcePolicy = normalizeWorkspaceEnvironments([
+        toWorkspaceEnvironment(sourceEnvironment),
+      ])[0];
+      if (!sourcePolicy?.enabled) {
+        throw new EnvironmentPolicyMutationForbiddenError('environment_disabled');
+      }
+      const targetPolicy = assertEnvironmentPolicyMutationAllowed(
+        toWorkspaceEnvironment(targetEnvironment),
+        {
+          action: 'promote',
+          sourceEnvironmentId: input.sourceEnvironmentId,
+          expectedUpdatedAt: input.expectedEnvironmentPolicyUpdatedAt,
+        },
+      );
+      const [membership] = await tx
+        .select({ role: workspaceMemberships.role })
+        .from(workspaceMemberships)
+        .where(
+          and(
+            eq(workspaceMemberships.workspaceId, input.workspaceId),
+            eq(workspaceMemberships.userId, input.actorUserId),
+          ),
+        )
+        .limit(1)
+        .for('share');
+      if (
+        !membership ||
+        !targetPolicy.releasePolicy.publisherRoles.some((role) => role === membership.role)
+      ) {
+        throw new EnvironmentPolicyMutationForbiddenError('role_forbidden');
       }
 
       const sourceDeployment = await this.findDocumentDeployment(
@@ -2713,6 +3670,9 @@ class DrizzleControlPlaneRepository implements ControlPlaneRepository {
             documentId: input.documentId,
             action: 'promote',
             requestedArtifactId: sourcePublication.compiledArtifactId,
+            requestedSourcePublicationId: null,
+            requestedActivePublicationId: null,
+            actualActivePublicationId: null,
             sourcePublicationId: sourcePublication.id,
             expectedGeneration: input.expectedGeneration,
             resultGeneration:
@@ -2722,6 +3682,7 @@ class DrizzleControlPlaneRepository implements ControlPlaneRepository {
             status: actualGeneration === input.expectedGeneration ? status : 'failed',
             correlationId: input.correlationId,
             requestedByUserId: input.actorUserId,
+            reason: null,
             errorCode:
               actualGeneration === input.expectedGeneration ? null : DEPLOYMENT_CHANGED_ERROR_CODE,
             createdAt: now,
@@ -2762,16 +3723,10 @@ class DrizzleControlPlaneRepository implements ControlPlaneRepository {
           now,
         );
         if (!pendingDeployment) return { kind: 'in_progress' };
-        const [awaitingOperation] = await tx
-          .update(releaseOperations)
-          .set({ status: 'awaiting_approval', errorCode: null })
-          .where(eq(releaseOperations.id, operation.id))
-          .returning();
-        if (!awaitingOperation) throw new Error('failed to await promotion approval');
         return {
           kind: 'success',
           result: {
-            operation: toPersistedReleaseOperation(awaitingOperation),
+            operation: toPersistedReleaseOperation(operation),
             sourcePublication,
             publication: null,
             deployment: null,
@@ -2805,10 +3760,6 @@ class DrizzleControlPlaneRepository implements ControlPlaneRepository {
           actualGeneration: currentGeneration,
         };
       }
-      await tx
-        .update(releaseOperations)
-        .set({ status: 'activating', errorCode: null })
-        .where(eq(releaseOperations.id, operation.id));
       const [publication] = await tx
         .insert(publications)
         .values({
@@ -2918,18 +3869,13 @@ class DrizzleControlPlaneRepository implements ControlPlaneRepository {
         .select()
         .from(environments)
         .where(eq(environments.workspaceId, workspaceId))
-        .orderBy(environments.kind);
+        .orderBy(environments.pipelinePosition);
 
-      return rows.map((row) => ({
-        id: row.id,
-        workspaceId: row.workspaceId,
-        kind: row.kind,
-        name: row.name,
-        originAllowlist: row.originAllowlist,
-        requiredApprovalCount: normalizeRequiredApprovalCount(row.requiredApprovalCount),
-        createdAt: toIsoString(row.createdAt),
-        updatedAt: toIsoString(row.updatedAt),
-      }));
+      const normalized = normalizeWorkspaceEnvironments(rows.map(toWorkspaceEnvironment));
+      if (normalized.length > 0) {
+        assertValidWorkspaceEnvironmentPolicy(workspaceId, normalized);
+      }
+      return normalized;
     });
   }
 
@@ -2962,6 +3908,10 @@ class DrizzleControlPlaneRepository implements ControlPlaneRepository {
         .update(environments)
         .set({
           requiredApprovalCount: input.requiredApprovalCount,
+          releasePolicy: {
+            ...normalizeWorkspaceEnvironments([toWorkspaceEnvironment(current)])[0]!.releasePolicy,
+            requiredApprovalCount: input.requiredApprovalCount,
+          },
           updatedAt: new Date(),
         })
         .where(
@@ -2974,6 +3924,74 @@ class DrizzleControlPlaneRepository implements ControlPlaneRepository {
         .returning();
       if (!updated) throw new Error('environment release policy update failed');
       return toWorkspaceEnvironment(updated);
+    });
+  }
+
+  async updateWorkspaceEnvironmentPolicy(
+    input: UpdateWorkspaceEnvironmentPolicyInput,
+  ): Promise<WorkspaceEnvironment | null> {
+    const expectedUpdatedAt = normalizeIsoTimestamp(
+      input.expectedUpdatedAt,
+      'workspace environment policy expectedUpdatedAt',
+    );
+    return this.scoped(input.workspaceId, async (tx) => {
+      const currentRows = await tx
+        .select()
+        .from(environments)
+        .where(eq(environments.workspaceId, input.workspaceId))
+        .orderBy(environments.kind)
+        .for('update');
+      const current = currentRows.find((row) => row.id === input.environmentId);
+      if (!current) return null;
+      const actualUpdatedAt = toIsoString(current.updatedAt);
+      if (actualUpdatedAt !== expectedUpdatedAt) {
+        throw new EnvironmentReleasePolicyChangedError(expectedUpdatedAt, actualUpdatedAt);
+      }
+      const candidate: WorkspaceEnvironment = {
+        ...toWorkspaceEnvironment(current),
+        name: input.name,
+        originAllowlist: [...input.originAllowlist],
+        requiredApprovalCount: input.releasePolicy.requiredApprovalCount,
+        enabled: input.enabled,
+        pipelinePosition: input.pipelinePosition,
+        authoringEnabled: input.authoringEnabled,
+        ...(input.promotionSourceEnvironmentId
+          ? { promotionSourceEnvironmentId: input.promotionSourceEnvironmentId }
+          : {}),
+        releasePolicy: input.releasePolicy,
+      };
+      const candidateRows = currentRows.map((row) =>
+        row.id === input.environmentId ? candidate : toWorkspaceEnvironment(row),
+      );
+      assertValidWorkspaceEnvironmentPolicy(input.workspaceId, candidateRows);
+      const [updated] = await tx
+        .update(environments)
+        .set({
+          name: input.name,
+          originAllowlist: [...input.originAllowlist],
+          requiredApprovalCount: input.releasePolicy.requiredApprovalCount,
+          enabled: input.enabled,
+          pipelinePosition: input.pipelinePosition,
+          authoringEnabled: input.authoringEnabled,
+          promotionSourceEnvironmentId: input.promotionSourceEnvironmentId ?? null,
+          releasePolicy: input.releasePolicy,
+          updatedAt: new Date(),
+        })
+        .where(
+          and(
+            eq(environments.workspaceId, input.workspaceId),
+            eq(environments.id, input.environmentId),
+            eq(environments.updatedAt, current.updatedAt),
+          ),
+        )
+        .returning();
+      if (!updated) throw new Error('workspace environment policy update failed');
+      return (
+        normalizeWorkspaceEnvironments([
+          ...candidateRows.filter((environment) => environment.id !== input.environmentId),
+          toWorkspaceEnvironment(updated),
+        ]).find((environment) => environment.id === input.environmentId) ?? null
+      );
     });
   }
 
@@ -3076,11 +4094,13 @@ class DrizzleControlPlaneRepository implements ControlPlaneRepository {
         )
         .limit(1);
       if (!environment) throw new Error('environment not found in workspace');
+      assertPublicSdkInstallationEnvironmentPolicy(environment, input.authoringEnabled);
       assertPublicSdkInstallationOriginPolicy(
         environment.kind,
         exactOrigin,
         input.authoringEnabled,
       );
+      assertPublicSdkInstallationEnvironmentOrigin(environment, exactOrigin);
 
       const [existingMapping] = await tx
         .select()
@@ -3177,15 +4197,17 @@ class DrizzleControlPlaneRepository implements ControlPlaneRepository {
       for (const candidate of input.origins) {
         const environment = environmentById.get(candidate.environmentId);
         if (!environment) throw new Error('environment not found in workspace');
+        assertPublicSdkInstallationEnvironmentPolicy(environment, candidate.authoringEnabled);
         const exactOrigin = requireExactHttpOrigin(candidate.origin);
-        if (desired.has(exactOrigin)) {
-          throw new Error('public SDK origin mappings must use unique exact origins');
-        }
         assertPublicSdkInstallationOriginPolicy(
           environment.kind,
           exactOrigin,
           candidate.authoringEnabled,
         );
+        assertPublicSdkInstallationEnvironmentOrigin(environment, exactOrigin);
+        if (desired.has(exactOrigin)) {
+          throw new Error('public SDK origin mappings must use unique exact origins');
+        }
         desired.set(exactOrigin, {
           environmentId: candidate.environmentId,
           exactOrigin,
@@ -3298,18 +4320,23 @@ class DrizzleControlPlaneRepository implements ControlPlaneRepository {
               eq(publicSdkInstallations.id, installationId),
               isNull(publicSdkInstallations.revokedAt),
               eq(publicSdkInstallationOrigins.exactOrigin, exactOrigin),
+              eq(environments.enabled, true),
             ),
           )
           .limit(2);
         if (rows.length !== 1) return null;
         const [row] = rows;
         if (!row) return null;
+        const environment = toWorkspaceEnvironment(row.environment);
+        if (!environment.originAllowlist.includes(exactOrigin)) return null;
         return {
           installation: toPublicSdkInstallationRecord(row.installation),
-          environment: toWorkspaceEnvironment(row.environment),
+          environment,
           exactOrigin: row.mapping.exactOrigin,
           authoringEnabled:
-            row.environment.kind === 'production' ? false : row.mapping.authoringEnabled,
+            row.environment.kind === 'production'
+              ? false
+              : row.environment.authoringEnabled && row.mapping.authoringEnabled,
         };
       },
     );
@@ -3374,7 +4401,10 @@ class DrizzleControlPlaneRepository implements ControlPlaneRepository {
             eq(publicSdkInstallationOrigins.environmentId, input.environmentId),
             eq(publicSdkInstallationOrigins.exactOrigin, exactOrigin),
             eq(publicSdkInstallationOrigins.authoringEnabled, true),
+            eq(environments.enabled, true),
+            eq(environments.authoringEnabled, true),
             sql`${environments.kind} <> 'production'`,
+            sql`${environments.originAllowlist} ? ${exactOrigin}`,
           ),
         )
         .limit(2);
@@ -3441,7 +4471,10 @@ class DrizzleControlPlaneRepository implements ControlPlaneRepository {
                   and origin_mapping.exact_origin = ${publicSdkBootstrapGrants.exactOrigin}
                   and origin_mapping.environment_id = ${publicSdkBootstrapGrants.environmentId}
                   and origin_mapping.authoring_enabled = true
+                  and environment.enabled = true
+                  and environment.authoring_enabled = true
                   and environment.kind <> 'production'
+                  and environment.origin_allowlist ? origin_mapping.exact_origin
               )`,
             ),
           )
@@ -3501,7 +4534,10 @@ class DrizzleControlPlaneRepository implements ControlPlaneRepository {
                   and origin_mapping.exact_origin = ${publicSdkBootstrapGrants.exactOrigin}
                   and origin_mapping.environment_id = ${publicSdkBootstrapGrants.environmentId}
                   and origin_mapping.authoring_enabled = true
+                  and environment.enabled = true
+                  and environment.authoring_enabled = true
                   and environment.kind <> 'production'
+                  and environment.origin_allowlist ? origin_mapping.exact_origin
               )`,
               ),
             )
@@ -4275,7 +5311,13 @@ class DrizzleControlPlaneRepository implements ControlPlaneRepository {
         })
         .from(environmentTokens)
         .innerJoin(environments, eq(environmentTokens.environmentId, environments.id))
-        .where(and(eq(environmentTokens.tokenHash, tokenHash), isNull(environmentTokens.revokedAt)))
+        .where(
+          and(
+            eq(environmentTokens.tokenHash, tokenHash),
+            isNull(environmentTokens.revokedAt),
+            eq(environments.enabled, true),
+          ),
+        )
         .limit(1);
 
       if (!row) return null;
@@ -4305,6 +5347,7 @@ class DrizzleControlPlaneRepository implements ControlPlaneRepository {
           and(
             eq(environments.workspaceId, input.workspaceId),
             eq(environments.id, input.environmentId),
+            eq(environments.enabled, true),
           ),
         )
         .limit(1);
@@ -4404,12 +5447,19 @@ class DrizzleControlPlaneRepository implements ControlPlaneRepository {
           and(
             eq(environments.workspaceId, input.workspaceId),
             eq(environments.id, input.environmentId),
+            eq(environments.enabled, true),
+            eq(environments.authoringEnabled, true),
+            sql`${environments.kind} <> 'production'`,
           ),
         )
-        .limit(1);
+        .limit(1)
+        .for('share');
 
       if (!environment) {
         throw new Error('environment not found in workspace');
+      }
+      if (!(await this.hasAuthoringMembership(tx, input.workspaceId, input.actorUserId))) {
+        throw new Error('authoring session creator is not an active workspace member');
       }
 
       const [document] = await tx
@@ -4509,11 +5559,18 @@ class DrizzleControlPlaneRepository implements ControlPlaneRepository {
             eq(authoringSessions.tokenHash, tokenHash),
             isNull(authoringSessions.revokedAt),
             sql`${authoringSessions.expiresAt} > now()`,
+            eq(environments.enabled, true),
+            eq(environments.authoringEnabled, true),
+            sql`${environments.kind} <> 'production'`,
           ),
         )
         .limit(1);
 
-      return row ? toAuthoringSessionRecord(row, row.environment) : null;
+      if (!row) return null;
+      if (!(await this.hasAuthoringMembership(tx, row.workspaceId, row.createdByUserId))) {
+        return null;
+      }
+      return toAuthoringSessionRecord(row, row.environment);
     });
   }
 
@@ -4543,25 +5600,143 @@ class DrizzleControlPlaneRepository implements ControlPlaneRepository {
           and(
             eq(environments.workspaceId, session.workspaceId),
             eq(environments.id, session.environmentId),
+            eq(environments.enabled, true),
+            eq(environments.authoringEnabled, true),
+            sql`${environments.kind} <> 'production'`,
           ),
         )
         .limit(1);
       if (!environment) return null;
+      if (!(await this.hasAuthoringMembership(tx, session.workspaceId, session.createdByUserId))) {
+        return null;
+      }
       if (
         session.installationId &&
         session.customerOrigin &&
-        (!(await this.hasActiveAuthoringScope(
+        !(await this.hasActiveAuthoringScope(
           tx,
           session.workspaceId,
           session.environmentId,
           session.installationId,
           session.customerOrigin,
-        )) ||
-          !(await this.hasAuthoringMembership(tx, session.workspaceId, session.createdByUserId)))
+        ))
       ) {
         return null;
       }
       return toAuthoringSessionRecord(session, environment.kind);
+    });
+  }
+
+  async acknowledgeDocumentTheme(
+    input: AcknowledgeDocumentThemeInput,
+  ): Promise<PersistedDocument | null> {
+    assertWorkspaceScope(input.document.workspaceId, input.workspaceId);
+    assertArtifactMatchesDocument(input);
+    return this.scoped(input.workspaceId, async (tx) => {
+      const [current] = await tx
+        .select()
+        .from(documents)
+        .where(
+          and(eq(documents.workspaceId, input.workspaceId), eq(documents.id, input.documentId)),
+        )
+        .limit(1)
+        .for('update');
+      const binding = current?.canonical.themeBinding;
+      const nextBinding = input.document.themeBinding;
+      if (
+        !current ||
+        toIsoString(current.updatedAt) !== input.expectedDocumentUpdatedAt ||
+        !binding ||
+        binding.policy !== 'workspace-current' ||
+        binding.acknowledgedThemeVersionId !== input.expectedThemeVersionId ||
+        !nextBinding ||
+        nextBinding.policy !== 'workspace-current' ||
+        nextBinding.themeId !== binding.themeId ||
+        nextBinding.acknowledgedThemeVersionId !== input.reviewedThemeVersionId ||
+        input.document.id !== input.documentId
+      ) {
+        return null;
+      }
+
+      const [theme] = await tx
+        .select({ activeVersionId: themes.activeVersionId })
+        .from(themes)
+        .where(and(eq(themes.workspaceId, input.workspaceId), eq(themes.id, binding.themeId)))
+        .limit(1)
+        .for('update');
+      if (theme?.activeVersionId !== input.reviewedThemeVersionId) return null;
+
+      const [session] = await tx
+        .select()
+        .from(authoringSessions)
+        .where(
+          and(
+            eq(authoringSessions.workspaceId, input.workspaceId),
+            eq(authoringSessions.id, input.sessionId),
+            eq(authoringSessions.documentId, input.documentId),
+            eq(authoringSessions.createdByUserId, input.actorUserId),
+            eq(authoringSessions.themeVersionId, input.expectedThemeVersionId),
+            isNull(authoringSessions.revokedAt),
+            sql`${authoringSessions.expiresAt} > now()`,
+          ),
+        )
+        .limit(1)
+        .for('update');
+      if (!session) return null;
+
+      const now = new Date();
+      const [savedDocument] = await tx
+        .update(documents)
+        .set({
+          type: input.document.type,
+          status: input.document.status,
+          title: input.document.title,
+          schemaVersion: input.document.schemaVersion,
+          canonical: input.document,
+          updatedByUserId: input.actorUserId,
+          updatedAt: now,
+        })
+        .where(
+          and(
+            eq(documents.workspaceId, input.workspaceId),
+            eq(documents.id, input.documentId),
+            eq(documents.updatedAt, current.updatedAt),
+          ),
+        )
+        .returning();
+      if (!savedDocument) throw new Error('document Brand acknowledgement CAS failed');
+
+      const documentVersion = await this.insertDocumentVersion(tx, input, now);
+      const latestArtifact = await this.persistCompiledArtifact(
+        tx,
+        input.workspaceId,
+        documentVersion.id,
+        input.artifact,
+        now,
+      );
+      const [advancedSession] = await tx
+        .update(authoringSessions)
+        .set({ themeVersionId: input.reviewedThemeVersionId })
+        .where(
+          and(
+            eq(authoringSessions.workspaceId, input.workspaceId),
+            eq(authoringSessions.id, input.sessionId),
+            eq(authoringSessions.documentId, input.documentId),
+            eq(authoringSessions.createdByUserId, input.actorUserId),
+            eq(authoringSessions.themeVersionId, input.expectedThemeVersionId),
+            isNull(authoringSessions.revokedAt),
+          ),
+        )
+        .returning({ id: authoringSessions.id });
+      if (!advancedSession) throw new Error('authoring session Brand acknowledgement CAS failed');
+
+      return {
+        document: savedDocument.canonical,
+        createdByUserId: savedDocument.createdByUserId,
+        updatedByUserId: savedDocument.updatedByUserId,
+        updatedAt: toIsoString(savedDocument.updatedAt),
+        latestArtifact,
+      };
     });
   }
 
@@ -4717,6 +5892,161 @@ class DrizzleControlPlaneRepository implements ControlPlaneRepository {
     });
   }
 
+  async ingestAuthoritativeEvents(input: IngestAuthoritativeEventsInput): Promise<number> {
+    assertAuthoritativeAnalyticsBatch(input);
+
+    return this.scoped(input.workspaceId, async (tx) => {
+      if (!input.events.length) return 0;
+
+      await tx.insert(authoritativeAnalyticsEvents).values(
+        input.events.map((event) => ({
+          id: `aevt_${randomUUID()}`,
+          workspaceId: event.workspaceId,
+          environmentId: event.environmentId,
+          documentId: event.documentId,
+          publicationId: event.publicationId,
+          contentHash: event.contentHash,
+          pointerGeneration: event.pointerGeneration,
+          name: event.name,
+          stepId: event.stepId ?? null,
+          sdkVersion: event.sdkVersion,
+          correlationId: event.correlationId ?? null,
+          occurredAt: new Date(event.timestamp),
+          props: event.props ?? null,
+        })),
+      );
+
+      return input.events.length;
+    });
+  }
+
+  async listAnalyticsEvents(
+    input: QueryAnalyticsEventsInput,
+  ): Promise<PersistedAnalyticsEventRecord[]> {
+    assertAnalyticsEnvironmentQuery(input.query);
+    const query = input.query;
+    return this.scoped(input.workspaceId, async (tx) => {
+      const rows = await tx
+        .select()
+        .from(authoritativeAnalyticsEvents)
+        .where(
+          and(
+            eq(authoritativeAnalyticsEvents.workspaceId, input.workspaceId),
+            eq(authoritativeAnalyticsEvents.environmentId, query.environmentId),
+            query.documentId
+              ? eq(authoritativeAnalyticsEvents.documentId, query.documentId)
+              : undefined,
+            query.publicationId
+              ? eq(authoritativeAnalyticsEvents.publicationId, query.publicationId)
+              : undefined,
+            query.contentHash
+              ? eq(authoritativeAnalyticsEvents.contentHash, query.contentHash)
+              : undefined,
+            query.from
+              ? gte(authoritativeAnalyticsEvents.occurredAt, new Date(query.from))
+              : undefined,
+            query.to ? lte(authoritativeAnalyticsEvents.occurredAt, new Date(query.to)) : undefined,
+          ),
+        )
+        .orderBy(
+          desc(authoritativeAnalyticsEvents.occurredAt),
+          desc(authoritativeAnalyticsEvents.id),
+        )
+        .limit(query.limit ?? DEFAULT_ANALYTICS_EVENT_QUERY_LIMIT);
+      return rows.map(toPersistedAnalyticsEventRecord);
+    });
+  }
+
+  async aggregateAnalyticsEvents(
+    input: QueryAnalyticsEventsInput,
+  ): Promise<AnalyticsEventAggregate[]> {
+    assertAnalyticsEnvironmentQuery(input.query);
+    const query = input.query;
+    return this.scoped(input.workspaceId, async (tx) => {
+      const targetResolutionStatus = sql<string | null>`case
+        when ${authoritativeAnalyticsEvents.name} = 'target_resolution' then
+          case
+            when ${authoritativeAnalyticsEvents.props} ->> 'result' in
+              ('found', 'ambiguous', 'missing', 'needs_review')
+              then ${authoritativeAnalyticsEvents.props} ->> 'result'
+            else 'unknown'
+          end
+        else null
+      end`;
+      const rows = await tx
+        .select({
+          workspaceId: authoritativeAnalyticsEvents.workspaceId,
+          environmentId: authoritativeAnalyticsEvents.environmentId,
+          documentId: authoritativeAnalyticsEvents.documentId,
+          publicationId: authoritativeAnalyticsEvents.publicationId,
+          contentHash: authoritativeAnalyticsEvents.contentHash,
+          pointerGeneration: authoritativeAnalyticsEvents.pointerGeneration,
+          name: authoritativeAnalyticsEvents.name,
+          targetResolutionStatus,
+          count: sql<number>`count(*)::integer`,
+          firstTimestamp: sql<Date>`min(${authoritativeAnalyticsEvents.occurredAt})`,
+          lastTimestamp: sql<Date>`max(${authoritativeAnalyticsEvents.occurredAt})`,
+        })
+        .from(authoritativeAnalyticsEvents)
+        .where(
+          and(
+            eq(authoritativeAnalyticsEvents.workspaceId, input.workspaceId),
+            eq(authoritativeAnalyticsEvents.environmentId, query.environmentId),
+            query.documentId
+              ? eq(authoritativeAnalyticsEvents.documentId, query.documentId)
+              : undefined,
+            query.publicationId
+              ? eq(authoritativeAnalyticsEvents.publicationId, query.publicationId)
+              : undefined,
+            query.contentHash
+              ? eq(authoritativeAnalyticsEvents.contentHash, query.contentHash)
+              : undefined,
+            query.from
+              ? gte(authoritativeAnalyticsEvents.occurredAt, new Date(query.from))
+              : undefined,
+            query.to ? lte(authoritativeAnalyticsEvents.occurredAt, new Date(query.to)) : undefined,
+          ),
+        )
+        .groupBy(
+          authoritativeAnalyticsEvents.workspaceId,
+          authoritativeAnalyticsEvents.environmentId,
+          authoritativeAnalyticsEvents.documentId,
+          authoritativeAnalyticsEvents.publicationId,
+          authoritativeAnalyticsEvents.contentHash,
+          authoritativeAnalyticsEvents.pointerGeneration,
+          authoritativeAnalyticsEvents.name,
+          targetResolutionStatus,
+        )
+        .orderBy(
+          desc(sql`count(*)`),
+          desc(sql`max(${authoritativeAnalyticsEvents.occurredAt})`),
+          asc(authoritativeAnalyticsEvents.name),
+        )
+        .limit(query.limit ?? DEFAULT_ANALYTICS_EVENT_QUERY_LIMIT);
+
+      return rows.map((row) => {
+        const dimensions = {
+          workspaceId: row.workspaceId,
+          environmentId: row.environmentId,
+          documentId: row.documentId,
+          publicationId: row.publicationId,
+          contentHash: row.contentHash,
+          pointerGeneration: row.pointerGeneration,
+          count: row.count,
+          firstTimestamp: toIsoString(row.firstTimestamp),
+          lastTimestamp: toIsoString(row.lastTimestamp),
+        };
+        return row.name === 'target_resolution'
+          ? {
+              ...dimensions,
+              name: 'target_resolution' as const,
+              targetResolutionStatus: toAnalyticsTargetResolutionStatus(row.targetResolutionStatus),
+            }
+          : { ...dimensions, name: row.name };
+      });
+    });
+  }
+
   async ingestEvents(input: IngestEventsInput): Promise<number> {
     return this.scoped(input.workspaceId, async (tx) => {
       if (!input.events.length) return 0;
@@ -4777,6 +6107,22 @@ class DrizzleControlPlaneRepository implements ControlPlaneRepository {
     return runWithWorkspaceScope(this.database, workspaceId, operation);
   }
 
+  private async lockSortedReleaseDocumentEnvironments(
+    tx: LodariqTransaction,
+    workspaceId: string,
+    documentId: string,
+    environmentIds: readonly string[],
+  ): Promise<void> {
+    for (const environmentId of [...new Set(environmentIds)].sort()) {
+      await tx.execute(
+        sql`select pg_advisory_xact_lock(
+          hashtext(${`${workspaceId}:${environmentId}`}),
+          hashtext(${documentId})
+        )`,
+      );
+    }
+  }
+
   private async setWorkspaceScope(tx: LodariqTransaction, workspaceId: string): Promise<void> {
     await tx.execute(sql`select set_config('lodariq.workspace_id', ${workspaceId}, true)`);
   }
@@ -4793,6 +6139,8 @@ class DrizzleControlPlaneRepository implements ControlPlaneRepository {
         and(
           eq(environments.workspaceId, workspaceId),
           eq(environments.id, environmentId),
+          eq(environments.enabled, true),
+          eq(environments.authoringEnabled, true),
           sql`${environments.kind} <> 'production'`,
         ),
       )
@@ -4834,7 +6182,8 @@ class DrizzleControlPlaneRepository implements ControlPlaneRepository {
           eq(workspaceMemberships.userId, creatorId),
         ),
       )
-      .limit(1);
+      .limit(1)
+      .for('share');
     return Boolean(membership && hasAuthoringWorkspaceRole(membership.role));
   }
 
@@ -4870,10 +6219,14 @@ class DrizzleControlPlaneRepository implements ControlPlaneRepository {
           eq(publicSdkInstallationOrigins.exactOrigin, exactOrigin),
           eq(publicSdkInstallationOrigins.authoringEnabled, true),
           isNull(publicSdkInstallations.revokedAt),
+          eq(environments.enabled, true),
+          eq(environments.authoringEnabled, true),
           sql`${environments.kind} <> 'production'`,
+          sql`${environments.originAllowlist} ? ${exactOrigin}`,
         ),
       )
-      .limit(2);
+      .limit(2)
+      .for('share');
     return Boolean(scope);
   }
 
@@ -4893,7 +6246,10 @@ class DrizzleControlPlaneRepository implements ControlPlaneRepository {
         and origin_mapping.environment_id = ${authoringAuthorizationRequests.environmentId}
         and origin_mapping.exact_origin = ${authoringAuthorizationRequests.exactOrigin}
         and origin_mapping.authoring_enabled = true
+        and environment.enabled = true
+        and environment.authoring_enabled = true
         and environment.kind <> 'production'
+        and environment.origin_allowlist ? origin_mapping.exact_origin
     )`;
   }
 
@@ -5007,6 +6363,359 @@ class DrizzleControlPlaneRepository implements ControlPlaneRepository {
       )
       .limit(1);
     return deployment ?? null;
+  }
+
+  private async findDocumentDeploymentForUpdate(
+    tx: LodariqTransaction,
+    input: Pick<ReleaseRecoveryScopeInput, 'workspaceId' | 'environmentId' | 'documentId'>,
+  ): Promise<typeof documentDeployments.$inferSelect | null> {
+    const [deployment] = await tx
+      .select()
+      .from(documentDeployments)
+      .where(
+        and(
+          eq(documentDeployments.workspaceId, input.workspaceId),
+          eq(documentDeployments.environmentId, input.environmentId),
+          eq(documentDeployments.documentId, input.documentId),
+        ),
+      )
+      .limit(1)
+      .for('update');
+    return deployment ?? null;
+  }
+
+  private async loadReleaseRecoveryScope(
+    tx: LodariqTransaction,
+    input: ReleaseRecoveryScopeInput,
+    lock: boolean,
+  ): Promise<{
+    environment: WorkspaceEnvironment;
+    membershipRole: ControlPlaneRole;
+  } | null> {
+    const environmentQuery = tx
+      .select()
+      .from(environments)
+      .where(
+        and(
+          eq(environments.workspaceId, input.workspaceId),
+          eq(environments.id, input.environmentId),
+        ),
+      )
+      .limit(1);
+    const documentQuery = tx
+      .select({ id: documents.id })
+      .from(documents)
+      .where(and(eq(documents.workspaceId, input.workspaceId), eq(documents.id, input.documentId)))
+      .limit(1);
+    const membershipQuery = tx
+      .select({ role: workspaceMemberships.role })
+      .from(workspaceMemberships)
+      .where(
+        and(
+          eq(workspaceMemberships.workspaceId, input.workspaceId),
+          eq(workspaceMemberships.userId, input.actorUserId),
+        ),
+      )
+      .limit(1);
+    const [environmentRows, documentRows, membershipRows] = lock
+      ? await Promise.all([
+          environmentQuery.for('share'),
+          documentQuery.for('share'),
+          membershipQuery.for('share'),
+        ])
+      : await Promise.all([environmentQuery, documentQuery, membershipQuery]);
+    const environment = environmentRows[0];
+    const membershipRole = identityWorkspaceRole(membershipRows[0]?.role ?? '');
+    if (!environment || !documentRows[0] || !membershipRole) return null;
+    return {
+      environment: toWorkspaceEnvironment(environment),
+      membershipRole,
+    };
+  }
+
+  private async loadReleaseRecoveryOperations(
+    tx: LodariqTransaction,
+    input: Pick<ReleaseRecoveryScopeInput, 'workspaceId' | 'environmentId' | 'documentId'>,
+  ): Promise<PersistedReleaseOperation[]> {
+    const rows = await tx
+      .select()
+      .from(releaseOperations)
+      .where(
+        and(
+          eq(releaseOperations.workspaceId, input.workspaceId),
+          eq(releaseOperations.environmentId, input.environmentId),
+          eq(releaseOperations.documentId, input.documentId),
+        ),
+      )
+      .orderBy(asc(releaseOperations.createdAt), asc(releaseOperations.id));
+    return rows.map(toPersistedReleaseOperation);
+  }
+
+  private async loadReleaseRecoveryPublicationMaterials(
+    tx: LodariqTransaction,
+    input: Pick<ReleaseRecoveryScopeInput, 'workspaceId' | 'environmentId' | 'documentId'>,
+    environmentKind: PersistedPublication['environment'],
+    operations: readonly PersistedReleaseOperation[],
+  ): Promise<DrizzleReleaseRecoveryPublicationMaterial[]> {
+    const rows = await tx
+      .select({ publication: publications, artifact: compiledArtifacts })
+      .from(publications)
+      .innerJoin(
+        compiledArtifacts,
+        and(
+          eq(publications.workspaceId, compiledArtifacts.workspaceId),
+          eq(publications.documentId, compiledArtifacts.documentId),
+          eq(publications.compiledArtifactId, compiledArtifacts.id),
+        ),
+      )
+      .where(
+        and(
+          eq(publications.workspaceId, input.workspaceId),
+          eq(publications.environmentId, input.environmentId),
+          eq(publications.documentId, input.documentId),
+        ),
+      );
+    const qualifyingOperations = operations.filter(
+      (operation) => operation.status === 'completed' && operation.action !== 'unpublish',
+    );
+    for (const operation of qualifyingOperations) {
+      if (
+        !operation.resultPublicationId ||
+        operation.resultGeneration === null ||
+        operation.resultGeneration < 1 ||
+        !operation.completedAt
+      ) {
+        throw new ReleaseRecoveryHistoryIntegrityError(operation.id);
+      }
+    }
+    const operationByPublicationId = new Map(
+      qualifyingOperations.map((operation) => [operation.resultPublicationId!, operation] as const),
+    );
+    const materials: DrizzleReleaseRecoveryPublicationMaterial[] = [];
+    const resolvedOperationIds = new Set<string>();
+    for (const row of rows) {
+      const artifact = toPersistedArtifact(row.artifact);
+      const publication = toPersistedPublication(row.publication, environmentKind, artifact);
+      const operation = operationByPublicationId.get(publication.id);
+      if (!operation) {
+        continue;
+      }
+      if (
+        publication.releaseOperationId !== operation.id ||
+        publication.action !== operation.action ||
+        publication.compiledArtifactId !== operation.requestedArtifactId ||
+        operation.resultGeneration === null ||
+        ((operation.action === 'promote' || operation.action === 'rollback') &&
+          (!operation.sourcePublicationId ||
+            publication.sourcePublicationId !== operation.sourcePublicationId)) ||
+        (operation.action === 'rollback' &&
+          (!operation.actualActivePublicationId ||
+            publication.previousPublicationId !== operation.actualActivePublicationId ||
+            !operation.reason))
+      ) {
+        throw new ReleaseRecoveryHistoryIntegrityError(operation.id);
+      }
+      const pins = extractHistoricalReleaseArtifactPins(artifact);
+      if (!pins) throw new ReleaseRecoveryHistoryIntegrityError(operation.id);
+      resolvedOperationIds.add(operation.id);
+      materials.push({
+        publication,
+        operation,
+        snapshot: {
+          id: publication.id,
+          workspaceId: input.workspaceId,
+          environmentId: input.environmentId,
+          documentId: input.documentId,
+          generation: operation.resultGeneration,
+          outcome: 'succeeded',
+          artifact: pins,
+        },
+      });
+    }
+    for (const operation of qualifyingOperations) {
+      if (!resolvedOperationIds.has(operation.id)) {
+        throw new ReleaseRecoveryHistoryIntegrityError(operation.id);
+      }
+    }
+    return materials.sort(
+      (left, right) =>
+        left.snapshot.generation - right.snapshot.generation ||
+        left.publication.id.localeCompare(right.publication.id),
+    );
+  }
+
+  private async materializeReleaseRecoveryOperationSnapshots(
+    tx: LodariqTransaction,
+    operations: readonly PersistedReleaseOperation[],
+  ): Promise<ReleaseRecoveryOperationSnapshot[]> {
+    const snapshots: ReleaseRecoveryOperationSnapshot[] = [];
+    for (const operation of operations) {
+      if (
+        (operation.action !== 'rollback' && operation.action !== 'unpublish') ||
+        (operation.status !== 'completed' && operation.status !== 'failed')
+      ) {
+        continue;
+      }
+      const request = drizzleRecoveryRequestFromOperation(operation);
+      const result = await this.materializeReleaseRecoveryResult(tx, operation, false);
+      if (!request || !result) throw new ReleaseRecoveryHistoryIntegrityError(operation.id);
+      snapshots.push({
+        id: operation.id,
+        workspaceId: operation.workspaceId,
+        environmentId: operation.environmentId,
+        documentId: operation.documentId,
+        request,
+        result,
+      });
+    }
+    return snapshots;
+  }
+
+  private async materializeReleaseRecoveryResult(
+    tx: LodariqTransaction,
+    operation: PersistedReleaseOperation,
+    replayed: boolean,
+  ): Promise<ReleaseRecoveryResult | null> {
+    if (operation.action !== 'rollback' && operation.action !== 'unpublish') return null;
+    if (operation.status === 'failed') {
+      if (!isDrizzleRecoveryFailureCode(operation.errorCode)) return null;
+      return {
+        ok: false,
+        action: operation.action,
+        state: 'failed',
+        replayed,
+        code: operation.errorCode,
+        message: RELEASE_RECOVERY_FAILURE_MESSAGES[operation.errorCode],
+        releaseOperationId: operation.id,
+        expectedGeneration: operation.expectedGeneration,
+        ...(operation.resultGeneration !== null
+          ? { actualGeneration: operation.resultGeneration }
+          : {}),
+        ...(operation.requestedActivePublicationId
+          ? { expectedActivePublicationId: operation.requestedActivePublicationId }
+          : {}),
+        ...(operation.actualActivePublicationId
+          ? { actualActivePublicationId: operation.actualActivePublicationId }
+          : operation.errorCode === 'already_inactive'
+            ? { actualActivePublicationId: null }
+            : {}),
+      };
+    }
+    if (
+      operation.status !== 'completed' ||
+      operation.resultGeneration === null ||
+      !operation.completedAt ||
+      !operation.actualActivePublicationId
+    ) {
+      return null;
+    }
+    if (operation.action === 'rollback') {
+      if (!operation.sourcePublicationId || !operation.resultPublicationId) return null;
+      const publication = await this.loadPublication(
+        tx,
+        operation.workspaceId,
+        operation.resultPublicationId,
+      );
+      const artifact = publication
+        ? extractHistoricalReleaseArtifactPins(publication.artifact)
+        : null;
+      if (
+        !publication ||
+        !artifact ||
+        publication.environmentId !== operation.environmentId ||
+        publication.documentId !== operation.documentId ||
+        publication.releaseOperationId !== operation.id ||
+        publication.action !== 'rollback' ||
+        publication.sourcePublicationId !== operation.sourcePublicationId ||
+        publication.previousPublicationId !== operation.actualActivePublicationId ||
+        publication.compiledArtifactId !== operation.requestedArtifactId
+      ) {
+        return null;
+      }
+      return {
+        ok: true,
+        action: 'rollback',
+        state: 'active',
+        replayed,
+        releaseOperationId: operation.id,
+        publicationId: publication.id,
+        targetPublicationId: operation.sourcePublicationId,
+        previousPublicationId: operation.actualActivePublicationId,
+        generation: operation.resultGeneration,
+        artifact,
+        completedAt: operation.completedAt,
+      };
+    }
+    const previousPublication = await this.loadPublication(
+      tx,
+      operation.workspaceId,
+      operation.actualActivePublicationId,
+    );
+    const deactivatedArtifact = previousPublication
+      ? extractHistoricalReleaseArtifactPins(previousPublication.artifact)
+      : null;
+    if (
+      !previousPublication ||
+      !deactivatedArtifact ||
+      previousPublication.environmentId !== operation.environmentId ||
+      previousPublication.documentId !== operation.documentId
+    ) {
+      return null;
+    }
+    return {
+      ok: true,
+      action: 'unpublish',
+      state: 'inactive',
+      replayed,
+      releaseOperationId: operation.id,
+      previousPublicationId: operation.actualActivePublicationId,
+      generation: operation.resultGeneration,
+      deactivatedArtifact,
+      completedAt: operation.completedAt,
+    };
+  }
+
+  private async insertFailedReleaseRecoveryOperation(
+    tx: LodariqTransaction,
+    input: ReleaseRecoveryScopeInput,
+    request: ReleaseRecoveryRequest,
+    requestHash: string,
+    operationId: string,
+    occurredAt: Date,
+    result: ReleaseRecoveryFailure,
+  ): Promise<void> {
+    const [operation] = await tx
+      .insert(releaseOperations)
+      .values({
+        id: operationId,
+        workspaceId: input.workspaceId,
+        environmentId: input.environmentId,
+        documentId: input.documentId,
+        action: request.action,
+        requestedArtifactId: null,
+        requestedSourcePublicationId:
+          request.action === 'rollback' ? request.targetPublicationId : null,
+        requestedActivePublicationId: request.expectedActivePublicationId ?? null,
+        actualActivePublicationId:
+          typeof result.actualActivePublicationId === 'string'
+            ? result.actualActivePublicationId
+            : null,
+        sourcePublicationId: null,
+        resultPublicationId: null,
+        expectedGeneration: request.expectedGeneration,
+        resultGeneration: result.actualGeneration ?? null,
+        idempotencyKey: request.idempotencyKey,
+        requestHash,
+        status: 'failed',
+        correlationId: request.correlationId,
+        requestedByUserId: input.actorUserId,
+        reason: request.reason,
+        errorCode: result.code,
+        createdAt: occurredAt,
+        completedAt: occurredAt,
+      })
+      .returning({ id: releaseOperations.id });
+    if (!operation) throw new Error('failed to persist release recovery failure');
   }
 
   private async findReleaseOperation(
@@ -5531,6 +7240,290 @@ class DrizzleControlPlaneRepository implements ControlPlaneRepository {
   }
 }
 
+function drizzleRecoveryOperationMatchesRequest(
+  operation: PersistedReleaseOperation,
+  input: ReleaseRecoveryScopeInput,
+  request: ReleaseRecoveryRequest,
+  requestHash: string,
+): boolean {
+  return (
+    operation.workspaceId === input.workspaceId &&
+    operation.environmentId === input.environmentId &&
+    operation.documentId === input.documentId &&
+    operation.requestedByUserId === input.actorUserId &&
+    operation.action === request.action &&
+    operation.reason === request.reason &&
+    operation.expectedGeneration === request.expectedGeneration &&
+    operation.requestedActivePublicationId === (request.expectedActivePublicationId ?? null) &&
+    operation.requestedSourcePublicationId ===
+      (request.action === 'rollback' ? request.targetPublicationId : null) &&
+    operation.correlationId === request.correlationId &&
+    operation.requestHash === requestHash
+  );
+}
+
+function drizzleRecoveryRequestFromOperation(
+  operation: PersistedReleaseOperation,
+): ReleaseRecoveryRequest | null {
+  if ((operation.action !== 'rollback' && operation.action !== 'unpublish') || !operation.reason) {
+    return null;
+  }
+  const shared = {
+    reason: operation.reason,
+    expectedGeneration: operation.expectedGeneration,
+    ...(operation.requestedActivePublicationId
+      ? { expectedActivePublicationId: operation.requestedActivePublicationId }
+      : {}),
+    idempotencyKey: operation.idempotencyKey,
+    correlationId: operation.correlationId,
+  };
+  if (operation.action === 'rollback') {
+    if (!operation.requestedSourcePublicationId) return null;
+    return {
+      action: 'rollback',
+      targetPublicationId: operation.requestedSourcePublicationId,
+      ...shared,
+    };
+  }
+  return { action: 'unpublish', ...shared };
+}
+
+function drizzleNonPersistingRecoveryFailure(
+  request: ReleaseRecoveryRequest,
+  code: ReleaseRecoveryFailureCode,
+  releaseOperationId?: string,
+): ReleaseRecoveryFailure {
+  return {
+    ok: false,
+    action: request.action,
+    state: 'failed',
+    replayed: false,
+    code,
+    message: RELEASE_RECOVERY_FAILURE_MESSAGES[code],
+    ...(releaseOperationId ? { releaseOperationId } : {}),
+    expectedGeneration: request.expectedGeneration,
+    ...(request.expectedActivePublicationId
+      ? { expectedActivePublicationId: request.expectedActivePublicationId }
+      : {}),
+  };
+}
+
+function drizzlePersistedRecoveryFailure(
+  request: ReleaseRecoveryRequest,
+  code: ReleaseRecoveryFailureCode,
+  operationId: string,
+  deployment: PersistedDocumentDeployment | null,
+): ReleaseRecoveryFailure {
+  return {
+    ok: false,
+    action: request.action,
+    state: 'failed',
+    replayed: false,
+    code,
+    message: RELEASE_RECOVERY_FAILURE_MESSAGES[code],
+    releaseOperationId: operationId,
+    expectedGeneration: request.expectedGeneration,
+    ...(deployment ? { actualGeneration: deployment.generation } : {}),
+    ...(request.expectedActivePublicationId
+      ? { expectedActivePublicationId: request.expectedActivePublicationId }
+      : {}),
+    ...(deployment?.state === 'active'
+      ? { actualActivePublicationId: deployment.activePublicationId }
+      : {}),
+  };
+}
+
+function drizzleReleaseRecoveryPolicyFailure(
+  environment: WorkspaceEnvironment,
+  membershipRole: ControlPlaneRole,
+  actorUserId: string,
+  action: ReleaseRecoveryRequest['action'],
+): ReleaseRecoveryFailureCode | null {
+  const decision = evaluateEnvironmentReleasePolicy({
+    environment: toWorkspaceEnvironmentPolicyRow(environment),
+    actorRole: membershipRole,
+    actorUserId,
+    action,
+  });
+  if (decision.allowed) return null;
+  return decision.code === 'environment_disabled'
+    ? 'environment_not_configured'
+    : 'capability_denied';
+}
+
+function drizzleReleaseRecoveryPermissions(
+  environment: WorkspaceEnvironment,
+  membershipRole: ControlPlaneRole,
+  actorUserId: string,
+): ReleaseRecoveryStateResponse['permissions'] {
+  return {
+    rollback:
+      drizzleReleaseRecoveryPolicyFailure(environment, membershipRole, actorUserId, 'rollback') ===
+      null,
+    unpublish:
+      drizzleReleaseRecoveryPolicyFailure(environment, membershipRole, actorUserId, 'unpublish') ===
+      null,
+  };
+}
+
+function isDrizzleRecoveryFailureCode(code: string | null): code is ReleaseRecoveryFailureCode {
+  return Boolean(code && RELEASE_RECOVERY_FAILURE_CODES.some((candidate) => candidate === code));
+}
+
+function buildDrizzleReleaseRecoveryHistory(
+  materials: readonly DrizzleReleaseRecoveryPublicationMaterial[],
+  operations: readonly PersistedReleaseOperation[],
+): ReleaseHistoryEntry[] {
+  const history: ReleaseHistoryEntry[] = [];
+  const materialByPublicationId = new Map(
+    materials.map((material) => [material.publication.id, material] as const),
+  );
+  for (const { operation, publication, snapshot } of materials) {
+    if (!operation.completedAt || operation.resultGeneration === null) {
+      throw new ReleaseRecoveryHistoryIntegrityError(operation.id);
+    }
+    const identity = {
+      id: operation.id,
+      workspaceId: operation.workspaceId,
+      environmentId: operation.environmentId,
+      documentId: operation.documentId,
+      releaseOperationId: operation.id,
+      generation: operation.resultGeneration,
+      idempotencyKey: operation.idempotencyKey,
+      correlationId: operation.correlationId,
+      actorUserId: operation.requestedByUserId,
+      occurredAt: operation.completedAt,
+    };
+    if (operation.action === 'publish') {
+      history.push({
+        ...identity,
+        action: 'publish',
+        state: 'active',
+        publicationId: publication.id,
+        previousPublicationId: publication.previousPublicationId,
+        artifact: { ...snapshot.artifact },
+      });
+    } else if (operation.action === 'promote' && operation.sourcePublicationId) {
+      history.push({
+        ...identity,
+        action: 'promote',
+        state: 'active',
+        publicationId: publication.id,
+        sourcePublicationId: operation.sourcePublicationId,
+        previousPublicationId: publication.previousPublicationId,
+        artifact: { ...snapshot.artifact },
+      });
+    } else if (
+      operation.action === 'rollback' &&
+      operation.sourcePublicationId &&
+      publication.previousPublicationId &&
+      operation.reason
+    ) {
+      history.push({
+        ...identity,
+        action: 'rollback',
+        state: 'active',
+        publicationId: publication.id,
+        targetPublicationId: operation.sourcePublicationId,
+        previousPublicationId: publication.previousPublicationId,
+        reason: operation.reason,
+        artifact: { ...snapshot.artifact },
+      });
+    } else {
+      throw new ReleaseRecoveryHistoryIntegrityError(operation.id);
+    }
+  }
+
+  for (const operation of operations) {
+    if (
+      (operation.action !== 'rollback' && operation.action !== 'unpublish') ||
+      (operation.status !== 'completed' && operation.status !== 'failed')
+    ) {
+      continue;
+    }
+    if (!operation.completedAt || !operation.reason) {
+      throw new ReleaseRecoveryHistoryIntegrityError(operation.id);
+    }
+    if (operation.action === 'unpublish' && operation.status === 'completed') {
+      if (operation.resultGeneration === null || !operation.actualActivePublicationId) {
+        throw new ReleaseRecoveryHistoryIntegrityError(operation.id);
+      }
+      const previous = materialByPublicationId.get(operation.actualActivePublicationId);
+      if (!previous) throw new ReleaseRecoveryHistoryIntegrityError(operation.id);
+      history.push({
+        id: operation.id,
+        workspaceId: operation.workspaceId,
+        environmentId: operation.environmentId,
+        documentId: operation.documentId,
+        releaseOperationId: operation.id,
+        generation: operation.resultGeneration,
+        idempotencyKey: operation.idempotencyKey,
+        correlationId: operation.correlationId,
+        actorUserId: operation.requestedByUserId,
+        occurredAt: operation.completedAt,
+        action: 'unpublish',
+        state: 'inactive',
+        previousPublicationId: operation.actualActivePublicationId,
+        reason: operation.reason,
+        deactivatedArtifact: { ...previous.snapshot.artifact },
+      });
+      continue;
+    }
+    if (operation.status === 'completed') continue;
+    if (!isDrizzleRecoveryFailureCode(operation.errorCode)) {
+      throw new ReleaseRecoveryHistoryIntegrityError(operation.id);
+    }
+    if (operation.action === 'rollback' && !operation.requestedSourcePublicationId) {
+      throw new ReleaseRecoveryHistoryIntegrityError(operation.id);
+    }
+    if (operation.status !== 'failed') {
+      continue;
+    }
+    const failureBase = {
+      id: operation.id,
+      workspaceId: operation.workspaceId,
+      environmentId: operation.environmentId,
+      documentId: operation.documentId,
+      releaseOperationId: operation.id,
+      idempotencyKey: operation.idempotencyKey,
+      correlationId: operation.correlationId,
+      actorUserId: operation.requestedByUserId,
+      occurredAt: operation.completedAt,
+      state: 'failed' as const,
+      reason: operation.reason,
+      expectedGeneration: operation.expectedGeneration,
+      ...(operation.resultGeneration !== null
+        ? { actualGeneration: operation.resultGeneration }
+        : {}),
+      ...(operation.requestedActivePublicationId
+        ? { expectedActivePublicationId: operation.requestedActivePublicationId }
+        : {}),
+      ...(operation.actualActivePublicationId
+        ? { actualActivePublicationId: operation.actualActivePublicationId }
+        : operation.errorCode === 'already_inactive'
+          ? { actualActivePublicationId: null }
+          : {}),
+      failure: {
+        code: operation.errorCode,
+        message: RELEASE_RECOVERY_FAILURE_MESSAGES[operation.errorCode],
+      },
+    };
+    if (operation.action === 'rollback' && operation.requestedSourcePublicationId) {
+      history.push({
+        ...failureBase,
+        action: 'rollback',
+        targetPublicationId: operation.requestedSourcePublicationId,
+      });
+    } else if (operation.action === 'unpublish') {
+      history.push({ ...failureBase, action: 'unpublish' });
+    }
+  }
+  return history.sort(
+    (left, right) =>
+      right.occurredAt.localeCompare(left.occurredAt) || right.id.localeCompare(left.id),
+  );
+}
+
 function passwordCredentialValues(credential: PasswordCredentialRecord) {
   return {
     userId: credential.userId,
@@ -5590,15 +7583,22 @@ function authSessionValues(session: AuthSessionRecord) {
 }
 
 function environmentValues(environment: WorkspaceEnvironment) {
+  const normalized = normalizeWorkspaceEnvironments([environment])[0];
+  if (!normalized) throw new Error('environment values are unavailable');
   return {
-    id: environment.id,
-    workspaceId: environment.workspaceId,
-    kind: environment.kind,
-    name: environment.name,
-    originAllowlist: environment.originAllowlist,
-    requiredApprovalCount: environment.requiredApprovalCount ?? 0,
-    createdAt: new Date(environment.createdAt),
-    updatedAt: new Date(environment.updatedAt),
+    id: normalized.id,
+    workspaceId: normalized.workspaceId,
+    kind: normalized.kind,
+    name: normalized.name,
+    originAllowlist: normalized.originAllowlist,
+    requiredApprovalCount: normalized.requiredApprovalCount,
+    enabled: normalized.enabled,
+    pipelinePosition: normalized.pipelinePosition,
+    authoringEnabled: normalized.authoringEnabled,
+    promotionSourceEnvironmentId: normalized.promotionSourceEnvironmentId ?? null,
+    releasePolicy: normalized.releasePolicy,
+    createdAt: new Date(normalized.createdAt),
+    updatedAt: new Date(normalized.updatedAt),
   };
 }
 
@@ -5826,8 +7826,19 @@ function toWorkspaceEnvironment(
     workspaceId: environment.workspaceId,
     kind: environment.kind,
     name: environment.name,
-    originAllowlist: environment.originAllowlist,
+    originAllowlist: normalizeEnvironmentOriginAllowlist(
+      environment.originAllowlist,
+      environment.kind,
+      environment.id,
+    ),
     requiredApprovalCount: normalizeRequiredApprovalCount(environment.requiredApprovalCount),
+    enabled: environment.enabled,
+    pipelinePosition: environment.pipelinePosition,
+    authoringEnabled: environment.authoringEnabled,
+    ...(environment.promotionSourceEnvironmentId
+      ? { promotionSourceEnvironmentId: environment.promotionSourceEnvironmentId }
+      : {}),
+    releasePolicy: environment.releasePolicy,
     createdAt: toIsoString(environment.createdAt),
     updatedAt: toIsoString(environment.updatedAt),
   };
@@ -5843,11 +7854,66 @@ function toStyleSourceRecord(source: typeof styleSources.$inferSelect): StyleSou
     workspaceId: source.workspaceId,
     themeId: source.themeId,
     environmentId: source.environmentId,
+    proposalId: source.proposalId,
+    proposalHash: source.proposalHash,
+    sourceOrdinal: source.sourceOrdinal,
+    sourceCount: source.sourceCount,
+    appliedThemeRevision: source.appliedThemeRevision,
+    draftChanged: source.draftChanged,
     source: source.source,
     sourceHash: source.sourceHash,
     createdByUserId: source.createdByUserId,
     createdAt: toIsoString(source.createdAt),
   };
+}
+
+function toProductStyleApplicationRecord(
+  application: typeof productStyleApplications.$inferSelect,
+): ProductStyleApplicationRecord {
+  if (application.previewThemeHash !== application.previewTheme.contentHash) {
+    throw new Error('persisted Product match preview hash does not match its receipt');
+  }
+  const record: ProductStyleApplicationRecord = {
+    id: application.id,
+    workspaceId: application.workspaceId,
+    themeId: application.themeId,
+    environmentId: application.environmentId,
+    requestHash: application.requestHash,
+    sourceSetHash: application.sourceSetHash,
+    receipt: {
+      proposalId: application.proposalId,
+      draftRevision: application.draftRevision,
+      draftUpdatedAt: toIsoString(application.draftUpdatedAt),
+      previewTheme: application.previewTheme,
+      sources: application.sourceReceipts,
+      draftChanged: application.draftChanged,
+    },
+    createdByUserId: application.createdByUserId,
+    createdAt: toIsoString(application.createdAt),
+  };
+  assertProductStyleApplicationIntegrity(record);
+  return record;
+}
+
+function toBrandDriftRunRecord(run: typeof brandDriftRuns.$inferSelect): BrandDriftRunRecord {
+  return {
+    id: run.id,
+    workspaceId: run.workspaceId,
+    environmentId: run.environmentId,
+    documentId: run.documentId,
+    themeId: run.themeId,
+    baselineThemeVersionId: run.baselineThemeVersionId,
+    trigger: run.trigger,
+    classification: run.classification,
+    confidence: run.confidence,
+    report: structuredClone(run.report),
+    createdByUserId: run.createdByUserId,
+    createdAt: toIsoString(run.createdAt),
+  };
+}
+
+function compareStyleSourceRecords(left: StyleSourceRecord, right: StyleSourceRecord): number {
+  return left.sourceOrdinal - right.sourceOrdinal || left.id.localeCompare(right.id);
 }
 
 function toPublicationVerificationRecord(
@@ -5949,6 +8015,27 @@ function toVisualCheckRunRecord(run: typeof visualCheckRuns.$inferSelect): Visua
     status: run.status,
     createdByUserId: run.createdByUserId,
     createdAt: toIsoString(run.createdAt),
+  };
+}
+
+function toPersistedAnalyticsEventRecord(
+  event: typeof authoritativeAnalyticsEvents.$inferSelect,
+): PersistedAnalyticsEventRecord {
+  return {
+    id: event.id,
+    workspaceId: event.workspaceId,
+    environmentId: event.environmentId,
+    documentId: event.documentId,
+    publicationId: event.publicationId,
+    contentHash: event.contentHash,
+    pointerGeneration: event.pointerGeneration,
+    name: event.name,
+    ...(event.stepId ? { stepId: event.stepId } : {}),
+    sdkVersion: event.sdkVersion,
+    ...(event.correlationId ? { correlationId: event.correlationId } : {}),
+    timestamp: toIsoString(event.occurredAt),
+    ...(event.props ? { props: event.props } : {}),
+    ingestedAt: toIsoString(event.ingestedAt),
   };
 }
 
@@ -6067,9 +8154,6 @@ function toPersistedDocumentDeployment(
 function toPersistedReleaseOperation(
   operation: typeof releaseOperations.$inferSelect,
 ): PersistedReleaseOperation {
-  if (operation.action !== 'publish' && operation.action !== 'promote') {
-    throw new Error(`unsupported release operation action: ${operation.action}`);
-  }
   if (
     operation.status !== 'awaiting_approval' &&
     operation.status !== 'activating' &&
@@ -6078,7 +8162,10 @@ function toPersistedReleaseOperation(
   ) {
     throw new Error(`unsupported release operation status: ${operation.status}`);
   }
-  if (!operation.requestedArtifactId) {
+  if (
+    (operation.action === 'publish' || operation.action === 'promote') &&
+    !operation.requestedArtifactId
+  ) {
     throw new Error('publish release operation has no requested artifact');
   }
   return {
@@ -6088,6 +8175,9 @@ function toPersistedReleaseOperation(
     documentId: operation.documentId,
     action: operation.action,
     requestedArtifactId: operation.requestedArtifactId,
+    requestedSourcePublicationId: operation.requestedSourcePublicationId,
+    requestedActivePublicationId: operation.requestedActivePublicationId,
+    actualActivePublicationId: operation.actualActivePublicationId,
     sourcePublicationId: operation.sourcePublicationId,
     expectedGeneration: operation.expectedGeneration,
     resultGeneration: operation.resultGeneration,
@@ -6097,6 +8187,7 @@ function toPersistedReleaseOperation(
     correlationId: operation.correlationId,
     requestedByUserId: operation.requestedByUserId,
     resultPublicationId: operation.resultPublicationId,
+    reason: operation.reason,
     errorCode: operation.errorCode,
     createdAt: toIsoString(operation.createdAt),
     completedAt: operation.completedAt ? toIsoString(operation.completedAt) : null,
@@ -6190,6 +8281,13 @@ function comparePublicSdkInstallationOriginRecords(
 
 function hasAuthoringWorkspaceRole(role: string): boolean {
   return role === 'member' || role === 'admin' || role === 'owner';
+}
+
+function toAnalyticsTargetResolutionStatus(value: string | null): AnalyticsTargetResolutionStatus {
+  if (value && (ANALYTICS_TARGET_RESOLUTION_STATUSES as readonly string[]).includes(value)) {
+    return value as AnalyticsTargetResolutionStatus;
+  }
+  return 'unknown';
 }
 
 function toIsoString(value: Date | string): string {

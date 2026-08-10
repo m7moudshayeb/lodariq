@@ -296,7 +296,7 @@ const CREATOR_TOOLBAR_CSS = `
   box-shadow: 0 10px 28px rgba(0, 0, 0, 0.4);
   font: 600 12px/1.2 ${CREATOR_CHROME_FONT_STACK};
   opacity: 0;
-  padding: 7px 9px;
+  padding: 8px 8px;
   pointer-events: none;
   transform: translate(4px, -50%);
   visibility: hidden;
@@ -339,7 +339,7 @@ const CREATOR_TOOLBAR_CSS = `
   max-height: min(360px, calc(100dvh - 36px));
   overflow: auto;
   border: 1px solid ${CREATOR_CHROME_TOKENS.border};
-  border-radius: 14px;
+  border-radius: 16px;
   background: ${CREATOR_CHROME_TOKENS.surface};
   color: ${CREATOR_CHROME_TOKENS.ink};
   box-shadow:
@@ -365,8 +365,8 @@ const CREATOR_TOOLBAR_CSS = `
 
 .lodariq-launcher-surface-header {
   display: grid;
-  gap: 3px;
-  padding: 8px 9px 10px;
+  gap: 4px;
+  padding: 8px 8px 12px;
 }
 
 .lodariq-launcher-surface-header strong {
@@ -383,12 +383,12 @@ const CREATOR_TOOLBAR_CSS = `
 
 .lodariq-launcher-surface-status {
   margin: 0;
-  padding: 12px 10px;
+  padding: 12px 12px;
 }
 
 .lodariq-launcher-surface-list {
   display: grid;
-  gap: 5px;
+  gap: 4px;
 }
 
 .lodariq-launcher-surface-item {
@@ -397,13 +397,13 @@ const CREATOR_TOOLBAR_CSS = `
   min-height: 52px;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   border: 1px solid transparent;
-  border-radius: 11px;
+  border-radius: 12px;
   background: transparent;
   color: ${CREATOR_CHROME_TOKENS.ink};
   cursor: pointer;
-  padding: 9px 10px;
+  padding: 8px 12px;
   text-align: left;
   appearance: none;
   box-sizing: border-box;
@@ -429,7 +429,7 @@ const CREATOR_TOOLBAR_CSS = `
 .lodariq-launcher-surface-item-copy {
   display: grid;
   min-width: 0;
-  gap: 2px;
+  gap: 4px;
 }
 
 .lodariq-launcher-surface-item-copy small {
@@ -442,8 +442,8 @@ const CREATOR_TOOLBAR_CSS = `
   background: rgba(61, 232, 176, 0.12);
   color: ${CREATOR_CHROME_TOKENS.action};
   font-size: 10px;
-  font-weight: 720;
-  padding: 4px 7px;
+  font-weight: 700;
+  padding: 4px 8px;
   text-transform: uppercase;
 }
 

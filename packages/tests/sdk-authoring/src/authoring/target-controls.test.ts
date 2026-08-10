@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { TargetControls } from '../../../../../packages/sdk-authoring/src/authoring/local-frame-ui/components/target-controls';
 import type { LocalAuthoringFrameController } from '../../../../../packages/sdk-authoring/src/authoring/local-frame-ui/controller';
 import type { LocalAuthoringFrameSnapshot } from '../../../../../packages/sdk-authoring/src/authoring/local-frame-ui/types';
+import { createAuthoringBrandDriftViewModel } from '../../../../../packages/sdk-authoring/src/authoring/brand-drift-model';
 
 vi.mock('../../../../../packages/sdk-authoring/src/authoring/local-frame-ui/design-system', () => {
   function MockButton({
@@ -192,6 +193,7 @@ function render(
       blocks: [block],
     },
     status: 'idle',
+    saveState: { state: 'saved', label: 'Draft saved' },
     slashText: '',
     slashOpen: false,
     jsonText: '',
@@ -229,6 +231,7 @@ function render(
       returnMode: 'edit',
       focusToken: 0,
       returnFocus: null,
+      focusTarget: null,
       operation: null,
       brand: {
         themeName: 'Lodariq accessible fallback',
@@ -242,7 +245,21 @@ function render(
         canApprove: false,
       },
       brandProposal: null,
+      brandDrift: {
+        operation: 'idle',
+        error: null,
+        previewActive: false,
+        previewMode: 'current',
+        model: createAuthoringBrandDriftViewModel(null, null),
+      },
       release: null,
+      releaseRecovery: {
+        available: false,
+        environmentId: null,
+        model: null,
+        intent: null,
+        requestIdentity: null,
+      },
       error: null,
       notice: null,
     },

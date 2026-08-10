@@ -3,19 +3,36 @@ name: Verify
 on:
   pull_request:
   push:
-    branches: [main]
+    branches: [master]
 
 jobs:
   verify:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: lodariq_ci_owner
+          POSTGRES_PASSWORD: lodariq_ci_password
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U lodariq_ci_owner -d postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    env:
+      LODARIQ_DISPOSABLE_POSTGRES: '1'
+      LODARIQ_TEST_POSTGRES_ADMIN_URL: postgresql://lodariq_ci_owner:lodariq_ci_password@127.0.0.1:5432/postgres
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
 
-      - uses: pnpm/action-setup@v6
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86
         with:
           version: 9.15.9
 
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
         with:
           node-version: 24
           cache: pnpm

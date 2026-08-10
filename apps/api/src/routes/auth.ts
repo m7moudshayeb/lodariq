@@ -8,6 +8,7 @@ import {
   SignInRequest,
   SignUpRequest,
   VerifyEmailRequest,
+  createDefaultWorkspaceEnvironmentPolicy,
   type AuthSessionSnapshot,
   type CreateWorkspaceRequest as CreateWorkspaceRequestType,
   type PasswordRecoveryRequest as PasswordRecoveryRequestType,
@@ -655,20 +656,30 @@ function createWorkspaceEnvironments(
   workspaceId: string,
   timestamp: string,
 ): WorkspaceEnvironment[] {
-  const definitions = [
-    { kind: 'development', name: 'Development' },
-    { kind: 'staging', name: 'Staging' },
-    { kind: 'production', name: 'Production' },
-  ] as const;
-  return definitions.map(({ kind, name }) => ({
-    id: createId('env'),
-    workspaceId,
-    kind,
-    name,
-    originAllowlist: [],
-    createdAt: timestamp,
-    updatedAt: timestamp,
-  }));
+  const ids = {
+    development: createId('env'),
+    staging: createId('env'),
+    production: createId('env'),
+  };
+  return createDefaultWorkspaceEnvironmentPolicy(workspaceId, ids).environments.map(
+    (environment) => ({
+      id: environment.id,
+      workspaceId: environment.workspaceId,
+      kind: environment.kind,
+      name: environment.displayName,
+      originAllowlist: [...environment.allowedOrigins],
+      requiredApprovalCount: environment.releasePolicy.requiredApprovalCount,
+      enabled: environment.enabled,
+      pipelinePosition: environment.pipelinePosition,
+      authoringEnabled: environment.authoringEnabled,
+      ...(environment.promotionSourceEnvironmentId
+        ? { promotionSourceEnvironmentId: environment.promotionSourceEnvironmentId }
+        : {}),
+      releasePolicy: environment.releasePolicy,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    }),
+  );
 }
 
 function credentialMaterial(credential: Awaited<ReturnType<typeof hashOwnedPassword>>) {

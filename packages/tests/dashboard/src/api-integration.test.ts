@@ -76,6 +76,7 @@ describe('@lodariq/dashboard API integration', () => {
     expect(dashboardData.environments.map((environment) => environment.kind)).toEqual([
       'development',
       'staging',
+      'production',
     ]);
     expect(dashboardData.tokens).toHaveLength(0);
 

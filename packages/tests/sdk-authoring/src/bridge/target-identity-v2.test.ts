@@ -4,8 +4,13 @@ import {
   captureNeedsConfirmation,
   captureTargetEvidence,
   normalizeTargetElement,
+  startTargetPicker,
 } from '@lodariq/sdk-authoring/bridge';
-import { validateTourPublishReadiness, type LodariqDocument } from '@lodariq/schema';
+import {
+  validateTourPublishReadiness,
+  type LodariqDocument,
+  type TargetIdentityV2,
+} from '@lodariq/schema';
 import tourFixture from '@lodariq/schema/fixtures/tour.linear.v1.json';
 import { resolveTarget } from '@lodariq/sdk-runtime/resolver';
 
@@ -45,6 +50,10 @@ function objectKeysOf(value: unknown, keys = new Set<string>()): Set<string> {
     objectKeysOf(entry, keys);
   }
   return keys;
+}
+
+function variantKey(variant: { viewportClass: string; stateId?: string }): string {
+  return `${variant.viewportClass}:${variant.stateId ?? ''}`;
 }
 
 describe('Target Identity V2 authoring capture', () => {
@@ -204,6 +213,293 @@ describe('Target Identity V2 authoring capture', () => {
 
     expect(capture.identity.visualTopologies?.[0]?.stateId).toBe('dashboard.loaded');
     expect(capture.identity.visualFingerprints?.[0]?.stateId).toBe('dashboard.loaded');
+  });
+
+  it('preserves prior viewport variants through the target-picker verification path', () => {
+    const main = document.createElement('main');
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.dataset['testid'] = 'variant-project-action';
+    button.textContent = 'Create project';
+    main.appendChild(button);
+    document.body.appendChild(main);
+
+    let mainBounds = { left: 12, top: 20, width: 366, height: 700 };
+    let buttonBounds = { left: 220, top: 80, width: 140, height: 44 };
+    vi.spyOn(main, 'getBoundingClientRect').mockImplementation(() => domRect(mainBounds));
+    vi.spyOn(button, 'getBoundingClientRect').mockImplementation(() => domRect(buttonBounds));
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 390 });
+    Object.defineProperty(window, 'innerHeight', { configurable: true, value: 844 });
+
+    const mobileCapture = captureTargetEvidence(button, undefined, {
+      locale: 'en',
+      requiredAction: 'observe-click',
+      stateId: 'workspace.ready',
+      targetId: 'target_variant_project_action',
+    });
+    const singleStateIdentity: TargetIdentityV2 = {
+      ...mobileCapture.identity,
+      context: { ...mobileCapture.identity.context, stateId: 'workspace.ready' },
+    };
+
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 1_440 });
+    Object.defineProperty(window, 'innerHeight', { configurable: true, value: 900 });
+    mainBounds = { left: 120, top: 80, width: 960, height: 640 };
+    buttonBounds = { left: 920, top: 120, width: 144, height: 48 };
+    const onPick = vi.fn();
+    startTargetPicker({
+      initialTarget: button,
+      initialIdentity: singleStateIdentity,
+      requiredAction: 'observe-click',
+      stateId: 'workspace.ready',
+      onPick,
+    });
+
+    button.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+
+    expect(onPick).toHaveBeenCalledOnce();
+    const pickedIdentity = onPick.mock.calls[0]?.[0].identity;
+    expect(
+      pickedIdentity.visualTopologies.map(
+        (variant: { viewportClass: string; stateId?: string }) =>
+          `${variant.viewportClass}:${variant.stateId ?? ''}`,
+      ),
+    ).toEqual(expect.arrayContaining(['mobile:workspace.ready', 'desktop:workspace.ready']));
+    expect(
+      pickedIdentity.visualFingerprints.map(
+        (variant: { viewportClass: string; stateId?: string }) =>
+          `${variant.viewportClass}:${variant.stateId ?? ''}`,
+      ),
+    ).toEqual(expect.arrayContaining(['mobile:workspace.ready', 'desktop:workspace.ready']));
+    expect(pickedIdentity.context.stateId).toBe('workspace.ready');
+    const persistedKeys = objectKeysOf(pickedIdentity);
+    expect(persistedKeys).not.toContain('selector');
+    expect(persistedKeys).not.toContain('className');
+    expect(persistedKeys).not.toContain('url');
+    expect(persistedKeys).not.toContain('left');
+    expect(persistedKeys).not.toContain('top');
+
+    const changedIdentity = structuredClone(pickedIdentity);
+    button.dataset['testid'] = 'replacement-project-action';
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 900 });
+    Object.defineProperty(window, 'innerHeight', { configurable: true, value: 1_100 });
+    mainBounds = { left: 48, top: 40, width: 804, height: 900 };
+    buttonBounds = { left: 640, top: 140, width: 160, height: 48 };
+    const onChangedPick = vi.fn();
+    startTargetPicker({
+      initialTarget: button,
+      initialIdentity: changedIdentity,
+      requiredAction: 'observe-click',
+      stateId: 'workspace.ready',
+      onPick: onChangedPick,
+    });
+    button.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+
+    const changedResult = onChangedPick.mock.calls[0]?.[0].identity;
+    expect(changedResult.visualTopologies.map(variantKey)).toEqual(['tablet:workspace.ready']);
+    expect(changedResult.visualFingerprints.map(variantKey)).toEqual(['tablet:workspace.ready']);
+  });
+
+  it('captures and resolves exact mobile, tablet, desktop, and application-state variants', () => {
+    const main = document.createElement('main');
+    const surface = document.createElement('section');
+    surface.dataset['testid'] = 'stateful-summary';
+    surface.innerHTML = '<h2>Workspace summary</h2><p>Three projects need review.</p>';
+    main.appendChild(surface);
+    document.body.appendChild(main);
+
+    let mainBounds = { left: 12, top: 20, width: 366, height: 700 };
+    let surfaceBounds = { left: 24, top: 100, width: 342, height: 160 };
+    vi.spyOn(main, 'getBoundingClientRect').mockImplementation(() => domRect(mainBounds));
+    vi.spyOn(surface, 'getBoundingClientRect').mockImplementation(() => domRect(surfaceBounds));
+    for (const child of surface.children) {
+      vi.spyOn(child, 'getBoundingClientRect').mockImplementation(() =>
+        domRect({
+          left: surfaceBounds.left + 16,
+          top: surfaceBounds.top + 16,
+          width: Math.max(40, surfaceBounds.width - 32),
+          height: 32,
+        }),
+      );
+    }
+
+    const applyApplicationStateAppearance = (stateId: string | undefined): void => {
+      const collapsed = stateId === 'workspace.collapsed';
+      const expanded = stateId === 'workspace.expanded';
+      let backgroundColor = 'rgb(128, 132, 136)';
+      let borderRadius = '8px';
+      if (collapsed) {
+        backgroundColor = 'rgb(16, 20, 24)';
+        borderRadius = '0';
+      } else if (expanded) {
+        backgroundColor = 'rgb(248, 250, 252)';
+        borderRadius = '18px';
+      }
+      surface.style.backgroundColor = backgroundColor;
+      surface.style.color = collapsed ? 'rgb(248, 250, 252)' : 'rgb(16, 20, 24)';
+      surface.style.border = expanded ? '4px solid rgb(16, 20, 24)' : '0 solid transparent';
+      surface.style.borderRadius = borderRadius;
+      surface.style.boxShadow = expanded ? '0 8px 24px rgb(0, 0, 0)' : 'none';
+    };
+
+    const captureVariant = (
+      width: number,
+      height: number,
+      stateId: string | undefined,
+      nextMainBounds: RectBounds,
+      nextSurfaceBounds: RectBounds,
+      existingIdentity?: TargetIdentityV2,
+    ) => {
+      Object.defineProperty(window, 'innerWidth', { configurable: true, value: width });
+      Object.defineProperty(window, 'innerHeight', { configurable: true, value: height });
+      mainBounds = nextMainBounds;
+      surfaceBounds = nextSurfaceBounds;
+      applyApplicationStateAppearance(stateId);
+      if (existingIdentity) {
+        const initialIdentity = structuredClone(existingIdentity);
+        const pickedCaptures: Array<ReturnType<typeof captureTargetEvidence>> = [];
+        startTargetPicker({
+          initialTarget: surface,
+          initialIdentity,
+          requiredAction: 'anchor',
+          ...(stateId ? { stateId } : {}),
+          onPick: ({ fingerprint, identity }) => pickedCaptures.push({ fingerprint, identity }),
+        });
+        surface.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+        const pickedCapture = pickedCaptures[0];
+        if (!pickedCapture) throw new Error('Target picker did not return a variant capture');
+        return pickedCapture;
+      }
+      return captureTargetEvidence(surface, undefined, {
+        requiredAction: 'anchor',
+        ...(stateId ? { stateId } : {}),
+        targetId: 'target_stateful_summary',
+      });
+    };
+
+    let mergedCapture = captureVariant(
+      390,
+      844,
+      undefined,
+      { left: 12, top: 20, width: 366, height: 700 },
+      { left: 24, top: 100, width: 342, height: 160 },
+    );
+    mergedCapture = captureVariant(
+      900,
+      1_100,
+      undefined,
+      { left: 48, top: 40, width: 804, height: 900 },
+      { left: 80, top: 140, width: 740, height: 240 },
+      mergedCapture.identity,
+    );
+    mergedCapture = captureVariant(
+      1_440,
+      900,
+      'workspace.collapsed',
+      { left: 120, top: 80, width: 960, height: 640 },
+      { left: 160, top: 120, width: 360, height: 180 },
+      {
+        ...mergedCapture.identity,
+        context: { ...mergedCapture.identity.context, stateId: 'workspace.collapsed' },
+      },
+    );
+    expect(mergedCapture.identity.context.stateId).toBeUndefined();
+    mergedCapture = captureVariant(
+      1_440,
+      900,
+      'workspace.expanded',
+      { left: 120, top: 80, width: 960, height: 640 },
+      { left: 160, top: 120, width: 760, height: 420 },
+      mergedCapture.identity,
+    );
+
+    expect(new Set(mergedCapture.identity.visualTopologies?.map(variantKey))).toEqual(
+      new Set(['mobile:', 'tablet:', 'desktop:workspace.collapsed', 'desktop:workspace.expanded']),
+    );
+    expect(new Set(mergedCapture.identity.visualFingerprints?.map(variantKey))).toEqual(
+      new Set(['mobile:', 'tablet:', 'desktop:workspace.collapsed', 'desktop:workspace.expanded']),
+    );
+    expect(mergedCapture.identity.context.stateId).toBeUndefined();
+    const fingerprintsByVariant = new Map(
+      mergedCapture.identity.visualFingerprints?.map((variant) => [variantKey(variant), variant]),
+    );
+    expect(fingerprintsByVariant.get('desktop:workspace.collapsed')?.appearanceHash).not.toBe(
+      fingerprintsByVariant.get('desktop:workspace.expanded')?.appearanceHash,
+    );
+
+    const target = {
+      id: mergedCapture.identity.targetId,
+      fingerprint: mergedCapture.fingerprint,
+      identity: mergedCapture.identity,
+    };
+    const resolveVariant = (
+      width: number,
+      height: number,
+      stateId: string,
+      nextMainBounds: RectBounds,
+      nextSurfaceBounds: RectBounds,
+    ) => {
+      Object.defineProperty(window, 'innerWidth', { configurable: true, value: width });
+      Object.defineProperty(window, 'innerHeight', { configurable: true, value: height });
+      mainBounds = nextMainBounds;
+      surfaceBounds = nextSurfaceBounds;
+      applyApplicationStateAppearance(
+        stateId === 'workspace.collapsed' || stateId === 'workspace.expanded' ? stateId : undefined,
+      );
+      return resolveTarget(target, document, { stateId });
+    };
+
+    const mobile = resolveVariant(
+      390,
+      844,
+      'workspace.loading',
+      { left: 12, top: 20, width: 366, height: 700 },
+      { left: 24, top: 100, width: 342, height: 160 },
+    );
+    const tablet = resolveVariant(
+      900,
+      1_100,
+      'workspace.loading',
+      { left: 48, top: 40, width: 804, height: 900 },
+      { left: 80, top: 140, width: 740, height: 240 },
+    );
+    const desktopCollapsed = resolveVariant(
+      1_440,
+      900,
+      'workspace.collapsed',
+      { left: 120, top: 80, width: 960, height: 640 },
+      { left: 160, top: 120, width: 360, height: 180 },
+    );
+    const desktopExpanded = resolveVariant(
+      1_440,
+      900,
+      'workspace.expanded',
+      { left: 120, top: 80, width: 960, height: 640 },
+      { left: 160, top: 120, width: 760, height: 420 },
+    );
+
+    for (const result of [mobile, tablet, desktopCollapsed, desktopExpanded]) {
+      expect(result.state).toBe('found');
+      expect(result.element).toBe(surface);
+      expect(result.evidenceFamilies).toContain('visual-topology');
+      expect(result.evidenceFamilies).toContain('visual-appearance');
+      expect(result.anchor?.interactionSafe).toBe(false);
+    }
+
+    const withoutDesktopFallback = structuredClone(mergedCapture.identity);
+    const unknownDesktopState = resolveTarget(
+      {
+        id: withoutDesktopFallback.targetId,
+        fingerprint: mergedCapture.fingerprint,
+        identity: withoutDesktopFallback,
+      },
+      document,
+      { stateId: 'workspace.unknown' },
+    );
+    expect(unknownDesktopState.state).toBe('needs_review');
+    expect(unknownDesktopState.element).toBeNull();
+    expect(unknownDesktopState.anchor).toBeNull();
+    expect(unknownDesktopState.reasonCode).toBe('low_confidence');
   });
 
   it('keeps semantic-container topology stable while that container scrolls', () => {

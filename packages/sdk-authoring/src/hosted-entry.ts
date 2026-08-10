@@ -25,17 +25,17 @@ import {
   type AuthoringActivationGrantContext as AuthoringActivationGrantContextValue,
   type AuthoringDocumentIntent as AuthoringDocumentIntentValue,
   type AuthoringPageContext as AuthoringPageContextValue,
+  type BrandThemeSnapshot,
+  type CompiledDocument,
   type HostedAuthoringActivationHandoffMessage as HostedAuthoringActivationHandoffMessageValue,
   type HostedAuthoringEditorReadyMessage as HostedAuthoringEditorReadyMessageValue,
   type HostedAuthoringSessionReadyMessage as HostedAuthoringSessionReadyMessageValue,
   type HostedCreatorPanelState,
 } from '@lodariq/schema';
-import { compilePreview } from '@lodariq/sdk-runtime/lodariq-local-dev';
 import type { LodariqBrowserApi } from '@lodariq/sdk-runtime/lodariq-loader';
-import { TourPlayer } from '@lodariq/sdk-runtime/renderers/tour';
+import type { TourPlayer } from '@lodariq/sdk-runtime/renderers/tour';
 import { adoptHostedAuthoringPanel, type LocalAuthoringPreviewServices } from './authoring';
 import { mountHostedBrowseShell, type HostedBrowseShell } from './hosted-browse-shell';
-import { loadExactPublishedArtifact } from './bridge/exact-publication-loader';
 
 const HOSTED_EDITOR_URL = `${LODARIQ_EDITOR_ORIGIN}/authoring.html`;
 const HOSTED_EDITOR_SANDBOX = 'allow-scripts allow-same-origin';
@@ -50,6 +50,8 @@ export interface HostedCreatorActivation {
   context: AuthoringActivationGrantContextValue;
   apiOrigin: string;
   documentIntent?: AuthoringDocumentIntentValue;
+  /** Memory-only host callback; its return value is bounded at target-pick time. */
+  getTargetStateId?: () => string | undefined;
 }
 
 export interface HostedCreatorModule {
@@ -65,10 +67,14 @@ interface ValidatedHostedActivation {
   apiOrigin: typeof LODARIQ_API_ORIGIN | typeof LODARIQ_STAGING_API_ORIGIN;
   context: AuthoringActivationGrantContextValue;
   documentIntent?: AuthoringDocumentIntentValue;
+  getTargetStateId?: () => string | undefined;
   pageContext: AuthoringPageContextValue;
 }
 
 let hostedEditorActive = false;
+
+const hostedPreviewRuntime = import('./hosted-preview-runtime');
+void hostedPreviewRuntime.catch(() => undefined);
 
 /**
  * Programmatic creator entry invoked only by the integrity-loaded activation
@@ -184,7 +190,7 @@ function openHostedEditor(
       dispatchHostedPanelState(browseShell.toggleMinimized() ? 'minimized' : 'browsing');
     };
 
-    const complete = (message: HostedAuthoringSessionReadyMessageValue): void => {
+    const complete = async (message: HostedAuthoringSessionReadyMessageValue): Promise<void> => {
       if (flowEnded || !hostedSessionMatchesActivation(message, activation)) return;
       flowEnded = true;
       cleanup(false);
@@ -202,8 +208,12 @@ function openHostedEditor(
           {
             iframe,
             initialDocument: structuredClone(message.document),
+            initialTheme: structuredClone(message.theme),
             onClose: onFlowClosed,
             preview: createHostedPreviewServices(message, activation),
+            ...(activation.getTargetStateId
+              ? { getTargetStateId: activation.getTargetStateId }
+              : {}),
           },
         );
         settleReady();
@@ -294,7 +304,7 @@ function openHostedEditor(
       const ready = validate(HostedAuthoringSessionReadyMessage, event.data);
       if (ready.valid && ready.value.type === HOSTED_AUTHORING_SESSION_READY_TYPE) {
         if (!messageMatchesBinding(ready.value, binding, handoffRequestId)) return;
-        complete(ready.value);
+        void complete(ready.value);
         return;
       }
 
@@ -326,25 +336,40 @@ function createHostedPreviewServices(
 ): LocalAuthoringPreviewServices {
   const initialDocument = structuredClone(message.document);
   const approvedTheme = structuredClone(message.theme);
+  let currentPreviewTheme = structuredClone(approvedTheme);
   let fallbackPreviewOwnerId: string | null = null;
   let fallbackPreviewPlayer: TourPlayer | null = null;
 
   return {
     loadDocument: (documentId) =>
       documentId === initialDocument.id ? structuredClone(initialDocument) : null,
-    compilePreview: (document) => compilePreview(document, approvedTheme),
+    compilePreview: (document, themeOverride) => {
+      const requestedTheme = structuredClone(themeOverride ?? approvedTheme);
+      if (!previewThemeMatchesApprovedScope(requestedTheme, approvedTheme)) {
+        throw new Error('Lodariq hosted preview theme does not match the authoring session');
+      }
+      currentPreviewTheme = requestedTheme;
+      return hostedPreviewRuntime.then(({ compilePreview }) =>
+        compilePreview(document, requestedTheme),
+      );
+    },
     loadExactPublishedArtifact: (expectedContentHash) =>
-      loadExactPublishedArtifact({
-        url: hostedPublishedDocumentUrl(activation.apiOrigin, message.context),
-        documentId: message.context.documentId,
-        expectedContentHash,
-        expectedThemeVersionId: message.context.themeVersionId,
-        headers: { 'x-lodariq-installation-id': activation.context.installationId },
-      }),
+      hostedPreviewRuntime.then(({ loadExactPublishedArtifact }) =>
+        loadExactPublishedArtifact({
+          url: hostedPublishedDocumentUrl(activation.apiOrigin, message.context),
+          documentId: message.context.documentId,
+          expectedContentHash,
+          expectedThemeVersionId: message.context.themeVersionId,
+          headers: { 'x-lodariq-installation-id': activation.context.installationId },
+        }),
+      ),
     playPreview: async (compiled, options) => {
       const requestedOwnerId = options.ownerId.trim();
       if (!requestedOwnerId) throw new Error('Lodariq hosted preview owner is required');
-      if (!compiledPreviewMatchesSession(compiled, approvedTheme, message)) {
+      if (
+        !compiledPreviewMatchesSession(compiled, currentPreviewTheme, message) &&
+        !compiledPreviewMatchesSession(compiled, approvedTheme, message)
+      ) {
         throw new Error('Lodariq hosted preview contract does not match the authoring session');
       }
       const installedRuntime = readInstalledPreviewRuntime();
@@ -364,6 +389,7 @@ function createHostedPreviewServices(
       }
 
       fallbackPreviewPlayer?.stop();
+      const { TourPlayer } = await hostedPreviewRuntime;
       const player = new TourPlayer(compiled, {
         authoringPreviewOwnerId: requestedOwnerId,
         ...(options.interactive ? { authoringPreviewInteractive: true } : {}),
@@ -425,8 +451,8 @@ function readInstalledPreviewRuntime(): InstalledPreviewRuntime | null {
 }
 
 function compiledPreviewMatchesSession(
-  compiled: Awaited<ReturnType<typeof compilePreview>>,
-  approvedTheme: HostedAuthoringSessionReadyMessageValue['theme'],
+  compiled: CompiledDocument,
+  expectedTheme: HostedAuthoringSessionReadyMessageValue['theme'],
   message: HostedAuthoringSessionReadyMessageValue,
 ): boolean {
   if (!('theme' in compiled) || !('rendererContractVersion' in compiled)) return false;
@@ -435,14 +461,29 @@ function compiledPreviewMatchesSession(
     compiled.compilerVersion === message.context.compilerVersion &&
     compiled.rendererContractVersion === message.context.rendererContractVersion &&
     compiled.theme.contractVersion === message.context.themeContractVersion &&
-    compiled.theme.themeVersionId === message.context.themeVersionId &&
-    compiled.theme.contentHash === approvedTheme.contentHash
+    compiled.theme.themeVersionId === expectedTheme.themeVersionId &&
+    compiled.theme.contentHash === expectedTheme.contentHash
+  );
+}
+
+function previewThemeMatchesApprovedScope(
+  candidate: BrandThemeSnapshot,
+  approved: BrandThemeSnapshot,
+): boolean {
+  return (
+    candidate.themeId === approved.themeId &&
+    candidate.schemaVersion === approved.schemaVersion &&
+    candidate.contractVersion === approved.contractVersion
   );
 }
 
 function requireHostedActivation(input: unknown): ValidatedHostedActivation {
   if (
-    !exactRecordWithOptional(input, ['activationGrant', 'apiOrigin', 'context'], ['documentIntent'])
+    !exactRecordWithOptional(
+      input,
+      ['activationGrant', 'apiOrigin', 'context'],
+      ['documentIntent', 'getTargetStateId'],
+    )
   ) {
     throw new Error('Lodariq hosted authoring activation is invalid');
   }
@@ -450,6 +491,7 @@ function requireHostedActivation(input: unknown): ValidatedHostedActivation {
   const apiOrigin = input['apiOrigin'];
   const context = validate(AuthoringActivationGrantContext, input['context']);
   const suppliedIntent = input['documentIntent'];
+  const getTargetStateId = input['getTargetStateId'];
   const documentIntent =
     suppliedIntent === undefined ? null : validate(AuthoringDocumentIntent, suppliedIntent);
   if (
@@ -457,6 +499,7 @@ function requireHostedActivation(input: unknown): ValidatedHostedActivation {
     activationGrant.length < ACTIVATION_GRANT_MIN_LENGTH ||
     activationGrant.length > ACTIVATION_GRANT_MAX_LENGTH ||
     typeof apiOrigin !== 'string' ||
+    (getTargetStateId !== undefined && typeof getTargetStateId !== 'function') ||
     !TRUSTED_API_ORIGINS.has(apiOrigin) ||
     !context.valid ||
     (documentIntent !== null && !documentIntent.valid) ||
@@ -475,6 +518,9 @@ function requireHostedActivation(input: unknown): ValidatedHostedActivation {
     apiOrigin: apiOrigin as ValidatedHostedActivation['apiOrigin'],
     context: structuredClone(context.value),
     pageContext: readAuthoringPageContext(window.location),
+    ...(typeof getTargetStateId === 'function'
+      ? { getTargetStateId: getTargetStateId as () => string | undefined }
+      : {}),
     ...((documentIntent?.valid ? documentIntent.value : context.value.documentIntent)
       ? {
           documentIntent: structuredClone(

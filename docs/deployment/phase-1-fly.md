@@ -31,15 +31,13 @@ origin evidence remains open, so the historical steps below are useful only for
 reproducing the former Phase 1 path and must not be used as proof of the current
 canonical workflow.
 
-Phase 2 Slice 2's tokenized Tour delivery/preview, persisted Brand Theme,
-document-specific delivery, preflight, and guarded staging publication passed its
-local milestone and current-view visual QA. Slice 3 Product Match, exact browser
-verification, and same-artifact promotion/approval are implemented locally. The
-2026-08-09 stabilization checkpoint passes the full Node 24 `pnpm verify`,
-including 86 Vitest files / 810 tests, 77 Playwright tests with four intentional
-skips, and a zero-vulnerability dependency audit. None of this is deployed
-evidence. Slice 3 preview/persistence/findings hardening, rollback/unpublish, and
-analytics isolation remain incomplete.
+The Phase 2 local code milestone is complete: tokenized delivery/preview,
+persisted Brand workflows, atomic Product Match, exact verification,
+same-artifact promotion/rollback, unpublish, Brand drift acknowledgement, and
+environment-isolated analytics all pass locally. The 2026-08-09 completion gate
+passes the full Node 24 `pnpm verify`, including 126 Vitest files / 1,064 tests,
+77 Playwright tests with four intentional skips, and a zero-vulnerability
+dependency audit. None of this is deployed evidence.
 
 The owned-auth code milestone is complete and active runtime/dependencies are
 Clerk-free. Recovery/reset, the unified verification/reset outbox worker and
@@ -832,9 +830,10 @@ Promotion:
 Rollback:
 
 - Application rollback: use Fly releases to roll back the app image.
-- Publication rollback: the Phase 2 guarded rollback route remains pending. Do
-  not mutate a pointer manually; the eventual route must append immutable history
-  and atomically move the pointer without recompiling.
+- Publication rollback: use the guarded Phase 2 recovery action. It requires an
+  explicit capability, reason, idempotency identity, and expected pointer state;
+  it appends immutable history and atomically reuses a prior artifact without
+  recompiling. Never mutate a pointer manually.
 - Database rollback: do not assume down migrations are safe. For destructive or
   data-changing migrations, restore from Neon point-in-time or branch recovery
   only after explicit review.
@@ -902,9 +901,9 @@ Stripe and Resend:
   implemented. The baseline schema, exact-theme direct/hosted authoring,
   document-specific delivery, deterministic preflight, and guarded staging
   release still need the isolated/live RLS and browser smokes above. Slice 3
-  product sampling, exact browser verification, and production
-  promotion/approval are also implemented locally; rollback/unpublish and
-  analytics isolation remain later work.
+  Product Match/verification and Slice 4 drift, recovery, unpublish, and
+  analytics isolation are also implemented locally; their deployed convergence
+  and environment-isolation evidence remain open.
 - The Clerk-free owned-auth code milestone passes its consolidated local gate.
   First-database baseline application, approved Neon/RLS evidence, Resend domain/secrets,
   coordinated API/dashboard enablement, deployment/live probes, and production

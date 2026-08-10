@@ -162,9 +162,35 @@ describe('Slice 3 authoring workflow adapters', () => {
         artifactId: 'artifact_production',
         contentHash: PRODUCTION_HASH,
       },
+      environments: [
+        { environment: 'staging', environmentId: 'environment_staging' },
+        { environment: 'production', environmentId: 'environment_production' },
+      ],
       approval: 'requested',
       approvalOperationId: 'release_operation_1',
       canApprove: true,
+    });
+
+    const inactiveProduction = structuredClone(release);
+    inactiveProduction.pipeline!.state = 'inactive';
+    inactiveProduction.pipeline!.production = {
+      environmentId: 'environment_production',
+      generation: 3,
+      publicationId: null,
+      compiledArtifactId: null,
+      contentHash: null,
+    };
+    expect(
+      releaseWorkflowFromState(inactiveProduction, {
+        canVerify: true,
+        canPromote: true,
+      }),
+    ).toMatchObject({
+      production: null,
+      environments: [
+        { environment: 'staging', environmentId: 'environment_staging' },
+        { environment: 'production', environmentId: 'environment_production' },
+      ],
     });
   });
 });

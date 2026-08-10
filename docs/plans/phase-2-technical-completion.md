@@ -4,11 +4,13 @@ Source of truth: `../../refined-lodariq-prd.md` §§7.10, 11.3, 12, 16.4,
 18.2, and 20, plus the implementation record in
 `phase-2-brand-and-release-foundation.md`.
 
-Status: **Current — Workstream 0 is complete. The full Node 24 `pnpm verify`
+Status: **Local code complete — Workstreams A and B1-B3 are implemented, the
+repository/automation code is reconciled, and the full Node 24 `pnpm verify`
 passes 18 typecheck tasks, 12 lint tasks, dependency boundaries and migration
-safety, 86 Vitest files / 810 tests, 11 builds, runtime/authoring size gates, 95
-prepared SDK assets, 77 Playwright tests with four intentional skips, and a
-zero-vulnerability dependency audit. Workstream A is ready to begin.**
+safety, 126 Vitest files / 1,064 tests, 11 builds, runtime/authoring size gates,
+109 prepared SDK assets, 77 Playwright tests with four intentional skips, and a
+zero-vulnerability dependency audit. Workstream C and B4's measurement-backed
+ADR require the first approved staging/production deployment and are not claimed.**
 
 Last updated: 2026-08-09
 
@@ -58,8 +60,8 @@ migrations.
 | Order | Workstream                                | Depends on                                       | Exit gate                                                         |
 | ----- | ----------------------------------------- | ------------------------------------------------ | ----------------------------------------------------------------- |
 | 0     | Stabilized repository baseline — complete | Current stabilization work                       | Node 24 `pnpm verify` is green and changes are reviewable         |
-| 1     | Slice 3 hardening — ready                 | Order 0                                          | Preview, atomic persistence, and findings-presentation tests pass |
-| 2     | Slice 4 core implementation               | Order 1                                          | Drift, release recovery, and analytics local gates pass           |
+| 1     | Slice 3 hardening — complete              | Order 0                                          | Preview, atomic persistence, and findings-presentation tests pass |
+| 2     | Slice 4 local implementation — complete   | Order 1                                          | Drift, release recovery, and analytics local gates pass           |
 | 3     | Staging deployment/R2 decision            | Orders 1-2 plus operator-approved infrastructure | Live smokes pass and the measurement-backed R2 ADR is accepted    |
 | 4     | Production first deployment               | Proven staging deployment and completed Slice 4  | Manual approval and internal-organization production smoke pass   |
 | 5     | Repository truth and closeout             | Runs alongside 1-4; closes after 4               | CI protects `master`; automation and current docs match evidence  |
@@ -348,8 +350,7 @@ Done criteria:
 
 ## Final Completion Record
 
-Close this plan only when all four workstreams have their dated evidence linked
-from `docs/PROGRESS.md`, the full repository gate is green, and the worktree is
-clean. The completion record must distinguish local verification from staging
-and production proof and must repeat that point 5 product research/paid-pilot
-evidence was outside this technical scope.
+Local technical completion was recorded on 2026-08-09 with the full repository
+gate green. The plan remains the operational checklist for Workstream C and the
+B4 measurement-backed ADR. No staging or production proof is claimed, and point
+5 product research/paid-pilot evidence remains outside this technical scope.

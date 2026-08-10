@@ -63,6 +63,18 @@ export async function installPublicSdkDelivery(
 
   const manifest = defaultSource.manifest;
   const workspaceId = getWorkspaceId(context, delivery);
+  const analyticsPointers = sources.flatMap((source) =>
+    source.artifactManifest
+      ? [
+          {
+            documentId: source.artifactManifest.documentId,
+            generation: source.artifactManifest.generation,
+            publicationId: source.artifactManifest.publicationId,
+            contentHash: source.artifactManifest.artifact.contentHash,
+          },
+        ]
+      : [],
+  );
   const installContext: SdkInstallContext = {
     workspaceId,
     environmentId: context.environmentId,
@@ -70,7 +82,7 @@ export async function installPublicSdkDelivery(
     correlationId: context.correlationId,
     manifest,
     currentDocumentUrl: defaultSource.request.url,
-    ingestUrl: delivery.ingestUrl,
+    ingestUrl: analyticsPointers.length > 0 ? delivery.ingestUrl : '',
     authoring: { enabled: false },
   };
   const config: LoaderConfig = {
@@ -96,6 +108,7 @@ export async function installPublicSdkDelivery(
 
   const api = await installLodariq(config, {
     publicInstallationId: context.installationId,
+    analyticsPointers,
     fetchInstallContext: async () => installContext,
     loadCurrentTour: async () => loadDocument(defaultSource),
     resolveManifestForDocument: (documentId) => sourceByDocumentId.get(documentId)?.manifest,

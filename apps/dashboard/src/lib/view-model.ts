@@ -181,7 +181,14 @@ function buildAuthoringSiteOptions(
     for (const mapping of installation.origins) {
       if (!mapping.authoringEnabled) continue;
       const environment = environmentById.get(mapping.environmentId);
-      if (!environment || environment.kind === 'production') continue;
+      if (
+        !environment ||
+        environment.kind === 'production' ||
+        environment.enabled === false ||
+        environment.authoringEnabled === false
+      ) {
+        continue;
+      }
       const exactOrigin = readHttpOrigin(mapping.exactOrigin);
       if (!exactOrigin || !environmentAllowsOrigin(environment, exactOrigin)) continue;
       sitesByOrigin.set(exactOrigin, {

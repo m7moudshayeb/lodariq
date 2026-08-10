@@ -15,11 +15,12 @@ export const EXPERIENCE_COLOR_MODES = ['light', 'dark', 'system'] as const;
 type AppearancePreset = (typeof EXPERIENCE_APPEARANCE_PRESETS)[number];
 type ThemeColorRole = Exclude<keyof RuntimeThemeColors, 'overlay'>;
 
-interface RuntimeExperienceAppearance {
+export interface RuntimeExperienceAppearance {
   preset: AppearancePreset;
   density: (typeof EXPERIENCE_APPEARANCE_DENSITIES)[number];
   width: (typeof EXPERIENCE_APPEARANCE_WIDTHS)[number];
   colorMode: (typeof EXPERIENCE_COLOR_MODES)[number];
+  displayTargetOutline: boolean;
 }
 
 interface RuntimeThemeColors {
@@ -133,6 +134,7 @@ export const DEFAULT_EXPERIENCE_APPEARANCE: RuntimeExperienceAppearance = deepFr
   density: 'comfortable',
   width: 'standard',
   colorMode: 'system',
+  displayTargetOutline: true,
 });
 
 const DEFAULT_RECIPE: RuntimeTourRecipe = {
@@ -292,8 +294,28 @@ export function hasRenderableExperienceAppearance(value: unknown): boolean {
     isOneOf(value['preset'], EXPERIENCE_APPEARANCE_PRESETS) &&
     isOneOf(value['density'], EXPERIENCE_APPEARANCE_DENSITIES) &&
     isOneOf(value['width'], EXPERIENCE_APPEARANCE_WIDTHS) &&
-    isOneOf(value['colorMode'], EXPERIENCE_COLOR_MODES)
+    isOneOf(value['colorMode'], EXPERIENCE_COLOR_MODES) &&
+    (value['displayTargetOutline'] === undefined ||
+      typeof value['displayTargetOutline'] === 'boolean')
   );
+}
+
+/**
+ * Normalizes legacy appearance objects to the complete renderer contract.
+ * Invalid objects fall back as one unit; a missing additive field receives its
+ * explicit safe default.
+ */
+export function resolveExperienceAppearance(value: unknown): RuntimeExperienceAppearance {
+  if (!hasRenderableExperienceAppearance(value) || !isRecord(value)) {
+    return { ...DEFAULT_EXPERIENCE_APPEARANCE };
+  }
+  return {
+    preset: value['preset'] as RuntimeExperienceAppearance['preset'],
+    density: value['density'] as RuntimeExperienceAppearance['density'],
+    width: value['width'] as RuntimeExperienceAppearance['width'],
+    colorMode: value['colorMode'] as RuntimeExperienceAppearance['colorMode'],
+    displayTargetOutline: value['displayTargetOutline'] !== false,
+  };
 }
 
 /**

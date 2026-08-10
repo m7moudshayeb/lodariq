@@ -56,12 +56,30 @@ describe('live Neon RLS verification script', () => {
     expect(source).toContain('verifyExpectedPolicies(policies, identityPolicies');
   });
 
-  it('covers append-only Phase 2 style, verification, and approval evidence', () => {
+  it('covers append-only Phase 2 style, release, and analytics evidence', () => {
     const source = readFileSync(scriptPath, 'utf8');
-    for (const table of ['style_sources', 'publication_verifications', 'release_approvals']) {
+    for (const table of [
+      'compiled_artifacts',
+      'publications',
+      'style_sources',
+      'product_style_applications',
+      'publication_verifications',
+      'release_approvals',
+      'analytics_events',
+    ]) {
       expect(source).toContain(`'${table}'`);
+    }
+    for (const table of [
+      'style_sources',
+      'product_style_applications',
+      'publication_verifications',
+      'release_approvals',
+      'analytics_events',
+    ]) {
       expect(source).toContain(`select id from ${table}`);
     }
+    expect(source).toContain("policies.has('release_operations:release_operations_lifecycle_update')");
+    expect(source).toContain("row.cmd === 'ALL' || row.cmd === 'DELETE'");
   });
 
   it('fails closed without a live DATABASE_URL', () => {

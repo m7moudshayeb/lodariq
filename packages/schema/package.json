@@ -43,6 +43,10 @@
       "types": "./dist/hosted-creator.d.ts",
       "import": "./dist/hosted-creator.js"
     },
+    "./events-runtime": {
+      "types": "./dist/events-runtime.d.ts",
+      "import": "./dist/events-runtime.js"
+    },
     "./url": {
       "types": "./dist/url.d.ts",
       "import": "./dist/url.js"

@@ -1,13 +1,16 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { compile, compileDocument } from '@lodariq/compiler';
+import { compile, compileDocument, computeBrandThemeContentHash } from '@lodariq/compiler';
 import {
   AUTHORING_INLINE_CONTROL_COMMIT_TYPE,
   AUTHORING_INLINE_CONTENT_COMMIT_TYPE,
-  AUTHORING_PANEL_MODE_OPEN_TYPE,
+  AUTHORING_SAVE_STATE_UPDATE_TYPE,
+  AUTHORING_THEME_PREVIEW_APPLY_TYPE,
+  BridgeMessage as BridgeMessageSchema,
   BRIDGE_PROTOCOL_VERSION,
   LODARIQ_ACCESSIBLE_FALLBACK_THEME_V1,
   RENDERER_CONTRACT_VERSION,
+  validate,
   type BridgeMessage,
   type CompiledDocument,
   type LodariqDocument,
@@ -109,7 +112,7 @@ describe('local authoring panel (PRD §16.1)', () => {
     expect(styles).toContain('.panel-drag-handle');
     expect(styles).toContain('slot[name="authoring-frame"]');
     expect(styles).toContain('pointer-events: auto');
-    expect(styles).toContain('border-radius: 14px');
+    expect(styles).toContain('border-radius: 16px');
     expect(styles).toContain('[data-lodariq-target-picking="true"]');
     expect(styles).toContain('background: #003f35');
     expect(styles).toContain('color-scheme: light');
@@ -120,20 +123,50 @@ describe('local authoring panel (PRD §16.1)', () => {
     expect(
       host?.shadowRoot?.querySelector('.panel-resize-handle')?.getAttribute('aria-label'),
     ).toContain('Use arrow keys to resize it');
-    expect(host?.shadowRoot?.querySelector('[data-save-state-label]')?.textContent).toBe(
-      'Draft saved',
-    );
+    expect(host?.shadowRoot?.querySelector('.save-state')).toBeNull();
+    expect(host?.shadowRoot?.querySelector('[data-save-state-label]')).toBeNull();
     expect(
       host?.shadowRoot?.querySelector<HTMLInputElement>('[data-panel-document-title]')?.value,
     ).toBe('Untitled experience');
-    const zoom = host?.shadowRoot?.querySelector<HTMLSelectElement>('.panel-zoom');
-    expect(zoom?.getAttribute('aria-label')).toBe('Editor zoom');
-    expect(zoom?.value).toBe('100');
+    expect(host?.shadowRoot?.querySelector('select.panel-zoom')).toBeNull();
+    const zoomButton = host?.shadowRoot?.querySelector<HTMLButtonElement>(
+      '[data-panel-action="zoom"]',
+    );
+    expect(zoomButton?.getAttribute('role')).toBe('combobox');
+    expect(zoomButton?.getAttribute('aria-label')).toBe('Canvas zoom: 100%');
+    expect(zoomButton?.getAttribute('aria-haspopup')).toBe('listbox');
+    expect(zoomButton?.getAttribute('aria-expanded')).toBe('false');
+    expect(zoomButton?.textContent?.trim()).toBe('100%');
+    expect(zoomButton?.closest('.authoring-bar-actions')).not.toBeNull();
+    expect(zoomButton?.closest('.panel-surface')).toBeNull();
+    const zoomListbox = host?.shadowRoot?.querySelector<HTMLElement>(
+      '[role="listbox"][aria-label="Canvas zoom"]',
+    );
+    expect(zoomListbox?.hidden).toBe(true);
+    expect(zoomListbox?.querySelectorAll('[data-panel-zoom]')).toHaveLength(4);
+    zoomButton?.click();
+    expect(zoomButton?.getAttribute('aria-expanded')).toBe('true');
+    expect(
+      [...(zoomListbox?.querySelectorAll<HTMLButtonElement>('[data-panel-zoom]') ?? [])]
+        .filter((option) => !option.hidden)
+        .map((option) => option.textContent?.trim()),
+    ).toEqual(['50%', '62%', '75%']);
+    expect(styles).toMatch(/\.panel-zoom-combobox\s*\{[^}]*position:\s*relative;/s);
     expect(iframe?.style.transform).toBe('scale(1)');
     expect(iframe?.dataset['lodariqEditorZoom']).toBe('100');
+    const resizeIcon = host?.shadowRoot?.querySelector<SVGElement>('.panel-resize-icon');
+    const resizePath = resizeIcon?.querySelector('path');
+    expect(resizeIcon?.tagName.toLowerCase()).toBe('svg');
+    expect(resizeIcon?.getAttribute('viewBox')).toBe('0 0 18 18');
+    expect(resizeIcon?.querySelectorAll('path')).toHaveLength(1);
+    expect(resizePath?.getAttribute('d')).toBe(
+      'M3.5 15.5 15.5 3.5M8.5 15.5l7-7M13.5 15.5l2-2',
+    );
+    expect(resizePath?.getAttribute('d')?.match(/M/g)).toHaveLength(3);
+    expect(host?.shadowRoot?.querySelector('[data-panel-icon="resize"]')).toBeNull();
     expect(host?.shadowRoot?.querySelector('[data-panel-icon="maximize"]')).toBeNull();
-    const optionsButton = host?.shadowRoot?.querySelector<HTMLButtonElement>(
-      '[data-panel-action="options"]',
+    const layoutButton = host?.shadowRoot?.querySelector<HTMLButtonElement>(
+      '[data-panel-action="layout"]',
     );
     const minimizeButton = host?.shadowRoot?.querySelector<HTMLButtonElement>(
       '[data-panel-action="minimize"]',
@@ -141,13 +174,31 @@ describe('local authoring panel (PRD §16.1)', () => {
     const panelCloseButton = host?.shadowRoot?.querySelector<HTMLButtonElement>(
       '[data-panel-action="close-panel"]',
     );
-    const saveAndExitButton = host?.shadowRoot?.querySelector<HTMLButtonElement>(
-      '[data-panel-action="close"]',
+    expect(layoutButton?.getAttribute('role')).toBe('combobox');
+    expect(layoutButton?.getAttribute('aria-label')).toBe('Workspace width: Standard');
+    expect(layoutButton?.getAttribute('aria-haspopup')).toBe('listbox');
+    expect(layoutButton?.getAttribute('aria-expanded')).toBe('false');
+    expect(layoutButton?.textContent?.trim()).toBe('Standard');
+    expect(layoutButton?.querySelectorAll('svg')).toHaveLength(2);
+    expect(zoomButton?.parentElement?.nextElementSibling).toBe(layoutButton?.parentElement);
+    expect(zoomButton?.closest('.authoring-bar-actions')).toBe(
+      layoutButton?.closest('.authoring-bar-actions'),
     );
-    expect(optionsButton?.textContent?.trim()).toBe('');
-    expect(optionsButton?.querySelector('svg')).not.toBeNull();
-    expect(optionsButton?.getAttribute('aria-label')).toBe('Experience menu');
-    expect(optionsButton?.dataset['tooltip']).toBe('Experience menu');
+    const layoutListbox = host?.shadowRoot?.querySelector<HTMLElement>(
+      '[role="listbox"][aria-label="Workspace width"]',
+    );
+    expect(layoutListbox?.hidden).toBe(true);
+    layoutButton?.click();
+    expect(layoutButton?.getAttribute('aria-expanded')).toBe('true');
+    expect(layoutListbox?.hidden).toBe(false);
+    expect(
+      [...(layoutListbox?.querySelectorAll<HTMLButtonElement>('[data-panel-layout]') ?? [])]
+        .filter((option) => !option.hidden)
+        .map((option) => option.textContent?.trim()),
+    ).toEqual(['Compact', 'Focused']);
+    expect(
+      layoutListbox?.querySelectorAll<HTMLButtonElement>('[data-panel-layout] svg'),
+    ).toHaveLength(3);
     expect(minimizeButton?.textContent?.trim()).toBe('');
     expect(minimizeButton?.querySelector('svg')).not.toBeNull();
     expect(minimizeButton?.getAttribute('aria-label')).toBe('Minimize authoring panel');
@@ -157,11 +208,13 @@ describe('local authoring panel (PRD §16.1)', () => {
     expect(panelCloseButton?.getAttribute('aria-label')).toBe('Close authoring');
     expect(panelCloseButton?.dataset['tooltip']).toBe('Close authoring');
     expect(panelCloseButton?.getAttribute('title')).toBe('Close authoring');
-    expect(saveAndExitButton).not.toBe(panelCloseButton);
-    expect(saveAndExitButton?.getAttribute('role')).toBe('menuitem');
-    expect(saveAndExitButton?.textContent?.trim()).toBe('Save & exit');
-    expect(styles).toContain('width: 32px');
-    expect(styles).toContain('height: 32px');
+    expect(host?.shadowRoot?.querySelector('[data-panel-action="options"]')).toBeNull();
+    expect(host?.shadowRoot?.querySelector('[data-panel-action="appearance"]')).toBeNull();
+    expect(host?.shadowRoot?.querySelector('[data-panel-action="preview"]')).toBeNull();
+    expect(host?.shadowRoot?.querySelector('[data-panel-action="close"]')).toBeNull();
+    expect(host?.shadowRoot?.querySelector('[role="menu"]')).toBeNull();
+    expect(styles).toContain('width: 36px');
+    expect(styles).toContain('height: 36px');
     expect(host?.shadowRoot?.querySelector('style')?.nonce).toBe('nonce_authoring');
     expect(document.documentElement.hasAttribute('data-lodariq-authoring-panel-open')).toBe(true);
     const hostLayerStyles = document.getElementById('lodariq-authoring-host-layer-style');
@@ -260,25 +313,54 @@ describe('local authoring panel (PRD §16.1)', () => {
       { iframeSrc: '/lodariq-local/authoring.html' },
     );
     const host = document.querySelector<HTMLElement>('lodariq-authoring-panel');
+    const layoutButton = host?.shadowRoot?.querySelector<HTMLButtonElement>(
+      '[data-panel-action="layout"]',
+    );
     const compactButton = host?.shadowRoot?.querySelector<HTMLButtonElement>(
       '[data-panel-layout="compact"]',
     );
     const resizeHandle = host?.shadowRoot?.querySelector<HTMLButtonElement>('.panel-resize-handle');
     const iframe = host?.querySelector('iframe');
-    const zoom = host?.shadowRoot?.querySelector<HTMLSelectElement>('.panel-zoom');
-    if (!host || !compactButton || !resizeHandle || !iframe || !zoom)
+    const zoomButton = host?.shadowRoot?.querySelector<HTMLButtonElement>(
+      '[data-panel-action="zoom"]',
+    );
+    const zoom62Button = host?.shadowRoot?.querySelector<HTMLButtonElement>(
+      '[data-panel-zoom="62"]',
+    );
+    if (
+      !host ||
+      !layoutButton ||
+      !compactButton ||
+      !resizeHandle ||
+      !iframe ||
+      !zoomButton ||
+      !zoom62Button
+    )
       throw new Error('authoring sizing controls missing');
 
-    zoom.value = '62';
-    zoom.dispatchEvent(new Event('change', { bubbles: true }));
+    zoomButton.click();
+    expect(zoomButton.getAttribute('aria-expanded')).toBe('true');
+    zoom62Button.click();
     expect(iframe.style.transform).toBe('scale(0.62)');
     expect(iframe.style.width).toBe('161.29032258064515%');
+    expect(iframe.dataset['lodariqEditorZoom']).toBe('62');
+    expect(zoomButton.getAttribute('aria-expanded')).toBe('false');
+    expect(zoomButton.getAttribute('aria-label')).toBe('Canvas zoom: 62%');
+    expect(zoomButton.textContent?.trim()).toBe('62%');
+    expect(zoom62Button.getAttribute('aria-selected')).toBe('true');
+    expect(zoom62Button.hidden).toBe(true);
 
+    layoutButton.click();
+    expect(layoutButton.getAttribute('aria-expanded')).toBe('true');
     compactButton.click();
     expect(host.getAttribute('data-lodariq-panel-layout')).toBe('compact');
     expect(host.style.width).toBe('320px');
     expect(host.style.height).toBe('520px');
-    expect(compactButton.getAttribute('aria-checked')).toBe('true');
+    expect(compactButton.getAttribute('aria-selected')).toBe('true');
+    expect(compactButton.hidden).toBe(true);
+    expect(layoutButton.getAttribute('aria-expanded')).toBe('false');
+    expect(layoutButton.getAttribute('aria-label')).toBe('Workspace width: Compact');
+    expect(layoutButton.textContent?.trim()).toBe('Compact');
 
     vi.spyOn(host, 'getBoundingClientRect').mockImplementation(() => {
       const width = Number.parseFloat(host.style.width);
@@ -305,6 +387,8 @@ describe('local authoring panel (PRD §16.1)', () => {
     expect(host.getAttribute('data-lodariq-panel-layout')).toBe('custom');
     expect(host.style.width).toBe('328px');
     expect(host.style.height).toBe('560px');
+    expect(layoutButton.getAttribute('aria-label')).toBe('Workspace width: Custom');
+    expect(layoutButton.textContent?.trim()).toBe('Custom');
     const styles = host.shadowRoot?.querySelector('style')?.textContent ?? '';
     expect(styles).toContain(`background: #003f35`);
     expect(styles).toContain(`color: #ffffff`);
@@ -452,45 +536,6 @@ describe('local authoring panel (PRD §16.1)', () => {
       operation: { kind: 'setDocumentTitle', title: 'Customer onboarding tour' },
     });
     ackOutboundMessage(peer, titleCommit);
-
-    panel.close();
-  });
-
-  it('opens the in-frame appearance workflow without expanding the legacy host sheet', async () => {
-    const panel = openLocalAuthoringPanel(
-      {
-        sessionId: LOCAL_AUTHORING_SESSION_ID,
-        documentId: 'doc_tour_welcome',
-        workspaceId: 'wk_local_dev',
-        environment: 'development',
-      },
-      {
-        iframeSrc: '/lodariq-local/authoring.html',
-        initialDocument: structuredClone(baseDocument),
-      },
-    );
-    const host = document.querySelector<HTMLElement>('lodariq-authoring-panel');
-    const iframe = host?.querySelector('iframe');
-    const appearanceButton = host?.shadowRoot?.querySelector<HTMLButtonElement>(
-      '[data-panel-action="appearance"]',
-    );
-    const legacyAppearanceSheet =
-      host?.shadowRoot?.querySelector<HTMLElement>('[data-appearance-sheet]');
-    if (!host || !iframe || !appearanceButton || !legacyAppearanceSheet) {
-      throw new Error('appearance controls missing');
-    }
-    const peer = { postMessage: vi.fn() } as unknown as Window;
-    Object.defineProperty(iframe, 'contentWindow', { value: peer, configurable: true });
-    iframe.dispatchEvent(new Event('load'));
-
-    appearanceButton.click();
-    const openAppearance = await waitForOutboundMessage(peer, AUTHORING_PANEL_MODE_OPEN_TYPE);
-    expect(openAppearance).toMatchObject({
-      type: AUTHORING_PANEL_MODE_OPEN_TYPE,
-      mode: 'appearance',
-    });
-    expect(appearanceButton.getAttribute('aria-expanded')).toBe('false');
-    expect(legacyAppearanceSheet.hidden).toBe(true);
 
     panel.close();
   });
@@ -684,11 +729,142 @@ describe('local authoring panel (PRD §16.1)', () => {
     iframe.dispatchEvent(new Event('load'));
 
     await vi.waitFor(() => expect(playPreview).toHaveBeenCalledOnce());
-    expect(compilePreview).toHaveBeenCalledWith(expect.objectContaining({ id: placedDocument.id }));
+    expect(compilePreview).toHaveBeenCalledWith(
+      expect.objectContaining({ id: placedDocument.id }),
+      undefined,
+    );
     expect(playPreview).toHaveBeenCalledWith(
       expect.objectContaining({ steps: [expect.objectContaining({ id: 'step_1' })] }),
       expect.objectContaining({ stepId: 'step_1' }),
     );
+
+    panel.close();
+  });
+
+  it('adopts only current persisted Brand draft revisions and refreshes the live preview', async () => {
+    const placedDocument = structuredClone(baseDocument);
+    placedDocument.targets = [
+      {
+        id: 'target_1',
+        fingerprint: {
+          tagName: 'button',
+          role: 'button',
+          accessibleName: 'New project',
+          stableAttributes: { 'data-lodariq-id': 'new-project' },
+        },
+      },
+    ];
+    placedDocument.blocks[0]!.status = 'ready';
+    placedDocument.blocks[0]!.children[0]!.status = 'ready';
+    placedDocument.blocks[0]!.children[0]!.props.targetId = 'target_1';
+    const initialTheme = structuredClone(LODARIQ_ACCESSIBLE_FALLBACK_THEME_V1);
+    const compilePreview = vi.fn((document: LodariqDocument, theme = initialTheme) =>
+      compileDocument({
+        document,
+        theme,
+        rendererContractVersion: RENDERER_CONTRACT_VERSION,
+      }),
+    );
+    const playPreview = vi.fn(() => Promise.resolve());
+    const postMessage = vi.fn();
+    const peer = { postMessage } as unknown as Window;
+    const panel = openLocalAuthoringPanel(
+      {
+        sessionId: LOCAL_AUTHORING_SESSION_ID,
+        documentId: placedDocument.id,
+        workspaceId: placedDocument.workspaceId,
+        environment: 'development',
+      },
+      {
+        autoPreview: true,
+        iframeSrc: '/lodariq-local/authoring.html',
+        initialDocument: placedDocument,
+        initialTheme,
+        preview: {
+          loadDocument: () => structuredClone(placedDocument),
+          compilePreview,
+          playPreview,
+        },
+      },
+    );
+
+    const iframe = document.querySelector('lodariq-authoring-panel iframe');
+    if (!iframe) throw new Error('iframe missing');
+    Object.defineProperty(iframe, 'contentWindow', { value: peer, configurable: true });
+    iframe.dispatchEvent(new Event('load'));
+    await vi.waitFor(() => expect(playPreview).toHaveBeenCalledOnce());
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    window.dispatchEvent(
+      new MessageEvent('message', {
+        data: {
+          protocol: BRIDGE_PROTOCOL_VERSION,
+          sessionId: LOCAL_AUTHORING_SESSION_ID,
+          documentId: placedDocument.id,
+          correlationId: 'brand_preview_bridge_probe',
+          type: 'authoring.panel-layout.request',
+          mode: 'standard',
+        },
+        origin: window.location.origin,
+        source: peer,
+      }),
+    );
+    expect(peer.postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ ackOf: 'brand_preview_bridge_probe', type: 'ack' }),
+      window.location.origin,
+    );
+
+    const sendTheme = async (revision: number, hashCharacter: string): Promise<void> => {
+      const previewTheme = structuredClone(initialTheme);
+      previewTheme.themeVersionId = `themev_draft_${revision}`;
+      previewTheme.version = revision;
+      previewTheme.definition.tokens.modes.light.colors.accent =
+        revision % 2 === 0 ? '#0f766e' : '#7c3aed';
+      previewTheme.contentHash = await computeBrandThemeContentHash(previewTheme);
+      const data = {
+        protocol: BRIDGE_PROTOCOL_VERSION,
+        sessionId: LOCAL_AUTHORING_SESSION_ID,
+        documentId: placedDocument.id,
+        correlationId: `brand_preview_${revision}_${hashCharacter}`,
+        type: AUTHORING_THEME_PREVIEW_APPLY_TYPE,
+        draftRevision: revision,
+        previewTheme,
+      } as const;
+      expect(validate(BridgeMessageSchema, data)).toMatchObject({ valid: true });
+      expect(new TextEncoder().encode(JSON.stringify(data)).byteLength).toBeLessThan(64 * 1024);
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data,
+          origin: window.location.origin,
+          source: peer,
+        }),
+      );
+    };
+
+    const refreshDurations: number[] = [];
+    for (let revision = 2; revision <= 11; revision += 1) {
+      const startedAt = performance.now();
+      await sendTheme(revision, (revision % 10).toString());
+      if (revision === 2) {
+        await vi.waitFor(() =>
+          expect(postMessage.mock.calls.map((call) => call[0])).toContainEqual(
+            expect.objectContaining({ ackOf: 'brand_preview_2_2', type: 'ack' }),
+          ),
+        );
+      }
+      await vi.waitFor(() => expect(playPreview).toHaveBeenCalledTimes(revision));
+      refreshDurations.push(performance.now() - startedAt);
+    }
+    const p95Index = Math.ceil(refreshDurations.length * 0.95) - 1;
+    const p95 = [...refreshDurations].sort((left, right) => left - right)[p95Index] ?? Infinity;
+    expect(p95).toBeLessThan(250);
+    expect(compilePreview.mock.calls[compilePreview.mock.calls.length - 1]?.[1]).toMatchObject({
+      themeVersionId: 'themev_draft_11',
+      version: 11,
+    });
+
+    await sendTheme(4, 'd');
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(playPreview).toHaveBeenCalledTimes(11);
 
     panel.close();
   });
@@ -811,6 +987,11 @@ describe('local authoring panel (PRD §16.1)', () => {
       tourRoot?.querySelector<HTMLStyleElement>('[data-lodariq-authoring-inline-style="true"]')
         ?.nonce,
     ).toBe('nonce_inline_preview');
+    const inlineEditorStyles =
+      tourRoot?.querySelector<HTMLStyleElement>('[data-lodariq-authoring-inline-style="true"]')
+        ?.textContent ?? '';
+    expect(inlineEditorStyles).toContain('background: #ffffff');
+    expect(inlineEditorStyles).not.toContain('background: #1f2126');
 
     const deliveredTour = new TourPlayer(
       await compileDocument({
@@ -838,6 +1019,12 @@ describe('local authoring panel (PRD §16.1)', () => {
     heading.textContent = 'Launch your first project';
     heading.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText' }));
     expect(outboundMessages(peer, AUTHORING_INLINE_CONTENT_COMMIT_TYPE)).toHaveLength(0);
+    dispatchPreviewPatch(peer, 'preview_patch_active_heading', 'heading_1', [
+      { op: 'updateContent', content: 'Launch your first project' },
+    ]);
+    await Promise.resolve();
+    expect(playPreview).toHaveBeenCalledOnce();
+    expect(tourRoot?.activeElement).toBe(heading);
     heading.blur();
 
     const headingCommit = outboundMessages(peer, AUTHORING_INLINE_CONTENT_COMMIT_TYPE)[0];
@@ -926,10 +1113,27 @@ describe('local authoring panel (PRD §16.1)', () => {
     expect(heading.textContent).toBe('Launch your first project');
     expect(outboundMessages(peer, AUTHORING_INLINE_CONTENT_COMMIT_TYPE)).toHaveLength(3);
 
-    authoringHost?.shadowRoot
-      ?.querySelector<HTMLButtonElement>('[data-panel-action="preview"]')
-      ?.click();
+    window.dispatchEvent(
+      new MessageEvent('message', {
+        data: {
+          protocol: BRIDGE_PROTOCOL_VERSION,
+          sessionId: LOCAL_AUTHORING_SESSION_ID,
+          documentId: placedDocument.id,
+          correlationId: 'footer_full_preview',
+          type: 'authoring.preview.request',
+          mode: 'full',
+        },
+        origin: window.location.origin,
+        source: peer,
+      }),
+    );
     await vi.waitFor(() => expect(playPreview).toHaveBeenCalledTimes(2));
+    await vi.waitFor(() =>
+      expect(peer.postMessage).toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'ack', ackOf: 'footer_full_preview' }),
+        window.location.origin,
+      ),
+    );
     await vi.waitFor(() => expect(heading.hasAttribute('contenteditable')).toBe(false));
     expect(playPreview.mock.calls[1]?.[1]).toMatchObject({ interactive: true });
     expect(authoringHost?.hasAttribute('data-lodariq-panel-minimized')).toBe(true);
@@ -1002,9 +1206,7 @@ describe('local authoring panel (PRD §16.1)', () => {
       title: 'Onboarding tour',
     });
     expect(savedDocument?.blocks[0]?.children[0]?.children[0]?.content).toBe('Create a workspace');
-    expect(host?.shadowRoot?.querySelector('[data-save-state-label]')?.textContent).toBe(
-      'Draft saved',
-    );
+    expectLastSaveStateUpdate(peer, 'saved', 'Draft saved');
 
     panel.close();
   });
@@ -1101,21 +1303,14 @@ describe('local authoring panel (PRD §16.1)', () => {
 
     expect(onSave).toHaveBeenCalledOnce();
     expect(errors).toEqual([saveError]);
-    expect(host?.shadowRoot?.querySelector('.save-state')?.getAttribute('data-state')).toBe(
-      'error',
-    );
-    expect(host?.shadowRoot?.querySelector('[data-save-state-label]')?.textContent).toBe(
-      'Save failed · retrying',
-    );
+    expectLastSaveStateUpdate(peer, 'error', 'Save failed · retrying');
 
     await vi.advanceTimersByTimeAsync(1_200);
     await Promise.resolve();
 
     expect(onSave).toHaveBeenCalledTimes(2);
     expect(onSave.mock.calls[1]?.[0].title).toBe('Retry this revision');
-    expect(host?.shadowRoot?.querySelector('.save-state')?.getAttribute('data-state')).toBe(
-      'saved',
-    );
+    expectLastSaveStateUpdate(peer, 'saved', 'Draft saved');
 
     panel.close();
     window.removeEventListener('lodariq:authoring-save-error', onSaveError);
@@ -1268,9 +1463,7 @@ describe('local authoring panel (PRD §16.1)', () => {
     resolveFallbackSave?.();
     await vi.waitFor(() => expect(onSave).toHaveBeenCalledTimes(2));
     expect(onSave.mock.calls[1]?.[0].title).toBe('Late iframe revision');
-    expect(host.shadowRoot?.querySelector('[data-save-state-label]')?.textContent).toBe(
-      'Saving draft…',
-    );
+    expectLastSaveStateUpdate(peer, 'saving', 'Saving draft…');
     expect(didClose).toBe(false);
     expect(removeSpy).not.toHaveBeenCalled();
 
@@ -1338,9 +1531,7 @@ describe('local authoring panel (PRD §16.1)', () => {
     expect(onSave.mock.calls[0]?.[0].title).toBe('Retry before exit');
     expect(didClose).toBe(false);
     expect(document.querySelector('lodariq-authoring-panel')).not.toBeNull();
-    expect(host.shadowRoot?.querySelector('[data-save-state-label]')?.textContent).toBe(
-      'Save failed · retrying',
-    );
+    expectLastSaveStateUpdate(peer, 'error', 'Save failed · retrying');
 
     await vi.advanceTimersByTimeAsync(1_199);
     expect(onSave).toHaveBeenCalledOnce();
@@ -1395,6 +1586,157 @@ describe('local authoring panel (PRD §16.1)', () => {
     panel.close();
   });
 
+  it('samples the host application state for each target capture and merges exact variants', async () => {
+    const main = document.createElement('main');
+    const surface = document.createElement('section');
+    surface.dataset['testid'] = 'stateful-summary';
+    surface.innerHTML = '<h2>Workspace summary</h2><p>Three projects need review.</p>';
+    main.appendChild(surface);
+    document.body.appendChild(main);
+    let surfaceWidth = 360;
+    main.getBoundingClientRect = () =>
+      ({
+        x: 80,
+        y: 60,
+        left: 80,
+        top: 60,
+        right: 1_180,
+        bottom: 760,
+        width: 1_100,
+        height: 700,
+        toJSON: () => ({}),
+      }) as DOMRect;
+    surface.getBoundingClientRect = () =>
+      ({
+        x: 120,
+        y: 120,
+        left: 120,
+        top: 120,
+        right: 120 + surfaceWidth,
+        bottom: 300,
+        width: surfaceWidth,
+        height: 180,
+        toJSON: () => ({}),
+      }) as DOMRect;
+
+    let currentStateId = 'workspace.collapsed';
+    const getTargetStateId = vi.fn(() => {
+      if (currentStateId === 'throw') throw new Error('Customer state unavailable');
+      return currentStateId;
+    });
+    const panel = openLocalAuthoringPanel(
+      {
+        sessionId: LOCAL_AUTHORING_SESSION_ID,
+        documentId: 'doc_tour_welcome',
+        workspaceId: 'wk_local_dev',
+        environment: 'development',
+      },
+      {
+        iframeSrc: '/lodariq-local/authoring.html',
+        getTargetStateId,
+      },
+    );
+    const iframe = document.querySelector('lodariq-authoring-panel iframe');
+    if (!iframe) throw new Error('iframe missing');
+    const peer = { postMessage: vi.fn() } as unknown as Window;
+    Object.defineProperty(iframe, 'contentWindow', { value: peer, configurable: true });
+    iframe.dispatchEvent(new Event('load'));
+
+    const requestPick = async (
+      correlationId: string,
+      previous?: Extract<BridgeMessage, { type: 'target.pick.result' }>,
+    ): Promise<Extract<BridgeMessage, { type: 'target.pick.result' }>> => {
+      const previousResultCount = outboundMessages(peer, 'target.pick.result').length;
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: {
+            protocol: BRIDGE_PROTOCOL_VERSION,
+            sessionId: LOCAL_AUTHORING_SESSION_ID,
+            documentId: 'doc_tour_welcome',
+            correlationId,
+            type: 'target.pick.start',
+            blockId: 'step_1',
+            requiredAction: 'anchor',
+            ...(previous?.fingerprint ? { fingerprint: previous.fingerprint } : {}),
+            ...(previous?.identity ? { identity: previous.identity } : {}),
+          },
+          origin: window.location.origin,
+          source: peer,
+        }),
+      );
+      await vi.waitFor(() =>
+        expect(document.documentElement.getAttribute('data-lodariq-target-picker')).toBe('active'),
+      );
+      surface.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+      await vi.waitFor(() =>
+        expect(outboundMessages(peer, 'target.pick.result')).toHaveLength(previousResultCount + 1),
+      );
+      const result = outboundMessages(peer, 'target.pick.result')[previousResultCount]!;
+      ackOutboundMessage(peer, result);
+      return result;
+    };
+
+    const collapsed = await requestPick('target_pick_collapsed');
+    expect(collapsed.identity?.visualTopologies?.map((variant) => variant.stateId)).toEqual([
+      'workspace.collapsed',
+    ]);
+
+    currentStateId = 'workspace.expanded';
+    surfaceWidth = 760;
+    const expanded = await requestPick('target_pick_expanded', collapsed);
+    expect(new Set(expanded.identity?.visualTopologies?.map((variant) => variant.stateId))).toEqual(
+      new Set(['workspace.collapsed', 'workspace.expanded']),
+    );
+    expect(expanded.identity?.context.stateId).toBeUndefined();
+    expect(getTargetStateId).toHaveBeenCalledTimes(2);
+
+    currentStateId = 'https://customer.example/private-state';
+    window.dispatchEvent(
+      new MessageEvent('message', {
+        data: {
+          protocol: BRIDGE_PROTOCOL_VERSION,
+          sessionId: LOCAL_AUTHORING_SESSION_ID,
+          documentId: 'doc_tour_welcome',
+          correlationId: 'target_pick_invalid_state',
+          type: 'target.pick.start',
+          blockId: 'step_1',
+          requiredAction: 'anchor',
+          fingerprint: expanded.fingerprint,
+          identity: expanded.identity,
+        },
+        origin: window.location.origin,
+        source: peer,
+      }),
+    );
+    await vi.waitFor(() => expect(outboundMessages(peer, 'target.pick.canceled')).toHaveLength(1));
+    expect(outboundMessages(peer, 'target.pick.result')).toHaveLength(2);
+    expect(document.documentElement.hasAttribute('data-lodariq-target-picker')).toBe(false);
+
+    currentStateId = 'throw';
+    window.dispatchEvent(
+      new MessageEvent('message', {
+        data: {
+          protocol: BRIDGE_PROTOCOL_VERSION,
+          sessionId: LOCAL_AUTHORING_SESSION_ID,
+          documentId: 'doc_tour_welcome',
+          correlationId: 'target_pick_throwing_state',
+          type: 'target.pick.start',
+          blockId: 'step_1',
+          requiredAction: 'anchor',
+          fingerprint: expanded.fingerprint,
+          identity: expanded.identity,
+        },
+        origin: window.location.origin,
+        source: peer,
+      }),
+    );
+    await vi.waitFor(() => expect(outboundMessages(peer, 'target.pick.canceled')).toHaveLength(2));
+    expect(outboundMessages(peer, 'target.pick.result')).toHaveLength(2);
+    expect(getTargetStateId).toHaveBeenCalledTimes(4);
+
+    panel.close();
+  });
+
   it('restores the exact popup geometry and focused control after target selection is canceled', async () => {
     const panel = openLocalAuthoringPanel(
       {
@@ -1407,10 +1749,10 @@ describe('local authoring panel (PRD §16.1)', () => {
     );
     const host = document.querySelector<HTMLElement>('lodariq-authoring-panel');
     const iframe = host?.querySelector('iframe');
-    const optionsButton = host?.shadowRoot?.querySelector<HTMLButtonElement>(
-      '[data-panel-action="options"]',
+    const layoutButton = host?.shadowRoot?.querySelector<HTMLButtonElement>(
+      '[data-panel-action="layout"]',
     );
-    if (!host || !iframe || !optionsButton) throw new Error('authoring panel missing');
+    if (!host || !iframe || !layoutButton) throw new Error('authoring panel missing');
     const peer = { postMessage: vi.fn() } as unknown as Window;
     Object.defineProperty(iframe, 'contentWindow', { value: peer, configurable: true });
     iframe.dispatchEvent(new Event('load'));
@@ -1420,7 +1762,7 @@ describe('local authoring panel (PRD §16.1)', () => {
       top: '112px',
       width: '336px',
     });
-    optionsButton.focus();
+    layoutButton.focus();
 
     window.dispatchEvent(
       new MessageEvent('message', {
@@ -1460,7 +1802,7 @@ describe('local authoring panel (PRD §16.1)', () => {
     expect(host.style.top).toBe('112px');
     expect(host.style.width).toBe('336px');
     expect(host.style.height).toBe('500px');
-    expect(host.shadowRoot?.activeElement).toBe(optionsButton);
+    expect(host.shadowRoot?.activeElement).toBe(layoutButton);
 
     panel.close();
   });
@@ -1791,6 +2133,7 @@ describe('local authoring panel (PRD §16.1)', () => {
           }),
         ],
       }),
+      undefined,
     );
     expect(playPreview).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -1880,6 +2223,7 @@ describe('local authoring panel (PRD §16.1)', () => {
           }),
         ],
       }),
+      undefined,
     );
     expect(playPreview).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -2214,6 +2558,17 @@ async function waitForOutboundMessage<TType extends BridgeMessage['type']>(
 ): Promise<Extract<BridgeMessage, { type: TType }>> {
   await vi.waitFor(() => expect(outboundMessages(peer, type)).toHaveLength(1));
   return outboundMessages(peer, type)[0]!;
+}
+
+function expectLastSaveStateUpdate(
+  peer: Window,
+  state: Extract<BridgeMessage, { type: typeof AUTHORING_SAVE_STATE_UPDATE_TYPE }>['state'],
+  label: string,
+): void {
+  const updates = outboundMessages(peer, AUTHORING_SAVE_STATE_UPDATE_TYPE);
+  const update = updates[updates.length - 1];
+  expect(update).toMatchObject({ state, label });
+  expect(validate(BridgeMessageSchema, update)).toMatchObject({ valid: true });
 }
 
 function ackOutboundMessage(peer: Window, message: BridgeMessage): void {

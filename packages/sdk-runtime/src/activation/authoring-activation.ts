@@ -18,14 +18,22 @@ import { Eye, List, Plus, createElement as createLucideElement, type IconNode } 
 const ACTIVATION_PROTOCOL = 'lodariq.authoring.activation.v1';
 const BOOTSTRAP_GRANT_HEADER = 'x-lodariq-bootstrap-grant';
 const PKCE_CHALLENGE_METHOD = 'S256';
-const CREATOR_CDN_ORIGIN = 'https://cdn.lodariq.com';
-const APP_ORIGIN = 'https://app.lodariq.com';
-const ACTIVATION_URL = `${APP_ORIGIN}/authoring/activate`;
-const EDITOR_ORIGIN = 'https://editor.lodariq.com';
-const API_ORIGINS: ReadonlySet<string> = new Set([
-  'https://api.lodariq.com',
-  'https://staging-api.lodariq.com',
-] as const);
+const AUTHORING_ORIGINS_BY_API = {
+  'https://api.lodariq.com': {
+    app: 'https://app.lodariq.com',
+    creator: 'https://cdn.lodariq.com',
+    editor: 'https://editor.lodariq.com',
+  },
+  'https://staging-api.lodariq.com': {
+    app: 'https://staging-app.lodariq.com',
+    creator: 'https://staging-cdn.lodariq.com',
+    editor: 'https://staging-editor.lodariq.com',
+  },
+} as const;
+const CREATOR_CDN_ORIGINS: ReadonlySet<string> = new Set(
+  Object.values(AUTHORING_ORIGINS_BY_API).map(({ creator }) => creator),
+);
+const API_ORIGINS: ReadonlySet<string> = new Set(Object.keys(AUTHORING_ORIGINS_BY_API));
 const AUTHORIZATION_RESULT_TYPE = 'authoring.authorization.result';
 const AUTHORIZATION_REQUEST_TYPE = 'authoring.activation.request';
 const ACTIVATION_TIMEOUT_MS = 2 * 60 * 1_000;
@@ -109,6 +117,8 @@ export interface HostedCreatorActivation {
   context: AuthoringActivationGrantContext;
   apiOrigin: string;
   documentIntent?: AuthoringDocumentIntent;
+  /** Memory-only host callback; the authoring picker bounds its opaque return value per capture. */
+  getTargetStateId?: () => string | undefined;
 }
 
 export interface HostedCreatorModule {
@@ -117,6 +127,8 @@ export interface HostedCreatorModule {
 
 export interface PublicAuthoringActivationOptions {
   documentIntent?: AuthoringDocumentIntent;
+  /** Reads the host application's current opaque state only when a target pick begins. */
+  getTargetStateId?: () => string | undefined;
   fetchFn?: typeof fetch;
   crypto?: Crypto;
   hostWindow?: Window;
@@ -220,6 +232,7 @@ export async function activatePublicAuthoring(
       context: exchanged.context,
       apiOrigin: requireTrustedApiOrigin(authoring.exchangeUrl),
       ...(documentIntent ? { documentIntent } : {}),
+      ...(options.getTargetStateId ? { getTargetStateId: options.getTargetStateId } : {}),
     };
     let creatorActivation: Promise<void> | void;
     try {
@@ -1064,15 +1077,21 @@ function availableAuthoring(
   if (
     (context.environment !== 'development' && context.environment !== 'staging') ||
     context.customerOrigin !== customerOrigin ||
-    context.authoring.state !== 'available' ||
-    context.authoring.appOrigin !== APP_ORIGIN ||
-    context.authoring.activationUrl !== ACTIVATION_URL ||
+    context.authoring.state !== 'available'
+  ) {
+    return null;
+  }
+  const apiOrigin = new URL(context.authoring.exchangeUrl).origin;
+  const origins = authoringOriginsForApi(apiOrigin);
+  if (
+    !origins ||
+    context.authoring.appOrigin !== origins.app ||
+    context.authoring.activationUrl !== `${origins.app}/authoring/activate` ||
     !isCanonicalApiEndpoint(
       context.authoring.authorizationRequestUrl,
       '/v1/sdk/authoring/authorization-requests',
     ) ||
     !isCanonicalApiEndpoint(context.authoring.exchangeUrl, '/v1/sdk/authoring/exchange') ||
-    !API_ORIGINS.has(new URL(context.authoring.exchangeUrl).origin) ||
     new URL(context.authoring.authorizationRequestUrl).origin !==
       new URL(context.authoring.exchangeUrl).origin
   ) {
@@ -1142,7 +1161,13 @@ function isExchangeResult(
   documentIntent: AuthoringDocumentIntent | undefined,
 ): value is AuthoringCodeExchangeResult {
   if (!exactRecord(value, ['activationGrant', 'context', 'creatorModule'])) return false;
-  if (!opaque(value['activationGrant']) || !isCreatorModuleDescriptor(value['creatorModule'])) {
+  if (context.authoring.state !== 'available') return false;
+  const origins = authoringOriginsForApi(new URL(context.authoring.exchangeUrl).origin);
+  if (
+    !origins ||
+    !opaque(value['activationGrant']) ||
+    !isCreatorModuleDescriptor(value['creatorModule'], origins.creator)
+  ) {
     return false;
   }
   const grant = value['context'];
@@ -1169,7 +1194,7 @@ function isExchangeResult(
     grant['environmentId'] === context.environmentId &&
     grant['environment'] === context.environment &&
     grant['customerOrigin'] === context.customerOrigin &&
-    grant['editorOrigin'] === EDITOR_ORIGIN &&
+    grant['editorOrigin'] === origins.editor &&
     nonEmpty(grant['creatorId']) &&
     isCapabilitySet(grant['capabilities']) &&
     sameDocumentIntent(grant['documentIntent'], documentIntent) &&
@@ -1177,7 +1202,10 @@ function isExchangeResult(
   );
 }
 
-function isCreatorModuleDescriptor(value: unknown): value is CreatorModuleDescriptor {
+function isCreatorModuleDescriptor(
+  value: unknown,
+  expectedOrigin?: string,
+): value is CreatorModuleDescriptor {
   if (!exactRecord(value, ['url', 'version', 'integrity'])) return false;
   if (!nonEmpty(value['version']) || !SUBRESOURCE_INTEGRITY.test(String(value['integrity']))) {
     return false;
@@ -1186,7 +1214,7 @@ function isCreatorModuleDescriptor(value: unknown): value is CreatorModuleDescri
     const url = new URL(String(value['url']));
     const contentAddress = CREATOR_CONTENT_ADDRESS.exec(url.pathname)?.[1];
     return (
-      url.origin === CREATOR_CDN_ORIGIN &&
+      (expectedOrigin ? url.origin === expectedOrigin : CREATOR_CDN_ORIGINS.has(url.origin)) &&
       !url.username &&
       !url.password &&
       !url.search &&
@@ -1197,6 +1225,12 @@ function isCreatorModuleDescriptor(value: unknown): value is CreatorModuleDescri
   } catch {
     return false;
   }
+}
+
+function authoringOriginsForApi(
+  apiOrigin: string,
+): (typeof AUTHORING_ORIGINS_BY_API)[keyof typeof AUTHORING_ORIGINS_BY_API] | null {
+  return AUTHORING_ORIGINS_BY_API[apiOrigin as keyof typeof AUTHORING_ORIGINS_BY_API] ?? null;
 }
 
 function isCapabilitySet(value: unknown): boolean {

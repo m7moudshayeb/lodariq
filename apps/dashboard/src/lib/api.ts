@@ -1,11 +1,25 @@
 import 'server-only';
-import type {
-  BrandThemeDefinition,
-  BrandThemeSnapshot,
-  ControlPlaneAuthContext,
-  DocumentDeployment,
-  ProductStyleSource,
-  ThemeBinding,
+import {
+  AnalyticsAggregateResponse as AnalyticsAggregateResponseSchema,
+  AnalyticsEnvironmentQuery as AnalyticsEnvironmentQuerySchema,
+  ReleaseRecoveryRequest as ReleaseRecoveryRequestSchema,
+  ReleaseRecoveryResult as ReleaseRecoveryResultSchema,
+  ReleaseRecoveryStateResponse as ReleaseRecoveryStateResponseSchema,
+  releaseRecoveryStateMatchesScope,
+  validate,
+  type AnalyticsAggregateResponse,
+  type AnalyticsEventAggregate,
+  type BrandThemeDefinition,
+  type BrandThemeSnapshot,
+  type ControlPlaneAuthContext,
+  type DocumentDeployment,
+  type EnvironmentReleasePolicy,
+  type ProductStyleSource,
+  type ReleaseRecoveryFailureCode,
+  type ReleaseRecoveryRequest,
+  type ReleaseRecoveryResult,
+  type ReleaseRecoveryStateResponse,
+  type ThemeBinding,
 } from '@lodariq/schema';
 import {
   dashboardSessionCookieName,
@@ -13,6 +27,9 @@ import {
   parseAuthSessionSnapshot,
   type AuthSessionSnapshot,
 } from './auth-contract';
+import { DASHBOARD_ANALYTICS_AGGREGATE_LIMIT } from './dashboard-constants';
+
+export { DASHBOARD_ANALYTICS_AGGREGATE_LIMIT } from './dashboard-constants';
 
 export type EnvironmentKind = 'development' | 'staging' | 'production';
 
@@ -76,6 +93,11 @@ export interface WorkspaceEnvironmentDto {
   name: string;
   originAllowlist: string[];
   requiredApprovalCount?: 0 | 1;
+  enabled?: boolean;
+  pipelinePosition?: number;
+  authoringEnabled?: boolean;
+  promotionSourceEnvironmentId?: string;
+  releasePolicy?: EnvironmentReleasePolicy;
   createdAt: string;
   updatedAt: string;
 }
@@ -422,6 +444,24 @@ export async function updateEnvironmentReleasePolicy(input: {
   );
 }
 
+export async function updateWorkspaceEnvironmentPolicy(input: {
+  environmentId: string;
+  name: string;
+  originAllowlist: string[];
+  enabled: boolean;
+  pipelinePosition: 0 | 1 | 2;
+  authoringEnabled: boolean;
+  promotionSourceEnvironmentId?: string;
+  releasePolicy: EnvironmentReleasePolicy;
+  expectedUpdatedAt: string;
+}): Promise<{ environment: WorkspaceEnvironmentDto }> {
+  const { environmentId, ...body } = input;
+  return controlPlaneFetch<{ environment: WorkspaceEnvironmentDto }>(
+    `/v1/environments/${encodeURIComponent(environmentId)}/policy`,
+    { method: 'PATCH', body: JSON.stringify(body) },
+  );
+}
+
 export async function loadPublicSdkInstallations(): Promise<PublicSdkInstallationDto[]> {
   const response = await controlPlaneFetch<{ installations: PublicSdkInstallationDto[] }>(
     '/v1/sdk-installations',
@@ -481,6 +521,80 @@ export async function loadDocumentDebug(documentId: string): Promise<DocumentDeb
   );
 }
 
+export async function loadAnalyticsAggregates(
+  environmentId: string,
+): Promise<AnalyticsAggregateResponse> {
+  const query = validate(AnalyticsEnvironmentQuerySchema, {
+    environmentId,
+    limit: DASHBOARD_ANALYTICS_AGGREGATE_LIMIT,
+  });
+  if (!query.valid) throw new DashboardApiError(400, 'Invalid analytics environment query.');
+
+  const search = new URLSearchParams({
+    environmentId: query.value.environmentId,
+    limit: String(query.value.limit),
+  });
+  const value = await controlPlaneFetch<unknown>(`/v1/analytics/aggregate?${search.toString()}`);
+  const response = validate(AnalyticsAggregateResponseSchema, value);
+  if (
+    !response.valid ||
+    !analyticsAggregateResponseMatchesScope(response.value.aggregates, environmentId)
+  ) {
+    throw new DashboardApiError(502, 'Invalid analytics aggregate response.');
+  }
+  return response.value;
+}
+
+export async function loadDocumentReleaseRecoveryState(input: {
+  documentId: string;
+  environmentId: string;
+}): Promise<ReleaseRecoveryStateResponse> {
+  const value = await controlPlaneFetch<unknown>(
+    `/v1/documents/${encodeURIComponent(input.documentId)}/environments/${encodeURIComponent(input.environmentId)}/release-recovery`,
+  );
+  const result = validate(ReleaseRecoveryStateResponseSchema, value);
+  if (
+    !result.valid ||
+    result.value.documentId !== input.documentId ||
+    result.value.environmentId !== input.environmentId ||
+    !releaseRecoveryStateMatchesScope(result.value, {
+      workspaceId: result.value.workspaceId,
+      environmentId: input.environmentId,
+      documentId: input.documentId,
+    })
+  ) {
+    throw new DashboardApiError(502, 'Invalid release recovery state response.');
+  }
+  return result.value;
+}
+
+export async function recoverDocumentRelease(input: {
+  documentId: string;
+  environmentId: string;
+  request: ReleaseRecoveryRequest;
+}): Promise<ReleaseRecoveryResult> {
+  const request = validate(ReleaseRecoveryRequestSchema, input.request);
+  if (!request.valid) throw new DashboardApiError(400, 'Invalid release recovery request.');
+  const response = await controlPlaneResponse(
+    `/v1/documents/${encodeURIComponent(input.documentId)}/environments/${encodeURIComponent(input.environmentId)}/release-recovery`,
+    { method: 'POST', body: JSON.stringify(request.value) },
+  );
+  const value = await readJsonResponse(response);
+  const result = validate(ReleaseRecoveryResultSchema, value);
+  if (
+    !RECOVERY_RESULT_HTTP_STATUSES.has(response.status) ||
+    !result.valid ||
+    result.value.action !== request.value.action ||
+    !releaseRecoveryResultMatchesHttpStatus(result.value, response.status)
+  ) {
+    throw new DashboardApiError(
+      response.ok ? 502 : response.status,
+      'Invalid release recovery result response.',
+    );
+  }
+  return result.value;
+}
+
 export async function loadPendingAuthoringAuthorization(
   requestId: string,
 ): Promise<PendingAuthoringAuthorizationDto> {
@@ -503,19 +617,62 @@ export async function approveAuthoringAuthorization(
 }
 
 async function controlPlaneFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
-  const config = readDashboardApiConfig();
-  const requestAuth = await readRequestAuthContext();
-  const response = await fetch(new URL(path, config.apiBaseUrl), {
-    ...init,
-    cache: 'no-store',
-    headers: buildDashboardApiHeaders(config, requestAuth, init.headers, Boolean(init.body)),
-  });
+  const response = await controlPlaneResponse(path, init);
 
   if (!response.ok) {
     throw new DashboardApiError(response.status, await response.text());
   }
 
   return (await response.json()) as T;
+}
+
+const RECOVERY_RESULT_HTTP_STATUSES = new Set([200, 201, 403, 404, 409, 500]);
+const RECOVERY_FAILURE_HTTP_STATUSES = new Map<ReleaseRecoveryFailureCode, number>([
+  ['capability_denied', 403],
+  ['document_not_found', 404],
+  ['internal_error', 500],
+]);
+
+function releaseRecoveryResultMatchesHttpStatus(
+  result: ReleaseRecoveryResult,
+  status: number,
+): boolean {
+  if (result.ok) return status === (result.replayed ? 200 : 201);
+  return status === (RECOVERY_FAILURE_HTTP_STATUSES.get(result.code) ?? 409);
+}
+
+function analyticsAggregateResponseMatchesScope(
+  aggregates: readonly AnalyticsEventAggregate[],
+  environmentId: string,
+): boolean {
+  const workspaceId = aggregates[0]?.workspaceId;
+  return aggregates.every(
+    (aggregate) =>
+      aggregate.environmentId === environmentId &&
+      aggregate.workspaceId === workspaceId &&
+      Date.parse(aggregate.firstTimestamp) <= Date.parse(aggregate.lastTimestamp),
+  );
+}
+
+async function controlPlaneResponse(path: string, init: RequestInit = {}): Promise<Response> {
+  const config = readDashboardApiConfig();
+  const requestAuth = await readRequestAuthContext();
+  return fetch(new URL(path, config.apiBaseUrl), {
+    ...init,
+    cache: 'no-store',
+    headers: buildDashboardApiHeaders(config, requestAuth, init.headers, Boolean(init.body)),
+  });
+}
+
+async function readJsonResponse(response: Response): Promise<unknown> {
+  try {
+    return await response.json();
+  } catch {
+    throw new DashboardApiError(
+      response.ok ? 502 : response.status,
+      'The control-plane response was not valid JSON.',
+    );
+  }
 }
 
 function readDashboardApiConfig(): DashboardApiConfig {

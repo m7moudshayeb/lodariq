@@ -9,8 +9,8 @@ import type {
 import {
   DEFAULT_EXPERIENCE_APPEARANCE,
   hasRenderableBrandThemeSnapshot,
-  hasRenderableExperienceAppearance,
   LODARIQ_ACCESSIBLE_FALLBACK_THEME_V1,
+  resolveExperienceAppearance,
 } from '@lodariq/schema/brand-runtime';
 
 const TOUR_WIDTH_TOKEN_BY_APPEARANCE = {
@@ -42,6 +42,7 @@ const TOUR_STYLE_VARIABLES = {
   borderWidth: '--lq-tour-border-width',
   elevation: '--lq-tour-elevation',
   focusColor: '--lq-tour-focus-color',
+  focusHaloColor: '--lq-tour-focus-halo-color',
   fontFamily: '--lq-tour-font-family',
   headingFontWeight: '--lq-tour-heading-font-weight',
   headingLineHeight: '--lq-tour-heading-line-height',
@@ -116,6 +117,7 @@ export function resolveCompiledTourTheme(
     tokens.spacing[recipe.spacingRole] * DENSITY_SCALE[appearance.density],
   );
   const widthToken = TOUR_WIDTH_TOKEN_BY_APPEARANCE[appearance.width];
+  const focusColor = colorForRole(colors, recipe.focusRole);
 
   return {
     appearance,
@@ -128,7 +130,8 @@ export function resolveCompiledTourTheme(
       [TOUR_STYLE_VARIABLES.borderColor]: colorForRole(colors, recipe.borderRole),
       [TOUR_STYLE_VARIABLES.borderWidth]: borderWidth(tokens.borders, recipe),
       [TOUR_STYLE_VARIABLES.elevation]: elevationValue(tokens.elevations, recipe),
-      [TOUR_STYLE_VARIABLES.focusColor]: colorForRole(colors, recipe.focusRole),
+      [TOUR_STYLE_VARIABLES.focusColor]: focusColor,
+      [TOUR_STYLE_VARIABLES.focusHaloColor]: `${focusColor}33`,
       [TOUR_STYLE_VARIABLES.fontFamily]: tokens.typography.fontFamilies.join(', '),
       [TOUR_STYLE_VARIABLES.headingFontWeight]: String(tokens.typography.headingWeight),
       [TOUR_STYLE_VARIABLES.headingLineHeight]: String(tokens.typography.headingLineHeight),
@@ -160,9 +163,7 @@ function resolvedTheme(document: CompiledDocument): BrandThemeSnapshot {
 
 function resolvedAppearance(document: CompiledDocument): ExperienceAppearance {
   const candidate = 'appearance' in document ? document.appearance : null;
-  return candidate && hasRenderableExperienceAppearance(candidate)
-    ? candidate
-    : DEFAULT_EXPERIENCE_APPEARANCE;
+  return resolveExperienceAppearance(candidate ?? DEFAULT_EXPERIENCE_APPEARANCE);
 }
 
 function resolvedColorMode(

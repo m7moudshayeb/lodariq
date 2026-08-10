@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import {
+  ChartNoAxesCombined,
   CircleHelp,
   ExternalLink,
   FileStack,
@@ -26,13 +27,22 @@ import {
 import { updateEnvironmentReleasePolicyAction } from '../app/actions';
 import type { WorkspaceEnvironmentDto } from '../lib/api';
 import type { DashboardViewModel } from '../lib/view-model';
+import {
+  AnalyticsPanel,
+  type AnalyticsEnvironmentOption,
+} from './analytics-panel';
 import { AuthoringLaunchPanel } from './authoring-launch-panel';
 import { BrandSystemPanel } from './brand-system-panel';
 import { DocumentDebugPanel } from './document-debug-panel';
 import { DocumentsTable } from './documents-table';
+import { EnvironmentPolicyEditor } from './environment-policy-editor';
 import { LaunchQueue } from './launch-queue';
 import { RecentActivity } from './recent-activity';
 import { ReleaseProgress } from './release-progress';
+import {
+  ReleaseRecoveryPanel,
+  type ReleaseRecoveryEnvironmentOption,
+} from './release-recovery-panel';
 import { SdkSnippetPanel } from './sdk-snippet-panel';
 import { ThemeToggle } from './theme-toggle';
 import { Badge } from './ui/badge';
@@ -50,6 +60,7 @@ const navigationIcons = {
   overview: LayoutDashboard,
   experiences: FileStack,
   releases: Rocket,
+  analytics: ChartNoAxesCombined,
   brand: Palette,
   environments: Globe2,
   support: CircleHelp,
@@ -230,6 +241,7 @@ export function DashboardWorkspace({
           {activeView === 'releases' ? (
             <ReleasesView viewModel={viewModel} selectedDocumentId={releaseDocumentId} />
           ) : null}
+          {activeView === 'analytics' ? <AnalyticsView viewModel={viewModel} /> : null}
           {activeView === 'brand-system' ? <BrandSystemView viewModel={viewModel} /> : null}
           {activeView === 'environments' ? <EnvironmentsView viewModel={viewModel} /> : null}
           {activeView === 'support' ? <SupportView viewModel={viewModel} /> : null}
@@ -515,6 +527,31 @@ function ExperiencesView({ viewModel }: { viewModel: DashboardViewModel }): Reac
   );
 }
 
+function AnalyticsView({ viewModel }: { viewModel: DashboardViewModel }): React.ReactElement {
+  return (
+    <>
+      <PageHeader view="analytics" />
+      <AnalyticsPanel environments={analyticsEnvironmentOptions(viewModel.environmentOptions)} />
+    </>
+  );
+}
+
+function analyticsEnvironmentOptions(
+  environments: DashboardViewModel['environmentOptions'],
+): AnalyticsEnvironmentOption[] {
+  const options: AnalyticsEnvironmentOption[] = [];
+  for (const environment of environments) {
+    if (environment.kind !== 'staging' && environment.kind !== 'production') continue;
+    options.push({
+      id: environment.id,
+      kind: environment.kind,
+      name: environment.name,
+      enabled: environment.enabled ?? true,
+    });
+  }
+  return options;
+}
+
 function ReleasesView({
   viewModel,
   selectedDocumentId,
@@ -523,6 +560,7 @@ function ReleasesView({
   selectedDocumentId: string;
 }): React.ReactElement {
   const orderedRows = orderSelectedRelease(viewModel.documentRows, selectedDocumentId);
+  const recoveryEnvironments = releaseRecoveryEnvironmentOptions(viewModel.environmentOptions);
   return (
     <>
       <PageHeader
@@ -576,6 +614,11 @@ function ReleasesView({
                   </p>
                 </div>
               </div>
+              <ReleaseRecoveryPanel
+                documentId={row.id}
+                documentTitle={row.title}
+                environments={recoveryEnvironments}
+              />
             </article>
           ))
         ) : (
@@ -588,6 +631,22 @@ function ReleasesView({
       </div>
     </>
   );
+}
+
+function releaseRecoveryEnvironmentOptions(
+  environments: DashboardViewModel['environmentOptions'],
+): ReleaseRecoveryEnvironmentOption[] {
+  const options: ReleaseRecoveryEnvironmentOption[] = [];
+  for (const environment of environments) {
+    if (environment.kind !== 'staging' && environment.kind !== 'production') continue;
+    options.push({
+      id: environment.id,
+      kind: environment.kind,
+      name: environment.name,
+      enabled: environment.enabled ?? true,
+    });
+  }
+  return options;
 }
 
 function BrandSystemView({ viewModel }: { viewModel: DashboardViewModel }): React.ReactElement {
@@ -625,21 +684,16 @@ function EnvironmentsView({ viewModel }: { viewModel: DashboardViewModel }): Rea
                   <ProductionApprovalPolicy
                     canManage={viewModel.canManageSdkInstallations}
                     environment={environment}
+                    environments={viewModel.environmentOptions}
                     key={environment.id}
                   />
                 ) : (
-                  <div
-                    className="flex items-center justify-between gap-3 rounded-lg border border-border bg-[var(--surface-subtle)] p-3"
+                  <NonProductionEnvironmentPolicy
+                    canManage={viewModel.canManageSdkInstallations}
+                    environment={environment}
+                    environments={viewModel.environmentOptions}
                     key={environment.id}
-                  >
-                    <div className="min-w-0">
-                      <p className="font-semibold">{environment.name}</p>
-                      <p className="truncate text-xs text-muted-foreground">
-                        {environment.originLabel}
-                      </p>
-                    </div>
-                    <Badge variant="outline">{environment.kind}</Badge>
-                  </div>
+                  />
                 ),
               )
             ) : (
@@ -659,12 +713,45 @@ function EnvironmentsView({ viewModel }: { viewModel: DashboardViewModel }): Rea
   );
 }
 
-function ProductionApprovalPolicy({
+function NonProductionEnvironmentPolicy({
   canManage,
   environment,
+  environments,
 }: {
   canManage: boolean;
   environment: WorkspaceEnvironmentDto & { originLabel: string };
+  environments: Array<WorkspaceEnvironmentDto & { originLabel: string }>;
+}): React.ReactElement {
+  const [current, setCurrent] = React.useState(environment);
+  return (
+    <div className="grid gap-3 rounded-lg border border-border bg-[var(--surface-subtle)] p-3">
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <p className="font-semibold">{current.name}</p>
+          <p className="truncate text-xs text-muted-foreground">{current.originLabel}</p>
+        </div>
+        <Badge variant="outline">{current.kind}</Badge>
+      </div>
+      <EnvironmentPolicyEditor
+        canManage={canManage}
+        environment={current}
+        environments={environments}
+        onUpdated={(updated) =>
+          setCurrent({ ...updated, originLabel: environmentOriginLabel(updated) })
+        }
+      />
+    </div>
+  );
+}
+
+function ProductionApprovalPolicy({
+  canManage,
+  environment,
+  environments,
+}: {
+  canManage: boolean;
+  environment: WorkspaceEnvironmentDto & { originLabel: string };
+  environments: Array<WorkspaceEnvironmentDto & { originLabel: string }>;
 }): React.ReactElement {
   const [current, setCurrent] = React.useState(environment);
   const [feedback, setFeedback] = React.useState<{
@@ -732,6 +819,14 @@ function ProductionApprovalPolicy({
           {feedback.message}
         </p>
       ) : null}
+      <EnvironmentPolicyEditor
+        canManage={canManage}
+        environment={current}
+        environments={environments}
+        onUpdated={(updated) =>
+          setCurrent({ ...updated, originLabel: environmentOriginLabel(updated) })
+        }
+      />
     </div>
   );
 }
@@ -739,6 +834,12 @@ function ProductionApprovalPolicy({
 function approvalPolicyActionLabel(pending: boolean, approvalRequired: boolean): string {
   if (pending) return 'Updating…';
   return approvalRequired ? 'Remove approval' : 'Require approval';
+}
+
+function environmentOriginLabel(environment: WorkspaceEnvironmentDto): string {
+  return environment.originAllowlist.length
+    ? environment.originAllowlist.join(', ')
+    : 'No trusted origins';
 }
 
 function SupportView({ viewModel }: { viewModel: DashboardViewModel }): React.ReactElement {

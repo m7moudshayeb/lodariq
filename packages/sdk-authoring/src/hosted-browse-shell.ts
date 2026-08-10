@@ -40,7 +40,7 @@ export function mountHostedBrowseShell(options: HostedBrowseShellOptions): Hoste
     .shell {
       background: ${CREATOR_CHROME_TOKENS.canvas};
       border: 1px solid ${CREATOR_CHROME_TOKENS.border};
-      border-radius: 14px;
+      border-radius: 16px;
       box-shadow: 0 24px 60px rgba(0, 0, 0, .4), 0 4px 14px rgba(0, 0, 0, .3);
       display: grid;
       height: 100%;
@@ -56,14 +56,14 @@ export function mountHostedBrowseShell(options: HostedBrowseShellOptions): Hoste
       display: grid;
       gap: 12px;
       grid-template-columns: minmax(0, 1fr) auto;
-      padding: 0 10px 0 16px;
+      padding: 0 12px 0 16px;
       touch-action: none;
       user-select: none;
     }
     header:active { cursor: grabbing; }
-    .copy { display: grid; gap: 2px; min-width: 0; }
-    .copy strong { font-size: 13px; font-weight: 650; letter-spacing: .01em; }
-    .copy span { color: ${CREATOR_CHROME_TOKENS.muted}; font-size: 11px; }
+    .copy { display: grid; gap: 4px; min-width: 0; }
+    .copy strong { font-size: 12px; font-weight: 600; letter-spacing: .01em; }
+    .copy span { color: ${CREATOR_CHROME_TOKENS.muted}; font-size: 10px; }
     button {
       align-items: center;
       background: transparent;

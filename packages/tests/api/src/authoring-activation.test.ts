@@ -1326,7 +1326,7 @@ function environment(id: string, kind: WorkspaceEnvironment['kind']): WorkspaceE
     workspaceId: WORKSPACE_ID,
     kind,
     name: kind,
-    originAllowlist: [],
+    originAllowlist: [CUSTOMER_ORIGIN],
     createdAt: '2026-08-07T00:00:00.000Z',
     updatedAt: '2026-08-07T00:00:00.000Z',
   };

@@ -3,7 +3,7 @@
 Source of truth: `../../refined-lodariq-prd.md` §§5.1, 6.2.1, 7.3, 7.10, 9.4,
 11.3, 16.4, and 20, plus ADR 0015, ADR 0016, and ADR 0017.
 
-Status: **Started — Slice 0, the Editorial Air compatibility shell, Target
+Status: **Local code milestone complete — Slice 0, the Editorial Air compatibility shell, Target
 Identity V2, exact-area Tour-tooltip behavior, and Slice 1 hosted in-product
 entry are locally verified. Slice 2's tokenized Tour renderer, persisted Brand
 Theme workflow, document-specific delivery, deterministic basic preflight, and
@@ -12,16 +12,16 @@ consolidated local milestone gate and current-view Editorial Air Design QA. Core
 Lodariq-owned authentication is code-complete and active runtime/dependencies
 are Clerk-free. Slice 3's product matcher, provenance-backed mutable Brand
 draft, exact 13-check browser verification, same-artifact production promotion,
-and configurable zero-or-one-person approval are implemented locally. Its
-current repository stabilization checkpoint passes the full Node 24
-`pnpm verify`: 18 typecheck tasks, 12 lint tasks, dependency boundaries and
-migration safety, 86 Vitest files / 810 tests, 11 builds, runtime/authoring
-bundle-size gates, 95 prepared SDK assets, 77 Playwright tests with four
-intentional skips, and a zero-vulnerability dependency audit. Slice 4,
-production auth/live infrastructure, immediate matched-theme preview refresh,
-atomic source-plus-draft persistence, compact exact-verification findings
-presentation, and external usability evidence remain open. Phase 2 is not
-complete**
+and configurable zero-or-one-person approval are implemented locally. Slice 3
+hardening and Slice 4 drift, recovery, unpublish, and analytics isolation are
+also complete locally. The final repository checkpoint passes the full Node
+24 `pnpm verify`: 18 typecheck tasks, 12 lint tasks, dependency boundaries and
+migration safety, 126 Vitest files / 1,064 tests, 11 builds,
+runtime/authoring bundle-size gates, 109 prepared SDK assets, 77 Playwright
+tests with four intentional skips, and a zero-vulnerability dependency
+audit. First deployment, production enablement, live RLS/smoke/convergence
+evidence, the B4 measurement-backed ADR, and external usability evidence
+remain unclaimed**
 
 Estimated roadmap window: weeks 16-25 after adding hosted SDK-first creator
 entry as Slice 1.
@@ -30,9 +30,9 @@ Last updated: 2026-08-09
 
 Current technical execution moved to
 [`phase-2-technical-completion.md`](phase-2-technical-completion.md). That plan
-covers Slice 3 hardening, Slice 4 reliability, the first clean-slate deployment,
-and repository automation; point 5 product research and paid pilots are
-explicitly excluded.
+records the completed local Slice 3/4 work and retains the first clean-slate
+deployment and B4 measurement decision as operational follow-up; point 5
+product research and paid pilots are explicitly excluded.
 
 Selected visual direction: Option 2, **Editorial Air**, documented in
 `../product-design/design-system-exploration-2026-08-06/README.md`. It is the
@@ -211,21 +211,19 @@ release UX is enabled:
   preflight, and advances only the reviewed document artifact.
 - The legacy `/v1/documents/:documentId/publish` mutation is closed; it is not a
   development/staging release path. Exact staging verification, same-artifact
-  production promotion, and configurable zero-or-one approval are implemented
-  locally; rollback, unpublish, richer policy, and live deployment evidence
-  remain pending.
-- Product Match currently updates the mutable theme draft before inserting its
-  provenance records, but those writes are not yet one atomic database
-  transaction. Transactional source-plus-draft persistence is an immediate
-  follow-up before live enablement.
-- SDK analytics does not preserve authoritative publication/environment context
-  through the full ingestion path.
+  production promotion and rollback, unpublish, configurable release policy,
+  and complete recovery history are implemented locally.
+- Product Match commits the mutable draft and complete bounded provenance set in
+  one idempotent, CAS-protected transaction and returns the exact persisted
+  preview receipt.
+- SDK analytics derives publication/environment identity from the active
+  server-side pointer, persists it under forced RLS, and queries one environment
+  at a time.
 
-This remains a partial Phase 2 foundation. It does **not** claim deployed/live
-entry or external-database evidence, production auth enablement, deployed exact-browser
-and promotion evidence, rollback/unpublish, analytics isolation, R2
-materialization, completed Slice 3 milestone verification, or external
-usability evidence.
+This is the completed local Phase 2 code foundation. It does **not** claim
+deployed/live entry or external-database evidence, production auth enablement,
+deployed exact-browser/release convergence, a measurement-backed publication
+materialization decision, or external usability evidence.
 
 ### Editorial Air Compatibility-Shell Checkpoint — 2026-08-06
 
@@ -458,19 +456,17 @@ Slice 3 is implemented locally in four bounded capabilities:
   Environment policy supports no approval or one explicit approval; an approval
   request never counts as an approval or promotes by itself.
 
-Repository stabilization checkpoint (2026-08-09): The full Node 24
+Repository completion checkpoint (2026-08-09): The full Node 24
 `pnpm verify` passes 18 typecheck tasks, 12 lint tasks, dependency boundaries and
-migration safety, **86 Vitest files / 810 tests**, 11 builds, the
-runtime/authoring bundle-size gates, 95 prepared SDK assets, 77 Playwright tests
+migration safety, **126 Vitest files / 1,064 tests**, 11 builds, the
+runtime/authoring bundle-size gates, 109 prepared SDK assets, 77 Playwright tests
 with four intentional skips, and `pnpm audit` with zero known vulnerabilities.
 
-Three follow-ups remain inside the Slice 3 hardening boundary: refresh the active
-authoring preview from the returned mutable theme draft immediately after
-Product Match; make the theme-draft update plus all style-source provenance
-inserts one atomic database transaction; and present every bounded exact-
-verification finding in the compact release flow. Slice 4, live database/RLS and
-deployment proof, production auth enablement, and PMM/design-partner usability
-evidence remain open, so Phase 2 is not complete.
+Immediate preview refresh, atomic Product Match persistence, complete compact
+finding presentation, Brand drift/acknowledgement, guarded rollback/unpublish,
+and analytics isolation are complete locally. Live database/RLS and deployment
+proof, production auth enablement, the B4 measurement-backed ADR, and
+PMM/design-partner usability evidence remain open.
 
 ## Target Architecture
 
@@ -1366,18 +1362,19 @@ compatibility reads for old clients. Slice 4 still owns rollback and unpublish.
   resolved, and exact identity/origin/capability gates.
 - ✅ Same-artifact production promotion with no compilation and configurable
   zero-or-one explicit approval.
-- ✅ Repository stabilization passes the full Node 24 `pnpm verify`: **86 Vitest
-  files / 810 tests**, 77 Playwright tests with four intentional skips, all
+- ✅ Repository stabilization passes the full Node 24 `pnpm verify`: **126 Vitest
+  files / 1,064 tests**, 77 Playwright tests with four intentional skips, all
   static/build/size/asset gates, and a zero-vulnerability dependency audit.
-- 🟡 Immediate matched-theme preview refresh, atomic theme-draft plus provenance
-  persistence, and compact findings presentation remain hardening follow-ups.
+- ✅ Immediate matched-theme preview refresh, atomic theme-draft plus provenance
+  persistence, and compact findings presentation are locally verified.
 
-### Slice 4 — Reliability
+### Slice 4 — Reliability (local implementation complete)
 
-- Drift comparison and theme acknowledgement.
-- Rollback/unpublish UI and SLA.
-- Analytics isolation.
-- R2 artifact/pointer materialization through an outbox if required.
+- ✅ Drift comparison and theme acknowledgement.
+- ✅ Guarded rollback/unpublish UI, persistence, and local convergence.
+- ✅ Authoritative analytics identity and environment isolation.
+- ⏳ Measure staging delivery before deciding whether publication
+  artifact/pointer materialization is required; do not add an outbox speculatively.
 
 ### Later
 
@@ -1414,19 +1411,19 @@ privacy-safe sampling and confidence, mutable-draft provenance, exact artifact
 and theme re-hashing, complete/consistent 13-check reports, fail-closed
 resolution of every referenced target, exact-origin and identity stamping,
 same-artifact promotion, compare-and-swap/idempotency behavior, and explicit
-zero-or-one approval. The 2026-08-09 repository stabilization checkpoint passes
-the full Node 24 `pnpm verify`, including **86 Vitest files / 810 tests**, 11
-builds, the runtime/authoring bundle-size gates, 95 prepared SDK assets, 77
+zero-or-one approval. The 2026-08-09 repository completion checkpoint passes
+the full Node 24 `pnpm verify`, including **126 Vitest files / 1,064 tests**, 11
+builds, the runtime/authoring bundle-size gates, 109 prepared SDK assets, 77
 Playwright tests with four intentional skips, and a zero-vulnerability dependency
 audit. The local stabilization gate is recorded as passed.
 
-The remaining phase gate includes initializing an approved empty Neon target from
+The remaining operational/evidence gate includes initializing an approved empty Neon target from
 the single baseline, exercising live Drizzle/RLS release-operation, pointer,
 theme/version/check, and owned-auth behavior, enabling/deploying Resend-backed
-auth capabilities, and collecting deployed browser/external evidence. Immediate
-preview refresh and atomic Product Match persistence require hardening; Slice 4
-still owns drift comparison, rollback/unpublish, analytics isolation, and any
-required R2 outbox. PMM/design-partner usability evidence remains open.
+auth capabilities, and collecting deployed browser/external evidence. Staging
+measurements must drive the B4 PostgreSQL-versus-R2 ADR; no publication outbox is
+required by the local code milestone. PMM/design-partner usability evidence
+remains open.
 
 Creator activation and launcher:
 
@@ -1538,16 +1535,17 @@ Release:
 
 ## Phase Acceptance
 
-Status: **Not met.** Slice 0, Slice 1, and the Clerk-free owned-auth code
+Status: **Local code gate met; deployed/product acceptance not met.** Slice 0, Slice 1, and the Clerk-free owned-auth code
 milestone are locally verified. Slice 2 is implemented and its consolidated
 local milestone and current-view structural Design QA pass. Slice 3 product
 matching, exact browser verification, zero-or-one approval, and exact-artifact
-promotion are implemented locally. The stabilization checkpoint passes the full
-Node 24 `pnpm verify`: 86 Vitest files / 810 tests, 77 Playwright tests with four
-intentional skips, and all static/build/size/asset/audit gates. Immediate preview,
-transaction, and findings-presentation hardening; Slice 4 rollback/unpublish,
-drift and analytics work; live infrastructure/RLS/deployment evidence;
-production auth enablement; and design-partner evidence below are still required.
+promotion are implemented locally, together with Slice 3 hardening and Slice 4
+drift, rollback/unpublish, and analytics isolation. The completion checkpoint
+passes the full Node 24 `pnpm verify`: 126 Vitest files / 1,064 tests, 77
+Playwright tests with four intentional skips, and all
+static/build/size/asset/audit gates. Live infrastructure/RLS/deployment and
+convergence evidence, production auth enablement, the B4 measurement-backed ADR,
+and design-partner evidence below are still required for full product acceptance.
 
 - A returning signed-in creator opens or restores Lodariq from an allowed
   staging page with one deliberate action and no dashboard visit.

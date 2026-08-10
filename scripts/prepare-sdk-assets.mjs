@@ -10,7 +10,9 @@ import { fileURLToPath, URL } from 'node:url';
 const repoRoot = resolve(fileURLToPath(new URL('..', import.meta.url)));
 const outputPrefix = '/sdk/';
 const outputRoot = resolve(repoRoot, 'dist/sdk-assets/sdk');
-const creatorModuleCdnOrigin = 'https://cdn.lodariq.com';
+const creatorModuleCdnOrigin = canonicalCdnOrigin(
+  process.env.LODARIQ_CDN_ORIGIN ?? 'https://cdn.lodariq.com',
+);
 const creatorModuleSourceRoot = resolve(repoRoot, 'packages/sdk-authoring/dist');
 const creatorModuleSourceEntry = 'hosted-entry.js';
 
@@ -156,17 +158,29 @@ async function copyContentAddressedCreatorModule() {
 async function copyPublicJavaScript(sourcePath, outputPath, publicEntries) {
   const source = await readFile(sourcePath, 'utf8');
   const content = publicJavaScriptContent(source);
-  const destination = resolve(outputRoot, outputPath);
-  await mkdir(dirname(destination), { recursive: true });
-  await writeFile(destination, content, 'utf8');
-
   const bytes = Buffer.from(content);
-  manifest.files.push({
+  const candidate = {
     path: `${outputPrefix}${outputPath}`,
     bytes: bytes.byteLength,
     sha256: createHash('sha256').update(bytes).digest('hex'),
     cache: cachePolicy(outputPath, publicEntries),
-  });
+  };
+  const existing = manifest.files.find((file) => file.path === candidate.path);
+  if (existing) {
+    if (
+      existing.bytes !== candidate.bytes ||
+      existing.sha256 !== candidate.sha256 ||
+      existing.cache !== candidate.cache
+    ) {
+      throw new Error(`SDK asset output collision has different content: ${candidate.path}`);
+    }
+    return;
+  }
+
+  const destination = resolve(outputRoot, outputPath);
+  await mkdir(dirname(destination), { recursive: true });
+  await writeFile(destination, content, 'utf8');
+  manifest.files.push(candidate);
 }
 
 function publicJavaScriptContent(source) {
@@ -180,4 +194,20 @@ function cachePolicy(outputPath, publicEntries) {
   const fileName = outputPath.split('/').pop() ?? '';
   if (/^[a-z0-9]+(?:-[a-z0-9]+)*-[A-Z0-9_]{8}\.js$/.test(fileName)) return 'immutable';
   return 'short';
+}
+
+function canonicalCdnOrigin(value) {
+  const url = new URL(value);
+  if (
+    url.protocol !== 'https:' ||
+    url.username ||
+    url.password ||
+    url.pathname !== '/' ||
+    url.search ||
+    url.hash ||
+    url.origin !== value
+  ) {
+    throw new Error('LODARIQ_CDN_ORIGIN must be an exact HTTPS origin');
+  }
+  return url.origin;
 }

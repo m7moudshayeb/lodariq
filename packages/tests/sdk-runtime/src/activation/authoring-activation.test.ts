@@ -167,12 +167,96 @@ describe('public authoring activation client', () => {
       }),
     ]);
     expect(handedOff[0]).not.toHaveProperty('documentIntent');
+    expect(handedOff[0]).not.toHaveProperty('getTargetStateId');
     expect(loadCreatorModule).toHaveBeenCalledTimes(1);
     expect(popup.close).toHaveBeenCalledTimes(1);
     expect(location.href).not.toMatch(/lod_(?:bootstrap|code|activation)_/u);
     expect(document.documentElement.outerHTML).not.toMatch(/lod_(?:bootstrap|code|activation)_/u);
     expect(JSON.stringify(localStorage)).not.toMatch(/lod_(?:bootstrap|code|activation)_/u);
     expect(JSON.stringify(sessionStorage)).not.toMatch(/lod_(?:bootstrap|code|activation)_/u);
+  });
+
+  it('keeps the staging app, API, CDN, and editor origins in one closed activation tuple', async () => {
+    const stagingAppOrigin = 'https://staging-app.lodariq.com';
+    const stagingContext: NonProductionPublicSdkBootstrapContext = {
+      ...context,
+      authoring: {
+        state: 'available',
+        appOrigin: stagingAppOrigin,
+        activationUrl: `${stagingAppOrigin}/authoring/activate`,
+        authorizationRequestUrl:
+          'https://staging-api.lodariq.com/v1/sdk/authoring/authorization-requests',
+        exchangeUrl: 'https://staging-api.lodariq.com/v1/sdk/authoring/exchange',
+        bootstrapGrant: BOOTSTRAP_GRANT,
+        bootstrapGrantExpiresAt: FUTURE_DATE,
+      },
+    };
+    const popup = createPopup((message) => {
+      if (!isRecord(message)) return;
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          source: popup,
+          origin: stagingAppOrigin,
+          data: {
+            protocol: 'lodariq.authoring.activation.v1',
+            type: 'authoring.authorization.result',
+            requestId: message['requestId'],
+            state: message['state'],
+            authorizationCode: AUTHORIZATION_CODE,
+            expiresAt: FUTURE_DATE,
+          },
+        }),
+      );
+    });
+    vi.spyOn(window, 'open').mockReturnValue(popup);
+    const fetchFn = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const body = JSON.parse(String(init?.body)) as Record<string, unknown>;
+      if (String(input).endsWith('/authorization-requests')) {
+        return jsonResponse(
+          {
+            requestId: 'authreq_activation',
+            installationId: INSTALLATION_ID,
+            workspaceId: 'wk_activation',
+            environmentId: 'env_staging',
+            environment: 'staging',
+            customerOrigin: CUSTOMER_ORIGIN,
+            state: body['state'],
+            codeChallenge: body['codeChallenge'],
+            codeChallengeMethod: 'S256',
+            requestedCapabilities: ['documents:create', 'documents:list', 'documents:select'],
+            expiresAt: FUTURE_DATE,
+          },
+          201,
+        );
+      }
+      const exchanged = createExchangeResult();
+      exchanged.context.editorOrigin = 'https://staging-editor.lodariq.com';
+      exchanged.creatorModule.url = `https://staging-cdn.lodariq.com/sdk/sha256-${'0'.repeat(64)}/creator.js`;
+      return jsonResponse(exchanged);
+    });
+    const handedOff: HostedCreatorActivation[] = [];
+
+    await activatePublicAuthoring(stagingContext, {
+      crypto: createCrypto([]),
+      fetchFn: fetchFn as typeof fetch,
+      hostWindow: window,
+      loadCreatorModule: async () => ({
+        activateLodariqAuthoring: (input) => {
+          handedOff.push(input);
+        },
+      }),
+      timeoutMs: 2_000,
+    });
+
+    expect(window.open).toHaveBeenCalledWith(
+      `${stagingAppOrigin}/authoring/activate`,
+      expect.any(String),
+      expect.any(String),
+    );
+    expect(handedOff).toEqual([
+      expect.objectContaining({ apiOrigin: 'https://staging-api.lodariq.com' }),
+    ]);
+    expect(handedOff[0]?.context.editorOrigin).toBe('https://staging-editor.lodariq.com');
   });
 
   it('exposes a retryable blocked state without making API or creator requests', async () => {

@@ -1,7 +1,12 @@
 import { Type, type Static } from '@sinclair/typebox';
 import { DocumentStatus, Environment } from './common';
 import { LodariqDocument } from './document';
-import { BrandThemeSnapshot } from './brand';
+import {
+  BrandDocumentThemeReviewState,
+  BrandThemeSnapshot,
+  PRODUCT_STYLE_MAX_SOURCES,
+} from './brand';
+import { AnalyticsDocumentPointer } from './events';
 import {
   ActiveManifestPointerV2,
   BrowserVerificationReport,
@@ -23,7 +28,7 @@ const PKCE_VALUE_OPTIONS = {
 } as const;
 const EXACT_ORIGIN_PATTERN = '^https?://[^\\s/?#@]+$';
 const PRODUCTION_ORIGIN_PATTERN = '^https://[^\\s/?#@]+$';
-const CREATOR_MODULE_URL_PATTERN = '^https://cdn\\.lodariq\\.com/[^?#]+$';
+const CREATOR_MODULE_URL_PATTERN = '^https://(?:staging-)?cdn\\.lodariq\\.com/[^?#]+$';
 const SUBRESOURCE_INTEGRITY_PATTERN = '^sha256-[A-Za-z0-9+/]+={0,2}$';
 const PUBLIC_SDK_INSTALLATION_ID_OPTIONS = {
   minLength: 24,
@@ -44,11 +49,15 @@ const RELEASE_CORRELATION_ID_PATTERN = '^[A-Za-z0-9][A-Za-z0-9._:-]{7,255}$';
 export const MAX_ACTIVE_DOCUMENT_MANIFESTS = 100;
 
 export const LODARIQ_APP_ORIGIN = 'https://app.lodariq.com' as const;
+export const LODARIQ_STAGING_APP_ORIGIN = 'https://staging-app.lodariq.com' as const;
 export const LODARIQ_API_ORIGIN = 'https://api.lodariq.com' as const;
 export const LODARIQ_STAGING_API_ORIGIN = 'https://staging-api.lodariq.com' as const;
 export const LODARIQ_EDITOR_ORIGIN = 'https://editor.lodariq.com' as const;
+export const LODARIQ_STAGING_EDITOR_ORIGIN = 'https://staging-editor.lodariq.com' as const;
 export const LODARIQ_AUTHORING_ACTIVATION_URL =
   'https://app.lodariq.com/authoring/activate' as const;
+export const LODARIQ_STAGING_AUTHORING_ACTIVATION_URL =
+  'https://staging-app.lodariq.com/authoring/activate' as const;
 export const AUTHORING_ACTIVATION_PROTOCOL = 'lodariq.authoring.activation.v1' as const;
 export const AUTHORING_PKCE_CHALLENGE_METHOD = 'S256' as const;
 export const AUTHORING_BOOTSTRAP_GRANT_HEADER = 'x-lodariq-bootstrap-grant' as const;
@@ -68,8 +77,10 @@ export const AUTHORING_SESSION_CAPABILITIES = {
   PUBLISH_STAGING: 'document:publish-staging',
   READ_DOCUMENT: 'document:read',
   READ_RELEASE_STATE: 'document:read-release-state',
+  ROLLBACK_RELEASE: 'document:rollback',
   SAMPLE_PRODUCT_STYLE: 'brand:sample-product-style',
   SELECT_TARGET: 'target:select',
+  UNPUBLISH_RELEASE: 'document:unpublish',
   VERIFY_STAGING: 'document:verify-staging',
   WRITE_DOCUMENT: 'document:write',
 } as const;
@@ -113,8 +124,10 @@ export const AuthoringSessionCapability = Type.Union(
     Type.Literal(AUTHORING_SESSION_CAPABILITIES.PUBLISH_STAGING),
     Type.Literal(AUTHORING_SESSION_CAPABILITIES.READ_DOCUMENT),
     Type.Literal(AUTHORING_SESSION_CAPABILITIES.READ_RELEASE_STATE),
+    Type.Literal(AUTHORING_SESSION_CAPABILITIES.ROLLBACK_RELEASE),
     Type.Literal(AUTHORING_SESSION_CAPABILITIES.SAMPLE_PRODUCT_STYLE),
     Type.Literal(AUTHORING_SESSION_CAPABILITIES.SELECT_TARGET),
+    Type.Literal(AUTHORING_SESSION_CAPABILITIES.UNPUBLISH_RELEASE),
     Type.Literal(AUTHORING_SESSION_CAPABILITIES.VERIFY_STAGING),
     Type.Literal(AUTHORING_SESSION_CAPABILITIES.WRITE_DOCUMENT),
   ],
@@ -165,8 +178,14 @@ export type DisabledAuthoringActivationDescriptor = Static<
 export const AvailableAuthoringActivationDescriptor = Type.Object(
   {
     state: Type.Literal('available'),
-    appOrigin: Type.Literal(LODARIQ_APP_ORIGIN),
-    activationUrl: Type.Literal(LODARIQ_AUTHORING_ACTIVATION_URL),
+    appOrigin: Type.Union([
+      Type.Literal(LODARIQ_APP_ORIGIN),
+      Type.Literal(LODARIQ_STAGING_APP_ORIGIN),
+    ]),
+    activationUrl: Type.Union([
+      Type.Literal(LODARIQ_AUTHORING_ACTIVATION_URL),
+      Type.Literal(LODARIQ_STAGING_AUTHORING_ACTIVATION_URL),
+    ]),
     authorizationRequestUrl: Type.String({ minLength: 1 }),
     exchangeUrl: Type.String({ minLength: 1 }),
     bootstrapGrant: Type.String(OPAQUE_CREDENTIAL_OPTIONS),
@@ -389,7 +408,10 @@ export const AuthoringActivationGrantContext = Type.Object(
     environmentId: Type.String(IDENTIFIER_OPTIONS),
     environment: AuthoringEnvironment,
     customerOrigin: Type.String({ pattern: EXACT_ORIGIN_PATTERN }),
-    editorOrigin: Type.Literal(LODARIQ_EDITOR_ORIGIN),
+    editorOrigin: Type.Union([
+      Type.Literal(LODARIQ_EDITOR_ORIGIN),
+      Type.Literal(LODARIQ_STAGING_EDITOR_ORIGIN),
+    ]),
     creatorId: Type.String(IDENTIFIER_OPTIONS),
     capabilities: AuthoringActivationCapabilitySet,
     documentIntent: Type.Optional(AuthoringDocumentIntent),
@@ -533,7 +555,10 @@ export const AuthoringSessionContext = Type.Object(
     environment: AuthoringEnvironment,
     documentId: Type.String(IDENTIFIER_OPTIONS),
     customerOrigin: Type.String({ pattern: EXACT_ORIGIN_PATTERN }),
-    editorOrigin: Type.Literal(LODARIQ_EDITOR_ORIGIN),
+    editorOrigin: Type.Union([
+      Type.Literal(LODARIQ_EDITOR_ORIGIN),
+      Type.Literal(LODARIQ_STAGING_EDITOR_ORIGIN),
+    ]),
     creatorId: Type.String(IDENTIFIER_OPTIONS),
     capabilities: AuthoringSessionCapabilitySet,
     expiresAt: Type.String({ minLength: 1 }),
@@ -562,6 +587,72 @@ export const AuthoringDocumentPayload = Type.Object(
   { $id: 'AuthoringDocumentPayload', additionalProperties: false },
 );
 export type AuthoringDocumentPayload = Static<typeof AuthoringDocumentPayload>;
+
+/** Exact creator-reviewed Brand/document guard for an explicit acknowledgement. */
+export const AuthoringBrandThemeAcknowledgementRequest = Type.Object(
+  {
+    reviewedThemeVersionId: Type.String(IDENTIFIER_OPTIONS),
+    expectedAcknowledgedThemeVersionId: Type.String(IDENTIFIER_OPTIONS),
+    expectedDocumentUpdatedAt: Type.String({ format: 'date-time' }),
+    document: Type.Ref(LodariqDocument),
+  },
+  { $id: 'AuthoringBrandThemeAcknowledgementRequest', additionalProperties: false },
+);
+export type AuthoringBrandThemeAcknowledgementRequest = Static<
+  typeof AuthoringBrandThemeAcknowledgementRequest
+>;
+
+/**
+ * The exact saved document and approved snapshot returned after acknowledgement.
+ * Detection never reaches this contract; only an explicit creator action does.
+ */
+export const AuthoringBrandThemeAcknowledgementResult = Type.Object(
+  {
+    document: Type.Ref(LodariqDocument),
+    theme: Type.Ref(BrandThemeSnapshot),
+    documentThemeReview: Type.Ref(BrandDocumentThemeReviewState),
+    documentUpdatedAt: Type.String({ format: 'date-time' }),
+  },
+  { $id: 'AuthoringBrandThemeAcknowledgementResult', additionalProperties: false },
+);
+export type AuthoringBrandThemeAcknowledgementResult = Static<
+  typeof AuthoringBrandThemeAcknowledgementResult
+>;
+
+/**
+ * Server-owned receipt for one privacy-safe Product Match provenance source.
+ * The browser never chooses these persistence identities or hashes.
+ */
+export const AuthoringProductMatchSourceReceipt = Type.Object(
+  {
+    sourceId: Type.String(IDENTIFIER_OPTIONS),
+    sourceHash: Type.String({ pattern: CONTENT_HASH_PATTERN }),
+  },
+  { $id: 'AuthoringProductMatchSourceReceipt', additionalProperties: false },
+);
+export type AuthoringProductMatchSourceReceipt = Static<typeof AuthoringProductMatchSourceReceipt>;
+
+/**
+ * Exact persisted mutable-theme result returned after Product Match. The
+ * approved theme and live artifacts stay pinned separately; `previewTheme` is
+ * a content-hashed browser-preview snapshot derived from this committed draft.
+ */
+export const AuthoringProductMatchApplyResult = Type.Object(
+  {
+    proposalId: Type.String(IDENTIFIER_OPTIONS),
+    draftRevision: Type.Integer({ minimum: 1 }),
+    draftUpdatedAt: Type.String({ minLength: 20, maxLength: 64 }),
+    previewTheme: Type.Ref(BrandThemeSnapshot),
+    sources: Type.Array(Type.Ref(AuthoringProductMatchSourceReceipt), {
+      minItems: 1,
+      maxItems: PRODUCT_STYLE_MAX_SOURCES,
+    }),
+    draftChanged: Type.Boolean(),
+    replayed: Type.Boolean(),
+  },
+  { $id: 'AuthoringProductMatchApplyResult', additionalProperties: false },
+);
+export type AuthoringProductMatchApplyResult = Static<typeof AuthoringProductMatchApplyResult>;
 
 export const AUTHORING_STAGING_RELEASE_STATES = [
   'open_in_staging',
@@ -794,6 +885,33 @@ export const SdkAuthoringReleaseDescriptor = Type.Object(
       },
       { additionalProperties: false },
     ),
+    recoveryState: Type.Optional(
+      Type.Object(
+        {
+          capability: Type.Literal(AUTHORING_SESSION_CAPABILITIES.READ_RELEASE_STATE),
+          url: Type.String({ minLength: 1, maxLength: 2_048 }),
+        },
+        { additionalProperties: false },
+      ),
+    ),
+    rollback: Type.Optional(
+      Type.Object(
+        {
+          capability: Type.Literal(AUTHORING_SESSION_CAPABILITIES.ROLLBACK_RELEASE),
+          url: Type.String({ minLength: 1, maxLength: 2_048 }),
+        },
+        { additionalProperties: false },
+      ),
+    ),
+    unpublish: Type.Optional(
+      Type.Object(
+        {
+          capability: Type.Literal(AUTHORING_SESSION_CAPABILITIES.UNPUBLISH_RELEASE),
+          url: Type.String({ minLength: 1, maxLength: 2_048 }),
+        },
+        { additionalProperties: false },
+      ),
+    ),
     stagingPublication: Type.Optional(
       Type.Object(
         {
@@ -859,6 +977,12 @@ export const SdkInstallContext = Type.Object(
     manifest: ManifestPointer,
     currentDocumentUrl: Type.String(),
     ingestUrl: Type.String(),
+    analyticsPointers: Type.Optional(
+      Type.Array(Type.Ref(AnalyticsDocumentPointer), {
+        maxItems: MAX_ACTIVE_DOCUMENT_MANIFESTS,
+        uniqueItems: true,
+      }),
+    ),
     authoring: Type.Optional(
       Type.Object(
         {

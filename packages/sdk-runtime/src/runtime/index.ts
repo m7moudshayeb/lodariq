@@ -1,5 +1,13 @@
-import type { AnalyticsEvent, CompiledDocument, ManifestPointer } from '@lodariq/schema';
+import type {
+  AnalyticsEvent,
+  CompiledDocument,
+  ManifestPointer,
+  SdkAnalyticsEvent,
+} from '@lodariq/schema';
 import { SDK_VERSION } from '../version';
+import { createRuntimeAnalyticsEvent, type RuntimeAnalyticsDocumentPointer } from './analytics';
+
+export type { RuntimeAnalyticsDocumentPointer } from './analytics';
 
 /**
  * Production runtime/player surface (PRD §9.3).
@@ -26,6 +34,8 @@ export interface RuntimeConfig {
   authorizationToken?: string;
   /** Revocable public installation identity used by the permanent SDK path. */
   publicInstallationId?: string;
+  /** Active document pointers used only as untrusted ingestion assertions. */
+  analyticsPointers?: readonly RuntimeAnalyticsDocumentPointer[];
 }
 
 export interface RuntimeObservabilityEvent {
@@ -72,9 +82,11 @@ interface TourResumeState {
 
 export class LodariqRuntime {
   private traits: IdentifyTraits | null = null;
-  private readonly queue: AnalyticsEvent[] = [];
+  private readonly queue: Array<SdkAnalyticsEvent | AnalyticsEvent> = [];
+  private readonly analyticsPointers = new Map<string, RuntimeAnalyticsDocumentPointer>();
 
   constructor(private readonly config: RuntimeConfig) {
+    for (const pointer of config.analyticsPointers ?? []) this.registerAnalyticsPointer(pointer);
     if (typeof window !== 'undefined') {
       window.addEventListener('pagehide', () => this.flush(true));
     }
@@ -86,20 +98,43 @@ export class LodariqRuntime {
 
   track(name: string, props?: Record<string, unknown>): void {
     const correlationId = this.config.correlationId;
-    this.queue.push({
+    const requestedDocumentId =
+      typeof props?.['documentId'] === 'string' ? props['documentId'].trim() : undefined;
+    const pointer = this.resolveAnalyticsPointer(requestedDocumentId);
+    const event = createRuntimeAnalyticsEvent({
       name,
       sdkVersion: SDK_VERSION,
       timestamp: new Date().toISOString(),
       ...(correlationId ? { correlationId } : {}),
+      ...(pointer ? { documentId: pointer.documentId, pointer } : {}),
       ...(props ? { props } : {}),
     });
+    if (this.config.ingestUrl) this.queue.push(event);
     this.emitObservability(`runtime.${name}`, {
       ...(correlationId ? { correlationId } : {}),
-      ...(props?.['documentId'] && typeof props['documentId'] === 'string'
-        ? { documentId: props['documentId'] }
-        : {}),
-      attributes: props,
+      ...(requestedDocumentId ? { documentId: requestedDocumentId } : {}),
+      ...(event.stepId ? { stepId: event.stepId } : {}),
+      ...(event.props ? { attributes: event.props } : {}),
     });
+  }
+
+  /**
+   * Registers a server-issued active pointer without trusting it as identity.
+   * Lower generations and conflicting same-generation updates are ignored so
+   * a late playback request cannot regress the assertion used for new events.
+   */
+  registerAnalyticsPointer(pointer: RuntimeAnalyticsDocumentPointer): void {
+    const existing = this.analyticsPointers.get(pointer.documentId);
+    if (existing && existing.generation > pointer.generation) return;
+    if (
+      existing &&
+      existing.generation === pointer.generation &&
+      (existing.publicationId !== pointer.publicationId ||
+        existing.contentHash !== pointer.contentHash)
+    ) {
+      return;
+    }
+    this.analyticsPointers.set(pointer.documentId, { ...pointer });
   }
 
   trackTargetResolution(
@@ -185,19 +220,25 @@ export class LodariqRuntime {
   reportError(error: unknown, context: RuntimeErrorContext = {}): void {
     const normalized = normalizeRuntimeError(error);
     const correlationId = context.correlationId ?? this.config.correlationId;
-    this.queue.push({
-      name: 'sdk_error',
-      sdkVersion: SDK_VERSION,
-      timestamp: new Date().toISOString(),
-      ...(context.documentId ? { documentId: context.documentId } : {}),
-      ...(context.stepId ? { stepId: context.stepId } : {}),
-      ...(correlationId ? { correlationId } : {}),
-      props: {
-        phase: context.phase ?? 'runtime',
-        errorName: normalized.name,
-        message: normalized.message,
-      },
-    });
+    const pointer = this.resolveAnalyticsPointer(context.documentId);
+    if (this.config.ingestUrl) {
+      this.queue.push(
+        createRuntimeAnalyticsEvent({
+          name: 'sdk_error',
+          sdkVersion: SDK_VERSION,
+          timestamp: new Date().toISOString(),
+          ...(context.documentId ? { documentId: context.documentId } : {}),
+          ...(context.stepId ? { stepId: context.stepId } : {}),
+          ...(correlationId ? { correlationId } : {}),
+          ...(pointer ? { pointer } : {}),
+          props: {
+            phase: context.phase ?? 'runtime',
+            errorName: normalized.name,
+            message: normalized.message,
+          },
+        }),
+      );
+    }
     this.emitObservability('runtime.sdk_error', {
       ...(correlationId ? { correlationId } : {}),
       ...(context.documentId ? { documentId: context.documentId } : {}),
@@ -261,6 +302,13 @@ export class LodariqRuntime {
 
   private tourResumeKey(): string {
     return `${TOUR_RESUME_PREFIX}${this.config.workspaceId}:${this.config.environment}`;
+  }
+
+  private resolveAnalyticsPointer(
+    requestedDocumentId: string | undefined,
+  ): RuntimeAnalyticsDocumentPointer | undefined {
+    if (requestedDocumentId) return this.analyticsPointers.get(requestedDocumentId);
+    return this.analyticsPointers.values().next().value;
   }
 }
 

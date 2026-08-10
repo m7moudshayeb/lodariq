@@ -1,12 +1,16 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { computeBrandThemeContentHash } from '@lodariq/compiler';
 import {
   AUTHORING_ACTIVATION_GRANT_HEADER,
   AUTHORING_INLINE_CONTROL_COMMIT_TYPE,
+  AUTHORING_PANEL_MODE_OPEN_TYPE,
   AUTHORING_SESSION_CAPABILITIES,
   AUTHORING_SESSION_HEADER,
+  AUTHORING_THEME_PREVIEW_APPLY_TYPE,
   BRAND_THEME_CONTRACT_VERSION,
   BRIDGE_PROTOCOL_VERSION,
+  COMPILED_ARTIFACT_SCHEMA_VERSION,
   COMPILER_VERSION,
   HOSTED_AUTHORING_ACTIVATION_HANDOFF_TYPE,
   HOSTED_AUTHORING_BRIDGE_PROTOCOL,
@@ -19,15 +23,19 @@ import {
   LODARIQ_EDITOR_ORIGIN,
   LODARIQ_STAGING_API_ORIGIN,
   RENDERER_CONTRACT_VERSION,
+  STYLE_SAMPLE_RESULT_TYPE,
+  STYLE_SAMPLE_START_TYPE,
   type HostedAuthoringEditorReadyMessage,
   type HostedAuthoringSessionReadyMessage,
   type LodariqDocument,
+  type ProductStyleProposal,
 } from '@lodariq/schema';
 
 const PARENT_ORIGIN = 'https://staging.lodariq.com';
 const INSTALLATION_ID = 'ins_pub_abcdefghijklmnop';
 const ACTIVATION_GRANT = `lod_activation_${'a'.repeat(48)}`;
 const SESSION_TOKEN = `lod_authoring_${'s'.repeat(48)}`;
+const ORIGINAL_PARENT_WINDOW = window.parent;
 
 describe('hosted editor authoring frame', () => {
   beforeEach(() => {
@@ -45,6 +53,10 @@ describe('hosted editor authoring frame', () => {
 
   afterEach(() => {
     window.dispatchEvent(new Event('pagehide'));
+    Object.defineProperty(window, 'parent', {
+      configurable: true,
+      value: ORIGINAL_PARENT_WINDOW,
+    });
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
   });
@@ -433,6 +445,268 @@ describe('hosted editor authoring frame', () => {
     );
   });
 
+  it('refreshes the hosted preview from the exact persisted Product Match draft', async () => {
+    const postMessage = vi.fn<typeof window.postMessage>();
+    const parentWindow = { postMessage } as unknown as Window;
+    Object.defineProperty(window, 'parent', { configurable: true, value: parentWindow });
+    const hostedDocument = editorDocument();
+    const proposal = hostedProductStyleProposal();
+    const previewTheme = structuredClone(LODARIQ_ACCESSIBLE_FALLBACK_THEME_V1);
+    previewTheme.themeVersionId = 'themev_hosted_product_match_2';
+    previewTheme.version = 2;
+    previewTheme.definition.tokens.modes.light.colors.accent = '#0f766e';
+    previewTheme.contentHash = await computeBrandThemeContentHash(previewTheme);
+    const productMatch = {
+      proposalId: proposal.proposalId,
+      draftRevision: previewTheme.version,
+      draftUpdatedAt: '2099-08-07T11:30:00.000Z',
+      previewTheme,
+      sources: [
+        {
+          sourceId: 'style_source_hosted_match_1',
+          sourceHash: proposal.sources[0]!.fingerprintHash,
+        },
+      ],
+      draftChanged: true,
+      replayed: false,
+    };
+    const sessionUrl = `${LODARIQ_STAGING_API_ORIGIN}/v1/authoring/sessions`;
+    const documentUrl = `${LODARIQ_STAGING_API_ORIGIN}/v1/authoring/document`;
+    const releaseStateUrl = `${LODARIQ_STAGING_API_ORIGIN}/v1/authoring/release-state`;
+    const styleSourceUrl = `${LODARIQ_STAGING_API_ORIGIN}/v1/authoring/style-sources`;
+    const fetchMock = vi.fn<typeof fetch>().mockImplementation(async (input, init) => {
+      const url = input.toString();
+      const method = init?.method ?? 'GET';
+      if (url === sessionUrl && method === 'POST') {
+        return jsonResponse(authoringSessionResult({ sampleProductStyle: true }), 201);
+      }
+      if (url === documentUrl && method === 'GET') {
+        return jsonResponse(authoringDocumentPayload(hostedDocument));
+      }
+      if (url === releaseStateUrl && method === 'GET') {
+        return jsonResponse(unreleasedHostedState(hostedDocument.id));
+      }
+      if (url === styleSourceUrl && method === 'POST') {
+        expect(JSON.parse(String(init?.body))).toEqual({ proposal });
+        return jsonResponse(
+          {
+            productMatch,
+            sources: [
+              {
+                id: productMatch.sources[0]!.sourceId,
+                workspaceId: 'wk_editor',
+                environmentId: 'env_staging',
+                sourceHash: productMatch.sources[0]!.sourceHash,
+              },
+            ],
+          },
+          201,
+        );
+      }
+      throw new Error(`Unexpected hosted authoring request: ${method} ${url}`);
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    await import('../../../../apps/editor/src/authoring-frame');
+    const ready = editorReadyMessage(postMessage);
+    window.dispatchEvent(handoffEvent(activationHandoff(ready)));
+    await vi.waitFor(() => expect(hostedSessionReadyMessages(postMessage)).toHaveLength(1));
+
+    const sessionReady = hostedSessionReadyMessages(postMessage)[0]!;
+    window.dispatchEvent(
+      initEvent(PARENT_ORIGIN, {
+        sessionId: sessionReady.context.sessionId,
+        correlationId: sessionReady.context.correlationId,
+        workspaceId: sessionReady.context.workspaceId,
+        environment: sessionReady.context.environment,
+        document: sessionReady.document,
+      }),
+    );
+    window.dispatchEvent(
+      new MessageEvent('message', {
+        origin: PARENT_ORIGIN,
+        source: window.parent,
+        data: {
+          protocol: BRIDGE_PROTOCOL_VERSION,
+          sessionId: sessionReady.context.sessionId,
+          documentId: sessionReady.context.documentId,
+          correlationId: 'open_hosted_appearance_1',
+          type: AUTHORING_PANEL_MODE_OPEN_TYPE,
+          mode: 'appearance',
+        },
+      }),
+    );
+    await vi.waitFor(() => expect(buttonWithText('Match product')).not.toBeNull());
+    const priorStyleSampleCount = postedMessages(postMessage, STYLE_SAMPLE_START_TYPE).length;
+    buttonWithText('Match product')?.click();
+
+    const sampleRequest = await waitForNextPostedMessage(
+      postMessage,
+      STYLE_SAMPLE_START_TYPE,
+      priorStyleSampleCount,
+    );
+    expect(sampleRequest).toMatchObject({ request: { scope: 'page' } });
+    window.dispatchEvent(
+      new MessageEvent('message', {
+        origin: PARENT_ORIGIN,
+        source: window.parent,
+        data: {
+          protocol: BRIDGE_PROTOCOL_VERSION,
+          sessionId: sessionReady.context.sessionId,
+          documentId: sessionReady.context.documentId,
+          correlationId: 'hosted_style_sample_result_1',
+          type: STYLE_SAMPLE_RESULT_TYPE,
+          requestCorrelationId: sampleRequest.correlationId,
+          result: { ok: true, proposal },
+        },
+      }),
+    );
+
+    await vi.waitFor(() =>
+      expect(
+        fetchMock.mock.calls.some(
+          ([input, init]) => input.toString() === styleSourceUrl && init?.method === 'POST',
+        ),
+      ).toBe(true),
+    );
+    const previewMessage = await waitForPostedMessage(
+      postMessage,
+      AUTHORING_THEME_PREVIEW_APPLY_TYPE,
+    );
+    expect(previewMessage).toMatchObject({
+      draftRevision: 2,
+      previewTheme: {
+        themeId: previewTheme.themeId,
+        themeVersionId: previewTheme.themeVersionId,
+        contentHash: previewTheme.contentHash,
+      },
+    });
+    window.dispatchEvent(
+      new MessageEvent('message', {
+        origin: PARENT_ORIGIN,
+        source: window.parent,
+        data: {
+          protocol: BRIDGE_PROTOCOL_VERSION,
+          sessionId: sessionReady.context.sessionId,
+          documentId: sessionReady.context.documentId,
+          correlationId: 'ack_hosted_product_match_preview_1',
+          type: 'ack',
+          ackOf: previewMessage.correlationId,
+        },
+      }),
+    );
+    await vi.waitFor(() =>
+      expect(document.getElementById('authoring')?.textContent).toContain(
+        'Product match saved as a workspace draft for approval.',
+      ),
+    );
+  });
+
+  it('recovers the exact selected hosted environment and refreshes inactive truth', async () => {
+    const postMessage = vi.spyOn(window.parent, 'postMessage').mockImplementation(() => undefined);
+    const hostedDocument = editorDocument();
+    const recoveryUrl = `${LODARIQ_STAGING_API_ORIGIN}/v1/authoring/environments/env_production/release-recovery`;
+    const releaseStateUrl = `${LODARIQ_STAGING_API_ORIGIN}/v1/authoring/release-state`;
+    let recovered = false;
+    const fetchMock = vi.fn<typeof fetch>().mockImplementation(async (input, init) => {
+      const url = input.toString();
+      const method = init?.method ?? 'GET';
+      if (url === `${LODARIQ_STAGING_API_ORIGIN}/v1/authoring/sessions` && method === 'POST') {
+        return jsonResponse(authoringSessionResult({ recovery: true }), 201);
+      }
+      if (url === `${LODARIQ_STAGING_API_ORIGIN}/v1/authoring/document` && method === 'GET') {
+        return jsonResponse(authoringDocumentPayload(hostedDocument));
+      }
+      if (url === releaseStateUrl && method === 'GET') {
+        return jsonResponse(hostedPipelineState(hostedDocument.id, recovered));
+      }
+      if (url === recoveryUrl && method === 'GET') {
+        return jsonResponse(hostedRecoveryState(hostedDocument.id, recovered));
+      }
+      if (url === recoveryUrl && method === 'POST') {
+        recovered = true;
+        return jsonResponse(
+          {
+            ok: true,
+            action: 'unpublish',
+            state: 'inactive',
+            replayed: false,
+            releaseOperationId: 'operation_unpublish_6',
+            previousPublicationId: 'publication_production_5',
+            generation: 6,
+            deactivatedArtifact: recoveryArtifact('5'),
+            completedAt: '2099-08-07T12:00:00.000Z',
+          },
+          201,
+        );
+      }
+      throw new Error(`Unexpected hosted recovery request: ${method} ${url}`);
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    await import('../../../../apps/editor/src/authoring-frame');
+    const ready = editorReadyMessage(postMessage);
+    window.dispatchEvent(handoffEvent(activationHandoff(ready)));
+    await vi.waitFor(() => expect(hostedSessionReadyMessages(postMessage)).toHaveLength(1));
+    const sessionReady = hostedSessionReadyMessages(postMessage)[0]!;
+    window.dispatchEvent(
+      initEvent(PARENT_ORIGIN, {
+        sessionId: sessionReady.context.sessionId,
+        correlationId: sessionReady.context.correlationId,
+        workspaceId: sessionReady.context.workspaceId,
+        environment: sessionReady.context.environment,
+        document: sessionReady.document,
+      }),
+    );
+
+    await vi.waitFor(() => expect(documentReleaseStatus()).not.toBeNull());
+    buttonWithText('Release options')?.click();
+    await vi.waitFor(() => expect(buttonWithText('Review staging history')).not.toBeNull());
+    expect(buttonWithText('Review production history')).not.toBeNull();
+    buttonWithText('Review production history')?.click();
+    await vi.waitFor(() => expect(buttonWithText('Unpublish…')).not.toBeNull());
+    expect(fetchMock.mock.calls.some(([input]) => input.toString() === recoveryUrl)).toBe(true);
+
+    buttonWithText('Unpublish…')?.click();
+    const reason = await vi.waitFor(() => {
+      const textarea = document.querySelector<HTMLTextAreaElement>(
+        '.release-recovery-confirmation textarea',
+      );
+      expect(textarea).not.toBeNull();
+      return textarea!;
+    });
+    setReactTextValue(reason, 'Pause delivery while the production incident is reviewed');
+    await vi.waitFor(() => expect(buttonWithText('Unpublish release')?.disabled).toBe(false));
+    buttonWithText('Unpublish release')?.click();
+
+    await vi.waitFor(() =>
+      expect(activePanelMode()?.textContent).toContain('inactive at generation 6'),
+    );
+    const mutationCall = fetchMock.mock.calls.find(
+      ([input, init]) => input.toString() === recoveryUrl && init?.method === 'POST',
+    );
+    expect(mutationCall).toBeDefined();
+    const mutationHeaders = new Headers(mutationCall?.[1]?.headers);
+    expect(mutationHeaders.get(AUTHORING_SESSION_HEADER)).toBe(SESSION_TOKEN);
+    expect(mutationCall?.[1]).toMatchObject({ credentials: 'omit' });
+    const mutation = JSON.parse(String(mutationCall?.[1]?.body));
+    expect(mutation).toMatchObject({
+      action: 'unpublish',
+      reason: 'Pause delivery while the production incident is reviewed',
+      expectedGeneration: 5,
+      expectedActivePublicationId: 'publication_production_5',
+    });
+    expect(mutation.idempotencyKey).toMatch(/^release_recovery_/u);
+    expect(mutation.correlationId).toMatch(/^release_recovery_/u);
+    expect(JSON.stringify(mutation)).not.toContain('compiler');
+    expect(JSON.stringify(mutation)).not.toContain('artifact');
+    expect(recoveryUrl).not.toContain(SESSION_TOKEN);
+    expect(fetchMock.mock.calls.filter(([input]) => input.toString() === recoveryUrl)).toHaveLength(
+      3,
+    );
+    expect(
+      fetchMock.mock.calls.filter(([input]) => input.toString() === releaseStateUrl).length,
+    ).toBeGreaterThan(1);
+  });
+
   it('publishes the reviewed Tour artifact to staging from the authoring popup', async () => {
     const postMessage = vi.spyOn(window.parent, 'postMessage').mockImplementation(() => undefined);
     const document = publishableEditorDocument();
@@ -635,7 +909,13 @@ function editorReadyMessage(postMessage: RecordedMessages): HostedAuthoringEdito
   return message!;
 }
 
-function authoringSessionResult(options: { publishToStaging?: boolean } = {}) {
+function authoringSessionResult(
+  options: {
+    publishToStaging?: boolean;
+    recovery?: boolean;
+    sampleProductStyle?: boolean;
+  } = {},
+) {
   return {
     authoringSessionToken: SESSION_TOKEN,
     context: {
@@ -657,11 +937,142 @@ function authoringSessionResult(options: { publishToStaging?: boolean } = {}) {
         AUTHORING_SESSION_CAPABILITIES.READ_RELEASE_STATE,
         AUTHORING_SESSION_CAPABILITIES.WRITE_DOCUMENT,
         AUTHORING_SESSION_CAPABILITIES.PREVIEW_DOCUMENT,
+        ...(options.recovery
+          ? [
+              AUTHORING_SESSION_CAPABILITIES.ROLLBACK_RELEASE,
+              AUTHORING_SESSION_CAPABILITIES.UNPUBLISH_RELEASE,
+            ]
+          : []),
+        ...(options.sampleProductStyle
+          ? [AUTHORING_SESSION_CAPABILITIES.SAMPLE_PRODUCT_STYLE]
+          : []),
         ...(options.publishToStaging ? [AUTHORING_SESSION_CAPABILITIES.PUBLISH_STAGING] : []),
       ],
       expiresAt: '2099-08-07T12:00:00.000Z',
     },
   };
+}
+
+function hostedPipelineState(documentId: string, inactive: boolean) {
+  const stagingHash = `sha256-${'3'.repeat(64)}`;
+  const productionHash = `sha256-${'5'.repeat(64)}`;
+  return {
+    available: true,
+    environment: 'staging',
+    environmentId: 'env_staging',
+    documentId,
+    expectedGeneration: 3,
+    draftArtifactId: 'artifact_staging_3',
+    draftContentHash: stagingHash,
+    activeContentHash: stagingHash,
+    state: 'current',
+    findings: [],
+    pipeline: {
+      state: inactive ? 'inactive' : 'verified',
+      nextAction: 'none',
+      staging: {
+        environmentId: 'env_staging',
+        generation: 3,
+        publicationId: 'publication_staging_3',
+        sourcePublicationId: 'publication_staging_3',
+        compiledArtifactId: 'artifact_staging_3',
+        contentHash: stagingHash,
+        verification: { state: 'passed', verifiedAt: '2099-08-07T11:00:00.000Z' },
+      },
+      production: {
+        environmentId: 'env_production',
+        generation: inactive ? 6 : 5,
+        publicationId: inactive ? null : 'publication_production_5',
+        compiledArtifactId: inactive ? null : 'artifact_production_5',
+        contentHash: inactive ? null : productionHash,
+      },
+      approvals: {
+        operationId: null,
+        requiredCount: 0,
+        approvedCount: 0,
+        rejected: false,
+      },
+    },
+  };
+}
+
+function hostedRecoveryState(documentId: string, inactive: boolean) {
+  const common = {
+    workspaceId: 'wk_editor',
+    environmentId: 'env_production',
+    documentId,
+  };
+  return {
+    ...common,
+    permissions: { rollback: true, unpublish: true },
+    deployment: inactive
+      ? {
+          ...common,
+          state: 'inactive',
+          generation: 6,
+          activePublicationId: null,
+          updatedAt: '2099-08-07T12:00:00.000Z',
+        }
+      : {
+          ...common,
+          state: 'active',
+          generation: 5,
+          activePublicationId: 'publication_production_5',
+          updatedAt: '2099-08-07T11:00:00.000Z',
+        },
+    history: [
+      {
+        ...common,
+        id: 'history_production_5',
+        releaseOperationId: 'operation_production_5',
+        generation: 5,
+        idempotencyKey: 'idempotency.production.5',
+        correlationId: 'correlation.production.5',
+        actorUserId: 'user_editor',
+        occurredAt: '2099-08-07T11:00:00.000Z',
+        action: 'publish',
+        state: 'active',
+        publicationId: 'publication_production_5',
+        previousPublicationId: 'publication_production_3',
+        artifact: recoveryArtifact('5'),
+      },
+      {
+        ...common,
+        id: 'history_production_3',
+        releaseOperationId: 'operation_production_3',
+        generation: 3,
+        idempotencyKey: 'idempotency.production.3',
+        correlationId: 'correlation.production.3',
+        actorUserId: 'user_editor',
+        occurredAt: '2099-08-06T11:00:00.000Z',
+        action: 'publish',
+        state: 'active',
+        publicationId: 'publication_production_3',
+        previousPublicationId: null,
+        artifact: recoveryArtifact('3'),
+      },
+    ],
+    rollbackTargetPublicationIds: inactive ? [] : ['publication_production_3'],
+  };
+}
+
+function recoveryArtifact(version: string) {
+  return {
+    compiledArtifactId: `artifact_production_${version}`,
+    artifactSchemaVersion: COMPILED_ARTIFACT_SCHEMA_VERSION,
+    contentHash: `sha256-${version.repeat(64)}`,
+    compilerVersion: COMPILER_VERSION,
+    rendererContractVersion: RENDERER_CONTRACT_VERSION,
+    themeContractVersion: BRAND_THEME_CONTRACT_VERSION,
+    themeVersionId: `theme_version_${version}`,
+    themeContentHash: `sha256-${version.repeat(64)}`,
+  };
+}
+
+function setReactTextValue(textarea: HTMLTextAreaElement, value: string): void {
+  const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')?.set;
+  setter?.call(textarea, value);
+  textarea.dispatchEvent(new Event('input', { bubbles: true }));
 }
 
 function hostedSessionReadyMessages(postMessage: RecordedMessages) {
@@ -711,6 +1122,100 @@ function jsonResponse(body: unknown, status = 200): Response {
     status,
     headers: { 'content-type': 'application/json' },
   });
+}
+
+async function waitForPostedMessage<TType extends string>(
+  postMessage: RecordedMessages,
+  type: TType,
+): Promise<{ type: TType; correlationId: string; [key: string]: unknown }> {
+  const matchingMessages = () =>
+    postMessage.mock.calls
+      .map(([value]) => value)
+      .filter(
+        (value): value is { type: TType; correlationId: string; [key: string]: unknown } =>
+          typeof value === 'object' &&
+          value !== null &&
+          'type' in value &&
+          value.type === type &&
+          'correlationId' in value &&
+          typeof value.correlationId === 'string',
+      );
+  await vi.waitFor(() =>
+    expect(
+      matchingMessages(),
+      `Posted message types: ${postMessage.mock.calls
+        .map(([value]) =>
+          typeof value === 'object' && value !== null && 'type' in value ? value.type : 'unknown',
+        )
+        .join(', ')}; UI: ${document.getElementById('authoring')?.textContent ?? ''}`,
+    ).toHaveLength(1),
+  );
+  return matchingMessages()[0]!;
+}
+
+async function waitForNextPostedMessage<TType extends string>(
+  postMessage: RecordedMessages,
+  type: TType,
+  previousCount: number,
+): Promise<{ type: TType; correlationId: string; [key: string]: unknown }> {
+  await vi.waitFor(() =>
+    expect(postedMessages(postMessage, type).length).toBeGreaterThan(previousCount),
+  );
+  const messages = postedMessages(postMessage, type);
+  return messages[messages.length - 1]!;
+}
+
+function postedMessages<TType extends string>(
+  postMessage: RecordedMessages,
+  type: TType,
+): Array<{ type: TType; correlationId: string; [key: string]: unknown }> {
+  return postMessage.mock.calls
+    .map(([value]) => value)
+    .filter(
+      (value): value is { type: TType; correlationId: string; [key: string]: unknown } =>
+        typeof value === 'object' &&
+        value !== null &&
+        'type' in value &&
+        value.type === type &&
+        'correlationId' in value &&
+        typeof value.correlationId === 'string',
+    );
+}
+
+function unreleasedHostedState(documentId: string) {
+  return {
+    available: true,
+    environment: 'staging',
+    environmentId: 'env_staging',
+    documentId,
+    expectedGeneration: 0,
+    draftArtifactId: null,
+    draftContentHash: null,
+    activeContentHash: null,
+    state: 'no_saved_artifact',
+    findings: [],
+  };
+}
+
+function hostedProductStyleProposal(): ProductStyleProposal {
+  return {
+    schemaVersion: '1',
+    proposalId: 'proposal.hosted.product-match',
+    sources: [
+      {
+        sourceId: 'sampled.hosted.product',
+        kind: 'selected_element',
+        confidence: 93,
+        fingerprintHash: `sha256-${'c'.repeat(64)}`,
+        capturedAt: '2099-08-07T11:29:00.000Z',
+      },
+    ],
+    samples: [],
+    tokens: { modes: { light: { colors: { accent: '#0f766e' } } } },
+    confidence: 93,
+    requiresConfirmation: false,
+    createdAt: '2099-08-07T11:29:00.000Z',
+  };
 }
 
 function authoringDocumentPayload(document: LodariqDocument) {

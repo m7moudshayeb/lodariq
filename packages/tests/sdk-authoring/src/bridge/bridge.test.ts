@@ -6,6 +6,9 @@ import {
   AUTHORING_INLINE_CONTENT_COMMIT_TYPE,
   AUTHORING_INLINE_CONTENT_MAX_LENGTH,
   AUTHORING_PANEL_LAYOUT_REQUEST_TYPE,
+  AUTHORING_SAVE_AND_EXIT_REQUEST_TYPE,
+  AUTHORING_SAVE_STATE_UPDATE_TYPE,
+  AUTHORING_RELEASE_RECOVERY_STATE_RESULT_TYPE,
   AUTHORING_RELEASE_STATE_REQUEST_TYPE,
   AUTHORING_SESSION_CAPABILITIES,
   BRIDGE_PROTOCOL_VERSION,
@@ -13,7 +16,11 @@ import {
   validate,
   type BridgeMessage,
 } from '@lodariq/schema';
-import { AuthoringBridge, startTargetPicker } from '@lodariq/sdk-authoring/bridge';
+import {
+  AuthoringBridge,
+  RELEASE_RECOVERY_BRIDGE_MESSAGE_BYTE_LIMITS,
+  startTargetPicker,
+} from '@lodariq/sdk-authoring/bridge';
 import { resolve } from '@lodariq/sdk-runtime/resolver';
 
 function makeMessage(): BridgeMessage {
@@ -187,10 +194,23 @@ describe('AuthoringBridge (PRD §9.5)', () => {
           density: 'compact',
           width: 'wide',
           colorMode: 'dark',
+          displayTargetOutline: true,
         },
       },
     } satisfies BridgeMessage;
     expect(validate(BridgeMessageSchema, appearanceMessage).valid).toBe(true);
+    expect(
+      validate(BridgeMessageSchema, {
+        ...appearanceMessage,
+        operation: {
+          ...appearanceMessage.operation,
+          appearance: {
+            ...appearanceMessage.operation.appearance,
+            displayTargetOutline: 'yes',
+          },
+        },
+      }).valid,
+    ).toBe(false);
     expect(
       validate(BridgeMessageSchema, {
         ...appearanceMessage,
@@ -215,6 +235,40 @@ describe('AuthoringBridge (PRD §9.5)', () => {
     expect(validate(BridgeMessageSchema, message).valid).toBe(true);
     expect(validate(BridgeMessageSchema, { ...message, mode: 'fullscreen' }).valid).toBe(false);
     expect(validate(BridgeMessageSchema, { ...message, width: 900 }).valid).toBe(false);
+  });
+
+  it('keeps Save & exit as a narrow iframe-to-host intent', () => {
+    const message = {
+      protocol: BRIDGE_PROTOCOL_VERSION,
+      sessionId: 's1',
+      documentId: 'doc_1',
+      correlationId: 'save_and_exit_1',
+      type: AUTHORING_SAVE_AND_EXIT_REQUEST_TYPE,
+    } satisfies BridgeMessage;
+
+    expect(validate(BridgeMessageSchema, message).valid).toBe(true);
+    expect(validate(BridgeMessageSchema, { ...message, document: {} }).valid).toBe(false);
+    expect(validate(BridgeMessageSchema, { ...message, closeWithoutSaving: true }).valid).toBe(
+      false,
+    );
+  });
+
+  it('keeps host-owned save state updates semantic, closed, and bounded', () => {
+    const message = {
+      protocol: BRIDGE_PROTOCOL_VERSION,
+      sessionId: 's1',
+      documentId: 'doc_1',
+      correlationId: 'save_state_1',
+      type: AUTHORING_SAVE_STATE_UPDATE_TYPE,
+      state: 'saving',
+      label: 'Saving…',
+    } satisfies BridgeMessage;
+
+    expect(validate(BridgeMessageSchema, message).valid).toBe(true);
+    expect(validate(BridgeMessageSchema, { ...message, state: 'pending' }).valid).toBe(false);
+    expect(validate(BridgeMessageSchema, { ...message, label: '' }).valid).toBe(false);
+    expect(validate(BridgeMessageSchema, { ...message, label: 'x'.repeat(161) }).valid).toBe(false);
+    expect(validate(BridgeMessageSchema, { ...message, retryAfter: 1_000 }).valid).toBe(false);
   });
 
   it('ignores messages from disallowed origins', () => {
@@ -415,6 +469,72 @@ describe('AuthoringBridge (PRD §9.5)', () => {
     );
 
     expect(onMessage).not.toHaveBeenCalled();
+    bridge.stop();
+  });
+
+  it('raises the ceiling only for validated recovery-state results', () => {
+    const peer = { postMessage: vi.fn() } as unknown as Window;
+    const onMessage = vi.fn();
+    const bridge = new AuthoringBridge(peer, {
+      allowedOrigins: ['https://app.customer.com'],
+      targetOrigin: 'https://app.customer.com',
+      maxMessageBytes: 16,
+      maxMessageBytesByType: RELEASE_RECOVERY_BRIDGE_MESSAGE_BYTE_LIMITS,
+      autoAck: false,
+      onMessage,
+    });
+    const recoveryResult = {
+      protocol: BRIDGE_PROTOCOL_VERSION,
+      sessionId: 's1',
+      documentId: 'doc_1',
+      correlationId: 'recovery_state_result_1',
+      type: AUTHORING_RELEASE_RECOVERY_STATE_RESULT_TYPE,
+      requestCorrelationId: 'recovery_state_request_1',
+      result: {
+        ok: true,
+        state: {
+          workspaceId: 'workspace_1',
+          environmentId: 'environment_1',
+          documentId: 'doc_1',
+          permissions: { rollback: false, unpublish: false },
+          deployment: null,
+          history: [],
+          rollbackTargetPublicationIds: [],
+        },
+      },
+    } satisfies BridgeMessage;
+
+    expect(() => bridge.send(recoveryResult)).not.toThrow();
+    expect(peer.postMessage).toHaveBeenCalledWith(recoveryResult, 'https://app.customer.com');
+    expect(() => bridge.send(makeMessage())).toThrow(/over 16 bytes/);
+
+    bridge.start();
+    expect(() =>
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: null,
+          origin: 'https://app.customer.com',
+          source: peer,
+        }),
+      ),
+    ).not.toThrow();
+    window.dispatchEvent(
+      new MessageEvent('message', {
+        data: recoveryResult,
+        origin: 'https://app.customer.com',
+        source: peer,
+      }),
+    );
+    window.dispatchEvent(
+      new MessageEvent('message', {
+        data: makeMessage(),
+        origin: 'https://app.customer.com',
+        source: peer,
+      }),
+    );
+
+    expect(onMessage).toHaveBeenCalledOnce();
+    expect(onMessage).toHaveBeenCalledWith(recoveryResult);
     bridge.stop();
   });
 

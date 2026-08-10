@@ -49,6 +49,30 @@ create table if not exists workspace_memberships (
 create index if not exists workspace_memberships_workspace_idx
   on workspace_memberships(workspace_id);
 
+create or replace function public.lodariq_is_valid_origin_allowlist(candidate jsonb)
+returns boolean
+language sql
+immutable
+parallel safe
+set search_path = pg_catalog, pg_temp
+as $origin_allowlist$
+  select case
+    when jsonb_typeof(candidate) <> 'array' then false
+    when jsonb_array_length(candidate) > 100 then false
+    else
+      not exists (
+        select 1
+        from jsonb_array_elements(candidate) as entry(value)
+        where jsonb_typeof(entry.value) <> 'string'
+          or char_length(entry.value #>> '{}') not between 1 and 2048
+      )
+      and (
+        select count(*) = count(distinct entry.value #>> '{}')
+        from jsonb_array_elements(candidate) as entry(value)
+      )
+  end
+$origin_allowlist$;
+
 create table if not exists environments (
   id text primary key,
   workspace_id text not null references workspaces(id) on delete cascade,
@@ -56,7 +80,9 @@ create table if not exists environments (
   name text not null,
   origin_allowlist jsonb not null default '[]'::jsonb,
   created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
+  updated_at timestamptz not null default now(),
+  constraint environments_origin_allowlist_check
+    check (public.lodariq_is_valid_origin_allowlist(origin_allowlist))
 );
 
 create unique index if not exists environments_workspace_kind_idx
@@ -261,11 +287,19 @@ create policy document_versions_workspace_isolation on document_versions
   with check (workspace_id = current_setting('lodariq.workspace_id', true));
 
 create policy compiled_artifacts_workspace_isolation on compiled_artifacts
-  using (workspace_id = current_setting('lodariq.workspace_id', true))
+  for select
+  using (workspace_id = current_setting('lodariq.workspace_id', true));
+
+create policy compiled_artifacts_workspace_insert on compiled_artifacts
+  for insert
   with check (workspace_id = current_setting('lodariq.workspace_id', true));
 
 create policy publications_workspace_isolation on publications
-  using (workspace_id = current_setting('lodariq.workspace_id', true))
+  for select
+  using (workspace_id = current_setting('lodariq.workspace_id', true));
+
+create policy publications_workspace_insert on publications
+  for insert
   with check (workspace_id = current_setting('lodariq.workspace_id', true));
 
 create policy authoring_sessions_workspace_isolation on authoring_sessions
@@ -336,6 +370,8 @@ create unique index if not exists documents_workspace_id_idx
   on documents(workspace_id, id);
 create unique index if not exists publications_deployment_identity_idx
   on publications(workspace_id, environment_id, document_id, id);
+create unique index if not exists publications_analytics_identity_idx
+  on publications(workspace_id, environment_id, document_id, id, content_hash);
 create unique index if not exists publications_document_identity_idx
   on publications(workspace_id, document_id, id);
 create unique index if not exists publications_release_operation_idx
@@ -351,6 +387,9 @@ create table if not exists release_operations (
   document_id text not null,
   action lodariq_release_action not null,
   requested_artifact_id text,
+  requested_source_publication_id text,
+  requested_active_publication_id text,
+  actual_active_publication_id text,
   source_publication_id text,
   result_publication_id text,
   expected_generation integer not null,
@@ -360,6 +399,7 @@ create table if not exists release_operations (
   status lodariq_release_operation_status not null,
   correlation_id text not null,
   requested_by_user_id text references users(id) on delete set null,
+  reason text,
   error_code text,
   created_at timestamptz not null default now(),
   completed_at timestamptz,
@@ -379,6 +419,9 @@ create table if not exists release_operations (
   constraint release_operations_result_publication_scope_fk
     foreign key (workspace_id, environment_id, document_id, result_publication_id)
     references publications(workspace_id, environment_id, document_id, id) on delete restrict,
+  constraint release_operations_actual_active_publication_scope_fk
+    foreign key (workspace_id, environment_id, document_id, actual_active_publication_id)
+    references publications(workspace_id, environment_id, document_id, id) on delete restrict,
   constraint release_operations_expected_generation_check
     check (expected_generation >= 0),
   constraint release_operations_idempotency_key_check
@@ -386,7 +429,103 @@ create table if not exists release_operations (
   constraint release_operations_request_hash_check
     check (request_hash ~ '^sha256-[0-9a-f]{64}$'),
   constraint release_operations_result_generation_check
-    check (result_generation is null or result_generation >= 0)
+    check (result_generation is null or result_generation >= 0),
+  constraint release_operations_requested_source_publication_check
+    check (
+      (action = 'rollback'
+        and requested_source_publication_id is not null
+        and requested_source_publication_id ~ '^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$')
+      or (action <> 'rollback' and requested_source_publication_id is null)
+    ),
+  constraint release_operations_requested_active_publication_check
+    check (
+      requested_active_publication_id is null
+      or (
+        action in ('rollback', 'unpublish')
+        and requested_active_publication_id ~ '^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$'
+      )
+    ),
+  constraint release_operations_recovery_reason_check
+    check (
+      (
+        action in ('rollback', 'unpublish')
+        and reason is not null
+        and char_length(reason) between 1 and 500
+        and reason !~ '^[[:space:]]'
+        and reason !~ '[[:space:]]$'
+      )
+      or (action in ('publish', 'promote') and reason is null)
+    ),
+  constraint release_operations_action_shape_check
+    check (
+      (
+        action in ('publish', 'promote')
+        and requested_artifact_id is not null
+        and requested_active_publication_id is null
+        and actual_active_publication_id is null
+      )
+      or (
+        action = 'rollback'
+        and status <> 'awaiting_approval'
+        and (
+          (
+            status = 'activating'
+            and requested_artifact_id is null
+            and source_publication_id is null
+            and result_publication_id is null
+            and actual_active_publication_id is null
+          )
+          or (
+            status = 'failed'
+            and requested_artifact_id is null
+            and source_publication_id is null
+            and result_publication_id is null
+          )
+          or (
+            status = 'completed'
+            and requested_artifact_id is not null
+            and source_publication_id is not null
+            and result_publication_id is not null
+            and actual_active_publication_id is not null
+          )
+        )
+      )
+      or (
+        action = 'unpublish'
+        and status <> 'awaiting_approval'
+        and requested_artifact_id is null
+        and source_publication_id is null
+        and result_publication_id is null
+        and (
+          (status = 'activating' and actual_active_publication_id is null)
+          or status = 'failed'
+          or (status = 'completed' and actual_active_publication_id is not null)
+        )
+      )
+    ),
+  constraint release_operations_lifecycle_shape_check
+    check (
+      (
+        status in ('awaiting_approval', 'activating')
+        and result_generation is null
+        and result_publication_id is null
+        and error_code is null
+        and completed_at is null
+      )
+      or (
+        status = 'completed'
+        and result_generation is not null
+        and (action = 'unpublish' or result_publication_id is not null)
+        and error_code is null
+        and completed_at is not null
+      )
+      or (
+        status = 'failed'
+        and result_publication_id is null
+        and error_code is not null
+        and completed_at is not null
+      )
+    )
 );
 
 create unique index if not exists release_operations_idempotency_idx
@@ -417,7 +556,73 @@ alter table release_operations enable row level security;
 alter table release_operations force row level security;
 
 create policy release_operations_workspace_isolation on release_operations
-  using (workspace_id = current_setting('lodariq.workspace_id', true))
+  for select
+  using (workspace_id = current_setting('lodariq.workspace_id', true));
+
+create policy release_operations_workspace_insert on release_operations
+  for insert
+  with check (workspace_id = current_setting('lodariq.workspace_id', true));
+
+create policy release_operations_lifecycle_update on release_operations
+  for update
+  using (
+    workspace_id = current_setting('lodariq.workspace_id', true)
+    and status in ('awaiting_approval', 'activating')
+  )
+  with check (
+    workspace_id = current_setting('lodariq.workspace_id', true)
+    and status in ('completed', 'failed')
+  );
+
+-- SDK analytics use a separate, server-authoritative envelope. The original
+-- events table remains available for authenticated dashboard diagnostics.
+create table if not exists analytics_events (
+  id text primary key,
+  workspace_id text not null references workspaces(id) on delete cascade,
+  environment_id text not null,
+  document_id text not null,
+  publication_id text not null,
+  content_hash text not null,
+  pointer_generation integer not null,
+  name text not null,
+  step_id text,
+  sdk_version text not null,
+  correlation_id text,
+  occurred_at timestamptz not null,
+  props jsonb,
+  ingested_at timestamptz not null default now(),
+  constraint analytics_events_publication_identity_fk
+    foreign key (workspace_id, environment_id, document_id, publication_id, content_hash)
+    references publications(workspace_id, environment_id, document_id, id, content_hash)
+    on delete restrict,
+  constraint analytics_events_content_hash_check
+    check (content_hash ~ '^sha256-[0-9a-f]{64}$'),
+  constraint analytics_events_pointer_generation_check
+    check (pointer_generation >= 1),
+  constraint analytics_events_name_check
+    check (char_length(name) between 1 and 80 and name ~ '^[a-z][a-z0-9_.-]*$'),
+  constraint analytics_events_sdk_version_check
+    check (char_length(sdk_version) between 1 and 128),
+  constraint analytics_events_props_check
+    check (props is null or jsonb_typeof(props) = 'object')
+);
+
+create index if not exists analytics_events_environment_occurred_idx
+  on analytics_events(workspace_id, environment_id, occurred_at);
+create index if not exists analytics_events_document_occurred_idx
+  on analytics_events(workspace_id, environment_id, document_id, occurred_at);
+create index if not exists analytics_events_publication_idx
+  on analytics_events(workspace_id, environment_id, publication_id);
+
+alter table analytics_events enable row level security;
+alter table analytics_events force row level security;
+
+create policy analytics_events_workspace_isolation on analytics_events
+  for select
+  using (workspace_id = current_setting('lodariq.workspace_id', true));
+
+create policy analytics_events_workspace_insert on analytics_events
+  for insert
   with check (workspace_id = current_setting('lodariq.workspace_id', true));
 
 create table if not exists document_deployments (
@@ -841,8 +1046,22 @@ alter table authoring_sessions
     capabilities is null
     or (
       jsonb_typeof(capabilities) = 'array'
-      and jsonb_array_length(capabilities) between 1 and 6
-      and capabilities <@ '["document:preview","document:publish-staging","document:read","document:read-release-state","target:select","document:write"]'::jsonb
+      and jsonb_array_length(capabilities) between 1 and 12
+      and capabilities <@ '["document:approve-production","document:preview","document:promote-production","document:publish-staging","document:read","document:read-release-state","document:rollback","brand:sample-product-style","target:select","document:unpublish","document:verify-staging","document:write"]'::jsonb
+      and jsonb_array_length(capabilities) = (
+        (case when capabilities @> '["document:approve-production"]'::jsonb then 1 else 0 end)
+        + (case when capabilities @> '["document:preview"]'::jsonb then 1 else 0 end)
+        + (case when capabilities @> '["document:promote-production"]'::jsonb then 1 else 0 end)
+        + (case when capabilities @> '["document:publish-staging"]'::jsonb then 1 else 0 end)
+        + (case when capabilities @> '["document:read"]'::jsonb then 1 else 0 end)
+        + (case when capabilities @> '["document:read-release-state"]'::jsonb then 1 else 0 end)
+        + (case when capabilities @> '["document:rollback"]'::jsonb then 1 else 0 end)
+        + (case when capabilities @> '["brand:sample-product-style"]'::jsonb then 1 else 0 end)
+        + (case when capabilities @> '["target:select"]'::jsonb then 1 else 0 end)
+        + (case when capabilities @> '["document:unpublish"]'::jsonb then 1 else 0 end)
+        + (case when capabilities @> '["document:verify-staging"]'::jsonb then 1 else 0 end)
+        + (case when capabilities @> '["document:write"]'::jsonb then 1 else 0 end)
+      )
     )
   );
 
@@ -1860,11 +2079,104 @@ alter table environments
   add constraint environments_required_approval_count_check
   check (required_approval_count between 0 and 1);
 
+-- Environment policy is additive over the legacy name/origin/approval DTO.
+-- This is the undeployed baseline, so every new policy row is strict from day one.
+alter table environments
+  add column if not exists enabled boolean not null default true,
+  add column if not exists pipeline_position integer not null,
+  add column if not exists authoring_enabled boolean not null,
+  add column if not exists promotion_source_environment_id text,
+  add column if not exists release_policy_json jsonb not null;
+
+create unique index if not exists environments_workspace_pipeline_position_idx
+  on environments(workspace_id, pipeline_position);
+
+alter table environments
+  add constraint environments_promotion_source_scope_fk
+    foreign key (workspace_id, promotion_source_environment_id)
+    references environments(workspace_id, id) on delete restrict,
+  add constraint environments_pipeline_position_check
+    check (
+      (kind = 'development' and pipeline_position = 0)
+      or (kind = 'staging' and pipeline_position = 1)
+      or (kind = 'production' and pipeline_position = 2 and not authoring_enabled)
+    ),
+  add constraint environments_promotion_source_kind_check
+    check (
+      (kind = 'production' and promotion_source_environment_id is not null)
+      or (kind <> 'production' and promotion_source_environment_id is null)
+    ),
+  add constraint environments_promotion_source_not_self_check
+    check (promotion_source_environment_id is null or promotion_source_environment_id <> id),
+  add constraint environments_release_policy_check
+    check (
+      jsonb_typeof(release_policy_json) = 'object'
+      and (release_policy_json - array[
+        'allowDirectPublish', 'requireSourceVerification', 'requiredApprovalCount',
+        'publisherRoles', 'rollbackRoles', 'unpublishRoles', 'separationOfDuties'
+      ]) = '{}'::jsonb
+      and release_policy_json ?& array[
+        'allowDirectPublish', 'requireSourceVerification', 'requiredApprovalCount',
+        'publisherRoles', 'rollbackRoles', 'unpublishRoles', 'separationOfDuties'
+      ]
+      and jsonb_typeof(release_policy_json->'allowDirectPublish') = 'boolean'
+      and jsonb_typeof(release_policy_json->'requireSourceVerification') = 'boolean'
+      and jsonb_typeof(release_policy_json->'requiredApprovalCount') = 'number'
+      and release_policy_json->>'requiredApprovalCount' in ('0', '1')
+      and (release_policy_json->>'requiredApprovalCount')::integer = required_approval_count
+      and jsonb_typeof(release_policy_json->'publisherRoles') = 'array'
+      and jsonb_array_length(release_policy_json->'publisherRoles') between 1 and 3
+      and release_policy_json->'publisherRoles' <@ '["owner","admin","member"]'::jsonb
+      and jsonb_array_length(release_policy_json->'publisherRoles') =
+        (case when release_policy_json->'publisherRoles' ? 'owner' then 1 else 0 end)
+        + (case when release_policy_json->'publisherRoles' ? 'admin' then 1 else 0 end)
+        + (case when release_policy_json->'publisherRoles' ? 'member' then 1 else 0 end)
+      and jsonb_typeof(release_policy_json->'rollbackRoles') = 'array'
+      and jsonb_array_length(release_policy_json->'rollbackRoles') between 1 and 2
+      and release_policy_json->'rollbackRoles' <@ '["owner","admin"]'::jsonb
+      and jsonb_array_length(release_policy_json->'rollbackRoles') =
+        (case when release_policy_json->'rollbackRoles' ? 'owner' then 1 else 0 end)
+        + (case when release_policy_json->'rollbackRoles' ? 'admin' then 1 else 0 end)
+      and jsonb_typeof(release_policy_json->'unpublishRoles') = 'array'
+      and jsonb_array_length(release_policy_json->'unpublishRoles') between 1 and 2
+      and release_policy_json->'unpublishRoles' <@ '["owner","admin"]'::jsonb
+      and jsonb_array_length(release_policy_json->'unpublishRoles') =
+        (case when release_policy_json->'unpublishRoles' ? 'owner' then 1 else 0 end)
+        + (case when release_policy_json->'unpublishRoles' ? 'admin' then 1 else 0 end)
+      and jsonb_typeof(release_policy_json->'separationOfDuties') = 'object'
+      and ((release_policy_json->'separationOfDuties') - array[
+        'requireSeparateVerifier', 'requireSeparateApprover'
+      ]) = '{}'::jsonb
+      and release_policy_json->'separationOfDuties' ?& array[
+        'requireSeparateVerifier', 'requireSeparateApprover'
+      ]
+      and jsonb_typeof(
+        release_policy_json->'separationOfDuties'->'requireSeparateVerifier'
+      ) = 'boolean'
+      and jsonb_typeof(
+        release_policy_json->'separationOfDuties'->'requireSeparateApprover'
+      ) = 'boolean'
+      and (
+        kind <> 'production'
+        or (
+          not (release_policy_json->'publisherRoles' ? 'member')
+          and not (release_policy_json->>'allowDirectPublish')::boolean
+          and (release_policy_json->>'requireSourceVerification')::boolean
+        )
+      )
+    );
+
 create table if not exists style_sources (
   id text primary key,
   workspace_id text not null references workspaces(id) on delete cascade,
   theme_id text not null,
   environment_id text not null,
+  proposal_id text not null,
+  proposal_hash text not null,
+  source_ordinal integer not null,
+  source_count integer not null,
+  applied_theme_revision integer not null,
+  draft_changed boolean not null,
   source_json jsonb not null,
   source_hash text not null,
   created_by_user_id text not null,
@@ -1878,6 +2190,16 @@ create table if not exists style_sources (
   constraint style_sources_creator_membership_scope_fk
     foreign key (workspace_id, created_by_user_id)
     references workspace_memberships(workspace_id, user_id) on delete restrict,
+  constraint style_sources_proposal_id_check
+    check (proposal_id ~ '^[A-Za-z0-9][A-Za-z0-9._:-]{0,119}$'),
+  constraint style_sources_proposal_hash_check
+    check (proposal_hash ~ '^sha256-[0-9a-f]{64}$'),
+  constraint style_sources_source_ordinal_check
+    check (source_ordinal >= 0),
+  constraint style_sources_source_count_check
+    check (source_count between 1 and 21 and source_ordinal < source_count),
+  constraint style_sources_theme_revision_check
+    check (applied_theme_revision >= 1),
   constraint style_sources_source_json_check
     check (jsonb_typeof(source_json) = 'object'),
   constraint style_sources_source_hash_check
@@ -1888,6 +2210,118 @@ create unique index if not exists style_sources_workspace_id_idx
   on style_sources(workspace_id, id);
 create index if not exists style_sources_theme_created_idx
   on style_sources(workspace_id, theme_id, created_at desc);
+create unique index if not exists style_sources_proposal_source_idx
+  on style_sources(workspace_id, theme_id, proposal_id, source_ordinal);
+
+create table if not exists product_style_applications (
+  id text primary key,
+  workspace_id text not null references workspaces(id) on delete cascade,
+  theme_id text not null,
+  environment_id text not null,
+  proposal_id text not null,
+  request_hash text not null,
+  source_set_hash text not null,
+  draft_revision integer not null,
+  draft_updated_at timestamptz not null,
+  preview_theme_json jsonb not null,
+  preview_theme_hash text not null,
+  source_receipts_json jsonb not null,
+  draft_changed boolean not null,
+  created_by_user_id text not null,
+  created_at timestamptz not null default now(),
+  constraint product_style_applications_theme_scope_fk
+    foreign key (workspace_id, theme_id)
+    references themes(workspace_id, id) on delete restrict,
+  constraint product_style_applications_environment_scope_fk
+    foreign key (workspace_id, environment_id)
+    references environments(workspace_id, id) on delete restrict,
+  constraint product_style_applications_creator_membership_scope_fk
+    foreign key (workspace_id, created_by_user_id)
+    references workspace_memberships(workspace_id, user_id) on delete restrict,
+  constraint product_style_applications_proposal_id_check
+    check (proposal_id ~ '^[A-Za-z0-9][A-Za-z0-9._:-]{0,119}$'),
+  constraint product_style_applications_request_hash_check
+    check (request_hash ~ '^sha256-[0-9a-f]{64}$'),
+  constraint product_style_applications_source_set_hash_check
+    check (source_set_hash ~ '^sha256-[0-9a-f]{64}$'),
+  constraint product_style_applications_draft_revision_check
+    check (draft_revision >= 1),
+  constraint product_style_applications_preview_theme_check
+    check (
+      jsonb_typeof(preview_theme_json) = 'object'
+      and preview_theme_json->>'themeId' = theme_id
+      and (preview_theme_json->>'version')::integer = draft_revision
+      and preview_theme_json->>'contentHash' = preview_theme_hash
+    ),
+  constraint product_style_applications_preview_theme_hash_check
+    check (preview_theme_hash ~ '^sha256-[0-9a-f]{64}$'),
+  constraint product_style_applications_source_receipts_check
+    check (
+      jsonb_typeof(source_receipts_json) = 'array'
+      and jsonb_array_length(source_receipts_json) between 1 and 21
+    )
+);
+
+create unique index if not exists product_style_applications_workspace_id_idx
+  on product_style_applications(workspace_id, id);
+create unique index if not exists product_style_applications_proposal_idx
+  on product_style_applications(workspace_id, theme_id, proposal_id);
+create index if not exists product_style_applications_theme_created_idx
+  on product_style_applications(workspace_id, theme_id, created_at desc);
+
+create table if not exists brand_drift_runs (
+  id text primary key,
+  workspace_id text not null references workspaces(id) on delete cascade,
+  environment_id text not null,
+  document_id text not null,
+  theme_id text not null,
+  baseline_theme_version_id text not null,
+  trigger text not null,
+  classification text not null,
+  confidence integer not null,
+  report_json jsonb not null,
+  created_by_user_id text not null,
+  created_at timestamptz not null default now(),
+  constraint brand_drift_runs_environment_scope_fk
+    foreign key (workspace_id, environment_id)
+    references environments(workspace_id, id) on delete restrict,
+  constraint brand_drift_runs_document_scope_fk
+    foreign key (workspace_id, document_id)
+    references documents(workspace_id, id) on delete restrict,
+  constraint brand_drift_runs_theme_version_scope_fk
+    foreign key (workspace_id, theme_id, baseline_theme_version_id)
+    references theme_versions(workspace_id, theme_id, id) on delete restrict,
+  constraint brand_drift_runs_creator_membership_scope_fk
+    foreign key (workspace_id, created_by_user_id)
+    references workspace_memberships(workspace_id, user_id) on delete restrict,
+  constraint brand_drift_runs_trigger_check
+    check (trigger in ('authoring_open', 'creator_check')),
+  constraint brand_drift_runs_classification_check
+    check (classification in ('unchanged', 'warning', 'actionable')),
+  constraint brand_drift_runs_confidence_check
+    check (confidence between 0 and 100),
+  constraint brand_drift_runs_report_check
+    check (
+      jsonb_typeof(report_json) = 'object'
+      and report_json->>'checkId' = id
+      and report_json->>'themeId' = theme_id
+      and report_json->>'baselineThemeVersionId' = baseline_theme_version_id
+      and report_json->>'trigger' = trigger
+      and report_json->>'classification' = classification
+      and (report_json->>'confidence')::integer = confidence
+      and jsonb_typeof(report_json->'sourceComparisons') = 'array'
+      and jsonb_typeof(report_json->'changedRoles') = 'array'
+      and jsonb_typeof(report_json->'accessibilityConsequences') = 'array'
+      and jsonb_typeof(report_json->'affectedExperiences') = 'array'
+    )
+);
+
+create unique index if not exists brand_drift_runs_workspace_id_idx
+  on brand_drift_runs(workspace_id, id);
+create index if not exists brand_drift_runs_document_created_idx
+  on brand_drift_runs(workspace_id, document_id, created_at desc);
+create index if not exists brand_drift_runs_theme_created_idx
+  on brand_drift_runs(workspace_id, theme_id, created_at desc);
 
 create table if not exists publication_verifications (
   id text primary key,
@@ -1965,17 +2399,35 @@ create index if not exists release_approvals_operation_created_idx
 
 alter table style_sources enable row level security;
 alter table style_sources force row level security;
+alter table product_style_applications enable row level security;
+alter table product_style_applications force row level security;
+alter table brand_drift_runs enable row level security;
+alter table brand_drift_runs force row level security;
 alter table publication_verifications enable row level security;
 alter table publication_verifications force row level security;
 alter table release_approvals enable row level security;
 alter table release_approvals force row level security;
 
--- These three records are append-only for the runtime role. Deliberately omit
+-- These evidence records are append-only for the runtime role. Deliberately omit
 -- UPDATE and DELETE policies even though the role has general table grants.
 create policy style_sources_workspace_isolation on style_sources
   for select
   using (workspace_id = current_setting('lodariq.workspace_id', true));
 create policy style_sources_workspace_insert on style_sources
+  for insert
+  with check (workspace_id = current_setting('lodariq.workspace_id', true));
+
+create policy product_style_applications_workspace_isolation on product_style_applications
+  for select
+  using (workspace_id = current_setting('lodariq.workspace_id', true));
+create policy product_style_applications_workspace_insert on product_style_applications
+  for insert
+  with check (workspace_id = current_setting('lodariq.workspace_id', true));
+
+create policy brand_drift_runs_workspace_isolation on brand_drift_runs
+  for select
+  using (workspace_id = current_setting('lodariq.workspace_id', true));
+create policy brand_drift_runs_workspace_insert on brand_drift_runs
   for insert
   with check (workspace_id = current_setting('lodariq.workspace_id', true));
 

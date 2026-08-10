@@ -89,6 +89,8 @@ export interface InstallOptions {
   openAuthoring?: (manifest: ManifestPointer, context: SdkInstallContext) => Promise<void>;
   observability?: RuntimeConfig['observability'];
   publicInstallationId?: string;
+  /** Server-issued active pointers used as analytics assertions, never identity. */
+  analyticsPointers?: RuntimeConfig['analyticsPointers'];
 }
 
 declare global {
@@ -257,6 +259,7 @@ export async function installLodariq(
     ...(context.ingestUrl ? { ingestUrl: context.ingestUrl } : {}),
     ...(config.clientToken ? { authorizationToken: config.clientToken } : {}),
     ...(options.publicInstallationId ? { publicInstallationId: options.publicInstallationId } : {}),
+    analyticsPointers: options.analyticsPointers ?? context.analyticsPointers,
   };
   const runtime = new runtimeModule.LodariqRuntime(runtimeConfig);
   const authoring = createAuthoringStatus(config, context, Boolean(openAuthoringFn));

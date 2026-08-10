@@ -26,6 +26,16 @@ createServer((request, response) => {
     return;
   }
 
+  if (requestPathname(request.url) === '/healthz') {
+    const body = '{"ok":true}';
+    response.setHeader('cache-control', 'no-store');
+    response.setHeader('content-type', 'application/json; charset=utf-8');
+    response.setHeader('x-content-type-options', 'nosniff');
+    response.writeHead(200);
+    response.end(request.method === 'HEAD' ? undefined : body);
+    return;
+  }
+
   const path = staticPath(request.url ?? '/');
   if (!path) {
     response.writeHead(404).end('Not found');
@@ -50,13 +60,9 @@ createServer((request, response) => {
 });
 
 function staticPath(rawUrl) {
-  let url;
-  try {
-    url = new URL(rawUrl, 'http://localhost');
-  } catch {
-    return null;
-  }
-  const pathname = url.pathname === '/' ? '/authoring.html' : url.pathname;
+  const requestPath = requestPathname(rawUrl);
+  if (!requestPath) return null;
+  const pathname = requestPath === '/' ? '/authoring.html' : requestPath;
   let normalized;
   try {
     normalized = normalize(decodeURIComponent(pathname)).replace(/^(\.\.[/\\])+/, '');
@@ -69,4 +75,12 @@ function staticPath(rawUrl) {
     return null;
   }
   return candidate;
+}
+
+function requestPathname(rawUrl) {
+  try {
+    return new URL(rawUrl ?? '/', 'http://localhost').pathname;
+  } catch {
+    return null;
+  }
 }

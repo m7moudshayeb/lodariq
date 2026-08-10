@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   AUTHORING_SESSION_CAPABILITIES,
+  AUTHORING_STYLE_SOURCE_SAVE_RESULT_TYPE,
+  AuthoringStyleSourceSaveResultMessage,
   AuthoringStagingReleaseState,
   BROWSER_VERIFICATION_CHECK_CODES,
   BRAND_TOKENS_AVAILABLE_TYPE,
@@ -8,6 +10,7 @@ import {
   BrowserVerificationReport,
   COMPILED_ARTIFACT_SCHEMA_VERSION,
   CustomerBrandTokenRegistration,
+  LODARIQ_ACCESSIBLE_FALLBACK_THEME_V1,
   ProductStyleProposal,
   ProductionPromotionRequest,
   ProductionPromotionResult,
@@ -288,5 +291,46 @@ describe('Slice 3 closed contracts', () => {
       }).valid,
     ).toBe(true);
     expect(AUTHORING_SESSION_CAPABILITIES.SAMPLE_PRODUCT_STYLE).toBe('brand:sample-product-style');
+  });
+
+  it('keeps the bridge-v1 style-source receipt alongside the persisted Product Match result', () => {
+    const productMatch = {
+      proposalId: 'proposal.bridge-compatibility',
+      draftRevision: 2,
+      draftUpdatedAt: CHECKED_AT,
+      previewTheme: LODARIQ_ACCESSIBLE_FALLBACK_THEME_V1,
+      sources: [{ sourceId: 'style_source_1', sourceHash: SAMPLE_HASH }],
+      draftChanged: true,
+      replayed: false,
+    };
+    const message = {
+      protocol: '1',
+      sessionId: 'session_1',
+      documentId: 'doc_1',
+      correlationId: 'style_source_result_1',
+      type: AUTHORING_STYLE_SOURCE_SAVE_RESULT_TYPE,
+      requestCorrelationId: 'style_source_request_1',
+      result: {
+        ok: true,
+        sourceId: 'style_source_1',
+        sourceHash: SAMPLE_HASH,
+        productMatch,
+      },
+    } as const;
+
+    expect(validate(AuthoringStyleSourceSaveResultMessage, message).valid).toBe(true);
+    expect(validate(BridgeMessage, message).valid).toBe(true);
+    expect(
+      validate(AuthoringStyleSourceSaveResultMessage, {
+        ...message,
+        result: { ok: true, productMatch },
+      }).valid,
+    ).toBe(false);
+    expect(
+      validate(AuthoringStyleSourceSaveResultMessage, {
+        ...message,
+        result: { ok: true, sourceId: 'style_source_1', sourceHash: SAMPLE_HASH },
+      }).valid,
+    ).toBe(false);
   });
 });

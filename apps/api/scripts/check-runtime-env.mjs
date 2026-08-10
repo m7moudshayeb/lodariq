@@ -41,12 +41,67 @@ function main(env = process.env) {
     requireHttpsUrl(key, env[key], failures);
   }
   requireCreatorModuleDescriptor(env, failures);
+  requireDeploymentOriginTuple(env, failures);
 
   if (failures.length) {
     fail(failures);
   }
 
   stdout.write('Lodariq API production environment is ready for a live smoke check.\n');
+}
+
+function requireDeploymentOriginTuple(env, failures) {
+  const tuples = {
+    'https://api.lodariq.com': {
+      app: 'https://app.lodariq.com',
+      cdn: 'https://cdn.lodariq.com',
+      editor: 'https://editor.lodariq.com',
+    },
+    'https://staging-api.lodariq.com': {
+      app: 'https://staging-app.lodariq.com',
+      cdn: 'https://staging-cdn.lodariq.com',
+      editor: 'https://staging-editor.lodariq.com',
+    },
+  };
+  const apiOrigin = exactOrigin(env.LODARIQ_PUBLIC_API_BASE_URL);
+  const tuple = tuples[apiOrigin];
+  if (!tuple) {
+    failures.push('LODARIQ_PUBLIC_API_BASE_URL must select a canonical Lodariq deployment.');
+    return;
+  }
+  for (const key of [
+    'LODARIQ_LOADER_SRC',
+    'LODARIQ_PUBLIC_LOADER_SRC',
+    'LODARIQ_CREATOR_LOADER_SRC',
+    'LODARIQ_CREATOR_MODULE_URL',
+  ]) {
+    if (exactOrigin(env[key]) !== tuple.cdn) {
+      failures.push(`${key} must use the selected deployment CDN origin.`);
+    }
+  }
+  if (exactOrigin(env.LODARIQ_AUTHORING_IFRAME_SRC) !== tuple.editor) {
+    failures.push('LODARIQ_AUTHORING_IFRAME_SRC must use the selected editor origin.');
+  }
+  if (apiOrigin.includes('staging-')) {
+    const allowedOrigins = new Set(
+      (env.LODARIQ_AUTH_ALLOWED_ORIGINS ?? '')
+        .split(',')
+        .map((value) => value.trim())
+        .filter(Boolean),
+    );
+    if (!allowedOrigins.has(tuple.app)) {
+      failures.push('LODARIQ_AUTH_ALLOWED_ORIGINS must include the selected staging app origin.');
+    }
+  }
+}
+
+function exactOrigin(value) {
+  try {
+    const url = new URL(value?.trim() ?? '');
+    return url.origin;
+  } catch {
+    return '';
+  }
 }
 
 function requireInternalBffSecret(value, failures) {

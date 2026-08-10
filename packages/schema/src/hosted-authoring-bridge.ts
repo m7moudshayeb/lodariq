@@ -8,6 +8,7 @@ import {
   LODARIQ_API_ORIGIN,
   LODARIQ_EDITOR_ORIGIN,
   LODARIQ_STAGING_API_ORIGIN,
+  LODARIQ_STAGING_EDITOR_ORIGIN,
   PublicSdkInstallationId,
 } from './sdk';
 
@@ -77,7 +78,10 @@ export const HostedAuthoringEditorReadyMessage = Type.Object(
     type: Type.Literal(HOSTED_AUTHORING_EDITOR_READY_TYPE),
     readyRequestId: Type.String(HOSTED_AUTHORING_REQUEST_ID_OPTIONS),
     state: Type.String(HOSTED_AUTHORING_STATE_OPTIONS),
-    editorOrigin: Type.Literal(LODARIQ_EDITOR_ORIGIN),
+    editorOrigin: Type.Union([
+      Type.Literal(LODARIQ_EDITOR_ORIGIN),
+      Type.Literal(LODARIQ_STAGING_EDITOR_ORIGIN),
+    ]),
   },
   { $id: 'HostedAuthoringEditorReadyMessage', additionalProperties: false },
 );
@@ -97,7 +101,10 @@ export const HostedAuthoringActivationHandoffMessage = Type.Object(
     readyRequestId: Type.String(HOSTED_AUTHORING_REQUEST_ID_OPTIONS),
     handoffRequestId: Type.String(HOSTED_AUTHORING_REQUEST_ID_OPTIONS),
     state: Type.String(HOSTED_AUTHORING_STATE_OPTIONS),
-    editorOrigin: Type.Literal(LODARIQ_EDITOR_ORIGIN),
+    editorOrigin: Type.Union([
+      Type.Literal(LODARIQ_EDITOR_ORIGIN),
+      Type.Literal(LODARIQ_STAGING_EDITOR_ORIGIN),
+    ]),
     apiOrigin: Type.Union([
       Type.Literal(LODARIQ_API_ORIGIN),
       Type.Literal(LODARIQ_STAGING_API_ORIGIN),

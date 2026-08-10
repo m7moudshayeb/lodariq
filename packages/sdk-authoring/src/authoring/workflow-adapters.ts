@@ -162,6 +162,7 @@ export function releaseWorkflowFromState(
     },
     staging,
     production,
+    environments: releasePipelineEnvironments(pipeline),
     canVerify: capabilities.canVerify,
     canPromote: capabilities.canPromote,
     canApprove: capabilities.canApprove ?? false,
@@ -226,6 +227,7 @@ function legacyReleaseWorkflow(
     },
     staging,
     production: null,
+    environments: [{ environment: 'staging', environmentId: release.environmentId }],
     // Legacy Slice 2 state has no publication identity or production CAS
     // pointer. Keep it visible as read-only truth, but never authorize an
     // exact-artifact mutation from incomplete evidence.
@@ -234,6 +236,21 @@ function legacyReleaseWorkflow(
     canApprove: false,
     approval: 'not-required',
   };
+}
+
+function releasePipelineEnvironments(
+  pipeline: NonNullable<AuthoringStagingReleaseState['pipeline']>,
+): AuthoringReleaseWorkflowState['environments'] {
+  const environments: NonNullable<AuthoringReleaseWorkflowState['environments']> = [
+    { environment: 'staging', environmentId: pipeline.staging.environmentId },
+  ];
+  if (pipeline.production.environmentId !== pipeline.staging.environmentId) {
+    return [
+      ...environments,
+      { environment: 'production', environmentId: pipeline.production.environmentId },
+    ];
+  }
+  return environments;
 }
 
 function appendRoleChange(

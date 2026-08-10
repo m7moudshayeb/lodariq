@@ -6,6 +6,8 @@ import {
   captureElementFingerprint,
   captureNeedsConfirmation,
   captureTargetEvidence,
+  mergeTargetCaptureVariants,
+  normalizeTargetStateId,
   normalizeTargetElement,
   observeTargetEvidence,
   type PassiveTargetProbe,
@@ -14,6 +16,8 @@ import {
 
 const PICKER_Z_INDEX = 2_147_483_645;
 const TARGET_CARD_WIDTH = 292;
+
+export { normalizeTargetStateId };
 
 export interface TargetPickResult {
   element: Element;
@@ -33,6 +37,8 @@ export interface TargetPickerOptions {
   suggestion?: { confidence: number };
   locale?: string;
   requiredAction?: TargetIdentityV2['intent']['requiredAction'];
+  /** Current opaque application state supplied by the host at pick time. */
+  stateId?: string;
   onPick: (result: TargetPickResult) => void;
   /** Receives bounded post-click evidence without delaying the one-click attach. */
   onEvidenceUpdate?: (result: TargetPickResult) => void;
@@ -62,6 +68,7 @@ interface CurrentEvidence {
 
 export function startTargetPicker(options: TargetPickerOptions): TargetPicker {
   const doc = options.root ?? document;
+  const variantStateId = normalizeTargetStateId(options.stateId);
   const outline = createOutline(doc);
   const label = createHoverLabel(doc);
   const labelText = label.querySelector<HTMLElement>('[data-lodariq-bridge="target-label-text"]')!;
@@ -170,25 +177,31 @@ export function startTargetPicker(options: TargetPickerOptions): TargetPicker {
   function startEvidenceProbe(element: Element): void {
     if (currentEvidence?.element === element) return;
     activeProbe?.cancel();
-    const capture = captureTargetEvidence(element, undefined, {
+    const initialCapture = captureTargetEvidence(element, undefined, {
       locale: options.locale,
       requiredAction: options.requiredAction,
+      ...(variantStateId ? { stateId: variantStateId } : {}),
       targetId: options.initialIdentity?.targetId,
     });
-    currentEvidence = { element, capture };
-    activeProbe = observeTargetEvidence(element, capture, {
+    currentEvidence = {
+      element,
+      capture: mergeTargetCaptureVariants(options.initialIdentity, initialCapture),
+    };
+    activeProbe = observeTargetEvidence(element, initialCapture, {
       locale: options.locale,
       requiredAction: options.requiredAction,
-      targetId: capture.identity.targetId,
+      ...(variantStateId ? { stateId: variantStateId } : {}),
+      targetId: initialCapture.identity.targetId,
       onUpdate: (updatedCapture) => {
+        const capture = mergeTargetCaptureVariants(options.initialIdentity, updatedCapture);
         if (currentEvidence?.element === element) {
-          currentEvidence = { element, capture: updatedCapture };
+          currentEvidence = { element, capture };
         }
         if (committedElement === element) {
-          options.onEvidenceUpdate?.({ element, ...updatedCapture });
+          options.onEvidenceUpdate?.({ element, ...capture });
         }
         if (pendingWeakResult?.element === element) {
-          pendingWeakResult = { element, ...updatedCapture };
+          pendingWeakResult = { element, ...capture };
           updateWeakTargetCard(pendingWeakResult.identity);
         }
       },
@@ -378,11 +391,15 @@ export function startTargetPicker(options: TargetPickerOptions): TargetPicker {
     const sampledCapture =
       currentEvidence?.element === selected
         ? currentEvidence.capture
-        : captureTargetEvidence(selected, event, {
-            locale: options.locale,
-            requiredAction: options.requiredAction,
-            targetId: options.initialIdentity?.targetId,
-          });
+        : mergeTargetCaptureVariants(
+            options.initialIdentity,
+            captureTargetEvidence(selected, event, {
+              locale: options.locale,
+              requiredAction: options.requiredAction,
+              ...(variantStateId ? { stateId: variantStateId } : {}),
+              targetId: options.initialIdentity?.targetId,
+            }),
+          );
     const result: TargetPickResult = {
       element: selected,
       fingerprint: captureElementFingerprint(selected, event),
@@ -587,22 +604,23 @@ function createWeakTargetCard(doc: Document): HTMLDivElement {
     font: `12px/1.45 ${CREATOR_CHROME_FONT_STACK}`,
   });
   controls.innerHTML = `
-    <div data-lodariq-bridge="target-card-header" style="display:grid; gap:4px;">
-      <strong data-lodariq-bridge="target-card-title" style="font-size:14px; line-height:1.3;">This placement may change</strong>
+    <div data-lodariq-bridge="target-card-header" style="display:grid; gap: 4px;">
+      <strong data-lodariq-bridge="target-card-title" style="font-size: 14px; line-height:1.3;">This placement may change</strong>
       <span data-lodariq-bridge="target-card-copy" style="color:${CREATOR_CHROME_TOKENS.muted};">Lodariq may have trouble finding this after the page changes.</span>
     </div>
-    <div data-lodariq-bridge="target-card-actions" style="display:grid; grid-template-columns:1fr 1fr; gap:7px;">
+    <div data-lodariq-bridge="target-card-actions" style="display:grid; grid-template-columns:1fr 1fr; gap: 8px;">
       <button type="button" data-lodariq-bridge="target-control" data-action="use">Keep in draft</button>
       <button type="button" data-lodariq-bridge="target-control" data-action="pick-another">Choose another</button>
     </div>
-    <details data-lodariq-bridge="target-card-details" style="border-top:1px solid ${CREATOR_CHROME_TOKENS.border}; padding-top:8px; color:${CREATOR_CHROME_TOKENS.muted};">
-      <summary data-lodariq-bridge="target-card-summary" style="cursor:pointer; font-weight:700; color:${CREATOR_CHROME_TOKENS.ink};">Troubleshooting details</summary>
-      <p data-lodariq-bridge="target-card-technical-copy" style="margin:7px 0;">Lodariq is checking this placement.</p>
-      <div style="display:grid; grid-template-columns:1fr 1fr; gap:7px;">
+    <details data-lodariq-bridge="target-card-details" style="border-top:1px solid ${CREATOR_CHROME_TOKENS.border}; padding-top: 8px; color:${CREATOR_CHROME_TOKENS.muted};">
+      <summary data-lodariq-bridge="target-card-summary" style="cursor:pointer; font-weight: 700; color:${CREATOR_CHROME_TOKENS.ink};">Troubleshooting details</summary>
+      <p data-lodariq-bridge="target-card-technical-copy" style="margin: 8px 0;">Lodariq is checking this placement.</p>
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap: 8px;">
         <button type="button" data-lodariq-bridge="target-control" data-action="deeper">Smaller area</button>
         <button type="button" data-lodariq-bridge="target-control" data-action="parent">Larger area</button>
       </div>
     </details>
+  ils>
   `;
   for (const button of controls.querySelectorAll<HTMLButtonElement>('button')) {
     Object.assign(button.style, {
