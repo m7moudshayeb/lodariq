@@ -972,7 +972,8 @@ test('local authoring and tour playback pass accessibility smoke checks', async 
   const editorHasHorizontalOverflow = await frame.locator('body').evaluate(() => {
     const html = document.documentElement;
     const body = document.body;
-    return html.scrollWidth > html.clientWidth + 1 || body.scrollWidth > body.clientWidth + 1;
+    const viewportWidth = window.innerWidth;
+    return html.scrollWidth > viewportWidth + 1 || body.scrollWidth > viewportWidth + 1;
   });
   expect(editorHasHorizontalOverflow).toBe(false);
   await expect(frame.getByRole('button', { name: 'Back', exact: true })).toBeVisible();
@@ -1046,12 +1047,20 @@ test('authoring stays modeless, draggable, and clamped inside the viewport', asy
   expect(mobile.host.left + mobile.host.width).toBeLessThanOrEqual(390 - 12);
   expect(mobile.host.top + mobile.host.height).toBeLessThanOrEqual(844 - 12);
   expect(mobile.bodyPaddingLeft).toBe('0px');
+  // Compare against innerWidth, not clientWidth: classic Linux scrollbars shrink
+  // clientWidth and make scrollWidth - clientWidth look like horizontal overflow.
   const mobileOverflow = await page.evaluate(() => {
+    const horizontalOverflow = (root: Element, viewportWidth: number) =>
+      Math.max(0, root.scrollWidth - viewportWidth);
     const frame = document.querySelector<HTMLIFrameElement>('iframe[title="Lodariq authoring"]');
+    const frameWindow = frame?.contentWindow;
     const frameRoot = frame?.contentDocument?.documentElement;
     return {
-      frame: frameRoot ? frameRoot.scrollWidth - frameRoot.clientWidth : Number.NaN,
-      host: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      frame:
+        frameRoot && frameWindow
+          ? horizontalOverflow(frameRoot, frameWindow.innerWidth)
+          : Number.NaN,
+      host: horizontalOverflow(document.documentElement, window.innerWidth),
     };
   });
   expect(mobileOverflow).toEqual({ frame: 0, host: 0 });

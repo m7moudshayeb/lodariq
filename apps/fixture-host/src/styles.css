@@ -370,7 +370,7 @@ button.primary {
   display: none;
 }
 .modal {
-  width: min(420px, calc(100vw - 32px));
+  width: min(420px, calc(100% - 32px));
   border: 1px solid #e5e5ef;
   border-radius: 8px;
   background: #fff;
