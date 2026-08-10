@@ -3475,9 +3475,9 @@ function createPanelStyles(): HTMLStyleElement {
       right: 18px;
       bottom: auto;
       display: block;
-      width: min(700px, calc(100vw - 72px));
+      width: min(700px, calc(100% - 72px));
       height: min(620px, calc(100dvh - 94px));
-      max-width: calc(100vw - 72px);
+      max-width: calc(100% - 72px);
       max-height: calc(100dvh - 36px);
       min-height: min(320px, calc(100dvh - 100px));
       z-index: 2147483646;
@@ -3973,7 +3973,7 @@ function createPanelStyles(): HTMLStyleElement {
     }
 
     :host([${AUTHORING_TARGET_PICKING_ATTRIBUTE}="true"]) {
-      width: min(300px, calc(100vw - 24px));
+      width: min(300px, calc(100% - 24px));
       height: 44px;
       max-height: 44px;
       min-height: 44px;
@@ -4074,11 +4074,12 @@ function createPanelStyles(): HTMLStyleElement {
       :host {
         top: 72px;
         right: 12px;
-        width: min(320px, calc(100vw - 24px));
+        /* Use % (viewport CB) instead of 100vw to avoid classic scrollbar overflow. */
+        width: min(320px, calc(100% - 24px));
         height: min(480px, 72dvh);
         max-height: calc(100dvh - 94px);
         min-height: min(260px, calc(100dvh - 94px));
-        max-width: calc(100vw - 24px);
+        max-width: calc(100% - 24px);
       }
 
       .authoring-bar {

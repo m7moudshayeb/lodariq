@@ -105,7 +105,7 @@ describe('local authoring panel (PRD §16.1)', () => {
     expect(iframeUrl.searchParams.get('lodariqFrame')).toBe('panel');
     expect(iframe?.getAttribute('slot')).toBe('authoring-frame');
     const styles = host?.shadowRoot?.querySelector('style')?.textContent ?? '';
-    expect(styles).toContain('width: min(700px, calc(100vw - 72px))');
+    expect(styles).toContain('width: min(700px, calc(100% - 72px))');
     expect(styles).toContain('height: min(620px, calc(100dvh - 94px))');
     expect(styles).toContain('height: min(480px, 72dvh)');
     expect(styles).toContain('.authoring-bar');
