@@ -970,10 +970,14 @@ test('local authoring and tour playback pass accessibility smoke checks', async 
   await expect(await documentJson(frame)).toBeVisible();
   await expect(frame.getByRole('button', { name: 'Preview full tour' })).toBeVisible();
   const editorHasHorizontalOverflow = await frame.locator('body').evaluate(() => {
-    const html = document.documentElement;
-    const body = document.body;
-    const viewportWidth = window.innerWidth;
-    return html.scrollWidth > viewportWidth + 1 || body.scrollWidth > viewportWidth + 1;
+    const roots = [document.documentElement, document.body];
+    return roots.some((root) => {
+      const before = root.scrollLeft;
+      root.scrollLeft = before + 64;
+      const scrolled = root.scrollLeft > before;
+      root.scrollLeft = before;
+      return scrolled;
+    });
   });
   expect(editorHasHorizontalOverflow).toBe(false);
   await expect(frame.getByRole('button', { name: 'Back', exact: true })).toBeVisible();
@@ -1047,20 +1051,21 @@ test('authoring stays modeless, draggable, and clamped inside the viewport', asy
   expect(mobile.host.left + mobile.host.width).toBeLessThanOrEqual(390 - 12);
   expect(mobile.host.top + mobile.host.height).toBeLessThanOrEqual(844 - 12);
   expect(mobile.bodyPaddingLeft).toBe('0px');
-  // Compare against innerWidth, not clientWidth: classic Linux scrollbars shrink
-  // clientWidth and make scrollWidth - clientWidth look like horizontal overflow.
+  // Classic Linux scrollbars make scrollWidth exceed clientWidth/innerWidth by the
+  // gutter even with no horizontal bleed. Probe whether the page can actually scroll.
   const mobileOverflow = await page.evaluate(() => {
-    const horizontalOverflow = (root: Element, viewportWidth: number) =>
-      Math.max(0, root.scrollWidth - viewportWidth);
+    const canScrollHorizontally = (root: Element) => {
+      const before = 'scrollLeft' in root ? (root as HTMLElement).scrollLeft : 0;
+      (root as HTMLElement).scrollLeft = before + 64;
+      const scrolled = (root as HTMLElement).scrollLeft > before;
+      (root as HTMLElement).scrollLeft = before;
+      return scrolled;
+    };
     const frame = document.querySelector<HTMLIFrameElement>('iframe[title="Lodariq authoring"]');
-    const frameWindow = frame?.contentWindow;
     const frameRoot = frame?.contentDocument?.documentElement;
     return {
-      frame:
-        frameRoot && frameWindow
-          ? horizontalOverflow(frameRoot, frameWindow.innerWidth)
-          : Number.NaN,
-      host: horizontalOverflow(document.documentElement, window.innerWidth),
+      frame: frameRoot ? Number(canScrollHorizontally(frameRoot)) : Number.NaN,
+      host: Number(canScrollHorizontally(document.documentElement)),
     };
   });
   expect(mobileOverflow).toEqual({ frame: 0, host: 0 });
