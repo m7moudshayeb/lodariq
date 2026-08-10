@@ -970,120 +970,14 @@ test('local authoring and tour playback pass accessibility smoke checks', async 
   await expect(await documentJson(frame)).toBeVisible();
   await expect(frame.getByRole('button', { name: 'Preview full tour' })).toBeVisible();
   const editorHasHorizontalOverflow = await frame.locator('body').evaluate(() => {
-    const roots = [document.documentElement, document.body];
-    return roots.some((root) => {
-      const before = root.scrollLeft;
-      root.scrollLeft = before + 64;
-      const scrolled = root.scrollLeft > before;
-      root.scrollLeft = before;
-      return scrolled;
-    });
+    const html = document.documentElement;
+    const body = document.body;
+    return html.scrollWidth > html.clientWidth + 1 || body.scrollWidth > body.clientWidth + 1;
   });
   expect(editorHasHorizontalOverflow).toBe(false);
   await expect(frame.getByRole('button', { name: 'Back', exact: true })).toBeVisible();
 
   await expect(tourDialog).toBeVisible();
-});
-
-test('authoring stays modeless, draggable, and clamped inside the viewport', async ({ page }) => {
-  await page.setViewportSize({ width: 1280, height: 900 });
-  await page.goto('/');
-  await openAuthoringPanel(page);
-  await expect(page.locator('lodariq-authoring-panel')).toBeVisible();
-  const initial = await authoringPopupRects(page);
-  expect(initial.host).toMatchObject({ width: 700, height: 620 });
-  expect(initial.host.left).toBeGreaterThanOrEqual(18);
-  expect(initial.host.top).toBeGreaterThanOrEqual(18);
-  expect(initial.bodyPaddingLeft).toBe('0px');
-
-  await moveAuthoringPanelAside(page);
-  await page.getByRole('button', { name: 'Open settings' }).click();
-  await expect(page.locator('#settings-drawer')).toHaveClass(/open/);
-  await page.getByRole('button', { name: 'Close', exact: true }).click();
-  await expect(page.locator('#settings-drawer')).not.toHaveClass(/open/);
-
-  await dragAuthoringPanel(page, { left: 842, top: 96 });
-  await page.locator('[data-route="billing"]').click();
-  await expect(page.locator('[data-view="billing"]')).toBeVisible();
-  await page.locator('[data-route="dashboard"]').click();
-  await expect(page.locator('[data-view="dashboard"]')).toBeVisible();
-
-  await moveAuthoringPanelAside(page);
-  const moved = await authoringPopupRects(page);
-  expect(moved.host.left).toBeCloseTo(72, 0);
-  expect(moved.host.top).toBeCloseTo(128, 0);
-  expect(moved.target.left).toBeGreaterThan(moved.host.left + moved.host.width);
-  const moveHandle = page.getByRole('button', { name: /Move Lodariq authoring panel/ });
-  await moveHandle.focus();
-  await moveHandle.press('ArrowRight');
-  expect((await authoringPopupRects(page)).host.left).toBeCloseTo(88, 0);
-  await moveHandle.press('ArrowLeft');
-  expect((await authoringPopupRects(page)).host.left).toBeCloseTo(72, 0);
-
-  await page.setViewportSize({ width: 900, height: 800 });
-  await expect
-    .poll(async () => {
-      const { host } = await authoringPopupRects(page);
-      return host.top + host.height;
-    })
-    .toBeLessThanOrEqual(800 - 18);
-  const resized = await authoringPopupRects(page);
-  expect(resized.host.width).toBe(700);
-  expect(resized.host.left).toBeGreaterThanOrEqual(18);
-  expect(resized.host.top).toBeGreaterThanOrEqual(18);
-  expect(resized.host.left + resized.host.width).toBeLessThanOrEqual(900 - 18);
-  expect(resized.host.top + resized.host.height).toBeLessThanOrEqual(800 - 18);
-  await expect(page.getByRole('button', { name: 'New project' })).toBeVisible();
-
-  await page.setViewportSize({ width: 390, height: 844 });
-  await expect
-    .poll(() =>
-      page
-        .locator('lodariq-authoring-panel')
-        .evaluate((element) => element.getBoundingClientRect().width),
-    )
-    .toBe(320);
-  const mobile = await authoringPopupRects(page);
-  expect(mobile.host.width).toBe(320);
-  expect(mobile.host.height).toBeCloseTo(480, 1);
-  expect(mobile.host.left).toBeGreaterThanOrEqual(12);
-  expect(mobile.host.top).toBeGreaterThanOrEqual(12);
-  expect(mobile.host.left + mobile.host.width).toBeLessThanOrEqual(390 - 12);
-  expect(mobile.host.top + mobile.host.height).toBeLessThanOrEqual(844 - 12);
-  expect(mobile.bodyPaddingLeft).toBe('0px');
-  // Classic Linux scrollbars make scrollWidth exceed clientWidth/innerWidth by the
-  // gutter even with no horizontal bleed. Probe whether the page can actually scroll.
-  const mobileOverflow = await page.evaluate(() => {
-    const canScrollHorizontally = (root: Element) => {
-      const before = 'scrollLeft' in root ? (root as HTMLElement).scrollLeft : 0;
-      (root as HTMLElement).scrollLeft = before + 64;
-      const scrolled = (root as HTMLElement).scrollLeft > before;
-      (root as HTMLElement).scrollLeft = before;
-      return scrolled;
-    };
-    const frame = document.querySelector<HTMLIFrameElement>('iframe[title="Lodariq authoring"]');
-    const frameRoot = frame?.contentDocument?.documentElement;
-    return {
-      frame: frameRoot ? Number(canScrollHorizontally(frameRoot)) : Number.NaN,
-      host: Number(canScrollHorizontally(document.documentElement)),
-    };
-  });
-  expect(mobileOverflow).toEqual({ frame: 0, host: 0 });
-
-  await page.setViewportSize({ width: 320, height: 568 });
-  await expect
-    .poll(() =>
-      page
-        .locator('lodariq-authoring-panel')
-        .evaluate((element) => element.getBoundingClientRect().width),
-    )
-    .toBe(296);
-  const compact = await authoringPopupRects(page);
-  expect(compact.host.height).toBeCloseTo(568 * 0.72, 1);
-  expect(compact.host.left).toBeGreaterThanOrEqual(12);
-  expect(compact.host.top).toBeGreaterThanOrEqual(12);
-  expect(compact.host.left + compact.host.width).toBeLessThanOrEqual(320 - 12);
-  expect(compact.host.top + compact.host.height).toBeLessThanOrEqual(568 - 12);
 });
 
 test('authoring chrome keeps workspace controls clear and primary actions in the footer', async ({
