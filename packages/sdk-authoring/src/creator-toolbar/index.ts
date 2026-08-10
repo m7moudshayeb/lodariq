@@ -288,7 +288,7 @@ const CREATOR_TOOLBAR_CSS = `
   right: calc(100% + 10px);
   z-index: 4;
   width: max-content;
-  max-width: min(220px, calc(100% - 96px));
+  max-width: min(220px, calc(100vw - 96px));
   border: 1px solid ${CREATOR_CHROME_TOKENS.border};
   border-radius: 8px;
   background: ${CREATOR_CHROME_TOKENS.surface};
@@ -335,7 +335,7 @@ const CREATOR_TOOLBAR_CSS = `
   right: ${LAUNCHER_SIZE + LAUNCHER_SURFACE_GAP}px;
   bottom: ${LAUNCHER_SIZE + 12}px;
   z-index: 3;
-  width: min(${LAUNCHER_SURFACE_WIDTH}px, calc(100% - 92px));
+  width: min(${LAUNCHER_SURFACE_WIDTH}px, calc(100vw - 92px));
   max-height: min(360px, calc(100dvh - 36px));
   overflow: auto;
   border: 1px solid ${CREATOR_CHROME_TOKENS.border};
