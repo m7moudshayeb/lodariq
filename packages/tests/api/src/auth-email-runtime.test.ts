@@ -11,8 +11,8 @@ describe('@lodariq/api auth email runtime', () => {
     expect(
       createAuthEmailRuntimeFromEnvironment(repository, {
         LODARIQ_EMAIL_DELIVERY_MODE: 'resend',
-        LODARIQ_APP_BASE_URL: 'https://app.lodariq.com',
-        LODARIQ_AUTH_EMAIL_FROM: 'Lodariq <access@lodariq.com>',
+        LODARIQ_APP_BASE_URL: 'https://app.lodariq.io',
+        LODARIQ_AUTH_EMAIL_FROM: 'Lodariq <access@lodariq.io>',
         LODARIQ_AUTH_EMAIL_TOKEN_SECRET: TOKEN_SECRET,
         RESEND_API_KEY: 're_abcdefghijklmnopqrstuvwxyz',
       })?.deliveryCapability,

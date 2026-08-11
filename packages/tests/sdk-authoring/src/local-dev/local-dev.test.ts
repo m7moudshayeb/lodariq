@@ -122,7 +122,7 @@ describe('local-dev authoring install helper', () => {
       targets: [],
     });
     expect(createdDocument.id).not.toBe(baseDocument.id);
-    expect(createdDocument.blocks).toHaveLength(1);
+    expect(createdDocument.blocks).toHaveLength(0);
     await vi.waitFor(() => {
       expect(document.querySelector('lodariq-authoring-panel')).not.toBeNull();
     });

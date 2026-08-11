@@ -68,11 +68,11 @@ describe('release recovery authoring bridge contracts', () => {
     ).toBe(true);
 
     const url =
-      'https://api.lodariq.com/v1/sdk/authoring/environments/:environmentId/release-recovery';
+      'https://api.lodariq.io/v1/sdk/authoring/environments/:environmentId/release-recovery';
     const descriptor = {
       releaseState: {
         capability: AUTHORING_SESSION_CAPABILITIES.READ_RELEASE_STATE,
-        url: 'https://api.lodariq.com/v1/sdk/authoring/release-state',
+        url: 'https://api.lodariq.io/v1/sdk/authoring/release-state',
       },
       recoveryState: {
         capability: AUTHORING_SESSION_CAPABILITIES.READ_RELEASE_STATE,
@@ -159,7 +159,7 @@ describe('release recovery authoring bridge contracts', () => {
 
     for (const extra of [
       { bearer: 'secret' },
-      { url: 'https://api.lodariq.com/private' },
+      { url: 'https://api.lodariq.io/private' },
       { compilerInput: { document: 'raw' } },
       { artifact: { bytes: 'raw' } },
     ]) {
@@ -189,7 +189,7 @@ describe('release recovery authoring bridge contracts', () => {
     expect(
       validate(BridgeMessage, {
         ...result,
-        result: { ...result.result, url: 'https://api.lodariq.com/private' },
+        result: { ...result.result, url: 'https://api.lodariq.io/private' },
       }).valid,
     ).toBe(false);
   });
@@ -206,7 +206,7 @@ describe('release recovery authoring bridge contracts', () => {
 
     for (const extra of [
       { bearer: 'secret' },
-      { url: 'https://api.lodariq.com/private' },
+      { url: 'https://api.lodariq.io/private' },
       { compiledArtifactId: artifact.compiledArtifactId },
       { compilerInput: { document: 'raw' } },
       { artifact },

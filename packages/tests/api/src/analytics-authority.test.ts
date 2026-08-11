@@ -26,7 +26,7 @@ describe('SDK analytics authority and environment isolation', () => {
     const seed = analyticsSeed();
     seed.documentDeployments = [];
     const repository = createInMemoryControlPlaneRepository(seed);
-    const app = createApiApp({ repository, publicApiBaseUrl: 'https://api.lodariq.com' });
+    const app = createApiApp({ repository, publicApiBaseUrl: 'https://api.lodariq.io' });
 
     const response = await app.inject({
       method: 'POST',
@@ -45,7 +45,7 @@ describe('SDK analytics authority and environment isolation', () => {
 
   it('derives identity from the token and current pointer, then keeps environments separate', async () => {
     const repository = createInMemoryControlPlaneRepository(analyticsSeed());
-    const app = createApiApp({ repository, publicApiBaseUrl: 'https://api.lodariq.com' });
+    const app = createApiApp({ repository, publicApiBaseUrl: 'https://api.lodariq.io' });
 
     const stagingPointer = await bootstrapPointer(app, STAGING_TOKEN, 'staging');
     expect(stagingPointer).toEqual({

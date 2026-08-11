@@ -103,7 +103,7 @@ describe('content-addressed hosted creator entry', () => {
     expect(handoffs).toHaveLength(1);
     expect(handoffs[0]).toMatchObject({
       activationGrant: ACTIVATION_GRANT,
-      apiOrigin: 'https://api.lodariq.com',
+      apiOrigin: 'https://api.lodariq.io',
       customerOrigin: window.location.origin,
       documentIntent: { kind: 'existing', documentId: tourDocument.id },
       editorOrigin: LODARIQ_EDITOR_ORIGIN,
@@ -589,7 +589,7 @@ async function loadRegisteredCreator(): Promise<HostedCreatorModule> {
 function activationInput(): HostedCreatorActivation {
   return {
     activationGrant: ACTIVATION_GRANT,
-    apiOrigin: 'https://api.lodariq.com',
+    apiOrigin: 'https://api.lodariq.io',
     context: activationContext(),
     documentIntent: { kind: 'existing', documentId: tourDocument.id },
   };

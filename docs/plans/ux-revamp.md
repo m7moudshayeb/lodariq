@@ -43,12 +43,13 @@ entry contract. The implementation has been aligned without undoing the Phase
   summaries, shows honest release/empty states, and can expand explicitly to
   workspace scope through `Browse all`. Selecting an item opens or restores it
   without a dashboard transition.
-- The one permanently installed SDK exposes the draggable creator launcher only
-  on an exact authoring-enabled development/staging origin. A browser extension,
+- The one permanently installed SDK keeps the draggable creator launcher hidden
+  on an exact authoring-enabled development/staging origin until the keyboard
+  toggle or dashboard entry reveals it. A browser extension,
   a second creator snippet, another open Lodariq tab, and a daily dashboard launch
   are not required. Production remains closed.
-- The hosted launcher keeps the canonical three stable actions in the same
-  order: `New`, `Experiences on this page`, and `Preview`. Each
+- The hosted launcher keeps the canonical four stable actions in the same
+  order: `New`, `Experiences on this page`, `Preview`, and `Hide Lodariq`. Each
   compact icon has an accessible name and a short hover/focus tooltip, and every
   target is at least 44 by 44 CSS pixels. Hover may reveal the launcher
   temporarily; click, tap, Enter, or Space pins it. Pointer leave and action
@@ -381,7 +382,8 @@ Purpose: no active experience is being edited.
 
 UI:
 
-- Minimized launcher exposes `New`, `Experiences on this page`, and `Preview`.
+- Once revealed, the minimized launcher exposes `New`, `Experiences on this
+page`, `Preview`, and `Hide Lodariq`.
 - No page dimming.
 - No selected placement.
 - No floating editor.

@@ -78,7 +78,7 @@ const publicArtifactManifest: ActiveManifestPointerV2 = {
     themeContractVersion: BRAND_THEME_CONTRACT_VERSION,
     themeVersionId: publicCompiledDoc.theme.themeVersionId,
     themeContentHash: publicCompiledDoc.theme.contentHash,
-    url: 'https://api.lodariq.com/v1/sdk/artifacts/public-compatible',
+    url: 'https://api.lodariq.io/v1/sdk/artifacts/public-compatible',
     integrity: `sha256-${'A'.repeat(43)}=`,
   },
 };
@@ -128,10 +128,10 @@ const publicBootstrapBase = {
 
 const availableAuthoring = {
   state: 'available' as const,
-  appOrigin: 'https://app.lodariq.com' as const,
-  activationUrl: 'https://app.lodariq.com/authoring/activate' as const,
-  authorizationRequestUrl: 'https://api.lodariq.com/v1/sdk/authoring/authorization-requests',
-  exchangeUrl: 'https://api.lodariq.com/v1/sdk/authoring/exchange',
+  appOrigin: 'https://app.lodariq.io' as const,
+  activationUrl: 'https://app.lodariq.io/authoring/activate' as const,
+  authorizationRequestUrl: 'https://api.lodariq.io/v1/sdk/authoring/authorization-requests',
+  exchangeUrl: 'https://api.lodariq.io/v1/sdk/authoring/exchange',
   bootstrapGrant: 'bootstrap-grant-'.padEnd(48, 'b'),
   bootstrapGrantExpiresAt: '2099-01-01T00:00:00.000Z',
 };
@@ -152,7 +152,7 @@ describe('loader config (PRD §6.2, §9.2)', () => {
     expect(readConfigFromScript(script)).toEqual({
       workspaceId: 'wk_live_xxx',
       environment: 'production',
-      manifestUrl: 'https://cdn.lodariq.com/workspaces/wk_live_xxx/production/manifest.json',
+      manifestUrl: 'https://cdn.lodariq.io/workspaces/wk_live_xxx/production/manifest.json',
     });
   });
 
@@ -199,13 +199,13 @@ describe('loader config (PRD §6.2, §9.2)', () => {
     const script = document.createElement('script');
     script.dataset['lodariqLoader'] = '';
     script.dataset['lodariqEnvironment'] = 'staging';
-    script.dataset['lodariqApi'] = 'https://api.lodariq.com';
+    script.dataset['lodariqApi'] = 'https://api.lodariq.io';
     script.dataset['lodariqToken'] = 'lod_staging_public_token';
     script.dataset['lodariqAuthoringSession'] = 'lod_authoring_session';
 
     expect(readConfigFromScript(script)).toEqual({
       environment: 'staging',
-      apiBaseUrl: 'https://api.lodariq.com',
+      apiBaseUrl: 'https://api.lodariq.io',
       clientToken: 'lod_staging_public_token',
       authoringSessionToken: 'lod_authoring_session',
     });
@@ -214,7 +214,7 @@ describe('loader config (PRD §6.2, §9.2)', () => {
   it('rejects partial dashboard SDK token config instead of guessing credentials', () => {
     const script = document.createElement('script');
     script.dataset['lodariqEnvironment'] = 'staging';
-    script.dataset['lodariqApi'] = 'https://api.lodariq.com';
+    script.dataset['lodariqApi'] = 'https://api.lodariq.io';
 
     expect(readConfigFromScript(script)).toBeNull();
   });
@@ -233,7 +233,7 @@ describe('loader config (PRD §6.2, §9.2)', () => {
     script.dataset['env'] = 'staging';
 
     expect(readConfigFromScript(script)?.manifestUrl).toBe(
-      'https://cdn.lodariq.com/workspaces/wk%20live%2Fxxx/staging/manifest.json',
+      'https://cdn.lodariq.io/workspaces/wk%20live%2Fxxx/staging/manifest.json',
     );
   });
 
@@ -479,6 +479,49 @@ describe('loader config (PRD §6.2, §9.2)', () => {
     );
   });
 
+  it('tracks an explicit tour skip separately from authored dismiss actions', async () => {
+    const tracked: string[] = [];
+    let skip: (() => void) | undefined;
+
+    class FakeRuntime extends LodariqRuntime {
+      override track(name: string): void {
+        tracked.push(name);
+      }
+    }
+
+    class FakeTourPlayer {
+      constructor(_document: CompiledDocument, options?: { onSkip?: () => void }) {
+        skip = options?.onSkip;
+      }
+
+      start(): void {}
+      stop(): void {}
+    }
+
+    const api = await installLodariq(
+      {
+        workspaceId: 'wk_local_dev',
+        environment: 'development',
+        manifestUrl: '/lodariq-local/manifest.json',
+      },
+      {
+        fetchManifest: async () => ({
+          documentId: compiledDoc.documentId,
+          currentVersion: 'local-preview',
+        }),
+        loadRuntime: async () => ({ LodariqRuntime: FakeRuntime }) as never,
+        loadTourRenderer: async () => ({ TourPlayer: FakeTourPlayer }) as never,
+      },
+    );
+
+    await api.playTour(compiledDoc);
+    skip?.();
+
+    expect(tracked).toContain('tour_started');
+    expect(tracked).toContain('tour_skipped');
+    expect(tracked).not.toContain('tour_dismissed');
+  });
+
   it('tracks only privacy-safe bucketed target-resolution fields', async () => {
     const trackedEvents: Array<{ name: string; props?: Record<string, unknown> }> = [];
 
@@ -552,8 +595,8 @@ describe('loader config (PRD §6.2, §9.2)', () => {
           documentId: 'doc_tour_welcome',
           currentVersion: 'sha256-live',
         },
-        currentDocumentUrl: 'https://api.lodariq.com/v1/sdk/current-document',
-        ingestUrl: 'https://api.lodariq.com/v1/sdk/events',
+        currentDocumentUrl: 'https://api.lodariq.io/v1/sdk/current-document',
+        ingestUrl: 'https://api.lodariq.io/v1/sdk/events',
         authoring: { enabled: false },
       }),
     });
@@ -561,13 +604,13 @@ describe('loader config (PRD §6.2, §9.2)', () => {
 
     const context = await fetchInstallContext({
       environment: 'staging',
-      apiBaseUrl: 'https://api.lodariq.com',
+      apiBaseUrl: 'https://api.lodariq.io',
       clientToken: 'lod_staging_token',
     });
 
     expect(context.workspaceId).toBe('wk_live');
     expect(fetch).toHaveBeenCalledWith(
-      new URL('/v1/sdk/bootstrap', 'https://api.lodariq.com'),
+      new URL('/v1/sdk/bootstrap', 'https://api.lodariq.io'),
       expect.objectContaining({
         method: 'POST',
         credentials: 'omit',
@@ -639,7 +682,7 @@ describe('loader config (PRD §6.2, §9.2)', () => {
         themeContractVersion: BRAND_THEME_CONTRACT_VERSION,
         themeVersionId: 'theme_version_123',
         themeContentHash: `sha256-${'a'.repeat(64)}`,
-        url: `https://api.lodariq.com/v1/sdk/workspaces/wk_public_delivery/environments/env_staging/documents/${documentId}/artifacts/sha256-${hashCharacter.repeat(64)}`,
+        url: `https://api.lodariq.io/v1/sdk/workspaces/wk_public_delivery/environments/env_staging/documents/${documentId}/artifacts/sha256-${hashCharacter.repeat(64)}`,
         integrity: `sha256-${'A'.repeat(43)}=`,
       },
     });
@@ -648,7 +691,7 @@ describe('loader config (PRD §6.2, §9.2)', () => {
       mode: 'document-scoped-v2',
       manifests: [manifest('doc_welcome', 'b'), manifest('doc_upgrade', 'c')],
       defaultDocumentId: 'doc_welcome',
-      ingestUrl: 'https://api.lodariq.com/v1/sdk/events',
+      ingestUrl: 'https://api.lodariq.io/v1/sdk/events',
     };
     const fetch = vi.fn().mockResolvedValue({
       ok: true,
@@ -724,7 +767,50 @@ describe('loader config (PRD §6.2, §9.2)', () => {
       runtime: null,
     });
     expect(installed?.launcher?.element.isConnected).toBe(true);
+    expect(installed?.launcher?.isVisible()).toBe(false);
+    document.dispatchEvent(
+      new KeyboardEvent('keydown', {
+        bubbles: true,
+        cancelable: true,
+        ctrlKey: true,
+        key: 'l',
+        shiftKey: true,
+      }),
+    );
+    expect(installed?.launcher?.isVisible()).toBe(true);
     expect(window.Lodariq).toBeUndefined();
+    installed?.destroy();
+    script.remove();
+  });
+
+  it('reveals the launcher from a dashboard entry intent and persists only session UI state', async () => {
+    const customerOrigin = 'https://staging.customer.example';
+    const href = `${customerOrigin}/projects?lodariq-launcher=show`;
+    vi.stubGlobal('location', { href, origin: customerOrigin });
+    const fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        ...publicBootstrapBase,
+        environment: 'staging',
+        authoring: availableAuthoring,
+      }),
+    });
+    vi.stubGlobal('fetch', fetch);
+    const script = document.createElement('script');
+    script.dataset['installation'] = publicInstallationId;
+    document.body.append(script);
+
+    const installed = await installPublicSdkFromScript({
+      pageIntent: { href, origin: customerOrigin },
+      script,
+    });
+
+    expect(installed?.launcher?.isVisible()).toBe(true);
+    expect(JSON.stringify(sessionStorage)).not.toMatch(/bootstrap|activation|grant|token/iu);
+    installed?.launcher?.hide();
+    expect(installed?.launcher?.isVisible()).toBe(false);
+    expect(sessionStorage.length).toBe(0);
+
     installed?.destroy();
     script.remove();
   });
@@ -746,13 +832,13 @@ describe('loader config (PRD §6.2, §9.2)', () => {
         popup.closed = true;
       }),
       postMessage: vi.fn((message: unknown, targetOrigin: string) => {
-        expect(targetOrigin).toBe('https://app.lodariq.com');
+        expect(targetOrigin).toBe('https://app.lodariq.io');
         if (!message || typeof message !== 'object') return;
         const request = message as Record<string, unknown>;
         window.dispatchEvent(
           new MessageEvent('message', {
             source: popup as unknown as Window,
-            origin: 'https://app.lodariq.com',
+            origin: 'https://app.lodariq.io',
             data: {
               protocol: 'lodariq.authoring.activation.v1',
               type: 'authoring.authorization.result',
@@ -765,9 +851,7 @@ describe('loader config (PRD §6.2, §9.2)', () => {
         );
       }),
     };
-    const open = vi
-      .spyOn(window, 'open')
-      .mockReturnValue(popup as unknown as WindowProxy);
+    const open = vi.spyOn(window, 'open').mockReturnValue(popup as unknown as WindowProxy);
 
     const fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
@@ -812,13 +896,13 @@ describe('loader config (PRD §6.2, §9.2)', () => {
               environmentId: 'env_staging',
               environment: 'staging',
               customerOrigin,
-              editorOrigin: 'https://editor.lodariq.com',
+              editorOrigin: 'https://editor.lodariq.io',
               creatorId: 'creator_permanent_loader',
               capabilities: ['documents:create', 'documents:list', 'documents:select'],
               expiresAt: futureDate,
             },
             creatorModule: {
-              url: `https://cdn.lodariq.com/sdk/sha256-${'0'.repeat(64)}/creator.js`,
+              url: `https://cdn.lodariq.io/sdk/sha256-${'0'.repeat(64)}/creator.js`,
               version: 'sha256-test',
               integrity: `sha256-${'A'.repeat(43)}=`,
             },
@@ -880,8 +964,8 @@ describe('loader config (PRD §6.2, §9.2)', () => {
             documentId: compiledDoc.documentId,
             currentVersion: compiledDoc.contentHash,
           },
-          currentDocumentUrl: 'https://api.lodariq.com/v1/sdk/current-document',
-          ingestUrl: 'https://api.lodariq.com/v1/sdk/events',
+          currentDocumentUrl: 'https://api.lodariq.io/v1/sdk/current-document',
+          ingestUrl: 'https://api.lodariq.io/v1/sdk/events',
         },
         authoring: availableAuthoring,
       }),
@@ -988,11 +1072,11 @@ describe('loader config (PRD §6.2, §9.2)', () => {
           documentId: 'doc_tour_welcome',
           currentVersion: 'sha256-live',
         },
-        currentDocumentUrl: 'https://api.lodariq.com/v1/sdk/current-document',
-        ingestUrl: 'https://api.lodariq.com/v1/sdk/events',
+        currentDocumentUrl: 'https://api.lodariq.io/v1/sdk/current-document',
+        ingestUrl: 'https://api.lodariq.io/v1/sdk/events',
         authoring: {
           enabled: true,
-          iframeSrc: 'https://editor.lodariq.com/authoring.html',
+          iframeSrc: 'https://editor.lodariq.io/authoring.html',
           sessionId: 'authsess_live',
           expiresAt: '2099-01-01T00:00:00.000Z',
         },
@@ -1002,7 +1086,7 @@ describe('loader config (PRD §6.2, §9.2)', () => {
 
     const context = await fetchInstallContext({
       environment: 'staging',
-      apiBaseUrl: 'https://api.lodariq.com',
+      apiBaseUrl: 'https://api.lodariq.io',
       clientToken: 'lod_staging_token',
       authoringSessionToken: 'lod_authoring_session',
     });
@@ -1012,7 +1096,7 @@ describe('loader config (PRD §6.2, §9.2)', () => {
       sessionId: 'authsess_live',
     });
     expect(fetch).toHaveBeenCalledWith(
-      new URL('/v1/sdk/bootstrap', 'https://api.lodariq.com'),
+      new URL('/v1/sdk/bootstrap', 'https://api.lodariq.io'),
       expect.objectContaining({
         headers: expect.objectContaining({
           authorization: 'Bearer lod_staging_token',
@@ -1036,8 +1120,8 @@ describe('loader config (PRD §6.2, §9.2)', () => {
               documentId: 'doc_tour_welcome',
               currentVersion: 'sha256-live',
             },
-            currentDocumentUrl: 'https://api.lodariq.com/v1/sdk/current-document',
-            ingestUrl: 'https://api.lodariq.com/v1/sdk/events',
+            currentDocumentUrl: 'https://api.lodariq.io/v1/sdk/current-document',
+            ingestUrl: 'https://api.lodariq.io/v1/sdk/events',
           }),
         } as Response;
       }
@@ -1061,7 +1145,7 @@ describe('loader config (PRD §6.2, §9.2)', () => {
     const api = await installLodariq(
       {
         environment: 'staging',
-        apiBaseUrl: 'https://api.lodariq.com',
+        apiBaseUrl: 'https://api.lodariq.io',
         clientToken: 'lod_staging_token',
       },
       {
@@ -1073,7 +1157,7 @@ describe('loader config (PRD §6.2, §9.2)', () => {
 
     expect(starts).toEqual(['doc_tour_welcome']);
     expect(fetch).toHaveBeenLastCalledWith(
-      'https://api.lodariq.com/v1/sdk/current-document',
+      'https://api.lodariq.io/v1/sdk/current-document',
       expect.objectContaining({
         credentials: 'omit',
         headers: { authorization: 'Bearer lod_staging_token' },
@@ -1092,7 +1176,7 @@ describe('loader config (PRD §6.2, §9.2)', () => {
     script.src = loaderUrl;
     script.dataset['lodariqLoader'] = '';
     script.dataset['lodariqEnvironment'] = 'staging';
-    script.dataset['lodariqApi'] = 'https://api.lodariq.com';
+    script.dataset['lodariqApi'] = 'https://api.lodariq.io';
     script.dataset['lodariqToken'] = 'lod_staging_public_token';
     document.body.appendChild(script);
 
@@ -1105,8 +1189,8 @@ describe('loader config (PRD §6.2, §9.2)', () => {
           documentId: 'doc_tour_welcome',
           currentVersion: 'sha256-live',
         },
-        currentDocumentUrl: 'https://api.lodariq.com/v1/sdk/current-document',
-        ingestUrl: 'https://api.lodariq.com/v1/sdk/events',
+        currentDocumentUrl: 'https://api.lodariq.io/v1/sdk/current-document',
+        ingestUrl: 'https://api.lodariq.io/v1/sdk/events',
         authoring: { enabled: false },
       }),
     });
@@ -1122,7 +1206,7 @@ describe('loader config (PRD §6.2, §9.2)', () => {
     });
     expect(window.Lodariq?.authoring.enabled).toBe(false);
     expect(fetch).toHaveBeenCalledWith(
-      new URL('/v1/sdk/bootstrap', 'https://api.lodariq.com'),
+      new URL('/v1/sdk/bootstrap', 'https://api.lodariq.io'),
       expect.objectContaining({
         headers: expect.objectContaining({
           authorization: 'Bearer lod_staging_public_token',
@@ -1213,7 +1297,7 @@ describe('loader config (PRD §6.2, §9.2)', () => {
             currentVersion: publicArtifactManifest.artifact.contentHash,
           },
           currentDocumentUrl: publicArtifactManifest.artifact.url,
-          ingestUrl: 'https://api.lodariq.com/v1/sdk/events',
+          ingestUrl: 'https://api.lodariq.io/v1/sdk/events',
           authoring: { enabled: false },
         }),
         loadRuntime: async () => ({ LodariqRuntime: CompatibilityRuntime }) as never,
@@ -1245,7 +1329,7 @@ describe('loader config (PRD §6.2, §9.2)', () => {
     const api = await installLodariq(
       {
         environment: 'staging',
-        apiBaseUrl: 'https://api.lodariq.com',
+        apiBaseUrl: 'https://api.lodariq.io',
         clientToken: 'lod_staging_public_token',
       },
       {
@@ -1256,8 +1340,8 @@ describe('loader config (PRD §6.2, §9.2)', () => {
             documentId: incompatibleArtifact.documentId,
             currentVersion: incompatibleArtifact.contentHash,
           },
-          currentDocumentUrl: 'https://api.lodariq.com/v1/sdk/current-document',
-          ingestUrl: 'https://api.lodariq.com/v1/sdk/events',
+          currentDocumentUrl: 'https://api.lodariq.io/v1/sdk/current-document',
+          ingestUrl: 'https://api.lodariq.io/v1/sdk/events',
           authoring: { enabled: false },
         }),
         loadCurrentTour: async () => incompatibleArtifact,
@@ -1277,7 +1361,7 @@ describe('loader config (PRD §6.2, §9.2)', () => {
     const api = await installLodariq(
       {
         environment: 'staging',
-        apiBaseUrl: 'https://api.lodariq.com',
+        apiBaseUrl: 'https://api.lodariq.io',
         clientToken: 'lod_staging_public_token',
       },
       {
@@ -1288,8 +1372,8 @@ describe('loader config (PRD §6.2, §9.2)', () => {
             documentId: 'doc_tour_welcome',
             currentVersion: 'sha256-live',
           },
-          currentDocumentUrl: 'https://api.lodariq.com/v1/sdk/current-document',
-          ingestUrl: 'https://api.lodariq.com/v1/sdk/events',
+          currentDocumentUrl: 'https://api.lodariq.io/v1/sdk/current-document',
+          ingestUrl: 'https://api.lodariq.io/v1/sdk/events',
           authoring: { enabled: false },
         }),
         loadCurrentTour: async () => {
@@ -1301,7 +1385,7 @@ describe('loader config (PRD §6.2, §9.2)', () => {
     await expect(api.playTour()).rejects.toThrow('Current document failed');
 
     expect(fetch).toHaveBeenCalledWith(
-      'https://api.lodariq.com/v1/sdk/events',
+      'https://api.lodariq.io/v1/sdk/events',
       expect.objectContaining({
         headers: expect.objectContaining({
           authorization: 'Bearer lod_staging_public_token',
@@ -1309,7 +1393,7 @@ describe('loader config (PRD §6.2, §9.2)', () => {
       }),
     );
     const eventCall = fetch.mock.calls.find(
-      ([url]) => url === 'https://api.lodariq.com/v1/sdk/events',
+      ([url]) => url === 'https://api.lodariq.io/v1/sdk/events',
     );
     const body = JSON.parse(eventCall?.[1]?.body as string) as {
       events: Array<{ name: string; documentId?: string; props?: Record<string, unknown> }>;
@@ -1535,7 +1619,7 @@ describe('loader config (PRD §6.2, §9.2)', () => {
     const api = await installLodariq(
       {
         environment: 'staging',
-        apiBaseUrl: 'https://api.lodariq.com',
+        apiBaseUrl: 'https://api.lodariq.io',
         clientToken: 'lod_staging_token',
       },
       {
@@ -1546,8 +1630,8 @@ describe('loader config (PRD §6.2, §9.2)', () => {
             documentId: 'doc_tour_welcome',
             currentVersion: 'sha256-live',
           },
-          currentDocumentUrl: 'https://api.lodariq.com/v1/sdk/current-document',
-          ingestUrl: 'https://api.lodariq.com/v1/sdk/events',
+          currentDocumentUrl: 'https://api.lodariq.io/v1/sdk/current-document',
+          ingestUrl: 'https://api.lodariq.io/v1/sdk/events',
           authoring: { enabled: false },
         }),
         openAuthoring: async (manifest) => {
@@ -1568,7 +1652,7 @@ describe('loader config (PRD §6.2, §9.2)', () => {
     const api = await installLodariq(
       {
         environment: 'staging',
-        apiBaseUrl: 'https://api.lodariq.com',
+        apiBaseUrl: 'https://api.lodariq.io',
         clientToken: 'lod_staging_token',
       },
       {
@@ -1579,11 +1663,11 @@ describe('loader config (PRD §6.2, §9.2)', () => {
             documentId: 'doc_tour_welcome',
             currentVersion: 'sha256-live',
           },
-          currentDocumentUrl: 'https://api.lodariq.com/v1/sdk/current-document',
-          ingestUrl: 'https://api.lodariq.com/v1/sdk/events',
+          currentDocumentUrl: 'https://api.lodariq.io/v1/sdk/current-document',
+          ingestUrl: 'https://api.lodariq.io/v1/sdk/events',
           authoring: {
             enabled: true,
-            iframeSrc: 'https://editor.lodariq.com/authoring.html',
+            iframeSrc: 'https://editor.lodariq.io/authoring.html',
           },
         }),
         openAuthoring: async (manifest, context) => {
@@ -1597,7 +1681,7 @@ describe('loader config (PRD §6.2, §9.2)', () => {
 
     expect(api.authoring).toEqual({
       enabled: true,
-      iframeSrc: 'https://editor.lodariq.com/authoring.html',
+      iframeSrc: 'https://editor.lodariq.io/authoring.html',
     });
 
     await api.openAuthoring();
@@ -1605,7 +1689,7 @@ describe('loader config (PRD §6.2, §9.2)', () => {
     expect(opened).toEqual([
       {
         documentId: 'doc_tour_welcome',
-        iframeSrc: 'https://editor.lodariq.com/authoring.html',
+        iframeSrc: 'https://editor.lodariq.io/authoring.html',
       },
     ]);
   });
@@ -1615,7 +1699,7 @@ describe('loader config (PRD §6.2, §9.2)', () => {
     const api = await installLodariq(
       {
         environment: 'production',
-        apiBaseUrl: 'https://api.lodariq.com',
+        apiBaseUrl: 'https://api.lodariq.io',
         clientToken: 'lod_production_token',
       },
       {
@@ -1626,11 +1710,11 @@ describe('loader config (PRD §6.2, §9.2)', () => {
             documentId: 'doc_tour_welcome',
             currentVersion: 'sha256-live',
           },
-          currentDocumentUrl: 'https://api.lodariq.com/v1/sdk/current-document',
-          ingestUrl: 'https://api.lodariq.com/v1/sdk/events',
+          currentDocumentUrl: 'https://api.lodariq.io/v1/sdk/current-document',
+          ingestUrl: 'https://api.lodariq.io/v1/sdk/events',
           authoring: {
             enabled: true,
-            iframeSrc: 'https://editor.lodariq.com/authoring.html',
+            iframeSrc: 'https://editor.lodariq.io/authoring.html',
           },
         }),
         openAuthoring: async (manifest) => {

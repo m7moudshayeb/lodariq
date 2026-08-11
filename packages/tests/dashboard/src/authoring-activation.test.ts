@@ -372,11 +372,11 @@ function sessionSnapshot(): Record<string, unknown> {
 }
 
 function jsonRequest(body: Record<string, unknown>): Request {
-  return new Request('https://app.lodariq.com/authoring/activate/request', {
+  return new Request('https://app.lodariq.io/authoring/activate/request', {
     method: 'POST',
     headers: {
       'content-type': 'application/json',
-      origin: 'https://app.lodariq.com',
+      origin: 'https://app.lodariq.io',
       'sec-fetch-site': 'same-origin',
     },
     body: JSON.stringify(body),

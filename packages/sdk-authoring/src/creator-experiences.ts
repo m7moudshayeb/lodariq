@@ -1,7 +1,6 @@
 import {
   DEFAULT_EXPERIENCE_APPEARANCE,
   type Environment,
-  type LodariqBlock,
   type LodariqDocument,
 } from '@lodariq/schema';
 
@@ -16,11 +15,11 @@ export interface CreateTourDraftInput {
   environment: Exclude<Environment, 'production'>;
   schemaVersion: string;
   title?: string;
+  /** @deprecated Fresh drafts are empty; block ids are allocated when the creator adds a step. */
   createBlockId?: () => string;
 }
 
 export function createTourDraft(input: CreateTourDraftInput): LodariqDocument {
-  const createBlockId = input.createBlockId ?? createLocalBlockId;
   return {
     id: input.documentId,
     workspaceId: input.workspaceId,
@@ -31,56 +30,9 @@ export function createTourDraft(input: CreateTourDraftInput): LodariqDocument {
     audience: { environments: [input.environment] },
     appearance: structuredClone(DEFAULT_EXPERIENCE_APPEARANCE),
     targets: [],
-    blocks: [createStartingStep(createBlockId)],
+    blocks: [],
     schemaVersion: input.schemaVersion,
   };
-}
-
-function createStartingStep(createBlockId: () => string): LodariqBlock {
-  return {
-    id: createBlockId(),
-    type: 'tourStep',
-    props: { index: 0 },
-    status: 'incomplete',
-    children: [
-      {
-        id: createBlockId(),
-        type: 'tooltip',
-        props: { placement: 'bottom' },
-        status: 'incomplete',
-        children: [
-          {
-            id: createBlockId(),
-            type: 'heading',
-            content: 'Introduce this feature',
-            props: { level: 2 },
-            status: 'ready',
-            children: [],
-          },
-          {
-            id: createBlockId(),
-            type: 'paragraph',
-            content: 'Explain what is useful here in one short sentence.',
-            props: {},
-            status: 'ready',
-            children: [],
-          },
-          {
-            id: createBlockId(),
-            type: 'button',
-            content: 'Continue',
-            props: { variant: 'primary', action: { type: 'next' } },
-            status: 'ready',
-            children: [],
-          },
-        ],
-      },
-    ],
-  };
-}
-
-function createLocalBlockId(): string {
-  return `blk_${createRandomId()}`;
 }
 
 export function createLocalExperienceId(): string {

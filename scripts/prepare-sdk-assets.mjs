@@ -11,7 +11,7 @@ const repoRoot = resolve(fileURLToPath(new URL('..', import.meta.url)));
 const outputPrefix = '/sdk/';
 const outputRoot = resolve(repoRoot, 'dist/sdk-assets/sdk');
 const creatorModuleCdnOrigin = canonicalCdnOrigin(
-  process.env.LODARIQ_CDN_ORIGIN ?? 'https://cdn.lodariq.com',
+  process.env.LODARIQ_CDN_ORIGIN ?? 'https://cdn.lodariq.io',
 );
 const creatorModuleSourceRoot = resolve(repoRoot, 'packages/sdk-authoring/dist');
 const creatorModuleSourceEntry = 'hosted-entry.js';

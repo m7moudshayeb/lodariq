@@ -1,7 +1,15 @@
 'use client';
 
 import * as React from 'react';
-import { Activity, CircleCheck, Crosshair, Eye, MousePointerClick, RefreshCw } from 'lucide-react';
+import {
+  Activity,
+  CircleCheck,
+  CircleX,
+  Crosshair,
+  Eye,
+  MousePointerClick,
+  RefreshCw,
+} from 'lucide-react';
 import type { AnalyticsEventAggregate, AnalyticsTargetResolutionStatus } from '@lodariq/schema';
 import { loadAnalyticsAggregatesAction } from '../app/analytics-actions';
 import { DASHBOARD_ANALYTICS_AGGREGATE_LIMIT } from '../lib/dashboard-constants';
@@ -25,6 +33,7 @@ const CANONICAL_ANALYTICS_EVENT_LABELS: Readonly<Record<string, string>> = {
   target_resolution: 'Target resolution',
   tour_completed: 'Tour completed',
   tour_dismissed: 'Tour dismissed',
+  tour_skipped: 'Tour skipped',
   tour_started: 'Tour started',
 };
 
@@ -44,6 +53,14 @@ const ANALYTICS_FACT_DEFINITIONS = [
     eventLabel: 'Tour dismissals',
     description: 'Exact tour_dismissed events emitted by the current runtime.',
     icon: MousePointerClick,
+  },
+  {
+    id: 'skip',
+    label: 'Skipped',
+    eventName: 'tour_skipped',
+    eventLabel: 'Tour skips',
+    description: 'Exact tour_skipped events emitted when visitors choose Skip tour.',
+    icon: CircleX,
   },
   {
     id: 'completion',

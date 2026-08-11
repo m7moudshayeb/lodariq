@@ -71,14 +71,14 @@ const availableActivation = {
   state: 'available' as const,
   appOrigin: LODARIQ_APP_ORIGIN,
   activationUrl: LODARIQ_AUTHORING_ACTIVATION_URL,
-  authorizationRequestUrl: 'https://api.lodariq.com/v1/sdk/authoring/authorization-requests',
-  exchangeUrl: 'https://api.lodariq.com/v1/sdk/authoring/exchange',
+  authorizationRequestUrl: 'https://api.lodariq.io/v1/sdk/authoring/authorization-requests',
+  exchangeUrl: 'https://api.lodariq.io/v1/sdk/authoring/exchange',
   bootstrapGrant: BOOTSTRAP_GRANT,
   bootstrapGrantExpiresAt: EXPIRES_AT,
 };
 
 const creatorModule = {
-  url: `https://cdn.lodariq.com/creator/sha256-${'a'.repeat(64)}/creator.js`,
+  url: `https://cdn.lodariq.io/creator/sha256-${'a'.repeat(64)}/creator.js`,
   version: '1.0.0',
   integrity: 'sha256-YWJjZA==',
 };
@@ -108,7 +108,7 @@ const activeManifest = (documentId: string, suffix: string) => ({
     themeContractVersion: BRAND_THEME_CONTRACT_VERSION,
     themeVersionId: 'theme_version_123',
     themeContentHash: `sha256-${'a'.repeat(64)}`,
-    url: `https://api.lodariq.com/v1/sdk/workspaces/workspace_123/environments/env_staging/documents/${documentId}/artifacts/sha256-${suffix.repeat(64)}`,
+    url: `https://api.lodariq.io/v1/sdk/workspaces/workspace_123/environments/env_staging/documents/${documentId}/artifacts/sha256-${suffix.repeat(64)}`,
     integrity: `sha256-${'A'.repeat(43)}=`,
   },
 });
@@ -207,8 +207,8 @@ describe('permanent SDK bootstrap activation contracts', () => {
             state: 'inactive',
             generation: 0,
           },
-          currentDocumentUrl: 'https://api.lodariq.com/v1/sdk/current-document',
-          ingestUrl: 'https://api.lodariq.com/v1/sdk/events',
+          currentDocumentUrl: 'https://api.lodariq.io/v1/sdk/current-document',
+          ingestUrl: 'https://api.lodariq.io/v1/sdk/events',
         },
         authoring: availableActivation,
       }).valid,
@@ -224,8 +224,8 @@ describe('permanent SDK bootstrap activation contracts', () => {
             documentId: 'document_123',
             currentVersion: `sha256-${'d'.repeat(64)}`,
           },
-          currentDocumentUrl: 'https://api.lodariq.com/v1/sdk/current-document',
-          ingestUrl: 'https://api.lodariq.com/v1/sdk/events',
+          currentDocumentUrl: 'https://api.lodariq.io/v1/sdk/current-document',
+          ingestUrl: 'https://api.lodariq.io/v1/sdk/events',
         },
         authoring: { state: 'disabled' },
       }).valid,
@@ -238,7 +238,7 @@ describe('permanent SDK bootstrap activation contracts', () => {
       mode: 'document-scoped-v2' as const,
       manifests: [activeManifest('document_welcome', 'b'), activeManifest('document_upgrade', 'c')],
       defaultDocumentId: 'document_welcome',
-      ingestUrl: 'https://api.lodariq.com/v1/sdk/events',
+      ingestUrl: 'https://api.lodariq.io/v1/sdk/events',
     };
 
     expect(validate(DocumentScopedSdkDeliveryDescriptor, delivery).valid).toBe(true);
@@ -253,7 +253,7 @@ describe('permanent SDK bootstrap activation contracts', () => {
     expect(
       validate(DocumentScopedSdkDeliveryDescriptor, {
         ...delivery,
-        currentDocumentUrl: 'https://api.lodariq.com/v1/sdk/current-document',
+        currentDocumentUrl: 'https://api.lodariq.io/v1/sdk/current-document',
       }).valid,
     ).toBe(false);
     expect(
@@ -303,7 +303,7 @@ describe('permanent SDK bootstrap activation contracts', () => {
     expect(
       validate(PublicSdkBootstrapContext, {
         ...production,
-        editorUrl: 'https://editor.lodariq.com',
+        editorUrl: 'https://editor.lodariq.io',
       }).valid,
     ).toBe(false);
   });
@@ -654,11 +654,11 @@ describe('legacy token-bootstrap compatibility', () => {
     const release = {
       releaseState: {
         capability: AUTHORING_SESSION_CAPABILITIES.READ_RELEASE_STATE,
-        url: 'https://api.lodariq.com/v1/sdk/authoring/release-state',
+        url: 'https://api.lodariq.io/v1/sdk/authoring/release-state',
       },
       stagingPublication: {
         capability: AUTHORING_SESSION_CAPABILITIES.PUBLISH_STAGING,
-        url: 'https://api.lodariq.com/v1/sdk/authoring/publications',
+        url: 'https://api.lodariq.io/v1/sdk/authoring/publications',
       },
     };
     expect(validate(SdkAuthoringReleaseDescriptor, release).valid).toBe(true);
@@ -711,8 +711,8 @@ describe('legacy token-bootstrap compatibility', () => {
           documentId: 'document_123',
           currentVersion: `sha256-${'d'.repeat(64)}`,
         },
-        currentDocumentUrl: 'https://api.lodariq.com/v1/sdk/current-document',
-        ingestUrl: 'https://api.lodariq.com/v1/sdk/events',
+        currentDocumentUrl: 'https://api.lodariq.io/v1/sdk/current-document',
+        ingestUrl: 'https://api.lodariq.io/v1/sdk/events',
         authoring: { enabled: false },
       }).valid,
     ).toBe(true);

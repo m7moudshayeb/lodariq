@@ -45,7 +45,7 @@ export function createApiApp(options: CreateApiAppOptions = {}): FastifyInstance
   const publicApiBaseUrl =
     options.publicApiBaseUrl ??
     process.env.LODARIQ_PUBLIC_API_BASE_URL ??
-    'https://api.lodariq.com';
+    'https://api.lodariq.io';
   const loaderSrc = options.loaderSrc ?? process.env.LODARIQ_LOADER_SRC;
   const publicLoaderSrc = options.publicLoaderSrc ?? process.env.LODARIQ_PUBLIC_LOADER_SRC;
   const creatorLoaderSrc =
@@ -57,7 +57,7 @@ export function createApiApp(options: CreateApiAppOptions = {}): FastifyInstance
   const authoringIframeSrc =
     options.authoringIframeSrc ??
     process.env.LODARIQ_AUTHORING_IFRAME_SRC ??
-    'https://editor.lodariq.com/authoring.html';
+    'https://editor.lodariq.io/authoring.html';
   const defaultWorkspaceId =
     options.defaultWorkspaceId ?? process.env.LODARIQ_DEV_WORKSPACE_ID ?? 'wk_local_dev';
   const defaultUserId =

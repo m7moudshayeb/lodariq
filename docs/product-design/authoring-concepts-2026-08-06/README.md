@@ -16,8 +16,10 @@ historical rather than the implementation shell target.
 ## Interaction Contract
 
 - The customer's live product is the primary workspace.
-- A one-time SDK installation exposes the draggable launcher only on configured
-  development/staging origins; first-party activation returns to the same page.
+- A one-time SDK installation makes the draggable launcher available only on
+  configured development/staging origins. It stays hidden until the keyboard
+  toggle or dashboard entry reveals it; first-party activation returns to the
+  same page.
 - The creator starts with an outcome, not a document type or block taxonomy.
 - Content is edited directly where the experience renders.
 - A sequence rail appears inside the draggable modeless popup only for genuinely
@@ -43,11 +45,11 @@ historical rather than the implementation shell target.
 The persistent full-width session bar and fixed dock depicted in the initial
 concept/implementation comparison are historical exploration, not the current
 hosted shell target. The canonical Phase 2 Slice 1 convergence uses one
-permanent SDK install, a direct draggable launcher in configured development and
-staging products, a first-party top-level auth popup with an exact-origin
+permanent SDK install, a hidden-by-default draggable launcher in configured
+development and staging products, a first-party top-level auth popup with an exact-origin
 single-use code exchange and scoped activation/document session, and the same
 modeless authoring popup and runtime overlay. The stable quick actions are
-`New`, `Experiences on this page`, and `Preview`; no browser extension or second
+`New`, `Experiences on this page`, `Preview`, and `Hide Lodariq`; no browser extension or second
 dashboard-installed creator snippet is part of the core workflow. The dashboard
 is setup/admin/support only.
 

@@ -32,7 +32,7 @@ explicitly sends to Lodariq.
 
 ```html
 <script
-  src="https://cdn.lodariq.com/loader/v1/lodariq-loader.js"
+  src="https://cdn.lodariq.io/loader/v1/lodariq-loader.js"
   data-installation="ins_pub_xxx"
   async
   crossorigin="anonymous"
@@ -74,13 +74,15 @@ theme data.
 
 ## 3. Enter Authoring from the Product
 
-On an authoring-enabled development or staging origin, use the small draggable
-Lodariq launcher in the customer product. Its stable actions stay in the same
-order:
+On an authoring-enabled development or staging origin, the SDK starts with no
+visible creator UI. Press `Ctrl/⌘ + Shift + L`, or use dashboard **Open in
+product**, to reveal the small draggable Lodariq launcher. Its stable actions
+stay in the same order:
 
 - `New`.
 - `Experiences on this page`.
 - `Preview`.
+- `Hide Lodariq`.
 
 Each compact icon has an accessible name, a short hover/focus tooltip, and a
 touch target of at least 44 by 44 CSS pixels. Hover may temporarily reveal the
@@ -164,7 +166,7 @@ collapses to a small movable instruction chip; the selected click is captured
 without firing the host product action. Escape cancels selection and restores
 the prior editing state.
 
-The launcher keeps only its three stable entry actions. Autosave recovery,
+The launcher keeps only its four stable actions. Autosave recovery,
 target repair, Brand readiness, the derived release action, and release history
 appear contextually when relevant instead of becoming permanent controls.
 

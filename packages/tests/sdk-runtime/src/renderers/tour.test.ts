@@ -410,9 +410,10 @@ describe('tour renderer (PRD §16.1)', () => {
     }
   });
 
-  it('keeps focus and click-to-continue bound to the real owner for a point anchor', async () => {
+  it('clicks the real owner and advances from a clickTarget tour button', async () => {
     const owner = document.querySelector<HTMLButtonElement>('[data-lodariq-id="new-project"]')!;
-    const focus = vi.spyOn(owner, 'focus');
+    const productClick = vi.fn();
+    owner.addEventListener('click', productClick);
     const player = new TourPlayer({
       ...compiledDoc,
       steps: [
@@ -423,7 +424,7 @@ describe('tour renderer (PRD §16.1)', () => {
             {
               id: 'button_click_target',
               type: 'button',
-              text: 'Focus product element',
+              text: 'Click product element',
               props: { action: { type: 'clickTarget' } },
             },
           ],
@@ -440,9 +441,7 @@ describe('tour renderer (PRD §16.1)', () => {
     document.querySelector('lodariq-tour')?.shadowRoot?.querySelector('button')?.click();
     await nextTask();
 
-    expect(focus).toHaveBeenCalledWith({ preventScroll: true });
-    owner.click();
-    await nextTask();
+    expect(productClick).toHaveBeenCalledOnce();
     expect(document.querySelector('lodariq-tour')?.shadowRoot?.textContent).toContain(
       'Owner clicked',
     );
@@ -1177,7 +1176,39 @@ describe('tour renderer (PRD §16.1)', () => {
       'mailto:support@example.com',
       '/settings',
     ]);
+    expect(links.map((link) => link.getAttribute('target'))).toEqual(['_blank', null, null]);
+    expect(links[0]?.getAttribute('rel')).toBe('noopener noreferrer');
     expect(links.every((link) => link.getAttribute('aria-disabled') !== 'true')).toBe(true);
+  });
+
+  it('opens external HTTPS actions in a protected new tab', () => {
+    const open = vi.spyOn(window, 'open').mockReturnValue(null);
+    const player = new TourPlayer({
+      ...compiledDoc,
+      steps: [
+        {
+          ...compiledDoc.steps[0]!,
+          body: [
+            {
+              id: 'button_external',
+              type: 'button',
+              text: 'Open docs',
+              props: { action: { type: 'openPage', url: 'www.google.com' } },
+            },
+          ],
+        },
+      ],
+    });
+
+    player.start();
+    document.querySelector('lodariq-tour')?.shadowRoot?.querySelector('button')?.click();
+
+    expect(open).toHaveBeenCalledWith(
+      'https://www.google.com/',
+      '_blank',
+      'noopener,noreferrer',
+    );
+    open.mockRestore();
   });
 
   it('goes back to the previous step from a back action', () => {
@@ -1270,6 +1301,32 @@ describe('tour renderer (PRD §16.1)', () => {
     document.querySelector('lodariq-tour')?.shadowRoot?.querySelector('button')?.click();
 
     expect(dismissed).toHaveBeenCalledOnce();
+    expect(completed).not.toHaveBeenCalled();
+    expect(document.querySelector('lodariq-tour')).toBeNull();
+  });
+
+  it('offers an explicit skip control and reports it separately from dismiss and completion', () => {
+    const completed = vi.fn();
+    const dismissed = vi.fn();
+    const skipped = vi.fn();
+    const player = new TourPlayer(compiledDoc, {
+      onComplete: completed,
+      onDismiss: dismissed,
+      onSkip: skipped,
+    });
+
+    player.start();
+    const root = document.querySelector('lodariq-tour')?.shadowRoot;
+    const skip = root?.querySelector<HTMLButtonElement>('.tour-skip');
+
+    expect(skip?.textContent).toBe('Skip tour');
+    expect(root?.querySelector('style')?.textContent).toContain(
+      '[data-lodariq-node-type="button"]',
+    );
+    skip?.click();
+
+    expect(skipped).toHaveBeenCalledOnce();
+    expect(dismissed).not.toHaveBeenCalled();
     expect(completed).not.toHaveBeenCalled();
     expect(document.querySelector('lodariq-tour')).toBeNull();
   });

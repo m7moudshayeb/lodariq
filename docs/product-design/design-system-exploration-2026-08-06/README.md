@@ -58,8 +58,10 @@ publication/verification evidence -> production` and the derived next
 ### In-product authoring hierarchy
 
 - Keep the customer product dominant, visible, scrollable, and clickable.
-- Use a small draggable launcher with three stable actions in this order:
-  **New experience**, **Experiences on this page**, and **Preview as user**.
+- Keep the small draggable launcher hidden on ordinary staging loads. Reveal it
+  with `Ctrl/⌘ + Shift + L` or dashboard **Open in product**, with four stable
+  actions in this order: **New experience**, **Experiences on this page**,
+  **Preview as user**, and **Hide Lodariq**.
 - Hover or focus may reveal the actions; click, tap, Enter, or Space pins them.
   Render them as compact icons with accessible names and short hover/focus
   tooltips. Every primary target is at least 44 by 44 CSS pixels. Pointer leave
@@ -86,8 +88,8 @@ implementation in code and the Slice 1 consolidated local milestone gate
 passes; same-viewport Design QA remains pending. The dashboard navigation
 defaults to the desktop icon rail and uses the mobile drawer described above;
 the static Editorial Air image's permanently expanded rail is illustrative rather than a
-requirement. Local and hosted creator modes implement the canonical three-action
-icon dock, a Tour-only type picker backed by distinct drafts, and an in-product
+requirement. The hosted creator mode implements the canonical four-action icon
+dock, a Tour-only type picker backed by distinct drafts, and an in-product
 page/workspace browser. The hosted two-action compatibility UI is no longer the
 primary path; schema-only future types remain absent.
 

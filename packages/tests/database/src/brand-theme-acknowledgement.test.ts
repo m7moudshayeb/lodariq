@@ -113,7 +113,7 @@ async function acknowledgementFixture(bindingPolicy: 'pinned' | 'workspace-curre
     documentId: document.id,
     correlationId: 'corr_ack',
     tokenHash: 'a'.repeat(64),
-    iframeSrc: 'https://editor.lodariq.com/authoring.html',
+    iframeSrc: 'https://editor.lodariq.io/authoring.html',
     expiresAt: '2099-01-01T00:00:00.000Z',
     actorUserId: 'user_a',
   });

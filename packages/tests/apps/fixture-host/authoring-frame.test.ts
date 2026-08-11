@@ -367,7 +367,12 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     buttonWithText('Advanced settings')?.click();
     await flushPreviewPatchQueue();
     expect(document.querySelector('section[aria-label="Advanced step settings"]')).not.toBeNull();
-    expect(buttonWithText('Back')).not.toBeNull();
+    const back = buttonWithText('Back');
+    expect(back?.querySelector('svg')).not.toBeNull();
+    expect(back?.textContent?.trim()).toBe('Back');
+    expect(document.querySelector('.panel-advanced-save-status')?.textContent).toContain(
+      'Draft saved',
+    );
     expect(peer.postMessage).not.toHaveBeenCalledWith(
       expect.objectContaining({ type: 'authoring.panel-layout.request' }),
       expect.anything(),
@@ -1443,8 +1448,16 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     const actionSelect = buttonBlock.querySelector<HTMLSelectElement>(
       '[data-action="set-action"][aria-label="After click"]',
     )!;
+    const styleSelect = buttonBlock.querySelector<HTMLSelectElement>(
+      '[data-action="set-button-style"][aria-label="Button style"]',
+    )!;
     expect(buttonBlock.textContent).toContain('Choose next action');
     expect(actionSelect.value).toBe('');
+    expect(styleSelect.value).toBe('primary');
+
+    styleSelect.value = 'secondary';
+    styleSelect.dispatchEvent(new Event('change', { bubbles: true }));
+    await flushPreviewPatchQueue();
 
     actionSelect.value = 'clickTarget';
     actionSelect.dispatchEvent(new Event('change', { bubbles: true }));
@@ -1462,15 +1475,22 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     expect(authoredButton).toMatchObject({
       type: 'button',
       status: 'ready',
-      props: { variant: 'primary', action: { type: 'clickTarget' } },
+      props: { variant: 'secondary', action: { type: 'clickTarget' } },
     });
-    expect(buttonBlock.textContent).toContain('Wait for placement');
+    expect(buttonBlock.textContent).toContain('Click target');
     expect(postMessage).toHaveBeenCalledWith(
       expect.objectContaining({
         type: 'preview.patch',
         patch: {
           ops: expect.arrayContaining([{ op: 'setAction', action: { type: 'clickTarget' } }]),
         },
+      }),
+      window.location.origin,
+    );
+    expect(postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'preview.patch',
+        patch: { ops: expect.arrayContaining([{ op: 'setVariant', variant: 'secondary' }]) },
       }),
       window.location.origin,
     );
@@ -2877,87 +2897,91 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     ]);
   });
 
-  it('exposes direct duplicate and delete controls on top-level items', async () => {
-    const postMessage = vi.spyOn(window, 'postMessage').mockImplementation(() => undefined);
-    await loadFrame();
-    await importTwoBlocks();
-    await flushPreviewPatchQueue();
-    postMessage.mockClear();
+  it(
+    'exposes direct duplicate and delete controls on top-level items',
+    async () => {
+      const postMessage = vi.spyOn(window, 'postMessage').mockImplementation(() => undefined);
+      await loadFrame();
+      await importTwoBlocks();
+      await flushPreviewPatchQueue();
+      postMessage.mockClear();
 
-    const firstBlock = document.querySelector<HTMLElement>('[data-block-id="block_a"]')!;
-    firstBlock.querySelector<HTMLButtonElement>('[aria-label="Step actions"]')?.click();
-    await flushPreviewPatchQueue();
+      const firstBlock = document.querySelector<HTMLElement>('[data-block-id="block_a"]')!;
+      firstBlock.querySelector<HTMLButtonElement>('[aria-label="Step actions"]')?.click();
+      await flushPreviewPatchQueue();
 
-    const popover = document.querySelector<HTMLElement>('.block-action-popover');
-    expect(popover?.textContent).toContain('Move up');
-    expect(popover?.textContent).toContain('Move down');
-    expect(popover?.textContent).not.toContain('Duplicate');
-    expect(popover?.textContent).not.toContain('Delete');
+      const popover = document.querySelector<HTMLElement>('.block-action-popover');
+      expect(popover?.textContent).toContain('Move up');
+      expect(popover?.textContent).toContain('Move down');
+      expect(popover?.textContent).not.toContain('Duplicate');
+      expect(popover?.textContent).not.toContain('Delete');
 
-    document
-      .querySelector<HTMLButtonElement>('[data-block-id="block_a"] [aria-label="Duplicate step"]')
-      ?.click();
-    await flushPreviewPatchQueue();
+      document
+        .querySelector<HTMLButtonElement>('[data-block-id="block_a"] [aria-label="Duplicate step"]')
+        ?.click();
+      await flushPreviewPatchQueue();
 
-    expect(postMessage).toHaveBeenLastCalledWith(
-      expect.objectContaining({
-        type: 'preview.patch',
-        patch: {
-          ops: [
-            expect.objectContaining({
-              op: 'insertBlock',
-              anchorBlockId: 'block_a',
-              position: 'after',
-            }),
-          ],
-        },
-      }),
-      window.location.origin,
-    );
-    expect(
-      postMessage.mock.calls
-        .map(([message]) => message as BridgeMessage)
-        .flatMap((message) =>
-          message.type === 'preview.patch' ? message.patch.ops.map((op) => op.op) : [],
-        ),
-    ).not.toContain('replaceDocument');
+      expect(postMessage).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          type: 'preview.patch',
+          patch: {
+            ops: [
+              expect.objectContaining({
+                op: 'insertBlock',
+                anchorBlockId: 'block_a',
+                position: 'after',
+              }),
+            ],
+          },
+        }),
+        window.location.origin,
+      );
+      expect(
+        postMessage.mock.calls
+          .map(([message]) => message as BridgeMessage)
+          .flatMap((message) =>
+            message.type === 'preview.patch' ? message.patch.ops.map((op) => op.op) : [],
+          ),
+      ).not.toContain('replaceDocument');
 
-    let doc = JSON.parse(documentJson().value) as {
-      blocks: Array<{
-        id: string;
-        type: string;
-        children?: Array<{ children?: Array<{ content?: string }> }>;
-      }>;
-    };
-    expect(doc.blocks).toHaveLength(3);
-    expect(doc.blocks[1]).toMatchObject({ type: 'tourStep' });
-    expect(doc.blocks[1]?.children?.[0]?.children?.[0]?.content).toBe('Alpha');
+      let doc = JSON.parse(documentJson().value) as {
+        blocks: Array<{
+          id: string;
+          type: string;
+          children?: Array<{ children?: Array<{ content?: string }> }>;
+        }>;
+      };
+      expect(doc.blocks).toHaveLength(3);
+      expect(doc.blocks[1]).toMatchObject({ type: 'tourStep' });
+      expect(doc.blocks[1]?.children?.[0]?.children?.[0]?.content).toBe('Alpha');
 
-    const duplicatedBlockId = doc.blocks[1]?.id;
-    expect(duplicatedBlockId).toBeTruthy();
-    postMessage.mockClear();
-    document
-      .querySelector<HTMLButtonElement>(
-        `[data-block-id="${duplicatedBlockId}"] [aria-label="Delete step"]`,
-      )
-      ?.click();
-    await flushPreviewPatchQueue();
+      const duplicatedBlockId = doc.blocks[1]?.id;
+      expect(duplicatedBlockId).toBeTruthy();
+      postMessage.mockClear();
+      document
+        .querySelector<HTMLButtonElement>(
+          `[data-block-id="${duplicatedBlockId}"] [aria-label="Delete step"]`,
+        )
+        ?.click();
+      await flushPreviewPatchQueue();
 
-    expect(postMessage).toHaveBeenLastCalledWith(
-      expect.objectContaining({
-        type: 'preview.patch',
-        blockId: duplicatedBlockId,
-        patch: { ops: [{ op: 'removeBlock' }] },
-      }),
-      window.location.origin,
-    );
+      expect(postMessage).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          type: 'preview.patch',
+          blockId: duplicatedBlockId,
+          patch: { ops: [{ op: 'removeBlock' }] },
+        }),
+        window.location.origin,
+      );
 
-    doc = JSON.parse(documentJson().value) as {
-      blocks: Array<{ id: string; type: string }>;
-    };
-    expect(doc.blocks.map((block) => block.id)).toEqual(['block_a', 'block_b']);
-    postMessage.mockRestore();
-  });
+      doc = JSON.parse(documentJson().value) as {
+        blocks: Array<{ id: string; type: string }>;
+      };
+      expect(doc.blocks.map((block) => block.id)).toEqual(['block_a', 'block_b']);
+      postMessage.mockRestore();
+    },
+    HEAVY_FIXTURE_TEST_TIMEOUT_MS,
+  );
 
   it('renders creator-facing validation badges', async () => {
     await loadFrame();

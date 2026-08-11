@@ -126,7 +126,7 @@ describe('rollback and unpublish contracts', () => {
       ' pub_prior_1',
       'pub_prior_1 ',
       'pub prior 1',
-      'https://lodariq.com/publications/1',
+      'https://lodariq.io/publications/1',
       'pub/prior/1',
       'pub\nprior',
       'pub\u0000prior',

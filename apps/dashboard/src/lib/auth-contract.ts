@@ -111,8 +111,8 @@ export function safeReturnTo(value: string | string[] | undefined, fallback = '/
   if (!candidate || !candidate.startsWith('/') || candidate.startsWith('//')) return fallback;
 
   try {
-    const url = new URL(candidate, 'https://app.lodariq.com');
-    return url.origin === 'https://app.lodariq.com' && DASHBOARD_RETURN_TO_PATHS.has(url.pathname)
+    const url = new URL(candidate, 'https://app.lodariq.io');
+    return url.origin === 'https://app.lodariq.io' && DASHBOARD_RETURN_TO_PATHS.has(url.pathname)
       ? `${url.pathname}${url.search}${url.hash}`
       : fallback;
   } catch {

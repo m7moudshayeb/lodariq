@@ -75,7 +75,7 @@ function validDashboardEnv(overrides: Record<string, string> = {}): Record<strin
   return {
     NODE_ENV: 'production',
     LODARIQ_AUTH_MODE: 'lodariq',
-    LODARIQ_API_BASE_URL: 'https://api.lodariq.com',
+    LODARIQ_API_BASE_URL: 'https://api.lodariq.io',
     LODARIQ_AUTH_BFF_SOURCE_SECRET: 'dashboard-bff-source-secret-32-bytes-minimum',
     LODARIQ_PUBLIC_SIGNUP_MODE: 'disabled',
     LODARIQ_PASSWORD_RECOVERY_MODE: 'disabled',

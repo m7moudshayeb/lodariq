@@ -27,6 +27,10 @@ export default defineConfig({
         replacement: fromRoot('packages/schema/src/hosted-creator.ts'),
       },
       {
+        find: /^@lodariq\/schema\/authoring-entry-runtime$/,
+        replacement: fromRoot('packages/schema/src/authoring-entry-runtime.ts'),
+      },
+      {
         find: /^@lodariq\/schema$/,
         replacement: fromRoot('packages/schema/src/index.ts'),
       },

@@ -539,7 +539,7 @@ async function createScratchWorkspace(sql, workspaceId, environmentId, tokenHash
           ${workspaceId},
           'staging',
           'Live RLS staging',
-          '["https://staging.lodariq.com"]'::jsonb,
+          '["https://staging.lodariq.io"]'::jsonb,
           0,
           1,
           true,

@@ -159,9 +159,7 @@ describe('local authoring panel (PRD §16.1)', () => {
     expect(resizeIcon?.tagName.toLowerCase()).toBe('svg');
     expect(resizeIcon?.getAttribute('viewBox')).toBe('0 0 18 18');
     expect(resizeIcon?.querySelectorAll('path')).toHaveLength(1);
-    expect(resizePath?.getAttribute('d')).toBe(
-      'M3.5 15.5 15.5 3.5M8.5 15.5l7-7M13.5 15.5l2-2',
-    );
+    expect(resizePath?.getAttribute('d')).toBe('M3.5 15.5 15.5 3.5M8.5 15.5l7-7M13.5 15.5l2-2');
     expect(resizePath?.getAttribute('d')?.match(/M/g)).toHaveLength(3);
     expect(host?.shadowRoot?.querySelector('[data-panel-icon="resize"]')).toBeNull();
     expect(host?.shadowRoot?.querySelector('[data-panel-icon="maximize"]')).toBeNull();
@@ -324,9 +322,8 @@ describe('local authoring panel (PRD §16.1)', () => {
     const zoomButton = host?.shadowRoot?.querySelector<HTMLButtonElement>(
       '[data-panel-action="zoom"]',
     );
-    const zoom62Button = host?.shadowRoot?.querySelector<HTMLButtonElement>(
-      '[data-panel-zoom="62"]',
-    );
+    const zoom62Button =
+      host?.shadowRoot?.querySelector<HTMLButtonElement>('[data-panel-zoom="62"]');
     if (
       !host ||
       !layoutButton ||
@@ -737,6 +734,42 @@ describe('local authoring panel (PRD §16.1)', () => {
       expect.objectContaining({ steps: [expect.objectContaining({ id: 'step_1' })] }),
       expect.objectContaining({ stepId: 'step_1' }),
     );
+
+    panel.close();
+  });
+
+  it('does not launch an empty popup for a fresh experience', async () => {
+    const emptyDocument = { ...structuredClone(baseDocument), blocks: [] };
+    const compilePreview = vi.fn();
+    const playPreview = vi.fn(() => Promise.resolve());
+    const peer = { postMessage: vi.fn() } as unknown as Window;
+    const panel = openLocalAuthoringPanel(
+      {
+        sessionId: LOCAL_AUTHORING_SESSION_ID,
+        documentId: emptyDocument.id,
+        workspaceId: emptyDocument.workspaceId,
+        environment: 'development',
+      },
+      {
+        autoPreview: true,
+        iframeSrc: '/lodariq-local/authoring.html',
+        initialDocument: emptyDocument,
+        preview: {
+          loadDocument: () => structuredClone(emptyDocument),
+          compilePreview,
+          playPreview,
+        },
+      },
+    );
+
+    const iframe = document.querySelector('lodariq-authoring-panel iframe');
+    if (!iframe) throw new Error('iframe missing');
+    Object.defineProperty(iframe, 'contentWindow', { value: peer, configurable: true });
+    iframe.dispatchEvent(new Event('load'));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(compilePreview).not.toHaveBeenCalled();
+    expect(playPreview).not.toHaveBeenCalled();
 
     panel.close();
   });
@@ -1553,7 +1586,7 @@ describe('local authoring panel (PRD §16.1)', () => {
         workspaceId: 'wk_local_dev',
         environment: 'development',
       },
-      { iframeSrc: 'https://editor.lodariq.com/authoring.html' },
+      { iframeSrc: 'https://editor.lodariq.io/authoring.html' },
     );
 
     const host = document.querySelector('lodariq-authoring-panel');
@@ -1573,14 +1606,14 @@ describe('local authoring panel (PRD §16.1)', () => {
           type: 'target.pick.start',
           blockId: 'block_1',
         },
-        origin: 'https://editor.lodariq.com',
+        origin: 'https://editor.lodariq.io',
         source: peer,
       }),
     );
 
     expect(peer.postMessage).toHaveBeenCalledWith(
       expect.objectContaining({ type: 'ack', ackOf: 'target_pick_start_1' }),
-      'https://editor.lodariq.com',
+      'https://editor.lodariq.io',
     );
 
     panel.close();

@@ -4,10 +4,7 @@ import * as React from 'react';
 import { act, createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type {
-  AnalyticsEventAggregate,
-  AnalyticsTargetResolutionStatus,
-} from '@lodariq/schema';
+import type { AnalyticsEventAggregate, AnalyticsTargetResolutionStatus } from '@lodariq/schema';
 
 const mocks = vi.hoisted(() => ({
   loadAnalyticsAggregatesAction: vi.fn(),
@@ -64,11 +61,15 @@ describe('@lodariq/dashboard analytics reporting UI', () => {
     expect(tabByEnvironment(tablist, 'Production').getAttribute('aria-pressed')).toBe('true');
     expect(tabByEnvironment(tablist, 'Staging').getAttribute('aria-pressed')).toBe('false');
     expect(
-      requiredElement(mounted.container, '[role="region"][aria-label="Production analytics results"]'),
+      requiredElement(
+        mounted.container,
+        '[role="region"][aria-label="Production analytics results"]',
+      ),
     ).toBeTruthy();
     expect(mounted.container.textContent).toContain('Production only');
     expect(mounted.container.textContent).toContain('8Tour starts');
     expect(mounted.container.textContent).toContain('2Tour dismissals');
+    expect(mounted.container.textContent).toContain('3Tour skips');
     expect(mounted.container.textContent).toContain('4Tour completions');
     expect(mounted.container.textContent).toContain('1SDK errors');
     expect(mounted.container.textContent).toContain('9Target failures');
@@ -130,7 +131,8 @@ describe('@lodariq/dashboard analytics reporting UI', () => {
   });
 
   it('ignores a late production response after staging becomes the selected scope', async () => {
-    let resolveProductionRefresh: ((value: ReturnType<typeof analyticsSuccess>) => void) | undefined;
+    let resolveProductionRefresh:
+      ((value: ReturnType<typeof analyticsSuccess>) => void) | undefined;
     const productionRefresh = new Promise<ReturnType<typeof analyticsSuccess>>((resolve) => {
       resolveProductionRefresh = resolve;
     });
@@ -166,9 +168,7 @@ describe('@lodariq/dashboard analytics reporting UI', () => {
     );
     const mounted = await mount(
       createElement(AnalyticsPanel, {
-        environments: [
-          { id: STAGING_ID, kind: 'staging', name: 'Staging', enabled: true },
-        ],
+        environments: [{ id: STAGING_ID, kind: 'staging', name: 'Staging', enabled: true }],
       }),
     );
 
@@ -285,9 +285,11 @@ async function waitForPublication(container: HTMLElement, publicationId: string)
 }
 
 function tabByEnvironment(root: ParentNode, label: 'Staging' | 'Production'): HTMLButtonElement {
-  const button = [...root.querySelectorAll<HTMLButtonElement>('button[aria-controls="analytics-environment-results"]')].find(
-    (candidate) => candidate.textContent?.startsWith(label),
-  );
+  const button = [
+    ...root.querySelectorAll<HTMLButtonElement>(
+      'button[aria-controls="analytics-environment-results"]',
+    ),
+  ].find((candidate) => candidate.textContent?.startsWith(label));
   if (!button) throw new Error(`Analytics environment tab not found: ${label}`);
   return button;
 }
@@ -311,8 +313,7 @@ function analyticsSuccess(environmentId: string) {
     status: 'success' as const,
     environmentId,
     response: {
-      aggregates:
-        environmentId === PRODUCTION_ID ? productionAggregates() : stagingAggregates(),
+      aggregates: environmentId === PRODUCTION_ID ? productionAggregates() : stagingAggregates(),
     },
   };
 }
@@ -327,6 +328,7 @@ function productionAggregates(): AnalyticsEventAggregate[] {
       count: 3,
     }),
     aggregate({ name: 'tour_dismissed', count: 2 }),
+    aggregate({ name: 'tour_skipped', count: 3 }),
     aggregate({ name: 'tour_completed', count: 4 }),
     targetAggregate('ambiguous', { count: 2 }),
     targetAggregate('missing', {
@@ -380,9 +382,7 @@ function targetAggregate(
   } as AnalyticsEventAggregate;
 }
 
-function aggregate(
-  overrides: Partial<AnalyticsEventAggregate> = {},
-): AnalyticsEventAggregate {
+function aggregate(overrides: Partial<AnalyticsEventAggregate> = {}): AnalyticsEventAggregate {
   return {
     workspaceId: 'wk.analytics:dashboard',
     environmentId: PRODUCTION_ID,

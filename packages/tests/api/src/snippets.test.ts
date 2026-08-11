@@ -7,18 +7,18 @@ describe('public SDK installation snippet', () => {
       installationId: 'ins_pub_application_1234',
     });
 
-    expect(snippet).toContain('src="https://cdn.lodariq.com/sdk/lodariq-public-bootstrap.js"');
+    expect(snippet).toContain('src="https://cdn.lodariq.io/sdk/lodariq-public-bootstrap.js"');
     expect(snippet).not.toContain('data-lodariq-environment');
   });
 
   it('contains only the revocable public installation identity', () => {
     const snippet = renderPublicSdkInstallationSnippet({
       installationId: 'ins_pub_workspace',
-      loaderSrc: 'https://cdn.lodariq.com/loader/v1/lodariq-loader.js',
+      loaderSrc: 'https://cdn.lodariq.io/loader/v1/lodariq-loader.js',
     });
 
     expect(snippet).toContain('data-installation="ins_pub_workspace"');
-    expect(snippet).toContain('src="https://cdn.lodariq.com/loader/v1/lodariq-loader.js"');
+    expect(snippet).toContain('src="https://cdn.lodariq.io/loader/v1/lodariq-loader.js"');
     expect(snippet).not.toContain('data-lodariq-environment');
     expect(snippet).not.toContain('data-lodariq-token');
     expect(snippet).not.toContain('data-lodariq-authoring-session');

@@ -99,7 +99,7 @@ declare global {
   }
 }
 
-const DEFAULT_CDN_ORIGIN = 'https://cdn.lodariq.com';
+const DEFAULT_CDN_ORIGIN = 'https://cdn.lodariq.io';
 const ENVIRONMENTS = new Set<LoaderConfig['environment']>(['development', 'staging', 'production']);
 const AUTO_INSTALL_ATTRIBUTE = 'data-lodariq-installed';
 
@@ -287,9 +287,10 @@ export async function installLodariq(
       if (requestId !== tourRequestId) return;
       assertCompiledDocument(candidate);
       const tour = candidate;
-      playbackManifest = options.resolveManifestForDocument?.(tour.documentId) ?? manifest;
+      const documentId = tour.documentId;
+      playbackManifest = options.resolveManifestForDocument?.(documentId) ?? manifest;
       if ('artifactSchemaVersion' in tour || 'rendererContractVersion' in tour || 'theme' in tour) {
-        const artifactManifest = options.resolveArtifactManifestForDocument?.(tour.documentId);
+        const artifactManifest = options.resolveArtifactManifestForDocument?.(documentId);
         const { assertPlaybackArtifact } = await import('./artifact-validation');
         assertPlaybackArtifact(tour, Boolean(options.publicInstallationId), artifactManifest);
       }
@@ -301,22 +302,24 @@ export async function installLodariq(
         onBeforeStepChange: (_index, step) => runtime.writeTourResume(playbackManifest, tour, step),
         onStepChange: (_index, step) => runtime.writeTourResume(playbackManifest, tour, step),
         onTargetResolution: (step, result) => {
-          runtime.trackTargetResolution(tour.documentId, step.id, step.targetId, result);
+          runtime.trackTargetResolution(documentId, step.id, step.targetId, result);
           playbackOptions.onTargetResolution?.(step, result);
         },
         onComplete: () => {
-          if (activeTour === player) activeTour = null;
-          runtime.clearTourResume();
-          runtime.track('tour_completed', { documentId: tour.documentId });
+          activeTour = null;
+          runtime.endTour('tour_completed', documentId);
         },
         onDismiss: () => {
-          if (activeTour === player) activeTour = null;
-          runtime.clearTourResume();
-          runtime.track('tour_dismissed', { documentId: tour.documentId });
+          activeTour = null;
+          runtime.endTour('tour_dismissed', documentId);
+        },
+        onSkip: () => {
+          activeTour = null;
+          runtime.endTour('tour_skipped', documentId);
         },
       });
       activeTour = player;
-      runtime.track('tour_started', { documentId: tour.documentId });
+      runtime.track('tour_started', { documentId });
       player.start();
     } catch (error) {
       if (isArtifactCompatibilityError(error)) throw error;

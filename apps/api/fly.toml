@@ -15,11 +15,11 @@ primary_region = "fra"
   LODARIQ_PASSWORD_HASH_MAX_ACTIVE = "1"
   LODARIQ_PASSWORD_HASH_MAX_QUEUED = "8"
   LODARIQ_PASSWORD_HASH_QUEUE_TIMEOUT_MS = "2000"
-  LODARIQ_PUBLIC_API_BASE_URL = "https://api.lodariq.com"
-  LODARIQ_LOADER_SRC = "https://cdn.lodariq.com/sdk/lodariq-loader.js"
-  LODARIQ_PUBLIC_LOADER_SRC = "https://cdn.lodariq.com/sdk/lodariq-public-bootstrap.js"
-  LODARIQ_CREATOR_LOADER_SRC = "https://cdn.lodariq.com/sdk/lodariq-creator.js"
-  LODARIQ_AUTHORING_IFRAME_SRC = "https://editor.lodariq.com/authoring.html"
+  LODARIQ_PUBLIC_API_BASE_URL = "https://api.lodariq.io"
+  LODARIQ_LOADER_SRC = "https://cdn.lodariq.io/sdk/lodariq-loader.js"
+  LODARIQ_PUBLIC_LOADER_SRC = "https://cdn.lodariq.io/sdk/lodariq-public-bootstrap.js"
+  LODARIQ_CREATOR_LOADER_SRC = "https://cdn.lodariq.io/sdk/lodariq-creator.js"
+  LODARIQ_AUTHORING_IFRAME_SRC = "https://editor.lodariq.io/authoring.html"
 
 [http_service]
   internal_port = 3001

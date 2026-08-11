@@ -43,6 +43,10 @@
       "types": "./dist/hosted-creator.d.ts",
       "import": "./dist/hosted-creator.js"
     },
+    "./authoring-entry-runtime": {
+      "types": "./dist/authoring-entry-runtime.d.ts",
+      "import": "./dist/authoring-entry-runtime.js"
+    },
     "./events-runtime": {
       "types": "./dist/events-runtime.d.ts",
       "import": "./dist/events-runtime.js"

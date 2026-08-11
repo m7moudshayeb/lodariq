@@ -37,6 +37,7 @@ export interface TourRendererModule {
       onBeforeStepChange?: (index: number, step: CompiledDocument['steps'][number]) => void;
       onComplete?: () => void;
       onDismiss?: () => void;
+      onSkip?: () => void;
       onStepChange?: (index: number, step: CompiledDocument['steps'][number]) => void;
     },
   ) => TourPlayerLike;

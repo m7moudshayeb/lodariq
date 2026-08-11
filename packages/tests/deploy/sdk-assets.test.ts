@@ -48,7 +48,7 @@ describe('SDK CDN asset packaging', () => {
 
     const creatorModuleUrl = new URL(manifest.creatorModule.url);
     const creatorModuleFile = files.get(creatorModuleUrl.pathname);
-    expect(creatorModuleUrl.origin).toBe('https://cdn.lodariq.com');
+    expect(creatorModuleUrl.origin).toBe('https://cdn.lodariq.io');
     expect(creatorModuleUrl.pathname).toMatch(/^\/sdk\/sha256-[a-f0-9]{64}\/creator\.js$/u);
     const creatorModulePathSegments = creatorModuleUrl.pathname.split('/');
     expect(manifest.creatorModule.version).toBe(
@@ -100,7 +100,7 @@ describe('SDK CDN asset packaging', () => {
   it('creates a verified existing-bucket upload plan for the selected exact CDN origin', () => {
     execFileSync('node', ['scripts/prepare-sdk-assets.mjs'], {
       cwd: repoRoot,
-      env: { ...process.env, LODARIQ_CDN_ORIGIN: 'https://staging-cdn.lodariq.com' },
+      env: { ...process.env, LODARIQ_CDN_ORIGIN: 'https://staging-cdn.lodariq.io' },
       stdio: 'pipe',
     });
     const plan = JSON.parse(
@@ -120,7 +120,7 @@ describe('SDK CDN asset packaging', () => {
       }>;
     };
 
-    expect(new URL(plan.creatorModule.url).origin).toBe('https://staging-cdn.lodariq.com');
+    expect(new URL(plan.creatorModule.url).origin).toBe('https://staging-cdn.lodariq.io');
     expect(plan.creatorModule.version).toMatch(/^sha256-[a-f0-9]{64}$/u);
     expect(plan.creatorModule.integrity).toMatch(/^sha256-[A-Za-z0-9+/]+=*$/u);
     expect(plan.files.length).toBeGreaterThan(3);
@@ -152,7 +152,7 @@ describe('SDK CDN asset packaging', () => {
         cwd: repoRoot,
         env: {
           ...process.env,
-          LODARIQ_CDN_ORIGIN: 'https://cdn.lodariq.com/customer/path',
+          LODARIQ_CDN_ORIGIN: 'https://cdn.lodariq.io/customer/path',
         },
         stdio: 'pipe',
       }),

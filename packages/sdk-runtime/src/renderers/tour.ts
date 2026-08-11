@@ -15,7 +15,10 @@ import {
   LODARIQ_RENDERED_NODE_ID_ATTRIBUTE,
   LODARIQ_RENDERED_NODE_TYPE_ATTRIBUTE,
 } from '@lodariq/schema/dom';
-import { resolveSafeNavigationUrl } from '@lodariq/schema/url';
+import {
+  resolveSafeNavigationDestination,
+  type SafeNavigationDestination,
+} from '@lodariq/schema/url';
 import { assertSupportedCompiledArtifactIfVersioned } from '../artifact-compatibility';
 import {
   resolve,
@@ -100,6 +103,8 @@ export interface TourPlayerOptions {
   onBeforeStepChange?: (index: number, step: CompiledStep) => void;
   onComplete?: () => void;
   onDismiss?: () => void;
+  /** Explicit visitor choice to end the entire tour before completion. */
+  onSkip?: () => void;
   /** One bounded result per step attempt for privacy-safe diagnostics. */
   onTargetResolution?: (step: CompiledStep, result: TourTargetResolutionDiagnostic) => void;
   /** Opaque delivery context used by Target Identity V2 hard gates. */
@@ -112,7 +117,7 @@ export class TourPlayer {
     Record<RuntimeActionType, RuntimeActionHandler>
   > = {
     back: (player) => player.previous(),
-    clickTarget: (player) => player.focusCurrentTarget(),
+    clickTarget: (player) => player.clickCurrentTarget(),
     complete: (player) => player.complete(),
     dismiss: (player) => player.dismiss(),
     next: (player) => player.next(),
@@ -255,6 +260,7 @@ export class TourPlayer {
     for (const node of step.body) {
       this.card.appendChild(this.createBodyElement(node));
     }
+    this.card.appendChild(this.createSkipButton());
     this.arrow.hidden = !step.targetId;
     this.card.appendChild(this.arrow);
 
@@ -312,6 +318,19 @@ export class TourPlayer {
     TourPlayer.actionHandlers[action.type](this, action);
   }
 
+  private createSkipButton(): HTMLButtonElement {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'tour-skip';
+    button.textContent = 'Skip tour';
+    button.addEventListener('click', () => {
+      if (this.options.embeddedPreviewContainer) return;
+      if (this.options.authoringPreviewOwnerId && !this.options.authoringPreviewInteractive) return;
+      this.skip();
+    });
+    return button;
+  }
+
   private complete(): void {
     this.stop();
     this.options.onComplete?.();
@@ -322,10 +341,19 @@ export class TourPlayer {
     this.options.onDismiss?.();
   }
 
+  private skip(): void {
+    this.stop();
+    this.options.onSkip?.();
+  }
+
   private openPage(action: RuntimeAction): void {
-    const target = safeNavigationTarget(action.url);
-    if (!target) return;
-    window.location.assign(target);
+    const destination = safeNavigationDestination(action.url);
+    if (!destination) return;
+    if (destination.kind === 'external') {
+      window.open(destination.href, '_blank', 'noopener,noreferrer');
+      return;
+    }
+    window.location.assign(destination.href);
   }
 
   private async findTarget(
@@ -669,20 +697,19 @@ export class TourPlayer {
     }
   }
 
-  private focusCurrentTarget(): void {
+  private clickCurrentTarget(): void {
     const step = this.doc.steps[this.index];
     if (!step) return;
-    const signal = this.renderAbortController?.signal;
-    if (!signal) return;
-    void this.findTarget(step, signal)
-      .then((target) => {
-        if (!target || !this.host.isConnected) return;
-        this.scrollForLifecycle(target.element, step.lifecycle);
-        if (target.interactionSafe && target.element instanceof HTMLElement) {
-          target.element.focus({ preventScroll: true });
-        }
-      })
-      .catch(() => {});
+    const target = this.resolveStepTarget(step)?.anchor;
+    if (!target || !this.host.isConnected) return;
+    this.scrollForLifecycle(target.element, step.lifecycle);
+    if (
+      target.interactionSafe &&
+      canOwnPresentation(target) &&
+      target.element instanceof HTMLElement
+    ) {
+      target.element.click();
+    }
   }
 
   private addCleanup(cleanup: () => void): void {
@@ -1030,8 +1057,12 @@ function renderButtonNode(node: RuntimeBodyNode, context: BodyNodeRenderContext)
 
 function renderLinkNode(node: RuntimeBodyNode, context: BodyNodeRenderContext): HTMLElement {
   const element = document.createElement('a');
-  const target = safeNavigationTarget(node.props.action?.url);
-  element.href = target ?? '#';
+  const destination = safeNavigationDestination(node.props.action?.url);
+  element.href = destination?.href ?? '#';
+  if (destination?.kind === 'external') {
+    element.target = '_blank';
+    element.rel = 'noopener noreferrer';
+  }
   setBodyNodeText(element, node);
   configureActionElement(element, node.props.action, context);
   return element;
@@ -1074,7 +1105,7 @@ function configureActionElement(
 function actionEnabled(action: RuntimeAction | undefined): action is RuntimeAction {
   if (!action) return false;
   if (action.type !== 'openPage') return true;
-  return Boolean(safeNavigationTarget(action.url));
+  return Boolean(safeNavigationDestination(action.url));
 }
 
 function disableActionElement(element: HTMLButtonElement | HTMLAnchorElement): void {
@@ -1095,8 +1126,8 @@ function listItems(text: string | undefined): string[] {
     .filter(Boolean);
 }
 
-function safeNavigationTarget(rawUrl: string | undefined): string | null {
-  return resolveSafeNavigationUrl(rawUrl, { baseUrl: window.location.href });
+function safeNavigationDestination(rawUrl: string | undefined): SafeNavigationDestination | null {
+  return resolveSafeNavigationDestination(rawUrl, { baseUrl: window.location.href });
 }
 
 function initialStepIndex(doc: CompiledDocument, options: TourPlayerOptions): number {
@@ -1552,6 +1583,28 @@ function createStyles(): HTMLStyleElement {
       color: var(--lq-tour-secondary-text);
     }
 
+    [data-lodariq-node-type="button"] {
+      margin: 4px 8px 0 0;
+    }
+
+    .tour-skip {
+      display: flex;
+      min-height: 28px;
+      margin: var(--lq-tour-spacing) 0 0 auto;
+      padding: 4px 4px;
+      border: 0;
+      border-radius: 4px;
+      background: transparent;
+      color: var(--lq-tour-muted-text-color);
+      font-size: var(--lq-tour-small-font-size);
+      font-weight: 600;
+    }
+
+    .tour-skip:hover {
+      color: var(--lq-tour-text-color);
+      text-decoration: underline;
+    }
+
     button:focus-visible,
     a:focus-visible {
       outline: 2px solid var(--lq-tour-focus-color);
@@ -1579,6 +1632,10 @@ function createStyles(): HTMLStyleElement {
       max-height: 100%;
       overflow: auto;
       pointer-events: none;
+    }
+
+    :host([data-lodariq-embedded-preview]) .tour-skip {
+      display: none;
     }
   `,
   );

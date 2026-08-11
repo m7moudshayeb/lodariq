@@ -1,7 +1,8 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { ExternalLink, MousePointer2, Sparkles } from 'lucide-react';
+import { Command, ExternalLink, MousePointer2, Sparkles } from 'lucide-react';
+import { AUTHORING_LAUNCHER_SHORTCUT_LABEL } from '@lodariq/schema/authoring-entry-runtime';
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
@@ -75,15 +76,15 @@ export function AuthoringLaunchPanel({
             <div className="grid gap-1">
               <p className="text-sm font-semibold">Stay in the product while you create</p>
               <p className="text-sm leading-6 text-muted-foreground">
-                Open the site, then use the Lodariq launcher to start a Tour, resume an experience
-                on that page, or preview as a user.
+                Open the site to reveal Lodariq, then start a Tour, resume an experience on that
+                page, or preview as a user.
               </p>
             </div>
           </div>
 
           {selectedSite ? (
             <Button asChild className="mt-1 h-11 w-full sm:w-auto sm:justify-self-start">
-              <a href={selectedSite.exactOrigin} target="_blank" rel="noreferrer">
+              <a href={selectedSite.launchUrl} target="_blank" rel="noreferrer">
                 <MousePointer2 aria-hidden="true" />
                 Open {selectedSite.environmentLabel}
               </a>
@@ -99,6 +100,11 @@ export function AuthoringLaunchPanel({
           <Sparkles className="mt-0.5 size-3.5 shrink-0 text-primary" aria-hidden="true" />
           If you are signed out, the launcher opens Lodariq sign-in and returns you to the same
           product page automatically. No temporary editor handoff is required.
+        </p>
+        <p className="flex items-start gap-2 text-xs leading-5 text-muted-foreground">
+          <Command className="mt-0.5 size-3.5 shrink-0 text-primary" aria-hidden="true" />
+          On an authoring-enabled site, {AUTHORING_LAUNCHER_SHORTCUT_LABEL} toggles the launcher
+          without a dashboard visit.
         </p>
       </CardContent>
     </Card>

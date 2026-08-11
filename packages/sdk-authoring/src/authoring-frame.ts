@@ -2,7 +2,7 @@
  * Dedicated editor-origin authoring frame surface.
  *
  * The compatibility `lodariq-authoring` entry continues to export these same
- * bindings. This narrower entry lets editor.lodariq.com avoid treating the
+ * bindings. This narrower entry lets editor.lodariq.io avoid treating the
  * customer-page host surface as part of its application entry graph.
  */
 export {

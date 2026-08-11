@@ -298,7 +298,7 @@ function authoringSession(): AuthoringSessionRecord {
     environment: 'staging',
     documentId: 'tour_a',
     correlationId: 'corr_a',
-    iframeSrc: 'https://editor.lodariq.com/authoring.html',
+    iframeSrc: 'https://editor.lodariq.io/authoring.html',
     createdByUserId: 'user_a',
     createdAt: '2026-08-09T09:00:00.000Z',
     expiresAt: '2026-08-09T13:00:00.000Z',

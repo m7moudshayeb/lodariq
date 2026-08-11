@@ -53,7 +53,7 @@ migrations.
 - Database access in deployed applications uses a non-owner role with forced
   row-level security. Shared-environment database changes require human approval.
 - The dashboard, API, editor iframe, and CDN use separate exact
-  `*.lodariq.com` origins. Dashboard and API deploy to Fly.io, not Vercel.
+  `*.lodariq.io` origins. Dashboard and API deploy to Fly.io, not Vercel.
 
 ## Execution Order and Dependencies
 
@@ -240,8 +240,8 @@ Deliverables:
 
 - Provision isolated staging Fly apps for API, dashboard, and editor; an empty
   staging Neon database; exact Cloudflare DNS/TLS routes for
-  `staging-api.lodariq.com`, `staging-app.lodariq.com`,
-  `staging-editor.lodariq.com`, and `staging-cdn.lodariq.com`; and the required
+  `staging-api.lodariq.io`, `staging-app.lodariq.io`,
+  `staging-editor.lodariq.io`, and `staging-cdn.lodariq.io`; and the required
   SDK asset delivery path.
 - Apply `0000_initial_baseline.sql` exactly once with an owner/admin connection.
   Do not run historical migrations, backfills, compatibility cleanup, or a
@@ -289,8 +289,8 @@ Required evidence:
 
 After the staging gate passes, provision separate production Fly apps, empty
 production Neon database and non-owner role, production secrets, Resend config,
-SDK/CDN assets, and exact TLS origins at `api.lodariq.com`, `app.lodariq.com`,
-`editor.lodariq.com`, and `cdn.lodariq.com`. Apply the same immutable baseline
+SDK/CDN assets, and exact TLS origins at `api.lodariq.io`, `app.lodariq.io`,
+`editor.lodariq.io`, and `cdn.lodariq.io`. Apply the same immutable baseline
 once to the empty production database.
 
 Production requires a named human approval after reviewing the exact commit,

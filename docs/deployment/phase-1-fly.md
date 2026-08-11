@@ -84,10 +84,10 @@ environments.
 | API Fly app            | `lodariq-api-staging`                | `lodariq-api`                |
 | Dashboard Fly app      | `lodariq-dashboard-staging`          | `lodariq-dashboard`          |
 | Editor Fly app         | `lodariq-editor-staging`             | `lodariq-editor`             |
-| API origin             | `https://staging-api.lodariq.com`    | `https://api.lodariq.com`    |
-| Dashboard origin       | `https://staging-app.lodariq.com`    | `https://app.lodariq.com`    |
-| CDN origin             | `https://staging-cdn.lodariq.com`    | `https://cdn.lodariq.com`    |
-| Editor origin          | `https://staging-editor.lodariq.com` | `https://editor.lodariq.com` |
+| API origin             | `https://staging-api.lodariq.io`    | `https://api.lodariq.io`    |
+| Dashboard origin       | `https://staging-app.lodariq.io`    | `https://app.lodariq.io`    |
+| CDN origin             | `https://staging-cdn.lodariq.io`    | `https://cdn.lodariq.io`    |
+| Editor origin          | `https://staging-editor.lodariq.io` | `https://editor.lodariq.io` |
 | Neon branch or project | `staging`                            | `production`                 |
 | Runtime DB role        | `lodariq_app_staging`                | `lodariq_app`                |
 | R2 bucket              | `lodariq-assets-staging`             | `lodariq-assets-production`  |
@@ -95,7 +95,7 @@ environments.
 
 For preview deployments, use generated names such as
 `lodariq-api-pr-123`, `lodariq-dashboard-pr-123`, and a Neon preview branch.
-Do not attach public `lodariq.com` domains to previews unless there is a clear
+Do not attach public `lodariq.io` domains to previews unless there is a clear
 need.
 
 ## Secrets Policy
@@ -191,7 +191,7 @@ LODARIQ_EMAIL_DELIVERY_MODE=resend
 LODARIQ_PUBLIC_SIGNUP_MODE=email-verification
 LODARIQ_PASSWORD_RECOVERY_MODE=email
 LODARIQ_APP_BASE_URL=https://<dashboard-origin>
-LODARIQ_AUTH_EMAIL_FROM='Lodariq <access@lodariq.com>'
+LODARIQ_AUTH_EMAIL_FROM='Lodariq <access@lodariq.io>'
 LODARIQ_AUTH_EMAIL_TOKEN_SECRET=<random-32-plus-byte-secret>
 RESEND_API_KEY=<environment-specific-resend-key>
 
@@ -274,12 +274,12 @@ pair. Never derive production from staging or expose it through a
 Attach public domains:
 
 ```bash
-fly certs add staging-api.lodariq.com -c apps/api/fly.staging.toml
-fly certs add staging-app.lodariq.com -c apps/dashboard/fly.staging.toml
-fly certs add staging-editor.lodariq.com -c apps/editor/fly.staging.toml
-fly certs add api.lodariq.com -c apps/api/fly.toml
-fly certs add app.lodariq.com -c apps/dashboard/fly.toml
-fly certs add editor.lodariq.com -c apps/editor/fly.toml
+fly certs add staging-api.lodariq.io -c apps/api/fly.staging.toml
+fly certs add staging-app.lodariq.io -c apps/dashboard/fly.staging.toml
+fly certs add staging-editor.lodariq.io -c apps/editor/fly.staging.toml
+fly certs add api.lodariq.io -c apps/api/fly.toml
+fly certs add app.lodariq.io -c apps/dashboard/fly.toml
+fly certs add editor.lodariq.io -c apps/editor/fly.toml
 ```
 
 In Cloudflare DNS, create the records requested by `fly certs check`. Keep them
@@ -527,25 +527,31 @@ Official references:
 
 DNS:
 
-1. Add `lodariq.com` to Cloudflare.
-2. Point registrar nameservers at Cloudflare.
-3. Create or allow Fly to validate records for:
-   - `staging-api.lodariq.com`
-   - `staging-app.lodariq.com`
-   - `staging-editor.lodariq.com`
-   - `api.lodariq.com`
-   - `app.lodariq.com`
-   - `editor.lodariq.com`
-4. Create R2 custom domains:
-   - `staging-cdn.lodariq.com`
-   - `cdn.lodariq.com`
+1. Add both `lodariq.io` and `lodariq.com` to Cloudflare.
+2. Point both domains' registrar nameservers at Cloudflare.
+3. Serve the marketing site at `lodariq.io` and configure permanent redirects:
+   - `www.lodariq.io/*` -> `https://lodariq.io/$1`
+   - `lodariq.com/*` -> `https://lodariq.io/$1`
+   - `www.lodariq.com/*` -> `https://lodariq.io/$1`
+     Preserve the path and query string. Do not configure application sessions,
+     OAuth callbacks, SDK assets, or API routes on the `.com` zone.
+4. Create or allow Fly to validate records for:
+   - `staging-api.lodariq.io`
+   - `staging-app.lodariq.io`
+   - `staging-editor.lodariq.io`
+   - `api.lodariq.io`
+   - `app.lodariq.io`
+   - `editor.lodariq.io`
+5. Create R2 custom domains:
+   - `staging-cdn.lodariq.io`
+   - `cdn.lodariq.io`
 
 R2 buckets:
 
 1. Create `lodariq-assets-staging`.
 2. Create `lodariq-assets-production`.
-3. Connect `staging-cdn.lodariq.com` to the staging bucket.
-4. Connect `cdn.lodariq.com` to the production bucket.
+3. Connect `staging-cdn.lodariq.io` to the staging bucket.
+4. Connect `cdn.lodariq.io` to the production bucket.
 5. Build and stage SDK CDN assets:
 
 ```bash
@@ -640,7 +646,7 @@ the provider/domain/secrets and production flags are not configured. Production
 signup/recovery therefore remain disabled. Prepare the provider this way:
 
 1. Create a Lodariq Resend team.
-2. Add and verify `lodariq.com` or a subdomain such as `mail.lodariq.com`.
+2. Add and verify `lodariq.io` or a subdomain such as `mail.lodariq.io`.
 3. Add DNS records from Resend in Cloudflare.
 4. Create separate API keys:
    - `lodariq-staging`
@@ -650,7 +656,7 @@ signup/recovery therefore remain disabled. Prepare the provider this way:
 ```bash
 RESEND_API_KEY=<resend-key>
 LODARIQ_APP_BASE_URL=https://<dashboard-origin>
-LODARIQ_AUTH_EMAIL_FROM='Lodariq <access@lodariq.com>'
+LODARIQ_AUTH_EMAIL_FROM='Lodariq <access@lodariq.io>'
 LODARIQ_AUTH_EMAIL_TOKEN_SECRET=<random-32-plus-byte-secret>
 ```
 
@@ -719,14 +725,16 @@ For a fresh staging environment:
     the HttpOnly cookie, sign-out revocation, and workspace rotation.
 17. Configure the product origin and one permanent SDK installation from the
     dashboard setup/admin surface.
-18. Open the staging product directly and confirm the draggable launcher appears
-    without installing a creator snippet or browser extension.
+18. Open the staging product directly and confirm no Lodariq creator UI appears.
+    Press `Ctrl/⌘ + Shift + L` and confirm the draggable launcher appears; hide
+    it, then use dashboard **Open in product** and confirm that entry reveals it
+    again without a creator snippet or browser extension.
 19. Start the first-party auth popup and verify exact-origin success, cancel,
     expiry, and replay behavior through the activation grant and subsequent
     document-scoped short-lived authoring session.
-20. Confirm `New`, `Experiences on this page`, and `Preview` are stable; the
-    modeless popup can move away from product controls; and authoring reuses the
-    runtime-rendered overlay.
+20. Confirm `New`, `Experiences on this page`, `Preview`, and `Hide Lodariq` are
+    stable; the modeless popup can move away from product controls; and
+    authoring reuses the runtime-rendered overlay.
 21. Confirm the dashboard is not visited during ordinary authoring and that
     authoring-session creation still has no publication side effect.
 22. Create/edit/approve a test Brand Theme, confirm the first approved version
@@ -780,15 +788,15 @@ DATABASE_URL='postgresql://lodariq_app:password@example.com/neondb?sslmode=requi
 LODARIQ_AUTH_MODE='lodariq' \
 LODARIQ_AUTH_BFF_SOURCE_SECRET='fixture-secret-at-least-32-bytes-long' \
 LODARIQ_EMAIL_DELIVERY_MODE='disabled' \
-LODARIQ_PUBLIC_API_BASE_URL='https://api.lodariq.com' \
-LODARIQ_LOADER_SRC='https://cdn.lodariq.com/sdk/lodariq-loader.js' \
-LODARIQ_PUBLIC_LOADER_SRC='https://cdn.lodariq.com/sdk/lodariq-public-bootstrap.js' \
-LODARIQ_CREATOR_LOADER_SRC='https://cdn.lodariq.com/sdk/lodariq-creator.js' \
-LODARIQ_CREATOR_MODULE_URL='https://cdn.lodariq.com/sdk/sha256-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/creator.js' \
+LODARIQ_PUBLIC_API_BASE_URL='https://api.lodariq.io' \
+LODARIQ_LOADER_SRC='https://cdn.lodariq.io/sdk/lodariq-loader.js' \
+LODARIQ_PUBLIC_LOADER_SRC='https://cdn.lodariq.io/sdk/lodariq-public-bootstrap.js' \
+LODARIQ_CREATOR_LOADER_SRC='https://cdn.lodariq.io/sdk/lodariq-creator.js' \
+LODARIQ_CREATOR_MODULE_URL='https://cdn.lodariq.io/sdk/sha256-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/creator.js' \
 LODARIQ_CREATOR_MODULE_VERSION='fixture-v1' \
 LODARIQ_CREATOR_MODULE_INTEGRITY='sha256-qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqo=' \
-LODARIQ_AUTHORING_IFRAME_SRC='https://editor.lodariq.com/authoring.html' \
-LODARIQ_API_BASE_URL='https://api.lodariq.com' \
+LODARIQ_AUTHORING_IFRAME_SRC='https://editor.lodariq.io/authoring.html' \
+LODARIQ_API_BASE_URL='https://api.lodariq.io' \
 LODARIQ_PUBLIC_SIGNUP_MODE='disabled' \
 LODARIQ_PASSWORD_RECOVERY_MODE='disabled' \
 pnpm live:check-env
@@ -797,19 +805,19 @@ pnpm live:check-env
 Staging health checks:
 
 ```bash
-curl -fsS https://staging-api.lodariq.com/healthz
-curl -fsS https://staging-api.lodariq.com/openapi.json
-curl -fsSI https://staging-app.lodariq.com
-curl -fsSI https://staging-editor.lodariq.com/authoring.html
+curl -fsS https://staging-api.lodariq.io/healthz
+curl -fsS https://staging-api.lodariq.io/openapi.json
+curl -fsSI https://staging-app.lodariq.io
+curl -fsSI https://staging-editor.lodariq.io/authoring.html
 ```
 
 Production health checks:
 
 ```bash
-curl -fsS https://api.lodariq.com/healthz
-curl -fsS https://api.lodariq.com/openapi.json
-curl -fsSI https://app.lodariq.com
-curl -fsSI https://editor.lodariq.com/authoring.html
+curl -fsS https://api.lodariq.io/healthz
+curl -fsS https://api.lodariq.io/openapi.json
+curl -fsSI https://app.lodariq.io
+curl -fsSI https://editor.lodariq.io/authoring.html
 ```
 
 ## Promotion and Rollback

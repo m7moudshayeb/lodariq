@@ -134,9 +134,10 @@ Useful foundations already exist:
   authoring picker, compiler, and runtime all resolve the real owner first;
   normalized geometry positions Lodariq UI only.
 - The one permanent public SDK installation now resolves exact trusted origins,
-  exposes a development/staging-only launcher, and keeps production closed.
+  keeps its development/staging-only launcher hidden until keyboard/dashboard
+  reveal, and keeps production closed.
 - Hosted entry now uses the stable **New experience**, **Experiences on this
-  page**, and **Preview as user** actions. New exposes only Tour. Browse is
+  page**, **Preview as user**, and **Hide Lodariq** actions. New exposes only Tour. Browse is
   draft-free until selection, receives only a normalized pathname, supports
   explicit page/workspace scope, search, empty/release-truth states, and opens
   the selected document in place.
@@ -479,7 +480,7 @@ flowchart LR
     RuntimePreview["Runtime renderer preview"]
   end
 
-  subgraph FirstParty["app.lodariq.com"]
+  subgraph FirstParty["app.lodariq.io"]
     Activate["Top-level sign-in and activation"]
   end
 
@@ -861,7 +862,7 @@ policy, and their creator UI remain Slice 4 or later.
 Creator activation:
 
 ```text
-GET  https://app.lodariq.com/authoring/activate
+GET  https://app.lodariq.io/authoring/activate
 POST /v1/sdk/authoring/authorization-requests
 POST /v1/sdk/authoring/exchange
 POST /v1/authoring/sessions/:sessionId/revoke
@@ -1004,7 +1005,7 @@ workspaces/{workspaceId}/environments/{environmentId}/documents/{documentId}/man
   returned only by authoring-enabled development/staging bootstrap.
 - Render a framework-free minimized launcher without importing React, Lexical,
   or `@lodariq/sdk-authoring` into the production runtime package.
-- Open `app.lodariq.com/authoring/activate` only from a deliberate user gesture.
+- Open `app.lodariq.io/authoring/activate` only from a deliberate user gesture.
 - Validate current authenticated membership/capabilities and the configured exact
   customer origin on the first-party origin. Owned auth preserves the same
   fail-closed checks and must not change the user's active dashboard workspace
@@ -1035,8 +1036,8 @@ customer Brand Theme tokens remain three distinct layers. The selected image is
 the hierarchy target, not a literal split-screen product or approval of its
 generated logo, fixture content, positions, or unimplemented controls.
 
-Local and hosted creator modes implement the three-action launcher with a Tour-
-only picker, distinct persisted drafts, and a page-scoped list. Hosted browse
+The hosted creator mode implements the four-action launcher with a Tour-only
+picker, distinct persisted drafts, and a page-scoped list. Hosted browse
 opens without creating a draft, supports explicit workspace browsing, and opens
 or creates a document only after the creator chooses. Do not expose schema-only
 future types or simulate missing capabilities.
@@ -1059,7 +1060,7 @@ future types or simulate missing capabilities.
 
 ### D3. Stable and contextual actions
 
-The ready launcher has at most three stable actions:
+The ready launcher has four stable actions:
 
 1. **New experience** — show only enabled types. Phase 2 creates a Tour; Phase 3
    adds the outcome-first multi-type catalog.
@@ -1068,6 +1069,8 @@ The ready launcher has at most three stable actions:
    **Browse all** escape hatch when the route has no match.
 3. **Preview as user** — enter a clean runtime-backed preview without
    authoring decorations.
+4. **Hide Lodariq** — remove visible creator chrome until `Ctrl/⌘ + Shift + L`
+   or dashboard **Open in product** reveals it again.
 
 Hover/focus may reveal the actions visually, but only click, tap, or keyboard
 activation pins state. Pointer leave and action activation must not collapse a
@@ -1080,7 +1083,7 @@ commands remain in the popup.
 
 Contextual actions appear only when applicable: **Fix N issues**, the derived
 release action, recent activity/release history, and—after real analytics
-exists—performance. They do not crowd out the three stable actions or turn the
+exists—performance. They do not crowd out the four stable actions or turn the
 launcher into a miniature dashboard.
 
 ### D4. Target identity and placement health
@@ -1554,7 +1557,7 @@ and design-partner evidence below are still required for full product acceptance
   the host page; short-lived grants remain memory-only.
 - Production serves no launcher activation metadata or creator/editor code.
 - Launcher/popup drag, minimize/restore, target-selection collapse, and all
-  three stable quick actions pass mouse, keyboard, and touch evidence.
+  four stable quick actions pass mouse, keyboard, and touch evidence.
 - A first-time PMM completes match, author, staging publish, verify, and
   production promotion without CSS or a dashboard/editor context switch.
 - At least 80% of design-partner experiences publish without developer styling

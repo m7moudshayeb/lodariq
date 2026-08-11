@@ -6236,7 +6236,7 @@ function deploymentOriginsForApiBaseUrl(publicApiBaseUrl: string): {
   editor: typeof LODARIQ_EDITOR_ORIGIN | typeof LODARIQ_STAGING_EDITOR_ORIGIN;
 } {
   const apiOrigin = new URL(publicApiBaseUrl).origin;
-  if (apiOrigin === 'https://staging-api.lodariq.com') {
+  if (apiOrigin === 'https://staging-api.lodariq.io') {
     return {
       activation: LODARIQ_STAGING_AUTHORING_ACTIVATION_URL,
       app: LODARIQ_STAGING_APP_ORIGIN,

@@ -26,6 +26,7 @@ import {
   ReleaseRecoveryRequest as ReleaseRecoveryRequestSchema,
   evaluateEnvironmentReleasePolicy,
   evaluateReleaseRecovery,
+  isAuthoringControlPlaneRole,
   validate,
   type AnalyticsEventAggregate,
   type AnalyticsTargetResolutionStatus,
@@ -8280,7 +8281,7 @@ function comparePublicSdkInstallationOriginRecords(
 }
 
 function hasAuthoringWorkspaceRole(role: string): boolean {
-  return role === 'member' || role === 'admin' || role === 'owner';
+  return isAuthoringControlPlaneRole(role);
 }
 
 function toAnalyticsTargetResolutionStatus(value: string | null): AnalyticsTargetResolutionStatus {

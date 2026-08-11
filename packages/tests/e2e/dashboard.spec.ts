@@ -175,7 +175,7 @@ test.describe('dashboard control plane', () => {
     await expect(snippet).not.toContainText('data-lodariq-environment');
     await expect(snippet).not.toContainText('data-lodariq-authoring-session');
     await expect(snippet).not.toContainText('lodariq-creator.js');
-    const stagingOrigin = setupPanel.getByText('https://staging.lodariq.com', { exact: true });
+    const stagingOrigin = setupPanel.getByText('https://staging.lodariq.io', { exact: true });
     await expect(stagingOrigin).toBeVisible();
     await expect(
       stagingOrigin.locator('..').getByText('Authoring on', { exact: true }),
@@ -196,10 +196,13 @@ test.describe('dashboard control plane', () => {
     await expect(page.getByRole('heading', { name: 'Help & support' })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Open your product' })).toBeVisible();
     await expect(page.getByRole('combobox', { name: 'Authoring site' })).toContainText(
-      'Staging · https://staging.lodariq.com',
+      'Staging · https://staging.lodariq.io',
     );
     const openProduct = page.getByRole('link', { name: 'Open Staging' });
-    await expect(openProduct).toHaveAttribute('href', 'https://staging.lodariq.com');
+    await expect(openProduct).toHaveAttribute(
+      'href',
+      'https://staging.lodariq.io/?lodariq-launcher=show',
+    );
     await expect(openProduct).toHaveAttribute('target', '_blank');
     await expect(page.getByRole('combobox', { name: 'Experience', exact: true })).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Start editing' })).toHaveCount(0);
@@ -246,7 +249,7 @@ function withWorkspace(document: LodariqDocument, nextWorkspaceId: string): Loda
 async function installSnippetOnStagingHost(page: Page, snippet: string): Promise<void> {
   await routeLocalApi(page);
   await routeLocalSdkCdn(page);
-  await page.route('https://staging.lodariq.com/snippet-install', async (route) => {
+  await page.route('https://staging.lodariq.io/snippet-install', async (route) => {
     await route.fulfill({
       contentType: 'text/html',
       body: `<!doctype html>
@@ -266,13 +269,17 @@ async function installSnippetOnStagingHost(page: Page, snippet: string): Promise
     });
   });
 
-  await page.goto('https://staging.lodariq.com/snippet-install');
+  await page.goto('https://staging.lodariq.io/snippet-install');
+  await expect(page.locator('[data-lodariq-launcher]')).toHaveCount(1);
   const launcher = page.getByRole('button', { name: 'Open Lodariq actions' });
+  await expect(launcher).toBeHidden();
+  await page.keyboard.press('Control+Shift+L');
   await expect(launcher).toBeVisible();
   await expect(page.locator('[data-lodariq-creator-toolbar="true"]')).toHaveCount(0);
   await launcher.click();
   await expect(page.getByRole('button', { name: 'New experience' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Experiences on this page' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Hide Lodariq' })).toBeVisible();
   await page.getByRole('button', { name: 'Preview as user' }).click();
   await expect(page.getByRole('dialog', { name: 'Lodariq tour' })).toContainText(
     'Create your first project',
@@ -280,7 +287,7 @@ async function installSnippetOnStagingHost(page: Page, snippet: string): Promise
 }
 
 async function routeLocalApi(page: Page): Promise<void> {
-  await page.route(/^https:\/\/api\.lodariq\.com\/.*/, async (route) => {
+  await page.route(/^https:\/\/api\.lodariq\.io\/.*/, async (route) => {
     const url = new URL(route.request().url());
     const headers = route.request().headers();
     delete headers.host;
@@ -293,7 +300,7 @@ async function routeLocalApi(page: Page): Promise<void> {
 }
 
 async function routeLocalSdkCdn(page: Page): Promise<void> {
-  await page.route(/^https:\/\/(?:staging-)?cdn\.lodariq\.com\/sdk\/.*/, async (route) => {
+  await page.route(/^https:\/\/(?:staging-)?cdn\.lodariq\.io\/sdk\/.*/, async (route) => {
     const url = new URL(route.request().url());
     const relativePath = url.pathname.replace(/^\/sdk\//, '');
     if (!/^(?:[\w.-]+\/)*[\w.-]+\.js$/.test(relativePath)) {

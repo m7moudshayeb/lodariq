@@ -61,6 +61,11 @@ provider behind the first-party session; deployed/live evidence remains open.
   exact-origin bootstrap grant for the authorization-request and exchange
   endpoints. That grant is capability-narrow, held only in memory, and is not
   the canonical installation identifier or a reusable delivery credential.
+- Resolving the `available` branch does not display creator chrome. The
+  framework-free client keeps the launcher hidden until the creator presses
+  `Ctrl/⌘ + Shift + L` or arrives through dashboard **Open in product**. The
+  dashboard's non-secret URL intent is display intent only and is removed from
+  the visible URL; it never substitutes for authorization.
 - Bootstrap does not authenticate a creator, create an authoring session, load
   the authoring module, mutate a document, compile a publication artifact, or
   publish.
@@ -72,8 +77,8 @@ type AuthoringActivationDescriptor =
   | { state: 'disabled' }
   | {
       state: 'available';
-      appOrigin: 'https://app.lodariq.com';
-      activationUrl: 'https://app.lodariq.com/authoring/activate';
+      appOrigin: 'https://app.lodariq.io';
+      activationUrl: 'https://app.lodariq.io/authoring/activate';
       authorizationRequestUrl: string;
       exchangeUrl: string;
       bootstrapGrant: string;
@@ -86,14 +91,19 @@ is enabled for that environment and origin. Production always receives the
 `disabled` branch. Its bootstrap response contains no creator module,
 activation, dashboard-auth, or editor URL.
 
+Creator authorization requires an active workspace membership with role
+`member`, `admin`, or `owner`. `member` is the current creator tier. A `viewer`
+cannot approve an authorization request or receive the creator module.
+
 ### First-Party Creator Authentication
 
-The framework-free activation client starts only from a user gesture:
+The framework-free activation client starts only after the hidden launcher is
+revealed and the creator chooses an authoring action:
 
 1. It generates a high-entropy `state` value and PKCE verifier in memory, then
    derives the `S256` challenge.
 2. It synchronously opens the canonical first-party popup route at
-   `https://app.lodariq.com/authoring/activate`, so browser popup policy is
+   `https://app.lodariq.io/authoring/activate`, so browser popup policy is
    evaluated against the creator's click.
 3. It calls `POST /v1/sdk/authoring/authorization-requests` with the public
    installation ID, exact customer `Origin`, PKCE challenge, state binding, and
@@ -163,7 +173,7 @@ workspace + environment + document + exact customer origin + creator + capabilit
 
 The server stores only bootstrap-grant, activation-grant, and session-token
 hashes. The editor iframe presents the authoring-session bearer from the exact
-`editor.lodariq.com` origin. The server derives workspace, environment, exact
+`editor.lodariq.io` origin. The server derives workspace, environment, exact
 customer parent origin, document, creator, and capability scope from the session
 rather than accepting arbitrary IDs. The public installation ID itself grants
 no access. The authoring capability set does not imply publish, promote,
@@ -191,7 +201,7 @@ Only after a successful exchange, and only for development or staging, the
 server returns a creator-module descriptor containing a content-addressed CDN
 URL, module version, and integrity metadata. The SDK validates the exact Lodariq
 CDN origin and descriptor before loading it. The creator module installs the
-host bridge and opens a credential-free sandboxed `editor.lodariq.com` iframe.
+host bridge and opens a credential-free sandboxed `editor.lodariq.io` iframe.
 After the iframe proves its exact origin/source and the negotiated request/state,
 the host sends the activation grant once with an exact `postMessage` target.
 The iframe creates and owns the document-scoped session; the host bridge receives
@@ -221,14 +231,15 @@ Production authoring is rejected independently at every layer:
 URL flags and query parameters are authoring intent only. They can never enable
 authoring, select a wider scope, or substitute for the exchange.
 
-### Dashboard Fallback
+### Dashboard Entry and Fallback
 
-The dashboard uses the same authorization-request, one-time-code, exchange, and
-session model. `Edit on staging` opens the exact configured customer origin from
-the creator's click and hands off the one-time result through exact-origin
-`postMessage`. It does not mint any persistent bearer credential, render a
-creator snippet, place a session bearer in a URL, or introduce a second
-authorization model.
+Dashboard **Open in product** opens the exact configured customer origin with a
+non-secret launcher-display intent. The loader consumes that intent, reveals
+the launcher for the tab's session, and removes the intent from the visible URL.
+The creator must still complete the same authorization-request, one-time-code,
+exchange, and session model. The dashboard does not mint a bearer credential,
+render a creator snippet, place a session bearer in a URL, or introduce a second
+authorization model. Viewer-role dashboards do not expose this entry action.
 
 If a popup is blocked, the in-product entry offers a safe retry and a
 `Continue in Lodariq` fallback. If the customer page cannot load, the dashboard
@@ -269,7 +280,7 @@ second canonical installation model.
 
 `POST /v1/sdk/authoring/authorization-requests` and
 `POST /v1/sdk/authoring/exchange` are the accepted public SDK boundaries. The
-canonical app UI route is `https://app.lodariq.com/authoring/activate`; it may
+canonical app UI route is `https://app.lodariq.io/authoring/activate`; it may
 use private dashboard-to-API calls to approve the existing request, but it does
 not replace the SDK exchange endpoint or return a long-lived credential.
 

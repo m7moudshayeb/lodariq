@@ -1,4 +1,8 @@
-import type { CustomerBrandTokenRegistration, PublicSdkBootstrapContext } from '@lodariq/schema';
+import type {
+  CustomerBrandTokenRegistration,
+  NonProductionPublicSdkBootstrapContext,
+  PublicSdkBootstrapContext,
+} from '@lodariq/schema';
 import { registerBrandTokens } from '../brand-token-registry';
 import {
   BRAND_THEME_CONTRACT_VERSION,
@@ -49,11 +53,11 @@ export interface PublicSdkInstallation {
   destroy(): void;
 }
 
-export const DEFAULT_PUBLIC_API_BASE_URL = 'https://api.lodariq.com';
+export const DEFAULT_PUBLIC_API_BASE_URL = 'https://api.lodariq.io';
 export const PUBLIC_SDK_INSTALLATION_HEADER = 'x-lodariq-installation-id';
 const TRUSTED_PUBLIC_API_ORIGINS = new Set([
   DEFAULT_PUBLIC_API_BASE_URL,
-  'https://staging-api.lodariq.com',
+  'https://staging-api.lodariq.io',
 ]);
 
 const PUBLIC_BOOTSTRAP_PATH = '/v1/sdk/bootstrap';
@@ -160,11 +164,10 @@ export async function installPublicSdkFromScript(
       ? import('./authoring-activation')
       : Promise.resolve(null),
   ]);
-  const launcher =
-    authoringModule &&
-    context.environment !== 'production' &&
-    context.authoring.state === 'available'
-      ? authoringModule.createPublicAuthoringLauncher(context, {
+  const launcher = authoringModule
+    ? authoringModule.createPublicAuthoringLauncher(
+        context as NonProductionPublicSdkBootstrapContext,
+        {
           ...options,
           onPreview: options.onPreview ?? (runtime ? () => runtime.playTour() : undefined),
           refreshContext: async () => {
@@ -174,8 +177,9 @@ export async function installPublicSdkFromScript(
             }
             return refreshed;
           },
-        })
-      : null;
+        },
+      )
+    : null;
 
   return {
     environment: context.environment,
@@ -395,8 +399,8 @@ function isAvailable(value: unknown, apiBaseUrl: string): boolean {
   return (
     exactRecord(value, keys) &&
     value['state'] === 'available' &&
-    value['appOrigin'] === 'https://app.lodariq.com' &&
-    value['activationUrl'] === 'https://app.lodariq.com/authoring/activate' &&
+    value['appOrigin'] === 'https://app.lodariq.io' &&
+    value['activationUrl'] === 'https://app.lodariq.io/authoring/activate' &&
     isApiUrl(
       value['authorizationRequestUrl'],
       apiBaseUrl,

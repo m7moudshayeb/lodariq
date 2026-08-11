@@ -56,6 +56,7 @@ import {
   setBlockPlacement,
   setBlockPresentationAnchor,
   setBlockTextStyle,
+  setBlockVariant,
   transformBlocks,
   updateBlockContent,
   type BlockDirection,
@@ -78,12 +79,14 @@ import type {
   AuthoringPanelOperation,
   AuthoringReleaseViewState,
   DocumentTarget,
+  EditableButtonVariant,
   EditableActionType,
   FocusRequest,
   LocalAuthoringFrameSnapshot,
   SlashCommand,
   TargetInspectionState,
 } from './types';
+import { EDITABLE_BUTTON_VARIANT_OPTIONS } from './types';
 import {
   TARGET_LIFECYCLE_SCROLL_VALUES,
   type TargetLifecycleControl,
@@ -216,6 +219,7 @@ export class LocalAuthoringFrameController {
   private highestAdoptedBrandDraftRevision = 0;
   private panelWorkflowError: string | null = null;
   private panelWorkflowNotice: string | null = null;
+  private automaticTargetStyleMatchAttempted = false;
   private started = false;
 
   constructor(private readonly options: LocalAuthoringFrameOptions) {
@@ -577,6 +581,15 @@ export class LocalAuthoringFrameController {
     }
 
     if (!(target instanceof HTMLSelectElement)) return;
+    if (target.dataset['action'] === 'set-button-style') {
+      const blockId = target.dataset['blockId'];
+      const variant = EDITABLE_BUTTON_VARIANT_OPTIONS.find(
+        (option) => option.value === target.value,
+      )?.value;
+      if (!blockId || !variant) return;
+      this.setButtonVariant(blockId, variant);
+      return;
+    }
     if (target.dataset['action'] === 'set-action') {
       const blockId = target.dataset['blockId'];
       const actionType = editableActionValue(target.value);
@@ -847,6 +860,21 @@ export class LocalAuthoringFrameController {
 
   setButtonAction(blockId: string, actionType: EditableActionType): void {
     this.setAction(blockId, actionType);
+  }
+
+  setButtonVariant(blockId: string, variant: EditableButtonVariant): void {
+    const block = findBlockById(this.documentState.blocks, blockId);
+    if (block?.type !== 'button' || block.props.variant === variant) return;
+    this.recordChange();
+    this.documentState = {
+      ...this.documentState,
+      blocks: setBlockVariant(this.documentState.blocks, blockId, variant),
+    };
+    this.afterDocumentMutation();
+    this.selectedBlockId = blockId;
+    this.services.saveDocument(this.documentState);
+    this.sendPreviewPatch(blockId, [{ op: 'setVariant', variant }]);
+    this.setStatus(`Button style changed to ${variant}`);
   }
 
   commitRichTextContent(blockId: string, value: string): void {
@@ -2210,6 +2238,7 @@ export class LocalAuthoringFrameController {
 
     const currentBlock = findBlockById(this.documentState.blocks, message.blockId);
     const existingTargetId = currentBlock ? firstTargetIdInBlock(currentBlock) : null;
+    const wasTargetlessDocument = this.documentState.targets.length === 0;
     const previousTargetBlockId =
       currentBlock && existingTargetId
         ? firstBlockIdForTarget([currentBlock], existingTargetId)
@@ -2269,7 +2298,38 @@ export class LocalAuthoringFrameController {
     ]);
     this.setStatus(`Placement set: ${label}. Verifying…`);
     this.requestTargetInspection(message.blockId, targetId, 'health');
+    if (wasTargetlessDocument && !existingTargetId) {
+      void this.matchFirstTargetStyle(targetId);
+    }
     return previewConfirmation;
+  }
+
+  private async matchFirstTargetStyle(targetId: string): Promise<void> {
+    if (this.automaticTargetStyleMatchAttempted || this.panelOperation) return;
+    const sampleBrandStyle = this.services.sampleBrandStyle;
+    const applyBrandMatch = this.services.applyBrandMatch;
+    if (!sampleBrandStyle || !applyBrandMatch) return;
+    const appearance = resolveExperienceAppearance(
+      this.documentState.appearance ?? DEFAULT_EXPERIENCE_APPEARANCE,
+    );
+    const defaultAppearance = resolveExperienceAppearance(DEFAULT_EXPERIENCE_APPEARANCE);
+    if (JSON.stringify(appearance) !== JSON.stringify(defaultAppearance)) return;
+
+    this.automaticTargetStyleMatchAttempted = true;
+    const requestVersion = ++this.panelWorkflowRequestVersion;
+    try {
+      const proposal = await sampleBrandStyle({
+        documentId: this.documentState.id,
+        targetId,
+        strategy: 'current-target',
+      });
+      if (!this.panelWorkflowRequestIsCurrent(requestVersion) || proposal.requiresConfirmation) {
+        return;
+      }
+      await this.applyBrandMatchProposal(proposal, requestVersion, true);
+    } catch {
+      // Automatic matching is best-effort and must not interrupt target authoring.
+    }
   }
 
   private async persistRequestedDocument(requestCorrelationId: string): Promise<void> {
@@ -2364,33 +2424,42 @@ export class LocalAuthoringFrameController {
   private async applyBrandMatchProposal(
     proposal: AuthoringBrandMatchProposal,
     activeRequestVersion?: number,
+    automatic = false,
   ): Promise<void> {
     const applyBrandMatch = this.services.applyBrandMatch;
     if (!applyBrandMatch) {
-      this.panelWorkflowError = 'This session cannot save Brand proposals.';
-      this.emit();
+      if (!automatic) {
+        this.panelWorkflowError = 'This session cannot save Brand proposals.';
+        this.emit();
+      }
       return;
     }
     const requestVersion = activeRequestVersion ?? ++this.panelWorkflowRequestVersion;
-    this.panelOperation = 'applying-brand';
-    this.panelWorkflowError = null;
-    this.emit();
+    if (!automatic) {
+      this.panelOperation = 'applying-brand';
+      this.panelWorkflowError = null;
+      this.emit();
+    }
     try {
       const result = await applyBrandMatch(structuredClone(proposal));
       if (!this.panelWorkflowRequestIsCurrent(requestVersion)) return;
       if (result.persisted.draftRevision < this.highestAdoptedBrandDraftRevision) {
-        this.panelOperation = null;
-        this.panelWorkflowError =
-          'A newer Brand draft is already active. Run Product match again to review the latest draft.';
-        this.emit();
+        if (!automatic) {
+          this.panelOperation = null;
+          this.panelWorkflowError =
+            'A newer Brand draft is already active. Run Product match again to review the latest draft.';
+          this.emit();
+        }
         return;
       }
       const adopted = this.services.adoptBrandPreviewTheme?.(structuredClone(result.persisted));
       if (adopted === false) {
-        this.panelOperation = null;
-        this.panelWorkflowError =
-          'The saved Brand draft conflicts with the active preview. Run Product match again.';
-        this.emit();
+        if (!automatic) {
+          this.panelOperation = null;
+          this.panelWorkflowError =
+            'The saved Brand draft conflicts with the active preview. Run Product match again.';
+          this.emit();
+        }
         return;
       }
       this.highestAdoptedBrandDraftRevision = Math.max(
@@ -2401,29 +2470,35 @@ export class LocalAuthoringFrameController {
         await this.sendBrandPreviewTheme(result.persisted);
       } catch {
         if (!this.panelWorkflowRequestIsCurrent(requestVersion)) return;
-        this.panelOperation = null;
-        this.panelWorkflowError =
-          'Product match was saved, but the preview could not refresh. Try again.';
-        this.emit();
+        if (!automatic) {
+          this.panelOperation = null;
+          this.panelWorkflowError =
+            'Product match was saved, but the preview could not refresh. Try again.';
+          this.emit();
+        }
         return;
       }
       if (!this.panelWorkflowRequestIsCurrent(requestVersion)) return;
       this.brandWorkflow = structuredClone(result.brand);
       this.brandProposal = null;
       this.panelOperation = null;
-      this.panelMode = 'appearance';
-      this.panelReturnMode = 'edit';
-      this.panelWorkflowNotice =
-        result.savedAs === 'unchanged'
-          ? 'The current Brand theme already matches this product evidence.'
-          : 'Product match saved as a workspace draft for approval.';
-      this.panelFocusToken += 1;
+      if (!automatic) {
+        this.panelMode = 'appearance';
+        this.panelReturnMode = 'edit';
+        this.panelWorkflowNotice =
+          result.savedAs === 'unchanged'
+            ? 'The current Brand theme already matches this product evidence.'
+            : 'Product match saved as a workspace draft for approval.';
+        this.panelFocusToken += 1;
+      }
       this.emit();
     } catch {
       if (!this.panelWorkflowRequestIsCurrent(requestVersion)) return;
-      this.panelOperation = null;
-      this.panelWorkflowError = 'The Brand proposal could not be saved.';
-      this.emit();
+      if (!automatic) {
+        this.panelOperation = null;
+        this.panelWorkflowError = 'The Brand proposal could not be saved.';
+        this.emit();
+      }
     }
   }
 

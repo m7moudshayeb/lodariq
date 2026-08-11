@@ -28,7 +28,7 @@ describe('exact publication loader', () => {
 
     await expect(
       loadExactPublishedArtifact({
-        url: 'https://api.lodariq.com/v1/sdk/artifacts/current',
+        url: 'https://api.lodariq.io/v1/sdk/artifacts/current',
         documentId: compiled.documentId,
         expectedContentHash: compiled.contentHash,
         expectedThemeVersionId: compiled.theme.themeVersionId,
@@ -44,7 +44,7 @@ describe('exact publication loader', () => {
 
     await expect(
       loadExactPublishedArtifact({
-        url: 'https://api.lodariq.com/v1/sdk/artifacts/current',
+        url: 'https://api.lodariq.io/v1/sdk/artifacts/current',
         documentId: compiled.documentId,
         expectedContentHash: compiled.contentHash,
       }),

@@ -39,8 +39,8 @@ const FOREIGN_ENVIRONMENT_ID = 'env_api_recovery_foreign';
 const FIRST_PUBLICATION_ID = 'pub_api_recovery_first';
 const CURRENT_PUBLICATION_ID = 'pub_api_recovery_current';
 const CREATED_AT = '2026-08-09T12:00:00.000Z';
-const APP_ORIGIN = 'https://app.lodariq.com';
-const EDITOR_ORIGIN = 'https://editor.lodariq.com';
+const APP_ORIGIN = 'https://app.lodariq.io';
+const EDITOR_ORIGIN = 'https://editor.lodariq.io';
 const STAGING_ORIGIN = 'https://staging.customer.example';
 const PRODUCTION_ORIGIN = 'https://production.customer.example';
 
@@ -125,7 +125,7 @@ describe('release recovery HTTP integration', () => {
       origin: STAGING_ORIGIN,
     };
     const template =
-      'https://api.lodariq.com/v1/sdk/authoring/environments/:environmentId/release-recovery';
+      'https://api.lodariq.io/v1/sdk/authoring/environments/:environmentId/release-recovery';
 
     const bootstrap = await fixture.app.inject({
       method: 'POST',
@@ -214,7 +214,7 @@ describe('release recovery HTTP integration', () => {
       repository,
       defaultWorkspaceId: WORKSPACE_ID,
       defaultUserId: OWNER_ID,
-      publicApiBaseUrl: 'https://api.lodariq.com',
+      publicApiBaseUrl: 'https://api.lodariq.io',
     });
     const headers = {
       authorization: `Bearer ${tokens.stagingEnvironment}`,
@@ -366,7 +366,7 @@ describe('release recovery HTTP integration', () => {
       repository,
       defaultWorkspaceId: WORKSPACE_ID,
       defaultUserId: OWNER_ID,
-      publicApiBaseUrl: 'https://api.lodariq.com',
+      publicApiBaseUrl: 'https://api.lodariq.io',
     });
 
     const state = await app.inject({
@@ -417,7 +417,7 @@ function createFixture() {
     repository,
     defaultWorkspaceId: WORKSPACE_ID,
     defaultUserId: OWNER_ID,
-    publicApiBaseUrl: 'https://api.lodariq.com',
+    publicApiBaseUrl: 'https://api.lodariq.io',
   });
   return { app, repository, tokens };
 }
@@ -527,7 +527,7 @@ function createSeed(tokens: FixtureTokens): InMemoryControlPlaneSeed {
         documentId: DOCUMENT_ID,
         correlationId: 'correlation:api:direct:session',
         tokenHash: hashAuthoringSessionToken(tokens.directSession),
-        iframeSrc: 'https://editor.lodariq.com/authoring.html',
+        iframeSrc: 'https://editor.lodariq.io/authoring.html',
         createdByUserId: OWNER_ID,
         createdAt: CREATED_AT,
         expiresAt: '2099-01-01T00:00:00.000Z',
@@ -543,7 +543,7 @@ function createSeed(tokens: FixtureTokens): InMemoryControlPlaneSeed {
         documentId: DOCUMENT_ID,
         correlationId: 'correlation:api:development:session',
         tokenHash: hashAuthoringSessionToken(tokens.developmentSession),
-        iframeSrc: 'https://editor.lodariq.com/authoring.html',
+        iframeSrc: 'https://editor.lodariq.io/authoring.html',
         createdByUserId: OWNER_ID,
         createdAt: CREATED_AT,
         expiresAt: '2099-01-01T00:00:00.000Z',
@@ -559,7 +559,7 @@ function createSeed(tokens: FixtureTokens): InMemoryControlPlaneSeed {
         documentId: DOCUMENT_ID,
         correlationId: 'correlation:api:hosted:session',
         tokenHash: hashAuthoringSessionToken(tokens.hostedSession),
-        iframeSrc: 'https://editor.lodariq.com/authoring.html',
+        iframeSrc: 'https://editor.lodariq.io/authoring.html',
         createdByUserId: OWNER_ID,
         createdAt: CREATED_AT,
         expiresAt: '2099-01-01T00:00:00.000Z',

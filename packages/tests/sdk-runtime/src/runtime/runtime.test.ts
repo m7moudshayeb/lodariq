@@ -80,7 +80,7 @@ describe('Lodariq runtime analytics (PRD §16.1)', () => {
       workspaceId: 'wk_live',
       environment: 'staging',
       correlationId: 'corr_publish_1',
-      ingestUrl: 'https://api.lodariq.com/v1/sdk/events',
+      ingestUrl: 'https://api.lodariq.io/v1/sdk/events',
       authorizationToken: 'lod_staging_public_token',
       observability,
     });
@@ -118,7 +118,7 @@ describe('Lodariq runtime analytics (PRD §16.1)', () => {
       workspaceId: 'wk_live',
       environment: 'staging',
       correlationId: 'corr_publish_1',
-      ingestUrl: 'https://api.lodariq.com/v1/sdk/events',
+      ingestUrl: 'https://api.lodariq.io/v1/sdk/events',
       authorizationToken: 'lod_staging_token',
     });
 
@@ -126,7 +126,7 @@ describe('Lodariq runtime analytics (PRD §16.1)', () => {
     runtime.flush(true);
 
     expect(fetch).toHaveBeenCalledWith(
-      'https://api.lodariq.com/v1/sdk/events',
+      'https://api.lodariq.io/v1/sdk/events',
       expect.objectContaining({
         headers: expect.objectContaining({
           authorization: 'Bearer lod_staging_token',
@@ -152,7 +152,7 @@ describe('Lodariq runtime analytics (PRD §16.1)', () => {
     const runtime = new LodariqRuntime({
       workspaceId: 'wk_public_runtime',
       environment: 'production',
-      ingestUrl: 'https://api.lodariq.com/v1/sdk/events',
+      ingestUrl: 'https://api.lodariq.io/v1/sdk/events',
       publicInstallationId: 'ins_pub_application_1234',
     });
 
@@ -160,7 +160,7 @@ describe('Lodariq runtime analytics (PRD §16.1)', () => {
     runtime.flush(true);
 
     expect(fetch).toHaveBeenCalledWith(
-      'https://api.lodariq.com/v1/sdk/events',
+      'https://api.lodariq.io/v1/sdk/events',
       expect.objectContaining({
         headers: expect.objectContaining({
           'content-type': 'application/json',
@@ -202,13 +202,13 @@ describe('Lodariq runtime analytics (PRD §16.1)', () => {
     const runtime = new LodariqRuntime({
       workspaceId: 'wk_live',
       environment: 'staging',
-      ingestUrl: 'https://api.lodariq.com/v1/sdk/events',
+      ingestUrl: 'https://api.lodariq.io/v1/sdk/events',
       authorizationToken: 'lod_staging_public_token',
     });
 
     runtime.reportError(
       new Error(
-        'Fetch failed for https://api.lodariq.com/v1/sdk/current-document?token=lod_staging_secret and owner@example.com',
+        'Fetch failed for https://api.lodariq.io/v1/sdk/current-document?token=lod_staging_secret and owner@example.com',
       ),
       {
         phase: 'playback',
@@ -240,7 +240,7 @@ describe('Lodariq runtime analytics (PRD §16.1)', () => {
     });
     const message = String(body.events[0]?.props?.['message']);
     expect(message).toContain('<redacted-url>');
-    expect(message).not.toContain('api.lodariq.com');
+    expect(message).not.toContain('api.lodariq.io');
     expect(message).not.toContain('lod_staging_secret');
     expect(message).not.toContain('owner@example.com');
   });
@@ -251,7 +251,7 @@ describe('Lodariq runtime analytics (PRD §16.1)', () => {
     const runtime = new LodariqRuntime({
       workspaceId: 'wk_server_owned',
       environment: 'production',
-      ingestUrl: 'https://api.lodariq.com/v1/sdk/events',
+      ingestUrl: 'https://api.lodariq.io/v1/sdk/events',
       publicInstallationId: 'ins_pub_application_1234',
       analyticsPointers: [
         {
@@ -305,7 +305,7 @@ describe('Lodariq runtime analytics (PRD §16.1)', () => {
     const runtime = new LodariqRuntime({
       workspaceId: 'wk_multi_document',
       environment: 'production',
-      ingestUrl: 'https://api.lodariq.com/v1/sdk/events',
+      ingestUrl: 'https://api.lodariq.io/v1/sdk/events',
       publicInstallationId: 'ins_pub_application_1234',
       analyticsPointers: [
         firstPointer,
@@ -342,7 +342,7 @@ describe('Lodariq runtime analytics (PRD §16.1)', () => {
     const runtime = new LodariqRuntime({
       workspaceId: 'wk_server_owned',
       environment: 'staging',
-      ingestUrl: 'https://api.lodariq.com/v1/sdk/events',
+      ingestUrl: 'https://api.lodariq.io/v1/sdk/events',
       authorizationToken: 'lod_staging_public_token',
       analyticsPointers: [
         {

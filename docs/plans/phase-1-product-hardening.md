@@ -43,7 +43,7 @@ rollout are explicitly out of scope for this plan.
 ## Guardrails
 
 - Product name remains Lodariq, with `@lodariq/*` packages and canonical
-  `*.lodariq.com` origins.
+  `*.lodariq.io` origins.
 - The canonical document is structured block JSON, not Markdown.
 - Do not add a Markdown-to-JSON compiler or custom Markdown grammar.
 - Keep `@lodariq/sdk-runtime` and `@lodariq/sdk-authoring` physically separate.

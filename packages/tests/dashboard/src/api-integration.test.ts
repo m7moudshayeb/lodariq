@@ -36,9 +36,9 @@ describe('@lodariq/dashboard API integration', () => {
   it('renders API-backed documents and creates a copyable SDK snippet through the server action', async () => {
     app = createApiApp({
       defaultWorkspaceId: 'wk_dashboard',
-      publicApiBaseUrl: 'https://api.lodariq.com',
-      loaderSrc: 'https://cdn.lodariq.com/sdk/lodariq-loader.js',
-      creatorLoaderSrc: 'https://cdn.lodariq.com/sdk/lodariq-creator.js',
+      publicApiBaseUrl: 'https://api.lodariq.io',
+      loaderSrc: 'https://cdn.lodariq.io/sdk/lodariq-loader.js',
+      creatorLoaderSrc: 'https://cdn.lodariq.io/sdk/lodariq-creator.js',
     });
     const document = withWorkspace(baseDocument, 'wk_dashboard');
 
@@ -96,7 +96,7 @@ describe('@lodariq/dashboard API integration', () => {
     expect(state.sdkSnippet).toContain('data-lodariq-loader');
     expect(state.sdkSnippet).toContain('data-lodariq-environment="staging"');
     expect(state.sdkSnippet).toContain('data-lodariq-token="lod_staging_');
-    expect(state.sdkSnippet).toContain('data-lodariq-api="https://api.lodariq.com"');
+    expect(state.sdkSnippet).toContain('data-lodariq-api="https://api.lodariq.io"');
     const clientToken = state.sdkSnippet?.match(/data-lodariq-token="([^"]+)"/)?.[1];
     expect(clientToken).toMatch(/^lod_staging_/);
 
@@ -153,7 +153,7 @@ describe('@lodariq/dashboard API integration', () => {
   it('forwards owned session credentials instead of trusting dev workspace headers', () => {
     const headers = buildDashboardApiHeaders(
       {
-        apiBaseUrl: 'https://api.lodariq.com',
+        apiBaseUrl: 'https://api.lodariq.io',
         devWorkspaceId: 'wk_dev_should_not_win',
         devUserId: 'user_dev_should_not_win',
         useDevHeaderFallback: true,
@@ -286,7 +286,7 @@ describe('@lodariq/dashboard API integration', () => {
   it('does not synthesize workspace headers when production auth is missing', () => {
     const headers = buildDashboardApiHeaders(
       {
-        apiBaseUrl: 'https://api.lodariq.com',
+        apiBaseUrl: 'https://api.lodariq.io',
         devWorkspaceId: 'wk_dev_should_not_win',
         devUserId: 'user_dev_should_not_win',
         useDevHeaderFallback: false,
@@ -303,7 +303,7 @@ describe('@lodariq/dashboard API integration', () => {
   it('forwards an owned session cookie value as a bearer without workspace headers', () => {
     const headers = buildDashboardApiHeaders(
       {
-        apiBaseUrl: 'https://api.lodariq.com',
+        apiBaseUrl: 'https://api.lodariq.io',
         devWorkspaceId: 'wk_dev_should_not_win',
         devUserId: 'user_dev_should_not_win',
         useDevHeaderFallback: true,

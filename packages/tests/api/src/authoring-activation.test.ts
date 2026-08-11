@@ -51,7 +51,7 @@ const authHeaders = {
 };
 
 const creatorModule: CreatorModuleDescriptor = {
-  url: `https://cdn.lodariq.com/creator/sha256-${'a'.repeat(64)}/creator.js`,
+  url: `https://cdn.lodariq.io/creator/sha256-${'a'.repeat(64)}/creator.js`,
   version: '1.0.0',
   integrity: 'sha256-YWJjZA==',
 };
@@ -61,7 +61,7 @@ describe('hosted authoring activation API', () => {
     const repository = createRepository();
     const app = createApiApp({
       repository,
-      publicApiBaseUrl: 'https://api.lodariq.com',
+      publicApiBaseUrl: 'https://api.lodariq.io',
       creatorModule,
     });
     const { installationId, bootstrapGrant } = await bootstrapAuthoring(app);
@@ -114,10 +114,10 @@ describe('hosted authoring activation API', () => {
     const pending = await app.inject({
       method: 'GET',
       url: `/v1/authoring/authorization-requests/${authorization.requestId}`,
-      headers: { ...authHeaders, origin: 'https://app.lodariq.com' },
+      headers: { ...authHeaders, origin: 'https://app.lodariq.io' },
     });
     expect(pending.statusCode).toBe(200);
-    expect(pending.headers['access-control-allow-origin']).toBe('https://app.lodariq.com');
+    expect(pending.headers['access-control-allow-origin']).toBe('https://app.lodariq.io');
     expect(pending.json()).toMatchObject({
       requestId: authorization.requestId,
       installationId,
@@ -217,7 +217,7 @@ describe('hosted authoring activation API', () => {
   it('fails closed for wrong origin, grant, state, verifier, duplicate approval, and replay', async () => {
     const app = createApiApp({
       repository: createRepository(),
-      publicApiBaseUrl: 'https://api.lodariq.com',
+      publicApiBaseUrl: 'https://api.lodariq.io',
       creatorModule,
     });
     const { installationId, bootstrapGrant } = await bootstrapAuthoring(app);
@@ -365,6 +365,68 @@ describe('hosted authoring activation API', () => {
     await app.close();
   });
 
+  it('keeps viewer memberships from approving or loading creator authoring', async () => {
+    const installationId = `ins_pub_${'v'.repeat(24)}`;
+    const now = '2026-08-07T00:00:00.000Z';
+    const repository = createRepository({
+      workspaceMemberships: [
+        {
+          workspaceId: WORKSPACE_ID,
+          userId: CREATOR_ID,
+          role: 'viewer',
+          createdAt: now,
+        },
+      ],
+      publicSdkInstallations: [
+        {
+          installationId,
+          workspaceId: WORKSPACE_ID,
+          name: 'Viewer-gated staging app',
+          createdByUserId: CREATOR_ID,
+          createdAt: now,
+          updatedAt: now,
+          revokedAt: null,
+        },
+      ],
+      publicSdkInstallationOrigins: [
+        {
+          installationId,
+          workspaceId: WORKSPACE_ID,
+          environmentId: 'env_staging',
+          exactOrigin: CUSTOMER_ORIGIN,
+          authoringEnabled: true,
+          createdAt: now,
+          updatedAt: now,
+        },
+      ],
+    });
+    const app = createApiApp({ repository, creatorModule });
+    const bootstrap = await app.inject({
+      method: 'POST',
+      url: '/v1/sdk/bootstrap',
+      headers: { origin: CUSTOMER_ORIGIN },
+      payload: { installationId },
+    });
+    expect(bootstrap.statusCode).toBe(200);
+    const bootstrapGrant = bootstrap.json<{
+      authoring: { state: string; bootstrapGrant: string };
+    }>().authoring.bootstrapGrant;
+    const created = await createAuthorizationRequest(app, { installationId, bootstrapGrant });
+    expect(created.statusCode).toBe(201);
+    const { requestId } = created.json<{ requestId: string }>();
+
+    const approval = await app.inject({
+      method: 'POST',
+      url: `/v1/authoring/authorization-requests/${requestId}/approve`,
+      headers: authHeaders,
+      payload: { state: STATE },
+    });
+
+    expect(approval.statusCode).toBe(404);
+    expect(approval.body).not.toContain('creatorModule');
+    await app.close();
+  });
+
   it('fails with 503 before exchange consumption when the creator descriptor is unavailable', async () => {
     const repository = createRepository();
     const configuredApp = createApiApp({ repository, creatorModule });
@@ -398,7 +460,7 @@ describe('hosted authoring activation API', () => {
       repository,
       creatorModule: {
         ...creatorModule,
-        url: 'https://cdn.lodariq.com/creator/creator.js',
+        url: 'https://cdn.lodariq.io/creator/creator.js',
       },
     });
     const invalidDescriptor = await exchange(invalidDescriptorApp, {
@@ -474,13 +536,13 @@ describe('activation grant document sessions', () => {
       method: 'OPTIONS',
       url: '/v1/authoring/sessions',
       headers: {
-        origin: 'https://editor.lodariq.com',
+        origin: 'https://editor.lodariq.io',
         'access-control-request-method': 'POST',
         'access-control-request-headers': `content-type,${AUTHORING_ACTIVATION_GRANT_HEADER}`,
       },
     });
     expect(preflight.statusCode).toBe(204);
-    expect(preflight.headers['access-control-allow-origin']).toBe('https://editor.lodariq.com');
+    expect(preflight.headers['access-control-allow-origin']).toBe('https://editor.lodariq.io');
     expect(preflight.headers['access-control-allow-headers']).toContain(
       AUTHORING_ACTIVATION_GRANT_HEADER,
     );
@@ -491,7 +553,7 @@ describe('activation grant document sessions', () => {
       documentIntent,
     });
     expect(created.statusCode).toBe(201);
-    expect(created.headers['access-control-allow-origin']).toBe('https://editor.lodariq.com');
+    expect(created.headers['access-control-allow-origin']).toBe('https://editor.lodariq.io');
     expect(created.headers['cache-control']).toBe('no-store');
     const result = created.json<{
       authoringSessionToken: string;
@@ -517,7 +579,7 @@ describe('activation grant document sessions', () => {
       environmentId: 'env_staging',
       environment: 'staging',
       customerOrigin: CUSTOMER_ORIGIN,
-      editorOrigin: 'https://editor.lodariq.com',
+      editorOrigin: 'https://editor.lodariq.io',
       creatorId: CREATOR_ID,
       compilerVersion: COMPILER_VERSION,
       rendererContractVersion: RENDERER_CONTRACT_VERSION,
@@ -565,7 +627,7 @@ describe('activation grant document sessions', () => {
       method: 'POST',
       url: `/v1/authoring/sessions/${result.context.sessionId}/revoke`,
       headers: {
-        origin: 'https://editor.lodariq.com',
+        origin: 'https://editor.lodariq.io',
         [AUTHORING_SESSION_HEADER]: result.authoringSessionToken,
       },
     });
@@ -574,7 +636,7 @@ describe('activation grant document sessions', () => {
       method: 'POST',
       url: `/v1/authoring/sessions/${result.context.sessionId}/revoke`,
       headers: {
-        origin: 'https://editor.lodariq.com',
+        origin: 'https://editor.lodariq.io',
         [AUTHORING_SESSION_HEADER]: result.authoringSessionToken,
       },
     });
@@ -629,7 +691,7 @@ describe('activation grant document sessions', () => {
         method: 'POST',
         url: '/v1/authoring/documents/query',
         headers: {
-          origin: 'https://editor.lodariq.com',
+          origin: 'https://editor.lodariq.io',
           [AUTHORING_ACTIVATION_GRANT_HEADER]: activation.activationGrant,
         },
         payload: {
@@ -672,7 +734,7 @@ describe('activation grant document sessions', () => {
         method: 'POST',
         url: '/v1/authoring/activation/revoke',
         headers: {
-          origin: 'https://editor.lodariq.com',
+          origin: 'https://editor.lodariq.io',
           [AUTHORING_ACTIVATION_GRANT_HEADER]: activation.activationGrant,
         },
         payload: {
@@ -709,7 +771,7 @@ describe('activation grant document sessions', () => {
     const missingGrant = await app.inject({
       method: 'POST',
       url: '/v1/authoring/sessions',
-      headers: { origin: 'https://editor.lodariq.com' },
+      headers: { origin: 'https://editor.lodariq.io' },
       payload: {
         installationId: activation.installationId,
         customerOrigin: CUSTOMER_ORIGIN,
@@ -719,7 +781,7 @@ describe('activation grant document sessions', () => {
       },
     });
     expect(missingGrant.statusCode).toBe(401);
-    expect(missingGrant.headers['access-control-allow-origin']).toBe('https://editor.lodariq.com');
+    expect(missingGrant.headers['access-control-allow-origin']).toBe('https://editor.lodariq.io');
 
     const wrongOrigin = await createActivatedSession(app, {
       installationId: activation.installationId,
@@ -856,7 +918,7 @@ describe('activation grant document sessions', () => {
       context: { documentId: string };
     }>();
     const editorHeaders = {
-      origin: 'https://editor.lodariq.com',
+      origin: 'https://editor.lodariq.io',
       [AUTHORING_SESSION_HEADER]: session.authoringSessionToken,
     };
 
@@ -864,13 +926,13 @@ describe('activation grant document sessions', () => {
       method: 'OPTIONS',
       url: '/v1/authoring/document',
       headers: {
-        origin: 'https://editor.lodariq.com',
+        origin: 'https://editor.lodariq.io',
         'access-control-request-method': 'POST',
         'access-control-request-headers': `content-type,${AUTHORING_SESSION_HEADER}`,
       },
     });
     expect(preflight.statusCode).toBe(204);
-    expect(preflight.headers['access-control-allow-origin']).toBe('https://editor.lodariq.com');
+    expect(preflight.headers['access-control-allow-origin']).toBe('https://editor.lodariq.io');
     expect(preflight.headers['access-control-allow-headers']).toContain(AUTHORING_SESSION_HEADER);
 
     const loaded = await app.inject({
@@ -961,7 +1023,7 @@ describe('activation grant document sessions', () => {
       method: 'GET',
       url: '/v1/authoring/document',
       headers: {
-        origin: 'https://editor.lodariq.com',
+        origin: 'https://editor.lodariq.io',
         [AUTHORING_SESSION_HEADER]: `lod_authoring_${'x'.repeat(48)}`,
       },
     });
@@ -998,7 +1060,7 @@ describe('activation grant document sessions', () => {
     );
     expect(session.context.capabilities).toContain('document:publish-staging');
     const editorHeaders = {
-      origin: 'https://editor.lodariq.com',
+      origin: 'https://editor.lodariq.io',
       [AUTHORING_SESSION_HEADER]: session.authoringSessionToken,
     };
 
@@ -1282,7 +1344,7 @@ function createActivatedSession(
     [AUTHORING_ACTIVATION_GRANT_HEADER]: input.activationGrant,
   };
   if (input.editorOrigin !== null) {
-    headers.origin = input.editorOrigin ?? 'https://editor.lodariq.com';
+    headers.origin = input.editorOrigin ?? 'https://editor.lodariq.io';
   }
 
   return app.inject({

@@ -96,7 +96,7 @@ describe('creator SDK install', () => {
 
     expect(api?.authoring).toEqual({
       enabled: true,
-      iframeSrc: 'https://staging-editor.lodariq.com/authoring.html',
+      iframeSrc: 'https://staging-editor.lodariq.io/authoring.html',
     });
     const toolbar = document.querySelector<HTMLButtonElement>(
       '[data-lodariq-creator-toolbar="true"]',
@@ -111,7 +111,7 @@ describe('creator SDK install', () => {
       ?.click();
     await vi.waitFor(() =>
       expect(fetch).toHaveBeenCalledWith(
-        'https://api.lodariq.com/v1/sdk/authoring/document',
+        'https://api.lodariq.io/v1/sdk/authoring/document',
         expect.objectContaining({ method: 'GET', credentials: 'omit' }),
       ),
     );
@@ -125,7 +125,7 @@ describe('creator SDK install', () => {
     expect(panel).toBeInstanceOf(HTMLElement);
     const iframeUrl = new URL(iframe?.src ?? '');
     expect(`${iframeUrl.origin}${iframeUrl.pathname}`).toBe(
-      'https://staging-editor.lodariq.com/authoring.html',
+      'https://staging-editor.lodariq.io/authoring.html',
     );
     expect(iframeUrl.searchParams.get('parentOrigin')).toBe(window.location.origin);
     expect(document.documentElement.getAttribute('data-lodariq-authoring-panel-open')).toBe('true');
@@ -200,7 +200,7 @@ describe('creator SDK install', () => {
     await vi.waitFor(() =>
       expect(peer.postMessage).toHaveBeenCalledWith(
         expect.objectContaining({ type: 'authoring.save.request' }),
-        'https://staging-editor.lodariq.com',
+        'https://staging-editor.lodariq.io',
       ),
     );
     const saveRequest = vi
@@ -220,7 +220,7 @@ describe('creator SDK install', () => {
           requestCorrelationId: saveRequest.correlationId,
           document: savedDocument(),
         },
-        origin: 'https://staging-editor.lodariq.com',
+        origin: 'https://staging-editor.lodariq.io',
         source: peer,
       }),
     );
@@ -285,7 +285,7 @@ describe('creator SDK install', () => {
     const recoveryRequests: Array<{ url: string; init?: RequestInit }> = [];
     const fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = input.toString();
-      if (url === 'https://api.lodariq.com/v1/sdk/authoring/document') {
+      if (url === 'https://api.lodariq.io/v1/sdk/authoring/document') {
         return new Response(JSON.stringify({ document: savedDocument(), theme: approvedTheme }), {
           status: 200,
           headers: { 'content-type': 'application/json' },
@@ -406,9 +406,9 @@ describe('creator SDK install', () => {
     );
 
     expect(recoveryRequests.map((request) => request.url)).toEqual([
-      'https://api.lodariq.com/v1/sdk/authoring/environments/environment_staging/release-recovery',
-      'https://api.lodariq.com/v1/sdk/authoring/environments/environment_production/release-recovery',
-      'https://api.lodariq.com/v1/sdk/authoring/environments/environment_production/release-recovery',
+      'https://api.lodariq.io/v1/sdk/authoring/environments/environment_staging/release-recovery',
+      'https://api.lodariq.io/v1/sdk/authoring/environments/environment_production/release-recovery',
+      'https://api.lodariq.io/v1/sdk/authoring/environments/environment_production/release-recovery',
     ]);
     for (const request of recoveryRequests) {
       const headers = new Headers(request.init?.headers);
@@ -545,10 +545,10 @@ describe('creator SDK install', () => {
 function createCreatorScript(): HTMLScriptElement {
   const script = document.createElement('script');
   script.type = 'module';
-  script.src = 'https://cdn.lodariq.com/sdk/lodariq-creator.js';
+  script.src = 'https://cdn.lodariq.io/sdk/lodariq-creator.js';
   script.dataset['lodariqLoader'] = '';
   script.dataset['lodariqEnvironment'] = 'staging';
-  script.dataset['lodariqApi'] = 'https://api.lodariq.com';
+  script.dataset['lodariqApi'] = 'https://api.lodariq.io';
   script.dataset['lodariqToken'] = 'lod_staging_token';
   script.dataset['lodariqAuthoringSession'] = 'lod_authoring_session';
   document.body.appendChild(script);
@@ -563,7 +563,7 @@ function installContext({
   recoveryEnabled?: boolean;
 }): SdkInstallContext {
   const releaseRecoveryUrl =
-    'https://api.lodariq.com/v1/sdk/authoring/environments/:environmentId/release-recovery';
+    'https://api.lodariq.io/v1/sdk/authoring/environments/:environmentId/release-recovery';
   return {
     workspaceId: 'wk_creator',
     environment: 'staging',
@@ -571,20 +571,20 @@ function installContext({
       documentId: 'doc_tour_welcome',
       currentVersion: 'sha256-live',
     },
-    currentDocumentUrl: 'https://api.lodariq.com/v1/sdk/current-document',
-    ingestUrl: 'https://api.lodariq.com/v1/sdk/events',
+    currentDocumentUrl: 'https://api.lodariq.io/v1/sdk/current-document',
+    ingestUrl: 'https://api.lodariq.io/v1/sdk/events',
     authoring: authoringEnabled
       ? {
           enabled: true,
-          iframeSrc: 'https://staging-editor.lodariq.com/authoring.html',
+          iframeSrc: 'https://staging-editor.lodariq.io/authoring.html',
           sessionId: 'authsess_creator',
           expiresAt: '2099-01-01T00:00:00.000Z',
-          documentUrl: 'https://api.lodariq.com/v1/sdk/authoring/document',
-          saveDocumentUrl: 'https://api.lodariq.com/v1/sdk/authoring/document',
+          documentUrl: 'https://api.lodariq.io/v1/sdk/authoring/document',
+          saveDocumentUrl: 'https://api.lodariq.io/v1/sdk/authoring/document',
           release: {
             releaseState: {
               capability: 'document:read-release-state',
-              url: 'https://api.lodariq.com/v1/sdk/authoring/release-state',
+              url: 'https://api.lodariq.io/v1/sdk/authoring/release-state',
             },
             ...(recoveryEnabled
               ? {
@@ -604,7 +604,7 @@ function installContext({
               : {}),
             stagingPublication: {
               capability: 'document:publish-staging',
-              url: 'https://api.lodariq.com/v1/sdk/authoring/publications',
+              url: 'https://api.lodariq.io/v1/sdk/authoring/publications',
             },
           },
         }
@@ -700,7 +700,7 @@ function dispatchEditorMessage(peer: Window, data: Record<string, unknown>): voi
   window.dispatchEvent(
     new MessageEvent('message', {
       data,
-      origin: 'https://staging-editor.lodariq.com',
+      origin: 'https://staging-editor.lodariq.io',
       source: peer,
     }),
   );

@@ -4,10 +4,12 @@ Lodariq is an in-product launch and adoption workspace
 for Product Marketing teams at frequently shipping B2B SaaS companies. Creators
 work inside the live product, inherit a safe shared Brand System, verify an
 immutable staging artifact, and promote that exact artifact to production.
-After one permanent SDK installation, returning creators work from a draggable
-launcher on an allowed development or staging product origin. Lodariq sign-in
-uses a first-party popup and returns to the same page; the dashboard remains the
-control plane for setup, policy, administration, reporting, and support.
+After one permanent SDK installation, returning creators reveal a draggable
+launcher on an allowed development or staging product origin with
+`Ctrl/⌘ + Shift + L` or the dashboard's **Open in product** action. The launcher
+is hidden by default. Lodariq sign-in uses a first-party popup and returns to the
+same page; the dashboard remains the control plane for setup, policy,
+administration, reporting, and support.
 
 The architecture can expand across tours, announcements, hotspots, checklists,
 feedback, demos, and contextual knowledge. The initial commercial workflow is

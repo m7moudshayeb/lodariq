@@ -55,7 +55,7 @@ describe('@lodariq/dashboard view model', () => {
           workspaceId: 'wk_a',
           kind: 'staging',
           name: 'Staging',
-          originAllowlist: ['https://staging.lodariq.com'],
+          originAllowlist: ['https://staging.lodariq.io'],
           createdAt: '2026-06-30T00:00:00.000Z',
           updatedAt: '2026-06-30T00:00:00.000Z',
         },
@@ -96,7 +96,7 @@ describe('@lodariq/dashboard view model', () => {
               installationId: 'ins_pub_application_1234',
               workspaceId: 'wk_a',
               environmentId: 'env_staging',
-              exactOrigin: 'https://staging.lodariq.com',
+              exactOrigin: 'https://staging.lodariq.io',
               authoringEnabled: true,
               createdAt: '2026-06-30T00:00:00.000Z',
               updatedAt: '2026-06-30T00:00:00.000Z',
@@ -137,7 +137,7 @@ describe('@lodariq/dashboard view model', () => {
     ]);
     expect(viewModel.defaultEnvironmentId).toBe('env_staging');
     expect(viewModel.defaultSdkEnvironmentId).toBe('env_staging');
-    expect(viewModel.environmentOptions[1]?.originLabel).toBe('https://staging.lodariq.com');
+    expect(viewModel.environmentOptions[1]?.originLabel).toBe('https://staging.lodariq.io');
     expect(viewModel.environmentOptions.map((environment) => environment.id)).toEqual([
       'env_dev',
       'env_staging',
@@ -148,7 +148,7 @@ describe('@lodariq/dashboard view model', () => {
       'env_staging',
       'env_production',
     ]);
-    expect(viewModel.openInProductUrl).toBe('https://staging.lodariq.com');
+    expect(viewModel.openInProductUrl).toBe('https://staging.lodariq.io/?lodariq-launcher=show');
     expect(viewModel.recentActivity[0]).toMatchObject({
       documentId: 'doc_welcome',
       title: 'Welcome tour was last updated',
@@ -382,7 +382,52 @@ describe('@lodariq/dashboard view model', () => {
         exactOrigin: 'https://active.customer.example',
       }),
     ]);
-    expect(viewModel.openInProductUrl).toBe('https://active.customer.example');
+    expect(viewModel.openInProductUrl).toBe(
+      'https://active.customer.example/?lodariq-launcher=show',
+    );
+  });
+
+  it('keeps dashboard authoring entry unavailable to viewer roles', () => {
+    const createdAt = '2026-08-09T00:00:00.000Z';
+    const staging = {
+      ...environment('env_staging', 'staging', 'Staging'),
+      originAllowlist: ['https://staging.customer.example'],
+      enabled: true,
+      authoringEnabled: true,
+    };
+    const viewModel = buildDashboardViewModel({
+      controlPlaneContext: { userId: 'user_viewer', workspaceId: 'wk_a', role: 'viewer' },
+      documents: [],
+      environments: [staging],
+      tokens: [],
+      installations: [
+        {
+          installationId: 'ins_pub_viewer_hidden',
+          workspaceId: 'wk_a',
+          name: 'Viewer-hidden installation',
+          createdByUserId: 'user_owner',
+          createdAt,
+          updatedAt: createdAt,
+          revokedAt: null,
+          sdkSnippet: '<script></script>',
+          origins: [
+            {
+              installationId: 'ins_pub_viewer_hidden',
+              workspaceId: 'wk_a',
+              environmentId: staging.id,
+              exactOrigin: 'https://staging.customer.example',
+              authoringEnabled: true,
+              createdAt,
+              updatedAt: createdAt,
+            },
+          ],
+        },
+      ],
+      themes: [],
+    });
+
+    expect(viewModel.authoringSiteOptions).toEqual([]);
+    expect(viewModel.openInProductUrl).toBe('');
   });
 
   it('shows the latest persisted product-style provenance without exposing raw CSS evidence', () => {

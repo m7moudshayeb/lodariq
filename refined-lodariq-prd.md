@@ -51,7 +51,7 @@ The feedback is directionally correct and should be adopted. This revision also 
 33. Treat publication as a release pipeline: publish an immutable artifact to staging, verify it there, promote that exact artifact to production without recompilation, and roll back by atomically moving a manifest pointer.
 34. Narrow the initial commercial category to the in-product launch and adoption workflow for Product Marketing teams at frequently shipping B2B SaaS companies. Other personas remain collaborators and expansion users, not equal initial buyers.
 35. Treat a 48/50 product score as an evidence-gated target, not a roadmap claim. Buyer clarity, usage, workflow advantage, and distribution must be proven through paid pilots, comparative usability tests, retention, and channel results.
-36. Make the permanently installed SDK launcher the normal return path for creators in authenticated development and staging environments. The dashboard configures the product once; it is not a daily authoring gate, and a browser extension is not the canonical workflow.
+36. Keep the permanently installed SDK launcher hidden by default on authenticated development and staging environments. Creators reveal it with `Ctrl/⌘ + Shift + L` or dashboard **Open in product**; neither entry gesture grants authoring. A browser extension and second creator snippet are not required.
 37. Replace the fixed dock or page-width authoring bar with a draggable, modeless launcher and popup that preserve host-page hit testing. Target selection temporarily collapses the popup to a movable chip and restores it after selection.
 38. Authenticate signed-out creators through a top-level first-party Lodariq popup and an exact-origin, single-use, short-lived activation exchange. Do not collect credentials in the customer page, depend on another Lodariq tab being open, or put bearer credentials in URLs or persistent browser storage.
 
@@ -81,7 +81,7 @@ The feedback is directionally correct and should be adopted. This revision also 
 | Content model        | Fixed per-type command lists     | Change       | Global block registry with context-aware ranking and broad composition rules.                                                                                                                               |
 | Validation           | Parser-style validity            | Change       | Save almost always succeeds; publish blocks only critical runtime errors.                                                                                                                                   |
 | Product mental model | Document-first builder           | Change       | Outcome-first, live-product-first launch workspace; canonical block JSON is an internal contract, not the creator's starting point.                                                                         |
-| Authoring entry      | Dashboard launch or extension    | Change       | One permanent SDK installation exposes a draggable creator launcher on allowed non-production origins; first-party popup authentication returns the creator to the same product page.                       |
+| Authoring entry      | Dashboard launch or extension    | Change       | One permanent SDK installation keeps creator UI hidden on allowed non-production origins until a keyboard toggle or dashboard **Open in product** reveals it; first-party popup authentication returns an authorized creator to the same product page. |
 | Styling              | Manual theme controls/CSS escape | Change       | Versioned semantic Brand System with safe product matching, renderer recipes, inheritance, visual preflight, and drift review; no creator-authored CSS.                                                     |
 | Environments         | Publish independently            | Change       | Configure environments once, verify an immutable staging artifact, and promote the exact artifact to production with permissions, history, and rollback.                                                    |
 | Initial buyer        | Several equal personas           | Change       | Product Marketing is the initial champion; Head/VP of Product Marketing or Product is the economic buyer. Other roles collaborate and expand later.                                                         |
@@ -98,7 +98,7 @@ The creation workflow is consistent across content types:
 
 1. A developer installs one script, configures exact origins, and optionally supplies design tokens and identify/track data.
 2. A workspace admin configures the environment pipeline and approves the shared Brand System once.
-3. A creator opens Lodariq from the SDK launcher in staging, resumes or starts an experience, selects the relevant product UI, and edits the rendered experience in place without first visiting the dashboard.
+3. A creator reveals Lodariq in staging with `Ctrl/⌘ + Shift + L` or dashboard **Open in product**, resumes or starts an experience, selects the relevant product UI, and edits the rendered experience in place.
 4. Lodariq validates content, targeting, placement health, responsive fit, accessibility, and brand consistency using the same renderer behavior used at runtime.
 5. Lodariq compiles a safe, typed, immutable delivery artifact on the server and publishes it to staging.
 6. After verification, the creator promotes that exact artifact to production without copying the experience or recompiling it.
@@ -160,7 +160,7 @@ An optional `Launch` aggregate groups related experiences under one product outc
 
 - One install script supports authoring, preview, production delivery, targeting, and analytics.
 - The customer's live staging product is the primary authoring workspace; outcome selection, inline editing, preview, readiness, and release remain in one perceived surface.
-- The same installed loader exposes a draggable creator launcher only on explicitly allowed development and staging origins. A browser extension may be tested later as an acquisition aid, but it is not required for normal authoring.
+- The same installed loader can reveal a draggable creator launcher only on explicitly allowed development and staging origins. It starts visually hidden and appears only after `Ctrl/⌘ + Shift + L` or dashboard **Open in product**. A browser extension may be tested later as an acquisition aid, but it is not required for normal authoring.
 - Signed-out creators authenticate in a first-party top-level popup and return to the same customer page through an exact-origin, short-lived activation exchange; the customer page never hosts a Lodariq password form.
 - A shared Brand System matches approved product styles through semantic tokens and safe renderer recipes, with explicit inheritance, impact preview, responsive/accessibility checks, and drift review.
 - Workspace-configured environment pipelines enable one-action staging publication and exact-artifact production promotion.
@@ -313,7 +313,7 @@ Customer install:
 
 ```html
 <script
-  src="https://cdn.lodariq.com/loader/v1/lodariq-loader.js"
+  src="https://cdn.lodariq.io/loader/v1/lodariq-loader.js"
   data-installation="ins_pub_xxx"
   async
   crossorigin="anonymous"
@@ -372,7 +372,7 @@ Lodariq.registerBrandTokens({
 Rules:
 
 - A configured production origin loads only the loader and required runtime renderer bundles; it does not receive launcher or creator-bootstrap code.
-- Configured staging and development origins may expose the lightweight creator launcher. The authoring bundle loads lazily only after authenticated creator activation.
+- Configured staging and development origins may make the lightweight creator launcher available, but it is visually hidden by default. `Ctrl/⌘ + Shift + L` or dashboard **Open in product** reveals it. The authoring bundle loads lazily only after authenticated creator activation.
 - The authoring bundle is never loaded for ordinary production viewers.
 - Installation identifiers are public and revocable; delivery grants and authoring sessions are short-lived, capability-scoped, and resolved server-side to one environment and exact origin.
 - Registered Brand values are explicit customer-provided inputs exposed only to
@@ -382,30 +382,36 @@ Rules:
 
 ### 6.2.1 Authenticated In-Product Authoring Activation
 
-The launcher must work whether or not `app.lodariq.com` is already open. It
+The launcher must work whether or not `app.lodariq.io` is already open. It
 must not attempt to discover arbitrary browser tabs or depend on third-party
 cookie behavior.
 
 Activation flow:
 
 1. On an authoring-enabled development or staging origin, the installed loader
-   renders the minimized Lodariq launcher without loading the authoring bundle.
-2. A signed-out creator selects **Continue with Lodariq**. The launcher opens a
-   top-level `https://app.lodariq.com/authoring/activate` popup. Lodariq sign-in
+   resolves authoring availability without displaying Lodariq creator UI.
+2. The creator presses `Ctrl/⌘ + Shift + L` or uses dashboard **Open in
+   product**. The launcher appears without loading the authoring bundle. The
+   dashboard URL flag is non-secret display intent only, is removed after
+   consumption, and cannot authorize authoring.
+3. A signed-out creator selects an authoring action. The launcher opens a
+   top-level `https://app.lodariq.io/authoring/activate` popup. Lodariq sign-in
    and organization selection happen only on this first-party origin.
-3. The activation request carries only non-secret request metadata: a random
+4. The activation request carries only non-secret request metadata: a random
    state value, a PKCE-style challenge, the public installation ID, and the
    claimed opener origin. The API validates membership, the exact configured
    origin, the resolved environment, and the environment's authoring policy.
-4. The popup returns a single-use authorization code to the exact validated
+5. The popup returns a single-use authorization code to the exact validated
    opener origin with `postMessage`; wildcard targets are forbidden. Popup
    cancellation, blocking, expiry, and replay have explicit retry states.
-5. The launcher exchanges the code and verifier for a short-lived activation
+6. The launcher exchanges the code and verifier for a short-lived activation
    grant scoped to the creator, workspace, environment, exact origin, and
    capabilities. Selecting or creating a document then uses the existing
    document-scoped authoring-session endpoint.
-6. After the content-addressed creator module loads, its credential-free
-   sandboxed iframe at `editor.lodariq.com` proves its exact origin/source. The
+7. Only `member`, `admin`, and `owner` workspace roles may complete approval;
+   `member` is the current creator tier and `viewer` fails closed.
+8. After the content-addressed creator module loads, its credential-free
+   sandboxed iframe at `editor.lodariq.io` proves its exact origin/source. The
    host transfers the activation grant once; the iframe selects or creates the
    document, creates and owns the document session, and never returns the
    session bearer to customer-page JavaScript. Reloading the customer page
@@ -753,7 +759,7 @@ The primary creator interface is the rendered experience inside the customer's l
 
 Default creator loop:
 
-1. Open or restore Lodariq from the draggable launcher already present on an authoring-enabled staging or development origin.
+1. Reveal or restore Lodariq with `Ctrl/⌘ + Shift + L` or dashboard **Open in product** on an authoring-enabled staging or development origin.
 2. If needed, authenticate in the first-party popup and return automatically to the same product page.
 3. Start a new enabled experience, open an experience on this page, or preview as a user. Phase 2 exposes Tour; Phase 3 expands the enabled type and outcome catalog.
 4. When the experience is contextual, click the product element involved.
@@ -765,7 +771,7 @@ Default creator loop:
 Interaction rules:
 
 - Simple experiences open with usable content, placement, behavior, and Brand System defaults; they do not begin as empty configuration forms.
-- The idle launcher has three stable icon actions: **New experience**, **Experiences on this page**, and **Preview as user**. Each action has an accessible name and a short tooltip on hover or focus; the icon dock avoids repeating full labels over the customer product. `New experience` lists only types implemented and enabled for the workspace.
+- The idle launcher has four stable icon actions: **New experience**, **Experiences on this page**, **Preview as user**, and **Hide Lodariq**. Each action has an accessible name and a short tooltip on hover or focus; the icon dock avoids repeating full labels over the customer product. `New experience` lists only types implemented and enabled for the workspace. **Hide Lodariq** removes visible creator chrome until the keyboard toggle or dashboard entry reveals it again.
 - Hover or focus may reveal the quick actions visually, but hover must never be the only way to discover or operate them. Click, tap, and keyboard activation pin the action palette. A pinned palette remains open across pointer leave and action activation; only an explicit launcher toggle, outside click, or `Escape` collapses it.
 - Repair, the derived release action, recent release activity, and later performance data appear only when they are relevant; the launcher must not become a miniature dashboard.
 - **Experiences on this page** opens a compact route-scoped list of drafts,
@@ -1676,14 +1682,14 @@ Responsibilities:
 
 - Draggable launcher, modeless authoring popup, element picker, and owner-bound
   exact-area presentation picker.
-- Signed-out launcher state and the exact-origin activation handshake described
+- Hidden and signed-out launcher states plus the exact-origin activation handshake described
   in §6.2.1; Lodariq credentials are entered only in the first-party popup.
 - Host-page bridge for bounded DOM inspection, highlight rendering, target
   picking, owner-bound exact-area presentation picking, and authoring-only safe
   style sampling.
 - Sandboxed iframe editor hosted from a Lodariq domain.
-- `New experience`, `Experiences on this page`, and `Preview as user` as the
-  stable quick actions; type expansion remains capability-gated.
+- `New experience`, `Experiences on this page`, `Preview as user`, and `Hide
+Lodariq` as the stable quick actions; type expansion remains capability-gated.
 - Outcome launcher plus in-product rendered experience editing, backed by a Lexical editor boundary and custom Lodariq nodes where structured text behavior is required.
 - Inline content controls, optional slash menu, sequence rails, property chips, Brand System controls, visual preflight, release state, review UI, and document sync.
 - Versioned `postMessage` protocol between iframe and host bridge.
@@ -1692,7 +1698,7 @@ Iframe example:
 
 ```html
 <iframe
-  src="https://editor.lodariq.com/session/..."
+  src="https://editor.lodariq.io/session/..."
   sandbox="allow-scripts allow-same-origin"
 ></iframe>
 ```
@@ -2036,7 +2042,7 @@ Representative active pointer:
     "compilerVersion": "0.3.0",
     "rendererContractVersion": "2",
     "themeVersionId": "themev_123",
-    "url": "https://cdn.lodariq.com/.../sha256-a91f....json",
+    "url": "https://cdn.lodariq.io/.../sha256-a91f....json",
     "integrity": "sha256-..."
   }
 }
@@ -2241,25 +2247,34 @@ Use one of:
 For an iframe-based authoring product the origin boundaries are a security design, not an incidental detail, and they should be fixed early.
 
 ```text
-cdn.lodariq.com     Cloudflare R2 + CDN: loader, runtime/renderer bundles, compiled
+lodariq.io         Canonical public marketing site; www redirects to the apex
+cdn.lodariq.io     Cloudflare R2 + CDN: loader, runtime/renderer bundles, compiled
                    manifests, hosted demo assets, exports (immutable, content-addressed)
-editor.lodariq.com  Authoring iframe app; a distinct origin from BOTH the customer
+editor.lodariq.io  Authoring iframe app; a distinct origin from BOTH the customer
                    page and the dashboard
-app.lodariq.com     Next.js dashboard and top-level creator activation popup on Fly.io
-api.lodariq.com     Fastify API on Fly.io (api service)
+app.lodariq.io     Next.js dashboard and top-level creator activation popup on Fly.io
+api.lodariq.io     Fastify API on Fly.io (api service)
                    plus a separate Fly.io worker service for compile/screenshot/export jobs
-demos.lodariq.com   Hosted public demo player; a separate origin from the authenticated
+demos.lodariq.io   Hosted public demo player; a separate origin from the authenticated
                    dashboard so viewer sessions never share cookies with it
+lodariq.com        Brand-protection redirect only; permanently redirects to the
+                   matching lodariq.io marketing URL and receives no auth cookies
 ```
 
 Rules:
 
-- The authoring iframe origin (`editor.lodariq.com`) must be distinct from the dashboard origin. Even if the editor is later embedded in the dashboard, it must remain served from its own canonical origin so cross-origin isolation and `postMessage` origin checks stay meaningful.
-- The first-party activation popup may use `app.lodariq.com/authoring/activate`
+- The authoring iframe origin (`editor.lodariq.io`) must be distinct from the dashboard origin. Even if the editor is later embedded in the dashboard, it must remain served from its own canonical origin so cross-origin isolation and `postMessage` origin checks stay meaningful.
+- The first-party activation popup may use `app.lodariq.io/authoring/activate`
   so it can reuse the normal Lodariq login session. It returns only a single-use
   code to the exact validated customer origin; the editor iframe remains on
-  `editor.lodariq.com`.
+  `editor.lodariq.io`.
 - Public, unauthenticated demo traffic must not run on the authenticated dashboard origin.
+- `lodariq.io` is the canonical marketing origin. `www.lodariq.io`,
+  `lodariq.com`, and `www.lodariq.com` permanently redirect to it while
+  preserving the marketing path and query string. The `.com` origins must not
+  host authentication, APIs, SDK assets, the authoring iframe, or public demos.
+- Canonical links, sitemap URLs, email links, OAuth callbacks, CSP/CORS
+  allowlists, and SDK metadata must use `.lodariq.io` origins exclusively.
 - The dashboard, API, and worker run on Fly.io. The API and worker are separate deployables because Playwright export jobs need their own scaling tier and isolation, as described in section 13.
 - Vercel is not used.
 
@@ -2268,7 +2283,7 @@ Rules:
 Every published tour can generate a hosted URL:
 
 ```text
-https://app.lodariq.com/demo/acme-enterprise-demo
+https://demos.lodariq.io/acme-enterprise-demo
 ```
 
 Requirements:
@@ -2462,7 +2477,10 @@ Goal: lock the SDK-first implementation contract before agents or humans generat
 
 Scope:
 
-- Product name confirmed as **Lodariq**; use `Lodariq` for SDK globals, `@lodariq/*` for packages, and `*.lodariq.com` for canonical origins before generating implementation artifacts.
+- Product name confirmed as **Lodariq**; use `Lodariq` for SDK globals,
+  `@lodariq/*` for packages, `https://lodariq.io` for marketing, and
+  `*.lodariq.io` for canonical product origins before generating implementation
+  artifacts. Keep `lodariq.com` redirect-only for brand protection.
 - Create one repository with pnpm workspaces.
 - Add Turborepo for task caching; it is cheap to add and AI-assisted work generates high CI churn.
 - Add strict TypeScript, ESLint, Prettier, Vitest, Playwright, size-limit, and dependency-cruiser.
@@ -2715,15 +2733,16 @@ Superseding entry requirements inherited by Phase 2:
 
 - One permanent SDK installation supports delivery and lazy creator activation;
   creators do not install an extension or a second creator snippet.
-- An authenticated development or staging origin exposes a draggable launcher;
-  production exposes neither launcher nor creator bootstrap.
+- An authenticated development or staging origin makes a draggable launcher
+  available but hidden by default; the keyboard toggle or dashboard entry
+  reveals it. Production exposes neither launcher nor creator bootstrap.
 - Signed-out activation uses a first-party popup, exact-origin single-use code,
   short-lived scoped grant, and the existing document authoring session.
 - The modeless popup leaves the product page clickable, collapses for target
   selection, and restores the same document and overlay state.
-- Stable idle actions are **New experience**, **Experiences on this page**, and
-  **Preview as user**. In the tour-only foundation, **New experience** creates a
-  tour; Phase 3 expands the outcome/type catalog.
+- Stable idle actions are **New experience**, **Experiences on this page**,
+  **Preview as user**, and **Hide Lodariq**. In the tour-only foundation, **New
+  experience** creates a tour; Phase 3 expands the outcome/type catalog.
 - The dashboard remains setup, administration, support, and fallback entry; it
   is not required for a returning creator's normal session.
 
@@ -2752,12 +2771,13 @@ Scope:
 - Hosted convergence on the permanently installed SDK launcher for
   authoring-enabled development and staging origins; no extension or separately
   installed creator snippet is required.
-- Signed-out launcher, top-level first-party activation popup, exact-origin
+- Hidden-by-default launcher, top-level first-party activation popup, exact-origin
   one-time-code exchange, short-lived activation grant, document-scoped session
   creation, expiry/replay/cancel recovery, and production-origin exclusion.
 - Converged draggable launcher and modeless authoring popup with the stable
-  **New experience**, **Experiences on this page**, and **Preview as user**
-  actions. Page-level drafts/history and release stay in-product.
+  **New experience**, **Experiences on this page**, **Preview as user**, and
+  **Hide Lodariq** actions. Page-level drafts/history and release stay
+  in-product.
 - Selector-free Target Identity V2 capture and runtime resolution. New targets
   use independent durable semantic/context evidence, strict ambiguity and
   runner-up gates, locale-scoped supporting text, and container-relative
@@ -2800,10 +2820,11 @@ Scope:
 
 Implementation checkpoint — 2026-08-07: Phase 2 Slice 1 is code-complete and
 locally verified. One permanent public installation now resolves exact allowed
-origins, exposes the production-disabled creator launcher on configured
-development/staging pages, supports the stable Tour-only **New experience**,
-pathname-scoped **Experiences on this page**, workspace browsing, and runtime
-**Preview as user** actions, and hands document-scoped authoring sessions to the
+origins, keeps the production-disabled creator launcher hidden on configured
+development/staging pages until keyboard/dashboard reveal, supports the stable
+Tour-only **New experience**, pathname-scoped **Experiences on this page**,
+workspace browsing, runtime **Preview as user**, and **Hide Lodariq** actions,
+and hands document-scoped authoring sessions to the
 exact editor origin with explicit revocation. The dashboard synchronizes trusted
 origins and gates installation mutation to admins/owners while keeping lower
 roles read-only. This checkpoint does not complete Phase 2 or prove deployed/live
@@ -3157,7 +3178,7 @@ Billing notes:
 - Zero launcher/popup obstruction failures: every element outside the visible
   popup bounds remains selectable, and target selection can collapse/restore
   without losing state.
-- All three stable launcher actions pass mouse, keyboard, and touch validation;
+- All four stable launcher actions pass mouse, keyboard, and touch validation;
   hover-only activation is zero.
 - Ordinary target attachment completes with one product-element click and no
   CSS/attribute configuration when the page provides at least two durable
@@ -3250,9 +3271,9 @@ Billing notes:
     Slice 3 and usability validation. The state,
     action, accessibility, and security contracts in §§6.2.1 and 7.3 remain
     fixed.
-16. Shortcut discovery: validate an optional keyboard shortcut for opening the
-    launcher after the click/tap flow is proven; the shortcut cannot be the only
-    entry method.
+16. Entry discovery: validate `Ctrl/⌘ + Shift + L` as a hide/show toggle and
+    dashboard **Open in product** as the visible click/tap entry. Direct staging
+    visits must show no Lodariq creator UI by default.
 
 # 20. Implementation Guardrails
 
@@ -3296,9 +3317,12 @@ Billing notes:
   attributes, persistent browser storage, or logs.
 - Do not expose the document-scoped authoring-session bearer to customer-page
   JavaScript. Transfer only the short-lived activation grant once to the exact
-  `editor.lodariq.com` iframe; the iframe owns the session bearer in memory.
+  `editor.lodariq.io` iframe; the iframe owns the session bearer in memory.
 - Do not load the authoring bundle before a development/staging origin and an
   authenticated creator have both been verified.
+- Do not display the staging/development launcher on ordinary page load. Reveal
+  it only from the keyboard toggle or dashboard entry intent, and never treat
+  either gesture as proof of identity or workspace role.
 - Do not use wildcard popup or iframe `postMessage` targets. Validate exact
   origin, source window, request state, session, document, and payload schema.
 - Do not let the launcher or popup block host-page hit testing outside its

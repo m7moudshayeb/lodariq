@@ -21,7 +21,7 @@ describe('Product match API atomicity', () => {
     const app = createApiApp({
       defaultWorkspaceId: 'wk_a',
       defaultUserId: 'user_a',
-      publicApiBaseUrl: 'https://api.lodariq.com',
+      publicApiBaseUrl: 'https://api.lodariq.io',
     });
     const created = await app.inject({
       method: 'POST',
@@ -176,7 +176,7 @@ describe('Product match API atomicity', () => {
     const app = createApiApp({
       defaultWorkspaceId: 'wk_a',
       defaultUserId: 'user_a',
-      publicApiBaseUrl: 'https://api.lodariq.com',
+      publicApiBaseUrl: 'https://api.lodariq.io',
     });
     const created = await app.inject({
       method: 'POST',

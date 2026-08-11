@@ -37,6 +37,7 @@ import {
   createDefaultEnvironmentReleasePolicy,
   evaluateEnvironmentReleasePolicy,
   evaluateReleaseRecovery,
+  isAuthoringControlPlaneRole,
   validate,
   validateWorkspaceEnvironmentPolicy,
   type AnalyticsEvent,
@@ -7513,7 +7514,7 @@ function isCurrentAuthEmailLease(
 }
 
 function hasAuthoringWorkspaceRole(role: string): boolean {
-  return role === 'member' || role === 'admin' || role === 'owner';
+  return isAuthoringControlPlaneRole(role);
 }
 
 function identityWorkspaceRole(role: string): IdentityWorkspaceRecord['role'] | null {

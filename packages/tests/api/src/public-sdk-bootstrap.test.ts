@@ -77,9 +77,9 @@ describe('origin-resolved public SDK bootstrap', () => {
     const repository = createPublicSdkRepository({ environments });
     const app = createApiApp({
       repository,
-      publicApiBaseUrl: 'https://staging-api.lodariq.com',
-      loaderSrc: 'https://staging-cdn.lodariq.com/loader/v1/lodariq-loader.js',
-      authoringIframeSrc: 'https://staging-editor.lodariq.com/authoring.html',
+      publicApiBaseUrl: 'https://staging-api.lodariq.io',
+      loaderSrc: 'https://staging-cdn.lodariq.io/loader/v1/lodariq-loader.js',
+      authoringIframeSrc: 'https://staging-editor.lodariq.io/authoring.html',
     });
 
     const installationId = await createInstallation(app, 'Customer application');
@@ -202,11 +202,11 @@ describe('origin-resolved public SDK bootstrap', () => {
       delivery: { state: 'unavailable' },
       authoring: {
         state: 'available',
-        appOrigin: 'https://staging-app.lodariq.com',
-        activationUrl: 'https://staging-app.lodariq.com/authoring/activate',
+        appOrigin: 'https://staging-app.lodariq.io',
+        activationUrl: 'https://staging-app.lodariq.io/authoring/activate',
         authorizationRequestUrl:
-          'https://staging-api.lodariq.com/v1/sdk/authoring/authorization-requests',
-        exchangeUrl: 'https://staging-api.lodariq.com/v1/sdk/authoring/exchange',
+          'https://staging-api.lodariq.io/v1/sdk/authoring/authorization-requests',
+        exchangeUrl: 'https://staging-api.lodariq.io/v1/sdk/authoring/exchange',
       },
     });
     expect(JSON.stringify(context)).not.toContain('creatorModule');
@@ -252,7 +252,7 @@ describe('origin-resolved public SDK bootstrap', () => {
   it('returns a structurally data-free authoring branch for production', async () => {
     const app = createApiApp({
       repository: createPublicSdkRepository({ environments }),
-      publicApiBaseUrl: 'https://api.lodariq.com',
+      publicApiBaseUrl: 'https://api.lodariq.io',
     });
     const installationId = await createInstallation(app, 'Production application');
 
@@ -318,7 +318,7 @@ describe('origin-resolved public SDK bootstrap', () => {
     const repository = createPublicSdkRepository({ environments });
     const app = createApiApp({
       repository,
-      publicApiBaseUrl: 'https://api.lodariq.com',
+      publicApiBaseUrl: 'https://api.lodariq.io',
     });
     const documents = ['doc_delivery_alpha', 'doc_delivery_beta'].map((id) => ({
       ...structuredClone(baseDocument),
@@ -492,7 +492,7 @@ describe('origin-resolved public SDK bootstrap', () => {
     const repository = createPublicSdkRepository({ environments });
     const app = createApiApp({
       repository,
-      publicApiBaseUrl: 'https://api.lodariq.com',
+      publicApiBaseUrl: 'https://api.lodariq.io',
     });
     const document = {
       ...structuredClone(baseDocument),

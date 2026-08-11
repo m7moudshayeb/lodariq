@@ -8,7 +8,7 @@ primary_region = "fra"
   NODE_ENV = "production"
   PORT = "3000"
   LODARIQ_AUTH_MODE = "lodariq"
-  LODARIQ_API_BASE_URL = "https://staging-api.lodariq.com"
+  LODARIQ_API_BASE_URL = "https://staging-api.lodariq.io"
   LODARIQ_PUBLIC_SIGNUP_MODE = "disabled"
   LODARIQ_PASSWORD_RECOVERY_MODE = "disabled"
 

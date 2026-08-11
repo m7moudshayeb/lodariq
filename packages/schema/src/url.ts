@@ -12,8 +12,17 @@ export interface SafeNavigationUrlOptions {
   baseUrl?: string;
 }
 
+export type SafeNavigationDestinationKind = 'internal' | 'external' | 'handoff';
+
+export interface SafeNavigationDestination {
+  href: string;
+  kind: SafeNavigationDestinationKind;
+}
+
 const DEFAULT_RELATIVE_BASE_URL = 'https://app.lodariq.local/';
 const ALWAYS_ALLOWED_SCHEMES = new Set(['https:', 'mailto:']);
+const BARE_HOSTNAME_PATTERN =
+  /^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}(?::\d{1,5})?(?:[/?#]|$)/iu;
 
 /**
  * Phase 1 navigation policy for author-controlled action URLs.
@@ -44,6 +53,9 @@ export function resolveSafeNavigationUrl(
   const base = parseUrl(baseUrl);
   if (!base) return null;
 
+  const inferredHttpsUrl = inferHttpsUrl(trimmed);
+  if (inferredHttpsUrl) return inferredHttpsUrl.href;
+
   const explicitUrl = parseUrl(trimmed);
   if (!explicitUrl) {
     if (trimmed.startsWith('//')) return null;
@@ -64,12 +76,39 @@ export function resolveSafeNavigationUrl(
   return null;
 }
 
+/**
+ * Classifies a safe action URL relative to the customer page that will open it.
+ * Internal web navigation stays in the current tab, external HTTPS navigation
+ * opens separately, and non-web protocols keep their native handoff behavior.
+ */
+export function resolveSafeNavigationDestination(
+  rawUrl: string | undefined,
+  options: SafeNavigationUrlOptions = {},
+): SafeNavigationDestination | null {
+  const href = resolveSafeNavigationUrl(rawUrl, options);
+  if (!href) return null;
+
+  const base = parseUrl(options.baseUrl ?? DEFAULT_RELATIVE_BASE_URL);
+  const destination = base ? parseUrl(href, base) : null;
+  if (!base || !destination) return null;
+  if (destination.origin === base.origin) return { href, kind: 'internal' };
+  if (destination.protocol === 'https:') return { href, kind: 'external' };
+  return { href, kind: 'handoff' };
+}
+
 function parseUrl(rawUrl: string, baseUrl?: URL): URL | null {
   try {
     return baseUrl ? new URL(rawUrl, baseUrl) : new URL(rawUrl);
   } catch {
     return null;
   }
+}
+
+function inferHttpsUrl(rawUrl: string): URL | null {
+  if (!BARE_HOSTNAME_PATTERN.test(rawUrl)) return null;
+  const inferredUrl = parseUrl(`https://${rawUrl}`);
+  if (!inferredUrl || inferredUrl.username || inferredUrl.password) return null;
+  return inferredUrl;
 }
 
 function isApprovedAppScheme(

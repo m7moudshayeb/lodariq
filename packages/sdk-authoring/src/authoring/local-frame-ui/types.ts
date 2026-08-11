@@ -59,7 +59,7 @@ export const EDITABLE_ACTION_OPTIONS = [
   { value: 'next', label: 'Go to next step' },
   { value: 'back', label: 'Go back' },
   { value: 'complete', label: 'Complete tour' },
-  { value: 'clickTarget', label: 'Wait for placement' },
+  { value: 'clickTarget', label: 'Click target' },
   { value: 'openPage', label: 'Open page' },
   { value: 'dismiss', label: 'Close experience' },
 ] as const;
@@ -145,6 +145,12 @@ export const AUTHORING_PANEL_MODES = [
   'release-recovery-confirmation',
 ] as const;
 export type AuthoringPanelMode = (typeof AUTHORING_PANEL_MODES)[number];
+
+export const EDITABLE_BUTTON_VARIANT_OPTIONS = [
+  { value: 'primary', label: 'Primary' },
+  { value: 'secondary', label: 'Secondary' },
+] as const;
+export type EditableButtonVariant = (typeof EDITABLE_BUTTON_VARIANT_OPTIONS)[number]['value'];
 
 export type AuthoringPanelOperation =
   | 'loading-brand'

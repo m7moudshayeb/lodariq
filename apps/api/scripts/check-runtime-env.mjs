@@ -52,15 +52,15 @@ function main(env = process.env) {
 
 function requireDeploymentOriginTuple(env, failures) {
   const tuples = {
-    'https://api.lodariq.com': {
-      app: 'https://app.lodariq.com',
-      cdn: 'https://cdn.lodariq.com',
-      editor: 'https://editor.lodariq.com',
+    'https://api.lodariq.io': {
+      app: 'https://app.lodariq.io',
+      cdn: 'https://cdn.lodariq.io',
+      editor: 'https://editor.lodariq.io',
     },
-    'https://staging-api.lodariq.com': {
-      app: 'https://staging-app.lodariq.com',
-      cdn: 'https://staging-cdn.lodariq.com',
-      editor: 'https://staging-editor.lodariq.com',
+    'https://staging-api.lodariq.io': {
+      app: 'https://staging-app.lodariq.io',
+      cdn: 'https://staging-cdn.lodariq.io',
+      editor: 'https://staging-editor.lodariq.io',
     },
   };
   const apiOrigin = exactOrigin(env.LODARIQ_PUBLIC_API_BASE_URL);

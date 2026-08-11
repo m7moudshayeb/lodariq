@@ -45,7 +45,7 @@ describe('@lodariq/api runtime environment check', () => {
     expect(() =>
       runCheck(
         validApiEnv({
-          LODARIQ_PUBLIC_API_BASE_URL: 'http://api.lodariq.com',
+          LODARIQ_PUBLIC_API_BASE_URL: 'http://api.lodariq.io',
         }),
       ),
     ).toThrow(/LODARIQ_PUBLIC_API_BASE_URL must use https/);
@@ -66,8 +66,8 @@ describe('@lodariq/api runtime environment check', () => {
   it('accepts a complete Resend outbox configuration and rejects partial delivery config', () => {
     const resend = {
       LODARIQ_EMAIL_DELIVERY_MODE: 'resend',
-      LODARIQ_APP_BASE_URL: 'https://app.lodariq.com',
-      LODARIQ_AUTH_EMAIL_FROM: 'Lodariq <access@lodariq.com>',
+      LODARIQ_APP_BASE_URL: 'https://app.lodariq.io',
+      LODARIQ_AUTH_EMAIL_FROM: 'Lodariq <access@lodariq.io>',
       LODARIQ_AUTH_EMAIL_TOKEN_SECRET: 'auth-email-token-secret-at-least-32-bytes',
       RESEND_API_KEY: 're_abcdefghijklmnopqrstuvwxyz',
     };
@@ -111,14 +111,14 @@ function validApiEnv(overrides: Record<string, string> = {}): Record<string, str
     LODARIQ_PASSWORD_HASH_MAX_QUEUED: '8',
     LODARIQ_PASSWORD_HASH_QUEUE_TIMEOUT_MS: '2000',
     DATABASE_URL: 'postgresql://lodariq_app:password@example.com/neondb?sslmode=require',
-    LODARIQ_PUBLIC_API_BASE_URL: 'https://api.lodariq.com',
-    LODARIQ_LOADER_SRC: 'https://cdn.lodariq.com/sdk/lodariq-loader.js',
-    LODARIQ_PUBLIC_LOADER_SRC: 'https://cdn.lodariq.com/sdk/lodariq-public-bootstrap.js',
-    LODARIQ_CREATOR_LOADER_SRC: 'https://cdn.lodariq.com/sdk/lodariq-creator.js',
-    LODARIQ_CREATOR_MODULE_URL: `https://cdn.lodariq.com/sdk/sha256-${'0'.repeat(64)}/creator.js`,
+    LODARIQ_PUBLIC_API_BASE_URL: 'https://api.lodariq.io',
+    LODARIQ_LOADER_SRC: 'https://cdn.lodariq.io/sdk/lodariq-loader.js',
+    LODARIQ_PUBLIC_LOADER_SRC: 'https://cdn.lodariq.io/sdk/lodariq-public-bootstrap.js',
+    LODARIQ_CREATOR_LOADER_SRC: 'https://cdn.lodariq.io/sdk/lodariq-creator.js',
+    LODARIQ_CREATOR_MODULE_URL: `https://cdn.lodariq.io/sdk/sha256-${'0'.repeat(64)}/creator.js`,
     LODARIQ_CREATOR_MODULE_VERSION: 'sha256-test',
     LODARIQ_CREATOR_MODULE_INTEGRITY: `sha256-${'A'.repeat(43)}=`,
-    LODARIQ_AUTHORING_IFRAME_SRC: 'https://editor.lodariq.com/authoring.html',
+    LODARIQ_AUTHORING_IFRAME_SRC: 'https://editor.lodariq.io/authoring.html',
     ...overrides,
   };
 }

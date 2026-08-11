@@ -35,7 +35,7 @@ const ACTION_CHIP_LABELS: Readonly<Record<string, string>> = {
   back: 'Goes to previous step',
   complete: 'Completes tour',
   dismiss: 'Closes experience',
-  clickTarget: 'Waits for placement',
+  clickTarget: 'Clicks target',
   openPage: 'Opens page',
 };
 

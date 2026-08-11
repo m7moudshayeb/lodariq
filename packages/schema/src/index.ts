@@ -16,6 +16,7 @@ export * from './catalog';
 export * from './bridge';
 export * from './events';
 export * from './sdk';
+export * from './authoring-entry-runtime';
 export * from './hosted-creator';
 export * from './hosted-authoring-bridge';
 export * from './publish';

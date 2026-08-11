@@ -178,7 +178,7 @@ Across participants:
   dashboard visits.
 - Signed-out entry returns to the same page in no more than two Lodariq primary
   actions, excluding workspace-required identity-provider steps.
-- All three stable launcher actions complete by mouse, touch, and keyboard;
+- All four stable launcher actions complete by mouse, touch, and keyboard;
   hover-only activation and host-page obstruction failures are zero.
 - Median initial Brand Theme setup under 2 minutes.
 - At least 80% publish without CSS or developer styling help.

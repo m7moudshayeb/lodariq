@@ -64,8 +64,8 @@ const ADVANCE_OPTIONS = [
   },
   {
     value: 'clickTarget',
-    label: 'Clicks target',
-    description: 'Users click the target to advance.',
+    label: 'Click target',
+    description: 'The tour button clicks the target and advances.',
     icon: MousePointerClick,
   },
 ] as const;

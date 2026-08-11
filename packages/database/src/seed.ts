@@ -8,7 +8,7 @@ export function createDefaultControlPlaneEnvironments(workspaceId: string): Work
   const now = new Date().toISOString();
   const originsByKind = {
     development: ['http://localhost:5175', 'http://127.0.0.1:5175'],
-    staging: ['https://staging.lodariq.com'],
+    staging: ['https://staging.lodariq.io'],
     production: [],
   } as const;
   return createDefaultWorkspaceEnvironmentPolicy(

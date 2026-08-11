@@ -11,7 +11,16 @@ import { Inspector } from './inspector';
 import { PanelBodyMode } from './panel-body-mode';
 import { combinedReleaseFindings, releaseFooterSummary } from './release-findings';
 import { TourSequenceRail, TourStepInspector } from './tour-sequence-rail';
-import { Check, CircleAlert, Eye, LoaderCircle, Palette, Rocket, Save } from '../design-system';
+import {
+  ArrowLeft,
+  Check,
+  CircleAlert,
+  Eye,
+  LoaderCircle,
+  Palette,
+  Rocket,
+  Save,
+} from '../design-system';
 
 export function AuthoringCanvas({
   controller,
@@ -257,11 +266,21 @@ function PanelAdvancedEditor({
           className="panel-advanced-back"
           onClick={() => controller.closeAdvancedEditor()}
         >
-          Back
+          <ArrowLeft size={15} strokeWidth={2.2} aria-hidden="true" />
+          <span>Back</span>
         </button>
-        <span>
+        <span className="panel-advanced-title">
           <small>Step settings</small>
           <strong>{blockDisplayTitle(step)}</strong>
+        </span>
+        <span
+          className="panel-advanced-save-status"
+          data-state={snapshot.saveState.state}
+          role="status"
+          aria-live="polite"
+        >
+          <SaveStateIcon state={snapshot.saveState.state} />
+          <strong data-save-state-label>{snapshot.saveState.label}</strong>
         </span>
       </header>
       <div className="document-main panel-advanced-main">

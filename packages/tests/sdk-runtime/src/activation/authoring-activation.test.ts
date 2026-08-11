@@ -22,7 +22,7 @@ import {
 
 const INSTALLATION_ID = 'ins_pub_application_1234';
 const CUSTOMER_ORIGIN = 'https://staging.customer.example';
-const APP_ORIGIN = 'https://app.lodariq.com';
+const APP_ORIGIN = 'https://app.lodariq.io';
 const BOOTSTRAP_GRANT = `lod_bootstrap_${'b'.repeat(40)}`;
 const AUTHORIZATION_CODE = `lod_code_${'c'.repeat(40)}`;
 const ACTIVATION_GRANT = `lod_activation_${'g'.repeat(40)}`;
@@ -39,8 +39,8 @@ const context: NonProductionPublicSdkBootstrapContext = {
     state: 'available',
     appOrigin: APP_ORIGIN,
     activationUrl: `${APP_ORIGIN}/authoring/activate`,
-    authorizationRequestUrl: 'https://api.lodariq.com/v1/sdk/authoring/authorization-requests',
-    exchangeUrl: 'https://api.lodariq.com/v1/sdk/authoring/exchange',
+    authorizationRequestUrl: 'https://api.lodariq.io/v1/sdk/authoring/authorization-requests',
+    exchangeUrl: 'https://api.lodariq.io/v1/sdk/authoring/exchange',
     bootstrapGrant: BOOTSTRAP_GRANT,
     bootstrapGrantExpiresAt: FUTURE_DATE,
   },
@@ -162,7 +162,7 @@ describe('public authoring activation client', () => {
     expect(handedOff).toEqual([
       expect.objectContaining({
         activationGrant: ACTIVATION_GRANT,
-        apiOrigin: 'https://api.lodariq.com',
+        apiOrigin: 'https://api.lodariq.io',
         context: expect.objectContaining({ requestId: 'authreq_activation' }),
       }),
     ]);
@@ -177,7 +177,7 @@ describe('public authoring activation client', () => {
   });
 
   it('keeps the staging app, API, CDN, and editor origins in one closed activation tuple', async () => {
-    const stagingAppOrigin = 'https://staging-app.lodariq.com';
+    const stagingAppOrigin = 'https://staging-app.lodariq.io';
     const stagingContext: NonProductionPublicSdkBootstrapContext = {
       ...context,
       authoring: {
@@ -185,8 +185,8 @@ describe('public authoring activation client', () => {
         appOrigin: stagingAppOrigin,
         activationUrl: `${stagingAppOrigin}/authoring/activate`,
         authorizationRequestUrl:
-          'https://staging-api.lodariq.com/v1/sdk/authoring/authorization-requests',
-        exchangeUrl: 'https://staging-api.lodariq.com/v1/sdk/authoring/exchange',
+          'https://staging-api.lodariq.io/v1/sdk/authoring/authorization-requests',
+        exchangeUrl: 'https://staging-api.lodariq.io/v1/sdk/authoring/exchange',
         bootstrapGrant: BOOTSTRAP_GRANT,
         bootstrapGrantExpiresAt: FUTURE_DATE,
       },
@@ -230,8 +230,8 @@ describe('public authoring activation client', () => {
         );
       }
       const exchanged = createExchangeResult();
-      exchanged.context.editorOrigin = 'https://staging-editor.lodariq.com';
-      exchanged.creatorModule.url = `https://staging-cdn.lodariq.com/sdk/sha256-${'0'.repeat(64)}/creator.js`;
+      exchanged.context.editorOrigin = 'https://staging-editor.lodariq.io';
+      exchanged.creatorModule.url = `https://staging-cdn.lodariq.io/sdk/sha256-${'0'.repeat(64)}/creator.js`;
       return jsonResponse(exchanged);
     });
     const handedOff: HostedCreatorActivation[] = [];
@@ -254,9 +254,9 @@ describe('public authoring activation client', () => {
       expect.any(String),
     );
     expect(handedOff).toEqual([
-      expect.objectContaining({ apiOrigin: 'https://staging-api.lodariq.com' }),
+      expect.objectContaining({ apiOrigin: 'https://staging-api.lodariq.io' }),
     ]);
-    expect(handedOff[0]?.context.editorOrigin).toBe('https://staging-editor.lodariq.com');
+    expect(handedOff[0]?.context.editorOrigin).toBe('https://staging-editor.lodariq.io');
   });
 
   it('exposes a retryable blocked state without making API or creator requests', async () => {
@@ -296,7 +296,7 @@ describe('public authoring activation client', () => {
     expect(open).not.toHaveBeenCalled();
   });
 
-  it('renders the Editorial Air orb and exact icon-only action order without a page hit layer', () => {
+  it('starts hidden, toggles from the global shortcut, and exposes an explicit Hide action', () => {
     const launcher = createPublicAuthoringLauncher(context, { hostWindow: window });
     const root = launcher.element.shadowRoot;
     const button = root?.querySelector<HTMLButtonElement>('.launcher');
@@ -305,15 +305,28 @@ describe('public authoring activation client', () => {
     ];
 
     expect(launcher.getState()).toBe('idle');
+    expect(launcher.isVisible()).toBe(false);
+    expect(launcher.element.style.display).toBe('none');
+    document.dispatchEvent(
+      new KeyboardEvent('keydown', {
+        bubbles: true,
+        cancelable: true,
+        ctrlKey: true,
+        key: 'l',
+        shiftKey: true,
+      }),
+    );
+    expect(launcher.isVisible()).toBe(true);
     expect(button?.getAttribute('aria-label')).toBe('Open Lodariq actions');
     expect(button?.textContent).toBe('LQ');
     expect(actions.map((action) => action.getAttribute('aria-label'))).toEqual([
       'New experience',
       'Experiences on this page',
       'Preview as user',
+      'Hide Lodariq',
     ]);
     expect(actions.every((action) => action.textContent === '')).toBe(true);
-    expect(root?.querySelectorAll('[role="tooltip"]')).toHaveLength(3);
+    expect(root?.querySelectorAll('[role="tooltip"]')).toHaveLength(4);
     expect(launcher.element.style.position).toBe('fixed');
     expect(launcher.element.style.width).toBe('max-content');
     expect(launcher.element.style.pointerEvents).toBe('none');
@@ -322,13 +335,29 @@ describe('public authoring activation client', () => {
     expect(launcher.element.outerHTML).not.toContain(BOOTSTRAP_GRANT);
     expect(root?.innerHTML).not.toContain(BOOTSTRAP_GRANT);
     expect(localStorage.length).toBe(0);
-    expect(sessionStorage.length).toBe(0);
+    expect(sessionStorage.getItem('lodariq.authoring.launcher.visibility.v1')).toBe('visible');
+    expect(JSON.stringify(sessionStorage)).not.toMatch(/bootstrap|activation|grant|token/iu);
 
     button?.click();
     expect(root?.querySelector<HTMLElement>('.shell')?.dataset['pinned']).toBe('true');
     expect(button?.getAttribute('aria-expanded')).toBe('true');
     root?.querySelector<HTMLElement>('.shell')?.dispatchEvent(new MouseEvent('mouseleave'));
     expect(root?.querySelector<HTMLElement>('.shell')?.dataset['pinned']).toBe('true');
+
+    root?.querySelector<HTMLButtonElement>('[data-launcher-action="hide-launcher"]')?.click();
+    expect(launcher.isVisible()).toBe(false);
+    document.dispatchEvent(
+      new KeyboardEvent('keydown', {
+        bubbles: true,
+        cancelable: true,
+        key: 'L',
+        metaKey: true,
+        shiftKey: true,
+      }),
+    );
+    expect(launcher.isVisible()).toBe(true);
+    launcher.toggleVisibility();
+    expect(launcher.isVisible()).toBe(false);
 
     launcher.destroy();
     expect(document.querySelector('[data-lodariq-launcher]')).toBeNull();
@@ -556,7 +585,7 @@ describe('public authoring activation client', () => {
         });
       }
       const exchanged = createExchangeResult();
-      exchanged.creatorModule.url = 'https://cdn.lodariq.com/sdk/latest/creator.js';
+      exchanged.creatorModule.url = 'https://cdn.lodariq.io/sdk/latest/creator.js';
       return jsonResponse(exchanged);
     });
     const loadCreatorModule = vi.fn();
@@ -582,7 +611,7 @@ describe('public authoring activation client', () => {
       expect(script.crossOrigin).toBe('anonymous');
       expect(script.referrerPolicy).toBe('no-referrer');
       expect(script.integrity).toBe(`sha256-${'A'.repeat(43)}=`);
-      expect(script.src).toBe(`https://cdn.lodariq.com/sdk/sha256-${'0'.repeat(64)}/creator.js`);
+      expect(script.src).toBe(`https://cdn.lodariq.io/sdk/sha256-${'0'.repeat(64)}/creator.js`);
       const register = (
         window as Window & {
           [HOSTED_CREATOR_REGISTRATION_PROPERTY]?: (value: unknown) => void;
@@ -689,14 +718,14 @@ function createExchangeResult(
       environmentId: 'env_staging',
       environment: 'staging',
       customerOrigin: CUSTOMER_ORIGIN,
-      editorOrigin: 'https://editor.lodariq.com',
+      editorOrigin: 'https://editor.lodariq.io',
       creatorId: 'user_activation',
       capabilities: ['documents:create', 'documents:list', 'documents:select'],
       expiresAt: FUTURE_DATE,
       ...(documentIntent ? { documentIntent } : {}),
     },
     creatorModule: {
-      url: `https://cdn.lodariq.com/sdk/sha256-${'0'.repeat(64)}/creator.js`,
+      url: `https://cdn.lodariq.io/sdk/sha256-${'0'.repeat(64)}/creator.js`,
       version: 'sha256-test',
       integrity: `sha256-${'A'.repeat(43)}=`,
     },

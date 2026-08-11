@@ -1,7 +1,9 @@
 # Archived: Early Deployment Checklist
 
 Status: superseded by `../deployment/phase-1-fly.md`. Retained only as operator
-history; commands and provider steps may be incomplete or stale.
+history; commands and provider steps may be incomplete or stale. Its
+`lodariq.com` service origins predate ADR 0006's `.io` migration and must not be
+used for current deployments.
 
 1. Cloudflare: add domain
    - Go to dash.cloudflare.com.

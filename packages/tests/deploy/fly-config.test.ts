@@ -21,43 +21,43 @@ describe('Fly deployment packaging', () => {
     expect(read('apps/api/fly.toml')).toContain('app = "lodariq-api"');
     expect(read('apps/api/fly.toml')).toContain('LODARIQ_AUTH_MODE = "lodariq"');
     expect(read('apps/api/fly.toml')).toContain(
-      'LODARIQ_PUBLIC_API_BASE_URL = "https://api.lodariq.com"',
+      'LODARIQ_PUBLIC_API_BASE_URL = "https://api.lodariq.io"',
     );
     expect(read('apps/api/fly.toml')).toContain(
-      'LODARIQ_LOADER_SRC = "https://cdn.lodariq.com/sdk/lodariq-loader.js"',
+      'LODARIQ_LOADER_SRC = "https://cdn.lodariq.io/sdk/lodariq-loader.js"',
     );
     expect(read('apps/api/fly.toml')).toContain(
-      'LODARIQ_PUBLIC_LOADER_SRC = "https://cdn.lodariq.com/sdk/lodariq-public-bootstrap.js"',
+      'LODARIQ_PUBLIC_LOADER_SRC = "https://cdn.lodariq.io/sdk/lodariq-public-bootstrap.js"',
     );
     expect(read('apps/api/fly.toml')).toContain(
-      'LODARIQ_CREATOR_LOADER_SRC = "https://cdn.lodariq.com/sdk/lodariq-creator.js"',
+      'LODARIQ_CREATOR_LOADER_SRC = "https://cdn.lodariq.io/sdk/lodariq-creator.js"',
     );
 
     expect(read('apps/api/fly.staging.toml')).toContain('app = "lodariq-api-staging"');
     expect(read('apps/api/fly.staging.toml')).toContain('LODARIQ_AUTH_MODE = "lodariq"');
     expect(read('apps/api/fly.staging.toml')).toContain(
-      'LODARIQ_PUBLIC_API_BASE_URL = "https://staging-api.lodariq.com"',
+      'LODARIQ_PUBLIC_API_BASE_URL = "https://staging-api.lodariq.io"',
     );
     expect(read('apps/api/fly.staging.toml')).toContain(
-      'LODARIQ_LOADER_SRC = "https://staging-cdn.lodariq.com/sdk/lodariq-loader.js"',
+      'LODARIQ_LOADER_SRC = "https://staging-cdn.lodariq.io/sdk/lodariq-loader.js"',
     );
     expect(read('apps/api/fly.staging.toml')).toContain(
-      'LODARIQ_PUBLIC_LOADER_SRC = "https://staging-cdn.lodariq.com/sdk/lodariq-public-bootstrap.js"',
+      'LODARIQ_PUBLIC_LOADER_SRC = "https://staging-cdn.lodariq.io/sdk/lodariq-public-bootstrap.js"',
     );
     expect(read('apps/api/fly.staging.toml')).toContain(
-      'LODARIQ_CREATOR_LOADER_SRC = "https://staging-cdn.lodariq.com/sdk/lodariq-creator.js"',
+      'LODARIQ_CREATOR_LOADER_SRC = "https://staging-cdn.lodariq.io/sdk/lodariq-creator.js"',
     );
 
     expect(read('apps/dashboard/fly.toml')).toContain('app = "lodariq-dashboard"');
     expect(read('apps/dashboard/fly.toml')).toContain('LODARIQ_AUTH_MODE = "lodariq"');
     expect(read('apps/dashboard/fly.toml')).toContain(
-      'LODARIQ_API_BASE_URL = "https://api.lodariq.com"',
+      'LODARIQ_API_BASE_URL = "https://api.lodariq.io"',
     );
 
     expect(read('apps/dashboard/fly.staging.toml')).toContain('app = "lodariq-dashboard-staging"');
     expect(read('apps/dashboard/fly.staging.toml')).toContain('LODARIQ_AUTH_MODE = "lodariq"');
     expect(read('apps/dashboard/fly.staging.toml')).toContain(
-      'LODARIQ_API_BASE_URL = "https://staging-api.lodariq.com"',
+      'LODARIQ_API_BASE_URL = "https://staging-api.lodariq.io"',
     );
 
     expect(read('apps/editor/fly.toml')).toContain('app = "lodariq-editor"');

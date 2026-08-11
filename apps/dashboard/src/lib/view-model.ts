@@ -1,3 +1,8 @@
+import {
+  AUTHORING_LAUNCHER_ENTRY_QUERY_PARAMETER,
+  AUTHORING_LAUNCHER_ENTRY_QUERY_VALUE,
+} from '@lodariq/schema/authoring-entry-runtime';
+import { isAuthoringControlPlaneRole } from '@lodariq/schema';
 import type {
   DashboardDataDto,
   DocumentSummaryDto,
@@ -55,6 +60,7 @@ export interface DashboardAuthoringSite {
   environmentLabel: string;
   exactOrigin: string;
   label: string;
+  launchUrl: string;
 }
 
 export interface DashboardViewModel {
@@ -118,12 +124,14 @@ export function buildDashboardViewModel(data: DashboardDataDto): DashboardViewMo
   const environmentById = new Map(
     environmentOptions.map((environment) => [environment.id, environment]),
   );
-  const authoringSiteOptions = buildAuthoringSiteOptions(data.installations, environmentById);
+  const role = data.controlPlaneContext?.role;
+  const authoringSiteOptions = isAuthoringControlPlaneRole(role)
+    ? buildAuthoringSiteOptions(data.installations, environmentById)
+    : [];
   const brandThemes = [...data.themes].sort((left, right) => {
     if (left.isDefault !== right.isDefault) return left.isDefault ? -1 : 1;
     return left.name.localeCompare(right.name);
   });
-  const role = data.controlPlaneContext?.role;
 
   const documentRows = data.documents.map((document) => {
     const publication = buildPublicationInfo(document, environmentById);
@@ -164,7 +172,7 @@ export function buildDashboardViewModel(data: DashboardDataDto): DashboardViewMo
     brandThemes,
     canEditBrandSystem: role === 'owner' || role === 'admin' || role === 'member',
     canApproveBrandSystem: role === 'owner' || role === 'admin',
-    openInProductUrl: authoringSiteOptions[0]?.exactOrigin ?? '',
+    openInProductUrl: authoringSiteOptions[0]?.launchUrl ?? '',
     brandSourceSummary: buildBrandSourceSummary(brandThemes),
     recentActivity: buildRecentActivity(documentRows, brandThemes),
   };
@@ -198,6 +206,7 @@ function buildAuthoringSiteOptions(
         environmentLabel: environment.name,
         exactOrigin,
         label: `${environment.name} · ${exactOrigin}`,
+        launchUrl: buildAuthoringLaunchUrl(exactOrigin),
       });
     }
   }
@@ -207,6 +216,15 @@ function buildAuthoringSiteOptions(
       environmentOpenPriority(left.environment) - environmentOpenPriority(right.environment);
     return priority || left.label.localeCompare(right.label);
   });
+}
+
+function buildAuthoringLaunchUrl(exactOrigin: string): string {
+  const url = new URL(exactOrigin);
+  url.searchParams.set(
+    AUTHORING_LAUNCHER_ENTRY_QUERY_PARAMETER,
+    AUTHORING_LAUNCHER_ENTRY_QUERY_VALUE,
+  );
+  return url.toString();
 }
 
 function environmentAllowsOrigin(

@@ -76,7 +76,7 @@ const activeManifest = (
     themeContractVersion: BRAND_THEME_CONTRACT_VERSION,
     themeVersionId: document.theme.themeVersionId,
     themeContentHash: document.theme.contentHash,
-    url: `https://api.lodariq.com/v1/sdk/workspaces/wk_public_delivery/environments/env_production/documents/${document.documentId}/artifacts/${document.contentHash}`,
+    url: `https://api.lodariq.io/v1/sdk/workspaces/wk_public_delivery/environments/env_production/documents/${document.documentId}/artifacts/${document.contentHash}`,
     integrity: `sha256-${'A'.repeat(43)}=`,
   },
 });
@@ -99,7 +99,7 @@ describe('permanent SDK delivery adapter', () => {
 
     await expect(
       fetchPublicCurrentDocument(
-        'https://api.lodariq.com/v1/sdk/current-document',
+        'https://api.lodariq.io/v1/sdk/current-document',
         {
           documentId: LEGACY_COMPILED_DOCUMENT.documentId,
           currentVersion: LEGACY_COMPILED_DOCUMENT.contentHash,
@@ -107,7 +107,7 @@ describe('permanent SDK delivery adapter', () => {
         { installationId: INSTALLATION_ID },
       ),
     ).resolves.toEqual(LEGACY_COMPILED_DOCUMENT);
-    expect(fetch).toHaveBeenCalledWith('https://api.lodariq.com/v1/sdk/current-document', {
+    expect(fetch).toHaveBeenCalledWith('https://api.lodariq.io/v1/sdk/current-document', {
       credentials: 'omit',
       headers: { 'x-lodariq-installation-id': INSTALLATION_ID },
     });
@@ -126,7 +126,7 @@ describe('permanent SDK delivery adapter', () => {
 
     await expect(
       fetchPublicCurrentDocument(
-        'https://api.lodariq.com/v1/sdk/current-document',
+        'https://api.lodariq.io/v1/sdk/current-document',
         {
           documentId: LEGACY_COMPILED_DOCUMENT.documentId,
           currentVersion: LEGACY_COMPILED_DOCUMENT.contentHash,
@@ -181,8 +181,8 @@ describe('permanent SDK delivery adapter', () => {
       delivery: {
         state: 'available',
         manifest: activeManifest(COMPILED_DOCUMENT, 'pub_public_delivery'),
-        currentDocumentUrl: 'https://api.lodariq.com/v1/sdk/current-document',
-        ingestUrl: 'https://api.lodariq.com/v1/sdk/events',
+        currentDocumentUrl: 'https://api.lodariq.io/v1/sdk/current-document',
+        ingestUrl: 'https://api.lodariq.io/v1/sdk/events',
       },
       authoring: { state: 'disabled' },
     };
@@ -213,8 +213,8 @@ describe('permanent SDK delivery adapter', () => {
           documentId: LEGACY_COMPILED_DOCUMENT.documentId,
           currentVersion: LEGACY_COMPILED_DOCUMENT.contentHash,
         },
-        currentDocumentUrl: 'https://api.lodariq.com/v1/sdk/current-document',
-        ingestUrl: 'https://api.lodariq.com/v1/sdk/events',
+        currentDocumentUrl: 'https://api.lodariq.io/v1/sdk/current-document',
+        ingestUrl: 'https://api.lodariq.io/v1/sdk/events',
       },
       authoring: { state: 'disabled' },
     };
@@ -224,7 +224,7 @@ describe('permanent SDK delivery adapter', () => {
     window.dispatchEvent(new Event('pagehide'));
 
     expect(fetch).not.toHaveBeenCalledWith(
-      'https://api.lodariq.com/v1/sdk/events',
+      'https://api.lodariq.io/v1/sdk/events',
       expect.anything(),
     );
   });
@@ -242,8 +242,8 @@ describe('permanent SDK delivery adapter', () => {
       delivery: {
         state: 'available',
         manifest,
-        currentDocumentUrl: 'https://api.lodariq.com/v1/sdk/current-document',
-        ingestUrl: 'https://api.lodariq.com/v1/sdk/events',
+        currentDocumentUrl: 'https://api.lodariq.io/v1/sdk/current-document',
+        ingestUrl: 'https://api.lodariq.io/v1/sdk/events',
       },
       authoring: { state: 'disabled' },
     };
@@ -253,7 +253,7 @@ describe('permanent SDK delivery adapter', () => {
     window.dispatchEvent(new Event('pagehide'));
 
     const eventRequest = fetch.mock.calls.find(
-      ([url]) => url === 'https://api.lodariq.com/v1/sdk/events',
+      ([url]) => url === 'https://api.lodariq.io/v1/sdk/events',
     );
     const body = JSON.parse(eventRequest?.[1]?.body as string) as {
       events: Array<Record<string, unknown>>;
@@ -285,8 +285,8 @@ describe('permanent SDK delivery adapter', () => {
           ...supported,
           artifact: { ...supported.artifact, compilerVersion: 'future-compiler' },
         },
-        currentDocumentUrl: 'https://api.lodariq.com/v1/sdk/current-document',
-        ingestUrl: 'https://api.lodariq.com/v1/sdk/events',
+        currentDocumentUrl: 'https://api.lodariq.io/v1/sdk/current-document',
+        ingestUrl: 'https://api.lodariq.io/v1/sdk/events',
       },
       authoring: { state: 'disabled' },
     } as unknown as PublicSdkBootstrapContext;
@@ -312,7 +312,7 @@ describe('permanent SDK delivery adapter', () => {
           activeManifest(SECOND_COMPILED_DOCUMENT, 'pub_upgrade'),
         ],
         defaultDocumentId: COMPILED_DOCUMENT.documentId,
-        ingestUrl: 'https://api.lodariq.com/v1/sdk/events',
+        ingestUrl: 'https://api.lodariq.io/v1/sdk/events',
       },
       authoring: { state: 'disabled' },
     };
@@ -335,7 +335,7 @@ describe('permanent SDK delivery adapter', () => {
       SECOND_COMPILED_DOCUMENT.documentId,
     ]);
     expect(fetch).toHaveBeenCalledWith(
-      `https://api.lodariq.com/v1/sdk/workspaces/wk_public_delivery/environments/env_production/documents/${SECOND_COMPILED_DOCUMENT.documentId}/artifacts/${SECOND_COMPILED_DOCUMENT.contentHash}`,
+      `https://api.lodariq.io/v1/sdk/workspaces/wk_public_delivery/environments/env_production/documents/${SECOND_COMPILED_DOCUMENT.documentId}/artifacts/${SECOND_COMPILED_DOCUMENT.contentHash}`,
       {
         credentials: 'omit',
         headers: { 'x-lodariq-installation-id': INSTALLATION_ID },
@@ -361,7 +361,7 @@ describe('permanent SDK delivery adapter', () => {
         mode: 'document-scoped-v2',
         manifests: [activeManifest(COMPILED_DOCUMENT, 'pub_welcome')],
         defaultDocumentId: 'doc_not_available',
-        ingestUrl: 'https://api.lodariq.com/v1/sdk/events',
+        ingestUrl: 'https://api.lodariq.io/v1/sdk/events',
       },
       authoring: { state: 'disabled' },
     } as PublicSdkBootstrapContext;

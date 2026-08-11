@@ -4,7 +4,10 @@ Keep these PRD guardrails in mind before implementing Lodariq changes. The sourc
 of truth is `refined-lodariq-prd.md` §20; this file is a short memory aid for AI
 agents working in the repo.
 
-- Product name is Lodariq. Use `@lodariq/*` packages and `*.lodariq.com` canonical origins.
+- Product name is Lodariq. Use `@lodariq/*` packages, `https://lodariq.io`
+  for the canonical marketing origin, and `*.lodariq.io` for canonical product
+  origins. `lodariq.com` is brand protection and redirects only; do not serve
+  authenticated product surfaces from it.
 - Always write clean, extendable code. Centralize literal value sets and labels in
   constants/maps, avoid nested ternary conditions, and avoid nested switch
   statements so future block types and actions can be added in one obvious place.
@@ -13,18 +16,22 @@ agents working in the repo.
 - Lexical may be imported only inside `packages/sdk-authoring/src/editor`.
 - Browser compilation is preview-only. Real, content-addressed publication artifacts must be compiled server-side.
 - Do not ship authoring code in the normal production runtime.
-- The canonical returning-creator path is the permanently installed SDK launcher
-  on an exact allowlisted development/staging origin. Do not require a browser
-  extension, a second creator snippet, or a dashboard visit for normal authoring.
+- The permanently installed SDK must render no visible creator UI by default,
+  even on an authoring-enabled development/staging origin. Reveal the launcher
+  only through `Ctrl/⌘ + Shift + L` or a dashboard **Open in product** intent;
+  both are entry gestures, never authorization. Do not require a browser
+  extension or a second creator snippet.
 - Production bootstrap must not expose launcher, activation, creator-module, or
   editor-iframe metadata, and authoring code must load only after verified
-  non-production origin plus creator activation.
+  non-production origin plus creator activation. Only workspace `member`,
+  `admin`, and `owner` roles may activate creator authoring; `viewer` must fail
+  closed.
 - Creator sign-in belongs in a first-party top-level Lodariq popup with an
   exact-origin, source/state-bound, single-use short-lived exchange. Do not
   render password fields on customer pages, discover other Lodariq tabs, or put
   bearer/session credentials in URLs, DOM attributes, persistent storage, or logs.
 - The customer-page host may hold only short-lived bootstrap/activation grants
-  in memory. Hand activation to the exact `editor.lodariq.com` iframe once; the
+  in memory. Hand activation to the exact `editor.lodariq.io` iframe once; the
   iframe owns the document-scoped authoring-session bearer in memory.
 - Keep the launcher and authoring popup draggable and modeless. The customer page
   outside visible popup bounds must remain interactive; target selection must

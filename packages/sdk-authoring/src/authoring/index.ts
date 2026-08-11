@@ -111,6 +111,7 @@ import {
   setBlockPlacement,
   setBlockPresentationAnchor,
   setBlockTextStyle,
+  setBlockVariant,
   transformBlocks,
   updateBlockContent,
 } from './document-ops';
@@ -128,7 +129,7 @@ import {
  *
  * Loaded ONLY for authenticated creators entering authoring mode. Owns the
  * floating toolbar, element picker handoff, and the sandboxed iframe editor
- * served from a dedicated Lodariq origin (editor.lodariq.com, PRD §12.5).
+ * served from a dedicated Lodariq origin (editor.lodariq.io, PRD §12.5).
  *
  * Ownership split (PRD §9.5):
  * - iframe: Lexical editor state, drafts, auth, selection, validation/review UI.
@@ -1400,7 +1401,7 @@ function openAuthoringPanel(
     if (options.autoPreview) {
       const firstStepId = previewDocument?.blocks.find((block) => block.type === 'tourStep')?.id;
       pendingInlineFocusBlockId = firstStepId ?? null;
-      void playPreviewDocument(firstStepId);
+      if (firstStepId) void playPreviewDocument(firstStepId);
     }
   };
 
@@ -1653,6 +1654,12 @@ function openAuthoringPanel(
       )
       .then((compiled) => {
         if (requestId !== previewRequestId || !host.isConnected) return;
+        if (compiled.steps.length === 0) {
+          stopOwnedPreview();
+          previewPending = false;
+          previewPresented = false;
+          return;
+        }
         const previewStepId = stepId ?? compiled.steps[0]?.id;
         const selectedElement = previewStepId
           ? authoringTargetOverrides.get(previewStepId)
@@ -3308,6 +3315,9 @@ function applyPreviewPatch(
     }
     if (op.op === 'setAction') {
       next = { ...next, blocks: setBlockAction(next.blocks, blockId, op.action ?? null) };
+    }
+    if (op.op === 'setVariant') {
+      next = { ...next, blocks: setBlockVariant(next.blocks, blockId, op.variant) };
     }
     if (op.op === 'setPlacement') {
       next = { ...next, blocks: setBlockPlacement(next.blocks, blockId, op.placement) };

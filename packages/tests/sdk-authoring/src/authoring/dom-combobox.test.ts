@@ -173,6 +173,8 @@ describe('authoring DOM combobox', () => {
         stepId: 'step_1',
         tooltipBlockId: 'tooltip_1',
         placement: 'bottom',
+        actionBlockId: 'button_1',
+        actionType: 'next',
       }),
       onControlCommit,
     });
@@ -184,6 +186,12 @@ describe('authoring DOM combobox', () => {
     expect(toolbar?.getAttribute('role')).toBe('toolbar');
     expect(placement?.className).toBe('lodariq-inline-toolbar-trigger');
     expect(placement?.textContent).toContain('Below');
+    const inlineStyles = root.querySelector<HTMLStyleElement>(
+      '[data-lodariq-authoring-inline-style="true"]',
+    )?.textContent;
+    expect(inlineStyles).toContain('width: calc(100% + (var(--lq-tour-spacing) * 2))');
+    expect(inlineStyles).toContain('justify-content: space-between');
+    expect(inlineStyles).toContain('flex: 1 1 0');
 
     placement?.click();
     toolbar?.querySelector<HTMLButtonElement>('[role="option"][data-value="top"]')?.click();

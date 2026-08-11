@@ -58,7 +58,7 @@ describe('SDK delivery observability', () => {
     const events: CapturedObservabilityEvent[] = [];
     const app = createApiApp({
       repository,
-      publicApiBaseUrl: 'https://api.lodariq.com',
+      publicApiBaseUrl: 'https://api.lodariq.io',
       observability: { emit: (event) => events.push(event) },
     });
     const headers = { authorization: `Bearer ${token}` };
@@ -183,7 +183,7 @@ describe('SDK delivery observability', () => {
     const events: CapturedObservabilityEvent[] = [];
     const app = createApiApp({
       repository,
-      publicApiBaseUrl: 'https://api.lodariq.com',
+      publicApiBaseUrl: 'https://api.lodariq.io',
       observability: { emit: (event) => events.push(event) },
     });
     const headers = { authorization: `Bearer ${token}` };

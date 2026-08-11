@@ -7,6 +7,18 @@ export const CONTROL_PLANE_ROLES = {
   viewer: 'viewer',
 } as const;
 
+/** Roles allowed to enter creator authoring. `member` is the current creator tier. */
+export const AUTHORING_CONTROL_PLANE_ROLES = [
+  CONTROL_PLANE_ROLES.member,
+  CONTROL_PLANE_ROLES.admin,
+  CONTROL_PLANE_ROLES.owner,
+] as const;
+export type AuthoringControlPlaneRole = (typeof AUTHORING_CONTROL_PLANE_ROLES)[number];
+
+export function isAuthoringControlPlaneRole(value: unknown): value is AuthoringControlPlaneRole {
+  return (AUTHORING_CONTROL_PLANE_ROLES as readonly unknown[]).includes(value);
+}
+
 function controlPlaneRoleVariants() {
   return [
     Type.Literal(CONTROL_PLANE_ROLES.owner),

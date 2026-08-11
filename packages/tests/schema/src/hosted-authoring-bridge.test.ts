@@ -52,7 +52,7 @@ const activationHandoff = {
   ...binding,
   type: HOSTED_AUTHORING_ACTIVATION_HANDOFF_TYPE,
   editorOrigin: LODARIQ_EDITOR_ORIGIN,
-  apiOrigin: 'https://api.lodariq.com',
+  apiOrigin: 'https://api.lodariq.io',
   customerOrigin: CUSTOMER_ORIGIN,
   installationId: INSTALLATION_ID,
   pageContext: { pathname: '/products' },
@@ -107,7 +107,7 @@ describe('hosted authoring pre-session bridge', () => {
     expect(
       validate(HostedAuthoringEditorReadyMessage, {
         ...editorReady,
-        editorOrigin: 'https://app.lodariq.com',
+        editorOrigin: 'https://app.lodariq.io',
       }).valid,
     ).toBe(false);
     expect(

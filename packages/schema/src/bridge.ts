@@ -260,6 +260,13 @@ export const PreviewPatchOperation = Type.Union(
       op: Type.Literal('setAction'),
       action: Type.Optional(BlockActionProps),
     }),
+    Type.Object(
+      {
+        op: Type.Literal('setVariant'),
+        variant: Type.Union([Type.Literal('primary'), Type.Literal('secondary')]),
+      },
+      { additionalProperties: false },
+    ),
     Type.Object({
       op: Type.Literal('setPlacement'),
       placement: Type.Union([

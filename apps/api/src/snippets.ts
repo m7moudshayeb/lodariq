@@ -14,9 +14,9 @@ export interface PublicSdkInstallationSnippetInput {
   loaderSrc?: string;
 }
 
-const DEFAULT_RUNTIME_LOADER_SRC = 'https://cdn.lodariq.com/sdk/lodariq-loader.js';
-const DEFAULT_PUBLIC_LOADER_SRC = 'https://cdn.lodariq.com/sdk/lodariq-public-bootstrap.js';
-const DEFAULT_CREATOR_LOADER_SRC = 'https://cdn.lodariq.com/sdk/lodariq-creator.js';
+const DEFAULT_RUNTIME_LOADER_SRC = 'https://cdn.lodariq.io/sdk/lodariq-loader.js';
+const DEFAULT_PUBLIC_LOADER_SRC = 'https://cdn.lodariq.io/sdk/lodariq-public-bootstrap.js';
+const DEFAULT_CREATOR_LOADER_SRC = 'https://cdn.lodariq.io/sdk/lodariq-creator.js';
 
 /**
  * Canonical one-time installation. The public installation identifier is

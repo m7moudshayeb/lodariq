@@ -14,6 +14,7 @@ export type EditableBlockType =
 export type BlockDirection = 'up' | 'down';
 export type BlockInsertPosition = 'before' | 'after';
 export type TooltipPlacement = NonNullable<LodariqBlock['props']['placement']>;
+export type ButtonVariant = NonNullable<LodariqBlock['props']['variant']>;
 
 const DEFAULT_CONTENT_BY_TYPE = {
   heading: 'Untitled heading',
@@ -134,6 +135,18 @@ export function setBlockActionUrl(
   url: string,
 ): LodariqBlock[] {
   return blocks.map((block) => normalizeBlockStatus(setActionUrl(block, blockId, url)));
+}
+
+export function setBlockVariant(
+  blocks: LodariqBlock[],
+  blockId: string,
+  variant: ButtonVariant,
+): LodariqBlock[] {
+  return blocks.map((block) =>
+    block.id === blockId
+      ? { ...block, props: sanitizeBlockProps({ ...block.props, variant }) }
+      : { ...block, children: setBlockVariant(block.children, blockId, variant) },
+  );
 }
 
 export function setBlockPlacement(

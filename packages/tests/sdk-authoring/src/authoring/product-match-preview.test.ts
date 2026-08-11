@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+  BRIDGE_PROTOCOL_VERSION,
   LODARIQ_ACCESSIBLE_FALLBACK_THEME_V1,
   type AuthoringProductMatchApplyResult,
   type LodariqDocument,
@@ -48,16 +49,12 @@ describe('Product Match persisted preview adoption', () => {
     first.resolve(olderProposal);
     await new Promise((resolve) => setTimeout(resolve, 0));
 
-    expect(applyBrandMatch).toHaveBeenCalledWith(
-      expect.objectContaining({ id: newerProposal.id }),
-    );
+    expect(applyBrandMatch).toHaveBeenCalledWith(expect.objectContaining({ id: newerProposal.id }));
     expect(adoptBrandPreviewTheme).toHaveBeenCalledOnce();
     expect(adoptBrandPreviewTheme).toHaveBeenCalledWith(
       expect.objectContaining({ draftRevision: 3 }),
     );
-    expect(controller.getSnapshot().panelWorkflow.notice).toContain(
-      'workspace draft for approval',
-    );
+    expect(controller.getSnapshot().panelWorkflow.notice).toContain('workspace draft for approval');
   });
 
   it('rejects a lower persisted revision without replacing the active preview', async () => {
@@ -105,6 +102,48 @@ describe('Product Match persisted preview adoption', () => {
     );
     expect(adoptBrandPreviewTheme).not.toHaveBeenCalled();
   });
+
+  it('uses the first selected target as a best-effort default style source', async () => {
+    const sampled = proposal('proposal.first-target', '#0369a1');
+    const sampleBrandStyle = vi.fn(async () => sampled);
+    const applyBrandMatch = vi.fn(async () => applyResult(sampled, 2));
+    const adoptBrandPreviewTheme = vi.fn(() => true);
+    const controller = createController(
+      { sampleBrandStyle, applyBrandMatch, adoptBrandPreviewTheme },
+      targetlessStepDocument(),
+    );
+
+    window.dispatchEvent(
+      new MessageEvent('message', {
+        source: window,
+        origin: window.location.origin,
+        data: {
+          protocol: BRIDGE_PROTOCOL_VERSION,
+          sessionId: 'session_product_match_preview',
+          documentId: 'doc_product_match_preview',
+          correlationId: 'target_pick_first_style',
+          type: 'target.pick.result',
+          blockId: 'step_product_match_preview',
+          fingerprint: {
+            tagName: 'button',
+            role: 'button',
+            accessibleName: 'Create project',
+            stableAttributes: { 'data-testid': 'create-project' },
+          },
+        },
+      }),
+    );
+
+    await vi.waitFor(() => expect(applyBrandMatch).toHaveBeenCalledOnce());
+    expect(sampleBrandStyle).toHaveBeenCalledWith({
+      documentId: 'doc_product_match_preview',
+      targetId: expect.stringMatching(/^target_/u),
+      strategy: 'current-target',
+    });
+    expect(adoptBrandPreviewTheme).toHaveBeenCalledOnce();
+    expect(controller.getSnapshot().panelWorkflow.mode).toBe('edit');
+    expect(controller.getSnapshot().panelWorkflow.notice).toBeNull();
+  });
 });
 
 function createController(
@@ -112,19 +151,8 @@ function createController(
     LocalAuthoringFrameServices,
     'sampleBrandStyle' | 'applyBrandMatch' | 'adoptBrandPreviewTheme'
   >,
+  documentFixture: LodariqDocument = emptyDocument(),
 ): LocalAuthoringFrameController {
-  const documentFixture: LodariqDocument = {
-    id: 'doc_product_match_preview',
-    workspaceId: 'wk_product_match_preview',
-    type: 'tour',
-    status: 'draft',
-    title: 'Product Match preview',
-    trigger: { type: 'manual' },
-    audience: { environments: ['development'] },
-    schemaVersion: '1.0.0',
-    targets: [],
-    blocks: [],
-  };
   const controller = new LocalAuthoringFrameController({
     root: document.getElementById('authoring')!,
     baseDocument: documentFixture,
@@ -140,10 +168,49 @@ function createController(
       exportMetricsReport: () => '{}',
       ...overrides,
     },
+    sessionId: 'session_product_match_preview',
     peerWindow: window,
   });
   controller.start();
   return controller;
+}
+
+function emptyDocument(): LodariqDocument {
+  return {
+    id: 'doc_product_match_preview',
+    workspaceId: 'wk_product_match_preview',
+    type: 'tour',
+    status: 'draft',
+    title: 'Product Match preview',
+    trigger: { type: 'manual' },
+    audience: { environments: ['development'] },
+    schemaVersion: '1.0.0',
+    targets: [],
+    blocks: [],
+  };
+}
+
+function targetlessStepDocument(): LodariqDocument {
+  return {
+    ...emptyDocument(),
+    blocks: [
+      {
+        id: 'step_product_match_preview',
+        type: 'tourStep',
+        props: { index: 0 },
+        status: 'incomplete',
+        children: [
+          {
+            id: 'tooltip_product_match_preview',
+            type: 'tooltip',
+            props: { placement: 'bottom' },
+            status: 'incomplete',
+            children: [],
+          },
+        ],
+      },
+    ],
+  };
 }
 
 function proposal(id: string, accent: string): AuthoringBrandMatchProposal {

@@ -605,17 +605,21 @@ function createInlineEditorStyles(doc: Document): HTMLStyleElement {
 
       [${INLINE_TOOLBAR_ATTRIBUTE}="true"] {
         display: flex;
-        width: fit-content;
-        max-width: 100%;
+        box-sizing: border-box;
+        width: calc(100% + (var(--lq-tour-spacing) * 2));
+        max-width: none;
         align-items: center;
         flex-wrap: nowrap;
-        gap: 4px;
-        margin: 12px 0 0 auto;
-        border: 1px solid ${AUTHORING_CONTEXT_SURFACE_TOKENS.border};
-        border-radius: 12px;
+        justify-content: space-between;
+        gap: 8px;
+        margin: var(--lq-tour-spacing) calc(var(--lq-tour-spacing) * -1)
+          calc(var(--lq-tour-spacing) * -1);
+        border: 0;
+        border-top: 1px solid ${AUTHORING_CONTEXT_SURFACE_TOKENS.border};
+        border-radius: 0 0 var(--lq-tour-radius) var(--lq-tour-radius);
         background: color-mix(in srgb, ${AUTHORING_CONTEXT_SURFACE_TOKENS.surface} 96%, transparent);
-        box-shadow: ${AUTHORING_CONTEXT_SURFACE_TOKENS.shadow};
-        padding: 5px;
+        box-shadow: none;
+        padding: 5px var(--lq-tour-spacing);
         backdrop-filter: blur(14px);
       }
 
@@ -633,6 +637,7 @@ function createInlineEditorStyles(doc: Document): HTMLStyleElement {
 
       [${INLINE_TOOLBAR_ATTRIBUTE}="true"] .lodariq-inline-toolbar-combobox {
         position: relative;
+        flex: 1 1 0;
         min-width: 0;
       }
 
@@ -649,8 +654,10 @@ function createInlineEditorStyles(doc: Document): HTMLStyleElement {
 
       [${INLINE_TOOLBAR_ATTRIBUTE}="true"] .lodariq-inline-toolbar-trigger {
         display: inline-flex;
+        width: 100%;
         min-height: 34px;
         align-items: center;
+        justify-content: flex-start;
         gap: 6px;
         border-radius: 8px;
         color: ${AUTHORING_CONTEXT_SURFACE_TOKENS.ink};
@@ -663,8 +670,9 @@ function createInlineEditorStyles(doc: Document): HTMLStyleElement {
       }
 
       [${INLINE_TOOLBAR_ATTRIBUTE}="true"] .lodariq-inline-toolbar-value {
+        flex: 1 1 auto;
         overflow: hidden;
-        max-width: 86px;
+        max-width: none;
         text-overflow: ellipsis;
         white-space: nowrap;
       }

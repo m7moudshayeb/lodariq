@@ -8,26 +8,38 @@ import type {
   NonProductionPublicSdkBootstrapContext,
 } from '@lodariq/schema';
 import {
+  AUTHORING_LAUNCHER_ENTRY_QUERY_PARAMETER,
+  AUTHORING_LAUNCHER_ENTRY_QUERY_VALUE,
+  AUTHORING_LAUNCHER_SHORTCUT,
+} from '@lodariq/schema/authoring-entry-runtime';
+import {
   HOSTED_CREATOR_PANEL_STATE_EVENT,
   HOSTED_CREATOR_PANEL_TOGGLE_EVENT,
   HOSTED_CREATOR_REGISTRATION_PROPERTY,
   type HostedCreatorPanelState,
 } from '@lodariq/schema/hosted-creator';
-import { Eye, List, Plus, createElement as createLucideElement, type IconNode } from 'lucide';
+import {
+  Eye,
+  EyeOff,
+  List,
+  Plus,
+  createElement as createLucideElement,
+  type IconNode,
+} from 'lucide';
 
 const ACTIVATION_PROTOCOL = 'lodariq.authoring.activation.v1';
 const BOOTSTRAP_GRANT_HEADER = 'x-lodariq-bootstrap-grant';
 const PKCE_CHALLENGE_METHOD = 'S256';
 const AUTHORING_ORIGINS_BY_API = {
-  'https://api.lodariq.com': {
-    app: 'https://app.lodariq.com',
-    creator: 'https://cdn.lodariq.com',
-    editor: 'https://editor.lodariq.com',
+  'https://api.lodariq.io': {
+    app: 'https://app.lodariq.io',
+    creator: 'https://cdn.lodariq.io',
+    editor: 'https://editor.lodariq.io',
   },
-  'https://staging-api.lodariq.com': {
-    app: 'https://staging-app.lodariq.com',
-    creator: 'https://staging-cdn.lodariq.com',
-    editor: 'https://staging-editor.lodariq.com',
+  'https://staging-api.lodariq.io': {
+    app: 'https://staging-app.lodariq.io',
+    creator: 'https://staging-cdn.lodariq.io',
+    editor: 'https://staging-editor.lodariq.io',
   },
 } as const;
 const CREATOR_CDN_ORIGINS: ReadonlySet<string> = new Set(
@@ -40,6 +52,8 @@ const ACTIVATION_TIMEOUT_MS = 2 * 60 * 1_000;
 const CREATOR_MODULE_TIMEOUT_MS = 15_000;
 const POPUP_PING_INTERVAL_MS = 400;
 const OPAQUE_VALUE_MIN_LENGTH = 32;
+const LAUNCHER_VISIBILITY_STORAGE_KEY = 'lodariq.authoring.launcher.visibility.v1';
+const LAUNCHER_VISIBLE_STORAGE_VALUE = 'visible';
 const CREATOR_CONTENT_ADDRESS = /\/sha256-([0-9a-f]{64})(?:\/|$)/u;
 const SUBRESOURCE_INTEGRITY = /^sha256-[A-Za-z0-9+/]+={0,2}$/u;
 
@@ -48,6 +62,7 @@ const NEW_TOUR_DOCUMENT_INTENT = { kind: 'new-draft', documentType: 'tour' } as 
 
 const LAUNCHER_ICONS = {
   eye: Eye,
+  'eye-off': EyeOff,
   list: List,
   plus: Plus,
 } as const satisfies Readonly<Record<string, IconNode>>;
@@ -57,6 +72,7 @@ const LAUNCHER_ACTIONS = [
   { icon: 'plus', id: 'new-experience', label: 'New experience' },
   { icon: 'list', id: 'experiences-on-page', label: 'Experiences on this page' },
   { icon: 'eye', id: 'preview-as-user', label: 'Preview as user' },
+  { icon: 'eye-off', id: 'hide-launcher', label: 'Hide Lodariq' },
 ] as const satisfies ReadonlyArray<{
   icon: LauncherIconName;
   id: string;
@@ -137,6 +153,9 @@ export interface PublicAuthoringActivationOptions {
   timeoutMs?: number;
   onStateChange?: (state: PublicAuthoringLauncherState) => void;
   onPreview?: () => Promise<void> | void;
+  /** The public launcher is hidden unless a shortcut or dashboard entry intent reveals it. */
+  initiallyVisible?: boolean;
+  onVisibilityChange?: (visible: boolean) => void;
 }
 
 export interface PublicAuthoringLauncher {
@@ -144,6 +163,10 @@ export interface PublicAuthoringLauncher {
   activate(documentIntent?: AuthoringDocumentIntent): Promise<void>;
   destroy(): void;
   getState(): PublicAuthoringLauncherState;
+  hide(): void;
+  isVisible(): boolean;
+  show(): void;
+  toggleVisibility(): void;
 }
 
 interface PkcePair {
@@ -265,12 +288,13 @@ export function createPublicAuthoringLauncher(
 ): PublicAuthoringLauncher {
   const hostWindow = options.hostWindow ?? window;
   const hostDocument = hostWindow.document;
+  const initiallyVisible = options.initiallyVisible ?? resolveInitialLauncherVisibility(hostWindow);
   const host = hostDocument.createElement('div');
   host.setAttribute('data-lodariq-launcher', '');
   host.style.cssText = [
     'position:fixed',
     'z-index:2147483000',
-    'display:block',
+    `display:${initiallyVisible ? 'block' : 'none'}`,
     'width:max-content',
     'height:max-content',
     'pointer-events:none',
@@ -388,6 +412,19 @@ export function createPublicAuthoringLauncher(
   let suppressFocusReveal = false;
   let drag: LauncherDrag | null = null;
 
+  const isVisible = (): boolean => host.style.display !== 'none';
+  const setVisible = (visible: boolean): void => {
+    if (destroyed || visible === isVisible()) return;
+    if (!visible) dismiss(false);
+    host.style.display = visible ? 'block' : 'none';
+    storeLauncherVisibility(hostWindow, visible);
+    options.onVisibilityChange?.(visible);
+    if (visible) button.focus({ preventScroll: true });
+  };
+  const show = (): void => setVisible(true);
+  const hide = (): void => setVisible(false);
+  const toggleVisibility = (): void => setVisible(!isVisible());
+
   const setState = (next: PublicAuthoringLauncherState, notify = true): void => {
     if (destroyed) return;
     state = next;
@@ -504,6 +541,7 @@ export function createPublicAuthoringLauncher(
         setState('preview-error');
       }
     },
+    'hide-launcher': hide,
   };
 
   const runAction = (actionId: LauncherActionId, actionButton: HTMLButtonElement): void => {
@@ -568,6 +606,12 @@ export function createPublicAuthoringLauncher(
   };
 
   const handleKeyDown = (event: KeyboardEvent): void => {
+    if (isLauncherVisibilityShortcut(event)) {
+      event.preventDefault();
+      event.stopPropagation();
+      toggleVisibility();
+      return;
+    }
     if (event.key !== 'Escape') return;
     const launcherHasFocus = root.activeElement !== null;
     if (
@@ -706,6 +750,10 @@ export function createPublicAuthoringLauncher(
       host.remove();
     },
     getState: () => state,
+    hide,
+    isVisible,
+    show,
+    toggleVisibility,
   };
 }
 
@@ -765,6 +813,74 @@ function launcherKeyboardOffset(key: string): { x: number; y: number } | null {
     ArrowUp: { x: 0, y: -1 },
   };
   return offsets[key] ?? null;
+}
+
+function isLauncherVisibilityShortcut(event: KeyboardEvent): boolean {
+  const hasPrimaryModifier = event.ctrlKey || event.metaKey;
+  return (
+    !event.altKey &&
+    !event.isComposing &&
+    !event.repeat &&
+    hasPrimaryModifier === AUTHORING_LAUNCHER_SHORTCUT.primaryModifier &&
+    event.shiftKey === AUTHORING_LAUNCHER_SHORTCUT.shiftKey &&
+    event.key.toLowerCase() === AUTHORING_LAUNCHER_SHORTCUT.key
+  );
+}
+
+function resolveInitialLauncherVisibility(ownerWindow: Window): boolean {
+  if (consumeDashboardLauncherEntryIntent(ownerWindow)) {
+    storeLauncherVisibility(ownerWindow, true);
+    return true;
+  }
+  try {
+    return (
+      ownerWindow.sessionStorage.getItem(LAUNCHER_VISIBILITY_STORAGE_KEY) ===
+      LAUNCHER_VISIBLE_STORAGE_VALUE
+    );
+  } catch {
+    return false;
+  }
+}
+
+function consumeDashboardLauncherEntryIntent(ownerWindow: Window): boolean {
+  let url: URL;
+  try {
+    url = new URL(ownerWindow.location.href);
+  } catch {
+    return false;
+  }
+  if (
+    url.searchParams.get(AUTHORING_LAUNCHER_ENTRY_QUERY_PARAMETER) !==
+    AUTHORING_LAUNCHER_ENTRY_QUERY_VALUE
+  ) {
+    return false;
+  }
+  url.searchParams.delete(AUTHORING_LAUNCHER_ENTRY_QUERY_PARAMETER);
+  try {
+    ownerWindow.history.replaceState(
+      ownerWindow.history.state,
+      '',
+      `${url.pathname}${url.search}${url.hash}`,
+    );
+  } catch {
+    /* The non-secret entry intent remains safe if the host blocks history replacement. */
+  }
+  return true;
+}
+
+function storeLauncherVisibility(ownerWindow: Window, visible: boolean): void {
+  try {
+    if (visible) {
+      ownerWindow.sessionStorage.setItem(
+        LAUNCHER_VISIBILITY_STORAGE_KEY,
+        LAUNCHER_VISIBLE_STORAGE_VALUE,
+      );
+      return;
+    }
+    ownerWindow.sessionStorage.removeItem(LAUNCHER_VISIBILITY_STORAGE_KEY);
+  } catch {
+    /* UI preference persistence is optional and never stores activation credentials. */
+  }
 }
 
 function placeLauncherAtDefault(

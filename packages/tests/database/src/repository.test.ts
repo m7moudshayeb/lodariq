@@ -234,7 +234,7 @@ describe('control-plane repository', () => {
       workspaceId: 'wk_a',
       kind: 'staging',
       name: 'Staging',
-      originAllowlist: ['https://staging.lodariq.com'],
+      originAllowlist: ['https://staging.lodariq.io'],
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
@@ -256,7 +256,7 @@ describe('control-plane repository', () => {
       workspaceId: 'wk_a',
       environmentId: 'env_staging',
       environment: 'staging',
-      originAllowlist: ['https://staging.lodariq.com'],
+      originAllowlist: ['https://staging.lodariq.io'],
     });
     const revoked = await repository.revokeEnvironmentToken('wk_a', token.id, 'user_a');
     expect(revoked).toMatchObject({
@@ -483,7 +483,7 @@ describe('control-plane repository', () => {
           documentId: 'doc_policy',
           correlationId: 'corr_policy',
           tokenHash,
-          iframeSrc: 'https://editor.lodariq.com/authoring.html',
+          iframeSrc: 'https://editor.lodariq.io/authoring.html',
           createdByUserId: 'user_a',
           createdAt,
           expiresAt: '2099-01-01T00:00:00.000Z',
@@ -549,7 +549,7 @@ describe('control-plane repository', () => {
           documentId: 'doc_direct_policy',
           correlationId: 'corr_direct_policy',
           tokenHash: directTokenHash,
-          iframeSrc: 'https://editor.lodariq.com/authoring.html',
+          iframeSrc: 'https://editor.lodariq.io/authoring.html',
           createdByUserId: 'user_a',
           createdAt,
           expiresAt: '2099-01-01T00:00:00.000Z',
@@ -563,7 +563,7 @@ describe('control-plane repository', () => {
           documentId: 'doc_hosted_policy',
           correlationId: 'corr_hosted_policy',
           tokenHash: hostedTokenHash,
-          iframeSrc: 'https://editor.lodariq.com/authoring.html',
+          iframeSrc: 'https://editor.lodariq.io/authoring.html',
           createdByUserId: 'user_a',
           createdAt,
           expiresAt: '2099-01-01T00:00:00.000Z',
@@ -759,7 +759,7 @@ describe('control-plane repository', () => {
           documentId: 'doc_stale',
           correlationId: 'corr_stale',
           tokenHash: staleSessionTokenHash,
-          iframeSrc: 'https://editor.lodariq.com/authoring.html',
+          iframeSrc: 'https://editor.lodariq.io/authoring.html',
           createdByUserId: 'user_a',
           createdAt: '2026-08-07T00:00:00.000Z',
           expiresAt: '2099-01-01T00:00:00.000Z',
@@ -1426,7 +1426,7 @@ describe('control-plane repository', () => {
       documentIntent: { kind: 'new-draft', documentType: 'tour' } as const,
       correlationId: 'corr_activated_new_draft',
       sessionTokenHash,
-      iframeSrc: 'https://editor.lodariq.com/authoring.html',
+      iframeSrc: 'https://editor.lodariq.io/authoring.html',
       expiresAt: new Date(Date.now() + 10 * 60_000).toISOString(),
     };
 
@@ -1617,7 +1617,7 @@ describe('control-plane repository', () => {
       pageContext: { pathname: '/projects/123' },
       selectionScope: 'workspace' as const,
       correlationId: 'corr_activated_existing',
-      iframeSrc: 'https://editor.lodariq.com/authoring.html',
+      iframeSrc: 'https://editor.lodariq.io/authoring.html',
       expiresAt: new Date(Date.now() + 10 * 60_000).toISOString(),
     };
     await expect(
@@ -1673,7 +1673,7 @@ describe('control-plane repository', () => {
         documentIntent: { kind: 'new-draft', documentType: 'tour' },
         correlationId: 'corr_missing_create_capability',
         sessionTokenHash: hashAuthoringSessionToken(createAuthoringSessionToken()),
-        iframeSrc: 'https://editor.lodariq.com/authoring.html',
+        iframeSrc: 'https://editor.lodariq.io/authoring.html',
         expiresAt: new Date(Date.now() + 10 * 60_000).toISOString(),
       }),
     ).resolves.toBeNull();
@@ -1752,7 +1752,7 @@ describe('control-plane repository', () => {
       workspaceId: 'wk_a',
       kind: 'staging',
       name: 'Staging',
-      originAllowlist: ['https://staging.lodariq.com'],
+      originAllowlist: ['https://staging.lodariq.io'],
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
@@ -1776,7 +1776,7 @@ describe('control-plane repository', () => {
       documentId: document.id,
       correlationId: 'corr_authoring_test',
       tokenHash: 'authoring_hash',
-      iframeSrc: 'https://editor.lodariq.com/authoring.html',
+      iframeSrc: 'https://editor.lodariq.io/authoring.html',
       expiresAt: '2099-01-01T00:00:00.000Z',
       actorUserId: 'user_a',
     });
@@ -1808,7 +1808,7 @@ describe('control-plane repository', () => {
         documentId: document.id,
         correlationId: 'corr_authoring_other',
         tokenHash: 'other_hash',
-        iframeSrc: 'https://editor.lodariq.com/authoring.html',
+        iframeSrc: 'https://editor.lodariq.io/authoring.html',
         expiresAt: '2099-01-01T00:00:00.000Z',
         actorUserId: 'user_b',
       }),
@@ -1821,7 +1821,7 @@ describe('control-plane repository', () => {
       workspaceId: 'wk_a',
       kind: 'staging',
       name: 'Staging',
-      originAllowlist: ['https://staging.lodariq.com'],
+      originAllowlist: ['https://staging.lodariq.io'],
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
@@ -1838,7 +1838,7 @@ describe('control-plane repository', () => {
           documentId: document.id,
           correlationId: 'corr_expired_authoring',
           tokenHash: 'expired_hash',
-          iframeSrc: 'https://editor.lodariq.com/authoring.html',
+          iframeSrc: 'https://editor.lodariq.io/authoring.html',
           createdByUserId: 'user_a',
           createdAt: '2026-01-01T00:00:00.000Z',
           expiresAt: '2026-01-01T00:00:01.000Z',
@@ -1892,7 +1892,7 @@ describe('control-plane repository', () => {
       workspaceId: 'wk_a',
       kind: 'staging',
       name: 'Staging',
-      originAllowlist: ['https://staging.lodariq.com'],
+      originAllowlist: ['https://staging.lodariq.io'],
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
@@ -2033,7 +2033,7 @@ describe('control-plane repository', () => {
       workspaceId: 'wk_a',
       kind: 'staging',
       name: 'Staging',
-      originAllowlist: ['https://staging.lodariq.com'],
+      originAllowlist: ['https://staging.lodariq.io'],
       createdAt: '2026-01-01T00:00:00.000Z',
       updatedAt: '2026-01-01T00:00:00.000Z',
     };

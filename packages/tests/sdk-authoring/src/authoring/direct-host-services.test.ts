@@ -324,7 +324,7 @@ describe('direct authoring host services', () => {
   it('publishes the legacy receipt and current Product Match result in one success message', async () => {
     const peer = { postMessage: vi.fn() } as unknown as Window;
     const panel = openLocalAuthoringPanel(session, {
-      iframeSrc: 'https://editor.lodariq.com/authoring.html',
+      iframeSrc: 'https://editor.lodariq.io/authoring.html',
       initialDocument: structuredClone(documentFixture),
       onSave: async () => {},
       release: {
@@ -423,7 +423,7 @@ describe('direct authoring host services', () => {
       }),
     );
     const panel = openLocalAuthoringPanel(session, {
-      iframeSrc: 'https://editor.lodariq.com/authoring.html',
+      iframeSrc: 'https://editor.lodariq.io/authoring.html',
       initialDocument: structuredClone(documentFixture),
       onSave: async () => {},
       release: {
@@ -530,8 +530,8 @@ describe('direct authoring host services', () => {
     direct.stop();
     const readOnly = createDirectAuthoringHostServices({
       peerWindow: peer,
-      allowedOrigins: ['https://editor.lodariq.com'],
-      targetOrigin: 'https://editor.lodariq.com',
+      allowedOrigins: ['https://editor.lodariq.io'],
+      targetOrigin: 'https://editor.lodariq.io',
       sessionId: session.sessionId,
       workspaceId: session.workspaceId,
       documentId: session.documentId,
@@ -642,7 +642,7 @@ describe('direct authoring host services', () => {
 
 function openDirectPanel(peer: Window, onSave: (document: LodariqDocument) => Promise<void>) {
   const panel = openLocalAuthoringPanel(session, {
-    iframeSrc: 'https://editor.lodariq.com/authoring.html',
+    iframeSrc: 'https://editor.lodariq.io/authoring.html',
     initialDocument: structuredClone(documentFixture),
     onSave,
     release: {
@@ -678,8 +678,8 @@ function openDirectPanel(peer: Window, onSave: (document: LodariqDocument) => Pr
 function createDirectServices(peer: Window, sliceThree = false, recovery = false) {
   return createDirectAuthoringHostServices({
     peerWindow: peer,
-    allowedOrigins: ['https://editor.lodariq.com'],
-    targetOrigin: 'https://editor.lodariq.com',
+    allowedOrigins: ['https://editor.lodariq.io'],
+    targetOrigin: 'https://editor.lodariq.io',
     sessionId: session.sessionId,
     workspaceId: session.workspaceId,
     documentId: session.documentId,
@@ -810,7 +810,7 @@ function dispatchFromPeer(peer: Window, message: BridgeMessage | undefined): voi
   window.dispatchEvent(
     new MessageEvent('message', {
       data: message,
-      origin: 'https://editor.lodariq.com',
+      origin: 'https://editor.lodariq.io',
       source: peer,
     }),
   );

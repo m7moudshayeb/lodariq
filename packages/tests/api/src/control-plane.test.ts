@@ -191,7 +191,7 @@ describe('@lodariq/api control-plane routes', () => {
   it('exposes an OpenAPI document generated from the Fastify route schemas', async () => {
     const app = createApiApp({
       repository: createInMemoryControlPlaneRepository(),
-      publicApiBaseUrl: 'https://api.lodariq.com',
+      publicApiBaseUrl: 'https://api.lodariq.io',
     });
 
     const response = await app.inject({
@@ -209,7 +209,7 @@ describe('@lodariq/api control-plane routes', () => {
     }>();
     expect(spec.openapi).toBe('3.0.3');
     expect(spec.info.title).toBe('Lodariq Control API');
-    expect(spec.servers).toEqual([{ url: 'https://api.lodariq.com' }]);
+    expect(spec.servers).toEqual([{ url: 'https://api.lodariq.io' }]);
     expect(spec.paths).toHaveProperty('/v1/documents');
     expect(spec.paths).toHaveProperty('/v1/environment-tokens/{tokenId}/revoke');
     expect(spec.paths).toHaveProperty('/v1/sdk/bootstrap');
@@ -222,9 +222,9 @@ describe('@lodariq/api control-plane routes', () => {
   it('uses deployment URL environment variables for OpenAPI and SDK snippets', async () => {
     await withTemporaryEnvironment(
       {
-        LODARIQ_PUBLIC_API_BASE_URL: 'https://staging-api.lodariq.com',
-        LODARIQ_LOADER_SRC: 'https://cdn.lodariq.com/sdk/staging-loader.js',
-        LODARIQ_AUTHORING_IFRAME_SRC: 'https://editor.lodariq.com/authoring.html',
+        LODARIQ_PUBLIC_API_BASE_URL: 'https://staging-api.lodariq.io',
+        LODARIQ_LOADER_SRC: 'https://cdn.lodariq.io/sdk/staging-loader.js',
+        LODARIQ_AUTHORING_IFRAME_SRC: 'https://editor.lodariq.io/authoring.html',
       },
       async () => {
         const app = createApiApp({
@@ -236,7 +236,7 @@ describe('@lodariq/api control-plane routes', () => {
           url: '/openapi.json',
         });
         expect(spec.json<{ servers: Array<{ url: string }> }>().servers).toEqual([
-          { url: 'https://staging-api.lodariq.com' },
+          { url: 'https://staging-api.lodariq.io' },
         ]);
 
         const token = await app.inject({
@@ -250,8 +250,8 @@ describe('@lodariq/api control-plane routes', () => {
         });
         expect(token.statusCode).toBe(201);
         const body = token.json<{ sdkSnippet: string }>();
-        expect(body.sdkSnippet).toContain('https://cdn.lodariq.com/sdk/staging-loader.js');
-        expect(body.sdkSnippet).toContain('data-lodariq-api="https://staging-api.lodariq.com"');
+        expect(body.sdkSnippet).toContain('https://cdn.lodariq.io/sdk/staging-loader.js');
+        expect(body.sdkSnippet).toContain('data-lodariq-api="https://staging-api.lodariq.io"');
 
         await app.close();
       },
@@ -261,7 +261,7 @@ describe('@lodariq/api control-plane routes', () => {
   it('validates canonical documents, compiles server-side, and scopes list results', async () => {
     const app = createApiApp({
       repository: createInMemoryControlPlaneRepository(),
-      publicApiBaseUrl: 'https://api.lodariq.com',
+      publicApiBaseUrl: 'https://api.lodariq.io',
     });
     const document = withWorkspace(baseDocument, 'wk_a');
 
@@ -309,7 +309,7 @@ describe('@lodariq/api control-plane routes', () => {
             workspaceId: 'wk_a',
             kind: 'staging',
             name: 'Staging',
-            originAllowlist: ['https://staging.lodariq.com'],
+            originAllowlist: ['https://staging.lodariq.io'],
             createdAt: '2026-08-07T00:00:00.000Z',
             updatedAt: '2026-08-07T00:00:00.000Z',
           },
@@ -329,7 +329,7 @@ describe('@lodariq/api control-plane routes', () => {
           },
         ],
       }),
-      publicApiBaseUrl: 'https://api.lodariq.com',
+      publicApiBaseUrl: 'https://api.lodariq.io',
     });
     const adminHeaders = { ...authHeaders, 'x-lodariq-role': 'admin' };
     const definition = structuredClone(LODARIQ_ACCESSIBLE_FALLBACK_THEME_V1.definition);
@@ -515,7 +515,7 @@ describe('@lodariq/api control-plane routes', () => {
     const app = createApiApp({
       defaultWorkspaceId: 'wk_a',
       defaultUserId: 'user_a',
-      publicApiBaseUrl: 'https://api.lodariq.com',
+      publicApiBaseUrl: 'https://api.lodariq.io',
     });
     const originalDefinition = structuredClone(LODARIQ_ACCESSIBLE_FALLBACK_THEME_V1.definition);
     const createdTheme = await app.inject({
@@ -632,7 +632,7 @@ describe('@lodariq/api control-plane routes', () => {
   it('does not expose direct document ID routes across workspace scopes', async () => {
     const app = createApiApp({
       repository: createInMemoryControlPlaneRepository(),
-      publicApiBaseUrl: 'https://api.lodariq.com',
+      publicApiBaseUrl: 'https://api.lodariq.io',
     });
     const document = withWorkspace(baseDocument, 'wk_a');
     const otherWorkspaceHeaders = {
@@ -694,7 +694,7 @@ describe('@lodariq/api control-plane routes', () => {
   it('exposes internal document version history only to writable workspace members', async () => {
     const app = createApiApp({
       repository: createInMemoryControlPlaneRepository(),
-      publicApiBaseUrl: 'https://api.lodariq.com',
+      publicApiBaseUrl: 'https://api.lodariq.io',
     });
     const document = withWorkspace(baseDocument, 'wk_a');
     const revisedDocument = { ...document, title: 'Welcome tour revised' };
@@ -761,7 +761,7 @@ describe('@lodariq/api control-plane routes', () => {
   it('keeps legacy direct publishing closed behind one stable migration response', async () => {
     const app = createApiApp({
       defaultWorkspaceId: 'wk_a',
-      publicApiBaseUrl: 'https://api.lodariq.com',
+      publicApiBaseUrl: 'https://api.lodariq.io',
     });
     const document = withWorkspace(baseDocument, 'wk_a');
 
@@ -812,7 +812,7 @@ describe('@lodariq/api control-plane routes', () => {
           workspaceId: 'wk_a',
           kind: 'staging',
           name: 'Staging',
-          originAllowlist: ['https://staging.lodariq.com'],
+          originAllowlist: ['https://staging.lodariq.io'],
           createdAt: '2026-08-07T00:00:00.000Z',
           updatedAt: '2026-08-07T00:00:00.000Z',
         },
@@ -1026,7 +1026,7 @@ describe('@lodariq/api control-plane routes', () => {
       workspaceId: 'wk_a',
       kind: 'staging' as const,
       name: 'Staging',
-      originAllowlist: ['https://staging.lodariq.com'],
+      originAllowlist: ['https://staging.lodariq.io'],
       createdAt: '2026-08-06T00:00:00.000Z',
       updatedAt: '2026-08-06T00:00:00.000Z',
     };
@@ -1043,7 +1043,7 @@ describe('@lodariq/api control-plane routes', () => {
     });
     const app = createApiApp({
       repository,
-      publicApiBaseUrl: 'https://api.lodariq.com',
+      publicApiBaseUrl: 'https://api.lodariq.io',
     });
     const documentA = withWorkspace(baseDocument, 'wk_a');
     documentA.id = 'doc_pointer_a';
@@ -1111,7 +1111,7 @@ describe('@lodariq/api control-plane routes', () => {
     const clientToken = tokenResponse.json<{ clientToken: string }>().clientToken;
     const sdkHeaders = {
       authorization: `Bearer ${clientToken}`,
-      origin: 'https://staging.lodariq.com',
+      origin: 'https://staging.lodariq.io',
     };
     const bootstrap = await app.inject({
       method: 'POST',
@@ -1160,9 +1160,9 @@ describe('@lodariq/api control-plane routes', () => {
     const app = createApiApp({
       defaultWorkspaceId: 'wk_a',
       defaultUserId: 'user_a',
-      publicApiBaseUrl: 'https://api.lodariq.com',
-      loaderSrc: 'https://cdn.lodariq.com/sdk/lodariq-loader.js',
-      creatorLoaderSrc: 'https://cdn.lodariq.com/sdk/lodariq-creator.js',
+      publicApiBaseUrl: 'https://api.lodariq.io',
+      loaderSrc: 'https://cdn.lodariq.io/sdk/lodariq-loader.js',
+      creatorLoaderSrc: 'https://cdn.lodariq.io/sdk/lodariq-creator.js',
     });
 
     const response = await app.inject({
@@ -1184,10 +1184,10 @@ describe('@lodariq/api control-plane routes', () => {
     expect(body.token.revokedAt).toBeNull();
     expect(body.clientToken).toMatch(/^lod_staging_/);
     expect(body.sdkSnippet).toContain('<script type="module" async crossorigin="anonymous"');
-    expect(body.sdkSnippet).toContain('https://cdn.lodariq.com/sdk/lodariq-loader.js');
+    expect(body.sdkSnippet).toContain('https://cdn.lodariq.io/sdk/lodariq-loader.js');
     expect(body.sdkSnippet).toContain('data-lodariq-loader');
     expect(body.sdkSnippet).toContain('data-lodariq-token="lod_staging_');
-    expect(body.sdkSnippet).toContain('data-lodariq-api="https://api.lodariq.com"');
+    expect(body.sdkSnippet).toContain('data-lodariq-api="https://api.lodariq.io"');
 
     const tokenList = await app.inject({
       method: 'GET',
@@ -1269,7 +1269,7 @@ describe('@lodariq/api control-plane routes', () => {
             workspaceId: 'wk_a',
             kind: 'staging',
             name: 'Staging',
-            originAllowlist: ['https://staging.lodariq.com'],
+            originAllowlist: ['https://staging.lodariq.io'],
             createdAt: '2026-06-30T00:00:00.000Z',
             updatedAt: '2026-06-30T00:00:00.000Z',
           },
@@ -1301,7 +1301,7 @@ describe('@lodariq/api control-plane routes', () => {
       nested: {
         authorization: 'Bearer live.session.jwt',
         email: 'owner@example.com',
-        callback: 'https://api.lodariq.com/v1/sdk/current-document?token=lod_staging_secret',
+        callback: 'https://api.lodariq.io/v1/sdk/current-document?token=lod_staging_secret',
         safe: 'kept',
       },
     };
@@ -1353,7 +1353,7 @@ describe('@lodariq/api control-plane routes', () => {
     expect(dashboardProps['reconnectHint']).toBe('retry lod_<redacted>');
     expect(nested['authorization']).toBe('<redacted>');
     expect(nested['email']).toBe('<email>');
-    expect(nested['callback']).toBe('https://api.lodariq.com/v1/sdk/current-document');
+    expect(nested['callback']).toBe('https://api.lodariq.io/v1/sdk/current-document');
     expect(nested['safe']).toBe('kept');
 
     const persistedText = JSON.stringify(capturedEvents);
@@ -1376,8 +1376,8 @@ describe('@lodariq/api control-plane routes', () => {
     const app = createApiApp({
       defaultWorkspaceId: 'wk_a',
       defaultUserId: 'user_a',
-      publicApiBaseUrl: 'https://api.lodariq.com',
-      loaderSrc: 'https://cdn.lodariq.com/sdk/lodariq-loader.js',
+      publicApiBaseUrl: 'https://api.lodariq.io',
+      loaderSrc: 'https://cdn.lodariq.io/sdk/lodariq-loader.js',
       observability: { emit: (event) => observabilityEvents.push(event) },
     });
     const document = makeIncompleteButtonDocument(withWorkspace(baseDocument, 'wk_a'));
@@ -1422,7 +1422,7 @@ describe('@lodariq/api control-plane routes', () => {
     expect(token).not.toHaveProperty('authoringSession');
     expect(token).not.toHaveProperty('publication');
     expect(token.sdkSnippet).not.toContain('data-lodariq-authoring-session');
-    expect(token.sdkSnippet).toContain('src="https://cdn.lodariq.com/sdk/lodariq-loader.js"');
+    expect(token.sdkSnippet).toContain('src="https://cdn.lodariq.io/sdk/lodariq-loader.js"');
     expect(token.sdkSnippet).not.toContain('lodariq-creator.js');
 
     const viewerBootstrap = await app.inject({
@@ -1430,11 +1430,11 @@ describe('@lodariq/api control-plane routes', () => {
       url: '/v1/sdk/bootstrap',
       headers: {
         authorization: `Bearer ${token.clientToken}`,
-        origin: 'https://staging.lodariq.com',
+        origin: 'https://staging.lodariq.io',
       },
       payload: {
         environment: 'staging',
-        origin: 'https://staging.lodariq.com',
+        origin: 'https://staging.lodariq.io',
       },
     });
     expect(viewerBootstrap.statusCode).toBe(404);
@@ -1524,13 +1524,13 @@ describe('@lodariq/api control-plane routes', () => {
     expect(session.authoringSdkSnippet).toContain('data-lodariq-token="lod_staging_');
     expect(session.authoringSdkSnippet).toContain('data-lodariq-authoring-session="lod_authoring_');
     expect(session.authoringSdkSnippet).toContain(
-      'src="https://cdn.lodariq.com/sdk/lodariq-creator.js"',
+      'src="https://cdn.lodariq.io/sdk/lodariq-creator.js"',
     );
 
     const authoringSdkHeaders = {
       authorization: `Bearer ${token.clientToken}`,
       'x-lodariq-authoring-session': session.authoringSessionToken,
-      origin: 'https://staging.lodariq.com',
+      origin: 'https://staging.lodariq.io',
     };
 
     const bootstrap = await app.inject({
@@ -1539,7 +1539,7 @@ describe('@lodariq/api control-plane routes', () => {
       headers: authoringSdkHeaders,
       payload: {
         environment: 'staging',
-        origin: 'https://staging.lodariq.com',
+        origin: 'https://staging.lodariq.io',
       },
     });
     expect(bootstrap.statusCode).toBe(200);
@@ -1560,10 +1560,10 @@ describe('@lodariq/api control-plane routes', () => {
     expect(bootstrapContext.manifest.currentVersion).toMatch(/^sha256-/);
     expect(bootstrapContext.authoring.enabled).toBe(true);
     expect(bootstrapContext.authoring.documentUrl).toBe(
-      'https://api.lodariq.com/v1/sdk/authoring/document',
+      'https://api.lodariq.io/v1/sdk/authoring/document',
     );
     expect(bootstrapContext.authoring.saveDocumentUrl).toBe(
-      'https://api.lodariq.com/v1/sdk/authoring/document',
+      'https://api.lodariq.io/v1/sdk/authoring/document',
     );
 
     const loadFromCreatorFrame = await app.inject({
@@ -1582,7 +1582,7 @@ describe('@lodariq/api control-plane routes', () => {
       url: '/v1/sdk/authoring/document',
       headers: {
         authorization: `Bearer ${token.clientToken}`,
-        origin: 'https://staging.lodariq.com',
+        origin: 'https://staging.lodariq.io',
       },
       payload: {
         document: { ...document, title: 'Rejected creator save' },
@@ -1652,7 +1652,7 @@ describe('@lodariq/api control-plane routes', () => {
       url: '/v1/sdk/bootstrap',
       headers: {
         authorization: `Bearer ${token.clientToken}`,
-        origin: 'https://staging.lodariq.com',
+        origin: 'https://staging.lodariq.io',
       },
       payload: { environment: 'staging' },
     });
@@ -1699,7 +1699,7 @@ describe('@lodariq/api control-plane routes', () => {
       method: 'POST',
       url: '/v1/sdk/bootstrap',
       headers: authoringSdkHeaders,
-      payload: { environment: 'staging', origin: 'https://staging.lodariq.com' },
+      payload: { environment: 'staging', origin: 'https://staging.lodariq.io' },
     });
     expect(incompatibleBootstrap.statusCode).toBe(409);
     expect(incompatibleBootstrap.json()).toMatchObject({
@@ -1752,7 +1752,7 @@ describe('@lodariq/api control-plane routes', () => {
           workspaceId: 'wk_a',
           kind: 'staging',
           name: 'Staging',
-          originAllowlist: ['https://staging.lodariq.com'],
+          originAllowlist: ['https://staging.lodariq.io'],
           createdAt,
           updatedAt: createdAt,
         },
@@ -1780,7 +1780,7 @@ describe('@lodariq/api control-plane routes', () => {
           documentId: document.id,
           correlationId: 'corr_removed_creator',
           tokenHash: hashAuthoringSessionToken(authoringSessionToken),
-          iframeSrc: 'https://editor.lodariq.com/authoring.html',
+          iframeSrc: 'https://editor.lodariq.io/authoring.html',
           createdByUserId: 'user_removed',
           createdAt,
           expiresAt: '2099-01-01T00:00:00.000Z',
@@ -1792,7 +1792,7 @@ describe('@lodariq/api control-plane routes', () => {
     const headers = {
       authorization: `Bearer ${environmentClientToken}`,
       'x-lodariq-authoring-session': authoringSessionToken,
-      origin: 'https://staging.lodariq.com',
+      origin: 'https://staging.lodariq.io',
     };
 
     const load = await app.inject({
@@ -1819,7 +1819,7 @@ describe('@lodariq/api control-plane routes', () => {
     const app = createApiApp({
       defaultWorkspaceId: 'wk_a',
       defaultUserId: 'user_a',
-      publicApiBaseUrl: 'https://api.lodariq.com',
+      publicApiBaseUrl: 'https://api.lodariq.io',
     });
     const definition = structuredClone(LODARIQ_ACCESSIBLE_FALLBACK_THEME_V1.definition);
     definition.tokens.modes.light.colors.accent = '#0b6655';
@@ -1917,7 +1917,7 @@ describe('@lodariq/api control-plane routes', () => {
     }>();
     expect(context.authoring.release.releaseState).toEqual({
       capability: 'document:read-release-state',
-      url: 'https://api.lodariq.com/v1/sdk/authoring/release-state',
+      url: 'https://api.lodariq.io/v1/sdk/authoring/release-state',
     });
     expect(context.authoring.release).not.toHaveProperty('stagingPublication');
 
@@ -1960,7 +1960,7 @@ describe('@lodariq/api control-plane routes', () => {
     const app = createApiApp({
       defaultWorkspaceId: 'wk_a',
       defaultUserId: 'user_a',
-      publicApiBaseUrl: 'https://api.lodariq.com',
+      publicApiBaseUrl: 'https://api.lodariq.io',
     });
     const document = withWorkspace(baseDocument, 'wk_a');
     const createDocument = await app.inject({
@@ -2005,7 +2005,7 @@ describe('@lodariq/api control-plane routes', () => {
     const directHeaders = {
       authorization: `Bearer ${clientToken}`,
       'x-lodariq-authoring-session': authoringSessionToken,
-      origin: 'https://staging.lodariq.com',
+      origin: 'https://staging.lodariq.io',
     };
     const publicationIntent = {
       expectedGeneration: 0,
@@ -2019,7 +2019,7 @@ describe('@lodariq/api control-plane routes', () => {
       headers: directHeaders,
       payload: {
         environment: 'staging',
-        origin: 'https://staging.lodariq.com',
+        origin: 'https://staging.lodariq.io',
       },
     });
     expect(bootstrap.statusCode).toBe(200);
@@ -2028,11 +2028,11 @@ describe('@lodariq/api control-plane routes', () => {
         release: {
           releaseState: {
             capability: 'document:read-release-state',
-            url: 'https://api.lodariq.com/v1/sdk/authoring/release-state',
+            url: 'https://api.lodariq.io/v1/sdk/authoring/release-state',
           },
           stagingPublication: {
             capability: 'document:publish-staging',
-            url: 'https://api.lodariq.com/v1/sdk/authoring/publications',
+            url: 'https://api.lodariq.io/v1/sdk/authoring/publications',
           },
         },
       },
@@ -2068,7 +2068,7 @@ describe('@lodariq/api control-plane routes', () => {
       url: '/v1/sdk/authoring/release-state',
       headers: {
         authorization: `Bearer ${clientToken}`,
-        origin: 'https://staging.lodariq.com',
+        origin: 'https://staging.lodariq.io',
       },
     });
     expect(missingSession.statusCode).toBe(401);
@@ -2168,7 +2168,7 @@ describe('@lodariq/api control-plane routes', () => {
           workspaceId: 'wk_a',
           kind: 'staging',
           name: 'Staging',
-          originAllowlist: ['https://staging.lodariq.com'],
+          originAllowlist: ['https://staging.lodariq.io'],
           requiredApprovalCount: 0,
           createdAt: now,
           updatedAt: now,
@@ -2178,7 +2178,7 @@ describe('@lodariq/api control-plane routes', () => {
           workspaceId: 'wk_a',
           kind: 'production',
           name: 'Production',
-          originAllowlist: ['https://www.lodariq.com'],
+          originAllowlist: ['https://www.lodariq.io'],
           requiredApprovalCount: 1,
           createdAt: now,
           updatedAt: now,
@@ -2189,7 +2189,7 @@ describe('@lodariq/api control-plane routes', () => {
       repository,
       defaultWorkspaceId: 'wk_a',
       defaultUserId: 'user_a',
-      publicApiBaseUrl: 'https://api.lodariq.com',
+      publicApiBaseUrl: 'https://api.lodariq.io',
     });
     const document = withWorkspace(baseDocument, 'wk_a');
     document.id = 'doc_exact_direct_promotion';
@@ -2232,14 +2232,14 @@ describe('@lodariq/api control-plane routes', () => {
     const directHeaders = {
       authorization: `Bearer ${clientToken}`,
       'x-lodariq-authoring-session': authoringSessionToken,
-      origin: 'https://staging.lodariq.com',
+      origin: 'https://staging.lodariq.io',
     };
 
     const bootstrap = await app.inject({
       method: 'POST',
       url: '/v1/sdk/bootstrap',
       headers: directHeaders,
-      payload: { environment: 'staging', origin: 'https://staging.lodariq.com' },
+      payload: { environment: 'staging', origin: 'https://staging.lodariq.io' },
     });
     expect(bootstrap.statusCode).toBe(200);
     expect(bootstrap.json()).toMatchObject({
@@ -2319,7 +2319,7 @@ describe('@lodariq/api control-plane routes', () => {
         compiledArtifactId: stagingPublication.compiledArtifactId,
         contentHash: stagingPublication.contentHash,
         result: 'passed',
-        verifiedOrigin: 'https://staging.lodariq.com',
+        verifiedOrigin: 'https://staging.lodariq.io',
       },
     });
 
@@ -2423,7 +2423,7 @@ describe('@lodariq/api control-plane routes', () => {
     const app = createApiApp({
       defaultWorkspaceId: 'wk_a',
       defaultUserId: 'user_a',
-      publicApiBaseUrl: 'https://api.lodariq.com',
+      publicApiBaseUrl: 'https://api.lodariq.io',
     });
     const document = withWorkspace(baseDocument, 'wk_a');
 
@@ -2450,19 +2450,19 @@ describe('@lodariq/api control-plane routes', () => {
     const { clientToken } = createToken.json<{ clientToken: string }>();
     const sdkHeaders = {
       authorization: `Bearer ${clientToken}`,
-      origin: 'https://staging.lodariq.com',
+      origin: 'https://staging.lodariq.io',
     };
 
     const preflight = await app.inject({
       method: 'OPTIONS',
       url: '/v1/sdk/bootstrap',
       headers: {
-        origin: 'https://staging.lodariq.com',
+        origin: 'https://staging.lodariq.io',
         'access-control-request-method': 'POST',
       },
     });
     expect(preflight.statusCode).toBe(204);
-    expect(preflight.headers['access-control-allow-origin']).toBe('https://staging.lodariq.com');
+    expect(preflight.headers['access-control-allow-origin']).toBe('https://staging.lodariq.io');
 
     const unpublishedBootstrap = await app.inject({
       method: 'POST',
@@ -2470,13 +2470,13 @@ describe('@lodariq/api control-plane routes', () => {
       headers: sdkHeaders,
       payload: {
         environment: 'staging',
-        href: 'https://staging.lodariq.com/products',
-        origin: 'https://staging.lodariq.com',
+        href: 'https://staging.lodariq.io/products',
+        origin: 'https://staging.lodariq.io',
       },
     });
     expect(unpublishedBootstrap.statusCode).toBe(404);
     expect(unpublishedBootstrap.headers['access-control-allow-origin']).toBe(
-      'https://staging.lodariq.com',
+      'https://staging.lodariq.io',
     );
 
     const publish = await app.inject({
@@ -2524,13 +2524,13 @@ describe('@lodariq/api control-plane routes', () => {
       headers: sdkHeaders,
       payload: {
         environment: 'staging',
-        href: 'https://staging.lodariq.com/products',
-        origin: 'https://staging.lodariq.com',
+        href: 'https://staging.lodariq.io/products',
+        origin: 'https://staging.lodariq.io',
       },
     });
 
     expect(bootstrap.statusCode).toBe(200);
-    expect(bootstrap.headers['access-control-allow-origin']).toBe('https://staging.lodariq.com');
+    expect(bootstrap.headers['access-control-allow-origin']).toBe('https://staging.lodariq.io');
     const context = bootstrap.json<{
       workspaceId: string;
       environment: string;
@@ -2559,8 +2559,8 @@ describe('@lodariq/api control-plane routes', () => {
       contentHash: context.manifest.currentVersion,
       compilerVersion: expect.any(String),
     });
-    expect(context.currentDocumentUrl).toBe('https://api.lodariq.com/v1/sdk/current-document');
-    expect(context.ingestUrl).toBe('https://api.lodariq.com/v1/sdk/events');
+    expect(context.currentDocumentUrl).toBe('https://api.lodariq.io/v1/sdk/current-document');
+    expect(context.ingestUrl).toBe('https://api.lodariq.io/v1/sdk/events');
     expect(context.analyticsPointers).toEqual([
       {
         documentId: document.id,
@@ -2602,7 +2602,7 @@ describe('@lodariq/api control-plane routes', () => {
     expect(authoringSession.authoringSession).toMatchObject({
       environment: 'staging',
       documentId: document.id,
-      iframeSrc: 'https://editor.lodariq.com/authoring.html',
+      iframeSrc: 'https://editor.lodariq.io/authoring.html',
       compilerVersion: COMPILER_VERSION,
       rendererContractVersion: RENDERER_CONTRACT_VERSION,
       themeContractVersion: BRAND_THEME_CONTRACT_VERSION,
@@ -2620,8 +2620,8 @@ describe('@lodariq/api control-plane routes', () => {
       },
       payload: {
         environment: 'staging',
-        href: 'https://staging.lodariq.com/products',
-        origin: 'https://staging.lodariq.com',
+        href: 'https://staging.lodariq.io/products',
+        origin: 'https://staging.lodariq.io',
       },
     });
     expect(authoringBootstrap.statusCode).toBe(200);
@@ -2670,7 +2670,7 @@ describe('@lodariq/api control-plane routes', () => {
       },
     });
     expect(events.statusCode).toBe(202);
-    expect(events.headers['access-control-allow-origin']).toBe('https://staging.lodariq.com');
+    expect(events.headers['access-control-allow-origin']).toBe('https://staging.lodariq.io');
     expect(events.json<{ accepted: number }>().accepted).toBe(1);
 
     const forbiddenOrigin = await app.inject({
@@ -2696,12 +2696,12 @@ describe('@lodariq/api control-plane routes', () => {
       },
       payload: {
         environment: 'staging',
-        origin: 'https://staging.lodariq.com',
+        origin: 'https://staging.lodariq.io',
       },
     });
     expect(invalidAuthoringSession.statusCode).toBe(401);
     expect(invalidAuthoringSession.headers['access-control-allow-origin']).toBe(
-      'https://staging.lodariq.com',
+      'https://staging.lodariq.io',
     );
 
     await app.close();
@@ -2722,7 +2722,7 @@ describe('@lodariq/api control-plane routes', () => {
           },
         ],
       }),
-      publicApiBaseUrl: 'https://api.lodariq.com',
+      publicApiBaseUrl: 'https://api.lodariq.io',
     });
 
     const tokenResponse = await app.inject({
@@ -2742,7 +2742,7 @@ describe('@lodariq/api control-plane routes', () => {
       url: '/v1/sdk/bootstrap',
       headers: {
         authorization: `Bearer ${clientToken}`,
-        origin: 'https://staging.lodariq.com',
+        origin: 'https://staging.lodariq.io',
       },
       payload: { environment: 'staging' },
     });
@@ -2995,7 +2995,7 @@ function membershipRepository({
         workspaceId,
         kind: 'staging',
         name: 'Staging',
-        originAllowlist: ['https://staging.lodariq.com'],
+        originAllowlist: ['https://staging.lodariq.io'],
         createdAt: now,
         updatedAt: now,
       },

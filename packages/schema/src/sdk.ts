@@ -28,7 +28,7 @@ const PKCE_VALUE_OPTIONS = {
 } as const;
 const EXACT_ORIGIN_PATTERN = '^https?://[^\\s/?#@]+$';
 const PRODUCTION_ORIGIN_PATTERN = '^https://[^\\s/?#@]+$';
-const CREATOR_MODULE_URL_PATTERN = '^https://(?:staging-)?cdn\\.lodariq\\.com/[^?#]+$';
+const CREATOR_MODULE_URL_PATTERN = '^https://(?:staging-)?cdn\\.lodariq\\.io/[^?#]+$';
 const SUBRESOURCE_INTEGRITY_PATTERN = '^sha256-[A-Za-z0-9+/]+={0,2}$';
 const PUBLIC_SDK_INSTALLATION_ID_OPTIONS = {
   minLength: 24,
@@ -48,16 +48,16 @@ const RELEASE_CORRELATION_ID_PATTERN = '^[A-Za-z0-9][A-Za-z0-9._:-]{7,255}$';
 
 export const MAX_ACTIVE_DOCUMENT_MANIFESTS = 100;
 
-export const LODARIQ_APP_ORIGIN = 'https://app.lodariq.com' as const;
-export const LODARIQ_STAGING_APP_ORIGIN = 'https://staging-app.lodariq.com' as const;
-export const LODARIQ_API_ORIGIN = 'https://api.lodariq.com' as const;
-export const LODARIQ_STAGING_API_ORIGIN = 'https://staging-api.lodariq.com' as const;
-export const LODARIQ_EDITOR_ORIGIN = 'https://editor.lodariq.com' as const;
-export const LODARIQ_STAGING_EDITOR_ORIGIN = 'https://staging-editor.lodariq.com' as const;
+export const LODARIQ_APP_ORIGIN = 'https://app.lodariq.io' as const;
+export const LODARIQ_STAGING_APP_ORIGIN = 'https://staging-app.lodariq.io' as const;
+export const LODARIQ_API_ORIGIN = 'https://api.lodariq.io' as const;
+export const LODARIQ_STAGING_API_ORIGIN = 'https://staging-api.lodariq.io' as const;
+export const LODARIQ_EDITOR_ORIGIN = 'https://editor.lodariq.io' as const;
+export const LODARIQ_STAGING_EDITOR_ORIGIN = 'https://staging-editor.lodariq.io' as const;
 export const LODARIQ_AUTHORING_ACTIVATION_URL =
-  'https://app.lodariq.com/authoring/activate' as const;
+  'https://app.lodariq.io/authoring/activate' as const;
 export const LODARIQ_STAGING_AUTHORING_ACTIVATION_URL =
-  'https://staging-app.lodariq.com/authoring/activate' as const;
+  'https://staging-app.lodariq.io/authoring/activate' as const;
 export const AUTHORING_ACTIVATION_PROTOCOL = 'lodariq.authoring.activation.v1' as const;
 export const AUTHORING_PKCE_CHALLENGE_METHOD = 'S256' as const;
 export const AUTHORING_BOOTSTRAP_GRANT_HEADER = 'x-lodariq-bootstrap-grant' as const;

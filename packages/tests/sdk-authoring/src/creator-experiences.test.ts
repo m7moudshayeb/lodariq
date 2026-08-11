@@ -9,14 +9,12 @@ describe('creator experience capabilities', () => {
     expect(CREATOR_ENABLED_EXPERIENCE_TYPES.map((type) => type.id)).toEqual(['tour']);
   });
 
-  it('creates a useful, distinct draft tour without a preconfigured placement', () => {
-    let blockId = 0;
+  it('creates a distinct empty draft tour without showing a step initially', () => {
     const document = createTourDraft({
       documentId: 'doc_new_tour',
       workspaceId: 'wk_creator',
       environment: 'staging',
       schemaVersion: '1.0.0',
-      createBlockId: () => `blk_${++blockId}`,
     });
 
     expect(document).toMatchObject({
@@ -30,17 +28,6 @@ describe('creator experience capabilities', () => {
       targets: [],
       schemaVersion: '1.0.0',
     });
-    expect(document.blocks).toHaveLength(1);
-    expect(document.blocks[0]).toMatchObject({
-      id: 'blk_1',
-      type: 'tourStep',
-      status: 'incomplete',
-      props: { index: 0 },
-    });
-    expect(document.blocks[0]?.children[0]?.children.map((block) => block.type)).toEqual([
-      'heading',
-      'paragraph',
-      'button',
-    ]);
+    expect(document.blocks).toEqual([]);
   });
 });

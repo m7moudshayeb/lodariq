@@ -46,15 +46,15 @@ describe('@lodariq/api auth email outbox', () => {
     expect(
       readAuthEmailDeliveryEnvironment({
         LODARIQ_EMAIL_DELIVERY_MODE: 'resend',
-        LODARIQ_APP_BASE_URL: 'https://app.lodariq.com/',
-        LODARIQ_AUTH_EMAIL_FROM: 'Lodariq <auth@lodariq.com>',
+        LODARIQ_APP_BASE_URL: 'https://app.lodariq.io/',
+        LODARIQ_AUTH_EMAIL_FROM: 'Lodariq <auth@lodariq.io>',
         RESEND_API_KEY,
         LODARIQ_AUTH_EMAIL_TOKEN_SECRET: TOKEN_SECRET,
       }),
     ).toEqual({
       mode: 'resend',
-      appBaseUrl: 'https://app.lodariq.com',
-      from: 'Lodariq <auth@lodariq.com>',
+      appBaseUrl: 'https://app.lodariq.io',
+      from: 'Lodariq <auth@lodariq.io>',
       apiKey: RESEND_API_KEY,
       tokenSecret: TOKEN_SECRET,
     });
@@ -68,8 +68,8 @@ describe('@lodariq/api auth email outbox', () => {
     expect(() =>
       readAuthEmailDeliveryEnvironment({
         LODARIQ_EMAIL_DELIVERY_MODE: 'resend',
-        LODARIQ_APP_BASE_URL: 'http://app.lodariq.com',
-        LODARIQ_AUTH_EMAIL_FROM: 'Lodariq <auth@lodariq.com>',
+        LODARIQ_APP_BASE_URL: 'http://app.lodariq.io',
+        LODARIQ_AUTH_EMAIL_FROM: 'Lodariq <auth@lodariq.io>',
         RESEND_API_KEY,
         LODARIQ_AUTH_EMAIL_TOKEN_SECRET: TOKEN_SECRET,
       }),
@@ -77,8 +77,8 @@ describe('@lodariq/api auth email outbox', () => {
     expect(() =>
       readAuthEmailDeliveryEnvironment({
         LODARIQ_EMAIL_DELIVERY_MODE: 'resend',
-        LODARIQ_APP_BASE_URL: 'https://app.lodariq.com/path',
-        LODARIQ_AUTH_EMAIL_FROM: 'Lodariq <auth@lodariq.com>',
+        LODARIQ_APP_BASE_URL: 'https://app.lodariq.io/path',
+        LODARIQ_AUTH_EMAIL_FROM: 'Lodariq <auth@lodariq.io>',
         RESEND_API_KEY,
         LODARIQ_AUTH_EMAIL_TOKEN_SECRET: TOKEN_SECRET,
       }),
@@ -86,7 +86,7 @@ describe('@lodariq/api auth email outbox', () => {
     expect(() =>
       readAuthEmailDeliveryEnvironment({
         LODARIQ_EMAIL_DELIVERY_MODE: 'resend',
-        LODARIQ_APP_BASE_URL: 'https://app.lodariq.com',
+        LODARIQ_APP_BASE_URL: 'https://app.lodariq.io',
         LODARIQ_AUTH_EMAIL_FROM: 'not-an-email',
         RESEND_API_KEY,
         LODARIQ_AUTH_EMAIL_TOKEN_SECRET: TOKEN_SECRET,
@@ -95,8 +95,8 @@ describe('@lodariq/api auth email outbox', () => {
     expect(() =>
       readAuthEmailDeliveryEnvironment({
         LODARIQ_EMAIL_DELIVERY_MODE: 'resend',
-        LODARIQ_APP_BASE_URL: 'https://app.lodariq.com',
-        LODARIQ_AUTH_EMAIL_FROM: 'auth@lodariq.com',
+        LODARIQ_APP_BASE_URL: 'https://app.lodariq.io',
+        LODARIQ_AUTH_EMAIL_FROM: 'auth@lodariq.io',
         RESEND_API_KEY,
         LODARIQ_AUTH_EMAIL_TOKEN_SECRET: 'too-short',
       }),
@@ -261,7 +261,7 @@ describe('@lodariq/api auth email outbox', () => {
     );
     const sender = createResendAuthEmailSender({
       apiKey: RESEND_API_KEY,
-      from: 'Lodariq <auth@lodariq.com>',
+      from: 'Lodariq <auth@lodariq.io>',
       fetch,
     });
     const message = {
@@ -287,7 +287,7 @@ describe('@lodariq/api auth email outbox', () => {
     expect(headers.get('idempotency-key')).toBe(authEmailIdempotencyKey(VERIFY_ROW.id));
     expect(headers.get('idempotency-key')?.length).toBeLessThanOrEqual(256);
     expect(JSON.parse(String(init?.body))).toEqual({
-      from: 'Lodariq <auth@lodariq.com>',
+      from: 'Lodariq <auth@lodariq.io>',
       to: message.to,
       subject: message.subject,
       html: message.html,
@@ -299,7 +299,7 @@ describe('@lodariq/api auth email outbox', () => {
   it('classifies Resend throttling as retryable without exposing response or API secrets', async () => {
     const sender = createResendAuthEmailSender({
       apiKey: RESEND_API_KEY,
-      from: 'auth@lodariq.com',
+      from: 'auth@lodariq.io',
       fetch: vi.fn<typeof globalThis.fetch>(async () =>
         Response.json(
           { name: 'rate_limit_exceeded', message: `private ${RESEND_API_KEY}` },
@@ -419,7 +419,7 @@ function createWorker(
   return new AuthEmailOutboxWorker({
     queue,
     sender,
-    appBaseUrl: 'https://app.lodariq.com',
+    appBaseUrl: 'https://app.lodariq.io',
     tokenSecret: TOKEN_SECRET,
     clock: () => new Date(NOW),
     random: () => 0.5,

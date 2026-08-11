@@ -26,14 +26,15 @@ When documents conflict, use this order:
   unrelated builders.
 - Creator surface: outcome-first and live-product-first; canonical JSON stays an
   internal typed contract.
-- Entry: a developer installs the SDK once. Phase 2 Slice 1 now lets exact
-  allowed development/staging origins expose a draggable launcher; signed-out
-  creators use a first-party Lodariq popup and return to the same page. No
-  extension, second creator snippet, other open Lodariq tab, or daily dashboard
-  launch is required. Production remains closed.
+- Entry: a developer installs the SDK once. Exact allowed development/staging
+  origins keep the launcher hidden until `Ctrl/⌘ + Shift + L` or dashboard
+  **Open in product** reveals it. Signed-out creators use a first-party Lodariq
+  popup and return to the same page. The dashboard reveal intent grants no
+  authoring capability. Production remains closed.
 - Interaction shell: local and hosted creator modes implement the canonical icon
   actions
-  **New experience**, **Experiences on this page**, and **Preview as user** over
+  **New experience**, **Experiences on this page**, **Preview as user**, and
+  **Hide Lodariq** over
   the draggable, modeless popup/runtime overlay. New exposes only Tour and
   creates a distinct draft. Browse starts without draft creation, uses only the
   normalized pathname, supports page/workspace scope, search, release truth,

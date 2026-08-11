@@ -209,6 +209,11 @@ export class LodariqRuntime {
     }
   }
 
+  endTour(eventName: string, documentId: string): void {
+    this.clearTourResume();
+    this.track(eventName, { documentId });
+  }
+
   canResumeTour(resume: TourResumeState, tour: CompiledDocument): boolean {
     return (
       resume.documentId === tour.documentId &&

@@ -29,6 +29,7 @@ import {
 } from '../design-system';
 import {
   EDITABLE_ACTION_OPTIONS,
+  EDITABLE_BUTTON_VARIANT_OPTIONS,
   EDITABLE_BLOCK_FIELD_CONFIG,
   EDITABLE_BLOCK_TYPES,
   STEP_CONTENT_COMMANDS,
@@ -779,7 +780,36 @@ function renderButtonField(context: ContentFieldContext): ReactNode {
   return (
     <div className={`button-field-shell ${fieldStateClass(Boolean(block.props.action?.type))}`}>
       {renderSingleLineField(context, 'button-label-field', 'block-input-button')}
-      <ButtonActionControl block={block} controller={controller} />
+      <div className="button-config-row">
+        <ButtonStyleControl block={block} controller={controller} />
+        <ButtonActionControl block={block} controller={controller} />
+      </div>
+    </div>
+  );
+}
+
+function ButtonStyleControl({
+  block,
+  controller,
+}: {
+  block: LodariqBlock;
+  controller: LocalAuthoringFrameController;
+}) {
+  const variant = block.props.variant ?? 'primary';
+  return (
+    <div className="cta-panel button-style-control">
+      <span className="cta-panel-label">Style</span>
+      <AuthoringSelect
+        ariaLabel="Button style"
+        dataAction="set-button-style"
+        dataBlockId={block.id}
+        onValueChange={(value) => {
+          const next = EDITABLE_BUTTON_VARIANT_OPTIONS.find((option) => option.value === value);
+          if (next) controller.setButtonVariant(block.id, next.value);
+        }}
+        options={EDITABLE_BUTTON_VARIANT_OPTIONS}
+        value={variant}
+      />
     </div>
   );
 }

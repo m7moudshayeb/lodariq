@@ -31,7 +31,7 @@ import {
   type ProductStyleProposal,
 } from '@lodariq/schema';
 
-const PARENT_ORIGIN = 'https://staging.lodariq.com';
+const PARENT_ORIGIN = 'https://staging.lodariq.io';
 const INSTALLATION_ID = 'ins_pub_abcdefghijklmnop';
 const ACTIVATION_GRANT = `lod_activation_${'a'.repeat(48)}`;
 const SESSION_TOKEN = `lod_authoring_${'s'.repeat(48)}`;
@@ -46,7 +46,7 @@ describe('hosted editor authoring frame', () => {
       '<div id="authoring" data-state="waiting">Waiting for Lodariq authoring session.</div>';
     Object.defineProperty(document, 'referrer', {
       configurable: true,
-      value: 'https://staging.lodariq.com/products',
+      value: 'https://staging.lodariq.io/products',
     });
     delete (window as { __lodariqEditorMounted?: boolean }).__lodariqEditorMounted;
   });
@@ -73,7 +73,7 @@ describe('hosted editor authoring frame', () => {
   it('mounts only after a validated authoring init bridge message', async () => {
     await import('../../../../apps/editor/src/authoring-frame');
 
-    window.dispatchEvent(initEvent('https://staging.lodariq.com'));
+    window.dispatchEvent(initEvent('https://staging.lodariq.io'));
 
     expect((window as { __lodariqEditorMounted?: boolean }).__lodariqEditorMounted).toBe(true);
     expect(document.getElementById('authoring')?.getAttribute('data-state')).toBeNull();
@@ -102,7 +102,7 @@ describe('hosted editor authoring frame', () => {
     );
     window.dispatchEvent(
       handoffEvent(
-        { ...handoff, apiOrigin: 'https://staging-api.lodariq.com.evil.example' },
+        { ...handoff, apiOrigin: 'https://staging-api.lodariq.io.evil.example' },
         { origin: PARENT_ORIGIN, source: window.parent },
       ),
     );
