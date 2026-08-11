@@ -24,6 +24,23 @@ describe('tour publish readiness', () => {
     expect(validateTourPublishReadiness(document)).toEqual([]);
   });
 
+  it('keeps rich text, action styling, and popup composition on supported block types', () => {
+    const document = cloneFixture();
+    const body = tooltipBody(document);
+    const paragraph = body.find((block) => block.type === 'paragraph')!;
+    const button = body.find((block) => block.type === 'button')!;
+    button.contentRuns = [{ text: button.content ?? '' }];
+    paragraph.props.buttonStyle = { width: 'fill' };
+    paragraph.props.tooltipLayout = { contentAlign: 'center' };
+
+    const invalidBlockIds = validateTourPublishReadiness(document)
+      .filter((issue) => issue.code === 'invalid_block')
+      .map((issue) => issue.blockId);
+
+    expect(invalidBlockIds).toContain(button.id);
+    expect(invalidBlockIds.filter((blockId) => blockId === paragraph.id)).toHaveLength(2);
+  });
+
   it('blocks steps without a semantic target', () => {
     const document = cloneFixture();
     delete tooltip(document).props.targetId;

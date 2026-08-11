@@ -8,14 +8,21 @@ import {
   EDITABLE_ACTION_OPTIONS,
   EDITABLE_BLOCK_TYPES,
   SLASH_COMMANDS,
+  STEP_CONTENT_COMMANDS,
   type DocumentTarget,
   type EditableActionType,
   type EditableBlockTypeValue,
   type SlashCommand,
+  type StepContentCommand,
   type TargetInspectionState,
 } from './types';
 
 const EDITABLE_BLOCK_TYPE_SET = new Set<string>(EDITABLE_BLOCK_TYPES);
+const STEP_CONTENT_COMMAND_SET = new Set<string>(STEP_CONTENT_COMMANDS);
+const STEP_COMMAND_ALIASES: Readonly<Record<string, StepContentCommand>> = {
+  text: 'paragraph',
+  title: 'heading',
+};
 const SLASH_COMMAND_LABELS = Object.fromEntries(
   SLASH_COMMANDS.map((command) => [command.value, command.label]),
 ) as Readonly<Record<SlashCommand, string>>;
@@ -267,6 +274,25 @@ export function editableActionValue(value: string): EditableActionType | null {
 
 export function editableBlockTypeValue(value: string): EditableBlockTypeValue | null {
   return isEditableBlockType(value) ? value : null;
+}
+
+export function stepContentCommandFromQuery(value: string): StepContentCommand | null {
+  const normalized = value.replace(/^\//, '').trim().toLowerCase();
+  if (!normalized) return null;
+  const exactAlias = STEP_COMMAND_ALIASES[normalized];
+  if (exactAlias) return exactAlias;
+  if (STEP_CONTENT_COMMAND_SET.has(normalized)) return normalized as StepContentCommand;
+  const aliasMatch = Object.entries(STEP_COMMAND_ALIASES).find(([alias]) =>
+    alias.startsWith(normalized),
+  );
+  if (aliasMatch) return aliasMatch[1];
+  return (
+    STEP_CONTENT_COMMANDS.find((command) =>
+      [command, blockTypeLabel(command)].some((candidate) =>
+        candidate.toLowerCase().includes(normalized),
+      ),
+    ) ?? null
+  );
 }
 
 export function isEditableBlockType(type: string): type is EditableBlockTypeValue {

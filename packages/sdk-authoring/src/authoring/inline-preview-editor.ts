@@ -54,7 +54,7 @@ export interface InlinePreviewControlContext {
   tooltipBlockId: string;
   placement: 'top' | 'right' | 'bottom' | 'left';
   actionBlockId?: string;
-  actionType?: 'next' | 'back' | 'complete' | 'dismiss' | 'clickTarget';
+  actionType?: '' | 'next' | 'back' | 'complete' | 'dismiss' | 'clickTarget' | 'openPage';
 }
 
 export interface InlinePreviewEditor {
@@ -388,11 +388,13 @@ const INLINE_PLACEMENT_OPTIONS = [
 ] as const;
 
 const INLINE_ACTION_OPTIONS = [
+  { value: '', label: 'Choose action' },
   { value: 'next', label: 'Next' },
   { value: 'back', label: 'Back' },
   { value: 'complete', label: 'Complete' },
   { value: 'dismiss', label: 'Dismiss' },
   { value: 'clickTarget', label: 'Click target' },
+  { value: 'openPage', label: 'Open page' },
 ] as const;
 
 function syncPreviewToolbar(
@@ -474,7 +476,7 @@ function createPreviewToolbar(
   toolbar.appendChild(placement.element);
 
   let action: PreviewToolbarCombobox | null = null;
-  if (context.actionBlockId && context.actionType) {
+  if (context.actionBlockId && context.actionType !== undefined) {
     const actionBlockId = context.actionBlockId;
     action = createAuthoringDomCombobox({
       document: doc,

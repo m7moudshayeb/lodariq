@@ -1,421 +1,104 @@
-# Lodariq Design QA
-
-- Historical pass date: 2026-08-06
-- Last updated: 2026-08-09
-
-Status: **Historical content-authoring and Slice 1 checkpoints preserved; Phase
-2 Slice 2 local milestone and current-view Editorial Air structural QA passed**
-
-Current visual direction: Option 2, **Editorial Air**, documented in
-`docs/product-design/design-system-exploration-2026-08-06/README.md`. This report
-preserves the earlier canvas-first evidence and now records the separate Slice 2
-dashboard and hosted creator-chrome structural comparison.
-
-## Scope
-
-This report verifies the Phase 0/1 authoring workspace against the accepted
-tour-authoring and target-repair sources:
-
-- `docs/product-design/authoring-concepts-2026-08-06/02-tour-authoring.png`
-- `docs/product-design/authoring-concepts-2026-08-06/10-target-repair.png`
-
-Brand System and exact-artifact release concepts remain Phase 2 work. The Slice
-2 checkpoint below records their current local foundation without claiming the
-remaining Slice 3/4 interfaces.
-
-## Canonical Shell Supersession
-
-This report still proves the direct-editing, compact-sequence, target-repair,
-autosave, and runtime-boundary behavior that it exercised. It does not sign off
-the current canonical hosted entry shell. The full-width session bar and fixed
-left dock visible in this evidence are historical implementation choices, not
-the current target.
-
-At the time of this historical pass, the planned Phase 2 Slice 1 convergence
-specified one permanent SDK install, a direct draggable launcher in configured
-development/staging products, a first-party
-top-level auth popup with an exact-origin single-use code exchange and scoped
-activation/document session, and the same modeless authoring popup and runtime
-overlay. Its stable actions are `New`,
-`Experiences on this page`, and `Preview`; no browser extension or second
-dashboard-installed creator snippet is part of the core flow. The dashboard is
-setup/admin/support only. Phase 2 adds contextual Brand/release actions, and
-Phase 3 expands `New` into the broad outcome/type chooser.
-
-That hosted convergence was planned and had not been implemented or visually
-verified by this historical report. The later local implementation checkpoint is
-recorded separately below and does not rewrite this evidence.
-
-## Method
-
-- Captured the running fixture host in the in-app browser before and after the
-  structural correction.
-- Exercised the real Add step, target selection, autofocus, direct editing,
-  placement, advanced open/close, autosave, and runtime paths.
-- Placed the selected source and final implementation in one combined comparison
-  and reviewed the visible differences at the same viewport.
-- Ran unit/contract coverage and the complete Chromium, Firefox, and WebKit
-  authoring/runtime matrix.
-
-Final evidence:
-
-- `docs/product-design/current-ux-audit-2026-08-06/02-canvas-first-authoring.png`
-- `docs/product-design/current-ux-audit-2026-08-06/03-reference-vs-implementation.png`
-
-## Resolved Historical Content-Authoring Gate
-
-The persistent content/configuration form has been removed from the default
-authoring view. The dock is now a compact sequence rail and the runtime-rendered
-tooltip is the ordinary content editor. Placement, common action, and `More` are
-contextual; advanced settings mount only when explicitly opened.
-
-The verified default journey is:
-
-```text
-Add step -> choose target -> type in the rendered tooltip -> preview
-```
-
-## Historical Visual Review
-
-Independent side-by-side review passed with no blocking P0 or P1 gap:
-
-- Sequence rail: compact step rows; `Add step` follows the sequence immediately.
-- Live editing: the rendered tooltip is the sole ordinary content editor.
-- Progressive disclosure: placement, action, and `More` are contextual; no
-  duplicate rail-level Advanced action remains.
-- Canvas hierarchy: the customer product stays dominant and the rail provides
-  orientation and target health.
-- Typography, spacing, borders, radii, color hierarchy, and focus treatment are
-  consistent with the accepted historical sources for this pass; Editorial Air
-  alignment remains untested.
-
-The subtler target-pointer treatment is optional P2 polish, not a release gate.
-
-## Interaction and Reliability Review
-
-- Add step immediately enters semantic target selection; attachment renders the
-  tooltip and focuses/selects its heading.
-- Heading, body, button, and link labels edit in place and synchronize canonical
-  JSON, rail text, advanced fields, preview, autosave, and reload state.
-- Direct edits commit on blur/Enter and through a short semantic idle batch.
-  WebKit native action activation is handled without letting runtime behavior
-  escape during authoring.
-- Opening contextual controls flushes the active edit before changing views,
-  preventing a save/render race.
-- Advanced settings are absent from the default DOM and tab order, then return to
-  the rail through Back.
-- The production runtime remains free of authoring code and attributes.
-
-## Verification Results
-
-- Node 24 full `pnpm verify`: **passed**.
-- TypeScript, lint, package boundaries, migration safety, production builds,
-  bundle budgets, and SDK asset preparation: **passed**.
-- Unit and contract suite: **38 files / 350 tests passed**.
-- Cross-browser Playwright: **55 passed, 2 intentional dashboard skips**.
-- Focused direct-edit unit regression: **16 passed**.
-- Final combined visual comparison: **passed**, no P0/P1 blockers.
-- Dependency audit: **0 known vulnerabilities**.
-
-## Accepted Scope Differences
-
-- The reference says `Publish`; the implementation says `Save & exit` until the
-  verified Phase 2 release workflow exists.
-- The reference uses three example steps; the fixture uses one realistic step.
-- The fixture customer dashboard differs from the concept customer product.
-- Unchecked target health says `Needs check`, preserving truthful state.
-
-These differences do not reintroduce a persistent form, duplicate editor, or
-extra workspace transition.
-
-historical content-authoring result: passed
-
-historical report canonical hosted-convergence result: not covered
-
-## Canonical Phase 2 Slice 1 Checkpoint — 2026-08-07
-
-Status at this dated checkpoint: **Local code and interaction gate passed;
-Editorial Air visual comparison and deployed/live evidence were pending**
-
-This separate checkpoint records the implemented canonical shell without
-changing the historical Phase 0/1 screenshots or their conclusions.
-
-### Implemented interaction evidence
-
-- One permanent public SDK installation exposes the draggable launcher only on
-  exact authoring-enabled development/staging origins; production stays closed.
-- Hosted and local launchers use the same stable **New experience**,
-  **Experiences on this page**, and **Preview as user** actions. New exposes only
-  Tour.
-- The launcher uses icon buttons, accessible names/tooltips, 44-pixel targets,
-  click/tap/keyboard pinning, explicit outside/Escape collapse, drag movement,
-  and minimize/restore coordination with the active hosted surface.
-- Page browsing creates no implicit draft, sends only a normalized pathname,
-  searches page-scoped Tour summaries, expands explicitly to workspace scope,
-  and provides release truth, empty state, **Browse all**, and explicit open/
-  start actions inside the modeless shell.
-- The hosted browse and editor shells are draggable, viewport/safe-area aware,
-  and intercept input only inside their visible bounds. Target selection still
-  collapses/restores authoring chrome.
-- Close and **Save & exit** are distinct. Close revokes the active grant/session
-  and may drop only unpersisted iframe state; prior autosaves remain. **Save &
-  exit** flushes the latest document before revocation. Neither publishes.
-- Dashboard navigation remains collapsed-by-default on desktop and a modal
-  drawer on mobile. Installation setup uses one public snippet, exact trusted-
-  origin synchronization, admin/owner mutation, read-only lower-role controls,
-  and **Open your product** instead of a daily creator handoff.
-
-### Consolidated local verification
-
-- Dependency installation: passed, with the expected Node 22 versus required
-  Node 24 warning.
-- Changed-package and workspace typechecks: passed.
-- Lint, dependency boundaries, and migration safety: passed.
-- Unit/contract suites: 55 files, 581 tests passed.
-- Builds: 11 of 11 passed.
-- Every listed bundle-size budget passed.
-- SDK asset preparation: 58 assets.
-- Security audit: zero known vulnerabilities.
-- Browser E2E: after correcting two stale assertions, all 62 executed tests
-  passed; four planned tests remained skipped.
-
-### Visual evidence that remained at Slice 1
-
-At this dated Slice 1 checkpoint, the supplied consolidated gate had not yet
-performed the required same-viewport, same-state combined comparison against
-`docs/product-design/design-system-exploration-2026-08-06/02-editorial-air.png`.
-The later Slice 2 checkpoint below supplies the current-view dashboard and
-authoring comparison. Broader state coverage still includes:
-
-- collapsed desktop dashboard;
-- mobile navigation drawer;
-- pinned launcher and Tour picker;
-- page/workspace experience browser;
-- modeless authoring panel, Close, and **Save & exit** states.
-
-The existing files under `docs/product-design/implementation-captures/` are
-useful historical implementation references but do not by themselves satisfy
-that final visual-comparison gate.
-
-This dated checkpoint did not claim full Phase 2, deployed Fly/Neon/CDN
-behavior, live RLS evidence, external usability results, Brand/release
-completion, or Lodariq-owned authentication. The later owned-auth and Slice 2
-checkpoints supersede those local implementation gaps; live cutover remains
-separate.
-
-canonical Slice 1 local code/interaction result: passed
-
-canonical Slice 1 same-viewport visual result at that checkpoint: pending;
-superseded by the Slice 2 current-view comparison below
-
-## Canonical Phase 2 Slice 2 Checkpoint — 2026-08-08
-
-Status: **Local milestone passed; current-view Editorial Air structural QA
-passed; Phase 2 remains incomplete**
-
-This checkpoint closes the Slice 2 repository and current-view visual gates. It
-does not rewrite the historical screenshots or claim full pixel parity with the
-generated concept.
-
-### Consolidated local verification
-
-- Full browser E2E: **62 passed, four intentional dashboard cross-browser
-  skips, zero failures** across Chromium, Firefox, and WebKit.
-- Affected unit regression set: **42/42 passed**.
-- Prior full unit/integration gate: **724/724 passed**.
-- Schema, authoring, and tests typechecks: **passed**.
-- Relevant lint, schema and authoring builds, authoring size budgets, and the
-  security audit: **passed**.
-
-### Current-view visual evidence
-
-- Dashboard capture:
-  `docs/product-design/implementation-captures/editorial-air-dashboard-slice2-qa.png`
-- Authoring-panel capture:
-  `docs/product-design/implementation-captures/editorial-air-authoring-panel-slice2-qa.png`
-- Reference-and-implementation comparison:
-  `docs/product-design/implementation-captures/editorial-air-slice2-comparison.png`
-
-The combined comparison against Option 2, **Editorial Air**, passes structural
-conformance at the current in-app browser viewport:
-
-- The dashboard is light-first and release-led, with quiet navigation,
-  experience/environment progression, and recent activity retaining the main
-  hierarchy.
-- The modeless authoring surface keeps restrained evergreen glass in creator
-  chrome and an opaque light editing body so the customer page remains primary.
-- Desktop navigation being collapsed by default, progressive disclosure of
-  authoring controls, and icon-only launcher actions with accessible labels and
-  tooltips are intentional later approved decisions. They are not regressions
-  from the original concept image.
-
-This is a structural, current-view result—not approval of the generated logo,
-exact pixels, or automatic product matching. Automatic customer-product
-sampling, provenance/confidence, and exact brand-native styling remain Slice 3.
-Broader responsive/contrast/usability coverage and live/deployed validation also
-remain open.
-
-Phase 2 overall is not complete. Slice 3/4 still include real staging browser
-verification, exact-artifact production approval/promotion, rollback/unpublish,
-analytics isolation, live migration/deployment evidence, and external usability
-evidence.
-
-canonical Slice 2 local milestone result: passed
-
-canonical Slice 2 current-view structural visual result: passed
-
-## Hybrid Step Workspace Checkpoint — 2026-08-09
-
-Status: **Passed after two browser-rendered design-QA iterations**
-
-### Comparison target and evidence
-
-- Source visual truth:
-  - `docs/product-design/authoring-step-details-concepts-2026-08-09/01-adaptive-split-workspace.png`
-  - `docs/product-design/authoring-step-details-concepts-2026-08-09/03-canvas-first-authoring.png`
-- Browser-rendered implementation:
-  - `docs/product-design/implementation-captures/hybrid-authoring-workspace-final.jpg`
-  - `docs/product-design/implementation-captures/hybrid-authoring-workspace-compact.jpg`
-  - `docs/product-design/implementation-captures/hybrid-authoring-workspace-focus.jpg`
-- Full-view combined comparison:
-  - `docs/product-design/implementation-captures/hybrid-authoring-design-qa-comparison.jpg`
-- Focused panel comparison:
-  - `docs/product-design/implementation-captures/hybrid-authoring-design-qa-focused.jpg`
-- Source pixels: 1487 × 1058 for each concept image.
-- Implementation capture: 971 × 887 pixels at the in-app browser's 971 × 887 CSS
-  viewport and 1× capture density.
-- Normalization: each full-view artifact was aspect-fit into an equal 1000 × 920
-  comparison cell; focused panel crops were aspect-fit into equal 760 × 850 cells.
-  The sources are directional concept renders rather than an exact pixel contract,
-  so the comparison judges the approved hybrid structure and interaction hierarchy.
-- State: Dashboard route, Welcome tour open, first step active, runtime tooltip shown,
-  standard 560 × 640 authoring workspace.
-
-### Findings
-
-- No actionable P0, P1, or P2 findings remain.
-- The implementation preserves the repository's existing dark creator-chrome colors
-  and tokens by explicit product requirement. The light source panels therefore guide
-  structure, density, affordance, and hierarchy rather than palette replacement.
-- [P3] The secondary helper under **Compact workspace** truncates in the 208-pixel
-  sequence rail. The primary action, chevron, full accessible name, and workspace
-  behavior remain clear, so this is non-blocking follow-up polish.
-
-### Required fidelity surfaces
-
-- Fonts and typography: existing creator-chrome font stack, weights, and scale are
-  unchanged. The new step title, section labels, and action rows create a readable
-  hierarchy without introducing a second type system.
-- Spacing and layout rhythm: the 560-pixel standard workspace uses a 208-pixel step
-  rail and a flexible inspector. Compact is 320 × 540, focus is 720 × 720, and all
-  new control heights and gaps follow existing 8/16 and 32/36/44/48 conventions.
-- Colors and visual tokens: no panel palette or semantic token value changed. New
-  surfaces consume the existing creator-chrome variables and focus/status colors.
-- Image quality and asset fidelity: no source imagery was required or replaced. New
-  controls use the existing Lucide icon system; no custom SVG, glyph, emoji, or CSS
-  illustration was introduced.
-- Copy and content: **Edit on page**, **Edit details**, **Compact workspace**, and
-  **Expand workspace** state the outcome directly. Advanced-only copy stays behind
-  explicit disclosure.
-- Responsiveness and accessibility: compact and focus states were browser-tested;
-  presets, the resize handle, and panel movement are keyboard operable; selected
-  states remain semantic; the iframe requests only closed, validated layout modes.
-
-### Interaction and browser evidence
-
-- Direct heading editing and tooltip placement changes remained synchronized with
-  the live preview.
-- Standard → compact → standard and standard → focus → standard transitions worked.
-- The resize handle changed 560 × 640 to 568 × 680 with keyboard input and marked
-  the panel as a custom layout.
-- The workspace preset menu restored exact standard geometry.
-- The customer page remained interactive outside the visible panel; Billing was
-  opened while focus mode remained active.
-- Browser diagnostics contained only Vite connection debug entries and no warning or
-  error entries.
-
-### Comparison history
-
-1. Initial browser pass found a P2 canvas-visibility issue: the right-aligned
-   560-pixel panel covered too much of a right-edge live tooltip at the 971-pixel
-   viewport. The initial placement was changed to viewport-centered positioning.
-   The final standard capture shows the panel and live tooltip adjacent and usable.
-2. Initial focus-mode inspection found a P2 duplication issue: compact placement and
-   advance controls remained expanded in the rail beside the full advanced editor.
-   The wide-layout accordion is now hidden in focus mode. The focus capture shows a
-   quiet step list beside the full editor with no duplicated controls.
-3. Post-fix full-view and focused comparisons found no remaining P0/P1/P2 issue.
-
-### Implementation checklist
-
-- [x] Canvas-first direct content and common controls.
-- [x] Standard split rail and step inspector.
-- [x] Compact accordion workspace.
-- [x] Focus workspace for complete step editing.
-- [x] Preset and manual resizing with keyboard support.
-- [x] Exact compact-to-desktop restoration and viewport clamping.
-- [x] Existing creator-chrome colors and size conventions preserved.
-
-### Open questions
-
-- None blocking this checkpoint.
-
-final result: passed
-
-## Reference-Matched Responsive Rich Editor Checkpoint — 2026-08-09
-
-Status: **Passed after the reference match was converted from a near-fullscreen
-default into a container-responsive modeless workspace**
-
-### Target and evidence
-
-- Original visual target:
-  `/Users/mahmoudshayeb/.codex/generated_images/019fdf14-46d2-7c31-9906-1cabee815406/exec-83d9afa8-3aa9-4e7b-bf9e-4b4d0d97a5a9.png`
-- Final default container:
-  `docs/product-design/implementation-captures/responsive-authoring-panel-default-final.jpg`
-- Final compact container:
-  `docs/product-design/implementation-captures/responsive-authoring-panel-compact-final.jpg`
-- Browser viewport: 971 × 887 CSS pixels in the in-app browser.
-- Default panel: 700 × 620 pixels, centered and modeless.
-- Compact verification: the same panel keyboard-resized to 580 pixels wide.
-
-### Resolved findings
-
-1. **P1 — Default panel covered almost the entire customer page.** The 860 × 920
-   reference geometry had incorrectly become the normal preset. The default is now
-   700 × 620, reserves at least 72 horizontal pixels for the host page, and keeps the
-   larger 860-pixel reference treatment as the explicit focus workspace.
-2. **P1 — Controls were oversized for an embedded creator surface.** The header,
-   step rows, section padding, content editor, position cards, advance cards,
-   advanced row, and release footer now use a denser scale while preserving the
-   source hierarchy and evergreen/light palette.
-3. **P1 — Layout changes were tied to broad viewport assumptions.** The authoring
-   iframe now establishes an `authoring-frame` inline-size container. At 620 pixels
-   it switches between the split editor and compact step accordion; at 800 pixels it
-   widens the rail without inflating the controls.
-4. **P2 — Compact footer collided with the resize affordance.** Footer actions now
-   reserve the resize corner, retain readable labels, and collapse Draft text only at
-   the narrowest container size.
-
-### Interaction and accessibility verification
-
-- The rich editor remains one contenteditable surface with structured heading and
-  paragraph blocks plus type, size, weight, style, alignment, and color controls.
-- Container resizing was exercised through the real keyboard resize handle. The
-  700-pixel split layout changed to the 580-pixel accordion layout without clipping
-  actions or losing the active step.
-- Placement and advance controls retained semantic pressed states; release truth
-  remains present behind the reference-matched footer.
-- The default state was restored after compact verification.
-- Browser logs contained no error entries.
-- Focused unit coverage passed: 10 responsive panel, rich-editor, release, resize,
-  restore, and focus-workspace tests; package typechecks and authoring lint passed.
-
-### Remaining polish
-
-- No P0, P1, or P2 findings remain for this checkpoint.
-- The separate unplaced live-preview tooltip can still occupy page space behind the
-  modeless editor. It is intentionally outside the authoring panel and remains
-  draggable/target-dependent; this is not a panel responsiveness defect.
+# Lodariq Contextual Canvas Design QA
+
+- Date: 2026-08-11
+- Scope: freeform CTA manipulation, popup dismissal, selected-element toolbar focus, prominent link behavior, draggable and four-corner-resizable popup geometry, top-left zoom, and explicit detailed-tray disclosure
+- Source visual truth: `/Users/mahmoudshayeb/.codex/generated_images/019ff084-5e39-7a41-bb3e-2af45c5874dc/exec-aa8d7a0a-d395-47ba-b526-ddda09413b7f.png`
+- Current-state reference: `/var/folders/p4/q0cck1cd3yxb9jzgp1b3lt140000gn/T/TemporaryItems/NSIRD_screencaptureui_aEUobW/Screenshot 2026-08-11 at 6.56.39 PM.png`
+- Standard action implementation: `docs/product-design/implementation-captures/contextual-toolbar-canvas-final.png`
+- Standard detailed-tray implementation: `docs/product-design/implementation-captures/contextual-toolbar-tray-final.png`
+- Standard text implementation: `docs/product-design/implementation-captures/text-toolbar-canvas-final.png`
+- Compact action implementation: `docs/product-design/implementation-captures/contextual-toolbar-compact-action-final.png`
+- Draggable popup implementation: `docs/product-design/implementation-captures/draggable-popup-final.jpg`
+- Combined comparison: `docs/product-design/implementation-captures/source-vs-draggable-popup-final.png`
+- Freeform CTA implementation: `docs/product-design/implementation-captures/freeform-action-canvas-final.jpg`
+- Link behavior implementation: `docs/product-design/implementation-captures/freeform-link-behavior-final.jpg`
+- Final combined comparison: `docs/product-design/implementation-captures/source-vs-freeform-action-canvas-final.png`
+- Popup corner-resize implementation: `docs/product-design/implementation-captures/popup-corner-resize-final.jpg`
+- Popup resize comparison: `docs/product-design/implementation-captures/source-vs-popup-corner-resize-final.png`
+
+## Comparison setup
+
+- Source pixels: 1448 × 1086.
+- Implementation pixels: 985 × 554 at the active in-app browser viewport and device scale factor 1.
+- State: Welcome tour open at 80% canvas zoom. The action capture has Continue selected with horizontal CTA handles visible. The popup-resize capture has the popup itself selected at 368 × 276px with all four corner handles visible and the detailed tray closed. A focused capture separately verifies the link behavior destination.
+- Density normalization: the source and implementation were proportionally contained in equal 1200 × 800 panels and inspected together in the final combined comparison. The implementation intentionally keeps the smaller Standard workspace requested after the source mock was generated.
+- Brand normalization: the canvas popup uses the resolved customer Brand Theme, matching the popup actually rendered on the page. The source mock's white sample popup is treated as interaction/layout guidance rather than a replacement customer theme.
+
+## Findings
+
+No actionable P0, P1, or P2 issue remains in this scoped interaction.
+
+- Spacing and layout rhythm: the canvas no longer reserves 160px above a vertically centered popup. It starts the popup after 72px of structured canvas space, leaving room for the anchored toolbar without losing the popup below the fold.
+- Scroll ownership: natural-height popups remain fully expanded and scroll with the canvas. An explicitly resized height becomes a bounded popup viewport with internal overflow, matching the runtime surface without clipping or moving the four external corner handles.
+- Zoom: canvas-local controls are pinned to the canvas's top-left corner and expose 60–120% zoom in 10-point steps, with an 80% fit-oriented default and one-click reset. Moving or scrolling canvas content does not move this control group.
+- Popup positioning: a dedicated grip moves the complete popup on a 4px pointer grid, compensates for the active canvas zoom, and keeps the popup within the canvas/tool-dock bounds. Arrow keys move it in 8px steps; Home or a grip double-click resets it.
+- Popup sizing: selecting the popup exposes four attached corner handles. Pointer movement is zoom-aware, snaps to the shared 4px grid, and supports simultaneous width/height resizing from every corner; keyboard arrows use 8px increments, while Home or double-click returns to the natural size.
+- Popup fidelity: custom width and height are persisted as sanitized tooltip-layout values and applied through the same CSS sizing contract in both the authoring canvas and the page runtime. The live browser verified 368 × 276px on both surfaces and retained the size after reload.
+- Context anchoring: both text and action toolbars are positioned from the selected row's live bounding box. The measured action toolbar remained about 10px above the selected action after the popup moved, matching the source's attached popover relationship.
+- Selection focus: the button toolbar now contains only the selected-element identity, detailed-settings ellipsis, and close control. Duplicate behavior, width, alignment, color, and spacing controls were removed from this toolbar; their canonical controls remain in the detailed tray.
+- Direct CTA sizing: selecting a button or link reveals start/end resize handles on the rendered action. Pointer movement uses a zoom-aware 4px grid with an 80–480px schema bound; keyboard resizing uses 8px increments, and Home or double-click returns to Hug.
+- Link behavior: links retain one useful quick control because the destination is essential context. Opening it places the 36px destination input first, at the top of the popover, with its helper text and action pills beneath it.
+- Dismissal: text, button, and link toolbars, quick-property popovers, content insertion, Placement, Popup, and detailed settings all have explicit close controls. The controlled link popover was hardened after live QA so its close control always updates the owning open state.
+- Detailed disclosure: selecting a button or text block does not open the bottom tray. The selected element's ellipsis opens it; changing the selected block or entering Placement/Popup closes the content tray.
+- Layering: the detailed tray is above the right tool dock, so its close control remains reachable at Standard and Compact widths.
+- Responsive behavior: Standard retains labels and summaries; Compact preserves the same control order, collapses summaries to icons, keeps horizontal toolbar access, and leaves the persistent footer visible.
+- Typography, colors, and visual tokens: the existing Lodariq type hierarchy, Editorial Air creator chrome, semantic selection blue, and customer Brand Theme variables remain authoritative.
+- Button block surface: the surrounding action stage now computes to a transparent background with zero padding. The unwanted color came from a legacy `direct child span` chip selector; changing the structural wrapper to a `div` prevents that selector from styling the button container while preserving the actual Brand Theme button fill.
+- Icons and assets: all controls use the existing Lucide-backed Lodariq design-system icons. No custom SVG, emoji, CSS illustration, or placeholder asset was introduced.
+- Copy and accessibility: canvas zoom, text settings, button/link settings, direct CTA handles, all four popup resize corners, every popup close action, and the detailed tray have explicit accessible names and pressed/current state where applicable.
+
+## Interaction verification
+
+- Selected the heading and confirmed the text toolbar moved directly above it.
+- Selected Continue and confirmed the action toolbar moved directly above the action, with the detailed tray absent.
+- Confirmed button selection exposes only identity, More, Close, and the two direct resize handles—no duplicate Behavior, Alignment, Color, or Spacing controls.
+- Resized Continue through the end handle with keyboard input and confirmed the schema/runtime custom-width path; pointer resizing is covered by the focused interaction test.
+- Opened the detailed tray from `More button settings`, then closed it without changing the active Content dock mode.
+- Opened the content insertion menu and confirmed its explicit Close control dismisses the menu.
+- Selected a link, opened Link behavior, measured the visible Destination input at 35.9976px (the browser's device-rounded 36px), and closed the controlled popover successfully.
+- Closed the selected button/link toolbars and confirmed both the toolbar and direct resize handles are removed.
+- Opened `More text settings` and confirmed it exposed Block spacing rather than action or popup configuration.
+- Confirmed the canvas zoom controls update the canvas scale and remain usable in Standard and Compact workspaces.
+- Confirmed the zoom control stays at the same top-left coordinates while the popup moves.
+- Confirmed popup movement updates the selected action toolbar by the same visual delta, preserving the attached relationship after repositioning.
+- Confirmed pointer drag updates use the 4px grid in the interaction test, and keyboard movement/reset works in both the interaction test and live browser.
+- Confirmed all four popup corner handles are present, remain outside the scrollable popup content, and become fully visible when the popup is selected.
+- Resized the popup through the bottom-right handle in the focused pointer test at 80% canvas zoom and confirmed the zoom-compensated 372 × 280px result.
+- Resized the live popup with keyboard input, confirmed the 368 × 276px canvas badge, and verified the rendered page popup received `--lq-popup-width: 368px` and `--lq-popup-height: 276px`.
+- Reloaded the editor and confirmed the custom popup geometry persisted. Selecting a corner resets the popup content viewport to its origin, so focus never hides the heading or clips handles.
+- Confirmed `.rich-step-action-stage` is a `DIV` with `rgba(0, 0, 0, 0)` background and zero padding, while `.rich-step-action-preview` retains the resolved Brand Theme fill.
+- Confirmed natural-height popups use the enclosing canvas scroll; custom-height popups scroll only their content while the resize frame and handles remain fixed and visible.
+- Browser console returned no errors.
+
+## Comparison history
+
+- P1: the 160px top reserve plus vertical centering hid lower popup content. Reduced the reserve to 72px, aligned the popup to the top of the canvas, and removed the popup's inner max-height scroller.
+- P1: button selection auto-opened the bottom tray, diverging from the source's progressive disclosure. Removed automatic opening and wired the tray exclusively to the selected toolbar's ellipsis.
+- P1: the text toolbar used a fixed canvas coordinate. Reused the selected-row measurement path for both text and action toolbars.
+- P1: duplicate button configuration appeared in both the contextual toolbar and detailed tray. Reduced the button toolbar to identity, More, and Close so every detailed value has one visible editing surface.
+- P1: CTA width was limited to presets. Added direct horizontal handles, zoom-aware pointer math, keyboard access, a 4px width grid, and a bounded `widthPx` schema/runtime contract.
+- P1: link destination could be hidden below a horizontally dense behavior surface. Reordered Behavior into a vertical layout with the destination first and enforced the shared 36px control height.
+- P1: the link behavior close button appeared but did not reliably dismiss in the live portal. Made the popover controlled and wired the close button directly to its open-state callback.
+- P2: creator popups relied on outside click or Escape. Added visible close controls to selection toolbars, quick behavior, insertion, Placement, Popup, and detailed settings.
+- P2: the right tool dock could cover the tray close control. Raised the tray to the correct creator-chrome layer.
+- P2: the popup could not be repositioned while reviewing longer content. Added a zoom-aware, bounded drag grip plus keyboard and reset affordances.
+- P2: zoom controls were part of the scrolling stage. Moved them to the canvas shell and pinned them to the top-left corner.
+- P2: the button container inherited a green chip background from a broad direct-child `span` selector. Replaced the action-stage wrapper with a semantic layout `div`, leaving only the actual rendered button surface themed.
+- P1: the popup's previous resize affordance was lost during the canvas redesign, leaving creators unable to set its width and height directly. Added a bounded, schema-backed size contract, four zoom-aware corner handles, keyboard/reset access, and runtime parity.
+- P1: putting the corner controls inside the custom-height scroll container clipped three handles and could scroll the heading out of view on focus. Split the popup into a non-scrolling outer resize frame and an inner content viewport, then reset the content viewport when selecting the popup.
+- Post-fix evidence: `freeform-action-canvas-final.jpg`, `freeform-link-behavior-final.jpg`, `popup-corner-resize-final.jpg`, `source-vs-freeform-action-canvas-final.png`, and `source-vs-popup-corner-resize-final.png`, plus the earlier contextual toolbar captures.
+
+## Verification
+
+- `@lodariq/sdk-authoring` build, typecheck, and lint: passed.
+- `@lodariq/tests` typecheck and lint: passed.
+- Focused schema, compiler, runtime, and rich-content interaction tests: 114 passed.
+- Standard/Compact browser interaction checks: passed.
+- Browser console errors: none.
+- `git diff --check`: passed.
+
+## Follow-up polish
+
+- P3: a future Fit command could calculate the best zoom level for unusually long popups; manual zoom already covers the required workflow.
 
 final result: passed

@@ -5,6 +5,7 @@ import {
   type AuthoringStagingPublicationResult,
   type AuthoringStagingReleaseState,
   type AuthoringStagingReleaseStateName,
+  type BrandThemeSnapshot,
   type LodariqDocument,
   type ProductStyleProposal,
   type AuthoringProductMatchApplyResult,
@@ -288,6 +289,9 @@ export interface LocalAuthoringFrameServices {
 export interface LocalAuthoringFrameOptions {
   root: HTMLElement;
   baseDocument: LodariqDocument;
+  /** Approved session theme used by both the canvas and runtime preview recipe. */
+  previewTheme?: BrandThemeSnapshot;
+  previewPreferences?: { prefersDark: boolean; prefersReducedMotion: boolean };
   services: LocalAuthoringFrameServices;
   frameMode?: 'standalone' | 'panel';
   sessionId?: string;

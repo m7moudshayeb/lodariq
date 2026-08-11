@@ -168,6 +168,23 @@ describe('AuthoringBridge (PRD §9.5)', () => {
     } satisfies BridgeMessage;
     expect(validate(BridgeMessageSchema, advancedMessage).valid).toBe(true);
 
+    const actionMessage = {
+      ...placementMessage,
+      correlationId: 'control_action',
+      operation: {
+        kind: 'setAction',
+        blockId: 'button_1',
+        actionType: 'openPage',
+      },
+    } satisfies BridgeMessage;
+    expect(validate(BridgeMessageSchema, actionMessage).valid).toBe(true);
+    expect(
+      validate(BridgeMessageSchema, {
+        ...actionMessage,
+        operation: { ...actionMessage.operation, actionType: 'runCode' },
+      }).valid,
+    ).toBe(false);
+
     const titleMessage = {
       ...placementMessage,
       correlationId: 'control_3',

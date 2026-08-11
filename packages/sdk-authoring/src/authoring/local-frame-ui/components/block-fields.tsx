@@ -42,6 +42,7 @@ import {
   editableActionValue,
   editableBlockTypeValue,
   isEditableContentBlock,
+  stepContentCommandFromQuery,
 } from '../utils';
 import { COMMAND_DETAILS, InlineStepInsert } from './insert-menu';
 
@@ -64,12 +65,6 @@ type ContentFieldContext = ContentFieldProps & {
 };
 
 type ContentFieldRenderer = (context: ContentFieldContext) => ReactNode;
-
-const STEP_CONTENT_COMMAND_SET = new Set<string>(STEP_CONTENT_COMMANDS);
-
-const STEP_COMMAND_ALIASES: Readonly<Record<string, StepContentCommand>> = {
-  text: 'paragraph',
-};
 
 const COMMAND_NAVIGATION_DIRECTIONS: Readonly<Record<string, number>> = {
   ArrowDown: 1,
@@ -446,34 +441,10 @@ function handleStepComposerKeyDown(
   }
 
   const command =
-    stepCommandFromText(currentValue) ?? commands[activeCommandIndexRef.current] ?? commands[0];
+    stepContentCommandFromQuery(currentValue) ??
+    commands[activeCommandIndexRef.current] ??
+    commands[0];
   if (command) insert(command);
-}
-
-function stepCommandFromText(value: string): StepContentCommand | null {
-  const normalized = value.replace(/^\//, '').trim().toLowerCase();
-  return STEP_COMMAND_ALIASES[normalized] ?? stepContentCommandValue(normalized);
-}
-
-function stepCommandFromQuery(value: string): StepContentCommand | null {
-  const normalized = value.replace(/^\//, '').trim().toLowerCase();
-  if (!normalized) return null;
-  const exactCommand = stepCommandFromText(value);
-  if (exactCommand) return exactCommand;
-  const aliasCommand = stepAliasCommandFromQuery(normalized);
-  if (aliasCommand) return aliasCommand;
-  return (
-    STEP_CONTENT_COMMANDS.find((command) => stepCommandMatchesQuery(command, normalized)) ?? null
-  );
-}
-
-function stepContentCommandValue(value: string): StepContentCommand | null {
-  return STEP_CONTENT_COMMAND_SET.has(value) ? (value as StepContentCommand) : null;
-}
-
-function stepAliasCommandFromQuery(query: string): StepContentCommand | null {
-  const match = Object.entries(STEP_COMMAND_ALIASES).find(([alias]) => alias.startsWith(query));
-  return match?.[1] ?? null;
 }
 
 function stepCommandMatchesQuery(command: StepContentCommand, query: string): boolean {
@@ -941,7 +912,9 @@ function handleStepContentFieldKeyDown(
     !event.metaKey
   ) {
     const currentValue = event.currentTarget.value.trim();
-    const inlineCommand = currentValue.startsWith('/') ? stepCommandFromQuery(currentValue) : null;
+    const inlineCommand = currentValue.startsWith('/')
+      ? stepContentCommandFromQuery(currentValue)
+      : null;
     if (inlineCommand) {
       event.preventDefault();
       controller.applyStepContentCommand(stepBlockId, blockId, inlineCommand);

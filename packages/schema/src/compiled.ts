@@ -1,5 +1,5 @@
 import { Type, type Static } from '@sinclair/typebox';
-import { LodariqBlockProps, PresentationAnchor } from './block';
+import { InlineTextRun, LodariqBlockProps, PresentationAnchor, TooltipLayoutProps } from './block';
 import { BrandThemeSnapshot, ExperienceAppearance } from './brand';
 import { AudienceDefinition, TriggerDefinition } from './document';
 import { RendererContractVersion } from './release';
@@ -58,12 +58,14 @@ export const CompiledStep = Type.Object(
     targetId: Type.Optional(Type.String()),
     placement: Type.Optional(Type.String()),
     presentationAnchor: Type.Optional(Type.Ref(PresentationAnchor)),
+    tooltipLayout: Type.Optional(Type.Ref(TooltipLayoutProps)),
     /** Pre-sanitized, render-ready node tree. */
     body: Type.Array(
       Type.Object({
         id: Type.String(),
         type: Type.String(),
         text: Type.Optional(Type.String()),
+        contentRuns: Type.Optional(Type.Array(Type.Ref(InlineTextRun))),
         props: CompiledBodyProps,
       }),
     ),
@@ -93,6 +95,7 @@ const CompiledBodyNodeV2 = Type.Object(
     id: Type.String(),
     type: Type.String(),
     text: Type.Optional(Type.String()),
+    contentRuns: Type.Optional(Type.Array(Type.Ref(InlineTextRun))),
     props: CompiledBodyProps,
   },
   { additionalProperties: false },
@@ -104,6 +107,7 @@ const CompiledStepV2 = Type.Object(
     targetId: Type.Optional(Type.String()),
     placement: Type.Optional(Type.String()),
     presentationAnchor: Type.Optional(Type.Ref(PresentationAnchor)),
+    tooltipLayout: Type.Optional(Type.Ref(TooltipLayoutProps)),
     body: Type.Array(CompiledBodyNodeV2),
     lifecycle: Type.Optional(RuntimeLifecycleHints),
   },

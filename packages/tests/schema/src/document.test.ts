@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { SCHEMA_VERSION, LodariqDocument, sanitizeBlockProps, validate } from '@lodariq/schema';
+import {
+  SCHEMA_VERSION,
+  LodariqDocument,
+  sanitizeBlockProps,
+  sanitizeInlineTextRuns,
+  validate,
+} from '@lodariq/schema';
 import tourFixture from '@lodariq/schema/fixtures/tour.linear.v1.json';
 
 describe('canonical tour fixture', () => {
@@ -116,6 +122,9 @@ describe('canonical tour fixture', () => {
     };
 
     expect(validate(LodariqDocument, document).valid).toBe(true);
+    document.blocks[0].children[0].children[0].props.textStyle.fontSizePx = 20;
+    expect(validate(LodariqDocument, document).valid).toBe(false);
+    document.blocks[0].children[0].children[0].props.textStyle.fontSizePx = 24;
     expect(
       sanitizeBlockProps({
         textStyle: {
@@ -136,5 +145,86 @@ describe('canonical tour fixture', () => {
         fontStyle: 'italic',
       },
     });
+  });
+
+  it('accepts safe rich-text runs and flow-based popup/action styling', () => {
+    const document = JSON.parse(JSON.stringify(tourFixture));
+    const tooltip = document.blocks[0].children[0];
+    const heading = tooltip.children[0];
+    const button = tooltip.children[2];
+    heading.content = 'Launch in 3 days';
+    heading.contentRuns = [
+      { text: 'Launch in ' },
+      { text: '3 days', marks: ['bold', 'underline'], fontSizePx: 24, color: '#006b58' },
+    ];
+    heading.props.blockLayout = { spacingAfter: 'tight', spacingAfterPx: 18 };
+    button.props.variant = 'outline';
+    button.props.blockLayout = { align: 'center', spacingBefore: 'relaxed' };
+    button.props.buttonStyle = {
+      width: 'hug',
+      widthPx: 232,
+      size: 'compact',
+      fillColor: '#ffffff',
+      textColor: '#006b58',
+      borderColor: '#006b58',
+      radius: 'round',
+      icon: 'arrow-right',
+      iconPlacement: 'end',
+    };
+    tooltip.props.tooltipLayout = {
+      widthPx: 480,
+      heightPx: 320,
+      contentAlign: 'center',
+      actionLayout: 'stack',
+      actionAlign: 'stretch',
+      gap: 'relaxed',
+      padding: 'compact',
+    };
+
+    expect(validate(LodariqDocument, document).valid).toBe(true);
+    expect(sanitizeInlineTextRuns(heading.contentRuns)).toEqual(heading.contentRuns);
+    heading.contentRuns[1].fontSizePx = 20;
+    expect(validate(LodariqDocument, document).valid).toBe(false);
+    heading.contentRuns[1].fontSizePx = 24;
+    heading.props.blockLayout.spacingAfterPx = 17;
+    expect(validate(LodariqDocument, document).valid).toBe(false);
+    heading.props.blockLayout.spacingAfterPx = 18;
+    button.props.buttonStyle.widthPx = 82;
+    expect(validate(LodariqDocument, document).valid).toBe(false);
+    button.props.buttonStyle.widthPx = 232;
+    tooltip.props.tooltipLayout.widthPx = 482;
+    expect(validate(LodariqDocument, document).valid).toBe(false);
+    tooltip.props.tooltipLayout.widthPx = 480;
+    tooltip.props.tooltipLayout.heightPx = 322;
+    expect(validate(LodariqDocument, document).valid).toBe(false);
+    tooltip.props.tooltipLayout.heightPx = 320;
+    expect(
+      sanitizeInlineTextRuns([
+        {
+          text: 'Safe',
+          marks: ['blink'],
+          fontSizePx: 20,
+          color: 'red',
+          link: 'javascript:alert(1)',
+        },
+      ]),
+    ).toEqual([{ text: 'Safe' }]);
+  });
+
+  it('rejects arbitrary layout and action style values', () => {
+    const document = JSON.parse(JSON.stringify(tourFixture));
+    document.blocks[0].children[0].children[2].props.buttonStyle = {
+      position: 'absolute',
+      fillColor: 'url(javascript:alert(1))',
+    };
+
+    expect(validate(LodariqDocument, document).valid).toBe(false);
+    expect(
+      sanitizeBlockProps({
+        blockLayout: { align: 'pixel-perfect', spacingAfter: '42px' },
+        buttonStyle: { position: 'absolute', fillColor: 'red' },
+        tooltipLayout: { actionLayout: 'freeform', padding: '80px' },
+      }),
+    ).toEqual({});
   });
 });

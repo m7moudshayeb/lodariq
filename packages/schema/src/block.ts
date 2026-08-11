@@ -1,6 +1,7 @@
 import { Type, type Static } from '@sinclair/typebox';
 import { Value } from '@sinclair/typebox/value';
 import { BlockDiagnostic, ValidationLevel } from './common';
+import { isSafeNavigationUrl } from './url';
 
 /**
  * MVP block types implemented in the editor (PRD §7.2 "MVP node families").
@@ -48,12 +49,39 @@ const HEADING_LEVEL_VALUES = [1, 2, 3] as const;
 const HEADING_LEVEL_SET = new Set<number>(HEADING_LEVEL_VALUES);
 const PLACEMENT_VALUES = ['top', 'right', 'bottom', 'left'] as const;
 const PLACEMENT_SET = new Set<string>(PLACEMENT_VALUES);
-const BUTTON_VARIANT_VALUES = ['primary', 'secondary'] as const;
+export const BUTTON_VARIANT_VALUES = ['primary', 'secondary', 'subtle', 'outline', 'link'] as const;
 const BUTTON_VARIANT_SET = new Set<string>(BUTTON_VARIANT_VALUES);
 export const TEXT_ALIGNMENT_VALUES = ['left', 'center', 'right'] as const;
 const TEXT_ALIGNMENT_SET = new Set<string>(TEXT_ALIGNMENT_VALUES);
+export const TEXT_FONT_SIZE_VALUES = [10, 12, 14, 16, 18, 24, 28, 32] as const;
+const TEXT_FONT_SIZE_SET = new Set<number>(TEXT_FONT_SIZE_VALUES);
+export const INLINE_TEXT_MARK_VALUES = ['bold', 'italic', 'underline'] as const;
+const INLINE_TEXT_MARK_SET = new Set<string>(INLINE_TEXT_MARK_VALUES);
+export const BLOCK_ALIGNMENT_VALUES = ['start', 'center', 'end', 'stretch'] as const;
+const BLOCK_ALIGNMENT_SET = new Set<string>(BLOCK_ALIGNMENT_VALUES);
+export const BLOCK_SPACING_VALUES = ['none', 'tight', 'normal', 'relaxed'] as const;
+const BLOCK_SPACING_SET = new Set<string>(BLOCK_SPACING_VALUES);
+export const BLOCK_SPACING_PX_LIMITS = { min: 0, max: 24, step: 2 } as const;
+export const BUTTON_WIDTH_VALUES = ['hug', 'fill'] as const;
+const BUTTON_WIDTH_SET = new Set<string>(BUTTON_WIDTH_VALUES);
+export const BUTTON_WIDTH_PX_LIMITS = { min: 80, max: 480, step: 4 } as const;
+export const BUTTON_SIZE_VALUES = ['compact', 'regular'] as const;
+const BUTTON_SIZE_SET = new Set<string>(BUTTON_SIZE_VALUES);
+export const BUTTON_RADIUS_VALUES = ['theme', 'square', 'soft', 'round'] as const;
+const BUTTON_RADIUS_SET = new Set<string>(BUTTON_RADIUS_VALUES);
+export const BUTTON_ICON_VALUES = ['none', 'arrow-right', 'external-link', 'check'] as const;
+const BUTTON_ICON_SET = new Set<string>(BUTTON_ICON_VALUES);
+export const BUTTON_ICON_PLACEMENT_VALUES = ['start', 'end'] as const;
+const BUTTON_ICON_PLACEMENT_SET = new Set<string>(BUTTON_ICON_PLACEMENT_VALUES);
+export const TOOLTIP_WIDTH_PX_LIMITS = { min: 240, max: 720, step: 4 } as const;
+export const TOOLTIP_HEIGHT_PX_LIMITS = { min: 160, max: 640, step: 4 } as const;
+export const TOOLTIP_ACTION_LAYOUT_VALUES = ['inline', 'stack'] as const;
+const TOOLTIP_ACTION_LAYOUT_SET = new Set<string>(TOOLTIP_ACTION_LAYOUT_VALUES);
+export const TOOLTIP_PADDING_VALUES = ['compact', 'standard', 'relaxed'] as const;
+const TOOLTIP_PADDING_SET = new Set<string>(TOOLTIP_PADDING_VALUES);
 const TEXT_COLOR_PATTERN = '^#[0-9a-fA-F]{6}$';
-const TEXT_FONT_SIZE_BOUNDS = { minimum: 10, maximum: 72 } as const;
+const INLINE_TEXT_RUN_LIMIT = 256;
+const INLINE_TEXT_RUN_LENGTH_LIMIT = 10_000;
 const PRESENTATION_RATIO_BOUNDS = { minimum: 0, maximum: 1 } as const;
 const PRESENTATION_REGION_SIZE_BOUNDS = { exclusiveMinimum: 0, maximum: 1 } as const;
 
@@ -77,7 +105,9 @@ export type BlockActionProps = Static<typeof BlockActionProps>;
 export const TextStyleProps = Type.Object(
   {
     align: Type.Optional(Type.Union(TEXT_ALIGNMENT_VALUES.map((value) => Type.Literal(value)))),
-    fontSizePx: Type.Optional(Type.Integer(TEXT_FONT_SIZE_BOUNDS)),
+    fontSizePx: Type.Optional(
+      Type.Union(TEXT_FONT_SIZE_VALUES.map((value) => Type.Literal(value))),
+    ),
     color: Type.Optional(Type.String({ pattern: TEXT_COLOR_PATTERN })),
     fontWeight: Type.Optional(
       Type.Union([Type.Literal(400), Type.Literal(500), Type.Literal(600), Type.Literal(700)]),
@@ -87,6 +117,107 @@ export const TextStyleProps = Type.Object(
   { $id: 'TextStyleProps', additionalProperties: false },
 );
 export type TextStyleProps = Static<typeof TextStyleProps>;
+
+/** Structured inline content. Typography is rendered without HTML/CSS input. */
+export const InlineTextRun = Type.Object(
+  {
+    text: Type.String({ maxLength: INLINE_TEXT_RUN_LENGTH_LIMIT }),
+    marks: Type.Optional(
+      Type.Array(Type.Union(INLINE_TEXT_MARK_VALUES.map((value) => Type.Literal(value))), {
+        maxItems: INLINE_TEXT_MARK_VALUES.length,
+        uniqueItems: true,
+      }),
+    ),
+    fontSizePx: Type.Optional(
+      Type.Union(TEXT_FONT_SIZE_VALUES.map((value) => Type.Literal(value))),
+    ),
+    color: Type.Optional(Type.String({ pattern: TEXT_COLOR_PATTERN })),
+    highlightColor: Type.Optional(Type.String({ pattern: TEXT_COLOR_PATTERN })),
+    link: Type.Optional(Type.String({ minLength: 1, maxLength: 2_048 })),
+  },
+  { $id: 'InlineTextRun', additionalProperties: false },
+);
+export type InlineTextRun = Static<typeof InlineTextRun>;
+
+/** Safe flow-layout controls shared by content blocks. */
+export const BlockLayoutProps = Type.Object(
+  {
+    align: Type.Optional(Type.Union(BLOCK_ALIGNMENT_VALUES.map((value) => Type.Literal(value)))),
+    spacingBefore: Type.Optional(
+      Type.Union(BLOCK_SPACING_VALUES.map((value) => Type.Literal(value))),
+    ),
+    spacingAfter: Type.Optional(
+      Type.Union(BLOCK_SPACING_VALUES.map((value) => Type.Literal(value))),
+    ),
+    spacingAfterPx: Type.Optional(
+      Type.Integer({
+        minimum: BLOCK_SPACING_PX_LIMITS.min,
+        maximum: BLOCK_SPACING_PX_LIMITS.max,
+        multipleOf: BLOCK_SPACING_PX_LIMITS.step,
+      }),
+    ),
+  },
+  { $id: 'BlockLayoutProps', additionalProperties: false },
+);
+export type BlockLayoutProps = Static<typeof BlockLayoutProps>;
+
+/** Per-action presentation. Interaction states remain renderer-derived and accessible. */
+export const ButtonStyleProps = Type.Object(
+  {
+    width: Type.Optional(Type.Union(BUTTON_WIDTH_VALUES.map((value) => Type.Literal(value)))),
+    widthPx: Type.Optional(
+      Type.Integer({
+        minimum: BUTTON_WIDTH_PX_LIMITS.min,
+        maximum: BUTTON_WIDTH_PX_LIMITS.max,
+        multipleOf: BUTTON_WIDTH_PX_LIMITS.step,
+      }),
+    ),
+    size: Type.Optional(Type.Union(BUTTON_SIZE_VALUES.map((value) => Type.Literal(value)))),
+    fillColor: Type.Optional(Type.String({ pattern: TEXT_COLOR_PATTERN })),
+    textColor: Type.Optional(Type.String({ pattern: TEXT_COLOR_PATTERN })),
+    borderColor: Type.Optional(Type.String({ pattern: TEXT_COLOR_PATTERN })),
+    radius: Type.Optional(Type.Union(BUTTON_RADIUS_VALUES.map((value) => Type.Literal(value)))),
+    icon: Type.Optional(Type.Union(BUTTON_ICON_VALUES.map((value) => Type.Literal(value)))),
+    iconPlacement: Type.Optional(
+      Type.Union(BUTTON_ICON_PLACEMENT_VALUES.map((value) => Type.Literal(value))),
+    ),
+  },
+  { $id: 'ButtonStyleProps', additionalProperties: false },
+);
+export type ButtonStyleProps = Static<typeof ButtonStyleProps>;
+
+/** Popup composition controls. They arrange the flow; coordinates are never persisted. */
+export const TooltipLayoutProps = Type.Object(
+  {
+    widthPx: Type.Optional(
+      Type.Integer({
+        minimum: TOOLTIP_WIDTH_PX_LIMITS.min,
+        maximum: TOOLTIP_WIDTH_PX_LIMITS.max,
+        multipleOf: TOOLTIP_WIDTH_PX_LIMITS.step,
+      }),
+    ),
+    heightPx: Type.Optional(
+      Type.Integer({
+        minimum: TOOLTIP_HEIGHT_PX_LIMITS.min,
+        maximum: TOOLTIP_HEIGHT_PX_LIMITS.max,
+        multipleOf: TOOLTIP_HEIGHT_PX_LIMITS.step,
+      }),
+    ),
+    contentAlign: Type.Optional(
+      Type.Union(TEXT_ALIGNMENT_VALUES.map((value) => Type.Literal(value))),
+    ),
+    actionLayout: Type.Optional(
+      Type.Union(TOOLTIP_ACTION_LAYOUT_VALUES.map((value) => Type.Literal(value))),
+    ),
+    actionAlign: Type.Optional(
+      Type.Union(BLOCK_ALIGNMENT_VALUES.map((value) => Type.Literal(value))),
+    ),
+    gap: Type.Optional(Type.Union(BLOCK_SPACING_VALUES.map((value) => Type.Literal(value)))),
+    padding: Type.Optional(Type.Union(TOOLTIP_PADDING_VALUES.map((value) => Type.Literal(value)))),
+  },
+  { $id: 'TooltipLayoutProps', additionalProperties: false },
+);
+export type TooltipLayoutProps = Static<typeof TooltipLayoutProps>;
 
 /**
  * Visual attachment inside a resolved target's live border box.
@@ -177,7 +308,10 @@ export const LodariqBlockProps = Type.Object(
     presentationAnchor: Type.Optional(Type.Ref(PresentationAnchor)),
     targetId: Type.Optional(Type.String({ minLength: 1 })),
     textStyle: Type.Optional(Type.Ref(TextStyleProps)),
-    variant: Type.Optional(Type.Union([Type.Literal('primary'), Type.Literal('secondary')])),
+    blockLayout: Type.Optional(Type.Ref(BlockLayoutProps)),
+    buttonStyle: Type.Optional(Type.Ref(ButtonStyleProps)),
+    tooltipLayout: Type.Optional(Type.Ref(TooltipLayoutProps)),
+    variant: Type.Optional(Type.Union(BUTTON_VARIANT_VALUES.map((value) => Type.Literal(value)))),
   },
   { $id: 'LodariqBlockProps', additionalProperties: false },
 );
@@ -199,6 +333,12 @@ export function sanitizeBlockProps(props: Record<string, unknown>): LodariqBlock
   if (typeof props.targetId === 'string' && props.targetId.trim()) next.targetId = props.targetId;
   const textStyle = sanitizeTextStyleProps(props.textStyle);
   if (textStyle) next.textStyle = textStyle;
+  const blockLayout = sanitizeBlockLayoutProps(props.blockLayout);
+  if (blockLayout) next.blockLayout = blockLayout;
+  const buttonStyle = sanitizeButtonStyleProps(props.buttonStyle);
+  if (buttonStyle) next.buttonStyle = buttonStyle;
+  const tooltipLayout = sanitizeTooltipLayoutProps(props.tooltipLayout);
+  if (tooltipLayout) next.tooltipLayout = tooltipLayout;
   const variant = buttonVariantValue(props.variant);
   if (variant) next.variant = variant;
   return next;
@@ -213,10 +353,9 @@ export function sanitizeTextStyleProps(value: unknown): TextStyleProps | undefin
   if (
     typeof value.fontSizePx === 'number' &&
     Number.isInteger(value.fontSizePx) &&
-    value.fontSizePx >= TEXT_FONT_SIZE_BOUNDS.minimum &&
-    value.fontSizePx <= TEXT_FONT_SIZE_BOUNDS.maximum
+    TEXT_FONT_SIZE_SET.has(value.fontSizePx)
   ) {
-    next.fontSizePx = value.fontSizePx;
+    next.fontSizePx = value.fontSizePx as TextStyleProps['fontSizePx'];
   }
   if (typeof value.color === 'string' && new RegExp(TEXT_COLOR_PATTERN, 'u').test(value.color)) {
     next.color = value.color.toLowerCase();
@@ -228,6 +367,177 @@ export function sanitizeTextStyleProps(value: unknown): TextStyleProps | undefin
     next.fontStyle = value.fontStyle;
   }
   return Object.keys(next).length > 0 ? next : undefined;
+}
+
+export function sanitizeInlineTextRuns(value: unknown): InlineTextRun[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const runs = value.slice(0, INLINE_TEXT_RUN_LIMIT).flatMap((candidate) => {
+    if (!isRecord(candidate) || typeof candidate.text !== 'string') return [];
+    const text = candidate.text.slice(0, INLINE_TEXT_RUN_LENGTH_LIMIT);
+    if (!text) return [];
+    const marks = Array.isArray(candidate.marks)
+      ? ([
+          ...new Set(
+            candidate.marks.filter(
+              (mark) => typeof mark === 'string' && INLINE_TEXT_MARK_SET.has(mark),
+            ),
+          ),
+        ] as InlineTextRun['marks'])
+      : undefined;
+    const color = safeHexColor(candidate.color);
+    const highlightColor = safeHexColor(candidate.highlightColor);
+    const fontSizePx =
+      typeof candidate.fontSizePx === 'number' &&
+      Number.isInteger(candidate.fontSizePx) &&
+      TEXT_FONT_SIZE_SET.has(candidate.fontSizePx)
+        ? (candidate.fontSizePx as InlineTextRun['fontSizePx'])
+        : undefined;
+    const linkCandidate =
+      typeof candidate.link === 'string' ? candidate.link.trim().slice(0, 2_048) : '';
+    const link = isSafeNavigationUrl(linkCandidate) ? linkCandidate : '';
+    return [
+      {
+        text,
+        ...(marks?.length ? { marks } : {}),
+        ...(fontSizePx ? { fontSizePx } : {}),
+        ...(color ? { color } : {}),
+        ...(highlightColor ? { highlightColor } : {}),
+        ...(link ? { link } : {}),
+      },
+    ];
+  });
+  return runs.length > 0 ? mergeAdjacentInlineTextRuns(runs) : undefined;
+}
+
+export function sanitizeBlockLayoutProps(value: unknown): BlockLayoutProps | undefined {
+  if (!isRecord(value)) return undefined;
+  const next: BlockLayoutProps = {};
+  if (typeof value.align === 'string' && BLOCK_ALIGNMENT_SET.has(value.align)) {
+    next.align = value.align as BlockLayoutProps['align'];
+  }
+  if (typeof value.spacingBefore === 'string' && BLOCK_SPACING_SET.has(value.spacingBefore)) {
+    next.spacingBefore = value.spacingBefore as BlockLayoutProps['spacingBefore'];
+  }
+  if (typeof value.spacingAfter === 'string' && BLOCK_SPACING_SET.has(value.spacingAfter)) {
+    next.spacingAfter = value.spacingAfter as BlockLayoutProps['spacingAfter'];
+  }
+  if (
+    typeof value.spacingAfterPx === 'number' &&
+    Number.isInteger(value.spacingAfterPx) &&
+    value.spacingAfterPx >= BLOCK_SPACING_PX_LIMITS.min &&
+    value.spacingAfterPx <= BLOCK_SPACING_PX_LIMITS.max &&
+    value.spacingAfterPx % BLOCK_SPACING_PX_LIMITS.step === 0
+  ) {
+    next.spacingAfterPx = value.spacingAfterPx;
+  }
+  return Object.keys(next).length > 0 ? next : undefined;
+}
+
+export function sanitizeButtonStyleProps(value: unknown): ButtonStyleProps | undefined {
+  if (!isRecord(value)) return undefined;
+  const next: ButtonStyleProps = {};
+  if (typeof value.width === 'string' && BUTTON_WIDTH_SET.has(value.width)) {
+    next.width = value.width as ButtonStyleProps['width'];
+  }
+  if (
+    typeof value.widthPx === 'number' &&
+    Number.isInteger(value.widthPx) &&
+    value.widthPx >= BUTTON_WIDTH_PX_LIMITS.min &&
+    value.widthPx <= BUTTON_WIDTH_PX_LIMITS.max &&
+    value.widthPx % BUTTON_WIDTH_PX_LIMITS.step === 0
+  ) {
+    next.widthPx = value.widthPx;
+  }
+  if (typeof value.size === 'string' && BUTTON_SIZE_SET.has(value.size)) {
+    next.size = value.size as ButtonStyleProps['size'];
+  }
+  const fillColor = safeHexColor(value.fillColor);
+  if (fillColor) next.fillColor = fillColor;
+  const textColor = safeHexColor(value.textColor);
+  if (textColor) next.textColor = textColor;
+  const borderColor = safeHexColor(value.borderColor);
+  if (borderColor) next.borderColor = borderColor;
+  if (typeof value.radius === 'string' && BUTTON_RADIUS_SET.has(value.radius)) {
+    next.radius = value.radius as ButtonStyleProps['radius'];
+  }
+  if (typeof value.icon === 'string' && BUTTON_ICON_SET.has(value.icon)) {
+    next.icon = value.icon as ButtonStyleProps['icon'];
+  }
+  if (
+    typeof value.iconPlacement === 'string' &&
+    BUTTON_ICON_PLACEMENT_SET.has(value.iconPlacement)
+  ) {
+    next.iconPlacement = value.iconPlacement as ButtonStyleProps['iconPlacement'];
+  }
+  return Object.keys(next).length > 0 ? next : undefined;
+}
+
+export function sanitizeTooltipLayoutProps(value: unknown): TooltipLayoutProps | undefined {
+  if (!isRecord(value)) return undefined;
+  const next: TooltipLayoutProps = {};
+  if (
+    typeof value.widthPx === 'number' &&
+    Number.isInteger(value.widthPx) &&
+    value.widthPx >= TOOLTIP_WIDTH_PX_LIMITS.min &&
+    value.widthPx <= TOOLTIP_WIDTH_PX_LIMITS.max &&
+    value.widthPx % TOOLTIP_WIDTH_PX_LIMITS.step === 0
+  ) {
+    next.widthPx = value.widthPx;
+  }
+  if (
+    typeof value.heightPx === 'number' &&
+    Number.isInteger(value.heightPx) &&
+    value.heightPx >= TOOLTIP_HEIGHT_PX_LIMITS.min &&
+    value.heightPx <= TOOLTIP_HEIGHT_PX_LIMITS.max &&
+    value.heightPx % TOOLTIP_HEIGHT_PX_LIMITS.step === 0
+  ) {
+    next.heightPx = value.heightPx;
+  }
+  if (typeof value.contentAlign === 'string' && TEXT_ALIGNMENT_SET.has(value.contentAlign)) {
+    next.contentAlign = value.contentAlign as TooltipLayoutProps['contentAlign'];
+  }
+  if (typeof value.actionLayout === 'string' && TOOLTIP_ACTION_LAYOUT_SET.has(value.actionLayout)) {
+    next.actionLayout = value.actionLayout as TooltipLayoutProps['actionLayout'];
+  }
+  if (typeof value.actionAlign === 'string' && BLOCK_ALIGNMENT_SET.has(value.actionAlign)) {
+    next.actionAlign = value.actionAlign as TooltipLayoutProps['actionAlign'];
+  }
+  if (typeof value.gap === 'string' && BLOCK_SPACING_SET.has(value.gap)) {
+    next.gap = value.gap as TooltipLayoutProps['gap'];
+  }
+  if (typeof value.padding === 'string' && TOOLTIP_PADDING_SET.has(value.padding)) {
+    next.padding = value.padding as TooltipLayoutProps['padding'];
+  }
+  return Object.keys(next).length > 0 ? next : undefined;
+}
+
+function mergeAdjacentInlineTextRuns(runs: InlineTextRun[]): InlineTextRun[] {
+  const merged: InlineTextRun[] = [];
+  for (const run of runs) {
+    const previous = merged[merged.length - 1];
+    if (previous && inlineRunStyleKey(previous) === inlineRunStyleKey(run)) {
+      previous.text += run.text;
+    } else {
+      merged.push(structuredClone(run));
+    }
+  }
+  return merged;
+}
+
+function inlineRunStyleKey(run: InlineTextRun): string {
+  return JSON.stringify({
+    marks: run.marks ?? [],
+    fontSizePx: run.fontSizePx ?? null,
+    color: run.color ?? null,
+    highlightColor: run.highlightColor ?? null,
+    link: run.link ?? null,
+  });
+}
+
+function safeHexColor(value: unknown): string | undefined {
+  return typeof value === 'string' && new RegExp(TEXT_COLOR_PATTERN, 'u').test(value)
+    ? value.toLowerCase()
+    : undefined;
 }
 
 function sanitizeActionProps(action: Record<string, unknown>): BlockActionProps | null {
@@ -281,6 +591,9 @@ export const LodariqBlock = Type.Recursive(
         id: Type.String({ minLength: 1 }),
         type: LodariqBlockType,
         content: Type.Optional(Type.String()),
+        contentRuns: Type.Optional(
+          Type.Array(Type.Ref(InlineTextRun), { maxItems: INLINE_TEXT_RUN_LIMIT }),
+        ),
         props: LodariqBlockProps,
         children: Type.Array(Self),
         status: Type.Optional(Type.Ref(ValidationLevel)),

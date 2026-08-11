@@ -52,10 +52,16 @@ const TOUR_STYLE_VARIABLES = {
   primarySurface: '--lq-tour-primary-surface',
   primaryText: '--lq-tour-primary-text',
   radius: '--lq-tour-radius',
+  radiusSm: '--lq-tour-radius-sm',
   secondarySurface: '--lq-tour-secondary-surface',
   secondaryText: '--lq-tour-secondary-text',
   smallFontSize: '--lq-tour-small-font-size',
   spacing: '--lq-tour-spacing',
+  spacingXs: '--lq-tour-space-xs',
+  spacingSm: '--lq-tour-space-sm',
+  spacingMd: '--lq-tour-space-md',
+  spacingLg: '--lq-tour-space-lg',
+  spacingXl: '--lq-tour-space-xl',
   surface: '--lq-tour-surface',
   textColor: '--lq-tour-text-color',
   width: '--lq-tour-width',
@@ -68,6 +74,11 @@ export interface ResolvedTourThemeStyle {
   variables: Readonly<
     Record<(typeof TOUR_STYLE_VARIABLES)[keyof typeof TOUR_STYLE_VARIABLES], string>
   >;
+}
+
+export interface TourThemeStyleInput {
+  appearance?: ExperienceAppearance;
+  theme?: BrandThemeSnapshot;
 }
 
 /**
@@ -91,7 +102,7 @@ export function applyCompiledTourTheme(host: HTMLElement, document: CompiledDocu
   };
 
   apply();
-  if (resolvedAppearance(document).colorMode === 'system') {
+  if (resolveCompiledTourTheme(document).appearance.colorMode === 'system') {
     colorSchemeMedia?.addEventListener?.('change', apply);
   }
   reducedMotionMedia?.addEventListener?.('change', apply);
@@ -106,8 +117,21 @@ export function resolveCompiledTourTheme(
   prefersDark = false,
   prefersReducedMotion = false,
 ): ResolvedTourThemeStyle {
-  const theme = resolvedTheme(document);
-  const appearance = resolvedAppearance(document);
+  return resolveTourThemeStyle(compiledTourThemeStyleInput(document), prefersDark, prefersReducedMotion);
+}
+
+/**
+ * Resolves the same allowlisted Tour recipe for creator previews and compiled
+ * delivery. Authoring surfaces use this instead of maintaining a second set
+ * of visual defaults for the popup shown on their canvas.
+ */
+export function resolveTourThemeStyle(
+  input: TourThemeStyleInput = {},
+  prefersDark = false,
+  prefersReducedMotion = false,
+): ResolvedTourThemeStyle {
+  const theme = resolvedTheme(input.theme);
+  const appearance = resolvedAppearance(input.appearance);
   const colorMode = resolvedColorMode(theme, appearance, prefersDark);
   const colors =
     theme.definition.tokens.modes[colorMode]?.colors ?? theme.definition.tokens.modes.light.colors;
@@ -143,10 +167,16 @@ export function resolveCompiledTourTheme(
       [TOUR_STYLE_VARIABLES.primarySurface]: colorForRole(colors, recipe.primarySurfaceRole),
       [TOUR_STYLE_VARIABLES.primaryText]: colorForRole(colors, recipe.primaryTextRole),
       [TOUR_STYLE_VARIABLES.radius]: `${tokens.radii[recipe.radiusRole]}px`,
+      [TOUR_STYLE_VARIABLES.radiusSm]: `${tokens.radii.sm}px`,
       [TOUR_STYLE_VARIABLES.secondarySurface]: colorForRole(colors, recipe.secondarySurfaceRole),
       [TOUR_STYLE_VARIABLES.secondaryText]: colorForRole(colors, recipe.secondaryTextRole),
       [TOUR_STYLE_VARIABLES.smallFontSize]: `${tokens.typography.smallSizePx}px`,
       [TOUR_STYLE_VARIABLES.spacing]: `${spacing}px`,
+      [TOUR_STYLE_VARIABLES.spacingXs]: `${tokens.spacing.xs}px`,
+      [TOUR_STYLE_VARIABLES.spacingSm]: `${tokens.spacing.sm}px`,
+      [TOUR_STYLE_VARIABLES.spacingMd]: `${tokens.spacing.md}px`,
+      [TOUR_STYLE_VARIABLES.spacingLg]: `${tokens.spacing.lg}px`,
+      [TOUR_STYLE_VARIABLES.spacingXl]: `${tokens.spacing.xl}px`,
       [TOUR_STYLE_VARIABLES.surface]: colorForRole(colors, recipe.surfaceRole),
       [TOUR_STYLE_VARIABLES.textColor]: colorForRole(colors, recipe.textRole),
       [TOUR_STYLE_VARIABLES.width]: `${tokens.sizing[widthToken]}px`,
@@ -154,16 +184,22 @@ export function resolveCompiledTourTheme(
   };
 }
 
-function resolvedTheme(document: CompiledDocument): BrandThemeSnapshot {
-  const candidate = 'theme' in document ? document.theme : null;
+function resolvedTheme(candidate: BrandThemeSnapshot | undefined): BrandThemeSnapshot {
   return candidate && hasRenderableBrandThemeSnapshot(candidate)
     ? candidate
     : LODARIQ_ACCESSIBLE_FALLBACK_THEME_V1;
 }
 
-function resolvedAppearance(document: CompiledDocument): ExperienceAppearance {
-  const candidate = 'appearance' in document ? document.appearance : null;
+function resolvedAppearance(candidate: ExperienceAppearance | undefined): ExperienceAppearance {
   return resolveExperienceAppearance(candidate ?? DEFAULT_EXPERIENCE_APPEARANCE);
+}
+
+function compiledTourThemeStyleInput(document: CompiledDocument): TourThemeStyleInput {
+  if (!('theme' in document) || !('appearance' in document)) return {};
+  return {
+    theme: document.theme as BrandThemeSnapshot,
+    appearance: document.appearance as ExperienceAppearance,
+  };
 }
 
 function resolvedColorMode(

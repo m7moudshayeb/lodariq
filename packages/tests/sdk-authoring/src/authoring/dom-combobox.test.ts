@@ -174,7 +174,7 @@ describe('authoring DOM combobox', () => {
         tooltipBlockId: 'tooltip_1',
         placement: 'bottom',
         actionBlockId: 'button_1',
-        actionType: 'next',
+        actionType: '',
       }),
       onControlCommit,
     });
@@ -183,9 +183,12 @@ describe('authoring DOM combobox', () => {
       '[data-lodariq-authoring-context-toolbar="true"]',
     );
     const placement = toolbar?.querySelector<HTMLButtonElement>('[aria-label="Tooltip placement"]');
+    const action = toolbar?.querySelector<HTMLButtonElement>('[aria-label="Button action"]');
     expect(toolbar?.getAttribute('role')).toBe('toolbar');
     expect(placement?.className).toBe('lodariq-inline-toolbar-trigger');
     expect(placement?.textContent).toContain('Below');
+    expect(action?.className).toBe('lodariq-inline-toolbar-trigger');
+    expect(action?.textContent).toContain('Choose action');
     const inlineStyles = root.querySelector<HTMLStyleElement>(
       '[data-lodariq-authoring-inline-style="true"]',
     )?.textContent;
@@ -199,6 +202,14 @@ describe('authoring DOM combobox', () => {
       kind: 'setPlacement',
       blockId: 'tooltip_1',
       placement: 'top',
+    });
+
+    action?.click();
+    toolbar?.querySelector<HTMLButtonElement>('[role="option"][data-value="openPage"]')?.click();
+    expect(onControlCommit).toHaveBeenCalledWith({
+      kind: 'setAction',
+      blockId: 'button_1',
+      actionType: 'openPage',
     });
 
     editor.destroy();

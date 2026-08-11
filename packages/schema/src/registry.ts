@@ -37,12 +37,16 @@ import {
 } from './auth';
 import {
   BlockActionProps,
+  BlockLayoutProps,
+  ButtonStyleProps,
   ExactPresentationAnchor,
+  InlineTextRun,
   LodariqBlockProps,
   LodariqBlockType,
   LodariqBlock,
   PresentationAnchor,
   TextStyleProps,
+  TooltipLayoutProps,
 } from './block';
 import { ElementFingerprint, RuntimeLifecycleHints, Target, TargetIdentityV2 } from './target';
 import { TargetVerificationObservation } from './target-verification';
@@ -301,9 +305,13 @@ export const SCHEMA_REGISTRY: TSchema[] = [
   CreateWorkspaceRequest,
   SelectWorkspaceParams,
   BlockActionProps,
+  InlineTextRun,
   PresentationAnchor,
   ExactPresentationAnchor,
   TextStyleProps,
+  BlockLayoutProps,
+  ButtonStyleProps,
+  TooltipLayoutProps,
   LodariqBlockProps,
   LodariqBlockType,
   LodariqBlock,
@@ -535,7 +543,11 @@ export const FASTIFY_REFERENCE_SCHEMA_REGISTRY: TSchema[] = [
   LodariqDocument,
   LodariqBlock,
   PresentationAnchor,
+  InlineTextRun,
   TextStyleProps,
+  BlockLayoutProps,
+  ButtonStyleProps,
+  TooltipLayoutProps,
   ElementFingerprint,
   TargetIdentityV2,
   RuntimeLifecycleHints,

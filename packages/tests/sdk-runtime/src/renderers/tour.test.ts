@@ -557,6 +557,113 @@ describe('tour renderer (PRD §16.1)', () => {
     expect(heading?.style.fontStyle).toBe('italic');
   });
 
+  it('renders ordered rich text, action placement, and safe button styling', async () => {
+    const styledDocument: CompiledDocument = structuredClone(compiledDoc);
+    const step = styledDocument.steps[0]!;
+    step.targetId = undefined;
+    step.tooltipLayout = {
+      widthPx: 480,
+      heightPx: 320,
+      contentAlign: 'center',
+      actionLayout: 'stack',
+      actionAlign: 'stretch',
+      gap: 'relaxed',
+      padding: 'compact',
+    };
+    step.body = [
+      {
+        id: 'copy_before',
+        type: 'paragraph',
+        text: 'Your trial ends in 3 days.',
+        contentRuns: [
+          { text: 'Your trial ends in ' },
+          {
+            text: '3 days',
+            marks: ['bold', 'underline'],
+            fontSizePx: 24,
+            color: '#006b58',
+            highlightColor: '#fff0a8',
+          },
+          { text: '.' },
+        ],
+        props: {},
+      },
+      {
+        id: 'styled_action',
+        type: 'button',
+        text: 'Upgrade now',
+        props: {
+          action: { type: 'complete' },
+          variant: 'outline',
+          blockLayout: { align: 'stretch', spacingBefore: 'relaxed', spacingAfterPx: 18 },
+          buttonStyle: {
+            width: 'hug',
+            widthPx: 232,
+            size: 'compact',
+            fillColor: '#ffffff',
+            textColor: '#006b58',
+            borderColor: '#006b58',
+            radius: 'round',
+            icon: 'arrow-right',
+            iconPlacement: 'end',
+          },
+        },
+      },
+      {
+        id: 'copy_after',
+        type: 'paragraph',
+        text: 'You can change plans later.',
+        props: {},
+      },
+    ];
+
+    new TourPlayer(styledDocument).start();
+    await nextTask();
+
+    const root = document.querySelector('lodariq-tour')?.shadowRoot;
+    const dialog = root?.querySelector<HTMLElement>('[role="dialog"]');
+    const orderedNodes = [...(root?.querySelectorAll<HTMLElement>('[data-lodariq-node-id]') ?? [])];
+    const emphasized = orderedNodes[0]?.querySelectorAll('span')[1] as HTMLElement | undefined;
+    const button = root?.querySelector<HTMLButtonElement>('[data-lodariq-node-id="styled_action"]');
+
+    expect(orderedNodes.map((node) => node.dataset['lodariqNodeId'])).toEqual([
+      'copy_before',
+      'styled_action',
+      'copy_after',
+    ]);
+    expect(dialog?.dataset).toMatchObject({
+      lodariqPopupWidth: 'custom',
+      lodariqPopupHeight: 'custom',
+      lodariqContentAlign: 'center',
+      lodariqActionLayout: 'stack',
+      lodariqActionAlign: 'stretch',
+      lodariqCompositionGap: 'relaxed',
+      lodariqCompositionPadding: 'compact',
+    });
+    expect(dialog?.style.getPropertyValue('--lq-popup-width')).toBe('480px');
+    expect(dialog?.style.getPropertyValue('--lq-popup-height')).toBe('320px');
+    expect(emphasized?.textContent).toBe('3 days');
+    expect(emphasized?.style.fontWeight).toBe('700');
+    expect(emphasized?.style.textDecoration).toBe('underline');
+    expect(emphasized?.style.fontSize).toBe('24px');
+    expect(emphasized?.style.color).toBe('rgb(0, 107, 88)');
+    expect(emphasized?.style.backgroundColor).toBe('rgb(255, 240, 168)');
+    expect(button?.parentElement?.className).toBe('tour-action-group');
+    expect(button?.dataset).toMatchObject({
+      lodariqActionWidth: 'custom',
+      lodariqActionSize: 'compact',
+      lodariqActionRadius: 'round',
+      lodariqBlockAlign: 'stretch',
+      lodariqSpacingAfterPx: '18',
+    });
+    expect(button?.style.getPropertyValue('--lq-block-spacing-after')).toBe('18px');
+    expect(button?.style.getPropertyValue('--lq-action-width')).toBe('232px');
+    expect(button?.style.getPropertyValue('--lq-action-fill')).toBe('#ffffff');
+    expect(button?.style.getPropertyValue('--lq-action-text')).toBe('#006b58');
+    expect(button?.style.getPropertyValue('--lq-action-border')).toBe('#006b58');
+    expect(button?.querySelector('.tour-action-icon')).not.toBeNull();
+  });
+
   it('maps a validated theme recipe and appearance to allowlisted renderer variables', () => {
     const theme = structuredClone(LODARIQ_ACCESSIBLE_FALLBACK_THEME_V1);
     theme.definition.tokens.modes.dark!.colors.surfaceInverse = '#102a24';
@@ -1203,11 +1310,7 @@ describe('tour renderer (PRD §16.1)', () => {
     player.start();
     document.querySelector('lodariq-tour')?.shadowRoot?.querySelector('button')?.click();
 
-    expect(open).toHaveBeenCalledWith(
-      'https://www.google.com/',
-      '_blank',
-      'noopener,noreferrer',
-    );
+    expect(open).toHaveBeenCalledWith('https://www.google.com/', '_blank', 'noopener,noreferrer');
     open.mockRestore();
   });
 

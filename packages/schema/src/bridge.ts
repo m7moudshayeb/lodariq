@@ -1,10 +1,14 @@
 import { Type, type Static } from '@sinclair/typebox';
 import {
   BlockActionProps,
+  BlockLayoutProps,
+  ButtonStyleProps,
   ExactPresentationAnchor,
+  InlineTextRun,
   LodariqBlock,
   PresentationAnchor,
   TextStyleProps,
+  TooltipLayoutProps,
 } from './block';
 import { LodariqDocument } from './document';
 import {
@@ -61,6 +65,7 @@ export const BRIDGE_PROTOCOL_VERSION = '1' as const;
 export const AUTHORING_INLINE_CONTENT_COMMIT_TYPE = 'authoring.inline-content.commit' as const;
 export const AUTHORING_INLINE_CONTROL_COMMIT_TYPE = 'authoring.inline-control.commit' as const;
 export const AUTHORING_PANEL_MODE_OPEN_TYPE = 'authoring.panel-mode.open' as const;
+export const AUTHORING_CHROME_ACTION_REQUEST_TYPE = 'authoring.chrome-action.request' as const;
 export const AUTHORING_PANEL_LAYOUT_REQUEST_TYPE = 'authoring.panel-layout.request' as const;
 export const AUTHORING_SAVE_AND_EXIT_REQUEST_TYPE = 'authoring.save-and-exit.request' as const;
 export const AUTHORING_SAVE_STATE_UPDATE_TYPE = 'authoring.save-state.update' as const;
@@ -132,6 +137,24 @@ export const AuthoringPanelModeOpenMessage = Type.Object(
   { $id: 'AuthoringPanelModeOpenMessage', additionalProperties: false },
 );
 export type AuthoringPanelModeOpenMessage = Static<typeof AuthoringPanelModeOpenMessage>;
+
+/** A creator gesture in trusted top-level authoring chrome, forwarded to the iframe owner. */
+export const AuthoringChromeActionRequestMessage = Type.Object(
+  {
+    ...BridgeEnvelope.properties,
+    type: Type.Literal(AUTHORING_CHROME_ACTION_REQUEST_TYPE),
+    action: Type.Union([
+      Type.Literal('preview-full'),
+      Type.Literal('open-appearance'),
+      Type.Literal('open-release'),
+      Type.Literal('save-and-exit'),
+    ]),
+  },
+  { $id: 'AuthoringChromeActionRequestMessage', additionalProperties: false },
+);
+export type AuthoringChromeActionRequestMessage = Static<
+  typeof AuthoringChromeActionRequestMessage
+>;
 
 /** Creator-requested presentation size for the modeless authoring workspace. */
 export const AuthoringPanelLayoutMode = Type.Union([
@@ -215,8 +238,37 @@ export const PreviewPatchOperation = Type.Union(
     Type.Object({ op: Type.Literal('updateContent'), content: Type.String() }),
     Type.Object(
       {
+        op: Type.Literal('updateContentRuns'),
+        content: Type.String(),
+        contentRuns: Type.Optional(Type.Array(Type.Ref(InlineTextRun))),
+      },
+      { additionalProperties: false },
+    ),
+    Type.Object(
+      {
         op: Type.Literal('setTextStyle'),
         textStyle: Type.Optional(Type.Ref(TextStyleProps)),
+      },
+      { additionalProperties: false },
+    ),
+    Type.Object(
+      {
+        op: Type.Literal('setBlockLayout'),
+        blockLayout: Type.Optional(Type.Ref(BlockLayoutProps)),
+      },
+      { additionalProperties: false },
+    ),
+    Type.Object(
+      {
+        op: Type.Literal('setButtonStyle'),
+        buttonStyle: Type.Optional(Type.Ref(ButtonStyleProps)),
+      },
+      { additionalProperties: false },
+    ),
+    Type.Object(
+      {
+        op: Type.Literal('setTooltipLayout'),
+        tooltipLayout: Type.Optional(Type.Ref(TooltipLayoutProps)),
       },
       { additionalProperties: false },
     ),
@@ -263,7 +315,13 @@ export const PreviewPatchOperation = Type.Union(
     Type.Object(
       {
         op: Type.Literal('setVariant'),
-        variant: Type.Union([Type.Literal('primary'), Type.Literal('secondary')]),
+        variant: Type.Union([
+          Type.Literal('primary'),
+          Type.Literal('secondary'),
+          Type.Literal('subtle'),
+          Type.Literal('outline'),
+          Type.Literal('link'),
+        ]),
       },
       { additionalProperties: false },
     ),
@@ -409,11 +467,13 @@ export const AuthoringInlineControlOperation = Type.Union(
         kind: Type.Literal('setAction'),
         blockId: Type.String({ minLength: 1, maxLength: 256 }),
         actionType: Type.Union([
+          Type.Literal(''),
           Type.Literal('next'),
           Type.Literal('back'),
           Type.Literal('complete'),
           Type.Literal('dismiss'),
           Type.Literal('clickTarget'),
+          Type.Literal('openPage'),
         ]),
       },
       { additionalProperties: false },
@@ -517,6 +577,8 @@ export const AuthoringInitMessage = Type.Object(
     environment: Type.Union([Type.Literal('development'), Type.Literal('staging')]),
     document: LodariqDocument,
     theme: Type.Optional(BrandThemeSnapshot),
+    prefersDark: Type.Optional(Type.Boolean()),
+    prefersReducedMotion: Type.Optional(Type.Boolean()),
     releaseStateCapability: Type.Optional(
       Type.Literal(AUTHORING_SESSION_CAPABILITIES.READ_RELEASE_STATE),
     ),
@@ -1091,6 +1153,7 @@ export const BridgeMessage = Type.Union(
     AuthoringInlineContentCommitMessage,
     AuthoringInlineControlCommitMessage,
     AuthoringPanelModeOpenMessage,
+    AuthoringChromeActionRequestMessage,
     AuthoringPanelLayoutRequestMessage,
     AuthoringSaveAndExitRequestMessage,
     AuthoringSaveStateUpdateMessage,

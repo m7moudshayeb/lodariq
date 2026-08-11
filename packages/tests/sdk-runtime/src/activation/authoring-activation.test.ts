@@ -424,6 +424,8 @@ describe('public authoring activation client', () => {
     const toggle = vi.fn();
     window.addEventListener(HOSTED_CREATOR_PANEL_TOGGLE_EVENT, toggle);
     window.dispatchEvent(new CustomEvent(HOSTED_CREATOR_PANEL_STATE_EVENT, { detail: 'open' }));
+    expect(shell?.dataset['pinned']).toBe('false');
+    expect(shell?.dataset['dismissed']).toBe('true');
     expect(center?.getAttribute('aria-label')).toBe('Minimize Lodariq authoring');
     center?.click();
     expect(toggle).toHaveBeenCalledOnce();

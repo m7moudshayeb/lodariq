@@ -1,6 +1,7 @@
 import {
   AUTHORING_INLINE_CONTROL_COMMIT_TYPE,
   AUTHORING_INLINE_CONTENT_COMMIT_TYPE,
+  AUTHORING_CHROME_ACTION_REQUEST_TYPE,
   AUTHORING_PANEL_LAYOUT_REQUEST_TYPE,
   AUTHORING_PANEL_MODE_OPEN_TYPE,
   AUTHORING_SAVE_AND_EXIT_REQUEST_TYPE,
@@ -12,7 +13,10 @@ import {
   isPresentationAnchor,
   DEFAULT_EXPERIENCE_APPEARANCE,
   resolveExperienceAppearance,
+  sanitizeTooltipLayoutProps,
   type BlockActionProps,
+  type BlockLayoutProps,
+  type ButtonStyleProps,
   type BridgeMessage,
   type AuthoringPanelLayoutMode,
   type AuthoringSaveState,
@@ -20,6 +24,7 @@ import {
   type LodariqBlock,
   type LodariqDocument,
   type ExperienceAppearance,
+  type InlineTextRun,
   type PresentationAnchor,
   type RuntimeLifecycleHints,
   type TargetInspectAction,
@@ -28,6 +33,7 @@ import {
   type TargetRequiredAction,
   type TargetViewportClass,
   type TextStyleProps,
+  type TooltipLayoutProps,
   type ReleaseRecoveryRequest,
   type ReleaseRecoveryResult,
 } from '@lodariq/schema';
@@ -43,8 +49,10 @@ import {
   insertBlockInsideTourStep,
   insertTopLevelBlock,
   moveStepChildBlock,
+  mergeInlineTextRuns,
   moveTopLevelBlock as moveTopLevelBlocks,
   normalizeTourRootBlocks,
+  reconcileInlineTextRuns,
   renumberTourSteps,
   removeStepChildBlock,
   removeTopLevelBlock,
@@ -53,12 +61,17 @@ import {
   reorderTopLevelBlock as reorderTopLevelBlocks,
   setBlockAction,
   setBlockActionUrl,
+  setBlockLayout as setBlockLayoutInTree,
   setBlockPlacement,
   setBlockPresentationAnchor,
   setBlockTextStyle,
   setBlockVariant,
+  setButtonStyle as setButtonStyleInTree,
+  setTooltipLayout as setTooltipLayoutInTree,
+  splitInlineTextRuns,
   transformBlocks,
   updateBlockContent,
+  updateBlockContentRuns,
   type BlockDirection,
   type BlockInsertPosition,
   type EditableBlockType,
@@ -139,6 +152,8 @@ import {
 
 export class LocalAuthoringFrameController {
   private readonly services: LocalAuthoringFrameOptions['services'];
+  private previewTheme: LocalAuthoringFrameOptions['previewTheme'];
+  private previewPreferences: LocalAuthoringFrameOptions['previewPreferences'];
   private readonly sessionId: string;
   private readonly lexicalEditor = createLodariqEditor();
   private readonly baseDocument: LodariqDocument;
@@ -224,6 +239,10 @@ export class LocalAuthoringFrameController {
 
   constructor(private readonly options: LocalAuthoringFrameOptions) {
     this.services = options.services;
+    this.previewTheme = options.previewTheme ? structuredClone(options.previewTheme) : undefined;
+    this.previewPreferences = options.previewPreferences
+      ? { ...options.previewPreferences }
+      : undefined;
     this.release = initialReleaseView(
       this.hasReleaseServices(),
       this.services.releaseUnavailableReason,
@@ -321,6 +340,17 @@ export class LocalAuthoringFrameController {
       (block) => block.id === stepId && block.type === 'tourStep',
     );
     if (!step) return;
+    if (this.panelMode !== 'edit') {
+      this.brandDriftController?.restorePreview();
+      this.panelWorkflowRequestVersion += 1;
+      this.panelMode = 'edit';
+      this.panelReturnMode = 'edit';
+      this.panelOperation = null;
+      this.panelWorkflowError = null;
+      this.panelWorkflowNotice = null;
+      this.panelFocusTarget = null;
+      this.panelFocusToken += 1;
+    }
     this.selectedBlockId = stepId;
     this.advancedEditorStepId = stepId;
     this.setStatus(`Advanced settings for ${blockDisplayTitle(step)}`);
@@ -864,7 +894,8 @@ export class LocalAuthoringFrameController {
 
   setButtonVariant(blockId: string, variant: EditableButtonVariant): void {
     const block = findBlockById(this.documentState.blocks, blockId);
-    if (block?.type !== 'button' || block.props.variant === variant) return;
+    if (!block || (block.type !== 'button' && block.type !== 'link')) return;
+    if (block.props.variant === variant) return;
     this.recordChange();
     this.documentState = {
       ...this.documentState,
@@ -877,8 +908,8 @@ export class LocalAuthoringFrameController {
     this.setStatus(`Button style changed to ${variant}`);
   }
 
-  commitRichTextContent(blockId: string, value: string): void {
-    this.commitContent(blockId, value);
+  commitRichTextContent(blockId: string, value: string, contentRuns?: InlineTextRun[]): void {
+    this.commitContentRuns(blockId, value, contentRuns);
   }
 
   setTextBlockStyle(blockId: string, patch: Partial<TextStyleProps>): void {
@@ -896,6 +927,129 @@ export class LocalAuthoringFrameController {
     this.services.saveDocument(this.documentState);
     this.sendPreviewPatch(blockId, [{ op: 'setTextStyle', textStyle }]);
     this.setStatus('Text formatting updated');
+  }
+
+  resetTextBlockStyle(blockId: string): void {
+    const block = findBlockById(this.documentState.blocks, blockId);
+    if (!block || (block.type !== 'heading' && block.type !== 'paragraph')) return;
+    if (!block.props.textStyle) return;
+    this.recordChange();
+    this.documentState = {
+      ...this.documentState,
+      blocks: setBlockTextStyle(this.documentState.blocks, blockId),
+    };
+    this.afterDocumentMutation();
+    this.selectedBlockId = blockId;
+    this.services.saveDocument(this.documentState);
+    this.sendPreviewPatch(blockId, [{ op: 'setTextStyle' }]);
+    this.setStatus('Text formatting reset to the Brand Theme');
+  }
+
+  setContentBlockLayout(blockId: string, patch: Partial<BlockLayoutProps>): void {
+    const block = findBlockById(this.documentState.blocks, blockId);
+    if (!block || !isEditableContentBlock(block)) return;
+    const blockLayout = { ...block.props.blockLayout, ...patch };
+    if (JSON.stringify(block.props.blockLayout ?? {}) === JSON.stringify(blockLayout)) return;
+    this.recordChange();
+    this.documentState = {
+      ...this.documentState,
+      blocks: setBlockLayoutInTree(this.documentState.blocks, blockId, blockLayout),
+    };
+    this.afterDocumentMutation();
+    this.selectedBlockId = blockId;
+    this.services.saveDocument(this.documentState);
+    this.sendPreviewPatch(blockId, [{ op: 'setBlockLayout', blockLayout }]);
+    this.setStatus('Block layout updated');
+  }
+
+  setActionAlignment(
+    blockId: string,
+    tooltipId: string,
+    actionAlign: NonNullable<TooltipLayoutProps['actionAlign']>,
+  ): void {
+    const block = findBlockById(this.documentState.blocks, blockId);
+    const tooltip = findBlockById(this.documentState.blocks, tooltipId);
+    if (!block || (block.type !== 'button' && block.type !== 'link')) return;
+    if (tooltip?.type !== 'tooltip') return;
+
+    const blockLayout = { ...block.props.blockLayout };
+    delete blockLayout.align;
+    const tooltipLayout = { ...tooltip.props.tooltipLayout, actionAlign };
+    const blockLayoutChanged =
+      JSON.stringify(block.props.blockLayout ?? {}) !== JSON.stringify(blockLayout);
+    const tooltipLayoutChanged =
+      JSON.stringify(tooltip.props.tooltipLayout ?? {}) !== JSON.stringify(tooltipLayout);
+    if (!blockLayoutChanged && !tooltipLayoutChanged) return;
+
+    this.recordChange();
+    let blocks = this.documentState.blocks;
+    if (blockLayoutChanged) {
+      blocks = setBlockLayoutInTree(blocks, blockId, blockLayout);
+    }
+    if (tooltipLayoutChanged) {
+      blocks = setTooltipLayoutInTree(blocks, tooltipId, tooltipLayout);
+    }
+    this.documentState = { ...this.documentState, blocks };
+    this.afterDocumentMutation();
+    this.selectedBlockId = blockId;
+    this.services.saveDocument(this.documentState);
+    if (blockLayoutChanged) {
+      this.sendPreviewPatch(blockId, [{ op: 'setBlockLayout', blockLayout }]);
+    }
+    if (tooltipLayoutChanged) {
+      this.sendPreviewPatch(tooltipId, [{ op: 'setTooltipLayout', tooltipLayout }]);
+    }
+    this.setStatus('Action alignment updated');
+  }
+
+  setButtonStyle(blockId: string, patch: Partial<ButtonStyleProps>): void {
+    const block = findBlockById(this.documentState.blocks, blockId);
+    if (!block || (block.type !== 'button' && block.type !== 'link')) return;
+    const buttonStyle = { ...block.props.buttonStyle, ...patch };
+    this.commitButtonStyle(block, buttonStyle);
+  }
+
+  resetButtonStyleFields(blockId: string, fields: ReadonlyArray<keyof ButtonStyleProps>): void {
+    const block = findBlockById(this.documentState.blocks, blockId);
+    if (!block || (block.type !== 'button' && block.type !== 'link')) return;
+    const buttonStyle = { ...block.props.buttonStyle };
+    for (const field of fields) delete buttonStyle[field];
+    this.commitButtonStyle(block, buttonStyle);
+  }
+
+  private commitButtonStyle(block: LodariqBlock, buttonStyle: ButtonStyleProps): void {
+    if (JSON.stringify(block.props.buttonStyle ?? {}) === JSON.stringify(buttonStyle)) return;
+    this.recordChange();
+    this.documentState = {
+      ...this.documentState,
+      blocks: setButtonStyleInTree(this.documentState.blocks, block.id, buttonStyle),
+    };
+    this.afterDocumentMutation();
+    this.selectedBlockId = block.id;
+    this.services.saveDocument(this.documentState);
+    this.sendPreviewPatch(block.id, [{ op: 'setButtonStyle', buttonStyle }]);
+    this.setStatus('Action styling updated');
+  }
+
+  setTooltipLayout(blockId: string, patch: Partial<TooltipLayoutProps>): void {
+    const block = findBlockById(this.documentState.blocks, blockId);
+    if (block?.type !== 'tooltip') return;
+    const tooltipLayout = sanitizeTooltipLayoutProps({ ...block.props.tooltipLayout, ...patch });
+    if (JSON.stringify(block.props.tooltipLayout ?? {}) === JSON.stringify(tooltipLayout ?? {})) {
+      return;
+    }
+    this.recordChange();
+    this.documentState = {
+      ...this.documentState,
+      blocks: setTooltipLayoutInTree(this.documentState.blocks, blockId, tooltipLayout),
+    };
+    this.afterDocumentMutation();
+    this.selectedBlockId = blockId;
+    this.services.saveDocument(this.documentState);
+    this.sendPreviewPatch(blockId, [
+      tooltipLayout ? { op: 'setTooltipLayout', tooltipLayout } : { op: 'setTooltipLayout' },
+    ]);
+    this.setStatus('Popup layout updated');
   }
 
   setTooltipPlacement(blockId: string, placement: TooltipPlacement): void {
@@ -1043,9 +1197,20 @@ export class LocalAuthoringFrameController {
   ): void {
     const currentBlocks = this.stepContentBlocks(this.documentState.blocks, stepBlockId);
     const currentIndex = currentBlocks.findIndex((block) => block.id === childBlockId);
-    if (currentIndex < 0) return;
+    const currentBlock = currentBlocks[currentIndex];
+    if (!currentBlock) return;
+    const combinedContent = `${value}${nextContent}`;
+    const reconciledRuns = reconcileInlineTextRuns(
+      currentBlock.content ?? '',
+      currentBlock.contentRuns,
+      combinedContent,
+    );
+    const splitRuns = splitInlineTextRuns(combinedContent, reconciledRuns, value.length);
     const nextBlock = createContentBlock('paragraph', nextContent);
-    const nextBlocks = updateBlockContent(this.documentState.blocks, childBlockId, value);
+    if (splitRuns.after) nextBlock.contentRuns = splitRuns.after;
+    const nextBlocks = currentBlock.contentRuns
+      ? updateBlockContentRuns(this.documentState.blocks, childBlockId, value, splitRuns.before)
+      : updateBlockContent(this.documentState.blocks, childBlockId, value);
     const blocks = insertBlockInsideTourStep(nextBlocks, stepBlockId, nextBlock, currentIndex + 1);
     if (!blocks) return;
     this.recordChange();
@@ -1056,7 +1221,9 @@ export class LocalAuthoringFrameController {
     this.services.saveDocument(this.documentState);
     this.setStatus('Added text line');
     this.sendPreviewPatch(childBlockId, [
-      { op: 'updateContent', content: value },
+      currentBlock.contentRuns
+        ? { op: 'updateContentRuns', content: value, contentRuns: splitRuns.before }
+        : { op: 'updateContent', content: value },
       { op: 'insertStepContent', stepBlockId, block: nextBlock, index: currentIndex + 1 },
     ]);
   }
@@ -1088,7 +1255,11 @@ export class LocalAuthoringFrameController {
     this.sendPreviewPatch(childBlockId, [{ op: 'removeBlock', stepBlockId }]);
   }
 
-  mergeStepContentBlockIntoPrevious(stepBlockId: string, childBlockId: string): boolean {
+  mergeStepContentBlockIntoPrevious(
+    stepBlockId: string,
+    childBlockId: string,
+    pendingContent?: string,
+  ): boolean {
     const currentBlocks = this.stepContentBlocks(this.documentState.blocks, stepBlockId);
     const currentIndex = currentBlocks.findIndex((block) => block.id === childBlockId);
     const currentBlock = currentBlocks[currentIndex];
@@ -1096,12 +1267,28 @@ export class LocalAuthoringFrameController {
     if (!currentBlock || !previousBlock) return false;
     if (currentBlock.type !== 'paragraph' || previousBlock.type !== 'paragraph') return false;
     const previousContent = previousBlock.content ?? '';
-    const currentContent = currentBlock.content ?? '';
-    const nextBlocks = updateBlockContent(
-      this.documentState.blocks,
-      previousBlock.id,
-      `${previousContent}${currentContent}`,
+    const storedCurrentContent = currentBlock.content ?? '';
+    const currentContent = pendingContent ?? storedCurrentContent;
+    const currentRuns = reconcileInlineTextRuns(
+      storedCurrentContent,
+      currentBlock.contentRuns,
+      currentContent,
     );
+    const mergedContent = `${previousContent}${currentContent}`;
+    const mergedRuns = mergeInlineTextRuns(
+      previousContent,
+      previousBlock.contentRuns,
+      currentContent,
+      currentRuns,
+    );
+    const nextBlocks = mergedRuns
+      ? updateBlockContentRuns(
+          this.documentState.blocks,
+          previousBlock.id,
+          mergedContent,
+          mergedRuns,
+        )
+      : updateBlockContent(this.documentState.blocks, previousBlock.id, mergedContent);
     const blocks = removeStepChildBlock(nextBlocks, stepBlockId, childBlockId);
     if (!blocks) return false;
     this.recordChange();
@@ -1118,7 +1305,9 @@ export class LocalAuthoringFrameController {
     this.focusEditableField(previousBlock.id, previousContent.length);
     this.setStatus('Merged text line');
     this.sendPreviewPatch(previousBlock.id, [
-      { op: 'updateContent', content: `${previousContent}${currentContent}` },
+      mergedRuns
+        ? { op: 'updateContentRuns', content: mergedContent, contentRuns: mergedRuns }
+        : { op: 'updateContent', content: mergedContent },
     ]);
     this.sendPreviewPatch(childBlockId, [{ op: 'removeBlock', stepBlockId }]);
     return true;
@@ -2105,6 +2294,22 @@ export class LocalAuthoringFrameController {
       return;
     }
 
+    if (message.type === 'authoring.init') {
+      this.previewTheme = message.theme ? structuredClone(message.theme) : undefined;
+      this.previewPreferences = {
+        prefersDark:
+          message.prefersDark ??
+          window.matchMedia?.('(prefers-color-scheme: dark)').matches ??
+          false,
+        prefersReducedMotion:
+          message.prefersReducedMotion ??
+          window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ??
+          false,
+      };
+      this.emit();
+      return;
+    }
+
     if (message.type === 'authoring.save.request') {
       return this.persistRequestedDocument(message.correlationId);
     }
@@ -2117,6 +2322,14 @@ export class LocalAuthoringFrameController {
 
     if (message.type === AUTHORING_PANEL_MODE_OPEN_TYPE) {
       this.openAppearanceMode();
+      return;
+    }
+
+    if (message.type === AUTHORING_CHROME_ACTION_REQUEST_TYPE) {
+      if (message.action === 'preview-full') this.previewFullTour();
+      if (message.action === 'open-appearance') this.openAppearanceMode();
+      if (message.action === 'open-release') this.openReleaseVerificationMode();
+      if (message.action === 'save-and-exit') this.requestSaveAndExit();
       return;
     }
 
@@ -2505,6 +2718,8 @@ export class LocalAuthoringFrameController {
   private sendBrandPreviewTheme(
     result: AuthoringBrandMatchApplyResult['persisted'],
   ): Promise<void> {
+    this.previewTheme = structuredClone(result.previewTheme);
+    this.emit();
     if (!this.isHostedInParent) return Promise.resolve();
     return this.bridge.sendWithAck(
       {
@@ -3178,18 +3393,22 @@ export class LocalAuthoringFrameController {
 
   private commitActionUrl(blockId: string, value: string): void {
     if (!hasBlock(this.documentState.blocks, blockId)) return;
+    const normalizedValue = value.trim();
     const currentAction = findBlockById(this.documentState.blocks, blockId)?.props.action;
     const currentValue = currentAction?.type === 'openPage' ? (currentAction.url ?? '') : '';
-    if (currentValue === value) return;
+    if (currentValue === normalizedValue) return;
     this.recordChange();
     this.documentState = {
       ...this.documentState,
-      blocks: setBlockActionUrl(this.documentState.blocks, blockId, value),
+      blocks: setBlockActionUrl(this.documentState.blocks, blockId, normalizedValue),
     };
     this.afterDocumentMutation();
     this.selectedBlockId = blockId;
     this.services.saveDocument(this.documentState);
-    this.sendPreviewPatch(blockId, [{ op: 'setAction', action: { type: 'openPage', url: value } }]);
+    const action: BlockActionProps = normalizedValue
+      ? { type: 'openPage', url: normalizedValue }
+      : { type: 'openPage' };
+    this.sendPreviewPatch(blockId, [{ op: 'setAction', action }]);
   }
 
   private transformBlock(blockId: string, type: EditableBlockType): void {
@@ -3206,17 +3425,48 @@ export class LocalAuthoringFrameController {
   }
 
   private commitContent(blockId: string, value: string): void {
-    if (!hasBlock(this.documentState.blocks, blockId)) return;
-    if ((findBlockById(this.documentState.blocks, blockId)?.content ?? '') === value) return;
+    const block = findBlockById(this.documentState.blocks, blockId);
+    if (!block) return;
+    const previousContent = block.content ?? '';
+    if (previousContent === value) return;
+    const contentRuns = reconcileInlineTextRuns(previousContent, block.contentRuns, value);
     this.recordChange();
     this.documentState = {
       ...this.documentState,
-      blocks: updateBlockContent(this.documentState.blocks, blockId, value),
+      blocks: block.contentRuns
+        ? updateBlockContentRuns(this.documentState.blocks, blockId, value, contentRuns)
+        : updateBlockContent(this.documentState.blocks, blockId, value),
     };
     this.afterDocumentMutation();
     this.selectedBlockId = blockId;
     this.services.saveDocument(this.documentState);
-    this.sendPreviewPatch(blockId, [{ op: 'updateContent', content: value }]);
+    this.sendPreviewPatch(
+      blockId,
+      block.contentRuns
+        ? [{ op: 'updateContentRuns', content: value, contentRuns }]
+        : [{ op: 'updateContent', content: value }],
+    );
+  }
+
+  private commitContentRuns(blockId: string, value: string, contentRuns?: InlineTextRun[]): void {
+    const block = findBlockById(this.documentState.blocks, blockId);
+    if (!block) return;
+    const comparableRuns = JSON.stringify(contentRuns ?? []);
+    if (
+      (block.content ?? '') === value &&
+      JSON.stringify(block.contentRuns ?? []) === comparableRuns
+    ) {
+      return;
+    }
+    this.recordChange();
+    this.documentState = {
+      ...this.documentState,
+      blocks: updateBlockContentRuns(this.documentState.blocks, blockId, value, contentRuns),
+    };
+    this.afterDocumentMutation();
+    this.selectedBlockId = blockId;
+    this.services.saveDocument(this.documentState);
+    this.sendPreviewPatch(blockId, [{ op: 'updateContentRuns', content: value, contentRuns }]);
   }
 
   private syncFocusedEditControl(): void {
@@ -3582,6 +3832,8 @@ export class LocalAuthoringFrameController {
   private makeSnapshot(): LocalAuthoringFrameSnapshot {
     return {
       documentState: this.documentState,
+      previewTheme: this.previewTheme ? structuredClone(this.previewTheme) : null,
+      previewPreferences: this.previewPreferences ? { ...this.previewPreferences } : null,
       status: this.status,
       saveState: { ...this.saveState },
       slashText: this.slashText,
@@ -3896,10 +4148,10 @@ const EDITABLE_ACTION_FACTORIES: Readonly<
   back: () => ({ type: 'back' }),
   complete: () => ({ type: 'complete' }),
   clickTarget: () => ({ type: 'clickTarget' }),
-  openPage: (currentAction) => ({
-    type: 'openPage',
-    url: currentOpenPageUrl(currentAction),
-  }),
+  openPage: (currentAction) => {
+    const url = currentOpenPageUrl(currentAction);
+    return url ? { type: 'openPage', url } : { type: 'openPage' };
+  },
   dismiss: () => ({ type: 'dismiss' }),
 };
 
@@ -3921,7 +4173,7 @@ function createNextAction(
 
 function currentOpenPageUrl(currentAction: BlockActionProps | undefined): string {
   if (currentAction?.type !== 'openPage') return '';
-  return currentAction.url ?? '';
+  return currentAction.url?.trim() ?? '';
 }
 
 function previewPatchForAction(

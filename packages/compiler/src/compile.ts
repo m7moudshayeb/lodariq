@@ -6,7 +6,9 @@ import {
   isValid,
   resolveExperienceAppearance,
   sanitizeBlockProps,
+  sanitizeInlineTextRuns,
   sanitizePresentationAnchor,
+  sanitizeTooltipLayoutProps,
   type BrandThemeSnapshot as BrandThemeSnapshotType,
   type CompiledDocumentV2,
   type CompiledStep,
@@ -37,11 +39,13 @@ export interface CompileInput {
 function collectBody(block: LodariqBlock, acc: CompiledStep['body']): void {
   if (LEAF_CONTENT_TYPES.has(block.type)) {
     const props = sanitizeBlockProps(block.props);
+    const contentRuns = sanitizeInlineTextRuns(block.contentRuns);
     delete props.presentationAnchor;
     acc.push({
       id: block.id,
       type: block.type,
       ...(block.content !== undefined ? { text: block.content } : {}),
+      ...(contentRuns ? { contentRuns: structuredClone(contentRuns) } : {}),
       props,
     });
   }
@@ -60,6 +64,7 @@ function compileTourStep(
   const targetId = tooltip?.props.targetId;
   const placement = tooltip?.props.placement;
   const presentationAnchor = sanitizePresentationAnchor(tooltip?.props.presentationAnchor);
+  const tooltipLayout = sanitizeTooltipLayoutProps(tooltip?.props.tooltipLayout);
   const lifecycle = typeof targetId === 'string' ? targetsById.get(targetId)?.lifecycle : null;
 
   return {
@@ -67,6 +72,7 @@ function compileTourStep(
     ...(typeof targetId === 'string' ? { targetId } : {}),
     ...(typeof placement === 'string' ? { placement } : {}),
     ...(presentationAnchor ? { presentationAnchor } : {}),
+    ...(tooltipLayout ? { tooltipLayout: structuredClone(tooltipLayout) } : {}),
     ...(lifecycle ? { lifecycle: structuredClone(lifecycle) } : {}),
     body,
   };

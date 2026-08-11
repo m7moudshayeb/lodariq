@@ -1,5 +1,6 @@
 import type {
   AuthoringSaveState,
+  BrandThemeSnapshot,
   LodariqDocument,
   ResolverDiagnostic,
   RuntimeLifecycleHints,
@@ -149,6 +150,9 @@ export type AuthoringPanelMode = (typeof AUTHORING_PANEL_MODES)[number];
 export const EDITABLE_BUTTON_VARIANT_OPTIONS = [
   { value: 'primary', label: 'Primary' },
   { value: 'secondary', label: 'Secondary' },
+  { value: 'subtle', label: 'Subtle' },
+  { value: 'outline', label: 'Outline' },
+  { value: 'link', label: 'Link' },
 ] as const;
 export type EditableButtonVariant = (typeof EDITABLE_BUTTON_VARIANT_OPTIONS)[number]['value'];
 
@@ -191,6 +195,8 @@ export interface AuthoringPanelWorkflowState {
 
 export interface LocalAuthoringFrameSnapshot {
   documentState: LodariqDocument;
+  previewTheme?: BrandThemeSnapshot | null;
+  previewPreferences?: { prefersDark: boolean; prefersReducedMotion: boolean } | null;
   status: string;
   saveState: { state: AuthoringSaveState; label: string };
   slashText: string;

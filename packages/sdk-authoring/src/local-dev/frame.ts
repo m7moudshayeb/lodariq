@@ -1,4 +1,4 @@
-import type { LodariqDocument } from '@lodariq/schema';
+import type { BrandThemeSnapshot, LodariqDocument } from '@lodariq/schema';
 import {
   compilePreview,
   exportDocument,
@@ -20,6 +20,7 @@ import {
 export interface MountLocalAuthoringDevFrameOptions {
   root: HTMLElement;
   baseDocument: LodariqDocument;
+  previewTheme?: BrandThemeSnapshot;
   frameMode?: 'standalone' | 'panel';
   sessionId?: string;
   targetOrigin?: string;
@@ -43,6 +44,7 @@ export function mountLocalAuthoringDevFrame(options: MountLocalAuthoringDevFrame
   mountLocalAuthoringFrame({
     root: options.root,
     baseDocument: contextDocument ?? options.baseDocument,
+    ...(options.previewTheme ? { previewTheme: structuredClone(options.previewTheme) } : {}),
     frameMode: options.frameMode ?? frameModeFromLocation(options.root.ownerDocument.defaultView),
     sessionId: options.sessionId ?? frameContext.sessionId ?? LOCAL_AUTHORING_SESSION_ID,
     targetOrigin: options.targetOrigin,

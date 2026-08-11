@@ -108,12 +108,16 @@ import {
   reorderTopLevelBlock,
   removeTargetFromBlocks,
   setBlockAction,
+  setBlockLayout,
   setBlockPlacement,
   setBlockPresentationAnchor,
   setBlockTextStyle,
   setBlockVariant,
+  setButtonStyle,
+  setTooltipLayout,
   transformBlocks,
   updateBlockContent,
+  updateBlockContentRuns,
 } from './document-ops';
 import { createInlinePreviewEditor } from './inline-preview-editor';
 import { createAuthoringDomCombobox, type AuthoringDomCombobox } from './dom-combobox';
@@ -265,8 +269,8 @@ const AUTHORING_PANEL_LAYOUT_ATTRIBUTE = 'data-lodariq-panel-layout';
 const HOSTED_AUTHORING_IFRAME_PATH = '/authoring.html';
 const AUTHORING_PANEL_LAYOUTS = {
   compact: { width: 320, height: 520 },
-  standard: { width: 700, height: 620 },
-  focus: { width: 860, height: 780 },
+  standard: { width: 1120, height: 800 },
+  focus: { width: 1600, height: 1200 },
 } as const satisfies Readonly<Record<AuthoringPanelLayoutMode, AuthoringPanelSize>>;
 const AUTHORING_PANEL_LAYOUT_VALUES = new Set<string>(Object.keys(AUTHORING_PANEL_LAYOUTS));
 type AuthoringPanelLayoutChoice = AuthoringPanelLayoutMode | 'custom';
@@ -291,16 +295,16 @@ const AUTHORING_PANEL_ZOOM_OPTIONS = [
 type AuthoringPanelZoomValue = (typeof AUTHORING_PANEL_ZOOM_OPTIONS)[number]['value'];
 const DEFAULT_AUTHORING_PANEL_ZOOM: AuthoringPanelZoomValue = '100';
 const DEFAULT_AUTHORING_PANEL_WIDTH = AUTHORING_PANEL_LAYOUTS.standard.width;
-const TARGET_PICKING_PANEL_WIDTH = 300;
+const TARGET_PICKING_PANEL_WIDTH = 320;
 const MIN_AUTHORING_PANEL_WIDTH = 320;
 const DEFAULT_AUTHORING_PANEL_HEIGHT = AUTHORING_PANEL_LAYOUTS.standard.height;
 const COMPACT_AUTHORING_PANEL_HEIGHT = 480;
 const MIN_AUTHORING_PANEL_HEIGHT = 320;
-const SMALL_VIEWPORT_PANEL_HEIGHT = 260;
+const SMALL_VIEWPORT_PANEL_HEIGHT = 280;
 const COMPACT_AUTHORING_PANEL_VIEWPORT_RATIO = 0.72;
-const AUTHORING_PANEL_HEADER_HEIGHT = 50;
+const AUTHORING_PANEL_HEADER_HEIGHT = 64;
 const AUTHORING_COLLAPSED_PANEL_HEIGHT = 44;
-const AUTHORING_PAGE_REVEAL_GUTTER = 72;
+const AUTHORING_PAGE_REVEAL_GUTTER = 32;
 const AUTHORING_PANEL_DRAG_THRESHOLD = 4;
 const AUTHORING_AUTOSAVE_DEBOUNCE_MS = 650;
 const AUTHORING_AUTOSAVE_RETRY_MS = 1_200;
@@ -610,6 +614,8 @@ function openAuthoringPanel(
   let closeNotified = false;
   let currentSaveState: AuthoringSaveState = 'saved';
   let currentSaveStateLabel: string = AUTHORING_PANEL_LABELS.draftSaved;
+  let currentHeaderStepId =
+    previewDocument?.blocks.find((block) => block.type === 'tourStep')?.id ?? null;
   const pendingIframeSaveRequests = new Map<string, PendingIframeSaveRequest>();
 
   shadow.appendChild(createPanelStyles());
@@ -637,6 +643,7 @@ function openAuthoringPanel(
             aria-label="Experience title"
             value="${escapeAuthoringText(previewDocument?.title ?? 'Untitled experience')}"
           />
+          <span class="panel-step-status" data-panel-step-status></span>
         </span>
       </span>
       <div class="authoring-bar-actions">
@@ -703,10 +710,26 @@ function openAuthoringPanel(
   const panelDragSurface = shadow.querySelector<HTMLElement>('.authoring-bar');
   const panelResizeHandle = shadow.querySelector<HTMLButtonElement>('.panel-resize-handle');
   const panelDocumentTitle = shadow.querySelector<HTMLInputElement>('[data-panel-document-title]');
+  const panelStepStatus = shadow.querySelector<HTMLElement>('[data-panel-step-status]');
 
   setAuthoringPanelIcon(panelCloseIcon, 'close');
   setAuthoringPanelIcon(panelDragIcon, 'drag');
   setMinimizeButtonState(minimizeButton, minimizeIcon, false);
+
+  const syncPanelStepStatus = (): void => {
+    if (!panelStepStatus) return;
+    const steps = previewDocument?.blocks.filter((block) => block.type === 'tourStep') ?? [];
+    if (!steps.length) {
+      panelStepStatus.textContent = 'No steps';
+      return;
+    }
+    const currentIndex = steps.findIndex((step) => step.id === currentHeaderStepId);
+    const safeIndex = currentIndex >= 0 ? currentIndex : 0;
+    currentHeaderStepId = steps[safeIndex]?.id ?? null;
+    panelStepStatus.textContent = `Step ${safeIndex + 1} of ${steps.length}`;
+  };
+
+  syncPanelStepStatus();
 
   let panelLayoutControl: AuthoringDomCombobox<AuthoringPanelLayoutChoice> | null = null;
   const syncPanelLayoutControl = (): void => {
@@ -1287,6 +1310,8 @@ function openAuthoringPanel(
         if (message.type === 'authoring.preview.request') {
           if (message.mode === 'step') {
             pendingInlineFocusBlockId = message.stepId;
+            currentHeaderStepId = message.stepId;
+            syncPanelStepStatus();
           } else {
             minimize();
           }
@@ -1351,6 +1376,9 @@ function openAuthoringPanel(
         environment: session.environment,
         document: structuredClone(options.initialDocument),
         ...(options.initialTheme ? { theme: structuredClone(options.initialTheme) } : {}),
+        prefersDark: window.matchMedia?.('(prefers-color-scheme: dark)').matches ?? false,
+        prefersReducedMotion:
+          window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false,
         ...(releaseServices
           ? {
               releaseStateCapability: AUTHORING_SESSION_CAPABILITIES.READ_RELEASE_STATE,
@@ -1577,6 +1605,7 @@ function openAuthoringPanel(
       authoringTargetOverrides.delete(affectedStepId);
     }
     previewDocument = applyPreviewPatch(current, blockId, ops);
+    syncPanelStepStatus();
     scheduleAutoSave(previewDocument);
     const persistence = ops.some((operation) => operation.op === 'removeTarget')
       ? flushAutoSave()
@@ -2407,7 +2436,7 @@ function positionInitialAuthoringPanel(host: HTMLElement): void {
   const layout = currentAuthoringPanelLayout(host) ?? DEFAULT_AUTHORING_PANEL_LAYOUT;
   const width = authoringPanelWidth(viewport, margin, false, layout);
   const top = clamp(
-    viewport.top + (viewport.width <= 600 ? 72 : 76),
+    viewport.top + margin,
     viewport.top + margin,
     viewport.bottom - authoringPanelMinimumHeight(viewport.height, margin) - margin,
   );
@@ -2441,7 +2470,7 @@ function positionTargetPickingPanel(host: HTMLElement): void {
 }
 
 function authoringPanelMargin(viewportWidth: number): number {
-  return viewportWidth <= 600 ? 12 : 18;
+  return viewportWidth <= 600 ? 12 : 16;
 }
 
 function authoringPanelLayoutMode(value: string | undefined): AuthoringPanelLayoutMode | null {
@@ -2612,7 +2641,12 @@ function attachPanelDrag(
 
   const start = (event: MouseEvent | PointerEvent): void => {
     if (drag || event.button !== 0) return;
-    if ((event.target as Element | null)?.closest('button, input, textarea, select')) return;
+    if (
+      (event.target as Element | null)?.closest(
+        'button, input, textarea, select, summary, details, a, [role="combobox"]',
+      )
+    )
+      return;
     const rect = host.getBoundingClientRect();
     const ownerWindow = host.ownerDocument.defaultView ?? window;
     const pointerId = 'pointerId' in event ? event.pointerId : 'mouse';
@@ -2884,6 +2918,8 @@ function setMinimizeButtonState(
   button.setAttribute('aria-label', actionLabel);
   button.dataset['tooltip'] = actionLabel;
   button.setAttribute('title', actionLabel);
+  const label = button.querySelector<HTMLElement>('[data-panel-minimize-label]');
+  if (label) label.textContent = minimized ? 'Restore' : 'Minimize';
   setAuthoringPanelIcon(iconContainer, minimized ? 'maximize' : 'minimize');
 }
 
@@ -3268,8 +3304,23 @@ function applyPreviewPatch(
     if (op.op === 'updateContent') {
       next = { ...next, blocks: updateBlockContent(next.blocks, blockId, op.content) };
     }
+    if (op.op === 'updateContentRuns') {
+      next = {
+        ...next,
+        blocks: updateBlockContentRuns(next.blocks, blockId, op.content, op.contentRuns),
+      };
+    }
     if (op.op === 'setTextStyle') {
       next = { ...next, blocks: setBlockTextStyle(next.blocks, blockId, op.textStyle) };
+    }
+    if (op.op === 'setBlockLayout') {
+      next = { ...next, blocks: setBlockLayout(next.blocks, blockId, op.blockLayout) };
+    }
+    if (op.op === 'setButtonStyle') {
+      next = { ...next, blocks: setButtonStyle(next.blocks, blockId, op.buttonStyle) };
+    }
+    if (op.op === 'setTooltipLayout') {
+      next = { ...next, blocks: setTooltipLayout(next.blocks, blockId, op.tooltipLayout) };
     }
     if (op.op === 'moveBlock') {
       const blocks = moveTopLevelBlock(next.blocks, blockId, op.direction);
@@ -3433,7 +3484,7 @@ function inlinePreviewControlContext(
     stepId: step.id,
     tooltipBlockId: tooltip.id,
     placement: tooltip.props.placement ?? 'bottom',
-    ...(actionBlock && actionType ? { actionBlockId: actionBlock.id, actionType } : {}),
+    ...(actionBlock ? { actionBlockId: actionBlock.id, actionType } : {}),
   };
 }
 
@@ -3448,17 +3499,18 @@ function firstInlineActionBlock(blocks: LodariqBlock[]): LodariqBlock | null {
 
 function inlineActionType(
   value: BlockActionProps['type'] | undefined,
-): InlinePreviewControlContext['actionType'] | undefined {
+): NonNullable<InlinePreviewControlContext['actionType']> {
   if (
     value === 'next' ||
     value === 'back' ||
     value === 'complete' ||
     value === 'dismiss' ||
-    value === 'clickTarget'
+    value === 'clickTarget' ||
+    value === 'openPage'
   ) {
     return value;
   }
-  return undefined;
+  return '';
 }
 
 function escapeAuthoringText(value: string): string {
@@ -3481,15 +3533,15 @@ function createPanelStyles(): HTMLStyleElement {
     `
     :host {
       position: fixed;
-      top: 76px;
-      right: 18px;
+      top: 16px;
+      right: 16px;
       bottom: auto;
       display: block;
-      width: min(700px, calc(100vw - 72px));
-      height: min(620px, calc(100dvh - 94px));
-      max-width: calc(100vw - 72px);
-      max-height: calc(100dvh - 36px);
-      min-height: min(320px, calc(100dvh - 100px));
+      width: min(${DEFAULT_AUTHORING_PANEL_WIDTH}px, calc(100vw - 32px));
+      height: min(${DEFAULT_AUTHORING_PANEL_HEIGHT}px, calc(100dvh - 32px));
+      max-width: calc(100vw - 32px);
+      max-height: calc(100dvh - 32px);
+      min-height: min(320px, calc(100dvh - 32px));
       z-index: 2147483646;
       pointer-events: auto;
       font-family: ${CREATOR_CHROME_FONT_STACK};
@@ -3521,13 +3573,13 @@ function createPanelStyles(): HTMLStyleElement {
       align-items: center;
       justify-content: space-between;
       gap: 8px;
-      border: 1px solid #0a4f43;
-      border-bottom-color: #0a4f43;
-      border-radius: 12px 12px 0 0;
-      background: #003f35;
+      border: 1px solid #0c211c;
+      border-bottom-color: #0c211c;
+      border-radius: 16px 16px 0 0;
+      background: #0c211c;
       color: #ffffff;
       cursor: grab;
-      padding: 0 12px 0 0;
+      padding: 0 8px 0 16px;
       box-sizing: border-box;
       touch-action: none;
       user-select: none;
@@ -3539,7 +3591,8 @@ function createPanelStyles(): HTMLStyleElement {
 
     .authoring-bar button,
     .authoring-bar input,
-    .authoring-bar select {
+    .authoring-bar select,
+    .authoring-bar summary {
       cursor: pointer;
       touch-action: auto;
       user-select: auto;
@@ -3558,22 +3611,25 @@ function createPanelStyles(): HTMLStyleElement {
       height: 100%;
       border: 1px solid #d8dfe1;
       border-top: 0;
-      border-radius: 0 0 12px 12px;
-      background: #ffffff;
+      border-radius: 0 0 16px 16px;
+      background: transparent;
       overflow: hidden;
       box-sizing: border-box;
     }
 
     .panel-drag-handle {
+      position: absolute;
+      top: 0;
+      left: 0;
       display: flex;
-      width: 30px;
-      min-width: 30px;
+      width: 16px;
+      min-width: 16px;
       height: 100%;
-      flex: 0 0 30px;
+      flex: 0 0 16px;
       align-items: center;
       justify-content: center;
       padding: 0;
-      border-radius: 12px 0 0 0;
+      border-radius: 16px 0 0 0;
       cursor: grab;
       touch-action: none;
       user-select: none;
@@ -3589,9 +3645,9 @@ function createPanelStyles(): HTMLStyleElement {
     }
 
     .panel-drag-grip {
-      display: grid;
-      width: 20px;
-      height: 36px;
+      display: none;
+      width: 24px;
+      height: 40px;
       flex: 0 0 auto;
       place-items: center;
       border-radius: 8px;
@@ -3623,20 +3679,20 @@ function createPanelStyles(): HTMLStyleElement {
     .panel-document-title {
       display: block;
       min-width: 0;
-      width: min(154px, 26vw);
+      width: min(160px, 20vw);
       overflow: hidden;
       border: 1px solid transparent;
       border-radius: 8px;
       background: transparent;
       color: #ffffff;
       font-family: inherit;
-      font-size: 14px;
+      font-size: 16px;
       font-weight: 700;
       letter-spacing: -0.01em;
       line-height: 1.25;
       margin: 0;
       outline: 0;
-      padding: 4px 4px;
+      padding: 8px;
       text-overflow: ellipsis;
       white-space: nowrap;
     }
@@ -3650,6 +3706,19 @@ function createPanelStyles(): HTMLStyleElement {
     .panel-document-title:focus-visible {
       outline: 2px solid ${CREATOR_CHROME_TOKENS.focus};
       outline-offset: 1px;
+    }
+
+    .panel-step-status {
+      display: inline-flex;
+      min-height: 36px;
+      flex: 0 0 auto;
+      align-items: center;
+      border-left: 1px solid rgba(255, 255, 255, 0.16);
+      color: rgba(255, 255, 255, 0.86);
+      font-size: 12px;
+      font-weight: 600;
+      padding: 0 16px;
+      white-space: nowrap;
     }
 
     .target-picking-label {
@@ -3667,7 +3736,138 @@ function createPanelStyles(): HTMLStyleElement {
       display: inline-flex;
       flex: 0 0 auto;
       align-items: center;
+      gap: 8px;
+    }
+
+    .panel-chrome-save-status {
+      display: inline-flex;
+      min-height: 36px;
+      align-items: center;
+      gap: 8px;
+      color: rgba(255, 255, 255, 0.74);
+      font-size: 12px;
+      font-weight: 600;
+      padding: 0 8px;
+      white-space: nowrap;
+    }
+
+    .panel-chrome-save-status[data-state='error'] {
+      color: #f6b3a6;
+    }
+
+    .panel-chrome-action {
+      display: inline-flex;
+      min-height: 40px;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.06);
+      color: #ffffff;
+      cursor: pointer;
+      font: inherit;
+      font-size: 12px;
+      font-weight: 700;
+      padding: 0 12px;
+    }
+
+    .panel-chrome-action:hover,
+    .panel-chrome-action:focus-visible {
+      border-color: rgba(255, 255, 255, 0.32);
+      background: rgba(255, 255, 255, 0.12);
+    }
+
+    .panel-chrome-action.primary {
+      min-width: 160px;
+      border-color: #0b6655;
+      background: #0b6655;
+    }
+
+    .panel-chrome-action.primary:hover,
+    .panel-chrome-action.primary:focus-visible {
+      border-color: #14816c;
+      background: #14816c;
+    }
+
+    .panel-chrome-action-icon,
+    .panel-chrome-action-icon svg {
+      display: block;
+      width: 16px;
+      height: 16px;
+      flex: 0 0 auto;
+    }
+
+    .panel-overflow {
+      position: relative;
+      flex: 0 0 auto;
+    }
+
+    .panel-overflow > summary {
+      list-style: none;
+    }
+
+    .panel-overflow > summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .panel-overflow-menu {
+      position: absolute;
+      z-index: 12;
+      top: calc(100% + 8px);
+      right: 0;
+      display: grid;
+      width: 240px;
       gap: 4px;
+      border: 1px solid ${AUTHORING_CONTEXT_SURFACE_TOKENS.border};
+      border-radius: 12px;
+      background: ${AUTHORING_CONTEXT_SURFACE_TOKENS.surface};
+      box-shadow: ${AUTHORING_CONTEXT_SURFACE_TOKENS.shadow};
+      padding: 8px;
+      color: ${AUTHORING_CONTEXT_SURFACE_TOKENS.ink};
+      cursor: default;
+    }
+
+    .panel-overflow:not([open]) .panel-overflow-menu {
+      display: none;
+    }
+
+    .panel-overflow-control {
+      min-width: 0;
+    }
+
+    .panel-overflow-action {
+      display: grid;
+      min-height: 40px;
+      grid-template-columns: 20px minmax(0, 1fr);
+      align-items: center;
+      gap: 8px;
+      border: 0;
+      border-radius: 8px;
+      background: transparent;
+      color: ${AUTHORING_CONTEXT_SURFACE_TOKENS.ink};
+      cursor: pointer;
+      font: inherit;
+      font-size: 12px;
+      font-weight: 600;
+      padding: 0 12px;
+      text-align: left;
+    }
+
+    .panel-overflow-action:hover,
+    .panel-overflow-action:focus-visible {
+      background: ${AUTHORING_CONTEXT_SURFACE_TOKENS.accentSoft};
+      color: ${AUTHORING_CONTEXT_SURFACE_TOKENS.accent};
+    }
+
+    .panel-overflow-action.danger {
+      color: #a33a3a;
+    }
+
+    .panel-overflow-action svg {
+      display: block;
+      width: 16px;
+      height: 16px;
     }
 
     .header-action {
@@ -3920,6 +4120,32 @@ function createPanelStyles(): HTMLStyleElement {
       color: ${AUTHORING_CONTEXT_SURFACE_TOKENS.accent};
     }
 
+    .panel-overflow-menu .panel-layout-trigger,
+    .panel-overflow-menu .panel-zoom-trigger {
+      width: 100%;
+      min-width: 0;
+      justify-content: flex-start;
+      border-color: ${AUTHORING_CONTEXT_SURFACE_TOKENS.border};
+      background: ${AUTHORING_CONTEXT_SURFACE_TOKENS.surface};
+      color: ${AUTHORING_CONTEXT_SURFACE_TOKENS.ink};
+      padding: 0 12px;
+    }
+
+    .panel-overflow-menu .panel-layout-trigger:hover,
+    .panel-overflow-menu .panel-layout-trigger:focus-visible,
+    .panel-overflow-menu .panel-zoom-trigger:hover,
+    .panel-overflow-menu .panel-zoom-trigger:focus-visible {
+      border-color: ${AUTHORING_CONTEXT_SURFACE_TOKENS.accent};
+      background: ${AUTHORING_CONTEXT_SURFACE_TOKENS.accentSoft};
+      color: ${AUTHORING_CONTEXT_SURFACE_TOKENS.accent};
+    }
+
+    .panel-overflow-menu .panel-layout-value,
+    .panel-overflow-menu .panel-zoom-value {
+      flex: 1 1 auto;
+      text-align: left;
+    }
+
     .panel-resize-handle {
       position: absolute;
       right: 0;
@@ -3978,7 +4204,7 @@ function createPanelStyles(): HTMLStyleElement {
       width: 100%;
       height: 100%;
       border: 0;
-      background: #ffffff;
+      background: transparent;
       pointer-events: auto;
     }
 
@@ -4001,6 +4227,9 @@ function createPanelStyles(): HTMLStyleElement {
     }
 
     :host([${AUTHORING_TARGET_PICKING_ATTRIBUTE}="true"]) .panel-drag-handle {
+      position: relative;
+      top: auto;
+      left: auto;
       width: auto;
       min-width: 0;
       flex: 1 1 auto;
@@ -4080,6 +4309,24 @@ function createPanelStyles(): HTMLStyleElement {
       display: none;
     }
 
+    :host([${AUTHORING_PANEL_LAYOUT_ATTRIBUTE}="compact"]) .panel-step-status,
+    :host([${AUTHORING_PANEL_LAYOUT_ATTRIBUTE}="compact"]) .panel-chrome-save-status,
+    :host([${AUTHORING_PANEL_LAYOUT_ATTRIBUTE}="compact"]) .panel-chrome-action {
+      display: none;
+    }
+
+    :host([${AUTHORING_PANEL_LAYOUT_ATTRIBUTE}="compact"]) .panel-overflow-menu .panel-layout-value,
+    :host([${AUTHORING_PANEL_LAYOUT_ATTRIBUTE}="compact"]) .panel-overflow-menu .panel-zoom-value {
+      display: block;
+    }
+
+    :host([${AUTHORING_PANEL_LAYOUT_ATTRIBUTE}="compact"]) .panel-overflow-menu .panel-layout-trigger,
+    :host([${AUTHORING_PANEL_LAYOUT_ATTRIBUTE}="compact"]) .panel-overflow-menu .panel-zoom-trigger {
+      width: 100%;
+      min-width: 0;
+      padding: 0 12px;
+    }
+
     @media (max-width: 600px) {
       :host {
         top: 72px;
@@ -4107,6 +4354,12 @@ function createPanelStyles(): HTMLStyleElement {
         width: 78px;
       }
 
+      .panel-step-status,
+      .panel-chrome-save-status,
+      .panel-chrome-action {
+        display: none;
+      }
+
       .panel-layout-value {
         display: none;
       }
@@ -4127,6 +4380,18 @@ function createPanelStyles(): HTMLStyleElement {
 
       .panel-zoom-trigger-icon {
         display: none;
+      }
+
+      .panel-overflow-menu .panel-layout-value,
+      .panel-overflow-menu .panel-zoom-value {
+        display: block;
+      }
+
+      .panel-overflow-menu .panel-layout-trigger,
+      .panel-overflow-menu .panel-zoom-trigger {
+        width: 100%;
+        min-width: 0;
+        padding: 0 12px;
       }
 
       .panel-resize-handle {

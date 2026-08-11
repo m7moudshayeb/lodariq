@@ -101,8 +101,9 @@ describe('creator toolbar', () => {
     launcherAction('edit-current-experience').click();
 
     await vi.waitFor(() => expect(openAuthoring).toHaveBeenCalledTimes(1));
-    expect(creatorLauncher()?.dataset['lodariqPinned']).toBe('true');
-    expect(button?.getAttribute('aria-expanded')).toBe('true');
+    expect(creatorLauncher()?.dataset['lodariqPinned']).toBe('false');
+    expect(creatorLauncher()?.dataset['lodariqPaletteDismissed']).toBe('true');
+    expect(button?.getAttribute('aria-expanded')).toBe('false');
   });
 
   it('pins on center activation and creates a Tour from a compact chooser', async () => {
@@ -129,8 +130,9 @@ describe('creator toolbar', () => {
     surface.querySelector<HTMLButtonElement>('[data-lodariq-experience-type="tour"]')?.click();
     await vi.waitFor(() => expect(onCreateExperience).toHaveBeenCalledWith('tour'));
     await vi.waitFor(() => expect(surface.hidden).toBe(true));
-    expect(launcher.dataset['lodariqPinned']).toBe('true');
-    expect(button.getAttribute('aria-expanded')).toBe('true');
+    expect(launcher.dataset['lodariqPinned']).toBe('false');
+    expect(launcher.dataset['lodariqPaletteDismissed']).toBe('true');
+    expect(button.getAttribute('aria-expanded')).toBe('false');
   });
 
   it('reveals on hover without converting hover into persistent pinned state', () => {
@@ -149,7 +151,7 @@ describe('creator toolbar', () => {
     expect(button.getAttribute('aria-expanded')).toBe('false');
   });
 
-  it('lists and opens experiences on the current page without unpinning', async () => {
+  it('lists an experience and dismisses the launcher after opening it', async () => {
     const listExperiencesForPage = vi.fn().mockResolvedValue([
       { id: 'doc_welcome', title: 'Welcome tour', type: 'tour' as const },
       { id: 'doc_activation', title: 'Activation tour', type: 'tour' as const },
@@ -171,8 +173,9 @@ describe('creator toolbar', () => {
 
     await vi.waitFor(() => expect(onOpenExperience).toHaveBeenCalledWith('doc_activation'));
     await vi.waitFor(() => expect(surface.hidden).toBe(true));
-    expect(creatorLauncher()?.dataset['lodariqPinned']).toBe('true');
-    expect(button.getAttribute('aria-expanded')).toBe('true');
+    expect(creatorLauncher()?.dataset['lodariqPinned']).toBe('false');
+    expect(creatorLauncher()?.dataset['lodariqPaletteDismissed']).toBe('true');
+    expect(button.getAttribute('aria-expanded')).toBe('false');
   });
 
   it('uses an optional preview callback and leaves the action dock pinned', async () => {
@@ -217,6 +220,11 @@ describe('creator toolbar', () => {
     expect(surface.hidden).toBe(true);
     expect(launcher.dataset['lodariqPinned']).toBe('false');
     expect(button.getAttribute('aria-expanded')).toBe('false');
+
+    launcher.dispatchEvent(new MouseEvent('mouseenter'));
+    expect(launcher.dataset['lodariqPaletteDismissed']).toBeUndefined();
+    document.body.dispatchEvent(new Event('pointerdown', { bubbles: true }));
+    expect(launcher.dataset['lodariqPaletteDismissed']).toBe('true');
   });
 
   it('places actions after the launcher in keyboard order', () => {

@@ -301,7 +301,7 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     expect(document.querySelector('[role="group"][aria-label="Step content editor"]')).toBeTruthy();
     expect(document.body.textContent).toContain('Edit content on page');
     expect(document.body.textContent).toContain('Placement');
-    expect(document.body.textContent).toContain('Advance behavior');
+    expect(document.body.textContent).toContain('How this step advances');
     expect(document.querySelector('.tour-position-options')).toBeTruthy();
     expect(document.querySelector('.tour-advance-options')).toBeTruthy();
     expect(document.body.textContent).not.toContain('Step details');
@@ -366,10 +366,19 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
 
     buttonWithText('Advanced settings')?.click();
     await flushPreviewPatchQueue();
-    expect(document.querySelector('section[aria-label="Advanced step settings"]')).not.toBeNull();
-    const back = buttonWithText('Back');
+    expect(document.querySelector('.panel-advanced-title')?.textContent).toContain(
+      'Review & recovery',
+    );
+    expect(
+      document.querySelector('.panel-advanced-main section[aria-label="Placement"]'),
+    ).toBeNull();
+    expect(document.querySelector('.panel-advanced-main .tour-position-options')).toBeNull();
+    expect(document.querySelector('.panel-advanced-main > .document')).toBeNull();
+    expect(document.querySelector('.panel-advanced-main > .insert-bar')).toBeNull();
+    expect(document.querySelector('.panel-advanced-main > .inspector')).not.toBeNull();
+    const back = buttonWithText('Back to editor');
     expect(back?.querySelector('svg')).not.toBeNull();
-    expect(back?.textContent?.trim()).toBe('Back');
+    expect(back?.textContent?.trim()).toBe('Back to editor');
     expect(document.querySelector('.panel-advanced-save-status')?.textContent).toContain(
       'Draft saved',
     );
@@ -865,6 +874,9 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
       '.inline-command-menu:not([hidden]) [aria-label="Search content"]',
     );
     expect(search).toBeTruthy();
+    const menu = search?.closest<HTMLElement>('.inline-command-menu');
+    expect(menu?.parentElement).toBe(document.body);
+    expect(menu?.getAttribute('popover')).toBe('manual');
     const setInputValue = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
     setInputValue?.call(search, 'button');
     search!.dispatchEvent(new Event('input', { bubbles: true }));
@@ -1616,6 +1628,13 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
         '[data-block-id="block_a_copy"] [aria-label="Text move and format"]',
       )
       ?.click();
+    await vi.waitFor(() => {
+      expect(
+        document.querySelector<HTMLButtonElement>(
+          '[data-block-id="block_a_copy"] [aria-label="Turn content into button"]',
+        ),
+      ).not.toBeNull();
+    });
     document
       .querySelector<HTMLButtonElement>(
         '[data-block-id="block_a_copy"] [aria-label="Turn content into button"]',
@@ -2417,6 +2436,12 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     });
     await flushPreviewPatchQueue();
 
+    const trigger = document.querySelector<HTMLButtonElement>(
+      '[aria-label="Placement New project actions"]',
+    )!;
+    expect(document.querySelector('.target-menu')).toBeNull();
+    trigger.click();
+    await flushPreviewPatchQueue();
     const targetMenu = document.querySelector<HTMLElement>('.target-menu')!;
     expect(targetMenu.closest('.block')).toBeNull();
     expect(targetMenu.closest('.step-child')).toBeNull();
@@ -2429,11 +2454,6 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     ).toEqual(['Show on page', 'Choose another', 'Use exact area']);
     expect(targetMenu.textContent).not.toContain('Matching details');
 
-    const trigger = document.querySelector<HTMLButtonElement>(
-      '[aria-label="Placement New project actions"]',
-    )!;
-    trigger.click();
-    await flushPreviewPatchQueue();
     expect(trigger.getAttribute('aria-expanded')).toBe('true');
     document.querySelector<HTMLElement>('[data-action="target-more-options"]')?.click();
     await flushPreviewPatchQueue();
@@ -2707,6 +2727,13 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
         '[data-block-id="block_a_copy"] [aria-label="Text move and format"]',
       )
       ?.click();
+    await vi.waitFor(() => {
+      expect(
+        document.querySelector<HTMLButtonElement>(
+          '[data-block-id="block_a_copy"] [aria-label="Turn content into button"]',
+        ),
+      ).not.toBeNull();
+    });
     document
       .querySelector<HTMLButtonElement>(
         '[data-block-id="block_a_copy"] [aria-label="Turn content into button"]',
@@ -2724,6 +2751,17 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     await flushPreviewPatchQueue();
     expect(documentJson().value).toContain('"type": "button"');
 
+    document
+      .querySelector<HTMLElement>('.block[data-block-id="block_a"]')
+      ?.querySelector<HTMLButtonElement>('[aria-label="Step actions"]')
+      ?.click();
+    await vi.waitFor(() => {
+      expect(
+        document.querySelector<HTMLButtonElement>(
+          '[data-action="move-block"][data-block-id="block_a"][data-direction="down"]',
+        ),
+      ).not.toBeNull();
+    });
     document
       .querySelector<HTMLButtonElement>(
         '[data-action="move-block"][data-block-id="block_a"][data-direction="down"]',
@@ -2906,10 +2944,13 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
       await flushPreviewPatchQueue();
       postMessage.mockClear();
 
-      const firstBlock = document.querySelector<HTMLElement>('[data-block-id="block_a"]')!;
+      const firstBlock = document.querySelector<HTMLElement>('.block[data-block-id="block_a"]')!;
       firstBlock.querySelector<HTMLButtonElement>('[aria-label="Step actions"]')?.click();
       await flushPreviewPatchQueue();
 
+      await vi.waitFor(() => {
+        expect(document.querySelector<HTMLElement>('.block-action-popover')).not.toBeNull();
+      });
       const popover = document.querySelector<HTMLElement>('.block-action-popover');
       expect(popover?.textContent).toContain('Move up');
       expect(popover?.textContent).toContain('Move down');

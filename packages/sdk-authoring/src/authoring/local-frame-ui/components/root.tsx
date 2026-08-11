@@ -71,8 +71,8 @@ export function LocalAuthoringFrameRoot({ options }: { options: LocalAuthoringFr
   useLayoutEffect(() => {
     if (!snapshot.focusRequest) return;
     const blockIdSelector = `[data-block-id="${cssString(snapshot.focusRequest.blockId)}"]`;
-    const blockSelector = `.document-block${blockIdSelector}, .step-child${blockIdSelector}`;
-    const editSelector = `.document-block${blockIdSelector} [data-action="edit-content"], .step-child${blockIdSelector} [data-action="edit-content"]`;
+    const blockSelector = `.document-block${blockIdSelector}, .step-child${blockIdSelector}, .rich-step-block-row${blockIdSelector}`;
+    const editSelector = `.document-block${blockIdSelector} [data-action="edit-content"], .step-child${blockIdSelector} [data-action="edit-content"], .rich-step-block-row${blockIdSelector} [data-rich-block-id]`;
     const selector = snapshot.focusRequest.target === 'block' ? blockSelector : editSelector;
     const focusScope = shellRef.current?.querySelector<HTMLElement>(blockSelector);
     const element = shellRef.current?.querySelector<HTMLElement>(selector);
@@ -89,6 +89,8 @@ export function LocalAuthoringFrameRoot({ options }: { options: LocalAuthoringFr
               ? 0
               : element.value.length;
         element.setSelectionRange(position, position);
+      } else if (snapshot.focusRequest?.caret !== undefined && element?.isContentEditable) {
+        setContentEditableCaret(element, snapshot.focusRequest.caret);
       }
     };
     applyFocusRequest();
@@ -125,8 +127,17 @@ export function LocalAuthoringFrameRoot({ options }: { options: LocalAuthoringFr
         : shellRef.current?.querySelector<HTMLElement>('[data-panel-mode-heading]');
     }
     if (!target) return;
-    const focusFrame = window.requestAnimationFrame(() => target.focus());
-    return () => window.cancelAnimationFrame(focusFrame);
+    const restorePanelFocus = (): void => {
+      if (target.isConnected) target.focus();
+    };
+    restorePanelFocus();
+    queueMicrotask(restorePanelFocus);
+    const focusTimer = window.setTimeout(restorePanelFocus, 0);
+    const focusFrame = window.requestAnimationFrame(restorePanelFocus);
+    return () => {
+      window.clearTimeout(focusTimer);
+      window.cancelAnimationFrame(focusFrame);
+    };
   }, [snapshot.panelWorkflow.focusToken, snapshot.panelWorkflow.mode]);
 
   const frameMode = options.frameMode ?? 'standalone';
@@ -149,4 +160,40 @@ export function LocalAuthoringFrameRoot({ options }: { options: LocalAuthoringFr
       </div>
     </main>
   );
+}
+
+function setContentEditableCaret(
+  element: HTMLElement,
+  requestedPosition: 'start' | 'end' | number,
+): void {
+  const selection = element.ownerDocument.getSelection();
+  if (!selection) return;
+  const textLength = element.textContent?.length ?? 0;
+  const position =
+    typeof requestedPosition === 'number'
+      ? Math.max(0, Math.min(requestedPosition, textLength))
+      : requestedPosition === 'start'
+        ? 0
+        : textLength;
+  const walker = element.ownerDocument.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+  let remaining = position;
+  let textNode = walker.nextNode();
+  while (textNode) {
+    const length = textNode.textContent?.length ?? 0;
+    if (remaining <= length) {
+      const range = element.ownerDocument.createRange();
+      range.setStart(textNode, remaining);
+      range.collapse(true);
+      selection.removeAllRanges();
+      selection.addRange(range);
+      return;
+    }
+    remaining -= length;
+    textNode = walker.nextNode();
+  }
+  const range = element.ownerDocument.createRange();
+  range.selectNodeContents(element);
+  range.collapse(false);
+  selection.removeAllRanges();
+  selection.addRange(range);
 }

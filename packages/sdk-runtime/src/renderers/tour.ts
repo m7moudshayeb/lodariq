@@ -19,6 +19,13 @@ import {
   resolveSafeNavigationDestination,
   type SafeNavigationDestination,
 } from '@lodariq/schema/url';
+import {
+  ArrowRight,
+  Check,
+  ExternalLink,
+  createElement as createLucideElement,
+  type IconNode,
+} from 'lucide';
 import { assertSupportedCompiledArtifactIfVersioned } from '../artifact-compatibility';
 import {
   resolve,
@@ -30,7 +37,12 @@ import {
 import { isVisible } from '../resolver/element-evidence';
 import { applyCompiledTourTheme } from './tour-theme';
 
-export { resolveCompiledTourTheme, type ResolvedTourThemeStyle } from './tour-theme';
+export {
+  resolveCompiledTourTheme,
+  resolveTourThemeStyle,
+  type ResolvedTourThemeStyle,
+  type TourThemeStyleInput,
+} from './tour-theme';
 
 const NETWORK_IDLE_QUIET_MS = 80;
 const NETWORK_IDLE_POLL_MS = 20;
@@ -257,9 +269,8 @@ export class TourPlayer {
 
     this.card.innerHTML = '';
     this.card.hidden = Boolean(step.targetId);
-    for (const node of step.body) {
-      this.card.appendChild(this.createBodyElement(node));
-    }
+    applyStepComposition(this.card, step);
+    appendStepBody(this.card, step, (node) => this.createBodyElement(node));
     this.card.appendChild(this.createSkipButton());
     this.arrow.hidden = !step.targetId;
     this.card.appendChild(this.arrow);
@@ -1014,13 +1025,13 @@ function positionTourArrow(
 
 function renderHeadingNode(node: RuntimeBodyNode): HTMLElement {
   const element = document.createElement('h2');
-  setBodyNodeText(element, node);
+  setBodyNodeContent(element, node);
   return element;
 }
 
 function renderTextNode(node: RuntimeBodyNode): HTMLElement {
   const element = document.createElement('div');
-  setBodyNodeText(element, node);
+  setBodyNodeContent(element, node);
   return element;
 }
 
@@ -1043,14 +1054,15 @@ function renderDividerNode(node: RuntimeBodyNode): HTMLElement {
 
 function renderMediaNode(node: RuntimeBodyNode): HTMLElement {
   const element = document.createElement('div');
-  setBodyNodeText(element, node);
+  setBodyNodeContent(element, node);
   return element;
 }
 
 function renderButtonNode(node: RuntimeBodyNode, context: BodyNodeRenderContext): HTMLElement {
   const element = document.createElement('button');
   element.type = 'button';
-  setBodyNodeText(element, node);
+  setBodyNodeContent(element, node);
+  applyButtonPresentation(element, node);
   configureActionElement(element, node.props.action, context);
   return element;
 }
@@ -1063,14 +1075,25 @@ function renderLinkNode(node: RuntimeBodyNode, context: BodyNodeRenderContext): 
     element.target = '_blank';
     element.rel = 'noopener noreferrer';
   }
-  setBodyNodeText(element, node);
+  setBodyNodeContent(element, node);
+  applyButtonPresentation(element, node);
   configureActionElement(element, node.props.action, context);
   return element;
 }
 
-function setBodyNodeText(element: HTMLElement, node: RuntimeBodyNode): void {
+function setBodyNodeContent(element: HTMLElement, node: RuntimeBodyNode): void {
   setBodyNodeAttributes(element, node);
-  element.textContent = node.text ?? '';
+  const contentRuns = node.contentRuns;
+  if (!contentRuns?.length) {
+    element.textContent = node.text ?? '';
+    appendButtonIcon(element, node);
+    return;
+  }
+  for (const run of contentRuns) {
+    const runElement = createInlineRunElement(element.ownerDocument, run);
+    element.appendChild(runElement);
+  }
+  appendButtonIcon(element, node);
 }
 
 function setBodyNodeAttributes(element: HTMLElement, node: RuntimeBodyNode): void {
@@ -1085,6 +1108,126 @@ function setBodyNodeAttributes(element: HTMLElement, node: RuntimeBodyNode): voi
   if (textStyle?.color) element.style.color = textStyle.color;
   if (textStyle?.fontWeight) element.style.fontWeight = String(textStyle.fontWeight);
   if (textStyle?.fontStyle) element.style.fontStyle = textStyle.fontStyle;
+  const blockLayout = node.props.blockLayout;
+  if (blockLayout?.align) element.dataset['lodariqBlockAlign'] = blockLayout.align;
+  if (blockLayout?.spacingBefore) {
+    element.dataset['lodariqSpacingBefore'] = blockLayout.spacingBefore;
+  }
+  if (blockLayout?.spacingAfter) {
+    element.dataset['lodariqSpacingAfter'] = blockLayout.spacingAfter;
+  }
+  if (blockLayout?.spacingAfterPx !== undefined) {
+    element.dataset['lodariqSpacingAfterPx'] = String(blockLayout.spacingAfterPx);
+    element.style.setProperty('--lq-block-spacing-after', `${blockLayout.spacingAfterPx}px`);
+  }
+}
+
+function createInlineRunElement(
+  ownerDocument: Document,
+  run: NonNullable<RuntimeBodyNode['contentRuns']>[number],
+): HTMLElement {
+  const destination = run.link
+    ? resolveSafeNavigationDestination(run.link, { baseUrl: ownerDocument.location?.href })
+    : null;
+  const element = destination
+    ? ownerDocument.createElement('a')
+    : ownerDocument.createElement('span');
+  element.textContent = run.text;
+  if (destination && element instanceof HTMLAnchorElement) {
+    element.href = destination.href;
+    if (destination.kind === 'external') {
+      element.target = '_blank';
+      element.rel = 'noopener noreferrer';
+    }
+    element.addEventListener('click', (event) => event.stopPropagation());
+  }
+  const marks = new Set(run.marks ?? []);
+  if (marks.has('bold')) element.style.fontWeight = '700';
+  if (marks.has('italic')) element.style.fontStyle = 'italic';
+  if (marks.has('underline')) element.style.textDecoration = 'underline';
+  if (run.fontSizePx) element.style.fontSize = `${run.fontSizePx}px`;
+  if (run.color) element.style.color = run.color;
+  if (run.highlightColor) element.style.backgroundColor = run.highlightColor;
+  return element;
+}
+
+const ACTION_ICON_NODES: Readonly<Record<string, IconNode>> = {
+  'arrow-right': ArrowRight,
+  check: Check,
+  'external-link': ExternalLink,
+};
+
+function appendButtonIcon(element: HTMLElement, node: RuntimeBodyNode): void {
+  if (node.type !== 'button' && node.type !== 'link') return;
+  const iconName = node.props.buttonStyle?.icon;
+  const iconNode = iconName ? ACTION_ICON_NODES[iconName] : undefined;
+  if (!iconNode) return;
+  const icon = createLucideElement(iconNode);
+  icon.setAttribute('aria-hidden', 'true');
+  icon.classList.add('tour-action-icon');
+  if (node.props.buttonStyle?.iconPlacement === 'start') element.prepend(icon);
+  else element.append(icon);
+}
+
+function applyButtonPresentation(element: HTMLElement, node: RuntimeBodyNode): void {
+  const style = node.props.buttonStyle;
+  if (!style) return;
+  if (style.widthPx) {
+    element.dataset['lodariqActionWidth'] = 'custom';
+    element.style.setProperty('--lq-action-width', `${style.widthPx}px`);
+  } else if (style.width) {
+    element.dataset['lodariqActionWidth'] = style.width;
+  }
+  if (style.size) element.dataset['lodariqActionSize'] = style.size;
+  if (style.radius) element.dataset['lodariqActionRadius'] = style.radius;
+  if (style.fillColor) element.style.setProperty('--lq-action-fill', style.fillColor);
+  if (style.textColor) element.style.setProperty('--lq-action-text', style.textColor);
+  if (style.borderColor) element.style.setProperty('--lq-action-border', style.borderColor);
+}
+
+function applyStepComposition(card: HTMLElement, step: CompiledStep): void {
+  const layout = step.tooltipLayout;
+  if (layout?.widthPx !== undefined) {
+    card.dataset['lodariqPopupWidth'] = 'custom';
+    card.style.setProperty('--lq-popup-width', `${layout.widthPx}px`);
+  } else {
+    delete card.dataset['lodariqPopupWidth'];
+    card.style.removeProperty('--lq-popup-width');
+  }
+  if (layout?.heightPx !== undefined) {
+    card.dataset['lodariqPopupHeight'] = 'custom';
+    card.style.setProperty('--lq-popup-height', `${layout.heightPx}px`);
+  } else {
+    delete card.dataset['lodariqPopupHeight'];
+    card.style.removeProperty('--lq-popup-height');
+  }
+  card.dataset['lodariqContentAlign'] = layout?.contentAlign ?? 'left';
+  card.dataset['lodariqActionLayout'] = layout?.actionLayout ?? 'inline';
+  card.dataset['lodariqActionAlign'] = layout?.actionAlign ?? 'start';
+  card.dataset['lodariqCompositionGap'] = layout?.gap ?? 'normal';
+  card.dataset['lodariqCompositionPadding'] = layout?.padding ?? 'standard';
+}
+
+function appendStepBody(
+  card: HTMLElement,
+  step: CompiledStep,
+  createBodyElement: (node: RuntimeBodyNode) => HTMLElement,
+): void {
+  let actionGroup: HTMLElement | null = null;
+  for (const node of step.body) {
+    const isAction = node.type === 'button' || node.type === 'link';
+    if (!isAction) {
+      actionGroup = null;
+      card.appendChild(createBodyElement(node));
+      continue;
+    }
+    if (!actionGroup) {
+      actionGroup = card.ownerDocument.createElement('div');
+      actionGroup.className = 'tour-action-group';
+      card.appendChild(actionGroup);
+    }
+    actionGroup.appendChild(createBodyElement(node));
+  }
 }
 
 function configureActionElement(
@@ -1402,7 +1545,7 @@ function createStyles(): HTMLStyleElement {
     div[role="dialog"] {
       box-sizing: border-box;
       width: min(var(--lq-tour-width), calc(100vw - 24px));
-      padding: var(--lq-tour-spacing);
+      padding: var(--lq-tour-composition-padding, var(--lq-tour-spacing));
       border: var(--lq-tour-border-width) solid var(--lq-tour-border-color);
       border-radius: var(--lq-tour-radius);
       background: var(--lq-tour-surface);
@@ -1415,6 +1558,32 @@ function createStyles(): HTMLStyleElement {
         border-color var(--lq-tour-motion-duration) var(--lq-tour-motion-easing),
         color var(--lq-tour-motion-duration) var(--lq-tour-motion-easing);
     }
+
+    div[role="dialog"][data-lodariq-content-align="center"] { text-align: center; }
+    div[role="dialog"][data-lodariq-content-align="right"] { text-align: right; }
+    div[role="dialog"][data-lodariq-popup-width="custom"] {
+      width: min(var(--lq-popup-width), calc(100vw - 24px));
+    }
+    div[role="dialog"][data-lodariq-popup-height="custom"] {
+      height: min(var(--lq-popup-height), calc(100vh - 24px));
+      overflow: auto;
+    }
+    div[role="dialog"][data-lodariq-composition-padding="compact"] {
+      --lq-tour-composition-padding: var(--lq-tour-space-sm);
+    }
+    div[role="dialog"][data-lodariq-composition-padding="relaxed"] {
+      --lq-tour-composition-padding: var(--lq-tour-space-lg);
+    }
+
+    [data-lodariq-spacing-before="none"] { margin-top: 0 !important; }
+    [data-lodariq-spacing-before="tight"] { margin-top: var(--lq-tour-space-xs) !important; }
+    [data-lodariq-spacing-before="normal"] { margin-top: var(--lq-tour-space-sm) !important; }
+    [data-lodariq-spacing-before="relaxed"] { margin-top: var(--lq-tour-space-md) !important; }
+    [data-lodariq-spacing-after="none"] { margin-bottom: 0 !important; }
+    [data-lodariq-spacing-after="tight"] { margin-bottom: var(--lq-tour-space-xs) !important; }
+    [data-lodariq-spacing-after="normal"] { margin-bottom: var(--lq-tour-space-sm) !important; }
+    [data-lodariq-spacing-after="relaxed"] { margin-bottom: var(--lq-tour-space-md) !important; }
+    [data-lodariq-spacing-after-px] { margin-bottom: var(--lq-block-spacing-after) !important; }
 
     .tour-arrow {
       position: absolute;
@@ -1546,11 +1715,11 @@ function createStyles(): HTMLStyleElement {
       text-align: center;
     }
 
-    a {
+    [data-lodariq-node-type="link"] {
       display: inline-flex;
       align-items: center;
-      min-height: 30px;
-      margin-top: 2px;
+      min-height: 36px;
+      margin-top: var(--lq-tour-space-xs);
       color: var(--lq-tour-primary-surface);
       font-size: var(--lq-tour-small-font-size);
       font-weight: var(--lq-tour-action-font-weight);
@@ -1558,33 +1727,159 @@ function createStyles(): HTMLStyleElement {
       cursor: pointer;
     }
 
-    a:hover {
+    [data-lodariq-node-type="link"]:hover {
       text-decoration: underline;
     }
+
+    [data-lodariq-node-type="paragraph"] a,
+    [data-lodariq-node-type="heading"] a {
+      display: inline;
+      min-height: 0;
+      margin: 0;
+      color: inherit;
+      font: inherit;
+      text-decoration: underline;
+    }
+
+    .tour-action-group {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: var(--lq-tour-space-sm);
+      margin: var(--lq-tour-space-xs) 0 0;
+    }
+
+    div[role="dialog"][data-lodariq-action-layout="stack"] .tour-action-group {
+      flex-direction: column;
+      align-items: stretch;
+    }
+
+    div[role="dialog"][data-lodariq-action-layout="inline"][data-lodariq-action-align="center"] .tour-action-group { justify-content: center; }
+    div[role="dialog"][data-lodariq-action-layout="inline"][data-lodariq-action-align="end"] .tour-action-group { justify-content: flex-end; }
+    div[role="dialog"][data-lodariq-action-layout="inline"][data-lodariq-action-align="stretch"] .tour-action-group > * { flex: 1 1 0; }
+    div[role="dialog"][data-lodariq-action-layout="stack"][data-lodariq-action-align="start"] .tour-action-group { align-items: flex-start; }
+    div[role="dialog"][data-lodariq-action-layout="stack"][data-lodariq-action-align="center"] .tour-action-group { align-items: center; }
+    div[role="dialog"][data-lodariq-action-layout="stack"][data-lodariq-action-align="end"] .tour-action-group { align-items: flex-end; }
+    div[role="dialog"][data-lodariq-composition-gap="none"] .tour-action-group { gap: 0; }
+    div[role="dialog"][data-lodariq-composition-gap="tight"] .tour-action-group { gap: var(--lq-tour-space-xs); }
+    div[role="dialog"][data-lodariq-composition-gap="normal"] .tour-action-group { gap: var(--lq-tour-space-sm); }
+    div[role="dialog"][data-lodariq-composition-gap="relaxed"] .tour-action-group { gap: var(--lq-tour-space-md); }
 
     button {
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      min-height: 36px;
-      padding: calc(var(--lq-tour-spacing) * .6) var(--lq-tour-spacing);
+      gap: var(--lq-tour-space-xs);
+      min-height: 40px;
+      padding: var(--lq-tour-space-xs) var(--lq-tour-space-sm);
       border: var(--lq-tour-border-width) solid transparent;
       border-radius: var(--lq-tour-radius);
-      background: var(--lq-tour-primary-surface);
-      color: var(--lq-tour-primary-text);
+      background: var(--lq-action-fill, var(--lq-tour-primary-surface));
+      color: var(--lq-action-text, var(--lq-tour-primary-text));
       font: inherit;
       font-weight: var(--lq-tour-action-font-weight);
       cursor: pointer;
     }
 
     button[data-lodariq-action-variant="secondary"] {
-      border-color: var(--lq-tour-border-color);
-      background: var(--lq-tour-secondary-surface);
-      color: var(--lq-tour-secondary-text);
+      border-color: var(--lq-action-border, var(--lq-tour-border-color));
+      background: var(--lq-action-fill, var(--lq-tour-secondary-surface));
+      color: var(--lq-action-text, var(--lq-tour-secondary-text));
+    }
+
+    button[data-lodariq-action-variant="subtle"] {
+      border-color: transparent;
+      background: var(--lq-action-fill, color-mix(in srgb, var(--lq-tour-primary-surface) 12%, transparent));
+      color: var(--lq-action-text, var(--lq-tour-primary-surface));
+    }
+
+    button[data-lodariq-action-variant="outline"] {
+      border-color: var(--lq-action-border, var(--lq-tour-primary-surface));
+      background: transparent;
+      color: var(--lq-action-text, var(--lq-tour-primary-surface));
+    }
+
+    button[data-lodariq-action-variant="link"] {
+      min-height: 36px;
+      border-color: transparent;
+      background: transparent;
+      color: var(--lq-action-text, var(--lq-tour-primary-surface));
+      padding-inline: var(--lq-tour-space-xs);
+      text-decoration: underline;
+    }
+
+    button[data-lodariq-action-size="compact"] { min-height: 36px; padding-block: var(--lq-tour-space-xs); }
+    button[data-lodariq-action-width="custom"] { width: min(100%, var(--lq-action-width)); }
+    button[data-lodariq-action-width="fill"] { width: 100%; }
+    button[data-lodariq-action-radius="square"] { border-radius: 0; }
+    button[data-lodariq-action-radius="soft"] { border-radius: var(--lq-tour-radius-sm); }
+    button[data-lodariq-action-radius="round"] { border-radius: 999px; }
+    button[data-lodariq-block-align="center"] { margin-inline: auto; }
+    button[data-lodariq-block-align="end"] { margin-inline: auto 0; }
+    button[data-lodariq-block-align="stretch"] { width: 100%; }
+
+    [data-lodariq-node-type="link"][data-lodariq-action-variant] {
+      justify-content: center;
+      gap: var(--lq-tour-space-xs);
+      min-height: 40px;
+      margin: 0;
+      padding: var(--lq-tour-space-xs) var(--lq-tour-space-sm);
+      border: var(--lq-tour-border-width) solid transparent;
+      border-radius: var(--lq-tour-radius);
+      text-decoration: none;
+    }
+
+    [data-lodariq-node-type="link"][data-lodariq-action-variant="primary"] {
+      background: var(--lq-action-fill, var(--lq-tour-primary-surface));
+      color: var(--lq-action-text, var(--lq-tour-primary-text));
+    }
+
+    [data-lodariq-node-type="link"][data-lodariq-action-variant="secondary"] {
+      border-color: var(--lq-action-border, var(--lq-tour-border-color));
+      background: var(--lq-action-fill, var(--lq-tour-secondary-surface));
+      color: var(--lq-action-text, var(--lq-tour-secondary-text));
+    }
+
+    [data-lodariq-node-type="link"][data-lodariq-action-variant="subtle"] {
+      background: var(--lq-action-fill, color-mix(in srgb, var(--lq-tour-primary-surface) 12%, transparent));
+      color: var(--lq-action-text, var(--lq-tour-primary-surface));
+    }
+
+    [data-lodariq-node-type="link"][data-lodariq-action-variant="outline"] {
+      border-color: var(--lq-action-border, var(--lq-tour-primary-surface));
+      background: transparent;
+      color: var(--lq-action-text, var(--lq-tour-primary-surface));
+    }
+
+    [data-lodariq-node-type="link"][data-lodariq-action-variant="link"] {
+      min-height: 36px;
+      padding-inline: var(--lq-tour-space-xs);
+      color: var(--lq-action-text, var(--lq-tour-primary-surface));
+      text-decoration: underline;
+    }
+
+    [data-lodariq-node-type="link"][data-lodariq-action-size="compact"] { min-height: 36px; }
+    [data-lodariq-node-type="link"][data-lodariq-action-width="custom"] { width: min(100%, var(--lq-action-width)); }
+    [data-lodariq-node-type="link"][data-lodariq-action-width="fill"] { width: 100%; }
+    [data-lodariq-node-type="link"][data-lodariq-action-radius="square"] { border-radius: 0; }
+    [data-lodariq-node-type="link"][data-lodariq-action-radius="soft"] { border-radius: var(--lq-tour-radius-sm); }
+    [data-lodariq-node-type="link"][data-lodariq-action-radius="round"] { border-radius: 999px; }
+    [data-lodariq-node-type="link"][data-lodariq-block-align="center"] { margin-inline: auto; }
+    [data-lodariq-node-type="link"][data-lodariq-block-align="end"] { margin-inline: auto 0; }
+    [data-lodariq-node-type="link"][data-lodariq-block-align="stretch"] { width: 100%; }
+
+    .tour-action-group > button:hover {
+      filter: brightness(.94);
+    }
+
+    .tour-action-icon {
+      width: 16px;
+      height: 16px;
+      flex: 0 0 auto;
     }
 
     [data-lodariq-node-type="button"] {
-      margin: 4px 8px 0 0;
+      margin: 0;
     }
 
     .tour-skip {
@@ -1632,6 +1927,14 @@ function createStyles(): HTMLStyleElement {
       max-height: 100%;
       overflow: auto;
       pointer-events: none;
+    }
+
+    :host([data-lodariq-embedded-preview]) div[role="dialog"][data-lodariq-popup-width="custom"] {
+      width: min(var(--lq-popup-width), 100%);
+    }
+
+    :host([data-lodariq-embedded-preview]) div[role="dialog"][data-lodariq-popup-height="custom"] {
+      height: min(var(--lq-popup-height), 100%);
     }
 
     :host([data-lodariq-embedded-preview]) .tour-skip {

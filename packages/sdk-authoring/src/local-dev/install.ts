@@ -1,4 +1,5 @@
 import type { LodariqDocument } from '@lodariq/schema';
+import { LODARIQ_ACCESSIBLE_FALLBACK_THEME_V1 } from '@lodariq/schema/brand-runtime';
 import type {
   InstallOptions,
   LoaderConfig,
@@ -90,6 +91,7 @@ export async function installLocalLodariqAuthoringFromScript(
           documentId,
         ),
         initialDocument: document,
+        initialTheme: structuredClone(LODARIQ_ACCESSIBLE_FALLBACK_THEME_V1),
         preview: {
           loadDocument: (requestedDocumentId) =>
             currentDocument(localConfig, options.baseDocument, requestedDocumentId),

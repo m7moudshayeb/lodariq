@@ -711,9 +711,7 @@ function attachLauncherInteractions(
     dismissPalette(true);
   };
   const dismissPalette = (restoreFocus: boolean): void => {
-    launcher.dataset['lodariqPaletteDismissed'] = 'true';
-    setLauncherPinned(launcher, button, false);
-    closeLauncherSurface(launcher, surface);
+    dismissLauncherPalette(launcher, button, surface);
     if (restoreFocus) {
       suppressFocusReopen = true;
       button.focus();
@@ -734,7 +732,6 @@ function attachLauncherInteractions(
   const revealPaletteOnHover = (): void => reopenPalette();
   const handleOutsidePointerDown = (event: Event): void => {
     if (event.composedPath().includes(launcher)) return;
-    if (launcher.dataset['lodariqPinned'] !== 'true' && surface.hidden) return;
     dismissPalette(false);
   };
 
@@ -861,6 +858,7 @@ function launcherActionHandler(
     'edit-current-experience': async () => {
       closeLauncherSurface(context.launcher, context.surface);
       await context.api.openAuthoring();
+      dismissLauncherPalette(context.launcher, context.launcherButton, context.surface);
     },
     'experiences-on-page': () => renderPageExperiencesSurface(actionButton, context),
     'new-experience': () => renderNewExperienceSurface(actionButton, context),
@@ -903,8 +901,7 @@ function renderNewExperienceSurface(
     item.addEventListener('click', () => {
       void runSurfaceItemAction(item, context.doc, async () => {
         await onCreateExperience(experienceType.id);
-        closeLauncherSurface(context.launcher, context.surface);
-        if (actionButton.isConnected) actionButton.focus();
+        dismissLauncherPalette(context.launcher, context.launcherButton, context.surface);
       });
     });
     list.appendChild(item);
@@ -949,8 +946,7 @@ async function renderPageExperiencesSurface(
       item.addEventListener('click', () => {
         void runSurfaceItemAction(item, context.doc, async () => {
           await onOpenExperience(experience.id);
-          closeLauncherSurface(context.launcher, context.surface);
-          if (actionButton.isConnected) actionButton.focus();
+          dismissLauncherPalette(context.launcher, context.launcherButton, context.surface);
         });
       });
       list.appendChild(item);
@@ -1101,6 +1097,16 @@ function setLauncherPinned(
   if (pinned) delete launcher.dataset['lodariqPaletteDismissed'];
   launcher.dataset['lodariqPinned'] = pinned ? 'true' : 'false';
   launcherButton.setAttribute('aria-expanded', pinned ? 'true' : 'false');
+}
+
+function dismissLauncherPalette(
+  launcher: HTMLElement,
+  launcherButton: HTMLButtonElement,
+  surface: HTMLElement,
+): void {
+  launcher.dataset['lodariqPaletteDismissed'] = 'true';
+  setLauncherPinned(launcher, launcherButton, false);
+  closeLauncherSurface(launcher, surface);
 }
 
 function launcherKeyboardOffset(key: string): { x: number; y: number } | null {

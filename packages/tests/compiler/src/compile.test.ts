@@ -567,6 +567,72 @@ describe('compile', () => {
     expect(compiledHeading?.props.textStyle).not.toBe(heading.props.textStyle);
   });
 
+  it('preserves ordered rich content and safe popup/action composition', async () => {
+    const mutableDocument = structuredClone(document);
+    const tooltip = tourTooltip(mutableDocument);
+    const heading = tooltip.children.find((block) => block.type === 'heading')!;
+    const button = tooltip.children.find((block) => block.type === 'button')!;
+    heading.content = 'Launch in 3 days';
+    heading.contentRuns = [
+      { text: 'Launch in ' },
+      {
+        text: '3 days',
+        marks: ['bold'],
+        fontSizePx: 24,
+        color: '#006b58',
+        highlightColor: '#fff0a8',
+      },
+    ];
+    button.props.variant = 'outline';
+    button.props.blockLayout = { align: 'center', spacingBefore: 'relaxed' };
+    button.props.buttonStyle = {
+      width: 'fill',
+      size: 'compact',
+      fillColor: '#ffffff',
+      textColor: '#006b58',
+      borderColor: '#006b58',
+      radius: 'round',
+      icon: 'arrow-right',
+      iconPlacement: 'end',
+    };
+    tooltip.props.tooltipLayout = {
+      widthPx: 480,
+      heightPx: 320,
+      contentAlign: 'center',
+      actionLayout: 'stack',
+      actionAlign: 'stretch',
+      gap: 'relaxed',
+      padding: 'compact',
+    };
+    tooltip.children.splice(tooltip.children.indexOf(button) + 1, 0, {
+      id: 'after_button_copy',
+      type: 'paragraph',
+      content: 'You can change this later.',
+      props: {},
+      children: [],
+    });
+
+    const compiled = await compileDocument(themedInput(mutableDocument));
+    const step = compiled.steps[0]!;
+    const compiledHeading = step.body.find((block) => block.id === heading.id)!;
+    const compiledButton = step.body.find((block) => block.id === button.id)!;
+
+    expect(step.body.map((block) => block.id)).toEqual([
+      heading.id,
+      tooltip.children.find((block) => block.type === 'paragraph')!.id,
+      button.id,
+      'after_button_copy',
+    ]);
+    expect(step.tooltipLayout).toEqual(tooltip.props.tooltipLayout);
+    expect(compiledHeading.contentRuns).toEqual(heading.contentRuns);
+    expect(compiledHeading.contentRuns).not.toBe(heading.contentRuns);
+    expect(compiledButton.props).toMatchObject({
+      variant: 'outline',
+      blockLayout: button.props.blockLayout,
+      buttonStyle: button.props.buttonStyle,
+    });
+  });
+
   it('retains a legacy selector hint only for fingerprint-only compatibility targets', () => {
     const mutableDocument = structuredClone(document);
     mutableDocument.targets[0]!.fingerprint.scopedCss = '#legacy-selector-hint';

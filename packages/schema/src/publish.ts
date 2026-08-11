@@ -62,6 +62,8 @@ const TOUR_TOOLTIP_BLOCK_TYPES = new Set([
 ]);
 const TOUR_STEP_CHILD_TYPES = new Set(['tooltip', 'targetChip', 'validationBadge']);
 const ACTION_TYPES = new Set<string>(BLOCK_ACTION_TYPES);
+const RICH_TEXT_BLOCK_TYPES = new Set(['heading', 'paragraph']);
+const ACTION_STYLE_BLOCK_TYPES = new Set(['button', 'link']);
 const VISIBLE_WITHOUT_CONTENT_TYPES = new Set(['divider']);
 const HIDDEN_TOUR_CONTENT_TYPES = new Set(['media', 'targetChip', 'validationBadge']);
 const ACTIONABLE_FINGERPRINT_TEXT_FIELDS = [
@@ -189,6 +191,8 @@ function validateTourStep(
   }
 
   validatePresentationAnchorConfiguration(step, tooltip, issues);
+  validateStructuredStylePlacement(step, issues);
+  validateStructuredStylePlacement(tooltip, issues);
 
   const editableChildren = tooltip.children.filter(
     (child) => child.type !== 'targetChip' && child.type !== 'validationBadge',
@@ -353,6 +357,7 @@ function validateTooltipChild(block: LodariqBlock, issues: PublishReadinessIssue
     });
     return;
   }
+  validateStructuredStylePlacement(block, issues);
   if (block.status === 'invalid') {
     issues.push({
       code: 'invalid_block',
@@ -360,8 +365,54 @@ function validateTooltipChild(block: LodariqBlock, issues: PublishReadinessIssue
       message: `${blockLabel(block)} needs a configuration fix before publishing.`,
     });
   }
+  validateInlineContent(block, issues);
   TOOLTIP_CHILD_VALIDATORS[block.type]?.(block, issues);
   for (const child of block.children) validateTooltipChild(child, issues);
+}
+
+function validateStructuredStylePlacement(
+  block: LodariqBlock,
+  issues: PublishReadinessIssue[],
+): void {
+  if (block.contentRuns?.length && !RICH_TEXT_BLOCK_TYPES.has(block.type)) {
+    issues.push({
+      code: 'invalid_block',
+      blockId: block.id,
+      message: `${blockLabel(block)} has rich-text formatting that is not supported for this block type.`,
+    });
+  }
+  if (block.props.buttonStyle && !ACTION_STYLE_BLOCK_TYPES.has(block.type)) {
+    issues.push({
+      code: 'invalid_block',
+      blockId: block.id,
+      message: `${blockLabel(block)} has action styling that is not supported for this block type.`,
+    });
+  }
+  if (block.props.tooltipLayout && block.type !== 'tooltip') {
+    issues.push({
+      code: 'invalid_block',
+      blockId: block.id,
+      message: `${blockLabel(block)} has popup layout settings outside a tooltip.`,
+    });
+  }
+}
+
+function validateInlineContent(block: LodariqBlock, issues: PublishReadinessIssue[]): void {
+  if (!block.contentRuns?.length) return;
+  if (block.contentRuns.map((run) => run.text).join('') !== (block.content ?? '')) {
+    issues.push({
+      code: 'invalid_block',
+      blockId: block.id,
+      message: `${blockLabel(block)} has inconsistent rich-text content. Reopen and save the text.`,
+    });
+  }
+  if (block.contentRuns.some((run) => run.link && !isSafeNavigationUrl(run.link))) {
+    issues.push({
+      code: 'open_page_unsafe_url',
+      blockId: block.id,
+      message: `${blockLabel(block)} contains a text link that is not allowed.`,
+    });
+  }
 }
 
 function validateMediaBlock(block: LodariqBlock, issues: PublishReadinessIssue[]): void {

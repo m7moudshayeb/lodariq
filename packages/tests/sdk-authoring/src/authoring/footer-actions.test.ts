@@ -32,7 +32,7 @@ describe('authoring footer actions', () => {
     vi.restoreAllMocks();
   });
 
-  it('keeps the primary panel actions visible and sends the closed Save & exit intent', async () => {
+  it('keeps primary actions in the persistent footer and secondary actions in overflow', async () => {
     const baseDocument = structuredClone(tourFixture) as LodariqDocument;
     const postMessage = vi.fn();
     const peer = { postMessage } as unknown as Window;
@@ -60,26 +60,43 @@ describe('authoring footer actions', () => {
 
     const footer = document.querySelector<HTMLElement>('.panel-workspace-footer');
     const saveAndExit = buttonByText(footer, 'Save & exit');
-    const appearance = footer?.querySelector<HTMLButtonElement>('[data-panel-entry="appearance"]');
+    const draftState = footer?.querySelector<HTMLElement>('.panel-save-status[data-save-state]');
+    const moreActions = footer?.querySelector<HTMLButtonElement>(
+      '[aria-label="More experience actions"]',
+    );
 
     expect(footer).not.toBeNull();
-    expect(footer?.getAttribute('aria-label')).toBe('Authoring actions');
-    const draftState = footer?.querySelector<HTMLElement>('.panel-save-status[data-save-state]');
-    const statusCopy = draftState?.querySelector<HTMLElement>('.panel-save-status-copy');
-    const releaseSummary = statusCopy?.querySelector<HTMLElement>('.panel-release-summary');
-
     expect(draftState?.dataset.state).toBe('saved');
     expect(draftState?.querySelector('[data-save-state-label]')?.textContent).toBe('Draft saved');
-    expect(statusCopy?.children[0]).toBe(draftState?.querySelector('[data-save-state-label]'));
-    expect(statusCopy?.children[1]).toBe(releaseSummary);
-    expect(appearance?.getAttribute('aria-label')).toBe('Customize');
-    expect(appearance?.querySelector('svg')).not.toBeNull();
+    expect(footer?.querySelector('[data-panel-entry="appearance"]')).toBeNull();
+    expect(footer?.querySelector('.review-recovery')).toBeNull();
     expect(buttonByText(footer, 'Preview')).toBeTruthy();
     expect(
       footer
         ?.querySelector<HTMLButtonElement>('[data-panel-entry="release"]')
         ?.getAttribute('aria-label'),
     ).toBe('Release options');
+    expect(moreActions?.querySelector('svg')).not.toBeNull();
+
+    document.querySelector<HTMLButtonElement>('[aria-label="More experience actions"]')?.click();
+    await vi.waitFor(() => {
+      expect(
+        document.querySelector<HTMLButtonElement>('[role="menuitem"][aria-label="Customize"]'),
+      ).not.toBeNull();
+      expect(
+        document.querySelector<HTMLButtonElement>('.review-recovery[role="menuitem"]'),
+      ).not.toBeNull();
+    });
+    const appearance = document.querySelector<HTMLButtonElement>(
+      '[role="menuitem"][aria-label="Customize"]',
+    );
+    const review = document.querySelector<HTMLButtonElement>('.review-recovery[role="menuitem"]');
+    if (!appearance || !review) throw new Error('Footer overflow actions are missing');
+    expect(appearance.querySelector('svg')).not.toBeNull();
+    expect(review.querySelector('svg')).not.toBeNull();
+    review.click();
+    await vi.waitFor(() => expect(document.querySelector('.panel-advanced-editor')).not.toBeNull());
+    expect(document.querySelector('.panel-workspace-footer')).not.toBeNull();
 
     saveAndExit.click();
     const requests = outbound(postMessage, AUTHORING_SAVE_AND_EXIT_REQUEST_TYPE);
@@ -114,11 +131,30 @@ describe('authoring footer actions', () => {
       );
     });
 
-    appearance?.click();
+    document.querySelector<HTMLButtonElement>('[aria-label="More experience actions"]')?.click();
+    await vi.waitFor(() =>
+      expect(
+        document.querySelector<HTMLButtonElement>('[role="menuitem"][aria-label="Customize"]'),
+      ).not.toBeNull(),
+    );
+    document.querySelector<HTMLButtonElement>('[role="menuitem"][aria-label="Customize"]')?.click();
     await vi.waitFor(() => {
       expect(document.querySelector('[data-panel-mode-heading]')?.textContent).toBe(
         'Feel native to this product',
       );
+    });
+    const modeFooter = document.querySelector<HTMLElement>('.panel-workspace-footer');
+    expect(modeFooter).not.toBeNull();
+    modeFooter?.querySelector<HTMLButtonElement>('[aria-label="More experience actions"]')?.click();
+    await vi.waitFor(() =>
+      expect(
+        document.querySelector<HTMLButtonElement>('.review-recovery[role="menuitem"]'),
+      ).not.toBeNull(),
+    );
+    document.querySelector<HTMLButtonElement>('.review-recovery[role="menuitem"]')?.click();
+    await vi.waitFor(() => {
+      expect(document.querySelector('.panel-advanced-editor')).not.toBeNull();
+      expect(document.querySelector('.panel-workspace-footer')).not.toBeNull();
     });
   });
 });

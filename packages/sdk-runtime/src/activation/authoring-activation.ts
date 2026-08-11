@@ -583,7 +583,6 @@ export function createPublicAuthoringLauncher(
 
   const handleOutsidePointerDown = (event: PointerEvent): void => {
     if (event.composedPath().includes(host)) return;
-    if (shell.dataset['pinned'] !== 'true' && shell.dataset['surfaceOpen'] !== 'true') return;
     dismiss(false);
   };
 
@@ -596,6 +595,7 @@ export function createPublicAuthoringLauncher(
       return;
     }
     if (panelState !== 'closed' && state !== 'authoring-conflict') {
+      dismiss(false);
       setState('active');
       return;
     }

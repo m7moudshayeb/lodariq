@@ -48,7 +48,7 @@ describe('authoring Release options findings', () => {
       'Needs attention · 3 findings',
     );
     const selectedStepLabel = document
-      .querySelector<HTMLButtonElement>('.tour-step-select[aria-current="step"]')
+      .querySelector<HTMLButtonElement>('.tour-storyboard-select[aria-current="step"]')
       ?.getAttribute('aria-label');
 
     releaseEntry.focus();
@@ -69,14 +69,14 @@ describe('authoring Release options findings', () => {
     backToAuthoringButton().click();
     await vi.waitFor(() => {
       const returnedEntry = document.querySelector<HTMLButtonElement>(
-        '[data-panel-entry="release"]',
+        '.panel-workspace-footer [data-panel-entry="release"]',
       );
       expect(returnedEntry).not.toBeNull();
       expect(document.activeElement).toBe(returnedEntry);
     });
     expect(
       document
-        .querySelector<HTMLButtonElement>('.tour-step-select[aria-current="step"]')
+        .querySelector<HTMLButtonElement>('.tour-storyboard-select[aria-current="step"]')
         ?.getAttribute('aria-label'),
     ).toBe(selectedStepLabel);
     expect(saveDocument).not.toHaveBeenCalled();
@@ -183,6 +183,7 @@ describe('authoring Release options findings', () => {
     });
 
     backToAuthoringButton().click();
+    await waitForReleaseEntry('ready');
     await vi.waitFor(() => {
       expect(document.querySelector('.panel-release-summary')?.textContent).toBe(
         `Ready to stage · ${localFindingCount + 1} findings`,
@@ -235,7 +236,9 @@ async function waitForReleaseEntry(status: string): Promise<HTMLButtonElement> {
       ],
     ).toBe(status);
   });
-  const entry = document.querySelector<HTMLButtonElement>('[data-panel-entry="release"]');
+  const entry = document.querySelector<HTMLButtonElement>(
+    '.panel-workspace-footer [data-panel-entry="release"]',
+  );
   if (!entry) throw new Error('Release options entry is missing');
   return entry;
 }

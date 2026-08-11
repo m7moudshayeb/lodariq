@@ -105,8 +105,8 @@ describe('local authoring panel (PRD §16.1)', () => {
     expect(iframeUrl.searchParams.get('lodariqFrame')).toBe('panel');
     expect(iframe?.getAttribute('slot')).toBe('authoring-frame');
     const styles = host?.shadowRoot?.querySelector('style')?.textContent ?? '';
-    expect(styles).toContain('width: min(700px, calc(100vw - 72px))');
-    expect(styles).toContain('height: min(620px, calc(100dvh - 94px))');
+    expect(styles).toContain('width: min(1120px, calc(100vw - 32px))');
+    expect(styles).toContain('height: min(800px, calc(100dvh - 32px))');
     expect(styles).toContain('height: min(480px, 72dvh)');
     expect(styles).toContain('.authoring-bar');
     expect(styles).toContain('.panel-drag-handle');
@@ -114,7 +114,7 @@ describe('local authoring panel (PRD §16.1)', () => {
     expect(styles).toContain('pointer-events: auto');
     expect(styles).toContain('border-radius: 16px');
     expect(styles).toContain('[data-lodariq-target-picking="true"]');
-    expect(styles).toContain('background: #003f35');
+    expect(styles).toContain('background: #0c211c');
     expect(styles).toContain('color-scheme: light');
     expect(host?.shadowRoot?.querySelector('.panel-drag-handle')?.getAttribute('role')).toBe(
       'button',
@@ -124,7 +124,7 @@ describe('local authoring panel (PRD §16.1)', () => {
       host?.shadowRoot?.querySelector('.panel-resize-handle')?.getAttribute('aria-label'),
     ).toContain('Use arrow keys to resize it');
     expect(host?.shadowRoot?.querySelector('.save-state')).toBeNull();
-    expect(host?.shadowRoot?.querySelector('[data-save-state-label]')).toBeNull();
+    expect(host?.shadowRoot?.querySelector('[data-panel-save-state-label]')).toBeNull();
     expect(
       host?.shadowRoot?.querySelector<HTMLInputElement>('[data-panel-document-title]')?.value,
     ).toBe('Untitled experience');
@@ -200,6 +200,7 @@ describe('local authoring panel (PRD §16.1)', () => {
     expect(minimizeButton?.textContent?.trim()).toBe('');
     expect(minimizeButton?.querySelector('svg')).not.toBeNull();
     expect(minimizeButton?.getAttribute('aria-label')).toBe('Minimize authoring panel');
+    expect(minimizeButton?.classList.contains('header-action')).toBe(true);
     expect(panelCloseButton?.classList.contains('header-action')).toBe(true);
     expect(panelCloseButton?.textContent?.trim()).toBe('');
     expect(panelCloseButton?.querySelector('svg')).not.toBeNull();
@@ -209,6 +210,8 @@ describe('local authoring panel (PRD §16.1)', () => {
     expect(host?.shadowRoot?.querySelector('[data-panel-action="options"]')).toBeNull();
     expect(host?.shadowRoot?.querySelector('[data-panel-action="appearance"]')).toBeNull();
     expect(host?.shadowRoot?.querySelector('[data-panel-action="preview"]')).toBeNull();
+    expect(host?.shadowRoot?.querySelector('[data-panel-action="release"]')).toBeNull();
+    expect(host?.shadowRoot?.querySelector('.panel-overflow')).toBeNull();
     expect(host?.shadowRoot?.querySelector('[data-panel-action="close"]')).toBeNull();
     expect(host?.shadowRoot?.querySelector('[role="menu"]')).toBeNull();
     expect(styles).toContain('width: 36px');
@@ -224,6 +227,30 @@ describe('local authoring panel (PRD §16.1)', () => {
 
     expect(document.querySelector('lodariq-authoring-panel')).toBeNull();
     expect(document.documentElement.hasAttribute('data-lodariq-authoring-panel-open')).toBe(false);
+  });
+
+  it('keeps workspace controls in the header without duplicating footer actions', () => {
+    const panel = openLocalAuthoringPanel(
+      {
+        sessionId: LOCAL_AUTHORING_SESSION_ID,
+        documentId: 'doc_tour_welcome',
+        workspaceId: 'wk_local_dev',
+        environment: 'development',
+      },
+      { iframeSrc: '/lodariq-local/authoring.html' },
+    );
+    const host = document.querySelector<HTMLElement>('lodariq-authoring-panel');
+    if (!host) throw new Error('authoring panel missing');
+    expect(host.shadowRoot?.querySelector('[data-panel-action="zoom"]')).not.toBeNull();
+    expect(host.shadowRoot?.querySelector('[data-panel-action="layout"]')).not.toBeNull();
+    expect(host.shadowRoot?.querySelector('[data-panel-action="minimize"]')).not.toBeNull();
+    expect(host.shadowRoot?.querySelector('[data-panel-action="close-panel"]')).not.toBeNull();
+    expect(host.shadowRoot?.querySelector('[data-panel-action="preview"]')).toBeNull();
+    expect(host.shadowRoot?.querySelector('[data-panel-action="release"]')).toBeNull();
+    expect(host.shadowRoot?.querySelector('[data-panel-action="appearance"]')).toBeNull();
+    expect(host.shadowRoot?.querySelector('[data-panel-action="save-and-exit"]')).toBeNull();
+
+    panel.close();
   });
 
   it('reorders both steps and rich-text rows through the drag handlers', () => {
@@ -387,7 +414,7 @@ describe('local authoring panel (PRD §16.1)', () => {
     expect(layoutButton.getAttribute('aria-label')).toBe('Workspace width: Custom');
     expect(layoutButton.textContent?.trim()).toBe('Custom');
     const styles = host.shadowRoot?.querySelector('style')?.textContent ?? '';
-    expect(styles).toContain(`background: #003f35`);
+    expect(styles).toContain(`background: #0c211c`);
     expect(styles).toContain(`color: #ffffff`);
 
     panel.close();
@@ -417,8 +444,8 @@ describe('local authoring panel (PRD §16.1)', () => {
     Object.defineProperty(window, 'innerHeight', { configurable: true, value: 768 });
     window.dispatchEvent(new Event('resize'));
     expect(host.getAttribute('data-lodariq-panel-layout')).toBe('standard');
-    expect(host.style.width).toBe('700px');
-    expect(host.style.height).toBe(`${Math.min(620, window.innerHeight - 36)}px`);
+    expect(host.style.width).toBe(`${window.innerWidth - 32}px`);
+    expect(host.style.height).toBe(`${Math.min(800, window.innerHeight - 32)}px`);
 
     panel.close();
     if (widthDescriptor) Object.defineProperty(window, 'innerWidth', widthDescriptor);
@@ -460,7 +487,7 @@ describe('local authoring panel (PRD §16.1)', () => {
     );
 
     expect(host.getAttribute('data-lodariq-panel-layout')).toBe('focus');
-    expect(host.style.width).toBe('860px');
+    expect(host.style.width).toBe(`${window.innerWidth - 32}px`);
     expect(peer.postMessage).toHaveBeenCalledWith(
       expect.objectContaining({ type: 'ack', ackOf: 'panel_layout_focus' }),
       window.location.origin,
@@ -622,7 +649,7 @@ describe('local authoring panel (PRD §16.1)', () => {
     expect(reopenedPanel).toBe(panel);
     expect(panel.isMinimized()).toBe(false);
     expect(host.querySelector('iframe')).toBe(iframe);
-    expect(host.style.height).toBe(`${Math.min(620, window.innerHeight - 94)}px`);
+    expect(host.style.height).toBe(`${Math.min(800, window.innerHeight - 32)}px`);
     expect(minimizeButton.getAttribute('aria-label')).toBe('Minimize authoring panel');
     expect(minimizeButton.dataset['tooltip']).toBe('Minimize authoring panel');
 
