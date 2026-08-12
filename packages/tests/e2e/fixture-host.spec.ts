@@ -2517,7 +2517,14 @@ async function chooseCurrentTarget(
     for (const label of expectedLabels) {
       await expect(activePlacement).toContainText(label);
     }
-    await tools.getByRole('button', { name: 'Content' }).click();
+    const contentTool = tools.getByRole('button', { name: 'Content' });
+    await expect(contentTool).toBeVisible();
+    await expect(contentTool).toBeEnabled();
+    // Returning from target picking restores the panel geometry. Linux WebKit
+    // can report subpixel movement for this dock indefinitely, even though the
+    // control is visible and usable, so bypass only that stability heuristic.
+    await contentTool.click({ force: true });
+    await expect(contentTool).toHaveAttribute('aria-pressed', 'true');
   }
   await expect(page.locator('[data-lodariq-bridge="target-outline"]')).toHaveCount(0);
   await page.evaluate(
