@@ -40,9 +40,9 @@ describe('release artifact compatibility', () => {
 
   it('requires every current compatibility version without hiding valid historical pins', () => {
     const historicalArtifacts = [
-      createArtifact({ artifactSchemaVersion: '3' }),
+      createArtifact({ artifactSchemaVersion: '2' }),
       createArtifact({ compilerVersion: '0.2.0' }),
-      createArtifact({ rendererContractVersion: '3' }),
+      createArtifact({ rendererContractVersion: '2' }),
       createArtifact({ themeContractVersion: '2' }),
     ];
 
@@ -133,18 +133,17 @@ describe('release artifact compatibility', () => {
   });
 });
 
-function createArtifact(overrides: ArtifactVersionOverrides = {}): ReleaseArtifactCompatibilityCandidate {
-  const artifactSchemaVersion =
-    overrides.artifactSchemaVersion ?? COMPILED_ARTIFACT_SCHEMA_VERSION;
+function createArtifact(
+  overrides: ArtifactVersionOverrides = {},
+): ReleaseArtifactCompatibilityCandidate {
+  const artifactSchemaVersion = overrides.artifactSchemaVersion ?? COMPILED_ARTIFACT_SCHEMA_VERSION;
   const compilerVersion = overrides.compilerVersion ?? COMPILER_VERSION;
-  const rendererContractVersion =
-    overrides.rendererContractVersion ?? RENDERER_CONTRACT_VERSION;
+  const rendererContractVersion = overrides.rendererContractVersion ?? RENDERER_CONTRACT_VERSION;
   const theme = structuredClone(LODARIQ_ACCESSIBLE_FALLBACK_THEME_V1) as unknown as Record<
     string,
     unknown
   >;
-  theme['contractVersion'] =
-    overrides.themeContractVersion ?? BRAND_THEME_CONTRACT_VERSION;
+  theme['contractVersion'] = overrides.themeContractVersion ?? BRAND_THEME_CONTRACT_VERSION;
   delete theme['contentHash'];
   theme['contentHash'] = contentHash(theme);
   const contentWithoutHash = {
@@ -160,6 +159,15 @@ function createArtifact(overrides: ArtifactVersionOverrides = {}): ReleaseArtifa
     appearance: DEFAULT_EXPERIENCE_APPEARANCE,
     targets: [],
     steps: [],
+    ...(artifactSchemaVersion === COMPILED_ARTIFACT_SCHEMA_VERSION
+      ? {
+          localization: {
+            defaultLocale: 'en',
+            defaultTitle: 'Recovery tour',
+            variants: [],
+          },
+        }
+      : {}),
   };
   const compiled = {
     ...contentWithoutHash,

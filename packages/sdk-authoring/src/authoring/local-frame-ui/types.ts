@@ -18,16 +18,17 @@ import type {
   AuthoringReleaseRecoveryRequestIdentity,
   AuthoringReleaseRecoveryViewModel,
 } from '../release-recovery-model';
+import { authoringText } from '../../i18n';
 
 export const SLASH_COMMANDS = [
-  { value: 'step', label: 'Step' },
-  { value: 'heading', label: 'Heading' },
-  { value: 'paragraph', label: 'Text' },
-  { value: 'list', label: 'List' },
-  { value: 'divider', label: 'Divider' },
-  { value: 'button', label: 'Button' },
-  { value: 'link', label: 'Link' },
-  { value: 'media', label: 'Media' },
+  { value: 'step', label: authoringText('Step') },
+  { value: 'heading', label: authoringText('Heading') },
+  { value: 'paragraph', label: authoringText('Text') },
+  { value: 'list', label: authoringText('List') },
+  { value: 'divider', label: authoringText('Divider') },
+  { value: 'button', label: authoringText('Button') },
+  { value: 'link', label: authoringText('Link') },
+  { value: 'media', label: authoringText('Media') },
 ] as const;
 
 export type SlashCommand = (typeof SLASH_COMMANDS)[number]['value'];
@@ -46,23 +47,32 @@ export const EDITABLE_BLOCK_TYPES = STEP_CONTENT_COMMANDS;
 export type EditableBlockTypeValue = (typeof EDITABLE_BLOCK_TYPES)[number];
 
 export const EDITABLE_BLOCK_FIELD_CONFIG = {
-  heading: { fieldLabel: 'Heading', placeholder: 'Untitled heading' },
-  paragraph: { fieldLabel: 'Body text', placeholder: 'Write supporting copy' },
-  list: { fieldLabel: 'List items', placeholder: 'One item per line' },
-  divider: { fieldLabel: 'Divider', placeholder: '' },
-  button: { fieldLabel: 'Button label', placeholder: 'Button label' },
-  link: { fieldLabel: 'Link label', placeholder: 'Link label' },
-  media: { fieldLabel: 'Media placeholder', placeholder: 'Media placeholder' },
+  heading: { fieldLabel: authoringText('Heading'), placeholder: authoringText('Untitled heading') },
+  paragraph: {
+    fieldLabel: authoringText('Body text'),
+    placeholder: authoringText('Write supporting copy'),
+  },
+  list: {
+    fieldLabel: authoringText('List items'),
+    placeholder: authoringText('One item per line'),
+  },
+  divider: { fieldLabel: authoringText('Divider'), placeholder: '' },
+  button: { fieldLabel: authoringText('Button label'), placeholder: authoringText('Button label') },
+  link: { fieldLabel: authoringText('Link label'), placeholder: authoringText('Link label') },
+  media: {
+    fieldLabel: authoringText('Media placeholder'),
+    placeholder: authoringText('Media placeholder'),
+  },
 } as const satisfies Record<EditableBlockTypeValue, { fieldLabel: string; placeholder: string }>;
 
 export const EDITABLE_ACTION_OPTIONS = [
-  { value: '', label: 'Choose next action' },
-  { value: 'next', label: 'Go to next step' },
-  { value: 'back', label: 'Go back' },
-  { value: 'complete', label: 'Complete tour' },
-  { value: 'clickTarget', label: 'Click target' },
-  { value: 'openPage', label: 'Open page' },
-  { value: 'dismiss', label: 'Close experience' },
+  { value: '', label: authoringText('Choose next action') },
+  { value: 'next', label: authoringText('Go to next step') },
+  { value: 'back', label: authoringText('Go back') },
+  { value: 'complete', label: authoringText('Complete tour') },
+  { value: 'clickTarget', label: authoringText('Click target') },
+  { value: 'openPage', label: authoringText('Open page') },
+  { value: 'dismiss', label: authoringText('Close experience') },
 ] as const;
 export type EditableActionType = (typeof EDITABLE_ACTION_OPTIONS)[number]['value'];
 
@@ -79,12 +89,12 @@ export const TARGET_LIFECYCLE_SCROLL_VALUES = [
 ] as const satisfies readonly TargetLifecycleScrollStrategy[];
 
 export const TARGET_LIFECYCLE_SCROLL_OPTIONS = [
-  { value: '', label: 'Default scroll' },
-  { value: 'nearest', label: 'Nearest edge' },
-  { value: 'top', label: 'Scroll to top' },
-  { value: 'center', label: 'Scroll to center' },
-  { value: 'bottom', label: 'Scroll to bottom' },
-  { value: 'virtualized-search', label: 'Virtualized list' },
+  { value: '', label: authoringText('Default scroll') },
+  { value: 'nearest', label: authoringText('Nearest edge') },
+  { value: 'top', label: authoringText('Scroll to top') },
+  { value: 'center', label: authoringText('Scroll to center') },
+  { value: 'bottom', label: authoringText('Scroll to bottom') },
+  { value: 'virtualized-search', label: authoringText('Virtualized list') },
 ] as const satisfies ReadonlyArray<{
   value: TargetLifecycleScrollStrategy | '';
   label: string;
@@ -152,11 +162,11 @@ export const AUTHORING_PANEL_MODES = [
 export type AuthoringPanelMode = (typeof AUTHORING_PANEL_MODES)[number];
 
 export const EDITABLE_BUTTON_VARIANT_OPTIONS = [
-  { value: 'primary', label: 'Primary' },
-  { value: 'secondary', label: 'Secondary' },
-  { value: 'subtle', label: 'Subtle' },
-  { value: 'outline', label: 'Outline' },
-  { value: 'link', label: 'Link' },
+  { value: 'primary', label: authoringText('Primary') },
+  { value: 'secondary', label: authoringText('Secondary') },
+  { value: 'subtle', label: authoringText('Subtle') },
+  { value: 'outline', label: authoringText('Outline') },
+  { value: 'link', label: authoringText('Link') },
 ] as const;
 export type EditableButtonVariant = (typeof EDITABLE_BUTTON_VARIANT_OPTIONS)[number]['value'];
 
@@ -199,6 +209,11 @@ export interface AuthoringPanelWorkflowState {
 
 export interface LocalAuthoringFrameSnapshot {
   documentState: LodariqDocument;
+  contentLocale: string;
+  translation: {
+    available: boolean;
+    state: 'idle' | 'translating' | 'error';
+  };
   previewTheme?: BrandThemeSnapshot | null;
   previewPreferences?: { prefersDark: boolean; prefersReducedMotion: boolean } | null;
   status: string;

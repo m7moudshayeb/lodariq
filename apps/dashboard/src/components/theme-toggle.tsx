@@ -2,10 +2,13 @@
 
 import * as React from 'react';
 import { Moon, Sun } from 'lucide-react';
+import { useLingui } from '@lingui/react';
 import { useTheme } from 'next-themes';
+import { DASHBOARD_THEME_MESSAGES } from '../i18n/messages';
 import { Button } from './ui/button';
 
 export function ThemeToggle(): React.ReactElement {
+  const { _ } = useLingui();
   const [mounted, setMounted] = React.useState(false);
   const { resolvedTheme, setTheme, theme } = useTheme();
 
@@ -13,6 +16,9 @@ export function ThemeToggle(): React.ReactElement {
 
   const activeTheme = theme ?? resolvedTheme;
   const isDark = !mounted || activeTheme === 'dark';
+  const toggleLabel = _(
+    isDark ? DASHBOARD_THEME_MESSAGES.switchToLight : DASHBOARD_THEME_MESSAGES.switchToDark,
+  );
 
   return (
     <Button
@@ -20,9 +26,9 @@ export function ThemeToggle(): React.ReactElement {
       type="button"
       variant="outline"
       size="icon"
-      aria-label={isDark ? 'Switch to light theme' : 'Switch to dark theme'}
+      aria-label={toggleLabel}
       aria-pressed={isDark}
-      title={isDark ? 'Switch to light theme' : 'Switch to dark theme'}
+      title={toggleLabel}
       onClick={() => setTheme(isDark ? 'light' : 'dark')}
     >
       {isDark ? <Sun aria-hidden="true" /> : <Moon aria-hidden="true" />}

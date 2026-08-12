@@ -8,6 +8,7 @@ import type { LocalAuthoringFrameController } from '../controller';
 import { EDITABLE_ACTION_OPTIONS, EDITABLE_BUTTON_VARIANT_OPTIONS } from '../types';
 import { BLOCK_ALIGNMENT_OPTIONS } from './options';
 import type { PropertyDefinition } from './registry';
+import { authoringText } from '../../../i18n';
 
 export type ButtonPropertyGroup =
   'appearance' | 'behavior' | 'size' | 'alignment' | 'shape' | 'colors' | 'spacing';
@@ -19,37 +20,37 @@ export interface ButtonPropertyContext {
 }
 
 const BUTTON_WIDTH_OPTIONS = [
-  { value: 'hug', label: 'Hug' },
-  { value: 'fill', label: 'Fill' },
+  { value: 'hug', label: authoringText('Hug') },
+  { value: 'fill', label: authoringText('Fill') },
 ] as const;
 
 const BUTTON_SIZE_OPTIONS = [
-  { value: 'compact', label: 'Compact' },
-  { value: 'regular', label: 'Regular' },
+  { value: 'compact', label: authoringText('Compact') },
+  { value: 'regular', label: authoringText('Regular') },
 ] as const;
 
 const BUTTON_RADIUS_OPTIONS = [
-  { value: 'theme', label: 'Brand' },
-  { value: 'square', label: 'Square' },
-  { value: 'soft', label: 'Soft' },
-  { value: 'round', label: 'Pill' },
+  { value: 'theme', label: authoringText('Brand') },
+  { value: 'square', label: authoringText('Square') },
+  { value: 'soft', label: authoringText('Soft') },
+  { value: 'round', label: authoringText('Pill') },
 ] as const;
 
 const BUTTON_ICON_OPTIONS = [
-  { value: 'none', label: 'None' },
-  { value: 'arrow-right', label: 'Arrow' },
-  { value: 'external-link', label: 'External' },
-  { value: 'check', label: 'Check' },
+  { value: 'none', label: authoringText('None') },
+  { value: 'arrow-right', label: authoringText('Arrow') },
+  { value: 'external-link', label: authoringText('External') },
+  { value: 'check', label: authoringText('Check') },
 ] as const;
 
 const BUTTON_ICON_PLACEMENT_OPTIONS = [
-  { value: 'start', label: 'Before' },
-  { value: 'end', label: 'After' },
+  { value: 'start', label: authoringText('Before') },
+  { value: 'end', label: authoringText('After') },
 ] as const;
 
 const OPEN_PAGE_NAVIGATION_OPTIONS = [
-  { value: 'continue', label: 'Continue tour' },
-  { value: 'stay', label: 'Keep current step' },
+  { value: 'continue', label: authoringText('Continue tour') },
+  { value: 'stay', label: authoringText('Keep current step') },
 ] as const;
 
 export const BUTTON_PROPERTY_DEFINITIONS: ReadonlyArray<PropertyDefinition<ButtonPropertyContext>> =
@@ -57,7 +58,7 @@ export const BUTTON_PROPERTY_DEFINITIONS: ReadonlyArray<PropertyDefinition<Butto
     {
       id: 'button.variant',
       group: 'appearance',
-      label: 'Appearance',
+      label: authoringText('Appearance'),
       scope: 'block',
       control: 'segmented',
       options: EDITABLE_BUTTON_VARIANT_OPTIONS,
@@ -70,7 +71,7 @@ export const BUTTON_PROPERTY_DEFINITIONS: ReadonlyArray<PropertyDefinition<Butto
     {
       id: 'button.action',
       group: 'behavior',
-      label: 'Action',
+      label: authoringText('Action'),
       scope: 'block',
       control: 'segmented',
       options: EDITABLE_ACTION_OPTIONS,
@@ -83,8 +84,8 @@ export const BUTTON_PROPERTY_DEFINITIONS: ReadonlyArray<PropertyDefinition<Butto
     {
       id: 'button.destination',
       group: 'behavior',
-      label: 'Destination',
-      description: 'Use an HTTPS URL or a safe relative path.',
+      label: authoringText('Destination'),
+      description: authoringText('Use an HTTPS URL or a safe relative path.'),
       scope: 'block',
       control: 'text',
       isVisible: ({ block }) => block.props.action?.type === 'openPage',
@@ -96,8 +97,8 @@ export const BUTTON_PROPERTY_DEFINITIONS: ReadonlyArray<PropertyDefinition<Butto
     {
       id: 'button.navigationBehavior',
       group: 'behavior',
-      label: 'After navigation',
-      description: 'Continue applies to same-origin navigation in this tab.',
+      label: authoringText('After navigation'),
+      description: authoringText('Continue applies to same-origin navigation in this tab.'),
       scope: 'block',
       control: 'segmented',
       options: OPEN_PAGE_NAVIGATION_OPTIONS,
@@ -111,7 +112,7 @@ export const BUTTON_PROPERTY_DEFINITIONS: ReadonlyArray<PropertyDefinition<Butto
     {
       id: 'button.width',
       group: 'size',
-      label: 'Width',
+      label: authoringText('Width'),
       scope: 'block',
       control: 'segmented',
       options: BUTTON_WIDTH_OPTIONS,
@@ -126,7 +127,7 @@ export const BUTTON_PROPERTY_DEFINITIONS: ReadonlyArray<PropertyDefinition<Butto
     {
       id: 'button.size',
       group: 'size',
-      label: 'Size',
+      label: authoringText('Size'),
       scope: 'block',
       control: 'segmented',
       options: BUTTON_SIZE_OPTIONS,
@@ -139,7 +140,7 @@ export const BUTTON_PROPERTY_DEFINITIONS: ReadonlyArray<PropertyDefinition<Butto
     {
       id: 'button.alignment',
       group: 'alignment',
-      label: 'Alignment',
+      label: authoringText('Alignment'),
       scope: 'surface',
       control: 'segmented',
       options: BLOCK_ALIGNMENT_OPTIONS,
@@ -155,7 +156,7 @@ export const BUTTON_PROPERTY_DEFINITIONS: ReadonlyArray<PropertyDefinition<Butto
     {
       id: 'button.spacingAfter',
       group: 'spacing',
-      label: 'After this button',
+      label: authoringText('After this button'),
       scope: 'block',
       control: 'range',
       min: BLOCK_SPACING_PX_LIMITS.min,
@@ -175,23 +176,30 @@ function buttonStyleDefinitions(): ReadonlyArray<PropertyDefinition<ButtonProper
     buttonStyleOption(
       'button.radius',
       'shape',
-      'Corner radius',
+      authoringText('Corner radius'),
       'radius',
       'theme',
       BUTTON_RADIUS_OPTIONS,
     ),
-    buttonStyleOption('button.icon', 'shape', 'Icon', 'icon', 'none', BUTTON_ICON_OPTIONS),
+    buttonStyleOption(
+      'button.icon',
+      'shape',
+      authoringText('Icon'),
+      'icon',
+      'none',
+      BUTTON_ICON_OPTIONS,
+    ),
     buttonStyleOption(
       'button.iconPlacement',
       'shape',
-      'Icon position',
+      authoringText('Icon position'),
       'iconPlacement',
       'end',
       BUTTON_ICON_PLACEMENT_OPTIONS,
     ),
-    buttonColor('button.fillColor', 'Fill', 'fillColor', '#006b58'),
-    buttonColor('button.textColor', 'Label', 'textColor', '#ffffff'),
-    buttonColor('button.borderColor', 'Border', 'borderColor', '#006b58'),
+    buttonColor('button.fillColor', authoringText('Fill'), 'fillColor', '#006b58'),
+    buttonColor('button.textColor', authoringText('Label'), 'textColor', '#ffffff'),
+    buttonColor('button.borderColor', authoringText('Border'), 'borderColor', '#006b58'),
   ];
 }
 
@@ -257,7 +265,9 @@ export function defaultActionVariant(block: LodariqBlock): 'primary' | 'link' {
 
 export function buttonWidthDescription(block: LodariqBlock): string | null {
   const widthPx = block.props.buttonStyle?.widthPx;
-  return widthPx ? `Custom ${widthPx}px · resize directly on the canvas` : null;
+  return widthPx
+    ? authoringText('Custom {width}px · resize directly on the canvas', { width: widthPx })
+    : null;
 }
 
 export function buttonColorIsCustomized(block: LodariqBlock, propertyId: string): boolean {

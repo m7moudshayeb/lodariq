@@ -1,4 +1,5 @@
 import { ControllerReleaseRecoveryFeature } from './controller-release-recovery';
+import { authoringText } from '../../i18n';
 import {
   BRIDGE_PROTOCOL_VERSION,
   type BlockActionProps,
@@ -21,13 +22,16 @@ import {
   setBlockActionUrl,
   setBlockPresentationAnchor,
   transformBlocks,
-  updateBlockContent,
-  updateBlockContentRuns,
   type EditableBlockType,
 } from '../document-ops';
 import { createBridgeCorrelationId } from '../../bridge/transport';
 import { fromBlockJson, toBlockJson, type SerializedEditorState } from '../../editor';
 import type { DocumentTarget, EditableActionType } from './types';
+import {
+  localizedAuthoringDocument,
+  normalizeAuthoringDocumentLocalization,
+  setAuthoringLocalizedBlockContent,
+} from '../document-localization';
 import { findBlockById } from './utils';
 import {
   blockContainsId,
@@ -76,7 +80,7 @@ export abstract class ControllerTargetDocumentFeature extends ControllerReleaseR
         identity,
       },
     ]);
-    this.setStatus('Placement evidence stabilized. Verifying…');
+    this.setStatus(authoringText('Placement evidence stabilized. Verifying…'));
     this.requestTargetInspection(message.blockId, targetId, 'health');
   }
 
@@ -110,7 +114,7 @@ export abstract class ControllerTargetDocumentFeature extends ControllerReleaseR
     }
 
     this.targetDiagnostics.clear();
-    this.setStatus('Page context changed; placements are unverified');
+    this.setStatus(authoringText('Page context changed; placements are unverified'));
     const activeStep = this.selectedTourStep();
     const activeTargetId = activeStep ? firstTargetIdInBlock(activeStep) : null;
     if (activeStep && activeTargetId) {
@@ -119,6 +123,7 @@ export abstract class ControllerTargetDocumentFeature extends ControllerReleaseR
   }
 
   protected appendPastedBlocks(blocksToAdd: LodariqBlock[]): void {
+    if (!this.allowDocumentStructureMutation()) return;
     if (!blocksToAdd.length) return;
     const blocks = normalizeTourRootBlocks(blocksToAdd);
     this.recordChange();
@@ -130,7 +135,7 @@ export abstract class ControllerTargetDocumentFeature extends ControllerReleaseR
     this.afterDocumentMutation();
     if (this.selectedBlockId) this.focusEditableField(this.selectedBlockId);
     this.services.saveDocument(this.documentState);
-    this.setStatus('Pasted as steps');
+    this.setStatus(authoringText('Pasted as steps'));
     this.recordMetric('block.inserted');
     this.sendPreviewPatch(blocks[0]!.id, [{ op: 'insertBlocks', blocks }]);
   }
@@ -183,6 +188,7 @@ export abstract class ControllerTargetDocumentFeature extends ControllerReleaseR
   }
 
   protected transformBlock(blockId: string, type: EditableBlockType): void {
+    if (!this.allowDocumentStructureMutation()) return;
     if (!hasBlock(this.documentState.blocks, blockId)) return;
     this.recordChange();
     this.documentState = {
@@ -196,18 +202,20 @@ export abstract class ControllerTargetDocumentFeature extends ControllerReleaseR
   }
 
   protected commitContent(blockId: string, value: string): void {
-    const block = findBlockById(this.documentState.blocks, blockId);
+    const localizedDocument = localizedAuthoringDocument(this.documentState, this.contentLocale);
+    const block = findBlockById(localizedDocument.blocks, blockId);
     if (!block) return;
     const previousContent = block.content ?? '';
     if (previousContent === value) return;
     const contentRuns = reconcileInlineTextRuns(previousContent, block.contentRuns, value);
     this.recordChange();
-    this.documentState = {
-      ...this.documentState,
-      blocks: block.contentRuns
-        ? updateBlockContentRuns(this.documentState.blocks, blockId, value, contentRuns)
-        : updateBlockContent(this.documentState.blocks, blockId, value),
-    };
+    this.documentState = setAuthoringLocalizedBlockContent(
+      this.documentState,
+      this.contentLocale,
+      blockId,
+      value,
+      block.contentRuns ? contentRuns : undefined,
+    );
     this.selectedBlockId = blockId;
     this.afterDocumentMutation();
     this.services.saveDocument(this.documentState);
@@ -216,11 +224,15 @@ export abstract class ControllerTargetDocumentFeature extends ControllerReleaseR
       block.contentRuns
         ? [{ op: 'updateContentRuns', content: value, contentRuns }]
         : [{ op: 'updateContent', content: value }],
+      this.contentLocale,
     );
   }
 
   protected commitContentRuns(blockId: string, value: string, contentRuns?: InlineTextRun[]): void {
-    const block = findBlockById(this.documentState.blocks, blockId);
+    const block = findBlockById(
+      localizedAuthoringDocument(this.documentState, this.contentLocale).blocks,
+      blockId,
+    );
     if (!block) return;
     const comparableRuns = JSON.stringify(contentRuns ?? []);
     if (
@@ -230,14 +242,21 @@ export abstract class ControllerTargetDocumentFeature extends ControllerReleaseR
       return;
     }
     this.recordChange();
-    this.documentState = {
-      ...this.documentState,
-      blocks: updateBlockContentRuns(this.documentState.blocks, blockId, value, contentRuns),
-    };
+    this.documentState = setAuthoringLocalizedBlockContent(
+      this.documentState,
+      this.contentLocale,
+      blockId,
+      value,
+      contentRuns,
+    );
     this.selectedBlockId = blockId;
     this.afterDocumentMutation();
     this.services.saveDocument(this.documentState);
-    this.sendPreviewPatch(blockId, [{ op: 'updateContentRuns', content: value, contentRuns }]);
+    this.sendPreviewPatch(
+      blockId,
+      [{ op: 'updateContentRuns', content: value, contentRuns }],
+      this.contentLocale,
+    );
   }
 
   protected syncFocusedEditControl(): void {
@@ -273,26 +292,32 @@ export abstract class ControllerTargetDocumentFeature extends ControllerReleaseR
     try {
       imported = this.normalizeDocument(this.services.importDocument(json));
     } catch (error) {
-      this.setStatus(error instanceof Error ? error.message : 'This backup is not valid.');
+      this.setStatus(
+        error instanceof Error ? error.message : authoringText('This backup is not valid.'),
+      );
       return null;
     }
     if (imported.id !== this.baseDocument.id) {
-      this.setStatus('This backup belongs to a different experience.');
+      this.setStatus(authoringText('This backup belongs to a different experience.'));
       return null;
     }
     if (imported.workspaceId !== this.baseDocument.workspaceId) {
-      this.setStatus('This backup belongs to a different workspace.');
+      this.setStatus(authoringText('This backup belongs to a different workspace.'));
       return null;
     }
     return imported;
   }
 
-  protected sendPreviewPatch(blockId: string, ops: PreviewPatchOperation[]): void {
+  protected sendPreviewPatch(blockId: string, ops: PreviewPatchOperation[], locale?: string): void {
     const last = this.pendingPreviewPatches[this.pendingPreviewPatches.length - 1];
-    if (last?.blockId === blockId) {
+    if (last?.blockId === blockId && last.locale === locale) {
       last.ops.push(...structuredClone(ops));
     } else {
-      this.pendingPreviewPatches.push({ blockId, ops: structuredClone(ops) });
+      this.pendingPreviewPatches.push({
+        blockId,
+        ops: structuredClone(ops),
+        ...(locale ? { locale } : {}),
+      });
     }
     if (this.previewPatchFlushQueued) return;
     this.previewPatchFlushQueued = true;
@@ -312,13 +337,14 @@ export abstract class ControllerTargetDocumentFeature extends ControllerReleaseR
     this.previewPatchFlushQueued = false;
     const batches = this.pendingPreviewPatches.splice(0, this.pendingPreviewPatches.length);
     for (const batch of batches) {
-      this.bridge.send(this.previewPatchMessage(batch.blockId, batch.ops));
+      this.bridge.send(this.previewPatchMessage(batch.blockId, batch.ops, batch.locale));
     }
   }
 
   protected previewPatchMessage(
     blockId: string,
     ops: PreviewPatchOperation[],
+    locale?: string,
   ): Extract<BridgeMessage, { type: 'preview.patch' }> {
     return {
       protocol: BRIDGE_PROTOCOL_VERSION,
@@ -327,6 +353,7 @@ export abstract class ControllerTargetDocumentFeature extends ControllerReleaseR
       correlationId: createBridgeCorrelationId('preview_patch'),
       type: 'preview.patch',
       blockId,
+      ...(locale ? { locale } : {}),
       patch: { ops },
     };
   }
@@ -354,7 +381,7 @@ export abstract class ControllerTargetDocumentFeature extends ControllerReleaseR
     };
     this.afterDocumentMutation();
     this.services.saveDocument(this.documentState);
-    this.setStatus('Placement behavior updated');
+    this.setStatus(authoringText('Placement behavior updated'));
     const blockId =
       firstBlockIdForTarget(this.documentState.blocks, targetId) ?? this.documentState.id;
     const op: PreviewPatchOperation = nextLifecycle
@@ -386,7 +413,9 @@ export abstract class ControllerTargetDocumentFeature extends ControllerReleaseR
         ? { op: 'setPresentationAnchor', presentationAnchor: exactAnchor }
         : { op: 'setPresentationAnchor' },
     ]);
-    this.setStatus(exactAnchor ? 'Exact area set' : 'Using the whole element');
+    this.setStatus(
+      exactAnchor ? authoringText('Exact area set') : authoringText('Using the whole element'),
+    );
   }
 
   protected nextStepIndex(): number {
@@ -397,7 +426,10 @@ export abstract class ControllerTargetDocumentFeature extends ControllerReleaseR
     const lexicalState = fromBlockJson(doc.blocks);
     const parsed = this.lexicalEditor.parseEditorState(JSON.stringify(lexicalState)).toJSON();
     const blocks = toBlockJson(parsed as SerializedEditorState);
-    return { ...doc, blocks: doc.type === 'tour' ? normalizeTourRootBlocks(blocks) : blocks };
+    return normalizeAuthoringDocumentLocalization({
+      ...doc,
+      blocks: doc.type === 'tour' ? normalizeTourRootBlocks(blocks) : blocks,
+    });
   }
 
   protected createBaseDocument(): LodariqDocument {

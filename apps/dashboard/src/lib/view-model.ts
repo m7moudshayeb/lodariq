@@ -1,8 +1,13 @@
 import {
   AUTHORING_LAUNCHER_ENTRY_QUERY_PARAMETER,
   AUTHORING_LAUNCHER_ENTRY_QUERY_VALUE,
+  AUTHORING_LOCALE_QUERY_PARAMETER,
 } from '@lodariq/schema/authoring-entry-runtime';
 import { isAuthoringControlPlaneRole } from '@lodariq/schema';
+import { setupI18n, type MessageDescriptor } from '@lingui/core';
+import { DEFAULT_LOCALE, type SupportedLocale } from '@lodariq/i18n';
+import { DASHBOARD_COMMON_MESSAGES, DASHBOARD_VIEW_MODEL_MESSAGES } from '../i18n/messages';
+import { dashboardPublishIssueCopy } from '../i18n/server-feedback';
 import type {
   DashboardDataDto,
   DocumentSummaryDto,
@@ -11,7 +16,6 @@ import type {
   WorkspaceThemeDto,
   WorkspaceEnvironmentDto,
 } from './api';
-import { RELEASE_STAGE_LABELS } from './dashboard-constants';
 
 type PublicationVariant = 'success' | 'warning' | 'outline';
 export type DashboardStatusVariant = PublicationVariant | 'info' | 'destructive';
@@ -19,7 +23,7 @@ export type ReleaseStageTone = 'complete' | 'current' | 'pending' | 'attention';
 export type DashboardDocumentReadiness = 'blocked' | 'draft' | 'previewable' | 'archived';
 
 export interface DashboardReleaseStage {
-  id: keyof typeof RELEASE_STAGE_LABELS;
+  id: 'draft' | 'staging' | 'production';
   label: string;
   statusLabel: string;
   detail: string;
@@ -112,13 +116,29 @@ export interface DashboardViewModel {
   recentActivity: DashboardRecentActivity[];
 }
 
-export function buildDashboardViewModel(data: DashboardDataDto): DashboardViewModel {
+export interface DashboardViewModelLocalization {
+  locale: SupportedLocale;
+  translate: (descriptor: MessageDescriptor, values?: Record<string, string | number>) => string;
+}
+
+const ENGLISH_I18N = setupI18n({ locale: DEFAULT_LOCALE, messages: { [DEFAULT_LOCALE]: {} } });
+const DEFAULT_LOCALIZATION: DashboardViewModelLocalization = {
+  locale: DEFAULT_LOCALE,
+  translate: (descriptor, values) =>
+    ENGLISH_I18N._(values ? { ...descriptor, values } : descriptor),
+};
+
+export function buildDashboardViewModel(
+  data: DashboardDataDto,
+  localization: DashboardViewModelLocalization = DEFAULT_LOCALIZATION,
+): DashboardViewModel {
+  const { locale, translate } = localization;
   const environmentOptions = data.environments.map((environment) => ({
     ...environment,
-    label: `${environment.name} (${environment.kind})`,
+    label: `${environment.name} (${formatEnvironmentKind(environment.kind, translate)})`,
     originLabel: environment.originAllowlist.length
       ? environment.originAllowlist.join(', ')
-      : 'No origins',
+      : translate(DASHBOARD_VIEW_MODEL_MESSAGES.noOrigins),
   }));
   const staging = environmentOptions.find((environment) => environment.kind === 'staging');
   const firstEnvironment = environmentOptions[0];
@@ -129,7 +149,7 @@ export function buildDashboardViewModel(data: DashboardDataDto): DashboardViewMo
   );
   const role = data.controlPlaneContext?.role;
   const authoringSiteOptions = isAuthoringControlPlaneRole(role)
-    ? buildAuthoringSiteOptions(data.installations, environmentById)
+    ? buildAuthoringSiteOptions(data.installations, environmentById, locale)
     : [];
   const brandThemes = [...data.themes].sort((left, right) => {
     if (left.isDefault !== right.isDefault) return left.isDefault ? -1 : 1;
@@ -137,21 +157,21 @@ export function buildDashboardViewModel(data: DashboardDataDto): DashboardViewMo
   });
 
   const documentRows = data.documents.map((document) => {
-    const publication = buildPublicationInfo(document, environmentById);
-    const releaseQueue = buildReleaseQueueInfo(document);
+    const publication = buildPublicationInfo(document, environmentById, localization);
+    const releaseQueue = buildReleaseQueueInfo(document, localization);
     const readinessState = documentReadinessState(document);
     return {
       ...document,
-      statusLabel: formatStatus(document.status),
+      statusLabel: formatDocumentStatus(document.status, translate),
       lifecycleVariant: documentLifecycleVariant(document.status),
-      typeLabel: formatStatus(document.type),
-      editorLabel: formatEditorLabel(document),
-      readinessDetail: DOCUMENT_READINESS_LABELS[readinessState],
+      typeLabel: formatDocumentType(document.type, translate),
+      editorLabel: formatEditorLabel(document, translate),
+      readinessDetail: documentReadinessLabel(readinessState, translate),
       readinessState,
       readinessIssueCount: document.publishReadinessIssues.length,
-      readinessIssueSummary: formatReadinessIssueSummary(document),
-      updatedAtLabel: formatDate(document.updatedAt),
-      ...buildDraftInfo(document),
+      readinessIssueSummary: formatReadinessIssueSummary(document, translate),
+      updatedAtLabel: formatDate(document.updatedAt, locale, translate),
+      ...buildDraftInfo(document, translate),
       publicationLabel: publication.label,
       publicationDetail: publication.detail,
       publicationVariant: publication.variant,
@@ -165,7 +185,11 @@ export function buildDashboardViewModel(data: DashboardDataDto): DashboardViewMo
     sdkInstallEnvironmentOptions,
     tokenRows: data.tokens.map((token) => ({
       ...token,
-      stateLabel: token.revokedAt ? 'Revoked' : 'Active',
+      stateLabel: translate(
+        token.revokedAt
+          ? DASHBOARD_VIEW_MODEL_MESSAGES.revoked
+          : DASHBOARD_VIEW_MODEL_MESSAGES.active,
+      ),
     })),
     installationRows: data.installations,
     authoringSiteOptions,
@@ -179,14 +203,15 @@ export function buildDashboardViewModel(data: DashboardDataDto): DashboardViewMo
     canEditBrandSystem: role === 'owner' || role === 'admin' || role === 'member',
     canApproveBrandSystem: role === 'owner' || role === 'admin',
     openInProductUrl: authoringSiteOptions[0]?.launchUrl ?? '',
-    brandSourceSummary: buildBrandSourceSummary(brandThemes),
-    recentActivity: buildRecentActivity(documentRows, brandThemes),
+    brandSourceSummary: buildBrandSourceSummary(brandThemes, localization),
+    recentActivity: buildRecentActivity(documentRows, brandThemes, localization),
   };
 }
 
 function buildAuthoringSiteOptions(
   installations: readonly PublicSdkInstallationDto[],
   environmentById: ReadonlyMap<string, DashboardViewModel['environmentOptions'][number]>,
+  locale: SupportedLocale,
 ): DashboardAuthoringSite[] {
   const sitesByOrigin = new Map<string, DashboardAuthoringSite>();
 
@@ -212,7 +237,7 @@ function buildAuthoringSiteOptions(
         environmentLabel: environment.name,
         exactOrigin,
         label: `${environment.name} · ${exactOrigin}`,
-        launchUrl: buildAuthoringLaunchUrl(exactOrigin),
+        launchUrl: buildAuthoringLaunchUrl(exactOrigin, locale),
       });
     }
   }
@@ -224,12 +249,13 @@ function buildAuthoringSiteOptions(
   });
 }
 
-function buildAuthoringLaunchUrl(exactOrigin: string): string {
+function buildAuthoringLaunchUrl(exactOrigin: string, locale: SupportedLocale): string {
   const url = new URL(exactOrigin);
   url.searchParams.set(
     AUTHORING_LAUNCHER_ENTRY_QUERY_PARAMETER,
     AUTHORING_LAUNCHER_ENTRY_QUERY_VALUE,
   );
+  url.searchParams.set(AUTHORING_LOCALE_QUERY_PARAMETER, locale);
   return url.toString();
 }
 
@@ -240,7 +266,10 @@ function environmentAllowsOrigin(
   return environment.originAllowlist.some((value) => readHttpOrigin(value) === exactOrigin);
 }
 
-function buildReleaseQueueInfo(document: DocumentSummaryDto): {
+function buildReleaseQueueInfo(
+  document: DocumentSummaryDto,
+  localization: DashboardViewModelLocalization,
+): {
   pageScopeLabel: string;
   lastActivityLabel: string;
   queueStatusLabel: string;
@@ -250,6 +279,7 @@ function buildReleaseQueueInfo(document: DocumentSummaryDto): {
   releaseSummary: string;
   releaseStages: DashboardReleaseStage[];
 } {
+  const { locale, translate } = localization;
   const stagingPublication = latestPublicationForEnvironment(document, 'staging');
   const productionPublication = latestPublicationForEnvironment(document, 'production');
   const latestContentHash = document.latestContentHash;
@@ -262,116 +292,141 @@ function buildReleaseQueueInfo(document: DocumentSummaryDto): {
     stagingPublication,
     productionPublication,
   );
-  const releaseEvidence = buildReleaseEvidence(document, stagingPublication, productionPublication);
+  const releaseEvidence = buildReleaseEvidence(
+    document,
+    stagingPublication,
+    productionPublication,
+    localization,
+  );
   const releaseStages: DashboardReleaseStage[] = [
-    buildDraftStage(document),
-    buildEnvironmentStage('staging', stagingPublication, latestContentHash),
-    buildEnvironmentStage('production', productionPublication, latestContentHash),
+    buildDraftStage(document, localization),
+    buildEnvironmentStage('staging', stagingPublication, latestContentHash, localization),
+    buildEnvironmentStage('production', productionPublication, latestContentHash, localization),
   ];
 
   if (hasBlockers) {
     return {
-      pageScopeLabel: 'Not specified',
-      lastActivityLabel: formatDateTime(document.updatedAt),
-      queueStatusLabel: 'Needs review',
+      pageScopeLabel: translate(DASHBOARD_VIEW_MODEL_MESSAGES.notSpecified),
+      lastActivityLabel: formatDateTime(document.updatedAt, locale, translate),
+      queueStatusLabel: translate(DASHBOARD_VIEW_MODEL_MESSAGES.needsReview),
       queueStatusVariant: 'warning',
-      releaseActionLabel: 'Review blockers',
+      releaseActionLabel: translate(DASHBOARD_VIEW_MODEL_MESSAGES.reviewBlockers),
       releaseEvidence,
-      releaseSummary: `${formatIssueCount(document.publishReadinessIssues.length)} must be reviewed before this draft can be published.`,
+      releaseSummary: translate(DASHBOARD_VIEW_MODEL_MESSAGES.reviewBeforePublish, {
+        issues: formatIssueCount(document.publishReadinessIssues.length, translate),
+      }),
       releaseStages,
     };
   }
 
   if (!latestContentHash) {
     return {
-      pageScopeLabel: 'Not specified',
-      lastActivityLabel: formatDateTime(document.updatedAt),
-      queueStatusLabel: 'Draft not prepared',
+      pageScopeLabel: translate(DASHBOARD_VIEW_MODEL_MESSAGES.notSpecified),
+      lastActivityLabel: formatDateTime(document.updatedAt, locale, translate),
+      queueStatusLabel: translate(DASHBOARD_VIEW_MODEL_MESSAGES.draftNotPrepared),
       queueStatusVariant: 'outline',
-      releaseActionLabel: 'Prepare draft',
+      releaseActionLabel: translate(DASHBOARD_VIEW_MODEL_MESSAGES.prepareDraft),
       releaseEvidence,
-      releaseSummary: 'Preview this experience once to prepare a publishable draft.',
+      releaseSummary: translate(DASHBOARD_VIEW_MODEL_MESSAGES.previewToPrepareDraft),
       releaseStages,
     };
   }
 
   if (productionIsCurrent) {
     return {
-      pageScopeLabel: 'Not specified',
-      lastActivityLabel: formatDateTime(document.updatedAt),
-      queueStatusLabel: productionActive ? 'Production live' : 'Production published',
+      pageScopeLabel: translate(DASHBOARD_VIEW_MODEL_MESSAGES.notSpecified),
+      lastActivityLabel: formatDateTime(document.updatedAt, locale, translate),
+      queueStatusLabel: translate(
+        productionActive
+          ? DASHBOARD_VIEW_MODEL_MESSAGES.productionLive
+          : DASHBOARD_VIEW_MODEL_MESSAGES.productionPublished,
+      ),
       queueStatusVariant: productionActive ? 'success' : 'info',
-      releaseActionLabel: 'Review release',
+      releaseActionLabel: translate(DASHBOARD_VIEW_MODEL_MESSAGES.reviewRelease),
       releaseEvidence,
-      releaseSummary: productionCurrentSummary(productionActive, productionIsExactPromotion),
+      releaseSummary: productionCurrentSummary(
+        productionActive,
+        productionIsExactPromotion,
+        translate,
+      ),
       releaseStages,
     };
   }
 
   if (productionPublication) {
     return {
-      pageScopeLabel: 'Not specified',
-      lastActivityLabel: formatDateTime(document.updatedAt),
-      queueStatusLabel: 'Production update',
+      pageScopeLabel: translate(DASHBOARD_VIEW_MODEL_MESSAGES.notSpecified),
+      lastActivityLabel: formatDateTime(document.updatedAt, locale, translate),
+      queueStatusLabel: translate(DASHBOARD_VIEW_MODEL_MESSAGES.productionUpdate),
       queueStatusVariant: 'warning',
-      releaseActionLabel: 'Review production update',
+      releaseActionLabel: translate(DASHBOARD_VIEW_MODEL_MESSAGES.reviewProductionUpdate),
       releaseEvidence,
-      releaseSummary:
-        'The latest production publication record uses an earlier content hash than the saved draft.',
+      releaseSummary: translate(DASHBOARD_VIEW_MODEL_MESSAGES.productionEarlierHash),
       releaseStages,
     };
   }
 
   if (stagingIsCurrent) {
     return {
-      pageScopeLabel: 'Not specified',
-      lastActivityLabel: formatDateTime(document.updatedAt),
-      queueStatusLabel: stagingVerification === 'passed' ? 'Staging verified' : 'Staging published',
-      queueStatusVariant: stagingVerification === 'passed' ? 'success' : 'info',
-      releaseActionLabel:
-        stagingVerification === 'passed' ? 'Review promotion' : 'Review verification',
-      releaseEvidence,
-      releaseSummary:
+      pageScopeLabel: translate(DASHBOARD_VIEW_MODEL_MESSAGES.notSpecified),
+      lastActivityLabel: formatDateTime(document.updatedAt, locale, translate),
+      queueStatusLabel: translate(
         stagingVerification === 'passed'
-          ? 'The exact staged artifact is verified and ready for deliberate production promotion.'
-          : 'The staged artifact matches the draft; exact browser verification is still required.',
+          ? DASHBOARD_VIEW_MODEL_MESSAGES.stagingVerified
+          : DASHBOARD_VIEW_MODEL_MESSAGES.stagingPublished,
+      ),
+      queueStatusVariant: stagingVerification === 'passed' ? 'success' : 'info',
+      releaseActionLabel: translate(
+        stagingVerification === 'passed'
+          ? DASHBOARD_VIEW_MODEL_MESSAGES.reviewPromotion
+          : DASHBOARD_VIEW_MODEL_MESSAGES.reviewVerification,
+      ),
+      releaseEvidence,
+      releaseSummary: translate(
+        stagingVerification === 'passed'
+          ? DASHBOARD_VIEW_MODEL_MESSAGES.stagedArtifactReady
+          : DASHBOARD_VIEW_MODEL_MESSAGES.stagedArtifactNeedsVerification,
+      ),
       releaseStages,
     };
   }
 
   if (stagingPublication) {
     return {
-      pageScopeLabel: 'Not specified',
-      lastActivityLabel: formatDateTime(document.updatedAt),
-      queueStatusLabel: 'Staging update',
+      pageScopeLabel: translate(DASHBOARD_VIEW_MODEL_MESSAGES.notSpecified),
+      lastActivityLabel: formatDateTime(document.updatedAt, locale, translate),
+      queueStatusLabel: translate(DASHBOARD_VIEW_MODEL_MESSAGES.stagingUpdate),
       queueStatusVariant: 'warning',
-      releaseActionLabel: 'Publish current draft',
+      releaseActionLabel: translate(DASHBOARD_VIEW_MODEL_MESSAGES.publishCurrentDraft),
       releaseEvidence,
-      releaseSummary:
-        'The latest staging publication record uses an earlier content hash than the saved draft.',
+      releaseSummary: translate(DASHBOARD_VIEW_MODEL_MESSAGES.stagingEarlierHash),
       releaseStages,
     };
   }
 
   return {
-    pageScopeLabel: 'Not specified',
-    lastActivityLabel: formatDateTime(document.updatedAt),
-    queueStatusLabel: 'Ready for staging',
+    pageScopeLabel: translate(DASHBOARD_VIEW_MODEL_MESSAGES.notSpecified),
+    lastActivityLabel: formatDateTime(document.updatedAt, locale, translate),
+    queueStatusLabel: translate(DASHBOARD_VIEW_MODEL_MESSAGES.readyForStaging),
     queueStatusVariant: 'info',
-    releaseActionLabel: 'Publish to staging',
+    releaseActionLabel: translate(DASHBOARD_VIEW_MODEL_MESSAGES.publishToStaging),
     releaseEvidence,
-    releaseSummary: 'The saved draft has no staging publication record yet.',
+    releaseSummary: translate(DASHBOARD_VIEW_MODEL_MESSAGES.noStagingRecordYet),
     releaseStages,
   };
 }
 
-function buildDraftStage(document: DocumentSummaryDto): DashboardReleaseStage {
+function buildDraftStage(
+  document: DocumentSummaryDto,
+  localization: DashboardViewModelLocalization,
+): DashboardReleaseStage {
+  const { translate } = localization;
   const issue = document.publishReadinessIssues[0];
   if (issue) {
     return {
       id: 'draft',
-      label: RELEASE_STAGE_LABELS.draft,
-      statusLabel: 'Needs review',
+      label: translate(DASHBOARD_COMMON_MESSAGES.draft),
+      statusLabel: translate(DASHBOARD_VIEW_MODEL_MESSAGES.needsReview),
       detail: issue.label,
       tone: 'attention',
     };
@@ -379,17 +434,17 @@ function buildDraftStage(document: DocumentSummaryDto): DashboardReleaseStage {
   if (document.latestContentHash) {
     return {
       id: 'draft',
-      label: RELEASE_STAGE_LABELS.draft,
-      statusLabel: 'Draft saved',
-      detail: 'Current saved content',
+      label: translate(DASHBOARD_COMMON_MESSAGES.draft),
+      statusLabel: translate(DASHBOARD_VIEW_MODEL_MESSAGES.draftSaved),
+      detail: translate(DASHBOARD_VIEW_MODEL_MESSAGES.currentSavedContent),
       tone: 'current',
     };
   }
   return {
     id: 'draft',
-    label: RELEASE_STAGE_LABELS.draft,
-    statusLabel: 'Needs preview',
-    detail: 'No compiled draft yet',
+    label: translate(DASHBOARD_COMMON_MESSAGES.draft),
+    statusLabel: translate(DASHBOARD_VIEW_MODEL_MESSAGES.needsPreview),
+    detail: translate(DASHBOARD_VIEW_MODEL_MESSAGES.noCompiledDraft),
     tone: 'pending',
   };
 }
@@ -398,14 +453,22 @@ function buildEnvironmentStage(
   environment: 'staging' | 'production',
   publication: DocumentSummaryDto['publications'][number] | undefined,
   latestContentHash: string | undefined,
+  localization: DashboardViewModelLocalization,
 ): DashboardReleaseStage {
-  const label = RELEASE_STAGE_LABELS[environment];
+  const { locale, translate } = localization;
+  const label = translate(
+    environment === 'staging'
+      ? DASHBOARD_COMMON_MESSAGES.staging
+      : DASHBOARD_COMMON_MESSAGES.production,
+  );
   if (!publication) {
     return {
       id: environment,
       label,
-      statusLabel: 'No record',
-      detail: `No ${environment} publication record`,
+      statusLabel: translate(DASHBOARD_VIEW_MODEL_MESSAGES.noRecord),
+      detail: translate(DASHBOARD_VIEW_MODEL_MESSAGES.noEnvironmentPublicationRecord, {
+        environment: label,
+      }),
       tone: 'pending',
     };
   }
@@ -414,8 +477,10 @@ function buildEnvironmentStage(
     return {
       id: environment,
       label,
-      statusLabel: 'Newer draft',
-      detail: `Latest record ${formatDateTime(publication.publishedAt)}`,
+      statusLabel: translate(DASHBOARD_VIEW_MODEL_MESSAGES.newerDraft),
+      detail: translate(DASHBOARD_VIEW_MODEL_MESSAGES.latestRecordAt, {
+        date: formatDateTime(publication.publishedAt, locale, translate),
+      }),
       tone: 'attention',
     };
   }
@@ -425,8 +490,10 @@ function buildEnvironmentStage(
     return {
       id: environment,
       label,
-      statusLabel: 'Verified',
-      detail: `Verified exact artifact ${formatDateTime(publication.publishedAt)}`,
+      statusLabel: translate(DASHBOARD_VIEW_MODEL_MESSAGES.verified),
+      detail: translate(DASHBOARD_VIEW_MODEL_MESSAGES.verifiedExactArtifactAt, {
+        date: formatDateTime(publication.publishedAt, locale, translate),
+      }),
       tone: 'complete',
     };
   }
@@ -434,8 +501,10 @@ function buildEnvironmentStage(
     return {
       id: environment,
       label,
-      statusLabel: 'Live',
-      detail: `Active publication ${formatDateTime(publication.publishedAt)}`,
+      statusLabel: translate(DASHBOARD_VIEW_MODEL_MESSAGES.live),
+      detail: translate(DASHBOARD_VIEW_MODEL_MESSAGES.activePublicationAt, {
+        date: formatDateTime(publication.publishedAt, locale, translate),
+      }),
       tone: 'complete',
     };
   }
@@ -443,11 +512,13 @@ function buildEnvironmentStage(
   return {
     id: environment,
     label,
-    statusLabel: 'Published',
-    detail:
+    statusLabel: translate(DASHBOARD_VIEW_MODEL_MESSAGES.published),
+    detail: translate(
       environment === 'staging'
-        ? `Published ${formatDateTime(publication.publishedAt)} · verification pending`
-        : `Published ${formatDateTime(publication.publishedAt)} · active delivery unconfirmed`,
+        ? DASHBOARD_VIEW_MODEL_MESSAGES.publishedVerificationPending
+        : DASHBOARD_VIEW_MODEL_MESSAGES.publishedDeliveryUnconfirmed,
+      { date: formatDateTime(publication.publishedAt, locale, translate) },
+    ),
     tone: 'current',
   };
 }
@@ -487,14 +558,18 @@ function publicationIsActive(
   return Boolean(evidence?.active ?? evidence?.isActive);
 }
 
-function productionCurrentSummary(active: boolean, exactPromotion: boolean): string {
+function productionCurrentSummary(
+  active: boolean,
+  exactPromotion: boolean,
+  translate: DashboardViewModelLocalization['translate'],
+): string {
   if (active && exactPromotion) {
-    return 'Production points to the exact artifact promoted from staging.';
+    return translate(DASHBOARD_VIEW_MODEL_MESSAGES.exactArtifactPromoted);
   }
   if (active) {
-    return 'Production is active, but exact staging-artifact provenance is not available yet.';
+    return translate(DASHBOARD_VIEW_MODEL_MESSAGES.activeProvenanceUnavailable);
   }
-  return 'A production publication matches the draft; active-delivery evidence is not available yet.';
+  return translate(DASHBOARD_VIEW_MODEL_MESSAGES.productionMatchesNoDeliveryEvidence);
 }
 
 function publicationsShareArtifact(
@@ -517,70 +592,89 @@ function buildReleaseEvidence(
   document: DocumentSummaryDto,
   staging: DocumentSummaryDto['publications'][number] | undefined,
   production: DocumentSummaryDto['publications'][number] | undefined,
+  localization: DashboardViewModelLocalization,
 ): DashboardReleaseEvidence[] {
+  const { translate } = localization;
   const stagingVerification = publicationVerification(staging);
   const stagingVerifiedAt = publicationVerifiedAt(staging);
   const artifactPublication = staging ?? production;
   const artifactId = publicationArtifactId(artifactPublication);
-  const stagingEvidence = describeStagingEvidence(staging, stagingVerification, stagingVerifiedAt);
-  const productionEvidence = describeProductionEvidence(production, staging);
-  const artifactEvidence = describeArtifactEvidence(artifactPublication, artifactId);
+  const stagingEvidence = describeStagingEvidence(
+    staging,
+    stagingVerification,
+    stagingVerifiedAt,
+    localization,
+  );
+  const productionEvidence = describeProductionEvidence(production, staging, localization);
+  const artifactEvidence = describeArtifactEvidence(artifactPublication, artifactId, localization);
   return [
     {
       id: 'draft',
-      label: 'Current draft',
-      value: document.latestContentHash ? shortHash(document.latestContentHash) : 'Not prepared',
-      detail: draftEvidenceDetail(document),
+      label: translate(DASHBOARD_VIEW_MODEL_MESSAGES.currentDraft),
+      value: document.latestContentHash
+        ? shortHash(document.latestContentHash, translate)
+        : translate(DASHBOARD_VIEW_MODEL_MESSAGES.notPrepared),
+      detail: draftEvidenceDetail(document, translate),
       tone: document.publishReadinessIssues.length ? 'warning' : 'outline',
     },
     {
       id: 'staging',
-      label: 'Staging evidence',
+      label: translate(DASHBOARD_VIEW_MODEL_MESSAGES.stagingEvidence),
       ...stagingEvidence,
     },
     {
       id: 'production',
-      label: 'Production evidence',
+      label: translate(DASHBOARD_VIEW_MODEL_MESSAGES.productionEvidence),
       ...productionEvidence,
     },
     {
       id: 'artifact',
-      label: 'Artifact identity',
+      label: translate(DASHBOARD_VIEW_MODEL_MESSAGES.artifactIdentity),
       ...artifactEvidence,
     },
   ];
 }
 
-function draftEvidenceDetail(document: DocumentSummaryDto): string {
-  if (!document.latestContentHash) return 'Preview once to prepare a publishable artifact';
+function draftEvidenceDetail(
+  document: DocumentSummaryDto,
+  translate: DashboardViewModelLocalization['translate'],
+): string {
+  if (!document.latestContentHash) {
+    return translate(DASHBOARD_VIEW_MODEL_MESSAGES.previewToPrepareArtifact);
+  }
   const count = document.publishReadinessIssues.length;
-  if (count === 0) return 'No blocking checks';
-  const noun = count === 1 ? 'check' : 'checks';
-  return `${count} blocking ${noun}`;
+  if (count === 0) return translate(DASHBOARD_VIEW_MODEL_MESSAGES.noBlockingChecks);
+  return translate(DASHBOARD_VIEW_MODEL_MESSAGES.blockingChecks, { count });
 }
 
 function describeStagingEvidence(
   publication: DocumentSummaryDto['publications'][number] | undefined,
   verification: PublicationWithEvidence['verificationStatus'] | undefined,
   verifiedAt: string | undefined,
+  localization: DashboardViewModelLocalization,
 ): Pick<DashboardReleaseEvidence, 'value' | 'detail' | 'tone'> {
+  const { locale, translate } = localization;
   if (!publication) {
     return {
-      value: 'Not published',
-      detail: 'No staging publication record',
+      value: translate(DASHBOARD_VIEW_MODEL_MESSAGES.notPublished),
+      detail: translate(DASHBOARD_VIEW_MODEL_MESSAGES.noStagingPublicationRecord),
       tone: 'outline',
     };
   }
   if (verification === 'passed') {
     return {
-      value: 'Verified',
-      detail: `Exact artifact verified ${formatDateTime(verifiedAt ?? publication.publishedAt)}`,
+      value: translate(DASHBOARD_VIEW_MODEL_MESSAGES.verified),
+      detail: translate(DASHBOARD_VIEW_MODEL_MESSAGES.exactArtifactVerifiedAt, {
+        date: formatDateTime(verifiedAt ?? publication.publishedAt, locale, translate),
+      }),
       tone: 'success',
     };
   }
   return {
-    value: 'Published',
-    detail: `Published ${formatDateTime(publication.publishedAt)} · browser verification not recorded`,
+    value: translate(DASHBOARD_VIEW_MODEL_MESSAGES.published),
+    detail: translate(DASHBOARD_VIEW_MODEL_MESSAGES.publishedNoBrowserVerification, {
+      date: formatDateTime(publication.publishedAt, locale, translate),
+    }),
     tone: 'info',
   };
 }
@@ -588,26 +682,34 @@ function describeStagingEvidence(
 function describeProductionEvidence(
   publication: DocumentSummaryDto['publications'][number] | undefined,
   staging: DocumentSummaryDto['publications'][number] | undefined,
+  localization: DashboardViewModelLocalization,
 ): Pick<DashboardReleaseEvidence, 'value' | 'detail' | 'tone'> {
+  const { locale, translate } = localization;
   if (!publication) {
     return {
-      value: 'Not published',
-      detail: 'No production publication record',
+      value: translate(DASHBOARD_VIEW_MODEL_MESSAGES.notPublished),
+      detail: translate(DASHBOARD_VIEW_MODEL_MESSAGES.noProductionPublicationRecord),
       tone: 'outline',
     };
   }
   if (publicationIsActive(publication)) {
     return {
-      value: 'Live',
+      value: translate(DASHBOARD_VIEW_MODEL_MESSAGES.live),
       detail: publicationsShareArtifact(staging, publication)
-        ? `Exact staged artifact active since ${formatDateTime(publication.publishedAt)}`
-        : `Active since ${formatDateTime(publication.publishedAt)} · exact staging provenance unavailable`,
+        ? translate(DASHBOARD_VIEW_MODEL_MESSAGES.exactStagedArtifactActiveAt, {
+            date: formatDateTime(publication.publishedAt, locale, translate),
+          })
+        : translate(DASHBOARD_VIEW_MODEL_MESSAGES.activeNoProvenanceAt, {
+            date: formatDateTime(publication.publishedAt, locale, translate),
+          }),
       tone: 'success',
     };
   }
   return {
-    value: 'Published',
-    detail: `Published ${formatDateTime(publication.publishedAt)} · active pointer not exposed`,
+    value: translate(DASHBOARD_VIEW_MODEL_MESSAGES.published),
+    detail: translate(DASHBOARD_VIEW_MODEL_MESSAGES.publishedPointerNotExposed, {
+      date: formatDateTime(publication.publishedAt, locale, translate),
+    }),
     tone: 'info',
   };
 }
@@ -615,121 +717,173 @@ function describeProductionEvidence(
 function describeArtifactEvidence(
   publication: DocumentSummaryDto['publications'][number] | undefined,
   artifactId: string | undefined,
+  localization: DashboardViewModelLocalization,
 ): Pick<DashboardReleaseEvidence, 'value' | 'detail' | 'tone'> {
+  const { translate } = localization;
   if (artifactId) {
     return {
-      value: shortArtifactId(artifactId),
-      detail: 'Immutable compiled artifact',
+      value: shortArtifactId(artifactId, translate),
+      detail: translate(DASHBOARD_VIEW_MODEL_MESSAGES.immutableCompiledArtifact),
       tone: 'outline',
     };
   }
   if (publication) {
     return {
-      value: shortHash(publication.contentHash),
-      detail: 'Content hash is the strongest artifact evidence available',
+      value: shortHash(publication.contentHash, translate),
+      detail: translate(DASHBOARD_VIEW_MODEL_MESSAGES.contentHashStrongestEvidence),
       tone: 'outline',
     };
   }
   return {
-    value: 'Not available',
-    detail: 'Created during server-side publication',
+    value: translate(DASHBOARD_COMMON_MESSAGES.notAvailable),
+    detail: translate(DASHBOARD_VIEW_MODEL_MESSAGES.createdDuringPublication),
     tone: 'warning',
   };
 }
 
-function buildBrandSourceSummary(themes: WorkspaceThemeDto[]): DashboardBrandSourceSummary {
+function buildBrandSourceSummary(
+  themes: WorkspaceThemeDto[],
+  localization: DashboardViewModelLocalization,
+): DashboardBrandSourceSummary {
+  const { locale, translate } = localization;
+  const semanticRoles = [
+    translate(DASHBOARD_VIEW_MODEL_MESSAGES.accent),
+    translate(DASHBOARD_VIEW_MODEL_MESSAGES.surface),
+    translate(DASHBOARD_VIEW_MODEL_MESSAGES.text),
+    translate(DASHBOARD_VIEW_MODEL_MESSAGES.typography),
+    translate(DASHBOARD_VIEW_MODEL_MESSAGES.radius),
+  ];
   const theme = themes.find((item) => item.isDefault) ?? themes[0];
   if (!theme) {
     return {
-      sourceLabel: 'Lodariq accessible fallback',
-      sourceDetail: 'Safe semantic defaults are active until a workspace Brand theme is approved.',
-      statusLabel: 'Safe fallback',
+      sourceLabel: translate(DASHBOARD_VIEW_MODEL_MESSAGES.accessibleFallback),
+      sourceDetail: translate(DASHBOARD_VIEW_MODEL_MESSAGES.semanticDefaultsActive),
+      statusLabel: translate(DASHBOARD_VIEW_MODEL_MESSAGES.safeFallback),
       statusVariant: 'outline',
-      revisionLabel: 'No approved version',
-      checkedAtLabel: 'Product match has not been recorded',
+      revisionLabel: translate(DASHBOARD_VIEW_MODEL_MESSAGES.noApprovedVersion),
+      checkedAtLabel: translate(DASHBOARD_VIEW_MODEL_MESSAGES.productMatchNotRecorded),
       confidenceLabel: null,
-      semanticRoles: ['Accent', 'Surface', 'Text', 'Typography', 'Radius'],
+      semanticRoles,
     };
   }
   const styleSource = theme.latestStyleSource;
   if (styleSource) {
     return {
-      sourceLabel: productStyleSourceLabel(styleSource.kind),
-      sourceDetail: productStyleSourceDetail(styleSource.kind, theme.name),
-      statusLabel: theme.activeVersion ? 'Approved source' : 'Needs approval',
+      sourceLabel: productStyleSourceLabel(styleSource.kind, translate),
+      sourceDetail: productStyleSourceDetail(styleSource.kind, theme.name, translate),
+      statusLabel: translate(
+        theme.activeVersion
+          ? DASHBOARD_VIEW_MODEL_MESSAGES.approvedSource
+          : DASHBOARD_VIEW_MODEL_MESSAGES.needsApproval,
+      ),
       statusVariant: theme.activeVersion ? 'success' : 'warning',
       revisionLabel: styleSource.revision
-        ? `Source revision ${styleSource.revision}`
-        : `Theme revision ${theme.revision}`,
-      checkedAtLabel: `Checked ${formatDateTime(styleSource.capturedAt)}`,
-      confidenceLabel: productStyleConfidenceLabel(styleSource.confidence),
-      semanticRoles: ['Accent', 'Surface', 'Text', 'Typography', 'Radius'],
+        ? translate(DASHBOARD_VIEW_MODEL_MESSAGES.sourceRevision, {
+            revision: styleSource.revision,
+          })
+        : translate(DASHBOARD_VIEW_MODEL_MESSAGES.themeRevision, { revision: theme.revision }),
+      checkedAtLabel: translate(DASHBOARD_VIEW_MODEL_MESSAGES.checkedAt, {
+        date: formatDateTime(styleSource.capturedAt, locale, translate),
+      }),
+      confidenceLabel: productStyleConfidenceLabel(styleSource.confidence, translate),
+      semanticRoles,
     };
   }
   if (!theme.activeVersion) {
     return {
-      sourceLabel: `${theme.name} workspace draft`,
-      sourceDetail: 'Semantic tokens are saved as a draft and cannot change live releases.',
-      statusLabel: 'Needs approval',
+      sourceLabel: translate(DASHBOARD_VIEW_MODEL_MESSAGES.workspaceDraft, { theme: theme.name }),
+      sourceDetail: translate(DASHBOARD_VIEW_MODEL_MESSAGES.tokensSavedAsDraft),
+      statusLabel: translate(DASHBOARD_VIEW_MODEL_MESSAGES.needsApproval),
       statusVariant: 'warning',
-      revisionLabel: `Draft revision ${theme.revision}`,
-      checkedAtLabel: `Updated ${formatDateTime(theme.updatedAt)}`,
+      revisionLabel: translate(DASHBOARD_VIEW_MODEL_MESSAGES.draftRevision, {
+        revision: theme.revision,
+      }),
+      checkedAtLabel: translate(DASHBOARD_VIEW_MODEL_MESSAGES.updatedAt, {
+        date: formatDateTime(theme.updatedAt, locale, translate),
+      }),
       confidenceLabel: null,
-      semanticRoles: ['Accent', 'Surface', 'Text', 'Typography', 'Radius'],
+      semanticRoles,
     };
   }
   return {
-    sourceLabel: 'Workspace-approved semantic tokens',
-    sourceDetail: `${theme.name} is compiled into releases as an immutable Brand snapshot.`,
-    statusLabel: 'Approved source',
+    sourceLabel: translate(DASHBOARD_VIEW_MODEL_MESSAGES.workspaceApprovedTokens),
+    sourceDetail: translate(DASHBOARD_VIEW_MODEL_MESSAGES.themeCompiledSnapshot, {
+      theme: theme.name,
+    }),
+    statusLabel: translate(DASHBOARD_VIEW_MODEL_MESSAGES.approvedSource),
     statusVariant: 'success',
-    revisionLabel: `Version ${theme.activeVersion.version}`,
-    checkedAtLabel: `Approved ${formatDateTime(theme.activeVersion.approvedAt)}`,
+    revisionLabel: translate(DASHBOARD_VIEW_MODEL_MESSAGES.version, {
+      version: theme.activeVersion.version,
+    }),
+    checkedAtLabel: translate(DASHBOARD_VIEW_MODEL_MESSAGES.approvedAt, {
+      date: formatDateTime(theme.activeVersion.approvedAt, locale, translate),
+    }),
     confidenceLabel: null,
-    semanticRoles: ['Accent', 'Surface', 'Text', 'Typography', 'Radius'],
+    semanticRoles,
   };
 }
 
 type DashboardProductStyleSourceKind = NonNullable<WorkspaceThemeDto['latestStyleSource']>['kind'];
 
-function productStyleSourceLabel(kind: DashboardProductStyleSourceKind): string {
-  if (kind === 'registered_tokens') return 'Registered design tokens';
-  if (kind === 'selected_element') return 'Selected product element';
-  if (kind === 'nearby_control') return 'Nearby product controls';
-  if (kind === 'page_typography') return 'Product typography';
-  if (kind === 'ancestor_context') return 'Product surface context';
-  return 'Accessible fallback';
+function productStyleSourceLabel(
+  kind: DashboardProductStyleSourceKind,
+  translate: DashboardViewModelLocalization['translate'],
+): string {
+  if (kind === 'registered_tokens') {
+    return translate(DASHBOARD_VIEW_MODEL_MESSAGES.registeredDesignTokens);
+  }
+  if (kind === 'selected_element') {
+    return translate(DASHBOARD_VIEW_MODEL_MESSAGES.selectedProductElement);
+  }
+  if (kind === 'nearby_control') {
+    return translate(DASHBOARD_VIEW_MODEL_MESSAGES.nearbyProductControls);
+  }
+  if (kind === 'page_typography') {
+    return translate(DASHBOARD_VIEW_MODEL_MESSAGES.productTypography);
+  }
+  if (kind === 'ancestor_context') {
+    return translate(DASHBOARD_VIEW_MODEL_MESSAGES.productSurfaceContext);
+  }
+  return translate(DASHBOARD_VIEW_MODEL_MESSAGES.accessibleFallbackShort);
 }
 
 function productStyleSourceDetail(
   kind: DashboardProductStyleSourceKind,
   themeName: string,
+  translate: DashboardViewModelLocalization['translate'],
 ): string {
   if (kind === 'registered_tokens') {
-    return `${themeName} is grounded in explicitly registered semantic customer tokens.`;
+    return translate(DASHBOARD_VIEW_MODEL_MESSAGES.groundedInTokens, { theme: themeName });
   }
   if (kind === 'selected_element') {
-    return `${themeName} was proposed from one representative product element and reviewed semantically.`;
+    return translate(DASHBOARD_VIEW_MODEL_MESSAGES.proposedFromElement, { theme: themeName });
   }
-  return `${themeName} uses privacy-safe product style evidence and stores no raw CSS or DOM snapshot.`;
+  return translate(DASHBOARD_VIEW_MODEL_MESSAGES.privacySafeEvidence, { theme: themeName });
 }
 
-function productStyleConfidenceLabel(confidence: number): string {
-  if (confidence >= 80) return 'High-confidence evidence';
-  if (confidence >= 60) return 'Review recommended';
-  return 'Low-confidence evidence';
+function productStyleConfidenceLabel(
+  confidence: number,
+  translate: DashboardViewModelLocalization['translate'],
+): string {
+  if (confidence >= 80) return translate(DASHBOARD_VIEW_MODEL_MESSAGES.highConfidenceEvidence);
+  if (confidence >= 60) return translate(DASHBOARD_VIEW_MODEL_MESSAGES.reviewRecommended);
+  return translate(DASHBOARD_VIEW_MODEL_MESSAGES.lowConfidenceEvidence);
 }
 
 function buildRecentActivity(
   documents: DashboardViewModel['documentRows'],
   themes: WorkspaceThemeDto[],
+  localization: DashboardViewModelLocalization,
 ): DashboardRecentActivity[] {
+  const { locale, translate } = localization;
   const activities: Array<DashboardRecentActivity & { occurredAt: string }> = [];
   for (const document of documents) {
     activities.push({
       id: `document-update:${document.id}:${document.updatedAt}`,
       documentId: document.id,
-      title: `${document.title} was last updated`,
+      title: translate(DASHBOARD_VIEW_MODEL_MESSAGES.documentUpdated, {
+        document: document.title,
+      }),
       typeLabel: document.typeLabel,
       detail: document.lastActivityLabel,
       kind: 'document',
@@ -743,12 +897,15 @@ function buildRecentActivity(
       activities.push({
         id: `publication:${document.id}:${publication.environmentId}:${publication.publishedAt}`,
         documentId: document.id,
-        title: `${document.title} was published to ${formatStatus(publication.environment)}`,
+        title: translate(DASHBOARD_VIEW_MODEL_MESSAGES.documentPublished, {
+          document: document.title,
+          environment: formatEnvironmentKind(publication.environment, translate),
+        }),
         typeLabel:
           publicationVerification(publication) === 'passed' && publication.environment === 'staging'
-            ? 'Exact artifact verified'
-            : 'Immutable publication',
-        detail: formatDateTime(publication.publishedAt),
+            ? translate(DASHBOARD_VIEW_MODEL_MESSAGES.exactArtifactVerified)
+            : translate(DASHBOARD_VIEW_MODEL_MESSAGES.immutablePublication),
+        detail: formatDateTime(publication.publishedAt, locale, translate),
         kind,
         occurredAt: publication.publishedAt,
       });
@@ -758,9 +915,12 @@ function buildRecentActivity(
     if (!theme.activeVersion) continue;
     activities.push({
       id: `brand-approval:${theme.id}:${theme.activeVersion.id}`,
-      title: `${theme.name} Brand version ${theme.activeVersion.version} was approved`,
-      typeLabel: 'Immutable Brand snapshot',
-      detail: formatDateTime(theme.activeVersion.approvedAt),
+      title: translate(DASHBOARD_VIEW_MODEL_MESSAGES.brandVersionApproved, {
+        theme: theme.name,
+        version: theme.activeVersion.version,
+      }),
+      typeLabel: translate(DASHBOARD_VIEW_MODEL_MESSAGES.immutableBrandSnapshot),
+      detail: formatDateTime(theme.activeVersion.approvedAt, locale, translate),
       kind: 'brand',
       occurredAt: theme.activeVersion.approvedAt,
     });
@@ -771,13 +931,21 @@ function buildRecentActivity(
     .map(({ occurredAt: _occurredAt, ...activity }) => activity);
 }
 
-function shortHash(value: string | undefined): string {
-  if (!value) return 'Not available';
+function shortHash(
+  value: string | undefined,
+  translate: DashboardViewModelLocalization['translate'],
+): string {
+  if (!value) return translate(DASHBOARD_COMMON_MESSAGES.notAvailable);
   return value.length <= 14 ? value : `…${value.slice(-10)}`;
 }
 
-function shortArtifactId(value: string): string {
-  return value.length <= 18 ? value : `Artifact …${value.slice(-10)}`;
+function shortArtifactId(
+  value: string,
+  translate: DashboardViewModelLocalization['translate'],
+): string {
+  return value.length <= 18
+    ? value
+    : translate(DASHBOARD_VIEW_MODEL_MESSAGES.artifactShort, { suffix: value.slice(-10) });
 }
 
 function latestPublicationForEnvironment(
@@ -796,8 +964,11 @@ function publicationMatchesDraft(
   return Boolean(publication && latestContentHash && publication.contentHash === latestContentHash);
 }
 
-function formatIssueCount(count: number): string {
-  return `${count} publish ${count === 1 ? 'issue' : 'issues'}`;
+function formatIssueCount(
+  count: number,
+  translate: DashboardViewModelLocalization['translate'],
+): string {
+  return translate(DASHBOARD_VIEW_MODEL_MESSAGES.publishIssues, { count });
 }
 
 function environmentOpenPriority(kind: WorkspaceEnvironmentDto['kind']): number {
@@ -816,25 +987,60 @@ function readHttpOrigin(value: string): string {
   }
 }
 
-function formatStatus(status: string): string {
-  return status
-    .split(/[-_\s]+/)
-    .filter(Boolean)
-    .map((part) => `${part.charAt(0).toUpperCase()}${part.slice(1)}`)
-    .join(' ');
+function formatEnvironmentKind(
+  environment: WorkspaceEnvironmentDto['kind'],
+  translate: DashboardViewModelLocalization['translate'],
+): string {
+  if (environment === 'development') return translate(DASHBOARD_COMMON_MESSAGES.development);
+  if (environment === 'staging') return translate(DASHBOARD_COMMON_MESSAGES.staging);
+  return translate(DASHBOARD_COMMON_MESSAGES.production);
 }
 
-function formatEditorLabel(document: DocumentSummaryDto): string {
-  if (document.updatedByUserId || document.createdByUserId) return 'Workspace teammate';
-  return 'Team update';
+function formatDocumentStatus(
+  status: DocumentSummaryDto['status'],
+  translate: DashboardViewModelLocalization['translate'],
+): string {
+  if (status === 'draft') return translate(DASHBOARD_COMMON_MESSAGES.draft);
+  if (status === 'review') return translate(DASHBOARD_VIEW_MODEL_MESSAGES.statusReview);
+  if (status === 'approved') return translate(DASHBOARD_VIEW_MODEL_MESSAGES.statusApproved);
+  if (status === 'live') return translate(DASHBOARD_VIEW_MODEL_MESSAGES.statusLive);
+  return translate(DASHBOARD_VIEW_MODEL_MESSAGES.archived);
 }
 
-const DOCUMENT_READINESS_LABELS: Readonly<Record<DashboardDocumentReadiness, string>> = {
-  blocked: 'Needs fixes before publishing',
-  draft: 'Draft in progress',
-  previewable: 'Ready to preview',
-  archived: 'Archived',
-};
+function formatDocumentType(
+  type: DocumentSummaryDto['type'],
+  translate: DashboardViewModelLocalization['translate'],
+): string {
+  if (type === 'tour') return translate(DASHBOARD_VIEW_MODEL_MESSAGES.typeTour);
+  if (type === 'announcement') return translate(DASHBOARD_VIEW_MODEL_MESSAGES.typeAnnouncement);
+  if (type === 'checklist') return translate(DASHBOARD_VIEW_MODEL_MESSAGES.typeChecklist);
+  if (type === 'survey') return translate(DASHBOARD_VIEW_MODEL_MESSAGES.typeSurvey);
+  if (type === 'hotspot') return translate(DASHBOARD_VIEW_MODEL_MESSAGES.typeHotspot);
+  return translate(DASHBOARD_VIEW_MODEL_MESSAGES.typeKnowledge);
+}
+
+function formatEditorLabel(
+  document: DocumentSummaryDto,
+  translate: DashboardViewModelLocalization['translate'],
+): string {
+  if (document.updatedByUserId || document.createdByUserId) {
+    return translate(DASHBOARD_VIEW_MODEL_MESSAGES.workspaceTeammate);
+  }
+  return translate(DASHBOARD_VIEW_MODEL_MESSAGES.teamUpdate);
+}
+
+function documentReadinessLabel(
+  readiness: DashboardDocumentReadiness,
+  translate: DashboardViewModelLocalization['translate'],
+): string {
+  const descriptorByReadiness = {
+    blocked: DASHBOARD_VIEW_MODEL_MESSAGES.readinessBlocked,
+    draft: DASHBOARD_VIEW_MODEL_MESSAGES.readinessDraft,
+    previewable: DASHBOARD_VIEW_MODEL_MESSAGES.readinessPreviewable,
+    archived: DASHBOARD_VIEW_MODEL_MESSAGES.archived,
+  } as const;
+  return translate(descriptorByReadiness[readiness]);
+}
 
 const DOCUMENT_LIFECYCLE_VARIANTS: Readonly<
   Record<DocumentSummaryDto['status'], DashboardStatusVariant>
@@ -856,41 +1062,53 @@ function documentLifecycleVariant(status: DocumentSummaryDto['status']): Dashboa
   return DOCUMENT_LIFECYCLE_VARIANTS[status];
 }
 
-function formatReadinessIssueSummary(document: DocumentSummaryDto): string {
+function formatReadinessIssueSummary(
+  document: DocumentSummaryDto,
+  translate: DashboardViewModelLocalization['translate'],
+): string {
   const firstIssue = document.publishReadinessIssues[0];
-  if (!firstIssue) return 'No publish blockers';
+  if (!firstIssue) return translate(DASHBOARD_VIEW_MODEL_MESSAGES.noPublishBlockers);
+  const firstIssueMessage = translate(dashboardPublishIssueCopy(firstIssue.code).message);
   const remaining = document.publishReadinessIssues.length - 1;
-  if (remaining === 0) return firstIssue.message;
-  return `${firstIssue.message} +${remaining} more`;
+  if (remaining === 0) return firstIssueMessage;
+  return translate(DASHBOARD_VIEW_MODEL_MESSAGES.moreIssues, {
+    message: firstIssueMessage,
+    count: remaining,
+  });
 }
 
-function buildDraftInfo(document: DocumentSummaryDto): {
+function buildDraftInfo(
+  document: DocumentSummaryDto,
+  translate: DashboardViewModelLocalization['translate'],
+): {
   contentHashLabel: string;
   contentHashDetail: string;
 } {
   if (document.latestContentHash) {
     return {
-      contentHashLabel: 'Draft saved',
+      contentHashLabel: translate(DASHBOARD_VIEW_MODEL_MESSAGES.draftSaved),
       contentHashDetail: document.publications.length
-        ? 'Changes are being tracked'
-        : 'Ready for first publish',
+        ? translate(DASHBOARD_VIEW_MODEL_MESSAGES.changesTracked)
+        : translate(DASHBOARD_VIEW_MODEL_MESSAGES.readyFirstPublish),
     };
   }
 
   return {
-    contentHashLabel: 'Needs preview',
-    contentHashDetail: 'Preview once to prepare publishing',
+    contentHashLabel: translate(DASHBOARD_VIEW_MODEL_MESSAGES.needsPreview),
+    contentHashDetail: translate(DASHBOARD_VIEW_MODEL_MESSAGES.previewToPreparePublishing),
   };
 }
 
 function buildPublicationInfo(
   document: DocumentSummaryDto,
   environmentById: Map<string, WorkspaceEnvironmentDto>,
+  localization: DashboardViewModelLocalization,
 ): { label: string; detail: string; variant: PublicationVariant } {
+  const { translate } = localization;
   if (!document.publications.length) {
     return {
-      label: 'Unpublished',
-      detail: 'No environment publication record yet',
+      label: translate(DASHBOARD_VIEW_MODEL_MESSAGES.unpublished),
+      detail: translate(DASHBOARD_VIEW_MODEL_MESSAGES.noPublicationRecord),
       variant: 'outline',
     };
   }
@@ -909,23 +1127,29 @@ function buildPublicationInfo(
 
   if (hasDraftChanges) {
     return {
-      label: 'Newer draft',
-      detail: `Publication records for ${siteList} use an earlier content hash`,
+      label: translate(DASHBOARD_VIEW_MODEL_MESSAGES.newerDraft),
+      detail: translate(DASHBOARD_VIEW_MODEL_MESSAGES.recordsUseEarlierHash, {
+        sites: siteList,
+      }),
       variant: 'warning',
     };
   }
 
   return {
-    label: 'Publication recorded',
-    detail: `Current draft recorded for ${siteList}`,
+    label: translate(DASHBOARD_VIEW_MODEL_MESSAGES.publicationRecorded),
+    detail: translate(DASHBOARD_VIEW_MODEL_MESSAGES.currentDraftRecorded, { sites: siteList }),
     variant: 'outline',
   };
 }
 
-function formatDate(value: string): string {
+function formatDate(
+  value: string,
+  locale: SupportedLocale,
+  translate: DashboardViewModelLocalization['translate'],
+): string {
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return 'Unknown';
-  return new Intl.DateTimeFormat('en-US', {
+  if (Number.isNaN(date.getTime())) return translate(DASHBOARD_COMMON_MESSAGES.unknown);
+  return new Intl.DateTimeFormat(locale, {
     month: 'short',
     day: 'numeric',
     year: 'numeric',
@@ -933,10 +1157,14 @@ function formatDate(value: string): string {
   }).format(date);
 }
 
-function formatDateTime(value: string): string {
+function formatDateTime(
+  value: string,
+  locale: SupportedLocale,
+  translate: DashboardViewModelLocalization['translate'],
+): string {
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return 'Unknown time';
-  return new Intl.DateTimeFormat('en-US', {
+  if (Number.isNaN(date.getTime())) return translate(DASHBOARD_VIEW_MODEL_MESSAGES.unknownTime);
+  return new Intl.DateTimeFormat(locale, {
     month: 'short',
     day: 'numeric',
     hour: 'numeric',

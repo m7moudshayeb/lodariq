@@ -120,7 +120,7 @@ describe('@lodariq/dashboard view model', () => {
     expect(viewModel.documentRows[0]?.lifecycleVariant).toBe('warning');
     expect(viewModel.documentRows[0]?.readinessIssueCount).toBe(1);
     expect(viewModel.documentRows[0]?.readinessIssueSummary).toBe(
-      'Step 1 needs a placement before publishing.',
+      'Choose where this step appears before publishing.',
     );
     expect(viewModel.documentRows[0]?.updatedAtLabel).toBe('Jun 30, 2026');
     expect(viewModel.documentRows[0]?.contentHashLabel).toBe('Draft saved');
@@ -151,7 +151,9 @@ describe('@lodariq/dashboard view model', () => {
       'env_staging',
       'env_production',
     ]);
-    expect(viewModel.openInProductUrl).toBe('https://staging.lodariq.io/?lodariq-launcher=show');
+    expect(viewModel.openInProductUrl).toBe(
+      'https://staging.lodariq.io/?lodariq-launcher=show&lodariq-locale=en',
+    );
     expect(viewModel.recentActivity[0]).toMatchObject({
       documentId: 'doc_welcome',
       title: 'Welcome tour was last updated',
@@ -393,7 +395,7 @@ describe('@lodariq/dashboard view model', () => {
       }),
     ]);
     expect(viewModel.openInProductUrl).toBe(
-      'https://active.customer.example/?lodariq-launcher=show',
+      'https://active.customer.example/?lodariq-launcher=show&lodariq-locale=en',
     );
   });
 

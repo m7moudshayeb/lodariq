@@ -77,9 +77,16 @@ describe('Phase 2 analytics contracts', () => {
       validate(AnalyticsEnvironmentQuery, {
         environmentId: 'env_staging',
         documentId: 'doc_welcome',
+        locale: 'de',
       }).valid,
     ).toBe(true);
     expect(validate(AnalyticsEnvironmentQuery, { documentId: 'doc_welcome' }).valid).toBe(false);
+    expect(
+      validate(AnalyticsEnvironmentQuery, {
+        environmentId: 'env_staging',
+        locale: 'not_a_locale',
+      }).valid,
+    ).toBe(false);
     expect(
       validate(AnalyticsEnvironmentQuery, {
         environmentId: 'env_staging',
@@ -96,6 +103,7 @@ describe('Phase 2 analytics contracts', () => {
       publicationId: 'pub_welcome_3',
       contentHash: CONTENT_HASH,
       pointerGeneration: 3,
+      locale: 'de',
       name: 'tour_completed',
       count: 7,
       firstTimestamp: '2026-08-09T12:00:00.000Z',

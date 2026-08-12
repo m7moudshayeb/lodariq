@@ -7,12 +7,10 @@ import {
   type TargetIdentityV2,
   type TargetViewportClass,
 } from '@lodariq/schema';
+import { authoringText } from '../i18n';
 import type { ResolutionResult } from '@lodariq/sdk-runtime/resolver';
 import type { AuthoringBridge } from '../bridge/transport';
-import {
-  BRIDGE_PROTOCOL_VERSION,
-  createBridgeCorrelationId,
-} from '../bridge/transport';
+import { BRIDGE_PROTOCOL_VERSION, createBridgeCorrelationId } from '../bridge/transport';
 import { CREATOR_CHROME_TOKENS } from '../creator-chrome-tokens';
 
 export interface AuthoringPageSessionContext {
@@ -191,7 +189,7 @@ export async function inspectTarget(
       currentLocale: null,
       viewportClass: authoringViewportClass(window.innerWidth),
       observedAt: new Date().toISOString(),
-      message: 'Anchor check could not load on this page',
+      message: authoringText('Anchor check could not load on this page'),
     };
   }
   if (action === 'view' && result.element) revealTarget(result.element);

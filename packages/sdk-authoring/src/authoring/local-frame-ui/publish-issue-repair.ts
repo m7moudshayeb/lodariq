@@ -1,5 +1,6 @@
 import type { PublishReadinessIssue, PublishReadinessIssueCode } from '@lodariq/schema';
 import type { FocusRevealTarget } from './types';
+import { authoringText } from '../../i18n';
 
 export interface PublishIssueRepairIntent {
   action: 'add-step' | 'focus-editor';
@@ -10,32 +11,32 @@ export interface PublishIssueRepairIntent {
 }
 
 const PUBLISH_ISSUE_REPAIR_INTENTS = {
-  unsupported_document_type: editorIntent('Review document'),
+  unsupported_document_type: editorIntent(authoringText('Review document')),
   empty_tour: {
     action: 'add-step',
-    actionLabel: 'Add first step',
+    actionLabel: authoringText('Add first step'),
     focusTarget: 'edit',
     reveal: 'content',
   },
-  unsupported_tour_block: editorIntent('Review block'),
-  empty_step: contentIntent('Add content'),
-  missing_step_tooltip: editorIntent('Review step'),
-  missing_step_target: placementIntent('Choose target'),
-  broken_target_reference: placementIntent('Replace target'),
-  target_unverified: placementIntent('Verify target'),
-  target_needs_review: placementIntent('Review target'),
-  target_unresolved: placementIntent('Repair target'),
-  target_ambiguous: placementIntent('Choose target'),
-  button_missing_action: behaviorIntent('Choose action', 'button.action'),
-  link_missing_action: behaviorIntent('Choose action', 'button.action'),
-  open_page_missing_url: behaviorIntent('Add destination', 'button.destination'),
-  open_page_unsafe_url: behaviorIntent('Fix destination', 'button.destination'),
-  action_not_allowed: behaviorIntent('Choose action', 'button.action'),
-  incomplete_media: contentIntent('Complete media'),
-  unresolved_lifecycle_hint: placementIntent('Review timing'),
-  invalid_presentation_anchor: placementIntent('Fix popup area'),
-  invalid_block: editorIntent('Review block'),
-  incomplete_block: editorIntent('Complete block'),
+  unsupported_tour_block: editorIntent(authoringText('Review block')),
+  empty_step: contentIntent(authoringText('Add content')),
+  missing_step_tooltip: editorIntent(authoringText('Review step')),
+  missing_step_target: placementIntent(authoringText('Choose target')),
+  broken_target_reference: placementIntent(authoringText('Replace target')),
+  target_unverified: placementIntent(authoringText('Verify target')),
+  target_needs_review: placementIntent(authoringText('Review target')),
+  target_unresolved: placementIntent(authoringText('Repair target')),
+  target_ambiguous: placementIntent(authoringText('Choose target')),
+  button_missing_action: behaviorIntent(authoringText('Choose action'), 'button.action'),
+  link_missing_action: behaviorIntent(authoringText('Choose action'), 'button.action'),
+  open_page_missing_url: behaviorIntent(authoringText('Add destination'), 'button.destination'),
+  open_page_unsafe_url: behaviorIntent(authoringText('Fix destination'), 'button.destination'),
+  action_not_allowed: behaviorIntent(authoringText('Choose action'), 'button.action'),
+  incomplete_media: contentIntent(authoringText('Complete media')),
+  unresolved_lifecycle_hint: placementIntent(authoringText('Review timing')),
+  invalid_presentation_anchor: placementIntent(authoringText('Fix popup area')),
+  invalid_block: editorIntent(authoringText('Review block')),
+  incomplete_block: editorIntent(authoringText('Complete block')),
 } as const satisfies Record<PublishReadinessIssueCode, PublishIssueRepairIntent>;
 
 export function publishIssueRepairIntent(

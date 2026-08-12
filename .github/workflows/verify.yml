@@ -6,7 +6,52 @@ on:
     branches: [master]
 
 jobs:
-  verify:
+  static-checks:
+    name: Static check / ${{ matrix.name }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Localization
+            command: pnpm run i18n:check
+          - name: TypeScript
+            command: pnpm run typecheck
+          - name: ESLint
+            command: pnpm run lint
+          - name: Package boundaries
+            command: pnpm run boundaries
+          - name: Architecture
+            command: pnpm run architecture:check
+          - name: Unused dependencies
+            command: pnpm run knip:check
+          - name: Styles
+            command: pnpm run styles:check
+          - name: Migrations
+            command: pnpm run migrations:check
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86
+        with:
+          version: 9.15.9
+
+      - name: Set up Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile --ignore-scripts
+
+      - name: Run ${{ matrix.name }} check
+        run: ${{ matrix.command }}
+
+  unit-tests:
+    name: Unit and integration tests
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -26,22 +71,103 @@ jobs:
       LODARIQ_DISPOSABLE_POSTGRES: '1'
       LODARIQ_TEST_POSTGRES_ADMIN_URL: postgresql://lodariq_ci_owner:lodariq_ci_password@127.0.0.1:5432/postgres
     steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+      - name: Check out repository
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
 
-      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86
+      - name: Set up pnpm
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86
         with:
           version: 9.15.9
 
-      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+      - name: Set up Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
         with:
           node-version: 24
           cache: pnpm
 
-      - name: Install
+      - name: Install dependencies
         run: pnpm install --frozen-lockfile --ignore-scripts
 
-      - name: Install Playwright browser
+      - name: Run unit and integration tests
+        run: pnpm run test
+
+  build:
+    name: Build and bundle checks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86
+        with:
+          version: 9.15.9
+
+      - name: Set up Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile --ignore-scripts
+
+      - name: Build packages and applications
+        run: pnpm run build
+
+      - name: Check bundle sizes
+        run: pnpm run size
+
+      - name: Prepare SDK assets
+        run: pnpm run sdk:prepare-assets
+
+  end-to-end-tests:
+    name: End-to-end browser tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86
+        with:
+          version: 9.15.9
+
+      - name: Set up Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile --ignore-scripts
+
+      - name: Install Playwright browsers
         run: pnpm exec playwright install --with-deps chromium firefox webkit
 
-      - name: Verify
-        run: pnpm verify
+      - name: Run end-to-end browser tests
+        run: pnpm run test:e2e
+
+  dependency-audit:
+    name: Dependency security audit
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86
+        with:
+          version: 9.15.9
+
+      - name: Set up Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile --ignore-scripts
+
+      - name: Audit production and development dependencies
+        run: pnpm run audit:security

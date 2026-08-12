@@ -1,8 +1,10 @@
 import { ControllerDragDropFeature } from './controller-drag-drop';
+import { authoringText } from '../../i18n';
 import {
   DEFAULT_EXPERIENCE_APPEARANCE,
   resolveExperienceAppearance,
   sanitizeTooltipLayoutProps,
+  sanitizeTooltipStyleProps,
   type BlockLayoutProps,
   type ButtonStyleProps,
   type PreviewPatchOperation,
@@ -12,6 +14,7 @@ import {
   type InlineTextRun,
   type TextStyleProps,
   type TooltipLayoutProps,
+  type TooltipStyleProps,
 } from '@lodariq/schema';
 import {
   setBlockLayout as setBlockLayoutInTree,
@@ -21,6 +24,7 @@ import {
   setBlockVariant,
   setButtonStyle as setButtonStyleInTree,
   setTooltipLayout as setTooltipLayoutInTree,
+  setTooltipStyle as setTooltipStyleInTree,
   transformBlocks,
   type EditableBlockType,
   type TooltipPlacement,
@@ -28,6 +32,7 @@ import {
 import type { EditableButtonVariant, EditableActionType } from './types';
 import { blockTypeLabel, findBlockById, isEditableContentBlock } from './utils';
 import { slashCommandDefaultContent } from './controller-model';
+import { localizedAuthoringDocument, setAuthoringLocalizedTitle } from '../document-localization';
 
 export abstract class ControllerPropertyFeature extends ControllerDragDropFeature {
   protected abstract afterDocumentMutation(): void;
@@ -39,7 +44,11 @@ export abstract class ControllerPropertyFeature extends ControllerDragDropFeatur
   protected abstract focusInsertedBlock(blockId: string): void;
   protected abstract recordChange(): void;
   protected abstract selectedTourStep(): LodariqBlock | null;
-  protected abstract sendPreviewPatch(blockId: string, ops: PreviewPatchOperation[]): void;
+  protected abstract sendPreviewPatch(
+    blockId: string,
+    ops: PreviewPatchOperation[],
+    locale?: string,
+  ): void;
 
   setButtonAction(blockId: string, actionType: EditableActionType): void {
     this.setAction(blockId, actionType);
@@ -79,7 +88,7 @@ export abstract class ControllerPropertyFeature extends ControllerDragDropFeatur
     this.afterDocumentMutation();
     this.services.saveDocument(this.documentState);
     this.sendPreviewPatch(blockId, [{ op: 'setTextStyle', textStyle }]);
-    this.setStatus('Text formatting updated');
+    this.setStatus(authoringText('Text formatting updated'));
   }
 
   resetTextBlockStyle(blockId: string): void {
@@ -95,7 +104,7 @@ export abstract class ControllerPropertyFeature extends ControllerDragDropFeatur
     this.afterDocumentMutation();
     this.services.saveDocument(this.documentState);
     this.sendPreviewPatch(blockId, [{ op: 'setTextStyle' }]);
-    this.setStatus('Text formatting reset to the Brand Theme');
+    this.setStatus(authoringText('Text formatting reset to the Brand Theme'));
   }
 
   setContentBlockLayout(blockId: string, patch: Partial<BlockLayoutProps>): void {
@@ -112,7 +121,7 @@ export abstract class ControllerPropertyFeature extends ControllerDragDropFeatur
     this.afterDocumentMutation();
     this.services.saveDocument(this.documentState);
     this.sendPreviewPatch(blockId, [{ op: 'setBlockLayout', blockLayout }]);
-    this.setStatus('Block layout updated');
+    this.setStatus(authoringText('Block layout updated'));
   }
 
   setActionAlignment(
@@ -152,7 +161,7 @@ export abstract class ControllerPropertyFeature extends ControllerDragDropFeatur
     if (tooltipLayoutChanged) {
       this.sendPreviewPatch(tooltipId, [{ op: 'setTooltipLayout', tooltipLayout }]);
     }
-    this.setStatus('Action alignment updated');
+    this.setStatus(authoringText('Action alignment updated'));
   }
 
   setButtonStyle(blockId: string, patch: Partial<ButtonStyleProps>): void {
@@ -181,7 +190,7 @@ export abstract class ControllerPropertyFeature extends ControllerDragDropFeatur
     this.afterDocumentMutation();
     this.services.saveDocument(this.documentState);
     this.sendPreviewPatch(block.id, [{ op: 'setButtonStyle', buttonStyle }]);
-    this.setStatus('Action styling updated');
+    this.setStatus(authoringText('Action styling updated'));
   }
 
   setTooltipLayout(blockId: string, patch: Partial<TooltipLayoutProps>): void {
@@ -202,7 +211,38 @@ export abstract class ControllerPropertyFeature extends ControllerDragDropFeatur
     this.sendPreviewPatch(blockId, [
       tooltipLayout ? { op: 'setTooltipLayout', tooltipLayout } : { op: 'setTooltipLayout' },
     ]);
-    this.setStatus('Popup layout updated');
+    this.setStatus(authoringText('Popup layout updated'));
+  }
+
+  setTooltipStyle(blockId: string, patch: Partial<TooltipStyleProps>): void {
+    const block = findBlockById(this.documentState.blocks, blockId);
+    if (block?.type !== 'tooltip') return;
+    const tooltipStyle = sanitizeTooltipStyleProps({ ...block.props.tooltipStyle, ...patch });
+    this.commitTooltipStyle(block, tooltipStyle);
+  }
+
+  resetTooltipStyle(blockId: string): void {
+    const block = findBlockById(this.documentState.blocks, blockId);
+    if (block?.type !== 'tooltip') return;
+    this.commitTooltipStyle(block, undefined);
+  }
+
+  private commitTooltipStyle(block: LodariqBlock, tooltipStyle?: TooltipStyleProps): void {
+    if (JSON.stringify(block.props.tooltipStyle ?? {}) === JSON.stringify(tooltipStyle ?? {})) {
+      return;
+    }
+    this.recordChange();
+    this.documentState = {
+      ...this.documentState,
+      blocks: setTooltipStyleInTree(this.documentState.blocks, block.id, tooltipStyle),
+    };
+    this.selectedBlockId = block.id;
+    this.afterDocumentMutation();
+    this.services.saveDocument(this.documentState);
+    this.sendPreviewPatch(block.id, [
+      tooltipStyle ? { op: 'setTooltipStyle', tooltipStyle } : { op: 'setTooltipStyle' },
+    ]);
+    this.setStatus(authoringText('Popup layout updated'));
   }
 
   setTooltipPlacement(blockId: string, placement: TooltipPlacement): void {
@@ -244,8 +284,8 @@ export abstract class ControllerPropertyFeature extends ControllerDragDropFeatur
     this.sendPreviewPatch(blockId, [{ op: 'setAction', action: nextAction }]);
     this.setStatus(
       navigationBehavior === 'continue'
-        ? 'Tour will continue after same-site navigation'
-        : 'Tour will keep this step after navigation',
+        ? authoringText('Tour will continue after same-site navigation')
+        : authoringText('Tour will keep this step after navigation'),
     );
   }
 
@@ -258,6 +298,7 @@ export abstract class ControllerPropertyFeature extends ControllerDragDropFeatur
     childBlockId: string,
     type: EditableBlockType,
   ): void {
+    if (!this.allowDocumentStructureMutation()) return;
     const currentBlocks = this.stepContentBlocks(this.documentState.blocks, stepBlockId);
     if (!currentBlocks.some((block) => block.id === childBlockId)) return;
     this.recordChange();
@@ -280,13 +321,18 @@ export abstract class ControllerPropertyFeature extends ControllerDragDropFeatur
 
   commitDocumentTitle(value: string): void {
     const title = value.trim() || 'Untitled experience';
-    if (this.documentState.title === title) return;
+    const currentTitle = localizedAuthoringDocument(this.documentState, this.contentLocale).title;
+    if (currentTitle === title) return;
     this.recordChange();
-    this.documentState = { ...this.documentState, title };
+    this.documentState = setAuthoringLocalizedTitle(this.documentState, this.contentLocale, title);
     this.afterDocumentMutation();
     this.services.saveDocument(this.documentState);
-    this.setStatus('Title updated');
-    this.sendPreviewPatch(this.documentState.id, [{ op: 'setDocumentTitle', title }]);
+    this.setStatus(authoringText('Title updated'));
+    this.sendPreviewPatch(
+      this.documentState.id,
+      [{ op: 'setDocumentTitle', title }],
+      this.contentLocale,
+    );
   }
 
   setDocumentAppearance(appearance: ExperienceAppearance): void {
@@ -311,6 +357,6 @@ export abstract class ControllerPropertyFeature extends ControllerDragDropFeatur
     this.sendPreviewPatch(previewContextId, [
       { op: 'setAppearance', appearance: structuredClone(next) },
     ]);
-    this.setStatus('Appearance updated');
+    this.setStatus(authoringText('Appearance updated'));
   }
 }

@@ -1,3 +1,4 @@
+import { authoringText } from '../../../i18n';
 import type { LodariqBlock } from '@lodariq/schema';
 import {
   AlignCenter,
@@ -25,13 +26,13 @@ import { visibleProperties, type PropertyDefinition } from './registry';
 export type ActionPropertyTab = ButtonPropertyGroup;
 
 const BUTTON_PROPERTY_TABS = [
-  { value: 'appearance', label: 'Appearance', icon: Palette },
-  { value: 'behavior', label: 'Behavior', icon: MousePointerClick },
-  { value: 'size', label: 'Size', icon: MoveHorizontal },
-  { value: 'alignment', label: 'Alignment', icon: AlignCenter },
-  { value: 'shape', label: 'Shape & icon', icon: Shapes },
-  { value: 'colors', label: 'Colors', icon: Circle },
-  { value: 'spacing', label: 'Spacing', icon: SlidersHorizontal },
+  { value: 'appearance', label: authoringText('Appearance'), icon: Palette },
+  { value: 'behavior', label: authoringText('Behavior'), icon: MousePointerClick },
+  { value: 'size', label: authoringText('Size'), icon: MoveHorizontal },
+  { value: 'alignment', label: authoringText('Alignment'), icon: AlignCenter },
+  { value: 'shape', label: authoringText('Shape & icon'), icon: Shapes },
+  { value: 'colors', label: authoringText('Colors'), icon: Circle },
+  { value: 'spacing', label: authoringText('Spacing'), icon: SlidersHorizontal },
 ] as const satisfies ReadonlyArray<{
   value: ActionPropertyTab;
   label: string;
@@ -46,7 +47,7 @@ export function ButtonPropertyTabs({
   onActiveTabChange: (tab: ActionPropertyTab) => void;
 }) {
   return (
-    <nav className="storyboard-property-tabs" aria-label="Button settings">
+    <nav className="storyboard-property-tabs" aria-label={authoringText('Button settings')}>
       {BUTTON_PROPERTY_TABS.map((option) => {
         const Icon = option.icon;
         const selected = activeTab === option.value;
@@ -90,7 +91,10 @@ export function ButtonPropertyPanel({
     .join(' ');
 
   return (
-    <section className={classes} aria-label={`${tabLabel(activeTab)} settings`}>
+    <section
+      className={classes}
+      aria-label={authoringText('{tab} settings', { tab: tabLabel(activeTab) })}
+    >
       {properties.map((property) => (
         <ButtonPropertyControl key={property.id} context={context} property={property} />
       ))}
@@ -141,7 +145,7 @@ function ButtonPropertyControl({
           onKeyDown={(event) => {
             if (event.key === 'Enter') event.currentTarget.blur();
           }}
-          placeholder="https://example.com or /path"
+          placeholder={authoringText('https://example.com or /path')}
         />
       </div>
     );
@@ -177,5 +181,5 @@ function ButtonPropertyControl({
 }
 
 function tabLabel(tab: ActionPropertyTab): string {
-  return BUTTON_PROPERTY_TABS.find((item) => item.value === tab)?.label ?? 'Button';
+  return BUTTON_PROPERTY_TABS.find((item) => item.value === tab)?.label ?? authoringText('Button');
 }

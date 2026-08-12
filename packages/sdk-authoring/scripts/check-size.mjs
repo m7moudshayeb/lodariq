@@ -18,19 +18,20 @@ const checks = [
   {
     name: 'authoring-frame',
     entries: ['authoring-frame.js'],
-    // Phase 2 completion baseline (2026-08-09): 131,394 bytes. The reviewed
-    // authoring-canvas transform, radius, and pointer controls add less than 1 KB
-    // while the editor-origin frame remains absent from every production-viewer
-    // graph.
-    baseline: 131_394,
-    limit: 136 * 1024,
+    // Searchable authoring language controls baseline (2026-08-12): 145,428
+    // bytes. This includes sparse locale editing, translation status, and the
+    // on-demand catalog loader; unselected catalogs remain separate chunks.
+    // Authoring code never ships in normal viewer delivery.
+    baseline: 145_428,
+    limit: 143 * 1024,
   },
   {
     name: 'creator-toolbar',
     entries: ['creator-toolbar/index.js'],
-    // Phase 2 baseline (2026-08-09): 7,736 bytes.
-    baseline: 7_736,
-    limit: 8 * 1024,
+    // Localization baseline (2026-08-12): 9,675 bytes, including the shared
+    // locale policy and dynamic catalog selector.
+    baseline: 9_675,
+    limit: 10 * 1024,
   },
   {
     name: 'creator-install',

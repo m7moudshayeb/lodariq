@@ -1,4 +1,5 @@
 import { ControllerBrandFeature } from './controller-brand';
+import { authoringText } from '../../i18n';
 import { type ReleaseRecoveryRequest, type ReleaseRecoveryResult } from '@lodariq/schema';
 import { createBridgeCorrelationId } from '../../bridge/transport';
 import type {
@@ -55,7 +56,9 @@ export abstract class ControllerReleaseRecoveryFeature extends ControllerBrandFe
       if (!this.releaseRecoveryRequestIsCurrent(requestVersion, environmentId)) return;
       this.releaseRecoveryModel = null;
       this.panelOperation = null;
-      this.panelWorkflowError = 'Release history could not be loaded for this environment.';
+      this.panelWorkflowError = authoringText(
+        'Release history could not be loaded for this environment.',
+      );
       this.emit();
     }
   }
@@ -72,7 +75,9 @@ export abstract class ControllerReleaseRecoveryFeature extends ControllerBrandFe
       !requestIdentity ||
       !releaseRecoveryRequestMatchesConfirmation(request, intent, requestIdentity)
     ) {
-      this.panelWorkflowError = 'This release recovery confirmation is no longer current.';
+      this.panelWorkflowError = authoringText(
+        'This release recovery confirmation is no longer current.',
+      );
       this.emit();
       return;
     }
@@ -104,8 +109,9 @@ export abstract class ControllerReleaseRecoveryFeature extends ControllerBrandFe
         return;
       }
       this.panelOperation = null;
-      this.panelWorkflowError =
-        'The recovery response was uncertain. Retry this confirmation to reuse the same request identity.';
+      this.panelWorkflowError = authoringText(
+        'The recovery response was uncertain. Retry this confirmation to reuse the same request identity.',
+      );
       this.emit();
       return;
     }
@@ -120,8 +126,9 @@ export abstract class ControllerReleaseRecoveryFeature extends ControllerBrandFe
       result.ok ? this.refreshReleaseTruthAfterRecovery() : Promise.resolve(true),
     ]);
     if (!releaseTruthRefreshed && this.panelMode === 'release-history') {
-      this.panelWorkflowError =
-        'Recovery completed, but the surrounding release summary could not be refreshed.';
+      this.panelWorkflowError = authoringText(
+        'Recovery completed, but the surrounding release summary could not be refreshed.',
+      );
       this.panelWorkflowNotice = null;
       this.emit();
     }
@@ -175,7 +182,7 @@ export abstract class ControllerReleaseRecoveryFeature extends ControllerBrandFe
       expectedGeneration: this.release.expectedGeneration,
       findings: [],
     };
-    this.setStatus('Saving before staging…');
+    this.setStatus(authoringText('Saving before staging…'));
 
     try {
       await persistDocument(structuredClone(document));
@@ -188,7 +195,7 @@ export abstract class ControllerReleaseRecoveryFeature extends ControllerBrandFe
       if (remoteView.status === 'current') {
         this.release = remoteView;
         this.pendingPublicationRequest = null;
-        this.setStatus('Staging is current');
+        this.setStatus(authoringText('Staging is current'));
         return;
       }
       if (remoteView.status !== 'ready' || remote.state !== 'ready') {
@@ -196,13 +203,13 @@ export abstract class ControllerReleaseRecoveryFeature extends ControllerBrandFe
           remote.state === 'no_saved_artifact'
             ? requestFailedReleaseView(remote.expectedGeneration)
             : remoteView;
-        this.setStatus('Staging release needs attention');
+        this.setStatus(authoringText('Staging release needs attention'));
         return;
       }
 
       if (!remote.draftArtifactId || !remote.draftContentHash) {
         this.release = requestFailedReleaseView(remote.expectedGeneration);
-        this.setStatus('The reviewed staging artifact is unavailable');
+        this.setStatus(authoringText('The reviewed staging artifact is unavailable'));
         return;
       }
       const publicationRequest = this.publicationRequestFor({
@@ -217,7 +224,7 @@ export abstract class ControllerReleaseRecoveryFeature extends ControllerBrandFe
         if (RELEASE_ERRORS_REQUIRING_NEW_GUARD.has(result.code)) {
           this.pendingPublicationRequest = null;
         }
-        this.setStatus('Staging release needs attention');
+        this.setStatus(authoringText('Staging release needs attention'));
         return;
       }
 
@@ -234,11 +241,15 @@ export abstract class ControllerReleaseRecoveryFeature extends ControllerBrandFe
         Boolean(this.services.verifyStagingRelease),
         Boolean(this.services.promoteExactArtifact),
       );
-      this.setStatus(result.replayed ? 'Staging publication confirmed' : 'Published to staging');
+      this.setStatus(
+        result.replayed
+          ? authoringText('Staging publication confirmed')
+          : authoringText('Published to staging'),
+      );
     } catch {
       if (!this.releaseRequestIsCurrent(requestVersion, documentSequence)) return;
       this.release = requestFailedReleaseView(this.release.expectedGeneration);
-      this.setStatus('Staging could not be updated');
+      this.setStatus(authoringText('Staging could not be updated'));
     }
   }
 

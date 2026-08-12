@@ -15,12 +15,16 @@ export default defineConfig({
     'creator-experiences': 'src/creator-experiences.ts',
     'creator-toolbar/index': 'src/creator-toolbar/index.ts',
     'editor/index': 'src/editor/index.ts',
+    i18n: 'src/i18n.ts',
     'local-dev/index': 'src/local-dev/index.ts',
     'local-dev/install': 'src/local-dev/install.ts',
     'local-dev/frame': 'src/local-dev/frame.ts',
   },
   format: ['esm'],
-  target: 'es2020',
+  // Authenticated authoring requires modern module support so locale catalogs
+  // can load before dependent creator modules evaluate. Production runtime and
+  // viewer bundles retain their separate ES2020 target.
+  target: 'es2022',
   platform: 'browser',
   dts: true,
   sourcemap: true,
@@ -30,6 +34,7 @@ export default defineConfig({
   treeshake: true,
   noExternal: [
     /^@floating-ui\//,
+    /^@lodariq\/i18n(?:\/.*)?$/,
     /^@lodariq\/schema(?:\/.*)?$/,
     /^@lodariq\/sdk-runtime(?:\/.*)?$/,
     /^lucide$/,

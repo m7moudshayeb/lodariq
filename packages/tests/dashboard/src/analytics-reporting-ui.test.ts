@@ -4,6 +4,8 @@ import * as React from 'react';
 import { act, createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { setupI18n } from '@lingui/core';
+import { I18nProvider } from '@lingui/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AnalyticsEventAggregate, AnalyticsTargetResolutionStatus } from '@lodariq/schema';
 
@@ -287,8 +289,15 @@ async function mount(element: React.ReactElement): Promise<MountedComponent> {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
+  const i18n = setupI18n({ locale: 'en', messages: { en: {} } });
   await act(async () =>
-    root.render(createElement(QueryClientProvider, { client: queryClient }, element)),
+    root.render(
+      createElement(
+        I18nProvider,
+        { i18n },
+        createElement(QueryClientProvider, { client: queryClient }, element),
+      ),
+    ),
   );
   return { container, root };
 }

@@ -15,6 +15,8 @@ import {
 } from '../lib/api';
 import { revalidatePath } from '../lib/revalidation';
 import { requireDashboardActionRole } from '../lib/action-auth';
+import { DASHBOARD_ACTION_MESSAGES } from '../i18n/messages';
+import { serverMessage } from '../i18n/server-message';
 
 export type ReleaseRecoveryStateActionResult =
   { status: 'success'; state: ReleaseRecoveryStateResponse } | { status: 'error'; error: string };
@@ -32,7 +34,10 @@ export async function loadReleaseRecoveryStateAction(
   input: ReleaseRecoveryScopeActionInput,
 ): Promise<ReleaseRecoveryStateActionResult> {
   if (!isValidRecoveryScope(input)) {
-    return { status: 'error', error: 'Choose a valid document and release environment.' };
+    return {
+      status: 'error',
+      error: await serverMessage(DASHBOARD_ACTION_MESSAGES.chooseReleaseScope),
+    };
   }
   try {
     const context = await requireDashboardActionRole('viewer');
@@ -41,7 +46,7 @@ export async function loadReleaseRecoveryStateAction(
       state: await loadDocumentReleaseRecoveryState({ ...input, workspaceId: context.workspaceId }),
     };
   } catch (error) {
-    return { status: 'error', error: releaseRecoveryReadError(error) };
+    return { status: 'error', error: await releaseRecoveryReadError(error) };
   }
 }
 
@@ -54,7 +59,7 @@ export async function recoverDocumentReleaseAction(input: {
   if (!isValidRecoveryScope(input) || !request.valid) {
     return {
       status: 'error',
-      error: 'The release recovery request is invalid.',
+      error: await serverMessage(DASHBOARD_ACTION_MESSAGES.releaseRecoveryInvalid),
       retryExact: false,
     };
   }
@@ -70,14 +75,13 @@ export async function recoverDocumentReleaseAction(input: {
     ) {
       return {
         status: 'error',
-        error: 'Your current workspace access cannot perform this release recovery action.',
+        error: await serverMessage(DASHBOARD_ACTION_MESSAGES.releaseRecoveryForbidden),
         retryExact: false,
       };
     }
     return {
       status: 'error',
-      error:
-        'The recovery result is uncertain. Retry the exact request or refresh release history.',
+      error: await serverMessage(DASHBOARD_ACTION_MESSAGES.releaseRecoveryUncertain),
       retryExact: true,
     };
   }
@@ -93,15 +97,17 @@ function isReleaseRecoveryDocumentId(value: string): boolean {
   return value.length >= 1 && value.length <= 256;
 }
 
-function releaseRecoveryReadError(error: unknown): string {
+async function releaseRecoveryReadError(error: unknown): Promise<string> {
   if (error instanceof DashboardApiError) {
-    if (error.statusCode === 404) return 'Release history is not available for this document.';
+    if (error.statusCode === 404) {
+      return serverMessage(DASHBOARD_ACTION_MESSAGES.releaseHistoryMissing);
+    }
     if (error.statusCode === 401 || error.statusCode === 403) {
-      return 'Your current workspace access cannot read this release history.';
+      return serverMessage(DASHBOARD_ACTION_MESSAGES.releaseHistoryForbidden);
     }
     if (error.statusCode === 500) {
-      return 'Complete release history is temporarily unavailable. Nothing was truncated.';
+      return serverMessage(DASHBOARD_ACTION_MESSAGES.releaseHistoryIncomplete);
     }
   }
-  return 'Unable to load complete release history.';
+  return serverMessage(DASHBOARD_ACTION_MESSAGES.releaseHistoryUnavailable);
 }

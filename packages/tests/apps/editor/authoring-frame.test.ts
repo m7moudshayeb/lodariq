@@ -37,6 +37,11 @@ const ACTIVATION_GRANT = `lod_activation_${'a'.repeat(48)}`;
 const SESSION_TOKEN = `lod_authoring_${'s'.repeat(48)}`;
 const ORIGINAL_PARENT_WINDOW = window.parent;
 
+async function loadAuthoringFrame(): Promise<void> {
+  const module = await import('../../../../apps/editor/src/authoring-frame');
+  await module.authoringFrameReady;
+}
+
 describe('hosted editor authoring frame', () => {
   beforeEach(() => {
     vi.resetModules();
@@ -62,7 +67,7 @@ describe('hosted editor authoring frame', () => {
   });
 
   it('ignores init messages from origins other than the embedding host', async () => {
-    await import('../../../../apps/editor/src/authoring-frame');
+    await loadAuthoringFrame();
 
     window.dispatchEvent(initEvent('https://evil.example'));
 
@@ -71,7 +76,7 @@ describe('hosted editor authoring frame', () => {
   });
 
   it('mounts only after a validated authoring init bridge message', async () => {
-    await import('../../../../apps/editor/src/authoring-frame');
+    await loadAuthoringFrame();
 
     window.dispatchEvent(initEvent('https://staging.lodariq.io'));
 
@@ -84,7 +89,7 @@ describe('hosted editor authoring frame', () => {
     const postMessage = vi.spyOn(window.parent, 'postMessage').mockImplementation(() => undefined);
     const fetchMock = vi.fn<typeof fetch>();
     vi.stubGlobal('fetch', fetchMock);
-    await import('../../../../apps/editor/src/authoring-frame');
+    await loadAuthoringFrame();
     const ready = editorReadyMessage(postMessage);
     const handoff = activationHandoff(ready);
 
@@ -119,7 +124,7 @@ describe('hosted editor authoring frame', () => {
       .mockResolvedValueOnce(jsonResponse(authoringSessionResult(), 201))
       .mockResolvedValueOnce(jsonResponse(authoringDocumentPayload(canonicalDocument)));
     vi.stubGlobal('fetch', fetchMock);
-    await import('../../../../apps/editor/src/authoring-frame');
+    await loadAuthoringFrame();
     const ready = editorReadyMessage(postMessage);
     const handoff = activationHandoff(ready);
 
@@ -196,7 +201,7 @@ describe('hosted editor authoring frame', () => {
       .mockResolvedValueOnce(jsonResponse(authoringSessionResult(), 201))
       .mockResolvedValueOnce(jsonResponse(authoringDocumentPayload(editorDocument())));
     vi.stubGlobal('fetch', fetchMock);
-    await import('../../../../apps/editor/src/authoring-frame');
+    await loadAuthoringFrame();
     const ready = editorReadyMessage(postMessage);
     const handoff = activationHandoff(ready, null);
 
@@ -251,7 +256,7 @@ describe('hosted editor authoring frame', () => {
       )
       .mockResolvedValueOnce(new Response(null, { status: 204 }));
     vi.stubGlobal('fetch', fetchMock);
-    await import('../../../../apps/editor/src/authoring-frame');
+    await loadAuthoringFrame();
     const ready = editorReadyMessage(postMessage);
     const handoff = activationHandoff(ready, null);
     window.dispatchEvent(handoffEvent(handoff));
@@ -328,7 +333,7 @@ describe('hosted editor authoring frame', () => {
       throw new Error(`Unexpected hosted authoring request: ${method} ${url}`);
     });
     vi.stubGlobal('fetch', fetchMock);
-    await import('../../../../apps/editor/src/authoring-frame');
+    await loadAuthoringFrame();
     const ready = editorReadyMessage(postMessage);
     window.dispatchEvent(handoffEvent(activationHandoff(ready)));
     await vi.waitFor(() => expect(hostedSessionReadyMessages(postMessage)).toHaveLength(1));
@@ -506,7 +511,7 @@ describe('hosted editor authoring frame', () => {
       throw new Error(`Unexpected hosted authoring request: ${method} ${url}`);
     });
     vi.stubGlobal('fetch', fetchMock);
-    await import('../../../../apps/editor/src/authoring-frame');
+    await loadAuthoringFrame();
     const ready = editorReadyMessage(postMessage);
     window.dispatchEvent(handoffEvent(activationHandoff(ready)));
     await vi.waitFor(() => expect(hostedSessionReadyMessages(postMessage)).toHaveLength(1));
@@ -642,7 +647,7 @@ describe('hosted editor authoring frame', () => {
       throw new Error(`Unexpected hosted recovery request: ${method} ${url}`);
     });
     vi.stubGlobal('fetch', fetchMock);
-    await import('../../../../apps/editor/src/authoring-frame');
+    await loadAuthoringFrame();
     const ready = editorReadyMessage(postMessage);
     window.dispatchEvent(handoffEvent(activationHandoff(ready)));
     await vi.waitFor(() => expect(hostedSessionReadyMessages(postMessage)).toHaveLength(1));
@@ -659,9 +664,9 @@ describe('hosted editor authoring frame', () => {
 
     await vi.waitFor(() => expect(documentReleaseStatus()).not.toBeNull());
     buttonWithText('Release options')?.click();
-    await vi.waitFor(() => expect(buttonWithText('Review staging history')).not.toBeNull());
-    expect(buttonWithText('Review production history')).not.toBeNull();
-    buttonWithText('Review production history')?.click();
+    await vi.waitFor(() => expect(buttonWithText('Review Staging history')).not.toBeNull());
+    expect(buttonWithText('Review Production history')).not.toBeNull();
+    buttonWithText('Review Production history')?.click();
     await vi.waitFor(() => expect(buttonWithText('Unpublish…')).not.toBeNull());
     expect(fetchMock.mock.calls.some(([input]) => input.toString() === recoveryUrl)).toBe(true);
 
@@ -763,7 +768,7 @@ describe('hosted editor authoring frame', () => {
         ),
       );
     vi.stubGlobal('fetch', fetchMock);
-    await import('../../../../apps/editor/src/authoring-frame');
+    await loadAuthoringFrame();
     const ready = editorReadyMessage(postMessage);
     window.dispatchEvent(handoffEvent(activationHandoff(ready)));
     await vi.waitFor(() => expect(hostedSessionReadyMessages(postMessage)).toHaveLength(1));

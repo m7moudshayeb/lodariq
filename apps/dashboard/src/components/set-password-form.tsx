@@ -3,8 +3,12 @@
 import Link from 'next/link';
 import { ArrowRight, KeyRound, LoaderCircle } from 'lucide-react';
 import { useEffect, useState, type FormEvent } from 'react';
+import { useLingui } from '@lingui/react';
 import { useAuthMutations } from '../hooks/use-auth-mutations';
 import type { AuthSessionSnapshot } from '../lib/auth-contract';
+import { ClientAuthError } from '../lib/client-auth-api';
+import { authErrorMessageDescriptor } from '../i18n/error-messages';
+import { AUTH_FORM_MESSAGES, AUTH_PAGE_MESSAGES } from '../i18n/messages';
 import { Button, buttonVariants } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
@@ -25,6 +29,7 @@ export function SetPasswordForm({
   const [error, setError] = useState('');
   const [pending, setPending] = useState(false);
   const auth = useAuthMutations();
+  const { _ } = useLingui();
 
   useEffect(() => {
     const fragment = new URLSearchParams(window.location.hash.slice(1));
@@ -42,7 +47,7 @@ export function SetPasswordForm({
     const password = passwordField(form, 'password');
     const confirmation = passwordField(form, 'passwordConfirmation');
     if (password !== confirmation) {
-      setError('Passwords do not match.');
+      setError(_(AUTH_FORM_MESSAGES.passwordsDoNotMatch));
       return;
     }
 
@@ -52,7 +57,11 @@ export function SetPasswordForm({
       if (onAuthenticated) await onAuthenticated(session);
       else window.location.replace(returnTo);
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Please try again.');
+      setError(
+        caught instanceof ClientAuthError
+          ? _(authErrorMessageDescriptor(caught.code, caught.statusCode))
+          : _(AUTH_FORM_MESSAGES.pleaseTryAgain),
+      );
     } finally {
       setPending(false);
     }
@@ -61,7 +70,7 @@ export function SetPasswordForm({
   if (!tokenReady) {
     return (
       <p aria-live="polite" className="text-sm text-muted-foreground">
-        Reading your secure link…
+        {_(AUTH_FORM_MESSAGES.readingSecureLink)}
       </p>
     );
   }
@@ -70,11 +79,11 @@ export function SetPasswordForm({
     return (
       <div className="grid gap-5">
         <p className="text-sm leading-6 text-muted-foreground">
-          This password link is incomplete. Request a new link to continue.
+          {_(AUTH_FORM_MESSAGES.incompletePasswordLink)}
         </p>
         <Link className={buttonVariants({ className: 'h-11 w-full' })} href="/forgot-password">
-          Request another link
-          <ArrowRight aria-hidden="true" />
+          {_(AUTH_PAGE_MESSAGES.requestAnotherLink)}
+          <ArrowRight aria-hidden="true" className="rtl:rotate-180" />
         </Link>
       </div>
     );
@@ -86,7 +95,7 @@ export function SetPasswordForm({
         <KeyRound aria-hidden="true" className="size-5" />
       </div>
       <div className="grid gap-2">
-        <Label htmlFor="new-password">New password</Label>
+        <Label htmlFor="new-password">{_(AUTH_FORM_MESSAGES.newPassword)}</Label>
         <Input
           autoComplete="new-password"
           disabled={pending}
@@ -97,10 +106,12 @@ export function SetPasswordForm({
           required
           type="password"
         />
-        <p className="text-xs leading-5 text-muted-foreground">Use 12 to 128 characters.</p>
+        <p className="text-xs leading-5 text-muted-foreground">
+          {_(AUTH_FORM_MESSAGES.passwordLength)}
+        </p>
       </div>
       <div className="grid gap-2">
-        <Label htmlFor="confirm-password">Confirm password</Label>
+        <Label htmlFor="confirm-password">{_(AUTH_FORM_MESSAGES.confirmPassword)}</Label>
         <Input
           autoComplete="new-password"
           disabled={pending}
@@ -124,9 +135,9 @@ export function SetPasswordForm({
         {pending ? (
           <LoaderCircle aria-hidden="true" className="animate-spin" />
         ) : (
-          <ArrowRight aria-hidden="true" />
+          <ArrowRight aria-hidden="true" className="rtl:rotate-180" />
         )}
-        Save password and continue
+        {_(AUTH_FORM_MESSAGES.savePassword)}
       </Button>
     </form>
   );

@@ -15,6 +15,10 @@
       "types": "./dist/brand-token-registry.d.ts",
       "import": "./dist/brand-token-registry.js"
     },
+    "./i18n": {
+      "types": "./dist/i18n.d.ts",
+      "import": "./dist/i18n.js"
+    },
     "./lodariq-loader": {
       "types": "./dist/lodariq-loader.d.ts",
       "import": "./dist/lodariq-loader.js"
@@ -84,6 +88,7 @@
   "dependencies": {
     "@floating-ui/dom": "^1.6.13",
     "@lodariq/compiler": "workspace:*",
+    "@lodariq/i18n": "workspace:*",
     "@lodariq/schema": "workspace:*",
     "lucide": "^1.29.0"
   },

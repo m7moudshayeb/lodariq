@@ -123,16 +123,17 @@ interface ProductMatchApplicationFixture {
 }
 
 describe('disposable PostgreSQL 16 CI wiring', () => {
-  it('runs the normal verification job against an isolated PostgreSQL 16 service', () => {
+  it('runs the unit-test job against an isolated PostgreSQL 16 service', () => {
     const workflow = readFileSync(VERIFY_WORKFLOW_PATH, 'utf8');
 
+    expect(workflow).toContain('unit-tests:');
     expect(workflow).toContain('image: postgres:16');
     expect(workflow).toContain("LODARIQ_DISPOSABLE_POSTGRES: '1'");
     expect(workflow).toContain(
       'LODARIQ_TEST_POSTGRES_ADMIN_URL: postgresql://lodariq_ci_owner:lodariq_ci_password@127.0.0.1:5432/postgres',
     );
     expect(workflow).toContain('pg_isready -U lodariq_ci_owner -d postgres');
-    expect(workflow.indexOf('services:')).toBeLessThan(workflow.indexOf('run: pnpm verify'));
+    expect(workflow.indexOf('services:')).toBeLessThan(workflow.indexOf('run: pnpm run test'));
   });
 });
 

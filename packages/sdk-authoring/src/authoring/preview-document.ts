@@ -27,21 +27,31 @@ import {
   setBlockVariant,
   setButtonStyle,
   setTooltipLayout,
+  setTooltipStyle,
   transformBlocks,
   updateBlockContent,
   updateBlockContentRuns,
 } from './document-ops';
 import { findContainingTourStepId } from './preview-step-state';
+import {
+  isDefaultDocumentLocale,
+  setAuthoringLocalizedBlockContent,
+  setAuthoringLocalizedTitle,
+} from './document-localization';
 
 export function applyPreviewPatch(
   document: LodariqDocument,
   blockId: string,
   ops: PreviewPatchOperation[],
+  locale?: string,
 ): LodariqDocument {
   let next = structuredClone(document);
   for (const op of ops) {
     if (op.op === 'setDocumentTitle') {
-      next = { ...next, title: op.title.trim() || 'Untitled experience' };
+      const title = op.title.trim() || 'Untitled experience';
+      next = locale
+        ? setAuthoringLocalizedTitle(next, locale, title)
+        : { ...next, title };
     }
     if (op.op === 'setAppearance') {
       next = { ...next, appearance: structuredClone(op.appearance) };
@@ -73,13 +83,23 @@ export function applyPreviewPatch(
       if (blocks) next = { ...next, blocks };
     }
     if (op.op === 'updateContent') {
-      next = { ...next, blocks: updateBlockContent(next.blocks, blockId, op.content) };
+      next = locale && !isDefaultDocumentLocale(next, locale)
+        ? setAuthoringLocalizedBlockContent(next, locale, blockId, op.content)
+        : { ...next, blocks: updateBlockContent(next.blocks, blockId, op.content) };
     }
     if (op.op === 'updateContentRuns') {
-      next = {
-        ...next,
-        blocks: updateBlockContentRuns(next.blocks, blockId, op.content, op.contentRuns),
-      };
+      next = locale && !isDefaultDocumentLocale(next, locale)
+        ? setAuthoringLocalizedBlockContent(
+            next,
+            locale,
+            blockId,
+            op.content,
+            op.contentRuns,
+          )
+        : {
+            ...next,
+            blocks: updateBlockContentRuns(next.blocks, blockId, op.content, op.contentRuns),
+          };
     }
     if (op.op === 'setTextStyle') {
       next = { ...next, blocks: setBlockTextStyle(next.blocks, blockId, op.textStyle) };
@@ -92,6 +112,9 @@ export function applyPreviewPatch(
     }
     if (op.op === 'setTooltipLayout') {
       next = { ...next, blocks: setTooltipLayout(next.blocks, blockId, op.tooltipLayout) };
+    }
+    if (op.op === 'setTooltipStyle') {
+      next = { ...next, blocks: setTooltipStyle(next.blocks, blockId, op.tooltipStyle) };
     }
     if (op.op === 'moveBlock') {
       const blocks = moveTopLevelBlock(next.blocks, blockId, op.direction);

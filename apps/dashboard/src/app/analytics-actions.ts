@@ -11,6 +11,8 @@ import {
   loadAnalyticsAggregates,
 } from '../lib/api';
 import { requireDashboardActionRole } from '../lib/action-auth';
+import { DASHBOARD_ACTION_MESSAGES } from '../i18n/messages';
+import { serverMessage } from '../i18n/server-message';
 
 export type AnalyticsAggregateActionResult =
   | { status: 'success'; environmentId: string; response: AnalyticsAggregateResponse }
@@ -24,7 +26,10 @@ export async function loadAnalyticsAggregatesAction(input: {
     limit: DASHBOARD_ANALYTICS_AGGREGATE_LIMIT,
   });
   if (!query.valid) {
-    return { status: 'error', error: 'Choose one valid analytics environment.' };
+    return {
+      status: 'error',
+      error: await serverMessage(DASHBOARD_ACTION_MESSAGES.chooseAnalyticsEnvironment),
+    };
   }
 
   try {
@@ -35,19 +40,21 @@ export async function loadAnalyticsAggregatesAction(input: {
       response: await loadAnalyticsAggregates(query.value.environmentId),
     };
   } catch (error) {
-    return { status: 'error', error: analyticsReadError(error) };
+    return { status: 'error', error: await analyticsReadError(error) };
   }
 }
 
-function analyticsReadError(error: unknown): string {
+async function analyticsReadError(error: unknown): Promise<string> {
   if (error instanceof DashboardApiError) {
-    if (error.statusCode === 404) return 'The selected analytics environment is unavailable.';
+    if (error.statusCode === 404) {
+      return serverMessage(DASHBOARD_ACTION_MESSAGES.analyticsEnvironmentUnavailable);
+    }
     if (error.statusCode === 401 || error.statusCode === 403) {
-      return 'Your current workspace access cannot read analytics.';
+      return serverMessage(DASHBOARD_ACTION_MESSAGES.analyticsForbidden);
     }
     if (error.statusCode === 502) {
-      return 'Analytics data could not be verified. No partial results were shown.';
+      return serverMessage(DASHBOARD_ACTION_MESSAGES.analyticsInvalid);
     }
   }
-  return 'Analytics are temporarily unavailable for the selected environment.';
+  return serverMessage(DASHBOARD_ACTION_MESSAGES.analyticsUnavailable);
 }

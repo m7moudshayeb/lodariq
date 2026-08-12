@@ -64,6 +64,7 @@ describe('content-addressed hosted creator entry', () => {
   });
 
   it('hands activation to the exact editor once, adopts that iframe, and delegates saves', async () => {
+    window.history.replaceState(null, '', '/?lodariq-locale=en');
     const approvedTheme = await hostedApprovedTheme();
     const playTour = vi.fn(() => Promise.resolve());
     const stopTour = vi.fn();
@@ -78,15 +79,17 @@ describe('content-addressed hosted creator entry', () => {
       stopAuthoringPreview,
     };
     const creator = await loadRegisteredCreator();
-    const input = activationInput();
+    const input = activationInput({ uiLocale: 'fr' });
     const activation = creator.activateLodariqAuthoring(input);
 
-    const iframe = requireHostedIframe();
+    await vi.waitFor(() => expect(document.querySelector('iframe')).not.toBeNull());
+
+    const iframe = requireHostedIframe('fr');
     const peer = { postMessage: vi.fn() } as unknown as Window;
     Object.defineProperty(iframe, 'contentWindow', { configurable: true, value: peer });
 
     expect(input.activationGrant).toBe('');
-    expect(iframe.src).toBe(`${LODARIQ_EDITOR_ORIGIN}/authoring.html`);
+    expect(iframe.src).toBe(`${LODARIQ_EDITOR_ORIGIN}/authoring.html?lodariq-locale=fr`);
     expect(iframe.getAttribute('sandbox')).toBe('allow-scripts allow-same-origin');
     expect(iframe.referrerPolicy).toBe('origin');
     expect(document.documentElement.outerHTML).not.toContain(ACTIVATION_GRANT);
@@ -586,12 +589,15 @@ async function loadRegisteredCreator(): Promise<HostedCreatorModule> {
   return registered;
 }
 
-function activationInput(): HostedCreatorActivation {
+function activationInput(
+  overrides: Partial<HostedCreatorActivation> = {},
+): HostedCreatorActivation {
   return {
     activationGrant: ACTIVATION_GRANT,
     apiOrigin: 'https://api.lodariq.io',
     context: activationContext(),
     documentIntent: { kind: 'existing', documentId: tourDocument.id },
+    ...overrides,
   };
 }
 
@@ -714,11 +720,13 @@ function saveResult(requestCorrelationId: string): BridgeMessage {
   };
 }
 
-function requireHostedIframe(): HTMLIFrameElement {
-  const iframe = document.querySelector<HTMLIFrameElement>(
-    `iframe[src="${LODARIQ_EDITOR_ORIGIN}/authoring.html"]`,
-  );
+function requireHostedIframe(expectedLocale = 'en'): HTMLIFrameElement {
+  const iframe = [...document.querySelectorAll<HTMLIFrameElement>('iframe')].find((candidate) => {
+    const url = new URL(candidate.src);
+    return url.origin === LODARIQ_EDITOR_ORIGIN && url.pathname === '/authoring.html';
+  });
   if (!iframe) throw new Error('hosted editor iframe missing');
+  expect(new URL(iframe.src).searchParams.get('lodariq-locale')).toBe(expectedLocale);
   return iframe;
 }
 

@@ -1,5 +1,7 @@
 'use client';
 
+import { isSupportedLocale, localeDirection } from '@lodariq/i18n';
+import { useLingui } from '@lingui/react';
 import * as React from 'react';
 import {
   ChartNoAxesCombined,
@@ -11,6 +13,8 @@ import {
   Palette,
   PanelLeftClose,
   PanelLeftOpen,
+  PanelRightClose,
+  PanelRightOpen,
   Rocket,
   X,
 } from 'lucide-react';
@@ -20,6 +24,8 @@ import {
   type DashboardNavigationItem,
   type DashboardViewId,
 } from '../lib/dashboard-constants';
+import { DASHBOARD_NAVIGATION_MESSAGES } from '../i18n/messages';
+import { LanguageSwitcher } from './language-switcher';
 import { ThemeToggle } from './theme-toggle';
 import { Button } from './ui/button';
 
@@ -63,9 +69,16 @@ export function DesktopWorkspaceNavigation({
   onExpandedChange,
   onSelect,
 }: DesktopWorkspaceNavigationProps): React.ReactElement {
+  const { _, i18n } = useLingui();
+  const rtl = isSupportedLocale(i18n.locale) && localeDirection(i18n.locale) === 'rtl';
+  const CollapseIcon = rtl ? PanelRightClose : PanelLeftClose;
+  const ExpandIcon = rtl ? PanelRightOpen : PanelLeftOpen;
+  const navigationToggleLabel = _(
+    expanded ? DASHBOARD_NAVIGATION_MESSAGES.collapse : DASHBOARD_NAVIGATION_MESSAGES.expand,
+  );
   return (
     <aside
-      className="sticky top-0 hidden h-screen flex-col border-r border-border bg-card md:flex"
+      className="sticky top-0 hidden h-screen flex-col border-e border-border bg-card md:flex"
       id="desktop-workspace-navigation"
     >
       <div
@@ -79,14 +92,14 @@ export function DesktopWorkspaceNavigation({
         <Button
           aria-controls="desktop-workspace-navigation"
           aria-expanded={expanded}
-          aria-label={expanded ? 'Collapse workspace navigation' : 'Expand workspace navigation'}
+          aria-label={navigationToggleLabel}
           className="size-11 p-0"
           onClick={() => onExpandedChange(!expanded)}
-          title={expanded ? 'Collapse workspace navigation' : 'Expand workspace navigation'}
+          title={navigationToggleLabel}
           type="button"
           variant="ghost"
         >
-          {expanded ? <PanelLeftClose aria-hidden="true" /> : <PanelLeftOpen aria-hidden="true" />}
+          {expanded ? <CollapseIcon aria-hidden="true" /> : <ExpandIcon aria-hidden="true" />}
         </Button>
       </div>
       <DashboardNavigation
@@ -111,13 +124,24 @@ export function DesktopWorkspaceNavigation({
           {!expanded && compactAuthControls ? (
             <div className="mb-2 min-w-0">{compactAuthControls}</div>
           ) : null}
+          {expanded ? (
+            <div className="mb-3 px-2">
+              <LanguageSwitcher />
+            </div>
+          ) : (
+            <div className="mb-3 flex justify-center">
+              <LanguageSwitcher compact />
+            </div>
+          )}
           <div
             className={
               expanded ? 'flex items-center justify-between gap-3 px-2' : 'flex justify-center'
             }
           >
             {expanded ? (
-              <span className="text-xs font-medium text-muted-foreground">Appearance</span>
+              <span className="text-xs font-medium text-muted-foreground">
+                {_(DASHBOARD_NAVIGATION_MESSAGES.appearance)}
+              </span>
             ) : null}
             <ThemeToggle />
           </div>
@@ -132,6 +156,7 @@ export function MobileWorkspaceHeader({
   authControls,
   onSelect,
 }: WorkspaceNavigationProps): React.ReactElement {
+  const { _ } = useLingui();
   const [drawerOpen, setDrawerOpen] = React.useState(false);
   const menuButtonRef = React.useRef<HTMLButtonElement>(null);
   const drawerRef = React.useRef<HTMLElement>(null);
@@ -237,7 +262,7 @@ export function MobileWorkspaceHeader({
             <Button
               aria-controls="mobile-workspace-navigation"
               aria-expanded={drawerOpen}
-              aria-label="Open workspace navigation"
+              aria-label={_(DASHBOARD_NAVIGATION_MESSAGES.open)}
               className="size-11 p-0"
               onClick={() => setDrawerOpen(true)}
               ref={menuButtonRef}
@@ -258,9 +283,9 @@ export function MobileWorkspaceHeader({
             onClick={() => closeDrawer(true)}
           />
           <aside
-            aria-label="Workspace navigation"
+            aria-label={_(DASHBOARD_NAVIGATION_MESSAGES.workspace)}
             aria-modal="true"
-            className="relative z-10 flex h-dvh max-h-dvh w-[min(320px,calc(100vw-48px))] flex-col overflow-y-auto overscroll-contain border-r border-border bg-card shadow-[18px_0_60px_rgba(12,33,28,.2)]"
+            className="relative z-10 flex h-dvh max-h-dvh w-[min(320px,calc(100vw-48px))] flex-col overflow-y-auto overscroll-contain border-e border-border bg-card shadow-[0_18px_60px_rgba(12,33,28,.2)] ltr:me-auto rtl:ms-auto"
             id="mobile-workspace-navigation"
             ref={drawerRef}
             role="dialog"
@@ -268,7 +293,7 @@ export function MobileWorkspaceHeader({
             <div className="flex h-16 items-center justify-between border-b border-border px-4">
               <DashboardBrand compact />
               <Button
-                aria-label="Close workspace navigation"
+                aria-label={_(DASHBOARD_NAVIGATION_MESSAGES.close)}
                 className="size-11 p-0"
                 onClick={() => closeDrawer(true)}
                 type="button"
@@ -292,8 +317,11 @@ export function MobileWorkspaceHeader({
               />
               <div className="mx-4 grid gap-3 border-t border-border pt-4">
                 {authControls ? <div className="min-w-0">{authControls}</div> : null}
+                <LanguageSwitcher />
                 <div className="flex items-center justify-between gap-3 px-2">
-                  <span className="text-xs font-medium text-muted-foreground">Appearance</span>
+                  <span className="text-xs font-medium text-muted-foreground">
+                    {_(DASHBOARD_NAVIGATION_MESSAGES.appearance)}
+                  </span>
                   <ThemeToggle />
                 </div>
               </div>
@@ -316,13 +344,19 @@ function DashboardNavigation({
   items: readonly DashboardNavigationItem[];
   onSelect: (view: DashboardViewId) => void;
 }): React.ReactElement {
+  const { _ } = useLingui();
   return (
     <nav
-      aria-label={items.length === 1 ? 'Support' : 'Workspace'}
+      aria-label={_(
+        items.length === 1
+          ? DASHBOARD_NAVIGATION_MESSAGES.supportLabel
+          : DASHBOARD_NAVIGATION_MESSAGES.workspace,
+      )}
       className={collapsed ? 'grid gap-1 px-2' : 'grid gap-1 px-3'}
     >
       {items.map((item) => {
         const Icon = NAVIGATION_ICONS[item.icon];
+        const label = _(item.label);
         const active = activeView === item.id;
         const layoutClassName = collapsed ? 'justify-center px-0' : 'gap-3 px-3';
         const stateClassName = active
@@ -333,20 +367,20 @@ function DashboardNavigation({
             <button
               aria-current={active ? 'page' : undefined}
               aria-controls="dashboard-active-view"
-              className={`flex min-h-11 w-full items-center rounded-lg text-left text-sm outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring ${layoutClassName} ${stateClassName}`}
+              className={`flex min-h-11 w-full items-center rounded-lg text-start text-sm outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring ${layoutClassName} ${stateClassName}`}
               data-dashboard-nav-item
               onClick={() => onSelect(item.id)}
               type="button"
             >
               <Icon aria-hidden="true" className="size-[18px] shrink-0" />
-              <span className={collapsed ? 'sr-only' : undefined}>{item.label}</span>
+              <span className={collapsed ? 'sr-only' : undefined}>{label}</span>
             </button>
             {collapsed ? (
               <span
-                className="pointer-events-none absolute left-[calc(100%+10px)] top-1/2 z-50 -translate-y-1/2 translate-x-1 whitespace-nowrap rounded-md border border-border bg-popover px-2.5 py-1.5 text-xs font-semibold text-popover-foreground opacity-0 shadow-lg transition duration-100 group-focus-within:translate-x-0 group-focus-within:opacity-100 group-hover:translate-x-0 group-hover:opacity-100 motion-reduce:transition-none"
+                className="pointer-events-none absolute start-[calc(100%+10px)] top-1/2 z-50 -translate-y-1/2 whitespace-nowrap rounded-md border border-border bg-popover px-2.5 py-1.5 text-xs font-semibold text-popover-foreground opacity-0 shadow-lg transition duration-100 ltr:translate-x-1 rtl:-translate-x-1 group-focus-within:translate-x-0 group-focus-within:opacity-100 group-hover:translate-x-0 group-hover:opacity-100 motion-reduce:transition-none"
                 role="tooltip"
               >
-                {item.label}
+                {label}
               </span>
             ) : null}
           </div>

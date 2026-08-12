@@ -8,6 +8,8 @@ export * from './block';
 export * from './target';
 export * from './target-verification';
 export * from './document';
+export * from './document-localization';
+export * from './authoring-translation';
 export * from './brand';
 export * from './brand-drift';
 export * from './release';

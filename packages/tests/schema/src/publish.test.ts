@@ -32,13 +32,14 @@ describe('tour publish readiness', () => {
     button.contentRuns = [{ text: button.content ?? '' }];
     paragraph.props.buttonStyle = { width: 'fill' };
     paragraph.props.tooltipLayout = { contentAlign: 'center' };
+    paragraph.props.tooltipStyle = { surfaceColor: '#ffffff' };
 
     const invalidBlockIds = validateTourPublishReadiness(document)
       .filter((issue) => issue.code === 'invalid_block')
       .map((issue) => issue.blockId);
 
     expect(invalidBlockIds).toContain(button.id);
-    expect(invalidBlockIds.filter((blockId) => blockId === paragraph.id)).toHaveLength(2);
+    expect(invalidBlockIds.filter((blockId) => blockId === paragraph.id)).toHaveLength(3);
   });
 
   it('blocks steps without a semantic target', () => {

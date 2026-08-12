@@ -16,6 +16,8 @@ import {
   type ReleaseRecoveryRequest,
   type ReleaseRecoveryResult,
   type ReleaseRecoveryStateResponse,
+  type AuthoringTranslationRequest,
+  type AuthoringTranslationResult,
 } from '@lodariq/schema';
 
 export { AUTHORING_STAGING_RELEASE_STATES };
@@ -219,6 +221,8 @@ export interface LocalAuthoringFrameServices {
   persistDocument?: (doc: LodariqDocument) => Promise<void>;
   /** Direct SDK hosts persist the save-result handoff after this frame replies. */
   persistDocumentOnSaveRequest?: boolean;
+  /** Explicit draft-only translation; implementations must keep provider credentials server-side. */
+  translateDocument?: (request: AuthoringTranslationRequest) => Promise<AuthoringTranslationResult>;
   exportDocument: (doc: LodariqDocument) => string;
   importDocument: (json: string) => LodariqDocument;
   resetDocuments: () => void;

@@ -67,6 +67,7 @@ describe('public authoring activation client', () => {
         requestId: message['requestId'],
         state: message['state'],
         authorizationCode: AUTHORIZATION_CODE,
+        uiLocale: 'fr',
         expiresAt: FUTURE_DATE,
       };
       window.dispatchEvent(
@@ -164,6 +165,7 @@ describe('public authoring activation client', () => {
         activationGrant: ACTIVATION_GRANT,
         apiOrigin: 'https://api.lodariq.io',
         context: expect.objectContaining({ requestId: 'authreq_activation' }),
+        uiLocale: 'fr',
       }),
     ]);
     expect(handedOff[0]).not.toHaveProperty('documentIntent');

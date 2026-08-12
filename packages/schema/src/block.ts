@@ -79,6 +79,10 @@ export const TOOLTIP_PADDING_VALUES = ['compact', 'standard', 'relaxed'] as cons
 const TOOLTIP_PADDING_SET = new Set<string>(TOOLTIP_PADDING_VALUES);
 export const TOOLTIP_RADIUS_VALUES = ['theme', 'square', 'soft', 'round'] as const;
 const TOOLTIP_RADIUS_SET = new Set<string>(TOOLTIP_RADIUS_VALUES);
+export const TOOLTIP_BORDER_WEIGHT_VALUES = ['theme', 'none', 'subtle', 'strong'] as const;
+const TOOLTIP_BORDER_WEIGHT_SET = new Set<string>(TOOLTIP_BORDER_WEIGHT_VALUES);
+export const TOOLTIP_ELEVATION_VALUES = ['theme', 'none', 'resting', 'floating'] as const;
+const TOOLTIP_ELEVATION_SET = new Set<string>(TOOLTIP_ELEVATION_VALUES);
 const TEXT_COLOR_PATTERN = '^#[0-9a-fA-F]{6}$';
 const INLINE_TEXT_RUN_LIMIT = 256;
 const INLINE_TEXT_RUN_LENGTH_LIMIT = 10_000;
@@ -222,6 +226,23 @@ export const TooltipLayoutProps = Type.Object(
 );
 export type TooltipLayoutProps = Static<typeof TooltipLayoutProps>;
 
+/** Safe per-popup appearance overrides. Omitted fields inherit the compiled Brand Theme. */
+export const TooltipStyleProps = Type.Object(
+  {
+    surfaceColor: Type.Optional(Type.String({ pattern: TEXT_COLOR_PATTERN })),
+    textColor: Type.Optional(Type.String({ pattern: TEXT_COLOR_PATTERN })),
+    borderColor: Type.Optional(Type.String({ pattern: TEXT_COLOR_PATTERN })),
+    borderWeight: Type.Optional(
+      Type.Union(TOOLTIP_BORDER_WEIGHT_VALUES.map((value) => Type.Literal(value))),
+    ),
+    elevation: Type.Optional(
+      Type.Union(TOOLTIP_ELEVATION_VALUES.map((value) => Type.Literal(value))),
+    ),
+  },
+  { $id: 'TooltipStyleProps', additionalProperties: false },
+);
+export type TooltipStyleProps = Static<typeof TooltipStyleProps>;
+
 /**
  * Visual attachment inside a resolved target's live border box.
  *
@@ -314,6 +335,7 @@ export const LodariqBlockProps = Type.Object(
     blockLayout: Type.Optional(Type.Ref(BlockLayoutProps)),
     buttonStyle: Type.Optional(Type.Ref(ButtonStyleProps)),
     tooltipLayout: Type.Optional(Type.Ref(TooltipLayoutProps)),
+    tooltipStyle: Type.Optional(Type.Ref(TooltipStyleProps)),
     variant: Type.Optional(Type.Union(BUTTON_VARIANT_VALUES.map((value) => Type.Literal(value)))),
   },
   { $id: 'LodariqBlockProps', additionalProperties: false },
@@ -342,6 +364,8 @@ export function sanitizeBlockProps(props: Record<string, unknown>): LodariqBlock
   if (buttonStyle) next.buttonStyle = buttonStyle;
   const tooltipLayout = sanitizeTooltipLayoutProps(props.tooltipLayout);
   if (tooltipLayout) next.tooltipLayout = tooltipLayout;
+  const tooltipStyle = sanitizeTooltipStyleProps(props.tooltipStyle);
+  if (tooltipStyle) next.tooltipStyle = tooltipStyle;
   const variant = buttonVariantValue(props.variant);
   if (variant) next.variant = variant;
   return next;
@@ -515,6 +539,24 @@ export function sanitizeTooltipLayoutProps(value: unknown): TooltipLayoutProps |
     next.radius = value.radius as TooltipLayoutProps['radius'];
   }
   if (typeof value.showArrow === 'boolean') next.showArrow = value.showArrow;
+  return Object.keys(next).length > 0 ? next : undefined;
+}
+
+export function sanitizeTooltipStyleProps(value: unknown): TooltipStyleProps | undefined {
+  if (!isRecord(value)) return undefined;
+  const next: TooltipStyleProps = {};
+  const surfaceColor = safeHexColor(value.surfaceColor);
+  if (surfaceColor) next.surfaceColor = surfaceColor;
+  const textColor = safeHexColor(value.textColor);
+  if (textColor) next.textColor = textColor;
+  const borderColor = safeHexColor(value.borderColor);
+  if (borderColor) next.borderColor = borderColor;
+  if (typeof value.borderWeight === 'string' && TOOLTIP_BORDER_WEIGHT_SET.has(value.borderWeight)) {
+    next.borderWeight = value.borderWeight as TooltipStyleProps['borderWeight'];
+  }
+  if (typeof value.elevation === 'string' && TOOLTIP_ELEVATION_SET.has(value.elevation)) {
+    next.elevation = value.elevation as TooltipStyleProps['elevation'];
+  }
   return Object.keys(next).length > 0 ? next : undefined;
 }
 

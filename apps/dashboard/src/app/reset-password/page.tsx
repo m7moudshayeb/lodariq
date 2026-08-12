@@ -3,6 +3,8 @@ import { AuthShell } from '../../components/auth-shell';
 import { SetPasswordForm } from '../../components/set-password-form';
 import { buttonVariants } from '../../components/ui/button';
 import { parseSetPasswordChallengeId, safeReturnTo } from '../../lib/auth-contract';
+import { AUTH_PAGE_MESSAGES } from '../../i18n/messages';
+import { getDashboardI18n } from '../../i18n/server';
 
 interface ResetPasswordPageProps {
   searchParams: Promise<{
@@ -18,16 +20,17 @@ export default async function ResetPasswordPage({
   const query = await searchParams;
   const challengeId = parseSetPasswordChallengeId(query.challenge);
   const returnTo = safeReturnTo(query.returnTo);
+  const { i18n } = await getDashboardI18n();
 
   if (!challengeId || query.token !== undefined) {
     return (
       <AuthShell
-        description="Use the complete password link from your latest Lodariq email."
-        eyebrow="Account access"
-        title="This link is incomplete"
+        description={i18n._(AUTH_PAGE_MESSAGES.incompletePasswordLinkDescription)}
+        eyebrow={i18n._(AUTH_PAGE_MESSAGES.accountAccess)}
+        title={i18n._(AUTH_PAGE_MESSAGES.incompleteLinkTitle)}
       >
         <Link className={buttonVariants({ className: 'h-11 w-full' })} href="/forgot-password">
-          Request another link
+          {i18n._(AUTH_PAGE_MESSAGES.requestAnotherLink)}
         </Link>
       </AuthShell>
     );
@@ -35,9 +38,9 @@ export default async function ResetPasswordPage({
 
   return (
     <AuthShell
-      description="The secret is cleared from your browser before the form appears. Saving signs you in."
-      eyebrow="Account access"
-      title="Choose a new password"
+      description={i18n._(AUTH_PAGE_MESSAGES.newPasswordDescription)}
+      eyebrow={i18n._(AUTH_PAGE_MESSAGES.accountAccess)}
+      title={i18n._(AUTH_PAGE_MESSAGES.newPasswordTitle)}
     >
       <SetPasswordForm challengeId={challengeId} returnTo={returnTo} />
     </AuthShell>

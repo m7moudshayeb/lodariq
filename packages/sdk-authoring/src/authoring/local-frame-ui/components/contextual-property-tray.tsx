@@ -1,5 +1,11 @@
+import { authoringText } from '../../../i18n';
 import type { ReactNode } from 'react';
-import type { BlockLayoutProps, LodariqBlock, TooltipLayoutProps } from '@lodariq/schema';
+import type {
+  BlockLayoutProps,
+  LodariqBlock,
+  TooltipLayoutProps,
+  TooltipStyleProps,
+} from '@lodariq/schema';
 import type { LocalAuthoringFrameController } from '../controller';
 import { X } from '../design-system';
 import {
@@ -12,19 +18,21 @@ import {
   BLOCK_SPACING_OPTIONS,
   CONTENT_ALIGNMENT_OPTIONS,
   POPUP_ARROW_OPTIONS,
+  POPUP_BORDER_WEIGHT_OPTIONS,
+  POPUP_ELEVATION_OPTIONS,
   POPUP_PADDING_OPTIONS,
   POPUP_RADIUS_OPTIONS,
 } from '../properties/options';
-import { PropertyChoiceField } from '../properties/property-controls';
+import { PropertyChoiceField, PropertyColorField } from '../properties/property-controls';
 import type { LocalAuthoringFrameSnapshot } from '../types';
 import { blockDisplayTitle, blockTypeLabel, targetIdOf, targetLabelOf } from '../utils';
 import type { StepHealthTone } from '../tour-step-model';
 
 const TOOLTIP_PLACEMENT_LABELS = {
-  top: 'Above',
-  bottom: 'Below',
-  left: 'Left',
-  right: 'Right',
+  top: authoringText('Above'),
+  bottom: authoringText('Below'),
+  left: authoringText('Left'),
+  right: authoringText('Right'),
 } as const;
 
 type ContextualToolMode = 'content' | 'placement' | 'popup';
@@ -36,6 +44,7 @@ export function ContextualPropertyTray({
   controller,
   health,
   placementEditor,
+  popupThemeColors,
   snapshot,
   step,
   tooltip,
@@ -50,6 +59,7 @@ export function ContextualPropertyTray({
   controller: LocalAuthoringFrameController;
   health: { label: string; repair: boolean; tone: StepHealthTone };
   placementEditor: ReactNode;
+  popupThemeColors: PopupThemeColors;
   snapshot: LocalAuthoringFrameSnapshot;
   step: LodariqBlock;
   tooltip: LodariqBlock;
@@ -59,18 +69,26 @@ export function ContextualPropertyTray({
   open: boolean;
 }) {
   const targetId = targetIdOf(step);
-  const targetLabel = targetId ? targetLabelOf(snapshot.documentState, targetId) : 'Choose target';
+  const targetLabel = targetId
+    ? targetLabelOf(snapshot.documentState, targetId)
+    : authoringText('Choose target');
   const placement = tooltip.props.placement ?? 'bottom';
   const selectedBlock = actionBlock ?? activeBlock;
-  let title = `${blockDisplayTitle(selectedBlock ?? step)} settings`;
+  let title = authoringText('{name} settings', {
+    name: blockDisplayTitle(selectedBlock ?? step),
+  });
   if (actionBlock) {
-    title = `${actionBlock.content?.trim() || 'Untitled'} ${blockTypeLabel(actionBlock.type).toLowerCase()}`;
+    title = authoringText('{name} {type}', {
+      name: actionBlock.content?.trim() || authoringText('Untitled'),
+      type: blockTypeLabel(actionBlock.type).toLowerCase(),
+    });
   }
-  if (toolMode === 'popup') title = 'Popup layout';
-  const scopeLabel = toolMode === 'popup' ? '· This step' : '· This block';
-  let trayLabel = 'Selected block settings';
-  if (actionBlock) trayLabel = 'Selected action style';
-  if (toolMode === 'popup') trayLabel = 'Popup layout settings';
+  if (toolMode === 'popup') title = authoringText('Popup layout');
+  const scopeLabel =
+    toolMode === 'popup' ? authoringText('· This step') : authoringText('· This block');
+  let trayLabel = authoringText('Selected block settings');
+  if (actionBlock) trayLabel = authoringText('Selected action style');
+  if (toolMode === 'popup') trayLabel = authoringText('Popup layout settings');
 
   if (!open) return null;
 
@@ -85,7 +103,8 @@ export function ContextualPropertyTray({
           </span>
           <span className="storyboard-tray-context">
             <span className="storyboard-placement-summary">
-              Appears {TOOLTIP_PLACEMENT_LABELS[placement].toLowerCase()} {targetLabel}
+              {authoringText('Appears')}&nbsp;
+              {TOOLTIP_PLACEMENT_LABELS[placement].toLowerCase()} {targetLabel}
             </span>
             <span className={`storyboard-verification ${health.tone}`}>{health.label}</span>
           </span>
@@ -93,7 +112,7 @@ export function ContextualPropertyTray({
         <button
           type="button"
           className="storyboard-tray-close"
-          aria-label="Close settings"
+          aria-label={authoringText('Close settings')}
           onClick={onClose}
         >
           <X size={17} strokeWidth={2} aria-hidden="true" />
@@ -119,7 +138,11 @@ export function ContextualPropertyTray({
       {toolMode === 'placement' ? placementEditor : null}
 
       {toolMode === 'popup' ? (
-        <PopupCompositionInspector controller={controller} tooltip={tooltip} />
+        <PopupCompositionInspector
+          controller={controller}
+          themeColors={popupThemeColors}
+          tooltip={tooltip}
+        />
       ) : null}
     </section>
   );
@@ -134,14 +157,14 @@ function BlockFlowInspector({
 }) {
   const layout = block.props.blockLayout ?? {};
   return (
-    <section className="rich-step-inspector compact" aria-label="Block spacing">
+    <section className="rich-step-inspector compact" aria-label={authoringText('Block spacing')}>
       <header>
-        <strong>Block spacing</strong>
-        <span>Flow placement</span>
+        <strong>{authoringText('Block spacing')}</strong>
+        <span>{authoringText('Flow placement')}</span>
       </header>
       <div className="rich-step-inspector-grid two">
         <PropertyChoiceField
-          label="Before"
+          label={authoringText('Before')}
           value={layout.spacingBefore ?? 'normal'}
           options={BLOCK_SPACING_OPTIONS}
           onChange={(spacingBefore) =>
@@ -151,7 +174,7 @@ function BlockFlowInspector({
           }
         />
         <PropertyChoiceField
-          label="After"
+          label={authoringText('After')}
           value={layout.spacingAfter ?? 'normal'}
           options={BLOCK_SPACING_OPTIONS}
           onChange={(spacingAfter) =>
@@ -168,16 +191,23 @@ function BlockFlowInspector({
 
 function PopupCompositionInspector({
   controller,
+  themeColors,
   tooltip,
 }: {
   controller: LocalAuthoringFrameController;
+  themeColors: PopupThemeColors;
   tooltip: LodariqBlock;
 }) {
   const layout = tooltip.props.tooltipLayout ?? {};
+  const popupStyle = tooltip.props.tooltipStyle ?? {};
+  const customized = Object.keys(popupStyle).length > 0;
   return (
-    <section className="storyboard-tab-panel popup-layout" aria-label="Popup layout">
+    <section
+      className="storyboard-tab-panel popup-layout"
+      aria-label={authoringText('Popup layout')}
+    >
       <PropertyChoiceField
-        label="Content alignment"
+        label={authoringText('Content alignment')}
         value={layout.contentAlign ?? 'left'}
         options={CONTENT_ALIGNMENT_OPTIONS}
         onChange={(contentAlign) =>
@@ -187,7 +217,7 @@ function PopupCompositionInspector({
         }
       />
       <PropertyChoiceField
-        label="Action layout"
+        label={authoringText('Action layout')}
         value={layout.actionLayout ?? 'inline'}
         options={ACTION_LAYOUT_OPTIONS}
         onChange={(actionLayout) =>
@@ -197,7 +227,7 @@ function PopupCompositionInspector({
         }
       />
       <PropertyChoiceField
-        label="Action gap"
+        label={authoringText('Action gap')}
         value={layout.gap ?? 'normal'}
         options={BLOCK_SPACING_OPTIONS}
         onChange={(gap) =>
@@ -207,7 +237,7 @@ function PopupCompositionInspector({
         }
       />
       <PropertyChoiceField
-        label="Padding"
+        label={authoringText('Padding')}
         value={layout.padding ?? 'standard'}
         options={POPUP_PADDING_OPTIONS}
         onChange={(padding) =>
@@ -217,7 +247,7 @@ function PopupCompositionInspector({
         }
       />
       <PropertyChoiceField
-        label="Corner radius"
+        label={authoringText('Corner radius')}
         value={layout.radius ?? 'theme'}
         options={POPUP_RADIUS_OPTIONS}
         onChange={(radius) =>
@@ -227,13 +257,68 @@ function PopupCompositionInspector({
         }
       />
       <PropertyChoiceField
-        label="Pointer arrow"
+        label={authoringText('Pointer arrow')}
         value={layout.showArrow === false ? 'hide' : 'show'}
         options={POPUP_ARROW_OPTIONS}
         onChange={(visibility) =>
           controller.setTooltipLayout(tooltip.id, { showArrow: visibility === 'show' })
         }
       />
+      <PropertyColorField
+        customized={Boolean(popupStyle.surfaceColor)}
+        label={authoringText('Background')}
+        value={popupStyle.surfaceColor ?? themeColors.surfaceColor}
+        onChange={(surfaceColor) => controller.setTooltipStyle(tooltip.id, { surfaceColor })}
+        onReset={() => controller.setTooltipStyle(tooltip.id, { surfaceColor: undefined })}
+      />
+      <PropertyColorField
+        customized={Boolean(popupStyle.textColor)}
+        label={authoringText('Text')}
+        value={popupStyle.textColor ?? themeColors.textColor}
+        onChange={(textColor) => controller.setTooltipStyle(tooltip.id, { textColor })}
+        onReset={() => controller.setTooltipStyle(tooltip.id, { textColor: undefined })}
+      />
+      <PropertyColorField
+        customized={Boolean(popupStyle.borderColor)}
+        label={authoringText('Border')}
+        value={popupStyle.borderColor ?? themeColors.borderColor}
+        onChange={(borderColor) => controller.setTooltipStyle(tooltip.id, { borderColor })}
+        onReset={() => controller.setTooltipStyle(tooltip.id, { borderColor: undefined })}
+      />
+      <PropertyChoiceField
+        label={authoringText('Border weight')}
+        value={popupStyle.borderWeight ?? 'theme'}
+        options={POPUP_BORDER_WEIGHT_OPTIONS}
+        onChange={(borderWeight) =>
+          controller.setTooltipStyle(tooltip.id, {
+            borderWeight: borderWeight as NonNullable<TooltipStyleProps['borderWeight']>,
+          })
+        }
+      />
+      <PropertyChoiceField
+        label={authoringText('Shadow')}
+        value={popupStyle.elevation ?? 'theme'}
+        options={POPUP_ELEVATION_OPTIONS}
+        onChange={(elevation) =>
+          controller.setTooltipStyle(tooltip.id, {
+            elevation: elevation as NonNullable<TooltipStyleProps['elevation']>,
+          })
+        }
+      />
+      <button
+        className="popup-style-reset"
+        disabled={!customized}
+        onClick={() => controller.resetTooltipStyle(tooltip.id)}
+        type="button"
+      >
+        {authoringText('Reset all to Brand')}
+      </button>
     </section>
   );
+}
+
+export interface PopupThemeColors {
+  borderColor: string;
+  surfaceColor: string;
+  textColor: string;
 }

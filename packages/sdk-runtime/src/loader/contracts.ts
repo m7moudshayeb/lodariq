@@ -3,6 +3,8 @@ import type { TargetResolutionContext } from '../resolver';
 import type { AuthoringTargetOverride, TourTargetResolutionDiagnostic } from '../renderers/tour';
 
 export interface TourPlaybackOptions {
+  /** BCP 47 locale used to select customer-authored experience copy. */
+  locale?: string;
   initialStepId?: string;
   initialStepIndex?: number;
   targetResolutionContext?: TargetResolutionContext;
@@ -22,6 +24,7 @@ export interface AuthoringPreviewPlaybackOptions extends TourPlaybackOptions {
 }
 
 export interface TourPlayerLike {
+  readonly contentLocale?: string;
   start: () => void;
   stop: () => void;
   waitUntilReady: () => Promise<void>;

@@ -12,6 +12,6 @@ export async function GET(): Promise<Response> {
     const workspaceId = await requireActiveDashboardWorkspace();
     return dashboardJson(await loadDashboardData(workspaceId));
   } catch (error) {
-    return dashboardRouteError(error);
+    return await dashboardRouteError(error);
   }
 }

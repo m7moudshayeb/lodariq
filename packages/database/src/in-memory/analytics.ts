@@ -16,6 +16,7 @@ import {
 import {
   DEFAULT_ANALYTICS_EVENT_QUERY_LIMIT,
   analyticsAggregateKey,
+  analyticsContentLocale,
   analyticsTargetResolutionStatus,
   assertAnalyticsEnvironmentQuery,
   assertAuthoritativeAnalyticsBatch,
@@ -395,6 +396,7 @@ export class InMemoryRepositoryAnalytics extends InMemoryRepositoryAuthoringActi
         if (timestamp > current.lastTimestamp) current.lastTimestamp = timestamp;
         continue;
       }
+      const contentLocale = analyticsContentLocale(event);
       const dimensions = {
         workspaceId: event.workspaceId,
         environmentId: event.environmentId,
@@ -402,6 +404,7 @@ export class InMemoryRepositoryAnalytics extends InMemoryRepositoryAuthoringActi
         publicationId: event.publicationId,
         contentHash: event.contentHash,
         pointerGeneration: event.pointerGeneration,
+        ...(contentLocale ? { locale: contentLocale } : {}),
         count: 1,
         firstTimestamp: timestamp,
         lastTimestamp: timestamp,

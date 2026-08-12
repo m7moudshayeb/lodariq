@@ -209,7 +209,7 @@ export async function persistExactPublicationVerification(
   }
   const compiled = publication.artifact.compiled;
   if (compiled.artifactSchemaVersion !== COMPILED_ARTIFACT_SCHEMA_VERSION) {
-    throw new Error('browser verification requires a Phase 2 compiled artifact');
+    throw new Error('browser verification requires the current compiled artifact contract');
   }
   const record = await repository.createPublicationVerification({
     workspaceId: input.workspaceId,

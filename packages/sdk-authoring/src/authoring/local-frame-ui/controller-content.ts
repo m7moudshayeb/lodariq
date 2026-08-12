@@ -1,4 +1,5 @@
 import { ControllerPropertyFeature } from './controller-properties';
+import { authoringText } from '../../i18n';
 import {
   blocksReferenceTarget,
   createContentBlock,
@@ -33,7 +34,7 @@ export abstract class ControllerContentFeature extends ControllerPropertyFeature
   appendBlock(type: EditableBlockType, contentOverride?: string): void {
     void type;
     void contentOverride;
-    this.setStatus('Open a step to add content.');
+    this.setStatus(authoringText('Open a step to add content.'));
     this.clearSlash();
     this.emit();
   }
@@ -43,9 +44,10 @@ export abstract class ControllerContentFeature extends ControllerPropertyFeature
     anchorBlockId: string,
     position: BlockInsertPosition,
   ): void {
+    if (!this.allowDocumentStructureMutation()) return;
     if (!hasBlock(this.documentState.blocks, anchorBlockId)) return;
     if (command !== 'step') {
-      this.setStatus('Open a step to add content.');
+      this.setStatus(authoringText('Open a step to add content.'));
       return;
     }
     const block = createTourStep(this.nextStepIndex());
@@ -68,6 +70,7 @@ export abstract class ControllerContentFeature extends ControllerPropertyFeature
     index: number,
     contentOverride?: string,
   ): void {
+    if (!this.allowDocumentStructureMutation()) return;
     if (!hasBlock(this.documentState.blocks, stepBlockId)) return;
     const block = createContentBlock(type, contentOverride ?? insertedStepContentDefault(type));
     const blocks = insertBlockInsideTourStep(this.documentState.blocks, stepBlockId, block, index);
@@ -89,6 +92,7 @@ export abstract class ControllerContentFeature extends ControllerPropertyFeature
     value: string,
     nextContent = '',
   ): void {
+    if (!this.allowDocumentStructureMutation()) return;
     const currentBlocks = this.stepContentBlocks(this.documentState.blocks, stepBlockId);
     const currentIndex = currentBlocks.findIndex((block) => block.id === childBlockId);
     const currentBlock = currentBlocks[currentIndex];
@@ -113,7 +117,7 @@ export abstract class ControllerContentFeature extends ControllerPropertyFeature
     this.afterDocumentMutation();
     this.focusEditableField(nextBlock.id, 'start');
     this.services.saveDocument(this.documentState);
-    this.setStatus('Added text line');
+    this.setStatus(authoringText('Added text line'));
     this.sendPreviewPatch(childBlockId, [
       currentBlock.contentRuns
         ? { op: 'updateContentRuns', content: value, contentRuns: splitRuns.before }
@@ -123,6 +127,7 @@ export abstract class ControllerContentFeature extends ControllerPropertyFeature
   }
 
   deleteEmptyStepContentBlock(stepBlockId: string, childBlockId: string): void {
+    if (!this.allowDocumentStructureMutation()) return;
     const currentBlocks = this.stepContentBlocks(this.documentState.blocks, stepBlockId);
     if (currentBlocks.length <= 1) return;
     const currentIndex = currentBlocks.findIndex((block) => block.id === childBlockId);
@@ -145,7 +150,7 @@ export abstract class ControllerContentFeature extends ControllerPropertyFeature
     this.services.saveDocument(this.documentState);
     this.selectedBlockId = nextSelection;
     this.focusEditableField(nextSelection, 'end');
-    this.setStatus('Deleted empty line');
+    this.setStatus(authoringText('Deleted empty line'));
     this.sendPreviewPatch(childBlockId, [{ op: 'removeBlock', stepBlockId }]);
   }
 
@@ -154,6 +159,7 @@ export abstract class ControllerContentFeature extends ControllerPropertyFeature
     childBlockId: string,
     pendingContent?: string,
   ): boolean {
+    if (!this.allowDocumentStructureMutation()) return false;
     const currentBlocks = this.stepContentBlocks(this.documentState.blocks, stepBlockId);
     const currentIndex = currentBlocks.findIndex((block) => block.id === childBlockId);
     const currentBlock = currentBlocks[currentIndex];
@@ -197,7 +203,7 @@ export abstract class ControllerContentFeature extends ControllerPropertyFeature
     this.services.saveDocument(this.documentState);
     this.selectedBlockId = previousBlock.id;
     this.focusEditableField(previousBlock.id, previousContent.length);
-    this.setStatus('Merged text line');
+    this.setStatus(authoringText('Merged text line'));
     this.sendPreviewPatch(previousBlock.id, [
       mergedRuns
         ? { op: 'updateContentRuns', content: mergedContent, contentRuns: mergedRuns }
@@ -226,6 +232,7 @@ export abstract class ControllerContentFeature extends ControllerPropertyFeature
   }
 
   moveStepContentBlock(stepBlockId: string, childBlockId: string, direction: BlockDirection): void {
+    if (!this.allowDocumentStructureMutation()) return;
     const blocks = moveStepChildBlock(
       this.documentState.blocks,
       stepBlockId,
@@ -239,7 +246,7 @@ export abstract class ControllerContentFeature extends ControllerPropertyFeature
     this.services.saveDocument(this.documentState);
     this.selectedBlockId = childBlockId;
     this.focusBlock(childBlockId);
-    this.setStatus('Moved step content');
+    this.setStatus(authoringText('Moved step content'));
     this.sendPreviewPatch(childBlockId, [{ op: 'moveStepContent', stepBlockId, direction }]);
   }
 
@@ -249,6 +256,7 @@ export abstract class ControllerContentFeature extends ControllerPropertyFeature
     targetChildBlockId: string,
     position: BlockInsertPosition,
   ): void {
+    if (!this.allowDocumentStructureMutation()) return;
     const blocks = reorderStepChildBlock(
       this.documentState.blocks,
       stepBlockId,
@@ -263,13 +271,14 @@ export abstract class ControllerContentFeature extends ControllerPropertyFeature
     this.services.saveDocument(this.documentState);
     this.selectedBlockId = childBlockId;
     this.focusBlock(childBlockId);
-    this.setStatus('Moved step content');
+    this.setStatus(authoringText('Moved step content'));
     this.sendPreviewPatch(childBlockId, [
       { op: 'reorderStepContent', stepBlockId, targetChildBlockId, position },
     ]);
   }
 
   duplicateStepContentBlock(stepBlockId: string, childBlockId: string): void {
+    if (!this.allowDocumentStructureMutation()) return;
     const currentIndex = this.stepContentBlocks(this.documentState.blocks, stepBlockId).findIndex(
       (block) => block.id === childBlockId,
     );
@@ -283,7 +292,7 @@ export abstract class ControllerContentFeature extends ControllerPropertyFeature
     this.services.saveDocument(this.documentState);
     this.selectedBlockId = duplicatedBlockId;
     this.focusInsertedBlock(duplicatedBlockId);
-    this.setStatus('Duplicated content');
+    this.setStatus(authoringText('Duplicated content'));
     const duplicatedBlock = this.stepContentBlocks(blocks, stepBlockId)[currentIndex + 1];
     if (duplicatedBlock) {
       this.sendPreviewPatch(duplicatedBlock.id, [
@@ -298,6 +307,7 @@ export abstract class ControllerContentFeature extends ControllerPropertyFeature
   }
 
   deleteStepContentBlock(stepBlockId: string, childBlockId: string): void {
+    if (!this.allowDocumentStructureMutation()) return;
     const currentIndex = this.stepContentBlocks(this.documentState.blocks, stepBlockId).findIndex(
       (block) => block.id === childBlockId,
     );
@@ -318,7 +328,7 @@ export abstract class ControllerContentFeature extends ControllerPropertyFeature
     this.services.saveDocument(this.documentState);
     this.selectedBlockId = nextSelection;
     this.focusBlock(nextSelection);
-    this.setStatus('Deleted content');
+    this.setStatus(authoringText('Deleted content'));
     this.sendPreviewPatch(childBlockId, [{ op: 'removeBlock', stepBlockId }]);
   }
 }

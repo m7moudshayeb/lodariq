@@ -1,4 +1,5 @@
 import { ControllerHistoryReleaseFeature } from './controller-history-release';
+import { authoringText } from '../../i18n';
 import { BRIDGE_PROTOCOL_VERSION, type LodariqBlock } from '@lodariq/schema';
 import { createBridgeCorrelationId } from '../../bridge/transport';
 import { editableBlockTypeValue, findBlockById, slashCommandType } from './utils';
@@ -24,6 +25,7 @@ export abstract class ControllerPreviewFeature extends ControllerHistoryReleaseF
       documentId: this.documentState.id,
       correlationId: createBridgeCorrelationId('authoring_preview_request'),
       type: 'authoring.preview.request' as const,
+      locale: this.contentLocale,
     };
     if (mode === 'step') {
       if (!stepId) return Promise.reject(new Error('Lodariq step preview requires a step id'));
@@ -39,7 +41,7 @@ export abstract class ControllerPreviewFeature extends ControllerHistoryReleaseF
       event.preventDefault();
       event.stopImmediatePropagation();
       this.pendingPresentationAnchorPick = null;
-      this.setStatus('Exact area selection canceled');
+      this.setStatus(authoringText('Exact area selection canceled'));
       this.bridge.send({
         protocol: BRIDGE_PROTOCOL_VERSION,
         sessionId: this.sessionId,
@@ -67,7 +69,7 @@ export abstract class ControllerPreviewFeature extends ControllerHistoryReleaseF
     this.activeTargetCaptureCorrelationId = null;
     this.canceledTargetBlockIds.add(blockId);
     this.recordMetric('target.pick.canceled');
-    this.setStatus('Placement selection canceled');
+    this.setStatus(authoringText('Placement selection canceled'));
     this.bridge.send({
       protocol: BRIDGE_PROTOCOL_VERSION,
       sessionId: this.sessionId,
@@ -89,7 +91,7 @@ export abstract class ControllerPreviewFeature extends ControllerHistoryReleaseF
       return;
     }
     if (command) {
-      this.setStatus('Open a step to add content.');
+      this.setStatus(authoringText('Open a step to add content.'));
       this.clearSlash();
       this.emit();
       return;

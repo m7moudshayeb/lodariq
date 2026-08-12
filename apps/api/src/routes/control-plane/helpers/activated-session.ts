@@ -1,6 +1,7 @@
 import { canonicalJson, runBasicVisualPreflight, sha256Hex } from '@lodariq/compiler';
 import {
   CreateAuthoringDocumentSessionRequest,
+  COMPILED_ARTIFACT_SCHEMA_VERSION,
   evaluateEnvironmentReleasePolicy,
   validate,
   type CreateAuthoringDocumentSessionRequest as CreateAuthoringDocumentSessionRequestType,
@@ -128,6 +129,9 @@ export async function createActivatedAuthoringDocumentSession(
       editorOrigin: deploymentOrigins.editor,
       creatorId: session.creatorId,
       capabilities: responseCapabilities,
+      ...(options.authoringTranslationProvider
+        ? { translation: { state: 'available' as const } }
+        : {}),
       expiresAt: session.expiresAt,
     },
   });
@@ -285,8 +289,8 @@ export async function runAndPersistVisualPreflight(input: RunVisualPreflightInpu
   if (existing) return existing;
 
   const compiled = input.artifact.compiled;
-  if (compiled.artifactSchemaVersion !== '2') {
-    throw new Error('visual preflight requires a Phase 2 compiled artifact');
+  if (compiled.artifactSchemaVersion !== COMPILED_ARTIFACT_SCHEMA_VERSION) {
+    throw new Error('visual preflight requires the current compiled artifact contract');
   }
   if (!input.artifact.documentVersionId) {
     throw new Error('visual preflight requires an immutable document version');

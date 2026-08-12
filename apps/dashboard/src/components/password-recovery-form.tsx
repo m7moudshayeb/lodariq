@@ -3,8 +3,12 @@
 import Link from 'next/link';
 import { ArrowRight, LoaderCircle, MailCheck } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
+import { useLingui } from '@lingui/react';
 import { useAuthMutations } from '../hooks/use-auth-mutations';
 import type { PasswordRecoveryAcceptedResponse } from '../lib/auth-contract';
+import { ClientAuthError } from '../lib/client-auth-api';
+import { authErrorMessageDescriptor } from '../i18n/error-messages';
+import { AUTH_FORM_MESSAGES, AUTH_PAGE_MESSAGES } from '../i18n/messages';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
@@ -20,6 +24,7 @@ export function PasswordRecoveryForm({
   const [error, setError] = useState('');
   const [pending, setPending] = useState(false);
   const auth = useAuthMutations();
+  const { _ } = useLingui();
 
   async function submit(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
@@ -35,7 +40,11 @@ export function PasswordRecoveryForm({
         ),
       );
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Please try again.');
+      setError(
+        caught instanceof ClientAuthError
+          ? _(authErrorMessageDescriptor(caught.code, caught.statusCode))
+          : _(AUTH_FORM_MESSAGES.pleaseTryAgain),
+      );
     } finally {
       setPending(false);
     }
@@ -50,11 +59,10 @@ export function PasswordRecoveryForm({
         </div>
         <div className="grid gap-2">
           <h2 className="[font-family:Georgia,serif] text-2xl tracking-[-0.02em]">
-            Check your email
+            {_(AUTH_FORM_MESSAGES.checkEmail)}
           </h2>
           <p className="text-sm leading-6 text-muted-foreground">
-            If that address belongs to a Lodariq account, the newest message contains a secure
-            password link. It expires shortly and works once.
+            {_(AUTH_FORM_MESSAGES.recoveryEmailSent)}
           </p>
         </div>
         {developmentLink ? (
@@ -63,12 +71,12 @@ export function PasswordRecoveryForm({
             onClick={() => window.location.assign(developmentLink)}
             type="button"
           >
-            Open local recovery link
-            <ArrowRight aria-hidden="true" />
+            {_(AUTH_FORM_MESSAGES.openLocalRecoveryLink)}
+            <ArrowRight aria-hidden="true" className="rtl:rotate-180" />
           </Button>
         ) : null}
         <Button onClick={() => setAccepted(null)} type="button" variant="outline">
-          Use another email
+          {_(AUTH_FORM_MESSAGES.useAnotherEmail)}
         </Button>
       </div>
     );
@@ -77,7 +85,7 @@ export function PasswordRecoveryForm({
   return (
     <form className="grid gap-5" onSubmit={(event) => void submit(event)}>
       <div className="grid gap-2">
-        <Label htmlFor="recovery-email">Email</Label>
+        <Label htmlFor="recovery-email">{_(AUTH_FORM_MESSAGES.email)}</Label>
         <Input
           autoCapitalize="none"
           autoComplete="email"
@@ -102,15 +110,15 @@ export function PasswordRecoveryForm({
         {pending ? (
           <LoaderCircle aria-hidden="true" className="animate-spin" />
         ) : (
-          <ArrowRight aria-hidden="true" />
+          <ArrowRight aria-hidden="true" className="rtl:rotate-180" />
         )}
-        Email a secure link
+        {_(AUTH_FORM_MESSAGES.emailSecureLink)}
       </Button>
       <Link
         className="text-center text-sm font-semibold text-primary hover:underline"
         href="/sign-in"
       >
-        Return to sign in
+        {_(AUTH_PAGE_MESSAGES.returnToSignIn)}
       </Link>
     </form>
   );

@@ -6,6 +6,7 @@ import {
   type TargetLocale,
   type TargetViewportClass,
 } from '@lodariq/schema';
+import { authoringText } from '../../i18n';
 import { type BlockInsertPosition } from '../document-ops';
 import { LOCAL_AUTHORING_SESSION_ID } from '../constants';
 import { AuthoringBridge } from '../../bridge/transport';
@@ -40,6 +41,7 @@ import {
   type AuthoringInteractionActor,
 } from '../state/interaction-machine';
 import { accessibleFallbackBrandState, initialReleaseView } from './controller-model';
+import { resolveDocumentLocalization } from '@lodariq/schema';
 
 export abstract class ControllerBase {
   protected readonly interactionActor: AuthoringInteractionActor =
@@ -81,10 +83,17 @@ export abstract class ControllerBase {
 
   protected readonly pendingPreviewPatches: Array<{
     blockId: string;
+    locale?: string;
     ops: PreviewPatchOperation[];
   }> = [];
 
   protected documentState: LodariqDocument;
+
+  protected contentLocale: string;
+
+  protected translationState: LocalAuthoringFrameSnapshot['translation']['state'] = 'idle';
+
+  protected translationRequestVersion = 0;
 
   protected snapshotValue: LocalAuthoringFrameSnapshot;
 
@@ -136,7 +145,7 @@ export abstract class ControllerBase {
 
   protected saveState: { state: AuthoringSaveState; label: string } = {
     state: 'saved',
-    label: 'Draft saved',
+    label: authoringText('Draft saved'),
   };
 
   protected releaseRequestVersion = 0;
@@ -223,6 +232,7 @@ export abstract class ControllerBase {
     this.documentState = this.normalizeDocument(
       this.services.loadDocument(this.baseDocument.id) ?? this.createBaseDocument(),
     );
+    this.contentLocale = resolveDocumentLocalization(this.documentState).defaultLocale;
     this.brandDriftController = this.createBrandDriftController();
     this.metricsSessionId = `${this.sessionId}:${options.now?.() ?? Date.now()}`;
     this.peerWindow = options.peerWindow ?? window.parent;

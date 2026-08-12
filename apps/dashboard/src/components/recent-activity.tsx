@@ -1,4 +1,8 @@
+'use client';
+
 import { Clock3, FilePenLine, Globe2, Palette, ShieldCheck } from 'lucide-react';
+import { msg } from '@lingui/core/macro';
+import { useLingui } from '@lingui/react';
 import type { DashboardRecentActivity } from '../lib/view-model';
 import { Button } from './ui/button';
 
@@ -7,12 +11,25 @@ interface RecentActivityProps {
   onViewAll: () => void;
 }
 
+const COPY = {
+  title: msg({ id: 'dashboard.recentActivity.title', message: 'Recent activity' }),
+  viewAll: msg({
+    id: 'dashboard.recentActivity.viewAll',
+    message: 'View all experiences',
+  }),
+  empty: msg({
+    id: 'dashboard.recentActivity.empty',
+    message: 'Document, release, and Brand activity will appear here.',
+  }),
+} as const;
+
 export function RecentActivity({ activities, onViewAll }: RecentActivityProps): React.ReactElement {
+  const { _ } = useLingui();
   return (
     <section aria-labelledby="recent-activity-heading" className="mt-8">
       <div className="mb-3 flex items-center justify-between gap-4">
         <h2 id="recent-activity-heading" className="text-base font-semibold">
-          Recent activity
+          {_(COPY.title)}
         </h2>
         {activities.length ? (
           <Button
@@ -21,7 +38,7 @@ export function RecentActivity({ activities, onViewAll }: RecentActivityProps): 
             type="button"
             variant="ghost"
           >
-            View all experiences
+            {_(COPY.viewAll)}
           </Button>
         ) : null}
       </div>
@@ -42,7 +59,7 @@ export function RecentActivity({ activities, onViewAll }: RecentActivityProps): 
                   <span className="text-xs text-muted-foreground">{activity.typeLabel}</span>
                 </span>
               </span>
-              <span className="flex items-center gap-1.5 pl-11 text-xs text-muted-foreground sm:pl-0">
+              <span className="flex items-center gap-1.5 ps-11 text-xs text-muted-foreground sm:ps-0">
                 <Clock3 aria-hidden="true" className="size-3.5" />
                 {activity.detail}
               </span>
@@ -51,7 +68,7 @@ export function RecentActivity({ activities, onViewAll }: RecentActivityProps): 
         </ol>
       ) : (
         <div className="border-y border-dashed border-border py-8 text-sm text-muted-foreground">
-          Document, release, and Brand activity will appear here.
+          {_(COPY.empty)}
         </div>
       )}
     </section>

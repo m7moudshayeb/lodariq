@@ -1,3 +1,4 @@
+import { authoringText } from '../../../i18n';
 import type { RefObject } from 'react';
 import type { LocalAuthoringFrameController } from '../controller';
 import { AuthoringButton, Plus, Type } from '../design-system';
@@ -36,27 +37,28 @@ export function InsertBar({
         <span className="composer-plus" aria-hidden="true">
           <Plus size={15} strokeWidth={2.35} />
         </span>
-        <section aria-label="Add step" className="slash">
+        <section aria-label={authoringText('Add step')} className="slash">
           <input
             ref={slashInputRef}
-            aria-label="Experience composer"
+            aria-label={authoringText('Experience composer')}
             aria-controls="slash-command-menu"
             aria-expanded={snapshot.slashOpen}
             aria-haspopup="listbox"
-            placeholder="Write the next step title"
+            data-action="experience-composer"
+            placeholder={authoringText('Write the next step title')}
             value={snapshot.slashText}
             onInput={() => undefined}
           />
           <div
             id="slash-command-menu"
-            aria-label="Step insert commands"
+            aria-label={authoringText('Step insert commands')}
             className="menu command-menu"
             hidden={!snapshot.slashOpen}
             role="listbox"
           >
             <div className="command-menu-header">
-              <span>{isPlainText ? 'Add step' : 'Add a step'}</span>
-              <kbd>Add</kbd>
+              <span>{authoringText(isPlainText ? 'Add step' : 'Add a step')}</span>
+              <kbd>{authoringText('Add')}</kbd>
             </div>
             {isPlainText ? (
               <AuthoringButton
@@ -75,7 +77,7 @@ export function InsertBar({
                   <Type size={14} strokeWidth={2.2} />
                 </span>
                 <span className="command-copy">
-                  <strong>New step</strong>
+                  <strong>{authoringText('New step')}</strong>
                   <small>{trimmedComposerText}</small>
                 </span>
               </AuthoringButton>
@@ -104,16 +106,18 @@ export function InsertBar({
                     <strong>{command.label}</strong>
                     <small>{details.description}</small>
                   </span>
-                  <span className="command-description">Add</span>
+                  <span className="command-description">{authoringText('Add')}</span>
                 </AuthoringButton>
               );
             })}
             {!isPlainText && filteredCommands.length === 0 ? (
-              <div className="command-empty">Open a step to add text, buttons, or media.</div>
+              <div className="command-empty">
+                {authoringText('Open a step to add text, buttons, or media.')}
+              </div>
             ) : null}
           </div>
         </section>
-        <div className="quick-insert" aria-label="Quick insert">
+        <div className="quick-insert" aria-label={authoringText('Quick insert')}>
           <AuthoringButton
             className="add-step"
             data-action="append-step"
@@ -122,7 +126,7 @@ export function InsertBar({
             onClick={() => controller.appendStep()}
             tone="primary"
           >
-            New step
+            {authoringText('New step')}
           </AuthoringButton>
         </div>
       </div>

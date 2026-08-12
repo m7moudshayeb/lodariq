@@ -1,3 +1,4 @@
+import { authoringText } from '../../../i18n';
 import type { LocalAuthoringFrameController } from '../controller';
 import { Check, CircleAlert, LoaderCircle, Rocket } from '../design-system';
 import {
@@ -25,7 +26,7 @@ export function ReleaseStatus({
   return (
     <section
       className={`tour-release-strip ${presentation.tone}`}
-      aria-label="Release status"
+      aria-label={authoringText('Release status')}
       aria-live="polite"
       data-release-action={presentation.action}
       data-release-status={snapshot.release.status}
@@ -42,7 +43,7 @@ export function ReleaseStatus({
       </div>
 
       {findings.length > 0 ? (
-        <ul className="tour-release-findings" aria-label="Release checks">
+        <ul className="tour-release-findings" aria-label={authoringText('Release checks')}>
           {findings.slice(0, 2).map((finding) => (
             <li className={finding.severity} key={`${finding.severity}:${finding.code}`}>
               <span aria-hidden="true" />
@@ -51,7 +52,7 @@ export function ReleaseStatus({
           ))}
           {findings.length > 2 ? (
             <li>
-              <span aria-hidden="true" />+{findings.length - 2} more checks
+              <span aria-hidden="true" />+{findings.length - 2} {authoringText('more checks')}
             </li>
           ) : null}
         </ul>

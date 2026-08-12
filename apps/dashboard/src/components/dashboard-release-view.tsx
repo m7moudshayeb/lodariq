@@ -1,3 +1,7 @@
+'use client';
+
+import { msg } from '@lingui/core/macro';
+import { useLingui } from '@lingui/react';
 import { Rocket, ShieldCheck } from 'lucide-react';
 import type { DashboardViewModel } from '../lib/view-model';
 import { ReleaseProgress } from './release-progress';
@@ -12,6 +16,24 @@ import {
 } from './dashboard-view-components';
 import { Badge } from './ui/badge';
 
+const COPY = {
+  exactArtifactPromotion: msg({
+    id: 'dashboard.releases.exactArtifactPromotion',
+    message: 'Exact-artifact promotion',
+  }),
+  exactArtifactDescription: msg({
+    id: 'dashboard.releases.exactArtifactDescription',
+    message:
+      'Production promotion must reuse the verified staging artifact with no rebuild, automatic theme mutation, or environment copy.',
+  }),
+  emptyTitle: msg({ id: 'dashboard.releases.emptyTitle', message: 'No releases to review' }),
+  emptyDescription: msg({
+    id: 'dashboard.releases.emptyDescription',
+    message:
+      'Saved experiences will appear here with the publication records the current API can prove.',
+  }),
+} as const;
+
 export function ReleasesView({
   viewModel,
   selectedDocumentId,
@@ -21,6 +43,7 @@ export function ReleasesView({
   selectedDocumentId: string;
   workspaceId: string;
 }): React.ReactElement {
+  const { _ } = useLingui();
   const orderedRows = orderSelectedRelease(viewModel.documentRows, selectedDocumentId);
   const recoveryEnvironments = releaseRecoveryEnvironmentOptions(viewModel.environmentOptions);
   return (
@@ -69,10 +92,11 @@ export function ReleasesView({
               <div className="mt-4 flex items-start gap-3 rounded-lg border border-primary/20 bg-primary/5 p-3">
                 <ShieldCheck aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-primary" />
                 <div className="grid gap-0.5">
-                  <p className="text-sm font-semibold text-foreground">Exact-artifact promotion</p>
+                  <p className="text-sm font-semibold text-foreground">
+                    {_(COPY.exactArtifactPromotion)}
+                  </p>
                   <p className="text-xs leading-5 text-muted-foreground">
-                    Production promotion must reuse the verified staging artifact with no rebuild,
-                    automatic theme mutation, or environment copy.
+                    {_(COPY.exactArtifactDescription)}
                   </p>
                 </div>
               </div>
@@ -87,8 +111,8 @@ export function ReleasesView({
         ) : (
           <DashboardEmptyView
             icon={<Rocket aria-hidden="true" />}
-            title="No releases to review"
-            description="Saved experiences will appear here with the publication records the current API can prove."
+            title={_(COPY.emptyTitle)}
+            description={_(COPY.emptyDescription)}
           />
         )}
       </div>

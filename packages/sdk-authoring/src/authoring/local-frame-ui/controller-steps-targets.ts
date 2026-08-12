@@ -1,4 +1,5 @@
 import { ControllerContentFeature } from './controller-content';
+import { authoringText } from '../../i18n';
 import {
   BRIDGE_PROTOCOL_VERSION,
   type PreviewPatchOperation,
@@ -49,6 +50,7 @@ export abstract class ControllerStepsTargetsFeature extends ControllerContentFea
   ): void;
 
   appendStep(title?: string): string {
+    if (!this.allowDocumentStructureMutation()) return '';
     const block = createTourStep(this.nextStepIndex(), title?.trim() || undefined);
     this.recordChange();
     this.documentState = {
@@ -60,7 +62,7 @@ export abstract class ControllerStepsTargetsFeature extends ControllerContentFea
     this.selectedBlockId = block.id;
     this.focusEditableField(block.id);
     this.services.saveDocument(this.documentState);
-    this.setStatus('Added step');
+    this.setStatus(authoringText('Added step'));
     this.recordMetric('block.inserted');
     this.sendPreviewPatch(block.id, [{ op: 'insertBlock', block }]);
     return block.id;
@@ -68,10 +70,11 @@ export abstract class ControllerStepsTargetsFeature extends ControllerContentFea
 
   appendStepAndChooseTarget(): void {
     const blockId = this.appendStep();
-    this.startTargetPick(blockId);
+    if (blockId) this.startTargetPick(blockId);
   }
 
   moveTopLevelBlock(blockId: string, direction: BlockDirection): void {
+    if (!this.allowDocumentStructureMutation()) return;
     const blocks = moveTopLevelBlocks(this.documentState.blocks, blockId, direction);
     if (!blocks) return;
     this.recordChange();
@@ -80,11 +83,12 @@ export abstract class ControllerStepsTargetsFeature extends ControllerContentFea
     this.services.saveDocument(this.documentState);
     this.selectedBlockId = blockId;
     this.focusBlock(blockId);
-    this.setStatus('Moved step');
+    this.setStatus(authoringText('Moved step'));
     this.sendPreviewPatch(blockId, [{ op: 'moveBlock', direction }]);
   }
 
   duplicateTopLevelBlock(blockId: string): void {
+    if (!this.allowDocumentStructureMutation()) return;
     const blockIndex = this.documentState.blocks.findIndex((block) => block.id === blockId);
     const blocks = duplicateTopLevelBlock(this.documentState.blocks, blockId);
     if (!blocks) return;
@@ -95,7 +99,7 @@ export abstract class ControllerStepsTargetsFeature extends ControllerContentFea
     this.services.saveDocument(this.documentState);
     this.selectedBlockId = duplicatedBlockId;
     this.focusBlock(duplicatedBlockId);
-    this.setStatus('Duplicated step');
+    this.setStatus(authoringText('Duplicated step'));
     const duplicatedBlock = blocks[blockIndex + 1];
     if (duplicatedBlock) {
       this.sendPreviewPatch(duplicatedBlock.id, [
@@ -105,6 +109,7 @@ export abstract class ControllerStepsTargetsFeature extends ControllerContentFea
   }
 
   deleteTopLevelBlock(blockId: string): void {
+    if (!this.allowDocumentStructureMutation()) return;
     const blockIndex = this.documentState.blocks.findIndex((block) => block.id === blockId);
     const blocks = removeTopLevelBlock(this.documentState.blocks, blockId);
     if (!blocks) return;
@@ -122,7 +127,7 @@ export abstract class ControllerStepsTargetsFeature extends ControllerContentFea
     this.selectedBlockId = nextSelection;
     if (this.advancedEditorStepId === blockId) this.advancedEditorStepId = null;
     if (nextSelection) this.focusBlock(nextSelection);
-    this.setStatus('Deleted step');
+    this.setStatus(authoringText('Deleted step'));
     this.sendPreviewPatch(blockId, [{ op: 'removeBlock' }]);
   }
 
@@ -131,6 +136,7 @@ export abstract class ControllerStepsTargetsFeature extends ControllerContentFea
     targetBlockId: string,
     position: BlockInsertPosition = 'before',
   ): void {
+    if (!this.allowDocumentStructureMutation()) return;
     const blocks = reorderTopLevelBlocks(
       this.documentState.blocks,
       blockId,
@@ -144,7 +150,7 @@ export abstract class ControllerStepsTargetsFeature extends ControllerContentFea
     this.services.saveDocument(this.documentState);
     this.selectedBlockId = blockId;
     this.focusBlock(blockId);
-    this.setStatus('Moved step');
+    this.setStatus(authoringText('Moved step'));
     this.sendPreviewPatch(blockId, [
       { op: 'reorderBlock', beforeBlockId: targetBlockId, position },
     ]);
@@ -166,10 +172,13 @@ export abstract class ControllerStepsTargetsFeature extends ControllerContentFea
     this.afterDocumentMutation();
     this.services.saveDocument(this.documentState);
     this.selectedBlockId = blockId;
-    this.setStatus('Removing placement…');
+    this.setStatus(authoringText('Removing placement…'));
     void this.sendConfirmedPreviewPatch(blockId, [{ op: 'removeTarget', targetId }]).then(
-      () => this.setStatus('Removed placement; choose a new one'),
-      () => this.setStatus('Placement removed, but the live preview did not confirm the change'),
+      () => this.setStatus(authoringText('Removed placement; choose a new one')),
+      () =>
+        this.setStatus(
+          authoringText('Placement removed, but the live preview did not confirm the change'),
+        ),
     );
   }
 
@@ -179,7 +188,7 @@ export abstract class ControllerStepsTargetsFeature extends ControllerContentFea
     } else {
       this.advancedTargetIds.add(targetId);
     }
-    this.setStatus('Placement details updated');
+    this.setStatus(authoringText('Placement details updated'));
   }
 
   setTargetWaitForText(targetId: string, waitForText: string): void {
@@ -229,10 +238,10 @@ export abstract class ControllerStepsTargetsFeature extends ControllerContentFea
 
   startTargetPick(blockId: string): void {
     if (!this.isHostedInParent) {
-      this.setStatus('Open the editor on a preview page to choose placements');
+      this.setStatus(authoringText('Open the editor on a preview page to choose placements'));
       return;
     }
-    this.setStatus('Select where this step appears');
+    this.setStatus(authoringText('Select where this step appears'));
     this.selectBlock(blockId);
     this.recordMetric('target.pick.started');
     this.pendingTargetBlockId = blockId;
@@ -264,13 +273,13 @@ export abstract class ControllerStepsTargetsFeature extends ControllerContentFea
         }
         this.pendingTargetBlockId = null;
         this.recordMetric('target.pick.failed');
-        this.setStatus('Placement picker did not respond');
+        this.setStatus(authoringText('Placement picker did not respond'));
       });
   }
 
   startPresentationAnchorPick(blockId: string, targetId: string): void {
     if (!this.isHostedInParent) {
-      this.setStatus('Open the editor on a preview page to choose an exact area');
+      this.setStatus(authoringText('Open the editor on a preview page to choose an exact area'));
       return;
     }
     const contextBlock = findBlockById(this.documentState.blocks, blockId);
@@ -284,14 +293,14 @@ export abstract class ControllerStepsTargetsFeature extends ControllerContentFea
       targetBlock.props.targetId !== targetId ||
       !this.targetById(targetId)
     ) {
-      this.setStatus('Choose a placement before setting an exact area');
+      this.setStatus(authoringText('Choose a placement before setting an exact area'));
       return;
     }
 
     const requestCorrelationId = createBridgeCorrelationId('presentation_anchor_pick_start');
     this.pendingPresentationAnchorPick = { blockId: targetBlockId, targetId, requestCorrelationId };
     this.selectBlock(blockId);
-    this.setStatus('Drag an exact area, click for a point, or use the arrow keys');
+    this.setStatus(authoringText('Drag an exact area, click for a point, or use the arrow keys'));
     void this.bridge
       .sendWithAck(
         {
@@ -313,7 +322,7 @@ export abstract class ControllerStepsTargetsFeature extends ControllerContentFea
           return;
         }
         this.pendingPresentationAnchorPick = null;
-        this.setStatus('Exact area picker did not respond');
+        this.setStatus(authoringText('Exact area picker did not respond'));
       });
   }
 
@@ -331,7 +340,7 @@ export abstract class ControllerStepsTargetsFeature extends ControllerContentFea
     const contextBlock = findBlockById(this.documentState.blocks, blockId);
     if (!target || !contextBlock) return;
     if (!this.isHostedInParent) {
-      this.setStatus('Open the editor on a preview page to check placements');
+      this.setStatus(authoringText('Open the editor on a preview page to check placements'));
       return;
     }
     this.setStatus(targetInspectionPendingStatus(action));
@@ -377,10 +386,10 @@ export abstract class ControllerStepsTargetsFeature extends ControllerContentFea
             confidence: 0,
             candidateCount: 0,
             resolutionMethod: 'none',
-            message: 'Placement check did not respond',
+            message: authoringText('Placement check did not respond'),
           },
         });
-        this.setStatus('Placement check did not respond');
+        this.setStatus(authoringText('Placement check did not respond'));
       });
   }
 }

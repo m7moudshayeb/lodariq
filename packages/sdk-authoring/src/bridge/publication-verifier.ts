@@ -1,5 +1,6 @@
 import {
   BROWSER_VERIFICATION_CHECK_CODES,
+  COMPILED_ARTIFACT_SCHEMA_VERSION,
   BrowserVerificationReport as BrowserVerificationReportSchema,
   RENDERER_CONTRACT_VERSION,
   validate,
@@ -132,7 +133,7 @@ async function waitForOwnedTour(ownerId: string): Promise<HTMLElement | null> {
 function isExactArtifact(compiled: NewCompiledDocument, expectedContentHash: string): boolean {
   return (
     compiled.contentHash === expectedContentHash &&
-    compiled.artifactSchemaVersion === '2' &&
+    compiled.artifactSchemaVersion === COMPILED_ARTIFACT_SCHEMA_VERSION &&
     compiled.rendererContractVersion === RENDERER_CONTRACT_VERSION
   );
 }

@@ -1,4 +1,5 @@
 import {
+  RELEASE_RECOVERY_FAILURE_MESSAGES,
   releaseRecoveryStateMatchesScope,
   type DocumentDeployment,
   type ReleaseArtifactPins,
@@ -7,18 +8,19 @@ import {
   type ReleaseRecoveryRequest,
   type ReleaseRecoveryStateResponse,
 } from '@lodariq/schema';
+import { authoringText } from '../i18n';
 
 const RELEASE_ACTION_LABELS = {
-  publish: 'Published',
-  promote: 'Promoted',
-  rollback: 'Rolled back',
-  unpublish: 'Unpublished',
+  publish: authoringText('Published'),
+  promote: authoringText('Promoted'),
+  rollback: authoringText('Rolled back'),
+  unpublish: authoringText('Unpublished'),
 } as const satisfies Record<ReleaseHistoryEntry['action'], string>;
 
 const RELEASE_STATE_LABELS = {
-  active: 'Active',
-  inactive: 'Inactive',
-  failed: 'Failed',
+  active: authoringText('Active'),
+  inactive: authoringText('Inactive'),
+  failed: authoringText('Failed'),
 } as const;
 
 const MUTATION_IDENTIFIER_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]*$/;
@@ -332,7 +334,7 @@ function releaseHistoryItem(
     previousPublicationId: releaseHistoryPreviousPublicationId(entry),
     reason: 'reason' in entry ? entry.reason : null,
     artifact: releaseHistoryArtifact(entry),
-    failureMessage: entry.state === 'failed' ? entry.failure.message : null,
+    failureMessage: entry.state === 'failed' ? releaseFailureMessage(entry) : null,
     isCurrent: Boolean(
       guard &&
       publicationId === guard.expectedActivePublicationId &&
@@ -386,18 +388,35 @@ function releaseHistoryArtifact(entry: ReleaseHistoryEntry): ReleaseArtifactPins
 
 function releaseHistorySummary(entry: ReleaseHistoryEntry): string {
   if (entry.state === 'failed') {
-    return `${RELEASE_ACTION_LABELS[entry.action]} attempt failed: ${entry.failure.message}`;
+    return authoringText('{action} attempt failed: {message}', {
+      action: RELEASE_ACTION_LABELS[entry.action],
+      message: releaseFailureMessage(entry),
+    });
   }
   if (entry.action === 'publish') {
-    return `Activated publication ${entry.publicationId}.`;
+    return authoringText('Activated publication {publication}.', {
+      publication: entry.publicationId,
+    });
   }
   if (entry.action === 'promote') {
-    return `Activated publication ${entry.publicationId} from source ${entry.sourcePublicationId}.`;
+    return authoringText('Activated publication {publication} from source {source}.', {
+      publication: entry.publicationId,
+      source: entry.sourcePublicationId,
+    });
   }
   if (entry.action === 'rollback') {
-    return `Activated publication ${entry.publicationId} from prior publication ${entry.targetPublicationId}.`;
+    return authoringText('Activated publication {publication} from prior publication {target}.', {
+      publication: entry.publicationId,
+      target: entry.targetPublicationId,
+    });
   }
-  return `Deactivated publication ${entry.previousPublicationId}.`;
+  return authoringText('Deactivated publication {publication}.', {
+    publication: entry.previousPublicationId,
+  });
+}
+
+function releaseFailureMessage(entry: Extract<ReleaseHistoryEntry, { state: 'failed' }>): string {
+  return authoringText(RELEASE_RECOVERY_FAILURE_MESSAGES[entry.failure.code]);
 }
 
 function cloneRollbackTarget(target: AuthoringRollbackTarget): AuthoringRollbackTarget {

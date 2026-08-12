@@ -40,7 +40,11 @@ const TOUR_STYLE_VARIABLES = {
   bodyLineHeight: '--lq-tour-body-line-height',
   borderColor: '--lq-tour-border-color',
   borderWidth: '--lq-tour-border-width',
+  borderWidthStrong: '--lq-tour-border-width-strong',
+  borderWidthSubtle: '--lq-tour-border-width-subtle',
   elevation: '--lq-tour-elevation',
+  elevationFloating: '--lq-tour-elevation-floating',
+  elevationResting: '--lq-tour-elevation-resting',
   focusColor: '--lq-tour-focus-color',
   focusHaloColor: '--lq-tour-focus-halo-color',
   fontFamily: '--lq-tour-font-family',
@@ -158,7 +162,11 @@ export function resolveTourThemeStyle(
       [TOUR_STYLE_VARIABLES.bodyLineHeight]: String(tokens.typography.bodyLineHeight),
       [TOUR_STYLE_VARIABLES.borderColor]: colorForRole(colors, recipe.borderRole),
       [TOUR_STYLE_VARIABLES.borderWidth]: borderWidth(tokens.borders, recipe),
+      [TOUR_STYLE_VARIABLES.borderWidthStrong]: `${tokens.borders.strongWidthPx}px`,
+      [TOUR_STYLE_VARIABLES.borderWidthSubtle]: `${tokens.borders.defaultWidthPx}px`,
       [TOUR_STYLE_VARIABLES.elevation]: elevationValue(tokens.elevations, recipe),
+      [TOUR_STYLE_VARIABLES.elevationFloating]: shadowLayersValue(tokens.elevations.floating),
+      [TOUR_STYLE_VARIABLES.elevationResting]: shadowLayersValue(tokens.elevations.resting),
       [TOUR_STYLE_VARIABLES.focusColor]: focusColor,
       [TOUR_STYLE_VARIABLES.focusHaloColor]: `${focusColor}33`,
       [TOUR_STYLE_VARIABLES.fontFamily]: tokens.typography.fontFamilies.join(', '),
@@ -235,7 +243,10 @@ function elevationValue(
   recipe: TourRendererRecipe,
 ): string {
   if (recipe.elevationRole === 'none') return 'none';
-  const layers = elevations[recipe.elevationRole];
+  return shadowLayersValue(elevations[recipe.elevationRole]);
+}
+
+function shadowLayersValue(layers: ThemeShadowLayer[]): string {
   return layers.length ? layers.map(serializeShadowLayer).join(', ') : 'none';
 }
 

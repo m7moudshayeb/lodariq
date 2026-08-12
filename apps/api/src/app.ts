@@ -22,6 +22,10 @@ import {
 import { noopObservability, type ObservabilitySink } from './observability';
 import { registerAuthRoutes } from './routes/auth';
 import { registerControlPlaneRoutes } from './routes/control-plane';
+import {
+  createDeepLAuthoringTranslationProvider,
+  type AuthoringTranslationProvider,
+} from './authoring-translation';
 
 export interface CreateApiAppOptions {
   repository?: ControlPlaneRepository;
@@ -39,13 +43,12 @@ export interface CreateApiAppOptions {
   emailVerificationDelivery?: EmailVerificationDeliveryCapability;
   authEmailRuntime?: AuthEmailRuntime | null;
   passwordHashAdmissionGate?: PasswordHashAdmissionGateLike;
+  authoringTranslationProvider?: AuthoringTranslationProvider | null;
 }
 
 export function createApiApp(options: CreateApiAppOptions = {}): FastifyInstance {
   const publicApiBaseUrl =
-    options.publicApiBaseUrl ??
-    process.env.LODARIQ_PUBLIC_API_BASE_URL ??
-    'https://api.lodariq.io';
+    options.publicApiBaseUrl ?? process.env.LODARIQ_PUBLIC_API_BASE_URL ?? 'https://api.lodariq.io';
   const loaderSrc = options.loaderSrc ?? process.env.LODARIQ_LOADER_SRC;
   const publicLoaderSrc = options.publicLoaderSrc ?? process.env.LODARIQ_PUBLIC_LOADER_SRC;
   const creatorLoaderSrc =
@@ -86,6 +89,10 @@ export function createApiApp(options: CreateApiAppOptions = {}): FastifyInstance
     options.emailVerificationDelivery ?? authEmailRuntime?.deliveryCapability;
   const passwordHashAdmissionGate =
     options.passwordHashAdmissionGate ?? createPasswordHashAdmissionGateFromEnvironment();
+  const authoringTranslationProvider =
+    options.authoringTranslationProvider === null
+      ? undefined
+      : (options.authoringTranslationProvider ?? createDeepLAuthoringTranslationProvider());
 
   const fastify = Fastify({
     logger: options.logger
@@ -177,6 +184,7 @@ export function createApiApp(options: CreateApiAppOptions = {}): FastifyInstance
       creatorModule,
       authoringIframeSrc,
       observability: options.observability ?? noopObservability,
+      authoringTranslationProvider,
     });
   });
 

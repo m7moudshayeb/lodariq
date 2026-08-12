@@ -7,6 +7,7 @@ import type {
   BrandDriftTrigger,
   ProductStyleProposal,
 } from '@lodariq/schema';
+import { authoringText } from '../i18n';
 import {
   createAuthoringBrandDriftViewModel,
   type AuthoringBrandDriftViewModel,
@@ -83,7 +84,9 @@ export class AuthoringBrandDriftController {
         this.previewActive = false;
         this.previewMode = 'current';
         this.operation = 'idle';
-        this.error = 'The runtime preview could not load. The previous Brand preview was restored.';
+        this.error = authoringText(
+          'The runtime preview could not load. The previous Brand preview was restored.',
+        );
         this.emit();
       });
   }
@@ -164,7 +167,7 @@ export class AuthoringBrandDriftController {
     } catch {
       if (!this.isCurrent(requestVersion)) return;
       this.operation = 'idle';
-      this.error = 'The approved Brand version could not be acknowledged.';
+      this.error = authoringText('The approved Brand version could not be acknowledged.');
       this.emit();
     }
   }
@@ -197,7 +200,9 @@ export class AuthoringBrandDriftController {
     } catch {
       if (!this.isCurrent(requestVersion)) return;
       this.operation = 'idle';
-      this.error = 'Brand evidence could not be checked. The current Brand theme was not changed.';
+      this.error = authoringText(
+        'Brand evidence could not be checked. The current Brand theme was not changed.',
+      );
       this.emit();
     }
   }

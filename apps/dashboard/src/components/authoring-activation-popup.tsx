@@ -1,5 +1,8 @@
 'use client';
 
+import { msg } from '@lingui/core/macro';
+import { useLingui } from '@lingui/react';
+import { resolveClientLocale } from '@lodariq/i18n';
 import { Check, LoaderCircle, LogIn, ShieldCheck, X } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAuthoringActivation, type PendingActivation } from '../hooks/use-authoring-activation';
@@ -30,11 +33,92 @@ type ActivationState =
   | { name: 'complete' }
   | { name: 'error'; message: string };
 
+type Translate = ReturnType<typeof useLingui>['_'];
+
+const COPY = {
+  requestExpired: msg({
+    id: 'dashboard.activation.requestExpired',
+    message: 'This authoring request is unavailable or expired. Return to the launcher and retry.',
+  }),
+  openFromLauncher: msg({
+    id: 'dashboard.activation.openFromLauncher',
+    message: 'Open authoring from the Lodariq launcher inside your application.',
+  }),
+  approvalFailed: msg({
+    id: 'dashboard.activation.approvalFailed',
+    message: 'Authoring could not be approved. Return to the launcher and try again.',
+  }),
+  close: msg({ id: 'dashboard.activation.close', message: 'Close' }),
+  signInTitle: msg({ id: 'dashboard.activation.signInTitle', message: 'Sign in, then continue' }),
+  signInDescription: msg({
+    id: 'dashboard.activation.signInDescription',
+    message:
+      'Sign in here. This window will resume the same secure authoring request automatically.',
+  }),
+  credentialSafety: msg({
+    id: 'dashboard.activation.credentialSafety',
+    message: 'Your credentials stay inside Lodariq and are never sent to the customer page.',
+  }),
+  passwordHelp: msg({
+    id: 'dashboard.activation.passwordHelp',
+    message: 'Need to set or reset your password?',
+  }),
+  openRecovery: msg({
+    id: 'dashboard.activation.openRecovery',
+    message: 'Open password recovery in a new tab',
+  }),
+  recoveryFinish: msg({
+    id: 'dashboard.activation.recoveryFinish',
+    message: 'Finish there, then close this window and start authoring again.',
+  }),
+  approveTitle: msg({
+    id: 'dashboard.activation.approveTitle',
+    message: 'Author in this application?',
+  }),
+  approveDescription: msg({
+    id: 'dashboard.activation.approveDescription',
+    message: 'Allow your Lodariq workspace to create and edit Tours on {host}.',
+  }),
+  environment: msg({ id: 'dashboard.activation.environment', message: 'Environment' }),
+  experience: msg({ id: 'dashboard.activation.experience', message: 'Experience' }),
+  continue: msg({ id: 'dashboard.activation.continue', message: 'Continue to authoring' }),
+  cancel: msg({ id: 'dashboard.activation.cancel', message: 'Cancel' }),
+  approved: msg({ id: 'dashboard.activation.approved', message: 'Authoring approved' }),
+  returning: msg({
+    id: 'dashboard.activation.returning',
+    message: 'Returning you to the application…',
+  }),
+  couldNotContinue: msg({
+    id: 'dashboard.activation.couldNotContinue',
+    message: 'Could not continue',
+  }),
+  checking: msg({ id: 'dashboard.activation.checking', message: 'Checking access' }),
+  verifying: msg({
+    id: 'dashboard.activation.verifying',
+    message: 'Verifying the application and workspace…',
+  }),
+  ready: msg({ id: 'dashboard.activation.ready', message: 'Ready to connect' }),
+  readyDescription: msg({
+    id: 'dashboard.activation.readyDescription',
+    message: 'Keep this window open while the Lodariq launcher completes the secure handoff.',
+  }),
+  thisApplication: msg({
+    id: 'dashboard.activation.thisApplication',
+    message: 'this application',
+  }),
+  newTour: msg({ id: 'dashboard.activation.newTour', message: 'New Tour' }),
+  existingTour: msg({ id: 'dashboard.activation.existingTour', message: 'Existing Tour' }),
+  development: msg({ id: 'dashboard.activation.development', message: 'Development' }),
+  staging: msg({ id: 'dashboard.activation.staging', message: 'Staging' }),
+} as const;
+
 export function AuthoringActivationPopup({
   passwordRecoveryEnabled,
 }: {
   passwordRecoveryEnabled: boolean;
 }): React.ReactElement {
+  const { _, i18n } = useLingui();
+  const dashboardLocale = resolveClientLocale([i18n.locale]);
   const [state, setState] = useState<ActivationState>({ name: 'waiting' });
   const activeHandshake = useRef<ActivationHandshake | null>(null);
   const activation = useAuthoringActivation();
@@ -58,19 +142,18 @@ export function AuthoringActivationPopup({
         if (activeHandshake.current !== handshake) return;
         setState({
           name: 'error',
-          message:
-            'This authoring request is unavailable or expired. Return to the launcher and retry.',
+          message: _(COPY.requestExpired),
         });
       }
     },
-    [activation.inspect],
+    [activation.inspect, _],
   );
 
   useEffect(() => {
     if (!window.opener) {
       setState({
         name: 'error',
-        message: 'Open authoring from the Lodariq launcher inside your application.',
+        message: _(COPY.openFromLauncher),
       });
       return;
     }
@@ -96,7 +179,7 @@ export function AuthoringActivationPopup({
 
     window.addEventListener('message', receiveRequest);
     return () => window.removeEventListener('message', receiveRequest);
-  }, [inspect]);
+  }, [inspect, _]);
 
   const resumeAfterSignIn = useCallback(
     async (_session: AuthSessionSnapshot, handshake: ActivationHandshake): Promise<void> => {
@@ -113,17 +196,17 @@ export function AuthoringActivationPopup({
         const result = await activation.approve.mutateAsync(request);
         if (!window.opener) throw new Error('opener_closed');
 
-        window.opener.postMessage(result, request.customerOrigin);
+        window.opener.postMessage({ ...result, uiLocale: dashboardLocale }, request.customerOrigin);
         setState({ name: 'complete' });
         window.setTimeout(() => window.close(), 350);
       } catch {
         setState({
           name: 'error',
-          message: 'Authoring could not be approved. Return to the launcher and try again.',
+          message: _(COPY.approvalFailed),
         });
       }
     },
-    [activation.approve],
+    [activation.approve, dashboardLocale, _],
   );
 
   return (
@@ -134,7 +217,7 @@ export function AuthoringActivationPopup({
             <ShieldCheck aria-hidden="true" className="size-5" />
           </div>
           <button
-            aria-label="Close"
+            aria-label={_(COPY.close)}
             className="grid size-9 place-items-center rounded-full text-muted-foreground hover:bg-accent hover:text-foreground"
             onClick={() => window.close()}
             type="button"
@@ -165,21 +248,20 @@ function ActivationContent({
   onAuthenticated: (session: AuthSessionSnapshot, handshake: ActivationHandshake) => Promise<void>;
   passwordRecoveryEnabled: boolean;
 }): React.ReactElement {
+  const { _ } = useLingui();
   if (state.name === 'authentication') {
     return (
       <div className="grid gap-5">
         <div className="grid gap-2">
           <p className="text-xs font-bold uppercase tracking-[0.16em] text-primary">Lodariq</p>
           <h1 className="[font-family:Georgia,serif] text-3xl tracking-[-0.025em]">
-            Sign in, then continue
+            {_(COPY.signInTitle)}
           </h1>
-          <p className="text-sm leading-6 text-muted-foreground">
-            Sign in here. This window will resume the same secure authoring request automatically.
-          </p>
+          <p className="text-sm leading-6 text-muted-foreground">{_(COPY.signInDescription)}</p>
         </div>
         <div className="flex items-center gap-2 rounded-lg border border-[var(--info-border)] bg-[var(--info-bg)] px-3 py-2 text-xs text-[var(--info-fg)]">
           <LogIn aria-hidden="true" className="size-4 shrink-0" />
-          Your credentials stay inside Lodariq and are never sent to the customer page.
+          {_(COPY.credentialSafety)}
         </div>
         <AuthForm
           embedded
@@ -190,16 +272,16 @@ function ActivationContent({
         />
         {passwordRecoveryEnabled ? (
           <div className="grid gap-1 rounded-lg border border-border bg-[var(--surface-subtle)] px-3 py-2 text-xs leading-5 text-muted-foreground">
-            <span>Need to set or reset your password?</span>
+            <span>{_(COPY.passwordHelp)}</span>
             <a
               className="font-semibold text-primary hover:underline"
               href="/forgot-password?returnTo=%2Fsign-in"
               rel="noopener noreferrer"
               target="_blank"
             >
-              Open password recovery in a new tab
+              {_(COPY.openRecovery)}
             </a>
-            <span>Finish there, then close this window and start authoring again.</span>
+            <span>{_(COPY.recoveryFinish)}</span>
           </div>
         ) : null}
       </div>
@@ -213,24 +295,23 @@ function ActivationContent({
         <div className="grid gap-2">
           <p className="text-xs font-bold uppercase tracking-[0.16em] text-primary">Lodariq</p>
           <h1 className="[font-family:Georgia,serif] text-3xl tracking-[-0.025em]">
-            Author in this application?
+            {_(COPY.approveTitle)}
           </h1>
           <p className="text-sm leading-6 text-muted-foreground">
-            Allow your Lodariq workspace to create and edit Tours on{' '}
-            <strong className="font-medium text-foreground">
-              {hostLabel(request.customerOrigin)}
-            </strong>
-            .
+            {_({
+              ...COPY.approveDescription,
+              values: { host: hostLabel(request.customerOrigin, _) },
+            })}
           </p>
         </div>
         <div className="grid gap-2 rounded-xl border border-border bg-[var(--surface-subtle)] p-4 text-sm">
           <div className="flex items-center justify-between gap-4">
-            <span className="text-muted-foreground">Environment</span>
-            <span className="font-medium capitalize">{request.environment}</span>
+            <span className="text-muted-foreground">{_(COPY.environment)}</span>
+            <span className="font-medium">{environmentLabel(request.environment, _)}</span>
           </div>
           <div className="flex items-center justify-between gap-4">
-            <span className="text-muted-foreground">Experience</span>
-            <span className="font-medium">{intentLabel(request.documentIntent)}</span>
+            <span className="text-muted-foreground">{_(COPY.experience)}</span>
+            <span className="font-medium">{intentLabel(request.documentIntent, _)}</span>
           </div>
         </div>
         <div className="grid gap-2">
@@ -240,17 +321,17 @@ function ActivationContent({
             ) : (
               <ShieldCheck aria-hidden="true" className="size-4" />
             )}
-            Continue to authoring
+            {_(COPY.continue)}
           </Button>
           <Button onClick={() => window.close()} variant="outline">
-            Cancel
+            {_(COPY.cancel)}
           </Button>
         </div>
       </>
     );
   }
 
-  const copy = activationStateCopy(state);
+  const copy = activationStateCopy(state, _);
   return (
     <div className="grid gap-4">
       <div className="grid gap-2">
@@ -266,7 +347,7 @@ function ActivationContent({
       ) : null}
       {state.name === 'error' ? (
         <Button onClick={() => window.close()} variant="outline">
-          Close
+          {_(COPY.close)}
         </Button>
       ) : null}
     </div>
@@ -305,29 +386,42 @@ function isExactHttpOrigin(value: string): boolean {
   }
 }
 
-function activationStateCopy(state: ActivationState): { title: string; description: string } {
+function activationStateCopy(
+  state: ActivationState,
+  translate: Translate,
+): { title: string; description: string } {
   if (state.name === 'complete') {
-    return { title: 'Authoring approved', description: 'Returning you to the application…' };
+    return { title: translate(COPY.approved), description: translate(COPY.returning) };
   }
-  if (state.name === 'error') return { title: 'Could not continue', description: state.message };
+  if (state.name === 'error') {
+    return { title: translate(COPY.couldNotContinue), description: state.message };
+  }
   if (state.name === 'loading') {
-    return { title: 'Checking access', description: 'Verifying the application and workspace…' };
+    return { title: translate(COPY.checking), description: translate(COPY.verifying) };
   }
   return {
-    title: 'Ready to connect',
-    description: 'Keep this window open while the Lodariq launcher completes the secure handoff.',
+    title: translate(COPY.ready),
+    description: translate(COPY.readyDescription),
   };
 }
 
-function hostLabel(origin: string): string {
+function hostLabel(origin: string, translate: Translate): string {
   try {
     return new URL(origin).host;
   } catch {
-    return 'this application';
+    return translate(COPY.thisApplication);
   }
 }
 
-function intentLabel(intent: PendingActivation['documentIntent']): string {
-  if (!intent || intent.kind === 'new-draft') return 'New Tour';
-  return 'Existing Tour';
+function intentLabel(intent: PendingActivation['documentIntent'], translate: Translate): string {
+  if (!intent || intent.kind === 'new-draft') return translate(COPY.newTour);
+  return translate(COPY.existingTour);
+}
+
+function environmentLabel(
+  environment: PendingActivation['environment'],
+  translate: Translate,
+): string {
+  if (environment === 'staging') return translate(COPY.staging);
+  return translate(COPY.development);
 }

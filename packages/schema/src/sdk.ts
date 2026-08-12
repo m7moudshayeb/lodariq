@@ -380,6 +380,8 @@ export const AuthoringAuthorizationResult = Type.Object(
     requestId: Type.String(IDENTIFIER_OPTIONS),
     state: Type.String(OPAQUE_CREDENTIAL_OPTIONS),
     authorizationCode: Type.String(OPAQUE_CREDENTIAL_OPTIONS),
+    /** Non-secret dashboard UI preference forwarded to creator-only surfaces. */
+    uiLocale: Type.Optional(Type.String({ minLength: 2, maxLength: 16 })),
     expiresAt: Type.String({ minLength: 1 }),
   },
   { $id: 'AuthoringAuthorizationResult', additionalProperties: false },
@@ -561,6 +563,10 @@ export const AuthoringSessionContext = Type.Object(
     ]),
     creatorId: Type.String(IDENTIFIER_OPTIONS),
     capabilities: AuthoringSessionCapabilitySet,
+    /** Optional authoring service availability, never a provider credential or runtime dependency. */
+    translation: Type.Optional(
+      Type.Object({ state: Type.Literal('available') }, { additionalProperties: false }),
+    ),
     expiresAt: Type.String({ minLength: 1 }),
   },
   { $id: 'AuthoringSessionContext', additionalProperties: false },

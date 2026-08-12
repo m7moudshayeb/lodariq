@@ -3,8 +3,12 @@
 import { Building2, Check, LoaderCircle, Plus } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useState, type FormEvent } from 'react';
+import { useLingui } from '@lingui/react';
 import type { AuthSessionSnapshot, WorkspaceMembership } from '../lib/auth-contract';
 import { useAuthMutations } from '../hooks/use-auth-mutations';
+import { ClientAuthError } from '../lib/client-auth-api';
+import { authErrorMessageDescriptor } from '../i18n/error-messages';
+import { WORKSPACE_SELECTION_MESSAGES } from '../i18n/messages';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
@@ -18,6 +22,7 @@ export function WorkspaceRequired({
   const [pendingId, setPendingId] = useState('');
   const [error, setError] = useState('');
   const auth = useAuthMutations();
+  const { _ } = useLingui();
 
   async function choose(workspace: WorkspaceMembership): Promise<void> {
     if (pendingId) return;
@@ -28,7 +33,11 @@ export function WorkspaceRequired({
       router.replace('/');
       router.refresh();
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Could not open this workspace.');
+      setError(
+        caught instanceof ClientAuthError
+          ? _(authErrorMessageDescriptor(caught.code, caught.statusCode))
+          : _(WORKSPACE_SELECTION_MESSAGES.openError),
+      );
       setPendingId('');
     }
   }
@@ -46,7 +55,11 @@ export function WorkspaceRequired({
       router.replace('/');
       router.refresh();
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Could not create the workspace.');
+      setError(
+        caught instanceof ClientAuthError
+          ? _(authErrorMessageDescriptor(caught.code, caught.statusCode))
+          : _(WORKSPACE_SELECTION_MESSAGES.createError),
+      );
       setPendingId('');
     }
   }
@@ -59,12 +72,14 @@ export function WorkspaceRequired({
             <Building2 aria-hidden="true" className="size-5" />
           </div>
           <div className="grid gap-2">
-            <p className="text-xs font-bold uppercase tracking-[0.16em] text-primary">Workspace</p>
+            <p className="text-xs font-bold uppercase tracking-[0.16em] text-primary">
+              {_(WORKSPACE_SELECTION_MESSAGES.eyebrow)}
+            </p>
             <h1 className="[font-family:Georgia,serif] text-3xl tracking-[-0.025em]">
-              Where are you working today?
+              {_(WORKSPACE_SELECTION_MESSAGES.title)}
             </h1>
             <p className="text-sm leading-6 text-muted-foreground">
-              Choose an existing workspace or create one without leaving this screen.
+              {_(WORKSPACE_SELECTION_MESSAGES.description)}
             </p>
           </div>
         </div>
@@ -73,7 +88,7 @@ export function WorkspaceRequired({
           <div className="grid gap-2">
             {session.workspaces.map((workspace) => (
               <button
-                className="group flex min-h-14 items-center gap-3 rounded-xl border border-border bg-[var(--surface-subtle)] px-4 text-left outline-none transition hover:border-primary/40 hover:bg-[var(--nav-active)] focus-visible:ring-2 focus-visible:ring-ring"
+                className="group flex min-h-14 items-center gap-3 rounded-xl border border-border bg-[var(--surface-subtle)] px-4 text-start outline-none transition hover:border-primary/40 hover:bg-[var(--nav-active)] focus-visible:ring-2 focus-visible:ring-ring"
                 disabled={Boolean(pendingId)}
                 key={workspace.id}
                 onClick={() => void choose(workspace)}
@@ -85,7 +100,7 @@ export function WorkspaceRequired({
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-sm font-semibold">{workspace.name}</span>
                   <span className="block text-xs capitalize text-muted-foreground">
-                    {workspace.role}
+                    {_(roleMessage(workspace.role))}
                   </span>
                 </span>
                 {pendingId === workspace.id ? (
@@ -105,13 +120,13 @@ export function WorkspaceRequired({
           className="grid gap-3 border-t border-border pt-6"
           onSubmit={(event) => void create(event)}
         >
-          <Label htmlFor="new-workspace-name">Create a workspace</Label>
+          <Label htmlFor="new-workspace-name">{_(WORKSPACE_SELECTION_MESSAGES.create)}</Label>
           <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
             <Input
               disabled={Boolean(pendingId)}
               id="new-workspace-name"
               name="name"
-              placeholder="Product team"
+              placeholder={_(WORKSPACE_SELECTION_MESSAGES.placeholder)}
               required
             />
             <Button disabled={Boolean(pendingId)} type="submit">
@@ -120,7 +135,7 @@ export function WorkspaceRequired({
               ) : (
                 <Plus aria-hidden="true" />
               )}
-              Create and open
+              {_(WORKSPACE_SELECTION_MESSAGES.createAndOpen)}
             </Button>
           </div>
         </form>
@@ -133,4 +148,11 @@ export function WorkspaceRequired({
       </section>
     </main>
   );
+}
+
+function roleMessage(role: WorkspaceMembership['role']) {
+  if (role === 'owner') return WORKSPACE_SELECTION_MESSAGES.roleOwner;
+  if (role === 'admin') return WORKSPACE_SELECTION_MESSAGES.roleAdmin;
+  if (role === 'member') return WORKSPACE_SELECTION_MESSAGES.roleMember;
+  return WORKSPACE_SELECTION_MESSAGES.roleViewer;
 }

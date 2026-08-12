@@ -7,6 +7,7 @@ import type {
   CreatorModuleDescriptor,
   NonProductionPublicSdkBootstrapContext,
 } from '@lodariq/schema';
+import { isSupportedLocale, type SupportedLocale } from '@lodariq/i18n';
 import {
   AUTHORING_LAUNCHER_ENTRY_QUERY_PARAMETER,
   AUTHORING_LAUNCHER_ENTRY_QUERY_VALUE,
@@ -26,6 +27,7 @@ import {
   createElement as createLucideElement,
   type IconNode,
 } from 'lucide';
+import { applyRuntimeLocale, currentRuntimeLocale, runtimeText } from '../i18n';
 
 const ACTIVATION_PROTOCOL = 'lodariq.authoring.activation.v1';
 const BOOTSTRAP_GRANT_HEADER = 'x-lodariq-bootstrap-grant';
@@ -69,10 +71,14 @@ const LAUNCHER_ICONS = {
 type LauncherIconName = keyof typeof LAUNCHER_ICONS;
 
 const LAUNCHER_ACTIONS = [
-  { icon: 'plus', id: 'new-experience', label: 'New experience' },
-  { icon: 'list', id: 'experiences-on-page', label: 'Experiences on this page' },
-  { icon: 'eye', id: 'preview-as-user', label: 'Preview as user' },
-  { icon: 'eye-off', id: 'hide-launcher', label: 'Hide Lodariq' },
+  { icon: 'plus', id: 'new-experience', label: runtimeText('New experience') },
+  {
+    icon: 'list',
+    id: 'experiences-on-page',
+    label: runtimeText('Experiences on this page'),
+  },
+  { icon: 'eye', id: 'preview-as-user', label: runtimeText('Preview as user') },
+  { icon: 'eye-off', id: 'hide-launcher', label: runtimeText('Hide Lodariq') },
 ] as const satisfies ReadonlyArray<{
   icon: LauncherIconName;
   id: string;
@@ -81,36 +87,48 @@ const LAUNCHER_ACTIONS = [
 type LauncherActionId = (typeof LAUNCHER_ACTIONS)[number]['id'];
 
 const ACTIVE_AUTHORING_ACTION_COPY: Partial<Record<LauncherActionId, string>> = {
-  'new-experience': 'New experience — close current authoring first',
-  'experiences-on-page': 'Browse experiences — close current authoring first',
+  'new-experience': runtimeText('New experience — close current authoring first'),
+  'experiences-on-page': runtimeText('Browse experiences — close current authoring first'),
 };
 
 const LAUNCHER_COPY = {
-  actionsLabel: 'Lodariq actions',
-  minimizeAuthoring: 'Minimize Lodariq authoring',
-  newExperienceDescription: 'Choose an experience type to start.',
-  newExperienceTitle: 'New experience',
-  restoreAuthoring: 'Restore Lodariq authoring',
-  tourDescription: 'Guide people through a sequence of steps.',
-  tourLabel: 'Tour',
+  actionsLabel: runtimeText('Lodariq actions'),
+  minimizeAuthoring: runtimeText('Minimize Lodariq authoring'),
+  newExperienceDescription: runtimeText('Choose an experience type to start.'),
+  newExperienceTitle: runtimeText('New experience'),
+  restoreAuthoring: runtimeText('Restore Lodariq authoring'),
+  tourDescription: runtimeText('Guide people through a sequence of steps.'),
+  tourLabel: runtimeText('Tour'),
 } as const;
 
 const LAUNCHER_STATE_COPY = {
-  idle: { label: 'Open Lodariq actions', status: '' },
-  opening: { label: 'Connecting to Lodariq', status: 'Connecting…' },
-  blocked: { label: 'Open Lodariq actions', status: 'Allow the popup, then retry' },
-  error: { label: 'Open Lodariq actions', status: 'Could not connect. Try again' },
-  previewing: { label: 'Starting Lodariq preview', status: 'Starting preview…' },
-  'preview-error': { label: 'Open Lodariq actions', status: 'Preview could not start' },
+  idle: { label: runtimeText('Open Lodariq actions'), status: '' },
+  opening: { label: runtimeText('Connecting to Lodariq'), status: runtimeText('Connecting…') },
+  blocked: {
+    label: runtimeText('Open Lodariq actions'),
+    status: runtimeText('Allow the popup, then retry'),
+  },
+  error: {
+    label: runtimeText('Open Lodariq actions'),
+    status: runtimeText('Could not connect. Try again'),
+  },
+  previewing: {
+    label: runtimeText('Starting Lodariq preview'),
+    status: runtimeText('Starting preview…'),
+  },
+  'preview-error': {
+    label: runtimeText('Open Lodariq actions'),
+    status: runtimeText('Preview could not start'),
+  },
   'preview-unavailable': {
-    label: 'Open Lodariq actions',
-    status: 'No published experience is available to preview',
+    label: runtimeText('Open Lodariq actions'),
+    status: runtimeText('No published experience is available to preview'),
   },
   'authoring-conflict': {
-    label: 'Open Lodariq actions',
-    status: 'Close current authoring before opening another experience',
+    label: runtimeText('Open Lodariq actions'),
+    status: runtimeText('Close current authoring before opening another experience'),
   },
-  active: { label: 'Open Lodariq actions', status: 'Authoring open' },
+  active: { label: runtimeText('Open Lodariq actions'), status: runtimeText('Authoring open') },
 } as const;
 
 const DRAG_THRESHOLD = 4;
@@ -132,6 +150,8 @@ export interface HostedCreatorActivation {
   activationGrant: string;
   context: AuthoringActivationGrantContext;
   apiOrigin: string;
+  /** Dashboard UI locale captured by the exact-source activation popup. */
+  uiLocale?: SupportedLocale;
   documentIntent?: AuthoringDocumentIntent;
   /** Memory-only host callback; the authoring picker bounds its opaque return value per capture. */
   getTargetStateId?: () => string | undefined;
@@ -254,6 +274,7 @@ export async function activatePublicAuthoring(
       activationGrant,
       context: exchanged.context,
       apiOrigin: requireTrustedApiOrigin(authoring.exchangeUrl),
+      uiLocale: isSupportedLocale(result.uiLocale) ? result.uiLocale : currentRuntimeLocale(),
       ...(documentIntent ? { documentIntent } : {}),
       ...(options.getTargetStateId ? { getTargetStateId: options.getTargetStateId } : {}),
     };
@@ -290,6 +311,7 @@ export function createPublicAuthoringLauncher(
   const hostDocument = hostWindow.document;
   const initiallyVisible = options.initiallyVisible ?? resolveInitialLauncherVisibility(hostWindow);
   const host = hostDocument.createElement('div');
+  applyRuntimeLocale(host);
   host.setAttribute('data-lodariq-launcher', '');
   host.style.cssText = [
     'position:fixed',
@@ -1258,14 +1280,15 @@ function isAuthorizationResult(
   requestId: string,
   state: string,
 ): value is AuthoringAuthorizationResult {
-  const keys = ['protocol', 'type', 'requestId', 'state', 'authorizationCode', 'expiresAt'];
+  const requiredKeys = ['protocol', 'type', 'requestId', 'state', 'authorizationCode', 'expiresAt'];
   return (
-    exactRecord(value, keys) &&
+    exactRecordWithOptional(value, requiredKeys, ['uiLocale']) &&
     value['protocol'] === ACTIVATION_PROTOCOL &&
     value['type'] === AUTHORIZATION_RESULT_TYPE &&
     value['requestId'] === requestId &&
     value['state'] === state &&
     opaque(value['authorizationCode']) &&
+    (value['uiLocale'] === undefined || isSupportedLocale(value['uiLocale'])) &&
     isFutureDate(value['expiresAt'])
   );
 }
@@ -1463,6 +1486,19 @@ function exactRecord(value: unknown, keys: readonly string[]): value is Record<s
     record(value) &&
     Object.keys(value).every((key) => keys.includes(key)) &&
     keys.every((key) => key in value)
+  );
+}
+
+function exactRecordWithOptional(
+  value: unknown,
+  requiredKeys: readonly string[],
+  optionalKeys: readonly string[],
+): value is Record<string, unknown> {
+  if (!record(value)) return false;
+  const allowedKeys = new Set([...requiredKeys, ...optionalKeys]);
+  return (
+    Object.keys(value).every((key) => allowedKeys.has(key)) &&
+    requiredKeys.every((key) => key in value)
   );
 }
 

@@ -1,4 +1,5 @@
 import { ControllerNativeEventsFeature } from './controller-native-events';
+import { authoringText } from '../../i18n';
 import { type LodariqBlock } from '@lodariq/schema';
 import type { DragEvent, KeyboardEvent } from 'react';
 import { type BlockDirection, type BlockInsertPosition } from '../document-ops';
@@ -29,7 +30,7 @@ export abstract class ControllerDragDropFeature extends ControllerNativeEventsFe
     this.draggingBlockId = blockId;
     primeDragTransfer(event ? reactDataTransfer(event) : null, blockId);
     this.updateDragTarget(null, null);
-    this.setStatus('Move item to a new position');
+    this.setStatus(authoringText('Move item to a new position'));
   }
 
   handleBlockDragOver(event: DragEvent<HTMLElement>): void {
@@ -212,7 +213,7 @@ export abstract class ControllerDragDropFeature extends ControllerNativeEventsFe
     this.draggingStepBlockId = stepBlockId;
     primeDragTransfer(dataTransfer, childBlockId);
     this.updateDragTarget(null, null);
-    this.setStatus('Move content inside this step');
+    this.setStatus(authoringText('Move content inside this step'));
   }
 
   handleBlockKeyDown(event: KeyboardEvent<HTMLElement>, blockId: string): void {

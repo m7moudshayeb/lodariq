@@ -1,17 +1,33 @@
+import { msg } from '@lingui/core/macro';
+import type { MessageDescriptor } from '@lingui/core';
+import type { useLingui } from '@lingui/react';
 import type { WorkspaceThemeImpactDto } from '../../lib/api';
 
 const THEME_BINDING_LABELS = {
-  'workspace-current': 'Follows approved',
-  pinned: 'Pinned version',
-  legacy: 'Legacy fallback',
-} as const satisfies Record<WorkspaceThemeImpactDto['bindingPolicy'], string>;
+  'workspace-current': msg({
+    id: 'dashboard.brand.binding.followsApproved',
+    message: 'Follows approved',
+  }),
+  pinned: msg({ id: 'dashboard.brand.binding.pinned', message: 'Pinned version' }),
+  legacy: msg({ id: 'dashboard.brand.binding.legacy', message: 'Legacy fallback' }),
+} as const satisfies Record<WorkspaceThemeImpactDto['bindingPolicy'], MessageDescriptor>;
 
-export function impactCountLabel(count: number): string {
-  return `${count} experience${count === 1 ? '' : 's'}`;
+const EXPERIENCE_COUNT = msg({
+  id: 'dashboard.brand.experienceCount',
+  message: '{count, plural, one {# experience} other {# experiences}}',
+});
+
+type Translate = ReturnType<typeof useLingui>['_'];
+
+export function impactCountLabel(count: number, translate: Translate): string {
+  return translate({ ...EXPERIENCE_COUNT, values: { count } });
 }
 
-export function formatThemeBinding(binding: WorkspaceThemeImpactDto['bindingPolicy']): string {
-  return THEME_BINDING_LABELS[binding];
+export function formatThemeBinding(
+  binding: WorkspaceThemeImpactDto['bindingPolicy'],
+  translate: Translate,
+): string {
+  return translate(THEME_BINDING_LABELS[binding]);
 }
 
 export function withCurrentOption<T extends string | number>(

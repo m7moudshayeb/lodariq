@@ -1,4 +1,11 @@
-import type { LodariqBlockProps, TooltipLayoutProps } from '@lodariq/schema';
+import type { LodariqBlockProps, TooltipLayoutProps, TooltipStyleProps } from '@lodariq/schema';
+
+export const TOUR_POPUP_STYLE_VARIABLES = [
+  '--lq-popup-surface',
+  '--lq-popup-text',
+  '--lq-popup-muted-text',
+  '--lq-popup-border',
+] as const;
 
 export interface TourCompositionRecipe {
   actionAlign: NonNullable<TooltipLayoutProps['actionAlign']>;
@@ -21,6 +28,14 @@ export interface TourActionRecipe {
   widthPx: number | null;
 }
 
+export interface TourPopupStyleRecipe {
+  borderColor: string | null;
+  borderWeight: NonNullable<TooltipStyleProps['borderWeight']>;
+  elevation: NonNullable<TooltipStyleProps['elevation']>;
+  surfaceColor: string | null;
+  textColor: string | null;
+}
+
 export function resolveTourCompositionRecipe(
   layout: TooltipLayoutProps | undefined,
 ): TourCompositionRecipe {
@@ -34,6 +49,33 @@ export function resolveTourCompositionRecipe(
     radius: layout?.radius ?? 'theme',
     showArrow: layout?.showArrow ?? true,
     widthPx: layout?.widthPx ?? null,
+  };
+}
+
+export function resolveTourPopupStyleRecipe(
+  style: TooltipStyleProps | undefined,
+): TourPopupStyleRecipe {
+  return {
+    borderColor: style?.borderColor ?? null,
+    borderWeight: style?.borderWeight ?? 'theme',
+    elevation: style?.elevation ?? 'theme',
+    surfaceColor: style?.surfaceColor ?? null,
+    textColor: style?.textColor ?? null,
+  };
+}
+
+export function tourPopupStyleVariables(
+  recipe: TourPopupStyleRecipe,
+): Readonly<Partial<Record<(typeof TOUR_POPUP_STYLE_VARIABLES)[number], string>>> {
+  return {
+    ...(recipe.surfaceColor ? { '--lq-popup-surface': recipe.surfaceColor } : {}),
+    ...(recipe.textColor
+      ? {
+          '--lq-popup-text': recipe.textColor,
+          '--lq-popup-muted-text': recipe.textColor,
+        }
+      : {}),
+    ...(recipe.borderColor ? { '--lq-popup-border': recipe.borderColor } : {}),
   };
 }
 

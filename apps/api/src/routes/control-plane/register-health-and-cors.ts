@@ -6,6 +6,7 @@ import {
   DASHBOARD_RELEASE_RECOVERY_PATH,
   DIRECT_RELEASE_RECOVERY_PATH,
   HOSTED_RELEASE_RECOVERY_PATH,
+  HOSTED_AUTHORING_TRANSLATION_PATH,
   SDK_DOCUMENT_ARTIFACT_PATH,
   SDK_DOCUMENT_MANIFEST_PATH,
   SDK_DOCUMENT_PATH,
@@ -103,6 +104,7 @@ export function registerHealthAndCorsRoutes(
 
   for (const path of [
     '/v1/authoring/document',
+    HOSTED_AUTHORING_TRANSLATION_PATH,
     '/v1/authoring/documents/query',
     '/v1/authoring/activation/revoke',
     '/v1/authoring/release-state',

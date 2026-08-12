@@ -4,6 +4,8 @@ import * as React from 'react';
 import { act, createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { setupI18n } from '@lingui/core';
+import { I18nProvider } from '@lingui/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AuthForm } from '../../../../apps/dashboard/src/components/auth-form';
 import { EmailVerificationPanel } from '../../../../apps/dashboard/src/components/email-verification-panel';
@@ -17,6 +19,7 @@ const RAW_PASSWORD = '  correct horse battery  ';
 const VERIFIED_PASSWORD = 'owner chosen password';
 const RESET_CHALLENGE_ID = 'reset_abcdefghijklmnopqrstuvwxyz123456';
 const RESET_TOKEN = 'lq_reset_abcdefghijklmnopqrstuvwxyz1234567890ABCDEFG';
+const dashboardI18n = setupI18n({ locale: 'en', messages: { en: {} } });
 
 interface MountedComponent {
   container: HTMLDivElement;
@@ -120,9 +123,7 @@ describe('@lodariq/dashboard owned auth UI', () => {
 
     await fillAndSubmitSignUp(mounted.container);
 
-    expect(mounted.container.textContent).toContain(
-      'Account creation is not available in this deployment.',
-    );
+    expect(mounted.container.textContent).toContain('Account creation is not available right now.');
     expect(mounted.container.textContent).not.toContain('Check your email');
     expect(mounted.container.querySelector('input[name="email"]')).not.toBeNull();
 
@@ -299,7 +300,13 @@ async function mount(element: React.ReactElement): Promise<MountedComponent> {
   const root = createRoot(container);
   const queryClient = new QueryClient({ defaultOptions: { mutations: { retry: false } } });
   await act(async () =>
-    root.render(createElement(QueryClientProvider, { client: queryClient }, element)),
+    root.render(
+      createElement(
+        I18nProvider,
+        { i18n: dashboardI18n },
+        createElement(QueryClientProvider, { client: queryClient }, element),
+      ),
+    ),
   );
   return { container, root };
 }

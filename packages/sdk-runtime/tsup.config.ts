@@ -7,6 +7,7 @@ import { defineConfig } from 'tsup';
 export default defineConfig({
   entry: {
     index: 'src/index.ts',
+    i18n: 'src/i18n.ts',
     'brand-token-registry': 'src/brand-token-registry.ts',
     'lodariq-loader': 'src/loader/index.ts',
     'lodariq-public-bootstrap': 'src/activation/public-bootstrap.ts',
@@ -31,5 +32,10 @@ export default defineConfig({
   clean: true,
   splitting: true,
   treeshake: true,
-  noExternal: [/^@floating-ui\//, /^@lodariq\/schema(?:\/.*)?$/, /^lucide$/],
+  noExternal: [
+    /^@floating-ui\//,
+    /^@lodariq\/i18n(?:\/.*)?$/,
+    /^@lodariq\/schema(?:\/.*)?$/,
+    /^lucide$/,
+  ],
 });

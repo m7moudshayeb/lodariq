@@ -37,6 +37,7 @@ import {
 import { compiledArtifactMetadata } from '../domains/theme-policy';
 import { clone, comparePublicationsNewestFirst } from '../domains/in-memory-helpers';
 import { InMemoryRepositoryUtility } from './utility';
+import { analyticsContentLocale } from '../domains/analytics';
 
 export class InMemoryRepositoryContentHelpers extends InMemoryRepositoryUtility {
   protected matchingAnalyticsEvents(
@@ -51,6 +52,7 @@ export class InMemoryRepositoryContentHelpers extends InMemoryRepositoryUtility 
       if (input.query.publicationId && event.publicationId !== input.query.publicationId)
         return false;
       if (input.query.contentHash && event.contentHash !== input.query.contentHash) return false;
+      if (input.query.locale && analyticsContentLocale(event) !== input.query.locale) return false;
       const timestamp = Date.parse(event.timestamp);
       if (from !== null && timestamp < from) return false;
       if (to !== null && timestamp > to) return false;

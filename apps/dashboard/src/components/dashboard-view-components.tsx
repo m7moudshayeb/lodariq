@@ -1,5 +1,9 @@
+'use client';
+
 import type { ReactNode } from 'react';
+import { useLingui } from '@lingui/react';
 import { ExternalLink } from 'lucide-react';
+import { DASHBOARD_PAGE_MESSAGES } from '../i18n/messages';
 import { DASHBOARD_PAGE_COPY, type DashboardViewId } from '../lib/dashboard-constants';
 import { Button } from './ui/button';
 
@@ -12,6 +16,7 @@ export function DashboardPageHeader({
   action?: ReactNode;
   editorial?: boolean;
 }): React.ReactElement {
+  const { _ } = useLingui();
   const copy = DASHBOARD_PAGE_COPY[view];
   return (
     <header className="mb-8 flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
@@ -25,9 +30,9 @@ export function DashboardPageHeader({
               : 'text-3xl font-semibold tracking-[-0.025em] text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-4'
           }
         >
-          {copy.title}
+          {_(copy.title)}
         </h1>
-        <p className="text-sm leading-6 text-muted-foreground">{copy.description}</p>
+        <p className="text-sm leading-6 text-muted-foreground">{_(copy.description)}</p>
       </div>
       {action ? <div className="shrink-0">{action}</div> : null}
     </header>
@@ -35,10 +40,11 @@ export function DashboardPageHeader({
 }
 
 export function OpenInProductAction({ url }: { url: string }): React.ReactElement {
+  const { _ } = useLingui();
   if (!url) {
     return (
       <Button className="h-11" disabled type="button" variant="outline">
-        Open in product
+        {_(DASHBOARD_PAGE_MESSAGES.openInProduct)}
         <ExternalLink aria-hidden="true" />
       </Button>
     );
@@ -46,7 +52,7 @@ export function OpenInProductAction({ url }: { url: string }): React.ReactElemen
   return (
     <Button asChild className="h-11" variant="outline">
       <a href={url} rel="noreferrer" target="_blank">
-        Open in product
+        {_(DASHBOARD_PAGE_MESSAGES.openInProduct)}
         <ExternalLink aria-hidden="true" />
       </a>
     </Button>

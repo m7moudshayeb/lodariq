@@ -15,6 +15,10 @@ export default defineConfig({
   resolve: {
     alias: [
       {
+        find: /^@lingui\/core\/macro$/,
+        replacement: fromRoot('packages/tests/shims/lingui-core-macro.ts'),
+      },
+      {
         find: /^server-only$/,
         replacement: fromRoot('packages/tests/shims/server-only.ts'),
       },
@@ -49,6 +53,10 @@ export default defineConfig({
       {
         find: /^@lodariq\/api$/,
         replacement: fromRoot('apps/api/src/index.ts'),
+      },
+      {
+        find: /^@lodariq\/sdk-runtime\/i18n$/,
+        replacement: fromRoot('packages/sdk-runtime/src/i18n.ts'),
       },
       {
         find: /^@lodariq\/sdk-runtime\/lodariq-loader$/,
@@ -97,6 +105,10 @@ export default defineConfig({
       {
         find: /^@lodariq\/sdk-runtime$/,
         replacement: fromRoot('packages/sdk-runtime/src/index.ts'),
+      },
+      {
+        find: /^@lodariq\/sdk-authoring\/i18n$/,
+        replacement: fromRoot('packages/sdk-authoring/src/i18n.ts'),
       },
       {
         find: /^@lodariq\/sdk-authoring\/lodariq-authoring$/,

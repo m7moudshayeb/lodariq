@@ -4,6 +4,7 @@ export default defineConfig({
   server: { port: 4188 },
   preview: { port: 4188 },
   build: {
+    target: 'es2022',
     outDir: 'dist',
     rollupOptions: {
       input: {

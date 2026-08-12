@@ -196,6 +196,7 @@ function openCreatorAuthoringPanel(
           }
           return api.playAuthoringPreview(compiled, {
             ownerId: previewOptions.ownerId,
+            ...(previewOptions.locale ? { locale: previewOptions.locale } : {}),
             ...(previewOptions.interactive ? { interactive: true } : {}),
             ...(previewOptions.stepId ? { initialStepId: previewOptions.stepId } : {}),
             ...(previewOptions.authoringTargetOverride

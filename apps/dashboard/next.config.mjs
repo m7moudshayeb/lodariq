@@ -1,3 +1,5 @@
+import { linguiMacroSwcPlugin } from '@lingui/swc-plugin/options';
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   // Keep Next's development tools available without covering the collapsed
@@ -7,6 +9,9 @@ const nextConfig = {
   output: 'standalone',
   poweredByHeader: false,
   reactStrictMode: true,
+  experimental: {
+    swcPlugins: [linguiMacroSwcPlugin()],
+  },
 };
 
 export default nextConfig;

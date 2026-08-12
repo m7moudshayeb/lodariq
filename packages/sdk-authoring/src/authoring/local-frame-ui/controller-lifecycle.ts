@@ -1,4 +1,5 @@
 import { ControllerBase } from './controller-base';
+import { authoringText } from '../../i18n';
 import {
   AUTHORING_PANEL_LAYOUT_REQUEST_TYPE,
   BRIDGE_PROTOCOL_VERSION,
@@ -9,6 +10,7 @@ import { createBridgeCorrelationId } from '../../bridge/transport';
 import type { LocalAuthoringFrameSnapshot } from './types';
 import type { LocalAuthoringFrameMetricName } from '../local-frame-types';
 import { blockDisplayTitle } from './utils';
+import { isDefaultDocumentLocale } from '../document-localization';
 
 export abstract class ControllerLifecycleFeature extends ControllerBase {
   protected abstract emit(): void;
@@ -20,6 +22,14 @@ export abstract class ControllerLifecycleFeature extends ControllerBase {
   abstract refreshStagingRelease(): void;
   protected abstract sendPreviewRequest(mode: 'full' | 'step', stepId?: string): Promise<void>;
   protected abstract setStatus(message: string): void;
+
+  protected allowDocumentStructureMutation(): boolean {
+    if (isDefaultDocumentLocale(this.documentState, this.contentLocale)) return true;
+    this.setStatus(
+      authoringText('Switch to the default language to change the experience structure.'),
+    );
+    return false;
+  }
 
   getSnapshot(): LocalAuthoringFrameSnapshot {
     return this.snapshotValue;
@@ -88,7 +98,7 @@ export abstract class ControllerLifecycleFeature extends ControllerBase {
     this.selectedBlockId = stepId;
     this.advancedEditorStepId = null;
     void this.sendPreviewRequest('step', stepId).catch(() => {
-      this.setStatus('Step preview could not start');
+      this.setStatus(authoringText('Step preview could not start'));
     });
     this.setStatus(`Showing ${blockDisplayTitle(step)}`);
   }
@@ -119,7 +129,7 @@ export abstract class ControllerLifecycleFeature extends ControllerBase {
     if (!this.advancedEditorStepId) return;
     this.advancedEditorStepId = null;
     this.interactionActor.send({ type: 'CLOSE_OVERLAY' });
-    this.setStatus('Back to live authoring');
+    this.setStatus(authoringText('Back to live authoring'));
   }
 
   togglePanelWorkspace(): void {
@@ -141,7 +151,7 @@ export abstract class ControllerLifecycleFeature extends ControllerBase {
         },
         { timeoutMs: 2_000 },
       )
-      .catch(() => this.setStatus('Workspace size could not be changed'));
+      .catch(() => this.setStatus(authoringText('Workspace size could not be changed')));
   }
 
   clearSelection(): void {

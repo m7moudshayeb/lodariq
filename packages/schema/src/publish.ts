@@ -395,6 +395,13 @@ function validateStructuredStylePlacement(
       message: `${blockLabel(block)} has popup layout settings outside a tooltip.`,
     });
   }
+  if (block.props.tooltipStyle && block.type !== 'tooltip') {
+    issues.push({
+      code: 'invalid_block',
+      blockId: block.id,
+      message: `${blockLabel(block)} has popup styling outside a tooltip.`,
+    });
+  }
 }
 
 function validateInlineContent(block: LodariqBlock, issues: PublishReadinessIssue[]): void {

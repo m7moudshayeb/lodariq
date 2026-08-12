@@ -1,6 +1,8 @@
 'use client';
 
 import * as React from 'react';
+import { msg } from '@lingui/core/macro';
+import { useLingui } from '@lingui/react';
 import type { BrandThemeDefinition } from '@lodariq/schema';
 import { useBrandSystemMutations } from '../../hooks/use-brand-system-mutations';
 import {
@@ -17,6 +19,45 @@ import type {
 
 const EMPTY_MESSAGE = '';
 
+const COPY = {
+  impactMissing: msg({
+    id: 'dashboard.brand.controller.impactMissing',
+    message: 'Brand impact was not returned.',
+  }),
+  systemMissing: msg({
+    id: 'dashboard.brand.controller.systemMissing',
+    message: 'Brand system was not returned.',
+  }),
+  draftMissing: msg({
+    id: 'dashboard.brand.controller.draftMissing',
+    message: 'Brand draft was not returned.',
+  }),
+  reviewRequired: msg({
+    id: 'dashboard.brand.controller.reviewRequired',
+    message: 'Open the approval review and wait for both runtime previews before approving.',
+  }),
+  approvedMissing: msg({
+    id: 'dashboard.brand.controller.approvedMissing',
+    message: 'Approved theme was not returned.',
+  }),
+  reviewMissing: msg({
+    id: 'dashboard.brand.controller.reviewMissing',
+    message: 'Approval review was not returned.',
+  }),
+  defaultMissing: msg({
+    id: 'dashboard.brand.controller.defaultMissing',
+    message: 'Default theme was not returned.',
+  }),
+  updatedImpactMissing: msg({
+    id: 'dashboard.brand.controller.updatedImpactMissing',
+    message: 'Updated impact was not returned.',
+  }),
+  previewFailed: msg({
+    id: 'dashboard.brand.controller.previewFailed',
+    message: 'The runtime preview could not be rendered. Close this review and try again.',
+  }),
+} as const;
+
 export function useBrandSystemController({
   themes,
   workspaceId,
@@ -24,6 +65,7 @@ export function useBrandSystemController({
   themes: WorkspaceThemeDto[];
   workspaceId: string;
 }) {
+  const { _ } = useLingui();
   const [themeRows, setThemeRows] = React.useState(themes);
   const [selectedThemeId, setSelectedThemeId] = React.useState(
     () => themes.find((theme) => theme.isDefault)?.id ?? themes[0]?.id ?? '',
@@ -89,7 +131,7 @@ export function useBrandSystemController({
       const result = await brandMutations.loadImpact.mutateAsync(theme.id);
       if (result.status === 'error' || !result.detail) {
         setImpactOpen(false);
-        setError(result.status === 'error' ? result.error : 'Brand impact was not returned.');
+        setError(result.status === 'error' ? result.error : _(COPY.impactMissing));
         return;
       }
       replaceTheme(result.detail.theme);
@@ -103,7 +145,7 @@ export function useBrandSystemController({
     startTransition(async () => {
       const result = await brandMutations.create.mutateAsync();
       if (result.status === 'error' || !result.theme) {
-        setError(result.status === 'error' ? result.error : 'Brand system was not returned.');
+        setError(result.status === 'error' ? result.error : _(COPY.systemMissing));
         return;
       }
       setThemeRows([result.theme]);
@@ -146,7 +188,7 @@ export function useBrandSystemController({
         expectedUpdatedAt: theme.updatedAt,
       });
       if (result.status === 'error' || !result.theme) {
-        setError(result.status === 'error' ? result.error : 'Brand draft was not returned.');
+        setError(result.status === 'error' ? result.error : _(COPY.draftMissing));
         return;
       }
       replaceTheme(result.theme);
@@ -168,14 +210,14 @@ export function useBrandSystemController({
       !isCurrentBrandApprovalReview(completedReviewKey, theme) ||
       !detail
     ) {
-      setError('Open the approval review and wait for both runtime previews before approving.');
+      setError(_(COPY.reviewRequired));
       return;
     }
     clearFeedback(setMessage, setError);
     startTransition(async () => {
       const result = await brandMutations.approve.mutateAsync(themeGuard(theme));
       if (result.status === 'error' || !result.theme) {
-        setError(result.status === 'error' ? result.error : 'Approved theme was not returned.');
+        setError(result.status === 'error' ? result.error : _(COPY.approvedMissing));
         return;
       }
       replaceTheme(result.theme);
@@ -203,7 +245,7 @@ export function useBrandSystemController({
     startTransition(async () => {
       const result = await brandMutations.loadImpact.mutateAsync(theme.id);
       if (result.status === 'error' || !result.detail) {
-        setError(result.status === 'error' ? result.error : 'Approval review was not returned.');
+        setError(result.status === 'error' ? result.error : _(COPY.reviewMissing));
         return;
       }
       if (selectedThemeIdRef.current !== theme.id) return;
@@ -219,7 +261,7 @@ export function useBrandSystemController({
     startTransition(async () => {
       const result = await brandMutations.makeDefault.mutateAsync(themeGuard(theme));
       if (result.status === 'error' || !result.theme) {
-        setError(result.status === 'error' ? result.error : 'Default theme was not returned.');
+        setError(result.status === 'error' ? result.error : _(COPY.defaultMissing));
         return;
       }
       replaceTheme(result.theme);
@@ -238,7 +280,7 @@ export function useBrandSystemController({
         themeVersionId: activeVersionId,
       });
       if (result.status === 'error' || !result.detail) {
-        setError(result.status === 'error' ? result.error : 'Updated impact was not returned.');
+        setError(result.status === 'error' ? result.error : _(COPY.updatedImpactMissing));
         return;
       }
       replaceTheme(result.detail.theme);
@@ -295,7 +337,7 @@ export function useBrandSystemController({
     markReviewReady: (reviewKey: string) => setCompletedReviewKey(reviewKey),
     markReviewError: (_reviewKey: string) => {
       setCompletedReviewKey(null);
-      setError('The runtime preview could not be rendered. Close this review and try again.');
+      setError(_(COPY.previewFailed));
     },
   };
 }

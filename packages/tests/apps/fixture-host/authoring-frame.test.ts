@@ -299,6 +299,11 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     expect(document.querySelector('.shell-panel')).toBeTruthy();
     expect(document.querySelector('.topbar')).toBeNull();
     expect(document.querySelector('.tour-storyboard')).toBeTruthy();
+    expect(
+      document.querySelector(
+        '.tour-storyboard-language .ui-select-trigger[aria-label="Experience language"]',
+      ),
+    ).toBeTruthy();
     expect(document.querySelector('.tour-step-inspector')).toBeTruthy();
     expect(document.querySelector('.tour-sequence-rail')).toBeNull();
     expect(document.querySelector('.tour-workspace-toggle')).toBeNull();
@@ -808,7 +813,11 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     expect(step.querySelector<HTMLInputElement>('[aria-label="Button label"]')?.value).toBe(
       'Continue',
     );
-    expect(step.querySelector<HTMLSelectElement>('[aria-label="After click"]')?.value).toBe('next');
+    expect(
+      step.querySelector<HTMLSelectElement>(
+        'select.ui-native-select-mirror[aria-label="After click"]',
+      )?.value,
+    ).toBe('next');
 
     const heading = step.querySelector<HTMLInputElement>(
       '[data-action="edit-content"][aria-label="Heading"]',
@@ -1474,10 +1483,10 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     const buttonBlocks = [...step.querySelectorAll<HTMLElement>('.step-child-button')];
     const buttonBlock = buttonBlocks[buttonBlocks.length - 1]!;
     const actionSelect = buttonBlock.querySelector<HTMLSelectElement>(
-      '[data-action="set-action"][aria-label="After click"]',
+      'select.ui-native-select-mirror[data-action="set-action"][aria-label="After click"]',
     )!;
     const styleSelect = buttonBlock.querySelector<HTMLSelectElement>(
-      '[data-action="set-button-style"][aria-label="Button style"]',
+      'select.ui-native-select-mirror[data-action="set-button-style"][aria-label="Button style"]',
     )!;
     expect(buttonBlock.textContent).toContain('Choose next action');
     expect(actionSelect.value).toBe('');
@@ -1632,7 +1641,7 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     postMessage.mockRestore();
   });
 
-  it('batches consecutive semantic preview patches for the same block', async () => {
+  it('emits one semantic preview patch when transforming a block', async () => {
     const postMessage = vi.spyOn(window, 'postMessage').mockImplementation(() => undefined);
     await loadFrame();
     await importTwoBlocks();
@@ -1656,13 +1665,6 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
         '[data-block-id="block_a_copy"] [aria-label="Turn content into button"]',
       )
       ?.click();
-    await Promise.resolve();
-    document
-      .querySelector<HTMLSelectElement>(
-        'select[aria-label="After click"][data-block-id="block_a_copy"]',
-      )
-      ?.dispatchEvent(new Event('change', { bubbles: true }));
-
     expect(postMessage).not.toHaveBeenCalled();
     await flushPreviewPatchQueue();
 
@@ -1672,7 +1674,7 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
         type: 'preview.patch',
         blockId: 'block_a_copy',
         patch: {
-          ops: [{ op: 'transformBlock', type: 'button' }, { op: 'setAction' }],
+          ops: [{ op: 'transformBlock', type: 'button' }],
         },
       }),
       window.location.origin,

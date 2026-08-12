@@ -110,12 +110,14 @@ When documents conflict, use this order:
 - [`ADR 0015 — SDK-first in-product authoring entry`](adr/0015-sdk-first-in-product-authoring-entry.md)
 - [`ADR 0016 — Selector-free Target Identity V2`](adr/0016-target-identity-v2.md)
 - [`ADR 0017 — Lodariq-owned authentication and workspace sessions`](adr/0017-lodariq-owned-authentication.md)
+- [`ADR 0018 — Git-first localization and authored-content locale variants`](adr/0018-localization-boundaries.md)
 - [`ADR 0003 — Server-side publication compilation`](adr/0003-server-side-publication-compilation.md)
 - [`ADR 0008 — Semantic target resolver`](adr/0008-resolver-strategy.md)
 
 ## Guides and Operations
 
 - [`How to author and release`](guides/authoring-and-release.md)
+- [`Localization workflow`](guides/localization.md)
 - [`Phase 1 Fly deployment runbook`](deployment/phase-1-fly.md)
 - [`Local SDK installation`](local-sdk-installation.md)
 - [`Manual and external validation handoff`](handoffs/manual-and-external-validation.md)

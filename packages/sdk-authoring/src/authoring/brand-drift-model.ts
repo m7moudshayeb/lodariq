@@ -8,20 +8,21 @@ import {
   type ProductStyleProposal,
   type ProductStyleSourceKind,
 } from '@lodariq/schema';
+import { authoringText } from '../i18n';
 
 const SOURCE_LABELS: Record<ProductStyleSourceKind, string> = {
-  registered_tokens: 'Registered product tokens',
-  selected_element: 'Selected product element',
-  page_typography: 'Page typography',
-  ancestor_context: 'Ancestor context',
-  nearby_control: 'Nearby controls',
-  fallback: 'Accessible fallback',
+  registered_tokens: authoringText('Registered product tokens'),
+  selected_element: authoringText('Selected product element'),
+  page_typography: authoringText('Page typography'),
+  ancestor_context: authoringText('Ancestor context'),
+  nearby_control: authoringText('Nearby controls'),
+  fallback: authoringText('Accessible fallback'),
 };
 
 const SOURCE_CHANGE_LABELS = {
-  added: 'New evidence',
-  removed: 'Evidence unavailable',
-  changed: 'Fingerprint changed',
+  added: authoringText('New evidence'),
+  removed: authoringText('Evidence unavailable'),
+  changed: authoringText('Fingerprint changed'),
 } as const;
 
 const CLASSIFICATION_PRESENTATION: Record<
@@ -29,22 +30,26 @@ const CLASSIFICATION_PRESENTATION: Record<
   { label: string; detail: string }
 > = {
   unchanged: {
-    label: 'Brand is current',
-    detail: 'Normalized product evidence still matches the approved Brand theme.',
+    label: authoringText('Brand is current'),
+    detail: authoringText('Normalized product evidence still matches the approved Brand theme.'),
   },
   warning: {
-    label: 'Brand evidence needs attention',
-    detail: 'Product evidence changed, but it is not strong enough to propose an automatic repair.',
+    label: authoringText('Brand evidence needs attention'),
+    detail: authoringText(
+      'Product evidence changed, but it is not strong enough to propose an automatic repair.',
+    ),
   },
   actionable: {
-    label: 'Brand change ready to review',
-    detail: 'Strong semantic evidence produced a proposal. Nothing changes until you adopt it.',
+    label: authoringText('Brand change ready to review'),
+    detail: authoringText(
+      'Strong semantic evidence produced a proposal. Nothing changes until you adopt it.',
+    ),
   },
 };
 
 const EXPERIENCE_IMPACT_LABELS = {
-  needs_review: 'Needs review for the approved Brand version',
-  would_require_review_on_approval: 'Would need review after Brand approval',
+  needs_review: authoringText('Needs review for the approved Brand version'),
+  would_require_review_on_approval: authoringText('Would need review after Brand approval'),
 } as const;
 
 export interface AuthoringBrandDriftSourceItem {
@@ -104,8 +109,8 @@ export function createAuthoringBrandDriftViewModel(
   if (!result) {
     return {
       state: 'not-checked',
-      label: 'Brand has not been checked',
-      detail: 'Check normalized product evidence without changing the Brand theme.',
+      label: authoringText('Brand has not been checked'),
+      detail: authoringText('Check normalized product evidence without changing the Brand theme.'),
       sourceItems: [],
       roleItems: [],
       consequenceItems: [],
@@ -135,11 +140,11 @@ export function createAuthoringBrandDriftViewModel(
     }),
     roleItems: result.changedRoles.map((role) => ({
       id: role,
-      label: BRAND_DRIFT_SEMANTIC_ROLE_LABELS[role],
+      label: authoringText(BRAND_DRIFT_SEMANTIC_ROLE_LABELS[role]),
     })),
     consequenceItems: result.accessibilityConsequences.map((consequence) => ({
       id: consequence.code,
-      label: BRAND_DRIFT_ACCESSIBILITY_CONSEQUENCE_LABELS[consequence.code],
+      label: authoringText(BRAND_DRIFT_ACCESSIBILITY_CONSEQUENCE_LABELS[consequence.code]),
       severity: consequence.severity,
     })),
     affectedExperienceItems,
@@ -182,41 +187,49 @@ function acknowledgementViewModel(
   if (!reviewState) {
     return {
       state: 'unavailable',
-      label: 'Brand acknowledgement unavailable',
-      detail: 'This session does not include document Brand acknowledgement truth.',
+      label: authoringText('Brand acknowledgement unavailable'),
+      detail: authoringText('This session does not include document Brand acknowledgement truth.'),
       canAcknowledge: false,
     };
   }
   if (reviewState.policy === 'pinned') {
     return {
       state: 'pinned',
-      label: 'Pinned Brand version',
-      detail: 'This experience remains on its explicitly pinned immutable Brand version.',
+      label: authoringText('Pinned Brand version'),
+      detail: authoringText(
+        'This experience remains on its explicitly pinned immutable Brand version.',
+      ),
       canAcknowledge: false,
     };
   }
   if (reviewState.reviewState === 'needs_review') {
     return {
       state: 'needs-review',
-      label: 'New Brand version needs review',
-      detail: 'Review this experience, then explicitly acknowledge the approved Brand version.',
+      label: authoringText('New Brand version needs review'),
+      detail: authoringText(
+        'Review this experience, then explicitly acknowledge the approved Brand version.',
+      ),
       canAcknowledge: true,
       approvedThemeVersionId: reviewState.approvedThemeVersionId,
     };
   }
   return {
     state: 'current',
-    label: 'Brand version acknowledged',
-    detail: 'This experience acknowledges the current approved Brand version.',
+    label: authoringText('Brand version acknowledged'),
+    detail: authoringText('This experience acknowledges the current approved Brand version.'),
     canAcknowledge: false,
     approvedThemeVersionId: reviewState.approvedThemeVersionId,
   };
 }
 
 function confidenceLabel(confidence: number): string {
-  if (confidence >= 85) return `High confidence · ${confidence}%`;
-  if (confidence >= 70) return `Medium confidence · ${confidence}%`;
-  return `Low confidence · ${confidence}%`;
+  if (confidence >= 85) {
+    return authoringText('High confidence · {confidence}%', { confidence });
+  }
+  if (confidence >= 70) {
+    return authoringText('Medium confidence · {confidence}%', { confidence });
+  }
+  return authoringText('Low confidence · {confidence}%', { confidence });
 }
 
 function sourceRevision(

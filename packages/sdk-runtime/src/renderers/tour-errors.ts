@@ -1,12 +1,14 @@
+import { runtimeText } from '../i18n';
+
 export class TourPresentationCanceledError extends Error {
-  constructor(message = 'Lodariq tour presentation was canceled') {
+  constructor(message = runtimeText('Lodariq tour presentation was canceled')) {
     super(message);
     this.name = 'TourPresentationCanceledError';
   }
 }
 
 export class TourPresentationUnavailableError extends Error {
-  constructor(message = 'Lodariq tour presentation is unavailable') {
+  constructor(message = runtimeText('Lodariq tour presentation is unavailable')) {
     super(message);
     this.name = 'TourPresentationUnavailableError';
   }

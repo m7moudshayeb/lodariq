@@ -1,5 +1,6 @@
 import { createNonceStyleElement } from '@lodariq/schema/dom';
 import { normalizeTargetElement } from './fingerprint';
+import { applyAuthoringLocale, authoringText } from '../i18n';
 
 const STYLE_PICKER_LAYER = 2_147_483_644;
 
@@ -18,6 +19,7 @@ export function startProductStylePicker(options: ProductStylePickerOptions): Pro
   const doc = options.root ?? document;
   const outline = doc.createElement('div');
   const hint = doc.createElement('div');
+  applyAuthoringLocale(hint);
   const style = createNonceStyleElement(doc, '');
   style.textContent = `
     [data-lodariq-style-picker-outline] {
@@ -48,7 +50,7 @@ export function startProductStylePicker(options: ProductStylePickerOptions): Pro
   outline.setAttribute('data-lodariq-style-picker-outline', '');
   outline.hidden = true;
   hint.setAttribute('data-lodariq-style-picker-hint', '');
-  hint.textContent = 'Choose one element to match · Esc to cancel';
+  hint.textContent = authoringText('Choose one element to match · Esc to cancel');
   doc.head.appendChild(style);
   doc.body.append(outline, hint);
 

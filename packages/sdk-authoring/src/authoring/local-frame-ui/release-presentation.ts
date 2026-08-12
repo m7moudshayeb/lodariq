@@ -3,6 +3,7 @@ import type {
   AuthoringVerificationState,
 } from '../local-frame-types';
 import type { AuthoringReleaseViewState } from './types';
+import { authoringText } from '../../i18n';
 
 export const AUTHORING_RELEASE_ACTIONS = [
   'none',
@@ -45,8 +46,8 @@ export function deriveAuthoringReleasePresentation({
   if (release.status === 'checking') {
     return presentation(
       'none',
-      'Checking release truth',
-      'Confirming the saved draft.',
+      authoringText('Checking release truth'),
+      authoringText('Confirming the saved draft.'),
       'busy',
       truth,
     );
@@ -54,8 +55,8 @@ export function deriveAuthoringReleasePresentation({
   if (release.status === 'publishing') {
     return presentation(
       'none',
-      'Publishing to staging',
-      'Your authoring session stays open.',
+      authoringText('Publishing to staging'),
+      authoringText('Your authoring session stays open.'),
       'busy',
       truth,
     );
@@ -64,10 +65,10 @@ export function deriveAuthoringReleasePresentation({
     const notAuthorized = release.reason === 'not_authorized';
     return presentation(
       'none',
-      notAuthorized ? 'Release access unavailable' : 'Local preview',
+      notAuthorized ? authoringText('Release access unavailable') : authoringText('Local preview'),
       notAuthorized
-        ? 'Your workspace role does not include release actions.'
-        : 'Open this experience on an authenticated staging origin to release it.',
+        ? authoringText('Your workspace role does not include release actions.')
+        : authoringText('Open this experience on an authenticated staging origin to release it.'),
       'neutral',
       truth,
     );
@@ -75,8 +76,8 @@ export function deriveAuthoringReleasePresentation({
   if (release.status === 'error') {
     return presentation(
       'retry',
-      'Release truth could not be refreshed',
-      'Your draft is safe. Try the release check again.',
+      authoringText('Release truth could not be refreshed'),
+      authoringText('Your draft is safe. Try the release check again.'),
       'danger',
       truth,
     );
@@ -84,10 +85,12 @@ export function deriveAuthoringReleasePresentation({
   if (blockerCount > 0 || release.status === 'blocked') {
     return presentation(
       'review-blockers',
-      blockerCount > 0 ? `${blockerCount} to fix before release` : 'Release needs attention',
+      blockerCount > 0
+        ? authoringText('{count} to fix before release', { count: blockerCount })
+        : authoringText('Release needs attention'),
       release.reason === 'open_in_staging'
-        ? 'Open this exact page on the configured staging origin.'
-        : 'Review the first blocking check without leaving the product page.',
+        ? authoringText('Open this exact page on the configured staging origin.')
+        : authoringText('Review the first blocking check without leaving the product page.'),
       'warning',
       truth,
     );
@@ -96,8 +99,8 @@ export function deriveAuthoringReleasePresentation({
   if (workflow && productionMatchesCurrentDraft(workflow)) {
     return presentation(
       'none',
-      'Live in production',
-      'Production points to the exact verified staged artifact.',
+      authoringText('Live in production'),
+      authoringText('Production points to the exact verified staged artifact.'),
       'success',
       truth,
     );
@@ -108,8 +111,8 @@ export function deriveAuthoringReleasePresentation({
     if (verification.state === 'running') {
       return presentation(
         'none',
-        'Verifying on staging',
-        'Running the exact published artifact on this page.',
+        authoringText('Verifying on staging'),
+        authoringText('Running the exact published artifact on this page.'),
         'busy',
         truth,
       );
@@ -118,8 +121,8 @@ export function deriveAuthoringReleasePresentation({
       if (canApproveAndPromote(workflow)) {
         return presentation(
           'approve-production',
-          'Approval ready for you',
-          'Approve and promote the exact verified artifact with no rebuild.',
+          authoringText('Approval ready for you'),
+          authoringText('Approve and promote the exact verified artifact with no rebuild.'),
           'warning',
           truth,
         );
@@ -127,8 +130,8 @@ export function deriveAuthoringReleasePresentation({
       if (workflow.approval === 'requested') {
         return presentation(
           'none',
-          'Approval requested',
-          'The verified artifact stays unchanged while approval is collected.',
+          authoringText('Approval requested'),
+          authoringText('The verified artifact stays unchanged while approval is collected.'),
           'warning',
           truth,
         );
@@ -136,8 +139,8 @@ export function deriveAuthoringReleasePresentation({
       if (workflow.approval === 'required') {
         return presentation(
           'request-approval',
-          'Approval required',
-          'The verified artifact stays unchanged while approval is collected.',
+          authoringText('Approval required'),
+          authoringText('The verified artifact stays unchanged while approval is collected.'),
           'warning',
           truth,
         );
@@ -145,16 +148,16 @@ export function deriveAuthoringReleasePresentation({
       if (workflow.canPromote) {
         return presentation(
           'promote-production',
-          'Ready for production',
-          'Promote the exact staged artifact with no rebuild.',
+          authoringText('Ready for production'),
+          authoringText('Promote the exact staged artifact with no rebuild.'),
           'ready',
           truth,
         );
       }
       return presentation(
         'none',
-        'Staging verified',
-        'A workspace releaser can promote this exact artifact.',
+        authoringText('Staging verified'),
+        authoringText('A workspace releaser can promote this exact artifact.'),
         'success',
         truth,
       );
@@ -162,16 +165,18 @@ export function deriveAuthoringReleasePresentation({
     if (workflow.canVerify) {
       return presentation(
         'verify-staging',
-        verification.state === 'failed' ? 'Verification needs attention' : 'Ready to verify',
-        'Verify the exact staged artifact on this page.',
+        verification.state === 'failed'
+          ? authoringText('Verification needs attention')
+          : authoringText('Ready to verify'),
+        authoringText('Verify the exact staged artifact on this page.'),
         verification.state === 'failed' ? 'warning' : 'ready',
         truth,
       );
     }
     return presentation(
       'none',
-      'Current in staging',
-      'Exact browser verification is unavailable in this session.',
+      authoringText('Current in staging'),
+      authoringText('Exact browser verification is unavailable in this session.'),
       'neutral',
       truth,
     );
@@ -180,10 +185,10 @@ export function deriveAuthoringReleasePresentation({
   if (release.status === 'current') {
     return presentation(
       workflow?.canVerify ? 'verify-staging' : 'none',
-      'Current in staging',
+      authoringText('Current in staging'),
       workflow?.canVerify
-        ? 'Verify the exact staged artifact on this page.'
-        : 'Exact browser verification is not connected yet.',
+        ? authoringText('Verify the exact staged artifact on this page.')
+        : authoringText('Exact browser verification is not connected yet.'),
       'ready',
       truth,
     );
@@ -191,8 +196,8 @@ export function deriveAuthoringReleasePresentation({
 
   return presentation(
     'publish-staging',
-    'Ready for staging',
-    'Publish the saved draft without choosing an environment.',
+    authoringText('Ready for staging'),
+    authoringText('Publish the saved draft without choosing an environment.'),
     'ready',
     truth,
   );
@@ -202,18 +207,18 @@ export function authoringReleaseTruth(
   workflow: AuthoringReleaseWorkflowState | null,
   release: AuthoringReleaseViewState,
 ): string {
-  const draft = stageLabel('Draft', workflow?.draft.version);
-  let staging = 'Staging not published';
+  const draft = stageLabel(authoringText('Draft'), workflow?.draft.version);
+  let staging = authoringText('Staging not published');
   if (workflow?.staging) {
-    staging = `${stageLabel('Staging', workflow.staging.version)} ${verificationLabel(
+    staging = `${stageLabel(authoringText('Staging'), workflow.staging.version)} ${verificationLabel(
       workflow.staging.verification.state,
     )}`;
   } else if (release.status === 'current') {
-    staging = 'Staging current';
+    staging = authoringText('Staging current');
   }
   const production = workflow?.production
-    ? stageLabel('Production', workflow.production.version)
-    : 'Production not published';
+    ? stageLabel(authoringText('Production'), workflow.production.version)
+    : authoringText('Production not published');
   return `${draft} · ${staging} · ${production}`;
 }
 
@@ -236,13 +241,13 @@ function presentation(
 
 const RELEASE_ACTION_LABELS: Record<AuthoringReleaseAction, string | null> = {
   none: null,
-  'review-blockers': 'Review blockers',
-  'publish-staging': 'Publish to staging',
-  'verify-staging': 'Verify on staging',
-  'promote-production': 'Promote to production',
-  'request-approval': 'Request approval',
-  'approve-production': 'Approve & promote',
-  retry: 'Try again',
+  'review-blockers': authoringText('Review blockers'),
+  'publish-staging': authoringText('Publish to staging'),
+  'verify-staging': authoringText('Verify on staging'),
+  'promote-production': authoringText('Promote to production'),
+  'request-approval': authoringText('Request approval'),
+  'approve-production': authoringText('Approve & promote'),
+  retry: authoringText('Try again'),
 };
 
 function stageLabel(label: string, version: number | undefined): string {
@@ -250,10 +255,10 @@ function stageLabel(label: string, version: number | undefined): string {
 }
 
 function verificationLabel(state: AuthoringVerificationState): string {
-  if (state === 'passed') return 'verified';
-  if (state === 'running') return 'verifying';
-  if (state === 'failed') return 'needs review';
-  return 'unverified';
+  if (state === 'passed') return authoringText('verified');
+  if (state === 'running') return authoringText('verifying');
+  if (state === 'failed') return authoringText('needs review');
+  return authoringText('unverified');
 }
 
 function stagingMatchesCurrentDraft(workflow: AuthoringReleaseWorkflowState): boolean {

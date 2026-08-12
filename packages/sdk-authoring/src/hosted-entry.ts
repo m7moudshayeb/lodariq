@@ -32,6 +32,9 @@ import {
   type HostedAuthoringSessionReadyMessage as HostedAuthoringSessionReadyMessageValue,
   type HostedCreatorPanelState,
 } from '@lodariq/schema';
+import { isSupportedLocale, type SupportedLocale } from '@lodariq/i18n';
+import { AUTHORING_LOCALE_QUERY_PARAMETER } from '@lodariq/schema/authoring-entry-runtime';
+import { authoringText, configureAuthoringLocalePreference, currentAuthoringLocale } from './i18n';
 import type { LodariqBrowserApi } from '@lodariq/sdk-runtime/lodariq-loader';
 import type { TourPlayer } from '@lodariq/sdk-runtime/renderers/tour';
 import { adoptHostedAuthoringPanel, type LocalAuthoringPreviewServices } from './authoring';
@@ -49,6 +52,8 @@ export interface HostedCreatorActivation {
   activationGrant: string;
   context: AuthoringActivationGrantContextValue;
   apiOrigin: string;
+  /** Dashboard UI locale captured by the exact-source activation popup. */
+  uiLocale?: SupportedLocale;
   documentIntent?: AuthoringDocumentIntentValue;
   /** Memory-only host callback; its return value is bounded at target-pick time. */
   getTargetStateId?: () => string | undefined;
@@ -66,6 +71,7 @@ interface ValidatedHostedActivation {
   activationGrant: string;
   apiOrigin: typeof LODARIQ_API_ORIGIN | typeof LODARIQ_STAGING_API_ORIGIN;
   context: AuthoringActivationGrantContextValue;
+  uiLocale: SupportedLocale;
   documentIntent?: AuthoringDocumentIntentValue;
   getTargetStateId?: () => string | undefined;
   pageContext: AuthoringPageContextValue;
@@ -92,6 +98,19 @@ export function activateLodariqAuthoring(input: HostedCreatorActivation): Promis
   // one local copy only until the exact editor handoff succeeds or fails.
   input.activationGrant = '';
   hostedEditorActive = true;
+  if (activation.uiLocale !== currentAuthoringLocale()) {
+    return configureAuthoringLocalePreference(activation.uiLocale).then(
+      () =>
+        openHostedEditor(activation, () => {
+          hostedEditorActive = false;
+        }),
+      (error: unknown) => {
+        activation.activationGrant = '';
+        hostedEditorActive = false;
+        throw error;
+      },
+    );
+  }
   return openHostedEditor(activation, () => {
     hostedEditorActive = false;
   });
@@ -379,6 +398,7 @@ function createHostedPreviewServices(
         fallbackPreviewOwnerId = null;
         await installedRuntime.playAuthoringPreview(compiled, {
           ownerId: requestedOwnerId,
+          ...(options.locale ? { locale: options.locale } : {}),
           ...(options.interactive ? { interactive: true } : {}),
           ...(options.stepId ? { initialStepId: options.stepId } : {}),
           ...(options.authoringTargetOverride
@@ -392,6 +412,7 @@ function createHostedPreviewServices(
       const { TourPlayer } = await hostedPreviewRuntime;
       const player = new TourPlayer(compiled, {
         authoringPreviewOwnerId: requestedOwnerId,
+        ...(options.locale ? { locale: options.locale } : {}),
         ...(options.interactive ? { authoringPreviewInteractive: true } : {}),
         ...(options.stepId ? { initialStepId: options.stepId } : {}),
         ...(options.authoringTargetOverride
@@ -482,7 +503,7 @@ function requireHostedActivation(input: unknown): ValidatedHostedActivation {
     !exactRecordWithOptional(
       input,
       ['activationGrant', 'apiOrigin', 'context'],
-      ['documentIntent', 'getTargetStateId'],
+      ['documentIntent', 'getTargetStateId', 'uiLocale'],
     )
   ) {
     throw new Error('Lodariq hosted authoring activation is invalid');
@@ -492,6 +513,7 @@ function requireHostedActivation(input: unknown): ValidatedHostedActivation {
   const context = validate(AuthoringActivationGrantContext, input['context']);
   const suppliedIntent = input['documentIntent'];
   const getTargetStateId = input['getTargetStateId'];
+  const uiLocale = input['uiLocale'];
   const documentIntent =
     suppliedIntent === undefined ? null : validate(AuthoringDocumentIntent, suppliedIntent);
   if (
@@ -499,6 +521,7 @@ function requireHostedActivation(input: unknown): ValidatedHostedActivation {
     activationGrant.length < ACTIVATION_GRANT_MIN_LENGTH ||
     activationGrant.length > ACTIVATION_GRANT_MAX_LENGTH ||
     typeof apiOrigin !== 'string' ||
+    (uiLocale !== undefined && !isSupportedLocale(uiLocale)) ||
     (getTargetStateId !== undefined && typeof getTargetStateId !== 'function') ||
     !TRUSTED_API_ORIGINS.has(apiOrigin) ||
     !context.valid ||
@@ -517,6 +540,7 @@ function requireHostedActivation(input: unknown): ValidatedHostedActivation {
     activationGrant,
     apiOrigin: apiOrigin as ValidatedHostedActivation['apiOrigin'],
     context: structuredClone(context.value),
+    uiLocale: isSupportedLocale(uiLocale) ? uiLocale : currentAuthoringLocale(),
     pageContext: readAuthoringPageContext(window.location),
     ...(typeof getTargetStateId === 'function'
       ? { getTargetStateId: getTargetStateId as () => string | undefined }
@@ -533,8 +557,10 @@ function requireHostedActivation(input: unknown): ValidatedHostedActivation {
 
 function createHostedEditorIframe(ownerDocument: Document): HTMLIFrameElement {
   const iframe = ownerDocument.createElement('iframe');
-  iframe.src = HOSTED_EDITOR_URL;
-  iframe.title = 'Lodariq authoring';
+  const editorUrl = new URL(HOSTED_EDITOR_URL);
+  editorUrl.searchParams.set(AUTHORING_LOCALE_QUERY_PARAMETER, currentAuthoringLocale());
+  iframe.src = editorUrl.toString();
+  iframe.title = authoringText('Lodariq authoring');
   // The static editor uses the origin-only referrer to bind its parent before
   // the closed postMessage handshake; no customer path or credential crosses.
   iframe.referrerPolicy = 'origin';

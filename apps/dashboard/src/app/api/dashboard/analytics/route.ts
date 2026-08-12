@@ -39,7 +39,7 @@ export async function GET(request: Request): Promise<Response> {
     }
     return dashboardJson(response);
   } catch (error) {
-    return dashboardRouteError(error);
+    return await dashboardRouteError(error);
   }
 }
 

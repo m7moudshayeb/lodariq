@@ -1,3 +1,4 @@
+import { authoringText } from '../../../i18n';
 import { validateTourPublishReadiness } from '@lodariq/schema';
 import type { LocalAuthoringFrameController } from '../controller';
 import { AuthoringButton, AuthoringTabs, ChevronDown, Eye, FileJson, Save } from '../design-system';
@@ -21,9 +22,9 @@ export function Inspector({
   const reviewDetail = reviewDetailForState(issues.length, previewReady);
   const reviewStatus = reviewStatusForIssueCount(issues.length);
   return (
-    <aside className="inspector document-review" aria-label="Review and preview">
+    <aside className="inspector document-review" aria-label={authoringText('Review and preview')}>
       <details className="review-drawer">
-        <summary aria-label="Review and preview details">
+        <summary aria-label={authoringText('Review and preview details')}>
           <div className="review-summary-copy">
             <strong>{reviewTitle}</strong>
             <span>{reviewDetail}</span>
@@ -40,50 +41,51 @@ export function Inspector({
         </summary>
 
         <div className="review-panel">
-          <section className="preview-workbench" aria-label="Preview workflow">
+          <section className="preview-workbench" aria-label={authoringText('Preview workflow')}>
             <div className="preview-copy">
-              <strong>Preview in the product</strong>
+              <strong>{authoringText('Preview in the product')}</strong>
               <span>
                 {previewReady
-                  ? 'Latest preview is ready'
-                  : 'Test the real placement and behavior before release'}
+                  ? authoringText('Latest preview is ready')
+                  : authoringText('Test the real placement and behavior before release')}
               </span>
             </div>
             <div className="preview-actions">
               <AuthoringButton
-                aria-label="Preview this step"
+                aria-label={authoringText('Preview this step')}
                 data-action="preview-current"
                 icon={<Eye size={14} strokeWidth={2.2} />}
                 onClick={() => controller.previewCurrentStep()}
                 tone="primary"
               >
-                Preview step
+                {authoringText('Preview step')}
               </AuthoringButton>
               <AuthoringButton
-                aria-label="Preview full tour"
+                aria-label={authoringText('Preview full tour')}
                 data-action="preview-full"
                 icon={<Eye size={14} strokeWidth={2.2} />}
                 onClick={() => controller.previewFullTour()}
               >
-                Preview tour
+                {authoringText('Preview tour')}
               </AuthoringButton>
               <AuthoringButton
-                aria-label="Save draft"
+                aria-label={authoringText('Save draft')}
                 data-action="save"
                 icon={<Save size={14} strokeWidth={2.2} />}
                 onClick={() => controller.saveCurrentDocument()}
               >
-                Save draft
+                {authoringText('Save draft')}
               </AuthoringButton>
             </div>
           </section>
 
           {issues.length === 0 ? null : (
-            <section className="issue-panel" aria-label="Tour issues">
+            <section className="issue-panel" aria-label={authoringText('Tour issues')}>
               <div className="preview-copy">
-                <strong>Fix before release</strong>
+                <strong>{authoringText('Fix before release')}</strong>
                 <span>
-                  {issues.length} item{issues.length === 1 ? '' : 's'} need attention
+                  {issues.length} {authoringText('item')}
+                  {issues.length === 1 ? '' : 's'} {authoringText('need attention')}
                 </span>
               </div>
               <ul>
@@ -98,23 +100,26 @@ export function Inspector({
 
           <details className="utilities-drawer">
             <summary>
-              <span>Support package</span>
-              <small>Advanced recovery</small>
+              <span>{authoringText('Support package')}</span>
+              <small>{authoringText('Advanced recovery')}</small>
             </summary>
             <AuthoringTabs
               defaultValue="preview-details"
               items={[
                 {
-                  label: 'Preview package',
+                  label: authoringText('Preview package'),
                   value: 'preview-details',
                   content: (
-                    <section className="utility-panel preview-utility" aria-label="Preview package">
+                    <section
+                      className="utility-panel preview-utility"
+                      aria-label={authoringText('Preview package')}
+                    >
                       <div className="preview-copy">
-                        <strong>Preview package</strong>
+                        <strong>{authoringText('Preview package')}</strong>
                         <span>
                           {snapshot.compiledText
-                            ? 'Latest preview package is ready'
-                            : 'Preview the tour before updating the package'}
+                            ? authoringText('Latest preview package is ready')
+                            : authoringText('Preview the tour before updating the package')}
                         </span>
                       </div>
                       <AuthoringButton
@@ -122,10 +127,13 @@ export function Inspector({
                         icon={<Eye size={14} strokeWidth={2.2} />}
                         onClick={() => controller.compilePreview()}
                       >
-                        Update package
+                        {authoringText('Update package')}
                       </AuthoringButton>
                       {snapshot.compiledText ? (
-                        <pre className="compiled-output" aria-label="Preview package">
+                        <pre
+                          className="compiled-output"
+                          aria-label={authoringText('Preview package')}
+                        >
                           {snapshot.compiledText}
                         </pre>
                       ) : null}
@@ -133,12 +141,15 @@ export function Inspector({
                   ),
                 },
                 {
-                  label: 'Restore backup',
+                  label: authoringText('Restore backup'),
                   value: 'json',
                   content: (
-                    <section className="utility-panel debug" aria-label="Restore backup">
+                    <section
+                      className="utility-panel debug"
+                      aria-label={authoringText('Restore backup')}
+                    >
                       <textarea
-                        aria-label="Editable backup"
+                        aria-label={authoringText('Editable backup')}
                         data-action="edit-draft-backup"
                         value={snapshot.jsonText}
                         onInput={(event) => controller.setJsonText(event.currentTarget.value)}
@@ -149,33 +160,39 @@ export function Inspector({
                           icon={<FileJson size={14} strokeWidth={2.2} />}
                           onClick={() => controller.importJson()}
                         >
-                          Restore backup
+                          {authoringText('Restore backup')}
                         </AuthoringButton>
                         <AuthoringButton
                           data-action="export"
                           icon={<Save size={14} strokeWidth={2.2} />}
                           onClick={() => controller.exportJson()}
                         >
-                          Copy backup
+                          {authoringText('Copy backup')}
                         </AuthoringButton>
                       </div>
                     </section>
                   ),
                 },
                 {
-                  label: 'Activity report',
+                  label: authoringText('Activity report'),
                   value: 'metrics',
                   content: (
-                    <section className="utility-panel metrics" aria-label="Activity report">
+                    <section
+                      className="utility-panel metrics"
+                      aria-label={authoringText('Activity report')}
+                    >
                       <AuthoringButton
                         data-action="export-metrics"
                         icon={<FileJson size={14} strokeWidth={2.2} />}
                         onClick={() => controller.exportMetrics()}
                       >
-                        Create activity report
+                        {authoringText('Create activity report')}
                       </AuthoringButton>
                       {snapshot.metricsText && snapshot.metricsText !== '{}' ? (
-                        <pre className="metrics-output" aria-label="Activity report">
+                        <pre
+                          className="metrics-output"
+                          aria-label={authoringText('Activity report')}
+                        >
                           {snapshot.metricsText}
                         </pre>
                       ) : null}
@@ -192,17 +209,17 @@ export function Inspector({
 }
 
 function reviewTitleForIssueCount(issueCount: number): string {
-  if (issueCount === 0) return 'Ready to preview';
-  return `${issueCount} to fix before release`;
+  if (issueCount === 0) return authoringText('Ready to preview');
+  return authoringText('{count} to fix before release', { count: issueCount });
 }
 
 function reviewDetailForState(issueCount: number, previewReady: boolean): string {
-  if (issueCount > 0) return 'Draft stays saved while you fix them';
-  if (previewReady) return 'Preview is ready';
-  return 'Test this tour in the product';
+  if (issueCount > 0) return authoringText('Draft stays saved while you fix them');
+  if (previewReady) return authoringText('Preview is ready');
+  return authoringText('Test this tour in the product');
 }
 
 function reviewStatusForIssueCount(issueCount: number): { className: string; label: string } {
-  if (issueCount === 0) return { className: 'ready', label: 'Ready' };
-  return { className: 'needs-work', label: 'Needs review' };
+  if (issueCount === 0) return { className: 'ready', label: authoringText('Ready') };
+  return { className: 'needs-work', label: authoringText('Needs review') };
 }

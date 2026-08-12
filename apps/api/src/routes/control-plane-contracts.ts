@@ -63,6 +63,7 @@ export const HOSTED_RELEASE_RECOVERY_PATH =
   '/v1/authoring/environments/:environmentId/release-recovery';
 export const DASHBOARD_RELEASE_RECOVERY_PATH =
   '/v1/documents/:documentId/environments/:environmentId/release-recovery';
+export const HOSTED_AUTHORING_TRANSLATION_PATH = '/v1/authoring/document/translation';
 
 export const UpdateWorkspaceEnvironmentPolicyBody = Type.Object(
   {

@@ -47,10 +47,18 @@ import {
   PresentationAnchor,
   TextStyleProps,
   TooltipLayoutProps,
+  TooltipStyleProps,
 } from './block';
 import { ElementFingerprint, RuntimeLifecycleHints, Target, TargetIdentityV2 } from './target';
 import { TargetVerificationObservation } from './target-verification';
 import { TriggerDefinition, AudienceDefinition, LodariqDocument } from './document';
+import {
+  ContentLocale,
+  LocalizedBlockContent,
+  DocumentLocaleVariant,
+  DocumentLocalization,
+} from './document-localization';
+import { AuthoringTranslationRequest, AuthoringTranslationResult } from './authoring-translation';
 import {
   OpaqueSrgbColor,
   SrgbColorWithOptionalAlpha,
@@ -117,6 +125,9 @@ import {
   CompiledTarget,
   CompiledDocumentV1,
   CompiledDocumentV2,
+  CompiledDocumentLocaleVariant,
+  CompiledDocumentLocalization,
+  CompiledDocumentV3,
   CompiledDocument,
 } from './compiled';
 import {
@@ -312,6 +323,7 @@ export const SCHEMA_REGISTRY: TSchema[] = [
   BlockLayoutProps,
   ButtonStyleProps,
   TooltipLayoutProps,
+  TooltipStyleProps,
   LodariqBlockProps,
   LodariqBlockType,
   LodariqBlock,
@@ -382,10 +394,19 @@ export const SCHEMA_REGISTRY: TSchema[] = [
   BasicVisualPreflightIssueCode,
   BasicVisualPreflightIssue,
   BasicVisualPreflightReport,
+  ContentLocale,
+  LocalizedBlockContent,
+  DocumentLocaleVariant,
+  DocumentLocalization,
+  AuthoringTranslationRequest,
+  AuthoringTranslationResult,
   CompiledStep,
   CompiledTarget,
   CompiledDocumentV1,
   CompiledDocumentV2,
+  CompiledDocumentLocaleVariant,
+  CompiledDocumentLocalization,
+  CompiledDocumentV3,
   CompiledDocument,
   RendererContractVersion,
   ReleaseMutationGuard,
@@ -546,6 +567,10 @@ export const FASTIFY_REFERENCE_SCHEMA_REGISTRY: TSchema[] = [
   AuthSessionSnapshot,
   ValidationLevel,
   BlockDiagnostic,
+  ContentLocale,
+  LocalizedBlockContent,
+  DocumentLocaleVariant,
+  DocumentLocalization,
   LodariqDocument,
   LodariqBlock,
   PresentationAnchor,
@@ -554,6 +579,7 @@ export const FASTIFY_REFERENCE_SCHEMA_REGISTRY: TSchema[] = [
   BlockLayoutProps,
   ButtonStyleProps,
   TooltipLayoutProps,
+  TooltipStyleProps,
   ElementFingerprint,
   TargetIdentityV2,
   RuntimeLifecycleHints,

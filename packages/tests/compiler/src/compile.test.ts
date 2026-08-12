@@ -105,6 +105,70 @@ describe('compile', () => {
     });
   });
 
+  it('compiles sparse locale variants with resolved fallback copy into one artifact', async () => {
+    const localizedDocument = structuredClone(document);
+    localizedDocument.localization = {
+      defaultLocale: 'en',
+      variants: [
+        {
+          locale: 'de',
+          fallbackLocale: 'en',
+          title: 'Willkommenstour',
+          blocks: [
+            {
+              blockId: 'block_heading_1',
+              content: 'Erstellen Sie Ihr erstes Projekt',
+            },
+          ],
+        },
+        {
+          locale: 'fr',
+          fallbackLocale: 'de',
+          blocks: [
+            {
+              blockId: 'block_paragraph_1',
+              content: 'Les projets organisent le travail de votre équipe.',
+            },
+          ],
+        },
+      ],
+    };
+
+    const compiled = await compileDocument(themedInput(localizedDocument));
+    const french = compiled.localization.variants.find((variant) => variant.locale === 'fr');
+
+    expect(compiled.localization.defaultLocale).toBe('en');
+    expect(compiled.localization.defaultTitle).toBe('Welcome tour');
+    expect(french).toMatchObject({
+      fallbackLocale: 'de',
+      title: 'Willkommenstour',
+    });
+    expect(french?.steps[0]?.body.map((block) => block.text)).toEqual([
+      'Erstellen Sie Ihr erstes Projekt',
+      'Les projets organisent le travail de votre équipe.',
+      'Continue',
+    ]);
+
+    const changedDocument = structuredClone(localizedDocument);
+    changedDocument.localization!.variants[1]!.blocks[0]!.content =
+      'Une formulation française différente.';
+    const changed = await compileDocument(themedInput(changedDocument));
+    expect(changed.contentHash).not.toBe(compiled.contentHash);
+  });
+
+  it('rejects invalid authored-content fallback graphs before publication', () => {
+    const invalid = structuredClone(document);
+    invalid.localization = {
+      defaultLocale: 'en',
+      variants: [
+        { locale: 'de', fallbackLocale: 'fr', blocks: [] },
+        { locale: 'fr', fallbackLocale: 'de', blocks: [] },
+      ],
+    };
+
+    expect(() => compile(themedInput(invalid))).toThrow('Document localization is invalid');
+  });
+
   it('copies exact presentation geometry from the target-bearing tooltip onto the step', () => {
     const mutableDocument = structuredClone(document);
     const source: PresentationAnchor = {
@@ -321,8 +385,8 @@ describe('compile', () => {
     expect(compiled.artifactSchemaVersion).toBe(COMPILED_ARTIFACT_SCHEMA_VERSION);
     expect(compiled.rendererContractVersion).toBe(RENDERER_CONTRACT_VERSION);
     expect(compiled.compilerVersion).toBe(COMPILER_VERSION);
-    expect(COMPILER_VERSION).toBe('0.3.0');
-    expect(RENDERER_CONTRACT_VERSION).toBe('2');
+    expect(COMPILER_VERSION).toBe('0.4.0');
+    expect(RENDERER_CONTRACT_VERSION).toBe('3');
     expect(compiled.theme).toEqual(LODARIQ_ACCESSIBLE_FALLBACK_THEME_V1);
     const result = validate(CompiledDocument, compiled);
     if (!result.valid) {
@@ -347,7 +411,7 @@ describe('compile', () => {
     const changedToken = await compileDocument(themedInput(document, changedTheme));
     const changedRenderer = await compileDocument({
       ...themedInput(document, baselineTheme),
-      rendererContractVersion: '3',
+      rendererContractVersion: '2',
     });
 
     expect(changedToken.contentHash).not.toBe(baseline.contentHash);
@@ -613,6 +677,13 @@ describe('compile', () => {
       radius: 'round',
       showArrow: false,
     };
+    tooltip.props.tooltipStyle = {
+      surfaceColor: '#162033',
+      textColor: '#ffffff',
+      borderColor: '#006b58',
+      borderWeight: 'strong',
+      elevation: 'floating',
+    };
     tooltip.children.splice(tooltip.children.indexOf(button) + 1, 0, {
       id: 'after_button_copy',
       type: 'paragraph',
@@ -633,6 +704,8 @@ describe('compile', () => {
       'after_button_copy',
     ]);
     expect(step.tooltipLayout).toEqual(tooltip.props.tooltipLayout);
+    expect(step.tooltipStyle).toEqual(tooltip.props.tooltipStyle);
+    expect(step.tooltipStyle).not.toBe(tooltip.props.tooltipStyle);
     expect(compiledHeading.contentRuns).toEqual(heading.contentRuns);
     expect(compiledHeading.contentRuns).not.toBe(heading.contentRuns);
     expect(compiledButton.props).toMatchObject({

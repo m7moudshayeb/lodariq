@@ -22,15 +22,15 @@ export function createInlineEditorStyles(
         cursor: text;
         outline: 1px dashed transparent;
         outline-offset: 3px;
-        transition: outline-color 120ms ease, background-color 120ms ease;
+        transition: outline-color 120ms ease;
       }
 
       [${attributes.editable}="true"]:hover {
-        outline-color: rgba(61, 232, 176, 0.55);
+        outline-color: ${AUTHORING_CONTEXT_SURFACE_TOKENS.focus};
       }
 
       [${attributes.editable}="true"]:focus {
-        outline: 2px solid ${AUTHORING_CONTEXT_SURFACE_TOKENS.accent};
+        outline: 2px dashed ${AUTHORING_CONTEXT_SURFACE_TOKENS.focus};
       }
 
       [${attributes.toolbar}="true"] {

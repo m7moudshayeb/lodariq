@@ -1,3 +1,4 @@
+import { authoringText } from '../../../i18n';
 import { useEffect, useId, useRef, useState, type ChangeEvent, type FormEvent } from 'react';
 import type { ReleaseRecoveryRequest } from '@lodariq/schema';
 import {
@@ -15,13 +16,17 @@ import { AuthoringButton } from '../design-system';
 import { useOptionalPanelModeStyles } from '../optional-panel-styles';
 
 const PREPARATION_FAILURE_MESSAGES: Record<AuthoringReleaseRecoveryPreparationFailure, string> = {
-  reason_required: 'Enter a reason for this recovery action.',
-  reason_not_trimmed: 'Remove leading or trailing whitespace from the reason.',
-  reason_too_long: 'Keep the reason to 500 characters or fewer.',
-  rollback_target_required: 'Select one exact prior publication.',
-  rollback_target_invalid: 'Select a prior publication from this release history.',
-  idempotency_key_invalid: 'This recovery confirmation is missing a valid request identity.',
-  correlation_id_invalid: 'This recovery confirmation is missing a valid correlation identity.',
+  reason_required: authoringText('Enter a reason for this recovery action.'),
+  reason_not_trimmed: authoringText('Remove leading or trailing whitespace from the reason.'),
+  reason_too_long: authoringText('Keep the reason to 500 characters or fewer.'),
+  rollback_target_required: authoringText('Select one exact prior publication.'),
+  rollback_target_invalid: authoringText('Select a prior publication from this release history.'),
+  idempotency_key_invalid: authoringText(
+    'This recovery confirmation is missing a valid request identity.',
+  ),
+  correlation_id_invalid: authoringText(
+    'This recovery confirmation is missing a valid correlation identity.',
+  ),
 };
 
 export interface ReleaseHistoryPanelProps {
@@ -43,8 +48,8 @@ export function ReleaseHistoryPanelImplementation({
     <section className="panel-mode-section release-history-panel" aria-labelledby={titleId}>
       <div className="panel-mode-section-heading">
         <span>
-          <small>Immutable release truth</small>
-          <strong id={titleId}>Release history</strong>
+          <small>{authoringText('Immutable release truth')}</small>
+          <strong id={titleId}>{authoringText('Release history')}</strong>
         </span>
       </div>
 
@@ -53,22 +58,27 @@ export function ReleaseHistoryPanelImplementation({
       </p>
 
       {model.historyItems.length > 0 ? (
-        <ol className="release-history-list" aria-label="Release history">
+        <ol className="release-history-list" aria-label={authoringText('Release history')}>
           {model.historyItems.map((item, index) => (
             <ReleaseHistoryRow item={item} key={item.id} labelId={`${titleId}-${index}`} />
           ))}
         </ol>
       ) : (
-        <p className="panel-mode-inline-note">No release history is available for this document.</p>
+        <p className="panel-mode-inline-note">
+          {authoringText('No release history is available for this document.')}
+        </p>
       )}
 
-      <div className="panel-mode-primary-actions" aria-label="Release recovery actions">
+      <div
+        className="panel-mode-primary-actions"
+        aria-label={authoringText('Release recovery actions')}
+      >
         <AuthoringButton
           data-panel-entry="release-recovery-rollback"
           disabled={!rollbackIntent}
           onClick={() => startRecovery(rollbackIntent, onStartRecovery)}
         >
-          Roll back…
+          {authoringText('Roll back…')}
         </AuthoringButton>
         <AuthoringButton
           data-panel-entry="release-recovery-unpublish"
@@ -76,11 +86,15 @@ export function ReleaseHistoryPanelImplementation({
           onClick={() => startRecovery(unpublishIntent, onStartRecovery)}
           tone="danger"
         >
-          Unpublish…
+          {authoringText('Unpublish…')}
         </AuthoringButton>
       </div>
       {!model.canRollback && model.guard ? (
-        <small>No compatible earlier successful publication is available to roll back to.</small>
+        <small>
+          {authoringText(
+            'No compatible earlier successful publication is available to roll back to.',
+          )}
+        </small>
       ) : null}
     </section>
   );
@@ -171,7 +185,7 @@ export function ReleaseRecoveryConfirmationImplementation({
     >
       <div className="panel-mode-section-heading">
         <span>
-          <small>Confirm release recovery</small>
+          <small>{authoringText('Confirm release recovery')}</small>
           <strong id={titleId}>{confirmationTitle(intent)}</strong>
         </span>
       </div>
@@ -182,7 +196,7 @@ export function ReleaseRecoveryConfirmationImplementation({
       <form aria-busy={pending} onSubmit={handleSubmit}>
         {intent.action === 'rollback' ? (
           <label className="panel-mode-field" htmlFor={targetId}>
-            <span>Exact prior publication</span>
+            <span>{authoringText('Exact prior publication')}</span>
             <select
               aria-describedby={submitted && targetFailure ? targetErrorId : undefined}
               aria-invalid={submitted && Boolean(targetFailure)}
@@ -193,7 +207,7 @@ export function ReleaseRecoveryConfirmationImplementation({
               required
               value={targetPublicationId}
             >
-              <option value="">Select a prior publication</option>
+              <option value="">{authoringText('Select a prior publication')}</option>
               {intent.targets.map((target) => (
                 <option key={target.publicationId} value={target.publicationId}>
                   {rollbackTargetLabel(target)}
@@ -207,7 +221,7 @@ export function ReleaseRecoveryConfirmationImplementation({
         ) : null}
 
         <label className="panel-mode-field" htmlFor={reasonId}>
-          <span>Reason</span>
+          <span>{authoringText('Reason')}</span>
           <textarea
             aria-describedby={`${reasonHelpId}${submitted && reasonFailure ? ` ${formErrorId}` : ''}`}
             aria-invalid={submitted && Boolean(reasonFailure)}
@@ -222,17 +236,22 @@ export function ReleaseRecoveryConfirmationImplementation({
             value={reason}
           />
           <small id={reasonHelpId}>
-            Required, 500 characters or fewer, with no leading or trailing whitespace.
+            {authoringText(
+              'Required, 500 characters or fewer, with no leading or trailing whitespace.',
+            )}
           </small>
         </label>
 
-        <dl aria-label="Recovery compare-and-swap guard" className="release-recovery-guard">
+        <dl
+          aria-label={authoringText('Recovery compare-and-swap guard')}
+          className="release-recovery-guard"
+        >
           <div>
-            <dt>Expected generation</dt>
+            <dt>{authoringText('Expected generation')}</dt>
             <dd>{intent.guard.expectedGeneration}</dd>
           </div>
           <div>
-            <dt>Expected active publication</dt>
+            <dt>{authoringText('Expected active publication')}</dt>
             <dd>{intent.guard.expectedActivePublicationId}</dd>
           </div>
         </dl>
@@ -247,7 +266,7 @@ export function ReleaseRecoveryConfirmationImplementation({
 
         <div className="panel-mode-primary-actions">
           <AuthoringButton disabled={pending} onClick={onCancel}>
-            Cancel
+            {authoringText('Cancel')}
           </AuthoringButton>
           <AuthoringButton disabled={!canConfirm} tone="danger" type="submit">
             {pending ? pendingLabel(intent) : confirmLabel(intent)}
@@ -271,41 +290,45 @@ function ReleaseHistoryRow({
         <header>
           <strong id={labelId}>{item.actionLabel}</strong>
           <span>{item.stateLabel}</span>
-          {item.isCurrent ? <span>Current publication</span> : null}
-          {item.rollbackAvailability === 'available' ? <span>Rollback available</span> : null}
-          {item.rollbackAvailability === 'unavailable' ? <span>Rollback unavailable</span> : null}
+          {item.isCurrent ? <span>{authoringText('Current publication')}</span> : null}
+          {item.rollbackAvailability === 'available' ? (
+            <span>{authoringText('Rollback available')}</span>
+          ) : null}
+          {item.rollbackAvailability === 'unavailable' ? (
+            <span>{authoringText('Rollback unavailable')}</span>
+          ) : null}
         </header>
         <p>{item.summary}</p>
         <dl>
           <div>
-            <dt>Generation</dt>
+            <dt>{authoringText('Generation')}</dt>
             <dd>{item.generation}</dd>
           </div>
           <div>
-            <dt>Occurred</dt>
+            <dt>{authoringText('Occurred')}</dt>
             <dd>
               <time dateTime={item.occurredAt}>{item.occurredAt}</time>
             </dd>
           </div>
           <div>
-            <dt>Actor</dt>
-            <dd>{item.actorUserId ?? 'System'}</dd>
+            <dt>{authoringText('Actor')}</dt>
+            <dd>{item.actorUserId ?? authoringText('System')}</dd>
           </div>
           {item.artifact ? (
             <div>
-              <dt>Immutable artifact</dt>
+              <dt>{authoringText('Immutable artifact')}</dt>
               <dd>{item.artifact.compiledArtifactId}</dd>
             </div>
           ) : null}
           {item.reason ? (
             <div>
-              <dt>Reason</dt>
+              <dt>{authoringText('Reason')}</dt>
               <dd>{item.reason}</dd>
             </div>
           ) : null}
           {item.failureMessage ? (
             <div>
-              <dt>Failure</dt>
+              <dt>{authoringText('Failure')}</dt>
               <dd>{item.failureMessage}</dd>
             </div>
           ) : null}
@@ -317,12 +340,17 @@ function ReleaseHistoryRow({
 
 function deploymentSummary(model: AuthoringReleaseRecoveryViewModel): string {
   if (model.deploymentState === 'active') {
-    return `Active publication ${model.activePublicationId} at generation ${model.deploymentGeneration}.`;
+    return authoringText('Active publication {publication} at generation {generation}.', {
+      publication: model.activePublicationId ?? '',
+      generation: model.deploymentGeneration ?? '',
+    });
   }
   if (model.deploymentState === 'inactive') {
-    return `Delivery is inactive at generation ${model.deploymentGeneration}.`;
+    return authoringText('Delivery is inactive at generation {generation}.', {
+      generation: model.deploymentGeneration ?? '',
+    });
   }
-  return 'Release deployment state is unavailable for this document.';
+  return authoringText('Release deployment state is unavailable for this document.');
 }
 
 function startRecovery(
@@ -355,24 +383,38 @@ function requestIdentityFailure(
 }
 
 function confirmationTitle(intent: AuthoringReleaseRecoveryIntent): string {
-  return intent.action === 'rollback' ? 'Roll back this release?' : 'Unpublish this release?';
+  return intent.action === 'rollback'
+    ? authoringText('Roll back this release?')
+    : authoringText('Unpublish this release?');
 }
 
 function confirmationDetail(intent: AuthoringReleaseRecoveryIntent): string {
   if (intent.action === 'rollback') {
-    return 'Select one exact prior successful publication. Lodariq will reuse its immutable artifact and advance only the active release pointer.';
+    return authoringText(
+      'Select one exact prior successful publication. Lodariq will reuse its immutable artifact and advance only the active release pointer.',
+    );
   }
-  return 'Delivery will become inactive. Immutable publications and append-only release history remain available.';
+  return authoringText(
+    'Delivery will become inactive. Immutable publications and append-only release history remain available.',
+  );
 }
 
 function rollbackTargetLabel(target: AuthoringRollbackTarget): string {
-  return `${target.publicationId} · generation ${target.generation} · ${target.actionLabel}`;
+  return authoringText('{publication} · generation {generation} · {action}', {
+    publication: target.publicationId,
+    generation: target.generation,
+    action: target.actionLabel,
+  });
 }
 
 function confirmLabel(intent: AuthoringReleaseRecoveryIntent): string {
-  return intent.action === 'rollback' ? 'Roll back publication' : 'Unpublish release';
+  return intent.action === 'rollback'
+    ? authoringText('Roll back publication')
+    : authoringText('Unpublish release');
 }
 
 function pendingLabel(intent: AuthoringReleaseRecoveryIntent): string {
-  return intent.action === 'rollback' ? 'Rolling back…' : 'Unpublishing…';
+  return intent.action === 'rollback'
+    ? authoringText('Rolling back…')
+    : authoringText('Unpublishing…');
 }

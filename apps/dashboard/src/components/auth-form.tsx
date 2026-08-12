@@ -3,8 +3,12 @@
 import Link from 'next/link';
 import { ArrowRight, LoaderCircle } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
+import { useLingui } from '@lingui/react';
 import { useAuthMutations } from '../hooks/use-auth-mutations';
 import type { AuthSessionSnapshot, EmailVerificationRequiredResponse } from '../lib/auth-contract';
+import { ClientAuthError } from '../lib/client-auth-api';
+import { authErrorMessageDescriptor } from '../i18n/error-messages';
+import { AUTH_FORM_MESSAGES } from '../i18n/messages';
 import { EmailVerificationPanel } from './email-verification-panel';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -35,6 +39,7 @@ export function AuthForm({
   } | null>(null);
   const signUpMode = mode === 'sign-up';
   const auth = useAuthMutations();
+  const { _ } = useLingui();
 
   async function completeAuthentication(session: AuthSessionSnapshot): Promise<void> {
     if (onAuthenticated) {
@@ -69,7 +74,11 @@ export function AuthForm({
       });
       await completeAuthentication(session);
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Please try again.');
+      setError(
+        caught instanceof ClientAuthError
+          ? _(authErrorMessageDescriptor(caught.code, caught.statusCode))
+          : _(AUTH_FORM_MESSAGES.pleaseTryAgain),
+      );
     } finally {
       setPending(false);
     }
@@ -92,7 +101,9 @@ export function AuthForm({
     <form className="grid gap-5" onSubmit={(event) => void submit(event)}>
       {signUpMode ? (
         <div className="grid gap-2">
-          <Label htmlFor={embedded ? 'activation-name' : 'name'}>Your name</Label>
+          <Label htmlFor={embedded ? 'activation-name' : 'name'}>
+            {_(AUTH_FORM_MESSAGES.yourName)}
+          </Label>
           <Input
             autoComplete="name"
             disabled={pending}
@@ -105,7 +116,9 @@ export function AuthForm({
       ) : null}
 
       <div className="grid gap-2">
-        <Label htmlFor={embedded ? 'activation-email' : 'email'}>Email</Label>
+        <Label htmlFor={embedded ? 'activation-email' : 'email'}>
+          {_(AUTH_FORM_MESSAGES.email)}
+        </Label>
         <Input
           autoCapitalize="none"
           autoComplete="email"
@@ -122,13 +135,15 @@ export function AuthForm({
       {!signUpMode ? (
         <div className="grid gap-2">
           <div className="flex items-center justify-between gap-3">
-            <Label htmlFor={embedded ? 'activation-password' : 'password'}>Password</Label>
+            <Label htmlFor={embedded ? 'activation-password' : 'password'}>
+              {_(AUTH_FORM_MESSAGES.password)}
+            </Label>
             {showPasswordRecoveryLink ? (
               <Link
                 className="text-xs font-semibold text-primary hover:underline"
                 href={`/forgot-password?returnTo=${encodeURIComponent(returnTo)}`}
               >
-                Set or reset password
+                {_(AUTH_FORM_MESSAGES.setOrResetPassword)}
               </Link>
             ) : null}
           </div>
@@ -147,7 +162,7 @@ export function AuthForm({
 
       {signUpMode ? (
         <div className="grid gap-2">
-          <Label htmlFor="workspaceName">Workspace</Label>
+          <Label htmlFor="workspaceName">{_(AUTH_FORM_MESSAGES.workspace)}</Label>
           <Input
             autoComplete="organization"
             disabled={pending}
@@ -157,7 +172,7 @@ export function AuthForm({
             required
           />
           <p className="text-xs leading-5 text-muted-foreground">
-            Your shared home for experiences, environments, and releases.
+            {_(AUTH_FORM_MESSAGES.workspaceHelp)}
           </p>
         </div>
       ) : null}
@@ -171,7 +186,7 @@ export function AuthForm({
         </p>
       ) : (
         <span aria-live="polite" className="sr-only">
-          {pending ? 'Signing in' : ''}
+          {pending ? _(AUTH_FORM_MESSAGES.signingIn) : ''}
         </span>
       )}
 
@@ -179,19 +194,19 @@ export function AuthForm({
         {pending ? (
           <LoaderCircle aria-hidden="true" className="animate-spin" />
         ) : (
-          <ArrowRight aria-hidden="true" />
+          <ArrowRight aria-hidden="true" className="rtl:rotate-180" />
         )}
-        {signUpMode ? 'Create account' : 'Continue'}
+        {signUpMode ? _(AUTH_FORM_MESSAGES.createAccount) : _(AUTH_FORM_MESSAGES.continue)}
       </Button>
 
       {!embedded && (signUpMode || showSignUpLink) ? (
         <p className="text-center text-sm text-muted-foreground">
-          {signUpMode ? 'Already have a Lodariq account?' : 'New to Lodariq?'}{' '}
+          {signUpMode ? _(AUTH_FORM_MESSAGES.existingAccount) : _(AUTH_FORM_MESSAGES.newToLodariq)}{' '}
           <Link
             className="font-semibold text-primary hover:underline"
             href={`${signUpMode ? '/sign-in' : '/sign-up'}?returnTo=${encodeURIComponent(returnTo)}`}
           >
-            {signUpMode ? 'Sign in' : 'Create an account'}
+            {signUpMode ? _(AUTH_FORM_MESSAGES.signIn) : _(AUTH_FORM_MESSAGES.createAnAccount)}
           </Link>
         </p>
       ) : null}

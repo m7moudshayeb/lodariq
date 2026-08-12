@@ -28,7 +28,9 @@ const checks = [
   {
     name: 'activation-client',
     entries: ['lodariq-activation.js'],
-    limit: 12 * 1024,
+    // The creator-only activation client carries the small, source-controlled
+    // locale catalog used before the authoring bundle is allowed to load.
+    limit: 18 * 1024,
     forbidden: productionRuntimeForbiddenPatterns(),
   },
   {
@@ -42,7 +44,9 @@ const checks = [
   {
     name: 'runtime+tour',
     entries: ['lodariq-runtime.js', 'renderers/tour.js'],
-    limit: 40 * 1024,
+    // Includes the viewer-facing labels for all production locales; authored
+    // experience content remains in the separately fetched artifact.
+    limit: 46 * 1024,
     forbidden: productionRuntimeForbiddenPatterns(),
   },
 ];

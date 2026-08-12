@@ -1,3 +1,4 @@
+import { authoringText } from '../../../i18n';
 import { lazy, Suspense } from 'react';
 import type { LocalAuthoringFrameController } from '../controller';
 import type { LocalAuthoringFrameSnapshot } from '../types';
@@ -25,7 +26,7 @@ export function PanelBodyMode(props: PanelBodyModeProps) {
 export function OptionalPanelBodyModeFallback() {
   return (
     <p aria-busy="true" aria-live="polite" role="status">
-      Loading authoring tools…
+      {authoringText('Loading authoring tools…')}
     </p>
   );
 }

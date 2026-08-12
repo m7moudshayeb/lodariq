@@ -6,6 +6,7 @@ import {
   sanitizeInlineTextRuns,
   sanitizeTextStyleProps,
   sanitizeTooltipLayoutProps,
+  sanitizeTooltipStyleProps,
   type BlockActionProps,
   type BlockLayoutProps,
   type ButtonStyleProps,
@@ -14,8 +15,10 @@ import {
   type PresentationAnchor,
   type TextStyleProps,
   type TooltipLayoutProps,
+  type TooltipStyleProps,
 } from '@lodariq/schema';
 import { createBlockId } from '../editor/ids';
+import { authoringText } from '../i18n';
 
 export type EditableBlockType =
   'paragraph' | 'heading' | 'list' | 'divider' | 'button' | 'link' | 'media';
@@ -34,13 +37,13 @@ export type InlineTextStylePatch = {
 };
 
 const DEFAULT_CONTENT_BY_TYPE = {
-  heading: 'Untitled heading',
-  paragraph: 'Write supporting copy',
-  list: 'First item\nSecond item',
+  heading: authoringText('Untitled heading'),
+  paragraph: authoringText('Write supporting copy'),
+  list: authoringText('First item\nSecond item'),
   divider: '',
-  button: 'Continue',
-  link: 'Learn more',
-  media: 'Media placeholder',
+  button: authoringText('Continue'),
+  link: authoringText('Learn more'),
+  media: authoringText('Media placeholder'),
 } as const satisfies Record<EditableBlockType, string>;
 
 const DEFAULT_PROPS_BY_TYPE = {
@@ -74,7 +77,10 @@ export function createContentBlock(
   };
 }
 
-export function createTourStep(index: number, title = 'Untitled step'): LodariqBlock {
+export function createTourStep(
+  index: number,
+  title = authoringText('Untitled step'),
+): LodariqBlock {
   return {
     id: createBlockId(),
     type: 'tourStep',
@@ -98,7 +104,7 @@ export function createTourStep(index: number, title = 'Untitled step'): LodariqB
           {
             id: createBlockId(),
             type: 'paragraph',
-            content: 'Write supporting copy',
+            content: authoringText('Write supporting copy'),
             props: {},
             status: 'ready',
             children: [],
@@ -106,7 +112,7 @@ export function createTourStep(index: number, title = 'Untitled step'): LodariqB
           {
             id: createBlockId(),
             type: 'button',
-            content: 'Continue',
+            content: authoringText('Continue'),
             props: { variant: 'primary', action: { type: 'next' } },
             status: 'ready',
             children: [],
@@ -456,7 +462,22 @@ export function setTooltipLayout(
   );
 }
 
-function updateSanitizedBlockProp<TKey extends 'blockLayout' | 'buttonStyle' | 'tooltipLayout'>(
+export function setTooltipStyle(
+  blocks: LodariqBlock[],
+  blockId: string,
+  tooltipStyle?: TooltipStyleProps,
+): LodariqBlock[] {
+  return updateSanitizedBlockProp(
+    blocks,
+    blockId,
+    'tooltipStyle',
+    sanitizeTooltipStyleProps(tooltipStyle),
+  );
+}
+
+function updateSanitizedBlockProp<
+  TKey extends 'blockLayout' | 'buttonStyle' | 'tooltipLayout' | 'tooltipStyle',
+>(
   blocks: LodariqBlock[],
   blockId: string,
   key: TKey,

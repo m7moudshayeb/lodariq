@@ -2,6 +2,7 @@ import type { ElementFingerprint, TargetIdentityV2 } from '@lodariq/schema';
 import { createNonceStyleElement, roleOf } from '@lodariq/schema/dom';
 import { localizedLabelOf } from '@lodariq/sdk-runtime/resolver';
 import { CREATOR_CHROME_FONT_STACK, CREATOR_CHROME_TOKENS } from '../creator-chrome-tokens';
+import { applyAuthoringLocale, authoringText } from '../i18n';
 import {
   captureElementFingerprint,
   captureNeedsConfirmation,
@@ -135,7 +136,7 @@ export function startTargetPicker(options: TargetPickerOptions): TargetPicker {
       doc.documentElement.setAttribute('data-lodariq-target-picker', 'blocked');
       outline.style.display = 'none';
       controls.style.display = 'none';
-      showLabel('Lodariq editor\nChoose an element on the page', event);
+      showLabel(authoringText('Lodariq editor\nChoose an element on the page'), event);
       return;
     }
     doc.documentElement.setAttribute('data-lodariq-target-picker', 'active');
@@ -245,20 +246,29 @@ export function startTargetPicker(options: TargetPickerOptions): TargetPicker {
       '[data-lodariq-bridge="target-card-technical-copy"]',
     );
     if (title) {
-      title.textContent = similar ? 'Choose a more specific area' : 'This placement may change';
+      title.textContent = similar
+        ? authoringText('Choose a more specific area')
+        : authoringText('This placement may change');
     }
     if (copy) {
       copy.textContent = similar
-        ? 'A few places look the same. You can keep this in the draft, but release stays blocked until the placement is specific.'
-        : 'You can keep this in the draft, but release stays blocked until Lodariq can verify it.';
+        ? authoringText(
+            'A few places look the same. You can keep this in the draft, but release stays blocked until the placement is specific.',
+          )
+        : authoringText(
+            'You can keep this in the draft, but release stays blocked until Lodariq can verify it.',
+          );
     }
     if (details) {
       const evidence = identity.captureEvidence;
-      details.textContent = [
-        `Passive samples: ${evidence.sampleCount}.`,
-        `Similar places: ${evidence.uniqueCandidateCount}.`,
-        `Stable cue groups: ${evidence.stableSignalFamilies.length}.`,
-      ].join(' ');
+      details.textContent = authoringText(
+        'Passive samples: {samples}. Similar places: {places}. Stable cue groups: {groups}.',
+        {
+          samples: evidence.sampleCount,
+          places: evidence.uniqueCandidateCount,
+          groups: evidence.stableSignalFamilies.length,
+        },
+      );
     }
     const smaller = controls.querySelector<HTMLButtonElement>('[data-action="deeper"]');
     const larger = controls.querySelector<HTMLButtonElement>('[data-action="parent"]');
@@ -351,7 +361,7 @@ export function startTargetPicker(options: TargetPickerOptions): TargetPicker {
       clickThroughNext = true;
       controls.style.display = 'none';
       showLabel(
-        'Interact with the page\nYour next click will not choose a placement',
+        authoringText('Interact with the page\nYour next click will not choose a placement'),
         current?.getBoundingClientRect() ?? { left: 12, top: 56, width: 0, height: 0 },
       );
     }
@@ -505,6 +515,7 @@ function createHoverLabel(doc: Document): HTMLDivElement {
 
 function createPickerActions(doc: Document): HTMLDivElement {
   const actions = doc.createElement('div');
+  applyAuthoringLocale(actions);
   actions.dataset['lodariqBridge'] = 'target-picker-actions';
   Object.assign(actions.style, {
     position: 'fixed',
@@ -518,8 +529,8 @@ function createPickerActions(doc: Document): HTMLDivElement {
     font: `700 12px/1 ${CREATOR_CHROME_FONT_STACK}`,
   });
   actions.innerHTML = `
-    <button type="button" data-lodariq-bridge="target-interact" data-action="click-through" aria-label="Interact with the page once">Interact first</button>
-    <button type="button" data-lodariq-bridge="target-cancel" data-action="cancel" aria-label="Cancel placement selection">Cancel</button>
+    <button type="button" data-lodariq-bridge="target-interact" data-action="click-through" aria-label="${authoringText('Interact with the page once')}">${authoringText('Interact first')}</button>
+    <button type="button" data-lodariq-bridge="target-cancel" data-action="cancel" aria-label="${authoringText('Cancel placement selection')}">${authoringText('Cancel')}</button>
   `;
   for (const button of actions.querySelectorAll<HTMLButtonElement>('button')) {
     Object.assign(button.style, {
@@ -585,9 +596,10 @@ function positionPickerActionsAwayFromTarget(
 
 function createWeakTargetCard(doc: Document): HTMLDivElement {
   const controls = doc.createElement('div');
+  applyAuthoringLocale(controls);
   controls.dataset['lodariqBridge'] = 'target-controls';
   controls.setAttribute('role', 'dialog');
-  controls.setAttribute('aria-label', 'Review placement');
+  controls.setAttribute('aria-label', authoringText('Review placement'));
   Object.assign(controls.style, {
     position: 'fixed',
     zIndex: String(PICKER_Z_INDEX + 1),
@@ -605,19 +617,19 @@ function createWeakTargetCard(doc: Document): HTMLDivElement {
   });
   controls.innerHTML = `
     <div data-lodariq-bridge="target-card-header" style="display:grid; gap: 4px;">
-      <strong data-lodariq-bridge="target-card-title" style="font-size: 14px; line-height:1.3;">This placement may change</strong>
-      <span data-lodariq-bridge="target-card-copy" style="color:${CREATOR_CHROME_TOKENS.muted};">Lodariq may have trouble finding this after the page changes.</span>
+      <strong data-lodariq-bridge="target-card-title" style="font-size: 14px; line-height:1.3;">${authoringText('This placement may change')}</strong>
+      <span data-lodariq-bridge="target-card-copy" style="color:${CREATOR_CHROME_TOKENS.muted};">${authoringText('Lodariq may have trouble finding this after the page changes.')}</span>
     </div>
     <div data-lodariq-bridge="target-card-actions" style="display:grid; grid-template-columns:1fr 1fr; gap: 8px;">
-      <button type="button" data-lodariq-bridge="target-control" data-action="use">Keep in draft</button>
-      <button type="button" data-lodariq-bridge="target-control" data-action="pick-another">Choose another</button>
+      <button type="button" data-lodariq-bridge="target-control" data-action="use">${authoringText('Keep in draft')}</button>
+      <button type="button" data-lodariq-bridge="target-control" data-action="pick-another">${authoringText('Choose another')}</button>
     </div>
     <details data-lodariq-bridge="target-card-details" style="border-top:1px solid ${CREATOR_CHROME_TOKENS.border}; padding-top: 8px; color:${CREATOR_CHROME_TOKENS.muted};">
-      <summary data-lodariq-bridge="target-card-summary" style="cursor:pointer; font-weight: 700; color:${CREATOR_CHROME_TOKENS.ink};">Troubleshooting details</summary>
-      <p data-lodariq-bridge="target-card-technical-copy" style="margin: 8px 0;">Lodariq is checking this placement.</p>
+      <summary data-lodariq-bridge="target-card-summary" style="cursor:pointer; font-weight: 700; color:${CREATOR_CHROME_TOKENS.ink};">${authoringText('Troubleshooting details')}</summary>
+      <p data-lodariq-bridge="target-card-technical-copy" style="margin: 8px 0;">${authoringText('Lodariq is checking this placement.')}</p>
       <div style="display:grid; grid-template-columns:1fr 1fr; gap: 8px;">
-        <button type="button" data-lodariq-bridge="target-control" data-action="deeper">Smaller area</button>
-        <button type="button" data-lodariq-bridge="target-control" data-action="parent">Larger area</button>
+        <button type="button" data-lodariq-bridge="target-control" data-action="deeper">${authoringText('Smaller area')}</button>
+        <button type="button" data-lodariq-bridge="target-control" data-action="parent">${authoringText('Larger area')}</button>
       </div>
     </details>
   ils>
@@ -732,8 +744,8 @@ function hoverLabelFor(element: Element, currentPlacement: boolean): string {
   const role = roleOf(element) ?? element.tagName.toLowerCase();
   const title = name ? `“${truncate(name, 72)}”` : humanizeToken(role);
   return currentPlacement
-    ? `Current placement · ${title}\nClick to keep or choose another`
-    : `${title}\nClick to attach`;
+    ? authoringText('Current placement · {title}\nClick to keep or choose another', { title })
+    : authoringText('{title}\nClick to attach', { title });
 }
 
 function isAuthoringChrome(element: Element): boolean {
@@ -770,7 +782,9 @@ function isDocumentBoundary(element: Element): boolean {
 
 function humanizeToken(value: string): string {
   const words = value.replace(/[-_]+/g, ' ').trim();
-  return words ? `${words[0]?.toUpperCase() ?? ''}${words.slice(1)}` : 'Page element';
+  return words
+    ? `${words[0]?.toUpperCase() ?? ''}${words.slice(1)}`
+    : authoringText('Page element');
 }
 
 function truncate(value: string, maxLength: number): string {

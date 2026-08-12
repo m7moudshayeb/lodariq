@@ -5,7 +5,7 @@ import {
   RENDERER_CONTRACT_VERSION,
   validate,
   type BrandThemeSnapshot,
-  type CompiledDocumentV2,
+  type CompiledDocumentV3,
   type LodariqDocument,
 } from '@lodariq/schema';
 import {
@@ -53,7 +53,7 @@ describe('runBasicVisualPreflight', () => {
   it('blocks renderer versions that the current runtime does not implement', async () => {
     const artifact = await compileDocument({
       ...themedInput(document),
-      rendererContractVersion: '3',
+      rendererContractVersion: '2',
     });
 
     const report = await runBasicVisualPreflight(artifact, CHECKED_AT);
@@ -121,6 +121,46 @@ describe('runBasicVisualPreflight', () => {
     expect(report.issues.every((issue) => issue.severity === 'warning')).toBe(true);
   });
 
+  it('checks per-popup color overrides against their authored background', async () => {
+    const styledDocument = structuredClone(document);
+    styledDocument.appearance = {
+      preset: 'default',
+      density: 'comfortable',
+      width: 'standard',
+      colorMode: 'light',
+    };
+    const tooltip = styledDocument.blocks[0]?.children.find((block) => block.type === 'tooltip');
+    if (!tooltip) throw new Error('fixture tooltip missing');
+    tooltip.props.tooltipStyle = { surfaceColor: '#000000', textColor: '#000000' };
+    const artifact = await compileDocument(themedInput(styledDocument));
+
+    const report = await runBasicVisualPreflight(artifact, CHECKED_AT);
+
+    expect(report.status).toBe('blocked');
+    expect(report.issues).toEqual(
+      expect.arrayContaining([
+        {
+          code: 'contrast_unusable',
+          severity: 'blocker',
+          subject: 'body_text',
+          colorMode: 'light',
+          stepIndex: 0,
+          measuredRatio: 1,
+          requiredRatio: 3,
+        },
+        {
+          code: 'contrast_unusable',
+          severity: 'blocker',
+          subject: 'muted_text',
+          colorMode: 'light',
+          stepIndex: 0,
+          measuredRatio: 1,
+          requiredRatio: 3,
+        },
+      ]),
+    );
+  });
+
   it('warns about long copy and compact-viewport density without retaining the copy', async () => {
     const longDocument = structuredClone(document);
     const paragraph = longDocument.blocks[0]?.children[0]?.children.find(
@@ -162,7 +202,7 @@ describe('runBasicVisualPreflight', () => {
       url: 'https://customer.example/private',
     });
 
-    const report = await runBasicVisualPreflight(artifact as CompiledDocumentV2, CHECKED_AT);
+    const report = await runBasicVisualPreflight(artifact as CompiledDocumentV3, CHECKED_AT);
 
     expect(report).toEqual({
       schemaVersion: '1',

@@ -1,3 +1,4 @@
+import { authoringText } from '../../../i18n';
 import { lazy, Suspense, useState } from 'react';
 import type { LodariqBlock } from '@lodariq/schema';
 import type { LocalAuthoringFrameController } from '../controller';
@@ -54,7 +55,11 @@ export function AuthoringCanvas({
   if (frameMode === 'panel') {
     if (snapshot.panelWorkflow.mode !== 'edit') {
       return (
-        <section className="canvas panel-canvas" aria-label="Experience editor" tabIndex={-1}>
+        <section
+          className="canvas panel-canvas"
+          aria-label={authoringText('Experience editor')}
+          tabIndex={-1}
+        >
           <div className="document-page">
             <div className="panel-reference-workspace panel-mode-workspace">
               <PanelBodyMode controller={controller} snapshot={snapshot} />
@@ -65,7 +70,11 @@ export function AuthoringCanvas({
       );
     }
     return (
-      <section className="canvas panel-canvas" aria-label="Experience editor" tabIndex={-1}>
+      <section
+        className="canvas panel-canvas"
+        aria-label={authoringText('Experience editor')}
+        tabIndex={-1}
+      >
         <div className="document-page">
           <div className="panel-reference-workspace">
             {advancedStep ? (
@@ -128,7 +137,7 @@ function CanvasEditorLoading() {
   return (
     <div className="canvas-editor-loading" role="status" aria-live="polite">
       <LoaderCircle size={16} aria-hidden="true" />
-      Loading editor
+      {authoringText('Loading editor')}
     </div>
   );
 }
@@ -157,10 +166,14 @@ function PanelWorkspaceFooter({
   };
 
   return (
-    <footer className="panel-workspace-footer" aria-label="Authoring actions" role="contentinfo">
+    <footer
+      className="panel-workspace-footer"
+      aria-label={authoringText('Authoring actions')}
+      role="contentinfo"
+    >
       <span
         className="panel-footer-state"
-        aria-label="Release status"
+        aria-label={authoringText('Release status')}
         data-release-status={snapshot.release.status}
       >
         <button
@@ -169,7 +182,7 @@ function PanelWorkspaceFooter({
           onClick={() => controller.requestSaveAndExit()}
         >
           <Save size={16} strokeWidth={2} aria-hidden="true" />
-          Save &amp; exit
+          {authoringText('Save & exit')}
         </button>
         <span
           className="panel-save-status"
@@ -190,21 +203,25 @@ function PanelWorkspaceFooter({
           </span>
         </span>
       </span>
-      <span className="panel-release-actions" role="group" aria-label="Experience actions">
+      <span
+        className="panel-release-actions"
+        role="group"
+        aria-label={authoringText('Experience actions')}
+      >
         <button type="button" onClick={() => controller.previewFullTour()}>
           <Eye size={16} strokeWidth={2} aria-hidden="true" />
-          Preview
+          {authoringText('Preview')}
         </button>
         <button
           type="button"
           className="publish"
           data-panel-entry="release"
-          aria-label="Release options"
+          aria-label={authoringText('Release options')}
           onClick={() => controller.openReleaseVerificationMode()}
         >
           <Rocket size={16} strokeWidth={2} aria-hidden="true" />
-          <span className="panel-release-full">Release options</span>
-          <span className="panel-release-short">Release</span>
+          <span className="panel-release-full">{authoringText('Release options')}</span>
+          <span className="panel-release-short">{authoringText('Release')}</span>
         </button>
         <AuthoringPopover
           align="end"
@@ -212,19 +229,19 @@ function PanelWorkspaceFooter({
             <div
               className="panel-more-actions-menu"
               role="menu"
-              aria-label="More experience actions"
+              aria-label={authoringText('More experience actions')}
             >
               <button
                 type="button"
                 data-panel-entry="appearance"
-                aria-label="Customize"
+                aria-label={authoringText('Customize')}
                 onClick={() => runMoreAction(() => controller.openAppearanceMode())}
                 role="menuitem"
               >
                 <Palette size={16} strokeWidth={2} aria-hidden="true" />
                 <span>
-                  <strong>Customize</strong>
-                  <small>Brand and appearance</small>
+                  <strong>{authoringText('Customize')}</strong>
+                  <small>{authoringText('Brand and appearance')}</small>
                 </span>
               </button>
               <button
@@ -238,8 +255,8 @@ function PanelWorkspaceFooter({
               >
                 <SlidersHorizontal size={16} strokeWidth={2} aria-hidden="true" />
                 <span>
-                  <strong>Review &amp; recovery</strong>
-                  <small>Checks, history, and recovery</small>
+                  <strong>{authoringText('Review & recovery')}</strong>
+                  <small>{authoringText('Checks, history, and recovery')}</small>
                 </span>
               </button>
             </div>
@@ -253,7 +270,7 @@ function PanelWorkspaceFooter({
             <button
               type="button"
               className="panel-more-actions-trigger"
-              aria-label="More experience actions"
+              aria-label={authoringText('More experience actions')}
             >
               <MoreHorizontal size={18} strokeWidth={2.2} aria-hidden="true" />
             </button>
@@ -282,10 +299,10 @@ function PanelAdvancedEditor({
           onClick={() => controller.closeAdvancedEditor()}
         >
           <ArrowLeft size={15} strokeWidth={2.2} aria-hidden="true" />
-          <span>Back to editor</span>
+          <span>{authoringText('Back to editor')}</span>
         </button>
         <span className="panel-advanced-title">
-          <small>Review &amp; recovery</small>
+          <small>{authoringText('Review & recovery')}</small>
           <strong>{blockDisplayTitle(step)}</strong>
         </span>
         <span

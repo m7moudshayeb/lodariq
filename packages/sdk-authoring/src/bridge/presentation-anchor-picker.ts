@@ -1,5 +1,6 @@
 import type { PresentationAnchor } from '@lodariq/schema';
 import { CREATOR_CHROME_FONT_STACK, CREATOR_CHROME_TOKENS } from '../creator-chrome-tokens';
+import { applyAuthoringLocale, authoringText } from '../i18n';
 
 const PICKER_Z_INDEX = 2_147_483_645;
 const MEANINGFUL_DRAG_DISTANCE = 6;
@@ -164,7 +165,7 @@ export function startPresentationAnchorPicker(
       }
       pointerGesture = null;
       renderCurrentAnchor(options.current);
-      status.textContent = 'The element moved. Start the click or drag again.';
+      status.textContent = authoringText('The element moved. Start the click or drag again.');
     }
     currentOwnerRect = nextOwnerRect;
     Object.assign(outline.style, {
@@ -213,7 +214,7 @@ export function startPresentationAnchorPicker(
     keyboardPoint = { x: normalizedStart.xRatio, y: normalizedStart.yRatio };
     selectedRegion.style.display = 'none';
     renderPoint(pointMarker, keyboardPoint);
-    status.textContent = 'Drag to mark an area, or release to use this point.';
+    status.textContent = authoringText('Drag to mark an area, or release to use this point.');
     event.preventDefault();
     event.stopPropagation();
   }
@@ -271,7 +272,9 @@ export function startPresentationAnchorPicker(
       };
       selectedRegion.style.display = 'none';
       renderPoint(pointMarker, keyboardPoint);
-      status.textContent = 'Point moved. Press Enter to use it, or Escape to cancel.';
+      status.textContent = authoringText(
+        'Point moved. Press Enter to use it, or Escape to cancel.',
+      );
       event.preventDefault();
       event.stopPropagation();
       return;
@@ -307,7 +310,10 @@ function createOwnerOutline(doc: Document): HTMLDivElement {
   outline.dataset['lodariqBridge'] = 'presentation-anchor-outline';
   outline.tabIndex = 0;
   outline.setAttribute('role', 'group');
-  outline.setAttribute('aria-label', 'Choose an exact area inside the selected element');
+  outline.setAttribute(
+    'aria-label',
+    authoringText('Choose an exact area inside the selected element'),
+  );
   outline.setAttribute(
     'aria-describedby',
     'lodariq-presentation-anchor-instructions lodariq-presentation-anchor-status',
@@ -367,6 +373,7 @@ function createPointMarker(doc: Document): HTMLDivElement {
 
 function createGuidance(doc: Document): HTMLDivElement {
   const guidance = doc.createElement('div');
+  applyAuthoringLocale(guidance);
   guidance.dataset['lodariqBridge'] = 'presentation-anchor-guidance';
   Object.assign(guidance.style, {
     position: 'fixed',
@@ -388,10 +395,10 @@ function createGuidance(doc: Document): HTMLDivElement {
   });
   guidance.innerHTML = `
     <span style="display:grid; min-width:0; gap: 1px; flex:1 1 auto;">
-      <strong id="lodariq-presentation-anchor-instructions" style="font-size: 12px;">Choose an exact area</strong>
+      <strong id="lodariq-presentation-anchor-instructions" style="font-size: 12px;">${authoringText('Choose an exact area')}</strong>
       <span id="lodariq-presentation-anchor-status" data-lodariq-bridge="presentation-anchor-status" role="status" aria-live="polite">${defaultGuidance()}</span>
     </span>
-    <button type="button" data-lodariq-bridge="presentation-anchor-cancel" data-action="cancel-presentation-anchor" aria-label="Cancel exact area selection">Cancel</button>
+    <button type="button" data-lodariq-bridge="presentation-anchor-cancel" data-action="cancel-presentation-anchor" aria-label="${authoringText('Cancel exact area selection')}">${authoringText('Cancel')}</button>
     `;
   const button = guidance.querySelector<HTMLButtonElement>('button');
   if (button) {
@@ -412,14 +419,18 @@ function createGuidance(doc: Document): HTMLDivElement {
 }
 
 function defaultGuidance(): string {
-  return 'Drag for an area, click for a point, or use Arrow keys then Enter. Esc cancels.';
+  return authoringText(
+    'Drag for an area, click for a point, or use Arrow keys then Enter. Esc cancels.',
+  );
 }
 
 function readableOwnerRect(owner: Element): DOMRect {
-  if (!owner.isConnected) throw new Error('The selected element is no longer on the page');
+  if (!owner.isConnected) {
+    throw new Error(authoringText('The selected element is no longer on the page'));
+  }
   const rect = visibleOwnerRect(owner);
   if (rect) return rect;
-  throw new Error('The selected element has no visible area');
+  throw new Error(authoringText('The selected element has no visible area'));
 }
 
 function visibleOwnerRect(owner: Element): DOMRect | null {

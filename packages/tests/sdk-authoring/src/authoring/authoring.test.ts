@@ -327,6 +327,69 @@ describe('local authoring panel (PRD §16.1)', () => {
     ]);
   });
 
+  it('auto-translates missing copy into the selected language without publishing', async () => {
+    const translateDocument = vi.fn(async (request) => ({
+      document: {
+        ...structuredClone(request.document),
+        localization: {
+          defaultLocale: 'en',
+          variants: [
+            {
+              locale: 'fr',
+              fallbackLocale: 'en',
+              title: 'Visite de bienvenue',
+              blocks: [
+                { blockId: 'heading_1', content: 'Créez votre premier projet' },
+                { blockId: 'button_1', content: 'Continuer' },
+              ],
+            },
+          ],
+        },
+      },
+      sourceLocale: 'en',
+      targetLocale: 'fr',
+      translatedTitle: true,
+      translatedBlockCount: 2,
+      translatedCharacterCount: 52,
+    }));
+    const saveDocument = vi.fn();
+    const controller = new LocalAuthoringFrameController({
+      root: document.body,
+      baseDocument,
+      services: {
+        loadDocument: () => structuredClone(baseDocument),
+        saveDocument,
+        translateDocument,
+        exportDocument: (value) => JSON.stringify(value),
+        importDocument: (value) => JSON.parse(value) as LodariqDocument,
+        resetDocuments: vi.fn(),
+        compilePreview: vi.fn(),
+        recordMetric: vi.fn(),
+        getMetricsSummary: vi.fn(() => ({})),
+        exportMetricsReport: vi.fn(() => '{}'),
+      },
+      frameMode: 'panel',
+      sessionId: LOCAL_AUTHORING_SESSION_ID,
+      peerWindow: window,
+      allowedOrigins: [window.location.origin],
+      targetOrigin: window.location.origin,
+    });
+
+    controller.setContentLocale('fr');
+    await controller.translateMissingCopy();
+
+    expect(controller.getSnapshot().translation.available).toBe(true);
+    expect(translateDocument).toHaveBeenCalledWith({
+      document: expect.objectContaining({ id: baseDocument.id }),
+      targetLocale: 'fr',
+      mode: 'missing',
+    });
+    expect(saveDocument).toHaveBeenCalledOnce();
+    expect(controller.getSnapshot().documentState.title).toBe('Visite de bienvenue');
+    expect(controller.getSnapshot().translation.state).toBe('idle');
+    expect(controller.getSnapshot().status).toBe('Translated 3 items to fr');
+  });
+
   it('offers size presets and keyboard resizing without changing authoring tokens', () => {
     const panel = openLocalAuthoringPanel(
       {

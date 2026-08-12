@@ -1,6 +1,7 @@
 import { Type, type Static } from '@sinclair/typebox';
 import { ANALYTICS_EVENT_LIMITS, ANALYTICS_INGEST_DIAGNOSTIC_CODES } from './events-runtime';
 import { TargetLocale, TargetSignalFamily, TargetViewportClass } from './target';
+import { ContentLocale } from './document-localization';
 import {
   TARGET_RESOLUTION_STATUSES,
   TargetCandidateCountBucket,
@@ -194,6 +195,7 @@ export const AnalyticsEnvironmentQuery = Type.Object(
     documentId: Type.Optional(AnalyticsIdentifier),
     publicationId: Type.Optional(AnalyticsIdentifier),
     contentHash: Type.Optional(AnalyticsContentHash),
+    locale: Type.Optional(Type.Ref(ContentLocale)),
     from: Type.Optional(Type.String({ format: 'date-time' })),
     to: Type.Optional(Type.String({ format: 'date-time' })),
     limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 1_000 })),
@@ -223,6 +225,7 @@ const AnalyticsAggregateDimensions = {
   publicationId: AnalyticsIdentifier,
   contentHash: AnalyticsContentHash,
   pointerGeneration: Type.Integer({ minimum: 1 }),
+  locale: Type.Optional(Type.Ref(ContentLocale)),
   count: Type.Integer({ minimum: 1, maximum: Number.MAX_SAFE_INTEGER }),
   firstTimestamp: Type.String({ format: 'date-time' }),
   lastTimestamp: Type.String({ format: 'date-time' }),

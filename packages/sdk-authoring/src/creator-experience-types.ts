@@ -6,9 +6,10 @@
 export const CREATOR_ENABLED_EXPERIENCE_TYPES = [
   {
     id: 'tour',
-    label: 'Tour',
-    description: 'Guide people through a short sequence on this page.',
+    label: authoringText('Tour'),
+    description: authoringText('Guide people through a short sequence on this page.'),
   },
 ] as const;
 
 export type CreatorEnabledExperienceType = (typeof CREATOR_ENABLED_EXPERIENCE_TYPES)[number]['id'];
+import { authoringText } from './i18n';

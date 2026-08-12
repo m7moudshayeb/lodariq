@@ -1,4 +1,5 @@
 import type { AuthoringPanelLayoutMode } from '@lodariq/schema';
+import { authoringText } from '../i18n';
 import {
   Focus,
   GripVertical,
@@ -18,10 +19,15 @@ export const AUTHORING_PANEL_LAYOUTS = {
 export const AUTHORING_PANEL_LAYOUT_VALUES = new Set<string>(Object.keys(AUTHORING_PANEL_LAYOUTS));
 export type AuthoringPanelLayoutChoice = AuthoringPanelLayoutMode | 'custom';
 export const AUTHORING_PANEL_LAYOUT_OPTIONS = [
-  { value: 'compact', label: 'Compact', icon: PanelRightClose },
-  { value: 'standard', label: 'Standard', icon: PanelRight },
-  { value: 'focus', label: 'Focused', icon: Focus },
-  { value: 'custom', label: 'Custom', icon: Maximize2, omitFromList: true },
+  { value: 'compact', label: authoringText('Compact'), icon: PanelRightClose },
+  { value: 'standard', label: authoringText('Standard'), icon: PanelRight },
+  { value: 'focus', label: authoringText('Focused'), icon: Focus },
+  {
+    value: 'custom',
+    label: authoringText('Custom'),
+    icon: Maximize2,
+    omitFromList: true,
+  },
 ] as const satisfies ReadonlyArray<{
   value: AuthoringPanelLayoutChoice;
   label: string;
@@ -55,15 +61,15 @@ export const AUTHORING_AUTOSAVE_MAX_RETRIES = 2;
 export const AUTHORING_SAVE_REQUEST_TIMEOUT_MS = 5_000;
 export const HOSTED_SESSION_CLOSE_TIMEOUT_MS = 5_000;
 export const AUTHORING_PANEL_LABELS = {
-  close: 'Close authoring',
-  draftSaved: 'Draft saved',
-  minimize: 'Minimize authoring panel',
-  movePanel: 'Move Lodariq authoring panel. Use arrow keys to reposition it.',
-  restore: 'Restore authoring panel',
-  savingDraft: 'Saving draft…',
-  discardingDraft: 'Closing authoring…',
-  selectExactArea: 'Choose an exact area · Esc to cancel',
-  selectTarget: 'Select an element · Esc to cancel',
+  close: authoringText('Close authoring'),
+  draftSaved: authoringText('Draft saved'),
+  minimize: authoringText('Minimize authoring panel'),
+  movePanel: authoringText('Move Lodariq authoring panel. Use arrow keys to reposition it.'),
+  restore: authoringText('Restore authoring panel'),
+  savingDraft: authoringText('Saving draft…'),
+  discardingDraft: authoringText('Closing authoring…'),
+  selectExactArea: authoringText('Choose an exact area · Esc to cancel'),
+  selectTarget: authoringText('Select an element · Esc to cancel'),
 } as const;
 export const AUTHORING_PANEL_KEYBOARD_OFFSETS: Readonly<
   Partial<Record<KeyboardEvent['key'], { x: number; y: number }>>

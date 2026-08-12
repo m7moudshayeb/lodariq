@@ -14,7 +14,13 @@ import {
   createElement as createLucideElement,
   type IconNode,
 } from 'lucide';
-import { resolveTourActionRecipe, resolveTourCompositionRecipe } from './tour-recipes';
+import {
+  TOUR_POPUP_STYLE_VARIABLES,
+  resolveTourActionRecipe,
+  resolveTourCompositionRecipe,
+  resolveTourPopupStyleRecipe,
+  tourPopupStyleVariables,
+} from './tour-recipes';
 
 export type RuntimeBodyNode = CompiledStep['body'][number];
 export type RuntimeAction = NonNullable<RuntimeBodyNode['props']['action']>;
@@ -198,6 +204,7 @@ function applyButtonPresentation(element: HTMLElement, node: RuntimeBodyNode): v
 
 export function applyStepComposition(card: HTMLElement, step: CompiledStep): void {
   const recipe = resolveTourCompositionRecipe(step.tooltipLayout);
+  const popupStyle = resolveTourPopupStyleRecipe(step.tooltipStyle);
   if (recipe.widthPx !== null) {
     card.dataset['lodariqPopupWidth'] = 'custom';
     card.style.setProperty('--lq-popup-width', `${recipe.widthPx}px`);
@@ -219,6 +226,12 @@ export function applyStepComposition(card: HTMLElement, step: CompiledStep): voi
   card.dataset['lodariqCompositionPadding'] = recipe.padding;
   card.dataset['lodariqPopupRadius'] = recipe.radius;
   card.dataset['lodariqPointerArrow'] = recipe.showArrow ? 'show' : 'hide';
+  card.dataset['lodariqPopupBorderWeight'] = popupStyle.borderWeight;
+  card.dataset['lodariqPopupElevation'] = popupStyle.elevation;
+  for (const variable of TOUR_POPUP_STYLE_VARIABLES) card.style.removeProperty(variable);
+  for (const [variable, value] of Object.entries(tourPopupStyleVariables(popupStyle))) {
+    if (value) card.style.setProperty(variable, value);
+  }
 }
 
 export function appendStepBody(

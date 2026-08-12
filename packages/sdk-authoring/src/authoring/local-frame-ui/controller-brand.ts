@@ -1,4 +1,5 @@
 import { ControllerBridgeFeature } from './controller-bridge';
+import { authoringText } from '../../i18n';
 import { AUTHORING_THEME_PREVIEW_APPLY_TYPE, BRIDGE_PROTOCOL_VERSION } from '@lodariq/schema';
 import { createBridgeCorrelationId } from '../../bridge/transport';
 import type {
@@ -14,8 +15,9 @@ export abstract class ControllerBrandFeature extends ControllerBridgeFeature {
   ): Promise<void> {
     const sampleBrandStyle = this.services.sampleBrandStyle;
     if (!sampleBrandStyle) {
-      this.panelWorkflowError =
-        'Product matching is available from an authenticated development or staging session.';
+      this.panelWorkflowError = authoringText(
+        'Product matching is available from an authenticated development or staging session.',
+      );
       this.emit();
       return;
     }
@@ -29,8 +31,8 @@ export abstract class ControllerBrandFeature extends ControllerBridgeFeature {
     this.panelWorkflowError = null;
     this.panelWorkflowNotice =
       strategy === 'select-element'
-        ? 'Choose one representative product element.'
-        : 'Matching the current step placement.';
+        ? authoringText('Choose one representative product element.')
+        : authoringText('Matching the current step placement.');
     this.emit();
 
     try {
@@ -55,8 +57,9 @@ export abstract class ControllerBrandFeature extends ControllerBridgeFeature {
       if (!this.panelWorkflowRequestIsCurrent(requestVersion)) return;
       this.panelOperation = null;
       this.panelWorkflowNotice = null;
-      this.panelWorkflowError =
-        'This product style could not be sampled. Choose another representative element.';
+      this.panelWorkflowError = authoringText(
+        'This product style could not be sampled. Choose another representative element.',
+      );
       this.emit();
     }
   }
@@ -69,7 +72,7 @@ export abstract class ControllerBrandFeature extends ControllerBridgeFeature {
     const applyBrandMatch = this.services.applyBrandMatch;
     if (!applyBrandMatch) {
       if (!automatic) {
-        this.panelWorkflowError = 'This session cannot save Brand proposals.';
+        this.panelWorkflowError = authoringText('This session cannot save Brand proposals.');
         this.emit();
       }
       return;
@@ -86,8 +89,9 @@ export abstract class ControllerBrandFeature extends ControllerBridgeFeature {
       if (result.persisted.draftRevision < this.highestAdoptedBrandDraftRevision) {
         if (!automatic) {
           this.panelOperation = null;
-          this.panelWorkflowError =
-            'A newer Brand draft is already active. Run Product match again to review the latest draft.';
+          this.panelWorkflowError = authoringText(
+            'A newer Brand draft is already active. Run Product match again to review the latest draft.',
+          );
           this.emit();
         }
         return;
@@ -96,8 +100,9 @@ export abstract class ControllerBrandFeature extends ControllerBridgeFeature {
       if (adopted === false) {
         if (!automatic) {
           this.panelOperation = null;
-          this.panelWorkflowError =
-            'The saved Brand draft conflicts with the active preview. Run Product match again.';
+          this.panelWorkflowError = authoringText(
+            'The saved Brand draft conflicts with the active preview. Run Product match again.',
+          );
           this.emit();
         }
         return;
@@ -112,8 +117,9 @@ export abstract class ControllerBrandFeature extends ControllerBridgeFeature {
         if (!this.panelWorkflowRequestIsCurrent(requestVersion)) return;
         if (!automatic) {
           this.panelOperation = null;
-          this.panelWorkflowError =
-            'Product match was saved, but the preview could not refresh. Try again.';
+          this.panelWorkflowError = authoringText(
+            'Product match was saved, but the preview could not refresh. Try again.',
+          );
           this.emit();
         }
         return;
@@ -127,8 +133,8 @@ export abstract class ControllerBrandFeature extends ControllerBridgeFeature {
         this.panelReturnMode = 'edit';
         this.panelWorkflowNotice =
           result.savedAs === 'unchanged'
-            ? 'The current Brand theme already matches this product evidence.'
-            : 'Product match saved as a workspace draft for approval.';
+            ? authoringText('The current Brand theme already matches this product evidence.')
+            : authoringText('Product match saved as a workspace draft for approval.');
         this.panelFocusToken += 1;
       }
       this.emit();
@@ -136,7 +142,7 @@ export abstract class ControllerBrandFeature extends ControllerBridgeFeature {
       if (!this.panelWorkflowRequestIsCurrent(requestVersion)) return;
       if (!automatic) {
         this.panelOperation = null;
-        this.panelWorkflowError = 'The Brand proposal could not be saved.';
+        this.panelWorkflowError = authoringText('The Brand proposal could not be saved.');
         this.emit();
       }
     }
@@ -169,8 +175,8 @@ export abstract class ControllerBrandFeature extends ControllerBridgeFeature {
     this.openPanelMode('release-verification', 'edit');
     if (!staging || !verifyStagingRelease) {
       this.panelWorkflowError = staging
-        ? 'Exact staging verification is not available in this session.'
-        : 'Publish this draft to staging before verification.';
+        ? authoringText('Exact staging verification is not available in this session.')
+        : authoringText('Publish this draft to staging before verification.');
       this.emit();
       return;
     }
@@ -205,8 +211,8 @@ export abstract class ControllerBrandFeature extends ControllerBridgeFeature {
       this.panelOperation = null;
       this.panelWorkflowNotice =
         result.verification.state === 'passed'
-          ? 'The exact staged artifact is verified.'
-          : 'Verification found issues that need attention.';
+          ? authoringText('The exact staged artifact is verified.')
+          : authoringText('Verification found issues that need attention.');
       this.emit();
     } catch {
       if (!this.panelWorkflowRequestIsCurrent(requestVersion) || !this.releaseWorkflow?.staging) {
@@ -223,7 +229,7 @@ export abstract class ControllerBrandFeature extends ControllerBridgeFeature {
         },
       };
       this.panelOperation = null;
-      this.panelWorkflowError = 'The exact staged artifact could not be verified.';
+      this.panelWorkflowError = authoringText('The exact staged artifact could not be verified.');
       this.emit();
     }
   }
@@ -233,12 +239,14 @@ export abstract class ControllerBrandFeature extends ControllerBridgeFeature {
     const staging = workflow?.staging;
     const promoteExactArtifact = this.services.promoteExactArtifact;
     if (!workflow || !staging || staging.verification.state !== 'passed') {
-      this.panelWorkflowError = 'Verify the exact staged artifact before promotion.';
+      this.panelWorkflowError = authoringText('Verify the exact staged artifact before promotion.');
       this.emit();
       return;
     }
     if (!promoteExactArtifact) {
-      this.panelWorkflowError = 'Production promotion is not available in this session.';
+      this.panelWorkflowError = authoringText(
+        'Production promotion is not available in this session.',
+      );
       this.emit();
       return;
     }
@@ -260,14 +268,14 @@ export abstract class ControllerBrandFeature extends ControllerBridgeFeature {
       this.panelMode = 'release-verification';
       this.panelReturnMode = 'edit';
       this.panelWorkflowNotice = result.replayed
-        ? 'Production already points to this exact artifact.'
-        : 'This exact staged artifact is live in production.';
+        ? authoringText('Production already points to this exact artifact.')
+        : authoringText('This exact staged artifact is live in production.');
       this.panelFocusToken += 1;
       this.emit();
     } catch {
       if (!this.panelWorkflowRequestIsCurrent(requestVersion)) return;
       this.panelOperation = null;
-      this.panelWorkflowError = 'The exact staged artifact could not be promoted.';
+      this.panelWorkflowError = authoringText('The exact staged artifact could not be promoted.');
       this.emit();
     }
   }
@@ -276,7 +284,9 @@ export abstract class ControllerBrandFeature extends ControllerBridgeFeature {
     const workflow = this.releaseWorkflow;
     const requestPromotionApproval = this.services.requestPromotionApproval;
     if (!workflow?.staging || workflow.approval !== 'required' || !requestPromotionApproval) {
-      this.panelWorkflowError = 'Promotion approval cannot be requested in this session.';
+      this.panelWorkflowError = authoringText(
+        'Promotion approval cannot be requested in this session.',
+      );
       this.emit();
       return;
     }
@@ -295,13 +305,13 @@ export abstract class ControllerBrandFeature extends ControllerBridgeFeature {
       this.panelOperation = null;
       this.panelWorkflowNotice =
         result.approval === 'approved'
-          ? 'Production approval is ready.'
-          : 'Promotion approval was requested.';
+          ? authoringText('Production approval is ready.')
+          : authoringText('Promotion approval was requested.');
       this.emit();
     } catch {
       if (!this.panelWorkflowRequestIsCurrent(requestVersion)) return;
       this.panelOperation = null;
-      this.panelWorkflowError = 'Promotion approval could not be requested.';
+      this.panelWorkflowError = authoringText('Promotion approval could not be requested.');
       this.emit();
     }
   }
@@ -321,12 +331,16 @@ export abstract class ControllerBrandFeature extends ControllerBridgeFeature {
       !canApprove ||
       !operationId
     ) {
-      this.panelWorkflowError = 'This production approval is not ready for your action.';
+      this.panelWorkflowError = authoringText(
+        'This production approval is not ready for your action.',
+      );
       this.emit();
       return;
     }
     if (!approveAndPromote) {
-      this.panelWorkflowError = 'Production approval is not available in this session.';
+      this.panelWorkflowError = authoringText(
+        'Production approval is not available in this session.',
+      );
       this.emit();
       return;
     }
@@ -356,14 +370,16 @@ export abstract class ControllerBrandFeature extends ControllerBridgeFeature {
       this.panelMode = 'release-verification';
       this.panelReturnMode = 'edit';
       this.panelWorkflowNotice = result.replayed
-        ? 'This approval was already applied to the exact production artifact.'
-        : 'Approved. This exact staged artifact is live in production.';
+        ? authoringText('This approval was already applied to the exact production artifact.')
+        : authoringText('Approved. This exact staged artifact is live in production.');
       this.panelFocusToken += 1;
       this.emit();
     } catch {
       if (!this.panelWorkflowRequestIsCurrent(requestVersion)) return;
       this.panelOperation = null;
-      this.panelWorkflowError = 'The exact staged artifact could not be approved and promoted.';
+      this.panelWorkflowError = authoringText(
+        'The exact staged artifact could not be approved and promoted.',
+      );
       this.emit();
     }
   }

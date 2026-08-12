@@ -24,12 +24,14 @@ export interface SignUpInput {
 }
 
 export class ClientAuthError extends Error {
+  readonly code?: string;
   readonly statusCode: number;
 
-  constructor(statusCode: number, message: string) {
+  constructor(statusCode: number, message: string, code?: string) {
     super(message);
     this.name = 'ClientAuthError';
     this.statusCode = statusCode;
+    this.code = code;
   }
 }
 
@@ -138,11 +140,13 @@ async function sameOriginFetch(path: string, init: RequestInit): Promise<Respons
 
 async function clientAuthError(response: Response): Promise<ClientAuthError> {
   let message = response.status === 401 ? 'Email or password is incorrect.' : 'Please try again.';
+  let code: string | undefined;
   try {
-    const payload = (await response.json()) as { message?: unknown };
+    const payload = (await response.json()) as { error?: unknown; message?: unknown };
     if (typeof payload.message === 'string' && payload.message.trim()) message = payload.message;
+    if (typeof payload.error === 'string' && payload.error.trim()) code = payload.error;
   } catch {
     // The BFF intentionally redacts non-JSON upstream failures.
   }
-  return new ClientAuthError(response.status, message);
+  return new ClientAuthError(response.status, message, code);
 }

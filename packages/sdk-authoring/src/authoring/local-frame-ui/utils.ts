@@ -16,6 +16,7 @@ import {
   type StepContentCommand,
   type TargetInspectionState,
 } from './types';
+import { authoringText } from '../../i18n';
 
 const EDITABLE_BLOCK_TYPE_SET = new Set<string>(EDITABLE_BLOCK_TYPES);
 const STEP_CONTENT_COMMAND_SET = new Set<string>(STEP_CONTENT_COMMANDS);
@@ -29,71 +30,78 @@ const SLASH_COMMAND_LABELS = Object.fromEntries(
 
 const PROPERTY_CHIP_FACTORIES: Readonly<Record<string, (block: LodariqBlock) => string | null>> = {
   index: (block: LodariqBlock) =>
-    typeof block.props.index === 'number' ? `Step ${block.props.index + 1}` : null,
-  level: (block: LodariqBlock) => (block.props.level ? `Heading level ${block.props.level}` : null),
+    typeof block.props.index === 'number'
+      ? authoringText('Step {number}', { number: block.props.index + 1 })
+      : null,
+  level: (block: LodariqBlock) =>
+    block.props.level ? authoringText('Heading level {level}', { level: block.props.level }) : null,
   placement: (block: LodariqBlock) =>
-    block.props.placement ? `Placement: ${block.props.placement}` : null,
+    block.props.placement
+      ? authoringText('Placement: {placement}', { placement: block.props.placement })
+      : null,
   variant: (block: LodariqBlock) =>
-    block.props.variant ? `${capitalize(block.props.variant)} button` : null,
+    block.props.variant
+      ? authoringText('{variant} button', { variant: capitalize(block.props.variant) })
+      : null,
 };
 
 const ACTION_CHIP_LABELS: Readonly<Record<string, string>> = {
-  next: 'Goes to next step',
-  back: 'Goes to previous step',
-  complete: 'Completes tour',
-  dismiss: 'Closes experience',
-  clickTarget: 'Clicks target',
-  openPage: 'Opens page',
+  next: authoringText('Goes to next step'),
+  back: authoringText('Goes to previous step'),
+  complete: authoringText('Completes tour'),
+  dismiss: authoringText('Closes experience'),
+  clickTarget: authoringText('Clicks target'),
+  openPage: authoringText('Opens page'),
 };
 
 const MISSING_ACTION_CHIP_LABELS: Readonly<Record<string, string>> = {
-  button: 'Choose next action',
-  link: 'Choose next action',
+  button: authoringText('Choose next action'),
+  link: authoringText('Choose next action'),
 };
 
 const STATIC_BLOCK_CHIP_LABELS: Readonly<Record<string, string>> = {
-  media: 'Add media later',
+  media: authoringText('Add media later'),
 };
 
 const RESOLUTION_METHOD_LABELS: Readonly<Record<string, string>> = {
-  lodariq_id: 'Uses Lodariq marker',
-  stable_attribute: 'Uses stable page marker',
-  role_and_name: 'Uses page label',
-  label: 'Uses label',
-  ancestor_landmark: 'Uses page area',
-  relative_position: 'Uses nearby position',
-  scoped_css: 'Uses support rule',
-  registry_contract: 'Uses an app-provided target contract',
-  configured_attribute: 'Uses existing page attributes',
-  semantic_attribute: 'Uses semantic element attributes',
-  element_semantics: 'Uses the element type and role',
-  ancestor_context: 'Uses the surrounding page region',
-  relationship_context: 'Uses nearby structural relationships',
-  visual_topology: 'Uses normalized rendered layout',
-  localized_text: 'Uses text from the current locale',
+  lodariq_id: authoringText('Uses Lodariq marker'),
+  stable_attribute: authoringText('Uses stable page marker'),
+  role_and_name: authoringText('Uses page label'),
+  label: authoringText('Uses label'),
+  ancestor_landmark: authoringText('Uses page area'),
+  relative_position: authoringText('Uses nearby position'),
+  scoped_css: authoringText('Uses support rule'),
+  registry_contract: authoringText('Uses an app-provided target contract'),
+  configured_attribute: authoringText('Uses existing page attributes'),
+  semantic_attribute: authoringText('Uses semantic element attributes'),
+  element_semantics: authoringText('Uses the element type and role'),
+  ancestor_context: authoringText('Uses the surrounding page region'),
+  relationship_context: authoringText('Uses nearby structural relationships'),
+  visual_topology: authoringText('Uses normalized rendered layout'),
+  localized_text: authoringText('Uses text from the current locale'),
 };
 
-const DEFAULT_RESOLUTION_METHOD_LABEL = 'Uses page context';
+const DEFAULT_RESOLUTION_METHOD_LABEL = authoringText('Uses page context');
 
 const TARGET_EVIDENCE_FAMILY_LABELS: Readonly<Record<string, string>> = {
-  'registry-contract': 'app contract',
-  'configured-attribute': 'existing attributes',
-  'semantic-attribute': 'element semantics',
-  'element-semantics': 'control type',
-  'ancestor-context': 'page region',
-  'relationship-context': 'nearby structure',
-  'visual-topology': 'rendered layout',
-  'localized-text': 'current-locale text',
+  'registry-contract': authoringText('app contract'),
+  'configured-attribute': authoringText('existing attributes'),
+  'semantic-attribute': authoringText('element semantics'),
+  'element-semantics': authoringText('control type'),
+  'ancestor-context': authoringText('page region'),
+  'relationship-context': authoringText('nearby structure'),
+  'visual-topology': authoringText('rendered layout'),
+  'localized-text': authoringText('current-locale text'),
 };
 
 const BLOCK_TYPE_LABELS: Readonly<Record<string, string>> = {
-  tourStep: 'Step',
-  paragraph: 'Text',
-  list: 'List',
-  divider: 'Divider',
-  link: 'Link',
-  targetChip: 'Placement',
-  validationBadge: 'Validation',
+  tourStep: authoringText('Step'),
+  paragraph: authoringText('Text'),
+  list: authoringText('List'),
+  divider: authoringText('Divider'),
+  link: authoringText('Link'),
+  targetChip: authoringText('Placement'),
+  validationBadge: authoringText('Validation'),
 };
 
 export function targetById(
@@ -132,7 +140,7 @@ export function blockStatus(block: LodariqBlock): 'ready' | 'incomplete' | 'inva
 
 export function blockKicker(block: LodariqBlock): string {
   if (block.type === 'tourStep' && typeof block.props.index === 'number') {
-    return `Step ${block.props.index + 1}`;
+    return authoringText('Step {number}', { number: block.props.index + 1 });
   }
   return blockTypeLabel(block.type);
 }
@@ -178,12 +186,14 @@ export function targetHealthTitle(
   diagnosticOrState: ResolverDiagnostic | ResolverDiagnostic['state'],
 ): string {
   const state = typeof diagnosticOrState === 'string' ? diagnosticOrState : diagnosticOrState.state;
-  if (state === 'found') return 'Verified';
+  if (state === 'found') return authoringText('Verified');
   if (state === 'needs_review') {
-    return targetDiagnosticIsDrift(diagnosticOrState) ? 'Drift detected' : 'Needs verification';
+    return targetDiagnosticIsDrift(diagnosticOrState)
+      ? authoringText('Drift detected')
+      : authoringText('Needs verification');
   }
-  if (state === 'ambiguous') return 'Ambiguous';
-  return 'Missing';
+  if (state === 'ambiguous') return authoringText('Ambiguous');
+  return authoringText('Missing');
 }
 
 export function targetHealthDetails(inspection: TargetInspectionState): string {
@@ -198,26 +208,42 @@ export function targetSupportDetails(inspection: TargetInspectionState): string 
   const method = diagnostic.resolutionMethod
     ? ` ${humanResolutionMethod(diagnostic.resolutionMethod)}.`
     : '';
-  const candidateLabel = diagnostic.candidateCount === 1 ? 'candidate' : 'candidates';
-  const evidenceDetails = evidence ? ` Evidence observed: ${evidence}.` : '';
-  return `${diagnostic.candidateCount} ${candidateLabel} observed.${evidenceDetails}${method}`;
+  const candidateLabel =
+    diagnostic.candidateCount === 1 ? authoringText('candidate') : authoringText('candidates');
+  const evidenceDetails = evidence
+    ? authoringText(' Evidence observed: {evidence}.', { evidence })
+    : '';
+  return authoringText('{count} {candidate} observed.{evidence}{method}', {
+    count: diagnostic.candidateCount,
+    candidate: candidateLabel,
+    evidence: evidenceDetails,
+    method,
+  });
 }
 
 export function targetInspectFallbackMessage(inspection: TargetInspectionState): string {
   if (inspection.diagnostic.state === 'found') {
-    if (inspection.action === 'view') return 'Placement is highlighted.';
-    if (inspection.action === 'test') return 'Placement check passed on this page state.';
-    return 'Verified on this page state.';
+    if (inspection.action === 'view') return authoringText('Placement is highlighted.');
+    if (inspection.action === 'test') {
+      return authoringText('Placement check passed on this page state.');
+    }
+    return authoringText('Verified on this page state.');
   }
   if (inspection.diagnostic.state === 'needs_review') {
     return targetDiagnosticIsDrift(inspection.diagnostic)
-      ? 'The element was found, but its saved evidence has drifted. Verify it or choose it again.'
-      : 'This placement does not yet have enough reliable evidence. Verify it or choose it again.';
+      ? authoringText(
+          'The element was found, but its saved evidence has drifted. Verify it or choose it again.',
+        )
+      : authoringText(
+          'This placement does not yet have enough reliable evidence. Verify it or choose it again.',
+        );
   }
   if (inspection.diagnostic.state === 'ambiguous') {
-    return 'More than one place matches. Pick the exact place again.';
+    return authoringText('More than one place matches. Pick the exact place again.');
   }
-  return 'We could not find this placement. Choose it again or open the page state where it appears.';
+  return authoringText(
+    'We could not find this placement. Choose it again or open the page state where it appears.',
+  );
 }
 
 export function targetInspectionStatus(
@@ -225,19 +251,19 @@ export function targetInspectionStatus(
   diagnostic: ResolverDiagnostic,
 ): string {
   if (diagnostic.state === 'found') {
-    if (action === 'view') return 'Placement highlighted.';
-    if (action === 'test') return 'Placement check passed.';
-    return 'Placement verified.';
+    if (action === 'view') return authoringText('Placement highlighted.');
+    if (action === 'test') return authoringText('Placement check passed.');
+    return authoringText('Placement verified.');
   }
   if (diagnostic.state === 'needs_review') {
     return targetDiagnosticIsDrift(diagnostic)
-      ? 'Placement drift detected.'
-      : 'Placement needs verification.';
+      ? authoringText('Placement drift detected.')
+      : authoringText('Placement needs verification.');
   }
   if (diagnostic.state === 'ambiguous') {
-    return 'Pick a more specific placement.';
+    return authoringText('Pick a more specific placement.');
   }
-  return 'Placement needs attention.';
+  return authoringText('Placement needs attention.');
 }
 
 export function targetDiagnosticIsDrift(

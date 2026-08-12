@@ -6,6 +6,7 @@ import {
   CREATOR_ENABLED_EXPERIENCE_TYPES,
   type CreatorEnabledExperienceType,
 } from '../creator-experience-types';
+import { applyAuthoringLocale, authoringText } from '../i18n';
 
 export interface CreatorToolbarOptions {
   container?: HTMLElement;
@@ -57,21 +58,31 @@ const CREATOR_LAUNCHER_ICONS = {
 } as const satisfies Readonly<Record<string, readonly CreatorLauncherIconNode[]>>;
 
 export const CREATOR_LAUNCHER_ACTIONS = [
-  { capability: 'create', icon: 'plus', id: 'new-experience', label: 'New experience' },
+  {
+    capability: 'create',
+    icon: 'plus',
+    id: 'new-experience',
+    label: authoringText('New experience'),
+  },
   {
     capability: 'list',
     icon: 'list',
     id: 'experiences-on-page',
-    label: 'Experiences on this page',
+    label: authoringText('Experiences on this page'),
   },
-  { capability: 'preview', icon: 'eye', id: 'preview-as-user', label: 'Preview as user' },
+  {
+    capability: 'preview',
+    icon: 'eye',
+    id: 'preview-as-user',
+    label: authoringText('Preview as user'),
+  },
 ] as const;
 
 const CREATOR_LAUNCHER_FALLBACK_ACTION = {
   capability: 'edit',
   icon: 'pencil',
   id: 'edit-current-experience',
-  label: 'Edit current experience',
+  label: authoringText('Edit current experience'),
 } as const;
 
 type CreatorLauncherActionId =
@@ -89,7 +100,7 @@ const LAUNCHER_SELECTOR = '[data-lodariq-creator-launcher="true"]';
 const TOOLBAR_STYLE_ID = 'lodariq-creator-toolbar-style';
 const DEFAULT_CLASS_NAME = 'lodariq-creator-toolbar';
 const DEFAULT_LABEL = 'LQ';
-const DEFAULT_ARIA_LABEL = 'Open Lodariq actions';
+const DEFAULT_ARIA_LABEL = authoringText('Open Lodariq actions');
 const DRAG_THRESHOLD = 4;
 const LAUNCHER_SIZE = 48;
 const VIEWPORT_MARGIN = 18;
@@ -294,7 +305,7 @@ const CREATOR_TOOLBAR_CSS = `
   background: ${CREATOR_CHROME_TOKENS.surface};
   color: ${CREATOR_CHROME_TOKENS.ink};
   box-shadow: 0 10px 28px rgba(0, 0, 0, 0.4);
-  font: 600 12px/1.2 ${CREATOR_CHROME_FONT_STACK};
+  font: 400 12px/1.2 ${CREATOR_CHROME_FONT_STACK};
   opacity: 0;
   padding: 8px 8px;
   pointer-events: none;
@@ -490,7 +501,7 @@ export function installCreatorToolbar(
   palette.dataset['lodariqLauncherPalette'] = 'true';
   palette.id = `lodariq-launcher-palette-${createLauncherId()}`;
   palette.setAttribute('role', 'group');
-  palette.setAttribute('aria-label', 'Lodariq actions');
+  palette.setAttribute('aria-label', authoringText('Lodariq actions'));
 
   const button = doc.createElement('button');
   button.type = 'button';
@@ -552,6 +563,7 @@ export function installCreatorToolbar(
 
   launcher.append(button, palette, surface);
   container.appendChild(launcher);
+  applyAuthoringLocale(launcher);
   launcherCleanupByElement.set(
     launcher,
     attachLauncherInteractions(launcher, button, surface, doc),
@@ -881,8 +893,8 @@ function renderNewExperienceSurface(
   if (toggleOpenLauncherSurface('new-experience', actionButton, context)) return;
   const list = openLauncherSurface(
     'new-experience',
-    'New experience',
-    'Choose an experience type to start.',
+    authoringText('New experience'),
+    authoringText('Choose an experience type to start.'),
     actionButton,
     context,
   );
@@ -892,9 +904,9 @@ function renderNewExperienceSurface(
   for (const experienceType of CREATOR_ENABLED_EXPERIENCE_TYPES) {
     const item = createSurfaceItem(
       context.doc,
-      `Create ${experienceType.label}`,
+      authoringText('Create {experience}', { experience: experienceType.label }),
       experienceType.label,
-      'Create',
+      authoringText('Create'),
       experienceType.description,
     );
     item.dataset['lodariqExperienceType'] = experienceType.id;
@@ -917,12 +929,12 @@ async function renderPageExperiencesSurface(
   if (toggleOpenLauncherSurface('experiences-on-page', actionButton, context)) return;
   const list = openLauncherSurface(
     'experiences-on-page',
-    'Experiences on this page',
-    'Open an experience without leaving this page.',
+    authoringText('Experiences on this page'),
+    authoringText('Open an experience without leaving this page.'),
     actionButton,
     context,
   );
-  const status = createSurfaceStatus(context.doc, 'Loading experiences…');
+  const status = createSurfaceStatus(context.doc, authoringText('Loading experiences…'));
   list.appendChild(status);
 
   const listExperiencesForPage = context.options.listExperiencesForPage;
@@ -934,14 +946,22 @@ async function renderPageExperiencesSurface(
     if (!isLauncherSurfaceOpen(context.surface, 'experiences-on-page')) return;
     list.replaceChildren();
     if (experiences.length === 0) {
-      list.appendChild(createSurfaceStatus(context.doc, 'No experiences found on this page.'));
+      list.appendChild(
+        createSurfaceStatus(context.doc, authoringText('No experiences found on this page.')),
+      );
       return;
     }
 
     for (const experience of experiences) {
       const label = creatorExperienceLabel(experience.type);
-      const title = experience.title.trim() || `Untitled ${label.toLowerCase()}`;
-      const item = createSurfaceItem(context.doc, `Open ${title}`, title, label);
+      const title =
+        experience.title.trim() || authoringText('Untitled {experience}', { experience: label });
+      const item = createSurfaceItem(
+        context.doc,
+        authoringText('Open {experience}', { experience: title }),
+        title,
+        label,
+      );
       item.dataset['lodariqExperienceId'] = experience.id;
       item.addEventListener('click', () => {
         void runSurfaceItemAction(item, context.doc, async () => {
@@ -955,7 +975,10 @@ async function renderPageExperiencesSurface(
   } catch (error) {
     if (isLauncherSurfaceOpen(context.surface, 'experiences-on-page')) {
       list.replaceChildren(
-        createSurfaceStatus(context.doc, 'Experiences could not be loaded. Try again.'),
+        createSurfaceStatus(
+          context.doc,
+          authoringText('Experiences could not be loaded. Try again.'),
+        ),
       );
     }
     throw error;

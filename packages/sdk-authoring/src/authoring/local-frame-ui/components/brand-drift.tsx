@@ -1,3 +1,4 @@
+import { authoringText } from '../../../i18n';
 import type { AuthoringBrandDriftViewModel } from '../../brand-drift-model';
 import { CircleAlert, CircleCheck, ExternalLink, LoaderCircle } from '../design-system';
 
@@ -42,8 +43,8 @@ export function BrandDriftPanel({
       <div className="brand-drift-summary">
         <div className="panel-mode-section-heading">
           <span>
-            <small>Product evidence</small>
-            <strong id="brand-drift-title">Brand drift</strong>
+            <small>{authoringText('Product evidence')}</small>
+            <strong id="brand-drift-title">{authoringText('Brand drift')}</strong>
           </span>
         </div>
 
@@ -71,21 +72,25 @@ export function BrandDriftPanel({
           onClick={onCheck}
           type="button"
         >
-          <span>{checking ? 'Checking brand…' : 'Check brand'}</span>
+          <span>{checking ? authoringText('Checking brand…') : authoringText('Check brand')}</span>
           <ExternalLink size={14} strokeWidth={2.1} aria-hidden="true" />
         </button>
       </div>
 
       {model.sourceItems.length > 0 ? (
         <section aria-labelledby="brand-drift-provenance-title">
-          <h3 id="brand-drift-provenance-title">Changed provenance</h3>
+          <h3 id="brand-drift-provenance-title">{authoringText('Changed provenance')}</h3>
           <ul className="brand-change-list">
             {model.sourceItems.map((source) => (
               <li key={source.id}>
                 <strong>{source.label}</strong>
                 <span>{source.changeLabel}</span>
                 <small>{source.confidenceLabel}</small>
-                {source.revision ? <small>Revision {source.revision}</small> : null}
+                {source.revision ? (
+                  <small>
+                    {authoringText('Revision')} {source.revision}
+                  </small>
+                ) : null}
               </li>
             ))}
           </ul>
@@ -95,7 +100,7 @@ export function BrandDriftPanel({
       {actionable ? (
         <>
           <section aria-labelledby="brand-drift-token-title">
-            <h3 id="brand-drift-token-title">Changed semantic tokens</h3>
+            <h3 id="brand-drift-token-title">{authoringText('Changed semantic tokens')}</h3>
             <ul className="brand-change-list">
               {model.roleItems.map((role) => (
                 <li key={role.id}>{role.label}</li>
@@ -105,15 +110,16 @@ export function BrandDriftPanel({
 
           {model.runtimePreview && onPreviewCurrent && onPreviewProposed ? (
             <section aria-labelledby="brand-drift-preview-title">
-              <h3 id="brand-drift-preview-title">Runtime before and after</h3>
+              <h3 id="brand-drift-preview-title">{authoringText('Runtime before and after')}</h3>
               <p className="panel-mode-help">
-                Switch the production runtime preview on the product page. This temporary review
-                never adopts or saves the proposal.
+                {authoringText(
+                  'Switch the production runtime preview on the product page. This temporary review never adopts or saves the proposal.',
+                )}
               </p>
               <div
                 className="panel-mode-primary-actions"
                 role="group"
-                aria-label="Brand runtime preview"
+                aria-label={authoringText('Brand runtime preview')}
               >
                 <button
                   aria-pressed={previewActive && previewMode === 'current'}
@@ -122,7 +128,7 @@ export function BrandDriftPanel({
                   onClick={onPreviewCurrent}
                   type="button"
                 >
-                  Preview current
+                  {authoringText('Preview current')}
                 </button>
                 <button
                   aria-pressed={previewActive && previewMode === 'proposed'}
@@ -131,7 +137,7 @@ export function BrandDriftPanel({
                   onClick={onPreviewProposed}
                   type="button"
                 >
-                  Preview proposed
+                  {authoringText('Preview proposed')}
                 </button>
               </div>
               <small role="status">
@@ -141,20 +147,26 @@ export function BrandDriftPanel({
           ) : null}
 
           <section aria-labelledby="brand-drift-accessibility-title">
-            <h3 id="brand-drift-accessibility-title">Accessibility consequences</h3>
+            <h3 id="brand-drift-accessibility-title">
+              {authoringText('Accessibility consequences')}
+            </h3>
             <ul className="brand-change-list">
               {model.consequenceItems.map((consequence) => (
                 <li key={consequence.id}>
                   <span>{consequence.label}</span>
-                  <small>{consequence.severity === 'blocking' ? 'Blocking' : 'Review'}</small>
+                  <small>
+                    {consequence.severity === 'blocking'
+                      ? authoringText('Blocking')
+                      : authoringText('Review')}
+                  </small>
                 </li>
               ))}
             </ul>
           </section>
 
           <p className="panel-mode-inline-note">
-            {affectedExperienceLabel(model.affectedExperienceCount)} Nothing changes until you
-            review and use the proposed draft.
+            {affectedExperienceLabel(model.affectedExperienceCount)}{' '}
+            {authoringText('Nothing changes until you review and use the proposed draft.')}
           </p>
           <button
             className="panel-mode-primary-button"
@@ -162,14 +174,14 @@ export function BrandDriftPanel({
             onClick={onReviewProposal}
             type="button"
           >
-            Review proposed Brand draft
+            {authoringText('Review proposed Brand draft')}
           </button>
         </>
       ) : null}
 
       {model.affectedExperienceItems.length > 0 ? (
         <section aria-labelledby="brand-drift-experiences-title">
-          <h3 id="brand-drift-experiences-title">Affected experiences</h3>
+          <h3 id="brand-drift-experiences-title">{authoringText('Affected experiences')}</h3>
           <ul className="brand-change-list">
             {model.affectedExperienceItems.map((experience) => (
               <li key={experience.documentId}>
@@ -195,7 +207,9 @@ export function BrandDriftPanel({
               onClick={onAcknowledge}
               type="button"
             >
-              {acknowledging ? 'Acknowledging Brand version…' : 'Acknowledge Brand version'}
+              {acknowledging
+                ? authoringText('Acknowledging Brand version…')
+                : authoringText('Acknowledge Brand version')}
             </button>
           ) : null}
         </aside>
@@ -213,8 +227,12 @@ function brandDriftStatusIcon(state: AuthoringBrandDriftViewModel['state'], chec
 }
 
 function affectedExperienceLabel(count: number): string {
-  if (count === 1) return '1 workspace-current experience would need review after approval.';
-  return `${count} workspace-current experiences would need review after approval.`;
+  return authoringText(
+    count === 1
+      ? '{count} workspace-current experience would need review after approval.'
+      : '{count} workspace-current experiences would need review after approval.',
+    { count },
+  );
 }
 
 function runtimePreviewStatus(
@@ -222,8 +240,10 @@ function runtimePreviewStatus(
   previewActive: boolean,
   previewMode: 'current' | 'proposed',
 ): string {
-  if (previewing) return 'Loading production runtime preview…';
-  if (!previewActive) return 'Production runtime preview is ready.';
-  if (previewMode === 'proposed') return 'Showing proposed Brand in the production runtime.';
-  return 'Showing the current approved Brand in the production runtime.';
+  if (previewing) return authoringText('Loading production runtime preview…');
+  if (!previewActive) return authoringText('Production runtime preview is ready.');
+  if (previewMode === 'proposed') {
+    return authoringText('Showing proposed Brand in the production runtime.');
+  }
+  return authoringText('Showing the current approved Brand in the production runtime.');
 }

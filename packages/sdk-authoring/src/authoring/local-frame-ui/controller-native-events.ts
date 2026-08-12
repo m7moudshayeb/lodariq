@@ -1,4 +1,5 @@
 import { ControllerLifecycleFeature } from './controller-lifecycle';
+import { authoringText } from '../../i18n';
 import { type LodariqBlock } from '@lodariq/schema';
 import type { ClipboardEvent, DragEvent, KeyboardEvent } from 'react';
 import { type BlockInsertPosition, type EditableBlockType } from '../document-ops';
@@ -78,7 +79,7 @@ export abstract class ControllerNativeEventsFeature extends ControllerLifecycleF
       this.appendStep();
       return;
     }
-    this.setStatus('Open a step to add content.');
+    this.setStatus(authoringText('Open a step to add content.'));
   }
 
   handlePaste(event: ClipboardEvent<HTMLElement>): void {
@@ -91,10 +92,7 @@ export abstract class ControllerNativeEventsFeature extends ControllerLifecycleF
 
   handleNativeInput(event: Event): void {
     const target = event.target;
-    if (
-      target instanceof HTMLInputElement &&
-      target.getAttribute('aria-label') === 'Experience composer'
-    ) {
+    if (target instanceof HTMLInputElement && target.dataset['action'] === 'experience-composer') {
       this.setSlashText(target.value);
       return;
     }
@@ -113,7 +111,7 @@ export abstract class ControllerNativeEventsFeature extends ControllerLifecycleF
     if (!(event instanceof globalThis.KeyboardEvent)) return;
     const target = event.target;
     if (!(target instanceof HTMLInputElement)) return;
-    if (target.getAttribute('aria-label') !== 'Experience composer') return;
+    if (target.dataset['action'] !== 'experience-composer') return;
     if (event.key === 'Escape') {
       this.closeSlashComposer();
       return;

@@ -52,6 +52,49 @@ export const AUTHORING_TOUR_RAIL_CSS = `
     gap: 4px;
   }
 
+  .tour-sequence-title .ui-select-trigger {
+    width: 100%;
+    min-height: 32px;
+    justify-content: space-between;
+  }
+
+  .experience-language-controls {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .experience-language-picker {
+    min-width: 0;
+  }
+
+  .experience-language-controls .ui-select-trigger {
+    flex: 1;
+    width: auto;
+  }
+
+  .experience-language-controls .ui-icon-button:disabled {
+    cursor: not-allowed;
+    opacity: 0.45;
+  }
+
+  .tour-sequence-title .experience-language-picker,
+  .tour-sequence-title .experience-language-controls {
+    width: 100%;
+  }
+
+  .tour-sequence-compact-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .tour-sequence-compact-actions .ui-select-trigger {
+    min-width: 126px;
+    min-height: 30px;
+  }
+
   .tour-sequence-kicker.document-context {
     color: var(--lq-color-muted);
     font-size: 10px;

@@ -7,10 +7,16 @@ export const AUTHORING_POPUP_ARROW_CSS = `
     width: 16px;
     height: 16px;
     border: var(--lq-tour-border-width, 1px) solid
-      var(--lq-tour-border-color, var(--lq-color-border));
-    background: var(--lq-tour-surface, #ffffff);
+      var(--lq-popup-border, var(--lq-tour-border-color, var(--lq-color-border)));
+    background: var(--lq-popup-surface, var(--lq-tour-surface, #ffffff));
     pointer-events: none;
     transform: rotate(45deg);
+  }
+
+  .storyboard-editor-stage
+    .rich-step-popup-frame[data-lodariq-popup-border-weight='none']
+    > .storyboard-popup-arrow {
+    border-color: var(--lq-popup-surface, var(--lq-tour-surface, #ffffff));
   }
 
   .storyboard-editor-stage .storyboard-popup-arrow[data-placement='bottom'] {

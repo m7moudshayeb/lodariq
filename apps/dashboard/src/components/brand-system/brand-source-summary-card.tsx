@@ -1,8 +1,19 @@
+import { msg } from '@lingui/core/macro';
+import { useLingui } from '@lingui/react';
 import { ExternalLink, ScanSearch } from 'lucide-react';
 import type { DashboardBrandSourceSummary } from '../../lib/view-model';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 import { Card, CardContent } from '../ui/card';
+
+const COPY = {
+  source: msg({ id: 'dashboard.brand.source.title', message: 'Product match source' }),
+  roles: msg({ id: 'dashboard.brand.source.roles', message: 'Semantic Brand roles' }),
+  rematch: msg({
+    id: 'dashboard.brand.source.rematch',
+    message: 'Open product to rematch',
+  }),
+} as const;
 
 export function BrandSourceSummaryCard({
   authoringUrl,
@@ -11,6 +22,7 @@ export function BrandSourceSummaryCard({
   authoringUrl: string;
   summary: DashboardBrandSourceSummary;
 }): React.ReactElement {
+  const { _ } = useLingui();
   return (
     <Card className="overflow-hidden border-primary/15 shadow-none">
       <CardContent className="grid gap-5 p-5 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center lg:p-6">
@@ -21,7 +33,7 @@ export function BrandSourceSummaryCard({
             </span>
             <div className="grid min-w-0 gap-1">
               <div className="flex flex-wrap items-center gap-2">
-                <p className="font-semibold text-foreground">Product match source</p>
+                <p className="font-semibold text-foreground">{_(COPY.source)}</p>
                 <Badge variant={summary.statusVariant}>{summary.statusLabel}</Badge>
               </div>
               <p className="text-sm font-semibold text-foreground">{summary.sourceLabel}</p>
@@ -30,17 +42,14 @@ export function BrandSourceSummaryCard({
               </p>
             </div>
           </div>
-          <div className="flex flex-wrap items-center gap-2 pl-0 sm:pl-[52px]">
+          <div className="flex flex-wrap items-center gap-2 ps-0 sm:ps-[52px]">
             <Badge variant="outline">{summary.revisionLabel}</Badge>
             {summary.confidenceLabel ? (
               <Badge variant="outline">{summary.confidenceLabel}</Badge>
             ) : null}
             <span className="text-xs text-muted-foreground">{summary.checkedAtLabel}</span>
           </div>
-          <div
-            className="flex flex-wrap gap-1.5 pl-0 sm:pl-[52px]"
-            aria-label="Semantic Brand roles"
-          >
+          <div className="flex flex-wrap gap-1.5 ps-0 sm:ps-[52px]" aria-label={_(COPY.roles)}>
             {summary.semanticRoles.map((role) => (
               <span
                 className="rounded-md border border-border bg-[var(--surface-subtle)] px-2 py-1 text-[11px] font-semibold text-muted-foreground"
@@ -54,13 +63,13 @@ export function BrandSourceSummaryCard({
         {authoringUrl ? (
           <Button asChild className="h-11" variant="outline">
             <a href={authoringUrl} rel="noreferrer" target="_blank">
-              Open product to rematch
+              {_(COPY.rematch)}
               <ExternalLink aria-hidden="true" />
             </a>
           </Button>
         ) : (
           <Button className="h-11" disabled type="button" variant="outline">
-            Open product to rematch
+            {_(COPY.rematch)}
           </Button>
         )}
       </CardContent>

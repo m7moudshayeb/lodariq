@@ -118,11 +118,12 @@ export const AUTHORING_STORYBOARD_CANVAS_CSS = `
     width: 100%;
     min-height: 240px;
     overflow: visible;
-    border: var(--lq-tour-border-width, 1px) solid var(--lq-tour-border-color, var(--lq-color-border));
+    border: var(--lq-tour-border-width, 1px) solid
+      var(--lq-popup-border, var(--lq-tour-border-color, var(--lq-color-border)));
     border-radius: var(--lq-tour-radius, var(--lq-radius-md));
-    background: var(--lq-tour-surface, #ffffff);
+    background: var(--lq-popup-surface, var(--lq-tour-surface, #ffffff));
     box-shadow: var(--lq-tour-elevation, 0 var(--lq-space-4) var(--lq-space-7) rgba(15, 36, 31, 0.12));
-    color: var(--lq-tour-text-color, var(--lq-color-ink));
+    color: var(--lq-popup-text, var(--lq-tour-text-color, var(--lq-color-ink)));
     font-family: var(--lq-tour-font-family, inherit);
     font-size: var(--lq-tour-base-font-size, var(--lq-font-sm));
     padding: var(--lq-tour-composition-padding, var(--lq-tour-spacing, var(--lq-space-4)));
@@ -138,6 +139,30 @@ export const AUTHORING_STORYBOARD_CANVAS_CSS = `
 
   .storyboard-editor-stage .rich-step-content[data-lodariq-popup-radius='round'] {
     border-radius: var(--lq-tour-radius-lg, 16px);
+  }
+
+  .storyboard-editor-stage .rich-step-content[data-lodariq-popup-border-weight='none'] {
+    border-width: 0;
+  }
+
+  .storyboard-editor-stage .rich-step-content[data-lodariq-popup-border-weight='subtle'] {
+    border-width: var(--lq-tour-border-width-subtle, 1px);
+  }
+
+  .storyboard-editor-stage .rich-step-content[data-lodariq-popup-border-weight='strong'] {
+    border-width: var(--lq-tour-border-width-strong, 2px);
+  }
+
+  .storyboard-editor-stage .rich-step-content[data-lodariq-popup-elevation='none'] {
+    box-shadow: none;
+  }
+
+  .storyboard-editor-stage .rich-step-content[data-lodariq-popup-elevation='resting'] {
+    box-shadow: var(--lq-tour-elevation-resting, 0 1px 2px rgba(15, 36, 31, 0.12));
+  }
+
+  .storyboard-editor-stage .rich-step-content[data-lodariq-popup-elevation='floating'] {
+    box-shadow: var(--lq-tour-elevation-floating, 0 8px 24px rgba(15, 36, 31, 0.18));
   }
 
   .storyboard-editor-stage .rich-step-popup-frame[data-popup-height-custom='true'] {
@@ -164,7 +189,13 @@ export const AUTHORING_STORYBOARD_CANVAS_CSS = `
   .storyboard-editor-stage .rich-step-block-row.active {
     border-style: dashed;
     border-color: var(--lq-color-blue);
-    background: var(--lq-color-blue-soft);
+    background: transparent;
+  }
+
+  .storyboard-editor-stage .rich-step-block-row:hover {
+    border-color: var(--lq-color-blue);
+    border-style: dashed;
+    background: transparent;
   }
 
   .storyboard-editor-stage .rich-step-content .inline-insert {

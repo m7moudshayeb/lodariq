@@ -37,11 +37,12 @@ export function createTourStyles(): HTMLStyleElement {
       box-sizing: border-box;
       width: min(var(--lq-tour-width), calc(100vw - 24px));
       padding: var(--lq-tour-composition-padding, var(--lq-tour-spacing));
-      border: var(--lq-tour-border-width) solid var(--lq-tour-border-color);
+      border: var(--lq-tour-border-width) solid
+        var(--lq-popup-border, var(--lq-tour-border-color));
       border-radius: var(--lq-tour-radius);
-      background: var(--lq-tour-surface);
+      background: var(--lq-popup-surface, var(--lq-tour-surface));
       box-shadow: var(--lq-tour-elevation);
-      color: var(--lq-tour-text-color);
+      color: var(--lq-popup-text, var(--lq-tour-text-color));
       z-index: 1;
       pointer-events: auto;
       transition:
@@ -55,6 +56,23 @@ export function createTourStyles(): HTMLStyleElement {
     div[role="dialog"][data-lodariq-popup-radius="square"] { border-radius: 0; }
     div[role="dialog"][data-lodariq-popup-radius="soft"] { border-radius: var(--lq-tour-radius-sm); }
     div[role="dialog"][data-lodariq-popup-radius="round"] { border-radius: var(--lq-tour-radius-lg); }
+    div[role="dialog"][data-lodariq-popup-border-weight="none"] {
+      --lq-popup-arrow-border: var(--lq-popup-surface, var(--lq-tour-surface));
+      border-width: 0;
+    }
+    div[role="dialog"][data-lodariq-popup-border-weight="subtle"] {
+      border-width: var(--lq-tour-border-width-subtle);
+    }
+    div[role="dialog"][data-lodariq-popup-border-weight="strong"] {
+      border-width: var(--lq-tour-border-width-strong);
+    }
+    div[role="dialog"][data-lodariq-popup-elevation="none"] { box-shadow: none; }
+    div[role="dialog"][data-lodariq-popup-elevation="resting"] {
+      box-shadow: var(--lq-tour-elevation-resting);
+    }
+    div[role="dialog"][data-lodariq-popup-elevation="floating"] {
+      box-shadow: var(--lq-tour-elevation-floating);
+    }
     div[role="dialog"][data-lodariq-popup-width="custom"] {
       width: min(var(--lq-popup-width), calc(100vw - 24px));
     }
@@ -113,7 +131,8 @@ export function createTourStyles(): HTMLStyleElement {
       top: 0;
       left: 0;
       border-right: 8px solid transparent;
-      border-bottom: 9px solid var(--lq-tour-border-color);
+      border-bottom: 9px solid
+        var(--lq-popup-arrow-border, var(--lq-popup-border, var(--lq-tour-border-color)));
       border-left: 8px solid transparent;
     }
 
@@ -121,14 +140,15 @@ export function createTourStyles(): HTMLStyleElement {
       top: 2px;
       left: 2px;
       border-right: 6px solid transparent;
-      border-bottom: 7px solid var(--lq-tour-surface);
+      border-bottom: 7px solid var(--lq-popup-surface, var(--lq-tour-surface));
       border-left: 6px solid transparent;
     }
 
     .tour-arrow[data-side="top"]::before {
       bottom: 0;
       left: 0;
-      border-top: 9px solid var(--lq-tour-border-color);
+      border-top: 9px solid
+        var(--lq-popup-arrow-border, var(--lq-popup-border, var(--lq-tour-border-color)));
       border-right: 8px solid transparent;
       border-left: 8px solid transparent;
     }
@@ -136,7 +156,7 @@ export function createTourStyles(): HTMLStyleElement {
     .tour-arrow[data-side="top"]::after {
       bottom: 2px;
       left: 2px;
-      border-top: 7px solid var(--lq-tour-surface);
+      border-top: 7px solid var(--lq-popup-surface, var(--lq-tour-surface));
       border-right: 6px solid transparent;
       border-left: 6px solid transparent;
     }
@@ -145,7 +165,8 @@ export function createTourStyles(): HTMLStyleElement {
       top: 0;
       left: 0;
       border-top: 8px solid transparent;
-      border-right: 9px solid var(--lq-tour-border-color);
+      border-right: 9px solid
+        var(--lq-popup-arrow-border, var(--lq-popup-border, var(--lq-tour-border-color)));
       border-bottom: 8px solid transparent;
     }
 
@@ -153,7 +174,7 @@ export function createTourStyles(): HTMLStyleElement {
       top: 2px;
       left: 2px;
       border-top: 6px solid transparent;
-      border-right: 7px solid var(--lq-tour-surface);
+      border-right: 7px solid var(--lq-popup-surface, var(--lq-tour-surface));
       border-bottom: 6px solid transparent;
     }
 
@@ -162,7 +183,8 @@ export function createTourStyles(): HTMLStyleElement {
       right: 0;
       border-top: 8px solid transparent;
       border-bottom: 8px solid transparent;
-      border-left: 9px solid var(--lq-tour-border-color);
+      border-left: 9px solid
+        var(--lq-popup-arrow-border, var(--lq-popup-border, var(--lq-tour-border-color)));
     }
 
     .tour-arrow[data-side="left"]::after {
@@ -170,7 +192,7 @@ export function createTourStyles(): HTMLStyleElement {
       right: 2px;
       border-top: 6px solid transparent;
       border-bottom: 6px solid transparent;
-      border-left: 7px solid var(--lq-tour-surface);
+      border-left: 7px solid var(--lq-popup-surface, var(--lq-tour-surface));
     }
 
     .tour-arrow[hidden] {
@@ -186,7 +208,7 @@ export function createTourStyles(): HTMLStyleElement {
 
     [data-lodariq-node-type="paragraph"] {
       margin: 0 0 var(--lq-tour-spacing);
-      color: var(--lq-tour-muted-text-color);
+      color: var(--lq-popup-muted-text, var(--lq-tour-muted-text-color));
       font-size: var(--lq-tour-small-font-size);
       line-height: var(--lq-tour-body-line-height);
     }
@@ -194,7 +216,7 @@ export function createTourStyles(): HTMLStyleElement {
     [data-lodariq-node-type="list"] {
       margin: 0 0 var(--lq-tour-spacing) calc(var(--lq-tour-spacing) * 1.5);
       padding: 0;
-      color: var(--lq-tour-text-color);
+      color: var(--lq-popup-text, var(--lq-tour-text-color));
       font-size: var(--lq-tour-small-font-size);
       line-height: var(--lq-tour-body-line-height);
     }
@@ -396,13 +418,13 @@ export function createTourStyles(): HTMLStyleElement {
       border: 0;
       border-radius: 4px;
       background: transparent;
-      color: var(--lq-tour-muted-text-color);
+      color: var(--lq-popup-muted-text, var(--lq-tour-muted-text-color));
       font-size: var(--lq-tour-small-font-size);
       font-weight: 600;
     }
 
     .tour-skip:hover {
-      color: var(--lq-tour-text-color);
+      color: var(--lq-popup-text, var(--lq-tour-text-color));
       text-decoration: underline;
     }
 

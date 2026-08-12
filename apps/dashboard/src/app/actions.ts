@@ -38,6 +38,9 @@ import type { SdkInstallationActionState } from './sdk-installation-action-state
 import type { TokenRevokeActionState } from './token-revoke-action-state';
 import type { TokenActionState } from './token-action-state';
 import { requireDashboardActionRole } from '../lib/action-auth';
+import { DASHBOARD_ACTION_MESSAGES } from '../i18n/messages';
+import { serverDashboardErrorMessage, serverMessage } from '../i18n/server-message';
+import type { MessageDescriptor } from '@lingui/core';
 
 export interface SaveBrandThemeDraftInput {
   themeId: string;
@@ -78,7 +81,10 @@ export async function updateEnvironmentReleasePolicyAction(input: {
     input.expectedUpdatedAt.length > 64 ||
     (input.requiredApprovalCount !== 0 && input.requiredApprovalCount !== 1)
   ) {
-    return { status: 'error', error: 'The production approval policy is invalid.' };
+    return {
+      status: 'error',
+      error: await serverMessage(DASHBOARD_ACTION_MESSAGES.productionApprovalInvalid),
+    };
   }
   try {
     const context = await requireDashboardActionRole('admin');
@@ -87,28 +93,32 @@ export async function updateEnvironmentReleasePolicyAction(input: {
     revalidatePath('/');
     return {
       status: 'success',
-      message:
+      message: await serverMessage(
         response.environment.requiredApprovalCount === 1
-          ? 'One approval is now required before production promotion.'
-          : 'Production promotion no longer requires a separate approval.',
+          ? DASHBOARD_ACTION_MESSAGES.approvalRequired
+          : DASHBOARD_ACTION_MESSAGES.approvalNotRequired,
+      ),
       environment: response.environment,
     };
   } catch (error) {
     if (error instanceof DashboardApiError && error.statusCode === 409) {
       return {
         status: 'error',
-        error: 'The production environment changed in another session. Refresh and try again.',
+        error: await serverMessage(DASHBOARD_ACTION_MESSAGES.productionChanged),
       };
     }
     if (error instanceof DashboardApiError && error.statusCode === 403) {
       return {
         status: 'error',
-        error: 'Your workspace role does not allow release-policy changes.',
+        error: await serverMessage(DASHBOARD_ACTION_MESSAGES.releasePolicyForbidden),
       };
     }
     return {
       status: 'error',
-      error: dashboardActionErrorMessage(error, 'Unable to update release approval.'),
+      error: await dashboardActionErrorMessage(
+        error,
+        DASHBOARD_ACTION_MESSAGES.updateReleaseApprovalFailed,
+      ),
     };
   }
 }
@@ -145,7 +155,10 @@ export async function updateWorkspaceEnvironmentPolicyAction(input: {
     !input.expectedUpdatedAt ||
     input.expectedUpdatedAt.length > 64
   ) {
-    return { status: 'error', error: 'The environment policy is invalid.' };
+    return {
+      status: 'error',
+      error: await serverMessage(DASHBOARD_ACTION_MESSAGES.environmentPolicyInvalid),
+    };
   }
   try {
     const context = await requireDashboardActionRole('admin');
@@ -157,26 +170,28 @@ export async function updateWorkspaceEnvironmentPolicyAction(input: {
     revalidatePath('/');
     return {
       status: 'success',
-      message: 'Environment policy updated.',
+      message: await serverMessage(DASHBOARD_ACTION_MESSAGES.environmentPolicyUpdated),
       environment: response.environment,
     };
   } catch (error) {
     if (error instanceof DashboardApiError && error.statusCode === 409) {
       return {
         status: 'error',
-        error:
-          'The environment policy changed or conflicts with the release pipeline. Refresh and try again.',
+        error: await serverMessage(DASHBOARD_ACTION_MESSAGES.environmentPolicyChanged),
       };
     }
     if (error instanceof DashboardApiError && error.statusCode === 403) {
       return {
         status: 'error',
-        error: 'Your workspace role does not allow environment-policy changes.',
+        error: await serverMessage(DASHBOARD_ACTION_MESSAGES.environmentPolicyForbidden),
       };
     }
     return {
       status: 'error',
-      error: dashboardActionErrorMessage(error, 'Unable to update the environment policy.'),
+      error: await dashboardActionErrorMessage(
+        error,
+        DASHBOARD_ACTION_MESSAGES.updateEnvironmentPolicyFailed,
+      ),
     };
   }
 }
@@ -192,27 +207,32 @@ export async function createAccessibleBrandThemeAction(): Promise<BrandSystemAct
     revalidatePath('/');
     return {
       status: 'success',
-      message: 'Brand system created. Review the essentials, then approve the first version.',
+      message: await serverMessage(DASHBOARD_ACTION_MESSAGES.brandCreated),
       theme: response.theme,
     };
   } catch (error) {
-    return brandSystemActionError(error, 'Unable to create the Brand system.');
+    return await brandSystemActionError(error, DASHBOARD_ACTION_MESSAGES.createBrandFailed);
   }
 }
 
 export async function loadBrandThemeImpactAction(themeId: string): Promise<BrandSystemActionState> {
-  if (!isSafeRecordId(themeId)) return { status: 'error', error: 'Choose a Brand theme.' };
+  if (!isSafeRecordId(themeId)) {
+    return {
+      status: 'error',
+      error: await serverMessage(DASHBOARD_ACTION_MESSAGES.chooseBrandTheme),
+    };
+  }
   try {
     const context = await requireDashboardActionRole('viewer');
     const detail = await loadWorkspaceTheme(themeId);
     assertDashboardWorkspaceScope(context.workspaceId, detail.theme, ...detail.versions);
     return {
       status: 'success',
-      message: 'Impact refreshed.',
+      message: await serverMessage(DASHBOARD_ACTION_MESSAGES.impactRefreshed),
       detail,
     };
   } catch (error) {
-    return brandSystemActionError(error, 'Unable to load Brand impact.');
+    return await brandSystemActionError(error, DASHBOARD_ACTION_MESSAGES.loadBrandImpactFailed);
   }
 }
 
@@ -220,19 +240,29 @@ export async function saveBrandThemeDraftAction(
   input: SaveBrandThemeDraftInput,
 ): Promise<BrandSystemActionState> {
   if (!isSafeRecordId(input.themeId) || !isSafeThemeName(input.name)) {
-    return { status: 'error', error: 'Theme name or identifier is invalid.' };
+    return {
+      status: 'error',
+      error: await serverMessage(DASHBOARD_ACTION_MESSAGES.themeIdentityInvalid),
+    };
   }
   if (!isThemeMutationGuard(input) || !validate(BrandThemeDefinitionSchema, input.draft).valid) {
-    return { status: 'error', error: 'Theme values are invalid. Review the highlighted controls.' };
+    return {
+      status: 'error',
+      error: await serverMessage(DASHBOARD_ACTION_MESSAGES.themeValuesInvalid),
+    };
   }
   try {
     const context = await requireDashboardActionRole('member');
     const response = await updateWorkspaceThemeDraft(input);
     assertDashboardWorkspaceScope(context.workspaceId, response.theme);
     revalidatePath('/');
-    return { status: 'success', message: 'Draft saved.', theme: response.theme };
+    return {
+      status: 'success',
+      message: await serverMessage(DASHBOARD_ACTION_MESSAGES.draftSaved),
+      theme: response.theme,
+    };
   } catch (error) {
-    return brandSystemActionError(error, 'Unable to save this Brand draft.');
+    return await brandSystemActionError(error, DASHBOARD_ACTION_MESSAGES.saveBrandDraftFailed);
   }
 }
 
@@ -240,7 +270,10 @@ export async function approveBrandThemeAction(
   input: BrandThemeGuardInput,
 ): Promise<BrandSystemActionState> {
   if (!isSafeRecordId(input.themeId) || !isThemeMutationGuard(input)) {
-    return { status: 'error', error: 'Theme approval request is invalid.' };
+    return {
+      status: 'error',
+      error: await serverMessage(DASHBOARD_ACTION_MESSAGES.themeApprovalInvalid),
+    };
   }
   try {
     const context = await requireDashboardActionRole('admin');
@@ -249,12 +282,14 @@ export async function approveBrandThemeAction(
     revalidatePath('/');
     return {
       status: 'success',
-      message: `Version ${response.approvedVersion.version} approved. Live artifacts stay unchanged until an experience explicitly adopts and publishes it.`,
+      message: await serverMessage(DASHBOARD_ACTION_MESSAGES.versionApproved, {
+        version: response.approvedVersion.version,
+      }),
       theme: response.theme,
       approvedVersion: response.approvedVersion,
     };
   } catch (error) {
-    return brandSystemActionError(error, 'Unable to approve this Brand version.');
+    return await brandSystemActionError(error, DASHBOARD_ACTION_MESSAGES.approveBrandFailed);
   }
 }
 
@@ -262,16 +297,23 @@ export async function makeDefaultBrandThemeAction(
   input: BrandThemeGuardInput,
 ): Promise<BrandSystemActionState> {
   if (!isSafeRecordId(input.themeId) || !isThemeMutationGuard(input)) {
-    return { status: 'error', error: 'Default theme request is invalid.' };
+    return {
+      status: 'error',
+      error: await serverMessage(DASHBOARD_ACTION_MESSAGES.defaultThemeInvalid),
+    };
   }
   try {
     const context = await requireDashboardActionRole('admin');
     const response = await setDefaultWorkspaceTheme(input);
     assertDashboardWorkspaceScope(context.workspaceId, response.theme);
     revalidatePath('/');
-    return { status: 'success', message: 'Workspace default updated.', theme: response.theme };
+    return {
+      status: 'success',
+      message: await serverMessage(DASHBOARD_ACTION_MESSAGES.workspaceDefaultUpdated),
+      theme: response.theme,
+    };
   } catch (error) {
-    return brandSystemActionError(error, 'Unable to make this the workspace default.');
+    return await brandSystemActionError(error, DASHBOARD_ACTION_MESSAGES.setWorkspaceDefaultFailed);
   }
 }
 
@@ -283,7 +325,10 @@ export async function acknowledgeApprovedBrandThemeAction(
     !isSafeRecordId(input.themeId) ||
     !isSafeRecordId(input.themeVersionId)
   ) {
-    return { status: 'error', error: 'Theme acknowledgement request is invalid.' };
+    return {
+      status: 'error',
+      error: await serverMessage(DASHBOARD_ACTION_MESSAGES.themeAcknowledgementInvalid),
+    };
   }
   try {
     const context = await requireDashboardActionRole('member');
@@ -297,12 +342,12 @@ export async function acknowledgeApprovedBrandThemeAction(
     revalidatePath('/');
     return {
       status: 'success',
-      message: 'Experience now uses the approved Brand version in its next compiled artifact.',
+      message: await serverMessage(DASHBOARD_ACTION_MESSAGES.experienceBrandUpdated),
       detail,
       acknowledgedDocumentId: input.documentId,
     };
   } catch (error) {
-    return brandSystemActionError(error, 'Unable to update this experience.');
+    return await brandSystemActionError(error, DASHBOARD_ACTION_MESSAGES.updateExperienceFailed);
   }
 }
 
@@ -314,10 +359,16 @@ export async function createEnvironmentTokenAction(
   const name = formData.get('name');
 
   if (typeof environmentId !== 'string' || !environmentId.trim()) {
-    return { status: 'error', error: 'Choose an environment.' };
+    return {
+      status: 'error',
+      error: await serverMessage(DASHBOARD_ACTION_MESSAGES.chooseEnvironment),
+    };
   }
   if (typeof name !== 'string' || !name.trim()) {
-    return { status: 'error', error: 'Site label is required.' };
+    return {
+      status: 'error',
+      error: await serverMessage(DASHBOARD_ACTION_MESSAGES.siteLabelRequired),
+    };
   }
 
   try {
@@ -336,7 +387,7 @@ export async function createEnvironmentTokenAction(
   } catch (error) {
     return {
       status: 'error',
-      error: dashboardActionErrorMessage(error, 'Unable to create token.'),
+      error: await dashboardActionErrorMessage(error, DASHBOARD_ACTION_MESSAGES.createTokenFailed),
     };
   }
 }
@@ -347,7 +398,10 @@ export async function createPublicSdkInstallationAction(
 ): Promise<SdkInstallationActionState> {
   const name = formData.get('name');
   if (typeof name !== 'string' || !name.trim()) {
-    return { status: 'error', error: 'Application name is required.' };
+    return {
+      status: 'error',
+      error: await serverMessage(DASHBOARD_ACTION_MESSAGES.applicationNameRequired),
+    };
   }
 
   try {
@@ -363,8 +417,7 @@ export async function createPublicSdkInstallationAction(
     } catch {
       configured = {
         origins: [],
-        warning:
-          'The installation was created, but trusted origins could not be synced. Retry the origin sync before using it.',
+        warning: await serverMessage(DASHBOARD_ACTION_MESSAGES.originsNotSynced),
       };
     }
     revalidatePath('/');
@@ -380,7 +433,10 @@ export async function createPublicSdkInstallationAction(
   } catch (error) {
     return {
       status: 'error',
-      error: dashboardActionErrorMessage(error, 'Unable to prepare the SDK installation.'),
+      error: await dashboardActionErrorMessage(
+        error,
+        DASHBOARD_ACTION_MESSAGES.prepareInstallationFailed,
+      ),
     };
   }
 }
@@ -390,7 +446,12 @@ export async function syncPublicSdkInstallationAction(
   formData: FormData,
 ): Promise<SdkInstallationActionState> {
   const installationId = readRequiredFormValue(formData, 'installationId');
-  if (!installationId) return { status: 'error', error: 'Choose an SDK installation.' };
+  if (!installationId) {
+    return {
+      status: 'error',
+      error: await serverMessage(DASHBOARD_ACTION_MESSAGES.chooseInstallation),
+    };
+  }
 
   try {
     const context = await requireDashboardActionRole('admin');
@@ -401,7 +462,12 @@ export async function syncPublicSdkInstallationAction(
     const installation = installations.find(
       (candidate) => candidate.installationId === installationId && !candidate.revokedAt,
     );
-    if (!installation) return { status: 'error', error: 'SDK installation was not found.' };
+    if (!installation) {
+      return {
+        status: 'error',
+        error: await serverMessage(DASHBOARD_ACTION_MESSAGES.installationNotFound),
+      };
+    }
     const configured = await configureInstallationOrigins(context.workspaceId, installationId);
     revalidatePath('/');
     return {
@@ -415,7 +481,7 @@ export async function syncPublicSdkInstallationAction(
   } catch (error) {
     return {
       status: 'error',
-      error: dashboardActionErrorMessage(error, 'Unable to sync trusted origins.'),
+      error: await dashboardActionErrorMessage(error, DASHBOARD_ACTION_MESSAGES.syncOriginsFailed),
     };
   }
 }
@@ -425,7 +491,12 @@ export async function revokePublicSdkInstallationAction(
   formData: FormData,
 ): Promise<SdkInstallationActionState> {
   const installationId = readRequiredFormValue(formData, 'installationId');
-  if (!installationId) return { status: 'error', error: 'Choose an SDK installation.' };
+  if (!installationId) {
+    return {
+      status: 'error',
+      error: await serverMessage(DASHBOARD_ACTION_MESSAGES.chooseInstallation),
+    };
+  }
 
   try {
     const context = await requireDashboardActionRole('admin');
@@ -434,7 +505,12 @@ export async function revokePublicSdkInstallationAction(
       assertDashboardWorkspaceScope(context.workspaceId, installation, ...installation.origins);
     }
     const current = installations.find((candidate) => candidate.installationId === installationId);
-    if (!current) return { status: 'error', error: 'SDK installation was not found.' };
+    if (!current) {
+      return {
+        status: 'error',
+        error: await serverMessage(DASHBOARD_ACTION_MESSAGES.installationNotFound),
+      };
+    }
     const revoked = await revokePublicSdkInstallation(installationId);
     revalidatePath('/');
     return {
@@ -449,7 +525,10 @@ export async function revokePublicSdkInstallationAction(
   } catch (error) {
     return {
       status: 'error',
-      error: dashboardActionErrorMessage(error, 'Unable to revoke the SDK installation.'),
+      error: await dashboardActionErrorMessage(
+        error,
+        DASHBOARD_ACTION_MESSAGES.revokeInstallationFailed,
+      ),
     };
   }
 }
@@ -461,7 +540,10 @@ export async function loadDocumentDebugAction(
   const documentId = formData.get('documentId');
 
   if (typeof documentId !== 'string' || !documentId.trim()) {
-    return { status: 'error', error: 'Choose an experience.' };
+    return {
+      status: 'error',
+      error: await serverMessage(DASHBOARD_ACTION_MESSAGES.chooseExperience),
+    };
   }
 
   try {
@@ -475,16 +557,22 @@ export async function loadDocumentDebugAction(
       documentId,
       canonicalJson: stableDebugJson(debug.canonical),
       compiledJson: stableDebugJson(debug.latestArtifact?.compiled ?? null),
-      latestContentHash: debug.latestArtifact?.contentHash ?? 'Not prepared',
-      compilerVersion: debug.latestArtifact?.compilerVersion ?? 'No delivery record',
+      latestContentHash:
+        debug.latestArtifact?.contentHash ??
+        (await serverMessage(DASHBOARD_ACTION_MESSAGES.notPrepared)),
+      compilerVersion:
+        debug.latestArtifact?.compilerVersion ??
+        (await serverMessage(DASHBOARD_ACTION_MESSAGES.noDeliveryRecord)),
       versionCount: debug.versions.length,
-      latestVersionLabel: latestVersion ? `v${latestVersion.version}` : 'No versions',
+      latestVersionLabel: latestVersion
+        ? `v${latestVersion.version}`
+        : await serverMessage(DASHBOARD_ACTION_MESSAGES.noVersions),
       publishReadinessIssues: debug.publishReadinessIssues,
     };
   } catch (error) {
     return {
       status: 'error',
-      error: dashboardActionErrorMessage(error, 'Unable to load support details.'),
+      error: await dashboardActionErrorMessage(error, DASHBOARD_ACTION_MESSAGES.loadSupportFailed),
     };
   }
 }
@@ -496,7 +584,10 @@ export async function revokeEnvironmentTokenAction(
   const tokenId = formData.get('tokenId');
 
   if (typeof tokenId !== 'string' || !tokenId.trim()) {
-    return { status: 'error', error: 'Choose a token.' };
+    return {
+      status: 'error',
+      error: await serverMessage(DASHBOARD_ACTION_MESSAGES.chooseToken),
+    };
   }
 
   try {
@@ -507,7 +598,7 @@ export async function revokeEnvironmentTokenAction(
   } catch (error) {
     return {
       status: 'error',
-      error: dashboardActionErrorMessage(error, 'Unable to revoke token.'),
+      error: await dashboardActionErrorMessage(error, DASHBOARD_ACTION_MESSAGES.revokeTokenFailed),
     };
   }
 }
@@ -547,13 +638,19 @@ async function configureInstallationOrigins(
   const synced = await syncPublicSdkInstallationOrigins(installationId, uniqueCandidates);
   assertDashboardWorkspaceScope(workspaceId, ...synced.origins);
   const ambiguousCount = candidates.length - uniqueCandidates.length;
+  let ambiguousWarning = '';
+  if (ambiguousCount === 1) {
+    ambiguousWarning = await serverMessage(DASHBOARD_ACTION_MESSAGES.ambiguousOrigin);
+  } else if (ambiguousCount > 1) {
+    ambiguousWarning = await serverMessage(DASHBOARD_ACTION_MESSAGES.ambiguousOrigins, {
+      count: ambiguousCount,
+    });
+  }
   const warnings = [
     environments.length > 0 && candidates.length === 0
-      ? 'No canonical product origins are configured yet.'
+      ? await serverMessage(DASHBOARD_ACTION_MESSAGES.noProductOrigins)
       : '',
-    ambiguousCount > 0
-      ? `${ambiguousCount} origin mapping${ambiguousCount === 1 ? ' was' : 's were'} skipped because the same origin belongs to more than one environment.`
-      : '',
+    ambiguousWarning,
   ].filter(Boolean);
   return {
     origins: synced.origins,
@@ -606,24 +703,32 @@ function isThemeMutationGuard(input: {
   );
 }
 
-function brandSystemActionError(error: unknown, fallback: string): BrandSystemActionState {
+async function brandSystemActionError(
+  error: unknown,
+  fallback: MessageDescriptor,
+): Promise<BrandSystemActionState> {
   if (error instanceof DashboardApiError && error.statusCode === 409) {
     return {
       status: 'error',
-      error: 'This Brand theme changed in another session. Refresh its impact before trying again.',
+      error: await serverMessage(DASHBOARD_ACTION_MESSAGES.brandChanged),
     };
   }
   if (error instanceof DashboardApiError && error.statusCode === 403) {
     return {
       status: 'error',
-      error: 'Your workspace role does not allow this Brand action.',
+      error: await serverMessage(DASHBOARD_ACTION_MESSAGES.brandForbidden),
     };
   }
-  return { status: 'error', error: dashboardActionErrorMessage(error, fallback) };
+  return { status: 'error', error: await dashboardActionErrorMessage(error, fallback) };
 }
 
-function dashboardActionErrorMessage(error: unknown, fallback: string): string {
-  return error instanceof DashboardApiError ? error.message : fallback;
+async function dashboardActionErrorMessage(
+  error: unknown,
+  fallback: MessageDescriptor,
+): Promise<string> {
+  return error instanceof DashboardApiError
+    ? serverDashboardErrorMessage(error)
+    : serverMessage(fallback);
 }
 
 function redactDebugValue(value: unknown): unknown {

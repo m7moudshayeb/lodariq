@@ -15,6 +15,7 @@ describe('@lodariq/dashboard client boundaries', () => {
       ['apps/dashboard/src/lib/client-auth-api.ts', 1],
       ['apps/dashboard/src/lib/client-authoring-activation-api.ts', 1],
       ['apps/dashboard/src/lib/client-dashboard-api.ts', 1],
+      ['apps/dashboard/src/lib/client-locale-api.ts', 1],
     ]);
 
     expect(clientFiles.map((file) => relative(repoRoot, file))).toEqual(
@@ -100,7 +101,7 @@ describe('@lodariq/dashboard client boundaries', () => {
     expect(dashboardSettings).toContain('useEnvironmentApprovalMutation');
     expect(dashboardSettings).toContain('ProductionEnvironmentPolicy');
     expect(dashboardSettings).toContain(
-      "approvalRequired ? 'Remove approval' : 'Require approval'",
+      'return translate(approvalRequired ? COPY.removeApproval : COPY.requireApproval)',
     );
     expect(dashboardSettings).toContain('One explicit approval is required');
   });

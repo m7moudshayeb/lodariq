@@ -24,5 +24,6 @@ PRD.
 | [0015](0015-sdk-first-in-product-authoring-entry.md)  | One-install in-product launcher + first-party auth exchange      | Accepted |
 | [0016](0016-target-identity-v2.md)                    | Selector-free multi-evidence target identity                     | Accepted |
 | [0017](0017-lodariq-owned-authentication.md)          | Owned credentials, recovery, email outbox, sessions, and tenancy | Accepted |
+| [0018](0018-localization-boundaries.md)               | Git-first product catalogs + authored-content locale variants    | Accepted |
 
 See [0000-template.md](0000-template.md) for the format.

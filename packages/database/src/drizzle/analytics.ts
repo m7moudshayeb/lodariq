@@ -170,6 +170,9 @@ export class DrizzleRepositoryAnalytics extends DrizzleRepositoryAuthoringSessio
             query.contentHash
               ? eq(authoritativeAnalyticsEvents.contentHash, query.contentHash)
               : undefined,
+            query.locale
+              ? eq(sql`${authoritativeAnalyticsEvents.props} ->> 'locale'`, query.locale)
+              : undefined,
             query.from
               ? gte(authoritativeAnalyticsEvents.occurredAt, new Date(query.from))
               : undefined,
@@ -201,6 +204,12 @@ export class DrizzleRepositoryAnalytics extends DrizzleRepositoryAuthoringSessio
           end
         else null
       end`;
+      const contentLocale = sql<string | null>`case
+        when ${authoritativeAnalyticsEvents.props} ->> 'locale' ~
+          '^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})*$'
+          then ${authoritativeAnalyticsEvents.props} ->> 'locale'
+        else null
+      end`;
       const rows = await tx
         .select({
           workspaceId: authoritativeAnalyticsEvents.workspaceId,
@@ -211,6 +220,7 @@ export class DrizzleRepositoryAnalytics extends DrizzleRepositoryAuthoringSessio
           pointerGeneration: authoritativeAnalyticsEvents.pointerGeneration,
           name: authoritativeAnalyticsEvents.name,
           targetResolutionStatus,
+          contentLocale,
           count: sql<number>`count(*)::integer`,
           firstTimestamp: sql<Date>`min(${authoritativeAnalyticsEvents.occurredAt})`,
           lastTimestamp: sql<Date>`max(${authoritativeAnalyticsEvents.occurredAt})`,
@@ -229,6 +239,9 @@ export class DrizzleRepositoryAnalytics extends DrizzleRepositoryAuthoringSessio
             query.contentHash
               ? eq(authoritativeAnalyticsEvents.contentHash, query.contentHash)
               : undefined,
+            query.locale
+              ? eq(sql`${authoritativeAnalyticsEvents.props} ->> 'locale'`, query.locale)
+              : undefined,
             query.from
               ? gte(authoritativeAnalyticsEvents.occurredAt, new Date(query.from))
               : undefined,
@@ -244,6 +257,7 @@ export class DrizzleRepositoryAnalytics extends DrizzleRepositoryAuthoringSessio
           authoritativeAnalyticsEvents.pointerGeneration,
           authoritativeAnalyticsEvents.name,
           targetResolutionStatus,
+          contentLocale,
         )
         .orderBy(
           desc(sql`count(*)`),
@@ -263,6 +277,7 @@ export class DrizzleRepositoryAnalytics extends DrizzleRepositoryAuthoringSessio
           count: row.count,
           firstTimestamp: toIsoString(row.firstTimestamp),
           lastTimestamp: toIsoString(row.lastTimestamp),
+          ...(row.contentLocale ? { locale: row.contentLocale } : {}),
         };
         return row.name === 'target_resolution'
           ? {

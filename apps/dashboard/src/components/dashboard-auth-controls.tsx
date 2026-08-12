@@ -1,5 +1,7 @@
 'use client';
 
+import { msg } from '@lingui/core/macro';
+import { useLingui } from '@lingui/react';
 import {
   Building2,
   Check,
@@ -21,10 +23,43 @@ interface DashboardAuthControlsProps {
   compact?: boolean;
 }
 
+const COPY = {
+  switchFailed: msg({
+    id: 'dashboard.account.switchFailed',
+    message: 'Could not switch workspaces.',
+  }),
+  createFailed: msg({
+    id: 'dashboard.account.createFailed',
+    message: 'Could not create the workspace.',
+  }),
+  signOutFailed: msg({ id: 'dashboard.account.signOutFailed', message: 'Could not sign out.' }),
+  openMenu: msg({
+    id: 'dashboard.account.openMenu',
+    message: 'Open account and workspace menu',
+  }),
+  workspace: msg({ id: 'dashboard.account.workspace', message: 'Workspace' }),
+  workspaces: msg({ id: 'dashboard.account.workspaces', message: 'Workspaces' }),
+  newWorkspaceName: msg({
+    id: 'dashboard.account.newWorkspaceName',
+    message: 'New workspace name',
+  }),
+  newWorkspace: msg({ id: 'dashboard.account.newWorkspace', message: 'New workspace' }),
+  createWorkspace: msg({
+    id: 'dashboard.account.createWorkspace',
+    message: 'Create workspace',
+  }),
+  signOut: msg({ id: 'dashboard.account.signOut', message: 'Sign out' }),
+  roleViewer: msg({ id: 'dashboard.account.role.viewer', message: 'Viewer' }),
+  roleMember: msg({ id: 'dashboard.account.role.member', message: 'Member' }),
+  roleAdmin: msg({ id: 'dashboard.account.role.admin', message: 'Admin' }),
+  roleOwner: msg({ id: 'dashboard.account.role.owner', message: 'Owner' }),
+} as const;
+
 export function DashboardAuthControls({
   session,
   compact = false,
 }: DashboardAuthControlsProps): React.ReactElement {
+  const { _ } = useLingui();
   const router = useRouter();
   const menuId = useId();
   const rootRef = useRef<HTMLDivElement>(null);
@@ -64,7 +99,7 @@ export function DashboardAuthControls({
       setOpen(false);
       router.refresh();
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Could not switch workspaces.');
+      setError(caught instanceof Error ? caught.message : _(COPY.switchFailed));
     } finally {
       setPending('');
     }
@@ -84,7 +119,7 @@ export function DashboardAuthControls({
       setOpen(false);
       router.refresh();
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Could not create the workspace.');
+      setError(caught instanceof Error ? caught.message : _(COPY.createFailed));
     } finally {
       setPending('');
     }
@@ -99,7 +134,7 @@ export function DashboardAuthControls({
       router.replace('/sign-in');
       router.refresh();
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Could not sign out.');
+      setError(caught instanceof Error ? caught.message : _(COPY.signOutFailed));
       setPending('');
     }
   }
@@ -112,11 +147,11 @@ export function DashboardAuthControls({
         aria-controls={menuId}
         aria-expanded={open}
         aria-haspopup="menu"
-        aria-label={compact ? 'Open account and workspace menu' : undefined}
+        aria-label={compact ? _(COPY.openMenu) : undefined}
         className={
           compact
             ? 'mx-auto grid size-10 place-items-center rounded-xl border border-border bg-card text-primary outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring'
-            : 'flex min-h-12 w-full min-w-0 items-center gap-2 rounded-xl border border-border bg-[var(--surface-subtle)] p-2 text-left outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring'
+            : 'flex min-h-12 w-full min-w-0 items-center gap-2 rounded-xl border border-border bg-[var(--surface-subtle)] p-2 text-start outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring'
         }
         onClick={() => setOpen((value) => !value)}
         type="button"
@@ -128,7 +163,7 @@ export function DashboardAuthControls({
           <>
             <span className="min-w-0 flex-1">
               <span className="block truncate text-xs font-semibold">
-                {activeWorkspace?.name ?? 'Workspace'}
+                {activeWorkspace?.name ?? _(COPY.workspace)}
               </span>
               <span className="block truncate text-[11px] text-muted-foreground">
                 {identityLabel}
@@ -144,7 +179,7 @@ export function DashboardAuthControls({
 
       {open ? (
         <div
-          className="absolute bottom-[calc(100%+8px)] left-0 z-[70] grid w-[min(288px,calc(100vw-32px))] gap-2 rounded-xl border border-border bg-popover p-2 text-popover-foreground shadow-[0_18px_50px_rgba(30,55,47,.18)]"
+          className="absolute bottom-[calc(100%+8px)] start-0 z-[70] grid w-[min(288px,calc(100vw-32px))] gap-2 rounded-xl border border-border bg-popover p-2 text-popover-foreground shadow-[0_18px_50px_rgba(30,55,47,.18)]"
           id={menuId}
           role="menu"
         >
@@ -162,13 +197,13 @@ export function DashboardAuthControls({
 
           <div className="border-t border-border pt-2">
             <p className="px-2 pb-1 text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
-              Workspaces
+              {_(COPY.workspaces)}
             </p>
             {currentSession.workspaces.map((workspace) => {
               const active = workspace.id === currentSession.activeWorkspaceId;
               return (
                 <button
-                  className="flex min-h-10 w-full items-center gap-2 rounded-lg px-2 text-left text-sm hover:bg-accent disabled:opacity-60"
+                  className="flex min-h-10 w-full items-center gap-2 rounded-lg px-2 text-start text-sm hover:bg-accent disabled:opacity-60"
                   disabled={Boolean(pending)}
                   key={workspace.id}
                   onClick={() => void chooseWorkspace(workspace.id)}
@@ -182,7 +217,7 @@ export function DashboardAuthControls({
                   )}
                   <span className="min-w-0 flex-1 truncate">{workspace.name}</span>
                   <span className="text-[10px] capitalize text-muted-foreground">
-                    {workspace.role}
+                    {_(COPY[`role${capitalizeRole(workspace.role)}`])}
                   </span>
                   {active ? <Check aria-hidden="true" className="size-4 text-primary" /> : null}
                 </button>
@@ -195,15 +230,15 @@ export function DashboardAuthControls({
             onSubmit={(event) => void addWorkspace(event)}
           >
             <Input
-              aria-label="New workspace name"
+              aria-label={_(COPY.newWorkspaceName)}
               className="h-8"
               disabled={Boolean(pending)}
               name="name"
-              placeholder="New workspace"
+              placeholder={_(COPY.newWorkspace)}
               required
             />
             <Button
-              aria-label="Create workspace"
+              aria-label={_(COPY.createWorkspace)}
               disabled={Boolean(pending)}
               size="icon"
               type="submit"
@@ -224,7 +259,7 @@ export function DashboardAuthControls({
           ) : null}
 
           <button
-            className="flex min-h-10 w-full items-center gap-2 rounded-lg border-t border-border px-2 pt-2 text-left text-sm text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-60"
+            className="flex min-h-10 w-full items-center gap-2 rounded-lg border-t border-border px-2 pt-2 text-start text-sm text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-60"
             disabled={Boolean(pending)}
             onClick={() => void endSession()}
             role="menuitem"
@@ -235,12 +270,21 @@ export function DashboardAuthControls({
             ) : (
               <LogOut aria-hidden="true" className="size-4" />
             )}
-            Sign out
+            {_(COPY.signOut)}
           </button>
         </div>
       ) : null}
     </div>
   );
+}
+
+function capitalizeRole(
+  role: 'viewer' | 'member' | 'admin' | 'owner',
+): 'Viewer' | 'Member' | 'Admin' | 'Owner' {
+  if (role === 'viewer') return 'Viewer';
+  if (role === 'member') return 'Member';
+  if (role === 'admin') return 'Admin';
+  return 'Owner';
 }
 
 function initials(value: string): string {

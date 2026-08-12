@@ -1,4 +1,5 @@
 import { ControllerTargetDocumentFeature } from './controller-target-document';
+import { authoringText } from '../../i18n';
 import {
   AUTHORING_BRAND_DRIFT_PREVIEW_TYPE,
   BRIDGE_PROTOCOL_VERSION,
@@ -10,8 +11,76 @@ import type { LocalAuthoringFrameSnapshot } from './types';
 import type { LocalAuthoringFrameMetricName } from '../local-frame-types';
 import { findBlockById, isEditableContentBlock } from './utils';
 import { AuthoringBrandDriftController } from '../brand-drift-controller';
+import { isProductLocale } from '@lodariq/i18n';
+import { localizedAuthoringDocument } from '../document-localization';
 
 export class ControllerSnapshotFeature extends ControllerTargetDocumentFeature {
+  setContentLocale(locale: string): void {
+    if (!isProductLocale(locale) || locale === this.contentLocale) return;
+    this.syncFocusedEditControl();
+    this.contentLocale = locale;
+    this.translationState = 'idle';
+    this.translationRequestVersion += 1;
+    this.setStatus(authoringText('Editing experience copy in {locale}', { locale }));
+  }
+
+  async translateMissingCopy(): Promise<void> {
+    const translateDocument = this.services.translateDocument;
+    if (!translateDocument) {
+      this.setStatus(authoringText('Automatic translation is not configured'));
+      return;
+    }
+    const localization = this.documentState.localization;
+    if (!localization || this.contentLocale === localization.defaultLocale) {
+      this.setStatus(authoringText('Select another experience language to translate'));
+      return;
+    }
+    if (this.translationState === 'translating') return;
+
+    const requestVersion = ++this.translationRequestVersion;
+    const documentChangeSequence = this.documentChangeSequence;
+    const targetLocale = this.contentLocale;
+    this.translationState = 'translating';
+    this.setStatus(authoringText('Translating missing copy…'));
+    try {
+      const result = await translateDocument({
+        document: structuredClone(this.documentState),
+        targetLocale,
+        mode: 'missing',
+      });
+      if (
+        requestVersion !== this.translationRequestVersion ||
+        documentChangeSequence !== this.documentChangeSequence ||
+        targetLocale !== this.contentLocale
+      ) {
+        return;
+      }
+      this.translationState = 'idle';
+      const translatedCount = result.translatedBlockCount + (result.translatedTitle ? 1 : 0);
+      if (translatedCount === 0) {
+        this.setStatus(authoringText('All copy is already translated'));
+        return;
+      }
+      this.recordChange();
+      this.documentState = this.normalizeDocument(structuredClone(result.document));
+      this.afterDocumentMutation();
+      this.services.saveDocument(this.documentState);
+      this.sendPreviewPatch(this.documentState.id, [
+        { op: 'replaceDocument', document: structuredClone(this.documentState) },
+      ]);
+      this.setStatus(
+        authoringText('Translated {count} items to {locale}', {
+          count: translatedCount,
+          locale: targetLocale,
+        }),
+      );
+    } catch {
+      if (requestVersion !== this.translationRequestVersion) return;
+      this.translationState = 'error';
+      this.setStatus(authoringText('Translation failed. Try again.'));
+    }
+  }
+
   protected recordChange(): void {
     this.undoStack.push(this.snapshot());
     this.redoStack.length = 0;
@@ -33,6 +102,10 @@ export class ControllerSnapshotFeature extends ControllerTargetDocumentFeature {
   }
 
   protected afterDocumentMutation(): void {
+    if (this.translationState === 'translating') {
+      this.translationState = 'idle';
+      this.translationRequestVersion += 1;
+    }
     this.documentState = this.normalizeDocument(this.documentState);
     this.documentChangeSequence += 1;
     this.releaseRequestVersion += 1;
@@ -45,7 +118,9 @@ export class ControllerSnapshotFeature extends ControllerTargetDocumentFeature {
       this.panelOperation === 'approving-release'
     ) {
       this.panelOperation = null;
-      this.panelWorkflowNotice = 'Draft changed. Publish and verify the new artifact again.';
+      this.panelWorkflowNotice = authoringText(
+        'Draft changed. Publish and verify the new artifact again.',
+      );
     }
     if (this.services.publishToStaging) {
       this.release = {
@@ -209,7 +284,12 @@ export class ControllerSnapshotFeature extends ControllerTargetDocumentFeature {
 
   protected makeSnapshot(): LocalAuthoringFrameSnapshot {
     return {
-      documentState: this.documentState,
+      documentState: localizedAuthoringDocument(this.documentState, this.contentLocale),
+      contentLocale: this.contentLocale,
+      translation: {
+        available: Boolean(this.services.translateDocument),
+        state: this.translationState,
+      },
       previewTheme: this.previewTheme ? structuredClone(this.previewTheme) : null,
       previewPreferences: this.previewPreferences ? { ...this.previewPreferences } : null,
       status: this.status,

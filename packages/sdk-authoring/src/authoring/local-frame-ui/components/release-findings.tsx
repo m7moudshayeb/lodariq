@@ -1,3 +1,4 @@
+import { authoringText } from '../../../i18n';
 import {
   publishReadinessIssueLabel,
   validateTourPublishReadiness,
@@ -8,18 +9,18 @@ import { CircleAlert } from '../design-system';
 import type { AuthoringReleaseViewStatus } from '../types';
 
 const RELEASE_FINDING_SEVERITY_LABELS = {
-  blocker: 'Blocker',
-  warning: 'Warning',
+  blocker: authoringText('Blocker'),
+  warning: authoringText('Warning'),
 } as const satisfies Record<AuthoringReleaseFinding['severity'], string>;
 
 const RELEASE_VIEW_STATUS_LABELS = {
-  unavailable: 'Release unavailable',
-  checking: 'Checking release',
-  publishing: 'Publishing',
-  ready: 'Ready to stage',
-  current: 'Staging current',
-  blocked: 'Needs attention',
-  error: 'Release check failed',
+  unavailable: authoringText('Release unavailable'),
+  checking: authoringText('Checking release'),
+  publishing: authoringText('Publishing'),
+  ready: authoringText('Ready to stage'),
+  current: authoringText('Staging current'),
+  blocked: authoringText('Needs attention'),
+  error: authoringText('Release check failed'),
 } as const satisfies Record<AuthoringReleaseViewStatus, string>;
 
 export function ReleaseFindings({ findings }: { findings: AuthoringReleaseFinding[] }) {
@@ -27,9 +28,10 @@ export function ReleaseFindings({ findings }: { findings: AuthoringReleaseFindin
   if (uniqueFindings.length === 0) return null;
 
   const blockerCount = uniqueFindings.filter((finding) => finding.severity === 'blocker').length;
-  const heading = `${uniqueFindings.length} ${
-    uniqueFindings.length === 1 ? 'finding' : 'findings'
-  }`;
+  const heading = authoringText(
+    uniqueFindings.length === 1 ? '{count} finding' : '{count} findings',
+    { count: uniqueFindings.length },
+  );
 
   return (
     <section
@@ -39,16 +41,21 @@ export function ReleaseFindings({ findings }: { findings: AuthoringReleaseFindin
     >
       <div className="panel-mode-section-heading">
         <span>
-          <small>Release findings</small>
+          <small>{authoringText('Release findings')}</small>
           <strong id="release-findings-title">{heading}</strong>
         </span>
         <span className={`panel-status-pill ${blockerCount > 0 ? 'failed' : 'draft'}`}>
           {blockerCount > 0
-            ? `${blockerCount} ${blockerCount === 1 ? 'blocker' : 'blockers'}`
-            : 'Warnings only'}
+            ? authoringText(blockerCount === 1 ? '{count} blocker' : '{count} blockers', {
+                count: blockerCount,
+              })
+            : authoringText('Warnings only')}
         </span>
       </div>
-      <ul className="panel-check-list release-finding-list" aria-label="Release findings">
+      <ul
+        className="panel-check-list release-finding-list"
+        aria-label={authoringText('Release findings')}
+      >
         {uniqueFindings.map((finding) => (
           <li
             className={finding.severity === 'blocker' ? 'failed' : 'warning'}
@@ -56,9 +63,9 @@ export function ReleaseFindings({ findings }: { findings: AuthoringReleaseFindin
           >
             <CircleAlert size={14} strokeWidth={2.2} aria-hidden="true" />
             <span>
-              <strong>{finding.label}</strong>
+              <strong>{authoringText(finding.label)}</strong>
               <small className="release-finding-severity">
-                Severity: {RELEASE_FINDING_SEVERITY_LABELS[finding.severity]}
+                {authoringText('Severity:')} {RELEASE_FINDING_SEVERITY_LABELS[finding.severity]}
               </small>
             </span>
           </li>
@@ -84,7 +91,7 @@ export function localPublishReadinessFindings(
 ): AuthoringReleaseFinding[] {
   return validateTourPublishReadiness(document).map((issue, index) => ({
     code: `local:${index}:${issue.code}`,
-    label: publishReadinessIssueLabel(issue.code),
+    label: authoringText(publishReadinessIssueLabel(issue.code)),
     severity: 'blocker',
   }));
 }
@@ -106,7 +113,10 @@ export function releaseFooterSummary(
   const count = deduplicateReleaseFindings(findings).length;
   const statusLabel = RELEASE_VIEW_STATUS_LABELS[status];
   if (count === 0) return statusLabel;
-  return `${statusLabel} · ${count} ${count === 1 ? 'finding' : 'findings'}`;
+  return authoringText(count === 1 ? '{status} · {count} finding' : '{status} · {count} findings', {
+    status: statusLabel,
+    count,
+  });
 }
 
 function releaseFindingKey(finding: AuthoringReleaseFinding): string {

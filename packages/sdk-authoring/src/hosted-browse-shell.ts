@@ -1,6 +1,7 @@
 import { X, createElement as createLucideElement } from 'lucide';
 import { createNonceStyleElement } from '@lodariq/schema/dom';
 import { CREATOR_CHROME_FONT_STACK, CREATOR_CHROME_TOKENS } from './creator-chrome-tokens';
+import { applyAuthoringLocale, authoringText } from './i18n';
 
 const BROWSE_SHELL_WIDTH = 390;
 const BROWSE_SHELL_HEIGHT = 640;
@@ -87,21 +88,24 @@ export function mountHostedBrowseShell(options: HostedBrowseShellOptions): Hoste
   const shell = document.createElement('section');
   shell.className = 'shell';
   shell.setAttribute('role', 'dialog');
-  shell.setAttribute('aria-label', 'Browse Lodariq experiences');
+  shell.setAttribute('aria-label', authoringText('Browse Lodariq experiences'));
   const header = document.createElement('header');
   header.tabIndex = 0;
-  header.setAttribute('aria-label', 'Move Lodariq experience browser with arrow keys');
+  header.setAttribute(
+    'aria-label',
+    authoringText('Move Lodariq experience browser with arrow keys'),
+  );
   const copy = document.createElement('span');
   copy.className = 'copy';
   const wordmark = document.createElement('strong');
   wordmark.textContent = 'Lodariq';
   const context = document.createElement('span');
-  context.textContent = 'Author on this page';
+  context.textContent = authoringText('Author on this page');
   copy.append(wordmark, context);
   const closeButton = document.createElement('button');
   closeButton.type = 'button';
-  closeButton.setAttribute('aria-label', 'Close experience browser');
-  closeButton.title = 'Close';
+  closeButton.setAttribute('aria-label', authoringText('Close experience browser'));
+  closeButton.title = authoringText('Close');
   const closeIcon = createLucideElement(X, {
     'aria-hidden': 'true',
     height: 18,
@@ -189,6 +193,7 @@ export function mountHostedBrowseShell(options: HostedBrowseShellOptions): Hoste
   window.visualViewport?.addEventListener('scroll', resize);
   options.iframe.slot = 'hosted-browser';
   host.appendChild(options.iframe);
+  applyAuthoringLocale(host);
   document.body.appendChild(host);
   resize();
 
@@ -207,7 +212,9 @@ export function mountHostedBrowseShell(options: HostedBrowseShellOptions): Hoste
       host.setAttribute('data-minimized', minimized ? 'true' : 'false');
       shell.setAttribute(
         'aria-label',
-        minimized ? 'Lodariq experience browser minimized' : 'Browse Lodariq experiences',
+        minimized
+          ? authoringText('Lodariq experience browser minimized')
+          : authoringText('Browse Lodariq experiences'),
       );
       if (!minimized) resize();
       return minimized;

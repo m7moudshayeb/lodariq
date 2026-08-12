@@ -1,4 +1,8 @@
+'use client';
+
 import { Check, Circle, CircleAlert, FileText, Globe2, ShieldCheck } from 'lucide-react';
+import { msg } from '@lingui/core/macro';
+import { useLingui } from '@lingui/react';
 import type { DashboardReleaseStage, ReleaseStageTone } from '../lib/view-model';
 
 interface ReleaseProgressProps {
@@ -12,14 +16,20 @@ const stageIcons = {
   production: Globe2,
 } as const;
 
+const RELEASE_PROGRESS_LABEL = msg({
+  id: 'dashboard.releaseProgress.label',
+  message: 'Release progress',
+});
+
 export function ReleaseProgress({
   stages,
   compact = false,
 }: ReleaseProgressProps): React.ReactElement {
+  const { _ } = useLingui();
   return (
     <ol
       className={compact ? 'grid gap-3 sm:grid-cols-3' : 'grid gap-4 sm:grid-cols-3 sm:gap-0'}
-      aria-label="Release progress"
+      aria-label={_(RELEASE_PROGRESS_LABEL)}
     >
       {stages.map((stage, index) => {
         const StageIcon = stageIcons[stage.id];
@@ -29,7 +39,7 @@ export function ReleaseProgress({
             {!compact && !isLast ? (
               <span
                 aria-hidden="true"
-                className="absolute left-[calc(50%+1.5rem)] right-[calc(-50%+1.5rem)] top-5 hidden h-px bg-border sm:block"
+                className="absolute top-5 hidden h-px bg-border sm:block ltr:left-[calc(50%+1.5rem)] ltr:right-[calc(-50%+1.5rem)] rtl:right-[calc(50%+1.5rem)] rtl:left-[calc(-50%+1.5rem)]"
               />
             ) : null}
             <div

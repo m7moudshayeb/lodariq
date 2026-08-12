@@ -12,7 +12,7 @@ interface ActivationProxyRequest {
 }
 
 export async function POST(request: Request): Promise<Response> {
-  const rejectedRequest = rejectUnsafeMutation(request);
+  const rejectedRequest = await rejectUnsafeMutation(request);
   if (rejectedRequest) return rejectedRequest;
 
   const body = await readActivationProxyRequest(request);

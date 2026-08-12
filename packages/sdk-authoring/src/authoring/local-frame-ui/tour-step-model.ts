@@ -1,23 +1,24 @@
 import type { LodariqBlock } from '@lodariq/schema';
 import type { EditableActionType, LocalAuthoringFrameSnapshot } from './types';
 import { blockStatus, targetDiagnosticIsDrift, targetIdOf } from './utils';
+import { authoringText } from '../../i18n';
 
 export type StepHealthTone = 'ready' | 'repair' | 'review';
 
 export function elementActionLabelFor(needsRepair: boolean, hasTarget: boolean): string {
-  if (!hasTarget) return 'Choose element';
-  if (needsRepair) return 'Fix element';
-  return 'Change element';
+  if (!hasTarget) return authoringText('Choose element');
+  if (needsRepair) return authoringText('Fix element');
+  return authoringText('Change element');
 }
 
 export function targetActionLabelFor(needsRepair: boolean, hasTarget: boolean): string {
-  if (!hasTarget) return 'Choose target';
-  return needsRepair ? 'Fix placement' : 'Change target';
+  if (!hasTarget) return authoringText('Choose target');
+  return needsRepair ? authoringText('Fix placement') : authoringText('Change target');
 }
 
 export function storyboardStepPreview(step: LodariqBlock): { body: string; action: string | null } {
   const tooltip = stepTooltip(step);
-  if (!tooltip) return { body: 'Add popup content', action: null };
+  if (!tooltip) return { body: authoringText('Add popup content'), action: null };
   const bodyBlock = tooltip.children.find(
     (child) => child.type === 'paragraph' || child.type === 'heading',
   );
@@ -25,7 +26,7 @@ export function storyboardStepPreview(step: LodariqBlock): { body: string; actio
     (child) => child.type === 'button' || child.type === 'link',
   );
   return {
-    body: bodyBlock?.content?.trim() || 'Add popup content',
+    body: bodyBlock?.content?.trim() || authoringText('Add popup content'),
     action: actionBlock?.content?.trim() || null,
   };
 }
@@ -35,8 +36,9 @@ export function stepPlacementFact(
   targetLabel: string,
   health: { label: string },
 ): string {
-  if (!targetId) return 'Not placed yet';
-  const status = health.label === 'Verified' ? 'Placed' : health.label;
+  if (!targetId) return authoringText('Not placed yet');
+  const status =
+    health.label === authoringText('Verified') ? authoringText('Placed') : health.label;
   return `${targetLabel} · ${status}`;
 }
 
@@ -45,24 +47,30 @@ export function stepHealth(
   snapshot: LocalAuthoringFrameSnapshot,
 ): { label: string; repair: boolean; tone: StepHealthTone } {
   const targetId = targetIdOf(step);
-  if (!targetId) return { label: 'Not placed', repair: true, tone: 'repair' };
+  if (!targetId) return { label: authoringText('Not placed'), repair: true, tone: 'repair' };
 
   const diagnostic = snapshot.targetDiagnostics.get(targetId)?.diagnostic;
-  if (!diagnostic) return { label: 'Unverified', repair: false, tone: 'review' };
-  if (diagnostic.state === 'missing') return { label: 'Missing', repair: true, tone: 'repair' };
+  if (!diagnostic) return { label: authoringText('Unverified'), repair: false, tone: 'review' };
+  if (diagnostic.state === 'missing') {
+    return { label: authoringText('Missing'), repair: true, tone: 'repair' };
+  }
   if (diagnostic.state === 'ambiguous') {
-    return { label: 'Ambiguous', repair: true, tone: 'repair' };
+    return { label: authoringText('Ambiguous'), repair: true, tone: 'repair' };
   }
   if (diagnostic.state === 'needs_review') {
     return targetDiagnosticIsDrift(diagnostic)
-      ? { label: 'Drift detected', repair: true, tone: 'repair' }
-      : { label: 'Needs verification', repair: true, tone: 'review' };
+      ? { label: authoringText('Drift detected'), repair: true, tone: 'repair' }
+      : { label: authoringText('Needs verification'), repair: true, tone: 'review' };
   }
 
   const status = blockStatus(step);
-  if (status === 'invalid') return { label: 'Needs fix', repair: false, tone: 'repair' };
-  if (status === 'incomplete') return { label: 'Needs review', repair: false, tone: 'review' };
-  return { label: 'Verified', repair: false, tone: 'ready' };
+  if (status === 'invalid') {
+    return { label: authoringText('Needs fix'), repair: false, tone: 'repair' };
+  }
+  if (status === 'incomplete') {
+    return { label: authoringText('Needs review'), repair: false, tone: 'review' };
+  }
+  return { label: authoringText('Verified'), repair: false, tone: 'ready' };
 }
 
 export function stepTooltip(step: LodariqBlock): LodariqBlock | null {

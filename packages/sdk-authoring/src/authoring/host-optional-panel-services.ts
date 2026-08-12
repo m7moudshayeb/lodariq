@@ -34,6 +34,7 @@ import {
   type ReleaseRecoveryStateResponse,
   type STYLE_SAMPLE_START_TYPE,
 } from '@lodariq/schema';
+import { authoringText } from '../i18n';
 import { readRegisteredBrandTokensForAuthoring } from '@lodariq/sdk-runtime/brand-token-registry';
 import { createBridgeCorrelationId, type AuthoringBridge } from '../bridge/transport';
 import { sampleProductStyles } from '../bridge/product-style-sampler';
@@ -235,7 +236,7 @@ export function createAuthoringHostOptionalPanelServices(
           AUTHORING_BRAND_DRIFT_CHECK_RESULT_TYPE,
           requestCorrelationId,
           'brand_drift_check_failed',
-          'Brand drift could not be checked.',
+          authoringText('Brand drift could not be checked.'),
         );
       }
     },
@@ -263,7 +264,7 @@ export function createAuthoringHostOptionalPanelServices(
           AUTHORING_BRAND_THEME_ACKNOWLEDGE_RESULT_TYPE,
           requestCorrelationId,
           'brand_theme_acknowledgement_failed',
-          'The reviewed Brand version could not be acknowledged.',
+          authoringText('The reviewed Brand version could not be acknowledged.'),
         );
       }
     },
@@ -277,12 +278,12 @@ export function createAuthoringHostOptionalPanelServices(
         result = {
           ok: false,
           code: 'release_request_failed',
-          message: 'Staging release could not be completed',
+          message: authoringText('Staging release could not be completed'),
           findings: [
             {
               code: 'release_request_failed',
               severity: 'blocker',
-              label: 'Staging release could not be completed',
+              label: authoringText('Staging release could not be completed'),
             },
           ],
         };
@@ -319,7 +320,7 @@ export function createAuthoringHostOptionalPanelServices(
           AUTHORING_STYLE_SOURCE_SAVE_RESULT_TYPE,
           requestCorrelationId,
           'style_source_save_failed',
-          'The Brand proposal could not be saved.',
+          authoringText('The Brand proposal could not be saved.'),
         );
       }
     },
@@ -333,7 +334,7 @@ export function createAuthoringHostOptionalPanelServices(
         result = {
           ok: false,
           code: 'internal_error',
-          message: 'Staging verification could not be saved.',
+          message: authoringText('Staging verification could not be saved.'),
         };
       }
       activeBridge.send({
@@ -353,7 +354,7 @@ export function createAuthoringHostOptionalPanelServices(
       try {
         result = await options.promoteProduction(request);
       } catch {
-        result = productionOperationFailure('Production promotion failed.');
+        result = productionOperationFailure(authoringText('Production promotion failed.'));
       }
       activeBridge.send({
         protocol: BRIDGE_PROTOCOL_VERSION,
@@ -391,7 +392,7 @@ export function createAuthoringHostOptionalPanelServices(
           AUTHORING_APPROVE_PRODUCTION_RESULT_TYPE,
           requestCorrelationId,
           'approval_failed',
-          'The production decision could not be saved.',
+          authoringText('The production decision could not be saved.'),
         );
       }
     },
@@ -443,7 +444,7 @@ export function createAuthoringHostOptionalPanelServices(
           result: {
             ok: false,
             code: 'no_selected_element',
-            message: 'Choose one visible product element to match.',
+            message: authoringText('Choose one visible product element to match.'),
           },
         });
       }
@@ -461,7 +462,7 @@ function releaseRecoveryFailure(
     state: 'failed',
     replayed: false,
     code,
-    message: RELEASE_RECOVERY_FAILURE_MESSAGES[code],
+    message: authoringText(RELEASE_RECOVERY_FAILURE_MESSAGES[code]),
   } as Extract<ReleaseRecoveryResult, { ok: false }>;
 }
 

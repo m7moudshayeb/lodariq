@@ -1,6 +1,8 @@
 'use client';
 
 import * as React from 'react';
+import { msg } from '@lingui/core/macro';
+import { useLingui } from '@lingui/react';
 import {
   BookOpenCheck,
   ChevronDown,
@@ -33,7 +35,29 @@ const experienceTypeIcons = {
   knowledge: PanelTop,
 } as const;
 
+const COPY = {
+  emptyTitle: msg({
+    id: 'dashboard.launchQueue.emptyTitle',
+    message: 'No experiences in the queue',
+  }),
+  emptyDescription: msg({
+    id: 'dashboard.launchQueue.emptyDescription',
+    message: 'Start a tour from the Lodariq launcher on a configured development or staging site.',
+  }),
+  experiences: msg({ id: 'dashboard.launchQueue.experiences', message: 'Experiences' }),
+  experience: msg({ id: 'dashboard.launchQueue.experience', message: 'Experience' }),
+  lastEditor: msg({ id: 'dashboard.launchQueue.lastEditor', message: 'Last editor' }),
+  pageScope: msg({ id: 'dashboard.launchQueue.pageScope', message: 'Page scope' }),
+  lastActivity: msg({ id: 'dashboard.launchQueue.lastActivity', message: 'Last activity' }),
+  status: msg({ id: 'dashboard.launchQueue.status', message: 'Status' }),
+  currentReleaseState: msg({
+    id: 'dashboard.launchQueue.currentReleaseState',
+    message: 'Current release state',
+  }),
+} as const;
+
 export function LaunchQueue({ rows, onReviewRelease }: LaunchQueueProps): React.ReactElement {
+  const { _ } = useLingui();
   const [expandedDocumentId, setExpandedDocumentId] = React.useState(rows[0]?.id ?? '');
 
   if (!rows.length) {
@@ -44,10 +68,8 @@ export function LaunchQueue({ rows, onReviewRelease }: LaunchQueueProps): React.
             <Sparkles aria-hidden="true" className="size-5" />
           </span>
           <div className="grid gap-1">
-            <p className="font-semibold">No experiences in the queue</p>
-            <p className="text-sm leading-6 text-muted-foreground">
-              Start a tour from the Lodariq launcher on a configured development or staging site.
-            </p>
+            <p className="font-semibold">{_(COPY.emptyTitle)}</p>
+            <p className="text-sm leading-6 text-muted-foreground">{_(COPY.emptyDescription)}</p>
           </div>
         </div>
       </div>
@@ -57,17 +79,17 @@ export function LaunchQueue({ rows, onReviewRelease }: LaunchQueueProps): React.
   return (
     <section aria-labelledby="launch-queue-heading" className="min-w-0">
       <h2 id="launch-queue-heading" className="mb-3 text-base font-semibold">
-        Experiences
+        {_(COPY.experiences)}
       </h2>
       <div
         aria-hidden="true"
         className="hidden grid-cols-[minmax(0,1.45fr)_minmax(0,.95fr)_minmax(0,.8fr)_minmax(0,.9fr)_auto] gap-2 border-y border-border px-3 py-3 text-[11px] font-semibold text-muted-foreground md:grid lg:gap-4 lg:px-4 lg:text-xs"
       >
-        <span>Experience</span>
-        <span>Last editor</span>
-        <span>Page scope</span>
-        <span>Last activity</span>
-        <span>Status</span>
+        <span>{_(COPY.experience)}</span>
+        <span>{_(COPY.lastEditor)}</span>
+        <span>{_(COPY.pageScope)}</span>
+        <span>{_(COPY.lastActivity)}</span>
+        <span>{_(COPY.status)}</span>
       </div>
 
       <ul className="divide-y divide-border border-b border-border">
@@ -80,7 +102,7 @@ export function LaunchQueue({ rows, onReviewRelease }: LaunchQueueProps): React.
               <button
                 aria-controls={panelId}
                 aria-expanded={isExpanded}
-                className="grid min-h-16 w-full gap-3 px-3 py-3 text-left outline-none transition-colors hover:bg-[var(--nav-active)] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring md:grid-cols-[minmax(0,1.45fr)_minmax(0,.95fr)_minmax(0,.8fr)_minmax(0,.9fr)_auto] md:items-center md:gap-2 lg:gap-4 lg:px-4"
+                className="grid min-h-16 w-full gap-3 px-3 py-3 text-start outline-none transition-colors hover:bg-[var(--nav-active)] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring md:grid-cols-[minmax(0,1.45fr)_minmax(0,.95fr)_minmax(0,.8fr)_minmax(0,.9fr)_auto] md:items-center md:gap-2 lg:gap-4 lg:px-4"
                 onClick={() => setExpandedDocumentId(isExpanded ? '' : row.id)}
                 type="button"
               >
@@ -102,7 +124,7 @@ export function LaunchQueue({ rows, onReviewRelease }: LaunchQueueProps): React.
                   </span>
                 </span>
 
-                <QueueField label="Last editor">
+                <QueueField label={_(COPY.lastEditor)}>
                   <span className="flex min-w-0 items-center gap-2">
                     <span
                       aria-hidden="true"
@@ -116,13 +138,13 @@ export function LaunchQueue({ rows, onReviewRelease }: LaunchQueueProps): React.
                   </span>
                 </QueueField>
 
-                <QueueField label="Page scope">
+                <QueueField label={_(COPY.pageScope)}>
                   <span className="text-[11px] leading-4 text-muted-foreground lg:truncate lg:text-sm">
                     {row.pageScopeLabel}
                   </span>
                 </QueueField>
 
-                <QueueField label="Last activity">
+                <QueueField label={_(COPY.lastActivity)}>
                   <time
                     dateTime={row.updatedAt}
                     className="text-[11px] leading-4 text-muted-foreground lg:text-sm"
@@ -131,7 +153,7 @@ export function LaunchQueue({ rows, onReviewRelease }: LaunchQueueProps): React.
                   </time>
                 </QueueField>
 
-                <QueueField label="Status">
+                <QueueField label={_(COPY.status)}>
                   <Badge className="w-fit" variant={row.queueStatusVariant}>
                     {row.queueStatusLabel}
                   </Badge>
@@ -163,7 +185,7 @@ export function LaunchQueue({ rows, onReviewRelease }: LaunchQueueProps): React.
                     <div className="mt-5 flex flex-col gap-4 border-t border-border pt-4 sm:flex-row sm:items-center sm:justify-between">
                       <div className="grid max-w-2xl gap-1">
                         <p className="text-sm font-semibold text-foreground">
-                          Current release state
+                          {_(COPY.currentReleaseState)}
                         </p>
                         <p className="text-sm leading-6 text-muted-foreground">
                           {row.releaseSummary}
@@ -196,7 +218,7 @@ function QueueField({
   children: React.ReactNode;
 }): React.ReactElement {
   return (
-    <span className="grid min-w-0 grid-cols-[6rem_minmax(0,1fr)] items-center gap-2 pl-7 md:block md:pl-0">
+    <span className="grid min-w-0 grid-cols-[6rem_minmax(0,1fr)] items-center gap-2 ps-7 md:block md:ps-0">
       <span className="text-xs font-semibold text-muted-foreground md:sr-only">{label}</span>
       {children}
     </span>

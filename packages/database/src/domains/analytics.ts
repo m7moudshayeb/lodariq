@@ -5,6 +5,7 @@ import {
   ANALYTICS_TARGET_RESOLUTION_STATUSES,
   AnalyticsEnvironmentQuery as AnalyticsEnvironmentQuerySchema,
   AuthoritativeAnalyticsEvent as AuthoritativeAnalyticsEventSchema,
+  canonicalContentLocale,
   validate,
   type AnalyticsEvent,
   type AnalyticsEventAggregate,
@@ -155,8 +156,16 @@ export function analyticsAggregateKey(event: PersistedAnalyticsEventRecord): str
     event.contentHash,
     event.pointerGeneration,
     event.name,
+    analyticsContentLocale(event) ?? '',
     event.name === 'target_resolution' ? analyticsTargetResolutionStatus(event) : '',
   ].join('\0');
+}
+
+export function analyticsContentLocale(
+  event: Pick<PersistedAnalyticsEventRecord, 'props'>,
+): string | null {
+  const locale = event.props?.['locale'];
+  return typeof locale === 'string' ? canonicalContentLocale(locale) : null;
 }
 
 export function analyticsTargetResolutionStatus(
@@ -181,6 +190,7 @@ export function compareAnalyticsAggregates(
     right.lastTimestamp.localeCompare(left.lastTimestamp) ||
     left.name.localeCompare(right.name) ||
     left.publicationId.localeCompare(right.publicationId) ||
+    (left.locale ?? '').localeCompare(right.locale ?? '') ||
     left.pointerGeneration - right.pointerGeneration
   );
 }

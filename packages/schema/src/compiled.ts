@@ -1,7 +1,14 @@
 import { Type, type Static } from '@sinclair/typebox';
-import { InlineTextRun, LodariqBlockProps, PresentationAnchor, TooltipLayoutProps } from './block';
+import {
+  InlineTextRun,
+  LodariqBlockProps,
+  PresentationAnchor,
+  TooltipLayoutProps,
+  TooltipStyleProps,
+} from './block';
 import { BrandThemeSnapshot, ExperienceAppearance } from './brand';
 import { AudienceDefinition, TriggerDefinition } from './document';
+import { ContentLocale } from './document-localization';
 import { RendererContractVersion } from './release';
 import { ElementFingerprint, RuntimeLifecycleHints, TargetIdentityV2 } from './target';
 import { COMPILED_ARTIFACT_SCHEMA_VERSION } from './version';
@@ -59,6 +66,7 @@ export const CompiledStep = Type.Object(
     placement: Type.Optional(Type.String()),
     presentationAnchor: Type.Optional(Type.Ref(PresentationAnchor)),
     tooltipLayout: Type.Optional(Type.Ref(TooltipLayoutProps)),
+    tooltipStyle: Type.Optional(Type.Ref(TooltipStyleProps)),
     /** Pre-sanitized, render-ready node tree. */
     body: Type.Array(
       Type.Object({
@@ -108,6 +116,7 @@ const CompiledStepV2 = Type.Object(
     placement: Type.Optional(Type.String()),
     presentationAnchor: Type.Optional(Type.Ref(PresentationAnchor)),
     tooltipLayout: Type.Optional(Type.Ref(TooltipLayoutProps)),
+    tooltipStyle: Type.Optional(Type.Ref(TooltipStyleProps)),
     body: Type.Array(CompiledBodyNodeV2),
     lifecycle: Type.Optional(RuntimeLifecycleHints),
   },
@@ -122,6 +131,28 @@ const CompiledTargetV2 = Type.Object(
   },
   { additionalProperties: false },
 );
+
+/** One fully resolved locale view; fallback resolution happens during server compilation. */
+export const CompiledDocumentLocaleVariant = Type.Object(
+  {
+    locale: Type.Ref(ContentLocale),
+    fallbackLocale: Type.Ref(ContentLocale),
+    title: Type.String({ maxLength: 1_024 }),
+    steps: Type.Array(CompiledStepV2),
+  },
+  { $id: 'CompiledDocumentLocaleVariant', additionalProperties: false },
+);
+export type CompiledDocumentLocaleVariant = Static<typeof CompiledDocumentLocaleVariant>;
+
+export const CompiledDocumentLocalization = Type.Object(
+  {
+    defaultLocale: Type.Ref(ContentLocale),
+    defaultTitle: Type.String({ maxLength: 1_024 }),
+    variants: Type.Array(Type.Ref(CompiledDocumentLocaleVariant), { maxItems: 50 }),
+  },
+  { $id: 'CompiledDocumentLocalization', additionalProperties: false },
+);
+export type CompiledDocumentLocalization = Static<typeof CompiledDocumentLocalization>;
 
 /** Phase 1 delivery shape retained so immutable stored artifacts remain readable. */
 export const CompiledDocumentV1 = Type.Object(
@@ -147,7 +178,7 @@ export type CompiledDocumentV1 = Static<typeof CompiledDocumentV1>;
  */
 export const CompiledDocumentV2 = Type.Object(
   {
-    artifactSchemaVersion: Type.Literal(COMPILED_ARTIFACT_SCHEMA_VERSION),
+    artifactSchemaVersion: Type.Literal('2'),
     documentId: Type.String(),
     type: Type.String(),
     /** sha256 content hash of every other field in this compiled artifact. */
@@ -166,12 +197,29 @@ export const CompiledDocumentV2 = Type.Object(
 );
 export type CompiledDocumentV2 = Static<typeof CompiledDocumentV2>;
 
-/** Compatibility read contract for immutable Phase 1 and Phase 2 artifacts. */
-export const CompiledDocument = Type.Union([CompiledDocumentV1, CompiledDocumentV2], {
-  $id: 'CompiledDocument',
-});
+/**
+ * Localized delivery shape. Locale variants are compiled into the same
+ * immutable artifact, so runtime selection never calls a translation service.
+ */
+export const CompiledDocumentV3 = Type.Object(
+  {
+    ...CompiledDocumentV2.properties,
+    artifactSchemaVersion: Type.Literal(COMPILED_ARTIFACT_SCHEMA_VERSION),
+    localization: Type.Ref(CompiledDocumentLocalization),
+  },
+  { $id: 'CompiledDocumentV3', additionalProperties: false },
+);
+export type CompiledDocumentV3 = Static<typeof CompiledDocumentV3>;
+
+/** Compatibility read contract for immutable Phase 1, Phase 2, and localized artifacts. */
+export const CompiledDocument = Type.Union(
+  [CompiledDocumentV1, CompiledDocumentV2, CompiledDocumentV3],
+  {
+    $id: 'CompiledDocument',
+  },
+);
 export type CompiledDocument = Static<typeof CompiledDocument>;
 
-/** New compilations always return the Phase 2 delivery contract. */
-export const NewCompiledDocument = CompiledDocumentV2;
-export type NewCompiledDocument = CompiledDocumentV2;
+/** New compilations always return the localized delivery contract. */
+export const NewCompiledDocument = CompiledDocumentV3;
+export type NewCompiledDocument = CompiledDocumentV3;

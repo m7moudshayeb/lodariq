@@ -1,5 +1,9 @@
 import { runBasicVisualPreflight } from '@lodariq/compiler';
-import { basicVisualPreflightIssueLabel, validateTourPublishReadiness } from '@lodariq/schema';
+import {
+  COMPILED_ARTIFACT_SCHEMA_VERSION,
+  basicVisualPreflightIssueLabel,
+  validateTourPublishReadiness,
+} from '@lodariq/schema';
 import {
   type AuthoringSessionRecord,
   type ControlPlaneRepository,
@@ -61,7 +65,7 @@ export async function handleAuthoringReleaseState(
     : await getThemeReleaseReview(options.repository, record.document);
   const visualReport =
     visualCheck?.report ??
-    (latestArtifact?.compiled.artifactSchemaVersion === '2'
+    (latestArtifact?.compiled.artifactSchemaVersion === COMPILED_ARTIFACT_SCHEMA_VERSION
       ? await runBasicVisualPreflight(latestArtifact.compiled, new Date().toISOString())
       : null);
   const findings = [

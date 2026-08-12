@@ -7,7 +7,7 @@ import {
   COMPILER_VERSION,
   LODARIQ_ACCESSIBLE_FALLBACK_THEME_V1,
   RENDERER_CONTRACT_VERSION,
-  type CompiledDocumentV2,
+  type CompiledDocumentV3,
   type CompiledDocument,
   type LodariqDocument,
 } from '@lodariq/schema';
@@ -21,6 +21,8 @@ import {
 import { exportDocument, importDocument } from '@lodariq/sdk-runtime/local-dev';
 import { captureVisualFingerprint } from '@lodariq/sdk-runtime/resolver';
 import { TourPlayer, resolveCompiledTourTheme } from '@lodariq/sdk-runtime/renderers/tour';
+import { LodariqRuntime } from '@lodariq/sdk-runtime/runtime';
+import { resetRuntimeLocaleForTests } from '@lodariq/sdk-runtime/i18n';
 
 const computePositionMock = vi.hoisted(() =>
   vi.fn(async (_reference: unknown, _floating: unknown, _options?: unknown) => ({
@@ -90,7 +92,8 @@ const outlineDisabledCompiledDoc = {
     ...DEFAULT_EXPERIENCE_APPEARANCE,
     displayTargetOutline: false,
   },
-} as CompiledDocumentV2;
+  localization: { defaultLocale: 'en', defaultTitle: 'Tour', variants: [] },
+} as CompiledDocumentV3;
 
 const nativeGetBoundingClientRect = Element.prototype.getBoundingClientRect;
 
@@ -107,6 +110,8 @@ describe('tour renderer (PRD §16.1)', () => {
 
   afterEach(() => {
     Element.prototype.getBoundingClientRect = nativeGetBoundingClientRect;
+    resetRuntimeLocaleForTests();
+    vi.unstubAllGlobals();
   });
 
   it('keeps only one active tour host in the page', () => {
@@ -123,6 +128,49 @@ describe('tour renderer (PRD §16.1)', () => {
 
     const root = document.querySelector('lodariq-tour')?.shadowRoot;
     expect(root?.querySelector('[data-lodariq-target-outline]')).toBeNull();
+    player.stop();
+  });
+
+  it('renders the selected authored-content locale and attaches it to Tour analytics', async () => {
+    const fetch = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetch);
+    const arabicSteps = structuredClone(outlineDisabledCompiledDoc.steps);
+    arabicSteps[0]!.body[0]!.text = 'أنشئ مشروعك الأول';
+    const localizedDocument: CompiledDocumentV3 = {
+      ...outlineDisabledCompiledDoc,
+      localization: {
+        ...outlineDisabledCompiledDoc.localization,
+        variants: [
+          {
+            locale: 'ar',
+            fallbackLocale: 'en',
+            title: 'جولة ترحيبية',
+            steps: arabicSteps,
+          },
+        ],
+      },
+    };
+    const player = new TourPlayer(localizedDocument, { locale: 'ar' });
+    const runtime = new LodariqRuntime({
+      workspaceId: 'wk_localized',
+      environment: 'production',
+      ingestUrl: '/events',
+    });
+
+    player.start();
+    await player.waitUntilReady();
+    runtime.track('tour_started', { documentId: localizedDocument.documentId });
+    runtime.endTour('tour_completed', localizedDocument.documentId);
+    runtime.flush();
+
+    const host = document.querySelector<HTMLElement>('lodariq-tour');
+    expect(host).toMatchObject({ lang: 'ar', dir: 'rtl' });
+    expect(host?.dataset['lodariqContentLocale']).toBe('ar');
+    expect(host?.shadowRoot?.textContent).toContain('أنشئ مشروعك الأول');
+    const body = JSON.parse(fetch.mock.calls[0]?.[1]?.body as string) as {
+      events: Array<{ props?: Record<string, unknown> }>;
+    };
+    expect(body.events.map((event) => event.props?.['locale'])).toEqual(['ar', 'ar']);
     player.stop();
   });
 
@@ -572,6 +620,13 @@ describe('tour renderer (PRD §16.1)', () => {
       radius: 'round',
       showArrow: false,
     };
+    step.tooltipStyle = {
+      surfaceColor: '#162033',
+      textColor: '#ffffff',
+      borderColor: '#006b58',
+      borderWeight: 'strong',
+      elevation: 'floating',
+    };
     step.body = [
       {
         id: 'copy_before',
@@ -643,9 +698,15 @@ describe('tour renderer (PRD §16.1)', () => {
       lodariqCompositionPadding: 'compact',
       lodariqPopupRadius: 'round',
       lodariqPointerArrow: 'hide',
+      lodariqPopupBorderWeight: 'strong',
+      lodariqPopupElevation: 'floating',
     });
     expect(dialog?.style.getPropertyValue('--lq-popup-width')).toBe('480px');
     expect(dialog?.style.getPropertyValue('--lq-popup-height')).toBe('320px');
+    expect(dialog?.style.getPropertyValue('--lq-popup-surface')).toBe('#162033');
+    expect(dialog?.style.getPropertyValue('--lq-popup-text')).toBe('#ffffff');
+    expect(dialog?.style.getPropertyValue('--lq-popup-muted-text')).toBe('#ffffff');
+    expect(dialog?.style.getPropertyValue('--lq-popup-border')).toBe('#006b58');
     expect(dialog?.querySelector(':scope > .tour-content')).not.toBeNull();
     expect(emphasized?.textContent).toBe('3 days');
     expect(emphasized?.style.fontWeight).toBe('700');
@@ -690,7 +751,8 @@ describe('tour renderer (PRD §16.1)', () => {
         width: 'wide',
         colorMode: 'system',
       },
-    } as CompiledDocumentV2;
+      localization: { defaultLocale: 'en', defaultTitle: 'Tour', variants: [] },
+    } as CompiledDocumentV3;
 
     const resolved = resolveCompiledTourTheme(documentV2, true);
 

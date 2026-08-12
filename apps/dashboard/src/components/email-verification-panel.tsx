@@ -2,8 +2,12 @@
 
 import { Check, KeyRound, LoaderCircle, MailCheck, RotateCcw } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
+import { useLingui } from '@lingui/react';
 import type { AuthSessionSnapshot } from '../lib/auth-contract';
 import { useAuthMutations } from '../hooks/use-auth-mutations';
+import { ClientAuthError } from '../lib/client-auth-api';
+import { authErrorMessageDescriptor } from '../i18n/error-messages';
+import { AUTH_FORM_MESSAGES } from '../i18n/messages';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
@@ -44,6 +48,7 @@ export function EmailVerificationPanel({
   );
   const [tokenReady, setTokenReady] = useState(!readTokenFromFragment);
   const auth = useAuthMutations();
+  const { _, i18n } = useLingui();
 
   const verifyToken = useCallback(
     async (token: string, password: string): Promise<void> => {
@@ -57,7 +62,9 @@ export function EmailVerificationPanel({
         session = await auth.verifyEmail.mutateAsync({ challengeId, token, password });
       } catch (caught) {
         failureMessage =
-          caught instanceof Error ? caught.message : 'The verification link is invalid or expired.';
+          caught instanceof ClientAuthError
+            ? _(authErrorMessageDescriptor(caught.code, caught.statusCode))
+            : _(AUTH_FORM_MESSAGES.invalidVerificationLink);
       }
 
       if (!session) {
@@ -73,7 +80,7 @@ export function EmailVerificationPanel({
       }
       window.setTimeout(() => window.location.replace(returnTo), 650);
     },
-    [auth.verifyEmail, challengeId, onVerified, returnTo],
+    [_, auth.verifyEmail, challengeId, onVerified, returnTo],
   );
 
   useEffect(() => {
@@ -94,7 +101,7 @@ export function EmailVerificationPanel({
     const password = passwordField(form, 'password');
     const confirmation = passwordField(form, 'passwordConfirmation');
     if (password !== confirmation) {
-      setPhase({ name: 'error', message: 'Passwords do not match.' });
+      setPhase({ name: 'error', message: _(AUTH_FORM_MESSAGES.passwordsDoNotMatch) });
       return;
     }
     void verifyToken(verificationToken, password);
@@ -113,10 +120,10 @@ export function EmailVerificationPanel({
         </span>
         <div className="grid gap-1">
           <h2 className="[font-family:Georgia,serif] text-2xl tracking-[-0.02em]">
-            {complete ? 'Email verified' : 'Verifying your email'}
+            {complete ? _(AUTH_FORM_MESSAGES.emailVerified) : _(AUTH_FORM_MESSAGES.verifyingEmail)}
           </h2>
           <p className="text-sm leading-6 text-muted-foreground">
-            {complete ? 'Opening your Lodariq workspace…' : 'This should only take a moment.'}
+            {complete ? _(AUTH_FORM_MESSAGES.openingWorkspace) : _(AUTH_FORM_MESSAGES.moment)}
           </p>
         </div>
       </div>
@@ -126,7 +133,7 @@ export function EmailVerificationPanel({
   if (!tokenReady) {
     return (
       <p aria-live="polite" className="text-sm text-muted-foreground">
-        Reading your secure verification link…
+        {_(AUTH_FORM_MESSAGES.readingVerificationLink)}
       </p>
     );
   }
@@ -139,14 +146,14 @@ export function EmailVerificationPanel({
         </div>
         <div className="grid gap-1">
           <h2 className="[font-family:Georgia,serif] text-2xl tracking-[-0.02em]">
-            Choose your password
+            {_(AUTH_FORM_MESSAGES.choosePassword)}
           </h2>
           <p className="text-sm leading-6 text-muted-foreground">
-            Your email link proved ownership. Choose the password that will protect this account.
+            {_(AUTH_FORM_MESSAGES.choosePasswordHelp)}
           </p>
         </div>
         <div className="grid gap-2">
-          <Label htmlFor="verification-password">New password</Label>
+          <Label htmlFor="verification-password">{_(AUTH_FORM_MESSAGES.newPassword)}</Label>
           <Input
             autoComplete="new-password"
             id="verification-password"
@@ -156,10 +163,14 @@ export function EmailVerificationPanel({
             required
             type="password"
           />
-          <p className="text-xs leading-5 text-muted-foreground">Use 12 to 128 characters.</p>
+          <p className="text-xs leading-5 text-muted-foreground">
+            {_(AUTH_FORM_MESSAGES.passwordLength)}
+          </p>
         </div>
         <div className="grid gap-2">
-          <Label htmlFor="verification-password-confirmation">Confirm password</Label>
+          <Label htmlFor="verification-password-confirmation">
+            {_(AUTH_FORM_MESSAGES.confirmPassword)}
+          </Label>
           <Input
             autoComplete="new-password"
             id="verification-password-confirmation"
@@ -180,12 +191,12 @@ export function EmailVerificationPanel({
         ) : null}
         <Button className="h-11 w-full" type="submit">
           <Check aria-hidden="true" />
-          Verify email and continue
+          {_(AUTH_FORM_MESSAGES.verifyAndContinue)}
         </Button>
         {onRestart ? (
           <Button onClick={onRestart} type="button" variant="ghost">
             <RotateCcw aria-hidden="true" />
-            Use another email
+            {_(AUTH_FORM_MESSAGES.useAnotherEmail)}
           </Button>
         ) : null}
       </form>
@@ -197,14 +208,21 @@ export function EmailVerificationPanel({
       <div className="grid gap-3 rounded-xl border border-[var(--info-border)] bg-[var(--info-bg)] p-4 text-[var(--info-fg)]">
         <MailCheck aria-hidden="true" className="size-5" />
         <div className="grid gap-1">
-          <h2 className="font-semibold text-foreground">Check your email</h2>
+          <h2 className="font-semibold text-foreground">{_(AUTH_FORM_MESSAGES.checkEmail)}</h2>
           <p className="text-sm leading-6">
             {email
-              ? `We sent a secure verification link to ${email}. Keep this page open or use the link directly.`
-              : 'Open the complete verification link from your email, then choose the password for your account.'}
+              ? _({ ...AUTH_FORM_MESSAGES.verificationSent, values: { email } })
+              : _(AUTH_FORM_MESSAGES.openVerificationLink)}
           </p>
           {expiresAt ? (
-            <p className="text-xs opacity-80">The link expires {formatExpiry(expiresAt)}.</p>
+            <p className="text-xs opacity-80">
+              {_({
+                ...AUTH_FORM_MESSAGES.linkExpires,
+                values: {
+                  expiry: formatExpiry(expiresAt, i18n.locale, _(AUTH_FORM_MESSAGES.soon)),
+                },
+              })}
+            </p>
           ) : null}
         </div>
       </div>
@@ -212,7 +230,7 @@ export function EmailVerificationPanel({
       {onRestart ? (
         <Button onClick={onRestart} type="button" variant="ghost">
           <RotateCcw aria-hidden="true" />
-          Use another email
+          {_(AUTH_FORM_MESSAGES.useAnotherEmail)}
         </Button>
       ) : null}
     </div>
@@ -228,13 +246,28 @@ function passwordField(form: FormData, name: string): string {
   return typeof value === 'string' ? value : '';
 }
 
-function formatExpiry(value: string): string {
+function formatExpiry(value: string, locale: string, invalidFallback: string): string {
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return 'soon';
-  const formatted = new Intl.DateTimeFormat('en-US', {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-    timeZone: 'UTC',
-  }).format(date);
-  return `${formatted} UTC`;
+  if (Number.isNaN(date.getTime())) return invalidFallback;
+  try {
+    return new Intl.DateTimeFormat(locale, {
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      month: 'short',
+      timeZone: 'UTC',
+      timeZoneName: 'short',
+      year: 'numeric',
+    }).format(date);
+  } catch {
+    return new Intl.DateTimeFormat('en', {
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      month: 'short',
+      timeZone: 'UTC',
+      timeZoneName: 'short',
+      year: 'numeric',
+    }).format(date);
+  }
 }

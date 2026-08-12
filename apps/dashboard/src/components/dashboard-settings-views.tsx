@@ -1,6 +1,8 @@
 'use client';
 
 import * as React from 'react';
+import { msg } from '@lingui/core/macro';
+import { useLingui } from '@lingui/react';
 import { useEnvironmentApprovalMutation } from '../hooks/use-environment-mutations';
 import type { WorkspaceEnvironmentDto } from '../lib/api';
 import type { DashboardViewModel } from '../lib/view-model';
@@ -18,6 +20,51 @@ interface DashboardSettingsViewProps {
   viewModel: DashboardViewModel;
   workspaceId: string;
 }
+
+const COPY = {
+  trustedOrigins: msg({ id: 'dashboard.environments.trustedOrigins', message: 'Trusted origins' }),
+  productEnvironments: msg({
+    id: 'dashboard.environments.productEnvironments',
+    message: 'Product environments',
+  }),
+  productEnvironmentsDescription: msg({
+    id: 'dashboard.environments.description',
+    message: 'Exact customer origins where Lodariq may load runtime or authoring capabilities.',
+  }),
+  noProductEnvironments: msg({
+    id: 'dashboard.environments.empty',
+    message: 'No product environments are configured.',
+  }),
+  promotionApproval: msg({
+    id: 'dashboard.environments.promotionApproval',
+    message: 'Promotion approval',
+  }),
+  approvalRequiredDescription: msg({
+    id: 'dashboard.environments.approvalRequiredDescription',
+    message: 'One explicit approval is required for the exact verified artifact.',
+  }),
+  directPromotionDescription: msg({
+    id: 'dashboard.environments.directPromotionDescription',
+    message: 'A releaser can promote the exact verified artifact directly.',
+  }),
+  unableToUpdateApproval: msg({
+    id: 'dashboard.environments.unableToUpdateApproval',
+    message: 'Unable to update release approval.',
+  }),
+  updating: msg({ id: 'dashboard.environments.updating', message: 'Updating…' }),
+  removeApproval: msg({
+    id: 'dashboard.environments.removeApproval',
+    message: 'Remove approval',
+  }),
+  requireApproval: msg({
+    id: 'dashboard.environments.requireApproval',
+    message: 'Require approval',
+  }),
+  noTrustedOrigins: msg({
+    id: 'dashboard.environments.noTrustedOrigins',
+    message: 'No trusted origins',
+  }),
+} as const;
 
 export function BrandSystemView({
   viewModel,
@@ -42,17 +89,16 @@ export function EnvironmentsView({
   viewModel,
   workspaceId,
 }: DashboardSettingsViewProps): React.ReactElement {
+  const { _ } = useLingui();
   return (
     <>
       <DashboardPageHeader view="environments" />
       <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(360px,.8fr)]">
         <Card className="shadow-none">
           <CardHeader>
-            <p className="text-xs font-semibold text-muted-foreground">Trusted origins</p>
-            <CardTitle>Product environments</CardTitle>
-            <CardDescription>
-              Exact customer origins where Lodariq may load runtime or authoring capabilities.
-            </CardDescription>
+            <p className="text-xs font-semibold text-muted-foreground">{_(COPY.trustedOrigins)}</p>
+            <CardTitle>{_(COPY.productEnvironments)}</CardTitle>
+            <CardDescription>{_(COPY.productEnvironmentsDescription)}</CardDescription>
           </CardHeader>
           <CardContent className="grid gap-2">
             {viewModel.environmentOptions.length ? (
@@ -67,7 +113,7 @@ export function EnvironmentsView({
               ))
             ) : (
               <p className="rounded-lg border border-dashed border-border p-4 text-sm text-muted-foreground">
-                No product environments are configured.
+                {_(COPY.noProductEnvironments)}
               </p>
             )}
           </CardContent>
@@ -112,9 +158,10 @@ function EnvironmentPolicyCard({
   environments: Array<WorkspaceEnvironmentDto & { originLabel: string }>;
   workspaceId: string;
 }): React.ReactElement {
+  const { _ } = useLingui();
   const [current, setCurrent] = React.useState(environment);
   const onUpdated = (updated: WorkspaceEnvironmentDto): void => {
-    setCurrent({ ...updated, originLabel: environmentOriginLabel(updated) });
+    setCurrent({ ...updated, originLabel: environmentOriginLabel(updated, _) });
   };
 
   if (current.kind === 'production') {
@@ -154,6 +201,7 @@ function ProductionEnvironmentPolicy({
   onUpdated: (environment: WorkspaceEnvironmentDto) => void;
   workspaceId: string;
 }): React.ReactElement {
+  const { _ } = useLingui();
   const [feedback, setFeedback] = React.useState<{
     kind: 'error' | 'notice';
     message: string;
@@ -180,7 +228,7 @@ function ProductionEnvironmentPolicy({
           setFeedback({ kind: 'notice', message: result.message });
         },
         onError: () => {
-          setFeedback({ kind: 'error', message: 'Unable to update release approval.' });
+          setFeedback({ kind: 'error', message: _(COPY.unableToUpdateApproval) });
         },
       },
     );
@@ -190,11 +238,11 @@ function ProductionEnvironmentPolicy({
     <EnvironmentPolicyShell environment={environment}>
       <div className="flex flex-col gap-3 border-t border-border pt-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="grid gap-0.5">
-          <p className="text-sm font-semibold">Promotion approval</p>
+          <p className="text-sm font-semibold">{_(COPY.promotionApproval)}</p>
           <p className="text-xs leading-5 text-muted-foreground">
-            {approvalRequired
-              ? 'One explicit approval is required for the exact verified artifact.'
-              : 'A releaser can promote the exact verified artifact directly.'}
+            {_(
+              approvalRequired ? COPY.approvalRequiredDescription : COPY.directPromotionDescription,
+            )}
           </p>
         </div>
         <Button
@@ -204,7 +252,7 @@ function ProductionEnvironmentPolicy({
           type="button"
           variant="outline"
         >
-          {approvalPolicyActionLabel(mutation.isPending, approvalRequired)}
+          {approvalPolicyActionLabel(mutation.isPending, approvalRequired, _)}
         </Button>
       </div>
       {feedback ? (
@@ -251,13 +299,20 @@ function EnvironmentPolicyShell({
   );
 }
 
-function approvalPolicyActionLabel(pending: boolean, approvalRequired: boolean): string {
-  if (pending) return 'Updating…';
-  return approvalRequired ? 'Remove approval' : 'Require approval';
+function approvalPolicyActionLabel(
+  pending: boolean,
+  approvalRequired: boolean,
+  translate: ReturnType<typeof useLingui>['_'],
+): string {
+  if (pending) return translate(COPY.updating);
+  return translate(approvalRequired ? COPY.removeApproval : COPY.requireApproval);
 }
 
-function environmentOriginLabel(environment: WorkspaceEnvironmentDto): string {
+function environmentOriginLabel(
+  environment: WorkspaceEnvironmentDto,
+  translate: ReturnType<typeof useLingui>['_'],
+): string {
   return environment.originAllowlist.length
     ? environment.originAllowlist.join(', ')
-    : 'No trusted origins';
+    : translate(COPY.noTrustedOrigins);
 }

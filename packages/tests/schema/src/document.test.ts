@@ -199,6 +199,13 @@ describe('canonical tour fixture', () => {
       gap: 'relaxed',
       padding: 'compact',
     };
+    tooltip.props.tooltipStyle = {
+      surfaceColor: '#162033',
+      textColor: '#ffffff',
+      borderColor: '#006b58',
+      borderWeight: 'strong',
+      elevation: 'floating',
+    };
 
     expect(validate(LodariqDocument, document).valid).toBe(true);
     expect(sanitizeInlineTextRuns(heading.contentRuns)).toEqual(heading.contentRuns);
@@ -217,6 +224,13 @@ describe('canonical tour fixture', () => {
     tooltip.props.tooltipLayout.heightPx = 322;
     expect(validate(LodariqDocument, document).valid).toBe(false);
     tooltip.props.tooltipLayout.heightPx = 320;
+    tooltip.props.tooltipStyle.surfaceColor = 'linear-gradient(red, blue)';
+    expect(validate(LodariqDocument, document).valid).toBe(false);
+    tooltip.props.tooltipStyle.surfaceColor = '#162033';
+    tooltip.props.tooltipStyle.elevation = 'drop-shadow(0 0 4px red)';
+    expect(validate(LodariqDocument, document).valid).toBe(false);
+    tooltip.props.tooltipStyle.elevation = 'floating';
+    expect(validate(LodariqDocument, document).valid).toBe(true);
     expect(
       sanitizeInlineTextRuns([
         {
@@ -228,6 +242,24 @@ describe('canonical tour fixture', () => {
         },
       ]),
     ).toEqual([{ text: 'Safe' }]);
+    expect(
+      sanitizeBlockProps({
+        tooltipStyle: {
+          surfaceColor: '#ABCDEF',
+          textColor: 'red',
+          borderColor: '#006B58',
+          borderWeight: '12px',
+          elevation: 'floating',
+          rawCss: 'filter: blur(4px)',
+        },
+      }),
+    ).toEqual({
+      tooltipStyle: {
+        surfaceColor: '#abcdef',
+        borderColor: '#006b58',
+        elevation: 'floating',
+      },
+    });
   });
 
   it('rejects arbitrary layout and action style values', () => {

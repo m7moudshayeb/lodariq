@@ -169,6 +169,7 @@ function render(
   controller: LocalAuthoringFrameController,
 ): string {
   const snapshot = {
+    contentLocale: 'en',
     documentState: {
       id: 'doc_1',
       workspaceId: 'wk_a',
@@ -192,6 +193,7 @@ function render(
       ],
       blocks: [block],
     },
+    translation: { available: false, state: 'idle' },
     status: 'idle',
     saveState: { state: 'saved', label: 'Draft saved' },
     slashText: '',

@@ -12,6 +12,7 @@ export default tseslint.config(
       '**/.next/**',
       '**/.next-*/**',
       '**/node_modules/**',
+      '**/src/locales/**/messages.ts',
     ],
   },
   eslint.configs.recommended,

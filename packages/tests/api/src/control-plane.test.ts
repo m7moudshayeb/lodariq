@@ -742,8 +742,8 @@ describe('@lodariq/api control-plane routes', () => {
       canonical: { title: 'Welcome tour revised' },
       createdByUserId: 'user_a',
     });
-    // The identical compiled hash resolves to the first immutable artifact.
-    expect(body.latestArtifact?.documentVersionId).toBe(body.versions[1]?.id);
+    // The localized artifact hashes the document title, so the revision owns a new artifact.
+    expect(body.latestArtifact?.documentVersionId).toBe(body.versions[0]?.id);
 
     const viewerDebug = await app.inject({
       method: 'GET',

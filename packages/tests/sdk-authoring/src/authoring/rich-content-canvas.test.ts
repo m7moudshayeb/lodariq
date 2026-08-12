@@ -507,6 +507,51 @@ describe('unified popup content canvas', () => {
     );
     expect(document.querySelector('.storyboard-popup-arrow')).toBeNull();
 
+    await clickWhenPresent('[aria-label="Use #162033 for background"]');
+    await clickWhenPresent('[aria-label="Use #ffffff for text"]');
+    await clickWhenPresent('[aria-label="Use #006b58 for border"]');
+    await clickInspectorChoice('Border weight', 'Strong');
+    await clickInspectorChoice('Shadow', 'Strong');
+    await vi.waitFor(() =>
+      expect(latestSavedTooltip(saveDocument)?.props.tooltipStyle).toEqual({
+        surfaceColor: '#162033',
+        textColor: '#ffffff',
+        borderColor: '#006b58',
+        borderWeight: 'strong',
+        elevation: 'floating',
+      }),
+    );
+    expect(popupCanvas?.style.getPropertyValue('--lq-popup-surface')).toBe('#162033');
+    expect(popupCanvas?.style.getPropertyValue('--lq-popup-text')).toBe('#ffffff');
+    expect(popupCanvas?.style.getPropertyValue('--lq-popup-muted-text')).toBe('#ffffff');
+    expect(popupCanvas?.style.getPropertyValue('--lq-popup-border')).toBe('#006b58');
+    expect(popupContent?.dataset['lodariqPopupBorderWeight']).toBe('strong');
+    expect(popupContent?.dataset['lodariqPopupElevation']).toBe('floating');
+    await vi.waitFor(() =>
+      expect(latestPreviewPatch(postMessage)).toMatchObject({
+        blockId: tooltip.id,
+        patch: {
+          ops: expect.arrayContaining([
+            expect.objectContaining({
+              op: 'setTooltipStyle',
+              tooltipStyle: expect.objectContaining({ elevation: 'floating' }),
+            }),
+          ]),
+        },
+      }),
+    );
+
+    buttonByText(
+      document.querySelector('[aria-label="Popup layout"]'),
+      'Reset all to Brand',
+    ).click();
+    await vi.waitFor(() =>
+      expect(latestSavedTooltip(saveDocument)?.props.tooltipStyle).toBeUndefined(),
+    );
+    expect(popupCanvas?.style.getPropertyValue('--lq-popup-surface')).toBe('');
+    expect(popupContent?.dataset['lodariqPopupBorderWeight']).toBe('theme');
+    expect(popupContent?.dataset['lodariqPopupElevation']).toBe('theme');
+
     document.querySelector<HTMLButtonElement>('[aria-label="More experience actions"]')?.click();
     await vi.waitFor(() =>
       expect(

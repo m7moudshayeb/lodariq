@@ -1,5 +1,6 @@
 import {
   CompiledDocument,
+  COMPILED_ARTIFACT_SCHEMA_VERSION,
   RENDERER_CONTRACT_VERSION,
   validate,
   type NewCompiledDocument,
@@ -40,7 +41,10 @@ export async function loadExactPublishedArtifact(
     throw new Error('Exact staging artifact response was invalid');
   }
   const result = validate(CompiledDocument, payload);
-  if (!result.valid || result.value.artifactSchemaVersion !== '2') {
+  if (
+    !result.valid ||
+    result.value.artifactSchemaVersion !== COMPILED_ARTIFACT_SCHEMA_VERSION
+  ) {
     throw new Error('Exact staging artifact response was invalid');
   }
   const compiled = result.value;

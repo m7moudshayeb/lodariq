@@ -80,7 +80,7 @@ describe('Slice 3 authoring workflow adapters', () => {
       documentId: 'document_1',
       publicationId: 'publication_staging',
       compiledArtifactId: 'artifact_staging',
-      artifactSchemaVersion: '2',
+      artifactSchemaVersion: '3',
       contentHash: STAGING_HASH,
       themeVersionId: 'theme_version_1',
       themeContentHash: PRODUCTION_HASH,

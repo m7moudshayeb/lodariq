@@ -1,4 +1,5 @@
 import { ControllerStepsTargetsFeature } from './controller-steps-targets';
+import { authoringText } from '../../i18n';
 import {
   AUTHORING_SAVE_AND_EXIT_REQUEST_TYPE,
   BRIDGE_PROTOCOL_VERSION,
@@ -52,7 +53,7 @@ export abstract class ControllerHistoryReleaseFeature extends ControllerStepsTar
     this.documentState = previous;
     this.afterDocumentMutation();
     this.services.saveDocument(this.documentState);
-    this.setStatus('Undid change');
+    this.setStatus(authoringText('Undid change'));
   }
 
   redo(): void {
@@ -62,7 +63,7 @@ export abstract class ControllerHistoryReleaseFeature extends ControllerStepsTar
     this.documentState = next;
     this.afterDocumentMutation();
     this.services.saveDocument(this.documentState);
-    this.setStatus('Redid change');
+    this.setStatus(authoringText('Redid change'));
   }
 
   saveCurrentDocument(): void {
@@ -71,7 +72,7 @@ export abstract class ControllerHistoryReleaseFeature extends ControllerStepsTar
     this.jsonText = this.services.exportDocument(this.documentState);
     this.services.saveDocument(this.documentState);
     this.flushPreviewPatches();
-    this.setStatus('Saved draft');
+    this.setStatus(authoringText('Saved draft'));
   }
 
   requestSaveAndExit(): void {
@@ -264,8 +265,9 @@ export abstract class ControllerHistoryReleaseFeature extends ControllerStepsTar
     this.panelMode = 'brand-match-review';
     this.panelReturnMode = 'appearance';
     this.panelWorkflowError = null;
-    this.panelWorkflowNotice =
-      'Review the drift proposal. The Brand draft changes only after you explicitly use it.';
+    this.panelWorkflowNotice = authoringText(
+      'Review the drift proposal. The Brand draft changes only after you explicitly use it.',
+    );
     this.panelFocusToken += 1;
     this.emit();
   }
@@ -343,7 +345,9 @@ export abstract class ControllerHistoryReleaseFeature extends ControllerStepsTar
       () => {
         if (!this.panelWorkflowRequestIsCurrent(requestVersion)) return;
         this.panelOperation = null;
-        this.panelWorkflowError = 'Brand and release details could not be refreshed.';
+        this.panelWorkflowError = authoringText(
+          'Brand and release details could not be refreshed.',
+        );
         this.emit();
       },
     );
@@ -352,7 +356,7 @@ export abstract class ControllerHistoryReleaseFeature extends ControllerStepsTar
   exportJson(): void {
     this.jsonText = this.services.exportDocument(this.documentState);
     this.recordMetric('document.exported');
-    this.setStatus('Backup is ready');
+    this.setStatus(authoringText('Backup is ready'));
   }
 
   importJson(): void {
@@ -367,7 +371,7 @@ export abstract class ControllerHistoryReleaseFeature extends ControllerStepsTar
       { op: 'replaceDocument', document: this.documentState },
     ]);
     this.recordMetric('document.imported');
-    this.setStatus('Backup restored');
+    this.setStatus(authoringText('Backup restored'));
   }
 
   reset(): void {
@@ -379,7 +383,7 @@ export abstract class ControllerHistoryReleaseFeature extends ControllerStepsTar
     this.sendPreviewPatch(this.documentState.blocks[0]?.id ?? this.documentState.id, [
       { op: 'replaceDocument', document: this.documentState },
     ]);
-    this.setStatus('Reset experience');
+    this.setStatus(authoringText('Reset experience'));
   }
 
   compilePreview(): void {
@@ -388,7 +392,7 @@ export abstract class ControllerHistoryReleaseFeature extends ControllerStepsTar
     void this.services.compilePreview(this.documentState).then((doc) => {
       this.compiledText = JSON.stringify(doc, null, 2);
       this.recordMetric('preview.opened');
-      this.setStatus('Preview package ready');
+      this.setStatus(authoringText('Preview package ready'));
     });
     this.emit();
   }
@@ -400,7 +404,7 @@ export abstract class ControllerHistoryReleaseFeature extends ControllerStepsTar
     this.services.saveDocument(this.documentState);
     const step = this.selectedTourStep();
     if (!step) {
-      this.setStatus('Add a step before previewing');
+      this.setStatus(authoringText('Add a step before previewing'));
       return;
     }
     const hostPreview = this.sendPreviewRequest('step', step.id);
@@ -408,9 +412,9 @@ export abstract class ControllerHistoryReleaseFeature extends ControllerStepsTar
       .then(([, doc]) => {
         this.compiledText = JSON.stringify(doc, null, 2);
         this.recordMetric('preview.opened');
-        this.setStatus('Step preview ready');
+        this.setStatus(authoringText('Step preview ready'));
       })
-      .catch(() => this.setStatus('Step preview could not start'));
+      .catch(() => this.setStatus(authoringText('Step preview could not start')));
     this.emit();
   }
 
@@ -424,15 +428,15 @@ export abstract class ControllerHistoryReleaseFeature extends ControllerStepsTar
       .then(([, doc]) => {
         this.compiledText = JSON.stringify(doc, null, 2);
         this.recordMetric('preview.opened');
-        this.setStatus('Tour preview ready');
+        this.setStatus(authoringText('Tour preview ready'));
       })
-      .catch(() => this.setStatus('Tour preview could not start'));
+      .catch(() => this.setStatus(authoringText('Tour preview could not start')));
     this.emit();
   }
 
   exportMetrics(): void {
     this.metricsText = this.services.exportMetricsReport(this.metricsSessionId);
-    this.setStatus('Activity report ready');
+    this.setStatus(authoringText('Activity report ready'));
   }
 
   protected readonly handlePageHide = (): void => {

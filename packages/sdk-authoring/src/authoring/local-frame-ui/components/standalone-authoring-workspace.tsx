@@ -1,3 +1,4 @@
+import { authoringText } from '../../../i18n';
 import { useRef } from 'react';
 import type { LocalAuthoringFrameController } from '../controller';
 import type { LocalAuthoringFrameSnapshot } from '../types';
@@ -25,7 +26,7 @@ export function StandaloneAuthoringWorkspace({
   return (
     <section
       className="canvas"
-      aria-label="Experience editor"
+      aria-label={authoringText('Experience editor')}
       tabIndex={-1}
       onPointerDown={(event) => {
         if (isCommandComposerTarget(event.target)) return;
@@ -56,7 +57,7 @@ export function StandaloneAuthoringWorkspace({
             steps={tourSteps}
           />
           <div className="document-main">
-            <section className="document" aria-label="Experience content">
+            <section className="document" aria-label={authoringText('Experience content')}>
               {blocks.map((block, index) => (
                 <div
                   className={`document-block-group ${

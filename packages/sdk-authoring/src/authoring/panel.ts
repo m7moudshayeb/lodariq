@@ -61,6 +61,8 @@ import {
   type HostedAuthoringSessionCloseMode,
   type HostedCreatorPanelState,
 } from '@lodariq/schema';
+import { applyAuthoringLocale, authoringText, currentAuthoringLocale } from '../i18n';
+import { AUTHORING_LOCALE_QUERY_PARAMETER } from '@lodariq/schema/authoring-entry-runtime';
 import type { ResolutionResult } from '@lodariq/sdk-runtime/resolver';
 import { resolveTarget } from '@lodariq/sdk-runtime/resolver';
 import type { InlinePreviewEditor } from './inline-preview-editor';
@@ -228,6 +230,7 @@ export interface LocalAuthoringPreviewOptions {
   ownerId: string;
   /** Full-tour preview mode enables the experience's real step controls. */
   interactive?: boolean;
+  locale?: string;
   stepId?: string;
   /** Exact live selection for immediate creator preview; never persisted. */
   authoringTargetOverride?: { stepId: string; element: Element };
@@ -284,6 +287,7 @@ function withPanelFrameParams(iframeSrc: string): string {
   try {
     const url = new URL(iframeSrc, window.location.href);
     url.searchParams.set('lodariqFrame', 'panel');
+    url.searchParams.set(AUTHORING_LOCALE_QUERY_PARAMETER, currentAuthoringLocale());
     if (
       parentOrigin &&
       parentOrigin !== 'null' &&
@@ -314,7 +318,7 @@ function requireAdoptableHostedIframe(iframe: HTMLIFrameElement): void {
     url.pathname !== HOSTED_AUTHORING_IFRAME_PATH ||
     url.username !== '' ||
     url.password !== '' ||
-    url.search !== '' ||
+    !hasExpectedHostedLocale(url) ||
     url.hash !== '' ||
     iframe.referrerPolicy !== 'origin' ||
     sandboxTokens.size !== 2 ||
@@ -323,6 +327,15 @@ function requireAdoptableHostedIframe(iframe: HTMLIFrameElement): void {
   ) {
     throw new Error('Lodariq hosted editor iframe is invalid');
   }
+}
+
+function hasExpectedHostedLocale(url: URL): boolean {
+  const entries = [...url.searchParams.entries()];
+  return (
+    entries.length === 1 &&
+    entries[0]?.[0] === AUTHORING_LOCALE_QUERY_PARAMETER &&
+    entries[0]?.[1] === currentAuthoringLocale()
+  );
 }
 
 export function openLocalAuthoringPanel(
@@ -361,7 +374,9 @@ function openAuthoringPanel(
       currentPanel.destroy();
     } else if (activePanelSessionKey !== sessionKey) {
       throw new Error(
-        'Another Lodariq draft is already open. Save and exit before opening a different experience.',
+        authoringText(
+          'Another Lodariq draft is already open. Save and exit before opening a different experience.',
+        ),
       );
     } else {
       currentPanel.restore();
@@ -370,6 +385,7 @@ function openAuthoringPanel(
   }
 
   const host = document.createElement('lodariq-authoring-panel');
+  applyAuthoringLocale(host);
   host.setAttribute(AUTHORING_PANEL_LAYOUT_ATTRIBUTE, DEFAULT_AUTHORING_PANEL_LAYOUT);
   const shadow = host.attachShadow({ mode: 'open' });
   const iframeSrc = options.adoptedIframe
@@ -436,6 +452,7 @@ function openAuthoringPanel(
   let previewRequestId = 0;
   let previewPending = false;
   let previewPresented = false;
+  let previewContentLocale = previewDocument?.localization?.defaultLocale ?? 'en';
   let suspendedPreview: { stepId?: string } | null = null;
   const authoringTargetOverrides = new Map<string, Element>();
   let picker: TargetPicker | null = null;
@@ -531,7 +548,7 @@ function openAuthoringPanel(
   const panelElement = document.createElement('section');
   panelElement.className = 'panel';
   panelElement.setAttribute('role', 'dialog');
-  panelElement.setAttribute('aria-label', 'Lodariq authoring');
+  panelElement.setAttribute('aria-label', authoringText('Lodariq authoring'));
   panelElement.innerHTML = `
     <header class="authoring-bar">
       <div
@@ -539,7 +556,7 @@ function openAuthoringPanel(
         role="button"
         tabindex="0"
         aria-label="${AUTHORING_PANEL_LABELS.movePanel}"
-        title="Drag to move the authoring panel"
+        title="${escapeAuthoringText(authoringText('Drag to move the authoring panel'))}"
       >
         <span class="panel-drag-grip" data-panel-icon="drag" aria-hidden="true"></span>
         <span class="target-picking-label">${AUTHORING_PANEL_LABELS.selectTarget}</span>
@@ -549,8 +566,8 @@ function openAuthoringPanel(
           <input
             class="panel-document-title"
             data-panel-document-title
-            aria-label="Experience title"
-            value="${escapeAuthoringText(previewDocument?.title ?? 'Untitled experience')}"
+            aria-label="${escapeAuthoringText(authoringText('Experience title'))}"
+            value="${escapeAuthoringText(previewDocument?.title ?? authoringText('Untitled experience'))}"
           />
           <span class="panel-step-status" data-panel-step-status></span>
         </span>
@@ -587,8 +604,10 @@ function openAuthoringPanel(
       type="button"
       class="panel-resize-handle"
       data-panel-action="resize"
-      aria-label="Resize Lodariq authoring panel. Use arrow keys to resize it."
-      title="Drag to resize the authoring panel"
+      aria-label="${escapeAuthoringText(
+        authoringText('Resize Lodariq authoring panel. Use arrow keys to resize it.'),
+      )}"
+      title="${escapeAuthoringText(authoringText('Drag to resize the authoring panel'))}"
     >
       <svg class="panel-resize-icon" viewBox="0 0 18 18" aria-hidden="true">
         <path d="M3.5 15.5 15.5 3.5M8.5 15.5l7-7M13.5 15.5l2-2"></path>
@@ -599,7 +618,7 @@ function openAuthoringPanel(
 
   const iframe = options.adoptedIframe ?? document.createElement('iframe');
   iframe.slot = 'authoring-frame';
-  iframe.title = 'Lodariq authoring';
+  iframe.title = authoringText('Lodariq authoring');
   if (!options.adoptedIframe) {
     iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin');
     iframe.setAttribute('src', iframeSrc);
@@ -629,13 +648,16 @@ function openAuthoringPanel(
     if (!panelStepStatus) return;
     const steps = previewDocument?.blocks.filter((block) => block.type === 'tourStep') ?? [];
     if (!steps.length) {
-      panelStepStatus.textContent = 'No steps';
+      panelStepStatus.textContent = authoringText('No steps');
       return;
     }
     const currentIndex = steps.findIndex((step) => step.id === currentHeaderStepId);
     const safeIndex = currentIndex >= 0 ? currentIndex : 0;
     currentHeaderStepId = steps[safeIndex]?.id ?? null;
-    panelStepStatus.textContent = `Step ${safeIndex + 1} of ${steps.length}`;
+    panelStepStatus.textContent = authoringText('Step {current} of {total}', {
+      current: safeIndex + 1,
+      total: steps.length,
+    });
   };
 
   syncPanelStepStatus();
@@ -655,8 +677,9 @@ function openAuthoringPanel(
       '[data-panel-action="layout"]',
     );
     if (trigger && selectedOption) {
-      trigger.setAttribute('aria-label', `Workspace width: ${selectedOption.label}`);
-      trigger.title = `Workspace width: ${selectedOption.label}`;
+      const label = authoringText('Workspace width: {width}', { width: selectedOption.label });
+      trigger.setAttribute('aria-label', label);
+      trigger.title = label;
     }
   };
   if (panelLayoutControlSlot) {
@@ -664,7 +687,7 @@ function openAuthoringPanel(
       document,
       initialValue: DEFAULT_AUTHORING_PANEL_LAYOUT,
       items: AUTHORING_PANEL_LAYOUT_OPTIONS,
-      label: 'Workspace width',
+      label: authoringText('Workspace width'),
       omitSelectedOption: true,
       showSelectionIndicator: false,
       controlIdPrefix: 'lodariq-panel-layout',
@@ -713,7 +736,7 @@ function openAuthoringPanel(
       document,
       initialValue: DEFAULT_AUTHORING_PANEL_ZOOM,
       items: AUTHORING_PANEL_ZOOM_OPTIONS,
-      label: 'Canvas zoom',
+      label: authoringText('Canvas zoom'),
       omitSelectedOption: true,
       showSelectionIndicator: false,
       triggerIcon: ZoomIn,
@@ -735,8 +758,9 @@ function openAuthoringPanel(
           '[data-panel-action="zoom"]',
         );
         if (trigger) {
-          trigger.setAttribute('aria-label', `Canvas zoom: ${value}%`);
-          trigger.title = `Canvas zoom: ${value}%`;
+          const label = authoringText('Canvas zoom: {zoom}%', { zoom: value });
+          trigger.setAttribute('aria-label', label);
+          trigger.title = label;
         }
       },
     });
@@ -744,8 +768,9 @@ function openAuthoringPanel(
       panelZoomControl.element.querySelector<HTMLButtonElement>('.panel-zoom-trigger');
     trigger?.setAttribute('data-panel-action', 'zoom');
     if (trigger) {
-      trigger.setAttribute('aria-label', 'Canvas zoom: 100%');
-      trigger.title = 'Canvas zoom: 100%';
+      const label = authoringText('Canvas zoom: {zoom}%', { zoom: 100 });
+      trigger.setAttribute('aria-label', label);
+      trigger.title = label;
     }
     for (const option of panelZoomControl.element.querySelectorAll<HTMLButtonElement>(
       '.panel-zoom-option',
@@ -1218,6 +1243,7 @@ function openAuthoringPanel(
           return;
         }
         if (message.type === 'authoring.preview.request') {
+          previewContentLocale = message.locale ?? previewContentLocale;
           if (message.mode === 'step') {
             pendingInlineFocusBlockId = message.stepId;
             currentHeaderStepId = message.stepId;
@@ -1232,7 +1258,7 @@ function openAuthoringPanel(
           );
         }
         if (message.type === 'preview.patch') {
-          return queuePreview(message.blockId, message.patch.ops);
+          return queuePreview(message.blockId, message.patch.ops, message.locale);
         }
         if (message.type === 'presentation.anchor.pick.canceled') {
           if (!presentationAnchorHostMessageMatches(message, pendingPresentationAnchorPick)) return;
@@ -1369,7 +1395,7 @@ function openAuthoringPanel(
         result: {
           ok: false,
           code: 'release_state_failed',
-          message: 'Staging release state could not be loaded',
+          message: authoringText('Staging release state could not be loaded'),
         },
       });
     }
@@ -1429,7 +1455,7 @@ function openAuthoringPanel(
         activeBridge,
         requestCorrelationId,
         'verification_unavailable',
-        'Exact staging verification is unavailable on this page.',
+        authoringText('Exact staging verification is unavailable on this page.'),
       );
       return;
     }
@@ -1463,7 +1489,7 @@ function openAuthoringPanel(
         activeBridge,
         requestCorrelationId,
         'verification_failed',
-        'The exact staging artifact could not be verified.',
+        authoringText('The exact staging artifact could not be verified.'),
       );
     } finally {
       host.style.visibility = previousVisibility;
@@ -1501,7 +1527,11 @@ function openAuthoringPanel(
   if (options.persistenceOwner === 'iframe') dispatchHostedCreatorPanelState('open');
   if (options.adoptedIframe) connectIframe();
 
-  function queuePreview(blockId: string, ops: PreviewPatchOperation[]): Promise<void> | void {
+  function queuePreview(
+    blockId: string,
+    ops: PreviewPatchOperation[],
+    locale?: string,
+  ): Promise<void> | void {
     const current = previewDocument ?? preview?.loadDocument(session.documentId) ?? null;
     if (!current) return;
 
@@ -1514,7 +1544,7 @@ function openAuthoringPanel(
     ) {
       authoringTargetOverrides.delete(affectedStepId);
     }
-    previewDocument = applyPreviewPatch(current, blockId, ops);
+    previewDocument = applyPreviewPatch(current, blockId, ops, locale);
     syncPanelStepStatus();
     scheduleAutoSave(previewDocument);
     const persistence = ops.some((operation) => operation.op === 'removeTarget')
@@ -1615,6 +1645,7 @@ function openAuthoringPanel(
         }
         const previewOptions: LocalAuthoringPreviewOptions = {
           ownerId: previewOwnerId,
+          locale: previewContentLocale,
           ...(interactive ? { interactive: true } : {}),
           ...(stepId ? { stepId } : {}),
           ...(previewStepId && selectedElement?.isConnected

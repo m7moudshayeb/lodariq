@@ -17,7 +17,7 @@ import {
   LODARIQ_ACCESSIBLE_FALLBACK_THEME_V1,
   RELEASE_RECOVERY_HISTORY_MAX_ITEMS,
   RENDERER_CONTRACT_VERSION,
-  type CompiledDocumentV2,
+  type CompiledDocumentV3,
   type LodariqDocument,
   type ReleaseRecoveryRequest,
   type ReleaseRecoveryResult,
@@ -1106,7 +1106,7 @@ function requireUnpublishSuccess(result: ReleaseRecoveryResult | null) {
 }
 
 function artifactPins(artifact: PersistedCompiledArtifact) {
-  const compiled = artifact.compiled as CompiledDocumentV2;
+  const compiled = artifact.compiled as CompiledDocumentV3;
   return {
     compiledArtifactId: artifact.id,
     artifactSchemaVersion: compiled.artifactSchemaVersion,
@@ -1171,7 +1171,7 @@ function documentVariant(label: string): LodariqDocument {
 }
 
 function persistedArtifact(
-  compiled: CompiledDocumentV2,
+  compiled: CompiledDocumentV3,
   label: string,
   sequence: number,
 ): PersistedCompiledArtifact {

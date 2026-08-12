@@ -25,6 +25,7 @@ import {
   setBlockPresentationAnchor,
   setButtonStyle,
   setTooltipLayout,
+  setTooltipStyle,
   splitInlineTextRuns,
   transformBlocks,
   updateBlockContent,
@@ -188,6 +189,13 @@ describe('authoring document ops', () => {
       gap: 'relaxed',
       padding: 'compact',
     });
+    next = setTooltipStyle(next, tooltip.id, {
+      surfaceColor: '#162033',
+      textColor: '#ffffff',
+      borderColor: '#006b58',
+      borderWeight: 'strong',
+      elevation: 'floating',
+    });
 
     const nextTooltip = next[0]!.children[0]!;
     const nextButton = nextTooltip.children.find((block) => block.id === button.id)!;
@@ -197,6 +205,13 @@ describe('authoring document ops', () => {
       actionAlign: 'stretch',
       gap: 'relaxed',
       padding: 'compact',
+    });
+    expect(nextTooltip.props.tooltipStyle).toEqual({
+      surfaceColor: '#162033',
+      textColor: '#ffffff',
+      borderColor: '#006b58',
+      borderWeight: 'strong',
+      elevation: 'floating',
     });
     expect(nextButton.props.blockLayout).toEqual({
       align: 'center',
@@ -210,6 +225,8 @@ describe('authoring document ops', () => {
       icon: 'arrow-right',
     });
     expect(step.children[0]?.props.tooltipLayout).toBeUndefined();
+    expect(step.children[0]?.props.tooltipStyle).toBeUndefined();
+    expect(setTooltipStyle(next, tooltip.id)[0]?.children[0]?.props.tooltipStyle).toBeUndefined();
   });
 
   it('sets and clears normalized presentation geometry on the target-bearing block', () => {

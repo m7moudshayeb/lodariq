@@ -3,6 +3,8 @@
 import { act, createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { setupI18n } from '@lingui/core';
+import { I18nProvider } from '@lingui/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   BRAND_THEME_CONTRACT_VERSION,
@@ -41,6 +43,7 @@ const STAGING_ID = 'env.staging:dashboard';
 const PRODUCTION_ID = 'env.production:dashboard';
 const PRIOR_PUBLICATION_ID = 'pub.dashboard:prior';
 const CURRENT_PUBLICATION_ID = 'pub.dashboard:current';
+const dashboardI18n = setupI18n({ locale: 'en', messages: { en: {} } });
 
 describe('@lodariq/dashboard release recovery UI', () => {
   beforeEach(() => {
@@ -80,7 +83,7 @@ describe('@lodariq/dashboard release recovery UI', () => {
     expect(mounted.container.textContent).toContain('Complete history');
     expect(mounted.container.textContent).toContain(PRIOR_PUBLICATION_ID);
     expect(mounted.container.textContent).toContain(CURRENT_PUBLICATION_ID);
-    expect(mounted.container.textContent).toContain('Failed rollback');
+    expect(mounted.container.textContent).toContain('Failed Roll back');
     expect(buttonByText(mounted.container, 'Staging').getAttribute('aria-selected')).toBe('true');
 
     await click(buttonByText(mounted.container, 'Production'));
@@ -96,13 +99,11 @@ describe('@lodariq/dashboard release recovery UI', () => {
     expect(dialog.getAttribute('aria-modal')).toBe('false');
     expect(dialog.textContent).toContain('generation 2');
     expect(dialog.textContent).toContain(CURRENT_PUBLICATION_ID);
-    const select = requiredElement<HTMLSelectElement>(dialog, 'select');
-    expect([...select.options].map((option) => option.value)).toEqual(['', PRIOR_PUBLICATION_ID]);
-    expect([...select.options].map((option) => option.value)).not.toContain(
-      'pub.dashboard:historical-incompatible',
-    );
-
-    await changeSelect(select, PRIOR_PUBLICATION_ID);
+    const selectTrigger = requiredElement<HTMLButtonElement>(dialog, '[role="combobox"]');
+    const optionLabels = await openDesignSystemSelect(selectTrigger);
+    expect(optionLabels).toEqual(['Choose a prior publication', PRIOR_PUBLICATION_ID]);
+    expect(optionLabels).not.toContain('pub.dashboard:historical-incompatible');
+    await chooseDesignSystemOption(PRIOR_PUBLICATION_ID);
     const reason = requiredElement<HTMLTextAreaElement>(dialog, 'textarea');
     await changeTextarea(reason, ' Restore stable production ');
     expect(buttonByText(dialog, 'Roll back publication').disabled).toBe(true);
@@ -196,17 +197,21 @@ async function mountPanel(): Promise<{ container: HTMLDivElement; root: Root }> 
   await act(async () => {
     root.render(
       createElement(
-        QueryClientProvider,
-        { client: queryClient },
-        createElement(ReleaseRecoveryPanel, {
-          documentId: DOCUMENT_ID,
-          documentTitle: 'Checkout onboarding',
-          environments: [
-            { id: STAGING_ID, kind: 'staging', name: 'Staging', enabled: true },
-            { id: PRODUCTION_ID, kind: 'production', name: 'Production', enabled: true },
-          ],
-          workspaceId: 'wk.dashboard:release',
-        }),
+        I18nProvider,
+        { i18n: dashboardI18n },
+        createElement(
+          QueryClientProvider,
+          { client: queryClient },
+          createElement(ReleaseRecoveryPanel, {
+            documentId: DOCUMENT_ID,
+            documentTitle: 'Checkout onboarding',
+            environments: [
+              { id: STAGING_ID, kind: 'staging', name: 'Staging', enabled: true },
+              { id: PRODUCTION_ID, kind: 'production', name: 'Production', enabled: true },
+            ],
+            workspaceId: 'wk.dashboard:release',
+          }),
+        ),
       ),
     );
   });
@@ -231,10 +236,25 @@ async function click(button: HTMLButtonElement): Promise<void> {
   await act(async () => button.click());
 }
 
-async function changeSelect(select: HTMLSelectElement, value: string): Promise<void> {
+async function openDesignSystemSelect(trigger: HTMLButtonElement): Promise<string[]> {
+  await act(async () => trigger.click());
+  return await vi.waitFor(() => {
+    const options = [...document.querySelectorAll<HTMLElement>('[role="option"]')];
+    expect(options).toHaveLength(2);
+    return options.map((option) => option.textContent?.trim() ?? '');
+  });
+}
+
+async function chooseDesignSystemOption(label: string): Promise<void> {
+  const option = [...document.querySelectorAll<HTMLElement>('[role="option"]')].find(
+    (candidate) => candidate.textContent?.trim() === label,
+  );
+  if (!option) throw new Error(`Select option not found: ${label}`);
   await act(async () => {
-    setNativeValue(select, value);
-    select.dispatchEvent(new Event('change', { bubbles: true }));
+    option.dispatchEvent(
+      new MouseEvent('pointerdown', { bubbles: true, button: 0, cancelable: true }),
+    );
+    option.click();
   });
 }
 
@@ -245,12 +265,8 @@ async function changeTextarea(textarea: HTMLTextAreaElement, value: string): Pro
   });
 }
 
-function setNativeValue(element: HTMLSelectElement | HTMLTextAreaElement, value: string): void {
-  const prototype =
-    element instanceof HTMLSelectElement
-      ? HTMLSelectElement.prototype
-      : HTMLTextAreaElement.prototype;
-  const setter = Object.getOwnPropertyDescriptor(prototype, 'value')?.set;
+function setNativeValue(element: HTMLTextAreaElement, value: string): void {
+  const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')?.set;
   if (!setter) throw new Error('native value setter is unavailable');
   setter.call(element, value);
 }

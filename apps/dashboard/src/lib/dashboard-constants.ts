@@ -1,3 +1,6 @@
+import type { MessageDescriptor } from '@lingui/core';
+import { DASHBOARD_NAVIGATION_MESSAGES, DASHBOARD_PAGE_MESSAGES } from '../i18n/messages';
+
 export const DASHBOARD_VIEW_IDS = [
   'overview',
   'experiences',
@@ -14,23 +17,23 @@ export type DashboardViewId = (typeof DASHBOARD_VIEW_IDS)[number];
 
 export interface DashboardNavigationItem {
   id: DashboardViewId;
-  label: string;
+  label: MessageDescriptor;
   icon:
     'overview' | 'experiences' | 'releases' | 'analytics' | 'brand' | 'environments' | 'support';
 }
 
 export const DASHBOARD_PRIMARY_NAVIGATION = [
-  { id: 'overview', label: 'Overview', icon: 'overview' },
-  { id: 'experiences', label: 'Experiences', icon: 'experiences' },
-  { id: 'releases', label: 'Releases', icon: 'releases' },
-  { id: 'analytics', label: 'Analytics', icon: 'analytics' },
-  { id: 'brand-system', label: 'Brand system', icon: 'brand' },
-  { id: 'environments', label: 'Environments', icon: 'environments' },
+  { id: 'overview', label: DASHBOARD_NAVIGATION_MESSAGES.overview, icon: 'overview' },
+  { id: 'experiences', label: DASHBOARD_NAVIGATION_MESSAGES.experiences, icon: 'experiences' },
+  { id: 'releases', label: DASHBOARD_NAVIGATION_MESSAGES.releases, icon: 'releases' },
+  { id: 'analytics', label: DASHBOARD_NAVIGATION_MESSAGES.analytics, icon: 'analytics' },
+  { id: 'brand-system', label: DASHBOARD_NAVIGATION_MESSAGES.brandSystem, icon: 'brand' },
+  { id: 'environments', label: DASHBOARD_NAVIGATION_MESSAGES.environments, icon: 'environments' },
 ] as const satisfies readonly DashboardNavigationItem[];
 
 export const DASHBOARD_SUPPORT_NAVIGATION = {
   id: 'support',
-  label: 'Help & support',
+  label: DASHBOARD_NAVIGATION_MESSAGES.support,
   icon: 'support',
 } as const satisfies DashboardNavigationItem;
 
@@ -44,31 +47,34 @@ export const RELEASE_QUEUE_ACTION_LABEL = 'Review release';
 
 export const DASHBOARD_PAGE_COPY = {
   overview: {
-    title: 'Launch queue',
-    description: 'Follow the progress of experiences from draft to production.',
+    title: DASHBOARD_PAGE_MESSAGES.overviewTitle,
+    description: DASHBOARD_PAGE_MESSAGES.overviewDescription,
   },
   experiences: {
-    title: 'Experiences',
-    description: 'Find every saved experience and inspect its current publishing state.',
+    title: DASHBOARD_PAGE_MESSAGES.experiencesTitle,
+    description: DASHBOARD_PAGE_MESSAGES.experiencesDescription,
   },
   releases: {
-    title: 'Release details',
-    description: 'Review the environment state Lodariq can currently prove for each experience.',
+    title: DASHBOARD_PAGE_MESSAGES.releasesTitle,
+    description: DASHBOARD_PAGE_MESSAGES.releasesDescription,
   },
   analytics: {
-    title: 'Analytics',
-    description: 'Inspect release-scoped facts for one explicitly selected environment at a time.',
+    title: DASHBOARD_PAGE_MESSAGES.analyticsTitle,
+    description: DASHBOARD_PAGE_MESSAGES.analyticsDescription,
   },
   'brand-system': {
-    title: 'Brand system',
-    description: 'Shape the customer experience with safe tokens, then approve each version.',
+    title: DASHBOARD_PAGE_MESSAGES.brandSystemTitle,
+    description: DASHBOARD_PAGE_MESSAGES.brandSystemDescription,
   },
   environments: {
-    title: 'Environments',
-    description: 'Manage trusted product origins and each environment runtime installation.',
+    title: DASHBOARD_PAGE_MESSAGES.environmentsTitle,
+    description: DASHBOARD_PAGE_MESSAGES.environmentsDescription,
   },
   support: {
-    title: 'Help & support',
-    description: 'Use fallback authoring and diagnostic tools only when the in-product path fails.',
+    title: DASHBOARD_PAGE_MESSAGES.supportTitle,
+    description: DASHBOARD_PAGE_MESSAGES.supportDescription,
   },
-} as const satisfies Record<DashboardViewId, { title: string; description: string }>;
+} as const satisfies Record<
+  DashboardViewId,
+  { title: MessageDescriptor; description: MessageDescriptor }
+>;

@@ -110,7 +110,7 @@ export const AUTHORING_BLOCK_INSPECTOR_CSS = `
     border: 1px solid transparent;
     border-radius: var(--lq-radius-sm);
     padding: var(--lq-space-1);
-    transition: background 120ms ease, border-color 120ms ease;
+    transition: border-color 120ms ease;
   }
 
   .rich-step-block-stack > .inline-insert,
@@ -126,16 +126,17 @@ export const AUTHORING_BLOCK_INSPECTOR_CSS = `
     min-height: var(--lq-space-5);
   }
 
-  .rich-step-block-row:hover,
   .rich-step-block-row.active,
   .rich-step-block-row.selected {
-    border-color: var(--lq-color-border-soft);
-    background: var(--lq-color-panel-strong);
+    border-color: var(--lq-color-blue);
+    border-style: dashed;
+    background: transparent;
   }
 
-  .rich-step-block-row.active {
-    border-color: var(--lq-color-primary-border);
-    background: var(--lq-color-primary-soft);
+  .rich-step-block-row:hover {
+    border-color: var(--lq-color-blue);
+    border-style: dashed;
+    background: transparent;
   }
 
   .rich-step-block-drag {
@@ -186,7 +187,7 @@ export const AUTHORING_BLOCK_INSPECTOR_CSS = `
 
   .rich-step-block.heading {
     margin: 0 0 calc(var(--lq-tour-spacing) * 0.5);
-    color: var(--lq-tour-text-color, var(--lq-color-ink));
+    color: var(--lq-popup-text, var(--lq-tour-text-color, var(--lq-color-ink)));
     font-size: var(--lq-tour-base-font-size, var(--lq-font-xl));
     font-weight: var(--lq-tour-heading-font-weight, var(--lq-weight-bold));
     line-height: var(--lq-tour-heading-line-height, 1.3);
@@ -194,7 +195,7 @@ export const AUTHORING_BLOCK_INSPECTOR_CSS = `
 
   .rich-step-block.paragraph {
     margin: 0 0 var(--lq-tour-spacing, var(--lq-space-3));
-    color: var(--lq-tour-muted-text-color, var(--lq-color-ink-soft));
+    color: var(--lq-popup-muted-text, var(--lq-tour-muted-text-color, var(--lq-color-ink-soft)));
     font-size: var(--lq-tour-small-font-size, var(--lq-font-sm));
     line-height: var(--lq-tour-body-line-height, 1.5);
   }

@@ -4,6 +4,14 @@ import { resolveExperienceAppearance } from '@lodariq/schema/brand-runtime';
 import { LODARIQ_AUTHORING_PREVIEW_OWNER_ATTRIBUTE } from '@lodariq/schema/dom';
 import { assertSupportedCompiledArtifactIfVersioned } from '../artifact-compatibility';
 import {
+  applyRuntimeLocale,
+  configureRuntimeLocale,
+  currentRuntimeLocale,
+  runtimeText,
+} from '../i18n';
+import { resolveCompiledDocumentLocale } from '../document-localization';
+import { clearActiveContentLocale, setActiveContentLocale } from '../runtime/content-locale-state';
+import {
   resolve,
   resolveTarget,
   type ResolvedAnchor,
@@ -52,7 +60,12 @@ import {
 } from './tour-positioning';
 
 export { TourPresentationCanceledError, TourPresentationUnavailableError } from './tour-errors';
-export { resolveTourActionRecipe, resolveTourCompositionRecipe } from './tour-recipes';
+export {
+  resolveTourActionRecipe,
+  resolveTourCompositionRecipe,
+  resolveTourPopupStyleRecipe,
+  tourPopupStyleVariables,
+} from './tour-recipes';
 
 export {
   resolveCompiledTourTheme,
@@ -89,6 +102,8 @@ export interface AuthoringTargetOverride {
  * as a JavaScript sandbox (PRD §20).
  */
 export interface TourPlayerOptions {
+  /** Optional BCP 47 language override for Lodariq-owned runtime controls. */
+  locale?: string;
   initialStepId?: string;
   initialStepIndex?: number;
   /**
@@ -145,17 +160,27 @@ export class TourPlayer {
   private readiness: TourPresentationReadiness | null = null;
   private renderId = 0;
 
+  readonly contentLocale: string;
+
   constructor(
     private readonly doc: CompiledDocument,
     private readonly options: TourPlayerOptions = {},
   ) {
     assertSupportedCompiledArtifactIfVersioned(doc);
+    if (options.locale) configureRuntimeLocale([options.locale]);
+    const localized = resolveCompiledDocumentLocale(doc, options.locale ?? currentRuntimeLocale());
+    this.doc = localized.document;
+    this.contentLocale = localized.locale;
     const previewContainer = options.embeddedPreviewContainer;
-    if (previewContainer && doc.steps.some((step) => step.targetId)) {
+    if (previewContainer && this.doc.steps.some((step) => step.targetId)) {
       throw new Error('Embedded Tour previews must use targetless compiled steps');
     }
-    this.index = initialStepIndex(doc, options);
+    this.index = initialStepIndex(this.doc, options);
     this.host = document.createElement('lodariq-tour');
+    applyRuntimeLocale(this.host);
+    this.host.lang = this.contentLocale;
+    this.host.dir = contentLocaleDirection(this.contentLocale);
+    this.host.dataset['lodariqContentLocale'] = this.contentLocale;
     const authoringPreviewOwnerId = options.authoringPreviewOwnerId?.trim();
     if (options.authoringPreviewOwnerId !== undefined && !authoringPreviewOwnerId) {
       throw new Error('Lodariq authoring preview owner id is required');
@@ -174,7 +199,7 @@ export class TourPlayer {
     this.shadow = this.host.attachShadow({ mode: 'open' });
     this.card = document.createElement('div');
     this.card.setAttribute('role', 'dialog');
-    this.card.setAttribute('aria-label', 'Lodariq tour');
+    this.card.setAttribute('aria-label', runtimeText('Lodariq tour'));
     this.card.setAttribute('aria-live', 'polite');
     this.card.tabIndex = -1;
     this.arrow = document.createElement('div');
@@ -196,6 +221,7 @@ export class TourPlayer {
     if (!previewContainer && !this.options.authoringPreviewOwnerId) {
       if (TourPlayer.active && TourPlayer.active !== this) TourPlayer.active.stop();
       TourPlayer.active = this;
+      setActiveContentLocale(this.contentLocale);
     }
     if (!this.host.isConnected) (previewContainer ?? document.body).appendChild(this.host);
     this.render();
@@ -208,7 +234,9 @@ export class TourPlayer {
   waitUntilReady(): Promise<void> {
     return (
       this.readiness?.promise ??
-      Promise.reject(new TourPresentationUnavailableError('Lodariq tour has not started'))
+      Promise.reject(
+        new TourPresentationUnavailableError(runtimeText('Lodariq tour has not started')),
+      )
     );
   }
 
@@ -242,7 +270,10 @@ export class TourPlayer {
     this.renderId += 1;
     this.clearStepEffects();
     while (this.lifetimeCleanups.length) this.lifetimeCleanups.pop()?.();
-    if (TourPlayer.active === this) TourPlayer.active = null;
+    if (TourPlayer.active === this) {
+      TourPlayer.active = null;
+      clearActiveContentLocale();
+    }
     this.host.remove();
   }
 
@@ -256,7 +287,7 @@ export class TourPlayer {
     if (!step) {
       this.rejectReadiness(
         renderId,
-        new TourPresentationUnavailableError('Lodariq tour has no presentable step'),
+        new TourPresentationUnavailableError(runtimeText('Lodariq tour has no presentable step')),
       );
       return;
     }
@@ -333,7 +364,7 @@ export class TourPlayer {
     const button = document.createElement('button');
     button.type = 'button';
     button.className = 'tour-skip';
-    button.textContent = 'Skip tour';
+    button.textContent = runtimeText('Skip tour');
     button.addEventListener('click', () => {
       if (this.options.embeddedPreviewContainer) return;
       if (this.options.authoringPreviewOwnerId && !this.options.authoringPreviewInteractive) return;
@@ -343,18 +374,18 @@ export class TourPlayer {
   }
 
   private complete(): void {
-    this.stop();
     this.options.onComplete?.();
+    this.stop();
   }
 
   private dismiss(): void {
-    this.stop();
     this.options.onDismiss?.();
+    this.stop();
   }
 
   private skip(): void {
-    this.stop();
     this.options.onSkip?.();
+    this.stop();
   }
 
   private openPage(action: RuntimeAction): void {
@@ -817,6 +848,15 @@ export class TourPlayer {
     if (!(container instanceof HTMLElement)) return;
     container.scrollTop += container.clientHeight || 200;
     container.dispatchEvent(new Event('scroll', { bubbles: true }));
+  }
+}
+
+function contentLocaleDirection(locale: string): 'ltr' | 'rtl' {
+  try {
+    const language = new Intl.Locale(locale).language;
+    return new Set(['ar', 'fa', 'he', 'ur']).has(language) ? 'rtl' : 'ltr';
+  } catch {
+    return 'ltr';
   }
 }
 

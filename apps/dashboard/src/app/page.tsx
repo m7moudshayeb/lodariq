@@ -1,11 +1,15 @@
 import { DashboardAuthRequired } from '../components/dashboard-auth-required';
 import { DashboardShell } from '../components/dashboard-shell';
 import { WorkspaceRequired } from '../components/workspace-required';
+import { DASHBOARD_ENTRY_MESSAGES } from '../i18n/messages';
+import { getDashboardI18n } from '../i18n/server';
+import { dashboardErrorMessageDescriptor } from '../i18n/error-messages';
 import { DashboardApiError, loadAuthSession, loadDashboardData } from '../lib/api';
 
 export const dynamic = 'force-dynamic';
 
 export default async function DashboardPage(): Promise<React.ReactElement> {
+  const { i18n } = await getDashboardI18n();
   let session;
   try {
     session = await loadAuthSession();
@@ -13,16 +17,16 @@ export default async function DashboardPage(): Promise<React.ReactElement> {
     if (error instanceof DashboardApiError && error.statusCode === 401) {
       return (
         <DashboardAuthRequired
-          description="Your workspace and authoring tools stay protected by your Lodariq session."
-          title="Sign in to Lodariq"
+          description={i18n._(DASHBOARD_ENTRY_MESSAGES.signInDescription)}
+          title={i18n._(DASHBOARD_ENTRY_MESSAGES.signInTitle)}
         />
       );
     }
     return (
       <DashboardAuthRequired
-        actionLabel="Try again"
-        description="Lodariq could not verify your session. The service may be temporarily unavailable."
-        title="We could not open your workspace"
+        actionLabel={i18n._(DASHBOARD_ENTRY_MESSAGES.retryAction)}
+        description={i18n._(DASHBOARD_ENTRY_MESSAGES.unavailableDescription)}
+        title={i18n._(DASHBOARD_ENTRY_MESSAGES.unavailableTitle)}
       />
     );
   }
@@ -35,8 +39,8 @@ export default async function DashboardPage(): Promise<React.ReactElement> {
   } catch (error) {
     const message =
       error instanceof DashboardApiError
-        ? error.message
-        : 'The workspace is temporarily unavailable.';
+        ? i18n._(dashboardErrorMessageDescriptor(error.code, error.statusCode))
+        : i18n._(DASHBOARD_ENTRY_MESSAGES.workspaceUnavailable);
     return <DashboardShell apiError={message} session={session} />;
   }
 }

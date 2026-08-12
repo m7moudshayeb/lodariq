@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   AUTHORING_SESSION_CAPABILITIES,
   BROWSER_VERIFICATION_CHECK_CODES,
+  COMPILED_ARTIFACT_SCHEMA_VERSION,
   LODARIQ_ACCESSIBLE_FALLBACK_THEME_V1,
   RELEASE_RECOVERY_FAILURE_MESSAGES,
   RENDERER_CONTRACT_VERSION,
@@ -775,7 +776,7 @@ function publicationVerification() {
     documentId: session.documentId,
     publicationId: 'publication_staging_1',
     compiledArtifactId: 'artifact_direct_1',
-    artifactSchemaVersion: '2' as const,
+    artifactSchemaVersion: COMPILED_ARTIFACT_SCHEMA_VERSION,
     contentHash: CONTENT_HASH,
     themeVersionId: 'theme_version_1',
     themeContentHash: THEME_HASH,

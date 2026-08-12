@@ -6,6 +6,8 @@ import * as React from 'react';
 import { act, createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { setupI18n } from '@lingui/core';
+import { I18nProvider } from '@lingui/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const dashboardApiMocks = vi.hoisted(() => ({
@@ -39,7 +41,6 @@ const EXPIRES_AT = '2026-08-07T12:05:00.000Z';
 const repoRoot = existsSync(resolve(process.cwd(), 'apps/dashboard'))
   ? process.cwd()
   : resolve(process.cwd(), '../..');
-
 interface MountedPopup {
   container: HTMLDivElement;
   opener: WindowProxy;
@@ -283,7 +284,7 @@ describe('@lodariq/dashboard first-party authoring activation', () => {
       .mockResolvedValueOnce(jsonResponse(pendingActivation()))
       .mockResolvedValueOnce(jsonResponse(authorizationResult()));
     vi.stubGlobal('fetch', fetchMock);
-    const popup = await mountPopup();
+    const popup = await mountPopup('fr');
 
     await dispatchMessage({
       source: popup.opener,
@@ -319,7 +320,10 @@ describe('@lodariq/dashboard first-party authoring activation', () => {
         }),
       }),
     ]);
-    expect(popup.postMessage).toHaveBeenCalledWith(authorizationResult(), CUSTOMER_ORIGIN);
+    expect(popup.postMessage).toHaveBeenCalledWith(
+      { ...authorizationResult(), uiLocale: 'fr' },
+      CUSTOMER_ORIGIN,
+    );
     expect(window.location.href).toBe(initialHref);
     expect(localStorage.length).toBe(0);
     expect(sessionStorage.length).toBe(0);
@@ -391,7 +395,7 @@ function jsonResponse(body: Record<string, unknown>): Response {
   });
 }
 
-async function mountPopup(): Promise<MountedPopup> {
+async function mountPopup(locale = 'en'): Promise<MountedPopup> {
   const postMessage = vi.fn();
   const opener = { postMessage } as unknown as WindowProxy;
   Object.defineProperty(window, 'opener', { configurable: true, value: opener });
@@ -399,12 +403,17 @@ async function mountPopup(): Promise<MountedPopup> {
   document.body.append(container);
   const root = createRoot(container);
   const queryClient = new QueryClient({ defaultOptions: { mutations: { retry: false } } });
+  const dashboardI18n = setupI18n({ locale, messages: { [locale]: {} } });
   await act(async () =>
     root.render(
       createElement(
-        QueryClientProvider,
-        { client: queryClient },
-        createElement(AuthoringActivationPopup, { passwordRecoveryEnabled: true }),
+        I18nProvider,
+        { i18n: dashboardI18n },
+        createElement(
+          QueryClientProvider,
+          { client: queryClient },
+          createElement(AuthoringActivationPopup, { passwordRecoveryEnabled: true }),
+        ),
       ),
     ),
   );

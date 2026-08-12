@@ -6,6 +6,7 @@ import type {
   PublicationVerification,
   ProductionPromotionResult,
 } from '@lodariq/schema';
+import { authoringText } from '../i18n';
 import type {
   AuthoringBrandMatchProposal,
   AuthoringBrandSourceDescriptor,
@@ -16,19 +17,19 @@ import type {
 } from './local-frame-types';
 
 const VERIFICATION_CHECK_LABELS: Record<BrowserVerificationCheckCode, string> = {
-  artifact_integrity: 'Exact artifact loaded',
-  renderer_ready: 'Renderer ready',
-  targets_resolved: 'Targets resolved',
-  overflow: 'Content fits',
-  primary_action_clipping: 'Primary action visible',
-  target_collision: 'Placement avoids target collision',
-  font_fallback: 'Fonts loaded',
-  stacking_context: 'Experience appears above the product',
-  responsive_widths: 'Responsive width',
-  dark_mode: 'Dark mode',
-  rtl: 'Right-to-left layout',
-  reduced_motion: 'Reduced motion',
-  zoom_200: '200% zoom',
+  artifact_integrity: authoringText('Exact artifact loaded'),
+  renderer_ready: authoringText('Renderer ready'),
+  targets_resolved: authoringText('Targets resolved'),
+  overflow: authoringText('Content fits'),
+  primary_action_clipping: authoringText('Primary action visible'),
+  target_collision: authoringText('Placement avoids target collision'),
+  font_fallback: authoringText('Fonts loaded'),
+  stacking_context: authoringText('Experience appears above the product'),
+  responsive_widths: authoringText('Responsive width'),
+  dark_mode: authoringText('Dark mode'),
+  rtl: authoringText('Right-to-left layout'),
+  reduced_motion: authoringText('Reduced motion'),
+  zoom_200: authoringText('200% zoom'),
 };
 
 export interface ReleaseWorkflowCapabilities {
@@ -49,8 +50,10 @@ export function brandWorkspaceStateFromTheme(
       status: 'approved',
       source: {
         kind: 'approved-theme',
-        label: 'Approved Brand theme',
-        detail: `Version ${theme.version} is used by this draft.`,
+        label: authoringText('Approved Brand theme'),
+        detail: authoringText('Version {version} is used by this draft.', {
+          version: theme.version,
+        }),
         revision: theme.themeVersionId,
       },
       canEdit: true,
@@ -79,29 +82,35 @@ export function brandMatchProposalForFrame(
   appendRoleChange(
     changes,
     'accent',
-    'Accent',
+    authoringText('Accent'),
     current.modes.light.colors.accent,
     light?.colors?.accent,
   );
   appendRoleChange(
     changes,
     'surface',
-    'Surface',
+    authoringText('Surface'),
     current.modes.light.colors.surface,
     light?.colors?.surface,
   );
-  appendRoleChange(changes, 'text', 'Text', current.modes.light.colors.text, light?.colors?.text);
+  appendRoleChange(
+    changes,
+    'text',
+    authoringText('Text'),
+    current.modes.light.colors.text,
+    light?.colors?.text,
+  );
   appendRoleChange(
     changes,
     'font',
-    'Font',
+    authoringText('Font'),
     current.typography.fontFamilies.join(', '),
     proposedTypography?.fontFamilies?.join(', '),
   );
   appendRoleChange(
     changes,
     'radius',
-    'Corner radius',
+    authoringText('Corner radius'),
     `${current.radii.md}px`,
     proposal.tokens.radii?.md === undefined ? undefined : `${proposal.tokens.radii.md}px`,
   );
@@ -270,22 +279,26 @@ function proposalSourceDescriptor(proposal: ProductStyleProposal): AuthoringBran
   if (!source) {
     return {
       kind: 'accessible-fallback',
-      label: 'Accessible fallback',
-      detail: 'No product evidence was available.',
+      label: authoringText('Accessible fallback'),
+      detail: authoringText('No product evidence was available.'),
     };
   }
   if (source.kind === 'registered_tokens') {
     return {
       kind: 'registered-tokens',
-      label: 'Registered product tokens',
-      detail: `Explicit semantic tokens · ${source.confidence}% confidence`,
+      label: authoringText('Registered product tokens'),
+      detail: authoringText('Explicit semantic tokens · {confidence}% confidence', {
+        confidence: source.confidence,
+      }),
       ...(source.revision ? { revision: source.revision } : {}),
     };
   }
   return {
     kind: 'sampled-element',
-    label: 'Product style sample',
-    detail: `Privacy-safe semantic evidence · ${proposal.confidence}% confidence`,
+    label: authoringText('Product style sample'),
+    detail: authoringText('Privacy-safe semantic evidence · {confidence}% confidence', {
+      confidence: proposal.confidence,
+    }),
   };
 }
 
@@ -297,12 +310,14 @@ function confidenceLevel(confidence: number): 'high' | 'medium' | 'low' {
 
 function confidenceReason(proposal: ProductStyleProposal): string {
   if (proposal.sources.some((source) => source.kind === 'registered_tokens')) {
-    return 'Explicit product tokens take priority over inferred browser styles.';
+    return authoringText('Explicit product tokens take priority over inferred browser styles.');
   }
   if (proposal.confidence >= 85) {
-    return 'The selected element produced a strong semantic style match.';
+    return authoringText('The selected element produced a strong semantic style match.');
   }
-  return 'The sample relies on surrounding styles, so confirm the proposed Brand roles.';
+  return authoringText(
+    'The sample relies on surrounding styles, so confirm the proposed Brand roles.',
+  );
 }
 
 function verificationState(
@@ -320,9 +335,9 @@ function approvalState(
 }
 
 function verificationCheckDetail(status: 'passed' | 'warning' | 'failed'): string {
-  if (status === 'passed') return 'Passed on this exact staging page.';
-  if (status === 'warning') return 'Non-blocking review recommended.';
-  return 'Fix this before production promotion.';
+  if (status === 'passed') return authoringText('Passed on this exact staging page.');
+  if (status === 'warning') return authoringText('Non-blocking review recommended.');
+  return authoringText('Fix this before production promotion.');
 }
 
 function verificationCheckStatus(value: unknown): 'passed' | 'warning' | 'failed' {

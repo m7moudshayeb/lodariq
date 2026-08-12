@@ -1,3 +1,4 @@
+import { authoringDateTime, authoringText } from '../../../i18n';
 import {
   DEFAULT_EXPERIENCE_APPEARANCE,
   resolveExperienceAppearance,
@@ -83,21 +84,27 @@ function AppearanceMode({
   );
   const busy = workflow.operation === 'sampling-brand' || workflow.operation === 'applying-brand';
   const themeVersion =
-    typeof brand.version === 'number' ? `Version ${brand.version}` : 'Safe default';
+    typeof brand.version === 'number'
+      ? authoringText('Version {version}', { version: brand.version })
+      : authoringText('Safe default');
   const bindingLabel =
-    snapshot.documentState.themeBinding?.policy === 'pinned' ? 'Pinned' : 'Inherited';
+    snapshot.documentState.themeBinding?.policy === 'pinned'
+      ? authoringText('Pinned')
+      : authoringText('Inherited');
 
   return (
     <PanelModeShell
       className="appearance-mode-shell"
       controller={controller}
-      description="Start with the workspace theme, then keep only intentional differences."
-      eyebrow="Appearance"
+      description={authoringText(
+        'Start with the workspace theme, then keep only intentional differences.',
+      )}
+      eyebrow={authoringText('Appearance')}
       focusToken={workflow.focusToken}
-      title="Feel native to this product"
+      title={authoringText('Feel native to this product')}
     >
       <PanelFeedback error={workflow.error} notice={workflow.notice} />
-      <ol className="appearance-flow" aria-label="Appearance setup">
+      <ol className="appearance-flow" aria-label={authoringText('Appearance setup')}>
         <li className="appearance-step completed" data-appearance-step="1">
           <span className="appearance-step-marker" aria-hidden="true">
             1
@@ -105,7 +112,9 @@ function AppearanceMode({
           <div className="appearance-step-content">
             <div className="appearance-step-heading">
               <span className="appearance-step-heading-copy">
-                <strong id="appearance-workspace-theme-title">Workspace Brand theme</strong>
+                <strong id="appearance-workspace-theme-title">
+                  {authoringText('Workspace Brand theme')}
+                </strong>
                 <span className="appearance-step-pill inherited">{bindingLabel}</span>
               </span>
             </div>
@@ -124,7 +133,11 @@ function AppearanceMode({
                 <CircleCheck size={17} strokeWidth={2.1} aria-hidden="true" />
                 <span>
                   <strong>{brand.source.label}</strong>
-                  {brand.source.revision ? <small>Revision {brand.source.revision}</small> : null}
+                  {brand.source.revision ? (
+                    <small>
+                      {authoringText('Revision')} {brand.source.revision}
+                    </small>
+                  ) : null}
                 </span>
               </span>
               <p className="panel-mode-help">{brand.source.detail}</p>
@@ -139,8 +152,10 @@ function AppearanceMode({
           <div className="appearance-step-content">
             <div className="appearance-step-heading">
               <span className="appearance-step-heading-copy">
-                <strong id="appearance-product-match-title">Check and match product</strong>
-                <span className="appearance-step-pill">Optional</span>
+                <strong id="appearance-product-match-title">
+                  {authoringText('Check and match product')}
+                </strong>
+                <span className="appearance-step-pill">{authoringText('Optional')}</span>
               </span>
             </div>
 
@@ -171,7 +186,7 @@ function AppearanceMode({
                 ) : (
                   <Wand2 size={16} strokeWidth={2.2} aria-hidden="true" />
                 )}
-                {busy ? 'Matching product…' : 'Match product'}
+                {busy ? authoringText('Matching product…') : authoringText('Match product')}
               </button>
               <button
                 className="panel-mode-secondary-button"
@@ -180,15 +195,16 @@ function AppearanceMode({
                 type="button"
               >
                 <ScanSearch size={16} strokeWidth={2.2} aria-hidden="true" />
-                Use this element’s look
+                {authoringText('Use this element’s look')}
               </button>
             </div>
             {!brand.canEdit ? (
               <p className="panel-mode-inline-note appearance-match-note">
                 <LockKeyhole size={14} strokeWidth={2.1} aria-hidden="true" />
                 <span>
-                  Product matching becomes available in an authenticated authoring session with
-                  Brand edit access.
+                  {authoringText(
+                    'Product matching becomes available in an authenticated authoring session with Brand edit access.',
+                  )}
                 </span>
               </p>
             ) : null}
@@ -203,8 +219,10 @@ function AppearanceMode({
             <div className="appearance-step-heading appearance-step-heading-with-action">
               <span>
                 <span className="appearance-step-heading-copy">
-                  <strong id="appearance-experience-title">Adjust this experience only</strong>
-                  <span className="appearance-step-pill">Optional</span>
+                  <strong id="appearance-experience-title">
+                    {authoringText('Adjust this experience only')}
+                  </strong>
+                  <span className="appearance-step-pill">{authoringText('Optional')}</span>
                 </span>
                 <span className="appearance-step-summary">{appearanceSummary(appearance)}</span>
               </span>
@@ -214,30 +232,30 @@ function AppearanceMode({
                 type="button"
               >
                 <RotateCcw size={14} strokeWidth={2.2} aria-hidden="true" />
-                Reset
+                {authoringText('Reset')}
               </button>
             </div>
             <div className="appearance-overrides-grid">
               <AppearanceChoiceGroup
-                label="Style"
+                label={authoringText('Style')}
                 options={APPEARANCE_PRESET_OPTIONS}
                 value={appearance.preset}
                 onChange={(preset) => controller.setDocumentAppearance({ ...appearance, preset })}
               />
               <AppearanceChoiceGroup
-                label="Density"
+                label={authoringText('Density')}
                 options={APPEARANCE_DENSITY_OPTIONS}
                 value={appearance.density}
                 onChange={(density) => controller.setDocumentAppearance({ ...appearance, density })}
               />
               <AppearanceChoiceGroup
-                label="Width"
+                label={authoringText('Width')}
                 options={APPEARANCE_WIDTH_OPTIONS}
                 value={appearance.width}
                 onChange={(width) => controller.setDocumentAppearance({ ...appearance, width })}
               />
               <AppearanceChoiceGroup
-                label="Mode"
+                label={authoringText('Mode')}
                 options={APPEARANCE_MODE_OPTIONS}
                 value={appearance.colorMode}
                 onChange={(colorMode) =>
@@ -245,7 +263,7 @@ function AppearanceMode({
                 }
               />
               <AppearanceChoiceGroup
-                label="Display target outline"
+                label={authoringText('Display target outline')}
                 options={APPEARANCE_TARGET_OUTLINE_OPTIONS}
                 value={appearance.displayTargetOutline}
                 onChange={(displayTargetOutline) =>
@@ -274,9 +292,9 @@ function BrandMatchReviewMode({
   return (
     <PanelModeShell
       controller={controller}
-      eyebrow="Brand match"
+      eyebrow={authoringText('Brand match')}
       focusToken={workflow.focusToken}
-      title="Review meaningful changes"
+      title={authoringText('Review meaningful changes')}
     >
       <PanelFeedback error={workflow.error} notice={workflow.notice} />
       {proposal ? (
@@ -287,7 +305,7 @@ function BrandMatchReviewMode({
                 <ScanSearch size={16} strokeWidth={2.2} />
               </span>
               <span>
-                <small>Proposed from</small>
+                <small>{authoringText('Proposed from')}</small>
                 <strong>{proposal.source.label}</strong>
               </span>
               <span className={`panel-confidence-pill ${proposal.confidence}`}>
@@ -296,15 +314,17 @@ function BrandMatchReviewMode({
             </div>
             <p className="panel-mode-help">{proposal.confidenceReason}</p>
             {proposal.source.revision ? (
-              <p className="panel-source-line">Source revision {proposal.source.revision}</p>
+              <p className="panel-source-line">
+                {authoringText('Source revision')} {proposal.source.revision}
+              </p>
             ) : null}
           </section>
 
           <section className="panel-mode-section" aria-labelledby="semantic-changes-title">
             <div className="panel-mode-section-heading">
               <span>
-                <small>Before and after</small>
-                <strong id="semantic-changes-title">Semantic roles only</strong>
+                <small>{authoringText('Before and after')}</small>
+                <strong id="semantic-changes-title">{authoringText('Semantic roles only')}</strong>
               </span>
             </div>
             <div className="brand-change-list">
@@ -317,8 +337,9 @@ function BrandMatchReviewMode({
           <div className="panel-mode-callout">
             <ShieldCheck size={16} strokeWidth={2.2} aria-hidden="true" />
             <p>
-              Raw CSS, selectors, class names, DOM snapshots, URLs, and coordinates are never saved
-              as Brand data.
+              {authoringText(
+                'Raw CSS, selectors, class names, DOM snapshots, URLs, and coordinates are never saved as Brand data.',
+              )}
             </p>
           </div>
 
@@ -334,7 +355,7 @@ function BrandMatchReviewMode({
               ) : (
                 <Check size={16} strokeWidth={2.4} aria-hidden="true" />
               )}
-              {busy ? 'Saving proposal…' : 'Use proposed draft'}
+              {busy ? authoringText('Saving proposal…') : authoringText('Use proposed draft')}
             </button>
             <button
               className="panel-mode-secondary-button"
@@ -342,14 +363,16 @@ function BrandMatchReviewMode({
               onClick={() => controller.chooseAnotherBrandSource()}
               type="button"
             >
-              Choose another element
+              {authoringText('Choose another element')}
             </button>
           </div>
         </>
       ) : (
         <PanelEmptyState
-          detail="Return to Appearance and choose Match product to create a safe semantic proposal."
-          title="No Brand proposal to review"
+          detail={authoringText(
+            'Return to Appearance and choose Match product to create a safe semantic proposal.',
+          )}
+          title={authoringText('No Brand proposal to review')}
         />
       )}
     </PanelModeShell>
@@ -384,9 +407,13 @@ function ReleaseVerificationMode({
   return (
     <PanelModeShell
       controller={controller}
-      eyebrow="Release"
+      eyebrow={authoringText('Release')}
       focusToken={workflow.focusToken}
-      title={localIssues.length ? 'Resolve release blockers' : 'Verify the exact artifact'}
+      title={
+        localIssues.length
+          ? authoringText('Resolve release blockers')
+          : authoringText('Verify the exact artifact')
+      }
     >
       <PanelFeedback error={workflow.error} notice={workflow.notice} />
       <p className="panel-release-truth">{presentation.truth}</p>
@@ -423,12 +450,14 @@ function ReleaseHistoryEntry({
     >
       <div className="panel-mode-section-heading">
         <span>
-          <small>Staging and production</small>
-          <strong id="release-history-entry-title">Release history</strong>
+          <small>{authoringText('Staging and production')}</small>
+          <strong id="release-history-entry-title">{authoringText('Release history')}</strong>
         </span>
       </div>
       <p className="panel-mode-help">
-        Review immutable publications and use authorized rollback or unpublish recovery.
+        {authoringText(
+          'Review immutable publications and use authorized rollback or unpublish recovery.',
+        )}
       </p>
       <div className="release-history-environment-actions">
         {environments.map((environment) => (
@@ -440,7 +469,9 @@ function ReleaseHistoryEntry({
             type="button"
           >
             <RotateCcw size={16} strokeWidth={2.2} aria-hidden="true" />
-            Review {environment.label.toLowerCase()} history
+            {authoringText('Review {environment} history', {
+              environment: environment.label,
+            })}
           </button>
         ))}
       </div>
@@ -461,16 +492,16 @@ function ReleaseHistoryMode({
   return (
     <PanelModeShell
       controller={controller}
-      eyebrow="Release recovery"
+      eyebrow={authoringText('Release recovery')}
       focusToken={workflow.focusToken}
-      title="Release history"
+      title={authoringText('Release history')}
     >
       <PanelFeedback error={workflow.error} notice={workflow.notice} />
       <div data-panel-entry="release-history-result" tabIndex={-1}>
         {loading ? (
           <div className="panel-empty-state" role="status">
             <LoaderCircle className="tour-release-spinner" size={17} aria-hidden="true" />
-            <strong>Loading release history…</strong>
+            <strong>{authoringText('Loading release history…')}</strong>
           </div>
         ) : recovery.model ? (
           <ReleaseHistoryPanel
@@ -479,8 +510,10 @@ function ReleaseHistoryMode({
           />
         ) : (
           <PanelEmptyState
-            detail="No server-vetted recovery state is available for this environment."
-            title="Release history unavailable"
+            detail={authoringText(
+              'No server-vetted recovery state is available for this environment.',
+            )}
+            title={authoringText('Release history unavailable')}
           />
         )}
       </div>
@@ -501,9 +534,9 @@ function ReleaseRecoveryConfirmationMode({
   return (
     <PanelModeShell
       controller={controller}
-      eyebrow="Release recovery"
+      eyebrow={authoringText('Release recovery')}
       focusToken={workflow.focusToken}
-      title="Confirm recovery"
+      title={authoringText('Confirm recovery')}
     >
       {recovery.intent && recovery.requestIdentity ? (
         <ReleaseRecoveryConfirmation
@@ -516,8 +549,8 @@ function ReleaseRecoveryConfirmationMode({
         />
       ) : (
         <PanelEmptyState
-          detail="Return to release history and choose a current recovery action."
-          title="Recovery confirmation expired"
+          detail={authoringText('Return to release history and choose a current recovery action.')}
+          title={authoringText('Recovery confirmation expired')}
         />
       )}
     </PanelModeShell>
@@ -549,9 +582,14 @@ function ReleaseVerificationContent({
             <CircleAlert size={16} strokeWidth={2.2} />
           </span>
           <span>
-            <small>Before staging</small>
+            <small>{authoringText('Before staging')}</small>
             <strong id="blocker-title">
-              {localIssues.length} {localIssues.length === 1 ? 'item' : 'items'} need attention
+              {authoringText(
+                localIssues.length === 1
+                  ? '{count} item needs attention'
+                  : '{count} items need attention',
+                { count: localIssues.length },
+              )}
             </strong>
           </span>
         </div>
@@ -573,10 +611,12 @@ function ReleaseVerificationContent({
         <PanelEmptyState
           detail={
             canPublish
-              ? 'Publish the saved draft to staging first. Lodariq will then verify that exact artifact here.'
+              ? authoringText(
+                  'Publish the saved draft to staging first. Lodariq will then verify that exact artifact here.',
+                )
               : presentation.detail
           }
-          title={canPublish ? 'No staged artifact yet' : presentation.title}
+          title={canPublish ? authoringText('No staged artifact yet') : presentation.title}
         />
         {canPublish ? (
           <div className="panel-mode-sticky-actions">
@@ -587,7 +627,7 @@ function ReleaseVerificationContent({
               type="button"
             >
               <Rocket size={16} strokeWidth={2.2} aria-hidden="true" />
-              {presentation.actionLabel ?? 'Publish to staging'}
+              {presentation.actionLabel ?? authoringText('Publish to staging')}
             </button>
           </div>
         ) : null}
@@ -601,7 +641,7 @@ function ReleaseVerificationContent({
       <section className="panel-mode-section" aria-labelledby="verification-checks-title">
         <div className="panel-mode-section-heading">
           <span>
-            <small>Browser readiness</small>
+            <small>{authoringText('Browser readiness')}</small>
             <strong id="verification-checks-title">
               {verificationTitle(verification?.state ?? 'not-run')}
             </strong>
@@ -618,8 +658,9 @@ function ReleaseVerificationContent({
           </ul>
         ) : (
           <p className="panel-mode-help">
-            Lodariq checks the exact origin, targets, Brand rendering, responsiveness, SDK, and
-            renderer contract without leaving this page.
+            {authoringText(
+              'Lodariq checks the exact origin, targets, Brand rendering, responsiveness, SDK, and renderer contract without leaving this page.',
+            )}
           </p>
         )}
       </section>
@@ -631,7 +672,7 @@ function ReleaseVerificationContent({
             onClick={() => controller.openPromotionConfirmation()}
             type="button"
           >
-            Continue to production
+            {authoringText('Continue to production')}
             <ChevronRight size={16} strokeWidth={2.2} aria-hidden="true" />
           </button>
         ) : null}
@@ -647,7 +688,9 @@ function ReleaseVerificationContent({
             ) : (
               <ShieldCheck size={16} strokeWidth={2.2} aria-hidden="true" />
             )}
-            {verifying ? 'Verifying exact artifact…' : 'Verify on staging'}
+            {verifying
+              ? authoringText('Verifying exact artifact…')
+              : authoringText('Verify on staging')}
           </button>
         ) : null}
       </div>
@@ -676,9 +719,9 @@ function PromotionConfirmationMode({
   return (
     <PanelModeShell
       controller={controller}
-      eyebrow="Production"
+      eyebrow={authoringText('Production')}
       focusToken={workflowState.focusToken}
-      title="Promote the version you verified"
+      title={authoringText('Promote the version you verified')}
     >
       <PanelFeedback error={workflowState.error} notice={workflowState.notice} />
       {workflow && staging ? (
@@ -686,47 +729,60 @@ function PromotionConfirmationMode({
           <div className="exact-artifact-banner">
             <ShieldCheck size={18} strokeWidth={2.2} aria-hidden="true" />
             <span>
-              <strong>Exact staged artifact</strong>
-              <small>No rebuild and no automatic theme changes</small>
+              <strong>{authoringText('Exact staged artifact')}</strong>
+              <small>{authoringText('No rebuild and no automatic theme changes')}</small>
             </span>
           </div>
 
           <dl className="panel-fact-list">
             <PanelFact
-              label="Verified on staging"
-              value={formatTimestamp(staging.verification.verifiedAt) ?? 'Verification recorded'}
-            />
-            <PanelFact
-              label="Production origin"
-              value={workflow.production?.exactOrigin ?? 'Configured exact production origin'}
-            />
-            <PanelFact label="Artifact" value={shortArtifact(staging.artifactId)} />
-            <PanelFact
-              label="Brand theme"
+              label={authoringText('Verified on staging')}
               value={
-                workflow.theme
-                  ? `${workflow.theme.name} v${workflow.theme.version}`
-                  : 'Compiled approved snapshot'
+                formatTimestamp(staging.verification.verifiedAt) ??
+                authoringText('Verification recorded')
               }
             />
             <PanelFact
-              label="Renderer"
-              value={workflow.rendererVersion ?? 'Compiled renderer contract'}
+              label={authoringText('Production origin')}
+              value={
+                workflow.production?.exactOrigin ??
+                authoringText('Configured exact production origin')
+              }
+            />
+            <PanelFact
+              label={authoringText('Artifact')}
+              value={shortArtifact(staging.artifactId)}
+            />
+            <PanelFact
+              label={authoringText('Brand theme')}
+              value={
+                workflow.theme
+                  ? `${workflow.theme.name} v${workflow.theme.version}`
+                  : authoringText('Compiled approved snapshot')
+              }
+            />
+            <PanelFact
+              label={authoringText('Renderer')}
+              value={workflow.rendererVersion ?? authoringText('Compiled renderer contract')}
             />
           </dl>
 
           <section className="panel-mode-section" aria-labelledby="promotion-change-title">
             <div className="panel-mode-section-heading">
               <span>
-                <small>Meaningful change</small>
-                <strong id="promotion-change-title">What production will receive</strong>
+                <small>{authoringText('Meaningful change')}</small>
+                <strong id="promotion-change-title">
+                  {authoringText('What production will receive')}
+                </strong>
               </span>
             </div>
             <ul className="promotion-change-list">
               {(workflow.changes?.length
                 ? workflow.changes
                 : [
-                    'The content, targets, appearance, theme snapshot, and renderer already verified.',
+                    authoringText(
+                      'The content, targets, appearance, theme snapshot, and renderer already verified.',
+                    ),
                   ]
               ).map((change) => (
                 <li key={change}>{change}</li>
@@ -739,8 +795,12 @@ function PromotionConfirmationMode({
               <ShieldCheck size={16} strokeWidth={2.2} aria-hidden="true" />
               <p>
                 {canApprove
-                  ? 'Approval is requested. Review once, then approve this exact staged artifact.'
-                  : 'Approval is requested. The verified staging artifact remains unchanged.'}
+                  ? authoringText(
+                      'Approval is requested. Review once, then approve this exact staged artifact.',
+                    )
+                  : authoringText(
+                      'Approval is requested. The verified staging artifact remains unchanged.',
+                    )}
               </p>
             </div>
           ) : null}
@@ -753,7 +813,9 @@ function PromotionConfirmationMode({
                 onClick={() => controller.requestPromotionApproval()}
                 type="button"
               >
-                {requestingApproval ? 'Requesting approval…' : 'Request approval'}
+                {requestingApproval
+                  ? authoringText('Requesting approval…')
+                  : authoringText('Request approval')}
               </button>
             ) : null}
             {canApprove ? (
@@ -768,7 +830,9 @@ function PromotionConfirmationMode({
                 ) : (
                   <ShieldCheck size={16} strokeWidth={2.2} aria-hidden="true" />
                 )}
-                {approving ? 'Approving & promoting…' : 'Approve & promote'}
+                {approving
+                  ? authoringText('Approving & promoting…')
+                  : authoringText('Approve & promote')}
               </button>
             ) : null}
             {canPromote ? (
@@ -783,7 +847,9 @@ function PromotionConfirmationMode({
                 ) : (
                   <Rocket size={16} strokeWidth={2.2} aria-hidden="true" />
                 )}
-                {promoting ? 'Promoting exact version…' : 'Promote exact version'}
+                {promoting
+                  ? authoringText('Promoting exact version…')
+                  : authoringText('Promote exact version')}
               </button>
             ) : null}
             <button
@@ -792,14 +858,16 @@ function PromotionConfirmationMode({
               onClick={() => controller.closePanelMode()}
               type="button"
             >
-              Keep in staging
+              {authoringText('Keep in staging')}
             </button>
           </div>
         </>
       ) : (
         <PanelEmptyState
-          detail="Return to release verification and verify a staged artifact before promotion."
-          title="No verified artifact selected"
+          detail={authoringText(
+            'Return to release verification and verify a staged artifact before promotion.',
+          )}
+          title={authoringText('No verified artifact selected')}
         />
       )}
     </PanelModeShell>
@@ -827,7 +895,7 @@ function PanelModeShell({
     <section className={`panel-mode-shell ${className ?? ''}`.trim()} aria-label={title}>
       <header className="panel-mode-header">
         <button
-          aria-label="Back to authoring"
+          aria-label={authoringText('Back to authoring')}
           className="panel-mode-back"
           onClick={() => controller.closePanelMode()}
           type="button"
@@ -861,7 +929,7 @@ function recoveryEnvironments(
 ): Array<{
   id: string;
   environment: 'staging' | 'production';
-  label: 'Staging' | 'Production';
+  label: string;
 }> {
   const candidates = workflow?.environments?.length
     ? workflow.environments
@@ -891,7 +959,10 @@ function recoveryEnvironments(
       {
         id: candidate.environmentId,
         environment: candidate.environment,
-        label: candidate.environment === 'staging' ? 'Staging' : 'Production',
+        label:
+          candidate.environment === 'staging'
+            ? authoringText('Staging')
+            : authoringText('Production'),
       },
     ];
   });
@@ -946,12 +1017,12 @@ function BrandRoleChange({ change }: { change: AuthoringBrandRoleChange }) {
       <span className="brand-change-label">{change.label}</span>
       <span className="brand-change-values">
         <span>
-          <small>Before</small>
+          <small>{authoringText('Before')}</small>
           <strong>{change.before}</strong>
         </span>
         <ChevronRight size={14} strokeWidth={2.2} aria-hidden="true" />
         <span>
-          <small>Proposed</small>
+          <small>{authoringText('Proposed')}</small>
           <strong>{change.after}</strong>
         </span>
       </span>
@@ -975,27 +1046,27 @@ function ArtifactEvidenceCard({
           <ShieldCheck size={16} strokeWidth={2.2} />
         </span>
         <span>
-          <small>Exact staging artifact</small>
+          <small>{authoringText('Exact staging artifact')}</small>
           <strong>{shortArtifact(staging.artifactId)}</strong>
         </span>
-        <span className="panel-status-pill current">Current</span>
+        <span className="panel-status-pill current">{authoringText('Current')}</span>
       </div>
       <dl className="artifact-inline-facts">
         <div>
-          <dt>Origin</dt>
-          <dd>{staging.exactOrigin ?? 'Current configured staging origin'}</dd>
+          <dt>{authoringText('Origin')}</dt>
+          <dd>{staging.exactOrigin ?? authoringText('Current configured staging origin')}</dd>
         </div>
         <div>
-          <dt>Theme</dt>
+          <dt>{authoringText('Theme')}</dt>
           <dd>
             {workflow.theme
               ? `${workflow.theme.name} v${workflow.theme.version}`
-              : 'Compiled snapshot'}
+              : authoringText('Compiled snapshot')}
           </dd>
         </div>
         <div>
-          <dt>Renderer</dt>
-          <dd>{workflow.rendererVersion ?? 'Compiled contract'}</dd>
+          <dt>{authoringText('Renderer')}</dt>
+          <dd>{workflow.rendererVersion ?? authoringText('Compiled contract')}</dd>
         </div>
       </dl>
     </section>
@@ -1028,40 +1099,35 @@ function PanelFact({ label, value }: { label: string; value: string }) {
 }
 
 function confidenceLabel(confidence: 'high' | 'medium' | 'low'): string {
-  if (confidence === 'high') return 'High confidence';
-  if (confidence === 'medium') return 'Review source';
-  return 'Low confidence';
+  if (confidence === 'high') return authoringText('High confidence');
+  if (confidence === 'medium') return authoringText('Review source');
+  return authoringText('Low confidence');
 }
 
 function verificationTitle(state: 'not-run' | 'running' | 'passed' | 'failed'): string {
-  if (state === 'passed') return 'Ready for production';
-  if (state === 'running') return 'Running on this page';
-  if (state === 'failed') return 'Fix the failed checks';
-  return 'Ready to check this page';
+  if (state === 'passed') return authoringText('Ready for production');
+  if (state === 'running') return authoringText('Running on this page');
+  if (state === 'failed') return authoringText('Fix the failed checks');
+  return authoringText('Ready to check this page');
 }
 
 function verificationStatusLabel(state: 'not-run' | 'running' | 'passed' | 'failed'): string {
-  if (state === 'passed') return 'Verified';
-  if (state === 'running') return 'Running';
-  if (state === 'failed') return 'Needs attention';
-  return 'Not run';
+  if (state === 'passed') return authoringText('Verified');
+  if (state === 'running') return authoringText('Running');
+  if (state === 'failed') return authoringText('Needs attention');
+  return authoringText('Not run');
 }
 
 function shortArtifact(artifactId: string): string {
   if (artifactId.length <= 18) return artifactId;
-  return `Artifact …${artifactId.slice(-10)}`;
+  return authoringText('Artifact …{id}', { id: artifactId.slice(-10) });
 }
 
 function formatTimestamp(value: string | undefined): string | null {
   if (!value) return null;
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
-  return new Intl.DateTimeFormat(undefined, {
-    month: 'short',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  }).format(date);
+  return authoringDateTime(date);
 }
 
 function appearanceSummary(appearance: RuntimeExperienceAppearance): string {
@@ -1074,38 +1140,38 @@ function appearanceSummary(appearance: RuntimeExperienceAppearance): string {
     density?.label,
     width?.label,
     colorMode?.label,
-    appearance.displayTargetOutline ? 'Target outline' : null,
+    appearance.displayTargetOutline ? authoringText('Target outline') : null,
   ]
     .filter((value): value is string => Boolean(value))
     .join(' · ');
 }
 
 const APPEARANCE_PRESET_OPTIONS = [
-  { value: 'default' as const, label: 'Brand' },
-  { value: 'accent' as const, label: 'Accent' },
-  { value: 'inverse' as const, label: 'Inverse' },
+  { value: 'default' as const, label: authoringText('Brand') },
+  { value: 'accent' as const, label: authoringText('Accent') },
+  { value: 'inverse' as const, label: authoringText('Inverse') },
 ] satisfies ReadonlyArray<{ value: ExperienceAppearance['preset']; label: string }>;
 
 const APPEARANCE_DENSITY_OPTIONS = [
-  { value: 'compact' as const, label: 'Compact' },
-  { value: 'comfortable' as const, label: 'Comfortable' },
+  { value: 'compact' as const, label: authoringText('Compact') },
+  { value: 'comfortable' as const, label: authoringText('Comfortable') },
 ] satisfies ReadonlyArray<{ value: ExperienceAppearance['density']; label: string }>;
 
 const APPEARANCE_WIDTH_OPTIONS = [
-  { value: 'narrow' as const, label: 'Narrow' },
-  { value: 'standard' as const, label: 'Standard' },
-  { value: 'wide' as const, label: 'Wide' },
+  { value: 'narrow' as const, label: authoringText('Narrow') },
+  { value: 'standard' as const, label: authoringText('Standard') },
+  { value: 'wide' as const, label: authoringText('Wide') },
 ] satisfies ReadonlyArray<{ value: ExperienceAppearance['width']; label: string }>;
 
 const APPEARANCE_MODE_OPTIONS = [
-  { value: 'system' as const, label: 'System' },
-  { value: 'light' as const, label: 'Light' },
-  { value: 'dark' as const, label: 'Dark' },
+  { value: 'system' as const, label: authoringText('System') },
+  { value: 'light' as const, label: authoringText('Light') },
+  { value: 'dark' as const, label: authoringText('Dark') },
 ] satisfies ReadonlyArray<{ value: ExperienceAppearance['colorMode']; label: string }>;
 
 const APPEARANCE_TARGET_OUTLINE_OPTIONS = [
-  { value: false, label: 'Off' },
-  { value: true, label: 'On' },
+  { value: false, label: authoringText('Off') },
+  { value: true, label: authoringText('On') },
 ] satisfies ReadonlyArray<{
   value: NonNullable<ExperienceAppearance['displayTargetOutline']>;
   label: string;

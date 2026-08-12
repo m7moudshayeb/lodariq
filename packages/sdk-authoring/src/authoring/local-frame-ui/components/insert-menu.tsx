@@ -1,3 +1,4 @@
+import { authoringText } from '../../../i18n';
 import {
   useEffect,
   useLayoutEffect,
@@ -27,35 +28,35 @@ import { slashCommandLabel } from '../utils';
 
 export const COMMAND_DETAILS: Record<SlashCommand, { description: string; icon: ReactNode }> = {
   button: {
-    description: 'Add a button',
+    description: authoringText('Add a button'),
     icon: <Wand2 size={14} strokeWidth={2.2} />,
   },
   heading: {
-    description: 'Add a title',
+    description: authoringText('Add a title'),
     icon: <Heading size={14} strokeWidth={2.2} />,
   },
   media: {
-    description: 'Add an image or video',
+    description: authoringText('Add an image or video'),
     icon: <Image size={14} strokeWidth={2.2} />,
   },
   link: {
-    description: 'Add a link',
+    description: authoringText('Add a link'),
     icon: <LinkIcon size={14} strokeWidth={2.2} />,
   },
   list: {
-    description: 'Add a list',
+    description: authoringText('Add a list'),
     icon: <List size={14} strokeWidth={2.2} />,
   },
   divider: {
-    description: 'Add a divider',
+    description: authoringText('Add a divider'),
     icon: <Minus size={14} strokeWidth={2.2} />,
   },
   paragraph: {
-    description: 'Add text',
+    description: authoringText('Add text'),
     icon: <Type size={14} strokeWidth={2.2} />,
   },
   step: {
-    description: 'Add another step',
+    description: authoringText('Add another step'),
     icon: <Plus size={14} strokeWidth={2.25} />,
   },
 };
@@ -251,8 +252,8 @@ function InlineInsertMenu<TCommand extends SlashCommand>({
                 <input
                   ref={searchRef}
                   className="inline-command-search"
-                  aria-label="Search content"
-                  placeholder="Search content"
+                  aria-label={authoringText('Search content')}
+                  placeholder={authoringText('Search content')}
                   value={query}
                   onChange={(event) => setQuery(event.currentTarget.value)}
                   onKeyDown={(event) =>
@@ -268,8 +269,8 @@ function InlineInsertMenu<TCommand extends SlashCommand>({
                 <button
                   type="button"
                   className="inline-command-close"
-                  aria-label="Close content menu"
-                  title="Close"
+                  aria-label={authoringText('Close content menu')}
+                  title={authoringText('Close')}
                   onClick={() => setOpen(false)}
                 >
                   <X size={16} strokeWidth={2.1} aria-hidden="true" />
@@ -300,7 +301,7 @@ function InlineInsertMenu<TCommand extends SlashCommand>({
                 );
               })}
               {filteredCommands.length === 0 ? (
-                <div className="inline-command-empty">No content found</div>
+                <div className="inline-command-empty">{authoringText('No content found')}</div>
               ) : null}
             </div>,
             insertRef.current.ownerDocument.body,

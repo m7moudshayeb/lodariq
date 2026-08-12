@@ -2,6 +2,7 @@ import { compileDocument } from '@lodariq/compiler';
 import type { LodariqDocument } from '@lodariq/schema';
 import {
   COMPILED_ARTIFACT_SCHEMA_VERSION,
+  DEFAULT_CONTENT_LOCALE,
   CompiledDocument,
   DEFAULT_EXPERIENCE_APPEARANCE,
   LODARIQ_ACCESSIBLE_FALLBACK_THEME_V1,
@@ -86,6 +87,7 @@ export async function bindNewDocumentToDefaultTheme(
 ): Promise<LodariqDocument> {
   const next = structuredClone(document);
   next.appearance ??= structuredClone(DEFAULT_EXPERIENCE_APPEARANCE);
+  next.localization ??= { defaultLocale: DEFAULT_CONTENT_LOCALE, variants: [] };
   const theme = await repository.getDefaultWorkspaceTheme(document.workspaceId);
   if (!theme?.activeVersionId) return next;
   next.themeBinding = {

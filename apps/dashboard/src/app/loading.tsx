@@ -1,12 +1,16 @@
-export default function DashboardLoading(): React.ReactElement {
+import { DASHBOARD_ERROR_MESSAGES } from '../i18n/messages';
+import { getDashboardI18n } from '../i18n/server';
+
+export default async function DashboardLoading(): Promise<React.ReactElement> {
+  const { i18n } = await getDashboardI18n();
   return (
     <main
       aria-busy="true"
-      aria-label="Opening your Lodariq workspace"
+      aria-label={i18n._(DASHBOARD_ERROR_MESSAGES.loading)}
       className="min-h-screen bg-background p-4 text-foreground sm:p-8"
     >
       <div className="mx-auto grid min-h-[calc(100vh-2rem)] max-w-6xl grid-cols-[72px_1fr] overflow-hidden rounded-2xl border border-border bg-card sm:min-h-[calc(100vh-4rem)]">
-        <div className="grid content-start justify-center gap-4 border-r border-border py-6">
+        <div className="grid content-start justify-center gap-4 border-e border-border py-6">
           {Array.from({ length: 6 }, (_, index) => (
             <span className="size-10 animate-pulse rounded-xl bg-muted" key={index} />
           ))}

@@ -9,8 +9,10 @@ import {
   PresentationAnchor,
   TextStyleProps,
   TooltipLayoutProps,
+  TooltipStyleProps,
 } from './block';
 import { LodariqDocument } from './document';
+import { ContentLocale } from './document-localization';
 import {
   AuthoringBrandDriftCheckResult,
   BrandDriftCheckRequest,
@@ -269,6 +271,13 @@ export const PreviewPatchOperation = Type.Union(
       {
         op: Type.Literal('setTooltipLayout'),
         tooltipLayout: Type.Optional(Type.Ref(TooltipLayoutProps)),
+      },
+      { additionalProperties: false },
+    ),
+    Type.Object(
+      {
+        op: Type.Literal('setTooltipStyle'),
+        tooltipStyle: Type.Optional(Type.Ref(TooltipStyleProps)),
       },
       { additionalProperties: false },
     ),
@@ -552,6 +561,7 @@ export const AuthoringStepPreviewRequestMessage = Type.Object(
     ...BridgeEnvelope.properties,
     type: Type.Literal('authoring.preview.request'),
     mode: Type.Literal('step'),
+    locale: Type.Optional(Type.Ref(ContentLocale)),
     stepId: Type.String(BRIDGE_REFERENCE_ID_OPTIONS),
   },
   { $id: 'AuthoringStepPreviewRequestMessage', additionalProperties: false },
@@ -564,6 +574,7 @@ export const AuthoringFullPreviewRequestMessage = Type.Object(
     ...BridgeEnvelope.properties,
     type: Type.Literal('authoring.preview.request'),
     mode: Type.Literal('full'),
+    locale: Type.Optional(Type.Ref(ContentLocale)),
   },
   { $id: 'AuthoringFullPreviewRequestMessage', additionalProperties: false },
 );
@@ -1120,6 +1131,7 @@ const ExistingBridgeMessage = Type.Intersect([
     Type.Object({
       type: Type.Literal('preview.patch'),
       blockId: Type.String(),
+      locale: Type.Optional(Type.Ref(ContentLocale)),
       patch: PreviewPatch,
     }),
     Type.Object({

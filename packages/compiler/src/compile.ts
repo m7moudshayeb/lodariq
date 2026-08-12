@@ -4,13 +4,18 @@ import {
   COMPILED_ARTIFACT_SCHEMA_VERSION,
   isPresentationAnchor,
   isValid,
+  canonicalContentLocale,
+  documentLocalizationIssues,
+  materializeLocalizedDocument,
+  resolveDocumentLocalization,
   resolveExperienceAppearance,
   sanitizeBlockProps,
   sanitizeInlineTextRuns,
   sanitizePresentationAnchor,
   sanitizeTooltipLayoutProps,
+  sanitizeTooltipStyleProps,
   type BrandThemeSnapshot as BrandThemeSnapshotType,
-  type CompiledDocumentV2,
+  type CompiledDocumentV3,
   type CompiledStep,
   type LodariqBlock,
   type LodariqDocument,
@@ -65,6 +70,7 @@ function compileTourStep(
   const placement = tooltip?.props.placement;
   const presentationAnchor = sanitizePresentationAnchor(tooltip?.props.presentationAnchor);
   const tooltipLayout = sanitizeTooltipLayoutProps(tooltip?.props.tooltipLayout);
+  const tooltipStyle = sanitizeTooltipStyleProps(tooltip?.props.tooltipStyle);
   const lifecycle = typeof targetId === 'string' ? targetsById.get(targetId)?.lifecycle : null;
 
   return {
@@ -73,6 +79,7 @@ function compileTourStep(
     ...(typeof placement === 'string' ? { placement } : {}),
     ...(presentationAnchor ? { presentationAnchor } : {}),
     ...(tooltipLayout ? { tooltipLayout: structuredClone(tooltipLayout) } : {}),
+    ...(tooltipStyle ? { tooltipStyle: structuredClone(tooltipStyle) } : {}),
     ...(lifecycle ? { lifecycle: structuredClone(lifecycle) } : {}),
     body,
   };
@@ -82,7 +89,7 @@ function compileTourStep(
  * Pure synchronous compile pass: canonical block JSON -> delivery JSON
  * (without the content hash). No DOM, no Node APIs (PRD §9.1).
  */
-export function compile(input: CompileInput): Omit<CompiledDocumentV2, 'contentHash'> {
+export function compile(input: CompileInput): Omit<CompiledDocumentV3, 'contentHash'> {
   const { document, rendererContractVersion } = input;
   if (!isValid(BrandThemeSnapshot, input.theme)) {
     throw new Error('Compiler requires a valid BrandThemeSnapshot');
@@ -92,11 +99,21 @@ export function compile(input: CompileInput): Omit<CompiledDocumentV2, 'contentH
   }
   assertTargetIdentityBindings(document);
   assertPresentationAnchors(document);
+  assertDocumentLocalization(document);
 
   const targetsById = new Map(document.targets.map((target) => [target.id, target]));
-  const steps = document.blocks
-    .filter((b) => b.type === 'tourStep')
-    .map((step) => compileTourStep(step, targetsById));
+  const steps = compileSteps(document, targetsById);
+  const localization = resolveDocumentLocalization(document);
+  const localeVariants = localization.variants.map((variant) => {
+    const locale = canonicalContentLocale(variant.locale) ?? variant.locale;
+    const localizedDocument = materializeLocalizedDocument(document, locale);
+    return {
+      locale,
+      fallbackLocale: canonicalContentLocale(variant.fallbackLocale) ?? variant.fallbackLocale,
+      title: localizedDocument.title,
+      steps: compileSteps(localizedDocument, targetsById),
+    };
+  });
 
   return {
     artifactSchemaVersion: COMPILED_ARTIFACT_SCHEMA_VERSION,
@@ -115,7 +132,27 @@ export function compile(input: CompileInput): Omit<CompiledDocumentV2, 'contentH
       ...(t.identity ? { identity: structuredClone(t.identity) } : {}),
     })),
     steps,
+    localization: {
+      defaultLocale: localization.defaultLocale,
+      defaultTitle: document.title,
+      variants: localeVariants,
+    },
   };
+}
+
+function compileSteps(
+  document: LodariqDocument,
+  targetsById: ReadonlyMap<string, LodariqDocument['targets'][number]>,
+): CompiledStep[] {
+  return document.blocks
+    .filter((block) => block.type === 'tourStep')
+    .map((step) => compileTourStep(step, targetsById));
+}
+
+function assertDocumentLocalization(document: LodariqDocument): void {
+  const issues = documentLocalizationIssues(document);
+  if (issues.length === 0) return;
+  throw new Error(`Document localization is invalid: ${JSON.stringify(issues)}`);
 }
 
 function deliveryFingerprint(
@@ -179,7 +216,7 @@ function assertBlockPresentationAnchor(
  * Compile and content-address the document (PRD §11.3).
  * Server-side for real publications; browser-side for local-dev preview only.
  */
-export async function compileDocument(input: CompileInput): Promise<CompiledDocumentV2> {
+export async function compileDocument(input: CompileInput): Promise<CompiledDocumentV3> {
   const compiled = compile(input);
   const [themeContentHash, artifactHash] = await Promise.all([
     computeBrandThemeContentHash(compiled.theme),

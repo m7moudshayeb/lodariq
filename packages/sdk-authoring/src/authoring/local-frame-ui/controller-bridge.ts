@@ -1,4 +1,5 @@
 import { ControllerPreviewFeature } from './controller-preview';
+import { authoringText } from '../../i18n';
 import {
   AUTHORING_INLINE_CONTROL_COMMIT_TYPE,
   AUTHORING_INLINE_CONTENT_COMMIT_TYPE,
@@ -86,7 +87,7 @@ export abstract class ControllerBridgeFeature extends ControllerPreviewFeature {
       const block = findBlockById(this.documentState.blocks, message.blockId);
       if (!block || !isInlinePreviewContentType(block.type)) return;
       this.commitContent(message.blockId, normalizeInlinePreviewContent(message.content));
-      this.setStatus('Content updated in preview');
+      this.setStatus(authoringText('Content updated in preview'));
       return;
     }
 
@@ -108,7 +109,7 @@ export abstract class ControllerBridgeFeature extends ControllerPreviewFeature {
         const block = findBlockById(this.documentState.blocks, operation.blockId);
         if (block?.type !== 'button' && block?.type !== 'link') return;
         this.setButtonAction(operation.blockId, operation.actionType);
-        this.setStatus('Button action updated in preview');
+        this.setStatus(authoringText('Button action updated in preview'));
         return;
       }
       if (operation.kind === 'openAdvanced') this.openAdvancedEditor(operation.stepId);
@@ -150,7 +151,7 @@ export abstract class ControllerBridgeFeature extends ControllerPreviewFeature {
       const pending = this.pendingPresentationAnchorPick;
       if (!presentationAnchorMessageMatchesPending(message, pending)) return;
       this.pendingPresentationAnchorPick = null;
-      this.setStatus('Exact area selection canceled');
+      this.setStatus(authoringText('Exact area selection canceled'));
       return;
     }
 
@@ -159,12 +160,12 @@ export abstract class ControllerBridgeFeature extends ControllerPreviewFeature {
       if (!presentationAnchorMessageMatchesPending(message, pending)) return;
       this.pendingPresentationAnchorPick = null;
       if (!isPresentationAnchor(message.presentationAnchor)) {
-        this.setStatus('The exact area was invalid and was not saved');
+        this.setStatus(authoringText('The exact area was invalid and was not saved'));
         return;
       }
       const block = findBlockById(this.documentState.blocks, message.blockId);
       if (block?.props.targetId !== message.targetId || !this.targetById(message.targetId)) {
-        this.setStatus('The placement changed before the exact area was saved');
+        this.setStatus(authoringText('The placement changed before the exact area was saved'));
         return;
       }
       this.commitPresentationAnchor(message.blockId, message.targetId, message.presentationAnchor);
@@ -177,7 +178,7 @@ export abstract class ControllerBridgeFeature extends ControllerPreviewFeature {
       this.activeTargetCaptureCorrelationId = null;
       this.canceledTargetBlockIds.add(message.blockId);
       if (!alreadyCanceled) this.recordMetric('target.pick.canceled');
-      this.setStatus('Placement selection canceled');
+      this.setStatus(authoringText('Placement selection canceled'));
       return;
     }
 
@@ -299,16 +300,17 @@ export abstract class ControllerBridgeFeature extends ControllerPreviewFeature {
     const document = structuredClone(this.documentState);
     const documentSequence = this.documentChangeSequence;
     const persistInFrame = this.services.persistDocumentOnSaveRequest !== false;
-    if (persistInFrame && this.services.persistDocument) this.setStatus('Saving draft…');
+    if (persistInFrame && this.services.persistDocument)
+      this.setStatus(authoringText('Saving draft…'));
     try {
       if (persistInFrame) {
         await this.services.persistDocument?.(structuredClone(document));
       }
     } catch {
-      this.setStatus('Draft could not be saved');
+      this.setStatus(authoringText('Draft could not be saved'));
       throw new Error('Authoring document persistence failed');
     }
-    this.setStatus('Saved draft');
+    this.setStatus(authoringText('Saved draft'));
     if (documentSequence === this.documentChangeSequence) this.refreshStagingRelease();
     this.bridge.send({
       protocol: BRIDGE_PROTOCOL_VERSION,

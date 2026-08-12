@@ -11,10 +11,13 @@
     "lint": "eslint ."
   },
   "devDependencies": {
+    "@lingui/core": "^6.6.0",
+    "@lingui/react": "^6.6.0",
     "@floating-ui/dom": "^1.6.13",
     "@lodariq/compiler": "workspace:*",
     "@lodariq/api": "workspace:*",
     "@lodariq/database": "workspace:*",
+    "@lodariq/i18n": "workspace:*",
     "@lodariq/schema": "workspace:*",
     "@lodariq/sdk-authoring": "workspace:*",
     "@lodariq/sdk-runtime": "workspace:*",

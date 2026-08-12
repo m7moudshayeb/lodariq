@@ -35,7 +35,7 @@ export async function GET(request: Request): Promise<Response> {
       await loadDocumentReleaseRecoveryState({ documentId, environmentId, workspaceId }),
     );
   } catch (error) {
-    return dashboardRouteError(error);
+    return await dashboardRouteError(error);
   }
 }
 

@@ -92,7 +92,7 @@ const bootstrapBase = {
 };
 
 const activeManifest = (documentId: string, suffix: string) => ({
-  schemaVersion: '2' as const,
+  schemaVersion: COMPILED_ARTIFACT_SCHEMA_VERSION,
   workspaceId: 'workspace_123',
   environmentId: 'env_staging',
   documentId,
@@ -414,6 +414,7 @@ describe('first-party authoring authorization and exchange contracts', () => {
       requestId: authorizationContext.requestId,
       state: STATE,
       authorizationCode: AUTHORIZATION_CODE,
+      uiLocale: 'fr',
       expiresAt: EXPIRES_AT,
     };
 
@@ -428,6 +429,12 @@ describe('first-party authoring authorization and exchange contracts', () => {
       validate(AuthoringAuthorizationResult, {
         ...result,
         creatorModule,
+      }).valid,
+    ).toBe(false);
+    expect(
+      validate(AuthoringAuthorizationResult, {
+        ...result,
+        uiLocale: 'locale-value-that-is-too-long',
       }).valid,
     ).toBe(false);
   });

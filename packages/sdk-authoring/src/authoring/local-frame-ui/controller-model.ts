@@ -10,6 +10,7 @@ import {
   type TargetInspectAction,
   type TargetRequiredAction,
 } from '@lodariq/schema';
+import { authoringText } from '../../i18n';
 import type { EditableBlockType } from '../document-ops';
 import type {
   AuthoringBrandWorkspaceState,
@@ -54,16 +55,21 @@ export function releaseRecoveryResultFeedback(result: ReleaseRecoveryResult): {
   kind: 'error' | 'notice';
   message: string;
 } {
-  if (!result.ok) return { kind: 'error', message: result.message };
+  if (!result.ok) return { kind: 'error', message: authoringText(result.message) };
   if (result.action === 'rollback') {
     return {
       kind: 'notice',
-      message: `Rolled back to ${result.targetPublicationId} at generation ${result.generation}.`,
+      message: authoringText('Rolled back to {publication} at generation {generation}.', {
+        publication: result.targetPublicationId,
+        generation: result.generation,
+      }),
     };
   }
   return {
     kind: 'notice',
-    message: `Delivery is inactive at generation ${result.generation}.`,
+    message: authoringText('Delivery is inactive at generation {generation}.', {
+      generation: result.generation,
+    }),
   };
 }
 
@@ -89,12 +95,14 @@ export function initialReleaseView(
 
 export function accessibleFallbackBrandState(): AuthoringBrandWorkspaceState {
   return {
-    themeName: 'Lodariq accessible fallback',
+    themeName: authoringText('Lodariq accessible fallback'),
     status: 'fallback',
     source: {
       kind: 'accessible-fallback',
-      label: 'Accessible fallback',
-      detail: 'Safe semantic defaults are active until a workspace Brand theme is approved.',
+      label: authoringText('Accessible fallback'),
+      detail: authoringText(
+        'Safe semantic defaults are active until a workspace Brand theme is approved.',
+      ),
     },
     canEdit: false,
     canApprove: false,
@@ -342,8 +350,8 @@ export function targetInspectActionForButtonAction(action: string): TargetInspec
 }
 
 export function targetInspectionPendingStatus(action: TargetInspectAction): string {
-  if (action === 'view') return 'Highlighting placement';
-  return 'Verifying placement';
+  if (action === 'view') return authoringText('Highlighting placement');
+  return authoringText('Verifying placement');
 }
 
 export function presentationAnchorMessageMatchesPending(
@@ -420,13 +428,13 @@ export function requiredTargetActionForBlock(block: LodariqBlock | null): Target
 }
 
 export function slashCommandDefaultContent(type: EditableBlockType): string {
-  if (type === 'button') return 'Continue';
-  if (type === 'media') return 'Media placeholder';
+  if (type === 'button') return authoringText('Continue');
+  if (type === 'media') return authoringText('Media placeholder');
   return '';
 }
 
 export function insertedStepContentDefault(type: EditableBlockType): string {
-  if (type === 'button') return 'Continue';
-  if (type === 'media') return 'Media placeholder';
+  if (type === 'button') return authoringText('Continue');
+  if (type === 'media') return authoringText('Media placeholder');
   return '';
 }

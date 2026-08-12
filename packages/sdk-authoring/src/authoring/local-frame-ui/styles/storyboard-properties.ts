@@ -1,8 +1,4 @@
 export const AUTHORING_STORYBOARD_PROPERTY_CSS = `
-  .storyboard-property-control {
-    display: contents;
-  }
-
   .storyboard-behavior-tray {
     margin: 0;
     border: 0;
@@ -423,7 +419,7 @@ export const AUTHORING_STORYBOARD_PROPERTY_CSS = `
     border: 0;
     border-radius: 8px;
     background: transparent;
-    color: var(--lq-tour-muted-text-color, var(--lq-color-subtle));
+    color: var(--lq-popup-muted-text, var(--lq-tour-muted-text-color, var(--lq-color-subtle)));
     cursor: grab;
     touch-action: none;
     padding: 0;
@@ -431,7 +427,11 @@ export const AUTHORING_STORYBOARD_PROPERTY_CSS = `
 
   .storyboard-popup-drag-handle:hover,
   .storyboard-popup-drag-handle:focus-visible {
-    background: color-mix(in srgb, var(--lq-tour-surface, #ffffff) 80%, transparent);
+    background: color-mix(
+      in srgb,
+      var(--lq-popup-surface, var(--lq-tour-surface, #ffffff)) 80%,
+      transparent
+    );
     color: var(--lq-tour-primary-surface, var(--lq-color-primary));
     outline: 2px solid var(--lq-color-blue);
     outline-offset: 2px;

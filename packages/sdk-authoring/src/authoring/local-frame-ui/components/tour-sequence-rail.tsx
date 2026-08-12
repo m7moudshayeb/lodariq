@@ -1,3 +1,4 @@
+import { authoringText } from '../../../i18n';
 import {
   useEffect,
   useLayoutEffect,
@@ -17,7 +18,9 @@ import type {
 import {
   resolveTourActionRecipe,
   resolveTourCompositionRecipe,
+  resolveTourPopupStyleRecipe,
   resolveTourThemeStyle,
+  tourPopupStyleVariables,
 } from '@lodariq/sdk-runtime/renderers/tour';
 import type { LocalAuthoringFrameController } from '../controller';
 import { applyInlineTextStyle, type InlineTextStylePatch } from '../../document-ops';
@@ -84,6 +87,7 @@ import {
 import { ContextualPropertyTray } from './contextual-property-tray';
 import { PopupPointerArrow } from './popup-pointer-arrow';
 import { useTourStepInspectorStyles } from '../tour-step-inspector-styles';
+import { ExperienceLanguageSelect } from './experience-language-select';
 import {
   ADVANCE_OPTION_LABELS,
   CANVAS_ZOOM_LEVELS,
@@ -119,7 +123,7 @@ export function TourSequenceRail({
   const activeTargetId = activeStep ? targetIdOf(activeStep) : null;
   const activeTargetLabel = activeTargetId
     ? targetLabelOf(snapshot.documentState, activeTargetId)
-    : 'Choose where this step appears';
+    : authoringText('Choose where this step appears');
   const activeStepIndex = activeStep ? steps.findIndex((step) => step.id === activeStep.id) : -1;
   const targetActionLabel = compact
     ? elementActionLabelFor(Boolean(activeHealth?.repair), Boolean(activeTargetId))
@@ -128,36 +132,48 @@ export function TourSequenceRail({
   return (
     <aside
       className={`tour-sequence-rail ${compact ? 'compact' : ''}`.trim()}
-      aria-label="Tour steps"
+      aria-label={authoringText('Tour steps')}
     >
       {compact ? (
         <header className="tour-sequence-header compact-header">
-          <strong>Steps</strong>
-          <span>
-            {steps.length} step{steps.length === 1 ? '' : 's'}
-          </span>
+          <strong>{authoringText('Steps')}</strong>
+          <div className="tour-sequence-compact-actions">
+            <span>
+              {authoringText(steps.length === 1 ? '{count} step' : '{count} steps', {
+                count: steps.length,
+              })}
+            </span>
+            <ExperienceLanguageSelect controller={controller} snapshot={snapshot} />
+          </div>
         </header>
       ) : (
         <header className="tour-sequence-header document-hero">
           <div className="tour-sequence-title">
-            <span className="tour-sequence-kicker document-context" aria-label="Experience type">
-              Tour
+            <span
+              className="tour-sequence-kicker document-context"
+              aria-label={authoringText('Experience type')}
+            >
+              {authoringText('Tour')}
             </span>
             <input
               key={snapshot.documentState.title}
-              aria-label="Experience title"
+              aria-label={authoringText('Experience title')}
               className="document-title-input"
               data-action="edit-title"
               defaultValue={snapshot.documentState.title}
-              placeholder="Untitled experience"
+              placeholder={authoringText('Untitled experience')}
               onBlur={(event) => controller.commitDocumentTitle(event.currentTarget.value)}
             />
+            <ExperienceLanguageSelect controller={controller} snapshot={snapshot} />
           </div>
           <span
             className="tour-health-count"
-            aria-label={`Experience status: ${verifiedCount} of ${steps.length} verified`}
+            aria-label={authoringText('Experience status: {verified} of {total} verified', {
+              verified: verifiedCount,
+              total: steps.length,
+            })}
           >
-            {verifiedCount}/{steps.length} verified
+            {verifiedCount}/{steps.length} {authoringText('verified')}
           </span>
         </header>
       )}
@@ -169,7 +185,7 @@ export function TourSequenceRail({
           const targetId = targetIdOf(step);
           const targetLabel = targetId
             ? targetLabelOf(snapshot.documentState, targetId)
-            : 'No placement yet';
+            : authoringText('No placement yet');
           return (
             <li
               className={`tour-step-row ${active ? 'active' : ''} ${
@@ -185,8 +201,8 @@ export function TourSequenceRail({
                   type="button"
                   className="tour-step-drag-handle"
                   draggable
-                  aria-label={`Drag step ${index + 1}`}
-                  title="Drag to reorder step"
+                  aria-label={authoringText('Drag step {number}', { number: index + 1 })}
+                  title={authoringText('Drag to reorder step')}
                   onDragEnd={() => controller.endDraggingBlock()}
                   onDragStart={(event) => controller.startDraggingBlock(step.id, event)}
                 >
@@ -197,7 +213,10 @@ export function TourSequenceRail({
                   className="tour-step-select"
                   aria-current={active ? 'step' : undefined}
                   aria-expanded={compact ? active : undefined}
-                  aria-label={`Edit step ${index + 1}: ${blockDisplayTitle(step)}`}
+                  aria-label={authoringText('Edit step {number}: {title}', {
+                    number: index + 1,
+                    title: blockDisplayTitle(step),
+                  })}
                   onClick={() => controller.activateTourStep(step.id)}
                 >
                   <span className="tour-step-number">{index + 1}</span>
@@ -226,7 +245,9 @@ export function TourSequenceRail({
                   stepIndex={index}
                   targetActionLabel={targetActionLabel}
                   targetId={targetId}
-                  targetLabel={targetId ? targetLabel : 'Choose where this step appears'}
+                  targetLabel={
+                    targetId ? targetLabel : authoringText('Choose where this step appears')
+                  }
                 />
               ) : null}
             </li>
@@ -252,7 +273,10 @@ export function TourSequenceRail({
           <div className="tour-active-actions">
             <button
               type="button"
-              aria-label={`${targetActionLabel} for step ${activeStepIndex + 1}`}
+              aria-label={authoringText('{action} for step {number}', {
+                action: targetActionLabel,
+                number: activeStepIndex + 1,
+              })}
               onClick={() => controller.startTargetPick(activeStep.id)}
             >
               {targetActionLabel}
@@ -268,7 +292,7 @@ export function TourSequenceRail({
           onClick={() => controller.appendStepAndChooseTarget()}
         >
           <Plus size={15} strokeWidth={2.2} aria-hidden="true" />
-          Add step
+          {authoringText('Add step')}
         </button>
       </div>
     </aside>
@@ -306,12 +330,17 @@ export function TourStepInspector({
   return (
     <section
       className="tour-step-inspector storyboard-step-inspector"
-      aria-label={`Step ${stepIndex + 1} details`}
+      aria-label={authoringText('Step {number} details', { number: stepIndex + 1 })}
     >
-      <section className="tour-step-editor-section storyboard-canvas" aria-label="Content">
+      <section
+        className="tour-step-editor-section storyboard-canvas"
+        aria-label={authoringText('Content')}
+      >
         <header className="storyboard-canvas-heading">
           <span>
-            <small>Step {stepIndex + 1}</small>
+            <small>
+              {authoringText('Step')} {stepIndex + 1}
+            </small>
             <strong>{blockDisplayTitle(step)}</strong>
           </span>
           <span className={`live-step-status ${health.tone}`}>{health.label}</span>
@@ -328,7 +357,7 @@ export function TourStepInspector({
             toolMode={toolMode}
           />
         ) : null}
-        <nav className="storyboard-tool-dock" aria-label="Authoring tools">
+        <nav className="storyboard-tool-dock" aria-label={authoringText('Authoring tools')}>
           {STORYBOARD_TOOL_OPTIONS.map((option) => {
             const Icon = option.icon;
             const active = toolMode === option.value;
@@ -373,16 +402,19 @@ function StepPlacementEditor({
   const targetId = targetIdOf(step);
   const targetLabel = targetId
     ? targetLabelOf(snapshot.documentState, targetId)
-    : 'Choose where this step appears';
+    : authoringText('Choose where this step appears');
   const targetActionLabel = targetActionLabelFor(health.repair, Boolean(targetId));
   const tooltip = stepTooltip(step);
   const placement = tooltip?.props.placement ?? 'bottom';
   return (
-    <section className="tour-step-config-section placement-section" aria-label="Placement">
+    <section
+      className="tour-step-config-section placement-section"
+      aria-label={authoringText('Placement')}
+    >
       <header className="tour-config-heading">
         <span>
-          <small>Placement</small>
-          <strong>Where the popup appears</strong>
+          <small>{authoringText('Placement')}</small>
+          <strong>{authoringText('Where the popup appears')}</strong>
         </span>
         <span className={`tour-config-status ${health.tone}`}>{health.label}</span>
       </header>
@@ -400,12 +432,15 @@ function StepPlacementEditor({
         <button
           type="button"
           className="tour-placement-card"
-          aria-label={`${targetActionLabel} for step ${stepIndex + 1}`}
+          aria-label={authoringText('{action} for step {number}', {
+            action: targetActionLabel,
+            number: stepIndex + 1,
+          })}
           onClick={() => controller.startTargetPick(step.id)}
         >
           <MousePointer2 size={16} strokeWidth={2} aria-hidden="true" />
           <span>
-            <strong>Choose target</strong>
+            <strong>{authoringText('Choose target')}</strong>
             <small>{stepPlacementFact(targetId, targetLabel, health)}</small>
           </span>
           <ChevronRight size={16} strokeWidth={2.2} aria-hidden="true" />
@@ -413,8 +448,12 @@ function StepPlacementEditor({
       )}
       {tooltip ? (
         <div className="tour-position-group">
-          <h4>Popup position</h4>
-          <div className="tour-position-options" role="group" aria-label="Tooltip position">
+          <h4>{authoringText('Popup position')}</h4>
+          <div
+            className="tour-position-options"
+            role="group"
+            aria-label={authoringText('Tooltip position')}
+          >
             {TOOLTIP_POSITION_OPTIONS.map((option) => {
               const Icon = option.icon;
               const selected = placement === option.value;
@@ -508,6 +547,7 @@ function RichStepContentEditor({
   );
   const popupStyle = resolvedPopupTheme.variables as CSSProperties;
   const popupComposition = resolveTourCompositionRecipe(tooltip.props.tooltipLayout);
+  const popupAppearance = resolveTourPopupStyleRecipe(tooltip.props.tooltipStyle);
 
   useEffect(() => {
     if (activeBlockId === null) return;
@@ -621,6 +661,7 @@ function RichStepContentEditor({
   });
   const popupCanvasStyle = {
     ...popupStyle,
+    ...tourPopupStyleVariables(popupAppearance),
     '--storyboard-canvas-zoom': String(canvasZoom / 100),
     '--storyboard-popup-x': `${popupOffset.x}px`,
     '--storyboard-popup-y': `${popupOffset.y}px`,
@@ -687,12 +728,12 @@ function RichStepContentEditor({
           <div
             className="rich-step-toolbar text-context-toolbar"
             role="toolbar"
-            aria-label="Text formatting"
+            aria-label={authoringText('Text formatting')}
             data-positioned={contextToolbarPosition ? 'true' : 'false'}
             style={canvasToolbarStyle(contextToolbarPosition)}
           >
             <select
-              aria-label="Block type"
+              aria-label={authoringText('Block type')}
               value={activeBlock?.type ?? 'paragraph'}
               onChange={(event) => {
                 if (!activeBlock) return;
@@ -709,7 +750,7 @@ function RichStepContentEditor({
             {activeIsText ? (
               <>
                 <select
-                  aria-label="Font size"
+                  aria-label={authoringText('Font size')}
                   value={activeFontSize}
                   onChange={(event) => {
                     if (hasActiveTextSelection && event.currentTarget.value === 'default') {
@@ -724,15 +765,18 @@ function RichStepContentEditor({
                     else updateStyle({ fontSizePx });
                   }}
                 >
-                  {hasActiveTextSelection ? <option value="default">Block default</option> : null}
+                  {hasActiveTextSelection ? (
+                    <option value="default">{authoringText('Block default')}</option>
+                  ) : null}
                   {activeFontSize === 'mixed' ? (
                     <option value="mixed" disabled>
-                      Mixed sizes
+                      {authoringText('Mixed sizes')}
                     </option>
                   ) : null}
                   {TEXT_SIZE_OPTIONS.map((size) => (
                     <option key={size} value={size}>
-                      {size}px
+                      {size}
+                      {authoringText('px')}
                     </option>
                   ))}
                 </select>
@@ -740,7 +784,7 @@ function RichStepContentEditor({
                 <InlineMarkButton
                   active={inlineMarkActive(activeBlock, selection, 'bold')}
                   icon={<Bold size={15} strokeWidth={2.2} aria-hidden="true" />}
-                  label="Bold"
+                  label={authoringText('Bold')}
                   onApply={(enabled) => {
                     if (
                       selection?.blockId === activeBlock?.id &&
@@ -757,7 +801,7 @@ function RichStepContentEditor({
                 <InlineMarkButton
                   active={inlineMarkActive(activeBlock, selection, 'italic')}
                   icon={<Italic size={15} strokeWidth={2.2} aria-hidden="true" />}
-                  label="Italic"
+                  label={authoringText('Italic')}
                   onApply={(enabled) => {
                     if (
                       selection?.blockId === activeBlock?.id &&
@@ -775,7 +819,7 @@ function RichStepContentEditor({
                   active={inlineMarkActive(activeBlock, selection, 'underline')}
                   disabled={!selection || selection.start === selection.end}
                   icon={<Underline size={15} strokeWidth={2.2} aria-hidden="true" />}
-                  label="Underline selection"
+                  label={authoringText('Underline selection')}
                   onApply={(enabled) =>
                     updateInlineStyle({ mark: 'underline', markEnabled: enabled })
                   }
@@ -783,9 +827,9 @@ function RichStepContentEditor({
                 <span className="rich-step-toolbar-divider" aria-hidden="true" />
                 {(
                   [
-                    ['left', 'Align left', AlignLeft],
-                    ['center', 'Align center', AlignCenter],
-                    ['right', 'Align right', AlignRight],
+                    ['left', authoringText('Align left'), AlignLeft],
+                    ['center', authoringText('Align center'), AlignCenter],
+                    ['right', authoringText('Align right'), AlignRight],
                   ] as const
                 ).map(([align, label, Icon]) => (
                   <button
@@ -799,11 +843,11 @@ function RichStepContentEditor({
                     <Icon size={15} strokeWidth={2.1} aria-hidden="true" />
                   </button>
                 ))}
-                <label className="rich-step-color" title="Text color">
-                  <span aria-hidden="true">A</span>
+                <label className="rich-step-color" title={authoringText('Text color')}>
+                  <span aria-hidden="true">{authoringText('A')}</span>
                   <input
                     type="color"
-                    aria-label="Text color"
+                    aria-label={authoringText('Text color')}
                     value={activeStyle?.color ?? '#162033'}
                     onChange={(event) => {
                       if (
@@ -815,11 +859,14 @@ function RichStepContentEditor({
                     }}
                   />
                 </label>
-                <label className="rich-step-color rich-step-highlight" title="Highlight selection">
+                <label
+                  className="rich-step-color rich-step-highlight"
+                  title={authoringText('Highlight selection')}
+                >
                   <Highlighter size={14} strokeWidth={2.1} aria-hidden="true" />
                   <input
                     type="color"
-                    aria-label="Highlight selected text"
+                    aria-label={authoringText('Highlight selected text')}
                     defaultValue="#fff0a8"
                     disabled={!selection || selection.start === selection.end}
                     onChange={(event) =>
@@ -829,7 +876,7 @@ function RichStepContentEditor({
                 </label>
                 <button
                   type="button"
-                  aria-label="Link selected text"
+                  aria-label={authoringText('Link selected text')}
                   aria-pressed={linkEditorOpen}
                   disabled={!selection || selection.start === selection.end}
                   onPointerDown={(event) => event.preventDefault()}
@@ -841,8 +888,8 @@ function RichStepContentEditor({
                   type="button"
                   aria-label={
                     selection && selection.start !== selection.end
-                      ? 'Clear selected text formatting'
-                      : 'Reset block typography to Brand Theme'
+                      ? authoringText('Clear selected text formatting')
+                      : authoringText('Reset block typography to Brand Theme')
                   }
                   onPointerDown={(event) => event.preventDefault()}
                   onClick={() => {
@@ -860,8 +907,8 @@ function RichStepContentEditor({
                 </button>
                 <button
                   type="button"
-                  aria-label="More text settings"
-                  title="More text settings"
+                  aria-label={authoringText('More text settings')}
+                  title={authoringText('More text settings')}
                   onPointerDown={(event) => event.preventDefault()}
                   onClick={() => setPropertyTrayOpen(true)}
                 >
@@ -870,11 +917,11 @@ function RichStepContentEditor({
               </>
             ) : (
               <>
-                <span className="rich-step-toolbar-context">Block settings</span>
+                <span className="rich-step-toolbar-context">{authoringText('Block settings')}</span>
                 <button
                   type="button"
-                  aria-label="More block settings"
-                  title="More block settings"
+                  aria-label={authoringText('More block settings')}
+                  title={authoringText('More block settings')}
                   onClick={() => setPropertyTrayOpen(true)}
                 >
                   <MoreHorizontal size={16} strokeWidth={2.1} aria-hidden="true" />
@@ -884,8 +931,8 @@ function RichStepContentEditor({
             <button
               type="button"
               className="rich-step-toolbar-close"
-              aria-label="Close text controls"
-              title="Close controls"
+              aria-label={authoringText('Close text controls')}
+              title={authoringText('Close controls')}
               onPointerDown={(event) => event.preventDefault()}
               onClick={dismissActiveBlock}
             >
@@ -896,8 +943,8 @@ function RichStepContentEditor({
         {linkEditorOpen ? (
           <div className="rich-step-link-editor">
             <input
-              aria-label="Selected text link"
-              placeholder="https://example.com or /path"
+              aria-label={authoringText('Selected text link')}
+              placeholder={authoringText('https://example.com or /path')}
               value={linkDraft}
               onChange={(event) => setLinkDraft(event.currentTarget.value)}
             />
@@ -908,7 +955,7 @@ function RichStepContentEditor({
                 setLinkEditorOpen(false);
               }}
             >
-              Apply link
+              {authoringText('Apply link')}
             </button>
             <button
               type="button"
@@ -918,12 +965,12 @@ function RichStepContentEditor({
                 setLinkEditorOpen(false);
               }}
             >
-              Remove
+              {authoringText('Remove')}
             </button>
             <button
               type="button"
-              aria-label="Close link editor"
-              title="Close link editor"
+              aria-label={authoringText('Close link editor')}
+              title={authoringText('Close link editor')}
               onClick={() => setLinkEditorOpen(false)}
             >
               <X size={15} strokeWidth={2.1} aria-hidden="true" />
@@ -934,12 +981,14 @@ function RichStepContentEditor({
           ref={popupRef}
           className="rich-step-popup-frame"
           role="group"
-          aria-label="Step content editor"
+          aria-label={authoringText('Step content editor')}
           data-popup-height-custom={livePopupSize.heightPx ? 'true' : 'false'}
           data-popup-selected={popupSelected ? 'true' : 'false'}
           data-popup-width-custom={livePopupSize.widthPx ? 'true' : 'false'}
           data-resizing={popupResizing ? 'true' : 'false'}
           data-transform-ready={popupTransformReady ? 'true' : 'false'}
+          data-lodariq-popup-border-weight={popupAppearance.borderWeight}
+          data-lodariq-popup-elevation={popupAppearance.elevation}
           style={popupCanvasStyle}
         >
           {POPUP_RESIZE_CORNERS.map((corner) => (
@@ -947,13 +996,17 @@ function RichStepContentEditor({
               key={corner.value}
               type="button"
               className="storyboard-popup-resize-handle"
-              aria-label={`Resize popup from ${corner.label}`}
+              aria-label={authoringText('Resize popup from {corner}', {
+                corner: corner.label,
+              })}
               data-corner={corner.value}
               disabled={!popupTransformReady}
               title={
                 popupTransformReady
-                  ? 'Drag to resize. Arrow keys adjust by 8px; Home or double-click resets.'
-                  : 'Loading canvas controls'
+                  ? authoringText(
+                      'Drag to resize. Arrow keys adjust by 8px; Home or double-click resets.',
+                    )
+                  : authoringText('Loading canvas controls')
               }
               onDoubleClick={resetPopupSize}
               onFocus={selectPopup}
@@ -964,7 +1017,8 @@ function RichStepContentEditor({
           ))}
           {popupSelected && livePopupSize.widthPx && livePopupSize.heightPx ? (
             <output className="storyboard-popup-size" aria-live="polite">
-              {livePopupSize.widthPx} × {livePopupSize.heightPx}px
+              {livePopupSize.widthPx} × {livePopupSize.heightPx}
+              {authoringText('px')}
             </output>
           ) : null}
           <PopupPointerArrow
@@ -974,13 +1028,13 @@ function RichStepContentEditor({
           <button
             type="button"
             className="storyboard-popup-drag-handle"
-            aria-label="Move popup in canvas"
+            aria-label={authoringText('Move popup in canvas')}
             data-dragging={popupDragging ? 'true' : 'false'}
             disabled={!popupTransformReady}
             title={
               popupTransformReady
-                ? 'Drag to move. Use arrow keys for precise movement; Home resets.'
-                : 'Loading canvas controls'
+                ? authoringText('Drag to move. Use arrow keys for precise movement; Home resets.')
+                : authoringText('Loading canvas controls')
             }
             onDoubleClick={resetPopupPosition}
             onFocus={selectPopup}
@@ -997,6 +1051,8 @@ function RichStepContentEditor({
             data-lodariq-composition-padding={popupComposition.padding}
             data-lodariq-content-align={popupComposition.contentAlign}
             data-lodariq-popup-radius={popupComposition.radius}
+            data-lodariq-popup-border-weight={popupAppearance.borderWeight}
+            data-lodariq-popup-elevation={popupAppearance.elevation}
             data-lodariq-pointer-arrow={popupComposition.showArrow ? 'show' : 'hide'}
             onPointerDown={(event) => {
               if (event.target !== event.currentTarget) return;
@@ -1006,7 +1062,7 @@ function RichStepContentEditor({
             <InlineStepInsert
               controller={controller}
               index={0}
-              label="Insert content at start of popup"
+              label={authoringText('Insert content at start of popup')}
               stepBlockId={step.id}
             />
             {contentBlocks.map((block, index) => (
@@ -1032,8 +1088,10 @@ function RichStepContentEditor({
                     type="button"
                     className="rich-step-block-drag"
                     draggable
-                    aria-label={`Drag ${blockTypeEditorLabel(block)} block`}
-                    title="Drag to reorder"
+                    aria-label={authoringText('Drag {type} block', {
+                      type: blockTypeEditorLabel(block),
+                    })}
+                    title={authoringText('Drag to reorder')}
                     onDragEnd={() => controller.endDraggingStepContent()}
                     onDragStart={(event) =>
                       controller.startDraggingStepContent(step.id, block.id, event)
@@ -1092,6 +1150,11 @@ function RichStepContentEditor({
             stepIndex={stepIndex}
           />
         }
+        popupThemeColors={{
+          borderColor: resolvedPopupTheme.variables['--lq-tour-border-color'],
+          surfaceColor: resolvedPopupTheme.variables['--lq-tour-surface'],
+          textColor: resolvedPopupTheme.variables['--lq-tour-text-color'],
+        }}
         snapshot={snapshot}
         step={step}
         tooltip={tooltip}
@@ -1266,7 +1329,7 @@ function RichStepBlockEditor({
         contentEditable
         suppressContentEditableWarning
         role="textbox"
-        aria-label={block.type === 'heading' ? 'Step heading' : 'Step paragraph'}
+        aria-label={authoringText(block.type === 'heading' ? 'Step heading' : 'Step paragraph')}
         aria-multiline="true"
         data-rich-block-id={block.id}
         data-lodariq-node-type={block.type}
@@ -1289,14 +1352,14 @@ function RichStepBlockEditor({
       <textarea
         key={`${block.id}:${block.content ?? ''}`}
         className="rich-step-plain-field list"
-        aria-label="List items"
+        aria-label={authoringText('List items')}
         defaultValue={block.content ?? ''}
         onFocus={onActivate}
         onBlur={(event) => controller.commitRichTextContent(block.id, event.currentTarget.value)}
       />
     );
   }
-  const label = BLOCK_EDITOR_INPUT_LABELS[block.type] ?? 'Content label';
+  const label = BLOCK_EDITOR_INPUT_LABELS[block.type] ?? authoringText('Content label');
   if (block.type === 'button' || block.type === 'link') {
     return (
       <ResizableActionBlockEditor
@@ -1403,8 +1466,10 @@ function ResizableActionBlockEditor({
             <button
               type="button"
               className="storyboard-action-resize-handle start"
-              aria-label={`Resize ${blockTypeEditorLabel(block)} from start`}
-              title="Drag to resize. Arrow keys resize by 8px; Home resets."
+              aria-label={authoringText('Resize {type} from start', {
+                type: blockTypeEditorLabel(block),
+              })}
+              title={authoringText('Drag to resize. Arrow keys resize by 8px; Home resets.')}
               onDoubleClick={resetWidth}
               onKeyDown={(event) => resizeWithKeyboard(event, 'start')}
             />
@@ -1413,14 +1478,19 @@ function ResizableActionBlockEditor({
             <button
               type="button"
               className="storyboard-action-resize-handle end"
-              aria-label={`Resize ${blockTypeEditorLabel(block)} from end`}
-              title="Drag to resize. Arrow keys resize by 8px; Home resets."
+              aria-label={authoringText('Resize {type} from end', {
+                type: blockTypeEditorLabel(block),
+              })}
+              title={authoringText('Drag to resize. Arrow keys resize by 8px; Home resets.')}
               onDoubleClick={resetWidth}
               onKeyDown={(event) => resizeWithKeyboard(event, 'end')}
             />
           ) : null}
           {active && resizing && liveWidth ? (
-            <output className="storyboard-action-resize-value">{liveWidth}px</output>
+            <output className="storyboard-action-resize-value">
+              {liveWidth}
+              {authoringText('px')}
+            </output>
           ) : null}
         </span>
       </div>
@@ -1448,10 +1518,10 @@ function CanvasZoomControl({
   const maximum = 120;
 
   return (
-    <div className="storyboard-canvas-zoom" role="group" aria-label="Canvas zoom">
+    <div className="storyboard-canvas-zoom" role="group" aria-label={authoringText('Canvas zoom')}>
       <button
         type="button"
-        aria-label="Zoom out canvas"
+        aria-label={authoringText('Zoom out canvas')}
         disabled={value <= minimum}
         onClick={() => onChange(CANVAS_ZOOM_LEVELS[Math.max(0, currentIndex - 1)] ?? minimum)}
       >
@@ -1460,15 +1530,17 @@ function CanvasZoomControl({
       <button
         type="button"
         className="storyboard-canvas-zoom-value"
-        aria-label={`Reset canvas zoom to ${DEFAULT_CANVAS_ZOOM}%`}
-        title="Reset canvas zoom"
+        aria-label={authoringText('Reset canvas zoom to {zoom}%', {
+          zoom: DEFAULT_CANVAS_ZOOM,
+        })}
+        title={authoringText('Reset canvas zoom')}
         onClick={() => onChange(DEFAULT_CANVAS_ZOOM)}
       >
         {value}%
       </button>
       <button
         type="button"
-        aria-label="Zoom in canvas"
+        aria-label={authoringText('Zoom in canvas')}
         disabled={value >= maximum}
         onClick={() =>
           onChange(
@@ -1501,20 +1573,25 @@ function ActionContextToolbar({
   const toolbarStyle = canvasToolbarStyle(position);
   const itemLabel = block.content?.trim() || blockTypeEditorLabel(block);
   const actionValue = editableActionValue(block.props.action?.type ?? '') ?? '';
-  const behaviorLabel = optionLabel(EDITABLE_ACTION_OPTIONS, actionValue, 'Action');
+  const behaviorLabel = optionLabel(EDITABLE_ACTION_OPTIONS, actionValue, authoringText('Action'));
   const behaviorIsUsefulHere = block.type === 'link';
 
   return (
     <div
       className="rich-step-toolbar action-context-toolbar"
       role="toolbar"
-      aria-label={`${blockTypeLabel(block.type)} configuration`}
+      aria-label={authoringText('{type} configuration', {
+        type: blockTypeLabel(block.type),
+      })}
       data-positioned={position ? 'true' : 'false'}
       style={toolbarStyle}
     >
       <span
         className="action-context-identity"
-        title={`${blockTypeLabel(block.type)}: ${itemLabel}`}
+        title={authoringText('{type}: {label}', {
+          type: blockTypeLabel(block.type),
+          label: itemLabel,
+        })}
       >
         <SquareMousePointer size={16} strokeWidth={2} aria-hidden="true" />
         <span>{blockTypeLabel(block.type)}</span>
@@ -1527,7 +1604,11 @@ function ActionContextToolbar({
           controller={controller}
           tooltip={tooltip}
           trigger={
-            <button type="button" aria-label="Link behavior" title="Link behavior">
+            <button
+              type="button"
+              aria-label={authoringText('Link behavior')}
+              title={authoringText('Link behavior')}
+            >
               <MousePointerClick size={15} strokeWidth={2} aria-hidden="true" />
               <span>{behaviorLabel}</span>
             </button>
@@ -1536,8 +1617,10 @@ function ActionContextToolbar({
       ) : null}
       <button
         type="button"
-        aria-label={`More ${blockTypeLabel(block.type).toLowerCase()} settings`}
-        title="More settings"
+        aria-label={authoringText('More {type} settings', {
+          type: blockTypeLabel(block.type).toLowerCase(),
+        })}
+        title={authoringText('More settings')}
         onClick={onMore}
       >
         <MoreHorizontal size={16} strokeWidth={2.2} aria-hidden="true" />
@@ -1545,8 +1628,10 @@ function ActionContextToolbar({
       <button
         type="button"
         className="action-context-close"
-        aria-label={`Close ${blockTypeLabel(block.type).toLowerCase()} controls`}
-        title="Close controls"
+        aria-label={authoringText('Close {type} controls', {
+          type: blockTypeLabel(block.type).toLowerCase(),
+        })}
+        title={authoringText('Close controls')}
         onClick={onDismiss}
       >
         <X size={15} strokeWidth={2.1} aria-hidden="true" />
@@ -1601,33 +1686,33 @@ function optionLabel(
 }
 
 const EDITOR_BLOCK_TYPE_OPTIONS = [
-  { value: 'paragraph', label: 'Normal text' },
-  { value: 'heading', label: 'Heading' },
-  { value: 'list', label: 'List' },
-  { value: 'button', label: 'Button' },
-  { value: 'link', label: 'Link' },
-  { value: 'media', label: 'Media' },
-  { value: 'divider', label: 'Divider' },
+  { value: 'paragraph', label: authoringText('Normal text') },
+  { value: 'heading', label: authoringText('Heading') },
+  { value: 'list', label: authoringText('List') },
+  { value: 'button', label: authoringText('Button') },
+  { value: 'link', label: authoringText('Link') },
+  { value: 'media', label: authoringText('Media') },
+  { value: 'divider', label: authoringText('Divider') },
 ] as const;
 
 const BLOCK_EDITOR_LABELS: Partial<Record<LodariqBlock['type'], string>> = {
-  heading: 'heading',
-  paragraph: 'text',
-  list: 'list',
-  divider: 'divider',
-  button: 'button',
-  link: 'link',
-  media: 'media',
+  heading: authoringText('heading'),
+  paragraph: authoringText('text'),
+  list: authoringText('list'),
+  divider: authoringText('divider'),
+  button: authoringText('button'),
+  link: authoringText('link'),
+  media: authoringText('media'),
 };
 
 const BLOCK_EDITOR_INPUT_LABELS: Partial<Record<LodariqBlock['type'], string>> = {
-  button: 'Button label',
-  link: 'Link label',
-  media: 'Media description',
+  button: authoringText('Button label'),
+  link: authoringText('Link label'),
+  media: authoringText('Media description'),
 };
 
 function blockTypeEditorLabel(block: LodariqBlock): string {
-  return BLOCK_EDITOR_LABELS[block.type] ?? 'content';
+  return BLOCK_EDITOR_LABELS[block.type] ?? authoringText('content');
 }
 
 function renderInlineTextRuns(block: LodariqBlock): ReactNode {
@@ -1776,10 +1861,10 @@ function ContentBlockActionMenu({
       contentClassName="rich-step-block-action-popover"
       trigger={
         <AuthoringButton
-          aria-label={`${label} line actions`}
+          aria-label={authoringText('{type} line actions', { type: label })}
           className="rich-step-block-actions"
           icon={<MoreHorizontal size={14} strokeWidth={2.2} />}
-          title={`${label} line actions`}
+          title={authoringText('{type} line actions', { type: label })}
           tone="ghost"
         />
       }
@@ -1787,28 +1872,28 @@ function ContentBlockActionMenu({
         <div
           className="rich-step-block-action-menu"
           role="menu"
-          aria-label={`${label} line actions`}
+          aria-label={authoringText('{type} line actions', { type: label })}
         >
           <AuthoringButton
             icon={<ArrowUp size={14} strokeWidth={2.2} />}
             onClick={() => run(() => controller.moveStepContentBlock(stepId, block.id, 'up'))}
             role="menuitem"
           >
-            Move up
+            {authoringText('Move up')}
           </AuthoringButton>
           <AuthoringButton
             icon={<ArrowDown size={14} strokeWidth={2.2} />}
             onClick={() => run(() => controller.moveStepContentBlock(stepId, block.id, 'down'))}
             role="menuitem"
           >
-            Move down
+            {authoringText('Move down')}
           </AuthoringButton>
           <AuthoringButton
             icon={<Copy size={14} strokeWidth={2.2} />}
             onClick={() => run(() => controller.duplicateStepContentBlock(stepId, block.id))}
             role="menuitem"
           >
-            Duplicate
+            {authoringText('Duplicate')}
           </AuthoringButton>
           <AuthoringButton
             className="danger"
@@ -1816,7 +1901,7 @@ function ContentBlockActionMenu({
             onClick={() => run(() => controller.deleteStepContentBlock(stepId, block.id))}
             role="menuitem"
           >
-            Delete
+            {authoringText('Delete')}
           </AuthoringButton>
         </div>
       }
@@ -1867,8 +1952,8 @@ function StepAccordionDetails({
 
   return (
     <div ref={accordionRef} className="tour-step-accordion" data-step-accordion={step.id}>
-      <section className="tour-step-detail-row" aria-label="Placement">
-        <span className="tour-step-detail-label">Placement</span>
+      <section className="tour-step-detail-row" aria-label={authoringText('Placement')}>
+        <span className="tour-step-detail-label">{authoringText('Placement')}</span>
         <div className="tour-step-detail-fact">
           <span className={`tour-step-detail-status ${health.tone}`}>
             <span className="tour-step-health-dot" aria-hidden="true" />
@@ -1877,16 +1962,19 @@ function StepAccordionDetails({
           <button
             type="button"
             className="tour-step-detail-change"
-            aria-label={`${targetActionLabel} for step ${stepIndex + 1}`}
+            aria-label={authoringText('{action} for step {number}', {
+              action: targetActionLabel,
+              number: stepIndex + 1,
+            })}
             onClick={() => controller.startTargetPick(step.id)}
           >
-            {targetId ? 'Change' : 'Choose'}
+            {targetId ? authoringText('Change') : authoringText('Choose')}
           </button>
         </div>
       </section>
 
-      <section className="tour-step-detail-row" aria-label="Behavior">
-        <span className="tour-step-detail-label">Behavior</span>
+      <section className="tour-step-detail-row" aria-label={authoringText('Behavior')}>
+        <span className="tour-step-detail-label">{authoringText('Behavior')}</span>
         <strong className="tour-step-behavior-summary">
           {TOOLTIP_PLACEMENT_LABELS[placement]} · {ADVANCE_OPTION_LABELS[advanceValue]}
         </strong>
@@ -1902,7 +1990,7 @@ function StepAccordionDetails({
         }}
       >
         <Pencil size={14} strokeWidth={2.2} aria-hidden="true" />
-        Edit content on page
+        {authoringText('Edit content on page')}
       </button>
 
       <button
@@ -1911,8 +1999,8 @@ function StepAccordionDetails({
         onClick={() => controller.openAdvancedEditor(step.id)}
       >
         <span>
-          <strong>Edit details</strong>
-          <small>Release review and recovery</small>
+          <strong>{authoringText('Edit details')}</strong>
+          <small>{authoringText('Release review and recovery')}</small>
         </span>
         <ChevronRight size={15} strokeWidth={2.2} aria-hidden="true" />
       </button>

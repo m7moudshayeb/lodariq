@@ -18,11 +18,12 @@ import {
 } from '@lodariq/database';
 import {
   BRAND_THEME_CONTRACT_VERSION,
+  COMPILED_ARTIFACT_SCHEMA_VERSION,
   COMPILER_VERSION,
   DEFAULT_EXPERIENCE_APPEARANCE,
   LODARIQ_ACCESSIBLE_FALLBACK_THEME_V1,
   RENDERER_CONTRACT_VERSION,
-  type CompiledDocumentV2,
+  type CompiledDocumentV3,
   type LodariqDocument,
   type ReleaseRecoveryRequest,
 } from '@lodariq/schema';
@@ -229,8 +230,8 @@ describe('release recovery HTTP integration', () => {
       payload: { environment: 'staging', origin: STAGING_ORIGIN },
     });
     expect(bootstrap.statusCode, bootstrap.body).toBe(200);
-    const release = bootstrap.json<{ authoring: { release: Record<string, unknown> } }>()
-      .authoring.release;
+    const release = bootstrap.json<{ authoring: { release: Record<string, unknown> } }>().authoring
+      .release;
     expect(release).toHaveProperty('recoveryState');
     expect(release).not.toHaveProperty('rollback');
     expect(release).not.toHaveProperty('unpublish');
@@ -334,7 +335,7 @@ describe('release recovery HTTP integration', () => {
     });
     expect(manifest.statusCode, manifest.body).toBe(200);
     expect(manifest.json()).toEqual({
-      schemaVersion: '2',
+      schemaVersion: COMPILED_ARTIFACT_SCHEMA_VERSION,
       workspaceId: WORKSPACE_ID,
       environmentId: PRODUCTION_ID,
       documentId: DOCUMENT_ID,
@@ -436,7 +437,13 @@ function createTokens(): FixtureTokens {
 function createSeed(tokens: FixtureTokens): InMemoryControlPlaneSeed {
   const firstArtifact = createArtifact('first', ['staging']);
   const currentArtifact = createArtifact('current', ['production']);
-  const first = completedPublication(firstArtifact, FIRST_PUBLICATION_ID, 'relop_api_first', 1, null);
+  const first = completedPublication(
+    firstArtifact,
+    FIRST_PUBLICATION_ID,
+    'relop_api_first',
+    1,
+    null,
+  );
   const current = completedPublication(
     currentArtifact,
     CURRENT_PUBLICATION_ID,
@@ -461,7 +468,13 @@ function createSeed(tokens: FixtureTokens): InMemoryControlPlaneSeed {
       environment(DEVELOPMENT_ID, WORKSPACE_ID, 'development', 'http://localhost:5175', 0),
       environment(STAGING_ID, WORKSPACE_ID, 'staging', STAGING_ORIGIN, 1),
       environment(PRODUCTION_ID, WORKSPACE_ID, 'production', PRODUCTION_ORIGIN, 2),
-      environment(FOREIGN_ENVIRONMENT_ID, FOREIGN_WORKSPACE_ID, 'production', 'https://foreign.example', 2),
+      environment(
+        FOREIGN_ENVIRONMENT_ID,
+        FOREIGN_WORKSPACE_ID,
+        'production',
+        'https://foreign.example',
+        2,
+      ),
     ],
     workspaceMemberships: [
       { workspaceId: WORKSPACE_ID, userId: OWNER_ID, role: 'owner', createdAt: CREATED_AT },
@@ -685,7 +698,7 @@ function completedPublication(
 function createArtifact(label: string, environments: Array<'staging' | 'production'>) {
   const theme = structuredClone(LODARIQ_ACCESSIBLE_FALLBACK_THEME_V1);
   const contentWithoutHash = {
-    artifactSchemaVersion: '2' as const,
+    artifactSchemaVersion: COMPILED_ARTIFACT_SCHEMA_VERSION,
     documentId: DOCUMENT_ID,
     type: 'tour' as const,
     schemaVersion: '1.0.0' as const,
@@ -697,8 +710,9 @@ function createArtifact(label: string, environments: Array<'staging' | 'producti
     appearance: DEFAULT_EXPERIENCE_APPEARANCE,
     targets: [],
     steps: [],
+    localization: { defaultLocale: 'en', defaultTitle: 'Recovery tour', variants: [] },
   };
-  const compiled: CompiledDocumentV2 = {
+  const compiled: CompiledDocumentV3 = {
     ...contentWithoutHash,
     contentHash: contentHash(contentWithoutHash),
   };
@@ -717,7 +731,9 @@ function createArtifact(label: string, environments: Array<'staging' | 'producti
   } satisfies PersistedCompiledArtifact;
 }
 
-function rollbackRequest(overrides: Partial<Extract<ReleaseRecoveryRequest, { action: 'rollback' }>> = {}) {
+function rollbackRequest(
+  overrides: Partial<Extract<ReleaseRecoveryRequest, { action: 'rollback' }>> = {},
+) {
   return {
     action: 'rollback' as const,
     targetPublicationId: FIRST_PUBLICATION_ID,

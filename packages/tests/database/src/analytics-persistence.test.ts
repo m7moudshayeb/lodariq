@@ -175,6 +175,46 @@ describe('authoritative analytics persistence', () => {
     ]);
   });
 
+  it('groups and filters delivery analytics by canonical content locale', async () => {
+    const repository = createInMemoryControlPlaneRepository();
+    await repository.ingestAuthoritativeEvents({
+      workspaceId: 'wk_a',
+      environmentId: 'env_staging',
+      events: [
+        event({ timestamp: '2026-08-09T08:00:00.000Z', props: { locale: 'de' } }),
+        event({ timestamp: '2026-08-09T08:05:00.000Z', props: { locale: 'de' } }),
+        event({ timestamp: '2026-08-09T08:10:00.000Z', props: { locale: 'fr' } }),
+        event({ timestamp: '2026-08-09T08:15:00.000Z', props: { locale: 'invalid_locale' } }),
+      ],
+    });
+
+    const aggregates = await repository.aggregateAnalyticsEvents({
+      workspaceId: 'wk_a',
+      query: { environmentId: 'env_staging' },
+    });
+    expect(aggregates).toHaveLength(3);
+    expect(aggregates).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ locale: 'de', count: 2 }),
+        expect.objectContaining({ locale: 'fr', count: 1 }),
+        expect.not.objectContaining({ locale: expect.anything() }),
+      ]),
+    );
+
+    await expect(
+      repository.listAnalyticsEvents({
+        workspaceId: 'wk_a',
+        query: { environmentId: 'env_staging', locale: 'de' },
+      }),
+    ).resolves.toHaveLength(2);
+    await expect(
+      repository.aggregateAnalyticsEvents({
+        workspaceId: 'wk_a',
+        query: { environmentId: 'env_staging', locale: 'fr' },
+      }),
+    ).resolves.toEqual([expect.objectContaining({ locale: 'fr', count: 1 })]);
+  });
+
   it('groups only the closed privacy-safe target verdict and never trusts another value', async () => {
     const repository = createInMemoryControlPlaneRepository();
     await repository.ingestAuthoritativeEvents({

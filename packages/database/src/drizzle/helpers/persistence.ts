@@ -79,7 +79,7 @@ export function compiledArtifactMetadata(compiled: CompiledDocument): {
   themeContentHash: string | null;
   rendererContractVersion: string | null;
 } {
-  if (compiled.artifactSchemaVersion !== '2') {
+  if (compiled.artifactSchemaVersion !== '2' && compiled.artifactSchemaVersion !== '3') {
     return {
       themeVersionId: null,
       themeContentHash: null,

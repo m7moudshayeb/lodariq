@@ -147,7 +147,7 @@ describe('@lodariq/dashboard environment policy', () => {
     );
 
     expect(source).toContain("candidate.kind === 'staging'");
-    expect(source).toContain('label="Require one approval"');
+    expect(source).toContain('label={_(COPY.requireApproval)}');
     expect(source).toContain("current.kind === 'production' ? false : submitted.authoringEnabled");
     expect(source).toContain(
       "current.kind === 'production' ? false : releasePolicy.allowDirectPublish",

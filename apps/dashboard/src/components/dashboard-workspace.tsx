@@ -89,7 +89,7 @@ export function DashboardWorkspace({
           onSelect={selectView}
         />
         <main
-          className="mx-auto min-h-screen w-full max-w-[1120px] px-4 py-6 sm:px-6 md:px-8 md:py-16 lg:px-10"
+          className="mx-auto min-h-screen w-full px-4 py-6 sm:px-6 md:px-8 md:py-16 lg:px-10"
           id="dashboard-active-view"
         >
           {apiError ? <DashboardError message={apiError} /> : null}

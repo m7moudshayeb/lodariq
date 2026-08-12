@@ -6,6 +6,7 @@ import type {
 } from '@lodariq/schema';
 import { SDK_VERSION } from '../version';
 import { createRuntimeAnalyticsEvent, type RuntimeAnalyticsDocumentPointer } from './analytics';
+import { activeContentLocale, clearActiveContentLocale } from './content-locale-state';
 
 export type { RuntimeAnalyticsDocumentPointer } from './analytics';
 
@@ -101,13 +102,16 @@ export class LodariqRuntime {
     const requestedDocumentId =
       typeof props?.['documentId'] === 'string' ? props['documentId'].trim() : undefined;
     const pointer = this.resolveAnalyticsPointer(requestedDocumentId);
+    const contentLocale = name.startsWith('tour_') ? activeContentLocale() : null;
     const event = createRuntimeAnalyticsEvent({
       name,
       sdkVersion: SDK_VERSION,
       timestamp: new Date().toISOString(),
       ...(correlationId ? { correlationId } : {}),
       ...(pointer ? { documentId: pointer.documentId, pointer } : {}),
-      ...(props ? { props } : {}),
+      ...(props || contentLocale
+        ? { props: { ...props, ...(contentLocale ? { locale: contentLocale } : {}) } }
+        : {}),
     });
     if (this.config.ingestUrl) this.queue.push(event);
     this.emitObservability(`runtime.${name}`, {
@@ -212,6 +216,7 @@ export class LodariqRuntime {
   endTour(eventName: string, documentId: string): void {
     this.clearTourResume();
     this.track(eventName, { documentId });
+    clearActiveContentLocale();
   }
 
   canResumeTour(resume: TourResumeState, tour: CompiledDocument): boolean {

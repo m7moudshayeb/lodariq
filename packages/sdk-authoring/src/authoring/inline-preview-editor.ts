@@ -10,6 +10,7 @@ import {
 import { MousePointer2, MousePointerClick, PanelBottom, Settings2, createElement } from 'lucide';
 import { createAuthoringDomCombobox } from './dom-combobox';
 import { createInlineEditorStyles } from './inline-preview-styles';
+import { applyAuthoringLocale, authoringText } from '../i18n';
 
 export const INLINE_PREVIEW_CONTENT_TYPES = ['heading', 'paragraph', 'button', 'link'] as const;
 export type InlinePreviewContentType = (typeof INLINE_PREVIEW_CONTENT_TYPES)[number];
@@ -20,10 +21,10 @@ const INLINE_STYLE_ATTRIBUTE = 'data-lodariq-authoring-inline-style';
 const INLINE_TOOLBAR_ATTRIBUTE = 'data-lodariq-authoring-context-toolbar';
 const INLINE_IDLE_COMMIT_MS = 300;
 const INLINE_CONTENT_LABELS: Readonly<Record<InlinePreviewContentType, string>> = {
-  heading: 'Edit heading in preview',
-  paragraph: 'Edit body text in preview',
-  button: 'Edit button label in preview',
-  link: 'Edit link label in preview',
+  heading: authoringText('Edit heading in preview'),
+  paragraph: authoringText('Edit body text in preview'),
+  button: authoringText('Edit button label in preview'),
+  link: authoringText('Edit link label in preview'),
 };
 const INLINE_CONTENT_SELECTOR = INLINE_PREVIEW_CONTENT_TYPES.map(
   (type) =>
@@ -381,20 +382,20 @@ function enhanceEditableElement(
 }
 
 const INLINE_PLACEMENT_OPTIONS = [
-  { value: 'bottom', label: 'Below' },
-  { value: 'top', label: 'Above' },
-  { value: 'right', label: 'Right' },
-  { value: 'left', label: 'Left' },
+  { value: 'bottom', label: authoringText('Below') },
+  { value: 'top', label: authoringText('Above') },
+  { value: 'right', label: authoringText('Right') },
+  { value: 'left', label: authoringText('Left') },
 ] as const;
 
 const INLINE_ACTION_OPTIONS = [
-  { value: '', label: 'Choose action' },
-  { value: 'next', label: 'Next' },
-  { value: 'back', label: 'Back' },
-  { value: 'complete', label: 'Complete' },
-  { value: 'dismiss', label: 'Dismiss' },
-  { value: 'clickTarget', label: 'Click target' },
-  { value: 'openPage', label: 'Open page' },
+  { value: '', label: authoringText('Choose action') },
+  { value: 'next', label: authoringText('Next') },
+  { value: 'back', label: authoringText('Back') },
+  { value: 'complete', label: authoringText('Complete') },
+  { value: 'dismiss', label: authoringText('Dismiss') },
+  { value: 'clickTarget', label: authoringText('Click target') },
+  { value: 'openPage', label: authoringText('Open page') },
 ] as const;
 
 function syncPreviewToolbar(
@@ -432,9 +433,10 @@ function createPreviewToolbar(
 ): PreviewToolbarState {
   const doc = dialog.ownerDocument;
   const toolbar = doc.createElement('div');
+  applyAuthoringLocale(toolbar);
   toolbar.setAttribute(INLINE_TOOLBAR_ATTRIBUTE, 'true');
   toolbar.setAttribute('role', 'toolbar');
-  toolbar.setAttribute('aria-label', 'Step controls');
+  toolbar.setAttribute('aria-label', authoringText('Step controls'));
 
   const commit = (operation: AuthoringInlineControlOperation): void => {
     try {
@@ -456,15 +458,15 @@ function createPreviewToolbar(
 
   const contextIndicator = doc.createElement('span');
   contextIndicator.className = 'lodariq-inline-toolbar-context';
-  contextIndicator.setAttribute('aria-label', 'Editing on page');
-  contextIndicator.setAttribute('data-tooltip', 'Editing on page');
-  contextIndicator.title = 'Editing on page';
+  contextIndicator.setAttribute('aria-label', authoringText('Editing on page'));
+  contextIndicator.setAttribute('data-tooltip', authoringText('Editing on page'));
+  contextIndicator.title = authoringText('Editing on page');
   contextIndicator.appendChild(createToolbarIcon(MousePointer2, 16));
   toolbar.appendChild(contextIndicator);
 
   const placement = createAuthoringDomCombobox({
     document: doc,
-    label: 'Tooltip placement',
+    label: authoringText('Tooltip placement'),
     items: INLINE_PLACEMENT_OPTIONS,
     initialValue: context.placement,
     triggerIcon: PanelBottom,
@@ -480,7 +482,7 @@ function createPreviewToolbar(
     const actionBlockId = context.actionBlockId;
     action = createAuthoringDomCombobox({
       document: doc,
-      label: 'Button action',
+      label: authoringText('Button action'),
       items: INLINE_ACTION_OPTIONS,
       initialValue: context.actionType,
       triggerIcon: MousePointerClick,
@@ -495,9 +497,9 @@ function createPreviewToolbar(
   const more = doc.createElement('button');
   more.type = 'button';
   more.className = 'lodariq-inline-toolbar-details';
-  more.setAttribute('aria-label', 'Open advanced step settings');
-  more.setAttribute('data-tooltip', 'Open step details');
-  more.title = 'Open step details';
+  more.setAttribute('aria-label', authoringText('Open advanced step settings'));
+  more.setAttribute('data-tooltip', authoringText('Open step details'));
+  more.title = authoringText('Open step details');
   more.appendChild(createToolbarIcon(Settings2, 17));
   toolbar.appendChild(more);
 

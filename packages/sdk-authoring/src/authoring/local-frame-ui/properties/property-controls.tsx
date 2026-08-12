@@ -1,3 +1,4 @@
+import { authoringText } from '../../../i18n';
 import type { CSSProperties } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import {
@@ -129,7 +130,7 @@ export function PropertyColorField({
         })}
         <label className="rich-step-custom-color">
           <Palette size={14} strokeWidth={2} aria-hidden="true" />
-          <span>Custom</span>
+          <span>{authoringText('Custom')}</span>
           <input
             aria-label={`Custom ${label.toLowerCase()} color`}
             onChange={(event) => onChange(event.currentTarget.value)}
@@ -143,7 +144,7 @@ export function PropertyColorField({
           onClick={onReset}
           type="button"
         >
-          Theme
+          {authoringText('Theme')}
         </button>
       </div>
     </fieldset>

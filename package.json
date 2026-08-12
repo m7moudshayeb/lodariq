@@ -19,6 +19,7 @@
     "size": "turbo run size",
     "boundaries": "depcruise --config .dependency-cruiser.cjs packages apps",
     "architecture:check": "node scripts/check-architecture.mjs",
+    "i18n:check": "pnpm --filter @lodariq/dashboard i18n:check && node scripts/check-localization-catalogs.mjs",
     "knip:check": "knip --dependencies",
     "styles:check": "stylelint \"apps/**/src/**/*.css\" \"packages/sdk-authoring/src/authoring/local-frame-ui/styles/*.ts\"",
     "migrations:check": "pnpm --filter @lodariq/database check:migrations",
@@ -40,7 +41,7 @@
     "audit:security": "pnpm audit",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "verify": "pnpm run typecheck && pnpm run lint && pnpm run boundaries && pnpm run architecture:check && pnpm run knip:check && pnpm run styles:check && pnpm run migrations:check && pnpm run test && pnpm run build && pnpm run size && pnpm sdk:prepare-assets && pnpm run test:e2e && pnpm run audit:security"
+    "verify": "pnpm run i18n:check && pnpm run typecheck && pnpm run lint && pnpm run boundaries && pnpm run architecture:check && pnpm run knip:check && pnpm run styles:check && pnpm run migrations:check && pnpm run test && pnpm run build && pnpm run size && pnpm sdk:prepare-assets && pnpm run test:e2e && pnpm run audit:security"
   },
   "devDependencies": {
     "@eslint/js": "^9.17.0",

@@ -1,3 +1,4 @@
+import { authoringText } from '../../../i18n';
 import { useLayoutEffect, useRef, useState, type KeyboardEvent } from 'react';
 import type { LodariqBlock } from '@lodariq/schema';
 import type { LocalAuthoringFrameController } from '../controller';
@@ -56,7 +57,9 @@ export function TargetControls({
     }
   };
   const status = inspection?.diagnostic.state ?? 'unchecked';
-  const statusText = inspection ? targetHealthTitle(inspection.diagnostic) : 'Unverified';
+  const statusText = inspection
+    ? targetHealthTitle(inspection.diagnostic)
+    : authoringText('Unverified');
   const lifecycle = target?.lifecycle ?? {};
   const openPanelEnabled = Boolean(lifecycle.openPanel);
   const selectTabEnabled = Boolean(lifecycle.selectTab);
@@ -68,14 +71,14 @@ export function TargetControls({
         content={
           <div className="target-menu">
             <div className="target-menu-header">
-              <span className="target-menu-eyebrow">Placement</span>
+              <span className="target-menu-eyebrow">{authoringText('Placement')}</span>
               <strong title={targetLabel}>{targetLabel}</strong>
               <span className={`target-menu-status ${status}`.trim()}>{statusText}</span>
             </div>
-            <section className="target-menu-panel" aria-label="Placement actions">
+            <section className="target-menu-panel" aria-label={authoringText('Placement actions')}>
               <div className="target-menu-actions">
                 <AuthoringButton
-                  aria-label="Show element on page"
+                  aria-label={authoringText('Show element on page')}
                   className="target-menu-action target-menu-action-featured"
                   data-action="target-view"
                   data-block-id={block.id}
@@ -86,10 +89,10 @@ export function TargetControls({
                     controller.requestTargetInspection(block.id, targetId, 'view');
                   }}
                 >
-                  Show on page
+                  {authoringText('Show on page')}
                 </AuthoringButton>
                 <AuthoringButton
-                  aria-label="Choose another element"
+                  aria-label={authoringText('Choose another element')}
                   className="target-menu-action"
                   data-action="target-change"
                   data-block-id={block.id}
@@ -100,10 +103,10 @@ export function TargetControls({
                     controller.startTargetPick(block.id);
                   }}
                 >
-                  Choose another
+                  {authoringText('Choose another')}
                 </AuthoringButton>
                 <AuthoringButton
-                  aria-label={usesExactArea ? 'Use whole element' : 'Use exact area'}
+                  aria-label={authoringText(usesExactArea ? 'Use whole element' : 'Use exact area')}
                   className="target-menu-action target-menu-action-exact"
                   data-action={
                     usesExactArea ? 'presentation-anchor-reset' : 'presentation-anchor-pick'
@@ -120,7 +123,7 @@ export function TargetControls({
                     controller.startPresentationAnchorPick(block.id, targetId);
                   }}
                 >
-                  {usesExactArea ? 'Use whole element' : 'Use exact area'}
+                  {authoringText(usesExactArea ? 'Use whole element' : 'Use exact area')}
                 </AuthoringButton>
               </div>
               {inspection && inspection.diagnostic.state !== 'found' ? (
@@ -133,28 +136,28 @@ export function TargetControls({
               >
                 <summary data-action="target-more-options">
                   <MoreHorizontal aria-hidden="true" size={15} strokeWidth={2.2} />
-                  <span>More placement options</span>
+                  <span>{authoringText('More placement options')}</span>
                 </summary>
                 {advancedOpen ? (
                   <div className="target-menu-disclosure-content">
                     <AuthoringTabs
-                      ariaLabel="More placement options"
+                      ariaLabel={authoringText('More placement options')}
                       defaultValue="behavior"
                       items={[
                         {
-                          label: 'Before it appears',
+                          label: authoringText('Before it appears'),
                           value: 'behavior',
                           content: target ? (
                             <section
                               className="target-lifecycle"
-                              aria-label="Before this element appears"
+                              aria-label={authoringText('Before this element appears')}
                             >
                               <div className="target-lifecycle-header">
-                                <strong>Before this element appears</strong>
+                                <strong>{authoringText('Before this element appears')}</strong>
                                 <span>{lifecycleSummary(lifecycle)}</span>
                               </div>
                               <label className="target-lifecycle-field">
-                                <span>Wait for page text</span>
+                                <span>{authoringText('Wait for page text')}</span>
                                 <WaitForTextField
                                   controller={controller}
                                   targetId={targetId}
@@ -162,9 +165,9 @@ export function TargetControls({
                                 />
                               </label>
                               <label className="target-lifecycle-field">
-                                <span>Bring element into view</span>
+                                <span>{authoringText('Bring element into view')}</span>
                                 <AuthoringSelect
-                                  ariaLabel="How to bring the element into view"
+                                  ariaLabel={authoringText('How to bring the element into view')}
                                   dataAction="set-lifecycle-scroll"
                                   dataBlockId={block.id}
                                   onValueChange={(value) =>
@@ -175,13 +178,13 @@ export function TargetControls({
                                 />
                               </label>
                               <div className="target-lifecycle-control-group">
-                                <span>Open required UI first</span>
+                                <span>{authoringText('Open required UI first')}</span>
                                 <div className="target-lifecycle-actions">
                                   <AuthoringButton
                                     aria-label={
                                       openPanelEnabled
-                                        ? 'Do not open a panel first'
-                                        : 'Open a panel first'
+                                        ? authoringText('Do not open a panel first')
+                                        : authoringText('Open a panel first')
                                     }
                                     aria-pressed={openPanelEnabled}
                                     className={`target-lifecycle-action ${
@@ -198,13 +201,13 @@ export function TargetControls({
                                       )
                                     }
                                   >
-                                    Open a panel
+                                    {authoringText('Open a panel')}
                                   </AuthoringButton>
                                   <AuthoringButton
                                     aria-label={
                                       selectTabEnabled
-                                        ? 'Do not select a tab first'
-                                        : 'Select a tab first'
+                                        ? authoringText('Do not select a tab first')
+                                        : authoringText('Select a tab first')
                                     }
                                     aria-pressed={selectTabEnabled}
                                     className={`target-lifecycle-action ${
@@ -221,28 +224,28 @@ export function TargetControls({
                                       )
                                     }
                                   >
-                                    Select a tab
+                                    {authoringText('Select a tab')}
                                   </AuthoringButton>
                                 </div>
                               </div>
                             </section>
                           ) : (
                             <p className="target-health target-health-empty">
-                              Choose an element first.
+                              {authoringText('Choose an element first.')}
                             </p>
                           ),
                         },
                         {
-                          label: 'Troubleshoot',
+                          label: authoringText('Troubleshoot'),
                           value: 'details',
                           content: (
                             <section
                               className="target-troubleshoot"
-                              aria-label="Troubleshoot placement"
+                              aria-label={authoringText('Troubleshoot placement')}
                             >
                               <div className="target-menu-actions">
                                 <AuthoringButton
-                                  aria-label="Check placement"
+                                  aria-label={authoringText('Check placement')}
                                   className="target-menu-action"
                                   data-action="target-test"
                                   data-block-id={block.id}
@@ -252,10 +255,10 @@ export function TargetControls({
                                     controller.requestTargetInspection(block.id, targetId, 'test')
                                   }
                                 >
-                                  Check placement
+                                  {authoringText('Check placement')}
                                 </AuthoringButton>
                                 <AuthoringButton
-                                  aria-label="Verify placement again"
+                                  aria-label={authoringText('Verify placement again')}
                                   className="target-menu-action"
                                   data-action="target-health"
                                   data-block-id={block.id}
@@ -265,21 +268,21 @@ export function TargetControls({
                                     controller.requestTargetInspection(block.id, targetId, 'health')
                                   }
                                 >
-                                  Verify again
+                                  {authoringText('Verify again')}
                                 </AuthoringButton>
                               </div>
                               <TargetHealth inspection={inspection} />
                               {target ? (
                                 <details className="target-matching-details">
-                                  <summary>Matching details</summary>
+                                  <summary>{authoringText('Matching details')}</summary>
                                   <div
                                     className="target-advanced"
-                                    aria-label="Placement matching details"
+                                    aria-label={authoringText('Placement matching details')}
                                   >
                                     <span>
                                       {inspection
                                         ? targetSupportDetails(inspection)
-                                        : 'Not checked yet'}
+                                        : authoringText('Not checked yet')}
                                     </span>
                                     <dl>
                                       {anchorSupportRows(target).map((row) => (
@@ -294,7 +297,7 @@ export function TargetControls({
                               ) : null}
                               <div className="target-menu-secondary-actions">
                                 <AuthoringButton
-                                  aria-label="Remove placement"
+                                  aria-label={authoringText('Remove placement')}
                                   className="target-secondary-action target-secondary-action-danger"
                                   data-action="target-remove"
                                   data-block-id={block.id}
@@ -306,7 +309,7 @@ export function TargetControls({
                                   }}
                                   tone="danger"
                                 >
-                                  Remove placement
+                                  {authoringText('Remove placement')}
                                 </AuthoringButton>
                               </div>
                             </section>
@@ -328,14 +331,16 @@ export function TargetControls({
         portal
         trigger={
           <AuthoringButton
-            aria-label={`Placement ${targetLabel} actions`}
+            aria-label={authoringText('Placement {target} actions', { target: targetLabel })}
             className="target-menu-trigger target-combo-trigger"
-            title={`Placement: ${targetLabel}`}
+            title={authoringText('Placement: {target}', { target: targetLabel })}
           >
             <span className="target-chip">
               <MousePointer2 className="target-chip-icon" size={13} strokeWidth={2.3} />
               <span className="target-chip-label">{targetLabel}</span>
-              {usesExactArea ? <span className="target-chip-anchor-mode">Exact area</span> : null}
+              {usesExactArea ? (
+                <span className="target-chip-anchor-mode">{authoringText('Exact area')}</span>
+              ) : null}
               <span className="target-chip-status">{statusText}</span>
             </span>
             <MoreHorizontal className="target-chip-more" size={15} strokeWidth={2.2} />
@@ -398,12 +403,12 @@ function WaitForTextField({
   return (
     <input
       ref={inputRef}
-      aria-label="Wait for text"
+      aria-label={authoringText('Wait for text')}
       data-action="set-lifecycle-wait-text"
       data-target-id={targetId}
       onBlur={commitDraft}
       onKeyDown={handleKeyDown}
-      placeholder="Projects loaded"
+      placeholder={authoringText('Projects loaded')}
       type="text"
       defaultValue={value}
     />
@@ -417,8 +422,10 @@ function lifecycleSummary(lifecycle: DocumentTarget['lifecycle'] | undefined): s
     lifecycle?.openPanel,
     lifecycle?.selectTab,
   ].filter(Boolean).length;
-  if (!activeCount) return 'No extra setup';
-  return `${activeCount} setup action${activeCount === 1 ? '' : 's'}`;
+  if (!activeCount) return authoringText('No extra setup');
+  return authoringText(activeCount === 1 ? '{count} setup action' : '{count} setup actions', {
+    count: activeCount,
+  });
 }
 
 function anchorSupportRows(target: DocumentTarget): Array<{
@@ -431,19 +438,21 @@ function anchorSupportRows(target: DocumentTarget): Array<{
       .join(', ');
     return [
       {
-        label: 'Element kind',
+        label: authoringText('Element kind'),
         value: target.identity.intent.elementKind,
       },
       {
-        label: 'Identity evidence',
-        value: target.identity.captureEvidence.stableSignalFamilies.join(', ') || 'None observed',
+        label: authoringText('Identity evidence'),
+        value:
+          target.identity.captureEvidence.stableSignalFamilies.join(', ') ||
+          authoringText('None observed'),
       },
       {
-        label: 'Locale coverage',
-        value: localeCoverage || 'No text dependency',
+        label: authoringText('Locale coverage'),
+        value: localeCoverage || authoringText('No text dependency'),
       },
       {
-        label: 'Layout profiles',
+        label: authoringText('Layout profiles'),
         value: String(target.identity.visualTopologies?.length ?? 0),
       },
     ];
@@ -456,15 +465,19 @@ function anchorSupportRows(target: DocumentTarget): Array<{
   const nearbyText = fingerprint.nearbyText?.find((item) => item.trim())?.trim();
   return [
     {
-      label: 'Page label',
-      value: fingerprint.accessibleName ?? fingerprint.label ?? 'Not named',
+      label: authoringText('Page label'),
+      value: fingerprint.accessibleName ?? fingerprint.label ?? authoringText('Not named'),
     },
-    { label: 'Element type', value: fingerprint.role ?? fingerprint.tagName.toLowerCase() },
     {
-      label: 'Nearby cue',
-      value: fingerprint.title ?? fingerprint.placeholder ?? nearbyText ?? 'None found',
+      label: authoringText('Element type'),
+      value: fingerprint.role ?? fingerprint.tagName.toLowerCase(),
     },
-    { label: 'Page area', value: landmark ?? 'Current page' },
+    {
+      label: authoringText('Nearby cue'),
+      value:
+        fingerprint.title ?? fingerprint.placeholder ?? nearbyText ?? authoringText('None found'),
+    },
+    { label: authoringText('Page area'), value: landmark ?? authoringText('Current page') },
   ];
 }
 
@@ -472,8 +485,8 @@ function TargetHealth({ inspection }: { inspection: TargetInspectionState | unde
   if (!inspection) {
     return (
       <p className="target-health target-health-empty">
-        <strong>Unverified</strong>
-        Verify this placement on the current environment before publishing.
+        <strong>{authoringText('Unverified')}</strong>
+        {authoringText('Verify this placement on the current environment before publishing.')}
       </p>
     );
   }

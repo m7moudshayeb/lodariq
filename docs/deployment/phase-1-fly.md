@@ -79,19 +79,19 @@ environments.
 
 ## Naming Matrix
 
-| Surface                | Staging                              | Production                   |
-| ---------------------- | ------------------------------------ | ---------------------------- |
-| API Fly app            | `lodariq-api-staging`                | `lodariq-api`                |
-| Dashboard Fly app      | `lodariq-dashboard-staging`          | `lodariq-dashboard`          |
-| Editor Fly app         | `lodariq-editor-staging`             | `lodariq-editor`             |
+| Surface                | Staging                             | Production                  |
+| ---------------------- | ----------------------------------- | --------------------------- |
+| API Fly app            | `lodariq-api-staging`               | `lodariq-api`               |
+| Dashboard Fly app      | `lodariq-dashboard-staging`         | `lodariq-dashboard`         |
+| Editor Fly app         | `lodariq-editor-staging`            | `lodariq-editor`            |
 | API origin             | `https://staging-api.lodariq.io`    | `https://api.lodariq.io`    |
 | Dashboard origin       | `https://staging-app.lodariq.io`    | `https://app.lodariq.io`    |
 | CDN origin             | `https://staging-cdn.lodariq.io`    | `https://cdn.lodariq.io`    |
 | Editor origin          | `https://staging-editor.lodariq.io` | `https://editor.lodariq.io` |
-| Neon branch or project | `staging`                            | `production`                 |
-| Runtime DB role        | `lodariq_app_staging`                | `lodariq_app`                |
-| R2 bucket              | `lodariq-assets-staging`             | `lodariq-assets-production`  |
-| Auth/session store     | Staging Neon branch                  | Production Neon branch       |
+| Neon branch or project | `staging`                           | `production`                |
+| Runtime DB role        | `lodariq_app_staging`               | `lodariq_app`               |
+| R2 bucket              | `lodariq-assets-staging`            | `lodariq-assets-production` |
+| Auth/session store     | Staging Neon branch                 | Production Neon branch      |
 
 For preview deployments, use generated names such as
 `lodariq-api-pr-123`, `lodariq-dashboard-pr-123`, and a Neon preview branch.
@@ -149,6 +149,7 @@ LODARIQ_CREATOR_MODULE_URL=https://<cdn-origin>/sdk/sha256-<digest>/creator.js
 LODARIQ_CREATOR_MODULE_VERSION=<version>
 LODARIQ_CREATOR_MODULE_INTEGRITY=sha256-<base64-digest-matching-url>
 LODARIQ_AUTHORING_IFRAME_SRC=https://<editor-origin>/authoring.html
+LODARIQ_DEEPL_API_KEY=<optional-server-only-authoring-translation-key>
 ```
 
 Dashboard:
@@ -251,11 +252,13 @@ Set API secrets:
 ```bash
 fly secrets set -c apps/api/fly.staging.toml \
   DATABASE_URL='<staging-runtime-database-url>' \
-  LODARIQ_AUTH_BFF_SOURCE_SECRET='<staging-random-32-plus-byte-secret>'
+  LODARIQ_AUTH_BFF_SOURCE_SECRET='<staging-random-32-plus-byte-secret>' \
+  LODARIQ_DEEPL_API_KEY='<staging-deepl-api-key>'
 
 fly secrets set -c apps/api/fly.toml \
   DATABASE_URL='<production-runtime-database-url>' \
-  LODARIQ_AUTH_BFF_SOURCE_SECRET='<production-random-32-plus-byte-secret>'
+  LODARIQ_AUTH_BFF_SOURCE_SECRET='<production-random-32-plus-byte-secret>' \
+  LODARIQ_DEEPL_API_KEY='<production-deepl-api-key>'
 ```
 
 ```bash

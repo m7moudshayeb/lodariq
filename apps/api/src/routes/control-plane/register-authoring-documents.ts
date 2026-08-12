@@ -1,16 +1,25 @@
 import {
   AUTHORING_SESSION_CAPABILITIES,
+  AuthoringTranslationRequest,
+  AuthoringTranslationResult,
   LodariqDocument,
   ReleaseRecoveryStateResponse,
+  documentLocalizationIssues,
   validate,
 } from '@lodariq/schema';
+import { Type } from '@sinclair/typebox';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { createObservabilityEvent } from '../../observability';
+import {
+  AuthoringTranslationFailure,
+  translateMissingAuthoringCopy,
+} from '../../authoring-translation';
 import { emitObservability } from '../control-plane-access';
 import {
   ApiErrorResponse,
   EnvironmentParams,
   HOSTED_RELEASE_RECOVERY_PATH,
+  HOSTED_AUTHORING_TRANSLATION_PATH,
   SdkAuthoringDocumentBody,
 } from '../control-plane-contracts';
 import type { ControlPlaneRouteOptions } from '../control-plane-context';
@@ -97,6 +106,14 @@ export function registerAuthoringDocumentRoutes(
         });
       }
       const document = payload.value;
+      const localizationIssues = documentLocalizationIssues(document);
+      if (localizationIssues.length > 0) {
+        return reply.code(400).send({
+          error: 'invalid_document_localization',
+          message: 'Experience language variants or fallback rules are invalid',
+          issues: localizationIssues,
+        });
+      }
       if (document.workspaceId !== session.workspaceId || document.id !== session.documentId) {
         return reply.code(403).send({
           error: 'authoring_session_mismatch',
@@ -145,6 +162,109 @@ export function registerAuthoringDocumentRoutes(
         document: saved.document,
         theme: await resolveDocumentTheme(options.repository, saved.document),
       });
+    },
+  );
+
+  fastify.post(
+    HOSTED_AUTHORING_TRANSLATION_PATH,
+    {
+      schema: {
+        body: AuthoringTranslationRequest,
+        response: {
+          200: AuthoringTranslationResult,
+          400: Type.Unknown(),
+          403: Type.Unknown(),
+          413: Type.Unknown(),
+          502: Type.Unknown(),
+          503: Type.Unknown(),
+        },
+      },
+    },
+    async (request, reply) => {
+      if (!requireEditorOrigin(request, reply)) return;
+      setCredentialResponseHeaders(reply);
+      const session = await authenticateHostedEditorSession(options.repository, request, reply);
+      if (!session) return;
+      if (
+        !requireAuthoringSessionCapability(
+          session,
+          AUTHORING_SESSION_CAPABILITIES.WRITE_DOCUMENT,
+          reply,
+        )
+      ) {
+        return;
+      }
+      const provider = options.authoringTranslationProvider;
+      if (!provider) {
+        return reply.code(503).send({
+          error: 'translation_unavailable',
+          message: 'Automatic translation is not configured',
+        });
+      }
+
+      const body = request.body as { document: LodariqDocument; targetLocale: string };
+      const document = body.document;
+      const localizationIssues = documentLocalizationIssues(document);
+      if (localizationIssues.length > 0) {
+        return reply.code(400).send({
+          error: 'invalid_document_localization',
+          message: 'Experience language variants or fallback rules are invalid',
+          issues: localizationIssues,
+        });
+      }
+      if (document.workspaceId !== session.workspaceId || document.id !== session.documentId) {
+        return reply.code(403).send({
+          error: 'authoring_session_mismatch',
+          message: 'Authoring session does not match the document being translated',
+        });
+      }
+      const theme = await resolveDocumentTheme(options.repository, document);
+      if (!authoringSessionThemeMatches(session, theme)) {
+        return sendAuthoringSessionCompatibilityChanged(reply);
+      }
+
+      try {
+        const result = await translateMissingAuthoringCopy(document, body.targetLocale, provider);
+        emitObservability(
+          options.observability,
+          createObservabilityEvent({
+            name: 'authoring.translation.completed',
+            correlationId: session.correlationId,
+            workspaceId: session.workspaceId,
+            documentId: session.documentId,
+            environmentId: session.environmentId,
+            userId: session.createdByUserId,
+            attributes: {
+              sourceLocale: result.sourceLocale,
+              targetLocale: result.targetLocale,
+              translatedBlockCount: result.translatedBlockCount,
+              translatedCharacterCount: result.translatedCharacterCount,
+            },
+          }),
+        );
+        return result;
+      } catch (error) {
+        if (!(error instanceof AuthoringTranslationFailure)) throw error;
+        const clientErrors = new Set([
+          'unsupported_locale',
+          'default_locale_target',
+          'request_too_large',
+        ]);
+        if (clientErrors.has(error.code)) {
+          const status = error.code === 'request_too_large' ? 413 : 400;
+          return reply.code(status).send({
+            error: error.code,
+            message:
+              error.code === 'request_too_large'
+                ? 'Automatic translation is limited to 50,000 source characters per request'
+                : 'The requested experience language cannot be translated',
+          });
+        }
+        return reply.code(502).send({
+          error: 'translation_failed',
+          message: 'The translation provider could not complete this request',
+        });
+      }
     },
   );
 

@@ -43,6 +43,10 @@
       "types": "./dist/creator-experiences.d.ts",
       "import": "./dist/creator-experiences.js"
     },
+    "./i18n": {
+      "types": "./dist/i18n.d.ts",
+      "import": "./dist/i18n.js"
+    },
     "./local-dev": {
       "types": "./dist/local-dev/index.d.ts",
       "import": "./dist/local-dev/index.js"
@@ -72,6 +76,7 @@
   "dependencies": {
     "@lexical/rich-text": "^0.21.0",
     "@lodariq/schema": "workspace:*",
+    "@lodariq/i18n": "workspace:*",
     "@lodariq/sdk-runtime": "workspace:*",
     "@radix-ui/react-popover": "^1.1.17",
     "@radix-ui/react-select": "^2.3.1",

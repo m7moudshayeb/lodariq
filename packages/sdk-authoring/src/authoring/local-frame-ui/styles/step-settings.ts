@@ -170,6 +170,30 @@ export const AUTHORING_STEP_SETTINGS_CSS = `
     opacity: 0.5;
   }
 
+  .storyboard-tab-panel.popup-layout .rich-step-color-field {
+    min-width: 248px;
+  }
+
+  .popup-style-reset {
+    min-width: max-content;
+    min-height: var(--lq-control-sm);
+    align-self: end;
+    border: 1px solid var(--lq-color-border);
+    border-radius: var(--lq-radius-sm);
+    background: #ffffff;
+    color: var(--lq-color-primary);
+    cursor: pointer;
+    font-size: var(--lq-font-xs);
+    font-weight: var(--lq-weight-bold);
+    padding: 0 var(--lq-space-3);
+  }
+
+  .popup-style-reset:disabled {
+    color: var(--lq-color-muted);
+    cursor: default;
+    opacity: 0.5;
+  }
+
   .rich-step-color-value {
     display: flex;
     height: var(--lq-control-sm);

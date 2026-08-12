@@ -187,7 +187,7 @@ export const AUTHORING_BLOCK_CONTROL_CSS = `
     box-shadow: inset 0 0 0 1px var(--lq-color-border-soft);
   }
 
-  .block-input[aria-label="Heading"] {
+  .block-input-heading {
     color: var(--lq-color-ink);
     font-size: 18px;
     font-weight: 700;
@@ -201,12 +201,12 @@ export const AUTHORING_BLOCK_CONTROL_CSS = `
     resize: none;
   }
 
-  textarea.block-input[aria-label="Heading"] {
+  textarea.block-input-heading {
     min-height: 36px;
   }
 
   .block-input-button,
-  .block-input[aria-label="Button label"] {
+  .block-input-button {
     width: 100%;
     min-height: 36px;
     border: 1px solid rgba(7, 25, 22, 0.08);
@@ -222,8 +222,8 @@ export const AUTHORING_BLOCK_CONTROL_CSS = `
 
   .block-input-button:hover,
   .block-input-button:focus,
-  .block-input[aria-label="Button label"]:hover,
-  .block-input[aria-label="Button label"]:focus {
+  .block-input-button:hover,
+  .block-input-button:focus {
     background: var(--lq-color-primary-hover);
     box-shadow:
       0 5px 14px rgba(23, 79, 85, 0.16),
@@ -231,7 +231,7 @@ export const AUTHORING_BLOCK_CONTROL_CSS = `
   }
 
   .block-input-link,
-  .block-input[aria-label="Link label"] {
+  .block-input-link {
     width: 100%;
     min-height: 24px;
     color: var(--lq-color-primary);
@@ -449,5 +449,20 @@ export const AUTHORING_BLOCK_CONTROL_CSS = `
     font-size: 12px;
     padding: 8px 8px 8px 12px;
     text-align: left;
+  }
+
+  .ui-select-leading-icon {
+    display: inline-grid;
+    flex: 0 0 auto;
+    place-items: center;
+    color: var(--lq-color-muted);
+  }
+
+  .ui-select-value {
+    min-width: 0;
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 `;

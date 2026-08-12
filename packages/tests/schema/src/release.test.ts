@@ -72,7 +72,7 @@ describe('release pointer contracts', () => {
 
   it('validates strict active and inactive V2 manifests', () => {
     const active = {
-      schemaVersion: '2',
+      schemaVersion: COMPILED_ARTIFACT_SCHEMA_VERSION,
       workspaceId: 'wk_1',
       environmentId: 'env_staging',
       documentId: 'doc_1',
@@ -101,7 +101,7 @@ describe('release pointer contracts', () => {
     ).toBe(false);
     expect(
       validate(ManifestPointerV2, {
-        schemaVersion: '2',
+        schemaVersion: COMPILED_ARTIFACT_SCHEMA_VERSION,
         workspaceId: 'wk_1',
         environmentId: 'env_staging',
         documentId: 'doc_1',

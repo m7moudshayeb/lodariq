@@ -1,6 +1,8 @@
 'use client';
 
 import * as React from 'react';
+import { msg } from '@lingui/core/macro';
+import { useLingui } from '@lingui/react';
 import { useForm } from 'react-hook-form';
 import {
   createDefaultEnvironmentReleasePolicy,
@@ -12,10 +14,97 @@ import { Badge } from './ui/badge';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 
 const PIPELINE_POSITION = { development: 0, staging: 1, production: 2 } as const;
 const PUBLISHER_ROLES = ['owner', 'admin', 'member'] as const;
 const RECOVERY_ROLES = ['owner', 'admin'] as const;
+
+const COPY = {
+  unableToUpdate: msg({
+    id: 'dashboard.environmentPolicy.unableToUpdate',
+    message: 'Unable to update the environment policy.',
+  }),
+  title: msg({ id: 'dashboard.environmentPolicy.title', message: 'Environment policy' }),
+  name: msg({ id: 'dashboard.environmentPolicy.name', message: 'Name' }),
+  pipeline: msg({ id: 'dashboard.environmentPolicy.pipeline', message: 'Pipeline' }),
+  exactOrigins: msg({
+    id: 'dashboard.environmentPolicy.exactOrigins',
+    message: 'Exact origins, one per line',
+  }),
+  environmentEnabled: msg({
+    id: 'dashboard.environmentPolicy.environmentEnabled',
+    message: 'Environment enabled',
+  }),
+  authoringEnabled: msg({
+    id: 'dashboard.environmentPolicy.authoringEnabled',
+    message: 'Authoring enabled',
+  }),
+  directPublish: msg({
+    id: 'dashboard.environmentPolicy.directPublish',
+    message: 'Direct publish',
+  }),
+  requireVerification: msg({
+    id: 'dashboard.environmentPolicy.requireVerification',
+    message: 'Require source verification',
+  }),
+  requireApproval: msg({
+    id: 'dashboard.environmentPolicy.requireApproval',
+    message: 'Require one approval',
+  }),
+  promotionSource: msg({
+    id: 'dashboard.environmentPolicy.promotionSource',
+    message: 'Promotion source',
+  }),
+  chooseEarlier: msg({
+    id: 'dashboard.environmentPolicy.chooseEarlier',
+    message: 'Choose an earlier environment',
+  }),
+  publisherRoles: msg({
+    id: 'dashboard.environmentPolicy.publisherRoles',
+    message: 'Publisher roles',
+  }),
+  rollbackRoles: msg({
+    id: 'dashboard.environmentPolicy.rollbackRoles',
+    message: 'Rollback roles',
+  }),
+  unpublishRoles: msg({
+    id: 'dashboard.environmentPolicy.unpublishRoles',
+    message: 'Unpublish roles',
+  }),
+  separateVerifier: msg({
+    id: 'dashboard.environmentPolicy.separateVerifier',
+    message: 'Separate verifier',
+  }),
+  separateApprover: msg({
+    id: 'dashboard.environmentPolicy.separateApprover',
+    message: 'Separate approver',
+  }),
+  noPublishSideEffect: msg({
+    id: 'dashboard.environmentPolicy.noPublishSideEffect',
+    message: 'Policy changes never publish or recompile an artifact.',
+  }),
+  saving: msg({ id: 'dashboard.environmentPolicy.saving', message: 'Saving…' }),
+  save: msg({ id: 'dashboard.environmentPolicy.save', message: 'Save policy' }),
+  invalid: msg({
+    id: 'dashboard.environmentPolicy.invalid',
+    message: 'Enter a name and no more than 100 exact origins.',
+  }),
+  tooManyOrigins: msg({
+    id: 'dashboard.environmentPolicy.tooManyOrigins',
+    message: 'No more than 100 origins are allowed.',
+  }),
+  invalidOrigin: msg({
+    id: 'dashboard.environmentPolicy.invalidOrigin',
+    message: 'Every origin must be an exact HTTP(S) origin.',
+  }),
+  development: msg({ id: 'dashboard.environmentPolicy.development', message: 'Development' }),
+  staging: msg({ id: 'dashboard.environmentPolicy.staging', message: 'Staging' }),
+  production: msg({ id: 'dashboard.environmentPolicy.production', message: 'Production' }),
+  owner: msg({ id: 'dashboard.role.owner', message: 'Owner' }),
+  admin: msg({ id: 'dashboard.role.admin', message: 'Admin' }),
+  member: msg({ id: 'dashboard.role.member', message: 'Member' }),
+} as const;
 
 interface EnvironmentPolicyEditorProps {
   environment: WorkspaceEnvironmentDto & { originLabel: string };
@@ -41,6 +130,7 @@ export function EnvironmentPolicyEditor({
   workspaceId,
   onUpdated,
 }: EnvironmentPolicyEditorProps): React.ReactElement {
+  const { _ } = useLingui();
   const current = environment;
   const form = useForm<EnvironmentPolicyFormValues>({
     defaultValues: environmentPolicyFormValues(environment),
@@ -94,7 +184,7 @@ export function EnvironmentPolicyEditor({
           setFeedback({ kind: 'notice', message: result.message });
         },
         onError: () => {
-          setFeedback({ kind: 'error', message: 'Unable to update the environment policy.' });
+          setFeedback({ kind: 'error', message: _(COPY.unableToUpdate) });
         },
       },
     );
@@ -104,31 +194,33 @@ export function EnvironmentPolicyEditor({
 
   return (
     <details className="border-t border-border pt-3">
-      <summary className="cursor-pointer text-sm font-semibold">Environment policy</summary>
+      <summary className="cursor-pointer text-sm font-semibold">{_(COPY.title)}</summary>
       <div className="mt-3 grid gap-4">
         <div className="grid gap-2 sm:grid-cols-2">
           <label className="grid gap-1.5 text-xs font-medium">
-            Name
+            {_(COPY.name)}
             <Input
               disabled={!canManage || pending}
               {...form.register('name', { required: true, maxLength: 120 })}
             />
           </label>
           <div className="grid gap-1.5 text-xs font-medium">
-            Pipeline
+            {_(COPY.pipeline)}
             <div className="flex h-9 items-center gap-2 rounded-md border border-input px-3">
               <Badge variant="outline">{PIPELINE_POSITION[current.kind]}</Badge>
-              <span className="capitalize">{current.kind}</span>
+              <span>{_(COPY[current.kind])}</span>
             </div>
           </div>
         </div>
 
         <label className="grid gap-1.5 text-xs font-medium">
-          Exact origins, one per line
+          {_(COPY.exactOrigins)}
           <textarea
             className="min-h-20 rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:opacity-50"
             disabled={!canManage || pending}
-            {...form.register('origins', { validate: validateOriginLines })}
+            {...form.register('origins', {
+              validate: (value) => validateOriginLines(value, _),
+            })}
           />
         </label>
 
@@ -136,13 +228,13 @@ export function EnvironmentPolicyEditor({
           <PolicyCheckbox
             checked={values.enabled}
             disabled={!canManage || pending}
-            label="Environment enabled"
+            label={_(COPY.environmentEnabled)}
             onChange={(checked) => form.setValue('enabled', checked, { shouldDirty: true })}
           />
           <PolicyCheckbox
             checked={current.kind === 'production' ? false : values.authoringEnabled}
             disabled={!canManage || pending || current.kind === 'production'}
-            label="Authoring enabled"
+            label={_(COPY.authoringEnabled)}
             onChange={(checked) =>
               form.setValue('authoringEnabled', checked, { shouldDirty: true })
             }
@@ -150,7 +242,7 @@ export function EnvironmentPolicyEditor({
           <PolicyCheckbox
             checked={current.kind === 'production' ? false : releasePolicy.allowDirectPublish}
             disabled={!canManage || pending || current.kind === 'production'}
-            label="Direct publish"
+            label={_(COPY.directPublish)}
             onChange={(checked) =>
               form.setValue(
                 'releasePolicy',
@@ -162,7 +254,7 @@ export function EnvironmentPolicyEditor({
           <PolicyCheckbox
             checked={current.kind === 'production' ? true : releasePolicy.requireSourceVerification}
             disabled={!canManage || pending || current.kind === 'production'}
-            label="Require source verification"
+            label={_(COPY.requireVerification)}
             onChange={(checked) =>
               form.setValue(
                 'releasePolicy',
@@ -174,7 +266,7 @@ export function EnvironmentPolicyEditor({
           <PolicyCheckbox
             checked={releasePolicy.requiredApprovalCount === 1}
             disabled={!canManage || pending}
-            label="Require one approval"
+            label={_(COPY.requireApproval)}
             onChange={(checked) =>
               form.setValue(
                 'releasePolicy',
@@ -187,25 +279,34 @@ export function EnvironmentPolicyEditor({
 
         {current.kind === 'production' ? (
           <label className="grid gap-1.5 text-xs font-medium">
-            Promotion source
-            <select
-              className="h-9 rounded-md border border-input bg-background px-3 text-sm disabled:opacity-50"
+            {_(COPY.promotionSource)}
+            <Select
               disabled={!canManage || pending}
-              {...form.register('promotionSourceEnvironmentId')}
+              onValueChange={(value) =>
+                form.setValue('promotionSourceEnvironmentId', value === 'none' ? '' : value, {
+                  shouldDirty: true,
+                })
+              }
+              value={values.promotionSourceEnvironmentId || 'none'}
             >
-              <option value="">Choose an earlier environment</option>
-              {sourceOptions.map((candidate) => (
-                <option key={candidate.id} value={candidate.id}>
-                  {candidate.name} · {candidate.id}
-                </option>
-              ))}
-            </select>
+              <SelectTrigger>
+                <SelectValue placeholder={_(COPY.chooseEarlier)} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">{_(COPY.chooseEarlier)}</SelectItem>
+                {sourceOptions.map((candidate) => (
+                  <SelectItem key={candidate.id} value={candidate.id}>
+                    {candidate.name} · {candidate.id}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </label>
         ) : null}
 
         <RolePolicy
           disabled={!canManage || pending}
-          label="Publisher roles"
+          label={_(COPY.publisherRoles)}
           onChange={(publisherRoles) =>
             form.setValue(
               'releasePolicy',
@@ -218,7 +319,7 @@ export function EnvironmentPolicyEditor({
         />
         <RolePolicy
           disabled={!canManage || pending}
-          label="Rollback roles"
+          label={_(COPY.rollbackRoles)}
           onChange={(rollbackRoles) =>
             form.setValue(
               'releasePolicy',
@@ -231,7 +332,7 @@ export function EnvironmentPolicyEditor({
         />
         <RolePolicy
           disabled={!canManage || pending}
-          label="Unpublish roles"
+          label={_(COPY.unpublishRoles)}
           onChange={(unpublishRoles) =>
             form.setValue(
               'releasePolicy',
@@ -247,7 +348,7 @@ export function EnvironmentPolicyEditor({
           <PolicyCheckbox
             checked={releasePolicy.separationOfDuties.requireSeparateVerifier}
             disabled={!canManage || pending}
-            label="Separate verifier"
+            label={_(COPY.separateVerifier)}
             onChange={(requireSeparateVerifier) =>
               form.setValue(
                 'releasePolicy',
@@ -265,7 +366,7 @@ export function EnvironmentPolicyEditor({
           <PolicyCheckbox
             checked={releasePolicy.separationOfDuties.requireSeparateApprover}
             disabled={!canManage || pending}
-            label="Separate approver"
+            label={_(COPY.separateApprover)}
             onChange={(requireSeparateApprover) =>
               form.setValue(
                 'releasePolicy',
@@ -283,16 +384,14 @@ export function EnvironmentPolicyEditor({
         </div>
 
         <div className="flex items-center justify-between gap-3">
-          <p className="text-xs text-muted-foreground">
-            Policy changes never publish or recompile an artifact.
-          </p>
+          <p className="text-xs text-muted-foreground">{_(COPY.noPublishSideEffect)}</p>
           <Button
             disabled={!canManage || pending}
             onClick={() => void save()}
             type="button"
             variant="outline"
           >
-            {pending ? 'Saving…' : 'Save policy'}
+            {_(pending ? COPY.saving : COPY.save)}
           </Button>
         </div>
         {feedback ? (
@@ -309,7 +408,7 @@ export function EnvironmentPolicyEditor({
         ) : null}
         {form.formState.errors.name || form.formState.errors.origins ? (
           <p className="text-xs text-destructive" role="alert">
-            Enter a name and no more than 100 exact origins.
+            {_(COPY.invalid)}
           </p>
         ) : null}
       </div>
@@ -354,6 +453,7 @@ function RolePolicy<TRole extends 'owner' | 'admin' | 'member'>({
   roles: readonly TRole[];
   selected: readonly TRole[];
 }): React.ReactElement {
+  const { _ } = useLingui();
   const toggle = (role: TRole, checked: boolean): void => {
     const next = checked
       ? [...new Set([...selected, role])]
@@ -369,7 +469,7 @@ function RolePolicy<TRole extends 'owner' | 'admin' | 'member'>({
             key={role}
             checked={selected.includes(role)}
             disabled={disabled}
-            label={role}
+            label={_(COPY[role])}
             onChange={(checked) => toggle(role, checked)}
           />
         ))}
@@ -403,10 +503,13 @@ function environmentPolicyFormValues(
   };
 }
 
-function validateOriginLines(value: string): true | string {
+function validateOriginLines(
+  value: string,
+  translate: ReturnType<typeof useLingui>['_'],
+): true | string {
   const origins = normalizeOriginLines(value);
-  if (origins.length > 100) return 'No more than 100 origins are allowed.';
-  return origins.every(isExactHttpOrigin) || 'Every origin must be an exact HTTP(S) origin.';
+  if (origins.length > 100) return translate(COPY.tooManyOrigins);
+  return origins.every(isExactHttpOrigin) || translate(COPY.invalidOrigin);
 }
 
 function isExactHttpOrigin(value: string): boolean {

@@ -20,6 +20,53 @@ export const AUTHORING_TARGET_PICKER_CSS = `
     padding: 4px;
   }
 
+  .ui-searchable-select-content {
+    display: grid;
+    width: var(--radix-popover-trigger-width);
+    min-width: var(--radix-popover-trigger-width);
+    max-height: min(280px, var(--radix-popover-content-available-height));
+    grid-template-rows: auto minmax(0, 1fr);
+    padding: 4px;
+  }
+
+  .ui-select-search-field {
+    display: flex;
+    height: var(--lq-control-sm);
+    align-items: center;
+    gap: var(--lq-space-2);
+    border: 1px solid var(--lq-color-border);
+    border-radius: var(--lq-radius-xs);
+    background: var(--lq-color-panel);
+    color: var(--lq-color-muted);
+    padding: 0 var(--lq-space-2);
+  }
+
+  .ui-select-search-field:focus-within {
+    border-color: var(--lq-color-primary);
+    box-shadow: 0 0 0 2px var(--lq-color-primary-soft);
+  }
+
+  .ui-select-search-field input {
+    min-width: 0;
+    flex: 1;
+    border: 0;
+    outline: 0;
+    background: transparent;
+    color: var(--lq-color-ink);
+    font-size: 12px;
+    padding: 0;
+  }
+
+  .ui-select-search-field input::placeholder {
+    color: var(--lq-color-subtle);
+  }
+
+  .ui-searchable-select-options {
+    max-height: min(232px, calc(var(--radix-popover-content-available-height) - 48px));
+    overflow-y: auto;
+    padding-top: 4px;
+  }
+
   .ui-select-item {
     position: relative;
     display: flex;
@@ -37,6 +84,26 @@ export const AUTHORING_TARGET_PICKER_CSS = `
   .ui-select-item[data-highlighted] {
     background: var(--lq-color-primary-soft);
     color: var(--lq-color-primary);
+  }
+
+  .ui-searchable-select-option {
+    width: 100%;
+    border: 0;
+    background: transparent;
+    text-align: left;
+  }
+
+  .ui-searchable-select-option:hover,
+  .ui-searchable-select-option.active {
+    background: var(--lq-color-primary-soft);
+    color: var(--lq-color-primary);
+  }
+
+  .ui-select-empty {
+    color: var(--lq-color-muted);
+    font-size: 12px;
+    padding: var(--lq-space-3) var(--lq-space-2);
+    text-align: center;
   }
 
   .ui-select-indicator {

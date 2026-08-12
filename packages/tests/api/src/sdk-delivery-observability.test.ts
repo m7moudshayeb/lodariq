@@ -12,11 +12,12 @@ import {
   type WorkspaceEnvironment,
 } from '@lodariq/database';
 import {
+  COMPILED_ARTIFACT_SCHEMA_VERSION,
   COMPILER_VERSION,
   DEFAULT_EXPERIENCE_APPEARANCE,
   LODARIQ_ACCESSIBLE_FALLBACK_THEME_V1,
   RENDERER_CONTRACT_VERSION,
-  type CompiledDocumentV2,
+  type CompiledDocumentV3,
 } from '@lodariq/schema';
 
 const WORKSPACE_ID = 'wk_delivery_observability';
@@ -69,9 +70,7 @@ describe('SDK delivery observability', () => {
       headers: { origin: 'https://delivery.customer.example' },
     });
     expect(preflight.statusCode).toBe(204);
-    expect(preflight.headers['access-control-allow-headers']).toContain(
-      RETRY_ATTEMPT_HEADER,
-    );
+    expect(preflight.headers['access-control-allow-headers']).toContain(RETRY_ATTEMPT_HEADER);
 
     const active = await app.inject({
       method: 'GET',
@@ -411,7 +410,7 @@ function productionEnvironment(): WorkspaceEnvironment {
 function createArtifact(): PersistedCompiledArtifact {
   const theme = structuredClone(LODARIQ_ACCESSIBLE_FALLBACK_THEME_V1);
   const contentWithoutHash = {
-    artifactSchemaVersion: '2' as const,
+    artifactSchemaVersion: COMPILED_ARTIFACT_SCHEMA_VERSION,
     documentId: ACTIVE_DOCUMENT_ID,
     type: 'tour' as const,
     schemaVersion: '1.0.0' as const,
@@ -423,8 +422,9 @@ function createArtifact(): PersistedCompiledArtifact {
     appearance: DEFAULT_EXPERIENCE_APPEARANCE,
     targets: [],
     steps: [],
+    localization: { defaultLocale: 'en', defaultTitle: 'Observed tour', variants: [] },
   };
-  const compiled: CompiledDocumentV2 = {
+  const compiled: CompiledDocumentV3 = {
     ...contentWithoutHash,
     contentHash: contentHash(contentWithoutHash),
   };

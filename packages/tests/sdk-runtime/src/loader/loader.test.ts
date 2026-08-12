@@ -12,7 +12,7 @@ import {
   RENDERER_CONTRACT_VERSION,
   type ActiveManifestPointerV2,
   type CompiledDocument,
-  type CompiledDocumentV2,
+  type CompiledDocumentV3,
 } from '@lodariq/schema';
 import {
   fetchInstallContext,
@@ -45,7 +45,7 @@ const compiledDoc: CompiledDocument = {
   steps: [],
 };
 
-const publicCompiledDoc: CompiledDocumentV2 = {
+const publicCompiledDoc: CompiledDocumentV3 = {
   artifactSchemaVersion: COMPILED_ARTIFACT_SCHEMA_VERSION,
   documentId: 'doc_public_compatible',
   type: 'tour',
@@ -59,6 +59,7 @@ const publicCompiledDoc: CompiledDocumentV2 = {
   appearance: DEFAULT_EXPERIENCE_APPEARANCE,
   targets: [],
   steps: [],
+  localization: { defaultLocale: 'en', defaultTitle: 'Public tour', variants: [] },
 };
 
 const publicArtifactManifest: ActiveManifestPointerV2 = {
@@ -666,7 +667,7 @@ describe('loader config (PRD §6.2, §9.2)', () => {
 
   it('accepts a closed multi-document V2 delivery index for the resolved environment', async () => {
     const manifest = (documentId: string, hashCharacter: string) => ({
-      schemaVersion: '2',
+      schemaVersion: COMPILED_ARTIFACT_SCHEMA_VERSION,
       workspaceId: 'wk_public_delivery',
       environmentId: 'env_staging',
       documentId,
@@ -1307,7 +1308,7 @@ describe('loader config (PRD §6.2, §9.2)', () => {
     );
     const mismatchedArtifact = {
       ...publicCompiledDoc,
-      rendererContractVersion: '3',
+      rendererContractVersion: '2',
     } as unknown as CompiledDocument;
 
     await expect(api.playTour(mismatchedArtifact)).rejects.toThrow(

@@ -14,6 +14,7 @@ import {
 import {
   createAuthClientSource,
   proxyOwnedAuthRequest,
+  rejectUnsafeMutation,
 } from '../../../../apps/dashboard/src/lib/auth-proxy';
 import {
   isPublicSignupEnabled,
@@ -263,6 +264,34 @@ describe('@lodariq/dashboard owned authentication', () => {
     expect(upstreamFetch).not.toHaveBeenCalled();
   });
 
+  it('checks mutations against the browser-facing host instead of the server bind address', async () => {
+    const localRequest = new Request('http://0.0.0.0:3000/api/locale', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        host: 'localhost:3000',
+        origin: 'http://localhost:3000',
+        'sec-fetch-site': 'same-origin',
+      },
+      body: '{}',
+    });
+    const forwardedRequest = new Request('http://0.0.0.0:3000/api/locale', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        host: 'dashboard.internal:3000',
+        origin: 'https://app.lodariq.io',
+        'sec-fetch-site': 'same-origin',
+        'x-forwarded-host': 'app.lodariq.io',
+        'x-forwarded-proto': 'https',
+      },
+      body: '{}',
+    });
+
+    await expect(rejectUnsafeMutation(localRequest)).resolves.toBeNull();
+    await expect(rejectUnsafeMutation(forwardedRequest)).resolves.toBeNull();
+  });
+
   it('redacts upstream authentication failures', async () => {
     vi.stubGlobal(
       'fetch',
@@ -318,7 +347,7 @@ describe('@lodariq/dashboard owned authentication', () => {
     expect(limited.headers.get('retry-after')).toBe('75');
     await expect(limited.json()).resolves.toEqual({
       error: 'rate_limited',
-      message: 'Too many attempts; try again later.',
+      message: 'Too many attempts. Wait a little and try again.',
     });
 
     const unavailable = await proxyOwnedAuthRequest(
@@ -327,7 +356,7 @@ describe('@lodariq/dashboard owned authentication', () => {
     );
     await expect(unavailable.json()).resolves.toEqual({
       error: 'signup_unavailable',
-      message: 'Account creation is not available in this deployment.',
+      message: 'Account creation is not available right now.',
     });
 
     const invalid = await proxyOwnedAuthRequest(
@@ -336,7 +365,7 @@ describe('@lodariq/dashboard owned authentication', () => {
     );
     await expect(invalid.json()).resolves.toEqual({
       error: 'verification_invalid',
-      message: 'Verification link is invalid or expired.',
+      message: 'The verification link is invalid or expired.',
     });
   });
 
@@ -358,7 +387,7 @@ describe('@lodariq/dashboard owned authentication', () => {
     expect(signUp.status).toBe(503);
     await expect(signUp.json()).resolves.toEqual({
       error: 'signup_unavailable',
-      message: 'Account creation is not available in this deployment.',
+      message: 'Account creation is not available right now.',
     });
     expect(recovery.status).toBe(503);
     await expect(recovery.json()).resolves.toEqual({
@@ -415,6 +444,9 @@ describe('@lodariq/dashboard owned authentication', () => {
     );
     expect(read('apps/dashboard/src/components/dashboard-navigation.tsx')).toContain(
       '<ThemeToggle />',
+    );
+    expect(read('apps/dashboard/src/components/dashboard-navigation.tsx')).toContain(
+      '<LanguageSwitcher compact />',
     );
   });
 });

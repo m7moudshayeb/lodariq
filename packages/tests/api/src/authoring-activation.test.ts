@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { createApiApp } from '@lodariq/api';
 import {
   createInMemoryControlPlaneRepository,
@@ -894,9 +894,13 @@ describe('activation grant document sessions', () => {
 
   it('loads and saves the activated draft with only the editor-owned session bearer', async () => {
     const repository = createRepository();
+    const translateTexts = vi.fn(async ({ texts }: { texts: readonly string[] }) =>
+      texts.map((text) => `FR:${text}`),
+    );
     const app = createApiApp({
       repository,
       creatorModule,
+      authoringTranslationProvider: { translateTexts },
       observability: {
         emit: () => {
           throw new Error('telemetry unavailable');
@@ -915,8 +919,9 @@ describe('activation grant document sessions', () => {
     });
     const session = created.json<{
       authoringSessionToken: string;
-      context: { documentId: string };
+      context: { documentId: string; translation?: { state: string } };
     }>();
+    expect(session.context.translation).toEqual({ state: 'available' });
     const editorHeaders = {
       origin: 'https://editor.lodariq.io',
       [AUTHORING_SESSION_HEADER]: session.authoringSessionToken,
@@ -962,6 +967,23 @@ describe('activation grant document sessions', () => {
       'Persisted from the hosted editor',
     );
     expect(saved.body).not.toContain(session.authoringSessionToken);
+
+    const translated = await app.inject({
+      method: 'POST',
+      url: '/v1/authoring/document/translation',
+      headers: editorHeaders,
+      payload: {
+        document: updatedDocument,
+        targetLocale: 'fr',
+        mode: 'missing',
+      },
+    });
+    expect(translated.statusCode, translated.body).toBe(200);
+    expect(translated.json<{ document: LodariqDocument }>().document.localization).toMatchObject({
+      defaultLocale: 'en',
+      variants: [{ locale: 'fr', title: 'FR:Persisted from the hosted editor' }],
+    });
+    expect(translateTexts).toHaveBeenCalledOnce();
 
     const reloaded = await app.inject({
       method: 'GET',

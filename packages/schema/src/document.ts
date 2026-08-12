@@ -2,6 +2,7 @@ import { Type, type Static } from '@sinclair/typebox';
 import { DocumentStatus, DocumentType, Environment } from './common';
 import { LodariqBlock } from './block';
 import { ExperienceAppearance, ThemeBinding } from './brand';
+import { DocumentLocalization } from './document-localization';
 import { Target } from './target';
 
 export const TRIGGER_TYPES = ['manual', 'pageLoad', 'urlMatch', 'event'] as const;
@@ -116,6 +117,8 @@ export const LodariqDocument = Type.Object(
     appearance: Type.Optional(ExperienceAppearance),
     targets: Type.Array(Target),
     blocks: Type.Array(Type.Ref(LodariqBlock)),
+    /** Sparse customer-authored locale variants keyed by stable block identity. */
+    localization: Type.Optional(Type.Ref(DocumentLocalization)),
     schemaVersion: Type.String(),
   },
   { $id: 'LodariqDocument', additionalProperties: false },
