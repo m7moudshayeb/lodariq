@@ -1,5 +1,23 @@
-import type { CompiledDocument, ManifestPointer, SdkInstallContext } from '@lodariq/schema';
+import type {
+  ActiveManifestPointerV2,
+  CompiledDocument,
+  CustomerBrandTokenRegistration,
+  ManifestPointer,
+  SdkInstallContext,
+} from '@lodariq/schema';
 import type { IdentifyTraits, RuntimeConfig, LodariqRuntime } from '../runtime';
+import type {
+  AuthoringPreviewPlaybackOptions,
+  TourPlayerLike,
+  TourPlaybackOptions,
+  TourRendererModule,
+} from './contracts';
+
+export type {
+  AuthoringPreviewPlaybackOptions,
+  TourPlaybackOptions,
+  TourRendererModule,
+} from './contracts';
 
 /**
  * Tiny install-script bootstrap (PRD §6.2, §9.2).
@@ -19,41 +37,40 @@ export interface LoaderConfig {
 
 export interface LodariqBrowserApi {
   manifest: ManifestPointer;
+  /** Active pointers exposed by the permanent multi-document public install. */
+  readonly manifests?: readonly ManifestPointer[];
+  readonly defaultDocumentId?: string;
   authoring: {
     enabled: boolean;
     iframeSrc?: string;
   };
   identify: (traits: IdentifyTraits) => void;
+  /** Present on the permanent public installation; values remain in page memory only. */
+  registerBrandTokens?: (registration: CustomerBrandTokenRegistration) => void;
   track: (name: string, props?: Record<string, unknown>) => void;
   playTour: (doc?: CompiledDocument, options?: TourPlaybackOptions) => Promise<void>;
+  playTourById?: (documentId: string, options?: TourPlaybackOptions) => Promise<void>;
+  /** Creator-only, side-effect-free preview playback on verified non-production installs. */
+  playAuthoringPreview?: (
+    doc: CompiledDocument,
+    options: AuthoringPreviewPlaybackOptions,
+  ) => Promise<void>;
+  /** Stops only the preview owned by this creator session. */
+  stopAuthoringPreview?: (ownerId: string) => void;
   openAuthoring: () => Promise<void>;
   stopTour: () => void;
 }
 
-export interface TourPlaybackOptions {
-  initialStepId?: string;
-  initialStepIndex?: number;
-}
-
-interface TourPlayerLike {
-  start: () => void;
-  stop: () => void;
-}
-
-interface TourRendererModule {
-  TourPlayer: new (
-    doc: CompiledDocument,
-    options?: TourPlaybackOptions & {
-      onBeforeStepChange?: (index: number, step: CompiledDocument['steps'][number]) => void;
-      onComplete?: () => void;
-      onDismiss?: () => void;
-      onStepChange?: (index: number, step: CompiledDocument['steps'][number]) => void;
-    },
-  ) => TourPlayerLike;
-}
-
 interface RuntimeModule {
   LodariqRuntime: new (config: RuntimeConfig) => LodariqRuntime;
+}
+
+interface AuthoringPreviewController {
+  play: (
+    document: CompiledDocument,
+    playbackOptions: AuthoringPreviewPlaybackOptions,
+  ) => Promise<void>;
+  stop: (ownerId: string) => void;
 }
 
 export interface InstallOptions {
@@ -65,8 +82,15 @@ export interface InstallOptions {
     manifest: ManifestPointer,
     context: SdkInstallContext,
   ) => Promise<CompiledDocument>;
+  /** Resolves document-specific manifests for multi-document public delivery. */
+  resolveManifestForDocument?: (documentId: string) => ManifestPointer | undefined;
+  /** Exact public artifact pins; required for every permanent-install playback. */
+  resolveArtifactManifestForDocument?: (documentId: string) => ActiveManifestPointerV2 | undefined;
   openAuthoring?: (manifest: ManifestPointer, context: SdkInstallContext) => Promise<void>;
   observability?: RuntimeConfig['observability'];
+  publicInstallationId?: string;
+  /** Server-issued active pointers used as analytics assertions, never identity. */
+  analyticsPointers?: RuntimeConfig['analyticsPointers'];
 }
 
 declare global {
@@ -75,25 +99,17 @@ declare global {
   }
 }
 
-const DEFAULT_CDN_ORIGIN = 'https://cdn.lodariq.com';
+const DEFAULT_CDN_ORIGIN = 'https://cdn.lodariq.io';
 const ENVIRONMENTS = new Set<LoaderConfig['environment']>(['development', 'staging', 'production']);
-const TOUR_RESUME_PREFIX = 'lodariq:tour-resume:';
-const TOUR_RESUME_MAX_AGE_MS = 30 * 60 * 1000;
 const AUTO_INSTALL_ATTRIBUTE = 'data-lodariq-installed';
-
-interface TourResumeState {
-  documentId: string;
-  manifestVersion: string;
-  contentHash: string;
-  stepId: string;
-  updatedAt: number;
-}
 
 function isEnvironment(value: string): value is LoaderConfig['environment'] {
   return ENVIRONMENTS.has(value as LoaderConfig['environment']);
 }
 
 export function readConfigFromScript(script: HTMLScriptElement): LoaderConfig | null {
+  if (script.hasAttribute('data-installation')) return null;
+
   const workspaceId =
     script.dataset['workspace']?.trim() || script.dataset['lodariqWorkspace']?.trim();
   const rawEnvironment =
@@ -182,15 +198,8 @@ export async function fetchCurrentDocument(
   url: string,
   clientToken?: string,
 ): Promise<CompiledDocument> {
-  if (!url.trim()) throw new Error('Lodariq current document URL is required');
-  const headers: Record<string, string> = {};
-  if (clientToken) headers['authorization'] = `Bearer ${clientToken}`;
-  const response = await fetch(url, {
-    credentials: 'omit',
-    headers,
-  });
-  if (!response.ok) throw new Error(`Lodariq current document fetch failed: ${response.status}`);
-  return (await response.json()) as CompiledDocument;
+  const { fetchCompiledDocument } = await import('./current-document');
+  return fetchCompiledDocument(url, clientToken);
 }
 
 function assertCompiledDocument(value: unknown): asserts value is CompiledDocument {
@@ -204,73 +213,8 @@ function assertCompiledDocument(value: unknown): asserts value is CompiledDocume
   }
 }
 
-function resumeKey(config: Pick<RuntimeConfig, 'workspaceId' | 'environment'>): string {
-  return `${TOUR_RESUME_PREFIX}${config.workspaceId}:${config.environment}`;
-}
-
-function readResumeState(
-  config: Pick<RuntimeConfig, 'workspaceId' | 'environment'>,
-  manifest: ManifestPointer,
-): TourResumeState | null {
-  try {
-    const raw = sessionStorage.getItem(resumeKey(config));
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as Partial<TourResumeState>;
-    const fresh =
-      typeof parsed.updatedAt === 'number' &&
-      Date.now() - parsed.updatedAt <= TOUR_RESUME_MAX_AGE_MS;
-    if (
-      fresh &&
-      parsed.documentId === manifest.documentId &&
-      parsed.manifestVersion === manifest.currentVersion &&
-      typeof parsed.contentHash === 'string' &&
-      typeof parsed.stepId === 'string'
-    ) {
-      return parsed as TourResumeState;
-    }
-    clearResumeState(config);
-  } catch {
-    clearResumeState(config);
-  }
-  return null;
-}
-
-function writeResumeState(
-  config: Pick<RuntimeConfig, 'workspaceId' | 'environment'>,
-  manifest: ManifestPointer,
-  doc: CompiledDocument,
-  step: CompiledDocument['steps'][number],
-): void {
-  try {
-    sessionStorage.setItem(
-      resumeKey(config),
-      JSON.stringify({
-        documentId: doc.documentId,
-        manifestVersion: manifest.currentVersion,
-        contentHash: doc.contentHash,
-        stepId: step.id,
-        updatedAt: Date.now(),
-      }),
-    );
-  } catch {
-    /* Tour resume is best-effort and must never break the host app. */
-  }
-}
-
-function clearResumeState(config: Pick<RuntimeConfig, 'workspaceId' | 'environment'>): void {
-  try {
-    sessionStorage.removeItem(resumeKey(config));
-  } catch {
-    /* Ignore unavailable storage. */
-  }
-}
-
-function resumeMatchesTour(resume: TourResumeState, tour: CompiledDocument): boolean {
-  return (
-    resume.documentId === tour.documentId &&
-    resume.contentHash === tour.contentHash &&
-    tour.steps.some((step) => step.id === resume.stepId)
-  );
+function isArtifactCompatibilityError(error: unknown): boolean {
+  return error instanceof Error && error.name === 'LodariqArtifactCompatibilityError';
 }
 
 /**
@@ -314,53 +258,74 @@ export async function installLodariq(
     ...(options.observability ? { observability: options.observability } : {}),
     ...(context.ingestUrl ? { ingestUrl: context.ingestUrl } : {}),
     ...(config.clientToken ? { authorizationToken: config.clientToken } : {}),
+    ...(options.publicInstallationId ? { publicInstallationId: options.publicInstallationId } : {}),
+    analyticsPointers: options.analyticsPointers ?? context.analyticsPointers,
   };
   const runtime = new runtimeModule.LodariqRuntime(runtimeConfig);
   const authoring = createAuthoringStatus(config, context, Boolean(openAuthoringFn));
   let activeTour: TourPlayerLike | null = null;
+  let authoringPreviewController: Promise<AuthoringPreviewController> | null = null;
+  let loadedAuthoringPreviewController: AuthoringPreviewController | null = null;
   let tourRequestId = 0;
 
   async function playTour(
     doc?: CompiledDocument,
     playbackOptions: TourPlaybackOptions = {},
   ): Promise<void> {
+    let playbackManifest = manifest;
     try {
       const requestId = ++tourRequestId;
-      const rawEnvironments = (manifest as ManifestPointer & { environments?: unknown }).environments;
+      const rawEnvironments = (manifest as ManifestPointer & { environments?: unknown })
+        .environments;
       if (
         rawEnvironments !== undefined &&
         (!Array.isArray(rawEnvironments) || !rawEnvironments.includes(context.environment))
       ) {
         throw new Error(`Lodariq manifest is not eligible for ${context.environment}`);
       }
-      const tour = doc ?? (await loadCurrentTourFn?.(manifest, context));
+      const candidate = doc ?? (await loadCurrentTourFn?.(manifest, context));
       if (requestId !== tourRequestId) return;
-      assertCompiledDocument(tour);
+      assertCompiledDocument(candidate);
+      const tour = candidate;
+      const documentId = tour.documentId;
+      playbackManifest = options.resolveManifestForDocument?.(documentId) ?? manifest;
+      if ('artifactSchemaVersion' in tour || 'rendererContractVersion' in tour || 'theme' in tour) {
+        const artifactManifest = options.resolveArtifactManifestForDocument?.(documentId);
+        const { assertPlaybackArtifact } = await import('./artifact-validation');
+        assertPlaybackArtifact(tour, Boolean(options.publicInstallationId), artifactManifest);
+      }
       stopTour();
       const { TourPlayer } = await loadTourRendererFn();
       if (requestId !== tourRequestId) return;
       const player = new TourPlayer(tour, {
         ...playbackOptions,
-        onBeforeStepChange: (_index, step) => writeResumeState(runtimeConfig, manifest, tour, step),
-        onStepChange: (_index, step) => writeResumeState(runtimeConfig, manifest, tour, step),
+        onBeforeStepChange: (_index, step) => runtime.writeTourResume(playbackManifest, tour, step),
+        onStepChange: (_index, step) => runtime.writeTourResume(playbackManifest, tour, step),
+        onTargetResolution: (step, result) => {
+          runtime.trackTargetResolution(documentId, step.id, step.targetId, result);
+          playbackOptions.onTargetResolution?.(step, result);
+        },
         onComplete: () => {
-          if (activeTour === player) activeTour = null;
-          clearResumeState(runtimeConfig);
-          runtime.track('tour_completed', { documentId: tour.documentId });
+          activeTour = null;
+          runtime.endTour('tour_completed', documentId);
         },
         onDismiss: () => {
-          if (activeTour === player) activeTour = null;
-          clearResumeState(runtimeConfig);
-          runtime.track('tour_dismissed', { documentId: tour.documentId });
+          activeTour = null;
+          runtime.endTour('tour_dismissed', documentId);
+        },
+        onSkip: () => {
+          activeTour = null;
+          runtime.endTour('tour_skipped', documentId);
         },
       });
       activeTour = player;
-      runtime.track('tour_started', { documentId: tour.documentId });
+      runtime.track('tour_started', { documentId });
       player.start();
     } catch (error) {
+      if (isArtifactCompatibilityError(error)) throw error;
       runtime.reportError(error, {
         phase: 'playback',
-        documentId: manifest.documentId,
+        documentId: playbackManifest.documentId,
         ...(context.correlationId ? { correlationId: context.correlationId } : {}),
       });
       throw error;
@@ -374,30 +339,36 @@ export async function installLodariq(
     await openAuthoringFn(manifest, context);
   }
 
+  async function playAuthoringPreview(
+    doc: CompiledDocument,
+    playbackOptions: AuthoringPreviewPlaybackOptions,
+  ): Promise<void> {
+    const controller = await getAuthoringPreviewController();
+    await controller.play(doc, playbackOptions);
+  }
+
+  function stopAuthoringPreview(ownerIdValue: string): void {
+    if (loadedAuthoringPreviewController) {
+      loadedAuthoringPreviewController.stop(ownerIdValue);
+      return;
+    }
+    void getAuthoringPreviewController().then((controller) => controller.stop(ownerIdValue));
+  }
+
+  function getAuthoringPreviewController() {
+    authoringPreviewController ??= import('./authoring-preview')
+      .then((module) => module.createAuthoringPreviewController(loadTourRendererFn))
+      .then((controller) => {
+        loadedAuthoringPreviewController = controller;
+        return controller;
+      });
+    return authoringPreviewController;
+  }
+
   function stopTour(): void {
     activeTour?.stop();
     activeTour = null;
-    clearResumeState(runtimeConfig);
-  }
-
-  async function resumeTourIfPending(): Promise<void> {
-    const resume = readResumeState(runtimeConfig, manifest);
-    if (!resume) return;
-    if (!loadCurrentTourFn) {
-      clearResumeState(runtimeConfig);
-      return;
-    }
-    try {
-      const tour = await loadCurrentTourFn(manifest, context);
-      assertCompiledDocument(tour);
-      if (!resumeMatchesTour(resume, tour)) {
-        clearResumeState(runtimeConfig);
-        return;
-      }
-      await playTour(tour, { initialStepId: resume.stepId });
-    } catch {
-      clearResumeState(runtimeConfig);
-    }
+    runtime.clearTourResume();
   }
 
   const api: LodariqBrowserApi = {
@@ -406,12 +377,17 @@ export async function installLodariq(
     identify: (traits) => runtime.identify(traits),
     track: (name, props) => runtime.track(name, props),
     playTour,
+    ...(context.environment !== 'production' ? { playAuthoringPreview, stopAuthoringPreview } : {}),
     openAuthoring,
     stopTour,
   };
 
   window.Lodariq = api;
-  await resumeTourIfPending();
+  const resume = runtime.readTourResume(manifest);
+  if (resume) {
+    const { resumePendingTour } = await import('./resume-tour');
+    await resumePendingTour(resume, runtime, manifest, context, loadCurrentTourFn, playTour);
+  }
   return api;
 }
 

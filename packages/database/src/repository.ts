@@ -1,223 +1,99 @@
-import type {
-  AnalyticsEvent,
-  CompiledDocument,
-  Environment,
-  LodariqDocument,
-} from '@lodariq/schema';
-import { assertWorkspaceScope } from './rls';
+import { type LodariqDocument } from '@lodariq/schema';
+import { normalizeWorkspaceEnvironments, type WorkspaceEnvironment } from './domains/environments';
+import {
+  type BrandDriftRunRecord,
+  type ProductStyleApplicationRecord,
+  type StyleSourceRecord,
+  type VisualCheckRunRecord,
+  type WorkspaceThemeRecord,
+  type WorkspaceThemeVersionRecord,
+} from './domains/themes';
+import {
+  type AuthOutboxRecord,
+  type AuthSessionRecord,
+  type EmailVerificationChallengeRecord,
+  type PasswordCredentialRecord,
+  type SetPasswordChallengeRecord,
+  type SetPasswordOutboxRecord,
+  type UserRecord,
+  type WorkspaceMembershipRecord,
+} from './domains/identity';
+import {
+  type AuthoringActivationGrantRecord,
+  type AuthoringAuthorizationRequestRecord,
+  type AuthoringSessionRecord,
+  type EnvironmentTokenRecord,
+  type PublicSdkBootstrapGrantRecord,
+  type PublicSdkInstallationOriginRecord,
+  type PublicSdkInstallationRecord,
+} from './domains/sdk-authoring';
+import {
+  type PersistedCompiledArtifact,
+  type PersistedDocumentDeployment,
+  type PersistedDocumentVersion,
+  type PersistedPublication,
+  type PersistedReleaseOperation,
+  type PublicationVerificationRecord,
+  type ReleaseApprovalRecord,
+} from './domains/releases';
+import {
+  assertAuthoritativeAnalyticsEvent,
+  type PersistedAnalyticsEventRecord,
+} from './domains/analytics';
+import type { ControlPlaneRepository } from './domains/control-plane-repository';
+import {
+  assertProductStyleApplicationIntegrity,
+  compareStyleSourceOrdinal,
+} from './domains/product-style';
+import { clone } from './domains/in-memory-helpers';
+import { InMemoryRepositoryAnalytics } from './in-memory/analytics';
 
-export interface WorkspaceEnvironment {
-  id: string;
-  workspaceId: string;
-  kind: Environment;
-  name: string;
-  originAllowlist: string[];
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface EnvironmentTokenRecord {
-  id: string;
-  workspaceId: string;
-  environmentId: string;
-  environment: Environment;
-  name: string;
-  tokenHash?: string;
-  tokenPrefix: string;
-  clientToken?: string;
-  createdAt: string;
-  revokedAt?: string | null;
-}
-
-export interface AuthoringSessionRecord {
-  id: string;
-  workspaceId: string;
-  environmentId: string;
-  environment: Environment;
-  documentId: string;
-  correlationId: string;
-  tokenHash?: string;
-  iframeSrc: string;
-  createdByUserId: string;
-  createdAt: string;
-  expiresAt: string;
-  revokedAt?: string | null;
-}
-
-export interface UserRecord {
-  id: string;
-  clerkUserId: string;
-  email: string;
-  name?: string | null;
-  createdAt: string;
-}
-
-export interface WorkspaceMembershipRecord {
-  workspaceId: string;
-  userId: string;
-  role: string;
-  createdAt: string;
-}
-
-export interface DocumentSummary {
-  id: string;
-  workspaceId: string;
-  type: LodariqDocument['type'];
-  status: LodariqDocument['status'];
-  title: string;
-  schemaVersion: string;
-  createdByUserId: string | null;
-  updatedByUserId: string | null;
-  updatedAt: string;
-  latestContentHash?: string;
-  publications: DocumentPublicationSummary[];
-}
-
-export interface DocumentPublicationSummary {
-  environmentId: string;
-  environment: Environment;
-  contentHash: string;
-  publishedAt: string;
-}
-
-export interface PersistedDocumentVersion {
-  id: string;
-  workspaceId: string;
-  documentId: string;
-  version: number;
-  canonical: LodariqDocument;
-  createdByUserId: string | null;
-  createdAt: string;
-}
-
-export interface PersistedCompiledArtifact {
-  id: string;
-  workspaceId: string;
-  documentId: string;
-  documentVersionId?: string | null;
-  contentHash: string;
-  compilerVersion: string;
-  compiled: CompiledDocument;
-  createdAt: string;
-}
-
-export interface PersistedPublication {
-  id: string;
-  workspaceId: string;
-  correlationId: string;
-  environmentId: string;
-  environment: Environment;
-  documentId: string;
-  documentVersionId?: string | null;
-  compiledArtifactId: string;
-  contentHash: string;
-  publishedByUserId: string | null;
-  publishedAt: string;
-  artifact: PersistedCompiledArtifact;
-}
-
-export interface PersistedDocument {
-  document: LodariqDocument;
-  createdByUserId: string | null;
-  updatedByUserId: string | null;
-  updatedAt: string;
-  latestArtifact?: PersistedCompiledArtifact;
-}
-
-export interface SaveDocumentInput {
-  workspaceId: string;
-  document: LodariqDocument;
-  actorUserId: string;
-  artifact?: CompiledDocument;
-}
-
-export interface CreateEnvironmentTokenInput {
-  workspaceId: string;
-  environmentId: string;
-  name: string;
-  tokenHash: string;
-  tokenPrefix: string;
-  clientToken?: string;
-  actorUserId: string;
-}
-
-export interface CreateAuthoringSessionInput {
-  workspaceId: string;
-  environmentId: string;
-  documentId: string;
-  correlationId: string;
-  tokenHash: string;
-  iframeSrc: string;
-  expiresAt: string;
-  actorUserId: string;
-}
-
-export interface PublishCompiledArtifactInput {
-  workspaceId: string;
-  environmentId: string;
-  correlationId: string;
-  artifact: PersistedCompiledArtifact;
-  actorUserId: string;
-}
-
-export interface IngestEventsInput {
-  workspaceId: string;
-  events: AnalyticsEvent[];
-}
-
-export interface ResolvedEnvironmentToken extends EnvironmentTokenRecord {
-  originAllowlist: string[];
-}
-
-export interface ControlPlaneRepository {
-  resolveWorkspaceMembership(
-    workspaceId: string,
-    userId: string,
-  ): Promise<WorkspaceMembershipRecord | null>;
-  listDocuments(workspaceId: string): Promise<DocumentSummary[]>;
-  getDocument(workspaceId: string, documentId: string): Promise<PersistedDocument | null>;
-  listDocumentVersions(
-    workspaceId: string,
-    documentId: string,
-  ): Promise<PersistedDocumentVersion[]>;
-  saveDocument(input: SaveDocumentInput): Promise<PersistedDocument>;
-  getLatestCompiledArtifact(workspaceId: string): Promise<PersistedCompiledArtifact | null>;
-  getCurrentPublication(
-    workspaceId: string,
-    environmentId: string,
-  ): Promise<PersistedPublication | null>;
-  getCurrentPublishedArtifact(
-    workspaceId: string,
-    environmentId: string,
-  ): Promise<PersistedCompiledArtifact | null>;
-  publishCompiledArtifact(input: PublishCompiledArtifactInput): Promise<PersistedPublication>;
-  listEnvironments(workspaceId: string): Promise<WorkspaceEnvironment[]>;
-  listEnvironmentTokens(workspaceId: string): Promise<EnvironmentTokenRecord[]>;
-  resolveEnvironmentToken(tokenHash: string): Promise<ResolvedEnvironmentToken | null>;
-  createEnvironmentToken(input: CreateEnvironmentTokenInput): Promise<EnvironmentTokenRecord>;
-  revokeEnvironmentToken(
-    workspaceId: string,
-    tokenId: string,
-    actorUserId: string,
-  ): Promise<EnvironmentTokenRecord | null>;
-  createAuthoringSession(input: CreateAuthoringSessionInput): Promise<AuthoringSessionRecord>;
-  resolveAuthoringSession(
-    workspaceId: string,
-    tokenHash: string,
-  ): Promise<AuthoringSessionRecord | null>;
-  ingestEvents(input: IngestEventsInput): Promise<number>;
-}
+export * from './domains/environments';
+export * from './domains/themes';
+export * from './domains/identity';
+export * from './domains/sdk-authoring';
+export * from './domains/releases';
+export * from './domains/documents';
+export * from './domains/analytics';
+export * from './domains/control-plane-repository';
+export * from './domains/release-recovery';
+export * from './domains/authoring-policy';
+export * from './domains/product-style';
+export * from './domains/theme-policy';
 
 export interface InMemoryControlPlaneSeed {
   users?: UserRecord[];
+  workspaces?: Array<{ id: string; name: string; createdAt: string; updatedAt: string }>;
   workspaceMemberships?: WorkspaceMembershipRecord[];
+  passwordCredentials?: PasswordCredentialRecord[];
+  authSessions?: AuthSessionRecord[];
+  emailVerificationChallenges?: EmailVerificationChallengeRecord[];
+  authOutbox?: AuthOutboxRecord[];
+  setPasswordChallenges?: SetPasswordChallengeRecord[];
+  setPasswordOutbox?: SetPasswordOutboxRecord[];
   documents?: LodariqDocument[];
   environments?: WorkspaceEnvironment[];
+  publicSdkInstallations?: PublicSdkInstallationRecord[];
+  publicSdkInstallationOrigins?: PublicSdkInstallationOriginRecord[];
+  publicSdkBootstrapGrants?: PublicSdkBootstrapGrantRecord[];
+  authoringAuthorizationRequests?: AuthoringAuthorizationRequestRecord[];
+  authoringActivationGrants?: AuthoringActivationGrantRecord[];
   environmentTokens?: EnvironmentTokenRecord[];
   authoringSessions?: AuthoringSessionRecord[];
   documentVersions?: PersistedDocumentVersion[];
   compiledArtifacts?: PersistedCompiledArtifact[];
   publications?: PersistedPublication[];
+  documentDeployments?: PersistedDocumentDeployment[];
+  releaseOperations?: PersistedReleaseOperation[];
+  themes?: WorkspaceThemeRecord[];
+  themeVersions?: WorkspaceThemeVersionRecord[];
+  visualCheckRuns?: VisualCheckRunRecord[];
+  styleSources?: StyleSourceRecord[];
+  productStyleApplications?: ProductStyleApplicationRecord[];
+  brandDriftRuns?: BrandDriftRunRecord[];
+  publicationVerifications?: PublicationVerificationRecord[];
+  releaseApprovals?: ReleaseApprovalRecord[];
+  analyticsEvents?: PersistedAnalyticsEventRecord[];
 }
 
 export function createInMemoryControlPlaneRepository(
@@ -226,23 +102,35 @@ export function createInMemoryControlPlaneRepository(
   return new InMemoryControlPlaneRepository(seed);
 }
 
-class InMemoryControlPlaneRepository implements ControlPlaneRepository {
-  private readonly documents = new Map<string, PersistedDocument>();
-  private readonly documentVersions = new Map<string, PersistedDocumentVersion[]>();
-  private readonly environments = new Map<string, WorkspaceEnvironment>();
-  private readonly environmentTokens = new Map<string, EnvironmentTokenRecord>();
-  private readonly authoringSessions = new Map<string, AuthoringSessionRecord>();
-  private readonly users = new Map<string, UserRecord>();
-  private readonly workspaceMemberships = new Map<string, WorkspaceMembershipRecord>();
-  private readonly publications = new Map<string, PersistedPublication[]>();
-  private readonly events: Array<{ workspaceId: string; event: AnalyticsEvent }> = [];
-
+class InMemoryControlPlaneRepository
+  extends InMemoryRepositoryAnalytics
+  implements ControlPlaneRepository
+{
   constructor(seed: InMemoryControlPlaneSeed) {
-    for (const environment of seed.environments ?? []) {
+    super();
+    for (const environment of normalizeWorkspaceEnvironments(seed.environments ?? [])) {
       this.environments.set(this.key(environment.workspaceId, environment.id), clone(environment));
+    }
+    for (const installation of seed.publicSdkInstallations ?? []) {
+      this.publicSdkInstallations.set(installation.installationId, clone(installation));
+    }
+    for (const origin of seed.publicSdkInstallationOrigins ?? []) {
+      this.publicSdkInstallationOrigins.push(clone(origin));
+    }
+    for (const grant of seed.publicSdkBootstrapGrants ?? []) {
+      this.publicSdkBootstrapGrants.set(grant.id, clone(grant));
+    }
+    for (const request of seed.authoringAuthorizationRequests ?? []) {
+      this.authoringAuthorizationRequests.set(request.requestId, clone(request));
+    }
+    for (const grant of seed.authoringActivationGrants ?? []) {
+      this.authoringActivationGrants.set(grant.grantId, clone(grant));
     }
     for (const user of seed.users ?? []) {
       this.users.set(user.id, clone(user));
+    }
+    for (const workspace of seed.workspaces ?? []) {
+      this.workspaces.set(workspace.id, clone(workspace));
     }
     for (const membership of seed.workspaceMemberships ?? []) {
       this.workspaceMemberships.set(
@@ -250,14 +138,90 @@ class InMemoryControlPlaneRepository implements ControlPlaneRepository {
         clone(membership),
       );
     }
+    for (const credential of seed.passwordCredentials ?? []) {
+      this.passwordCredentials.set(credential.emailNormalized, clone(credential));
+    }
+    for (const session of seed.authSessions ?? []) {
+      this.identitySessions.set(session.tokenHash, clone(session));
+    }
+    for (const challenge of seed.emailVerificationChallenges ?? []) {
+      this.emailVerificationChallenges.set(challenge.id, clone(challenge));
+    }
+    for (const message of seed.authOutbox ?? []) {
+      this.authOutbox.set(message.id, clone(message));
+    }
+    for (const challenge of seed.setPasswordChallenges ?? []) {
+      this.setPasswordChallenges.set(challenge.id, clone(challenge));
+    }
+    for (const message of seed.setPasswordOutbox ?? []) {
+      this.setPasswordOutbox.set(message.id, clone(message));
+    }
     for (const token of seed.environmentTokens ?? []) {
       this.environmentTokens.set(this.key(token.workspaceId, token.id), clone(token));
     }
     for (const session of seed.authoringSessions ?? []) {
       this.authoringSessions.set(this.key(session.workspaceId, session.id), clone(session));
     }
+    for (const version of seed.themeVersions ?? []) {
+      this.appendThemeVersion(version);
+    }
+    for (const theme of seed.themes ?? []) {
+      this.themes.set(this.key(theme.workspaceId, theme.id), {
+        ...clone(theme),
+        activeVersion: this.findThemeVersion(theme.workspaceId, theme.id, theme.activeVersionId),
+      });
+    }
+    for (const run of seed.visualCheckRuns ?? []) {
+      this.appendVisualCheckRun(run);
+    }
+    for (const source of seed.styleSources ?? []) {
+      this.appendStyleSource(source);
+    }
+    for (const application of seed.productStyleApplications ?? []) {
+      const sources = (
+        this.styleSources.get(this.key(application.workspaceId, application.themeId)) ?? []
+      )
+        .filter((source) => source.proposalId === application.receipt.proposalId)
+        .sort(compareStyleSourceOrdinal);
+      assertProductStyleApplicationIntegrity(application, sources);
+      this.productStyleApplications.set(
+        this.productStyleApplicationKey(
+          application.workspaceId,
+          application.themeId,
+          application.receipt.proposalId,
+        ),
+        clone(application),
+      );
+    }
+    for (const run of seed.brandDriftRuns ?? []) {
+      this.appendBrandDriftRun(run);
+    }
+    for (const artifact of seed.compiledArtifacts ?? []) {
+      this.rememberSeedArtifact(artifact);
+    }
     for (const publication of seed.publications ?? []) {
+      this.rememberSeedArtifact(publication.artifact);
       this.appendPublication(publication);
+    }
+    for (const deployment of seed.documentDeployments ?? []) {
+      this.documentDeployments.set(
+        this.key(deployment.workspaceId, deployment.environmentId, deployment.documentId),
+        clone(deployment),
+      );
+    }
+    for (const operation of seed.releaseOperations ?? []) {
+      this.releaseOperations.set(this.releaseOperationKey(operation), clone(operation));
+    }
+    for (const verification of seed.publicationVerifications ?? []) {
+      this.appendPublicationVerification(verification);
+    }
+    for (const approval of seed.releaseApprovals ?? []) {
+      this.appendReleaseApproval(approval);
+    }
+    for (const event of seed.analyticsEvents ?? []) {
+      const { id: _id, ingestedAt: _ingestedAt, ...authoritativeEvent } = event;
+      assertAuthoritativeAnalyticsEvent(authoritativeEvent, event.workspaceId, event.environmentId);
+      this.analyticsEvents.push(clone(event));
     }
     for (const version of seed.documentVersions ?? []) {
       this.appendDocumentVersion(version);
@@ -275,7 +239,7 @@ class InMemoryControlPlaneRepository implements ControlPlaneRepository {
           createdAt: new Date().toISOString(),
         });
       }
-      const latestArtifact = (seed.compiledArtifacts ?? [])
+      const latestArtifact = [...this.compiledArtifactsByIdentity.values()]
         .filter(
           (artifact) =>
             artifact.workspaceId === document.workspaceId && artifact.documentId === document.id,
@@ -290,349 +254,4 @@ class InMemoryControlPlaneRepository implements ControlPlaneRepository {
       });
     }
   }
-
-  async resolveWorkspaceMembership(
-    workspaceId: string,
-    userId: string,
-  ): Promise<WorkspaceMembershipRecord | null> {
-    const direct = this.workspaceMemberships.get(this.key(workspaceId, userId));
-    if (direct) return clone(direct);
-    const internalUser = [...this.users.values()].find((user) => user.clerkUserId === userId);
-    if (!internalUser) return null;
-    const membership = this.workspaceMemberships.get(this.key(workspaceId, internalUser.id));
-    return membership ? clone(membership) : null;
-  }
-
-  async listDocuments(workspaceId: string): Promise<DocumentSummary[]> {
-    return [...this.documents.values()]
-      .filter((entry) => entry.document.workspaceId === workspaceId)
-      .map((entry) => ({
-        id: entry.document.id,
-        workspaceId: entry.document.workspaceId,
-        type: entry.document.type,
-        status: entry.document.status,
-        title: entry.document.title,
-        schemaVersion: entry.document.schemaVersion,
-        createdByUserId: entry.createdByUserId,
-        updatedByUserId: entry.updatedByUserId,
-        updatedAt: entry.updatedAt,
-        ...(entry.latestArtifact?.contentHash
-          ? { latestContentHash: entry.latestArtifact.contentHash }
-          : {}),
-        publications: this.listDocumentPublicationSummaries(
-          entry.document.workspaceId,
-          entry.document.id,
-        ),
-      }))
-      .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
-  }
-
-  async getDocument(workspaceId: string, documentId: string): Promise<PersistedDocument | null> {
-    const entry = this.documents.get(this.key(workspaceId, documentId));
-    return entry ? clone(entry) : null;
-  }
-
-  async listDocumentVersions(
-    workspaceId: string,
-    documentId: string,
-  ): Promise<PersistedDocumentVersion[]> {
-    return (this.documentVersions.get(this.key(workspaceId, documentId)) ?? [])
-      .map((version) => clone(version))
-      .sort((a, b) => b.version - a.version);
-  }
-
-  async saveDocument(input: SaveDocumentInput): Promise<PersistedDocument> {
-    assertWorkspaceScope(input.document.workspaceId, input.workspaceId);
-    const now = new Date().toISOString();
-    const existing = this.documents.get(this.key(input.workspaceId, input.document.id));
-    const documentVersion = this.createDocumentVersion(input, now);
-    const latestArtifact = input.artifact
-      ? this.createArtifact(
-          input.workspaceId,
-          input.document.id,
-          documentVersion.id,
-          input.artifact,
-          now,
-        )
-      : existing?.latestArtifact;
-    const next: PersistedDocument = {
-      document: clone(input.document),
-      createdByUserId: existing?.createdByUserId ?? input.actorUserId,
-      updatedByUserId: input.actorUserId,
-      updatedAt: now,
-      ...(latestArtifact ? { latestArtifact: clone(latestArtifact) } : {}),
-    };
-    this.documents.set(this.key(input.workspaceId, input.document.id), next);
-    return clone(next);
-  }
-
-  async getLatestCompiledArtifact(workspaceId: string): Promise<PersistedCompiledArtifact | null> {
-    const artifacts = [...this.documents.values()]
-      .map((entry) => entry.latestArtifact)
-      .filter((artifact): artifact is PersistedCompiledArtifact =>
-        Boolean(artifact && artifact.workspaceId === workspaceId),
-      )
-      .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-    return artifacts[0] ? clone(artifacts[0]) : null;
-  }
-
-  async getCurrentPublication(
-    workspaceId: string,
-    environmentId: string,
-  ): Promise<PersistedPublication | null> {
-    const latest = (
-      this.publications.get(this.key(workspaceId, environmentId)) ?? []
-    ).reduce<PersistedPublication | null>((current, publication) => {
-      if (!current) return publication;
-      return publication.publishedAt.localeCompare(current.publishedAt) >= 0
-        ? publication
-        : current;
-    }, null);
-    return latest ? clone(latest) : null;
-  }
-
-  async getCurrentPublishedArtifact(
-    workspaceId: string,
-    environmentId: string,
-  ): Promise<PersistedCompiledArtifact | null> {
-    const publication = await this.getCurrentPublication(workspaceId, environmentId);
-    return publication ? clone(publication.artifact) : null;
-  }
-
-  async publishCompiledArtifact(
-    input: PublishCompiledArtifactInput,
-  ): Promise<PersistedPublication> {
-    assertWorkspaceScope(input.artifact.workspaceId, input.workspaceId);
-    const environment = this.environments.get(this.key(input.workspaceId, input.environmentId));
-    if (!environment) {
-      throw new Error('environment not found in workspace');
-    }
-    if (!this.documents.has(this.key(input.workspaceId, input.artifact.documentId))) {
-      throw new Error('document not found in workspace');
-    }
-    if (input.artifact.compiled.documentId !== input.artifact.documentId) {
-      throw new Error('compiled artifact document mismatch');
-    }
-
-    const now = new Date().toISOString();
-    const publication: PersistedPublication = {
-      id: `pub_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`,
-      workspaceId: input.workspaceId,
-      correlationId: input.correlationId,
-      environmentId: input.environmentId,
-      environment: environment.kind,
-      documentId: input.artifact.documentId,
-      documentVersionId: input.artifact.documentVersionId,
-      compiledArtifactId: input.artifact.id,
-      contentHash: input.artifact.contentHash,
-      publishedByUserId: input.actorUserId,
-      publishedAt: now,
-      artifact: clone(input.artifact),
-    };
-    this.appendPublication(publication);
-    return clone(publication);
-  }
-
-  async listEnvironments(workspaceId: string): Promise<WorkspaceEnvironment[]> {
-    return [...this.environments.values()]
-      .filter((environment) => environment.workspaceId === workspaceId)
-      .map((environment) => clone(environment))
-      .sort((a, b) => a.kind.localeCompare(b.kind));
-  }
-
-  async listEnvironmentTokens(workspaceId: string): Promise<EnvironmentTokenRecord[]> {
-    return [...this.environmentTokens.values()]
-      .filter((token) => token.workspaceId === workspaceId)
-      .map((token) => clone(token))
-      .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-  }
-
-  async resolveEnvironmentToken(tokenHash: string): Promise<ResolvedEnvironmentToken | null> {
-    const token = [...this.environmentTokens.values()].find(
-      (candidate) => candidate.tokenHash === tokenHash && !candidate.revokedAt,
-    );
-    if (!token) return null;
-    const environment = this.environments.get(this.key(token.workspaceId, token.environmentId));
-    if (!environment) return null;
-    return clone({
-      ...token,
-      environment: environment.kind,
-      originAllowlist: environment.originAllowlist,
-    });
-  }
-
-  async createEnvironmentToken(
-    input: CreateEnvironmentTokenInput,
-  ): Promise<EnvironmentTokenRecord> {
-    const environment = this.environments.get(this.key(input.workspaceId, input.environmentId));
-    if (!environment) {
-      throw new Error('environment not found in workspace');
-    }
-    const token: EnvironmentTokenRecord = {
-      id: `envtok_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`,
-      workspaceId: input.workspaceId,
-      environmentId: input.environmentId,
-      environment: environment.kind,
-      name: input.name,
-      tokenHash: input.tokenHash,
-      tokenPrefix: input.tokenPrefix,
-      ...(input.clientToken ? { clientToken: input.clientToken } : {}),
-      createdAt: new Date().toISOString(),
-      revokedAt: null,
-    };
-    this.environmentTokens.set(this.key(token.workspaceId, token.id), token);
-    return clone(token);
-  }
-
-  async revokeEnvironmentToken(
-    workspaceId: string,
-    tokenId: string,
-    _actorUserId: string,
-  ): Promise<EnvironmentTokenRecord | null> {
-    const key = this.key(workspaceId, tokenId);
-    const token = this.environmentTokens.get(key);
-    if (!token) return null;
-
-    const revokedAt = token.revokedAt ?? new Date().toISOString();
-    const revokedToken = { ...token, revokedAt };
-    this.environmentTokens.set(key, revokedToken);
-    return clone(revokedToken);
-  }
-
-  async createAuthoringSession(
-    input: CreateAuthoringSessionInput,
-  ): Promise<AuthoringSessionRecord> {
-    const environment = this.environments.get(this.key(input.workspaceId, input.environmentId));
-    if (!environment) {
-      throw new Error('environment not found in workspace');
-    }
-    const document = this.documents.get(this.key(input.workspaceId, input.documentId));
-    if (!document) {
-      throw new Error('document not found in workspace');
-    }
-    const session: AuthoringSessionRecord = {
-      id: `authsess_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`,
-      workspaceId: input.workspaceId,
-      environmentId: input.environmentId,
-      environment: environment.kind,
-      documentId: input.documentId,
-      correlationId: input.correlationId,
-      tokenHash: input.tokenHash,
-      iframeSrc: input.iframeSrc,
-      createdByUserId: input.actorUserId,
-      createdAt: new Date().toISOString(),
-      expiresAt: input.expiresAt,
-      revokedAt: null,
-    };
-    this.authoringSessions.set(this.key(session.workspaceId, session.id), session);
-    return clone(session);
-  }
-
-  async resolveAuthoringSession(
-    workspaceId: string,
-    tokenHash: string,
-  ): Promise<AuthoringSessionRecord | null> {
-    const session = [...this.authoringSessions.values()].find(
-      (candidate) =>
-        candidate.workspaceId === workspaceId &&
-        candidate.tokenHash === tokenHash &&
-        !candidate.revokedAt &&
-        Date.parse(candidate.expiresAt) > Date.now(),
-    );
-    return session ? clone(session) : null;
-  }
-
-  async ingestEvents(input: IngestEventsInput): Promise<number> {
-    for (const event of input.events) {
-      this.events.push({ workspaceId: input.workspaceId, event: clone(event) });
-    }
-    return input.events.length;
-  }
-
-  private createDocumentVersion(
-    input: SaveDocumentInput,
-    createdAt: string,
-  ): PersistedDocumentVersion {
-    const key = this.key(input.workspaceId, input.document.id);
-    const existingVersions = this.documentVersions.get(key) ?? [];
-    const version = Math.max(0, ...existingVersions.map((entry) => entry.version)) + 1;
-    const documentVersion: PersistedDocumentVersion = {
-      id: `${input.document.id}_v_${version}`,
-      workspaceId: input.workspaceId,
-      documentId: input.document.id,
-      version,
-      canonical: clone(input.document),
-      createdByUserId: input.actorUserId,
-      createdAt,
-    };
-    this.appendDocumentVersion(documentVersion);
-    return documentVersion;
-  }
-
-  private appendDocumentVersion(version: PersistedDocumentVersion): void {
-    const key = this.key(version.workspaceId, version.documentId);
-    const versions = this.documentVersions.get(key) ?? [];
-    versions.push(clone(version));
-    this.documentVersions.set(key, versions);
-  }
-
-  private appendPublication(publication: PersistedPublication): void {
-    const key = this.key(publication.workspaceId, publication.environmentId);
-    const publications = this.publications.get(key) ?? [];
-    publications.push(clone(publication));
-    this.publications.set(key, publications);
-  }
-
-  private listDocumentPublicationSummaries(
-    workspaceId: string,
-    documentId: string,
-  ): DocumentPublicationSummary[] {
-    const latestByEnvironment = new Map<string, DocumentPublicationSummary>();
-    for (const publication of [...this.publications.values()].flat()) {
-      if (publication.workspaceId !== workspaceId || publication.documentId !== documentId) {
-        continue;
-      }
-      const current = latestByEnvironment.get(publication.environmentId);
-      if (current && current.publishedAt.localeCompare(publication.publishedAt) > 0) {
-        continue;
-      }
-      latestByEnvironment.set(publication.environmentId, {
-        environmentId: publication.environmentId,
-        environment: publication.environment,
-        contentHash: publication.contentHash,
-        publishedAt: publication.publishedAt,
-      });
-    }
-
-    return [...latestByEnvironment.values()].sort((a, b) =>
-      a.environment.localeCompare(b.environment),
-    );
-  }
-
-  private createArtifact(
-    workspaceId: string,
-    documentId: string,
-    documentVersionId: string,
-    compiled: CompiledDocument,
-    createdAt: string,
-  ): PersistedCompiledArtifact {
-    return {
-      id: `artifact_${compiled.contentHash.replace(/[^a-zA-Z0-9]/g, '_')}`,
-      workspaceId,
-      documentId,
-      documentVersionId,
-      contentHash: compiled.contentHash,
-      compilerVersion: compiled.compilerVersion,
-      compiled: clone(compiled),
-      createdAt,
-    };
-  }
-
-  private key(workspaceId: string, id: string): string {
-    return `${workspaceId}:${id}`;
-  }
-}
-
-function clone<T>(value: T): T {
-  return structuredClone(value);
 }

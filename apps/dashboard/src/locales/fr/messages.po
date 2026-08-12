@@ -1,0 +1,4209 @@
+msgid ""
+msgstr ""
+"POT-Creation-Date: 2026-08-12 13:42+0300\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: @lingui/cli\n"
+"Language: fr\n"
+"Project-Id-Version: \n"
+"Report-Msgid-Bugs-To: \n"
+"PO-Revision-Date: \n"
+"Last-Translator: \n"
+"Language-Team: \n"
+"Plural-Forms: \n"
+
+#. js-lingui-explicit-id
+#: src/components/release-recovery-panel.tsx:175
+msgid "dashboard.recovery.replayed"
+msgstr " Requête exacte rejouée en toute sécurité."
+
+#. js-lingui-explicit-id
+#: src/components/brand-system-panel.tsx:35
+msgid "dashboard.brand.panel.defaultSr"
+msgstr ", espace de travail par défaut"
+
+#. js-lingui-explicit-id
+#: src/components/release-recovery-panel.tsx:130
+msgid "dashboard.recovery.dialogLabel"
+msgstr "{action} {environment} version"
+
+#. js-lingui-explicit-id
+#: src/components/brand-system/brand-approval-review.tsx:64
+msgid "dashboard.brand.review.activeEnvironments"
+msgstr "{count, plural, one {# environnement actif} other {# environnements actifs}}"
+
+#. js-lingui-explicit-id
+#: src/components/brand-system/brand-impact-panel.tsx:18
+msgid "dashboard.brand.impact.activeEnvironments"
+msgstr "{count, plural, one {# environnement actif} other {# environnements actifs}} · prochaine publication requise"
+
+#. js-lingui-explicit-id
+#: src/components/brand-system/brand-system-view-helpers.ts:15
+msgid "dashboard.brand.experienceCount"
+msgstr "{count, plural, one {# expérience} other {# expériences}}"
+
+#. js-lingui-explicit-id
+#: src/components/document-debug-panel.tsx:60
+msgid "dashboard.support.blockerCount"
+msgstr "{count, plural, one {# élément} other {# éléments}}"
+
+#. js-lingui-explicit-id
+#: src/components/document-debug-panel.tsx:68
+msgid "dashboard.support.savedDrafts"
+msgstr "{count, plural, one {# version brouillon enregistrée} other {# versions brouillon enregistrées}}"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:273
+msgid "dashboard.viewModel.blockingChecks"
+msgstr "{count} bloquant les {count, plural, one {vérification} other {vérifications}}"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:778
+msgid "dashboard.action.ambiguousOrigins"
+msgstr "{count} mappages d'origine ont été ignorés car la même origine appartient à plusieurs environnements."
+
+#. js-lingui-explicit-id
+#: src/components/documents-table.tsx:59
+msgid "dashboard.documents.publishBlockers"
+msgstr "{count} publier des {count, plural, one {bloqueur} other {bloqueurs}}"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:123
+msgid "dashboard.viewModel.publishIssues"
+msgstr "{count} publier le {count, plural, one {numéro} other {numéros}}"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:424
+msgid "dashboard.viewModel.documentUpdated"
+msgstr "{document} a été mis à jour pour la dernière fois"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:428
+msgid "dashboard.viewModel.documentPublished"
+msgstr "{document} a été publié sur {environment}"
+
+#. js-lingui-explicit-id
+#: src/components/analytics-panel.tsx:103
+msgid "dashboard.analytics.aggregateFacts"
+msgstr "{environment} faits agrégés"
+
+#. js-lingui-explicit-id
+#: src/components/analytics-panel.tsx:71
+msgid "dashboard.analytics.namedResults"
+msgstr "{environment} résultats d'analyse"
+
+#. js-lingui-explicit-id
+#: src/components/analytics-panel.tsx:111
+msgid "dashboard.analytics.environmentOnly"
+msgstr "{environment} uniquement"
+
+#. js-lingui-explicit-id
+#: src/components/analytics-panel.tsx:107
+msgid "dashboard.analytics.environmentRows"
+msgstr "{environment} uniquement · {count} lignes agrégées au niveau de la version"
+
+#. js-lingui-explicit-id
+#: src/components/document-debug-panel.tsx:53
+msgid "dashboard.support.readyForReview"
+msgstr "{experience} est prêt à être examiné par l'assistance."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:127
+msgid "dashboard.viewModel.reviewBeforePublish"
+msgstr "{issues} doit être examiné avant que ce projet puisse être publié."
+
+#. js-lingui-explicit-id
+#: src/components/brand-system/brand-theme-editor.tsx:48
+msgid "dashboard.brand.editor.colorLabel"
+msgstr "{label} couleur"
+
+#. js-lingui-explicit-id
+#: src/components/brand-tour-comparison.tsx:43
+msgid "dashboard.brand.preview.frameLabel"
+msgstr "{label} : {detail} Aperçu du moteur de rendu de visite"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:471
+msgid "dashboard.viewModel.moreIssues"
+msgstr "{message} +{count} plus"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:440
+msgid "dashboard.viewModel.brandVersionApproved"
+msgstr "{theme} La version de la marque {version} a été approuvée"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:368
+msgid "dashboard.viewModel.themeCompiledSnapshot"
+msgstr "{theme} est compilé dans les versions en tant qu'instantané de marque immuable."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:398
+msgid "dashboard.viewModel.groundedInTokens"
+msgstr "{theme} repose sur des jetons clients sémantiques explicitement enregistrés."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:407
+msgid "dashboard.viewModel.privacySafeEvidence"
+msgstr "{theme} utilise des preuves de style produit respectueuses de la confidentialité et ne stocke aucun instantané CSS ou DOM brut."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:402
+msgid "dashboard.viewModel.proposedFromElement"
+msgstr "{theme} a été proposé à partir d'un élément de produit représentatif et examiné sémantiquement."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:351
+msgid "dashboard.viewModel.workspaceDraft"
+msgstr "{theme} brouillon de l'espace de travail"
+
+#. js-lingui-explicit-id
+#: src/components/documents-table.tsx:68
+msgid "dashboard.documents.count"
+msgstr "{visible} sur {total} expériences"
+
+#. js-lingui-explicit-id
+#: src/components/brand-system/brand-empty-state.tsx:27
+msgid "dashboard.brand.empty.sampleDescription"
+msgstr "Un point de départ clair et accessible pour chaque expérience produit."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:249
+msgid "dashboard.viewModel.productionMatchesNoDeliveryEvidence"
+msgstr "Une publication de production correspond au projet ; les preuves d’administration active ne sont pas encore disponibles."
+
+#. js-lingui-explicit-id
+#: src/components/dashboard-settings-views.tsx:46
+msgid "dashboard.environments.directPromotionDescription"
+msgstr "Un diffuseur peut promouvoir directement l’artefact vérifié exact."
+
+#. js-lingui-explicit-id
+#: src/components/brand-system-panel.tsx:57
+msgid "dashboard.brand.panel.askAdmin"
+msgstr "Un administrateur ou un propriétaire d'espace de travail approuve les versions et modifie la valeur par défaut."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:335
+msgid "dashboard.viewModel.accent"
+msgstr "Accent"
+
+#. js-lingui-explicit-id
+#: src/components/brand-system/brand-theme-editor.tsx:27
+msgid "dashboard.brand.editor.accent"
+msgstr "Accent"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:394
+msgid "dashboard.viewModel.accessibleFallbackShort"
+msgstr "Solution de secours accessible"
+
+#. js-lingui-explicit-id
+#: src/components/brand-tour-comparison.tsx:36
+msgid "dashboard.brand.preview.accessibleFallback"
+msgstr "Solution de secours accessible"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:856
+msgid "auth.page.accountAccess"
+msgstr "Accès au compte"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:873
+msgid "auth.page.signUpDisabled.eyebrow"
+msgstr "Création de compte"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:886
+msgid "auth.page.signUpDisabled.body"
+msgstr "La création de compte n'est pas disponible dans ce déploiement."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1043
+msgid "auth.error.signupUnavailable"
+msgstr "La création de compte n'est pas disponible pour le moment."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:91
+msgid "dashboard.common.active"
+msgstr "Actif"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:119
+msgid "dashboard.viewModel.active"
+msgstr "Actif"
+
+#. js-lingui-explicit-id
+#: src/components/release-recovery-panel.tsx:98
+msgid "dashboard.recovery.active"
+msgstr "Actif"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:228
+msgid "dashboard.viewModel.activePublicationAt"
+msgstr "Publication active {date}"
+
+#. js-lingui-explicit-id
+#: src/components/release-recovery-panel.tsx:212
+msgid "dashboard.recovery.activeAtAttempt"
+msgstr "Publication active lors de la tentative : {publication}"
+
+#. js-lingui-explicit-id
+#: src/components/release-recovery-panel.tsx:104
+msgid "dashboard.recovery.activePublication"
+msgstr "Publication active : {publication}"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:298
+msgid "dashboard.viewModel.activeNoProvenanceAt"
+msgstr "Actif depuis {date} · provenance exacte de la mise en scène indisponible"
+
+#. js-lingui-explicit-id
+#: src/components/release-recovery-panel.tsx:192
+msgid "dashboard.recovery.actualGeneration"
+msgstr "Génération réelle {generation}"
+
+#. js-lingui-explicit-id
+#: src/components/brand-system/brand-approval-review.tsx:43
+msgid "dashboard.brand.review.renderer"
+msgstr "Moteur de rendu de la tournée réelle"
+
+#. js-lingui-explicit-id
+#: src/i18n/server-feedback.ts:120
+msgid "dashboard.publishIssue.missingUrl.message"
+msgstr "Ajoutez une URL de page sécurisée avant la publication."
+
+#. js-lingui-explicit-id
+#: src/i18n/server-feedback.ts:30
+msgid "dashboard.publishIssue.emptyTour.message"
+msgstr "Ajoutez au moins une étape avant de publier."
+
+#. js-lingui-explicit-id
+#: src/i18n/server-feedback.ts:44
+msgid "dashboard.publishIssue.emptyStep.message"
+msgstr "Ajoutez du contenu à cette étape avant de publier."
+
+#. js-lingui-explicit-id
+#: src/components/sdk-snippet-panel.tsx:50
+msgid "dashboard.installation.oneLineDescription"
+msgstr "Ajoutez cette installation au shell de l'application partagée. L'environnement et l'accès à la création sont résolus à partir de l'origine exacte de la page."
+
+#. js-lingui-explicit-id
+#: src/i18n/server-feedback.ts:51
+msgid "dashboard.publishIssue.missingStepContent.message"
+msgstr "Ajoutez du contenu visible à cette étape avant de publier."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1076
+msgid "workspaceSelection.role.admin"
+msgstr "Administrateur"
+
+#. js-lingui-explicit-id
+#: src/components/dashboard-auth-controls.tsx:54
+msgid "dashboard.account.role.admin"
+msgstr "Administrateur"
+
+#. js-lingui-explicit-id
+#: src/components/environment-policy-editor.tsx:105
+msgid "dashboard.role.admin"
+msgstr "Administrateur"
+
+#. js-lingui-explicit-id
+#: src/components/sdk-snippet-panel.tsx:68
+msgid "dashboard.installation.advanced"
+msgstr "Avancé"
+
+#. js-lingui-explicit-id
+#: src/components/brand-system/brand-approval-review.tsx:60
+msgid "dashboard.brand.review.affected"
+msgstr "Expériences concernées"
+
+#. js-lingui-explicit-id
+#: src/components/brand-tour-comparison.tsx:42
+msgid "dashboard.brand.preview.after"
+msgstr "Après"
+
+#. js-lingui-explicit-id
+#: src/components/authoring-activation-popup.tsx:78
+msgid "dashboard.activation.approveDescription"
+msgstr "Autorisez votre espace de travail Lodariq à créer et modifier des visites sur {host}."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:956
+msgid "auth.form.existingAccount"
+msgstr "Vous avez déjà un compte Lodariq ?"
+
+#. js-lingui-explicit-id
+#: src/components/analytics-panel.tsx:216
+msgid "dashboard.analytics.target.ambiguous"
+msgstr "Ambigu"
+
+#. js-lingui-explicit-id
+#: src/components/analytics-panel.tsx:117
+msgid "dashboard.analytics.targetFailureBreakdown"
+msgstr "Ambigu {ambiguous} · Manquant {missing} · Besoin d'un examen {needsReview}."
+
+#. js-lingui-explicit-id
+#: src/i18n/server-feedback.ts:92
+msgid "dashboard.publishIssue.ambiguousTarget.label"
+msgstr "Cible ambiguë"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:18
+msgid "dashboard.navigation.analytics"
+msgstr "Analyses"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:62
+msgid "dashboard.page.analytics.title"
+msgstr "Analyse"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:799
+msgid "dashboard.action.analyticsUnavailable"
+msgstr "Les analyses sont temporairement indisponibles pour l'environnement sélectionné."
+
+#. js-lingui-explicit-id
+#: src/components/analytics-panel.tsx:89
+msgid "dashboard.analytics.unavailable"
+msgstr "Les analyses sont temporairement indisponibles pour l'environnement sélectionné."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:795
+msgid "dashboard.action.analyticsInvalid"
+msgstr "Les données analytiques n'ont pas pu être vérifiées. Aucun résultat partiel n'a été présenté."
+
+#. js-lingui-explicit-id
+#: src/components/analytics-panel.tsx:66
+msgid "dashboard.analytics.environment"
+msgstr "Environnement d'analyse"
+
+#. js-lingui-explicit-id
+#: src/components/analytics-panel.tsx:48
+msgid "dashboard.analytics.reporting"
+msgstr "Rapports analytiques"
+
+#. js-lingui-explicit-id
+#: src/components/analytics-panel.tsx:75
+msgid "dashboard.analytics.results"
+msgstr "Résultats d'analyse"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:109
+msgid "dashboard.viewModel.type.announcement"
+msgstr "Annonce"
+
+#. js-lingui-explicit-id
+#: src/i18n/server-feedback.ts:220
+msgid "dashboard.recovery.failure.operationInProgress"
+msgstr "Une autre opération de release est déjà en cours. Réessayez sous peu."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:28
+msgid "dashboard.navigation.appearance"
+msgstr "Apparence"
+
+#. js-lingui-explicit-id
+#: src/components/sdk-snippet-panel.tsx:48
+msgid "dashboard.installation.application"
+msgstr "Demande"
+
+#. js-lingui-explicit-id
+#: src/components/sdk-snippet-panel.tsx:28
+msgid "dashboard.installation.applicationName"
+msgstr "Nom de la demande"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:713
+msgid "dashboard.action.applicationNameRequired"
+msgstr "Le nom de l'application est requis."
+
+#. js-lingui-explicit-id
+#: src/components/brand-system-panel.tsx:53
+msgid "dashboard.brand.panel.adminApproval"
+msgstr "L'approbation et les modifications par défaut sont des actions explicites de l'administrateur de l'espace de travail."
+
+#. js-lingui-explicit-id
+#: src/components/brand-system/brand-approval-review.tsx:29
+msgid "dashboard.brand.review.safety"
+msgstr "L’approbation crée uniquement une version de marque immuable. Aucun document, artefact compilé ou environnement n'est publié à partir de cette revue."
+
+#. js-lingui-explicit-id
+#: src/components/brand-system/brand-approval-review.tsx:17
+msgid "dashboard.brand.review.badge"
+msgstr "Examen d'approbation"
+
+#. js-lingui-explicit-id
+#: src/components/brand-system/use-brand-system-controller.ts:43
+msgid "dashboard.brand.controller.reviewMissing"
+msgstr "L'examen d'approbation n'a pas été renvoyé."
+
+#. js-lingui-explicit-id
+#: src/components/brand-system/brand-approval-review.tsx:58
+msgid "dashboard.brand.review.approve"
+msgstr "Approuver la version"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:106
+msgid "dashboard.viewModel.status.approved"
+msgstr "Approuvé"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:373
+msgid "dashboard.viewModel.approvedAt"
+msgstr "Approuvé {date}"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:340
+msgid "dashboard.viewModel.approvedSource"
+msgstr "Source approuvée"
+
+#. js-lingui-explicit-id
+#: src/components/brand-system/use-brand-system-controller.ts:39
+msgid "dashboard.brand.controller.approvedMissing"
+msgstr "Le thème approuvé n'a pas été renvoyé."
+
+#. js-lingui-explicit-id
+#: src/components/brand-tour-comparison.tsx:32
+msgid "dashboard.brand.preview.approvedVersion"
+msgstr "Version approuvée {version}"
+
+#. js-lingui-explicit-id
+#: src/components/brand-system/brand-approval-review.tsx:57
+msgid "dashboard.brand.review.approving"
+msgstr "Approuver…"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:466
+msgid "dashboard.viewModel.archived"
+msgstr "Archivé"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:448
+msgid "dashboard.viewModel.artifactShort"
+msgstr "Artefact…{suffix}"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:261
+msgid "dashboard.viewModel.artifactIdentity"
+msgstr "Identité de l'artefact"
+
+#. js-lingui-explicit-id
+#: src/components/brand-system/brand-empty-state.tsx:19
+msgid "dashboard.brand.empty.permissions"
+msgstr "Demandez à un membre, un administrateur ou un propriétaire de l'espace de travail de le créer."
+
+#. js-lingui-explicit-id
+#: src/components/authoring-activation-popup.tsx:74
+msgid "dashboard.activation.approveTitle"
+msgstr "Auteur dans cette application ?"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:839
+msgid "auth.shell.authorOnce"
+msgstr "Créez une seule fois"
+
+#. js-lingui-explicit-id
+#: src/components/authoring-activation-popup.tsx:86
+msgid "dashboard.activation.approved"
+msgstr "Création approuvée"
+
+#. js-lingui-explicit-id
+#: src/components/authoring-activation-popup.tsx:47
+msgid "dashboard.activation.approvalFailed"
+msgstr "La création n'a pas pu être approuvée. Revenez au lanceur et réessayez."
+
+#. js-lingui-explicit-id
+#: src/components/environment-policy-editor.tsx:39
+msgid "dashboard.environmentPolicy.authoringEnabled"
+msgstr "Création activée"
+
+#. js-lingui-explicit-id
+#: src/components/sdk-snippet-panel.tsx:62
+msgid "dashboard.installation.authoringOn"
+msgstr "Création sur"
+
+#. js-lingui-explicit-id
+#: src/components/authoring-launch-panel.tsx:33
+msgid "dashboard.authoringLaunch.authoringSite"
+msgstr "Site de création"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:852
+msgid "auth.shell.back"
+msgstr "Retour"
+
+#. js-lingui-explicit-id
+#: src/components/brand-tour-comparison.tsx:59
+msgid "dashboard.brand.preview.back"
+msgstr "Retour"
+
+#. js-lingui-explicit-id
+#: src/components/brand-system/brand-theme-editor.tsx:42
+msgid "dashboard.brand.editor.radius.balanced"
+msgstr "Équilibré"
+
+#. js-lingui-explicit-id
+#: src/components/brand-tour-comparison.tsx:41
+msgid "dashboard.brand.preview.before"
+msgstr "Avant"
+
+#. js-lingui-explicit-id
+#: src/components/brand-system/brand-approval-review.tsx:42
+msgid "dashboard.brand.review.beforeAfter"
+msgstr "Avant et après"
+
+#. js-lingui-explicit-id
+#: src/components/brand-system/use-brand-system-controller.ts:31
+msgid "dashboard.brand.controller.draftMissing"
+msgstr "Le projet de marque n'a pas été retourné."
+
+#. js-lingui-explicit-id
+#: src/components/brand-system/brand-theme-editor.tsx:36
+msgid "dashboard.brand.editor.title"
+msgstr "Les incontournables de la marque"
+
+#. js-lingui-explicit-id
+#: src/components/brand-system/use-brand-system-controller.ts:23
+msgid "dashboard.brand.controller.impactMissing"
+msgstr "L’impact de la marque n’a pas été rendu."
+
+#. js-lingui-explicit-id
+#: src/components/brand-tour-comparison.tsx:47
+msgid "dashboard.brand.preview.documentTitle"
+msgstr "Revue de la marque Aperçu de la tournée"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:19
+msgid "dashboard.navigation.brandSystem"
+msgstr "Système de marque"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:67
+msgid "dashboard.page.brandSystem.title"
+msgstr "Système de marque"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:634
+msgid "dashboard.action.brandCreated"
+msgstr "Système de marque créé. Revoyez l’essentiel, puis approuvez la première version."
+
+#. js-lingui-explicit-id
+#: src/components/brand-system/use-brand-system-controller.ts:27
+msgid "dashboard.brand.controller.systemMissing"
+msgstr "Le système de marque n'a pas été renvoyé."
+
+#. js-lingui-explicit-id
+#: src/components/brand-tour-comparison.tsx:61
+msgid "dashboard.brand.preview.fallbackTheme"
+msgstr "Thème de la marque"
+
+#. js-lingui-explicit-id
+#: src/components/release-recovery-panel.tsx:129
+msgid "dashboard.recovery.brandTheme"
+msgstr "Thème de la marque"
+
+#. js-lingui-explicit-id
+#: src/components/brand-system-panel.tsx:34
+msgid "dashboard.brand.panel.themes"
+msgstr "Thèmes de marque"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:865
+msgid "auth.page.signUp.title"
+msgstr "Intégrez l’expérience à votre produit"
+
+#. js-lingui-explicit-id
+#: src/i18n/server-feedback.ts:64
+msgid "dashboard.publishIssue.brokenTarget.label"
+msgstr "Cible cassée"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:98
+msgid "dashboard.common.cancel"
+msgstr "Annuler"
+
+#. js-lingui-explicit-id
+#: src/components/authoring-activation-popup.tsx:85
+msgid "dashboard.activation.cancel"
+msgstr "Annuler"
+
+#. js-lingui-explicit-id
+#: src/components/release-recovery-panel.tsx:161
+msgid "dashboard.recovery.cancel"
+msgstr "Annuler"
+
+#. js-lingui-explicit-id
+#: src/components/brand-system/brand-theme-editor.tsx:45
+msgid "dashboard.brand.editor.cancel"
+msgstr "Annuler"
+
+#. js-lingui-explicit-id
+#: src/components/brand-system/brand-theme-editor.tsx:31
+msgid "dashboard.brand.editor.cardRadius"
+msgstr "Rayon de la carte"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:38
+msgid "dashboard.locale.change"
+msgstr "Changer la langue"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:472
+msgid "dashboard.viewModel.changesTracked"
+msgstr "Les modifications sont suivies"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:39
+msgid "dashboard.locale.changing"
+msgstr "Changer la langue"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:963
+msgid "auth.form.checkEmail"
+msgstr "Vérifiez votre courrier électronique"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:350
+msgid "dashboard.viewModel.checkedAt"
+msgstr "Vérifié {date}"
+
+#. js-lingui-explicit-id
+#: src/components/authoring-activation-popup.tsx:95
+msgid "dashboard.activation.checking"
+msgstr "Vérification de l'accès"
+
+#. js-lingui-explicit-id
+#: src/components/release-recovery-panel.tsx:162
+msgid "dashboard.recovery.checking"
+msgstr "Vérification de la version exacte…"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:113
+msgid "dashboard.viewModel.type.checklist"
+msgstr "Liste de contrôle"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:101
+msgid "dashboard.common.choose"
+msgstr "Choisissez"
+
+#. js-lingui-explicit-id
+#: src/components/brand-system/brand-theme-editor.tsx:49
+msgid "dashboard.brand.editor.choose"
+msgstr "Choisissez"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:642
+msgid "dashboard.action.chooseBrandTheme"
+msgstr "Choisissez un thème de marque."
+
+#. js-lingui-explicit-id
+#: src/i18n/server-feedback.ts:93
+msgid "dashboard.publishIssue.ambiguousTarget.message"
+msgstr "Choisissez un emplacement plus spécifique avant de publier."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:917
+msgid "auth.page.newPassword.title"
+msgstr "Choisissez un nouveau mot de passe"
+
+#. js-lingui-explicit-id
+#: src/components/release-recovery-panel.tsx:147
+msgid "dashboard.recovery.choosePublication"
+msgstr "Choisissez une publication antérieure"
+
+#. js-lingui-explicit-id
+#: src/i18n/server-feedback.ts:134
+msgid "dashboard.publishIssue.unsupportedAction.message"
+msgstr "Choisissez une action prise en charge avant de publier."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:756
+msgid "dashboard.action.chooseToken"
+msgstr "Choisissez un jeton."
+
+#. js-lingui-explicit-id
+#: src/i18n/server-feedback.ts:161
+msgid "dashboard.publishIssue.invalidPresentationArea.message"
+msgstr "Choisissez une zone valide à l'intérieur de l'élément sélectionné."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:803
+msgid "dashboard.action.chooseReleaseScope"
+msgstr "Choisissez un document et un environnement de publication valides."
+
+#. js-lingui-explicit-id
+#: src/components/authoring-launch-panel.tsx:34
+msgid "dashboard.authoringLaunch.chooseSite"
+msgstr "Choisissez un site auteur"
+
+#. js-lingui-explicit-id
+#: src/components/environment-policy-editor.tsx:59
+msgid "dashboard.environmentPolicy.chooseEarlier"
+msgstr "Choisissez un environnement antérieur"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:701
+msgid "dashboard.action.chooseEnvironment"
+msgstr "Choisissez un environnement."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1060
+msgid "workspaceSelection.description"
+msgstr "Choisissez un espace de travail existant ou créez-en un sans quitter cet écran."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:742
+msgid "dashboard.action.chooseExperience"
+msgstr "Choisissez une expérience."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:726
+msgid "dashboard.action.chooseInstallation"
+msgstr "Choisissez une installation du SDK."
+
+#. js-lingui-explicit-id
+#: src/components/document-debug-panel.tsx:33
+msgid "dashboard.support.chooseExperience"
+msgstr "Choisissez l'expérience"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:783
+msgid "dashboard.action.chooseAnalyticsEnvironment"
+msgstr "Choisissez un environnement d'analyse valide."
+
+#. js-lingui-explicit-id
+#: src/i18n/server-feedback.ts:86
+msgid "dashboard.publishIssue.unresolvedTarget.message"
+msgstr "Choisissez à nouveau l'emplacement sur la page où il apparaît."
+
+#. js-lingui-explicit-id
+#: src/i18n/server-feedback.ts:65
+msgid "dashboard.publishIssue.brokenTarget.message"
+msgstr "Choisissez à nouveau l'emplacement pour que Lodariq puisse le vérifier."
+
+#. js-lingui-explicit-id
+#: src/i18n/server-feedback.ts:103
+msgid "dashboard.publishIssue.buttonMissingAction.message"
+msgstr "Choisissez ce qui se passe lorsque ce bouton est sélectionné."
+
+#. js-lingui-explicit-id
+#: src/i18n/server-feedback.ts:113
+msgid "dashboard.publishIssue.linkMissingAction.message"
+msgstr "Choisissez ce qui se passe lorsque ce lien est sélectionné."
+
+#. js-lingui-explicit-id
+#: src/i18n/server-feedback.ts:58
+msgid "dashboard.publishIssue.missingTarget.message"
+msgstr "Choisissez où cette étape apparaît avant de publier."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1009
+msgid "auth.form.choosePassword"
+msgstr "Choisissez votre mot de passe"
+
+#. js-lingui-explicit-id
+#: src/components/documents-table.tsx:64
+msgid "dashboard.documents.clearSearch"
+msgstr "Recherche d'expérience claire"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:97
+msgid "dashboard.common.close"
+msgstr "Fermer"
+
+#. js-lingui-explicit-id
+#: src/components/authoring-activation-popup.tsx:51
+msgid "dashboard.activation.close"
+msgstr "Fermer"
+
+#. js-lingui-explicit-id
+#: src/components/brand-system/brand-approval-review.tsx:28
+msgid "dashboard.brand.review.close"
+msgstr "Clôturer l'examen d'approbation"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:25
+msgid "dashboard.navigation.close"
+msgstr "Fermer la navigation dans l'espace de travail"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:26
+msgid "dashboard.navigation.collapse"
+msgstr "Réduire la navigation dans l'espace de travail"
+
+#. js-lingui-explicit-id
+#: src/components/brand-system/brand-approval-review.tsx:23
+msgid "dashboard.brand.review.description"
+msgstr "Comparez l’apparence actuellement approuvée avec ce brouillon dans le moteur de rendu Tour de production de Lodariq, puis vérifiez chaque expérience liée avant approbation."
+
+#. js-lingui-explicit-id
+#: src/components/release-recovery-panel.tsx:112
+msgid "dashboard.recovery.completeHistory"
+msgstr "Historique complet"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:828
+msgid "dashboard.action.releaseHistoryIncomplete"
+msgstr "L'historique complet des versions est temporairement indisponible. Rien n'a été tronqué."
+
+#. js-lingui-explicit-id
+#: src/components/brand-system/brand-approval-review.tsx:52
+msgid "dashboard.brand.review.completePreview"
+msgstr "Complétez l'aperçu pour approuver"
+
+#. js-lingui-explicit-id
+#: src/i18n/server-feedback.ts:175
+msgid "dashboard.publishIssue.incompleteBlock.message"
+msgstr "Remplissez les champs obligatoires avant de publier."
+
+#. js-lingui-explicit-id
+#: src/components/analytics-panel.tsx:189
+msgid "dashboard.analytics.fact.completion"
+msgstr "Achèvement"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:989
+msgid "auth.form.confirmPassword"
+msgstr "Confirmer le mot de passe"
+
+#. js-lingui-explicit-id
+#: src/components/release-recovery-panel.tsx:134
+msgid "dashboard.recovery.confirmExact"
+msgstr "Confirmez : {action}"
+
+#. js-lingui-explicit-id
+#: src/components/sdk-snippet-panel.tsx:89
+msgid "dashboard.installation.connected"
+msgstr "Connecté"
+
+#. js-lingui-explicit-id
+#: src/components/analytics-panel.tsx:144
+msgid "dashboard.analytics.contentHash"
+msgstr "Hachage du contenu"
+
+#. js-lingui-explicit-id
+#: src/components/release-recovery-panel.tsx:127
+msgid "dashboard.recovery.contentHash"
+msgstr "Hachage du contenu"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:310
+msgid "dashboard.viewModel.contentHashStrongestEvidence"
+msgstr "Le hachage de contenu est la preuve d'artefact la plus solide disponible"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:955
+msgid "auth.form.continue"
+msgstr "Continuer"
+
+#. js-lingui-explicit-id
+#: src/components/brand-tour-comparison.tsx:60
+msgid "dashboard.brand.preview.continue"
+msgstr "Continuer"
+
+#. js-lingui-explicit-id
+#: src/components/brand-system/brand-empty-state.tsx:31
+msgid "dashboard.brand.empty.continue"
+msgstr "Continuer"
+
+#. js-lingui-explicit-id
+#: src/components/authoring-launch-panel.tsx:23
+msgid "dashboard.authoringLaunch.description"
+msgstr "Continuez sur un site mappé à une installation Lodariq active unique."
+
+#. js-lingui-explicit-id
+#: src/components/authoring-activation-popup.tsx:84
+msgid "dashboard.activation.continue"
+msgstr "Continuer vers la création"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:859
+msgid "auth.page.signIn.title"
+msgstr "Continuez votre travail"
+
+#. js-lingui-explicit-id
+#: src/components/document-debug-panel.tsx:65
+msgid "dashboard.support.copied"
+msgstr "Copié"
+
+#. js-lingui-explicit-id
+#: src/components/sdk-snippet-panel.tsx:55
+msgid "dashboard.installation.copied"
+msgstr "Copié"
+
+#. js-lingui-explicit-id
+#: src/components/document-debug-panel.tsx:66
+msgid "dashboard.support.copyDetails"
+msgstr "Copier les détails"
+
+#. js-lingui-explicit-id
+#: src/components/sdk-snippet-panel.tsx:57
+msgid "dashboard.installation.copyFailed"
+msgstr "La copie a échoué. Sélectionnez la ligne d'installation et copiez-la manuellement."
+
+#. js-lingui-explicit-id
+#: src/components/sdk-snippet-panel.tsx:56
+msgid "dashboard.installation.copy"
+msgstr "Copier l'installation"
+
+#. js-lingui-explicit-id
+#: src/components/authoring-activation-popup.tsx:91
+msgid "dashboard.activation.couldNotContinue"
+msgstr "Impossible de continuer"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1071
+msgid "workspaceSelection.createError"
+msgstr "Impossible de créer l'espace de travail."
+
+#. js-lingui-explicit-id
+#: src/components/dashboard-auth-controls.tsx:31
+msgid "dashboard.account.createFailed"
+msgstr "Impossible de créer l'espace de travail."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1067
+msgid "workspaceSelection.openError"
+msgstr "Impossible d'ouvrir cet espace de travail."
+
+#. js-lingui-explicit-id
+#: src/components/dashboard-auth-controls.tsx:35
+msgid "dashboard.account.signOutFailed"
+msgstr "Impossible de se déconnecter."
+
+#. js-lingui-explicit-id
+#: src/components/dashboard-auth-controls.tsx:27
+msgid "dashboard.account.switchFailed"
+msgstr "Impossible de changer d'espace de travail."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1064
+msgid "workspaceSelection.create"
+msgstr "Créer un espace de travail"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:954
+msgid "auth.form.createAccount"
+msgstr "Créer un compte"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:962
+msgid "auth.form.createAnAccount"
+msgstr "Créer un compte"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1066
+msgid "workspaceSelection.createAndOpen"
+msgstr "Créer et ouvrir"
+
+#. js-lingui-explicit-id
+#: src/components/brand-system/brand-empty-state.tsx:18
+msgid "dashboard.brand.empty.create"
+msgstr "Créer un système de marque"
+
+#. js-lingui-explicit-id
+#: src/components/sdk-snippet-panel.tsx:92
+msgid "dashboard.installation.create"
+msgstr "Créer une installation unique"
+
+#. js-lingui-explicit-id
+#: src/components/dashboard-auth-controls.tsx:47
+msgid "dashboard.account.createWorkspace"
+msgstr "Créer un espace de travail"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:869
+msgid "auth.page.signUp.description"
+msgstr "Créez votre compte et votre premier espace de travail ensemble, sans détour de configuration."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:844
+msgid "auth.shell.workflow"
+msgstr "Créez, révisez et publiez sans disperser le travail entre les onglets et les outils."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:314
+msgid "dashboard.viewModel.createdDuringPublication"
+msgstr "Créé lors de la publication côté serveur"
+
+#. js-lingui-explicit-id
+#: src/components/brand-system/brand-empty-state.tsx:17
+msgid "dashboard.brand.empty.creating"
+msgstr "Création…"
+
+#. js-lingui-explicit-id
+#: src/components/brand-system/brand-theme-editor.tsx:41
+msgid "dashboard.brand.editor.radius.crisp"
+msgstr "Croustillant"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:254
+msgid "dashboard.viewModel.currentDraft"
+msgstr "Projet actuel"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:497
+msgid "dashboard.viewModel.currentDraftRecorded"
+msgstr "Brouillon actuel enregistré pour {sites}"
+
+#. js-lingui-explicit-id
+#: src/components/brand-system/brand-theme-editor.tsx:37
+msgid "dashboard.brand.editor.currentFont"
+msgstr "Police actuelle"
+
+#. js-lingui-explicit-id
+#: src/components/brand-system/brand-theme-editor.tsx:38
+msgid "dashboard.brand.editor.currentRadius"
+msgstr "Rayon actuel"
+
+#. js-lingui-explicit-id
+#: src/components/launch-queue.tsx:53
+msgid "dashboard.launchQueue.currentReleaseState"
+msgstr "État de version actuel"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:203
+msgid "dashboard.viewModel.currentSavedContent"
+msgstr "Contenu actuellement enregistré"
+
+#. js-lingui-explicit-id
+#: src/components/document-debug-panel.tsx:48
+msgid "dashboard.support.customerVersion"
+msgstr "Version client"
+
+#. js-lingui-explicit-id
+#: src/components/document-debug-panel.tsx:76
+msgid "dashboard.support.customerVersionAvailable"
+msgstr "Version client disponible"
+
+#. js-lingui-explicit-id
+#: src/components/brand-system-panel.tsx:45
+msgid "dashboard.brand.panel.description"
+msgstr "Les jetons de thème destinés aux clients restent distincts du style du tableau de bord. L'approbation crée une version immuable ; les versions l’adoptent explicitement."
+
+#. js-lingui-explicit-id
+#: src/components/brand-system/brand-theme-editor.tsx:32
+msgid "dashboard.brand.editor.darkMode"
+msgstr "Mode sombre"
+
+#. js-lingui-explicit-id
+#: src/components/analytics-panel.tsx:69
+msgid "dashboard.analytics.default"
+msgstr "Par défaut"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:677
+msgid "dashboard.action.defaultThemeInvalid"
+msgstr "La demande de thème par défaut n'est pas valide."
+
+#. js-lingui-explicit-id
+#: src/components/brand-system/use-brand-system-controller.ts:47
+msgid "dashboard.brand.controller.defaultMissing"
+msgstr "Le thème par défaut n'a pas été renvoyé."
+
+#. js-lingui-explicit-id
+#: src/i18n/server-feedback.ts:212
+msgid "dashboard.recovery.failure.alreadyInactive"
+msgstr "La diffusion est déjà inactive pour ce document."
+
+#. js-lingui-explicit-id
+#: src/components/release-recovery-panel.tsx:100
+msgid "dashboard.recovery.inactiveDescription"
+msgstr "La livraison est inactive. Les publications immuables et l’historique des versions sont conservés."
+
+#. js-lingui-explicit-id
+#: src/components/release-recovery-panel.tsx:151
+msgid "dashboard.recovery.unpublishDescription"
+msgstr "La livraison deviendra inactive. Les publications immuables et l’historique des ajouts uniquement ne seront pas supprimés."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:87
+msgid "dashboard.common.development"
+msgstr "Développement"
+
+#. js-lingui-explicit-id
+#: src/components/authoring-activation-popup.tsx:111
+msgid "dashboard.activation.development"
+msgstr "Développement"
+
+#. js-lingui-explicit-id
+#: src/components/authoring-launch-panel.tsx:31
+msgid "dashboard.authoringLaunch.development"
+msgstr "Développement"
+
+#. js-lingui-explicit-id
+#: src/components/environment-policy-editor.tsx:101
+msgid "dashboard.environmentPolicy.development"
+msgstr "Développement"
+
+#. js-lingui-explicit-id
+#: src/components/environment-policy-editor.tsx:43
+msgid "dashboard.environmentPolicy.directPublish"
+msgstr "Publication directe"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:93
+msgid "dashboard.common.disabled"
+msgstr "Désactivé"
+
+#. js-lingui-explicit-id
+#: src/components/release-recovery-panel.tsx:82
+msgid "dashboard.recovery.disabled"
+msgstr "Désactivé"
+
+#. js-lingui-explicit-id
+#: src/components/analytics-panel.tsx:142
+msgid "dashboard.analytics.document"
+msgstr "Documenter"
+
+#. js-lingui-explicit-id
+#: src/components/recent-activity.tsx:20
+msgid "dashboard.recentActivity.empty"
+msgstr "L’activité du document, de la version et de la marque apparaîtra ici."
+
+#. js-lingui-explicit-id
+#: src/components/brand-tour-comparison.tsx:65
+msgid "dashboard.brand.preview.draft"
+msgstr "brouillon"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:86
+msgid "dashboard.common.draft"
+msgstr "Brouillon"
+
+#. js-lingui-explicit-id
+#: src/components/documents-table.tsx:58
+msgid "dashboard.documents.draft"
+msgstr "Brouillon"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:461
+msgid "dashboard.viewModel.readinessDraft"
+msgstr "Projet en cours"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:131
+msgid "dashboard.viewModel.draftNotPrepared"
+msgstr "Projet non préparé"
+
+#. js-lingui-explicit-id
+#: src/components/brand-system-panel.tsx:44
+msgid "dashboard.brand.panel.draftOnly"
+msgstr "Brouillon uniquement"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:359
+msgid "dashboard.viewModel.draftRevision"
+msgstr "Projet de révision {revision}"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:202
+msgid "dashboard.viewModel.draftSaved"
+msgstr "Brouillon enregistré"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:659
+msgid "dashboard.action.draftSaved"
+msgstr "Brouillon enregistré."
+
+#. js-lingui-explicit-id
+#: src/components/brand-system-panel.tsx:52
+msgid "dashboard.brand.panel.editDraft"
+msgstr "Modifier le brouillon"
+
+#. js-lingui-explicit-id
+#: src/components/document-debug-panel.tsx:43
+msgid "dashboard.support.editableBackup"
+msgstr "Sauvegarde modifiable"
+
+#. js-lingui-explicit-id
+#: src/components/brand-system/brand-theme-editor.tsx:35
+msgid "dashboard.brand.editor.editing"
+msgstr "Modification du brouillon"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:941
+msgid "auth.form.email"
+msgstr "E-mail"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:974
+msgid "auth.form.emailSecureLink"
+msgstr "Envoyer un lien sécurisé par email"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1031
+msgid "auth.error.invalidCredentials"
+msgstr "L'e-mail ou le mot de passe est incorrect."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:857
+msgid "auth.page.emailVerification"
+msgstr "Vérification de l'e-mail"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:998
+msgid "auth.form.emailVerified"
+msgstr "E-mail vérifié"
+
+#. js-lingui-explicit-id
+#: src/i18n/server-feedback.ts:43
+msgid "dashboard.publishIssue.emptyStep.label"
+msgstr "Étape vide"
+
+#. js-lingui-explicit-id
+#: src/i18n/server-feedback.ts:29
+msgid "dashboard.publishIssue.emptyTour.label"
+msgstr "Visite à vide"
+
+#. js-lingui-explicit-id
+#: src/components/environment-policy-editor.tsx:89
+msgid "dashboard.environmentPolicy.invalid"
+msgstr "Entrez un nom et pas plus de 100 origines exactes."
+
+#. js-lingui-explicit-id
+#: src/components/authoring-activation-popup.tsx:82
+msgid "dashboard.activation.environment"
+msgstr "Environnement"
+
+#. js-lingui-explicit-id
+#: src/components/release-recovery-panel.tsx:138
+msgid "dashboard.recovery.confirmationDetails"
+msgstr "Environnement {environment} · génération {generation} · publication active {publication}"
+
+#. js-lingui-explicit-id
+#: src/components/environment-policy-editor.tsx:35
+msgid "dashboard.environmentPolicy.environmentEnabled"
+msgstr "Environnement activé"
+
+#. js-lingui-explicit-id
+#: src/components/environment-policy-editor.tsx:28
+msgid "dashboard.environmentPolicy.title"
+msgstr "Politique environnementale"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:617
+msgid "dashboard.action.environmentPolicyUpdated"
+msgstr "Politique de l’environnement mise à jour."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:20
+msgid "dashboard.navigation.environments"
+msgstr "Environnements"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:72
+msgid "dashboard.page.environments.title"
+msgstr "Environnements"
+
+#. js-lingui-explicit-id
+#: src/components/brand-system/brand-theme-editor.tsx:22
+msgid "dashboard.brand.editor.essentials"
+msgstr "Essentiels"
+
+#. js-lingui-explicit-id
+#: src/components/environment-policy-editor.tsx:97
+msgid "dashboard.environmentPolicy.invalidOrigin"
+msgstr "Chaque origine doit être une origine HTTP(S) exacte."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:432
+msgid "dashboard.viewModel.exactArtifactVerified"
+msgstr "Artefact exact vérifié"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:282
+msgid "dashboard.viewModel.exactArtifactVerifiedAt"
+msgstr "Artefact exact vérifié {date}"
+
+#. js-lingui-explicit-id
+#: src/components/dashboard-settings-views.tsx:30
+msgid "dashboard.environments.description"
+msgstr "Origines exactes des clients sur lesquelles Lodariq peut charger des capacités d'exécution ou de création."
+
+#. js-lingui-explicit-id
+#: src/components/environment-policy-editor.tsx:31
+msgid "dashboard.environmentPolicy.exactOrigins"
+msgstr "Origines exactes, une par ligne"
+
+#. js-lingui-explicit-id
+#: src/components/analytics-panel.tsx:206
+msgid "dashboard.analytics.fact.sdkErrorsDescription"
+msgstr "Événements sdk_error exacts attribués à des pointeurs de version immuables."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:294
+msgid "dashboard.viewModel.exactStagedArtifactActiveAt"
+msgstr "Artefact mis en scène exact actif depuis {date}"
+
+#. js-lingui-explicit-id
+#: src/components/analytics-panel.tsx:195
+msgid "dashboard.analytics.fact.tourCompletionsDescription"
+msgstr "Événements tour_completed exacts ; aucun taux d’achèvement déduit."
+
+#. js-lingui-explicit-id
+#: src/components/analytics-panel.tsx:170
+msgid "dashboard.analytics.fact.tourDismissalsDescription"
+msgstr "Événements tour_dismissed exacts émis par le runtime actuel."
+
+#. js-lingui-explicit-id
+#: src/components/analytics-panel.tsx:181
+msgid "dashboard.analytics.fact.tourSkipsDescription"
+msgstr "Événements tour_skipped exacts émis lorsque les visiteurs choisissent Ignorer la visite."
+
+#. js-lingui-explicit-id
+#: src/components/analytics-panel.tsx:159
+msgid "dashboard.analytics.fact.tourStartsDescription"
+msgstr "Événements tour_started exacts ; aucune estimation d'utilisateur unique ou de conversion."
+
+#. js-lingui-explicit-id
+#: src/components/dashboard-release-view.tsx:20
+msgid "dashboard.releases.exactArtifactPromotion"
+msgstr "Promotion d'artefacts exacts"
+
+#. js-lingui-explicit-id
+#: src/components/authoring-activation-popup.tsx:110
+msgid "dashboard.activation.existingTour"
+msgstr "Visite existante"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:27
+msgid "dashboard.navigation.expand"
+msgstr "Développer la navigation dans l'espace de travail"
+
+#. js-lingui-explicit-id
+#: src/components/release-recovery-panel.tsx:196
+msgid "dashboard.recovery.expectedGeneration"
+msgstr "Génération attendue {generation}"
+
+#. js-lingui-explicit-id
+#: src/components/authoring-activation-popup.tsx:83
+msgid "dashboard.activation.experience"
+msgstr "Expérience"
+
+#. js-lingui-explicit-id
+#: src/components/document-debug-panel.tsx:32
+msgid "dashboard.support.experience"
+msgstr "Expérience"
+
+#. js-lingui-explicit-id
+#: src/components/documents-table.tsx:55
+msgid "dashboard.documents.experience"
+msgstr "Expérience"
+
+#. js-lingui-explicit-id
+#: src/components/launch-queue.tsx:48
+msgid "dashboard.launchQueue.experience"
+msgstr "Expérience"
+
+#. js-lingui-explicit-id
+#: src/components/brand-system/brand-impact-panel.tsx:11
+msgid "dashboard.brand.impact.title"
+msgstr "Expérience impactée"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:16
+msgid "dashboard.navigation.experiences"
+msgstr "Expériences"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:52
+msgid "dashboard.page.experiences.title"
+msgstr "Expériences"
+
+#. js-lingui-explicit-id
+#: src/components/launch-queue.tsx:47
+msgid "dashboard.launchQueue.experiences"
+msgstr "Expériences"
+
+#. js-lingui-explicit-id
+#: src/components/analytics-panel.tsx:156
+msgid "dashboard.analytics.fact.exposure"
+msgstr "Exposition"
+
+#. js-lingui-explicit-id
+#: src/components/release-recovery-panel.tsx:187
+msgid "dashboard.recovery.failedAction"
+msgstr "Échec {action}"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:53
+msgid "dashboard.page.experiences.description"
+msgstr "Recherchez chaque expérience enregistrée et inspectez son état de publication actuel."
+
+#. js-lingui-explicit-id
+#: src/components/brand-tour-comparison.tsx:51
+msgid "dashboard.brand.preview.sampleHeading"
+msgstr "Trouvez votre file d'attente de lancement"
+
+#. js-lingui-explicit-id
+#: src/i18n/server-feedback.ts:141
+msgid "dashboard.publishIssue.incompleteMedia.message"
+msgstr "Terminez la configuration de ce bloc média avant de publier."
+
+#. js-lingui-explicit-id
+#: src/components/authoring-activation-popup.tsx:70
+msgid "dashboard.activation.recoveryFinish"
+msgstr "Terminez là, puis fermez cette fenêtre et recommencez la création."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:931
+msgid "auth.page.finishAccount.title"
+msgstr "Finalisez votre compte"
+
+#. js-lingui-explicit-id
+#: src/components/analytics-panel.tsx:150
+msgid "dashboard.analytics.firstLast"
+msgstr "Premier {first} · Dernier {last}"
+
+#. js-lingui-explicit-id
+#: src/i18n/server-feedback.ts:168
+msgid "dashboard.publishIssue.invalidBlock.message"
+msgstr "Corrigez la configuration de ce bloc avant de publier."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:48
+msgid "dashboard.page.overview.description"
+msgstr "Suivez l’évolution des expériences depuis l’ébauche jusqu’à la production."
+
+#. js-lingui-explicit-id
+#: src/components/brand-system/brand-system-view-helpers.ts:7
+msgid "dashboard.brand.binding.followsApproved"
+msgstr "Suit approuvé"
+
+#. js-lingui-explicit-id
+#: src/components/brand-system/brand-theme-editor.tsx:30
+msgid "dashboard.brand.editor.fontFamily"
+msgstr "Famille de polices"
+
+#. js-lingui-explicit-id
+#: src/components/analytics-panel.tsx:215
+msgid "dashboard.analytics.target.found"
+msgstr "Trouvé"
+
+#. js-lingui-explicit-id
+#: src/components/analytics-panel.tsx:121
+msgid "dashboard.analytics.targetSuccessBreakdown"
+msgstr "Trouvé {found} · Inconnu {unknown}. Les résultats trouvés et inconnus ne sont pas considérés comme des échecs."
+
+#. js-lingui-explicit-id
+#: src/components/release-recovery-panel.tsx:99
+msgid "dashboard.recovery.generation"
+msgstr "Génération {generation}"
+
+#. js-lingui-explicit-id
+#: src/components/brand-system/brand-theme-editor.tsx:40
+msgid "dashboard.brand.editor.georgiaSerif"
+msgstr "Empattement de Géorgie"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:21
+msgid "dashboard.navigation.support"
+msgstr "Aide et support"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:77
+msgid "dashboard.page.support.title"
+msgstr "Aide et assistance"
+
+#. js-lingui-explicit-id
+#: src/components/document-debug-panel.tsx:26
+msgid "dashboard.support.title"
+msgstr "Forfait d'aide"
+
+#. js-lingui-explicit-id
+#: src/components/brand-system-panel.tsx:50
+msgid "dashboard.brand.panel.hideImpact"
+msgstr "Masquer l'impact"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:412
+msgid "dashboard.viewModel.highConfidenceEvidence"
+msgstr "Preuves de haute confiance"
+
+#. js-lingui-explicit-id
+#: src/components/analytics-panel.tsx:70
+msgid "dashboard.analytics.historyOnly"
+msgstr "Histoire seulement"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:115
+msgid "dashboard.viewModel.type.hotspot"
+msgstr "Point d'accès"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:964
+msgid "auth.form.recoveryEmailSent"
+msgstr "Si cette adresse appartient à un compte Lodariq, le message le plus récent contient un lien de mot de passe sécurisé. Il expire sous peu et fonctionne une fois."
+
+#. js-lingui-explicit-id
+#: src/components/authoring-launch-panel.tsx:55
+msgid "dashboard.authoringLaunch.signInHandoff"
+msgstr "Si vous êtes déconnecté, le lanceur ouvre la connexion Lodariq et vous renvoie automatiquement à la même page produit. Aucun transfert temporaire d’éditeur n’est requis."
+
+#. js-lingui-explicit-id
+#: src/components/release-recovery-panel.tsx:123
+msgid "dashboard.recovery.immutableArtifact"
+msgstr "Artefact immuable"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:444
+msgid "dashboard.viewModel.immutableBrandSnapshot"
+msgstr "Instantané de marque immuable"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:306
+msgid "dashboard.viewModel.immutableCompiledArtifact"
+msgstr "Artefact compilé immuable"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:436
+msgid "dashboard.viewModel.immutablePublication"
+msgstr "Publication immuable"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:646
+msgid "dashboard.action.impactRefreshed"
+msgstr "Impact rafraîchi."
+
+#. js-lingui-explicit-id
+#: src/components/authoring-launch-panel.tsx:21
+msgid "dashboard.authoringLaunch.eyebrow"
+msgstr "Création intégrée au produit"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:92
+msgid "dashboard.common.inactive"
+msgstr "Inactif"
+
+#. js-lingui-explicit-id
+#: src/components/release-recovery-panel.tsx:97
+msgid "dashboard.recovery.inactive"
+msgstr "Inactif"
+
+#. js-lingui-explicit-id
+#: src/components/brand-system/brand-theme-editor.tsx:33
+msgid "dashboard.brand.editor.included"
+msgstr "Inclus"
+
+#. js-lingui-explicit-id
+#: src/i18n/server-feedback.ts:174
+msgid "dashboard.publishIssue.incompleteBlock.label"
+msgstr "Bloc incomplet"
+
+#. js-lingui-explicit-id
+#: src/i18n/server-feedback.ts:99
+msgid "dashboard.publishIssue.buttonMissingAction.label"
+msgstr "Action de bouton incomplète"
+
+#. js-lingui-explicit-id
+#: src/i18n/server-feedback.ts:109
+msgid "dashboard.publishIssue.linkMissingAction.label"
+msgstr "Action de lien incomplète"
+
+#. js-lingui-explicit-id
+#: src/i18n/server-feedback.ts:140
+msgid "dashboard.publishIssue.incompleteMedia.label"
+msgstr "Médias incomplets"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:63
+msgid "dashboard.page.analytics.description"
+msgstr "Inspectez les faits relatifs à la version pour un environnement explicitement sélectionné à la fois."
+
+#. js-lingui-explicit-id
+#: src/components/authoring-launch-panel.tsx:51
+msgid "dashboard.authoringLaunch.setupRequired"
+msgstr "Installez Lodariq et mappez une origine de développement ou de staging avant d'ouvrir la création."
+
+#. js-lingui-explicit-id
+#: src/components/sdk-snippet-panel.tsx:42
+msgid "dashboard.installation.title"
+msgstr "Installez Lodariq une fois"
+
+#. js-lingui-explicit-id
+#: src/components/analytics-panel.tsx:167
+msgid "dashboard.analytics.fact.interaction"
+msgstr "Interactions"
+
+#. js-lingui-explicit-id
+#: src/i18n/server-feedback.ts:167
+msgid "dashboard.publishIssue.invalidBlock.label"
+msgstr "Bloc invalide"
+
+#. js-lingui-explicit-id
+#: src/i18n/server-feedback.ts:157
+msgid "dashboard.publishIssue.invalidPresentationArea.label"
+msgstr "Zone de présentation invalide"
+
+#. js-lingui-explicit-id
+#: src/components/authoring-activation-popup.tsx:101
+msgid "dashboard.activation.readyDescription"
+msgstr "Gardez cette fenêtre ouverte pendant que le lanceur Lodariq termine le transfert sécurisé."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:116
+msgid "dashboard.viewModel.type.knowledge"
+msgstr "Connaissance"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:37
+msgid "dashboard.locale.label"
+msgstr "Langue"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:40
+msgid "dashboard.locale.error"
+msgstr "La langue n'a pas pu être modifiée. Essayer à nouveau."
+
+#. js-lingui-explicit-id
+#: src/components/launch-queue.tsx:51
+msgid "dashboard.launchQueue.lastActivity"
+msgstr "Dernière activité"
+
+#. js-lingui-explicit-id
+#: src/components/documents-table.tsx:57
+msgid "dashboard.documents.lastEdited"
+msgstr "Dernière modification"
+
+#. js-lingui-explicit-id
+#: src/components/launch-queue.tsx:49
+msgid "dashboard.launchQueue.lastEditor"
+msgstr "Dernier éditeur"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:218
+msgid "dashboard.viewModel.latestRecordAt"
+msgstr "Dernier enregistrement {date}"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:47
+msgid "dashboard.page.overview.title"
+msgstr "File d'attente de lancement"
+
+#. js-lingui-explicit-id
+#: src/components/brand-system/brand-impact-panel.tsx:44
+msgid "dashboard.brand.impact.legacy"
+msgstr "Liaison héritée"
+
+#. js-lingui-explicit-id
+#: src/components/brand-system/brand-system-view-helpers.ts:12
+msgid "dashboard.brand.binding.legacy"
+msgstr "Solution de secours héritée"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:107
+msgid "dashboard.viewModel.status.live"
+msgstr "En direct"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:227
+msgid "dashboard.viewModel.live"
+msgstr "En direct"
+
+#. js-lingui-explicit-id
+#: src/components/brand-tour-comparison.tsx:24
+msgid "dashboard.brand.preview.live"
+msgstr "Aperçu en direct"
+
+#. js-lingui-explicit-id
+#: src/components/analytics-panel.tsx:99
+msgid "dashboard.analytics.loadedRows"
+msgstr "Chargement de {count} lignes agrégées au niveau de la version pour {environment} uniquement."
+
+#. js-lingui-explicit-id
+#: src/components/analytics-panel.tsx:85
+msgid "dashboard.analytics.loading"
+msgstr "Chargement des analyses {environment}…"
+
+#. js-lingui-explicit-id
+#: src/components/release-recovery-panel.tsx:83
+msgid "dashboard.recovery.loading"
+msgstr "Chargement de l'historique complet des versions…"
+
+#. js-lingui-explicit-id
+#: src/components/brand-system/brand-impact-panel.tsx:17
+msgid "dashboard.brand.impact.loading"
+msgstr "Chargement de l'impact…"
+
+#. js-lingui-explicit-id
+#: src/components/brand-system/brand-approval-review.tsx:38
+msgid "dashboard.brand.review.loading"
+msgstr "Chargement des expériences liées et comparaison du runtime."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:96
+msgid "dashboard.common.loading"
+msgstr "Chargement…"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:318
+msgid "dashboard.viewModel.accessibleFallback"
+msgstr "Lodariq solution de repli accessible"
+
+#. js-lingui-explicit-id
+#: src/components/sdk-snippet-panel.tsx:36
+msgid "dashboard.installation.automaticOrigins"
+msgstr "Lodariq mappe automatiquement les origines fiables déjà configurées pour le développement, la préparation et la production."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:515
+msgid "dashboard.entry.unavailableDescription"
+msgstr "Lodariq n'a pas pu vérifier votre session. Le service peut être temporairement indisponible."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:8
+msgid "dashboard.metadata.description"
+msgstr "Tableau de bord Lodariq pour la création, l'installation et la publication d'expériences produits."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:4
+msgid "dashboard.metadata.title"
+msgstr "Espace de travail Lodariq"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1051
+msgid "auth.error.serviceUnavailable"
+msgstr "La connexion à Lodariq est temporairement indisponible."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:420
+msgid "dashboard.viewModel.lowConfidenceEvidence"
+msgstr "Preuves de faible confiance"
+
+#. js-lingui-explicit-id
+#: src/components/brand-system-panel.tsx:66
+msgid "dashboard.brand.panel.makeDefault"
+msgstr "Par défaut"
+
+#. js-lingui-explicit-id
+#: src/components/brand-system/brand-empty-state.tsx:8
+msgid "dashboard.brand.empty.title"
+msgstr "Faites en sorte que chaque expérience soit native"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:73
+msgid "dashboard.page.environments.description"
+msgstr "Gérez les origines des produits approuvés et l'installation de chaque environnement d'exécution."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1077
+msgid "workspaceSelection.role.member"
+msgstr "Membre"
+
+#. js-lingui-explicit-id
+#: src/components/dashboard-auth-controls.tsx:53
+msgid "dashboard.account.role.member"
+msgstr "Membre"
+
+#. js-lingui-explicit-id
+#: src/components/environment-policy-editor.tsx:106
+msgid "dashboard.role.member"
+msgstr "Membre"
+
+#. js-lingui-explicit-id
+#: src/components/analytics-panel.tsx:217
+msgid "dashboard.analytics.target.missing"
+msgstr "Manquant"
+
+#. js-lingui-explicit-id
+#: src/i18n/server-feedback.ts:50
+msgid "dashboard.publishIssue.missingStepContent.label"
+msgstr "Contenu des étapes manquantes"
+
+#. js-lingui-explicit-id
+#: src/i18n/server-feedback.ts:57
+msgid "dashboard.publishIssue.missingTarget.label"
+msgstr "Cible manquante"
+
+#. js-lingui-explicit-id
+#: src/i18n/server-feedback.ts:119
+msgid "dashboard.publishIssue.missingUrl.label"
+msgstr "URL manquante"
+
+#. js-lingui-explicit-id
+#: src/components/environment-policy-editor.tsx:29
+msgid "dashboard.environmentPolicy.name"
+msgstr "Nom"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:382
+msgid "dashboard.viewModel.nearbyProductControls"
+msgstr "Contrôles de produits à proximité"
+
+#. js-lingui-explicit-id
+#: src/components/authoring-activation-popup.tsx:62
+msgid "dashboard.activation.passwordHelp"
+msgstr "Besoin de définir ou de réinitialiser votre mot de passe ?"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:341
+msgid "dashboard.viewModel.needsApproval"
+msgstr "A besoin d'approbation"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:457
+msgid "dashboard.viewModel.readinessBlocked"
+msgstr "Nécessite des correctifs avant de publier"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:207
+msgid "dashboard.viewModel.needsPreview"
+msgstr "Besoin d'un aperçu"
+
+#. js-lingui-explicit-id
+#: src/components/document-debug-panel.tsx:42
+msgid "dashboard.support.needsPreview"
+msgstr "Besoin d'un aperçu"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:121
+msgid "dashboard.viewModel.needsReview"
+msgstr "Besoin d'un examen"
+
+#. js-lingui-explicit-id
+#: src/components/analytics-panel.tsx:218
+msgid "dashboard.analytics.target.needsReview"
+msgstr "Besoin d'un examen"
+
+#. js-lingui-explicit-id
+#: src/components/brand-system/brand-impact-panel.tsx:31
+msgid "dashboard.brand.impact.noLinkedDescription"
+msgstr "De nouvelles expériences peuvent utiliser ce thème après sa première approbation."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:987
+msgid "auth.form.newPassword"
+msgstr "Nouveau mot de passe"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:960
+msgid "auth.form.newToLodariq"
+msgstr "Nouveau sur Lodariq ?"
+
+#. js-lingui-explicit-id
+#: src/components/authoring-activation-popup.tsx:109
+msgid "dashboard.activation.newTour"
+msgstr "Nouvelle tournée"
+
+#. js-lingui-explicit-id
+#: src/components/dashboard-auth-controls.tsx:46
+msgid "dashboard.account.newWorkspace"
+msgstr "Nouvel espace de travail"
+
+#. js-lingui-explicit-id
+#: src/components/dashboard-auth-controls.tsx:42
+msgid "dashboard.account.newWorkspaceName"
+msgstr "Nom du nouvel espace de travail"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:217
+msgid "dashboard.viewModel.newerDraft"
+msgstr "Version plus récente"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:213
+msgid "dashboard.viewModel.noEnvironmentPublicationRecord"
+msgstr "Aucun enregistrement de publication {environment}"
+
+#. js-lingui-explicit-id
+#: src/components/release-recovery-panel.tsx:216
+msgid "dashboard.recovery.noActiveAtAttempt"
+msgstr "Aucune publication active lors de la tentative"
+
+#. js-lingui-explicit-id
+#: src/components/analytics-panel.tsx:94
+msgid "dashboard.analytics.empty"
+msgstr "Aucun événement agrégé n'est enregistré pour {environment}. Aucune donnée de mise en scène ou de production n'a été remplacée."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:327
+msgid "dashboard.viewModel.noApprovedVersion"
+msgstr "Aucune version approuvée"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:269
+msgid "dashboard.viewModel.noBlockingChecks"
+msgstr "Pas de contrôles bloquants"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:769
+msgid "dashboard.action.noProductOrigins"
+msgstr "Aucune origine de produit canonique n'est encore configurée."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:208
+msgid "dashboard.viewModel.noCompiledDraft"
+msgstr "Pas encore de brouillon compilé"
+
+#. js-lingui-explicit-id
+#: src/components/document-debug-panel.tsx:72
+msgid "dashboard.support.noCustomerVersion"
+msgstr "Pas encore de version client"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:751
+msgid "dashboard.action.noDeliveryRecord"
+msgstr "Aucun historique de livraison"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:485
+msgid "dashboard.viewModel.noPublicationRecord"
+msgstr "Aucun enregistrement de publication sur l'environnement pour l'instant"
+
+#. js-lingui-explicit-id
+#: src/components/document-debug-panel.tsx:57
+msgid "dashboard.support.noExperience"
+msgstr "Aucune expérience sélectionnée."
+
+#. js-lingui-explicit-id
+#: src/components/launch-queue.tsx:39
+msgid "dashboard.launchQueue.emptyTitle"
+msgstr "Aucune expérience dans la file d'attente"
+
+#. js-lingui-explicit-id
+#: src/components/documents-table.tsx:72
+msgid "dashboard.documents.emptyTitle"
+msgstr "Aucune expérience pour l'instant"
+
+#. js-lingui-explicit-id
+#: src/components/documents-table.tsx:81
+msgid "dashboard.documents.emptyShort"
+msgstr "Aucune expérience pour l'instant."
+
+#. js-lingui-explicit-id
+#: src/components/sdk-snippet-panel.tsx:84
+msgid "dashboard.installation.readonlyEmpty"
+msgstr "Aucune installation n'est encore configurée. Un administrateur ou un propriétaire d’espace de travail peut en créer un."
+
+#. js-lingui-explicit-id
+#: src/components/brand-system/brand-approval-review.tsx:77
+msgid "dashboard.brand.review.noLinked"
+msgstr "Aucune expérience liée"
+
+#. js-lingui-explicit-id
+#: src/components/brand-system/brand-impact-panel.tsx:27
+msgid "dashboard.brand.impact.noLinked"
+msgstr "Aucune expérience liée"
+
+#. js-lingui-explicit-id
+#: src/components/documents-table.tsx:77
+msgid "dashboard.documents.noMatches"
+msgstr "Aucune expérience correspondante."
+
+#. js-lingui-explicit-id
+#: src/components/environment-policy-editor.tsx:93
+msgid "dashboard.environmentPolicy.tooManyOrigins"
+msgstr "Pas plus de 100 origines sont autorisées."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:117
+msgid "dashboard.viewModel.noOrigins"
+msgstr "Aucune origine"
+
+#. js-lingui-explicit-id
+#: src/components/dashboard-settings-views.tsx:34
+msgid "dashboard.environments.empty"
+msgstr "Aucun environnement de produit n'est configuré."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:290
+msgid "dashboard.viewModel.noProductionPublicationRecord"
+msgstr "Aucun enregistrement de publication de production"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:467
+msgid "dashboard.viewModel.noPublishBlockers"
+msgstr "Aucun bloqueur de publication"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:212
+msgid "dashboard.viewModel.noRecord"
+msgstr "Aucun enregistrement"
+
+#. js-lingui-explicit-id
+#: src/components/release-recovery-panel.tsx:113
+msgid "dashboard.recovery.noOperations"
+msgstr "Aucune opération de release n'a été enregistrée pour cet environnement."
+
+#. js-lingui-explicit-id
+#: src/components/dashboard-release-view.tsx:29
+msgid "dashboard.releases.emptyTitle"
+msgstr "Aucune version à examiner"
+
+#. js-lingui-explicit-id
+#: src/components/analytics-panel.tsx:49
+msgid "dashboard.analytics.noEnvironment"
+msgstr "Aucun environnement de préparation ou d’analyse de production n’est configuré."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:278
+msgid "dashboard.viewModel.noStagingPublicationRecord"
+msgstr "Aucun enregistrement de publication intermédiaire"
+
+#. js-lingui-explicit-id
+#: src/components/dashboard-settings-views.tsx:63
+msgid "dashboard.environments.noTrustedOrigins"
+msgstr "Aucune origine fiable"
+
+#. js-lingui-explicit-id
+#: src/components/sdk-snippet-panel.tsx:64
+msgid "dashboard.installation.noOrigins"
+msgstr "Aucune origine fiable n’est encore cartographiée. Ajoutez des origines aux environnements, puis synchronisez."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:755
+msgid "dashboard.action.noVersions"
+msgstr "Aucune version"
+
+#. js-lingui-explicit-id
+#: src/components/brand-system/brand-approval-review.tsx:68
+msgid "dashboard.brand.review.notActive"
+msgstr "Pas actif dans un environnement"
+
+#. js-lingui-explicit-id
+#: src/components/brand-system/brand-impact-panel.tsx:23
+msgid "dashboard.brand.impact.notActive"
+msgstr "Pas actif dans un environnement"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:95
+msgid "dashboard.common.notAvailable"
+msgstr "Non disponible"
+
+#. js-lingui-explicit-id
+#: src/components/authoring-launch-panel.tsx:27
+msgid "dashboard.authoringLaunch.notConfigured"
+msgstr "Non configuré"
+
+#. js-lingui-explicit-id
+#: src/components/sdk-snippet-panel.tsx:90
+msgid "dashboard.installation.notInstalled"
+msgstr "Non installé"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:255
+msgid "dashboard.viewModel.notPrepared"
+msgstr "Pas préparé"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:750
+msgid "dashboard.action.notPrepared"
+msgstr "Non préparé"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:277
+msgid "dashboard.viewModel.notPublished"
+msgstr "Non publié"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:120
+msgid "dashboard.viewModel.notSpecified"
+msgstr "Non précisé"
+
+#. js-lingui-explicit-id
+#: src/components/brand-system/brand-approval-review.tsx:56
+msgid "dashboard.brand.review.notYet"
+msgstr "Pas encore"
+
+#. js-lingui-explicit-id
+#: src/components/authoring-launch-panel.tsx:60
+msgid "dashboard.authoringLaunch.shortcut"
+msgstr "Sur un site compatible avec la création, {shortcut} bascule le lanceur sans visite du tableau de bord."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:593
+msgid "dashboard.action.approvalRequired"
+msgstr "Une approbation est désormais requise avant la mise en production."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:904
+msgid "auth.page.recovery.description"
+msgstr "Un lien email permet à un créateur existant d'établir ou de remplacer son mot de passe Lodariq."
+
+#. js-lingui-explicit-id
+#: src/components/analytics-panel.tsx:53
+msgid "dashboard.analytics.oneEnvironment"
+msgstr "Un environnement à la fois"
+
+#. js-lingui-explicit-id
+#: src/components/dashboard-settings-views.tsx:42
+msgid "dashboard.environments.approvalRequiredDescription"
+msgstr "Une approbation explicite est requise pour l’artefact vérifié exactement."
+
+#. js-lingui-explicit-id
+#: src/components/brand-system/brand-theme-editor.tsx:23
+msgid "dashboard.brand.editor.summaryTitle"
+msgstr "Un regard, cinq décisions"
+
+#. js-lingui-explicit-id
+#: src/components/sdk-snippet-panel.tsx:49
+msgid "dashboard.installation.oneLine"
+msgstr "Une ligne, une fois"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:773
+msgid "dashboard.action.ambiguousOrigin"
+msgstr "Un mappage d'origine a été ignoré car la même origine appartient à plusieurs environnements."
+
+#. js-lingui-explicit-id
+#: src/components/sdk-snippet-panel.tsx:43
+msgid "dashboard.installation.description"
+msgstr "Une installation publique dessert chaque environnement authentifié. La création reste désactivée sur les origines de production."
+
+#. js-lingui-explicit-id
+#: src/components/sdk-snippet-panel.tsx:41
+msgid "dashboard.installation.eyebrow"
+msgstr "Configuration unique"
+
+#. js-lingui-explicit-id
+#: src/i18n/server-feedback.ts:23
+msgid "dashboard.publishIssue.unsupportedDocumentType.message"
+msgstr "Seules les expériences de tournée peuvent être publiées pour le moment."
+
+#. js-lingui-explicit-id
+#: src/components/authoring-launch-panel.tsx:47
+msgid "dashboard.authoringLaunch.openEnvironment"
+msgstr "Ouvrir {environment}"
+
+#. js-lingui-explicit-id
+#: src/components/dashboard-auth-controls.tsx:36
+msgid "dashboard.account.openMenu"
+msgstr "Ouvrir le menu du compte et de l'espace de travail"
+
+#. js-lingui-explicit-id
+#: src/components/authoring-activation-popup.tsx:43
+msgid "dashboard.activation.openFromLauncher"
+msgstr "Ouvrez la création depuis le lanceur Lodariq dans votre application."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:82
+msgid "dashboard.page.openInProduct"
+msgstr "Ouvrir dans le produit"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:969
+msgid "auth.form.openLocalRecoveryLink"
+msgstr "Ouvrir le lien de récupération local"
+
+#. js-lingui-explicit-id
+#: src/components/authoring-activation-popup.tsx:66
+msgid "dashboard.activation.openRecovery"
+msgstr "Ouvrir la récupération de mot de passe dans un nouvel onglet"
+
+#. js-lingui-explicit-id
+#: src/components/brand-system/brand-source-summary-card.tsx:12
+msgid "dashboard.brand.source.rematch"
+msgstr "Produit ouvert à refaire"
+
+#. js-lingui-explicit-id
+#: src/components/brand-system/use-brand-system-controller.ts:35
+msgid "dashboard.brand.controller.reviewRequired"
+msgstr "Ouvrez la révision d'approbation et attendez les deux aperçus d'exécution avant d'approuver."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1024
+msgid "auth.form.openVerificationLink"
+msgstr "Ouvrez le lien de vérification complet depuis votre email, puis choisissez le mot de passe de votre compte."
+
+#. js-lingui-explicit-id
+#: src/components/authoring-launch-panel.tsx:42
+msgid "dashboard.authoringLaunch.stayInProductDescription"
+msgstr "Ouvrez le site pour révéler Lodariq, puis démarrez une visite, reprenez une expérience sur cette page ou prévisualisez en tant qu'utilisateur."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:24
+msgid "dashboard.navigation.open"
+msgstr "Ouvrir la navigation dans l'espace de travail"
+
+#. js-lingui-explicit-id
+#: src/components/authoring-launch-panel.tsx:22
+msgid "dashboard.authoringLaunch.title"
+msgstr "Ouvrez votre produit"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:535
+msgid "dashboard.loading.label"
+msgstr "Ouverture de votre espace de travail Lodariq"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1000
+msgid "auth.form.openingWorkspace"
+msgstr "Ouverture de votre espace de travail Lodariq…"
+
+#. js-lingui-explicit-id
+#: src/components/release-recovery-panel.tsx:118
+msgid "dashboard.recovery.operationActor"
+msgstr "Opération {operation} · Acteur {actor}"
+
+#. js-lingui-explicit-id
+#: src/components/document-debug-panel.tsx:31
+msgid "dashboard.support.optional"
+msgstr "Facultatif"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:15
+msgid "dashboard.navigation.overview"
+msgstr "Aperçu"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1075
+msgid "workspaceSelection.role.owner"
+msgstr "Propriétaire"
+
+#. js-lingui-explicit-id
+#: src/components/dashboard-auth-controls.tsx:55
+msgid "dashboard.account.role.owner"
+msgstr "Propriétaire"
+
+#. js-lingui-explicit-id
+#: src/components/environment-policy-editor.tsx:104
+msgid "dashboard.role.owner"
+msgstr "Propriétaire"
+
+#. js-lingui-explicit-id
+#: src/components/launch-queue.tsx:50
+msgid "dashboard.launchQueue.pageScope"
+msgstr "Portée de la page"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:942
+msgid "auth.form.password"
+msgstr "Mot de passe"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:895
+msgid "auth.page.recoveryDisabled.description"
+msgstr "La récupération du mot de passe n'a pas encore été activée pour ce déploiement."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1047
+msgid "auth.error.recoveryUnavailable"
+msgstr "La récupération du mot de passe est temporairement indisponible."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:975
+msgid "auth.form.passwordsDoNotMatch"
+msgstr "Les mots de passe ne correspondent pas."
+
+#. js-lingui-explicit-id
+#: src/components/release-recovery-panel.tsx:108
+msgid "dashboard.recovery.pendingOperation"
+msgstr "Opération de libération en attente : {operation}"
+
+#. js-lingui-explicit-id
+#: src/components/brand-system/brand-impact-panel.tsx:43
+msgid "dashboard.brand.impact.pinned"
+msgstr "Épinglé intentionnellement"
+
+#. js-lingui-explicit-id
+#: src/components/brand-system/brand-system-view-helpers.ts:11
+msgid "dashboard.brand.binding.pinned"
+msgstr "Version épinglée"
+
+#. js-lingui-explicit-id
+#: src/components/environment-policy-editor.tsx:30
+msgid "dashboard.environmentPolicy.pipeline"
+msgstr "Pipeline"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:952
+msgid "auth.form.pleaseTryAgain"
+msgstr "Veuillez réessayer."
+
+#. js-lingui-explicit-id
+#: src/components/analytics-panel.tsx:145
+msgid "dashboard.analytics.pointerGeneration"
+msgstr "Génération de pointeur"
+
+#. js-lingui-explicit-id
+#: src/components/environment-policy-editor.tsx:83
+msgid "dashboard.environmentPolicy.noPublishSideEffect"
+msgstr "Les modifications de stratégie ne publient ni ne recompilent jamais un artefact."
+
+#. js-lingui-explicit-id
+#: src/components/document-debug-panel.tsx:27
+msgid "dashboard.support.description"
+msgstr "Préparez une sauvegarde modifiable et une version client uniquement lorsque le support ou le contrôle qualité le demande."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:135
+msgid "dashboard.viewModel.prepareDraft"
+msgstr "Préparer le brouillon"
+
+#. js-lingui-explicit-id
+#: src/components/document-debug-panel.tsx:64
+msgid "dashboard.support.prepare"
+msgstr "Préparer le package d'aide"
+
+#. js-lingui-explicit-id
+#: src/components/document-debug-panel.tsx:41
+msgid "dashboard.support.prepared"
+msgstr "Préparé"
+
+#. js-lingui-explicit-id
+#: src/components/brand-system/brand-approval-review.tsx:34
+msgid "dashboard.brand.review.preparing"
+msgstr "Préparation de la revue d'approbation…"
+
+#. js-lingui-explicit-id
+#: src/components/sdk-snippet-panel.tsx:91
+msgid "dashboard.installation.preparing"
+msgstr "Préparation…"
+
+#. js-lingui-explicit-id
+#: src/components/brand-system-panel.tsx:51
+msgid "dashboard.brand.panel.previewImpact"
+msgstr "Aperçu de l'impact"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:265
+msgid "dashboard.viewModel.previewToPrepareArtifact"
+msgstr "Aperçu une fois pour préparer un artefact publiable"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:480
+msgid "dashboard.viewModel.previewToPreparePublishing"
+msgstr "Aperçu une fois pour préparer la publication"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:136
+msgid "dashboard.viewModel.previewToPrepareDraft"
+msgstr "Prévisualisez cette expérience une fois pour préparer un brouillon publiable."
+
+#. js-lingui-explicit-id
+#: src/components/brand-system/brand-impact-panel.tsx:12
+msgid "dashboard.brand.impact.description"
+msgstr "Aperçu qui est lié à ce thème. Chaque expérience adopte explicitement une nouvelle version approuvée ; la publication reste une action distincte."
+
+#. js-lingui-explicit-id
+#: src/components/release-recovery-panel.tsx:208
+msgid "dashboard.recovery.previousPublication"
+msgstr "Publication précédente : {publication}"
+
+#. js-lingui-explicit-id
+#: src/components/release-recovery-panel.tsx:143
+msgid "dashboard.recovery.priorPublication"
+msgstr "Publication préalable vérifiée par le serveur"
+
+#. js-lingui-explicit-id
+#: src/components/sdk-snippet-panel.tsx:32
+msgid "dashboard.installation.defaultApplicationName"
+msgstr "Application du produit"
+
+#. js-lingui-explicit-id
+#: src/components/dashboard-settings-views.tsx:26
+msgid "dashboard.environments.productEnvironments"
+msgstr "Environnements de produits"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:840
+msgid "auth.shell.productExperiences"
+msgstr "Des expériences produit qui restent au plus près de votre produit."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:331
+msgid "dashboard.viewModel.productMatchNotRecorded"
+msgstr "La correspondance du produit n'a pas été enregistrée"
+
+#. js-lingui-explicit-id
+#: src/components/brand-system/brand-source-summary-card.tsx:10
+msgid "dashboard.brand.source.title"
+msgstr "Source de correspondance du produit"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:390
+msgid "dashboard.viewModel.productSurfaceContext"
+msgstr "Contexte de la surface du produit"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1065
+msgid "workspaceSelection.placeholder"
+msgstr "Équipe produit"
+
+#. js-lingui-explicit-id
+#: src/components/brand-tour-comparison.tsx:25
+msgid "dashboard.brand.preview.tourCard"
+msgstr "Carte de présentation du produit"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:386
+msgid "dashboard.viewModel.productTypography"
+msgstr "Typographie du produit"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:89
+msgid "dashboard.common.production"
+msgstr "Fabrication"
+
+#. js-lingui-explicit-id
+#: src/components/analytics-panel.tsx:67
+msgid "dashboard.analytics.production"
+msgstr "Fabrication"
+
+#. js-lingui-explicit-id
+#: src/components/environment-policy-editor.tsx:103
+msgid "dashboard.environmentPolicy.production"
+msgstr "Fabrication"
+
+#. js-lingui-explicit-id
+#: src/components/analytics-panel.tsx:76
+msgid "dashboard.analytics.productionNotConfigured"
+msgstr "Les analyses de production ne sont pas configurées. Sélectionnez explicitement la mise en scène pour charger ses faits isolés."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:257
+msgid "dashboard.viewModel.productionEvidence"
+msgstr "Preuve de production"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:245
+msgid "dashboard.viewModel.activeProvenanceUnavailable"
+msgstr "La production est active, mais la provenance exacte des artefacts de mise en scène n'est pas encore disponible."
+
+#. js-lingui-explicit-id
+#: src/components/analytics-panel.tsx:57
+msgid "dashboard.analytics.isolationDescription"
+msgstr "La production est la valeur par défaut explicite une fois configurée. Les faits de mise en scène et de production sont interrogés et rendus séparément ; Lodariq ne les combine jamais dans cette optique."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:140
+msgid "dashboard.viewModel.productionLive"
+msgstr "Production en direct"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:241
+msgid "dashboard.viewModel.exactArtifactPromoted"
+msgstr "La production pointe vers l’artefact exact promu depuis la mise en scène."
+
+#. js-lingui-explicit-id
+#: src/components/dashboard-release-view.tsx:24
+msgid "dashboard.releases.exactArtifactDescription"
+msgstr "La promotion de la production doit réutiliser l’artefact intermédiaire vérifié sans reconstruction, mutation automatique du thème ou copie de l’environnement."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:597
+msgid "dashboard.action.approvalNotRequired"
+msgstr "La promotion de la production ne nécessite plus d'approbation distincte."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:141
+msgid "dashboard.viewModel.productionPublished"
+msgstr "Production publiée"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:146
+msgid "dashboard.viewModel.productionUpdate"
+msgstr "Mise à jour de la production"
+
+#. js-lingui-explicit-id
+#: src/components/release-recovery-panel.tsx:189
+msgid "dashboard.recovery.promoted"
+msgstr "Promu"
+
+#. js-lingui-explicit-id
+#: src/components/dashboard-settings-views.tsx:38
+msgid "dashboard.environments.promotionApproval"
+msgstr "Approbation de la promotion"
+
+#. js-lingui-explicit-id
+#: src/components/environment-policy-editor.tsx:55
+msgid "dashboard.environmentPolicy.promotionSource"
+msgstr "Origine des promotions"
+
+#. js-lingui-explicit-id
+#: src/components/analytics-panel.tsx:143
+msgid "dashboard.analytics.publication"
+msgstr "Publication"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:493
+msgid "dashboard.viewModel.publicationRecorded"
+msgstr "Publication enregistrée"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:489
+msgid "dashboard.viewModel.recordsUseEarlierHash"
+msgstr "Les enregistrements de publication pour {sites} utilisent un hachage de contenu antérieur"
+
+#. js-lingui-explicit-id
+#: src/components/analytics-panel.tsx:132
+msgid "dashboard.analytics.releaseFactsDescription"
+msgstr "La publication, le hachage de contenu et la génération de pointeur restent séparés pour chaque ligne d'événement, y compris les restaurations qui réutilisent le contenu."
+
+#. js-lingui-explicit-id
+#: src/components/release-recovery-panel.tsx:224
+msgid "dashboard.recovery.publicationIdentity"
+msgstr "Publication : {publication}"
+
+#. js-lingui-explicit-id
+#: src/components/release-recovery-panel.tsx:220
+msgid "dashboard.recovery.publicationSource"
+msgstr "Publication : {publication} · source : {source}"
+
+#. js-lingui-explicit-id
+#: src/components/release-recovery-panel.tsx:204
+msgid "dashboard.recovery.publicationTarget"
+msgstr "Publication : {publication} · cible : {target}"
+
+#. js-lingui-explicit-id
+#: src/components/document-debug-panel.tsx:59
+msgid "dashboard.support.publishBlockers"
+msgstr "Bloqueurs de publication"
+
+#. js-lingui-explicit-id
+#: src/i18n/server-feedback.ts:10
+msgid "dashboard.publishIssue.unknown.label"
+msgstr "Publier le chèque"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:181
+msgid "dashboard.viewModel.publishCurrentDraft"
+msgstr "Publier le brouillon actuel"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:194
+msgid "dashboard.viewModel.publishToStaging"
+msgstr "Publier sur la scène"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:232
+msgid "dashboard.viewModel.published"
+msgstr "Publié"
+
+#. js-lingui-explicit-id
+#: src/components/release-recovery-panel.tsx:188
+msgid "dashboard.recovery.published"
+msgstr "Publié"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:237
+msgid "dashboard.viewModel.publishedDeliveryUnconfirmed"
+msgstr "Publié {date} · livraison active non confirmée"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:302
+msgid "dashboard.viewModel.publishedPointerNotExposed"
+msgstr "Publié {date} · pointeur actif non exposé"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:286
+msgid "dashboard.viewModel.publishedNoBrowserVerification"
+msgstr "Publié {date} · vérification du navigateur non enregistrée"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:233
+msgid "dashboard.viewModel.publishedVerificationPending"
+msgstr "Publié {date} · vérification en attente"
+
+#. js-lingui-explicit-id
+#: src/components/environment-policy-editor.tsx:63
+msgid "dashboard.environmentPolicy.publisherRoles"
+msgstr "Rôles d'éditeur"
+
+#. js-lingui-explicit-id
+#: src/components/documents-table.tsx:56
+msgid "dashboard.documents.publishing"
+msgstr "Publication"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:339
+msgid "dashboard.viewModel.radius"
+msgstr "Rayon"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:979
+msgid "auth.form.readingSecureLink"
+msgstr "Lecture de votre lien sécurisé…"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1005
+msgid "auth.form.readingVerificationLink"
+msgstr "Lecture de votre lien de vérification sécurisé…"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:476
+msgid "dashboard.viewModel.readyFirstPublish"
+msgstr "Prêt pour la première publication"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:190
+msgid "dashboard.viewModel.readyForStaging"
+msgstr "Prêt pour la mise en scène"
+
+#. js-lingui-explicit-id
+#: src/components/authoring-activation-popup.tsx:100
+msgid "dashboard.activation.ready"
+msgstr "Prêt à vous connecter"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:462
+msgid "dashboard.viewModel.readinessPreviewable"
+msgstr "Prêt à prévisualiser"
+
+#. js-lingui-explicit-id
+#: src/components/document-debug-panel.tsx:58
+msgid "dashboard.support.readyToPublish"
+msgstr "Prêt à publier"
+
+#. js-lingui-explicit-id
+#: src/components/release-recovery-panel.tsx:156
+msgid "dashboard.recovery.reasonLabel"
+msgstr "Raison"
+
+#. js-lingui-explicit-id
+#: src/components/release-recovery-panel.tsx:117
+msgid "dashboard.recovery.reason"
+msgstr "Raison : {reason}"
+
+#. js-lingui-explicit-id
+#: src/components/recent-activity.tsx:15
+msgid "dashboard.recentActivity.title"
+msgstr "Activité récente"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:891
+msgid "auth.page.recoveryDisabled.title"
+msgstr "La récupération n'est pas disponible"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:100
+msgid "dashboard.common.refresh"
+msgstr "Actualiser"
+
+#. js-lingui-explicit-id
+#: src/components/release-recovery-panel.tsx:80
+msgid "dashboard.recovery.refresh"
+msgstr "Actualiser"
+
+#. js-lingui-explicit-id
+#: src/components/analytics-panel.tsx:62
+msgid "dashboard.analytics.refresh"
+msgstr "Actualiser l'environnement sélectionné"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:374
+msgid "dashboard.viewModel.registeredDesignTokens"
+msgstr "Jetons de modèle déposé"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:57
+msgid "dashboard.page.releases.title"
+msgstr "Détails de la version"
+
+#. js-lingui-explicit-id
+#: src/components/release-recovery-panel.tsx:81
+msgid "dashboard.recovery.environment"
+msgstr "Environnement de publication"
+
+#. js-lingui-explicit-id
+#: src/components/analytics-panel.tsx:203
+msgid "dashboard.analytics.fact.releaseHealth"
+msgstr "Libérer la santé"
+
+#. js-lingui-explicit-id
+#: src/components/release-recovery-panel.tsx:74
+msgid "dashboard.recovery.title"
+msgstr "Historique des versions et récupération"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:820
+msgid "dashboard.action.releaseHistoryMissing"
+msgstr "L'historique des versions n'est pas disponible pour ce document."
+
+#. js-lingui-explicit-id
+#: src/components/release-recovery-panel.tsx:58
+msgid "dashboard.recovery.historyUnavailable"
+msgstr "L'historique des versions est temporairement indisponible pour cet environnement."
+
+#. js-lingui-explicit-id
+#: src/components/release-progress.tsx:19
+msgid "dashboard.releaseProgress.label"
+msgstr "Progression de la publication"
+
+#. js-lingui-explicit-id
+#: src/i18n/server-feedback.ts:182
+msgid "dashboard.recovery.failure.unknown"
+msgstr "La récupération de la version n'a pas pu être terminée."
+
+#. js-lingui-explicit-id
+#: src/components/release-recovery-panel.tsx:70
+msgid "dashboard.recovery.regionLabel"
+msgstr "Libérer la récupération pour {document}"
+
+#. js-lingui-explicit-id
+#: src/components/release-recovery-panel.tsx:183
+msgid "dashboard.recovery.unpublishedAt"
+msgstr "Version inédite à la génération {generation}.{replay}"
+
+#. js-lingui-explicit-id
+#: src/components/analytics-panel.tsx:131
+msgid "dashboard.analytics.releaseFacts"
+msgstr "Faits relatifs à la diffusion"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:17
+msgid "dashboard.navigation.releases"
+msgstr "Publications"
+
+#. js-lingui-explicit-id
+#: src/components/dashboard-settings-views.tsx:55
+msgid "dashboard.environments.removeApproval"
+msgstr "Supprimer l'approbation"
+
+#. js-lingui-explicit-id
+#: src/i18n/server-feedback.ts:37
+msgid "dashboard.publishIssue.unsupportedTourBlock.message"
+msgstr "Supprimez ou modifiez le bloc non pris en charge avant la publication."
+
+#. js-lingui-explicit-id
+#: src/components/release-recovery-panel.tsx:128
+msgid "dashboard.recovery.renderer"
+msgstr "Moteur de rendu"
+
+#. js-lingui-explicit-id
+#: src/components/brand-tour-comparison.tsx:31
+msgid "dashboard.brand.preview.rendering"
+msgstr "Visite guidée du rendu…"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:916
+msgid "auth.page.requestAnotherLink"
+msgstr "Demander un autre lien"
+
+#. js-lingui-explicit-id
+#: src/components/release-recovery-panel.tsx:200
+msgid "dashboard.recovery.requestedTarget"
+msgstr "Cible demandée : {target}"
+
+#. js-lingui-explicit-id
+#: src/components/dashboard-settings-views.tsx:59
+msgid "dashboard.environments.requireApproval"
+msgstr "Exiger l'approbation"
+
+#. js-lingui-explicit-id
+#: src/components/environment-policy-editor.tsx:51
+msgid "dashboard.environmentPolicy.requireApproval"
+msgstr "Exiger une approbation"
+
+#. js-lingui-explicit-id
+#: src/components/environment-policy-editor.tsx:47
+msgid "dashboard.environmentPolicy.requireVerification"
+msgstr "Exiger une vérification de la source"
+
+#. js-lingui-explicit-id
+#: src/components/release-recovery-panel.tsx:166
+msgid "dashboard.recovery.retryExact"
+msgstr "Réessayez la demande exacte"
+
+#. js-lingui-explicit-id
+#: src/components/analytics-panel.tsx:93
+msgid "dashboard.analytics.retry"
+msgstr "Réessayer l'environnement sélectionné"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:927
+msgid "auth.page.returnToAccountCreation"
+msgstr "Retour à la création de compte"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:899
+msgid "auth.page.returnToSignIn"
+msgstr "Retour pour vous connecter"
+
+#. js-lingui-explicit-id
+#: src/components/authoring-activation-popup.tsx:87
+msgid "dashboard.activation.returning"
+msgstr "Je vous renvoie à l'application…"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:105
+msgid "dashboard.viewModel.status.review"
+msgstr "Examen"
+
+#. js-lingui-explicit-id
+#: src/components/brand-system-panel.tsx:62
+msgid "dashboard.brand.panel.reviewApprove"
+msgstr "Vérifier et approuver"
+
+#. js-lingui-explicit-id
+#: src/components/brand-system/brand-approval-review.tsx:72
+msgid "dashboard.brand.review.reviewAfter"
+msgstr "Examen après approbation"
+
+#. js-lingui-explicit-id
+#: src/i18n/server-feedback.ts:79
+msgid "dashboard.publishIssue.targetNeedsReview.message"
+msgstr "Examinez et vérifiez cet emplacement avant de le publier."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:122
+msgid "dashboard.viewModel.reviewBlockers"
+msgstr "Bloqueurs d'avis"
+
+#. js-lingui-explicit-id
+#: src/components/brand-system-panel.tsx:61
+msgid "dashboard.brand.panel.reviewOpen"
+msgstr "Avis ouvert"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:150
+msgid "dashboard.viewModel.reviewProductionUpdate"
+msgstr "Examiner la mise à jour de la production"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:164
+msgid "dashboard.viewModel.reviewPromotion"
+msgstr "Avis sur la promotion"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:416
+msgid "dashboard.viewModel.reviewRecommended"
+msgstr "Examen recommandé"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:90
+msgid "dashboard.common.reviewRelease"
+msgstr "Version d'examen"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:145
+msgid "dashboard.viewModel.reviewRelease"
+msgstr "Version d'examen"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:58
+msgid "dashboard.page.releases.description"
+msgstr "Examinez l’état de l’environnement que Lodariq peut actuellement prouver pour chaque expérience."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:168
+msgid "dashboard.viewModel.reviewVerification"
+msgstr "Vérification des avis"
+
+#. js-lingui-explicit-id
+#: src/components/brand-tour-comparison.tsx:55
+msgid "dashboard.brand.preview.sampleParagraph"
+msgstr "Passez en revue ce qui est prêt pour la mise en scène sans quitter le produit."
+
+#. js-lingui-explicit-id
+#: src/components/sdk-snippet-panel.tsx:99
+msgid "dashboard.installation.revoke"
+msgstr "Révoquer l'installation"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:118
+msgid "dashboard.viewModel.revoked"
+msgstr "Révoqué"
+
+#. js-lingui-explicit-id
+#: src/components/sdk-snippet-panel.tsx:69
+msgid "dashboard.installation.revokeWarning"
+msgstr "La révocation arrête la livraison du runtime et la création sur chaque origine mappée. Installez un nouvel identifiant pour reconnecter cette application."
+
+#. js-lingui-explicit-id
+#: src/components/sdk-snippet-panel.tsx:98
+msgid "dashboard.installation.revoking"
+msgstr "Révoquer…"
+
+#. js-lingui-explicit-id
+#: src/components/release-recovery-panel.tsx:53
+msgid "dashboard.recovery.action.rollback"
+msgstr "Revenir en arrière"
+
+#. js-lingui-explicit-id
+#: src/components/release-recovery-panel.tsx:167
+msgid "dashboard.recovery.rollbackPublication"
+msgstr "Annuler la publication"
+
+#. js-lingui-explicit-id
+#: src/components/release-recovery-panel.tsx:87
+msgid "dashboard.recovery.rollbackEllipsis"
+msgstr "Revenir en arrière…"
+
+#. js-lingui-explicit-id
+#: src/components/release-recovery-panel.tsx:75
+msgid "dashboard.recovery.description"
+msgstr "La restauration réutilise un artefact immuable approuvé par le serveur. La dépublication désactive uniquement le pointeur actuel ; l’historique reste disponible."
+
+#. js-lingui-explicit-id
+#: src/components/environment-policy-editor.tsx:67
+msgid "dashboard.environmentPolicy.rollbackRoles"
+msgstr "Rôles de restauration"
+
+#. js-lingui-explicit-id
+#: src/components/release-recovery-panel.tsx:190
+msgid "dashboard.recovery.rolledBackAction"
+msgstr "Annulé"
+
+#. js-lingui-explicit-id
+#: src/components/release-recovery-panel.tsx:179
+msgid "dashboard.recovery.rolledBack"
+msgstr "Restauré à {publication} lors de la génération {generation}.{replay}"
+
+#. js-lingui-explicit-id
+#: src/components/brand-system/brand-theme-editor.tsx:44
+msgid "dashboard.brand.editor.radius.rounded"
+msgstr "Arrondi"
+
+#. js-lingui-explicit-id
+#: src/components/brand-tour-comparison.tsx:26
+msgid "dashboard.brand.preview.runtime"
+msgstr "Durée d'exécution"
+
+#. js-lingui-explicit-id
+#: src/components/brand-system/brand-approval-review.tsx:48
+msgid "dashboard.brand.review.comparisonReady"
+msgstr "Comparaison d'exécution prête"
+
+#. js-lingui-explicit-id
+#: src/components/sdk-snippet-panel.tsx:63
+msgid "dashboard.installation.runtimeOnly"
+msgstr "Exécution uniquement"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:326
+msgid "dashboard.viewModel.safeFallback"
+msgstr "Solution de secours sécurisée"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:322
+msgid "dashboard.viewModel.semanticDefaultsActive"
+msgstr "Les valeurs sémantiques sécurisées par défaut sont actives jusqu’à ce qu’un thème de marque d’espace de travail soit approuvé."
+
+#. js-lingui-explicit-id
+#: src/components/brand-system/brand-approval-review.tsx:44
+msgid "dashboard.brand.review.sameContent"
+msgstr "Même contenu · changement de thème uniquement"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:99
+msgid "dashboard.common.save"
+msgstr "Enregistrer"
+
+#. js-lingui-explicit-id
+#: src/components/brand-system/brand-theme-editor.tsx:47
+msgid "dashboard.brand.editor.save"
+msgstr "Enregistrer le brouillon"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:990
+msgid "auth.form.savePassword"
+msgstr "Enregistrez le mot de passe et continuez"
+
+#. js-lingui-explicit-id
+#: src/components/environment-policy-editor.tsx:88
+msgid "dashboard.environmentPolicy.save"
+msgstr "Enregistrer la politique"
+
+#. js-lingui-explicit-id
+#: src/components/brand-tour-comparison.tsx:40
+msgid "dashboard.brand.preview.savedDraft"
+msgstr "Brouillon enregistré"
+
+#. js-lingui-explicit-id
+#: src/components/brand-system/brand-approval-review.tsx:18
+msgid "dashboard.brand.review.savedDraft"
+msgstr "Brouillon enregistré"
+
+#. js-lingui-explicit-id
+#: src/components/dashboard-release-view.tsx:30
+msgid "dashboard.releases.emptyDescription"
+msgstr "Les expériences enregistrées apparaîtront ici avec les enregistrements de publication que l'API actuelle peut prouver."
+
+#. js-lingui-explicit-id
+#: src/components/environment-policy-editor.tsx:87
+msgid "dashboard.environmentPolicy.saving"
+msgstr "Sauvegarde…"
+
+#. js-lingui-explicit-id
+#: src/components/brand-system/brand-theme-editor.tsx:46
+msgid "dashboard.brand.editor.saving"
+msgstr "Sauvegarde…"
+
+#. js-lingui-explicit-id
+#: src/components/brand-system/brand-approval-review.tsx:59
+msgid "dashboard.brand.review.scope"
+msgstr "Portée"
+
+#. js-lingui-explicit-id
+#: src/components/analytics-panel.tsx:35
+msgid "dashboard.analytics.event.sdkError"
+msgstr "Erreur du SDK"
+
+#. js-lingui-explicit-id
+#: src/components/analytics-panel.tsx:205
+msgid "dashboard.analytics.fact.sdkErrors"
+msgstr "Erreurs du SDK"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:730
+msgid "dashboard.action.installationNotFound"
+msgstr "L'installation du SDK est introuvable."
+
+#. js-lingui-explicit-id
+#: src/components/analytics-panel.tsx:36
+msgid "dashboard.analytics.event.sdkLoaded"
+msgstr "SDK chargé"
+
+#. js-lingui-explicit-id
+#: src/components/documents-table.tsx:63
+msgid "dashboard.documents.search"
+msgstr "Expériences de recherche"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:848
+msgid "auth.shell.secureAccess"
+msgstr "Accès Lodariq sécurisé et direct"
+
+#. js-lingui-explicit-id
+#: src/components/brand-system/brand-approval-review.tsx:19
+msgid "dashboard.brand.review.title"
+msgstr "Observez le changement là où les clients"
+
+#. js-lingui-explicit-id
+#: src/i18n/server-feedback.ts:200
+msgid "dashboard.recovery.failure.rollbackTargetInvalid"
+msgstr "Sélectionnez une publication réussie antérieure dans cet historique de versions."
+
+#. js-lingui-explicit-id
+#: src/components/analytics-panel.tsx:81
+msgid "dashboard.analytics.selectedEnvironment"
+msgstr "environnement sélectionné"
+
+#. js-lingui-explicit-id
+#: src/components/document-debug-panel.tsx:37
+msgid "dashboard.support.selectedExperience"
+msgstr "Expérience sélectionnée"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:378
+msgid "dashboard.viewModel.selectedProductElement"
+msgstr "Élément de produit sélectionné"
+
+#. js-lingui-explicit-id
+#: src/components/brand-system/brand-source-summary-card.tsx:11
+msgid "dashboard.brand.source.roles"
+msgstr "Rôles de la marque sémantique"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:355
+msgid "dashboard.viewModel.tokensSavedAsDraft"
+msgstr "Les jetons sémantiques sont enregistrés en tant que brouillon et ne peuvent pas modifier les versions en direct."
+
+#. js-lingui-explicit-id
+#: src/components/environment-policy-editor.tsx:79
+msgid "dashboard.environmentPolicy.separateApprover"
+msgstr "Approbateur distinct"
+
+#. js-lingui-explicit-id
+#: src/components/environment-policy-editor.tsx:75
+msgid "dashboard.environmentPolicy.separateVerifier"
+msgstr "Vérificateur distinct"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:943
+msgid "auth.form.setOrResetPassword"
+msgstr "Définir ou réinitialiser le mot de passe"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:900
+msgid "auth.page.recovery.title"
+msgstr "Définir ou réinitialiser votre mot de passe"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:68
+msgid "dashboard.page.brandSystem.description"
+msgstr "Façonnez l'expérience client avec des jetons sécurisés, puis approuvez chaque version."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:961
+msgid "auth.form.signIn"
+msgstr "Connectez-vous"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:550
+msgid "dashboard.server.authenticationRequired"
+msgstr "Connectez-vous à nouveau pour continuer."
+
+#. js-lingui-explicit-id
+#: src/components/authoring-activation-popup.tsx:53
+msgid "dashboard.activation.signInDescription"
+msgstr "Connectez-vous ici. Cette fenêtre reprendra automatiquement la même demande de création sécurisée."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:890
+msgid "auth.page.signInInstead"
+msgstr "Connectez-vous à la place"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:505
+msgid "dashboard.entry.signInTitle"
+msgstr "Connectez-vous à Lodariq"
+
+#. js-lingui-explicit-id
+#: src/components/authoring-activation-popup.tsx:52
+msgid "dashboard.activation.signInTitle"
+msgstr "Connectez-vous, puis continuez"
+
+#. js-lingui-explicit-id
+#: src/components/dashboard-auth-controls.tsx:51
+msgid "dashboard.account.signOut"
+msgstr "Se déconnecter"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:877
+msgid "auth.page.signUpDisabled.title"
+msgstr "L'inscription n'est pas disponible ici"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:953
+msgid "auth.form.signingIn"
+msgstr "Connexion"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:705
+msgid "dashboard.action.siteLabelRequired"
+msgstr "L'étiquette du site est requise."
+
+#. js-lingui-explicit-id
+#: src/components/analytics-panel.tsx:178
+msgid "dashboard.analytics.fact.skipped"
+msgstr "Sauté"
+
+#. js-lingui-explicit-id
+#: src/components/brand-system/brand-theme-editor.tsx:43
+msgid "dashboard.brand.editor.radius.soft"
+msgstr "Doux"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:582
+msgid "dashboard.server.partialData"
+msgstr "Certaines données de l'espace de travail sont temporairement indisponibles. Les sections disponibles restent utilisables."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1030
+msgid "auth.form.soon"
+msgstr "bientôt"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:342
+msgid "dashboard.viewModel.sourceRevision"
+msgstr "Révision source {revision}"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:88
+msgid "dashboard.common.staging"
+msgstr "Mise en scène"
+
+#. js-lingui-explicit-id
+#: src/components/analytics-panel.tsx:68
+msgid "dashboard.analytics.staging"
+msgstr "Mise en scène"
+
+#. js-lingui-explicit-id
+#: src/components/authoring-activation-popup.tsx:112
+msgid "dashboard.activation.staging"
+msgstr "Mise en scène"
+
+#. js-lingui-explicit-id
+#: src/components/authoring-launch-panel.tsx:32
+msgid "dashboard.authoringLaunch.staging"
+msgstr "Mise en scène"
+
+#. js-lingui-explicit-id
+#: src/components/environment-policy-editor.tsx:102
+msgid "dashboard.environmentPolicy.staging"
+msgstr "Mise en scène"
+
+#. js-lingui-explicit-id
+#: src/components/release-recovery-panel.tsx:66
+msgid "dashboard.recovery.noEnvironments"
+msgstr "Les environnements de préparation et de production ne sont pas configurés."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:256
+msgid "dashboard.viewModel.stagingEvidence"
+msgstr "Mise en scène des preuves"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:160
+msgid "dashboard.viewModel.stagingPublished"
+msgstr "Mise en scène publiée"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:180
+msgid "dashboard.viewModel.stagingUpdate"
+msgstr "Mise à jour intermédiaire"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:159
+msgid "dashboard.viewModel.stagingVerified"
+msgstr "Mise en scène vérifiée"
+
+#. js-lingui-explicit-id
+#: src/components/launch-queue.tsx:43
+msgid "dashboard.launchQueue.emptyDescription"
+msgstr "Démarrez une visite depuis le lanceur Lodariq sur un site de développement ou de staging configuré."
+
+#. js-lingui-explicit-id
+#: src/components/documents-table.tsx:73
+msgid "dashboard.documents.emptyDescription"
+msgstr "Démarrez une visite guidée dans le créateur, puis elle apparaîtra ici pour révision et publication."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:864
+msgid "auth.page.signUp.eyebrow"
+msgstr "Commencer la création"
+
+#. js-lingui-explicit-id
+#: src/components/brand-system/brand-empty-state.tsx:12
+msgid "dashboard.brand.empty.description"
+msgstr "Commencez par la base accessible de Lodariq, puis ajustez cinq éléments essentiels. Pas de CSS, de sélecteurs ou de labyrinthe de configuration de thème."
+
+#. js-lingui-explicit-id
+#: src/components/launch-queue.tsx:52
+msgid "dashboard.launchQueue.status"
+msgstr "Statut"
+
+#. js-lingui-explicit-id
+#: src/components/authoring-launch-panel.tsx:38
+msgid "dashboard.authoringLaunch.stayInProduct"
+msgstr "Restez dans le produit pendant que vous créez"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:23
+msgid "dashboard.navigation.supportLabel"
+msgstr "Assistance"
+
+#. js-lingui-explicit-id
+#: src/components/document-debug-panel.tsx:25
+msgid "dashboard.support.eyebrow"
+msgstr "Assistance"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:336
+msgid "dashboard.viewModel.surface"
+msgstr "Surface"
+
+#. js-lingui-explicit-id
+#: src/components/brand-system/brand-theme-editor.tsx:28
+msgid "dashboard.brand.editor.surface"
+msgstr "Surface"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:114
+msgid "dashboard.viewModel.type.survey"
+msgstr "Enquête"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:33
+msgid "dashboard.theme.switchToDark"
+msgstr "Passer au thème sombre"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:32
+msgid "dashboard.theme.switchToLight"
+msgstr "Passer au thème clair"
+
+#. js-lingui-explicit-id
+#: src/components/sdk-snippet-panel.tsx:97
+msgid "dashboard.installation.sync"
+msgstr "Synchroniser les origines fiables"
+
+#. js-lingui-explicit-id
+#: src/components/sdk-snippet-panel.tsx:96
+msgid "dashboard.installation.syncing"
+msgstr "Synchronisation…"
+
+#. js-lingui-explicit-id
+#: src/components/release-recovery-panel.tsx:122
+msgid "dashboard.recovery.system"
+msgstr "Système"
+
+#. js-lingui-explicit-id
+#: src/components/brand-system/brand-theme-editor.tsx:39
+msgid "dashboard.brand.editor.systemSans"
+msgstr "Système sans"
+
+#. js-lingui-explicit-id
+#: src/components/analytics-panel.tsx:115
+msgid "dashboard.analytics.targetFailure"
+msgstr "Échec de la cible"
+
+#. js-lingui-explicit-id
+#: src/components/analytics-panel.tsx:116
+msgid "dashboard.analytics.targetFailures"
+msgstr "Cibler les échecs"
+
+#. js-lingui-explicit-id
+#: src/i18n/server-feedback.ts:78
+msgid "dashboard.publishIssue.targetNeedsReview.label"
+msgstr "Examen des besoins cibles"
+
+#. js-lingui-explicit-id
+#: src/components/analytics-panel.tsx:37
+msgid "dashboard.analytics.event.targetResolution"
+msgstr "Résolution cible"
+
+#. js-lingui-explicit-id
+#: src/components/analytics-panel.tsx:149
+msgid "dashboard.analytics.targetResult"
+msgstr "Résultat cible"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:456
+msgid "dashboard.viewModel.teamUpdate"
+msgstr "Mise à jour de l'équipe"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:337
+msgid "dashboard.viewModel.text"
+msgstr "Texte"
+
+#. js-lingui-explicit-id
+#: src/components/brand-system/brand-theme-editor.tsx:29
+msgid "dashboard.brand.editor.text"
+msgstr "Texte"
+
+#. js-lingui-explicit-id
+#: src/i18n/server-feedback.ts:208
+msgid "dashboard.recovery.failure.deploymentChanged"
+msgstr "Le déploiement actif a changé. Actualisez l'historique des versions et réessayez."
+
+#. js-lingui-explicit-id
+#: src/components/analytics-panel.tsx:126
+msgid "dashboard.analytics.rowBound"
+msgstr "L'API a renvoyé la limite d'affichage de 1 000 lignes. Des lignes supplémentaires liées à la version peuvent exister ; rien au-delà de cette limite n’est déduit."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:621
+msgid "dashboard.action.environmentPolicyChanged"
+msgstr "La politique d'environnement a changé ou est en conflit avec le pipeline de version. Actualisez et réessayez."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:613
+msgid "dashboard.action.environmentPolicyInvalid"
+msgstr "La politique d'environnement n'est pas valide."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:172
+msgid "dashboard.viewModel.stagedArtifactReady"
+msgstr "L'artefact mis en scène exact est vérifié et prêt pour une promotion délibérée de la production."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:693
+msgid "dashboard.action.experienceBrandUpdated"
+msgstr "L'expérience utilisera la version approuvée de la marque dans son prochain artefact compilé."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:717
+msgid "dashboard.action.originsNotSynced"
+msgstr "L'installation a été créée, mais les origines approuvées n'ont pas pu être synchronisées. Réessayez la synchronisation d'origine avant de l'utiliser."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:154
+msgid "dashboard.viewModel.productionEarlierHash"
+msgstr "Le dernier enregistrement de publication de production utilise un hachage de contenu antérieur à celui du brouillon enregistré."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:185
+msgid "dashboard.viewModel.stagingEarlierHash"
+msgstr "Le dernier enregistrement de publication intermédiaire utilise un hachage de contenu antérieur à celui du brouillon enregistré."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1029
+msgid "auth.form.linkExpires"
+msgstr "Le lien expire {expiry}."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1039
+msgid "auth.error.invalidPasswordLink"
+msgstr "Le lien du mot de passe est invalide ou a expiré."
+
+#. js-lingui-explicit-id
+#: src/components/document-debug-panel.tsx:49
+msgid "dashboard.support.customerVersionDescription"
+msgstr "La version préparée que les clients voient sur votre site."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:589
+msgid "dashboard.action.productionApprovalInvalid"
+msgstr "La politique d'approbation de la production n'est pas valide."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:601
+msgid "dashboard.action.productionChanged"
+msgstr "L'environnement de production a changé au cours d'une autre session. Actualisez et réessayez."
+
+#. js-lingui-explicit-id
+#: src/components/sdk-snippet-panel.tsx:74
+msgid "dashboard.installation.publicIdSafety"
+msgstr "L'ID d'installation public est révocable et ne contient aucun secret d'espace de travail, jeton d'environnement, session de création ou identifiant de compte."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:562
+msgid "dashboard.server.conflict"
+msgstr "L'enregistrement a changé au cours d'une autre session. Actualisez et réessayez."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:815
+msgid "dashboard.action.releaseRecoveryUncertain"
+msgstr "Le résultat de la récupération est incertain. Réessayez la demande exacte ou actualisez l’historique des versions."
+
+#. js-lingui-explicit-id
+#: src/i18n/server-feedback.ts:196
+msgid "dashboard.recovery.failure.documentNotFound"
+msgstr "Le document de sortie est introuvable."
+
+#. js-lingui-explicit-id
+#: src/components/release-recovery-panel.tsx:62
+msgid "dashboard.recovery.requestFailed"
+msgstr "La demande de récupération de version n'a pas pu être complétée."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:807
+msgid "dashboard.action.releaseRecoveryInvalid"
+msgstr "La demande de récupération de version n'est pas valide."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:542
+msgid "dashboard.server.requestRejected"
+msgstr "La demande n'a pas pu être acceptée."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:546
+msgid "dashboard.server.invalidRequest"
+msgstr "La demande n'était pas valide."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:558
+msgid "dashboard.server.notFound"
+msgstr "L'enregistrement de l'espace de travail demandé n'a pas été trouvé."
+
+#. js-lingui-explicit-id
+#: src/components/brand-system/use-brand-system-controller.ts:55
+msgid "dashboard.brand.controller.previewFailed"
+msgstr "L'aperçu d'exécution n'a pas pu être rendu. Fermez cet avis et réessayez."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:198
+msgid "dashboard.viewModel.noStagingRecordYet"
+msgstr "Le brouillon enregistré n’a pas encore d’enregistrement de publication intermédiaire."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:918
+msgid "auth.page.newPassword.description"
+msgstr "Le code secret est supprimé de votre navigateur avant l’affichage du formulaire. En enregistrant, vous serez connecté."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:787
+msgid "dashboard.action.analyticsEnvironmentUnavailable"
+msgstr "L'environnement d'analyse sélectionné n'est pas disponible."
+
+#. js-lingui-explicit-id
+#: src/components/brand-system-panel.tsx:30
+msgid "dashboard.brand.panel.missingTheme"
+msgstr "Le thème de marque sélectionné n'est plus disponible. Actualisez cet espace de travail."
+
+#. js-lingui-explicit-id
+#: src/i18n/server-feedback.ts:204
+msgid "dashboard.recovery.failure.artifactIncompatible"
+msgstr "La publication sélectionnée n'est pas prise en charge par le runtime actuel."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:176
+msgid "dashboard.viewModel.stagedArtifactNeedsVerification"
+msgstr "L'artefact mis en scène correspond au brouillon ; une vérification exacte du navigateur est toujours requise."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:994
+msgid "auth.form.invalidVerificationLink"
+msgstr "Le lien de vérification est invalide ou a expiré."
+
+#. js-lingui-explicit-id
+#: src/components/document-debug-panel.tsx:44
+msgid "dashboard.support.editableBackupDescription"
+msgstr "La version prise en charge peut être utilisée pour restaurer l'édition."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:526
+msgid "dashboard.error.title"
+msgstr "L'espace de travail n'a pas fini de se charger"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:519
+msgid "dashboard.entry.workspaceUnavailable"
+msgstr "L'espace de travail est temporairement indisponible."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:570
+msgid "dashboard.server.unavailable"
+msgstr "L'espace de travail est temporairement indisponible."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:574
+msgid "dashboard.server.requestFailed"
+msgstr "La demande d'espace de travail n'a pas pu être complétée."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:578
+msgid "dashboard.server.invalidResponse"
+msgstr "La réponse de l'espace de travail n'a pas pu être vérifiée."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:689
+msgid "dashboard.action.themeAcknowledgementInvalid"
+msgstr "La demande d'accusé de réception du thème n'est pas valide."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:664
+msgid "dashboard.action.themeApprovalInvalid"
+msgstr "La demande d'approbation du thème n'est pas valide."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:651
+msgid "dashboard.action.themeIdentityInvalid"
+msgstr "Le nom ou l'identifiant du thème n'est pas valide."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:346
+msgid "dashboard.viewModel.themeRevision"
+msgstr "Révision du thème {revision}"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:655
+msgid "dashboard.action.themeValuesInvalid"
+msgstr "Les valeurs du thème ne sont pas valides. Passez en revue les commandes en surbrillance."
+
+#. js-lingui-explicit-id
+#: src/components/authoring-activation-popup.tsx:105
+msgid "dashboard.activation.thisApplication"
+msgstr "cette demande"
+
+#. js-lingui-explicit-id
+#: src/components/authoring-activation-popup.tsx:39
+msgid "dashboard.activation.requestExpired"
+msgstr "Cette demande de création est indisponible ou a expiré. Revenez au lanceur et réessayez."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:761
+msgid "dashboard.action.brandChanged"
+msgstr "Ce thème de marque a changé au cours d'une autre session. Actualisez son impact avant de réessayer."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:881
+msgid "auth.page.signUpDisabled.description"
+msgstr "Ce déploiement n'accepte pas de nouveaux comptes. Les créateurs existants peuvent continuer avec leur compte Lodariq."
+
+#. js-lingui-explicit-id
+#: src/components/release-recovery-panel.tsx:93
+msgid "dashboard.recovery.noDeployment"
+msgstr "Ce document n'a aucun déploiement dans l'environnement sélectionné."
+
+#. js-lingui-explicit-id
+#: src/components/brand-system/brand-approval-review.tsx:81
+msgid "dashboard.brand.review.noLinkedDescription"
+msgstr "Cette première approbation crée une version de marque réutilisable ; la publication reste une étape distincte."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:908
+msgid "auth.page.incompleteLink.title"
+msgstr "Ce lien est incomplet"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:983
+msgid "auth.form.incompletePasswordLink"
+msgstr "Ce lien de mot de passe est incomplet. Demandez un nouveau lien pour continuer."
+
+#. js-lingui-explicit-id
+#: src/i18n/server-feedback.ts:11
+msgid "dashboard.publishIssue.unknown.message"
+msgstr "Cette vérification de publication nécessite une attention particulière avant la publication."
+
+#. js-lingui-explicit-id
+#: src/i18n/server-feedback.ts:216
+msgid "dashboard.recovery.failure.idempotencyConflict"
+msgstr "Cette demande de récupération est en conflit avec une demande antérieure. Actualisez et réessayez."
+
+#. js-lingui-explicit-id
+#: src/i18n/server-feedback.ts:192
+msgid "dashboard.recovery.failure.environmentNotConfigured"
+msgstr "Cet environnement de version n'est pas configuré."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1004
+msgid "auth.form.moment"
+msgstr "Cela ne devrait prendre qu'un instant."
+
+#. js-lingui-explicit-id
+#: src/components/brand-tour-comparison.tsx:27
+msgid "dashboard.brand.preview.renderFailed"
+msgstr "Cet aperçu de la tournée n'a pas pu être rendu."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1035
+msgid "auth.error.rateLimited"
+msgstr "Trop de tentatives. Attendez un peu et réessayez."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:566
+msgid "dashboard.server.rateLimited"
+msgstr "Trop de demandes. Attendez brièvement et réessayez."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:108
+msgid "dashboard.viewModel.type.tour"
+msgstr "Visite"
+
+#. js-lingui-explicit-id
+#: src/components/analytics-panel.tsx:41
+msgid "dashboard.analytics.event.tourCompleted"
+msgstr "Visite terminée"
+
+#. js-lingui-explicit-id
+#: src/components/analytics-panel.tsx:191
+msgid "dashboard.analytics.fact.tourCompletions"
+msgstr "Fin de la tournée"
+
+#. js-lingui-explicit-id
+#: src/components/analytics-panel.tsx:169
+msgid "dashboard.analytics.fact.tourDismissals"
+msgstr "Licenciements de tournée"
+
+#. js-lingui-explicit-id
+#: src/components/analytics-panel.tsx:42
+msgid "dashboard.analytics.event.tourDismissed"
+msgstr "Tournée annulée"
+
+#. js-lingui-explicit-id
+#: src/components/analytics-panel.tsx:43
+msgid "dashboard.analytics.event.tourSkipped"
+msgstr "Visite ignorée"
+
+#. js-lingui-explicit-id
+#: src/components/analytics-panel.tsx:180
+msgid "dashboard.analytics.fact.tourSkips"
+msgstr "La visite saute"
+
+#. js-lingui-explicit-id
+#: src/components/analytics-panel.tsx:44
+msgid "dashboard.analytics.event.tourStarted"
+msgstr "La tournée a commencé"
+
+#. js-lingui-explicit-id
+#: src/components/analytics-panel.tsx:158
+msgid "dashboard.analytics.fact.tourStarts"
+msgstr "La tournée commence"
+
+#. js-lingui-explicit-id
+#: src/components/dashboard-settings-views.tsx:25
+msgid "dashboard.environments.trustedOrigins"
+msgstr "Origines fiables"
+
+#. js-lingui-explicit-id
+#: src/components/sdk-snippet-panel.tsx:61
+msgid "dashboard.installation.trustedOrigins"
+msgstr "Origines fiables"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:510
+msgid "dashboard.entry.retryAction"
+msgstr "Réessayez"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:534
+msgid "dashboard.error.retry"
+msgstr "Réessayez"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:338
+msgid "dashboard.viewModel.typography"
+msgstr "Typographie"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:673
+msgid "dashboard.action.approveBrandFailed"
+msgstr "Impossible d'approuver cette version de la marque."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:638
+msgid "dashboard.action.createBrandFailed"
+msgstr "Impossible de créer le système de marque."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:709
+msgid "dashboard.action.createTokenFailed"
+msgstr "Impossible de créer le jeton."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:647
+msgid "dashboard.action.loadBrandImpactFailed"
+msgstr "Impossible de charger l'impact de la marque."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:832
+msgid "dashboard.action.releaseHistoryUnavailable"
+msgstr "Impossible de charger l'historique complet des versions."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:746
+msgid "dashboard.action.loadSupportFailed"
+msgstr "Impossible de charger les détails du support."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:685
+msgid "dashboard.action.setWorkspaceDefaultFailed"
+msgstr "Impossible d'en faire la valeur par défaut de l'espace de travail."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:722
+msgid "dashboard.action.prepareInstallationFailed"
+msgstr "Impossible de préparer l'installation du SDK."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:738
+msgid "dashboard.action.revokeInstallationFailed"
+msgstr "Impossible de révoquer l'installation du SDK."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:757
+msgid "dashboard.action.revokeTokenFailed"
+msgstr "Impossible de révoquer le jeton."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:660
+msgid "dashboard.action.saveBrandDraftFailed"
+msgstr "Impossible d'enregistrer ce brouillon de marque."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:734
+msgid "dashboard.action.syncOriginsFailed"
+msgstr "Impossible de synchroniser les origines approuvées."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:609
+msgid "dashboard.action.updateReleaseApprovalFailed"
+msgstr "Impossible de mettre à jour l'approbation de la version."
+
+#. js-lingui-explicit-id
+#: src/components/dashboard-settings-views.tsx:50
+msgid "dashboard.environments.unableToUpdateApproval"
+msgstr "Impossible de mettre à jour l'approbation de la version."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:630
+msgid "dashboard.action.updateEnvironmentPolicyFailed"
+msgstr "Impossible de mettre à jour la stratégie d'environnement."
+
+#. js-lingui-explicit-id
+#: src/components/environment-policy-editor.tsx:24
+msgid "dashboard.environmentPolicy.unableToUpdate"
+msgstr "Impossible de mettre à jour la stratégie d'environnement."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:697
+msgid "dashboard.action.updateExperienceFailed"
+msgstr "Impossible de mettre à jour cette expérience."
+
+#. js-lingui-explicit-id
+#: src/components/brand-system/brand-approval-review.tsx:76
+msgid "dashboard.brand.review.unchanged"
+msgstr "Inchangé"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:94
+msgid "dashboard.common.unknown"
+msgstr "Inconnu"
+
+#. js-lingui-explicit-id
+#: src/components/analytics-panel.tsx:219
+msgid "dashboard.analytics.target.unknown"
+msgstr "Inconnu"
+
+#. js-lingui-explicit-id
+#: src/components/analytics-panel.tsx:138
+msgid "dashboard.analytics.unknownEvent"
+msgstr "Événement limité inconnu"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:501
+msgid "dashboard.viewModel.unknownTime"
+msgstr "Heure inconnue"
+
+#. js-lingui-explicit-id
+#: src/components/release-recovery-panel.tsx:54
+msgid "dashboard.recovery.action.unpublish"
+msgstr "Annuler la publication"
+
+#. js-lingui-explicit-id
+#: src/components/release-recovery-panel.tsx:171
+msgid "dashboard.recovery.unpublishRelease"
+msgstr "Dépublier la version"
+
+#. js-lingui-explicit-id
+#: src/components/environment-policy-editor.tsx:71
+msgid "dashboard.environmentPolicy.unpublishRoles"
+msgstr "Annuler la publication des rôles"
+
+#. js-lingui-explicit-id
+#: src/components/release-recovery-panel.tsx:88
+msgid "dashboard.recovery.unpublishEllipsis"
+msgstr "Annuler la publication…"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:484
+msgid "dashboard.viewModel.unpublished"
+msgstr "Inédit"
+
+#. js-lingui-explicit-id
+#: src/components/release-recovery-panel.tsx:191
+msgid "dashboard.recovery.unpublished"
+msgstr "Inédit"
+
+#. js-lingui-explicit-id
+#: src/i18n/server-feedback.ts:147
+msgid "dashboard.publishIssue.unresolvedLifecycleHint.label"
+msgstr "Indice de cycle de vie non résolu"
+
+#. js-lingui-explicit-id
+#: src/i18n/server-feedback.ts:85
+msgid "dashboard.publishIssue.unresolvedTarget.label"
+msgstr "Cible non résolue"
+
+#. js-lingui-explicit-id
+#: src/i18n/server-feedback.ts:126
+msgid "dashboard.publishIssue.unsafeUrl.label"
+msgstr "URL non sécurisée"
+
+#. js-lingui-explicit-id
+#: src/i18n/server-feedback.ts:133
+msgid "dashboard.publishIssue.unsupportedAction.label"
+msgstr "Action non prise en charge"
+
+#. js-lingui-explicit-id
+#: src/i18n/server-feedback.ts:36
+msgid "dashboard.publishIssue.unsupportedTourBlock.label"
+msgstr "Bloc non pris en charge"
+
+#. js-lingui-explicit-id
+#: src/i18n/server-feedback.ts:19
+msgid "dashboard.publishIssue.unsupportedDocumentType.label"
+msgstr "Document non pris en charge"
+
+#. js-lingui-explicit-id
+#: src/i18n/server-feedback.ts:71
+msgid "dashboard.publishIssue.unverifiedTarget.label"
+msgstr "Cible non vérifiée"
+
+#. js-lingui-explicit-id
+#: src/components/analytics-panel.tsx:137
+msgid "dashboard.analytics.upTo"
+msgstr "Jusqu'à {count}"
+
+#. js-lingui-explicit-id
+#: src/components/brand-system/brand-impact-panel.tsx:45
+msgid "dashboard.brand.impact.upToDate"
+msgstr "À jour"
+
+#. js-lingui-explicit-id
+#: src/i18n/server-feedback.ts:151
+msgid "dashboard.publishIssue.unresolvedLifecycleHint.message"
+msgstr "Mettez à jour la configuration du placement afin que la cible puisse être préparée de manière fiable."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:363
+msgid "dashboard.viewModel.updatedAt"
+msgstr "{date} mis à jour"
+
+#. js-lingui-explicit-id
+#: src/components/brand-system/use-brand-system-controller.ts:51
+msgid "dashboard.brand.controller.updatedImpactMissing"
+msgstr "L'impact mis à jour n'a pas été renvoyé."
+
+#. js-lingui-explicit-id
+#: src/components/dashboard-settings-views.tsx:54
+msgid "dashboard.environments.updating"
+msgstr "Mise à jour…"
+
+#. js-lingui-explicit-id
+#: src/components/release-recovery-panel.tsx:157
+msgid "dashboard.recovery.reasonHelp"
+msgstr "Utilisez entre 1 et 500 caractères sans espaces extérieurs."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:988
+msgid "auth.form.passwordLength"
+msgstr "Utilisez 12 à 128 caractères."
+
+#. js-lingui-explicit-id
+#: src/i18n/server-feedback.ts:127
+msgid "dashboard.publishIssue.unsafeUrl.message"
+msgstr "Utilisez une URL HTTPS ou un chemin relatif sécurisé."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:973
+msgid "auth.form.useAnotherEmail"
+msgstr "Utiliser une autre adresse e-mail"
+
+#. js-lingui-explicit-id
+#: src/components/brand-system/brand-impact-panel.tsx:35
+msgid "dashboard.brand.impact.useApproved"
+msgstr "Utiliser la version approuvée"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:78
+msgid "dashboard.page.support.description"
+msgstr "Utilisez les outils de création et de diagnostic de secours uniquement lorsque le chemin intégré au produit échoue."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:912
+msgid "auth.page.incompletePasswordLink.description"
+msgstr "Utilisez le lien de mot de passe complet de votre dernier email Lodariq."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:923
+msgid "auth.page.incompleteVerification.description"
+msgstr "Utilisez le lien de vérification complet de votre dernier e-mail Lodariq."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:860
+msgid "auth.page.signIn.description"
+msgstr "Utilisez votre compte Lodariq pour revenir à l'espace de travail de votre produit."
+
+#. js-lingui-explicit-id
+#: src/components/brand-system/brand-theme-editor.tsx:34
+msgid "dashboard.brand.editor.usesLight"
+msgstr "Utilise un thème clair"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:222
+msgid "dashboard.viewModel.verified"
+msgstr "Vérifié"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:223
+msgid "dashboard.viewModel.verifiedExactArtifactAt"
+msgstr "Artefact exact vérifié {date}"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1015
+msgid "auth.form.verifyAndContinue"
+msgstr "Vérifiez l'e-mail et continuez"
+
+#. js-lingui-explicit-id
+#: src/i18n/server-feedback.ts:72
+msgid "dashboard.publishIssue.unverifiedTarget.message"
+msgstr "Vérifiez cet emplacement dans l'environnement actuel avant de publier."
+
+#. js-lingui-explicit-id
+#: src/components/authoring-activation-popup.tsx:96
+msgid "dashboard.activation.verifying"
+msgstr "Vérification de l’application et de l’espace de travail…"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:999
+msgid "auth.form.verifyingEmail"
+msgstr "Vérification de votre email"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:372
+msgid "dashboard.viewModel.version"
+msgstr "Version {version}"
+
+#. js-lingui-explicit-id
+#: src/components/brand-system-panel.tsx:40
+msgid "dashboard.brand.panel.approvedVersion"
+msgstr "Version {version} approuvée"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:668
+msgid "dashboard.action.versionApproved"
+msgstr "Version {version} approuvée. Les artefacts en direct restent inchangés jusqu'à ce qu'une expérience les adopte et les publie explicitement."
+
+#. js-lingui-explicit-id
+#: src/components/recent-activity.tsx:16
+msgid "dashboard.recentActivity.viewAll"
+msgstr "Voir toutes les expériences"
+
+#. js-lingui-explicit-id
+#: src/components/sdk-snippet-panel.tsx:88
+msgid "dashboard.installation.viewOnly"
+msgstr "Visualisation uniquement"
+
+#. js-lingui-explicit-id
+#: src/components/document-debug-panel.tsx:67
+msgid "dashboard.support.viewDetails"
+msgstr "Afficher les détails de l'assistance"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1078
+msgid "workspaceSelection.role.viewer"
+msgstr "Lecteur"
+
+#. js-lingui-explicit-id
+#: src/components/dashboard-auth-controls.tsx:52
+msgid "dashboard.account.role.viewer"
+msgstr "Visionneuse"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:511
+msgid "dashboard.entry.unavailableTitle"
+msgstr "Nous n'avons pas pu ouvrir votre espace de travail"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1019
+msgid "auth.form.verificationSent"
+msgstr "Nous avons envoyé un lien de vérification sécurisé à {email}. Gardez cette page ouverte ou utilisez le lien directement."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:858
+msgid "auth.page.signIn.eyebrow"
+msgstr "Bon retour"
+
+#. js-lingui-explicit-id
+#: src/components/brand-system/brand-empty-state.tsx:23
+msgid "dashboard.brand.empty.sampleTitle"
+msgstr "Bienvenue dans votre espace de travail"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1059
+msgid "workspaceSelection.title"
+msgstr "Où travaillez-vous aujourd'hui ?"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:22
+msgid "dashboard.navigation.workspaceLabel"
+msgstr "Espace de travail"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:947
+msgid "auth.form.workspace"
+msgstr "Espace de travail"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1058
+msgid "workspaceSelection.eyebrow"
+msgstr "Espace de travail"
+
+#. js-lingui-explicit-id
+#: src/components/dashboard-auth-controls.tsx:40
+msgid "dashboard.account.workspace"
+msgstr "Espace de travail"
+
+#. js-lingui-explicit-id
+#: src/components/brand-system-panel.tsx:36
+msgid "dashboard.brand.panel.workspaceDefault"
+msgstr "Valeur par défaut de l'espace de travail"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:681
+msgid "dashboard.action.workspaceDefaultUpdated"
+msgstr "Valeur par défaut de l'espace de travail mise à jour."
+
+#. js-lingui-explicit-id
+#: src/components/brand-system/brand-impact-panel.tsx:39
+msgid "dashboard.brand.impact.actionNeeded"
+msgstr "Action du membre de l'espace de travail requise"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:452
+msgid "dashboard.viewModel.workspaceTeammate"
+msgstr "Coéquipier de l'espace de travail"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:364
+msgid "dashboard.viewModel.workspaceApprovedTokens"
+msgstr "Jetons sémantiques approuvés par Workspace"
+
+#. js-lingui-explicit-id
+#: src/components/dashboard-auth-controls.tsx:41
+msgid "dashboard.account.workspaces"
+msgstr "Espaces de travail"
+
+#. js-lingui-explicit-id
+#: src/components/sdk-snippet-panel.tsx:79
+msgid "dashboard.installation.readonlyExisting"
+msgstr "Vous pouvez inspecter et copier cette installation. Un administrateur ou un propriétaire d’espace de travail gère les origines approuvées et la révocation."
+
+#. js-lingui-explicit-id
+#: src/components/authoring-activation-popup.tsx:58
+msgid "dashboard.activation.credentialSafety"
+msgstr "Vos identifiants restent dans Lodariq et ne sont jamais envoyés vers la page client."
+
+#. js-lingui-explicit-id
+#: src/components/release-recovery-panel.tsx:89
+msgid "dashboard.recovery.notAllowed"
+msgstr "Votre rôle actuel ou cette stratégie d'environnement ne permet pas la récupération de version."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:811
+msgid "dashboard.action.releaseRecoveryForbidden"
+msgstr "Votre accès actuel à l'espace de travail ne peut pas effectuer cette action de récupération de version."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:791
+msgid "dashboard.action.analyticsForbidden"
+msgstr "Votre accès actuel à l'espace de travail ne peut pas lire les analyses."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:824
+msgid "dashboard.action.releaseHistoryForbidden"
+msgstr "Votre accès actuel à l'espace de travail ne peut pas lire cet historique de versions."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1010
+msgid "auth.form.choosePasswordHelp"
+msgstr "Le lien reçu par e-mail a confirmé que ce compte vous appartient. Choisissez maintenant un mot de passe sûr."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:932
+msgid "auth.page.finishAccount.description"
+msgstr "Votre lien e-mail prouve la propriété. Choisissez le mot de passe qui protégera votre compte."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:940
+msgid "auth.form.yourName"
+msgstr "Votre nom"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:948
+msgid "auth.form.workspaceHelp"
+msgstr "Votre espace partagé pour les expériences, les environnements et les publications."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:530
+msgid "dashboard.error.description"
+msgstr "Votre travail est sécuritaire. Réessayez la demande sans quitter cette page."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:506
+msgid "dashboard.entry.signInDescription"
+msgstr "Votre espace de travail et vos outils auteurs restent protégés par votre session Lodariq."
+
+#. js-lingui-explicit-id
+#: src/i18n/server-feedback.ts:188
+msgid "dashboard.recovery.failure.capabilityDenied"
+msgstr "Votre rôle d'espace de travail ne peut pas effectuer cette action de récupération."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:626
+msgid "dashboard.action.environmentPolicyForbidden"
+msgstr "Votre rôle d'espace de travail n'autorise pas les modifications de stratégie d'environnement."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:605
+msgid "dashboard.action.releasePolicyForbidden"
+msgstr "Votre rôle dans l'espace de travail n'autorise pas les modifications de stratégie de publication."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:554
+msgid "dashboard.server.capabilityDenied"
+msgstr "Votre rôle dans l'espace de travail n'autorise pas cette action."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:765
+msgid "dashboard.action.brandForbidden"
+msgstr "Votre rôle dans l'espace de travail n'autorise pas cette action de marque."

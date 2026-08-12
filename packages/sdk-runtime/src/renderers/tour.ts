@@ -1,31 +1,98 @@
-import { computePosition, flip, offset, shift, type Placement } from '@floating-ui/dom';
 import type { CompiledDocument, CompiledStep, RuntimeLifecycleHints } from '@lodariq/schema';
-import { createNonceStyleElement } from '@lodariq/schema/dom';
-import { resolveSafeNavigationUrl } from '@lodariq/schema/url';
-import { resolve } from '../resolver';
+import { arrow, computePosition, flip, offset, shift, type Placement } from '@floating-ui/dom';
+import { resolveExperienceAppearance } from '@lodariq/schema/brand-runtime';
+import { LODARIQ_AUTHORING_PREVIEW_OWNER_ATTRIBUTE } from '@lodariq/schema/dom';
+import { assertSupportedCompiledArtifactIfVersioned } from '../artifact-compatibility';
+import {
+  applyRuntimeLocale,
+  configureRuntimeLocale,
+  currentRuntimeLocale,
+  runtimeText,
+} from '../i18n';
+import { resolveCompiledDocumentLocale } from '../document-localization';
+import { clearActiveContentLocale, setActiveContentLocale } from '../runtime/content-locale-state';
+import {
+  resolve,
+  resolveTarget,
+  type ResolvedAnchor,
+  type ResolutionResult,
+  type TargetResolutionContext,
+} from '../resolver';
+import { isVisible } from '../resolver/element-evidence';
+import { applyCompiledTourTheme } from './tour-theme';
+import { createTourStyles } from './tour-styles';
+import {
+  BODY_NODE_RENDERERS,
+  appendStepBody,
+  applyStepComposition,
+  renderTextNode,
+  safeNavigationDestination,
+  type RuntimeAction,
+  type RuntimeBodyNode,
+} from './tour-content';
+import {
+  TourPresentationCanceledError,
+  TourPresentationUnavailableError,
+  throwIfTourPresentationCanceled,
+} from './tour-errors';
+import {
+  acquireNetworkActivityTracker,
+  activateLifecycleControl,
+  delay,
+  lifecycleTextAppliesToCurrentLocale,
+  nearestScrollable,
+  routeMatches,
+  scrollBlockFor,
+  scrollIntoView,
+  waitForResolvedElement,
+  waitUntil,
+} from './tour-lifecycle';
+import {
+  blurHiddenTourCard,
+  canOwnPresentation,
+  createTargetOutline,
+  mutationAffectsPresentationOwner,
+  positionTargetOutline,
+  positionTourArrow,
+  positioningReference,
+  presentationOwnerObservationRoots,
+  shadowRootHost,
+} from './tour-positioning';
 
-const NETWORK_IDLE_QUIET_MS = 80;
-const NETWORK_IDLE_POLL_MS = 20;
+export { TourPresentationCanceledError, TourPresentationUnavailableError } from './tour-errors';
+export {
+  resolveTourActionRecipe,
+  resolveTourCompositionRecipe,
+  resolveTourPopupStyleRecipe,
+  tourPopupStyleVariables,
+} from './tour-recipes';
 
-type RuntimeBodyNode = CompiledStep['body'][number];
-type RuntimeAction = NonNullable<RuntimeBodyNode['props']['action']>;
+export {
+  resolveCompiledTourTheme,
+  resolveTourThemeStyle,
+  type ResolvedTourThemeStyle,
+  type TourThemeStyleInput,
+} from './tour-theme';
+
+const DEFAULT_TARGET_RESOLUTION_TIMEOUT_MS = 1_500;
+const TARGET_GLOBAL_REVALIDATION_THROTTLE_MS = 500;
+
 type RuntimeActionType = RuntimeAction['type'];
 type RuntimeActionHandler = (player: TourPlayer, action: RuntimeAction) => void;
-type BodyNodeRenderer = (node: RuntimeBodyNode, context: BodyNodeRenderContext) => HTMLElement;
 
-interface BodyNodeRenderContext {
-  onAction: (action: RuntimeAction | undefined) => void;
+interface TourPositionController {
+  stop: () => void;
+  update: () => void;
 }
 
-const BODY_NODE_RENDERERS: Readonly<Record<string, BodyNodeRenderer>> = {
-  button: renderButtonNode,
-  divider: renderDividerNode,
-  heading: renderHeadingNode,
-  link: renderLinkNode,
-  list: renderListNode,
-  media: renderMediaNode,
-  paragraph: renderTextNode,
-};
+/**
+ * Exact, in-memory element chosen during authoring. It is intentionally absent
+ * from compiled artifacts and is accepted only by an owned authoring preview.
+ */
+export interface AuthoringTargetOverride {
+  stepId: string;
+  element: Element;
+}
 
 /**
  * Linear tour renderer (PRD §9.3, §16.1).
@@ -35,54 +102,142 @@ const BODY_NODE_RENDERERS: Readonly<Record<string, BodyNodeRenderer>> = {
  * as a JavaScript sandbox (PRD §20).
  */
 export interface TourPlayerOptions {
+  /** Optional BCP 47 language override for Lodariq-owned runtime controls. */
+  locale?: string;
   initialStepId?: string;
   initialStepIndex?: number;
+  /**
+   * Mount a targetless, non-interactive Tour inside a positioned element for a
+   * trusted product preview. Delivery playback remains body-mounted and
+   * singleton; embedded previews may coexist because they never resolve or act
+   * on customer-page targets.
+   */
+  embeddedPreviewContainer?: HTMLElement;
+  /**
+   * Opaque creator-session owner for a customer-page authoring preview.
+   * Authoring previews coexist with delivery playback and suppress document
+   * actions; creator-only tooling binds to this exact marker.
+   */
+  authoringPreviewOwnerId?: string;
+  /** Explicit full-preview mode; enables real tour navigation in authoring. */
+  authoringPreviewInteractive?: boolean;
+  /** Creator-only live anchor used while the selected element remains connected. */
+  authoringTargetOverride?: AuthoringTargetOverride;
   onStepChange?: (index: number, step: CompiledStep) => void;
   onBeforeStepChange?: (index: number, step: CompiledStep) => void;
   onComplete?: () => void;
   onDismiss?: () => void;
+  /** Explicit visitor choice to end the entire tour before completion. */
+  onSkip?: () => void;
+  /** One bounded result per step attempt for privacy-safe diagnostics. */
+  onTargetResolution?: (step: CompiledStep, result: TourTargetResolutionDiagnostic) => void;
+  /** Opaque delivery context used by Target Identity V2 hard gates. */
+  targetResolutionContext?: TargetResolutionContext;
 }
 
 export class TourPlayer {
   private static active: TourPlayer | null = null;
-  private static readonly actionHandlers: Readonly<Record<RuntimeActionType, RuntimeActionHandler>> =
-    {
-      back: (player) => player.previous(),
-      clickTarget: (player) => player.focusCurrentTarget(),
-      complete: (player) => player.complete(),
-      dismiss: (player) => player.dismiss(),
-      next: (player) => player.next(),
-      openPage: (player, action) => player.openPage(action),
-    };
+  private static readonly actionHandlers: Readonly<
+    Record<RuntimeActionType, RuntimeActionHandler>
+  > = {
+    back: (player) => player.previous(),
+    clickTarget: (player) => player.clickCurrentTarget(),
+    complete: (player) => player.complete(),
+    dismiss: (player) => player.dismiss(),
+    next: (player) => player.next(),
+    openPage: (player, action) => player.openPage(action),
+  };
 
   private index: number;
   private readonly host: HTMLElement;
   private readonly shadow: ShadowRoot;
   private readonly card: HTMLDivElement;
+  private readonly arrow: HTMLDivElement;
+  private readonly targetOutline: HTMLDivElement | null;
   private readonly cleanups: Array<() => void> = [];
+  private readonly lifetimeCleanups: Array<() => void> = [];
+  private renderAbortController: AbortController | null = null;
+  private readiness: TourPresentationReadiness | null = null;
   private renderId = 0;
+
+  readonly contentLocale: string;
 
   constructor(
     private readonly doc: CompiledDocument,
     private readonly options: TourPlayerOptions = {},
   ) {
-    this.index = initialStepIndex(doc, options);
+    assertSupportedCompiledArtifactIfVersioned(doc);
+    if (options.locale) configureRuntimeLocale([options.locale]);
+    const localized = resolveCompiledDocumentLocale(doc, options.locale ?? currentRuntimeLocale());
+    this.doc = localized.document;
+    this.contentLocale = localized.locale;
+    const previewContainer = options.embeddedPreviewContainer;
+    if (previewContainer && this.doc.steps.some((step) => step.targetId)) {
+      throw new Error('Embedded Tour previews must use targetless compiled steps');
+    }
+    this.index = initialStepIndex(this.doc, options);
     this.host = document.createElement('lodariq-tour');
+    applyRuntimeLocale(this.host);
+    this.host.lang = this.contentLocale;
+    this.host.dir = contentLocaleDirection(this.contentLocale);
+    this.host.dataset['lodariqContentLocale'] = this.contentLocale;
+    const authoringPreviewOwnerId = options.authoringPreviewOwnerId?.trim();
+    if (options.authoringPreviewOwnerId !== undefined && !authoringPreviewOwnerId) {
+      throw new Error('Lodariq authoring preview owner id is required');
+    }
+    if (options.authoringTargetOverride && !authoringPreviewOwnerId) {
+      throw new Error('Lodariq authoring target overrides require an owned authoring preview');
+    }
+    if (authoringPreviewOwnerId) {
+      this.host.setAttribute(LODARIQ_AUTHORING_PREVIEW_OWNER_ATTRIBUTE, authoringPreviewOwnerId);
+    }
+    if (previewContainer) {
+      this.host.setAttribute('data-lodariq-embedded-preview', '');
+      this.host.setAttribute('aria-hidden', 'true');
+      this.host.setAttribute('inert', '');
+    }
     this.shadow = this.host.attachShadow({ mode: 'open' });
     this.card = document.createElement('div');
     this.card.setAttribute('role', 'dialog');
-    this.card.setAttribute('aria-label', 'Lodariq tour');
+    this.card.setAttribute('aria-label', runtimeText('Lodariq tour'));
     this.card.setAttribute('aria-live', 'polite');
     this.card.tabIndex = -1;
-    this.shadow.appendChild(createStyles());
+    this.arrow = document.createElement('div');
+    this.arrow.className = 'tour-arrow';
+    this.arrow.setAttribute('aria-hidden', 'true');
+    this.targetOutline = resolveExperienceAppearance(
+      'appearance' in this.doc ? this.doc.appearance : undefined,
+    ).displayTargetOutline
+      ? createTargetOutline(document)
+      : null;
+    this.lifetimeCleanups.push(applyCompiledTourTheme(this.host, this.doc));
+    this.shadow.appendChild(createTourStyles());
+    if (this.targetOutline) this.shadow.appendChild(this.targetOutline);
     this.shadow.appendChild(this.card);
   }
 
   start(): void {
-    if (TourPlayer.active && TourPlayer.active !== this) TourPlayer.active.stop();
-    TourPlayer.active = this;
-    if (!this.host.isConnected) document.body.appendChild(this.host);
+    const previewContainer = this.options.embeddedPreviewContainer;
+    if (!previewContainer && !this.options.authoringPreviewOwnerId) {
+      if (TourPlayer.active && TourPlayer.active !== this) TourPlayer.active.stop();
+      TourPlayer.active = this;
+      setActiveContentLocale(this.contentLocale);
+    }
+    if (!this.host.isConnected) (previewContainer ?? document.body).appendChild(this.host);
     this.render();
+  }
+
+  /**
+   * Resolves for the current step only after its card is presentable. Targeted
+   * steps wait for a safely resolved, visible owner and completed positioning.
+   */
+  waitUntilReady(): Promise<void> {
+    return (
+      this.readiness?.promise ??
+      Promise.reject(
+        new TourPresentationUnavailableError(runtimeText('Lodariq tour has not started')),
+      )
+    );
   }
 
   next(): void {
@@ -111,30 +266,83 @@ export class TourPlayer {
   }
 
   stop(): void {
+    this.invalidateCurrentRender(new TourPresentationCanceledError());
+    this.renderId += 1;
     this.clearStepEffects();
-    if (TourPlayer.active === this) TourPlayer.active = null;
+    while (this.lifetimeCleanups.length) this.lifetimeCleanups.pop()?.();
+    if (TourPlayer.active === this) {
+      TourPlayer.active = null;
+      clearActiveContentLocale();
+    }
     this.host.remove();
   }
 
   private render(): void {
+    this.invalidateCurrentRender(new TourPresentationCanceledError());
     const renderId = ++this.renderId;
+    const abortController = new AbortController();
+    this.renderAbortController = abortController;
+    this.readiness = createTourPresentationReadiness(renderId);
     const step = this.doc.steps[this.index];
-    if (!step) return;
+    if (!step) {
+      this.rejectReadiness(
+        renderId,
+        new TourPresentationUnavailableError(runtimeText('Lodariq tour has no presentable step')),
+      );
+      return;
+    }
     this.clearStepEffects();
+    if (this.targetOutline) this.targetOutline.hidden = true;
     this.options.onStepChange?.(this.index, step);
 
     this.card.innerHTML = '';
-    for (const node of step.body) {
-      this.card.appendChild(this.createBodyElement(node));
-    }
+    this.card.hidden = Boolean(step.targetId);
+    applyStepComposition(this.card, step);
+    const content = this.card.ownerDocument.createElement('div');
+    content.className = 'tour-content';
+    appendStepBody(content, step, (node) => this.createBodyElement(node));
+    content.appendChild(this.createSkipButton());
+    this.card.appendChild(content);
+    this.arrow.hidden = !step.targetId || step.tooltipLayout?.showArrow === false;
+    this.card.appendChild(this.arrow);
 
-    (this.card.querySelector<HTMLElement>('button, a[href]') ?? this.card).focus();
-    void this.findTarget(step).then((target) => {
-      if (!target || renderId !== this.renderId || !this.host.isConnected) return;
-      this.scrollForLifecycle(target, step.lifecycle);
-      if (stepWaitsForTargetClick(step)) this.armTargetClickAdvance(target);
-      this.position(target, (step.placement as Placement) ?? 'bottom');
-    });
+    if (!step.targetId) {
+      if (
+        !this.options.embeddedPreviewContainer &&
+        (!this.options.authoringPreviewOwnerId || this.options.authoringPreviewInteractive)
+      ) {
+        focusTourCard(this.card);
+        if (step.lifecycle) {
+          void this.waitForLifecycle(step.lifecycle, abortController.signal).catch(() => {});
+        }
+      }
+      this.resolveReadiness(renderId);
+      return;
+    }
+    void this.findTarget(step, abortController.signal)
+      .then((target) => {
+        if (
+          abortController.signal.aborted ||
+          renderId !== this.renderId ||
+          !this.host.isConnected
+        ) {
+          return;
+        }
+        if (!target) {
+          this.rejectReadiness(
+            renderId,
+            new TourPresentationUnavailableError(
+              `Lodariq tour target could not be resolved for step ${step.id}`,
+            ),
+          );
+          return;
+        }
+        this.trackLiveTarget(step, target, renderId);
+      })
+      .catch((error: unknown) => {
+        if (abortController.signal.aborted) return;
+        this.rejectReadiness(renderId, normalizeTourPresentationError(error));
+      });
   }
 
   private createBodyElement(node: RuntimeBodyNode): HTMLElement {
@@ -143,64 +351,382 @@ export class TourPlayer {
   }
 
   private handleAction(action: RuntimeAction | undefined): void {
-    if (!action) return;
+    if (!action || this.options.embeddedPreviewContainer) {
+      return;
+    }
+    if (this.options.authoringPreviewOwnerId && !this.options.authoringPreviewInteractive) {
+      return;
+    }
     TourPlayer.actionHandlers[action.type](this, action);
   }
 
+  private createSkipButton(): HTMLButtonElement {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'tour-skip';
+    button.textContent = runtimeText('Skip tour');
+    button.addEventListener('click', () => {
+      if (this.options.embeddedPreviewContainer) return;
+      if (this.options.authoringPreviewOwnerId && !this.options.authoringPreviewInteractive) return;
+      this.skip();
+    });
+    return button;
+  }
+
   private complete(): void {
-    this.stop();
     this.options.onComplete?.();
+    this.stop();
   }
 
   private dismiss(): void {
-    this.stop();
     this.options.onDismiss?.();
+    this.stop();
+  }
+
+  private skip(): void {
+    this.options.onSkip?.();
+    this.stop();
   }
 
   private openPage(action: RuntimeAction): void {
-    const target = safeNavigationTarget(action.url);
-    if (!target) return;
-    window.location.assign(target);
-  }
-
-  private async findTarget(step: CompiledStep): Promise<Element | null> {
-    await this.waitForLifecycle(step.lifecycle);
-    if (!step.targetId) return null;
-    const target = this.doc.targets.find((t) => t.id === step.targetId);
-    if (!target) return null;
-    const deadline = Date.now() + (step.lifecycle ? (step.lifecycle.timeoutMs ?? 1000) : 0);
-    let result = resolve(target.fingerprint);
-    while (!result.element && Date.now() < deadline) {
-      this.nudgeVirtualizedContainer(step.lifecycle);
-      await delay(50);
-      result = resolve(target.fingerprint);
+    const destination = safeNavigationDestination(action.url);
+    if (!destination) return;
+    if (destination.kind === 'external') {
+      window.open(destination.href, '_blank', 'noopener,noreferrer');
+      return;
     }
-    return result.element;
+    if (destination.kind === 'internal' && action.navigationBehavior === 'continue') {
+      this.prepareToContinueAfterNavigation();
+    }
+    window.location.assign(destination.href);
   }
 
-  private position(target: Element, placement: Placement): void {
-    const update = (): void => {
-      void computePosition(target, this.card, {
-        placement,
-        strategy: 'fixed',
-        middleware: [offset(8), flip(), shift({ padding: 8 })],
-      }).then(({ x, y }) => {
-        Object.assign(this.card.style, { position: 'fixed', left: `${x}px`, top: `${y}px` });
-      });
+  private prepareToContinueAfterNavigation(): void {
+    const nextIndex = this.index + 1;
+    const nextStep = this.doc.steps[nextIndex];
+    if (nextStep) {
+      this.notifyBeforeStepChange(nextIndex, nextStep);
+      return;
+    }
+    this.complete();
+  }
+
+  private async findTarget(
+    step: CompiledStep,
+    signal: AbortSignal,
+  ): Promise<ResolvedAnchor | null> {
+    if (this.options.embeddedPreviewContainer) return null;
+    await this.waitForLifecycle(step.lifecycle, signal);
+    throwIfTourPresentationCanceled(signal);
+    let result = this.resolveStepTarget(step);
+    if (!result) return null;
+    // Route transitions and lazy UI commonly commit after the product click
+    // handler returns. Every targeted step gets a short semantic settling
+    // window even when the creator did not add an explicit lifecycle hint.
+    const deadline =
+      Date.now() + (step.lifecycle?.timeoutMs ?? DEFAULT_TARGET_RESOLUTION_TIMEOUT_MS);
+    while (!result.anchor && Date.now() < deadline) {
+      throwIfTourPresentationCanceled(signal);
+      if (!this.options.authoringPreviewOwnerId || this.options.authoringPreviewInteractive) {
+        this.nudgeVirtualizedContainer(step.lifecycle);
+      }
+      await delay(50, signal);
+      result = this.resolveStepTarget(step) ?? result;
+    }
+    throwIfTourPresentationCanceled(signal);
+    try {
+      this.options.onTargetResolution?.(step, targetResolutionDiagnostic(result));
+    } catch {
+      /* Diagnostics hooks must never alter delivery behavior. */
+    }
+    return result.anchor;
+  }
+
+  private resolveStepTarget(step: CompiledStep): ResolutionResult | null {
+    if (!step.targetId) return null;
+    const authoringResolution = this.resolveAuthoringTargetOverride(step);
+    if (authoringResolution) return authoringResolution;
+    const target = this.doc.targets.find((candidate) => candidate.id === step.targetId);
+    if (!target) return null;
+    const targetResolutionContext: TargetResolutionContext = {
+      ...this.options.targetResolutionContext,
+      ...(stepWaitsForTargetClick(step) ? { requiredAction: 'observe-click' as const } : {}),
     };
-    update();
-    window.addEventListener('scroll', update, true);
-    window.addEventListener('resize', update);
+    return resolveTarget(target, document, targetResolutionContext);
+  }
+
+  private resolveAuthoringTargetOverride(step: CompiledStep): ResolutionResult | null {
+    const override = this.options.authoringTargetOverride;
+    if (!this.options.authoringPreviewOwnerId || !override || override.stepId !== step.id) {
+      return null;
+    }
+    const element = override.element;
+    if (element.ownerDocument !== document || !element.isConnected || !isVisible(element)) {
+      return null;
+    }
+    return {
+      state: 'found',
+      element,
+      anchor: {
+        kind: 'visual-region',
+        element,
+        interactionSafe: false,
+        getBoundingClientRect: () => element.getBoundingClientRect(),
+      },
+      confidence: 100,
+      candidateCount: 1,
+      resolutionMethod: 'authoring_selection',
+      reasonCode: 'resolved',
+      evidenceFamilies: [],
+      runnerUpConfidence: null,
+      currentLocale: this.options.targetResolutionContext?.locale ?? null,
+    };
+  }
+
+  private trackLiveTarget(
+    step: CompiledStep,
+    initialAnchor: ResolvedAnchor,
+    renderId: number,
+  ): void {
+    let currentAnchor: ResolvedAnchor | null = null;
+    let currentTarget: Element | null = null;
+    let clearPosition = (): void => {};
+    let updatePosition = (): void => {};
+    let clearTargetAction = (): void => {};
+    let revalidationTimer: ReturnType<typeof setTimeout> | null = null;
+    let unavailable = false;
+    let focusedOnce = false;
+    let observer: MutationObserver | null = null;
+
+    const markUnavailable = (): void => {
+      if (!unavailable) blurHiddenTourCard(this.shadow, this.card);
+      this.card.hidden = true;
+      if (this.targetOutline) this.targetOutline.hidden = true;
+      unavailable = true;
+      clearTargetAction();
+      clearTargetAction = () => {};
+    };
+
+    const bind = (anchor: ResolvedAnchor): void => {
+      const target = anchor.element;
+      clearPosition();
+      clearTargetAction();
+      currentAnchor = anchor;
+      currentTarget = target;
+      unavailable = false;
+      this.card.hidden = true;
+      if (!this.options.authoringPreviewOwnerId || this.options.authoringPreviewInteractive) {
+        this.scrollForLifecycle(target, step.lifecycle);
+      }
+      const position = this.position(
+        anchor,
+        (step.placement as Placement) ?? 'bottom',
+        step.presentationAnchor,
+        handleOwnerAvailability,
+        () => this.resolveReadiness(renderId),
+        (error) => this.rejectReadiness(renderId, normalizeTourPresentationError(error)),
+      );
+      clearPosition = position.stop;
+      updatePosition = position.update;
+      if (!canOwnPresentation(anchor)) {
+        markUnavailable();
+        if (this.options.authoringPreviewOwnerId) {
+          this.rejectReadiness(
+            renderId,
+            new TourPresentationUnavailableError(
+              `Lodariq tour target is not visible for step ${step.id}`,
+            ),
+          );
+        }
+        scheduleRevalidation(true);
+        observePresentationOwnerRoots();
+        return;
+      }
+      this.card.hidden = false;
+      clearTargetAction =
+        anchor.interactionSafe &&
+        (!this.options.authoringPreviewOwnerId || this.options.authoringPreviewInteractive) &&
+        stepWaitsForTargetClick(step)
+          ? this.armTargetClickAdvance(step, target, handleInvalidOwnerClick)
+          : () => {};
+      if (
+        !focusedOnce &&
+        (!this.options.authoringPreviewOwnerId || this.options.authoringPreviewInteractive)
+      ) {
+        focusedOnce = true;
+        focusTourCard(this.card);
+      }
+      observePresentationOwnerRoots();
+    };
+
+    const revalidate = (): void => {
+      revalidationTimer = null;
+      if (renderId !== this.renderId || !this.host.isConnected) return;
+      const result = this.resolveStepTarget(step);
+      const safelyResolvedAnchor = result?.anchor;
+      if (!safelyResolvedAnchor || !canOwnPresentation(safelyResolvedAnchor)) {
+        markUnavailable();
+        return;
+      }
+      if (
+        safelyResolvedAnchor.element !== currentTarget ||
+        safelyResolvedAnchor.kind !== currentAnchor?.kind ||
+        unavailable
+      ) {
+        bind(safelyResolvedAnchor);
+      } else {
+        updatePosition();
+      }
+    };
+
+    function scheduleRevalidation(immediate = false): void {
+      if (revalidationTimer && !immediate) return;
+      if (revalidationTimer) clearTimeout(revalidationTimer);
+      revalidationTimer = setTimeout(
+        revalidate,
+        immediate ? 0 : TARGET_GLOBAL_REVALIDATION_THROTTLE_MS,
+      );
+    }
+
+    function handleInvalidOwnerClick(): void {
+      markUnavailable();
+      scheduleRevalidation(true);
+    }
+
+    function handleOwnerAvailability(available: boolean): void {
+      if (available) {
+        if (unavailable) scheduleRevalidation(true);
+        return;
+      }
+      markUnavailable();
+      scheduleRevalidation(true);
+    }
+
+    function observePresentationOwnerRoots(): void {
+      if (!observer || !currentTarget) return;
+      observer.disconnect();
+      for (const root of presentationOwnerObservationRoots(currentTarget)) {
+        observer.observe(root, {
+          attributes: true,
+          characterData: true,
+          childList: true,
+          subtree: true,
+        });
+      }
+    }
+
+    bind(initialAnchor);
+    const Observer = document.defaultView?.MutationObserver;
+    observer = Observer
+      ? new Observer((records) => {
+          if (renderId !== this.renderId) return;
+          if (!this.host.isConnected) {
+            this.stop();
+            return;
+          }
+          const ownerChanged = Boolean(
+            currentTarget &&
+            records.some((record) => mutationAffectsPresentationOwner(record, currentTarget!)),
+          );
+          if (ownerChanged) {
+            // Routine SPA updates may change owner evidence without making the
+            // live owner unusable. Hiding eagerly would blur authoring fields.
+            if (!currentAnchor || !canOwnPresentation(currentAnchor)) markUnavailable();
+            scheduleRevalidation(true);
+            return;
+          }
+          scheduleRevalidation();
+        })
+      : null;
+    observePresentationOwnerRoots();
     this.addCleanup(() => {
-      window.removeEventListener('scroll', update, true);
-      window.removeEventListener('resize', update);
+      observer?.disconnect();
+      if (revalidationTimer) clearTimeout(revalidationTimer);
+      revalidationTimer = null;
+      clearPosition();
+      updatePosition = () => {};
+      clearTargetAction();
+      currentAnchor = null;
+      currentTarget = null;
     });
   }
 
-  private armTargetClickAdvance(target: Element): void {
+  private position(
+    anchor: ResolvedAnchor,
+    placement: Placement,
+    presentationAnchor: CompiledStep['presentationAnchor'],
+    onOwnerAvailabilityChange: (available: boolean) => void,
+    onPositioned: () => void,
+    onPositionError: (error: unknown) => void,
+  ): TourPositionController {
+    let active = true;
+    const owner = anchor.element;
+    const reference = positioningReference(anchor, presentationAnchor);
+    const update = (): void => {
+      if (!canOwnPresentation(anchor)) {
+        onOwnerAvailabilityChange(false);
+        return;
+      }
+      onOwnerAvailabilityChange(true);
+      positionTargetOutline(this.targetOutline, anchor.element);
+      void computePosition(reference, this.card, {
+        placement,
+        strategy: 'fixed',
+        middleware: [offset(12), flip(), shift({ padding: 8 }), arrow({ element: this.arrow })],
+      })
+        .then(({ x, y, placement: resolvedPlacement, middlewareData }) => {
+          if (!active || !canOwnPresentation(anchor)) return;
+          Object.assign(this.card.style, { position: 'fixed', left: `${x}px`, top: `${y}px` });
+          positionTourArrow(this.arrow, resolvedPlacement, middlewareData.arrow);
+          onPositioned();
+        })
+        .catch((error: unknown) => {
+          if (active) {
+            if (this.targetOutline) this.targetOutline.hidden = true;
+            onPositionError(error);
+          }
+        });
+    };
+    const ownerWindow = owner.ownerDocument.defaultView ?? window;
+    const ResizeObserverConstructor = ownerWindow.ResizeObserver;
+    const resizeObserver = ResizeObserverConstructor ? new ResizeObserverConstructor(update) : null;
+    const scrollTargets: EventTarget[] = [
+      ownerWindow,
+      ...presentationOwnerObservationRoots(owner).filter((root) => shadowRootHost(root)),
+    ];
+    resizeObserver?.observe(owner);
+    update();
+    for (const target of scrollTargets) target.addEventListener?.('scroll', update, true);
+    ownerWindow.addEventListener('resize', update);
+    return {
+      update,
+      stop: () => {
+        active = false;
+        if (this.targetOutline) this.targetOutline.hidden = true;
+        resizeObserver?.disconnect();
+        for (const target of scrollTargets) target.removeEventListener?.('scroll', update, true);
+        ownerWindow.removeEventListener?.('resize', update);
+      },
+    };
+  }
+
+  private armTargetClickAdvance(
+    step: CompiledStep,
+    target: Element,
+    onInvalidOwner: () => void,
+  ): () => void {
     let consumed = false;
     const onClick = (): void => {
       if (consumed) return;
+      const freshlyResolved = this.resolveStepTarget(step);
+      if (
+        !freshlyResolved?.anchor?.interactionSafe ||
+        freshlyResolved.anchor.element !== target ||
+        !canOwnPresentation(freshlyResolved.anchor)
+      ) {
+        onInvalidOwner();
+        return;
+      }
       consumed = true;
       const nextIndex = this.index + 1;
       const nextStep = this.doc.steps[nextIndex];
@@ -210,7 +736,7 @@ export class TourPlayer {
       }, 0);
     };
     target.addEventListener('click', onClick, true);
-    this.addCleanup(() => target.removeEventListener('click', onClick, true));
+    return () => target.removeEventListener('click', onClick, true);
   }
 
   private notifyBeforeStepChange(index: number, step: CompiledStep): void {
@@ -221,14 +747,19 @@ export class TourPlayer {
     }
   }
 
-  private focusCurrentTarget(): void {
+  private clickCurrentTarget(): void {
     const step = this.doc.steps[this.index];
     if (!step) return;
-    void this.findTarget(step).then((target) => {
-      if (!target || !this.host.isConnected) return;
-      this.scrollForLifecycle(target, step.lifecycle);
-      if (target instanceof HTMLElement) target.focus({ preventScroll: true });
-    });
+    const target = this.resolveStepTarget(step)?.anchor;
+    if (!target || !this.host.isConnected) return;
+    this.scrollForLifecycle(target.element, step.lifecycle);
+    if (
+      target.interactionSafe &&
+      canOwnPresentation(target) &&
+      target.element instanceof HTMLElement
+    ) {
+      target.element.click();
+    }
   }
 
   private addCleanup(cleanup: () => void): void {
@@ -239,24 +770,62 @@ export class TourPlayer {
     while (this.cleanups.length) this.cleanups.pop()?.();
   }
 
-  private async waitForLifecycle(lifecycle?: RuntimeLifecycleHints): Promise<void> {
+  private invalidateCurrentRender(error: TourPresentationCanceledError): void {
+    this.renderAbortController?.abort();
+    this.renderAbortController = null;
+    const readiness = this.readiness;
+    if (!readiness || readiness.settled) return;
+    readiness.settled = true;
+    readiness.reject(error);
+  }
+
+  private resolveReadiness(renderId: number): void {
+    const readiness = this.readiness;
+    if (!readiness || readiness.renderId !== renderId || readiness.settled) return;
+    readiness.settled = true;
+    readiness.resolve();
+  }
+
+  private rejectReadiness(renderId: number, error: Error): void {
+    const readiness = this.readiness;
+    if (!readiness || readiness.renderId !== renderId || readiness.settled) return;
+    readiness.settled = true;
+    readiness.reject(error);
+  }
+
+  private async waitForLifecycle(
+    lifecycle: RuntimeLifecycleHints | undefined,
+    signal: AbortSignal,
+  ): Promise<void> {
     if (!lifecycle) return;
     const timeoutMs = lifecycle.timeoutMs ?? 1000;
     const expectedRoute = lifecycle.expectedRoute;
-    const networkTracker = lifecycle.waitForNetworkIdle ? acquireNetworkActivityTracker() : null;
+    const isAuthoringPreview = Boolean(
+      this.options.authoringPreviewOwnerId && !this.options.authoringPreviewInteractive,
+    );
+    const networkTracker =
+      lifecycle.waitForNetworkIdle && !isAuthoringPreview ? acquireNetworkActivityTracker() : null;
     try {
-      if (expectedRoute) await waitUntil(() => routeMatches(expectedRoute), timeoutMs);
-      if (lifecycle.openPanel) await activateLifecycleControl(lifecycle.openPanel, timeoutMs);
-      if (lifecycle.selectTab) await activateLifecycleControl(lifecycle.selectTab, timeoutMs);
-      if (networkTracker) await networkTracker.waitForIdle(timeoutMs);
-      if (lifecycle.waitForText) {
+      if (expectedRoute) await waitUntil(() => routeMatches(expectedRoute), timeoutMs, signal);
+      throwIfTourPresentationCanceled(signal);
+      if (lifecycle.openPanel && !isAuthoringPreview)
+        await activateLifecycleControl(lifecycle.openPanel, timeoutMs, signal);
+      throwIfTourPresentationCanceled(signal);
+      if (lifecycle.selectTab && !isAuthoringPreview)
+        await activateLifecycleControl(lifecycle.selectTab, timeoutMs, signal);
+      throwIfTourPresentationCanceled(signal);
+      if (networkTracker) await networkTracker.waitForIdle(timeoutMs, signal);
+      throwIfTourPresentationCanceled(signal);
+      if (lifecycle.waitForText && lifecycleTextAppliesToCurrentLocale(lifecycle)) {
         await waitUntil(
           () => document.body.textContent?.includes(lifecycle.waitForText!) ?? false,
           timeoutMs,
+          signal,
         );
       }
+      throwIfTourPresentationCanceled(signal);
       if (lifecycle.waitForElement)
-        await waitForResolvedElement(lifecycle.waitForElement, timeoutMs);
+        await waitForResolvedElement(lifecycle.waitForElement, timeoutMs, signal);
     } finally {
       networkTracker?.release();
     }
@@ -282,112 +851,63 @@ export class TourPlayer {
   }
 }
 
+function contentLocaleDirection(locale: string): 'ltr' | 'rtl' {
+  try {
+    const language = new Intl.Locale(locale).language;
+    return new Set(['ar', 'fa', 'he', 'ur']).has(language) ? 'rtl' : 'ltr';
+  } catch {
+    return 'ltr';
+  }
+}
+
+export type TourTargetResolutionDiagnostic = Omit<ResolutionResult, 'element' | 'anchor'>;
+
+interface TourPresentationReadiness {
+  renderId: number;
+  promise: Promise<void>;
+  resolve: () => void;
+  reject: (error: Error) => void;
+  settled: boolean;
+}
+
+function createTourPresentationReadiness(renderId: number): TourPresentationReadiness {
+  let resolve = (): void => {};
+  let reject = (_error: Error): void => {};
+  const promise = new Promise<void>((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise;
+    reject = rejectPromise;
+  });
+  // Delivery playback does not need to await readiness. Keep its ignored
+  // readiness promise from surfacing an unhandled rejection while returning
+  // the original promise to preview callers that do await it.
+  void promise.catch(() => {});
+  return { renderId, promise, resolve, reject, settled: false };
+}
+
+function normalizeTourPresentationError(error: unknown): Error {
+  if (error instanceof Error) return error;
+  return new TourPresentationUnavailableError();
+}
+
+function targetResolutionDiagnostic(result: ResolutionResult): TourTargetResolutionDiagnostic {
+  return {
+    state: result.state,
+    confidence: result.confidence,
+    candidateCount: result.candidateCount,
+    resolutionMethod: result.resolutionMethod,
+    reasonCode: result.reasonCode,
+    evidenceFamilies: [...result.evidenceFamilies],
+    runnerUpConfidence: result.runnerUpConfidence,
+    currentLocale: result.currentLocale,
+  };
+}
+
 function stepWaitsForTargetClick(step: CompiledStep): boolean {
   return step.body.some((node) => node.props.action?.type === 'clickTarget');
 }
 
-function renderHeadingNode(node: RuntimeBodyNode): HTMLElement {
-  const element = document.createElement('h2');
-  setBodyNodeText(element, node);
-  return element;
-}
-
-function renderTextNode(node: RuntimeBodyNode): HTMLElement {
-  const element = document.createElement('div');
-  setBodyNodeText(element, node);
-  return element;
-}
-
-function renderListNode(node: RuntimeBodyNode): HTMLElement {
-  const element = document.createElement('ul');
-  setBodyNodeAttributes(element, node);
-  for (const item of listItems(node.text)) {
-    const listItem = document.createElement('li');
-    listItem.textContent = item;
-    element.appendChild(listItem);
-  }
-  return element;
-}
-
-function renderDividerNode(node: RuntimeBodyNode): HTMLElement {
-  const element = document.createElement('hr');
-  setBodyNodeAttributes(element, node);
-  return element;
-}
-
-function renderMediaNode(node: RuntimeBodyNode): HTMLElement {
-  const element = document.createElement('div');
-  setBodyNodeText(element, node);
-  return element;
-}
-
-function renderButtonNode(node: RuntimeBodyNode, context: BodyNodeRenderContext): HTMLElement {
-  const element = document.createElement('button');
-  element.type = 'button';
-  setBodyNodeText(element, node);
-  configureActionElement(element, node.props.action, context);
-  return element;
-}
-
-function renderLinkNode(node: RuntimeBodyNode, context: BodyNodeRenderContext): HTMLElement {
-  const element = document.createElement('a');
-  const target = safeNavigationTarget(node.props.action?.url);
-  element.href = target ?? '#';
-  setBodyNodeText(element, node);
-  configureActionElement(element, node.props.action, context);
-  return element;
-}
-
-function setBodyNodeText(element: HTMLElement, node: RuntimeBodyNode): void {
-  setBodyNodeAttributes(element, node);
-  element.textContent = node.text ?? '';
-}
-
-function setBodyNodeAttributes(element: HTMLElement, node: RuntimeBodyNode): void {
-  element.dataset['lodariqNodeType'] = node.type;
-}
-
-function configureActionElement(
-  element: HTMLButtonElement | HTMLAnchorElement,
-  action: RuntimeAction | undefined,
-  context: BodyNodeRenderContext,
-): void {
-  if (!actionEnabled(action)) {
-    disableActionElement(element);
-    return;
-  }
-  element.addEventListener('click', (event) => {
-    event.preventDefault();
-    context.onAction(action);
-  });
-}
-
-function actionEnabled(action: RuntimeAction | undefined): action is RuntimeAction {
-  if (!action) return false;
-  if (action.type !== 'openPage') return true;
-  return Boolean(safeNavigationTarget(action.url));
-}
-
-function disableActionElement(element: HTMLButtonElement | HTMLAnchorElement): void {
-  element.setAttribute('aria-disabled', 'true');
-  if (element instanceof HTMLButtonElement) {
-    element.disabled = true;
-    return;
-  }
-  element.removeAttribute('href');
-  element.tabIndex = -1;
-}
-
-function listItems(text: string | undefined): string[] {
-  if (!text) return [];
-  return text
-    .split(/\r?\n/)
-    .map((item) => item.trim())
-    .filter(Boolean);
-}
-
-function safeNavigationTarget(rawUrl: string | undefined): string | null {
-  return resolveSafeNavigationUrl(rawUrl, { baseUrl: window.location.href });
+function focusTourCard(card: HTMLElement): void {
+  (card.querySelector<HTMLElement>('button, a[href]') ?? card).focus();
 }
 
 function initialStepIndex(doc: CompiledDocument, options: TourPlayerOptions): number {
@@ -399,293 +919,4 @@ function initialStepIndex(doc: CompiledDocument, options: TourPlayerOptions): nu
     if (index >= 0) return index;
   }
   return 0;
-}
-
-function routeMatches(expectedRoute: string): boolean {
-  return `${location.pathname}${location.search}${location.hash}` === expectedRoute;
-}
-
-function scrollBlockFor(
-  strategy: RuntimeLifecycleHints['scrollStrategy'] | undefined,
-): ScrollLogicalPosition {
-  if (strategy === 'top') return 'start';
-  if (strategy === 'bottom') return 'end';
-  if (strategy === 'nearest' || strategy === 'virtualized-search') return 'nearest';
-  return 'center';
-}
-
-interface NetworkActivityTrackerHandle {
-  waitForIdle: (timeoutMs: number) => Promise<void>;
-  release: () => void;
-}
-
-class NetworkActivityTracker {
-  private static shared: NetworkActivityTracker | null = null;
-
-  static acquire(): NetworkActivityTrackerHandle {
-    const tracker = (NetworkActivityTracker.shared ??= new NetworkActivityTracker());
-    tracker.references += 1;
-    tracker.install();
-    return {
-      waitForIdle: (timeoutMs: number) => tracker.waitForIdle(timeoutMs),
-      release: () => tracker.release(),
-    };
-  }
-
-  private references = 0;
-  private activeRequests = 0;
-  private lastActivityAt = Date.now();
-  private originalFetch: typeof window.fetch | null = null;
-  private trackedFetch: typeof window.fetch | null = null;
-  private originalXhrSend: typeof XMLHttpRequest.prototype.send | null = null;
-  private trackedXhrSend: typeof XMLHttpRequest.prototype.send | null = null;
-
-  private install(): void {
-    if (!this.trackedFetch && typeof window.fetch === 'function') {
-      this.originalFetch = window.fetch;
-      const originalFetch = this.originalFetch;
-      const beginRequest = (): void => this.beginRequest();
-      const endRequest = (): void => this.endRequest();
-      this.trackedFetch = function trackedFetch(
-        this: Window,
-        input: Parameters<typeof fetch>[0],
-        init?: Parameters<typeof fetch>[1],
-      ): ReturnType<typeof fetch> {
-        beginRequest();
-        try {
-          return originalFetch.call(this, input, init).finally(endRequest);
-        } catch (error) {
-          endRequest();
-          throw error;
-        }
-      };
-      window.fetch = this.trackedFetch;
-    }
-
-    if (!this.trackedXhrSend && typeof XMLHttpRequest !== 'undefined') {
-      this.originalXhrSend = XMLHttpRequest.prototype.send;
-      const originalXhrSend = this.originalXhrSend;
-      const beginRequest = (): void => this.beginRequest();
-      const endRequest = (): void => this.endRequest();
-      this.trackedXhrSend = function trackedXhrSend(
-        this: XMLHttpRequest,
-        body?: Document | XMLHttpRequestBodyInit | null,
-      ): void {
-        beginRequest();
-        let settled = false;
-        const finish = (): void => {
-          if (settled) return;
-          settled = true;
-          endRequest();
-        };
-        this.addEventListener('loadend', finish, { once: true });
-        try {
-          originalXhrSend.call(this, body);
-        } catch (error) {
-          finish();
-          throw error;
-        }
-      };
-      XMLHttpRequest.prototype.send = this.trackedXhrSend;
-    }
-  }
-
-  private release(): void {
-    this.references = Math.max(0, this.references - 1);
-    if (this.references > 0) return;
-    if (this.trackedFetch && window.fetch === this.trackedFetch && this.originalFetch) {
-      window.fetch = this.originalFetch;
-    }
-    if (
-      this.trackedXhrSend &&
-      typeof XMLHttpRequest !== 'undefined' &&
-      XMLHttpRequest.prototype.send === this.trackedXhrSend &&
-      this.originalXhrSend
-    ) {
-      XMLHttpRequest.prototype.send = this.originalXhrSend;
-    }
-    this.trackedFetch = null;
-    this.originalFetch = null;
-    this.trackedXhrSend = null;
-    this.originalXhrSend = null;
-    NetworkActivityTracker.shared = null;
-  }
-
-  private beginRequest(): void {
-    this.activeRequests += 1;
-    this.lastActivityAt = Date.now();
-  }
-
-  private endRequest(): void {
-    this.activeRequests = Math.max(0, this.activeRequests - 1);
-    this.lastActivityAt = Date.now();
-  }
-
-  private async waitForIdle(timeoutMs: number): Promise<void> {
-    const deadline = Date.now() + timeoutMs;
-    while (Date.now() < deadline) {
-      const quietForMs = Date.now() - this.lastActivityAt;
-      if (this.activeRequests === 0 && quietForMs >= NETWORK_IDLE_QUIET_MS) return;
-      await delay(NETWORK_IDLE_POLL_MS);
-    }
-  }
-}
-
-function acquireNetworkActivityTracker(): NetworkActivityTrackerHandle {
-  return NetworkActivityTracker.acquire();
-}
-
-async function waitUntil(predicate: () => boolean, timeoutMs: number): Promise<void> {
-  const deadline = Date.now() + timeoutMs;
-  while (!predicate() && Date.now() < deadline) await delay(50);
-}
-
-async function activateLifecycleControl(
-  fingerprint: RuntimeLifecycleHints['openPanel'] | RuntimeLifecycleHints['selectTab'],
-  timeoutMs: number,
-): Promise<void> {
-  if (!fingerprint) return;
-  const element = await waitForResolvedElement(fingerprint, timeoutMs);
-  if (element instanceof HTMLElement) element.click();
-}
-
-async function waitForResolvedElement(
-  fingerprint: NonNullable<RuntimeLifecycleHints['waitForElement']>,
-  timeoutMs: number,
-): Promise<Element | null> {
-  const deadline = Date.now() + timeoutMs;
-  let result = resolve(fingerprint);
-  while (!result.element && Date.now() < deadline) {
-    await delay(50);
-    result = resolve(fingerprint);
-  }
-  return result.element;
-}
-
-function delay(ms: number): Promise<void> {
-  return new Promise((resolveDelay) => setTimeout(resolveDelay, ms));
-}
-
-function nearestScrollable(element: Element): Element | null {
-  let current = element.parentElement;
-  while (current) {
-    const style = getComputedStyle(current);
-    if (/(auto|scroll)/.test(`${style.overflow}${style.overflowY}${style.overflowX}`))
-      return current;
-    current = current.parentElement;
-  }
-  return null;
-}
-
-function scrollIntoView(element: Element, options: ScrollIntoViewOptions): void {
-  if ('scrollIntoView' in element && typeof element.scrollIntoView === 'function') {
-    element.scrollIntoView(options);
-  }
-}
-
-function createStyles(): HTMLStyleElement {
-  return createNonceStyleElement(
-    document,
-    `
-    :host {
-      position: fixed;
-      inset: 0;
-      z-index: var(--lodariq-tour-z-index, 2147483647);
-      pointer-events: none;
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-    }
-
-    div[role="dialog"] {
-      width: min(320px, calc(100vw - 24px));
-      padding: 14px;
-      border: 1px solid #d7dbe7;
-      border-radius: 8px;
-      background: #fff;
-      box-shadow: 0 16px 40px rgba(15, 23, 42, 0.18);
-      color: #172033;
-      pointer-events: auto;
-    }
-
-    [data-lodariq-node-type="heading"] {
-      margin-bottom: 6px;
-      font-size: 15px;
-      font-weight: 700;
-      line-height: 1.3;
-    }
-
-    [data-lodariq-node-type="paragraph"] {
-      margin-bottom: 12px;
-      color: #4b5563;
-      font-size: 14px;
-      line-height: 1.45;
-    }
-
-    [data-lodariq-node-type="list"] {
-      margin: 0 0 12px 18px;
-      padding: 0;
-      color: #374151;
-      font-size: 14px;
-      line-height: 1.45;
-    }
-
-    [data-lodariq-node-type="list"] li + li {
-      margin-top: 4px;
-    }
-
-    [data-lodariq-node-type="divider"] {
-      margin: 10px 0 12px;
-      border: 0;
-      border-top: 1px solid #e2e8f0;
-    }
-
-    [data-lodariq-node-type="media"] {
-      margin: 8px 0 12px;
-      padding: 14px;
-      border: 1px dashed #cbd5e1;
-      border-radius: 7px;
-      background: #f8fafc;
-      color: #64748b;
-      font-size: 13px;
-      line-height: 1.35;
-      text-align: center;
-    }
-
-    a {
-      display: inline-flex;
-      align-items: center;
-      min-height: 30px;
-      margin-top: 2px;
-      color: #1d4ed8;
-      font-size: 14px;
-      font-weight: 650;
-      text-decoration: none;
-      cursor: pointer;
-    }
-
-    a:hover {
-      text-decoration: underline;
-    }
-
-    button {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      min-height: 34px;
-      padding: 7px 12px;
-      border: 0;
-      border-radius: 6px;
-      background: #2563eb;
-      color: #fff;
-      font: inherit;
-      font-weight: 600;
-      cursor: pointer;
-    }
-
-    button[disabled],
-    [aria-disabled="true"] {
-      cursor: not-allowed;
-      opacity: 0.55;
-    }
-  `,
-  );
 }

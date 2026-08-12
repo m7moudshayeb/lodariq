@@ -8,42 +8,72 @@
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
+      "source": "./src/index.ts",
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     },
     "./lodariq-authoring": {
+      "source": "./src/index.ts",
       "types": "./dist/lodariq-authoring.d.ts",
       "import": "./dist/lodariq-authoring.js"
     },
+    "./authoring-frame": {
+      "source": "./src/authoring-frame.ts",
+      "types": "./dist/authoring-frame.d.ts",
+      "import": "./dist/authoring-frame.js"
+    },
+    "./hosted-entry": {
+      "source": "./src/hosted-entry.ts",
+      "types": "./dist/hosted-entry.d.ts",
+      "import": "./dist/hosted-entry.js"
+    },
     "./bridge": {
+      "source": "./src/bridge/index.ts",
       "types": "./dist/bridge/index.d.ts",
       "import": "./dist/bridge/index.js"
     },
     "./editor": {
+      "source": "./src/editor/index.ts",
       "types": "./dist/editor/index.d.ts",
       "import": "./dist/editor/index.js"
     },
     "./creator-toolbar": {
+      "source": "./src/creator-toolbar/index.ts",
       "types": "./dist/creator-toolbar/index.d.ts",
       "import": "./dist/creator-toolbar/index.js"
     },
     "./creator-install": {
+      "source": "./src/creator-install/index.ts",
       "types": "./dist/creator-install/index.d.ts",
       "import": "./dist/creator-install/index.js"
     },
+    "./creator-experiences": {
+      "source": "./src/creator-experiences.ts",
+      "types": "./dist/creator-experiences.d.ts",
+      "import": "./dist/creator-experiences.js"
+    },
+    "./i18n": {
+      "source": "./src/i18n.ts",
+      "types": "./dist/i18n.d.ts",
+      "import": "./dist/i18n.js"
+    },
     "./local-dev": {
+      "source": "./src/local-dev/index.ts",
       "types": "./dist/local-dev/index.d.ts",
       "import": "./dist/local-dev/index.js"
     },
     "./local-dev/install": {
+      "source": "./src/local-dev/install.ts",
       "types": "./dist/local-dev/install.d.ts",
       "import": "./dist/local-dev/install.js"
     },
     "./local-dev/frame": {
+      "source": "./src/local-dev/frame.ts",
       "types": "./dist/local-dev/frame.d.ts",
       "import": "./dist/local-dev/frame.js"
     },
     "./local-dev/*": {
+      "source": "./src/local-dev/*.ts",
       "types": "./dist/local-dev/*.d.ts",
       "import": "./dist/local-dev/*.js"
     }
@@ -58,17 +88,20 @@
     "size": "node ./scripts/check-size.mjs"
   },
   "dependencies": {
-    "@floating-ui/dom": "^1.6.13",
     "@lexical/rich-text": "^0.21.0",
+    "@lodariq/schema": "workspace:*",
+    "@lodariq/i18n": "workspace:*",
+    "@lodariq/sdk-runtime": "workspace:*",
     "@radix-ui/react-popover": "^1.1.17",
     "@radix-ui/react-select": "^2.3.1",
     "@radix-ui/react-tabs": "^1.1.15",
-    "@lodariq/schema": "workspace:*",
-    "@lodariq/sdk-runtime": "workspace:*",
+    "interactjs": "^1.10.28",
     "lexical": "^0.21.0",
+    "lucide": "^1.29.0",
     "lucide-react": "^1.22.0",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "xstate": "^5.32.5"
   },
   "devDependencies": {
     "@types/react": "^19.0.2",

@@ -9,7 +9,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }): Reac
   return (
     <NextThemesProvider
       attribute="class"
-      defaultTheme="dark"
+      defaultTheme="light"
       enableSystem={false}
       themes={['dark', 'light']}
       storageKey={dashboardThemeStorageKey}

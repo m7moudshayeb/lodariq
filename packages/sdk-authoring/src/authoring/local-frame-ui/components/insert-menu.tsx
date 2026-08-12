@@ -1,11 +1,15 @@
+import { authoringText } from '../../../i18n';
 import {
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
+  type CSSProperties,
   type DragEvent,
   type KeyboardEvent,
   type ReactNode,
 } from 'react';
+import { createPortal } from 'react-dom';
 import type { LocalAuthoringFrameController } from '../controller';
 import {
   AuthoringButton,
@@ -17,44 +21,42 @@ import {
   Plus,
   Type,
   Wand2,
+  X,
 } from '../design-system';
-import {
-  STEP_CONTENT_COMMANDS,
-  type SlashCommand,
-} from '../types';
+import { STEP_CONTENT_COMMANDS, type SlashCommand } from '../types';
 import { slashCommandLabel } from '../utils';
 
 export const COMMAND_DETAILS: Record<SlashCommand, { description: string; icon: ReactNode }> = {
   button: {
-    description: 'Add a button',
+    description: authoringText('Add a button'),
     icon: <Wand2 size={14} strokeWidth={2.2} />,
   },
   heading: {
-    description: 'Add a title',
+    description: authoringText('Add a title'),
     icon: <Heading size={14} strokeWidth={2.2} />,
   },
   media: {
-    description: 'Add an image or video',
+    description: authoringText('Add an image or video'),
     icon: <Image size={14} strokeWidth={2.2} />,
   },
   link: {
-    description: 'Add a link',
+    description: authoringText('Add a link'),
     icon: <LinkIcon size={14} strokeWidth={2.2} />,
   },
   list: {
-    description: 'Add a list',
+    description: authoringText('Add a list'),
     icon: <List size={14} strokeWidth={2.2} />,
   },
   divider: {
-    description: 'Add a divider',
+    description: authoringText('Add a divider'),
     icon: <Minus size={14} strokeWidth={2.2} />,
   },
   paragraph: {
-    description: 'Add text',
+    description: authoringText('Add text'),
     icon: <Type size={14} strokeWidth={2.2} />,
   },
   step: {
-    description: 'Add another step',
+    description: authoringText('Add another step'),
     icon: <Plus size={14} strokeWidth={2.25} />,
   },
 };
@@ -136,8 +138,11 @@ function InlineInsertMenu<TCommand extends SlashCommand>({
   const [query, setQuery] = useState('');
   const [activeCommandIndex, setActiveCommandIndex] = useState(0);
   const activeCommandIndexRef = useRef(0);
+  const insertRef = useRef<HTMLDivElement | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
   const searchRef = useRef<HTMLInputElement | null>(null);
+  const [menuPosition, setMenuPosition] = useState<InlineCommandMenuPosition | null>(null);
   const filteredCommands = commands.filter((command) => {
     const details = COMMAND_DETAILS[command];
     const labelText = slashCommandLabel(command);
@@ -160,9 +165,11 @@ function InlineInsertMenu<TCommand extends SlashCommand>({
   useEffect(() => {
     if (!open) return;
     queueMicrotask(() => searchRef.current?.focus());
-    const ownerDocument = menuRef.current?.ownerDocument ?? document;
+    const ownerDocument = insertRef.current?.ownerDocument ?? document;
     const handlePointerDown = (event: PointerEvent): void => {
-      if (menuRef.current?.contains(event.target as Node)) return;
+      const eventTarget = event.target as Node;
+      if (insertRef.current?.contains(eventTarget) || menuRef.current?.contains(eventTarget))
+        return;
       setOpen(false);
     };
     const handleKeyDown = (event: globalThis.KeyboardEvent): void => {
@@ -178,6 +185,35 @@ function InlineInsertMenu<TCommand extends SlashCommand>({
     };
   }, [open]);
 
+  useLayoutEffect(() => {
+    if (!open) return;
+    const trigger = triggerRef.current;
+    const menu = menuRef.current;
+    if (!trigger || !menu) return;
+    const ownerWindow = trigger.ownerDocument.defaultView;
+    if (!ownerWindow) return;
+
+    const updateMenuPosition = (): void => {
+      setMenuPosition(
+        resolveInlineCommandMenuPosition(trigger.getBoundingClientRect(), ownerWindow),
+      );
+    };
+
+    updateMenuPosition();
+    if (typeof menu.showPopover === 'function' && !menu.matches(':popover-open')) {
+      menu.showPopover();
+    }
+    ownerWindow.addEventListener('resize', updateMenuPosition);
+    ownerWindow.addEventListener('scroll', updateMenuPosition, true);
+    return () => {
+      ownerWindow.removeEventListener('resize', updateMenuPosition);
+      ownerWindow.removeEventListener('scroll', updateMenuPosition, true);
+      if (typeof menu.hidePopover === 'function' && menu.matches(':popover-open')) {
+        menu.hidePopover();
+      }
+    };
+  }, [open]);
+
   return (
     <div
       className={`inline-insert ${compact ? 'compact' : ''} ${open ? 'open' : ''} ${
@@ -188,11 +224,12 @@ function InlineInsertMenu<TCommand extends SlashCommand>({
       data-top-level-insert-position={dropInsertPosition}
       onDragOver={onDragOver}
       onDrop={onDrop}
-      ref={menuRef}
+      ref={insertRef}
     >
       <button
         type="button"
         className="inline-insert-trigger"
+        ref={triggerRef}
         aria-expanded={open}
         aria-label={label}
         onClick={() => {
@@ -202,54 +239,130 @@ function InlineInsertMenu<TCommand extends SlashCommand>({
       >
         <Plus size={13} strokeWidth={2.35} />
       </button>
-      <div className="inline-command-menu" hidden={!open} role="menu">
-        <input
-          ref={searchRef}
-          className="inline-command-search"
-          aria-label="Search content"
-          placeholder="Search content"
-          value={query}
-          onChange={(event) => setQuery(event.currentTarget.value)}
-          onKeyDown={(event) =>
-            handleInlineCommandSearchKeyDown(event, {
-              activeCommandIndexRef,
-              commands: filteredCommands,
-              onCommand,
-              setActiveCommandIndex: setActiveCommandIndexValue,
-              setOpen,
-            })
-          }
-        />
-        {filteredCommands.map((command, index) => {
-          const details = COMMAND_DETAILS[command];
-          const labelText = slashCommandLabel(command);
-          const active = index === activeCommandIndex;
-          return (
-            <AuthoringButton
-              key={command}
-              aria-selected={active}
-              className={`inline-command ${active ? 'active' : ''}`.trim()}
-              icon={details.icon}
-              onClick={() => {
-                onCommand(command);
-                setOpen(false);
-              }}
-              onMouseEnter={() => setActiveCommandIndexValue(index)}
-              role="menuitem"
+      {open && insertRef.current
+        ? createPortal(
+            <div
+              className="inline-command-menu"
+              popover="manual"
+              ref={menuRef}
+              role="menu"
+              style={inlineCommandMenuStyle(menuPosition)}
             >
-              <span className="inline-command-copy">
-                <strong>{labelText}</strong>
-                <small>{details.description}</small>
-              </span>
-            </AuthoringButton>
-          );
-        })}
-        {filteredCommands.length === 0 ? (
-          <div className="inline-command-empty">No content found</div>
-        ) : null}
-      </div>
+              <div className="inline-command-header">
+                <input
+                  ref={searchRef}
+                  className="inline-command-search"
+                  aria-label={authoringText('Search content')}
+                  placeholder={authoringText('Search content')}
+                  value={query}
+                  onChange={(event) => setQuery(event.currentTarget.value)}
+                  onKeyDown={(event) =>
+                    handleInlineCommandSearchKeyDown(event, {
+                      activeCommandIndexRef,
+                      commands: filteredCommands,
+                      onCommand,
+                      setActiveCommandIndex: setActiveCommandIndexValue,
+                      setOpen,
+                    })
+                  }
+                />
+                <button
+                  type="button"
+                  className="inline-command-close"
+                  aria-label={authoringText('Close content menu')}
+                  title={authoringText('Close')}
+                  onClick={() => setOpen(false)}
+                >
+                  <X size={16} strokeWidth={2.1} aria-hidden="true" />
+                </button>
+              </div>
+              {filteredCommands.map((command, index) => {
+                const details = COMMAND_DETAILS[command];
+                const labelText = slashCommandLabel(command);
+                const active = index === activeCommandIndex;
+                return (
+                  <AuthoringButton
+                    key={command}
+                    aria-selected={active}
+                    className={`inline-command ${active ? 'active' : ''}`.trim()}
+                    icon={details.icon}
+                    onClick={() => {
+                      onCommand(command);
+                      setOpen(false);
+                    }}
+                    onMouseEnter={() => setActiveCommandIndexValue(index)}
+                    role="menuitem"
+                  >
+                    <span className="inline-command-copy">
+                      <strong>{labelText}</strong>
+                      <small>{details.description}</small>
+                    </span>
+                  </AuthoringButton>
+                );
+              })}
+              {filteredCommands.length === 0 ? (
+                <div className="inline-command-empty">{authoringText('No content found')}</div>
+              ) : null}
+            </div>,
+            insertRef.current.ownerDocument.body,
+          )
+        : null}
     </div>
   );
+}
+
+interface InlineCommandMenuPosition {
+  left: number;
+  maxHeight: number;
+  top: number;
+}
+
+const INLINE_COMMAND_MENU_WIDTH = 288;
+const INLINE_COMMAND_MENU_MAX_HEIGHT = 320;
+const INLINE_COMMAND_MENU_VIEWPORT_PADDING = 12;
+const INLINE_COMMAND_MENU_TRIGGER_GAP = 8;
+
+function resolveInlineCommandMenuPosition(
+  triggerRect: DOMRect,
+  ownerWindow: Window,
+): InlineCommandMenuPosition {
+  const availableWidth = ownerWindow.innerWidth - INLINE_COMMAND_MENU_VIEWPORT_PADDING * 2;
+  const menuWidth = Math.min(INLINE_COMMAND_MENU_WIDTH, availableWidth);
+  const idealLeft = triggerRect.left + triggerRect.width / 2 - menuWidth / 2;
+  const left = Math.min(
+    Math.max(idealLeft, INLINE_COMMAND_MENU_VIEWPORT_PADDING),
+    ownerWindow.innerWidth - menuWidth - INLINE_COMMAND_MENU_VIEWPORT_PADDING,
+  );
+  const spaceBelow =
+    ownerWindow.innerHeight - triggerRect.bottom - INLINE_COMMAND_MENU_VIEWPORT_PADDING;
+  const spaceAbove = triggerRect.top - INLINE_COMMAND_MENU_VIEWPORT_PADDING;
+  const opensAbove = spaceBelow < 240 && spaceAbove > spaceBelow;
+  const maxHeight = Math.min(
+    INLINE_COMMAND_MENU_MAX_HEIGHT,
+    Math.max(
+      160,
+      opensAbove
+        ? spaceAbove - INLINE_COMMAND_MENU_TRIGGER_GAP
+        : spaceBelow - INLINE_COMMAND_MENU_TRIGGER_GAP,
+    ),
+  );
+  const top = opensAbove
+    ? Math.max(
+        INLINE_COMMAND_MENU_VIEWPORT_PADDING,
+        triggerRect.top - maxHeight - INLINE_COMMAND_MENU_TRIGGER_GAP,
+      )
+    : triggerRect.bottom + INLINE_COMMAND_MENU_TRIGGER_GAP;
+
+  return { left, maxHeight, top };
+}
+
+function inlineCommandMenuStyle(position: InlineCommandMenuPosition | null): CSSProperties {
+  if (!position) return { visibility: 'hidden' };
+  return {
+    left: position.left,
+    maxHeight: position.maxHeight,
+    top: position.top,
+  };
 }
 
 function handleInlineCommandSearchKeyDown<TCommand extends SlashCommand>(

@@ -1,3 +1,4 @@
+import { authoringText } from '../../../i18n';
 import { useState } from 'react';
 import type { LodariqBlock } from '@lodariq/schema';
 import type { LocalAuthoringFrameController } from '../controller';
@@ -45,8 +46,7 @@ export function BlockCard({
   const showStatusBadge = statusValue !== 'ready' && !needsPageElement;
   const showAnchor = block.type === 'tourStep' || Boolean(targetId);
   const selected = snapshot.selectedBlockId === block.id;
-  const dropPosition =
-    snapshot.dragTargetBlockId === block.id ? snapshot.dragTargetPosition : null;
+  const dropPosition = snapshot.dragTargetBlockId === block.id ? snapshot.dragTargetPosition : null;
 
   return (
     <article
@@ -72,7 +72,7 @@ export function BlockCard({
           className="block-grip"
           draggable
           aria-label={`Drag ${blockTypeLabel(block.type).toLowerCase()}`}
-          title="Drag to reorder"
+          title={authoringText('Drag to reorder')}
           onDragEnd={() => controller.endDraggingBlock()}
           onDragStart={(event) => controller.startDraggingBlock(block.id, event)}
         >
@@ -101,14 +101,14 @@ export function BlockCard({
                 />
               ) : (
                 <AuthoringButton
-                  aria-label="Choose placement"
+                  aria-label={authoringText('Choose placement')}
                   className={`anchor-button ${needsPageElement ? 'anchor-button-empty' : ''}`.trim()}
                   data-action="target-pick"
                   data-block-id={block.id}
                   icon={<MousePointer2 size={13} strokeWidth={2.2} />}
                   onClick={() => controller.startTargetPick(block.id)}
                 >
-                  Choose placement
+                  {authoringText('Choose placement')}
                 </AuthoringButton>
               )}
             </div>
@@ -155,12 +155,12 @@ function blockStatusLabel(
   statusValue: 'ready' | 'incomplete' | 'invalid',
   targetId: string | null,
 ): string {
-  if (statusValue === 'invalid') return 'Needs fix';
+  if (statusValue === 'invalid') return authoringText('Needs fix');
   if (statusValue === 'incomplete' && block.type === 'tourStep' && !targetId) {
-    return 'Choose placement';
+    return authoringText('Choose placement');
   }
-  if (statusValue === 'incomplete') return 'Needs review';
-  return 'Ready';
+  if (statusValue === 'incomplete') return authoringText('Needs review');
+  return authoringText('Ready');
 }
 
 function BlockInlineActions({
@@ -172,7 +172,10 @@ function BlockInlineActions({
 }) {
   const label = blockTypeLabel(block.type).toLowerCase();
   return (
-    <div className="block-inline-actions" aria-label={`${blockTypeLabel(block.type)} quick actions`}>
+    <div
+      className="block-inline-actions"
+      aria-label={`${blockTypeLabel(block.type)} quick actions`}
+    >
       <AuthoringButton
         aria-label={`Duplicate ${label}`}
         className="block-inline-action"
@@ -180,7 +183,7 @@ function BlockInlineActions({
         data-block-id={block.id}
         icon={<Copy size={13} strokeWidth={2.25} />}
         onClick={() => controller.duplicateTopLevelBlock(block.id)}
-        title="Duplicate"
+        title={authoringText('Duplicate')}
         tone="ghost"
       />
       <AuthoringButton
@@ -190,7 +193,7 @@ function BlockInlineActions({
         data-block-id={block.id}
         icon={<Trash2 size={13} strokeWidth={2.25} />}
         onClick={() => controller.deleteTopLevelBlock(block.id)}
-        title="Delete"
+        title={authoringText('Delete')}
         tone="ghost"
       />
     </div>
@@ -220,7 +223,7 @@ function BlockActionMenu({
         >
           <div className="block-action-menu-header">
             <span>{blockTypeLabel(block.type)}</span>
-            <strong>Actions</strong>
+            <strong>{authoringText('Actions')}</strong>
           </div>
           <AuthoringButton
             className="block-action-menu-item"
@@ -231,7 +234,7 @@ function BlockActionMenu({
             onClick={() => runAction(() => controller.moveTopLevelBlock(block.id, 'up'))}
             role="menuitem"
           >
-            Move up
+            {authoringText('Move up')}
           </AuthoringButton>
           <AuthoringButton
             className="block-action-menu-item"
@@ -242,7 +245,7 @@ function BlockActionMenu({
             onClick={() => runAction(() => controller.moveTopLevelBlock(block.id, 'down'))}
             role="menuitem"
           >
-            Move down
+            {authoringText('Move down')}
           </AuthoringButton>
         </div>
       }

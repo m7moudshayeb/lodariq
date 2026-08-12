@@ -13,8 +13,7 @@
   },
   "dependencies": {
     "@lodariq/compiler": "workspace:*",
-    "@lodariq/schema": "workspace:*",
-    "@lodariq/sdk-runtime": "workspace:*"
+    "@lodariq/schema": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5.7.2",

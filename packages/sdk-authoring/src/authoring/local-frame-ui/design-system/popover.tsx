@@ -1,10 +1,12 @@
 import * as RadixPopover from '@radix-ui/react-popover';
 import type { ReactNode } from 'react';
+import { X } from './icons';
 
 export function AuthoringPopover({
   align = 'start',
   contentClassName,
   content,
+  dismissLabel,
   onOpenChange,
   open,
   portal = false,
@@ -14,6 +16,7 @@ export function AuthoringPopover({
   align?: 'center' | 'end' | 'start';
   contentClassName?: string;
   content: ReactNode;
+  dismissLabel?: string;
   onOpenChange?: (open: boolean) => void;
   open?: boolean;
   portal?: boolean;
@@ -22,13 +25,19 @@ export function AuthoringPopover({
 }) {
   const className = ['ui-popover-content', contentClassName].filter(Boolean).join(' ');
   const popoverContent = (
-    <RadixPopover.Content
-      align={align}
-      className={className}
-      forceMount
-      side={side}
-      sideOffset={6}
-    >
+    <RadixPopover.Content align={align} className={className} side={side} sideOffset={6}>
+      {dismissLabel ? (
+        <RadixPopover.Close asChild>
+          <button
+            type="button"
+            className="ui-popover-close"
+            aria-label={dismissLabel}
+            onClick={() => onOpenChange?.(false)}
+          >
+            <X size={15} strokeWidth={2.1} aria-hidden="true" />
+          </button>
+        </RadixPopover.Close>
+      ) : null}
       {content}
       <RadixPopover.Arrow className="ui-popover-arrow" />
     </RadixPopover.Content>
@@ -36,7 +45,7 @@ export function AuthoringPopover({
   return (
     <RadixPopover.Root open={open} onOpenChange={onOpenChange}>
       <RadixPopover.Trigger asChild>{trigger}</RadixPopover.Trigger>
-      {portal ? <RadixPopover.Portal forceMount>{popoverContent}</RadixPopover.Portal> : popoverContent}
+      {portal ? <RadixPopover.Portal>{popoverContent}</RadixPopover.Portal> : popoverContent}
     </RadixPopover.Root>
   );
 }

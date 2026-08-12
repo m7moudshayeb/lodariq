@@ -3,13 +3,11 @@ import { createApiApp } from '@lodariq/api';
 import type { LodariqDocument } from '@lodariq/schema';
 import tourFixture from '@lodariq/schema/fixtures/tour.linear.v1.json';
 import {
-  createAuthoringLaunchAction,
   createEnvironmentTokenAction,
   loadDocumentDebugAction,
   revokeEnvironmentTokenAction,
 } from '../../../../apps/dashboard/src/app/actions';
 import { initialDocumentDebugActionState } from '../../../../apps/dashboard/src/app/document-debug-action-state';
-import { initialAuthoringLaunchActionState } from '../../../../apps/dashboard/src/app/authoring-launch-action-state';
 import { initialTokenActionState } from '../../../../apps/dashboard/src/app/token-action-state';
 import { initialTokenRevokeActionState } from '../../../../apps/dashboard/src/app/token-revoke-action-state';
 import {
@@ -38,9 +36,9 @@ describe('@lodariq/dashboard API integration', () => {
   it('renders API-backed documents and creates a copyable SDK snippet through the server action', async () => {
     app = createApiApp({
       defaultWorkspaceId: 'wk_dashboard',
-      publicApiBaseUrl: 'https://api.lodariq.com',
-      loaderSrc: 'https://cdn.lodariq.com/sdk/lodariq-loader.js',
-      creatorLoaderSrc: 'https://cdn.lodariq.com/sdk/lodariq-creator.js',
+      publicApiBaseUrl: 'https://api.lodariq.io',
+      loaderSrc: 'https://cdn.lodariq.io/sdk/lodariq-loader.js',
+      creatorLoaderSrc: 'https://cdn.lodariq.io/sdk/lodariq-creator.js',
     });
     const document = withWorkspace(baseDocument, 'wk_dashboard');
 
@@ -59,6 +57,11 @@ describe('@lodariq/dashboard API integration', () => {
 
     const dashboardData = await loadDashboardData();
 
+    expect(dashboardData.controlPlaneContext).toEqual({
+      userId: 'user_dashboard',
+      workspaceId: 'wk_dashboard',
+      role: 'owner',
+    });
     expect(dashboardData.documents).toHaveLength(1);
     expect(dashboardData.documents[0]).toMatchObject({
       id: document.id,
@@ -73,6 +76,7 @@ describe('@lodariq/dashboard API integration', () => {
     expect(dashboardData.environments.map((environment) => environment.kind)).toEqual([
       'development',
       'staging',
+      'production',
     ]);
     expect(dashboardData.tokens).toHaveLength(0);
 
@@ -92,7 +96,7 @@ describe('@lodariq/dashboard API integration', () => {
     expect(state.sdkSnippet).toContain('data-lodariq-loader');
     expect(state.sdkSnippet).toContain('data-lodariq-environment="staging"');
     expect(state.sdkSnippet).toContain('data-lodariq-token="lod_staging_');
-    expect(state.sdkSnippet).toContain('data-lodariq-api="https://api.lodariq.com"');
+    expect(state.sdkSnippet).toContain('data-lodariq-api="https://api.lodariq.io"');
     const clientToken = state.sdkSnippet?.match(/data-lodariq-token="([^"]+)"/)?.[1];
     expect(clientToken).toMatch(/^lod_staging_/);
 
@@ -139,41 +143,17 @@ describe('@lodariq/dashboard API integration', () => {
     expect(debugState.latestVersionLabel).toBe('v1');
     expect(debugState.publishReadinessIssues).toEqual([]);
 
-    const launchFormData = new FormData();
-    launchFormData.set('environmentId', 'env_staging');
-    launchFormData.set('documentId', document.id);
-    launchFormData.set('name', 'Dashboard creator launch');
-    const launchState = await createAuthoringLaunchAction(
-      initialAuthoringLaunchActionState,
-      launchFormData,
-    );
-
-    expect(launchState.status).toBe('success');
-    expect(launchState.authoringSession).toMatchObject({
-      documentId: document.id,
-      environment: 'staging',
-    });
-    expect(launchState.bootstrapHeaderName).toBe('x-lodariq-authoring-session');
-    expect(launchState.sdkSnippet).toContain('data-lodariq-authoring-session="lod_authoring_');
-    expect(launchState.sdkSnippet).toContain('data-lodariq-token="lod_staging_');
-    expect(launchState.sdkSnippet).toContain(
-      'src="https://cdn.lodariq.com/sdk/lodariq-creator.js"',
-    );
-
-    const publishedData = await loadDashboardData();
-    expect(publishedData.documents[0]?.publications).toEqual([
-      expect.objectContaining({
-        environmentId: 'env_staging',
-        environment: 'staging',
-        contentHash: publishedData.documents[0]?.latestContentHash,
-      }),
-    ]);
+    // The dashboard no longer creates a temporary authoring token/session or
+    // exposes a copyable creator handoff. The permanent installation launcher
+    // owns activation from the configured customer origin.
+    const dataAfterDashboardRefresh = await loadDashboardData();
+    expect(dataAfterDashboardRefresh.documents[0]?.publications).toEqual([]);
   });
 
-  it('forwards Clerk session credentials instead of trusting dev workspace headers', () => {
+  it('forwards owned session credentials instead of trusting dev workspace headers', () => {
     const headers = buildDashboardApiHeaders(
       {
-        apiBaseUrl: 'https://api.lodariq.com',
+        apiBaseUrl: 'https://api.lodariq.io',
         devWorkspaceId: 'wk_dev_should_not_win',
         devUserId: 'user_dev_should_not_win',
         useDevHeaderFallback: true,
@@ -191,6 +171,16 @@ describe('@lodariq/dashboard API integration', () => {
       const requestUrl = new URL(
         typeof input === 'string' || input instanceof URL ? input.toString() : input.url,
       );
+      if (requestUrl.pathname === '/v1/auth/context') {
+        return new Response(
+          JSON.stringify({
+            userId: 'user_dashboard',
+            workspaceId: 'wk_dashboard',
+            role: 'owner',
+          }),
+          { status: 200, headers: { 'content-type': 'application/json' } },
+        );
+      }
       expect(requestUrl.pathname).toBe('/v1/debug/documents/doc_sensitive');
 
       return new Response(
@@ -266,7 +256,7 @@ describe('@lodariq/dashboard API integration', () => {
     formData.set('documentId', 'doc_sensitive');
     const state = await loadDocumentDebugAction(initialDocumentDebugActionState, formData);
 
-    expect(fetch).toHaveBeenCalledOnce();
+    expect(fetch).toHaveBeenCalledTimes(2);
     expect(state.status).toBe('success');
     if (state.status !== 'success') throw new Error('debug action failed');
     expect(state.canonicalJson).toContain('"token": "<redacted>"');
@@ -288,7 +278,7 @@ describe('@lodariq/dashboard API integration', () => {
     ]);
   });
 
-  it('uses dev workspace headers only when no Clerk session is available', () => {
+  it('uses dev workspace headers only when no owned session is available', () => {
     const headers = buildDashboardApiHeaders(
       {
         apiBaseUrl: 'http://api.lodariq.test',
@@ -306,7 +296,7 @@ describe('@lodariq/dashboard API integration', () => {
   it('does not synthesize workspace headers when production auth is missing', () => {
     const headers = buildDashboardApiHeaders(
       {
-        apiBaseUrl: 'https://api.lodariq.com',
+        apiBaseUrl: 'https://api.lodariq.io',
         devWorkspaceId: 'wk_dev_should_not_win',
         devUserId: 'user_dev_should_not_win',
         useDevHeaderFallback: false,
@@ -320,10 +310,10 @@ describe('@lodariq/dashboard API integration', () => {
     expect(headers.has('x-lodariq-user-id')).toBe(false);
   });
 
-  it('can forward a Clerk __session cookie without exposing workspace headers', () => {
+  it('forwards an owned session cookie value as a bearer without workspace headers', () => {
     const headers = buildDashboardApiHeaders(
       {
-        apiBaseUrl: 'https://api.lodariq.com',
+        apiBaseUrl: 'https://api.lodariq.io',
         devWorkspaceId: 'wk_dev_should_not_win',
         devUserId: 'user_dev_should_not_win',
         useDevHeaderFallback: true,
@@ -331,7 +321,8 @@ describe('@lodariq/dashboard API integration', () => {
       { sessionToken: 'session token' },
     );
 
-    expect(headers.get('cookie')).toBe('__session=session%20token');
+    expect(headers.get('authorization')).toBe('Bearer session token');
+    expect(headers.has('cookie')).toBe(false);
     expect(headers.has('x-lodariq-workspace-id')).toBe(false);
     expect(headers.has('x-lodariq-user-id')).toBe(false);
   });

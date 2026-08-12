@@ -1,30 +1,49 @@
 import {
   isSafeNavigationUrl,
+  sanitizeBlockLayoutProps,
   sanitizeBlockProps,
+  sanitizeButtonStyleProps,
+  sanitizeInlineTextRuns,
+  sanitizeTextStyleProps,
+  sanitizeTooltipLayoutProps,
+  sanitizeTooltipStyleProps,
   type BlockActionProps,
+  type BlockLayoutProps,
+  type ButtonStyleProps,
+  type InlineTextRun,
   type LodariqBlock,
+  type PresentationAnchor,
+  type TextStyleProps,
+  type TooltipLayoutProps,
+  type TooltipStyleProps,
 } from '@lodariq/schema';
 import { createBlockId } from '../editor/ids';
+import { authoringText } from '../i18n';
 
 export type EditableBlockType =
-  | 'paragraph'
-  | 'heading'
-  | 'list'
-  | 'divider'
-  | 'button'
-  | 'link'
-  | 'media';
+  'paragraph' | 'heading' | 'list' | 'divider' | 'button' | 'link' | 'media';
 export type BlockDirection = 'up' | 'down';
 export type BlockInsertPosition = 'before' | 'after';
+export type TooltipPlacement = NonNullable<LodariqBlock['props']['placement']>;
+export type ButtonVariant = NonNullable<LodariqBlock['props']['variant']>;
+export type InlineTextStylePatch = {
+  clear?: boolean;
+  mark?: NonNullable<InlineTextRun['marks']>[number];
+  markEnabled?: boolean;
+  fontSizePx?: NonNullable<InlineTextRun['fontSizePx']> | null;
+  color?: string | null;
+  highlightColor?: string | null;
+  link?: string | null;
+};
 
 const DEFAULT_CONTENT_BY_TYPE = {
-  heading: 'Untitled heading',
-  paragraph: 'Write supporting copy',
-  list: 'First item\nSecond item',
+  heading: authoringText('Untitled heading'),
+  paragraph: authoringText('Write supporting copy'),
+  list: authoringText('First item\nSecond item'),
   divider: '',
-  button: 'Continue',
-  link: 'Learn more',
-  media: 'Media placeholder',
+  button: authoringText('Continue'),
+  link: authoringText('Learn more'),
+  media: authoringText('Media placeholder'),
 } as const satisfies Record<EditableBlockType, string>;
 
 const DEFAULT_PROPS_BY_TYPE = {
@@ -33,14 +52,20 @@ const DEFAULT_PROPS_BY_TYPE = {
   list: {},
   divider: {},
   button: { variant: 'primary' },
-  link: { action: { type: 'openPage' } },
+  link: {
+    variant: 'link',
+    action: { type: 'openPage', navigationBehavior: 'continue' },
+  },
   media: {},
 } as const satisfies Record<EditableBlockType, LodariqBlock['props']>;
 
 const INCOMPLETE_ON_CREATE_TYPES = new Set<EditableBlockType>(['button', 'link', 'media']);
 const ACTION_CONFIG_BLOCK_TYPES = new Set<string>(['button', 'link']);
 
-export function createContentBlock(type: EditableBlockType, contentOverride?: string): LodariqBlock {
+export function createContentBlock(
+  type: EditableBlockType,
+  contentOverride?: string,
+): LodariqBlock {
   const content = contentOverride ?? defaultContentFor(type);
   return {
     id: createBlockId(),
@@ -52,7 +77,10 @@ export function createContentBlock(type: EditableBlockType, contentOverride?: st
   };
 }
 
-export function createTourStep(index: number, title = 'Untitled step'): LodariqBlock {
+export function createTourStep(
+  index: number,
+  title = authoringText('Untitled step'),
+): LodariqBlock {
   return {
     id: createBlockId(),
     type: 'tourStep',
@@ -76,7 +104,7 @@ export function createTourStep(index: number, title = 'Untitled step'): LodariqB
           {
             id: createBlockId(),
             type: 'paragraph',
-            content: 'Write supporting copy',
+            content: authoringText('Write supporting copy'),
             props: {},
             status: 'ready',
             children: [],
@@ -84,7 +112,7 @@ export function createTourStep(index: number, title = 'Untitled step'): LodariqB
           {
             id: createBlockId(),
             type: 'button',
-            content: 'Continue',
+            content: authoringText('Continue'),
             props: { variant: 'primary', action: { type: 'next' } },
             status: 'ready',
             children: [],
@@ -114,9 +142,219 @@ export function updateBlockContent(
 ): LodariqBlock[] {
   return blocks.map((block) =>
     block.id === blockId
-      ? { ...block, content }
+      ? { ...block, content, contentRuns: undefined }
       : { ...block, children: updateBlockContent(block.children, blockId, content) },
   );
+}
+
+export function updateBlockContentRuns(
+  blocks: LodariqBlock[],
+  blockId: string,
+  content: string,
+  contentRuns?: InlineTextRun[],
+): LodariqBlock[] {
+  const safeRuns = sanitizeInlineTextRuns(contentRuns);
+  return blocks.map((block) =>
+    block.id === blockId
+      ? {
+          ...block,
+          content,
+          ...(safeRuns ? { contentRuns: safeRuns } : { contentRuns: undefined }),
+        }
+      : {
+          ...block,
+          children: updateBlockContentRuns(block.children, blockId, content, contentRuns),
+        },
+  );
+}
+
+export function applyInlineTextStyle(
+  content: string,
+  currentRuns: InlineTextRun[] | undefined,
+  start: number,
+  end: number,
+  patch: InlineTextStylePatch,
+): InlineTextRun[] | undefined {
+  const boundedStart = Math.max(0, Math.min(start, content.length));
+  const boundedEnd = Math.max(boundedStart, Math.min(end, content.length));
+  if (boundedStart === boundedEnd) return sanitizeInlineTextRuns(currentRuns);
+  const sourceRuns = normalizedRunsForContent(content, currentRuns);
+  const next: InlineTextRun[] = [];
+  let offset = 0;
+  for (const run of sourceRuns) {
+    const runStart = offset;
+    const runEnd = offset + run.text.length;
+    offset = runEnd;
+    if (runEnd <= boundedStart || runStart >= boundedEnd) {
+      next.push(run);
+      continue;
+    }
+    const selectionStart = Math.max(boundedStart, runStart) - runStart;
+    const selectionEnd = Math.min(boundedEnd, runEnd) - runStart;
+    if (selectionStart > 0) next.push({ ...run, text: run.text.slice(0, selectionStart) });
+    next.push(
+      applyInlineRunPatch({ ...run, text: run.text.slice(selectionStart, selectionEnd) }, patch),
+    );
+    if (selectionEnd < run.text.length) {
+      next.push({ ...run, text: run.text.slice(selectionEnd) });
+    }
+  }
+  return sanitizeInlineTextRuns(next);
+}
+
+export function reconcileInlineTextRuns(
+  previousContent: string,
+  currentRuns: InlineTextRun[] | undefined,
+  nextContent: string,
+): InlineTextRun[] | undefined {
+  const safeRuns = sanitizeInlineTextRuns(currentRuns);
+  if (!safeRuns || safeRuns.map((run) => run.text).join('') !== previousContent) return undefined;
+  if (previousContent === nextContent) return safeRuns;
+
+  const prefixLength = sharedPrefixLength(previousContent, nextContent);
+  const suffixLength = sharedSuffixLength(previousContent, nextContent, prefixLength);
+  const replacedEnd = previousContent.length - suffixLength;
+  const insertedText = nextContent.slice(prefixLength, nextContent.length - suffixLength);
+  const inheritedStyle = inlineStyleAtOffset(safeRuns, prefixLength, replacedEnd);
+  const nextRuns = [
+    ...sliceInlineRuns(safeRuns, 0, prefixLength),
+    ...(insertedText ? [{ ...inheritedStyle, text: insertedText }] : []),
+    ...sliceInlineRuns(safeRuns, replacedEnd, previousContent.length),
+  ];
+  return sanitizeInlineTextRuns(nextRuns);
+}
+
+export function splitInlineTextRuns(
+  content: string,
+  currentRuns: InlineTextRun[] | undefined,
+  splitOffset: number,
+): { before?: InlineTextRun[]; after?: InlineTextRun[] } {
+  const safeRuns = sanitizeInlineTextRuns(currentRuns);
+  if (!safeRuns || safeRuns.map((run) => run.text).join('') !== content) return {};
+  const boundedOffset = Math.max(0, Math.min(splitOffset, content.length));
+  const before = sanitizeInlineTextRuns(sliceInlineRuns(safeRuns, 0, boundedOffset));
+  const after = sanitizeInlineTextRuns(sliceInlineRuns(safeRuns, boundedOffset, content.length));
+  return {
+    ...(before ? { before } : {}),
+    ...(after ? { after } : {}),
+  };
+}
+
+export function mergeInlineTextRuns(
+  beforeContent: string,
+  beforeRuns: InlineTextRun[] | undefined,
+  afterContent: string,
+  afterRuns: InlineTextRun[] | undefined,
+): InlineTextRun[] | undefined {
+  const safeBefore = sanitizeInlineTextRuns(beforeRuns);
+  const safeAfter = sanitizeInlineTextRuns(afterRuns);
+  const beforeMatches = safeBefore?.map((run) => run.text).join('') === beforeContent;
+  const afterMatches = safeAfter?.map((run) => run.text).join('') === afterContent;
+  if (!beforeMatches && !afterMatches) return undefined;
+  return sanitizeInlineTextRuns([
+    ...(beforeMatches && safeBefore ? safeBefore : beforeContent ? [{ text: beforeContent }] : []),
+    ...(afterMatches && safeAfter ? safeAfter : afterContent ? [{ text: afterContent }] : []),
+  ]);
+}
+
+function sharedPrefixLength(left: string, right: string): number {
+  const limit = Math.min(left.length, right.length);
+  let index = 0;
+  while (index < limit && left[index] === right[index]) index += 1;
+  return index;
+}
+
+function sharedSuffixLength(left: string, right: string, prefixLength: number): number {
+  const limit = Math.min(left.length, right.length) - prefixLength;
+  let length = 0;
+  while (length < limit && left[left.length - length - 1] === right[right.length - length - 1]) {
+    length += 1;
+  }
+  return length;
+}
+
+function sliceInlineRuns(runs: InlineTextRun[], start: number, end: number): InlineTextRun[] {
+  if (start >= end) return [];
+  const sliced: InlineTextRun[] = [];
+  let offset = 0;
+  for (const run of runs) {
+    const runStart = offset;
+    const runEnd = offset + run.text.length;
+    offset = runEnd;
+    if (runEnd <= start || runStart >= end) continue;
+    const text = run.text.slice(
+      Math.max(0, start - runStart),
+      Math.min(run.text.length, end - runStart),
+    );
+    if (text) sliced.push({ ...run, text });
+  }
+  return sliced;
+}
+
+function inlineStyleAtOffset(
+  runs: InlineTextRun[],
+  insertionOffset: number,
+  replacedEnd: number,
+): Omit<InlineTextRun, 'text'> {
+  const totalLength = runs.reduce((sum, run) => sum + run.text.length, 0);
+  const precedingOffset = Math.max(0, insertionOffset - 1);
+  const followingOffset = Math.min(replacedEnd, totalLength - 1);
+  const source = inlineRunAtOffset(runs, insertionOffset > 0 ? precedingOffset : followingOffset);
+  if (!source) return {};
+  const { text: _text, ...style } = source;
+  return style;
+}
+
+function inlineRunAtOffset(runs: InlineTextRun[], targetOffset: number): InlineTextRun | undefined {
+  let offset = 0;
+  for (const run of runs) {
+    const nextOffset = offset + run.text.length;
+    if (targetOffset >= offset && targetOffset < nextOffset) return run;
+    offset = nextOffset;
+  }
+  return runs[runs.length - 1];
+}
+
+function normalizedRunsForContent(
+  content: string,
+  currentRuns: InlineTextRun[] | undefined,
+): InlineTextRun[] {
+  const safeRuns = sanitizeInlineTextRuns(currentRuns);
+  if (!safeRuns || safeRuns.map((run) => run.text).join('') !== content) return [{ text: content }];
+  return safeRuns;
+}
+
+function applyInlineRunPatch(run: InlineTextRun, patch: InlineTextStylePatch): InlineTextRun {
+  if (patch.clear) return { text: run.text };
+  const next = structuredClone(run);
+  if (patch.mark) {
+    const marks = new Set(next.marks ?? []);
+    if (patch.markEnabled ?? !marks.has(patch.mark)) marks.add(patch.mark);
+    else marks.delete(patch.mark);
+    if (marks.size > 0) next.marks = [...marks];
+    else delete next.marks;
+  }
+  if (patch.fontSizePx !== undefined) {
+    if (patch.fontSizePx) next.fontSizePx = patch.fontSizePx;
+    else delete next.fontSizePx;
+  }
+  applyOptionalInlineValue(next, 'color', patch.color);
+  applyOptionalInlineValue(next, 'highlightColor', patch.highlightColor);
+  if (patch.link !== undefined) {
+    if (patch.link && isSafeNavigationUrl(patch.link)) next.link = patch.link.trim();
+    else delete next.link;
+  }
+  return next;
+}
+
+function applyOptionalInlineValue(
+  run: InlineTextRun,
+  key: 'color' | 'highlightColor',
+  value: string | null | undefined,
+): void {
+  if (value === undefined) return;
+  if (value) run[key] = value;
+  else delete run[key];
 }
 
 export function setBlockAction(
@@ -133,6 +371,149 @@ export function setBlockActionUrl(
   url: string,
 ): LodariqBlock[] {
   return blocks.map((block) => normalizeBlockStatus(setActionUrl(block, blockId, url)));
+}
+
+export function setBlockVariant(
+  blocks: LodariqBlock[],
+  blockId: string,
+  variant: ButtonVariant,
+): LodariqBlock[] {
+  return blocks.map((block) =>
+    block.id === blockId
+      ? { ...block, props: sanitizeBlockProps({ ...block.props, variant }) }
+      : { ...block, children: setBlockVariant(block.children, blockId, variant) },
+  );
+}
+
+export function setBlockPlacement(
+  blocks: LodariqBlock[],
+  blockId: string,
+  placement: TooltipPlacement,
+): LodariqBlock[] {
+  return blocks.map((block) =>
+    block.id === blockId
+      ? {
+          ...block,
+          props: sanitizeBlockProps({ ...block.props, placement }),
+        }
+      : {
+          ...block,
+          children: setBlockPlacement(block.children, blockId, placement),
+        },
+  );
+}
+
+export function setBlockTextStyle(
+  blocks: LodariqBlock[],
+  blockId: string,
+  textStyle?: TextStyleProps,
+): LodariqBlock[] {
+  return blocks.map((block) => {
+    if (block.id !== blockId) {
+      return {
+        ...block,
+        children: setBlockTextStyle(block.children, blockId, textStyle),
+      };
+    }
+    const props = { ...block.props };
+    const safeStyle = sanitizeTextStyleProps(textStyle);
+    if (safeStyle) props.textStyle = safeStyle;
+    else delete props.textStyle;
+    return { ...block, props: sanitizeBlockProps(props) };
+  });
+}
+
+export function setBlockLayout(
+  blocks: LodariqBlock[],
+  blockId: string,
+  blockLayout?: BlockLayoutProps,
+): LodariqBlock[] {
+  return updateSanitizedBlockProp(
+    blocks,
+    blockId,
+    'blockLayout',
+    sanitizeBlockLayoutProps(blockLayout),
+  );
+}
+
+export function setButtonStyle(
+  blocks: LodariqBlock[],
+  blockId: string,
+  buttonStyle?: ButtonStyleProps,
+): LodariqBlock[] {
+  return updateSanitizedBlockProp(
+    blocks,
+    blockId,
+    'buttonStyle',
+    sanitizeButtonStyleProps(buttonStyle),
+  );
+}
+
+export function setTooltipLayout(
+  blocks: LodariqBlock[],
+  blockId: string,
+  tooltipLayout?: TooltipLayoutProps,
+): LodariqBlock[] {
+  return updateSanitizedBlockProp(
+    blocks,
+    blockId,
+    'tooltipLayout',
+    sanitizeTooltipLayoutProps(tooltipLayout),
+  );
+}
+
+export function setTooltipStyle(
+  blocks: LodariqBlock[],
+  blockId: string,
+  tooltipStyle?: TooltipStyleProps,
+): LodariqBlock[] {
+  return updateSanitizedBlockProp(
+    blocks,
+    blockId,
+    'tooltipStyle',
+    sanitizeTooltipStyleProps(tooltipStyle),
+  );
+}
+
+function updateSanitizedBlockProp<
+  TKey extends 'blockLayout' | 'buttonStyle' | 'tooltipLayout' | 'tooltipStyle',
+>(
+  blocks: LodariqBlock[],
+  blockId: string,
+  key: TKey,
+  value: LodariqBlock['props'][TKey] | undefined,
+): LodariqBlock[] {
+  return blocks.map((block) => {
+    if (block.id !== blockId) {
+      return { ...block, children: updateSanitizedBlockProp(block.children, blockId, key, value) };
+    }
+    const props = { ...block.props };
+    if (value) props[key] = value;
+    else delete props[key];
+    return { ...block, props: sanitizeBlockProps(props) };
+  });
+}
+
+export function setBlockPresentationAnchor(
+  blocks: LodariqBlock[],
+  blockId: string,
+  presentationAnchor?: PresentationAnchor,
+): LodariqBlock[] {
+  return blocks.map((block) => {
+    if (block.id !== blockId) {
+      return {
+        ...block,
+        children: setBlockPresentationAnchor(block.children, blockId, presentationAnchor),
+      };
+    }
+    const props = { ...block.props };
+    if (presentationAnchor && presentationAnchor.kind !== 'element-bounds') {
+      props.presentationAnchor = structuredClone(presentationAnchor);
+    } else {
+      delete props.presentationAnchor;
+    }
+    return { ...block, props: sanitizeBlockProps(props) };
+  });
 }
 
 export function renumberTourSteps(blocks: LodariqBlock[]): LodariqBlock[] {
@@ -160,8 +541,11 @@ export function attachTargetToBlocks(
   blockId: string,
   targetId: string,
   label: string,
+  options: { resetPresentationAnchor?: boolean } = {},
 ): LodariqBlock[] {
-  return blocks.map((block) => normalizeBlockStatus(attachTarget(block, blockId, targetId, label)));
+  return blocks.map((block) =>
+    normalizeBlockStatus(attachTarget(block, blockId, targetId, label, options)),
+  );
 }
 
 export function removeTargetFromBlocks(
@@ -332,10 +716,17 @@ function transformBlock(
   return {
     ...block,
     type,
-    props: defaultPropsFor(type),
+    props: sanitizeBlockProps({
+      ...defaultPropsFor(type),
+      ...(block.props.textStyle ? { textStyle: block.props.textStyle } : {}),
+    }),
     children: [],
     status: initialStatusForEditableType(type),
     content: transformedBlockContent(block, type, contentOverride),
+    contentRuns:
+      (type === 'heading' || type === 'paragraph') && block.contentRuns
+        ? structuredClone(block.contentRuns)
+        : undefined,
   };
 }
 
@@ -395,7 +786,10 @@ function createTourStepWrapper(block: LodariqBlock, index: number): LodariqBlock
     block.type === 'tooltip'
       ? {
           ...block,
-          props: sanitizeBlockProps({ ...block.props, placement: block.props.placement ?? 'bottom' }),
+          props: sanitizeBlockProps({
+            ...block.props,
+            placement: block.props.placement ?? 'bottom',
+          }),
           status: 'incomplete' as const,
         }
       : {
@@ -648,7 +1042,7 @@ function duplicateBlock(block: LodariqBlock): LodariqBlock {
   return normalizeBlockStatus({
     ...block,
     id: createBlockId(),
-    props: sanitizeBlockProps(omitTargetId(block.props as Record<string, unknown>)),
+    props: sanitizeBlockProps(omitTargetBinding(block.props as Record<string, unknown>)),
     children: clonedChildren,
   });
 }
@@ -689,7 +1083,13 @@ function setActionUrl(block: LodariqBlock, blockId: string, url: string): Lodari
       children: block.children.map((child) => setActionUrl(child, blockId, url)),
     };
   }
-  const action: BlockActionProps = { type: 'openPage', url };
+  const navigationBehavior =
+    block.props.action?.type === 'openPage' ? block.props.action.navigationBehavior : undefined;
+  const action: BlockActionProps = {
+    type: 'openPage',
+    url,
+    ...(navigationBehavior ? { navigationBehavior } : {}),
+  };
   const props = sanitizeBlockProps({ ...block.props, action });
   const status = actionConfigStatus(block, props);
   return {
@@ -704,11 +1104,12 @@ function attachTarget(
   blockId: string,
   targetId: string,
   label: string,
+  options: { resetPresentationAnchor?: boolean },
 ): LodariqBlock {
   if (block.id !== blockId) {
     return {
       ...block,
-      children: attachTargetToBlocks(block.children, blockId, targetId, label),
+      children: attachTargetToBlocks(block.children, blockId, targetId, label, options),
     };
   }
 
@@ -726,7 +1127,10 @@ function attachTarget(
       child.type === 'tooltip'
         ? {
             ...child,
-            props: sanitizeBlockProps({ ...child.props, targetId }),
+            props: sanitizeBlockProps({
+              ...presentationAnchorProps(child.props, options.resetPresentationAnchor),
+              targetId,
+            }),
             status: 'ready' as const,
             children: [...child.children.filter((item) => item.type !== 'targetChip'), targetChip],
           }
@@ -737,7 +1141,10 @@ function attachTarget(
 
   return {
     ...block,
-    props: sanitizeBlockProps({ ...block.props, targetId }),
+    props: sanitizeBlockProps({
+      ...presentationAnchorProps(block.props, options.resetPresentationAnchor),
+      targetId,
+    }),
     status: 'ready',
     children: [...block.children.filter((child) => child.type !== 'targetChip'), targetChip],
   };
@@ -764,7 +1171,7 @@ function removeTarget(block: LodariqBlock, blockId: string, targetId: string): L
     ...block,
     props:
       block.props.targetId === targetId
-        ? sanitizeBlockProps(omitTargetId(block.props as Record<string, unknown>))
+        ? sanitizeBlockProps(omitTargetBinding(block.props as Record<string, unknown>))
         : block.props,
     children: block.children.filter((child) => child.props.targetId !== targetId),
   };
@@ -775,7 +1182,7 @@ function removeTargetFromTooltip(block: LodariqBlock, targetId: string): Lodariq
     ...block,
     props:
       block.props.targetId === targetId
-        ? sanitizeBlockProps(omitTargetId(block.props as Record<string, unknown>))
+        ? sanitizeBlockProps(omitTargetBinding(block.props as Record<string, unknown>))
         : block.props,
     children: block.children.filter((child) => child.props.targetId !== targetId),
   };
@@ -850,8 +1257,19 @@ function omitAction(props: Record<string, unknown>): Record<string, unknown> {
   return rest;
 }
 
-function omitTargetId(props: Record<string, unknown>): Record<string, unknown> {
+function omitTargetBinding(props: Record<string, unknown>): Record<string, unknown> {
   const rest = { ...props };
   delete rest['targetId'];
+  delete rest['presentationAnchor'];
+  return rest;
+}
+
+function presentationAnchorProps(
+  props: LodariqBlock['props'],
+  resetPresentationAnchor: boolean | undefined,
+): Record<string, unknown> {
+  if (!resetPresentationAnchor) return props;
+  const rest: Record<string, unknown> = { ...props };
+  delete rest['presentationAnchor'];
   return rest;
 }

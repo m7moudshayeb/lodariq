@@ -1,0 +1,12 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "vitest": false,
+  "ignoreBinaries": ["fly"],
+  "ignoreDependencies": ["vitest"],
+  "workspaces": {
+    "packages/tests": {
+      "entry": ["**/*.test.ts"],
+      "ignoreBinaries": ["psql"]
+    }
+  }
+}

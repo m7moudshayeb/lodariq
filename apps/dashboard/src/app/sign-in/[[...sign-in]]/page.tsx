@@ -1,30 +1,32 @@
-import { SignIn } from '@clerk/nextjs';
-import { DashboardAuthRequired } from '../../../components/dashboard-auth-required';
-import {
-  dashboardAfterAuthPath,
-  dashboardSignUpPath,
-  hasDashboardClerkProvider,
-} from '../../../lib/clerk-config';
+import { AuthForm } from '../../../components/auth-form';
+import { AuthShell } from '../../../components/auth-shell';
+import { safeReturnTo } from '../../../lib/auth-contract';
+import { isPublicSignupEnabled } from '../../../lib/signup-config';
+import { isPasswordRecoveryEnabled } from '../../../lib/password-recovery-config';
+import { AUTH_PAGE_MESSAGES } from '../../../i18n/messages';
+import { getDashboardI18n } from '../../../i18n/server';
 
-export default function SignInPage(): React.ReactElement {
-  if (!hasDashboardClerkProvider()) {
-    return (
-      <DashboardAuthRequired
-        title="Dashboard auth is not configured"
-        description="Set NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY for this deployment before signing in."
-        showAction={false}
-      />
-    );
-  }
+interface SignInPageProps {
+  searchParams: Promise<{ returnTo?: string | string[] }>;
+}
 
+export default async function SignInPage({
+  searchParams,
+}: SignInPageProps): Promise<React.ReactElement> {
+  const returnTo = safeReturnTo((await searchParams).returnTo);
+  const { i18n } = await getDashboardI18n();
   return (
-    <main className="mx-auto grid min-h-screen w-full place-items-center bg-background p-4 text-foreground">
-      <SignIn
-        path="/sign-in"
-        routing="path"
-        signUpUrl={dashboardSignUpPath}
-        fallbackRedirectUrl={dashboardAfterAuthPath}
+    <AuthShell
+      description={i18n._(AUTH_PAGE_MESSAGES.signInDescription)}
+      eyebrow={i18n._(AUTH_PAGE_MESSAGES.signInEyebrow)}
+      title={i18n._(AUTH_PAGE_MESSAGES.signInTitle)}
+    >
+      <AuthForm
+        mode="sign-in"
+        returnTo={returnTo}
+        showPasswordRecoveryLink={isPasswordRecoveryEnabled()}
+        showSignUpLink={isPublicSignupEnabled()}
       />
-    </main>
+    </AuthShell>
   );
 }

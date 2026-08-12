@@ -1,36 +1,41 @@
-import { SignInButton } from '@clerk/nextjs';
-import { LockKeyhole } from 'lucide-react';
-import { Button } from './ui/button';
+import Link from 'next/link';
+import { ArrowRight, LockKeyhole } from 'lucide-react';
+import { buttonVariants } from './ui/button';
+import { getDashboardI18n } from '../i18n/server';
+import { AUTH_FORM_MESSAGES } from '../i18n/messages';
 
 interface DashboardAuthRequiredProps {
   title: string;
   description: string;
   actionLabel?: string;
-  showAction?: boolean;
+  returnTo?: string;
 }
 
-export function DashboardAuthRequired({
+export async function DashboardAuthRequired({
   title,
   description,
-  actionLabel = 'Sign in',
-  showAction = true,
-}: DashboardAuthRequiredProps): React.ReactElement {
+  actionLabel,
+  returnTo = '/',
+}: DashboardAuthRequiredProps): Promise<React.ReactElement> {
+  const { i18n } = await getDashboardI18n();
   return (
-    <main className="mx-auto grid min-h-screen w-full max-w-xl place-items-center bg-background p-4 text-foreground">
-      <section className="grid w-full gap-5 rounded-lg border border-border bg-surface p-6 shadow-sm shadow-black/20">
-        <div className="flex size-11 items-center justify-center rounded-md bg-primary/10 text-primary">
+    <main className="grid min-h-screen place-items-center bg-background p-4 text-foreground">
+      <section className="grid w-full max-w-lg gap-6 rounded-2xl border border-border bg-card p-7 shadow-[0_20px_60px_rgba(30,55,47,.10)] sm:p-9">
+        <div className="grid size-11 place-items-center rounded-xl bg-[var(--nav-active)] text-primary">
           <LockKeyhole aria-hidden="true" className="size-5" />
         </div>
         <div className="grid gap-2">
-          <p className="text-xs font-semibold uppercase text-muted-foreground">Lodariq</p>
-          <h1 className="text-2xl font-semibold tracking-normal">{title}</h1>
+          <p className="text-xs font-bold uppercase tracking-[0.16em] text-primary">Lodariq</p>
+          <h1 className="[font-family:Georgia,serif] text-3xl tracking-[-0.025em]">{title}</h1>
           <p className="text-sm leading-6 text-muted-foreground">{description}</p>
         </div>
-        {showAction ? (
-          <SignInButton mode="redirect">
-            <Button>{actionLabel}</Button>
-          </SignInButton>
-        ) : null}
+        <Link
+          className={buttonVariants({ className: 'h-11 w-full sm:w-fit' })}
+          href={`/sign-in?returnTo=${encodeURIComponent(returnTo)}`}
+        >
+          {actionLabel ?? i18n._(AUTH_FORM_MESSAGES.signIn)}
+          <ArrowRight aria-hidden="true" className="rtl:rotate-180" />
+        </Link>
       </section>
     </main>
   );

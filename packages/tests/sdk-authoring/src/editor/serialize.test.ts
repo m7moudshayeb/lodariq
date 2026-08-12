@@ -54,6 +54,33 @@ describe('editor document migrations (PRD §16.1)', () => {
     expect(toBlockJson(parsed as ReturnType<typeof fromBlockJson>)).toEqual(blocks);
   });
 
+  it('round-trips structured inline text runs through the Lexical boundary', () => {
+    const blocks = [
+      {
+        id: 'block_rich_text_1',
+        type: 'paragraph',
+        content: 'Launch in 3 days',
+        contentRuns: [
+          { text: 'Launch in ' },
+          {
+            text: '3 days',
+            marks: ['bold'],
+            fontSizePx: 24,
+            color: '#006b58',
+            highlightColor: '#fff0a8',
+            link: '/billing',
+          },
+        ],
+        props: {},
+        children: [],
+      },
+    ] as LodariqDocument['blocks'];
+    const editor = createLodariqEditor();
+    const parsed = editor.parseEditorState(JSON.stringify(fromBlockJson(blocks))).toJSON();
+
+    expect(toBlockJson(parsed as ReturnType<typeof fromBlockJson>)).toEqual(blocks);
+  });
+
   it('upgrades an older fixture version without changing stable IDs', () => {
     const legacy = {
       ...(tourFixture as LodariqDocument),

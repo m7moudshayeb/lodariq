@@ -4,14 +4,29 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
+import {
+  INITIAL_BASELINE_FILE_NAME,
+  listCheckedInSqlFiles,
+  readInitialBaseline,
+} from './migration-test-utils.js';
 
 const scriptPath = fileURLToPath(
   new URL('../../../database/scripts/check-migration-safety.mjs', import.meta.url),
 );
 
 describe('database migration safety guard', () => {
-  it('passes the checked-in additive Phase 1 migration', () => {
+  it('keeps one checked-in initial baseline', () => {
+    expect(listCheckedInSqlFiles()).toEqual([INITIAL_BASELINE_FILE_NAME]);
+  });
+
+  it('passes the checked-in initial baseline', () => {
     expect(runMigrationCheck()).toContain('Migration safety check passed');
+  });
+
+  it('applies the initial baseline atomically', () => {
+    const baseline = readInitialBaseline();
+    expect(baseline).toMatch(/\nbegin;\n/u);
+    expect(baseline.trimEnd().endsWith('commit;')).toBe(true);
   });
 
   it('fails destructive migrations without explicit shared-environment sign-off', () => {

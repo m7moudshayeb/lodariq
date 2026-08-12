@@ -2,9 +2,29 @@
 
 Source of truth: `refined-lodariq-prd.md` sections 16.3 and 20.
 
-Status: **Implemented and verified on 2026-07-02**. This document remains the
-plan and completion record for the non-deployment Phase 1 product hardening
-scope.
+Status: **Local implementation aligned through 2026-08-06; external deployment
+evidence remains pending**. This document remains the plan and completion record
+for the non-deployment Phase 1 product-hardening scope.
+
+Historical boundary: this plan records what Phase 1 implemented. Current Brand
+System and environment release behavior is specified by
+`phase-2-brand-and-release-foundation.md`, ADR 0013, and ADR 0014. Do not read
+Phase 1's environment-global publication scaffold as the final multi-document
+promotion model.
+
+The Phase 1 creator installer, dashboard-launched second creator snippet,
+persistent full-width authoring bar, and fixed left dock are also historical
+implementation evidence, not the current canonical shell. The planned hosted
+convergence uses one permanent SDK install, a direct draggable launcher in
+configured development/staging products, a first-party top-level auth popup
+with an exact-origin single-use code exchange, short-lived activation grant,
+and document-scoped session, followed by the same modeless popup and runtime
+overlay. Its stable quick actions are `New`, `Experiences on this page`, and
+`Preview`; repair and release actions appear contextually. The dashboard is
+setup/admin/support only. Phase 2 Slice 1 owns this convergence, Phase 2 adds
+contextual Brand/release behavior, and Phase 3 expands `New` into the broad
+outcome/type chooser. None of that convergence is claimed as implemented by
+this completion record.
 
 ## Summary
 
@@ -23,7 +43,7 @@ rollout are explicitly out of scope for this plan.
 ## Guardrails
 
 - Product name remains Lodariq, with `@lodariq/*` packages and canonical
-  `*.lodariq.com` origins.
+  `*.lodariq.io` origins.
 - The canonical document is structured block JSON, not Markdown.
 - Do not add a Markdown-to-JSON compiler or custom Markdown grammar.
 - Keep `@lodariq/sdk-runtime` and `@lodariq/sdk-authoring` physically separate.
@@ -203,15 +223,35 @@ Add focused coverage for the hardening work:
 Implemented scope:
 
 - Hosted authoring is treated as the default Phase 1 creator path through
-  `apps/editor`, creator installer wiring, and API-backed load/save.
+  `apps/editor`, creator installer wiring, and API-backed draft load/save.
+  Environment-token creation, environment configuration, editor launch, and
+  authoring-session creation do not publish as a side effect.
+- Canonical document, block, target, trigger, and audience contracts are closed
+  TypeBox schemas. Unknown keys are rejected at the shared contract boundary.
 - Normal authoring edits now use semantic, batched preview patches; full
   document replacement is reserved for hydration, restore, and recovery paths.
+- The iframe can request step or full-document preview semantically. Hosted and
+  local authoring compile browser previews only and play them through the
+  runtime renderer; publication compilation remains server-side.
+- The creator shell is a reliable clickable workspace: a persistent authoring
+  bar and left dock leave the customer product visible, a compact sequence rail
+  selects the active step, and live preview follows semantic edits. This is the
+  verified historical shell; it is superseded as a product target by the
+  draggable, modeless hosted convergence described above.
+- Draft changes autosave through a debounced, serialized queue. Save-and-exit
+  waits for the iframe's latest semantic document, retains close intent through
+  transient failures, retries bounded failures, and does not let an older save
+  overwrite newer save state.
 - Authoring reliability coverage includes lifecycle-driven update regression
   tests and no React `flushSync` warning output in the covered lifecycle path.
 - Publish readiness issues are surfaced in authoring and dashboard surfaces with
   actionable labels while backend publish blocking remains the source of truth.
 - Target lifecycle hints are configured through creator controls for text waits,
   scroll behavior, panel openers, tab selectors, and target health/test actions.
+- Direct target repair reuses the canonical target identity and preserves its
+  lifecycle hints while replacing the semantic fingerprint; resolver score is
+  presented as diagnostic evidence rather than a production coordinate or
+  misleading match percentage.
 - Workspace authorization uses database user and membership records behind the
   existing auth boundary, with dev-header auth preserved for local/test paths.
 - Vendor-neutral observability events and correlation IDs cover authoring
@@ -235,14 +275,41 @@ pnpm run test
 pnpm run test:e2e
 ```
 
-Final observed results: unit/integration tests passed with 36 files and 293
-tests; Playwright e2e passed with 52 tests and 2 planned browser skips.
+Final observed results: unit/integration tests passed with 38 files and 350
+tests; Playwright e2e passed with 55 tests and 2 planned browser skips. The full
+Node 24 `pnpm verify` gate also passed build, bundle-size, SDK asset preparation,
+and dependency-audit checks with 0 known vulnerabilities.
+
+The 2026-08-06 alignment added focused schema, authoring-dock, autosave,
+preview-request, target-repair, hosted-draft, compiler V2, and database
+deployment-pointer coverage. Named package typechecks and focused Vitest suites
+are green. The repository-wide `pnpm verify` integration gate for the combined
+change set is green and recorded in `docs/PROGRESS.md`.
+
+### Evidence still required
+
+- Run the Phase 0 creator sessions and record first-glance comprehension,
+  completion time, clicks, context switches, failed placement attempts, and
+  styling assistance rather than treating local automation as usability proof.
+- Run live Fly/Clerk/Neon/Cloudflare CDN smoke coverage for sign-in, active
+  organization, dashboard launch, hosted iframe load/save, token/origin gates,
+  immutable delivery, and production runtime packaging.
+- The dashboard-launch smoke above remains useful for the historical path. It
+  does not prove the planned Phase 2 Slice 1 one-install flow. That convergence
+  still needs explicit coverage for launcher drag/pass-through behavior,
+  first-party popup authentication, exact-origin single-use code exchange plus
+  scoped activation/document session,
+  same-overlay authoring, stable quick actions, and a dashboard-independent
+  creator entry.
+- Keep object-storage rollout and full document-specific SDK delivery/release
+  UI in Phase 2; the local Phase 1 authoring alignment does not prove those
+  external paths.
 
 ## Assumptions
 
 - Phase 1 remains linear-tour only.
-- Deployment, CDN, Fly, Clerk live smoke, and object-storage rollout remain out
-  of scope.
+- Deployment, CDN, Fly, Clerk live smoke, and object-storage rollout were out of
+  scope for the local implementation and remain external evidence gates.
 - The current React authoring controller remains acceptable for Phase 1 if the
   Lexical boundary stays enforced and clearly owned.
 - Server-side compilation remains the trusted publication path; browser

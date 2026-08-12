@@ -2,6 +2,7 @@ import { sql, type SQL } from 'drizzle-orm';
 
 export const LODARIQ_WORKSPACE_SETTING = 'lodariq.workspace_id';
 export const LODARIQ_ENVIRONMENT_TOKEN_HASH_SETTING = 'lodariq.environment_token_hash';
+export const LODARIQ_AUTHORING_SESSION_HASH_SETTING = 'lodariq.authoring_session_hash';
 
 export function setWorkspaceScopeStatement(workspaceId: string): SQL {
   if (!workspaceId.trim()) {
@@ -15,6 +16,13 @@ export function setEnvironmentTokenLookupStatement(tokenHash: string): SQL {
     throw new Error('tokenHash is required before resolving an environment token');
   }
   return sql`select set_config(${LODARIQ_ENVIRONMENT_TOKEN_HASH_SETTING}, ${tokenHash}, true)`;
+}
+
+export function setAuthoringSessionLookupStatement(tokenHash: string): SQL {
+  if (!tokenHash.trim()) {
+    throw new Error('tokenHash is required before resolving an authoring session');
+  }
+  return sql`select set_config(${LODARIQ_AUTHORING_SESSION_HASH_SETTING}, ${tokenHash}, true)`;
 }
 
 export function assertWorkspaceScope(recordWorkspaceId: string, authWorkspaceId: string): void {

@@ -12,4 +12,13 @@ export function mountLocalAuthoringReactFrame(options: LocalAuthoringFrameOption
   flushSync(() => {
     reactRoot.render(<LocalAuthoringFrameRoot options={options} />);
   });
+
+  const ownerWindow = options.root.ownerDocument.defaultView;
+  const handlePageHide = (event: PageTransitionEvent): void => {
+    if (event.persisted) return;
+    reactRoot.unmount();
+    style.remove();
+    ownerWindow?.removeEventListener('pagehide', handlePageHide);
+  };
+  ownerWindow?.addEventListener('pagehide', handlePageHide);
 }

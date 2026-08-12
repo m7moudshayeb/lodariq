@@ -1,19 +1,36 @@
-import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server';
-import { NextResponse, type NextFetchEvent, type NextRequest } from 'next/server';
-import { shouldProtectDashboardRoutes } from './lib/clerk-config';
+import { NextResponse, type NextRequest } from 'next/server';
+import { dashboardSessionCookieName, isDevelopmentHeaderAuthMode } from './lib/auth-contract';
 
-const isPublicRoute = createRouteMatcher(['/sign-in(.*)', '/sign-up(.*)']);
+const PUBLIC_PAGE_PREFIXES = [
+  '/sign-in',
+  '/sign-up',
+  '/verify-email',
+  '/forgot-password',
+  '/reset-password',
+  '/authoring/activate',
+] as const;
 
-const protectedDashboardProxy = clerkMiddleware(async (auth, request) => {
-  if (isPublicRoute(request)) return;
+export function proxy(request: NextRequest): NextResponse {
+  const { pathname } = request.nextUrl;
+  if (
+    pathname.startsWith('/api/') ||
+    PUBLIC_PAGE_PREFIXES.some((prefix) => pathname.startsWith(prefix)) ||
+    isDevelopmentHeaderAuthMode() ||
+    hasSessionCookie(request)
+  ) {
+    return NextResponse.next();
+  }
 
-  await auth.protect();
-});
-
-export default function proxy(request: NextRequest, event: NextFetchEvent) {
-  if (!shouldProtectDashboardRoutes()) return NextResponse.next();
-  return protectedDashboardProxy(request, event);
+  const signInUrl = new URL('/sign-in', request.url);
+  signInUrl.searchParams.set('returnTo', '/');
+  return NextResponse.redirect(signInUrl);
 }
+
+function hasSessionCookie(request: NextRequest): boolean {
+  return Boolean(request.cookies.get(dashboardSessionCookieName())?.value);
+}
+
+export default proxy;
 
 export const config = {
   matcher: [

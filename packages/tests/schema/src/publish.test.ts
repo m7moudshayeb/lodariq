@@ -7,6 +7,7 @@ import {
   type PublishReadinessIssueCode,
 } from '@lodariq/schema';
 import tourFixture from '@lodariq/schema/fixtures/tour.linear.v1.json';
+import { createTargetIdentityV2 } from '../../fixtures/target-identity-v2';
 
 const fixture = tourFixture as LodariqDocument;
 
@@ -21,6 +22,24 @@ describe('tour publish readiness', () => {
     body.splice(2, 0, listBlock(), dividerBlock(), linkBlock('/settings'));
 
     expect(validateTourPublishReadiness(document)).toEqual([]);
+  });
+
+  it('keeps rich text, action styling, and popup composition on supported block types', () => {
+    const document = cloneFixture();
+    const body = tooltipBody(document);
+    const paragraph = body.find((block) => block.type === 'paragraph')!;
+    const button = body.find((block) => block.type === 'button')!;
+    button.contentRuns = [{ text: button.content ?? '' }];
+    paragraph.props.buttonStyle = { width: 'fill' };
+    paragraph.props.tooltipLayout = { contentAlign: 'center' };
+    paragraph.props.tooltipStyle = { surfaceColor: '#ffffff' };
+
+    const invalidBlockIds = validateTourPublishReadiness(document)
+      .filter((issue) => issue.code === 'invalid_block')
+      .map((issue) => issue.blockId);
+
+    expect(invalidBlockIds).toContain(button.id);
+    expect(invalidBlockIds.filter((blockId) => blockId === paragraph.id)).toHaveLength(3);
   });
 
   it('blocks steps without a semantic target', () => {
@@ -39,10 +58,48 @@ describe('tour publish readiness', () => {
 
   it('labels readiness blockers for creator-facing surfaces', () => {
     expect(publishReadinessIssueLabel('missing_step_target')).toBe('Missing target');
-    expect(publishReadinessIssueLabel('button_missing_action')).toBe(
-      'Incomplete button action',
-    );
+    expect(publishReadinessIssueLabel('button_missing_action')).toBe('Incomplete button action');
     expect(publishReadinessIssueLabel('open_page_unsafe_url')).toBe('Unsafe URL');
+    expect(publishReadinessIssueLabel('invalid_presentation_anchor')).toBe(
+      'Invalid presentation area',
+    );
+  });
+
+  it('accepts exact presentation geometry inside the selected element', () => {
+    const document = cloneFixture();
+    tooltip(document).props.presentationAnchor = {
+      kind: 'region',
+      xRatio: 0.2,
+      yRatio: 0.3,
+      widthRatio: 0.4,
+      heightRatio: 0.5,
+    };
+
+    expect(issueCodes(document)).not.toContain('invalid_presentation_anchor');
+  });
+
+  it('blocks exact presentation geometry that extends outside the selected element', () => {
+    const document = cloneFixture();
+    Object.assign(tooltip(document).props, {
+      presentationAnchor: {
+        kind: 'region',
+        xRatio: 0.8,
+        yRatio: 0.7,
+        widthRatio: 0.3,
+        heightRatio: 0.4,
+      },
+    });
+
+    expect(issueCodes(document)).toContain('invalid_presentation_anchor');
+  });
+
+  it('blocks presentation geometry placed on body content instead of the step tooltip', () => {
+    const document = cloneFixture();
+    const heading = tooltip(document).children.find((block) => block.type === 'heading');
+    if (!heading) throw new Error('fixture heading missing');
+    heading.props.presentationAnchor = { kind: 'point', xRatio: 0.5, yRatio: 0.5 };
+
+    expect(issueCodes(document)).toContain('invalid_presentation_anchor');
   });
 
   it('blocks unresolved target diagnostics from local authoring review', () => {
@@ -64,6 +121,39 @@ describe('tour publish readiness', () => {
     });
 
     expect(issues.map((issue) => issue.code)).toContain('target_unresolved');
+  });
+
+  it('distinguishes unverified targets from observed drift', () => {
+    const document = cloneFixture();
+    const unverified = validateTourPublishReadiness(document, {
+      requireVerifiedTargets: true,
+    });
+    const drifted = validateTourPublishReadiness(document, {
+      requireVerifiedTargets: true,
+      targetDiagnostics: {
+        target_new_project: {
+          state: 'needs_review',
+          confidence: 68,
+          candidateCount: 1,
+          reasonCode: 'evidence_drift',
+        },
+      },
+    });
+
+    expect(unverified.map((issue) => issue.code)).toContain('target_unverified');
+    expect(drifted.map((issue) => issue.code)).toContain('target_needs_review');
+    expect(drifted.map((issue) => issue.code)).not.toContain('target_unverified');
+  });
+
+  it('blocks weak V2 capture evidence even without a live diagnostic payload', () => {
+    const document = cloneFixture();
+    const target = document.targets[0]!;
+    target.identity = createTargetIdentityV2(target.id);
+    target.identity.captureEvidence.quality = 'weak';
+    target.identity.captureEvidence.uniqueCandidateCount = 2;
+    target.identity.captureEvidence.runnerUpMargin = 0;
+
+    expect(issueCodes(document)).toContain('target_needs_review');
   });
 
   it('blocks incomplete action and media placeholders', () => {

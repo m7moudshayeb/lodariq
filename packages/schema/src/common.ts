@@ -50,11 +50,11 @@ export type ValidationLevel = Static<typeof ValidationLevel>;
 export const BlockDiagnostic = Type.Object(
   {
     code: Type.String(),
-    level: ValidationLevel,
+    level: Type.Ref(ValidationLevel),
     message: Type.String(),
     /** Optional repair command id the editor can offer (PRD §7.8). */
     repair: Type.Optional(Type.String()),
   },
-  { $id: 'BlockDiagnostic' },
+  { $id: 'BlockDiagnostic', additionalProperties: false },
 );
 export type BlockDiagnostic = Static<typeof BlockDiagnostic>;

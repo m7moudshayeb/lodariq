@@ -8,6 +8,8 @@ build/
 *.tsbuildinfo
 .next/
 .next-*/
+apps/dashboard/src/locales/**/messages.ts
+apps/dashboard/src/locales/**/messages.d.ts
 
 # Turbo
 .turbo/

@@ -9,6 +9,11 @@ export interface HeaderAuthProviderOptions {
 
 export function createHeaderAuthProvider(options: HeaderAuthProviderOptions = {}): AuthProvider {
   return {
+    async authenticateIdentity(request: FastifyRequest) {
+      const userId = readHeader(request, 'x-lodariq-user-id') ?? options.defaultUserId;
+      if (!userId) throw new AuthError(401, 'Missing Lodariq user auth context');
+      return { userId, provider: 'headers' };
+    },
     async authenticate(request: FastifyRequest): Promise<AuthContext> {
       const workspaceId =
         readHeader(request, 'x-lodariq-workspace-id') ?? options.defaultWorkspaceId;

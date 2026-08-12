@@ -1,30 +1,44 @@
-import { SignUp } from '@clerk/nextjs';
-import { DashboardAuthRequired } from '../../../components/dashboard-auth-required';
-import {
-  dashboardAfterAuthPath,
-  dashboardSignInPath,
-  hasDashboardClerkProvider,
-} from '../../../lib/clerk-config';
+import Link from 'next/link';
+import { AuthForm } from '../../../components/auth-form';
+import { AuthShell } from '../../../components/auth-shell';
+import { buttonVariants } from '../../../components/ui/button';
+import { safeReturnTo } from '../../../lib/auth-contract';
+import { isPublicSignupEnabled } from '../../../lib/signup-config';
+import { AUTH_PAGE_MESSAGES } from '../../../i18n/messages';
+import { getDashboardI18n } from '../../../i18n/server';
 
-export default function SignUpPage(): React.ReactElement {
-  if (!hasDashboardClerkProvider()) {
+interface SignUpPageProps {
+  searchParams: Promise<{ returnTo?: string | string[] }>;
+}
+
+export default async function SignUpPage({
+  searchParams,
+}: SignUpPageProps): Promise<React.ReactElement> {
+  const returnTo = safeReturnTo((await searchParams).returnTo);
+  const { i18n } = await getDashboardI18n();
+  if (!isPublicSignupEnabled()) {
     return (
-      <DashboardAuthRequired
-        title="Dashboard auth is not configured"
-        description="Set NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY for this deployment before signing up."
-        showAction={false}
-      />
+      <AuthShell
+        description={i18n._(AUTH_PAGE_MESSAGES.signUpDisabledDescription)}
+        eyebrow={i18n._(AUTH_PAGE_MESSAGES.signUpDisabledEyebrow)}
+        title={i18n._(AUTH_PAGE_MESSAGES.signUpDisabledTitle)}
+      >
+        <div className="grid gap-4 rounded-xl border border-[var(--info-border)] bg-[var(--info-bg)] p-4 text-sm leading-6 text-[var(--info-fg)]">
+          <p>{i18n._(AUTH_PAGE_MESSAGES.signUpDisabledBody)}</p>
+          <Link className={buttonVariants({ className: 'h-11 w-full' })} href="/sign-in">
+            {i18n._(AUTH_PAGE_MESSAGES.signInInstead)}
+          </Link>
+        </div>
+      </AuthShell>
     );
   }
-
   return (
-    <main className="mx-auto grid min-h-screen w-full place-items-center bg-background p-4 text-foreground">
-      <SignUp
-        path="/sign-up"
-        routing="path"
-        signInUrl={dashboardSignInPath}
-        fallbackRedirectUrl={dashboardAfterAuthPath}
-      />
-    </main>
+    <AuthShell
+      description={i18n._(AUTH_PAGE_MESSAGES.signUpDescription)}
+      eyebrow={i18n._(AUTH_PAGE_MESSAGES.signUpEyebrow)}
+      title={i18n._(AUTH_PAGE_MESSAGES.signUpTitle)}
+    >
+      <AuthForm mode="sign-up" returnTo={returnTo} />
+    </AuthShell>
   );
 }

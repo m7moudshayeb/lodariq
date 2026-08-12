@@ -9,15 +9,39 @@ export interface SdkInstallationSnippetInput {
   authoringSessionToken?: string;
 }
 
-const DEFAULT_RUNTIME_LOADER_SRC = 'https://cdn.lodariq.com/sdk/lodariq-loader.js';
-const DEFAULT_CREATOR_LOADER_SRC = 'https://cdn.lodariq.com/sdk/lodariq-creator.js';
+export interface PublicSdkInstallationSnippetInput {
+  installationId: string;
+  loaderSrc?: string;
+}
 
+const DEFAULT_RUNTIME_LOADER_SRC = 'https://cdn.lodariq.io/sdk/lodariq-loader.js';
+const DEFAULT_PUBLIC_LOADER_SRC = 'https://cdn.lodariq.io/sdk/lodariq-public-bootstrap.js';
+const DEFAULT_CREATOR_LOADER_SRC = 'https://cdn.lodariq.io/sdk/lodariq-creator.js';
+
+/**
+ * Canonical one-time installation. The public installation identifier is
+ * configuration identity, not a bearer credential. Environment selection and
+ * authoring policy are resolved from the browser's exact Origin by the API.
+ */
+export function renderPublicSdkInstallationSnippet(
+  input: PublicSdkInstallationSnippetInput,
+): string {
+  const loaderSrc = input.loaderSrc ?? DEFAULT_PUBLIC_LOADER_SRC;
+  return [
+    `<script type="module" async crossorigin="anonymous" src="${escapeHtmlAttribute(loaderSrc)}"`,
+    `  data-lodariq-loader`,
+    `  data-installation="${escapeHtmlAttribute(input.installationId)}"`,
+    `></script>`,
+  ].join('\n');
+}
+
+/** @deprecated Compatibility snippet for environment-token installations. */
 export function renderSdkInstallationSnippet(input: SdkInstallationSnippetInput): string {
   const creatorLoaderSrc =
     input.creatorLoaderSrc ?? deriveCreatorLoaderSrc(input.loaderSrc) ?? DEFAULT_CREATOR_LOADER_SRC;
   const loaderSrc = input.authoringSessionToken
     ? creatorLoaderSrc
-    : input.loaderSrc ?? DEFAULT_RUNTIME_LOADER_SRC;
+    : (input.loaderSrc ?? DEFAULT_RUNTIME_LOADER_SRC);
   const lines = [
     `<script type="module" async crossorigin="anonymous" src="${escapeHtmlAttribute(loaderSrc)}"`,
     `  data-lodariq-loader`,

@@ -1,5 +1,14 @@
-import type { AnalyticsEvent } from '@lodariq/schema';
+import type {
+  AnalyticsEvent,
+  CompiledDocument,
+  ManifestPointer,
+  SdkAnalyticsEvent,
+} from '@lodariq/schema';
 import { SDK_VERSION } from '../version';
+import { createRuntimeAnalyticsEvent, type RuntimeAnalyticsDocumentPointer } from './analytics';
+import { activeContentLocale, clearActiveContentLocale } from './content-locale-state';
+
+export type { RuntimeAnalyticsDocumentPointer } from './analytics';
 
 /**
  * Production runtime/player surface (PRD §9.3).
@@ -24,6 +33,10 @@ export interface RuntimeConfig {
   ingestUrl?: string;
   /** Public environment token used only for SDK ingestion endpoints. */
   authorizationToken?: string;
+  /** Revocable public installation identity used by the permanent SDK path. */
+  publicInstallationId?: string;
+  /** Active document pointers used only as untrusted ingestion assertions. */
+  analyticsPointers?: readonly RuntimeAnalyticsDocumentPointer[];
 }
 
 export interface RuntimeObservabilityEvent {
@@ -46,13 +59,35 @@ export interface RuntimeErrorContext {
   correlationId?: string;
 }
 
+/** Bounded resolver fields accepted by the runtime telemetry adapter. */
+export interface RuntimeTargetResolutionDiagnostic {
+  state: string;
+  confidence: number;
+  candidateCount: number;
+  reasonCode: string;
+  evidenceFamilies: readonly string[];
+  currentLocale: string | null;
+}
+
 const MAX_ERROR_MESSAGE_LENGTH = 240;
+const TOUR_RESUME_PREFIX = 'lodariq:tour-resume:';
+const TOUR_RESUME_MAX_AGE_MS = 30 * 60 * 1000;
+
+interface TourResumeState {
+  documentId: string;
+  manifestVersion: string;
+  contentHash: string;
+  stepId: string;
+  updatedAt: number;
+}
 
 export class LodariqRuntime {
   private traits: IdentifyTraits | null = null;
-  private readonly queue: AnalyticsEvent[] = [];
+  private readonly queue: Array<SdkAnalyticsEvent | AnalyticsEvent> = [];
+  private readonly analyticsPointers = new Map<string, RuntimeAnalyticsDocumentPointer>();
 
   constructor(private readonly config: RuntimeConfig) {
+    for (const pointer of config.analyticsPointers ?? []) this.registerAnalyticsPointer(pointer);
     if (typeof window !== 'undefined') {
       window.addEventListener('pagehide', () => this.flush(true));
     }
@@ -64,38 +99,156 @@ export class LodariqRuntime {
 
   track(name: string, props?: Record<string, unknown>): void {
     const correlationId = this.config.correlationId;
-    this.queue.push({
+    const requestedDocumentId =
+      typeof props?.['documentId'] === 'string' ? props['documentId'].trim() : undefined;
+    const pointer = this.resolveAnalyticsPointer(requestedDocumentId);
+    const contentLocale = name.startsWith('tour_') ? activeContentLocale() : null;
+    const event = createRuntimeAnalyticsEvent({
       name,
       sdkVersion: SDK_VERSION,
       timestamp: new Date().toISOString(),
       ...(correlationId ? { correlationId } : {}),
-      ...(props ? { props } : {}),
+      ...(pointer ? { documentId: pointer.documentId, pointer } : {}),
+      ...(props || contentLocale
+        ? { props: { ...props, ...(contentLocale ? { locale: contentLocale } : {}) } }
+        : {}),
     });
+    if (this.config.ingestUrl) this.queue.push(event);
     this.emitObservability(`runtime.${name}`, {
       ...(correlationId ? { correlationId } : {}),
-      ...(props?.['documentId'] && typeof props['documentId'] === 'string'
-        ? { documentId: props['documentId'] }
-        : {}),
-      attributes: props,
+      ...(requestedDocumentId ? { documentId: requestedDocumentId } : {}),
+      ...(event.stepId ? { stepId: event.stepId } : {}),
+      ...(event.props ? { attributes: event.props } : {}),
     });
+  }
+
+  /**
+   * Registers a server-issued active pointer without trusting it as identity.
+   * Lower generations and conflicting same-generation updates are ignored so
+   * a late playback request cannot regress the assertion used for new events.
+   */
+  registerAnalyticsPointer(pointer: RuntimeAnalyticsDocumentPointer): void {
+    const existing = this.analyticsPointers.get(pointer.documentId);
+    if (existing && existing.generation > pointer.generation) return;
+    if (
+      existing &&
+      existing.generation === pointer.generation &&
+      (existing.publicationId !== pointer.publicationId ||
+        existing.contentHash !== pointer.contentHash)
+    ) {
+      return;
+    }
+    this.analyticsPointers.set(pointer.documentId, { ...pointer });
+  }
+
+  trackTargetResolution(
+    documentId: string,
+    stepId: string,
+    targetId: string | undefined,
+    result: RuntimeTargetResolutionDiagnostic,
+  ): void {
+    this.track('target_resolution', {
+      documentId,
+      stepId,
+      ...(targetId ? { targetId } : {}),
+      result: result.state,
+      reasonCode: result.reasonCode,
+      evidenceFamilies: result.evidenceFamilies,
+      scoreBucket: targetScoreBucket(result.confidence),
+      candidateCountBucket: targetCandidateCountBucket(result.candidateCount),
+      ...(result.currentLocale ? { locale: result.currentLocale } : {}),
+    });
+  }
+
+  readTourResume(manifest: ManifestPointer): TourResumeState | null {
+    try {
+      const raw = sessionStorage.getItem(this.tourResumeKey());
+      if (!raw) return null;
+      const parsed = JSON.parse(raw) as Partial<TourResumeState>;
+      const fresh =
+        typeof parsed.updatedAt === 'number' &&
+        Date.now() - parsed.updatedAt <= TOUR_RESUME_MAX_AGE_MS;
+      if (
+        fresh &&
+        parsed.documentId === manifest.documentId &&
+        parsed.manifestVersion === manifest.currentVersion &&
+        typeof parsed.contentHash === 'string' &&
+        typeof parsed.stepId === 'string'
+      ) {
+        return parsed as TourResumeState;
+      }
+      this.clearTourResume();
+    } catch {
+      this.clearTourResume();
+    }
+    return null;
+  }
+
+  writeTourResume(
+    manifest: ManifestPointer,
+    document: CompiledDocument,
+    step: CompiledDocument['steps'][number],
+  ): void {
+    try {
+      sessionStorage.setItem(
+        this.tourResumeKey(),
+        JSON.stringify({
+          documentId: document.documentId,
+          manifestVersion: manifest.currentVersion,
+          contentHash: document.contentHash,
+          stepId: step.id,
+          updatedAt: Date.now(),
+        }),
+      );
+    } catch {
+      /* Tour resume is best-effort and must never break the host app. */
+    }
+  }
+
+  clearTourResume(): void {
+    try {
+      sessionStorage.removeItem(this.tourResumeKey());
+    } catch {
+      /* Ignore unavailable storage. */
+    }
+  }
+
+  endTour(eventName: string, documentId: string): void {
+    this.clearTourResume();
+    this.track(eventName, { documentId });
+    clearActiveContentLocale();
+  }
+
+  canResumeTour(resume: TourResumeState, tour: CompiledDocument): boolean {
+    return (
+      resume.documentId === tour.documentId &&
+      resume.contentHash === tour.contentHash &&
+      tour.steps.some((step) => step.id === resume.stepId)
+    );
   }
 
   reportError(error: unknown, context: RuntimeErrorContext = {}): void {
     const normalized = normalizeRuntimeError(error);
     const correlationId = context.correlationId ?? this.config.correlationId;
-    this.queue.push({
-      name: 'sdk_error',
-      sdkVersion: SDK_VERSION,
-      timestamp: new Date().toISOString(),
-      ...(context.documentId ? { documentId: context.documentId } : {}),
-      ...(context.stepId ? { stepId: context.stepId } : {}),
-      ...(correlationId ? { correlationId } : {}),
-      props: {
-        phase: context.phase ?? 'runtime',
-        errorName: normalized.name,
-        message: normalized.message,
-      },
-    });
+    const pointer = this.resolveAnalyticsPointer(context.documentId);
+    if (this.config.ingestUrl) {
+      this.queue.push(
+        createRuntimeAnalyticsEvent({
+          name: 'sdk_error',
+          sdkVersion: SDK_VERSION,
+          timestamp: new Date().toISOString(),
+          ...(context.documentId ? { documentId: context.documentId } : {}),
+          ...(context.stepId ? { stepId: context.stepId } : {}),
+          ...(correlationId ? { correlationId } : {}),
+          ...(pointer ? { pointer } : {}),
+          props: {
+            phase: context.phase ?? 'runtime',
+            errorName: normalized.name,
+            message: normalized.message,
+          },
+        }),
+      );
+    }
     this.emitObservability('runtime.sdk_error', {
       ...(correlationId ? { correlationId } : {}),
       ...(context.documentId ? { documentId: context.documentId } : {}),
@@ -118,10 +271,14 @@ export class LodariqRuntime {
     if (this.config.authorizationToken) {
       headers['authorization'] = `Bearer ${this.config.authorizationToken}`;
     }
+    if (this.config.publicInstallationId) {
+      headers['x-lodariq-installation-id'] = this.config.publicInstallationId;
+    }
 
     if (
       onExit &&
       !this.config.authorizationToken &&
+      !this.config.publicInstallationId &&
       typeof navigator !== 'undefined' &&
       'sendBeacon' in navigator
     ) {
@@ -151,6 +308,17 @@ export class LodariqRuntime {
       timestamp: new Date().toISOString(),
       ...event,
     });
+  }
+
+  private tourResumeKey(): string {
+    return `${TOUR_RESUME_PREFIX}${this.config.workspaceId}:${this.config.environment}`;
+  }
+
+  private resolveAnalyticsPointer(
+    requestedDocumentId: string | undefined,
+  ): RuntimeAnalyticsDocumentPointer | undefined {
+    if (requestedDocumentId) return this.analyticsPointers.get(requestedDocumentId);
+    return this.analyticsPointers.values().next().value;
   }
 }
 
@@ -194,4 +362,16 @@ function sanitizeUrl(rawUrl: string): string {
   } catch {
     return '<url>';
   }
+}
+
+function targetScoreBucket(confidence: number): 'high' | 'medium' | 'low' {
+  if (confidence >= 90) return 'high';
+  if (confidence >= 55) return 'medium';
+  return 'low';
+}
+
+function targetCandidateCountBucket(candidateCount: number): 'zero' | 'one' | 'many' {
+  if (candidateCount <= 0) return 'zero';
+  if (candidateCount === 1) return 'one';
+  return 'many';
 }

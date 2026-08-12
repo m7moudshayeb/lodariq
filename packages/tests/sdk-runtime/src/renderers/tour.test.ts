@@ -1,10 +1,43 @@
 // @vitest-environment jsdom
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type * as FloatingUiDomModule from '@floating-ui/dom';
 import { compile } from '@lodariq/compiler';
-import type { CompiledDocument, LodariqDocument } from '@lodariq/schema';
+import {
+  COMPILED_ARTIFACT_SCHEMA_VERSION,
+  COMPILER_VERSION,
+  LODARIQ_ACCESSIBLE_FALLBACK_THEME_V1,
+  RENDERER_CONTRACT_VERSION,
+  type CompiledDocumentV3,
+  type CompiledDocument,
+  type LodariqDocument,
+} from '@lodariq/schema';
+import { DEFAULT_EXPERIENCE_APPEARANCE } from '@lodariq/schema/brand-runtime';
 import tourFixture from '@lodariq/schema/fixtures/tour.linear.v1.json';
+import {
+  LODARIQ_AUTHORING_PREVIEW_OWNER_ATTRIBUTE,
+  LODARIQ_RENDERED_NODE_ID_ATTRIBUTE,
+  LODARIQ_RENDERED_NODE_TYPE_ATTRIBUTE,
+} from '@lodariq/schema/dom';
 import { exportDocument, importDocument } from '@lodariq/sdk-runtime/local-dev';
-import { TourPlayer } from '@lodariq/sdk-runtime/renderers/tour';
+import { captureVisualFingerprint } from '@lodariq/sdk-runtime/resolver';
+import { TourPlayer, resolveCompiledTourTheme } from '@lodariq/sdk-runtime/renderers/tour';
+import { LodariqRuntime } from '@lodariq/sdk-runtime/runtime';
+import { resetRuntimeLocaleForTests } from '@lodariq/sdk-runtime/i18n';
+
+const computePositionMock = vi.hoisted(() =>
+  vi.fn(async (_reference: unknown, _floating: unknown, _options?: unknown) => ({
+    x: 12,
+    y: 16,
+    placement: 'bottom',
+    strategy: 'fixed',
+    middlewareData: {},
+  })),
+);
+
+vi.mock('@floating-ui/dom', async (importOriginal) => {
+  const actual = await importOriginal<typeof FloatingUiDomModule>();
+  return { ...actual, computePosition: computePositionMock };
+});
 
 const compiledDoc: CompiledDocument = {
   documentId: 'doc_tour_welcome',
@@ -46,12 +79,39 @@ const compiledDoc: CompiledDocument = {
   ],
 };
 
+const outlineDisabledCompiledDoc = {
+  ...compiledDoc,
+  artifactSchemaVersion: COMPILED_ARTIFACT_SCHEMA_VERSION,
+  contentHash: `sha256-${'1'.repeat(64)}`,
+  compilerVersion: COMPILER_VERSION,
+  rendererContractVersion: RENDERER_CONTRACT_VERSION,
+  trigger: { type: 'manual' },
+  audience: { environments: ['staging'] },
+  theme: LODARIQ_ACCESSIBLE_FALLBACK_THEME_V1,
+  appearance: {
+    ...DEFAULT_EXPERIENCE_APPEARANCE,
+    displayTargetOutline: false,
+  },
+  localization: { defaultLocale: 'en', defaultTitle: 'Tour', variants: [] },
+} as CompiledDocumentV3;
+
+const nativeGetBoundingClientRect = Element.prototype.getBoundingClientRect;
+
 describe('tour renderer (PRD §16.1)', () => {
   beforeEach(() => {
+    Element.prototype.getBoundingClientRect = () =>
+      domRect({ x: 40, y: 60, width: 300, height: 160 });
+    computePositionMock.mockClear();
     document.head.innerHTML = '';
     document.body.innerHTML = `
       <button data-lodariq-id="new-project" aria-label="New project">New project</button>
     `;
+  });
+
+  afterEach(() => {
+    Element.prototype.getBoundingClientRect = nativeGetBoundingClientRect;
+    resetRuntimeLocaleForTests();
+    vi.unstubAllGlobals();
   });
 
   it('keeps only one active tour host in the page', () => {
@@ -61,7 +121,429 @@ describe('tour renderer (PRD §16.1)', () => {
     expect(document.querySelectorAll('lodariq-tour')).toHaveLength(1);
   });
 
-  it('renders a styled dialog and completes the tour from the button', () => {
+  it('keeps the target outline absent when delivery playback explicitly disables it', async () => {
+    const player = new TourPlayer(outlineDisabledCompiledDoc);
+    player.start();
+    await player.waitUntilReady();
+
+    const root = document.querySelector('lodariq-tour')?.shadowRoot;
+    expect(root?.querySelector('[data-lodariq-target-outline]')).toBeNull();
+    player.stop();
+  });
+
+  it('renders the selected authored-content locale and attaches it to Tour analytics', async () => {
+    const fetch = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetch);
+    const arabicSteps = structuredClone(outlineDisabledCompiledDoc.steps);
+    arabicSteps[0]!.body[0]!.text = 'أنشئ مشروعك الأول';
+    const localizedDocument: CompiledDocumentV3 = {
+      ...outlineDisabledCompiledDoc,
+      localization: {
+        ...outlineDisabledCompiledDoc.localization,
+        variants: [
+          {
+            locale: 'ar',
+            fallbackLocale: 'en',
+            title: 'جولة ترحيبية',
+            steps: arabicSteps,
+          },
+        ],
+      },
+    };
+    const player = new TourPlayer(localizedDocument, { locale: 'ar' });
+    const runtime = new LodariqRuntime({
+      workspaceId: 'wk_localized',
+      environment: 'production',
+      ingestUrl: '/events',
+    });
+
+    player.start();
+    await player.waitUntilReady();
+    runtime.track('tour_started', { documentId: localizedDocument.documentId });
+    runtime.endTour('tour_completed', localizedDocument.documentId);
+    runtime.flush();
+
+    const host = document.querySelector<HTMLElement>('lodariq-tour');
+    expect(host).toMatchObject({ lang: 'ar', dir: 'rtl' });
+    expect(host?.dataset['lodariqContentLocale']).toBe('ar');
+    expect(host?.shadowRoot?.textContent).toContain('أنشئ مشروعك الأول');
+    const body = JSON.parse(fetch.mock.calls[0]?.[1]?.body as string) as {
+      events: Array<{ props?: Record<string, unknown> }>;
+    };
+    expect(body.events.map((event) => event.props?.['locale'])).toEqual(['ar', 'ar']);
+    player.stop();
+  });
+
+  it('positions the default target outline around a legacy delivery owner as it moves', async () => {
+    const owner = document.querySelector<HTMLElement>('[data-lodariq-id="new-project"]')!;
+    let ownerRect = domRect({ x: 52, y: 76, width: 220, height: 84 });
+    owner.getBoundingClientRect = vi.fn(() => ownerRect);
+    const player = new TourPlayer(compiledDoc);
+
+    player.start();
+    await player.waitUntilReady();
+
+    const root = document.querySelector('lodariq-tour')?.shadowRoot;
+    const outline = root?.querySelector<HTMLElement>('[data-lodariq-target-outline]');
+    expect(outline?.hidden).toBe(false);
+    expect(outline?.getAttribute('aria-hidden')).toBe('true');
+    expect(outline?.style.left).toBe('49px');
+    expect(outline?.style.top).toBe('73px');
+    expect(outline?.style.width).toBe('226px');
+    expect(outline?.style.height).toBe('90px');
+
+    ownerRect = domRect({ x: 96, y: 128, width: 260, height: 104 });
+    window.dispatchEvent(new Event('scroll'));
+    await nextTask();
+
+    expect(outline?.style.left).toBe('93px');
+    expect(outline?.style.top).toBe('125px');
+    expect(outline?.style.width).toBe('266px');
+    expect(outline?.style.height).toBe('110px');
+    player.stop();
+  });
+
+  it('does not steal focus when a target-bound step cannot resolve safely', async () => {
+    document.body.innerHTML = '<button id="outside">Keep focus here</button>';
+    const outside = document.querySelector<HTMLButtonElement>('#outside')!;
+    outside.focus();
+
+    new TourPlayer(compiledDoc).start();
+    await nextTask();
+
+    const card = document
+      .querySelector('lodariq-tour')
+      ?.shadowRoot?.querySelector<HTMLElement>('[role="dialog"]');
+    expect(card?.hidden).toBe(true);
+    expect(document.activeElement).toBe(outside);
+  });
+
+  it('does not focus or arm an initially zero-sized owner', async () => {
+    const owner = document.querySelector<HTMLButtonElement>('[data-lodariq-id="new-project"]')!;
+    const outside = document.createElement('button');
+    outside.textContent = 'Keep focus here';
+    document.body.appendChild(outside);
+    outside.focus();
+    let ownerRect = domRect({ x: 40, y: 60, width: 0, height: 0 });
+    owner.getBoundingClientRect = vi.fn(() => ownerRect);
+    const player = new TourPlayer({
+      ...compiledDoc,
+      steps: [
+        {
+          ...compiledDoc.steps[0]!,
+          body: [
+            {
+              id: 'button_click_target',
+              type: 'button',
+              text: 'Waiting for a visible owner',
+              props: { action: { type: 'clickTarget' } },
+            },
+          ],
+        },
+        {
+          id: 'step_2',
+          body: [{ id: 'heading_2', type: 'heading', text: 'Owner became visible', props: {} }],
+        },
+      ],
+    });
+
+    player.start();
+    await nextTask();
+    const card = document
+      .querySelector('lodariq-tour')
+      ?.shadowRoot?.querySelector<HTMLElement>('[role="dialog"]');
+    expect(card?.hidden).toBe(true);
+    expect(document.activeElement).toBe(outside);
+    owner.click();
+    await nextTask();
+    expect(card?.textContent).toContain('Waiting for a visible owner');
+
+    ownerRect = domRect({ x: 40, y: 60, width: 300, height: 160 });
+    window.dispatchEvent(new Event('resize'));
+    await revalidationTask();
+    expect(card?.hidden).toBe(false);
+    owner.click();
+    await nextTask();
+    expect(card?.textContent).toContain('Owner became visible');
+  });
+
+  it('projects a point presentation anchor from fresh owner bounds on viewport changes', async () => {
+    const owner = document.querySelector<HTMLButtonElement>('[data-lodariq-id="new-project"]')!;
+    let ownerRect = domRect({ x: 100, y: 200, width: 400, height: 200 });
+    owner.getBoundingClientRect = vi.fn(() => ownerRect);
+
+    new TourPlayer({
+      ...compiledDoc,
+      steps: [
+        {
+          ...compiledDoc.steps[0]!,
+          presentationAnchor: { kind: 'point', xRatio: 0.25, yRatio: 0.75 },
+        },
+      ],
+    }).start();
+    await nextTask();
+
+    const reference = computePositionMock.mock.calls[0]?.[0] as FloatingUiDomModule.VirtualElement;
+    expect(reference).not.toBe(owner);
+    expect(reference.contextElement).toBe(owner);
+    expect(reference.getBoundingClientRect()).toEqual({
+      x: 200,
+      y: 350,
+      width: 0,
+      height: 0,
+      top: 350,
+      right: 200,
+      bottom: 350,
+      left: 200,
+    });
+
+    ownerRect = domRect({ x: 120, y: 240, width: 800, height: 400 });
+    window.dispatchEvent(new Event('scroll'));
+    window.dispatchEvent(new Event('resize'));
+    await nextTask();
+
+    expect(computePositionMock).toHaveBeenCalledTimes(3);
+    expect(reference.getBoundingClientRect()).toMatchObject({
+      x: 320,
+      y: 540,
+      width: 0,
+      height: 0,
+    });
+  });
+
+  it.each([
+    {
+      name: 'element bounds',
+      presentationAnchor: { kind: 'element-bounds' } as const,
+      expected: { x: 40, y: 60, width: 300, height: 160 },
+    },
+    {
+      name: 'normalized region',
+      presentationAnchor: {
+        kind: 'region',
+        xRatio: 0.1,
+        yRatio: 0.25,
+        widthRatio: 0.5,
+        heightRatio: 0.4,
+      } as const,
+      expected: { x: 70, y: 100, width: 150, height: 64 },
+    },
+  ])('projects $name presentation anchors without changing the owner', async (example) => {
+    const owner = document.querySelector<HTMLButtonElement>('[data-lodariq-id="new-project"]')!;
+    owner.getBoundingClientRect = vi.fn(() => domRect({ x: 40, y: 60, width: 300, height: 160 }));
+
+    new TourPlayer({
+      ...compiledDoc,
+      steps: [
+        {
+          ...compiledDoc.steps[0]!,
+          presentationAnchor: example.presentationAnchor,
+        },
+      ],
+    }).start();
+    await nextTask();
+
+    const reference = computePositionMock.mock.calls[0]?.[0] as FloatingUiDomModule.VirtualElement;
+    expect(reference.contextElement).toBe(owner);
+    expect(reference.getBoundingClientRect()).toMatchObject(example.expected);
+  });
+
+  it('clamps malformed presentation ratios to the resolved owner bounds', async () => {
+    const owner = document.querySelector<HTMLButtonElement>('[data-lodariq-id="new-project"]')!;
+    owner.getBoundingClientRect = vi.fn(() => domRect({ x: 40, y: 60, width: 300, height: 160 }));
+
+    new TourPlayer({
+      ...compiledDoc,
+      steps: [
+        {
+          ...compiledDoc.steps[0]!,
+          presentationAnchor: {
+            kind: 'region',
+            xRatio: -0.2,
+            yRatio: 0.75,
+            widthRatio: 1.4,
+            heightRatio: 0.8,
+          },
+        },
+      ],
+    }).start();
+    await nextTask();
+
+    const reference = computePositionMock.mock.calls[0]?.[0] as FloatingUiDomModule.VirtualElement;
+    expect(reference.getBoundingClientRect()).toMatchObject({
+      x: 40,
+      y: 180,
+      width: 300,
+      height: 40,
+    });
+  });
+
+  it('defensively projects non-finite presentation ratios inside the owner', async () => {
+    const owner = document.querySelector<HTMLButtonElement>('[data-lodariq-id="new-project"]')!;
+    owner.getBoundingClientRect = vi.fn(() => domRect({ x: 40, y: 60, width: 300, height: 160 }));
+
+    new TourPlayer({
+      ...compiledDoc,
+      steps: [
+        {
+          ...compiledDoc.steps[0]!,
+          presentationAnchor: {
+            kind: 'point',
+            xRatio: Number.NaN,
+            yRatio: Number.POSITIVE_INFINITY,
+          },
+        },
+      ],
+    }).start();
+    await nextTask();
+
+    const reference = computePositionMock.mock.calls[0]?.[0] as FloatingUiDomModule.VirtualElement;
+    expect(reference.getBoundingClientRect()).toMatchObject({ x: 40, y: 60, width: 0, height: 0 });
+  });
+
+  it('repositions from a real-owner ResizeObserver and disconnects it on stop', async () => {
+    const owner = document.querySelector<HTMLButtonElement>('[data-lodariq-id="new-project"]')!;
+    const observe = vi.fn();
+    const disconnect = vi.fn();
+    let notifyResize: ResizeObserverCallback | undefined;
+    class TestResizeObserver {
+      constructor(callback: ResizeObserverCallback) {
+        notifyResize = callback;
+      }
+
+      observe = observe;
+      disconnect = disconnect;
+      unobserve = vi.fn();
+    }
+    const resizeObserverDescriptor = Object.getOwnPropertyDescriptor(window, 'ResizeObserver');
+    Object.defineProperty(window, 'ResizeObserver', {
+      configurable: true,
+      value: TestResizeObserver,
+    });
+
+    const player = new TourPlayer({
+      ...compiledDoc,
+      steps: [
+        {
+          ...compiledDoc.steps[0]!,
+          presentationAnchor: {
+            kind: 'region',
+            xRatio: 0.1,
+            yRatio: 0.2,
+            widthRatio: 0.3,
+            heightRatio: 0.4,
+          },
+        },
+      ],
+    });
+    try {
+      player.start();
+      await nextTask();
+
+      expect(observe).toHaveBeenCalledWith(owner);
+      const positionCount = computePositionMock.mock.calls.length;
+      notifyResize?.([], {} as ResizeObserver);
+      await nextTask();
+      expect(computePositionMock).toHaveBeenCalledTimes(positionCount + 1);
+
+      player.stop();
+      expect(disconnect).toHaveBeenCalledOnce();
+    } finally {
+      player.stop();
+      if (resizeObserverDescriptor) {
+        Object.defineProperty(window, 'ResizeObserver', resizeObserverDescriptor);
+      } else {
+        Reflect.deleteProperty(window, 'ResizeObserver');
+      }
+    }
+  });
+
+  it('clicks the real owner and advances from a clickTarget tour button', async () => {
+    const owner = document.querySelector<HTMLButtonElement>('[data-lodariq-id="new-project"]')!;
+    const productClick = vi.fn();
+    owner.addEventListener('click', productClick);
+    const player = new TourPlayer({
+      ...compiledDoc,
+      steps: [
+        {
+          ...compiledDoc.steps[0]!,
+          presentationAnchor: { kind: 'point', xRatio: 0.5, yRatio: 0.5 },
+          body: [
+            {
+              id: 'button_click_target',
+              type: 'button',
+              text: 'Click product element',
+              props: { action: { type: 'clickTarget' } },
+            },
+          ],
+        },
+        {
+          id: 'step_2',
+          body: [{ id: 'heading_2', type: 'heading', text: 'Owner clicked', props: {} }],
+        },
+      ],
+    });
+
+    player.start();
+    await nextTask();
+    document.querySelector('lodariq-tour')?.shadowRoot?.querySelector('button')?.click();
+    await nextTask();
+
+    expect(productClick).toHaveBeenCalledOnce();
+    expect(document.querySelector('lodariq-tour')?.shadowRoot?.textContent).toContain(
+      'Owner clicked',
+    );
+  });
+
+  it('freshly validates the real owner before accepting its click', async () => {
+    const owner = document.querySelector<HTMLButtonElement>('[data-lodariq-id="new-project"]')!;
+    const player = new TourPlayer({
+      ...compiledDoc,
+      steps: [
+        {
+          ...compiledDoc.steps[0]!,
+          body: [
+            {
+              id: 'button_click_target',
+              type: 'button',
+              text: 'Waiting for product click',
+              props: { action: { type: 'clickTarget' } },
+            },
+          ],
+        },
+        {
+          id: 'step_2',
+          body: [{ id: 'heading_2', type: 'heading', text: 'Advanced', props: {} }],
+        },
+      ],
+    });
+
+    player.start();
+    await nextTask();
+    owner.setAttribute('data-lodariq-id', 'repurposed');
+    owner.setAttribute('aria-label', 'Delete project');
+    owner.textContent = 'Delete project';
+    owner.click();
+    await nextTask();
+
+    const card = document
+      .querySelector('lodariq-tour')
+      ?.shadowRoot?.querySelector<HTMLElement>('[role="dialog"]');
+    expect(card?.hidden).toBe(true);
+    expect(card?.textContent).toContain('Waiting for product click');
+
+    owner.setAttribute('data-lodariq-id', 'new-project');
+    owner.setAttribute('aria-label', 'New project');
+    owner.textContent = 'New project';
+    await revalidationTask();
+    expect(card?.hidden).toBe(false);
+
+    owner.click();
+    await nextTask();
+    expect(card?.textContent).toContain('Advanced');
+  });
+
+  it('renders a styled dialog and completes the tour from the button', async () => {
     document.head.innerHTML = '<meta property="csp-nonce" nonce="nonce_runtime">';
     let completed = false;
     const player = new TourPlayer(compiledDoc, {
@@ -71,21 +553,645 @@ describe('tour renderer (PRD §16.1)', () => {
     });
 
     player.start();
+    await nextTask();
 
-    const host = document.querySelector('lodariq-tour');
+    const host = document.querySelector<HTMLElement>('lodariq-tour');
     const dialog = host?.shadowRoot?.querySelector('[role="dialog"]');
     const button = host?.shadowRoot?.querySelector('button');
+    const heading = host?.shadowRoot?.querySelector<HTMLElement>(
+      `[${LODARIQ_RENDERED_NODE_ID_ATTRIBUTE}="heading_1"]`,
+    );
 
     const styles = host?.shadowRoot?.querySelector('style');
     expect(styles?.textContent).toContain('position: fixed');
     expect(styles?.nonce).toBe('nonce_runtime');
     expect(dialog?.getAttribute('aria-label')).toBe('Lodariq tour');
     expect(dialog?.textContent).toContain('Create your first project');
+    expect(heading?.getAttribute(LODARIQ_RENDERED_NODE_TYPE_ATTRIBUTE)).toBe('heading');
+    expect(heading?.hasAttribute('contenteditable')).toBe(false);
+    expect(heading?.getAttribute('role')).toBeNull();
     expect(host?.shadowRoot?.activeElement).toBe(button);
+    expect(host?.style.getPropertyValue('--lq-tour-surface')).toBe('#ffffff');
+    expect(styles?.textContent).toContain('var(--lq-tour-surface)');
 
     button?.click();
 
     expect(completed).toBe(true);
+    expect(document.querySelector('lodariq-tour')).toBeNull();
+  });
+
+  it('renders allowlisted rich-text styles from the compiled body node', async () => {
+    const styledDocument: CompiledDocument = structuredClone(compiledDoc);
+    styledDocument.steps[0]!.body[0]!.props.textStyle = {
+      align: 'center',
+      fontSizePx: 24,
+      color: '#0a4f43',
+      fontWeight: 700,
+      fontStyle: 'italic',
+    };
+
+    new TourPlayer(styledDocument).start();
+    await nextTask();
+
+    const heading = document
+      .querySelector<HTMLElement>('lodariq-tour')
+      ?.shadowRoot?.querySelector<HTMLElement>(
+        `[${LODARIQ_RENDERED_NODE_ID_ATTRIBUTE}="heading_1"]`,
+      );
+    expect(heading?.style.textAlign).toBe('center');
+    expect(heading?.style.fontSize).toBe('24px');
+    expect(heading?.style.color).toBe('rgb(10, 79, 67)');
+    expect(heading?.style.fontWeight).toBe('700');
+    expect(heading?.style.fontStyle).toBe('italic');
+  });
+
+  it('renders ordered rich text, action placement, and safe button styling', async () => {
+    const styledDocument: CompiledDocument = structuredClone(compiledDoc);
+    const step = styledDocument.steps[0]!;
+    step.targetId = undefined;
+    step.tooltipLayout = {
+      widthPx: 480,
+      heightPx: 320,
+      contentAlign: 'center',
+      actionLayout: 'stack',
+      actionAlign: 'stretch',
+      gap: 'relaxed',
+      padding: 'compact',
+      radius: 'round',
+      showArrow: false,
+    };
+    step.tooltipStyle = {
+      surfaceColor: '#162033',
+      textColor: '#ffffff',
+      borderColor: '#006b58',
+      borderWeight: 'strong',
+      elevation: 'floating',
+    };
+    step.body = [
+      {
+        id: 'copy_before',
+        type: 'paragraph',
+        text: 'Your trial ends in 3 days.',
+        contentRuns: [
+          { text: 'Your trial ends in ' },
+          {
+            text: '3 days',
+            marks: ['bold', 'underline'],
+            fontSizePx: 24,
+            color: '#006b58',
+            highlightColor: '#fff0a8',
+          },
+          { text: '.' },
+        ],
+        props: {},
+      },
+      {
+        id: 'styled_action',
+        type: 'button',
+        text: 'Upgrade now',
+        props: {
+          action: { type: 'complete' },
+          variant: 'outline',
+          blockLayout: { align: 'stretch', spacingBefore: 'relaxed', spacingAfterPx: 18 },
+          buttonStyle: {
+            width: 'hug',
+            widthPx: 232,
+            size: 'compact',
+            fillColor: '#ffffff',
+            textColor: '#006b58',
+            borderColor: '#006b58',
+            radius: 'round',
+            icon: 'arrow-right',
+            iconPlacement: 'end',
+          },
+        },
+      },
+      {
+        id: 'copy_after',
+        type: 'paragraph',
+        text: 'You can change plans later.',
+        props: {},
+      },
+    ];
+
+    new TourPlayer(styledDocument).start();
+    await nextTask();
+
+    const root = document.querySelector('lodariq-tour')?.shadowRoot;
+    const dialog = root?.querySelector<HTMLElement>('[role="dialog"]');
+    const orderedNodes = [...(root?.querySelectorAll<HTMLElement>('[data-lodariq-node-id]') ?? [])];
+    const emphasized = orderedNodes[0]?.querySelectorAll('span')[1] as HTMLElement | undefined;
+    const button = root?.querySelector<HTMLButtonElement>('[data-lodariq-node-id="styled_action"]');
+
+    expect(orderedNodes.map((node) => node.dataset['lodariqNodeId'])).toEqual([
+      'copy_before',
+      'styled_action',
+      'copy_after',
+    ]);
+    expect(dialog?.dataset).toMatchObject({
+      lodariqPopupWidth: 'custom',
+      lodariqPopupHeight: 'custom',
+      lodariqContentAlign: 'center',
+      lodariqActionLayout: 'stack',
+      lodariqActionAlign: 'stretch',
+      lodariqCompositionGap: 'relaxed',
+      lodariqCompositionPadding: 'compact',
+      lodariqPopupRadius: 'round',
+      lodariqPointerArrow: 'hide',
+      lodariqPopupBorderWeight: 'strong',
+      lodariqPopupElevation: 'floating',
+    });
+    expect(dialog?.style.getPropertyValue('--lq-popup-width')).toBe('480px');
+    expect(dialog?.style.getPropertyValue('--lq-popup-height')).toBe('320px');
+    expect(dialog?.style.getPropertyValue('--lq-popup-surface')).toBe('#162033');
+    expect(dialog?.style.getPropertyValue('--lq-popup-text')).toBe('#ffffff');
+    expect(dialog?.style.getPropertyValue('--lq-popup-muted-text')).toBe('#ffffff');
+    expect(dialog?.style.getPropertyValue('--lq-popup-border')).toBe('#006b58');
+    expect(dialog?.querySelector(':scope > .tour-content')).not.toBeNull();
+    expect(emphasized?.textContent).toBe('3 days');
+    expect(emphasized?.style.fontWeight).toBe('700');
+    expect(emphasized?.style.textDecoration).toBe('underline');
+    expect(emphasized?.style.fontSize).toBe('24px');
+    expect(emphasized?.style.color).toBe('rgb(0, 107, 88)');
+    expect(emphasized?.style.backgroundColor).toBe('rgb(255, 240, 168)');
+    expect(button?.parentElement?.className).toBe('tour-action-group');
+    expect(button?.dataset).toMatchObject({
+      lodariqActionWidth: 'custom',
+      lodariqActionSize: 'compact',
+      lodariqActionRadius: 'round',
+      lodariqBlockAlign: 'stretch',
+      lodariqSpacingAfterPx: '18',
+    });
+    expect(button?.style.getPropertyValue('--lq-block-spacing-after')).toBe('18px');
+    expect(button?.style.getPropertyValue('--lq-action-width')).toBe('232px');
+    expect(button?.style.getPropertyValue('--lq-action-fill')).toBe('#ffffff');
+    expect(button?.style.getPropertyValue('--lq-action-text')).toBe('#006b58');
+    expect(button?.style.getPropertyValue('--lq-action-border')).toBe('#006b58');
+    expect(button?.querySelector('.tour-action-icon')).not.toBeNull();
+  });
+
+  it('maps a validated theme recipe and appearance to allowlisted renderer variables', () => {
+    const theme = structuredClone(LODARIQ_ACCESSIBLE_FALLBACK_THEME_V1);
+    theme.definition.tokens.modes.dark!.colors.surfaceInverse = '#102a24';
+    theme.definition.tokens.modes.dark!.colors.textInverse = '#f4fff9';
+    theme.definition.tokens.sizing.tourWidePx = 512;
+    theme.definition.tokens.spacing.lg = 20;
+    const documentV2 = {
+      ...compiledDoc,
+      artifactSchemaVersion: COMPILED_ARTIFACT_SCHEMA_VERSION,
+      contentHash: `sha256-${'1'.repeat(64)}`,
+      compilerVersion: COMPILER_VERSION,
+      rendererContractVersion: RENDERER_CONTRACT_VERSION,
+      trigger: { type: 'manual' },
+      audience: { environments: ['staging'] },
+      theme,
+      appearance: {
+        preset: 'inverse',
+        density: 'compact',
+        width: 'wide',
+        colorMode: 'system',
+      },
+      localization: { defaultLocale: 'en', defaultTitle: 'Tour', variants: [] },
+    } as CompiledDocumentV3;
+
+    const resolved = resolveCompiledTourTheme(documentV2, true);
+
+    expect(resolved.colorMode).toBe('dark');
+    expect(resolved.variables).toMatchObject({
+      '--lq-tour-surface': '#102a24',
+      '--lq-tour-text-color': '#f4fff9',
+      '--lq-tour-width': '512px',
+    });
+    expect(Object.keys(resolved.variables).every((name) => name.startsWith('--lq-tour-'))).toBe(
+      true,
+    );
+
+    const reducedMotion = resolveCompiledTourTheme(documentV2, true, true);
+    expect(reducedMotion.variables['--lq-tour-motion-duration']).toBe('0ms');
+  });
+
+  it('mounts multiple inert targetless previews without changing delivery singleton behavior', () => {
+    const targetlessStep = structuredClone(compiledDoc.steps[0]!);
+    delete targetlessStep.targetId;
+    const previewDocument: CompiledDocument = {
+      ...compiledDoc,
+      targets: [],
+      steps: [targetlessStep],
+    };
+    const beforeContainer = document.createElement('div');
+    const afterContainer = document.createElement('div');
+    beforeContainer.style.position = 'relative';
+    afterContainer.style.position = 'relative';
+    document.body.append(beforeContainer, afterContainer);
+
+    const before = new TourPlayer(previewDocument, {
+      embeddedPreviewContainer: beforeContainer,
+    });
+    const after = new TourPlayer(previewDocument, {
+      embeddedPreviewContainer: afterContainer,
+    });
+    before.start();
+    after.start();
+
+    const beforeHost = beforeContainer.querySelector('lodariq-tour');
+    const afterHost = afterContainer.querySelector('lodariq-tour');
+    expect(beforeHost?.hasAttribute('data-lodariq-embedded-preview')).toBe(true);
+    expect(beforeHost?.hasAttribute('inert')).toBe(true);
+    expect(beforeHost?.shadowRoot?.querySelector('style')?.textContent).toContain(
+      'box-sizing: border-box',
+    );
+    expect(afterHost?.shadowRoot?.querySelector('[role="dialog"]')?.textContent).toContain(
+      'Create your first project',
+    );
+    afterHost?.shadowRoot?.querySelector<HTMLButtonElement>('button')?.click();
+    expect(afterContainer.querySelector('lodariq-tour')).toBe(afterHost);
+
+    const delivery = new TourPlayer(compiledDoc);
+    delivery.start();
+    expect(beforeContainer.querySelector('lodariq-tour')).toBe(beforeHost);
+    expect(afterContainer.querySelector('lodariq-tour')).toBe(afterHost);
+
+    delivery.stop();
+    before.stop();
+    after.stop();
+  });
+
+  it('keeps an owned authoring preview separate from concurrent delivery playback', async () => {
+    const previewStep = structuredClone(compiledDoc.steps[0]!);
+    delete previewStep.targetId;
+    const previewDocument: CompiledDocument = {
+      ...compiledDoc,
+      documentId: 'doc_authoring_preview',
+      targets: [],
+      steps: [previewStep],
+    };
+    const delivery = new TourPlayer(compiledDoc);
+    delivery.start();
+    const preview = new TourPlayer(previewDocument, {
+      authoringPreviewOwnerId: 'authoring_owner_1',
+    });
+    preview.start();
+    await preview.waitUntilReady();
+
+    const hosts = [...document.querySelectorAll('lodariq-tour')];
+    const previewHost = hosts.find(
+      (host) =>
+        host.getAttribute(LODARIQ_AUTHORING_PREVIEW_OWNER_ATTRIBUTE) === 'authoring_owner_1',
+    );
+    const deliveryHost = hosts.find(
+      (host) => !host.hasAttribute(LODARIQ_AUTHORING_PREVIEW_OWNER_ATTRIBUTE),
+    );
+    expect(previewHost).toBeDefined();
+    expect(deliveryHost).toBeDefined();
+
+    previewHost?.shadowRoot?.querySelector<HTMLButtonElement>('button')?.click();
+    expect(previewHost?.isConnected).toBe(true);
+    preview.stop();
+    expect(deliveryHost?.isConnected).toBe(true);
+    delivery.stop();
+  });
+
+  it('lets an explicit full authoring preview advance through multiple steps', async () => {
+    const firstStep = structuredClone(compiledDoc.steps[0]!);
+    delete firstStep.targetId;
+    const previewDocument: CompiledDocument = {
+      ...compiledDoc,
+      documentId: 'doc_interactive_authoring_preview',
+      targets: [],
+      steps: [
+        firstStep,
+        {
+          id: 'step_2',
+          body: [{ id: 'heading_2', type: 'heading', text: 'Second step', props: {} }],
+        },
+      ],
+    };
+    const preview = new TourPlayer(previewDocument, {
+      authoringPreviewOwnerId: 'authoring_owner_interactive',
+      authoringPreviewInteractive: true,
+    });
+    preview.start();
+    await preview.waitUntilReady();
+
+    const host = document.querySelector(
+      `lodariq-tour[${LODARIQ_AUTHORING_PREVIEW_OWNER_ATTRIBUTE}="authoring_owner_interactive"]`,
+    );
+    const card = host?.shadowRoot?.querySelector<HTMLElement>('[role="dialog"]');
+    expect(
+      host?.shadowRoot?.querySelector<HTMLElement>('[data-lodariq-target-outline]')?.hidden,
+    ).toBe(true);
+    expect(card?.textContent).toContain('Create your first project');
+    card?.querySelector<HTMLButtonElement>('button')?.click();
+    await nextTask();
+    expect(card?.textContent).toContain('Second step');
+    preview.stop();
+  });
+
+  it('resolves readiness only after a targeted card is visible and positioned', async () => {
+    const player = new TourPlayer(compiledDoc, {
+      authoringPreviewOwnerId: 'authoring_owner_ready',
+    });
+    player.start();
+    const card = document
+      .querySelector(
+        `lodariq-tour[${LODARIQ_AUTHORING_PREVIEW_OWNER_ATTRIBUTE}="authoring_owner_ready"]`,
+      )
+      ?.shadowRoot?.querySelector<HTMLElement>('[role="dialog"]');
+    expect(card?.hidden).toBe(true);
+
+    await player.waitUntilReady();
+
+    expect(card?.hidden).toBe(false);
+    expect(card?.style.left).toBe('12px');
+    expect(card?.style.top).toBe('16px');
+    const arrow = card?.querySelector<HTMLElement>('.tour-arrow');
+    expect(arrow?.hidden).toBe(false);
+    expect(arrow?.style.top).toBe('-9px');
+    expect(arrow?.dataset['side']).toBe('bottom');
+    player.stop();
+  });
+
+  it('orients the arrow on every side without over-constraining its position', async () => {
+    const cases = [
+      {
+        placement: 'bottom',
+        position: { bottom: '', left: '24px', right: '', top: '-9px' },
+      },
+      {
+        placement: 'top',
+        position: { bottom: '-9px', left: '24px', right: '', top: '' },
+      },
+      {
+        placement: 'right',
+        position: { bottom: '', left: '-9px', right: '', top: '64px' },
+      },
+      {
+        placement: 'left',
+        position: { bottom: '', left: '', right: '-9px', top: '64px' },
+      },
+    ] as const;
+
+    for (const arrowCase of cases) {
+      computePositionMock.mockResolvedValueOnce({
+        x: 12,
+        y: 16,
+        placement: arrowCase.placement,
+        strategy: 'fixed',
+        middlewareData: { arrow: { x: 24, y: 64 } },
+      });
+      const player = new TourPlayer(compiledDoc, {
+        authoringPreviewOwnerId: `authoring_arrow_${arrowCase.placement}`,
+      });
+      player.start();
+      await player.waitUntilReady();
+
+      const arrow = document
+        .querySelector(
+          `lodariq-tour[${LODARIQ_AUTHORING_PREVIEW_OWNER_ATTRIBUTE}="authoring_arrow_${arrowCase.placement}"]`,
+        )
+        ?.shadowRoot?.querySelector<HTMLElement>('.tour-arrow');
+      expect(arrow?.dataset['side']).toBe(arrowCase.placement);
+      expect(arrow?.style.left).toBe(arrowCase.position.left);
+      expect(arrow?.style.top).toBe(arrowCase.position.top);
+      expect(arrow?.style.right).toBe(arrowCase.position.right);
+      expect(arrow?.style.bottom).toBe(arrowCase.position.bottom);
+      player.stop();
+    }
+  });
+
+  it('keeps a visible pointer outside a scrollable custom-height popup', async () => {
+    const customHeightDocument = structuredClone(compiledDoc);
+    customHeightDocument.steps[0]!.tooltipLayout = {
+      ...customHeightDocument.steps[0]!.tooltipLayout,
+      heightPx: 320,
+      showArrow: true,
+    };
+    const player = new TourPlayer(customHeightDocument, {
+      authoringPreviewOwnerId: 'authoring_custom_height_arrow',
+    });
+    player.start();
+    await player.waitUntilReady();
+
+    const root = document.querySelector(
+      `lodariq-tour[${LODARIQ_AUTHORING_PREVIEW_OWNER_ATTRIBUTE}="authoring_custom_height_arrow"]`,
+    )?.shadowRoot;
+    const dialog = root?.querySelector<HTMLElement>('[role="dialog"]');
+    const arrow = dialog?.querySelector<HTMLElement>(':scope > .tour-arrow');
+    const styles = root?.querySelector('style')?.textContent ?? '';
+
+    expect(dialog?.dataset['lodariqPopupHeight']).toBe('custom');
+    expect(dialog?.querySelector(':scope > .tour-content')).not.toBeNull();
+    expect(arrow?.hidden).toBe(false);
+    expect(styles).toContain(
+      'div[role="dialog"][data-lodariq-popup-height="custom"] > .tour-content',
+    );
+    expect(styles).toContain('overflow: visible;');
+    player.stop();
+  });
+
+  it('positions an authoring preview on the exact passive element that was just selected', async () => {
+    document.body.innerHTML =
+      '<article><span>Active projects</span><strong>18</strong><small>3 launched this month</small></article>';
+    const selected = document.querySelector('article')!;
+    let selectedRect = domRect({ x: 80, y: 120, width: 240, height: 96 });
+    selected.getBoundingClientRect = vi.fn(() => selectedRect);
+    const onTargetResolution = vi.fn();
+    const player = new TourPlayer(compiledDoc, {
+      authoringPreviewOwnerId: 'authoring_owner_exact_selection',
+      authoringTargetOverride: { stepId: 'step_1', element: selected },
+      onTargetResolution,
+    });
+
+    player.start();
+    await player.waitUntilReady();
+
+    const host = document.querySelector<HTMLElement>(
+      `lodariq-tour[${LODARIQ_AUTHORING_PREVIEW_OWNER_ATTRIBUTE}="authoring_owner_exact_selection"]`,
+    );
+    const card = host?.shadowRoot?.querySelector<HTMLElement>('[role="dialog"]');
+    const ring = host?.shadowRoot?.querySelector<HTMLElement>('[data-lodariq-target-outline]');
+    expect(card?.hidden).toBe(false);
+    expect(card?.style.left).toBe('12px');
+    expect(card?.style.top).toBe('16px');
+    expect(ring?.hidden).toBe(false);
+    expect(ring?.getAttribute('aria-hidden')).toBe('true');
+    expect(ring?.style.left).toBe('77px');
+    expect(ring?.style.top).toBe('117px');
+    expect(ring?.style.width).toBe('246px');
+    expect(ring?.style.height).toBe('102px');
+    expect(host?.style.getPropertyValue('--lq-tour-focus-color')).toBe('#0b63ce');
+    const styles = host?.shadowRoot?.querySelector('style')?.textContent ?? '';
+    expect(styles).toContain('border: 2px solid var(--lq-tour-focus-color)');
+    expect(styles).toContain('pointer-events: none');
+    expect(onTargetResolution).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'step_1' }),
+      expect.objectContaining({
+        state: 'found',
+        resolutionMethod: 'authoring_selection',
+        reasonCode: 'resolved',
+      }),
+    );
+
+    selectedRect = domRect({ x: 124, y: 164, width: 280, height: 112 });
+    window.dispatchEvent(new Event('scroll'));
+    await nextTask();
+
+    expect(ring?.style.left).toBe('121px');
+    expect(ring?.style.top).toBe('161px');
+    expect(ring?.style.width).toBe('286px');
+    expect(ring?.style.height).toBe('118px');
+    player.stop();
+  });
+
+  it('rejects an exact target override outside an owned authoring preview', () => {
+    const selected = document.querySelector('button')!;
+    expect(
+      () =>
+        new TourPlayer(compiledDoc, {
+          authoringTargetOverride: { stepId: 'step_1', element: selected },
+        }),
+    ).toThrow('authoring target overrides require an owned authoring preview');
+  });
+
+  it('keeps authoring preview lifecycle and host-target behavior side-effect free', async () => {
+    const target = document.querySelector<HTMLElement>('[data-lodariq-id="new-project"]')!;
+    const scrollIntoView = vi.fn();
+    target.scrollIntoView = scrollIntoView;
+    const lifecycleControl = document.createElement('button');
+    lifecycleControl.dataset['testid'] = 'open-project-panel';
+    const activatePanel = vi.fn();
+    lifecycleControl.addEventListener('click', activatePanel);
+    document.body.appendChild(lifecycleControl);
+    const previewDocument: CompiledDocument = {
+      ...compiledDoc,
+      steps: [
+        {
+          ...compiledDoc.steps[0]!,
+          lifecycle: {
+            openPanel: {
+              tagName: 'button',
+              role: 'button',
+              stableAttributes: { 'data-testid': 'open-project-panel' },
+            },
+          },
+          body: [
+            {
+              id: 'button_click_target',
+              type: 'button',
+              text: 'Observe target',
+              props: { action: { type: 'clickTarget' } },
+            },
+          ],
+        },
+        {
+          id: 'step_should_not_advance',
+          body: [{ id: 'heading_2', type: 'heading', text: 'Advanced', props: {} }],
+        },
+      ],
+    };
+    const player = new TourPlayer(previewDocument, {
+      authoringPreviewOwnerId: 'authoring_owner_passive',
+    });
+    player.start();
+    await player.waitUntilReady();
+
+    target.click();
+    await nextTask();
+    const card = document
+      .querySelector(
+        `lodariq-tour[${LODARIQ_AUTHORING_PREVIEW_OWNER_ATTRIBUTE}="authoring_owner_passive"]`,
+      )
+      ?.shadowRoot?.querySelector<HTMLElement>('[role="dialog"]');
+    expect(activatePanel).not.toHaveBeenCalled();
+    expect(scrollIntoView).not.toHaveBeenCalled();
+    expect(card?.textContent).toContain('Observe target');
+    expect(card?.textContent).not.toContain('Advanced');
+    player.stop();
+  });
+
+  it('rejects readiness when an authoring preview target cannot resolve', async () => {
+    document.body.innerHTML = '';
+    const player = new TourPlayer(compiledDoc, {
+      authoringPreviewOwnerId: 'authoring_owner_unresolved',
+    });
+    player.start();
+
+    await expect(player.waitUntilReady()).rejects.toThrow(
+      'Lodariq tour target could not be resolved for step step_1',
+    );
+    player.stop();
+  });
+
+  it('cancels pending lifecycle work before it can activate customer controls', async () => {
+    const openPanelFingerprint = {
+      tagName: 'button',
+      role: 'button',
+      stableAttributes: { 'data-testid': 'late-panel-control' },
+    };
+    const lifecycleDocument: CompiledDocument = {
+      ...compiledDoc,
+      steps: [
+        {
+          ...compiledDoc.steps[0]!,
+          lifecycle: {
+            openPanel: openPanelFingerprint,
+            timeoutMs: 1_000,
+          },
+        },
+      ],
+    };
+    const player = new TourPlayer(lifecycleDocument, {
+      authoringPreviewOwnerId: 'authoring_owner_canceled',
+    });
+    player.start();
+    const readiness = player.waitUntilReady();
+    player.stop();
+
+    const lateControl = document.createElement('button');
+    lateControl.dataset['testid'] = 'late-panel-control';
+    const click = vi.fn();
+    lateControl.addEventListener('click', click);
+    document.body.appendChild(lateControl);
+    await expect(readiness).rejects.toThrow('Lodariq tour presentation was canceled');
+    await nextTask();
+    expect(click).not.toHaveBeenCalled();
+  });
+
+  it('rejects target-bearing artifacts in embedded preview mode', () => {
+    const container = document.createElement('div');
+    expect(() => new TourPlayer(compiledDoc, { embeddedPreviewContainer: container })).toThrow(
+      'Embedded Tour previews must use targetless compiled steps',
+    );
+  });
+
+  it('falls back safely when a legacy artifact has no theme or appearance', () => {
+    const resolved = resolveCompiledTourTheme(compiledDoc, true);
+
+    expect(resolved.theme.themeVersionId).toBe('themev_lodariq_accessible_v1');
+    expect(resolved.appearance).toEqual({
+      preset: 'default',
+      density: 'comfortable',
+      width: 'standard',
+      colorMode: 'system',
+      displayTargetOutline: true,
+    });
+    expect(resolved.colorMode).toBe('dark');
+  });
+
+  it('rejects an incompatible versioned artifact before mounting renderer state', () => {
+    const incompatible = {
+      ...compile({
+        document: tourFixture as LodariqDocument,
+        theme: LODARIQ_ACCESSIBLE_FALLBACK_THEME_V1,
+        rendererContractVersion: RENDERER_CONTRACT_VERSION,
+      }),
+      contentHash: `sha256-${'9'.repeat(64)}`,
+      compilerVersion: 'future-compiler',
+    } as unknown as CompiledDocument;
+
+    expect(() => new TourPlayer(incompatible)).toThrow(
+      'Lodariq artifact is incompatible with this runtime',
+    );
     expect(document.querySelector('lodariq-tour')).toBeNull();
   });
 
@@ -132,7 +1238,11 @@ describe('tour renderer (PRD §16.1)', () => {
     const fixture = tourFixture as LodariqDocument;
     const imported = importDocument(exportDocument(fixture));
     const compiled: CompiledDocument = {
-      ...compile(imported),
+      ...compile({
+        document: imported,
+        theme: LODARIQ_ACCESSIBLE_FALLBACK_THEME_V1,
+        rendererContractVersion: RENDERER_CONTRACT_VERSION,
+      }),
       contentHash: 'local-preview',
     };
 
@@ -270,7 +1380,108 @@ describe('tour renderer (PRD §16.1)', () => {
       'mailto:support@example.com',
       '/settings',
     ]);
+    expect(links.map((link) => link.getAttribute('target'))).toEqual(['_blank', null, null]);
+    expect(links[0]?.getAttribute('rel')).toBe('noopener noreferrer');
     expect(links.every((link) => link.getAttribute('aria-disabled') !== 'true')).toBe(true);
+  });
+
+  it('opens external HTTPS actions in a protected new tab', () => {
+    const open = vi.spyOn(window, 'open').mockReturnValue(null);
+    const player = new TourPlayer({
+      ...compiledDoc,
+      steps: [
+        {
+          ...compiledDoc.steps[0]!,
+          body: [
+            {
+              id: 'button_external',
+              type: 'button',
+              text: 'Open docs',
+              props: { action: { type: 'openPage', url: 'www.google.com' } },
+            },
+          ],
+        },
+      ],
+    });
+
+    player.start();
+    document.querySelector('lodariq-tour')?.shadowRoot?.querySelector('button')?.click();
+
+    expect(open).toHaveBeenCalledWith('https://www.google.com/', '_blank', 'noopener,noreferrer');
+    open.mockRestore();
+  });
+
+  it('persists the next step before same-origin open-page navigation continues', () => {
+    const nextStep = {
+      id: 'step_2',
+      body: [{ id: 'heading_2', type: 'heading' as const, text: 'Settings', props: {} }],
+    };
+    const onBeforeStepChange = vi.fn();
+    const player = new TourPlayer(
+      {
+        ...compiledDoc,
+        steps: [
+          {
+            id: 'step_1',
+            body: [
+              {
+                id: 'button_internal',
+                type: 'button',
+                text: 'Open settings',
+                props: {
+                  action: {
+                    type: 'openPage',
+                    url: '#settings',
+                    navigationBehavior: 'continue',
+                  },
+                },
+              },
+            ],
+          },
+          nextStep,
+        ],
+      },
+      { onBeforeStepChange },
+    );
+
+    player.start();
+    document.querySelector('lodariq-tour')?.shadowRoot?.querySelector('button')?.click();
+
+    expect(onBeforeStepChange).toHaveBeenCalledWith(1, nextStep);
+    window.history.replaceState(null, '', window.location.pathname);
+  });
+
+  it('keeps legacy open-page actions on the current step by default', () => {
+    const onBeforeStepChange = vi.fn();
+    const player = new TourPlayer(
+      {
+        ...compiledDoc,
+        steps: [
+          {
+            id: 'step_1',
+            body: [
+              {
+                id: 'button_internal',
+                type: 'button',
+                text: 'Open settings',
+                props: { action: { type: 'openPage', url: '#settings' } },
+              },
+            ],
+          },
+          {
+            id: 'step_2',
+            body: [{ id: 'heading_2', type: 'heading', text: 'Settings', props: {} }],
+          },
+        ],
+      },
+      { onBeforeStepChange },
+    );
+
+    player.start();
+    document.querySelector('lodariq-tour')?.shadowRoot?.querySelector('button')?.click();
+
+    expect(onBeforeStepChange).not.toHaveBeenCalled();
+    window.history.replaceState(null, '', window.location.pathname);
   });
 
   it('goes back to the previous step from a back action', () => {
@@ -363,6 +1574,32 @@ describe('tour renderer (PRD §16.1)', () => {
     document.querySelector('lodariq-tour')?.shadowRoot?.querySelector('button')?.click();
 
     expect(dismissed).toHaveBeenCalledOnce();
+    expect(completed).not.toHaveBeenCalled();
+    expect(document.querySelector('lodariq-tour')).toBeNull();
+  });
+
+  it('offers an explicit skip control and reports it separately from dismiss and completion', () => {
+    const completed = vi.fn();
+    const dismissed = vi.fn();
+    const skipped = vi.fn();
+    const player = new TourPlayer(compiledDoc, {
+      onComplete: completed,
+      onDismiss: dismissed,
+      onSkip: skipped,
+    });
+
+    player.start();
+    const root = document.querySelector('lodariq-tour')?.shadowRoot;
+    const skip = root?.querySelector<HTMLButtonElement>('.tour-skip');
+
+    expect(skip?.textContent).toBe('Skip tour');
+    expect(root?.querySelector('style')?.textContent).toContain(
+      '[data-lodariq-node-type="button"]',
+    );
+    skip?.click();
+
+    expect(skipped).toHaveBeenCalledOnce();
+    expect(dismissed).not.toHaveBeenCalled();
     expect(completed).not.toHaveBeenCalled();
     expect(document.querySelector('lodariq-tour')).toBeNull();
   });
@@ -483,6 +1720,343 @@ describe('tour renderer (PRD §16.1)', () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
 
     expect(document.querySelector('lodariq-tour')).toBeNull();
+  });
+
+  it('re-resolves and rebinds when the active product target node is replaced', async () => {
+    const player = new TourPlayer({
+      ...compiledDoc,
+      steps: [
+        {
+          ...compiledDoc.steps[0]!,
+          body: [
+            {
+              id: 'button_click_target',
+              type: 'button',
+              text: 'Waiting for product click',
+              props: { action: { type: 'clickTarget' } },
+            },
+          ],
+        },
+        {
+          id: 'step_2',
+          body: [{ id: 'heading_2', type: 'heading', text: 'Replacement worked', props: {} }],
+        },
+      ],
+    });
+
+    player.start();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    const original = document.querySelector<HTMLButtonElement>('[data-lodariq-id="new-project"]')!;
+    const replacement = document.createElement('button');
+    replacement.dataset['lodariqId'] = 'new-project';
+    replacement.setAttribute('aria-label', 'New project');
+    replacement.textContent = 'New project';
+    original.replaceWith(replacement);
+
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    replacement.click();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(original.isConnected).toBe(false);
+    expect(document.querySelector('lodariq-tour')?.shadowRoot?.textContent).toContain(
+      'Replacement worked',
+    );
+  });
+
+  it('waits for an asynchronously rendered target after a delegated sidebar click', async () => {
+    document.body.innerHTML = `
+      <aside><nav><a data-route="projects">Projects</a></nav></aside>
+      <main><section data-view="projects"></section></main>
+    `;
+    const projectsLink = document.querySelector<HTMLAnchorElement>('[data-route="projects"]')!;
+    const projectsView = document.querySelector<HTMLElement>('[data-view="projects"]')!;
+    projectsLink.addEventListener('click', () => {
+      window.setTimeout(() => {
+        const article = document.createElement('article');
+        article.dataset['testid'] = 'project-workspace';
+        article.textContent = 'Project workspace';
+        projectsView.appendChild(article);
+      }, 40);
+    });
+
+    const player = new TourPlayer({
+      ...compiledDoc,
+      targets: [
+        {
+          id: 'target_projects_navigation',
+          fingerprint: { tagName: 'a', stableAttributes: {} },
+          identity: {
+            schemaVersion: 2,
+            targetId: 'target_projects_navigation',
+            intent: {
+              elementKind: 'control',
+              requiredAction: 'observe-click',
+              resolutionMode: 'semantic',
+            },
+            invariants: {},
+            semantics: { tagName: 'a' },
+            context: { ancestorRoles: ['nav', 'complementary'] },
+            localizedEvidence: [{ locale: 'en', accessibleName: 'Projects' }],
+            captureEvidence: {
+              sampleCount: 3,
+              stableSignalFamilies: ['element-semantics', 'ancestor-context', 'localized-text'],
+              uniqueCandidateCount: 1,
+              runnerUpMargin: 1,
+              quality: 'strong',
+            },
+            display: { authorLabel: 'Projects' },
+          },
+        },
+        {
+          id: 'target_project_workspace',
+          fingerprint: {
+            tagName: 'article',
+            stableAttributes: { 'data-testid': 'project-workspace' },
+          },
+        },
+      ],
+      steps: [
+        {
+          id: 'step_projects_navigation',
+          targetId: 'target_projects_navigation',
+          placement: 'right',
+          body: [
+            {
+              id: 'button_click_projects',
+              type: 'button',
+              text: 'Open Projects',
+              props: { action: { type: 'clickTarget' } },
+            },
+          ],
+        },
+        {
+          id: 'step_project_workspace',
+          targetId: 'target_project_workspace',
+          placement: 'bottom',
+          body: [
+            {
+              id: 'heading_project_workspace',
+              type: 'heading',
+              text: 'Project workspace is ready',
+              props: {},
+            },
+          ],
+        },
+      ],
+    });
+
+    player.start();
+    await player.waitUntilReady();
+    projectsLink.click();
+    await new Promise((resolve) => setTimeout(resolve, 100));
+
+    expect(document.querySelector('lodariq-tour')?.shadowRoot?.textContent).toContain(
+      'Project workspace is ready',
+    );
+    player.stop();
+  });
+
+  it('re-resolves a replacement owner inside an open shadow root', async () => {
+    document.body.innerHTML = '<div id="product-shell"></div>';
+    const productShell = document.querySelector<HTMLElement>('#product-shell')!;
+    const productRoot = productShell.attachShadow({ mode: 'open' });
+    const original = document.createElement('button');
+    original.type = 'button';
+    original.dataset['lodariqId'] = 'new-project';
+    original.dataset['testid'] = 'new-project-shadow';
+    original.setAttribute('aria-label', 'New project');
+    original.textContent = 'New project';
+    productRoot.appendChild(original);
+    const player = new TourPlayer({
+      ...compiledDoc,
+      targets: [
+        {
+          ...compiledDoc.targets[0]!,
+          identity: {
+            schemaVersion: 2,
+            targetId: 'target_new_project',
+            intent: { elementKind: 'control', requiredAction: 'observe-click' },
+            invariants: {
+              configuredAttributes: { 'data-testid': 'new-project-shadow' },
+              semanticAttributes: { type: 'button' },
+            },
+            semantics: { tagName: 'button', role: 'button' },
+            context: {},
+            localizedEvidence: [{ locale: 'en', accessibleName: 'New project' }],
+            captureEvidence: {
+              sampleCount: 3,
+              stableSignalFamilies: [
+                'configured-attribute',
+                'semantic-attribute',
+                'element-semantics',
+              ],
+              uniqueCandidateCount: 1,
+              runnerUpMargin: 0.8,
+              quality: 'strong',
+            },
+            display: { authorLabel: 'New project button' },
+          },
+        },
+      ],
+      steps: [
+        {
+          ...compiledDoc.steps[0]!,
+          body: [
+            {
+              id: 'button_click_target',
+              type: 'button',
+              text: 'Waiting in web component',
+              props: { action: { type: 'clickTarget' } },
+            },
+          ],
+        },
+        {
+          id: 'step_2',
+          body: [
+            { id: 'heading_2', type: 'heading', text: 'Shadow replacement worked', props: {} },
+          ],
+        },
+      ],
+    });
+
+    player.start();
+    await nextTask();
+    const replacement = original.cloneNode(true) as HTMLButtonElement;
+    original.replaceWith(replacement);
+    await revalidationTask();
+    replacement.click();
+    await nextTask();
+
+    expect(document.querySelector('lodariq-tour')?.shadowRoot?.textContent).toContain(
+      'Shadow replacement worked',
+    );
+  });
+
+  it('hides while a connected owner is unavailable and resumes only after fresh resolution', async () => {
+    const owner = document.querySelector<HTMLButtonElement>('[data-lodariq-id="new-project"]')!;
+    const player = new TourPlayer(compiledDoc);
+    player.start();
+    await nextTask();
+
+    const card = document
+      .querySelector('lodariq-tour')
+      ?.shadowRoot?.querySelector<HTMLElement>('[role="dialog"]');
+    expect(card?.hidden).toBe(false);
+
+    owner.hidden = true;
+    await revalidationTask();
+    expect(card?.hidden).toBe(true);
+
+    owner.hidden = false;
+    await revalidationTask();
+    expect(card?.hidden).toBe(false);
+  });
+
+  it('keeps authoring preview focus while its visible owner and surrounding page mutate', async () => {
+    const owner = document.querySelector<HTMLElement>('[data-lodariq-id="new-project"]')!;
+    let ownerRect = domRect({ x: 40, y: 60, width: 300, height: 160 });
+    owner.getBoundingClientRect = vi.fn(() => ownerRect);
+    const player = new TourPlayer(compiledDoc, {
+      authoringPreviewOwnerId: 'authoring-preview-focus',
+    });
+    player.start();
+    await player.waitUntilReady();
+
+    const root = document.querySelector('lodariq-tour')?.shadowRoot;
+    const card = root?.querySelector<HTMLElement>('[role="dialog"]');
+    const ring = root?.querySelector<HTMLElement>('[data-lodariq-target-outline]');
+    const heading = root?.querySelector<HTMLElement>(
+      `[${LODARIQ_RENDERED_NODE_ID_ATTRIBUTE}="heading_1"]`,
+    );
+    if (!heading) throw new Error('Authoring preview heading missing');
+    heading.setAttribute('contenteditable', 'plaintext-only');
+    heading.focus();
+    expect(root?.activeElement).toBe(heading);
+
+    const unrelatedStatus = document.createElement('div');
+    unrelatedStatus.textContent = 'Unrelated application status';
+    document.body.appendChild(unrelatedStatus);
+    await revalidationTask();
+
+    expect(card?.hidden).toBe(false);
+    expect(ring?.hidden).toBe(false);
+    expect(root?.activeElement).toBe(heading);
+
+    ownerRect = domRect({ x: 72, y: 88, width: 320, height: 172 });
+    owner.dataset['renderState'] = 'updated';
+    await revalidationTask();
+
+    expect(card?.hidden).toBe(false);
+    expect(root?.querySelector('[data-lodariq-target-outline]')).toBe(ring);
+    expect(ring?.hidden).toBe(false);
+    expect(ring?.style.left).toBe('69px');
+    expect(ring?.style.top).toBe('85px');
+    expect(ring?.style.width).toBe('326px');
+    expect(ring?.style.height).toBe('178px');
+    expect(root?.activeElement).toBe(heading);
+    player.stop();
+  });
+
+  it('positions a presentation-only tour against an anonymous visual anchor', async () => {
+    document.body.innerHTML = '';
+    const summary = document.createElement('div');
+    summary.style.backgroundColor = 'rgb(240, 248, 255)';
+    document.body.appendChild(summary);
+    const visualFingerprint = captureVisualFingerprint(summary);
+    expect(visualFingerprint).not.toBeNull();
+
+    const visualDocument: CompiledDocument = {
+      ...compiledDoc,
+      targets: [
+        {
+          id: 'target_summary',
+          fingerprint: { tagName: 'div', stableAttributes: {} },
+          identity: {
+            schemaVersion: 2,
+            targetId: 'target_summary',
+            intent: {
+              elementKind: 'container',
+              requiredAction: 'anchor',
+              resolutionMode: 'visual-anchor',
+            },
+            invariants: {},
+            semantics: { tagName: 'div' },
+            context: {},
+            visualFingerprints: [visualFingerprint!],
+            localizedEvidence: [],
+            captureEvidence: {
+              sampleCount: 3,
+              stableSignalFamilies: [
+                'visual-structure',
+                'visual-appearance',
+                'visual-neighborhood',
+              ],
+              uniqueCandidateCount: 1,
+              runnerUpMargin: 1,
+              quality: 'strong',
+            },
+            display: { authorLabel: 'Summary card' },
+          },
+        },
+      ],
+      steps: [{ ...compiledDoc.steps[0]!, targetId: 'target_summary' }],
+    };
+    const player = new TourPlayer(visualDocument);
+
+    player.start();
+    await player.waitUntilReady();
+
+    const card = document
+      .querySelector('lodariq-tour')
+      ?.shadowRoot?.querySelector<HTMLElement>('[role="dialog"]');
+    const latestPositionCall =
+      computePositionMock.mock.calls[computePositionMock.mock.calls.length - 1];
+    const reference = latestPositionCall?.[0] as FloatingUiDomModule.VirtualElement;
+    expect(card?.hidden).toBe(false);
+    expect(reference).not.toBe(summary);
+    expect(reference.contextElement).toBe(summary);
+    expect(reference.getBoundingClientRect()).toMatchObject({ width: 300, height: 160 });
   });
 
   it('waits for lifecycle text before resolving an async target', async () => {
@@ -612,7 +2186,9 @@ describe('tour renderer (PRD §16.1)', () => {
     expect(tab.getAttribute('aria-selected')).toBe('true');
     expect(target.hidden).toBe(false);
     expect(target.scrollIntoView).toHaveBeenCalled();
-    expect(document.querySelector('lodariq-tour')?.shadowRoot?.textContent).toContain('Update plan');
+    expect(document.querySelector('lodariq-tour')?.shadowRoot?.textContent).toContain(
+      'Update plan',
+    );
   });
 
   it('waits for fetch network idle before resolving an available target', async () => {
@@ -871,3 +2447,35 @@ describe('tour renderer (PRD §16.1)', () => {
     expect(scrollIntoView).toHaveBeenCalled();
   });
 });
+
+function domRect({
+  x,
+  y,
+  width,
+  height,
+}: {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}): DOMRect {
+  return {
+    x,
+    y,
+    width,
+    height,
+    top: y,
+    right: x + width,
+    bottom: y + height,
+    left: x,
+    toJSON: () => ({}),
+  };
+}
+
+function nextTask(): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, 0));
+}
+
+function revalidationTask(): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, 120));
+}

@@ -15,12 +15,24 @@ export default defineConfig({
   resolve: {
     alias: [
       {
+        find: /^@lingui\/core\/macro$/,
+        replacement: fromRoot('packages/tests/shims/lingui-core-macro.ts'),
+      },
+      {
         find: /^server-only$/,
         replacement: fromRoot('packages/tests/shims/server-only.ts'),
       },
       {
         find: /^@lodariq\/schema\/dom$/,
         replacement: fromRoot('packages/schema/src/dom.ts'),
+      },
+      {
+        find: /^@lodariq\/schema\/hosted-creator$/,
+        replacement: fromRoot('packages/schema/src/hosted-creator.ts'),
+      },
+      {
+        find: /^@lodariq\/schema\/authoring-entry-runtime$/,
+        replacement: fromRoot('packages/schema/src/authoring-entry-runtime.ts'),
       },
       {
         find: /^@lodariq\/schema$/,
@@ -43,6 +55,10 @@ export default defineConfig({
         replacement: fromRoot('apps/api/src/index.ts'),
       },
       {
+        find: /^@lodariq\/sdk-runtime\/i18n$/,
+        replacement: fromRoot('packages/sdk-runtime/src/i18n.ts'),
+      },
+      {
         find: /^@lodariq\/sdk-runtime\/lodariq-loader$/,
         replacement: fromRoot('packages/sdk-runtime/src/loader/index.ts'),
       },
@@ -53,6 +69,18 @@ export default defineConfig({
       {
         find: /^@lodariq\/sdk-runtime\/lodariq-local-dev$/,
         replacement: fromRoot('packages/sdk-runtime/src/local-dev/index.ts'),
+      },
+      {
+        find: /^@lodariq\/sdk-runtime\/public-bootstrap$/,
+        replacement: fromRoot('packages/sdk-runtime/src/activation/public-bootstrap.ts'),
+      },
+      {
+        find: /^@lodariq\/sdk-runtime\/activation-client$/,
+        replacement: fromRoot('packages/sdk-runtime/src/activation/authoring-activation.ts'),
+      },
+      {
+        find: /^@lodariq\/sdk-runtime\/public-delivery$/,
+        replacement: fromRoot('packages/sdk-runtime/src/activation/public-delivery.ts'),
       },
       {
         find: /^@lodariq\/sdk-runtime\/loader$/,
@@ -79,8 +107,20 @@ export default defineConfig({
         replacement: fromRoot('packages/sdk-runtime/src/index.ts'),
       },
       {
+        find: /^@lodariq\/sdk-authoring\/i18n$/,
+        replacement: fromRoot('packages/sdk-authoring/src/i18n.ts'),
+      },
+      {
         find: /^@lodariq\/sdk-authoring\/lodariq-authoring$/,
         replacement: fromRoot('packages/sdk-authoring/src/index.ts'),
+      },
+      {
+        find: /^@lodariq\/sdk-authoring\/authoring-frame$/,
+        replacement: fromRoot('packages/sdk-authoring/src/authoring-frame.ts'),
+      },
+      {
+        find: /^@lodariq\/sdk-authoring\/hosted-entry$/,
+        replacement: fromRoot('packages/sdk-authoring/src/hosted-entry.ts'),
       },
       {
         find: /^@lodariq\/sdk-authoring\/bridge$/,
@@ -97,6 +137,10 @@ export default defineConfig({
       {
         find: /^@lodariq\/sdk-authoring\/creator-install$/,
         replacement: fromRoot('packages/sdk-authoring/src/creator-install/index.ts'),
+      },
+      {
+        find: /^@lodariq\/sdk-authoring\/creator-experiences$/,
+        replacement: fromRoot('packages/sdk-authoring/src/creator-experiences.ts'),
       },
       {
         find: /^@lodariq\/sdk-authoring\/local-dev$/,

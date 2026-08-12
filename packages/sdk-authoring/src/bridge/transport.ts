@@ -1,4 +1,5 @@
 import {
+  AUTHORING_RELEASE_RECOVERY_STATE_RESULT_TYPE,
   BRIDGE_PROTOCOL_VERSION,
   BridgeMessage,
   validate,
@@ -6,6 +7,12 @@ import {
 } from '@lodariq/schema';
 
 export { BRIDGE_PROTOCOL_VERSION };
+
+export const DEFAULT_AUTHORING_BRIDGE_MAX_MESSAGE_BYTES = 64 * 1024;
+export const RELEASE_RECOVERY_BRIDGE_MAX_MESSAGE_BYTES = 4 * 1024 * 1024;
+export const RELEASE_RECOVERY_BRIDGE_MESSAGE_BYTE_LIMITS = {
+  [AUTHORING_RELEASE_RECOVERY_STATE_RESULT_TYPE]: RELEASE_RECOVERY_BRIDGE_MAX_MESSAGE_BYTES,
+} as const;
 
 export interface BridgeOptions {
   /** Allowed peer origins. */
@@ -16,10 +23,12 @@ export interface BridgeOptions {
   expectedSessionId?: ScopedBridgeValue;
   /** Optional scoped document; inbound messages outside it are dropped. */
   expectedDocumentId?: ScopedBridgeValue;
-  onMessage: (message: BridgeMessageType) => void;
+  onMessage: (message: BridgeMessageType) => Promise<void> | void;
   autoAck?: boolean;
   /** Drop inbound and refuse outbound messages above this serialized byte size. */
   maxMessageBytes?: number;
+  /** Narrow per-message exceptions; unlisted messages retain maxMessageBytes/default. */
+  maxMessageBytesByType?: Readonly<Record<string, number>>;
 }
 
 export type ScopedBridgeValue = string | (() => string);
@@ -43,7 +52,7 @@ export class AuthoringBridge {
     private readonly peer: Window,
     private readonly options: BridgeOptions,
   ) {
-    this.maxMessageBytes = options.maxMessageBytes ?? 64 * 1024;
+    this.maxMessageBytes = options.maxMessageBytes ?? DEFAULT_AUTHORING_BRIDGE_MAX_MESSAGE_BYTES;
   }
 
   start(): void {
@@ -51,7 +60,7 @@ export class AuthoringBridge {
     this.listener = (event: MessageEvent): void => {
       if (event.source !== this.peer) return;
       if (!this.options.allowedOrigins.includes(event.origin)) return;
-      if (messageSizeBytes(event.data) > this.maxMessageBytes) return;
+      if (messageSizeBytes(event.data) > this.maxMessageBytesFor(event.data)) return;
       const result = validate(BridgeMessage, event.data);
       if (!result.valid) return;
       const message = result.value;
@@ -60,8 +69,16 @@ export class AuthoringBridge {
         this.resolveAck(message.ackOf);
         return;
       }
-      if (this.options.autoAck !== false) this.ack(message);
-      this.options.onMessage(message);
+      const handled = this.options.onMessage(message);
+      if (this.options.autoAck === false) return;
+      if (handled) {
+        void handled.then(
+          () => this.ack(message),
+          () => {},
+        );
+        return;
+      }
+      this.ack(message);
     };
     window.addEventListener('message', this.listener);
   }
@@ -103,8 +120,9 @@ export class AuthoringBridge {
     if (this.options.targetOrigin === '*') {
       throw new Error('Refusing to send bridge message to wildcard target origin');
     }
-    if (messageSizeBytes(message) > this.maxMessageBytes) {
-      throw new Error(`Refusing to send bridge message over ${this.maxMessageBytes} bytes`);
+    const maxMessageBytes = this.maxMessageBytesFor(message);
+    if (messageSizeBytes(message) > maxMessageBytes) {
+      throw new Error(`Refusing to send bridge message over ${maxMessageBytes} bytes`);
     }
     const result = validate(BridgeMessage, message);
     if (!result.valid) {
@@ -143,6 +161,17 @@ export class AuthoringBridge {
     }
     return true;
   }
+
+  private maxMessageBytesFor(message: unknown): number {
+    const type = bridgeMessageType(message);
+    return (type && this.options.maxMessageBytesByType?.[type]) || this.maxMessageBytes;
+  }
+}
+
+function bridgeMessageType(message: unknown): string | null {
+  if (!message || typeof message !== 'object' || Array.isArray(message)) return null;
+  const type = (message as Record<string, unknown>)['type'];
+  return typeof type === 'string' ? type : null;
 }
 
 function scopedBridgeValue(value: ScopedBridgeValue | undefined): string | undefined {

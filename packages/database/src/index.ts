@@ -1,4 +1,6 @@
 export * from './schema';
+export * from './authoring-session-capabilities';
+export * from './release-artifact-compatibility';
 export * from './rls';
 export * from './tokens';
 export * from './repository';

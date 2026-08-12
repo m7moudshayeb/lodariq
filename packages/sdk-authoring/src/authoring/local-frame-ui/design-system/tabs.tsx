@@ -1,5 +1,6 @@
 import * as RadixTabs from '@radix-ui/react-tabs';
 import type { ReactNode } from 'react';
+import { authoringText } from '../../../i18n';
 
 export interface AuthoringTabItem {
   content: ReactNode;
@@ -8,7 +9,7 @@ export interface AuthoringTabItem {
 }
 
 export function AuthoringTabs({
-  ariaLabel = 'Support package',
+  ariaLabel = authoringText('Support package'),
   defaultValue,
   items,
   onValueChange,

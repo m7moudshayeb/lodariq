@@ -24,9 +24,10 @@ WORKDIR /app
 
 COPY --from=build /workspace/apps/dashboard/.next/standalone ./
 COPY --from=build /workspace/apps/dashboard/.next/static ./apps/dashboard/.next/static
+COPY --from=build /workspace/apps/dashboard/scripts/check-runtime-env.mjs ./apps/dashboard/check-runtime-env.mjs
 
 WORKDIR /app/apps/dashboard
 
 EXPOSE 3000
 
-CMD ["node", "server.js"]
+CMD ["sh", "-c", "node check-runtime-env.mjs && exec node server.js"]

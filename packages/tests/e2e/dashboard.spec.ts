@@ -16,7 +16,74 @@ test.describe('dashboard control plane', () => {
     'Dashboard flow runs once in Chromium.',
   );
 
-  test('renders API-backed data and creates a staging SDK token from the Next page', async ({
+  test('uses a collapsed desktop rail and a mobile navigation drawer', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.goto(dashboardBaseUrl);
+
+    const desktopNavigation = page.locator('#desktop-workspace-navigation');
+    const expandNavigation = page.getByRole('button', {
+      name: 'Expand workspace navigation',
+    });
+
+    await expect(expandNavigation).toHaveAttribute('aria-expanded', 'false');
+    await expect
+      .poll(async () => Math.round((await desktopNavigation.boundingBox())?.width ?? 0))
+      .toBe(72);
+
+    await expandNavigation.click();
+    const collapseNavigation = page.getByRole('button', {
+      name: 'Collapse workspace navigation',
+    });
+    await expect(collapseNavigation).toHaveAttribute('aria-expanded', 'true');
+    await expect(desktopNavigation.getByText('Lodariq')).toBeVisible();
+    await expect
+      .poll(async () => Math.round((await desktopNavigation.boundingBox())?.width ?? 0))
+      .toBe(208);
+
+    await collapseNavigation.click();
+    await expect(expandNavigation).toHaveAttribute('aria-expanded', 'false');
+    await expect
+      .poll(async () => Math.round((await desktopNavigation.boundingBox())?.width ?? 0))
+      .toBe(72);
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    const menuTrigger = page.getByRole('button', { name: 'Open workspace navigation' });
+    const navigationDrawer = page.getByRole('dialog', { name: 'Workspace' });
+
+    await expect(menuTrigger).toBeVisible();
+    await expect(menuTrigger).toHaveAttribute('aria-expanded', 'false');
+    await expect(navigationDrawer).toHaveCount(0);
+
+    await menuTrigger.click();
+    await expect(navigationDrawer).toBeVisible();
+    await expect(page.locator('#mobile-workspace-header')).toHaveAttribute('aria-hidden', 'true');
+    await expect(
+      navigationDrawer.getByRole('button', { name: 'Close workspace navigation' }),
+    ).toHaveCount(1);
+
+    await navigationDrawer.getByRole('button', { name: 'Experiences', exact: true }).click();
+    await expect(navigationDrawer).toHaveCount(0);
+    await expect(page.getByRole('heading', { name: 'Experiences', exact: true })).toBeVisible();
+    await expect(page).toHaveURL(/#experiences$/);
+
+    await menuTrigger.click();
+    await expect(navigationDrawer).toBeVisible();
+    const closeDrawerButton = navigationDrawer.getByRole('button', {
+      name: 'Close workspace navigation',
+    });
+    const lastDrawerControl = navigationDrawer.getByRole('button', {
+      name: /Switch to (?:dark|light) theme/,
+    });
+    await closeDrawerButton.focus();
+    await expect(closeDrawerButton).toBeFocused();
+    await page.keyboard.press('Shift+Tab');
+    await expect(lastDrawerControl).toBeFocused();
+    await page.keyboard.press('Escape');
+    await expect(navigationDrawer).toHaveCount(0);
+    await expect(menuTrigger).toBeFocused();
+  });
+
+  test('renders API-backed data and opens the product from one permanent SDK installation', async ({
     page,
     request,
   }) => {
@@ -26,11 +93,25 @@ test.describe('dashboard control plane', () => {
       data: tourDocument,
     });
     expect(seedResponse.status()).toBe(201);
+    const seeded = (await seedResponse.json()) as {
+      latestArtifact?: { id: string; contentHash: string } | null;
+    };
+    const reviewedArtifact = seeded.latestArtifact;
+    if (!reviewedArtifact) throw new Error('Dashboard E2E artifact missing');
     const publishResponse = await request.post(
-      `${apiBaseUrl}/v1/documents/${tourDocument.id}/publish`,
+      `${apiBaseUrl}/v1/documents/${tourDocument.id}/publications`,
       {
-        headers: dashboardHeaders(),
-        data: { environmentId: 'env_staging' },
+        headers: {
+          ...dashboardHeaders(),
+          'idempotency-key': 'release:dashboard-e2e:1',
+          'x-lodariq-correlation-id': 'corr_dashboard_e2e_release_1',
+        },
+        data: {
+          environmentId: 'env_staging',
+          expectedGeneration: 0,
+          expectedArtifactId: reviewedArtifact.id,
+          expectedContentHash: reviewedArtifact.contentHash,
+        },
       },
     );
     expect(publishResponse.status()).toBe(201);
@@ -44,7 +125,7 @@ test.describe('dashboard control plane', () => {
     await page.getByRole('button', { name: 'Switch to dark theme' }).click();
     await expect(page.locator('html')).toHaveClass(/dark/);
     const themeColors = await page.evaluate(() => {
-      const header = globalThis.document.querySelector('header');
+      const header = globalThis.document.querySelector('main header');
       if (!(header instanceof HTMLElement)) {
         throw new Error('Dashboard header was not rendered.');
       }
@@ -58,16 +139,20 @@ test.describe('dashboard control plane', () => {
     expect(themeColors.headerBackground).not.toBe('rgb(255, 255, 255)');
     await page.getByRole('button', { name: 'Switch to light theme' }).click();
     await expect(page.locator('html')).toHaveClass(/light/);
-    await page.getByRole('button', { name: 'Switch to dark theme' }).click();
-    await expect(page.locator('html')).toHaveClass(/dark/);
-    await expect(page.getByRole('heading', { name: 'Experience workspace' })).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'Experiences' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Launch queue' })).toBeVisible();
+    const launchQueue = page.getByRole('region', { name: 'Experiences' });
+    await expect(launchQueue.getByText(tourDocument.title)).toBeVisible();
+    await expect(launchQueue.getByText('Staging published')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Recent activity' })).toBeVisible();
+
+    await page.getByRole('button', { name: 'Experiences', exact: true }).click();
+    await expect(page.getByRole('heading', { name: 'Experiences', exact: true })).toBeVisible();
     const documentsTable = page.getByRole('table');
     await expect(documentsTable.getByText(tourDocument.title)).toBeVisible();
     await expect(documentsTable.getByText('Tour', { exact: true })).toBeVisible();
     await expect(documentsTable.getByText('Draft saved')).toBeVisible();
     await expect(documentsTable.getByText('Workspace teammate')).toBeVisible();
-    await expect(documentsTable.getByText('Published')).toBeVisible();
+    await expect(documentsTable.getByText('Publication recorded')).toBeVisible();
     await expect(documentsTable.getByText(tourDocument.id)).toHaveCount(0);
     await expect(documentsTable.getByText(/sha256-[0-9a-f]{64}/)).toHaveCount(0);
     await page.getByLabel('Search experiences').fill('no matching experience');
@@ -75,20 +160,28 @@ test.describe('dashboard control plane', () => {
     await page.getByRole('button', { name: 'Clear experience search' }).click();
     await expect(documentsTable.getByText(tourDocument.title)).toBeVisible();
 
-    const setupPanel = page.locator('details').filter({ hasText: 'Connect your site' });
-    await setupPanel.locator(':scope > summary').click();
-    await expect(setupPanel.getByRole('combobox', { name: 'Site', exact: true })).toContainText(
-      'Staging (staging)',
-    );
-    await setupPanel.getByLabel('Site label').fill('Browser dashboard e2e');
-    await setupPanel.getByRole('button', { name: 'Prepare site handoff' }).click();
+    await page.getByRole('button', { name: 'Environments', exact: true }).click();
+    await expect(page.getByRole('heading', { name: 'Environments', exact: true })).toBeVisible();
+    const setupPanel = page.locator('details').filter({ hasText: 'Install Lodariq once' });
+    await expect(setupPanel).toHaveAttribute('open', '');
+    await setupPanel.getByLabel('Application name').fill('Browser dashboard e2e');
+    await setupPanel.getByRole('button', { name: 'Create one-time installation' }).click();
 
-    const snippet = page.locator('pre').filter({ hasText: 'data-lodariq-loader' });
+    const snippet = setupPanel.locator('pre').filter({ hasText: 'data-installation' });
     await expect(snippet).toContainText('<script type="module" async crossorigin="anonymous"');
-    await expect(snippet).toContainText('data-lodariq-token="lod_staging_');
-    await expect(snippet).toContainText('data-lodariq-environment="staging"');
-    await expect(snippet).toContainText('data-lodariq-api="https://api.lodariq.com"');
+    await expect(snippet).toContainText('lodariq-public-bootstrap.js');
+    await expect(snippet).toContainText('data-installation="ins_pub_');
+    await expect(snippet).not.toContainText('data-lodariq-token');
+    await expect(snippet).not.toContainText('data-lodariq-environment');
+    await expect(snippet).not.toContainText('data-lodariq-authoring-session');
     await expect(snippet).not.toContainText('lodariq-creator.js');
+    const stagingOrigin = setupPanel.getByText('https://staging.lodariq.io', { exact: true });
+    await expect(stagingOrigin).toBeVisible();
+    await expect(
+      stagingOrigin.locator('..').getByText('Authoring on', { exact: true }),
+    ).toBeVisible();
+    await expect(setupPanel.getByRole('button', { name: 'Sync trusted origins' })).toBeVisible();
+
     const installSnippet = await snippet.textContent();
     expect(installSnippet).toContain('data-lodariq-loader');
     const installPage = await page.context().newPage();
@@ -97,34 +190,25 @@ test.describe('dashboard control plane', () => {
     } finally {
       await installPage.close();
     }
-    const tokenRow = page
-      .locator('[aria-label="Site connections"]')
-      .getByText('Browser dashboard e2e');
-    await expect(tokenRow).toBeVisible();
-    await page.getByRole('button', { name: 'Disconnect' }).click();
-    await expect(page.locator('[aria-label="Site connections"]')).toContainText('Revoked');
 
-    await expect(page.getByRole('heading', { name: 'Open the editor' })).toBeVisible();
-    await expect(page.getByRole('combobox', { name: 'Experience', exact: true })).toContainText(
-      tourDocument.title,
+    await page.reload();
+    await page.getByRole('button', { name: 'Help & support', exact: true }).click();
+    await expect(page.getByRole('heading', { name: 'Help & support' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Open your product' })).toBeVisible();
+    await expect(page.getByRole('combobox', { name: 'Authoring site' })).toContainText(
+      'Staging · https://staging.lodariq.io',
     );
-    await expect(page.getByRole('combobox', { name: 'Site', exact: true }).first()).toContainText(
-      'Staging (staging)',
-    );
-    await page.getByRole('button', { name: 'Start editing' }).click();
-
-    const authoringSnippet = page
-      .locator('pre')
-      .filter({ hasText: 'data-lodariq-authoring-session' });
-    await expect(authoringSnippet).toContainText('data-lodariq-token="lod_staging_');
-    await expect(authoringSnippet).toContainText('data-lodariq-authoring-session="lod_authoring_');
-    await expect(authoringSnippet).toContainText('lodariq-creator.js');
-    await page.getByText('Session details').click();
-    await expect(page.getByText('x-lodariq-authoring-session')).toBeVisible();
-    await expect(page.getByRole('link', { name: 'Open staging site' })).toHaveAttribute(
+    const openProduct = page.getByRole('link', { name: 'Open Staging' });
+    await expect(openProduct).toHaveAttribute(
       'href',
-      /^https:\/\/staging\.lodariq\.com\/?$/,
+      'https://staging.lodariq.io/?lodariq-launcher=show&lodariq-locale=en',
     );
+    await expect(openProduct).toHaveAttribute('target', '_blank');
+    await expect(page.getByRole('combobox', { name: 'Experience', exact: true })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Start editing' })).toHaveCount(0);
+    await expect(
+      page.locator('pre').filter({ hasText: 'data-lodariq-authoring-session' }),
+    ).toHaveCount(0);
 
     const supportPackage = page.locator('details').filter({ hasText: 'Help package' });
     await supportPackage.locator('summary').click();
@@ -142,16 +226,12 @@ test.describe('dashboard control plane', () => {
     await expect(page.getByText('Delivery payloads')).toHaveCount(0);
     await expect(page.getByText('Document data')).toHaveCount(0);
 
-    const authoringInstallSnippet = await authoringSnippet.textContent();
-    const authoringInstallPage = await page.context().newPage();
-    try {
-      await installAuthoringSnippetOnStagingHost(
-        authoringInstallPage,
-        authoringInstallSnippet ?? '',
-      );
-    } finally {
-      await authoringInstallPage.close();
-    }
+    await page.getByRole('button', { name: 'Environments', exact: true }).click();
+    const persistedSetupPanel = page.locator('details').filter({ hasText: 'Install Lodariq once' });
+    await persistedSetupPanel.locator(':scope > summary').click();
+    await persistedSetupPanel.getByText('Advanced', { exact: true }).click();
+    await persistedSetupPanel.getByRole('button', { name: 'Revoke installation' }).click();
+    await expect(persistedSetupPanel.getByText('Not installed', { exact: true })).toBeVisible();
   });
 });
 
@@ -169,7 +249,7 @@ function withWorkspace(document: LodariqDocument, nextWorkspaceId: string): Loda
 async function installSnippetOnStagingHost(page: Page, snippet: string): Promise<void> {
   await routeLocalApi(page);
   await routeLocalSdkCdn(page);
-  await page.route('https://staging.lodariq.com/snippet-install', async (route) => {
+  await page.route('https://staging.lodariq.io/snippet-install', async (route) => {
     await route.fulfill({
       contentType: 'text/html',
       body: `<!doctype html>
@@ -189,75 +269,25 @@ async function installSnippetOnStagingHost(page: Page, snippet: string): Promise
     });
   });
 
-  await page.goto('https://staging.lodariq.com/snippet-install');
-  await page.waitForFunction(() => Boolean((window as { Lodariq?: unknown }).Lodariq));
+  await page.goto('https://staging.lodariq.io/snippet-install');
+  await expect(page.locator('[data-lodariq-launcher]')).toHaveCount(1);
+  const launcher = page.getByRole('button', { name: 'Open Lodariq actions' });
+  await expect(launcher).toBeHidden();
+  await page.keyboard.press('Control+Shift+L');
+  await expect(launcher).toBeVisible();
   await expect(page.locator('[data-lodariq-creator-toolbar="true"]')).toHaveCount(0);
-  await expect(
-    page.evaluate(
-      () =>
-        (window as { Lodariq?: { authoring: { enabled: boolean } } }).Lodariq?.authoring.enabled,
-    ),
-  ).resolves.toBe(false);
-  await page.evaluate(() =>
-    (window as { Lodariq: { playTour: () => Promise<void> } }).Lodariq.playTour(),
-  );
+  await launcher.click();
+  await expect(page.getByRole('button', { name: 'New experience' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Experiences on this page' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Hide Lodariq' })).toBeVisible();
+  await page.getByRole('button', { name: 'Preview as user' }).click();
   await expect(page.getByRole('dialog', { name: 'Lodariq tour' })).toContainText(
     'Create your first project',
   );
 }
 
-async function installAuthoringSnippetOnStagingHost(page: Page, snippet: string): Promise<void> {
-  await routeLocalApi(page);
-  await routeLocalSdkCdn(page, { preferAuthoring: true });
-  await page.route(
-    /^https:\/\/editor\.lodariq\.com\/authoring\.html(?:\?.*)?$/,
-    async (route) => {
-      await route.fulfill({
-        contentType: 'text/html',
-        body: `<!doctype html><html lang="en"><body><h1>Lodariq editor</h1></body></html>`,
-      });
-    },
-  );
-  await page.route('https://staging.lodariq.com/authoring-snippet-install', async (route) => {
-    await route.fulfill({
-      contentType: 'text/html',
-      body: `<!doctype html>
-        <html lang="en">
-          <head>
-            <meta charset="utf-8" />
-            <title>Lodariq creator snippet install</title>
-          </head>
-          <body>
-            <main>
-              <h1>Staging creator host</h1>
-              <button data-lodariq-id="new-project" aria-label="New project">New project</button>
-            </main>
-            ${snippet}
-          </body>
-        </html>`,
-    });
-  });
-
-  await page.goto('https://staging.lodariq.com/authoring-snippet-install');
-  await page.waitForFunction(() => Boolean((window as { Lodariq?: unknown }).Lodariq));
-  await expect(
-    page.evaluate(
-      () =>
-        (window as { Lodariq?: { authoring: { enabled: boolean } } }).Lodariq?.authoring.enabled,
-    ),
-  ).resolves.toBe(true);
-  const toolbar = page.locator('[data-lodariq-creator-toolbar="true"]');
-  await expect(toolbar).toHaveText('Edit');
-  await toolbar.click();
-  await expect(page.locator('lodariq-authoring-panel')).toBeVisible();
-  await expect(page.locator('iframe[title="Lodariq authoring"]')).toHaveAttribute(
-    'src',
-    /^https:\/\/editor\.lodariq\.com\/authoring\.html\?lodariqFrame=panel&parentOrigin=https%3A%2F%2Fstaging\.lodariq\.com$/,
-  );
-}
-
 async function routeLocalApi(page: Page): Promise<void> {
-  await page.route(/^https:\/\/api\.lodariq\.com\/.*/, async (route) => {
+  await page.route(/^https:\/\/api\.lodariq\.io\/.*/, async (route) => {
     const url = new URL(route.request().url());
     const headers = route.request().headers();
     delete headers.host;
@@ -269,11 +299,8 @@ async function routeLocalApi(page: Page): Promise<void> {
   });
 }
 
-async function routeLocalSdkCdn(
-  page: Page,
-  options: { preferAuthoring?: boolean } = {},
-): Promise<void> {
-  await page.route(/^https:\/\/(?:staging-)?cdn\.lodariq\.com\/sdk\/.*/, async (route) => {
+async function routeLocalSdkCdn(page: Page): Promise<void> {
+  await page.route(/^https:\/\/(?:staging-)?cdn\.lodariq\.io\/sdk\/.*/, async (route) => {
     const url = new URL(route.request().url());
     const relativePath = url.pathname.replace(/^\/sdk\//, '');
     if (!/^(?:[\w.-]+\/)*[\w.-]+\.js$/.test(relativePath)) {
@@ -281,9 +308,7 @@ async function routeLocalSdkCdn(
       return;
     }
 
-    const packageDirs = options.preferAuthoring
-      ? ['sdk-authoring', 'sdk-runtime']
-      : ['sdk-runtime', 'sdk-authoring'];
+    const packageDirs = ['sdk-runtime', 'sdk-authoring'];
     const artifactUrl = packageDirs
       .map((packageDir) => new URL(`../../${packageDir}/dist/${relativePath}`, import.meta.url))
       .find((url) => existsSync(url));

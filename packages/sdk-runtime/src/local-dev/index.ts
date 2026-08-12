@@ -1,7 +1,10 @@
 import { compileDocument } from '@lodariq/compiler';
 import {
+  LODARIQ_ACCESSIBLE_FALLBACK_THEME_V1,
   LodariqDocument,
+  RENDERER_CONTRACT_VERSION,
   validate,
+  type BrandThemeSnapshot,
   type CompiledDocument,
   type LodariqDocument as LodariqDocumentType,
 } from '@lodariq/schema';
@@ -83,9 +86,16 @@ export function importDocument(json: string): LodariqDocumentType {
   return result.value;
 }
 
-/** Preview-only compile for the local playground (PRD §20). */
-export async function compilePreview(doc: LodariqDocumentType): Promise<CompiledDocument> {
-  return compileDocument(doc);
+/** Browser-only preview compile. Real publication remains server-side (PRD §20). */
+export async function compilePreview(
+  doc: LodariqDocumentType,
+  theme: BrandThemeSnapshot = LODARIQ_ACCESSIBLE_FALLBACK_THEME_V1,
+): Promise<CompiledDocument> {
+  return compileDocument({
+    document: doc,
+    theme,
+    rendererContractVersion: RENDERER_CONTRACT_VERSION,
+  });
 }
 
 export function resetLocalDocuments(): void {

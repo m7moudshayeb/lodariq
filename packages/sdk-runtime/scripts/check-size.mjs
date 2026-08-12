@@ -14,9 +14,39 @@ const checks = [
     forbidden: productionRuntimeForbiddenPatterns(),
   },
   {
+    name: 'public-bootstrap',
+    entries: ['lodariq-public-bootstrap.js'],
+    limit: 5 * 1024,
+    forbidden: productionRuntimeForbiddenPatterns(),
+    forbiddenStatic: [
+      {
+        name: 'eager authoring activation client',
+        pattern: /lodariq\.authoring\.activation\.v1|data-lodariq-launcher/,
+      },
+    ],
+  },
+  {
+    name: 'activation-client',
+    entries: ['lodariq-activation.js'],
+    // The creator-only activation client carries the small, source-controlled
+    // locale catalog used before the authoring bundle is allowed to load.
+    limit: 18 * 1024,
+    forbidden: productionRuntimeForbiddenPatterns(),
+  },
+  {
+    name: 'public-delivery',
+    entries: ['lodariq-public-delivery.js'],
+    // Phase 2 baseline includes the frozen synchronous registerBrandTokens API
+    // and its canonical-validation guard; forbidden production deps remain checked.
+    limit: 7 * 1024,
+    forbidden: productionRuntimeForbiddenPatterns(),
+  },
+  {
     name: 'runtime+tour',
     entries: ['lodariq-runtime.js', 'renderers/tour.js'],
-    limit: 40 * 1024,
+    // Includes the viewer-facing labels for all production locales; authored
+    // experience content remains in the separately fetched artifact.
+    limit: 46 * 1024,
     forbidden: productionRuntimeForbiddenPatterns(),
   },
 ];
@@ -49,8 +79,8 @@ function distPath(relativePath) {
 function staticImports(file) {
   const source = readFileSync(file, 'utf8');
   const imports = [
-    ...source.matchAll(/import\s*(?:[^'"]+\s+from\s*)?['"]([^'"]+)['"]/g),
-    ...source.matchAll(/export\s*[^'"]+\s*from\s*['"]([^'"]+)['"]/g),
+    ...source.matchAll(/import\s*(?:[^'"]+?\s*from\s*)?['"]([^'"]+)['"]/g),
+    ...source.matchAll(/export\s*[^'"]+?\s*from\s*['"]([^'"]+)['"]/g),
   ];
   return imports.map((match) => match[1]);
 }
@@ -58,9 +88,9 @@ function staticImports(file) {
 function literalModuleSpecifiers(file) {
   const source = readFileSync(file, 'utf8');
   const imports = [
-    ...source.matchAll(/import\s*(?:[^'"]+\s+from\s*)?['"]([^'"]+)['"]/g),
+    ...source.matchAll(/import\s*(?:[^'"]+?\s*from\s*)?['"]([^'"]+)['"]/g),
     ...source.matchAll(/import\(\s*['"]([^'"]+)['"]\s*\)/g),
-    ...source.matchAll(/export\s*[^'"]+\s*from\s*['"]([^'"]+)['"]/g),
+    ...source.matchAll(/export\s*[^'"]+?\s*from\s*['"]([^'"]+)['"]/g),
   ];
   return imports.map((match) => match[1]);
 }
@@ -129,11 +159,33 @@ function collect(files, seen = new Set()) {
   return seen;
 }
 
+function collectBrowserGraph(files, seen = new Set()) {
+  for (const file of files) {
+    if (seen.has(file)) continue;
+    if (!existsSync(file)) throw new Error(`Missing SDK build artifact: ${file}`);
+    seen.add(file);
+    collectBrowserGraph(
+      literalModuleSpecifiers(file)
+        .filter((specifier) => specifier.startsWith('.'))
+        .map((specifier) => resolveImport(specifier, file))
+        .filter(Boolean),
+      seen,
+    );
+  }
+  return seen;
+}
+
 for (const check of checks) {
-  const files = collect(check.entries.map(distPath));
-  assertNoBareBrowserImports(check, files);
-  assertNoForbiddenRuntimeDeps(check, files);
-  const size = [...files].reduce((total, file) => total + gzipSync(readFileSync(file)).length, 0);
+  const entries = check.entries.map(distPath);
+  const staticFiles = collect(entries);
+  const browserFiles = collectBrowserGraph(entries);
+  assertNoBareBrowserImports(check, browserFiles);
+  assertNoForbiddenRuntimeDeps(check, browserFiles);
+  assertNoForbiddenStaticCode(check, staticFiles);
+  const size = [...staticFiles].reduce(
+    (total, file) => total + gzipSync(readFileSync(file)).length,
+    0,
+  );
   if (size > check.limit) {
     throw new Error(`${check.name} is ${size} bytes gzipped; limit is ${check.limit}`);
   }
@@ -162,6 +214,16 @@ function assertNoForbiddenRuntimeDeps(check, files) {
       throw new Error(
         `${check.name} bundle includes forbidden ${forbidden.name} reference in ${file}`,
       );
+    }
+  }
+}
+
+function assertNoForbiddenStaticCode(check, files) {
+  for (const file of files) {
+    const source = readFileSync(file, 'utf8');
+    for (const forbidden of check.forbiddenStatic ?? []) {
+      if (!forbidden.pattern.test(source)) continue;
+      throw new Error(`${check.name} includes forbidden ${forbidden.name} in ${file}`);
     }
   }
 }

@@ -1,5 +1,7 @@
 import {
   sanitizeBlockProps,
+  sanitizeInlineTextRuns,
+  type InlineTextRun,
   type LodariqBlock,
   type LodariqBlockType,
   type LodariqDocument,
@@ -63,12 +65,15 @@ function blockToNode(block: LodariqBlock): SerializedLodariqBlockNode {
   if (!isLodariqMvpBlockType(block.type)) {
     throw new Error(`Unsupported Lodariq MVP editor block type: ${block.type}`);
   }
+  const content = block.content ?? '';
+  const contentRuns = inlineRunsForText(block.contentRuns, content);
   return {
     type: 'lodariq-block',
     version: 1,
     lodariqBlockId: block.id,
     blockType: block.type,
     props: sanitizeBlockProps(block.props),
+    ...(contentRuns ? { contentRuns } : {}),
     ...(block.status ? { status: block.status } : {}),
     children: [
       ...(block.content ? [textChild(block.content)] : []),
@@ -85,14 +90,24 @@ function nodeToBlock(node: SerializedLodariqBlockNode): LodariqBlock {
     .filter(isSerializedTextChild)
     .map((child) => child.text)
     .join('');
+  const contentRuns = inlineRunsForText(node.contentRuns, text);
   return {
     id: node.lodariqBlockId,
     type: node.blockType,
     ...(text ? { content: text } : {}),
+    ...(contentRuns ? { contentRuns } : {}),
     props: sanitizeBlockProps(node.props),
     ...(node.status ? { status: node.status as ValidationLevel } : {}),
     children: node.children.filter(isSerializedLodariqBlockNode).map(nodeToBlock),
   };
+}
+
+function inlineRunsForText(
+  value: InlineTextRun[] | undefined,
+  text: string,
+): InlineTextRun[] | undefined {
+  const contentRuns = sanitizeInlineTextRuns(value);
+  return contentRuns?.map((run) => run.text).join('') === text ? contentRuns : undefined;
 }
 
 function textChild(text: string): SerializedTextChild {

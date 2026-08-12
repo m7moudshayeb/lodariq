@@ -19,21 +19,54 @@ describe('@lodariq/dashboard runtime environment check', () => {
     ).toThrow(/LODARIQ_API_BASE_URL must use https/);
   });
 
-  it('requires the Clerk publishable key used by ClerkProvider', () => {
-    expect(() => runCheck(validDashboardEnv({ NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: '' }))).toThrow(
-      /NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY is required/,
+  it('requires the explicit owned-auth production mode', () => {
+    expect(() => runCheck(validDashboardEnv({ LODARIQ_AUTH_MODE: '' }))).toThrow(
+      /LODARIQ_AUTH_MODE must be "lodariq"/,
     );
   });
 
-  it('requires the Clerk secret key used by dashboard route protection', () => {
-    expect(() => runCheck(validDashboardEnv({ CLERK_SECRET_KEY: '' }))).toThrow(
-      /CLERK_SECRET_KEY is required/,
+  it('rejects local header auth in production', () => {
+    expect(() => runCheck(validDashboardEnv({ LODARIQ_AUTH_MODE: 'headers' }))).toThrow(
+      /header auth is local\/test-only/,
     );
   });
 
-  it('accepts the production runtime shape without opening network connections', () => {
+  it('rejects the transitional Clerk mode in production', () => {
+    expect(() => runCheck(validDashboardEnv({ LODARIQ_AUTH_MODE: 'clerk' }))).toThrow(
+      /LODARIQ_AUTH_MODE must be "lodariq"/,
+    );
+  });
+
+  it('accepts owned sessions without a provider or session signing secret', () => {
     expect(runCheck(validDashboardEnv())).toContain(
       'Lodariq dashboard production environment is ready for a live smoke check.',
+    );
+  });
+
+  it('requires a strong server-only BFF source secret', () => {
+    expect(() => runCheck(validDashboardEnv({ LODARIQ_AUTH_BFF_SOURCE_SECRET: '' }))).toThrow(
+      /LODARIQ_AUTH_BFF_SOURCE_SECRET must be a server-only secret of at least 32 bytes/,
+    );
+    expect(() =>
+      runCheck(validDashboardEnv({ LODARIQ_AUTH_BFF_SOURCE_SECRET: 'too-short' })),
+    ).toThrow(/LODARIQ_AUTH_BFF_SOURCE_SECRET must be a server-only secret of at least 32 bytes/);
+  });
+
+  it('accepts only explicit public signup modes when configured', () => {
+    expect(() => runCheck(validDashboardEnv({ LODARIQ_PUBLIC_SIGNUP_MODE: 'open' }))).toThrow(
+      /LODARIQ_PUBLIC_SIGNUP_MODE must be "disabled" or "email-verification"/,
+    );
+    expect(runCheck(validDashboardEnv({ LODARIQ_PUBLIC_SIGNUP_MODE: 'disabled' }))).toContain(
+      'ready for a live smoke check',
+    );
+  });
+
+  it('accepts only explicit password recovery modes', () => {
+    expect(() => runCheck(validDashboardEnv({ LODARIQ_PASSWORD_RECOVERY_MODE: 'open' }))).toThrow(
+      /LODARIQ_PASSWORD_RECOVERY_MODE must be "disabled" or "email"/,
+    );
+    expect(runCheck(validDashboardEnv({ LODARIQ_PASSWORD_RECOVERY_MODE: 'email' }))).toContain(
+      'ready for a live smoke check',
     );
   });
 });
@@ -41,9 +74,11 @@ describe('@lodariq/dashboard runtime environment check', () => {
 function validDashboardEnv(overrides: Record<string, string> = {}): Record<string, string> {
   return {
     NODE_ENV: 'production',
-    LODARIQ_API_BASE_URL: 'https://api.lodariq.com',
-    NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: 'pk_test_fixture',
-    CLERK_SECRET_KEY: 'sk_test_fixture',
+    LODARIQ_AUTH_MODE: 'lodariq',
+    LODARIQ_API_BASE_URL: 'https://api.lodariq.io',
+    LODARIQ_AUTH_BFF_SOURCE_SECRET: 'dashboard-bff-source-secret-32-bytes-minimum',
+    LODARIQ_PUBLIC_SIGNUP_MODE: 'disabled',
+    LODARIQ_PASSWORD_RECOVERY_MODE: 'disabled',
     ...overrides,
   };
 }

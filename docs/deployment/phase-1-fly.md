@@ -1,8 +1,51 @@
 # Phase 1 Deployment Runbook
 
-This runbook covers Lodariq Phase 1 deployment on Fly.io with Neon, Clerk, and
-Cloudflare. It also records how to prepare Sentry, Resend, and Stripe without
-wiring them into Phase 1 code before they are needed.
+This runbook covers Lodariq deployment on Fly.io with Neon, Lodariq-owned
+authentication, and Cloudflare. It preserves explicitly labeled references to
+the former Phase 1 Clerk deployment as historical evidence, but active runtime code and
+dependencies are Clerk-free. It also records how to prepare Sentry, Resend, and
+Stripe without claiming production capabilities before they are wired.
+
+## Canonical Hosted-Authoring Supersession
+
+This runbook preserves the deploy and smoke procedure for the historical Phase 1
+implementation. In particular, steps that install `lodariq-creator.js` as a
+second, dashboard-generated creator snippet are evidence for that implementation
+only; they are not the current canonical authoring entry.
+
+The implemented Phase 2 Slice 1 convergence keeps one permanent public-installation
+SDK entry in the customer app and resolves exact origins to environments
+server-side. Configured development and staging products expose a direct,
+draggable launcher. The launcher opens a first-party top-level authentication
+popup, completes an exact-origin single-use code exchange for a short-lived
+activation grant, then lazily opens the creator module and exact-origin editor
+iframe. The iframe receives that grant once, creates and owns the document-
+scoped session, and opens the same modeless authoring popup and runtime overlay.
+Its stable actions are `New`, `Experiences on this page`, and `Preview`; Phase 2
+Brand/release actions appear contextually, and Phase 3 expands `New` into the
+broad outcome/type chooser. The dashboard remains setup/admin/support only, and
+a browser extension is not required for the core path.
+
+That convergence is implemented and locally verified. Deployed staging/live
+origin evidence remains open, so the historical steps below are useful only for
+reproducing the former Phase 1 path and must not be used as proof of the current
+canonical workflow.
+
+The Phase 2 local code milestone is complete: tokenized delivery/preview,
+persisted Brand workflows, atomic Product Match, exact verification,
+same-artifact promotion/rollback, unpublish, Brand drift acknowledgement, and
+environment-isolated analytics all pass locally. The 2026-08-09 completion gate
+passes the full Node 24 `pnpm verify`, including 126 Vitest files / 1,064 tests,
+77 Playwright tests with four intentional skips, and a zero-vulnerability
+dependency audit. None of this is deployed evidence.
+
+The owned-auth code milestone is complete and active runtime/dependencies are
+Clerk-free. Recovery/reset, the unified verification/reset outbox worker and
+Resend adapter, authoritative API/BFF capability gates, activation recovery UX,
+and the consolidated local gate pass. This is not a production account cutover:
+first-database baseline application, provider/domain/secrets, coordinated capability enablement,
+deployment, and live probes remain. Production configs therefore still keep
+public signup, password recovery, and email delivery disabled.
 
 The current repository has deployable Fly apps for:
 
@@ -22,30 +65,37 @@ Keep these two concepts separate:
 - Product environments are rows and tokens inside Lodariq workspaces:
   `development`, `staging`, and `production`.
 
+This runbook deploys Lodariq's own control plane. It does not define how a
+customer experience moves between product environments. Customer content uses
+the immutable publish -> verify -> promote -> rollback model in
+`../plans/phase-2-brand-and-release-foundation.md` and ADR 0014. Promotion of a
+customer experience must reuse the exact verified compiled artifact; it is not
+a Fly, Neon, or dashboard deployment.
+
 A staging deployment can create product `production` SDK tokens for staging test
 data. That does not mean it is production infrastructure. Never share database
-URLs, Clerk instances, Cloudflare buckets, or SDK tokens between deployment
+URLs, auth/BFF secrets, Cloudflare buckets, or SDK tokens between deployment
 environments.
 
 ## Naming Matrix
 
-| Surface                | Staging                              | Production                   |
-| ---------------------- | ------------------------------------ | ---------------------------- |
-| API Fly app            | `lodariq-api-staging`                | `lodariq-api`                |
-| Dashboard Fly app      | `lodariq-dashboard-staging`          | `lodariq-dashboard`          |
-| Editor Fly app         | `lodariq-editor-staging`             | `lodariq-editor`             |
-| API origin             | `https://staging-api.lodariq.com`    | `https://api.lodariq.com`    |
-| Dashboard origin       | `https://staging-app.lodariq.com`    | `https://app.lodariq.com`    |
-| CDN origin             | `https://staging-cdn.lodariq.com`    | `https://cdn.lodariq.com`    |
-| Editor origin          | `https://staging-editor.lodariq.com` | `https://editor.lodariq.com` |
-| Neon branch or project | `staging`                            | `production`                 |
-| Runtime DB role        | `lodariq_app_staging`                | `lodariq_app`                |
-| R2 bucket              | `lodariq-assets-staging`             | `lodariq-assets-production`  |
-| Clerk application      | Lodariq Staging                      | Lodariq Production           |
+| Surface                | Staging                             | Production                  |
+| ---------------------- | ----------------------------------- | --------------------------- |
+| API Fly app            | `lodariq-api-staging`               | `lodariq-api`               |
+| Dashboard Fly app      | `lodariq-dashboard-staging`         | `lodariq-dashboard`         |
+| Editor Fly app         | `lodariq-editor-staging`            | `lodariq-editor`            |
+| API origin             | `https://staging-api.lodariq.io`    | `https://api.lodariq.io`    |
+| Dashboard origin       | `https://staging-app.lodariq.io`    | `https://app.lodariq.io`    |
+| CDN origin             | `https://staging-cdn.lodariq.io`    | `https://cdn.lodariq.io`    |
+| Editor origin          | `https://staging-editor.lodariq.io` | `https://editor.lodariq.io` |
+| Neon branch or project | `staging`                           | `production`                |
+| Runtime DB role        | `lodariq_app_staging`               | `lodariq_app`               |
+| R2 bucket              | `lodariq-assets-staging`            | `lodariq-assets-production` |
+| Auth/session store     | Staging Neon branch                 | Production Neon branch      |
 
 For preview deployments, use generated names such as
 `lodariq-api-pr-123`, `lodariq-dashboard-pr-123`, and a Neon preview branch.
-Do not attach public `lodariq.com` domains to previews unless there is a clear
+Do not attach public `lodariq.io` domains to previews unless there is a clear
 need.
 
 ## Secrets Policy
@@ -86,23 +136,31 @@ API:
 ```bash
 NODE_ENV=production
 DATABASE_URL=postgresql://<runtime-role>:<password>@<host>/<database>?sslmode=require
-LODARIQ_AUTH_MODE=clerk
-CLERK_SECRET_KEY=<sk_test_or_sk_live>
-# or CLERK_JWT_KEY=<PEM public key>
-CLERK_AUTHORIZED_PARTIES=https://<dashboard-origin>
+LODARIQ_AUTH_MODE=lodariq
+LODARIQ_AUTH_BFF_SOURCE_SECRET=<same-random-32-plus-byte-value-as-dashboard>
+LODARIQ_EMAIL_DELIVERY_MODE=disabled
+LODARIQ_PUBLIC_SIGNUP_MODE=disabled
+LODARIQ_PASSWORD_RECOVERY_MODE=disabled
 LODARIQ_PUBLIC_API_BASE_URL=https://<api-origin>
 LODARIQ_LOADER_SRC=https://<cdn-origin>/sdk/lodariq-loader.js
+LODARIQ_PUBLIC_LOADER_SRC=https://<cdn-origin>/sdk/lodariq-public-bootstrap.js
 LODARIQ_CREATOR_LOADER_SRC=https://<cdn-origin>/sdk/lodariq-creator.js
+LODARIQ_CREATOR_MODULE_URL=https://<cdn-origin>/sdk/sha256-<digest>/creator.js
+LODARIQ_CREATOR_MODULE_VERSION=<version>
+LODARIQ_CREATOR_MODULE_INTEGRITY=sha256-<base64-digest-matching-url>
 LODARIQ_AUTHORING_IFRAME_SRC=https://<editor-origin>/authoring.html
+LODARIQ_DEEPL_API_KEY=<optional-server-only-authoring-translation-key>
 ```
 
 Dashboard:
 
 ```bash
 NODE_ENV=production
+LODARIQ_AUTH_MODE=lodariq
 LODARIQ_API_BASE_URL=https://<api-origin>
-NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=<pk_test_or_pk_live>
-CLERK_SECRET_KEY=<sk_test_or_sk_live>
+LODARIQ_AUTH_BFF_SOURCE_SECRET=<same-random-32-plus-byte-value-as-api>
+LODARIQ_PUBLIC_SIGNUP_MODE=disabled
+LODARIQ_PASSWORD_RECOVERY_MODE=disabled
 ```
 
 Editor:
@@ -112,18 +170,40 @@ NODE_ENV=production
 PORT=3003
 ```
 
-The editor app is a static Fly service. It does not receive Clerk, database, or
+The editor app is a static Fly service. It does not receive auth, database, or
 SDK token secrets. The parent product page passes its origin as the
 `parentOrigin` iframe query parameter, and the editor accepts only validated
 bridge messages from that exact origin.
 
-`NODE_ENV`, `PORT`, `LODARIQ_AUTH_MODE=clerk`, public API URLs, loader URLs, and
-dashboard API URLs are committed in the Fly config files because they are
-environment-specific configuration, not secrets. Database URLs, Clerk secret
-keys, R2 credentials, Stripe keys, Resend keys, and Sentry auth tokens must stay
-in the secret store. Clerk publishable keys are public but environment-specific;
-keep them in the same secrets/config workflow so staging and production cannot
-be mixed by accident.
+`NODE_ENV`, `PORT`, `LODARIQ_AUTH_MODE=lodariq`, fail-closed signup/recovery/
+email modes, public API URLs, loader URLs, and dashboard API URLs are committed
+in the Fly config files because they are environment-specific configuration,
+not secrets. Database URLs, the shared BFF
+source secret, R2 credentials, Stripe keys, Resend keys, and Sentry auth tokens
+must stay in the secret store. The BFF secret must be identical within one
+deployment environment and different between staging and production.
+
+When production cutover is approved, replace only the three disabled auth modes
+with the enabled values below and add the required API secrets/config:
+
+```bash
+# API
+LODARIQ_EMAIL_DELIVERY_MODE=resend
+LODARIQ_PUBLIC_SIGNUP_MODE=email-verification
+LODARIQ_PASSWORD_RECOVERY_MODE=email
+LODARIQ_APP_BASE_URL=https://<dashboard-origin>
+LODARIQ_AUTH_EMAIL_FROM='Lodariq <access@lodariq.io>'
+LODARIQ_AUTH_EMAIL_TOKEN_SECRET=<random-32-plus-byte-secret>
+RESEND_API_KEY=<environment-specific-resend-key>
+
+# Dashboard
+LODARIQ_PUBLIC_SIGNUP_MODE=email-verification
+LODARIQ_PASSWORD_RECOVERY_MODE=email
+```
+
+The API modes are authoritative. Never expose signup/recovery in the dashboard
+while API delivery is disabled, and never place the email token secret or Resend
+key in a `NEXT_PUBLIC_*` variable.
 
 ## Local Prerequisites
 
@@ -172,34 +252,37 @@ Set API secrets:
 ```bash
 fly secrets set -c apps/api/fly.staging.toml \
   DATABASE_URL='<staging-runtime-database-url>' \
-  CLERK_SECRET_KEY='<staging-clerk-secret-key>' \
-  CLERK_AUTHORIZED_PARTIES='https://staging-app.lodariq.com'
+  LODARIQ_AUTH_BFF_SOURCE_SECRET='<staging-random-32-plus-byte-secret>' \
+  LODARIQ_DEEPL_API_KEY='<staging-deepl-api-key>'
 
 fly secrets set -c apps/api/fly.toml \
   DATABASE_URL='<production-runtime-database-url>' \
-  CLERK_SECRET_KEY='<production-clerk-secret-key>' \
-  CLERK_AUTHORIZED_PARTIES='https://app.lodariq.com'
+  LODARIQ_AUTH_BFF_SOURCE_SECRET='<production-random-32-plus-byte-secret>' \
+  LODARIQ_DEEPL_API_KEY='<production-deepl-api-key>'
 ```
 
 ```bash
 fly secrets set -c apps/dashboard/fly.staging.toml \
-  NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY='<staging-publishable-key>' \
-  CLERK_SECRET_KEY='<staging-clerk-secret-key>'
+  LODARIQ_AUTH_BFF_SOURCE_SECRET='<same-staging-secret-as-api>'
 
 fly secrets set -c apps/dashboard/fly.toml \
-  NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY='<production-publishable-key>' \
-  CLERK_SECRET_KEY='<production-clerk-secret-key>'
+  LODARIQ_AUTH_BFF_SOURCE_SECRET='<same-production-secret-as-api>'
 ```
+
+Generate each BFF secret from a cryptographically secure source, store it in the
+secrets manager, and paste the same value only into the matching API/dashboard
+pair. Never derive production from staging or expose it through a
+`NEXT_PUBLIC_*` variable.
 
 Attach public domains:
 
 ```bash
-fly certs add staging-api.lodariq.com -c apps/api/fly.staging.toml
-fly certs add staging-app.lodariq.com -c apps/dashboard/fly.staging.toml
-fly certs add staging-editor.lodariq.com -c apps/editor/fly.staging.toml
-fly certs add api.lodariq.com -c apps/api/fly.toml
-fly certs add app.lodariq.com -c apps/dashboard/fly.toml
-fly certs add editor.lodariq.com -c apps/editor/fly.toml
+fly certs add staging-api.lodariq.io -c apps/api/fly.staging.toml
+fly certs add staging-app.lodariq.io -c apps/dashboard/fly.staging.toml
+fly certs add staging-editor.lodariq.io -c apps/editor/fly.staging.toml
+fly certs add api.lodariq.io -c apps/api/fly.toml
+fly certs add app.lodariq.io -c apps/dashboard/fly.toml
+fly certs add editor.lodariq.io -c apps/editor/fly.toml
 ```
 
 In Cloudflare DNS, create the records requested by `fly certs check`. Keep them
@@ -215,7 +298,7 @@ pnpm deploy:api:staging
 pnpm deploy:dashboard:staging
 ```
 
-Deploy production only after staging, database checks, and Clerk smoke checks
+Deploy production only after staging, database/RLS checks, and owned-auth smoke checks
 pass:
 
 ```bash
@@ -264,32 +347,45 @@ Create or choose branches:
 2. Create a `staging` child branch from production after the schema is current.
 3. For previews, create a branch per PR and delete it when the preview is gone.
 
-Apply migrations only with an owner/admin URL:
+Lodariq has not been deployed, so bootstrap each new database with the single
+initial baseline and an owner/admin URL. The baseline is for an empty database
+and must be applied exactly once:
 
 ```bash
 pnpm migrations:check
 
-psql "$STAGING_NEON_OWNER_DATABASE_URL" \
-  -f packages/database/drizzle/0000_phase_1_foundation.sql
-psql "$STAGING_NEON_OWNER_DATABASE_URL" \
-  -f packages/database/drizzle/0001_correlation_ids.sql
-
-psql "$PRODUCTION_NEON_OWNER_DATABASE_URL" \
-  -f packages/database/drizzle/0000_phase_1_foundation.sql
-psql "$PRODUCTION_NEON_OWNER_DATABASE_URL" \
-  -f packages/database/drizzle/0001_correlation_ids.sql
+psql -X -v ON_ERROR_STOP=1 "$NEON_OWNER_DATABASE_URL" \
+  -f packages/database/drizzle/0000_initial_baseline.sql
 ```
 
-If `psql` is not available, paste the migration into the Neon SQL Editor for
-the target branch after `pnpm migrations:check` passes. Destructive migrations
-against shared staging or production need explicit human sign-off in the
-migration file before they are applied.
+If `psql` is not available, paste the baseline into the Neon SQL Editor for the
+empty target branch after `pnpm migrations:check` passes. Do not run it against
+a database containing Lodariq objects. After the first shared environment is
+initialized, freeze the baseline and use reviewed forward migrations for later
+schema changes; destructive changes still require explicit human sign-off.
 
-`0001_correlation_ids.sql` is additive. It adds nullable trace columns and
-indexes for publication and authoring-session correlation IDs. New Phase 1 API
-writes always populate them; existing rows without values are read with a
-deterministic fallback until an explicit, human-approved shared-environment
-backfill is scheduled.
+Validate the baseline on an isolated empty Neon branch before initializing the
+staging or production branches:
+
+```bash
+psql -X -v ON_ERROR_STOP=1 "$ISOLATED_NEON_OWNER_DATABASE_URL" \
+  -f packages/database/drizzle/0000_initial_baseline.sql
+```
+
+Then provision a non-owner runtime role on that branch and exercise the Drizzle
+release-operation and document-pointer paths, including idempotency replay,
+stale-generation CAS, two concurrent writers, and cross-tenant RLS isolation.
+Also exercise password-credential lookup, session lookup/touch/revoke/rotation,
+verification consumption, outbox worker scope, rate-limit buckets, unscoped
+denial, password-recovery request/consume behavior, cross-purpose email-outbox
+leasing, and cross-workspace membership isolation.
+Exercise theme draft revision CAS, immutable approval/default behavior,
+document theme acknowledgement, visual-check identity binding, append-only
+theme/version/check policies, document-specific delivery, and staging release
+idempotency/generation conflict behavior as well.
+Initialize shared environments only after those checks pass. The baseline
+contains schema DDL only: it creates no users, themes, publications, deployment
+pointers, or other historical rows, and performs no data backfill.
 
 Provision runtime roles with SQL-created roles, not Neon Console-created admin
 roles. Console/API-created Neon roles can inherit elevated privileges; the
@@ -345,6 +441,15 @@ environment token plus environment row. It must not expose workspace, document,
 artifact, publication, authoring-session, or event rows before the token has
 resolved to a workspace.
 
+Those are the historical Phase 1 checks. Current baseline acceptance also
+requires the expanded live scratch workflow to create and resolve release
+operations/document pointers and exercise every narrow owned-auth RLS scope,
+prove expected-generation/session-rotation CAS under competing writers, and
+verify theme draft/version/default and visual-check scopes, append-only approved
+records, and that no new table crosses tenant scope. The verifier code covers
+these new tables locally; isolated branch application and live behavior remain
+pending.
+
 The API depends on that two-step flow:
 
 1. `/v1/sdk/*` receives an environment bearer token and resolves only the token
@@ -359,42 +464,58 @@ Do not add a wider token-lookup policy to documents or artifacts. If SDK lookup
 needs more data later, resolve the token first and then run a normal
 workspace-scoped repository call.
 
-## Clerk Setup
+## Lodariq-Owned Auth Setup and Cutover Gate
 
-Official references:
+The active implementation uses PostgreSQL-backed users, password credentials,
+memberships, opaque auth sessions, purpose-separated verification/reset
+challenges, unified leased outbox delivery, a Resend sender, and auth rate-limit
+buckets. Fastify owns worker start/drain lifecycle. API and BFF independently
+gate signup/recovery, with API delivery capability authoritative. No Clerk
+application, publishable key, secret key, authorized-party configuration,
+provider organization, or provider SDK is required.
 
-- Clerk token verification: https://clerk.com/docs/reference/backend/verify-token
-- Clerk organizations: https://clerk.com/docs/guides/organizations/overview
+Before a staging owned-auth smoke:
 
-Create separate Clerk applications:
+1. Apply `0000_initial_baseline.sql` exactly once to an approved isolated empty
+   Neon database and provision the non-owner runtime role. Do not run the retired
+   development migration chain or a historical backfill.
+2. Run `pnpm rls:verify:live` with the explicit scratch-write acknowledgment.
+3. Set the same strong `LODARIQ_AUTH_BFF_SOURCE_SECRET` in the matching API and
+   dashboard Fly apps.
+4. Keep `LODARIQ_AUTH_MODE=lodariq` in both services. Never use header auth in a
+   deployed environment.
+5. Keep all three capability modes disabled for a migration-only smoke. For the
+   delivery smoke, first verify the Resend domain and configure its secrets,
+   then enable API delivery/signup/recovery and matching dashboard signup/
+   recovery modes together.
+6. Use the code-complete recovery/set-password flow to enroll a reviewed test
+   user; do not mark provider-era users verified or add credentials with an ad
+   hoc shared-environment update.
+7. Verify signup/verification, recovery/reset, ambiguous-email acceptance,
+   expiry/replay, outbox lease/retry/terminal behavior, sign-in/sign-out, cookie
+   expiry/revocation, and workspace create/select with session rotation,
+   cross-workspace denial, and authoring activation that
+   resumes the exact request without changing the dashboard's active workspace.
 
-- `Lodariq Staging`: use test/development keys unless you intentionally need a
-  production Clerk instance for staging.
-- `Lodariq Production`: use live/production keys.
+Production cutover remains blocked until operators have:
 
-Required Clerk configuration:
+- initialized the approved empty Neon target from `0000_initial_baseline.sql`
+  exactly once and passed the expanded live RLS verifier with the non-owner role;
+- verified the Resend domain and configured environment-specific app-origin,
+  from-address, API-key, and token-secret values;
+- enabled API delivery/signup/recovery plus matching dashboard signup/recovery
+  modes and deployed both services together;
+- proved the Fly client-source boundary in deployment, including that only the
+  dashboard can create a valid signed pseudonymous source envelope;
+- completed live verification/reset delivery, expiry/replay, ambiguous-email,
+  outbox retry/terminal, session/workspace, and launcher reset-then-retry smoke
+  coverage; and
+- retained `legacyIdentityId` through an approved rollback window until cutover
+  is stable.
 
-1. Enable Organizations.
-2. Create a staging organization and a production organization for operator
-   smoke tests.
-3. Invite operator users into the organization.
-4. Use roles that map cleanly to Lodariq roles:
-   `owner`, `admin`, `member`, and viewer-like fallback.
-5. Make sure the browser has an active organization before testing the
-   dashboard. The API requires the Clerk token to contain `org_id`.
-6. Configure redirect URLs for each dashboard origin.
-7. Configure allowed origins/authorized parties exactly:
-   - Staging API secret: `CLERK_AUTHORIZED_PARTIES=https://staging-app.lodariq.com`
-   - Production API secret: `CLERK_AUTHORIZED_PARTIES=https://app.lodariq.com`
-
-Phase 1 API auth accepts a bearer token or the `__session` cookie. The dashboard
-uses Clerk's Next.js provider, route protection, sign-in/sign-up pages,
-organization switching, and user menu. The API still makes the final workspace
-authorization decision from the verified token's active `org_id` claim.
-
-If testing through Fly's default hostnames before DNS is ready, temporarily add
-the exact Fly dashboard origin to `CLERK_AUTHORIZED_PARTIES`, then remove it
-after custom domains work.
+The former Clerk setup is intentionally not retained as an active
+procedure. Git history and the Phase 1 historical notes record it; restoring it
+would contradict ADR 0017 and the current dependency boundary.
 
 ## Cloudflare DNS and R2 Setup
 
@@ -409,25 +530,31 @@ Official references:
 
 DNS:
 
-1. Add `lodariq.com` to Cloudflare.
-2. Point registrar nameservers at Cloudflare.
-3. Create or allow Fly to validate records for:
-   - `staging-api.lodariq.com`
-   - `staging-app.lodariq.com`
-   - `staging-editor.lodariq.com`
-   - `api.lodariq.com`
-   - `app.lodariq.com`
-   - `editor.lodariq.com`
-4. Create R2 custom domains:
-   - `staging-cdn.lodariq.com`
-   - `cdn.lodariq.com`
+1. Add both `lodariq.io` and `lodariq.com` to Cloudflare.
+2. Point both domains' registrar nameservers at Cloudflare.
+3. Serve the marketing site at `lodariq.io` and configure permanent redirects:
+   - `www.lodariq.io/*` -> `https://lodariq.io/$1`
+   - `lodariq.com/*` -> `https://lodariq.io/$1`
+   - `www.lodariq.com/*` -> `https://lodariq.io/$1`
+     Preserve the path and query string. Do not configure application sessions,
+     OAuth callbacks, SDK assets, or API routes on the `.com` zone.
+4. Create or allow Fly to validate records for:
+   - `staging-api.lodariq.io`
+   - `staging-app.lodariq.io`
+   - `staging-editor.lodariq.io`
+   - `api.lodariq.io`
+   - `app.lodariq.io`
+   - `editor.lodariq.io`
+5. Create R2 custom domains:
+   - `staging-cdn.lodariq.io`
+   - `cdn.lodariq.io`
 
 R2 buckets:
 
 1. Create `lodariq-assets-staging`.
 2. Create `lodariq-assets-production`.
-3. Connect `staging-cdn.lodariq.com` to the staging bucket.
-4. Connect `cdn.lodariq.com` to the production bucket.
+3. Connect `staging-cdn.lodariq.io` to the staging bucket.
+4. Connect `cdn.lodariq.io` to the production bucket.
 5. Build and stage SDK CDN assets:
 
 ```bash
@@ -455,6 +582,12 @@ comments, records SHA-256 hashes, and marks cache policy hints per file.
    production.
 9. If `r2.dev` is enabled for staging, treat it as temporary and never put that
    URL into production snippets.
+
+`lodariq-creator.js` above records the historical Phase 1 packaging boundary.
+After hosted convergence, authoring code may still be a separate lazy bundle,
+but customers must not install it as a second snippet; the permanent loader owns
+launcher activation after the exact-origin code exchange and document-session
+creation.
 
 R2 API tokens:
 
@@ -511,10 +644,12 @@ Official reference:
 
 - API keys: https://resend.com/docs/dashboard/api-keys/introduction
 
-Resend is not required for Phase 1 runtime paths yet. Prepare it this way:
+The Resend adapter and unified auth-email worker are wired and locally verified;
+the provider/domain/secrets and production flags are not configured. Production
+signup/recovery therefore remain disabled. Prepare the provider this way:
 
 1. Create a Lodariq Resend team.
-2. Add and verify `lodariq.com` or a subdomain such as `mail.lodariq.com`.
+2. Add and verify `lodariq.io` or a subdomain such as `mail.lodariq.io`.
 3. Add DNS records from Resend in Cloudflare.
 4. Create separate API keys:
    - `lodariq-staging`
@@ -523,11 +658,21 @@ Resend is not required for Phase 1 runtime paths yet. Prepare it this way:
 
 ```bash
 RESEND_API_KEY=<resend-key>
-EMAIL_FROM=Lodariq <hello@lodariq.com>
+LODARIQ_APP_BASE_URL=https://<dashboard-origin>
+LODARIQ_AUTH_EMAIL_FROM='Lodariq <access@lodariq.io>'
+LODARIQ_AUTH_EMAIL_TOKEN_SECRET=<random-32-plus-byte-secret>
 ```
 
 Do not send transactional customer mail from staging to real users unless the
 recipient is explicitly allowlisted.
+
+Do not enable delivery/signup/recovery merely because an API key exists. First
+initialize the empty target from `0000_initial_baseline.sql`, pass live RLS,
+verify the domain and sender, set every
+environment-specific secret, and deploy API/dashboard capability flags together.
+Then verify claim/retry/idempotency, redacted errors, expiry/replay, single-use
+links, and operator recovery. Verification/reset secrets belong in URL fragments
+and must not appear in proxy logs or referrers.
 
 ## Stripe Setup
 
@@ -555,45 +700,78 @@ product-level usage aggregation, not runtime analytics noise.
 
 ## Deployment Order
 
+The staging steps below describe the current one-install, owned-auth path. The
+historical dashboard-created second creator snippet and Clerk organization flow
+are not deployment prerequisites.
+
 For a fresh staging environment:
 
 1. Create Fly apps.
 2. Create or choose Neon staging branch.
 3. Run `pnpm migrations:check`.
-4. Apply migrations with the Neon owner URL.
+4. Apply `0000_initial_baseline.sql` exactly once with the Neon owner URL.
 5. Provision `lodariq_app_staging`.
 6. Build and store staging runtime `DATABASE_URL`.
 7. Run `pnpm rls:verify:live` against the staging runtime URL.
-8. Create Clerk staging application and organization.
-9. Set Fly API secrets.
-10. Attach Fly certificates and Cloudflare DNS records.
-11. Deploy editor.
-12. Deploy API.
-13. Deploy dashboard.
-14. Check `/healthz`, `/openapi.json`, and editor `/authoring.html`.
-15. Sign in with a Clerk user that has an active organization.
-16. Mint a staging SDK token from the dashboard.
-17. Install the ordinary SDK snippet in a staging test app and confirm no
-    creator toolbar renders.
-18. Create a short-lived authoring launch snippet, install it in the same
-    staging test app, and confirm the creator toolbar opens the
-    `staging-editor.lodariq.com` iframe.
-19. Save a small document edit from creator mode and confirm the API accepts it
-    only with both the environment bearer token and
-    `x-lodariq-authoring-session` header.
-20. Confirm SDK bootstrap rejects disallowed origins and accepts allowlisted
-    origins.
+8. Set the matching API/dashboard BFF source secret and keep signup/recovery/
+   email delivery disabled.
+9. Confirm the recorded owned-auth consolidated milestone gate is green for the
+   revision being deployed.
+10. Confirm the Slice 2 consolidated milestone gate and same-viewport visual QA
+    are recorded as passing before enabling Brand/staging release capabilities.
+11. Attach Fly certificates and Cloudflare DNS records.
+12. Deploy editor.
+13. Deploy API.
+14. Deploy dashboard.
+15. Check `/healthz`, `/openapi.json`, and editor `/authoring.html`.
+16. Sign in with a reviewed isolated-environment owned-auth test account; verify
+    the HttpOnly cookie, sign-out revocation, and workspace rotation.
+17. Configure the product origin and one permanent SDK installation from the
+    dashboard setup/admin surface.
+18. Open the staging product directly and confirm no Lodariq creator UI appears.
+    Press `Ctrl/⌘ + Shift + L` and confirm the draggable launcher appears; hide
+    it, then use dashboard **Open in product** and confirm that entry reveals it
+    again without a creator snippet or browser extension.
+19. Start the first-party auth popup and verify exact-origin success, cancel,
+    expiry, and replay behavior through the activation grant and subsequent
+    document-scoped short-lived authoring session.
+20. Confirm `New`, `Experiences on this page`, `Preview`, and `Hide Lodariq` are
+    stable; the modeless popup can move away from product controls; and
+    authoring reuses the runtime-rendered overlay.
+21. Confirm the dashboard is not visited during ordinary authoring and that
+    authoring-session creation still has no publication side effect.
+22. Create/edit/approve a test Brand Theme, confirm the first approved version
+    becomes the default, bind/acknowledge it on a Tour, and verify direct and
+    hosted authoring return that exact approved snapshot.
+23. Review the immutable staging artifact, run the guarded publish action, and
+    verify server-derived idempotency replay, stale-generation `409`, append-only
+    release history, and isolation from a second document pointer. Do not treat
+    deterministic basic preflight as real-browser staging verification.
+24. Confirm production bootstrap contains no launcher, activation, creator, or
+    editor metadata and makes zero creator-network requests.
+
+These are required deployed checks, not current evidence. A baseline-only smoke
+keeps public capabilities disabled. An email cutover smoke enables them only
+after the approved baseline initialization, Resend domain/secrets, and coordinated API/
+dashboard configuration are ready; use the recovery/set-password path instead of
+an ad hoc credential update.
 
 For production:
 
 1. Repeat the same flow with production-specific providers, roles, secrets, and
    domains.
 2. Do not copy staging secrets into production.
-3. Apply any production migration only after staging has passed and destructive
-   migration sign-off requirements are satisfied.
+3. Apply `0000_initial_baseline.sql` exactly once to the approved empty production
+   database only after staging has passed. After first shared use, apply only
+   reviewed forward migrations and satisfy destructive-migration sign-off.
 4. Deploy editor first when the hosted iframe asset changed, then API before
    dashboard if API routes or OpenAPI output changed.
 5. Keep the previous Fly release available for rollback.
+
+The legacy `/v1/documents/:documentId/publish` mutation is closed. Use the
+guarded document-scoped staging release route for the smoke above. Production
+remains closed until exact staging browser verification and same-artifact
+production promotion pass capability, idempotency, CAS, and live RLS checks.
 
 ## Verification Commands
 
@@ -610,34 +788,39 @@ Runtime environment shape check with fixture values:
 ```bash
 NODE_ENV=production \
 DATABASE_URL='postgresql://lodariq_app:password@example.com/neondb?sslmode=require' \
-LODARIQ_AUTH_MODE='clerk' \
-CLERK_SECRET_KEY='sk_test_fixture' \
-CLERK_AUTHORIZED_PARTIES='https://app.lodariq.com' \
-LODARIQ_PUBLIC_API_BASE_URL='https://api.lodariq.com' \
-LODARIQ_LOADER_SRC='https://cdn.lodariq.com/sdk/lodariq-loader.js' \
-LODARIQ_CREATOR_LOADER_SRC='https://cdn.lodariq.com/sdk/lodariq-creator.js' \
-LODARIQ_AUTHORING_IFRAME_SRC='https://editor.lodariq.com/authoring.html' \
-LODARIQ_API_BASE_URL='https://api.lodariq.com' \
-NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY='pk_test_fixture' \
+LODARIQ_AUTH_MODE='lodariq' \
+LODARIQ_AUTH_BFF_SOURCE_SECRET='fixture-secret-at-least-32-bytes-long' \
+LODARIQ_EMAIL_DELIVERY_MODE='disabled' \
+LODARIQ_PUBLIC_API_BASE_URL='https://api.lodariq.io' \
+LODARIQ_LOADER_SRC='https://cdn.lodariq.io/sdk/lodariq-loader.js' \
+LODARIQ_PUBLIC_LOADER_SRC='https://cdn.lodariq.io/sdk/lodariq-public-bootstrap.js' \
+LODARIQ_CREATOR_LOADER_SRC='https://cdn.lodariq.io/sdk/lodariq-creator.js' \
+LODARIQ_CREATOR_MODULE_URL='https://cdn.lodariq.io/sdk/sha256-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/creator.js' \
+LODARIQ_CREATOR_MODULE_VERSION='fixture-v1' \
+LODARIQ_CREATOR_MODULE_INTEGRITY='sha256-qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqo=' \
+LODARIQ_AUTHORING_IFRAME_SRC='https://editor.lodariq.io/authoring.html' \
+LODARIQ_API_BASE_URL='https://api.lodariq.io' \
+LODARIQ_PUBLIC_SIGNUP_MODE='disabled' \
+LODARIQ_PASSWORD_RECOVERY_MODE='disabled' \
 pnpm live:check-env
 ```
 
 Staging health checks:
 
 ```bash
-curl -fsS https://staging-api.lodariq.com/healthz
-curl -fsS https://staging-api.lodariq.com/openapi.json
-curl -fsSI https://staging-app.lodariq.com
-curl -fsSI https://staging-editor.lodariq.com/authoring.html
+curl -fsS https://staging-api.lodariq.io/healthz
+curl -fsS https://staging-api.lodariq.io/openapi.json
+curl -fsSI https://staging-app.lodariq.io
+curl -fsSI https://staging-editor.lodariq.io/authoring.html
 ```
 
 Production health checks:
 
 ```bash
-curl -fsS https://api.lodariq.com/healthz
-curl -fsS https://api.lodariq.com/openapi.json
-curl -fsSI https://app.lodariq.com
-curl -fsSI https://editor.lodariq.com/authoring.html
+curl -fsS https://api.lodariq.io/healthz
+curl -fsS https://api.lodariq.io/openapi.json
+curl -fsSI https://app.lodariq.io
+curl -fsSI https://editor.lodariq.io/authoring.html
 ```
 
 ## Promotion and Rollback
@@ -648,7 +831,8 @@ Promotion:
 2. Apply schema changes to staging.
 3. Verify staging RLS.
 4. Deploy staging editor, API, and dashboard.
-5. Run Clerk-authenticated staging smoke checks.
+5. Run owned-auth staging smokes, including cookie/session rotation, workspace
+   isolation, popup resume, and the signed BFF source boundary.
 6. Apply schema changes to production after approval.
 7. Verify production RLS.
 8. Deploy production editor, API, and dashboard.
@@ -657,8 +841,10 @@ Promotion:
 Rollback:
 
 - Application rollback: use Fly releases to roll back the app image.
-- Publication rollback: use immutable publication rows and update the active
-  publication pointer; do not recompile just to roll back.
+- Publication rollback: use the guarded Phase 2 recovery action. It requires an
+  explicit capability, reason, idempotency identity, and expected pointer state;
+  it appends immutable history and atomically reuses a prior artifact without
+  recompiling. Never mutate a pointer manually.
 - Database rollback: do not assume down migrations are safe. For destructive or
   data-changing migrations, restore from Neon point-in-time or branch recovery
   only after explicit review.
@@ -676,13 +862,23 @@ Database runtime role:
    then immediately update Fly `DATABASE_URL`; this can break existing
    connections until machines restart.
 
-Clerk:
+Owned-auth BFF source secret:
 
-1. Create or rotate the key in Clerk.
-2. Set the new API Fly secret.
-3. Deploy/restart API machines.
-4. Confirm authenticated dashboard requests still work.
-5. Remove the old key.
+1. Generate a new random 32+-byte value in the secrets manager.
+2. Update the matching API and dashboard Fly apps as one coordinated change.
+3. Restart/deploy both services; mixed old/new values fail credential requests
+   closed during the rollout.
+4. Confirm sign-in source-rate limiting, authenticated dashboard requests, and
+   authoring-popup resume still work.
+5. Retire the old value after both services are healthy. This rotation does not
+   require changing password hashes or session tokens.
+
+Owned-auth sessions:
+
+1. For a suspected session compromise, revoke affected database-backed sessions
+   by user/session scope through an approved operator path.
+2. Do not rotate a nonexistent global session-signing key: session bearers are
+   opaque and only their hashes are stored.
 
 R2:
 
@@ -700,11 +896,27 @@ Stripe and Resend:
 
 ## Current Phase 1 Gaps
 
-- No separate Fly worker is deployed yet.
+- No separate general-purpose Fly worker is deployed yet. The bounded auth-email
+  outbox worker intentionally starts/drains inside the API lifecycle.
 - Compiled publication artifact upload to R2 is documented but not wired into
   Phase 1 publication code.
-- Sentry, Resend, and Stripe are provider-prep only; they are not required by
-  current `pnpm verify`.
+- Sentry and Stripe are provider-prep only. Resend delivery code is wired and
+  locally verified, but the provider domain/secrets and deployed capability
+  flags remain production auth-cutover blockers.
 - Live authoring launch still needs deployed staging smoke evidence across the
-  editor iframe, API save endpoint, SDK token origin allowlist, and Clerk-backed
-  dashboard flow.
+  editor iframe, API save endpoint, SDK origin allowlist, owned-auth dashboard/
+  popup flow, and production creator-network exclusion.
+- Phase 2 Slice 1 hosted convergence is implemented locally but still needs the
+  deployed evidence above.
+- Phase 2 Slice 2 Brand/staging behavior and its local milestone/visual QA are
+  implemented. The baseline schema, exact-theme direct/hosted authoring,
+  document-specific delivery, deterministic preflight, and guarded staging
+  release still need the isolated/live RLS and browser smokes above. Slice 3
+  Product Match/verification and Slice 4 drift, recovery, unpublish, and
+  analytics isolation are also implemented locally; their deployed convergence
+  and environment-isolation evidence remain open.
+- The Clerk-free owned-auth code milestone passes its consolidated local gate.
+  First-database baseline application, approved Neon/RLS evidence, Resend domain/secrets,
+  coordinated API/dashboard enablement, deployment/live probes, and production
+  cutover remain open. Invitations/member administration remain later product
+  work rather than a hidden credential-cutover claim.

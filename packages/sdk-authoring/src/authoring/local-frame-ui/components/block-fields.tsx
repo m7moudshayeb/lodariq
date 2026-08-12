@@ -1,3 +1,4 @@
+import { authoringText } from '../../../i18n';
 import {
   useEffect,
   useLayoutEffect,
@@ -9,6 +10,7 @@ import {
   type ReactNode,
   type TextareaHTMLAttributes,
 } from 'react';
+import { createPortal } from 'react-dom';
 import type { LodariqBlock } from '@lodariq/schema';
 import type { LocalAuthoringFrameController } from '../controller';
 import {
@@ -28,6 +30,7 @@ import {
 } from '../design-system';
 import {
   EDITABLE_ACTION_OPTIONS,
+  EDITABLE_BUTTON_VARIANT_OPTIONS,
   EDITABLE_BLOCK_FIELD_CONFIG,
   EDITABLE_BLOCK_TYPES,
   STEP_CONTENT_COMMANDS,
@@ -40,6 +43,7 @@ import {
   editableActionValue,
   editableBlockTypeValue,
   isEditableContentBlock,
+  stepContentCommandFromQuery,
 } from '../utils';
 import { COMMAND_DETAILS, InlineStepInsert } from './insert-menu';
 
@@ -63,12 +67,6 @@ type ContentFieldContext = ContentFieldProps & {
 
 type ContentFieldRenderer = (context: ContentFieldContext) => ReactNode;
 
-const STEP_CONTENT_COMMAND_SET = new Set<string>(STEP_CONTENT_COMMANDS);
-
-const STEP_COMMAND_ALIASES: Readonly<Record<string, StepContentCommand>> = {
-  text: 'paragraph',
-};
-
 const COMMAND_NAVIGATION_DIRECTIONS: Readonly<Record<string, number>> = {
   ArrowDown: 1,
   ArrowUp: -1,
@@ -77,13 +75,13 @@ const COMMAND_NAVIGATION_DIRECTIONS: Readonly<Record<string, number>> = {
 const NATIVE_ENTER_BLOCK_TYPES = new Set<string>(['list']);
 
 const STEP_CONTENT_ACTION_LABELS = {
-  heading: 'heading',
-  paragraph: 'text',
-  list: 'list',
-  divider: 'divider',
-  button: 'button',
-  link: 'link',
-  media: 'media',
+  heading: authoringText('heading'),
+  paragraph: authoringText('text'),
+  list: authoringText('list'),
+  divider: authoringText('divider'),
+  button: authoringText('button'),
+  link: authoringText('link'),
+  media: authoringText('media'),
 } as const satisfies Record<EditableBlockTypeValue, string>;
 
 const CONTENT_FIELD_RENDERERS: Readonly<Record<string, ContentFieldRenderer>> = {
@@ -110,11 +108,11 @@ export function BlockBody({
     const tooltip = block.children.find((child) => child.type === 'tooltip');
     const fields = (tooltip?.children ?? []).filter(isEditableContentBlock);
     return (
-      <div className="step-document" aria-label="Step content">
+      <div className="step-document" aria-label={authoringText('Step content')}>
         <InlineStepInsert
           controller={controller}
           index={0}
-          label="Insert content at start of step"
+          label={authoringText('Insert content at start of step')}
           stepBlockId={block.id}
         />
         {fields.map((field, index) => (
@@ -149,18 +147,24 @@ function StepComposer({
   stepBlockId: string;
 }) {
   const [value, setValue] = useState('');
+  const [isPickerOpen, setIsPickerOpen] = useState(false);
+  const [menuPosition, setMenuPosition] = useState<{ left: number; top: number } | null>(null);
   const [activeCommandIndex, setActiveCommandIndex] = useState(0);
   const activeCommandIndexRef = useRef(0);
   const composerRef = useRef<HTMLDivElement | null>(null);
+  const composerInputRef = useRef<HTMLInputElement | null>(null);
   const commandMenuRef = useRef<HTMLDivElement | null>(null);
   const trimmedValue = value.trim();
   const isSlashCommand = trimmedValue.startsWith('/');
   const isPlainText = trimmedValue.length > 0 && !isSlashCommand;
+  const isCommandMenuOpen = trimmedValue.length > 0 || isPickerOpen;
+  const showsCommands = isSlashCommand || (isPickerOpen && !isPlainText);
   const commandQuery = isSlashCommand ? trimmedValue.slice(1).toLowerCase() : '';
-  const filteredCommands = filterStepContentCommands(isSlashCommand, commandQuery);
+  const filteredCommands = filterStepContentCommands(showsCommands, commandQuery);
   const insert = (type: StepContentCommand, content?: string): void => {
     controller.insertStepContent(stepBlockId, type, index, content);
     setValue('');
+    setIsPickerOpen(false);
     setActiveCommandIndexValue(0);
   };
 
@@ -174,39 +178,83 @@ function StepComposer({
   }, [commandQuery, isSlashCommand]);
 
   useEffect(() => {
-    if (trimmedValue.length === 0) return;
+    if (!isCommandMenuOpen) return;
     const ownerDocument = composerRef.current?.ownerDocument ?? document;
     const handlePointerDown = (event: PointerEvent): void => {
       if (composerRef.current?.contains(event.target as Node)) return;
+      if (commandMenuRef.current?.contains(event.target as Node)) return;
       setValue('');
+      setIsPickerOpen(false);
     };
     ownerDocument.addEventListener('pointerdown', handlePointerDown, true);
     return () => ownerDocument.removeEventListener('pointerdown', handlePointerDown, true);
-  }, [trimmedValue.length]);
+  }, [isCommandMenuOpen]);
 
-  useEffect(() => {
-    if (trimmedValue.length === 0) return;
+  useLayoutEffect(() => {
+    if (!isCommandMenuOpen) {
+      setMenuPosition(null);
+      return;
+    }
+    const input = composerInputRef.current;
     const menu = commandMenuRef.current;
-    if (!menu || typeof menu.scrollIntoView !== 'function') return;
-    const frame = menu.ownerDocument.defaultView;
-    frame?.requestAnimationFrame(() => {
-      menu.scrollIntoView({ block: 'nearest', inline: 'nearest' });
-    });
-  }, [trimmedValue.length, filteredCommands.length, isPlainText]);
+    const frame = input?.ownerDocument.defaultView;
+    if (!input || !menu || !frame) return;
+    const positionMenu = (): void => {
+      const inputRect = input.getBoundingClientRect();
+      const menuHeight = menu.getBoundingClientRect().height;
+      const menuWidth = Math.min(236, frame.innerWidth - 16);
+      const left = Math.max(8, Math.min(inputRect.left, frame.innerWidth - menuWidth - 8));
+      const below = inputRect.bottom + 6;
+      const top =
+        below + menuHeight <= frame.innerHeight - 8
+          ? below
+          : Math.max(8, inputRect.top - menuHeight - 6);
+      setMenuPosition({ left, top });
+    };
+    positionMenu();
+    frame.addEventListener('resize', positionMenu);
+    frame.addEventListener('scroll', positionMenu, true);
+    return () => {
+      frame.removeEventListener('resize', positionMenu);
+      frame.removeEventListener('scroll', positionMenu, true);
+    };
+  }, [filteredCommands.length, isCommandMenuOpen, isPlainText]);
 
   return (
-    <div className="step-composer" ref={composerRef}>
-      <span className="step-composer-plus" aria-hidden="true">
+    <div
+      className="step-composer"
+      data-command-menu-open={isCommandMenuOpen ? 'true' : undefined}
+      ref={composerRef}
+    >
+      <button
+        type="button"
+        aria-controls={`step-command-menu-${stepBlockId}`}
+        aria-expanded={isCommandMenuOpen}
+        aria-haspopup="listbox"
+        aria-label={authoringText('Open add content menu')}
+        className="step-composer-plus"
+        onClick={() => {
+          if (isCommandMenuOpen) {
+            setValue('');
+            setIsPickerOpen(false);
+            return;
+          }
+          setIsPickerOpen(true);
+          setActiveCommandIndexValue(0);
+          queueMicrotask(() => composerInputRef.current?.focus());
+        }}
+      >
         <Plus size={15} strokeWidth={2.35} />
-      </span>
+      </button>
       <div className="step-composer-body">
         <input
+          ref={composerInputRef}
           aria-controls={`step-command-menu-${stepBlockId}`}
-          aria-expanded={trimmedValue.length > 0}
-          aria-label="Step composer"
+          aria-expanded={isCommandMenuOpen}
+          aria-label={authoringText('Step composer')}
           aria-haspopup="listbox"
           className="step-composer-input"
-          placeholder="Write inside this step, or type /"
+          placeholder={authoringText('Write inside this step, or type /')}
           value={value}
           onChange={(event) => setValue(event.currentTarget.value)}
           onKeyDown={(event) =>
@@ -214,20 +262,23 @@ function StepComposer({
               activeCommandIndexRef,
               clearComposer: () => {
                 setValue('');
+                setIsPickerOpen(false);
                 setActiveCommandIndexValue(0);
               },
               commands: filteredCommands,
               insert,
-              isSlashCommand,
+              isCommandMenuOpen,
               setActiveCommandIndex: setActiveCommandIndexValue,
             })
           }
         />
-        <div className="step-quick-insert" aria-label="Add content to this step">
+        <div className="step-quick-insert" aria-label={authoringText('Add content to this step')}>
           {STEP_CONTENT_COMMANDS.map((command) => (
             <AuthoringButton
               key={command}
-              aria-label={`Add ${stepQuickInsertLabel(command).toLowerCase()} to this step`}
+              aria-label={authoringText('Add {type} to this step', {
+                type: stepQuickInsertLabel(command).toLowerCase(),
+              })}
               className="step-quick-insert-button"
               data-action="insert-step-content"
               data-block-type={command}
@@ -241,86 +292,97 @@ function StepComposer({
                 if (event.detail !== 0) return;
                 insert(command);
               }}
-              title={`Add ${stepQuickInsertLabel(command).toLowerCase()}`}
+              title={authoringText('Add {type}', {
+                type: stepQuickInsertLabel(command).toLowerCase(),
+              })}
               tone="ghost"
             />
           ))}
         </div>
-        <div
-          ref={commandMenuRef}
-          id={`step-command-menu-${stepBlockId}`}
-          aria-label="Step insert commands"
-          className="step-command-menu"
-          hidden={trimmedValue.length === 0}
-          role="listbox"
-        >
-          <div className="command-menu-header">
-            <span>{isPlainText ? 'Add text' : 'Add content'}</span>
-            <kbd>Add</kbd>
-          </div>
-          {isPlainText ? (
-            <AuthoringButton
-              className="command-item command-item-primary"
-              onPointerDown={(event) => {
-                event.preventDefault();
-                insert('paragraph', trimmedValue);
-              }}
-              onClick={(event) => {
-                if (event.detail !== 0) return;
-                insert('paragraph', trimmedValue);
-              }}
-              role="option"
-            >
-              <span className="command-icon" aria-hidden="true">
-                {COMMAND_DETAILS.paragraph.icon}
-              </span>
-              <span className="command-copy">
-                <strong>Add text</strong>
-                <small>{trimmedValue}</small>
-              </span>
-            </AuthoringButton>
-          ) : null}
-          {isSlashCommand
-            ? filteredCommands.map((command) => {
-                const details = COMMAND_DETAILS[command];
-                const label = blockTypeLabel(command);
-                const active = filteredCommands[activeCommandIndex] === command;
-                return (
+        {isCommandMenuOpen && composerRef.current
+          ? createPortal(
+              <div
+                ref={commandMenuRef}
+                id={`step-command-menu-${stepBlockId}`}
+                aria-label={authoringText('Step insert commands')}
+                className="step-command-menu"
+                role="listbox"
+                style={
+                  menuPosition
+                    ? { left: `${menuPosition.left}px`, top: `${menuPosition.top}px` }
+                    : { left: '-9999px', top: '-9999px' }
+                }
+              >
+                <div className="command-menu-header">
+                  <span>{authoringText(isPlainText ? 'Add text' : 'Add content')}</span>
+                  <kbd>{authoringText('Add')}</kbd>
+                </div>
+                {isPlainText ? (
                   <AuthoringButton
-                    key={command}
-                    aria-selected={active}
-                    className={`command-item ${active ? 'active' : ''}`.trim()}
+                    className="command-item command-item-primary"
                     onPointerDown={(event) => {
                       event.preventDefault();
-                      insert(command);
+                      insert('paragraph', trimmedValue);
                     }}
                     onClick={(event) => {
                       if (event.detail !== 0) return;
-                      insert(command);
+                      insert('paragraph', trimmedValue);
                     }}
-                    onMouseEnter={() =>
-                      setActiveCommandIndexValue(
-                        filteredCommands.findIndex((item) => item === command),
-                      )
-                    }
                     role="option"
                   >
                     <span className="command-icon" aria-hidden="true">
-                      {details.icon}
+                      {COMMAND_DETAILS.paragraph.icon}
                     </span>
                     <span className="command-copy">
-                      <strong>{label}</strong>
-                      <small>{details.description}</small>
+                      <strong>{authoringText('Add text')}</strong>
+                      <small>{trimmedValue}</small>
                     </span>
-                    <span className="command-description">Add</span>
                   </AuthoringButton>
-                );
-              })
-            : null}
-          {isSlashCommand && filteredCommands.length === 0 ? (
-            <div className="command-empty">No matching content</div>
-          ) : null}
-        </div>
+                ) : null}
+                {showsCommands
+                  ? filteredCommands.map((command) => {
+                      const details = COMMAND_DETAILS[command];
+                      const label = blockTypeLabel(command);
+                      const active = filteredCommands[activeCommandIndex] === command;
+                      return (
+                        <AuthoringButton
+                          key={command}
+                          aria-selected={active}
+                          className={`command-item ${active ? 'active' : ''}`.trim()}
+                          onPointerDown={(event) => {
+                            event.preventDefault();
+                            insert(command);
+                          }}
+                          onClick={(event) => {
+                            if (event.detail !== 0) return;
+                            insert(command);
+                          }}
+                          onMouseEnter={() =>
+                            setActiveCommandIndexValue(
+                              filteredCommands.findIndex((item) => item === command),
+                            )
+                          }
+                          role="option"
+                        >
+                          <span className="command-icon" aria-hidden="true">
+                            {details.icon}
+                          </span>
+                          <span className="command-copy">
+                            <strong>{label}</strong>
+                            <small>{details.description}</small>
+                          </span>
+                          <span className="command-description">{authoringText('Add')}</span>
+                        </AuthoringButton>
+                      );
+                    })
+                  : null}
+                {showsCommands && filteredCommands.length === 0 ? (
+                  <div className="command-empty">{authoringText('No matching content')}</div>
+                ) : null}
+              </div>,
+              composerRef.current.ownerDocument.body,
+            )
+          : null}
       </div>
     </div>
   );
@@ -341,14 +403,14 @@ function handleStepComposerKeyDown(
     clearComposer,
     commands,
     insert,
-    isSlashCommand,
+    isCommandMenuOpen,
     setActiveCommandIndex,
   }: {
     activeCommandIndexRef: { current: number };
     clearComposer: () => void;
     commands: readonly StepContentCommand[];
     insert: (type: StepContentCommand, content?: string) => void;
-    isSlashCommand: boolean;
+    isCommandMenuOpen: boolean;
     setActiveCommandIndex: (index: number) => void;
   },
 ): void {
@@ -359,7 +421,7 @@ function handleStepComposerKeyDown(
   }
 
   const navigationDirection = COMMAND_NAVIGATION_DIRECTIONS[event.key];
-  if (isSlashCommand && navigationDirection !== undefined) {
+  if (isCommandMenuOpen && navigationDirection !== undefined) {
     event.preventDefault();
     if (commands.length === 0) return;
     setActiveCommandIndex(
@@ -369,8 +431,14 @@ function handleStepComposerKeyDown(
   }
 
   const currentValue = event.currentTarget.value.trim();
-  if (event.key !== 'Enter' || currentValue === '') return;
+  if (event.key !== 'Enter') return;
   event.preventDefault();
+
+  if (currentValue === '') {
+    const command = commands[activeCommandIndexRef.current] ?? commands[0];
+    if (isCommandMenuOpen && command) insert(command);
+    return;
+  }
 
   if (!currentValue.startsWith('/')) {
     insert('paragraph', currentValue);
@@ -378,40 +446,16 @@ function handleStepComposerKeyDown(
   }
 
   const command =
-    stepCommandFromText(currentValue) ?? commands[activeCommandIndexRef.current] ?? commands[0];
+    stepContentCommandFromQuery(currentValue) ??
+    commands[activeCommandIndexRef.current] ??
+    commands[0];
   if (command) insert(command);
-}
-
-function stepCommandFromText(value: string): StepContentCommand | null {
-  const normalized = value.replace(/^\//, '').trim().toLowerCase();
-  return STEP_COMMAND_ALIASES[normalized] ?? stepContentCommandValue(normalized);
-}
-
-function stepCommandFromQuery(value: string): StepContentCommand | null {
-  const normalized = value.replace(/^\//, '').trim().toLowerCase();
-  if (!normalized) return null;
-  const exactCommand = stepCommandFromText(value);
-  if (exactCommand) return exactCommand;
-  const aliasCommand = stepAliasCommandFromQuery(normalized);
-  if (aliasCommand) return aliasCommand;
-  return STEP_CONTENT_COMMANDS.find((command) => stepCommandMatchesQuery(command, normalized)) ?? null;
-}
-
-function stepContentCommandValue(value: string): StepContentCommand | null {
-  return STEP_CONTENT_COMMAND_SET.has(value) ? (value as StepContentCommand) : null;
-}
-
-function stepAliasCommandFromQuery(query: string): StepContentCommand | null {
-  const match = Object.entries(STEP_COMMAND_ALIASES).find(([alias]) => alias.startsWith(query));
-  return match?.[1] ?? null;
 }
 
 function stepCommandMatchesQuery(command: StepContentCommand, query: string): boolean {
   const details = COMMAND_DETAILS[command];
   const label = blockTypeLabel(command);
-  return [command, label, details.description].some((item) =>
-    item.toLowerCase().includes(query),
-  );
+  return [command, label, details.description].some((item) => item.toLowerCase().includes(query));
 }
 
 function stepQuickInsertLabel(command: StepContentCommand): string {
@@ -419,13 +463,13 @@ function stepQuickInsertLabel(command: StepContentCommand): string {
 }
 
 const STEP_QUICK_INSERT_LABELS = {
-  heading: 'Title',
-  paragraph: 'Text',
-  list: 'List',
-  divider: 'Divider',
-  button: 'Button',
-  link: 'Link',
-  media: 'Media',
+  heading: authoringText('Title'),
+  paragraph: authoringText('Text'),
+  list: authoringText('List'),
+  divider: authoringText('Divider'),
+  button: authoringText('Button'),
+  link: authoringText('Link'),
+  media: authoringText('Media'),
 } as const satisfies Record<StepContentCommand, string>;
 
 function StepChildBlock({
@@ -455,7 +499,7 @@ function StepChildBlock({
       data-drop-position={dropPosition ?? undefined}
       data-step-block-id={stepBlockId}
       tabIndex={0}
-      aria-label={`${blockTypeLabel(block.type)} content`}
+      aria-label={authoringText('{type} content', { type: blockTypeLabel(block.type) })}
       aria-keyshortcuts="Control+D Meta+D Delete Backspace Alt+ArrowUp Alt+ArrowDown"
       onDragOver={(event) => controller.handleStepContentDragOver(event, stepBlockId, block.id)}
       onDrop={(event) => controller.handleStepContentDrop(event, stepBlockId, block.id)}
@@ -485,7 +529,9 @@ function StepChildBlock({
       <InlineStepInsert
         controller={controller}
         index={index + 1}
-        label={index + 1 >= total ? 'Insert content at end of step' : 'Insert content after this'}
+        label={authoringText(
+          index + 1 >= total ? 'Insert content at end of step' : 'Insert content after this',
+        )}
         stepBlockId={stepBlockId}
       />
     </div>
@@ -507,12 +553,12 @@ function StepChildDragHandle({
   };
   return (
     <button
-      aria-label={`Drag ${label}`}
+      aria-label={authoringText('Drag {type}', { type: label })}
       className="step-child-drag-handle"
       draggable
       onDragEnd={() => controller.endDraggingStepContent()}
       onDragStart={startDrag}
-      title="Drag to reorder"
+      title={authoringText('Drag to reorder')}
       type="button"
     >
       <GripVertical size={14} strokeWidth={2.1} />
@@ -533,28 +579,30 @@ function StepChildInlineActions({
   return (
     <div
       className="step-child-inline-actions"
-      aria-label={`${blockTypeLabel(block.type)} quick actions`}
+      aria-label={authoringText('{type} quick actions', {
+        type: blockTypeLabel(block.type),
+      })}
     >
       <AuthoringButton
-        aria-label={`Duplicate ${label}`}
+        aria-label={authoringText('Duplicate {type}', { type: label })}
         className="step-child-inline-action"
         data-action="duplicate-step-content"
         data-block-id={block.id}
         data-step-block-id={stepBlockId}
         icon={<Copy size={13} strokeWidth={2.25} />}
         onClick={() => controller.duplicateStepContentBlock(stepBlockId, block.id)}
-        title="Duplicate"
+        title={authoringText('Duplicate')}
         tone="ghost"
       />
       <AuthoringButton
-        aria-label={`Delete ${label}`}
+        aria-label={authoringText('Delete {type}', { type: label })}
         className="step-child-inline-action step-child-inline-action-danger"
         data-action="delete-step-content"
         data-block-id={block.id}
         data-step-block-id={stepBlockId}
         icon={<Trash2 size={13} strokeWidth={2.25} />}
         onClick={() => controller.deleteStepContentBlock(stepBlockId, block.id)}
-        title="Delete"
+        title={authoringText('Delete')}
         tone="ghost"
       />
     </div>
@@ -563,7 +611,7 @@ function StepChildInlineActions({
 
 function stepContentActionLabel(type: LodariqBlock['type']): string {
   const editableType = editableBlockTypeValue(type);
-  return editableType ? STEP_CONTENT_ACTION_LABELS[editableType] : 'content';
+  return editableType ? STEP_CONTENT_ACTION_LABELS[editableType] : authoringText('content');
 }
 
 function StepChildActionMenu({
@@ -586,14 +634,18 @@ function StepChildActionMenu({
     <AuthoringPopover
       align="end"
       content={
-        <div className="step-child-menu" role="menu" aria-label={`${label} move and format`}>
+        <div
+          className="step-child-menu"
+          role="menu"
+          aria-label={authoringText('{type} move and format', { type: label })}
+        >
           <div className="step-child-menu-header">
             <span>{label}</span>
-            <strong>Move and format</strong>
+            <strong>{authoringText('Move and format')}</strong>
           </div>
           <div className="step-child-menu-section">
             <AuthoringButton
-              aria-label="Move content up"
+              aria-label={authoringText('Move content up')}
               className="step-child-menu-item"
               data-action="move-step-content"
               data-block-id={block.id}
@@ -605,10 +657,10 @@ function StepChildActionMenu({
               }
               role="menuitem"
             >
-              Move up
+              {authoringText('Move up')}
             </AuthoringButton>
             <AuthoringButton
-              aria-label="Move content down"
+              aria-label={authoringText('Move content down')}
               className="step-child-menu-item"
               data-action="move-step-content"
               data-block-id={block.id}
@@ -620,18 +672,20 @@ function StepChildActionMenu({
               }
               role="menuitem"
             >
-              Move down
+              {authoringText('Move down')}
             </AuthoringButton>
           </div>
           <div className="step-child-menu-section step-child-menu-transform">
-            <span className="step-child-menu-label">Format as</span>
+            <span className="step-child-menu-label">{authoringText('Format as')}</span>
             {transformTypes.map((type) => {
               const active = block.type === type;
               return (
                 <AuthoringButton
                   key={type}
                   aria-current={active ? 'true' : undefined}
-                  aria-label={`Turn content into ${blockTypeLabel(type).toLowerCase()}`}
+                  aria-label={authoringText('Turn content into {type}', {
+                    type: blockTypeLabel(type).toLowerCase(),
+                  })}
                   className={`step-child-menu-item ${active ? 'active' : ''}`.trim()}
                   data-action="transform-block"
                   data-block-id={block.id}
@@ -656,10 +710,10 @@ function StepChildActionMenu({
       open={open}
       trigger={
         <AuthoringButton
-          aria-label={`${label} move and format`}
+          aria-label={authoringText('{type} move and format', { type: label })}
           className="step-child-menu-trigger"
           icon={<MoreHorizontal size={15} strokeWidth={2.2} />}
-          title="Move and format"
+          title={authoringText('Move and format')}
           tone="ghost"
         />
       }
@@ -702,7 +756,7 @@ function renderMediaField(context: ContentFieldContext): ReactNode {
         placeholder={fieldConfig.placeholder}
         onKeyDown={contentFieldKeyDownHandler(context)}
       />
-      <span className="media-placeholder-state">Add media later</span>
+      <span className="media-placeholder-state">{authoringText('Add media later')}</span>
     </label>
   );
 }
@@ -712,7 +766,36 @@ function renderButtonField(context: ContentFieldContext): ReactNode {
   return (
     <div className={`button-field-shell ${fieldStateClass(Boolean(block.props.action?.type))}`}>
       {renderSingleLineField(context, 'button-label-field', 'block-input-button')}
-      <ButtonActionControl block={block} controller={controller} />
+      <div className="button-config-row">
+        <ButtonStyleControl block={block} controller={controller} />
+        <ButtonActionControl block={block} controller={controller} />
+      </div>
+    </div>
+  );
+}
+
+function ButtonStyleControl({
+  block,
+  controller,
+}: {
+  block: LodariqBlock;
+  controller: LocalAuthoringFrameController;
+}) {
+  const variant = block.props.variant ?? 'primary';
+  return (
+    <div className="cta-panel button-style-control">
+      <span className="cta-panel-label">{authoringText('Style')}</span>
+      <AuthoringSelect
+        ariaLabel={authoringText('Button style')}
+        dataAction="set-button-style"
+        dataBlockId={block.id}
+        onValueChange={(value) => {
+          const next = EDITABLE_BUTTON_VARIANT_OPTIONS.find((option) => option.value === value);
+          if (next) controller.setButtonVariant(block.id, next.value);
+        }}
+        options={EDITABLE_BUTTON_VARIANT_OPTIONS}
+        value={variant}
+      />
     </div>
   );
 }
@@ -844,7 +927,9 @@ function handleStepContentFieldKeyDown(
     !event.metaKey
   ) {
     const currentValue = event.currentTarget.value.trim();
-    const inlineCommand = currentValue.startsWith('/') ? stepCommandFromQuery(currentValue) : null;
+    const inlineCommand = currentValue.startsWith('/')
+      ? stepContentCommandFromQuery(currentValue)
+      : null;
     if (inlineCommand) {
       event.preventDefault();
       controller.applyStepContentCommand(stepBlockId, blockId, inlineCommand);
@@ -894,16 +979,18 @@ function ButtonActionControl({
       <span className="cta-panel-icon" aria-hidden="true">
         <MousePointer2 size={14} strokeWidth={2.2} />
       </span>
-      <span className="cta-panel-label">Then</span>
+      <span className="cta-panel-label">{authoringText('Then')}</span>
       <AuthoringSelect
-        ariaLabel="After click"
+        ariaLabel={authoringText('After click')}
         dataAction="set-action"
         dataBlockId={block.id}
         onValueChange={(value) => handleButtonActionChange(value, block, controller)}
         options={EDITABLE_ACTION_OPTIONS}
         value={action}
       />
-      {showsActionUrlField(action) ? <ActionUrlField block={block} controller={controller} /> : null}
+      {showsActionUrlField(action) ? (
+        <ActionUrlField block={block} controller={controller} />
+      ) : null}
     </div>
   );
 }
@@ -924,8 +1011,8 @@ function fieldConfigForBlockType(type: LodariqBlock['type']): FieldConfig {
 }
 
 const FALLBACK_FIELD_CONFIG = {
-  fieldLabel: 'Body text',
-  placeholder: 'Write supporting copy',
+  fieldLabel: authoringText('Body text'),
+  placeholder: authoringText('Write supporting copy'),
 } as const satisfies { fieldLabel: string; placeholder: string };
 
 function ActionUrlField({
@@ -938,14 +1025,14 @@ function ActionUrlField({
   const value = actionUrlValue(block);
   return (
     <label className="content-field action-url-field">
-      <span className="field-label">Page URL</span>
+      <span className="field-label">{authoringText('Page URL')}</span>
       <SyncedInput
         className="block-input block-input-url"
         data-action="edit-action-url"
         data-block-id={block.id}
-        aria-label="Page URL"
+        aria-label={authoringText('Page URL')}
         committedValue={value}
-        placeholder="/settings"
+        placeholder={authoringText('/settings')}
         onKeyDown={(event) => handleActionUrlKeyDown(event, block, controller)}
       />
     </label>
@@ -1023,7 +1110,7 @@ export function TransformControl({
   if (!isEditableContentBlock(block)) return null;
   return (
     <AuthoringSelect
-      ariaLabel="Change content format"
+      ariaLabel={authoringText('Change content format')}
       dataAction="transform-block"
       dataBlockId={block.id}
       onValueChange={(value) => handleTransformChange(value, block, controller)}

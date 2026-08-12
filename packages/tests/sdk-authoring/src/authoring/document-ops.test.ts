@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import type { LodariqBlock } from '@lodariq/schema';
+import type { InlineTextRun, LodariqBlock } from '@lodariq/schema';
 import {
+  applyInlineTextStyle,
   attachTargetToBlocks,
   blocksReferenceTarget,
   createContentBlock,
@@ -12,6 +13,7 @@ import {
   moveStepChildBlock,
   moveTopLevelBlock,
   normalizeTourRootBlocks,
+  reconcileInlineTextRuns,
   renumberTourSteps,
   removeStepChildBlock,
   removeTargetFromBlocks,
@@ -19,8 +21,16 @@ import {
   reorderTopLevelBlock,
   setBlockAction,
   setBlockActionUrl,
+  setBlockLayout,
+  setBlockPresentationAnchor,
+  setButtonStyle,
+  setTooltipLayout,
+  setTooltipStyle,
+  splitInlineTextRuns,
   transformBlocks,
   updateBlockContent,
+  updateBlockContentRuns,
+  mergeInlineTextRuns,
 } from '@lodariq/sdk-authoring';
 
 const blocks: LodariqBlock[] = [
@@ -78,6 +88,169 @@ describe('authoring document ops', () => {
     expect(
       renumberTourSteps([step, { ...step, id: 'step_2' }]).map((block) => block.props),
     ).toEqual([{ index: 0 }, { index: 1 }]);
+  });
+
+  it('styles selected text ranges without converting content to HTML or Markdown', () => {
+    const content = 'Your trial ends in 3 days.';
+    const start = content.indexOf('3 days');
+    const contentRuns = applyInlineTextStyle(content, undefined, start, start + 6, {
+      mark: 'bold',
+      fontSizePx: 24,
+      color: '#006b58',
+      highlightColor: '#fff0a8',
+      link: '/billing',
+    });
+    const withRuns = updateBlockContentRuns(blocks, 'copy_1', content, contentRuns);
+    const paragraph = withRuns[0]?.children[0]?.children[0];
+
+    expect(paragraph?.content).toBe(content);
+    expect(paragraph?.contentRuns).toEqual([
+      { text: 'Your trial ends in ' },
+      {
+        text: '3 days',
+        marks: ['bold'],
+        fontSizePx: 24,
+        color: '#006b58',
+        highlightColor: '#fff0a8',
+        link: '/billing',
+      },
+      { text: '.' },
+    ]);
+    expect(JSON.stringify(paragraph)).not.toContain('<');
+    expect(JSON.stringify(paragraph)).not.toContain('style=');
+    expect(applyInlineTextStyle(content, contentRuns, start, start + 6, { clear: true })).toEqual([
+      { text: content },
+    ]);
+
+    const plainUpdate = updateBlockContent(withRuns, 'copy_1', 'Plain text');
+    expect(plainUpdate[0]?.children[0]?.children[0]?.contentRuns).toBeUndefined();
+  });
+
+  it('preserves nearby inline styling while rich text continues to change', () => {
+    const runs: InlineTextRun[] = [
+      { text: 'Your trial ends in ' },
+      { text: '3 days', marks: ['bold'], color: '#006b58' },
+      { text: '.' },
+    ];
+
+    expect(
+      reconcileInlineTextRuns('Your trial ends in 3 days.', runs, 'Your trial ends in 30 days.'),
+    ).toEqual([
+      { text: 'Your trial ends in ' },
+      { text: '30 days', marks: ['bold'], color: '#006b58' },
+      { text: '.' },
+    ]);
+    expect(
+      reconcileInlineTextRuns('Your trial ends in 3 days.', runs, 'Your trial ends today.'),
+    ).toEqual([{ text: 'Your trial ends today.' }]);
+  });
+
+  it('preserves inline styling when rich text lines split and merge', () => {
+    const content = 'Before styled after';
+    const runs: InlineTextRun[] = [
+      { text: 'Before ' },
+      { text: 'styled', fontSizePx: 24, color: '#006b58' },
+      { text: ' after' },
+    ];
+
+    expect(splitInlineTextRuns(content, runs, 13)).toEqual({
+      before: [{ text: 'Before ' }, { text: 'styled', fontSizePx: 24, color: '#006b58' }],
+      after: [{ text: ' after' }],
+    });
+    expect(mergeInlineTextRuns('Before styled', runs.slice(0, 2), ' after', runs.slice(2))).toEqual(
+      runs,
+    );
+  });
+
+  it('applies safe flow, action, and popup composition properties', () => {
+    const step = createTourStep(0);
+    const tooltip = step.children[0]!;
+    const button = tooltip.children.find((block) => block.type === 'button')!;
+    let next = setBlockLayout([step], button.id, {
+      align: 'center',
+      spacingBefore: 'relaxed',
+      spacingAfter: 'tight',
+      spacingAfterPx: 18,
+    });
+    next = setButtonStyle(next, button.id, {
+      width: 'fill',
+      size: 'compact',
+      fillColor: '#ffffff',
+      textColor: '#006b58',
+      borderColor: '#006b58',
+      radius: 'round',
+      icon: 'arrow-right',
+      iconPlacement: 'end',
+    });
+    next = setTooltipLayout(next, tooltip.id, {
+      contentAlign: 'center',
+      actionLayout: 'stack',
+      actionAlign: 'stretch',
+      gap: 'relaxed',
+      padding: 'compact',
+    });
+    next = setTooltipStyle(next, tooltip.id, {
+      surfaceColor: '#162033',
+      textColor: '#ffffff',
+      borderColor: '#006b58',
+      borderWeight: 'strong',
+      elevation: 'floating',
+    });
+
+    const nextTooltip = next[0]!.children[0]!;
+    const nextButton = nextTooltip.children.find((block) => block.id === button.id)!;
+    expect(nextTooltip.props.tooltipLayout).toEqual({
+      contentAlign: 'center',
+      actionLayout: 'stack',
+      actionAlign: 'stretch',
+      gap: 'relaxed',
+      padding: 'compact',
+    });
+    expect(nextTooltip.props.tooltipStyle).toEqual({
+      surfaceColor: '#162033',
+      textColor: '#ffffff',
+      borderColor: '#006b58',
+      borderWeight: 'strong',
+      elevation: 'floating',
+    });
+    expect(nextButton.props.blockLayout).toEqual({
+      align: 'center',
+      spacingBefore: 'relaxed',
+      spacingAfter: 'tight',
+      spacingAfterPx: 18,
+    });
+    expect(nextButton.props.buttonStyle).toMatchObject({
+      width: 'fill',
+      fillColor: '#ffffff',
+      icon: 'arrow-right',
+    });
+    expect(step.children[0]?.props.tooltipLayout).toBeUndefined();
+    expect(step.children[0]?.props.tooltipStyle).toBeUndefined();
+    expect(setTooltipStyle(next, tooltip.id)[0]?.children[0]?.props.tooltipStyle).toBeUndefined();
+  });
+
+  it('sets and clears normalized presentation geometry on the target-bearing block', () => {
+    const withTarget = structuredClone(blocks);
+    withTarget[0]!.children[0]!.props.targetId = 'target_1';
+
+    const exact = setBlockPresentationAnchor(withTarget, 'tooltip_1', {
+      kind: 'region',
+      xRatio: 0.2,
+      yRatio: 0.25,
+      widthRatio: 0.4,
+      heightRatio: 0.5,
+    });
+    const wholeElement = setBlockPresentationAnchor(exact, 'tooltip_1');
+
+    expect(exact[0]?.children[0]?.props.presentationAnchor).toEqual({
+      kind: 'region',
+      xRatio: 0.2,
+      yRatio: 0.25,
+      widthRatio: 0.4,
+      heightRatio: 0.5,
+    });
+    expect(wholeElement[0]?.children[0]?.props.presentationAnchor).toBeUndefined();
+    expect(withTarget[0]?.children[0]?.props.presentationAnchor).toBeUndefined();
   });
 
   it('finds nested blocks and transforms block types', () => {
@@ -161,7 +334,10 @@ describe('authoring document ops', () => {
     expect(link).toMatchObject({
       type: 'link',
       content: 'Learn more',
-      props: { action: { type: 'openPage' } },
+      props: {
+        variant: 'link',
+        action: { type: 'openPage', navigationBehavior: 'continue' },
+      },
       status: 'incomplete',
     });
   });
@@ -173,12 +349,34 @@ describe('authoring document ops', () => {
     expect(transformed[1]).toMatchObject({
       type: 'link',
       status: 'incomplete',
-      props: { action: { type: 'openPage' } },
+      props: { action: { type: 'openPage', navigationBehavior: 'continue' } },
     });
     expect(withUrl[1]).toMatchObject({
       type: 'link',
       status: 'ready',
-      props: { action: { type: 'openPage', url: '/settings' } },
+      props: {
+        action: {
+          type: 'openPage',
+          url: '/settings',
+          navigationBehavior: 'continue',
+        },
+      },
+    });
+  });
+
+  it('preserves navigation behavior while changing an open-page destination', () => {
+    const transformed = transformBlocks(blocks, 'copy_2', 'link');
+    const configured = setBlockAction(transformed, 'copy_2', {
+      type: 'openPage',
+      url: '/settings',
+      navigationBehavior: 'continue',
+    });
+    const changed = setBlockActionUrl(configured, 'copy_2', '/projects');
+
+    expect(changed[1]?.props.action).toEqual({
+      type: 'openPage',
+      url: '/projects',
+      navigationBehavior: 'continue',
     });
   });
 
@@ -189,7 +387,13 @@ describe('authoring document ops', () => {
     expect(withHttpUrl[1]).toMatchObject({
       type: 'link',
       status: 'invalid',
-      props: { action: { type: 'openPage', url: 'http://example.com/settings' } },
+      props: {
+        action: {
+          type: 'openPage',
+          url: 'http://example.com/settings',
+          navigationBehavior: 'continue',
+        },
+      },
     });
   });
 
@@ -222,9 +426,7 @@ describe('authoring document ops', () => {
       ? reorderStepChildBlock(moved, 'step_1', 'copy_1', 'copy_nested', 'after')
       : null;
     const duplicated = moved ? duplicateStepChildBlock(moved, 'step_1', 'copy_nested') : null;
-    const removed = duplicated
-      ? removeStepChildBlock(duplicated, 'step_1', 'button_nested')
-      : null;
+    const removed = duplicated ? removeStepChildBlock(duplicated, 'step_1', 'button_nested') : null;
     const children = moved?.[0]?.children[0]?.children ?? [];
     const reorderedChildren = reordered?.[0]?.children[0]?.children ?? [];
     const duplicatedChildren = duplicated?.[0]?.children[0]?.children ?? [];
@@ -291,9 +493,28 @@ describe('authoring document ops', () => {
     });
   });
 
+  it('drops exact-area geometry when replacing a tour step target', () => {
+    const withTarget = attachTargetToBlocks(blocks, 'step_1', 'target_1', 'New project');
+    const withExactArea = setBlockPresentationAnchor(withTarget, 'tooltip_1', {
+      kind: 'point',
+      xRatio: 0.4,
+      yRatio: 0.6,
+    });
+    const replaced = attachTargetToBlocks(withExactArea, 'step_1', 'target_1', 'Updated project', {
+      resetPresentationAnchor: true,
+    });
+
+    expect(replaced[0]?.children[0]?.props.presentationAnchor).toBeUndefined();
+  });
+
   it('removes target chips and marks tour steps incomplete without deleting content', () => {
     const withTarget = attachTargetToBlocks(blocks, 'step_1', 'target_1', 'New project');
-    const next = removeTargetFromBlocks(withTarget, 'step_1', 'target_1');
+    const withExactArea = setBlockPresentationAnchor(withTarget, 'tooltip_1', {
+      kind: 'point',
+      xRatio: 0.4,
+      yRatio: 0.6,
+    });
+    const next = removeTargetFromBlocks(withExactArea, 'step_1', 'target_1');
     const step = next[0];
     const tooltip = step?.children[0];
 
@@ -302,7 +523,7 @@ describe('authoring document ops', () => {
     expect(tooltip?.children).toEqual([
       { id: 'copy_1', type: 'paragraph', content: 'Hello', props: {}, children: [] },
     ]);
-    expect(blocksReferenceTarget(withTarget, 'target_1')).toBe(true);
+    expect(blocksReferenceTarget(withExactArea, 'target_1')).toBe(true);
     expect(blocksReferenceTarget(next, 'target_1')).toBe(false);
     expect(blocks[0]?.children[0]?.props).toEqual({});
   });

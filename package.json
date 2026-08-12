@@ -14,10 +14,16 @@
     "dev": "turbo run dev",
     "typecheck": "turbo run typecheck",
     "lint": "turbo run lint",
-    "test": "turbo run test",
-    "test:e2e": "playwright test",
+    "test": "pnpm run i18n:compile && turbo run test",
+    "test:e2e": "pnpm run i18n:compile && pnpm run e2e:prepare && playwright test",
     "size": "turbo run size",
-    "boundaries": "depcruise --config .dependency-cruiser.cjs packages apps",
+    "boundaries": "pnpm run i18n:compile && depcruise --config .dependency-cruiser.cjs packages apps",
+    "architecture:check": "node scripts/check-architecture.mjs",
+    "i18n:compile": "pnpm --filter @lodariq/dashboard i18n:compile",
+    "e2e:prepare": "turbo run build --filter=@lodariq/api^... --filter=@lodariq/dashboard^... --filter=@lodariq/fixture-host^... --filter=@lodariq/customer-like-host^...",
+    "i18n:check": "pnpm --filter @lodariq/dashboard i18n:check && node scripts/check-localization-catalogs.mjs",
+    "knip:check": "pnpm run i18n:compile && knip --dependencies",
+    "styles:check": "stylelint \"apps/**/src/**/*.css\" \"packages/sdk-authoring/src/authoring/local-frame-ui/styles/*.ts\"",
     "migrations:check": "pnpm --filter @lodariq/database check:migrations",
     "db:provision:runtime-role": "pnpm --filter @lodariq/database provision:runtime-role",
     "rls:verify:live": "pnpm --filter @lodariq/database verify:live-rls",
@@ -37,15 +43,19 @@
     "audit:security": "pnpm audit",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "verify": "pnpm run typecheck && pnpm run lint && pnpm run boundaries && pnpm run migrations:check && pnpm run test && pnpm run build && pnpm run size && pnpm sdk:prepare-assets && pnpm run test:e2e && pnpm run audit:security"
+    "verify": "pnpm run i18n:check && pnpm run typecheck && pnpm run lint && pnpm run boundaries && pnpm run architecture:check && pnpm run knip:check && pnpm run styles:check && pnpm run migrations:check && pnpm run test && pnpm run build && pnpm run size && pnpm sdk:prepare-assets && pnpm run test:e2e && pnpm run audit:security"
   },
   "devDependencies": {
     "@eslint/js": "^9.17.0",
+    "@axe-core/playwright": "^4.11.0",
     "@playwright/test": "^1.61.1",
     "@types/node": "^24.0.0",
     "dependency-cruiser": "^16.8.0",
     "eslint": "^9.17.0",
+    "knip": "^6.32.1",
+    "postcss-styled-syntax": "^0.7.2",
     "prettier": "^3.4.2",
+    "stylelint": "^17.14.1",
     "turbo": "^2.3.3",
     "typescript": "^5.7.2",
     "typescript-eslint": "^8.19.0",
@@ -53,8 +63,13 @@
   },
   "pnpm": {
     "overrides": {
+      "brace-expansion@<1.1.18": "1.1.18",
+      "brace-expansion@>=4.0.0 <5.0.9": "5.0.9",
       "bundle-require>esbuild": "0.28.1",
-      "next>postcss": "8.5.15",
+      "fast-uri@>=3.0.0 <3.1.5": "3.1.5",
+      "find-my-way@<=9.6.0": "9.7.0",
+      "next>postcss": "8.5.25",
+      "postcss@<=8.5.22": "8.5.25",
       "tsup>esbuild": "0.28.1"
     }
   }

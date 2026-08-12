@@ -8,69 +8,100 @@ import {
   EDITABLE_ACTION_OPTIONS,
   EDITABLE_BLOCK_TYPES,
   SLASH_COMMANDS,
+  STEP_CONTENT_COMMANDS,
   type DocumentTarget,
   type EditableActionType,
   type EditableBlockTypeValue,
   type SlashCommand,
+  type StepContentCommand,
   type TargetInspectionState,
 } from './types';
+import { authoringText } from '../../i18n';
 
 const EDITABLE_BLOCK_TYPE_SET = new Set<string>(EDITABLE_BLOCK_TYPES);
+const STEP_CONTENT_COMMAND_SET = new Set<string>(STEP_CONTENT_COMMANDS);
+const STEP_COMMAND_ALIASES: Readonly<Record<string, StepContentCommand>> = {
+  text: 'paragraph',
+  title: 'heading',
+};
 const SLASH_COMMAND_LABELS = Object.fromEntries(
   SLASH_COMMANDS.map((command) => [command.value, command.label]),
 ) as Readonly<Record<SlashCommand, string>>;
 
-const PROPERTY_CHIP_FACTORIES: Readonly<
-  Record<string, (block: LodariqBlock) => string | null>
-> = {
+const PROPERTY_CHIP_FACTORIES: Readonly<Record<string, (block: LodariqBlock) => string | null>> = {
   index: (block: LodariqBlock) =>
-    typeof block.props.index === 'number' ? `Step ${block.props.index + 1}` : null,
+    typeof block.props.index === 'number'
+      ? authoringText('Step {number}', { number: block.props.index + 1 })
+      : null,
   level: (block: LodariqBlock) =>
-    block.props.level ? `Heading level ${block.props.level}` : null,
+    block.props.level ? authoringText('Heading level {level}', { level: block.props.level }) : null,
   placement: (block: LodariqBlock) =>
-    block.props.placement ? `Placement: ${block.props.placement}` : null,
+    block.props.placement
+      ? authoringText('Placement: {placement}', { placement: block.props.placement })
+      : null,
   variant: (block: LodariqBlock) =>
-    block.props.variant ? `${capitalize(block.props.variant)} button` : null,
+    block.props.variant
+      ? authoringText('{variant} button', { variant: capitalize(block.props.variant) })
+      : null,
 };
 
 const ACTION_CHIP_LABELS: Readonly<Record<string, string>> = {
-  next: 'Goes to next step',
-  back: 'Goes to previous step',
-  complete: 'Completes tour',
-  dismiss: 'Closes experience',
-  clickTarget: 'Waits for placement',
-  openPage: 'Opens page',
+  next: authoringText('Goes to next step'),
+  back: authoringText('Goes to previous step'),
+  complete: authoringText('Completes tour'),
+  dismiss: authoringText('Closes experience'),
+  clickTarget: authoringText('Clicks target'),
+  openPage: authoringText('Opens page'),
 };
 
 const MISSING_ACTION_CHIP_LABELS: Readonly<Record<string, string>> = {
-  button: 'Choose next action',
-  link: 'Choose next action',
+  button: authoringText('Choose next action'),
+  link: authoringText('Choose next action'),
 };
 
 const STATIC_BLOCK_CHIP_LABELS: Readonly<Record<string, string>> = {
-  media: 'Add media later',
+  media: authoringText('Add media later'),
 };
 
 const RESOLUTION_METHOD_LABELS: Readonly<Record<string, string>> = {
-  lodariq_id: 'Uses Lodariq marker',
-  stable_attribute: 'Uses stable page marker',
-  role_and_name: 'Uses page label',
-  label: 'Uses label',
-  ancestor_landmark: 'Uses page area',
-  relative_position: 'Uses nearby position',
-  scoped_css: 'Uses support rule',
+  lodariq_id: authoringText('Uses Lodariq marker'),
+  stable_attribute: authoringText('Uses stable page marker'),
+  role_and_name: authoringText('Uses page label'),
+  label: authoringText('Uses label'),
+  ancestor_landmark: authoringText('Uses page area'),
+  relative_position: authoringText('Uses nearby position'),
+  scoped_css: authoringText('Uses support rule'),
+  registry_contract: authoringText('Uses an app-provided target contract'),
+  configured_attribute: authoringText('Uses existing page attributes'),
+  semantic_attribute: authoringText('Uses semantic element attributes'),
+  element_semantics: authoringText('Uses the element type and role'),
+  ancestor_context: authoringText('Uses the surrounding page region'),
+  relationship_context: authoringText('Uses nearby structural relationships'),
+  visual_topology: authoringText('Uses normalized rendered layout'),
+  localized_text: authoringText('Uses text from the current locale'),
 };
 
-const DEFAULT_RESOLUTION_METHOD_LABEL = 'Uses page context';
+const DEFAULT_RESOLUTION_METHOD_LABEL = authoringText('Uses page context');
+
+const TARGET_EVIDENCE_FAMILY_LABELS: Readonly<Record<string, string>> = {
+  'registry-contract': authoringText('app contract'),
+  'configured-attribute': authoringText('existing attributes'),
+  'semantic-attribute': authoringText('element semantics'),
+  'element-semantics': authoringText('control type'),
+  'ancestor-context': authoringText('page region'),
+  'relationship-context': authoringText('nearby structure'),
+  'visual-topology': authoringText('rendered layout'),
+  'localized-text': authoringText('current-locale text'),
+};
 
 const BLOCK_TYPE_LABELS: Readonly<Record<string, string>> = {
-  tourStep: 'Step',
-  paragraph: 'Text',
-  list: 'List',
-  divider: 'Divider',
-  link: 'Link',
-  targetChip: 'Placement',
-  validationBadge: 'Validation',
+  tourStep: authoringText('Step'),
+  paragraph: authoringText('Text'),
+  list: authoringText('List'),
+  divider: authoringText('Divider'),
+  link: authoringText('Link'),
+  targetChip: authoringText('Placement'),
+  validationBadge: authoringText('Validation'),
 };
 
 export function targetById(
@@ -83,6 +114,7 @@ export function targetById(
 export function targetLabelOf(documentState: LodariqDocument, targetId: string): string {
   const target = targetById(documentState, targetId);
   return (
+    target?.identity?.display.authorLabel ??
     target?.fingerprint.accessibleName ??
     target?.fingerprint.stableAttributes['data-lodariq-id'] ??
     targetId
@@ -108,7 +140,7 @@ export function blockStatus(block: LodariqBlock): 'ready' | 'incomplete' | 'inva
 
 export function blockKicker(block: LodariqBlock): string {
   if (block.type === 'tourStep' && typeof block.props.index === 'number') {
-    return `Step ${block.props.index + 1}`;
+    return authoringText('Step {number}', { number: block.props.index + 1 });
   }
   return blockTypeLabel(block.type);
 }
@@ -144,16 +176,24 @@ export function isEditableContentBlock(block: LodariqBlock): boolean {
 export function propertyChipLabels(block: LodariqBlock): string[] {
   return [
     ...Object.values(PROPERTY_CHIP_FACTORIES).map((labelForBlock) => labelForBlock(block)),
-    block.props.action ? ACTION_CHIP_LABELS[block.props.action.type] ?? null : null,
-    block.props.action ? null : MISSING_ACTION_CHIP_LABELS[block.type] ?? null,
+    block.props.action ? (ACTION_CHIP_LABELS[block.props.action.type] ?? null) : null,
+    block.props.action ? null : (MISSING_ACTION_CHIP_LABELS[block.type] ?? null),
     STATIC_BLOCK_CHIP_LABELS[block.type] ?? null,
   ].filter(isPresent);
 }
 
-export function targetHealthTitle(state: ResolverDiagnostic['state']): string {
-  if (state === 'found') return 'Ready';
-  if (state === 'ambiguous') return 'Review placement';
-  return 'Needs attention';
+export function targetHealthTitle(
+  diagnosticOrState: ResolverDiagnostic | ResolverDiagnostic['state'],
+): string {
+  const state = typeof diagnosticOrState === 'string' ? diagnosticOrState : diagnosticOrState.state;
+  if (state === 'found') return authoringText('Verified');
+  if (state === 'needs_review') {
+    return targetDiagnosticIsDrift(diagnosticOrState)
+      ? authoringText('Drift detected')
+      : authoringText('Needs verification');
+  }
+  if (state === 'ambiguous') return authoringText('Ambiguous');
+  return authoringText('Missing');
 }
 
 export function targetHealthDetails(inspection: TargetInspectionState): string {
@@ -162,22 +202,48 @@ export function targetHealthDetails(inspection: TargetInspectionState): string {
 
 export function targetSupportDetails(inspection: TargetInspectionState): string {
   const diagnostic = inspection.diagnostic;
+  const evidence = diagnostic.evidenceFamilies
+    ?.map((family) => TARGET_EVIDENCE_FAMILY_LABELS[family] ?? family)
+    .join(', ');
   const method = diagnostic.resolutionMethod
     ? ` ${humanResolutionMethod(diagnostic.resolutionMethod)}.`
     : '';
-  return `Match strength ${diagnostic.confidence}%. Places found ${diagnostic.candidateCount}.${method}`;
+  const candidateLabel =
+    diagnostic.candidateCount === 1 ? authoringText('candidate') : authoringText('candidates');
+  const evidenceDetails = evidence
+    ? authoringText(' Evidence observed: {evidence}.', { evidence })
+    : '';
+  return authoringText('{count} {candidate} observed.{evidence}{method}', {
+    count: diagnostic.candidateCount,
+    candidate: candidateLabel,
+    evidence: evidenceDetails,
+    method,
+  });
 }
 
 export function targetInspectFallbackMessage(inspection: TargetInspectionState): string {
   if (inspection.diagnostic.state === 'found') {
-    if (inspection.action === 'view') return 'Placement is highlighted.';
-    if (inspection.action === 'test') return 'Placement is ready.';
-    return 'Placement is easy to find.';
+    if (inspection.action === 'view') return authoringText('Placement is highlighted.');
+    if (inspection.action === 'test') {
+      return authoringText('Placement check passed on this page state.');
+    }
+    return authoringText('Verified on this page state.');
+  }
+  if (inspection.diagnostic.state === 'needs_review') {
+    return targetDiagnosticIsDrift(inspection.diagnostic)
+      ? authoringText(
+          'The element was found, but its saved evidence has drifted. Verify it or choose it again.',
+        )
+      : authoringText(
+          'This placement does not yet have enough reliable evidence. Verify it or choose it again.',
+        );
   }
   if (inspection.diagnostic.state === 'ambiguous') {
-    return 'More than one place matches. Pick the exact place again.';
+    return authoringText('More than one place matches. Pick the exact place again.');
   }
-  return 'We could not find this placement. Choose it again or open the page state where it appears.';
+  return authoringText(
+    'We could not find this placement. Choose it again or open the page state where it appears.',
+  );
 }
 
 export function targetInspectionStatus(
@@ -185,14 +251,29 @@ export function targetInspectionStatus(
   diagnostic: ResolverDiagnostic,
 ): string {
   if (diagnostic.state === 'found') {
-    if (action === 'view') return 'Placement highlighted.';
-    if (action === 'test') return 'Placement is ready.';
-    return 'Placement is ready.';
+    if (action === 'view') return authoringText('Placement highlighted.');
+    if (action === 'test') return authoringText('Placement check passed.');
+    return authoringText('Placement verified.');
+  }
+  if (diagnostic.state === 'needs_review') {
+    return targetDiagnosticIsDrift(diagnostic)
+      ? authoringText('Placement drift detected.')
+      : authoringText('Placement needs verification.');
   }
   if (diagnostic.state === 'ambiguous') {
-    return 'Pick a more specific placement.';
+    return authoringText('Pick a more specific placement.');
   }
-  return 'Placement needs attention.';
+  return authoringText('Placement needs attention.');
+}
+
+export function targetDiagnosticIsDrift(
+  diagnosticOrState: ResolverDiagnostic | ResolverDiagnostic['state'],
+): boolean {
+  if (typeof diagnosticOrState === 'string') return false;
+  return (
+    diagnosticOrState.reasonCode === 'evidence_drift' ||
+    diagnosticOrState.reasonCode === 'resolved_with_drift'
+  );
 }
 
 export function humanResolutionMethod(method: string): string {
@@ -219,6 +300,25 @@ export function editableActionValue(value: string): EditableActionType | null {
 
 export function editableBlockTypeValue(value: string): EditableBlockTypeValue | null {
   return isEditableBlockType(value) ? value : null;
+}
+
+export function stepContentCommandFromQuery(value: string): StepContentCommand | null {
+  const normalized = value.replace(/^\//, '').trim().toLowerCase();
+  if (!normalized) return null;
+  const exactAlias = STEP_COMMAND_ALIASES[normalized];
+  if (exactAlias) return exactAlias;
+  if (STEP_CONTENT_COMMAND_SET.has(normalized)) return normalized as StepContentCommand;
+  const aliasMatch = Object.entries(STEP_COMMAND_ALIASES).find(([alias]) =>
+    alias.startsWith(normalized),
+  );
+  if (aliasMatch) return aliasMatch[1];
+  return (
+    STEP_CONTENT_COMMANDS.find((command) =>
+      [command, blockTypeLabel(command)].some((candidate) =>
+        candidate.toLowerCase().includes(normalized),
+      ),
+    ) ?? null
+  );
 }
 
 export function isEditableBlockType(type: string): type is EditableBlockTypeValue {

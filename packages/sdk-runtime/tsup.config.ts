@@ -7,10 +7,17 @@ import { defineConfig } from 'tsup';
 export default defineConfig({
   entry: {
     index: 'src/index.ts',
+    i18n: 'src/i18n.ts',
+    'brand-token-registry': 'src/brand-token-registry.ts',
     'lodariq-loader': 'src/loader/index.ts',
+    'lodariq-public-bootstrap': 'src/activation/public-bootstrap.ts',
+    'lodariq-activation': 'src/activation/authoring-activation.ts',
+    'lodariq-public-delivery': 'src/activation/public-delivery.ts',
     'lodariq-runtime': 'src/runtime/index.ts',
     'lodariq-local-dev': 'src/local-dev/index.ts',
-    'loader/index': 'src/loader/index.ts',
+    'activation/public-bootstrap': 'src/activation/public-bootstrap.ts',
+    'activation/authoring-activation': 'src/activation/authoring-activation.ts',
+    'activation/public-delivery': 'src/activation/public-delivery.ts',
     'runtime/index': 'src/runtime/index.ts',
     'resolver/index': 'src/resolver/index.ts',
     'renderers/tour': 'src/renderers/tour.ts',
@@ -25,5 +32,10 @@ export default defineConfig({
   clean: true,
   splitting: true,
   treeshake: true,
-  noExternal: [/^@floating-ui\//, /^@lodariq\/schema\/(?:dom|url)$/],
+  noExternal: [
+    /^@floating-ui\//,
+    /^@lodariq\/i18n(?:\/.*)?$/,
+    /^@lodariq\/schema(?:\/.*)?$/,
+    /^lucide$/,
+  ],
 });

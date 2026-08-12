@@ -8,14 +8,62 @@
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
+      "source": "./src/index.ts",
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     },
+    "./version": {
+      "source": "./src/version.ts",
+      "types": "./dist/version.d.ts",
+      "import": "./dist/version.js"
+    },
     "./dom": {
+      "source": "./src/dom.ts",
       "types": "./dist/dom.d.ts",
       "import": "./dist/dom.js"
     },
+    "./csp": {
+      "source": "./src/csp.ts",
+      "types": "./dist/csp.d.ts",
+      "import": "./dist/csp.js"
+    },
+    "./target": {
+      "source": "./src/target.ts",
+      "types": "./dist/target.d.ts",
+      "import": "./dist/target.js"
+    },
+    "./target-runtime": {
+      "source": "./src/target-runtime.ts",
+      "types": "./dist/target-runtime.d.ts",
+      "import": "./dist/target-runtime.js"
+    },
+    "./brand-runtime": {
+      "source": "./src/brand-runtime.ts",
+      "types": "./dist/brand-runtime.d.ts",
+      "import": "./dist/brand-runtime.js"
+    },
+    "./brand-registration-runtime": {
+      "source": "./src/brand-registration-runtime.ts",
+      "types": "./dist/brand-registration-runtime.d.ts",
+      "import": "./dist/brand-registration-runtime.js"
+    },
+    "./hosted-creator": {
+      "source": "./src/hosted-creator.ts",
+      "types": "./dist/hosted-creator.d.ts",
+      "import": "./dist/hosted-creator.js"
+    },
+    "./authoring-entry-runtime": {
+      "source": "./src/authoring-entry-runtime.ts",
+      "types": "./dist/authoring-entry-runtime.d.ts",
+      "import": "./dist/authoring-entry-runtime.js"
+    },
+    "./events-runtime": {
+      "source": "./src/events-runtime.ts",
+      "types": "./dist/events-runtime.d.ts",
+      "import": "./dist/events-runtime.js"
+    },
     "./url": {
+      "source": "./src/url.ts",
       "types": "./dist/url.d.ts",
       "import": "./dist/url.js"
     },

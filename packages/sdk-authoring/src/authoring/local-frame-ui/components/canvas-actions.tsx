@@ -1,11 +1,12 @@
+import { authoringText } from '../../../i18n';
 import type { LocalAuthoringFrameController } from '../controller';
 import { AuthoringButton, RefreshCcw, RotateCcw, RotateCw, Save } from '../design-system';
 
 export function CanvasActions({ controller }: { controller: LocalAuthoringFrameController }) {
   return (
-    <div className="canvas-actionbar" aria-label="Experience actions">
+    <div className="canvas-actionbar" aria-label={authoringText('Experience actions')}>
       <AuthoringButton
-        aria-label="Save"
+        aria-label={authoringText('Save')}
         className="canvas-icon-action"
         data-action="save"
         icon={<Save size={15} strokeWidth={2.2} />}
@@ -13,21 +14,21 @@ export function CanvasActions({ controller }: { controller: LocalAuthoringFrameC
         tone="primary"
       />
       <AuthoringButton
-        aria-label="Undo"
+        aria-label={authoringText('Undo')}
         className="canvas-icon-action"
         data-action="undo"
         icon={<RotateCcw size={15} strokeWidth={2.2} />}
         onClick={() => controller.undo()}
       />
       <AuthoringButton
-        aria-label="Redo"
+        aria-label={authoringText('Redo')}
         className="canvas-icon-action"
         data-action="redo"
         icon={<RotateCw size={15} strokeWidth={2.2} />}
         onClick={() => controller.redo()}
       />
       <AuthoringButton
-        aria-label="Reset experience"
+        aria-label={authoringText('Reset experience')}
         className="canvas-icon-action"
         data-action="reset"
         icon={<RefreshCcw size={15} strokeWidth={2.2} />}

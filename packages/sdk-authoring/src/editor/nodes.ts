@@ -1,5 +1,7 @@
 import {
   sanitizeBlockProps,
+  sanitizeInlineTextRuns,
+  type InlineTextRun,
   type LodariqBlockProps,
   type LodariqBlockType,
   type ValidationLevel,
@@ -35,6 +37,7 @@ export interface SerializedLodariqBlockNode extends SerializedElementNode {
   lodariqBlockId: string;
   blockType: LodariqMvpBlockType;
   props: LodariqBlockProps;
+  contentRuns?: InlineTextRun[];
   status?: ValidationLevel;
 }
 
@@ -42,6 +45,7 @@ export class LodariqBlockNode extends ElementNode {
   __lodariqBlockId: string;
   __blockType: LodariqMvpBlockType;
   __props: LodariqBlockProps;
+  __contentRuns: InlineTextRun[] | undefined;
   __status: ValidationLevel | undefined;
 
   static override getType(): string {
@@ -54,6 +58,7 @@ export class LodariqBlockNode extends ElementNode {
       node.__blockType,
       node.__props,
       node.__status,
+      node.__contentRuns,
       node.__key,
     );
   }
@@ -64,6 +69,7 @@ export class LodariqBlockNode extends ElementNode {
       serializedNode.blockType,
       sanitizeBlockProps(serializedNode.props),
       serializedNode.status,
+      serializedNode.contentRuns,
     );
   }
 
@@ -72,12 +78,14 @@ export class LodariqBlockNode extends ElementNode {
     blockType: LodariqMvpBlockType,
     props: Record<string, unknown> = {},
     status?: ValidationLevel,
+    contentRuns?: InlineTextRun[],
     key?: NodeKey,
   ) {
     super(key);
     this.__lodariqBlockId = lodariqBlockId;
     this.__blockType = blockType;
     this.__props = sanitizeBlockProps(props);
+    this.__contentRuns = sanitizeInlineTextRuns(contentRuns);
     this.__status = status;
   }
 
@@ -106,6 +114,7 @@ export class LodariqBlockNode extends ElementNode {
       lodariqBlockId: this.__lodariqBlockId,
       blockType: this.__blockType,
       props: this.__props,
+      ...(this.__contentRuns ? { contentRuns: structuredClone(this.__contentRuns) } : {}),
       ...(this.__status ? { status: this.__status } : {}),
     };
   }
@@ -124,11 +133,16 @@ export function $createLodariqBlockNode(
   blockType: LodariqMvpBlockType,
   props?: Record<string, unknown>,
   status?: ValidationLevel,
+  contentRuns?: InlineTextRun[],
 ): LodariqBlockNode {
-  return $applyNodeReplacement(new LodariqBlockNode(lodariqBlockId, blockType, props, status));
+  return $applyNodeReplacement(
+    new LodariqBlockNode(lodariqBlockId, blockType, props, status, contentRuns),
+  );
 }
 
-export function $isLodariqBlockNode(node: LexicalNode | null | undefined): node is LodariqBlockNode {
+export function $isLodariqBlockNode(
+  node: LexicalNode | null | undefined,
+): node is LodariqBlockNode {
   return node instanceof LodariqBlockNode;
 }
 

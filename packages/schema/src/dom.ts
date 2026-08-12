@@ -1,5 +1,19 @@
 import type { ElementFingerprint } from './target';
 
+export { cspNonceOf, createNonceStyleElement } from './csp';
+
+/** Neutral renderer metadata shared by runtime output and creator-only tooling. */
+export const LODARIQ_RENDERED_NODE_ID_ATTRIBUTE = 'data-lodariq-node-id';
+export const LODARIQ_RENDERED_NODE_TYPE_ATTRIBUTE = 'data-lodariq-node-type';
+/**
+ * Creator-only ownership marker for a TourPlayer authoring preview.
+ *
+ * The value is an opaque, in-memory owner id. Authoring tools use it to bind
+ * direct-editing affordances to their own preview without ever touching a
+ * concurrently delivered customer tour.
+ */
+export const LODARIQ_AUTHORING_PREVIEW_OWNER_ATTRIBUTE = 'data-lodariq-authoring-preview-owner';
+
 const STABLE_ATTRIBUTE_NAMES = [
   'data-lodariq-id',
   'data-testid',
@@ -8,6 +22,24 @@ const STABLE_ATTRIBUTE_NAMES = [
   'id',
   'name',
 ];
+
+const IMPLICIT_ROLE_BY_TAG: Readonly<Record<string, string>> = {
+  article: 'article',
+  aside: 'complementary',
+  dialog: 'dialog',
+  fieldset: 'group',
+  h1: 'heading',
+  h2: 'heading',
+  h3: 'heading',
+  h4: 'heading',
+  h5: 'heading',
+  h6: 'heading',
+  img: 'img',
+  li: 'listitem',
+  ol: 'list',
+  table: 'table',
+  ul: 'list',
+};
 
 export function stableAttributesOf(element: Element): Record<string, string> {
   return Object.fromEntries(
@@ -31,7 +63,7 @@ export function roleOf(element: Element): string | undefined {
   }
   if (tag === 'main' || tag === 'nav' || tag === 'form') return tag;
   if (tag === 'input') return inputRole(element.getAttribute('type') ?? 'text');
-  return undefined;
+  return IMPLICIT_ROLE_BY_TAG[tag];
 }
 
 export function accessibleNameOf(element: Element): string | undefined {
@@ -88,29 +120,6 @@ export function ancestorLandmarksOf(element: Element): ElementFingerprint['ances
     current = current.parentElement;
   }
   return landmarks;
-}
-
-export function cspNonceOf(doc: Document): string | undefined {
-  const meta = doc.querySelector<HTMLMetaElement>(
-    'meta[property="csp-nonce"], meta[name="csp-nonce"]',
-  );
-  const raw =
-    meta?.nonce ||
-    meta?.getAttribute('nonce') ||
-    meta?.content ||
-    meta?.getAttribute('content') ||
-    doc.querySelector<HTMLScriptElement>('script[nonce]')?.nonce ||
-    doc.querySelector<HTMLScriptElement>('script[nonce]')?.getAttribute('nonce');
-  const nonce = raw?.trim();
-  return nonce || undefined;
-}
-
-export function createNonceStyleElement(doc: Document, cssText: string): HTMLStyleElement {
-  const style = doc.createElement('style');
-  const nonce = cspNonceOf(doc);
-  if (nonce) style.setAttribute('nonce', nonce);
-  style.textContent = cssText;
-  return style;
 }
 
 function inputRole(inputType: string): string {

@@ -85,12 +85,19 @@ module.exports = {
     // Keep node_modules edges visible (so the React/Lexical rules can fire) but
     // do not traverse into them.
     doNotFollow: { path: 'node_modules' },
-    exclude: { path: '(^|/)(dist|build|coverage|\\.turbo|\\.next)/' },
+    // Next supports custom distDir values (for example `.next-e2e`). Exclude
+    // every generated `.next*` directory so local QA artifacts do not become
+    // dependency-cruiser inputs or exhaust the CI heap.
+    exclude: { path: '(^|/)(dist|build|coverage|\\.turbo|\\.next[^/]*)/' },
     tsConfig: { fileName: 'tsconfig.json' },
     tsPreCompilationDeps: true,
     enhancedResolveOptions: {
       exportsFields: ['exports'],
-      conditionNames: ['import', 'require', 'node', 'default', 'types'],
+      // Workspace packages publish compiled `import`/`types` targets, but this
+      // static check runs in a clean checkout before any build. Resolve their
+      // source-only condition so the check analyzes the real dependency graph
+      // without relying on ignored dist output.
+      conditionNames: ['source', 'import', 'require', 'node', 'default', 'types'],
     },
   },
 };
