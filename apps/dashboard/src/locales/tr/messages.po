@@ -324,7 +324,7 @@ msgid "dashboard.brand.preview.after"
 msgstr "Sonra"
 
 #. js-lingui-explicit-id
-#: src/components/authoring-activation-popup.tsx:77
+#: src/components/authoring-activation-popup.tsx:78
 msgid "dashboard.activation.approveDescription"
 msgstr "Lodariq çalışma alanınızın {host} üzerinde Turlar oluşturmasına ve düzenlemesine izin verin."
 
@@ -494,7 +494,7 @@ msgid "dashboard.brand.empty.permissions"
 msgstr "Bir çalışma alanı üyesinden, yöneticisinden veya sahibinden bunu oluşturmasını isteyin."
 
 #. js-lingui-explicit-id
-#: src/components/authoring-activation-popup.tsx:73
+#: src/components/authoring-activation-popup.tsx:74
 msgid "dashboard.activation.approveTitle"
 msgstr "Bu uygulamada yazar mısınız?"
 
@@ -504,12 +504,12 @@ msgid "auth.shell.authorOnce"
 msgstr "Bir kez oluşturun"
 
 #. js-lingui-explicit-id
-#: src/components/authoring-activation-popup.tsx:85
+#: src/components/authoring-activation-popup.tsx:86
 msgid "dashboard.activation.approved"
 msgstr "Yazma onaylandı"
 
 #. js-lingui-explicit-id
-#: src/components/authoring-activation-popup.tsx:46
+#: src/components/authoring-activation-popup.tsx:47
 msgid "dashboard.activation.approvalFailed"
 msgstr "Yazma onaylanamadı. Başlatıcıya dönüp tekrar deneyin."
 
@@ -624,7 +624,7 @@ msgid "dashboard.common.cancel"
 msgstr "İptal"
 
 #. js-lingui-explicit-id
-#: src/components/authoring-activation-popup.tsx:84
+#: src/components/authoring-activation-popup.tsx:85
 msgid "dashboard.activation.cancel"
 msgstr "İptal"
 
@@ -669,7 +669,7 @@ msgid "dashboard.viewModel.checkedAt"
 msgstr "Kontrol edildi {date}"
 
 #. js-lingui-explicit-id
-#: src/components/authoring-activation-popup.tsx:94
+#: src/components/authoring-activation-popup.tsx:95
 msgid "dashboard.activation.checking"
 msgstr "Erişim kontrol ediliyor"
 
@@ -814,7 +814,7 @@ msgid "dashboard.common.close"
 msgstr "Kapat"
 
 #. js-lingui-explicit-id
-#: src/components/authoring-activation-popup.tsx:50
+#: src/components/authoring-activation-popup.tsx:51
 msgid "dashboard.activation.close"
 msgstr "Kapat"
 
@@ -914,7 +914,7 @@ msgid "dashboard.authoringLaunch.description"
 msgstr "Etkin bir kerelik Lodariq kurulumuyla eşlenen bir sitede devam edin."
 
 #. js-lingui-explicit-id
-#: src/components/authoring-activation-popup.tsx:83
+#: src/components/authoring-activation-popup.tsx:84
 msgid "dashboard.activation.continue"
 msgstr "Yazmaya devam et"
 
@@ -949,7 +949,7 @@ msgid "dashboard.installation.copy"
 msgstr "Kurulumu kopyala"
 
 #. js-lingui-explicit-id
-#: src/components/authoring-activation-popup.tsx:90
+#: src/components/authoring-activation-popup.tsx:91
 msgid "dashboard.activation.couldNotContinue"
 msgstr "Devam edilemedi"
 
@@ -1124,7 +1124,7 @@ msgid "dashboard.common.development"
 msgstr "Geliştirme"
 
 #. js-lingui-explicit-id
-#: src/components/authoring-activation-popup.tsx:110
+#: src/components/authoring-activation-popup.tsx:111
 msgid "dashboard.activation.development"
 msgstr "Geliştirme"
 
@@ -1264,7 +1264,7 @@ msgid "dashboard.environmentPolicy.invalid"
 msgstr "Bir ad girin ve 100'den fazla kesin köken girin."
 
 #. js-lingui-explicit-id
-#: src/components/authoring-activation-popup.tsx:81
+#: src/components/authoring-activation-popup.tsx:82
 msgid "dashboard.activation.environment"
 msgstr "Çevre"
 
@@ -1364,7 +1364,7 @@ msgid "dashboard.releases.exactArtifactPromotion"
 msgstr "Tam eser tanıtımı"
 
 #. js-lingui-explicit-id
-#: src/components/authoring-activation-popup.tsx:109
+#: src/components/authoring-activation-popup.tsx:110
 msgid "dashboard.activation.existingTour"
 msgstr "Mevcut Tur"
 
@@ -1379,7 +1379,7 @@ msgid "dashboard.recovery.expectedGeneration"
 msgstr "Beklenen nesil {generation}"
 
 #. js-lingui-explicit-id
-#: src/components/authoring-activation-popup.tsx:82
+#: src/components/authoring-activation-popup.tsx:83
 msgid "dashboard.activation.experience"
 msgstr "Deneyim"
 
@@ -1444,7 +1444,7 @@ msgid "dashboard.publishIssue.incompleteMedia.message"
 msgstr "Yayınlamadan önce bu medya bloğunu yapılandırmayı tamamlayın."
 
 #. js-lingui-explicit-id
-#: src/components/authoring-activation-popup.tsx:69
+#: src/components/authoring-activation-popup.tsx:70
 msgid "dashboard.activation.recoveryFinish"
 msgstr "Orada bitirin, ardından bu pencereyi kapatın ve yazmaya yeniden başlayın."
 
@@ -1639,7 +1639,7 @@ msgid "dashboard.publishIssue.invalidPresentationArea.label"
 msgstr "Geçersiz sunum alanı"
 
 #. js-lingui-explicit-id
-#: src/components/authoring-activation-popup.tsx:100
+#: src/components/authoring-activation-popup.tsx:101
 msgid "dashboard.activation.readyDescription"
 msgstr "Lodariq başlatıcısı güvenli geçişi tamamlarken bu pencereyi açık tutun."
 
@@ -1834,7 +1834,7 @@ msgid "dashboard.viewModel.nearbyProductControls"
 msgstr "Yakındaki ürün kontrolleri"
 
 #. js-lingui-explicit-id
-#: src/components/authoring-activation-popup.tsx:61
+#: src/components/authoring-activation-popup.tsx:62
 msgid "dashboard.activation.passwordHelp"
 msgstr "Şifrenizi ayarlamanız veya sıfırlamanız mı gerekiyor?"
 
@@ -1884,7 +1884,7 @@ msgid "auth.form.newToLodariq"
 msgstr "Lodariq'te yeni misiniz?"
 
 #. js-lingui-explicit-id
-#: src/components/authoring-activation-popup.tsx:108
+#: src/components/authoring-activation-popup.tsx:109
 msgid "dashboard.activation.newTour"
 msgstr "Yeni Tur"
 
@@ -2174,7 +2174,7 @@ msgid "dashboard.account.openMenu"
 msgstr "Hesap ve çalışma alanı menüsünü aç"
 
 #. js-lingui-explicit-id
-#: src/components/authoring-activation-popup.tsx:42
+#: src/components/authoring-activation-popup.tsx:43
 msgid "dashboard.activation.openFromLauncher"
 msgstr "Uygulamanızın içindeki Lodariq başlatıcısından yazmayı açın."
 
@@ -2189,7 +2189,7 @@ msgid "auth.form.openLocalRecoveryLink"
 msgstr "Yerel kurtarma bağlantısını aç"
 
 #. js-lingui-explicit-id
-#: src/components/authoring-activation-popup.tsx:65
+#: src/components/authoring-activation-popup.tsx:66
 msgid "dashboard.activation.openRecovery"
 msgstr "Şifre kurtarmayı yeni bir sekmede açın"
 
@@ -2634,7 +2634,7 @@ msgid "dashboard.viewModel.readyForStaging"
 msgstr "Sahnelemeye hazır"
 
 #. js-lingui-explicit-id
-#: src/components/authoring-activation-popup.tsx:99
+#: src/components/authoring-activation-popup.tsx:100
 msgid "dashboard.activation.ready"
 msgstr "Bağlanmaya hazır"
 
@@ -2814,7 +2814,7 @@ msgid "auth.page.returnToSignIn"
 msgstr "Oturum açmaya geri dönün"
 
 #. js-lingui-explicit-id
-#: src/components/authoring-activation-popup.tsx:86
+#: src/components/authoring-activation-popup.tsx:87
 msgid "dashboard.activation.returning"
 msgstr "Sizi uygulamaya geri döndürüyoruz…"
 
@@ -3129,7 +3129,7 @@ msgid "dashboard.server.authenticationRequired"
 msgstr "Devam etmek için tekrar oturum açın."
 
 #. js-lingui-explicit-id
-#: src/components/authoring-activation-popup.tsx:52
+#: src/components/authoring-activation-popup.tsx:53
 msgid "dashboard.activation.signInDescription"
 msgstr "Buradan oturum açın. Bu pencere aynı güvenli yazma isteğine otomatik olarak devam edecektir."
 
@@ -3144,7 +3144,7 @@ msgid "dashboard.entry.signInTitle"
 msgstr "Lodariq'te oturum aç"
 
 #. js-lingui-explicit-id
-#: src/components/authoring-activation-popup.tsx:51
+#: src/components/authoring-activation-popup.tsx:52
 msgid "dashboard.activation.signInTitle"
 msgstr "Oturum açın ve devam edin"
 
@@ -3204,7 +3204,7 @@ msgid "dashboard.analytics.staging"
 msgstr "Evreleme"
 
 #. js-lingui-explicit-id
-#: src/components/authoring-activation-popup.tsx:111
+#: src/components/authoring-activation-popup.tsx:112
 msgid "dashboard.activation.staging"
 msgstr "Evreleme"
 
@@ -3579,12 +3579,12 @@ msgid "dashboard.action.themeValuesInvalid"
 msgstr "Tema değerleri geçersiz. Vurgulanan kontrolleri inceleyin."
 
 #. js-lingui-explicit-id
-#: src/components/authoring-activation-popup.tsx:104
+#: src/components/authoring-activation-popup.tsx:105
 msgid "dashboard.activation.thisApplication"
 msgstr "bu uygulama"
 
 #. js-lingui-explicit-id
-#: src/components/authoring-activation-popup.tsx:38
+#: src/components/authoring-activation-popup.tsx:39
 msgid "dashboard.activation.requestExpired"
 msgstr "Bu yazma isteği kullanılamıyor veya süresi dolmuş. Başlatıcıya dönün ve yeniden deneyin."
 
@@ -3999,7 +3999,7 @@ msgid "dashboard.publishIssue.unverifiedTarget.message"
 msgstr "Yayınlamadan önce bu yerleşimi mevcut ortamda doğrulayın."
 
 #. js-lingui-explicit-id
-#: src/components/authoring-activation-popup.tsx:95
+#: src/components/authoring-activation-popup.tsx:96
 msgid "dashboard.activation.verifying"
 msgstr "Uygulama ve çalışma alanı doğrulanıyor…"
 
@@ -4129,7 +4129,7 @@ msgid "dashboard.installation.readonlyExisting"
 msgstr "Bu kurulumu inceleyebilir ve kopyalayabilirsiniz. Bir çalışma alanı yöneticisi veya sahibi, güvenilen kaynakları ve iptali yönetir."
 
 #. js-lingui-explicit-id
-#: src/components/authoring-activation-popup.tsx:57
+#: src/components/authoring-activation-popup.tsx:58
 msgid "dashboard.activation.credentialSafety"
 msgstr "Kimlik bilgileriniz Lodariq'te kalır ve asla müşteri sayfasına gönderilmez."
 

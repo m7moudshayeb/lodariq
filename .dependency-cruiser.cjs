@@ -93,7 +93,11 @@ module.exports = {
     tsPreCompilationDeps: true,
     enhancedResolveOptions: {
       exportsFields: ['exports'],
-      conditionNames: ['import', 'require', 'node', 'default', 'types'],
+      // Workspace packages publish compiled `import`/`types` targets, but this
+      // static check runs in a clean checkout before any build. Resolve their
+      // source-only condition so the check analyzes the real dependency graph
+      // without relying on ignored dist output.
+      conditionNames: ['source', 'import', 'require', 'node', 'default', 'types'],
     },
   },
 };

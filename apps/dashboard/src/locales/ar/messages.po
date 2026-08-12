@@ -324,7 +324,7 @@ msgid "dashboard.brand.preview.after"
 msgstr "بعد"
 
 #. js-lingui-explicit-id
-#: src/components/authoring-activation-popup.tsx:77
+#: src/components/authoring-activation-popup.tsx:78
 msgid "dashboard.activation.approveDescription"
 msgstr "اسمح لمساحة عمل Lodariq الخاصة بك بإنشاء وتحرير الجولات على {host}."
 
@@ -494,7 +494,7 @@ msgid "dashboard.brand.empty.permissions"
 msgstr "اطلب من أحد أعضاء مساحة العمل أو المسؤول أو المالك إنشائها."
 
 #. js-lingui-explicit-id
-#: src/components/authoring-activation-popup.tsx:73
+#: src/components/authoring-activation-popup.tsx:74
 msgid "dashboard.activation.approveTitle"
 msgstr "المؤلف في هذا التطبيق؟"
 
@@ -504,12 +504,12 @@ msgid "auth.shell.authorOnce"
 msgstr "أنشئ مرة واحدة"
 
 #. js-lingui-explicit-id
-#: src/components/authoring-activation-popup.tsx:85
+#: src/components/authoring-activation-popup.tsx:86
 msgid "dashboard.activation.approved"
 msgstr "تمت الموافقة على التأليف"
 
 #. js-lingui-explicit-id
-#: src/components/authoring-activation-popup.tsx:46
+#: src/components/authoring-activation-popup.tsx:47
 msgid "dashboard.activation.approvalFailed"
 msgstr "لا يمكن الموافقة على التأليف. ارجع إلى المشغل وحاول مرة أخرى."
 
@@ -624,7 +624,7 @@ msgid "dashboard.common.cancel"
 msgstr "إلغاء"
 
 #. js-lingui-explicit-id
-#: src/components/authoring-activation-popup.tsx:84
+#: src/components/authoring-activation-popup.tsx:85
 msgid "dashboard.activation.cancel"
 msgstr "إلغاء"
 
@@ -669,7 +669,7 @@ msgid "dashboard.viewModel.checkedAt"
 msgstr "تم التحديد {date}"
 
 #. js-lingui-explicit-id
-#: src/components/authoring-activation-popup.tsx:94
+#: src/components/authoring-activation-popup.tsx:95
 msgid "dashboard.activation.checking"
 msgstr "التحقق من الوصول"
 
@@ -814,7 +814,7 @@ msgid "dashboard.common.close"
 msgstr "إغلاق"
 
 #. js-lingui-explicit-id
-#: src/components/authoring-activation-popup.tsx:50
+#: src/components/authoring-activation-popup.tsx:51
 msgid "dashboard.activation.close"
 msgstr "إغلاق"
 
@@ -914,7 +914,7 @@ msgid "dashboard.authoringLaunch.description"
 msgstr "استمر في الموقع الذي تم تعيينه لتثبيت Lodariq النشط لمرة واحدة."
 
 #. js-lingui-explicit-id
-#: src/components/authoring-activation-popup.tsx:83
+#: src/components/authoring-activation-popup.tsx:84
 msgid "dashboard.activation.continue"
 msgstr "الاستمرار في التأليف"
 
@@ -949,7 +949,7 @@ msgid "dashboard.installation.copy"
 msgstr "نسخ التثبيت"
 
 #. js-lingui-explicit-id
-#: src/components/authoring-activation-popup.tsx:90
+#: src/components/authoring-activation-popup.tsx:91
 msgid "dashboard.activation.couldNotContinue"
 msgstr "لا يمكن الاستمرار"
 
@@ -1124,7 +1124,7 @@ msgid "dashboard.common.development"
 msgstr "التنمية"
 
 #. js-lingui-explicit-id
-#: src/components/authoring-activation-popup.tsx:110
+#: src/components/authoring-activation-popup.tsx:111
 msgid "dashboard.activation.development"
 msgstr "التنمية"
 
@@ -1264,7 +1264,7 @@ msgid "dashboard.environmentPolicy.invalid"
 msgstr "أدخل اسمًا وما لا يزيد عن 100 أصل محدد."
 
 #. js-lingui-explicit-id
-#: src/components/authoring-activation-popup.tsx:81
+#: src/components/authoring-activation-popup.tsx:82
 msgid "dashboard.activation.environment"
 msgstr "البيئة"
 
@@ -1364,7 +1364,7 @@ msgid "dashboard.releases.exactArtifactPromotion"
 msgstr "الترويج قطعة أثرية بالضبط"
 
 #. js-lingui-explicit-id
-#: src/components/authoring-activation-popup.tsx:109
+#: src/components/authoring-activation-popup.tsx:110
 msgid "dashboard.activation.existingTour"
 msgstr "الجولة الموجودة"
 
@@ -1379,7 +1379,7 @@ msgid "dashboard.recovery.expectedGeneration"
 msgstr "الجيل المتوقع {generation}"
 
 #. js-lingui-explicit-id
-#: src/components/authoring-activation-popup.tsx:82
+#: src/components/authoring-activation-popup.tsx:83
 msgid "dashboard.activation.experience"
 msgstr "الخبرة"
 
@@ -1444,7 +1444,7 @@ msgid "dashboard.publishIssue.incompleteMedia.message"
 msgstr "قم بإنهاء تكوين كتلة الوسائط هذه قبل النشر."
 
 #. js-lingui-explicit-id
-#: src/components/authoring-activation-popup.tsx:69
+#: src/components/authoring-activation-popup.tsx:70
 msgid "dashboard.activation.recoveryFinish"
 msgstr "انتهي من هذا، ثم أغلق هذه النافذة وابدأ في التأليف مرة أخرى."
 
@@ -1639,7 +1639,7 @@ msgid "dashboard.publishIssue.invalidPresentationArea.label"
 msgstr "منطقة العرض التقديمي غير صالحة"
 
 #. js-lingui-explicit-id
-#: src/components/authoring-activation-popup.tsx:100
+#: src/components/authoring-activation-popup.tsx:101
 msgid "dashboard.activation.readyDescription"
 msgstr "أبقِ هذه النافذة مفتوحة بينما يكمل مشغل Lodariq عملية التسليم الآمنة."
 
@@ -1834,7 +1834,7 @@ msgid "dashboard.viewModel.nearbyProductControls"
 msgstr "ضوابط المنتج القريبة"
 
 #. js-lingui-explicit-id
-#: src/components/authoring-activation-popup.tsx:61
+#: src/components/authoring-activation-popup.tsx:62
 msgid "dashboard.activation.passwordHelp"
 msgstr "هل تحتاج إلى تعيين أو إعادة تعيين كلمة المرور الخاصة بك؟"
 
@@ -1884,7 +1884,7 @@ msgid "auth.form.newToLodariq"
 msgstr "هل أنت جديد في لوداريق؟"
 
 #. js-lingui-explicit-id
-#: src/components/authoring-activation-popup.tsx:108
+#: src/components/authoring-activation-popup.tsx:109
 msgid "dashboard.activation.newTour"
 msgstr "جولة جديدة"
 
@@ -2174,7 +2174,7 @@ msgid "dashboard.account.openMenu"
 msgstr "فتح قائمة الحساب ومساحة العمل"
 
 #. js-lingui-explicit-id
-#: src/components/authoring-activation-popup.tsx:42
+#: src/components/authoring-activation-popup.tsx:43
 msgid "dashboard.activation.openFromLauncher"
 msgstr "افتح التأليف من مشغل Lodariq داخل تطبيقك."
 
@@ -2189,7 +2189,7 @@ msgid "auth.form.openLocalRecoveryLink"
 msgstr "افتح رابط الاسترداد المحلي"
 
 #. js-lingui-explicit-id
-#: src/components/authoring-activation-popup.tsx:65
+#: src/components/authoring-activation-popup.tsx:66
 msgid "dashboard.activation.openRecovery"
 msgstr "افتح استرداد كلمة المرور في علامة تبويب جديدة"
 
@@ -2634,7 +2634,7 @@ msgid "dashboard.viewModel.readyForStaging"
 msgstr "جاهز للتدريج"
 
 #. js-lingui-explicit-id
-#: src/components/authoring-activation-popup.tsx:99
+#: src/components/authoring-activation-popup.tsx:100
 msgid "dashboard.activation.ready"
 msgstr "جاهز للاتصال"
 
@@ -2814,7 +2814,7 @@ msgid "auth.page.returnToSignIn"
 msgstr "العودة لتسجيل الدخول"
 
 #. js-lingui-explicit-id
-#: src/components/authoring-activation-popup.tsx:86
+#: src/components/authoring-activation-popup.tsx:87
 msgid "dashboard.activation.returning"
 msgstr "جارٍ إعادتك إلى التطبيق..."
 
@@ -3129,7 +3129,7 @@ msgid "dashboard.server.authenticationRequired"
 msgstr "قم بتسجيل الدخول مرة أخرى للمتابعة."
 
 #. js-lingui-explicit-id
-#: src/components/authoring-activation-popup.tsx:52
+#: src/components/authoring-activation-popup.tsx:53
 msgid "dashboard.activation.signInDescription"
 msgstr "تسجيل الدخول هنا. ستستأنف هذه النافذة نفس طلب التأليف الآمن تلقائيًا."
 
@@ -3144,7 +3144,7 @@ msgid "dashboard.entry.signInTitle"
 msgstr "قم بتسجيل الدخول إلى لوداريق"
 
 #. js-lingui-explicit-id
-#: src/components/authoring-activation-popup.tsx:51
+#: src/components/authoring-activation-popup.tsx:52
 msgid "dashboard.activation.signInTitle"
 msgstr "قم بتسجيل الدخول، ثم تابع"
 
@@ -3204,7 +3204,7 @@ msgid "dashboard.analytics.staging"
 msgstr "التدريج"
 
 #. js-lingui-explicit-id
-#: src/components/authoring-activation-popup.tsx:111
+#: src/components/authoring-activation-popup.tsx:112
 msgid "dashboard.activation.staging"
 msgstr "التدريج"
 
@@ -3579,12 +3579,12 @@ msgid "dashboard.action.themeValuesInvalid"
 msgstr "قيم السمة غير صالحة. قم بمراجعة عناصر التحكم المميزة."
 
 #. js-lingui-explicit-id
-#: src/components/authoring-activation-popup.tsx:104
+#: src/components/authoring-activation-popup.tsx:105
 msgid "dashboard.activation.thisApplication"
 msgstr "هذا التطبيق"
 
 #. js-lingui-explicit-id
-#: src/components/authoring-activation-popup.tsx:38
+#: src/components/authoring-activation-popup.tsx:39
 msgid "dashboard.activation.requestExpired"
 msgstr "طلب التأليف هذا غير متوفر أو منتهي الصلاحية. ارجع إلى المشغل وأعد المحاولة."
 
@@ -3999,7 +3999,7 @@ msgid "dashboard.publishIssue.unverifiedTarget.message"
 msgstr "تحقق من هذا الموضع في البيئة الحالية قبل النشر."
 
 #. js-lingui-explicit-id
-#: src/components/authoring-activation-popup.tsx:95
+#: src/components/authoring-activation-popup.tsx:96
 msgid "dashboard.activation.verifying"
 msgstr "جارٍ التحقق من التطبيق ومساحة العمل..."
 
@@ -4129,7 +4129,7 @@ msgid "dashboard.installation.readonlyExisting"
 msgstr "يمكنك فحص ونسخ هذا التثبيت. يقوم مسؤول أو مالك مساحة العمل بإدارة الأصول الموثوقة والإلغاء."
 
 #. js-lingui-explicit-id
-#: src/components/authoring-activation-popup.tsx:57
+#: src/components/authoring-activation-popup.tsx:58
 msgid "dashboard.activation.credentialSafety"
 msgstr "تظل بيانات الاعتماد الخاصة بك داخل Lodariq ولا يتم إرسالها أبدًا إلى صفحة العميل."
 

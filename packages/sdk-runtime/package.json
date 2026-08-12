@@ -8,70 +8,87 @@
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
+      "source": "./src/index.ts",
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     },
     "./brand-token-registry": {
+      "source": "./src/brand-token-registry.ts",
       "types": "./dist/brand-token-registry.d.ts",
       "import": "./dist/brand-token-registry.js"
     },
     "./i18n": {
+      "source": "./src/i18n.ts",
       "types": "./dist/i18n.d.ts",
       "import": "./dist/i18n.js"
     },
     "./lodariq-loader": {
+      "source": "./src/loader/index.ts",
       "types": "./dist/lodariq-loader.d.ts",
       "import": "./dist/lodariq-loader.js"
     },
     "./public-bootstrap": {
+      "source": "./src/activation/public-bootstrap.ts",
       "types": "./dist/lodariq-public-bootstrap.d.ts",
       "import": "./dist/lodariq-public-bootstrap.js"
     },
     "./activation-client": {
+      "source": "./src/activation/authoring-activation.ts",
       "types": "./dist/lodariq-activation.d.ts",
       "import": "./dist/lodariq-activation.js"
     },
     "./public-delivery": {
+      "source": "./src/activation/public-delivery.ts",
       "types": "./dist/lodariq-public-delivery.d.ts",
       "import": "./dist/lodariq-public-delivery.js"
     },
     "./lodariq-runtime": {
+      "source": "./src/runtime/index.ts",
       "types": "./dist/lodariq-runtime.d.ts",
       "import": "./dist/lodariq-runtime.js"
     },
     "./lodariq-local-dev": {
+      "source": "./src/local-dev/index.ts",
       "types": "./dist/lodariq-local-dev.d.ts",
       "import": "./dist/lodariq-local-dev.js"
     },
     "./loader": {
+      "source": "./src/loader/index.ts",
       "types": "./dist/lodariq-loader.d.ts",
       "import": "./dist/lodariq-loader.js"
     },
     "./activation/public-bootstrap": {
+      "source": "./src/activation/public-bootstrap.ts",
       "types": "./dist/activation/public-bootstrap.d.ts",
       "import": "./dist/activation/public-bootstrap.js"
     },
     "./activation/authoring-activation": {
+      "source": "./src/activation/authoring-activation.ts",
       "types": "./dist/activation/authoring-activation.d.ts",
       "import": "./dist/activation/authoring-activation.js"
     },
     "./activation/public-delivery": {
+      "source": "./src/activation/public-delivery.ts",
       "types": "./dist/activation/public-delivery.d.ts",
       "import": "./dist/activation/public-delivery.js"
     },
     "./runtime": {
+      "source": "./src/runtime/index.ts",
       "types": "./dist/runtime/index.d.ts",
       "import": "./dist/runtime/index.js"
     },
     "./resolver": {
+      "source": "./src/resolver/index.ts",
       "types": "./dist/resolver/index.d.ts",
       "import": "./dist/resolver/index.js"
     },
     "./renderers/tour": {
+      "source": "./src/renderers/tour.ts",
       "types": "./dist/renderers/tour.d.ts",
       "import": "./dist/renderers/tour.js"
     },
     "./local-dev": {
+      "source": "./src/local-dev/index.ts",
       "types": "./dist/local-dev/index.d.ts",
       "import": "./dist/local-dev/index.js"
     }

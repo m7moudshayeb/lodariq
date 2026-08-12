@@ -324,7 +324,7 @@ msgid "dashboard.brand.preview.after"
 msgstr "Depois"
 
 #. js-lingui-explicit-id
-#: src/components/authoring-activation-popup.tsx:77
+#: src/components/authoring-activation-popup.tsx:78
 msgid "dashboard.activation.approveDescription"
 msgstr "Permita que seu espaço de trabalho Lodariq crie e edite Tours em {host}."
 
@@ -494,7 +494,7 @@ msgid "dashboard.brand.empty.permissions"
 msgstr "Peça a um membro, administrador ou proprietário do espaço de trabalho para criá-lo."
 
 #. js-lingui-explicit-id
-#: src/components/authoring-activation-popup.tsx:73
+#: src/components/authoring-activation-popup.tsx:74
 msgid "dashboard.activation.approveTitle"
 msgstr "Autor nesta aplicação?"
 
@@ -504,12 +504,12 @@ msgid "auth.shell.authorOnce"
 msgstr "Crie uma vez"
 
 #. js-lingui-explicit-id
-#: src/components/authoring-activation-popup.tsx:85
+#: src/components/authoring-activation-popup.tsx:86
 msgid "dashboard.activation.approved"
 msgstr "Autoria aprovada"
 
 #. js-lingui-explicit-id
-#: src/components/authoring-activation-popup.tsx:46
+#: src/components/authoring-activation-popup.tsx:47
 msgid "dashboard.activation.approvalFailed"
 msgstr "A autoria não pôde ser aprovada. Volte ao inicializador e tente novamente."
 
@@ -624,7 +624,7 @@ msgid "dashboard.common.cancel"
 msgstr "Cancelar"
 
 #. js-lingui-explicit-id
-#: src/components/authoring-activation-popup.tsx:84
+#: src/components/authoring-activation-popup.tsx:85
 msgid "dashboard.activation.cancel"
 msgstr "Cancelar"
 
@@ -669,7 +669,7 @@ msgid "dashboard.viewModel.checkedAt"
 msgstr "Verificado {date}"
 
 #. js-lingui-explicit-id
-#: src/components/authoring-activation-popup.tsx:94
+#: src/components/authoring-activation-popup.tsx:95
 msgid "dashboard.activation.checking"
 msgstr "Verificando o acesso"
 
@@ -814,7 +814,7 @@ msgid "dashboard.common.close"
 msgstr "Fechar"
 
 #. js-lingui-explicit-id
-#: src/components/authoring-activation-popup.tsx:50
+#: src/components/authoring-activation-popup.tsx:51
 msgid "dashboard.activation.close"
 msgstr "Fechar"
 
@@ -914,7 +914,7 @@ msgid "dashboard.authoringLaunch.description"
 msgstr "Continue em um site mapeado para uma instalação ativa única do Lodariq."
 
 #. js-lingui-explicit-id
-#: src/components/authoring-activation-popup.tsx:83
+#: src/components/authoring-activation-popup.tsx:84
 msgid "dashboard.activation.continue"
 msgstr "Continuar para a autoria"
 
@@ -949,7 +949,7 @@ msgid "dashboard.installation.copy"
 msgstr "Copiar instalação"
 
 #. js-lingui-explicit-id
-#: src/components/authoring-activation-popup.tsx:90
+#: src/components/authoring-activation-popup.tsx:91
 msgid "dashboard.activation.couldNotContinue"
 msgstr "Não foi possível continuar"
 
@@ -1124,7 +1124,7 @@ msgid "dashboard.common.development"
 msgstr "Desenvolvimento"
 
 #. js-lingui-explicit-id
-#: src/components/authoring-activation-popup.tsx:110
+#: src/components/authoring-activation-popup.tsx:111
 msgid "dashboard.activation.development"
 msgstr "Desenvolvimento"
 
@@ -1264,7 +1264,7 @@ msgid "dashboard.environmentPolicy.invalid"
 msgstr "Insira um nome e não mais que 100 origens exatas."
 
 #. js-lingui-explicit-id
-#: src/components/authoring-activation-popup.tsx:81
+#: src/components/authoring-activation-popup.tsx:82
 msgid "dashboard.activation.environment"
 msgstr "Meio Ambiente"
 
@@ -1364,7 +1364,7 @@ msgid "dashboard.releases.exactArtifactPromotion"
 msgstr "Promoção de artefato exato"
 
 #. js-lingui-explicit-id
-#: src/components/authoring-activation-popup.tsx:109
+#: src/components/authoring-activation-popup.tsx:110
 msgid "dashboard.activation.existingTour"
 msgstr "Passeio Existente"
 
@@ -1379,7 +1379,7 @@ msgid "dashboard.recovery.expectedGeneration"
 msgstr "Geração esperada {generation}"
 
 #. js-lingui-explicit-id
-#: src/components/authoring-activation-popup.tsx:82
+#: src/components/authoring-activation-popup.tsx:83
 msgid "dashboard.activation.experience"
 msgstr "Experiência"
 
@@ -1444,7 +1444,7 @@ msgid "dashboard.publishIssue.incompleteMedia.message"
 msgstr "Conclua a configuração deste bloco de mídia antes de publicar."
 
 #. js-lingui-explicit-id
-#: src/components/authoring-activation-popup.tsx:69
+#: src/components/authoring-activation-popup.tsx:70
 msgid "dashboard.activation.recoveryFinish"
 msgstr "Termine aí, feche esta janela e comece a criar novamente."
 
@@ -1639,7 +1639,7 @@ msgid "dashboard.publishIssue.invalidPresentationArea.label"
 msgstr "Área de apresentação inválida"
 
 #. js-lingui-explicit-id
-#: src/components/authoring-activation-popup.tsx:100
+#: src/components/authoring-activation-popup.tsx:101
 msgid "dashboard.activation.readyDescription"
 msgstr "Mantenha esta janela aberta enquanto o iniciador Lodariq conclui a transferência segura."
 
@@ -1834,7 +1834,7 @@ msgid "dashboard.viewModel.nearbyProductControls"
 msgstr "Controles de produtos próximos"
 
 #. js-lingui-explicit-id
-#: src/components/authoring-activation-popup.tsx:61
+#: src/components/authoring-activation-popup.tsx:62
 msgid "dashboard.activation.passwordHelp"
 msgstr "Precisa definir ou redefinir sua senha?"
 
@@ -1884,7 +1884,7 @@ msgid "auth.form.newToLodariq"
 msgstr "Novo em Lodariq?"
 
 #. js-lingui-explicit-id
-#: src/components/authoring-activation-popup.tsx:108
+#: src/components/authoring-activation-popup.tsx:109
 msgid "dashboard.activation.newTour"
 msgstr "Novo passeio"
 
@@ -2174,7 +2174,7 @@ msgid "dashboard.account.openMenu"
 msgstr "Abra o menu da conta e do espaço de trabalho"
 
 #. js-lingui-explicit-id
-#: src/components/authoring-activation-popup.tsx:42
+#: src/components/authoring-activation-popup.tsx:43
 msgid "dashboard.activation.openFromLauncher"
 msgstr "Abra a autoria no inicializador Lodariq dentro do seu aplicativo."
 
@@ -2189,7 +2189,7 @@ msgid "auth.form.openLocalRecoveryLink"
 msgstr "Abrir link de recuperação local"
 
 #. js-lingui-explicit-id
-#: src/components/authoring-activation-popup.tsx:65
+#: src/components/authoring-activation-popup.tsx:66
 msgid "dashboard.activation.openRecovery"
 msgstr "Abra a recuperação de senha em uma nova guia"
 
@@ -2634,7 +2634,7 @@ msgid "dashboard.viewModel.readyForStaging"
 msgstr "Pronto para encenação"
 
 #. js-lingui-explicit-id
-#: src/components/authoring-activation-popup.tsx:99
+#: src/components/authoring-activation-popup.tsx:100
 msgid "dashboard.activation.ready"
 msgstr "Pronto para conectar"
 
@@ -2814,7 +2814,7 @@ msgid "auth.page.returnToSignIn"
 msgstr "Voltar para fazer login"
 
 #. js-lingui-explicit-id
-#: src/components/authoring-activation-popup.tsx:86
+#: src/components/authoring-activation-popup.tsx:87
 msgid "dashboard.activation.returning"
 msgstr "Voltando ao aplicativo…"
 
@@ -3129,7 +3129,7 @@ msgid "dashboard.server.authenticationRequired"
 msgstr "Faça login novamente para continuar."
 
 #. js-lingui-explicit-id
-#: src/components/authoring-activation-popup.tsx:52
+#: src/components/authoring-activation-popup.tsx:53
 msgid "dashboard.activation.signInDescription"
 msgstr "Faça login aqui. Esta janela retomará automaticamente a mesma solicitação de autoria segura."
 
@@ -3144,7 +3144,7 @@ msgid "dashboard.entry.signInTitle"
 msgstr "Faça login no Lodariq"
 
 #. js-lingui-explicit-id
-#: src/components/authoring-activation-popup.tsx:51
+#: src/components/authoring-activation-popup.tsx:52
 msgid "dashboard.activation.signInTitle"
 msgstr "Faça login e continue"
 
@@ -3204,7 +3204,7 @@ msgid "dashboard.analytics.staging"
 msgstr "Encenação"
 
 #. js-lingui-explicit-id
-#: src/components/authoring-activation-popup.tsx:111
+#: src/components/authoring-activation-popup.tsx:112
 msgid "dashboard.activation.staging"
 msgstr "Encenação"
 
@@ -3579,12 +3579,12 @@ msgid "dashboard.action.themeValuesInvalid"
 msgstr "Os valores do tema são inválidos. Revise os controles destacados."
 
 #. js-lingui-explicit-id
-#: src/components/authoring-activation-popup.tsx:104
+#: src/components/authoring-activation-popup.tsx:105
 msgid "dashboard.activation.thisApplication"
 msgstr "esta aplicação"
 
 #. js-lingui-explicit-id
-#: src/components/authoring-activation-popup.tsx:38
+#: src/components/authoring-activation-popup.tsx:39
 msgid "dashboard.activation.requestExpired"
 msgstr "Esta solicitação de autoria não está disponível ou expirou. Volte ao inicializador e tente novamente."
 
@@ -3999,7 +3999,7 @@ msgid "dashboard.publishIssue.unverifiedTarget.message"
 msgstr "Verifique esse posicionamento no ambiente atual antes de publicar."
 
 #. js-lingui-explicit-id
-#: src/components/authoring-activation-popup.tsx:95
+#: src/components/authoring-activation-popup.tsx:96
 msgid "dashboard.activation.verifying"
 msgstr "Verificando o aplicativo e o espaço de trabalho…"
 
@@ -4129,7 +4129,7 @@ msgid "dashboard.installation.readonlyExisting"
 msgstr "Você pode inspecionar e copiar esta instalação. Um administrador ou proprietário do workspace gerencia origens confiáveis ​​e revogação."
 
 #. js-lingui-explicit-id
-#: src/components/authoring-activation-popup.tsx:57
+#: src/components/authoring-activation-popup.tsx:58
 msgid "dashboard.activation.credentialSafety"
 msgstr "Suas credenciais ficam dentro do Lodariq e nunca são enviadas para a página do cliente."
 

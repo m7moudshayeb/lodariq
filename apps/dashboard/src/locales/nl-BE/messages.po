@@ -324,7 +324,7 @@ msgid "dashboard.brand.preview.after"
 msgstr "Na"
 
 #. js-lingui-explicit-id
-#: src/components/authoring-activation-popup.tsx:77
+#: src/components/authoring-activation-popup.tsx:78
 msgid "dashboard.activation.approveDescription"
 msgstr "Laat uw Lodariq-werkruimte Tours aanmaken en bewerken op {host}."
 
@@ -494,7 +494,7 @@ msgid "dashboard.brand.empty.permissions"
 msgstr "Vraag een lid, beheerder of eigenaar van de werkruimte om deze te maken."
 
 #. js-lingui-explicit-id
-#: src/components/authoring-activation-popup.tsx:73
+#: src/components/authoring-activation-popup.tsx:74
 msgid "dashboard.activation.approveTitle"
 msgstr "Auteur in deze toepassing?"
 
@@ -504,12 +504,12 @@ msgid "auth.shell.authorOnce"
 msgstr "Eén keer maken"
 
 #. js-lingui-explicit-id
-#: src/components/authoring-activation-popup.tsx:85
+#: src/components/authoring-activation-popup.tsx:86
 msgid "dashboard.activation.approved"
 msgstr "Auteursrecht goedgekeurd"
 
 #. js-lingui-explicit-id
-#: src/components/authoring-activation-popup.tsx:46
+#: src/components/authoring-activation-popup.tsx:47
 msgid "dashboard.activation.approvalFailed"
 msgstr "Het schrijven kon niet worden goedgekeurd. Ga terug naar het opstartprogramma en probeer het opnieuw."
 
@@ -624,7 +624,7 @@ msgid "dashboard.common.cancel"
 msgstr "Annuleer"
 
 #. js-lingui-explicit-id
-#: src/components/authoring-activation-popup.tsx:84
+#: src/components/authoring-activation-popup.tsx:85
 msgid "dashboard.activation.cancel"
 msgstr "Annuleer"
 
@@ -669,7 +669,7 @@ msgid "dashboard.viewModel.checkedAt"
 msgstr "Gecontroleerd {date}"
 
 #. js-lingui-explicit-id
-#: src/components/authoring-activation-popup.tsx:94
+#: src/components/authoring-activation-popup.tsx:95
 msgid "dashboard.activation.checking"
 msgstr "Toegang controleren"
 
@@ -814,7 +814,7 @@ msgid "dashboard.common.close"
 msgstr "Sluiten"
 
 #. js-lingui-explicit-id
-#: src/components/authoring-activation-popup.tsx:50
+#: src/components/authoring-activation-popup.tsx:51
 msgid "dashboard.activation.close"
 msgstr "Sluiten"
 
@@ -914,7 +914,7 @@ msgid "dashboard.authoringLaunch.description"
 msgstr "Ga verder op een site die is toegewezen aan een actieve eenmalige Lodariq-installatie."
 
 #. js-lingui-explicit-id
-#: src/components/authoring-activation-popup.tsx:83
+#: src/components/authoring-activation-popup.tsx:84
 msgid "dashboard.activation.continue"
 msgstr "Ga door met schrijven"
 
@@ -949,7 +949,7 @@ msgid "dashboard.installation.copy"
 msgstr "Kopieer installatie"
 
 #. js-lingui-explicit-id
-#: src/components/authoring-activation-popup.tsx:90
+#: src/components/authoring-activation-popup.tsx:91
 msgid "dashboard.activation.couldNotContinue"
 msgstr "Kon niet doorgaan"
 
@@ -1124,7 +1124,7 @@ msgid "dashboard.common.development"
 msgstr "Ontwikkeling"
 
 #. js-lingui-explicit-id
-#: src/components/authoring-activation-popup.tsx:110
+#: src/components/authoring-activation-popup.tsx:111
 msgid "dashboard.activation.development"
 msgstr "Ontwikkeling"
 
@@ -1264,7 +1264,7 @@ msgid "dashboard.environmentPolicy.invalid"
 msgstr "Voer een naam en niet meer dan 100 exacte herkomsten in."
 
 #. js-lingui-explicit-id
-#: src/components/authoring-activation-popup.tsx:81
+#: src/components/authoring-activation-popup.tsx:82
 msgid "dashboard.activation.environment"
 msgstr "Milieu"
 
@@ -1364,7 +1364,7 @@ msgid "dashboard.releases.exactArtifactPromotion"
 msgstr "Promotie van exacte artefacten"
 
 #. js-lingui-explicit-id
-#: src/components/authoring-activation-popup.tsx:109
+#: src/components/authoring-activation-popup.tsx:110
 msgid "dashboard.activation.existingTour"
 msgstr "Bestaande rondleiding"
 
@@ -1379,7 +1379,7 @@ msgid "dashboard.recovery.expectedGeneration"
 msgstr "Verwachte generatie {generation}"
 
 #. js-lingui-explicit-id
-#: src/components/authoring-activation-popup.tsx:82
+#: src/components/authoring-activation-popup.tsx:83
 msgid "dashboard.activation.experience"
 msgstr "Ervaring"
 
@@ -1444,7 +1444,7 @@ msgid "dashboard.publishIssue.incompleteMedia.message"
 msgstr "Voltooi de configuratie van dit mediablok voordat u het publiceert."
 
 #. js-lingui-explicit-id
-#: src/components/authoring-activation-popup.tsx:69
+#: src/components/authoring-activation-popup.tsx:70
 msgid "dashboard.activation.recoveryFinish"
 msgstr "Eindig daar, sluit vervolgens dit venster en begin opnieuw met schrijven."
 
@@ -1639,7 +1639,7 @@ msgid "dashboard.publishIssue.invalidPresentationArea.label"
 msgstr "Ongeldig presentatiegebied"
 
 #. js-lingui-explicit-id
-#: src/components/authoring-activation-popup.tsx:100
+#: src/components/authoring-activation-popup.tsx:101
 msgid "dashboard.activation.readyDescription"
 msgstr "Houd dit venster open terwijl de Lodariq-launcher de veilige overdracht voltooit."
 
@@ -1834,7 +1834,7 @@ msgid "dashboard.viewModel.nearbyProductControls"
 msgstr "Productcontroles in de buurt"
 
 #. js-lingui-explicit-id
-#: src/components/authoring-activation-popup.tsx:61
+#: src/components/authoring-activation-popup.tsx:62
 msgid "dashboard.activation.passwordHelp"
 msgstr "Wilt u uw wachtwoord instellen of opnieuw instellen?"
 
@@ -1884,7 +1884,7 @@ msgid "auth.form.newToLodariq"
 msgstr "Nieuw bij Lodariq?"
 
 #. js-lingui-explicit-id
-#: src/components/authoring-activation-popup.tsx:108
+#: src/components/authoring-activation-popup.tsx:109
 msgid "dashboard.activation.newTour"
 msgstr "Nieuwe rondleiding"
 
@@ -2174,7 +2174,7 @@ msgid "dashboard.account.openMenu"
 msgstr "Open het account- en werkruimtemenu"
 
 #. js-lingui-explicit-id
-#: src/components/authoring-activation-popup.tsx:42
+#: src/components/authoring-activation-popup.tsx:43
 msgid "dashboard.activation.openFromLauncher"
 msgstr "Open het schrijven vanuit het Lodariq-opstartprogramma in uw applicatie."
 
@@ -2189,7 +2189,7 @@ msgid "auth.form.openLocalRecoveryLink"
 msgstr "Open de lokale herstellink"
 
 #. js-lingui-explicit-id
-#: src/components/authoring-activation-popup.tsx:65
+#: src/components/authoring-activation-popup.tsx:66
 msgid "dashboard.activation.openRecovery"
 msgstr "Open wachtwoordherstel in een nieuw tabblad"
 
@@ -2634,7 +2634,7 @@ msgid "dashboard.viewModel.readyForStaging"
 msgstr "Klaar voor enscenering"
 
 #. js-lingui-explicit-id
-#: src/components/authoring-activation-popup.tsx:99
+#: src/components/authoring-activation-popup.tsx:100
 msgid "dashboard.activation.ready"
 msgstr "Klaar om verbinding te maken"
 
@@ -2814,7 +2814,7 @@ msgid "auth.page.returnToSignIn"
 msgstr "Keer terug om in te loggen"
 
 #. js-lingui-explicit-id
-#: src/components/authoring-activation-popup.tsx:86
+#: src/components/authoring-activation-popup.tsx:87
 msgid "dashboard.activation.returning"
 msgstr "U keert terug naar de toepassing…"
 
@@ -3129,7 +3129,7 @@ msgid "dashboard.server.authenticationRequired"
 msgstr "Meld u opnieuw aan om door te gaan."
 
 #. js-lingui-explicit-id
-#: src/components/authoring-activation-popup.tsx:52
+#: src/components/authoring-activation-popup.tsx:53
 msgid "dashboard.activation.signInDescription"
 msgstr "Meld u hier aan. In dit venster wordt hetzelfde beveiligde auteursverzoek automatisch hervat."
 
@@ -3144,7 +3144,7 @@ msgid "dashboard.entry.signInTitle"
 msgstr "Meld u aan bij Lodariq"
 
 #. js-lingui-explicit-id
-#: src/components/authoring-activation-popup.tsx:51
+#: src/components/authoring-activation-popup.tsx:52
 msgid "dashboard.activation.signInTitle"
 msgstr "Meld u aan en ga verder"
 
@@ -3204,7 +3204,7 @@ msgid "dashboard.analytics.staging"
 msgstr "Staging"
 
 #. js-lingui-explicit-id
-#: src/components/authoring-activation-popup.tsx:111
+#: src/components/authoring-activation-popup.tsx:112
 msgid "dashboard.activation.staging"
 msgstr "Staging"
 
@@ -3579,12 +3579,12 @@ msgid "dashboard.action.themeValuesInvalid"
 msgstr "Themawaarden zijn ongeldig. Bekijk de gemarkeerde bedieningselementen."
 
 #. js-lingui-explicit-id
-#: src/components/authoring-activation-popup.tsx:104
+#: src/components/authoring-activation-popup.tsx:105
 msgid "dashboard.activation.thisApplication"
 msgstr "deze applicatie"
 
 #. js-lingui-explicit-id
-#: src/components/authoring-activation-popup.tsx:38
+#: src/components/authoring-activation-popup.tsx:39
 msgid "dashboard.activation.requestExpired"
 msgstr "Dit auteursverzoek is niet beschikbaar of verlopen. Keer terug naar het opstartprogramma en probeer het opnieuw."
 
@@ -3999,7 +3999,7 @@ msgid "dashboard.publishIssue.unverifiedTarget.message"
 msgstr "Controleer deze plaatsing in de huidige omgeving voordat u deze publiceert."
 
 #. js-lingui-explicit-id
-#: src/components/authoring-activation-popup.tsx:95
+#: src/components/authoring-activation-popup.tsx:96
 msgid "dashboard.activation.verifying"
 msgstr "De applicatie en werkruimte verifiëren…"
 
@@ -4129,7 +4129,7 @@ msgid "dashboard.installation.readonlyExisting"
 msgstr "U kunt deze installatie inspecteren en kopiëren. Een beheerder of eigenaar van een werkruimte beheert vertrouwde bronnen en intrekkingen."
 
 #. js-lingui-explicit-id
-#: src/components/authoring-activation-popup.tsx:57
+#: src/components/authoring-activation-popup.tsx:58
 msgid "dashboard.activation.credentialSafety"
 msgstr "Uw inloggegevens blijven binnen Lodariq en worden nooit naar de klantpagina gestuurd."
 

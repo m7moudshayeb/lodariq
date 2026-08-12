@@ -218,7 +218,7 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
       'background: linear-gradient(180deg, var(--lq-color-chrome), #101216)',
     );
     const contextualSurfaceRule = styles.match(
-      /\.menu,\s*\.inline-command-menu,\s*\.step-command-menu,\s*\.ui-popover-content \{[\s\S]*?\n {2}\}/,
+      /\.menu,\s*\.inline-command-menu,\s*\.step-command-menu,\s*\.ui-select-content,\s*\.ui-popover-content \{[\s\S]*?\n {2}\}/,
     )?.[0];
     expect(contextualSurfaceRule).toContain('--lq-color-page: #ffffff');
     expect(contextualSurfaceRule).toContain('--lq-color-panel: #f7faf9');

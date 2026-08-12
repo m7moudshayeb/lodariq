@@ -48,7 +48,7 @@ test.describe('dashboard control plane', () => {
 
     await page.setViewportSize({ width: 390, height: 844 });
     const menuTrigger = page.getByRole('button', { name: 'Open workspace navigation' });
-    const navigationDrawer = page.getByRole('dialog', { name: 'Workspace navigation' });
+    const navigationDrawer = page.getByRole('dialog', { name: 'Workspace' });
 
     await expect(menuTrigger).toBeVisible();
     await expect(menuTrigger).toHaveAttribute('aria-expanded', 'false');
@@ -201,7 +201,7 @@ test.describe('dashboard control plane', () => {
     const openProduct = page.getByRole('link', { name: 'Open Staging' });
     await expect(openProduct).toHaveAttribute(
       'href',
-      'https://staging.lodariq.io/?lodariq-launcher=show',
+      'https://staging.lodariq.io/?lodariq-launcher=show&lodariq-locale=en',
     );
     await expect(openProduct).toHaveAttribute('target', '_blank');
     await expect(page.getByRole('combobox', { name: 'Experience', exact: true })).toHaveCount(0);
