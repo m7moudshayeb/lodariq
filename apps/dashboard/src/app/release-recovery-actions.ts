@@ -14,10 +14,10 @@ import {
   recoverDocumentRelease,
 } from '../lib/api';
 import { revalidatePath } from '../lib/revalidation';
+import { requireDashboardActionRole } from '../lib/action-auth';
 
 export type ReleaseRecoveryStateActionResult =
-  | { status: 'success'; state: ReleaseRecoveryStateResponse }
-  | { status: 'error'; error: string };
+  { status: 'success'; state: ReleaseRecoveryStateResponse } | { status: 'error'; error: string };
 
 export type ReleaseRecoveryMutationActionResult =
   | { status: 'result'; result: ReleaseRecoveryResult }
@@ -35,9 +35,10 @@ export async function loadReleaseRecoveryStateAction(
     return { status: 'error', error: 'Choose a valid document and release environment.' };
   }
   try {
+    const context = await requireDashboardActionRole('viewer');
     return {
       status: 'success',
-      state: await loadDocumentReleaseRecoveryState(input),
+      state: await loadDocumentReleaseRecoveryState({ ...input, workspaceId: context.workspaceId }),
     };
   } catch (error) {
     return { status: 'error', error: releaseRecoveryReadError(error) };
@@ -58,11 +59,15 @@ export async function recoverDocumentReleaseAction(input: {
     };
   }
   try {
+    await requireDashboardActionRole('admin');
     const result = await recoverDocumentRelease({ ...input, request: request.value });
     if (result.ok) revalidatePath('/');
     return { status: 'result', result };
   } catch (error) {
-    if (error instanceof DashboardApiError && (error.statusCode === 401 || error.statusCode === 403)) {
+    if (
+      error instanceof DashboardApiError &&
+      (error.statusCode === 401 || error.statusCode === 403)
+    ) {
       return {
         status: 'error',
         error: 'Your current workspace access cannot perform this release recovery action.',
@@ -71,14 +76,17 @@ export async function recoverDocumentReleaseAction(input: {
     }
     return {
       status: 'error',
-      error: 'The recovery result is uncertain. Retry the exact request or refresh release history.',
+      error:
+        'The recovery result is uncertain. Retry the exact request or refresh release history.',
       retryExact: true,
     };
   }
 }
 
 function isValidRecoveryScope(input: ReleaseRecoveryScopeActionInput): boolean {
-  return isReleaseRecoveryDocumentId(input.documentId) && isEnvironmentPolicyId(input.environmentId);
+  return (
+    isReleaseRecoveryDocumentId(input.documentId) && isEnvironmentPolicyId(input.environmentId)
+  );
 }
 
 function isReleaseRecoveryDocumentId(value: string): boolean {

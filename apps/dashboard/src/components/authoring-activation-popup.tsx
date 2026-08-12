@@ -2,6 +2,7 @@
 
 import { Check, LoaderCircle, LogIn, ShieldCheck, X } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useAuthoringActivation, type PendingActivation } from '../hooks/use-authoring-activation';
 import type { AuthSessionSnapshot } from '../lib/auth-contract';
 import { AuthForm } from './auth-form';
 import { Button } from './ui/button';
@@ -20,25 +21,6 @@ interface ActivationHandshake {
   openerOrigin: string;
 }
 
-interface PendingActivation {
-  requestId: string;
-  state: string;
-  customerOrigin: string;
-  environment: 'development' | 'staging';
-  expiresAt: string;
-  documentIntent?:
-    { kind: 'existing'; documentId: string } | { kind: 'new-draft'; documentType: 'tour' };
-}
-
-interface AuthorizationResult {
-  protocol: typeof ACTIVATION_PROTOCOL;
-  type: 'authoring.authorization.result';
-  requestId: string;
-  state: string;
-  authorizationCode: string;
-  expiresAt: string;
-}
-
 type ActivationState =
   | { name: 'waiting' }
   | { name: 'loading'; handshake: ActivationHandshake }
@@ -55,53 +37,34 @@ export function AuthoringActivationPopup({
 }): React.ReactElement {
   const [state, setState] = useState<ActivationState>({ name: 'waiting' });
   const activeHandshake = useRef<ActivationHandshake | null>(null);
+  const activation = useAuthoringActivation();
 
-  const inspect = useCallback(async (handshake: ActivationHandshake): Promise<void> => {
-    setState({ name: 'loading', handshake });
-    try {
-      const response = await fetch('/authoring/activate/request', {
-        method: 'POST',
-        credentials: 'same-origin',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ action: 'inspect', requestId: handshake.message.requestId }),
-      });
-      if (activeHandshake.current !== handshake) return;
-      if (response.status === 401) {
-        setState({ name: 'authentication', handshake });
-        return;
-      }
-      if (!response.ok) throw new Error('request_unavailable');
-
-      const context = (await response.json()) as Partial<PendingActivation>;
-      if (
-        context.requestId !== handshake.message.requestId ||
-        context.customerOrigin !== handshake.openerOrigin ||
-        (context.environment !== 'development' && context.environment !== 'staging') ||
-        typeof context.expiresAt !== 'string'
-      ) {
-        throw new Error('request_mismatch');
-      }
-
-      setState({
-        name: 'ready',
-        request: {
+  const inspect = useCallback(
+    async (handshake: ActivationHandshake): Promise<void> => {
+      setState({ name: 'loading', handshake });
+      try {
+        const result = await activation.inspect.mutateAsync({
           requestId: handshake.message.requestId,
           state: handshake.message.state,
-          customerOrigin: handshake.openerOrigin,
-          environment: context.environment,
-          expiresAt: context.expiresAt,
-          ...(context.documentIntent ? { documentIntent: context.documentIntent } : {}),
-        },
-      });
-    } catch {
-      if (activeHandshake.current !== handshake) return;
-      setState({
-        name: 'error',
-        message:
-          'This authoring request is unavailable or expired. Return to the launcher and retry.',
-      });
-    }
-  }, []);
+          openerOrigin: handshake.openerOrigin,
+        });
+        if (activeHandshake.current !== handshake) return;
+        if (result.status === 'authentication') {
+          setState({ name: 'authentication', handshake });
+          return;
+        }
+        setState({ name: 'ready', request: result.request });
+      } catch {
+        if (activeHandshake.current !== handshake) return;
+        setState({
+          name: 'error',
+          message:
+            'This authoring request is unavailable or expired. Return to the launcher and retry.',
+        });
+      }
+    },
+    [activation.inspect],
+  );
 
   useEffect(() => {
     if (!window.opener) {
@@ -143,34 +106,25 @@ export function AuthoringActivationPopup({
     [inspect],
   );
 
-  const approve = useCallback(async (request: PendingActivation): Promise<void> => {
-    setState({ name: 'approving', request });
-    try {
-      const response = await fetch('/authoring/activate/request', {
-        method: 'POST',
-        credentials: 'same-origin',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({
-          action: 'approve',
-          requestId: request.requestId,
-          state: request.state,
-        }),
-      });
-      if (!response.ok) throw new Error('approval_failed');
-      const result = (await response.json()) as unknown;
-      if (!isAuthorizationResult(result, request)) throw new Error('approval_failed');
-      if (!window.opener) throw new Error('opener_closed');
+  const approve = useCallback(
+    async (request: PendingActivation): Promise<void> => {
+      setState({ name: 'approving', request });
+      try {
+        const result = await activation.approve.mutateAsync(request);
+        if (!window.opener) throw new Error('opener_closed');
 
-      window.opener.postMessage(result, request.customerOrigin);
-      setState({ name: 'complete' });
-      window.setTimeout(() => window.close(), 350);
-    } catch {
-      setState({
-        name: 'error',
-        message: 'Authoring could not be approved. Return to the launcher and try again.',
-      });
-    }
-  }, []);
+        window.opener.postMessage(result, request.customerOrigin);
+        setState({ name: 'complete' });
+        window.setTimeout(() => window.close(), 350);
+      } catch {
+        setState({
+          name: 'error',
+          message: 'Authoring could not be approved. Return to the launcher and try again.',
+        });
+      }
+    },
+    [activation.approve],
+  );
 
   return (
     <main className="grid min-h-screen place-items-center bg-background p-4 text-foreground">
@@ -335,26 +289,6 @@ function parseActivationRequest(value: unknown): ActivationRequestMessage | null
     return null;
   }
   return message as ActivationRequestMessage;
-}
-
-function isAuthorizationResult(
-  value: unknown,
-  request: PendingActivation,
-): value is AuthorizationResult {
-  if (!value || typeof value !== 'object') return false;
-  const result = value as Partial<AuthorizationResult>;
-  const exactKeys = ['protocol', 'type', 'requestId', 'state', 'authorizationCode', 'expiresAt'];
-  return (
-    Object.keys(value).every((key) => exactKeys.includes(key)) &&
-    exactKeys.every((key) => key in value) &&
-    result.protocol === ACTIVATION_PROTOCOL &&
-    result.type === 'authoring.authorization.result' &&
-    result.requestId === request.requestId &&
-    result.state === request.state &&
-    typeof result.authorizationCode === 'string' &&
-    result.authorizationCode.length >= 32 &&
-    typeof result.expiresAt === 'string'
-  );
 }
 
 function isExactHttpOrigin(value: string): boolean {

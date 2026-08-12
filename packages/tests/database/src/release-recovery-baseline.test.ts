@@ -3,11 +3,14 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { readInitialBaseline } from './migration-test-utils.js';
 
-const REPOSITORY_PATH = fileURLToPath(
-  new URL('../../../database/src/drizzle-repository.ts', import.meta.url),
+const RECOVERY_REPOSITORY_PATH = fileURLToPath(
+  new URL('../../../database/src/drizzle/recovery.ts', import.meta.url),
 );
-const SCHEMA_PATH = fileURLToPath(
-  new URL('../../../database/src/schema.ts', import.meta.url),
+const RECOVERY_SCOPE_PATH = fileURLToPath(
+  new URL('../../../database/src/drizzle/sdk-helpers.ts', import.meta.url),
+);
+const RELEASE_SCHEMA_PATH = fileURLToPath(
+  new URL('../../../database/src/schema/releases.ts', import.meta.url),
 );
 const API_HELPER_PATH = fileURLToPath(
   new URL('../../../../apps/api/src/releases/recovery.ts', import.meta.url),
@@ -29,12 +32,8 @@ describe('release recovery clean baseline', () => {
     expect(sql).not.toMatch(
       /foreign key \([^)]*requested_(?:source|active)_publication_id[^)]*\)/u,
     );
-    expect(sql).toContain(
-      "action = 'rollback' and requested_source_publication_id is not null",
-    );
-    expect(sql).toContain(
-      "action in ('rollback', 'unpublish') and reason is not null",
-    );
+    expect(sql).toContain("action = 'rollback' and requested_source_publication_id is not null");
+    expect(sql).toContain("action in ('rollback', 'unpublish') and reason is not null");
     expect(sql).toContain("status = 'activating'");
     expect(sql).toContain("status = 'completed'");
     expect(sql).toContain("status = 'failed'");
@@ -49,11 +48,13 @@ describe('release recovery clean baseline', () => {
       expect(sql).not.toContain(`create policy ${table}_workspace_update`);
       expect(sql).not.toContain(`create policy ${table}_workspace_delete`);
     }
-    expect(sql).toContain('create policy release_operations_lifecycle_update on release_operations');
+    expect(sql).toContain(
+      'create policy release_operations_lifecycle_update on release_operations',
+    );
     expect(sql).toContain("and status in ('awaiting_approval', 'activating')");
     expect(sql).toContain("and status in ('completed', 'failed')");
 
-    const schema = readFileSync(SCHEMA_PATH, 'utf8');
+    const schema = readFileSync(RELEASE_SCHEMA_PATH, 'utf8');
     expect(schema).toContain('release_operations_requested_source_publication_check');
     expect(schema).toContain('release_operations_requested_active_publication_check');
     expect(schema).toContain('release_operations_actual_active_publication_scope_fk');
@@ -62,10 +63,10 @@ describe('release recovery clean baseline', () => {
   });
 
   it('locks recovery authority and reuses exact persisted artifacts without a compiler path', () => {
-    const repository = readFileSync(REPOSITORY_PATH, 'utf8');
+    const repository = readFileSync(RECOVERY_REPOSITORY_PATH, 'utf8');
     const method = repository.slice(
       repository.indexOf('  async recoverDocumentRelease('),
-      repository.indexOf('  async activateCompiledArtifact('),
+      repository.indexOf('  private async insertFailedReleaseRecoveryOperation('),
     );
     expect(method).toContain('this.lockSortedReleaseDocumentEnvironments(');
     expect(method).toContain(".for('update')");
@@ -73,9 +74,9 @@ describe('release recovery clean baseline', () => {
     expect(method).not.toContain('compileDocument');
     expect(method).not.toContain('@lodariq/compiler');
 
-    const scopeLoader = repository.slice(
-      repository.indexOf('  private async loadReleaseRecoveryScope('),
-      repository.indexOf('  private async loadReleaseRecoveryOperations('),
+    const scopeRepository = readFileSync(RECOVERY_SCOPE_PATH, 'utf8');
+    const scopeLoader = scopeRepository.slice(
+      scopeRepository.indexOf('  protected async loadReleaseRecoveryScope('),
     );
     expect(scopeLoader.match(/\.for\('share'\)/gu)).toHaveLength(3);
 

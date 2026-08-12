@@ -3,12 +3,6 @@ import { Value } from '@sinclair/typebox/value';
 import { BlockDiagnostic, ValidationLevel } from './common';
 import { isSafeNavigationUrl } from './url';
 
-/**
- * MVP block types implemented in the editor (PRD §7.2 "MVP node families").
- * Future families (announcement, checklist item, survey question, hotspot,
- * knowledge, layout) are intentionally schema-only for now (PRD §7.2) and can
- * be added here as they are validated, without breaking the document shape.
- */
 export const LodariqBlockType = Type.Union(
   [
     // Text / content
@@ -43,8 +37,12 @@ export const BLOCK_ACTION_TYPES = [
 ] as const;
 export type BlockActionTypeValue = (typeof BLOCK_ACTION_TYPES)[number];
 
+export const OPEN_PAGE_NAVIGATION_BEHAVIOR_VALUES = ['stay', 'continue'] as const;
+export type OpenPageNavigationBehavior = (typeof OPEN_PAGE_NAVIGATION_BEHAVIOR_VALUES)[number];
+
 const BLOCK_ACTION_TYPE_SET = new Set<string>(BLOCK_ACTION_TYPES);
 const OPEN_PAGE_ACTION_TYPE: BlockActionTypeValue = 'openPage';
+const OPEN_PAGE_NAVIGATION_BEHAVIOR_SET = new Set<string>(OPEN_PAGE_NAVIGATION_BEHAVIOR_VALUES);
 const HEADING_LEVEL_VALUES = [1, 2, 3] as const;
 const HEADING_LEVEL_SET = new Set<number>(HEADING_LEVEL_VALUES);
 const PLACEMENT_VALUES = ['top', 'right', 'bottom', 'left'] as const;
@@ -79,6 +77,8 @@ export const TOOLTIP_ACTION_LAYOUT_VALUES = ['inline', 'stack'] as const;
 const TOOLTIP_ACTION_LAYOUT_SET = new Set<string>(TOOLTIP_ACTION_LAYOUT_VALUES);
 export const TOOLTIP_PADDING_VALUES = ['compact', 'standard', 'relaxed'] as const;
 const TOOLTIP_PADDING_SET = new Set<string>(TOOLTIP_PADDING_VALUES);
+export const TOOLTIP_RADIUS_VALUES = ['theme', 'square', 'soft', 'round'] as const;
+const TOOLTIP_RADIUS_SET = new Set<string>(TOOLTIP_RADIUS_VALUES);
 const TEXT_COLOR_PATTERN = '^#[0-9a-fA-F]{6}$';
 const INLINE_TEXT_RUN_LIMIT = 256;
 const INLINE_TEXT_RUN_LENGTH_LIMIT = 10_000;
@@ -96,6 +96,9 @@ export const BlockActionProps = Type.Object(
       Type.Literal('openPage'),
     ]),
     url: Type.Optional(Type.String({ minLength: 1, maxLength: 2048 })),
+    navigationBehavior: Type.Optional(
+      Type.Union(OPEN_PAGE_NAVIGATION_BEHAVIOR_VALUES.map((value) => Type.Literal(value))),
+    ),
   },
   { $id: 'BlockActionProps', additionalProperties: false },
 );
@@ -118,7 +121,6 @@ export const TextStyleProps = Type.Object(
 );
 export type TextStyleProps = Static<typeof TextStyleProps>;
 
-/** Structured inline content. Typography is rendered without HTML/CSS input. */
 export const InlineTextRun = Type.Object(
   {
     text: Type.String({ maxLength: INLINE_TEXT_RUN_LENGTH_LIMIT }),
@@ -139,7 +141,6 @@ export const InlineTextRun = Type.Object(
 );
 export type InlineTextRun = Static<typeof InlineTextRun>;
 
-/** Safe flow-layout controls shared by content blocks. */
 export const BlockLayoutProps = Type.Object(
   {
     align: Type.Optional(Type.Union(BLOCK_ALIGNMENT_VALUES.map((value) => Type.Literal(value)))),
@@ -214,6 +215,8 @@ export const TooltipLayoutProps = Type.Object(
     ),
     gap: Type.Optional(Type.Union(BLOCK_SPACING_VALUES.map((value) => Type.Literal(value)))),
     padding: Type.Optional(Type.Union(TOOLTIP_PADDING_VALUES.map((value) => Type.Literal(value)))),
+    radius: Type.Optional(Type.Union(TOOLTIP_RADIUS_VALUES.map((value) => Type.Literal(value)))),
+    showArrow: Type.Optional(Type.Boolean()),
   },
   { $id: 'TooltipLayoutProps', additionalProperties: false },
 );
@@ -508,6 +511,10 @@ export function sanitizeTooltipLayoutProps(value: unknown): TooltipLayoutProps |
   if (typeof value.padding === 'string' && TOOLTIP_PADDING_SET.has(value.padding)) {
     next.padding = value.padding as TooltipLayoutProps['padding'];
   }
+  if (typeof value.radius === 'string' && TOOLTIP_RADIUS_SET.has(value.radius)) {
+    next.radius = value.radius as TooltipLayoutProps['radius'];
+  }
+  if (typeof value.showArrow === 'boolean') next.showArrow = value.showArrow;
   return Object.keys(next).length > 0 ? next : undefined;
 }
 
@@ -545,7 +552,12 @@ function sanitizeActionProps(action: Record<string, unknown>): BlockActionProps 
   if (!type) return null;
   if (type !== OPEN_PAGE_ACTION_TYPE) return { type };
   const url = actionUrlValue(action['url']);
-  return url ? { type, url } : { type };
+  const navigationBehavior = openPageNavigationBehaviorValue(action['navigationBehavior']);
+  return {
+    type,
+    ...(url ? { url } : {}),
+    ...(navigationBehavior ? { navigationBehavior } : {}),
+  };
 }
 
 function blockActionTypeValue(value: unknown): BlockActionTypeValue | null {
@@ -557,6 +569,13 @@ function actionUrlValue(value: unknown): string | null {
   if (typeof value !== 'string') return null;
   const url = value.trim();
   return url || null;
+}
+
+function openPageNavigationBehaviorValue(value: unknown): OpenPageNavigationBehavior | null {
+  if (typeof value !== 'string') return null;
+  return OPEN_PAGE_NAVIGATION_BEHAVIOR_SET.has(value)
+    ? (value as OpenPageNavigationBehavior)
+    : null;
 }
 
 function headingLevelValue(value: unknown): LodariqBlockProps['level'] | null {

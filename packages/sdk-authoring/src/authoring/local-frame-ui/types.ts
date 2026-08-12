@@ -95,10 +95,14 @@ export interface TargetInspectionState {
   diagnostic: ResolverDiagnostic;
 }
 
+export type FocusRevealTarget = 'content' | 'behavior' | 'placement' | 'popup';
+
 export interface FocusRequest {
   blockId: string;
   target: 'block' | 'edit';
   caret?: 'start' | 'end' | number;
+  propertyId?: string;
+  reveal?: FocusRevealTarget;
   token: number;
 }
 

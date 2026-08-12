@@ -1,14 +1,10 @@
 'use client';
 
-import { useActionState, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useFormStatus } from 'react-dom';
 import { Ban, Check, Code2, Copy, LoaderCircle, RefreshCw, ShieldCheck } from 'lucide-react';
-import {
-  createPublicSdkInstallationAction,
-  revokePublicSdkInstallationAction,
-  syncPublicSdkInstallationAction,
-} from '../app/actions';
-import { initialSdkInstallationActionState } from '../app/sdk-installation-action-state';
+import type { SdkInstallationActionState } from '../app/sdk-installation-action-state';
+import { useSdkInstallationActions } from '../hooks/use-sdk-installation-actions';
 import type { PublicSdkInstallationDto } from '../lib/api';
 import type { DashboardViewModel } from '../lib/view-model';
 import { Badge } from './ui/badge';
@@ -21,25 +17,17 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 interface SdkSnippetPanelProps {
   canManageSdkInstallations: boolean;
   installationRows: DashboardViewModel['installationRows'];
+  workspaceId: string;
 }
 
 /** One permanent public installation replaces per-environment runtime tokens. */
 export function SdkSnippetPanel({
   canManageSdkInstallations,
   installationRows,
+  workspaceId,
 }: SdkSnippetPanelProps): React.ReactElement {
-  const [createState, createAction] = useActionState(
-    createPublicSdkInstallationAction,
-    initialSdkInstallationActionState,
-  );
-  const [syncState, syncAction] = useActionState(
-    syncPublicSdkInstallationAction,
-    initialSdkInstallationActionState,
-  );
-  const [revokeState, revokeAction] = useActionState(
-    revokePublicSdkInstallationAction,
-    initialSdkInstallationActionState,
-  );
+  const { createState, createAction, syncState, syncAction, revokeState, revokeAction } =
+    useSdkInstallationActions(workspaceId);
   const installations = useMemo(
     () => mergeInstallations(installationRows, createState, syncState, revokeState),
     [createState, installationRows, revokeState, syncState],
@@ -284,7 +272,7 @@ function installationBadgeLabel(canManage: boolean, hasInstallation: boolean): s
   return hasInstallation ? 'Connected' : 'Not installed';
 }
 
-type InstallationActionState = typeof initialSdkInstallationActionState;
+type InstallationActionState = SdkInstallationActionState;
 
 function mergeInstallations(
   base: readonly PublicSdkInstallationDto[],

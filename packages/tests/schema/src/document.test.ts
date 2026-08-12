@@ -111,6 +111,22 @@ describe('canonical tour fixture', () => {
     expect(result.valid).toBe(true);
   });
 
+  it('accepts only explicit open-page navigation behavior', () => {
+    const document = JSON.parse(JSON.stringify(tourFixture));
+    const action = document.blocks[0].children[0].children[2].props.action;
+    document.blocks[0].children[0].children[2].props.action = {
+      ...action,
+      type: 'openPage',
+      url: '/settings',
+      navigationBehavior: 'continue',
+    };
+
+    expect(validate(LodariqDocument, document).valid).toBe(true);
+
+    document.blocks[0].children[0].children[2].props.action.navigationBehavior = 'reload';
+    expect(validate(LodariqDocument, document).valid).toBe(false);
+  });
+
   it('accepts only bounded, allowlisted structured text styles', () => {
     const document = JSON.parse(JSON.stringify(tourFixture));
     document.blocks[0].children[0].children[0].props.textStyle = {
@@ -136,6 +152,9 @@ describe('canonical tour fixture', () => {
         },
       }),
     ).toEqual({});
+    expect(sanitizeBlockProps({ tooltipLayout: { radius: 'round', showArrow: false } })).toEqual({
+      tooltipLayout: { radius: 'round', showArrow: false },
+    });
     expect(sanitizeBlockProps(document.blocks[0].children[0].children[0].props)).toMatchObject({
       textStyle: {
         align: 'center',

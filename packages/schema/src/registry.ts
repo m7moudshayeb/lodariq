@@ -534,7 +534,13 @@ export const SCHEMA_REGISTRY: TSchema[] = [
  * also mounted directly on routes.
  */
 export const FASTIFY_REFERENCE_SCHEMA_REGISTRY: TSchema[] = [
+  Environment,
+  DocumentType,
+  DocumentStatus,
   ControlPlaneRole,
+  ControlPlaneAuthContext,
+  EnvironmentReleasePolicy,
+  EnvironmentPolicyValidationIssue,
   AuthUserSummary,
   AuthWorkspaceSummary,
   AuthSessionSnapshot,

@@ -22,6 +22,14 @@ async function loadFrame(): Promise<void> {
   document.body.innerHTML = '<div id="authoring"></div>';
   localStorage.clear();
   await import('../../../../apps/fixture-host/src/authoring-frame');
+  await waitForEditorReady();
+}
+
+async function waitForEditorReady(): Promise<void> {
+  await vi.waitFor(() => {
+    expect(document.querySelector('[aria-label="Experience editor"]')).not.toBeNull();
+    expect(document.querySelector('.canvas-editor-loading')).toBeNull();
+  });
 }
 
 function documentJson(): HTMLTextAreaElement {
@@ -114,6 +122,7 @@ async function importTwoBlocks(): Promise<void> {
 async function flushPreviewPatchQueue(): Promise<void> {
   await Promise.resolve();
   await new Promise<void>((resolve) => window.setTimeout(resolve, 0));
+  await waitForEditorReady();
 }
 
 function localFrameServices(): LocalAuthoringFrameServices {
@@ -283,29 +292,31 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     expect(documentJson().value).toContain('Focus stays here');
   });
 
-  it('removes duplicate inner chrome in embedded panel mode', async () => {
+  it('uses one storyboard workspace without duplicate inner chrome in panel mode', async () => {
     window.history.replaceState(null, '', '/authoring.html?lodariqFrame=panel');
     await loadFrame();
 
     expect(document.querySelector('.shell-panel')).toBeTruthy();
     expect(document.querySelector('.topbar')).toBeNull();
-    expect(document.querySelector('.tour-sequence-rail')).toBeTruthy();
+    expect(document.querySelector('.tour-storyboard')).toBeTruthy();
     expect(document.querySelector('.tour-step-inspector')).toBeTruthy();
+    expect(document.querySelector('.tour-sequence-rail')).toBeNull();
     expect(document.querySelector('.tour-workspace-toggle')).toBeNull();
     expect(document.querySelector('.tour-appearance-entry')).toBeNull();
     expect(document.querySelector('.document-main')).toBeNull();
     expect(document.querySelector('.block')).toBeNull();
-    expect(document.querySelector('.tour-step-accordion')).toBeTruthy();
+    expect(document.querySelector('.tour-step-accordion')).toBeNull();
     expect(document.querySelector('.rich-step-editor')).toBeTruthy();
     expect(document.querySelector('.rich-step-toolbar')).toBeTruthy();
     expect(document.querySelector('[role="group"][aria-label="Step content editor"]')).toBeTruthy();
-    expect(document.body.textContent).toContain('Edit content on page');
+    expect(document.body.textContent).toContain('Content');
     expect(document.body.textContent).toContain('Placement');
-    expect(document.body.textContent).toContain('How this step advances');
-    expect(document.querySelector('.tour-position-options')).toBeTruthy();
-    expect(document.querySelector('.tour-advance-options')).toBeTruthy();
+    expect(document.body.textContent).toContain('Popup');
+    expect(document.querySelector('.tour-position-options')).toBeNull();
+    expect(document.querySelector('.tour-advance-options')).toBeNull();
     expect(document.body.textContent).not.toContain('Step details');
-    expect(document.body.textContent).toContain('Advanced settings');
+    expect(document.body.textContent).not.toContain('Advanced settings');
+    expect(document.querySelector('button[aria-label="More experience actions"]')).toBeTruthy();
     expect(buttonWithText('Release options')).not.toBeNull();
 
     window.history.replaceState(null, '', '/');
@@ -364,7 +375,11 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     });
     await flushPreviewPatchQueue();
 
-    buttonWithText('Advanced settings')?.click();
+    document
+      .querySelector<HTMLButtonElement>('button[aria-label="More experience actions"]')
+      ?.click();
+    await vi.waitFor(() => expect(buttonWithText('Review & recovery')).not.toBeNull());
+    buttonWithText('Review & recovery')?.click();
     await flushPreviewPatchQueue();
     expect(document.querySelector('.panel-advanced-title')?.textContent).toContain(
       'Review & recovery',
@@ -580,7 +595,7 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     expect(buttonWithText('Publish to staging', panelModeView() ?? document)).toBeNull();
   });
 
-  it('keeps compact placement context to one accordion fact and one element action', async () => {
+  it('keeps placement context in one focused tool with one element action', async () => {
     document.body.innerHTML = '<div id="authoring"></div>';
     const root = document.getElementById('authoring')!;
     const peer = { postMessage: vi.fn() } as unknown as Window;
@@ -599,22 +614,19 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     });
     await flushPreviewPatchQueue();
 
-    const accordion = document.querySelector<HTMLElement>('.tour-step-accordion');
-    expect(accordion?.textContent).toContain('Placement');
-    expect(accordion?.textContent).toContain('New project');
-    expect(accordion?.textContent).toContain('Unverified');
-    expect(accordion?.textContent).toContain('Behavior');
-    expect(accordion?.textContent).toContain('Below · Next button');
-    expect(accordion?.textContent).toContain('Edit content on page');
-    expect(accordion?.textContent).toContain('Edit details');
-    expect(accordion?.textContent).not.toContain('Target health');
-    expect(accordion?.textContent).not.toContain('Healthy');
-    expect(accordion?.textContent).not.toContain('Position');
-    expect(accordion?.textContent).not.toContain('Advance when');
-    expect(accordion?.querySelector('[aria-label^="Duplicate step"]')).toBeNull();
-    expect(accordion?.querySelector('[aria-label^="Delete step"]')).toBeNull();
+    buttonWithText('Placement', document.querySelector('.storyboard-tool-dock')!)?.click();
+    await vi.waitFor(() =>
+      expect(document.querySelector<HTMLElement>('section[aria-label="Placement"]')).not.toBeNull(),
+    );
+    const placement = document.querySelector<HTMLElement>('section[aria-label="Placement"]');
+    expect(placement?.textContent).toContain('Where the popup appears');
+    expect(placement?.textContent).toContain('New project');
+    expect(placement?.textContent).toContain('Unverified');
+    expect(placement?.textContent).not.toContain('Behavior');
+    expect(placement?.querySelector('[aria-label^="Duplicate step"]')).toBeNull();
+    expect(placement?.querySelector('[aria-label^="Delete step"]')).toBeNull();
     expect(
-      accordion?.querySelector<HTMLButtonElement>('[aria-label="Change element for step 1"]'),
+      placement?.querySelector<HTMLButtonElement>('[aria-label="Placement New project actions"]'),
     ).not.toBeNull();
 
     window.dispatchEvent(
@@ -641,9 +653,9 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     await flushPreviewPatchQueue();
 
     expect(
-      document.querySelector<HTMLButtonElement>('[aria-label="Fix element for step 1"]'),
+      placement?.querySelector<HTMLButtonElement>('[aria-label="Placement New project actions"]'),
     ).not.toBeNull();
-    expect(accordion?.textContent).toContain('Missing');
+    expect(placement?.textContent).toContain('Missing');
 
     window.dispatchEvent(
       new MessageEvent('message', {
@@ -668,14 +680,14 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     );
     await flushPreviewPatchQueue();
 
-    expect(accordion?.textContent).toContain('Placement');
-    expect(accordion?.textContent).toContain('New project');
-    expect(accordion?.textContent).toContain('Placed');
-    expect(accordion?.textContent).not.toContain('Needs check');
-    expect(accordion?.textContent).not.toContain('Missing');
-    expect(accordion?.textContent).not.toContain('Healthy');
+    expect(placement?.textContent).toContain('Placement');
+    expect(placement?.textContent).toContain('New project');
+    expect(placement?.textContent).toContain('Verified');
+    expect(placement?.textContent).not.toContain('Needs check');
+    expect(placement?.textContent).not.toContain('Missing');
+    expect(placement?.textContent).not.toContain('Healthy');
     expect(
-      document.querySelector<HTMLButtonElement>('[aria-label="Change element for step 1"]'),
+      placement?.querySelector<HTMLButtonElement>('[aria-label="Placement New project actions"]'),
     ).not.toBeNull();
   });
 
@@ -701,11 +713,15 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     });
     await flushPreviewPatchQueue();
 
-    const accordion = document.querySelector<HTMLElement>('.tour-step-accordion');
-    expect(accordion?.textContent).toContain('Placement');
-    expect(accordion?.textContent).toContain('Not placed yet');
+    buttonWithText('Placement', document.querySelector('.storyboard-tool-dock')!)?.click();
+    await vi.waitFor(() =>
+      expect(document.querySelector<HTMLElement>('section[aria-label="Placement"]')).not.toBeNull(),
+    );
+    const placement = document.querySelector<HTMLElement>('section[aria-label="Placement"]');
+    expect(placement?.textContent).toContain('Placement');
+    expect(placement?.textContent).toContain('Not placed yet');
     expect(
-      accordion?.querySelector<HTMLButtonElement>('[aria-label="Choose element for step 1"]'),
+      placement?.querySelector<HTMLButtonElement>('[aria-label="Choose target for step 1"]'),
     ).not.toBeNull();
   });
 

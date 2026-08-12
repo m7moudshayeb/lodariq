@@ -2,11 +2,17 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
   loadAnalyticsAggregates: vi.fn(),
+  loadControlPlaneContext: vi.fn(async () => ({
+    userId: 'user_a',
+    workspaceId: 'wk_a',
+    role: 'viewer',
+  })),
 }));
 
 vi.mock('../../../../apps/dashboard/src/lib/api', () => ({
   DASHBOARD_ANALYTICS_AGGREGATE_LIMIT: 1_000,
   loadAnalyticsAggregates: mocks.loadAnalyticsAggregates,
+  loadControlPlaneContext: mocks.loadControlPlaneContext,
   DashboardApiError: class DashboardApiError extends Error {
     readonly statusCode: number;
 
@@ -30,11 +36,13 @@ describe('@lodariq/dashboard analytics aggregate action', () => {
     const response = { aggregates: [] };
     mocks.loadAnalyticsAggregates.mockResolvedValue(response);
 
-    await expect(loadAnalyticsAggregatesAction({ environmentId: ENVIRONMENT_ID })).resolves.toEqual({
-      status: 'success',
-      environmentId: ENVIRONMENT_ID,
-      response,
-    });
+    await expect(loadAnalyticsAggregatesAction({ environmentId: ENVIRONMENT_ID })).resolves.toEqual(
+      {
+        status: 'success',
+        environmentId: ENVIRONMENT_ID,
+        response,
+      },
+    );
     expect(mocks.loadAnalyticsAggregates).toHaveBeenCalledOnce();
     expect(mocks.loadAnalyticsAggregates).toHaveBeenCalledWith(ENVIRONMENT_ID);
   });
@@ -59,17 +67,23 @@ describe('@lodariq/dashboard analytics aggregate action', () => {
       .mockRejectedValueOnce(new DashboardApiError(403, 'forbidden'))
       .mockRejectedValueOnce(new DashboardApiError(502, 'invalid'));
 
-    await expect(loadAnalyticsAggregatesAction({ environmentId: ENVIRONMENT_ID })).resolves.toEqual({
-      status: 'error',
-      error: 'The selected analytics environment is unavailable.',
-    });
-    await expect(loadAnalyticsAggregatesAction({ environmentId: ENVIRONMENT_ID })).resolves.toEqual({
-      status: 'error',
-      error: 'Your current workspace access cannot read analytics.',
-    });
-    await expect(loadAnalyticsAggregatesAction({ environmentId: ENVIRONMENT_ID })).resolves.toEqual({
-      status: 'error',
-      error: 'Analytics data could not be verified. No partial results were shown.',
-    });
+    await expect(loadAnalyticsAggregatesAction({ environmentId: ENVIRONMENT_ID })).resolves.toEqual(
+      {
+        status: 'error',
+        error: 'The selected analytics environment is unavailable.',
+      },
+    );
+    await expect(loadAnalyticsAggregatesAction({ environmentId: ENVIRONMENT_ID })).resolves.toEqual(
+      {
+        status: 'error',
+        error: 'Your current workspace access cannot read analytics.',
+      },
+    );
+    await expect(loadAnalyticsAggregatesAction({ environmentId: ENVIRONMENT_ID })).resolves.toEqual(
+      {
+        status: 'error',
+        error: 'Analytics data could not be verified. No partial results were shown.',
+      },
+    );
   });
 });

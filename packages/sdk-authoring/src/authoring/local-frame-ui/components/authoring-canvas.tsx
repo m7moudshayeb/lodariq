@@ -1,16 +1,11 @@
-import { useRef, useState } from 'react';
+import { lazy, Suspense, useState } from 'react';
 import type { LodariqBlock } from '@lodariq/schema';
 import type { LocalAuthoringFrameController } from '../controller';
 import type { LocalAuthoringFrameSnapshot } from '../types';
-import { blockDisplayTitle, isEditableControl } from '../utils';
-import { BlockCard } from './block-card';
-import { CanvasActions } from './canvas-actions';
-import { InsertBar } from './insert-bar';
-import { InlineTopLevelInsert } from './insert-menu';
-import { Inspector } from './inspector';
+import { blockDisplayTitle } from '../utils';
 import { PanelBodyMode } from './panel-body-mode';
 import { combinedReleaseFindings, releaseFooterSummary } from './release-findings';
-import { TourSequenceRail, TourStepInspector, TourStoryboard } from './tour-sequence-rail';
+import { TourStoryboard } from './tour-storyboard';
 import {
   ArrowLeft,
   AuthoringPopover,
@@ -25,6 +20,21 @@ import {
   SlidersHorizontal,
 } from '../design-system';
 
+const LazyTourStepInspector = lazy(async () => {
+  const module = await import('./tour-sequence-rail');
+  return { default: module.TourStepInspector };
+});
+
+const LazyStandaloneAuthoringWorkspace = lazy(async () => {
+  const module = await import('./standalone-authoring-workspace');
+  return { default: module.StandaloneAuthoringWorkspace };
+});
+
+const LazyInspector = lazy(async () => {
+  const module = await import('./inspector');
+  return { default: module.Inspector };
+});
+
 export function AuthoringCanvas({
   controller,
   frameMode,
@@ -34,7 +44,6 @@ export function AuthoringCanvas({
   frameMode: 'panel' | 'standalone';
   snapshot: LocalAuthoringFrameSnapshot;
 }) {
-  const slashInputRef = useRef<HTMLInputElement | null>(null);
   const blocks = snapshot.documentState.blocks;
   const tourSteps = blocks.filter((block) => block.type === 'tourStep');
   const activeStepId = activeTourStepId(tourSteps, snapshot.selectedBlockId);
@@ -82,12 +91,14 @@ export function AuthoringCanvas({
                   steps={tourSteps}
                 />
                 {activeStep ? (
-                  <TourStepInspector
-                    controller={controller}
-                    snapshot={snapshot}
-                    step={activeStep}
-                    stepIndex={activeStepIndex}
-                  />
+                  <Suspense fallback={<CanvasEditorLoading />}>
+                    <LazyTourStepInspector
+                      controller={controller}
+                      snapshot={snapshot}
+                      step={activeStep}
+                      stepIndex={activeStepIndex}
+                    />
+                  </Suspense>
                 ) : null}
               </div>
             )}
@@ -103,80 +114,22 @@ export function AuthoringCanvas({
   }
 
   return (
-    <section
-      className="canvas"
-      aria-label="Experience editor"
-      tabIndex={-1}
-      onPointerDown={(event) => {
-        if (isCommandComposerTarget(event.target)) return;
-        controller.closeSlashComposer();
-      }}
-      onKeyDown={(event) => {
-        if (
-          event.key !== '/' ||
-          event.altKey ||
-          event.ctrlKey ||
-          event.metaKey ||
-          isEditableControl(event.target)
-        ) {
-          return;
-        }
-        event.preventDefault();
-        controller.setSlashText('/');
-        queueMicrotask(() => slashInputRef.current?.focus());
-      }}
-    >
-      <div className="document-page">
-        <CanvasActions controller={controller} />
-        <div className="authoring-workspace">
-          <TourSequenceRail
-            activeStepId={activeStepId}
-            controller={controller}
-            snapshot={snapshot}
-            steps={tourSteps}
-          />
-          <div className="document-main">
-            <section className="document" aria-label="Experience content">
-              {blocks.map((block, index) => (
-                <div
-                  className={`document-block-group ${
-                    block.id === activeStepId ? 'active-step' : 'inactive-step'
-                  }`.trim()}
-                  key={block.id}
-                >
-                  {index === 0 ? (
-                    <InlineTopLevelInsert
-                      anchorBlockId={block.id}
-                      controller={controller}
-                      dropActive={
-                        snapshot.dragTargetBlockId === block.id &&
-                        snapshot.dragTargetPosition === 'before'
-                      }
-                      label="Add step before the first step"
-                      position="before"
-                    />
-                  ) : null}
-                  <BlockCard block={block} controller={controller} snapshot={snapshot} />
-                  <InlineTopLevelInsert
-                    anchorBlockId={block.id}
-                    controller={controller}
-                    dropActive={
-                      snapshot.dragTargetBlockId === block.id &&
-                      snapshot.dragTargetPosition === 'after'
-                    }
-                    label="Add step after this step"
-                    position="after"
-                  />
-                </div>
-              ))}
-            </section>
+    <Suspense fallback={<CanvasEditorLoading />}>
+      <LazyStandaloneAuthoringWorkspace
+        activeStepId={activeStepId}
+        controller={controller}
+        snapshot={snapshot}
+      />
+    </Suspense>
+  );
+}
 
-            <InsertBar controller={controller} snapshot={snapshot} slashInputRef={slashInputRef} />
-            <Inspector controller={controller} snapshot={snapshot} />
-          </div>
-        </div>
-      </div>
-    </section>
+function CanvasEditorLoading() {
+  return (
+    <div className="canvas-editor-loading" role="status" aria-live="polite">
+      <LoaderCircle size={16} aria-hidden="true" />
+      Loading editor
+    </div>
   );
 }
 
@@ -204,7 +157,7 @@ function PanelWorkspaceFooter({
   };
 
   return (
-    <footer className="panel-workspace-footer" aria-label="Authoring actions">
+    <footer className="panel-workspace-footer" aria-label="Authoring actions" role="contentinfo">
       <span
         className="panel-footer-state"
         aria-label="Release status"
@@ -346,14 +299,12 @@ function PanelAdvancedEditor({
         </span>
       </header>
       <div className="document-main panel-advanced-main">
-        <Inspector controller={controller} snapshot={snapshot} />
+        <Suspense fallback={<CanvasEditorLoading />}>
+          <LazyInspector controller={controller} snapshot={snapshot} />
+        </Suspense>
       </div>
     </div>
   );
-}
-
-function isCommandComposerTarget(target: EventTarget): boolean {
-  return target instanceof Element && Boolean(target.closest('.slash, .command-menu'));
 }
 
 function activeTourStepId(steps: LodariqBlock[], selectedBlockId: string | null): string | null {

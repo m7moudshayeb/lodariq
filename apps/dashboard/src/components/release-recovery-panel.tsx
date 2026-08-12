@@ -9,10 +9,7 @@ import {
   type ReleaseRecoveryResult,
   type ReleaseRecoveryStateResponse,
 } from '@lodariq/schema';
-import {
-  loadReleaseRecoveryStateAction,
-  recoverDocumentReleaseAction,
-} from '../app/release-recovery-actions';
+import { useReleaseRecovery } from '../hooks/use-release-recovery';
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
 
@@ -27,6 +24,7 @@ interface ReleaseRecoveryPanelProps {
   documentId: string;
   documentTitle: string;
   environments: ReleaseRecoveryEnvironmentOption[];
+  workspaceId: string;
 }
 
 interface RecoveryConfirmationState {
@@ -53,18 +51,13 @@ export function ReleaseRecoveryPanel({
   documentId,
   documentTitle,
   environments,
+  workspaceId,
 }: ReleaseRecoveryPanelProps): React.ReactElement {
   const [selectedEnvironmentId, setSelectedEnvironmentId] = React.useState(
     () => environments[0]?.id ?? '',
   );
-  const [state, setState] = React.useState<ReleaseRecoveryStateResponse | null>(null);
-  const [loadError, setLoadError] = React.useState('');
   const [feedback, setFeedback] = React.useState('');
   const [confirmation, setConfirmation] = React.useState<RecoveryConfirmationState | null>(null);
-  const [loadingEnvironmentId, setLoadingEnvironmentId] = React.useState('');
-  const [loadPending, startLoadTransition] = React.useTransition();
-  const [mutationPending, startMutationTransition] = React.useTransition();
-  const loadSequence = React.useRef(0);
   const returnFocus = React.useRef<HTMLElement | null>(null);
   const restoreFocusAfterConfirmation = React.useRef(false);
   const reasonInput = React.useRef<HTMLTextAreaElement | null>(null);
@@ -72,32 +65,12 @@ export function ReleaseRecoveryPanel({
   const selectedEnvironment = environments.find(
     (environment) => environment.id === selectedEnvironmentId,
   );
-
-  const loadState = React.useCallback(
-    (environmentId: string): Promise<void> =>
-      new Promise((resolve) => {
-        const sequence = loadSequence.current + 1;
-        loadSequence.current = sequence;
-        setLoadingEnvironmentId(environmentId);
-        setLoadError('');
-        startLoadTransition(async () => {
-          try {
-            const result = await loadReleaseRecoveryStateAction({ documentId, environmentId });
-            if (loadSequence.current !== sequence) return;
-            if (result.status === 'error') {
-              setState(null);
-              setLoadError(result.error);
-              return;
-            }
-            setState(result.state);
-          } finally {
-            if (loadSequence.current === sequence) setLoadingEnvironmentId('');
-            resolve();
-          }
-        });
-      }),
-    [documentId],
-  );
+  const recovery = useReleaseRecovery(workspaceId, documentId, selectedEnvironmentId);
+  const state = recovery.query.data ?? null;
+  const mutationPending = recovery.mutation.isPending;
+  const loadError = recovery.query.error
+    ? 'Release history is temporarily unavailable for this environment.'
+    : '';
 
   React.useEffect(() => {
     if (environments.some((environment) => environment.id === selectedEnvironmentId)) return;
@@ -105,12 +78,9 @@ export function ReleaseRecoveryPanel({
   }, [environments, selectedEnvironmentId]);
 
   React.useEffect(() => {
-    setState(null);
-    setLoadError('');
     setFeedback('');
     setConfirmation(null);
-    if (selectedEnvironmentId) void loadState(selectedEnvironmentId);
-  }, [loadState, selectedEnvironmentId]);
+  }, [selectedEnvironmentId]);
 
   React.useEffect(() => {
     if (!confirmation) return;
@@ -128,12 +98,10 @@ export function ReleaseRecoveryPanel({
     setConfirmation(null);
   }, []);
 
-  const beginRecovery = (
-    action: ReleaseRecoveryRequest['action'],
-    trigger: HTMLElement,
-  ): void => {
+  const beginRecovery = (action: ReleaseRecoveryRequest['action'], trigger: HTMLElement): void => {
     if (!state || state.deployment?.state !== 'active' || !selectedEnvironment) return;
-    const permission = action === 'rollback' ? state.permissions.rollback : state.permissions.unpublish;
+    const permission =
+      action === 'rollback' ? state.permissions.rollback : state.permissions.unpublish;
     if (!permission) return;
     returnFocus.current = trigger;
     setFeedback('');
@@ -155,31 +123,33 @@ export function ReleaseRecoveryPanel({
   const submitRecovery = (): void => {
     if (!confirmation || !confirmationIsValid(confirmation) || mutationPending) return;
     const request = recoveryRequestFromConfirmation(confirmation);
-    startMutationTransition(async () => {
-      const result = await recoverDocumentReleaseAction({
-        documentId,
+    void recovery.mutation
+      .mutateAsync({
         environmentId: confirmation.environmentId,
         request,
-      });
-      if (result.status === 'error') {
-        setFeedback(result.retryExact ? '' : result.error);
-        if (result.retryExact) {
-          setConfirmation((current) =>
-            current && current.idempotencyKey === confirmation.idempotencyKey
-              ? { ...current, submitted: true, error: result.error }
-              : current,
-          );
-        } else {
-          closeConfirmation();
+      })
+      .then((result) => {
+        if (result.status === 'error') {
+          setFeedback(result.retryExact ? '' : result.error);
+          if (result.retryExact) {
+            setConfirmation((current) =>
+              current && current.idempotencyKey === confirmation.idempotencyKey
+                ? { ...current, submitted: true, error: result.error }
+                : current,
+            );
+          } else {
+            closeConfirmation();
+          }
+          return;
         }
-        await loadState(confirmation.environmentId);
-        return;
-      }
 
-      setFeedback(recoveryResultMessage(result.result));
-      closeConfirmation();
-      await loadState(confirmation.environmentId);
-    });
+        setFeedback(recoveryResultMessage(result.result));
+        closeConfirmation();
+      })
+      .catch(() => {
+        setFeedback('The release recovery request could not be completed.');
+        closeConfirmation();
+      });
   };
 
   if (!environments.length) {
@@ -196,8 +166,8 @@ export function ReleaseRecoveryPanel({
   const deploymentActive = selectedState?.deployment?.state === 'active';
   const canRollback = Boolean(
     deploymentActive &&
-      selectedState?.permissions.rollback &&
-      selectedState.rollbackTargetPublicationIds.length,
+    selectedState?.permissions.rollback &&
+    selectedState.rollbackTargetPublicationIds.length,
   );
   const canUnpublish = Boolean(deploymentActive && selectedState?.permissions.unpublish);
 
@@ -219,8 +189,8 @@ export function ReleaseRecoveryPanel({
         </div>
         <Button
           className="h-9 shrink-0"
-          disabled={loadPending || !selectedEnvironmentId}
-          onClick={() => selectedEnvironmentId && void loadState(selectedEnvironmentId)}
+          disabled={recovery.query.isFetching || !selectedEnvironmentId}
+          onClick={() => void recovery.query.refetch()}
           type="button"
           variant="outline"
         >
@@ -253,11 +223,14 @@ export function ReleaseRecoveryPanel({
         id={`release-recovery-${documentId}-${selectedEnvironmentId}`}
         role="tabpanel"
       >
-        {loadingEnvironmentId === selectedEnvironmentId ? (
+        {recovery.query.isFetching ? (
           <p className="text-sm text-muted-foreground">Loading complete release history…</p>
         ) : null}
         {loadError ? (
-          <div className="flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive" role="alert">
+          <div
+            className="flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive"
+            role="alert"
+          >
             <ShieldAlert aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
             <p>{loadError}</p>
           </div>
@@ -454,8 +427,8 @@ function RecoveryConfirmation({
       <div className="grid gap-1">
         <h4 className="font-semibold">Confirm exact {confirmation.action}</h4>
         <p className="text-xs leading-5 text-muted-foreground">
-          Environment {confirmation.environmentName} · generation{' '}
-          {confirmation.expectedGeneration} · active publication{' '}
+          Environment {confirmation.environmentName} · generation {confirmation.expectedGeneration}{' '}
+          · active publication{' '}
           <span className="break-all">{confirmation.expectedActivePublicationId}</span>
         </p>
       </div>
@@ -551,10 +524,7 @@ function recoveryRequestFromConfirmation(
   return { action: 'unpublish', ...shared };
 }
 
-function recoverySubmitLabel(
-  confirmation: RecoveryConfirmationState,
-  pending: boolean,
-): string {
+function recoverySubmitLabel(confirmation: RecoveryConfirmationState, pending: boolean): string {
   if (pending) return 'Checking exact release…';
   if (confirmation.submitted) return 'Retry exact request';
   return confirmation.action === 'rollback' ? 'Roll back publication' : 'Unpublish release';

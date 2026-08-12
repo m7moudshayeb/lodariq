@@ -52,6 +52,7 @@ const TOUR_STYLE_VARIABLES = {
   primarySurface: '--lq-tour-primary-surface',
   primaryText: '--lq-tour-primary-text',
   radius: '--lq-tour-radius',
+  radiusLg: '--lq-tour-radius-lg',
   radiusSm: '--lq-tour-radius-sm',
   secondarySurface: '--lq-tour-secondary-surface',
   secondaryText: '--lq-tour-secondary-text',
@@ -117,7 +118,11 @@ export function resolveCompiledTourTheme(
   prefersDark = false,
   prefersReducedMotion = false,
 ): ResolvedTourThemeStyle {
-  return resolveTourThemeStyle(compiledTourThemeStyleInput(document), prefersDark, prefersReducedMotion);
+  return resolveTourThemeStyle(
+    compiledTourThemeStyleInput(document),
+    prefersDark,
+    prefersReducedMotion,
+  );
 }
 
 /**
@@ -167,6 +172,7 @@ export function resolveTourThemeStyle(
       [TOUR_STYLE_VARIABLES.primarySurface]: colorForRole(colors, recipe.primarySurfaceRole),
       [TOUR_STYLE_VARIABLES.primaryText]: colorForRole(colors, recipe.primaryTextRole),
       [TOUR_STYLE_VARIABLES.radius]: `${tokens.radii[recipe.radiusRole]}px`,
+      [TOUR_STYLE_VARIABLES.radiusLg]: `${tokens.radii.lg}px`,
       [TOUR_STYLE_VARIABLES.radiusSm]: `${tokens.radii.sm}px`,
       [TOUR_STYLE_VARIABLES.secondarySurface]: colorForRole(colors, recipe.secondarySurfaceRole),
       [TOUR_STYLE_VARIABLES.secondaryText]: colorForRole(colors, recipe.secondaryTextRole),

@@ -1,11 +1,12 @@
 'use client';
 
 import * as React from 'react';
+import { useForm } from 'react-hook-form';
 import {
   createDefaultEnvironmentReleasePolicy,
   type EnvironmentReleasePolicy,
 } from '@lodariq/schema';
-import { updateWorkspaceEnvironmentPolicyAction } from '../app/actions';
+import { useEnvironmentPolicyMutation } from '../hooks/use-environment-mutations';
 import type { WorkspaceEnvironmentDto } from '../lib/api';
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
@@ -20,79 +21,84 @@ interface EnvironmentPolicyEditorProps {
   environment: WorkspaceEnvironmentDto & { originLabel: string };
   environments: Array<WorkspaceEnvironmentDto & { originLabel: string }>;
   canManage: boolean;
+  workspaceId: string;
   onUpdated?: (environment: WorkspaceEnvironmentDto) => void;
+}
+
+interface EnvironmentPolicyFormValues {
+  name: string;
+  origins: string;
+  enabled: boolean;
+  authoringEnabled: boolean;
+  promotionSourceEnvironmentId: string;
+  releasePolicy: EnvironmentReleasePolicy;
 }
 
 export function EnvironmentPolicyEditor({
   environment,
   environments,
   canManage,
+  workspaceId,
   onUpdated,
 }: EnvironmentPolicyEditorProps): React.ReactElement {
-  const [current, setCurrent] = React.useState(environment);
-  const [name, setName] = React.useState(environment.name);
-  const [origins, setOrigins] = React.useState(environment.originAllowlist.join('\n'));
-  const [enabled, setEnabled] = React.useState(environment.enabled ?? true);
-  const [authoringEnabled, setAuthoringEnabled] = React.useState(
-    environment.kind === 'production' ? false : (environment.authoringEnabled ?? true),
-  );
-  const [promotionSourceEnvironmentId, setPromotionSourceEnvironmentId] = React.useState(
-    environment.promotionSourceEnvironmentId ?? '',
-  );
-  const [releasePolicy, setReleasePolicy] = React.useState<EnvironmentReleasePolicy>(() =>
-    readReleasePolicy(environment),
-  );
+  const current = environment;
+  const form = useForm<EnvironmentPolicyFormValues>({
+    defaultValues: environmentPolicyFormValues(environment),
+  });
+  const values = form.watch();
+  const releasePolicy = values.releasePolicy;
   const [feedback, setFeedback] = React.useState<{
     kind: 'error' | 'notice';
     message: string;
   } | null>(null);
-  const [pending, startTransition] = React.useTransition();
+  const mutation = useEnvironmentPolicyMutation(workspaceId);
+  const pending = mutation.isPending;
 
   React.useEffect(() => {
-    setCurrent(environment);
-    setName(environment.name);
-    setOrigins(environment.originAllowlist.join('\n'));
-    setEnabled(environment.enabled ?? true);
-    setAuthoringEnabled(
-      environment.kind === 'production' ? false : (environment.authoringEnabled ?? true),
-    );
-    setPromotionSourceEnvironmentId(environment.promotionSourceEnvironmentId ?? '');
-    setReleasePolicy(readReleasePolicy(environment));
-  }, [environment]);
+    form.reset(environmentPolicyFormValues(environment));
+  }, [environment, form]);
 
-  const save = (): void => {
+  const save = form.handleSubmit((submitted): void => {
     if (!canManage || pending) return;
+    const originAllowlist = normalizeOriginLines(submitted.origins);
     setFeedback(null);
-    startTransition(async () => {
-      const result = await updateWorkspaceEnvironmentPolicyAction({
+    mutation.mutate(
+      {
         environmentId: current.id,
-        name,
-        originAllowlist: normalizeOriginLines(origins),
-        enabled,
+        name: submitted.name.trim(),
+        originAllowlist,
+        enabled: submitted.enabled,
         pipelinePosition: PIPELINE_POSITION[current.kind],
-        authoringEnabled: current.kind === 'production' ? false : authoringEnabled,
-        ...(current.kind === 'production' && promotionSourceEnvironmentId
-          ? { promotionSourceEnvironmentId }
+        authoringEnabled: current.kind === 'production' ? false : submitted.authoringEnabled,
+        ...(current.kind === 'production' && submitted.promotionSourceEnvironmentId
+          ? { promotionSourceEnvironmentId: submitted.promotionSourceEnvironmentId }
           : {}),
         releasePolicy: {
-          ...releasePolicy,
+          ...submitted.releasePolicy,
           allowDirectPublish:
-            current.kind === 'production' ? false : releasePolicy.allowDirectPublish,
+            current.kind === 'production' ? false : submitted.releasePolicy.allowDirectPublish,
           requireSourceVerification:
-            current.kind === 'production' ? true : releasePolicy.requireSourceVerification,
+            current.kind === 'production'
+              ? true
+              : submitted.releasePolicy.requireSourceVerification,
         },
         expectedUpdatedAt: current.updatedAt,
-      });
-      if (result.status === 'error') {
-        setFeedback({ kind: 'error', message: result.error });
-        return;
-      }
-      const next = { ...result.environment, originLabel: normalizeOriginLines(origins).join(', ') };
-      setCurrent(next);
-      onUpdated?.(result.environment);
-      setFeedback({ kind: 'notice', message: result.message });
-    });
-  };
+      },
+      {
+        onSuccess: (result) => {
+          if (result.status === 'error') {
+            setFeedback({ kind: 'error', message: result.error });
+            return;
+          }
+          onUpdated?.(result.environment);
+          setFeedback({ kind: 'notice', message: result.message });
+        },
+        onError: () => {
+          setFeedback({ kind: 'error', message: 'Unable to update the environment policy.' });
+        },
+      },
+    );
+  });
 
   const sourceOptions = environments.filter((candidate) => candidate.kind === 'staging');
 
@@ -105,8 +111,7 @@ export function EnvironmentPolicyEditor({
             Name
             <Input
               disabled={!canManage || pending}
-              onChange={(event) => setName(event.target.value)}
-              value={name}
+              {...form.register('name', { required: true, maxLength: 120 })}
             />
           </label>
           <div className="grid gap-1.5 text-xs font-medium">
@@ -123,30 +128,35 @@ export function EnvironmentPolicyEditor({
           <textarea
             className="min-h-20 rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:opacity-50"
             disabled={!canManage || pending}
-            onChange={(event) => setOrigins(event.target.value)}
-            value={origins}
+            {...form.register('origins', { validate: validateOriginLines })}
           />
         </label>
 
         <div className="grid gap-2 sm:grid-cols-2">
           <PolicyCheckbox
-            checked={enabled}
+            checked={values.enabled}
             disabled={!canManage || pending}
             label="Environment enabled"
-            onChange={setEnabled}
+            onChange={(checked) => form.setValue('enabled', checked, { shouldDirty: true })}
           />
           <PolicyCheckbox
-            checked={current.kind === 'production' ? false : authoringEnabled}
+            checked={current.kind === 'production' ? false : values.authoringEnabled}
             disabled={!canManage || pending || current.kind === 'production'}
             label="Authoring enabled"
-            onChange={setAuthoringEnabled}
+            onChange={(checked) =>
+              form.setValue('authoringEnabled', checked, { shouldDirty: true })
+            }
           />
           <PolicyCheckbox
             checked={current.kind === 'production' ? false : releasePolicy.allowDirectPublish}
             disabled={!canManage || pending || current.kind === 'production'}
             label="Direct publish"
             onChange={(checked) =>
-              setReleasePolicy({ ...releasePolicy, allowDirectPublish: checked })
+              form.setValue(
+                'releasePolicy',
+                { ...releasePolicy, allowDirectPublish: checked },
+                { shouldDirty: true },
+              )
             }
           />
           <PolicyCheckbox
@@ -154,7 +164,11 @@ export function EnvironmentPolicyEditor({
             disabled={!canManage || pending || current.kind === 'production'}
             label="Require source verification"
             onChange={(checked) =>
-              setReleasePolicy({ ...releasePolicy, requireSourceVerification: checked })
+              form.setValue(
+                'releasePolicy',
+                { ...releasePolicy, requireSourceVerification: checked },
+                { shouldDirty: true },
+              )
             }
           />
           <PolicyCheckbox
@@ -162,7 +176,11 @@ export function EnvironmentPolicyEditor({
             disabled={!canManage || pending}
             label="Require one approval"
             onChange={(checked) =>
-              setReleasePolicy({ ...releasePolicy, requiredApprovalCount: checked ? 1 : 0 })
+              form.setValue(
+                'releasePolicy',
+                { ...releasePolicy, requiredApprovalCount: checked ? 1 : 0 },
+                { shouldDirty: true },
+              )
             }
           />
         </div>
@@ -173,8 +191,7 @@ export function EnvironmentPolicyEditor({
             <select
               className="h-9 rounded-md border border-input bg-background px-3 text-sm disabled:opacity-50"
               disabled={!canManage || pending}
-              onChange={(event) => setPromotionSourceEnvironmentId(event.target.value)}
-              value={promotionSourceEnvironmentId}
+              {...form.register('promotionSourceEnvironmentId')}
             >
               <option value="">Choose an earlier environment</option>
               {sourceOptions.map((candidate) => (
@@ -189,21 +206,39 @@ export function EnvironmentPolicyEditor({
         <RolePolicy
           disabled={!canManage || pending}
           label="Publisher roles"
-          onChange={(publisherRoles) => setReleasePolicy({ ...releasePolicy, publisherRoles })}
+          onChange={(publisherRoles) =>
+            form.setValue(
+              'releasePolicy',
+              { ...releasePolicy, publisherRoles },
+              { shouldDirty: true },
+            )
+          }
           roles={current.kind === 'production' ? RECOVERY_ROLES : PUBLISHER_ROLES}
           selected={releasePolicy.publisherRoles}
         />
         <RolePolicy
           disabled={!canManage || pending}
           label="Rollback roles"
-          onChange={(rollbackRoles) => setReleasePolicy({ ...releasePolicy, rollbackRoles })}
+          onChange={(rollbackRoles) =>
+            form.setValue(
+              'releasePolicy',
+              { ...releasePolicy, rollbackRoles },
+              { shouldDirty: true },
+            )
+          }
           roles={RECOVERY_ROLES}
           selected={releasePolicy.rollbackRoles}
         />
         <RolePolicy
           disabled={!canManage || pending}
           label="Unpublish roles"
-          onChange={(unpublishRoles) => setReleasePolicy({ ...releasePolicy, unpublishRoles })}
+          onChange={(unpublishRoles) =>
+            form.setValue(
+              'releasePolicy',
+              { ...releasePolicy, unpublishRoles },
+              { shouldDirty: true },
+            )
+          }
           roles={RECOVERY_ROLES}
           selected={releasePolicy.unpublishRoles}
         />
@@ -214,13 +249,17 @@ export function EnvironmentPolicyEditor({
             disabled={!canManage || pending}
             label="Separate verifier"
             onChange={(requireSeparateVerifier) =>
-              setReleasePolicy({
-                ...releasePolicy,
-                separationOfDuties: {
-                  ...releasePolicy.separationOfDuties,
-                  requireSeparateVerifier,
+              form.setValue(
+                'releasePolicy',
+                {
+                  ...releasePolicy,
+                  separationOfDuties: {
+                    ...releasePolicy.separationOfDuties,
+                    requireSeparateVerifier,
+                  },
                 },
-              })
+                { shouldDirty: true },
+              )
             }
           />
           <PolicyCheckbox
@@ -228,13 +267,17 @@ export function EnvironmentPolicyEditor({
             disabled={!canManage || pending}
             label="Separate approver"
             onChange={(requireSeparateApprover) =>
-              setReleasePolicy({
-                ...releasePolicy,
-                separationOfDuties: {
-                  ...releasePolicy.separationOfDuties,
-                  requireSeparateApprover,
+              form.setValue(
+                'releasePolicy',
+                {
+                  ...releasePolicy,
+                  separationOfDuties: {
+                    ...releasePolicy.separationOfDuties,
+                    requireSeparateApprover,
+                  },
                 },
-              })
+                { shouldDirty: true },
+              )
             }
           />
         </div>
@@ -243,7 +286,12 @@ export function EnvironmentPolicyEditor({
           <p className="text-xs text-muted-foreground">
             Policy changes never publish or recompile an artifact.
           </p>
-          <Button disabled={!canManage || pending} onClick={save} type="button" variant="outline">
+          <Button
+            disabled={!canManage || pending}
+            onClick={() => void save()}
+            type="button"
+            variant="outline"
+          >
             {pending ? 'Saving…' : 'Save policy'}
           </Button>
         </div>
@@ -257,6 +305,11 @@ export function EnvironmentPolicyEditor({
             role={feedback.kind === 'error' ? 'alert' : 'status'}
           >
             {feedback.message}
+          </p>
+        ) : null}
+        {form.formState.errors.name || form.formState.errors.origins ? (
+          <p className="text-xs text-destructive" role="alert">
+            Enter a name and no more than 100 exact origins.
           </p>
         ) : null}
       </div>
@@ -334,6 +387,44 @@ function readReleasePolicy(environment: WorkspaceEnvironmentDto): EnvironmentRel
       environment.releasePolicy?.requiredApprovalCount ??
       fallback.requiredApprovalCount,
   };
+}
+
+function environmentPolicyFormValues(
+  environment: WorkspaceEnvironmentDto,
+): EnvironmentPolicyFormValues {
+  return {
+    name: environment.name,
+    origins: environment.originAllowlist.join('\n'),
+    enabled: environment.enabled ?? true,
+    authoringEnabled:
+      environment.kind === 'production' ? false : (environment.authoringEnabled ?? true),
+    promotionSourceEnvironmentId: environment.promotionSourceEnvironmentId ?? '',
+    releasePolicy: readReleasePolicy(environment),
+  };
+}
+
+function validateOriginLines(value: string): true | string {
+  const origins = normalizeOriginLines(value);
+  if (origins.length > 100) return 'No more than 100 origins are allowed.';
+  return origins.every(isExactHttpOrigin) || 'Every origin must be an exact HTTP(S) origin.';
+}
+
+function isExactHttpOrigin(value: string): boolean {
+  if (value.length > 2_048) return false;
+  try {
+    const url = new URL(value);
+    return (
+      (url.protocol === 'https:' || url.protocol === 'http:') &&
+      !url.username &&
+      !url.password &&
+      !url.search &&
+      !url.hash &&
+      (url.pathname === '' || url.pathname === '/') &&
+      url.origin === value.replace(/\/$/u, '')
+    );
+  } catch {
+    return false;
+  }
 }
 
 function normalizeOriginLines(value: string): string[] {

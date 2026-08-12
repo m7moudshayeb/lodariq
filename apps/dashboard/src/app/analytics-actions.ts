@@ -10,6 +10,7 @@ import {
   DashboardApiError,
   loadAnalyticsAggregates,
 } from '../lib/api';
+import { requireDashboardActionRole } from '../lib/action-auth';
 
 export type AnalyticsAggregateActionResult =
   | { status: 'success'; environmentId: string; response: AnalyticsAggregateResponse }
@@ -27,6 +28,7 @@ export async function loadAnalyticsAggregatesAction(input: {
   }
 
   try {
+    await requireDashboardActionRole('viewer');
     return {
       status: 'success',
       environmentId: query.value.environmentId,

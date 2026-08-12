@@ -259,7 +259,13 @@ describe('compile', () => {
         id: 'block_link_1',
         type: 'link',
         content: 'Open settings',
-        props: { action: { type: 'openPage', url: '/settings' } },
+        props: {
+          action: {
+            type: 'openPage',
+            url: '/settings',
+            navigationBehavior: 'continue',
+          },
+        },
         status: 'ready',
         children: [],
       },
@@ -278,6 +284,7 @@ describe('compile', () => {
     expect(compiled.steps[0]?.body.find((block) => block.type === 'link')?.props.action).toEqual({
       type: 'openPage',
       url: '/settings',
+      navigationBehavior: 'continue',
     });
   });
 
@@ -603,6 +610,8 @@ describe('compile', () => {
       actionAlign: 'stretch',
       gap: 'relaxed',
       padding: 'compact',
+      radius: 'round',
+      showArrow: false,
     };
     tooltip.children.splice(tooltip.children.indexOf(button) + 1, 0, {
       id: 'after_button_copy',

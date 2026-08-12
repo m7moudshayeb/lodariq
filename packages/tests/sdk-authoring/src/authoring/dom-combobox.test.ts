@@ -192,7 +192,12 @@ describe('authoring DOM combobox', () => {
     const inlineStyles = root.querySelector<HTMLStyleElement>(
       '[data-lodariq-authoring-inline-style="true"]',
     )?.textContent;
-    expect(inlineStyles).toContain('width: calc(100% + (var(--lq-tour-spacing) * 2))');
+    expect(inlineStyles).toContain('position: sticky');
+    expect(inlineStyles).toContain(
+      'var(--lq-tour-composition-padding, var(--lq-tour-spacing)) * 2',
+    );
+    expect(inlineStyles).toContain('div[role="dialog"][data-lodariq-popup-height="custom"]');
+    expect(inlineStyles).toContain('flex-direction: column');
     expect(inlineStyles).toContain('justify-content: space-between');
     expect(inlineStyles).toContain('flex: 1 1 0');
 

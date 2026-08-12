@@ -190,6 +190,78 @@ describe('authoring Release options findings', () => {
       );
     });
   });
+
+  it('opens the exact missing button setting from a local release blocker', async () => {
+    const baseDocument = structuredClone(tourFixture) as LodariqDocument;
+    const button = findBlock(baseDocument.blocks, 'block_button_1');
+    if (!button) throw new Error('Tour fixture button is missing');
+    delete button.props.action;
+    mountFrame(vi.fn().mockResolvedValue(releaseState()), { baseDocument });
+
+    const releaseEntry = await waitForReleaseEntry('ready');
+    releaseEntry.click();
+
+    let repairButton: HTMLButtonElement | null = null;
+    await vi.waitFor(() => {
+      repairButton = document.querySelector<HTMLButtonElement>(
+        '[data-publish-issue-code="button_missing_action"]',
+      );
+      expect(repairButton?.textContent).toContain('Choose action');
+    });
+    repairButton!.click();
+
+    await vi.waitFor(() => {
+      const selectedBlock = document.querySelector<HTMLElement>(
+        '.rich-step-block-row[data-block-id="block_button_1"]',
+      );
+      const activeTab = document.querySelector<HTMLButtonElement>(
+        '.storyboard-property-tabs button[aria-current="page"]',
+      );
+      const actionControl = document.querySelector<HTMLElement>(
+        '[data-property-id="button.action"]',
+      );
+      const firstAction = actionControl?.querySelector<HTMLButtonElement>('button');
+      expect(selectedBlock?.classList.contains('active')).toBe(true);
+      expect(activeTab?.textContent).toContain('Behavior');
+      expect(actionControl).not.toBeNull();
+      expect(document.activeElement).toBe(firstAction);
+    });
+    expect(document.querySelector('.release-blocker-card')).toBeNull();
+
+    document.querySelector<HTMLButtonElement>('.storyboard-tray-close')?.click();
+    await vi.waitFor(() => {
+      expect(document.querySelector('.storyboard-property-tray')).toBeNull();
+    });
+  });
+
+  it('opens placement repair from a missing-target blocker', async () => {
+    const baseDocument = structuredClone(tourFixture) as LodariqDocument;
+    const tooltip = findBlock(baseDocument.blocks, 'block_tooltip_1');
+    if (!tooltip) throw new Error('Tour fixture tooltip is missing');
+    delete tooltip.props.targetId;
+    mountFrame(vi.fn().mockResolvedValue(releaseState()), { baseDocument });
+
+    const releaseEntry = await waitForReleaseEntry('ready');
+    releaseEntry.click();
+
+    let repairButton: HTMLButtonElement | null = null;
+    await vi.waitFor(() => {
+      repairButton = document.querySelector<HTMLButtonElement>(
+        '[data-publish-issue-code="missing_step_target"]',
+      );
+      expect(repairButton?.textContent).toContain('Choose target');
+    });
+    repairButton!.click();
+
+    await vi.waitFor(() => {
+      const placementPanel = document.querySelector<HTMLElement>(
+        '.storyboard-property-tray .placement-section',
+      );
+      const chooseTarget = placementPanel?.querySelector<HTMLButtonElement>('.tour-placement-card');
+      expect(placementPanel).not.toBeNull();
+      expect(document.activeElement).toBe(chooseTarget);
+    });
+  });
 });
 
 function mountFrame(
@@ -307,4 +379,13 @@ function documentWithLocalBlockers(count: number): LodariqDocument {
 function suffixBlockIds(block: LodariqBlock, suffix: number): void {
   block.id = `${block.id}_${suffix}`;
   for (const child of block.children) suffixBlockIds(child, suffix);
+}
+
+function findBlock(blocks: LodariqBlock[], blockId: string): LodariqBlock | null {
+  for (const block of blocks) {
+    if (block.id === blockId) return block;
+    const child = findBlock(block.children, blockId);
+    if (child) return child;
+  }
+  return null;
 }

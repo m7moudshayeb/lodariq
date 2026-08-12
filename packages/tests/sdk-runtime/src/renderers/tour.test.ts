@@ -569,6 +569,8 @@ describe('tour renderer (PRD §16.1)', () => {
       actionAlign: 'stretch',
       gap: 'relaxed',
       padding: 'compact',
+      radius: 'round',
+      showArrow: false,
     };
     step.body = [
       {
@@ -639,9 +641,12 @@ describe('tour renderer (PRD §16.1)', () => {
       lodariqActionAlign: 'stretch',
       lodariqCompositionGap: 'relaxed',
       lodariqCompositionPadding: 'compact',
+      lodariqPopupRadius: 'round',
+      lodariqPointerArrow: 'hide',
     });
     expect(dialog?.style.getPropertyValue('--lq-popup-width')).toBe('480px');
     expect(dialog?.style.getPropertyValue('--lq-popup-height')).toBe('320px');
+    expect(dialog?.querySelector(':scope > .tour-content')).not.toBeNull();
     expect(emphasized?.textContent).toBe('3 days');
     expect(emphasized?.style.fontWeight).toBe('700');
     expect(emphasized?.style.textDecoration).toBe('underline');
@@ -890,6 +895,36 @@ describe('tour renderer (PRD §16.1)', () => {
       expect(arrow?.style.bottom).toBe(arrowCase.position.bottom);
       player.stop();
     }
+  });
+
+  it('keeps a visible pointer outside a scrollable custom-height popup', async () => {
+    const customHeightDocument = structuredClone(compiledDoc);
+    customHeightDocument.steps[0]!.tooltipLayout = {
+      ...customHeightDocument.steps[0]!.tooltipLayout,
+      heightPx: 320,
+      showArrow: true,
+    };
+    const player = new TourPlayer(customHeightDocument, {
+      authoringPreviewOwnerId: 'authoring_custom_height_arrow',
+    });
+    player.start();
+    await player.waitUntilReady();
+
+    const root = document.querySelector(
+      `lodariq-tour[${LODARIQ_AUTHORING_PREVIEW_OWNER_ATTRIBUTE}="authoring_custom_height_arrow"]`,
+    )?.shadowRoot;
+    const dialog = root?.querySelector<HTMLElement>('[role="dialog"]');
+    const arrow = dialog?.querySelector<HTMLElement>(':scope > .tour-arrow');
+    const styles = root?.querySelector('style')?.textContent ?? '';
+
+    expect(dialog?.dataset['lodariqPopupHeight']).toBe('custom');
+    expect(dialog?.querySelector(':scope > .tour-content')).not.toBeNull();
+    expect(arrow?.hidden).toBe(false);
+    expect(styles).toContain(
+      'div[role="dialog"][data-lodariq-popup-height="custom"] > .tour-content',
+    );
+    expect(styles).toContain('overflow: visible;');
+    player.stop();
   });
 
   it('positions an authoring preview on the exact passive element that was just selected', async () => {
@@ -1312,6 +1347,79 @@ describe('tour renderer (PRD §16.1)', () => {
 
     expect(open).toHaveBeenCalledWith('https://www.google.com/', '_blank', 'noopener,noreferrer');
     open.mockRestore();
+  });
+
+  it('persists the next step before same-origin open-page navigation continues', () => {
+    const nextStep = {
+      id: 'step_2',
+      body: [{ id: 'heading_2', type: 'heading' as const, text: 'Settings', props: {} }],
+    };
+    const onBeforeStepChange = vi.fn();
+    const player = new TourPlayer(
+      {
+        ...compiledDoc,
+        steps: [
+          {
+            id: 'step_1',
+            body: [
+              {
+                id: 'button_internal',
+                type: 'button',
+                text: 'Open settings',
+                props: {
+                  action: {
+                    type: 'openPage',
+                    url: '#settings',
+                    navigationBehavior: 'continue',
+                  },
+                },
+              },
+            ],
+          },
+          nextStep,
+        ],
+      },
+      { onBeforeStepChange },
+    );
+
+    player.start();
+    document.querySelector('lodariq-tour')?.shadowRoot?.querySelector('button')?.click();
+
+    expect(onBeforeStepChange).toHaveBeenCalledWith(1, nextStep);
+    window.history.replaceState(null, '', window.location.pathname);
+  });
+
+  it('keeps legacy open-page actions on the current step by default', () => {
+    const onBeforeStepChange = vi.fn();
+    const player = new TourPlayer(
+      {
+        ...compiledDoc,
+        steps: [
+          {
+            id: 'step_1',
+            body: [
+              {
+                id: 'button_internal',
+                type: 'button',
+                text: 'Open settings',
+                props: { action: { type: 'openPage', url: '#settings' } },
+              },
+            ],
+          },
+          {
+            id: 'step_2',
+            body: [{ id: 'heading_2', type: 'heading', text: 'Settings', props: {} }],
+          },
+        ],
+      },
+      { onBeforeStepChange },
+    );
+
+    player.start();
+    document.querySelector('lodariq-tour')?.shadowRoot?.querySelector('button')?.click();
+
+    expect(onBeforeStepChange).not.toHaveBeenCalled();
+    window.history.replaceState(null, '', window.location.pathname);
   });
 
   it('goes back to the previous step from a back action', () => {

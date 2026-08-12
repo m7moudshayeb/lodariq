@@ -1,23 +1,9 @@
 import { DashboardAuthRequired } from '../components/dashboard-auth-required';
 import { DashboardShell } from '../components/dashboard-shell';
 import { WorkspaceRequired } from '../components/workspace-required';
-import {
-  DashboardApiError,
-  loadAuthSession,
-  loadDashboardData,
-  type DashboardDataDto,
-} from '../lib/api';
+import { DashboardApiError, loadAuthSession, loadDashboardData } from '../lib/api';
 
 export const dynamic = 'force-dynamic';
-
-const emptyData: DashboardDataDto = {
-  controlPlaneContext: null,
-  documents: [],
-  environments: [],
-  tokens: [],
-  installations: [],
-  themes: [],
-};
 
 export default async function DashboardPage(): Promise<React.ReactElement> {
   let session;
@@ -44,13 +30,13 @@ export default async function DashboardPage(): Promise<React.ReactElement> {
   if (!session.activeWorkspaceId) return <WorkspaceRequired session={session} />;
 
   try {
-    const data = await loadDashboardData();
+    const data = await loadDashboardData(session.activeWorkspaceId);
     return <DashboardShell data={data} session={session} />;
   } catch (error) {
     const message =
       error instanceof DashboardApiError
-        ? `API ${error.statusCode}: ${error.message}`
-        : 'API unavailable.';
-    return <DashboardShell apiError={message} data={emptyData} session={session} />;
+        ? error.message
+        : 'The workspace is temporarily unavailable.';
+    return <DashboardShell apiError={message} session={session} />;
   }
 }

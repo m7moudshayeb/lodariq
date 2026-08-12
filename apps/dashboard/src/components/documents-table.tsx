@@ -13,7 +13,7 @@ import {
   useReactTable,
 } from '@tanstack/react-table';
 import { ArrowDown, ArrowUp, ArrowUpDown, CircleDot, Search, X } from 'lucide-react';
-import { Badge, type BadgeProps } from './ui/badge';
+import { Badge } from './ui/badge';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
@@ -60,7 +60,7 @@ const columns: Array<ColumnDef<DocumentRow>> = [
           <Badge variant="info">{row.original.typeLabel}</Badge>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <Badge variant={statusVariant(row.original.status)}>{row.original.statusLabel}</Badge>
+          <Badge variant={row.original.lifecycleVariant}>{row.original.statusLabel}</Badge>
           <span className="text-xs text-muted-foreground">{row.original.readinessDetail}</span>
         </div>
         {row.original.readinessIssueCount ? (
@@ -244,10 +244,4 @@ function ariaSort(direction: false | 'asc' | 'desc'): 'ascending' | 'descending'
   if (direction === 'asc') return 'ascending';
   if (direction === 'desc') return 'descending';
   return 'none';
-}
-
-function statusVariant(status: string): BadgeProps['variant'] {
-  if (status === 'ready') return 'success';
-  if (status === 'invalid') return 'destructive';
-  return 'warning';
 }

@@ -3,6 +3,7 @@
 import * as React from 'react';
 import { act, createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AnalyticsEventAggregate, AnalyticsTargetResolutionStatus } from '@lodariq/schema';
 
@@ -12,6 +13,13 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock('../../../../apps/dashboard/src/app/analytics-actions', () => ({
   loadAnalyticsAggregatesAction: mocks.loadAnalyticsAggregatesAction,
+}));
+vi.mock('../../../../apps/dashboard/src/lib/client-dashboard-api', () => ({
+  loadDashboardAnalytics: async (_workspaceId: string, environmentId: string) => {
+    const result = await mocks.loadAnalyticsAggregatesAction({ environmentId });
+    if (result.status === 'success') return result.response;
+    throw new Error(result.error);
+  },
 }));
 
 import { AnalyticsPanel } from '../../../../apps/dashboard/src/components/analytics-panel';
@@ -169,6 +177,7 @@ describe('@lodariq/dashboard analytics reporting UI', () => {
     const mounted = await mount(
       createElement(AnalyticsPanel, {
         environments: [{ id: STAGING_ID, kind: 'staging', name: 'Staging', enabled: true }],
+        workspaceId: 'wk.analytics:dashboard',
       }),
     );
 
@@ -230,8 +239,14 @@ describe('@lodariq/dashboard analytics reporting UI', () => {
       tokens: [],
       installations: [],
       themes: [],
+      unavailableResources: [],
     });
-    const mounted = await mount(createElement(DashboardWorkspace, { viewModel }));
+    const mounted = await mount(
+      createElement(DashboardWorkspace, {
+        viewModel,
+        workspaceId: 'wk.analytics:dashboard',
+      }),
+    );
     const analyticsNavigation = buttonByText(mounted.container, 'Analytics');
     expect(analyticsNavigation.getAttribute('aria-controls')).toBe('dashboard-active-view');
 
@@ -255,6 +270,7 @@ async function mountAnalyticsPanel(): Promise<MountedComponent> {
         { id: STAGING_ID, kind: 'staging', name: 'Staging', enabled: true },
         { id: PRODUCTION_ID, kind: 'production', name: 'Production', enabled: true },
       ],
+      workspaceId: 'wk.analytics:dashboard',
     }),
   );
 }
@@ -268,7 +284,12 @@ async function mount(element: React.ReactElement): Promise<MountedComponent> {
   const container = document.createElement('div');
   document.body.append(container);
   const root = createRoot(container);
-  await act(async () => root.render(element));
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+  });
+  await act(async () =>
+    root.render(createElement(QueryClientProvider, { client: queryClient }, element)),
+  );
   return { container, root };
 }
 

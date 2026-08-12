@@ -45,8 +45,7 @@ export function BlockCard({
   const showStatusBadge = statusValue !== 'ready' && !needsPageElement;
   const showAnchor = block.type === 'tourStep' || Boolean(targetId);
   const selected = snapshot.selectedBlockId === block.id;
-  const dropPosition =
-    snapshot.dragTargetBlockId === block.id ? snapshot.dragTargetPosition : null;
+  const dropPosition = snapshot.dragTargetBlockId === block.id ? snapshot.dragTargetPosition : null;
 
   return (
     <article
@@ -172,7 +171,10 @@ function BlockInlineActions({
 }) {
   const label = blockTypeLabel(block.type).toLowerCase();
   return (
-    <div className="block-inline-actions" aria-label={`${blockTypeLabel(block.type)} quick actions`}>
+    <div
+      className="block-inline-actions"
+      aria-label={`${blockTypeLabel(block.type)} quick actions`}
+    >
       <AuthoringButton
         aria-label={`Duplicate ${label}`}
         className="block-inline-action"

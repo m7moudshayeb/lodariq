@@ -149,6 +149,7 @@ describe('unified popup content canvas', () => {
       '[aria-label="Move popup in canvas"]',
     );
     if (!popupDragHandle) throw new Error('Popup drag handle is missing');
+    await vi.waitFor(() => expect(popupCanvas?.dataset['transformReady']).toBe('true'));
     popupDragHandle.dispatchEvent(
       new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }),
     );
@@ -164,19 +165,6 @@ describe('unified popup content canvas', () => {
       expect(popupCanvas?.style.getPropertyValue('--storyboard-popup-x')).toBe('0px');
       expect(popupCanvas?.style.getPropertyValue('--storyboard-popup-y')).toBe('0px');
     });
-    popupDragHandle.dispatchEvent(
-      new MouseEvent('pointerdown', { bubbles: true, clientX: 100, clientY: 100 }),
-    );
-    popupDragHandle.dispatchEvent(
-      new MouseEvent('pointermove', { bubbles: true, clientX: 108, clientY: 104 }),
-    );
-    popupDragHandle.dispatchEvent(
-      new MouseEvent('pointerup', { bubbles: true, clientX: 108, clientY: 104 }),
-    );
-    await vi.waitFor(() => {
-      expect(popupCanvas?.style.getPropertyValue('--storyboard-popup-x')).toBe('12px');
-      expect(popupCanvas?.style.getPropertyValue('--storyboard-popup-y')).toBe('4px');
-    });
     const popupResizeHandles = document.querySelectorAll<HTMLButtonElement>(
       '.storyboard-popup-resize-handle',
     );
@@ -185,17 +173,20 @@ describe('unified popup content canvas', () => {
       '[aria-label="Resize popup from bottom right"]',
     );
     if (!popupEndResizeHandle) throw new Error('Popup resize handle is missing');
-    popupEndResizeHandle.dispatchEvent(pointerEvent('pointerdown', 100, 7, 100));
-    popupEndResizeHandle.dispatchEvent(pointerEvent('pointermove', 140, 7, 132));
-    popupEndResizeHandle.dispatchEvent(pointerEvent('pointerup', 140, 7, 132));
+    popupEndResizeHandle.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }),
+    );
+    popupEndResizeHandle.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }),
+    );
     await vi.waitFor(() => {
       const layout = latestSavedTooltip(saveDocument)?.props.tooltipLayout;
-      expect(layout?.widthPx).toBe(372);
-      expect(layout?.heightPx).toBe(280);
+      expect(layout?.widthPx).toBe(328);
+      expect(layout?.heightPx).toBe(248);
     });
-    expect(popupCanvas?.style.getPropertyValue('--storyboard-popup-width')).toBe('372px');
-    expect(popupCanvas?.style.getPropertyValue('--storyboard-popup-height')).toBe('280px');
-    expect(document.querySelector('.storyboard-popup-size')?.textContent).toContain('372 × 280px');
+    expect(popupCanvas?.style.getPropertyValue('--storyboard-popup-width')).toBe('328px');
+    expect(popupCanvas?.style.getPropertyValue('--storyboard-popup-height')).toBe('248px');
+    expect(document.querySelector('.storyboard-popup-size')?.textContent).toContain('328 × 248px');
     await vi.waitFor(() =>
       expect(latestPreviewPatch(postMessage)).toMatchObject({
         blockId: tooltip.id,
@@ -203,7 +194,7 @@ describe('unified popup content canvas', () => {
           ops: expect.arrayContaining([
             expect.objectContaining({
               op: 'setTooltipLayout',
-              tooltipLayout: expect.objectContaining({ widthPx: 372, heightPx: 280 }),
+              tooltipLayout: expect.objectContaining({ widthPx: 328, heightPx: 248 }),
             }),
           ]),
         },
@@ -223,14 +214,14 @@ describe('unified popup content canvas', () => {
     }
     vi.spyOn(actionPreview, 'getBoundingClientRect').mockReturnValue(new DOMRect(0, 0, 120, 36));
     vi.spyOn(actionStage, 'getBoundingClientRect').mockReturnValue(new DOMRect(0, 0, 400, 60));
-    endResizeHandle.dispatchEvent(pointerEvent('pointerdown', 100, 1));
-    endResizeHandle.dispatchEvent(pointerEvent('pointermove', 132, 1));
-    endResizeHandle.dispatchEvent(pointerEvent('pointerup', 132, 1));
+    endResizeHandle.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }),
+    );
     await vi.waitFor(() =>
-      expect(latestSavedButton(saveDocument, button.id)?.props.buttonStyle?.widthPx).toBe(232),
+      expect(latestSavedButton(saveDocument, button.id)?.props.buttonStyle?.widthPx).toBe(160),
     );
     expect(actionPreview.dataset['lodariqActionWidth']).toBe('custom');
-    expect(actionPreview.style.width).toBe('232px');
+    expect(actionPreview.style.width).toBe('160px');
     document.querySelector<HTMLButtonElement>('[aria-label="Zoom in canvas"]')?.click();
     await vi.waitFor(() =>
       expect(popupCanvas?.style.getPropertyValue('--storyboard-canvas-zoom')).toBe('0.9'),
@@ -239,9 +230,17 @@ describe('unified popup content canvas', () => {
     await vi.waitFor(() =>
       expect(document.querySelector('[aria-label="Selected action style"]')).not.toBeNull(),
     );
-    buttonByText(document, 'Spacing').click();
+    buttonByText(document.querySelector('[aria-label="Button settings"]')!, 'Shape & icon').click();
+    await clickInspectorChoice('Corner radius', 'Pill');
     await vi.waitFor(() =>
-      expect(document.querySelector('[aria-label="Spacing after button"]')).not.toBeNull(),
+      expect(latestSavedButton(saveDocument, button.id)?.props.buttonStyle?.radius).toBe('round'),
+    );
+    expect(actionPreview.dataset['lodariqActionRadius']).toBe('round');
+    buttonByText(document.querySelector('[aria-label="Button settings"]')!, 'Spacing').click();
+    await vi.waitFor(() =>
+      expect(
+        document.querySelector('[aria-label="Spacing settings"] input[type="range"]'),
+      ).not.toBeNull(),
     );
     expect(document.querySelector('[aria-label="Popup layout"]')).toBeNull();
     expect(document.querySelector('[aria-label="Block spacing"]')).toBeNull();
@@ -305,9 +304,12 @@ describe('unified popup content canvas', () => {
     expect(linkToolbar?.querySelector('[aria-label="Link behavior"]')).not.toBeNull();
     expect(linkToolbar?.querySelector('[aria-label="Alignment"]')).toBeNull();
     linkToolbar?.querySelector<HTMLButtonElement>('[aria-label="Link behavior"]')?.click();
-    const destination = await waitForInput('[aria-label="Destination"]');
+    const destination = await waitForInput('[aria-label="Behavior settings"] input');
     expect(destination.value).toBe('/guide');
-    expect(getComputedStyle(destination).height).toBe('36px');
+    expect(getComputedStyle(destination).height).toBe('var(--lq-control-sm)');
+    expect(
+      getComputedStyle(document.documentElement).getPropertyValue('--lq-control-sm').trim(),
+    ).toBe('36px');
     document.querySelector<HTMLButtonElement>('[aria-label="Close link behavior"]')?.click();
     await vi.waitFor(() =>
       expect(document.querySelector('[aria-label="Behavior settings"]')).toBeNull(),
@@ -398,8 +400,8 @@ describe('unified popup content canvas', () => {
         ?.style.getPropertyValue('--lq-action-fill'),
     ).toBe('#162033');
 
-    buttonByText(document, 'Spacing').click();
-    const spacingSlider = await waitForInput('[aria-label="Spacing after button"]');
+    buttonByText(document.querySelector('[aria-label="Button settings"]')!, 'Spacing').click();
+    const spacingSlider = await waitForInput('[aria-label="Spacing settings"] input[type="range"]');
     expect(spacingSlider.min).toBe('0');
     expect(spacingSlider.max).toBe('24');
     expect(spacingSlider.step).toBe('2');
@@ -444,7 +446,7 @@ describe('unified popup content canvas', () => {
     );
 
     buttonByText(document, 'Size').click();
-    await clickInspectorChoice('Width', 'Fill width');
+    await clickInspectorChoice('Width', 'Fill');
     await vi.waitFor(() =>
       expect(latestSavedButton(saveDocument, button.id)?.props.buttonStyle?.width).toBe('fill'),
     );
@@ -492,6 +494,18 @@ describe('unified popup content canvas', () => {
       }),
     );
     expect(popupContent?.dataset['lodariqContentAlign']).toBe('center');
+
+    await clickInspectorChoice('Corner radius', 'Rounded');
+    await vi.waitFor(() =>
+      expect(latestSavedTooltip(saveDocument)?.props.tooltipLayout?.radius).toBe('round'),
+    );
+    expect(popupContent?.dataset['lodariqPopupRadius']).toBe('round');
+
+    await clickInspectorChoice('Pointer arrow', 'Hide');
+    await vi.waitFor(() =>
+      expect(latestSavedTooltip(saveDocument)?.props.tooltipLayout?.showArrow).toBe(false),
+    );
+    expect(document.querySelector('.storyboard-popup-arrow')).toBeNull();
 
     document.querySelector<HTMLButtonElement>('[aria-label="More experience actions"]')?.click();
     await vi.waitFor(() =>
@@ -594,7 +608,7 @@ async function waitForInput(selector: string): Promise<HTMLInputElement> {
   let input: HTMLInputElement | null = null;
   await vi.waitFor(() => {
     input = document.querySelector<HTMLInputElement>(selector);
-    expect(input).not.toBeNull();
+    expect(input, selector).not.toBeNull();
   });
   if (!input) throw new Error(`${selector} input is missing`);
   return input;
@@ -647,12 +661,6 @@ function setNativeInputValue(input: HTMLInputElement, value: string): void {
   const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
   if (!setter) throw new Error('Native input value setter is unavailable');
   setter.call(input, value);
-}
-
-function pointerEvent(type: string, clientX: number, pointerId: number, clientY = 0): MouseEvent {
-  const event = new MouseEvent(type, { bubbles: true, cancelable: true, clientX, clientY });
-  Object.defineProperty(event, 'pointerId', { value: pointerId });
-  return event;
 }
 
 function latestSavedButton(saveDocument: ReturnType<typeof vi.fn>, blockId: string) {

@@ -105,6 +105,7 @@ describe('@lodariq/dashboard view model', () => {
         },
       ],
       themes: [],
+      unavailableResources: [],
     });
 
     expect(viewModel.hasDocuments).toBe(true);
@@ -114,7 +115,9 @@ describe('@lodariq/dashboard view model', () => {
     expect(viewModel.documentRows[0]?.statusLabel).toBe('Draft');
     expect(viewModel.documentRows[0]?.typeLabel).toBe('Tour');
     expect(viewModel.documentRows[0]?.editorLabel).toBe('Workspace teammate');
-    expect(viewModel.documentRows[0]?.readinessDetail).toBe('Missing target');
+    expect(viewModel.documentRows[0]?.readinessDetail).toBe('Needs fixes before publishing');
+    expect(viewModel.documentRows[0]?.readinessState).toBe('blocked');
+    expect(viewModel.documentRows[0]?.lifecycleVariant).toBe('warning');
     expect(viewModel.documentRows[0]?.readinessIssueCount).toBe(1);
     expect(viewModel.documentRows[0]?.readinessIssueSummary).toBe(
       'Step 1 needs a placement before publishing.',
@@ -165,7 +168,7 @@ describe('@lodariq/dashboard view model', () => {
           id: 'doc_production_recorded',
           workspaceId: 'wk_a',
           type: 'announcement',
-          status: 'ready',
+          status: 'review',
           title: 'Billing notice',
           schemaVersion: '1.0.0',
           createdByUserId: 'user_creator',
@@ -196,6 +199,7 @@ describe('@lodariq/dashboard view model', () => {
       tokens: [],
       installations: [],
       themes: [],
+      unavailableResources: [],
     });
 
     const row = viewModel.documentRows[0];
@@ -203,6 +207,9 @@ describe('@lodariq/dashboard view model', () => {
     expect(viewModel.canEditBrandSystem).toBe(true);
     expect(viewModel.canApproveBrandSystem).toBe(false);
     expect(row?.queueStatusLabel).toBe('Production published');
+    expect(row?.readinessDetail).toBe('Ready to preview');
+    expect(row?.readinessState).toBe('previewable');
+    expect(row?.lifecycleVariant).toBe('info');
     expect(row?.releaseSummary).toContain('active-delivery evidence is not available');
     expect(row?.releaseStages.map((stage) => stage.statusLabel)).toEqual([
       'Draft saved',
@@ -237,7 +244,7 @@ describe('@lodariq/dashboard view model', () => {
           id: 'doc_verified',
           workspaceId: 'wk_a',
           type: 'tour',
-          status: 'ready',
+          status: 'review',
           title: 'Verified onboarding',
           schemaVersion: '1.0.0',
           createdByUserId: 'user_admin',
@@ -252,6 +259,7 @@ describe('@lodariq/dashboard view model', () => {
       tokens: [],
       installations: [],
       themes: [],
+      unavailableResources: [],
     });
 
     const row = viewModel.documentRows[0];
@@ -271,7 +279,7 @@ describe('@lodariq/dashboard view model', () => {
           id: 'doc_multi_staging',
           workspaceId: 'wk_a',
           type: 'tour',
-          status: 'ready',
+          status: 'review',
           title: 'Onboarding tour',
           schemaVersion: '1.0.0',
           createdByUserId: null,
@@ -302,6 +310,7 @@ describe('@lodariq/dashboard view model', () => {
       tokens: [],
       installations: [],
       themes: [],
+      unavailableResources: [],
     });
 
     const row = viewModel.documentRows[0];
@@ -374,6 +383,7 @@ describe('@lodariq/dashboard view model', () => {
         },
       ],
       themes: [],
+      unavailableResources: [],
     });
 
     expect(viewModel.authoringSiteOptions).toEqual([
@@ -424,6 +434,7 @@ describe('@lodariq/dashboard view model', () => {
         },
       ],
       themes: [],
+      unavailableResources: [],
     });
 
     expect(viewModel.authoringSiteOptions).toEqual([]);
@@ -465,6 +476,7 @@ describe('@lodariq/dashboard view model', () => {
           },
         },
       ],
+      unavailableResources: [],
     });
 
     expect(viewModel.brandSourceSummary).toMatchObject({

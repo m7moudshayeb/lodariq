@@ -5,25 +5,20 @@ import {
   useState,
   type CSSProperties,
   type KeyboardEvent as ReactKeyboardEvent,
-  type PointerEvent as ReactPointerEvent,
   type ReactNode,
 } from 'react';
-import {
-  BLOCK_SPACING_PX_LIMITS,
-  BUTTON_WIDTH_PX_LIMITS,
-  TEXT_FONT_SIZE_VALUES,
-  TOOLTIP_HEIGHT_PX_LIMITS,
-  TOOLTIP_WIDTH_PX_LIMITS,
-} from '@lodariq/schema';
 import type {
   BlockLayoutProps,
   ButtonStyleProps,
   InlineTextRun,
   LodariqBlock,
   TextStyleProps,
-  TooltipLayoutProps,
 } from '@lodariq/schema';
-import { resolveTourThemeStyle } from '@lodariq/sdk-runtime/renderers/tour';
+import {
+  resolveTourActionRecipe,
+  resolveTourCompositionRecipe,
+  resolveTourThemeStyle,
+} from '@lodariq/sdk-runtime/renderers/tour';
 import type { LocalAuthoringFrameController } from '../controller';
 import { applyInlineTextStyle, type InlineTextStylePatch } from '../../document-ops';
 import {
@@ -37,8 +32,6 @@ import {
   Bold,
   Check,
   ChevronRight,
-  Circle,
-  CircleX,
   Copy,
   ExternalLink,
   GripHorizontal,
@@ -46,197 +39,63 @@ import {
   Highlighter,
   Italic,
   Link,
-  LogOut,
   Minus,
   MoreHorizontal,
   MoveDiagonal2,
-  MoveHorizontal,
   MousePointer2,
   MousePointerClick,
-  PanelBottom,
-  PanelLeft,
-  PanelRight,
-  PanelTop,
-  Palette,
   Pencil,
   Plus,
   RotateCcw,
-  SlidersHorizontal,
-  Shapes,
   SquareMousePointer,
   Trash2,
-  Type,
   Underline,
   X,
 } from '../design-system';
-import {
-  EDITABLE_ACTION_OPTIONS,
-  EDITABLE_BUTTON_VARIANT_OPTIONS,
-  type EditableActionType,
-  type LocalAuthoringFrameSnapshot,
-} from '../types';
+import { EDITABLE_ACTION_OPTIONS, type LocalAuthoringFrameSnapshot } from '../types';
 import {
   blockDisplayTitle,
-  blockStatus,
   blockTypeLabel,
   editableActionValue,
   editableBlockTypeValue,
   isEditableContentBlock,
   stepContentCommandFromQuery,
-  targetDiagnosticIsDrift,
   targetIdOf,
   targetLabelOf,
 } from '../utils';
 import { InlineStepInsert } from './insert-menu';
 import { TargetControls } from './target-controls';
-
-const TOOLTIP_PLACEMENT_LABELS = {
-  top: 'Above',
-  bottom: 'Below',
-  left: 'Left',
-  right: 'Right',
-} as const;
-
-const ADVANCE_OPTION_LABELS = {
-  next: 'Next button',
-  clickTarget: 'Clicks target',
-} as const satisfies Record<Extract<EditableActionType, 'next' | 'clickTarget'>, string>;
-
-const TOOLTIP_POSITION_OPTIONS = [
-  { value: 'top', label: 'Top', icon: PanelTop },
-  { value: 'right', label: 'Right', icon: PanelRight },
-  { value: 'bottom', label: 'Bottom', icon: PanelBottom },
-  { value: 'left', label: 'Left', icon: PanelLeft },
-] as const;
-
-const TEXT_SIZE_OPTIONS = TEXT_FONT_SIZE_VALUES;
-
-type StoryboardToolMode = 'content' | 'placement' | 'popup';
-type ActionPropertyTab =
-  'appearance' | 'behavior' | 'size' | 'alignment' | 'shape' | 'colors' | 'spacing';
-
-type ActionToolbarPosition = { left: number; top: number };
-type CanvasPopupOffset = { x: number; y: number };
-type CanvasPopupSize = { widthPx: number | null; heightPx: number | null };
-type PopupResizeCorner = 'north-east' | 'north-west' | 'south-east' | 'south-west';
-type CanvasPopupDragState = {
-  pointerId: number;
-  startClientX: number;
-  startClientY: number;
-  startOffset: CanvasPopupOffset;
-  bounds: { minX: number; maxX: number; minY: number; maxY: number };
-};
-type CanvasPopupResizeState = {
-  pointerId: number;
-  corner: PopupResizeCorner;
-  startClientX: number;
-  startClientY: number;
-  startOffset: CanvasPopupOffset;
-  startSize: { widthPx: number; heightPx: number };
-  latestOffset: CanvasPopupOffset;
-  latestSize: { widthPx: number; heightPx: number };
-};
-
-const CANVAS_ZOOM_LEVELS = [60, 70, 80, 90, 100, 110, 120] as const;
-const DEFAULT_CANVAS_ZOOM = 80;
-const POPUP_RESIZE_CORNERS = [
-  { value: 'north-west', label: 'top left' },
-  { value: 'north-east', label: 'top right' },
-  { value: 'south-west', label: 'bottom left' },
-  { value: 'south-east', label: 'bottom right' },
-] as const satisfies ReadonlyArray<{ value: PopupResizeCorner; label: string }>;
-
-const STORYBOARD_TOOL_OPTIONS = [
-  { value: 'content', label: 'Content', icon: Type },
-  { value: 'placement', label: 'Placement', icon: MousePointer2 },
-  { value: 'popup', label: 'Popup', icon: PanelTop },
-] as const satisfies ReadonlyArray<{
-  value: StoryboardToolMode;
-  label: string;
-  icon: typeof Type;
-}>;
-
-export function TourStoryboard({
-  activeStepId,
-  controller,
-  snapshot,
-  steps,
-}: {
-  activeStepId: string | null;
-  controller: LocalAuthoringFrameController;
-  snapshot: LocalAuthoringFrameSnapshot;
-  steps: LodariqBlock[];
-}) {
-  const health = steps.map((step) => stepHealth(step, snapshot));
-
-  return (
-    <nav className="tour-storyboard" aria-label="Tour steps">
-      <ol className="tour-storyboard-list">
-        {steps.map((step, index) => {
-          const active = step.id === activeStepId;
-          const itemHealth = health[index]!;
-          const preview = storyboardStepPreview(step);
-          return (
-            <li
-              className={`tour-storyboard-step ${active ? 'active' : ''} ${itemHealth.tone}`.trim()}
-              data-block-id={step.id}
-              key={step.id}
-              onDragOver={(event) => controller.handleBlockDragOver(event)}
-              onDrop={(event) => controller.handleBlockDrop(event, step.id)}
-            >
-              <button
-                type="button"
-                className="tour-storyboard-drag"
-                draggable
-                aria-label={`Drag step ${index + 1}`}
-                title="Drag to reorder step"
-                onDragEnd={() => controller.endDraggingBlock()}
-                onDragStart={(event) => controller.startDraggingBlock(step.id, event)}
-              >
-                <GripVertical size={14} strokeWidth={2} aria-hidden="true" />
-              </button>
-              <button
-                type="button"
-                className="tour-storyboard-select"
-                aria-current={active ? 'step' : undefined}
-                aria-label={`Edit step ${index + 1}: ${blockDisplayTitle(step)}`}
-                onClick={() => controller.activateTourStep(step.id)}
-              >
-                <span className="tour-storyboard-heading">
-                  <span className="tour-storyboard-number">{index + 1}</span>
-                  <strong>{blockDisplayTitle(step)}</strong>
-                  <span className={`tour-storyboard-health ${itemHealth.tone}`}>
-                    {itemHealth.tone === 'ready' ? (
-                      <Check size={12} strokeWidth={2.5} aria-hidden="true" />
-                    ) : (
-                      <span className="tour-step-health-dot" aria-hidden="true" />
-                    )}
-                    <span className="visually-hidden">{itemHealth.label}</span>
-                  </span>
-                </span>
-                <span className="tour-storyboard-preview" aria-hidden="true">
-                  <span>{preview.body}</span>
-                  {preview.action ? <strong>{preview.action}</strong> : null}
-                </span>
-              </button>
-              <TourStepActionMenu controller={controller} step={step} stepIndex={index} />
-            </li>
-          );
-        })}
-        <li className="tour-storyboard-add-item">
-          <button
-            type="button"
-            className="tour-storyboard-add"
-            aria-label="Add step"
-            onClick={() => controller.appendStepAndChooseTarget()}
-          >
-            <Plus size={20} strokeWidth={2} aria-hidden="true" />
-          </button>
-        </li>
-      </ol>
-    </nav>
-  );
-}
+import { TourStepActionMenu } from './tour-storyboard';
+import { ButtonPropertyPanel, type ActionPropertyTab } from '../properties/button-property-editor';
+import { defaultActionVariant } from '../properties/button-properties';
+import { useActionResize } from '../../canvas/use-action-resize';
+import { blockSpacingAfterStyle, canvasToolbarStyle } from '../../canvas/canvas-style';
+import { usePopupTransform } from '../../canvas/use-popup-transform';
+import {
+  buttonAdvanceValue,
+  elementActionLabelFor,
+  stepHealth,
+  stepPlacementFact,
+  stepPrimaryButton,
+  stepTooltip,
+  targetActionLabelFor,
+  type StepHealthTone,
+} from '../tour-step-model';
+import { ContextualPropertyTray } from './contextual-property-tray';
+import { PopupPointerArrow } from './popup-pointer-arrow';
+import { useTourStepInspectorStyles } from '../tour-step-inspector-styles';
+import {
+  ADVANCE_OPTION_LABELS,
+  CANVAS_ZOOM_LEVELS,
+  DEFAULT_CANVAS_ZOOM,
+  POPUP_RESIZE_CORNERS,
+  STORYBOARD_TOOL_OPTIONS,
+  TEXT_SIZE_OPTIONS,
+  TOOLTIP_PLACEMENT_LABELS,
+  TOOLTIP_POSITION_OPTIONS,
+  type ActionToolbarPosition,
+  type StoryboardToolMode,
+} from './tour-sequence-options';
 
 export function TourSequenceRail({
   activeStepId,
@@ -427,11 +286,22 @@ export function TourStepInspector({
   step: LodariqBlock;
   stepIndex: number;
 }) {
+  useTourStepInspectorStyles();
   const health = stepHealth(step, snapshot);
   const tooltip = stepTooltip(step);
   const [toolMode, setToolMode] = useState<StoryboardToolMode>('content');
 
   useEffect(() => setToolMode('content'), [step.id]);
+
+  useEffect(() => {
+    const request = snapshot.focusRequest;
+    if (!request || request.blockId !== step.id) return;
+    if (request.reveal === 'placement' || request.reveal === 'popup') {
+      setToolMode(request.reveal);
+      return;
+    }
+    setToolMode('content');
+  }, [snapshot.focusRequest, step.id]);
 
   return (
     <section
@@ -467,6 +337,7 @@ export function TourStepInspector({
                 key={option.value}
                 type="button"
                 className={active ? 'active' : undefined}
+                aria-label={option.label}
                 aria-pressed={active}
                 onClick={() =>
                   setToolMode((current) =>
@@ -599,19 +470,11 @@ function RichStepContentEditor({
   const [activePropertyTab, setActivePropertyTab] = useState<ActionPropertyTab>('shape');
   const [propertyTrayOpen, setPropertyTrayOpen] = useState(false);
   const [canvasZoom, setCanvasZoom] = useState(DEFAULT_CANVAS_ZOOM);
-  const [popupDragging, setPopupDragging] = useState(false);
-  const [popupResizing, setPopupResizing] = useState(false);
   const [popupSelected, setPopupSelected] = useState(false);
-  const [popupOffset, setPopupOffset] = useState<CanvasPopupOffset>({ x: 0, y: 0 });
-  const [livePopupSize, setLivePopupSize] = useState<CanvasPopupSize>({
-    widthPx: tooltip.props.tooltipLayout?.widthPx ?? null,
-    heightPx: tooltip.props.tooltipLayout?.heightPx ?? null,
-  });
   const [contextToolbarPosition, setContextToolbarPosition] =
     useState<ActionToolbarPosition | null>(null);
   const suppressedBlurCommitBlockIds = useRef(new Set<string>());
-  const popupDragStateRef = useRef<CanvasPopupDragState | null>(null);
-  const popupResizeStateRef = useRef<CanvasPopupResizeState | null>(null);
+  const handledFocusRequestToken = useRef<number | null>(null);
   const popupRef = useRef<HTMLDivElement | null>(null);
   const editorStageRef = useRef<HTMLDivElement | null>(null);
   const activeBlockRowRef = useRef<HTMLDivElement | null>(null);
@@ -644,16 +507,7 @@ function RichStepContentEditor({
     prefersReducedMotion,
   );
   const popupStyle = resolvedPopupTheme.variables as CSSProperties;
-  const popupCanvasStyle = {
-    ...popupStyle,
-    '--storyboard-canvas-zoom': String(canvasZoom / 100),
-    '--storyboard-popup-x': `${popupOffset.x}px`,
-    '--storyboard-popup-y': `${popupOffset.y}px`,
-    ...(livePopupSize.widthPx ? { '--storyboard-popup-width': `${livePopupSize.widthPx}px` } : {}),
-    ...(livePopupSize.heightPx
-      ? { '--storyboard-popup-height': `${livePopupSize.heightPx}px` }
-      : {}),
-  } as CSSProperties;
+  const popupComposition = resolveTourCompositionRecipe(tooltip.props.tooltipLayout);
 
   useEffect(() => {
     if (activeBlockId === null) return;
@@ -663,54 +517,28 @@ function RichStepContentEditor({
 
   useEffect(() => setPropertyTrayOpen(false), [activeBlockId]);
 
-  useEffect(() => {
-    popupDragStateRef.current = null;
-    popupResizeStateRef.current = null;
-    setPopupDragging(false);
-    setPopupResizing(false);
-    setPopupSelected(false);
-    setPopupOffset({ x: 0, y: 0 });
-  }, [step.id]);
-
-  useEffect(() => {
-    setLivePopupSize({
-      widthPx: tooltip.props.tooltipLayout?.widthPx ?? null,
-      heightPx: tooltip.props.tooltipLayout?.heightPx ?? null,
-    });
-  }, [tooltip.id, tooltip.props.tooltipLayout?.heightPx, tooltip.props.tooltipLayout?.widthPx]);
+  useEffect(() => setPopupSelected(false), [step.id]);
 
   useEffect(() => {
     if (toolMode !== 'content') setPropertyTrayOpen(false);
   }, [toolMode]);
 
-  useLayoutEffect(() => {
-    const stage = editorStageRef.current;
-    const row = activeBlockRowRef.current;
-    if (!stage || !row) {
-      setContextToolbarPosition(null);
-      return;
+  useEffect(() => {
+    const request = snapshot.focusRequest;
+    if (!request || handledFocusRequestToken.current === request.token) return;
+    const requestedBlock = contentBlocks.find((block) => block.id === request.blockId);
+    if (!requestedBlock) return;
+    handledFocusRequestToken.current = request.token;
+    setPopupSelected(false);
+    setActiveBlockId(requestedBlock.id);
+    setSelection(null);
+    setLinkEditorOpen(false);
+    onToolModeChange('content');
+    if (request.reveal === 'behavior') {
+      setActivePropertyTab('behavior');
+      setPropertyTrayOpen(true);
     }
-    const updatePosition = (): void => {
-      const stageRect = stage.getBoundingClientRect();
-      const rowRect = row.getBoundingClientRect();
-      setContextToolbarPosition({
-        left: rowRect.left - stageRect.left + rowRect.width / 2 + stage.scrollLeft,
-        top: Math.max(12, rowRect.top - stageRect.top + stage.scrollTop - 56),
-      });
-    };
-    updatePosition();
-    const resizeObserver = new ResizeObserver(updatePosition);
-    resizeObserver.observe(stage);
-    resizeObserver.observe(row);
-    const content = row.closest<HTMLElement>('.rich-step-content');
-    stage.addEventListener('scroll', updatePosition, { passive: true });
-    content?.addEventListener('scroll', updatePosition, { passive: true });
-    return () => {
-      resizeObserver.disconnect();
-      stage.removeEventListener('scroll', updatePosition);
-      content?.removeEventListener('scroll', updatePosition);
-    };
-  }, [activeBlockId, canvasZoom, popupOffset.x, popupOffset.y]);
+  }, [contentBlocks, onToolModeChange, snapshot.focusRequest]);
 
   const commitBlock = (blockId: string, element: HTMLElement): void => {
     if (suppressedBlurCommitBlockIds.current.delete(blockId)) return;
@@ -767,233 +595,69 @@ function RichStepContentEditor({
     setPopupSelected(true);
   };
 
-  const beginPopupDrag = (event: ReactPointerEvent<HTMLButtonElement>): void => {
+  const {
+    dragging: popupDragging,
+    moveWithKeyboard: movePopupWithKeyboard,
+    offset: popupOffset,
+    ready: popupTransformReady,
+    resetPosition: resetPopupPosition,
+    resetSize: resetPopupSize,
+    resizeWithKeyboard: resizePopupWithKeyboard,
+    resizing: popupResizing,
+    size: livePopupSize,
+  } = usePopupTransform({
+    experienceKey: step.id,
+    initialHeight: tooltip.props.tooltipLayout?.heightPx ?? null,
+    initialWidth: tooltip.props.tooltipLayout?.widthPx ?? null,
+    onCommitSize: (size) =>
+      controller.setTooltipLayout(tooltip.id, {
+        widthPx: size.widthPx ?? undefined,
+        heightPx: size.heightPx ?? undefined,
+      }),
+    onInteractionStart: selectPopup,
+    popupRef,
+    stageRef: editorStageRef,
+    zoomPercent: canvasZoom,
+  });
+  const popupCanvasStyle = {
+    ...popupStyle,
+    '--storyboard-canvas-zoom': String(canvasZoom / 100),
+    '--storyboard-popup-x': `${popupOffset.x}px`,
+    '--storyboard-popup-y': `${popupOffset.y}px`,
+    ...(livePopupSize.widthPx ? { '--storyboard-popup-width': `${livePopupSize.widthPx}px` } : {}),
+    ...(livePopupSize.heightPx
+      ? { '--storyboard-popup-height': `${livePopupSize.heightPx}px` }
+      : {}),
+  } as CSSProperties;
+
+  useLayoutEffect(() => {
     const stage = editorStageRef.current;
-    const popup = popupRef.current;
-    if (!stage || !popup) return;
-    const stageRect = stage.getBoundingClientRect();
-    const popupRect = popup.getBoundingClientRect();
-    const horizontalInset = 12;
-    const toolDockClearance = 96;
-    const verticalInset = 12;
-    const handleVisibility = 48;
-    const inverseZoom = 100 / canvasZoom;
-    const minX = popupOffset.x + (stageRect.left + horizontalInset - popupRect.left) * inverseZoom;
-    const maxX =
-      popupOffset.x + (stageRect.right - toolDockClearance - popupRect.right) * inverseZoom;
-    const minY = popupOffset.y + (stageRect.top + verticalInset - popupRect.top) * inverseZoom;
-    const maxY =
-      popupOffset.y + (stageRect.bottom - handleVisibility - popupRect.top) * inverseZoom;
-    popupDragStateRef.current = {
-      pointerId: event.pointerId,
-      startClientX: event.clientX,
-      startClientY: event.clientY,
-      startOffset: popupOffset,
-      bounds: {
-        minX: Math.min(minX, maxX),
-        maxX: Math.max(minX, maxX),
-        minY: Math.min(minY, maxY),
-        maxY: Math.max(minY, maxY),
-      },
-    };
-    selectPopup();
-    setPopupDragging(true);
-    event.currentTarget.setPointerCapture?.(event.pointerId);
-    event.preventDefault();
-    event.stopPropagation();
-  };
-
-  const continuePopupDrag = (event: ReactPointerEvent<HTMLButtonElement>): void => {
-    const dragState = popupDragStateRef.current;
-    if (!dragState || dragState.pointerId !== event.pointerId) return;
-    setPopupOffset({
-      x: clamp(
-        snapToGrid(
-          dragState.startOffset.x + (event.clientX - dragState.startClientX) * (100 / canvasZoom),
-          4,
-        ),
-        dragState.bounds.minX,
-        dragState.bounds.maxX,
-      ),
-      y: clamp(
-        snapToGrid(
-          dragState.startOffset.y + (event.clientY - dragState.startClientY) * (100 / canvasZoom),
-          4,
-        ),
-        dragState.bounds.minY,
-        dragState.bounds.maxY,
-      ),
-    });
-  };
-
-  const endPopupDrag = (event: ReactPointerEvent<HTMLButtonElement>): void => {
-    const dragState = popupDragStateRef.current;
-    if (!dragState || dragState.pointerId !== event.pointerId) return;
-    popupDragStateRef.current = null;
-    setPopupDragging(false);
-    event.currentTarget.releasePointerCapture?.(event.pointerId);
-  };
-
-  const movePopupWithKeyboard = (event: ReactKeyboardEvent<HTMLButtonElement>): void => {
-    const movementByKey: Readonly<Record<string, CanvasPopupOffset>> = {
-      ArrowDown: { x: 0, y: 8 },
-      ArrowLeft: { x: -8, y: 0 },
-      ArrowRight: { x: 8, y: 0 },
-      ArrowUp: { x: 0, y: -8 },
-    };
-    if (event.key === 'Home') {
-      setPopupOffset({ x: 0, y: 0 });
-      event.preventDefault();
+    const row = activeBlockRowRef.current;
+    if (!stage || !row) {
+      setContextToolbarPosition(null);
       return;
     }
-    const movement = movementByKey[event.key];
-    if (!movement) return;
-    setPopupOffset((current) => ({
-      x: current.x + movement.x,
-      y: current.y + movement.y,
-    }));
-    event.preventDefault();
-  };
-
-  const measuredPopupSize = (): { widthPx: number; heightPx: number } => {
-    const popupRect = popupRef.current?.getBoundingClientRect();
-    const inverseZoom = 100 / canvasZoom;
-    return {
-      widthPx: clamp(
-        livePopupSize.widthPx ??
-          snapToGrid((popupRect?.width ?? TOOLTIP_WIDTH_PX_LIMITS.min) * inverseZoom, 4),
-        TOOLTIP_WIDTH_PX_LIMITS.min,
-        TOOLTIP_WIDTH_PX_LIMITS.max,
-      ),
-      heightPx: clamp(
-        livePopupSize.heightPx ??
-          snapToGrid((popupRect?.height ?? TOOLTIP_HEIGHT_PX_LIMITS.min) * inverseZoom, 4),
-        TOOLTIP_HEIGHT_PX_LIMITS.min,
-        TOOLTIP_HEIGHT_PX_LIMITS.max,
-      ),
+    const updatePosition = (): void => {
+      const stageRect = stage.getBoundingClientRect();
+      const rowRect = row.getBoundingClientRect();
+      setContextToolbarPosition({
+        left: rowRect.left - stageRect.left + rowRect.width / 2 + stage.scrollLeft,
+        top: Math.max(12, rowRect.top - stageRect.top + stage.scrollTop - 56),
+      });
     };
-  };
-
-  const persistPopupSize = (size: CanvasPopupSize): void => {
-    controller.setTooltipLayout(tooltip.id, {
-      widthPx: size.widthPx ?? undefined,
-      heightPx: size.heightPx ?? undefined,
-    });
-  };
-
-  const resetPopupSize = (): void => {
-    popupResizeStateRef.current = null;
-    setPopupResizing(false);
-    setLivePopupSize({ widthPx: null, heightPx: null });
-    persistPopupSize({ widthPx: null, heightPx: null });
-  };
-
-  const beginPopupResize = (
-    corner: PopupResizeCorner,
-    event: ReactPointerEvent<HTMLButtonElement>,
-  ): void => {
-    const startSize = measuredPopupSize();
-    popupResizeStateRef.current = {
-      pointerId: event.pointerId,
-      corner,
-      startClientX: event.clientX,
-      startClientY: event.clientY,
-      startOffset: popupOffset,
-      startSize,
-      latestOffset: popupOffset,
-      latestSize: startSize,
+    updatePosition();
+    const resizeObserver = new ResizeObserver(updatePosition);
+    resizeObserver.observe(stage);
+    resizeObserver.observe(row);
+    const content = row.closest<HTMLElement>('.rich-step-content');
+    stage.addEventListener('scroll', updatePosition, { passive: true });
+    content?.addEventListener('scroll', updatePosition, { passive: true });
+    return () => {
+      resizeObserver.disconnect();
+      stage.removeEventListener('scroll', updatePosition);
+      content?.removeEventListener('scroll', updatePosition);
     };
-    selectPopup();
-    setPopupResizing(true);
-    setLivePopupSize(startSize);
-    event.currentTarget.setPointerCapture?.(event.pointerId);
-    event.preventDefault();
-    event.stopPropagation();
-  };
-
-  const continuePopupResize = (event: ReactPointerEvent<HTMLButtonElement>): void => {
-    const resizeState = popupResizeStateRef.current;
-    if (!resizeState || resizeState.pointerId !== event.pointerId) return;
-    const inverseZoom = 100 / canvasZoom;
-    const horizontalDirection = resizeState.corner.endsWith('east') ? 1 : -1;
-    const verticalDirection = resizeState.corner.startsWith('south') ? 1 : -1;
-    const widthPx = clamp(
-      snapToGrid(
-        resizeState.startSize.widthPx +
-          (event.clientX - resizeState.startClientX) * inverseZoom * horizontalDirection,
-        4,
-      ),
-      TOOLTIP_WIDTH_PX_LIMITS.min,
-      TOOLTIP_WIDTH_PX_LIMITS.max,
-    );
-    const heightPx = clamp(
-      snapToGrid(
-        resizeState.startSize.heightPx +
-          (event.clientY - resizeState.startClientY) * inverseZoom * verticalDirection,
-        4,
-      ),
-      TOOLTIP_HEIGHT_PX_LIMITS.min,
-      TOOLTIP_HEIGHT_PX_LIMITS.max,
-    );
-    const nextOffset = {
-      x: resizeState.corner.endsWith('west')
-        ? resizeState.startOffset.x + resizeState.startSize.widthPx - widthPx
-        : resizeState.startOffset.x,
-      y: resizeState.corner.startsWith('north')
-        ? resizeState.startOffset.y + resizeState.startSize.heightPx - heightPx
-        : resizeState.startOffset.y,
-    };
-    resizeState.latestSize = { widthPx, heightPx };
-    resizeState.latestOffset = nextOffset;
-    setLivePopupSize({ widthPx, heightPx });
-    setPopupOffset(nextOffset);
-  };
-
-  const endPopupResize = (event: ReactPointerEvent<HTMLButtonElement>): void => {
-    const resizeState = popupResizeStateRef.current;
-    if (!resizeState || resizeState.pointerId !== event.pointerId) return;
-    popupResizeStateRef.current = null;
-    setPopupResizing(false);
-    setLivePopupSize(resizeState.latestSize);
-    setPopupOffset(resizeState.latestOffset);
-    persistPopupSize(resizeState.latestSize);
-    event.currentTarget.releasePointerCapture?.(event.pointerId);
-  };
-
-  const resizePopupWithKeyboard = (
-    corner: PopupResizeCorner,
-    event: ReactKeyboardEvent<HTMLButtonElement>,
-  ): void => {
-    dismissActiveBlock();
-    setPopupSelected(true);
-    if (event.key === 'Home') {
-      resetPopupSize();
-      event.preventDefault();
-      return;
-    }
-    const sizeDelta = 8;
-    const current = measuredPopupSize();
-    let widthPx = current.widthPx;
-    let heightPx = current.heightPx;
-    if (event.key === 'ArrowLeft') widthPx -= sizeDelta;
-    else if (event.key === 'ArrowRight') widthPx += sizeDelta;
-    else if (event.key === 'ArrowUp') heightPx -= sizeDelta;
-    else if (event.key === 'ArrowDown') heightPx += sizeDelta;
-    else return;
-    widthPx = clamp(widthPx, TOOLTIP_WIDTH_PX_LIMITS.min, TOOLTIP_WIDTH_PX_LIMITS.max);
-    heightPx = clamp(heightPx, TOOLTIP_HEIGHT_PX_LIMITS.min, TOOLTIP_HEIGHT_PX_LIMITS.max);
-    setPopupOffset((currentOffset) => ({
-      x: corner.endsWith('west') ? currentOffset.x + current.widthPx - widthPx : currentOffset.x,
-      y: corner.startsWith('north')
-        ? currentOffset.y + current.heightPx - heightPx
-        : currentOffset.y,
-    }));
-    const size = { widthPx, heightPx };
-    setLivePopupSize(size);
-    persistPopupSize(size);
-    event.preventDefault();
-    event.stopPropagation();
-  };
+  }, [activeBlockId, canvasZoom, popupOffset.x, popupOffset.y]);
 
   return (
     <div className="rich-step-editor">
@@ -1025,7 +689,7 @@ function RichStepContentEditor({
             role="toolbar"
             aria-label="Text formatting"
             data-positioned={contextToolbarPosition ? 'true' : 'false'}
-            style={contextToolbarStyle(contextToolbarPosition)}
+            style={canvasToolbarStyle(contextToolbarPosition)}
           >
             <select
               aria-label="Block type"
@@ -1275,6 +939,7 @@ function RichStepContentEditor({
           data-popup-selected={popupSelected ? 'true' : 'false'}
           data-popup-width-custom={livePopupSize.widthPx ? 'true' : 'false'}
           data-resizing={popupResizing ? 'true' : 'false'}
+          data-transform-ready={popupTransformReady ? 'true' : 'false'}
           style={popupCanvasStyle}
         >
           {POPUP_RESIZE_CORNERS.map((corner) => (
@@ -1284,14 +949,15 @@ function RichStepContentEditor({
               className="storyboard-popup-resize-handle"
               aria-label={`Resize popup from ${corner.label}`}
               data-corner={corner.value}
-              title="Drag to resize. Arrow keys adjust by 8px; Home or double-click resets."
+              disabled={!popupTransformReady}
+              title={
+                popupTransformReady
+                  ? 'Drag to resize. Arrow keys adjust by 8px; Home or double-click resets.'
+                  : 'Loading canvas controls'
+              }
               onDoubleClick={resetPopupSize}
               onFocus={selectPopup}
               onKeyDown={(event) => resizePopupWithKeyboard(corner.value, event)}
-              onPointerCancel={endPopupResize}
-              onPointerDown={(event) => beginPopupResize(corner.value, event)}
-              onPointerMove={continuePopupResize}
-              onPointerUp={endPopupResize}
             >
               <MoveDiagonal2 size={11} strokeWidth={2.2} aria-hidden="true" />
             </button>
@@ -1301,30 +967,37 @@ function RichStepContentEditor({
               {livePopupSize.widthPx} × {livePopupSize.heightPx}px
             </output>
           ) : null}
+          <PopupPointerArrow
+            placement={tooltip.props.placement ?? 'bottom'}
+            visible={popupComposition.showArrow && Boolean(targetIdOf(step))}
+          />
           <button
             type="button"
             className="storyboard-popup-drag-handle"
             aria-label="Move popup in canvas"
             data-dragging={popupDragging ? 'true' : 'false'}
-            title="Drag to move. Use arrow keys for precise movement; Home resets."
-            onDoubleClick={() => setPopupOffset({ x: 0, y: 0 })}
+            disabled={!popupTransformReady}
+            title={
+              popupTransformReady
+                ? 'Drag to move. Use arrow keys for precise movement; Home resets.'
+                : 'Loading canvas controls'
+            }
+            onDoubleClick={resetPopupPosition}
             onFocus={selectPopup}
             onKeyDown={movePopupWithKeyboard}
-            onPointerCancel={endPopupDrag}
-            onPointerDown={beginPopupDrag}
-            onPointerMove={continuePopupDrag}
-            onPointerUp={endPopupDrag}
           >
             <GripHorizontal size={16} strokeWidth={2} aria-hidden="true" />
           </button>
           <div
             className="rich-step-content"
-            data-lodariq-action-align={tooltip.props.tooltipLayout?.actionAlign ?? 'start'}
-            data-lodariq-action-layout={tooltip.props.tooltipLayout?.actionLayout ?? 'inline'}
+            data-lodariq-action-align={popupComposition.actionAlign}
+            data-lodariq-action-layout={popupComposition.actionLayout}
             data-lodariq-color-mode={resolvedPopupTheme.colorMode}
-            data-lodariq-composition-gap={tooltip.props.tooltipLayout?.gap ?? 'normal'}
-            data-lodariq-composition-padding={tooltip.props.tooltipLayout?.padding ?? 'standard'}
-            data-lodariq-content-align={tooltip.props.tooltipLayout?.contentAlign ?? 'left'}
+            data-lodariq-composition-gap={popupComposition.gap}
+            data-lodariq-composition-padding={popupComposition.padding}
+            data-lodariq-content-align={popupComposition.contentAlign}
+            data-lodariq-popup-radius={popupComposition.radius}
+            data-lodariq-pointer-arrow={popupComposition.showArrow ? 'show' : 'hide'}
             onPointerDown={(event) => {
               if (event.target !== event.currentTarget) return;
               selectPopup();
@@ -1411,9 +1084,16 @@ function RichStepContentEditor({
         actionBlock={trayActionBlock}
         controller={controller}
         health={health}
+        placementEditor={
+          <StepPlacementEditor
+            controller={controller}
+            snapshot={snapshot}
+            step={step}
+            stepIndex={stepIndex}
+          />
+        }
         snapshot={snapshot}
         step={step}
-        stepIndex={stepIndex}
         tooltip={tooltip}
         toolMode={toolMode}
         open={propertyTrayOpen || toolMode !== 'content'}
@@ -1581,6 +1261,7 @@ function RichStepBlockEditor({
   if (block.type === 'heading' || block.type === 'paragraph') {
     return (
       <div
+        key={`${block.id}:${block.content ?? ''}`}
         className={`rich-step-block ${block.type}`}
         contentEditable
         suppressContentEditableWarning
@@ -1592,7 +1273,6 @@ function RichStepBlockEditor({
         style={richTextBlockStyle(block)}
         onBlur={(event) => onCommitRichText(event.currentTarget)}
         onFocus={onActivate}
-        onInput={onActivate}
         onKeyDown={(event) => onKeyDown(event, event.currentTarget)}
         onKeyUp={(event) => onSelectionChange(event.currentTarget)}
         onPointerUp={(event) => onSelectionChange(event.currentTarget)}
@@ -1607,6 +1287,7 @@ function RichStepBlockEditor({
   if (block.type === 'list') {
     return (
       <textarea
+        key={`${block.id}:${block.content ?? ''}`}
         className="rich-step-plain-field list"
         aria-label="List items"
         defaultValue={block.content ?? ''}
@@ -1633,6 +1314,7 @@ function RichStepBlockEditor({
     <div className={`rich-step-special-block ${block.type}`}>
       <span>{blockTypeEditorLabel(block)}</span>
       <input
+        key={`${block.id}:${block.content ?? ''}`}
         aria-label={label}
         defaultValue={block.content ?? ''}
         onFocus={onActivate}
@@ -1641,15 +1323,6 @@ function RichStepBlockEditor({
     </div>
   );
 }
-
-type ActionResizeEdge = 'start' | 'end';
-type ActionResizeState = {
-  edge: ActionResizeEdge;
-  maximumWidth: number;
-  pointerId: number;
-  startClientX: number;
-  startWidth: number;
-};
 
 function ResizableActionBlockEditor({
   actionAlign = 'start',
@@ -1669,131 +1342,27 @@ function ResizableActionBlockEditor({
   onActivate: () => void;
 }) {
   const actionStyle = block.props.buttonStyle ?? {};
+  const actionRecipe = resolveTourActionRecipe(block.props, defaultActionVariant(block));
   const icon = actionStyle.icon ?? 'none';
   const iconPlacement = actionStyle.iconPlacement ?? 'end';
-  const [liveWidth, setLiveWidth] = useState<number | null>(actionStyle.widthPx ?? null);
-  const [resizing, setResizing] = useState(false);
-  const liveWidthRef = useRef<number | null>(actionStyle.widthPx ?? null);
   const previewRef = useRef<HTMLSpanElement | null>(null);
-  const resizeStateRef = useRef<ActionResizeState | null>(null);
-
-  useEffect(() => {
-    if (resizeStateRef.current) return;
-    const nextWidth = actionStyle.widthPx ?? null;
-    liveWidthRef.current = nextWidth;
-    setLiveWidth(nextWidth);
-  }, [actionStyle.widthPx, block.id]);
-
-  const updateLiveWidth = (width: number): void => {
-    liveWidthRef.current = width;
-    setLiveWidth(width);
-  };
-
-  const commitLiveWidth = (): void => {
-    const widthPx = liveWidthRef.current;
-    if (!widthPx) return;
-    controller.setButtonStyle(block.id, { width: 'hug', widthPx });
-  };
-
-  const beginResize = (
-    event: ReactPointerEvent<HTMLButtonElement>,
-    edge: ActionResizeEdge,
-  ): void => {
-    const preview = previewRef.current;
-    const stage = preview?.parentElement;
-    if (!preview || !stage) return;
-    const inverseZoom = 100 / canvasZoom;
-    const startWidth = preview.getBoundingClientRect().width * inverseZoom;
-    const availableWidth = stage.getBoundingClientRect().width * inverseZoom;
-    resizeStateRef.current = {
-      edge,
-      maximumWidth: clamp(
-        snapToGrid(availableWidth, BUTTON_WIDTH_PX_LIMITS.step),
-        BUTTON_WIDTH_PX_LIMITS.min,
-        BUTTON_WIDTH_PX_LIMITS.max,
-      ),
-      pointerId: event.pointerId,
-      startClientX: event.clientX,
-      startWidth,
-    };
-    updateLiveWidth(
-      clamp(
-        snapToGrid(startWidth, BUTTON_WIDTH_PX_LIMITS.step),
-        BUTTON_WIDTH_PX_LIMITS.min,
-        BUTTON_WIDTH_PX_LIMITS.max,
-      ),
-    );
-    setResizing(true);
-    event.currentTarget.setPointerCapture?.(event.pointerId);
-    event.preventDefault();
-    event.stopPropagation();
-  };
-
-  const continueResize = (event: ReactPointerEvent<HTMLButtonElement>): void => {
-    const resizeState = resizeStateRef.current;
-    if (!resizeState || resizeState.pointerId !== event.pointerId) return;
-    const direction = resizeState.edge === 'end' ? 1 : -1;
-    const centeredMultiplier = actionAlign === 'center' ? 2 : 1;
-    const delta =
-      (event.clientX - resizeState.startClientX) *
-      (100 / canvasZoom) *
-      direction *
-      centeredMultiplier;
-    updateLiveWidth(
-      clamp(
-        snapToGrid(resizeState.startWidth + delta, BUTTON_WIDTH_PX_LIMITS.step),
-        BUTTON_WIDTH_PX_LIMITS.min,
-        resizeState.maximumWidth,
-      ),
-    );
-    event.preventDefault();
-    event.stopPropagation();
-  };
-
-  const endResize = (event: ReactPointerEvent<HTMLButtonElement>): void => {
-    const resizeState = resizeStateRef.current;
-    if (!resizeState || resizeState.pointerId !== event.pointerId) return;
-    resizeStateRef.current = null;
-    setResizing(false);
-    event.currentTarget.releasePointerCapture?.(event.pointerId);
-    commitLiveWidth();
-    event.preventDefault();
-    event.stopPropagation();
-  };
-
-  const resizeWithKeyboard = (
-    event: ReactKeyboardEvent<HTMLButtonElement>,
-    edge: ActionResizeEdge,
-  ): void => {
-    if (event.key === 'Home') {
-      liveWidthRef.current = null;
-      setLiveWidth(null);
-      controller.setButtonStyle(block.id, { width: 'hug', widthPx: undefined });
-      event.preventDefault();
-      return;
-    }
-    if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
-    const currentWidth =
-      liveWidthRef.current ??
-      (previewRef.current?.getBoundingClientRect().width ?? BUTTON_WIDTH_PX_LIMITS.min) *
-        (100 / canvasZoom);
-    const visualDirection = event.key === 'ArrowRight' ? 1 : -1;
-    const edgeDirection = edge === 'end' ? 1 : -1;
-    const widthPx = clamp(
-      snapToGrid(currentWidth + visualDirection * edgeDirection * 8, BUTTON_WIDTH_PX_LIMITS.step),
-      BUTTON_WIDTH_PX_LIMITS.min,
-      BUTTON_WIDTH_PX_LIMITS.max,
-    );
-    updateLiveWidth(widthPx);
-    controller.setButtonStyle(block.id, { width: 'hug', widthPx });
-    event.preventDefault();
-  };
-
-  const resetWidth = (): void => {
-    liveWidthRef.current = null;
-    setLiveWidth(null);
-    controller.setButtonStyle(block.id, { width: 'hug', widthPx: undefined });
-  };
+  const {
+    liveWidth,
+    reset: resetWidth,
+    resizeWithKeyboard,
+    resizing,
+  } = useActionResize({
+    actionAlign,
+    actionKey: block.id,
+    initialWidth: actionStyle.widthPx ?? null,
+    onCommit: (widthPx) =>
+      controller.setButtonStyle(block.id, {
+        width: 'hug',
+        widthPx: widthPx ?? undefined,
+      }),
+    previewRef,
+    zoomPercent: canvasZoom,
+  });
 
   const previewStyle = {
     '--lq-action-fill': actionStyle.fillColor,
@@ -1810,10 +1379,10 @@ function ResizableActionBlockEditor({
       <div className="rich-step-action-stage" data-lodariq-action-align={actionAlign}>
         <span
           className="rich-step-action-preview"
-          data-lodariq-action-radius={actionStyle.radius ?? 'theme'}
-          data-lodariq-action-size={actionStyle.size ?? 'regular'}
-          data-lodariq-action-variant={block.props.variant ?? defaultActionVariant(block)}
-          data-lodariq-action-width={liveWidth ? 'custom' : (actionStyle.width ?? 'hug')}
+          data-lodariq-action-radius={actionRecipe.radius}
+          data-lodariq-action-size={actionRecipe.size}
+          data-lodariq-action-variant={actionRecipe.variant}
+          data-lodariq-action-width={liveWidth ? 'custom' : actionRecipe.width}
           data-lodariq-block-align={actionAlign}
           data-lodariq-node-type={block.type}
           ref={previewRef}
@@ -1821,6 +1390,7 @@ function ResizableActionBlockEditor({
         >
           {icon !== 'none' && iconPlacement === 'start' ? <ActionPreviewIcon icon={icon} /> : null}
           <input
+            key={`${block.id}:${block.content ?? ''}`}
             aria-label={label}
             defaultValue={block.content ?? ''}
             onFocus={onActivate}
@@ -1837,10 +1407,6 @@ function ResizableActionBlockEditor({
               title="Drag to resize. Arrow keys resize by 8px; Home resets."
               onDoubleClick={resetWidth}
               onKeyDown={(event) => resizeWithKeyboard(event, 'start')}
-              onPointerCancel={endResize}
-              onPointerDown={(event) => beginResize(event, 'start')}
-              onPointerMove={continueResize}
-              onPointerUp={endResize}
             />
           ) : null}
           {active && showEndHandle ? (
@@ -1851,10 +1417,6 @@ function ResizableActionBlockEditor({
               title="Drag to resize. Arrow keys resize by 8px; Home resets."
               onDoubleClick={resetWidth}
               onKeyDown={(event) => resizeWithKeyboard(event, 'end')}
-              onPointerCancel={endResize}
-              onPointerDown={(event) => beginResize(event, 'end')}
-              onPointerMove={continueResize}
-              onPointerUp={endResize}
             />
           ) : null}
           {active && resizing && liveWidth ? (
@@ -1872,14 +1434,6 @@ function ActionPreviewIcon({ icon }: { icon: NonNullable<ButtonStyleProps['icon'
   }
   if (icon === 'check') return <Check aria-hidden="true" size={14} strokeWidth={2} />;
   return <ChevronRight aria-hidden="true" size={14} strokeWidth={2} />;
-}
-
-function contextToolbarStyle(position: ActionToolbarPosition | null): CSSProperties | undefined {
-  if (!position) return undefined;
-  return {
-    '--storyboard-toolbar-left': `${position.left}px`,
-    '--storyboard-toolbar-top': `${position.top}px`,
-  } as CSSProperties;
 }
 
 function CanvasZoomControl({
@@ -1944,7 +1498,7 @@ function ActionContextToolbar({
   position: ActionToolbarPosition | null;
   tooltip: LodariqBlock;
 }) {
-  const toolbarStyle = contextToolbarStyle(position);
+  const toolbarStyle = canvasToolbarStyle(position);
   const itemLabel = block.content?.trim() || blockTypeEditorLabel(block);
   const actionValue = editableActionValue(block.props.action?.type ?? '') ?? '';
   const behaviorLabel = optionLabel(EDITABLE_ACTION_OPTIONS, actionValue, 'Action');
@@ -1980,7 +1534,12 @@ function ActionContextToolbar({
           }
         />
       ) : null}
-      <button type="button" aria-label="More button settings" title="More" onClick={onMore}>
+      <button
+        type="button"
+        aria-label={`More ${blockTypeLabel(block.type).toLowerCase()} settings`}
+        title="More settings"
+        onClick={onMore}
+      >
         <MoreHorizontal size={16} strokeWidth={2.2} aria-hidden="true" />
       </button>
       <button
@@ -2022,7 +1581,7 @@ function ActionQuickProperty({
       side="top"
       trigger={trigger}
       content={
-        <ActionPropertyPanel
+        <ButtonPropertyPanel
           activeTab={activeTab}
           block={block}
           controller={controller}
@@ -2041,478 +1600,6 @@ function optionLabel(
   return options.find((option) => option.value === value)?.label ?? fallback;
 }
 
-const QUICK_FILL_COLORS = ['#006b58', '#ffffff', '#162033', '#6b7b74', '#c96047'] as const;
-const ACTION_PROPERTY_TABS = [
-  { value: 'appearance', label: 'Appearance', icon: Palette },
-  { value: 'behavior', label: 'Behavior', icon: MousePointerClick },
-  { value: 'size', label: 'Size', icon: MoveHorizontal },
-  { value: 'alignment', label: 'Alignment', icon: AlignCenter },
-  { value: 'shape', label: 'Shape & icon', icon: Shapes },
-  { value: 'colors', label: 'Colors', icon: Circle },
-  { value: 'spacing', label: 'Spacing', icon: SlidersHorizontal },
-] as const satisfies ReadonlyArray<{
-  value: ActionPropertyTab;
-  label: string;
-  icon: typeof Type;
-}>;
-const BLOCK_SPACING_PX_BY_PRESET: Readonly<
-  Record<NonNullable<BlockLayoutProps['spacingAfter']>, number>
-> = {
-  none: 0,
-  tight: 8,
-  normal: 16,
-  relaxed: 24,
-};
-
-function ContextualPropertyTray({
-  activeTab,
-  activeBlock,
-  actionBlock,
-  controller,
-  health,
-  snapshot,
-  step,
-  stepIndex,
-  tooltip,
-  toolMode,
-  onActiveTabChange,
-  onClose,
-  open,
-}: {
-  activeTab: ActionPropertyTab;
-  activeBlock: LodariqBlock | null;
-  actionBlock: LodariqBlock | null;
-  controller: LocalAuthoringFrameController;
-  health: { label: string; repair: boolean; tone: StepHealthTone };
-  snapshot: LocalAuthoringFrameSnapshot;
-  step: LodariqBlock;
-  stepIndex: number;
-  tooltip: LodariqBlock;
-  toolMode: StoryboardToolMode;
-  onActiveTabChange: (tab: ActionPropertyTab) => void;
-  onClose: () => void;
-  open: boolean;
-}) {
-  const targetId = targetIdOf(step);
-  const targetLabel = targetId ? targetLabelOf(snapshot.documentState, targetId) : 'Choose target';
-  const placement = tooltip.props.placement ?? 'bottom';
-  const selectedBlock = actionBlock ?? activeBlock;
-  let title = `${blockDisplayTitle(selectedBlock ?? step)} settings`;
-  if (actionBlock) {
-    title = `${actionBlock.content?.trim() || 'Untitled'} ${blockTypeLabel(actionBlock.type).toLowerCase()}`;
-  }
-  if (toolMode === 'popup') title = 'Popup layout';
-  const scopeLabel = toolMode === 'popup' ? '· This step' : '· This block';
-  let trayLabel = 'Selected block settings';
-  if (actionBlock) trayLabel = 'Selected action style';
-  if (toolMode === 'popup') trayLabel = 'Popup layout settings';
-
-  if (!open) return null;
-
-  return (
-    <section className="storyboard-property-tray" aria-label={trayLabel}>
-      <span className="storyboard-tray-handle" aria-hidden="true" />
-      <header className="storyboard-tray-header">
-        <span className="storyboard-tray-title">
-          <span className="storyboard-tray-identity">
-            <strong>{title}</strong>
-            <small>{scopeLabel}</small>
-          </span>
-          <span className="storyboard-tray-context">
-            <span className="storyboard-placement-summary">
-              Appears {TOOLTIP_PLACEMENT_LABELS[placement].toLowerCase()} {targetLabel}
-            </span>
-            <span className={`storyboard-verification ${health.tone}`}>{health.label}</span>
-          </span>
-        </span>
-        <button
-          type="button"
-          className="storyboard-tray-close"
-          aria-label="Close settings"
-          onClick={onClose}
-        >
-          <X size={17} strokeWidth={2} aria-hidden="true" />
-        </button>
-      </header>
-
-      {toolMode === 'content' && actionBlock ? (
-        <>
-          <nav className="storyboard-property-tabs" aria-label="Button settings">
-            {ACTION_PROPERTY_TABS.map((option) => {
-              const Icon = option.icon;
-              const selected = activeTab === option.value;
-              return (
-                <button
-                  key={option.value}
-                  type="button"
-                  className={selected ? 'active' : undefined}
-                  aria-current={selected ? 'page' : undefined}
-                  onClick={() => onActiveTabChange(option.value)}
-                >
-                  <Icon size={15} strokeWidth={2} aria-hidden="true" />
-                  <span>{option.label}</span>
-                </button>
-              );
-            })}
-            <ChevronRight className="storyboard-property-tabs-more" size={17} strokeWidth={2} />
-          </nav>
-          <ActionPropertyPanel
-            activeTab={activeTab}
-            block={actionBlock}
-            controller={controller}
-            tooltip={tooltip}
-          />
-        </>
-      ) : null}
-
-      {toolMode === 'content' && !actionBlock && activeBlock ? (
-        <BlockFlowInspector block={activeBlock} controller={controller} />
-      ) : null}
-
-      {toolMode === 'placement' ? (
-        <StepPlacementEditor
-          controller={controller}
-          snapshot={snapshot}
-          step={step}
-          stepIndex={stepIndex}
-        />
-      ) : null}
-
-      {toolMode === 'popup' ? (
-        <PopupCompositionInspector controller={controller} tooltip={tooltip} />
-      ) : null}
-    </section>
-  );
-}
-
-function ActionPropertyPanel({
-  activeTab,
-  block,
-  controller,
-  tooltip,
-}: {
-  activeTab: ActionPropertyTab;
-  block: LodariqBlock;
-  controller: LocalAuthoringFrameController;
-  tooltip: LodariqBlock;
-}) {
-  const style = block.props.buttonStyle ?? {};
-  const layout = block.props.blockLayout ?? {};
-  const actionValue = editableActionValue(block.props.action?.type ?? '') ?? '';
-
-  if (activeTab === 'appearance') {
-    return (
-      <section className="storyboard-tab-panel" aria-label="Appearance settings">
-        <InspectorSelect
-          label="Appearance"
-          value={block.props.variant ?? defaultActionVariant(block)}
-          options={EDITABLE_BUTTON_VARIANT_OPTIONS}
-          onChange={(value) =>
-            controller.setButtonVariant(
-              block.id,
-              value as (typeof EDITABLE_BUTTON_VARIANT_OPTIONS)[number]['value'],
-            )
-          }
-        />
-      </section>
-    );
-  }
-
-  if (activeTab === 'behavior') {
-    return (
-      <section className="storyboard-tab-panel behavior" aria-label="Behavior settings">
-        {actionValue === 'openPage' ? (
-          <label className="rich-step-url-field prominent">
-            <span>Destination</span>
-            <input
-              key={block.props.action?.url ?? ''}
-              aria-label="Destination"
-              defaultValue={block.props.action?.url ?? ''}
-              placeholder="https://example.com or /path"
-              onBlur={(event) => controller.setActionUrl(block.id, event.currentTarget.value)}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter') event.currentTarget.blur();
-              }}
-            />
-            <small>Where this link opens</small>
-          </label>
-        ) : null}
-        <InspectorSelect
-          label="Action"
-          value={actionValue}
-          options={EDITABLE_ACTION_OPTIONS}
-          showIcons
-          onChange={(value) => controller.setButtonAction(block.id, value as EditableActionType)}
-        />
-      </section>
-    );
-  }
-
-  if (activeTab === 'size') {
-    const widthOptions = style.widthPx
-      ? [{ value: 'custom', label: `${style.widthPx}px` }, ...BUTTON_WIDTH_OPTIONS]
-      : BUTTON_WIDTH_OPTIONS;
-    return (
-      <section className="storyboard-tab-panel" aria-label="Size settings">
-        <InspectorSelect
-          label="Width"
-          value={style.widthPx ? 'custom' : (style.width ?? 'hug')}
-          options={widthOptions}
-          onChange={(width) => {
-            if (width === 'custom') return;
-            controller.setButtonStyle(block.id, {
-              width: width as NonNullable<ButtonStyleProps['width']>,
-              widthPx: undefined,
-            });
-          }}
-        />
-        <InspectorSelect
-          label="Size"
-          value={style.size ?? 'regular'}
-          options={BUTTON_SIZE_OPTIONS}
-          onChange={(size) =>
-            controller.setButtonStyle(block.id, {
-              size: size as NonNullable<ButtonStyleProps['size']>,
-            })
-          }
-        />
-      </section>
-    );
-  }
-
-  if (activeTab === 'alignment') {
-    const actionAlign = tooltip.props.tooltipLayout?.actionAlign ?? layout.align ?? 'start';
-    return (
-      <section className="storyboard-tab-panel" aria-label="Alignment settings">
-        <InspectorSelect
-          label="Alignment"
-          value={actionAlign}
-          options={BLOCK_ALIGNMENT_OPTIONS}
-          onChange={(align) =>
-            controller.setActionAlignment(
-              block.id,
-              tooltip.id,
-              align as NonNullable<TooltipLayoutProps['actionAlign']>,
-            )
-          }
-        />
-      </section>
-    );
-  }
-
-  if (activeTab === 'shape') {
-    return (
-      <section className="storyboard-tab-panel" aria-label="Shape and icon settings">
-        <InspectorSelect
-          label="Shape"
-          value={style.radius ?? 'theme'}
-          options={BUTTON_RADIUS_OPTIONS}
-          onChange={(radius) =>
-            controller.setButtonStyle(block.id, {
-              radius: radius as NonNullable<ButtonStyleProps['radius']>,
-            })
-          }
-        />
-        <InspectorSelect
-          label="Icon"
-          value={style.icon ?? 'none'}
-          options={BUTTON_ICON_OPTIONS}
-          onChange={(icon) =>
-            controller.setButtonStyle(block.id, {
-              icon: icon as NonNullable<ButtonStyleProps['icon']>,
-            })
-          }
-        />
-        <InspectorSelect
-          label="Icon position"
-          value={style.iconPlacement ?? 'end'}
-          options={BUTTON_ICON_PLACEMENT_OPTIONS}
-          onChange={(iconPlacement) =>
-            controller.setButtonStyle(block.id, {
-              iconPlacement: iconPlacement as NonNullable<ButtonStyleProps['iconPlacement']>,
-            })
-          }
-        />
-      </section>
-    );
-  }
-
-  if (activeTab === 'colors') {
-    return (
-      <section className="storyboard-tab-panel colors" aria-label="Color settings">
-        <InspectorColor
-          customized={Boolean(style.fillColor)}
-          label="Fill"
-          value={style.fillColor ?? '#006b58'}
-          onChange={(fillColor) => controller.setButtonStyle(block.id, { fillColor })}
-          onReset={() => controller.resetButtonStyleFields(block.id, ['fillColor'])}
-        />
-        <InspectorColor
-          customized={Boolean(style.textColor)}
-          label="Label"
-          value={style.textColor ?? '#ffffff'}
-          onChange={(textColor) => controller.setButtonStyle(block.id, { textColor })}
-          onReset={() => controller.resetButtonStyleFields(block.id, ['textColor'])}
-        />
-        <InspectorColor
-          customized={Boolean(style.borderColor)}
-          label="Border"
-          value={style.borderColor ?? '#006b58'}
-          onChange={(borderColor) => controller.setButtonStyle(block.id, { borderColor })}
-          onReset={() => controller.resetButtonStyleFields(block.id, ['borderColor'])}
-        />
-      </section>
-    );
-  }
-
-  return (
-    <section className="storyboard-tab-panel spacing" aria-label="Spacing settings">
-      <fieldset className="storyboard-spacing-slider">
-        <legend>After this button</legend>
-        <div>
-          <PanelLeft size={16} strokeWidth={1.8} aria-hidden="true" />
-          <input
-            type="range"
-            min={BLOCK_SPACING_PX_LIMITS.min}
-            max={BLOCK_SPACING_PX_LIMITS.max}
-            step={BLOCK_SPACING_PX_LIMITS.step}
-            aria-label="Spacing after button"
-            value={blockSpacingAfterPx(layout)}
-            onChange={(event) =>
-              controller.setContentBlockLayout(block.id, {
-                spacingAfterPx: Number(event.currentTarget.value),
-              })
-            }
-          />
-          <PanelRight size={16} strokeWidth={1.8} aria-hidden="true" />
-          <output>{blockSpacingAfterPx(layout)}px</output>
-        </div>
-      </fieldset>
-    </section>
-  );
-}
-
-function BlockFlowInspector({
-  block,
-  controller,
-}: {
-  block: LodariqBlock;
-  controller: LocalAuthoringFrameController;
-}) {
-  const layout = block.props.blockLayout ?? {};
-  return (
-    <section className="rich-step-inspector compact" aria-label="Block spacing">
-      <header>
-        <strong>Block spacing</strong>
-        <span>Flow placement</span>
-      </header>
-      <div className="rich-step-inspector-grid two">
-        <InspectorSelect
-          label="Before"
-          value={layout.spacingBefore ?? 'normal'}
-          options={BLOCK_SPACING_OPTIONS}
-          onChange={(spacingBefore) =>
-            controller.setContentBlockLayout(block.id, {
-              spacingBefore: spacingBefore as NonNullable<BlockLayoutProps['spacingBefore']>,
-            })
-          }
-        />
-        <InspectorSelect
-          label="After"
-          value={layout.spacingAfter ?? 'normal'}
-          options={BLOCK_SPACING_OPTIONS}
-          onChange={(spacingAfter) =>
-            controller.setContentBlockLayout(block.id, {
-              spacingAfter: spacingAfter as NonNullable<BlockLayoutProps['spacingAfter']>,
-              spacingAfterPx: undefined,
-            })
-          }
-        />
-      </div>
-    </section>
-  );
-}
-
-function blockSpacingAfterPx(layout: BlockLayoutProps): number {
-  return layout.spacingAfterPx ?? BLOCK_SPACING_PX_BY_PRESET[layout.spacingAfter ?? 'normal'];
-}
-
-function clamp(value: number, minimum: number, maximum: number): number {
-  return Math.min(Math.max(value, minimum), maximum);
-}
-
-function snapToGrid(value: number, gridSize: number): number {
-  return Math.round(value / gridSize) * gridSize;
-}
-
-function blockSpacingAfterStyle(layout: BlockLayoutProps | undefined): CSSProperties | undefined {
-  if (layout?.spacingAfterPx === undefined) return undefined;
-  return {
-    '--lq-block-spacing-after': `${layout.spacingAfterPx}px`,
-  } as CSSProperties;
-}
-
-function PopupCompositionInspector({
-  controller,
-  tooltip,
-}: {
-  controller: LocalAuthoringFrameController;
-  tooltip: LodariqBlock;
-}) {
-  const layout = tooltip.props.tooltipLayout ?? {};
-  return (
-    <section className="storyboard-tab-panel popup-layout" aria-label="Popup layout">
-      <InspectorSelect
-        label="Content alignment"
-        value={layout.contentAlign ?? 'left'}
-        options={CONTENT_ALIGNMENT_OPTIONS}
-        onChange={(contentAlign) =>
-          controller.setTooltipLayout(tooltip.id, {
-            contentAlign: contentAlign as NonNullable<TooltipLayoutProps['contentAlign']>,
-          })
-        }
-      />
-      <InspectorSelect
-        label="Action layout"
-        value={layout.actionLayout ?? 'inline'}
-        options={ACTION_LAYOUT_OPTIONS}
-        onChange={(actionLayout) =>
-          controller.setTooltipLayout(tooltip.id, {
-            actionLayout: actionLayout as NonNullable<TooltipLayoutProps['actionLayout']>,
-          })
-        }
-      />
-      <InspectorSelect
-        label="Action gap"
-        value={layout.gap ?? 'normal'}
-        options={BLOCK_SPACING_OPTIONS}
-        onChange={(gap) =>
-          controller.setTooltipLayout(tooltip.id, {
-            gap: gap as NonNullable<TooltipLayoutProps['gap']>,
-          })
-        }
-      />
-      <InspectorSelect
-        label="Padding"
-        value={layout.padding ?? 'standard'}
-        options={POPUP_PADDING_OPTIONS}
-        onChange={(padding) =>
-          controller.setTooltipLayout(tooltip.id, {
-            padding: padding as NonNullable<TooltipLayoutProps['padding']>,
-          })
-        }
-      />
-    </section>
-  );
-}
-
-const BLOCK_ALIGNMENT_OPTIONS = [
-  { value: 'start', label: 'Start' },
-  { value: 'center', label: 'Center' },
-  { value: 'end', label: 'End' },
-  { value: 'stretch', label: 'Stretch' },
-] as const;
-
 const EDITOR_BLOCK_TYPE_OPTIONS = [
   { value: 'paragraph', label: 'Normal text' },
   { value: 'heading', label: 'Heading' },
@@ -2522,214 +1609,6 @@ const EDITOR_BLOCK_TYPE_OPTIONS = [
   { value: 'media', label: 'Media' },
   { value: 'divider', label: 'Divider' },
 ] as const;
-
-const BUTTON_WIDTH_OPTIONS = [
-  { value: 'hug', label: 'Hug content' },
-  { value: 'fill', label: 'Fill width' },
-] as const;
-
-const BUTTON_SIZE_OPTIONS = [
-  { value: 'compact', label: 'Compact' },
-  { value: 'regular', label: 'Regular' },
-] as const;
-
-const BUTTON_RADIUS_OPTIONS = [
-  { value: 'theme', label: 'Brand theme' },
-  { value: 'square', label: 'Square' },
-  { value: 'soft', label: 'Soft' },
-  { value: 'round', label: 'Pill' },
-] as const;
-
-const BUTTON_ICON_OPTIONS = [
-  { value: 'none', label: 'None' },
-  { value: 'arrow-right', label: 'Arrow' },
-  { value: 'external-link', label: 'External link' },
-  { value: 'check', label: 'Check' },
-] as const;
-
-const BUTTON_ICON_PLACEMENT_OPTIONS = [
-  { value: 'start', label: 'Before label' },
-  { value: 'end', label: 'After label' },
-] as const;
-
-const CONTENT_ALIGNMENT_OPTIONS = [
-  { value: 'left', label: 'Left' },
-  { value: 'center', label: 'Center' },
-  { value: 'right', label: 'Right' },
-] as const;
-
-const ACTION_LAYOUT_OPTIONS = [
-  { value: 'inline', label: 'Inline' },
-  { value: 'stack', label: 'Stacked' },
-] as const;
-
-const POPUP_PADDING_OPTIONS = [
-  { value: 'compact', label: 'Compact' },
-  { value: 'standard', label: 'Standard' },
-  { value: 'relaxed', label: 'Relaxed' },
-] as const;
-
-const BLOCK_SPACING_OPTIONS = [
-  { value: 'none', label: 'None' },
-  { value: 'tight', label: 'Tight' },
-  { value: 'normal', label: 'Normal' },
-  { value: 'relaxed', label: 'Relaxed' },
-] as const;
-
-const INSPECTOR_CHOICE_ICON_BY_VALUE: Readonly<Record<string, typeof Type>> = {
-  '': SlidersHorizontal,
-  primary: Check,
-  secondary: SlidersHorizontal,
-  subtle: Palette,
-  outline: PanelLeft,
-  link: Link,
-  next: ChevronRight,
-  back: ArrowUp,
-  complete: Check,
-  clickTarget: MousePointerClick,
-  openPage: ExternalLink,
-  dismiss: LogOut,
-  hug: SlidersHorizontal,
-  fill: PanelRight,
-  compact: SlidersHorizontal,
-  regular: SlidersHorizontal,
-  start: AlignLeft,
-  left: AlignLeft,
-  center: AlignCenter,
-  end: AlignRight,
-  right: AlignRight,
-  stretch: PanelRight,
-  theme: Palette,
-  square: PanelLeft,
-  soft: SlidersHorizontal,
-  round: Circle,
-  none: CircleX,
-  'arrow-right': ChevronRight,
-  'external-link': ExternalLink,
-  check: Check,
-  inline: PanelRight,
-  stack: PanelBottom,
-  tight: SlidersHorizontal,
-  normal: SlidersHorizontal,
-  relaxed: SlidersHorizontal,
-  standard: SlidersHorizontal,
-};
-
-function InspectorSelect({
-  label,
-  onChange,
-  options,
-  showIcons = false,
-  value,
-}: {
-  label: string;
-  value: string;
-  options: ReadonlyArray<{ value: string; label: string }>;
-  showIcons?: boolean;
-  onChange: (value: string) => void;
-}) {
-  return (
-    <fieldset className="rich-step-choice-field">
-      <legend>{label}</legend>
-      <div className="rich-step-choice-list" role="group" aria-label={label}>
-        {options.map((option) => (
-          <InspectorChoiceButton
-            key={option.value}
-            label={option.label}
-            selected={option.value === value}
-            showIcon={showIcons}
-            value={option.value}
-            onSelect={() => onChange(option.value)}
-          />
-        ))}
-      </div>
-    </fieldset>
-  );
-}
-
-function InspectorChoiceButton({
-  label,
-  onSelect,
-  selected,
-  showIcon,
-  value,
-}: {
-  label: string;
-  value: string;
-  selected: boolean;
-  showIcon: boolean;
-  onSelect: () => void;
-}) {
-  const Icon = INSPECTOR_CHOICE_ICON_BY_VALUE[value] ?? SlidersHorizontal;
-  return (
-    <button
-      type="button"
-      className={selected ? 'selected' : undefined}
-      aria-pressed={selected}
-      onClick={onSelect}
-    >
-      {showIcon ? <Icon size={16} strokeWidth={2} aria-hidden="true" /> : null}
-      <span>{label}</span>
-    </button>
-  );
-}
-
-function InspectorColor({
-  customized,
-  label,
-  onChange,
-  onReset,
-  value,
-}: {
-  customized: boolean;
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  onReset: () => void;
-}) {
-  return (
-    <fieldset className="rich-step-color-field">
-      <legend>{label}</legend>
-      <div className="rich-step-color-swatches" role="group" aria-label={`${label} color`}>
-        {QUICK_FILL_COLORS.map((color) => {
-          const selected = value.toLowerCase() === color;
-          return (
-            <button
-              key={color}
-              type="button"
-              className={selected ? 'selected' : undefined}
-              aria-label={`Use ${color} for ${label.toLowerCase()}`}
-              aria-pressed={selected}
-              style={{ '--storyboard-swatch': color } as CSSProperties}
-              onClick={() => onChange(color)}
-            >
-              {selected ? <Check size={14} strokeWidth={2.4} aria-hidden="true" /> : null}
-            </button>
-          );
-        })}
-        <label className="rich-step-custom-color">
-          <Palette size={14} strokeWidth={2} aria-hidden="true" />
-          <span>Custom</span>
-          <input
-            type="color"
-            aria-label={`Custom ${label.toLowerCase()} color`}
-            value={value}
-            onInput={(event) => onChange(event.currentTarget.value)}
-            onChange={(event) => onChange(event.currentTarget.value)}
-          />
-        </label>
-        <button
-          type="button"
-          className="rich-step-theme-color"
-          disabled={!customized}
-          onClick={onReset}
-        >
-          Theme
-        </button>
-      </div>
-    </fieldset>
-  );
-}
 
 const BLOCK_EDITOR_LABELS: Partial<Record<LodariqBlock['type'], string>> = {
   heading: 'heading',
@@ -2746,10 +1625,6 @@ const BLOCK_EDITOR_INPUT_LABELS: Partial<Record<LodariqBlock['type'], string>> =
   link: 'Link label',
   media: 'Media description',
 };
-
-function defaultActionVariant(block: LodariqBlock): 'primary' | 'link' {
-  return block.type === 'link' ? 'link' : 'primary';
-}
 
 function blockTypeEditorLabel(block: LodariqBlock): string {
   return BLOCK_EDITOR_LABELS[block.type] ?? 'content';
@@ -2876,76 +1751,6 @@ function selectedTextFontSize(
   return firstSize && selectedRuns.every((run) => run.fontSizePx === firstSize)
     ? firstSize
     : 'mixed';
-}
-
-function TourStepActionMenu({
-  controller,
-  step,
-  stepIndex,
-}: {
-  controller: LocalAuthoringFrameController;
-  step: LodariqBlock;
-  stepIndex: number;
-}) {
-  const [open, setOpen] = useState(false);
-  const run = (action: () => void): void => {
-    setOpen(false);
-    action();
-  };
-  return (
-    <AuthoringPopover
-      align="end"
-      open={open}
-      onOpenChange={setOpen}
-      contentClassName="tour-step-action-popover"
-      trigger={
-        <AuthoringButton
-          aria-label={`Step ${stepIndex + 1} actions`}
-          className="tour-step-action-trigger"
-          icon={<MoreHorizontal size={15} strokeWidth={2.2} />}
-          title={`Step ${stepIndex + 1} actions`}
-          tone="ghost"
-        />
-      }
-      content={
-        <div
-          className="tour-step-action-menu"
-          role="menu"
-          aria-label={`Step ${stepIndex + 1} actions`}
-        >
-          <AuthoringButton
-            icon={<ArrowUp size={14} strokeWidth={2.2} />}
-            onClick={() => run(() => controller.moveTopLevelBlock(step.id, 'up'))}
-            role="menuitem"
-          >
-            Move up
-          </AuthoringButton>
-          <AuthoringButton
-            icon={<ArrowDown size={14} strokeWidth={2.2} />}
-            onClick={() => run(() => controller.moveTopLevelBlock(step.id, 'down'))}
-            role="menuitem"
-          >
-            Move down
-          </AuthoringButton>
-          <AuthoringButton
-            icon={<Copy size={14} strokeWidth={2.2} />}
-            onClick={() => run(() => controller.duplicateTopLevelBlock(step.id))}
-            role="menuitem"
-          >
-            Duplicate
-          </AuthoringButton>
-          <AuthoringButton
-            className="danger"
-            icon={<Trash2 size={14} strokeWidth={2.2} />}
-            onClick={() => run(() => controller.deleteTopLevelBlock(step.id))}
-            role="menuitem"
-          >
-            Delete
-          </AuthoringButton>
-        </div>
-      }
-    />
-  );
 }
 
 function ContentBlockActionMenu({
@@ -3113,89 +1918,4 @@ function StepAccordionDetails({
       </button>
     </div>
   );
-}
-
-type StepHealthTone = 'ready' | 'repair' | 'review';
-
-function elementActionLabelFor(needsRepair: boolean, hasTarget: boolean): string {
-  if (!hasTarget) return 'Choose element';
-  if (needsRepair) return 'Fix element';
-  return 'Change element';
-}
-
-function targetActionLabelFor(needsRepair: boolean, hasTarget: boolean): string {
-  if (needsRepair) return 'Fix placement';
-  if (hasTarget) return 'Change target';
-  return 'Choose target';
-}
-
-function storyboardStepPreview(step: LodariqBlock): { body: string; action: string | null } {
-  const tooltip = stepTooltip(step);
-  if (!tooltip) return { body: 'Add popup content', action: null };
-  const bodyBlock = tooltip.children.find(
-    (child) => child.type === 'paragraph' || child.type === 'heading',
-  );
-  const actionBlock = tooltip.children.find(
-    (child) => child.type === 'button' || child.type === 'link',
-  );
-  return {
-    body: bodyBlock?.content?.trim() || 'Add popup content',
-    action: actionBlock?.content?.trim() || null,
-  };
-}
-
-function stepPlacementFact(
-  targetId: string | null,
-  targetLabel: string,
-  health: { label: string },
-): string {
-  if (!targetId) return 'Not placed yet';
-  const status = health.label === 'Verified' ? 'Placed' : health.label;
-  return `${targetLabel} · ${status}`;
-}
-
-function stepHealth(
-  step: LodariqBlock,
-  snapshot: LocalAuthoringFrameSnapshot,
-): { label: string; repair: boolean; tone: StepHealthTone } {
-  const targetId = targetIdOf(step);
-  if (!targetId) return { label: 'Not placed', repair: true, tone: 'repair' };
-
-  const diagnostic = snapshot.targetDiagnostics.get(targetId)?.diagnostic;
-  if (!diagnostic) {
-    return { label: 'Unverified', repair: false, tone: 'review' };
-  }
-  if (diagnostic.state === 'missing') {
-    return { label: 'Missing', repair: true, tone: 'repair' };
-  }
-  if (diagnostic.state === 'ambiguous') {
-    return { label: 'Ambiguous', repair: true, tone: 'repair' };
-  }
-  if (diagnostic.state === 'needs_review') {
-    return targetDiagnosticIsDrift(diagnostic)
-      ? { label: 'Drift detected', repair: true, tone: 'repair' }
-      : { label: 'Needs verification', repair: true, tone: 'review' };
-  }
-
-  const status = blockStatus(step);
-  if (status === 'invalid') return { label: 'Needs fix', repair: false, tone: 'repair' };
-  if (status === 'incomplete') return { label: 'Needs review', repair: false, tone: 'review' };
-  return { label: 'Verified', repair: false, tone: 'ready' };
-}
-
-function stepTooltip(step: LodariqBlock): LodariqBlock | null {
-  return step.children.find((child) => child.type === 'tooltip') ?? null;
-}
-
-function stepPrimaryButton(step: LodariqBlock): LodariqBlock | null {
-  const tooltip = stepTooltip(step);
-  if (!tooltip) return null;
-  return tooltip.children.find((child) => child.type === 'button') ?? null;
-}
-
-function buttonAdvanceValue(
-  button: LodariqBlock | null,
-): Extract<EditableActionType, 'next' | 'clickTarget'> {
-  if (button?.props.action?.type === 'clickTarget') return 'clickTarget';
-  return 'next';
 }

@@ -4,7 +4,7 @@ import { Building2, Check, LoaderCircle, Plus } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useState, type FormEvent } from 'react';
 import type { AuthSessionSnapshot, WorkspaceMembership } from '../lib/auth-contract';
-import { createWorkspace, selectWorkspace } from '../lib/client-auth-api';
+import { useAuthMutations } from '../hooks/use-auth-mutations';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
@@ -17,13 +17,14 @@ export function WorkspaceRequired({
   const router = useRouter();
   const [pendingId, setPendingId] = useState('');
   const [error, setError] = useState('');
+  const auth = useAuthMutations();
 
   async function choose(workspace: WorkspaceMembership): Promise<void> {
     if (pendingId) return;
     setError('');
     setPendingId(workspace.id);
     try {
-      await selectWorkspace(workspace.id);
+      await auth.selectWorkspace.mutateAsync(workspace.id);
       router.replace('/');
       router.refresh();
     } catch (caught) {
@@ -41,7 +42,7 @@ export function WorkspaceRequired({
     setError('');
     setPendingId('new');
     try {
-      await createWorkspace(name);
+      await auth.createWorkspace.mutateAsync(name);
       router.replace('/');
       router.refresh();
     } catch (caught) {

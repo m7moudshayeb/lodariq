@@ -398,7 +398,7 @@ describe('@lodariq/dashboard owned authentication', () => {
       '<AuthForm mode="sign-up"',
     );
     expect(read('apps/dashboard/src/components/dashboard-auth-controls.tsx')).toContain(
-      'signOut()',
+      'auth.signOut.mutateAsync()',
     );
     expect(read('apps/dashboard/src/app/sign-up/[[...sign-up]]/page.tsx')).toContain(
       'isPublicSignupEnabled()',
@@ -413,7 +413,7 @@ describe('@lodariq/dashboard owned authentication', () => {
     expect(read('apps/dashboard/src/components/theme-provider.tsx')).toContain(
       'defaultTheme="light"',
     );
-    expect(read('apps/dashboard/src/components/dashboard-workspace.tsx')).toContain(
+    expect(read('apps/dashboard/src/components/dashboard-navigation.tsx')).toContain(
       '<ThemeToggle />',
     );
   });

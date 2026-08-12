@@ -3,6 +3,7 @@
 import * as React from 'react';
 import { act, createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AuthForm } from '../../../../apps/dashboard/src/components/auth-form';
 import { EmailVerificationPanel } from '../../../../apps/dashboard/src/components/email-verification-panel';
@@ -296,7 +297,10 @@ async function mount(element: React.ReactElement): Promise<MountedComponent> {
   const container = document.createElement('div');
   document.body.append(container);
   const root = createRoot(container);
-  await act(async () => root.render(element));
+  const queryClient = new QueryClient({ defaultOptions: { mutations: { retry: false } } });
+  await act(async () =>
+    root.render(createElement(QueryClientProvider, { client: queryClient }, element)),
+  );
   return { container, root };
 }
 

@@ -2,6 +2,7 @@
 
 import { act, createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   BRAND_THEME_CONTRACT_VERSION,
@@ -21,6 +22,17 @@ vi.mock('../../../../apps/dashboard/src/app/release-recovery-actions', () => ({
   loadReleaseRecoveryStateAction: mocks.loadReleaseRecoveryStateAction,
   recoverDocumentReleaseAction: mocks.recoverDocumentReleaseAction,
 }));
+vi.mock('../../../../apps/dashboard/src/lib/client-dashboard-api', () => ({
+  loadDashboardReleaseRecovery: async (
+    _workspaceId: string,
+    documentId: string,
+    environmentId: string,
+  ) => {
+    const result = await mocks.loadReleaseRecoveryStateAction({ documentId, environmentId });
+    if (result.status === 'success') return result.state;
+    throw new Error(result.error);
+  },
+}));
 
 import { ReleaseRecoveryPanel } from '../../../../apps/dashboard/src/components/release-recovery-panel';
 
@@ -36,7 +48,9 @@ describe('@lodariq/dashboard release recovery UI', () => {
     let identitySequence = 0;
     vi.stubGlobal('crypto', {
       ...globalThis.crypto,
-      randomUUID: vi.fn(() => `00000000-0000-4000-8000-${String(++identitySequence).padStart(12, '0')}`),
+      randomUUID: vi.fn(
+        () => `00000000-0000-4000-8000-${String(++identitySequence).padStart(12, '0')}`,
+      ),
     });
     mocks.loadReleaseRecoveryStateAction.mockImplementation(
       async ({ environmentId }: { environmentId: string }) => ({
@@ -83,10 +97,7 @@ describe('@lodariq/dashboard release recovery UI', () => {
     expect(dialog.textContent).toContain('generation 2');
     expect(dialog.textContent).toContain(CURRENT_PUBLICATION_ID);
     const select = requiredElement<HTMLSelectElement>(dialog, 'select');
-    expect([...select.options].map((option) => option.value)).toEqual([
-      '',
-      PRIOR_PUBLICATION_ID,
-    ]);
+    expect([...select.options].map((option) => option.value)).toEqual(['', PRIOR_PUBLICATION_ID]);
     expect([...select.options].map((option) => option.value)).not.toContain(
       'pub.dashboard:historical-incompatible',
     );
@@ -179,16 +190,24 @@ async function mountPanel(): Promise<{ container: HTMLDivElement; root: Root }> 
   const container = document.createElement('div');
   document.body.append(container);
   const root = createRoot(container);
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+  });
   await act(async () => {
     root.render(
-      createElement(ReleaseRecoveryPanel, {
-        documentId: DOCUMENT_ID,
-        documentTitle: 'Checkout onboarding',
-        environments: [
-          { id: STAGING_ID, kind: 'staging', name: 'Staging', enabled: true },
-          { id: PRODUCTION_ID, kind: 'production', name: 'Production', enabled: true },
-        ],
-      }),
+      createElement(
+        QueryClientProvider,
+        { client: queryClient },
+        createElement(ReleaseRecoveryPanel, {
+          documentId: DOCUMENT_ID,
+          documentTitle: 'Checkout onboarding',
+          environments: [
+            { id: STAGING_ID, kind: 'staging', name: 'Staging', enabled: true },
+            { id: PRODUCTION_ID, kind: 'production', name: 'Production', enabled: true },
+          ],
+          workspaceId: 'wk.dashboard:release',
+        }),
+      ),
     );
   });
   return { container, root };
@@ -331,12 +350,18 @@ function artifactPins(label: string) {
   return {
     compiledArtifactId: `artifact.dashboard:${label}`,
     artifactSchemaVersion: COMPILED_ARTIFACT_SCHEMA_VERSION,
-    contentHash: `sha256-${label === 'prior' ? 'a' : 'b'}`.padEnd(71, label === 'prior' ? 'a' : 'b'),
+    contentHash: `sha256-${label === 'prior' ? 'a' : 'b'}`.padEnd(
+      71,
+      label === 'prior' ? 'a' : 'b',
+    ),
     compilerVersion: COMPILER_VERSION,
     rendererContractVersion: RENDERER_CONTRACT_VERSION,
     themeContractVersion: BRAND_THEME_CONTRACT_VERSION,
     themeVersionId: `themev.dashboard:${label}`,
-    themeContentHash: `sha256-${label === 'prior' ? 'c' : 'd'}`.padEnd(71, label === 'prior' ? 'c' : 'd'),
+    themeContentHash: `sha256-${label === 'prior' ? 'c' : 'd'}`.padEnd(
+      71,
+      label === 'prior' ? 'c' : 'd',
+    ),
   };
 }
 

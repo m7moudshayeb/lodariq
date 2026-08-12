@@ -1,11 +1,9 @@
-import {
-  publishReadinessIssueLabel,
-  validateTourPublishReadiness,
-  type PublishReadinessIssue,
-} from '@lodariq/schema';
+import { validateTourPublishReadiness } from '@lodariq/schema';
 import type { LocalAuthoringFrameController } from '../controller';
 import { AuthoringButton, AuthoringTabs, ChevronDown, Eye, FileJson, Save } from '../design-system';
+import { publishIssueKey } from '../publish-issue-repair';
 import type { LocalAuthoringFrameSnapshot } from '../types';
+import { PublishIssueAction } from './publish-issue-action';
 
 export function Inspector({
   controller,
@@ -90,9 +88,8 @@ export function Inspector({
               </div>
               <ul>
                 {issues.slice(0, 5).map((issue) => (
-                  <li key={issueKey(issue)}>
-                    <strong>{publishReadinessIssueLabel(issue.code)}</strong>
-                    <span>{issue.message}</span>
+                  <li className="publish-issue-row" key={publishIssueKey(issue)}>
+                    <PublishIssueAction controller={controller} issue={issue} />
                   </li>
                 ))}
               </ul>
@@ -208,8 +205,4 @@ function reviewDetailForState(issueCount: number, previewReady: boolean): string
 function reviewStatusForIssueCount(issueCount: number): { className: string; label: string } {
   if (issueCount === 0) return { className: 'ready', label: 'Ready' };
   return { className: 'needs-work', label: 'Needs review' };
-}
-
-function issueKey(issue: PublishReadinessIssue): string {
-  return [issue.code, issue.blockId, issue.targetId, issue.message].filter(Boolean).join(':');
 }

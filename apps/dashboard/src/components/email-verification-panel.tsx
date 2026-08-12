@@ -3,7 +3,7 @@
 import { Check, KeyRound, LoaderCircle, MailCheck, RotateCcw } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import type { AuthSessionSnapshot } from '../lib/auth-contract';
-import { verifyEmail } from '../lib/client-auth-api';
+import { useAuthMutations } from '../hooks/use-auth-mutations';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
@@ -43,6 +43,7 @@ export function EmailVerificationPanel({
     exposedDevelopmentToken ?? null,
   );
   const [tokenReady, setTokenReady] = useState(!readTokenFromFragment);
+  const auth = useAuthMutations();
 
   const verifyToken = useCallback(
     async (token: string, password: string): Promise<void> => {
@@ -53,7 +54,7 @@ export function EmailVerificationPanel({
       let session: AuthSessionSnapshot | null = null;
       let failureMessage = '';
       try {
-        session = await verifyEmail(challengeId, token, password);
+        session = await auth.verifyEmail.mutateAsync({ challengeId, token, password });
       } catch (caught) {
         failureMessage =
           caught instanceof Error ? caught.message : 'The verification link is invalid or expired.';
@@ -72,7 +73,7 @@ export function EmailVerificationPanel({
       }
       window.setTimeout(() => window.location.replace(returnTo), 650);
     },
-    [challengeId, onVerified, returnTo],
+    [auth.verifyEmail, challengeId, onVerified, returnTo],
   );
 
   useEffect(() => {

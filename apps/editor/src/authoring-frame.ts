@@ -1,9 +1,7 @@
 import { compileDocument } from '@lodariq/compiler';
 import { createNonceStyleElement } from '@lodariq/schema/dom';
 import {
-  AUTHORING_ACTIVATION_GRANT_HEADER,
   AUTHORING_SESSION_CAPABILITIES,
-  AUTHORING_SESSION_HEADER,
   AuthoringDocumentPayload,
   AuthoringDocumentSessionResult,
   AuthoringProductMatchApplyResult as AuthoringProductMatchApplyResultSchema,
@@ -86,6 +84,7 @@ import {
   type DirectAuthoringHostServiceHandle,
   type LocalAuthoringFrameServices,
 } from '@lodariq/sdk-authoring/authoring-frame';
+import { HostedAuthoringApiClient } from './authoring-api-client';
 
 type AuthoringInitMessage = Extract<BridgeMessageType, { type: 'authoring.init' }>;
 type ExactArtifactPromotionRequest = Parameters<
@@ -139,6 +138,7 @@ let hostedActivationHandoff: HostedAuthoringActivationHandoffMessageType | null 
 let hostedEditorSession: HostedEditorSession | null = null;
 let activeHostedSession: Pick<HostedEditorSession, 'apiOrigin' | 'context'> | null = null;
 let hostedAuthoringSessionToken: string | null = null;
+let hostedApiClient: HostedAuthoringApiClient | null = null;
 let browseReadyAnnounced = false;
 let sessionSelectionInProgress = false;
 let directAuthoringHostServices: DirectAuthoringHostServiceHandle | null = null;
@@ -191,6 +191,7 @@ function acceptActivationHandoff(message: HostedAuthoringActivationHandoffMessag
 
   activationHandoffConsumed = true;
   hostedActivationHandoff = message;
+  hostedApiClient = new HostedAuthoringApiClient(message.apiOrigin);
   if (message.documentIntent) {
     void establishHostedEditorSession(message, message.documentIntent, 'page', true);
     return;
@@ -219,24 +220,22 @@ async function queryHostedDocuments(
 ): Promise<ReturnType<typeof requireDocumentQueryResult>> {
   let response: Response;
   try {
-    response = await fetch(new URL('/v1/authoring/documents/query', handoff.apiOrigin), {
-      method: 'POST',
-      mode: 'cors',
-      credentials: 'omit',
-      cache: 'no-store',
-      redirect: 'error',
-      referrerPolicy: 'no-referrer',
-      headers: {
-        'content-type': 'application/json',
-        [AUTHORING_ACTIVATION_GRANT_HEADER]: handoff.activationGrant,
+    response = await requireHostedApiClient(handoff.apiOrigin).request(
+      '/v1/authoring/documents/query',
+      {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+        },
+        activationGrant: handoff.activationGrant,
+        body: JSON.stringify({
+          installationId: handoff.installationId,
+          customerOrigin: handoff.customerOrigin,
+          pageContext: handoff.pageContext,
+          scope,
+        }),
       },
-      body: JSON.stringify({
-        installationId: handoff.installationId,
-        customerOrigin: handoff.customerOrigin,
-        pageContext: handoff.pageContext,
-        scope,
-      }),
-    });
+    );
   } catch {
     throw new HostedEditorFailure('document-unavailable', true);
   }
@@ -572,18 +571,13 @@ async function revokeHostedActivation(
   hostedActivationHandoff = null;
   if (!activationGrant) return;
   try {
-    await fetch(new URL('/v1/authoring/activation/revoke', handoff.apiOrigin), {
+    await requireHostedApiClient(handoff.apiOrigin).request('/v1/authoring/activation/revoke', {
       method: 'POST',
-      mode: 'cors',
-      credentials: 'omit',
-      cache: 'no-store',
-      redirect: 'error',
-      referrerPolicy: 'no-referrer',
       keepalive,
       headers: {
         'content-type': 'application/json',
-        [AUTHORING_ACTIVATION_GRANT_HEADER]: activationGrant,
       },
+      activationGrant,
       body: JSON.stringify({
         installationId: handoff.installationId,
         customerOrigin: handoff.customerOrigin,
@@ -626,17 +620,12 @@ async function revokeHostedSession(
   if (!token) return { ok: false, retryable: false };
   let response: Response;
   try {
-    response = await fetch(
-      new URL(`/v1/authoring/sessions/${encodeURIComponent(context.sessionId)}/revoke`, apiOrigin),
+    response = await requireHostedApiClient(apiOrigin).request(
+      `/v1/authoring/sessions/${encodeURIComponent(context.sessionId)}/revoke`,
       {
         method: 'POST',
-        mode: 'cors',
-        credentials: 'omit',
-        cache: 'no-store',
-        redirect: 'error',
-        referrerPolicy: 'no-referrer',
         keepalive,
-        headers: { [AUTHORING_SESSION_HEADER]: token },
+        useSession: true,
       },
     );
   } catch {
@@ -645,6 +634,7 @@ async function revokeHostedSession(
   if (!(response instanceof Response)) return { ok: false, retryable: true };
   if (!response.ok) return { ok: false, retryable: response.status >= 500 };
   hostedAuthoringSessionToken = null;
+  hostedApiClient?.clearSession();
   activeHostedSession = null;
   return { ok: true, retryable: false };
 }
@@ -670,6 +660,7 @@ async function establishHostedEditorSession(
   try {
     const session = await createAuthoringDocumentSession(handoff, documentIntent, selectionScope);
     hostedAuthoringSessionToken = session.authoringSessionToken;
+    requireHostedApiClient(handoff.apiOrigin).setSessionToken(session.authoringSessionToken);
     hostedActivationHandoff = null;
     activeHostedSession = {
       apiOrigin: handoff.apiOrigin,
@@ -700,6 +691,7 @@ async function establishHostedEditorSession(
       void revokeHostedSession(failedSession.apiOrigin, failedSession.context, true);
     }
     hostedAuthoringSessionToken = null;
+    hostedApiClient?.clearSession();
     hostedEditorSession = null;
     activeHostedSession = null;
     const failure = normalizeHostedEditorFailure(error);
@@ -736,17 +728,12 @@ async function createAuthoringDocumentSession(
   handoff.activationGrant = '';
   let response: Response;
   try {
-    response = await fetch(new URL('/v1/authoring/sessions', handoff.apiOrigin), {
+    response = await requireHostedApiClient(handoff.apiOrigin).request('/v1/authoring/sessions', {
       method: 'POST',
-      mode: 'cors',
-      credentials: 'omit',
-      cache: 'no-store',
-      redirect: 'error',
-      referrerPolicy: 'no-referrer',
       headers: {
         'content-type': 'application/json',
-        [AUTHORING_ACTIVATION_GRANT_HEADER]: activationGrant,
       },
+      activationGrant,
       body: JSON.stringify({
         installationId: handoff.installationId,
         customerOrigin: handoff.customerOrigin,
@@ -787,17 +774,11 @@ async function loadAuthoringDocument(
   apiOrigin: string,
   context: AuthoringSessionContext,
 ): Promise<ScopedAuthoringDocument> {
-  const sessionToken = requireHostedSessionToken();
   let response: Response;
   try {
-    response = await fetch(new URL('/v1/authoring/document', apiOrigin), {
+    response = await requireHostedApiClient(apiOrigin).request('/v1/authoring/document', {
       method: 'GET',
-      mode: 'cors',
-      credentials: 'omit',
-      cache: 'no-store',
-      redirect: 'error',
-      referrerPolicy: 'no-referrer',
-      headers: { [AUTHORING_SESSION_HEADER]: sessionToken },
+      useSession: true,
     });
   } catch {
     throw new HostedEditorFailure('document-unavailable', true);
@@ -817,20 +798,14 @@ async function persistHostedDocument(
   if (!documentMatchesSession(document, context)) {
     throw new Error('Authoring document scope mismatch');
   }
-  const sessionToken = requireHostedSessionToken();
   let response: Response;
   try {
-    response = await fetch(new URL('/v1/authoring/document', apiOrigin), {
+    response = await requireHostedApiClient(apiOrigin).request('/v1/authoring/document', {
       method: 'POST',
-      mode: 'cors',
-      credentials: 'omit',
-      cache: 'no-store',
-      redirect: 'error',
-      referrerPolicy: 'no-referrer',
       headers: {
         'content-type': 'application/json',
-        [AUTHORING_SESSION_HEADER]: sessionToken,
       },
+      useSession: true,
       body: JSON.stringify({ document }),
     });
   } catch {
@@ -1235,18 +1210,12 @@ async function fetchHostedReleaseRequest(
   url: URL,
   init: Pick<RequestInit, 'body' | 'headers' | 'method'>,
 ): Promise<Response> {
-  const sessionToken = requireHostedSessionToken();
   const headers = new Headers(init.headers);
-  headers.set(AUTHORING_SESSION_HEADER, sessionToken);
   try {
-    return await fetch(url, {
+    return await requireHostedApiClient(url.origin).request(url, {
       ...init,
       headers,
-      mode: 'cors',
-      credentials: 'omit',
-      cache: 'no-store',
-      redirect: 'error',
-      referrerPolicy: 'no-referrer',
+      useSession: true,
     });
   } catch {
     throw new Error('Authoring release request failed');
@@ -1941,11 +1910,11 @@ function themeMatchesSession(theme: BrandThemeSnapshot, context: AuthoringSessio
   );
 }
 
-function requireHostedSessionToken(): string {
-  if (!hostedAuthoringSessionToken) {
-    throw new HostedEditorFailure('session-unavailable', false);
+function requireHostedApiClient(apiOrigin: string): HostedAuthoringApiClient {
+  if (!hostedApiClient || !hostedApiClient.matchesOrigin(apiOrigin)) {
+    throw new HostedEditorFailure('origin-mismatch', false);
   }
-  return hostedAuthoringSessionToken;
+  return hostedApiClient;
 }
 
 function sessionResponseFailure(status: number): HostedEditorFailure {
@@ -2009,6 +1978,8 @@ function stopListening(): void {
     void revokeHostedActivation(handoff, true);
   }
   hostedAuthoringSessionToken = null;
+  hostedApiClient?.dispose();
+  hostedApiClient = null;
   hostedEditorSession = null;
   activeHostedSession = null;
 }

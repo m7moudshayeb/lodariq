@@ -49,7 +49,10 @@ const DEFAULT_PROPS_BY_TYPE = {
   list: {},
   divider: {},
   button: { variant: 'primary' },
-  link: { variant: 'link', action: { type: 'openPage' } },
+  link: {
+    variant: 'link',
+    action: { type: 'openPage', navigationBehavior: 'continue' },
+  },
   media: {},
 } as const satisfies Record<EditableBlockType, LodariqBlock['props']>;
 
@@ -1059,7 +1062,13 @@ function setActionUrl(block: LodariqBlock, blockId: string, url: string): Lodari
       children: block.children.map((child) => setActionUrl(child, blockId, url)),
     };
   }
-  const action: BlockActionProps = { type: 'openPage', url };
+  const navigationBehavior =
+    block.props.action?.type === 'openPage' ? block.props.action.navigationBehavior : undefined;
+  const action: BlockActionProps = {
+    type: 'openPage',
+    url,
+    ...(navigationBehavior ? { navigationBehavior } : {}),
+  };
   const props = sanitizeBlockProps({ ...block.props, action });
   const status = actionConfigStatus(block, props);
   return {

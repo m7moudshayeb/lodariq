@@ -538,13 +538,11 @@ async function createPendingPromotionFixture(documentId: string) {
 
 describe('Phase 2 match and promotion baseline', () => {
   it('locks current policy and membership while Drizzle authoring sessions are issued', () => {
-    const source = readFileSync(
-      fileURLToPath(new URL('../../../database/src/drizzle-repository.ts', import.meta.url)),
-      'utf8',
-    );
-    const createSession = source.slice(
-      source.indexOf('  async createAuthoringSession('),
-      source.indexOf('  async resolveAuthoringSession('),
+    const sessionSource = readDrizzleModule('authoring-sessions.ts');
+    const createSession = methodSource(
+      sessionSource,
+      '  async createAuthoringSession(',
+      '  async resolveAuthoringSession(',
     );
     expect(createSession).toContain(
       'this.hasAuthoringMembership(tx, input.workspaceId, input.actorUserId)',
@@ -553,15 +551,17 @@ describe('Phase 2 match and promotion baseline', () => {
     expect(createSession.indexOf('this.hasAuthoringMembership(')).toBeLessThan(
       createSession.indexOf('.insert(authoringSessions)'),
     );
-    const membershipHelper = source.slice(
-      source.indexOf('  private async hasAuthoringMembership('),
-      source.indexOf('  private async hasActiveAuthoringScope('),
+    const helperSource = readDrizzleModule('generic-helpers.ts');
+    const membershipHelper = methodSource(
+      helperSource,
+      '  protected async hasAuthoringMembership(',
+      '  protected async hasActiveAuthoringScope(',
     );
     expect(membershipHelper).toMatch(/from\(workspaceMemberships\)[\s\S]*?\.for\('share'\)/u);
 
-    const hostedSession = source.slice(
-      source.indexOf('  async createAuthoringDocumentSessionFromActivation('),
-      source.indexOf('  async listEnvironmentTokens('),
+    const hostedSession = methodSource(
+      readDrizzleModule('authoring-activation.ts'),
+      '  async createAuthoringDocumentSessionFromActivation(',
     );
     expect(hostedSession.indexOf('this.hasActiveAuthoringScope(')).toBeLessThan(
       hostedSession.indexOf('.insert(authoringSessions)'),
@@ -569,9 +569,10 @@ describe('Phase 2 match and promotion baseline', () => {
     expect(hostedSession.indexOf('this.hasAuthoringMembership(')).toBeLessThan(
       hostedSession.indexOf('.insert(authoringSessions)'),
     );
-    const activeScopeHelper = source.slice(
-      source.indexOf('  private async hasActiveAuthoringScope('),
-      source.indexOf('  private activeAuthorizationRequestScopeCondition('),
+    const activeScopeHelper = methodSource(
+      helperSource,
+      '  protected async hasActiveAuthoringScope(',
+      '  protected activeAuthorizationRequestScopeCondition(',
     );
     expect(activeScopeHelper).toMatch(
       /from\(publicSdkInstallationOrigins\)[\s\S]*?innerJoin\([\s\S]*?environments[\s\S]*?\.for\('share'\)/u,
@@ -579,23 +580,26 @@ describe('Phase 2 match and promotion baseline', () => {
   });
 
   it('locks release-authority membership rows before transactional mutations', () => {
-    const source = readFileSync(
-      fileURLToPath(new URL('../../../database/src/drizzle-repository.ts', import.meta.url)),
-      'utf8',
-    );
-    const method = (start: string, end: string): string =>
-      source.slice(source.indexOf(start), source.indexOf(end));
     const membershipLock = /from\(workspaceMemberships\)[\s\S]{0,500}?\.for\('share'\)/gu;
-    const directPublish = method(
+    const directPublish = methodSource(
+      readDrizzleModule('activation.ts'),
       '  async activateCompiledArtifact(',
-      '  async createPublicationVerification(',
     );
-    const verification = method(
+    const releaseChecks = readDrizzleModule('release-checks.ts');
+    const verification = methodSource(
+      releaseChecks,
       '  async createPublicationVerification(',
       '  async listPublicationVerifications(',
     );
-    const approval = method('  async createReleaseApproval(', '  async listReleaseApprovals(');
-    const promotion = method('  async promoteVerifiedPublication(', '  async listEnvironments(');
+    const approval = methodSource(
+      releaseChecks,
+      '  async createReleaseApproval(',
+      '  async listReleaseApprovals(',
+    );
+    const promotion = methodSource(
+      readDrizzleModule('promotion.ts'),
+      '  async promoteVerifiedPublication(',
+    );
 
     expect(directPublish.match(membershipLock)).toHaveLength(1);
     expect(verification.match(membershipLock)).toHaveLength(1);
@@ -604,21 +608,19 @@ describe('Phase 2 match and promotion baseline', () => {
   });
 
   it('serializes approval and promotion through the same sorted document lock protocol', () => {
-    const source = readFileSync(
-      fileURLToPath(new URL('../../../database/src/drizzle-repository.ts', import.meta.url)),
-      'utf8',
+    const approval = methodSource(
+      readDrizzleModule('release-checks.ts'),
+      '  async createReleaseApproval(',
+      '  async listReleaseApprovals(',
     );
-    const approval = source.slice(
-      source.indexOf('  async createReleaseApproval('),
-      source.indexOf('  async listReleaseApprovals('),
+    const promotion = methodSource(
+      readDrizzleModule('promotion.ts'),
+      '  async promoteVerifiedPublication(',
     );
-    const promotion = source.slice(
-      source.indexOf('  async promoteVerifiedPublication('),
-      source.indexOf('  async listReleaseOperations('),
-    );
-    const lockHelper = source.slice(
-      source.indexOf('  private async lockSortedReleaseDocumentEnvironments('),
-      source.indexOf('  private async setWorkspaceScope('),
+    const lockHelper = methodSource(
+      readDrizzleModule('generic-helpers.ts'),
+      '  protected async lockSortedReleaseDocumentEnvironments(',
+      '  protected async setWorkspaceScope(',
     );
 
     expect(approval).toContain('this.lockSortedReleaseDocumentEnvironments(');
@@ -644,7 +646,7 @@ describe('Phase 2 match and promotion baseline', () => {
     expect(migration).toContain('release_policy_json jsonb not null');
     expect(migration).toContain('lodariq_is_valid_origin_allowlist(candidate jsonb)');
     expect(migration).toContain('count(*) = count(distinct entry.value');
-    expect(migration).toContain("(release_policy_json - array[");
+    expect(migration).toContain('(release_policy_json - array[');
     expect(migration).toContain(") = '{}'::jsonb");
     expect(migration).toContain("release_policy_json->'publisherRoles' <@");
     expect(migration).toContain("jsonb_array_length(release_policy_json->'publisherRoles') =");
@@ -675,6 +677,19 @@ function documentFixture(id: string): LodariqDocument {
   document.workspaceId = 'wk_a';
   document.title = id;
   return document;
+}
+
+function readDrizzleModule(fileName: string): string {
+  return readFileSync(
+    fileURLToPath(new URL(`../../../database/src/drizzle/${fileName}`, import.meta.url)),
+    'utf8',
+  );
+}
+
+function methodSource(source: string, start: string, end?: string): string {
+  const startIndex = source.indexOf(start);
+  const endIndex = end ? source.indexOf(end, startIndex + start.length) : source.length;
+  return source.slice(startIndex, endIndex < 0 ? source.length : endIndex);
 }
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';

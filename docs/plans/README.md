@@ -19,6 +19,7 @@
 | [Phase 1 Foundation](phase-1-foundation.md)                         | Completed historical scope; hosted entry superseded            |
 | [Phase 1 Foundation Evidence Audit](phase-1-foundation-audit.md)    | Historical evidence record                                     |
 | [Phase 1 Product Hardening](phase-1-product-hardening.md)           | Completed; hosted entry/release behavior superseded by Phase 2 |
+| [Architecture Recovery](architecture-recovery.md)                   | Completed with enforced domain and file-size boundaries        |
 
 Exploratory alternatives consolidated into the UX specification are stored in
 `../archive/` and are not sources of truth.

@@ -12,7 +12,7 @@ import {
 import { useRouter } from 'next/navigation';
 import { useEffect, useId, useRef, useState, type FormEvent } from 'react';
 import type { AuthSessionSnapshot } from '../lib/auth-contract';
-import { createWorkspace, selectWorkspace, signOut } from '../lib/client-auth-api';
+import { useAuthMutations } from '../hooks/use-auth-mutations';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 
@@ -32,6 +32,7 @@ export function DashboardAuthControls({
   const [open, setOpen] = useState(false);
   const [pending, setPending] = useState('');
   const [error, setError] = useState('');
+  const auth = useAuthMutations();
   const activeWorkspace = currentSession.workspaces.find(
     (workspace) => workspace.id === currentSession.activeWorkspaceId,
   );
@@ -59,7 +60,7 @@ export function DashboardAuthControls({
     setError('');
     setPending(workspaceId);
     try {
-      setCurrentSession(await selectWorkspace(workspaceId));
+      setCurrentSession(await auth.selectWorkspace.mutateAsync(workspaceId));
       setOpen(false);
       router.refresh();
     } catch (caught) {
@@ -78,7 +79,7 @@ export function DashboardAuthControls({
     setError('');
     setPending('new');
     try {
-      setCurrentSession(await createWorkspace(name));
+      setCurrentSession(await auth.createWorkspace.mutateAsync(name));
       (event.currentTarget as HTMLFormElement).reset();
       setOpen(false);
       router.refresh();
@@ -94,7 +95,7 @@ export function DashboardAuthControls({
     setError('');
     setPending('sign-out');
     try {
-      await signOut();
+      await auth.signOut.mutateAsync();
       router.replace('/sign-in');
       router.refresh();
     } catch (caught) {

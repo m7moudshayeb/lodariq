@@ -7,6 +7,11 @@ import {
 
 const mocks = vi.hoisted(() => ({
   loadDocumentReleaseRecoveryState: vi.fn(),
+  loadControlPlaneContext: vi.fn(async () => ({
+    userId: 'user_a',
+    workspaceId: 'wk_a',
+    role: 'owner',
+  })),
   recoverDocumentRelease: vi.fn(),
   revalidatePath: vi.fn(),
 }));
@@ -17,6 +22,7 @@ vi.mock('../../../../apps/dashboard/src/lib/revalidation', () => ({
 
 vi.mock('../../../../apps/dashboard/src/lib/api', () => ({
   loadDocumentReleaseRecoveryState: mocks.loadDocumentReleaseRecoveryState,
+  loadControlPlaneContext: mocks.loadControlPlaneContext,
   recoverDocumentRelease: mocks.recoverDocumentRelease,
   DashboardApiError: class DashboardApiError extends Error {
     readonly statusCode: number;
@@ -54,6 +60,7 @@ describe('@lodariq/dashboard release recovery actions', () => {
     expect(mocks.loadDocumentReleaseRecoveryState).toHaveBeenCalledWith({
       documentId: DOCUMENT_ID,
       environmentId: ENVIRONMENT_ID,
+      workspaceId: 'wk_a',
     });
   });
 
@@ -68,6 +75,7 @@ describe('@lodariq/dashboard release recovery actions', () => {
     expect(mocks.loadDocumentReleaseRecoveryState).toHaveBeenCalledWith({
       documentId,
       environmentId: ENVIRONMENT_ID,
+      workspaceId: 'wk_a',
     });
   });
 

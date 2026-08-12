@@ -5,7 +5,7 @@
   "description": "Centralized test suite. Tests mirror the source path of the package under test (packages/tests/<pkg>/src/...) and exercise each package through its public entry points.",
   "type": "module",
   "scripts": {
-    "test": "vitest run",
+    "test": "vitest run --maxWorkers=1",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
     "lint": "eslint ."
@@ -22,6 +22,7 @@
     "@types/pg": "8.21.0",
     "@types/react": "^19.0.2",
     "@types/react-dom": "^19.0.2",
+    "@tanstack/react-query": "^5.101.4",
     "jsdom": "^25.0.1",
     "pg": "8.23.0",
     "react": "^19.0.0",

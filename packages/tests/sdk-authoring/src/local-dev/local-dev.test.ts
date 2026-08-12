@@ -174,7 +174,7 @@ describe('local-dev authoring install helper', () => {
     mountLocalAuthoringDevFrame({ root, baseDocument });
 
     expect(document.body.textContent).toContain('Editing Selected local tour');
-    expect(document.body.textContent).toContain('Steps');
+    expect(document.querySelector('[aria-label="Tour steps"]')).not.toBeNull();
   });
 
   it('boots the iframe from the provided base document before it has local draft storage', () => {
@@ -191,7 +191,7 @@ describe('local-dev authoring install helper', () => {
     mountLocalAuthoringDevFrame({ root, baseDocument });
 
     expect(document.body.textContent).toContain(`Editing ${baseDocument.title}`);
-    expect(document.body.textContent).toContain('Steps');
+    expect(document.querySelector('[aria-label="Tour steps"]')).not.toBeNull();
   });
 
   it('keeps the install entry free of static authoring-frame imports', () => {

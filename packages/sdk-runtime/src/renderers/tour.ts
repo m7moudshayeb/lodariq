@@ -1,31 +1,7 @@
-import {
-  arrow as floatingArrow,
-  computePosition,
-  flip,
-  offset,
-  shift,
-  type Placement,
-  type VirtualElement,
-} from '@floating-ui/dom';
 import type { CompiledDocument, CompiledStep, RuntimeLifecycleHints } from '@lodariq/schema';
+import { arrow, computePosition, flip, offset, shift, type Placement } from '@floating-ui/dom';
 import { resolveExperienceAppearance } from '@lodariq/schema/brand-runtime';
-import {
-  createNonceStyleElement,
-  LODARIQ_AUTHORING_PREVIEW_OWNER_ATTRIBUTE,
-  LODARIQ_RENDERED_NODE_ID_ATTRIBUTE,
-  LODARIQ_RENDERED_NODE_TYPE_ATTRIBUTE,
-} from '@lodariq/schema/dom';
-import {
-  resolveSafeNavigationDestination,
-  type SafeNavigationDestination,
-} from '@lodariq/schema/url';
-import {
-  ArrowRight,
-  Check,
-  ExternalLink,
-  createElement as createLucideElement,
-  type IconNode,
-} from 'lucide';
+import { LODARIQ_AUTHORING_PREVIEW_OWNER_ATTRIBUTE } from '@lodariq/schema/dom';
 import { assertSupportedCompiledArtifactIfVersioned } from '../artifact-compatibility';
 import {
   resolve,
@@ -36,6 +12,47 @@ import {
 } from '../resolver';
 import { isVisible } from '../resolver/element-evidence';
 import { applyCompiledTourTheme } from './tour-theme';
+import { createTourStyles } from './tour-styles';
+import {
+  BODY_NODE_RENDERERS,
+  appendStepBody,
+  applyStepComposition,
+  renderTextNode,
+  safeNavigationDestination,
+  type RuntimeAction,
+  type RuntimeBodyNode,
+} from './tour-content';
+import {
+  TourPresentationCanceledError,
+  TourPresentationUnavailableError,
+  throwIfTourPresentationCanceled,
+} from './tour-errors';
+import {
+  acquireNetworkActivityTracker,
+  activateLifecycleControl,
+  delay,
+  lifecycleTextAppliesToCurrentLocale,
+  nearestScrollable,
+  routeMatches,
+  scrollBlockFor,
+  scrollIntoView,
+  waitForResolvedElement,
+  waitUntil,
+} from './tour-lifecycle';
+import {
+  blurHiddenTourCard,
+  canOwnPresentation,
+  createTargetOutline,
+  mutationAffectsPresentationOwner,
+  positionTargetOutline,
+  positionTourArrow,
+  positioningReference,
+  presentationOwnerObservationRoots,
+  shadowRootHost,
+} from './tour-positioning';
+
+export { TourPresentationCanceledError, TourPresentationUnavailableError } from './tour-errors';
+export { resolveTourActionRecipe, resolveTourCompositionRecipe } from './tour-recipes';
 
 export {
   resolveCompiledTourTheme,
@@ -44,36 +61,16 @@ export {
   type TourThemeStyleInput,
 } from './tour-theme';
 
-const NETWORK_IDLE_QUIET_MS = 80;
-const NETWORK_IDLE_POLL_MS = 20;
 const DEFAULT_TARGET_RESOLUTION_TIMEOUT_MS = 1_500;
 const TARGET_GLOBAL_REVALIDATION_THROTTLE_MS = 500;
-const TARGET_OUTLINE_GAP_PX = 3;
 
-type RuntimeBodyNode = CompiledStep['body'][number];
-type RuntimeAction = NonNullable<RuntimeBodyNode['props']['action']>;
 type RuntimeActionType = RuntimeAction['type'];
 type RuntimeActionHandler = (player: TourPlayer, action: RuntimeAction) => void;
-type BodyNodeRenderer = (node: RuntimeBodyNode, context: BodyNodeRenderContext) => HTMLElement;
-
-interface BodyNodeRenderContext {
-  onAction: (action: RuntimeAction | undefined) => void;
-}
 
 interface TourPositionController {
   stop: () => void;
   update: () => void;
 }
-
-const BODY_NODE_RENDERERS: Readonly<Record<string, BodyNodeRenderer>> = {
-  button: renderButtonNode,
-  divider: renderDividerNode,
-  heading: renderHeadingNode,
-  link: renderLinkNode,
-  list: renderListNode,
-  media: renderMediaNode,
-  paragraph: renderTextNode,
-};
 
 /**
  * Exact, in-memory element chosen during authoring. It is intentionally absent
@@ -189,7 +186,7 @@ export class TourPlayer {
       ? createTargetOutline(document)
       : null;
     this.lifetimeCleanups.push(applyCompiledTourTheme(this.host, this.doc));
-    this.shadow.appendChild(createStyles());
+    this.shadow.appendChild(createTourStyles());
     if (this.targetOutline) this.shadow.appendChild(this.targetOutline);
     this.shadow.appendChild(this.card);
   }
@@ -270,9 +267,12 @@ export class TourPlayer {
     this.card.innerHTML = '';
     this.card.hidden = Boolean(step.targetId);
     applyStepComposition(this.card, step);
-    appendStepBody(this.card, step, (node) => this.createBodyElement(node));
-    this.card.appendChild(this.createSkipButton());
-    this.arrow.hidden = !step.targetId;
+    const content = this.card.ownerDocument.createElement('div');
+    content.className = 'tour-content';
+    appendStepBody(content, step, (node) => this.createBodyElement(node));
+    content.appendChild(this.createSkipButton());
+    this.card.appendChild(content);
+    this.arrow.hidden = !step.targetId || step.tooltipLayout?.showArrow === false;
     this.card.appendChild(this.arrow);
 
     if (!step.targetId) {
@@ -364,7 +364,20 @@ export class TourPlayer {
       window.open(destination.href, '_blank', 'noopener,noreferrer');
       return;
     }
+    if (destination.kind === 'internal' && action.navigationBehavior === 'continue') {
+      this.prepareToContinueAfterNavigation();
+    }
     window.location.assign(destination.href);
+  }
+
+  private prepareToContinueAfterNavigation(): void {
+    const nextIndex = this.index + 1;
+    const nextStep = this.doc.steps[nextIndex];
+    if (nextStep) {
+      this.notifyBeforeStepChange(nextIndex, nextStep);
+      return;
+    }
+    this.complete();
   }
 
   private async findTarget(
@@ -628,12 +641,7 @@ export class TourPlayer {
       void computePosition(reference, this.card, {
         placement,
         strategy: 'fixed',
-        middleware: [
-          offset(12),
-          flip(),
-          shift({ padding: 8 }),
-          floatingArrow({ element: this.arrow }),
-        ],
+        middleware: [offset(12), flip(), shift({ padding: 8 }), arrow({ element: this.arrow })],
       })
         .then(({ x, y, placement: resolvedPlacement, middlewareData }) => {
           if (!active || !canOwnPresentation(anchor)) return;
@@ -814,20 +822,6 @@ export class TourPlayer {
 
 export type TourTargetResolutionDiagnostic = Omit<ResolutionResult, 'element' | 'anchor'>;
 
-export class TourPresentationCanceledError extends Error {
-  constructor(message = 'Lodariq tour presentation was canceled') {
-    super(message);
-    this.name = 'TourPresentationCanceledError';
-  }
-}
-
-export class TourPresentationUnavailableError extends Error {
-  constructor(message = 'Lodariq tour presentation is unavailable') {
-    super(message);
-    this.name = 'TourPresentationUnavailableError';
-  }
-}
-
 interface TourPresentationReadiness {
   renderId: number;
   promise: Promise<void>;
@@ -855,10 +849,6 @@ function normalizeTourPresentationError(error: unknown): Error {
   return new TourPresentationUnavailableError();
 }
 
-function throwIfTourPresentationCanceled(signal: AbortSignal): void {
-  if (signal.aborted) throw new TourPresentationCanceledError();
-}
-
 function targetResolutionDiagnostic(result: ResolutionResult): TourTargetResolutionDiagnostic {
   return {
     state: result.state,
@@ -880,399 +870,6 @@ function focusTourCard(card: HTMLElement): void {
   (card.querySelector<HTMLElement>('button, a[href]') ?? card).focus();
 }
 
-function createTargetOutline(doc: Document): HTMLDivElement {
-  const outline = doc.createElement('div');
-  outline.className = 'tour-target-outline';
-  outline.setAttribute('data-lodariq-target-outline', '');
-  outline.setAttribute('aria-hidden', 'true');
-  outline.hidden = true;
-  return outline;
-}
-
-function positionTargetOutline(outline: HTMLElement | null, owner: Element): void {
-  if (!outline) return;
-  const rect = owner.getBoundingClientRect();
-  Object.assign(outline.style, {
-    left: `${rect.left - TARGET_OUTLINE_GAP_PX}px`,
-    top: `${rect.top - TARGET_OUTLINE_GAP_PX}px`,
-    width: `${rect.width + TARGET_OUTLINE_GAP_PX * 2}px`,
-    height: `${rect.height + TARGET_OUTLINE_GAP_PX * 2}px`,
-  });
-  outline.hidden = false;
-}
-
-function blurHiddenTourCard(shadow: ShadowRoot, card: HTMLElement): void {
-  const activeElement = shadow.activeElement as (Element & { blur?: () => void }) | null;
-  if (activeElement && card.contains(activeElement)) activeElement.blur?.();
-}
-
-function mutationAffectsPresentationOwner(record: MutationRecord, owner: Element): boolean {
-  const changedNode = record.target;
-  if (changedNode === owner || owner.contains(changedNode)) return true;
-  if (record.type === 'attributes' && changedNode.contains(owner)) return true;
-  if (record.type !== 'childList') return false;
-  return [...record.removedNodes, ...record.addedNodes].some(
-    (node) => node === owner || node.contains(owner),
-  );
-}
-
-function presentationOwnerObservationRoots(owner: Element): Node[] {
-  const roots: Node[] = [owner.ownerDocument.documentElement];
-  let root = owner.getRootNode();
-  let shadowHost = shadowRootHost(root);
-  while (shadowHost) {
-    roots.push(root);
-    root = shadowHost.getRootNode();
-    shadowHost = shadowRootHost(root);
-  }
-  return [...new Set(roots)];
-}
-
-function shadowRootHost(root: Node): Element | null {
-  return (root as ShadowRoot).host ?? null;
-}
-
-function positioningReference(
-  anchor: ResolvedAnchor,
-  presentationAnchor: CompiledStep['presentationAnchor'],
-): Element | VirtualElement {
-  const owner = anchor.element;
-  if (!presentationAnchor && anchor.kind === 'element') return owner;
-  return {
-    contextElement: owner,
-    getBoundingClientRect: () =>
-      presentationAnchor
-        ? projectPresentationAnchor(anchor.getBoundingClientRect(), presentationAnchor)
-        : anchor.getBoundingClientRect(),
-  };
-}
-
-function projectPresentationAnchor(
-  ownerRect: DOMRect,
-  presentationAnchor: NonNullable<CompiledStep['presentationAnchor']>,
-): ReturnType<VirtualElement['getBoundingClientRect']> {
-  if (presentationAnchor.kind === 'element-bounds') {
-    return projectedRect(ownerRect.left, ownerRect.top, ownerRect.width, ownerRect.height);
-  }
-  const xRatio = clampRatio(presentationAnchor.xRatio);
-  const yRatio = clampRatio(presentationAnchor.yRatio);
-  const x = ownerRect.left + ownerRect.width * xRatio;
-  const y = ownerRect.top + ownerRect.height * yRatio;
-  if (presentationAnchor.kind === 'point') return projectedRect(x, y, 0, 0);
-  const widthRatio = Math.min(clampRatio(presentationAnchor.widthRatio), 1 - xRatio);
-  const heightRatio = Math.min(clampRatio(presentationAnchor.heightRatio), 1 - yRatio);
-  return projectedRect(x, y, ownerRect.width * widthRatio, ownerRect.height * heightRatio);
-}
-
-function clampRatio(ratio: number): number {
-  return Number.isFinite(ratio) ? Math.min(1, Math.max(0, ratio)) : 0;
-}
-
-function canOwnPresentation(anchor: ResolvedAnchor): boolean {
-  const owner = anchor.element;
-  if (!owner.isConnected || !isVisible(owner)) return false;
-  const rect = anchor.getBoundingClientRect();
-  return (
-    Number.isFinite(rect.left) &&
-    Number.isFinite(rect.top) &&
-    Number.isFinite(rect.width) &&
-    Number.isFinite(rect.height) &&
-    rect.width > 0 &&
-    rect.height > 0
-  );
-}
-
-function projectedRect(
-  x: number,
-  y: number,
-  width: number,
-  height: number,
-): ReturnType<VirtualElement['getBoundingClientRect']> {
-  return {
-    x,
-    y,
-    width,
-    height,
-    top: y,
-    right: x + width,
-    bottom: y + height,
-    left: x,
-  };
-}
-
-function positionTourArrow(
-  element: HTMLElement,
-  placement: Placement,
-  data: { x?: number; y?: number } | undefined,
-): void {
-  const side = placement.split('-')[0] as 'top' | 'right' | 'bottom' | 'left';
-  const staticSide = {
-    top: 'bottom',
-    right: 'left',
-    bottom: 'top',
-    left: 'right',
-  }[side];
-  const isVertical = side === 'top' || side === 'bottom';
-  element.dataset['side'] = side;
-  Object.assign(element.style, {
-    left: isVertical && data?.x !== undefined ? `${data.x}px` : '',
-    top: !isVertical && data?.y !== undefined ? `${data.y}px` : '',
-    right: '',
-    bottom: '',
-  });
-  element.style.setProperty(staticSide, '-9px');
-}
-
-function renderHeadingNode(node: RuntimeBodyNode): HTMLElement {
-  const element = document.createElement('h2');
-  setBodyNodeContent(element, node);
-  return element;
-}
-
-function renderTextNode(node: RuntimeBodyNode): HTMLElement {
-  const element = document.createElement('div');
-  setBodyNodeContent(element, node);
-  return element;
-}
-
-function renderListNode(node: RuntimeBodyNode): HTMLElement {
-  const element = document.createElement('ul');
-  setBodyNodeAttributes(element, node);
-  for (const item of listItems(node.text)) {
-    const listItem = document.createElement('li');
-    listItem.textContent = item;
-    element.appendChild(listItem);
-  }
-  return element;
-}
-
-function renderDividerNode(node: RuntimeBodyNode): HTMLElement {
-  const element = document.createElement('hr');
-  setBodyNodeAttributes(element, node);
-  return element;
-}
-
-function renderMediaNode(node: RuntimeBodyNode): HTMLElement {
-  const element = document.createElement('div');
-  setBodyNodeContent(element, node);
-  return element;
-}
-
-function renderButtonNode(node: RuntimeBodyNode, context: BodyNodeRenderContext): HTMLElement {
-  const element = document.createElement('button');
-  element.type = 'button';
-  setBodyNodeContent(element, node);
-  applyButtonPresentation(element, node);
-  configureActionElement(element, node.props.action, context);
-  return element;
-}
-
-function renderLinkNode(node: RuntimeBodyNode, context: BodyNodeRenderContext): HTMLElement {
-  const element = document.createElement('a');
-  const destination = safeNavigationDestination(node.props.action?.url);
-  element.href = destination?.href ?? '#';
-  if (destination?.kind === 'external') {
-    element.target = '_blank';
-    element.rel = 'noopener noreferrer';
-  }
-  setBodyNodeContent(element, node);
-  applyButtonPresentation(element, node);
-  configureActionElement(element, node.props.action, context);
-  return element;
-}
-
-function setBodyNodeContent(element: HTMLElement, node: RuntimeBodyNode): void {
-  setBodyNodeAttributes(element, node);
-  const contentRuns = node.contentRuns;
-  if (!contentRuns?.length) {
-    element.textContent = node.text ?? '';
-    appendButtonIcon(element, node);
-    return;
-  }
-  for (const run of contentRuns) {
-    const runElement = createInlineRunElement(element.ownerDocument, run);
-    element.appendChild(runElement);
-  }
-  appendButtonIcon(element, node);
-}
-
-function setBodyNodeAttributes(element: HTMLElement, node: RuntimeBodyNode): void {
-  element.setAttribute(LODARIQ_RENDERED_NODE_ID_ATTRIBUTE, node.id);
-  element.setAttribute(LODARIQ_RENDERED_NODE_TYPE_ATTRIBUTE, node.type);
-  if (node.props.variant) {
-    element.setAttribute('data-lodariq-action-variant', node.props.variant);
-  }
-  const textStyle = node.props.textStyle;
-  if (textStyle?.align) element.style.textAlign = textStyle.align;
-  if (textStyle?.fontSizePx) element.style.fontSize = `${textStyle.fontSizePx}px`;
-  if (textStyle?.color) element.style.color = textStyle.color;
-  if (textStyle?.fontWeight) element.style.fontWeight = String(textStyle.fontWeight);
-  if (textStyle?.fontStyle) element.style.fontStyle = textStyle.fontStyle;
-  const blockLayout = node.props.blockLayout;
-  if (blockLayout?.align) element.dataset['lodariqBlockAlign'] = blockLayout.align;
-  if (blockLayout?.spacingBefore) {
-    element.dataset['lodariqSpacingBefore'] = blockLayout.spacingBefore;
-  }
-  if (blockLayout?.spacingAfter) {
-    element.dataset['lodariqSpacingAfter'] = blockLayout.spacingAfter;
-  }
-  if (blockLayout?.spacingAfterPx !== undefined) {
-    element.dataset['lodariqSpacingAfterPx'] = String(blockLayout.spacingAfterPx);
-    element.style.setProperty('--lq-block-spacing-after', `${blockLayout.spacingAfterPx}px`);
-  }
-}
-
-function createInlineRunElement(
-  ownerDocument: Document,
-  run: NonNullable<RuntimeBodyNode['contentRuns']>[number],
-): HTMLElement {
-  const destination = run.link
-    ? resolveSafeNavigationDestination(run.link, { baseUrl: ownerDocument.location?.href })
-    : null;
-  const element = destination
-    ? ownerDocument.createElement('a')
-    : ownerDocument.createElement('span');
-  element.textContent = run.text;
-  if (destination && element instanceof HTMLAnchorElement) {
-    element.href = destination.href;
-    if (destination.kind === 'external') {
-      element.target = '_blank';
-      element.rel = 'noopener noreferrer';
-    }
-    element.addEventListener('click', (event) => event.stopPropagation());
-  }
-  const marks = new Set(run.marks ?? []);
-  if (marks.has('bold')) element.style.fontWeight = '700';
-  if (marks.has('italic')) element.style.fontStyle = 'italic';
-  if (marks.has('underline')) element.style.textDecoration = 'underline';
-  if (run.fontSizePx) element.style.fontSize = `${run.fontSizePx}px`;
-  if (run.color) element.style.color = run.color;
-  if (run.highlightColor) element.style.backgroundColor = run.highlightColor;
-  return element;
-}
-
-const ACTION_ICON_NODES: Readonly<Record<string, IconNode>> = {
-  'arrow-right': ArrowRight,
-  check: Check,
-  'external-link': ExternalLink,
-};
-
-function appendButtonIcon(element: HTMLElement, node: RuntimeBodyNode): void {
-  if (node.type !== 'button' && node.type !== 'link') return;
-  const iconName = node.props.buttonStyle?.icon;
-  const iconNode = iconName ? ACTION_ICON_NODES[iconName] : undefined;
-  if (!iconNode) return;
-  const icon = createLucideElement(iconNode);
-  icon.setAttribute('aria-hidden', 'true');
-  icon.classList.add('tour-action-icon');
-  if (node.props.buttonStyle?.iconPlacement === 'start') element.prepend(icon);
-  else element.append(icon);
-}
-
-function applyButtonPresentation(element: HTMLElement, node: RuntimeBodyNode): void {
-  const style = node.props.buttonStyle;
-  if (!style) return;
-  if (style.widthPx) {
-    element.dataset['lodariqActionWidth'] = 'custom';
-    element.style.setProperty('--lq-action-width', `${style.widthPx}px`);
-  } else if (style.width) {
-    element.dataset['lodariqActionWidth'] = style.width;
-  }
-  if (style.size) element.dataset['lodariqActionSize'] = style.size;
-  if (style.radius) element.dataset['lodariqActionRadius'] = style.radius;
-  if (style.fillColor) element.style.setProperty('--lq-action-fill', style.fillColor);
-  if (style.textColor) element.style.setProperty('--lq-action-text', style.textColor);
-  if (style.borderColor) element.style.setProperty('--lq-action-border', style.borderColor);
-}
-
-function applyStepComposition(card: HTMLElement, step: CompiledStep): void {
-  const layout = step.tooltipLayout;
-  if (layout?.widthPx !== undefined) {
-    card.dataset['lodariqPopupWidth'] = 'custom';
-    card.style.setProperty('--lq-popup-width', `${layout.widthPx}px`);
-  } else {
-    delete card.dataset['lodariqPopupWidth'];
-    card.style.removeProperty('--lq-popup-width');
-  }
-  if (layout?.heightPx !== undefined) {
-    card.dataset['lodariqPopupHeight'] = 'custom';
-    card.style.setProperty('--lq-popup-height', `${layout.heightPx}px`);
-  } else {
-    delete card.dataset['lodariqPopupHeight'];
-    card.style.removeProperty('--lq-popup-height');
-  }
-  card.dataset['lodariqContentAlign'] = layout?.contentAlign ?? 'left';
-  card.dataset['lodariqActionLayout'] = layout?.actionLayout ?? 'inline';
-  card.dataset['lodariqActionAlign'] = layout?.actionAlign ?? 'start';
-  card.dataset['lodariqCompositionGap'] = layout?.gap ?? 'normal';
-  card.dataset['lodariqCompositionPadding'] = layout?.padding ?? 'standard';
-}
-
-function appendStepBody(
-  card: HTMLElement,
-  step: CompiledStep,
-  createBodyElement: (node: RuntimeBodyNode) => HTMLElement,
-): void {
-  let actionGroup: HTMLElement | null = null;
-  for (const node of step.body) {
-    const isAction = node.type === 'button' || node.type === 'link';
-    if (!isAction) {
-      actionGroup = null;
-      card.appendChild(createBodyElement(node));
-      continue;
-    }
-    if (!actionGroup) {
-      actionGroup = card.ownerDocument.createElement('div');
-      actionGroup.className = 'tour-action-group';
-      card.appendChild(actionGroup);
-    }
-    actionGroup.appendChild(createBodyElement(node));
-  }
-}
-
-function configureActionElement(
-  element: HTMLButtonElement | HTMLAnchorElement,
-  action: RuntimeAction | undefined,
-  context: BodyNodeRenderContext,
-): void {
-  if (!actionEnabled(action)) {
-    disableActionElement(element);
-    return;
-  }
-  element.addEventListener('click', (event) => {
-    event.preventDefault();
-    context.onAction(action);
-  });
-}
-
-function actionEnabled(action: RuntimeAction | undefined): action is RuntimeAction {
-  if (!action) return false;
-  if (action.type !== 'openPage') return true;
-  return Boolean(safeNavigationDestination(action.url));
-}
-
-function disableActionElement(element: HTMLButtonElement | HTMLAnchorElement): void {
-  element.setAttribute('aria-disabled', 'true');
-  if (element instanceof HTMLButtonElement) {
-    element.disabled = true;
-    return;
-  }
-  element.removeAttribute('href');
-  element.tabIndex = -1;
-}
-
-function listItems(text: string | undefined): string[] {
-  if (!text) return [];
-  return text
-    .split(/\r?\n/)
-    .map((item) => item.trim())
-    .filter(Boolean);
-}
-
-function safeNavigationDestination(rawUrl: string | undefined): SafeNavigationDestination | null {
-  return resolveSafeNavigationDestination(rawUrl, { baseUrl: window.location.href });
-}
-
 function initialStepIndex(doc: CompiledDocument, options: TourPlayerOptions): number {
   if (typeof options.initialStepIndex === 'number') {
     return Math.min(Math.max(0, options.initialStepIndex), Math.max(0, doc.steps.length - 1));
@@ -1282,664 +879,4 @@ function initialStepIndex(doc: CompiledDocument, options: TourPlayerOptions): nu
     if (index >= 0) return index;
   }
   return 0;
-}
-
-function routeMatches(expectedRoute: string): boolean {
-  return `${location.pathname}${location.search}${location.hash}` === expectedRoute;
-}
-
-function scrollBlockFor(
-  strategy: RuntimeLifecycleHints['scrollStrategy'] | undefined,
-): ScrollLogicalPosition {
-  if (strategy === 'top') return 'start';
-  if (strategy === 'bottom') return 'end';
-  if (strategy === 'nearest' || strategy === 'virtualized-search') return 'nearest';
-  return 'center';
-}
-
-interface NetworkActivityTrackerHandle {
-  waitForIdle: (timeoutMs: number, signal?: AbortSignal) => Promise<void>;
-  release: () => void;
-}
-
-class NetworkActivityTracker {
-  private static shared: NetworkActivityTracker | null = null;
-
-  static acquire(): NetworkActivityTrackerHandle {
-    const tracker = (NetworkActivityTracker.shared ??= new NetworkActivityTracker());
-    tracker.references += 1;
-    tracker.install();
-    return {
-      waitForIdle: (timeoutMs: number, signal?: AbortSignal) =>
-        tracker.waitForIdle(timeoutMs, signal),
-      release: () => tracker.release(),
-    };
-  }
-
-  private references = 0;
-  private activeRequests = 0;
-  private lastActivityAt = Date.now();
-  private originalFetch: typeof window.fetch | null = null;
-  private trackedFetch: typeof window.fetch | null = null;
-  private originalXhrSend: typeof XMLHttpRequest.prototype.send | null = null;
-  private trackedXhrSend: typeof XMLHttpRequest.prototype.send | null = null;
-
-  private install(): void {
-    if (!this.trackedFetch && typeof window.fetch === 'function') {
-      this.originalFetch = window.fetch;
-      const originalFetch = this.originalFetch;
-      const beginRequest = (): void => this.beginRequest();
-      const endRequest = (): void => this.endRequest();
-      this.trackedFetch = function trackedFetch(
-        this: Window,
-        input: Parameters<typeof fetch>[0],
-        init?: Parameters<typeof fetch>[1],
-      ): ReturnType<typeof fetch> {
-        beginRequest();
-        try {
-          return originalFetch.call(this, input, init).finally(endRequest);
-        } catch (error) {
-          endRequest();
-          throw error;
-        }
-      };
-      window.fetch = this.trackedFetch;
-    }
-
-    if (!this.trackedXhrSend && typeof XMLHttpRequest !== 'undefined') {
-      this.originalXhrSend = XMLHttpRequest.prototype.send;
-      const originalXhrSend = this.originalXhrSend;
-      const beginRequest = (): void => this.beginRequest();
-      const endRequest = (): void => this.endRequest();
-      this.trackedXhrSend = function trackedXhrSend(
-        this: XMLHttpRequest,
-        body?: Document | XMLHttpRequestBodyInit | null,
-      ): void {
-        beginRequest();
-        let settled = false;
-        const finish = (): void => {
-          if (settled) return;
-          settled = true;
-          endRequest();
-        };
-        this.addEventListener('loadend', finish, { once: true });
-        try {
-          originalXhrSend.call(this, body);
-        } catch (error) {
-          finish();
-          throw error;
-        }
-      };
-      XMLHttpRequest.prototype.send = this.trackedXhrSend;
-    }
-  }
-
-  private release(): void {
-    this.references = Math.max(0, this.references - 1);
-    if (this.references > 0) return;
-    if (this.trackedFetch && window.fetch === this.trackedFetch && this.originalFetch) {
-      window.fetch = this.originalFetch;
-    }
-    if (
-      this.trackedXhrSend &&
-      typeof XMLHttpRequest !== 'undefined' &&
-      XMLHttpRequest.prototype.send === this.trackedXhrSend &&
-      this.originalXhrSend
-    ) {
-      XMLHttpRequest.prototype.send = this.originalXhrSend;
-    }
-    this.trackedFetch = null;
-    this.originalFetch = null;
-    this.trackedXhrSend = null;
-    this.originalXhrSend = null;
-    NetworkActivityTracker.shared = null;
-  }
-
-  private beginRequest(): void {
-    this.activeRequests += 1;
-    this.lastActivityAt = Date.now();
-  }
-
-  private endRequest(): void {
-    this.activeRequests = Math.max(0, this.activeRequests - 1);
-    this.lastActivityAt = Date.now();
-  }
-
-  private async waitForIdle(timeoutMs: number, signal?: AbortSignal): Promise<void> {
-    const deadline = Date.now() + timeoutMs;
-    while (Date.now() < deadline) {
-      if (signal) throwIfTourPresentationCanceled(signal);
-      const quietForMs = Date.now() - this.lastActivityAt;
-      if (this.activeRequests === 0 && quietForMs >= NETWORK_IDLE_QUIET_MS) return;
-      await delay(NETWORK_IDLE_POLL_MS, signal);
-    }
-  }
-}
-
-function acquireNetworkActivityTracker(): NetworkActivityTrackerHandle {
-  return NetworkActivityTracker.acquire();
-}
-
-async function waitUntil(
-  predicate: () => boolean,
-  timeoutMs: number,
-  signal?: AbortSignal,
-): Promise<void> {
-  const deadline = Date.now() + timeoutMs;
-  while (!predicate() && Date.now() < deadline) {
-    if (signal) throwIfTourPresentationCanceled(signal);
-    await delay(50, signal);
-  }
-}
-
-async function activateLifecycleControl(
-  fingerprint: RuntimeLifecycleHints['openPanel'] | RuntimeLifecycleHints['selectTab'],
-  timeoutMs: number,
-  signal?: AbortSignal,
-): Promise<void> {
-  if (!fingerprint) return;
-  const element = await waitForResolvedElement(fingerprint, timeoutMs, signal);
-  if (signal) throwIfTourPresentationCanceled(signal);
-  if (element instanceof HTMLElement) element.click();
-}
-
-async function waitForResolvedElement(
-  fingerprint: NonNullable<RuntimeLifecycleHints['waitForElement']>,
-  timeoutMs: number,
-  signal?: AbortSignal,
-): Promise<Element | null> {
-  const deadline = Date.now() + timeoutMs;
-  let result = resolve(fingerprint);
-  while (!result.element && Date.now() < deadline) {
-    if (signal) throwIfTourPresentationCanceled(signal);
-    await delay(50, signal);
-    result = resolve(fingerprint);
-  }
-  return result.element;
-}
-
-function delay(ms: number, signal?: AbortSignal): Promise<void> {
-  if (!signal) return new Promise((resolveDelay) => setTimeout(resolveDelay, ms));
-  if (signal.aborted) return Promise.reject(new TourPresentationCanceledError());
-  return new Promise((resolveDelay, rejectDelay) => {
-    const timer = setTimeout(() => {
-      signal.removeEventListener('abort', cancel);
-      resolveDelay();
-    }, ms);
-    const cancel = (): void => {
-      clearTimeout(timer);
-      rejectDelay(new TourPresentationCanceledError());
-    };
-    signal.addEventListener('abort', cancel, { once: true });
-  });
-}
-
-function lifecycleTextAppliesToCurrentLocale(lifecycle: RuntimeLifecycleHints): boolean {
-  if (!lifecycle.waitForTextLocale) return true;
-  const expected = canonicalLocale(lifecycle.waitForTextLocale);
-  const current = canonicalLocale(document.documentElement.lang || navigator.language);
-  if (!expected || !current) return false;
-  return expected === current || expected.split('-')[0] === current.split('-')[0];
-}
-
-function canonicalLocale(value: string): string | null {
-  const candidate = value.trim().replace(/_/g, '-');
-  if (!candidate) return null;
-  try {
-    return Intl.getCanonicalLocales(candidate)[0] ?? null;
-  } catch {
-    return null;
-  }
-}
-
-function nearestScrollable(element: Element): Element | null {
-  let current = element.parentElement;
-  while (current) {
-    const style = getComputedStyle(current);
-    if (/(auto|scroll)/.test(`${style.overflow}${style.overflowY}${style.overflowX}`))
-      return current;
-    current = current.parentElement;
-  }
-  return null;
-}
-
-function scrollIntoView(element: Element, options: ScrollIntoViewOptions): void {
-  if ('scrollIntoView' in element && typeof element.scrollIntoView === 'function') {
-    element.scrollIntoView(options);
-  }
-}
-
-function createStyles(): HTMLStyleElement {
-  return createNonceStyleElement(
-    document,
-    `
-    :host {
-      position: fixed;
-      inset: 0;
-      z-index: var(--lodariq-tour-z-index, 2147483647);
-      pointer-events: none;
-      font-family: var(--lq-tour-font-family);
-    }
-
-    .tour-target-outline {
-      box-sizing: border-box;
-      position: fixed;
-      z-index: 0;
-      border: 2px solid var(--lq-tour-focus-color);
-      border-radius: calc(var(--lq-tour-radius) + 2px);
-      box-shadow: 0 0 0 4px var(--lq-tour-focus-halo-color);
-      pointer-events: none;
-      animation: tour-target-outline-in var(--lq-tour-motion-duration)
-        var(--lq-tour-motion-easing) both;
-    }
-
-    .tour-target-outline[hidden] {
-      display: none;
-    }
-
-    @keyframes tour-target-outline-in {
-      from { opacity: 0; }
-      to { opacity: 1; }
-    }
-
-    div[role="dialog"] {
-      box-sizing: border-box;
-      width: min(var(--lq-tour-width), calc(100vw - 24px));
-      padding: var(--lq-tour-composition-padding, var(--lq-tour-spacing));
-      border: var(--lq-tour-border-width) solid var(--lq-tour-border-color);
-      border-radius: var(--lq-tour-radius);
-      background: var(--lq-tour-surface);
-      box-shadow: var(--lq-tour-elevation);
-      color: var(--lq-tour-text-color);
-      z-index: 1;
-      pointer-events: auto;
-      transition:
-        background-color var(--lq-tour-motion-duration) var(--lq-tour-motion-easing),
-        border-color var(--lq-tour-motion-duration) var(--lq-tour-motion-easing),
-        color var(--lq-tour-motion-duration) var(--lq-tour-motion-easing);
-    }
-
-    div[role="dialog"][data-lodariq-content-align="center"] { text-align: center; }
-    div[role="dialog"][data-lodariq-content-align="right"] { text-align: right; }
-    div[role="dialog"][data-lodariq-popup-width="custom"] {
-      width: min(var(--lq-popup-width), calc(100vw - 24px));
-    }
-    div[role="dialog"][data-lodariq-popup-height="custom"] {
-      height: min(var(--lq-popup-height), calc(100vh - 24px));
-      overflow: auto;
-    }
-    div[role="dialog"][data-lodariq-composition-padding="compact"] {
-      --lq-tour-composition-padding: var(--lq-tour-space-sm);
-    }
-    div[role="dialog"][data-lodariq-composition-padding="relaxed"] {
-      --lq-tour-composition-padding: var(--lq-tour-space-lg);
-    }
-
-    [data-lodariq-spacing-before="none"] { margin-top: 0 !important; }
-    [data-lodariq-spacing-before="tight"] { margin-top: var(--lq-tour-space-xs) !important; }
-    [data-lodariq-spacing-before="normal"] { margin-top: var(--lq-tour-space-sm) !important; }
-    [data-lodariq-spacing-before="relaxed"] { margin-top: var(--lq-tour-space-md) !important; }
-    [data-lodariq-spacing-after="none"] { margin-bottom: 0 !important; }
-    [data-lodariq-spacing-after="tight"] { margin-bottom: var(--lq-tour-space-xs) !important; }
-    [data-lodariq-spacing-after="normal"] { margin-bottom: var(--lq-tour-space-sm) !important; }
-    [data-lodariq-spacing-after="relaxed"] { margin-bottom: var(--lq-tour-space-md) !important; }
-    [data-lodariq-spacing-after-px] { margin-bottom: var(--lq-block-spacing-after) !important; }
-
-    .tour-arrow {
-      position: absolute;
-      z-index: 1;
-      width: 16px;
-      height: 16px;
-      border: 0;
-      background: transparent;
-      pointer-events: none;
-    }
-
-    .tour-arrow::before,
-    .tour-arrow::after {
-      position: absolute;
-      width: 0;
-      height: 0;
-      content: "";
-    }
-
-    .tour-arrow[data-side="bottom"]::before {
-      top: 0;
-      left: 0;
-      border-right: 8px solid transparent;
-      border-bottom: 9px solid var(--lq-tour-border-color);
-      border-left: 8px solid transparent;
-    }
-
-    .tour-arrow[data-side="bottom"]::after {
-      top: 2px;
-      left: 2px;
-      border-right: 6px solid transparent;
-      border-bottom: 7px solid var(--lq-tour-surface);
-      border-left: 6px solid transparent;
-    }
-
-    .tour-arrow[data-side="top"]::before {
-      bottom: 0;
-      left: 0;
-      border-top: 9px solid var(--lq-tour-border-color);
-      border-right: 8px solid transparent;
-      border-left: 8px solid transparent;
-    }
-
-    .tour-arrow[data-side="top"]::after {
-      bottom: 2px;
-      left: 2px;
-      border-top: 7px solid var(--lq-tour-surface);
-      border-right: 6px solid transparent;
-      border-left: 6px solid transparent;
-    }
-
-    .tour-arrow[data-side="right"]::before {
-      top: 0;
-      left: 0;
-      border-top: 8px solid transparent;
-      border-right: 9px solid var(--lq-tour-border-color);
-      border-bottom: 8px solid transparent;
-    }
-
-    .tour-arrow[data-side="right"]::after {
-      top: 2px;
-      left: 2px;
-      border-top: 6px solid transparent;
-      border-right: 7px solid var(--lq-tour-surface);
-      border-bottom: 6px solid transparent;
-    }
-
-    .tour-arrow[data-side="left"]::before {
-      top: 0;
-      right: 0;
-      border-top: 8px solid transparent;
-      border-bottom: 8px solid transparent;
-      border-left: 9px solid var(--lq-tour-border-color);
-    }
-
-    .tour-arrow[data-side="left"]::after {
-      top: 2px;
-      right: 2px;
-      border-top: 6px solid transparent;
-      border-bottom: 6px solid transparent;
-      border-left: 7px solid var(--lq-tour-surface);
-    }
-
-    .tour-arrow[hidden] {
-      display: none;
-    }
-
-    [data-lodariq-node-type="heading"] {
-      margin: 0 0 calc(var(--lq-tour-spacing) * .5);
-      font-size: var(--lq-tour-base-font-size);
-      font-weight: var(--lq-tour-heading-font-weight);
-      line-height: var(--lq-tour-heading-line-height);
-    }
-
-    [data-lodariq-node-type="paragraph"] {
-      margin: 0 0 var(--lq-tour-spacing);
-      color: var(--lq-tour-muted-text-color);
-      font-size: var(--lq-tour-small-font-size);
-      line-height: var(--lq-tour-body-line-height);
-    }
-
-    [data-lodariq-node-type="list"] {
-      margin: 0 0 var(--lq-tour-spacing) calc(var(--lq-tour-spacing) * 1.5);
-      padding: 0;
-      color: var(--lq-tour-text-color);
-      font-size: var(--lq-tour-small-font-size);
-      line-height: var(--lq-tour-body-line-height);
-    }
-
-    [data-lodariq-node-type="list"] li + li {
-      margin-top: 4px;
-    }
-
-    [data-lodariq-node-type="divider"] {
-      margin: var(--lq-tour-spacing) 0;
-      border: 0;
-      border-top: var(--lq-tour-border-width) solid var(--lq-tour-border-color);
-    }
-
-    [data-lodariq-node-type="media"] {
-      margin: var(--lq-tour-spacing) 0;
-      padding: var(--lq-tour-spacing);
-      border: var(--lq-tour-border-width) dashed var(--lq-tour-border-color);
-      border-radius: var(--lq-tour-radius);
-      background: var(--lq-tour-secondary-surface);
-      color: var(--lq-tour-secondary-text);
-      font-size: var(--lq-tour-small-font-size);
-      line-height: var(--lq-tour-body-line-height);
-      text-align: center;
-    }
-
-    [data-lodariq-node-type="link"] {
-      display: inline-flex;
-      align-items: center;
-      min-height: 36px;
-      margin-top: var(--lq-tour-space-xs);
-      color: var(--lq-tour-primary-surface);
-      font-size: var(--lq-tour-small-font-size);
-      font-weight: var(--lq-tour-action-font-weight);
-      text-decoration: none;
-      cursor: pointer;
-    }
-
-    [data-lodariq-node-type="link"]:hover {
-      text-decoration: underline;
-    }
-
-    [data-lodariq-node-type="paragraph"] a,
-    [data-lodariq-node-type="heading"] a {
-      display: inline;
-      min-height: 0;
-      margin: 0;
-      color: inherit;
-      font: inherit;
-      text-decoration: underline;
-    }
-
-    .tour-action-group {
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      gap: var(--lq-tour-space-sm);
-      margin: var(--lq-tour-space-xs) 0 0;
-    }
-
-    div[role="dialog"][data-lodariq-action-layout="stack"] .tour-action-group {
-      flex-direction: column;
-      align-items: stretch;
-    }
-
-    div[role="dialog"][data-lodariq-action-layout="inline"][data-lodariq-action-align="center"] .tour-action-group { justify-content: center; }
-    div[role="dialog"][data-lodariq-action-layout="inline"][data-lodariq-action-align="end"] .tour-action-group { justify-content: flex-end; }
-    div[role="dialog"][data-lodariq-action-layout="inline"][data-lodariq-action-align="stretch"] .tour-action-group > * { flex: 1 1 0; }
-    div[role="dialog"][data-lodariq-action-layout="stack"][data-lodariq-action-align="start"] .tour-action-group { align-items: flex-start; }
-    div[role="dialog"][data-lodariq-action-layout="stack"][data-lodariq-action-align="center"] .tour-action-group { align-items: center; }
-    div[role="dialog"][data-lodariq-action-layout="stack"][data-lodariq-action-align="end"] .tour-action-group { align-items: flex-end; }
-    div[role="dialog"][data-lodariq-composition-gap="none"] .tour-action-group { gap: 0; }
-    div[role="dialog"][data-lodariq-composition-gap="tight"] .tour-action-group { gap: var(--lq-tour-space-xs); }
-    div[role="dialog"][data-lodariq-composition-gap="normal"] .tour-action-group { gap: var(--lq-tour-space-sm); }
-    div[role="dialog"][data-lodariq-composition-gap="relaxed"] .tour-action-group { gap: var(--lq-tour-space-md); }
-
-    button {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: var(--lq-tour-space-xs);
-      min-height: 40px;
-      padding: var(--lq-tour-space-xs) var(--lq-tour-space-sm);
-      border: var(--lq-tour-border-width) solid transparent;
-      border-radius: var(--lq-tour-radius);
-      background: var(--lq-action-fill, var(--lq-tour-primary-surface));
-      color: var(--lq-action-text, var(--lq-tour-primary-text));
-      font: inherit;
-      font-weight: var(--lq-tour-action-font-weight);
-      cursor: pointer;
-    }
-
-    button[data-lodariq-action-variant="secondary"] {
-      border-color: var(--lq-action-border, var(--lq-tour-border-color));
-      background: var(--lq-action-fill, var(--lq-tour-secondary-surface));
-      color: var(--lq-action-text, var(--lq-tour-secondary-text));
-    }
-
-    button[data-lodariq-action-variant="subtle"] {
-      border-color: transparent;
-      background: var(--lq-action-fill, color-mix(in srgb, var(--lq-tour-primary-surface) 12%, transparent));
-      color: var(--lq-action-text, var(--lq-tour-primary-surface));
-    }
-
-    button[data-lodariq-action-variant="outline"] {
-      border-color: var(--lq-action-border, var(--lq-tour-primary-surface));
-      background: transparent;
-      color: var(--lq-action-text, var(--lq-tour-primary-surface));
-    }
-
-    button[data-lodariq-action-variant="link"] {
-      min-height: 36px;
-      border-color: transparent;
-      background: transparent;
-      color: var(--lq-action-text, var(--lq-tour-primary-surface));
-      padding-inline: var(--lq-tour-space-xs);
-      text-decoration: underline;
-    }
-
-    button[data-lodariq-action-size="compact"] { min-height: 36px; padding-block: var(--lq-tour-space-xs); }
-    button[data-lodariq-action-width="custom"] { width: min(100%, var(--lq-action-width)); }
-    button[data-lodariq-action-width="fill"] { width: 100%; }
-    button[data-lodariq-action-radius="square"] { border-radius: 0; }
-    button[data-lodariq-action-radius="soft"] { border-radius: var(--lq-tour-radius-sm); }
-    button[data-lodariq-action-radius="round"] { border-radius: 999px; }
-    button[data-lodariq-block-align="center"] { margin-inline: auto; }
-    button[data-lodariq-block-align="end"] { margin-inline: auto 0; }
-    button[data-lodariq-block-align="stretch"] { width: 100%; }
-
-    [data-lodariq-node-type="link"][data-lodariq-action-variant] {
-      justify-content: center;
-      gap: var(--lq-tour-space-xs);
-      min-height: 40px;
-      margin: 0;
-      padding: var(--lq-tour-space-xs) var(--lq-tour-space-sm);
-      border: var(--lq-tour-border-width) solid transparent;
-      border-radius: var(--lq-tour-radius);
-      text-decoration: none;
-    }
-
-    [data-lodariq-node-type="link"][data-lodariq-action-variant="primary"] {
-      background: var(--lq-action-fill, var(--lq-tour-primary-surface));
-      color: var(--lq-action-text, var(--lq-tour-primary-text));
-    }
-
-    [data-lodariq-node-type="link"][data-lodariq-action-variant="secondary"] {
-      border-color: var(--lq-action-border, var(--lq-tour-border-color));
-      background: var(--lq-action-fill, var(--lq-tour-secondary-surface));
-      color: var(--lq-action-text, var(--lq-tour-secondary-text));
-    }
-
-    [data-lodariq-node-type="link"][data-lodariq-action-variant="subtle"] {
-      background: var(--lq-action-fill, color-mix(in srgb, var(--lq-tour-primary-surface) 12%, transparent));
-      color: var(--lq-action-text, var(--lq-tour-primary-surface));
-    }
-
-    [data-lodariq-node-type="link"][data-lodariq-action-variant="outline"] {
-      border-color: var(--lq-action-border, var(--lq-tour-primary-surface));
-      background: transparent;
-      color: var(--lq-action-text, var(--lq-tour-primary-surface));
-    }
-
-    [data-lodariq-node-type="link"][data-lodariq-action-variant="link"] {
-      min-height: 36px;
-      padding-inline: var(--lq-tour-space-xs);
-      color: var(--lq-action-text, var(--lq-tour-primary-surface));
-      text-decoration: underline;
-    }
-
-    [data-lodariq-node-type="link"][data-lodariq-action-size="compact"] { min-height: 36px; }
-    [data-lodariq-node-type="link"][data-lodariq-action-width="custom"] { width: min(100%, var(--lq-action-width)); }
-    [data-lodariq-node-type="link"][data-lodariq-action-width="fill"] { width: 100%; }
-    [data-lodariq-node-type="link"][data-lodariq-action-radius="square"] { border-radius: 0; }
-    [data-lodariq-node-type="link"][data-lodariq-action-radius="soft"] { border-radius: var(--lq-tour-radius-sm); }
-    [data-lodariq-node-type="link"][data-lodariq-action-radius="round"] { border-radius: 999px; }
-    [data-lodariq-node-type="link"][data-lodariq-block-align="center"] { margin-inline: auto; }
-    [data-lodariq-node-type="link"][data-lodariq-block-align="end"] { margin-inline: auto 0; }
-    [data-lodariq-node-type="link"][data-lodariq-block-align="stretch"] { width: 100%; }
-
-    .tour-action-group > button:hover {
-      filter: brightness(.94);
-    }
-
-    .tour-action-icon {
-      width: 16px;
-      height: 16px;
-      flex: 0 0 auto;
-    }
-
-    [data-lodariq-node-type="button"] {
-      margin: 0;
-    }
-
-    .tour-skip {
-      display: flex;
-      min-height: 28px;
-      margin: var(--lq-tour-spacing) 0 0 auto;
-      padding: 4px 4px;
-      border: 0;
-      border-radius: 4px;
-      background: transparent;
-      color: var(--lq-tour-muted-text-color);
-      font-size: var(--lq-tour-small-font-size);
-      font-weight: 600;
-    }
-
-    .tour-skip:hover {
-      color: var(--lq-tour-text-color);
-      text-decoration: underline;
-    }
-
-    button:focus-visible,
-    a:focus-visible {
-      outline: 2px solid var(--lq-tour-focus-color);
-      outline-offset: 2px;
-    }
-
-    button[disabled],
-    [aria-disabled="true"] {
-      cursor: not-allowed;
-      opacity: 0.55;
-    }
-
-    :host([data-lodariq-embedded-preview]) {
-      position: absolute;
-      z-index: 1;
-      display: grid;
-      place-items: center;
-      box-sizing: border-box;
-      padding: 12px;
-      overflow: hidden;
-    }
-
-    :host([data-lodariq-embedded-preview]) div[role="dialog"] {
-      width: min(var(--lq-tour-width), 100%);
-      max-height: 100%;
-      overflow: auto;
-      pointer-events: none;
-    }
-
-    :host([data-lodariq-embedded-preview]) div[role="dialog"][data-lodariq-popup-width="custom"] {
-      width: min(var(--lq-popup-width), 100%);
-    }
-
-    :host([data-lodariq-embedded-preview]) div[role="dialog"][data-lodariq-popup-height="custom"] {
-      height: min(var(--lq-popup-height), 100%);
-    }
-
-    :host([data-lodariq-embedded-preview]) .tour-skip {
-      display: none;
-    }
-  `,
-  );
 }

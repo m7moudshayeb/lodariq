@@ -1,10 +1,9 @@
 'use client';
 
-import { useActionState, useMemo, useState } from 'react';
-import { useFormStatus } from 'react-dom';
+import { useMemo, useState } from 'react';
 import { Check, FileText, LoaderCircle } from 'lucide-react';
-import { loadDocumentDebugAction } from '../app/actions';
 import { initialDocumentDebugActionState } from '../app/document-debug-action-state';
+import { useDocumentDebug } from '../hooks/use-document-debug';
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
 import { Card, CardContent, CardDescription, CardTitle } from './ui/card';
@@ -14,13 +13,15 @@ import type { DashboardViewModel } from '../lib/view-model';
 
 interface DocumentDebugPanelProps {
   documentRows: DashboardViewModel['documentRows'];
+  workspaceId: string;
 }
 
-export function DocumentDebugPanel({ documentRows }: DocumentDebugPanelProps): React.ReactElement {
-  const [state, formAction] = useActionState(
-    loadDocumentDebugAction,
-    initialDocumentDebugActionState,
-  );
+export function DocumentDebugPanel({
+  documentRows,
+  workspaceId,
+}: DocumentDebugPanelProps): React.ReactElement {
+  const debug = useDocumentDebug(workspaceId);
+  const state = debug.data ?? initialDocumentDebugActionState;
   const [documentId, setDocumentId] = useState(documentRows[0]?.id ?? '');
   const [copied, setCopied] = useState<'draft' | 'delivery' | null>(null);
   const selectedDocument = useMemo(
@@ -59,8 +60,13 @@ export function DocumentDebugPanel({ documentRows }: DocumentDebugPanelProps): R
         </summary>
 
         <CardContent className="space-y-4 border-t pt-4">
-          <form className="grid gap-3" action={formAction}>
-            <input name="documentId" type="hidden" value={documentId} />
+          <form
+            className="grid gap-3"
+            onSubmit={(event) => {
+              event.preventDefault();
+              if (documentId) debug.mutate(documentId);
+            }}
+          >
             <div className="grid gap-2">
               <Label htmlFor="support-package-experience-trigger">Experience</Label>
               <Select
@@ -84,7 +90,7 @@ export function DocumentDebugPanel({ documentRows }: DocumentDebugPanelProps): R
               </Select>
             </div>
 
-            <SupportPackageSubmitButton disabled={!documentId} />
+            <SupportPackageSubmitButton disabled={!documentId} pending={debug.isPending} />
           </form>
 
           {state.status === 'error' ? (
@@ -192,8 +198,13 @@ function readinessIssueKey(issue: {
   return [issue.label, issue.blockId, issue.targetId, issue.message].filter(Boolean).join(':');
 }
 
-function SupportPackageSubmitButton({ disabled }: { disabled: boolean }): React.ReactElement {
-  const { pending } = useFormStatus();
+function SupportPackageSubmitButton({
+  disabled,
+  pending,
+}: {
+  disabled: boolean;
+  pending: boolean;
+}): React.ReactElement {
   return (
     <Button type="submit" variant="outline" disabled={disabled || pending}>
       {pending ? (

@@ -5,6 +5,7 @@ import { resolve } from 'node:path';
 import * as React from 'react';
 import { act, createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const dashboardApiMocks = vi.hoisted(() => ({
@@ -397,8 +398,15 @@ async function mountPopup(): Promise<MountedPopup> {
   const container = document.createElement('div');
   document.body.append(container);
   const root = createRoot(container);
+  const queryClient = new QueryClient({ defaultOptions: { mutations: { retry: false } } });
   await act(async () =>
-    root.render(createElement(AuthoringActivationPopup, { passwordRecoveryEnabled: true })),
+    root.render(
+      createElement(
+        QueryClientProvider,
+        { client: queryClient },
+        createElement(AuthoringActivationPopup, { passwordRecoveryEnabled: true }),
+      ),
+    ),
   );
   return { container, opener, postMessage, root };
 }

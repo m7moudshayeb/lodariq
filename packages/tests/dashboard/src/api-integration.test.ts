@@ -171,6 +171,16 @@ describe('@lodariq/dashboard API integration', () => {
       const requestUrl = new URL(
         typeof input === 'string' || input instanceof URL ? input.toString() : input.url,
       );
+      if (requestUrl.pathname === '/v1/auth/context') {
+        return new Response(
+          JSON.stringify({
+            userId: 'user_dashboard',
+            workspaceId: 'wk_dashboard',
+            role: 'owner',
+          }),
+          { status: 200, headers: { 'content-type': 'application/json' } },
+        );
+      }
       expect(requestUrl.pathname).toBe('/v1/debug/documents/doc_sensitive');
 
       return new Response(
@@ -246,7 +256,7 @@ describe('@lodariq/dashboard API integration', () => {
     formData.set('documentId', 'doc_sensitive');
     const state = await loadDocumentDebugAction(initialDocumentDebugActionState, formData);
 
-    expect(fetch).toHaveBeenCalledOnce();
+    expect(fetch).toHaveBeenCalledTimes(2);
     expect(state.status).toBe('success');
     if (state.status !== 'success') throw new Error('debug action failed');
     expect(state.canonicalJson).toContain('"token": "<redacted>"');

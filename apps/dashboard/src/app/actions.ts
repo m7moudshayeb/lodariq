@@ -27,6 +27,7 @@ import {
   updateEnvironmentReleasePolicy,
   updateWorkspaceEnvironmentPolicy,
   updateWorkspaceThemeDraft,
+  assertDashboardWorkspaceScope,
   DashboardApiError,
   type PublicSdkInstallationOriginDto,
   type WorkspaceEnvironmentDto,
@@ -36,6 +37,7 @@ import type { DocumentDebugActionState } from './document-debug-action-state';
 import type { SdkInstallationActionState } from './sdk-installation-action-state';
 import type { TokenRevokeActionState } from './token-revoke-action-state';
 import type { TokenActionState } from './token-action-state';
+import { requireDashboardActionRole } from '../lib/action-auth';
 
 export interface SaveBrandThemeDraftInput {
   themeId: string;
@@ -79,7 +81,9 @@ export async function updateEnvironmentReleasePolicyAction(input: {
     return { status: 'error', error: 'The production approval policy is invalid.' };
   }
   try {
+    const context = await requireDashboardActionRole('admin');
     const response = await updateEnvironmentReleasePolicy(input);
+    assertDashboardWorkspaceScope(context.workspaceId, response.environment);
     revalidatePath('/');
     return {
       status: 'success',
@@ -104,7 +108,7 @@ export async function updateEnvironmentReleasePolicyAction(input: {
     }
     return {
       status: 'error',
-      error: error instanceof Error ? error.message : 'Unable to update release approval.',
+      error: dashboardActionErrorMessage(error, 'Unable to update release approval.'),
     };
   }
 }
@@ -144,10 +148,12 @@ export async function updateWorkspaceEnvironmentPolicyAction(input: {
     return { status: 'error', error: 'The environment policy is invalid.' };
   }
   try {
+    const context = await requireDashboardActionRole('admin');
     const response = await updateWorkspaceEnvironmentPolicy({
       ...input,
       releasePolicy: policy.value,
     });
+    assertDashboardWorkspaceScope(context.workspaceId, response.environment);
     revalidatePath('/');
     return {
       status: 'success',
@@ -170,17 +176,19 @@ export async function updateWorkspaceEnvironmentPolicyAction(input: {
     }
     return {
       status: 'error',
-      error: error instanceof Error ? error.message : 'Unable to update the environment policy.',
+      error: dashboardActionErrorMessage(error, 'Unable to update the environment policy.'),
     };
   }
 }
 
 export async function createAccessibleBrandThemeAction(): Promise<BrandSystemActionState> {
   try {
+    const context = await requireDashboardActionRole('member');
     const response = await createWorkspaceTheme({
       name: 'Product brand',
       draft: LODARIQ_ACCESSIBLE_FALLBACK_THEME_V1.definition,
     });
+    assertDashboardWorkspaceScope(context.workspaceId, response.theme);
     revalidatePath('/');
     return {
       status: 'success',
@@ -195,10 +203,13 @@ export async function createAccessibleBrandThemeAction(): Promise<BrandSystemAct
 export async function loadBrandThemeImpactAction(themeId: string): Promise<BrandSystemActionState> {
   if (!isSafeRecordId(themeId)) return { status: 'error', error: 'Choose a Brand theme.' };
   try {
+    const context = await requireDashboardActionRole('viewer');
+    const detail = await loadWorkspaceTheme(themeId);
+    assertDashboardWorkspaceScope(context.workspaceId, detail.theme, ...detail.versions);
     return {
       status: 'success',
       message: 'Impact refreshed.',
-      detail: await loadWorkspaceTheme(themeId),
+      detail,
     };
   } catch (error) {
     return brandSystemActionError(error, 'Unable to load Brand impact.');
@@ -215,7 +226,9 @@ export async function saveBrandThemeDraftAction(
     return { status: 'error', error: 'Theme values are invalid. Review the highlighted controls.' };
   }
   try {
+    const context = await requireDashboardActionRole('member');
     const response = await updateWorkspaceThemeDraft(input);
+    assertDashboardWorkspaceScope(context.workspaceId, response.theme);
     revalidatePath('/');
     return { status: 'success', message: 'Draft saved.', theme: response.theme };
   } catch (error) {
@@ -230,7 +243,9 @@ export async function approveBrandThemeAction(
     return { status: 'error', error: 'Theme approval request is invalid.' };
   }
   try {
+    const context = await requireDashboardActionRole('admin');
     const response = await approveWorkspaceTheme(input);
+    assertDashboardWorkspaceScope(context.workspaceId, response.theme, response.approvedVersion);
     revalidatePath('/');
     return {
       status: 'success',
@@ -250,7 +265,9 @@ export async function makeDefaultBrandThemeAction(
     return { status: 'error', error: 'Default theme request is invalid.' };
   }
   try {
+    const context = await requireDashboardActionRole('admin');
     const response = await setDefaultWorkspaceTheme(input);
+    assertDashboardWorkspaceScope(context.workspaceId, response.theme);
     revalidatePath('/');
     return { status: 'success', message: 'Workspace default updated.', theme: response.theme };
   } catch (error) {
@@ -269,12 +286,14 @@ export async function acknowledgeApprovedBrandThemeAction(
     return { status: 'error', error: 'Theme acknowledgement request is invalid.' };
   }
   try {
+    const context = await requireDashboardActionRole('member');
     await setDocumentThemeBinding(input.documentId, {
       policy: 'workspace-current',
       themeId: input.themeId,
       acknowledgedThemeVersionId: input.themeVersionId,
     });
     const detail = await loadWorkspaceTheme(input.themeId);
+    assertDashboardWorkspaceScope(context.workspaceId, detail.theme, ...detail.versions);
     revalidatePath('/');
     return {
       status: 'success',
@@ -302,10 +321,12 @@ export async function createEnvironmentTokenAction(
   }
 
   try {
+    const context = await requireDashboardActionRole('member');
     const response = await createEnvironmentToken({
       environmentId,
       name,
     });
+    assertDashboardWorkspaceScope(context.workspaceId, response.token);
 
     return {
       status: 'success',
@@ -315,7 +336,7 @@ export async function createEnvironmentTokenAction(
   } catch (error) {
     return {
       status: 'error',
-      error: error instanceof Error ? error.message : 'Unable to create token.',
+      error: dashboardActionErrorMessage(error, 'Unable to create token.'),
     };
   }
 }
@@ -330,10 +351,15 @@ export async function createPublicSdkInstallationAction(
   }
 
   try {
+    const context = await requireDashboardActionRole('admin');
     const created = await createPublicSdkInstallation(name.trim());
+    assertDashboardWorkspaceScope(context.workspaceId, created.installation);
     let configured: Awaited<ReturnType<typeof configureInstallationOrigins>>;
     try {
-      configured = await configureInstallationOrigins(created.installation.installationId);
+      configured = await configureInstallationOrigins(
+        context.workspaceId,
+        created.installation.installationId,
+      );
     } catch {
       configured = {
         origins: [],
@@ -354,7 +380,7 @@ export async function createPublicSdkInstallationAction(
   } catch (error) {
     return {
       status: 'error',
-      error: error instanceof Error ? error.message : 'Unable to prepare the SDK installation.',
+      error: dashboardActionErrorMessage(error, 'Unable to prepare the SDK installation.'),
     };
   }
 }
@@ -367,12 +393,16 @@ export async function syncPublicSdkInstallationAction(
   if (!installationId) return { status: 'error', error: 'Choose an SDK installation.' };
 
   try {
+    const context = await requireDashboardActionRole('admin');
     const installations = await loadPublicSdkInstallations();
+    for (const installation of installations) {
+      assertDashboardWorkspaceScope(context.workspaceId, installation, ...installation.origins);
+    }
     const installation = installations.find(
       (candidate) => candidate.installationId === installationId && !candidate.revokedAt,
     );
     if (!installation) return { status: 'error', error: 'SDK installation was not found.' };
-    const configured = await configureInstallationOrigins(installationId);
+    const configured = await configureInstallationOrigins(context.workspaceId, installationId);
     revalidatePath('/');
     return {
       status: 'success',
@@ -385,7 +415,7 @@ export async function syncPublicSdkInstallationAction(
   } catch (error) {
     return {
       status: 'error',
-      error: error instanceof Error ? error.message : 'Unable to sync trusted origins.',
+      error: dashboardActionErrorMessage(error, 'Unable to sync trusted origins.'),
     };
   }
 }
@@ -398,7 +428,11 @@ export async function revokePublicSdkInstallationAction(
   if (!installationId) return { status: 'error', error: 'Choose an SDK installation.' };
 
   try {
+    const context = await requireDashboardActionRole('admin');
     const installations = await loadPublicSdkInstallations();
+    for (const installation of installations) {
+      assertDashboardWorkspaceScope(context.workspaceId, installation, ...installation.origins);
+    }
     const current = installations.find((candidate) => candidate.installationId === installationId);
     if (!current) return { status: 'error', error: 'SDK installation was not found.' };
     const revoked = await revokePublicSdkInstallation(installationId);
@@ -415,7 +449,7 @@ export async function revokePublicSdkInstallationAction(
   } catch (error) {
     return {
       status: 'error',
-      error: error instanceof Error ? error.message : 'Unable to revoke the SDK installation.',
+      error: dashboardActionErrorMessage(error, 'Unable to revoke the SDK installation.'),
     };
   }
 }
@@ -431,7 +465,9 @@ export async function loadDocumentDebugAction(
   }
 
   try {
+    const context = await requireDashboardActionRole('member');
     const debug = await loadDocumentDebug(documentId);
+    assertDashboardWorkspaceScope(context.workspaceId, debug.latestArtifact, ...debug.versions);
     const latestVersion = debug.versions[0];
 
     return {
@@ -448,7 +484,7 @@ export async function loadDocumentDebugAction(
   } catch (error) {
     return {
       status: 'error',
-      error: error instanceof Error ? error.message : 'Unable to load support details.',
+      error: dashboardActionErrorMessage(error, 'Unable to load support details.'),
     };
   }
 }
@@ -464,12 +500,14 @@ export async function revokeEnvironmentTokenAction(
   }
 
   try {
+    const context = await requireDashboardActionRole('member');
     const response = await revokeEnvironmentToken(tokenId);
+    assertDashboardWorkspaceScope(context.workspaceId, response.token);
     return { status: 'success', token: response.token };
   } catch (error) {
     return {
       status: 'error',
-      error: error instanceof Error ? error.message : 'Unable to revoke token.',
+      error: dashboardActionErrorMessage(error, 'Unable to revoke token.'),
     };
   }
 }
@@ -479,9 +517,10 @@ function stableDebugJson(value: unknown): string {
 }
 
 async function configureInstallationOrigins(
+  workspaceId: string,
   installationId: string,
 ): Promise<{ origins: PublicSdkInstallationOriginDto[]; warning?: string }> {
-  const environments = await loadWorkspaceEnvironments();
+  const environments = await loadWorkspaceEnvironments(workspaceId);
   const candidates = environments.flatMap((environment) => {
     if (environment.enabled === false) return [];
     return environment.originAllowlist.flatMap((value) => {
@@ -506,6 +545,7 @@ async function configureInstallationOrigins(
     (candidate) => occurrenceCount.get(candidate.origin) === 1,
   );
   const synced = await syncPublicSdkInstallationOrigins(installationId, uniqueCandidates);
+  assertDashboardWorkspaceScope(workspaceId, ...synced.origins);
   const ambiguousCount = candidates.length - uniqueCandidates.length;
   const warnings = [
     environments.length > 0 && candidates.length === 0
@@ -579,7 +619,11 @@ function brandSystemActionError(error: unknown, fallback: string): BrandSystemAc
       error: 'Your workspace role does not allow this Brand action.',
     };
   }
-  return { status: 'error', error: error instanceof Error ? error.message : fallback };
+  return { status: 'error', error: dashboardActionErrorMessage(error, fallback) };
+}
+
+function dashboardActionErrorMessage(error: unknown, fallback: string): string {
+  return error instanceof DashboardApiError ? error.message : fallback;
 }
 
 function redactDebugValue(value: unknown): unknown {

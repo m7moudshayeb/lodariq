@@ -1,6 +1,5 @@
 import {
   DEFAULT_EXPERIENCE_APPEARANCE,
-  publishReadinessIssueLabel,
   resolveExperienceAppearance,
   validateTourPublishReadiness,
   type ExperienceAppearance,
@@ -30,6 +29,7 @@ import {
 } from '../design-system';
 import { canApproveAndPromote, deriveAuthoringReleasePresentation } from '../release-presentation';
 import { useOptionalPanelModeStyles } from '../optional-panel-styles';
+import { publishIssueKey } from '../publish-issue-repair';
 import type { LocalAuthoringFrameSnapshot } from '../types';
 import { BrandDriftPanel } from './brand-drift';
 import { ReleaseFindings } from './release-findings';
@@ -37,6 +37,7 @@ import {
   ReleaseHistoryPanelImplementation as ReleaseHistoryPanel,
   ReleaseRecoveryConfirmationImplementation as ReleaseRecoveryConfirmation,
 } from './release-recovery-impl';
+import { PublishIssueAction } from './publish-issue-action';
 
 export function OptionalPanelBodyMode({
   controller,
@@ -556,12 +557,8 @@ function ReleaseVerificationContent({
         </div>
         <ul className="panel-check-list">
           {localIssues.map((issue) => (
-            <li className="failed" key={`${issue.code}:${issue.blockId ?? ''}`}>
-              <CircleAlert size={14} aria-hidden="true" />
-              <span>
-                <strong>{publishReadinessIssueLabel(issue.code)}</strong>
-                <small>{issue.message}</small>
-              </span>
+            <li className="failed publish-issue-row" key={publishIssueKey(issue)}>
+              <PublishIssueAction controller={controller} issue={issue} />
             </li>
           ))}
         </ul>

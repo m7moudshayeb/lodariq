@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { ArrowRight, KeyRound, LoaderCircle } from 'lucide-react';
 import { useEffect, useState, type FormEvent } from 'react';
-import { setPassword } from '../lib/client-auth-api';
+import { useAuthMutations } from '../hooks/use-auth-mutations';
 import type { AuthSessionSnapshot } from '../lib/auth-contract';
 import { Button, buttonVariants } from './ui/button';
 import { Input } from './ui/input';
@@ -24,6 +24,7 @@ export function SetPasswordForm({
   const [tokenReady, setTokenReady] = useState(false);
   const [error, setError] = useState('');
   const [pending, setPending] = useState(false);
+  const auth = useAuthMutations();
 
   useEffect(() => {
     const fragment = new URLSearchParams(window.location.hash.slice(1));
@@ -47,7 +48,7 @@ export function SetPasswordForm({
 
     setPending(true);
     try {
-      const session = await setPassword(challengeId, token, password);
+      const session = await auth.setPassword.mutateAsync({ challengeId, token, password });
       if (onAuthenticated) await onAuthenticated(session);
       else window.location.replace(returnTo);
     } catch (caught) {

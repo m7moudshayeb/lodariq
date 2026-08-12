@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { ArrowRight, LoaderCircle } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
-import { signIn, signUp } from '../lib/client-auth-api';
+import { useAuthMutations } from '../hooks/use-auth-mutations';
 import type { AuthSessionSnapshot, EmailVerificationRequiredResponse } from '../lib/auth-contract';
 import { EmailVerificationPanel } from './email-verification-panel';
 import { Button } from './ui/button';
@@ -34,6 +34,7 @@ export function AuthForm({
     response: EmailVerificationRequiredResponse;
   } | null>(null);
   const signUpMode = mode === 'sign-up';
+  const auth = useAuthMutations();
 
   async function completeAuthentication(session: AuthSessionSnapshot): Promise<void> {
     if (onAuthenticated) {
@@ -53,7 +54,7 @@ export function AuthForm({
     try {
       if (signUpMode) {
         const email = stringField(form, 'email');
-        const response = await signUp({
+        const response = await auth.signUp.mutateAsync({
           email,
           name: stringField(form, 'name'),
           workspaceName: stringField(form, 'workspaceName'),
@@ -62,7 +63,7 @@ export function AuthForm({
         return;
       }
 
-      const session = await signIn({
+      const session = await auth.signIn.mutateAsync({
         email: stringField(form, 'email'),
         password: passwordField(form),
       });

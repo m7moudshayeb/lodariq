@@ -16,6 +16,7 @@ import { RELEASE_STAGE_LABELS } from './dashboard-constants';
 type PublicationVariant = 'success' | 'warning' | 'outline';
 export type DashboardStatusVariant = PublicationVariant | 'info' | 'destructive';
 export type ReleaseStageTone = 'complete' | 'current' | 'pending' | 'attention';
+export type DashboardDocumentReadiness = 'blocked' | 'draft' | 'previewable' | 'archived';
 
 export interface DashboardReleaseStage {
   id: keyof typeof RELEASE_STAGE_LABELS;
@@ -67,9 +68,11 @@ export interface DashboardViewModel {
   documentRows: Array<
     DocumentSummaryDto & {
       statusLabel: string;
+      lifecycleVariant: DashboardStatusVariant;
       typeLabel: string;
       editorLabel: string;
       readinessDetail: string;
+      readinessState: DashboardDocumentReadiness;
       readinessIssueCount: number;
       readinessIssueSummary: string;
       updatedAtLabel: string;
@@ -136,12 +139,15 @@ export function buildDashboardViewModel(data: DashboardDataDto): DashboardViewMo
   const documentRows = data.documents.map((document) => {
     const publication = buildPublicationInfo(document, environmentById);
     const releaseQueue = buildReleaseQueueInfo(document);
+    const readinessState = documentReadinessState(document);
     return {
       ...document,
       statusLabel: formatStatus(document.status),
+      lifecycleVariant: documentLifecycleVariant(document.status),
       typeLabel: formatStatus(document.type),
       editorLabel: formatEditorLabel(document),
-      readinessDetail: formatReadinessDetail(document),
+      readinessDetail: DOCUMENT_READINESS_LABELS[readinessState],
+      readinessState,
       readinessIssueCount: document.publishReadinessIssues.length,
       readinessIssueSummary: formatReadinessIssueSummary(document),
       updatedAtLabel: formatDate(document.updatedAt),
@@ -823,14 +829,31 @@ function formatEditorLabel(document: DocumentSummaryDto): string {
   return 'Team update';
 }
 
-function formatReadinessDetail(document: DocumentSummaryDto): string {
-  if (document.publishReadinessIssues.length) {
-    return document.publishReadinessIssues[0]?.label ?? 'Needs review';
-  }
-  if (document.status === 'ready') return 'Ready to preview';
-  if (document.status === 'invalid') return 'Needs fixes before publishing';
-  if (document.status === 'draft') return 'Draft in progress';
-  return 'In progress';
+const DOCUMENT_READINESS_LABELS: Readonly<Record<DashboardDocumentReadiness, string>> = {
+  blocked: 'Needs fixes before publishing',
+  draft: 'Draft in progress',
+  previewable: 'Ready to preview',
+  archived: 'Archived',
+};
+
+const DOCUMENT_LIFECYCLE_VARIANTS: Readonly<
+  Record<DocumentSummaryDto['status'], DashboardStatusVariant>
+> = {
+  draft: 'warning',
+  review: 'info',
+  approved: 'success',
+  live: 'success',
+  archived: 'outline',
+};
+
+function documentReadinessState(document: DocumentSummaryDto): DashboardDocumentReadiness {
+  if (document.status === 'archived') return 'archived';
+  if (document.publishReadinessIssues.length) return 'blocked';
+  return document.latestContentHash ? 'previewable' : 'draft';
+}
+
+function documentLifecycleVariant(status: DocumentSummaryDto['status']): DashboardStatusVariant {
+  return DOCUMENT_LIFECYCLE_VARIANTS[status];
 }
 
 function formatReadinessIssueSummary(document: DocumentSummaryDto): string {

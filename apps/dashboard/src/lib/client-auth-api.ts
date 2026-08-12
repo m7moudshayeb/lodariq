@@ -12,12 +12,12 @@ import {
   type PasswordRecoveryAcceptedResponse,
 } from './auth-contract';
 
-interface SignInInput {
+export interface SignInInput {
   email: string;
   password: string;
 }
 
-interface SignUpInput {
+export interface SignUpInput {
   email: string;
   name: string;
   workspaceName: string;

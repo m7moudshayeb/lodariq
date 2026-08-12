@@ -1,11 +1,10 @@
-import type { DashboardDataDto } from '../lib/api';
+import type { DashboardWorkspaceData } from '@lodariq/schema';
 import type { AuthSessionSnapshot } from '../lib/auth-contract';
-import { buildDashboardViewModel } from '../lib/view-model';
 import { DashboardAuthControls } from './dashboard-auth-controls';
-import { DashboardWorkspace } from './dashboard-workspace';
+import { DashboardWorkspaceContainer } from './dashboard-workspace-container';
 
 interface DashboardShellProps {
-  data: DashboardDataDto;
+  data?: DashboardWorkspaceData;
   session: AuthSessionSnapshot;
   apiError?: string;
 }
@@ -15,13 +14,15 @@ export function DashboardShell({
   session,
   apiError,
 }: DashboardShellProps): React.ReactElement {
-  const viewModel = buildDashboardViewModel(data);
+  const workspaceId = session.activeWorkspaceId;
+  if (!workspaceId) throw new Error('DashboardShell requires an active workspace.');
   return (
-    <DashboardWorkspace
+    <DashboardWorkspaceContainer
       apiError={apiError}
       authControls={<DashboardAuthControls session={session} />}
       compactAuthControls={<DashboardAuthControls compact session={session} />}
-      viewModel={viewModel}
+      initialData={data}
+      workspaceId={workspaceId}
     />
   );
 }

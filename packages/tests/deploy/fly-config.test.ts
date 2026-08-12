@@ -111,7 +111,7 @@ describe('Fly deployment packaging', () => {
     }
     for (const path of apiFlyConfigs) expect(read(path)).toContain('path = "/readyz"');
     for (const path of livenessFlyConfigs) expect(read(path)).toContain('path = "/healthz"');
-    expect(read('apps/api/src/routes/control-plane.ts')).toContain(
+    expect(read('apps/api/src/routes/control-plane/register-health-and-cors.ts')).toContain(
       'await options.repository.checkReadiness()',
     );
     expect(read('apps/dashboard/src/app/healthz/route.ts')).toContain('{ ok: true }');

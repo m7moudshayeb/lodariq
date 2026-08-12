@@ -11,7 +11,7 @@ import {
   RefreshCw,
 } from 'lucide-react';
 import type { AnalyticsEventAggregate, AnalyticsTargetResolutionStatus } from '@lodariq/schema';
-import { loadAnalyticsAggregatesAction } from '../app/analytics-actions';
+import { useDashboardAnalytics } from '../hooks/use-dashboard-analytics';
 import { DASHBOARD_ANALYTICS_AGGREGATE_LIMIT } from '../lib/dashboard-constants';
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
@@ -25,6 +25,7 @@ export interface AnalyticsEnvironmentOption {
 
 interface AnalyticsPanelProps {
   environments: AnalyticsEnvironmentOption[];
+  workspaceId: string;
 }
 
 const CANONICAL_ANALYTICS_EVENT_LABELS: Readonly<Record<string, string>> = {
@@ -88,77 +89,33 @@ const TARGET_RESOLUTION_STATUS_LABELS = {
   unknown: 'Unknown',
 } as const satisfies Record<AnalyticsTargetResolutionStatus, string>;
 
-export function AnalyticsPanel({ environments }: AnalyticsPanelProps): React.ReactElement {
+export function AnalyticsPanel({
+  environments,
+  workspaceId,
+}: AnalyticsPanelProps): React.ReactElement {
   const productionEnvironmentId =
     environments.find((environment) => environment.kind === 'production')?.id ?? '';
   const [selectedEnvironmentId, setSelectedEnvironmentId] = React.useState(
     () => productionEnvironmentId,
   );
-  const [resultEnvironmentId, setResultEnvironmentId] = React.useState('');
-  const [aggregates, setAggregates] = React.useState<AnalyticsEventAggregate[] | null>(null);
-  const [loadError, setLoadError] = React.useState('');
-  const [loadingEnvironmentId, setLoadingEnvironmentId] = React.useState('');
-  const [loadPending, startLoadTransition] = React.useTransition();
-  const loadSequence = React.useRef(0);
-
   const selectedEnvironment = environments.find(
     (environment) => environment.id === selectedEnvironmentId,
   );
-
-  const loadEnvironment = React.useCallback((environmentId: string): void => {
-    const sequence = loadSequence.current + 1;
-    loadSequence.current = sequence;
-    setAggregates(null);
-    setResultEnvironmentId('');
-    setLoadError('');
-    setLoadingEnvironmentId(environmentId);
-    startLoadTransition(async () => {
-      try {
-        const result = await loadAnalyticsAggregatesAction({ environmentId });
-        if (loadSequence.current !== sequence) return;
-        if (result.status === 'error') {
-          setLoadError(result.error);
-          return;
-        }
-        if (
-          result.environmentId !== environmentId ||
-          result.response.aggregates.some((aggregate) => aggregate.environmentId !== environmentId)
-        ) {
-          setLoadError(
-            'Analytics data did not match the selected environment. No results were shown.',
-          );
-          return;
-        }
-        setResultEnvironmentId(environmentId);
-        setAggregates(result.response.aggregates);
-      } catch {
-        if (loadSequence.current !== sequence) return;
-        setLoadError('Analytics are temporarily unavailable for the selected environment.');
-      } finally {
-        if (loadSequence.current === sequence) setLoadingEnvironmentId('');
-      }
-    });
-  }, []);
+  const analyticsQuery = useDashboardAnalytics(
+    workspaceId,
+    selectedEnvironmentId,
+    Boolean(selectedEnvironment),
+  );
 
   React.useEffect(() => {
     if (environments.some((environment) => environment.id === selectedEnvironmentId)) return;
     setSelectedEnvironmentId(productionEnvironmentId);
   }, [environments, productionEnvironmentId, selectedEnvironmentId]);
 
-  React.useEffect(() => {
-    if (!selectedEnvironmentId) {
-      loadSequence.current += 1;
-      setAggregates(null);
-      setResultEnvironmentId('');
-      setLoadError('');
-      setLoadingEnvironmentId('');
-      return;
-    }
-    loadEnvironment(selectedEnvironmentId);
-  }, [loadEnvironment, selectedEnvironmentId]);
-
-  const selectedAggregates =
-    aggregates && resultEnvironmentId === selectedEnvironmentId ? aggregates : null;
+  const selectedAggregates = analyticsQuery.data?.aggregates ?? null;
+  const loadError = analyticsQuery.error
+    ? 'Analytics are temporarily unavailable for the selected environment.'
+    : '';
 
   if (!environments.length) {
     return (
@@ -187,8 +144,8 @@ export function AnalyticsPanel({ environments }: AnalyticsPanelProps): React.Rea
           {selectedEnvironmentId ? (
             <Button
               className="h-9 shrink-0"
-              disabled={loadPending}
-              onClick={() => loadEnvironment(selectedEnvironmentId)}
+              disabled={analyticsQuery.isFetching}
+              onClick={() => void analyticsQuery.refetch()}
               type="button"
               variant="outline"
             >
@@ -238,7 +195,7 @@ export function AnalyticsPanel({ environments }: AnalyticsPanelProps): React.Rea
           </p>
         ) : null}
 
-        {loadingEnvironmentId === selectedEnvironmentId ? (
+        {analyticsQuery.isFetching ? (
           <p
             className="rounded-xl border border-border bg-card p-4 text-sm text-muted-foreground"
             role="status"
@@ -256,7 +213,7 @@ export function AnalyticsPanel({ environments }: AnalyticsPanelProps): React.Rea
             {selectedEnvironmentId ? (
               <Button
                 className="h-9 shrink-0"
-                onClick={() => loadEnvironment(selectedEnvironmentId)}
+                onClick={() => void analyticsQuery.refetch()}
                 type="button"
                 variant="outline"
               >

@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { ArrowRight, LoaderCircle, MailCheck } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
-import { requestPasswordRecovery } from '../lib/client-auth-api';
+import { useAuthMutations } from '../hooks/use-auth-mutations';
 import type { PasswordRecoveryAcceptedResponse } from '../lib/auth-contract';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -19,6 +19,7 @@ export function PasswordRecoveryForm({
   const [accepted, setAccepted] = useState<PasswordRecoveryAcceptedResponse | null>(null);
   const [error, setError] = useState('');
   const [pending, setPending] = useState(false);
+  const auth = useAuthMutations();
 
   async function submit(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
@@ -28,7 +29,11 @@ export function PasswordRecoveryForm({
     const form = new FormData(event.currentTarget);
     const email = form.get('email');
     try {
-      setAccepted(await requestPasswordRecovery(typeof email === 'string' ? email.trim() : ''));
+      setAccepted(
+        await auth.requestPasswordRecovery.mutateAsync(
+          typeof email === 'string' ? email.trim() : '',
+        ),
+      );
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Please try again.');
     } finally {

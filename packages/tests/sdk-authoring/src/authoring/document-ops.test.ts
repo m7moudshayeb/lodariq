@@ -317,7 +317,10 @@ describe('authoring document ops', () => {
     expect(link).toMatchObject({
       type: 'link',
       content: 'Learn more',
-      props: { variant: 'link', action: { type: 'openPage' } },
+      props: {
+        variant: 'link',
+        action: { type: 'openPage', navigationBehavior: 'continue' },
+      },
       status: 'incomplete',
     });
   });
@@ -329,12 +332,34 @@ describe('authoring document ops', () => {
     expect(transformed[1]).toMatchObject({
       type: 'link',
       status: 'incomplete',
-      props: { action: { type: 'openPage' } },
+      props: { action: { type: 'openPage', navigationBehavior: 'continue' } },
     });
     expect(withUrl[1]).toMatchObject({
       type: 'link',
       status: 'ready',
-      props: { action: { type: 'openPage', url: '/settings' } },
+      props: {
+        action: {
+          type: 'openPage',
+          url: '/settings',
+          navigationBehavior: 'continue',
+        },
+      },
+    });
+  });
+
+  it('preserves navigation behavior while changing an open-page destination', () => {
+    const transformed = transformBlocks(blocks, 'copy_2', 'link');
+    const configured = setBlockAction(transformed, 'copy_2', {
+      type: 'openPage',
+      url: '/settings',
+      navigationBehavior: 'continue',
+    });
+    const changed = setBlockActionUrl(configured, 'copy_2', '/projects');
+
+    expect(changed[1]?.props.action).toEqual({
+      type: 'openPage',
+      url: '/projects',
+      navigationBehavior: 'continue',
     });
   });
 
@@ -345,7 +370,13 @@ describe('authoring document ops', () => {
     expect(withHttpUrl[1]).toMatchObject({
       type: 'link',
       status: 'invalid',
-      props: { action: { type: 'openPage', url: 'http://example.com/settings' } },
+      props: {
+        action: {
+          type: 'openPage',
+          url: 'http://example.com/settings',
+          navigationBehavior: 'continue',
+        },
+      },
     });
   });
 

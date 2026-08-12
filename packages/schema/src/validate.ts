@@ -1,5 +1,6 @@
 import { FormatRegistry, type TSchema, type Static } from '@sinclair/typebox';
-import { Value } from '@sinclair/typebox/value';
+import { Errors } from '@sinclair/typebox/errors';
+import { Check } from '@sinclair/typebox/value';
 import { SCHEMA_REGISTRY } from './registry';
 
 const RFC_3339_DATE_TIME =
@@ -8,7 +9,7 @@ const RFC_3339_DATE_TIME =
 FormatRegistry.Set('date-time', isRfc3339DateTime);
 
 /**
- * Lightweight validation helpers built on TypeBox's own Value module so
+ * Lightweight validation helpers built on TypeBox's validation functions so
  * @lodariq/schema stays dependency-light. The Fastify API uses Ajv against the
  * same JSON Schemas (PRD §11.1); this is for fixtures, tests, and local-dev.
  *
@@ -16,7 +17,7 @@ FormatRegistry.Set('date-time', isRfc3339DateTime);
  * dereference correctly.
  */
 export function isValid<T extends TSchema>(schema: T, value: unknown): value is Static<T> {
-  return Value.Check(schema, SCHEMA_REGISTRY, value);
+  return Check(schema, SCHEMA_REGISTRY, value);
 }
 
 export interface ValidationIssue {
@@ -28,10 +29,10 @@ export function validate<T extends TSchema>(
   schema: T,
   value: unknown,
 ): { valid: true; value: Static<T> } | { valid: false; errors: ValidationIssue[] } {
-  if (Value.Check(schema, SCHEMA_REGISTRY, value)) {
+  if (Check(schema, SCHEMA_REGISTRY, value)) {
     return { valid: true, value: value as Static<T> };
   }
-  const errors = [...Value.Errors(schema, SCHEMA_REGISTRY, value)].map((e) => ({
+  const errors = [...Errors(schema, SCHEMA_REGISTRY, value)].map((e) => ({
     path: e.path,
     message: e.message,
   }));

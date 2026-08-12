@@ -104,6 +104,8 @@ describe('release recovery authoring bridge contracts', () => {
         'document',
         'documentId',
         'environment',
+        'prefersDark',
+        'prefersReducedMotion',
         'productStyleSamplingCapability',
         'productionApprovalCapability',
         'productionPromotionCapability',

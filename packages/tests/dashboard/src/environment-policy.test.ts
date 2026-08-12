@@ -4,6 +4,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createDefaultEnvironmentReleasePolicy } from '@lodariq/schema';
 
 const mocks = vi.hoisted(() => ({
+  assertDashboardWorkspaceScope: vi.fn(),
+  loadControlPlaneContext: vi.fn(async () => ({
+    userId: 'user_a',
+    workspaceId: 'wk_a',
+    role: 'owner',
+  })),
   revalidatePath: vi.fn(),
   updateWorkspaceEnvironmentPolicy: vi.fn(),
 }));
@@ -12,6 +18,8 @@ vi.mock('../../../../apps/dashboard/src/lib/revalidation', () => ({
   revalidatePath: mocks.revalidatePath,
 }));
 vi.mock('../../../../apps/dashboard/src/lib/api', () => ({
+  assertDashboardWorkspaceScope: mocks.assertDashboardWorkspaceScope,
+  loadControlPlaneContext: mocks.loadControlPlaneContext,
   approveWorkspaceTheme: vi.fn(),
   createEnvironmentToken: vi.fn(),
   createPublicSdkInstallation: vi.fn(),
@@ -140,7 +148,7 @@ describe('@lodariq/dashboard environment policy', () => {
 
     expect(source).toContain("candidate.kind === 'staging'");
     expect(source).toContain('label="Require one approval"');
-    expect(source).toContain("current.kind === 'production' ? false : authoringEnabled");
+    expect(source).toContain("current.kind === 'production' ? false : submitted.authoringEnabled");
     expect(source).toContain(
       "current.kind === 'production' ? false : releasePolicy.allowDirectPublish",
     );

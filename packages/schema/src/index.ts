@@ -1,6 +1,7 @@
 export * from './version';
 export * from './common';
 export * from './control-plane';
+export * from './dashboard';
 export * from './environment-policy';
 export * from './auth';
 export * from './block';

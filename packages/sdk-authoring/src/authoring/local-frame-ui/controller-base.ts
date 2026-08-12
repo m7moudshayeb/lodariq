@@ -1,0 +1,250 @@
+import {
+  type BridgeMessage,
+  type AuthoringSaveState,
+  type PreviewPatchOperation,
+  type LodariqDocument,
+  type TargetLocale,
+  type TargetViewportClass,
+} from '@lodariq/schema';
+import { type BlockInsertPosition } from '../document-ops';
+import { LOCAL_AUTHORING_SESSION_ID } from '../constants';
+import { AuthoringBridge } from '../../bridge/transport';
+import { createLodariqEditor } from '../../editor';
+import type {
+  AuthoringPanelMode,
+  AuthoringPanelOperation,
+  AuthoringReleaseViewState,
+  FocusRequest,
+  LocalAuthoringFrameSnapshot,
+  TargetInspectionState,
+} from './types';
+import type {
+  AuthoringBrandMatchProposal,
+  AuthoringReleaseWorkflowState,
+  AuthoringStagingPublicationRequest,
+  LocalAuthoringFrameOptions,
+} from '../local-frame-types';
+import type {
+  AuthoringBrandDriftController,
+  AuthoringBrandDriftControllerSnapshot,
+} from '../brand-drift-controller';
+import { createAuthoringBrandDriftViewModel } from '../brand-drift-model';
+import {
+  type AuthoringReleaseRecoveryIntent,
+  type AuthoringReleaseRecoveryRequestIdentity,
+  type AuthoringReleaseRecoveryViewModel,
+} from '../release-recovery-model';
+import {
+  createAuthoringInteractionActor,
+  selectedBlockIdOf,
+  type AuthoringInteractionActor,
+} from '../state/interaction-machine';
+import { accessibleFallbackBrandState, initialReleaseView } from './controller-model';
+
+export abstract class ControllerBase {
+  protected readonly interactionActor: AuthoringInteractionActor =
+    createAuthoringInteractionActor();
+
+  protected readonly services: LocalAuthoringFrameOptions['services'];
+
+  protected previewTheme: LocalAuthoringFrameOptions['previewTheme'];
+
+  protected previewPreferences: LocalAuthoringFrameOptions['previewPreferences'];
+
+  protected readonly sessionId: string;
+
+  protected readonly lexicalEditor = createLodariqEditor();
+
+  protected readonly baseDocument: LodariqDocument;
+
+  protected readonly metricsSessionId: string;
+
+  protected readonly peerWindow: Window;
+
+  protected readonly isHostedInParent: boolean;
+
+  protected readonly bridge: AuthoringBridge;
+
+  protected readonly subscribers = new Set<(snapshot: LocalAuthoringFrameSnapshot) => void>();
+
+  protected readonly canceledTargetBlockIds = new Set<string>();
+
+  protected readonly targetDiagnostics = new Map<string, TargetInspectionState>();
+
+  protected readonly activeTargetInspectionRequestIds = new Map<string, string>();
+
+  protected readonly advancedTargetIds = new Set<string>();
+
+  protected readonly undoStack: LodariqDocument[] = [];
+
+  protected readonly redoStack: LodariqDocument[] = [];
+
+  protected readonly pendingPreviewPatches: Array<{
+    blockId: string;
+    ops: PreviewPatchOperation[];
+  }> = [];
+
+  protected documentState: LodariqDocument;
+
+  protected snapshotValue: LocalAuthoringFrameSnapshot;
+
+  protected slashText = '';
+
+  protected slashOpen = false;
+
+  protected status = '';
+
+  protected jsonText = '';
+
+  protected compiledText = '';
+
+  protected metricsText = '{}';
+
+  protected advancedEditorStepId: string | null = null;
+
+  protected hostPageRoute: string | undefined;
+
+  protected hostPageLocale: TargetLocale | undefined;
+
+  protected hostViewportClass: TargetViewportClass | undefined;
+
+  protected draggingBlockId: string | null = null;
+
+  protected draggingStepBlockId: string | null = null;
+
+  protected dragTargetBlockId: string | null = null;
+
+  protected dragTargetPosition: BlockInsertPosition | null = null;
+
+  protected pendingTargetBlockId: string | null = null;
+
+  protected activeTargetCaptureCorrelationId: string | null = null;
+
+  protected pendingPresentationAnchorPick: {
+    blockId: string;
+    targetId: string;
+    requestCorrelationId: string;
+  } | null = null;
+
+  protected previewPatchFlushQueued = false;
+
+  protected focusRequest: FocusRequest | null = null;
+
+  protected focusToken = 0;
+
+  protected release: AuthoringReleaseViewState;
+
+  protected saveState: { state: AuthoringSaveState; label: string } = {
+    state: 'saved',
+    label: 'Draft saved',
+  };
+
+  protected releaseRequestVersion = 0;
+
+  protected documentChangeSequence = 0;
+
+  protected pendingPublicationRequest: AuthoringStagingPublicationRequest | null = null;
+
+  protected panelMode: AuthoringPanelMode = 'edit';
+
+  protected panelReturnMode: AuthoringPanelMode = 'edit';
+
+  protected panelFocusToken = 0;
+
+  protected panelReturnFocus: 'appearance' | 'release' | null = null;
+
+  protected panelFocusTarget: string | null = null;
+
+  protected panelOperation: AuthoringPanelOperation = null;
+
+  protected brandWorkflow = accessibleFallbackBrandState();
+
+  protected brandProposal: AuthoringBrandMatchProposal | null = null;
+
+  protected readonly brandDriftController: AuthoringBrandDriftController | null;
+
+  protected brandDrift: AuthoringBrandDriftControllerSnapshot = {
+    operation: 'idle',
+    error: null,
+    previewActive: false,
+    previewMode: 'current',
+    model: createAuthoringBrandDriftViewModel(null, null),
+  };
+
+  protected releaseWorkflow: AuthoringReleaseWorkflowState | null = null;
+
+  protected releaseRecoveryEnvironmentId: string | null = null;
+
+  protected releaseRecoveryEntryFocusTarget: string | null = null;
+
+  protected releaseRecoveryModel: AuthoringReleaseRecoveryViewModel | null = null;
+
+  protected releaseRecoveryIntent: AuthoringReleaseRecoveryIntent | null = null;
+
+  protected releaseRecoveryRequestIdentity: AuthoringReleaseRecoveryRequestIdentity | null = null;
+
+  protected releaseRecoveryRequestVersion = 0;
+
+  protected panelWorkflowRequestVersion = 0;
+
+  protected highestAdoptedBrandDraftRevision = 0;
+
+  protected panelWorkflowError: string | null = null;
+
+  protected panelWorkflowNotice: string | null = null;
+
+  protected automaticTargetStyleMatchAttempted = false;
+
+  protected started = false;
+
+  protected get selectedBlockId(): string | null {
+    return selectedBlockIdOf(this.interactionActor);
+  }
+
+  protected set selectedBlockId(blockId: string | null) {
+    this.interactionActor.send(
+      blockId ? { type: 'SELECT_BLOCK', blockId } : { type: 'CLEAR_SELECTION' },
+    );
+  }
+
+  constructor(protected readonly options: LocalAuthoringFrameOptions) {
+    this.interactionActor.start();
+    this.services = options.services;
+    this.previewTheme = options.previewTheme ? structuredClone(options.previewTheme) : undefined;
+    this.previewPreferences = options.previewPreferences
+      ? { ...options.previewPreferences }
+      : undefined;
+    this.release = initialReleaseView(
+      this.hasReleaseServices(),
+      this.services.releaseUnavailableReason,
+    );
+    this.sessionId = options.sessionId ?? LOCAL_AUTHORING_SESSION_ID;
+    this.baseDocument = this.normalizeDocument(structuredClone(options.baseDocument));
+    this.documentState = this.normalizeDocument(
+      this.services.loadDocument(this.baseDocument.id) ?? this.createBaseDocument(),
+    );
+    this.brandDriftController = this.createBrandDriftController();
+    this.metricsSessionId = `${this.sessionId}:${options.now?.() ?? Date.now()}`;
+    this.peerWindow = options.peerWindow ?? window.parent;
+    this.isHostedInParent = this.peerWindow !== window;
+    this.bridge = new AuthoringBridge(this.peerWindow, {
+      allowedOrigins: options.allowedOrigins ?? [window.location.origin],
+      targetOrigin: options.targetOrigin ?? window.location.origin,
+      expectedSessionId: this.sessionId,
+      expectedDocumentId: () => this.documentState.id,
+      onMessage: (message) => this.handleBridgeMessage(message),
+    });
+    this.jsonText = this.services.exportDocument(this.documentState);
+    this.status = `Editing ${this.documentState.title}`;
+    this.renderMetrics();
+    this.snapshotValue = this.makeSnapshot();
+  }
+
+  protected abstract createBaseDocument(): LodariqDocument;
+  protected abstract createBrandDriftController(): AuthoringBrandDriftController | null;
+  protected abstract handleBridgeMessage(message: BridgeMessage): Promise<void> | void;
+  protected abstract hasReleaseServices(): boolean;
+  protected abstract makeSnapshot(): LocalAuthoringFrameSnapshot;
+  protected abstract normalizeDocument(doc: LodariqDocument): LodariqDocument;
+  protected abstract renderMetrics(): void;
+}

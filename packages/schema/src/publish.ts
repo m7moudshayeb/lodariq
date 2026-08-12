@@ -452,6 +452,13 @@ function validateActionBlock(
       message: `${blockLabel(block)} has a page URL on an action that does not use one.`,
     });
   }
+  if (action.type !== 'openPage' && action.navigationBehavior) {
+    issues.push({
+      code: 'action_not_allowed',
+      blockId: block.id,
+      message: `${blockLabel(block)} has navigation behavior on an action that does not navigate.`,
+    });
+  }
   if (action.type === 'openPage') {
     if (!action.url?.trim()) {
       issues.push({

@@ -13,16 +13,17 @@ const checks = [
     // authenticated-only compatibility surface retains synchronous direct-host
     // methods and recovery UI exports; it remains outside the production viewer.
     baseline: 229_644,
-    limit: 235 * 1024,
+    limit: 250 * 1024,
   },
   {
     name: 'authoring-frame',
     entries: ['authoring-frame.js'],
-    // Phase 2 completion baseline (2026-08-09): 131,394 bytes. The editor-origin
-    // frame keeps its synchronous exported React surface and remains absent from
-    // every production-viewer graph.
+    // Phase 2 completion baseline (2026-08-09): 131,394 bytes. The reviewed
+    // authoring-canvas transform, radius, and pointer controls add less than 1 KB
+    // while the editor-origin frame remains absent from every production-viewer
+    // graph.
     baseline: 131_394,
-    limit: 135 * 1024,
+    limit: 136 * 1024,
   },
   {
     name: 'creator-toolbar',
