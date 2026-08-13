@@ -508,7 +508,7 @@ test('creator edits rendered content directly and keeps the rail, JSON, and auto
   await expect(frame.locator('.document-main')).toHaveCount(0);
   await expect(frame.locator('.block')).toHaveCount(0);
   await expect(inlineHeading).toBeVisible();
-  await expect(inlineHeading).toHaveAttribute('contenteditable', 'plaintext-only');
+  await expect(inlineHeading).toHaveAttribute('contenteditable', 'true');
   await expect(inlineBody).toBeVisible();
   await expect(inlineButton).toBeVisible();
   await expect(toolbar).toBeVisible();
@@ -559,7 +559,7 @@ test('creator edits rendered content directly and keeps the rail, JSON, and auto
 
   const inlineLink = page.getByRole('textbox', { name: 'Edit link label in preview' });
   await expect(inlineLink).toHaveText('Learn more');
-  await expect(inlineLink).toHaveAttribute('contenteditable', 'plaintext-only');
+  await expect(inlineLink).toHaveAttribute('contenteditable', 'true');
   await replaceInlineContent(page, inlineLink, 'Read the launch notes');
 
   await expect
@@ -615,6 +615,58 @@ test('creator edits rendered content directly and keeps the rail, JSON, and auto
   await expect(reloadedEditor.getByRole('textbox', { name: 'Link label' })).toHaveValue(
     'Read the launch notes',
   );
+});
+
+test('inline preview debounce preserves formatted runs and the active caret', async ({ page }) => {
+  await page.goto('/');
+  await openAuthoringPanel(page);
+  const frame = page.frameLocator('iframe[title="Lodariq authoring"]');
+  const canvasParagraph = frame.getByRole('textbox', { name: 'Step paragraph' });
+
+  await canvasParagraph.focus();
+  await canvasParagraph.evaluate((element) => {
+    const range = element.ownerDocument.createRange();
+    range.selectNodeContents(element);
+    const selection = element.ownerDocument.getSelection();
+    selection?.removeAllRanges();
+    selection?.addRange(range);
+    element.dispatchEvent(new PointerEvent('pointerup', { bubbles: true }));
+  });
+  await frame.getByRole('combobox', { name: 'Font size' }).selectOption('24');
+
+  const inlineBody = page.getByRole('textbox', { name: 'Edit body text in preview' });
+  const formattedRun = inlineBody.locator('span').filter({ hasText: 'Projects' });
+  await expect(formattedRun).toHaveCSS('font-size', '24px');
+  await formattedRun.evaluate((element) => {
+    element.dataset['debounceIdentity'] = 'preserved';
+  });
+
+  const panelMinimized = await minimizeAuthoringPanelIfCovering(page, inlineBody);
+  await inlineBody.click();
+  await expect(inlineBody).toBeFocused();
+  await page.keyboard.press('End');
+  await page.keyboard.insertText(' Updated');
+  await page.waitForTimeout(500);
+
+  await expect(inlineBody).toBeFocused();
+  await expect(formattedRun).toHaveAttribute('data-debounce-identity', 'preserved');
+  await expect(formattedRun).toHaveCSS('font-size', '24px');
+  await page.keyboard.insertText(' again');
+  await page.waitForTimeout(500);
+  await expect(inlineBody).toBeFocused();
+  await expect(formattedRun).toHaveAttribute('data-debounce-identity', 'preserved');
+  await page.waitForTimeout(350);
+
+  await expect(inlineBody).toBeFocused();
+  await expect(formattedRun).toHaveAttribute('data-debounce-identity', 'preserved');
+  await expect(formattedRun).toHaveCSS('font-size', '24px');
+  await expect(inlineBody).toHaveText("Projects help organize your team's work. Updated again");
+  await expect
+    .poll(() => page.evaluate(() => localStorage.getItem('lodariq:doc:doc_tour_welcome') ?? ''))
+    .toContain("Projects help organize your team's work. Updated again");
+  await page.keyboard.insertText('!');
+  await expect(inlineBody).toHaveText("Projects help organize your team's work. Updated again!");
+  if (panelMinimized) await restoreAuthoringPanel(page);
 });
 
 test('creator can add an editable tour step from the primary action', async ({ page }) => {
@@ -1184,6 +1236,40 @@ test('hybrid workspace keeps details stable, compacts, restores, and resizes acc
   await moveAuthoringPanelAside(page);
   await page.getByRole('button', { name: 'Open settings' }).click();
   await expect(page.locator('#settings-drawer')).toHaveClass(/open/);
+});
+
+test('opening canvas configuration replaces the active side-action panel', async ({ page }) => {
+  await page.goto('/');
+  await openAuthoringPanel(page);
+
+  const frame = page.frameLocator('iframe[title="Lodariq authoring"]');
+  const tools = frame.getByRole('navigation', { name: 'Authoring tools' });
+  const canvasEditor = frame.getByRole('group', { name: 'Step content editor' });
+
+  await tools.getByRole('button', { name: 'Placement' }).click();
+  await expect(frame.getByRole('region', { name: 'Placement' })).toBeVisible();
+  await canvasEditor.getByRole('textbox', { name: 'Button label' }).focus();
+  await frame.getByRole('button', { name: 'More button settings' }).click();
+
+  await expect(frame.getByRole('region', { name: 'Placement' })).toHaveCount(0);
+  await expect(frame.getByRole('region', { name: 'Selected action style' })).toBeVisible();
+  await expect(tools.getByRole('button', { name: 'Content' })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  );
+
+  await tools.getByRole('button', { name: 'Popup' }).click();
+  await expect(frame.getByRole('region', { name: 'Selected action style' })).toHaveCount(0);
+  await expect(frame.getByRole('region', { name: 'Popup layout settings' })).toBeVisible();
+  await canvasEditor.getByRole('textbox', { name: 'Step paragraph' }).focus();
+  await frame.getByRole('button', { name: 'More text settings' }).click();
+
+  await expect(frame.getByRole('region', { name: 'Popup layout settings' })).toHaveCount(0);
+  await expect(frame.getByRole('region', { name: 'Selected block settings' })).toBeVisible();
+  await expect(tools.getByRole('button', { name: 'Content' })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  );
 });
 
 test('resizing the rich-text editor keeps the storyboard tray accessible without resizing the panel', async ({

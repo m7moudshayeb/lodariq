@@ -1093,11 +1093,11 @@ describe('local authoring panel (PRD §16.1)', () => {
     const action = tourRoot?.querySelector<HTMLElement>('[data-lodariq-node-id="button_1"]');
     if (!heading || !paragraph) throw new Error('inline preview fields missing');
 
-    expect(heading.getAttribute('contenteditable')).toBe('plaintext-only');
+    expect(heading.getAttribute('contenteditable')).toBe('true');
     expect(heading.getAttribute('role')).toBe('textbox');
     expect(heading.getAttribute('aria-label')).toBe('Edit heading in preview');
     expect(paragraph.getAttribute('aria-label')).toBe('Edit body text in preview');
-    expect(action?.getAttribute('contenteditable')).toBe('plaintext-only');
+    expect(action?.getAttribute('contenteditable')).toBe('true');
     expect(action?.getAttribute('aria-label')).toBe('Edit button label in preview');
     const contextToolbar = tourRoot?.querySelector<HTMLElement>(
       '[data-lodariq-authoring-context-toolbar="true"]',
@@ -1134,7 +1134,7 @@ describe('local authoring panel (PRD §16.1)', () => {
         ?.querySelector('[data-lodariq-node-id="heading_1"]')
         ?.hasAttribute('contenteditable'),
     ).toBe(false);
-    expect(heading.getAttribute('contenteditable')).toBe('plaintext-only');
+    expect(heading.getAttribute('contenteditable')).toBe('true');
     deliveredTour.stop();
 
     vi.mocked(peer.postMessage).mockClear();
@@ -1144,6 +1144,17 @@ describe('local authoring panel (PRD §16.1)', () => {
     expect(outboundMessages(peer, AUTHORING_INLINE_CONTENT_COMMIT_TYPE)).toHaveLength(0);
     dispatchPreviewPatch(peer, 'preview_patch_active_heading', 'heading_1', [
       { op: 'updateContent', content: 'Launch your first project' },
+    ]);
+    await Promise.resolve();
+    expect(playPreview).toHaveBeenCalledOnce();
+    expect(tourRoot?.activeElement).toBe(heading);
+
+    dispatchPreviewPatch(peer, 'preview_patch_active_heading_runs', 'heading_1', [
+      {
+        op: 'updateContentRuns',
+        content: 'Launch your first project',
+        contentRuns: [{ text: 'Launch your first project', marks: ['bold'] }],
+      },
     ]);
     await Promise.resolve();
     expect(playPreview).toHaveBeenCalledOnce();
@@ -1277,7 +1288,7 @@ describe('local authoring panel (PRD §16.1)', () => {
           .querySelector('lodariq-tour')
           ?.shadowRoot?.querySelector('[data-lodariq-node-id="heading_1"]')
           ?.getAttribute('contenteditable'),
-      ).toBe('plaintext-only'),
+      ).toBe('true'),
     );
     expect(authoringHost?.hasAttribute('data-lodariq-panel-minimized')).toBe(false);
 

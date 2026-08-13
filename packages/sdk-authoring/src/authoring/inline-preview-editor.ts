@@ -19,7 +19,14 @@ const INLINE_PREVIEW_CONTENT_TYPE_SET = new Set<string>(INLINE_PREVIEW_CONTENT_T
 const INLINE_EDITABLE_ATTRIBUTE = 'data-lodariq-authoring-inline-editable';
 const INLINE_STYLE_ATTRIBUTE = 'data-lodariq-authoring-inline-style';
 const INLINE_TOOLBAR_ATTRIBUTE = 'data-lodariq-authoring-context-toolbar';
-const INLINE_IDLE_COMMIT_MS = 300;
+const INLINE_IDLE_COMMIT_MS = 750;
+const BLOCKED_RICH_INPUT_TYPES = new Set([
+  'insertFromDrop',
+  'insertHTML',
+  'insertLink',
+  'insertOrderedList',
+  'insertUnorderedList',
+]);
 const INLINE_CONTENT_LABELS: Readonly<Record<InlinePreviewContentType, string>> = {
   heading: authoringText('Edit heading in preview'),
   paragraph: authoringText('Edit body text in preview'),
@@ -237,7 +244,10 @@ function enhanceEditableElement(
     element.setAttribute(name, value);
   };
   setManagedAttribute(INLINE_EDITABLE_ATTRIBUTE, 'true');
-  setManagedAttribute('contenteditable', 'plaintext-only');
+  // `plaintext-only` makes browsers flatten the renderer's existing inline
+  // spans on the first edit. Keep those trusted run elements intact and block
+  // author-generated rich input at the event boundary instead.
+  setManagedAttribute('contenteditable', 'true');
   setManagedAttribute('role', 'textbox');
   setManagedAttribute('aria-label', INLINE_CONTENT_LABELS[contentType]);
   setManagedAttribute('aria-multiline', 'false');
@@ -262,7 +272,7 @@ function enhanceEditableElement(
   const commit = (): void => {
     clearIdleCommit();
     const content = normalizeInlinePreviewContent(element.textContent ?? '');
-    if (element.textContent !== content || element.childElementCount > 0) setContent(content);
+    if (element.textContent !== content) setContent(content);
     if (content === baselineContent) return;
     const previousContent = baselineContent;
     baselineContent = content;
@@ -311,14 +321,19 @@ function enhanceEditableElement(
     commit();
   };
   const onBeforeInput = (event: InputEvent): void => {
-    if (event.inputType !== 'insertParagraph' && event.inputType !== 'insertLineBreak') return;
-    event.preventDefault();
-    commit();
-    element.blur();
+    if (event.inputType === 'insertParagraph' || event.inputType === 'insertLineBreak') {
+      event.preventDefault();
+      commit();
+      element.blur();
+      return;
+    }
+    if (event.inputType.startsWith('format') || BLOCKED_RICH_INPUT_TYPES.has(event.inputType)) {
+      event.preventDefault();
+    }
   };
   const onInput = (): void => {
     const content = normalizeInlinePreviewContent(element.textContent ?? '');
-    if (element.textContent !== content || element.childElementCount > 0) {
+    if (element.textContent !== content) {
       setContent(content);
       placeCaretAtEnd(element);
     }
@@ -345,6 +360,9 @@ function enhanceEditableElement(
     insertPlainText(element, text);
     onInput();
   };
+  const onDrop = (event: DragEvent): void => {
+    event.preventDefault();
+  };
   const onActionClick = (event: MouseEvent): void => {
     if (contentType !== 'button' && contentType !== 'link') return;
     event.preventDefault();
@@ -365,6 +383,7 @@ function enhanceEditableElement(
   element.addEventListener('input', onInput);
   element.addEventListener('keydown', onKeyDown);
   element.addEventListener('paste', onPaste);
+  element.addEventListener('drop', onDrop);
   element.addEventListener('click', onActionClick, true);
 
   return () => {
@@ -376,6 +395,7 @@ function enhanceEditableElement(
     element.removeEventListener('input', onInput);
     element.removeEventListener('keydown', onKeyDown);
     element.removeEventListener('paste', onPaste);
+    element.removeEventListener('drop', onDrop);
     element.removeEventListener('click', onActionClick, true);
     for (const [name, value] of previousAttributes) restoreAttribute(element, name, value);
   };

@@ -560,7 +560,9 @@ function RichStepContentEditor({
   useEffect(() => setPopupSelected(false), [step.id]);
 
   useEffect(() => {
-    if (toolMode !== 'content') setPropertyTrayOpen(false);
+    if (toolMode === 'content') return;
+    setPropertyTrayOpen(false);
+    setLinkEditorOpen(false);
   }, [toolMode]);
 
   useEffect(() => {
@@ -607,6 +609,13 @@ function RichStepContentEditor({
       patch,
     );
     controller.commitRichTextContent(activeBlock.id, content, contentRuns);
+  };
+
+  const openPropertyTray = (tab?: ActionPropertyTab): void => {
+    if (tab) setActivePropertyTab(tab);
+    setLinkEditorOpen(false);
+    onToolModeChange('content');
+    setPropertyTrayOpen(true);
   };
 
   const activateBlock = (block: LodariqBlock): void => {
@@ -718,8 +727,7 @@ function RichStepContentEditor({
             controller={controller}
             onDismiss={dismissActiveBlock}
             onMore={() => {
-              if (activeBlock.type === 'link') setActivePropertyTab('behavior');
-              setPropertyTrayOpen(true);
+              openPropertyTray(activeBlock.type === 'link' ? 'behavior' : undefined);
             }}
             position={contextToolbarPosition}
             tooltip={tooltip}
@@ -910,7 +918,7 @@ function RichStepContentEditor({
                   aria-label={authoringText('More text settings')}
                   title={authoringText('More text settings')}
                   onPointerDown={(event) => event.preventDefault()}
-                  onClick={() => setPropertyTrayOpen(true)}
+                  onClick={() => openPropertyTray()}
                 >
                   <MoreHorizontal size={16} strokeWidth={2.1} aria-hidden="true" />
                 </button>
@@ -922,7 +930,7 @@ function RichStepContentEditor({
                   type="button"
                   aria-label={authoringText('More block settings')}
                   title={authoringText('More block settings')}
-                  onClick={() => setPropertyTrayOpen(true)}
+                  onClick={() => openPropertyTray()}
                 >
                   <MoreHorizontal size={16} strokeWidth={2.1} aria-hidden="true" />
                 </button>

@@ -1555,7 +1555,9 @@ function openAuthoringPanel(
     }
     if (!preview) return persistence;
     if (ops.every((operation) => operation.op === 'updateTargetEvidence')) return persistence;
-    const contentOnlyPatch = ops.every((operation) => operation.op === 'updateContent');
+    const contentOnlyPatch = ops.every(
+      (operation) => operation.op === 'updateContent' || operation.op === 'updateContentRuns',
+    );
     if (contentOnlyPatch && inlinePreviewEditor?.isEditingBlock(blockId)) return persistence;
     const stepId = findContainingTourStepId(previewDocument.blocks, blockId);
     if (pendingTargetPickCorrelationId || suspendedPreview) {
