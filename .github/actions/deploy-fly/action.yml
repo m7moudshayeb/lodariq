@@ -1,0 +1,164 @@
+name: Deploy existing Fly apps
+description: Build, publish, deploy, and probe one existing Lodariq Fly environment
+
+inputs:
+  target:
+    description: Existing Fly environment to deploy
+    required: true
+  build_verified:
+    description: Whether the calling CI job built this exact commit successfully
+    required: false
+    default: 'false'
+  production_confirmation:
+    description: Exact production confirmation phrase for a manual Production deployment
+    required: false
+    default: ''
+  fly_api_token:
+    description: Fly API token supplied by the selected GitHub Environment
+    required: true
+  r2_account_id:
+    description: Cloudflare account ID supplied by the selected GitHub Environment
+    required: true
+  r2_access_key_id:
+    description: R2 access key ID supplied by the selected GitHub Environment
+    required: true
+  r2_secret_access_key:
+    description: R2 secret access key supplied by the selected GitHub Environment
+    required: true
+
+runs:
+  using: composite
+  steps:
+    # pnpm/action-setup v6, verified from the official annotated tag on 2026-08-09.
+    - name: Set up pnpm
+      uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86
+      with:
+        version: 9.15.9
+
+    # actions/setup-node v6, verified from the official tag on 2026-08-09.
+    - name: Set up Node.js
+      uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+      with:
+        node-version: 24
+        cache: pnpm
+
+    - name: Resolve and validate deployment target
+      id: target
+      shell: bash
+      env:
+        REQUESTED_TARGET: ${{ inputs.target }}
+        BUILD_VERIFIED: ${{ inputs.build_verified }}
+        PRODUCTION_CONFIRMATION: ${{ inputs.production_confirmation }}
+      run: node scripts/deployment/prepare-fly-deployment.mjs
+
+    - name: Install dependencies
+      shell: bash
+      run: pnpm install --frozen-lockfile --ignore-scripts
+
+    # Automatic Development already passed this exact gate in the calling CI
+    # workflow. Manual deployments rebuild, but unit/integration/E2E results do
+    # not block deployment.
+    - name: Build and bundle deployment inputs
+      if: ${{ inputs.build_verified != 'true' }}
+      shell: bash
+      run: |
+        pnpm run build
+        pnpm run size
+
+    # Fly's official setup-flyctl action, pinned from its official master branch on
+    # 2026-08-09. The CLI version is pinned to Fly's 2026-08-07 release.
+    - name: Install flyctl
+      uses: superfly/flyctl-actions/setup-flyctl@ed8efb33836e8b2096c7fd3ba1c8afe303ebbff1
+      with:
+        version: 0.4.80
+
+    - name: Require token and existing Fly resources
+      shell: bash
+      env:
+        FLY_API_TOKEN: ${{ inputs.fly_api_token }}
+        EDITOR_APP: ${{ steps.target.outputs.editor_app }}
+        API_APP: ${{ steps.target.outputs.api_app }}
+        DASHBOARD_APP: ${{ steps.target.outputs.dashboard_app }}
+      run: node scripts/deployment/check-fly-resources.mjs
+
+    - name: Publish verified SDK assets to existing R2 bucket
+      id: sdk_assets
+      shell: bash
+      env:
+        LODARIQ_CDN_ORIGIN: ${{ steps.target.outputs.cdn_origin }}
+        LODARIQ_SDK_ASSET_UPLOAD_CONFIRMATION: UPLOAD SDK ASSETS
+        R2_ACCOUNT_ID: ${{ inputs.r2_account_id }}
+        R2_BUCKET: ${{ steps.target.outputs.r2_bucket }}
+        R2_JURISDICTION: ${{ steps.target.outputs.r2_jurisdiction }}
+        R2_PUBLIC_BASE_URL: ${{ steps.target.outputs.cdn_origin }}
+        AWS_ACCESS_KEY_ID: ${{ inputs.r2_access_key_id }}
+        AWS_SECRET_ACCESS_KEY: ${{ inputs.r2_secret_access_key }}
+      run: |
+        pnpm sdk:prepare-assets
+        node scripts/publish-sdk-assets.mjs
+        node scripts/deployment/write-sdk-outputs.mjs
+
+    - name: Deploy editor
+      shell: bash
+      env:
+        FLY_API_TOKEN: ${{ inputs.fly_api_token }}
+        FLY_APP: ${{ steps.target.outputs.editor_app }}
+        FLY_CONFIG: ${{ steps.target.outputs.editor_config }}
+      run: >-
+        flyctl deploy --local-only --update-only --no-public-ips --skip-release-command
+        --app "$FLY_APP" --config "$FLY_CONFIG"
+
+    - name: Deploy API
+      shell: bash
+      env:
+        FLY_API_TOKEN: ${{ inputs.fly_api_token }}
+        FLY_APP: ${{ steps.target.outputs.api_app }}
+        FLY_CONFIG: ${{ steps.target.outputs.api_config }}
+        CREATOR_MODULE_URL: ${{ steps.sdk_assets.outputs.creator_module_url }}
+        CREATOR_MODULE_VERSION: ${{ steps.sdk_assets.outputs.creator_module_version }}
+        CREATOR_MODULE_INTEGRITY: ${{ steps.sdk_assets.outputs.creator_module_integrity }}
+      run: |
+        flyctl deploy --local-only --update-only --no-public-ips --skip-release-command \
+          --app "$FLY_APP" \
+          --config "$FLY_CONFIG" \
+          --env "LODARIQ_CREATOR_MODULE_URL=$CREATOR_MODULE_URL" \
+          --env "LODARIQ_CREATOR_MODULE_VERSION=$CREATOR_MODULE_VERSION" \
+          --env "LODARIQ_CREATOR_MODULE_INTEGRITY=$CREATOR_MODULE_INTEGRITY"
+
+    - name: Deploy dashboard
+      shell: bash
+      env:
+        FLY_API_TOKEN: ${{ inputs.fly_api_token }}
+        FLY_APP: ${{ steps.target.outputs.dashboard_app }}
+        FLY_CONFIG: ${{ steps.target.outputs.dashboard_config }}
+      run: >-
+        flyctl deploy --local-only --update-only --no-public-ips --skip-release-command
+        --app "$FLY_APP" --config "$FLY_CONFIG"
+
+    - name: Probe deployed services
+      shell: bash
+      env:
+        EDITOR_ORIGIN: ${{ steps.target.outputs.editor_origin }}
+        API_ORIGIN: ${{ steps.target.outputs.api_origin }}
+        DASHBOARD_ORIGIN: ${{ steps.target.outputs.dashboard_origin }}
+      run: node scripts/deployment/probe-fly-services.mjs
+
+    - name: Record deployment evidence
+      shell: bash
+      env:
+        TARGET: ${{ steps.target.outputs.target }}
+        EDITOR_APP: ${{ steps.target.outputs.editor_app }}
+        API_APP: ${{ steps.target.outputs.api_app }}
+        DASHBOARD_APP: ${{ steps.target.outputs.dashboard_app }}
+        CDN_ORIGIN: ${{ steps.target.outputs.cdn_origin }}
+        CREATOR_MODULE_VERSION: ${{ steps.sdk_assets.outputs.creator_module_version }}
+      run: |
+        {
+          echo "## Lodariq deployment"
+          echo "- Target: $TARGET"
+          echo "- Ref: $GITHUB_REF_NAME"
+          echo "- Commit: $GITHUB_SHA"
+          echo "- Fly apps: $EDITOR_APP, $API_APP, $DASHBOARD_APP"
+          echo "- SDK origin: $CDN_ORIGIN"
+          echo "- Creator module: $CREATOR_MODULE_VERSION"
+        } >> "$GITHUB_STEP_SUMMARY"

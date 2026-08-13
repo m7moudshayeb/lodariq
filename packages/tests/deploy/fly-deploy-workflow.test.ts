@@ -8,6 +8,7 @@ import { describe, expect, it } from 'vitest';
 const repoRoot = resolve(fileURLToPath(new URL('../../..', import.meta.url)));
 const workflow = read('.github/workflows/deploy-fly.yml');
 const ciWorkflow = read('.github/workflows/verify.yml');
+const deployAction = read('.github/actions/deploy-fly/action.yml');
 const prepareScript = read('scripts/deployment/prepare-fly-deployment.mjs');
 const targetsScript = read('scripts/deployment/fly-targets.mjs');
 const preflightScript = read('scripts/deployment/check-fly-resources.mjs');
@@ -15,6 +16,7 @@ const sdkOutputsScript = read('scripts/deployment/write-sdk-outputs.mjs');
 const probesScript = read('scripts/deployment/probe-fly-services.mjs');
 const deploymentSources = [
   workflow,
+  deployAction,
   prepareScript,
   targetsScript,
   preflightScript,
@@ -22,21 +24,22 @@ const deploymentSources = [
 ].join('\n');
 
 describe('Fly deployment workflow', () => {
-  it('is called by CI for automatic Development and exposes every target manually', () => {
-    const trigger = section('on:', 'permissions:');
+  it('keeps manual deployments separate while CI deploys Development in its own run', () => {
+    const trigger = section(workflow, 'on:', 'permissions:');
     const triggerNames = [...trigger.matchAll(/^ {2}([a-z_]+):$/gmu)].map((match) => match[1]);
 
-    expect(triggerNames).toEqual(['workflow_call', 'workflow_dispatch']);
+    expect(triggerNames).toEqual(['workflow_dispatch']);
     expect(trigger).not.toContain('push:');
-    expect(trigger).toContain('build_verified:');
-    expect(trigger).toContain('type: boolean');
     expect(trigger).toContain('workflow_dispatch:');
     expect(trigger).toContain(
       'options:\n          - development\n          - staging\n          - production',
     );
-    expect(ciWorkflow).toContain('uses: ./.github/workflows/deploy-fly.yml');
+    expect(workflow).toContain('uses: ./.github/actions/deploy-fly');
+    expect(ciWorkflow).toContain('uses: ./.github/actions/deploy-fly');
+    expect(ciWorkflow).not.toContain('uses: ./.github/workflows/deploy-fly.yml');
     expect(ciWorkflow).toContain('target: development');
-    expect(ciWorkflow).toContain('build_verified: true');
+    expect(ciWorkflow).toContain("build_verified: 'true'");
+    expect(ciWorkflow).toContain('name: fly-development');
   });
 
   it('waits for all CI signals but blocks Development only on build failure or cancellation', () => {
@@ -60,17 +63,20 @@ describe('Fly deployment workflow', () => {
   });
 
   it('requires a successful build for manual deployment without running tests as gates', () => {
-    const buildIndex = position('- name: Build and bundle deployment inputs');
-    const assetsIndex = position('- name: Publish verified SDK assets to existing R2 bucket');
+    const buildIndex = position(deployAction, '- name: Build and bundle deployment inputs');
+    const assetsIndex = position(
+      deployAction,
+      '- name: Publish verified SDK assets to existing R2 bucket',
+    );
 
-    expect(workflow).toContain('if: ${{ inputs.build_verified != true }}');
-    expect(workflow).toContain('pnpm run build');
-    expect(workflow).toContain('pnpm run size');
-    expect(workflow).not.toContain('pnpm verify');
-    expect(workflow).not.toContain('test:e2e');
-    expect(workflow).not.toContain('pnpm run test');
-    expect(workflow).not.toContain('playwright install');
-    expect(workflow).not.toContain('image: postgres:');
+    expect(deployAction).toContain("if: ${{ inputs.build_verified != 'true' }}");
+    expect(deployAction).toContain('pnpm run build');
+    expect(deployAction).toContain('pnpm run size');
+    expect(deployAction).not.toContain('pnpm verify');
+    expect(deployAction).not.toContain('test:e2e');
+    expect(deployAction).not.toContain('pnpm run test');
+    expect(deployAction).not.toContain('playwright install');
+    expect(deployAction).not.toContain('image: postgres:');
     expect(buildIndex).toBeLessThan(assetsIndex);
   });
 
@@ -149,25 +155,28 @@ describe('Fly deployment workflow', () => {
   });
 
   it('pins every action and the Fly CLI while using Node 24 and frozen pnpm 9 installs', () => {
-    const actionReferences = [...workflow.matchAll(/^\s*uses:\s+[^@\s]+@([^\s]+)$/gmu)].map(
-      (match) => match[1],
+    const actionReferences = [workflow, ciWorkflow, deployAction].flatMap((source) =>
+      [...source.matchAll(/^\s*uses:\s+[^@\s]+@([^\s]+)$/gmu)].map((match) => match[1]),
     );
 
-    expect(actionReferences).toHaveLength(4);
+    expect(actionReferences.length).toBeGreaterThan(0);
     for (const reference of actionReferences) expect(reference).toMatch(/^[a-f0-9]{40}$/u);
-    expect(workflow).toContain('node-version: 24');
-    expect(workflow).toContain('version: 9.15.9');
-    expect(workflow).toContain('version: 0.4.80');
-    expect(workflow).toContain('pnpm install --frozen-lockfile --ignore-scripts');
+    expect(deployAction).toContain('node-version: 24');
+    expect(deployAction).toContain('version: 9.15.9');
+    expect(deployAction).toContain('version: 0.4.80');
+    expect(deployAction).toContain('pnpm install --frozen-lockfile --ignore-scripts');
   });
 
   it('keeps the mutation sequence visible after the build gate', () => {
-    const buildIndex = position('- name: Build and bundle deployment inputs');
-    const assetsIndex = position('- name: Publish verified SDK assets to existing R2 bucket');
-    const editorIndex = position('- name: Deploy editor');
-    const apiIndex = position('- name: Deploy API');
-    const dashboardIndex = position('- name: Deploy dashboard');
-    const probesIndex = position('- name: Probe deployed services');
+    const buildIndex = position(deployAction, '- name: Build and bundle deployment inputs');
+    const assetsIndex = position(
+      deployAction,
+      '- name: Publish verified SDK assets to existing R2 bucket',
+    );
+    const editorIndex = position(deployAction, '- name: Deploy editor');
+    const apiIndex = position(deployAction, '- name: Deploy API');
+    const dashboardIndex = position(deployAction, '- name: Deploy dashboard');
+    const probesIndex = position(deployAction, '- name: Probe deployed services');
 
     expect(buildIndex).toBeLessThan(assetsIndex);
     expect(assetsIndex).toBeLessThan(editorIndex);
@@ -175,15 +184,17 @@ describe('Fly deployment workflow', () => {
     expect(apiIndex).toBeLessThan(dashboardIndex);
     expect(dashboardIndex).toBeLessThan(probesIndex);
     expect(
-      workflow.match(
+      deployAction.match(
         /flyctl deploy --local-only --update-only --no-public-ips --skip-release-command/gmu,
       ),
     ).toHaveLength(3);
   });
 
   it('fails closed without a token or already-provisioned apps and Machines', () => {
-    expect(workflow).toContain('FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}');
-    expect(workflow).toContain('node scripts/deployment/check-fly-resources.mjs');
+    expect(workflow).toContain('fly_api_token: ${{ secrets.FLY_API_TOKEN }}');
+    expect(ciWorkflow).toContain('fly_api_token: ${{ secrets.FLY_API_TOKEN }}');
+    expect(deployAction).toContain('FLY_API_TOKEN: ${{ inputs.fly_api_token }}');
+    expect(deployAction).toContain('node scripts/deployment/check-fly-resources.mjs');
     expect(preflightScript).toContain('if (!environment.FLY_API_TOKEN)');
     expect(preflightScript).toContain("['status', '--app', appName]");
     expect(preflightScript).toContain("['machine', 'list', '--app', appName, '--json']");
@@ -208,6 +219,7 @@ describe('Fly deployment workflow', () => {
 
   it('publishes reviewed SDK assets only to the selected existing R2 bucket', () => {
     const uploadSection = section(
+      deployAction,
       '- name: Publish verified SDK assets to existing R2 bucket',
       '- name: Deploy editor',
     );
@@ -216,19 +228,22 @@ describe('Fly deployment workflow', () => {
     expect(uploadSection).toContain('pnpm sdk:prepare-assets');
     expect(uploadSection).toContain('node scripts/publish-sdk-assets.mjs');
     expect(uploadSection).toContain('node scripts/deployment/write-sdk-outputs.mjs');
-    expect(uploadSection).toContain('R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}');
-    expect(uploadSection).toContain('AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}');
-    expect(uploadSection).toContain('AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}');
+    expect(workflow).toContain('r2_account_id: ${{ secrets.R2_ACCOUNT_ID }}');
+    expect(workflow).toContain('r2_access_key_id: ${{ secrets.R2_ACCESS_KEY_ID }}');
+    expect(workflow).toContain('r2_secret_access_key: ${{ secrets.R2_SECRET_ACCESS_KEY }}');
+    expect(uploadSection).toContain('R2_ACCOUNT_ID: ${{ inputs.r2_account_id }}');
+    expect(uploadSection).toContain('AWS_ACCESS_KEY_ID: ${{ inputs.r2_access_key_id }}');
+    expect(uploadSection).toContain('AWS_SECRET_ACCESS_KEY: ${{ inputs.r2_secret_access_key }}');
     expect(publisher).toContain("'head-bucket'");
     expect(publisher).toContain("'put-object'");
     expect(publisher).toContain("'head-object'");
     expect(publisher).not.toMatch(/delete-object|delete-bucket|create-bucket/iu);
     expect(sdkOutputsScript).toContain('Prepared SDK manifest has no creator module identity.');
-    expect(workflow).toContain('--env "LODARIQ_CREATOR_MODULE_URL=$CREATOR_MODULE_URL"');
+    expect(deployAction).toContain('--env "LODARIQ_CREATOR_MODULE_URL=$CREATOR_MODULE_URL"');
   });
 
   it('probes every exact public endpoint and validates the returned contracts', () => {
-    expect(workflow).toContain('node scripts/deployment/probe-fly-services.mjs');
+    expect(deployAction).toContain('node scripts/deployment/probe-fly-services.mjs');
     expect(probesScript).toContain("new URL('/healthz', editorOrigin)");
     expect(probesScript).toContain("new URL('/readyz', apiOrigin)");
     expect(probesScript).toContain("new URL('/healthz', dashboardOrigin)");
@@ -240,12 +255,13 @@ describe('Fly deployment workflow', () => {
     expect(probesScript).toContain("url.protocol !== 'https:'");
     expect(probesScript).toContain("redirect: 'manual'");
     expect(probesScript).toContain("redirectedUrl.protocol !== 'https:'");
-    expect(workflow).toContain('echo "- Ref: $GITHUB_REF_NAME"');
-    expect(workflow).toContain('echo "- Commit: $GITHUB_SHA"');
+    expect(deployAction).toContain('echo "- Ref: $GITHUB_REF_NAME"');
+    expect(deployAction).toContain('echo "- Commit: $GITHUB_SHA"');
   });
 
   it('keeps the orchestration workflow compact', () => {
-    expect(workflow.split('\n').length).toBeLessThan(230);
+    expect(workflow.split('\n').length).toBeLessThan(80);
+    expect(deployAction.split('\n').length).toBeLessThan(190);
   });
 });
 
@@ -253,12 +269,12 @@ function read(path: string): string {
   return readFileSync(resolve(repoRoot, path), 'utf8');
 }
 
-function section(start: string, end: string): string {
-  return workflow.slice(position(start), position(end));
+function section(source: string, start: string, end: string): string {
+  return source.slice(position(source, start), position(source, end));
 }
 
-function position(value: string): number {
-  const index = workflow.indexOf(value);
+function position(source: string, value: string): number {
+  const index = source.indexOf(value);
   expect(index, `Expected workflow to contain ${value}`).toBeGreaterThanOrEqual(0);
   return index;
 }

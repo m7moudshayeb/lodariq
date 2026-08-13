@@ -187,7 +187,24 @@ jobs:
       - build
       - end-to-end-tests
       - dependency-audit
-    uses: ./.github/workflows/deploy-fly.yml
-    with:
-      target: development
-      build_verified: true
+    runs-on: ubuntu-latest
+    environment:
+      name: fly-development
+    concurrency:
+      group: fly-deploy-development
+      cancel-in-progress: false
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+
+      - name: Deploy existing Fly apps
+        uses: ./.github/actions/deploy-fly
+        with:
+          target: development
+          build_verified: 'true'
+          fly_api_token: ${{ secrets.FLY_API_TOKEN }}
+          r2_account_id: ${{ secrets.R2_ACCOUNT_ID }}
+          r2_access_key_id: ${{ secrets.R2_ACCESS_KEY_ID }}
+          r2_secret_access_key: ${{ secrets.R2_SECRET_ACCESS_KEY }}
