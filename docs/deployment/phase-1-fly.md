@@ -141,15 +141,21 @@ need.
 
 ## Deployment Automation Policy
 
-The `.github/workflows/deploy-fly.yml` workflow has three explicit paths:
+The verification and Fly deployment workflows have three explicit paths:
 
-- Every push to `master`, including a merged pull request, automatically deploys
-  the exact `master` commit to `fly-development`.
+- Every push to `master`, including a merged pull request, runs every CI job in
+  `.github/workflows/verify.yml`. Its final `deploy-development` job waits for
+  all CI jobs to finish, but only the successful build-and-bundle job is a
+  deployment gate. Static checks, unit/integration tests, browser E2E suites,
+  and the security audit remain visible CI signals and do not block Development.
+  A failed build or a cancelled workflow prevents deployment.
 - A manual run targeting `development` deploys the branch selected in GitHub's
-  workflow UI. Use this for an epic/feature branch that needs real-origin tests.
+  workflow UI after rebuilding the packages, applications, and bundles. Use this
+  for an epic/feature branch that needs real-origin tests.
 - `staging` and `production` are manual-only and fail closed unless the selected
-  ref is `master`. Production additionally requires the exact confirmation
-  phrase `DEPLOY PRODUCTION`.
+  ref is `master`; they also require a successful build before mutation, but do
+  not run unit/integration or E2E tests as deployment gates. Production
+  additionally requires the exact confirmation phrase `DEPLOY PRODUCTION`.
 
 The workflow only updates existing Fly Machines and uploads to an existing R2
 bucket. It never creates apps, Machines, DNS, certificates, buckets, secrets,

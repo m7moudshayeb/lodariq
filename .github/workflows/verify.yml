@@ -171,3 +171,23 @@ jobs:
 
       - name: Audit production and development dependencies
         run: pnpm run audit:security
+
+  deploy-development:
+    name: Deploy Development
+    if: >-
+      ${{
+        !cancelled() &&
+        github.event_name == 'push' &&
+        github.ref == 'refs/heads/master' &&
+        needs.build.result == 'success'
+      }}
+    needs:
+      - static-checks
+      - unit-tests
+      - build
+      - end-to-end-tests
+      - dependency-audit
+    uses: ./.github/workflows/deploy-fly.yml
+    with:
+      target: development
+      build_verified: true
