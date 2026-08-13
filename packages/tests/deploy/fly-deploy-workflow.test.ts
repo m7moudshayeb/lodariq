@@ -64,6 +64,7 @@ describe('Fly deployment workflow', () => {
 
   it('requires a successful build for manual deployment without running tests as gates', () => {
     const buildIndex = position(deployAction, '- name: Build and bundle deployment inputs');
+    const prepareIndex = position(deployAction, '- name: Prepare manually built SDK assets');
     const assetsIndex = position(
       deployAction,
       '- name: Publish verified SDK assets to existing R2 bucket',
@@ -77,7 +78,22 @@ describe('Fly deployment workflow', () => {
     expect(deployAction).not.toContain('pnpm run test');
     expect(deployAction).not.toContain('playwright install');
     expect(deployAction).not.toContain('image: postgres:');
+    expect(prepareIndex).toBeGreaterThan(buildIndex);
     expect(buildIndex).toBeLessThan(assetsIndex);
+  });
+
+  it('transfers the exact Development SDK assets from the successful build job', () => {
+    expect(ciWorkflow).toContain('name: Preserve verified Development SDK assets');
+    expect(ciWorkflow).toContain('LODARIQ_CDN_ORIGIN: https://dev-cdn.lodariq.io');
+    expect(ciWorkflow).toContain('path: dist/sdk-assets');
+    expect(ciWorkflow).toContain('if-no-files-found: error');
+    expect(ciWorkflow).toContain('retention-days: 1');
+    expect(deployAction).toContain('name: Restore SDK assets from the verified build');
+    expect(deployAction).toContain("if: ${{ inputs.build_verified == 'true' }}");
+
+    const artifactName = 'name: lodariq-sdk-assets-${{ github.sha }}';
+    expect(ciWorkflow).toContain(artifactName);
+    expect(deployAction).toContain(artifactName);
   });
 
   it('validates automatic, branch-selected, Staging, and Production trigger policy', () => {
@@ -225,9 +241,9 @@ describe('Fly deployment workflow', () => {
     );
     const publisher = read('scripts/publish-sdk-assets.mjs');
 
-    expect(uploadSection).toContain('pnpm sdk:prepare-assets');
     expect(uploadSection).toContain('node scripts/publish-sdk-assets.mjs');
     expect(uploadSection).toContain('node scripts/deployment/write-sdk-outputs.mjs');
+    expect(uploadSection).not.toContain('pnpm sdk:prepare-assets');
     expect(workflow).toContain('r2_account_id: ${{ secrets.R2_ACCOUNT_ID }}');
     expect(workflow).toContain('r2_access_key_id: ${{ secrets.R2_ACCESS_KEY_ID }}');
     expect(workflow).toContain('r2_secret_access_key: ${{ secrets.R2_SECRET_ACCESS_KEY }}');

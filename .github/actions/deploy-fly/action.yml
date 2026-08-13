@@ -65,6 +65,21 @@ runs:
         pnpm run build
         pnpm run size
 
+    - name: Prepare manually built SDK assets
+      if: ${{ inputs.build_verified != 'true' }}
+      shell: bash
+      env:
+        LODARIQ_CDN_ORIGIN: ${{ steps.target.outputs.cdn_origin }}
+      run: pnpm sdk:prepare-assets
+
+    # actions/download-artifact v8.0.1, verified from the official tag on 2026-08-13.
+    - name: Restore SDK assets from the verified build
+      if: ${{ inputs.build_verified == 'true' }}
+      uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+      with:
+        name: lodariq-sdk-assets-${{ github.sha }}
+        path: dist/sdk-assets
+
     # Fly's official setup-flyctl action, pinned from its official master branch on
     # 2026-08-09. The CLI version is pinned to Fly's 2026-08-07 release.
     - name: Install flyctl
@@ -94,7 +109,6 @@ runs:
         AWS_ACCESS_KEY_ID: ${{ inputs.r2_access_key_id }}
         AWS_SECRET_ACCESS_KEY: ${{ inputs.r2_secret_access_key }}
       run: |
-        pnpm sdk:prepare-assets
         node scripts/publish-sdk-assets.mjs
         node scripts/deployment/write-sdk-outputs.mjs
 

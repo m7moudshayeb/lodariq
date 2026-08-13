@@ -150,7 +150,10 @@ The verification and Fly deployment workflows have three explicit paths:
   and the security audit remain visible CI signals and do not block Development.
   A failed build or a cancelled workflow prevents deployment. This job is bound
   directly to the `fly-development` GitHub Environment, so that Environment's
-  Fly and R2 secrets are available without starting a second workflow run.
+  Fly and R2 secrets are available without starting a second workflow run. The
+  build job uploads its prepared Development SDK directory as a one-day workflow
+  artifact, and the deploy job restores that exact artifact; jobs never assume
+  another runner's filesystem is shared.
 - A manual run targeting `development` deploys the branch selected in GitHub's
   workflow UI after rebuilding the packages, applications, and bundles. Use this
   for an epic/feature branch that needs real-origin tests.
