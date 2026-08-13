@@ -132,17 +132,23 @@ describe('SDK CDN asset packaging', () => {
       cache: 'short',
       cacheControl: 'public,max-age=300,must-revalidate',
     });
-    expect(plan.files.find((file) => file.path === new URL(plan.creatorModule.url).pathname)).toMatchObject(
-      {
-        cache: 'immutable',
-        cacheControl: 'public,max-age=31536000,immutable',
-      },
-    );
+    expect(
+      plan.files.find((file) => file.path === new URL(plan.creatorModule.url).pathname),
+    ).toMatchObject({
+      cache: 'immutable',
+      cacheControl: 'public,max-age=31536000,immutable',
+    });
 
     const publisher = readFileSync(resolve(repoRoot, 'scripts/publish-sdk-assets.mjs'), 'utf8');
     expect(publisher).toContain("'head-bucket'");
     expect(publisher).toContain("'put-object'");
     expect(publisher).toContain("'head-object'");
+    expect(publisher).toContain("new Set(['default', 'eu', 'fedramp'])");
+    expect(publisher).toContain('jurisdictionSubdomain');
+    expect(publisher).toContain('cacheControlMatches');
+    expect(publisher).toContain("url.searchParams.set('lodariqVerification', randomUUID())");
+    expect(publisher).toContain("process.argv.includes('--verify-public')");
+    expect(publisher).toContain('public SDK assets without uploading');
     expect(publisher).not.toMatch(/delete-object|delete-bucket|create-bucket/iu);
   });
 

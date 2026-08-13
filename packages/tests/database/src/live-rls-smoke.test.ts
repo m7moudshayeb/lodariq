@@ -78,8 +78,24 @@ describe('live Neon RLS verification script', () => {
     ]) {
       expect(source).toContain(`select id from ${table}`);
     }
-    expect(source).toContain("policies.has('release_operations:release_operations_lifecycle_update')");
+    expect(source).toContain(
+      "policies.has('release_operations:release_operations_lifecycle_update')",
+    );
     expect(source).toContain("row.cmd === 'ALL' || row.cmd === 'DELETE'");
+  });
+
+  it('activates a scratch theme only after its approved version exists', () => {
+    const source = readFileSync(scriptPath, 'utf8');
+    const scratchStart = source.indexOf('async function expectVersionAndPublicationRecords');
+    const scratchEnd = source.indexOf('async function createScratchWorkspace', scratchStart);
+    const scratchSource = source.slice(scratchStart, scratchEnd);
+    const draftInsert = scratchSource.indexOf('1, false)');
+    const versionInsert = scratchSource.indexOf('insert into theme_versions');
+    const activation = scratchSource.indexOf('is_default = true');
+
+    expect(draftInsert).toBeGreaterThan(-1);
+    expect(versionInsert).toBeGreaterThan(draftInsert);
+    expect(activation).toBeGreaterThan(versionInsert);
   });
 
   it('fails closed without a live DATABASE_URL', () => {

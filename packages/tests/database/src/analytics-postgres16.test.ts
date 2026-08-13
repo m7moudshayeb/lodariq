@@ -11,7 +11,7 @@ import {
 } from '@lodariq/database';
 import * as databaseSchema from '@lodariq/database/schema';
 import type { AuthoritativeAnalyticsEvent } from '@lodariq/schema';
-import { INITIAL_BASELINE_PATH } from './migration-test-utils.js';
+import { listCheckedInSqlPaths } from './migration-test-utils.js';
 
 const ADMIN_DATABASE_URL = process.env.LODARIQ_TEST_POSTGRES_ADMIN_URL?.trim() ?? '';
 const DISPOSABLE_POSTGRES_ENABLED =
@@ -73,7 +73,9 @@ describe.skipIf(!DISPOSABLE_POSTGRES_ENABLED)(
       runPsqlSync(ADMIN_DATABASE_URL, `create database ${quoteIdentifier(TEST_DATABASE_NAME)};`);
       databaseCreated = true;
       ownerDatabaseUrl = databaseUrlFor(ADMIN_DATABASE_URL, TEST_DATABASE_NAME);
-      runPsqlFileSync(ownerDatabaseUrl, INITIAL_BASELINE_PATH);
+      for (const migrationPath of listCheckedInSqlPaths()) {
+        runPsqlFileSync(ownerDatabaseUrl, migrationPath);
+      }
 
       runPsqlSync(
         ADMIN_DATABASE_URL,

@@ -59,6 +59,28 @@ describe('@lodariq/api auth email outbox', () => {
       tokenSecret: TOKEN_SECRET,
     });
 
+    expect(
+      readAuthEmailDeliveryEnvironment({
+        NODE_ENV: 'development',
+        LODARIQ_EMAIL_DELIVERY_MODE: 'resend',
+        LODARIQ_APP_BASE_URL: 'http://localhost:3000',
+        LODARIQ_AUTH_EMAIL_FROM: 'Lodariq Dev <auth@example.test>',
+        RESEND_API_KEY,
+        LODARIQ_AUTH_EMAIL_TOKEN_SECRET: TOKEN_SECRET,
+      }),
+    ).toMatchObject({ mode: 'resend', appBaseUrl: 'http://localhost:3000' });
+
+    expect(() =>
+      readAuthEmailDeliveryEnvironment({
+        NODE_ENV: 'production',
+        LODARIQ_EMAIL_DELIVERY_MODE: 'resend',
+        LODARIQ_APP_BASE_URL: 'http://localhost:3000',
+        LODARIQ_AUTH_EMAIL_FROM: 'Lodariq <auth@lodariq.io>',
+        RESEND_API_KEY,
+        LODARIQ_AUTH_EMAIL_TOKEN_SECRET: TOKEN_SECRET,
+      }),
+    ).toThrow(/HTTPS origin/u);
+
     expect(() => readAuthEmailDeliveryEnvironment({})).toThrow(
       /LODARIQ_EMAIL_DELIVERY_MODE is required/u,
     );
@@ -328,6 +350,40 @@ describe('@lodariq/api auth email outbox', () => {
       message: 'Auth email delivery failed',
     });
     expect(String(failure)).not.toContain(RESEND_API_KEY);
+  });
+
+  it('classifies a forbidden sender without retaining the provider response', async () => {
+    const privateProviderMessage = 'The dev.lodariq.io domain is not verified';
+    const sender = createResendAuthEmailSender({
+      apiKey: RESEND_API_KEY,
+      from: 'auth@dev.lodariq.io',
+      fetch: vi.fn<typeof globalThis.fetch>(async () =>
+        Response.json(
+          { name: 'validation_error', message: privateProviderMessage },
+          { status: 403 },
+        ),
+      ),
+    });
+
+    const failure = await sender
+      .send({
+        outboxId: VERIFY_ROW.id,
+        message: {
+          to: 'creator@example.com',
+          subject: 'Verify',
+          html: '<p>Verify</p>',
+          text: 'Verify',
+        },
+        signal: new AbortController().signal,
+      })
+      .catch((error: unknown) => error);
+
+    expect(failure).toMatchObject({
+      code: 'resend_domain_not_verified',
+      retryable: false,
+      message: 'Auth email delivery failed',
+    });
+    expect(String(failure)).not.toContain(privateProviderMessage);
   });
 
   it('starts once, polls at the configured bound, and stops without leaving a timer', async () => {

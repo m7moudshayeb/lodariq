@@ -26,7 +26,7 @@ export default defineConfig({
   // viewer bundles retain their separate ES2020 target.
   target: 'es2022',
   platform: 'browser',
-  dts: true,
+  dts: process.env.LODARIQ_BUILD_DECLARATIONS !== 'false',
   sourcemap: true,
   minify: true,
   clean: true,

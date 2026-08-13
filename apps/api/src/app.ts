@@ -65,6 +65,7 @@ export function createApiApp(options: CreateApiAppOptions = {}): FastifyInstance
     options.defaultWorkspaceId ?? process.env.LODARIQ_DEV_WORKSPACE_ID ?? 'wk_local_dev';
   const defaultUserId =
     options.defaultUserId ?? process.env.LODARIQ_DEV_USER_ID ?? 'user_local_dev';
+  const ownsRepository = options.repository === undefined;
   const repository =
     options.repository ??
     createControlPlaneRepositoryFromEnvironment({
@@ -188,13 +189,16 @@ export function createApiApp(options: CreateApiAppOptions = {}): FastifyInstance
     });
   });
 
-  if (authEmailRuntime) {
-    const activeAuthEmailRuntime = authEmailRuntime;
+  const activeAuthEmailRuntime = authEmailRuntime ?? null;
+  if (activeAuthEmailRuntime) {
     fastify.addHook('onReady', () => {
       activeAuthEmailRuntime.worker.start();
     });
+  }
+  if (activeAuthEmailRuntime || ownsRepository) {
     fastify.addHook('onClose', async () => {
-      await activeAuthEmailRuntime.worker.stop();
+      if (activeAuthEmailRuntime) await activeAuthEmailRuntime.worker.stop();
+      if (ownsRepository) await repository.close?.();
     });
   }
 

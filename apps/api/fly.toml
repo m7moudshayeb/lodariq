@@ -2,7 +2,7 @@ app = "lodariq-api"
 primary_region = "fra"
 
 [build]
-  dockerfile = "apps/api/Dockerfile"
+  dockerfile = "Dockerfile"
 
 [env]
   HOST = "0.0.0.0"
@@ -20,6 +20,11 @@ primary_region = "fra"
   LODARIQ_PUBLIC_LOADER_SRC = "https://cdn.lodariq.io/sdk/lodariq-public-bootstrap.js"
   LODARIQ_CREATOR_LOADER_SRC = "https://cdn.lodariq.io/sdk/lodariq-creator.js"
   LODARIQ_AUTHORING_IFRAME_SRC = "https://editor.lodariq.io/authoring.html"
+
+[vm]
+  cpu_kind = "shared"
+  cpus = 1
+  memory = "256mb"
 
 [http_service]
   internal_port = 3001

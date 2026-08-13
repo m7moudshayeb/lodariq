@@ -105,7 +105,7 @@ describe('@lodariq/dashboard owned authentication', () => {
     expect(parsePasswordRecoveryAcceptedResponse({ status: 'accepted', challengeId })).toBeNull();
   });
 
-  it('defaults signup safely by runtime and keeps Fly deployments explicitly disabled', () => {
+  it('defaults signup safely and enables it explicitly only for staging', () => {
     expect(publicSignupMode({ NODE_ENV: 'production' })).toBe('disabled');
     expect(isPublicSignupEnabled({ NODE_ENV: 'production' })).toBe(false);
     expect(publicSignupMode({ NODE_ENV: 'development' })).toBe('email-verification');
@@ -120,11 +120,11 @@ describe('@lodariq/dashboard owned authentication', () => {
     ).toBe(true);
     expect(read('apps/dashboard/fly.toml')).toContain('LODARIQ_PUBLIC_SIGNUP_MODE = "disabled"');
     expect(read('apps/dashboard/fly.staging.toml')).toContain(
-      'LODARIQ_PUBLIC_SIGNUP_MODE = "disabled"',
+      'LODARIQ_PUBLIC_SIGNUP_MODE = "email-verification"',
     );
   });
 
-  it('keeps recovery disabled by default in production and explicit on Fly', () => {
+  it('keeps recovery disabled by default and enables it explicitly only for staging', () => {
     expect(passwordRecoveryMode({ NODE_ENV: 'production' })).toBe('disabled');
     expect(isPasswordRecoveryEnabled({ NODE_ENV: 'production' })).toBe(false);
     expect(passwordRecoveryMode({ NODE_ENV: 'development' })).toBe('email');
@@ -138,7 +138,7 @@ describe('@lodariq/dashboard owned authentication', () => {
       'LODARIQ_PASSWORD_RECOVERY_MODE = "disabled"',
     );
     expect(read('apps/dashboard/fly.staging.toml')).toContain(
-      'LODARIQ_PASSWORD_RECOVERY_MODE = "disabled"',
+      'LODARIQ_PASSWORD_RECOVERY_MODE = "email"',
     );
   });
 

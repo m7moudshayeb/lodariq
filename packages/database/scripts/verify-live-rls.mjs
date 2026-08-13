@@ -221,8 +221,7 @@ async function verifyCatalogState(sql) {
     fail('Release-operation lifecycle update policy is missing.');
   }
   const destructiveReleasePolicy = policyRows.find(
-    (row) =>
-      row.tablename === 'release_operations' && (row.cmd === 'ALL' || row.cmd === 'DELETE'),
+    (row) => row.tablename === 'release_operations' && (row.cmd === 'ALL' || row.cmd === 'DELETE'),
   );
   if (destructiveReleasePolicy) {
     fail(`Release operations expose destructive policy ${destructiveReleasePolicy.policyname}.`);
@@ -355,7 +354,7 @@ async function expectVersionAndPublicationRecords(sql, workspaceId, environmentI
     tx`select set_config('lodariq.workspace_id', ${workspaceId}, true)`,
     tx`
         insert into themes (id, workspace_id, name, draft_json, revision, is_default)
-        values (${themeId}, ${workspaceId}, 'Live RLS theme', ${JSON.stringify(themeDraft)}::jsonb, 1, true)
+        values (${themeId}, ${workspaceId}, 'Live RLS theme', ${JSON.stringify(themeDraft)}::jsonb, 1, false)
       `,
     tx`
         insert into theme_versions (
@@ -368,7 +367,10 @@ async function expectVersionAndPublicationRecords(sql, workspaceId, environmentI
       `,
     tx`
         update themes
-        set active_version_id = ${themeVersionId}, revision = 2, updated_at = now()
+        set active_version_id = ${themeVersionId},
+          is_default = true,
+          revision = 2,
+          updated_at = now()
         where workspace_id = ${workspaceId} and id = ${themeId}
       `,
     tx`

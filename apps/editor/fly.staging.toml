@@ -2,19 +2,24 @@ app = "lodariq-editor-staging"
 primary_region = "fra"
 
 [build]
-  dockerfile = "apps/editor/Dockerfile"
+  dockerfile = "Dockerfile"
 
 [env]
   HOST = "0.0.0.0"
   NODE_ENV = "production"
   PORT = "3003"
 
+[vm]
+  cpu_kind = "shared"
+  cpus = 1
+  memory = "256mb"
+
 [http_service]
   internal_port = 3003
   force_https = true
   auto_stop_machines = "stop"
   auto_start_machines = true
-  min_machines_running = 1
+  min_machines_running = 0
   processes = ["app"]
 
 [[http_service.checks]]

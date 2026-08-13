@@ -6,6 +6,7 @@
   "type": "module",
   "scripts": {
     "build": "pnpm i18n:compile && next build",
+    "build:deploy": "pnpm i18n:compile && next build",
     "check:runtime-env": "node ./scripts/check-runtime-env.mjs",
     "dev": "pnpm i18n:compile && next dev --hostname 0.0.0.0 --port 3000",
     "dev:e2e": "pnpm i18n:compile && next dev --hostname 127.0.0.1 --port 3002",

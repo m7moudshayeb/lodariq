@@ -19,19 +19,21 @@ import {
 import * as databaseSchema from '@lodariq/database/schema';
 import {
   LODARIQ_ACCESSIBLE_FALLBACK_THEME_V1,
+  COMPILED_ARTIFACT_SCHEMA_VERSION,
   COMPILER_VERSION,
   DEFAULT_EXPERIENCE_APPEARANCE,
   RENDERER_CONTRACT_VERSION,
-  type CompiledDocumentV2,
+  type CompiledDocumentV3,
   type BrandThemeDefinition,
   type ProductStyleProposal,
   type ReleaseRecoveryResult,
 } from '@lodariq/schema';
-import { INITIAL_BASELINE_PATH } from './migration-test-utils.js';
+import { listCheckedInSqlPaths } from './migration-test-utils.js';
 
 const VERIFY_WORKFLOW_PATH = fileURLToPath(
   new URL('../../../../.github/workflows/verify.yml', import.meta.url),
 );
+const TURBO_CONFIG_PATH = fileURLToPath(new URL('../../../../turbo.json', import.meta.url));
 const ADMIN_DATABASE_URL = process.env.LODARIQ_TEST_POSTGRES_ADMIN_URL?.trim() ?? '';
 const DISPOSABLE_POSTGRES_ENABLED =
   process.env.LODARIQ_DISPOSABLE_POSTGRES === '1' && ADMIN_DATABASE_URL.length > 0;
@@ -125,6 +127,9 @@ interface ProductMatchApplicationFixture {
 describe('disposable PostgreSQL 16 CI wiring', () => {
   it('runs the unit-test job against an isolated PostgreSQL 16 service', () => {
     const workflow = readFileSync(VERIFY_WORKFLOW_PATH, 'utf8');
+    const turboConfig = JSON.parse(readFileSync(TURBO_CONFIG_PATH, 'utf8')) as {
+      tasks?: { test?: { env?: string[] } };
+    };
 
     expect(workflow).toContain('unit-tests:');
     expect(workflow).toContain('image: postgres:16');
@@ -134,6 +139,12 @@ describe('disposable PostgreSQL 16 CI wiring', () => {
     );
     expect(workflow).toContain('pg_isready -U lodariq_ci_owner -d postgres');
     expect(workflow.indexOf('services:')).toBeLessThan(workflow.indexOf('run: pnpm run test'));
+    expect(turboConfig.tasks?.test?.env).toEqual(
+      expect.arrayContaining([
+        'LODARIQ_DISPOSABLE_POSTGRES',
+        'LODARIQ_TEST_POSTGRES_ADMIN_URL',
+      ]),
+    );
   });
 });
 
@@ -154,7 +165,9 @@ describe.skipIf(!DISPOSABLE_POSTGRES_ENABLED)(
       runPsqlSync(ADMIN_DATABASE_URL, `create database ${quoteIdentifier(TEST_DATABASE_NAME)};`);
       databaseCreated = true;
       ownerDatabaseUrl = databaseUrlFor(ADMIN_DATABASE_URL, TEST_DATABASE_NAME);
-      runPsqlFileSync(ownerDatabaseUrl, INITIAL_BASELINE_PATH);
+      for (const migrationPath of listCheckedInSqlPaths()) {
+        runPsqlFileSync(ownerDatabaseUrl, migrationPath);
+      }
 
       runPsqlSync(
         ADMIN_DATABASE_URL,
@@ -488,8 +501,13 @@ describe.skipIf(!DISPOSABLE_POSTGRES_ENABLED)(
         requireRepository().recoverDocumentRelease({ ...scope, request }),
         requireRepository().recoverDocumentRelease({ ...scope, request }),
       ]);
-      const first = requireRollbackRecoveryResult(attempts.find((result) => result?.ok && !result.replayed));
-      const replay = requireRollbackRecoveryResult(attempts.find((result) => result?.ok && result.replayed));
+      const firstAttempt = attempts.find((result) => result?.ok && !result.replayed);
+      const replayAttempt = attempts.find((result) => result?.ok && result.replayed);
+      if (!firstAttempt || !replayAttempt) {
+        throw new Error(`Unexpected concurrent recovery results: ${JSON.stringify(attempts)}`);
+      }
+      const first = requireRollbackRecoveryResult(firstAttempt);
+      const replay = requireRollbackRecoveryResult(replayAttempt);
       expect(replay).toEqual({ ...first, replayed: true });
 
       const race = await Promise.all([
@@ -720,7 +738,9 @@ function requireRollbackRecoveryResult(
   result: ReleaseRecoveryResult | null | undefined,
 ): Extract<ReleaseRecoveryResult, { ok: true; action: 'rollback' }> {
   if (!result?.ok || result.action !== 'rollback') {
-    throw new Error('PostgreSQL rollback recovery unexpectedly failed');
+    throw new Error(
+      `PostgreSQL rollback recovery unexpectedly failed: ${JSON.stringify(result ?? null)}`,
+    );
   }
   return result;
 }
@@ -1289,9 +1309,9 @@ function createPgReleaseArtifact(
   _artifactId: string,
   _label: string,
   environments: Array<'staging' | 'production'>,
-): CompiledDocumentV2 {
+): CompiledDocumentV3 {
   const contentWithoutHash = {
-    artifactSchemaVersion: '2' as const,
+    artifactSchemaVersion: COMPILED_ARTIFACT_SCHEMA_VERSION,
     documentId,
     type: 'tour' as const,
     schemaVersion: '1.0.0' as const,
@@ -1301,6 +1321,11 @@ function createPgReleaseArtifact(
     audience: { environments },
     theme: structuredClone(LODARIQ_ACCESSIBLE_FALLBACK_THEME_V1),
     appearance: DEFAULT_EXPERIENCE_APPEARANCE,
+    localization: {
+      defaultLocale: 'en',
+      defaultTitle: 'PostgreSQL recovery fixture',
+      variants: [],
+    },
     targets: [],
     steps: [],
   };

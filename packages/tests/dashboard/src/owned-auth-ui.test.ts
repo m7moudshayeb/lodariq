@@ -143,11 +143,15 @@ describe('@lodariq/dashboard owned auth UI', () => {
     );
 
     const mounted = await mount(
-      createElement(EmailVerificationPanel, {
-        challengeId: CHALLENGE_ID,
-        onVerified: authenticated,
-        readTokenFromFragment: true,
-      }),
+      createElement(
+        React.StrictMode,
+        null,
+        createElement(EmailVerificationPanel, {
+          challengeId: CHALLENGE_ID,
+          onVerified: authenticated,
+          readTokenFromFragment: true,
+        }),
+      ),
     );
     await flushAsyncWork();
 
@@ -239,10 +243,14 @@ describe('@lodariq/dashboard owned auth UI', () => {
       `/reset-password?challenge=${RESET_CHALLENGE_ID}#token=${encodeURIComponent(RESET_TOKEN)}`,
     );
     const mounted = await mount(
-      createElement(SetPasswordForm, {
-        challengeId: RESET_CHALLENGE_ID,
-        onAuthenticated: authenticated,
-      }),
+      createElement(
+        React.StrictMode,
+        null,
+        createElement(SetPasswordForm, {
+          challengeId: RESET_CHALLENGE_ID,
+          onAuthenticated: authenticated,
+        }),
+      ),
     );
     await flushAsyncWork();
 

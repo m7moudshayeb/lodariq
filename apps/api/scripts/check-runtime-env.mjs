@@ -52,6 +52,11 @@ function main(env = process.env) {
 
 function requireDeploymentOriginTuple(env, failures) {
   const tuples = {
+    'https://dev-api.lodariq.io': {
+      app: 'https://dev-app.lodariq.io',
+      cdn: 'https://dev-cdn.lodariq.io',
+      editor: 'https://dev-editor.lodariq.io',
+    },
     'https://api.lodariq.io': {
       app: 'https://app.lodariq.io',
       cdn: 'https://cdn.lodariq.io',
@@ -82,7 +87,7 @@ function requireDeploymentOriginTuple(env, failures) {
   if (exactOrigin(env.LODARIQ_AUTHORING_IFRAME_SRC) !== tuple.editor) {
     failures.push('LODARIQ_AUTHORING_IFRAME_SRC must use the selected editor origin.');
   }
-  if (apiOrigin.includes('staging-')) {
+  if (apiOrigin !== 'https://api.lodariq.io') {
     const allowedOrigins = new Set(
       (env.LODARIQ_AUTH_ALLOWED_ORIGINS ?? '')
         .split(',')
@@ -90,7 +95,9 @@ function requireDeploymentOriginTuple(env, failures) {
         .filter(Boolean),
     );
     if (!allowedOrigins.has(tuple.app)) {
-      failures.push('LODARIQ_AUTH_ALLOWED_ORIGINS must include the selected staging app origin.');
+      failures.push(
+        'LODARIQ_AUTH_ALLOWED_ORIGINS must include the selected non-production app origin.',
+      );
     }
   }
 }

@@ -4,6 +4,8 @@ FROM node:24-slim AS build
 
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
+ENV LODARIQ_BUILD_DECLARATIONS="false"
+ENV LODARIQ_DEPLOYMENT_BUNDLE="true"
 
 WORKDIR /workspace
 
@@ -12,7 +14,7 @@ RUN corepack enable
 COPY . .
 
 RUN pnpm install --frozen-lockfile
-RUN pnpm --filter @lodariq/dashboard build
+RUN pnpm --filter @lodariq/dashboard... build:deploy
 
 FROM node:24-slim AS runtime
 

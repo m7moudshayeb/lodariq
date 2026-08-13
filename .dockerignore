@@ -2,9 +2,11 @@
 .turbo
 **/.turbo
 **/.next
+**/.next-*
 **/dist
 **/node_modules
 coverage
+docs
 test-results
 playwright-report
 .env

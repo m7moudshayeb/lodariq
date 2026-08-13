@@ -63,6 +63,35 @@ describe('@lodariq/api runtime environment check', () => {
     );
   });
 
+  it('accepts the canonical hosted Development origin tuple', () => {
+    const developmentCdn = 'https://dev-cdn.lodariq.io';
+    expect(
+      runCheck(
+        validApiEnv({
+          LODARIQ_PUBLIC_API_BASE_URL: 'https://dev-api.lodariq.io',
+          LODARIQ_APP_BASE_URL: 'https://dev-app.lodariq.io',
+          LODARIQ_AUTH_ALLOWED_ORIGINS: 'https://dev-app.lodariq.io',
+          LODARIQ_LOADER_SRC: `${developmentCdn}/sdk/lodariq-loader.js`,
+          LODARIQ_PUBLIC_LOADER_SRC: `${developmentCdn}/sdk/lodariq-public-bootstrap.js`,
+          LODARIQ_CREATOR_LOADER_SRC: `${developmentCdn}/sdk/lodariq-creator.js`,
+          LODARIQ_CREATOR_MODULE_URL: `${developmentCdn}/sdk/sha256-${'0'.repeat(64)}/creator.js`,
+          LODARIQ_AUTHORING_IFRAME_SRC: 'https://dev-editor.lodariq.io/authoring.html',
+        }),
+      ),
+    ).toContain('ready for a live smoke check');
+  });
+
+  it('rejects a hosted Development API mixed with Staging origins', () => {
+    expect(() =>
+      runCheck(
+        validApiEnv({
+          LODARIQ_PUBLIC_API_BASE_URL: 'https://dev-api.lodariq.io',
+          LODARIQ_AUTH_ALLOWED_ORIGINS: 'https://staging-app.lodariq.io',
+        }),
+      ),
+    ).toThrow(/selected deployment CDN origin|selected non-production app origin/);
+  });
+
   it('accepts a complete Resend outbox configuration and rejects partial delivery config', () => {
     const resend = {
       LODARIQ_EMAIL_DELIVERY_MODE: 'resend',

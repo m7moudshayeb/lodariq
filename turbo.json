@@ -16,6 +16,7 @@
     },
     "test": {
       "dependsOn": ["^build"],
+      "env": ["LODARIQ_DISPOSABLE_POSTGRES", "LODARIQ_TEST_POSTGRES_ADMIN_URL"],
       "outputs": []
     },
     "size": {

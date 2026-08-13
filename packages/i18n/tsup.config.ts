@@ -5,7 +5,7 @@ export default defineConfig({
   format: ['esm'],
   target: 'es2020',
   platform: 'neutral',
-  dts: true,
+  dts: process.env.LODARIQ_BUILD_DECLARATIONS !== 'false',
   sourcemap: true,
   clean: true,
   treeshake: true,

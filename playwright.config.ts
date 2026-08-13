@@ -42,6 +42,7 @@ const shouldStartWebServer = (name: string): boolean => requestedWebServers.has(
 export default defineConfig({
   testDir: './packages/tests/e2e',
   timeout: 30_000,
+  workers: process.env.CI ? 1 : undefined,
   use: {
     baseURL: fixtureHostBaseURL,
     trace: 'retain-on-failure',

@@ -10,4 +10,9 @@ export function createDrizzleControlPlaneRepository(
 
 class DrizzleControlPlaneRepository
   extends DrizzleRepositoryAnalytics
-  implements ControlPlaneRepository {}
+  implements ControlPlaneRepository
+{
+  async close(): Promise<void> {
+    await this.database.$client.end();
+  }
+}

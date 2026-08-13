@@ -1,6 +1,9 @@
 name: Deploy existing Fly apps
+run-name: Deploy ${{ github.event_name == 'push' && 'development' || inputs.target }} from ${{ github.ref_name }}
 
 on:
+  push:
+    branches: [master]
   workflow_dispatch:
     inputs:
       target:
@@ -8,10 +11,11 @@ on:
         required: true
         type: choice
         options:
+          - development
           - staging
           - production
       production_confirmation:
-        description: Type DEPLOY PRODUCTION for production; leave blank for staging
+        description: Type DEPLOY PRODUCTION for production; leave blank otherwise
         required: false
         type: string
 
@@ -19,31 +23,65 @@ permissions:
   contents: read
 
 concurrency:
-  group: fly-deploy-${{ inputs.target }}
+  group: fly-deploy-${{ github.event_name == 'push' && 'development' || inputs.target }}
   cancel-in-progress: false
 
 jobs:
   deploy:
-    name: Verify and deploy ${{ inputs.target }}
+    name: Verify and deploy ${{ github.event_name == 'push' && 'development' || inputs.target }}
     runs-on: ubuntu-latest
     environment:
-      name: fly-${{ inputs.target }}
+      name: fly-${{ github.event_name == 'push' && 'development' || inputs.target }}
     steps:
-      - name: Validate manual target
+      - name: Resolve and validate deployment trigger
+        id: trigger
         env:
-          TARGET: ${{ inputs.target }}
+          EVENT_NAME: ${{ github.event_name }}
+          REF_NAME: ${{ github.ref_name }}
+          REQUESTED_TARGET: ${{ inputs.target }}
           PRODUCTION_CONFIRMATION: ${{ inputs.production_confirmation }}
         run: |
           set -euo pipefail
 
-          case "$TARGET" in
-            staging)
+          case "$EVENT_NAME" in
+            push)
+              if [[ "$REF_NAME" != "master" ]]; then
+                echo "Automatic Development deployment requires master." >&2
+                exit 1
+              fi
+              target="development"
+              ;;
+            workflow_dispatch)
+              target="$REQUESTED_TARGET"
+              ;;
+            *)
+              echo "Unsupported deployment trigger." >&2
+              exit 1
+              ;;
+          esac
+
+          case "$target" in
+            development)
               if [[ -n "$PRODUCTION_CONFIRMATION" ]]; then
-                echo "The production confirmation must be blank for staging." >&2
+                echo "The production confirmation must be blank for Development." >&2
+                exit 1
+              fi
+              ;;
+            staging)
+              if [[ "$EVENT_NAME" != "workflow_dispatch" || "$REF_NAME" != "master" ]]; then
+                echo "Staging requires a manual dispatch from master." >&2
+                exit 1
+              fi
+              if [[ -n "$PRODUCTION_CONFIRMATION" ]]; then
+                echo "The production confirmation must be blank for Staging." >&2
                 exit 1
               fi
               ;;
             production)
+              if [[ "$EVENT_NAME" != "workflow_dispatch" || "$REF_NAME" != "master" ]]; then
+                echo "Production requires a manual dispatch from master." >&2
+                exit 1
+              fi
               if [[ "$PRODUCTION_CONFIRMATION" != "DEPLOY PRODUCTION" ]]; then
                 echo "Production requires the exact confirmation phrase." >&2
                 exit 1
@@ -55,14 +93,32 @@ jobs:
               ;;
           esac
 
+          echo "target=$target" >> "$GITHUB_OUTPUT"
+
       - name: Resolve existing target
         id: target
         env:
-          TARGET: ${{ inputs.target }}
+          TARGET: ${{ steps.trigger.outputs.target }}
         run: |
           set -euo pipefail
 
           case "$TARGET" in
+            development)
+              {
+                echo "editor_app=lodariq-editor-dev"
+                echo "editor_config=apps/editor/fly.development.toml"
+                echo "editor_origin=https://dev-editor.lodariq.io"
+                echo "api_app=lodariq-api-dev"
+                echo "api_config=apps/api/fly.development.toml"
+                echo "api_origin=https://dev-api.lodariq.io"
+                echo "dashboard_app=lodariq-dashboard-dev"
+                echo "dashboard_config=apps/dashboard/fly.development.toml"
+                echo "dashboard_origin=https://dev-app.lodariq.io"
+                echo "cdn_origin=https://dev-cdn.lodariq.io"
+                echo "r2_bucket=lodariq-assets-development"
+                echo "r2_jurisdiction=eu"
+              } >> "$GITHUB_OUTPUT"
+              ;;
             staging)
               {
                 echo "editor_app=lodariq-editor-staging"
@@ -76,6 +132,7 @@ jobs:
                 echo "dashboard_origin=https://staging-app.lodariq.io"
                 echo "cdn_origin=https://staging-cdn.lodariq.io"
                 echo "r2_bucket=lodariq-assets-staging"
+                echo "r2_jurisdiction=eu"
               } >> "$GITHUB_OUTPUT"
               ;;
             production)
@@ -91,6 +148,7 @@ jobs:
                 echo "dashboard_origin=https://app.lodariq.io"
                 echo "cdn_origin=https://cdn.lodariq.io"
                 echo "r2_bucket=lodariq-assets-production"
+                echo "r2_jurisdiction=default"
               } >> "$GITHUB_OUTPUT"
               ;;
             *)
@@ -200,6 +258,7 @@ jobs:
           LODARIQ_SDK_ASSET_UPLOAD_CONFIRMATION: UPLOAD SDK ASSETS
           R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
           R2_BUCKET: ${{ steps.target.outputs.r2_bucket }}
+          R2_JURISDICTION: ${{ steps.target.outputs.r2_jurisdiction }}
           R2_PUBLIC_BASE_URL: ${{ steps.target.outputs.cdn_origin }}
           AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
@@ -322,7 +381,7 @@ jobs:
 
       - name: Record deployment evidence
         env:
-          TARGET: ${{ inputs.target }}
+          TARGET: ${{ steps.trigger.outputs.target }}
           EDITOR_APP: ${{ steps.target.outputs.editor_app }}
           API_APP: ${{ steps.target.outputs.api_app }}
           DASHBOARD_APP: ${{ steps.target.outputs.dashboard_app }}
@@ -334,6 +393,7 @@ jobs:
           {
             echo "## Lodariq deployment"
             echo "- Target: $TARGET"
+            echo "- Ref: $GITHUB_REF_NAME"
             echo "- Commit: $GITHUB_SHA"
             echo "- Fly apps: $EDITOR_APP, $API_APP, $DASHBOARD_APP"
             echo "- SDK origin: $CDN_ORIGIN"

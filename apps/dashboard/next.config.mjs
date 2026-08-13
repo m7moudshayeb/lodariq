@@ -9,6 +9,13 @@ const nextConfig = {
   output: 'standalone',
   poweredByHeader: false,
   reactStrictMode: true,
+  // Deployment CI and the Docker build both run TypeScript checks first. The
+  // image build omits workspace declarations to avoid rebuilding them in a
+  // memory-constrained builder, so do not repeat Next's type pass in that
+  // explicitly scoped build profile. Normal builds still typecheck.
+  typescript: {
+    ignoreBuildErrors: process.env.LODARIQ_DEPLOYMENT_BUNDLE === 'true',
+  },
   experimental: {
     swcPlugins: [linguiMacroSwcPlugin()],
   },

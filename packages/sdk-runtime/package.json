@@ -98,6 +98,7 @@
   ],
   "scripts": {
     "build": "tsup",
+    "build:deploy": "tsup",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "eslint .",
     "size": "node ./scripts/check-size.mjs"

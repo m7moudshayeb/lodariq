@@ -91,6 +91,8 @@ import type {
 export interface ControlPlaneRepository extends IdentityRepository {
   /** Fail closed when the repository's required backing store is unavailable. */
   checkReadiness(): Promise<void>;
+  /** Release backing-store resources owned by this repository. */
+  close?(): Promise<void>;
   resolveWorkspaceMembership(
     workspaceId: string,
     userId: string,

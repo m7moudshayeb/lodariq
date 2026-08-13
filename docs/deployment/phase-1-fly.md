@@ -6,6 +6,27 @@ the former Phase 1 Clerk deployment as historical evidence, but active runtime c
 dependencies are Clerk-free. It also records how to prepare Sentry, Resend, and
 Stripe without claiming production capabilities before they are wired.
 
+## Environment topology
+
+Do not conflate where Lodariq runs with a workspace's release pipeline:
+
+- Local execution runs the API and dashboard on localhost with full owned
+  authentication, the Neon development project, and the development Resend
+  sender. It accesses the workspace's Development release environment.
+- Development execution uses the shared Development Fly apps, the same
+  dedicated Neon development project used by local, a Development R2 bucket,
+  and the development Resend sender. It is the real-origin integration target
+  for `master` and manually selected epic branches.
+- Staging execution uses the existing staging Fly apps, staging Neon project,
+  staging R2 bucket, and staging Resend sender.
+- Production execution uses the separately approved production resources.
+- Every workspace always has Development, Staging, and Production release
+  environments regardless of which execution profile is serving the request.
+
+Local and hosted Development are complementary. Local is the fast feedback
+loop; hosted Development verifies the complete deployment shape without using
+Staging as a feature sandbox.
+
 ## Canonical Hosted-Authoring Supersession
 
 This runbook preserves the deploy and smoke procedure for the historical Phase 1
@@ -50,10 +71,13 @@ public signup, password recovery, and email delivery disabled.
 The current repository has deployable Fly apps for:
 
 - API production: `apps/api/fly.toml`
+- API development: `apps/api/fly.development.toml`
 - API staging: `apps/api/fly.staging.toml`
 - Dashboard production: `apps/dashboard/fly.toml`
+- Dashboard development: `apps/dashboard/fly.development.toml`
 - Dashboard staging: `apps/dashboard/fly.staging.toml`
 - Hosted editor production: `apps/editor/fly.toml`
+- Hosted editor development: `apps/editor/fly.development.toml`
 - Hosted editor staging: `apps/editor/fly.staging.toml`
 
 ## Environment Model
@@ -61,7 +85,8 @@ The current repository has deployable Fly apps for:
 Keep these two concepts separate:
 
 - Deployment environments are where the Lodariq control plane runs:
-  `local`, `staging`, `production`, and optional short-lived `preview`.
+  `local`, `development`, `staging`, `production`, and optional short-lived
+  `preview`.
 - Product environments are rows and tokens inside Lodariq workspaces:
   `development`, `staging`, and `production`.
 
@@ -79,24 +104,58 @@ environments.
 
 ## Naming Matrix
 
-| Surface                | Staging                             | Production                  |
-| ---------------------- | ----------------------------------- | --------------------------- |
-| API Fly app            | `lodariq-api-staging`               | `lodariq-api`               |
-| Dashboard Fly app      | `lodariq-dashboard-staging`         | `lodariq-dashboard`         |
-| Editor Fly app         | `lodariq-editor-staging`            | `lodariq-editor`            |
-| API origin             | `https://staging-api.lodariq.io`    | `https://api.lodariq.io`    |
-| Dashboard origin       | `https://staging-app.lodariq.io`    | `https://app.lodariq.io`    |
-| CDN origin             | `https://staging-cdn.lodariq.io`    | `https://cdn.lodariq.io`    |
-| Editor origin          | `https://staging-editor.lodariq.io` | `https://editor.lodariq.io` |
-| Neon branch or project | `staging`                           | `production`                |
-| Runtime DB role        | `lodariq_app_staging`               | `lodariq_app`               |
-| R2 bucket              | `lodariq-assets-staging`            | `lodariq-assets-production` |
-| Auth/session store     | Staging Neon branch                 | Production Neon branch      |
+| Surface                | Development                          | Staging                             | Production                  |
+| ---------------------- | ------------------------------------ | ----------------------------------- | --------------------------- |
+| API Fly app            | `lodariq-api-dev`                    | `lodariq-api-staging`               | `lodariq-api`               |
+| Dashboard Fly app      | `lodariq-dashboard-dev`              | `lodariq-dashboard-staging`         | `lodariq-dashboard`         |
+| Editor Fly app         | `lodariq-editor-dev`                 | `lodariq-editor-staging`            | `lodariq-editor`            |
+| API origin             | `https://dev-api.lodariq.io`         | `https://staging-api.lodariq.io`    | `https://api.lodariq.io`    |
+| Dashboard origin       | `https://dev-app.lodariq.io`         | `https://staging-app.lodariq.io`    | `https://app.lodariq.io`    |
+| CDN origin             | `https://dev-cdn.lodariq.io`         | `https://staging-cdn.lodariq.io`    | `https://cdn.lodariq.io`    |
+| Editor origin          | `https://dev-editor.lodariq.io`      | `https://staging-editor.lodariq.io` | `https://editor.lodariq.io` |
+| Neon branch or project | `development`                        | `staging`                           | `production`                |
+| Runtime DB role        | Dedicated non-owner development role | `lodariq_app_staging`               | `lodariq_app`               |
+| R2 bucket              | `lodariq-assets-development`         | `lodariq-assets-staging`            | `lodariq-assets-production` |
+| Auth/session store     | Development Neon branch              | Staging Neon branch                 | Production Neon branch      |
 
 For preview deployments, use generated names such as
 `lodariq-api-pr-123`, `lodariq-dashboard-pr-123`, and a Neon preview branch.
 Do not attach public `lodariq.io` domains to previews unless there is a clear
 need.
+
+## Fly Cost Guardrails
+
+- Keep exactly one Machine per Development and Staging app. Deployment automation uses
+  `--update-only`, so it must update that Machine rather than create HA copies.
+- Pin every app to one shared CPU and 256 MB RAM in its Fly configuration.
+  Increase an individual service only after runtime measurements demonstrate a
+  need; Docker build memory settings do not change runtime Machine sizing.
+- Development and Staging use `auto_stop_machines = "stop"`, automatic start,
+  and `min_machines_running = 0`. Idle non-production Machines therefore
+  release CPU and RAM and cold-start on the next request.
+- Production keeps one Machine warm per app for availability. Do not copy that
+  minimum into staging.
+- These services are stateless and must not have Fly Volumes. PostgreSQL state
+  remains in the environment-specific Neon project and SDK assets remain in the
+  environment-specific R2 bucket.
+
+## Deployment Automation Policy
+
+The `.github/workflows/deploy-fly.yml` workflow has three explicit paths:
+
+- Every push to `master`, including a merged pull request, automatically deploys
+  the exact `master` commit to `fly-development`.
+- A manual run targeting `development` deploys the branch selected in GitHub's
+  workflow UI. Use this for an epic/feature branch that needs real-origin tests.
+- `staging` and `production` are manual-only and fail closed unless the selected
+  ref is `master`. Production additionally requires the exact confirmation
+  phrase `DEPLOY PRODUCTION`.
+
+The workflow only updates existing Fly Machines and uploads to an existing R2
+bucket. It never creates apps, Machines, DNS, certificates, buckets, secrets,
+or databases. Create GitHub Environments named `fly-development`,
+`fly-staging`, and `fly-production`; `fly-development` must not require a
+reviewer, or automatic `master` deployments will wait for approval.
 
 ## Secrets Policy
 
@@ -175,16 +234,20 @@ SDK token secrets. The parent product page passes its origin as the
 `parentOrigin` iframe query parameter, and the editor accepts only validated
 bridge messages from that exact origin.
 
-`NODE_ENV`, `PORT`, `LODARIQ_AUTH_MODE=lodariq`, fail-closed signup/recovery/
-email modes, public API URLs, loader URLs, and dashboard API URLs are committed
-in the Fly config files because they are environment-specific configuration,
-not secrets. Database URLs, the shared BFF
+`NODE_ENV`, `PORT`, `LODARIQ_AUTH_MODE=lodariq`, public-auth modes, public API
+URLs, loader URLs, and dashboard API URLs are committed in the Fly config files
+because they are environment-specific configuration, not secrets. Production
+signup, recovery, and email remain fail-closed; staging enables the full Resend
+authentication cycle for deployment verification. Database URLs, the shared BFF
 source secret, R2 credentials, Stripe keys, Resend keys, and Sentry auth tokens
 must stay in the secret store. The BFF secret must be identical within one
 deployment environment and different between staging and production.
 
-When production cutover is approved, replace only the three disabled auth modes
-with the enabled values below and add the required API secrets/config:
+Staging uses `Lodariq Staging <access@staging.lodariq.io>` and requires a
+staging email token secret plus a Resend key restricted to that verified
+domain. When
+production cutover is approved, replace only the three disabled production auth
+modes with the enabled values below and add the required API secrets/config:
 
 ```bash
 # API
@@ -578,6 +641,10 @@ comments, records SHA-256 hashes, and marks cache policy hints per file.
    `lodariq-loader.js`, `lodariq-creator.js`, `runtime/index.js`, and
    `renderers/tour.js`; use long immutable cache headers only for files marked
    `immutable` in `dist/sdk-assets/manifest.json`.
+   Add a hostname-scoped Cloudflare Cache Rule for each CDN origin with both
+   Edge TTL and Browser TTL set to respect the origin Cache-Control header.
+   Otherwise Cloudflare's four-hour Browser Cache TTL can override the
+   five-minute entrypoint policy.
 8. Disable `r2.dev` public access for production. Use custom domains for
    production.
 9. If `r2.dev` is enabled for staging, treat it as temporary and never put that
@@ -601,11 +668,15 @@ R2 API tokens:
 ```bash
 R2_ACCOUNT_ID=<account-id>
 R2_BUCKET=<bucket-name>
-R2_ENDPOINT=https://<account-id>.r2.cloudflarestorage.com
+R2_JURISDICTION=<default|eu|fedramp>
 R2_ACCESS_KEY_ID=<access-key-id>
 R2_SECRET_ACCESS_KEY=<secret-access-key>
 R2_PUBLIC_BASE_URL=https://<cdn-origin>
 ```
+
+The publisher derives the exact S3 endpoint from the account ID and
+jurisdiction. Use `eu` for an EU-jurisdiction bucket; a Western Europe location
+hint alone does not require the EU endpoint.
 
 Phase 1 code does not yet upload compiled artifacts to R2. These values are for
 the publication pipeline once server-side artifact upload is connected.

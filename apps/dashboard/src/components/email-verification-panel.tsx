@@ -41,6 +41,7 @@ export function EmailVerificationPanel({
 }: EmailVerificationPanelProps): React.ReactElement {
   const [phase, setPhase] = useState<VerificationPhase>({ name: 'ready' });
   const verificationStarted = useRef(false);
+  const fragmentRead = useRef(false);
   const exposedDevelopmentToken =
     process.env.NODE_ENV === 'production' ? undefined : developmentToken;
   const [verificationToken, setVerificationToken] = useState<string | null>(
@@ -88,6 +89,8 @@ export function EmailVerificationPanel({
       setTokenReady(true);
       return;
     }
+    if (fragmentRead.current) return;
+    fragmentRead.current = true;
     const token = new URLSearchParams(window.location.hash.slice(1)).get('token');
     clearLocationFragment();
     setVerificationToken(token);

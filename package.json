@@ -11,7 +11,10 @@
   },
   "scripts": {
     "build": "turbo run build",
-    "dev": "turbo run dev",
+    "dev": "node --env-file=.env.development.local scripts/dev-local.mjs",
+    "dev:local": "node --env-file=.env.development.local scripts/dev-local.mjs",
+    "dev:isolated": "node scripts/dev-local.mjs --isolated",
+    "dev:check-env": "node --env-file=.env.development.local scripts/check-local-auth-env.mjs",
     "typecheck": "turbo run typecheck",
     "lint": "turbo run lint",
     "test": "pnpm run i18n:compile && turbo run test",

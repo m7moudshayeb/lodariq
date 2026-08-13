@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import {
   INITIAL_BASELINE_FILE_NAME,
+  PUBLICATION_VERIFICATION_RENDERER_V3_FILE_NAME,
   listCheckedInSqlFiles,
   readInitialBaseline,
 } from './migration-test-utils.js';
@@ -15,8 +16,11 @@ const scriptPath = fileURLToPath(
 );
 
 describe('database migration safety guard', () => {
-  it('keeps one checked-in initial baseline', () => {
-    expect(listCheckedInSqlFiles()).toEqual([INITIAL_BASELINE_FILE_NAME]);
+  it('keeps the immutable initial baseline followed by ordered forward migrations', () => {
+    expect(listCheckedInSqlFiles()).toEqual([
+      INITIAL_BASELINE_FILE_NAME,
+      PUBLICATION_VERIFICATION_RENDERER_V3_FILE_NAME,
+    ]);
   });
 
   it('passes the checked-in initial baseline', () => {

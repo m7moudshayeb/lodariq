@@ -18,6 +18,7 @@
   ],
   "scripts": {
     "build": "tsup",
+    "build:deploy": "tsup",
     "check:runtime-env": "node ./scripts/check-runtime-env.mjs",
     "dev": "tsx watch src/server.ts",
     "dev:e2e": "tsx src/server.ts",

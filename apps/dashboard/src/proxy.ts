@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { dashboardSessionCookieName, isDevelopmentHeaderAuthMode } from './lib/auth-contract';
 
 const PUBLIC_PAGE_PREFIXES = [
+  '/healthz',
   '/sign-in',
   '/sign-up',
   '/verify-email',

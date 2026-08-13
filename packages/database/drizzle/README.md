@@ -1,23 +1,27 @@
 # Lodariq Database Baseline and Migrations
 
-Lodariq has not been deployed, so the development-only `0000`–`0008` SQL
-sequence is squashed into one initial baseline:
+The development-only `0000`–`0008` SQL sequence was squashed into one initial
+baseline before the first shared environment was initialized:
 
 ```text
 0000_initial_baseline.sql
+0001_publication_verification_renderer_v3.sql
 ```
 
 The baseline creates the complete current Neon-compatible PostgreSQL schema,
 constraints, indexes, functions, and row-level-security policies. It is wrapped
 in one transaction so a failed bootstrap does not leave a partially initialized
-database. Apply it exactly once to a new, empty database with an owner/admin
-connection:
+database. Apply the baseline exactly once to a new, empty database with an
+owner/admin connection, then apply every later numbered migration in order:
 
 ```bash
 pnpm migrations:check
 
 psql -X -v ON_ERROR_STOP=1 "$NEON_OWNER_DATABASE_URL" \
   -f packages/database/drizzle/0000_initial_baseline.sql
+
+psql -X -v ON_ERROR_STOP=1 "$NEON_OWNER_DATABASE_URL" \
+  -f packages/database/drizzle/0001_publication_verification_renderer_v3.sql
 ```
 
 Do not apply the baseline to a database that already contains Lodariq objects.

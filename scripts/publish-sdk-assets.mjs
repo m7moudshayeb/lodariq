@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { resolve, sep } from 'node:path';
@@ -11,6 +11,7 @@ const defaultManifestPath = resolve(repoRoot, 'dist/sdk-assets/manifest.json');
 const uploadConfirmation = 'UPLOAD SDK ASSETS';
 const accountIdPattern = /^[a-f0-9]{32}$/u;
 const bucketPattern = /^[a-z0-9](?:[a-z0-9-]{1,61}[a-z0-9])$/u;
+const r2Jurisdictions = new Set(['default', 'eu', 'fedramp']);
 const assetPathPattern = /^\/sdk\/[A-Za-z0-9][A-Za-z0-9._/-]*\.js$/u;
 const sha256Pattern = /^[a-f0-9]{64}$/u;
 const cacheControlByPolicy = {
@@ -18,12 +19,20 @@ const cacheControlByPolicy = {
   short: 'public,max-age=300,must-revalidate',
 };
 
-const mode = process.argv.includes('--plan') ? 'plan' : 'publish';
+const mode = process.argv.includes('--plan')
+  ? 'plan'
+  : process.argv.includes('--verify-public')
+    ? 'verify-public'
+    : 'publish';
 const manifestPath = resolve(process.env.LODARIQ_SDK_ASSET_MANIFEST ?? defaultManifestPath);
 const plan = createUploadPlan(manifestPath);
 
 if (mode === 'plan') {
   process.stdout.write(`${JSON.stringify(plan, null, 2)}\n`);
+} else if (mode === 'verify-public') {
+  const publicBaseUrl = selectedPublicBaseUrl(plan);
+  await verifyPublicAssets(plan, publicBaseUrl);
+  process.stdout.write(`Verified ${plan.files.length} public SDK assets without uploading.\n`);
 } else {
   await publish(plan);
 }
@@ -121,23 +130,20 @@ export function createUploadPlan(path = defaultManifestPath) {
 async function publish(plan) {
   const accountId = requiredEnvironment('R2_ACCOUNT_ID');
   const bucket = requiredEnvironment('R2_BUCKET');
-  const publicBaseUrl = canonicalHttpsOrigin(
-    requiredEnvironment('R2_PUBLIC_BASE_URL'),
-    'R2 public base URL',
-  );
+  const jurisdiction = process.env.R2_JURISDICTION ?? 'default';
+  const publicBaseUrl = selectedPublicBaseUrl(plan);
   if (process.env.LODARIQ_SDK_ASSET_UPLOAD_CONFIRMATION !== uploadConfirmation) {
     throw new Error(`SDK asset upload requires exact confirmation: ${uploadConfirmation}`);
   }
   if (!accountIdPattern.test(accountId)) throw new Error('R2_ACCOUNT_ID is invalid');
   if (!bucketPattern.test(bucket)) throw new Error('R2_BUCKET is invalid');
+  if (!r2Jurisdictions.has(jurisdiction)) throw new Error('R2_JURISDICTION is invalid');
   if (!process.env.AWS_ACCESS_KEY_ID || !process.env.AWS_SECRET_ACCESS_KEY) {
     throw new Error('Bucket-scoped R2 S3 credentials are required');
   }
-  if (new URL(plan.creatorModule.url).origin !== publicBaseUrl.origin) {
-    throw new Error('Creator module and selected public CDN origins must match');
-  }
 
-  const endpoint = `https://${accountId}.r2.cloudflarestorage.com`;
+  const jurisdictionSubdomain = jurisdiction === 'default' ? '' : `.${jurisdiction}`;
+  const endpoint = `https://${accountId}${jurisdictionSubdomain}.r2.cloudflarestorage.com`;
   runAws(['s3api', 'head-bucket', '--bucket', bucket, '--endpoint-url', endpoint]);
   for (const file of plan.files) {
     runAws([
@@ -184,10 +190,22 @@ async function publish(plan) {
   process.stdout.write(`Published and verified ${plan.files.length} SDK assets.\n`);
 }
 
+function selectedPublicBaseUrl(plan) {
+  const publicBaseUrl = canonicalHttpsOrigin(
+    requiredEnvironment('R2_PUBLIC_BASE_URL'),
+    'R2 public base URL',
+  );
+  if (new URL(plan.creatorModule.url).origin !== publicBaseUrl.origin) {
+    throw new Error('Creator module and selected public CDN origins must match');
+  }
+  return publicBaseUrl;
+}
+
 async function verifyPublicAssets(plan, publicBaseUrl) {
   for (const file of plan.files) {
     const url = new URL(file.path, publicBaseUrl);
     url.searchParams.set('lodariqAsset', file.sha256);
+    url.searchParams.set('lodariqVerification', randomUUID());
     const response = await fetch(url, {
       headers: { origin: 'https://deployment-probe.invalid' },
       redirect: 'error',
@@ -201,8 +219,10 @@ async function verifyPublicAssets(plan, publicBaseUrl) {
     ) {
       throw new Error('Public SDK asset bytes do not match the reviewed manifest');
     }
-    if (response.headers.get('cache-control') !== file.cacheControl) {
-      throw new Error('Public SDK asset cache policy does not match the reviewed manifest');
+    if (!cacheControlMatches(response.headers.get('cache-control'), file.cacheControl)) {
+      throw new Error(
+        `Public SDK asset cache policy does not match the reviewed manifest: ${file.path}`,
+      );
     }
     if (response.headers.get('access-control-allow-origin') !== '*') {
       throw new Error('Public SDK asset CORS policy must allow anonymous cross-origin loading');
@@ -211,6 +231,33 @@ async function verifyPublicAssets(plan, publicBaseUrl) {
       throw new Error('Public SDK asset content type is not JavaScript');
     }
   }
+}
+
+function cacheControlMatches(actual, expected) {
+  const actualDirectives = cacheControlDirectives(actual);
+  const expectedDirectives = cacheControlDirectives(expected);
+  if (
+    !actualDirectives ||
+    !expectedDirectives ||
+    actualDirectives.size !== expectedDirectives.size
+  ) {
+    return false;
+  }
+  return [...expectedDirectives].every(
+    ([directive, value]) => actualDirectives.get(directive) === value,
+  );
+}
+
+function cacheControlDirectives(value) {
+  if (!value) return undefined;
+  const directives = new Map();
+  for (const entry of value.split(',')) {
+    const [rawDirective, ...rawValue] = entry.trim().split('=');
+    const directive = rawDirective?.toLowerCase();
+    if (!directive || directives.has(directive)) return undefined;
+    directives.set(directive, rawValue.join('=').trim().toLowerCase());
+  }
+  return directives;
 }
 
 function runAws(args) {

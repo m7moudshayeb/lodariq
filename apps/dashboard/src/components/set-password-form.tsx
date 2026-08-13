@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { ArrowRight, KeyRound, LoaderCircle } from 'lucide-react';
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useLingui } from '@lingui/react';
 import { useAuthMutations } from '../hooks/use-auth-mutations';
 import type { AuthSessionSnapshot } from '../lib/auth-contract';
@@ -28,10 +28,13 @@ export function SetPasswordForm({
   const [tokenReady, setTokenReady] = useState(false);
   const [error, setError] = useState('');
   const [pending, setPending] = useState(false);
+  const fragmentRead = useRef(false);
   const auth = useAuthMutations();
   const { _ } = useLingui();
 
   useEffect(() => {
+    if (fragmentRead.current) return;
+    fragmentRead.current = true;
     const fragment = new URLSearchParams(window.location.hash.slice(1));
     const nextToken = fragment.get('token');
     window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}`);

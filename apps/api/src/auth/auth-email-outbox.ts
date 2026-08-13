@@ -406,7 +406,7 @@ export function createResendAuthEmailSender(
           signal: controller.signal,
         });
         if (!response.ok) {
-          throw resendHttpError(response);
+          throw await resendHttpError(response);
         }
       } catch (error) {
         if (error instanceof AuthEmailDeliveryError) throw error;
@@ -439,6 +439,7 @@ export function readAuthEmailDeliveryEnvironment(
     appBaseUrl: normalizeAppBaseUrl(
       requireEnvironmentValue(environment, AUTH_EMAIL_ENV.appBaseUrl),
       AUTH_EMAIL_ENV.appBaseUrl,
+      environment,
     ),
     from: requireFromAddress(
       requireEnvironmentValue(environment, AUTH_EMAIL_ENV.from),
@@ -549,7 +550,7 @@ function sanitizeDeliveryFailure(error: unknown): DeliveryFailure {
   return { code: 'auth_email_sender_error', retryable: true };
 }
 
-function resendHttpError(response: Response): AuthEmailDeliveryError {
+async function resendHttpError(response: Response): Promise<AuthEmailDeliveryError> {
   const retryable =
     response.status === 408 ||
     response.status === 409 ||
@@ -559,10 +560,34 @@ function resendHttpError(response: Response): AuthEmailDeliveryError {
   const retryAfterMs = retryable
     ? parseRetryAfterMs(response.headers.get('retry-after'))
     : undefined;
-  return new AuthEmailDeliveryError(`resend_http_${response.status}`, {
+  const code = retryable ? `resend_http_${response.status}` : await safeResendFailureCode(response);
+  return new AuthEmailDeliveryError(code, {
     retryable,
     ...(retryAfterMs === undefined ? {} : { retryAfterMs }),
   });
+}
+
+async function safeResendFailureCode(response: Response): Promise<string> {
+  if (response.status !== 403) return `resend_http_${response.status}`;
+  let body: unknown;
+  try {
+    body = await response.json();
+  } catch {
+    return 'resend_http_403';
+  }
+  if (!body || typeof body !== 'object') return 'resend_http_403';
+  const record = body as Record<string, unknown>;
+  const type = typeof record.name === 'string' ? record.name : record.type;
+  if (type === 'invalid_api_key') return 'resend_invalid_api_key';
+  const message = typeof record.message === 'string' ? record.message.toLowerCase() : '';
+  if (message.includes('only send testing emails')) return 'resend_test_recipient_restricted';
+  if (message.includes('domain') && message.includes('not verified')) {
+    return 'resend_domain_not_verified';
+  }
+  if (message.includes('api key') || message.includes('sender') || message.includes('from')) {
+    return 'resend_sender_forbidden';
+  }
+  return 'resend_http_403';
 }
 
 function parseRetryAfterMs(value: string | null): number | undefined {
@@ -600,22 +625,32 @@ function requireEnvironmentValue(environment: NodeJS.ProcessEnv, name: string): 
   return value;
 }
 
-function normalizeAppBaseUrl(value: string, name: string): string {
+function normalizeAppBaseUrl(
+  value: string,
+  name: string,
+  environment: NodeJS.ProcessEnv = process.env,
+): string {
   let url: URL;
   try {
     url = new URL(value);
   } catch {
-    throw new Error(`${name} must be an absolute HTTPS origin`);
+    throw new Error(`${name} must be an absolute HTTPS origin or a development loopback origin`);
   }
+  const production = environment.NODE_ENV === 'production';
+  const httpsOrigin = url.protocol === 'https:';
+  const developmentLoopback =
+    !production &&
+    url.protocol === 'http:' &&
+    (url.hostname === 'localhost' || url.hostname === '127.0.0.1' || url.hostname === '::1');
   if (
-    url.protocol !== 'https:' ||
+    (!httpsOrigin && !developmentLoopback) ||
     url.username ||
     url.password ||
     url.pathname !== '/' ||
     url.search ||
     url.hash
   ) {
-    throw new Error(`${name} must be an absolute HTTPS origin`);
+    throw new Error(`${name} must be an absolute HTTPS origin or a development loopback origin`);
   }
   return url.origin;
 }
@@ -662,6 +697,14 @@ function escapeHtml(value: string): string {
 
 function safeFailureCode(value: string): string {
   if (/^resend_http_[1-5][0-9]{2}$/u.test(value)) return value;
+  if (
+    value === 'resend_invalid_api_key' ||
+    value === 'resend_test_recipient_restricted' ||
+    value === 'resend_domain_not_verified' ||
+    value === 'resend_sender_forbidden'
+  ) {
+    return value;
+  }
   if (
     value === 'auth_email_sender_error' ||
     value === 'invalid_outbox_claim' ||

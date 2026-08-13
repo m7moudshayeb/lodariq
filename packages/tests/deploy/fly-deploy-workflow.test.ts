@@ -6,28 +6,50 @@ import { describe, expect, it } from 'vitest';
 const repoRoot = resolve(fileURLToPath(new URL('../../..', import.meta.url)));
 const workflow = read('.github/workflows/deploy-fly.yml');
 
-describe('manual Fly deployment workflow', () => {
-  it('can only be dispatched manually for an explicit staging or production target', () => {
+describe('Fly deployment workflow', () => {
+  it('automatically deploys master to Development and exposes every target manually', () => {
     const trigger = section('on:', 'permissions:');
     const triggerNames = [...trigger.matchAll(/^ {2}([a-z_]+):$/gmu)].map((match) => match[1]);
 
-    expect(triggerNames).toEqual(['workflow_dispatch']);
+    expect(triggerNames).toEqual(['push', 'workflow_dispatch']);
+    expect(trigger).toContain('push:\n    branches: [master]');
     expect(trigger).toContain('workflow_dispatch:');
     expect(trigger).toContain('type: choice');
-    expect(trigger).toContain('options:\n          - staging\n          - production');
+    expect(trigger).toContain(
+      'options:\n          - development\n          - staging\n          - production',
+    );
+    expect(workflow).toContain('target="development"');
+    expect(workflow).toContain('Automatic Development deployment requires master.');
   });
 
-  it('requires typed production confirmation and scopes approval and concurrency by target', () => {
+  it('allows branch-selected Development dispatches but gates Staging and Production on master', () => {
     expect(workflow).toContain('production_confirmation:');
     expect(workflow).toContain('if [[ "$PRODUCTION_CONFIRMATION" != "DEPLOY PRODUCTION" ]]');
-    expect(workflow).toContain('name: fly-${{ inputs.target }}');
-    expect(workflow).toContain('group: fly-deploy-${{ inputs.target }}');
+    expect(workflow).toContain('Staging requires a manual dispatch from master.');
+    expect(workflow).toContain('Production requires a manual dispatch from master.');
+    expect(workflow).toContain(
+      "name: fly-${{ github.event_name == 'push' && 'development' || inputs.target }}",
+    );
+    expect(workflow).toContain(
+      "group: fly-deploy-${{ github.event_name == 'push' && 'development' || inputs.target }}",
+    );
     expect(workflow).toContain('cancel-in-progress: false');
     expect(workflow).toContain('contents: read');
   });
 
-  it('maps both targets to their exact existing apps, configs, and canonical origins', () => {
+  it('maps all targets to their exact existing apps, configs, and canonical origins', () => {
     const expectedMappings = [
+      'editor_app=lodariq-editor-dev',
+      'editor_config=apps/editor/fly.development.toml',
+      'editor_origin=https://dev-editor.lodariq.io',
+      'api_app=lodariq-api-dev',
+      'api_config=apps/api/fly.development.toml',
+      'api_origin=https://dev-api.lodariq.io',
+      'dashboard_app=lodariq-dashboard-dev',
+      'dashboard_config=apps/dashboard/fly.development.toml',
+      'dashboard_origin=https://dev-app.lodariq.io',
+      'cdn_origin=https://dev-cdn.lodariq.io',
+      'r2_bucket=lodariq-assets-development',
       'editor_app=lodariq-editor-staging',
       'editor_config=apps/editor/fly.staging.toml',
       'editor_origin=https://staging-editor.lodariq.io',
@@ -143,11 +165,13 @@ describe('manual Fly deployment workflow', () => {
     expect(uploadSection).toContain('pnpm sdk:prepare-assets');
     expect(uploadSection).toContain('node scripts/publish-sdk-assets.mjs');
     expect(uploadSection).toContain('R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}');
+    expect(uploadSection).toContain('R2_JURISDICTION: ${{ steps.target.outputs.r2_jurisdiction }}');
     expect(uploadSection).toContain('AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}');
     expect(uploadSection).toContain('AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}');
     expect(publisher).toContain("'head-bucket'");
     expect(publisher).toContain("'put-object'");
     expect(publisher).toContain("'head-object'");
+    expect(publisher).toContain("new Set(['default', 'eu', 'fedramp'])");
     expect(publisher).toContain('Uploaded SDK asset metadata does not match');
     expect(publisher).not.toMatch(/delete-object|delete-bucket|create-bucket/iu);
     expect(workflow).toContain('--env "LODARIQ_CREATOR_MODULE_URL=$CREATOR_MODULE_URL"');
@@ -172,6 +196,7 @@ describe('manual Fly deployment workflow', () => {
     expect(probeSection).toContain('<div id="authoring" data-state="waiting">');
     expect(probeSection).toContain("--proto '=https'");
     expect(probeSection).not.toContain('FLY_API_TOKEN');
+    expect(workflow).toContain('echo "- Ref: $GITHUB_REF_NAME"');
     expect(workflow).toContain('echo "- Commit: $GITHUB_SHA"');
   });
 });
