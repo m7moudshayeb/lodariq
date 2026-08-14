@@ -1,6 +1,15 @@
 import type { AuthoringCatalog } from '../i18n-catalog-types';
 
 const NL_BE_CATALOG: AuthoringCatalog = {
+  'Select a flow item with Enter or Space. Use the arrow keys to move it, then press Escape to cancel.':
+    'Selecteer een flow-item met Enter of Spatie. Gebruik de pijltoetsen om het te verplaatsen en druk daarna op Escape om te annuleren.',
+  'Select a flow item with Enter or Space, then press Escape to cancel.':
+    'Selecteer een flow-item met Enter of Spatie en druk daarna op Escape om te annuleren.',
+  'Select a flow path with Enter or Space, then press Escape to cancel.':
+    'Selecteer een flowpad met Enter of Spatie en druk daarna op Escape om te annuleren.',
+  'Moved selected flow item {direction}.':
+    'Het geselecteerde flow-item is naar {direction} verplaatst.',
+  'Flow connection': 'Flowverbinding',
   'Batch edit': 'Bulksgewijs bewerken',
   'Review the selected steps before applying shared placement, timing, style, or structure changes.':
     'Controleer de geselecteerde stappen voordat je gedeelde wijzigingen aan plaatsing, timing, stijl of structuur toepast.',

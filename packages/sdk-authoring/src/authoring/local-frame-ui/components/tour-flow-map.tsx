@@ -5,6 +5,7 @@ import {
   ReactFlow,
   useEdgesState,
   useNodesState,
+  type AriaLabelConfig,
   type EdgeMouseHandler,
   type NodeMouseHandler,
   type ReactFlowInstance,
@@ -31,6 +32,28 @@ import { TourFlowToolbar, type TourFlowTool } from './tour-flow/flow-toolbar';
 import { TourFlowWorkbench, type TourFlowWorkbenchMode } from './tour-flow/flow-workbench';
 
 const NODE_TYPES = { tour: TourFlowNode } as const;
+const FLOW_MOVE_DIRECTION_LABELS: Readonly<Record<string, string>> = {
+  down: authoringText('Below'),
+  left: authoringText('Left'),
+  right: authoringText('Right'),
+  up: authoringText('Above'),
+};
+const FLOW_ARIA_LABEL_CONFIG = {
+  'edge.a11yDescription.default': authoringText(
+    'Select a flow path with Enter or Space, then press Escape to cancel.',
+  ),
+  'handle.ariaLabel': authoringText('Flow connection'),
+  'node.a11yDescription.ariaLiveMessage': ({ direction }) =>
+    authoringText('Moved selected flow item {direction}.', {
+      direction: FLOW_MOVE_DIRECTION_LABELS[direction] ?? direction,
+    }),
+  'node.a11yDescription.default': authoringText(
+    'Select a flow item with Enter or Space. Use the arrow keys to move it, then press Escape to cancel.',
+  ),
+  'node.a11yDescription.keyboardDisabled': authoringText(
+    'Select a flow item with Enter or Space, then press Escape to cancel.',
+  ),
+} satisfies Partial<AriaLabelConfig>;
 const FINDING_LABELS = {
   invalid_flow_edge: authoringText('Flow points to a missing step'),
   unreachable_step: authoringText('Step is unreachable'),
@@ -165,6 +188,9 @@ export function TourFlowMap({
 
       <div className="tour-flow-canvas" data-tool={tool}>
         <ReactFlow<TourFlowCanvasNode, TourFlowCanvasEdge>
+          aria-label={authoringText('Flow Map')}
+          ariaLabelConfig={FLOW_ARIA_LABEL_CONFIG}
+          deleteKeyCode={null}
           edges={edges}
           elementsSelectable={tool === 'select'}
           elevateEdgesOnSelect

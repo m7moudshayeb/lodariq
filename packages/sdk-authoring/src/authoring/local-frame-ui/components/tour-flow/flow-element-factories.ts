@@ -1,4 +1,5 @@
 import { MarkerType, Position } from '@xyflow/react';
+import { authoringText } from '../../../../i18n';
 import type {
   TourFlowCanvasEdge,
   TourFlowCanvasNode,
@@ -17,6 +18,7 @@ export function canvasNode({
   y: number;
 }): TourFlowCanvasNode {
   return {
+    ariaLabel: `${data.title}. ${data.subtitle}`,
     data,
     id,
     position: { x, y },
@@ -44,6 +46,7 @@ export function flowEdge({
   target: string;
 }): TourFlowCanvasEdge {
   return {
+    ariaLabel: label ?? authoringText('Flow connection'),
     data: { actionBlockId, branch, stepId },
     id,
     label,

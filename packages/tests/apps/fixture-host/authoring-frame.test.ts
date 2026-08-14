@@ -26,10 +26,13 @@ async function loadFrame(): Promise<void> {
 }
 
 async function waitForEditorReady(): Promise<void> {
-  await vi.waitFor(() => {
-    expect(document.querySelector('[aria-label="Experience editor"]')).not.toBeNull();
-    expect(document.querySelector('.canvas-editor-loading')).toBeNull();
-  });
+  await vi.waitFor(
+    () => {
+      expect(document.querySelector('[aria-label="Experience editor"]')).not.toBeNull();
+      expect(document.querySelector('.canvas-editor-loading')).toBeNull();
+    },
+    { timeout: 5_000 },
+  );
 }
 
 function documentJson(): HTMLTextAreaElement {
@@ -339,7 +342,10 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     await vi.waitFor(() =>
       expect(document.querySelector('.tour-flow-map-workspace')).not.toBeNull(),
     );
-    expect(document.querySelector('.react-flow')).not.toBeNull();
+    await vi.waitFor(() => {
+      expect(document.querySelector('.react-flow[aria-label="Flow Map"]')).not.toBeNull();
+      expect(document.querySelector('.react-flow__node[aria-label*="Step"]')).not.toBeNull();
+    });
     expect(buttonWithText('Select')).not.toBeNull();
     expect(buttonWithText('Pan')).not.toBeNull();
     expect(document.querySelector('.tour-flow-canvas-controls')).not.toBeNull();

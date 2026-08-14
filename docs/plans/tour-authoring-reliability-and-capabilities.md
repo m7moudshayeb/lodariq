@@ -7,11 +7,64 @@ Source of truth: `../../refined-lodariq-prd.md` sections 7.4, 8.3-8.6, 9.5,
 Evidence source: the six-step authoring exercise documented in
 `../product-design/audits/authoring-showcase-tour-2026-08-13/README.md`.
 
-Status: **Implementation complete; automated gates passed; external validation pending**
+Status: **Local capability milestone integrated; reliability closure and external validation pending**
 
-Last updated: 2026-08-13
+Last updated: 2026-08-14
 
-## Implementation record — 2026-08-13
+## Current branch reconciliation — 2026-08-14
+
+The isolated implementation was reconciled against the later refactored current
+branch instead of being merged as a whole-tree replacement. Most implementation
+files were already identical. Where both trees had changed, the current branch's
+smaller modules, shared flow analysis, generalized experience-authoring
+capabilities, and latest interaction ownership were preserved.
+
+The resulting creator flow keeps direct action fields in **Behavior**, opens
+sequence and branch configuration in **Flow Map**, and keeps completion,
+accessibility preview, and draft checkpoints in **Review & recovery**. The
+derived Flow Map now also has localized node, edge, movement, and keyboard
+descriptions and disables local delete gestures that cannot represent a
+canonical document mutation. The compatible patched `nanoid` release is pinned
+through the workspace override.
+
+### Reconciliation verification
+
+| Gate                        | Result                                                                                                                          |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| Unit and integration        | 150 files passed, 1 skipped; 1,199 tests passed, 11 environment-gated tests skipped                                             |
+| Focused authoring coverage  | Flow Map and persistent-footer integration suites passed; 69 tests                                                              |
+| Type safety and lint        | 20/20 workspace typecheck tasks and 13/13 workspace lint tasks passed                                                           |
+| Localization                | Dashboard 853, authoring 1,375, and runtime 38 source messages complete; 11,304 translations validated                          |
+| Build and size              | Workspace build passed; all 14 build-and-size tasks passed                                                                      |
+| Architecture and safety     | Dependency boundaries passed with zero errors; architecture, Knip dependency, style, and migration-safety checks passed         |
+| Security                    | Package audit passed with no known vulnerabilities                                                                              |
+| In-app browser visual check | Flow Map remained clear at default, 900 px, and 720 px widths; graph labels and safe keyboard behavior were verified; no errors |
+
+### Remaining code closure
+
+The capability surfaces in release trains A through D are present, but the
+following system-level work remains before this plan can be called code-complete:
+
+- connect document transactions to real persistence outcomes, bridge-applied
+  revisions, retries, and conflict handling instead of recording persistence
+  immediately after scheduling a save;
+- coalesce preview patches and runtime positioning/collision recalculation on
+  animation frames;
+- expand structured release-readiness findings and repair routes for
+  choreography, timeout recovery, unsupported actions, media validity,
+  accessibility names/focus, reduced-motion equivalence, and responsive chrome;
+- complete bounded privacy-safe diagnostic envelopes and emit the currently
+  declared transaction, choreography, branch, contrast, and repair events;
+- provide durable host/API persistence for reusable recipes and named draft
+  checkpoints, subject to additive tenant-isolated storage review;
+- replace typed media asset identifiers with a validated asset picker/upload
+  capability and server-side asset resolution;
+- gate authoring controls on deployed compiler and renderer capability metadata;
+  and
+- add compiler-to-runtime round-trip and cross-browser end-to-end coverage for
+  the new flow, recovery, batch, accessibility, responsive, and media paths.
+
+## Initial implementation record — 2026-08-13
 
 All capabilities in release trains A through D are implemented in the local
 workspace. The implementation keeps structured TypeBox contracts, immutable
@@ -47,7 +100,7 @@ targeting, exact-origin bridges, and the existing publication guardrails.
   French, Italian, Belgian Dutch, Portuguese, and Turkish. Locale-sensitive
   async authoring states are covered by integration tests.
 
-### Automated verification evidence
+### Automated verification evidence recorded on 2026-08-13
 
 | Gate                        | Result                                                                                                                                              |
 | --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -65,7 +118,7 @@ targeting, exact-origin bridges, and the existing publication guardrails.
 
 ### External evidence not claimed
 
-The code program is complete, but these operational checks require target
+In addition to the code closure above, these operational checks require target
 environments, physical assistive-technology coverage, or deployment authority
 and remain intentionally unclaimed:
 
@@ -76,8 +129,8 @@ and remain intentionally unclaimed:
 - validate deployed staging publication, promotion, rollback, and production
   bundle/network traces against real environment configuration.
 
-These checks may produce follow-up defects, but they do not represent omitted
-plan capabilities or bypass any automated release gate.
+These checks may produce follow-up defects and cannot be substituted with local
+automation or bypassed by a release gate.
 
 ## Outcome
 

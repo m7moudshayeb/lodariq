@@ -1,6 +1,15 @@
 import type { AuthoringCatalog } from '../i18n-catalog-types';
 
 const IT_CATALOG: AuthoringCatalog = {
+  'Select a flow item with Enter or Space. Use the arrow keys to move it, then press Escape to cancel.':
+    'Seleziona un elemento del flusso con Invio o Spazio. Usa i tasti freccia per spostarlo, quindi premi Escape per annullare.',
+  'Select a flow item with Enter or Space, then press Escape to cancel.':
+    'Seleziona un elemento del flusso con Invio o Spazio, quindi premi Escape per annullare.',
+  'Select a flow path with Enter or Space, then press Escape to cancel.':
+    'Seleziona un percorso del flusso con Invio o Spazio, quindi premi Escape per annullare.',
+  'Moved selected flow item {direction}.':
+    'L’elemento del flusso selezionato è stato spostato verso {direction}.',
+  'Flow connection': 'Connessione del flusso',
   'Batch edit': 'Modifica in blocco',
   'Review the selected steps before applying shared placement, timing, style, or structure changes.':
     'Controlla i passaggi selezionati prima di applicare modifiche condivise a posizione, tempi, stile o struttura.',

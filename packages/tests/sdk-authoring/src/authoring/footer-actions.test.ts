@@ -109,6 +109,30 @@ describe('authoring footer actions', () => {
     review.click();
     await vi.waitFor(() => expect(document.querySelector('.panel-advanced-editor')).not.toBeNull());
     expect(document.querySelector('.panel-workspace-footer')).not.toBeNull();
+    expect(document.querySelector('.tour-review-workspace')?.textContent).toContain(
+      'Accessibility preview',
+    );
+    expect(document.querySelector('.tour-review-workspace')?.textContent).toContain(
+      'Draft checkpoints',
+    );
+    expect(document.querySelector('.tour-review-workspace')?.textContent).toContain(
+      'Completion behavior',
+    );
+    const editDetails = [...document.querySelectorAll<HTMLButtonElement>('.tour-review-row')].find(
+      (button) => button.querySelector('strong')?.textContent === 'Edit details',
+    );
+    if (!editDetails) throw new Error('Edit details row is missing');
+    editDetails.click();
+    await vi.waitFor(() => expect(document.querySelector('.document-review')).not.toBeNull());
+    document.querySelector<HTMLDetailsElement>('.review-drawer')!.open = true;
+    document.querySelector<HTMLDetailsElement>('.utilities-drawer')!.open = true;
+    expect(document.querySelector('[role="tablist"][aria-label="Support package"]')).not.toBeNull();
+    expect(
+      buttonByText(document.querySelector('.utilities-drawer'), 'Restore backup'),
+    ).toBeTruthy();
+    expect(
+      buttonByText(document.querySelector('.utilities-drawer'), 'Activity report'),
+    ).toBeTruthy();
 
     saveAndExit.click();
     const requests = outbound(postMessage, AUTHORING_SAVE_AND_EXIT_REQUEST_TYPE);

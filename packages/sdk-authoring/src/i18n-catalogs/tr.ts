@@ -1,6 +1,14 @@
 import type { AuthoringCatalog } from '../i18n-catalog-types';
 
 const TR_CATALOG: AuthoringCatalog = {
+  'Select a flow item with Enter or Space. Use the arrow keys to move it, then press Escape to cancel.':
+    'Enter veya Boşluk ile bir akış öğesi seçin. Ok tuşlarıyla taşıyın, ardından iptal etmek için Escape tuşuna basın.',
+  'Select a flow item with Enter or Space, then press Escape to cancel.':
+    'Enter veya Boşluk ile bir akış öğesi seçin, ardından iptal etmek için Escape tuşuna basın.',
+  'Select a flow path with Enter or Space, then press Escape to cancel.':
+    'Enter veya Boşluk ile bir akış yolu seçin, ardından iptal etmek için Escape tuşuna basın.',
+  'Moved selected flow item {direction}.': 'Seçili akış öğesi {direction} yönüne taşındı.',
+  'Flow connection': 'Akış bağlantısı',
   'Batch edit': 'Toplu düzenleme',
   'Review the selected steps before applying shared placement, timing, style, or structure changes.':
     'Ortak yerleşim, zamanlama, stil veya yapı değişikliklerini uygulamadan önce seçili adımları inceleyin.',
