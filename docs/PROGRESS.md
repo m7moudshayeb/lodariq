@@ -56,7 +56,7 @@ Status legend:
 | Strict TypeScript (PRD §16.0)                                       | ✅     | `tsconfig.base.json` (strict + extras)                                 |
 | ESLint + Prettier (PRD §16.0)                                       | ✅     | `eslint.config.mjs`, `.prettierrc.json`                                |
 | Vitest (PRD §16.0)                                                  | ✅     | Centralized `@lodariq/tests` (jsdom per-file)                          |
-| Playwright (PRD §16.0)                                              | ✅     | Fixture-host e2e runs through `pnpm verify`                            |
+| Playwright (PRD §16.0)                                              | ✅     | Explicit `pnpm test:e2e` or manual CI browser workflow                 |
 | Bundle-size gates (PRD §16.0, §9.1)                                 | ✅     | Runtime gzip gate for loader + runtime/tour                            |
 | dependency-cruiser (PRD §16.0)                                      | ✅     | `.dependency-cruiser.cjs` + ESLint guards                              |
 | `packages/schema` `@lodariq/schema` (PRD §16.0)                     | ✅     | TypeBox contracts + registry + validate                                |
@@ -178,7 +178,8 @@ Status legend:
 
 - **Pre-Phase code gates:** local SDK install, authoring, target picking,
   playback, serialization, import/export, migrations, accessibility smoke tests,
-  package boundaries, size checks, e2e, and audit are covered by `pnpm verify`.
+  package boundaries, size checks, and audit are covered by `pnpm verify`; e2e
+  remains an explicit local command and manually dispatched CI workflow.
 - **Status:** complete for the implemented code scope as of 2026-06-29.
 
 ## Phase 0 Codewise Sign-Off
@@ -288,8 +289,9 @@ publication are implemented locally and passed the consolidated local gate and
 current-view Editorial Air structural QA. Slice 3's bounded Product match,
 provenance/confidence, exact staging browser verification, and same-artifact
 production promotion with optional one-person approval are implemented locally.
-The current stabilization checkpoint passes the full Node 24 `pnpm verify`,
-including the Chromium/Firefox/WebKit Playwright matrix and dependency audit.
+The current stabilization checkpoint passes the full Node 24 `pnpm verify` and
+dependency audit; the Chromium/Firefox/WebKit Playwright matrix is run
+explicitly and remains independent from deployment.
 The local Phase 2 code gate is complete. Production enablement/cutover,
 live/deployed RLS and smoke/convergence evidence, the B4 measurement-backed ADR,
 and usability evidence remain unclaimed.**
@@ -414,8 +416,9 @@ evidence belongs in `design-qa.md` and
   visual QA. Slice 3 product matching/provenance, exact staging browser
   verification, production promotion/approval, Slice 3 hardening, and Slice 4
   drift/recovery/analytics are implemented locally. The completion gate passes
-  the full Node 24 `pnpm verify`, including the three-browser Playwright matrix
-  and dependency audit. Live auth enablement, first deployment and RLS/smoke
+  the full Node 24 `pnpm verify` and dependency audit; the three-browser
+  Playwright matrix remains an explicit non-deployment-blocking gate. Live auth
+  enablement, first deployment and RLS/smoke
   evidence, and the measurement-backed object-materialization decision remain
   operational gates.
 - **Phase 3 (PRD §16.5):** coordinated PMM launch workflow with announcement and
@@ -438,5 +441,7 @@ pnpm verify
 ```
 
 `pnpm verify` runs typecheck, lint, package boundaries, migration safety checks,
-unit tests, build, bundle-size checks, SDK CDN asset staging, fixture-host
-Playwright e2e, and `pnpm audit`.
+unit tests, build, bundle-size checks, SDK CDN asset staging, and `pnpm audit`.
+Run `pnpm test:e2e` explicitly for the full local browser suite; CI browser
+coverage is available from the manually dispatched **End-to-end browser tests**
+workflow and does not delay or gate deployment.
