@@ -1194,7 +1194,7 @@ describe('tour renderer (PRD §16.1)', () => {
         rendererContractVersion: RENDERER_CONTRACT_VERSION,
       }),
       contentHash: `sha256-${'9'.repeat(64)}`,
-      compilerVersion: 'future-compiler',
+      rendererContractVersion: '99',
     } as unknown as CompiledDocument;
 
     expect(() => new TourPlayer(incompatible)).toThrow(

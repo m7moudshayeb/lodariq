@@ -1,9 +1,7 @@
 import { Type, type Static, type TSchema } from '@sinclair/typebox';
 import {
-  BRAND_THEME_CONTRACT_VERSION,
-  COMPILED_ARTIFACT_SCHEMA_VERSION,
-  COMPILER_VERSION,
-  RENDERER_CONTRACT_VERSION,
+  PUBLIC_MANIFEST_SCHEMA_VERSION,
+  SUPPORTED_DELIVERY_CONTRACTS,
 } from './version';
 import {
   RELEASE_RECOVERY_ACTIONS,
@@ -90,6 +88,10 @@ const PersistedThemeContractVersion = Type.String({
   maxLength: 32,
   pattern: '^[1-9][0-9]*$',
 });
+
+const SupportedArtifactSchemaVersion = Type.Union(
+  SUPPORTED_DELIVERY_CONTRACTS.map((contract) => Type.Literal(contract.artifactSchemaVersion)),
+);
 
 /** Required guard carried by every document-scoped release mutation. */
 export const ReleaseMutationGuard = Type.Object(
@@ -518,25 +520,30 @@ export type ManifestArtifactPointer = ManifestArtifactPointerV1;
 export const ManifestPointer = ManifestPointerV1;
 export type ManifestPointer = ManifestPointerV1;
 
-export const ManifestArtifactPointerV2 = Type.Object(
-  {
-    artifactSchemaVersion: Type.Literal(COMPILED_ARTIFACT_SCHEMA_VERSION),
-    contentHash: Type.String({ pattern: CONTENT_HASH_PATTERN }),
-    compilerVersion: Type.Literal(COMPILER_VERSION),
-    rendererContractVersion: Type.Literal(RENDERER_CONTRACT_VERSION),
-    themeContractVersion: Type.Literal(BRAND_THEME_CONTRACT_VERSION),
-    themeVersionId: Type.String({ minLength: 1 }),
-    themeContentHash: Type.String({ pattern: CONTENT_HASH_PATTERN }),
-    url: Type.String({ pattern: ARTIFACT_URL_PATTERN }),
-    integrity: Type.String({ pattern: INTEGRITY_PATTERN }),
-  },
-  { $id: 'ManifestArtifactPointerV2', additionalProperties: false },
+export const ManifestArtifactPointerV2 = Type.Union(
+  SUPPORTED_DELIVERY_CONTRACTS.map((contract) =>
+    Type.Object(
+      {
+        artifactSchemaVersion: Type.Literal(contract.artifactSchemaVersion),
+        contentHash: Type.String({ pattern: CONTENT_HASH_PATTERN }),
+        compilerVersion: PersistedCompilerVersion,
+        rendererContractVersion: Type.Literal(contract.rendererContractVersion),
+        themeContractVersion: Type.Literal(contract.themeContractVersion),
+        themeVersionId: Type.String({ minLength: 1 }),
+        themeContentHash: Type.String({ pattern: CONTENT_HASH_PATTERN }),
+        url: Type.String({ pattern: ARTIFACT_URL_PATTERN }),
+        integrity: Type.String({ pattern: INTEGRITY_PATTERN }),
+      },
+      { additionalProperties: false },
+    ),
+  ),
+  { $id: 'ManifestArtifactPointerV2' },
 );
 export type ManifestArtifactPointerV2 = Static<typeof ManifestArtifactPointerV2>;
 
 export const ActiveManifestPointerV2 = Type.Object(
   {
-    schemaVersion: Type.Literal(COMPILED_ARTIFACT_SCHEMA_VERSION),
+    schemaVersion: Type.Literal(PUBLIC_MANIFEST_SCHEMA_VERSION),
     workspaceId: Type.String({ minLength: 1 }),
     environmentId: Type.String({ minLength: 1 }),
     documentId: Type.String({ minLength: 1 }),
@@ -552,7 +559,7 @@ export type ActiveManifestPointerV2 = Static<typeof ActiveManifestPointerV2>;
 
 export const InactiveManifestPointerV2 = Type.Object(
   {
-    schemaVersion: Type.Literal(COMPILED_ARTIFACT_SCHEMA_VERSION),
+    schemaVersion: Type.Literal(PUBLIC_MANIFEST_SCHEMA_VERSION),
     workspaceId: Type.String({ minLength: 1 }),
     environmentId: Type.String({ minLength: 1 }),
     documentId: Type.String({ minLength: 1 }),
@@ -612,7 +619,7 @@ const BrowserVerificationReportIdentity = {
     maxLength: 120,
     pattern: '^[A-Za-z0-9][A-Za-z0-9.+_-]{0,119}$',
   }),
-  rendererContractVersion: Type.Literal(RENDERER_CONTRACT_VERSION),
+  rendererContractVersion: Type.Ref(RendererContractVersion),
 } as const;
 
 function completeBrowserVerificationChecks(
@@ -705,7 +712,7 @@ const PublicationVerificationIdentity = {
   documentId: Type.String({ minLength: 1, maxLength: 256 }),
   publicationId: Type.String({ minLength: 1, maxLength: 256 }),
   compiledArtifactId: Type.String({ minLength: 1, maxLength: 512 }),
-  artifactSchemaVersion: Type.Literal(COMPILED_ARTIFACT_SCHEMA_VERSION),
+  artifactSchemaVersion: SupportedArtifactSchemaVersion,
   contentHash: Type.String({ pattern: CONTENT_HASH_PATTERN }),
   themeVersionId: Type.String({ minLength: 1, maxLength: 256 }),
   themeContentHash: Type.String({ pattern: CONTENT_HASH_PATTERN }),
@@ -814,7 +821,7 @@ const ProductionPromotionCompleted = Type.Object(
     contentHash: Type.String({ pattern: CONTENT_HASH_PATTERN }),
     themeVersionId: Type.String({ minLength: 1, maxLength: 256 }),
     themeContentHash: Type.String({ pattern: CONTENT_HASH_PATTERN }),
-    rendererContractVersion: Type.Literal(RENDERER_CONTRACT_VERSION),
+    rendererContractVersion: Type.Ref(RendererContractVersion),
   },
   { additionalProperties: false },
 );

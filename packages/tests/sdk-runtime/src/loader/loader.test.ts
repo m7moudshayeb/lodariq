@@ -1325,7 +1325,7 @@ describe('loader config (PRD §6.2, §9.2)', () => {
     const loadTourRenderer = vi.fn();
     const incompatibleArtifact = {
       ...publicCompiledDoc,
-      compilerVersion: 'future-compiler',
+      rendererContractVersion: '99',
     } as unknown as CompiledDocument;
     const api = await installLodariq(
       {

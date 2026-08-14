@@ -80,9 +80,9 @@ export function compiledArtifactMetadata(compiled: CompiledDocument): {
   rendererContractVersion: string | null;
 } {
   if (
-    compiled.artifactSchemaVersion !== '2' &&
-    compiled.artifactSchemaVersion !== '3' &&
-    compiled.artifactSchemaVersion !== '4'
+    !('artifactSchemaVersion' in compiled) ||
+    !('theme' in compiled) ||
+    !('rendererContractVersion' in compiled)
   ) {
     return {
       themeVersionId: null,

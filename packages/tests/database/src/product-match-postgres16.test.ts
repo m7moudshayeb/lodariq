@@ -233,6 +233,40 @@ describe.skipIf(!DISPOSABLE_POSTGRES_ENABLED)(
       expect(roleContract).toBe('f|f');
     });
 
+    it('keeps persisted renderer evidence version-agnostic after application admission', () => {
+      const constraintDefinition = runPsqlSync(
+        ownerDatabaseUrl,
+        `select pg_get_constraintdef(oid)
+         from pg_constraint
+         where conname = 'publication_verifications_report_json_check';`,
+      );
+      expect(constraintDefinition).toContain("'rendererContractVersion'::text) ~");
+      expect(constraintDefinition).not.toContain("'rendererContractVersion'::text) = ANY");
+
+      runPsqlSync(
+        ownerDatabaseUrl,
+        `begin;
+         insert into publication_verifications (
+           id, workspace_id, environment_id, document_id, publication_id,
+           result, report_json, verified_origin, verified_by_user_id, created_at
+         ) values (
+           'verification_pg16_future_renderer', ${sqlLiteral(WORKSPACE_A)},
+           ${sqlLiteral(ENVIRONMENT_A)}, ${sqlLiteral(PROMOTION_DOCUMENT_ID)},
+           ${sqlLiteral(PROMOTION_SOURCE_PUBLICATION)}, 'passed',
+           ${jsonbLiteral({
+             schemaVersion: '1',
+             checkedAt: CREATED_AT,
+             sdkVersion: 'pg16-test',
+             rendererContractVersion: '99',
+             status: 'passed',
+             checks: [{ code: 'artifact_integrity', status: 'passed' }],
+           })},
+           'https://a.example.test', ${sqlLiteral(APPROVER_A)}, ${sqlLiteral(CREATED_AT)}
+         );
+         rollback;`,
+      );
+    });
+
     it('forces tenant isolation and keeps application receipts append-only for the runtime role', async () => {
       const unscopedCount = runPsqlSync(
         runtimeDatabaseUrl,

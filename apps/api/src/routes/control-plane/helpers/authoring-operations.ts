@@ -3,6 +3,7 @@ import {
   BrowserVerificationReport,
   COMPILED_ARTIFACT_SCHEMA_VERSION,
   PublicationVerification,
+  isSupportedDeliveryContract,
   validate,
   type AuthoringBrandThemeAcknowledgementRequest as AuthoringBrandThemeAcknowledgementRequestType,
   type AuthoringBrandThemeAcknowledgementResult as AuthoringBrandThemeAcknowledgementResultType,
@@ -211,6 +212,11 @@ export async function persistExactPublicationVerification(
   if (compiled.artifactSchemaVersion !== COMPILED_ARTIFACT_SCHEMA_VERSION) {
     throw new Error('browser verification requires the current compiled artifact contract');
   }
+  if (input.report.rendererContractVersion !== compiled.rendererContractVersion) {
+    throw new InvalidBrowserVerificationReportError(
+      'Browser verification renderer contract must match the exact publication artifact',
+    );
+  }
   const record = await repository.createPublicationVerification({
     workspaceId: input.workspaceId,
     environmentId: environment.id,
@@ -263,7 +269,15 @@ export function toPublicationVerification(
   const compiled = publication.artifact.compiled;
   if (
     !reportValidation.valid ||
-    compiled.artifactSchemaVersion !== COMPILED_ARTIFACT_SCHEMA_VERSION
+    !('artifactSchemaVersion' in compiled) ||
+    !('rendererContractVersion' in compiled) ||
+    !('theme' in compiled) ||
+    !isSupportedDeliveryContract(
+      compiled.artifactSchemaVersion,
+      compiled.rendererContractVersion,
+      compiled.theme.contractVersion,
+    ) ||
+    reportValidation.value.rendererContractVersion !== compiled.rendererContractVersion
   ) {
     throw new Error('stored browser verification no longer matches its canonical contract');
   }

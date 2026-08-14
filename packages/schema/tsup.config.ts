@@ -6,6 +6,9 @@ export default defineConfig({
   entry: {
     index: 'src/index.ts',
     version: 'src/version.ts',
+    'delivery-compatibility': 'src/delivery-compatibility.ts',
+    'compiler-version': 'src/compiler-version.ts',
+    'compiled-runtime': 'src/compiled-runtime.ts',
     csp: 'src/csp.ts',
     dom: 'src/dom.ts',
     target: 'src/target.ts',

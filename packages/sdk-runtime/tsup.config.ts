@@ -39,6 +39,7 @@ export default defineConfig({
     /^@floating-ui\//,
     /^@lodariq\/i18n(?:\/.*)?$/,
     /^@lodariq\/schema(?:\/.*)?$/,
+    /^@sinclair\/typebox(?:\/.*)?$/,
     /^lucide$/,
   ],
 });

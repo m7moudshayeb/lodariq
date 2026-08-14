@@ -286,7 +286,7 @@ describe('release recovery in-memory persistence', () => {
       action: 'publish',
       artifact: {
         compiledArtifactId: fixture.artifacts.incompatibleSecond.id,
-        compilerVersion: '0.2.0',
+        rendererContractVersion: '99',
       },
     });
     expect(JSON.stringify(state.history)).not.toContain(fixture.artifacts.laterDraft.id);
@@ -1171,15 +1171,15 @@ function makeHistoricallyReadableIncompatibleArtifact(
   source: PersistedCompiledArtifact,
 ): PersistedCompiledArtifact {
   const compiled = structuredClone(source.compiled) as unknown as Record<string, unknown>;
-  compiled['compilerVersion'] = '0.2.0';
+  compiled['rendererContractVersion'] = '99';
   delete compiled['contentHash'];
   const contentHash = sha256ContentHash(compiled);
   compiled['contentHash'] = contentHash;
   return {
     ...structuredClone(source),
-    id: 'artifact_second_historical_compiler',
+    id: 'artifact_second_unsupported_renderer',
     contentHash,
-    compilerVersion: '0.2.0',
+    rendererContractVersion: '99',
     compiled: compiled as unknown as PersistedCompiledArtifact['compiled'],
   };
 }

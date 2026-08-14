@@ -5,12 +5,11 @@ import {
   AuthoringAuthorizationResult,
   AuthoringCodeExchangeResult,
   AuthoringDocumentSessionResult,
-  BRAND_THEME_CONTRACT_VERSION,
-  COMPILED_ARTIFACT_SCHEMA_VERSION,
-  COMPILER_VERSION,
   CreatorModuleDescriptor,
   MAX_ACTIVE_DOCUMENT_MANIFESTS,
-  RENDERER_CONTRACT_VERSION,
+  PUBLIC_MANIFEST_SCHEMA_VERSION,
+  findSupportedDeliveryContract,
+  isValidCompilerVersion,
   validate,
   type ActiveManifestPointerV2,
   type CreatorModuleDescriptor as CreatorModuleDescriptorType,
@@ -309,11 +308,21 @@ export function createActiveManifestPointerFromPublication(
 ): ActiveManifestPointerV2 | null {
   const compiled = publication.artifact.compiled;
   if (
+    !('artifactSchemaVersion' in compiled) ||
+    !('rendererContractVersion' in compiled) ||
+    !('theme' in compiled)
+  ) {
+    return null;
+  }
+  const supportedContract = findSupportedDeliveryContract(
+    compiled.artifactSchemaVersion,
+    compiled.rendererContractVersion,
+    compiled.theme.contractVersion,
+  );
+  if (
     deployment.state !== 'active' ||
-    compiled.artifactSchemaVersion !== COMPILED_ARTIFACT_SCHEMA_VERSION ||
-    compiled.compilerVersion !== COMPILER_VERSION ||
-    compiled.rendererContractVersion !== RENDERER_CONTRACT_VERSION ||
-    compiled.theme.contractVersion !== BRAND_THEME_CONTRACT_VERSION ||
+    !supportedContract ||
+    !isValidCompilerVersion(compiled.compilerVersion) ||
     publication.documentId !== deployment.documentId ||
     publication.id !== deployment.activePublicationId ||
     publication.contentHash !== compiled.contentHash
@@ -331,7 +340,7 @@ export function createActiveManifestPointerFromPublication(
   ).toString();
   const canonicalArtifact = canonicalJson(compiled);
   return {
-    schemaVersion: COMPILED_ARTIFACT_SCHEMA_VERSION,
+    schemaVersion: PUBLIC_MANIFEST_SCHEMA_VERSION,
     workspaceId: deployment.workspaceId,
     environmentId: deployment.environmentId,
     documentId: deployment.documentId,
@@ -340,11 +349,11 @@ export function createActiveManifestPointerFromPublication(
     publicationId: publication.id,
     activatedAt: publication.publishedAt,
     artifact: {
-      artifactSchemaVersion: compiled.artifactSchemaVersion,
+      artifactSchemaVersion: supportedContract.artifactSchemaVersion,
       contentHash: compiled.contentHash,
       compilerVersion: compiled.compilerVersion,
-      rendererContractVersion: compiled.rendererContractVersion,
-      themeContractVersion: compiled.theme.contractVersion,
+      rendererContractVersion: supportedContract.rendererContractVersion,
+      themeContractVersion: supportedContract.themeContractVersion,
       themeVersionId: compiled.theme.themeVersionId,
       themeContentHash: compiled.theme.contentHash,
       url: artifactUrl,

@@ -1,8 +1,7 @@
 import {
-  COMPILED_ARTIFACT_SCHEMA_VERSION,
-  RENDERER_CONTRACT_VERSION,
   ProductionPromotionResult,
   evaluateEnvironmentReleasePolicy,
+  isSupportedDeliveryContract,
   validate,
   type ProductionPromotionRequest as ProductionPromotionRequestType,
   type ProductionPromotionResult as ProductionPromotionResultType,
@@ -193,10 +192,16 @@ export function toProductionPromotionResult(
   }
   const compiled = publication.artifact.compiled;
   if (
-    compiled.artifactSchemaVersion !== COMPILED_ARTIFACT_SCHEMA_VERSION ||
-    compiled.rendererContractVersion !== RENDERER_CONTRACT_VERSION
+    !('artifactSchemaVersion' in compiled) ||
+    !('rendererContractVersion' in compiled) ||
+    !('theme' in compiled) ||
+    !isSupportedDeliveryContract(
+      compiled.artifactSchemaVersion,
+      compiled.rendererContractVersion,
+      compiled.theme.contractVersion,
+    )
   ) {
-    throw new Error('production promotion requires a Phase 2 compiled artifact');
+    throw new Error('production promotion requires a supported compiled artifact');
   }
   return {
     ok: true,

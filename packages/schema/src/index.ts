@@ -1,4 +1,6 @@
 export * from './version';
+export * from './delivery-compatibility';
+export * from './compiler-version';
 export * from './common';
 export * from './control-plane';
 export * from './dashboard';

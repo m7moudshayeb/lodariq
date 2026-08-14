@@ -9,7 +9,6 @@ import type {
   SdkInstallContext,
 } from '@lodariq/schema';
 import { registerBrandTokens } from '../brand-token-registry';
-import { COMPILED_ARTIFACT_SCHEMA_VERSION } from '@lodariq/schema/version';
 import {
   installLodariq,
   type LoaderConfig,
@@ -157,15 +156,8 @@ export async function fetchPublicCurrentDocument(
     throw new Error('Lodariq public document request failed');
   }
   if (!response.ok) throw new Error('Lodariq public document request failed');
-  let value: unknown;
-  try {
-    value = await response.json();
-  } catch {
-    throw new Error('Lodariq public document response is invalid');
-  }
-  if (!isCompiledDocumentShape(value)) {
-    throw new Error('Lodariq public document response is invalid');
-  }
+  const { readValidatedPublicArtifact } = await import('../artifact-payload-validation');
+  const value = await readValidatedPublicArtifact(response);
   assertSupportedCompiledArtifactIfVersioned(value);
   if (isManifestV2(manifest)) {
     assertSupportedArtifactMatchesManifest(value, manifest);
@@ -269,19 +261,5 @@ function toRuntimeManifest(manifest: AvailableManifest): ManifestPointer {
 }
 
 function isManifestV2(manifest: AvailableManifest): manifest is ActiveManifestPointerV2 {
-  return 'schemaVersion' in manifest && manifest.schemaVersion === COMPILED_ARTIFACT_SCHEMA_VERSION;
-}
-
-function isCompiledDocumentShape(value: unknown): value is CompiledDocument {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
-  const document = value as Partial<CompiledDocument>;
-  return (
-    typeof document.documentId === 'string' &&
-    typeof document.contentHash === 'string' &&
-    document.type === 'tour' &&
-    typeof document.schemaVersion === 'string' &&
-    typeof document.compilerVersion === 'string' &&
-    Array.isArray(document.targets) &&
-    Array.isArray(document.steps)
-  );
+  return 'schemaVersion' in manifest;
 }

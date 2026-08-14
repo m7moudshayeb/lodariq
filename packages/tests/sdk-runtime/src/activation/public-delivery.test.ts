@@ -7,6 +7,8 @@ import {
   DEFAULT_EXPERIENCE_APPEARANCE,
   LODARIQ_ACCESSIBLE_FALLBACK_THEME_V1,
   RENDERER_CONTRACT_VERSION,
+  type ActiveManifestPointerV2,
+  type CompiledDocumentV3,
   type CompiledDocument,
   type NewCompiledDocument,
   type PublicSdkBootstrapContext,
@@ -49,6 +51,23 @@ const SECOND_COMPILED_DOCUMENT: NewCompiledDocument = {
   ...COMPILED_DOCUMENT,
   documentId: 'doc_public_upgrade',
   contentHash: `sha256-${'f'.repeat(64)}`,
+};
+
+const LEGACY_V3_COMPILED_DOCUMENT: CompiledDocumentV3 = {
+  artifactSchemaVersion: '3',
+  documentId: COMPILED_DOCUMENT.documentId,
+  type: COMPILED_DOCUMENT.type,
+  contentHash: COMPILED_DOCUMENT.contentHash,
+  schemaVersion: COMPILED_DOCUMENT.schemaVersion,
+  compilerVersion: '0.4.0',
+  rendererContractVersion: '3',
+  trigger: COMPILED_DOCUMENT.trigger,
+  audience: COMPILED_DOCUMENT.audience,
+  theme: COMPILED_DOCUMENT.theme,
+  appearance: COMPILED_DOCUMENT.appearance,
+  targets: [],
+  steps: [],
+  localization: { defaultLocale: 'en', defaultTitle: 'Public tour', variants: [] },
 };
 
 const activeManifest = (
@@ -155,6 +174,117 @@ describe('permanent SDK delivery adapter', () => {
         integrity: manifest.artifact.integrity,
       }),
     ).rejects.toThrow('Lodariq artifact is incompatible with this runtime');
+  });
+
+  it.each([
+    {
+      name: 'unknown top-level renderer input',
+      payload: { ...COMPILED_DOCUMENT, rawHtml: '<script>alert(1)</script>' },
+    },
+    {
+      name: 'unknown nested block input',
+      payload: {
+        ...COMPILED_DOCUMENT,
+        steps: [
+          {
+            id: 'step_invalid_body',
+            body: [
+              {
+                id: 'block_invalid_body',
+                type: 'text',
+                text: 'Unsafe',
+                props: { rawHtml: '<img src=x onerror=alert(1)>' },
+              },
+            ],
+          },
+        ],
+      },
+    },
+  ])('rejects schema-invalid public artifacts: $name', async ({ payload }) => {
+    const manifest = activeManifest(COMPILED_DOCUMENT, 'pub_schema_invalid');
+    const fetch = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify(payload), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      }),
+    );
+    vi.stubGlobal('fetch', fetch);
+
+    await expect(
+      fetchPublicCurrentDocument(manifest.artifact.url, manifest, {
+        installationId: INSTALLATION_ID,
+        integrity: manifest.artifact.integrity,
+      }),
+    ).rejects.toThrow('Lodariq public document response is invalid');
+  });
+
+  it('rejects oversized public artifacts before parsing', async () => {
+    const manifest = activeManifest(COMPILED_DOCUMENT, 'pub_oversized');
+    const fetch = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify(COMPILED_DOCUMENT), {
+        status: 200,
+        headers: {
+          'content-length': String(2 * 1024 * 1024 + 1),
+          'content-type': 'application/json',
+        },
+      }),
+    );
+    vi.stubGlobal('fetch', fetch);
+
+    await expect(
+      fetchPublicCurrentDocument(manifest.artifact.url, manifest, {
+        installationId: INSTALLATION_ID,
+        integrity: manifest.artifact.integrity,
+      }),
+    ).rejects.toThrow('Lodariq public document response is invalid');
+  });
+
+  it('streams a bounded public artifact when content-length understates the response', async () => {
+    const manifest = activeManifest(COMPILED_DOCUMENT, 'pub_stream_oversized');
+    const fetch = vi.fn().mockResolvedValue(
+      new Response(' '.repeat(2 * 1024 * 1024 + 1), {
+        status: 200,
+        headers: {
+          'content-length': '1',
+          'content-type': 'application/json',
+        },
+      }),
+    );
+    vi.stubGlobal('fetch', fetch);
+
+    await expect(
+      fetchPublicCurrentDocument(manifest.artifact.url, manifest, {
+        installationId: INSTALLATION_ID,
+        integrity: manifest.artifact.integrity,
+      }),
+    ).rejects.toThrow('Lodariq public document response is invalid');
+  });
+
+  it('loads an explicitly supported legacy artifact and treats compiler version as provenance', async () => {
+    const currentManifest = activeManifest(COMPILED_DOCUMENT, 'pub_legacy_supported');
+    const legacyManifest: ActiveManifestPointerV2 = {
+      ...currentManifest,
+      artifact: {
+        ...currentManifest.artifact,
+        artifactSchemaVersion: '3',
+        compilerVersion: LEGACY_V3_COMPILED_DOCUMENT.compilerVersion,
+        rendererContractVersion: '3',
+      },
+    };
+    const fetch = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify(LEGACY_V3_COMPILED_DOCUMENT), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      }),
+    );
+    vi.stubGlobal('fetch', fetch);
+
+    await expect(
+      fetchPublicCurrentDocument(legacyManifest.artifact.url, legacyManifest, {
+        installationId: INSTALLATION_ID,
+        integrity: legacyManifest.artifact.integrity,
+      }),
+    ).resolves.toEqual(LEGACY_V3_COMPILED_DOCUMENT);
   });
 
   it('keeps unpublished delivery inert', async () => {
@@ -284,7 +414,7 @@ describe('permanent SDK delivery adapter', () => {
         state: 'available',
         manifest: {
           ...supported,
-          artifact: { ...supported.artifact, compilerVersion: 'future-compiler' },
+          artifact: { ...supported.artifact, rendererContractVersion: '99' },
         },
         currentDocumentUrl: 'https://api.lodariq.io/v1/sdk/current-document',
         ingestUrl: 'https://api.lodariq.io/v1/sdk/events',
