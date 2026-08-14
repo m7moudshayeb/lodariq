@@ -1,9 +1,11 @@
 import { Type, type Static } from '@sinclair/typebox';
+import { Value } from '@sinclair/typebox/value';
 import { DocumentStatus, DocumentType, Environment } from './common';
 import { LodariqBlock } from './block';
 import { ExperienceAppearance, ThemeBinding } from './brand';
 import { DocumentLocalization } from './document-localization';
 import { Target } from './target';
+import { isSafeNavigationUrl } from './url';
 
 export const TRIGGER_TYPES = ['manual', 'pageLoad', 'urlMatch', 'event'] as const;
 
@@ -98,6 +100,40 @@ export const AudienceDefinition = Type.Object(
 );
 export type AudienceDefinition = Static<typeof AudienceDefinition>;
 
+const COMPLETION_REFERENCE = Type.String({
+  minLength: 1,
+  maxLength: 128,
+  pattern: '^[A-Za-z0-9][A-Za-z0-9._:-]*$',
+});
+
+/** Explicit terminal behavior; completion-card copy stays in a localized step. */
+export const TourCompletionBehavior = Type.Union(
+  [
+    Type.Object({ type: Type.Literal('stop') }, { additionalProperties: false }),
+    Type.Object(
+      { type: Type.Literal('showStep'), stepId: COMPLETION_REFERENCE },
+      { additionalProperties: false },
+    ),
+    Type.Object(
+      { type: Type.Literal('activateTarget'), targetId: COMPLETION_REFERENCE },
+      { additionalProperties: false },
+    ),
+    Type.Object(
+      { type: Type.Literal('openPage'), url: Type.String({ minLength: 1, maxLength: 2_048 }) },
+      { additionalProperties: false },
+    ),
+  ],
+  { $id: 'TourCompletionBehavior' },
+);
+export type TourCompletionBehavior = Static<typeof TourCompletionBehavior>;
+
+export function sanitizeTourCompletionBehavior(value: unknown): TourCompletionBehavior | undefined {
+  if (!Value.Check(TourCompletionBehavior, value)) return undefined;
+  const behavior = value as TourCompletionBehavior;
+  if (behavior.type === 'openPage' && !isSafeNavigationUrl(behavior.url)) return undefined;
+  return structuredClone(behavior);
+}
+
 /**
  * Canonical Lodariq document — the source of truth (PRD §3.1, §7.1).
  * NOT Markdown. Markdown is export/interchange/source-mode only.
@@ -115,6 +151,7 @@ export const LodariqDocument = Type.Object(
     themeRef: Type.Optional(Type.String()),
     themeBinding: Type.Optional(ThemeBinding),
     appearance: Type.Optional(ExperienceAppearance),
+    completion: Type.Optional(Type.Ref(TourCompletionBehavior)),
     targets: Type.Array(Target),
     blocks: Type.Array(Type.Ref(LodariqBlock)),
     /** Sparse customer-authored locale variants keyed by stable block identity. */

@@ -20,7 +20,8 @@ import {
   type LocalAuthoringFrameSnapshot,
   type TargetInspectionState,
 } from '../types';
-import { targetById, targetHealthDetails, targetHealthTitle, targetSupportDetails } from '../utils';
+import { targetById, targetHealthDetails, targetSupportDetails } from '../utils';
+import type { AuthoringTargetHealth } from '../../target-health-ledger';
 
 type TargetMenuTab = 'behavior' | 'details';
 
@@ -40,6 +41,7 @@ export function TargetControls({
   controller: LocalAuthoringFrameController;
 }) {
   const inspection = snapshot.targetDiagnostics.get(targetId);
+  const health = snapshot.targetHealth.get(targetId);
   const target = targetById(snapshot.documentState, targetId);
   const targetBlock = targetBearingBlock(block, targetId);
   const presentationAnchor = targetBlock?.props.presentationAnchor;
@@ -56,10 +58,11 @@ export function TargetControls({
       setActiveTab('behavior');
     }
   };
-  const status = inspection?.diagnostic.state ?? 'unchecked';
-  const statusText = inspection
-    ? targetHealthTitle(inspection.diagnostic)
-    : authoringText('Unverified');
+  const status = targetHealthPresentation(health, inspection);
+  const statusText =
+    !health && inspection?.diagnostic.state === 'needs_review'
+      ? authoringText('Needs verification')
+      : targetHealthPresentationTitle(status);
   const lifecycle = target?.lifecycle ?? {};
   const openPanelEnabled = Boolean(lifecycle.openPanel);
   const selectTabEnabled = Boolean(lifecycle.selectTab);
@@ -127,7 +130,17 @@ export function TargetControls({
                 </AuthoringButton>
               </div>
               {inspection && inspection.diagnostic.state !== 'found' ? (
-                <TargetHealth inspection={inspection} />
+                <>
+                  <TargetHealth health={health} inspection={inspection} />
+                  {health?.presentation === 'unavailable_current_context' ? (
+                    <AuthoringButton
+                      className="target-menu-action"
+                      onClick={() => controller.previewCurrentStep()}
+                    >
+                      {authoringText('Open required UI')}
+                    </AuthoringButton>
+                  ) : null}
+                </>
               ) : null}
               <details
                 className="target-menu-disclosure"
@@ -271,7 +284,7 @@ export function TargetControls({
                                   {authoringText('Verify again')}
                                 </AuthoringButton>
                               </div>
-                              <TargetHealth inspection={inspection} />
+                              <TargetHealth health={health} inspection={inspection} />
                               {target ? (
                                 <details className="target-matching-details">
                                   <summary>{authoringText('Matching details')}</summary>
@@ -481,20 +494,78 @@ function anchorSupportRows(target: DocumentTarget): Array<{
   ];
 }
 
-function TargetHealth({ inspection }: { inspection: TargetInspectionState | undefined }) {
-  if (!inspection) {
+function TargetHealth({
+  health,
+  inspection,
+}: {
+  health: AuthoringTargetHealth | undefined;
+  inspection: TargetInspectionState | undefined;
+}) {
+  const presentation = targetHealthPresentation(health, inspection);
+  if (presentation === 'unverified') {
     return (
       <p className="target-health target-health-empty">
-        <strong>{authoringText('Unverified')}</strong>
+        <strong>
+          {inspection?.diagnostic.state === 'needs_review'
+            ? authoringText('Needs verification')
+            : authoringText('Unverified')}
+        </strong>
         {authoringText('Verify this placement on the current environment before publishing.')}
       </p>
     );
   }
 
+  if (presentation === 'checking') {
+    return (
+      <p className="target-health checking">
+        <strong>{authoringText('Checking')}</strong>
+        {authoringText('Checking this placement in the current page context.')}
+      </p>
+    );
+  }
+
+  if (presentation === 'unavailable_current_context') {
+    return (
+      <p className="target-health unavailable-current-context">
+        <strong>{authoringText('Unavailable in current context')}</strong>
+        {authoringText(
+          'Last verified evidence is retained. Open the required route or UI to recheck.',
+        )}
+      </p>
+    );
+  }
+
   return (
-    <p className={`target-health ${inspection.diagnostic.state}`}>
-      <strong>{targetHealthTitle(inspection.diagnostic)}</strong>
-      {targetHealthDetails(inspection)}
+    <p className={`target-health ${presentation}`}>
+      <strong>{targetHealthPresentationTitle(presentation)}</strong>
+      {inspection ? targetHealthDetails(inspection) : authoringText('Verified in this context.')}
     </p>
   );
+}
+
+function targetHealthPresentation(
+  health: AuthoringTargetHealth | undefined,
+  inspection: TargetInspectionState | undefined,
+): AuthoringTargetHealth['presentation'] {
+  if (health) return health.presentation;
+  if (inspection?.diagnostic.state === 'found') return 'verified';
+  if (inspection?.diagnostic.state === 'missing') return 'missing';
+  if (inspection?.diagnostic.state === 'ambiguous') return 'ambiguous';
+  if (inspection?.diagnostic.state === 'needs_review') return 'unverified';
+  return 'unverified';
+}
+
+function targetHealthPresentationTitle(
+  presentation: AuthoringTargetHealth['presentation'],
+): string {
+  const labels: Record<AuthoringTargetHealth['presentation'], string> = {
+    ambiguous: authoringText('Ambiguous'),
+    checking: authoringText('Checking'),
+    drifted: authoringText('Drift detected'),
+    missing: authoringText('Missing'),
+    unavailable_current_context: authoringText('Unavailable in current context'),
+    unverified: authoringText('Unverified'),
+    verified: authoringText('Verified'),
+  };
+  return labels[presentation];
 }

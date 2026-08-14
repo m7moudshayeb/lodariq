@@ -1,4 +1,4 @@
-import { ControllerDragDropFeature } from './controller-drag-drop';
+import { ControllerReliabilityFeature } from './controller-reliability';
 import { authoringText } from '../../i18n';
 import {
   DEFAULT_EXPERIENCE_APPEARANCE,
@@ -7,14 +7,22 @@ import {
   sanitizeTooltipStyleProps,
   type BlockLayoutProps,
   type ButtonStyleProps,
-  type PreviewPatchOperation,
   type LodariqBlock,
+  type LodariqDocument,
   type OpenPageNavigationBehavior,
   type ExperienceAppearance,
   type InlineTextRun,
   type TextStyleProps,
   type TooltipLayoutProps,
   type TooltipStyleProps,
+  type StepChoreography,
+  type BlockActionProps,
+  type TourCompletionBehavior,
+  type StepTransition,
+  type TourMotionPresentation,
+  type ResponsiveStepPresentation,
+  type SpotlightPresentation,
+  type MediaPresentation,
 } from '@lodariq/schema';
 import {
   setBlockLayout as setBlockLayoutInTree,
@@ -26,6 +34,7 @@ import {
   setTooltipLayout as setTooltipLayoutInTree,
   setTooltipStyle as setTooltipStyleInTree,
   transformBlocks,
+  updateBlockProps,
   type EditableBlockType,
   type TooltipPlacement,
 } from '../document-ops';
@@ -33,41 +42,68 @@ import type { EditableButtonVariant, EditableActionType } from './types';
 import { blockTypeLabel, findBlockById, isEditableContentBlock } from './utils';
 import { slashCommandDefaultContent } from './controller-model';
 import { localizedAuthoringDocument, setAuthoringLocalizedTitle } from '../document-localization';
+import { blockSupportsAuthoringCapability } from '../experience-authoring-capabilities';
 
-export abstract class ControllerPropertyFeature extends ControllerDragDropFeature {
-  protected abstract afterDocumentMutation(): void;
-  protected abstract commitContentRuns(
-    blockId: string,
-    value: string,
-    contentRuns?: InlineTextRun[],
-  ): void;
-  protected abstract focusInsertedBlock(blockId: string): void;
-  protected abstract recordChange(): void;
-  protected abstract selectedTourStep(): LodariqBlock | null;
-  protected abstract sendPreviewPatch(
-    blockId: string,
-    ops: PreviewPatchOperation[],
-    locale?: string,
-  ): void;
-
+export abstract class ControllerPropertyFeature extends ControllerReliabilityFeature {
   setButtonAction(blockId: string, actionType: EditableActionType): void {
     this.setAction(blockId, actionType);
+  }
+
+  setButtonSequence(blockId: string, sequence: StepChoreography): void {
+    const block = findBlockById(this.documentState.blocks, blockId);
+    if (!block || (block.type !== 'button' && block.type !== 'link')) return;
+    const action: BlockActionProps = { type: 'runSequence', sequence: structuredClone(sequence) };
+    if (JSON.stringify(block.props.action) === JSON.stringify(action)) return;
+    this.commitCoordinatedMutation({
+      blockId,
+      coalescingKey: `sequence:${blockId}`,
+      operations: [{ op: 'setAction', action }],
+      reduce: (document) => ({
+        ...document,
+        blocks: setBlockAction(document.blocks, blockId, action),
+      }),
+      scope: 'behavior',
+      status: authoringText('Sequence updated'),
+    });
+  }
+
+  setButtonTransition(blockId: string, transition: StepTransition | undefined): void {
+    const block = findBlockById(this.documentState.blocks, blockId);
+    const currentAction = block?.props.action;
+    if (!block || !currentAction || (block.type !== 'button' && block.type !== 'link')) return;
+    const action = transition
+      ? { ...currentAction, transition: structuredClone(transition) }
+      : (Object.fromEntries(
+          Object.entries(currentAction).filter(([key]) => key !== 'transition'),
+        ) as BlockActionProps);
+    if (JSON.stringify(currentAction) === JSON.stringify(action)) return;
+    this.commitCoordinatedMutation({
+      blockId,
+      coalescingKey: `transition:${blockId}`,
+      operations: [{ op: 'setAction', action }],
+      reduce: (document) => ({
+        ...document,
+        blocks: setBlockAction(document.blocks, blockId, action),
+      }),
+      scope: 'behavior',
+      status: authoringText('Action branch updated'),
+    });
   }
 
   setButtonVariant(blockId: string, variant: EditableButtonVariant): void {
     const block = findBlockById(this.documentState.blocks, blockId);
     if (!block || (block.type !== 'button' && block.type !== 'link')) return;
     if (block.props.variant === variant) return;
-    this.recordChange();
-    this.documentState = {
-      ...this.documentState,
-      blocks: setBlockVariant(this.documentState.blocks, blockId, variant),
-    };
-    this.selectedBlockId = blockId;
-    this.afterDocumentMutation();
-    this.services.saveDocument(this.documentState);
-    this.sendPreviewPatch(blockId, [{ op: 'setVariant', variant }]);
-    this.setStatus(`Button style changed to ${variant}`);
+    this.commitCoordinatedMutation({
+      blockId,
+      coalescingKey: `button:${blockId}`,
+      operations: [{ op: 'setVariant', variant }],
+      reduce: (document) => ({
+        ...document,
+        blocks: setBlockVariant(document.blocks, blockId, variant),
+      }),
+      status: authoringText('Button style changed to {variant}', { variant }),
+    });
   }
 
   commitRichTextContent(blockId: string, value: string, contentRuns?: InlineTextRun[]): void {
@@ -79,32 +115,32 @@ export abstract class ControllerPropertyFeature extends ControllerDragDropFeatur
     if (!block || (block.type !== 'heading' && block.type !== 'paragraph')) return;
     const textStyle = { ...block.props.textStyle, ...patch };
     if (JSON.stringify(block.props.textStyle ?? {}) === JSON.stringify(textStyle)) return;
-    this.recordChange();
-    this.documentState = {
-      ...this.documentState,
-      blocks: setBlockTextStyle(this.documentState.blocks, blockId, textStyle),
-    };
-    this.selectedBlockId = blockId;
-    this.afterDocumentMutation();
-    this.services.saveDocument(this.documentState);
-    this.sendPreviewPatch(blockId, [{ op: 'setTextStyle', textStyle }]);
-    this.setStatus(authoringText('Text formatting updated'));
+    this.commitCoordinatedMutation({
+      blockId,
+      coalescingKey: `text:${blockId}`,
+      operations: [{ op: 'setTextStyle', textStyle }],
+      reduce: (document) => ({
+        ...document,
+        blocks: setBlockTextStyle(document.blocks, blockId, textStyle),
+      }),
+      status: authoringText('Text formatting updated'),
+    });
   }
 
   resetTextBlockStyle(blockId: string): void {
     const block = findBlockById(this.documentState.blocks, blockId);
     if (!block || (block.type !== 'heading' && block.type !== 'paragraph')) return;
     if (!block.props.textStyle) return;
-    this.recordChange();
-    this.documentState = {
-      ...this.documentState,
-      blocks: setBlockTextStyle(this.documentState.blocks, blockId),
-    };
-    this.selectedBlockId = blockId;
-    this.afterDocumentMutation();
-    this.services.saveDocument(this.documentState);
-    this.sendPreviewPatch(blockId, [{ op: 'setTextStyle' }]);
-    this.setStatus(authoringText('Text formatting reset to the Brand Theme'));
+    this.commitCoordinatedMutation({
+      blockId,
+      coalescingKey: `text:${blockId}`,
+      operations: [{ op: 'setTextStyle' }],
+      reduce: (document) => ({
+        ...document,
+        blocks: setBlockTextStyle(document.blocks, blockId),
+      }),
+      status: authoringText('Text formatting reset to the Brand Theme'),
+    });
   }
 
   setContentBlockLayout(blockId: string, patch: Partial<BlockLayoutProps>): void {
@@ -112,16 +148,16 @@ export abstract class ControllerPropertyFeature extends ControllerDragDropFeatur
     if (!block || !isEditableContentBlock(block)) return;
     const blockLayout = { ...block.props.blockLayout, ...patch };
     if (JSON.stringify(block.props.blockLayout ?? {}) === JSON.stringify(blockLayout)) return;
-    this.recordChange();
-    this.documentState = {
-      ...this.documentState,
-      blocks: setBlockLayoutInTree(this.documentState.blocks, blockId, blockLayout),
-    };
-    this.selectedBlockId = blockId;
-    this.afterDocumentMutation();
-    this.services.saveDocument(this.documentState);
-    this.sendPreviewPatch(blockId, [{ op: 'setBlockLayout', blockLayout }]);
-    this.setStatus(authoringText('Block layout updated'));
+    this.commitCoordinatedMutation({
+      blockId,
+      coalescingKey: `layout:${blockId}`,
+      operations: [{ op: 'setBlockLayout', blockLayout }],
+      reduce: (document) => ({
+        ...document,
+        blocks: setBlockLayoutInTree(document.blocks, blockId, blockLayout),
+      }),
+      status: authoringText('Block layout updated'),
+    });
   }
 
   setActionAlignment(
@@ -143,7 +179,6 @@ export abstract class ControllerPropertyFeature extends ControllerDragDropFeatur
       JSON.stringify(tooltip.props.tooltipLayout ?? {}) !== JSON.stringify(tooltipLayout);
     if (!blockLayoutChanged && !tooltipLayoutChanged) return;
 
-    this.recordChange();
     let blocks = this.documentState.blocks;
     if (blockLayoutChanged) {
       blocks = setBlockLayoutInTree(blocks, blockId, blockLayout);
@@ -151,17 +186,14 @@ export abstract class ControllerPropertyFeature extends ControllerDragDropFeatur
     if (tooltipLayoutChanged) {
       blocks = setTooltipLayoutInTree(blocks, tooltipId, tooltipLayout);
     }
-    this.documentState = { ...this.documentState, blocks };
-    this.selectedBlockId = blockId;
-    this.afterDocumentMutation();
-    this.services.saveDocument(this.documentState);
-    if (blockLayoutChanged) {
-      this.sendPreviewPatch(blockId, [{ op: 'setBlockLayout', blockLayout }]);
-    }
-    if (tooltipLayoutChanged) {
-      this.sendPreviewPatch(tooltipId, [{ op: 'setTooltipLayout', tooltipLayout }]);
-    }
-    this.setStatus(authoringText('Action alignment updated'));
+    const nextDocument = { ...this.documentState, blocks };
+    this.commitCoordinatedMutation({
+      blockId,
+      coalescingKey: `action-alignment:${blockId}`,
+      operations: [{ op: 'replaceDocument', document: nextDocument }],
+      reduce: () => nextDocument,
+      status: authoringText('Action alignment updated'),
+    });
   }
 
   setButtonStyle(blockId: string, patch: Partial<ButtonStyleProps>): void {
@@ -181,16 +213,16 @@ export abstract class ControllerPropertyFeature extends ControllerDragDropFeatur
 
   protected commitButtonStyle(block: LodariqBlock, buttonStyle: ButtonStyleProps): void {
     if (JSON.stringify(block.props.buttonStyle ?? {}) === JSON.stringify(buttonStyle)) return;
-    this.recordChange();
-    this.documentState = {
-      ...this.documentState,
-      blocks: setButtonStyleInTree(this.documentState.blocks, block.id, buttonStyle),
-    };
-    this.selectedBlockId = block.id;
-    this.afterDocumentMutation();
-    this.services.saveDocument(this.documentState);
-    this.sendPreviewPatch(block.id, [{ op: 'setButtonStyle', buttonStyle }]);
-    this.setStatus(authoringText('Action styling updated'));
+    this.commitCoordinatedMutation({
+      blockId: block.id,
+      coalescingKey: `button:${block.id}`,
+      operations: [{ op: 'setButtonStyle', buttonStyle }],
+      reduce: (document) => ({
+        ...document,
+        blocks: setButtonStyleInTree(document.blocks, block.id, buttonStyle),
+      }),
+      status: authoringText('Action styling updated'),
+    });
   }
 
   setTooltipLayout(blockId: string, patch: Partial<TooltipLayoutProps>): void {
@@ -200,18 +232,18 @@ export abstract class ControllerPropertyFeature extends ControllerDragDropFeatur
     if (JSON.stringify(block.props.tooltipLayout ?? {}) === JSON.stringify(tooltipLayout ?? {})) {
       return;
     }
-    this.recordChange();
-    this.documentState = {
-      ...this.documentState,
-      blocks: setTooltipLayoutInTree(this.documentState.blocks, blockId, tooltipLayout),
-    };
-    this.selectedBlockId = blockId;
-    this.afterDocumentMutation();
-    this.services.saveDocument(this.documentState);
-    this.sendPreviewPatch(blockId, [
-      tooltipLayout ? { op: 'setTooltipLayout', tooltipLayout } : { op: 'setTooltipLayout' },
-    ]);
-    this.setStatus(authoringText('Popup layout updated'));
+    this.commitCoordinatedMutation({
+      blockId,
+      coalescingKey: `popup:${blockId}`,
+      operations: [
+        tooltipLayout ? { op: 'setTooltipLayout', tooltipLayout } : { op: 'setTooltipLayout' },
+      ],
+      reduce: (document) => ({
+        ...document,
+        blocks: setTooltipLayoutInTree(document.blocks, blockId, tooltipLayout),
+      }),
+      status: authoringText('Popup layout updated'),
+    });
   }
 
   setTooltipStyle(blockId: string, patch: Partial<TooltipStyleProps>): void {
@@ -231,33 +263,33 @@ export abstract class ControllerPropertyFeature extends ControllerDragDropFeatur
     if (JSON.stringify(block.props.tooltipStyle ?? {}) === JSON.stringify(tooltipStyle ?? {})) {
       return;
     }
-    this.recordChange();
-    this.documentState = {
-      ...this.documentState,
-      blocks: setTooltipStyleInTree(this.documentState.blocks, block.id, tooltipStyle),
-    };
-    this.selectedBlockId = block.id;
-    this.afterDocumentMutation();
-    this.services.saveDocument(this.documentState);
-    this.sendPreviewPatch(block.id, [
-      tooltipStyle ? { op: 'setTooltipStyle', tooltipStyle } : { op: 'setTooltipStyle' },
-    ]);
-    this.setStatus(authoringText('Popup layout updated'));
+    this.commitCoordinatedMutation({
+      blockId: block.id,
+      coalescingKey: `popup:${block.id}`,
+      operations: [
+        tooltipStyle ? { op: 'setTooltipStyle', tooltipStyle } : { op: 'setTooltipStyle' },
+      ],
+      reduce: (document) => ({
+        ...document,
+        blocks: setTooltipStyleInTree(document.blocks, block.id, tooltipStyle),
+      }),
+      status: authoringText('Popup styling updated'),
+    });
   }
 
   setTooltipPlacement(blockId: string, placement: TooltipPlacement): void {
     const block = findBlockById(this.documentState.blocks, blockId);
     if (block?.type !== 'tooltip' || block.props.placement === placement) return;
-    this.recordChange();
-    this.documentState = {
-      ...this.documentState,
-      blocks: setBlockPlacement(this.documentState.blocks, blockId, placement),
-    };
-    this.selectedBlockId = blockId;
-    this.afterDocumentMutation();
-    this.services.saveDocument(this.documentState);
-    this.sendPreviewPatch(blockId, [{ op: 'setPlacement', placement }]);
-    this.setStatus(`Tooltip moved ${placement}`);
+    this.commitCoordinatedMutation({
+      blockId,
+      coalescingKey: `popup:${blockId}`,
+      operations: [{ op: 'setPlacement', placement }],
+      reduce: (document) => ({
+        ...document,
+        blocks: setBlockPlacement(document.blocks, blockId, placement),
+      }),
+      status: `Tooltip moved ${placement}`,
+    });
   }
 
   setActionUrl(blockId: string, url: string): void {
@@ -349,14 +381,116 @@ export abstract class ControllerPropertyFeature extends ControllerDragDropFeatur
     ) {
       return;
     }
-    this.recordChange();
-    this.documentState = { ...this.documentState, appearance: structuredClone(next) };
-    this.afterDocumentMutation();
-    this.services.saveDocument(this.documentState);
     const previewContextId = this.selectedTourStep()?.id ?? this.documentState.id;
-    this.sendPreviewPatch(previewContextId, [
-      { op: 'setAppearance', appearance: structuredClone(next) },
-    ]);
-    this.setStatus(authoringText('Appearance updated'));
+    this.commitCoordinatedMutation({
+      blockId: previewContextId,
+      coalescingKey: `experience:${this.documentState.id}`,
+      operations: [{ op: 'setAppearance', appearance: structuredClone(next) }],
+      reduce: (document) => ({ ...document, appearance: structuredClone(next) }),
+      status: authoringText('Appearance updated'),
+    });
+  }
+
+  setTourCompletionBehavior(completion: TourCompletionBehavior | undefined): void {
+    const nextDocument = completion
+      ? { ...this.documentState, completion: structuredClone(completion) }
+      : (Object.fromEntries(
+          Object.entries(this.documentState).filter(([key]) => key !== 'completion'),
+        ) as LodariqDocument);
+    this.commitCoordinatedMutation({
+      blockId: this.documentState.id,
+      coalescingKey: `completion:${this.documentState.id}`,
+      operations: [{ op: 'replaceDocument', document: nextDocument }],
+      reduce: () => nextDocument,
+      scope: 'behavior',
+      status: authoringText('Completion behavior updated'),
+    });
+  }
+
+  setBlockPresentation(
+    blockId: string,
+    patch: {
+      motion?: TourMotionPresentation | undefined;
+      responsive?: ResponsiveStepPresentation | undefined;
+      spotlight?: SpotlightPresentation | undefined;
+      accessibilityName?: string | undefined;
+    },
+  ): void {
+    const block = findBlockById(this.documentState.blocks, blockId);
+    if (!block || !blockSupportsAuthoringCapability(block, 'presentation')) return;
+    const props = { ...block.props, ...patch };
+    const nextDocument = {
+      ...this.documentState,
+      blocks: updateBlockProps(this.documentState.blocks, blockId, props),
+    };
+    this.commitCoordinatedMutation({
+      blockId,
+      coalescingKey: `presentation:${blockId}`,
+      operations: [{ op: 'replaceDocument', document: nextDocument }],
+      reduce: (document) => ({
+        ...document,
+        blocks: updateBlockProps(document.blocks, blockId, props),
+      }),
+      scope: 'appearance',
+      status: authoringText('Step presentation updated'),
+    });
+  }
+
+  setTourStepPresentation(
+    stepId: string,
+    patch: {
+      motion?: TourMotionPresentation | undefined;
+      responsive?: ResponsiveStepPresentation | undefined;
+      spotlight?: SpotlightPresentation | undefined;
+      accessibilityName?: string | undefined;
+    },
+  ): void {
+    this.setBlockPresentation(stepId, patch);
+  }
+
+  setBlockEntrySequence(blockId: string, entrySequence: StepChoreography | undefined): void {
+    const block = findBlockById(this.documentState.blocks, blockId);
+    if (!block || !blockSupportsAuthoringCapability(block, 'presentation')) return;
+    const props = { ...block.props, entrySequence };
+    const nextDocument = {
+      ...this.documentState,
+      blocks: updateBlockProps(this.documentState.blocks, blockId, props),
+    };
+    this.commitCoordinatedMutation({
+      blockId,
+      coalescingKey: `entry-sequence:${blockId}`,
+      operations: [{ op: 'replaceDocument', document: nextDocument }],
+      reduce: (document) => ({
+        ...document,
+        blocks: updateBlockProps(document.blocks, blockId, props),
+      }),
+      scope: 'behavior',
+      status: authoringText('Automatic step sequence updated'),
+    });
+  }
+
+  setTourStepEntrySequence(stepId: string, entrySequence: StepChoreography | undefined): void {
+    this.setBlockEntrySequence(stepId, entrySequence);
+  }
+
+  setMediaPresentation(blockId: string, media: MediaPresentation | undefined): void {
+    const block = findBlockById(this.documentState.blocks, blockId);
+    if (block?.type !== 'media') return;
+    const props = { ...block.props, media };
+    const nextDocument = {
+      ...this.documentState,
+      blocks: updateBlockProps(this.documentState.blocks, blockId, props),
+    };
+    this.commitCoordinatedMutation({
+      blockId,
+      coalescingKey: `media:${blockId}`,
+      operations: [{ op: 'replaceDocument', document: nextDocument }],
+      reduce: (document) => ({
+        ...document,
+        blocks: updateBlockProps(document.blocks, blockId, props),
+      }),
+      scope: 'content',
+      status: authoringText('Media settings updated'),
+    });
   }
 }

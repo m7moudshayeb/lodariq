@@ -8,6 +8,7 @@ import {
   AUTHORING_PANEL_LAYOUT_ATTRIBUTE,
   AUTHORING_PANEL_MINIMIZED_ATTRIBUTE,
   AUTHORING_TARGET_PICKING_ATTRIBUTE,
+  AUTHORING_PREVIEW_ACTIVE_ATTRIBUTE,
 } from './panel-attributes';
 
 export interface AuthoringPanelStyleOptions {
@@ -212,6 +213,70 @@ export function createPanelStyles({
       font-weight: 600;
       padding: 0 16px;
       white-space: nowrap;
+    }
+
+    .return-to-editor {
+      display: none;
+      min-height: 32px;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.1);
+      color: #ffffff;
+      cursor: pointer;
+      font: inherit;
+      font-size: 12px;
+      font-weight: 650;
+      padding: 0 12px;
+      white-space: nowrap;
+    }
+
+    :host([${AUTHORING_PANEL_MINIMIZED_ATTRIBUTE}="true"][${AUTHORING_PREVIEW_ACTIVE_ATTRIBUTE}="true"])
+      .return-to-editor {
+      display: inline-flex;
+      align-items: center;
+    }
+
+    :host([${AUTHORING_PANEL_MINIMIZED_ATTRIBUTE}="true"][${AUTHORING_PREVIEW_ACTIVE_ATTRIBUTE}="true"]) {
+      top: 16px !important;
+      right: 50% !important;
+      left: auto !important;
+      width: max-content !important;
+      max-width: calc(100vw - 32px);
+      transform: translateX(50%);
+    }
+
+    :host([${AUTHORING_PANEL_MINIMIZED_ATTRIBUTE}="true"][${AUTHORING_PREVIEW_ACTIVE_ATTRIBUTE}="true"])
+      .panel,
+    :host([${AUTHORING_PANEL_MINIMIZED_ATTRIBUTE}="true"][${AUTHORING_PREVIEW_ACTIVE_ATTRIBUTE}="true"])
+      .authoring-bar {
+      width: max-content;
+      max-width: calc(100vw - 32px);
+    }
+
+    :host([${AUTHORING_PANEL_MINIMIZED_ATTRIBUTE}="true"][${AUTHORING_PREVIEW_ACTIVE_ATTRIBUTE}="true"])
+      .authoring-bar {
+      cursor: default;
+      padding: 0 8px;
+    }
+
+    :host([${AUTHORING_PANEL_MINIMIZED_ATTRIBUTE}="true"][${AUTHORING_PREVIEW_ACTIVE_ATTRIBUTE}="true"])
+      .panel-drag-handle,
+    :host([${AUTHORING_PANEL_MINIMIZED_ATTRIBUTE}="true"][${AUTHORING_PREVIEW_ACTIVE_ATTRIBUTE}="true"])
+      .panel-heading {
+      display: none;
+    }
+
+    :host([${AUTHORING_PANEL_MINIMIZED_ATTRIBUTE}="true"][${AUTHORING_PREVIEW_ACTIVE_ATTRIBUTE}="true"])
+      .panel-document-title,
+    :host([${AUTHORING_PANEL_MINIMIZED_ATTRIBUTE}="true"][${AUTHORING_PREVIEW_ACTIVE_ATTRIBUTE}="true"])
+      [data-panel-zoom-control],
+    :host([${AUTHORING_PANEL_MINIMIZED_ATTRIBUTE}="true"][${AUTHORING_PREVIEW_ACTIVE_ATTRIBUTE}="true"])
+      [data-panel-layout-control],
+    :host([${AUTHORING_PANEL_MINIMIZED_ATTRIBUTE}="true"][${AUTHORING_PREVIEW_ACTIVE_ATTRIBUTE}="true"])
+      [data-panel-action="minimize"],
+    :host([${AUTHORING_PANEL_MINIMIZED_ATTRIBUTE}="true"][${AUTHORING_PREVIEW_ACTIVE_ATTRIBUTE}="true"])
+      [data-panel-action="close-panel"] {
+      display: none;
     }
 
     .target-picking-label {

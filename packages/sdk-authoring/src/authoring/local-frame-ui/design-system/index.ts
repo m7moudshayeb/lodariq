@@ -2,6 +2,7 @@ export * from './button';
 export * from './field';
 export * from './icon-button';
 export * from './icons';
+export * from './number-combobox';
 export * from './popover';
 export * from './range';
 export * from './segmented-control';

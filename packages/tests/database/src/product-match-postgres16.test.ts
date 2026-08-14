@@ -23,7 +23,7 @@ import {
   COMPILER_VERSION,
   DEFAULT_EXPERIENCE_APPEARANCE,
   RENDERER_CONTRACT_VERSION,
-  type CompiledDocumentV3,
+  type NewCompiledDocument,
   type BrandThemeDefinition,
   type ProductStyleProposal,
   type ReleaseRecoveryResult,
@@ -140,10 +140,7 @@ describe('disposable PostgreSQL 16 CI wiring', () => {
     expect(workflow).toContain('pg_isready -U lodariq_ci_owner -d postgres');
     expect(workflow.indexOf('services:')).toBeLessThan(workflow.indexOf('run: pnpm run test'));
     expect(turboConfig.tasks?.test?.env).toEqual(
-      expect.arrayContaining([
-        'LODARIQ_DISPOSABLE_POSTGRES',
-        'LODARIQ_TEST_POSTGRES_ADMIN_URL',
-      ]),
+      expect.arrayContaining(['LODARIQ_DISPOSABLE_POSTGRES', 'LODARIQ_TEST_POSTGRES_ADMIN_URL']),
     );
   });
 });
@@ -537,15 +534,12 @@ describe.skipIf(!DISPOSABLE_POSTGRES_ENABLED)(
       ]);
       expect(race.filter((result) => result?.ok)).toHaveLength(1);
       const closedRaceFailures = race.filter(
-        (result): result is Extract<ReleaseRecoveryResult, { ok: false }> =>
-          result?.ok === false,
+        (result): result is Extract<ReleaseRecoveryResult, { ok: false }> => result?.ok === false,
       );
       expect(closedRaceFailures).toHaveLength(1);
       const [closedRaceFailure] = closedRaceFailures;
       expect(closedRaceFailure).toMatchObject({ ok: false, state: 'failed' });
-      expect(['deployment_changed', 'already_inactive']).toContain(
-        closedRaceFailure?.code,
-      );
+      expect(['deployment_changed', 'already_inactive']).toContain(closedRaceFailure?.code);
 
       const evidence = queryJson<{
         replayOperationCount: number;
@@ -1309,7 +1303,7 @@ function createPgReleaseArtifact(
   _artifactId: string,
   _label: string,
   environments: Array<'staging' | 'production'>,
-): CompiledDocumentV3 {
+): NewCompiledDocument {
   const contentWithoutHash = {
     artifactSchemaVersion: COMPILED_ARTIFACT_SCHEMA_VERSION,
     documentId,
@@ -1336,7 +1330,9 @@ function createPgReleaseArtifact(
 }
 
 function pgReleaseContentHash(value: unknown): string {
-  return `sha256-${createHash('sha256').update(JSON.stringify(sortCanonicalKeys(value))).digest('hex')}`;
+  return `sha256-${createHash('sha256')
+    .update(JSON.stringify(sortCanonicalKeys(value)))
+    .digest('hex')}`;
 }
 
 function sortCanonicalKeys(value: unknown): unknown {

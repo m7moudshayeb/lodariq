@@ -147,6 +147,19 @@ async function readPlainCatalog(file) {
     : [file];
   for (const catalogFile of files) {
     const sourceFile = createSourceFile(catalogFile, await fs.readFile(catalogFile, 'utf8'));
+    const localObjects = new Map();
+    for (const statement of sourceFile.statements) {
+      if (!ts.isVariableStatement(statement)) continue;
+      for (const declaration of statement.declarationList.declarations) {
+        if (
+          ts.isIdentifier(declaration.name) &&
+          declaration.initializer &&
+          ts.isObjectLiteralExpression(declaration.initializer)
+        ) {
+          localObjects.set(declaration.name.text, declaration.initializer);
+        }
+      }
+    }
     for (const statement of sourceFile.statements) {
       if (!ts.isVariableStatement(statement)) continue;
       for (const declaration of statement.declarationList.declarations) {
@@ -159,20 +172,40 @@ async function readPlainCatalog(file) {
         ) {
           continue;
         }
-        const messages = new Map();
-        for (const property of declaration.initializer.properties) {
-          if (!ts.isPropertyAssignment(property) || !ts.isStringLiteralLike(property.initializer)) {
-            fail(`${catalogFile}: catalog properties must be string literals`);
-          }
-          const source = propertyNameText(property.name);
-          if (source === null) fail(`${catalogFile}: catalog keys must be literal strings`);
-          messages.set(source, property.initializer.text);
-        }
+        const messages = readCatalogObject(declaration.initializer, localObjects, catalogFile);
         catalogs.set(declaration.name.text, messages);
       }
     }
   }
   return catalogs;
+}
+
+function readCatalogObject(object, localObjects, catalogFile, seen = new Set()) {
+  const messages = new Map();
+  for (const property of object.properties) {
+    if (ts.isSpreadAssignment(property) && ts.isIdentifier(property.expression)) {
+      const name = property.expression.text;
+      const spread = localObjects.get(name);
+      if (!spread || seen.has(name))
+        fail(`${catalogFile}: unknown or recursive catalog spread ${name}`);
+      for (const [source, translation] of readCatalogObject(
+        spread,
+        localObjects,
+        catalogFile,
+        new Set([...seen, name]),
+      )) {
+        messages.set(source, translation);
+      }
+      continue;
+    }
+    if (!ts.isPropertyAssignment(property) || !ts.isStringLiteralLike(property.initializer)) {
+      fail(`${catalogFile}: catalog properties must be string literals or local object spreads`);
+    }
+    const source = propertyNameText(property.name);
+    if (source === null) fail(`${catalogFile}: catalog keys must be literal strings`);
+    messages.set(source, property.initializer.text);
+  }
+  return messages;
 }
 
 function propertyNameText(name) {

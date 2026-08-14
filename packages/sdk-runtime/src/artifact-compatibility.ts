@@ -1,7 +1,7 @@
 import type {
   ActiveManifestPointerV2,
   CompiledDocument,
-  CompiledDocumentV3,
+  CompiledDocumentV4,
 } from '@lodariq/schema';
 import {
   BRAND_THEME_CONTRACT_VERSION,
@@ -53,7 +53,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 export function assertSupportedArtifactMatchesManifest(
   document: CompiledDocument,
   manifest: ActiveManifestPointerV2,
-): asserts document is CompiledDocumentV3 {
+): asserts document is CompiledDocumentV4 {
   assertSupportedArtifactManifest(manifest);
   assertSupportedCompiledArtifact(document);
   if (
@@ -72,7 +72,7 @@ export function assertSupportedArtifactMatchesManifest(
 /** Rejects every versioned artifact this runtime cannot render exactly. */
 export function assertSupportedCompiledArtifact(
   document: CompiledDocument,
-): asserts document is CompiledDocumentV3 {
+): asserts document is CompiledDocumentV4 {
   const candidate: unknown = document;
   if (!isRecord(candidate) || !isRecord(candidate['theme'])) {
     throw new LodariqArtifactCompatibilityError();

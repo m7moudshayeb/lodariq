@@ -89,7 +89,7 @@ describe('editor document migrations (PRD §16.1)', () => {
 
     const migrated = migrate(legacy);
 
-    expect(migrated.schemaVersion).toBe('1.0.0');
+    expect(migrated.schemaVersion).toBe('2.0.0');
     expect(migrated.id).toBe(legacy.id);
     expect(migrated.blocks.map((block) => block.id)).toEqual(
       legacy.blocks.map((block) => block.id),

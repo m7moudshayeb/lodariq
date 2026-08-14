@@ -7,6 +7,7 @@ import {
 } from './brand-runtime';
 import { PRODUCT_STYLE_MAX_REGISTERED_SOURCES } from './brand-registration-runtime';
 import { BRAND_THEME_CONTRACT_VERSION, BRAND_THEME_SCHEMA_VERSION } from './version';
+import { TOUR_FLOW_ISSUE_CODES } from './tour-flow-contract';
 
 export * from './brand-runtime';
 export { PRODUCT_STYLE_MAX_REGISTERED_SOURCES } from './brand-registration-runtime';
@@ -905,7 +906,9 @@ export const BASIC_VISUAL_PREFLIGHT_CONTRAST_SUBJECTS = [
   'muted_text',
   'primary_control',
   'secondary_control',
+  'control_border',
   'focus_indicator',
+  'highlight_text',
 ] as const;
 export const BASIC_VISUAL_PREFLIGHT_ISSUE_CODES = [
   'artifact_schema_invalid',
@@ -916,6 +919,7 @@ export const BASIC_VISUAL_PREFLIGHT_ISSUE_CODES = [
   'contrast_below_target',
   'long_copy_risk',
   'compact_viewport_risk',
+  ...TOUR_FLOW_ISSUE_CODES,
 ] as const;
 
 export const BASIC_VISUAL_PREFLIGHT_ISSUE_LABELS = {
@@ -927,6 +931,10 @@ export const BASIC_VISUAL_PREFLIGHT_ISSUE_LABELS = {
   contrast_below_target: 'Contrast needs improvement',
   long_copy_risk: 'Long copy may overflow',
   compact_viewport_risk: 'Compact viewport may clip content',
+  invalid_flow_edge: 'Flow edge points to a missing step',
+  unreachable_step: 'Step cannot be reached',
+  non_terminating_flow: 'Flow contains an unbounded cycle',
+  missing_terminal_completion: 'Flow path has no terminal completion',
 } as const satisfies Record<(typeof BASIC_VISUAL_PREFLIGHT_ISSUE_CODES)[number], string>;
 
 export const BASIC_VISUAL_PREFLIGHT_CONTRAST_SUBJECT_LABELS = {
@@ -934,7 +942,9 @@ export const BASIC_VISUAL_PREFLIGHT_CONTRAST_SUBJECT_LABELS = {
   muted_text: 'Supporting text',
   primary_control: 'Primary control',
   secondary_control: 'Secondary control',
+  control_border: 'Control border',
   focus_indicator: 'Focus indicator',
+  highlight_text: 'Highlighted text',
 } as const satisfies Record<(typeof BASIC_VISUAL_PREFLIGHT_CONTRAST_SUBJECTS)[number], string>;
 
 export const BasicVisualPreflightStatus = Type.Union(
@@ -984,6 +994,7 @@ const BasicVisualPreflightContrastIssue = Type.Union([
       subject: Type.Ref(BasicVisualPreflightContrastSubject),
       colorMode: Type.Union([Type.Literal('light'), Type.Literal('dark')]),
       stepIndex: Type.Optional(Type.Integer({ minimum: 0 })),
+      nodeIndex: Type.Optional(Type.Integer({ minimum: 0 })),
       measuredRatio: Type.Number({ minimum: 1, maximum: 21 }),
       requiredRatio: Type.Number({ minimum: 1, maximum: 21 }),
     },
@@ -996,6 +1007,7 @@ const BasicVisualPreflightContrastIssue = Type.Union([
       subject: Type.Ref(BasicVisualPreflightContrastSubject),
       colorMode: Type.Union([Type.Literal('light'), Type.Literal('dark')]),
       stepIndex: Type.Optional(Type.Integer({ minimum: 0 })),
+      nodeIndex: Type.Optional(Type.Integer({ minimum: 0 })),
       measuredRatio: Type.Number({ minimum: 1, maximum: 21 }),
       requiredRatio: Type.Number({ minimum: 1, maximum: 21 }),
     },
@@ -1027,6 +1039,21 @@ const BasicVisualPreflightCompactViewportIssue = Type.Object(
   { additionalProperties: false },
 );
 
+const BasicVisualPreflightFlowIssue = Type.Object(
+  {
+    code: Type.Union([
+      Type.Literal('invalid_flow_edge'),
+      Type.Literal('unreachable_step'),
+      Type.Literal('non_terminating_flow'),
+      Type.Literal('missing_terminal_completion'),
+    ]),
+    severity: Type.Union([Type.Literal('warning'), Type.Literal('blocker')]),
+    stepIndex: Type.Integer({ minimum: 0 }),
+    nodeIndex: Type.Optional(Type.Integer({ minimum: 0 })),
+  },
+  { additionalProperties: false },
+);
+
 /**
  * Bounded visual-check evidence. It deliberately carries codes, indexes, and
  * numeric measurements only: never creator copy, URLs, CSS, selectors, DOM,
@@ -1038,6 +1065,7 @@ export const BasicVisualPreflightIssue = Type.Union(
     BasicVisualPreflightContrastIssue,
     BasicVisualPreflightLongCopyIssue,
     BasicVisualPreflightCompactViewportIssue,
+    BasicVisualPreflightFlowIssue,
   ],
   { $id: 'BasicVisualPreflightIssue' },
 );

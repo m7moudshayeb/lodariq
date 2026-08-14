@@ -134,7 +134,7 @@ export async function listDocumentSummariesWithReadiness(
         repository.getDocument(workspaceId, summary.id),
         repository.listDocumentPublications(workspaceId, summary.id),
       ]);
-      const issues = record ? validateTourPublishReadiness(record.document) : [];
+      const issues = record ? validateDocumentReleaseReadiness(record.document) : [];
       const deployments = workspaceDeployments.filter(
         (deployment) => deployment.documentId === summary.id,
       );
@@ -152,6 +152,12 @@ export async function listDocumentSummariesWithReadiness(
       };
     }),
   );
+}
+
+export function validateDocumentReleaseReadiness(
+  document: LodariqDocument,
+): PublishReadinessIssue[] {
+  return validateTourPublishReadiness(document);
 }
 
 export interface DocumentSummaryWithReleaseEvidence extends Omit<DocumentSummary, 'publications'> {

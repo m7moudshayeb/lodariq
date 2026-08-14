@@ -7,7 +7,7 @@ import {
   COMPILER_VERSION,
   LODARIQ_ACCESSIBLE_FALLBACK_THEME_V1,
   RENDERER_CONTRACT_VERSION,
-  type CompiledDocumentV3,
+  type NewCompiledDocument,
   type CompiledDocument,
   type LodariqDocument,
 } from '@lodariq/schema';
@@ -93,7 +93,7 @@ const outlineDisabledCompiledDoc = {
     displayTargetOutline: false,
   },
   localization: { defaultLocale: 'en', defaultTitle: 'Tour', variants: [] },
-} as CompiledDocumentV3;
+} as NewCompiledDocument;
 
 const nativeGetBoundingClientRect = Element.prototype.getBoundingClientRect;
 
@@ -136,7 +136,7 @@ describe('tour renderer (PRD §16.1)', () => {
     vi.stubGlobal('fetch', fetch);
     const arabicSteps = structuredClone(outlineDisabledCompiledDoc.steps);
     arabicSteps[0]!.body[0]!.text = 'أنشئ مشروعك الأول';
-    const localizedDocument: CompiledDocumentV3 = {
+    const localizedDocument: NewCompiledDocument = {
       ...outlineDisabledCompiledDoc,
       localization: {
         ...outlineDisabledCompiledDoc.localization,
@@ -272,7 +272,7 @@ describe('tour renderer (PRD §16.1)', () => {
     let ownerRect = domRect({ x: 100, y: 200, width: 400, height: 200 });
     owner.getBoundingClientRect = vi.fn(() => ownerRect);
 
-    new TourPlayer({
+    const player = new TourPlayer({
       ...compiledDoc,
       steps: [
         {
@@ -280,8 +280,9 @@ describe('tour renderer (PRD §16.1)', () => {
           presentationAnchor: { kind: 'point', xRatio: 0.25, yRatio: 0.75 },
         },
       ],
-    }).start();
-    await nextTask();
+    });
+    player.start();
+    await player.waitUntilReady();
 
     const reference = computePositionMock.mock.calls[0]?.[0] as FloatingUiDomModule.VirtualElement;
     expect(reference).not.toBe(owner);
@@ -309,6 +310,7 @@ describe('tour renderer (PRD §16.1)', () => {
       width: 0,
       height: 0,
     });
+    player.stop();
   });
 
   it.each([
@@ -332,7 +334,7 @@ describe('tour renderer (PRD §16.1)', () => {
     const owner = document.querySelector<HTMLButtonElement>('[data-lodariq-id="new-project"]')!;
     owner.getBoundingClientRect = vi.fn(() => domRect({ x: 40, y: 60, width: 300, height: 160 }));
 
-    new TourPlayer({
+    const player = new TourPlayer({
       ...compiledDoc,
       steps: [
         {
@@ -340,19 +342,21 @@ describe('tour renderer (PRD §16.1)', () => {
           presentationAnchor: example.presentationAnchor,
         },
       ],
-    }).start();
-    await nextTask();
+    });
+    player.start();
+    await player.waitUntilReady();
 
     const reference = computePositionMock.mock.calls[0]?.[0] as FloatingUiDomModule.VirtualElement;
     expect(reference.contextElement).toBe(owner);
     expect(reference.getBoundingClientRect()).toMatchObject(example.expected);
+    player.stop();
   });
 
   it('clamps malformed presentation ratios to the resolved owner bounds', async () => {
     const owner = document.querySelector<HTMLButtonElement>('[data-lodariq-id="new-project"]')!;
     owner.getBoundingClientRect = vi.fn(() => domRect({ x: 40, y: 60, width: 300, height: 160 }));
 
-    new TourPlayer({
+    const player = new TourPlayer({
       ...compiledDoc,
       steps: [
         {
@@ -366,8 +370,9 @@ describe('tour renderer (PRD §16.1)', () => {
           },
         },
       ],
-    }).start();
-    await nextTask();
+    });
+    player.start();
+    await player.waitUntilReady();
 
     const reference = computePositionMock.mock.calls[0]?.[0] as FloatingUiDomModule.VirtualElement;
     expect(reference.getBoundingClientRect()).toMatchObject({
@@ -376,13 +381,14 @@ describe('tour renderer (PRD §16.1)', () => {
       width: 300,
       height: 40,
     });
+    player.stop();
   });
 
   it('defensively projects non-finite presentation ratios inside the owner', async () => {
     const owner = document.querySelector<HTMLButtonElement>('[data-lodariq-id="new-project"]')!;
     owner.getBoundingClientRect = vi.fn(() => domRect({ x: 40, y: 60, width: 300, height: 160 }));
 
-    new TourPlayer({
+    const player = new TourPlayer({
       ...compiledDoc,
       steps: [
         {
@@ -394,11 +400,13 @@ describe('tour renderer (PRD §16.1)', () => {
           },
         },
       ],
-    }).start();
-    await nextTask();
+    });
+    player.start();
+    await player.waitUntilReady();
 
     const reference = computePositionMock.mock.calls[0]?.[0] as FloatingUiDomModule.VirtualElement;
     expect(reference.getBoundingClientRect()).toMatchObject({ x: 40, y: 60, width: 0, height: 0 });
+    player.stop();
   });
 
   it('repositions from a real-owner ResizeObserver and disconnects it on stop', async () => {
@@ -438,7 +446,7 @@ describe('tour renderer (PRD §16.1)', () => {
     });
     try {
       player.start();
-      await nextTask();
+      await player.waitUntilReady();
 
       expect(observe).toHaveBeenCalledWith(owner);
       const positionCount = computePositionMock.mock.calls.length;
@@ -752,7 +760,7 @@ describe('tour renderer (PRD §16.1)', () => {
         colorMode: 'system',
       },
       localization: { defaultLocale: 'en', defaultTitle: 'Tour', variants: [] },
-    } as CompiledDocumentV3;
+    } as NewCompiledDocument;
 
     const resolved = resolveCompiledTourTheme(documentV2, true);
 

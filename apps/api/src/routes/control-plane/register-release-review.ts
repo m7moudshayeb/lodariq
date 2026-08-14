@@ -1,7 +1,6 @@
 import {
   DashboardDocumentDebugResponse,
   ProductionPromotionRequest,
-  validateTourPublishReadiness,
   type AuthoringStagingVerificationRequest as AuthoringStagingVerificationRequestType,
   type ProductionPromotionRequest as ProductionPromotionRequestType,
 } from '@lodariq/schema';
@@ -24,6 +23,7 @@ import {
   findEnvironment,
   toPublishReadinessIssueResponse,
   toPublicationResponse,
+  validateDocumentReleaseReadiness,
 } from './helpers';
 
 export function registerReleaseReviewRoutes(
@@ -192,7 +192,7 @@ export function registerReleaseReviewRoutes(
       return {
         canonical: record.document,
         latestArtifact: record.latestArtifact ?? null,
-        publishReadinessIssues: validateTourPublishReadiness(record.document).map(
+        publishReadinessIssues: validateDocumentReleaseReadiness(record.document).map(
           toPublishReadinessIssueResponse,
         ),
         versions,

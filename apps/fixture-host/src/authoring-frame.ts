@@ -5,7 +5,7 @@ import { mountLocalAuthoringDevFrame } from '@lodariq/sdk-authoring/local-dev/fr
 const root = document.getElementById('authoring');
 if (!root) throw new Error('#authoring not found');
 
-mountLocalAuthoringDevFrame({
+void mountLocalAuthoringDevFrame({
   root,
   baseDocument: tourFixture as LodariqDocument,
 });

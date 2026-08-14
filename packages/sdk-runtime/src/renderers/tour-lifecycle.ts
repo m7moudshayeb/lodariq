@@ -1,5 +1,4 @@
 import type { RuntimeLifecycleHints } from '@lodariq/schema';
-import { resolve } from '../resolver';
 import { TourPresentationCanceledError, throwIfTourPresentationCanceled } from './tour-errors';
 
 const NETWORK_IDLE_QUIET_MS = 80;
@@ -134,6 +133,7 @@ class NetworkActivityTracker {
       if (this.activeRequests === 0 && quietForMs >= NETWORK_IDLE_QUIET_MS) return;
       await delay(NETWORK_IDLE_POLL_MS, signal);
     }
+    throw new DOMException('Network idle wait timed out', 'AbortError');
   }
 }
 
@@ -169,6 +169,7 @@ export async function waitForResolvedElement(
   timeoutMs: number,
   signal?: AbortSignal,
 ): Promise<Element | null> {
+  const { resolve } = await import('../resolver');
   const deadline = Date.now() + timeoutMs;
   let result = resolve(fingerprint);
   while (!result.element && Date.now() < deadline) {

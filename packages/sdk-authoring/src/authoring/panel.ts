@@ -32,6 +32,7 @@ import {
   LODARIQ_EDITOR_ORIGIN,
   validate,
   type AuthoringInlineControlOperation,
+  type AuthoringAccessibilityPreviewMode,
   type AuthoringSaveState,
   type AuthoringProductMatchApplyResult,
   type AuthoringBrandDriftCheckResult,
@@ -49,6 +50,7 @@ import {
   type NewCompiledDocument,
   type ElementFingerprint,
   type PreviewPatchOperation,
+  type PreviewTransactionMetadata,
   type LodariqDocument,
   type ProductStyleProposal,
   type ProductionPromotionRequest,
@@ -64,6 +66,10 @@ import {
 import { applyAuthoringLocale, authoringText, currentAuthoringLocale } from '../i18n';
 import { AUTHORING_LOCALE_QUERY_PARAMETER } from '@lodariq/schema/authoring-entry-runtime';
 import type { ResolutionResult } from '@lodariq/sdk-runtime/resolver';
+import type {
+  ChoreographyStageUpdate,
+  ProtectedSurfaceRect,
+} from '@lodariq/sdk-runtime/renderers/tour';
 import { resolveTarget } from '@lodariq/sdk-runtime/resolver';
 import type { InlinePreviewEditor } from './inline-preview-editor';
 import { ZoomIn } from 'lucide';
@@ -120,6 +126,11 @@ import {
   setPanelTargetPicking,
   startPanelViewportSync,
 } from './panel-geometry';
+import {
+  chooseChromeGeometryAwayFrom,
+  domRectAsProtectedSurface,
+} from './protected-surface-registry';
+import { AUTHORING_PREVIEW_ACTIVE_ATTRIBUTE } from './panel-attributes';
 import { LOCAL_AUTHORING_PANEL_TOGGLE_EVENT } from './constants';
 import { findContainingTourStepId, resolvePreviewStepId } from './preview-step-state';
 import {
@@ -156,6 +167,8 @@ export interface LocalAuthoringPanelOptions {
   initialTheme?: BrandThemeSnapshot;
   /** Reads the host application's current opaque state at target-pick time. */
   getTargetStateId?: () => string | undefined;
+  /** Reads a customer-configured opaque route pattern identifier. */
+  getTargetRoutePatternId?: () => string | undefined;
   autoPreview?: boolean;
   preview?: LocalAuthoringPreviewServices;
   release?: LocalAuthoringReleaseServices;
@@ -220,6 +233,8 @@ export interface HostedAuthoringPanelOptions {
   initialTheme?: BrandThemeSnapshot;
   /** Reads the host application's current opaque state at target-pick time. */
   getTargetStateId?: () => string | undefined;
+  /** Reads a customer-configured opaque route pattern identifier. */
+  getTargetRoutePatternId?: () => string | undefined;
   autoPreview?: boolean;
   preview?: LocalAuthoringPreviewServices;
   onClose?: () => void;
@@ -232,8 +247,21 @@ export interface LocalAuthoringPreviewOptions {
   interactive?: boolean;
   locale?: string;
   stepId?: string;
+  accessibilityMode?: AuthoringAccessibilityPreviewMode;
+  flowConditionContext?: {
+    identifyTraits?: Readonly<Record<string, string | number | boolean>>;
+    documentState?: Readonly<Record<string, string | number | boolean>>;
+  };
   /** Exact live selection for immediate creator preview; never persisted. */
   authoringTargetOverride?: { stepId: string; element: Element };
+  onStepChange?: (index: number, stepId: string) => void;
+  onComplete?: () => void;
+  onDismiss?: () => void;
+  onSkip?: () => void;
+  onChoreographyStageChange?: (stepId: string, update: ChoreographyStageUpdate) => void;
+  onBranchChoice?: (stepId: string, ruleIndex: number | null, destination: string) => void;
+  getAuthoringProtectedSurfaces?: () => readonly ProtectedSurfaceRect[];
+  onAuthoringSurfaceChange?: (rect: ProtectedSurfaceRect | null) => void;
 }
 
 export interface LocalAuthoringPreviewServices {
@@ -247,6 +275,14 @@ export interface LocalAuthoringPreviewServices {
   playPreview: (doc: CompiledDocument, options: LocalAuthoringPreviewOptions) => Promise<void>;
   stopPreview?: (ownerId: string) => void;
   onPreviewError?: (error: unknown) => void;
+}
+
+function choreographyStageLabel(update: ChoreographyStageUpdate): string {
+  if (update.status === 'timed_out') return authoringText('Timed out');
+  if (update.status === 'failed') return authoringText('Failed');
+  if (update.stage === 'trigger') return authoringText('Activating');
+  if (update.stage === 'wait') return authoringText('Waiting');
+  return authoringText('Continuing');
 }
 
 export interface LocalAuthoringPanel {
@@ -355,6 +391,7 @@ export function adoptHostedAuthoringPanel(
     autoPreview: options.autoPreview,
     iframeSrc: options.iframe.src,
     getTargetStateId: options.getTargetStateId,
+    getTargetRoutePatternId: options.getTargetRoutePatternId,
     initialDocument: options.initialDocument,
     initialTheme: options.initialTheme,
     onClose: options.onClose,
@@ -450,6 +487,7 @@ function openAuthoringPanel(
   let previewTheme = options.initialTheme ? structuredClone(options.initialTheme) : undefined;
   let previewThemeRevision = 0;
   let previewRequestId = 0;
+  let latestPreviewTransactionRevision = 0;
   let previewPending = false;
   let previewPresented = false;
   let previewContentLocale = previewDocument?.localization?.defaultLocale ?? 'en';
@@ -536,6 +574,13 @@ function openAuthoringPanel(
   let currentSaveStateLabel: string = AUTHORING_PANEL_LABELS.draftSaved;
   let currentHeaderStepId =
     previewDocument?.blocks.find((block) => block.type === 'tourStep')?.id ?? null;
+  let previewPlaybackState: 'editing' | 'playing' | 'completed' | 'dismissed' | 'skipped' =
+    'editing';
+  let previewPlaybackIndex = 0;
+  let previewPlaybackTotal = 0;
+  let previewPlaybackBranching = false;
+  let previewChoreographyStage: ChoreographyStageUpdate | null = null;
+  let previewPathStepIds: string[] = [];
   const pendingIframeSaveRequests = new Map<string, PendingIframeSaveRequest>();
 
   shadow.appendChild(
@@ -573,6 +618,11 @@ function openAuthoringPanel(
         </span>
       </span>
       <div class="authoring-bar-actions">
+        <button
+          type="button"
+          class="return-to-editor"
+          data-panel-action="return-to-editor"
+        >${escapeAuthoringText(authoringText('Return to editor'))}</button>
         <div data-panel-zoom-control></div>
         <div data-panel-layout-control></div>
         <button
@@ -631,6 +681,9 @@ function openAuthoringPanel(
   const panelCloseIcon = shadow.querySelector<HTMLElement>('[data-panel-icon="close"]');
   const panelDragIcon = shadow.querySelector<HTMLElement>('[data-panel-icon="drag"]');
   const minimizeButton = shadow.querySelector<HTMLButtonElement>('[data-panel-action="minimize"]');
+  const returnToEditorButton = shadow.querySelector<HTMLButtonElement>(
+    '[data-panel-action="return-to-editor"]',
+  );
   const minimizeIcon = shadow.querySelector<HTMLElement>('[data-panel-icon="minimize"]');
   const panelLayoutControlSlot = shadow.querySelector<HTMLElement>('[data-panel-layout-control]');
   const panelZoomControlSlot = shadow.querySelector<HTMLElement>('[data-panel-zoom-control]');
@@ -646,6 +699,46 @@ function openAuthoringPanel(
 
   const syncPanelStepStatus = (): void => {
     if (!panelStepStatus) return;
+    panelStepStatus.removeAttribute('title');
+    if (previewPlaybackState === 'playing') {
+      if (previewChoreographyStage) {
+        panelStepStatus.textContent = authoringText(
+          'Preview · Step {current} · {stage} · {elapsed} ms',
+          {
+            current: previewPlaybackIndex + 1,
+            stage: choreographyStageLabel(previewChoreographyStage),
+            elapsed: previewChoreographyStage.elapsedMs,
+          },
+        );
+        return;
+      }
+      if (previewPlaybackBranching) {
+        panelStepStatus.textContent = authoringText('Preview · Step {current}', {
+          current: previewPlaybackIndex + 1,
+        });
+        panelStepStatus.title = authoringText('Preview path: {path}', {
+          path: previewPathStepIds.join(' → '),
+        });
+        return;
+      }
+      panelStepStatus.textContent = authoringText('Preview · {current} of {total}', {
+        current: previewPlaybackIndex + 1,
+        total: Math.max(1, previewPlaybackTotal),
+      });
+      return;
+    }
+    if (previewPlaybackState === 'completed') {
+      panelStepStatus.textContent = authoringText('Preview complete');
+      return;
+    }
+    if (previewPlaybackState === 'dismissed') {
+      panelStepStatus.textContent = authoringText('Preview closed');
+      return;
+    }
+    if (previewPlaybackState === 'skipped') {
+      panelStepStatus.textContent = authoringText('Preview skipped');
+      return;
+    }
     const steps = previewDocument?.blocks.filter((block) => block.type === 'tourStep') ?? [];
     if (!steps.length) {
       panelStepStatus.textContent = authoringText('No steps');
@@ -965,6 +1058,14 @@ function openAuthoringPanel(
     }
   };
 
+  returnToEditorButton?.addEventListener('click', () => {
+    stopOwnedPreview();
+    previewPlaybackState = 'editing';
+    host.removeAttribute(AUTHORING_PREVIEW_ACTIVE_ATTRIBUTE);
+    syncPanelStepStatus();
+    restore();
+  });
+
   const panel: LocalAuthoringPanel = {
     close,
     destroy: destroyPanel,
@@ -1252,13 +1353,20 @@ function openAuthoringPanel(
             minimize();
           }
           return playPreviewDocument(
-            message.mode === 'step' ? message.stepId : undefined,
+            message.mode === 'step' ? message.stepId : message.initialStepId,
             true,
             message.mode === 'full',
+            message.mode === 'full' ? message.accessibilityMode : undefined,
+            message.mode === 'full' ? message.simulationContext : undefined,
           );
         }
         if (message.type === 'preview.patch') {
-          return queuePreview(message.blockId, message.patch.ops, message.locale);
+          return queuePreview(
+            message.blockId,
+            message.patch.ops,
+            message.locale,
+            message.transaction,
+          );
         }
         if (message.type === 'presentation.anchor.pick.canceled') {
           if (!presentationAnchorHostMessageMatches(message, pendingPresentationAnchorPick)) return;
@@ -1361,7 +1469,12 @@ function openAuthoringPanel(
       });
     }
     sendSaveStateUpdate();
-    stopLifecycleObserver = startPageLifecycleObserver(bridge, session);
+    stopLifecycleObserver = startPageLifecycleObserver(bridge, session, {
+      ...(options.getTargetRoutePatternId
+        ? { getRoutePatternId: options.getTargetRoutePatternId }
+        : {}),
+      ...(options.getTargetStateId ? { getStateId: options.getTargetStateId } : {}),
+    });
     if (options.autoPreview) {
       const firstStepId = previewDocument?.blocks.find((block) => block.type === 'tourStep')?.id;
       pendingInlineFocusBlockId = firstStepId ?? null;
@@ -1531,9 +1644,11 @@ function openAuthoringPanel(
     blockId: string,
     ops: PreviewPatchOperation[],
     locale?: string,
+    transaction?: PreviewTransactionMetadata,
   ): Promise<void> | void {
     const current = previewDocument ?? preview?.loadDocument(session.documentId) ?? null;
     if (!current) return;
+    if (transaction && transaction.revision <= latestPreviewTransactionRevision) return;
 
     const affectedStepId = findContainingTourStepId(current.blocks, blockId);
     if (ops.some((operation) => operation.op === 'replaceDocument')) {
@@ -1545,6 +1660,7 @@ function openAuthoringPanel(
       authoringTargetOverrides.delete(affectedStepId);
     }
     previewDocument = applyPreviewPatch(current, blockId, ops, locale);
+    if (transaction) latestPreviewTransactionRevision = transaction.revision;
     syncPanelStepStatus();
     scheduleAutoSave(previewDocument);
     const persistence = ops.some((operation) => operation.op === 'removeTarget')
@@ -1610,6 +1726,8 @@ function openAuthoringPanel(
     stepId?: string,
     rejectOnFailure = false,
     interactive = false,
+    accessibilityMode?: AuthoringAccessibilityPreviewMode,
+    flowConditionContext?: LocalAuthoringPreviewOptions['flowConditionContext'],
   ): Promise<void> {
     if (!preview || !previewDocument) {
       return rejectOnFailure
@@ -1623,6 +1741,22 @@ function openAuthoringPanel(
       currentHeaderStepId = stepId;
       syncPanelStepStatus();
     }
+    if (interactive) {
+      previewPlaybackState = 'playing';
+      host.setAttribute(AUTHORING_PREVIEW_ACTIVE_ATTRIBUTE, 'true');
+      if (host.hasAttribute(AUTHORING_PANEL_MINIMIZED_ATTRIBUTE)) {
+        const minimizedGeometry = readAuthoringPanelGeometry(host);
+        applyClampedAuthoringPanelGeometry(
+          host,
+          { ...minimizedGeometry, width: Math.min(300, minimizedGeometry.width) },
+          'minimized',
+        );
+      }
+    } else {
+      previewPlaybackState = 'editing';
+      host.removeAttribute(AUTHORING_PREVIEW_ACTIVE_ATTRIBUTE);
+    }
+    syncPanelStepStatus();
     const requestId = ++previewRequestId;
     previewPending = true;
     return preview
@@ -1639,6 +1773,14 @@ function openAuthoringPanel(
           return;
         }
         const previewStepId = stepId ?? compiled.steps[0]?.id;
+        previewPlaybackBranching = compiled.steps.some((step) =>
+          step.body.some((node) => {
+            const action = node.props.action;
+            return Boolean(action && 'transition' in action && action.transition);
+          }),
+        );
+        previewChoreographyStage = null;
+        previewPathStepIds = previewStepId ? [previewStepId] : [];
         const selectedElement = previewStepId
           ? authoringTargetOverrides.get(previewStepId)
           : undefined;
@@ -1649,6 +1791,37 @@ function openAuthoringPanel(
           ownerId: previewOwnerId,
           locale: previewContentLocale,
           ...(interactive ? { interactive: true } : {}),
+          ...(accessibilityMode ? { accessibilityMode } : {}),
+          ...(flowConditionContext ? { flowConditionContext } : {}),
+          ...(interactive
+            ? {
+                onStepChange: (index: number, runtimeStepId: string) => {
+                  if (requestId !== previewRequestId) return;
+                  previewPlaybackState = 'playing';
+                  previewPlaybackIndex = index;
+                  previewPlaybackTotal = compiled.steps.length;
+                  previewChoreographyStage = null;
+                  if (previewPathStepIds[previewPathStepIds.length - 1] !== runtimeStepId) {
+                    previewPathStepIds.push(runtimeStepId);
+                  }
+                  syncPanelStepStatus();
+                },
+                onComplete: () => completeInteractivePreview('completed', requestId),
+                onDismiss: () => completeInteractivePreview('dismissed', requestId),
+                onSkip: () => completeInteractivePreview('skipped', requestId),
+                onChoreographyStageChange: (_stepId, update) => {
+                  if (requestId !== previewRequestId) return;
+                  previewChoreographyStage = update;
+                  syncPanelStepStatus();
+                },
+                onBranchChoice: () => {
+                  if (requestId === previewRequestId) syncPanelStepStatus();
+                },
+                getAuthoringProtectedSurfaces: () => authoringProtectedSurfaces(),
+                onAuthoringSurfaceChange: (rect: ProtectedSurfaceRect | null) =>
+                  avoidInteractivePreviewSurface(rect, requestId),
+              }
+            : {}),
           ...(stepId ? { stepId } : {}),
           ...(previewStepId && selectedElement?.isConnected
             ? {
@@ -1677,9 +1850,57 @@ function openAuthoringPanel(
         if (requestId !== previewRequestId) return;
         previewPending = false;
         previewPresented = false;
+        if (interactive) {
+          previewPlaybackState = 'editing';
+          host.removeAttribute(AUTHORING_PREVIEW_ACTIVE_ATTRIBUTE);
+          syncPanelStepStatus();
+        }
         preview.onPreviewError?.(error);
         if (rejectOnFailure) throw error;
       });
+  }
+
+  function completeInteractivePreview(
+    state: 'completed' | 'dismissed' | 'skipped',
+    requestId: number,
+  ): void {
+    if (requestId !== previewRequestId) return;
+    previewPlaybackState = state;
+    previewChoreographyStage = null;
+    previewPending = false;
+    previewPresented = false;
+    syncPanelStepStatus();
+  }
+
+  function authoringProtectedSurfaces(): ProtectedSurfaceRect[] {
+    const surfaces = [domRectAsProtectedSurface(host.getBoundingClientRect(), 6)];
+    for (const element of document.querySelectorAll<HTMLElement>(
+      '[data-lodariq-authoring-control="true"]',
+    )) {
+      if (element === host || !element.isConnected) continue;
+      surfaces.push(domRectAsProtectedSurface(element.getBoundingClientRect(), 3));
+    }
+    return surfaces;
+  }
+
+  function avoidInteractivePreviewSurface(
+    rect: ProtectedSurfaceRect | null,
+    requestId: number,
+  ): void {
+    if (
+      !rect ||
+      requestId !== previewRequestId ||
+      previewPlaybackState !== 'playing' ||
+      !host.hasAttribute(AUTHORING_PANEL_MINIMIZED_ATTRIBUTE)
+    ) {
+      return;
+    }
+    const current = readAuthoringPanelGeometry(host);
+    const next = chooseChromeGeometryAwayFrom(current, rect, {
+      width: window.innerWidth,
+      height: window.innerHeight,
+    });
+    applyClampedAuthoringPanelGeometry(host, next, 'minimized');
   }
 
   function pendingInlinePreviewStepId(): string | undefined {
@@ -1703,6 +1924,10 @@ function openAuthoringPanel(
     previewRequestId += 1;
     previewPending = false;
     previewPresented = false;
+    previewPlaybackState = 'editing';
+    previewChoreographyStage = null;
+    previewPathStepIds = [];
+    host.removeAttribute(AUTHORING_PREVIEW_ACTIVE_ATTRIBUTE);
     preview?.stopPreview?.(previewOwnerId);
     inlinePreviewEditor?.refresh();
   }

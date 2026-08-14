@@ -1,9 +1,5 @@
 import { runBasicVisualPreflight } from '@lodariq/compiler';
-import {
-  COMPILED_ARTIFACT_SCHEMA_VERSION,
-  basicVisualPreflightIssueLabel,
-  validateTourPublishReadiness,
-} from '@lodariq/schema';
+import { COMPILED_ARTIFACT_SCHEMA_VERSION, basicVisualPreflightIssueLabel } from '@lodariq/schema';
 import {
   type AuthoringSessionRecord,
   type ControlPlaneRepository,
@@ -18,7 +14,11 @@ import {
   sendAuthoringSessionCompatibilityChanged,
 } from './session-capabilities';
 import { validateAuthoringStagingReleaseState } from './authoring-auth';
-import { hasLegacyThemeReference, getThemeReleaseReview } from './document-compilation';
+import {
+  getThemeReleaseReview,
+  hasLegacyThemeReference,
+  validateDocumentReleaseReadiness,
+} from './document-compilation';
 
 export async function handleAuthoringReleaseState(
   options: ControlPlaneRouteOptions,
@@ -58,7 +58,7 @@ export async function handleAuthoringReleaseState(
         run.compiledArtifactId === latestArtifact?.id &&
         run.contentHash === latestArtifact?.contentHash,
     ) ?? null;
-  const publishIssues = validateTourPublishReadiness(record.document);
+  const publishIssues = validateDocumentReleaseReadiness(record.document);
   const themeMigrationRequired = hasLegacyThemeReference(record.document);
   const themeReview = themeMigrationRequired
     ? null
@@ -71,7 +71,7 @@ export async function handleAuthoringReleaseState(
   const findings = [
     ...publishIssues.map((issue) => ({
       code: issue.code,
-      severity: 'blocker' as const,
+      severity: issue.severity ?? ('blocker' as const),
       label: issue.message,
     })),
     ...(themeMigrationRequired

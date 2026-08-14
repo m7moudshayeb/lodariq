@@ -98,6 +98,8 @@ export const AUTHORING_FOUNDATION_CSS = `
   .block:focus-visible,
   .ui-select-trigger:focus-visible,
   .ui-select-item:focus-visible,
+  .ui-number-combobox-trigger:focus-visible,
+  .ui-number-combobox-option:focus-visible,
   .ui-tabs-trigger:focus-visible {
     outline: 2px solid var(--lq-color-blue);
     outline-offset: 2px;

@@ -39,7 +39,7 @@ describe('authoring target outline appearance option', () => {
     const postMessage = vi.fn();
     const peer = { postMessage } as unknown as Window;
 
-    mountLocalAuthoringFrame({
+    await mountLocalAuthoringFrame({
       root: document.getElementById('authoring')!,
       baseDocument,
       services: {

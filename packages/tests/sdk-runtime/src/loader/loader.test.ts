@@ -12,7 +12,7 @@ import {
   RENDERER_CONTRACT_VERSION,
   type ActiveManifestPointerV2,
   type CompiledDocument,
-  type CompiledDocumentV3,
+  type NewCompiledDocument,
 } from '@lodariq/schema';
 import {
   fetchInstallContext,
@@ -45,7 +45,7 @@ const compiledDoc: CompiledDocument = {
   steps: [],
 };
 
-const publicCompiledDoc: CompiledDocumentV3 = {
+const publicCompiledDoc: NewCompiledDocument = {
   artifactSchemaVersion: COMPILED_ARTIFACT_SCHEMA_VERSION,
   documentId: 'doc_public_compatible',
   type: 'tour',

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  firstPublishBlocker,
   publishReadinessIssueLabel,
   validateTourPublishReadiness,
   type LodariqBlock,
@@ -14,6 +15,23 @@ const fixture = tourFixture as LodariqDocument;
 describe('tour publish readiness', () => {
   it('accepts the canonical linear tour fixture', () => {
     expect(validateTourPublishReadiness(cloneFixture())).toEqual([]);
+  });
+
+  it('reports unreachable flow as review guidance without turning it into a blocker', () => {
+    const document = cloneFixture();
+    const firstAction = tooltipBody(document).find((block) => block.type === 'button')!;
+    firstAction.props.action = { type: 'complete' };
+    const unreachableStep = structuredClone(document.blocks[0]!);
+    unreachableStep.id = 'step_unreachable';
+    document.blocks.push(unreachableStep);
+
+    expect(validateTourPublishReadiness(document)).toContainEqual({
+      blockId: 'step_unreachable',
+      code: 'unreachable_step',
+      message: 'Unreachable step',
+      severity: 'warning',
+    });
+    expect(firstPublishBlocker(document)).toBeNull();
   });
 
   it('accepts list, divider, and link blocks when required action config is complete', () => {

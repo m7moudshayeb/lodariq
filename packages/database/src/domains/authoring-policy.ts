@@ -11,6 +11,7 @@ import {
   LODARIQ_EDITOR_ORIGIN,
   RENDERER_CONTRACT_VERSION,
   ReleaseMutationGuard,
+  SCHEMA_VERSION,
   validate,
   type AuthoringActivationCapability,
   type AuthoringDocumentIntent,
@@ -90,7 +91,9 @@ export function canActivateDocumentIntent(
   }
   return (
     requestedIntent.kind === 'existing' &&
-    grant.documentIntent.documentId === requestedIntent.documentId
+    grant.documentIntent.documentId === requestedIntent.documentId &&
+    grant.documentIntent.workspace === requestedIntent.workspace &&
+    grant.documentIntent.focusBlockId === requestedIntent.focusBlockId
   );
 }
 
@@ -141,7 +144,7 @@ export function createServerOwnedTourDraft(
     type: 'tour',
     status: 'draft',
     title: AUTHORING_TOUR_DRAFT_TITLE,
-    schemaVersion: '1.0.0',
+    schemaVersion: SCHEMA_VERSION,
     trigger: {
       type: 'urlMatch',
       config: { pattern: `${exactOrigin}${pageContext.pathname}`, mode: 'exact' },

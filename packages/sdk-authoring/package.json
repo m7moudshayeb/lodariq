@@ -22,6 +22,11 @@
       "types": "./dist/authoring-frame.d.ts",
       "import": "./dist/authoring-frame.js"
     },
+    "./authoring/reliability": {
+      "source": "./src/authoring/reliability.ts",
+      "types": "./src/authoring/reliability.ts",
+      "import": "./dist/authoring/reliability.js"
+    },
     "./hosted-entry": {
       "source": "./src/hosted-entry.ts",
       "types": "./dist/hosted-entry.d.ts",
@@ -90,12 +95,13 @@
   },
   "dependencies": {
     "@lexical/rich-text": "^0.21.0",
-    "@lodariq/schema": "workspace:*",
     "@lodariq/i18n": "workspace:*",
+    "@lodariq/schema": "workspace:*",
     "@lodariq/sdk-runtime": "workspace:*",
     "@radix-ui/react-popover": "^1.1.17",
     "@radix-ui/react-select": "^2.3.1",
     "@radix-ui/react-tabs": "^1.1.15",
+    "@xyflow/react": "^12.11.3",
     "interactjs": "^1.10.28",
     "lexical": "^0.21.0",
     "lucide": "^1.29.0",

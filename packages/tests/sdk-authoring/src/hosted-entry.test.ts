@@ -174,15 +174,15 @@ describe('content-addressed hosted creator entry', () => {
       blockId: tourDocument.blocks[0]?.id ?? 'step_1',
       patch: { ops: [{ op: 'setDocumentTitle', title: 'Persisted hosted tour' }] },
     });
-    expectLastSaveStateUpdate(peer, 'saving', 'Saving draft…');
+    expectLastSaveStateUpdate(peer, 'saving', 'Enregistrement du brouillon…');
 
     await waitForAutosave();
     const autosave = lastOutboundMessage(peer, 'authoring.save.request');
     expect(autosave).toBeDefined();
-    expectLastSaveStateUpdate(peer, 'saving', 'Saving draft…');
+    expectLastSaveStateUpdate(peer, 'saving', 'Enregistrement du brouillon…');
     dispatchEstablishedMessage(peer, saveResult(autosave!.correlationId));
     await flushMicrotasks();
-    expectLastSaveStateUpdate(peer, 'saved', 'Draft saved');
+    expectLastSaveStateUpdate(peer, 'saved', 'Brouillon enregistré');
 
     const closeButton = panelHost?.shadowRoot?.querySelector<HTMLButtonElement>(
       '[data-panel-action="close-panel"]',
@@ -312,7 +312,7 @@ describe('content-addressed hosted creator entry', () => {
       new Set(['workspace.collapsed', 'workspace.expanded']),
     );
     expect(expanded.identity?.context.stateId).toBeUndefined();
-    expect(getTargetStateId).toHaveBeenCalledTimes(2);
+    expect(getTargetStateId).toHaveBeenCalledTimes(3);
     expect(document.documentElement.outerHTML).not.toContain('workspace.collapsed');
     expect(localStorage.length).toBe(0);
     expect(sessionStorage.length).toBe(0);
@@ -383,7 +383,9 @@ describe('content-addressed hosted creator entry', () => {
     expect(lastItem(states)).toBe('browsing');
 
     dispatchFromEditor(peer, sessionReady(handoff));
-    await flushMicrotasks();
+    await vi.waitFor(() =>
+      expect(document.querySelector('lodariq-authoring-panel iframe')).toBe(iframe),
+    );
     expect(document.querySelector('lodariq-hosted-browser')).toBeNull();
     expect(document.querySelector('lodariq-authoring-panel iframe')).toBe(iframe);
     expect(lastItem(states)).toBe('open');

@@ -28,6 +28,7 @@ type BodyNodeRenderer = (node: RuntimeBodyNode, context: BodyNodeRenderContext) 
 
 interface BodyNodeRenderContext {
   onAction: (action: RuntimeAction | undefined) => void;
+  resolveMediaAsset?: (assetId: string, kind: 'image' | 'video' | 'captions') => string | null;
 }
 
 export const BODY_NODE_RENDERERS: Readonly<Record<string, BodyNodeRenderer>> = {
@@ -69,10 +70,57 @@ function renderDividerNode(node: RuntimeBodyNode): HTMLElement {
   return element;
 }
 
-function renderMediaNode(node: RuntimeBodyNode): HTMLElement {
-  const element = document.createElement('div');
-  setBodyNodeContent(element, node);
-  return element;
+function renderMediaNode(node: RuntimeBodyNode, context: BodyNodeRenderContext): HTMLElement {
+  const media = node.props.media;
+  if (!media) {
+    const placeholder = document.createElement('div');
+    setBodyNodeContent(placeholder, node);
+    return placeholder;
+  }
+  const resolved = safeNavigationDestination(
+    context.resolveMediaAsset?.(media.assetId, media.kind) ?? undefined,
+  );
+  if (!resolved) {
+    const unavailable = document.createElement('div');
+    setBodyNodeAttributes(unavailable, node);
+    unavailable.setAttribute('role', 'img');
+    unavailable.setAttribute('aria-label', media.accessibilityName);
+    unavailable.dataset['lodariqAssetId'] = media.assetId;
+    return unavailable;
+  }
+  if (media.kind === 'image') {
+    const image = document.createElement('img');
+    setBodyNodeAttributes(image, node);
+    image.src = resolved.href;
+    image.alt = media.accessibilityName;
+    image.loading = 'lazy';
+    if (media.aspectRatio) image.dataset['lodariqAspectRatio'] = media.aspectRatio;
+    return image;
+  }
+  const video = document.createElement('video');
+  setBodyNodeAttributes(video, node);
+  video.src = resolved.href;
+  video.controls = true;
+  video.preload = 'metadata';
+  video.setAttribute('aria-label', media.accessibilityName);
+  if (media.aspectRatio) video.dataset['lodariqAspectRatio'] = media.aspectRatio;
+  const captions = safeNavigationDestination(
+    context.resolveMediaAsset?.(media.captionsAssetId, 'captions') ?? undefined,
+  );
+  if (captions) {
+    const track = document.createElement('track');
+    track.kind = 'captions';
+    track.src = captions.href;
+    track.default = true;
+    video.appendChild(track);
+  }
+  const poster = media.posterAssetId
+    ? safeNavigationDestination(
+        context.resolveMediaAsset?.(media.posterAssetId, 'image') ?? undefined,
+      )
+    : null;
+  if (poster) video.poster = poster.href;
+  return video;
 }
 
 function renderButtonNode(node: RuntimeBodyNode, context: BodyNodeRenderContext): HTMLElement {
@@ -86,7 +134,9 @@ function renderButtonNode(node: RuntimeBodyNode, context: BodyNodeRenderContext)
 
 function renderLinkNode(node: RuntimeBodyNode, context: BodyNodeRenderContext): HTMLElement {
   const element = document.createElement('a');
-  const destination = safeNavigationDestination(node.props.action?.url);
+  const destination = safeNavigationDestination(
+    node.props.action?.type === 'openPage' ? node.props.action.url : undefined,
+  );
   element.href = destination?.href ?? '#';
   if (destination?.kind === 'external') {
     element.target = '_blank';
@@ -119,6 +169,8 @@ function setBodyNodeAttributes(element: HTMLElement, node: RuntimeBodyNode): voi
   if (node.props.variant) {
     element.setAttribute('data-lodariq-action-variant', node.props.variant);
   }
+  if (node.props.accessibilityName)
+    element.setAttribute('aria-label', node.props.accessibilityName);
   const textStyle = node.props.textStyle;
   if (textStyle?.align) element.style.textAlign = textStyle.align;
   if (textStyle?.fontSizePx) element.style.fontSize = `${textStyle.fontSizePx}px`;

@@ -1,5 +1,5 @@
 import { authoringText } from '../../../i18n';
-import { validateTourPublishReadiness } from '@lodariq/schema';
+import { isPublishReadinessBlocker, validateTourPublishReadiness } from '@lodariq/schema';
 import type { LocalAuthoringFrameController } from '../controller';
 import { AuthoringButton, AuthoringTabs, ChevronDown, Eye, FileJson, Save } from '../design-system';
 import { publishIssueKey } from '../publish-issue-repair';
@@ -16,7 +16,7 @@ export function Inspector({
   const issues = validateTourPublishReadiness(snapshot.documentState, {
     targetDiagnostics: snapshot.targetDiagnostics,
     requireVerifiedTargets: true,
-  });
+  }).filter(isPublishReadinessBlocker);
   const previewReady = snapshot.compiledText !== '';
   const reviewTitle = reviewTitleForIssueCount(issues.length);
   const reviewDetail = reviewDetailForState(issues.length, previewReady);

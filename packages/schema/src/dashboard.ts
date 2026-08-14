@@ -15,6 +15,7 @@ export const DashboardPublishReadinessIssue = Type.Object(
     code: Type.String({ minLength: 1, maxLength: 256 }),
     blockId: Type.Optional(DashboardIdentifier),
     targetId: Type.Optional(DashboardIdentifier),
+    severity: Type.Optional(Type.Union([Type.Literal('blocker'), Type.Literal('warning')])),
     label: Type.String({ minLength: 1, maxLength: 256 }),
     message: Type.String({ minLength: 1, maxLength: 2_048 }),
   },

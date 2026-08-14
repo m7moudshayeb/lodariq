@@ -1,6 +1,11 @@
 import { ControllerHistoryReleaseFeature } from './controller-history-release';
 import { authoringText } from '../../i18n';
-import { BRIDGE_PROTOCOL_VERSION, type LodariqBlock } from '@lodariq/schema';
+import {
+  BRIDGE_PROTOCOL_VERSION,
+  type AuthoringAccessibilityPreviewMode,
+  type AuthoringFlowSimulationContext,
+  type LodariqBlock,
+} from '@lodariq/schema';
 import { createBridgeCorrelationId } from '../../bridge/transport';
 import { editableBlockTypeValue, findBlockById, slashCommandType } from './utils';
 import { blockContainsId, targetInspectActionForButtonAction } from './controller-model';
@@ -17,7 +22,12 @@ export abstract class ControllerPreviewFeature extends ControllerHistoryReleaseF
     return this.documentState.blocks.find((block) => block.type === 'tourStep') ?? null;
   }
 
-  protected sendPreviewRequest(mode: 'full' | 'step', stepId?: string): Promise<void> {
+  protected sendPreviewRequest(
+    mode: 'full' | 'step',
+    stepId?: string,
+    accessibilityMode?: AuthoringAccessibilityPreviewMode,
+    simulationContext?: AuthoringFlowSimulationContext,
+  ): Promise<void> {
     if (!this.isHostedInParent) return Promise.resolve();
     const envelope = {
       protocol: BRIDGE_PROTOCOL_VERSION,
@@ -31,7 +41,16 @@ export abstract class ControllerPreviewFeature extends ControllerHistoryReleaseF
       if (!stepId) return Promise.reject(new Error('Lodariq step preview requires a step id'));
       return this.bridge.sendWithAck({ ...envelope, mode: 'step', stepId }, { timeoutMs: 2_000 });
     }
-    return this.bridge.sendWithAck({ ...envelope, mode: 'full' }, { timeoutMs: 2_000 });
+    return this.bridge.sendWithAck(
+      {
+        ...envelope,
+        mode: 'full',
+        ...(stepId ? { initialStepId: stepId } : {}),
+        ...(accessibilityMode ? { accessibilityMode } : {}),
+        ...(simulationContext ? { simulationContext } : {}),
+      },
+      { timeoutMs: 2_000 },
+    );
   }
 
   protected readonly handleWindowKeyDown = (event: globalThis.KeyboardEvent): void => {

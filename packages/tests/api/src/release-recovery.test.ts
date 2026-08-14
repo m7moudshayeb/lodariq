@@ -23,7 +23,7 @@ import {
   DEFAULT_EXPERIENCE_APPEARANCE,
   LODARIQ_ACCESSIBLE_FALLBACK_THEME_V1,
   RENDERER_CONTRACT_VERSION,
-  type CompiledDocumentV3,
+  type NewCompiledDocument,
   type LodariqDocument,
   type ReleaseRecoveryRequest,
 } from '@lodariq/schema';
@@ -712,7 +712,7 @@ function createArtifact(label: string, environments: Array<'staging' | 'producti
     steps: [],
     localization: { defaultLocale: 'en', defaultTitle: 'Recovery tour', variants: [] },
   };
-  const compiled: CompiledDocumentV3 = {
+  const compiled: NewCompiledDocument = {
     ...contentWithoutHash,
     contentHash: contentHash(contentWithoutHash),
   };

@@ -220,6 +220,11 @@ function render(
     focusRequest: null,
     selectedBlockId: null,
     advancedEditorStepId: null,
+    selectedStepIds: new Set(),
+    stepStyleClipboardAvailable: false,
+    stepStyleRecipes: [],
+    draftCheckpoints: [],
+    targetHealth: new Map(),
     dragTargetBlockId: null,
     dragTargetPosition: null,
     release: {

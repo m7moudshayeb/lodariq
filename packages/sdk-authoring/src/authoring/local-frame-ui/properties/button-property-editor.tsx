@@ -16,12 +16,14 @@ import type { LocalAuthoringFrameController } from '../controller';
 import {
   BUTTON_PROPERTY_DEFINITIONS,
   buttonColorIsCustomized,
+  buttonColorContrast,
   buttonWidthDescription,
   type ButtonPropertyContext,
   type ButtonPropertyGroup,
 } from './button-properties';
 import { PropertyChoiceField, PropertyColorField } from './property-controls';
 import { visibleProperties, type PropertyDefinition } from './registry';
+import type { EditableActionType } from '../types';
 
 export type ActionPropertyTab = ButtonPropertyGroup;
 
@@ -71,13 +73,17 @@ export function ButtonPropertyTabs({
 
 export function ButtonPropertyPanel({
   activeTab,
+  ariaLabel,
   block,
   controller,
+  onActionTypeChange,
   tooltip,
 }: {
   activeTab: ActionPropertyTab;
+  ariaLabel?: string;
   block: LodariqBlock;
   controller: LocalAuthoringFrameController;
+  onActionTypeChange?: (actionType: EditableActionType) => void;
   tooltip: LodariqBlock;
 }) {
   const context = { block, controller, tooltip } satisfies ButtonPropertyContext;
@@ -93,10 +99,15 @@ export function ButtonPropertyPanel({
   return (
     <section
       className={classes}
-      aria-label={authoringText('{tab} settings', { tab: tabLabel(activeTab) })}
+      aria-label={ariaLabel ?? authoringText('{tab} settings', { tab: tabLabel(activeTab) })}
     >
       {properties.map((property) => (
-        <ButtonPropertyControl key={property.id} context={context} property={property} />
+        <ButtonPropertyControl
+          key={property.id}
+          context={context}
+          onActionTypeChange={onActionTypeChange}
+          property={property}
+        />
       ))}
     </section>
   );
@@ -104,9 +115,11 @@ export function ButtonPropertyPanel({
 
 function ButtonPropertyControl({
   context,
+  onActionTypeChange,
   property,
 }: {
   context: ButtonPropertyContext;
+  onActionTypeChange?: (actionType: EditableActionType) => void;
   property: PropertyDefinition<ButtonPropertyContext>;
 }) {
   const value = property.read(context);
@@ -116,7 +129,12 @@ function ButtonPropertyControl({
       <div className="storyboard-property-control" data-property-id={property.id}>
         <PropertyChoiceField
           label={property.label}
-          onChange={(nextValue) => property.apply(context, nextValue)}
+          onChange={(nextValue) => {
+            property.apply(context, nextValue);
+            if (property.id === 'button.action') {
+              onActionTypeChange?.(nextValue as EditableActionType);
+            }
+          }}
           options={property.options}
           showIcons={property.id === 'button.action'}
           value={String(value)}
@@ -155,6 +173,7 @@ function ButtonPropertyControl({
     return (
       <div className="storyboard-property-control" data-property-id={property.id}>
         <PropertyColorField
+          contrast={buttonColorContrast(context.block, property.id)}
           customized={buttonColorIsCustomized(context.block, property.id)}
           label={property.label}
           onChange={(nextValue) => property.apply(context, nextValue)}

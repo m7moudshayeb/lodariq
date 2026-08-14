@@ -1,14 +1,18 @@
 import { authoringText } from '../../../i18n';
 import { lazy, Suspense, useState } from 'react';
 import type { LodariqBlock } from '@lodariq/schema';
+import {
+  experienceAuthoringProfile,
+  selectExperienceRootBlocks,
+} from '../../experience-authoring-capabilities';
 import type { LocalAuthoringFrameController } from '../controller';
 import type { LocalAuthoringFrameSnapshot } from '../types';
-import { blockDisplayTitle } from '../utils';
+import type { LocalAuthoringInitialWorkspace } from '../../local-frame-types';
 import { PanelBodyMode } from './panel-body-mode';
 import { combinedReleaseFindings, releaseFooterSummary } from './release-findings';
 import { TourStoryboard } from './tour-storyboard';
+import { TourReviewWorkspace } from './tour-review-workspace';
 import {
-  ArrowLeft,
   AuthoringPopover,
   Check,
   CircleAlert,
@@ -26,31 +30,50 @@ const LazyTourStepInspector = lazy(async () => {
   return { default: module.TourStepInspector };
 });
 
+const LazyTourFlowMap = lazy(async () => {
+  const module = await import('./tour-flow-map');
+  return { default: module.TourFlowMap };
+});
+
+const LazyTourBatchWorkspace = lazy(async () => {
+  const module = await import('./tour-batch-workspace');
+  return { default: module.TourBatchWorkspace };
+});
+
 const LazyStandaloneAuthoringWorkspace = lazy(async () => {
   const module = await import('./standalone-authoring-workspace');
   return { default: module.StandaloneAuthoringWorkspace };
 });
 
-const LazyInspector = lazy(async () => {
-  const module = await import('./inspector');
-  return { default: module.Inspector };
-});
-
 export function AuthoringCanvas({
   controller,
   frameMode,
+  initialWorkspace,
   snapshot,
 }: {
   controller: LocalAuthoringFrameController;
   frameMode: 'panel' | 'standalone';
+  initialWorkspace?: LocalAuthoringInitialWorkspace;
   snapshot: LocalAuthoringFrameSnapshot;
 }) {
-  const blocks = snapshot.documentState.blocks;
-  const tourSteps = blocks.filter((block) => block.type === 'tourStep');
+  const profile = experienceAuthoringProfile(snapshot.documentState.type);
+  const experienceItems = selectExperienceRootBlocks(snapshot.documentState);
+  const tourSteps = profile.workspace === 'sequence' ? experienceItems : [];
   const activeStepId = activeTourStepId(tourSteps, snapshot.selectedBlockId);
   const activeStepIndex = tourSteps.findIndex((step) => step.id === activeStepId);
   const activeStep = activeStepIndex >= 0 ? (tourSteps[activeStepIndex] ?? null) : null;
   const advancedStep = tourSteps.find((step) => step.id === snapshot.advancedEditorStepId) ?? null;
+  const opensFlowMap =
+    initialWorkspace?.kind === 'flowMap' && profile.capabilities.includes('flow');
+  const [flowMapOpen, setFlowMapOpen] = useState(opensFlowMap);
+  const [flowMapFocusStepId, setFlowMapFocusStepId] = useState<string | null>(
+    opensFlowMap ? (initialWorkspace.focusBlockId ?? null) : null,
+  );
+  const [flowMapFocusActionId, setFlowMapFocusActionId] = useState<string | null>(null);
+  const [flowMapWorkbenchMode, setFlowMapWorkbenchMode] = useState<'branch' | 'sequence'>(
+    'sequence',
+  );
+  const batchMode = snapshot.selectedStepIds.size > 0;
 
   if (frameMode === 'panel') {
     if (snapshot.panelWorkflow.mode !== 'edit') {
@@ -78,31 +101,74 @@ export function AuthoringCanvas({
         <div className="document-page">
           <div className="panel-reference-workspace">
             {advancedStep ? (
-              <div className="panel-storyboard-workspace panel-advanced-workspace">
+              <div className="panel-storyboard-workspace panel-advanced-workspace panel-review-workspace">
                 <TourStoryboard
                   activeStepId={advancedStep.id}
                   controller={controller}
+                  flowMapOpen={false}
+                  onFlowMapOpenChange={() => undefined}
                   snapshot={snapshot}
                   steps={tourSteps}
                 />
-                <PanelAdvancedEditor
+                <TourReviewWorkspace
                   controller={controller}
                   snapshot={snapshot}
                   step={advancedStep}
                 />
               </div>
             ) : (
-              <div className="panel-storyboard-workspace">
-                <TourStoryboard
-                  activeStepId={activeStepId}
-                  controller={controller}
-                  snapshot={snapshot}
-                  steps={tourSteps}
-                />
-                {activeStep ? (
+              <div
+                className="panel-storyboard-workspace"
+                data-flow-map-open={flowMapOpen ? 'true' : 'false'}
+              >
+                {flowMapOpen ? null : (
+                  <TourStoryboard
+                    activeStepId={activeStepId}
+                    controller={controller}
+                    flowMapOpen={false}
+                    onFlowMapOpenChange={(open) => {
+                      if (open) controller.clearTourStepBatchSelection();
+                      setFlowMapOpen(open);
+                    }}
+                    snapshot={snapshot}
+                    steps={tourSteps}
+                  />
+                )}
+                {flowMapOpen ? (
+                  <Suspense fallback={<CanvasEditorLoading />}>
+                    <LazyTourFlowMap
+                      controller={controller}
+                      document={snapshot.documentState}
+                      initialActionBlockId={flowMapFocusActionId}
+                      initialStepId={flowMapFocusStepId}
+                      initialWorkbenchMode={flowMapWorkbenchMode}
+                      onClose={() => {
+                        setFlowMapFocusActionId(null);
+                        setFlowMapFocusStepId(null);
+                        setFlowMapOpen(false);
+                      }}
+                      steps={tourSteps}
+                    />
+                  </Suspense>
+                ) : batchMode ? (
+                  <Suspense fallback={<CanvasEditorLoading />}>
+                    <LazyTourBatchWorkspace
+                      controller={controller}
+                      snapshot={snapshot}
+                      steps={tourSteps}
+                    />
+                  </Suspense>
+                ) : activeStep ? (
                   <Suspense fallback={<CanvasEditorLoading />}>
                     <LazyTourStepInspector
                       controller={controller}
+                      onFlowMapOpen={(stepId, actionBlockId, mode = 'sequence') => {
+                        controller.clearTourStepBatchSelection();
+                        setFlowMapFocusActionId(actionBlockId);
+                        setFlowMapFocusStepId(stepId);
+                        setFlowMapWorkbenchMode(mode);
+                        setFlowMapOpen(true);
+                      }}
                       snapshot={snapshot}
                       step={activeStep}
                       stepIndex={activeStepIndex}
@@ -278,49 +344,6 @@ function PanelWorkspaceFooter({
         />
       </span>
     </footer>
-  );
-}
-
-function PanelAdvancedEditor({
-  controller,
-  snapshot,
-  step,
-}: {
-  controller: LocalAuthoringFrameController;
-  snapshot: LocalAuthoringFrameSnapshot;
-  step: LodariqBlock;
-}) {
-  return (
-    <div className="panel-advanced-editor">
-      <header className="panel-advanced-header">
-        <button
-          type="button"
-          className="panel-advanced-back"
-          onClick={() => controller.closeAdvancedEditor()}
-        >
-          <ArrowLeft size={15} strokeWidth={2.2} aria-hidden="true" />
-          <span>{authoringText('Back to editor')}</span>
-        </button>
-        <span className="panel-advanced-title">
-          <small>{authoringText('Review & recovery')}</small>
-          <strong>{blockDisplayTitle(step)}</strong>
-        </span>
-        <span
-          className="panel-advanced-save-status"
-          data-state={snapshot.saveState.state}
-          role="status"
-          aria-live="polite"
-        >
-          <SaveStateIcon state={snapshot.saveState.state} />
-          <strong data-save-state-label>{snapshot.saveState.label}</strong>
-        </span>
-      </header>
-      <div className="document-main panel-advanced-main">
-        <Suspense fallback={<CanvasEditorLoading />}>
-          <LazyInspector controller={controller} snapshot={snapshot} />
-        </Suspense>
-      </div>
-    </div>
   );
 }
 

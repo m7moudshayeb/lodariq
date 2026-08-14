@@ -5,6 +5,7 @@ import {
   type BlockActionProps,
   type BridgeMessage,
   type PreviewPatchOperation,
+  type PreviewTransactionMetadata,
   type LodariqBlock,
   type LodariqDocument,
   type InlineTextRun,
@@ -41,6 +42,7 @@ import {
   normalizeTargetLifecycle,
   previewPatchForAction,
 } from './controller-model';
+import { authoringTargetIdentityKey } from '../target-health-ledger';
 
 export abstract class ControllerTargetDocumentFeature extends ControllerReleaseRecoveryFeature {
   protected handleTargetEvidenceUpdate(
@@ -70,6 +72,7 @@ export abstract class ControllerTargetDocumentFeature extends ControllerReleaseR
       ),
     };
     this.targetDiagnostics.delete(targetId);
+    this.targetHealthLedger.registerTarget(targetId, authoringTargetIdentityKey(identity));
     this.afterDocumentMutation();
     this.services.saveDocument(this.documentState);
     this.sendPreviewPatch(message.blockId, [
@@ -86,35 +89,76 @@ export abstract class ControllerTargetDocumentFeature extends ControllerReleaseR
 
   protected handlePageLifecycleUpdate(
     route: string,
+    routePatternId: string | undefined,
+    stateId: string | undefined,
     locale: TargetLocale | undefined,
     viewportClass: TargetViewportClass | undefined,
   ): void {
     const previousRoute = this.hostPageRoute;
+    const previousRoutePatternId = this.hostRoutePatternId;
+    const previousStateId = this.hostStateId;
     const previousLocale = this.hostPageLocale;
     const previousViewportClass = this.hostViewportClass;
     this.hostPageRoute = route;
+    this.hostRoutePatternId = routePatternId;
+    this.hostStateId = stateId;
     if (locale !== undefined) this.hostPageLocale = locale;
     if (viewportClass !== undefined) this.hostViewportClass = viewportClass;
 
     const routeChanged = previousRoute !== undefined && previousRoute !== route;
+    const routePatternChanged = previousRoutePatternId !== routePatternId;
+    const stateChanged = previousStateId !== stateId;
     const localeChanged =
       previousLocale !== undefined && locale !== undefined && previousLocale !== locale;
     const viewportChanged =
       previousViewportClass !== undefined &&
       viewportClass !== undefined &&
       previousViewportClass !== viewportClass;
-    const contextBecameKnown =
+    const contextChanged =
       previousRoute === undefined ||
-      (previousLocale === undefined && locale !== undefined) ||
-      (previousViewportClass === undefined && viewportClass !== undefined);
-    const diagnosticsPredateKnownContext = contextBecameKnown && this.targetDiagnostics.size > 0;
-    const contextChanged = routeChanged || localeChanged || viewportChanged;
-    if ((!contextChanged && !diagnosticsPredateKnownContext) || this.targetDiagnostics.size === 0) {
-      return;
+      routeChanged ||
+      routePatternChanged ||
+      stateChanged ||
+      localeChanged ||
+      viewportChanged;
+    const previousTargetHealth = this.targetHealthLedger.snapshot();
+    this.targetHealthLedger.updateContext({
+      route,
+      ...(routePatternId ? { routePatternId } : {}),
+      ...(stateId ? { stateId } : {}),
+      ...(this.hostPageLocale ? { locale: this.hostPageLocale } : {}),
+      ...(this.hostViewportClass ? { viewportClass: this.hostViewportClass } : {}),
+    });
+    if (!contextChanged) return;
+
+    for (const target of this.documentState.targets) {
+      const previousPresentation = previousTargetHealth.get(target.id)?.presentation;
+      const presentation = this.targetHealthLedger.get(target.id)?.presentation;
+      if (
+        presentation === 'unavailable_current_context' &&
+        previousPresentation !== 'unavailable_current_context'
+      ) {
+        this.recordMetric('target.unavailable');
+      }
+      if (
+        previousPresentation === 'unavailable_current_context' &&
+        presentation !== 'unavailable_current_context'
+      ) {
+        this.recordMetric('target.context-restored');
+      }
     }
 
-    this.targetDiagnostics.clear();
-    this.setStatus(authoringText('Page context changed; placements are unverified'));
+    for (const target of this.documentState.targets) {
+      const requiresAnotherContext =
+        (target.identity?.context.routePatternId &&
+          target.identity.context.routePatternId !== routePatternId) ||
+        (target.identity?.context.stateId && target.identity.context.stateId !== stateId) ||
+        (target.lifecycle?.expectedRoute &&
+          !routeMatchesLifecycleHint(route, target.lifecycle.expectedRoute));
+      if (requiresAnotherContext) this.targetDiagnostics.delete(target.id);
+    }
+
+    this.setStatus(authoringText('Page context changed; placement availability updated'));
     const activeStep = this.selectedTourStep();
     const activeTargetId = activeStep ? firstTargetIdInBlock(activeStep) : null;
     if (activeStep && activeTargetId) {
@@ -159,6 +203,7 @@ export abstract class ControllerTargetDocumentFeature extends ControllerReleaseR
     const targetId = targetContext ? firstTargetIdInBlock(targetContext) : null;
     if (targetContext && targetId) {
       this.targetDiagnostics.delete(targetId);
+      this.targetHealthLedger.beginInspection(targetId);
       this.requestTargetInspection(targetContext.id, targetId, 'health');
     }
   }
@@ -308,15 +353,27 @@ export abstract class ControllerTargetDocumentFeature extends ControllerReleaseR
     return imported;
   }
 
-  protected sendPreviewPatch(blockId: string, ops: PreviewPatchOperation[], locale?: string): void {
+  protected sendPreviewPatch(
+    blockId: string,
+    ops: PreviewPatchOperation[],
+    locale?: string,
+    transaction?: PreviewTransactionMetadata,
+  ): void {
     const last = this.pendingPreviewPatches[this.pendingPreviewPatches.length - 1];
-    if (last?.blockId === blockId && last.locale === locale) {
+    const replacesSameTransaction = Boolean(
+      transaction && last?.transaction?.transactionId === transaction.transactionId,
+    );
+    if (replacesSameTransaction && last) {
+      last.ops = structuredClone(ops);
+      last.transaction = structuredClone(transaction);
+    } else if (last?.blockId === blockId && last.locale === locale && !transaction) {
       last.ops.push(...structuredClone(ops));
     } else {
       this.pendingPreviewPatches.push({
         blockId,
         ops: structuredClone(ops),
         ...(locale ? { locale } : {}),
+        ...(transaction ? { transaction: structuredClone(transaction) } : {}),
       });
     }
     if (this.previewPatchFlushQueued) return;
@@ -337,7 +394,9 @@ export abstract class ControllerTargetDocumentFeature extends ControllerReleaseR
     this.previewPatchFlushQueued = false;
     const batches = this.pendingPreviewPatches.splice(0, this.pendingPreviewPatches.length);
     for (const batch of batches) {
-      this.bridge.send(this.previewPatchMessage(batch.blockId, batch.ops, batch.locale));
+      this.bridge.send(
+        this.previewPatchMessage(batch.blockId, batch.ops, batch.locale, batch.transaction),
+      );
     }
   }
 
@@ -345,6 +404,7 @@ export abstract class ControllerTargetDocumentFeature extends ControllerReleaseR
     blockId: string,
     ops: PreviewPatchOperation[],
     locale?: string,
+    transaction?: PreviewTransactionMetadata,
   ): Extract<BridgeMessage, { type: 'preview.patch' }> {
     return {
       protocol: BRIDGE_PROTOCOL_VERSION,
@@ -354,6 +414,7 @@ export abstract class ControllerTargetDocumentFeature extends ControllerReleaseR
       type: 'preview.patch',
       blockId,
       ...(locale ? { locale } : {}),
+      ...(transaction ? { transaction: structuredClone(transaction) } : {}),
       patch: { ops },
     };
   }
@@ -439,4 +500,8 @@ export abstract class ControllerTargetDocumentFeature extends ControllerReleaseR
   protected snapshot(): LodariqDocument {
     return structuredClone(this.documentState);
   }
+}
+
+function routeMatchesLifecycleHint(route: string, expectedRoute: string): boolean {
+  return route === expectedRoute || route.startsWith(expectedRoute);
 }

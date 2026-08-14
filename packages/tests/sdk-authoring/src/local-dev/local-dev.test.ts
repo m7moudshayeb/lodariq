@@ -155,7 +155,7 @@ describe('local-dev authoring install helper', () => {
     expect(fetchManifest).not.toHaveBeenCalled();
   });
 
-  it('boots the iframe with the selected local document and document-scoped session', () => {
+  it('boots the iframe with the selected local document and document-scoped session', async () => {
     const selectedDocument = {
       ...structuredClone(baseDocument),
       id: 'doc_selected_local',
@@ -171,13 +171,13 @@ describe('local-dev authoring install helper', () => {
     const root = document.getElementById('authoring');
     if (!root) throw new Error('local authoring root missing');
 
-    mountLocalAuthoringDevFrame({ root, baseDocument });
+    await mountLocalAuthoringDevFrame({ root, baseDocument });
 
     expect(document.body.textContent).toContain('Editing Selected local tour');
     expect(document.querySelector('[aria-label="Tour steps"]')).not.toBeNull();
   });
 
-  it('boots the iframe from the provided base document before it has local draft storage', () => {
+  it('boots the iframe from the provided base document before it has local draft storage', async () => {
     window.history.replaceState(
       {},
       '',
@@ -188,7 +188,7 @@ describe('local-dev authoring install helper', () => {
     if (!root) throw new Error('local authoring root missing');
 
     expect(localStorage.getItem(`lodariq:doc:${baseDocument.id}`)).toBeNull();
-    mountLocalAuthoringDevFrame({ root, baseDocument });
+    await mountLocalAuthoringDevFrame({ root, baseDocument });
 
     expect(document.body.textContent).toContain(`Editing ${baseDocument.title}`);
     expect(document.querySelector('[aria-label="Tour steps"]')).not.toBeNull();

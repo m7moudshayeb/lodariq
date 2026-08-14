@@ -5,8 +5,21 @@ import type {
   WorkspaceEnvironmentDto,
 } from '../../../../apps/dashboard/src/lib/api';
 import { buildDashboardViewModel } from '../../../../apps/dashboard/src/lib/view-model';
+import { buildAuthoringLaunchUrl } from '../../../../apps/dashboard/src/lib/authoring-launch-url';
 
 describe('@lodariq/dashboard view model', () => {
+  it('serializes any declared authoring workspace through one launch-url contract', () => {
+    expect(
+      buildAuthoringLaunchUrl('https://staging.customer.example', 'en', {
+        documentId: 'doc_review',
+        workspace: 'reviewRecovery',
+        focusBlockId: 'step_review',
+      }),
+    ).toBe(
+      'https://staging.customer.example/?lodariq-launcher=show&lodariq-locale=en&lodariq-document=doc_review&lodariq-workspace=review-recovery&lodariq-focus-block=step_review',
+    );
+  });
+
   it('shapes API-backed documents, environments, and tokens for the Phase 1 dashboard', () => {
     const viewModel = buildDashboardViewModel({
       controlPlaneContext: { userId: 'user_admin', workspaceId: 'wk_a', role: 'admin' },
@@ -28,6 +41,13 @@ describe('@lodariq/dashboard view model', () => {
               label: 'Missing target',
               blockId: 'step_1',
               message: 'Step 1 needs a placement before publishing.',
+            },
+            {
+              code: 'unreachable_step',
+              label: 'Unreachable step',
+              blockId: 'step_2',
+              severity: 'warning',
+              message: 'Unreachable step',
             },
           ],
           publications: [
@@ -118,9 +138,20 @@ describe('@lodariq/dashboard view model', () => {
     expect(viewModel.documentRows[0]?.readinessDetail).toBe('Needs fixes before publishing');
     expect(viewModel.documentRows[0]?.readinessState).toBe('blocked');
     expect(viewModel.documentRows[0]?.lifecycleVariant).toBe('warning');
-    expect(viewModel.documentRows[0]?.readinessIssueCount).toBe(1);
+    expect(viewModel.documentRows[0]?.readinessIssueCount).toBe(2);
     expect(viewModel.documentRows[0]?.readinessIssueSummary).toBe(
-      'Choose where this step appears before publishing.',
+      'Choose where this step appears before publishing. +1 more',
+    );
+    expect(viewModel.documentRows[0]?.flowIssueCount).toBe(1);
+    expect(viewModel.documentRows[0]?.releaseEvidence.find((item) => item.id === 'flow')).toEqual({
+      id: 'flow',
+      label: 'Flow health',
+      value: '1 flow issue',
+      detail: 'Connect this step to a path people can reach.',
+      tone: 'warning',
+    });
+    expect(viewModel.documentRows[0]?.flowMapUrl).toBe(
+      'https://staging.lodariq.io/?lodariq-launcher=show&lodariq-locale=en&lodariq-document=doc_welcome&lodariq-workspace=flow-map&lodariq-focus-block=step_2',
     );
     expect(viewModel.documentRows[0]?.updatedAtLabel).toBe('Jun 30, 2026');
     expect(viewModel.documentRows[0]?.contentHashLabel).toBe('Draft saved');

@@ -7,6 +7,7 @@ import type {
 import { SDK_VERSION } from '../version';
 import { createRuntimeAnalyticsEvent, type RuntimeAnalyticsDocumentPointer } from './analytics';
 import { activeContentLocale, clearActiveContentLocale } from './content-locale-state';
+import { publishNamedRuntimeEvent } from './named-events';
 
 export type { RuntimeAnalyticsDocumentPointer } from './analytics';
 
@@ -97,7 +98,13 @@ export class LodariqRuntime {
     this.traits = traits;
   }
 
+  /** Snapshot of explicitly supplied identify traits for closed flow predicates. */
+  flowIdentifyTraits(): Readonly<Record<string, unknown>> {
+    return this.traits ? { ...this.traits } : {};
+  }
+
   track(name: string, props?: Record<string, unknown>): void {
+    publishNamedRuntimeEvent(name);
     const correlationId = this.config.correlationId;
     const requestedDocumentId =
       typeof props?.['documentId'] === 'string' ? props['documentId'].trim() : undefined;

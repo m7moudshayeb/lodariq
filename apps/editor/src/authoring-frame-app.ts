@@ -88,6 +88,7 @@ import {
 } from '@lodariq/sdk-authoring/authoring-frame';
 import { HostedAuthoringApiClient } from './authoring-api-client';
 import { authoringText } from '@lodariq/sdk-authoring/i18n';
+import { initialWorkspaceFromDocumentIntent } from './authoring-initial-workspace';
 
 type AuthoringInitMessage = Extract<BridgeMessageType, { type: 'authoring.init' }>;
 type ExactArtifactPromotionRequest = Parameters<
@@ -104,6 +105,7 @@ interface HostedEditorSession {
   apiOrigin: string;
   context: AuthoringSessionContext;
   document: LodariqDocument;
+  documentIntent: AuthoringDocumentIntent;
   theme: BrandThemeSnapshot;
 }
 
@@ -136,6 +138,7 @@ const trustedParentOrigin = readTrustedParentOrigin();
 const readyChallenge = trustedParentOrigin ? createReadyChallenge() : null;
 
 let mounted = false;
+let mounting = false;
 let activationHandoffConsumed = false;
 let hostedActivationHandoff: HostedAuthoringActivationHandoffMessageType | null = null;
 let hostedEditorSession: HostedEditorSession | null = null;
@@ -169,7 +172,7 @@ function handleParentMessage(event: MessageEvent): void {
     return;
   }
 
-  if (mounted) return;
+  if (mounted || mounting) return;
 
   const handoff = validate(HostedAuthoringActivationHandoffMessage, event.data);
   if (handoff.valid) {
@@ -179,7 +182,7 @@ function handleParentMessage(event: MessageEvent): void {
 
   const init = validate(BridgeMessage, event.data);
   if (!init.valid || init.value.type !== 'authoring.init') return;
-  acceptAuthoringInit(init.value, event.origin);
+  void acceptAuthoringInit(init.value, event.origin);
 }
 
 function acceptActivationHandoff(message: HostedAuthoringActivationHandoffMessageType): void {
@@ -687,6 +690,7 @@ async function establishHostedEditorSession(
       apiOrigin: handoff.apiOrigin,
       context: structuredClone(session.context),
       document: structuredClone(loaded.document),
+      documentIntent: structuredClone(documentIntent),
       theme: structuredClone(loaded.theme),
     };
     postHostedMessage({
@@ -1391,7 +1395,10 @@ async function readScopedDocumentPayload(
   };
 }
 
-function acceptAuthoringInit(message: AuthoringInitMessage, parentOrigin: string): void {
+async function acceptAuthoringInit(
+  message: AuthoringInitMessage,
+  parentOrigin: string,
+): Promise<void> {
   if (message.protocol !== BRIDGE_PROTOCOL_VERSION) return;
 
   let baseDocument = message.document;
@@ -1403,85 +1410,110 @@ function acceptAuthoringInit(message: AuthoringInitMessage, parentOrigin: string
     return;
   }
 
-  directAuthoringHostServices?.stop();
-  const canUseHostServices = Boolean(
-    session || message.releaseStateCapability === AUTHORING_SESSION_CAPABILITIES.READ_RELEASE_STATE,
-  );
-  directAuthoringHostServices = canUseHostServices
-    ? createDirectAuthoringHostServices({
-        peerWindow: window.parent,
-        allowedOrigins: [parentOrigin],
-        targetOrigin: parentOrigin,
-        sessionId: message.sessionId,
-        workspaceId: message.workspaceId,
-        documentId: message.documentId,
-        publishToStaging:
-          !session &&
-          message.stagingPublicationCapability === AUTHORING_SESSION_CAPABILITIES.PUBLISH_STAGING,
-        readReleaseRecovery: session
-          ? session.context.capabilities.includes(AUTHORING_SESSION_CAPABILITIES.READ_RELEASE_STATE)
-          : message.releaseStateCapability === AUTHORING_SESSION_CAPABILITIES.READ_RELEASE_STATE,
-        rollbackRelease: session
-          ? session.context.capabilities.includes(AUTHORING_SESSION_CAPABILITIES.ROLLBACK_RELEASE)
-          : message.releaseStateCapability === AUTHORING_SESSION_CAPABILITIES.READ_RELEASE_STATE,
-        unpublishRelease: session
-          ? session.context.capabilities.includes(AUTHORING_SESSION_CAPABILITIES.UNPUBLISH_RELEASE)
-          : message.releaseStateCapability === AUTHORING_SESSION_CAPABILITIES.READ_RELEASE_STATE,
-        sampleProductStyle: session
-          ? session.context.capabilities.includes(
+  const previousRootState = root.getAttribute('data-state');
+  const previousRootText = root.textContent;
+  mounting = true;
+  try {
+    directAuthoringHostServices?.stop();
+    const canUseHostServices = Boolean(
+      session ||
+      message.releaseStateCapability === AUTHORING_SESSION_CAPABILITIES.READ_RELEASE_STATE,
+    );
+    directAuthoringHostServices = canUseHostServices
+      ? createDirectAuthoringHostServices({
+          peerWindow: window.parent,
+          allowedOrigins: [parentOrigin],
+          targetOrigin: parentOrigin,
+          sessionId: message.sessionId,
+          workspaceId: message.workspaceId,
+          documentId: message.documentId,
+          publishToStaging:
+            !session &&
+            message.stagingPublicationCapability === AUTHORING_SESSION_CAPABILITIES.PUBLISH_STAGING,
+          readReleaseRecovery: session
+            ? session.context.capabilities.includes(
+                AUTHORING_SESSION_CAPABILITIES.READ_RELEASE_STATE,
+              )
+            : message.releaseStateCapability === AUTHORING_SESSION_CAPABILITIES.READ_RELEASE_STATE,
+          rollbackRelease: session
+            ? session.context.capabilities.includes(AUTHORING_SESSION_CAPABILITIES.ROLLBACK_RELEASE)
+            : message.releaseStateCapability === AUTHORING_SESSION_CAPABILITIES.READ_RELEASE_STATE,
+          unpublishRelease: session
+            ? session.context.capabilities.includes(
+                AUTHORING_SESSION_CAPABILITIES.UNPUBLISH_RELEASE,
+              )
+            : message.releaseStateCapability === AUTHORING_SESSION_CAPABILITIES.READ_RELEASE_STATE,
+          sampleProductStyle: session
+            ? session.context.capabilities.includes(
+                AUTHORING_SESSION_CAPABILITIES.SAMPLE_PRODUCT_STYLE,
+              )
+            : message.productStyleSamplingCapability ===
               AUTHORING_SESSION_CAPABILITIES.SAMPLE_PRODUCT_STYLE,
-            )
-          : message.productStyleSamplingCapability ===
-            AUTHORING_SESSION_CAPABILITIES.SAMPLE_PRODUCT_STYLE,
-        saveStyleSource:
-          !session &&
-          message.productStyleSamplingCapability ===
-            AUTHORING_SESSION_CAPABILITIES.SAMPLE_PRODUCT_STYLE,
-        checkBrandDrift:
-          !session &&
-          message.brandDriftCheckCapability === AUTHORING_SESSION_CAPABILITIES.SAMPLE_PRODUCT_STYLE,
-        acknowledgeBrandTheme:
-          !session &&
-          message.brandThemeAcknowledgementCapability ===
-            AUTHORING_SESSION_CAPABILITIES.WRITE_DOCUMENT,
-        verifyBrowserPublication: session
-          ? session.context.capabilities.includes(AUTHORING_SESSION_CAPABILITIES.VERIFY_STAGING)
-          : message.stagingVerificationCapability === AUTHORING_SESSION_CAPABILITIES.VERIFY_STAGING,
-        submitStagingVerification:
-          !session &&
-          message.stagingVerificationCapability === AUTHORING_SESSION_CAPABILITIES.VERIFY_STAGING,
-        promoteProduction:
-          !session &&
-          message.productionPromotionCapability ===
-            AUTHORING_SESSION_CAPABILITIES.PROMOTE_PRODUCTION,
-        approveProduction:
-          !session &&
-          message.productionApprovalCapability ===
-            AUTHORING_SESSION_CAPABILITIES.APPROVE_PRODUCTION,
-      })
-    : null;
-  const services = createHostedEditorServices(
-    session,
-    baseDocument,
-    directAuthoringHostServices?.services,
-    session ? undefined : message.theme,
-  );
-  mounted = true;
-  window.__lodariqEditorMounted = true;
-  root.removeAttribute('data-state');
-  root.textContent = '';
+          saveStyleSource:
+            !session &&
+            message.productStyleSamplingCapability ===
+              AUTHORING_SESSION_CAPABILITIES.SAMPLE_PRODUCT_STYLE,
+          checkBrandDrift:
+            !session &&
+            message.brandDriftCheckCapability ===
+              AUTHORING_SESSION_CAPABILITIES.SAMPLE_PRODUCT_STYLE,
+          acknowledgeBrandTheme:
+            !session &&
+            message.brandThemeAcknowledgementCapability ===
+              AUTHORING_SESSION_CAPABILITIES.WRITE_DOCUMENT,
+          verifyBrowserPublication: session
+            ? session.context.capabilities.includes(AUTHORING_SESSION_CAPABILITIES.VERIFY_STAGING)
+            : message.stagingVerificationCapability ===
+              AUTHORING_SESSION_CAPABILITIES.VERIFY_STAGING,
+          submitStagingVerification:
+            !session &&
+            message.stagingVerificationCapability === AUTHORING_SESSION_CAPABILITIES.VERIFY_STAGING,
+          promoteProduction:
+            !session &&
+            message.productionPromotionCapability ===
+              AUTHORING_SESSION_CAPABILITIES.PROMOTE_PRODUCTION,
+          approveProduction:
+            !session &&
+            message.productionApprovalCapability ===
+              AUTHORING_SESSION_CAPABILITIES.APPROVE_PRODUCTION,
+        })
+      : null;
+    const services = createHostedEditorServices(
+      session,
+      baseDocument,
+      directAuthoringHostServices?.services,
+      session ? undefined : message.theme,
+    );
+    root.removeAttribute('data-state');
+    root.textContent = '';
 
-  mountLocalAuthoringFrame({
-    root,
-    baseDocument,
-    frameMode: 'panel',
-    sessionId: message.sessionId,
-    peerWindow: window.parent,
-    allowedOrigins: [parentOrigin],
-    targetOrigin: parentOrigin,
-    services,
-  });
-  hostedEditorSession = null;
+    const initialWorkspace = initialWorkspaceFromDocumentIntent(session?.documentIntent);
+    await mountLocalAuthoringFrame({
+      root,
+      baseDocument,
+      ...(initialWorkspace ? { initialWorkspace } : {}),
+      frameMode: 'panel',
+      sessionId: message.sessionId,
+      peerWindow: window.parent,
+      allowedOrigins: [parentOrigin],
+      targetOrigin: parentOrigin,
+      services,
+    });
+    mounted = true;
+    window.__lodariqEditorMounted = true;
+    hostedEditorSession = null;
+  } catch {
+    directAuthoringHostServices?.stop();
+    directAuthoringHostServices = null;
+    if (previousRootState === null) {
+      root.removeAttribute('data-state');
+    } else {
+      root.setAttribute('data-state', previousRootState);
+    }
+    root.textContent = previousRootText;
+  } finally {
+    mounting = false;
+  }
 }
 
 function createHostedEditorServices(

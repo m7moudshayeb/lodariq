@@ -129,6 +129,11 @@ const CREATOR_TOOLBAR_CSS = `
   box-sizing: border-box;
 }
 
+/* The open panel owns its footprint; its header already provides minimize and close actions. */
+[data-lodariq-creator-launcher='true'][data-lodariq-authoring-panel-state='open'] {
+  z-index: 2147483645;
+}
+
 [data-lodariq-creator-toolbar='true'] {
   position: relative;
   z-index: 2;

@@ -59,6 +59,26 @@ const COORDINATOR_RULES = [
     delegates: ['./control-plane/'],
     forbidden: ['fastify.get(', 'fastify.post(', 'fastify.patch(', 'fastify.delete('],
   },
+  {
+    file: 'packages/sdk-authoring/src/authoring/local-frame-ui/components/panel-body-mode-impl.tsx',
+    delegates: ['./panel-body-appearance-modes', './panel-mode-shell'],
+    forbidden: [],
+  },
+  {
+    file: 'apps/dashboard/src/lib/view-model.ts',
+    delegates: ['./authoring-site-options', './brand-source-view-model', './dashboard-flow-health'],
+    forbidden: [],
+  },
+  {
+    file: 'apps/editor/src/authoring-frame-app.ts',
+    delegates: ['./authoring-initial-workspace'],
+    forbidden: [],
+  },
+  {
+    file: 'packages/sdk-runtime/src/activation/authoring-activation.ts',
+    delegates: ['./dashboard-authoring-entry'],
+    forbidden: [],
+  },
 ];
 
 const BACK_REFERENCE_RULES = [

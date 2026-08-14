@@ -14,6 +14,9 @@ import { AUTHORING_STORYBOARD_CANVAS_CSS } from './styles/storyboard-canvas';
 import { AUTHORING_STORYBOARD_PROPERTY_CSS } from './styles/storyboard-properties';
 import { AUTHORING_POPUP_ARROW_CSS } from './styles/popup-arrow';
 import { AUTHORING_COMPACT_RESPONSIVE_CSS } from './styles/compact-responsive';
+import { AUTHORING_FOCUSED_MODES_CSS } from './styles/focused-modes';
+import { AUTHORING_AGREED_MODES_CSS } from './styles/agreed-authoring-modes';
+import { AUTHORING_XYFLOW_FOUNDATION_CSS } from './styles/xyflow-foundation';
 
 export const LOCAL_AUTHORING_FRAME_CSS = `
   ${AUTHORING_WORKSPACE_CSS}
@@ -32,4 +35,7 @@ export const LOCAL_AUTHORING_FRAME_CSS = `
   ${AUTHORING_STORYBOARD_PROPERTY_CSS}
   ${AUTHORING_POPUP_ARROW_CSS}
   ${AUTHORING_COMPACT_RESPONSIVE_CSS}
+  ${AUTHORING_XYFLOW_FOUNDATION_CSS}
+  ${AUTHORING_FOCUSED_MODES_CSS}
+  ${AUTHORING_AGREED_MODES_CSS}
 `;

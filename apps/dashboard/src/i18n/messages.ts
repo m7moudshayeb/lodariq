@@ -499,6 +499,20 @@ export const DASHBOARD_VIEW_MODEL_MESSAGES = {
     message: 'Current draft recorded for {sites}',
   }),
   unknownTime: msg({ id: 'dashboard.viewModel.unknownTime', message: 'Unknown time' }),
+  flowHealth: msg({ id: 'dashboard.viewModel.flowHealth', message: 'Flow health' }),
+  flowHealthy: msg({ id: 'dashboard.viewModel.flowHealthy', message: 'Healthy' }),
+  flowHealthyDetail: msg({
+    id: 'dashboard.viewModel.flowHealthyDetail',
+    message: 'Every reachable path has a terminal outcome.',
+  }),
+  flowIssues: msg({
+    id: 'dashboard.viewModel.flowIssues',
+    message: '{count} flow {count, plural, one {issue} other {issues}}',
+  }),
+  flowIssueSummary: msg({
+    id: 'dashboard.viewModel.flowIssueSummary',
+    message: '{first} · {remaining} more',
+  }),
 } as const;
 
 export const DASHBOARD_ENTRY_MESSAGES = {

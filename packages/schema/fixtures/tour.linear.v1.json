@@ -4,7 +4,7 @@
   "type": "tour",
   "status": "draft",
   "title": "Welcome tour",
-  "schemaVersion": "1.0.0",
+  "schemaVersion": "2.0.0",
   "trigger": { "type": "manual" },
   "audience": { "environments": ["development", "staging"] },
   "targets": [

@@ -407,6 +407,31 @@ describe('public authoring activation client', () => {
     launcher.destroy();
   });
 
+  it('consumes a dashboard Flow Map handoff and activates its scoped document on click', async () => {
+    window.history.replaceState(
+      null,
+      '',
+      '/?lodariq-launcher=show&lodariq-document=doc_flow&lodariq-workspace=flow-map&lodariq-focus-block=step_branch',
+    );
+    const harness = createLauncherActivationHarness();
+    const launcher = createPublicAuthoringLauncher(context, harness.options);
+
+    expect(launcher.isVisible()).toBe(true);
+    expect(window.location.search).toBe('');
+    launcher.element.shadowRoot?.querySelector<HTMLButtonElement>('.launcher')?.click();
+    await vi.waitFor(() => expect(harness.handedOff).toHaveLength(1));
+
+    const expectedIntent = {
+      kind: 'existing',
+      documentId: 'doc_flow',
+      workspace: 'flowMap',
+      focusBlockId: 'step_branch',
+    };
+    expect(harness.authorizationBodies[0]?.['documentIntent']).toEqual(expectedIntent);
+    expect(harness.handedOff[0]?.documentIntent).toEqual(expectedIntent);
+    launcher.destroy();
+  });
+
   it('keeps pinned actions open across actions, collapses only explicitly, and toggles the panel', () => {
     const launcher = createPublicAuthoringLauncher(context, {
       hostWindow: window,

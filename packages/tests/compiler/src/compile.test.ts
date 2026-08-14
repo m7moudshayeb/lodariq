@@ -385,8 +385,8 @@ describe('compile', () => {
     expect(compiled.artifactSchemaVersion).toBe(COMPILED_ARTIFACT_SCHEMA_VERSION);
     expect(compiled.rendererContractVersion).toBe(RENDERER_CONTRACT_VERSION);
     expect(compiled.compilerVersion).toBe(COMPILER_VERSION);
-    expect(COMPILER_VERSION).toBe('0.4.0');
-    expect(RENDERER_CONTRACT_VERSION).toBe('3');
+    expect(COMPILER_VERSION).toBe('0.5.0');
+    expect(RENDERER_CONTRACT_VERSION).toBe('4');
     expect(compiled.theme).toEqual(LODARIQ_ACCESSIBLE_FALLBACK_THEME_V1);
     const result = validate(CompiledDocument, compiled);
     if (!result.valid) {

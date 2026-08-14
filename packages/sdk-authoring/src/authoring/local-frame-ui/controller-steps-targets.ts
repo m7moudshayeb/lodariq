@@ -168,6 +168,7 @@ export abstract class ControllerStepsTargetsFeature extends ControllerContentFea
       blocks,
     };
     this.targetDiagnostics.delete(targetId);
+    this.targetHealthLedger.removeTarget(targetId);
     this.activeTargetInspectionRequestIds.delete(targetId);
     this.afterDocumentMutation();
     this.services.saveDocument(this.documentState);
@@ -344,6 +345,7 @@ export abstract class ControllerStepsTargetsFeature extends ControllerContentFea
       return;
     }
     this.setStatus(targetInspectionPendingStatus(action));
+    this.targetHealthLedger.beginInspection(targetId);
     const requestCorrelationId = createBridgeCorrelationId('target_inspect_request');
     this.activeTargetInspectionRequestIds.set(targetId, requestCorrelationId);
     const requiredAction = requiredTargetActionForBlock(contextBlock);
@@ -388,6 +390,13 @@ export abstract class ControllerStepsTargetsFeature extends ControllerContentFea
             resolutionMethod: 'none',
             message: authoringText('Placement check did not respond'),
           },
+        });
+        this.targetHealthLedger.inspectionFailed(targetId, {
+          state: 'missing',
+          confidence: 0,
+          candidateCount: 0,
+          resolutionMethod: 'none',
+          message: authoringText('Placement check did not respond'),
         });
         this.setStatus(authoringText('Placement check did not respond'));
       });

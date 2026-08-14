@@ -18,7 +18,9 @@ import {
   type ReleaseRecoveryStateResponse,
   type AuthoringTranslationRequest,
   type AuthoringTranslationResult,
+  type AuthoringWorkspaceView,
 } from '@lodariq/schema';
+import type { AuthoringStepStyleRecipe } from './step-style-recipes';
 
 export { AUTHORING_STAGING_RELEASE_STATES };
 export type {
@@ -32,11 +34,38 @@ export type {
 export type LocalAuthoringFrameMetricName =
   | 'authoring.opened'
   | 'block.inserted'
+  | 'transaction.committed'
+  | 'transaction.coalesced'
+  | 'transaction.retried'
+  | 'transaction.conflicted'
+  | 'transaction.persisted'
   | 'target.pick.started'
   | 'target.pick.succeeded'
   | 'target.pick.failed'
   | 'target.pick.canceled'
+  | 'target.unavailable'
+  | 'target.context-restored'
+  | 'target.verification-passed'
+  | 'target.repair-opened'
   | 'preview.opened'
+  | 'preview.from-step'
+  | 'preview.step-changed'
+  | 'preview.branch-chosen'
+  | 'preview.completed'
+  | 'preview.exited'
+  | 'choreography.stage-started'
+  | 'choreography.stage-satisfied'
+  | 'choreography.stage-timed-out'
+  | 'style.copied'
+  | 'style.applied'
+  | 'style.recipe-used'
+  | 'contrast.warning'
+  | 'contrast.blocker'
+  | 'readiness.finding'
+  | 'readiness.repair-opened'
+  | 'readiness.repair-completed'
+  | 'checkpoint.saved'
+  | 'checkpoint.restored'
   | 'document.exported'
   | 'document.imported';
 
@@ -213,6 +242,9 @@ export interface LocalAuthoringFrameMetricEvent {
 export interface LocalAuthoringFrameServices {
   loadDocument: (id: string) => LodariqDocument | null;
   saveDocument: (doc: LodariqDocument) => void;
+  /** Optional authoring-only workspace resource; recipes contain semantic style fields only. */
+  loadStepStyleRecipes?: () => readonly AuthoringStepStyleRecipe[];
+  saveStepStyleRecipes?: (recipes: readonly AuthoringStepStyleRecipe[]) => void;
   /**
    * Optional durable save boundary. Local edits continue to use `saveDocument`
    * so typing and block operations never become network requests. Explicit
@@ -293,6 +325,7 @@ export interface LocalAuthoringFrameServices {
 export interface LocalAuthoringFrameOptions {
   root: HTMLElement;
   baseDocument: LodariqDocument;
+  initialWorkspace?: LocalAuthoringInitialWorkspace;
   /** Approved session theme used by both the canvas and runtime preview recipe. */
   previewTheme?: BrandThemeSnapshot;
   previewPreferences?: { prefersDark: boolean; prefersReducedMotion: boolean };
@@ -304,3 +337,8 @@ export interface LocalAuthoringFrameOptions {
   targetOrigin?: string;
   now?: () => number;
 }
+
+export type LocalAuthoringInitialWorkspace = {
+  kind: AuthoringWorkspaceView;
+  focusBlockId?: string;
+};

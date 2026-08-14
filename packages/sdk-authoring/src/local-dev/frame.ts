@@ -29,7 +29,9 @@ export interface MountLocalAuthoringDevFrameOptions {
   services?: Partial<LocalAuthoringFrameServices>;
 }
 
-export function mountLocalAuthoringDevFrame(options: MountLocalAuthoringDevFrameOptions): void {
+export async function mountLocalAuthoringDevFrame(
+  options: MountLocalAuthoringDevFrameOptions,
+): Promise<void> {
   const services = createLocalAuthoringDevFrameServices(options.services);
   const frameContext = localFrameContextFromLocation(options.root.ownerDocument.defaultView);
   let contextDocument: LodariqDocument | null = null;
@@ -41,7 +43,7 @@ export function mountLocalAuthoringDevFrame(options: MountLocalAuthoringDevFrame
   if (frameContext.documentId && !contextDocument) {
     throw new Error(`Lodariq local authoring document not found: ${frameContext.documentId}`);
   }
-  mountLocalAuthoringFrame({
+  await mountLocalAuthoringFrame({
     root: options.root,
     baseDocument: contextDocument ?? options.baseDocument,
     ...(options.previewTheme ? { previewTheme: structuredClone(options.previewTheme) } : {}),

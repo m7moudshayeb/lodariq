@@ -1,6 +1,9 @@
-import type { CompiledDocument } from '@lodariq/schema';
+import type { AuthoringAccessibilityPreviewMode, CompiledDocument } from '@lodariq/schema';
 import type { TargetResolutionContext } from '../resolver';
 import type { AuthoringTargetOverride, TourTargetResolutionDiagnostic } from '../renderers/tour';
+import type { ChoreographyStageUpdate } from '../renderers/tour-choreography';
+import type { ProtectedSurfaceRect } from '../renderers/protected-surface';
+import type { TourFlowConditionContext } from '../renderers/tour-flow';
 
 export interface TourPlaybackOptions {
   /** BCP 47 locale used to select customer-authored experience copy. */
@@ -8,9 +11,21 @@ export interface TourPlaybackOptions {
   initialStepId?: string;
   initialStepIndex?: number;
   targetResolutionContext?: TargetResolutionContext;
+  /** Resolves a server-approved asset reference without embedding raw source URLs in documents. */
+  resolveMediaAsset?: (assetId: string, kind: 'image' | 'video' | 'captions') => string | null;
   onTargetResolution?: (
     step: CompiledDocument['steps'][number],
     result: TourTargetResolutionDiagnostic,
+  ) => void;
+  onChoreographyStageChange?: (
+    step: CompiledDocument['steps'][number],
+    update: ChoreographyStageUpdate,
+  ) => void;
+  flowConditionContext?: Pick<TourFlowConditionContext, 'identifyTraits' | 'documentState'>;
+  onBranchChoice?: (
+    step: CompiledDocument['steps'][number],
+    ruleIndex: number | null,
+    destination: string,
   ) => void;
 }
 
@@ -19,8 +34,15 @@ export interface AuthoringPreviewPlaybackOptions extends TourPlaybackOptions {
   ownerId: string;
   /** Enables real tour navigation controls for an explicit full preview. */
   interactive?: boolean;
+  accessibilityMode?: AuthoringAccessibilityPreviewMode;
   /** Exact live selection for immediate creator preview; never serialized. */
   authoringTargetOverride?: AuthoringTargetOverride;
+  onStepChange?: (index: number, step: CompiledDocument['steps'][number]) => void;
+  onComplete?: () => void;
+  onDismiss?: () => void;
+  onSkip?: () => void;
+  getAuthoringProtectedSurfaces?: () => readonly ProtectedSurfaceRect[];
+  onAuthoringSurfaceChange?: (rect: ProtectedSurfaceRect | null) => void;
 }
 
 export interface TourPlayerLike {
@@ -36,12 +58,19 @@ export interface TourRendererModule {
     options?: TourPlaybackOptions & {
       authoringPreviewOwnerId?: string;
       authoringPreviewInteractive?: boolean;
+      authoringAccessibilityMode?: AuthoringAccessibilityPreviewMode;
       authoringTargetOverride?: AuthoringTargetOverride;
       onBeforeStepChange?: (index: number, step: CompiledDocument['steps'][number]) => void;
       onComplete?: () => void;
       onDismiss?: () => void;
       onSkip?: () => void;
       onStepChange?: (index: number, step: CompiledDocument['steps'][number]) => void;
+      onChoreographyStageChange?: (
+        step: CompiledDocument['steps'][number],
+        update: ChoreographyStageUpdate,
+      ) => void;
+      getAuthoringProtectedSurfaces?: () => readonly ProtectedSurfaceRect[];
+      onAuthoringSurfaceChange?: (rect: ProtectedSurfaceRect | null) => void;
     },
   ) => TourPlayerLike;
 }

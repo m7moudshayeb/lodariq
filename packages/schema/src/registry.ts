@@ -49,9 +49,34 @@ import {
   TooltipLayoutProps,
   TooltipStyleProps,
 } from './block';
+import {
+  StepChoreography,
+  StepChoreographyTransition,
+  StepChoreographyTrigger,
+  StepChoreographyWait,
+} from './choreography';
+import { TourStepStyleContent, TourStepStyleSnapshot } from './authoring-style';
+import {
+  MediaPresentation,
+  ResponsiveStepOverride,
+  ResponsiveStepPresentation,
+  SpotlightPresentation,
+  TourMotionPresentation,
+} from './presentation';
+import {
+  StepTransition,
+  StepTransitionCondition,
+  StepTransitionDestination,
+  StepTransitionRule,
+} from './flow';
 import { ElementFingerprint, RuntimeLifecycleHints, Target, TargetIdentityV2 } from './target';
 import { TargetVerificationObservation } from './target-verification';
-import { TriggerDefinition, AudienceDefinition, LodariqDocument } from './document';
+import {
+  TriggerDefinition,
+  AudienceDefinition,
+  TourCompletionBehavior,
+  LodariqDocument,
+} from './document';
 import {
   ContentLocale,
   LocalizedBlockContent,
@@ -127,7 +152,10 @@ import {
   CompiledDocumentV2,
   CompiledDocumentLocaleVariant,
   CompiledDocumentLocalization,
+  CompiledDocumentLocaleVariantV4,
+  CompiledDocumentLocalizationV4,
   CompiledDocumentV3,
+  CompiledDocumentV4,
   CompiledDocument,
 } from './compiled';
 import {
@@ -177,6 +205,8 @@ import {
 import { DataCatalogEntry } from './catalog';
 import {
   BridgeEnvelope,
+  AuthoringTransactionScope,
+  PreviewTransactionMetadata,
   ScrollState,
   PreviewPatch,
   PreviewPatchOperation,
@@ -187,6 +217,8 @@ import {
   PresentationAnchorPickStartMessage,
   PresentationAnchorPickResultMessage,
   PresentationAnchorPickCanceledMessage,
+  AuthoringAccessibilityPreviewMode,
+  AuthoringFlowSimulationContext,
   AuthoringInitMessage,
   AuthoringReleaseStateRequestMessage,
   AuthoringReleaseStateResultMessage,
@@ -277,6 +309,7 @@ import {
   SdkBootstrapRequest,
   SdkInstallContext,
 } from './sdk';
+import { AuthoringWorkspaceView } from './authoring-workspace';
 
 /**
  * Every `$id`-tagged schema, so TypeBox's Value functions can dereference
@@ -316,6 +349,21 @@ export const SCHEMA_REGISTRY: TSchema[] = [
   CreateWorkspaceRequest,
   SelectWorkspaceParams,
   BlockActionProps,
+  StepChoreographyTrigger,
+  StepChoreographyWait,
+  StepChoreographyTransition,
+  StepChoreography,
+  StepTransitionDestination,
+  StepTransitionCondition,
+  StepTransitionRule,
+  StepTransition,
+  TourStepStyleContent,
+  TourStepStyleSnapshot,
+  TourMotionPresentation,
+  ResponsiveStepOverride,
+  ResponsiveStepPresentation,
+  MediaPresentation,
+  SpotlightPresentation,
   InlineTextRun,
   PresentationAnchor,
   ExactPresentationAnchor,
@@ -334,6 +382,7 @@ export const SCHEMA_REGISTRY: TSchema[] = [
   TargetVerificationObservation,
   TriggerDefinition,
   AudienceDefinition,
+  TourCompletionBehavior,
   LodariqDocument,
   OpaqueSrgbColor,
   SrgbColorWithOptionalAlpha,
@@ -406,7 +455,10 @@ export const SCHEMA_REGISTRY: TSchema[] = [
   CompiledDocumentV2,
   CompiledDocumentLocaleVariant,
   CompiledDocumentLocalization,
+  CompiledDocumentLocaleVariantV4,
+  CompiledDocumentLocalizationV4,
   CompiledDocumentV3,
+  CompiledDocumentV4,
   CompiledDocument,
   RendererContractVersion,
   ReleaseMutationGuard,
@@ -452,6 +504,8 @@ export const SCHEMA_REGISTRY: TSchema[] = [
   ProductionPromotionResult,
   DataCatalogEntry,
   BridgeEnvelope,
+  AuthoringTransactionScope,
+  PreviewTransactionMetadata,
   ScrollState,
   PreviewPatchOperation,
   PreviewPatch,
@@ -462,6 +516,8 @@ export const SCHEMA_REGISTRY: TSchema[] = [
   PresentationAnchorPickStartMessage,
   PresentationAnchorPickResultMessage,
   PresentationAnchorPickCanceledMessage,
+  AuthoringAccessibilityPreviewMode,
+  AuthoringFlowSimulationContext,
   AuthoringInitMessage,
   AuthoringReleaseStateRequestMessage,
   AuthoringReleaseStateResultMessage,
@@ -493,6 +549,7 @@ export const SCHEMA_REGISTRY: TSchema[] = [
   AuthoringActivationCapabilitySet,
   AuthoringSessionCapability,
   AuthoringSessionCapabilitySet,
+  AuthoringWorkspaceView,
   ExistingAuthoringDocumentIntent,
   NewAuthoringDocumentIntent,
   AuthoringDocumentIntent,
@@ -573,6 +630,22 @@ export const FASTIFY_REFERENCE_SCHEMA_REGISTRY: TSchema[] = [
   DocumentLocalization,
   LodariqDocument,
   LodariqBlock,
+  StepChoreographyTrigger,
+  StepChoreographyWait,
+  StepChoreographyTransition,
+  StepChoreography,
+  StepTransitionDestination,
+  StepTransitionCondition,
+  StepTransitionRule,
+  StepTransition,
+  TourStepStyleContent,
+  TourStepStyleSnapshot,
+  TourCompletionBehavior,
+  TourMotionPresentation,
+  ResponsiveStepOverride,
+  ResponsiveStepPresentation,
+  MediaPresentation,
+  SpotlightPresentation,
   PresentationAnchor,
   InlineTextRun,
   TextStyleProps,

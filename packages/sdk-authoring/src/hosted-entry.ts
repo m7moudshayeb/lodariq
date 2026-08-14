@@ -37,7 +37,7 @@ import { AUTHORING_LOCALE_QUERY_PARAMETER } from '@lodariq/schema/authoring-entr
 import { authoringText, configureAuthoringLocalePreference, currentAuthoringLocale } from './i18n';
 import type { LodariqBrowserApi } from '@lodariq/sdk-runtime/lodariq-loader';
 import type { TourPlayer } from '@lodariq/sdk-runtime/renderers/tour';
-import { adoptHostedAuthoringPanel, type LocalAuthoringPreviewServices } from './authoring';
+import type { LocalAuthoringPreviewServices } from './authoring';
 import { mountHostedBrowseShell, type HostedBrowseShell } from './hosted-browse-shell';
 
 const HOSTED_EDITOR_URL = `${LODARIQ_EDITOR_ORIGIN}/authoring.html`;
@@ -217,6 +217,7 @@ function openHostedEditor(
       browseShell = null;
       revealHostedEditorIframe(iframe);
       try {
+        const { adoptHostedAuthoringPanel } = await import('./authoring');
         adoptHostedAuthoringPanel(
           {
             sessionId: message.context.sessionId,
@@ -400,9 +401,37 @@ function createHostedPreviewServices(
           ownerId: requestedOwnerId,
           ...(options.locale ? { locale: options.locale } : {}),
           ...(options.interactive ? { interactive: true } : {}),
+          ...(options.flowConditionContext
+            ? { flowConditionContext: options.flowConditionContext }
+            : {}),
+          ...(options.accessibilityMode ? { accessibilityMode: options.accessibilityMode } : {}),
           ...(options.stepId ? { initialStepId: options.stepId } : {}),
           ...(options.authoringTargetOverride
             ? { authoringTargetOverride: options.authoringTargetOverride }
+            : {}),
+          ...(options.onStepChange
+            ? { onStepChange: (index, step) => options.onStepChange?.(index, step.id) }
+            : {}),
+          ...(options.onComplete ? { onComplete: options.onComplete } : {}),
+          ...(options.onDismiss ? { onDismiss: options.onDismiss } : {}),
+          ...(options.onSkip ? { onSkip: options.onSkip } : {}),
+          ...(options.onChoreographyStageChange
+            ? {
+                onChoreographyStageChange: (step, update) =>
+                  options.onChoreographyStageChange?.(step.id, update),
+              }
+            : {}),
+          ...(options.onBranchChoice
+            ? {
+                onBranchChoice: (step, ruleIndex, destination) =>
+                  options.onBranchChoice?.(step.id, ruleIndex, destination),
+              }
+            : {}),
+          ...(options.getAuthoringProtectedSurfaces
+            ? { getAuthoringProtectedSurfaces: options.getAuthoringProtectedSurfaces }
+            : {}),
+          ...(options.onAuthoringSurfaceChange
+            ? { onAuthoringSurfaceChange: options.onAuthoringSurfaceChange }
             : {}),
         });
         return;
@@ -414,9 +443,39 @@ function createHostedPreviewServices(
         authoringPreviewOwnerId: requestedOwnerId,
         ...(options.locale ? { locale: options.locale } : {}),
         ...(options.interactive ? { authoringPreviewInteractive: true } : {}),
+        ...(options.flowConditionContext
+          ? { flowConditionContext: options.flowConditionContext }
+          : {}),
+        ...(options.accessibilityMode
+          ? { authoringAccessibilityMode: options.accessibilityMode }
+          : {}),
         ...(options.stepId ? { initialStepId: options.stepId } : {}),
         ...(options.authoringTargetOverride
           ? { authoringTargetOverride: options.authoringTargetOverride }
+          : {}),
+        ...(options.onStepChange
+          ? { onStepChange: (index, step) => options.onStepChange?.(index, step.id) }
+          : {}),
+        ...(options.onComplete ? { onComplete: options.onComplete } : {}),
+        ...(options.onDismiss ? { onDismiss: options.onDismiss } : {}),
+        ...(options.onSkip ? { onSkip: options.onSkip } : {}),
+        ...(options.onChoreographyStageChange
+          ? {
+              onChoreographyStageChange: (step, update) =>
+                options.onChoreographyStageChange?.(step.id, update),
+            }
+          : {}),
+        ...(options.onBranchChoice
+          ? {
+              onBranchChoice: (step, ruleIndex, destination) =>
+                options.onBranchChoice?.(step.id, ruleIndex, destination),
+            }
+          : {}),
+        ...(options.getAuthoringProtectedSurfaces
+          ? { getAuthoringProtectedSurfaces: options.getAuthoringProtectedSurfaces }
+          : {}),
+        ...(options.onAuthoringSurfaceChange
+          ? { onAuthoringSurfaceChange: options.onAuthoringSurfaceChange }
           : {}),
       });
       fallbackPreviewPlayer = player;
@@ -631,7 +690,11 @@ function sameDocumentIntent(
 ): boolean {
   if (left.kind !== right.kind) return false;
   if (left.kind === 'existing' && right.kind === 'existing') {
-    return left.documentId === right.documentId;
+    return (
+      left.documentId === right.documentId &&
+      left.workspace === right.workspace &&
+      left.focusBlockId === right.focusBlockId
+    );
   }
   return left.kind === 'new-draft' && right.kind === 'new-draft';
 }

@@ -8,7 +8,7 @@ import {
   LODARIQ_ACCESSIBLE_FALLBACK_THEME_V1,
   RENDERER_CONTRACT_VERSION,
   type CompiledDocument,
-  type CompiledDocumentV3,
+  type NewCompiledDocument,
   type PublicSdkBootstrapContext,
 } from '@lodariq/schema';
 import {
@@ -28,7 +28,7 @@ const LEGACY_COMPILED_DOCUMENT: CompiledDocument = {
   steps: [],
 };
 
-const COMPILED_DOCUMENT: CompiledDocumentV3 = {
+const COMPILED_DOCUMENT: NewCompiledDocument = {
   artifactSchemaVersion: COMPILED_ARTIFACT_SCHEMA_VERSION,
   documentId: 'doc_public_delivery',
   type: 'tour',
@@ -45,14 +45,14 @@ const COMPILED_DOCUMENT: CompiledDocumentV3 = {
   localization: { defaultLocale: 'en', defaultTitle: 'Public tour', variants: [] },
 };
 
-const SECOND_COMPILED_DOCUMENT: CompiledDocumentV3 = {
+const SECOND_COMPILED_DOCUMENT: NewCompiledDocument = {
   ...COMPILED_DOCUMENT,
   documentId: 'doc_public_upgrade',
   contentHash: `sha256-${'f'.repeat(64)}`,
 };
 
 const activeManifest = (
-  document: CompiledDocumentV3,
+  document: NewCompiledDocument,
   publicationId: string,
 ): Extract<
   Extract<

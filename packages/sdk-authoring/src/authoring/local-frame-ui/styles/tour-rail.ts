@@ -484,4 +484,97 @@ export const AUTHORING_TOUR_RAIL_CSS = `
     min-height: 0;
     overflow: hidden;
   }
+
+  .tour-step-multi-select {
+    display: inline-grid;
+    width: var(--lq-control-sm);
+    min-height: var(--lq-control-sm);
+    flex: 0 0 auto;
+    place-items: center;
+  }
+
+  .tour-step-multi-select input {
+    width: 15px;
+    height: 15px;
+    accent-color: var(--lq-color-primary);
+  }
+
+  .tour-step-action-divider {
+    height: 1px;
+    margin: var(--lq-space-1) 0;
+    background: var(--lq-color-border);
+  }
+
+  .style-recipe-thumbnail {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    border: 3px solid;
+    border-radius: 4px;
+  }
+
+  .style-recipe-menu-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: var(--lq-space-1);
+  }
+
+  .tour-step-batch-toolbar,
+  .tour-flow-map {
+    display: grid;
+    gap: var(--lq-space-2);
+    margin: var(--lq-space-2);
+    padding: var(--lq-space-3);
+    border: 1px solid var(--lq-color-border);
+    border-radius: var(--lq-radius-lg);
+    background: var(--lq-color-panel);
+  }
+
+  .tour-step-batch-toolbar label,
+  .tour-flow-map header {
+    display: grid;
+    gap: var(--lq-space-1);
+  }
+
+  .tour-step-batch-toolbar select,
+  .tour-flow-map-toggle {
+    min-height: var(--lq-control-md);
+    border: 1px solid var(--lq-color-border);
+    border-radius: var(--lq-radius-md);
+    background: var(--lq-color-panel);
+    color: var(--lq-color-text);
+  }
+
+  .tour-flow-map-toggle {
+    margin: var(--lq-space-2);
+  }
+
+  .tour-flow-map ol,
+  .tour-flow-map ul {
+    display: grid;
+    gap: var(--lq-space-2);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .tour-flow-map > ol > li {
+    display: grid;
+    gap: var(--lq-space-2);
+    padding: var(--lq-space-2);
+    border: 1px solid var(--lq-color-border-soft);
+    border-radius: var(--lq-radius-md);
+  }
+
+  .tour-flow-map li button:first-child,
+  .tour-flow-map li ul li {
+    display: flex;
+    align-items: center;
+    gap: var(--lq-space-2);
+  }
+
+  .tour-flow-finding {
+    color: var(--lq-color-danger-text);
+    font-size: var(--lq-font-size-xs);
+  }
 `;

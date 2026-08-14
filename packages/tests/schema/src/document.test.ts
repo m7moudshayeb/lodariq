@@ -139,6 +139,8 @@ describe('canonical tour fixture', () => {
 
     expect(validate(LodariqDocument, document).valid).toBe(true);
     document.blocks[0].children[0].children[0].props.textStyle.fontSizePx = 20;
+    expect(validate(LodariqDocument, document).valid).toBe(true);
+    document.blocks[0].children[0].children[0].props.textStyle.fontSizePx = 97;
     expect(validate(LodariqDocument, document).valid).toBe(false);
     document.blocks[0].children[0].children[0].props.textStyle.fontSizePx = 24;
     expect(
@@ -210,6 +212,8 @@ describe('canonical tour fixture', () => {
     expect(validate(LodariqDocument, document).valid).toBe(true);
     expect(sanitizeInlineTextRuns(heading.contentRuns)).toEqual(heading.contentRuns);
     heading.contentRuns[1].fontSizePx = 20;
+    expect(validate(LodariqDocument, document).valid).toBe(true);
+    heading.contentRuns[1].fontSizePx = 97;
     expect(validate(LodariqDocument, document).valid).toBe(false);
     heading.contentRuns[1].fontSizePx = 24;
     heading.props.blockLayout.spacingAfterPx = 17;
@@ -241,7 +245,7 @@ describe('canonical tour fixture', () => {
           link: 'javascript:alert(1)',
         },
       ]),
-    ).toEqual([{ text: 'Safe' }]);
+    ).toEqual([{ text: 'Safe', fontSizePx: 20 }]);
     expect(
       sanitizeBlockProps({
         tooltipStyle: {

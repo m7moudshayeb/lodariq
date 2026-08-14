@@ -21,6 +21,7 @@ export type {
   AuthoringStagingReleaseStateName,
   LocalAuthoringFrameMetricEvent,
   LocalAuthoringFrameMetricName,
+  LocalAuthoringInitialWorkspace,
   LocalAuthoringFrameOptions,
   LocalAuthoringFrameServices,
 } from './authoring/local-frame';

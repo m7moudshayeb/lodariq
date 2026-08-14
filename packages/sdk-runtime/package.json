@@ -87,6 +87,21 @@
       "types": "./dist/renderers/tour.d.ts",
       "import": "./dist/renderers/tour.js"
     },
+    "./renderers/tour-choreography": {
+      "source": "./src/renderers/tour-choreography.ts",
+      "types": "./dist/renderers/tour-choreography.d.ts",
+      "import": "./dist/renderers/tour-choreography.js"
+    },
+    "./renderers/tour-flow": {
+      "source": "./src/renderers/tour-flow.ts",
+      "types": "./dist/renderers/tour-flow.d.ts",
+      "import": "./dist/renderers/tour-flow.js"
+    },
+    "./renderers/protected-surface": {
+      "source": "./src/renderers/protected-surface.ts",
+      "types": "./dist/renderers/protected-surface.d.ts",
+      "import": "./dist/renderers/protected-surface.js"
+    },
     "./local-dev": {
       "source": "./src/local-dev/index.ts",
       "types": "./dist/local-dev/index.d.ts",

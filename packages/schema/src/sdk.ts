@@ -1,4 +1,14 @@
 import { Type, type Static } from '@sinclair/typebox';
+import {
+  AuthoringDocumentIntent,
+  ExistingAuthoringDocumentIntent,
+  NewAuthoringDocumentIntent,
+} from './authoring-workspace';
+export {
+  AuthoringDocumentIntent,
+  ExistingAuthoringDocumentIntent,
+  NewAuthoringDocumentIntent,
+} from './authoring-workspace';
 import { DocumentStatus, Environment } from './common';
 import { LodariqDocument } from './document';
 import {
@@ -142,30 +152,6 @@ export const AuthoringSessionCapabilitySet = Type.Array(AuthoringSessionCapabili
   uniqueItems: true,
 });
 export type AuthoringSessionCapabilitySet = Static<typeof AuthoringSessionCapabilitySet>;
-
-export const ExistingAuthoringDocumentIntent = Type.Object(
-  {
-    kind: Type.Literal('existing'),
-    documentId: Type.String(IDENTIFIER_OPTIONS),
-  },
-  { $id: 'ExistingAuthoringDocumentIntent', additionalProperties: false },
-);
-export type ExistingAuthoringDocumentIntent = Static<typeof ExistingAuthoringDocumentIntent>;
-
-export const NewAuthoringDocumentIntent = Type.Object(
-  {
-    kind: Type.Literal('new-draft'),
-    documentType: Type.Literal('tour'),
-  },
-  { $id: 'NewAuthoringDocumentIntent', additionalProperties: false },
-);
-export type NewAuthoringDocumentIntent = Static<typeof NewAuthoringDocumentIntent>;
-
-export const AuthoringDocumentIntent = Type.Union(
-  [ExistingAuthoringDocumentIntent, NewAuthoringDocumentIntent],
-  { $id: 'AuthoringDocumentIntent' },
-);
-export type AuthoringDocumentIntent = Static<typeof AuthoringDocumentIntent>;
 
 export const DisabledAuthoringActivationDescriptor = Type.Object(
   { state: Type.Literal('disabled') },

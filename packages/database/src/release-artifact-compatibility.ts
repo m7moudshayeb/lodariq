@@ -3,7 +3,7 @@ import {
   BRAND_THEME_CONTRACT_VERSION,
   COMPILED_ARTIFACT_SCHEMA_VERSION,
   COMPILER_VERSION,
-  CompiledDocumentV3 as CompiledDocumentV3Schema,
+  CompiledDocumentV4 as CompiledDocumentV4Schema,
   RENDERER_CONTRACT_VERSION,
   ReleaseArtifactPins as ReleaseArtifactPinsSchema,
   validate,
@@ -94,7 +94,7 @@ export function isReleaseArtifactCurrentlyDeployable(
   const pins = extractHistoricalReleaseArtifactPins(artifact);
   if (!pins || !hasCurrentCompatibilityPins(pins)) return false;
 
-  const compiledResult = validate(CompiledDocumentV3Schema, artifact.compiled);
+  const compiledResult = validate(CompiledDocumentV4Schema, artifact.compiled);
   if (!compiledResult.valid) return false;
   const compiled = compiledResult.value;
 
