@@ -21,6 +21,8 @@ import {
   releaseOperationStatusEnum,
 } from './shared';
 
+const LEGACY_BROWSER_VERIFICATION_RENDERER_CONTRACT_VERSION = '3';
+
 export const publications = pgTable(
   'publications',
   {
@@ -153,7 +155,10 @@ export const publicationVerifications = pgTable(
       'publication_verifications_report_json_check',
       sql`jsonb_typeof(${table.report}) = 'object'
         and ${table.report}->>'schemaVersion' = '1'
-        and ${table.report}->>'rendererContractVersion' = ${RENDERER_CONTRACT_VERSION}
+        and ${table.report}->>'rendererContractVersion' in (
+          ${LEGACY_BROWSER_VERIFICATION_RENDERER_CONTRACT_VERSION},
+          ${RENDERER_CONTRACT_VERSION}
+        )
         and jsonb_typeof(${table.report}->'checks') = 'array'
         and jsonb_array_length(${table.report}->'checks') between 1 and 13
         and (

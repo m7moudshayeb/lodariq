@@ -6,6 +6,7 @@ baseline before the first shared environment was initialized:
 ```text
 0000_initial_baseline.sql
 0001_publication_verification_renderer_v3.sql
+0002_publication_verification_renderer_v4.sql
 ```
 
 The baseline creates the complete current Neon-compatible PostgreSQL schema,
@@ -22,6 +23,9 @@ psql -X -v ON_ERROR_STOP=1 "$NEON_OWNER_DATABASE_URL" \
 
 psql -X -v ON_ERROR_STOP=1 "$NEON_OWNER_DATABASE_URL" \
   -f packages/database/drizzle/0001_publication_verification_renderer_v3.sql
+
+psql -X -v ON_ERROR_STOP=1 "$NEON_OWNER_DATABASE_URL" \
+  -f packages/database/drizzle/0002_publication_verification_renderer_v4.sql
 ```
 
 Do not apply the baseline to a database that already contains Lodariq objects.
