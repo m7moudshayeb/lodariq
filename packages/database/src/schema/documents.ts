@@ -1,5 +1,6 @@
 import { sql } from 'drizzle-orm';
 import {
+  boolean,
   check,
   foreignKey,
   index,
@@ -12,6 +13,9 @@ import {
 } from 'drizzle-orm/pg-core';
 import type {
   BasicVisualPreflightReport,
+  AuthoringDraftCheckpointResource,
+  AuthoringStepStyleRecipeResource,
+  AuthoringMediaAssetKind,
   BrandDriftAuditReport,
   CompiledDocument,
   LodariqDocument,
@@ -45,6 +49,93 @@ export const documents = pgTable(
     uniqueIndex('documents_workspace_id_idx').on(table.workspaceId, table.id),
     index('documents_workspace_status_idx').on(table.workspaceId, table.status),
     index('documents_workspace_updated_idx').on(table.workspaceId, table.updatedAt),
+  ],
+);
+
+export const authoringStyleRecipes = pgTable(
+  'authoring_style_recipes',
+  {
+    id: text('id').notNull(),
+    workspaceId: text('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    resource: jsonb('resource_json').$type<AuthoringStepStyleRecipeResource>().notNull(),
+    createdByUserId: text('created_by_user_id').references(() => users.id, {
+      onDelete: 'set null',
+    }),
+    ...timestamps,
+  },
+  (table) => [
+    uniqueIndex('authoring_style_recipes_workspace_id_idx').on(table.workspaceId, table.id),
+    check(
+      'authoring_style_recipes_resource_check',
+      sql`jsonb_typeof(${table.resource}) = 'object' and ${table.resource}->>'id' = ${table.id}`,
+    ),
+  ],
+);
+
+export const authoringDraftCheckpoints = pgTable(
+  'authoring_draft_checkpoints',
+  {
+    id: text('id').notNull(),
+    workspaceId: text('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    documentId: text('document_id').notNull(),
+    resource: jsonb('resource_json').$type<AuthoringDraftCheckpointResource>().notNull(),
+    createdByUserId: text('created_by_user_id').references(() => users.id, {
+      onDelete: 'set null',
+    }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('authoring_draft_checkpoints_workspace_id_idx').on(table.workspaceId, table.id),
+    foreignKey({
+      name: 'authoring_draft_checkpoints_document_scope_fk',
+      columns: [table.workspaceId, table.documentId],
+      foreignColumns: [documents.workspaceId, documents.id],
+    }).onDelete('cascade'),
+    index('authoring_draft_checkpoints_document_created_idx').on(
+      table.workspaceId,
+      table.documentId,
+      table.createdAt,
+    ),
+    check(
+      'authoring_draft_checkpoints_resource_check',
+      sql`jsonb_typeof(${table.resource}) = 'object' and ${table.resource}->>'id' = ${table.id}`,
+    ),
+  ],
+);
+
+export const authoringMediaAssets = pgTable(
+  'authoring_media_assets',
+  {
+    id: text('id').primaryKey(),
+    workspaceId: text('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    kind: text('kind').$type<AuthoringMediaAssetKind>().notNull(),
+    filename: text('filename').notNull(),
+    contentType: text('content_type').notNull(),
+    byteLength: integer('byte_length').notNull(),
+    contentHash: text('content_hash').notNull(),
+    contentBase64: text('content_base64').notNull(),
+    savedToLibrary: boolean('saved_to_library').notNull().default(false),
+    createdByUserId: text('created_by_user_id').references(() => users.id, {
+      onDelete: 'set null',
+    }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    publishedAt: timestamp('published_at', { withTimezone: true }),
+  },
+  (table) => [
+    uniqueIndex('authoring_media_assets_workspace_id_idx').on(table.workspaceId, table.id),
+    index('authoring_media_assets_workspace_created_idx').on(table.workspaceId, table.createdAt),
+    check(
+      'authoring_media_assets_kind_check',
+      sql`${table.kind} in ('image', 'video', 'captions')`,
+    ),
+    check('authoring_media_assets_size_check', sql`${table.byteLength} between 1 and 5242880`),
+    check('authoring_media_assets_hash_check', sql`${table.contentHash} ~ '^sha256-[0-9a-f]{64}$'`),
   ],
 );
 

@@ -2,6 +2,7 @@ import { canonicalJson, runBasicVisualPreflight, sha256Hex } from '@lodariq/comp
 import {
   CreateAuthoringDocumentSessionRequest,
   COMPILED_ARTIFACT_SCHEMA_VERSION,
+  CURRENT_AUTHORING_DELIVERY_CAPABILITY_METADATA,
   evaluateEnvironmentReleasePolicy,
   validate,
   type CreateAuthoringDocumentSessionRequest as CreateAuthoringDocumentSessionRequestType,
@@ -129,6 +130,7 @@ export async function createActivatedAuthoringDocumentSession(
       editorOrigin: deploymentOrigins.editor,
       creatorId: session.creatorId,
       capabilities: responseCapabilities,
+      deliveryCapabilities: CURRENT_AUTHORING_DELIVERY_CAPABILITY_METADATA,
       ...(options.authoringTranslationProvider
         ? { translation: { state: 'available' as const } }
         : {}),

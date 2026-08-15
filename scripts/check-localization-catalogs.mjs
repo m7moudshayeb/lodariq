@@ -26,6 +26,13 @@ const checks = [
     roots: ['packages/sdk-runtime/src'],
     staticMessages: [],
   },
+  {
+    catalogPath: 'packages/sdk-runtime/src/tour-i18n-catalogs.ts',
+    functionName: 'tourRuntimeText',
+    label: 'tour runtime',
+    roots: ['packages/sdk-runtime/src'],
+    staticMessages: [],
+  },
 ];
 
 let translatedEntries = 0;

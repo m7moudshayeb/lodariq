@@ -5,6 +5,7 @@ import {
   AmbiguousCurrentPublicationError,
   DEPLOYMENT_CHANGED_ERROR_CODE,
   DeploymentChangedError,
+  DocumentSaveConflictError,
   IDEMPOTENCY_CONFLICT_ERROR_CODE,
   IdempotencyConflictError,
   createControlPlaneRepositoryFromEnvironment,
@@ -41,9 +42,23 @@ import {
   type LodariqDocument,
 } from '@lodariq/schema';
 import tourFixture from '@lodariq/schema/fixtures/tour.linear.v1.json';
-import { readInitialBaseline } from './migration-test-utils.js';
+import {
+  readInitialBaseline,
+  readMigrationChain,
+  sqlWithoutFunctionBodies,
+} from './migration-test-utils.js';
 
 const baseDocument = tourFixture as LodariqDocument;
+
+const WORKSPACE_ISOLATION_POLICY_NAMES = new Map([
+  ['enterprise_validation_evidence', 'enterprise_validation_evidence_workspace_read'],
+  ['workspace_verified_domains', 'workspace_verified_domains_workspace_access'],
+  ['sso_group_role_mappings', 'sso_group_role_mappings_workspace_access'],
+  ['enterprise_scim_connections', 'enterprise_scim_connections_workspace_access'],
+  ['enterprise_principals', 'enterprise_principals_workspace_access'],
+  ['enterprise_audit_events', 'enterprise_audit_events_workspace_access'],
+  ['enterprise_break_glass_requests', 'enterprise_break_glass_workspace_access'],
+]);
 
 describe('control-plane repository', () => {
   it('grants release-state reads in development without granting staging publication', () => {
@@ -67,6 +82,7 @@ describe('control-plane repository', () => {
   });
 
   it('resolves workspace memberships only by internal user id', async () => {
+    const now = new Date().toISOString();
     const repository = createInMemoryControlPlaneRepository({
       users: [
         {
@@ -74,7 +90,15 @@ describe('control-plane repository', () => {
           legacyIdentityId: 'retired_provider_user',
           email: 'creator@lodariq.test',
           name: 'Creator',
-          createdAt: new Date().toISOString(),
+          createdAt: now,
+        },
+      ],
+      workspaces: [
+        {
+          id: 'wk_a',
+          name: 'Workspace A',
+          createdAt: now,
+          updatedAt: now,
         },
       ],
       workspaceMemberships: [
@@ -82,7 +106,7 @@ describe('control-plane repository', () => {
           workspaceId: 'wk_a',
           userId: 'user_internal',
           role: 'member',
-          createdAt: new Date().toISOString(),
+          createdAt: now,
         },
       ],
     });
@@ -138,6 +162,81 @@ describe('control-plane repository', () => {
         document,
       }),
     ).rejects.toThrow(/workspace scope mismatch/);
+  });
+
+  it('uses compare-and-swap revisions so a stale authoring save cannot win', async () => {
+    const document = withWorkspace(baseDocument, 'wk_a');
+    const repository = createInMemoryControlPlaneRepository({ documents: [document] });
+    const loaded = await repository.getDocument('wk_a', document.id);
+    if (!loaded) throw new Error('fixture document missing');
+
+    const first = structuredClone(document);
+    first.title = 'First saved revision';
+    const saved = await repository.saveDocument({
+      workspaceId: 'wk_a',
+      actorUserId: 'user_a',
+      document: first,
+      expectedUpdatedAt: loaded.updatedAt,
+    });
+    expect(saved.document.title).toBe('First saved revision');
+
+    const stale = structuredClone(document);
+    stale.title = 'Stale overwrite';
+    await expect(
+      repository.saveDocument({
+        workspaceId: 'wk_a',
+        actorUserId: 'user_b',
+        document: stale,
+        expectedUpdatedAt: loaded.updatedAt,
+      }),
+    ).rejects.toBeInstanceOf(DocumentSaveConflictError);
+    await expect(repository.getDocument('wk_a', document.id)).resolves.toMatchObject({
+      document: { title: 'First saved revision' },
+    });
+  });
+
+  it('persists authoring checkpoints and publishes only explicitly released media assets', async () => {
+    const document = withWorkspace(baseDocument, 'wk_a');
+    const repository = createInMemoryControlPlaneRepository({ documents: [document] });
+    await repository.saveAuthoringResources({
+      workspaceId: 'wk_a',
+      documentId: document.id,
+      actorUserId: 'user_a',
+      recipes: [],
+      checkpoints: [
+        {
+          id: 'checkpoint-one',
+          name: 'Before branching',
+          createdAt: '2026-08-14T10:00:00.000Z',
+          document,
+        },
+      ],
+    });
+    await expect(
+      repository.listAuthoringDraftCheckpoints('wk_a', document.id),
+    ).resolves.toHaveLength(1);
+
+    const asset = await repository.createAuthoringMediaAsset({
+      workspaceId: 'wk_a',
+      actorUserId: 'user_a',
+      kind: 'image',
+      filename: 'tour.png',
+      contentType: 'image/png',
+      contentBase64: 'iVBORw0KGgo=',
+      byteLength: 8,
+      contentHash: `sha256-${'a'.repeat(64)}`,
+      savedToLibrary: true,
+    });
+    await expect(repository.listAuthoringMediaAssets('wk_a')).resolves.toEqual([
+      expect.objectContaining({ id: asset.id, savedToLibrary: true }),
+    ]);
+    await expect(repository.getPublishedMediaAsset(asset.id)).resolves.toBeNull();
+    await repository.publishAuthoringMediaAssets('wk_a', [asset.id]);
+    await expect(repository.getPublishedMediaAsset(asset.id)).resolves.toMatchObject({
+      id: asset.id,
+      workspaceId: 'wk_a',
+      publishedAt: expect.any(String),
+    });
   });
 
   it('records workspace-scoped document versions and links compiled artifacts to the producing version', async () => {
@@ -2304,14 +2403,16 @@ describe('control-plane repository', () => {
   });
 });
 
-describe('tenant-scoped database baseline', () => {
+describe('tenant-scoped database migrations', () => {
   it('enables row-level security policies on every tenant-scoped table', () => {
-    const migration = readInitialBaseline();
+    const migration = readMigrationChain();
 
     for (const table of tenantScopedTableNames) {
+      const isolationPolicy =
+        WORKSPACE_ISOLATION_POLICY_NAMES.get(table) ?? `${table}_workspace_isolation`;
       expect(migration).toContain(`alter table ${table} enable row level security`);
       expect(migration).toContain(`alter table ${table} force row level security`);
-      expect(migration).toContain(`create policy ${table}_workspace_isolation on ${table}`);
+      expect(migration).toContain(`create policy ${isolationPolicy} on ${table}`);
     }
     expect(migration).toContain("current_setting('lodariq.workspace_id', true)");
     expect(migration).toContain("current_setting('lodariq.environment_token_hash', true)");
@@ -2354,7 +2455,7 @@ describe('tenant-scoped database baseline', () => {
     expect(migration).toContain('document_deployments_workspace_environment_state_idx');
     expect(migration).toContain('document_deployments_workspace_document_idx');
     expect(migration).toContain('document_deployments_active_publication_idx');
-    expect(migration).not.toMatch(
+    expect(sqlWithoutFunctionBodies(migration)).not.toMatch(
       /\b(?:insert\s+into|update\s+[A-Za-z_"]+\s+set|delete\s+from)\b/iu,
     );
   });
@@ -2376,7 +2477,7 @@ describe('tenant-scoped database baseline', () => {
     expect(migration).toContain("current_setting('lodariq.public_installation_id', true)");
     expect(migration).toContain("current_setting('lodariq.public_origin', true)");
     expect(migration).toContain("current_setting('lodariq.bootstrap_grant_hash', true)");
-    expect(migration).not.toMatch(
+    expect(sqlWithoutFunctionBodies(migration)).not.toMatch(
       /\b(?:insert\s+into|update\s+[A-Za-z_"]+\s+set|delete\s+from)\b/iu,
     );
   });
@@ -2430,7 +2531,7 @@ describe('tenant-scoped database baseline', () => {
         ),
       );
     }
-    expect(migration).not.toMatch(
+    expect(sqlWithoutFunctionBodies(migration)).not.toMatch(
       /\b(?:insert\s+into|update\s+[A-Za-z_"]+\s+set|delete\s+from)\b/iu,
     );
   });

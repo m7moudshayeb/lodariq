@@ -9,8 +9,11 @@ import { I18nProvider } from '@lingui/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AuthForm } from '../../../../apps/dashboard/src/components/auth-form';
 import { EmailVerificationPanel } from '../../../../apps/dashboard/src/components/email-verification-panel';
+import { EmailChangeVerification } from '../../../../apps/dashboard/src/components/email-change-verification';
 import { PasswordRecoveryForm } from '../../../../apps/dashboard/src/components/password-recovery-form';
 import { SetPasswordForm } from '../../../../apps/dashboard/src/components/set-password-form';
+import { RecoveryCodeForm } from '../../../../apps/dashboard/src/components/recovery-code-form';
+import { EnterpriseIdentitySettings } from '../../../../apps/dashboard/src/components/enterprise-identity-settings';
 
 const CHALLENGE_ID = 'verify_abcdefghijklmnopqrstuvwxyz123456';
 const VERIFICATION_TOKEN = 'lq_verify_abcdefghijklmnopqrstuvwxyz1234567890ABCDEFG';
@@ -130,6 +133,83 @@ describe('@lodariq/dashboard owned auth UI', () => {
     await unmount(mounted);
   });
 
+  it('exposes passkey and recovery-code sign-in without native browser validation', async () => {
+    const fetchMock = vi.fn<typeof globalThis.fetch>();
+    vi.stubGlobal('fetch', fetchMock);
+    const signIn = await mount(createElement(AuthForm, { embedded: true, mode: 'sign-in' }));
+    expect(signIn.container.textContent).toContain('Sign in with a passkey');
+    expect(signIn.container.textContent).toContain('Use a recovery code');
+    expect(signIn.container.textContent).toContain('Continue with Google');
+    expect(signIn.container.textContent).toContain('Continue with Microsoft');
+    expect(signIn.container.textContent).toContain('Continue with company SSO');
+    await unmount(signIn);
+
+    const recovery = await mount(createElement(RecoveryCodeForm, { returnTo: '/' }));
+    const form = recovery.container.querySelector('form');
+    if (!form) throw new Error('recovery code form not found');
+    expect(form.noValidate).toBe(true);
+    await act(async () => {
+      form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+      await flushAsyncWork();
+    });
+    expect(recovery.container.textContent).toContain(
+      'Enter your identifier and a complete recovery code.',
+    );
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(document.activeElement).toBe(requiredInput(recovery.container, 'identifier'));
+    await unmount(recovery);
+  });
+
+  it('renders owner-only enterprise controls with custom validation and one-time secret guidance', async () => {
+    const fetchMock = vi.fn<typeof globalThis.fetch>().mockResolvedValue(
+      jsonResponse({
+        policy: {
+          workspaceId: 'wk_enterprise_ui',
+          ssoRequired: false,
+          minimumAssurance: 'aal1',
+          passwordAllowed: true,
+        },
+        connections: [
+          {
+            id: `sso_${'c'.repeat(24)}`,
+            workspaceId: 'wk_enterprise_ui',
+            provider: 'okta',
+            protocol: 'oidc',
+            issuer: 'https://tenant.okta.com/oauth2/default',
+            clientId: 'client-id',
+            provisioningMode: 'invitation_only',
+            status: 'validation_required',
+            validatedAt: null,
+            createdAt: EXPIRES_AT,
+            updatedAt: EXPIRES_AT,
+          },
+        ],
+        domains: [],
+        groupRoleMappings: [],
+        scimConnections: [],
+      }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+    const mounted = await mount(
+      createElement(EnterpriseIdentitySettings, {
+        currentRole: 'owner',
+        workspaceId: 'wk_enterprise_ui',
+      }),
+    );
+    await flushAsyncWork();
+    expect(mounted.container.textContent).toContain('Enterprise identity');
+    expect(mounted.container.textContent).toContain('Validation required');
+    expect(mounted.container.textContent).toContain('Tokens are shown once');
+    expect([...mounted.container.querySelectorAll('form')].every((form) => form.noValidate)).toBe(
+      true,
+    );
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/workspaces/wk_enterprise_ui/enterprise/configuration',
+      expect.objectContaining({ credentials: 'same-origin' }),
+    );
+    await unmount(mounted);
+  });
+
   it('reads a fragment token once, clears it, and never renders or persists it', async () => {
     const authenticated = vi.fn();
     const fetchMock = vi
@@ -223,7 +303,7 @@ describe('@lodariq/dashboard owned auth UI', () => {
       await flushAsyncWork();
     });
 
-    expect(mounted.container.textContent).toContain('Check your email');
+    expect(mounted.container.textContent).toContain('Request accepted');
     expect(mounted.container.textContent).toContain('Open local recovery link');
     expect(mounted.container.outerHTML).not.toContain(RESET_TOKEN);
     expect(localStorage.length).toBe(0);
@@ -274,6 +354,187 @@ describe('@lodariq/dashboard owned auth UI', () => {
     expect(authenticated).toHaveBeenCalledWith(sessionSnapshot());
     expect(localStorage.length).toBe(0);
     expect(sessionStorage.length).toBe(0);
+    await unmount(mounted);
+  });
+
+  it('owns validation, focuses the first invalid field, and exposes password visibility safely', async () => {
+    const fetchMock = vi.fn<typeof globalThis.fetch>();
+    vi.stubGlobal('fetch', fetchMock);
+    const mounted = await mount(createElement(AuthForm, { mode: 'sign-in' }));
+    const form = mounted.container.querySelector('form');
+    if (!form) throw new Error('sign-in form not found');
+    const identifier = requiredInput(mounted.container, 'identifier');
+    const password = requiredInput(mounted.container, 'password');
+
+    expect(form.noValidate).toBe(true);
+    expect(identifier.required).toBe(false);
+    expect(password.required).toBe(false);
+    expect(password.minLength).toBe(-1);
+    await act(async () => {
+      form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+      await flushAsyncWork();
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(identifier).toBe(document.activeElement);
+    expect(identifier.getAttribute('aria-invalid')).toBe('true');
+    expect(identifier.getAttribute('aria-describedby')).toContain('identifier-error');
+    expect(mounted.container.textContent).toContain('Email or username is required.');
+
+    setInputValue(identifier, 'creator@example.test');
+    setInputValue(password, RAW_PASSWORD);
+    expect(identifier.hasAttribute('aria-invalid')).toBe(false);
+    const toggle = mounted.container.querySelector<HTMLButtonElement>(
+      'button[aria-label="Show password"]',
+    );
+    if (!toggle) throw new Error('password visibility control not found');
+    await act(async () => toggle.click());
+    expect(password.type).toBe('text');
+    expect(password.value).toBe(RAW_PASSWORD);
+    expect(toggle.getAttribute('aria-label')).toBe('Hide password');
+    expect(password.autocomplete).toBe('current-password');
+
+    await unmount(mounted);
+  });
+
+  it('makes remember-me explicit and sends the user choice to the server', async () => {
+    const authenticated = vi.fn();
+    const fetchMock = vi
+      .fn<typeof globalThis.fetch>()
+      .mockResolvedValue(jsonResponse(sessionSnapshot()));
+    vi.stubGlobal('fetch', fetchMock);
+    const mounted = await mount(
+      createElement(AuthForm, { mode: 'sign-in', onAuthenticated: authenticated }),
+    );
+    const identifier = requiredInput(mounted.container, 'identifier');
+    const password = requiredInput(mounted.container, 'password');
+    const rememberMe = requiredInput(mounted.container, 'rememberMe');
+    setInputValue(identifier, 'creator@example.test');
+    setInputValue(password, RAW_PASSWORD);
+    await act(async () => rememberMe.click());
+    const form = mounted.container.querySelector('form');
+    if (!form) throw new Error('sign-in form not found');
+    await act(async () => {
+      form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+      await flushAsyncWork();
+    });
+
+    expect(JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body))).toEqual({
+      identifier: 'creator@example.test',
+      password: RAW_PASSWORD,
+      rememberMe: true,
+    });
+    expect(mounted.container.textContent).toContain('up to 30 days');
+    expect(authenticated).toHaveBeenCalledOnce();
+    await unmount(mounted);
+  });
+
+  it('consumes an email-change token from the fragment once and clears it before feedback', async () => {
+    const challengeId = 'emailchange_abcdefghijklmnopqrstuvwxyz123456';
+    const token = 'lq_email_change_abcdefghijklmnopqrstuvwxyz1234567890';
+    const fetchMock = vi
+      .fn<typeof globalThis.fetch>()
+      .mockResolvedValue(jsonResponse({ status: 'completed', email: 'new@example.test' }));
+    vi.stubGlobal('fetch', fetchMock);
+    window.history.replaceState(
+      null,
+      '',
+      `/account/email-change?challenge=${challengeId}&proof=new_email#token=${token}`,
+    );
+    const mounted = await mount(
+      createElement(
+        React.StrictMode,
+        null,
+        createElement(EmailChangeVerification, { challengeId, proof: 'new_email' }),
+      ),
+    );
+    await act(async () => flushAsyncWork());
+
+    expect(window.location.hash).toBe('');
+    expect(mounted.container.outerHTML).not.toContain(token);
+    expect(fetchMock).toHaveBeenCalledOnce();
+    expect(fetchMock.mock.calls[0]?.[0]).toBe('/api/auth/email-change/verify');
+    expect(JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body))).toEqual({
+      challengeId,
+      proof: 'new_email',
+      token,
+    });
+    expect(mounted.container.textContent).toContain('sign-in email has been changed');
+    expect(localStorage.length).toBe(0);
+    expect(sessionStorage.length).toBe(0);
+    await unmount(mounted);
+  });
+
+  it('turns a rejected reset into a safe actionable replacement-link state', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn<typeof globalThis.fetch>().mockResolvedValue(
+        jsonResponse(
+          {
+            error: 'password_reset_invalid',
+            message: 'The password link is invalid or expired.',
+          },
+          400,
+        ),
+      ),
+    );
+    window.history.replaceState(
+      null,
+      '',
+      `/reset-password?challenge=${RESET_CHALLENGE_ID}#token=${encodeURIComponent(RESET_TOKEN)}`,
+    );
+    const mounted = await mount(
+      createElement(SetPasswordForm, {
+        challengeId: RESET_CHALLENGE_ID,
+        returnTo: '/authoring/activate',
+      }),
+    );
+    await flushAsyncWork();
+    setInputValue(requiredInput(mounted.container, 'password'), VERIFIED_PASSWORD);
+    setInputValue(requiredInput(mounted.container, 'passwordConfirmation'), VERIFIED_PASSWORD);
+    const form = mounted.container.querySelector('form');
+    if (!form) throw new Error('set password form not found');
+    await act(async () => {
+      form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+      await flushAsyncWork();
+    });
+
+    expect(mounted.container.textContent).toContain('This password link cannot be used');
+    expect(mounted.container.textContent).toContain('newer request');
+    expect(mounted.container.querySelector('a')?.getAttribute('href')).toBe(
+      '/forgot-password?returnTo=%2Fauthoring%2Factivate',
+    );
+    await unmount(mounted);
+  });
+
+  it('labels recovery as queued and enables a bounded resend after cooldown', async () => {
+    vi.useFakeTimers();
+    const fetchMock = vi
+      .fn<typeof globalThis.fetch>()
+      .mockResolvedValue(jsonResponse({ status: 'accepted' }, 202));
+    vi.stubGlobal('fetch', fetchMock);
+    const mounted = await mount(createElement(PasswordRecoveryForm, { returnTo: '/' }));
+    setInputValue(requiredInput(mounted.container, 'email'), 'creator@example.test');
+    const form = mounted.container.querySelector('form');
+    if (!form) throw new Error('password recovery form not found');
+    await act(async () => {
+      form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+      await flushAsyncWork();
+    });
+
+    expect(mounted.container.textContent).toContain('Request accepted');
+    expect(mounted.container.textContent).toContain('has been queued');
+    expect(mounted.container.textContent).not.toContain('We sent');
+    await act(async () => vi.advanceTimersByTime(31_000));
+    const resend = [...mounted.container.querySelectorAll('button')].find((button) =>
+      button.textContent?.includes('Request another link'),
+    );
+    if (!resend) throw new Error('recovery resend control not found');
+    await act(async () => {
+      resend.click();
+      await flushAsyncWork();
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock.mock.calls[1]?.[0]).toBe('/api/auth/password-recovery');
     await unmount(mounted);
   });
 });

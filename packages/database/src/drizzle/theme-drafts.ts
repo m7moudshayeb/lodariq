@@ -34,9 +34,9 @@ import {
   toWorkspaceThemeRecord,
   toWorkspaceThemeVersionRecord,
 } from './helpers';
-import { DrizzleRepositoryIdentitySessions } from './identity-sessions';
+import { DrizzleRepositoryEnterpriseIdentity } from './enterprise-identity';
 
-export class DrizzleRepositoryThemeDrafts extends DrizzleRepositoryIdentitySessions {
+export class DrizzleRepositoryThemeDrafts extends DrizzleRepositoryEnterpriseIdentity {
   async listWorkspaceThemes(workspaceId: string): Promise<WorkspaceThemeRecord[]> {
     return this.scoped(workspaceId, async (tx) => {
       const rows = await tx
@@ -170,7 +170,7 @@ export class DrizzleRepositoryThemeDrafts extends DrizzleRepositoryIdentitySessi
     const expectedUpdatedAt = normalizeThemeGuardUpdatedAt(input);
     const proposalHash = productStyleProposalRequestHash(input);
 
-    return this.scoped(input.workspaceId, async (tx) => {
+    return this.actorScoped(input.workspaceId, input.actorUserId, async (tx) => {
       // Serialize proposal replays and Product-match draft updates for this
       // theme. The row CAS below remains authoritative for writers that do not
       // participate in this advisory-lock protocol.

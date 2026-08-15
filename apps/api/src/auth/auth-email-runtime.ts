@@ -5,6 +5,7 @@ import {
   readAuthEmailDeliveryEnvironment,
 } from './auth-email-outbox';
 import type { EmailVerificationDeliveryCapability } from './email-verification';
+import type { ObservabilitySink } from '../observability';
 
 export interface AuthEmailRuntime {
   deliveryCapability: EmailVerificationDeliveryCapability;
@@ -19,6 +20,7 @@ export interface AuthEmailWorkerLifecycle {
 export function createAuthEmailRuntimeFromEnvironment(
   repository: ControlPlaneRepository,
   environment: NodeJS.ProcessEnv = process.env,
+  observability?: ObservabilitySink,
 ): AuthEmailRuntime | null {
   const configuredMode = environment.LODARIQ_EMAIL_DELIVERY_MODE?.trim();
   if (!configuredMode || configuredMode === 'disabled') return null;
@@ -28,7 +30,8 @@ export function createAuthEmailRuntimeFromEnvironment(
   return {
     deliveryCapability: {
       kind: 'email-verification-dispatcher-v1',
-      secret: config.tokenSecret,
+      secret: config.tokenKeys[config.activeTokenKeyId]!,
+      keyId: config.activeTokenKeyId,
     },
     worker: new AuthEmailOutboxWorker({
       queue: repository,
@@ -37,7 +40,8 @@ export function createAuthEmailRuntimeFromEnvironment(
         from: config.from,
       }),
       appBaseUrl: config.appBaseUrl,
-      tokenSecret: config.tokenSecret,
+      tokenKeys: config.tokenKeys,
+      observability,
     }),
   };
 }

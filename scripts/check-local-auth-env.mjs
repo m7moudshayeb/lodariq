@@ -11,6 +11,7 @@ const requiredProfile = Object.freeze({
   LODARIQ_EXPOSE_DEV_VERIFICATION_TOKEN: 'false',
   LODARIQ_PASSWORD_RECOVERY_MODE: 'email',
   LODARIQ_PUBLIC_SIGNUP_MODE: 'email-verification',
+  LODARIQ_WEBAUTHN_MODE: 'enabled',
 });
 
 export function createProductionParityLocalEnvironment(source = process.env) {
@@ -26,6 +27,9 @@ export function createProductionParityLocalEnvironment(source = process.env) {
     LODARIQ_PASSWORD_HASH_QUEUE_TIMEOUT_MS: '2000',
     LODARIQ_PASSWORD_RECOVERY_MODE: 'email',
     LODARIQ_PUBLIC_SIGNUP_MODE: 'email-verification',
+    LODARIQ_WEBAUTHN_MODE: 'enabled',
+    LODARIQ_WEBAUTHN_RP_ID: 'localhost',
+    LODARIQ_WEBAUTHN_ORIGIN: 'http://localhost:3000',
   };
   // Owner/admin URLs are operator-only and must not reach runtime packages.
   for (const name of [
@@ -52,11 +56,7 @@ export function validateLocalAuthEnvironment(environment = process.env) {
   validateAppOrigin(environment.LODARIQ_APP_BASE_URL, failures);
   validateResendKey(environment.RESEND_API_KEY, failures);
   validateSender(environment.LODARIQ_AUTH_EMAIL_FROM, failures);
-  validateSecret(
-    'LODARIQ_AUTH_EMAIL_TOKEN_SECRET',
-    environment.LODARIQ_AUTH_EMAIL_TOKEN_SECRET,
-    failures,
-  );
+  validateEmailTokenKeyring(environment, failures);
   validateBoundedInteger('LODARIQ_PASSWORD_HASH_MAX_ACTIVE', environment, failures, 1, 4);
   validateBoundedInteger('LODARIQ_PASSWORD_HASH_MAX_QUEUED', environment, failures, 0, 100);
   validateBoundedInteger(
@@ -66,8 +66,55 @@ export function validateLocalAuthEnvironment(environment = process.env) {
     100,
     30_000,
   );
+  validateLocalWebAuthn(environment, failures);
 
   return failures;
+}
+
+function validateLocalWebAuthn(environment, failures) {
+  if (environment.LODARIQ_WEBAUTHN_RP_ID?.trim() !== 'localhost') {
+    failures.push('LODARIQ_WEBAUTHN_RP_ID must be localhost for local parity.');
+  }
+  if (environment.LODARIQ_WEBAUTHN_ORIGIN?.trim() !== 'http://localhost:3000') {
+    failures.push('LODARIQ_WEBAUTHN_ORIGIN must be exactly http://localhost:3000 locally.');
+  }
+}
+
+function validateEmailTokenKeyring(environment, failures) {
+  const serialized = environment.LODARIQ_AUTH_EMAIL_TOKEN_KEYS?.trim();
+  if (!serialized) {
+    validateSecret(
+      'LODARIQ_AUTH_EMAIL_TOKEN_SECRET',
+      environment.LODARIQ_AUTH_EMAIL_TOKEN_SECRET,
+      failures,
+    );
+    return;
+  }
+  let keys;
+  try {
+    keys = JSON.parse(serialized);
+  } catch {
+    failures.push('LODARIQ_AUTH_EMAIL_TOKEN_KEYS must be a JSON object.');
+    return;
+  }
+  if (!keys || typeof keys !== 'object' || Array.isArray(keys)) {
+    failures.push('LODARIQ_AUTH_EMAIL_TOKEN_KEYS must be a JSON object.');
+    return;
+  }
+  const entries = Object.entries(keys);
+  if (entries.length < 1 || entries.length > 8) {
+    failures.push('LODARIQ_AUTH_EMAIL_TOKEN_KEYS must contain between one and eight keys.');
+  }
+  for (const [keyId, secret] of entries) {
+    if (!/^[a-z0-9][a-z0-9_-]{0,31}$/u.test(keyId)) {
+      failures.push(`Invalid auth email token key id: ${keyId}.`);
+    }
+    validateSecret(`LODARIQ_AUTH_EMAIL_TOKEN_KEYS.${keyId}`, secret, failures);
+  }
+  const activeKeyId = environment.LODARIQ_AUTH_EMAIL_TOKEN_ACTIVE_KEY_ID?.trim() ?? '';
+  if (!Object.hasOwn(keys, activeKeyId)) {
+    failures.push('LODARIQ_AUTH_EMAIL_TOKEN_ACTIVE_KEY_ID must identify a configured key.');
+  }
 }
 
 function validateDatabaseUrl(value, failures) {

@@ -11,6 +11,7 @@ import {
   Plus,
   UserRound,
 } from 'lucide-react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useId, useRef, useState, type FormEvent } from 'react';
 import type { AuthSessionSnapshot } from '../lib/auth-contract';
@@ -49,6 +50,10 @@ const COPY = {
     message: 'Create workspace',
   }),
   signOut: msg({ id: 'dashboard.account.signOut', message: 'Sign out' }),
+  accountSecurity: msg({
+    id: 'dashboard.account.security',
+    message: 'Account & security',
+  }),
   roleViewer: msg({ id: 'dashboard.account.role.viewer', message: 'Viewer' }),
   roleMember: msg({ id: 'dashboard.account.role.member', message: 'Member' }),
   roleAdmin: msg({ id: 'dashboard.account.role.admin', message: 'Admin' }),
@@ -257,6 +262,16 @@ export function DashboardAuthControls({
               {error}
             </p>
           ) : null}
+
+          <Link
+            className="flex min-h-10 w-full items-center gap-2 rounded-lg border-t border-border px-2 pt-2 text-start text-sm hover:bg-accent"
+            href="/account"
+            onClick={() => setOpen(false)}
+            role="menuitem"
+          >
+            <UserRound aria-hidden="true" className="size-4" />
+            {_(COPY.accountSecurity)}
+          </Link>
 
           <button
             className="flex min-h-10 w-full items-center gap-2 rounded-lg border-t border-border px-2 pt-2 text-start text-sm text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-60"

@@ -5,7 +5,9 @@ import {
   type SerializedLodariqBlockNode,
 } from '@lodariq/sdk-authoring/editor';
 
-function serializedBlock(type: (typeof LODARIQ_MVP_BLOCK_TYPES)[number]): SerializedLodariqBlockNode {
+function serializedBlock(
+  type: (typeof LODARIQ_MVP_BLOCK_TYPES)[number],
+): SerializedLodariqBlockNode {
   return {
     type: 'lodariq-block',
     version: 1,
@@ -27,6 +29,9 @@ describe('Lodariq Lexical nodes (PRD §16.1)', () => {
       'list',
       'divider',
       'media',
+      'callout',
+      'stat',
+      'icon',
       'link',
       'tourStep',
       'tooltip',

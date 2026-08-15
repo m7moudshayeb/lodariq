@@ -4,6 +4,7 @@ import {
   BasicVisualPreflightReport,
   CompiledDocumentV4,
   RENDERER_CONTRACT_VERSION,
+  STRUCTURED_COMPOSITION_BLOCK_TYPE_VALUES,
   CONTRAST_RATIO_TARGETS,
   evaluateContrast,
   isValid,
@@ -18,6 +19,7 @@ import {
 } from '@lodariq/schema';
 import { canonicalJson, sha256Hex } from './hash';
 import { validateCompiledTourFlow } from './flow-graph';
+import type { StepChoreography } from '@lodariq/schema';
 
 // WCAG-aligned targets remain warnings until contrast drops below the lower
 // usable floor; only the latter blocks publication in this basic local pass.
@@ -26,6 +28,9 @@ const COMPACT_VIEWPORT_WIDTH_PX = 320;
 const COMPACT_VIEWPORT_GUTTER_PX = 24;
 const COMFORTABLE_COMPACT_VIEWPORT_LINE_LIMIT = 14;
 const APPROXIMATE_GLYPH_WIDTH_EM = 0.55;
+const STRUCTURED_COMPOSITION_BLOCK_TYPES = new Set<string>(
+  STRUCTURED_COMPOSITION_BLOCK_TYPE_VALUES,
+);
 
 const TOUR_WIDTH_TOKEN_BY_APPEARANCE = {
   narrow: 'tourNarrowPx',
@@ -84,8 +89,101 @@ export async function runBasicVisualPreflight(
 
   collectContrastIssues(artifact, issues);
   collectCopyAndViewportIssues(artifact, issues);
+  collectCapabilityIssues(artifact, issues);
   issues.push(...validateCompiledTourFlow(artifact));
   return createReport(checkedAt, issues);
+}
+
+function collectCapabilityIssues(
+  artifact: CompiledDocumentV4Type,
+  issues: BasicVisualPreflightIssue[],
+): void {
+  const targetIds = new Set(artifact.targets.map((target) => target.id));
+  const stepIds = new Set(artifact.steps.map((step) => step.id));
+  for (const [stepIndex, step] of artifact.steps.entries()) {
+    collectChoreographyIssues(
+      step.entrySequence,
+      step.targetId,
+      stepIndex,
+      undefined,
+      targetIds,
+      stepIds,
+      issues,
+    );
+    for (const [nodeIndex, node] of step.body.entries()) {
+      if (node.type === 'media' || STRUCTURED_COMPOSITION_BLOCK_TYPES.has(node.type)) {
+        const accessibilityName =
+          node.type === 'media'
+            ? node.props.media?.accessibilityName
+            : node.props.accessibilityName;
+        if (!accessibilityName?.trim()) {
+          issues.push({
+            code: 'missing_accessible_name',
+            severity: 'blocker',
+            stepIndex,
+            nodeIndex,
+          });
+        }
+      }
+      const action = node.props.action;
+      if (action?.type === 'runSequence') {
+        collectChoreographyIssues(
+          action.sequence,
+          step.targetId,
+          stepIndex,
+          nodeIndex,
+          targetIds,
+          stepIds,
+          issues,
+        );
+      }
+    }
+  }
+}
+
+function collectChoreographyIssues(
+  sequence: StepChoreography | undefined,
+  stepTargetId: string | undefined,
+  stepIndex: number,
+  nodeIndex: number | undefined,
+  targetIds: ReadonlySet<string>,
+  stepIds: ReadonlySet<string>,
+  issues: BasicVisualPreflightIssue[],
+): void {
+  if (!sequence) return;
+  const referencedTargetIds = new Set<string>();
+  if (sequence.trigger.type !== 'manual') {
+    const targetId = sequence.trigger.targetId ?? stepTargetId;
+    if (targetId) referencedTargetIds.add(targetId);
+    else pushCapabilityIssue('choreography_target_missing', stepIndex, nodeIndex, issues);
+  }
+  for (const wait of sequence.waitFor) {
+    if (wait.type === 'targetAvailable') referencedTargetIds.add(wait.targetId);
+  }
+  if ([...referencedTargetIds].some((targetId) => !targetIds.has(targetId))) {
+    pushCapabilityIssue('choreography_target_missing', stepIndex, nodeIndex, issues);
+  }
+  const destinationIds = [
+    ...(sequence.transition.type === 'step' ? [sequence.transition.stepId] : []),
+    ...(sequence.onTimeout === 'goToStep' ? [sequence.timeoutStepId] : []),
+  ];
+  if (destinationIds.some((stepId) => !stepIds.has(stepId))) {
+    pushCapabilityIssue('choreography_step_missing', stepIndex, nodeIndex, issues);
+  }
+}
+
+function pushCapabilityIssue(
+  code: 'choreography_target_missing' | 'choreography_step_missing',
+  stepIndex: number,
+  nodeIndex: number | undefined,
+  issues: BasicVisualPreflightIssue[],
+): void {
+  issues.push({
+    code,
+    severity: 'blocker',
+    stepIndex,
+    ...(nodeIndex === undefined ? {} : { nodeIndex }),
+  });
 }
 
 function assertValidCheckedAt(checkedAt: string): void {

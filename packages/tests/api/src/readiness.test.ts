@@ -38,4 +38,29 @@ describe('API liveness and dependency readiness', () => {
     expect(readiness.json()).toEqual({ ok: false });
     expect(readiness.body).not.toContain('database');
   });
+
+  it('fails readiness and emits a privacy-safe diagnostic when database clock skew is unsafe', async () => {
+    const events: Array<{ name: string; attributes?: Record<string, unknown> }> = [];
+    const repository = createInMemoryControlPlaneRepository();
+    vi.spyOn(repository, 'readDatabaseTime').mockImplementation(async () =>
+      new Date(Date.now() + 31_000).toISOString(),
+    );
+    app = createApiApp({
+      repository,
+      observability: { emit: (event) => events.push(event) },
+    });
+
+    const response = await app.inject({ method: 'GET', url: '/readyz' });
+
+    expect(response.statusCode).toBe(503);
+    expect(response.json()).toEqual({ ok: false });
+    expect(events).toEqual([
+      {
+        name: 'auth.clock.skew_detected',
+        attributes: { skewMs: expect.any(Number) },
+        timestamp: expect.any(String),
+      },
+    ]);
+    expect(events[0]?.attributes?.['skewMs']).toBeGreaterThan(30_000);
+  });
 });

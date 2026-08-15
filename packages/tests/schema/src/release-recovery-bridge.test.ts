@@ -101,6 +101,7 @@ describe('release recovery authoring bridge contracts', () => {
         'brandDriftCheckCapability',
         'brandThemeAcknowledgementCapability',
         'correlationId',
+        'deliveryCapabilities',
         'document',
         'documentId',
         'environment',

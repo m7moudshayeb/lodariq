@@ -56,6 +56,14 @@ export function createTrackedTourPlayer({
       });
       playback.onChoreographyStageChange?.(step, update);
     },
+    onChoreographyRecovery: (step, update) => {
+      runtime.track(`tour_choreography_${update.status}`, {
+        documentId,
+        stepId: step.id,
+        retryCount: update.retryCount,
+      });
+      playback.onChoreographyRecovery?.(step, update);
+    },
     onBranchChoice: (step, ruleIndex, destination) => {
       runtime.track('tour_branch_chosen', {
         documentId,

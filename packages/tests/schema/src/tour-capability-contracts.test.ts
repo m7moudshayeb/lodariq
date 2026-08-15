@@ -6,6 +6,7 @@ import {
   ResponsiveStepPresentation,
   StepChoreography,
   StepTransition,
+  StructuredCompositionPresentation,
   TourStepStyleSnapshot,
   TourMotionPresentation,
   validate,
@@ -25,6 +26,31 @@ describe('Tour reliability and flow contracts', () => {
     };
     expect(validate(StepChoreography, sequence).valid).toBe(true);
     expect(validate(BlockActionProps, { type: 'runSequence', sequence }).valid).toBe(true);
+  });
+
+  it('accepts value-free click, focus, and input observation triggers', () => {
+    for (const type of [
+      'observeTargetClick',
+      'observeTargetFocus',
+      'observeTargetInput',
+    ] as const) {
+      expect(
+        validate(StepChoreography, {
+          ...validSequence(),
+          trigger: { type, targetId: 'target-field' },
+        }).valid,
+      ).toBe(true);
+    }
+    expect(
+      validate(StepChoreography, {
+        ...validSequence(),
+        trigger: {
+          type: 'observeTargetInput',
+          targetId: 'target-field',
+          value: 'must-never-be-stored',
+        },
+      }).valid,
+    ).toBe(false);
   });
 
   it.each([
@@ -118,6 +144,14 @@ describe('Tour reliability and flow contracts', () => {
         assetId: 'asset.demo',
         accessibilityName: 'Product walkthrough',
       }).valid,
+    ).toBe(true);
+    expect(
+      validate(MediaPresentation, {
+        kind: 'video',
+        assetId: 'asset.demo',
+        accessibilityName: 'Product walkthrough',
+        src: 'https://evil.example/media.mp4',
+      }).valid,
     ).toBe(false);
     expect(
       validate(AuthoringFlowSimulationContext, {
@@ -128,6 +162,24 @@ describe('Tour reliability and flow contracts', () => {
     expect(
       validate(AuthoringFlowSimulationContext, {
         identifyTraits: { 'bad key': 'value' },
+      }).valid,
+    ).toBe(false);
+  });
+
+  it('keeps callout, stat, and icon renderer recipes closed and typed', () => {
+    for (const composition of [
+      { kind: 'callout', tone: 'warning' },
+      { kind: 'stat', emphasis: 'strong' },
+      { kind: 'icon', icon: 'star' },
+      { kind: 'icon', icon: 'rocket' },
+    ] as const) {
+      expect(validate(StructuredCompositionPresentation, composition).valid).toBe(true);
+    }
+    expect(
+      validate(StructuredCompositionPresentation, {
+        kind: 'icon',
+        icon: 'custom-svg',
+        html: '<svg />',
       }).valid,
     ).toBe(false);
   });

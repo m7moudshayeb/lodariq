@@ -4,6 +4,8 @@ import {
   AUTHORING_SESSION_CAPABILITIES,
   AuthoringDocumentPayload,
   AuthoringDocumentSessionResult,
+  AuthoringResourceLibrary,
+  AuthoringMediaAssetResource,
   AuthoringTranslationResult as AuthoringTranslationResultSchema,
   AuthoringProductMatchApplyResult as AuthoringProductMatchApplyResultSchema,
   AuthoringStagingReleaseState as AuthoringStagingReleaseStateSchema,
@@ -48,6 +50,9 @@ import {
   type AuthoringBrandThemeAcknowledgementResult,
   type AuthoringSessionContext,
   type AuthoringTranslationResult,
+  type AuthoringResourceLibrary as AuthoringResourceLibraryValue,
+  type AuthoringMediaAssetKind,
+  type AuthoringMediaAssetResource as AuthoringMediaAssetResourceValue,
   type BasicVisualPreflightIssueCode,
   type BrandThemeSnapshot,
   type AuthoringStagingVerificationRequest,
@@ -107,11 +112,14 @@ interface HostedEditorSession {
   document: LodariqDocument;
   documentIntent: AuthoringDocumentIntent;
   theme: BrandThemeSnapshot;
+  resources: AuthoringResourceLibraryValue;
+  documentUpdatedAt: string;
 }
 
 interface ScopedAuthoringDocument {
   document: LodariqDocument;
   theme: BrandThemeSnapshot;
+  documentUpdatedAt: string;
 }
 
 type HostedFailureCode =
@@ -685,13 +693,18 @@ async function establishHostedEditorSession(
       apiOrigin: handoff.apiOrigin,
       context: structuredClone(session.context),
     };
-    const loaded = await loadAuthoringDocument(handoff.apiOrigin, session.context);
+    const [loaded, resources] = await Promise.all([
+      loadAuthoringDocument(handoff.apiOrigin, session.context),
+      loadHostedAuthoringResources(handoff.apiOrigin),
+    ]);
     hostedEditorSession = {
       apiOrigin: handoff.apiOrigin,
       context: structuredClone(session.context),
       document: structuredClone(loaded.document),
       documentIntent: structuredClone(documentIntent),
       theme: structuredClone(loaded.theme),
+      resources: structuredClone(resources),
+      documentUpdatedAt: loaded.documentUpdatedAt,
     };
     postHostedMessage({
       protocol: HOSTED_AUTHORING_BRIDGE_PROTOCOL,
@@ -810,10 +823,133 @@ async function loadAuthoringDocument(
   return readScopedDocumentPayload(response, context);
 }
 
+async function loadHostedAuthoringResources(
+  apiOrigin: string,
+): Promise<AuthoringResourceLibraryValue> {
+  let response: Response;
+  try {
+    response = await requireHostedApiClient(apiOrigin).request('/v1/authoring/resources', {
+      method: 'GET',
+      useSession: true,
+    });
+  } catch {
+    throw new HostedEditorFailure('document-unavailable', true);
+  }
+  if (!response.ok) {
+    throw new HostedEditorFailure('document-unavailable', response.status >= 500);
+  }
+  const payload: unknown = await response.json();
+  const result = validate(AuthoringResourceLibrary, payload);
+  if (!result.valid) throw new HostedEditorFailure('protocol-error', false);
+  return structuredClone(result.value);
+}
+
+async function saveHostedAuthoringResources(
+  apiOrigin: string,
+  resources: Pick<AuthoringResourceLibraryValue, 'recipes' | 'checkpoints'>,
+): Promise<AuthoringResourceLibraryValue> {
+  const response = await requireHostedApiClient(apiOrigin).request('/v1/authoring/resources', {
+    method: 'PUT',
+    headers: { 'content-type': 'application/json' },
+    useSession: true,
+    body: JSON.stringify(resources),
+  });
+  if (!response.ok) throw new Error(authoringText('Draft could not be saved'));
+  const payload: unknown = await response.json();
+  const result = validate(AuthoringResourceLibrary, payload);
+  if (!result.valid) throw new Error(authoringText('Draft could not be saved'));
+  return structuredClone(result.value);
+}
+
+async function uploadHostedMediaAsset(
+  apiOrigin: string,
+  kind: AuthoringMediaAssetKind,
+  file: File,
+  options: { onProgress?: (progress: number) => void; savedToLibrary: boolean },
+): Promise<AuthoringMediaAssetResourceValue> {
+  const contentType = file.type || (kind === 'captions' ? 'text/vtt' : '');
+  const contentBase64 = bytesToBase64(await readFileBytesWithProgress(file, options.onProgress));
+  options.onProgress?.(88);
+  const response = await requireHostedApiClient(apiOrigin).request('/v1/authoring/media-assets', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    useSession: true,
+    body: JSON.stringify({
+      kind,
+      filename: file.name,
+      contentType,
+      contentBase64,
+      savedToLibrary: options.savedToLibrary,
+    }),
+  });
+  options.onProgress?.(96);
+  if (!response.ok) throw new Error(authoringText('Draft could not be saved'));
+  const payload: unknown = await response.json();
+  const result = validate(AuthoringMediaAssetResource, payload);
+  if (!result.valid) throw new Error(authoringText('Draft could not be saved'));
+  options.onProgress?.(100);
+  return structuredClone(result.value);
+}
+
+async function readFileBytesWithProgress(
+  file: File,
+  onProgress?: (progress: number) => void,
+): Promise<Uint8Array> {
+  onProgress?.(0);
+  if (typeof file.stream !== 'function') {
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    onProgress?.(80);
+    return bytes;
+  }
+  const reader = file.stream().getReader();
+  const chunks: Uint8Array[] = [];
+  let loadedBytes = 0;
+  while (true) {
+    const chunk = await reader.read();
+    if (chunk.done) break;
+    chunks.push(chunk.value);
+    loadedBytes += chunk.value.byteLength;
+    const fraction = file.size > 0 ? loadedBytes / file.size : 1;
+    onProgress?.(Math.min(80, Math.round(fraction * 80)));
+  }
+  const bytes = new Uint8Array(loadedBytes);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return bytes;
+}
+
+async function loadHostedMediaAssetPreview(
+  apiOrigin: string,
+  asset: AuthoringMediaAssetResourceValue,
+): Promise<Blob> {
+  const response = await requireHostedApiClient(apiOrigin).request(asset.downloadPath, {
+    method: 'GET',
+    useSession: true,
+  });
+  if (!response.ok) throw new Error(authoringText('Media asset is unavailable'));
+  const blob = await response.blob();
+  if (blob.size !== asset.byteLength || blob.type !== asset.contentType) {
+    throw new Error(authoringText('Media asset is unavailable'));
+  }
+  return blob;
+}
+
+function bytesToBase64(bytes: Uint8Array): string {
+  const chunks: string[] = [];
+  for (let offset = 0; offset < bytes.length; offset += 32_768) {
+    chunks.push(String.fromCharCode(...bytes.subarray(offset, offset + 32_768)));
+  }
+  return btoa(chunks.join(''));
+}
+
 async function persistHostedDocument(
   apiOrigin: string,
   context: AuthoringSessionContext,
   document: LodariqDocument,
+  expectedDocumentUpdatedAt: string,
 ): Promise<ScopedAuthoringDocument> {
   if (!documentMatchesSession(document, context)) {
     throw new Error(authoringText('Authoring document scope mismatch'));
@@ -826,7 +962,7 @@ async function persistHostedDocument(
         'content-type': 'application/json',
       },
       useSession: true,
-      body: JSON.stringify({ document }),
+      body: JSON.stringify({ document, expectedDocumentUpdatedAt }),
     });
   } catch {
     throw new Error(authoringText('Authoring document persistence failed'));
@@ -1392,6 +1528,7 @@ async function readScopedDocumentPayload(
   return {
     document: result.value.document,
     theme: result.value.theme,
+    documentUpdatedAt: result.value.documentUpdatedAt,
   };
 }
 
@@ -1484,6 +1621,8 @@ async function acceptAuthoringInit(
       directAuthoringHostServices?.services,
       session ? undefined : message.theme,
     );
+    const deliveryCapabilities =
+      session?.context.deliveryCapabilities ?? message.deliveryCapabilities;
     root.removeAttribute('data-state');
     root.textContent = '';
 
@@ -1498,6 +1637,7 @@ async function acceptAuthoringInit(
       allowedOrigins: [parentOrigin],
       targetOrigin: parentOrigin,
       services,
+      ...(deliveryCapabilities ? { deliveryCapabilities } : {}),
     });
     mounted = true;
     window.__lodariqEditorMounted = true;
@@ -1528,6 +1668,10 @@ function createHostedEditorServices(
     hostedSession?.theme ?? directTheme ?? LODARIQ_ACCESSIBLE_FALLBACK_THEME_V1,
   );
   let currentDraftRevision = 0;
+  let currentDocumentUpdatedAt = hostedSession?.documentUpdatedAt ?? '';
+  let currentAuthoringResources: AuthoringResourceLibraryValue = structuredClone(
+    hostedSession?.resources ?? { recipes: [], checkpoints: [], assets: [] },
+  );
   const canReadReleaseState = Boolean(
     hostedSession?.context.capabilities.includes(AUTHORING_SESSION_CAPABILITIES.READ_RELEASE_STATE),
   );
@@ -1636,8 +1780,44 @@ function createHostedEditorServices(
     saveDocument: (document) => {
       currentDocument = structuredClone(document);
     },
+    loadStepStyleRecipes: () => structuredClone(currentAuthoringResources.recipes),
+    loadDraftCheckpoints: () => structuredClone(currentAuthoringResources.checkpoints),
+    loadMediaAssets: () => structuredClone(currentAuthoringResources.assets),
     ...(hostedSession
       ? {
+          saveAuthoringResources: async (recipes, checkpoints) => {
+            currentAuthoringResources = await saveHostedAuthoringResources(
+              hostedSession.apiOrigin,
+              {
+                recipes: [...recipes].map((recipe) => structuredClone(recipe)),
+                checkpoints: [...checkpoints].map((checkpoint) => structuredClone(checkpoint)),
+              },
+            );
+          },
+          uploadMediaAsset: async (
+            kind: AuthoringMediaAssetKind,
+            file: File,
+            options: { onProgress?: (progress: number) => void; savedToLibrary: boolean },
+          ) => {
+            const asset = await uploadHostedMediaAsset(
+              hostedSession.apiOrigin,
+              kind,
+              file,
+              options,
+            );
+            currentAuthoringResources = {
+              ...currentAuthoringResources,
+              assets: [
+                asset,
+                ...currentAuthoringResources.assets.filter(
+                  (candidate) => candidate.id !== asset.id,
+                ),
+              ],
+            };
+            return asset;
+          },
+          loadMediaAssetPreview: (asset: AuthoringMediaAssetResourceValue) =>
+            loadHostedMediaAssetPreview(hostedSession.apiOrigin, asset),
           ...(hostedSession.context.translation?.state === 'available'
             ? {
                 translateDocument: (
@@ -1658,9 +1838,11 @@ function createHostedEditorServices(
               hostedSession.apiOrigin,
               hostedSession.context,
               document,
+              currentDocumentUpdatedAt,
             );
             currentDocument = structuredClone(persisted.document);
             currentTheme = structuredClone(persisted.theme);
+            currentDocumentUpdatedAt = persisted.documentUpdatedAt;
           },
         }
       : {}),

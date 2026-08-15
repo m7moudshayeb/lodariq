@@ -10,6 +10,7 @@ import {
   attachTargetToBlocks,
   blocksReferenceTarget,
   insertBlockInsideTourStep,
+  replaceRichContentInsideTourStep,
   insertTopLevelBlock,
   moveStepChildBlock,
   moveTopLevelBlock,
@@ -49,9 +50,7 @@ export function applyPreviewPatch(
   for (const op of ops) {
     if (op.op === 'setDocumentTitle') {
       const title = op.title.trim() || 'Untitled experience';
-      next = locale
-        ? setAuthoringLocalizedTitle(next, locale, title)
-        : { ...next, title };
+      next = locale ? setAuthoringLocalizedTitle(next, locale, title) : { ...next, title };
     }
     if (op.op === 'setAppearance') {
       next = { ...next, appearance: structuredClone(op.appearance) };
@@ -82,24 +81,28 @@ export function applyPreviewPatch(
       );
       if (blocks) next = { ...next, blocks };
     }
+    if (op.op === 'replaceStepRichContent') {
+      const blocks = replaceRichContentInsideTourStep(
+        next.blocks,
+        op.stepBlockId,
+        structuredClone(op.blocks),
+      );
+      if (blocks) next = { ...next, blocks };
+    }
     if (op.op === 'updateContent') {
-      next = locale && !isDefaultDocumentLocale(next, locale)
-        ? setAuthoringLocalizedBlockContent(next, locale, blockId, op.content)
-        : { ...next, blocks: updateBlockContent(next.blocks, blockId, op.content) };
+      next =
+        locale && !isDefaultDocumentLocale(next, locale)
+          ? setAuthoringLocalizedBlockContent(next, locale, blockId, op.content)
+          : { ...next, blocks: updateBlockContent(next.blocks, blockId, op.content) };
     }
     if (op.op === 'updateContentRuns') {
-      next = locale && !isDefaultDocumentLocale(next, locale)
-        ? setAuthoringLocalizedBlockContent(
-            next,
-            locale,
-            blockId,
-            op.content,
-            op.contentRuns,
-          )
-        : {
-            ...next,
-            blocks: updateBlockContentRuns(next.blocks, blockId, op.content, op.contentRuns),
-          };
+      next =
+        locale && !isDefaultDocumentLocale(next, locale)
+          ? setAuthoringLocalizedBlockContent(next, locale, blockId, op.content, op.contentRuns)
+          : {
+              ...next,
+              blocks: updateBlockContentRuns(next.blocks, blockId, op.content, op.contentRuns),
+            };
     }
     if (op.op === 'setTextStyle') {
       next = { ...next, blocks: setBlockTextStyle(next.blocks, blockId, op.textStyle) };

@@ -29,7 +29,10 @@ export default async function VerifyEmailPage({
         eyebrow={i18n._(AUTH_PAGE_MESSAGES.emailVerification)}
         title={i18n._(AUTH_PAGE_MESSAGES.incompleteLinkTitle)}
       >
-        <Link className={buttonVariants({ className: 'h-11 w-full' })} href="/sign-up">
+        <Link
+          className={buttonVariants({ className: 'h-11 w-full' })}
+          href={`/sign-up?returnTo=${encodeURIComponent(returnTo)}`}
+        >
           {i18n._(AUTH_PAGE_MESSAGES.returnToAccountCreation)}
         </Link>
       </AuthShell>

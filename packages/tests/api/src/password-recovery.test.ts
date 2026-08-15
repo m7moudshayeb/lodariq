@@ -73,9 +73,15 @@ describe('@lodariq/api password enrollment and recovery', () => {
 
   it('keeps unknown and duplicate emails generic and rejects them before password hashing', async () => {
     let passwordHashRuns = 0;
+    const events: Array<{
+      name: string;
+      correlationId?: string;
+      attributes?: Record<string, unknown>;
+    }> = [];
     const repository = legacyRepository({ duplicate: true });
     const app = createApiApp({
       repository,
+      observability: { emit: (event) => events.push(event) },
       passwordHashAdmissionGate: {
         async run(operation) {
           passwordHashRuns += 1;
@@ -91,6 +97,7 @@ describe('@lodariq/api password enrollment and recovery', () => {
         payload: { email },
       });
       expect(recovery.statusCode).toBe(202);
+      expect(recovery.headers['x-lodariq-auth-correlation-id']).toMatch(/^authcorr_/u);
       const link = recovery.json<{ challengeId: string; resetToken: string }>();
       expect(Object.keys(link).sort()).toEqual([
         'challengeId',
@@ -111,6 +118,89 @@ describe('@lodariq/api password enrollment and recovery', () => {
       expect(rejected.statusCode).toBe(400);
     }
     expect(passwordHashRuns).toBe(0);
+    expect(
+      events
+        .filter(({ name }) => name === 'auth.recovery.request.completed')
+        .map(({ attributes }) => attributes?.['outcome']),
+    ).toEqual(['no_match', 'ambiguous_match']);
+    expect(JSON.stringify(events)).not.toContain('nobody@example.com');
+    expect(JSON.stringify(events)).not.toContain('legacy@example.com');
+    expect(JSON.stringify(events)).not.toMatch(/lq_(?:reset|verify)_/u);
+    await app.close();
+  });
+
+  it('uses one injected UTC instant for issuance and immediate challenge resolution', async () => {
+    let now = new Date('2026-08-07T12:00:00.000Z');
+    const events: Array<{ name: string; correlationId?: string }> = [];
+    const repository = legacyRepository();
+    const app = createApiApp({
+      repository,
+      authClock: () => new Date(now),
+      observability: { emit: (event) => events.push(event) },
+    });
+
+    const recovery = await app.inject({
+      method: 'POST',
+      url: '/v1/auth/password-recovery',
+      payload: { email: 'legacy@example.com' },
+    });
+    const link = recovery.json<{ challengeId: string; resetToken: string; expiresAt: string }>();
+    expect(link.expiresAt).toBe('2026-08-07T12:30:00.000Z');
+    const recoveryCorrelationId = recovery.headers['x-lodariq-auth-correlation-id'];
+    expect(recoveryCorrelationId).toMatch(/^authcorr_/u);
+    expect(events.slice(0, 3).map(({ name }) => name)).toEqual([
+      'auth.recovery.requested',
+      'auth.recovery.challenge.persisted',
+      'auth.recovery.request.completed',
+    ]);
+    expect(new Set(events.slice(0, 3).map(({ correlationId }) => correlationId))).toEqual(
+      new Set([recoveryCorrelationId]),
+    );
+
+    now = new Date('2026-08-07T12:00:01.000Z');
+    const immediate = await app.inject({
+      method: 'POST',
+      url: '/v1/auth/set-password',
+      payload: {
+        challengeId: link.challengeId,
+        token: link.resetToken,
+        password: NEW_PASSWORD,
+      },
+    });
+
+    expect(immediate.statusCode).toBe(200);
+    expect(events.slice(3).map(({ name }) => name)).toEqual([
+      'auth.recovery.challenge.resolved',
+      'auth.recovery.challenge.consumed',
+    ]);
+    await app.close();
+  });
+
+  it('rejects a reset challenge at the documented 30-minute expiry boundary', async () => {
+    let now = new Date('2026-08-07T12:00:00.000Z');
+    const repository = legacyRepository();
+    const app = createApiApp({ repository, authClock: () => new Date(now) });
+
+    const recovery = await app.inject({
+      method: 'POST',
+      url: '/v1/auth/password-recovery',
+      payload: { email: 'legacy@example.com' },
+    });
+    const link = recovery.json<{ challengeId: string; resetToken: string }>();
+    now = new Date('2026-08-07T12:30:00.000Z');
+
+    const expired = await app.inject({
+      method: 'POST',
+      url: '/v1/auth/set-password',
+      payload: {
+        challengeId: link.challengeId,
+        token: link.resetToken,
+        password: NEW_PASSWORD,
+      },
+    });
+
+    expect(expired.statusCode).toBe(400);
+    expect(expired.json()).toMatchObject({ error: 'password_reset_invalid' });
     await app.close();
   });
 
@@ -178,13 +268,13 @@ describe('@lodariq/api password enrollment and recovery', () => {
     const oldSignIn = await app.inject({
       method: 'POST',
       url: '/v1/auth/sign-in',
-      payload: { email: 'owned@example.com', password: OLD_PASSWORD },
+      payload: { identifier: 'owned@example.com', password: OLD_PASSWORD },
     });
     expect(oldSignIn.statusCode).toBe(401);
     const newSignIn = await app.inject({
       method: 'POST',
       url: '/v1/auth/sign-in',
-      payload: { email: 'owned@example.com', password: NEW_PASSWORD },
+      payload: { identifier: 'owned@example.com', password: NEW_PASSWORD },
     });
     expect(newSignIn.statusCode).toBe(200);
     await app.close();

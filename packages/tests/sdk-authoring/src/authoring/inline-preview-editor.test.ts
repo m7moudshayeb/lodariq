@@ -7,8 +7,6 @@ import {
 } from '@lodariq/schema/dom';
 import { createInlinePreviewEditor } from '../../../../../packages/sdk-authoring/src/authoring/inline-preview-editor';
 
-const IDLE_COMMIT_MS = 750;
-
 describe('inline preview editor', () => {
   beforeEach(() => {
     vi.useFakeTimers();
@@ -19,20 +17,12 @@ describe('inline preview editor', () => {
     vi.useRealTimers();
   });
 
-  it('debounces content commits without replacing focused rich-text runs', async () => {
+  it('keeps the rendered popup output-only and emits no content commits', async () => {
     const root = createPreviewRoot();
     const paragraph = document.createElement('p');
     paragraph.setAttribute(LODARIQ_RENDERED_NODE_ID_ATTRIBUTE, 'paragraph_1');
     paragraph.setAttribute(LODARIQ_RENDERED_NODE_TYPE_ATTRIBUTE, 'paragraph');
-
-    const leadingRun = document.createElement('span');
-    leadingRun.textContent = 'On track ';
-    leadingRun.style.fontSize = '14px';
-    const emphasizedRun = document.createElement('span');
-    emphasizedRun.textContent = 'with the launch';
-    emphasizedRun.style.fontSize = '24px';
-    emphasizedRun.style.textDecoration = 'underline';
-    paragraph.append(leadingRun, emphasizedRun);
+    paragraph.textContent = 'On track with the launch';
     root.appendChild(paragraph);
 
     const onCommit = vi.fn();
@@ -42,44 +32,21 @@ describe('inline preview editor', () => {
       onCommit,
     });
 
-    expect(paragraph.getAttribute('contenteditable')).toBe('true');
+    expect(paragraph.hasAttribute('contenteditable')).toBe(false);
+    expect(paragraph.hasAttribute('role')).toBe(false);
+
     const richInput = new InputEvent('beforeinput', {
       bubbles: true,
       cancelable: true,
       inputType: 'formatBold',
     });
     paragraph.dispatchEvent(richInput);
-    expect(richInput.defaultPrevented).toBe(true);
-    const drop = new Event('drop', { bubbles: true, cancelable: true });
-    paragraph.dispatchEvent(drop);
-    expect(drop.defaultPrevented).toBe(true);
+    expect(richInput.defaultPrevented).toBe(false);
 
-    paragraph.focus();
-    emphasizedRun.append(' copy');
+    paragraph.textContent = 'A DOM-only mutation';
     paragraph.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText' }));
-    await vi.advanceTimersByTimeAsync(500);
-
-    emphasizedRun.append(' updated');
-    paragraph.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText' }));
-    await vi.advanceTimersByTimeAsync(500);
-
+    await vi.runAllTimersAsync();
     expect(onCommit).not.toHaveBeenCalled();
-    expect(root.activeElement).toBe(paragraph);
-    expect([...paragraph.children]).toEqual([leadingRun, emphasizedRun]);
-    expect(emphasizedRun.style.fontSize).toBe('24px');
-    expect(emphasizedRun.style.textDecoration).toBe('underline');
-
-    await vi.advanceTimersByTimeAsync(IDLE_COMMIT_MS - 500);
-
-    expect(onCommit).toHaveBeenCalledOnce();
-    expect(onCommit).toHaveBeenCalledWith({
-      blockId: 'paragraph_1',
-      content: 'On track with the launch copy updated',
-    });
-    expect(root.activeElement).toBe(paragraph);
-    expect([...paragraph.children]).toEqual([leadingRun, emphasizedRun]);
-    expect(emphasizedRun.style.fontSize).toBe('24px');
-    expect(emphasizedRun.style.textDecoration).toBe('underline');
 
     editor.destroy();
   });

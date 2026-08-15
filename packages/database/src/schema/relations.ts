@@ -3,6 +3,9 @@ import { authoritativeAnalyticsEvents, events } from './analytics';
 import { productStyleApplications, styleSources, themes, themeVersions } from './brand';
 import {
   brandDriftRuns,
+  authoringDraftCheckpoints,
+  authoringMediaAssets,
+  authoringStyleRecipes,
   compiledArtifacts,
   documents,
   documentVersions,
@@ -10,11 +13,25 @@ import {
 } from './documents';
 import { environments } from './environments';
 import {
+  accountEmailChangeChallenges,
+  accountEmailChangeOutbox,
+  accountSecurityEvents,
+  authIdentities,
+  authSecurityEvents,
   authOutbox,
   authSessions,
   emailVerificationChallenges,
+  identityOnboardingStates,
+  oidcAuthorizationAttempts,
+  tenantAuditEvents,
   passwordCredentials,
+  ssoConnections,
+  userEmails,
+  usernames,
   users,
+  workspaceAuthPolicies,
+  workspaceInvitations,
+  workspaceInvitationOutbox,
   workspaceMemberships,
   workspaces,
 } from './identity';
@@ -35,8 +52,10 @@ import {
   publicSdkInstallations,
 } from './sdk-authoring';
 
-export const workspaceRelations = relations(workspaces, ({ many }) => ({
+export const workspaceRelations = relations(workspaces, ({ many, one }) => ({
   memberships: many(workspaceMemberships),
+  invitations: many(workspaceInvitations),
+  invitationOutboxMessages: many(workspaceInvitationOutbox),
   environments: many(environments),
   publicSdkInstallations: many(publicSdkInstallations),
   publicSdkInstallationOrigins: many(publicSdkInstallationOrigins),
@@ -49,14 +68,30 @@ export const workspaceRelations = relations(workspaces, ({ many }) => ({
   productStyleApplications: many(productStyleApplications),
   brandDriftRuns: many(brandDriftRuns),
   documents: many(documents),
+  authoringStyleRecipes: many(authoringStyleRecipes),
+  authoringDraftCheckpoints: many(authoringDraftCheckpoints),
+  authoringMediaAssets: many(authoringMediaAssets),
   visualCheckRuns: many(visualCheckRuns),
   publicationVerifications: many(publicationVerifications),
   releaseApprovals: many(releaseApprovals),
   events: many(events),
   analyticsEvents: many(authoritativeAnalyticsEvents),
+  ssoConnections: many(ssoConnections),
+  tenantAuditEvents: many(tenantAuditEvents),
+  authPolicy: one(workspaceAuthPolicies, {
+    fields: [workspaces.id],
+    references: [workspaceAuthPolicies.workspaceId],
+  }),
 }));
 
-export const userRelations = relations(users, ({ many }) => ({
+export const workspaceAuthPolicyRelations = relations(workspaceAuthPolicies, ({ one }) => ({
+  workspace: one(workspaces, {
+    fields: [workspaceAuthPolicies.workspaceId],
+    references: [workspaces.id],
+  }),
+}));
+
+export const userRelations = relations(users, ({ many, one }) => ({
   memberships: many(workspaceMemberships),
   authSessions: many(authSessions),
   emailVerificationChallenges: many(emailVerificationChallenges),
@@ -66,7 +101,138 @@ export const userRelations = relations(users, ({ many }) => ({
   approvedAuthoringRequests: many(authoringAuthorizationRequests),
   authoringActivationGrants: many(authoringActivationGrants),
   brandDriftRuns: many(brandDriftRuns),
+  emails: many(userEmails),
+  identities: many(authIdentities),
+  onboardingStates: many(identityOnboardingStates),
+  oidcAuthorizationAttempts: many(oidcAuthorizationAttempts),
+  authSecurityEvents: many(authSecurityEvents, { relationName: 'securityEventSubject' }),
+  accountSecurityEvents: many(accountSecurityEvents, { relationName: 'accountSecuritySubject' }),
+  authoredAccountSecurityEvents: many(accountSecurityEvents, {
+    relationName: 'accountSecurityActor',
+  }),
+  accountEmailChanges: many(accountEmailChangeChallenges),
+  accountEmailChangeMessages: many(accountEmailChangeOutbox),
+  authoredAuthSecurityEvents: many(authSecurityEvents, { relationName: 'securityEventActor' }),
+  authoredTenantAuditEvents: many(tenantAuditEvents, { relationName: 'tenantAuditActor' }),
+  targetedTenantAuditEvents: many(tenantAuditEvents, { relationName: 'tenantAuditTarget' }),
+  username: one(usernames, { fields: [users.id], references: [usernames.userId] }),
 }));
+
+export const userEmailRelations = relations(userEmails, ({ one }) => ({
+  user: one(users, { fields: [userEmails.userId], references: [users.id] }),
+}));
+
+export const usernameRelations = relations(usernames, ({ one }) => ({
+  user: one(users, { fields: [usernames.userId], references: [users.id] }),
+}));
+
+export const authIdentityRelations = relations(authIdentities, ({ one, many }) => ({
+  user: one(users, { fields: [authIdentities.userId], references: [users.id] }),
+  sessions: many(authSessions),
+}));
+
+export const authSecurityEventRelations = relations(authSecurityEvents, ({ one }) => ({
+  user: one(users, {
+    fields: [authSecurityEvents.userId],
+    references: [users.id],
+    relationName: 'securityEventSubject',
+  }),
+  actor: one(users, {
+    fields: [authSecurityEvents.actorUserId],
+    references: [users.id],
+    relationName: 'securityEventActor',
+  }),
+}));
+
+export const accountSecurityEventRelations = relations(accountSecurityEvents, ({ one }) => ({
+  user: one(users, {
+    fields: [accountSecurityEvents.userId],
+    references: [users.id],
+    relationName: 'accountSecuritySubject',
+  }),
+  actor: one(users, {
+    fields: [accountSecurityEvents.actorUserId],
+    references: [users.id],
+    relationName: 'accountSecurityActor',
+  }),
+}));
+
+export const accountEmailChangeRelations = relations(
+  accountEmailChangeChallenges,
+  ({ one, many }) => ({
+    user: one(users, {
+      fields: [accountEmailChangeChallenges.userId],
+      references: [users.id],
+    }),
+    messages: many(accountEmailChangeOutbox),
+  }),
+);
+
+export const accountEmailChangeOutboxRelations = relations(
+  accountEmailChangeOutbox,
+  ({ one }) => ({
+    user: one(users, {
+      fields: [accountEmailChangeOutbox.userId],
+      references: [users.id],
+    }),
+    challenge: one(accountEmailChangeChallenges, {
+      fields: [accountEmailChangeOutbox.challengeId],
+      references: [accountEmailChangeChallenges.id],
+    }),
+  }),
+);
+
+export const identityOnboardingStateRelations = relations(identityOnboardingStates, ({ one }) => ({
+  user: one(users, {
+    fields: [identityOnboardingStates.userId],
+    references: [users.id],
+  }),
+  completedWorkspace: one(workspaces, {
+    fields: [identityOnboardingStates.completedWorkspaceId],
+    references: [workspaces.id],
+  }),
+}));
+
+export const oidcAuthorizationAttemptRelations = relations(
+  oidcAuthorizationAttempts,
+  ({ one }) => ({
+    user: one(users, {
+      fields: [oidcAuthorizationAttempts.userId],
+      references: [users.id],
+    }),
+  }),
+);
+
+export const tenantAuditEventRelations = relations(tenantAuditEvents, ({ one }) => ({
+  workspace: one(workspaces, {
+    fields: [tenantAuditEvents.workspaceId],
+    references: [workspaces.id],
+  }),
+  actor: one(users, {
+    fields: [tenantAuditEvents.actorUserId],
+    references: [users.id],
+    relationName: 'tenantAuditActor',
+  }),
+  target: one(users, {
+    fields: [tenantAuditEvents.targetUserId],
+    references: [users.id],
+    relationName: 'tenantAuditTarget',
+  }),
+}));
+
+export const workspaceInvitationOutboxRelations = relations(
+  workspaceInvitationOutbox,
+  ({ one }) => ({
+    workspace: one(workspaces, {
+      fields: [workspaceInvitationOutbox.workspaceId],
+      references: [workspaces.id],
+    }),
+    invitation: one(workspaceInvitations, {
+      fields: [workspaceInvitationOutbox.invitationId],
+      references: [workspaceInvitations.id],
+    }),
+  }),
+);
 
 export const passwordCredentialRelations = relations(passwordCredentials, ({ one }) => ({
   user: one(users, {
@@ -82,6 +248,17 @@ export const authSessionRelations = relations(authSessions, ({ one }) => ({
   }),
   activeWorkspace: one(workspaces, {
     fields: [authSessions.activeWorkspaceId],
+    references: [workspaces.id],
+  }),
+  identity: one(authIdentities, {
+    fields: [authSessions.identityId],
+    references: [authIdentities.id],
+  }),
+}));
+
+export const ssoConnectionRelations = relations(ssoConnections, ({ one }) => ({
+  workspace: one(workspaces, {
+    fields: [ssoConnections.workspaceId],
     references: [workspaces.id],
   }),
 }));

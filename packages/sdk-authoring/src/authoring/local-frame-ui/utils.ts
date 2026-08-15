@@ -21,8 +21,9 @@ import { authoringText } from '../../i18n';
 const EDITABLE_BLOCK_TYPE_SET = new Set<string>(EDITABLE_BLOCK_TYPES);
 const STEP_CONTENT_COMMAND_SET = new Set<string>(STEP_CONTENT_COMMANDS);
 const STEP_COMMAND_ALIASES: Readonly<Record<string, StepContentCommand>> = {
+  content: 'paragraph',
+  rich: 'paragraph',
   text: 'paragraph',
-  title: 'heading',
 };
 const SLASH_COMMAND_LABELS = Object.fromEntries(
   SLASH_COMMANDS.map((command) => [command.value, command.label]),
@@ -96,12 +97,15 @@ const TARGET_EVIDENCE_FAMILY_LABELS: Readonly<Record<string, string>> = {
 
 const BLOCK_TYPE_LABELS: Readonly<Record<string, string>> = {
   tourStep: authoringText('Step'),
-  paragraph: authoringText('Text'),
+  paragraph: authoringText('Rich content'),
   list: authoringText('List'),
   divider: authoringText('Divider'),
   link: authoringText('Link'),
   targetChip: authoringText('Placement'),
   validationBadge: authoringText('Validation'),
+  callout: authoringText('Callout'),
+  stat: authoringText('Stat'),
+  icon: authoringText('Icon'),
 };
 
 export function targetById(

@@ -26,6 +26,15 @@ function main(env = process.env) {
   requireEmailVerification(env, failures);
   requirePublicAuthCapabilities(env, failures);
   requirePasswordHashAdmission(env, failures);
+  requireWebAuthnConfiguration(env, failures);
+  requireOidcConfiguration(env, failures);
+  requireEnterpriseOidcConfiguration(env, failures);
+
+  if (env.LODARIQ_ENTERPRISE_VALIDATION_DATABASE_URL?.trim()) {
+    failures.push(
+      'LODARIQ_ENTERPRISE_VALIDATION_DATABASE_URL is operator-only and must not enter the API runtime.',
+    );
+  }
 
   const databaseUrl = parseDatabaseUrl(env.DATABASE_URL, failures);
   if (databaseUrl) {
@@ -87,6 +96,30 @@ function requireDeploymentOriginTuple(env, failures) {
   if (exactOrigin(env.LODARIQ_AUTHORING_IFRAME_SRC) !== tuple.editor) {
     failures.push('LODARIQ_AUTHORING_IFRAME_SRC must use the selected editor origin.');
   }
+  if (
+    env.LODARIQ_WEBAUTHN_MODE?.trim() === 'enabled' &&
+    exactOrigin(env.LODARIQ_WEBAUTHN_ORIGIN) !== tuple.app
+  ) {
+    failures.push('LODARIQ_WEBAUTHN_ORIGIN must use the selected deployment app origin.');
+  }
+  if (env.LODARIQ_OIDC_MODE?.trim() === 'enabled') {
+    for (const key of [
+      'LODARIQ_GOOGLE_OIDC_REDIRECT_URI',
+      'LODARIQ_MICROSOFT_OIDC_REDIRECT_URI',
+    ]) {
+      if (env[key]?.trim() && exactOrigin(env[key]) !== tuple.app) {
+        failures.push(`${key} must use the selected deployment app origin.`);
+      }
+    }
+  }
+  if (
+    env.LODARIQ_ENTERPRISE_OIDC_MODE?.trim() === 'enabled' &&
+    exactOrigin(env.LODARIQ_ENTERPRISE_OIDC_REDIRECT_URI) !== tuple.app
+  ) {
+    failures.push(
+      'LODARIQ_ENTERPRISE_OIDC_REDIRECT_URI must use the selected deployment app origin.',
+    );
+  }
   if (apiOrigin !== 'https://api.lodariq.io') {
     const allowedOrigins = new Set(
       (env.LODARIQ_AUTH_ALLOWED_ORIGINS ?? '')
@@ -99,6 +132,130 @@ function requireDeploymentOriginTuple(env, failures) {
         'LODARIQ_AUTH_ALLOWED_ORIGINS must include the selected non-production app origin.',
       );
     }
+  }
+}
+
+function requireWebAuthnConfiguration(env, failures) {
+  const mode = env.LODARIQ_WEBAUTHN_MODE?.trim() ?? 'disabled';
+  if (mode === 'disabled') return;
+  if (mode !== 'enabled') {
+    failures.push('LODARIQ_WEBAUTHN_MODE must be "enabled" or "disabled".');
+    return;
+  }
+  const origin = exactOrigin(env.LODARIQ_WEBAUTHN_ORIGIN);
+  if (!origin || origin !== env.LODARIQ_WEBAUTHN_ORIGIN?.trim() || !origin.startsWith('https://')) {
+    failures.push('LODARIQ_WEBAUTHN_ORIGIN must be an exact HTTPS origin.');
+    return;
+  }
+  const host = new URL(origin).hostname;
+  if (env.LODARIQ_WEBAUTHN_RP_ID?.trim() !== host) {
+    failures.push('LODARIQ_WEBAUTHN_RP_ID must equal the WebAuthn origin host.');
+  }
+}
+
+function requireOidcConfiguration(env, failures) {
+  const mode = env.LODARIQ_OIDC_MODE?.trim() ?? 'disabled';
+  if (mode === 'disabled') return;
+  if (mode !== 'enabled') {
+    failures.push('LODARIQ_OIDC_MODE must be "enabled" or "disabled".');
+    return;
+  }
+  requireInternalSecret('LODARIQ_OIDC_STATE_SECRET', env.LODARIQ_OIDC_STATE_SECRET, failures);
+  let providerCount = 0;
+  for (const provider of ['GOOGLE', 'MICROSOFT']) {
+    const clientId = env[`LODARIQ_${provider}_OIDC_CLIENT_ID`]?.trim();
+    const clientSecret = env[`LODARIQ_${provider}_OIDC_CLIENT_SECRET`]?.trim();
+    const redirectUri = env[`LODARIQ_${provider}_OIDC_REDIRECT_URI`]?.trim();
+    const configured = [clientId, clientSecret, redirectUri].filter(Boolean).length;
+    if (configured === 0) continue;
+    providerCount += 1;
+    if (configured !== 3) failures.push(`${provider} OIDC configuration must be complete.`);
+    requireExactOidcRedirectUri(
+      `LODARIQ_${provider}_OIDC_REDIRECT_URI`,
+      redirectUri,
+      `/api/auth/oidc/${provider.toLowerCase()}/callback`,
+      failures,
+    );
+  }
+  if (providerCount === 0) failures.push('At least one OIDC provider must be configured.');
+  const tenant = env.LODARIQ_MICROSOFT_OIDC_TENANT?.trim() ?? '';
+  if (
+    env.LODARIQ_MICROSOFT_OIDC_CLIENT_ID?.trim() &&
+    !/^(?:common|organizations|consumers|[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})$/iu.test(tenant)
+  ) {
+    failures.push('LODARIQ_MICROSOFT_OIDC_TENANT is invalid.');
+  }
+}
+
+function requireEnterpriseOidcConfiguration(env, failures) {
+  const mode = env.LODARIQ_ENTERPRISE_OIDC_MODE?.trim() ?? 'disabled';
+  const dependentValues = [
+    env.LODARIQ_ENTERPRISE_OIDC_REDIRECT_URI?.trim(),
+    env.LODARIQ_ENTERPRISE_OIDC_CLIENT_SECRETS?.trim(),
+  ].filter(Boolean);
+  if (mode === 'disabled') {
+    if (dependentValues.length) {
+      failures.push(
+        'Enterprise OIDC callback and client secrets must be absent when enterprise OIDC is disabled.',
+      );
+    }
+    return;
+  }
+  if (mode !== 'enabled') {
+    failures.push('LODARIQ_ENTERPRISE_OIDC_MODE must be "enabled" or "disabled".');
+    return;
+  }
+  requireInternalSecret('LODARIQ_OIDC_STATE_SECRET', env.LODARIQ_OIDC_STATE_SECRET, failures);
+  requireExactOidcRedirectUri(
+    'LODARIQ_ENTERPRISE_OIDC_REDIRECT_URI',
+    env.LODARIQ_ENTERPRISE_OIDC_REDIRECT_URI?.trim(),
+    '/api/auth/enterprise/oidc/callback',
+    failures,
+  );
+  const rawSecrets = env.LODARIQ_ENTERPRISE_OIDC_CLIENT_SECRETS?.trim() ?? '';
+  let secrets;
+  try {
+    secrets = JSON.parse(rawSecrets);
+  } catch {
+    failures.push('LODARIQ_ENTERPRISE_OIDC_CLIENT_SECRETS must be a JSON object.');
+    return;
+  }
+  if (!secrets || typeof secrets !== 'object' || Array.isArray(secrets)) {
+    failures.push('LODARIQ_ENTERPRISE_OIDC_CLIENT_SECRETS must be a JSON object.');
+    return;
+  }
+  const entries = Object.entries(secrets);
+  if (entries.length < 1 || entries.length > 100) {
+    failures.push(
+      'LODARIQ_ENTERPRISE_OIDC_CLIENT_SECRETS must contain between one and 100 connections.',
+    );
+  }
+  for (const [connectionId, secret] of entries) {
+    if (!/^sso_[A-Za-z0-9_-]{20,}$/u.test(connectionId)) {
+      failures.push('Enterprise OIDC client secret map contains an invalid connection ID.');
+    }
+    const byteLength = typeof secret === 'string' ? Buffer.byteLength(secret, 'utf8') : 0;
+    if (byteLength < 32 || byteLength > 1024 || /[\r\n]/u.test(String(secret))) {
+      failures.push(`Enterprise OIDC client secret for ${connectionId} is invalid.`);
+    }
+  }
+}
+
+function requireExactOidcRedirectUri(name, value, expectedPath, failures) {
+  try {
+    const url = new URL(value ?? '');
+    if (
+      url.protocol !== 'https:' ||
+      url.username ||
+      url.password ||
+      url.pathname !== expectedPath ||
+      url.search ||
+      url.hash
+    ) {
+      failures.push(`${name} must be an exact public HTTPS callback URL.`);
+    }
+  } catch {
+    failures.push(`${name} must be an exact public HTTPS callback URL.`);
   }
 }
 
@@ -132,11 +289,44 @@ function requireEmailVerification(env, failures) {
   if (!env.LODARIQ_AUTH_EMAIL_FROM?.trim()) {
     failures.push('LODARIQ_AUTH_EMAIL_FROM is required when email delivery is enabled.');
   }
-  requireInternalSecret(
-    'LODARIQ_AUTH_EMAIL_TOKEN_SECRET',
-    env.LODARIQ_AUTH_EMAIL_TOKEN_SECRET,
-    failures,
-  );
+  requireEmailTokenKeyring(env, failures);
+}
+
+function requireEmailTokenKeyring(env, failures) {
+  const serialized = env.LODARIQ_AUTH_EMAIL_TOKEN_KEYS?.trim();
+  if (!serialized) {
+    requireInternalSecret(
+      'LODARIQ_AUTH_EMAIL_TOKEN_SECRET',
+      env.LODARIQ_AUTH_EMAIL_TOKEN_SECRET,
+      failures,
+    );
+    return;
+  }
+  let keys;
+  try {
+    keys = JSON.parse(serialized);
+  } catch {
+    failures.push('LODARIQ_AUTH_EMAIL_TOKEN_KEYS must be a JSON object.');
+    return;
+  }
+  if (!keys || typeof keys !== 'object' || Array.isArray(keys)) {
+    failures.push('LODARIQ_AUTH_EMAIL_TOKEN_KEYS must be a JSON object.');
+    return;
+  }
+  const entries = Object.entries(keys);
+  if (entries.length < 1 || entries.length > 8) {
+    failures.push('LODARIQ_AUTH_EMAIL_TOKEN_KEYS must contain between one and eight keys.');
+  }
+  for (const [keyId, secret] of entries) {
+    if (!/^[a-z0-9][a-z0-9_-]{0,31}$/u.test(keyId)) {
+      failures.push(`Invalid auth email token key id: ${keyId}.`);
+    }
+    requireInternalSecret(`LODARIQ_AUTH_EMAIL_TOKEN_KEYS.${keyId}`, secret, failures);
+  }
+  const activeKeyId = env.LODARIQ_AUTH_EMAIL_TOKEN_ACTIVE_KEY_ID?.trim() ?? '';
+  if (!Object.hasOwn(keys, activeKeyId)) {
+    failures.push('LODARIQ_AUTH_EMAIL_TOKEN_ACTIVE_KEY_ID must identify a configured key.');
+  }
 }
 
 function requirePublicAuthCapabilities(env, failures) {

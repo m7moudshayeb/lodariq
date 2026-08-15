@@ -35,6 +35,8 @@ export interface PublicationBrowserVerificationOptions {
 export async function runPublicationBrowserVerification(
   options: PublicationBrowserVerificationOptions,
 ): Promise<BrowserVerificationReport> {
+  let stopped = false;
+  const previousFocus = document.activeElement;
   try {
     await options.playExactArtifact();
     await waitForFontsAndStableFrames(document);
@@ -70,10 +72,19 @@ export async function runPublicationBrowserVerification(
       checks.set('rtl', await rtlStatus(host, card));
       checks.set('reduced_motion', reducedMotionStatus(card));
       checks.set('zoom_200', await zoomStatus(host, card));
+      checks.set('keyboard_navigation', keyboardNavigationStatus(host, card));
     } else {
       for (const code of BROWSER_VERIFICATION_CHECK_CODES) {
         if (!checks.has(code)) checks.set(code, 'failed');
       }
+    }
+
+    if (options.stopExactArtifact) {
+      options.stopExactArtifact();
+      stopped = true;
+      checks.set('focus_restoration', focusRestorationStatus(previousFocus));
+    } else {
+      checks.set('focus_restoration', 'warning');
     }
 
     const normalizedChecks = BROWSER_VERIFICATION_CHECK_CODES.map(
@@ -93,7 +104,7 @@ export async function runPublicationBrowserVerification(
     }
     return validation.value;
   } finally {
-    options.stopExactArtifact?.();
+    if (!stopped) options.stopExactArtifact?.();
   }
 }
 
@@ -272,6 +283,28 @@ async function zoomStatus(
     if (previous) host.style.setProperty('zoom', previous);
     else host.style.removeProperty('zoom');
   }
+}
+
+function keyboardNavigationStatus(host: HTMLElement, card: HTMLElement): BrowserVerificationStatus {
+  const controls = [
+    ...card.querySelectorAll<HTMLElement>(
+      'button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+    ),
+  ].filter((control) => !control.hidden && control.getAttribute('aria-hidden') !== 'true');
+  if (controls.length === 0) return 'warning';
+  for (const control of controls) {
+    control.focus({ preventScroll: true });
+    if (host.shadowRoot?.activeElement !== control) return 'failed';
+  }
+  const tab = new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true });
+  controls[controls.length - 1]?.dispatchEvent(tab);
+  return tab.defaultPrevented ? 'failed' : 'passed';
+}
+
+function focusRestorationStatus(previousFocus: Element | null): BrowserVerificationStatus {
+  if (!(previousFocus instanceof HTMLElement) || previousFocus === document.body) return 'warning';
+  if (!previousFocus.isConnected) return 'warning';
+  return document.activeElement === previousFocus ? 'passed' : 'failed';
 }
 
 function rectContains(container: DOMRect, child: DOMRect): boolean {

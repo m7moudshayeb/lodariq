@@ -5,7 +5,9 @@ import type {
   AuthOutboxRecord,
   IdentityWorkspaceRecord,
   SetPasswordOutboxRecord,
+  WorkspaceInvitationOutboxRecord,
 } from './identity';
+import type { AccountEmailChangeOutboxRecord } from './account-management';
 import type {
   PublicSdkInstallationOriginRecord,
   PublicSdkInstallationRecord,
@@ -104,7 +106,10 @@ export function hashIdentityEmailLookup(emailNormalized: string): string {
 
 export type InMemoryAuthEmailRow =
   | { purpose: 'email_verification'; record: AuthOutboxRecord }
-  | { purpose: 'set_password'; record: SetPasswordOutboxRecord };
+  | { purpose: 'set_password'; record: SetPasswordOutboxRecord }
+  | { purpose: 'workspace_invitation'; record: WorkspaceInvitationOutboxRecord }
+  | { purpose: 'account_email_change_current'; record: AccountEmailChangeOutboxRecord }
+  | { purpose: 'account_email_change_new'; record: AccountEmailChangeOutboxRecord };
 
 export function compareInMemoryAuthEmailRows(
   left: InMemoryAuthEmailRow,
@@ -124,7 +129,11 @@ export function isValidAuthEmailLeaseMutation(
 ): boolean {
   return (
     /^outbox_[A-Za-z0-9_-]{20,200}$/u.test(input.id) &&
-    (input.purpose === 'email_verification' || input.purpose === 'set_password') &&
+    (input.purpose === 'email_verification' ||
+      input.purpose === 'set_password' ||
+      input.purpose === 'workspace_invitation' ||
+      input.purpose === 'account_email_change_current' ||
+      input.purpose === 'account_email_change_new') &&
     Number.isSafeInteger(input.leaseVersion) &&
     input.leaseVersion >= 1 &&
     input.leaseVersion < 2_147_483_647 &&
@@ -133,10 +142,19 @@ export function isValidAuthEmailLeaseMutation(
 }
 
 export function isCurrentAuthEmailLease(
-  record: AuthOutboxRecord | SetPasswordOutboxRecord | undefined,
+  record:
+    | AuthOutboxRecord
+    | SetPasswordOutboxRecord
+    | WorkspaceInvitationOutboxRecord
+    | AccountEmailChangeOutboxRecord
+    | undefined,
   leaseVersion: number,
   mutationAtMs?: number,
-): record is AuthOutboxRecord | SetPasswordOutboxRecord {
+): record is
+  | AuthOutboxRecord
+  | SetPasswordOutboxRecord
+  | WorkspaceInvitationOutboxRecord
+  | AccountEmailChangeOutboxRecord {
   return Boolean(
     record &&
     record.processedAt === null &&

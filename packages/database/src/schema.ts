@@ -1,5 +1,6 @@
 export * from './schema/shared';
 export * from './schema/identity';
+export * from './schema/enterprise-identity';
 export * from './schema/environments';
 export * from './schema/brand';
 export * from './schema/documents';

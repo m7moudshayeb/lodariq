@@ -33,7 +33,7 @@ references like (PRD §16.0) point to that document.
   smoke/convergence evidence, the B4 measurement-backed ADR, and usability
   evidence remain pending**
   (PRD §16.4)
-- Last updated: 2026-08-09
+- Last updated: 2026-08-15
 - Current execution plan:
   `docs/plans/phase-2-technical-completion.md`
 
@@ -43,6 +43,57 @@ Status legend:
 - 🟡 Scaffolded — structure/contract in place; full behavior lands in a later phase.
 - ⏳ Pending — not started yet (belongs to a later phase).
 - ➖ N/A yet — deliberately deferred per the PRD.
+
+---
+
+## 2026-08-15 authentication and enterprise identity checkpoint
+
+- The nine-phase authentication hardening implementation is present across the
+  canonical TypeBox contracts, API/BFF, dashboard, provider-neutral identities,
+  onboarding, tenant administration, account/session security, passkeys,
+  recovery codes, Google/Microsoft OIDC, and workspace enterprise OIDC/SCIM.
+- Workspace enterprise policy is checked at selection, every control-plane
+  authorization, and creator-popup authorization. Consumer OIDC, password, stale
+  membership, lower assurance, and a disabled/deprovisioned enterprise principal
+  fail closed.
+- Enterprise activation requires real Okta/Entra evidence written by a dedicated
+  validator role; SCIM lifecycle and connection disablement revoke normal and
+  authoring access; break-glass is two-owner, AAL2, non-password, short-lived, and
+  single-use. SAML/SLO remain deliberately unsupported.
+- The implementation includes in-memory and disposable PostgreSQL/RLS tests,
+  schema negatives, API/dashboard/popup coverage, migration safety, runtime
+  preflight, ADRs, and rollout/rollback procedures. A fresh consolidated
+  verification run was intentionally not performed at handoff. Real Okta/Entra
+  tenant validation, evidence recording, isolated migration rehearsal, live RLS,
+  deployment smoke tests, and availability approval remain unclaimed.
+
+See `docs/plans/authentication-identity-and-tenant-hardening.md`,
+`docs/adr/0025-enterprise-identity-boundary.md`, and
+`docs/deployment/enterprise-identity-rollout.md` for the exact boundary.
+
+---
+
+## 2026-08-15 Tour rich-content checkpoint
+
+- The Tour popup uses one reusable freeform Rich Content editor for text,
+  headings, lists, callouts, dividers, links, emoji, allowlisted Lucide icons,
+  images/GIFs, videos/captions, inline highlight/motion, numeric spacing, and
+  resizable media. CTA buttons remain separate action items and can move before
+  or after the content.
+- Canonical output remains closed Lodariq block JSON with bounded inline runs;
+  Lexical, React, Frimousse, selection state, upload progress, and object URLs
+  remain authoring-only.
+- Hosted media continues through the authenticated API. Local media metadata
+  and Blobs now persist atomically in IndexedDB and resolve on demand across
+  editor iframe lifecycles.
+- Focused rich-content/canvas and local-dev tests, SDK authoring typecheck,
+  lint, formatting, and build pass. The latest delta still needs the final
+  in-app close/reopen media check and a fresh full repository regression gate;
+  earlier full verification remains a pre-expansion baseline.
+
+See `docs/guides/rich-content-authoring.md` and
+`docs/plans/tour-authoring-reliability-and-capabilities.md` for the detailed
+contract and completion boundary.
 
 ---
 
@@ -70,7 +121,7 @@ Status legend:
 | `packages/sdk-authoring` `@lodariq/sdk-authoring` (PRD §16.0)       | ✅     | authoring, bridge, editor                                              |
 | └ `src/authoring` (PRD §16.0)                                       | 🟡     | Local iframe shell + target-pick wiring                                |
 | └ `src/bridge` (PRD §16.0)                                          | 🟡     | Origin checks, validation, ack/timeouts, target pick                   |
-| └ `src/editor` (PRD §16.0)                                          | 🟡     | Lexical boundary, stable IDs, serialize/migrate hooks                  |
+| └ `src/editor` (PRD §16.0)                                          | ✅     | Reusable freeform Rich Content editor; see the rich-content guide      |
 | `apps/fixture-host` (PRD §16.0)                                     | ✅     | SaaS-like routes/drawer/scroll/lazy + SDK boot                         |
 | `apps/customer-like-host` (PRD §16.2)                               | ✅     | Secondary SDK host for Phase 0 overfitting checks                      |
 | `apps/sdk-playground` (PRD §16.0)                                   | ✅     | Compiles fixture to delivery JSON                                      |
@@ -113,6 +164,7 @@ Status legend:
 | 0015 SDK-first in-product authoring entry  | §6.2.1, §7.3, §9.4, §16.4, §20   | ✅ Accepted; Phase 2 Slice 1 implementation locally verified  |
 | 0016 selector-free Target Identity V2      | §8.1–§8.6, §16.4, §18.2, §20     | ✅ Accepted; code checkpoint consolidated-verified            |
 | 0017 Lodariq-owned authentication          | §6.2.1, §11.2, §14.5, §16.4, §20 | ✅ Accepted; code milestone verified, production cutover open |
+| 0025 enterprise identity boundary           | §20                               | ✅ Accepted; code present, live provider rollout gated         |
 
 ---
 

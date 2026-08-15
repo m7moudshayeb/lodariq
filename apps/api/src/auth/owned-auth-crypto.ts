@@ -2,6 +2,9 @@ import { createHash, createHmac, randomBytes } from 'node:crypto';
 import { argon2id, hash as hashArgon2, verify as verifyArgon2 } from 'argon2';
 import type { AuthSessionRecord, PasswordCredentialRecord } from '@lodariq/database';
 import {
+  type AuthAssuranceLevel,
+  type AuthenticationMethod,
+  type AuthSessionDurationPolicy,
   AUTH_PASSWORD_MAX_LENGTH,
   AUTH_PASSWORD_MIN_LENGTH,
   isAuthPassword,
@@ -10,12 +13,25 @@ import {
 export const OWNED_PASSWORD_ALGORITHM = 'argon2id-v1' as const;
 export const AUTH_SESSION_IDLE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 export const AUTH_SESSION_ABSOLUTE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+export const AUTH_STANDARD_SESSION_IDLE_TTL_MS = 12 * 60 * 60 * 1000;
+export const AUTH_STANDARD_SESSION_ABSOLUTE_TTL_MS = 24 * 60 * 60 * 1000;
+export const AUTH_MANAGED_SESSION_IDLE_TTL_MS = 8 * 60 * 60 * 1000;
+export const AUTH_MANAGED_SESSION_ABSOLUTE_TTL_MS = 12 * 60 * 60 * 1000;
 export const AUTH_SESSION_TOUCH_INTERVAL_MS = 15 * 60 * 1000;
 export const EMAIL_VERIFICATION_TTL_MS = 24 * 60 * 60 * 1000;
 export const PASSWORD_RESET_TTL_MS = 30 * 60 * 1000;
+export const WORKSPACE_INVITATION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
 export type AuthRateBucketPurpose =
-  'sign-in' | 'sign-up' | 'password-recovery-request' | 'password-recovery-complete';
+  | 'sign-in'
+  | 'sign-up'
+  | 'verification-resend'
+  | 'password-recovery-request'
+  | 'password-recovery-complete'
+  | 'username-change'
+  | 'tenant-mutation'
+  | 'enterprise-discovery'
+  | 'enterprise-mutation';
 
 const PASSWORD_HASH_OPTIONS = Object.freeze({
   type: argon2id,
@@ -58,6 +74,32 @@ export function hashPasswordResetToken(rawToken: string): string {
   return sha256Hex(rawToken);
 }
 
+export function createWorkspaceInvitationToken(invitationId: string, secret: string): string {
+  const digest = createHmac('sha256', secret)
+    .update(`lodariq-workspace-invitation-v1\0${invitationId}`)
+    .digest();
+  return `lq_invite_${digest.toString('base64url')}`;
+}
+
+export function hashWorkspaceInvitationToken(rawToken: string): string {
+  return sha256Hex(rawToken);
+}
+
+export function createAccountEmailChangeToken(
+  challengeId: string,
+  proof: 'current_email' | 'new_email',
+  secret: string,
+): string {
+  const digest = createHmac('sha256', secret)
+    .update(`lodariq-account-email-change-v1\0${challengeId}\0${proof}`)
+    .digest();
+  return `lq_email_change_${digest.toString('base64url')}`;
+}
+
+export function hashAccountEmailChangeToken(rawToken: string): string {
+  return sha256Hex(rawToken);
+}
+
 export function createPasswordResetToken(challengeId: string, secret: string): string {
   const digest = createHmac('sha256', secret)
     .update(`lodariq-password-reset-v1\0${challengeId}`)
@@ -67,7 +109,7 @@ export function createPasswordResetToken(challengeId: string, secret: string): s
 
 export function hashAuthRateBucket(
   purpose: AuthRateBucketPurpose,
-  dimension: 'challenge' | 'email' | 'source',
+  dimension: 'challenge' | 'email' | 'identifier' | 'source' | 'user',
   value: string,
 ): string {
   return sha256Hex(`lodariq-rate-v1\0${purpose}\0${dimension}\0${value}`);
@@ -116,14 +158,25 @@ export async function verifyOwnedPassword(
 export function createOwnedAuthSession(
   userId: string,
   activeWorkspaceId: string | null,
-  options: { now?: Date; absoluteExpiresAt?: string } = {},
+  options: {
+    now?: Date;
+    absoluteExpiresAt?: string;
+    identityId?: string | null;
+    authenticationMethod?: AuthenticationMethod;
+    assuranceLevel?: AuthAssuranceLevel;
+    authenticatedAt?: string;
+    durationPolicy?: AuthSessionDurationPolicy;
+    deviceLabel?: string;
+  } = {},
 ): CreatedAuthSession {
   const now = options.now ?? new Date();
+  const durationPolicy = options.durationPolicy ?? 'standard';
+  const duration = authSessionDuration(durationPolicy);
   const absoluteExpiresAt = options.absoluteExpiresAt
     ? new Date(options.absoluteExpiresAt)
-    : new Date(now.getTime() + AUTH_SESSION_ABSOLUTE_TTL_MS);
+    : new Date(now.getTime() + duration.absoluteTtlMs);
   const idleExpiresAt = new Date(
-    Math.min(now.getTime() + AUTH_SESSION_IDLE_TTL_MS, absoluteExpiresAt.getTime()),
+    Math.min(now.getTime() + duration.idleTtlMs, absoluteExpiresAt.getTime()),
   );
   if (
     !Number.isFinite(absoluteExpiresAt.getTime()) ||
@@ -141,6 +194,12 @@ export function createOwnedAuthSession(
       userId,
       tokenHash: hashAuthSessionToken(rawToken),
       activeWorkspaceId,
+      identityId: options.identityId ?? null,
+      authenticationMethod: options.authenticationMethod ?? 'password',
+      assuranceLevel: options.assuranceLevel ?? 'aal1',
+      authenticatedAt: options.authenticatedAt ?? timestamp,
+      durationPolicy,
+      deviceLabel: normalizeDeviceLabel(options.deviceLabel),
       createdAt: timestamp,
       lastSeenAt: timestamp,
       idleExpiresAt: idleExpiresAt.toISOString(),
@@ -148,6 +207,62 @@ export function createOwnedAuthSession(
       revokedAt: null,
     },
   };
+}
+
+export function authSessionIdleTtlMs(policy: AuthSessionDurationPolicy): number {
+  return authSessionDuration(policy).idleTtlMs;
+}
+
+export function describeAuthDevice(userAgent: string | undefined): string {
+  if (!userAgent?.trim()) return 'Unknown device';
+  const browser = /Edg\//u.test(userAgent)
+    ? 'Edge'
+    : /Firefox\//u.test(userAgent)
+      ? 'Firefox'
+      : /Chrome\//u.test(userAgent)
+        ? 'Chrome'
+        : /Safari\//u.test(userAgent)
+          ? 'Safari'
+          : 'Browser';
+  const platform = /iPhone|iPad/u.test(userAgent)
+    ? 'iOS'
+    : /Android/u.test(userAgent)
+      ? 'Android'
+      : /Mac OS X/u.test(userAgent)
+        ? 'macOS'
+        : /Windows/u.test(userAgent)
+          ? 'Windows'
+          : /Linux/u.test(userAgent)
+            ? 'Linux'
+            : 'unknown platform';
+  return `${browser} on ${platform}`;
+}
+
+function authSessionDuration(policy: AuthSessionDurationPolicy): {
+  idleTtlMs: number;
+  absoluteTtlMs: number;
+} {
+  if (policy === 'remembered') {
+    return {
+      idleTtlMs: AUTH_SESSION_IDLE_TTL_MS,
+      absoluteTtlMs: AUTH_SESSION_ABSOLUTE_TTL_MS,
+    };
+  }
+  if (policy === 'managed') {
+    return {
+      idleTtlMs: AUTH_MANAGED_SESSION_IDLE_TTL_MS,
+      absoluteTtlMs: AUTH_MANAGED_SESSION_ABSOLUTE_TTL_MS,
+    };
+  }
+  return {
+    idleTtlMs: AUTH_STANDARD_SESSION_IDLE_TTL_MS,
+    absoluteTtlMs: AUTH_STANDARD_SESSION_ABSOLUTE_TTL_MS,
+  };
+}
+
+function normalizeDeviceLabel(value: string | undefined): string {
+  const normalized = value?.trim();
+  return normalized && normalized.length <= 120 ? normalized : 'Unknown device';
 }
 
 function sha256Hex(value: string): string {

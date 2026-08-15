@@ -122,7 +122,8 @@ describe('hosted editor authoring frame', () => {
     const fetchMock = vi
       .fn<typeof fetch>()
       .mockResolvedValueOnce(jsonResponse(authoringSessionResult(), 201))
-      .mockResolvedValueOnce(jsonResponse(authoringDocumentPayload(canonicalDocument)));
+      .mockResolvedValueOnce(jsonResponse(authoringDocumentPayload(canonicalDocument)))
+      .mockResolvedValueOnce(jsonResponse(emptyAuthoringResources()));
     vi.stubGlobal('fetch', fetchMock);
     await loadAuthoringFrame();
     const ready = editorReadyMessage(postMessage);
@@ -135,7 +136,7 @@ describe('hosted editor authoring frame', () => {
     expect(hostedSessionReadyMessages(postMessage)[0]?.theme).toEqual(
       LODARIQ_ACCESSIBLE_FALLBACK_THEME_V1,
     );
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
     expect(fetchMock.mock.calls[0]?.[0].toString()).toBe(
       `${LODARIQ_STAGING_API_ORIGIN}/v1/authoring/sessions`,
     );
@@ -163,6 +164,9 @@ describe('hosted editor authoring frame', () => {
       method: 'GET',
       headers: { [AUTHORING_SESSION_HEADER]: SESSION_TOKEN },
     });
+    expect(fetchMock.mock.calls[2]?.[0].toString()).toBe(
+      `${LODARIQ_STAGING_API_ORIGIN}/v1/authoring/resources`,
+    );
 
     const outbound = JSON.stringify(postMessage.mock.calls.map(([message]) => message));
     expect(outbound).not.toContain(ACTIVATION_GRANT);
@@ -199,7 +203,8 @@ describe('hosted editor authoring frame', () => {
         }),
       )
       .mockResolvedValueOnce(jsonResponse(authoringSessionResult(), 201))
-      .mockResolvedValueOnce(jsonResponse(authoringDocumentPayload(editorDocument())));
+      .mockResolvedValueOnce(jsonResponse(authoringDocumentPayload(editorDocument())))
+      .mockResolvedValueOnce(jsonResponse(emptyAuthoringResources()));
     vi.stubGlobal('fetch', fetchMock);
     await loadAuthoringFrame();
     const ready = editorReadyMessage(postMessage);
@@ -297,6 +302,7 @@ describe('hosted editor authoring frame', () => {
     const document = editorDocument();
     const sessionUrl = `${LODARIQ_STAGING_API_ORIGIN}/v1/authoring/sessions`;
     const documentUrl = `${LODARIQ_STAGING_API_ORIGIN}/v1/authoring/document`;
+    const resourcesUrl = `${LODARIQ_STAGING_API_ORIGIN}/v1/authoring/resources`;
     const releaseStateUrl = `${LODARIQ_STAGING_API_ORIGIN}/v1/authoring/release-state`;
     const revokeUrl = `${LODARIQ_STAGING_API_ORIGIN}/v1/authoring/sessions/authsess_hosted_editor/revoke`;
     let resolveSave: ((response: Response) => void) | undefined;
@@ -311,6 +317,9 @@ describe('hosted editor authoring frame', () => {
       }
       if (url === documentUrl && method === 'GET') {
         return jsonResponse(authoringDocumentPayload(document));
+      }
+      if (url === resourcesUrl && method === 'GET') {
+        return jsonResponse(emptyAuthoringResources());
       }
       if (url === releaseStateUrl && method === 'GET') {
         return jsonResponse({
@@ -477,6 +486,7 @@ describe('hosted editor authoring frame', () => {
     };
     const sessionUrl = `${LODARIQ_STAGING_API_ORIGIN}/v1/authoring/sessions`;
     const documentUrl = `${LODARIQ_STAGING_API_ORIGIN}/v1/authoring/document`;
+    const resourcesUrl = `${LODARIQ_STAGING_API_ORIGIN}/v1/authoring/resources`;
     const releaseStateUrl = `${LODARIQ_STAGING_API_ORIGIN}/v1/authoring/release-state`;
     const styleSourceUrl = `${LODARIQ_STAGING_API_ORIGIN}/v1/authoring/style-sources`;
     const fetchMock = vi.fn<typeof fetch>().mockImplementation(async (input, init) => {
@@ -487,6 +497,9 @@ describe('hosted editor authoring frame', () => {
       }
       if (url === documentUrl && method === 'GET') {
         return jsonResponse(authoringDocumentPayload(hostedDocument));
+      }
+      if (url === resourcesUrl && method === 'GET') {
+        return jsonResponse(emptyAuthoringResources());
       }
       if (url === releaseStateUrl && method === 'GET') {
         return jsonResponse(unreleasedHostedState(hostedDocument.id));
@@ -612,6 +625,7 @@ describe('hosted editor authoring frame', () => {
     const hostedDocument = editorDocument();
     const recoveryUrl = `${LODARIQ_STAGING_API_ORIGIN}/v1/authoring/environments/env_production/release-recovery`;
     const releaseStateUrl = `${LODARIQ_STAGING_API_ORIGIN}/v1/authoring/release-state`;
+    const resourcesUrl = `${LODARIQ_STAGING_API_ORIGIN}/v1/authoring/resources`;
     let recovered = false;
     const fetchMock = vi.fn<typeof fetch>().mockImplementation(async (input, init) => {
       const url = input.toString();
@@ -621,6 +635,9 @@ describe('hosted editor authoring frame', () => {
       }
       if (url === `${LODARIQ_STAGING_API_ORIGIN}/v1/authoring/document` && method === 'GET') {
         return jsonResponse(authoringDocumentPayload(hostedDocument));
+      }
+      if (url === resourcesUrl && method === 'GET') {
+        return jsonResponse(emptyAuthoringResources());
       }
       if (url === releaseStateUrl && method === 'GET') {
         return jsonResponse(hostedPipelineState(hostedDocument.id, recovered));
@@ -735,6 +752,7 @@ describe('hosted editor authoring frame', () => {
       .fn<typeof fetch>()
       .mockResolvedValueOnce(jsonResponse(authoringSessionResult({ publishToStaging: true }), 201))
       .mockResolvedValueOnce(jsonResponse(authoringDocumentPayload(document)))
+      .mockResolvedValueOnce(jsonResponse(emptyAuthoringResources()))
       .mockResolvedValueOnce(jsonResponse(releaseState))
       .mockResolvedValueOnce(jsonResponse(authoringDocumentPayload(document)))
       .mockResolvedValueOnce(jsonResponse(releaseState))
@@ -795,8 +813,8 @@ describe('hosted editor authoring frame', () => {
     const publishButton = buttonWithText('Publish to staging');
     publishButton?.click();
 
-    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(6));
-    const releaseRequest = fetchMock.mock.calls[5]!;
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(7));
+    const releaseRequest = fetchMock.mock.calls[6]!;
     expect(releaseRequest[0].toString()).toBe(
       `${LODARIQ_STAGING_API_ORIGIN}/v1/authoring/publications`,
     );
@@ -1138,6 +1156,10 @@ function jsonResponse(body: unknown, status = 200): Response {
   });
 }
 
+function emptyAuthoringResources() {
+  return { recipes: [], checkpoints: [], assets: [] };
+}
+
 async function waitForPostedMessage<TType extends string>(
   postMessage: RecordedMessages,
   type: TType,
@@ -1235,6 +1257,7 @@ function hostedProductStyleProposal(): ProductStyleProposal {
 function authoringDocumentPayload(document: LodariqDocument) {
   return {
     document,
+    documentUpdatedAt: '2099-08-07T11:00:00.000Z',
     theme: LODARIQ_ACCESSIBLE_FALLBACK_THEME_V1,
   };
 }

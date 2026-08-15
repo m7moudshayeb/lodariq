@@ -1,4 +1,4 @@
-import { and, eq } from 'drizzle-orm';
+import { and, eq, isNull } from 'drizzle-orm';
 import {
   BRAND_THEME_CONTRACT_VERSION,
   COMPILER_VERSION,
@@ -9,28 +9,36 @@ import {
   type AuthoringAuthorizationRequestRecord,
   type AuthoringDocumentSessionRecord,
   type AuthSessionRecord,
+  type AuthIdentityRecord,
+  type AuthSecurityEventRecord,
   type ClaimedAuthEmailOutboxRow,
   type IdentityWorkspaceRecord,
+  type IdentityOnboardingStateRecord,
   type PublicSdkBootstrapGrantRecord,
   type PublicSdkInstallationOriginRecord,
   type PublicSdkInstallationRecord,
   type WorkspaceEnvironment,
   type PasswordCredentialRecord,
   type UserRecord,
+  type UsernameRecord,
   normalizeWorkspaceEnvironments,
 } from '../../repository';
 import type {
   authoringActivationGrants,
   authoringAuthorizationRequests,
   authSessions,
+  authIdentities,
+  authSecurityEvents,
   authoringSessions,
   passwordCredentials,
   publicSdkBootstrapGrants,
   publicSdkInstallationOrigins,
   publicSdkInstallations,
   users,
+  usernames,
+  identityOnboardingStates,
 } from '../../schema';
-import { workspaceMemberships } from '../../schema';
+import { workspaceMemberships, workspaces } from '../../schema';
 import type { LodariqTransaction, AuthEmailOutboxCandidate } from '../types';
 import { toIsoString } from './persistence';
 
@@ -73,7 +81,11 @@ export function isValidAuthEmailLeaseMutation(
 ): boolean {
   return (
     /^outbox_[A-Za-z0-9_-]{20,200}$/u.test(id) &&
-    (purpose === 'email_verification' || purpose === 'set_password') &&
+    (purpose === 'email_verification' ||
+      purpose === 'set_password' ||
+      purpose === 'workspace_invitation' ||
+      purpose === 'account_email_change_current' ||
+      purpose === 'account_email_change_new') &&
     Number.isSafeInteger(leaseVersion) &&
     leaseVersion >= 1 &&
     leaseVersion < 2_147_483_647 &&
@@ -87,6 +99,12 @@ export function authSessionValues(session: AuthSessionRecord) {
     userId: session.userId,
     tokenHash: session.tokenHash,
     activeWorkspaceId: session.activeWorkspaceId,
+    identityId: session.identityId,
+    authenticationMethod: session.authenticationMethod,
+    assuranceLevel: session.assuranceLevel,
+    authenticatedAt: new Date(session.authenticatedAt),
+    durationPolicy: session.durationPolicy,
+    deviceLabel: session.deviceLabel ?? 'Unknown device',
     createdAt: new Date(session.createdAt),
     lastSeenAt: new Date(session.lastSeenAt),
     idleExpiresAt: new Date(session.idleExpiresAt),
@@ -135,11 +153,80 @@ export function toAuthSessionRecord(session: typeof authSessions.$inferSelect): 
     userId: session.userId,
     tokenHash: session.tokenHash,
     activeWorkspaceId: session.activeWorkspaceId,
+    identityId: session.identityId,
+    authenticationMethod: session.authenticationMethod as AuthSessionRecord['authenticationMethod'],
+    assuranceLevel: session.assuranceLevel as AuthSessionRecord['assuranceLevel'],
+    authenticatedAt: toIsoString(session.authenticatedAt),
+    durationPolicy: session.durationPolicy as AuthSessionRecord['durationPolicy'],
+    deviceLabel: session.deviceLabel,
     createdAt: toIsoString(session.createdAt),
     lastSeenAt: toIsoString(session.lastSeenAt),
     idleExpiresAt: toIsoString(session.idleExpiresAt),
     absoluteExpiresAt: toIsoString(session.absoluteExpiresAt),
     revokedAt: session.revokedAt ? toIsoString(session.revokedAt) : null,
+  };
+}
+
+export function toAuthIdentityRecord(
+  identity: typeof authIdentities.$inferSelect,
+): AuthIdentityRecord {
+  return {
+    id: identity.id,
+    userId: identity.userId,
+    kind: identity.kind as AuthIdentityRecord['kind'],
+    issuer: identity.issuer,
+    subject: identity.subject,
+    providerTenantId: identity.providerTenantId,
+    createdAt: toIsoString(identity.createdAt),
+    lastAuthenticatedAt: identity.lastAuthenticatedAt
+      ? toIsoString(identity.lastAuthenticatedAt)
+      : null,
+    disabledAt: identity.disabledAt ? toIsoString(identity.disabledAt) : null,
+  };
+}
+
+export function toUsernameRecord(username: typeof usernames.$inferSelect): UsernameRecord {
+  return {
+    id: username.id,
+    userId: username.userId,
+    normalizedUsername: username.normalizedUsername,
+    displayUsername: username.displayUsername,
+    createdAt: toIsoString(username.createdAt),
+    updatedAt: toIsoString(username.updatedAt),
+  };
+}
+
+export function toIdentityOnboardingStateRecord(
+  onboarding: typeof identityOnboardingStates.$inferSelect,
+): IdentityOnboardingStateRecord {
+  return {
+    id: onboarding.id,
+    userId: onboarding.userId,
+    intent: onboarding.intent as IdentityOnboardingStateRecord['intent'],
+    status: onboarding.status as IdentityOnboardingStateRecord['status'],
+    targetWorkspaceId: onboarding.targetWorkspaceId,
+    targetWorkspaceName: onboarding.targetWorkspaceName,
+    invitationId: onboarding.invitationId,
+    requestedWorkspaceId: onboarding.requestedWorkspaceId,
+    completedWorkspaceId: onboarding.completedWorkspaceId,
+    version: onboarding.version,
+    expiresAt: toIsoString(onboarding.expiresAt),
+    createdAt: toIsoString(onboarding.createdAt),
+    updatedAt: toIsoString(onboarding.updatedAt),
+  };
+}
+
+export function toAuthSecurityEventRecord(
+  event: typeof authSecurityEvents.$inferSelect,
+): AuthSecurityEventRecord {
+  return {
+    id: event.id,
+    userId: event.userId,
+    actorUserId: event.actorUserId,
+    eventType: event.eventType as AuthSecurityEventRecord['eventType'],
+    identityId: event.identityId,
+    authorization: event.authorization as AuthSecurityEventRecord['authorization'],
+    occurredAt: toIsoString(event.occurredAt),
   };
 }
 
@@ -150,6 +237,8 @@ export function toUserRecord(user: typeof users.$inferSelect): UserRecord {
     email: user.email,
     name: user.name,
     emailVerifiedAt: user.emailVerifiedAt ? toIsoString(user.emailVerifiedAt) : null,
+    deletedAt: user.deletedAt ? toIsoString(user.deletedAt) : null,
+    retentionExpiresAt: user.retentionExpiresAt ? toIsoString(user.retentionExpiresAt) : null,
     createdAt: toIsoString(user.createdAt),
   };
 }
@@ -162,10 +251,12 @@ export async function hasIdentityMembership(
   const [membership] = await tx
     .select({ userId: workspaceMemberships.userId })
     .from(workspaceMemberships)
+    .innerJoin(workspaces, eq(workspaces.id, workspaceMemberships.workspaceId))
     .where(
       and(
         eq(workspaceMemberships.userId, userId),
         eq(workspaceMemberships.workspaceId, workspaceId),
+        isNull(workspaces.deletedAt),
       ),
     )
     .limit(1);

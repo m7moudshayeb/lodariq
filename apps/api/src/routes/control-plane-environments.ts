@@ -9,7 +9,11 @@ import {
   type EnvironmentReleasePolicy as EnvironmentReleasePolicyType,
 } from '@lodariq/schema';
 import type { FastifyInstance } from 'fastify';
-import { authenticate, requireReleaseCapability } from './control-plane-access';
+import {
+  authenticate,
+  requireRecentControlPlaneAuthentication,
+  requireReleaseCapability,
+} from './control-plane-access';
 import {
   ApiErrorResponse,
   EnvironmentParams,
@@ -49,6 +53,7 @@ export function registerControlPlaneEnvironmentRoutes(
       const auth = await authenticate(options.repository, options.authProvider, request, reply);
       if (!auth) return;
       if (!requireReleaseCapability(auth, 'manage-release-policy', reply)) return;
+      if (!requireRecentControlPlaneAuthentication(auth, reply)) return;
       const { environmentId } = request.params as { environmentId: string };
       const body = request.body as { requiredApprovalCount: 0 | 1; expectedUpdatedAt: string };
       const environment = (await options.repository.listEnvironments(auth.workspaceId)).find(
@@ -105,6 +110,7 @@ export function registerControlPlaneEnvironmentRoutes(
       const auth = await authenticate(options.repository, options.authProvider, request, reply);
       if (!auth) return;
       if (!requireReleaseCapability(auth, 'manage-release-policy', reply)) return;
+      if (!requireRecentControlPlaneAuthentication(auth, reply)) return;
       const { environmentId } = request.params as { environmentId: string };
       const body = request.body as {
         name: string;

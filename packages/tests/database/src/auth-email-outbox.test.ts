@@ -5,6 +5,7 @@ import {
   sanitizeAuthEmailFailureCode,
   type AuthOutboxRecord,
   type SetPasswordOutboxRecord,
+  type WorkspaceInvitationOutboxRecord,
 } from '@lodariq/database';
 
 const NOW = '2026-08-07T12:00:00.000Z';
@@ -30,16 +31,20 @@ describe('@lodariq/database unified auth-email outbox', () => {
         recipientEmail: reset.recipientEmail,
         purpose: 'set_password',
         challengeId: reset.payload.challengeId,
+        keyId: 'legacy',
         attempt: 1,
         leaseVersion: 1,
+        createdAt: reset.createdAt,
       },
       {
         id: verification.id,
         recipientEmail: verification.recipientEmail,
         purpose: 'email_verification',
         challengeId: verification.payload.challengeId,
+        keyId: 'legacy',
         attempt: 1,
         leaseVersion: 1,
+        createdAt: verification.createdAt,
       },
     ]);
     await expect(
@@ -150,6 +155,32 @@ describe('@lodariq/database unified auth-email outbox', () => {
     expect(sanitized).toHaveLength(64);
   });
 
+  it('leases and acknowledges workspace invitation delivery with the unified queue', async () => {
+    const invitation = workspaceInvitationOutbox('invite-a', '2026-08-07T11:00:00.000Z');
+    const repository = createInMemoryControlPlaneRepository({
+      workspaceInvitationOutbox: [invitation],
+    });
+    const [claimed] = await repository.claimDue({
+      now: NOW,
+      limit: 1,
+      leaseDurationMs: 60_000,
+    });
+    expect(claimed).toMatchObject({
+      id: invitation.id,
+      purpose: 'workspace_invitation',
+      challengeId: invitation.invitationId,
+      leaseVersion: 1,
+    });
+    await expect(
+      repository.acknowledge({
+        id: invitation.id,
+        purpose: 'workspace_invitation',
+        leaseVersion: 1,
+        processedAt: '2026-08-07T12:00:30.000Z',
+      }),
+    ).resolves.toBe(true);
+  });
+
   it('sets the exact transaction-local worker scope before queue access', async () => {
     const calls: string[] = [];
     const result = await runWithAuthOutboxWorkerScope(
@@ -190,6 +221,7 @@ function verificationOutbox(suffix: string, availableAt: string): AuthOutboxReco
     payload: {
       challengeId: `verify_${idSuffix}`,
       verificationPath: `/verify-email?challenge=verify_${idSuffix}`,
+      keyId: 'legacy',
     },
     availableAt,
     processedAt: null,
@@ -213,6 +245,35 @@ function setPasswordOutbox(suffix: string, availableAt: string): SetPasswordOutb
       purpose: 'set_password',
       challengeId,
       resetPath: `/reset-password?challenge=${challengeId}`,
+      keyId: 'legacy',
+    },
+    availableAt,
+    processedAt: null,
+    attempts: 0,
+    leaseVersion: 0,
+    lastError: null,
+    terminalAt: null,
+    createdAt: availableAt,
+  };
+}
+
+function workspaceInvitationOutbox(
+  suffix: string,
+  availableAt: string,
+): WorkspaceInvitationOutboxRecord {
+  const idSuffix = suffix.replace(/[^A-Za-z0-9_-]/gu, '_').padEnd(24, 'x');
+  const invitationId = `invite_${idSuffix}`;
+  return {
+    id: `outbox_${idSuffix}`,
+    type: 'workspace_invitation',
+    workspaceId: `wk_${idSuffix}`,
+    invitationId,
+    recipientEmail: 'invitee@example.com',
+    payload: {
+      purpose: 'workspace_invitation',
+      invitationId,
+      acceptancePath: '/accept-invitation',
+      keyId: 'legacy',
     },
     availableAt,
     processedAt: null,

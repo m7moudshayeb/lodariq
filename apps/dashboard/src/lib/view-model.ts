@@ -60,6 +60,8 @@ export interface DashboardReleaseEvidence {
 }
 
 export interface DashboardViewModel {
+  currentUserId: string;
+  currentRole: 'owner' | 'admin' | 'member' | 'viewer';
   documentRows: Array<
     DocumentSummaryDto & {
       statusLabel: string;
@@ -176,6 +178,8 @@ export function buildDashboardViewModel(
   });
 
   return {
+    currentUserId: data.controlPlaneContext.userId,
+    currentRole: data.controlPlaneContext.role,
     documentRows,
     environmentOptions,
     sdkInstallEnvironmentOptions,

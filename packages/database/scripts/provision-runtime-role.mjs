@@ -13,6 +13,18 @@ const appendOnlyRuntimeTables = [
   'publication_verifications',
   'release_approvals',
   'analytics_events',
+  'auth_security_events',
+  'tenant_audit_events',
+  'account_security_events',
+  'enterprise_audit_events',
+];
+const operatorManagedTables = ['enterprise_validation_evidence'];
+const runtimeFunctionSignatures = [
+  'public.lodariq_current_workspace_role(text)',
+  'public.lodariq_workspace_is_empty(text)',
+  'public.lodariq_user_is_workspace_member(text,text)',
+  'public.lodariq_accept_workspace_invitation(text,text,text,timestamp with time zone)',
+  'public.lodariq_schedule_account_deletion(text,timestamp with time zone,timestamp with time zone)',
 ];
 const releaseOperationLifecycleColumns = [
   'status',
@@ -102,16 +114,37 @@ async function grantRuntimePrivileges(sql, roleName) {
   await sql.query(
     `alter default privileges in schema public grant select, insert, update, delete on tables to ${quotedRole}`,
   );
+  for (const signature of runtimeFunctionSignatures) {
+    if (await functionExists(sql, signature)) {
+      await sql.query(`grant execute on function ${signature} to ${quotedRole}`);
+    }
+  }
   const existingAppendOnlyTables = await listExistingAppendOnlyTables(sql);
   if (existingAppendOnlyTables.length) {
     const appendOnlyTableList = existingAppendOnlyTables.map(quoteIdent).join(', ');
     await sql.query(`revoke update, delete on table ${appendOnlyTableList} from ${quotedRole}`);
+  }
+  const existingOperatorManagedTables = await listExistingTables(sql, operatorManagedTables);
+  if (existingOperatorManagedTables.length) {
+    const operatorManagedTableList = existingOperatorManagedTables.map(quoteIdent).join(', ');
+    await sql.query(
+      `revoke insert, update, delete on table ${operatorManagedTableList} from ${quotedRole}`,
+    );
   }
   if (await tableExists(sql, 'release_operations')) {
     await sql.query(`revoke update, delete on table "release_operations" from ${quotedRole}`);
     await sql.query(
       `grant update (${releaseOperationLifecycleColumns.map(quoteIdent).join(', ')}) on table "release_operations" to ${quotedRole}`,
     );
+  }
+  for (const signature of runtimeFunctionSignatures) {
+    if (!(await functionExists(sql, signature))) continue;
+    const [privilege] = await sql`
+      select has_function_privilege(${roleName}, ${signature}, 'EXECUTE') as allowed
+    `;
+    if (!privilege?.allowed) {
+      fail(`Runtime role ${roleName} cannot execute ${signature}.`);
+    }
   }
 }
 
@@ -137,6 +170,17 @@ async function verifyRuntimeRole(sql, roleName) {
       fail(`Runtime role ${roleName} can mutate append-only table ${table}.`);
     }
   }
+  for (const table of await listExistingTables(sql, operatorManagedTables)) {
+    const [privileges] = await sql`
+      select
+        has_table_privilege(${roleName}, ${table}, 'INSERT') as can_insert,
+        has_table_privilege(${roleName}, ${table}, 'UPDATE') as can_update,
+        has_table_privilege(${roleName}, ${table}, 'DELETE') as can_delete
+    `;
+    if (privileges?.can_insert || privileges?.can_update || privileges?.can_delete) {
+      fail(`Runtime role ${roleName} can mutate operator-managed table ${table}.`);
+    }
+  }
   if (await tableExists(sql, 'release_operations')) {
     const [privileges] = await sql`
       select
@@ -158,13 +202,17 @@ async function verifyRuntimeRole(sql, roleName) {
 }
 
 async function listExistingAppendOnlyTables(sql) {
+  return listExistingTables(sql, appendOnlyRuntimeTables);
+}
+
+async function listExistingTables(sql, tableNames) {
   const rows = await sql`
     select c.relname
     from pg_class c
     join pg_namespace n on n.oid = c.relnamespace
     where n.nspname = current_schema()
       and c.relkind = 'r'
-      and c.relname = any(${appendOnlyRuntimeTables})
+      and c.relname = any(${tableNames})
   `;
   return rows.map((row) => row.relname).sort();
 }
@@ -181,6 +229,11 @@ async function tableExists(sql, table) {
   const [row] = await sql`
     select to_regclass(${`public.${table}`}) is not null as exists
   `;
+  return Boolean(row?.exists);
+}
+
+async function functionExists(sql, signature) {
+  const [row] = await sql`select to_regprocedure(${signature}) is not null as exists`;
   return Boolean(row?.exists);
 }
 

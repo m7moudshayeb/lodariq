@@ -10,12 +10,8 @@ import type {
 import { resolveExperienceAppearance } from '@lodariq/schema/brand-runtime';
 import { LODARIQ_AUTHORING_PREVIEW_OWNER_ATTRIBUTE } from '@lodariq/schema/dom';
 import { assertSupportedCompiledArtifactIfVersioned } from '../artifact-compatibility';
-import {
-  applyRuntimeLocale,
-  configureRuntimeLocale,
-  currentRuntimeLocale,
-  runtimeText,
-} from '../i18n';
+import { applyRuntimeLocale, configureRuntimeLocale, currentRuntimeLocale } from '../i18n';
+import { tourRuntimeText } from '../tour-i18n';
 import { resolveCompiledDocumentLocale } from '../document-localization';
 import { clearActiveContentLocale, setActiveContentLocale } from '../runtime/content-locale-state';
 import type {
@@ -54,22 +50,17 @@ import {
   waitUntil,
 } from './tour-lifecycle';
 import { canOwnPresentation, createTargetOutline } from './tour-positioning';
-import type { ChoreographyStageUpdate } from './tour-choreography';
+import type { ChoreographyRecoveryUpdate, ChoreographyStageUpdate } from './tour-choreography';
 import type { ProtectedSurfaceRect } from './protected-surface';
 import type { TourFlowConditionContext } from './tour-flow';
 import { applyStepMotion, resolveResponsiveTourStep } from './tour-presentation';
-import { appendAuthoringAccessibilityEvidence } from './tour-accessibility-preview';
 import { executeTourSequence } from './tour-choreography-sequence';
-import {
-  removeTourChoreographyRecovery,
-  showTourChoreographyRecovery,
-} from './tour-choreography-recovery';
 import { runTourFlowDestination } from './tour-flow-navigation';
 import { trackTourTarget } from './tour-target-tracker';
 
 export { TourPresentationCanceledError, TourPresentationUnavailableError } from './tour-errors';
 export type { ProtectedSurfaceRect } from './protected-surface';
-export type { ChoreographyStageUpdate } from './tour-choreography';
+export type { ChoreographyRecoveryUpdate, ChoreographyStageUpdate } from './tour-choreography';
 export {
   applyStepMotion,
   resolveResponsiveTourStep,
@@ -145,6 +136,7 @@ export interface TourPlayerOptions {
   onTargetResolution?: (step: CompiledStep, result: TourTargetResolutionDiagnostic) => void;
   /** Bounded, payload-free stage diagnostics for runtime progress and telemetry. */
   onChoreographyStageChange?: (step: CompiledStep, update: ChoreographyStageUpdate) => void;
+  onChoreographyRecovery?: (step: CompiledStep, update: ChoreographyRecoveryUpdate) => void;
   /** Authoring-only live chrome rectangles; never used to resolve or activate a target. */
   getAuthoringProtectedSurfaces?: () => readonly ProtectedSurfaceRect[];
   /** Authoring-only runtime card geometry for reciprocal chrome avoidance. */
@@ -188,6 +180,9 @@ export class TourPlayer {
   private choreographyRetryCount = 0;
   private completionStepActive = false;
   private readonly completedStepIds = new Set<string>();
+  private readonly accessibilityAnnouncements: string[] = [];
+  private announcementRegion: HTMLParagraphElement | null = null;
+  private restoreFocusTarget: HTMLElement | null = null;
   private targetResolver: TargetResolver | null = null;
   private fingerprintResolver: FingerprintResolver | null = null;
 
@@ -237,9 +232,15 @@ export class TourPlayer {
     this.shadow = this.host.attachShadow({ mode: 'open' });
     this.card = document.createElement('div');
     this.card.setAttribute('role', 'dialog');
-    this.card.setAttribute('aria-label', runtimeText('Lodariq tour'));
+    this.card.setAttribute('aria-label', tourRuntimeText('Lodariq tour'));
     this.card.setAttribute('aria-live', 'polite');
     this.card.tabIndex = -1;
+    this.card.addEventListener('keydown', (event) => {
+      if (event.key !== 'Escape' || this.options.embeddedPreviewContainer) return;
+      if (this.options.authoringPreviewOwnerId && !this.options.authoringPreviewInteractive) return;
+      event.preventDefault();
+      this.dismiss();
+    });
     this.arrow = document.createElement('div');
     this.arrow.className = 'tour-arrow';
     this.arrow.setAttribute('aria-hidden', 'true');
@@ -261,7 +262,13 @@ export class TourPlayer {
       TourPlayer.active = this;
       setActiveContentLocale(this.contentLocale);
     }
-    if (!this.host.isConnected) (previewContainer ?? document.body).appendChild(this.host);
+    if (!this.host.isConnected) {
+      const activeElement = document.activeElement;
+      if (!previewContainer && activeElement instanceof HTMLElement) {
+        this.restoreFocusTarget = activeElement;
+      }
+      (previewContainer ?? document.body).appendChild(this.host);
+    }
     this.render();
   }
 
@@ -273,7 +280,7 @@ export class TourPlayer {
     return (
       this.readiness?.promise ??
       Promise.reject(
-        new TourPresentationUnavailableError(runtimeText('Lodariq tour has not started')),
+        new TourPresentationUnavailableError(tourRuntimeText('Lodariq tour has not started')),
       )
     );
   }
@@ -313,6 +320,15 @@ export class TourPlayer {
       clearActiveContentLocale();
     }
     this.host.remove();
+    const focusTarget = this.restoreFocusTarget;
+    this.restoreFocusTarget = null;
+    if (focusTarget?.isConnected) {
+      try {
+        focusTarget.focus({ preventScroll: true });
+      } catch {
+        focusTarget.focus();
+      }
+    }
     if (this.options.authoringPreviewOwnerId) this.options.onAuthoringSurfaceChange?.(null);
   }
 
@@ -329,7 +345,9 @@ export class TourPlayer {
     if (!step) {
       this.rejectReadiness(
         renderId,
-        new TourPresentationUnavailableError(runtimeText('Lodariq tour has no presentable step')),
+        new TourPresentationUnavailableError(
+          tourRuntimeText('Lodariq tour has no presentable step'),
+        ),
       );
       return;
     }
@@ -342,7 +360,7 @@ export class TourPlayer {
     this.card.hidden = Boolean(step.targetId);
     applyStepComposition(this.card, step);
     applyStepMotion(this.card, step);
-    this.card.setAttribute('aria-label', step.accessibilityName ?? runtimeText('Lodariq tour'));
+    this.card.setAttribute('aria-label', step.accessibilityName ?? tourRuntimeText('Lodariq tour'));
     if (this.targetOutline) {
       if (step.spotlight) {
         this.targetOutline.dataset['lodariqSpotlight'] = step.spotlight.emphasis;
@@ -356,10 +374,32 @@ export class TourPlayer {
     }
     const content = this.card.ownerDocument.createElement('div');
     content.className = 'tour-content';
+    this.announcementRegion = this.card.ownerDocument.createElement('p');
+    visuallyHideElement(this.announcementRegion);
+    this.announcementRegion.setAttribute('role', 'status');
+    this.announcementRegion.setAttribute('aria-live', 'polite');
+    this.announcementRegion.setAttribute('aria-atomic', 'true');
+    content.appendChild(this.announcementRegion);
     appendStepBody(content, step, (node) => this.createBodyElement(node));
     content.appendChild(this.createSkipButton());
-    appendAuthoringAccessibilityEvidence(content, step, this.options.authoringAccessibilityMode);
+    this.recordAccessibilityAnnouncement(
+      step.accessibilityName ?? tourRuntimeText('Lodariq tour'),
+      false,
+    );
     this.card.appendChild(content);
+    if (this.options.authoringAccessibilityMode) {
+      void import('./tour-accessibility-preview').then(
+        ({ appendAuthoringAccessibilityEvidence }) => {
+          if (content.parentElement !== this.card) return;
+          appendAuthoringAccessibilityEvidence(
+            content,
+            step,
+            this.options.authoringAccessibilityMode,
+            this.accessibilityAnnouncements,
+          );
+        },
+      );
+    }
     this.arrow.hidden = !step.targetId || step.tooltipLayout?.showArrow === false;
     this.card.appendChild(this.arrow);
     this.armEntrySequence(step, renderId, abortController.signal);
@@ -468,6 +508,7 @@ export class TourPlayer {
     } catch {
       /* Diagnostics hooks must never alter branch evaluation. */
     }
+    this.recordAccessibilityAnnouncement(tourRuntimeText('Tour path selected'));
     this.runFlowDestination(resolved.destination);
   }
 
@@ -484,7 +525,7 @@ export class TourPlayer {
     const button = document.createElement('button');
     button.type = 'button';
     button.className = 'tour-skip';
-    button.textContent = runtimeText('Skip tour');
+    button.textContent = tourRuntimeText('Skip tour');
     button.addEventListener('click', () => {
       if (this.options.embeddedPreviewContainer) return;
       if (this.options.authoringPreviewOwnerId && !this.options.authoringPreviewInteractive) return;
@@ -515,6 +556,14 @@ export class TourPlayer {
           window.location.assign(destination.href);
         }
       }
+    }
+    if (completion?.type !== 'stop') {
+      const completionAnnouncement = tourRuntimeText('Tour complete');
+      this.recordAccessibilityAnnouncement(completionAnnouncement, false);
+      const ownerDocument = this.host.ownerDocument;
+      void import('./tour-completion-announcement').then(({ announceAfterTourStops }) => {
+        announceAfterTourStops(ownerDocument, completionAnnouncement);
+      });
     }
     this.options.onComplete?.();
     this.stop();
@@ -574,7 +623,7 @@ export class TourPlayer {
     const step = this.doc.steps[this.index];
     const signal = this.renderAbortController?.signal;
     if (!step || !signal || signal.aborted || !this.host.isConnected) return;
-    removeTourChoreographyRecovery(this.card);
+    this.card.querySelector('.tour-choreography-recovery')?.remove();
     await this.ensureResolvers();
     if (signal.aborted || !this.host.isConnected) return;
     const result = await executeTourSequence({
@@ -588,6 +637,9 @@ export class TourPlayer {
         else this.runChoreographyTransition(sequence.transition);
       },
       onStageUpdate: (update) => {
+        if (update.stage === 'wait' && update.status === 'started') {
+          this.recordAccessibilityAnnouncement(tourRuntimeText('Waiting for the next condition'));
+        }
         try {
           this.options.onChoreographyStageChange?.(step, update);
         } catch {
@@ -595,12 +647,19 @@ export class TourPlayer {
         }
       },
     });
-    if (result === 'aborted' || result === 'completed') return;
+    if (result === 'aborted') return;
+    if (result === 'completed') {
+      this.notifyChoreographyRecovery(step, 'completed');
+      return;
+    }
     if (result === 'dismiss') this.dismiss();
-    else if (result === 'skip') this.next();
-    else if (typeof result === 'object') this.goToStep(result.stepId);
+    else if (result === 'skip') {
+      this.notifyChoreographyRecovery(step, 'skipped');
+      this.next();
+    } else if (typeof result === 'object') this.goToStep(result.stepId);
     else if (result === 'retry' && this.choreographyRetryCount === 0) {
       this.choreographyRetryCount += 1;
+      this.notifyChoreographyRecovery(step, 'retried');
       void this.runSequence(sequence, actionTransition);
     } else {
       this.showChoreographyRecovery(sequence, actionTransition);
@@ -609,7 +668,7 @@ export class TourPlayer {
 
   private resolveChoreographyTarget(
     targetId: string,
-    requiredAction: 'activate' | 'observe-click' | 'focus' | 'anchor',
+    requiredAction: 'activate' | 'observe-click' | 'focus' | 'input' | 'anchor',
   ): Element | null {
     const step = this.doc.steps[this.index];
     if (step?.targetId === targetId) {
@@ -653,11 +712,53 @@ export class TourPlayer {
     sequence: StepChoreography,
     actionTransition?: NonNullable<RuntimeAction['transition']>,
   ): void {
-    showTourChoreographyRecovery(this.card, {
-      dismiss: () => this.dismiss(),
-      retry: () => void this.runSequence(sequence, actionTransition),
-      skip: () => this.next(),
+    this.recordAccessibilityAnnouncement(tourRuntimeText('This step could not continue.'), false);
+    void import('./tour-choreography-recovery').then(({ showTourChoreographyRecovery }) => {
+      if (!this.card.isConnected) return;
+      showTourChoreographyRecovery(this.card, {
+        dismiss: () => this.dismiss(),
+        retry: () => {
+          const step = this.doc.steps[this.index];
+          if (step) this.notifyChoreographyRecovery(step, 'retried');
+          void this.runSequence(sequence, actionTransition);
+        },
+        skip: () => {
+          const step = this.doc.steps[this.index];
+          if (step) this.notifyChoreographyRecovery(step, 'skipped');
+          this.next();
+        },
+      });
     });
+  }
+
+  private notifyChoreographyRecovery(
+    step: CompiledStep,
+    status: ChoreographyRecoveryUpdate['status'],
+  ): void {
+    try {
+      this.options.onChoreographyRecovery?.(step, {
+        status,
+        retryCount: this.choreographyRetryCount,
+      });
+    } catch {
+      /* Diagnostics hooks must never alter playback. */
+    }
+  }
+
+  private recordAccessibilityAnnouncement(message: string, announce = true): void {
+    if (this.accessibilityAnnouncements[this.accessibilityAnnouncements.length - 1] !== message) {
+      this.accessibilityAnnouncements.push(message);
+      if (this.accessibilityAnnouncements.length > 20) this.accessibilityAnnouncements.shift();
+    }
+    if (announce && this.announcementRegion) this.announcementRegion.textContent = message;
+    const content = this.card.querySelector<HTMLElement>('.tour-content');
+    if (content && this.options.authoringAccessibilityMode === 'screenReader') {
+      void import('./tour-accessibility-preview').then(({ updateAuthoringScreenReaderLog }) => {
+        if (content.isConnected) {
+          updateAuthoringScreenReaderLog(content, this.accessibilityAnnouncements);
+        }
+      });
+    }
   }
 
   private async findTarget(
@@ -911,6 +1012,20 @@ export class TourPlayer {
     this.targetResolver = resolver.resolveTarget;
     this.fingerprintResolver = resolver.resolve;
   }
+}
+
+function visuallyHideElement(element: HTMLElement): void {
+  Object.assign(element.style, {
+    border: '0',
+    clipPath: 'inset(50%)',
+    height: '1px',
+    margin: '-1px',
+    overflow: 'hidden',
+    padding: '0',
+    position: 'absolute',
+    whiteSpace: 'nowrap',
+    width: '1px',
+  });
 }
 
 function contentLocaleDirection(locale: string): 'ltr' | 'rtl' {

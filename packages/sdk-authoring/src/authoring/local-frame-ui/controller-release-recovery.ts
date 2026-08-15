@@ -192,6 +192,7 @@ export abstract class ControllerReleaseRecoveryFeature extends ControllerBrandFe
       if (!this.releaseRequestIsCurrent(requestVersion, documentSequence)) return;
       this.syncReleaseWorkflowFromStagingRemote(remote);
       const remoteView = releaseViewFromRemote(remote);
+      this.recordReadinessTransition(remoteView.findings);
       if (remoteView.status === 'current') {
         this.release = remoteView;
         this.pendingPublicationRequest = null;
@@ -220,7 +221,9 @@ export abstract class ControllerReleaseRecoveryFeature extends ControllerBrandFe
       const result = await publishToStaging(publicationRequest);
       if (!this.releaseRequestIsCurrent(requestVersion, documentSequence)) return;
       if (!result.ok) {
-        this.release = releaseViewFromPublicationFailure(result);
+        const failureView = releaseViewFromPublicationFailure(result);
+        this.recordReadinessTransition(failureView.findings);
+        this.release = failureView;
         if (RELEASE_ERRORS_REQUIRING_NEW_GUARD.has(result.code)) {
           this.pendingPublicationRequest = null;
         }
@@ -229,6 +232,7 @@ export abstract class ControllerReleaseRecoveryFeature extends ControllerBrandFe
       }
 
       this.pendingPublicationRequest = null;
+      this.recordReadinessTransition(result.findings);
       this.release = {
         status: 'current',
         reason: 'current',
@@ -275,13 +279,31 @@ export abstract class ControllerReleaseRecoveryFeature extends ControllerBrandFe
     try {
       const remote = await getReleaseState();
       if (!this.releaseRequestIsCurrent(requestVersion, documentSequence)) return;
-      this.release = releaseViewFromRemote(remote);
+      const remoteView = releaseViewFromRemote(remote);
+      this.recordReadinessTransition(remoteView.findings);
+      this.release = remoteView;
       this.syncReleaseWorkflowFromStagingRemote(remote);
       this.emit();
     } catch {
       if (!this.releaseRequestIsCurrent(requestVersion, documentSequence)) return;
       this.release = requestFailedReleaseView(this.release.expectedGeneration);
       this.emit();
+    }
+  }
+
+  private recordReadinessTransition(findings: AuthoringStagingReleaseState['findings']): void {
+    const previousCodes = new Set(this.release.findings.map((finding) => finding.code));
+    const nextCodes = new Set(findings.map((finding) => finding.code));
+    for (const finding of findings) {
+      if (previousCodes.has(finding.code)) continue;
+      this.recordMetric('readiness.finding', {
+        state: finding.severity,
+        reason: diagnosticReason(finding.code),
+      });
+    }
+    for (const code of previousCodes) {
+      if (nextCodes.has(code)) continue;
+      this.recordMetric('readiness.repair-completed', { reason: diagnosticReason(code) });
     }
   }
 
@@ -363,4 +385,12 @@ export abstract class ControllerReleaseRecoveryFeature extends ControllerBrandFe
       approval: currentWorkflow?.approval ?? 'not-required',
     };
   }
+}
+
+function diagnosticReason(value: string): string {
+  const normalized = value
+    .toLowerCase()
+    .replace(/[^a-z0-9._-]+/gu, '-')
+    .slice(0, 80);
+  return normalized || 'release-finding';
 }

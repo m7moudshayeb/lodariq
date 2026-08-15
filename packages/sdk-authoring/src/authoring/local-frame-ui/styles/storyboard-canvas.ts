@@ -202,6 +202,7 @@ export const AUTHORING_STORYBOARD_CANVAS_CSS = `
     height: var(--lq-space-1);
     min-height: var(--lq-space-1);
     margin: 0;
+    opacity: 1;
   }
 
   .storyboard-editor-stage .rich-step-content .inline-insert-trigger {

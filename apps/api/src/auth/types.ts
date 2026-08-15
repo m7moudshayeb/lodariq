@@ -1,5 +1,5 @@
 import type { FastifyRequest } from 'fastify';
-import type { ControlPlaneRole } from '@lodariq/schema';
+import type { AuthAssuranceLevel, AuthenticationMethod, ControlPlaneRole } from '@lodariq/schema';
 
 export type AuthRole = ControlPlaneRole;
 
@@ -8,11 +8,19 @@ export interface AuthContext {
   workspaceId: string;
   role: AuthRole;
   provider: 'lodariq' | 'headers';
+  authenticationMethod: AuthenticationMethod;
+  assuranceLevel: AuthAssuranceLevel;
+  authenticatedAt?: string;
+  identityId?: string | null;
 }
 
 export interface IdentityAuthContext {
   userId: string;
   provider: AuthContext['provider'];
+  authenticationMethod: AuthenticationMethod;
+  assuranceLevel: AuthAssuranceLevel;
+  authenticatedAt?: string;
+  identityId?: string | null;
 }
 
 export interface AuthProvider {

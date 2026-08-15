@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   parseEmailVerificationRequiredResponse,
+  parseAuthOnboardingSnapshot,
   parsePasswordRecoveryAcceptedResponse,
   parseSetPasswordChallengeId,
   parseSetPasswordInput,
@@ -14,6 +15,8 @@ import {
 import {
   createAuthClientSource,
   proxyOwnedAuthRequest,
+  proxyEnterpriseOidcCallback,
+  proxyOidcCallback,
   rejectUnsafeMutation,
 } from '../../../../apps/dashboard/src/lib/auth-proxy';
 import {
@@ -58,8 +61,67 @@ describe('@lodariq/dashboard owned authentication', () => {
     expect(safeReturnTo('/')).toBe('/');
     expect(safeReturnTo('/?welcome=1#overview')).toBe('/?welcome=1#overview');
     expect(safeReturnTo('/authoring/activate')).toBe('/authoring/activate');
+    expect(safeReturnTo('/account')).toBe('/account');
     expect(safeReturnTo('//attacker.test')).toBe('/');
     expect(safeReturnTo('https://attacker.test')).toBe('/');
+  });
+
+  it('exchanges the OIDC callback server-side and forwards only the opaque Lodariq cookie', async () => {
+    const state = 's'.repeat(43);
+    const upstreamFetch = vi.fn<typeof globalThis.fetch>(async (_input, init) => {
+      expect(JSON.parse(String(init?.body))).toEqual({ state, code: 'provider-code' });
+      expect(new Headers(init?.headers).get('authorization')).toBe('Bearer existing-session');
+      const headers = new Headers({ 'content-type': 'application/json' });
+      headers.append(
+        'set-cookie',
+        'lodariq_session_dev=opaque-session; HttpOnly; SameSite=Lax; Path=/',
+      );
+      return new Response(
+        JSON.stringify({ status: 'authenticated', returnTo: '/authoring/activate' }),
+        { status: 200, headers },
+      );
+    });
+    vi.stubGlobal('fetch', upstreamFetch);
+    const response = await proxyOidcCallback(
+      new Request(
+        `https://app.lodariq.io/api/auth/oidc/google/callback?state=${state}&code=provider-code`,
+        { headers: { cookie: 'lodariq_session_dev=existing-session' } },
+      ),
+      'google',
+    );
+    expect(response.status).toBe(303);
+    expect(response.headers.get('location')).toBe('https://app.lodariq.io/authoring/activate');
+    expect(response.headers.get('location')).not.toContain('provider-code');
+    expect(response.headers.get('set-cookie')).toContain('lodariq_session_dev=opaque-session');
+  });
+
+  it('exchanges enterprise OIDC server-side and removes provider credentials from the browser URL', async () => {
+    const state = 'e'.repeat(43);
+    vi.stubGlobal(
+      'fetch',
+      vi.fn<typeof globalThis.fetch>(async (_input, init) => {
+        expect(JSON.parse(String(init?.body))).toEqual({ state, code: 'enterprise-code' });
+        const headers = new Headers({ 'content-type': 'application/json' });
+        headers.append(
+          'set-cookie',
+          'lodariq_session_dev=enterprise-session; HttpOnly; SameSite=Lax; Path=/',
+        );
+        return new Response(JSON.stringify({ status: 'authenticated', returnTo: '/' }), {
+          status: 200,
+          headers,
+        });
+      }),
+    );
+    const response = await proxyEnterpriseOidcCallback(
+      new Request(
+        `https://app.lodariq.io/api/auth/enterprise/oidc/callback?state=${state}&code=enterprise-code`,
+      ),
+    );
+    expect(response.status).toBe(303);
+    expect(response.headers.get('location')).toBe('https://app.lodariq.io/');
+    expect(response.headers.get('location')).not.toContain('enterprise-code');
+    expect(response.headers.get('location')).not.toContain(state);
+    expect(response.headers.get('set-cookie')).toContain('enterprise-session');
   });
 
   it('uses the canonical verification contract for bounded public inputs', () => {
@@ -70,8 +132,6 @@ describe('@lodariq/dashboard owned authentication', () => {
     expect(
       parseEmailVerificationRequiredResponse({
         status: 'verification_required',
-        challengeId,
-        expiresAt: '2026-08-07T18:00:00.000Z',
       }),
     ).not.toBeNull();
     expect(
@@ -79,9 +139,38 @@ describe('@lodariq/dashboard owned authentication', () => {
         status: 'verification_required',
         challengeId,
         expiresAt: '2026-08-07T18:00:00.000Z',
+        verificationToken: 'lq_verify_abcdefghijklmnopqrstuvwxyz0123456789ABCDEFG',
+      }),
+    ).not.toBeNull();
+    expect(
+      parseEmailVerificationRequiredResponse({
+        status: 'verification_required',
+        challengeId,
+        expiresAt: '2026-08-07T18:00:00.000Z',
+        verificationToken: 'lq_verify_abcdefghijklmnopqrstuvwxyz0123456789ABCDEFG',
         unexpected: true,
       }),
     ).toBeNull();
+  });
+
+  it('parses the same bounded onboarding state for dashboard and popup sessions', () => {
+    const snapshot = {
+      id: 'onboard_abcdefghijklmnopqrstuvwxyz',
+      intent: 'create_workspace',
+      status: 'completed',
+      targetWorkspaceId: 'wk_product',
+      invitationId: null,
+      completedWorkspaceId: 'wk_product',
+      expiresAt: '2026-08-22T00:00:00.000Z',
+    };
+    expect(parseAuthOnboardingSnapshot(snapshot)).toEqual(snapshot);
+    expect(parseAuthOnboardingSnapshot({ ...snapshot, targetWorkspaceName: 'private' })).toBeNull();
+    expect(read('apps/dashboard/src/components/authoring-activation-popup.tsx')).toContain(
+      '<AuthForm',
+    );
+    expect(read('apps/dashboard/src/components/authoring-activation-popup.tsx')).toContain(
+      'returnTo="/authoring/activate"',
+    );
   });
 
   it('uses purpose-separated canonical password recovery contracts', () => {
@@ -311,7 +400,7 @@ describe('@lodariq/dashboard owned authentication', () => {
     );
     const body = JSON.stringify(await response.json());
     expect(response.status).toBe(401);
-    expect(body).toContain('Email or password is incorrect.');
+    expect(body).toContain('Email, username, or password is incorrect.');
     expect(body).not.toContain('database secret');
     expect(body).not.toContain('private_backend_reason');
   });
@@ -322,7 +411,13 @@ describe('@lodariq/dashboard owned authentication', () => {
       .mockResolvedValueOnce(
         Response.json(
           { error: 'private_rate_bucket', message: 'internal limiter detail' },
-          { status: 429, headers: { 'retry-after': '75' } },
+          {
+            status: 429,
+            headers: {
+              'retry-after': '75',
+              'x-lodariq-auth-correlation-id': 'authcorr_dashboard_proxy_test',
+            },
+          },
         ),
       )
       .mockResolvedValueOnce(
@@ -336,6 +431,12 @@ describe('@lodariq/dashboard owned authentication', () => {
           { error: 'token_hash_mismatch', message: 'private verification detail' },
           { status: 400 },
         ),
+      )
+      .mockResolvedValueOnce(
+        Response.json(
+          { error: 'private_onboarding_state', message: 'workspace target and account detail' },
+          { status: 409 },
+        ),
       );
     vi.stubGlobal('fetch', upstreamFetch);
 
@@ -345,6 +446,9 @@ describe('@lodariq/dashboard owned authentication', () => {
     );
     expect(limited.status).toBe(429);
     expect(limited.headers.get('retry-after')).toBe('75');
+    expect(limited.headers.get('x-lodariq-auth-correlation-id')).toBe(
+      'authcorr_dashboard_proxy_test',
+    );
     await expect(limited.json()).resolves.toEqual({
       error: 'rate_limited',
       message: 'Too many attempts. Wait a little and try again.',
@@ -366,6 +470,15 @@ describe('@lodariq/dashboard owned authentication', () => {
     await expect(invalid.json()).resolves.toEqual({
       error: 'verification_invalid',
       message: 'The verification link is invalid or expired.',
+    });
+
+    const onboarding = await proxyOwnedAuthRequest(
+      jsonRequest('https://app.lodariq.io/api/auth/sign-in'),
+      '/v1/auth/sign-in',
+    );
+    await expect(onboarding.json()).resolves.toEqual({
+      error: 'onboarding_incomplete',
+      message: 'Account setup could not be completed. Sign in again to resume securely.',
     });
   });
 
@@ -405,6 +518,7 @@ describe('@lodariq/dashboard owned authentication', () => {
       'apps/dashboard/src/app/api/auth/verify-email/route.ts',
       'apps/dashboard/src/app/api/auth/password-recovery/route.ts',
       'apps/dashboard/src/app/api/auth/set-password/route.ts',
+      'apps/dashboard/src/app/api/auth/oidc/[provider]/begin/route.ts',
       'apps/dashboard/src/app/api/workspaces/route.ts',
       'apps/dashboard/src/app/api/workspaces/[workspaceId]/select/route.ts',
     ];

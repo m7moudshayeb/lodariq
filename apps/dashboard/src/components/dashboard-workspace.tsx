@@ -7,6 +7,7 @@ import { DesktopWorkspaceNavigation, MobileWorkspaceHeader } from './dashboard-n
 import { AnalyticsView, ExperiencesView, OverviewView } from './dashboard-primary-views';
 import { ReleasesView } from './dashboard-release-view';
 import { BrandSystemView, EnvironmentsView, SupportView } from './dashboard-settings-views';
+import { WorkspaceMembersView } from './workspace-members-view';
 
 interface DashboardWorkspaceProps {
   viewModel: DashboardViewModel;
@@ -149,6 +150,15 @@ function ActiveDashboardView({
   }
   if (activeView === 'environments') {
     return <EnvironmentsView viewModel={viewModel} workspaceId={workspaceId} />;
+  }
+  if (activeView === 'members') {
+    return (
+      <WorkspaceMembersView
+        currentRole={viewModel.currentRole}
+        currentUserId={viewModel.currentUserId}
+        workspaceId={workspaceId}
+      />
+    );
   }
   if (activeView === 'support') {
     return <SupportView viewModel={viewModel} workspaceId={workspaceId} />;

@@ -1,8 +1,5 @@
 import { Type, type Static, type TSchema } from '@sinclair/typebox';
-import {
-  PUBLIC_MANIFEST_SCHEMA_VERSION,
-  SUPPORTED_DELIVERY_CONTRACTS,
-} from './version';
+import { PUBLIC_MANIFEST_SCHEMA_VERSION, SUPPORTED_DELIVERY_CONTRACTS } from './version';
 import {
   RELEASE_RECOVERY_ACTIONS,
   RELEASE_RECOVERY_FAILURE_CODES,
@@ -39,6 +36,8 @@ export const BROWSER_VERIFICATION_CHECK_CODES = [
   'rtl',
   'reduced_motion',
   'zoom_200',
+  'keyboard_navigation',
+  'focus_restoration',
 ] as const;
 
 export const BROWSER_VERIFICATION_STATUSES = ['passed', 'warning', 'failed'] as const;
@@ -430,10 +429,7 @@ export type UnpublishReleaseFailureHistoryEntry = Static<
 >;
 
 export const ReleaseRecoveryFailureHistoryEntry = Type.Union(
-  [
-    Type.Ref(RollbackReleaseFailureHistoryEntry),
-    Type.Ref(UnpublishReleaseFailureHistoryEntry),
-  ],
+  [Type.Ref(RollbackReleaseFailureHistoryEntry), Type.Ref(UnpublishReleaseFailureHistoryEntry)],
   { $id: 'ReleaseRecoveryFailureHistoryEntry' },
 );
 export type ReleaseRecoveryFailureHistoryEntry = Static<typeof ReleaseRecoveryFailureHistoryEntry>;

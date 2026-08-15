@@ -9,9 +9,15 @@ import type { AuthSessionSnapshot } from '../lib/auth-contract';
 import { ClientAuthError } from '../lib/client-auth-api';
 import { authErrorMessageDescriptor } from '../i18n/error-messages';
 import { AUTH_FORM_MESSAGES, AUTH_PAGE_MESSAGES } from '../i18n/messages';
+import {
+  focusFirstInvalidAuthField,
+  hasAuthFieldErrors,
+  validateAuthForm,
+  withoutAuthFieldError,
+  type AuthFieldErrors,
+} from '../lib/auth-form-validation';
+import { AuthField, AuthFormFeedback } from './auth-form-controls';
 import { Button, buttonVariants } from './ui/button';
-import { Input } from './ui/input';
-import { Label } from './ui/label';
 
 interface SetPasswordFormProps {
   challengeId: string;
@@ -27,6 +33,8 @@ export function SetPasswordForm({
   const [token, setToken] = useState<string | null>(null);
   const [tokenReady, setTokenReady] = useState(false);
   const [error, setError] = useState('');
+  const [fieldErrors, setFieldErrors] = useState<AuthFieldErrors>({});
+  const [invalidLink, setInvalidLink] = useState(false);
   const [pending, setPending] = useState(false);
   const fragmentRead = useRef(false);
   const auth = useAuthMutations();
@@ -45,21 +53,36 @@ export function SetPasswordForm({
   async function submit(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
     if (pending || !token) return;
-    setError('');
-    const form = new FormData(event.currentTarget);
-    const password = passwordField(form, 'password');
-    const confirmation = passwordField(form, 'passwordConfirmation');
-    if (password !== confirmation) {
-      setError(_(AUTH_FORM_MESSAGES.passwordsDoNotMatch));
+    const validation = validateAuthForm(event.currentTarget, ['password', 'passwordConfirmation'], {
+      confirmPassword: true,
+    });
+    if (hasAuthFieldErrors(validation.errors)) {
+      setError('');
+      setFieldErrors(validation.errors);
+      focusFirstInvalidAuthField(
+        event.currentTarget,
+        ['password', 'passwordConfirmation'],
+        validation.errors,
+      );
       return;
     }
+    setError('');
+    setFieldErrors({});
 
     setPending(true);
     try {
-      const session = await auth.setPassword.mutateAsync({ challengeId, token, password });
+      const session = await auth.setPassword.mutateAsync({
+        challengeId,
+        token,
+        password: validation.values.password,
+      });
       if (onAuthenticated) await onAuthenticated(session);
       else window.location.replace(returnTo);
     } catch (caught) {
+      if (caught instanceof ClientAuthError && caught.code === 'password_reset_invalid') {
+        setInvalidLink(true);
+        return;
+      }
       setError(
         caught instanceof ClientAuthError
           ? _(authErrorMessageDescriptor(caught.code, caught.statusCode))
@@ -78,13 +101,29 @@ export function SetPasswordForm({
     );
   }
 
-  if (!token) {
+  if (!token || invalidLink) {
     return (
       <div className="grid gap-5">
-        <p className="text-sm leading-6 text-muted-foreground">
-          {_(AUTH_FORM_MESSAGES.incompletePasswordLink)}
-        </p>
-        <Link className={buttonVariants({ className: 'h-11 w-full' })} href="/forgot-password">
+        <div className="grid gap-2" role="alert">
+          <h2 className="font-semibold text-foreground">
+            {_(
+              invalidLink
+                ? AUTH_FORM_MESSAGES.passwordLinkUnavailable
+                : AUTH_PAGE_MESSAGES.incompleteLinkTitle,
+            )}
+          </h2>
+          <p className="text-sm leading-6 text-muted-foreground">
+            {_(
+              invalidLink
+                ? AUTH_FORM_MESSAGES.passwordLinkUnavailableHelp
+                : AUTH_FORM_MESSAGES.incompletePasswordLink,
+            )}
+          </p>
+        </div>
+        <Link
+          className={buttonVariants({ className: 'h-11 w-full' })}
+          href={`/forgot-password?returnTo=${encodeURIComponent(returnTo)}`}
+        >
           {_(AUTH_PAGE_MESSAGES.requestAnotherLink)}
           <ArrowRight aria-hidden="true" className="rtl:rotate-180" />
         </Link>
@@ -93,47 +132,39 @@ export function SetPasswordForm({
   }
 
   return (
-    <form className="grid gap-5" onSubmit={(event) => void submit(event)}>
+    <form
+      className="grid gap-5"
+      noValidate
+      onInput={(event) => {
+        const target = event.target;
+        if (target instanceof HTMLInputElement) {
+          setFieldErrors((current) => withoutAuthFieldError(current, target.name));
+        }
+      }}
+      onSubmit={(event) => void submit(event)}
+    >
       <div className="grid size-11 place-items-center rounded-xl bg-[var(--nav-active)] text-primary">
         <KeyRound aria-hidden="true" className="size-5" />
       </div>
-      <div className="grid gap-2">
-        <Label htmlFor="new-password">{_(AUTH_FORM_MESSAGES.newPassword)}</Label>
-        <Input
-          autoComplete="new-password"
-          disabled={pending}
-          id="new-password"
-          maxLength={128}
-          minLength={12}
-          name="password"
-          required
-          type="password"
-        />
-        <p className="text-xs leading-5 text-muted-foreground">
-          {_(AUTH_FORM_MESSAGES.passwordLength)}
-        </p>
-      </div>
-      <div className="grid gap-2">
-        <Label htmlFor="confirm-password">{_(AUTH_FORM_MESSAGES.confirmPassword)}</Label>
-        <Input
-          autoComplete="new-password"
-          disabled={pending}
-          id="confirm-password"
-          maxLength={128}
-          minLength={12}
-          name="passwordConfirmation"
-          required
-          type="password"
-        />
-      </div>
-      {error ? (
-        <p
-          className="rounded-lg border border-[var(--danger-border)] bg-[var(--danger-bg)] px-3 py-2 text-sm text-[var(--danger-fg)]"
-          role="alert"
-        >
-          {error}
-        </p>
-      ) : null}
+      <AuthField
+        autoComplete="new-password"
+        disabled={pending}
+        error={fieldErrors.password}
+        help={_(AUTH_FORM_MESSAGES.passwordLength)}
+        id="new-password"
+        name="password"
+      />
+      <AuthField
+        autoComplete="new-password"
+        disabled={pending}
+        error={fieldErrors.passwordConfirmation}
+        id="confirm-password"
+        name="passwordConfirmation"
+      />
+      <AuthFormFeedback fieldErrors={fieldErrors} formError={error} />
+      <span aria-live="polite" className="sr-only" role="status">
+        {pending ? _(AUTH_FORM_MESSAGES.savingPassword) : ''}
+      </span>
       <Button className="h-11 w-full" disabled={pending} type="submit">
         {pending ? (
           <LoaderCircle aria-hidden="true" className="animate-spin" />
@@ -144,9 +175,4 @@ export function SetPasswordForm({
       </Button>
     </form>
   );
-}
-
-function passwordField(form: FormData, name: string): string {
-  const value = form.get(name);
-  return typeof value === 'string' ? value : '';
 }

@@ -16,6 +16,9 @@ import {
   AuthoringButton,
   Heading,
   Image,
+  CircleAlert,
+  Activity,
+  Shapes,
   Link as LinkIcon,
   List,
   Minus,
@@ -41,6 +44,18 @@ export const COMMAND_DETAILS: Record<SlashCommand, { description: string; icon: 
     description: authoringText('Add an image or video'),
     icon: <Image size={14} strokeWidth={2.2} />,
   },
+  callout: {
+    description: authoringText('Add a callout'),
+    icon: <CircleAlert size={14} strokeWidth={2.2} />,
+  },
+  stat: {
+    description: authoringText('Add a stat'),
+    icon: <Activity size={14} strokeWidth={2.2} />,
+  },
+  icon: {
+    description: authoringText('Add an icon'),
+    icon: <Shapes size={14} strokeWidth={2.2} />,
+  },
   link: {
     description: authoringText('Add a link'),
     icon: <LinkIcon size={14} strokeWidth={2.2} />,
@@ -54,7 +69,7 @@ export const COMMAND_DETAILS: Record<SlashCommand, { description: string; icon: 
     icon: <Minus size={14} strokeWidth={2.2} />,
   },
   paragraph: {
-    description: authoringText('Add text'),
+    description: authoringText('Open the rich content editor'),
     icon: <Type size={14} strokeWidth={2.2} />,
   },
   step: {

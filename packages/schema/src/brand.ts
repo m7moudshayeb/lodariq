@@ -919,6 +919,10 @@ export const BASIC_VISUAL_PREFLIGHT_ISSUE_CODES = [
   'contrast_below_target',
   'long_copy_risk',
   'compact_viewport_risk',
+  'choreography_target_missing',
+  'choreography_step_missing',
+  'media_asset_invalid',
+  'missing_accessible_name',
   ...TOUR_FLOW_ISSUE_CODES,
 ] as const;
 
@@ -931,6 +935,10 @@ export const BASIC_VISUAL_PREFLIGHT_ISSUE_LABELS = {
   contrast_below_target: 'Contrast needs improvement',
   long_copy_risk: 'Long copy may overflow',
   compact_viewport_risk: 'Compact viewport may clip content',
+  choreography_target_missing: 'Sequence target is missing',
+  choreography_step_missing: 'Sequence recovery step is missing',
+  media_asset_invalid: 'Media asset is unavailable',
+  missing_accessible_name: 'Missing accessible name',
   invalid_flow_edge: 'Flow edge points to a missing step',
   unreachable_step: 'Step cannot be reached',
   non_terminating_flow: 'Flow contains an unbounded cycle',
@@ -1054,6 +1062,21 @@ const BasicVisualPreflightFlowIssue = Type.Object(
   { additionalProperties: false },
 );
 
+const BasicVisualPreflightCapabilityIssue = Type.Object(
+  {
+    code: Type.Union([
+      Type.Literal('choreography_target_missing'),
+      Type.Literal('choreography_step_missing'),
+      Type.Literal('media_asset_invalid'),
+      Type.Literal('missing_accessible_name'),
+    ]),
+    severity: Type.Literal('blocker'),
+    stepIndex: Type.Integer({ minimum: 0 }),
+    nodeIndex: Type.Optional(Type.Integer({ minimum: 0 })),
+  },
+  { additionalProperties: false },
+);
+
 /**
  * Bounded visual-check evidence. It deliberately carries codes, indexes, and
  * numeric measurements only: never creator copy, URLs, CSS, selectors, DOM,
@@ -1066,6 +1089,7 @@ export const BasicVisualPreflightIssue = Type.Union(
     BasicVisualPreflightLongCopyIssue,
     BasicVisualPreflightCompactViewportIssue,
     BasicVisualPreflightFlowIssue,
+    BasicVisualPreflightCapabilityIssue,
   ],
   { $id: 'BasicVisualPreflightIssue' },
 );

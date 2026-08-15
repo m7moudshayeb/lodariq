@@ -97,6 +97,9 @@ const BLOCK_CAPABILITIES: Partial<
   list: ['structuredContent'],
   divider: ['structuredContent'],
   media: ['structuredContent', 'presentation'],
+  callout: ['structuredContent', 'presentation'],
+  stat: ['structuredContent', 'presentation'],
+  icon: ['structuredContent', 'presentation'],
   button: ['structuredContent', 'actions'],
   link: ['structuredContent', 'actions'],
 };

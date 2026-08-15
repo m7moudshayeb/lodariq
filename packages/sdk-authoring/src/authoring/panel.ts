@@ -34,6 +34,9 @@ import {
   type AuthoringInlineControlOperation,
   type AuthoringAccessibilityPreviewMode,
   type AuthoringSaveState,
+  type AuthoringDiagnosticAttributes,
+  type AuthoringDiagnosticEventName,
+  CURRENT_AUTHORING_DELIVERY_CAPABILITY_METADATA,
   type AuthoringProductMatchApplyResult,
   type AuthoringBrandDriftCheckResult,
   type AuthoringBrandThemeAcknowledgementRequest,
@@ -67,6 +70,7 @@ import { applyAuthoringLocale, authoringText, currentAuthoringLocale } from '../
 import { AUTHORING_LOCALE_QUERY_PARAMETER } from '@lodariq/schema/authoring-entry-runtime';
 import type { ResolutionResult } from '@lodariq/sdk-runtime/resolver';
 import type {
+  ChoreographyRecoveryUpdate,
   ChoreographyStageUpdate,
   ProtectedSurfaceRect,
 } from '@lodariq/sdk-runtime/renderers/tour';
@@ -129,6 +133,7 @@ import {
 import {
   chooseChromeGeometryAwayFrom,
   domRectAsProtectedSurface,
+  type ProtectedChromeGeometry,
 } from './protected-surface-registry';
 import { AUTHORING_PREVIEW_ACTIVE_ATTRIBUTE } from './panel-attributes';
 import { LOCAL_AUTHORING_PANEL_TOGGLE_EVENT } from './constants';
@@ -259,6 +264,7 @@ export interface LocalAuthoringPreviewOptions {
   onDismiss?: () => void;
   onSkip?: () => void;
   onChoreographyStageChange?: (stepId: string, update: ChoreographyStageUpdate) => void;
+  onChoreographyRecovery?: (stepId: string, update: ChoreographyRecoveryUpdate) => void;
   onBranchChoice?: (stepId: string, ruleIndex: number | null, destination: string) => void;
   getAuthoringProtectedSurfaces?: () => readonly ProtectedSurfaceRect[];
   onAuthoringSurfaceChange?: (rect: ProtectedSurfaceRect | null) => void;
@@ -488,6 +494,7 @@ function openAuthoringPanel(
   let previewThemeRevision = 0;
   let previewRequestId = 0;
   let latestPreviewTransactionRevision = 0;
+  let latestPreviewTransactionId: string | null = null;
   let previewPending = false;
   let previewPresented = false;
   let previewContentLocale = previewDocument?.localization?.defaultLocale ?? 'en';
@@ -552,6 +559,7 @@ function openAuthoringPanel(
   let pendingAutoSave: {
     document: LodariqDocument;
     generation: number;
+    transaction?: PreviewTransactionMetadata;
   } | null = null;
   let autoSaveTimer: ReturnType<typeof setTimeout> | null = null;
   let targetEvidenceUpdateTimer: ReturnType<typeof setTimeout> | null = null;
@@ -1019,6 +1027,7 @@ function openAuthoringPanel(
     setMinimizeButtonState(minimizeButton, minimizeIcon, true);
     setAuthoringTriggerPanelState('minimized');
     if (options.persistenceOwner === 'iframe') dispatchHostedCreatorPanelState('minimized');
+    recordAuthoringDiagnostic('chrome.collapsed');
   };
 
   const restore = (): void => {
@@ -1053,6 +1062,7 @@ function openAuthoringPanel(
     setMinimizeButtonState(minimizeButton, minimizeIcon, false);
     setAuthoringTriggerPanelState('open');
     if (options.persistenceOwner === 'iframe') dispatchHostedCreatorPanelState('open');
+    recordAuthoringDiagnostic('chrome.restored');
     if (preview && previewDocument) {
       void playPreviewDocument(pendingInlinePreviewStepId());
     }
@@ -1423,6 +1433,7 @@ function openAuthoringPanel(
         prefersDark: window.matchMedia?.('(prefers-color-scheme: dark)').matches ?? false,
         prefersReducedMotion:
           window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false,
+        deliveryCapabilities: CURRENT_AUTHORING_DELIVERY_CAPABILITY_METADATA,
         ...(releaseServices
           ? {
               releaseStateCapability: AUTHORING_SESSION_CAPABILITIES.READ_RELEASE_STATE,
@@ -1648,7 +1659,18 @@ function openAuthoringPanel(
   ): Promise<void> | void {
     const current = previewDocument ?? preview?.loadDocument(session.documentId) ?? null;
     if (!current) return;
-    if (transaction && transaction.revision <= latestPreviewTransactionRevision) return;
+    if (transaction && transaction.revision <= latestPreviewTransactionRevision) {
+      sendPreviewTransactionResult(transaction, 'applied');
+      return;
+    }
+    if (
+      transaction &&
+      transaction.transactionId !== latestPreviewTransactionId &&
+      transaction.baseRevision !== latestPreviewTransactionRevision
+    ) {
+      sendPreviewTransactionResult(transaction, 'conflict', current);
+      return;
+    }
 
     const affectedStepId = findContainingTourStepId(current.blocks, blockId);
     if (ops.some((operation) => operation.op === 'replaceDocument')) {
@@ -1660,9 +1682,13 @@ function openAuthoringPanel(
       authoringTargetOverrides.delete(affectedStepId);
     }
     previewDocument = applyPreviewPatch(current, blockId, ops, locale);
-    if (transaction) latestPreviewTransactionRevision = transaction.revision;
+    if (transaction) {
+      latestPreviewTransactionRevision = transaction.revision;
+      latestPreviewTransactionId = transaction.transactionId;
+      sendPreviewTransactionResult(transaction, 'applied');
+    }
     syncPanelStepStatus();
-    scheduleAutoSave(previewDocument);
+    scheduleAutoSave(previewDocument, transaction);
     const persistence = ops.some((operation) => operation.op === 'removeTarget')
       ? flushAutoSave()
       : undefined;
@@ -1804,18 +1830,44 @@ function openAuthoringPanel(
                   if (previewPathStepIds[previewPathStepIds.length - 1] !== runtimeStepId) {
                     previewPathStepIds.push(runtimeStepId);
                   }
+                  recordAuthoringDiagnostic('preview.step-changed', {
+                    stepId: runtimeStepId,
+                    count: index,
+                  });
                   syncPanelStepStatus();
                 },
                 onComplete: () => completeInteractivePreview('completed', requestId),
                 onDismiss: () => completeInteractivePreview('dismissed', requestId),
                 onSkip: () => completeInteractivePreview('skipped', requestId),
-                onChoreographyStageChange: (_stepId, update) => {
+                onChoreographyStageChange: (runtimeStepId, update) => {
                   if (requestId !== previewRequestId) return;
                   previewChoreographyStage = update;
+                  const eventName = choreographyDiagnosticName(update.status);
+                  if (eventName) {
+                    recordAuthoringDiagnostic(eventName, {
+                      stepId: runtimeStepId,
+                      durationMs: Math.max(0, Math.round(update.elapsedMs)),
+                      count: update.stageIndex,
+                      state: update.stage,
+                    });
+                  }
                   syncPanelStepStatus();
                 },
-                onBranchChoice: () => {
-                  if (requestId === previewRequestId) syncPanelStepStatus();
+                onChoreographyRecovery: (runtimeStepId, update) => {
+                  if (requestId !== previewRequestId) return;
+                  recordAuthoringDiagnostic(`choreography.${update.status}`, {
+                    stepId: runtimeStepId,
+                    count: update.retryCount,
+                  });
+                },
+                onBranchChoice: (runtimeStepId, ruleIndex) => {
+                  if (requestId === previewRequestId) {
+                    recordAuthoringDiagnostic('preview.branch-chosen', {
+                      stepId: runtimeStepId,
+                      ...(ruleIndex === null ? { reason: 'fallback' } : { count: ruleIndex }),
+                    });
+                    syncPanelStepStatus();
+                  }
                 },
                 getAuthoringProtectedSurfaces: () => authoringProtectedSurfaces(),
                 onAuthoringSurfaceChange: (rect: ProtectedSurfaceRect | null) =>
@@ -1869,6 +1921,9 @@ function openAuthoringPanel(
     previewChoreographyStage = null;
     previewPending = false;
     previewPresented = false;
+    recordAuthoringDiagnostic(state === 'completed' ? 'preview.completed' : 'preview.exited', {
+      state,
+    });
     syncPanelStepStatus();
   }
 
@@ -1900,7 +1955,30 @@ function openAuthoringPanel(
       width: window.innerWidth,
       height: window.innerHeight,
     });
+    if (next.left !== current.left || next.top !== current.top) {
+      recordAuthoringDiagnostic('chrome.moved', { reason: 'preview-collision' });
+    }
+    if (chromeIntersectsProtectedSurface(next, rect)) {
+      recordAuthoringDiagnostic('chrome.collision-unresolved', {
+        reason: 'viewport-constrained',
+      });
+    }
     applyClampedAuthoringPanelGeometry(host, next, 'minimized');
+  }
+
+  function recordAuthoringDiagnostic(
+    name: AuthoringDiagnosticEventName,
+    attributes?: AuthoringDiagnosticAttributes,
+  ): void {
+    bridge?.send({
+      protocol: BRIDGE_PROTOCOL_VERSION,
+      sessionId: session.sessionId,
+      documentId: session.documentId,
+      correlationId: createBridgeCorrelationId('authoring_diagnostic'),
+      type: 'authoring.diagnostic.record',
+      name,
+      ...(attributes ? { attributes } : {}),
+    });
   }
 
   function pendingInlinePreviewStepId(): string | undefined {
@@ -1941,7 +2019,10 @@ function openAuthoringPanel(
     queueMicrotask(() => inlinePreviewEditor?.focusPrimary());
   }
 
-  function scheduleAutoSave(document: LodariqDocument): void {
+  function scheduleAutoSave(
+    document: LodariqDocument,
+    transaction?: PreviewTransactionMetadata,
+  ): void {
     if (options.persistenceOwner === 'host' && !options.onSave) {
       setSaveState('saved', AUTHORING_PANEL_LABELS.draftSaved);
       return;
@@ -1949,6 +2030,7 @@ function openAuthoringPanel(
     pendingAutoSave = {
       document: structuredClone(document),
       generation: ++autoSaveGeneration,
+      ...(transaction ? { transaction: structuredClone(transaction) } : {}),
     };
     autoSaveRetryCount = 0;
     setSaveState('saving', AUTHORING_PANEL_LABELS.savingDraft);
@@ -1982,6 +2064,7 @@ function openAuthoringPanel(
       .then(() => {
         autoSaveRetryCount = 0;
         persistedAutoSaveGeneration = Math.max(persistedAutoSaveGeneration, save.generation);
+        if (save.transaction) sendPreviewTransactionResult(save.transaction, 'persisted');
         if (!pendingAutoSave && persistedAutoSaveGeneration >= autoSaveGeneration) {
           setSaveState('saved', AUTHORING_PANEL_LABELS.draftSaved);
         }
@@ -1992,6 +2075,7 @@ function openAuthoringPanel(
           pendingAutoSave ??= {
             document: structuredClone(save.document),
             generation: save.generation,
+            ...(save.transaction ? { transaction: structuredClone(save.transaction) } : {}),
           };
         }
         const reportableError =
@@ -2004,6 +2088,7 @@ function openAuthoringPanel(
           host.isConnected &&
           autoSaveRetryCount < AUTHORING_AUTOSAVE_MAX_RETRIES
         ) {
+          if (save.transaction) sendPreviewTransactionResult(save.transaction, 'retrying');
           setSaveState('error', 'Save failed · retrying');
           autoSaveRetryCount += 1;
           autoSaveTimer = setTimeout(() => {
@@ -2017,6 +2102,31 @@ function openAuthoringPanel(
       });
     autoSaveSequence = saveAttempt.catch(() => {});
     return saveAttempt;
+  }
+
+  function sendPreviewTransactionResult(
+    transaction: PreviewTransactionMetadata,
+    state: 'applied' | 'persisted' | 'retrying' | 'conflict',
+    authoritativeDocument?: LodariqDocument,
+  ): void {
+    bridge?.send({
+      protocol: BRIDGE_PROTOCOL_VERSION,
+      sessionId: session.sessionId,
+      documentId: session.documentId,
+      correlationId: createBridgeCorrelationId('preview_transaction_result'),
+      type: 'preview.transaction.result',
+      transactionId: transaction.transactionId,
+      revision: transaction.revision,
+      state,
+      ...(state === 'conflict'
+        ? {
+            authoritativeRevision: latestPreviewTransactionRevision,
+            ...(authoritativeDocument
+              ? { authoritativeDocument: structuredClone(authoritativeDocument) }
+              : {}),
+          }
+        : {}),
+    });
   }
 
   function requestIframeSave(prefix: string): Promise<LodariqDocument | null> {
@@ -2535,6 +2645,29 @@ function openAuthoringPanel(
 function authoringSessionKey(session: AuthoringSession): string {
   return [session.workspaceId, session.environment, session.documentId, session.sessionId].join(
     ':',
+  );
+}
+
+function choreographyDiagnosticName(
+  status: ChoreographyStageUpdate['status'],
+): AuthoringDiagnosticEventName | null {
+  const names: Partial<Record<ChoreographyStageUpdate['status'], AuthoringDiagnosticEventName>> = {
+    started: 'choreography.stage-started',
+    completed: 'choreography.stage-satisfied',
+    timed_out: 'choreography.stage-timed-out',
+  };
+  return names[status] ?? null;
+}
+
+function chromeIntersectsProtectedSurface(
+  chrome: ProtectedChromeGeometry,
+  surface: ProtectedSurfaceRect,
+): boolean {
+  return !(
+    chrome.left + chrome.width <= surface.left ||
+    surface.right <= chrome.left ||
+    chrome.top + chrome.height <= surface.top ||
+    surface.bottom <= chrome.top
   );
 }
 

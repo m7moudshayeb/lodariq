@@ -12,6 +12,7 @@ import {
   SDK_DOCUMENT_PATH,
 } from '../control-plane-contracts';
 import type { ControlPlaneRouteOptions } from '../control-plane-context';
+import { createObservabilityEvent } from '../../observability';
 import {
   deploymentOriginsForApiBaseUrl,
   requireExpectedFirstPartyAppOrigin,
@@ -36,7 +37,21 @@ export function registerHealthAndCorsRoutes(
 
   fastify.get('/readyz', async (_request, reply) => {
     try {
+      const clockStartedAt = Date.now();
       await options.repository.checkReadiness();
+      const databaseTime = Date.parse(await options.repository.readDatabaseTime());
+      const clockFinishedAt = Date.now();
+      const midpoint = clockStartedAt + Math.floor((clockFinishedAt - clockStartedAt) / 2);
+      const skewMs = Math.abs(databaseTime - midpoint);
+      if (!Number.isFinite(skewMs) || skewMs > 30_000) {
+        options.observability.emit(
+          createObservabilityEvent({
+            name: 'auth.clock.skew_detected',
+            attributes: { skewMs: Number.isFinite(skewMs) ? skewMs : 'invalid' },
+          }),
+        );
+        return reply.code(503).send({ ok: false });
+      }
       return { ok: true };
     } catch {
       return reply.code(503).send({ ok: false });
@@ -104,6 +119,9 @@ export function registerHealthAndCorsRoutes(
 
   for (const path of [
     '/v1/authoring/document',
+    '/v1/authoring/resources',
+    '/v1/authoring/media-assets',
+    '/v1/authoring/media-assets/:assetId',
     HOSTED_AUTHORING_TRANSLATION_PATH,
     '/v1/authoring/documents/query',
     '/v1/authoring/activation/revoke',

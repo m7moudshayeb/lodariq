@@ -108,7 +108,7 @@ export class DrizzleRepositoryAuthoringActivation extends DrizzleRepositoryAutho
         return null;
       }
 
-      await this.setWorkspaceScope(tx, grant.workspaceId);
+      await this.setTenantActorScope(tx, grant.workspaceId, grant.creatorId);
       if (
         !(await this.hasActiveAuthoringScope(
           tx,
@@ -211,7 +211,11 @@ export class DrizzleRepositoryAuthoringActivation extends DrizzleRepositoryAutho
           return null;
         }
 
-        await this.setWorkspaceScope(tx, candidate.grant.workspaceId);
+        await this.setTenantActorScope(
+          tx,
+          candidate.grant.workspaceId,
+          candidate.grant.creatorId,
+        );
         if (
           !(await this.hasActiveAuthoringScope(
             tx,

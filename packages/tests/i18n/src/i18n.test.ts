@@ -87,7 +87,7 @@ describe('@lodariq/i18n locale policy', () => {
     expect(authoringText('{count} setup actions', { count: 3 })).toContain('3');
 
     configureRuntimeLocale(['ar']);
-    expect(runtimeText('Skip tour')).not.toBe('Skip tour');
+    expect(runtimeText('Hide Lodariq')).not.toBe('Hide Lodariq');
 
     resetAuthoringLocaleForTests();
     resetRuntimeLocaleForTests();

@@ -15,6 +15,7 @@ import { registerReleaseReviewRoutes } from './control-plane/register-release-re
 import { registerAuthoringSessionRoutes } from './control-plane/register-authoring-sessions';
 import { registerAuthoringDocumentRoutes } from './control-plane/register-authoring-documents';
 import { registerAuthoringReleaseRoutes } from './control-plane/register-authoring-releases';
+import { registerAuthoringResourceRoutes } from './control-plane/register-authoring-resources';
 
 const CONTROL_PLANE_ROUTE_REGISTRARS = [
   registerHealthAndCorsRoutes,
@@ -30,6 +31,7 @@ const CONTROL_PLANE_ROUTE_REGISTRARS = [
   registerControlPlaneEnvironmentTokenRoutes,
   registerAuthoringSessionRoutes,
   registerAuthoringDocumentRoutes,
+  registerAuthoringResourceRoutes,
   registerAuthoringReleaseRoutes,
   registerControlPlaneAnalyticsRoutes,
 ] as const;

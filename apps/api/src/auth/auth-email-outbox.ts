@@ -1,14 +1,34 @@
 import { createHash } from 'node:crypto';
-import { formatEmailVerificationUrl, formatPasswordResetUrl } from './email-verification';
-import { createEmailVerificationToken, createPasswordResetToken } from './owned-auth-crypto';
+import type { ObservabilitySink } from '../observability';
+import {
+  formatEmailVerificationUrl,
+  formatAccountEmailChangeUrl,
+  formatPasswordResetUrl,
+  formatWorkspaceInvitationUrl,
+} from './email-verification';
+import {
+  createEmailVerificationToken,
+  createAccountEmailChangeToken,
+  createPasswordResetToken,
+  createWorkspaceInvitationToken,
+} from './owned-auth-crypto';
 
 export const AUTH_EMAIL_DELIVERY_MODES = ['disabled', 'resend'] as const;
+export const AUTH_EMAIL_OBSERVABILITY_EVENTS = Object.freeze({
+  outboxClaimed: 'auth.email.outbox_claimed',
+  providerAccepted: 'auth.email.provider_accepted',
+  leaseStale: 'auth.email.lease_stale',
+  retryScheduled: 'auth.email.delivery_retry_scheduled',
+  deliveryTerminal: 'auth.email.delivery_terminal',
+});
 export const AUTH_EMAIL_ENV = Object.freeze({
   mode: 'LODARIQ_EMAIL_DELIVERY_MODE',
   appBaseUrl: 'LODARIQ_APP_BASE_URL',
   from: 'LODARIQ_AUTH_EMAIL_FROM',
   resendApiKey: 'RESEND_API_KEY',
   tokenSecret: 'LODARIQ_AUTH_EMAIL_TOKEN_SECRET',
+  tokenKeys: 'LODARIQ_AUTH_EMAIL_TOKEN_KEYS',
+  activeTokenKeyId: 'LODARIQ_AUTH_EMAIL_TOKEN_ACTIVE_KEY_ID',
 });
 
 const RESEND_EMAILS_ENDPOINT = 'https://api.resend.com/emails';
@@ -25,10 +45,17 @@ const MAX_RESEND_TIMEOUT_MS = 60_000;
 const OUTBOX_ID_PATTERN = /^outbox_[A-Za-z0-9_-]{20,200}$/u;
 const VERIFICATION_CHALLENGE_ID_PATTERN = /^verify_[A-Za-z0-9_-]{20,249}$/u;
 const SET_PASSWORD_CHALLENGE_ID_PATTERN = /^reset_[A-Za-z0-9_-]{20,250}$/u;
+const WORKSPACE_INVITATION_ID_PATTERN = /^invite_[A-Za-z0-9_-]{20,249}$/u;
+const ACCOUNT_EMAIL_CHANGE_ID_PATTERN = /^emailchange_[A-Za-z0-9_-]{20,249}$/u;
 const EMAIL_ADDRESS_PATTERN = /^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/u;
 
 export type AuthEmailDeliveryMode = (typeof AUTH_EMAIL_DELIVERY_MODES)[number];
-export type AuthEmailPurpose = 'email_verification' | 'set_password';
+export type AuthEmailPurpose =
+  | 'email_verification'
+  | 'set_password'
+  | 'workspace_invitation'
+  | 'account_email_change_current'
+  | 'account_email_change_new';
 
 export interface DisabledAuthEmailDeliveryConfig {
   mode: 'disabled';
@@ -39,7 +66,8 @@ export interface ResendAuthEmailDeliveryConfig {
   appBaseUrl: string;
   from: string;
   apiKey: string;
-  tokenSecret: string;
+  activeTokenKeyId: string;
+  tokenKeys: Readonly<Record<string, string>>;
 }
 
 export type AuthEmailDeliveryConfig =
@@ -55,8 +83,10 @@ export interface ClaimedAuthEmailOutboxRow {
   recipientEmail: string;
   purpose: AuthEmailPurpose;
   challengeId: string;
+  keyId: string;
   attempt: number;
   leaseVersion: number;
+  createdAt: string;
 }
 
 export interface ClaimDueAuthEmailRowsInput {
@@ -117,7 +147,9 @@ export interface AuthEmailOutboxWorkerOptions {
   queue: AuthEmailOutboxQueue;
   sender: AuthEmailSender;
   appBaseUrl: string;
-  tokenSecret: string;
+  /** Backward-compatible single-key input for tests and isolated development. */
+  tokenSecret?: string;
+  tokenKeys?: Readonly<Record<string, string>>;
   batchSize?: number;
   pollIntervalMs?: number;
   leaseDurationMs?: number;
@@ -127,6 +159,7 @@ export interface AuthEmailOutboxWorkerOptions {
   retryJitterRatio?: number;
   clock?: () => Date;
   random?: () => number;
+  observability?: ObservabilitySink;
 }
 
 export interface ResendAuthEmailSenderOptions {
@@ -160,7 +193,7 @@ export class AuthEmailOutboxWorker {
   readonly #queue: AuthEmailOutboxQueue;
   readonly #sender: AuthEmailSender;
   readonly #appBaseUrl: string;
-  readonly #tokenSecret: string;
+  readonly #tokenKeys: Readonly<Record<string, string>>;
   readonly #batchSize: number;
   readonly #pollIntervalMs: number;
   readonly #leaseDurationMs: number;
@@ -170,6 +203,7 @@ export class AuthEmailOutboxWorker {
   readonly #retryJitterRatio: number;
   readonly #clock: () => Date;
   readonly #random: () => number;
+  readonly #observability: ObservabilitySink | undefined;
   #running = false;
   #timer: ReturnType<typeof setTimeout> | null = null;
   #activeCycle: Promise<AuthEmailCycleResult> | null = null;
@@ -179,7 +213,10 @@ export class AuthEmailOutboxWorker {
     this.#queue = options.queue;
     this.#sender = options.sender;
     this.#appBaseUrl = normalizeAppBaseUrl(options.appBaseUrl, 'appBaseUrl');
-    this.#tokenSecret = requireTokenSecret(options.tokenSecret, 'tokenSecret');
+    this.#tokenKeys = normalizeTokenKeyring(
+      options.tokenKeys ?? { legacy: requireTokenSecret(options.tokenSecret ?? '', 'tokenSecret') },
+      'tokenKeys',
+    );
     this.#batchSize = boundedInteger(
       options.batchSize ?? DEFAULT_BATCH_SIZE,
       'batchSize',
@@ -224,6 +261,7 @@ export class AuthEmailOutboxWorker {
     );
     this.#clock = options.clock ?? (() => new Date());
     this.#random = options.random ?? Math.random;
+    this.#observability = options.observability;
   }
 
   get running(): boolean {
@@ -290,16 +328,24 @@ export class AuthEmailOutboxWorker {
 
     for (const row of rows) {
       if (signal.aborted) break;
+      this.#emitDeliveryEvent(AUTH_EMAIL_OBSERVABILITY_EVENTS.outboxClaimed, row, {
+        queueAgeMs: outboxAgeMs(row, cycleTime),
+      });
       const failure = validateClaim(row);
       if (failure) {
         await this.#recordFailure(row, failure, result);
+        continue;
+      }
+      const tokenSecret = this.#tokenKeys[row.keyId];
+      if (!tokenSecret) {
+        await this.#recordFailure(row, { code: 'token_key_unavailable', retryable: false }, result);
         continue;
       }
 
       try {
         await this.#sender.send({
           outboxId: row.id,
-          message: createAuthEmailMessage(row, this.#appBaseUrl, this.#tokenSecret),
+          message: createAuthEmailMessage(row, this.#appBaseUrl, tokenSecret),
           signal,
         });
       } catch (error) {
@@ -313,8 +359,15 @@ export class AuthEmailOutboxWorker {
         leaseVersion: row.leaseVersion,
         processedAt: validClockDate(this.#clock()).toISOString(),
       });
-      if (acknowledged) result.acknowledged += 1;
-      else result.stale += 1;
+      if (acknowledged) {
+        result.acknowledged += 1;
+        this.#emitDeliveryEvent(AUTH_EMAIL_OBSERVABILITY_EVENTS.providerAccepted, row, {
+          queueAgeMs: outboxAgeMs(row, cycleTime),
+        });
+      } else {
+        result.stale += 1;
+        this.#emitDeliveryEvent(AUTH_EMAIL_OBSERVABILITY_EVENTS.leaseStale, row);
+      }
     }
 
     return result;
@@ -348,11 +401,51 @@ export class AuthEmailOutboxWorker {
     });
     if (!updated) {
       result.stale += 1;
+      this.#emitDeliveryEvent(AUTH_EMAIL_OBSERVABILITY_EVENTS.leaseStale, row, {
+        failureCode: failure.code,
+      });
       return;
     }
-    if (terminal) result.terminal += 1;
-    else result.retried += 1;
+    if (terminal) {
+      result.terminal += 1;
+      this.#emitDeliveryEvent(AUTH_EMAIL_OBSERVABILITY_EVENTS.deliveryTerminal, row, {
+        failureCode: failure.code,
+        queueAgeMs: outboxAgeMs(row, failureTime),
+      });
+    } else {
+      result.retried += 1;
+      this.#emitDeliveryEvent(AUTH_EMAIL_OBSERVABILITY_EVENTS.retryScheduled, row, {
+        failureCode: failure.code,
+        queueAgeMs: outboxAgeMs(row, failureTime),
+        nextAttemptAt: availableAt,
+      });
+    }
   }
+
+  #emitDeliveryEvent(
+    name: string,
+    row: ClaimedAuthEmailOutboxRow,
+    attributes: Record<string, unknown> = {},
+  ): void {
+    this.#observability?.emit({
+      name,
+      timestamp: validClockDate(this.#clock()).toISOString(),
+      correlationId: row.id,
+      attributes: {
+        outboxId: row.id,
+        challengeId: row.challengeId,
+        purpose: row.purpose,
+        attempt: row.attempt,
+        ...attributes,
+      },
+    });
+  }
+}
+
+function outboxAgeMs(row: ClaimedAuthEmailOutboxRow, observedAt: Date): number {
+  const createdAt = Date.parse(row.createdAt);
+  if (!Number.isFinite(createdAt)) return 0;
+  return Math.max(0, observedAt.getTime() - createdAt);
 }
 
 export function createResendAuthEmailSender(
@@ -434,6 +527,7 @@ export function readAuthEmailDeliveryEnvironment(
     throw new Error(`${AUTH_EMAIL_ENV.mode} must be "disabled" or "resend"`);
   }
 
+  const tokenKeyring = readTokenKeyringEnvironment(environment);
   return {
     mode,
     appBaseUrl: normalizeAppBaseUrl(
@@ -449,11 +543,44 @@ export function readAuthEmailDeliveryEnvironment(
       requireEnvironmentValue(environment, AUTH_EMAIL_ENV.resendApiKey),
       AUTH_EMAIL_ENV.resendApiKey,
     ),
-    tokenSecret: requireTokenSecret(
+    activeTokenKeyId: tokenKeyring.activeKeyId,
+    tokenKeys: tokenKeyring.keys,
+  };
+}
+
+export interface AuthEmailTokenKeyring {
+  activeKeyId: string;
+  keys: Readonly<Record<string, string>>;
+}
+
+export function readTokenKeyringEnvironment(
+  environment: NodeJS.ProcessEnv = process.env,
+): AuthEmailTokenKeyring {
+  const serializedKeys = environment[AUTH_EMAIL_ENV.tokenKeys]?.trim();
+  if (!serializedKeys) {
+    const legacySecret = requireTokenSecret(
       requireEnvironmentValue(environment, AUTH_EMAIL_ENV.tokenSecret),
       AUTH_EMAIL_ENV.tokenSecret,
-    ),
-  };
+    );
+    return { activeKeyId: 'legacy', keys: Object.freeze({ legacy: legacySecret }) };
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(serializedKeys);
+  } catch {
+    throw new Error(`${AUTH_EMAIL_ENV.tokenKeys} must be a JSON object`);
+  }
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    throw new Error(`${AUTH_EMAIL_ENV.tokenKeys} must be a JSON object`);
+  }
+  const keys = normalizeTokenKeyring(parsed as Record<string, unknown>, AUTH_EMAIL_ENV.tokenKeys);
+  const activeKeyId = requireTokenKeyId(
+    requireEnvironmentValue(environment, AUTH_EMAIL_ENV.activeTokenKeyId),
+    AUTH_EMAIL_ENV.activeTokenKeyId,
+  );
+  requireTokenKey(keys, activeKeyId);
+  return { activeKeyId, keys };
 }
 
 export function authEmailIdempotencyKey(outboxId: string): string {
@@ -477,7 +604,46 @@ function createAuthEmailMessage(
       row.recipientEmail,
       'Verify your Lodariq email',
       'Verify your email',
-      'Confirm this email address, then choose the password for your Lodariq account.',
+      'Confirm this email address, then choose the password for your Lodariq account. This link expires in 24 hours and works once.',
+      url,
+    );
+  }
+
+  if (row.purpose === 'workspace_invitation') {
+    const url = formatWorkspaceInvitationUrl(
+      appBaseUrl,
+      row.challengeId,
+      createWorkspaceInvitationToken(row.challengeId, tokenSecret),
+    );
+    return messageFromTemplate(
+      row.recipientEmail,
+      'You have been invited to a Lodariq workspace',
+      'Accept your workspace invitation',
+      'Sign in with this verified email address to join the workspace. This private link expires in 7 days and works once.',
+      url,
+    );
+  }
+
+  if (
+    row.purpose === 'account_email_change_current' ||
+    row.purpose === 'account_email_change_new'
+  ) {
+    const proof =
+      row.purpose === 'account_email_change_current' ? 'current_email' : 'new_email';
+    const url = formatAccountEmailChangeUrl(
+      appBaseUrl,
+      row.challengeId,
+      proof,
+      createAccountEmailChangeToken(row.challengeId, proof, tokenSecret),
+    );
+    const currentProof = proof === 'current_email';
+    return messageFromTemplate(
+      row.recipientEmail,
+      currentProof ? 'Confirm your current Lodariq email' : 'Verify your new Lodariq email',
+      currentProof ? 'Confirm your current email' : 'Verify your new email',
+      currentProof
+        ? 'Confirm that you requested this email-address change. The change completes only after both addresses are verified.'
+        : 'Verify this new address. The change completes only after your current address is also confirmed.',
       url,
     );
   }
@@ -491,9 +657,42 @@ function createAuthEmailMessage(
     row.recipientEmail,
     'Set or reset your Lodariq password',
     'Set your password',
-    'Use this private link to set a new password for your Lodariq account.',
+    'Use this private link to set a new password for your Lodariq account. This link expires in 30 minutes and works once. Requesting another link invalidates this one.',
     url,
   );
+}
+
+const TOKEN_KEY_ID_PATTERN = /^[a-z0-9][a-z0-9_-]{0,31}$/u;
+
+function requireTokenKeyId(value: string, name: string): string {
+  const keyId = value.trim();
+  if (!TOKEN_KEY_ID_PATTERN.test(keyId)) {
+    throw new Error(`${name} must be a lowercase token key id`);
+  }
+  return keyId;
+}
+
+function normalizeTokenKeyring(
+  input: Readonly<Record<string, unknown>>,
+  name: string,
+): Readonly<Record<string, string>> {
+  const entries = Object.entries(input);
+  if (entries.length === 0 || entries.length > 8) {
+    throw new Error(`${name} must contain between one and eight keys`);
+  }
+  const keys: Record<string, string> = Object.create(null) as Record<string, string>;
+  for (const [rawKeyId, rawSecret] of entries) {
+    const keyId = requireTokenKeyId(rawKeyId, `${name} key`);
+    if (typeof rawSecret !== 'string') throw new Error(`${name}.${keyId} must be a string`);
+    keys[keyId] = requireTokenSecret(rawSecret, `${name}.${keyId}`);
+  }
+  return Object.freeze(keys);
+}
+
+function requireTokenKey(keys: Readonly<Record<string, string>>, keyId: string): string {
+  const secret = keys[keyId];
+  if (!secret) throw new AuthEmailDeliveryError('token_key_unavailable', { retryable: false });
+  return secret;
 }
 
 function messageFromTemplate(
@@ -524,15 +723,24 @@ function validateClaim(row: ClaimedAuthEmailOutboxRow): DeliveryFailure | null {
     (row.purpose === 'email_verification' &&
       VERIFICATION_CHALLENGE_ID_PATTERN.test(row.challengeId)) ||
     (row.purpose === 'set_password' && SET_PASSWORD_CHALLENGE_ID_PATTERN.test(row.challengeId));
+  const validResourceId =
+    validChallengeId ||
+    (row.purpose === 'workspace_invitation' &&
+      WORKSPACE_INVITATION_ID_PATTERN.test(row.challengeId)) ||
+    ((row.purpose === 'account_email_change_current' ||
+      row.purpose === 'account_email_change_new') &&
+      ACCOUNT_EMAIL_CHANGE_ID_PATTERN.test(row.challengeId));
   if (
     !OUTBOX_ID_PATTERN.test(row.id) ||
     !isEmailAddress(row.recipientEmail) ||
-    !validChallengeId ||
+    !validResourceId ||
+    !TOKEN_KEY_ID_PATTERN.test(row.keyId) ||
     !Number.isSafeInteger(row.attempt) ||
     row.attempt < 1 ||
     row.attempt > 20 ||
     !Number.isSafeInteger(row.leaseVersion) ||
-    row.leaseVersion < 1
+    row.leaseVersion < 1 ||
+    !Number.isFinite(Date.parse(row.createdAt))
   ) {
     return { code: 'invalid_outbox_claim', retryable: false };
   }
@@ -540,7 +748,7 @@ function validateClaim(row: ClaimedAuthEmailOutboxRow): DeliveryFailure | null {
 }
 
 function sanitizeDeliveryFailure(error: unknown): DeliveryFailure {
-  if (error instanceof AuthEmailDeliveryError) {
+  if (isAuthEmailDeliveryError(error)) {
     return {
       code: safeFailureCode(error.code),
       retryable: error.retryable,
@@ -548,6 +756,17 @@ function sanitizeDeliveryFailure(error: unknown): DeliveryFailure {
     };
   }
   return { code: 'auth_email_sender_error', retryable: true };
+}
+
+function isAuthEmailDeliveryError(error: unknown): error is AuthEmailDeliveryError {
+  if (error instanceof AuthEmailDeliveryError) return true;
+  if (!error || typeof error !== 'object') return false;
+  const candidate = error as Partial<AuthEmailDeliveryError>;
+  return (
+    candidate.name === 'AuthEmailDeliveryError' &&
+    typeof candidate.code === 'string' &&
+    typeof candidate.retryable === 'boolean'
+  );
 }
 
 async function resendHttpError(response: Response): Promise<AuthEmailDeliveryError> {

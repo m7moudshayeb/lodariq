@@ -245,15 +245,15 @@ describe('@lodariq/dashboard first-party authoring activation', () => {
     await flushAsyncWork();
 
     expect(popup.container.textContent).toContain('Sign in, then continue');
-    const email = popup.container.querySelector<HTMLInputElement>('input[name="email"]');
+    const identifier = popup.container.querySelector<HTMLInputElement>('input[name="identifier"]');
     const password = popup.container.querySelector<HTMLInputElement>('input[name="password"]');
     const form = popup.container.querySelector('form');
-    expect(email).not.toBeNull();
+    expect(identifier).not.toBeNull();
     expect(password).not.toBeNull();
     expect(form).not.toBeNull();
 
     await act(async () => {
-      setInputValue(email!, 'creator@example.test');
+      setInputValue(identifier!, 'creator@example.test');
       setInputValue(password!, 'a-secure-password');
       form?.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
       await Promise.resolve();

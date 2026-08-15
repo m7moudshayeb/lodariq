@@ -70,13 +70,13 @@ describe('@lodariq/api owned authentication', () => {
     const response = await app.inject({
       method: 'POST',
       url: '/v1/auth/sign-in',
-      payload: { email: 'unknown@example.com', password: PASSWORD },
+      payload: { identifier: 'unknown@example.com', password: PASSWORD },
     });
 
     expect(response.statusCode).toBe(401);
     expect(response.json()).toEqual({
       error: 'invalid_credentials',
-      message: 'Email or password is incorrect',
+      message: 'Email, username, or password is incorrect',
     });
     expect(admittedOperations).toBe(1);
     await app.close();
@@ -107,15 +107,31 @@ describe('@lodariq/api owned authentication', () => {
     }>();
     expect(verification.status).toBe('verification_required');
 
+    const pendingCredential = await repository.findPasswordCredentialByEmail(
+      'creator@example.com',
+      hashAuthEmailLookup('creator@example.com'),
+    );
+    expect(pendingCredential).not.toBeNull();
+    if (!pendingCredential) throw new Error('Expected pending signup credential');
+    await expect(repository.listIdentityWorkspaces(pendingCredential.userId)).resolves.toEqual([]);
+    await expect(
+      repository.getCurrentIdentityOnboarding(pendingCredential.userId),
+    ).resolves.toMatchObject({
+      intent: 'create_workspace',
+      status: 'pending_identity',
+      targetWorkspaceName: 'First workspace',
+      completedWorkspaceId: null,
+    });
+
     const beforeVerification = await app.inject({
       method: 'POST',
       url: '/v1/auth/sign-in',
-      payload: { email: 'creator@example.com', password: PASSWORD },
+      payload: { identifier: 'creator@example.com', password: PASSWORD },
     });
     expect(beforeVerification.statusCode).toBe(401);
     expect(beforeVerification.json()).toEqual({
       error: 'invalid_credentials',
-      message: 'Email or password is incorrect',
+      message: 'Email, username, or password is incorrect',
     });
 
     const verified = await app.inject({
@@ -130,12 +146,20 @@ describe('@lodariq/api owned authentication', () => {
     expect(verified.statusCode).toBe(200);
     const firstToken = cookieToken(verified.headers['set-cookie'], 'lodariq_session_dev');
     expect(firstToken).toMatch(/^lq_sess_/);
+    expect(String(verified.headers['set-cookie'])).not.toContain('Expires=');
     const firstSnapshot = verified.json<{
       user: { email: string };
       activeWorkspaceId: string;
       workspaces: Array<{ id: string }>;
     }>();
     expect(firstSnapshot.user.email).toBe('creator@example.com');
+    expect(firstSnapshot.workspaces).toHaveLength(1);
+    await expect(
+      repository.getCurrentIdentityOnboarding(pendingCredential.userId),
+    ).resolves.toMatchObject({
+      status: 'completed',
+      completedWorkspaceId: firstSnapshot.activeWorkspaceId,
+    });
     const verifiedCredential = await repository.findPasswordCredentialByEmail(
       'creator@example.com',
       hashAuthEmailLookup('creator@example.com'),
@@ -150,6 +174,50 @@ describe('@lodariq/api owned authentication', () => {
     });
     expect(context.statusCode).toBe(200);
     expect(context.json<{ role: string }>().role).toBe('owner');
+
+    const onboarding = await app.inject({
+      method: 'GET',
+      url: '/v1/auth/onboarding',
+      headers: { authorization: `Bearer ${firstToken}` },
+    });
+    expect(onboarding.statusCode).toBe(200);
+    expect(onboarding.json()).toMatchObject({
+      intent: 'create_workspace',
+      status: 'completed',
+      completedWorkspaceId: firstSnapshot.activeWorkspaceId,
+    });
+
+    const username = await app.inject({
+      method: 'PUT',
+      url: '/v1/auth/username',
+      headers: { authorization: `Bearer ${firstToken}` },
+      payload: { username: 'Creator.Handle', password: VERIFIED_PASSWORD },
+    });
+    expect(username.statusCode).toBe(200);
+    expect(username.json()).toEqual({ username: 'Creator.Handle' });
+
+    const usernameSignIn = await app.inject({
+      method: 'POST',
+      url: '/v1/auth/sign-in',
+      payload: { identifier: 'creator.handle', password: VERIFIED_PASSWORD, rememberMe: true },
+    });
+    expect(usernameSignIn.statusCode).toBe(200);
+    expect(String(usernameSignIn.headers['set-cookie'])).toContain('Expires=');
+    expect(usernameSignIn.json<{ user: { email: string } }>().user.email).toBe(
+      'creator@example.com',
+    );
+    const rememberedToken = cookieToken(
+      usernameSignIn.headers['set-cookie'],
+      'lodariq_session_dev',
+    );
+    await expect(
+      repository.resolveAuthSession(
+        hashAuthSessionToken(rememberedToken),
+        new Date().toISOString(),
+      ),
+    ).resolves.toMatchObject({
+      durationPolicy: 'remembered',
+    });
 
     const createdWorkspace = await app.inject({
       method: 'POST',
@@ -180,6 +248,11 @@ describe('@lodariq/api owned authentication', () => {
       userId: 'usr_unverified',
       tokenHash: hashAuthSessionToken(rawToken),
       activeWorkspaceId: 'wk_unverified',
+      identityId: null,
+      authenticationMethod: 'password',
+      assuranceLevel: 'aal1',
+      authenticatedAt: new Date(now - 1_000).toISOString(),
+      durationPolicy: 'standard',
       createdAt: new Date(now - 1_000).toISOString(),
       lastSeenAt: new Date(now - 1_000).toISOString(),
       idleExpiresAt: new Date(now + 60_000).toISOString(),
@@ -268,7 +341,7 @@ describe('@lodariq/api owned authentication', () => {
           method: 'POST',
           url: '/v1/auth/sign-in',
           headers: { 'x-forwarded-for': '203.0.113.8' },
-          payload: { email: 'nobody@example.com', password: PASSWORD },
+          payload: { identifier: 'nobody@example.com', password: PASSWORD },
         });
         expect(missingEnvelope.statusCode).toBe(401);
         await app.close();
@@ -285,6 +358,7 @@ describe('@lodariq/api owned authentication', () => {
       },
       async () => {
         const repository = createInMemoryControlPlaneRepository();
+        const authEvents: Array<{ name: string; attributes?: Record<string, unknown> }> = [];
         const deliverySecret = 'production-email-delivery-secret-at-least-32-bytes';
         const sourceEnvelope = createAuthClientSourceEnvelope(
           '203.0.113.44',
@@ -297,6 +371,7 @@ describe('@lodariq/api owned authentication', () => {
             kind: 'email-verification-dispatcher-v1',
             secret: deliverySecret,
           },
+          observability: { emit: (event) => authEvents.push(event) },
         });
 
         const signUp = await app.inject({
@@ -311,21 +386,19 @@ describe('@lodariq/api owned authentication', () => {
         });
         expect(signUp.statusCode).toBe(202);
         expect(signUp.headers['set-cookie']).toBeUndefined();
-        const verification = signUp.json<{
-          challengeId: string;
-          expiresAt: string;
-          verificationToken?: string;
-        }>();
-        expect(verification.verificationToken).toBeUndefined();
-        expect(verification.expiresAt).toMatch(/Z$/);
+        expect(signUp.json()).toEqual({ status: 'verification_required' });
+        const signupEvent = authEvents.find(({ name }) => name === 'auth.signup.completed');
+        const challengeId = signupEvent?.attributes?.challengeId;
+        expect(challengeId).toMatch(/^verify_/u);
+        if (typeof challengeId !== 'string') throw new Error('Expected sign-up challenge event');
 
         const verified = await app.inject({
           method: 'POST',
           url: '/v1/auth/verify-email',
           headers: { [AUTH_CLIENT_SOURCE_HEADER]: sourceEnvelope },
           payload: {
-            challengeId: verification.challengeId,
-            token: createEmailVerificationToken(verification.challengeId, deliverySecret),
+            challengeId,
+            token: createEmailVerificationToken(challengeId, deliverySecret),
             password: VERIFIED_PASSWORD,
           },
         });
@@ -386,7 +459,7 @@ describe('@lodariq/api owned authentication', () => {
               [AUTH_CLIENT_SOURCE_HEADER]: envelope,
               'x-forwarded-for': spoofedForwardedFor,
             },
-            payload: { email, password: PASSWORD },
+            payload: { identifier: email, password: PASSWORD },
           });
         }
         const sourceBuckets = captured
@@ -404,7 +477,7 @@ describe('@lodariq/api owned authentication', () => {
             [AUTH_CLIENT_SOURCE_HEADER]: createAuthClientSourceEnvelope('203.0.113.12', secret),
             'x-forwarded-for': '192.0.2.200',
           },
-          payload: { email: 'many-rows@example.com', password: PASSWORD },
+          payload: { identifier: 'many-rows@example.com', password: PASSWORD },
         });
         expect(blocked.statusCode).toBe(429);
         expect(captured).toHaveLength(1);

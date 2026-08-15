@@ -54,17 +54,17 @@ msgid "dashboard.support.savedDrafts"
 msgstr "{count, plural, one {# versione bozza salvata} other {# versioni bozza salvate}}"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:273
+#: src/i18n/messages.ts:341
 msgid "dashboard.viewModel.blockingChecks"
 msgstr "{count}blocco {count, plural, one {controllo} other {controllo}}"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:508
+#: src/i18n/messages.ts:576
 msgid "dashboard.viewModel.flowIssues"
 msgstr "{count} {count, plural, one {problema di flusso} other {problemi di flusso}}"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:792
+#: src/i18n/messages.ts:860
 msgid "dashboard.action.ambiguousOrigins"
 msgstr "{count} mappature delle origini sono state ignorate perché la stessa origine appartiene a più di un ambiente."
 
@@ -74,17 +74,22 @@ msgid "dashboard.documents.publishBlockers"
 msgstr "{count} pubblica {count, plural, one {bloccante} other {bloccante}}"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:123
+#: src/i18n/messages.ts:191
 msgid "dashboard.viewModel.publishIssues"
 msgstr "{count} pubblica {count, plural, one {numero} other {numero}}"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:424
+#: src/components/account-security-settings.tsx:168
+msgid "account.recoveryCodes.remaining"
+msgstr "Restano {count} codici inutilizzati."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:492
 msgid "dashboard.viewModel.documentUpdated"
 msgstr "{document} è stato aggiornato l'ultima volta"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:428
+#: src/i18n/messages.ts:496
 msgid "dashboard.viewModel.documentPublished"
 msgstr "{document} è stato pubblicato su {environment}"
 
@@ -114,12 +119,27 @@ msgid "dashboard.support.readyForReview"
 msgstr "{experience} è pronto per la revisione del supporto."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:512
+#: src/i18n/messages.ts:1152
+msgid "auth.form.validation.required"
+msgstr "{field} è obbligatorio."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1156
+msgid "auth.form.validation.tooShort"
+msgstr "{field} deve contenere almeno {limit} caratteri."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1160
+msgid "auth.form.validation.tooLong"
+msgstr "{field} non può superare {limit} caratteri."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:580
 msgid "dashboard.viewModel.flowIssueSummary"
 msgstr "{first} · altri {remaining}"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:127
+#: src/i18n/messages.ts:195
 msgid "dashboard.viewModel.reviewBeforePublish"
 msgstr "{issues} deve essere rivisto prima che questa bozza possa essere pubblicata."
 
@@ -134,37 +154,37 @@ msgid "dashboard.brand.preview.frameLabel"
 msgstr "{label}: {detail} Anteprima del renderer del tour"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:471
+#: src/i18n/messages.ts:539
 msgid "dashboard.viewModel.moreIssues"
 msgstr "{message} +{count} altro"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:440
+#: src/i18n/messages.ts:508
 msgid "dashboard.viewModel.brandVersionApproved"
 msgstr "{theme} La versione del marchio {version} è stata approvata"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:368
+#: src/i18n/messages.ts:436
 msgid "dashboard.viewModel.themeCompiledSnapshot"
 msgstr "{theme} viene compilato nelle versioni come un'istantanea immutabile del marchio."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:398
+#: src/i18n/messages.ts:466
 msgid "dashboard.viewModel.groundedInTokens"
 msgstr "{theme} è basato su token cliente semantici registrati esplicitamente."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:407
+#: src/i18n/messages.ts:475
 msgid "dashboard.viewModel.privacySafeEvidence"
 msgstr "{theme} utilizza prove di stile del prodotto rispettose della privacy e non memorizza istantanee CSS o DOM grezze."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:402
+#: src/i18n/messages.ts:470
 msgid "dashboard.viewModel.proposedFromElement"
 msgstr "{theme} è stato proposto da un elemento rappresentativo del prodotto e rivisto semanticamente."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:351
+#: src/i18n/messages.ts:419
 msgid "dashboard.viewModel.workspaceDraft"
 msgstr "{theme} bozza dell'area di lavoro"
 
@@ -179,7 +199,12 @@ msgid "dashboard.brand.empty.sampleDescription"
 msgstr "Un punto di partenza chiaro e accessibile per ogni esperienza di prodotto."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:249
+#: src/i18n/messages.ts:1062
+msgid "workspaceMembers.inviteDescription"
+msgstr "Verrà messo in coda un invito privato monouso per questo indirizzo e-mail."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:317
 msgid "dashboard.viewModel.productionMatchesNoDeliveryEvidence"
 msgstr "Una pubblicazione di produzione corrisponde alla bozza; la prova della consegna attiva non è ancora disponibile."
 
@@ -189,12 +214,32 @@ msgid "dashboard.environments.directPromotionDescription"
 msgstr "Un releaser può promuovere direttamente l'esatto artefatto verificato."
 
 #. js-lingui-explicit-id
+#: src/i18n/messages.ts:1303
+msgid "auth.form.verificationSent"
+msgstr "Abbiamo inviato un collegamento di verifica sicuro a {email}. Tieni aperta questa pagina o utilizza direttamente il collegamento."
+
+#. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:180
+msgid "enterpriseIdentity.breakGlassHelp"
+msgstr "Sono richiesti una sessione forte senza password, un secondo proprietario del workspace e una richiesta a uso singolo e di breve durata."
+
+#. js-lingui-explicit-id
 #: src/components/brand-system-panel.tsx:57
 msgid "dashboard.brand.panel.askAdmin"
 msgstr "Un amministratore o proprietario dell'area di lavoro approva le versioni e modifica l'impostazione predefinita."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:335
+#: src/components/enterprise-identity-settings.tsx:114
+msgid "enterpriseIdentity.assurance.aal1"
+msgstr "AAL1 · standard"
+
+#. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:115
+msgid "enterpriseIdentity.assurance.aal2"
+msgstr "AAL2 · multifattore"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:403
 msgid "dashboard.viewModel.accent"
 msgstr "Accento"
 
@@ -204,7 +249,22 @@ msgid "dashboard.brand.editor.accent"
 msgstr "Accento"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:394
+#: src/i18n/messages.ts:1029
+msgid "workspaceInvitation.accept"
+msgstr "Accetta invito"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1024
+msgid "workspaceInvitation.description"
+msgstr "Accetta questo invito con l’indirizzo e-mail verificato a cui è stato inviato."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1030
+msgid "workspaceInvitation.accepting"
+msgstr "Accettazione dell’invito"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:462
 msgid "dashboard.viewModel.accessibleFallbackShort"
 msgstr "Fallback accessibile"
 
@@ -214,33 +274,83 @@ msgid "dashboard.brand.preview.accessibleFallback"
 msgstr "Fallback accessibile"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:870
+#: src/components/account-security-settings.tsx:51
+msgid "account.title"
+msgstr "Account e sicurezza"
+
+#. js-lingui-explicit-id
+#: src/components/dashboard-auth-controls.tsx:53
+msgid "dashboard.account.security"
+msgstr "Account e sicurezza"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:53
+msgid "account.access.eyebrow"
+msgstr "Accesso all’account"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:938
 msgid "auth.page.accountAccess"
 msgstr "Accesso all'account"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:887
+#: src/i18n/messages.ts:955
 msgid "auth.page.signUpDisabled.eyebrow"
 msgstr "Creazione dell'account"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:900
+#: src/i18n/messages.ts:968
 msgid "auth.page.signUpDisabled.body"
 msgstr "La creazione dell'account non è disponibile in questa distribuzione."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1057
+#: src/i18n/messages.ts:1331
 msgid "auth.error.signupUnavailable"
 msgstr "La creazione dell'account non è disponibile al momento."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:91
+#: src/components/account-security-settings.tsx:103
+msgid "account.data.title"
+msgstr "Dati dell’account"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:74
+msgid "recoveryCode.eyebrow"
+msgstr "Recupero dell’account"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:39
+msgid "account.security.eyebrow"
+msgstr "Sicurezza dell’account"
+
+#. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:142
+msgid "account.unavailable"
+msgstr "La sicurezza dell’account non è disponibile."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1319
+msgid "auth.error.onboardingIncomplete"
+msgstr "Non è stato possibile completare la configurazione dell’account. Accedi di nuovo per riprendere in sicurezza."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:159
 msgid "dashboard.common.active"
 msgstr "Attivo"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:119
+#: src/i18n/messages.ts:187
 msgid "dashboard.viewModel.active"
+msgstr "Attivo"
+
+#. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:98
+msgid "enterpriseIdentity.status.active"
+msgstr "Attivo"
+
+#. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:210
+msgid "enterpriseIdentity.active"
 msgstr "Attivo"
 
 #. js-lingui-explicit-id
@@ -249,7 +359,7 @@ msgid "dashboard.recovery.active"
 msgstr "Attivo"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:228
+#: src/i18n/messages.ts:296
 msgid "dashboard.viewModel.activePublicationAt"
 msgstr "Pubblicazione attiva {date}"
 
@@ -264,7 +374,12 @@ msgid "dashboard.recovery.activePublication"
 msgstr "Pubblicazione attiva: {publication}"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:298
+#: src/components/account-security-settings.tsx:86
+msgid "account.sessions.title"
+msgstr "Sessioni attive"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:366
 msgid "dashboard.viewModel.activeNoProvenanceAt"
 msgstr "Attivo dal {date} · provenienza esatta dell'allestimento non disponibile"
 
@@ -299,9 +414,24 @@ msgid "dashboard.publishIssue.emptyStep.message"
 msgstr "Aggiungi contenuto a questo passaggio prima della pubblicazione."
 
 #. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:83
+msgid "enterpriseIdentity.addConnection"
+msgstr "Aggiungi connessione OIDC"
+
+#. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:154
+msgid "account.passkeys.add"
+msgstr "Aggiungi passkey"
+
+#. js-lingui-explicit-id
 #: src/components/sdk-snippet-panel.tsx:50
 msgid "dashboard.installation.oneLineDescription"
 msgstr "Aggiungi questa installazione alla shell dell'applicazione condivisa. L'ambiente e l'accesso alla creazione vengono risolti dall'origine esatta della pagina."
+
+#. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:137
+msgid "enterpriseIdentity.dnsChallenge"
+msgstr "Aggiungi ora questo record TXT. Il valore viene mostrato solo in questa sessione del browser."
 
 #. js-lingui-explicit-id
 #: src/i18n/server-feedback.ts:51
@@ -309,14 +439,24 @@ msgid "dashboard.publishIssue.missingStepContent.message"
 msgstr "Aggiungi contenuto visibile a questo passaggio prima della pubblicazione."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1090
+#: src/i18n/messages.ts:1088
+msgid "workspaceMembers.role.admin"
+msgstr "Amministratore"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1364
 msgid "workspaceSelection.role.admin"
 msgstr "Ammin"
 
 #. js-lingui-explicit-id
-#: src/components/dashboard-auth-controls.tsx:54
+#: src/components/dashboard-auth-controls.tsx:59
 msgid "dashboard.account.role.admin"
 msgstr "Ammin"
+
+#. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:154
+msgid "enterpriseIdentity.role.admin"
+msgstr "Admin"
 
 #. js-lingui-explicit-id
 #: src/components/environment-policy-editor.tsx:105
@@ -339,12 +479,17 @@ msgid "dashboard.brand.preview.after"
 msgstr "Dopo"
 
 #. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:109
+msgid "enterpriseIdentity.allowPassword"
+msgstr "Consenti sessioni con password"
+
+#. js-lingui-explicit-id
 #: src/components/authoring-activation-popup.tsx:78
 msgid "dashboard.activation.approveDescription"
 msgstr "Consenti al tuo spazio di lavoro Lodariq di creare e modificare tour su {host}."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:970
+#: src/i18n/messages.ts:1186
 msgid "auth.form.existingAccount"
 msgstr "Hai già un account Lodariq?"
 
@@ -369,12 +514,12 @@ msgid "dashboard.navigation.analytics"
 msgstr "Analisi"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:62
+#: src/i18n/messages.ts:125
 msgid "dashboard.page.analytics.title"
 msgstr "Analitica"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:813
+#: src/i18n/messages.ts:881
 msgid "dashboard.action.analyticsUnavailable"
 msgstr "Le analisi sono temporaneamente non disponibili per l'ambiente selezionato."
 
@@ -384,7 +529,7 @@ msgid "dashboard.analytics.unavailable"
 msgstr "Le analisi sono temporaneamente non disponibili per l'ambiente selezionato."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:809
+#: src/i18n/messages.ts:877
 msgid "dashboard.action.analyticsInvalid"
 msgstr "Impossibile verificare i dati di Analytics. Non sono stati mostrati risultati parziali."
 
@@ -404,7 +549,7 @@ msgid "dashboard.analytics.results"
 msgstr "Risultati dell'analisi"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:109
+#: src/i18n/messages.ts:177
 msgid "dashboard.viewModel.type.announcement"
 msgstr "Annuncio"
 
@@ -414,7 +559,7 @@ msgid "dashboard.recovery.failure.operationInProgress"
 msgstr "Un'altra operazione di rilascio è già in corso. Riprova a breve."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:28
+#: src/i18n/messages.ts:29
 msgid "dashboard.navigation.appearance"
 msgstr "Aspetto"
 
@@ -429,7 +574,7 @@ msgid "dashboard.installation.applicationName"
 msgstr "Nome dell'applicazione"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:727
+#: src/i18n/messages.ts:795
 msgid "dashboard.action.applicationNameRequired"
 msgstr "Il nome dell'applicazione è obbligatorio."
 
@@ -454,22 +599,32 @@ msgid "dashboard.brand.controller.reviewMissing"
 msgstr "La revisione dell'approvazione non è stata restituita."
 
 #. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:198
+msgid "enterpriseIdentity.approveBreakGlass"
+msgstr "Approva richiesta break-glass"
+
+#. js-lingui-explicit-id
 #: src/components/brand-system/brand-approval-review.tsx:58
 msgid "dashboard.brand.review.approve"
 msgstr "Approva la versione"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:106
+#: src/i18n/messages.ts:174
 msgid "dashboard.viewModel.status.approved"
 msgstr "Approvato"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:373
+#: src/i18n/messages.ts:441
 msgid "dashboard.viewModel.approvedAt"
 msgstr "Approvato {date}"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:340
+#: src/components/enterprise-identity-settings.tsx:116
+msgid "enterpriseIdentity.breakGlassId"
+msgstr "ID richiesta break-glass approvata (solo se richiesto)"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:408
 msgid "dashboard.viewModel.approvedSource"
 msgstr "Fonte approvata"
 
@@ -489,17 +644,17 @@ msgid "dashboard.brand.review.approving"
 msgstr "Approvazione..."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:466
+#: src/i18n/messages.ts:534
 msgid "dashboard.viewModel.archived"
 msgstr "Archiviato"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:448
+#: src/i18n/messages.ts:516
 msgid "dashboard.viewModel.artifactShort"
 msgstr "Artefatto …{suffix}"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:261
+#: src/i18n/messages.ts:329
 msgid "dashboard.viewModel.artifactIdentity"
 msgstr "Identità dell'artefatto"
 
@@ -514,7 +669,7 @@ msgid "dashboard.activation.approveTitle"
 msgstr "Autore in questa applicazione?"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:853
+#: src/i18n/messages.ts:921
 msgid "auth.shell.authorOnce"
 msgstr "Crea una volta sola"
 
@@ -544,7 +699,7 @@ msgid "dashboard.authoringLaunch.authoringSite"
 msgstr "Sito di creazione"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:866
+#: src/i18n/messages.ts:934
 msgid "auth.shell.back"
 msgstr "Indietro"
 
@@ -567,6 +722,11 @@ msgstr "Prima"
 #: src/components/brand-system/brand-approval-review.tsx:42
 msgid "dashboard.brand.review.beforeAfter"
 msgstr "Prima e dopo"
+
+#. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:75
+msgid "account.email.help"
+msgstr "Sia l’indirizzo attuale sia quello nuovo devono approvare la modifica."
 
 #. js-lingui-explicit-id
 #: src/components/brand-system/use-brand-system-controller.ts:31
@@ -594,12 +754,12 @@ msgid "dashboard.navigation.brandSystem"
 msgstr "Sistema di marca"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:67
+#: src/i18n/messages.ts:130
 msgid "dashboard.page.brandSystem.title"
 msgstr "Sistema di marca"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:648
+#: src/i18n/messages.ts:716
 msgid "dashboard.action.brandCreated"
 msgstr "Sistema di marca creato. Rivedi gli elementi essenziali, quindi approva la prima versione."
 
@@ -624,7 +784,17 @@ msgid "dashboard.brand.panel.themes"
 msgstr "Temi del marchio"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:879
+#: src/components/enterprise-identity-settings.tsx:179
+msgid "enterpriseIdentity.breakGlass"
+msgstr "Ripristino break-glass"
+
+#. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:202
+msgid "enterpriseIdentity.requestApproved"
+msgstr "Richiesta break-glass approvata. Resta di breve durata e a uso singolo."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:947
 msgid "auth.page.signUp.title"
 msgstr "Porta l’esperienza dentro il prodotto"
 
@@ -639,7 +809,7 @@ msgid "dashboard.publishIssue.brokenTarget.label"
 msgstr "Bersaglio rotto"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:98
+#: src/i18n/messages.ts:166
 msgid "dashboard.common.cancel"
 msgstr "Annulla"
 
@@ -664,27 +834,42 @@ msgid "dashboard.brand.editor.cardRadius"
 msgstr "Raggio della carta"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:38
+#: src/i18n/messages.ts:101
 msgid "dashboard.locale.change"
 msgstr "Cambia lingua"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:472
+#: src/components/account-security-settings.tsx:73
+msgid "account.password.change"
+msgstr "Cambia password"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:540
 msgid "dashboard.viewModel.changesTracked"
 msgstr "Le modifiche vengono monitorate"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:39
+#: src/i18n/messages.ts:102
 msgid "dashboard.locale.changing"
 msgstr "Modifica della lingua"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:977
+#: src/components/account-security-settings.tsx:69
+msgid "account.password.help"
+msgstr "La modifica della password revoca tutte le altre sessioni e i link di recupero in sospeso."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1148
+msgid "auth.form.validation.reviewFields"
+msgstr "Controlla i campi evidenziati e riprova."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1193
 msgid "auth.form.checkEmail"
 msgstr "Controlla la tua email"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:350
+#: src/i18n/messages.ts:418
 msgid "dashboard.viewModel.checkedAt"
 msgstr "Selezionato {date}"
 
@@ -699,12 +884,17 @@ msgid "dashboard.recovery.checking"
 msgstr "Verifica del rilascio esatto…"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:113
+#: src/i18n/messages.ts:88
+msgid "recoveryCode.submitting"
+msgstr "Verifica del codice di recupero…"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:181
 msgid "dashboard.viewModel.type.checklist"
 msgstr "Lista di controllo"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:101
+#: src/i18n/messages.ts:169
 msgid "dashboard.common.choose"
 msgstr "Scegli"
 
@@ -714,7 +904,7 @@ msgid "dashboard.brand.editor.choose"
 msgstr "Scegli"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:656
+#: src/i18n/messages.ts:724
 msgid "dashboard.action.chooseBrandTheme"
 msgstr "Scegli un tema per il marchio."
 
@@ -724,7 +914,7 @@ msgid "dashboard.publishIssue.ambiguousTarget.message"
 msgstr "Scegli un posizionamento più specifico prima della pubblicazione."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:931
+#: src/i18n/messages.ts:999
 msgid "auth.page.newPassword.title"
 msgstr "Scegli una nuova password"
 
@@ -739,7 +929,7 @@ msgid "dashboard.publishIssue.unsupportedAction.message"
 msgstr "Scegli un'azione supportata prima della pubblicazione."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:770
+#: src/i18n/messages.ts:838
 msgid "dashboard.action.chooseToken"
 msgstr "Scegli un gettone."
 
@@ -749,7 +939,7 @@ msgid "dashboard.publishIssue.invalidPresentationArea.message"
 msgstr "Scegli un'area valida all'interno dell'elemento selezionato."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:817
+#: src/i18n/messages.ts:885
 msgid "dashboard.action.chooseReleaseScope"
 msgstr "Scegli un documento valido e un ambiente di rilascio."
 
@@ -764,22 +954,22 @@ msgid "dashboard.environmentPolicy.chooseEarlier"
 msgstr "Scegli un ambiente precedente"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:715
+#: src/i18n/messages.ts:783
 msgid "dashboard.action.chooseEnvironment"
 msgstr "Scegli un ambiente."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1074
+#: src/i18n/messages.ts:1348
 msgid "workspaceSelection.description"
 msgstr "Scegli uno spazio di lavoro esistente o creane uno senza uscire da questa schermata."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:756
+#: src/i18n/messages.ts:824
 msgid "dashboard.action.chooseExperience"
 msgstr "Scegli un'esperienza."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:740
+#: src/i18n/messages.ts:808
 msgid "dashboard.action.chooseInstallation"
 msgstr "Scegli un'installazione SDK."
 
@@ -789,7 +979,7 @@ msgid "dashboard.support.chooseExperience"
 msgstr "Scegli l'esperienza"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:797
+#: src/i18n/messages.ts:865
 msgid "dashboard.action.chooseAnalyticsEnvironment"
 msgstr "Scegli un ambiente di analisi valido."
 
@@ -819,7 +1009,7 @@ msgid "dashboard.publishIssue.missingTarget.message"
 msgstr "Scegli dove verrà visualizzato questo passaggio prima della pubblicazione."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1023
+#: src/i18n/messages.ts:1293
 msgid "auth.form.choosePassword"
 msgstr "Scegli la tua password"
 
@@ -829,7 +1019,7 @@ msgid "dashboard.documents.clearSearch"
 msgstr "Ricerca chiara dell'esperienza"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:97
+#: src/i18n/messages.ts:165
 msgid "dashboard.common.close"
 msgstr "Chiudi"
 
@@ -844,14 +1034,24 @@ msgid "dashboard.brand.review.close"
 msgstr "Chiudi la revisione dell'approvazione"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:25
+#: src/i18n/messages.ts:26
 msgid "dashboard.navigation.close"
 msgstr "Chiude la navigazione dell'area di lavoro"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:26
+#: src/i18n/messages.ts:82
+msgid "recoveryCode.codeHelp"
+msgstr "I codici iniziano con LQRC e funzionano una sola volta."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:27
 msgid "dashboard.navigation.collapse"
 msgstr "Comprimi la navigazione nell'area di lavoro"
+
+#. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:132
+msgid "enterpriseIdentity.domain"
+msgstr "Dominio aziendale"
 
 #. js-lingui-explicit-id
 #: src/components/brand-system/brand-approval-review.tsx:23
@@ -859,12 +1059,27 @@ msgid "dashboard.brand.review.description"
 msgstr "Confronta l'aspetto attualmente approvato con questa bozza nel renderer Tour di produzione di Lodariq, quindi controlla ogni esperienza collegata prima dell'approvazione."
 
 #. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:124
+msgid "account.validation.required"
+msgstr "Completa tutti i campi."
+
+#. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:206
+msgid "enterpriseIdentity.requiredFields"
+msgstr "Compila ogni campo obbligatorio con un valore valido."
+
+#. js-lingui-explicit-id
 #: src/components/release-recovery-panel.tsx:112
 msgid "dashboard.recovery.completeHistory"
 msgstr "Storia completa"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:842
+#: src/i18n/messages.ts:41
+msgid "account.emailChange.description"
+msgstr "Completa una parte della verifica tramite due indirizzi."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:910
 msgid "dashboard.action.releaseHistoryIncomplete"
 msgstr "La cronologia completa delle versioni è temporaneamente non disponibile. Niente è stato troncato."
 
@@ -884,9 +1099,29 @@ msgid "dashboard.analytics.fact.completion"
 msgstr "Completamento"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1003
+#: src/components/enterprise-identity-settings.tsx:39
+msgid "enterpriseIdentity.description"
+msgstr "Configura SSO aziendale, domini verificati, ruoli gestiti e SCIM senza collegare gli account tramite e-mail."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:40
+msgid "account.emailChange.title"
+msgstr "Conferma modifica e-mail"
+
+#. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:66
+msgid "account.confirmPassword"
+msgstr "Conferma nuova password"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1241
 msgid "auth.form.confirmPassword"
 msgstr "Conferma la password"
+
+#. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:162
+msgid "account.recoveryCodes.confirm"
+msgstr "Conferma i codici salvati"
 
 #. js-lingui-explicit-id
 #: src/components/release-recovery-panel.tsx:134
@@ -914,12 +1149,12 @@ msgid "dashboard.recovery.contentHash"
 msgstr "Hash del contenuto"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:310
+#: src/i18n/messages.ts:378
 msgid "dashboard.viewModel.contentHashStrongestEvidence"
 msgstr "L'hash del contenuto è la prova artefatto più forte disponibile"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:969
+#: src/i18n/messages.ts:1185
 msgid "auth.form.continue"
 msgstr "Continua"
 
@@ -944,7 +1179,22 @@ msgid "dashboard.activation.continue"
 msgstr "Continua con la creazione"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:873
+#: src/i18n/messages.ts:1125
+msgid "auth.form.enterpriseSso"
+msgstr "Continua con SSO aziendale"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1130
+msgid "auth.form.google"
+msgstr "Continua con Google"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1131
+msgid "auth.form.microsoft"
+msgstr "Continua con Microsoft"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:941
 msgid "auth.page.signIn.title"
 msgstr "Continua il tuo lavoro"
 
@@ -974,52 +1224,62 @@ msgid "dashboard.installation.copy"
 msgstr "Copia installazione"
 
 #. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:176
+msgid "account.recoveryCodes.shownOnce"
+msgstr "Copia ora questi codici. Non verranno mostrati di nuovo."
+
+#. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:171
+msgid "enterpriseIdentity.scimToken"
+msgstr "Copia questo token ora. Lodariq non lo mostrerà di nuovo."
+
+#. js-lingui-explicit-id
 #: src/components/authoring-activation-popup.tsx:91
 msgid "dashboard.activation.couldNotContinue"
 msgstr "Impossibile continuare"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1085
+#: src/i18n/messages.ts:1359
 msgid "workspaceSelection.createError"
 msgstr "Impossibile creare l'area di lavoro."
 
 #. js-lingui-explicit-id
-#: src/components/dashboard-auth-controls.tsx:31
+#: src/components/dashboard-auth-controls.tsx:32
 msgid "dashboard.account.createFailed"
 msgstr "Impossibile creare l'area di lavoro."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1081
+#: src/i18n/messages.ts:1355
 msgid "workspaceSelection.openError"
 msgstr "Impossibile aprire questo spazio di lavoro."
 
 #. js-lingui-explicit-id
-#: src/components/dashboard-auth-controls.tsx:35
+#: src/components/dashboard-auth-controls.tsx:36
 msgid "dashboard.account.signOutFailed"
 msgstr "Impossibile disconnettersi."
 
 #. js-lingui-explicit-id
-#: src/components/dashboard-auth-controls.tsx:27
+#: src/components/dashboard-auth-controls.tsx:28
 msgid "dashboard.account.switchFailed"
 msgstr "Impossibile cambiare area di lavoro."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1078
+#: src/i18n/messages.ts:1352
 msgid "workspaceSelection.create"
 msgstr "Creare uno spazio di lavoro"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:968
+#: src/i18n/messages.ts:1184
 msgid "auth.form.createAccount"
 msgstr "Crea un account"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:976
+#: src/i18n/messages.ts:1192
 msgid "auth.form.createAnAccount"
 msgstr "Crea un account"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1080
+#: src/i18n/messages.ts:1354
 msgid "workspaceSelection.createAndOpen"
 msgstr "Crea e apri"
 
@@ -1029,29 +1289,44 @@ msgid "dashboard.brand.empty.create"
 msgstr "Creare un sistema di marca"
 
 #. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:133
+msgid "enterpriseIdentity.startVerification"
+msgstr "Crea challenge DNS"
+
+#. js-lingui-explicit-id
 #: src/components/sdk-snippet-panel.tsx:92
 msgid "dashboard.installation.create"
 msgstr "Crea un'installazione una tantum"
 
 #. js-lingui-explicit-id
-#: src/components/dashboard-auth-controls.tsx:47
+#: src/components/enterprise-identity-settings.tsx:162
+msgid "enterpriseIdentity.createScimToken"
+msgstr "Crea token SCIM"
+
+#. js-lingui-explicit-id
+#: src/components/dashboard-auth-controls.tsx:48
 msgid "dashboard.account.createWorkspace"
 msgstr "Crea spazio di lavoro"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:883
+#: src/i18n/messages.ts:951
 msgid "auth.page.signUp.description"
 msgstr "Crea insieme il tuo account e il primo spazio di lavoro, senza deviazioni di configurazione."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:858
+#: src/i18n/messages.ts:926
 msgid "auth.shell.workflow"
 msgstr "Crea, verifica e pubblica senza spostare il lavoro tra schede e strumenti."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:314
+#: src/i18n/messages.ts:382
 msgid "dashboard.viewModel.createdDuringPublication"
 msgstr "Creato durante la pubblicazione lato server"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1183
+msgid "auth.form.creatingAccount"
+msgstr "Creazione dell’account"
 
 #. js-lingui-explicit-id
 #: src/components/brand-system/brand-empty-state.tsx:17
@@ -1064,19 +1339,29 @@ msgid "dashboard.brand.editor.radius.crisp"
 msgstr "Croccante"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:254
+#: src/i18n/messages.ts:322
 msgid "dashboard.viewModel.currentDraft"
 msgstr "Bozza attuale"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:497
+#: src/i18n/messages.ts:565
 msgid "dashboard.viewModel.currentDraftRecorded"
 msgstr "Bozza attuale registrata per {sites}"
+
+#. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:82
+msgid "account.email.oldVerified"
+msgstr "E-mail attuale confermata"
 
 #. js-lingui-explicit-id
 #: src/components/brand-system/brand-theme-editor.tsx:37
 msgid "dashboard.brand.editor.currentFont"
 msgstr "Carattere corrente"
+
+#. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:64
+msgid "account.currentPassword"
+msgstr "Password attuale"
 
 #. js-lingui-explicit-id
 #: src/components/brand-system/brand-theme-editor.tsx:38
@@ -1089,9 +1374,14 @@ msgid "dashboard.launchQueue.currentReleaseState"
 msgstr "Stato di rilascio attuale"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:203
+#: src/i18n/messages.ts:271
 msgid "dashboard.viewModel.currentSavedContent"
 msgstr "Contenuto attualmente salvato"
+
+#. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:91
+msgid "account.sessions.current"
+msgstr "Sessione attuale"
 
 #. js-lingui-explicit-id
 #: src/components/document-debug-panel.tsx:48
@@ -1109,6 +1399,11 @@ msgid "dashboard.brand.panel.description"
 msgstr "I token del tema rivolti al cliente rimangono separati dallo stile della dashboard. L'approvazione crea una versione immutabile; le versioni lo adottano esplicitamente."
 
 #. js-lingui-explicit-id
+#: src/i18n/messages.ts:1105
+msgid "workspaceMembers.dangerZone"
+msgstr "Zona pericolosa"
+
+#. js-lingui-explicit-id
 #: src/components/brand-system/brand-theme-editor.tsx:32
 msgid "dashboard.brand.editor.darkMode"
 msgstr "Modalità oscura"
@@ -1119,7 +1414,7 @@ msgid "dashboard.analytics.default"
 msgstr "Predefinito"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:691
+#: src/i18n/messages.ts:759
 msgid "dashboard.action.defaultThemeInvalid"
 msgstr "La richiesta del tema predefinito non è valida."
 
@@ -1127,6 +1422,21 @@ msgstr "La richiesta del tema predefinito non è valida."
 #: src/components/brand-system/use-brand-system-controller.ts:47
 msgid "dashboard.brand.controller.defaultMissing"
 msgstr "Il tema predefinito non è stato restituito."
+
+#. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:110
+msgid "account.danger.title"
+msgstr "Elimina account"
+
+#. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:117
+msgid "account.delete.action"
+msgstr "Elimina il mio account"
+
+#. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:111
+msgid "account.danger.help"
+msgstr "L’eliminazione disconnette immediatamente e avvia un periodo di conservazione di 30 giorni. Trasferisci prima ogni spazio di lavoro di cui sei l’unico proprietario."
 
 #. js-lingui-explicit-id
 #: src/i18n/server-feedback.ts:243
@@ -1144,7 +1454,7 @@ msgid "dashboard.recovery.unpublishDescription"
 msgstr "La consegna diventerà inattiva. Le pubblicazioni immutabili e la cronologia di sola aggiunta non verranno eliminate."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:87
+#: src/i18n/messages.ts:155
 msgid "dashboard.common.development"
 msgstr "Sviluppo"
 
@@ -1164,19 +1474,59 @@ msgid "dashboard.environmentPolicy.development"
 msgstr "Sviluppo"
 
 #. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:87
+msgid "account.sessions.help"
+msgstr "Le etichette dei dispositivi sono generiche e verificate per la privacy; gli indirizzi IP non vengono memorizzati qui."
+
+#. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:181
+msgid "account.passkeys.deviceBound"
+msgstr "Passkey associata al dispositivo"
+
+#. js-lingui-explicit-id
 #: src/components/environment-policy-editor.tsx:43
 msgid "dashboard.environmentPolicy.directPublish"
 msgstr "Pubblicazione diretta"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:93
+#: src/components/enterprise-identity-settings.tsx:84
+msgid "enterpriseIdentity.disableConnection"
+msgstr "Disattiva connessione"
+
+#. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:167
+msgid "enterpriseIdentity.disableScimTokenConfirm"
+msgstr "Disattivare questo token SCIM? Le richieste di provisioning che lo usano si interromperanno immediatamente."
+
+#. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:88
+msgid "enterpriseIdentity.disableConnectionConfirm"
+msgstr "Disattivare questa connessione SSO e revocare sessioni, grant di authoring, domini e token SCIM?"
+
+#. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:163
+msgid "enterpriseIdentity.disableScimToken"
+msgstr "Disattiva token"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:161
 msgid "dashboard.common.disabled"
 msgstr "Disabilitato"
+
+#. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:99
+msgid "enterpriseIdentity.status.disabled"
+msgstr "Disattivato"
 
 #. js-lingui-explicit-id
 #: src/components/release-recovery-panel.tsx:82
 msgid "dashboard.recovery.disabled"
 msgstr "Disabilitato"
+
+#. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:126
+msgid "enterpriseIdentity.domainsHelp"
+msgstr "Il discovery usa solo la proprietà DNS verificata. Un’e-mail corrispondente non collega mai un account Lodariq esistente."
 
 #. js-lingui-explicit-id
 #: src/components/analytics-panel.tsx:142
@@ -1189,12 +1539,22 @@ msgid "dashboard.recentActivity.empty"
 msgstr "Il documento, la release e l'attività del marchio verranno visualizzati qui."
 
 #. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:109
+msgid "account.data.export"
+msgstr "Scarica esportazione account"
+
+#. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:104
+msgid "account.data.help"
+msgstr "Scarica il profilo, gli indirizzi verificati, i metodi di accesso e le appartenenze agli spazi di lavoro associati al tuo account."
+
+#. js-lingui-explicit-id
 #: src/components/brand-tour-comparison.tsx:65
 msgid "dashboard.brand.preview.draft"
 msgstr "bozza"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:86
+#: src/i18n/messages.ts:154
 msgid "dashboard.common.draft"
 msgstr "Bozza"
 
@@ -1204,12 +1564,17 @@ msgid "dashboard.documents.draft"
 msgstr "Bozza"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:461
+#: src/components/enterprise-identity-settings.tsx:93
+msgid "enterpriseIdentity.status.draft"
+msgstr "Bozza"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:529
 msgid "dashboard.viewModel.readinessDraft"
 msgstr "Bozza in corso"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:131
+#: src/i18n/messages.ts:199
 msgid "dashboard.viewModel.draftNotPrepared"
 msgstr "Bozza non preparata"
 
@@ -1219,17 +1584,17 @@ msgid "dashboard.brand.panel.draftOnly"
 msgstr "Solo bozza"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:359
+#: src/i18n/messages.ts:427
 msgid "dashboard.viewModel.draftRevision"
 msgstr "Bozza di revisione {revision}"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:202
+#: src/i18n/messages.ts:270
 msgid "dashboard.viewModel.draftSaved"
 msgstr "Bozza salvata"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:673
+#: src/i18n/messages.ts:741
 msgid "dashboard.action.draftSaved"
 msgstr "Bozza salvata."
 
@@ -1249,29 +1614,49 @@ msgid "dashboard.brand.editor.editing"
 msgstr "Modifica bozza"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:955
+#: src/i18n/messages.ts:1143
 msgid "auth.form.email"
 msgstr "E-mail"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:988
+#: src/i18n/messages.ts:1205
 msgid "auth.form.emailSecureLink"
 msgstr "Invia tramite e-mail un collegamento sicuro"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1045
-msgid "auth.error.invalidCredentials"
-msgstr "L'e-mail o la password non sono corrette."
+#: src/i18n/messages.ts:1066
+msgid "workspaceMembers.email"
+msgstr "Indirizzo e-mail"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:871
+#: src/components/account-security-settings.tsx:74
+msgid "account.email.title"
+msgstr "Indirizzo e-mail"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:80
+msgid "recoveryCode.identifier"
+msgstr "Email o nome utente"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1144
+msgid "auth.form.identifier"
+msgstr "Email o nome utente"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:939
 msgid "auth.page.emailVerification"
 msgstr "Verifica e-mail"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1012
+#: src/i18n/messages.ts:1277
 msgid "auth.form.emailVerified"
 msgstr "E-mail verificata"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1315
+msgid "auth.error.invalidCredentials"
+msgstr "L’email, il nome utente o la password non sono corretti."
 
 #. js-lingui-explicit-id
 #: src/i18n/server-feedback.ts:43
@@ -1284,9 +1669,74 @@ msgid "dashboard.publishIssue.emptyTour.label"
 msgstr "Giro vuoto"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages.ts:1097
+msgid "workspaceMembers.invalidEmail"
+msgstr "Inserisci un indirizzo e-mail completo."
+
+#. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:129
+msgid "account.validation.email"
+msgstr "Inserisci un indirizzo e-mail completo."
+
+#. js-lingui-explicit-id
 #: src/components/environment-policy-editor.tsx:89
 msgid "dashboard.environmentPolicy.invalid"
 msgstr "Inserisci un nome e non più di 100 origini esatte."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1164
+msgid "auth.form.validation.emailInvalid"
+msgstr "Inserisci un indirizzo email nel formato name@example.com."
+
+#. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:163
+msgid "account.recoveryCodes.confirmHelp"
+msgstr "Inserisci uno dei codici mostrati per confermare il salvataggio. Rimarrà utilizzabile."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:76
+msgid "recoveryCode.description"
+msgstr "Inserisci un codice monouso salvato. Lodariq non ne chiederà mai più di uno."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1168
+msgid "auth.form.validation.identifierInvalid"
+msgstr "Inserisci il tuo indirizzo email o nome utente senza spazi."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:89
+msgid "recoveryCode.invalid"
+msgstr "Inserisci il tuo identificativo e un codice di recupero completo."
+
+#. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:133
+msgid "account.validation.delete"
+msgstr "Inserisci la password e digita esattamente DELETE."
+
+#. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:38
+msgid "enterpriseIdentity.title"
+msgstr "Identità enterprise"
+
+#. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:49
+msgid "enterpriseIdentity.saved"
+msgstr "Impostazione di identità enterprise salvata."
+
+#. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:45
+msgid "enterpriseIdentity.unavailable"
+msgstr "Impossibile caricare le impostazioni di identità enterprise."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1126
+msgid "auth.form.enterpriseSsoUnavailable"
+msgstr "L’accesso enterprise non è configurato per questa e-mail aziendale."
+
+#. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:146
+msgid "account.methods.saml"
+msgstr "SSO aziendale"
 
 #. js-lingui-explicit-id
 #: src/components/authoring-activation-popup.tsx:82
@@ -1309,7 +1759,7 @@ msgid "dashboard.environmentPolicy.title"
 msgstr "Politica ambientale"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:631
+#: src/i18n/messages.ts:699
 msgid "dashboard.action.environmentPolicyUpdated"
 msgstr "Criteri dell’ambiente aggiornati."
 
@@ -1319,7 +1769,7 @@ msgid "dashboard.navigation.environments"
 msgstr "Ambienti"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:72
+#: src/i18n/messages.ts:135
 msgid "dashboard.page.environments.title"
 msgstr "Ambienti"
 
@@ -1334,17 +1784,17 @@ msgid "dashboard.environmentPolicy.invalidOrigin"
 msgstr "Ogni origine deve essere un'origine HTTP(S) esatta."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:504
+#: src/i18n/messages.ts:572
 msgid "dashboard.viewModel.flowHealthyDetail"
 msgstr "Ogni percorso raggiungibile ha un esito finale."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:432
+#: src/i18n/messages.ts:500
 msgid "dashboard.viewModel.exactArtifactVerified"
 msgstr "Artefatto esatto verificato"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:282
+#: src/i18n/messages.ts:350
 msgid "dashboard.viewModel.exactArtifactVerifiedAt"
 msgstr "Artefatto esatto verificato {date}"
 
@@ -1364,7 +1814,7 @@ msgid "dashboard.analytics.fact.sdkErrorsDescription"
 msgstr "Eventi sdk_error esatti attribuiti a puntatori di rilascio immutabili."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:294
+#: src/i18n/messages.ts:362
 msgid "dashboard.viewModel.exactStagedArtifactActiveAt"
 msgstr "Artefatto a fasi esatto attivo dal {date}"
 
@@ -1399,7 +1849,7 @@ msgid "dashboard.activation.existingTour"
 msgstr "Giro esistente"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:27
+#: src/i18n/messages.ts:28
 msgid "dashboard.navigation.expand"
 msgstr "Espandi la navigazione nell'area di lavoro"
 
@@ -1439,7 +1889,7 @@ msgid "dashboard.navigation.experiences"
 msgstr "Esperienze"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:52
+#: src/i18n/messages.ts:115
 msgid "dashboard.page.experiences.title"
 msgstr "Esperienze"
 
@@ -1447,6 +1897,11 @@ msgstr "Esperienze"
 #: src/components/launch-queue.tsx:47
 msgid "dashboard.launchQueue.experiences"
 msgstr "Esperienze"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1092
+msgid "workspaceMembers.expires"
+msgstr "Scade il {date}"
 
 #. js-lingui-explicit-id
 #: src/components/analytics-panel.tsx:156
@@ -1459,7 +1914,7 @@ msgid "dashboard.recovery.failedAction"
 msgstr "Non riuscito {action}"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:53
+#: src/i18n/messages.ts:116
 msgid "dashboard.page.experiences.description"
 msgstr "Trova ogni esperienza salvata e controlla il suo stato di pubblicazione attuale."
 
@@ -1479,7 +1934,7 @@ msgid "dashboard.activation.recoveryFinish"
 msgstr "Termina lì, quindi chiudi questa finestra e inizia di nuovo a creare."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:945
+#: src/i18n/messages.ts:1013
 msgid "auth.page.finishAccount.title"
 msgstr "Completa la configurazione dell’account"
 
@@ -1499,12 +1954,12 @@ msgid "dashboard.publishIssue.nonTerminatingFlow.label"
 msgstr "Il flusso non termina"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:502
+#: src/i18n/messages.ts:570
 msgid "dashboard.viewModel.flowHealth"
 msgstr "Stato del flusso"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:48
+#: src/i18n/messages.ts:111
 msgid "dashboard.page.overview.description"
 msgstr "Seguire l'avanzamento delle esperienze dalla bozza alla produzione."
 
@@ -1519,6 +1974,16 @@ msgid "dashboard.brand.editor.fontFamily"
 msgstr "Famiglia di caratteri"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages.ts:1141
+msgid "auth.form.forgotUsername"
+msgstr "Nome utente dimenticato?"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:54
+msgid "account.forgotUsername.title"
+msgstr "Hai dimenticato il nome utente?"
+
+#. js-lingui-explicit-id
 #: src/components/analytics-panel.tsx:215
 msgid "dashboard.analytics.target.found"
 msgstr "Trovato"
@@ -1527,6 +1992,11 @@ msgstr "Trovato"
 #: src/components/analytics-panel.tsx:121
 msgid "dashboard.analytics.targetSuccessBreakdown"
 msgstr "Trovato {found} · Sconosciuto {unknown}. I risultati riscontrati e quelli sconosciuti non vengono conteggiati come fallimenti."
+
+#. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:161
+msgid "account.recoveryCodes.generate"
+msgstr "Genera nuovi codici"
 
 #. js-lingui-explicit-id
 #: src/components/release-recovery-panel.tsx:99
@@ -1539,17 +2009,22 @@ msgid "dashboard.brand.editor.georgiaSerif"
 msgstr "Serif georgiano"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:503
+#: src/components/enterprise-identity-settings.tsx:146
+msgid "enterpriseIdentity.mappingsHelp"
+msgstr "I gruppi possono concedere viewer, member o admin. I provider di identità non possono mai concedere owner."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:571
 msgid "dashboard.viewModel.flowHealthy"
 msgstr "Integro"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:21
+#: src/i18n/messages.ts:22
 msgid "dashboard.navigation.support"
 msgstr "Aiuto e supporto"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:77
+#: src/i18n/messages.ts:145
 msgid "dashboard.page.support.title"
 msgstr "Aiuto e supporto"
 
@@ -1564,7 +2039,12 @@ msgid "dashboard.brand.panel.hideImpact"
 msgstr "Nascondi impatto"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:412
+#: src/i18n/messages.ts:1147
+msgid "auth.form.hidePassword"
+msgstr "Nascondi password"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:480
 msgid "dashboard.viewModel.highConfidenceEvidence"
 msgstr "Prove ad alta affidabilità"
 
@@ -1574,14 +2054,29 @@ msgid "dashboard.analytics.historyOnly"
 msgstr "Solo storia"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:115
+#: src/i18n/messages.ts:183
 msgid "dashboard.viewModel.type.hotspot"
 msgstr "Punto caldo"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:978
-msgid "auth.form.recoveryEmailSent"
-msgstr "Se quell'indirizzo appartiene a un account Lodariq, il messaggio più recente contiene un collegamento con password sicura. Scade a breve e funziona una volta."
+#: src/components/enterprise-identity-settings.tsx:72
+msgid "enterpriseIdentity.provider"
+msgstr "Provider di identità"
+
+#. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:145
+msgid "enterpriseIdentity.mappings"
+msgstr "Mapping ruoli dei gruppi IdP"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1195
+msgid "auth.form.recoveryRequestAccepted"
+msgstr "Se l’indirizzo appartiene a un account Lodariq, è stato accodato un link sicuro monouso. La consegna può richiedere alcuni minuti. Funziona solo il link più recente e scade dopo 30 minuti."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1272
+msgid "auth.form.verificationRequestAccepted"
+msgstr "Se l’account è in attesa di verifica, è stato accodato un nuovo link monouso. La consegna può richiedere alcuni minuti."
 
 #. js-lingui-explicit-id
 #: src/components/authoring-launch-panel.tsx:55
@@ -1594,22 +2089,22 @@ msgid "dashboard.recovery.immutableArtifact"
 msgstr "Artefatto immutabile"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:444
+#: src/i18n/messages.ts:512
 msgid "dashboard.viewModel.immutableBrandSnapshot"
 msgstr "Istantanea del marchio immutabile"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:306
+#: src/i18n/messages.ts:374
 msgid "dashboard.viewModel.immutableCompiledArtifact"
 msgstr "Artefatto compilato immutabile"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:436
+#: src/i18n/messages.ts:504
 msgid "dashboard.viewModel.immutablePublication"
 msgstr "Pubblicazione immutabile"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:660
+#: src/i18n/messages.ts:728
 msgid "dashboard.action.impactRefreshed"
 msgstr "Impatto aggiornato."
 
@@ -1619,7 +2114,7 @@ msgid "dashboard.authoringLaunch.eyebrow"
 msgstr "Creazione all'interno del prodotto"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:92
+#: src/i18n/messages.ts:160
 msgid "dashboard.common.inactive"
 msgstr "Inattivo"
 
@@ -1654,7 +2149,7 @@ msgid "dashboard.publishIssue.incompleteMedia.label"
 msgstr "Supporti incompleti"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:63
+#: src/i18n/messages.ts:126
 msgid "dashboard.page.analytics.description"
 msgstr "Esamina i fatti relativi all'ambito del rilascio per un ambiente esplicitamente selezionato alla volta."
 
@@ -1684,22 +2179,67 @@ msgid "dashboard.publishIssue.invalidPresentationArea.label"
 msgstr "Area di presentazione non valida"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages.ts:1031
+msgid "workspaceInvitation.accepted"
+msgstr "Invito accettato"
+
+#. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:78
+msgid "enterpriseIdentity.provisioning.invitationOnly"
+msgstr "Solo invito"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1069
+msgid "workspaceMembers.invitationQueued"
+msgstr "Invito messo in coda per l’invio."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1061
+msgid "workspaceMembers.invite"
+msgstr "Invita un collaboratore"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:141
+msgid "dashboard.page.members.description"
+msgstr "Invita collaboratori, assegna ruoli e controlla l’accesso allo spazio di lavoro."
+
+#. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:75
+msgid "enterpriseIdentity.issuer"
+msgstr "URL dell’issuer"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1023
+msgid "workspaceInvitation.title"
+msgstr "Unisciti al tuo spazio di lavoro"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1091
+msgid "workspaceMembers.joined"
+msgstr "Iscrizione: {date}"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1137
+msgid "auth.form.rememberMeHelp"
+msgstr "Mantieni l’accesso su questo dispositivo fino a 30 giorni. Lascia deselezionato per usare un cookie di sessione."
+
+#. js-lingui-explicit-id
 #: src/components/authoring-activation-popup.tsx:101
 msgid "dashboard.activation.readyDescription"
 msgstr "Mantieni questa finestra aperta mentre il launcher Lodariq completa il trasferimento sicuro."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:116
+#: src/i18n/messages.ts:184
 msgid "dashboard.viewModel.type.knowledge"
 msgstr "Conoscenza"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:37
+#: src/i18n/messages.ts:100
 msgid "dashboard.locale.label"
 msgstr "Lingua"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:40
+#: src/i18n/messages.ts:103
 msgid "dashboard.locale.error"
 msgstr "Impossibile modificare la lingua. Riprova."
 
@@ -1719,12 +2259,12 @@ msgid "dashboard.launchQueue.lastEditor"
 msgstr "Ultimo redattore"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:218
+#: src/i18n/messages.ts:286
 msgid "dashboard.viewModel.latestRecordAt"
 msgstr "Ultimo record {date}"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:47
+#: src/i18n/messages.ts:110
 msgid "dashboard.page.overview.title"
 msgstr "Coda di lancio"
 
@@ -1739,12 +2279,22 @@ msgid "dashboard.brand.binding.legacy"
 msgstr "Ripiego legacy"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:107
+#: src/components/account-security-settings.tsx:184
+msgid "account.methods.linkGoogle"
+msgstr "Collega Google"
+
+#. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:185
+msgid "account.methods.linkMicrosoft"
+msgstr "Collega Microsoft"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:175
 msgid "dashboard.viewModel.status.live"
 msgstr "Vivi"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:227
+#: src/i18n/messages.ts:295
 msgid "dashboard.viewModel.live"
 msgstr "Vivi"
 
@@ -1764,9 +2314,19 @@ msgid "dashboard.analytics.loading"
 msgstr "Caricamento dell'analisi {environment}…"
 
 #. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:118
+msgid "account.loading"
+msgstr "Caricamento sicurezza account…"
+
+#. js-lingui-explicit-id
 #: src/components/release-recovery-panel.tsx:83
 msgid "dashboard.recovery.loading"
 msgstr "Caricamento della cronologia completa delle versioni…"
+
+#. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:44
+msgid "enterpriseIdentity.loading"
+msgstr "Caricamento identità enterprise…"
 
 #. js-lingui-explicit-id
 #: src/components/brand-system/brand-impact-panel.tsx:17
@@ -1779,12 +2339,12 @@ msgid "dashboard.brand.review.loading"
 msgstr "Caricamento delle esperienze collegate e confronto del runtime."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:96
+#: src/i18n/messages.ts:164
 msgid "dashboard.common.loading"
 msgstr "Caricamento…"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:318
+#: src/i18n/messages.ts:386
 msgid "dashboard.viewModel.accessibleFallback"
 msgstr "Fallback accessibile a Lodariq"
 
@@ -1794,7 +2354,7 @@ msgid "dashboard.installation.automaticOrigins"
 msgstr "Lodariq mappa automaticamente le origini attendibili già configurate per lo sviluppo, la gestione temporanea e la produzione."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:529
+#: src/i18n/messages.ts:597
 msgid "dashboard.entry.unavailableDescription"
 msgstr "Lodariq non è riuscito a verificare la tua sessione. Il servizio potrebbe essere temporaneamente non disponibile."
 
@@ -1809,12 +2369,17 @@ msgid "dashboard.metadata.title"
 msgstr "Area di lavoro Lodariq"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1065
+#: src/i18n/messages.ts:1339
 msgid "auth.error.serviceUnavailable"
 msgstr "L'accesso a Lodariq è temporaneamente non disponibile."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:420
+#: src/components/account-security-settings.tsx:98
+msgid "account.methods.help"
+msgstr "Lodariq non consente mai di rimuovere l’ultimo metodo di accesso utilizzabile."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:488
 msgid "dashboard.viewModel.lowConfidenceEvidence"
 msgstr "Prove a bassa confidenza"
 
@@ -1834,24 +2399,64 @@ msgid "dashboard.publishIssue.missingTerminalCompletion.message"
 msgstr "Assicurati che ogni percorso possibile possa completare o chiudere il tour."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:73
+#: src/components/account-security-settings.tsx:52
+msgid "account.description"
+msgstr "Gestisci come accedi, dove è attivo l’account e i dati dell’account."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:136
 msgid "dashboard.page.environments.description"
 msgstr "Gestisci le origini dei prodotti attendibili e l'installazione del runtime di ogni ambiente."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1091
+#: src/components/enterprise-identity-settings.tsx:151
+msgid "enterpriseIdentity.managedRole"
+msgstr "Ruolo gestito"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1089
+msgid "workspaceMembers.role.member"
+msgstr "Membro"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1365
 msgid "workspaceSelection.role.member"
 msgstr "Membro"
 
 #. js-lingui-explicit-id
-#: src/components/dashboard-auth-controls.tsx:53
+#: src/components/dashboard-auth-controls.tsx:58
 msgid "dashboard.account.role.member"
 msgstr "Membro"
+
+#. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:153
+msgid "enterpriseIdentity.role.member"
+msgstr "Member"
 
 #. js-lingui-explicit-id
 #: src/components/environment-policy-editor.tsx:106
 msgid "dashboard.role.member"
 msgstr "Membro"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:21
+msgid "dashboard.navigation.members"
+msgstr "Membri"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:140
+msgid "dashboard.page.members.title"
+msgstr "Membri e accesso"
+
+#. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:74
+msgid "enterpriseIdentity.provider.entra"
+msgstr "Microsoft Entra ID"
+
+#. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:110
+msgid "enterpriseIdentity.minimumAssurance"
+msgstr "Livello di assurance minimo"
 
 #. js-lingui-explicit-id
 #: src/components/analytics-panel.tsx:217
@@ -1879,12 +2484,17 @@ msgid "dashboard.publishIssue.missingUrl.label"
 msgstr "URL mancante"
 
 #. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:183
+msgid "account.passkeys.multiDevice"
+msgstr "Più dispositivi"
+
+#. js-lingui-explicit-id
 #: src/components/environment-policy-editor.tsx:29
 msgid "dashboard.environmentPolicy.name"
 msgstr "Nome"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:382
+#: src/i18n/messages.ts:450
 msgid "dashboard.viewModel.nearbyProductControls"
 msgstr "Controlli del prodotto nelle vicinanze"
 
@@ -1894,17 +2504,17 @@ msgid "dashboard.activation.passwordHelp"
 msgstr "Hai bisogno di impostare o reimpostare la tua password?"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:341
+#: src/i18n/messages.ts:409
 msgid "dashboard.viewModel.needsApproval"
 msgstr "Necessita di approvazione"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:457
+#: src/i18n/messages.ts:525
 msgid "dashboard.viewModel.readinessBlocked"
 msgstr "Necessita di correzioni prima della pubblicazione"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:207
+#: src/i18n/messages.ts:275
 msgid "dashboard.viewModel.needsPreview"
 msgstr "Necessita di anteprima"
 
@@ -1914,7 +2524,7 @@ msgid "dashboard.support.needsPreview"
 msgstr "Necessita di anteprima"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:121
+#: src/i18n/messages.ts:189
 msgid "dashboard.viewModel.needsReview"
 msgstr "Necessita di revisione"
 
@@ -1924,17 +2534,37 @@ msgid "dashboard.analytics.target.needsReview"
 msgstr "Necessita di revisione"
 
 #. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:63
+msgid "enterpriseIdentity.connectionsHelp"
+msgstr "Le nuove connessioni restano non disponibili finché Lodariq non registra una convalida reale del tenant."
+
+#. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:79
+msgid "account.email.new"
+msgstr "Nuovo indirizzo e-mail"
+
+#. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:84
+msgid "account.email.newVerified"
+msgstr "Nuova e-mail confermata"
+
+#. js-lingui-explicit-id
 #: src/components/brand-system/brand-impact-panel.tsx:31
 msgid "dashboard.brand.impact.noLinkedDescription"
 msgstr "Nuove esperienze possono utilizzare questo tema dopo la sua prima approvazione."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1001
+#: src/i18n/messages.ts:1239
 msgid "auth.form.newPassword"
 msgstr "Nuova password"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:974
+#: src/components/account-security-settings.tsx:65
+msgid "account.newPassword"
+msgstr "Nuova password"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1190
 msgid "auth.form.newToLodariq"
 msgstr "Nuovo a Lodariq?"
 
@@ -1944,22 +2574,22 @@ msgid "dashboard.activation.newTour"
 msgstr "Nuovo giro"
 
 #. js-lingui-explicit-id
-#: src/components/dashboard-auth-controls.tsx:46
+#: src/components/dashboard-auth-controls.tsx:47
 msgid "dashboard.account.newWorkspace"
 msgstr "Nuovo spazio di lavoro"
 
 #. js-lingui-explicit-id
-#: src/components/dashboard-auth-controls.tsx:42
+#: src/components/dashboard-auth-controls.tsx:43
 msgid "dashboard.account.newWorkspaceName"
 msgstr "Nuovo nome dell'area di lavoro"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:217
+#: src/i18n/messages.ts:285
 msgid "dashboard.viewModel.newerDraft"
 msgstr "Bozza più recente"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:213
+#: src/i18n/messages.ts:281
 msgid "dashboard.viewModel.noEnvironmentPublicationRecord"
 msgstr "Nessun record di pubblicazione {environment}"
 
@@ -1974,22 +2604,27 @@ msgid "dashboard.analytics.empty"
 msgstr "Nessun evento aggregato viene registrato per {environment}. Nessun dato di staging o di produzione è stato sostituito."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:327
+#: src/i18n/messages.ts:395
 msgid "dashboard.viewModel.noApprovedVersion"
 msgstr "Nessuna versione approvata"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:269
+#: src/i18n/messages.ts:337
 msgid "dashboard.viewModel.noBlockingChecks"
 msgstr "Nessun controllo di blocco"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:783
+#: src/i18n/messages.ts:851
 msgid "dashboard.action.noProductOrigins"
 msgstr "Nessuna origine canonica del prodotto è stata ancora configurata."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:208
+#: src/components/enterprise-identity-settings.tsx:144
+msgid "enterpriseIdentity.noDomains"
+msgstr "Nessun dominio aziendale è configurato."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:276
 msgid "dashboard.viewModel.noCompiledDraft"
 msgstr "Nessuna bozza compilata ancora"
 
@@ -1999,12 +2634,17 @@ msgid "dashboard.support.noCustomerVersion"
 msgstr "Nessuna versione del cliente ancora"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:765
+#: src/i18n/messages.ts:833
 msgid "dashboard.action.noDeliveryRecord"
 msgstr "Nessun record di consegna"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:485
+#: src/components/enterprise-identity-settings.tsx:68
+msgid "enterpriseIdentity.noConnections"
+msgstr "Nessuna connessione SSO enterprise è stata configurata."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:553
 msgid "dashboard.viewModel.noPublicationRecord"
 msgstr "Nessun record di pubblicazione dell'ambiente ancora"
 
@@ -2054,7 +2694,7 @@ msgid "dashboard.environmentPolicy.tooManyOrigins"
 msgstr "Non sono consentite più di 100 origini."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:117
+#: src/i18n/messages.ts:185
 msgid "dashboard.viewModel.noOrigins"
 msgstr "Nessuna origine"
 
@@ -2064,17 +2704,17 @@ msgid "dashboard.environments.empty"
 msgstr "Nessun ambiente del prodotto è configurato."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:290
+#: src/i18n/messages.ts:358
 msgid "dashboard.viewModel.noProductionPublicationRecord"
 msgstr "Nessun record di pubblicazione della produzione"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:467
+#: src/i18n/messages.ts:535
 msgid "dashboard.viewModel.noPublishBlockers"
 msgstr "Nessun blocco della pubblicazione"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:212
+#: src/i18n/messages.ts:280
 msgid "dashboard.viewModel.noRecord"
 msgstr "Nessun record"
 
@@ -2089,12 +2729,17 @@ msgid "dashboard.releases.emptyTitle"
 msgstr "Nessuna versione da rivedere"
 
 #. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:175
+msgid "enterpriseIdentity.noScimTokens"
+msgstr "Nessun token SCIM è stato emesso."
+
+#. js-lingui-explicit-id
 #: src/components/analytics-panel.tsx:49
 msgid "dashboard.analytics.noEnvironment"
 msgstr "Non è configurato alcun ambiente di gestione temporanea o di analisi della produzione."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:278
+#: src/i18n/messages.ts:346
 msgid "dashboard.viewModel.noStagingPublicationRecord"
 msgstr "Nessun record di pubblicazione di allestimento"
 
@@ -2109,7 +2754,7 @@ msgid "dashboard.installation.noOrigins"
 msgstr "Nessuna origine attendibile è ancora mappata. Aggiungi origini agli ambienti, quindi sincronizza."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:769
+#: src/i18n/messages.ts:837
 msgid "dashboard.action.noVersions"
 msgstr "Nessuna versione"
 
@@ -2124,7 +2769,7 @@ msgid "dashboard.brand.impact.notActive"
 msgstr "Non attivo in un ambiente"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:95
+#: src/i18n/messages.ts:163
 msgid "dashboard.common.notAvailable"
 msgstr "Non disponibile"
 
@@ -2139,22 +2784,22 @@ msgid "dashboard.installation.notInstalled"
 msgstr "Non installato"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:255
+#: src/i18n/messages.ts:323
 msgid "dashboard.viewModel.notPrepared"
 msgstr "Non preparato"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:764
+#: src/i18n/messages.ts:832
 msgid "dashboard.action.notPrepared"
 msgstr "Non preparato"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:277
+#: src/i18n/messages.ts:345
 msgid "dashboard.viewModel.notPublished"
 msgstr "Non pubblicato"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:120
+#: src/i18n/messages.ts:188
 msgid "dashboard.viewModel.notSpecified"
 msgstr "Non specificato"
 
@@ -2164,17 +2809,27 @@ msgid "dashboard.brand.review.notYet"
 msgstr "Non ancora"
 
 #. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:76
+msgid "enterpriseIdentity.clientId"
+msgstr "ID client OIDC"
+
+#. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:73
+msgid "enterpriseIdentity.provider.okta"
+msgstr "Okta"
+
+#. js-lingui-explicit-id
 #: src/components/authoring-launch-panel.tsx:60
 msgid "dashboard.authoringLaunch.shortcut"
 msgstr "Su un sito abilitato per la creazione, {shortcut} attiva/disattiva il programma di avvio senza visitare la dashboard."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:607
+#: src/i18n/messages.ts:675
 msgid "dashboard.action.approvalRequired"
 msgstr "Ora è richiesta un’approvazione prima del passaggio in produzione."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:918
+#: src/i18n/messages.ts:986
 msgid "auth.page.recovery.description"
 msgstr "Un collegamento e-mail consente a un creatore esistente di stabilire o sostituire la propria password Lodariq."
 
@@ -2199,7 +2854,7 @@ msgid "dashboard.installation.oneLine"
 msgstr "Una riga, una volta"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:787
+#: src/i18n/messages.ts:855
 msgid "dashboard.action.ambiguousOrigin"
 msgstr "Una mappatura dell'origine è stata saltata perché la stessa origine appartiene a più di un ambiente."
 
@@ -2214,6 +2869,11 @@ msgid "dashboard.installation.eyebrow"
 msgstr "Configurazione una tantum"
 
 #. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:58
+msgid "enterpriseIdentity.ownerOnly"
+msgstr "Solo un proprietario del workspace può modificare le impostazioni di identità enterprise."
+
+#. js-lingui-explicit-id
 #: src/i18n/server-feedback.ts:23
 msgid "dashboard.publishIssue.unsupportedDocumentType.message"
 msgstr "Al momento è possibile pubblicare solo le esperienze di tour."
@@ -2224,7 +2884,7 @@ msgid "dashboard.authoringLaunch.openEnvironment"
 msgstr "Apri {environment}"
 
 #. js-lingui-explicit-id
-#: src/components/dashboard-auth-controls.tsx:36
+#: src/components/dashboard-auth-controls.tsx:37
 msgid "dashboard.account.openMenu"
 msgstr "Apri il menu dell'account e dell'area di lavoro"
 
@@ -2239,12 +2899,12 @@ msgid "dashboard.releases.openFlowMap"
 msgstr "Apri mappa del flusso"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:82
+#: src/i18n/messages.ts:150
 msgid "dashboard.page.openInProduct"
 msgstr "Apri nel prodotto"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:983
+#: src/i18n/messages.ts:1200
 msgid "auth.form.openLocalRecoveryLink"
 msgstr "Apri il collegamento di ripristino locale"
 
@@ -2264,7 +2924,7 @@ msgid "dashboard.brand.controller.reviewRequired"
 msgstr "Apri la revisione dell'approvazione e attendi entrambe le anteprime di runtime prima di approvare."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1038
+#: src/i18n/messages.ts:1308
 msgid "auth.form.openVerificationLink"
 msgstr "Apri il collegamento di verifica completo dalla tua email, quindi scegli la password per il tuo account."
 
@@ -2274,7 +2934,12 @@ msgid "dashboard.authoringLaunch.stayInProductDescription"
 msgstr "Apri il sito per rivelare Lodariq, quindi avvia un tour, riprendi un'esperienza su quella pagina o visualizza l'anteprima come utente."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:24
+#: src/i18n/messages.ts:1036
+msgid "workspaceInvitation.openWorkspace"
+msgstr "Apri spazio di lavoro"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:25
 msgid "dashboard.navigation.open"
 msgstr "Apre la navigazione nell'area di lavoro"
 
@@ -2284,12 +2949,22 @@ msgid "dashboard.authoringLaunch.title"
 msgstr "Apri il tuo prodotto"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:549
+#: src/components/account-security-settings.tsx:145
+msgid "account.methods.oidc"
+msgstr "OpenID Connect"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1132
+msgid "auth.form.providerWaiting"
+msgstr "Apertura dell'accesso sicuro…"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:617
 msgid "dashboard.loading.label"
 msgstr "Apertura dell'area di lavoro Lodariq"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1014
+#: src/i18n/messages.ts:1279
 msgid "auth.form.openingWorkspace"
 msgstr "Apertura dell'area di lavoro Lodariq…"
 
@@ -2297,6 +2972,11 @@ msgstr "Apertura dell'area di lavoro Lodariq…"
 #: src/components/release-recovery-panel.tsx:118
 msgid "dashboard.recovery.operationActor"
 msgstr "Operazione {operation} · Attore {actor}"
+
+#. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:185
+msgid "enterpriseIdentity.reason"
+msgstr "Motivo dell’incidente operativo"
 
 #. js-lingui-explicit-id
 #: src/components/document-debug-panel.tsx:31
@@ -2309,12 +2989,17 @@ msgid "dashboard.navigation.overview"
 msgstr "Panoramica"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1089
+#: src/i18n/messages.ts:1087
+msgid "workspaceMembers.role.owner"
+msgstr "Proprietario"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1363
 msgid "workspaceSelection.role.owner"
 msgstr "Proprietario"
 
 #. js-lingui-explicit-id
-#: src/components/dashboard-auth-controls.tsx:55
+#: src/components/dashboard-auth-controls.tsx:60
 msgid "dashboard.account.role.owner"
 msgstr "Proprietario"
 
@@ -2329,24 +3014,74 @@ msgid "dashboard.launchQueue.pageScope"
 msgstr "Ambito della pagina"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:956
+#: src/components/account-security-settings.tsx:144
+msgid "account.methods.passkey"
+msgstr "Passkey"
+
+#. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:152
+msgid "account.passkeys.name"
+msgstr "Nome della passkey"
+
+#. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:147
+msgid "account.passkeys.title"
+msgstr "Passkey"
+
+#. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:148
+msgid "account.passkeys.help"
+msgstr "Le passkey usano questo dispositivo o una chiave di sicurezza e resistono al phishing."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1145
 msgid "auth.form.password"
 msgstr "Password"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:909
+#: src/components/account-security-settings.tsx:68
+msgid "account.password.title"
+msgstr "Password"
+
+#. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:143
+msgid "account.methods.password"
+msgstr "Password"
+
+#. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:121
+msgid "enterpriseIdentity.invalidPolicy"
+msgstr "La password non può essere disattivata se l’SSO enterprise non è obbligatorio."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:977
 msgid "auth.page.recoveryDisabled.description"
 msgstr "Il recupero della password non è stato ancora abilitato per questa distribuzione."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1061
+#: src/i18n/messages.ts:1335
 msgid "auth.error.recoveryUnavailable"
 msgstr "Il recupero della password è temporaneamente non disponibile."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:989
+#: src/i18n/messages.ts:1218
 msgid "auth.form.passwordsDoNotMatch"
 msgstr "Le password non corrispondono."
+
+#. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:100
+msgid "enterpriseIdentity.status.pending"
+msgstr "In attesa"
+
+#. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:81
+msgid "account.email.pending"
+msgstr "Indirizzo in sospeso: {email}"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1073
+msgid "workspaceMembers.pendingInvitations"
+msgstr "Inviti in sospeso"
 
 #. js-lingui-explicit-id
 #: src/components/release-recovery-panel.tsx:108
@@ -2369,7 +3104,7 @@ msgid "dashboard.environmentPolicy.pipeline"
 msgstr "Conduttura"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:966
+#: src/i18n/messages.ts:1181
 msgid "auth.form.pleaseTryAgain"
 msgstr "Riprova."
 
@@ -2384,12 +3119,17 @@ msgid "dashboard.environmentPolicy.noPublishSideEffect"
 msgstr "Le modifiche alle policy non pubblicano né ricompilano mai un artefatto."
 
 #. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:103
+msgid "enterpriseIdentity.policyHelp"
+msgstr "Il criterio viene verificato alla selezione del workspace e a ogni autorizzazione del control plane e dell’authoring."
+
+#. js-lingui-explicit-id
 #: src/components/document-debug-panel.tsx:27
 msgid "dashboard.support.description"
 msgstr "Preparare un backup modificabile e una versione del cliente solo quando richiesto dal supporto o dal QA."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:135
+#: src/i18n/messages.ts:203
 msgid "dashboard.viewModel.prepareDraft"
 msgstr "Preparare la bozza"
 
@@ -2419,17 +3159,17 @@ msgid "dashboard.brand.panel.previewImpact"
 msgstr "Anteprima dell'impatto"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:265
+#: src/i18n/messages.ts:333
 msgid "dashboard.viewModel.previewToPrepareArtifact"
 msgstr "Anteprima una volta per preparare un artefatto pubblicabile"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:480
+#: src/i18n/messages.ts:548
 msgid "dashboard.viewModel.previewToPreparePublishing"
 msgstr "Anteprima una volta per preparare la pubblicazione"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:136
+#: src/i18n/messages.ts:204
 msgid "dashboard.viewModel.previewToPrepareDraft"
 msgstr "Visualizza in anteprima questa esperienza una volta per preparare una bozza pubblicabile."
 
@@ -2459,12 +3199,12 @@ msgid "dashboard.environments.productEnvironments"
 msgstr "Ambienti del prodotto"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:854
+#: src/i18n/messages.ts:922
 msgid "auth.shell.productExperiences"
 msgstr "Esperienze che sembrano una parte naturale del tuo prodotto."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:331
+#: src/i18n/messages.ts:399
 msgid "dashboard.viewModel.productMatchNotRecorded"
 msgstr "La corrispondenza del prodotto non è stata registrata"
 
@@ -2474,12 +3214,12 @@ msgid "dashboard.brand.source.title"
 msgstr "Origine della corrispondenza del prodotto"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:390
+#: src/i18n/messages.ts:458
 msgid "dashboard.viewModel.productSurfaceContext"
 msgstr "Contesto della superficie del prodotto"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1079
+#: src/i18n/messages.ts:1353
 msgid "workspaceSelection.placeholder"
 msgstr "Team di prodotto"
 
@@ -2489,12 +3229,12 @@ msgid "dashboard.brand.preview.tourCard"
 msgstr "Scheda tour del prodotto"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:386
+#: src/i18n/messages.ts:454
 msgid "dashboard.viewModel.productTypography"
 msgstr "Tipografia del prodotto"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:89
+#: src/i18n/messages.ts:157
 msgid "dashboard.common.production"
 msgstr "Produzione"
 
@@ -2514,12 +3254,12 @@ msgid "dashboard.analytics.productionNotConfigured"
 msgstr "L'analisi della produzione non è configurata. Seleziona esplicitamente la gestione temporanea per caricare i suoi fatti isolati."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:257
+#: src/i18n/messages.ts:325
 msgid "dashboard.viewModel.productionEvidence"
 msgstr "Prove di produzione"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:245
+#: src/i18n/messages.ts:313
 msgid "dashboard.viewModel.activeProvenanceUnavailable"
 msgstr "La produzione è attiva, ma la provenienza esatta dell'artefatto di allestimento non è ancora disponibile."
 
@@ -2529,12 +3269,12 @@ msgid "dashboard.analytics.isolationDescription"
 msgstr "La produzione è l'impostazione predefinita esplicita quando configurata. I fatti di messa in scena e di produzione vengono interrogati e resi separatamente; Lodariq non li combina mai in questa visione."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:140
+#: src/i18n/messages.ts:208
 msgid "dashboard.viewModel.productionLive"
 msgstr "Produzione in diretta"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:241
+#: src/i18n/messages.ts:309
 msgid "dashboard.viewModel.exactArtifactPromoted"
 msgstr "La produzione punta all'esatto manufatto promosso dalla messa in scena."
 
@@ -2544,17 +3284,17 @@ msgid "dashboard.releases.exactArtifactDescription"
 msgstr "La promozione della produzione deve riutilizzare l'artefatto di gestione temporanea verificato senza ricostruzione, mutazione automatica del tema o copia dell'ambiente."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:611
+#: src/i18n/messages.ts:679
 msgid "dashboard.action.approvalNotRequired"
 msgstr "La promozione della produzione non richiede più un'approvazione separata."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:141
+#: src/i18n/messages.ts:209
 msgid "dashboard.viewModel.productionPublished"
 msgstr "Produzione pubblicata"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:146
+#: src/i18n/messages.ts:214
 msgid "dashboard.viewModel.productionUpdate"
 msgstr "Aggiornamento sulla produzione"
 
@@ -2574,17 +3314,27 @@ msgid "dashboard.environmentPolicy.promotionSource"
 msgstr "Fonte della promozione"
 
 #. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:150
+msgid "enterpriseIdentity.groupId"
+msgstr "ID gruppo del provider"
+
+#. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:77
+msgid "enterpriseIdentity.provisioning"
+msgstr "Modalità di provisioning"
+
+#. js-lingui-explicit-id
 #: src/components/analytics-panel.tsx:143
 msgid "dashboard.analytics.publication"
 msgstr "Pubblicazione"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:493
+#: src/i18n/messages.ts:561
 msgid "dashboard.viewModel.publicationRecorded"
 msgstr "Pubblicazione registrata"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:489
+#: src/i18n/messages.ts:557
 msgid "dashboard.viewModel.recordsUseEarlierHash"
 msgstr "I record di pubblicazione per {sites} utilizzano un hash di contenuto precedente"
 
@@ -2619,17 +3369,17 @@ msgid "dashboard.publishIssue.unknown.label"
 msgstr "Pubblica assegno"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:181
+#: src/i18n/messages.ts:249
 msgid "dashboard.viewModel.publishCurrentDraft"
 msgstr "Pubblica la bozza corrente"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:194
+#: src/i18n/messages.ts:262
 msgid "dashboard.viewModel.publishToStaging"
 msgstr "Pubblica in staging"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:232
+#: src/i18n/messages.ts:300
 msgid "dashboard.viewModel.published"
 msgstr "Pubblicato"
 
@@ -2639,22 +3389,22 @@ msgid "dashboard.recovery.published"
 msgstr "Pubblicato"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:237
+#: src/i18n/messages.ts:305
 msgid "dashboard.viewModel.publishedDeliveryUnconfirmed"
 msgstr "Pubblicato {date} · consegna attiva non confermata"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:302
+#: src/i18n/messages.ts:370
 msgid "dashboard.viewModel.publishedPointerNotExposed"
 msgstr "Pubblicato {date} · puntatore attivo non esposto"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:286
+#: src/i18n/messages.ts:354
 msgid "dashboard.viewModel.publishedNoBrowserVerification"
 msgstr "Pubblicato {date} · verifica del browser non registrata"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:233
+#: src/i18n/messages.ts:301
 msgid "dashboard.viewModel.publishedVerificationPending"
 msgstr "Pubblicato {date} · verifica in sospeso"
 
@@ -2669,27 +3419,37 @@ msgid "dashboard.documents.publishing"
 msgstr "Editoria"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:339
+#: src/i18n/messages.ts:407
 msgid "dashboard.viewModel.radius"
 msgstr "Raggio"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:993
+#: src/components/email-change-verification.tsx:12
+msgid "account.emailChange.reading"
+msgstr "Lettura del link sicuro…"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1028
+msgid "workspaceInvitation.reading"
+msgstr "Lettura dell’invito sicuro"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1222
 msgid "auth.form.readingSecureLink"
 msgstr "Lettura del tuo collegamento sicuro…"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1019
+#: src/i18n/messages.ts:1284
 msgid "auth.form.readingVerificationLink"
 msgstr "Lettura del link di verifica sicura…"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:476
+#: src/i18n/messages.ts:544
 msgid "dashboard.viewModel.readyFirstPublish"
 msgstr "Pronto per la prima pubblicazione"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:190
+#: src/i18n/messages.ts:258
 msgid "dashboard.viewModel.readyForStaging"
 msgstr "Pronto per la messa in scena"
 
@@ -2699,7 +3459,7 @@ msgid "dashboard.activation.ready"
 msgstr "Pronto per la connessione"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:462
+#: src/i18n/messages.ts:530
 msgid "dashboard.viewModel.readinessPreviewable"
 msgstr "Pronto per l'anteprima"
 
@@ -2729,12 +3489,32 @@ msgid "dashboard.publishIssue.invalidFlowEdge.message"
 msgstr "Ricollega questa azione a un passaggio ancora esistente."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:905
+#: src/i18n/messages.ts:87
+msgid "recoveryCode.submit"
+msgstr "Recupera account"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:67
+msgid "account.forgotUsername.recoverAccess"
+msgstr "Recupera accesso all’account"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:81
+msgid "recoveryCode.code"
+msgstr "Codice di recupero"
+
+#. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:156
+msgid "account.recoveryCodes.title"
+msgstr "Codici di recupero"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:973
 msgid "auth.page.recoveryDisabled.title"
 msgstr "Il ripristino non è disponibile"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:100
+#: src/i18n/messages.ts:168
 msgid "dashboard.common.refresh"
 msgstr "Aggiorna"
 
@@ -2749,12 +3529,12 @@ msgid "dashboard.analytics.refresh"
 msgstr "Aggiorna l'ambiente selezionato"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:374
+#: src/i18n/messages.ts:442
 msgid "dashboard.viewModel.registeredDesignTokens"
 msgstr "Gettoni di design registrati"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:57
+#: src/i18n/messages.ts:120
 msgid "dashboard.page.releases.title"
 msgstr "Dettagli del rilascio"
 
@@ -2774,7 +3554,7 @@ msgid "dashboard.recovery.title"
 msgstr "Cronologia e ripristino delle versioni"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:834
+#: src/i18n/messages.ts:902
 msgid "dashboard.action.releaseHistoryMissing"
 msgstr "La cronologia delle versioni non è disponibile per questo documento."
 
@@ -2814,6 +3594,26 @@ msgid "dashboard.navigation.releases"
 msgstr "Rilasci"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages.ts:1136
+msgid "auth.form.rememberMe"
+msgstr "Ricordami"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:86
+msgid "recoveryCode.rememberMe"
+msgstr "Ricorda questo dispositivo"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1082
+msgid "workspaceMembers.remove"
+msgstr "Rimuovi"
+
+#. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:102
+msgid "account.methods.remove"
+msgstr "Rimuovi"
+
+#. js-lingui-explicit-id
 #: src/components/dashboard-settings-views.tsx:55
 msgid "dashboard.environments.removeApproval"
 msgstr "Rimuovi l'approvazione"
@@ -2834,9 +3634,44 @@ msgid "dashboard.brand.preview.rendering"
 msgstr "Tour del rendering..."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:930
+#: src/components/enterprise-identity-settings.tsx:190
+msgid "enterpriseIdentity.requestCreated"
+msgstr "La richiesta {requestId} scade alle {expiresAt}. Consegna l’ID a un altro proprietario del workspace."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1194
+msgid "auth.form.requestAccepted"
+msgstr "Richiesta accettata"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1214
+msgid "auth.form.requestAgainIn"
+msgstr "Richiedi di nuovo tra {seconds} s"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:998
 msgid "auth.page.requestAnotherLink"
 msgstr "Richiedi un altro collegamento"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1210
+msgid "auth.form.requestAnotherLink"
+msgstr "Richiedi un altro link"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1264
+msgid "auth.form.requestAnotherVerification"
+msgstr "Richiedi un altro link di verifica"
+
+#. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:186
+msgid "enterpriseIdentity.requestBreakGlass"
+msgstr "Richiedi approvazione break-glass"
+
+#. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:194
+msgid "enterpriseIdentity.approvalRequestId"
+msgstr "ID richiesta di un altro proprietario"
 
 #. js-lingui-explicit-id
 #: src/components/release-recovery-panel.tsx:200
@@ -2844,9 +3679,24 @@ msgid "dashboard.recovery.requestedTarget"
 msgstr "Obiettivo richiesto: {target}"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages.ts:1206
+msgid "auth.form.requestingSecureLink"
+msgstr "Richiesta di un link sicuro"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1268
+msgid "auth.form.requestingVerification"
+msgstr "Richiesta di un altro link di verifica"
+
+#. js-lingui-explicit-id
 #: src/components/dashboard-settings-views.tsx:59
 msgid "dashboard.environments.requireApproval"
 msgstr "Richiedere l'approvazione"
+
+#. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:108
+msgid "enterpriseIdentity.requireSso"
+msgstr "Richiedi SSO enterprise"
 
 #. js-lingui-explicit-id
 #: src/components/environment-policy-editor.tsx:51
@@ -2859,6 +3709,11 @@ msgid "dashboard.environmentPolicy.requireVerification"
 msgstr "Richiedi la verifica della fonte"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages.ts:1260
+msgid "auth.form.restartVerification"
+msgstr "Ricomincia la verifica dell’account"
+
+#. js-lingui-explicit-id
 #: src/components/release-recovery-panel.tsx:166
 msgid "dashboard.recovery.retryExact"
 msgstr "Riprovare la richiesta esatta"
@@ -2869,12 +3724,22 @@ msgid "dashboard.analytics.retry"
 msgstr "Riprova l'ambiente selezionato"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:941
+#: src/i18n/messages.ts:1009
 msgid "auth.page.returnToAccountCreation"
 msgstr "Ritorna alla creazione dell'account"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:913
+#: src/i18n/messages.ts:49
+msgid "account.emailChange.returnToSecurity"
+msgstr "Torna alla sicurezza dell’account"
+
+#. js-lingui-explicit-id
+#: src/components/email-change-verification.tsx:27
+msgid "account.emailChange.account"
+msgstr "Torna alla sicurezza dell’account"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:981
 msgid "auth.page.returnToSignIn"
 msgstr "Torna per accedere"
 
@@ -2884,7 +3749,7 @@ msgid "dashboard.activation.returning"
 msgstr "Ti riporto all'applicazione..."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:105
+#: src/i18n/messages.ts:173
 msgid "dashboard.viewModel.status.review"
 msgstr "Recensione"
 
@@ -2904,7 +3769,7 @@ msgid "dashboard.publishIssue.targetNeedsReview.message"
 msgstr "Esamina e verifica questo posizionamento prima della pubblicazione."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:122
+#: src/i18n/messages.ts:190
 msgid "dashboard.viewModel.reviewBlockers"
 msgstr "Esamina i bloccanti"
 
@@ -2914,37 +3779,37 @@ msgid "dashboard.brand.panel.reviewOpen"
 msgstr "Recensione aperta"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:150
+#: src/i18n/messages.ts:218
 msgid "dashboard.viewModel.reviewProductionUpdate"
 msgstr "Rivedere l'aggiornamento della produzione"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:164
+#: src/i18n/messages.ts:232
 msgid "dashboard.viewModel.reviewPromotion"
 msgstr "Rivedi la promozione"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:416
+#: src/i18n/messages.ts:484
 msgid "dashboard.viewModel.reviewRecommended"
 msgstr "Recensione consigliata"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:90
+#: src/i18n/messages.ts:158
 msgid "dashboard.common.reviewRelease"
 msgstr "Rilascio di revisione"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:145
+#: src/i18n/messages.ts:213
 msgid "dashboard.viewModel.reviewRelease"
 msgstr "Rilascio di revisione"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:58
+#: src/i18n/messages.ts:121
 msgid "dashboard.page.releases.description"
 msgstr "Esamina lo stato dell'ambiente che Lodariq può attualmente dimostrare per ogni esperienza."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:168
+#: src/i18n/messages.ts:236
 msgid "dashboard.viewModel.reviewVerification"
 msgstr "Rivedi la verifica"
 
@@ -2954,12 +3819,27 @@ msgid "dashboard.brand.preview.sampleParagraph"
 msgstr "Esamina ciò che è pronto per lo staging senza lasciare il prodotto."
 
 #. js-lingui-explicit-id
+#: src/i18n/messages.ts:1081
+msgid "workspaceMembers.revoke"
+msgstr "Revoca"
+
+#. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:92
+msgid "account.sessions.revoke"
+msgstr "Revoca"
+
+#. js-lingui-explicit-id
 #: src/components/sdk-snippet-panel.tsx:99
 msgid "dashboard.installation.revoke"
 msgstr "Revoca installazione"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:118
+#: src/components/account-security-settings.tsx:167
+msgid "account.recoveryCodes.revoke"
+msgstr "Revoca i codici di recupero"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:186
 msgid "dashboard.viewModel.revoked"
 msgstr "Revocato"
 
@@ -2972,6 +3852,16 @@ msgstr "La revoca interrompe la distribuzione e la creazione del runtime su ogni
 #: src/components/sdk-snippet-panel.tsx:98
 msgid "dashboard.installation.revoking"
 msgstr "Revoca…"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1067
+msgid "workspaceMembers.role"
+msgstr "Ruolo"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1057
+msgid "workspaceMembers.membersDescription"
+msgstr "I ruoli vengono applicati in base all’appartenenza corrente sul server a ogni richiesta."
 
 #. js-lingui-explicit-id
 #: src/components/release-recovery-panel.tsx:53
@@ -3029,12 +3919,12 @@ msgid "dashboard.installation.runtimeOnly"
 msgstr "Solo in fase di esecuzione"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:326
+#: src/i18n/messages.ts:394
 msgid "dashboard.viewModel.safeFallback"
 msgstr "Ripiego sicuro"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:322
+#: src/i18n/messages.ts:390
 msgid "dashboard.viewModel.semanticDefaultsActive"
 msgstr "Le impostazioni predefinite semantiche sicure sono attive finché non viene approvato un tema del marchio dell'area di lavoro."
 
@@ -3044,9 +3934,19 @@ msgid "dashboard.brand.review.sameContent"
 msgstr "Stesso contenuto · Cambia solo il tema"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:99
+#: src/i18n/messages.ts:167
 msgid "dashboard.common.save"
 msgstr "Salva"
+
+#. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:157
+msgid "account.recoveryCodes.help"
+msgstr "Salva offline tutti e dieci i codici monouso. Un nuovo set revoca quello precedente."
+
+#. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:120
+msgid "enterpriseIdentity.savePolicy"
+msgstr "Salva criterio di autenticazione"
 
 #. js-lingui-explicit-id
 #: src/components/brand-system/brand-theme-editor.tsx:47
@@ -3054,7 +3954,12 @@ msgid "dashboard.brand.editor.save"
 msgstr "Salva bozza"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1004
+#: src/components/enterprise-identity-settings.tsx:155
+msgid "enterpriseIdentity.saveMapping"
+msgstr "Salva mapping del gruppo"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1242
 msgid "auth.form.savePassword"
 msgstr "Salva la password e continua"
 
@@ -3062,6 +3967,11 @@ msgstr "Salva la password e continua"
 #: src/components/environment-policy-editor.tsx:88
 msgid "dashboard.environmentPolicy.save"
 msgstr "Salva politica"
+
+#. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:67
+msgid "account.username.save"
+msgstr "Salva nome utente"
 
 #. js-lingui-explicit-id
 #: src/components/brand-tour-comparison.tsx:40
@@ -3079,6 +3989,11 @@ msgid "dashboard.releases.emptyDescription"
 msgstr "Le esperienze salvate verranno visualizzate qui con i record di pubblicazione che l'attuale API può dimostrare."
 
 #. js-lingui-explicit-id
+#: src/i18n/messages.ts:1246
+msgid "auth.form.savingPassword"
+msgstr "Salvataggio della password"
+
+#. js-lingui-explicit-id
 #: src/components/environment-policy-editor.tsx:87
 msgid "dashboard.environmentPolicy.saving"
 msgstr "Salvataggio…"
@@ -3087,6 +4002,21 @@ msgstr "Salvataggio…"
 #: src/components/brand-system/brand-theme-editor.tsx:46
 msgid "dashboard.brand.editor.saving"
 msgstr "Salvataggio…"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1114
+msgid "workspaceMembers.scheduleDeletion"
+msgstr "Pianifica eliminazione dello spazio"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1106
+msgid "workspaceMembers.deletionDescription"
+msgstr "La pianificazione dell’eliminazione revoca l’accesso attivo e avvia il periodo di conservazione."
+
+#. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:156
+msgid "enterpriseIdentity.scim"
+msgstr "Provisioning SCIM"
 
 #. js-lingui-explicit-id
 #: src/components/brand-system/brand-approval-review.tsx:59
@@ -3104,7 +4034,7 @@ msgid "dashboard.analytics.fact.sdkErrors"
 msgstr "Errori dell'SDK"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:744
+#: src/i18n/messages.ts:812
 msgid "dashboard.action.installationNotFound"
 msgstr "Installazione dell'SDK non trovata."
 
@@ -3119,9 +4049,14 @@ msgid "dashboard.documents.search"
 msgstr "Cerca esperienze"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:862
+#: src/i18n/messages.ts:930
 msgid "auth.shell.secureAccess"
 msgstr "Accesso Lodariq sicuro e diretto"
+
+#. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:119
+msgid "account.saved"
+msgstr "Impostazione di sicurezza salvata."
 
 #. js-lingui-explicit-id
 #: src/components/brand-system/brand-approval-review.tsx:19
@@ -3144,7 +4079,7 @@ msgid "dashboard.support.selectedExperience"
 msgstr "Esperienza selezionata"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:378
+#: src/i18n/messages.ts:446
 msgid "dashboard.viewModel.selectedProductElement"
 msgstr "Elemento del prodotto selezionato"
 
@@ -3154,9 +4089,19 @@ msgid "dashboard.brand.source.roles"
 msgstr "Ruoli semantici del marchio"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:355
+#: src/i18n/messages.ts:423
 msgid "dashboard.viewModel.tokensSavedAsDraft"
 msgstr "I token semantici vengono salvati come bozza e non possono modificare le versioni live."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1068
+msgid "workspaceMembers.sendInvitation"
+msgstr "Invia invito"
+
+#. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:80
+msgid "account.email.begin"
+msgstr "Invia link di verifica"
 
 #. js-lingui-explicit-id
 #: src/components/environment-policy-editor.tsx:79
@@ -3169,29 +4114,49 @@ msgid "dashboard.environmentPolicy.separateVerifier"
 msgstr "Verificatore separato"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:957
+#: src/i18n/messages.ts:1172
 msgid "auth.form.setOrResetPassword"
 msgstr "Imposta o reimposta la password"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:914
+#: src/i18n/messages.ts:982
 msgid "auth.page.recovery.title"
 msgstr "Imposta o reimposta la tua password"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:68
+#: src/i18n/messages.ts:131
 msgid "dashboard.page.brandSystem.description"
 msgstr "Dai forma all'esperienza del cliente con token sicuri, quindi approva ogni versione."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:975
+#: src/i18n/messages.ts:1146
+msgid "auth.form.showPassword"
+msgstr "Mostra password"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1191
 msgid "auth.form.signIn"
 msgstr "Accedi"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:564
+#: src/components/email-change-verification.tsx:28
+msgid "account.emailChange.signIn"
+msgstr "Accedi"
+
+#. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:141
+msgid "account.signInAgain"
+msgstr "Accedi di nuovo"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:632
 msgid "dashboard.server.authenticationRequired"
 msgstr "Accedi nuovamente per continuare."
+
+#. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:54
+msgid "enterpriseIdentity.reauthenticate"
+msgstr "Accedi di nuovo con una passkey o un metodo forte equivalente prima di modificare questa impostazione."
 
 #. js-lingui-explicit-id
 #: src/components/authoring-activation-popup.tsx:53
@@ -3199,14 +4164,34 @@ msgid "dashboard.activation.signInDescription"
 msgstr "Accedi qui. Questa finestra riprenderà automaticamente la stessa richiesta di creazione sicura."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:904
+#: src/i18n/messages.ts:1041
+msgid "workspaceInvitation.signInNewTab"
+msgstr "Accedi in una nuova scheda"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:972
 msgid "auth.page.signInInstead"
 msgstr "Accedi invece"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:519
+#: src/i18n/messages.ts:587
 msgid "dashboard.entry.signInTitle"
 msgstr "Accedi a Lodariq"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1133
+msgid "auth.form.passkey"
+msgstr "Accedi con una passkey"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:63
+msgid "account.forgotUsername.signInWithEmail"
+msgstr "Accedi con l’e-mail"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1037
+msgid "workspaceInvitation.signInRequired"
+msgstr "Accedi con l’indirizzo e-mail invitato, poi torna a questa scheda e riprova."
 
 #. js-lingui-explicit-id
 #: src/components/authoring-activation-popup.tsx:52
@@ -3214,22 +4199,42 @@ msgid "dashboard.activation.signInTitle"
 msgstr "Accedi, quindi continua"
 
 #. js-lingui-explicit-id
-#: src/components/dashboard-auth-controls.tsx:51
+#: src/components/dashboard-auth-controls.tsx:52
 msgid "dashboard.account.signOut"
 msgstr "Esci"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:891
+#: src/components/account-security-settings.tsx:93
+msgid "account.sessions.signOutEverywhere"
+msgstr "Disconnetti ovunque"
+
+#. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:56
+msgid "account.profile.title"
+msgstr "Identificativo di accesso"
+
+#. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:97
+msgid "account.methods.title"
+msgstr "Metodi di accesso"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:959
 msgid "auth.page.signUpDisabled.title"
 msgstr "La registrazione non è disponibile qui"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:967
+#: src/i18n/messages.ts:1182
 msgid "auth.form.signingIn"
 msgstr "Accesso"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:719
+#: src/components/account-security-settings.tsx:182
+msgid "account.passkeys.singleDevice"
+msgstr "Un dispositivo"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:787
 msgid "dashboard.action.siteLabelRequired"
 msgstr "L'etichetta del sito è obbligatoria."
 
@@ -3244,22 +4249,32 @@ msgid "dashboard.brand.editor.radius.soft"
 msgstr "Morbido"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:596
+#: src/i18n/messages.ts:664
 msgid "dashboard.server.partialData"
 msgstr "Alcuni dati dell'area di lavoro sono temporaneamente non disponibili. Le sezioni disponibili rimangono utilizzabili."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1044
+#: src/i18n/messages.ts:1314
 msgid "auth.form.soon"
 msgstr "presto"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:342
+#: src/i18n/messages.ts:410
 msgid "dashboard.viewModel.sourceRevision"
 msgstr "Revisione della fonte {revision}"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:88
+#: src/components/enterprise-identity-settings.tsx:131
+msgid "enterpriseIdentity.connection"
+msgstr "Connessione SSO"
+
+#. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:62
+msgid "enterpriseIdentity.connections"
+msgstr "Connessioni SSO"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:156
 msgid "dashboard.common.staging"
 msgstr "Messa in scena"
 
@@ -3289,22 +4304,22 @@ msgid "dashboard.recovery.noEnvironments"
 msgstr "Gli ambienti di rilascio di produzione e di gestione temporanea non sono configurati."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:256
+#: src/i18n/messages.ts:324
 msgid "dashboard.viewModel.stagingEvidence"
 msgstr "Prove di messa in scena"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:160
+#: src/i18n/messages.ts:228
 msgid "dashboard.viewModel.stagingPublished"
 msgstr "Pubblicata la messa in scena"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:180
+#: src/i18n/messages.ts:248
 msgid "dashboard.viewModel.stagingUpdate"
 msgstr "Aggiornamento della messa in scena"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:159
+#: src/i18n/messages.ts:227
 msgid "dashboard.viewModel.stagingVerified"
 msgstr "Stadiazione verificata"
 
@@ -3319,7 +4334,7 @@ msgid "dashboard.documents.emptyDescription"
 msgstr "Inizia un tour nel creatore, quindi verrà visualizzato qui per la revisione e la pubblicazione."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:878
+#: src/i18n/messages.ts:946
 msgid "auth.page.signUp.eyebrow"
 msgstr "Inizia la creazione"
 
@@ -3339,7 +4354,7 @@ msgid "dashboard.authoringLaunch.stayInProduct"
 msgstr "Rimani nel prodotto mentre crei"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:23
+#: src/i18n/messages.ts:24
 msgid "dashboard.navigation.supportLabel"
 msgstr "Supporto"
 
@@ -3349,7 +4364,7 @@ msgid "dashboard.support.eyebrow"
 msgstr "Supporto"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:336
+#: src/i18n/messages.ts:404
 msgid "dashboard.viewModel.surface"
 msgstr "Superficie"
 
@@ -3359,17 +4374,17 @@ msgid "dashboard.brand.editor.surface"
 msgstr "Superficie"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:114
+#: src/i18n/messages.ts:182
 msgid "dashboard.viewModel.type.survey"
 msgstr "Sondaggio"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:33
+#: src/i18n/messages.ts:34
 msgid "dashboard.theme.switchToDark"
 msgstr "Passa al tema scuro"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:32
+#: src/i18n/messages.ts:33
 msgid "dashboard.theme.switchToLight"
 msgstr "Passa al tema chiaro"
 
@@ -3377,6 +4392,11 @@ msgstr "Passa al tema chiaro"
 #: src/components/sdk-snippet-panel.tsx:97
 msgid "dashboard.installation.sync"
 msgstr "Sincronizza origini attendibili"
+
+#. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:180
+msgid "account.passkeys.synced"
+msgstr "Passkey sincronizzata"
 
 #. js-lingui-explicit-id
 #: src/components/sdk-snippet-panel.tsx:96
@@ -3419,12 +4439,12 @@ msgid "dashboard.analytics.targetResult"
 msgstr "Risultato obiettivo"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:456
+#: src/i18n/messages.ts:524
 msgid "dashboard.viewModel.teamUpdate"
 msgstr "Aggiornamento della squadra"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:337
+#: src/i18n/messages.ts:405
 msgid "dashboard.viewModel.text"
 msgstr "Testo"
 
@@ -3444,47 +4464,67 @@ msgid "dashboard.analytics.rowBound"
 msgstr "L'API ha restituito il limite di visualizzazione di 1.000 righe. Potrebbero esistere righe aggiuntive con ambito di rilascio; non si deduce nulla oltre questo limite."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:635
+#: src/components/enterprise-identity-settings.tsx:50
+msgid "enterpriseIdentity.mutationFailed"
+msgstr "Impossibile completare la modifica dell’identità enterprise."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:703
 msgid "dashboard.action.environmentPolicyChanged"
 msgstr "La politica ambientale è cambiata o è in conflitto con la pipeline di rilascio. Aggiorna e riprova."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:627
+#: src/i18n/messages.ts:695
 msgid "dashboard.action.environmentPolicyInvalid"
 msgstr "La politica ambientale non è valida."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:172
+#: src/i18n/messages.ts:240
 msgid "dashboard.viewModel.stagedArtifactReady"
 msgstr "L'esatto manufatto messo in scena è verificato e pronto per la promozione deliberata della produzione."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:707
+#: src/i18n/messages.ts:775
 msgid "dashboard.action.experienceBrandUpdated"
 msgstr "L'esperienza utilizzerà la versione Brand approvata nel prossimo artefatto compilato."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:731
+#: src/i18n/messages.ts:93
+msgid "recoveryCode.unavailable"
+msgstr "L’identificativo o il codice di recupero non è corretto."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:799
 msgid "dashboard.action.originsNotSynced"
 msgstr "L'installazione è stata creata, ma non è stato possibile sincronizzare le origini attendibili. Riprovare la sincronizzazione dell'origine prima di utilizzarla."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:154
+#: src/i18n/messages.ts:222
 msgid "dashboard.viewModel.productionEarlierHash"
 msgstr "L'ultimo record di pubblicazione della produzione utilizza un hash di contenuto precedente rispetto alla bozza salvata."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:185
+#: src/i18n/messages.ts:253
 msgid "dashboard.viewModel.stagingEarlierHash"
 msgstr "L'ultimo record di pubblicazione temporanea utilizza un hash di contenuto precedente rispetto alla bozza salvata."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1043
+#: src/i18n/messages.ts:1313
 msgid "auth.form.linkExpires"
 msgstr "Il collegamento scade {expiry}."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1053
+#: src/i18n/messages.ts:1234
+msgid "auth.form.passwordLinkUnavailableHelp"
+msgstr "Il link potrebbe essere scaduto, già usato o sostituito da una richiesta più recente. Richiedi un nuovo link e usa solo l’email più recente."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1255
+msgid "auth.form.verificationLinkUnavailableHelp"
+msgstr "Il link potrebbe essere scaduto, già usato o sostituito da una richiesta più recente. Richiedi un altro link o ricomincia la creazione dell’account."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1327
 msgid "auth.error.invalidPasswordLink"
 msgstr "Il collegamento della password non è valido o è scaduto."
 
@@ -3494,12 +4534,12 @@ msgid "dashboard.support.customerVersionDescription"
 msgstr "La versione preparata che i clienti vedono sul tuo sito."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:603
+#: src/i18n/messages.ts:671
 msgid "dashboard.action.productionApprovalInvalid"
 msgstr "La politica di approvazione della produzione non è valida."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:615
+#: src/i18n/messages.ts:683
 msgid "dashboard.action.productionChanged"
 msgstr "L'ambiente di produzione è cambiato in un'altra sessione. Aggiorna e riprova."
 
@@ -3509,12 +4549,12 @@ msgid "dashboard.installation.publicIdSafety"
 msgstr "L'ID di installazione pubblica è revocabile e non contiene segreti dell'area di lavoro, token di ambiente, sessioni di creazione o credenziali dell'account."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:576
+#: src/i18n/messages.ts:644
 msgid "dashboard.server.conflict"
 msgstr "Il record è cambiato in un'altra sessione. Aggiorna e riprova."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:829
+#: src/i18n/messages.ts:897
 msgid "dashboard.action.releaseRecoveryUncertain"
 msgstr "Il risultato del recupero è incerto. Riprovare la richiesta esatta o aggiornare la cronologia delle versioni."
 
@@ -3529,22 +4569,22 @@ msgid "dashboard.recovery.requestFailed"
 msgstr "Non è stato possibile completare la richiesta di recupero della versione."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:821
+#: src/i18n/messages.ts:889
 msgid "dashboard.action.releaseRecoveryInvalid"
 msgstr "La richiesta di recupero del rilascio non è valida."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:556
+#: src/i18n/messages.ts:624
 msgid "dashboard.server.requestRejected"
 msgstr "Non è stato possibile accettare la richiesta."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:560
+#: src/i18n/messages.ts:628
 msgid "dashboard.server.invalidRequest"
 msgstr "La richiesta non era valida."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:572
+#: src/i18n/messages.ts:640
 msgid "dashboard.server.notFound"
 msgstr "Il record dell'area di lavoro richiesto non è stato trovato."
 
@@ -3554,17 +4594,17 @@ msgid "dashboard.brand.controller.previewFailed"
 msgstr "Non è stato possibile eseguire il rendering dell'anteprima di runtime. Chiudi questa recensione e riprova."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:198
+#: src/i18n/messages.ts:266
 msgid "dashboard.viewModel.noStagingRecordYet"
 msgstr "La bozza salvata non ha ancora alcun record di pubblicazione temporanea."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:932
+#: src/i18n/messages.ts:1000
 msgid "auth.page.newPassword.description"
 msgstr "Il codice segreto viene rimosso dal browser prima che appaia il modulo. Salvando, accederai al tuo account."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:801
+#: src/i18n/messages.ts:869
 msgid "dashboard.action.analyticsEnvironmentUnavailable"
 msgstr "L'ambiente di analisi selezionato non è disponibile."
 
@@ -3579,12 +4619,12 @@ msgid "dashboard.recovery.failure.artifactIncompatible"
 msgstr "La pubblicazione selezionata non è supportata dal runtime corrente."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:176
+#: src/i18n/messages.ts:244
 msgid "dashboard.viewModel.stagedArtifactNeedsVerification"
 msgstr "L'artefatto messo in scena corrisponde alla bozza; è ancora richiesta la verifica esatta del browser."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1008
+#: src/i18n/messages.ts:1247
 msgid "auth.form.invalidVerificationLink"
 msgstr "Il collegamento di verifica non è valido o è scaduto."
 
@@ -3594,54 +4634,69 @@ msgid "dashboard.support.editableBackupDescription"
 msgstr "Il supporto della versione può essere utilizzato per ripristinare la modifica."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:540
+#: src/i18n/messages.ts:1101
+msgid "workspaceMembers.operationFailed"
+msgstr "Impossibile completare la modifica dello spazio di lavoro."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:608
 msgid "dashboard.error.title"
 msgstr "Il caricamento dell'area di lavoro non è stato completato"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:533
+#: src/i18n/messages.ts:601
 msgid "dashboard.entry.workspaceUnavailable"
 msgstr "Lo spazio di lavoro è temporaneamente non disponibile."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:584
+#: src/i18n/messages.ts:652
 msgid "dashboard.server.unavailable"
 msgstr "L'area di lavoro è temporaneamente non disponibile."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:588
+#: src/i18n/messages.ts:656
 msgid "dashboard.server.requestFailed"
 msgstr "Impossibile completare la richiesta dell'area di lavoro."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:592
+#: src/i18n/messages.ts:660
 msgid "dashboard.server.invalidResponse"
 msgstr "Impossibile verificare la risposta dell'area di lavoro."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:703
+#: src/i18n/messages.ts:771
 msgid "dashboard.action.themeAcknowledgementInvalid"
 msgstr "La richiesta di riconoscimento del tema non è valida."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:678
+#: src/i18n/messages.ts:746
 msgid "dashboard.action.themeApprovalInvalid"
 msgstr "La richiesta di approvazione del tema non è valida."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:665
+#: src/i18n/messages.ts:733
 msgid "dashboard.action.themeIdentityInvalid"
 msgstr "Il nome o l'identificatore del tema non è valido."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:346
+#: src/i18n/messages.ts:414
 msgid "dashboard.viewModel.themeRevision"
 msgstr "Revisione del tema {revision}"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:669
+#: src/i18n/messages.ts:737
 msgid "dashboard.action.themeValuesInvalid"
 msgstr "I valori del tema non sono validi. Esamina i controlli evidenziati."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1077
+msgid "workspaceMembers.noPendingInvitations"
+msgstr "Non ci sono inviti in sospeso."
+
+#. js-lingui-explicit-id
+#: src/components/email-change-verification.tsx:14
+msgid "account.emailChange.recorded"
+msgstr "Questo indirizzo è confermato. Apri il link inviato all’altro indirizzo per completare."
 
 #. js-lingui-explicit-id
 #: src/components/authoring-activation-popup.tsx:105
@@ -3654,12 +4709,12 @@ msgid "dashboard.activation.requestExpired"
 msgstr "Questa richiesta di creazione non è disponibile o è scaduta. Torna al launcher e riprova."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:775
+#: src/i18n/messages.ts:843
 msgid "dashboard.action.brandChanged"
 msgstr "Questo tema del marchio è cambiato in un'altra sessione. Aggiornane l'impatto prima di riprovare."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:895
+#: src/i18n/messages.ts:963
 msgid "auth.page.signUpDisabled.description"
 msgstr "Questa distribuzione non accetta nuovi account. I creatori esistenti possono continuare con il proprio account Lodariq."
 
@@ -3674,12 +4729,27 @@ msgid "dashboard.brand.review.noLinkedDescription"
 msgstr "Questa prima approvazione crea una versione del marchio riutilizzabile; la pubblicazione rimane un passaggio separato."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:922
+#: src/i18n/messages.ts:1045
+msgid "workspaceInvitation.unavailable"
+msgstr "Questo invito non è valido, è scaduto, è già stato usato o appartiene a un altro indirizzo e-mail."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:990
 msgid "auth.page.incompleteLink.title"
 msgstr "Questo collegamento è incompleto"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:997
+#: src/components/email-change-verification.tsx:23
+msgid "account.emailChange.invalid"
+msgstr "Questo link è incompleto, scaduto, già usato o sostituito."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1230
+msgid "auth.form.passwordLinkUnavailable"
+msgstr "Questo link per la password non può essere usato"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1226
 msgid "auth.form.incompletePasswordLink"
 msgstr "Questo collegamento alla password è incompleto. Richiedi un nuovo collegamento per continuare."
 
@@ -3699,7 +4769,17 @@ msgid "dashboard.recovery.failure.environmentNotConfigured"
 msgstr "Questo ambiente di rilascio non è configurato."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1018
+#: src/components/account-security-settings.tsx:137
+msgid "account.reauthenticate"
+msgstr "Questa azione sensibile richiede un accesso recente. Accedi di nuovo e torna qui."
+
+#. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:172
+msgid "account.recoveryCodes.unconfirmed"
+msgstr "Questo set non è attivo finché non confermi un codice salvato."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1283
 msgid "auth.form.moment"
 msgstr "L'operazione dovrebbe richiedere solo un momento."
 
@@ -3709,17 +4789,32 @@ msgid "dashboard.brand.preview.renderFailed"
 msgstr "Impossibile eseguire il rendering dell'anteprima del tour."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1049
+#: src/i18n/messages.ts:1251
+msgid "auth.form.verificationLinkUnavailable"
+msgstr "Questo link di verifica non può essere usato"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1288
+msgid "auth.form.incompleteVerificationLink"
+msgstr "Questo link di verifica è incompleto. Ricomincia la verifica dell’account per richiederne uno nuovo."
+
+#. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:157
+msgid "enterpriseIdentity.scimHelp"
+msgstr "I token vengono mostrati una sola volta. Il deprovisioning rimuove l’appartenenza e revoca immediatamente sessioni e grant di authoring."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1323
 msgid "auth.error.rateLimited"
 msgstr "Troppi tentativi. Aspetta un po' e riprova."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:580
+#: src/i18n/messages.ts:648
 msgid "dashboard.server.rateLimited"
 msgstr "Troppe richieste. Attendi brevemente e riprova."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:108
+#: src/i18n/messages.ts:176
 msgid "dashboard.viewModel.type.tour"
 msgstr "Giro"
 
@@ -3764,6 +4859,11 @@ msgid "dashboard.analytics.fact.tourStarts"
 msgstr "Inizia il giro"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages.ts:1083
+msgid "workspaceMembers.transferOwnership"
+msgstr "Trasferisci proprietà"
+
+#. js-lingui-explicit-id
 #: src/components/dashboard-settings-views.tsx:25
 msgid "dashboard.environments.trustedOrigins"
 msgstr "Origini affidabili"
@@ -3774,82 +4874,107 @@ msgid "dashboard.installation.trustedOrigins"
 msgstr "Origini affidabili"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:524
+#: src/i18n/messages.ts:592
 msgid "dashboard.entry.retryAction"
 msgstr "Riprova"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:548
+#: src/i18n/messages.ts:616
 msgid "dashboard.error.retry"
 msgstr "Riprova"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:338
+#: src/components/account-security-settings.tsx:120
+msgid "account.email.queued"
+msgstr "Sono stati accodati due link di verifica privati. Aprili entrambi prima della scadenza."
+
+#. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:141
+msgid "enterpriseIdentity.recordName"
+msgstr "Nome record TXT"
+
+#. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:142
+msgid "enterpriseIdentity.recordValue"
+msgstr "Valore record TXT"
+
+#. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:116
+msgid "account.delete.confirmation"
+msgstr "Digita DELETE"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1110
+msgid "workspaceMembers.deletionConfirmation"
+msgstr "Digita l’ID dello spazio di lavoro per confermare: {workspaceId}"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:406
 msgid "dashboard.viewModel.typography"
 msgstr "Tipografia"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:687
+#: src/i18n/messages.ts:755
 msgid "dashboard.action.approveBrandFailed"
 msgstr "Impossibile approvare questa versione del marchio."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:652
+#: src/i18n/messages.ts:720
 msgid "dashboard.action.createBrandFailed"
 msgstr "Impossibile creare il sistema del marchio."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:723
+#: src/i18n/messages.ts:791
 msgid "dashboard.action.createTokenFailed"
 msgstr "Impossibile creare il token."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:661
+#: src/i18n/messages.ts:729
 msgid "dashboard.action.loadBrandImpactFailed"
 msgstr "Impossibile caricare l'impatto del marchio."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:846
+#: src/i18n/messages.ts:914
 msgid "dashboard.action.releaseHistoryUnavailable"
 msgstr "Impossibile caricare la cronologia completa delle versioni."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:760
+#: src/i18n/messages.ts:828
 msgid "dashboard.action.loadSupportFailed"
 msgstr "Impossibile caricare i dettagli del supporto."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:699
+#: src/i18n/messages.ts:767
 msgid "dashboard.action.setWorkspaceDefaultFailed"
 msgstr "Impossibile rendere questa area di lavoro predefinita."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:736
+#: src/i18n/messages.ts:804
 msgid "dashboard.action.prepareInstallationFailed"
 msgstr "Impossibile preparare l'installazione dell'SDK."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:752
+#: src/i18n/messages.ts:820
 msgid "dashboard.action.revokeInstallationFailed"
 msgstr "Impossibile revocare l'installazione dell'SDK."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:771
+#: src/i18n/messages.ts:839
 msgid "dashboard.action.revokeTokenFailed"
 msgstr "Impossibile revocare il token."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:674
+#: src/i18n/messages.ts:742
 msgid "dashboard.action.saveBrandDraftFailed"
 msgstr "Impossibile salvare questa bozza del marchio."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:748
+#: src/i18n/messages.ts:816
 msgid "dashboard.action.syncOriginsFailed"
 msgstr "Impossibile sincronizzare le origini attendibili."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:623
+#: src/i18n/messages.ts:691
 msgid "dashboard.action.updateReleaseApprovalFailed"
 msgstr "Impossibile aggiornare l'approvazione della versione."
 
@@ -3859,7 +4984,7 @@ msgid "dashboard.environments.unableToUpdateApproval"
 msgstr "Impossibile aggiornare l'approvazione della versione."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:644
+#: src/i18n/messages.ts:712
 msgid "dashboard.action.updateEnvironmentPolicyFailed"
 msgstr "Impossibile aggiornare la politica ambientale."
 
@@ -3869,7 +4994,7 @@ msgid "dashboard.environmentPolicy.unableToUpdate"
 msgstr "Impossibile aggiornare la politica ambientale."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:711
+#: src/i18n/messages.ts:779
 msgid "dashboard.action.updateExperienceFailed"
 msgstr "Impossibile aggiornare questa esperienza."
 
@@ -3879,7 +5004,7 @@ msgid "dashboard.brand.review.unchanged"
 msgstr "Invariato"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:94
+#: src/i18n/messages.ts:162
 msgid "dashboard.common.unknown"
 msgstr "Sconosciuto"
 
@@ -3894,7 +5019,7 @@ msgid "dashboard.analytics.unknownEvent"
 msgstr "Evento limitato sconosciuto"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:501
+#: src/i18n/messages.ts:569
 msgid "dashboard.viewModel.unknownTime"
 msgstr "Ora sconosciuta"
 
@@ -3919,7 +5044,7 @@ msgid "dashboard.recovery.unpublishEllipsis"
 msgstr "Annulla pubblicazione…"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:484
+#: src/i18n/messages.ts:552
 msgid "dashboard.viewModel.unpublished"
 msgstr "Inedito"
 
@@ -3984,7 +5109,7 @@ msgid "dashboard.publishIssue.unresolvedLifecycleHint.message"
 msgstr "Aggiorna la configurazione del posizionamento in modo che il target possa essere preparato in modo affidabile."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:363
+#: src/i18n/messages.ts:431
 msgid "dashboard.viewModel.updatedAt"
 msgstr "Aggiornato {date}"
 
@@ -4004,9 +5129,24 @@ msgid "dashboard.recovery.reasonHelp"
 msgstr "Utilizza da 1 a 500 caratteri senza spazi esterni."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1002
+#: src/i18n/messages.ts:1240
 msgid "auth.form.passwordLength"
 msgstr "Utilizza da 12 a 128 caratteri."
+
+#. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:125
+msgid "account.validation.password"
+msgstr "Usa 12–128 caratteri e fai coincidere i due campi della nuova password."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:75
+msgid "recoveryCode.title"
+msgstr "Usa un codice di recupero"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1135
+msgid "auth.form.recoveryCode"
+msgstr "Usa un codice di recupero"
 
 #. js-lingui-explicit-id
 #: src/i18n/server-feedback.ts:127
@@ -4014,7 +5154,7 @@ msgid "dashboard.publishIssue.unsafeUrl.message"
 msgstr "Utilizza un URL HTTPS o un percorso relativo sicuro."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:987
+#: src/i18n/messages.ts:1204
 msgid "auth.form.useAnotherEmail"
 msgstr "Utilizza un'altra email"
 
@@ -4024,24 +5164,39 @@ msgid "dashboard.brand.impact.useApproved"
 msgstr "Utilizza la versione approvata"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:78
+#: src/i18n/messages.ts:146
 msgid "dashboard.page.support.description"
 msgstr "Utilizza gli strumenti di creazione e diagnostica di fallback solo quando il percorso nel prodotto non riesce."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:926
+#: src/i18n/messages.ts:1049
+msgid "workspaceInvitation.incomplete"
+msgstr "Usa il link di invito completo nell’e-mail Lodariq più recente."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:45
+msgid "account.emailChange.invalidDescription"
+msgstr "Usa il link completo nell’e-mail Lodariq più recente."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:994
 msgid "auth.page.incompletePasswordLink.description"
 msgstr "Utilizza il collegamento della password completa dalla tua ultima email Lodariq."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:937
+#: src/i18n/messages.ts:1005
 msgid "auth.page.incompleteVerification.description"
 msgstr "Utilizza il collegamento di verifica completo contenuto nella tua ultima email di Lodariq."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:874
+#: src/i18n/messages.ts:942
 msgid "auth.page.signIn.description"
 msgstr "Utilizza il tuo account Lodariq per tornare all'area di lavoro del prodotto."
+
+#. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:62
+msgid "account.username"
+msgstr "Nome utente"
 
 #. js-lingui-explicit-id
 #: src/components/brand-system/brand-theme-editor.tsx:34
@@ -4049,17 +5204,42 @@ msgid "dashboard.brand.editor.usesLight"
 msgstr "Utilizza il tema chiaro"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:222
+#: src/components/enterprise-identity-settings.tsx:94
+msgid "enterpriseIdentity.status.validationRequired"
+msgstr "Convalida richiesta"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:290
 msgid "dashboard.viewModel.verified"
 msgstr "Verificato"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:223
+#: src/components/enterprise-identity-settings.tsx:101
+msgid "enterpriseIdentity.status.verified"
+msgstr "Verificato"
+
+#. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:125
+msgid "enterpriseIdentity.domains"
+msgstr "Domini aziendali verificati"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:291
 msgid "dashboard.viewModel.verifiedExactArtifactAt"
 msgstr "Artefatto esatto verificato {date}"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1029
+#: src/components/enterprise-identity-settings.tsx:82
+msgid "enterpriseIdentity.provisioning.jit"
+msgstr "JIT su dominio verificato"
+
+#. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:143
+msgid "enterpriseIdentity.verifyDomain"
+msgstr "Verifica record DNS"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1299
 msgid "auth.form.verifyAndContinue"
 msgstr "Verifica l'e-mail e continua"
 
@@ -4069,17 +5249,27 @@ msgid "dashboard.publishIssue.unverifiedTarget.message"
 msgstr "Verifica questo posizionamento nell'ambiente corrente prima della pubblicazione."
 
 #. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:155
+msgid "account.passkeys.stepUp"
+msgstr "Verifica con passkey"
+
+#. js-lingui-explicit-id
 #: src/components/authoring-activation-popup.tsx:96
 msgid "dashboard.activation.verifying"
 msgstr "Verifica dell'applicazione e dell'area di lavoro…"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1013
+#: src/components/email-change-verification.tsx:13
+msgid "account.emailChange.verifying"
+msgstr "Verifica dell’indirizzo…"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1278
 msgid "auth.form.verifyingEmail"
 msgstr "Verifica la tua email"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:372
+#: src/i18n/messages.ts:440
 msgid "dashboard.viewModel.version"
 msgstr "Versione {version}"
 
@@ -4089,7 +5279,7 @@ msgid "dashboard.brand.panel.approvedVersion"
 msgstr "Versione {version} approvata"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:682
+#: src/i18n/messages.ts:750
 msgid "dashboard.action.versionApproved"
 msgstr "Versione {version} approvata. Gli artefatti attivi rimangono invariati finché un'esperienza non li adotta e pubblica esplicitamente."
 
@@ -4109,27 +5299,47 @@ msgid "dashboard.support.viewDetails"
 msgstr "Visualizza i dettagli del supporto"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1092
+#: src/i18n/messages.ts:1090
+msgid "workspaceMembers.role.viewer"
+msgstr "Visualizzatore"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1366
 msgid "workspaceSelection.role.viewer"
 msgstr "Lettore"
 
 #. js-lingui-explicit-id
-#: src/components/dashboard-auth-controls.tsx:52
+#: src/components/dashboard-auth-controls.tsx:57
 msgid "dashboard.account.role.viewer"
 msgstr "Visualizzatore"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:525
+#: src/components/enterprise-identity-settings.tsx:152
+msgid "enterpriseIdentity.role.viewer"
+msgstr "Viewer"
+
+#. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:83
+msgid "account.email.oldWaiting"
+msgstr "In attesa dell’e-mail attuale"
+
+#. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:85
+msgid "account.email.newWaiting"
+msgstr "In attesa della nuova e-mail"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1134
+msgid "auth.form.passkeyWaiting"
+msgstr "In attesa della passkey…"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:593
 msgid "dashboard.entry.unavailableTitle"
 msgstr "Impossibile aprire il tuo spazio di lavoro"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1033
-msgid "auth.form.verificationSent"
-msgstr "Abbiamo inviato un collegamento di verifica sicuro a {email}. Tieni aperta questa pagina o utilizza direttamente il collegamento."
-
-#. js-lingui-explicit-id
-#: src/i18n/messages.ts:872
+#: src/i18n/messages.ts:940
 msgid "auth.page.signIn.eyebrow"
 msgstr "Bentornato"
 
@@ -4139,29 +5349,49 @@ msgid "dashboard.brand.empty.sampleTitle"
 msgstr "Benvenuto nel tuo spazio di lavoro"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1073
+#: src/i18n/messages.ts:1347
 msgid "workspaceSelection.title"
 msgstr "Dove lavori oggi?"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:22
+#: src/components/account-security-settings.tsx:153
+msgid "account.passkeys.namePlaceholder"
+msgstr "Portatile di lavoro"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:23
 msgid "dashboard.navigation.workspaceLabel"
 msgstr "Area di lavoro"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:961
+#: src/i18n/messages.ts:38
+msgid "account.navigation.workspace"
+msgstr "Spazio di lavoro"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1176
 msgid "auth.form.workspace"
 msgstr "Area di lavoro"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1072
+#: src/i18n/messages.ts:1346
 msgid "workspaceSelection.eyebrow"
 msgstr "Area di lavoro"
 
 #. js-lingui-explicit-id
-#: src/components/dashboard-auth-controls.tsx:40
+#: src/components/dashboard-auth-controls.tsx:41
 msgid "dashboard.account.workspace"
 msgstr "Spazio di lavoro"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1093
+msgid "workspaceMembers.unavailable"
+msgstr "Impossibile caricare l’accesso allo spazio di lavoro. Riprova."
+
+#. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:102
+msgid "enterpriseIdentity.policy"
+msgstr "Criterio di autenticazione del workspace"
 
 #. js-lingui-explicit-id
 #: src/components/brand-system-panel.tsx:36
@@ -4169,9 +5399,14 @@ msgid "dashboard.brand.panel.workspaceDefault"
 msgstr "Impostazione predefinita dell'area di lavoro"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:695
+#: src/i18n/messages.ts:763
 msgid "dashboard.action.workspaceDefaultUpdated"
 msgstr "Impostazione predefinita dell'area di lavoro aggiornata."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1022
+msgid "workspaceInvitation.eyebrow"
+msgstr "Invito allo spazio di lavoro"
 
 #. js-lingui-explicit-id
 #: src/components/brand-system/brand-impact-panel.tsx:39
@@ -4179,17 +5414,22 @@ msgid "dashboard.brand.impact.actionNeeded"
 msgstr "Azione del membro dell'area di lavoro necessaria"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:452
+#: src/i18n/messages.ts:1056
+msgid "workspaceMembers.members"
+msgstr "Membri dello spazio di lavoro"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:520
 msgid "dashboard.viewModel.workspaceTeammate"
 msgstr "Compagno di squadra dell'area di lavoro"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:364
+#: src/i18n/messages.ts:432
 msgid "dashboard.viewModel.workspaceApprovedTokens"
 msgstr "Token semantici approvati dal workspace"
 
 #. js-lingui-explicit-id
-#: src/components/dashboard-auth-controls.tsx:41
+#: src/components/dashboard-auth-controls.tsx:42
 msgid "dashboard.account.workspaces"
 msgstr "Spazi di lavoro"
 
@@ -4197,6 +5437,11 @@ msgstr "Spazi di lavoro"
 #: src/components/sdk-snippet-panel.tsx:79
 msgid "dashboard.installation.readonlyExisting"
 msgstr "È possibile controllare e copiare questa installazione. Un amministratore o proprietario dell'area di lavoro gestisce le origini attendibili e la revoca."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1032
+msgid "workspaceInvitation.acceptedHelp"
+msgstr "Ora hai accesso allo spazio di lavoro."
 
 #. js-lingui-explicit-id
 #: src/components/authoring-activation-popup.tsx:58
@@ -4209,47 +5454,67 @@ msgid "dashboard.recovery.notAllowed"
 msgstr "Il tuo ruolo attuale o questa policy ambientale non consentono il ripristino della versione."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:825
+#: src/i18n/messages.ts:893
 msgid "dashboard.action.releaseRecoveryForbidden"
 msgstr "Il tuo attuale accesso allo spazio di lavoro non può eseguire questa azione di ripristino del rilascio."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:805
+#: src/i18n/messages.ts:873
 msgid "dashboard.action.analyticsForbidden"
 msgstr "Il tuo attuale accesso allo spazio di lavoro non può leggere l'analisi."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:838
+#: src/i18n/messages.ts:906
 msgid "dashboard.action.releaseHistoryForbidden"
 msgstr "Il tuo attuale accesso all'area di lavoro non può leggere questa cronologia delle versioni."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1024
+#: src/i18n/messages.ts:1294
 msgid "auth.form.choosePasswordHelp"
 msgstr "Il link ricevuto via e-mail ha confermato che l’account è tuo. Ora scegli una password sicura."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:946
+#: src/i18n/messages.ts:1014
 msgid "auth.page.finishAccount.description"
 msgstr "Il tuo collegamento email dimostra la proprietà. Scegli la password che proteggerà il tuo account."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:954
+#: src/i18n/messages.ts:1142
 msgid "auth.form.yourName"
 msgstr "Il tuo nome"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:962
+#: src/i18n/messages.ts:1118
+msgid "workspaceMembers.noManagementAccess"
+msgstr "Il tuo ruolo può visualizzare i membri, ma non modificare l’accesso allo spazio di lavoro."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1177
 msgid "auth.form.workspaceHelp"
 msgstr "Il tuo spazio condiviso per esperienze, ambienti e rilasci."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:544
+#: src/components/email-change-verification.tsx:19
+msgid "account.emailChange.completed"
+msgstr "L’e-mail di accesso è stata modificata. Le altre sessioni e i link di recupero sono stati revocati."
+
+#. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:57
+msgid "account.profile.help"
+msgstr "L’e-mail verificata funziona sempre. Un nome utente offre un altro modo privato per accedere."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:58
+msgid "account.forgotUsername.description"
+msgstr "L’e-mail verificata è sempre un identificativo valido per Lodariq. Se hai dimenticato anche la password, richiedi un link di recupero privato."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:612
 msgid "dashboard.error.description"
 msgstr "Il tuo lavoro è al sicuro. Riprova la richiesta senza uscire da questa pagina."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:520
+#: src/i18n/messages.ts:588
 msgid "dashboard.entry.signInDescription"
 msgstr "Il tuo spazio di lavoro e gli strumenti di creazione rimangono protetti dalla tua sessione Lodariq."
 
@@ -4259,21 +5524,26 @@ msgid "dashboard.recovery.failure.capabilityDenied"
 msgstr "Il tuo ruolo dell'area di lavoro non può eseguire questa azione di ripristino."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:640
+#: src/i18n/messages.ts:708
 msgid "dashboard.action.environmentPolicyForbidden"
 msgstr "Il tuo ruolo nell'area di lavoro non consente modifiche alla politica ambientale."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:619
+#: src/i18n/messages.ts:687
 msgid "dashboard.action.releasePolicyForbidden"
 msgstr "Il tuo ruolo nell'area di lavoro non consente modifiche alla politica di rilascio."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:568
+#: src/i18n/messages.ts:636
 msgid "dashboard.server.capabilityDenied"
 msgstr "Il tuo ruolo nell'area di lavoro non consente questa azione."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:779
+#: src/i18n/messages.ts:847
 msgid "dashboard.action.brandForbidden"
 msgstr "Il tuo ruolo nell'area di lavoro non consente questa azione del marchio."
+
+#. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:63
+msgid "account.username.placeholder"
+msgstr "nome-utente"

@@ -32,6 +32,14 @@ describe('runtime database role provisioning script', () => {
     expect(source).toContain("has_column_privilege(${roleName}, 'release_operations', 'reason', 'UPDATE')");
   });
 
+  it('keeps enterprise audit append-only and validation evidence operator-managed', () => {
+    const source = readFileSync(scriptPath, 'utf8');
+    expect(source).toContain("'enterprise_audit_events'");
+    expect(source).toContain("const operatorManagedTables = ['enterprise_validation_evidence']");
+    expect(source).toContain('revoke insert, update, delete on table');
+    expect(source).toContain("has_table_privilege(${roleName}, ${table}, 'INSERT')");
+  });
+
   it('fails closed without an admin DATABASE_URL', () => {
     expect(() => runProvisioning({ DATABASE_URL: '' })).toThrow(
       /DATABASE_URL is required for runtime role provisioning/,

@@ -150,7 +150,7 @@ describe('authoring DOM combobox', () => {
     expect(control.value).toBe('standard');
   });
 
-  it('continues to power the inline preview toolbar without changing its contract', () => {
+  it('does not install inline controls into the output-only preview', () => {
     const host = document.createElement('lodariq-tour');
     host.setAttribute(LODARIQ_AUTHORING_PREVIEW_OWNER_ATTRIBUTE, 'preview_owner');
     const root = host.attachShadow({ mode: 'open' });
@@ -179,45 +179,11 @@ describe('authoring DOM combobox', () => {
       onControlCommit,
     });
 
-    const toolbar = root.querySelector<HTMLElement>(
-      '[data-lodariq-authoring-context-toolbar="true"]',
-    );
-    const placement = toolbar?.querySelector<HTMLButtonElement>('[aria-label="Tooltip placement"]');
-    const action = toolbar?.querySelector<HTMLButtonElement>('[aria-label="Button action"]');
-    expect(toolbar?.getAttribute('role')).toBe('toolbar');
-    expect(placement?.className).toBe('lodariq-inline-toolbar-trigger');
-    expect(placement?.textContent).toContain('Below');
-    expect(action?.className).toBe('lodariq-inline-toolbar-trigger');
-    expect(action?.textContent).toContain('Choose action');
-    const inlineStyles = root.querySelector<HTMLStyleElement>(
-      '[data-lodariq-authoring-inline-style="true"]',
-    )?.textContent;
-    expect(inlineStyles).toContain('position: sticky');
-    expect(inlineStyles).toContain(
-      'var(--lq-tour-composition-padding, var(--lq-tour-spacing)) * 2',
-    );
-    expect(inlineStyles).toContain('div[role="dialog"][data-lodariq-popup-height="custom"]');
-    expect(inlineStyles).toContain('flex-direction: column');
-    expect(inlineStyles).toContain('justify-content: space-between');
-    expect(inlineStyles).toContain('flex: 1 1 0');
-
-    placement?.click();
-    toolbar?.querySelector<HTMLButtonElement>('[role="option"][data-value="top"]')?.click();
-    expect(onControlCommit).toHaveBeenCalledWith({
-      kind: 'setPlacement',
-      blockId: 'tooltip_1',
-      placement: 'top',
-    });
-
-    action?.click();
-    toolbar?.querySelector<HTMLButtonElement>('[role="option"][data-value="openPage"]')?.click();
-    expect(onControlCommit).toHaveBeenCalledWith({
-      kind: 'setAction',
-      blockId: 'button_1',
-      actionType: 'openPage',
-    });
+    expect(root.querySelector('[data-lodariq-authoring-context-toolbar="true"]')).toBeNull();
+    expect(root.querySelector('[data-lodariq-authoring-inline-style="true"]')).not.toBeNull();
+    expect(heading.hasAttribute('contenteditable')).toBe(false);
+    expect(onControlCommit).not.toHaveBeenCalled();
 
     editor.destroy();
-    expect(root.querySelector('[data-lodariq-authoring-context-toolbar="true"]')).toBeNull();
   });
 });

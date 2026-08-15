@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { BridgeMessage, LodariqDocument } from '@lodariq/schema';
+import type { AuthoringMediaAssetResource, LodariqDocument } from '@lodariq/schema';
 import tourFixture from '@lodariq/schema/fixtures/tour.linear.v1.json';
 import { mountLocalAuthoringFrame } from '@lodariq/sdk-authoring';
 
@@ -8,6 +8,17 @@ const SESSION_ID = 'session_rich_content_canvas';
 
 describe('unified popup content canvas', () => {
   beforeEach(() => {
+    const NativeURL = URL;
+    vi.stubGlobal(
+      'URL',
+      class AuthoringTestURL extends NativeURL {
+        static override createObjectURL(): string {
+          return 'blob:lodariq-authoring-preview';
+        }
+
+        static override revokeObjectURL(): void {}
+      },
+    );
     vi.stubGlobal(
       'ResizeObserver',
       class ResizeObserverStub {
@@ -26,34 +37,32 @@ describe('unified popup content canvas', () => {
     vi.restoreAllMocks();
   });
 
-  it('keeps every ordered block editable and exposes contextual action and popup styling', async () => {
+  it('authors continuous rich content while the popup remains output-only', async () => {
     const baseDocument = structuredClone(tourFixture) as LodariqDocument;
     const tooltip = baseDocument.blocks[0]!.children[0]!;
-    tooltip.props.tooltipLayout = {
-      ...tooltip.props.tooltipLayout,
-      widthPx: 320,
-      heightPx: 240,
-    };
-    const button = tooltip.children.find((block) => block.type === 'button')!;
-    button.props.blockLayout = { ...button.props.blockLayout, align: 'start' };
-    tooltip.children.splice(tooltip.children.indexOf(button) + 1, 0, {
-      id: 'paragraph_after_button',
-      type: 'paragraph',
-      content: 'You can change this later.',
-      props: {},
-      children: [],
-    });
-    const link = {
-      id: 'link_after_button',
-      type: 'link' as const,
-      content: 'Read the guide',
-      props: { action: { type: 'openPage' as const, url: '/guide' } },
-      children: [],
-    };
-    tooltip.children.push(link);
     const saveDocument = vi.fn();
-    const postMessage = vi.fn();
-    const peer = { postMessage } as unknown as Window;
+    const uploadedMediaAsset = {
+      id: 'asset_uploaded_image',
+      kind: 'image' as const,
+      filename: 'preview.png',
+      contentType: 'image/png',
+      byteLength: 4,
+      contentHash: `sha256-${'d'.repeat(64)}`,
+      savedToLibrary: true,
+      createdAt: '2026-08-15T00:00:00.000Z',
+      downloadPath: '/v1/authoring/media-assets/asset_uploaded_image',
+    };
+    let resolveMediaUpload!: (asset: AuthoringMediaAssetResource) => void;
+    const uploadMediaAsset = vi.fn(
+      (
+        _kind: 'image' | 'video' | 'captions',
+        _file: File,
+        _options: { onProgress?: (progress: number) => void; savedToLibrary: boolean },
+      ) =>
+        new Promise<AuthoringMediaAssetResource>((resolve) => {
+          resolveMediaUpload = resolve;
+        }),
+    );
 
     await mountLocalAuthoringFrame({
       root: document.getElementById('authoring')!,
@@ -61,6 +70,9 @@ describe('unified popup content canvas', () => {
       services: {
         loadDocument: () => structuredClone(baseDocument),
         saveDocument,
+        loadMediaAssets: () => [],
+        loadMediaAssetPreview: async () => new Blob(['test'], { type: 'image/png' }),
+        uploadMediaAsset,
         exportDocument: (value) => JSON.stringify(value),
         importDocument: (value) => JSON.parse(value) as LodariqDocument,
         resetDocuments: vi.fn(),
@@ -70,614 +82,290 @@ describe('unified popup content canvas', () => {
         exportMetricsReport: vi.fn(() => '{}'),
       },
       frameMode: 'panel',
-      sessionId: SESSION_ID,
-      peerWindow: peer,
-      allowedOrigins: [window.location.origin],
-      targetOrigin: window.location.origin,
-    });
-
-    await vi.waitFor(() =>
-      expect(document.querySelectorAll('.rich-step-block-row')).toHaveLength(
-        tooltip.children.length,
-      ),
-    );
-    expect(
-      [...document.querySelectorAll<HTMLElement>('.rich-step-block-row')].map(
-        (row) => row.dataset['blockId'],
-      ),
-    ).toEqual(tooltip.children.map((block) => block.id));
-    expect(
-      [...document.querySelectorAll<HTMLOptionElement>('[aria-label="Block type"] option')].map(
-        (option) => option.value,
-      ),
-    ).toEqual(['paragraph', 'heading', 'list', 'button', 'link', 'media', 'divider']);
-    expect(document.querySelectorAll('.tour-storyboard-step')).toHaveLength(
-      baseDocument.blocks.length,
-    );
-    expect(document.querySelectorAll('.tour-step-multi-select input')).toHaveLength(
-      baseDocument.blocks.length,
-    );
-    const buttonRow = document.querySelector<HTMLElement>(`[data-block-id="${button.id}"]`)!;
-    buttonRow.dispatchEvent(new Event('pointerdown', { bubbles: true }));
-    expect(document.querySelector('[aria-label="Selected action style"]')).toBeNull();
-    await vi.waitFor(() => {
-      const actionToolbar = document.querySelector('[aria-label="Button configuration"]');
-      expect(actionToolbar).not.toBeNull();
-      expect(actionToolbar?.getAttribute('data-positioned')).toBe('true');
-    });
-    const actionToolbar = document.querySelector('[aria-label="Button configuration"]');
-    if (!actionToolbar) throw new Error('Button configuration toolbar is missing');
-    expect(
-      [
-        ...actionToolbar.querySelectorAll<HTMLOptionElement>('[aria-label="Block type"] option'),
-      ].map((option) => option.value),
-    ).toEqual(['paragraph', 'heading', 'list', 'button', 'link', 'media', 'divider']);
-    expect(actionToolbar?.querySelector('[aria-label="Behavior"]')).toBeNull();
-    expect(actionToolbar?.querySelector('[aria-label="Alignment"]')).toBeNull();
-    expect(actionToolbar?.querySelector('[aria-label="Colors"]')).toBeNull();
-    expect(actionToolbar?.querySelector('[aria-label="More button settings"]')).not.toBeNull();
-    expect(buttonRow.querySelector('.rich-step-action-stage')?.tagName).toBe('DIV');
-    actionToolbar.querySelector<HTMLButtonElement>('[aria-label="More button settings"]')?.click();
-    await vi.waitFor(() =>
-      expect(document.querySelector('[aria-label="Selected action style"]')).not.toBeNull(),
-    );
-    buttonByText(document, 'Alignment').click();
-    await clickInspectorChoice('Alignment', 'Center');
-    await vi.waitFor(() =>
-      expect(latestSavedTooltip(saveDocument)?.props.tooltipLayout?.actionAlign).toBe('center'),
-    );
-    document.querySelector<HTMLButtonElement>('[aria-label="Close settings"]')?.click();
-    await vi.waitFor(() =>
-      expect(document.querySelector('[aria-label="Selected action style"]')).toBeNull(),
-    );
-    document.querySelector<HTMLButtonElement>('[aria-label="Close button controls"]')?.click();
-    await vi.waitFor(() =>
-      expect(document.querySelector('[aria-label="Button configuration"]')).toBeNull(),
-    );
-    buttonRow.dispatchEvent(new Event('pointerdown', { bubbles: true }));
-    await vi.waitFor(() =>
-      expect(document.querySelector('[aria-label="Button configuration"]')).not.toBeNull(),
-    );
-    const toolDock = document.querySelector('.storyboard-tool-dock');
-    expect(buttonByText(toolDock, 'Popup')).toBeTruthy();
-    expect(
-      [...toolDock!.querySelectorAll('button')].some((item) => item.textContent === 'Behavior'),
-    ).toBe(false);
-    const popupCanvas = document.querySelector<HTMLElement>('.rich-step-popup-frame');
-    const popupContent = document.querySelector<HTMLElement>('.rich-step-content');
-    expect(popupContent?.dataset['lodariqContentAlign']).toBe('left');
-    expect(popupContent?.dataset['lodariqCompositionPadding']).toBe('standard');
-    expect(popupCanvas?.style.getPropertyValue('--lq-tour-surface')).not.toBe('');
-    expect(popupCanvas?.style.getPropertyValue('--storyboard-canvas-zoom')).toBe('0.8');
-    expect(popupCanvas?.style.getPropertyValue('--storyboard-popup-width')).toBe('320px');
-    expect(popupCanvas?.style.getPropertyValue('--storyboard-popup-height')).toBe('240px');
-    expect(document.querySelector('.rich-step-editor > .storyboard-canvas-zoom')).not.toBeNull();
-    expect(document.querySelector('.storyboard-editor-stage > .storyboard-canvas-zoom')).toBeNull();
-    const popupDragHandle = document.querySelector<HTMLButtonElement>(
-      '[aria-label="Move popup in canvas"]',
-    );
-    if (!popupDragHandle) throw new Error('Popup drag handle is missing');
-    await vi.waitFor(() => expect(popupCanvas?.dataset['transformReady']).toBe('true'));
-    popupDragHandle.dispatchEvent(
-      new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }),
-    );
-    popupDragHandle.dispatchEvent(
-      new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }),
-    );
-    await vi.waitFor(() => {
-      expect(popupCanvas?.style.getPropertyValue('--storyboard-popup-x')).toBe('8px');
-      expect(popupCanvas?.style.getPropertyValue('--storyboard-popup-y')).toBe('8px');
-    });
-    popupDragHandle.dispatchEvent(new KeyboardEvent('keydown', { key: 'Home', bubbles: true }));
-    await vi.waitFor(() => {
-      expect(popupCanvas?.style.getPropertyValue('--storyboard-popup-x')).toBe('0px');
-      expect(popupCanvas?.style.getPropertyValue('--storyboard-popup-y')).toBe('0px');
-    });
-    const popupResizeHandles = document.querySelectorAll<HTMLButtonElement>(
-      '.storyboard-popup-resize-handle',
-    );
-    expect(popupResizeHandles).toHaveLength(4);
-    const popupEndResizeHandle = document.querySelector<HTMLButtonElement>(
-      '[aria-label="Resize popup from bottom right"]',
-    );
-    if (!popupEndResizeHandle) throw new Error('Popup resize handle is missing');
-    popupEndResizeHandle.dispatchEvent(
-      new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }),
-    );
-    popupEndResizeHandle.dispatchEvent(
-      new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }),
-    );
-    await vi.waitFor(() => {
-      const layout = latestSavedTooltip(saveDocument)?.props.tooltipLayout;
-      expect(layout?.widthPx).toBe(328);
-      expect(layout?.heightPx).toBe(248);
-    });
-    expect(popupCanvas?.style.getPropertyValue('--storyboard-popup-width')).toBe('328px');
-    expect(popupCanvas?.style.getPropertyValue('--storyboard-popup-height')).toBe('248px');
-    expect(document.querySelector('.storyboard-popup-size')?.textContent).toContain('328 × 248px');
-    await vi.waitFor(() =>
-      expect(latestPreviewPatch(postMessage)).toMatchObject({
-        blockId: tooltip.id,
-        patch: {
-          ops: expect.arrayContaining([
-            expect.objectContaining({
-              op: 'setTooltipLayout',
-              tooltipLayout: expect.objectContaining({ widthPx: 328, heightPx: 248 }),
-            }),
-          ]),
-        },
-      }),
-    );
-    buttonRow.dispatchEvent(new Event('pointerdown', { bubbles: true }));
-    await vi.waitFor(() =>
-      expect(document.querySelector('[aria-label="Button configuration"]')).not.toBeNull(),
-    );
-    const actionPreview = buttonRow.querySelector<HTMLElement>('.rich-step-action-preview');
-    const actionStage = buttonRow.querySelector<HTMLElement>('.rich-step-action-stage');
-    const endResizeHandle = buttonRow.querySelector<HTMLButtonElement>(
-      '[aria-label="Resize button from end"]',
-    );
-    if (!actionPreview || !actionStage || !endResizeHandle) {
-      throw new Error('Direct button resize controls are missing');
-    }
-    vi.spyOn(actionPreview, 'getBoundingClientRect').mockReturnValue(new DOMRect(0, 0, 120, 36));
-    vi.spyOn(actionStage, 'getBoundingClientRect').mockReturnValue(new DOMRect(0, 0, 400, 60));
-    endResizeHandle.dispatchEvent(
-      new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }),
-    );
-    await vi.waitFor(() =>
-      expect(latestSavedButton(saveDocument, button.id)?.props.buttonStyle?.widthPx).toBe(160),
-    );
-    expect(actionPreview.dataset['lodariqActionWidth']).toBe('custom');
-    expect(actionPreview.style.width).toBe('160px');
-    document.querySelector<HTMLButtonElement>('[aria-label="Zoom in canvas"]')?.click();
-    await vi.waitFor(() =>
-      expect(popupCanvas?.style.getPropertyValue('--storyboard-canvas-zoom')).toBe('0.9'),
-    );
-    document.querySelector<HTMLButtonElement>('[aria-label="More button settings"]')?.click();
-    await vi.waitFor(() =>
-      expect(document.querySelector('[aria-label="Selected action style"]')).not.toBeNull(),
-    );
-    buttonByText(document.querySelector('[aria-label="Button settings"]')!, 'Shape & icon').click();
-    await clickInspectorChoice('Corner radius', 'Pill');
-    await vi.waitFor(() =>
-      expect(latestSavedButton(saveDocument, button.id)?.props.buttonStyle?.radius).toBe('round'),
-    );
-    expect(actionPreview.dataset['lodariqActionRadius']).toBe('round');
-    buttonByText(document.querySelector('[aria-label="Button settings"]')!, 'Spacing').click();
-    await vi.waitFor(() =>
-      expect(
-        document.querySelector('[aria-label="Spacing settings"] input[type="range"]'),
-      ).not.toBeNull(),
-    );
-    expect(document.querySelector('[aria-label="Popup layout"]')).toBeNull();
-    expect(document.querySelector('[aria-label="Block spacing"]')).toBeNull();
-    buttonByText(toolDock, 'Popup').click();
-    await vi.waitFor(() =>
-      expect(document.querySelector('[aria-label="Popup layout"]')).not.toBeNull(),
-    );
-    expect(document.querySelector('[aria-label="Popup layout"]')).not.toBeNull();
-    expect(document.querySelector('[aria-label="Action alignment"]')).toBeNull();
-    expect(document.querySelectorAll('.rich-step-content .inline-insert')).toHaveLength(
-      tooltip.children.length + 1,
-    );
-    document.querySelector<HTMLButtonElement>('[aria-label="Close settings"]')?.click();
-    await vi.waitFor(() =>
-      expect(document.querySelector('[aria-label="Popup layout"]')).toBeNull(),
-    );
-    expect(buttonByText(toolDock, 'Content').getAttribute('aria-pressed')).toBe('true');
-    buttonByText(toolDock, 'Popup').click();
-    await vi.waitFor(() =>
-      expect(document.querySelector('[aria-label="Popup layout"]')).not.toBeNull(),
-    );
-    buttonByText(toolDock, 'Placement').click();
-    let placementTrigger: HTMLButtonElement | null = null;
-    await vi.waitFor(() => {
-      placementTrigger = document.querySelector<HTMLButtonElement>(
-        '.tour-live-target [aria-label^="Placement "]',
-      );
-      expect(placementTrigger).not.toBeNull();
-    });
-    document
-      .querySelector<HTMLButtonElement>('.tour-live-target [aria-label^="Placement "]')
-      ?.click();
-    await vi.waitFor(() =>
-      expect(document.querySelector('[aria-label="Placement actions"]')).not.toBeNull(),
-    );
-    expect(document.body.textContent).toContain('Show on page');
-    expect(document.body.textContent).toContain('Choose another');
-    expect(document.body.textContent).toContain('Use exact area');
-    const morePlacementOptions = document.querySelector<HTMLElement>(
-      '[data-action="target-more-options"]',
-    );
-    morePlacementOptions?.click();
-    await vi.waitFor(() =>
-      expect(document.querySelector('[aria-label="Before this element appears"]')).not.toBeNull(),
-    );
-    expect(document.querySelector('[aria-label="Wait for text"]')).not.toBeNull();
-    document
-      .querySelector<HTMLButtonElement>('.tour-live-target [aria-label^="Placement "]')
-      ?.click();
-    document.querySelector<HTMLButtonElement>('[aria-label="Close settings"]')?.click();
-    await vi.waitFor(() =>
-      expect(document.querySelector('[aria-label="Selected action style"]')).toBeNull(),
-    );
-
-    const linkRow = document.querySelector<HTMLElement>(`[data-block-id="${link.id}"]`)!;
-    linkRow.dispatchEvent(new Event('pointerdown', { bubbles: true }));
-    await vi.waitFor(() =>
-      expect(document.querySelector('[aria-label="Link configuration"]')).not.toBeNull(),
-    );
-    const linkToolbar = document.querySelector('[aria-label="Link configuration"]');
-    expect(linkToolbar?.querySelector('[aria-label="Link behavior"]')).not.toBeNull();
-    expect(linkToolbar?.querySelector('[aria-label="Alignment"]')).toBeNull();
-    linkToolbar?.querySelector<HTMLButtonElement>('[aria-label="Link behavior"]')?.click();
-    const destination = await waitForInput('[data-property-id="button.destination"] input');
-    expect(destination.value).toBe('/guide');
-    expect(getComputedStyle(destination).height).toBe('var(--lq-control-sm)');
-    expect(
-      getComputedStyle(document.documentElement).getPropertyValue('--lq-control-sm').trim(),
-    ).toBe('36px');
-    document.querySelector<HTMLButtonElement>('[aria-label="Close link behavior"]')?.click();
-    await vi.waitFor(() =>
-      expect(document.querySelector('[aria-label="Close link behavior"]')).toBeNull(),
-    );
-    document.querySelector<HTMLButtonElement>('[aria-label="Close link controls"]')?.click();
-    await vi.waitFor(() =>
-      expect(document.querySelector('[aria-label="Link configuration"]')).toBeNull(),
-    );
-
-    const firstInsert = document.querySelector<HTMLButtonElement>(
-      '.rich-step-content .inline-insert-trigger',
-    );
-    firstInsert?.click();
-    await vi.waitFor(() =>
-      expect(document.querySelector('[aria-label="Close content menu"]')).not.toBeNull(),
-    );
-    document.querySelector<HTMLButtonElement>('[aria-label="Close content menu"]')?.click();
-    await vi.waitFor(() =>
-      expect(document.querySelector('[aria-label="Close content menu"]')).toBeNull(),
-    );
-
-    const paragraph = tooltip.children.find((block) => block.type === 'paragraph')!;
-    const paragraphRow = document.querySelector<HTMLElement>(`[data-block-id="${paragraph.id}"]`)!;
-    const paragraphEditor = paragraphRow.querySelector<HTMLElement>('[contenteditable="true"]')!;
-    paragraphRow.dispatchEvent(new Event('pointerdown', { bubbles: true }));
-    const textNode = paragraphEditor.firstChild;
-    if (!textNode) throw new Error('Paragraph text node is missing');
-    const range = document.createRange();
-    range.setStart(textNode, 0);
-    range.setEnd(textNode, Math.min(5, textNode.textContent?.length ?? 0));
-    window.getSelection()?.removeAllRanges();
-    window.getSelection()?.addRange(range);
-    paragraphEditor.dispatchEvent(new Event('pointerup', { bubbles: true }));
-    await vi.waitFor(() => {
-      expect(document.querySelector<HTMLInputElement>('input[aria-label="Font size"]')?.value).toBe(
-        '',
-      );
-    });
-    expect(
-      document.querySelector('[aria-label="Text formatting"]')?.getAttribute('data-positioned'),
-    ).toBe('true');
-    document.querySelector<HTMLButtonElement>('[aria-label="More text settings"]')?.click();
-    await vi.waitFor(() =>
-      expect(document.querySelector('[aria-label="Block spacing"]')).not.toBeNull(),
-    );
-    const fontSize = document.querySelector<HTMLInputElement>('input[aria-label="Font size"]');
-    if (!fontSize) throw new Error('Font size control is missing');
-    setNativeInputValue(fontSize, '20');
-    fontSize.dispatchEvent(new Event('input', { bubbles: true }));
-    await new Promise((resolve) => setTimeout(resolve, 0));
-    fontSize.dispatchEvent(new FocusEvent('focusout', { bubbles: true }));
-    await vi.waitFor(() =>
-      expect(latestSavedButton(saveDocument, paragraph.id)?.contentRuns).toEqual([
-        { text: paragraph.content?.slice(0, 5), fontSizePx: 20 },
-        { text: paragraph.content?.slice(5) },
-      ]),
-    );
-
-    buttonRow.dispatchEvent(new Event('pointerdown', { bubbles: true }));
-    await vi.waitFor(() =>
-      expect(document.querySelector('[aria-label="Selected action style"]')).toBeNull(),
-    );
-    document.querySelector<HTMLButtonElement>('[aria-label="More button settings"]')?.click();
-    await vi.waitFor(() =>
-      expect(document.querySelector('[aria-label="Selected action style"]')).not.toBeNull(),
-    );
-
-    buttonByText(document, 'Alignment').click();
-    await vi.waitFor(() =>
-      expect(
-        document.querySelector('.rich-step-choice-field [aria-label="Alignment"]'),
-      ).not.toBeNull(),
-    );
-    await clickInspectorChoice('Alignment', 'End');
-    await vi.waitFor(() =>
-      expect(latestSavedTooltip(saveDocument)?.props.tooltipLayout?.actionAlign).toBe('end'),
-    );
-    expect(latestSavedButton(saveDocument, button.id)?.props.blockLayout?.align).toBeUndefined();
-
-    buttonByText(document, 'Colors').click();
-    await clickWhenPresent('[aria-label="Use #162033 for fill"]');
-    await vi.waitFor(() =>
-      expect(latestSavedButton(saveDocument, button.id)?.props.buttonStyle?.fillColor).toBe(
-        '#162033',
-      ),
-    );
-    expect(
-      document
-        .querySelector<HTMLElement>('.rich-step-action-preview')
-        ?.style.getPropertyValue('--lq-action-fill'),
-    ).toBe('#162033');
-
-    buttonByText(document.querySelector('[aria-label="Button settings"]')!, 'Spacing').click();
-    const spacingSlider = await waitForInput('[aria-label="Spacing settings"] input[type="range"]');
-    expect(spacingSlider.min).toBe('0');
-    expect(spacingSlider.max).toBe('24');
-    expect(spacingSlider.step).toBe('2');
-    expect(spacingSlider.value).toBe('16');
-    setNativeInputValue(spacingSlider, '18');
-    spacingSlider.dispatchEvent(new Event('input', { bubbles: true }));
-    await vi.waitFor(() =>
-      expect(latestSavedButton(saveDocument, button.id)?.props.blockLayout?.spacingAfterPx).toBe(
-        18,
-      ),
-    );
-    expect(buttonRow.dataset['lodariqSpacingAfterPx']).toBe('18');
-    expect(buttonRow.style.getPropertyValue('--lq-block-spacing-after')).toBe('18px');
-
-    buttonByText(document, 'Alignment').click();
-    await clickInspectorChoice('Alignment', 'Center');
-    await vi.waitFor(() =>
-      expect(latestSavedTooltip(saveDocument)?.props.tooltipLayout?.actionAlign).toBe('center'),
-    );
-    expect(latestSavedButton(saveDocument, button.id)?.props.blockLayout?.align).toBeUndefined();
-    expect(
-      document.querySelector<HTMLElement>('.rich-step-action-stage')?.dataset['lodariqActionAlign'],
-    ).toBe('center');
-
-    buttonByText(document, 'Appearance').click();
-    await clickInspectorChoice('Appearance', 'Outline');
-    await vi.waitFor(() =>
-      expect(latestSavedButton(saveDocument, button.id)?.props.variant).toBe('outline'),
-    );
-    await vi.waitFor(() =>
-      expect(
-        document.querySelector<HTMLElement>('.rich-step-action-preview')?.dataset[
-          'lodariqActionVariant'
-        ],
-      ).toBe('outline'),
-    );
-    await vi.waitFor(() =>
-      expect(latestPreviewPatch(postMessage)).toMatchObject({
-        blockId: button.id,
-        patch: { ops: expect.arrayContaining([{ op: 'setVariant', variant: 'outline' }]) },
-      }),
-    );
-
-    buttonByText(document, 'Size').click();
-    await clickInspectorChoice('Width', 'Fill');
-    await vi.waitFor(() =>
-      expect(latestSavedButton(saveDocument, button.id)?.props.buttonStyle?.width).toBe('fill'),
-    );
-    expect(latestSavedButton(saveDocument, button.id)?.props.buttonStyle?.widthPx).toBeUndefined();
-    await vi.waitFor(() =>
-      expect(
-        document.querySelector<HTMLElement>('.rich-step-action-preview')?.dataset[
-          'lodariqActionWidth'
-        ],
-      ).toBe('fill'),
-    );
-
-    buttonByText(document, 'Colors').click();
-    await clickWhenPresent('[aria-label="Use #c96047 for fill"]');
-    await vi.waitFor(() =>
-      expect(latestSavedButton(saveDocument, button.id)?.props.buttonStyle?.fillColor).toBe(
-        '#c96047',
-      ),
-    );
-    const themeReset = inspectorColorThemeButton('Fill');
-    expect(themeReset.disabled).toBe(false);
-    themeReset.click();
-    await vi.waitFor(() =>
-      expect(
-        latestSavedButton(saveDocument, button.id)?.props.buttonStyle?.fillColor,
-      ).toBeUndefined(),
-    );
-
-    buttonByText(toolDock, 'Popup').click();
-    await clickInspectorChoice('Content alignment', 'Center');
-    await vi.waitFor(() =>
-      expect(latestSavedTooltip(saveDocument)?.props.tooltipLayout?.contentAlign).toBe('center'),
-    );
-    await vi.waitFor(() =>
-      expect(latestPreviewPatch(postMessage)).toMatchObject({
-        blockId: tooltip.id,
-        patch: {
-          ops: expect.arrayContaining([
-            expect.objectContaining({
-              op: 'setTooltipLayout',
-              tooltipLayout: expect.objectContaining({ contentAlign: 'center' }),
-            }),
-          ]),
-        },
-      }),
-    );
-    expect(popupContent?.dataset['lodariqContentAlign']).toBe('center');
-
-    await clickInspectorChoice('Corner radius', 'Rounded');
-    await vi.waitFor(() =>
-      expect(latestSavedTooltip(saveDocument)?.props.tooltipLayout?.radius).toBe('round'),
-    );
-    expect(popupContent?.dataset['lodariqPopupRadius']).toBe('round');
-
-    await clickInspectorChoice('Pointer arrow', 'Hide');
-    await vi.waitFor(() =>
-      expect(latestSavedTooltip(saveDocument)?.props.tooltipLayout?.showArrow).toBe(false),
-    );
-    expect(document.querySelector('.storyboard-popup-arrow')).toBeNull();
-
-    buttonByText(
-      document.querySelector('[aria-label="Popup layout settings"]'),
-      'Appearance',
-    ).click();
-    await clickWhenPresent('[aria-label="Use #162033 for background"]');
-    buttonByText(
-      document.querySelector('[aria-label="Popup layout"] [aria-label="Appearance"]'),
-      'Text',
-    ).click();
-    await clickWhenPresent('[aria-label="Use #ffffff for text"]');
-    buttonByText(
-      document.querySelector('[aria-label="Popup layout"] [aria-label="Appearance"]'),
-      'Border',
-    ).click();
-    await clickWhenPresent('[aria-label="Use #006b58 for border"]');
-    buttonByText(
-      document.querySelector('[aria-label="Popup layout"] [aria-label="Appearance"]'),
-      'Border weight',
-    ).click();
-    await clickInspectorChoice('Border weight', 'Strong');
-    buttonByText(
-      document.querySelector('[aria-label="Popup layout"] [aria-label="Appearance"]'),
-      'Shadow',
-    ).click();
-    await clickInspectorChoice('Shadow', 'Strong');
-    await vi.waitFor(() =>
-      expect(latestSavedTooltip(saveDocument)?.props.tooltipStyle).toEqual({
-        surfaceColor: '#162033',
-        textColor: '#ffffff',
-        borderColor: '#006b58',
-        borderWeight: 'strong',
-        elevation: 'floating',
-      }),
-    );
-    expect(popupCanvas?.style.getPropertyValue('--lq-popup-surface')).toBe('#162033');
-    expect(popupCanvas?.style.getPropertyValue('--lq-popup-text')).toBe('#ffffff');
-    expect(popupCanvas?.style.getPropertyValue('--lq-popup-muted-text')).toBe('#ffffff');
-    expect(popupCanvas?.style.getPropertyValue('--lq-popup-border')).toBe('#006b58');
-    expect(popupContent?.dataset['lodariqPopupBorderWeight']).toBe('strong');
-    expect(popupContent?.dataset['lodariqPopupElevation']).toBe('floating');
-    await vi.waitFor(() =>
-      expect(latestPreviewPatch(postMessage)).toMatchObject({
-        blockId: tooltip.id,
-        patch: {
-          ops: expect.arrayContaining([
-            expect.objectContaining({
-              op: 'setTooltipStyle',
-              tooltipStyle: expect.objectContaining({ elevation: 'floating' }),
-            }),
-          ]),
-        },
-      }),
-    );
-
-    buttonByText(
-      document.querySelector('[aria-label="Popup layout"]'),
-      'Reset all to Brand',
-    ).click();
-    await vi.waitFor(() =>
-      expect(latestSavedTooltip(saveDocument)?.props.tooltipStyle).toBeUndefined(),
-    );
-    expect(popupCanvas?.style.getPropertyValue('--lq-popup-surface')).toBe('');
-    expect(popupContent?.dataset['lodariqPopupBorderWeight']).toBe('theme');
-    expect(popupContent?.dataset['lodariqPopupElevation']).toBe('theme');
-
-    document.querySelector<HTMLButtonElement>('[aria-label="More experience actions"]')?.click();
-    await vi.waitFor(() =>
-      expect(
-        document.querySelector<HTMLButtonElement>('.review-recovery[role="menuitem"]'),
-      ).not.toBeNull(),
-    );
-    document.querySelector<HTMLButtonElement>('.review-recovery[role="menuitem"]')?.click();
-    await vi.waitFor(() => expect(document.querySelector('.panel-advanced-editor')).not.toBeNull());
-  });
-
-  it('splits rich text at the caret without losing inline styles', async () => {
-    const baseDocument = structuredClone(tourFixture) as LodariqDocument;
-    const tooltip = baseDocument.blocks[0]!.children[0]!;
-    const paragraph = tooltip.children.find((block) => block.type === 'paragraph')!;
-    paragraph.content = 'Before styled after';
-    paragraph.contentRuns = [
-      { text: 'Before ' },
-      { text: 'styled', fontSizePx: 24, color: '#006b58' },
-      { text: ' after' },
-    ];
-    const saveDocument = vi.fn();
-
-    await mountLocalAuthoringFrame({
-      root: document.getElementById('authoring')!,
-      baseDocument,
-      services: {
-        loadDocument: () => structuredClone(baseDocument),
-        saveDocument,
-        exportDocument: (value) => JSON.stringify(value),
-        importDocument: (value) => JSON.parse(value) as LodariqDocument,
-        resetDocuments: vi.fn(),
-        compilePreview: vi.fn().mockResolvedValue({}),
-        recordMetric: vi.fn(),
-        getMetricsSummary: vi.fn(() => ({})),
-        exportMetricsReport: vi.fn(() => '{}'),
-      },
-      frameMode: 'panel',
-      sessionId: `${SESSION_ID}_keyboard`,
+      sessionId: `${SESSION_ID}_freeform`,
       peerWindow: { postMessage: vi.fn() } as unknown as Window,
       allowedOrigins: [window.location.origin],
       targetOrigin: window.location.origin,
     });
 
-    const editor = await waitForRichTextEditor(paragraph.id);
-    const styledText = editor.querySelectorAll('span')[1]?.firstChild;
-    if (!styledText) throw new Error('Styled text run is missing');
+    const richBlockCount = tooltip.children.filter(
+      (block) => block.type !== 'button' && block.type !== 'link',
+    ).length;
+    const actionCount = tooltip.children.length - richBlockCount;
+    await vi.waitFor(() =>
+      expect(document.querySelectorAll('.rich-step-rendered-content')).toHaveLength(richBlockCount),
+    );
+    expect(document.querySelectorAll('.rich-step-block-row')).toHaveLength(actionCount);
+    expect(document.querySelector('.rich-step-rendered-content input')).toBeNull();
+
+    document
+      .querySelector<HTMLElement>('.rich-step-rendered-content')
+      ?.dispatchEvent(new Event('pointerdown', { bubbles: true }));
+    await vi.waitFor(() => expect(document.querySelector('.rich-content-canvas')).not.toBeNull());
+
+    const canvas = document.querySelector<HTMLElement>('.rich-content-canvas')!;
+    expect(canvas.getAttribute('contenteditable')).toBe('true');
+    expect(canvas.textContent).toContain('Create your first project');
+    expect(document.querySelector('[aria-label="Before"]')).toBeNull();
+    expect(document.querySelector('[aria-label="After"]')).toBeNull();
+    expect(document.querySelector('[aria-label="Bold"]')).not.toBeNull();
+    expect(document.querySelector('[aria-label="Italic"]')).not.toBeNull();
+    expect(document.querySelector('[aria-label="Underline"]')).not.toBeNull();
+    expect(document.querySelector('[aria-label="Font size"]')).toBeInstanceOf(HTMLButtonElement);
+    expect(document.querySelector('select[aria-label="Font size"]')).toBeNull();
+    expect(document.querySelector('[aria-label="Selection background"]')).not.toBeNull();
+    expect(document.querySelector('[aria-label="Space after"]')).toBeInstanceOf(HTMLInputElement);
+
+    const firstText = canvas.querySelector('[data-lexical-text="true"]')?.firstChild;
+    if (!firstText?.textContent) throw new Error('Rich-content text is missing');
+    canvas.focus();
     const range = document.createRange();
-    range.setStart(styledText, styledText.textContent?.length ?? 0);
-    range.collapse(true);
+    range.setStart(firstText, 0);
+    range.setEnd(firstText, Math.min(4, firstText.textContent.length));
     window.getSelection()?.removeAllRanges();
     window.getSelection()?.addRange(range);
-    editor.dispatchEvent(
-      new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }),
+    document.dispatchEvent(new Event('selectionchange'));
+    document.querySelector<HTMLButtonElement>('[aria-label="Bold"]')?.click();
+    await vi.waitFor(() =>
+      expect(canvas.querySelector('strong.rich-content-bold')?.textContent).toHaveLength(4),
     );
 
+    const selectionBackground = document.querySelector<HTMLInputElement>(
+      '[aria-label="Selection background"]',
+    );
+    if (!selectionBackground) throw new Error('Selection background control is missing');
+    setNativeInputValue(selectionBackground, '#ffeeaa');
+    selectionBackground.dispatchEvent(new Event('input', { bubbles: true }));
+    document.querySelector<HTMLButtonElement>('[aria-label="Animation"]')?.click();
+    expect(document.querySelector('select[aria-label="Animation effect"]')).toBeNull();
+    await chooseDesignedSelect('Animation effect', 'Rise in');
     await vi.waitFor(() => {
       const latestCall = saveDocument.mock.calls[saveDocument.mock.calls.length - 1];
-      const savedDocument = latestCall?.[0] as LodariqDocument | undefined;
-      const savedTooltip = savedDocument?.blocks[0]?.children[0];
-      const paragraphIndex = savedTooltip?.children.findIndex((block) => block.id === paragraph.id);
-      const firstLine =
-        paragraphIndex === undefined ? undefined : savedTooltip?.children[paragraphIndex];
-      const secondLine =
-        paragraphIndex === undefined ? undefined : savedTooltip?.children[paragraphIndex + 1];
-      expect(firstLine).toMatchObject({
-        id: paragraph.id,
-        content: 'Before styled',
-        contentRuns: [{ text: 'Before ' }, { text: 'styled', fontSizePx: 24, color: '#006b58' }],
-      });
-      expect(secondLine).toMatchObject({
-        type: 'paragraph',
-        content: ' after',
-        contentRuns: [{ text: ' after' }],
-      });
+      expect(savedDocumentHasAnimatedHighlight(latestCall?.[0] as LodariqDocument)).toBe(true);
     });
+    canvas.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true }));
+    await vi.waitFor(() =>
+      expect(document.querySelector('.rich-content-animation-menu')).toBeNull(),
+    );
+
+    expect(document.querySelector('[aria-label="Link"]')).not.toBeNull();
+    expect(document.querySelector('[aria-label="Apply"]')).toBeNull();
+
+    document.querySelector<HTMLButtonElement>('[aria-label="Icon"]')?.click();
+    const iconColor = await waitForInput('input[aria-label="Icon color"]');
+    setNativeInputValue(iconColor, '#c2410c');
+    iconColor.dispatchEvent(new Event('input', { bubbles: true }));
+    const iconSearch = await waitForInput('input[aria-label="Search icons"]');
+    setNativeInputValue(iconSearch, 'party');
+    iconSearch.dispatchEvent(new Event('input', { bubbles: true }));
+    await vi.waitFor(() =>
+      expect(document.querySelector('button[aria-label="Party Popper"]')).not.toBeNull(),
+    );
+    document.querySelector<HTMLButtonElement>('button[aria-label="Party Popper"]')?.click();
+    expect(document.querySelector('.rich-content-icon-menu')).not.toBeNull();
+    await vi.waitFor(() => {
+      expect(
+        saveDocument.mock.calls.some(([saved]) =>
+          savedDocumentHasBlockType(saved as LodariqDocument, 'icon'),
+        ),
+      ).toBe(true);
+    });
+    await vi.waitFor(() => {
+      const latestCall = saveDocument.mock.calls[saveDocument.mock.calls.length - 1];
+      expect(savedIconColor(latestCall?.[0] as LodariqDocument)).toBe('#c2410c');
+    });
+    canvas.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true }));
+    await vi.waitFor(() => expect(document.querySelector('.rich-content-icon-menu')).toBeNull());
+    canvas.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, key: 'Backspace' }));
+    await vi.waitFor(() => {
+      const latestCall = saveDocument.mock.calls[saveDocument.mock.calls.length - 1];
+      expect(savedDocumentHasBlockType(latestCall?.[0] as LodariqDocument, 'icon')).toBe(false);
+    });
+
+    canvas.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true }));
+    await vi.waitFor(() => expect(document.querySelector('.rich-content-media-menu')).toBeNull());
+    document.querySelector<HTMLButtonElement>('[aria-label="Media"]')?.click();
+    const saveToLibrary = await waitForInput('.rich-content-library-option input[type="checkbox"]');
+    saveToLibrary.click();
+    const imageInput = await waitForInput('.rich-content-media-menu input[accept^="image/"]');
+    expect(imageInput.accept).toContain('image/gif');
+    const image = new File(['test'], 'preview.png', { type: 'image/png' });
+    Object.defineProperty(imageInput, 'files', { configurable: true, value: [image] });
+    imageInput.dispatchEvent(new Event('change', { bubbles: true }));
+    await vi.waitFor(() =>
+      expect(uploadMediaAsset).toHaveBeenCalledWith('image', image, {
+        savedToLibrary: true,
+        onProgress: expect.any(Function),
+      }),
+    );
+    await vi.waitFor(() =>
+      expect(document.querySelector('[aria-label="Media upload progress"]')).not.toBeNull(),
+    );
+    const imageProgress = document.querySelector('[aria-label="Media upload progress"]');
+    expect(imageProgress?.getAttribute('aria-valuenow')).toBe('0');
+    expect(imageProgress?.closest('.rich-content-media-frame')).not.toBeNull();
+    expect(imageProgress?.closest('.rich-content-media-menu')).toBeNull();
+    expect(
+      canvas.querySelector('.rich-content-media-preview[data-uploading="true"] img'),
+    ).not.toBeNull();
+    uploadMediaAsset.mock.calls[0]?.[2].onProgress?.(46);
+    await vi.waitFor(() =>
+      expect(
+        canvas.querySelector('[aria-label="Media upload progress"]')?.getAttribute('aria-valuenow'),
+      ).toBe('46'),
+    );
+    resolveMediaUpload(uploadedMediaAsset);
+    await vi.waitFor(() => expect(canvas.querySelector('img')).not.toBeNull());
+    await vi.waitFor(() => {
+      const latestCall = saveDocument.mock.calls[saveDocument.mock.calls.length - 1];
+      const saved = latestCall?.[0] as LodariqDocument | undefined;
+      expect(savedDocumentHasBlockType(saved, 'media')).toBe(true);
+    });
+
+    const resizeSurface = document.querySelector<HTMLElement>(
+      '.rich-content-editor [aria-label^="Resize image."]',
+    );
+    expect(resizeSurface).not.toBeNull();
+    expect(resizeSurface?.querySelector('.rich-content-media-resize-handle')).toBeNull();
+    expect(resizeSurface?.querySelectorAll('.rich-content-media-resize-edge')).toHaveLength(8);
+    resizeSurface?.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, key: 'ArrowLeft' }));
+    resizeSurface?.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, key: 'ArrowDown' }));
+    await vi.waitFor(() => {
+      const latestCall = saveDocument.mock.calls[saveDocument.mock.calls.length - 1];
+      const saved = latestCall?.[0] as LodariqDocument | undefined;
+      expect(savedMediaWidth(saved)).toBe(95);
+      expect(savedMediaHeight(saved)).toBeGreaterThanOrEqual(64);
+    });
+    resizeSurface?.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, key: 'Backspace' }));
+    await vi.waitFor(() => expect(canvas.querySelector('img')).toBeNull());
+    await vi.waitFor(() => {
+      const latestCall = saveDocument.mock.calls[saveDocument.mock.calls.length - 1];
+      expect(savedDocumentHasBlockType(latestCall?.[0] as LodariqDocument, 'media')).toBe(false);
+    });
+
+    await vi.waitFor(() =>
+      expect(document.querySelector<HTMLButtonElement>('[aria-label="Media"]')?.disabled).toBe(
+        false,
+      ),
+    );
+    canvas.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true }));
+    await vi.waitFor(() => expect(document.querySelector('.rich-content-media-menu')).toBeNull());
+    document.querySelector<HTMLButtonElement>('[aria-label="Media"]')?.click();
+    const videoInput = await waitForInput('.rich-content-media-menu input[accept^="video/"]');
+    const video = new File(['video'], 'walkthrough.mp4', { type: 'video/mp4' });
+    Object.defineProperty(videoInput, 'files', { configurable: true, value: [video] });
+    videoInput.dispatchEvent(new Event('change', { bubbles: true }));
+    await vi.waitFor(() => expect(uploadMediaAsset).toHaveBeenCalledTimes(2));
+    const pendingVideo = canvas.querySelector<HTMLVideoElement>(
+      'video[data-video-thumbnail="true"]',
+    );
+    expect(pendingVideo).not.toBeNull();
+    expect(pendingVideo?.muted).toBe(true);
+    expect(pendingVideo?.controls).toBe(false);
+    const videoProgress = canvas.querySelector('[aria-label="Media upload progress"]');
+    expect(videoProgress?.closest('.rich-content-media-frame')).not.toBeNull();
+    expect(document.querySelector('.rich-content-media-menu [role="progressbar"]')).toBeNull();
+
+    const uploadedVideoAsset: AuthoringMediaAssetResource = {
+      ...uploadedMediaAsset,
+      id: 'asset_uploaded_video',
+      kind: 'video',
+      filename: video.name,
+      contentType: video.type,
+      contentHash: `sha256-${'e'.repeat(64)}`,
+    };
+    resolveMediaUpload(uploadedVideoAsset);
+    await vi.waitFor(() => {
+      const uploadedVideo = canvas.querySelector<HTMLVideoElement>('video');
+      expect(uploadedVideo).not.toBeNull();
+      expect(uploadedVideo?.controls).toBe(true);
+      expect(uploadedVideo?.dataset['videoThumbnail']).toBeUndefined();
+    });
+    await vi.waitFor(() => {
+      const latestCall = saveDocument.mock.calls[saveDocument.mock.calls.length - 1];
+      expect(savedVideoAssetId(latestCall?.[0] as LodariqDocument)).toBe(uploadedVideoAsset.id);
+    });
+
+    const captionsInput = await waitForInput('.rich-content-media-menu input[accept="text/vtt"]');
+    const captions = new File(['WEBVTT'], 'walkthrough.vtt', { type: 'text/vtt' });
+    Object.defineProperty(captionsInput, 'files', { configurable: true, value: [captions] });
+    captionsInput.dispatchEvent(new Event('change', { bubbles: true }));
+    await vi.waitFor(() => expect(uploadMediaAsset).toHaveBeenCalledTimes(3));
+    expect(
+      canvas
+        .querySelector('[aria-label="Media upload progress"]')
+        ?.closest('.rich-content-media-frame'),
+    ).not.toBeNull();
+    const uploadedCaptionsAsset: AuthoringMediaAssetResource = {
+      ...uploadedMediaAsset,
+      id: 'asset_uploaded_captions',
+      kind: 'captions',
+      filename: captions.name,
+      contentType: captions.type,
+      contentHash: `sha256-${'f'.repeat(64)}`,
+    };
+    resolveMediaUpload(uploadedCaptionsAsset);
+    await vi.waitFor(() => {
+      const latestCall = saveDocument.mock.calls[saveDocument.mock.calls.length - 1];
+      expect(savedVideoCaptionsAssetId(latestCall?.[0] as LodariqDocument)).toBe(
+        uploadedCaptionsAsset.id,
+      );
+    });
+    expect(canvas.querySelectorAll('video')).toHaveLength(1);
   });
 });
 
-async function waitForRichTextEditor(blockId: string): Promise<HTMLElement> {
-  let editor: HTMLElement | null = null;
-  await vi.waitFor(() => {
-    editor = document.querySelector<HTMLElement>(`[data-rich-block-id="${blockId}"]`);
-    expect(editor).not.toBeNull();
-  });
-  if (!editor) throw new Error(`Rich text editor ${blockId} is missing`);
-  return editor;
+function savedDocumentHasBlockType(
+  document: LodariqDocument | undefined,
+  type: 'icon' | 'media',
+): boolean {
+  const step = document?.blocks[0];
+  const tooltip = step?.children.find((block) => block.type === 'tooltip');
+  return Boolean(tooltip?.children.some((block) => block.type === type));
 }
 
-async function clickWhenPresent(selector: string): Promise<void> {
-  await vi.waitFor(() => {
-    const button = document.querySelector<HTMLButtonElement>(selector);
-    if (!button) throw new Error(`${selector} button is missing`);
-  });
-  const button = document.querySelector<HTMLButtonElement>(selector);
-  if (!button) throw new Error(`${selector} button is missing`);
-  button.click();
+function savedMediaWidth(document: LodariqDocument | undefined): number | undefined {
+  const step = document?.blocks[0];
+  const tooltip = step?.children.find((block) => block.type === 'tooltip');
+  return tooltip?.children.find((block) => block.type === 'media')?.props.media?.widthPercent;
+}
+
+function savedMediaHeight(document: LodariqDocument | undefined): number | undefined {
+  const step = document?.blocks[0];
+  const tooltip = step?.children.find((block) => block.type === 'tooltip');
+  return tooltip?.children.find((block) => block.type === 'media')?.props.media?.heightPx;
+}
+
+function savedVideoAssetId(document: LodariqDocument | undefined): string | undefined {
+  const step = document?.blocks[0];
+  const tooltip = step?.children.find((block) => block.type === 'tooltip');
+  const media = tooltip?.children.find((block) => block.props.media?.kind === 'video')?.props.media;
+  return media?.kind === 'video' ? media.assetId : undefined;
+}
+
+function savedVideoCaptionsAssetId(document: LodariqDocument | undefined): string | undefined {
+  const step = document?.blocks[0];
+  const tooltip = step?.children.find((block) => block.type === 'tooltip');
+  const media = tooltip?.children.find((block) => block.props.media?.kind === 'video')?.props.media;
+  return media?.kind === 'video' ? media.captionsAssetId : undefined;
+}
+
+function savedIconColor(document: LodariqDocument | undefined): string | undefined {
+  const step = document?.blocks[0];
+  const tooltip = step?.children.find((block) => block.type === 'tooltip');
+  return tooltip?.children.find((block) => block.type === 'icon')?.props.textStyle?.color;
+}
+
+function savedDocumentHasAnimatedHighlight(document: LodariqDocument | undefined): boolean {
+  const step = document?.blocks[0];
+  const tooltip = step?.children.find((block) => block.type === 'tooltip');
+  return Boolean(
+    tooltip?.children.some((block) =>
+      block.contentRuns?.some(
+        (run) => run.highlightColor === '#ffeeaa' && run.animation?.recipe === 'lift',
+      ),
+    ),
+  );
 }
 
 async function waitForInput(selector: string): Promise<HTMLInputElement> {
@@ -690,76 +378,32 @@ async function waitForInput(selector: string): Promise<HTMLInputElement> {
   return input;
 }
 
-async function clickInspectorChoice(label: string, option: string): Promise<void> {
+async function chooseDesignedSelect(ariaLabel: string, optionLabel: string): Promise<void> {
   await vi.waitFor(() => {
-    expect(inspectorChoice(label, option)).not.toBeNull();
+    expect(
+      document.querySelector<HTMLButtonElement>(`button[aria-label="${ariaLabel}"]`),
+      ariaLabel,
+    ).not.toBeNull();
   });
-  inspectorChoice(label, option).click();
+  const trigger = document.querySelector<HTMLButtonElement>(`button[aria-label="${ariaLabel}"]`);
+  if (!trigger) throw new Error(`${ariaLabel} select trigger is missing`);
+  trigger.click();
+  await vi.waitFor(() => {
+    expect(findSelectOption(optionLabel), optionLabel).toBeDefined();
+  });
+  const option = findSelectOption(optionLabel);
+  if (!option) throw new Error(`${optionLabel} select option is missing`);
+  option.click();
 }
 
-function inspectorChoice(label: string, option: string): HTMLButtonElement {
-  const field = [...document.querySelectorAll<HTMLFieldSetElement>('.rich-step-choice-field')].find(
-    (candidate) => candidate.querySelector('legend')?.textContent === label,
-  );
-  const button = [...(field?.querySelectorAll<HTMLButtonElement>('button') ?? [])].find(
-    (candidate) => candidate.textContent?.trim() === option,
-  );
-  if (!button) throw new Error(`${label} option ${option} is missing`);
-  return button;
-}
-
-function inspectorColorThemeButton(label: string): HTMLButtonElement {
-  const field = [...document.querySelectorAll<HTMLFieldSetElement>('.rich-step-color-field')].find(
-    (candidate) => candidate.querySelector('legend')?.textContent === label,
-  );
-  const button = [...(field?.querySelectorAll<HTMLButtonElement>('button') ?? [])].find(
-    (candidate) => candidate.textContent?.trim() === 'Theme',
-  );
-  if (!button) throw new Error(`${label} Theme button is missing`);
-  return button;
-}
-
-function buttonByText(scope: ParentNode | null, label: string): HTMLButtonElement {
-  const button = [...(scope?.querySelectorAll<HTMLButtonElement>('button') ?? [])].find(
+function findSelectOption(label: string): HTMLElement | undefined {
+  return [...document.querySelectorAll<HTMLElement>('[role="option"]')].find(
     (candidate) => candidate.textContent?.trim() === label,
   );
-  if (!button) throw new Error(`${label} button is missing`);
-  return button;
 }
 
 function setNativeInputValue(input: HTMLInputElement, value: string): void {
   const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
   if (!setter) throw new Error('Native input value setter is unavailable');
   setter.call(input, value);
-}
-
-function latestSavedButton(saveDocument: ReturnType<typeof vi.fn>, blockId: string) {
-  const latestCall = saveDocument.mock.calls[saveDocument.mock.calls.length - 1];
-  const document = latestCall?.[0] as LodariqDocument | undefined;
-  return document ? findBlock(document.blocks, blockId) : undefined;
-}
-
-function latestSavedTooltip(saveDocument: ReturnType<typeof vi.fn>) {
-  const latestCall = saveDocument.mock.calls[saveDocument.mock.calls.length - 1];
-  const document = latestCall?.[0] as LodariqDocument | undefined;
-  return document?.blocks[0]?.children.find((block) => block.type === 'tooltip');
-}
-
-function findBlock(
-  blocks: LodariqDocument['blocks'],
-  blockId: string,
-): LodariqDocument['blocks'][number] | undefined {
-  for (const block of blocks) {
-    if (block.id === blockId) return block;
-    const nested = findBlock(block.children, blockId);
-    if (nested) return nested;
-  }
-  return undefined;
-}
-
-function latestPreviewPatch(postMessage: ReturnType<typeof vi.fn>): BridgeMessage | undefined {
-  const previewPatches = postMessage.mock.calls
-    .map(([message]) => message as BridgeMessage)
-    .filter((message) => message.type === 'preview.patch');
-  return previewPatches[previewPatches.length - 1];
 }

@@ -375,15 +375,55 @@ export function attachPanelResize(
 ): () => void {
   if (!resizeHandle) return () => {};
   let resize: {
+    height: number;
+    left: number;
     pointerId: number | 'mouse';
     startHeight: number;
     startWidth: number;
     startX: number;
     startY: number;
+    top: number;
+    width: number;
   } | null = null;
+  let resizeFrame: number | null = null;
   let resizeShield: HTMLElement | null = null;
 
-  const applyResize = (width: number, height: number): void => {
+  const cancelResizeFrame = (): void => {
+    if (resizeFrame === null) return;
+    const ownerWindow = host.ownerDocument.defaultView ?? window;
+    if (typeof ownerWindow.cancelAnimationFrame === 'function') {
+      ownerWindow.cancelAnimationFrame(resizeFrame);
+    } else {
+      ownerWindow.clearTimeout(resizeFrame);
+    }
+    resizeFrame = null;
+  };
+
+  const flushResize = (): void => {
+    resizeFrame = null;
+    if (!resize) return;
+    applyClampedAuthoringPanelGeometry(
+      host,
+      {
+        height: resize.height,
+        left: resize.left,
+        top: resize.top,
+        width: resize.width,
+      },
+      authoringPanelGeometryMode(host),
+    );
+  };
+
+  const scheduleResize = (): void => {
+    if (resizeFrame !== null) return;
+    const ownerWindow = host.ownerDocument.defaultView ?? window;
+    resizeFrame =
+      typeof ownerWindow.requestAnimationFrame === 'function'
+        ? ownerWindow.requestAnimationFrame(flushResize)
+        : ownerWindow.setTimeout(flushResize, 0);
+  };
+
+  const applyKeyboardResize = (width: number, height: number): void => {
     host.setAttribute(AUTHORING_PANEL_LAYOUT_ATTRIBUTE, 'custom');
     const geometry = readAuthoringPanelGeometry(host);
     applyClampedAuthoringPanelGeometry(
@@ -394,38 +434,43 @@ export function attachPanelResize(
     onResize();
   };
 
+  const updatePendingResize = (event: MouseEvent | PointerEvent): void => {
+    if (!resize) return;
+    resize.width = resize.startWidth + event.clientX - resize.startX;
+    resize.height = resize.startHeight + event.clientY - resize.startY;
+  };
+
   const move = (event: MouseEvent | PointerEvent): void => {
     if (!resize) return;
     if ('pointerId' in event && resize.pointerId !== event.pointerId) return;
-    if (!('pointerId' in event) && resize.pointerId !== 'mouse') return;
     event.preventDefault();
     resizeShield ??= createAuthoringDragShield(host.ownerDocument, 'nwse-resize');
     resizeHandle.dataset['lodariqAuthoringResizing'] = 'true';
-    applyResize(
-      resize.startWidth + event.clientX - resize.startX,
-      resize.startHeight + event.clientY - resize.startY,
-    );
+    updatePendingResize(event);
+    scheduleResize();
   };
 
   const finish = (event: MouseEvent | PointerEvent): void => {
     if (!resize) return;
     if ('pointerId' in event && resize.pointerId !== event.pointerId) return;
-    if (!('pointerId' in event) && resize.pointerId !== 'mouse') return;
+    updatePendingResize(event);
+    cancelResizeFrame();
+    flushResize();
     const ownerWindow = host.ownerDocument.defaultView ?? window;
     const pointerId = resize.pointerId;
-    if (pointerId === 'mouse') {
-      ownerWindow.removeEventListener('mousemove', move, true);
-      ownerWindow.removeEventListener('mouseup', finish, true);
-    } else {
+    ownerWindow.removeEventListener('mousemove', move, true);
+    ownerWindow.removeEventListener('mouseup', finish, true);
+    ownerWindow.removeEventListener('pointermove', move, true);
+    ownerWindow.removeEventListener('pointerup', finish, true);
+    ownerWindow.removeEventListener('pointercancel', finish, true);
+    if (pointerId !== 'mouse') {
       resizeHandle.releasePointerCapture?.(pointerId);
-      ownerWindow.removeEventListener('pointermove', move, true);
-      ownerWindow.removeEventListener('pointerup', finish, true);
-      ownerWindow.removeEventListener('pointercancel', finish, true);
     }
     resizeShield?.remove();
     resizeShield = null;
     delete resizeHandle.dataset['lodariqAuthoringResizing'];
     resize = null;
+    onResize();
   };
 
   const start = (event: MouseEvent | PointerEvent): void => {
@@ -433,19 +478,21 @@ export function attachPanelResize(
     const rect = host.getBoundingClientRect();
     const ownerWindow = host.ownerDocument.defaultView ?? window;
     const pointerId = 'pointerId' in event ? event.pointerId : 'mouse';
+    host.setAttribute(AUTHORING_PANEL_LAYOUT_ATTRIBUTE, 'custom');
     resize = {
+      height: rect.height,
+      left: rect.left,
       pointerId,
       startHeight: rect.height,
       startWidth: rect.width,
       startX: event.clientX,
       startY: event.clientY,
+      top: rect.top,
+      width: rect.width,
     };
-    if (pointerId === 'mouse') {
-      ownerWindow.addEventListener('mousemove', move, true);
-      ownerWindow.addEventListener('mouseup', finish, true);
-      return;
-    }
-    resizeHandle.setPointerCapture?.(pointerId);
+    if (pointerId !== 'mouse') resizeHandle.setPointerCapture?.(pointerId);
+    ownerWindow.addEventListener('mousemove', move, true);
+    ownerWindow.addEventListener('mouseup', finish, true);
     ownerWindow.addEventListener('pointermove', move, true);
     ownerWindow.addEventListener('pointerup', finish, true);
     ownerWindow.addEventListener('pointercancel', finish, true);
@@ -457,7 +504,7 @@ export function attachPanelResize(
     event.preventDefault();
     const rect = host.getBoundingClientRect();
     const distance = event.shiftKey ? 40 : 8;
-    applyResize(rect.width + offset.x * distance, rect.height + offset.y * distance);
+    applyKeyboardResize(rect.width + offset.x * distance, rect.height + offset.y * distance);
   };
 
   resizeHandle.addEventListener('pointerdown', start);
@@ -474,6 +521,7 @@ export function attachPanelResize(
     resizeHandle.removeEventListener('pointerdown', start);
     resizeHandle.removeEventListener('mousedown', start);
     resizeHandle.removeEventListener('keydown', resizeWithKeyboard);
+    cancelResizeFrame();
     resizeShield?.remove();
     resizeShield = null;
     delete resizeHandle.dataset['lodariqAuthoringResizing'];

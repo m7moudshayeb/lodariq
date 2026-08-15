@@ -27,4 +27,5 @@ export function createLodariqEditor(): LexicalEditor {
 export * from './ids';
 export * from './nodes';
 export * from './paste';
+export * from './rich-content-editor';
 export * from './serialize';

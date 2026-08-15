@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import type { LodariqBlock } from '@lodariq/schema';
+import { CURRENT_AUTHORING_DELIVERY_CAPABILITY_METADATA, type LodariqBlock } from '@lodariq/schema';
 import { describe, expect, it, vi } from 'vitest';
 import { TargetControls } from '../../../../../packages/sdk-authoring/src/authoring/local-frame-ui/components/target-controls';
 import type { LocalAuthoringFrameController } from '../../../../../packages/sdk-authoring/src/authoring/local-frame-ui/controller';
@@ -169,6 +169,7 @@ function render(
   controller: LocalAuthoringFrameController,
 ): string {
   const snapshot = {
+    deliveryCapabilities: new Set(CURRENT_AUTHORING_DELIVERY_CAPABILITY_METADATA.capabilities),
     contentLocale: 'en',
     documentState: {
       id: 'doc_1',
@@ -224,6 +225,7 @@ function render(
     stepStyleClipboardAvailable: false,
     stepStyleRecipes: [],
     draftCheckpoints: [],
+    mediaAssets: [],
     targetHealth: new Map(),
     dragTargetBlockId: null,
     dragTargetPosition: null,

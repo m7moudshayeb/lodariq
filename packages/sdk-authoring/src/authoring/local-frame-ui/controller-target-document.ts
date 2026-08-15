@@ -138,13 +138,13 @@ export abstract class ControllerTargetDocumentFeature extends ControllerReleaseR
         presentation === 'unavailable_current_context' &&
         previousPresentation !== 'unavailable_current_context'
       ) {
-        this.recordMetric('target.unavailable');
+        this.recordMetric('target.unavailable', { targetId: target.id });
       }
       if (
         previousPresentation === 'unavailable_current_context' &&
         presentation !== 'unavailable_current_context'
       ) {
-        this.recordMetric('target.context-restored');
+        this.recordMetric('target.context-restored', { targetId: target.id });
       }
     }
 
@@ -378,7 +378,11 @@ export abstract class ControllerTargetDocumentFeature extends ControllerReleaseR
     }
     if (this.previewPatchFlushQueued) return;
     this.previewPatchFlushQueued = true;
-    globalThis.setTimeout(() => this.flushPreviewPatches(), 0);
+    const token = ++this.previewPatchFlushToken;
+    scheduleAnimationFrame(() => {
+      if (token !== this.previewPatchFlushToken) return;
+      this.flushPreviewPatches();
+    });
   }
 
   protected sendConfirmedPreviewPatch(
@@ -391,6 +395,7 @@ export abstract class ControllerTargetDocumentFeature extends ControllerReleaseR
 
   protected flushPreviewPatches(): void {
     if (!this.previewPatchFlushQueued && this.pendingPreviewPatches.length === 0) return;
+    this.previewPatchFlushToken += 1;
     this.previewPatchFlushQueued = false;
     const batches = this.pendingPreviewPatches.splice(0, this.pendingPreviewPatches.length);
     for (const batch of batches) {
@@ -500,6 +505,14 @@ export abstract class ControllerTargetDocumentFeature extends ControllerReleaseR
   protected snapshot(): LodariqDocument {
     return structuredClone(this.documentState);
   }
+}
+
+function scheduleAnimationFrame(callback: () => void): void {
+  if (typeof globalThis.requestAnimationFrame === 'function') {
+    globalThis.requestAnimationFrame(() => callback());
+    return;
+  }
+  globalThis.setTimeout(callback, 16);
 }
 
 function routeMatchesLifecycleHint(route: string, expectedRoute: string): boolean {

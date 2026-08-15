@@ -121,6 +121,7 @@ export function AuthoringActivationPopup({
   const dashboardLocale = resolveClientLocale([i18n.locale]);
   const [state, setState] = useState<ActivationState>({ name: 'waiting' });
   const activeHandshake = useRef<ActivationHandshake | null>(null);
+  const missingOpenerReported = useRef(false);
   const activation = useAuthoringActivation();
 
   const inspect = useCallback(
@@ -151,10 +152,13 @@ export function AuthoringActivationPopup({
 
   useEffect(() => {
     if (!window.opener) {
-      setState({
-        name: 'error',
-        message: _(COPY.openFromLauncher),
-      });
+      if (!missingOpenerReported.current) {
+        missingOpenerReported.current = true;
+        setState({
+          name: 'error',
+          message: _(COPY.openFromLauncher),
+        });
+      }
       return;
     }
 
