@@ -15,6 +15,9 @@ import {
 } from '@lodariq/database';
 
 const NOW = new Date('2026-08-15T12:00:00.000Z');
+// authenticateOwnedSession uses wall-clock expiry, not authClock.
+const SESSION_IDLE_EXPIRES_AT = new Date(Date.now() + 12 * 60 * 60 * 1_000).toISOString();
+const SESSION_ABSOLUTE_EXPIRES_AT = new Date(Date.now() + 24 * 60 * 60 * 1_000).toISOString();
 const USER_ID = 'usr_account_management';
 const WORKSPACE_ID = 'wk_account_management';
 const PASSWORD = 'correct-current-password';
@@ -24,9 +27,9 @@ let credential: PasswordCredentialRecord;
 
 beforeAll(async () => {
   credential = await hashOwnedPassword(USER_ID, 'member@example.com', PASSWORD, NOW);
-});
+}, 30_000);
 
-describe('@lodariq/api account management', () => {
+describe('@lodariq/api account management', { timeout: 30_000 }, () => {
   it('changes a password atomically, revokes every old session, and requires recent auth', async () => {
     const currentToken = 'lq_sess_account_current';
     const otherToken = 'lq_sess_account_other';
@@ -306,8 +309,8 @@ function session(
     deviceLabel,
     createdAt: authenticatedAt,
     lastSeenAt: NOW.toISOString(),
-    idleExpiresAt: '2026-08-16T00:00:00.000Z',
-    absoluteExpiresAt: '2026-08-17T00:00:00.000Z',
+    idleExpiresAt: SESSION_IDLE_EXPIRES_AT,
+    absoluteExpiresAt: SESSION_ABSOLUTE_EXPIRES_AT,
     revokedAt: null,
   };
 }

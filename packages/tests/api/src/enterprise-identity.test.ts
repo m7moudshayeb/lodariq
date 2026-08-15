@@ -14,6 +14,9 @@ import {
 } from '@lodariq/database';
 
 const NOW = new Date('2026-08-15T16:00:00.000Z');
+// authenticateOwnedSession uses wall-clock expiry, not authClock.
+const SESSION_IDLE_EXPIRES_AT = new Date(Date.now() + 12 * 60 * 60 * 1_000).toISOString();
+const SESSION_ABSOLUTE_EXPIRES_AT = new Date(Date.now() + 24 * 60 * 60 * 1_000).toISOString();
 const WORKSPACE_ID = 'wk_enterprise_api';
 const OWNER_ID = 'usr_enterprise_api_owner';
 const CONNECTION_ID = `sso_${'c'.repeat(24)}`;
@@ -452,8 +455,8 @@ function session(
     durationPolicy: 'standard',
     createdAt: now,
     lastSeenAt: now,
-    idleExpiresAt: '2026-08-15T17:00:00.000Z',
-    absoluteExpiresAt: '2026-08-16T16:00:00.000Z',
+    idleExpiresAt: SESSION_IDLE_EXPIRES_AT,
+    absoluteExpiresAt: SESSION_ABSOLUTE_EXPIRES_AT,
     revokedAt: null,
   };
 }

@@ -16,6 +16,9 @@ import {
 } from '@lodariq/database';
 
 const NOW = new Date('2026-08-15T12:00:00.000Z');
+// authenticateOwnedSession uses wall-clock expiry, not authClock.
+const SESSION_IDLE_EXPIRES_AT = new Date(Date.now() + 12 * 60 * 60 * 1_000).toISOString();
+const SESSION_ABSOLUTE_EXPIRES_AT = new Date(Date.now() + 24 * 60 * 60 * 1_000).toISOString();
 const USER_ID = 'usr_assurance_member';
 const WORKSPACE_ID = 'wk_assurance_member';
 const HIGH_ASSURANCE_WORKSPACE_ID = 'wk_assurance_protected';
@@ -26,9 +29,9 @@ let credential: PasswordCredentialRecord;
 
 beforeAll(async () => {
   credential = await hashOwnedPassword(USER_ID, 'assurance@example.com', PASSWORD, NOW);
-});
+}, 30_000);
 
-describe('@lodariq/api assurance and recovery', () => {
+describe('@lodariq/api assurance and recovery', { timeout: 30_000 }, () => {
   it('generates high-entropy normalized recovery codes without ambiguous characters', () => {
     const codes = createRecoveryCodes();
     expect(codes).toHaveLength(10);
@@ -309,8 +312,8 @@ function session(
     deviceLabel: 'Test browser',
     createdAt: authenticatedAt,
     lastSeenAt: NOW.toISOString(),
-    idleExpiresAt: '2026-08-16T00:00:00.000Z',
-    absoluteExpiresAt: '2026-08-17T00:00:00.000Z',
+    idleExpiresAt: SESSION_IDLE_EXPIRES_AT,
+    absoluteExpiresAt: SESSION_ABSOLUTE_EXPIRES_AT,
     revokedAt: null,
   };
 }

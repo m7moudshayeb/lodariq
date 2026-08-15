@@ -202,7 +202,8 @@ describe('Fly deployment packaging', () => {
       const config = read(path);
       expect(config).toContain('cpu_kind = "shared"');
       expect(config).toContain('cpus = 1');
-      expect(config).toContain('memory = "256mb"');
+      // Development API needs 512 MB: Argon2id (64 MB) plus Node/Neon OOM'd the 256 MB box.
+      expect(config).toContain(path === 'apps/api/fly.development.toml' ? 'memory = "512mb"' : 'memory = "256mb"');
       expect(config).toContain('[[http_service.checks]]');
       expect(config).toContain('method = "GET"');
       expect(config).toContain('timeout = "3s"');
