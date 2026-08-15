@@ -9,6 +9,7 @@ const RICH_CONTENT_FLOATING_THEME_PROPERTIES = [
   '--lq-color-primary',
   '--lq-color-primary-border',
   '--lq-color-primary-soft',
+  '--lq-shadow-popover',
 ] as const;
 
 /** Keep body-portaled authoring controls on the same token scope as their tray trigger. */
@@ -19,8 +20,7 @@ export function inheritRichContentFloatingTheme(
   const ownerWindow = reference.ownerDocument.defaultView;
   if (!ownerWindow) return;
   const referenceStyle = ownerWindow.getComputedStyle(reference);
-  RICH_CONTENT_FLOATING_THEME_PROPERTIES.forEach((property) => {
-    const value = referenceStyle.getPropertyValue(property);
-    if (value) floating.style.setProperty(property, value);
-  });
+  for (const property of RICH_CONTENT_FLOATING_THEME_PROPERTIES) {
+    floating.style.setProperty(property, referenceStyle.getPropertyValue(property));
+  }
 }

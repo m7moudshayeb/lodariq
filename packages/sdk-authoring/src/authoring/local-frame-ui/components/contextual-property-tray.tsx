@@ -4,15 +4,9 @@ import type { LodariqBlock } from '@lodariq/schema';
 import type { LocalAuthoringFrameController } from '../controller';
 import { selectExperienceRootBlocks } from '../../experience-authoring-capabilities';
 import { X } from '../design-system';
-import {
-  ButtonPropertyPanel,
-  ButtonPropertyTabs,
-  type ActionPropertyTab,
-} from '../properties/button-property-editor';
 import type { LocalAuthoringFrameSnapshot } from '../types';
-import { blockDisplayTitle, blockTypeLabel, targetIdOf, targetLabelOf } from '../utils';
+import { blockDisplayTitle, targetIdOf, targetLabelOf } from '../utils';
 import type { StepHealthTone } from '../tour-step-model';
-import { BlockFlowInspector } from './block-flow-inspector';
 import {
   type ContextualToolMode,
   type PopupCompositionSection,
@@ -38,9 +32,6 @@ const POPUP_INSPECTOR_SECTIONS = [
 ] as const satisfies ReadonlyArray<{ value: PopupInspectorSection; label: string }>;
 
 export function ContextualPropertyTray({
-  activeTab,
-  activeBlock,
-  actionBlock,
   controller,
   health,
   placementEditor,
@@ -49,14 +40,9 @@ export function ContextualPropertyTray({
   step,
   tooltip,
   toolMode,
-  onActiveTabChange,
   onClose,
-  onOpenFlowMap,
   open,
 }: {
-  activeTab: ActionPropertyTab;
-  activeBlock: LodariqBlock | null;
-  actionBlock: LodariqBlock | null;
   controller: LocalAuthoringFrameController;
   health: { label: string; repair: boolean; tone: StepHealthTone };
   placementEditor: ReactNode;
@@ -65,9 +51,7 @@ export function ContextualPropertyTray({
   step: LodariqBlock;
   tooltip: LodariqBlock;
   toolMode: ContextualToolMode;
-  onActiveTabChange: (tab: ActionPropertyTab) => void;
   onClose: () => void;
-  onOpenFlowMap: (mode: 'branch' | 'sequence') => void;
   open: boolean;
 }) {
   const [popupSection, setPopupSection] = useState<PopupInspectorSection>('layout');
@@ -81,31 +65,14 @@ export function ContextualPropertyTray({
     ? targetLabelOf(snapshot.documentState, targetId)
     : authoringText('Choose target');
   const placement = tooltip.props.placement ?? 'bottom';
-  const selectedBlock = actionBlock ?? activeBlock;
-  let title = authoringText('{name} settings', {
-    name: selectedBlock ? blockTypeLabel(selectedBlock.type) : blockDisplayTitle(step),
-  });
-  if (actionBlock) {
-    title = authoringText('{name} {type}', {
-      name: actionBlock.content?.trim() || authoringText('Untitled'),
-      type: blockTypeLabel(actionBlock.type).toLowerCase(),
-    });
-  }
-  if (toolMode === 'content' && !actionBlock) {
-    title = authoringText('Rich content');
-  }
+  let title = authoringText('{name} settings', { name: blockDisplayTitle(step) });
   if (toolMode === 'popup') {
     title =
       popupSections.find((section) => section.value === popupSection)?.label ??
       popupSections[0]!.label;
   }
-  const scopeLabel =
-    toolMode === 'popup' || (toolMode === 'content' && !actionBlock)
-      ? authoringText('· This step')
-      : authoringText('· This block');
-  let trayLabel = authoringText('Rich content');
-  if (actionBlock) trayLabel = authoringText('Selected action style');
-  if (toolMode === 'popup') trayLabel = authoringText('Popup layout settings');
+  const trayLabel =
+    toolMode === 'popup' ? authoringText('Popup layout settings') : authoringText('Placement');
 
   if (!open) return null;
 
@@ -121,7 +88,7 @@ export function ContextualPropertyTray({
         <span className="storyboard-tray-title">
           <span className="storyboard-tray-identity">
             <strong>{title}</strong>
-            <small>{scopeLabel}</small>
+            <small>{authoringText('· This step')}</small>
           </span>
           <span className="storyboard-tray-context">
             <span className="storyboard-placement-summary">
@@ -131,39 +98,15 @@ export function ContextualPropertyTray({
             <span className={`storyboard-verification ${health.tone}`}>{health.label}</span>
           </span>
         </span>
-        <button
-          type="button"
-          className="storyboard-tray-close"
-          aria-label={authoringText('Close settings')}
-          onClick={onClose}
-        >
-          <X size={17} strokeWidth={2} aria-hidden="true" />
-        </button>
       </header>
-
-      {toolMode === 'content' && actionBlock ? (
-        <>
-          <ButtonPropertyTabs activeTab={activeTab} onActiveTabChange={onActiveTabChange} />
-          <ButtonPropertyPanel
-            activeTab={activeTab}
-            block={actionBlock}
-            controller={controller}
-            onActionTypeChange={(actionType) => {
-              if (actionType === 'runSequence') onOpenFlowMap('sequence');
-            }}
-            tooltip={tooltip}
-          />
-        </>
-      ) : null}
-
-      {toolMode === 'content' && !actionBlock && activeBlock ? (
-        <BlockFlowInspector
-          activeBlock={activeBlock}
-          controller={controller}
-          stepBlockId={step.id}
-          tooltip={tooltip}
-        />
-      ) : null}
+      <button
+        type="button"
+        className="storyboard-tray-close"
+        aria-label={authoringText('Close settings')}
+        onClick={onClose}
+      >
+        <X size={17} strokeWidth={2} aria-hidden="true" />
+      </button>
 
       {toolMode === 'placement' ? placementEditor : null}
 

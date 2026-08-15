@@ -1,14 +1,6 @@
 import * as RadixSelect from '@radix-ui/react-select';
 import { Check, ChevronDown } from 'lucide-react';
-import {
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-  type PointerEventHandler,
-  type ReactElement,
-} from 'react';
-import { inheritRichContentFloatingTheme } from './rich-content-floating-theme';
+import { useEffect, useRef, useState, type PointerEventHandler, type ReactElement } from 'react';
 
 export interface RichContentSelectOption {
   label: string;
@@ -21,6 +13,7 @@ export function RichContentSelect({
   onOpenChange,
   onPointerDown,
   onValueChange,
+  open,
   options,
   value,
 }: {
@@ -29,6 +22,7 @@ export function RichContentSelect({
   onOpenChange?: (open: boolean) => void;
   onPointerDown?: PointerEventHandler<HTMLButtonElement>;
   onValueChange: (value: string) => void;
+  open?: boolean;
   options: readonly RichContentSelectOption[];
   value: string;
 }): ReactElement {
@@ -41,50 +35,43 @@ export function RichContentSelect({
     );
   }, []);
 
-  const inheritTriggerTheme = useCallback((content: HTMLDivElement | null): void => {
-    if (!content || !triggerRef.current) return;
-    inheritRichContentFloatingTheme(triggerRef.current, content);
-  }, []);
-
-  const handleOpenChange = (nextOpen: boolean): void => {
-    onOpenChange?.(nextOpen);
-  };
-
   return (
-    <RadixSelect.Root onOpenChange={handleOpenChange} onValueChange={onValueChange} value={value}>
+    <RadixSelect.Root
+      onOpenChange={onOpenChange}
+      onValueChange={onValueChange}
+      open={open}
+      value={value}
+    >
       <RadixSelect.Trigger
         ref={triggerRef}
         aria-label={ariaLabel}
-        className={`rich-content-select-trigger ${className}`.trim()}
+        className={`ui-select-trigger ${className}`.trim()}
         onPointerDown={onPointerDown}
       >
-        <RadixSelect.Value />
+        <span className="ui-select-value">
+          <RadixSelect.Value />
+        </span>
         <RadixSelect.Icon asChild>
-          <ChevronDown aria-hidden="true" size={13} strokeWidth={2.2} />
+          <ChevronDown aria-hidden="true" size={14} strokeWidth={2.2} />
         </RadixSelect.Icon>
       </RadixSelect.Trigger>
       <RadixSelect.Portal>
         <RadixSelect.Content
-          ref={inheritTriggerTheme}
           align="start"
           avoidCollisions
-          className="rich-content-select-content"
+          className="ui-select-content"
           collisionBoundary={collisionBoundary ?? undefined}
           collisionPadding={8}
           data-rich-content-select-content="true"
           position="popper"
-          sideOffset={7}
+          sideOffset={8}
         >
-          <RadixSelect.Viewport className="rich-content-select-viewport">
+          <RadixSelect.Viewport className="ui-select-viewport">
             {options.map((option) => (
-              <RadixSelect.Item
-                className="rich-content-select-item"
-                key={option.value}
-                value={option.value}
-              >
+              <RadixSelect.Item className="ui-select-item" key={option.value} value={option.value}>
                 <RadixSelect.ItemText>{option.label}</RadixSelect.ItemText>
-                <RadixSelect.ItemIndicator className="rich-content-select-indicator">
-                  <Check aria-hidden="true" size={13} strokeWidth={2.3} />
+                <RadixSelect.ItemIndicator className="ui-select-indicator">
+                  <Check aria-hidden="true" size={14} strokeWidth={2.2} />
                 </RadixSelect.ItemIndicator>
               </RadixSelect.Item>
             ))}

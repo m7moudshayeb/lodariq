@@ -41,7 +41,7 @@ export function resolveTourCompositionRecipe(
 ): TourCompositionRecipe {
   return {
     actionAlign: layout?.actionAlign ?? 'start',
-    actionLayout: layout?.actionLayout ?? 'inline',
+    actionLayout: layout?.actionLayout ?? 'stack',
     contentAlign: layout?.contentAlign ?? 'left',
     gap: layout?.gap ?? 'normal',
     heightPx: layout?.heightPx ?? null,

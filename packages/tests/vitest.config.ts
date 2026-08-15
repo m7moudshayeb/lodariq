@@ -158,6 +158,10 @@ export default defineConfig({
         find: /^@lodariq\/sdk-authoring$/,
         replacement: fromRoot('packages/sdk-authoring/src/index.ts'),
       },
+      {
+        find: /^lexical$/,
+        replacement: fromRoot('packages/sdk-authoring/node_modules/lexical'),
+      },
     ],
   },
   test: {

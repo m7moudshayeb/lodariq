@@ -15,7 +15,10 @@ export interface TourPlaybackOptions {
   initialStepIndex?: number;
   targetResolutionContext?: TargetResolutionContext;
   /** Resolves a server-approved asset reference without embedding raw source URLs in documents. */
-  resolveMediaAsset?: (assetId: string, kind: 'image' | 'video' | 'captions') => string | null;
+  resolveMediaAsset?: (
+    assetId: string,
+    kind: 'image' | 'video' | 'captions',
+  ) => string | null | Promise<string | null>;
   onTargetResolution?: (
     step: CompiledDocument['steps'][number],
     result: TourTargetResolutionDiagnostic,

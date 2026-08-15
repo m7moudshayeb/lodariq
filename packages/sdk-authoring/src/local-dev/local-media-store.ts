@@ -41,6 +41,18 @@ export async function loadLocalMediaAssetBlob(assetId: string): Promise<Blob | n
   return record.blob;
 }
 
+const localMediaPreviewUrls = new Map<string, string>();
+
+export async function resolveLocalMediaAssetUrl(assetId: string): Promise<string | null> {
+  const cached = localMediaPreviewUrls.get(assetId);
+  if (cached) return cached;
+  const blob = await loadLocalMediaAssetBlob(assetId);
+  if (!blob || typeof URL.createObjectURL !== 'function') return null;
+  const url = URL.createObjectURL(blob);
+  localMediaPreviewUrls.set(assetId, url);
+  return url;
+}
+
 export async function saveLocalMediaAssetRecord(record: LocalMediaAssetRecord): Promise<void> {
   assertValidLocalMediaAssetRecord(record);
   if (!hasIndexedDatabase()) return;

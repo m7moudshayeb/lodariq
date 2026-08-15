@@ -443,6 +443,7 @@ export function slashCommandDefaultContent(type: EditableBlockType): string {
   if (type === 'callout') return authoringText('Write supporting copy');
   if (type === 'stat') return authoringText('Untitled heading');
   if (type === 'icon') return authoringText('Learn more');
+  if (type === 'formField') return authoringText('Label');
   return '';
 }
 
@@ -452,5 +453,6 @@ export function insertedStepContentDefault(type: EditableBlockType): string {
   if (type === 'callout') return authoringText('Write supporting copy');
   if (type === 'stat') return authoringText('Untitled heading');
   if (type === 'icon') return authoringText('Learn more');
+  if (type === 'formField') return authoringText('Label');
   return '';
 }

@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { InlineTextRun, LodariqBlock } from '@lodariq/schema';
 import {
-  applyInlineTextStyle,
   attachTargetToBlocks,
   blocksReferenceTarget,
   createContentBlock,
@@ -104,6 +103,12 @@ describe('authoring document ops', () => {
       },
       status: 'ready',
     });
+    expect(createContentBlock('formField')).toMatchObject({
+      type: 'formField',
+      content: 'Label',
+      props: { formField: { control: 'checkbox', name: 'field' } },
+      status: 'ready',
+    });
   });
 
   it('updates nested content and renumbers authored tour steps', () => {
@@ -118,21 +123,9 @@ describe('authoring document ops', () => {
     ).toEqual([{ index: 0 }, { index: 1 }]);
   });
 
-  it('styles selected text ranges without converting content to HTML or Markdown', () => {
+  it('stores styled text ranges as runs without converting content to HTML or Markdown', () => {
     const content = 'Your trial ends in 3 days.';
-    const start = content.indexOf('3 days');
-    const contentRuns = applyInlineTextStyle(content, undefined, start, start + 6, {
-      mark: 'bold',
-      fontSizePx: 24,
-      color: '#006b58',
-      highlightColor: '#fff0a8',
-      link: '/billing',
-    });
-    const withRuns = updateBlockContentRuns(blocks, 'copy_1', content, contentRuns);
-    const paragraph = withRuns[0]?.children[0]?.children[0];
-
-    expect(paragraph?.content).toBe(content);
-    expect(paragraph?.contentRuns).toEqual([
+    const contentRuns: InlineTextRun[] = [
       { text: 'Your trial ends in ' },
       {
         text: '3 days',
@@ -143,12 +136,14 @@ describe('authoring document ops', () => {
         link: '/billing',
       },
       { text: '.' },
-    ]);
+    ];
+    const withRuns = updateBlockContentRuns(blocks, 'copy_1', content, contentRuns);
+    const paragraph = withRuns[0]?.children[0]?.children[0];
+
+    expect(paragraph?.content).toBe(content);
+    expect(paragraph?.contentRuns).toEqual(contentRuns);
     expect(JSON.stringify(paragraph)).not.toContain('<');
     expect(JSON.stringify(paragraph)).not.toContain('style=');
-    expect(applyInlineTextStyle(content, contentRuns, start, start + 6, { clear: true })).toEqual([
-      { text: content },
-    ]);
 
     const plainUpdate = updateBlockContent(withRuns, 'copy_1', 'Plain text');
     expect(plainUpdate[0]?.children[0]?.children[0]?.contentRuns).toBeUndefined();

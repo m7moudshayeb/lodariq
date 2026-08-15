@@ -5,7 +5,7 @@ export const AUTHORING_FOCUSED_PROPERTY_TRAY_CSS = `
   }
 
   .storyboard-canvas .rich-step-editor:has(.storyboard-property-tray) {
-    grid-template-rows: minmax(112px, 1fr) minmax(0, 320px);
+    grid-template-rows: auto minmax(112px, 1fr) minmax(0, 320px);
   }
 
   .storyboard-tray-header {

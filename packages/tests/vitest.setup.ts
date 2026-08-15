@@ -4,8 +4,24 @@ class TestResizeObserver implements ResizeObserver {
   disconnect(): void {}
 }
 
+class TestIntersectionObserver implements IntersectionObserver {
+  readonly root = null;
+  readonly rootMargin = '';
+  readonly thresholds = [];
+  observe(): void {}
+  unobserve(): void {}
+  disconnect(): void {}
+  takeRecords(): IntersectionObserverEntry[] {
+    return [];
+  }
+}
+
 if (!globalThis.ResizeObserver) {
   globalThis.ResizeObserver = TestResizeObserver;
+}
+
+if (!globalThis.IntersectionObserver) {
+  globalThis.IntersectionObserver = TestIntersectionObserver;
 }
 
 // jsdom does not implement pointer capture. Radix Select uses these methods
@@ -16,6 +32,12 @@ if (typeof Element !== 'undefined') {
   Element.prototype.setPointerCapture ??= () => undefined;
   Element.prototype.releasePointerCapture ??= () => undefined;
   Element.prototype.scrollIntoView ??= () => undefined;
+}
+
+if (typeof Range !== 'undefined' && typeof Range.prototype.getBoundingClientRect !== 'function') {
+  Range.prototype.getBoundingClientRect = function getBoundingClientRect() {
+    return new DOMRect(40, 20, 80, 16);
+  };
 }
 
 // Header auth is an explicit test-only mode. Application runtimes default to

@@ -160,7 +160,12 @@ describe('authoring DOM combobox', () => {
     heading.setAttribute(LODARIQ_RENDERED_NODE_ID_ATTRIBUTE, 'heading_1');
     heading.setAttribute(LODARIQ_RENDERED_NODE_TYPE_ATTRIBUTE, 'heading');
     heading.textContent = 'Welcome';
+    const button = document.createElement('button');
+    button.setAttribute(LODARIQ_RENDERED_NODE_ID_ATTRIBUTE, 'button_1');
+    button.setAttribute(LODARIQ_RENDERED_NODE_TYPE_ATTRIBUTE, 'button');
+    button.textContent = 'Continue';
     dialog.appendChild(heading);
+    dialog.appendChild(button);
     root.appendChild(dialog);
     document.body.appendChild(host);
     const onControlCommit = vi.fn();
@@ -182,6 +187,7 @@ describe('authoring DOM combobox', () => {
     expect(root.querySelector('[data-lodariq-authoring-context-toolbar="true"]')).toBeNull();
     expect(root.querySelector('[data-lodariq-authoring-inline-style="true"]')).not.toBeNull();
     expect(heading.hasAttribute('contenteditable')).toBe(false);
+    expect(button.hasAttribute('contenteditable')).toBe(false);
     expect(onControlCommit).not.toHaveBeenCalled();
 
     editor.destroy();

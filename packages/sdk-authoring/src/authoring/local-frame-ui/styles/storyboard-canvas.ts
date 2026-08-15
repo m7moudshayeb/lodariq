@@ -49,7 +49,7 @@ export const AUTHORING_STORYBOARD_CANVAS_CSS = `
     display: grid;
     height: 100%;
     min-height: 0;
-    grid-template-rows: minmax(240px, 1fr) auto;
+    grid-template-rows: auto minmax(240px, 1fr) auto;
     overflow: hidden;
     border: 0;
     border-radius: 0;
@@ -67,36 +67,9 @@ export const AUTHORING_STORYBOARD_CANVAS_CSS = `
     padding: 72px 96px var(--lq-space-5) var(--lq-space-5);
   }
 
-  .storyboard-editor-stage .rich-step-toolbar {
-    position: absolute;
-    z-index: 4;
-    top: var(--storyboard-toolbar-top, 16px);
-    left: var(--storyboard-toolbar-left, 50%);
-    width: max-content;
-    max-width: calc(100% - 160px);
-    min-height: var(--lq-control-lg);
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    border: 1px solid var(--lq-color-border);
-    border-radius: var(--lq-radius-md);
-    box-shadow: 0 var(--lq-space-3) var(--lq-space-6) rgba(15, 36, 31, 0.12);
-    transform: translateX(-50%);
-  }
-
-  .storyboard-editor-stage .rich-step-link-editor {
-    position: absolute;
-    z-index: 5;
-    top: calc(var(--storyboard-toolbar-top, 16px) + 56px);
-    left: var(--storyboard-toolbar-left, 50%);
-    width: min(560px, calc(100% - 160px));
-    border: 1px solid var(--lq-color-border);
-    border-radius: var(--lq-radius-sm);
-    box-shadow: 0 var(--lq-space-3) var(--lq-space-6) rgba(15, 36, 31, 0.12);
-    transform: translateX(-50%);
-  }
-
   .storyboard-editor-stage .rich-step-popup-frame {
     position: relative;
+    z-index: 7;
     box-sizing: border-box;
     width: min(
       var(--storyboard-popup-width, var(--lq-tour-width, 520px)),
@@ -165,6 +138,10 @@ export const AUTHORING_STORYBOARD_CANVAS_CSS = `
     box-shadow: var(--lq-tour-elevation-floating, 0 8px 24px rgba(15, 36, 31, 0.18));
   }
 
+  .storyboard-editor-stage .rich-step-popup-frame[data-dragging='true'] {
+    z-index: 8;
+  }
+
   .storyboard-editor-stage .rich-step-popup-frame[data-popup-height-custom='true'] {
     min-height: 0;
   }
@@ -186,43 +163,6 @@ export const AUTHORING_STORYBOARD_CANVAS_CSS = `
       0 var(--lq-space-4) var(--lq-space-7) rgba(15, 36, 31, 0.12);
   }
 
-  .storyboard-editor-stage .rich-step-block-row.active {
-    border-style: dashed;
-    border-color: var(--lq-color-blue);
-    background: transparent;
-  }
-
-  .storyboard-editor-stage .rich-step-block-row:hover {
-    border-color: var(--lq-color-blue);
-    border-style: dashed;
-    background: transparent;
-  }
-
-  .storyboard-editor-stage .rich-step-content .inline-insert {
-    height: var(--lq-space-1);
-    min-height: var(--lq-space-1);
-    margin: 0;
-    opacity: 1;
-  }
-
-  .storyboard-editor-stage .rich-step-content .inline-insert-trigger {
-    position: absolute;
-  }
-
-  .storyboard-editor-stage .rich-step-special-block.action {
-    display: block;
-  }
-
-  .storyboard-editor-stage .rich-step-block-kind {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip: rect(0 0 0 0);
-    clip-path: inset(50%);
-    white-space: nowrap;
-  }
-
   .storyboard-tool-dock {
     position: absolute;
     z-index: 6;
@@ -236,6 +176,7 @@ export const AUTHORING_STORYBOARD_CANVAS_CSS = `
     background: #ffffff;
     box-shadow: 0 var(--lq-space-3) var(--lq-space-6) rgba(15, 36, 31, 0.12);
     padding: var(--lq-space-1);
+    pointer-events: none;
   }
 
   .storyboard-tool-dock button {
@@ -251,6 +192,7 @@ export const AUTHORING_STORYBOARD_CANVAS_CSS = `
     cursor: pointer;
     font-size: var(--lq-font-2xs);
     font-weight: var(--lq-weight-semibold);
+    pointer-events: auto;
   }
 
   .storyboard-tool-dock button:hover,

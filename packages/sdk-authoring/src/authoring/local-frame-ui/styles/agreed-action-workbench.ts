@@ -2,7 +2,7 @@
 export const AUTHORING_AGREED_ACTION_WORKBENCH_CSS = `
   /* Action creation is the compact bottom workbench from the approved design. */
   .storyboard-canvas .rich-step-editor:has(.storyboard-property-tray[data-workspace='action']) {
-    grid-template-rows: minmax(104px, 1fr) auto;
+    grid-template-rows: auto minmax(104px, 1fr) auto;
   }
 
   .rich-step-editor:has(.storyboard-property-tray[data-workspace='action'])
@@ -28,23 +28,67 @@ export const AUTHORING_AGREED_ACTION_WORKBENCH_CSS = `
   .storyboard-property-tray[data-tool-mode='content'] {
     width: 100%;
     height: auto;
-    max-height: none;
-    overflow: visible;
+    max-height: 280px;
+    overflow: auto;
   }
 
   .storyboard-canvas
-    .rich-step-editor:has(> .storyboard-property-tray[data-tool-mode='content']) {
-    grid-template-rows: minmax(160px, 1fr) auto;
+    .rich-step-editor:has(.storyboard-property-tray[data-tool-mode='content']) {
+    grid-template-rows: auto minmax(160px, 1fr) auto;
   }
 
   .storyboard-property-tray[data-tool-mode='content'] > .storyboard-tab-panel {
     overflow-y: visible;
   }
 
+  .storyboard-property-tray[data-tool-mode='content']:has(.popup-inspector-tabs)
+    > .storyboard-tray-handle {
+    display: none;
+  }
+
+  .storyboard-property-tray[data-tool-mode='content'] > .content-inspector-chrome {
+    display: flex;
+    min-width: 0;
+    align-items: stretch;
+    border-bottom: 1px solid var(--lq-color-border-soft);
+  }
+
+  .storyboard-property-tray[data-tool-mode='content']
+    > .content-inspector-chrome
+    > .popup-inspector-tabs {
+    position: relative;
+    top: 0;
+    height: 44px;
+    min-height: 44px;
+    flex: 1 1 auto;
+    align-items: stretch;
+    border-bottom: 0;
+    background: transparent;
+    padding: 0 20px;
+  }
+
+  .storyboard-property-tray[data-tool-mode='content']
+    > .content-inspector-chrome
+    > .popup-inspector-tabs
+    button {
+    display: grid;
+    min-height: 44px;
+    place-items: center;
+    font-size: var(--lq-font-xs);
+    padding: 0;
+  }
+
+  .storyboard-property-tray[data-tool-mode='content']
+    > .content-inspector-chrome
+    > .storyboard-tray-close {
+    align-self: center;
+    margin-inline-end: 12px;
+  }
+
   .storyboard-property-tray[data-tool-mode='content']
     > .storyboard-tab-panel.behavior {
     display: grid;
-    grid-template-columns: minmax(0, 1fr);
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     align-content: start;
     gap: var(--lq-space-3);
     overflow-x: hidden;
@@ -53,15 +97,40 @@ export const AUTHORING_AGREED_ACTION_WORKBENCH_CSS = `
   }
 
   .storyboard-property-tray[data-tool-mode='content']
-    > .storyboard-tab-panel.behavior:has([data-property-id='button.destination']) {
-    grid-template-columns: minmax(260px, 1fr) minmax(240px, 0.8fr);
-    gap: var(--lq-space-2) var(--lq-space-3);
+    > .storyboard-tab-panel.behavior[data-section='action'],
+  .storyboard-property-tray[data-tool-mode='content']
+    > .storyboard-tab-panel.behavior[data-section='field'] {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .storyboard-property-tray[data-tool-mode='content']
-    > .storyboard-tab-panel.behavior:has([data-property-id='button.destination'])
-    .storyboard-property-control[data-property-id='button.action'] {
+  .storyboard-property-color-row {
     grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: inherit;
+  }
+
+  .storyboard-property-tray[data-tool-mode='content'] .storyboard-property-control {
+    display: grid;
+    gap: 4px;
+    color: var(--lq-color-muted);
+    font-size: var(--lq-font-xs);
+    font-weight: var(--lq-weight-semibold);
+  }
+
+  .storyboard-property-tray[data-tool-mode='content'] .storyboard-property-control .ui-input,
+  .storyboard-property-tray[data-tool-mode='content'] .storyboard-property-control input[type='text'],
+  .storyboard-property-tray[data-tool-mode='content'] .storyboard-property-control input[type='url'] {
+    box-sizing: border-box;
+    width: 100%;
+    height: var(--lq-control-sm);
+    border: 1px solid var(--lq-color-border);
+    border-radius: var(--lq-radius-sm);
+    background: var(--lq-color-page);
+    color: var(--lq-color-ink);
+    font: inherit;
+    font-size: var(--lq-font-sm);
+    padding: 0 12px;
   }
 
   .storyboard-tab-panel.behavior

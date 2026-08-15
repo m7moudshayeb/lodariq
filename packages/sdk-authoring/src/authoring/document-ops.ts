@@ -30,21 +30,12 @@ export type EditableBlockType =
   | 'media'
   | 'callout'
   | 'stat'
-  | 'icon';
+  | 'icon'
+  | 'formField';
 export type BlockDirection = 'up' | 'down';
 export type BlockInsertPosition = 'before' | 'after';
 export type TooltipPlacement = NonNullable<LodariqBlock['props']['placement']>;
 export type ButtonVariant = NonNullable<LodariqBlock['props']['variant']>;
-export type InlineTextStylePatch = {
-  clear?: boolean;
-  mark?: NonNullable<InlineTextRun['marks']>[number];
-  markEnabled?: boolean;
-  fontSizePx?: NonNullable<InlineTextRun['fontSizePx']> | null;
-  color?: string | null;
-  highlightColor?: string | null;
-  link?: string | null;
-};
-
 const DEFAULT_CONTENT_BY_TYPE = {
   heading: authoringText('Untitled heading'),
   paragraph: authoringText('Write supporting copy'),
@@ -56,6 +47,7 @@ const DEFAULT_CONTENT_BY_TYPE = {
   callout: authoringText('Write supporting copy'),
   stat: authoringText('Untitled heading'),
   icon: authoringText('Learn more'),
+  formField: authoringText('Label'),
 } as const satisfies Record<EditableBlockType, string>;
 
 const DEFAULT_PROPS_BY_TYPE = {
@@ -80,6 +72,9 @@ const DEFAULT_PROPS_BY_TYPE = {
   icon: {
     accessibilityName: authoringText('Learn more'),
     composition: { kind: 'icon', icon: 'info' },
+  },
+  formField: {
+    formField: { control: 'checkbox', name: 'field' },
   },
 } as const satisfies Record<EditableBlockType, LodariqBlock['props']>;
 
@@ -204,40 +199,6 @@ export function updateBlockContentRuns(
   );
 }
 
-export function applyInlineTextStyle(
-  content: string,
-  currentRuns: InlineTextRun[] | undefined,
-  start: number,
-  end: number,
-  patch: InlineTextStylePatch,
-): InlineTextRun[] | undefined {
-  const boundedStart = Math.max(0, Math.min(start, content.length));
-  const boundedEnd = Math.max(boundedStart, Math.min(end, content.length));
-  if (boundedStart === boundedEnd) return sanitizeInlineTextRuns(currentRuns);
-  const sourceRuns = normalizedRunsForContent(content, currentRuns);
-  const next: InlineTextRun[] = [];
-  let offset = 0;
-  for (const run of sourceRuns) {
-    const runStart = offset;
-    const runEnd = offset + run.text.length;
-    offset = runEnd;
-    if (runEnd <= boundedStart || runStart >= boundedEnd) {
-      next.push(run);
-      continue;
-    }
-    const selectionStart = Math.max(boundedStart, runStart) - runStart;
-    const selectionEnd = Math.min(boundedEnd, runEnd) - runStart;
-    if (selectionStart > 0) next.push({ ...run, text: run.text.slice(0, selectionStart) });
-    next.push(
-      applyInlineRunPatch({ ...run, text: run.text.slice(selectionStart, selectionEnd) }, patch),
-    );
-    if (selectionEnd < run.text.length) {
-      next.push({ ...run, text: run.text.slice(selectionEnd) });
-    }
-  }
-  return sanitizeInlineTextRuns(next);
-}
-
 export function reconcileInlineTextRuns(
   previousContent: string,
   currentRuns: InlineTextRun[] | undefined,
@@ -349,48 +310,6 @@ function inlineRunAtOffset(runs: InlineTextRun[], targetOffset: number): InlineT
     offset = nextOffset;
   }
   return runs[runs.length - 1];
-}
-
-function normalizedRunsForContent(
-  content: string,
-  currentRuns: InlineTextRun[] | undefined,
-): InlineTextRun[] {
-  const safeRuns = sanitizeInlineTextRuns(currentRuns);
-  if (!safeRuns || safeRuns.map((run) => run.text).join('') !== content) return [{ text: content }];
-  return safeRuns;
-}
-
-function applyInlineRunPatch(run: InlineTextRun, patch: InlineTextStylePatch): InlineTextRun {
-  if (patch.clear) return { text: run.text };
-  const next = structuredClone(run);
-  if (patch.mark) {
-    const marks = new Set(next.marks ?? []);
-    if (patch.markEnabled ?? !marks.has(patch.mark)) marks.add(patch.mark);
-    else marks.delete(patch.mark);
-    if (marks.size > 0) next.marks = [...marks];
-    else delete next.marks;
-  }
-  if (patch.fontSizePx !== undefined) {
-    if (patch.fontSizePx) next.fontSizePx = patch.fontSizePx;
-    else delete next.fontSizePx;
-  }
-  applyOptionalInlineValue(next, 'color', patch.color);
-  applyOptionalInlineValue(next, 'highlightColor', patch.highlightColor);
-  if (patch.link !== undefined) {
-    if (patch.link && isSafeNavigationUrl(patch.link)) next.link = patch.link.trim();
-    else delete next.link;
-  }
-  return next;
-}
-
-function applyOptionalInlineValue(
-  run: InlineTextRun,
-  key: 'color' | 'highlightColor',
-  value: string | null | undefined,
-): void {
-  if (value === undefined) return;
-  if (value) run[key] = value;
-  else delete run[key];
 }
 
 export function setBlockAction(

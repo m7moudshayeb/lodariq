@@ -198,7 +198,9 @@ export const AUTHORING_WORKSPACE_CSS = `
   .inline-command-menu,
   .step-command-menu,
   .ui-select-content,
-  .ui-popover-content {
+  .ui-popover-content,
+  .rich-content-block-handles,
+  .rich-content-floating-layer {
     --lq-color-ink: ${AUTHORING_CONTEXT_SURFACE_TOKENS.ink};
     --lq-color-ink-soft: #334155;
     --lq-color-muted: ${AUTHORING_CONTEXT_SURFACE_TOKENS.muted};

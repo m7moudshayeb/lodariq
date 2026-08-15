@@ -145,7 +145,10 @@ export interface TourPlayerOptions {
   flowConditionContext?: Pick<TourFlowConditionContext, 'identifyTraits' | 'documentState'>;
   onBranchChoice?: (step: CompiledStep, ruleIndex: number | null, destination: string) => void;
   /** Resolves server-validated asset IDs; canonical documents never carry raw src attributes. */
-  resolveMediaAsset?: (assetId: string, kind: 'image' | 'video' | 'captions') => string | null;
+  resolveMediaAsset?: (
+    assetId: string,
+    kind: 'image' | 'video' | 'captions',
+  ) => string | null | Promise<string | null>;
   /** Opaque delivery context used by Target Identity V2 hard gates. */
   targetResolutionContext?: TargetResolutionContext;
 }
@@ -381,7 +384,6 @@ export class TourPlayer {
     this.announcementRegion.setAttribute('aria-atomic', 'true');
     content.appendChild(this.announcementRegion);
     appendStepBody(content, step, (node) => this.createBodyElement(node));
-    content.appendChild(this.createSkipButton());
     this.recordAccessibilityAnnouncement(
       step.accessibilityName ?? tourRuntimeText('Lodariq tour'),
       false,
@@ -445,6 +447,7 @@ export class TourPlayer {
 
   private armEntrySequence(step: CompiledStep, renderId: number, signal: AbortSignal): void {
     if (!step.entrySequence || this.options.embeddedPreviewContainer) return;
+    if (this.options.authoringPreviewOwnerId && !this.options.authoringPreviewInteractive) return;
     void this.waitUntilReady()
       .then(() => {
         if (signal.aborted || renderId !== this.renderId || !this.host.isConnected) return;
@@ -521,19 +524,6 @@ export class TourPlayer {
     });
   }
 
-  private createSkipButton(): HTMLButtonElement {
-    const button = document.createElement('button');
-    button.type = 'button';
-    button.className = 'tour-skip';
-    button.textContent = tourRuntimeText('Skip tour');
-    button.addEventListener('click', () => {
-      if (this.options.embeddedPreviewContainer) return;
-      if (this.options.authoringPreviewOwnerId && !this.options.authoringPreviewInteractive) return;
-      this.skip();
-    });
-    return button;
-  }
-
   private complete(): void {
     const completion = 'completion' in this.doc ? this.doc.completion : undefined;
     if (!this.completionStepActive && completion) {
@@ -584,11 +574,6 @@ export class TourPlayer {
 
   private dismiss(): void {
     this.options.onDismiss?.();
-    this.stop();
-  }
-
-  private skip(): void {
-    this.options.onSkip?.();
     this.stop();
   }
 
@@ -713,6 +698,7 @@ export class TourPlayer {
     actionTransition?: NonNullable<RuntimeAction['transition']>,
   ): void {
     this.recordAccessibilityAnnouncement(tourRuntimeText('This step could not continue.'), false);
+    if (this.options.authoringPreviewOwnerId) return;
     void import('./tour-choreography-recovery').then(({ showTourChoreographyRecovery }) => {
       if (!this.card.isConnected) return;
       showTourChoreographyRecovery(this.card, {

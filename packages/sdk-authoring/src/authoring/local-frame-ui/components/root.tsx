@@ -165,7 +165,6 @@ function resolveFocusRequestTarget(
   const blockSelector = [
     `.document-block${blockIdSelector}`,
     `.step-child${blockIdSelector}`,
-    `.rich-step-block-row${blockIdSelector}`,
     `.tour-step-row${blockIdSelector}`,
   ].join(', ');
   const focusScope = shell.querySelector<HTMLElement>(blockSelector);
@@ -189,14 +188,13 @@ function resolveFocusRequestTarget(
   const editSelector = [
     `.document-block${blockIdSelector} [data-action="edit-content"]`,
     `.step-child${blockIdSelector} [data-action="edit-content"]`,
-    `.rich-step-block-row${blockIdSelector} [data-rich-block-id], .rich-step-block-row${blockIdSelector} input, .rich-step-block-row${blockIdSelector} textarea`,
   ].join(', ');
   const requestedElement = shell.querySelector<HTMLElement>(
     request.target === 'edit' ? editSelector : blockSelector,
   );
   const contentFallback =
     request.reveal === 'content'
-      ? shell.querySelector<HTMLElement>('.rich-step-content .inline-insert-trigger')
+      ? shell.querySelector<HTMLElement>('.rich-step-content .rich-content-canvas')
       : null;
   return { element: requestedElement ?? contentFallback, focusScope };
 }

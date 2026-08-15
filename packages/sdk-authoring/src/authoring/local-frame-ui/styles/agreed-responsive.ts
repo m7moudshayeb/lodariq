@@ -1,5 +1,12 @@
 /** Responsive adaptations shared by approved authoring modes. */
 export const AUTHORING_AGREED_RESPONSIVE_CSS = `
+  @container authoring-frame (max-width: 980px) {
+    .storyboard-property-tray[data-tool-mode='content']
+      > .storyboard-tab-panel.behavior:not([data-section='appearance']) {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
   @container authoring-frame (max-width: 760px) {
     .storyboard-property-tray[data-tool-mode='placement'] > .placement-section,
     .storyboard-property-tray[data-tool-mode='popup'] > .step-presentation,
@@ -9,20 +16,15 @@ export const AUTHORING_AGREED_RESPONSIVE_CSS = `
       grid-template-columns: minmax(0, 1fr);
     }
 
-    .storyboard-property-tray[data-tool-mode='placement'] {
-      height: min(52%, 320px);
-      max-height: min(52%, 320px);
-    }
-
     .storyboard-property-tray[data-tool-mode='placement'] > .placement-section {
-      grid-template-rows: auto auto minmax(0, 1fr);
       overflow-y: auto;
     }
 
     .rich-content-toolbar {
-      align-content: flex-start;
-      max-height: none;
-      overflow: visible;
+      flex-wrap: nowrap;
+      max-height: var(--lq-control-sm);
+      overflow-x: auto;
+      overflow-y: hidden;
     }
 
     .rich-content-toolbar-spacer {
@@ -34,14 +36,8 @@ export const AUTHORING_AGREED_RESPONSIVE_CSS = `
     }
 
     .storyboard-property-tray[data-tool-mode='content']
-      > .storyboard-tab-panel.behavior:has([data-property-id='button.destination']) {
+      > .storyboard-tab-panel.behavior {
       grid-template-columns: minmax(0, 1fr);
-    }
-
-    .storyboard-property-tray[data-tool-mode='content']
-      > .storyboard-tab-panel.behavior:has([data-property-id='button.destination'])
-      .storyboard-property-control[data-property-id='button.action'] {
-      grid-column: 1;
     }
 
     .storyboard-property-tray[data-tool-mode='placement'] .tour-config-heading {
@@ -103,5 +99,10 @@ export const AUTHORING_AGREED_RESPONSIVE_CSS = `
     .tour-flow-settings > nav {
       grid-template-columns: repeat(2, minmax(0, 1fr));
     }
+  }
+
+  /* Chrome stays content-sized; the tray keeps its own row when open. */
+  .storyboard-canvas .rich-step-editor {
+    grid-template-rows: auto minmax(0, 1fr) auto;
   }
 `;

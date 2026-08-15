@@ -47,6 +47,16 @@ describe('inline preview editor', () => {
     paragraph.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText' }));
     await vi.runAllTimersAsync();
     expect(onCommit).not.toHaveBeenCalled();
+    expect(root.querySelector('[data-lodariq-authoring-context-toolbar="true"]')).toBeNull();
+
+    const button = document.createElement('button');
+    button.setAttribute(LODARIQ_RENDERED_NODE_ID_ATTRIBUTE, 'button_1');
+    button.setAttribute(LODARIQ_RENDERED_NODE_TYPE_ATTRIBUTE, 'button');
+    button.textContent = 'Continue';
+    root.appendChild(button);
+    editor.refresh();
+    expect(button.hasAttribute('contenteditable')).toBe(false);
+    expect(root.querySelector('[data-lodariq-authoring-context-toolbar="true"]')).toBeNull();
 
     editor.destroy();
   });

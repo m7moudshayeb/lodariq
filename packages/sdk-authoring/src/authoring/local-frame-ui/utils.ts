@@ -106,6 +106,7 @@ const BLOCK_TYPE_LABELS: Readonly<Record<string, string>> = {
   callout: authoringText('Callout'),
   stat: authoringText('Stat'),
   icon: authoringText('Icon'),
+  formField: authoringText('Form field'),
 };
 
 export function targetById(

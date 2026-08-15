@@ -28,6 +28,7 @@ export const TOUR_RENDERABLE_LEAF_BLOCK_TYPES = [
   'callout',
   'stat',
   'icon',
+  'formField',
 ] as const;
 
 export interface TourFlowActionNodeInput {

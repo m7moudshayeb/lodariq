@@ -93,6 +93,49 @@ export const MediaPresentation = Type.Union(
 );
 export type MediaPresentation = Static<typeof MediaPresentation>;
 
+/** Closed form-control recipe. Values stay in the player; Lodariq does not read a customer database. */
+export const FORM_FIELD_CONTROL_VALUES = ['checkbox', 'text', 'radio'] as const;
+export type FormFieldControl = (typeof FORM_FIELD_CONTROL_VALUES)[number];
+export const FORM_FIELD_SIZE_VALUES = ['compact', 'regular'] as const;
+export type FormFieldSize = (typeof FORM_FIELD_SIZE_VALUES)[number];
+export const FORM_FIELD_RADIUS_VALUES = ['theme', 'square', 'soft', 'round'] as const;
+export type FormFieldRadius = (typeof FORM_FIELD_RADIUS_VALUES)[number];
+const FORM_FIELD_CONTROL_SET = new Set<string>(FORM_FIELD_CONTROL_VALUES);
+const FORM_FIELD_SIZE_SET = new Set<string>(FORM_FIELD_SIZE_VALUES);
+const FORM_FIELD_RADIUS_SET = new Set<string>(FORM_FIELD_RADIUS_VALUES);
+const FORM_FIELD_COLOR_PATTERN = /^#[0-9a-fA-F]{6}$/u;
+const FORM_FIELD_NAME_PATTERN = /^[a-z][a-z0-9_]{0,63}$/u;
+const FORM_FIELD_OPTION_ID_PATTERN = /^[a-z][a-z0-9_]{0,63}$/u;
+
+export const FormFieldPresentation = Type.Object(
+  {
+    control: Type.Union(FORM_FIELD_CONTROL_VALUES.map((value) => Type.Literal(value))),
+    name: Type.Optional(Type.String({ minLength: 1, maxLength: 64, pattern: '^[a-z][a-z0-9_]*$' })),
+    required: Type.Optional(Type.Boolean()),
+    placeholder: Type.Optional(Type.String({ maxLength: 120 })),
+    options: Type.Optional(
+      Type.Array(
+        Type.Object(
+          {
+            id: Type.String({ minLength: 1, maxLength: 64, pattern: '^[a-z][a-z0-9_]*$' }),
+            label: Type.String({ minLength: 1, maxLength: 80 }),
+          },
+          { additionalProperties: false },
+        ),
+        { minItems: 2, maxItems: 8 },
+      ),
+    ),
+    fillColor: Type.Optional(Type.String({ pattern: '^#[0-9a-fA-F]{6}$' })),
+    textColor: Type.Optional(Type.String({ pattern: '^#[0-9a-fA-F]{6}$' })),
+    labelColor: Type.Optional(Type.String({ pattern: '^#[0-9a-fA-F]{6}$' })),
+    borderColor: Type.Optional(Type.String({ pattern: '^#[0-9a-fA-F]{6}$' })),
+    size: Type.Optional(Type.Union(FORM_FIELD_SIZE_VALUES.map((value) => Type.Literal(value)))),
+    radius: Type.Optional(Type.Union(FORM_FIELD_RADIUS_VALUES.map((value) => Type.Literal(value)))),
+  },
+  { $id: 'FormFieldPresentation', additionalProperties: false },
+);
+export type FormFieldPresentation = Static<typeof FormFieldPresentation>;
+
 export const SpotlightPresentation = Type.Object(
   {
     emphasis: Type.Union([
@@ -225,6 +268,51 @@ export function sanitizeResponsiveStepPresentation(
 
 export function sanitizeMediaPresentation(value: unknown): MediaPresentation | undefined {
   return checkedClone<MediaPresentation>(MediaPresentation, value);
+}
+
+export function sanitizeFormFieldPresentation(value: unknown): FormFieldPresentation | undefined {
+  if (!value || typeof value !== 'object') return undefined;
+  const record = value as Record<string, unknown>;
+  if (!FORM_FIELD_CONTROL_SET.has(record.control as string)) return undefined;
+  const next: FormFieldPresentation = { control: record.control as FormFieldControl };
+  if (typeof record.name === 'string' && FORM_FIELD_NAME_PATTERN.test(record.name)) {
+    next.name = record.name;
+  }
+  if (record.required === true) next.required = true;
+  if (typeof record.placeholder === 'string') {
+    const placeholder = record.placeholder.trim().slice(0, 120);
+    if (placeholder) next.placeholder = placeholder;
+  }
+  if (next.control === 'radio' && Array.isArray(record.options)) {
+    const options = record.options.flatMap((option) => {
+      if (!option || typeof option !== 'object') return [];
+      const item = option as Record<string, unknown>;
+      if (typeof item.id !== 'string' || !FORM_FIELD_OPTION_ID_PATTERN.test(item.id)) return [];
+      if (typeof item.label !== 'string') return [];
+      const label = item.label.trim().slice(0, 80);
+      return label ? [{ id: item.id, label }] : [];
+    });
+    if (options.length >= 2) next.options = options.slice(0, 8);
+  }
+  const fillColor = formFieldColor(record.fillColor);
+  if (fillColor) next.fillColor = fillColor;
+  const textColor = formFieldColor(record.textColor);
+  if (textColor) next.textColor = textColor;
+  const labelColor = formFieldColor(record.labelColor);
+  if (labelColor) next.labelColor = labelColor;
+  const borderColor = formFieldColor(record.borderColor);
+  if (borderColor) next.borderColor = borderColor;
+  if (typeof record.size === 'string' && FORM_FIELD_SIZE_SET.has(record.size)) {
+    next.size = record.size as FormFieldSize;
+  }
+  if (typeof record.radius === 'string' && FORM_FIELD_RADIUS_SET.has(record.radius)) {
+    next.radius = record.radius as FormFieldRadius;
+  }
+  return next;
+}
+
+function formFieldColor(value: unknown): string | undefined {
+  return typeof value === 'string' && FORM_FIELD_COLOR_PATTERN.test(value) ? value : undefined;
 }
 
 export function sanitizeSpotlightPresentation(value: unknown): SpotlightPresentation | undefined {

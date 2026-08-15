@@ -214,16 +214,14 @@ export const AUTHORING_TOUR_RAIL_CSS = `
     color: var(--lq-color-ink);
   }
 
-  .tour-step-action-menu,
-  .rich-step-block-action-menu {
+  .tour-step-action-menu {
     display: grid;
     min-width: 156px;
     gap: 4px;
     padding: 4px;
   }
 
-  .tour-step-action-menu .ui-button,
-  .rich-step-block-action-menu .ui-button {
+  .tour-step-action-menu .ui-button {
     width: 100%;
     min-height: 36px;
     justify-content: flex-start;
@@ -232,14 +230,12 @@ export const AUTHORING_TOUR_RAIL_CSS = `
     color: var(--lq-color-ink-soft);
   }
 
-  .tour-step-action-menu .ui-button:hover,
-  .rich-step-block-action-menu .ui-button:hover {
+  .tour-step-action-menu .ui-button:hover {
     background: var(--lq-color-primary-soft);
     color: var(--lq-color-ink);
   }
 
-  .tour-step-action-menu .ui-button.danger,
-  .rich-step-block-action-menu .ui-button.danger {
+  .tour-step-action-menu .ui-button.danger {
     color: var(--lq-color-danger);
   }
 

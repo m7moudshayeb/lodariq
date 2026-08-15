@@ -8,7 +8,6 @@ import {
   Type,
 } from '../design-system';
 import type { EditableActionType } from '../types';
-import type { CanvasToolbarPosition } from '../../canvas/canvas-style';
 import type { PopupResizeCorner } from '../../canvas/use-popup-transform';
 import { authoringText } from '../../../i18n';
 
@@ -33,7 +32,6 @@ export const TOOLTIP_POSITION_OPTIONS = [
 
 export const TEXT_SIZE_OPTIONS = TEXT_FONT_SIZE_VALUES;
 export type StoryboardToolMode = 'content' | 'placement' | 'popup';
-export type ActionToolbarPosition = CanvasToolbarPosition;
 export const CANVAS_ZOOM_LEVELS = [60, 70, 80, 90, 100, 110, 120] as const;
 export const DEFAULT_CANVAS_ZOOM = 80;
 
@@ -45,7 +43,6 @@ export const POPUP_RESIZE_CORNERS = [
 ] as const satisfies ReadonlyArray<{ value: PopupResizeCorner; label: string }>;
 
 export const STORYBOARD_TOOL_OPTIONS = [
-  { value: 'content', label: authoringText('Rich content'), icon: Type },
   { value: 'placement', label: authoringText('Placement'), icon: MousePointer2 },
   { value: 'popup', label: authoringText('Popup'), icon: PanelTop },
 ] as const satisfies ReadonlyArray<{

@@ -24,6 +24,7 @@ export const LODARIQ_MVP_BLOCK_TYPES = [
   'callout',
   'stat',
   'icon',
+  'formField',
   'link',
   'tourStep',
   'tooltip',

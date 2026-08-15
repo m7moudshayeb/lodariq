@@ -175,42 +175,6 @@ export abstract class ControllerPropertyFeature extends ControllerReliabilityFea
     });
   }
 
-  setActionAlignment(
-    blockId: string,
-    tooltipId: string,
-    actionAlign: NonNullable<TooltipLayoutProps['actionAlign']>,
-  ): void {
-    const block = findBlockById(this.documentState.blocks, blockId);
-    const tooltip = findBlockById(this.documentState.blocks, tooltipId);
-    if (!block || (block.type !== 'button' && block.type !== 'link')) return;
-    if (tooltip?.type !== 'tooltip') return;
-
-    const blockLayout = { ...block.props.blockLayout };
-    delete blockLayout.align;
-    const tooltipLayout = { ...tooltip.props.tooltipLayout, actionAlign };
-    const blockLayoutChanged =
-      JSON.stringify(block.props.blockLayout ?? {}) !== JSON.stringify(blockLayout);
-    const tooltipLayoutChanged =
-      JSON.stringify(tooltip.props.tooltipLayout ?? {}) !== JSON.stringify(tooltipLayout);
-    if (!blockLayoutChanged && !tooltipLayoutChanged) return;
-
-    let blocks = this.documentState.blocks;
-    if (blockLayoutChanged) {
-      blocks = setBlockLayoutInTree(blocks, blockId, blockLayout);
-    }
-    if (tooltipLayoutChanged) {
-      blocks = setTooltipLayoutInTree(blocks, tooltipId, tooltipLayout);
-    }
-    const nextDocument = { ...this.documentState, blocks };
-    this.commitCoordinatedMutation({
-      blockId,
-      coalescingKey: `action-alignment:${blockId}`,
-      operations: [{ op: 'replaceDocument', document: nextDocument }],
-      reduce: () => nextDocument,
-      status: authoringText('Action alignment updated'),
-    });
-  }
-
   setButtonStyle(blockId: string, patch: Partial<ButtonStyleProps>): void {
     const block = findBlockById(this.documentState.blocks, blockId);
     if (!block || (block.type !== 'button' && block.type !== 'link')) return;

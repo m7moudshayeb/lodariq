@@ -37,6 +37,7 @@ export const SLASH_COMMANDS = [
   { value: 'callout', label: authoringText('Callout') },
   { value: 'stat', label: authoringText('Stat') },
   { value: 'icon', label: authoringText('Icon') },
+  { value: 'formField', label: authoringText('Form field') },
 ] as const;
 
 export type SlashCommand = (typeof SLASH_COMMANDS)[number]['value'];
@@ -57,6 +58,7 @@ export const EDITABLE_BLOCK_TYPES = [
   'callout',
   'stat',
   'icon',
+  'formField',
 ] as const;
 export type EditableBlockTypeValue = (typeof EDITABLE_BLOCK_TYPES)[number];
 
@@ -83,6 +85,7 @@ export const EDITABLE_BLOCK_FIELD_CONFIG = {
   },
   stat: { fieldLabel: authoringText('Stat'), placeholder: authoringText('Untitled heading') },
   icon: { fieldLabel: authoringText('Icon'), placeholder: authoringText('Learn more') },
+  formField: { fieldLabel: authoringText('Field label'), placeholder: authoringText('Label') },
 } as const satisfies Record<EditableBlockTypeValue, { fieldLabel: string; placeholder: string }>;
 
 export const EDITABLE_ACTION_OPTIONS = [

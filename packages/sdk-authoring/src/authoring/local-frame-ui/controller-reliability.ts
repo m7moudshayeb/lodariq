@@ -27,7 +27,7 @@ import { ControllerDragDropFeature } from './controller-drag-drop';
 import { blockDisplayTitle } from './utils';
 
 export abstract class ControllerReliabilityFeature extends ControllerDragDropFeature {
-  protected abstract afterDocumentMutation(): void;
+  protected abstract afterDocumentMutation(options?: { skipNormalize?: boolean }): void;
   protected abstract commitContentRuns(
     blockId: string,
     value: string,

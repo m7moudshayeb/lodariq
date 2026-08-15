@@ -13,13 +13,27 @@ blocks from the outer tray. The creator authors a continuous document with a
 caret and selection. Lodariq translates that document to safe structured block
 JSON at the editor boundary.
 
-CTA buttons are decorator nodes in the same ordered Rich content document. A
-CTA can sit anywhere among text and media. Selecting its preview reveals an
-inline, contextual panel for label, click behavior, destination when relevant,
-and visual recipe; those controls are absent when the CTA is not being edited.
-Advanced flow configuration remains available from the canvas action context.
-The popup's insertion controls remain visible without requiring hover, but they
-open the single Rich content entry point instead of a separate Button workflow.
+Writing happens in place inside the popup. Format and insert controls live on a
+persistent toolbar in the authoring chrome around that popup, so the published
+preview stays clean and the tools stay available without a text selection or a
+hover. Hover gutter handles remain as an extra way to insert after a block,
+reorder, and open per-block settings.
+
+Media, icons, buttons, and form fields sit in the document flow. Icons can sit
+in a line of text. Media, buttons, and fields occupy a row but keep a caret
+before and after them, so the popup behaves like a Notion page rather than a
+stack of locked bricks. Consecutive buttons stack by default. The Popup tray
+**Action layout** control is the only way to put them on one line; **Action
+alignment** and **Action gap** live next to it and apply to the whole action
+row, not to a single button. **Start** keeps inline actions packed; **Stretch**
+spreads hug buttons to the popup edges.
+
+CTA buttons and form fields open a property tray under the canvas. Button
+and field settings use tabs, like popup layout. Fill, label color, and border
+stay on one row. Opening Placement or Popup closes that tray, and selecting a
+button or field closes Placement or Popup. The tray edits the Lexical node
+directly so the canvas stays in sync. Form field answers stay in the experience
+player; Lodariq does not read a customer database.
 
 The component is `RichContentEditor` in
 `packages/sdk-authoring/src/editor/rich-content-editor.tsx`. It is a standalone,
@@ -38,12 +52,15 @@ without importing those workflows.
 
 ## Editing behavior
 
-Creators can author normal text, headings, bulleted lists, callouts, dividers,
-links, emoji, icons, images, GIFs, videos, and CTA buttons in one field. Text
-selection stays visible while the toolbar preserves and formats that exact
-range. Text color and highlight remain direct toolbar controls; animation opens
-in a contextual Floating UI panel without introducing a separate area-selection
-mode. A selection can apply:
+Creators can author normal text, headings, bulleted lists, callouts, stats,
+dividers, links, emoji, icons, images, GIFs, videos, CTA buttons, and form
+fields (checkbox, text, radio) in one field. The toolbar is always visible
+while editing. Format actions apply to the current selection, or to the next
+typed characters when the caret is collapsed. Icon, emoji, media, divider,
+button, and field insert at the caret from the toolbar.
+Text color and highlight remain direct toolbar controls; animation opens in a
+contextual Floating UI panel without introducing a separate area-selection
+mode. A selection or caret can apply:
 
 - bold, italic, and underline;
 - a bounded font size;
@@ -73,10 +90,10 @@ Decorator items—buttons, media, icons, and dividers—can be selected directly
 Backspace or Delete removes a selected decorator, and a collapsed caret removes
 the adjacent decorator in the expected direction.
 
-Canonical change delivery is throttled to one trailing update per 200
-milliseconds. Lexical still updates its local editing surface synchronously, so
-typing and selection remain immediate while persistence and the authored popup
-are no longer rebuilt for every keystroke.
+Canonical change delivery is debounced until typing is idle (300 ms). Lexical
+still updates its local editing surface synchronously, so typing and selection
+remain immediate while persistence and the authored popup are not rebuilt for
+every keystroke.
 
 ## Media authoring
 
@@ -160,16 +177,18 @@ cannot be recovered from its orphaned asset ID and must be uploaded once again.
 ## Canonical and runtime boundary
 
 Lexical is used only inside `packages/sdk-authoring/src/editor`. The editor
-serializes to heading, paragraph, list, callout, divider, icon, media, and button
-blocks plus bounded `contentRuns` for inline marks, color, highlight, animation,
-and links. Lexical node keys, toolbar state, open menus, upload progress, local
-preview URLs, and selection state are never canonical data.
+serializes to heading, paragraph, list, callout, stat, divider, icon, media,
+button, and formField blocks plus bounded `contentRuns` for inline marks, color,
+highlight, animation, and links. Lexical node keys, toolbar state, open menus,
+upload progress, local preview URLs, and selection state are never canonical
+data.
 
 The compiler validates this structured JSON and the runtime renders the same
 ordered content. Runtime media resolution applies the stored dimensions and
 framing recipe, videos expose controls and optional captions/poster assets, and
-inline links are resolved through the safe-navigation policy. No raw HTML,
-arbitrary CSS, JavaScript, or custom icon SVG enters the document.
+inline links are resolved through the safe-navigation policy. Form fields render
+as native checkbox, text, and radio controls whose values stay in the player.
+No raw HTML, arbitrary CSS, JavaScript, or custom icon SVG enters the document.
 
 ## Current verification boundary
 

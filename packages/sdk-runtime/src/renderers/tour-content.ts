@@ -21,7 +21,10 @@ type BodyNodeRenderer = (node: RuntimeBodyNode, context: BodyNodeRenderContext) 
 
 interface BodyNodeRenderContext {
   onAction: (action: RuntimeAction | undefined) => void;
-  resolveMediaAsset?: (assetId: string, kind: 'image' | 'video' | 'captions') => string | null;
+  resolveMediaAsset?: (
+    assetId: string,
+    kind: 'image' | 'video' | 'captions',
+  ) => string | null | Promise<string | null>;
 }
 
 export const BODY_NODE_RENDERERS: Readonly<Record<string, BodyNodeRenderer>> = {
@@ -35,6 +38,7 @@ export const BODY_NODE_RENDERERS: Readonly<Record<string, BodyNodeRenderer>> = {
   callout: renderCalloutNode,
   stat: renderStatNode,
   icon: renderIconNode,
+  formField: renderFormFieldNode,
 };
 
 function renderHeadingNode(node: RuntimeBodyNode): HTMLElement {
@@ -113,23 +117,31 @@ function renderMediaNode(node: RuntimeBodyNode, context: BodyNodeRenderContext):
     setBodyNodeContent(placeholder, node);
     return placeholder;
   }
-  const resolved = safeNavigationDestination(
-    context.resolveMediaAsset?.(media.assetId, media.kind) ?? undefined,
-  );
-  if (!resolved) {
-    const unavailable = document.createElement('div');
-    setBodyNodeAttributes(unavailable, node);
-    unavailable.setAttribute('role', 'img');
-    unavailable.setAttribute('aria-label', media.accessibilityName);
-    unavailable.dataset['lodariqAssetId'] = media.assetId;
-    unavailable.dataset['lodariqMediaUnavailable'] = 'true';
-    return unavailable;
+  const primary = context.resolveMediaAsset?.(media.assetId, media.kind) ?? null;
+  if (isPendingMediaUrl(primary)) {
+    const placeholder = unavailableMedia(node, media);
+    void primary.then((url) => {
+      if (!placeholder.isConnected) return;
+      placeholder.replaceWith(materializeMedia(node, media, url, context));
+    });
+    return placeholder;
   }
+  return materializeMedia(node, media, primary, context);
+}
+
+function materializeMedia(
+  node: RuntimeBodyNode,
+  media: NonNullable<RuntimeBodyNode['props']['media']>,
+  url: string | null,
+  context: BodyNodeRenderContext,
+): HTMLElement {
+  const resolved = safeMediaAssetUrl(url);
+  if (!resolved) return unavailableMedia(node, media);
   if (media.kind === 'image') {
     const image = document.createElement('img');
     setBodyNodeAttributes(image, node);
     image.dataset['lodariqMediaReady'] = 'true';
-    image.src = resolved.href;
+    image.src = resolved;
     image.alt = media.accessibilityName;
     image.loading = 'lazy';
     if (media.heightPx) image.style.height = `${media.heightPx}px`;
@@ -141,7 +153,7 @@ function renderMediaNode(node: RuntimeBodyNode, context: BodyNodeRenderContext):
   const video = document.createElement('video');
   setBodyNodeAttributes(video, node);
   video.dataset['lodariqMediaReady'] = 'true';
-  video.src = resolved.href;
+  video.src = resolved;
   video.controls = true;
   video.preload = 'metadata';
   video.setAttribute('aria-label', media.accessibilityName);
@@ -150,24 +162,118 @@ function renderMediaNode(node: RuntimeBodyNode, context: BodyNodeRenderContext):
   video.style.width = `${media.widthPercent ?? 100}%`;
   if (media.aspectRatio) video.dataset['lodariqAspectRatio'] = media.aspectRatio;
   const captions = media.captionsAssetId
-    ? safeNavigationDestination(
-        context.resolveMediaAsset?.(media.captionsAssetId, 'captions') ?? undefined,
-      )
-    : null;
+    ? syncMediaHref(context.resolveMediaAsset?.(media.captionsAssetId, 'captions'))
+    : undefined;
   if (captions) {
     const track = document.createElement('track');
     track.kind = 'captions';
-    track.src = captions.href;
+    track.src = captions;
     track.default = true;
     video.appendChild(track);
   }
   const poster = media.posterAssetId
-    ? safeNavigationDestination(
-        context.resolveMediaAsset?.(media.posterAssetId, 'image') ?? undefined,
-      )
-    : null;
-  if (poster) video.poster = poster.href;
+    ? syncMediaHref(context.resolveMediaAsset?.(media.posterAssetId, 'image'))
+    : undefined;
+  if (poster) video.poster = poster;
   return video;
+}
+
+function unavailableMedia(
+  node: RuntimeBodyNode,
+  media: NonNullable<RuntimeBodyNode['props']['media']>,
+): HTMLElement {
+  const unavailable = document.createElement('div');
+  setBodyNodeAttributes(unavailable, node);
+  unavailable.setAttribute('role', 'img');
+  unavailable.setAttribute('aria-label', media.accessibilityName);
+  unavailable.dataset['lodariqAssetId'] = media.assetId;
+  unavailable.dataset['lodariqMediaUnavailable'] = 'true';
+  return unavailable;
+}
+
+function isPendingMediaUrl(value: string | null | Promise<string | null>): value is Promise<string | null> {
+  return typeof value === 'object' && value !== null && 'then' in value;
+}
+
+function syncMediaHref(value: string | null | Promise<string | null> | undefined): string | undefined {
+  if (typeof value !== 'string') return undefined;
+  return safeMediaAssetUrl(value) ?? undefined;
+}
+
+/** Resolver-backed media URLs, not author-controlled action links. */
+function safeMediaAssetUrl(url: string | null | undefined): string | null {
+  const trimmed = url?.trim();
+  if (!trimmed) return null;
+  if (trimmed.startsWith('blob:')) {
+    try {
+      return new URL(trimmed).protocol === 'blob:' ? trimmed : null;
+    } catch {
+      return null;
+    }
+  }
+  return safeNavigationDestination(trimmed)?.href ?? null;
+}
+
+function renderFormFieldNode(node: RuntimeBodyNode): HTMLElement {
+  const field = node.props.formField;
+  const control = field?.control ?? 'text';
+  const name = field?.name || `field_${node.id.replace(/[^a-z0-9]+/giu, '_').toLowerCase()}`;
+  const labelText = node.text?.trim() || node.props.accessibilityName || 'Field';
+  if (control === 'radio') {
+    const fieldset = document.createElement('fieldset');
+    setBodyNodeAttributes(fieldset, node);
+    applyFormFieldPresentation(fieldset, field);
+    const legend = document.createElement('legend');
+    legend.textContent = labelText;
+    fieldset.append(legend);
+    const options = field?.options?.length
+      ? field.options
+      : [
+          { id: 'option_a', label: 'Option 1' },
+          { id: 'option_b', label: 'Option 2' },
+        ];
+    for (const option of options) {
+      const choice = document.createElement('label');
+      const input = document.createElement('input');
+      input.type = 'radio';
+      input.name = name;
+      input.value = option.id;
+      if (field?.required) input.required = true;
+      choice.append(input, document.createTextNode(option.label));
+      fieldset.append(choice);
+    }
+    return fieldset;
+  }
+  const label = document.createElement('label');
+  setBodyNodeAttributes(label, node);
+  applyFormFieldPresentation(label, field);
+  const input = document.createElement('input');
+  input.name = name;
+  if (field?.required) input.required = true;
+  if (control === 'checkbox') {
+    input.type = 'checkbox';
+    label.append(input, document.createTextNode(labelText));
+    return label;
+  }
+  input.type = 'text';
+  if (field?.placeholder) input.placeholder = field.placeholder;
+  const caption = document.createElement('span');
+  caption.textContent = labelText;
+  label.append(caption, input);
+  return label;
+}
+
+function applyFormFieldPresentation(
+  element: HTMLElement,
+  field: RuntimeBodyNode['props']['formField'],
+): void {
+  if (!field) return;
+  if (field.size) element.dataset['lodariqFieldSize'] = field.size;
+  if (field.radius) element.dataset['lodariqFieldRadius'] = field.radius;
+  if (field.fillColor) element.style.setProperty('--lq-field-fill', field.fillColor);
+  if (field.textColor) element.style.setProperty('--lq-field-text', field.textColor);
+  if (field.labelColor) element.style.setProperty('--lq-field-label', field.labelColor);
+  if (field.borderColor) element.style.setProperty('--lq-field-border', field.borderColor);
 }
 
 function renderButtonNode(node: RuntimeBodyNode, context: BodyNodeRenderContext): HTMLElement {

@@ -124,7 +124,7 @@ export const AUTHORING_COMPACT_RESPONSIVE_CSS = `
 
     .storyboard-canvas .rich-step-editor {
       position: relative;
-      grid-template-rows: minmax(0, 1fr);
+      grid-template-rows: auto minmax(0, 1fr) auto;
       overflow: hidden;
     }
 
@@ -136,32 +136,6 @@ export const AUTHORING_COMPACT_RESPONSIVE_CSS = `
       .rich-step-editor:has(.storyboard-property-tray)
       .storyboard-editor-stage {
       padding-top: 12px;
-    }
-
-    .storyboard-editor-stage .action-context-toolbar {
-      max-width: calc(100% - 16px);
-      overflow-x: auto;
-      overflow-y: visible;
-      scrollbar-width: thin;
-    }
-
-    .storyboard-editor-stage .action-context-toolbar button {
-      min-width: 36px;
-      min-height: 36px;
-      gap: 4px;
-      padding: 0 8px;
-    }
-
-    .storyboard-editor-stage .action-context-toolbar button:not(.action-context-identity) span {
-      display: none;
-    }
-
-    .storyboard-editor-stage .action-context-toolbar .action-context-identity {
-      max-width: 152px;
-    }
-
-    .action-context-identity small {
-      display: none;
     }
 
     .storyboard-property-tray {
@@ -213,17 +187,13 @@ export const AUTHORING_COMPACT_RESPONSIVE_CSS = `
   }
 
   @media (max-height: 640px) {
-    .storyboard-editor-stage .action-context-toolbar {
-      display: flex;
-    }
-
     .storyboard-canvas .rich-step-editor:has(.storyboard-property-tray) {
-      grid-template-rows: minmax(88px, 1fr) minmax(0, 184px);
+      grid-template-rows: auto minmax(88px, 1fr) minmax(0, 184px);
     }
 
     @container authoring-frame (max-width: 760px) {
       .storyboard-canvas .rich-step-editor:has(.storyboard-property-tray) {
-        grid-template-rows: minmax(0, 1fr);
+        grid-template-rows: auto minmax(0, 1fr) minmax(72px, 40%);
       }
     }
 

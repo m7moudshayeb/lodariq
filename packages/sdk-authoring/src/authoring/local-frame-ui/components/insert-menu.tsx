@@ -17,6 +17,7 @@ import {
   Heading,
   Image,
   CircleAlert,
+  CircleCheck,
   Activity,
   Shapes,
   Link as LinkIcon,
@@ -55,6 +56,10 @@ export const COMMAND_DETAILS: Record<SlashCommand, { description: string; icon: 
   icon: {
     description: authoringText('Add an icon'),
     icon: <Shapes size={14} strokeWidth={2.2} />,
+  },
+  formField: {
+    description: authoringText('Add a form field'),
+    icon: <CircleCheck size={14} strokeWidth={2.2} />,
   },
   link: {
     description: authoringText('Add a link'),

@@ -10,6 +10,7 @@ import { authoringText } from '../../../i18n';
 import type { LocalAuthoringFrameController } from '../controller';
 import {
   ACTION_LAYOUT_OPTIONS,
+  BLOCK_ALIGNMENT_OPTIONS,
   BLOCK_SPACING_OPTIONS,
   CONTENT_ALIGNMENT_OPTIONS,
   POPUP_ARROW_OPTIONS,
@@ -80,11 +81,21 @@ export function PopupCompositionInspector({
           />
           <PropertyChoiceField
             label={authoringText('Action layout')}
-            value={layout.actionLayout ?? 'inline'}
+            value={layout.actionLayout ?? 'stack'}
             options={ACTION_LAYOUT_OPTIONS}
             onChange={(actionLayout) =>
               controller.setTooltipLayout(tooltip.id, {
                 actionLayout: actionLayout as NonNullable<TooltipLayoutProps['actionLayout']>,
+              })
+            }
+          />
+          <PropertyChoiceField
+            label={authoringText('Action alignment')}
+            value={layout.actionAlign ?? 'start'}
+            options={BLOCK_ALIGNMENT_OPTIONS}
+            onChange={(actionAlign) =>
+              controller.setTooltipLayout(tooltip.id, {
+                actionAlign: actionAlign as NonNullable<TooltipLayoutProps['actionAlign']>,
               })
             }
           />

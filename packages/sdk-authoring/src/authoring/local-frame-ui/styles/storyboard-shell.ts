@@ -26,11 +26,6 @@ export const AUTHORING_STORYBOARD_SHELL_CSS = `
       margin-bottom: var(--lq-space-2);
     }
 
-    .rich-step-toolbar {
-      min-height: var(--lq-control-md);
-      padding-block: var(--lq-space-1);
-    }
-
     .rich-step-content {
       min-height: 80px;
       padding-block: var(--lq-space-2);
@@ -203,14 +198,6 @@ export const AUTHORING_STORYBOARD_SHELL_CSS = `
       min-width: 0;
     }
 
-    .rich-step-toolbar-divider,
-    .rich-step-toolbar select:nth-child(2) {
-      display: none;
-    }
-
-    .rich-step-block-row {
-      grid-template-columns: 20px minmax(0, 1fr) 26px;
-    }
   }
 
   /* Storyboard Studio: selected Editorial Air authoring composition. */

@@ -5,11 +5,13 @@ import { StepChoreography, sanitizeStepChoreography } from './choreography';
 import { StepTransition, sanitizeStepTransition } from './flow';
 import { isSafeNavigationUrl } from './url';
 import {
+  FormFieldPresentation,
   MediaPresentation,
   ResponsiveStepPresentation,
   SpotlightPresentation,
   StructuredCompositionPresentation,
   TourMotionPresentation,
+  sanitizeFormFieldPresentation,
   sanitizeMediaPresentation,
   sanitizeResponsiveStepPresentation,
   sanitizeSpotlightPresentation,
@@ -29,6 +31,7 @@ export const LodariqBlockType = Type.Union(
     Type.Literal('callout'),
     Type.Literal('stat'),
     Type.Literal('icon'),
+    Type.Literal('formField'),
     // Action
     Type.Literal('button'),
     Type.Literal('link'),
@@ -382,6 +385,7 @@ export const LodariqBlockProps = Type.Object(
     /** Optional passive sequence that starts when a Tour step becomes presentable. */
     entrySequence: Type.Optional(Type.Ref(StepChoreography)),
     media: Type.Optional(Type.Ref(MediaPresentation)),
+    formField: Type.Optional(Type.Ref(FormFieldPresentation)),
     motion: Type.Optional(Type.Ref(TourMotionPresentation)),
     responsive: Type.Optional(Type.Ref(ResponsiveStepPresentation)),
     spotlight: Type.Optional(Type.Ref(SpotlightPresentation)),
@@ -419,6 +423,8 @@ export function sanitizeBlockProps(props: Record<string, unknown>): LodariqBlock
   if (entrySequence) next.entrySequence = entrySequence;
   const media = sanitizeMediaPresentation(props.media);
   if (media) next.media = media;
+  const formField = sanitizeFormFieldPresentation(props.formField);
+  if (formField) next.formField = formField;
   const motion = sanitizeTourMotionPresentation(props.motion);
   if (motion) next.motion = motion;
   const responsive = sanitizeResponsiveStepPresentation(props.responsive);
