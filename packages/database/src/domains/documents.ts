@@ -26,6 +26,15 @@ export interface SaveDocumentInput {
   document: LodariqDocument;
   actorUserId: string;
   artifact?: CompiledDocument;
+  /** Compare-and-swap guard for an existing canonical draft revision. */
+  expectedUpdatedAt?: string;
+}
+
+export class DocumentSaveConflictError extends Error {
+  constructor(readonly currentUpdatedAt: string | null) {
+    super('Document changed since it was loaded');
+    this.name = 'DocumentSaveConflictError';
+  }
 }
 
 export interface CreateEnvironmentTokenInput {

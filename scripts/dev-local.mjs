@@ -57,6 +57,8 @@ function isolatedEnvironment(source) {
   deleteOperatorOnlyDatabaseValues(configured);
   delete configured.LODARIQ_AUTH_EMAIL_FROM;
   delete configured.LODARIQ_AUTH_EMAIL_TOKEN_SECRET;
+  delete configured.LODARIQ_AUTH_EMAIL_TOKEN_KEYS;
+  delete configured.LODARIQ_AUTH_EMAIL_TOKEN_ACTIVE_KEY_ID;
   delete configured.RESEND_API_KEY;
   return configured;
 }

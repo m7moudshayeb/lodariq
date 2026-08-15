@@ -145,6 +145,7 @@ function openCreatorAuthoringPanel(
 ): void {
   const { document } = payload;
   const exactTheme = structuredClone(payload.theme);
+  let documentUpdatedAt = payload.documentUpdatedAt;
   let brandSessionTheme = structuredClone(exactTheme);
   requireCreatorAuthoringContext(context);
   if (document.id !== manifest.documentId || document.workspaceId !== context.workspaceId) {
@@ -219,6 +220,12 @@ function openCreatorAuthoringPanel(
                     previewOptions.onChoreographyStageChange?.(step.id, update),
                 }
               : {}),
+            ...(previewOptions.onChoreographyRecovery
+              ? {
+                  onChoreographyRecovery: (step, update) =>
+                    previewOptions.onChoreographyRecovery?.(step.id, update),
+                }
+              : {}),
             ...(previewOptions.onBranchChoice
               ? {
                   onBranchChoice: (step, ruleIndex, destination) =>
@@ -235,7 +242,10 @@ function openCreatorAuthoringPanel(
         },
         stopPreview: (ownerId) => api.stopAuthoringPreview?.(ownerId),
       },
-      onSave: (document) => saveCreatorDocument(config, context, document),
+      onSave: async (document) => {
+        const saved = await saveCreatorDocument(config, context, document, documentUpdatedAt);
+        documentUpdatedAt = saved.documentUpdatedAt;
+      },
       ...(context.authoring.release?.releaseState.capability ===
       AUTHORING_SESSION_CAPABILITIES.READ_RELEASE_STATE
         ? {
@@ -373,18 +383,30 @@ async function saveCreatorDocument(
   config: LoaderConfig,
   context: SdkInstallContext,
   document: LodariqDocument,
-): Promise<void> {
+  expectedDocumentUpdatedAt: string,
+): Promise<AuthoringDocumentPayload> {
   const saveDocumentUrl = context.authoring?.saveDocumentUrl;
   if (!saveDocumentUrl) {
     throw new Error('Lodariq creator authoring save URL is missing');
   }
-  await fetchCreatorAuthoringEndpoint(config, saveDocumentUrl, {
+  const response = await fetchCreatorAuthoringEndpoint(config, saveDocumentUrl, {
     method: 'POST',
     headers: {
       'content-type': 'application/json',
     },
-    body: JSON.stringify({ document }),
+    body: JSON.stringify({ document, expectedDocumentUpdatedAt }),
   });
+  const result = validate(AuthoringDocumentPayloadSchema, await readCreatorJson(response));
+  if (!result.valid) {
+    throw new Error('Lodariq creator authoring save response is invalid');
+  }
+  if (
+    result.value.document.id !== context.manifest.documentId ||
+    result.value.document.workspaceId !== context.workspaceId
+  ) {
+    throw new Error('Lodariq creator saved document does not match the SDK bootstrap context');
+  }
+  return structuredClone(result.value);
 }
 
 async function fetchCreatorAuthoringEndpoint(

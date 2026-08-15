@@ -8,6 +8,7 @@ import { subscribeToNamedRuntimeEvent } from '../runtime/named-events';
 import {
   ChoreographyStageTimeoutError,
   executeStepChoreography,
+  waitForObservedTargetInput,
   type ChoreographyStageUpdate,
 } from './tour-choreography';
 import { TourPresentationCanceledError } from './tour-errors';
@@ -15,7 +16,7 @@ import { acquireNetworkActivityTracker, delay } from './tour-lifecycle';
 
 export { ChoreographyStageTimeoutError };
 
-export type ChoreographyTargetAction = 'activate' | 'observe-click' | 'focus' | 'anchor';
+export type ChoreographyTargetAction = 'activate' | 'observe-click' | 'focus' | 'input' | 'anchor';
 
 export interface RuntimeChoreographyEnvironment {
   resolveTarget: (targetId: string, requiredAction: ChoreographyTargetAction) => Element | null;
@@ -65,6 +66,11 @@ async function runTrigger(
   if (trigger.type === 'observeTargetFocus') {
     const target = await waitForTarget(targetId, 'focus', resolveTarget, signal);
     await waitForElementFocus(target, signal);
+    return;
+  }
+  if (trigger.type === 'observeTargetInput') {
+    const target = await waitForTarget(targetId, 'input', resolveTarget, signal);
+    await waitForObservedTargetInput(target, signal);
     return;
   }
   const target = await waitForTarget(targetId, 'observe-click', resolveTarget, signal);

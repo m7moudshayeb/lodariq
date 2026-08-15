@@ -992,8 +992,7 @@ describe('local authoring panel (PRD §16.1)', () => {
     panel.close();
   });
 
-  it('edits rendered tooltip text directly and sends one semantic commit per field', async () => {
-    document.head.innerHTML = '<meta property="csp-nonce" nonce="nonce_inline_preview">';
+  it('keeps rendered tooltip content output-only while authoring stays in the iframe', async () => {
     document.body.innerHTML = `
       <button data-lodariq-id="new-project" aria-label="New project">New project</button>
     `;
@@ -1013,6 +1012,7 @@ describe('local authoring panel (PRD §16.1)', () => {
         height: 48,
         toJSON: () => ({}),
       }) as DOMRect;
+
     const placedDocument = structuredClone(baseDocument);
     placedDocument.targets = [
       {
@@ -1029,32 +1029,17 @@ describe('local authoring panel (PRD §16.1)', () => {
     const tooltip = placedDocument.blocks[0]!.children[0]!;
     tooltip.status = 'ready';
     tooltip.props.targetId = 'target_1';
-    tooltip.children.splice(1, 0, {
-      id: 'paragraph_1',
-      type: 'paragraph',
-      content: 'Start by opening a new project.',
-      props: {},
-      status: 'ready',
-      children: [],
-    });
 
     const peer = { postMessage: vi.fn() } as unknown as Window;
     let player: TourPlayer | null = null;
-    const playPreview = vi.fn(
-      async (
-        compiled: CompiledDocument,
-        previewOptions?: { ownerId: string; interactive?: boolean; stepId?: string },
-      ): Promise<void> => {
-        player?.stop();
-        player = new TourPlayer(compiled, {
-          ...(previewOptions?.ownerId ? { authoringPreviewOwnerId: previewOptions.ownerId } : {}),
-          ...(previewOptions?.interactive ? { authoringPreviewInteractive: true } : {}),
-          ...(previewOptions?.stepId ? { initialStepId: previewOptions.stepId } : {}),
-        });
-        player.start();
-        await player.waitUntilReady();
-      },
-    );
+    const playPreview = vi.fn(async (compiled: CompiledDocument): Promise<void> => {
+      player?.stop();
+      player = new TourPlayer(compiled, {
+        authoringPreviewOwnerId: LOCAL_AUTHORING_SESSION_ID,
+      });
+      player.start();
+      await player.waitUntilReady();
+    });
     const panel = openLocalAuthoringPanel(
       {
         sessionId: LOCAL_AUTHORING_SESSION_ID,
@@ -1089,213 +1074,23 @@ describe('local authoring panel (PRD §16.1)', () => {
     await vi.waitFor(() => expect(playPreview).toHaveBeenCalledOnce());
     const tourRoot = document.querySelector('lodariq-tour')?.shadowRoot;
     const heading = tourRoot?.querySelector<HTMLElement>('[data-lodariq-node-id="heading_1"]');
-    const paragraph = tourRoot?.querySelector<HTMLElement>('[data-lodariq-node-id="paragraph_1"]');
     const action = tourRoot?.querySelector<HTMLElement>('[data-lodariq-node-id="button_1"]');
-    if (!heading || !paragraph) throw new Error('inline preview fields missing');
+    if (!heading || !action) throw new Error('preview output missing');
 
-    expect(heading.getAttribute('contenteditable')).toBe('true');
-    expect(heading.getAttribute('role')).toBe('textbox');
-    expect(heading.getAttribute('aria-label')).toBe('Edit heading in preview');
-    expect(paragraph.getAttribute('aria-label')).toBe('Edit body text in preview');
-    expect(action?.getAttribute('contenteditable')).toBe('true');
-    expect(action?.getAttribute('aria-label')).toBe('Edit button label in preview');
-    const contextToolbar = tourRoot?.querySelector<HTMLElement>(
-      '[data-lodariq-authoring-context-toolbar="true"]',
-    );
-    expect(contextToolbar?.getAttribute('role')).toBe('toolbar');
-    expect(contextToolbar?.querySelector('[aria-label="Tooltip placement"]')).toBeTruthy();
-    expect(contextToolbar?.querySelector('[aria-label="Button action"]')).toBeTruthy();
-    await vi.waitFor(() => expect(tourRoot?.activeElement).toBe(heading));
-    expect(
-      tourRoot?.querySelector<HTMLStyleElement>('[data-lodariq-authoring-inline-style="true"]')
-        ?.nonce,
-    ).toBe('nonce_inline_preview');
-    const inlineEditorStyles =
-      tourRoot?.querySelector<HTMLStyleElement>('[data-lodariq-authoring-inline-style="true"]')
-        ?.textContent ?? '';
-    expect(inlineEditorStyles).toContain('background: #ffffff');
-    expect(inlineEditorStyles).not.toContain('background: #1f2126');
+    expect(heading.hasAttribute('contenteditable')).toBe(false);
+    expect(action.hasAttribute('contenteditable')).toBe(false);
+    expect(tourRoot?.querySelector('[data-lodariq-authoring-context-toolbar="true"]')).toBeNull();
+    expect(tourRoot?.querySelector('[data-lodariq-authoring-inline-style="true"]')).toBeNull();
 
-    const deliveredTour = new TourPlayer(
-      await compileDocument({
-        document: placedDocument,
-        theme: LODARIQ_ACCESSIBLE_FALLBACK_THEME_V1,
-        rendererContractVersion: RENDERER_CONTRACT_VERSION,
-      }),
-    );
-    deliveredTour.start();
-    await deliveredTour.waitUntilReady();
-    await Promise.resolve();
-    const deliveredRoot = [...document.querySelectorAll('lodariq-tour')].find(
-      (host) => !host.hasAttribute('data-lodariq-authoring-preview-owner'),
-    )?.shadowRoot;
-    expect(
-      deliveredRoot
-        ?.querySelector('[data-lodariq-node-id="heading_1"]')
-        ?.hasAttribute('contenteditable'),
-    ).toBe(false);
-    expect(heading.getAttribute('contenteditable')).toBe('true');
-    deliveredTour.stop();
-
-    vi.mocked(peer.postMessage).mockClear();
-    heading.focus();
-    heading.textContent = 'Launch your first project';
+    heading.textContent = 'This DOM mutation is not an authoring commit';
     heading.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText' }));
+    heading.dispatchEvent(new FocusEvent('focusout', { bubbles: true }));
+    await Promise.resolve();
     expect(outboundMessages(peer, AUTHORING_INLINE_CONTENT_COMMIT_TYPE)).toHaveLength(0);
-    dispatchPreviewPatch(peer, 'preview_patch_active_heading', 'heading_1', [
-      { op: 'updateContent', content: 'Launch your first project' },
-    ]);
-    await Promise.resolve();
-    expect(playPreview).toHaveBeenCalledOnce();
-    expect(tourRoot?.activeElement).toBe(heading);
-
-    dispatchPreviewPatch(peer, 'preview_patch_active_heading_runs', 'heading_1', [
-      {
-        op: 'updateContentRuns',
-        content: 'Launch your first project',
-        contentRuns: [{ text: 'Launch your first project', marks: ['bold'] }],
-      },
-    ]);
-    await Promise.resolve();
-    expect(playPreview).toHaveBeenCalledOnce();
-    expect(tourRoot?.activeElement).toBe(heading);
-    heading.blur();
-
-    const headingCommit = outboundMessages(peer, AUTHORING_INLINE_CONTENT_COMMIT_TYPE)[0];
-    expect(headingCommit).toMatchObject({
-      blockId: 'heading_1',
-      content: 'Launch your first project',
-    });
-    if (!headingCommit) throw new Error('heading commit missing');
-    ackOutboundMessage(peer, headingCommit);
-
-    paragraph.focus();
-    paragraph.textContent = 'Open a project and invite your team.';
-    paragraph.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText' }));
-    const enter = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true });
-    paragraph.dispatchEvent(enter);
-
-    expect(enter.defaultPrevented).toBe(true);
-    expect(outboundMessages(peer, AUTHORING_INLINE_CONTENT_COMMIT_TYPE)).toHaveLength(2);
-    const paragraphCommit = outboundMessages(peer, AUTHORING_INLINE_CONTENT_COMMIT_TYPE)[1];
-    expect(paragraphCommit).toMatchObject({
-      blockId: 'paragraph_1',
-      content: 'Open a project and invite your team.',
-    });
-    if (!paragraphCommit) throw new Error('paragraph commit missing');
-    ackOutboundMessage(peer, paragraphCommit);
-
-    if (!action) throw new Error('button preview field missing');
-    action.focus();
-    action.textContent = 'Show me';
-    action.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText' }));
-    const actionClick = new MouseEvent('click', { bubbles: true, cancelable: true });
-    action.dispatchEvent(actionClick);
-    expect(actionClick.defaultPrevented).toBe(true);
-    expect(tourRoot?.activeElement).toBe(action);
-    const actionLabelCommit = outboundMessages(peer, AUTHORING_INLINE_CONTENT_COMMIT_TYPE)[2];
-    expect(actionLabelCommit).toMatchObject({ blockId: 'button_1', content: 'Show me' });
-    if (!actionLabelCommit) throw new Error('button label commit missing');
-    ackOutboundMessage(peer, actionLabelCommit);
-    action.blur();
-    expect(outboundMessages(peer, AUTHORING_INLINE_CONTENT_COMMIT_TYPE)).toHaveLength(3);
-
-    const placementControl = contextToolbar?.querySelector<HTMLButtonElement>(
-      '[aria-label="Tooltip placement"]',
-    );
-    if (!placementControl) throw new Error('placement control missing');
-    placementControl.click();
-    const placementOption = contextToolbar?.querySelector<HTMLButtonElement>(
-      '[role="option"][data-value="top"]',
-    );
-    if (!placementOption) throw new Error('placement option missing');
-    placementOption.click();
-    const placementCommit = outboundMessages(peer, AUTHORING_INLINE_CONTROL_COMMIT_TYPE)[0];
-    expect(placementCommit).toMatchObject({
-      operation: { kind: 'setPlacement', blockId: 'tooltip_1', placement: 'top' },
-    });
-    if (!placementCommit) throw new Error('placement commit missing');
-    ackOutboundMessage(peer, placementCommit);
-
-    const actionControl = contextToolbar?.querySelector<HTMLButtonElement>(
-      '[aria-label="Button action"]',
-    );
-    if (!actionControl) throw new Error('action control missing');
-    actionControl.click();
-    const completeOption = contextToolbar?.querySelector<HTMLButtonElement>(
-      '[role="option"][data-value="complete"]',
-    );
-    if (!completeOption) throw new Error('complete action option missing');
-    completeOption.dispatchEvent(
-      new MouseEvent('pointerdown', { bubbles: true, cancelable: true, composed: true }),
-    );
-    expect(completeOption.closest<HTMLElement>('[role="listbox"]')?.hidden).toBe(false);
-    completeOption.click();
-    const actionCommit = outboundMessages(peer, AUTHORING_INLINE_CONTROL_COMMIT_TYPE)[1];
-    expect(actionCommit).toMatchObject({
-      operation: { kind: 'setAction', blockId: 'button_1', actionType: 'complete' },
-    });
-    if (!actionCommit) throw new Error('action commit missing');
-    ackOutboundMessage(peer, actionCommit);
-
-    heading.focus();
-    heading.textContent = 'Discard this change';
-    heading.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText' }));
-    heading.dispatchEvent(
-      new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }),
-    );
-    expect(heading.textContent).toBe('Launch your first project');
-    expect(outboundMessages(peer, AUTHORING_INLINE_CONTENT_COMMIT_TYPE)).toHaveLength(3);
-
-    window.dispatchEvent(
-      new MessageEvent('message', {
-        data: {
-          protocol: BRIDGE_PROTOCOL_VERSION,
-          sessionId: LOCAL_AUTHORING_SESSION_ID,
-          documentId: placedDocument.id,
-          correlationId: 'footer_full_preview',
-          type: 'authoring.preview.request',
-          mode: 'full',
-        },
-        origin: window.location.origin,
-        source: peer,
-      }),
-    );
-    await vi.waitFor(() => expect(playPreview).toHaveBeenCalledTimes(2));
-    await vi.waitFor(() =>
-      expect(peer.postMessage).toHaveBeenCalledWith(
-        expect.objectContaining({ type: 'ack', ackOf: 'footer_full_preview' }),
-        window.location.origin,
-      ),
-    );
-    await vi.waitFor(() => expect(heading.hasAttribute('contenteditable')).toBe(false));
-    expect(playPreview.mock.calls[1]?.[1]).toMatchObject({ interactive: true });
-    expect(authoringHost?.hasAttribute('data-lodariq-panel-minimized')).toBe(true);
-    expect(
-      document
-        .querySelector('lodariq-tour')
-        ?.shadowRoot?.querySelector('[data-lodariq-node-id="heading_1"]')
-        ?.getAttribute('contenteditable'),
-    ).toBeNull();
-
-    authoringHost?.shadowRoot
-      ?.querySelector<HTMLButtonElement>('[data-panel-action="minimize"]')
-      ?.click();
-    await vi.waitFor(() => expect(playPreview).toHaveBeenCalledTimes(3));
-    await vi.waitFor(() =>
-      expect(
-        document
-          .querySelector('lodariq-tour')
-          ?.shadowRoot?.querySelector('[data-lodariq-node-id="heading_1"]')
-          ?.getAttribute('contenteditable'),
-      ).toBe('true'),
-    );
-    expect(authoringHost?.hasAttribute('data-lodariq-panel-minimized')).toBe(false);
 
     panel.close();
     expect(document.querySelector('lodariq-tour')).toBeNull();
   });
-
   it('debounces semantic document autosaves and persists the latest state', async () => {
     vi.useFakeTimers();
     const onSave = vi.fn<(document: LodariqDocument) => Promise<void>>(() => Promise.resolve());

@@ -440,11 +440,17 @@ export function requiredTargetActionForBlock(block: LodariqBlock | null): Target
 export function slashCommandDefaultContent(type: EditableBlockType): string {
   if (type === 'button') return authoringText('Continue');
   if (type === 'media') return authoringText('Media placeholder');
+  if (type === 'callout') return authoringText('Write supporting copy');
+  if (type === 'stat') return authoringText('Untitled heading');
+  if (type === 'icon') return authoringText('Learn more');
   return '';
 }
 
 export function insertedStepContentDefault(type: EditableBlockType): string {
   if (type === 'button') return authoringText('Continue');
   if (type === 'media') return authoringText('Media placeholder');
+  if (type === 'callout') return authoringText('Write supporting copy');
+  if (type === 'stat') return authoringText('Untitled heading');
+  if (type === 'icon') return authoringText('Learn more');
   return '';
 }

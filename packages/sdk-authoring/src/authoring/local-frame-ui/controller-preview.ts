@@ -7,7 +7,12 @@ import {
   type LodariqBlock,
 } from '@lodariq/schema';
 import { createBridgeCorrelationId } from '../../bridge/transport';
-import { editableBlockTypeValue, findBlockById, slashCommandType } from './utils';
+import {
+  editableBlockTypeValue,
+  findBlockById,
+  isEditableControl,
+  slashCommandType,
+} from './utils';
 import { blockContainsId, targetInspectActionForButtonAction } from './controller-model';
 
 export abstract class ControllerPreviewFeature extends ControllerHistoryReleaseFeature {
@@ -54,6 +59,18 @@ export abstract class ControllerPreviewFeature extends ControllerHistoryReleaseF
   }
 
   protected readonly handleWindowKeyDown = (event: globalThis.KeyboardEvent): void => {
+    if (
+      (event.metaKey || event.ctrlKey) &&
+      !event.altKey &&
+      !isEditableControl(event.target) &&
+      event.key.toLowerCase() === 'z'
+    ) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      if (event.shiftKey) this.redo();
+      else this.undo();
+      return;
+    }
     if (event.key !== 'Escape') return;
     const pendingAnchor = this.pendingPresentationAnchorPick;
     if (pendingAnchor) {

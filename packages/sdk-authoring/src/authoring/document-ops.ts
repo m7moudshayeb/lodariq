@@ -21,7 +21,16 @@ import { createBlockId } from '../editor/ids';
 import { authoringText } from '../i18n';
 
 export type EditableBlockType =
-  'paragraph' | 'heading' | 'list' | 'divider' | 'button' | 'link' | 'media';
+  | 'paragraph'
+  | 'heading'
+  | 'list'
+  | 'divider'
+  | 'button'
+  | 'link'
+  | 'media'
+  | 'callout'
+  | 'stat'
+  | 'icon';
 export type BlockDirection = 'up' | 'down';
 export type BlockInsertPosition = 'before' | 'after';
 export type TooltipPlacement = NonNullable<LodariqBlock['props']['placement']>;
@@ -44,6 +53,9 @@ const DEFAULT_CONTENT_BY_TYPE = {
   button: authoringText('Continue'),
   link: authoringText('Learn more'),
   media: authoringText('Media placeholder'),
+  callout: authoringText('Write supporting copy'),
+  stat: authoringText('Untitled heading'),
+  icon: authoringText('Learn more'),
 } as const satisfies Record<EditableBlockType, string>;
 
 const DEFAULT_PROPS_BY_TYPE = {
@@ -57,6 +69,18 @@ const DEFAULT_PROPS_BY_TYPE = {
     action: { type: 'openPage', navigationBehavior: 'continue' },
   },
   media: {},
+  callout: {
+    accessibilityName: authoringText('Write supporting copy'),
+    composition: { kind: 'callout', tone: 'info' },
+  },
+  stat: {
+    accessibilityName: authoringText('Untitled heading'),
+    composition: { kind: 'stat', emphasis: 'strong' },
+  },
+  icon: {
+    accessibilityName: authoringText('Learn more'),
+    composition: { kind: 'icon', icon: 'info' },
+  },
 } as const satisfies Record<EditableBlockType, LodariqBlock['props']>;
 
 const INCOMPLETE_ON_CREATE_TYPES = new Set<EditableBlockType>(['button', 'link', 'media']);
@@ -648,6 +672,23 @@ export function insertBlockInsideTourStep(
   return inserted ? next : null;
 }
 
+const SEPARATE_STEP_ACTION_TYPES = new Set<LodariqBlock['type']>(['button', 'link']);
+
+/** Replaces the freeform document body while retaining separately authored actions and utility nodes. */
+export function replaceRichContentInsideTourStep(
+  blocks: LodariqBlock[],
+  stepBlockId: string,
+  richContent: readonly LodariqBlock[],
+): LodariqBlock[] | null {
+  let replaced = false;
+  const next = blocks.map((item) => {
+    const updated = replaceRichContentInsideStep(item, stepBlockId, richContent);
+    if (updated !== item) replaced = true;
+    return normalizeBlockStatus(updated);
+  });
+  return replaced ? next : null;
+}
+
 export function moveStepChildBlock(
   blocks: LodariqBlock[],
   stepBlockId: string,
@@ -954,6 +995,47 @@ function stepTooltipChildren(
   return step.children.map((child) =>
     child.id === existingTooltip.id ? { ...child, children: updatedChildren } : child,
   );
+}
+
+function replaceRichContentInsideStep(
+  block: LodariqBlock,
+  stepBlockId: string,
+  richContent: readonly LodariqBlock[],
+): LodariqBlock {
+  if (block.id !== stepBlockId) {
+    let changed = false;
+    const children = block.children.map((child) => {
+      const updated = replaceRichContentInsideStep(child, stepBlockId, richContent);
+      if (updated !== child) changed = true;
+      return updated;
+    });
+    return changed ? { ...block, children } : block;
+  }
+  if (block.type !== 'tourStep') return block;
+  const children = stepTooltipChildren(block, (currentChildren) => {
+    const utilityStart = firstUtilityChildIndex(currentChildren);
+    const editableChildren = currentChildren.slice(0, utilityStart);
+    const firstRichContentIndex = editableChildren.findIndex(
+      (child) => !SEPARATE_STEP_ACTION_TYPES.has(child.type),
+    );
+    const actionsBeforeRichContent =
+      firstRichContentIndex < 0
+        ? []
+        : editableChildren
+            .slice(0, firstRichContentIndex)
+            .filter((child) => SEPARATE_STEP_ACTION_TYPES.has(child.type));
+    const actionsAfterRichContent = editableChildren
+      .slice(Math.max(firstRichContentIndex, 0))
+      .filter((child) => SEPARATE_STEP_ACTION_TYPES.has(child.type));
+    const utilityChildren = currentChildren.slice(utilityStart);
+    return [
+      ...actionsBeforeRichContent,
+      ...richContent.map((child) => structuredClone(child)),
+      ...actionsAfterRichContent,
+      ...utilityChildren,
+    ];
+  });
+  return children === block.children ? block : { ...block, children };
 }
 
 function insertBeforeUtilityChildren(

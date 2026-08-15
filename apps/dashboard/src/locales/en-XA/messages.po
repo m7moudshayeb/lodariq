@@ -54,17 +54,17 @@ msgid "dashboard.support.savedDrafts"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:273
+#: src/i18n/messages.ts:341
 msgid "dashboard.viewModel.blockingChecks"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:508
+#: src/i18n/messages.ts:576
 msgid "dashboard.viewModel.flowIssues"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:792
+#: src/i18n/messages.ts:860
 msgid "dashboard.action.ambiguousOrigins"
 msgstr ""
 
@@ -74,17 +74,22 @@ msgid "dashboard.documents.publishBlockers"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:123
+#: src/i18n/messages.ts:191
 msgid "dashboard.viewModel.publishIssues"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:424
+#: src/components/account-security-settings.tsx:168
+msgid "account.recoveryCodes.remaining"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:492
 msgid "dashboard.viewModel.documentUpdated"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:428
+#: src/i18n/messages.ts:496
 msgid "dashboard.viewModel.documentPublished"
 msgstr ""
 
@@ -114,12 +119,27 @@ msgid "dashboard.support.readyForReview"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:512
+#: src/i18n/messages.ts:1152
+msgid "auth.form.validation.required"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1156
+msgid "auth.form.validation.tooShort"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1160
+msgid "auth.form.validation.tooLong"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:580
 msgid "dashboard.viewModel.flowIssueSummary"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:127
+#: src/i18n/messages.ts:195
 msgid "dashboard.viewModel.reviewBeforePublish"
 msgstr ""
 
@@ -134,37 +154,37 @@ msgid "dashboard.brand.preview.frameLabel"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:471
+#: src/i18n/messages.ts:539
 msgid "dashboard.viewModel.moreIssues"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:440
+#: src/i18n/messages.ts:508
 msgid "dashboard.viewModel.brandVersionApproved"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:368
+#: src/i18n/messages.ts:436
 msgid "dashboard.viewModel.themeCompiledSnapshot"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:398
+#: src/i18n/messages.ts:466
 msgid "dashboard.viewModel.groundedInTokens"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:407
+#: src/i18n/messages.ts:475
 msgid "dashboard.viewModel.privacySafeEvidence"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:402
+#: src/i18n/messages.ts:470
 msgid "dashboard.viewModel.proposedFromElement"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:351
+#: src/i18n/messages.ts:419
 msgid "dashboard.viewModel.workspaceDraft"
 msgstr ""
 
@@ -179,7 +199,12 @@ msgid "dashboard.brand.empty.sampleDescription"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:249
+#: src/i18n/messages.ts:1062
+msgid "workspaceMembers.inviteDescription"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:317
 msgid "dashboard.viewModel.productionMatchesNoDeliveryEvidence"
 msgstr ""
 
@@ -189,12 +214,32 @@ msgid "dashboard.environments.directPromotionDescription"
 msgstr ""
 
 #. js-lingui-explicit-id
+#: src/i18n/messages.ts:1303
+msgid "auth.form.verificationSent"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:180
+msgid "enterpriseIdentity.breakGlassHelp"
+msgstr ""
+
+#. js-lingui-explicit-id
 #: src/components/brand-system-panel.tsx:57
 msgid "dashboard.brand.panel.askAdmin"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:335
+#: src/components/enterprise-identity-settings.tsx:114
+msgid "enterpriseIdentity.assurance.aal1"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:115
+msgid "enterpriseIdentity.assurance.aal2"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:403
 msgid "dashboard.viewModel.accent"
 msgstr ""
 
@@ -204,7 +249,22 @@ msgid "dashboard.brand.editor.accent"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:394
+#: src/i18n/messages.ts:1029
+msgid "workspaceInvitation.accept"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1024
+msgid "workspaceInvitation.description"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1030
+msgid "workspaceInvitation.accepting"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:462
 msgid "dashboard.viewModel.accessibleFallbackShort"
 msgstr ""
 
@@ -214,33 +274,83 @@ msgid "dashboard.brand.preview.accessibleFallback"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:870
+#: src/components/account-security-settings.tsx:51
+msgid "account.title"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/components/dashboard-auth-controls.tsx:53
+msgid "dashboard.account.security"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:53
+msgid "account.access.eyebrow"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:938
 msgid "auth.page.accountAccess"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:887
+#: src/i18n/messages.ts:955
 msgid "auth.page.signUpDisabled.eyebrow"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:900
+#: src/i18n/messages.ts:968
 msgid "auth.page.signUpDisabled.body"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1057
+#: src/i18n/messages.ts:1331
 msgid "auth.error.signupUnavailable"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:91
+#: src/components/account-security-settings.tsx:103
+msgid "account.data.title"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:74
+msgid "recoveryCode.eyebrow"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:39
+msgid "account.security.eyebrow"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:142
+msgid "account.unavailable"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1319
+msgid "auth.error.onboardingIncomplete"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:159
 msgid "dashboard.common.active"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:119
+#: src/i18n/messages.ts:187
 msgid "dashboard.viewModel.active"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:98
+msgid "enterpriseIdentity.status.active"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:210
+msgid "enterpriseIdentity.active"
 msgstr ""
 
 #. js-lingui-explicit-id
@@ -249,7 +359,7 @@ msgid "dashboard.recovery.active"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:228
+#: src/i18n/messages.ts:296
 msgid "dashboard.viewModel.activePublicationAt"
 msgstr ""
 
@@ -264,7 +374,12 @@ msgid "dashboard.recovery.activePublication"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:298
+#: src/components/account-security-settings.tsx:86
+msgid "account.sessions.title"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:366
 msgid "dashboard.viewModel.activeNoProvenanceAt"
 msgstr ""
 
@@ -299,8 +414,23 @@ msgid "dashboard.publishIssue.emptyStep.message"
 msgstr ""
 
 #. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:83
+msgid "enterpriseIdentity.addConnection"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:154
+msgid "account.passkeys.add"
+msgstr ""
+
+#. js-lingui-explicit-id
 #: src/components/sdk-snippet-panel.tsx:50
 msgid "dashboard.installation.oneLineDescription"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:137
+msgid "enterpriseIdentity.dnsChallenge"
 msgstr ""
 
 #. js-lingui-explicit-id
@@ -309,13 +439,23 @@ msgid "dashboard.publishIssue.missingStepContent.message"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1090
+#: src/i18n/messages.ts:1088
+msgid "workspaceMembers.role.admin"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1364
 msgid "workspaceSelection.role.admin"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/dashboard-auth-controls.tsx:54
+#: src/components/dashboard-auth-controls.tsx:59
 msgid "dashboard.account.role.admin"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:154
+msgid "enterpriseIdentity.role.admin"
 msgstr ""
 
 #. js-lingui-explicit-id
@@ -339,12 +479,17 @@ msgid "dashboard.brand.preview.after"
 msgstr ""
 
 #. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:109
+msgid "enterpriseIdentity.allowPassword"
+msgstr ""
+
+#. js-lingui-explicit-id
 #: src/components/authoring-activation-popup.tsx:78
 msgid "dashboard.activation.approveDescription"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:970
+#: src/i18n/messages.ts:1186
 msgid "auth.form.existingAccount"
 msgstr ""
 
@@ -369,12 +514,12 @@ msgid "dashboard.navigation.analytics"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:62
+#: src/i18n/messages.ts:125
 msgid "dashboard.page.analytics.title"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:813
+#: src/i18n/messages.ts:881
 msgid "dashboard.action.analyticsUnavailable"
 msgstr ""
 
@@ -384,7 +529,7 @@ msgid "dashboard.analytics.unavailable"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:809
+#: src/i18n/messages.ts:877
 msgid "dashboard.action.analyticsInvalid"
 msgstr ""
 
@@ -404,7 +549,7 @@ msgid "dashboard.analytics.results"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:109
+#: src/i18n/messages.ts:177
 msgid "dashboard.viewModel.type.announcement"
 msgstr ""
 
@@ -414,7 +559,7 @@ msgid "dashboard.recovery.failure.operationInProgress"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:28
+#: src/i18n/messages.ts:29
 msgid "dashboard.navigation.appearance"
 msgstr ""
 
@@ -429,7 +574,7 @@ msgid "dashboard.installation.applicationName"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:727
+#: src/i18n/messages.ts:795
 msgid "dashboard.action.applicationNameRequired"
 msgstr ""
 
@@ -454,22 +599,32 @@ msgid "dashboard.brand.controller.reviewMissing"
 msgstr ""
 
 #. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:198
+msgid "enterpriseIdentity.approveBreakGlass"
+msgstr ""
+
+#. js-lingui-explicit-id
 #: src/components/brand-system/brand-approval-review.tsx:58
 msgid "dashboard.brand.review.approve"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:106
+#: src/i18n/messages.ts:174
 msgid "dashboard.viewModel.status.approved"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:373
+#: src/i18n/messages.ts:441
 msgid "dashboard.viewModel.approvedAt"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:340
+#: src/components/enterprise-identity-settings.tsx:116
+msgid "enterpriseIdentity.breakGlassId"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:408
 msgid "dashboard.viewModel.approvedSource"
 msgstr ""
 
@@ -489,17 +644,17 @@ msgid "dashboard.brand.review.approving"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:466
+#: src/i18n/messages.ts:534
 msgid "dashboard.viewModel.archived"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:448
+#: src/i18n/messages.ts:516
 msgid "dashboard.viewModel.artifactShort"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:261
+#: src/i18n/messages.ts:329
 msgid "dashboard.viewModel.artifactIdentity"
 msgstr ""
 
@@ -514,7 +669,7 @@ msgid "dashboard.activation.approveTitle"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:853
+#: src/i18n/messages.ts:921
 msgid "auth.shell.authorOnce"
 msgstr ""
 
@@ -544,7 +699,7 @@ msgid "dashboard.authoringLaunch.authoringSite"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:866
+#: src/i18n/messages.ts:934
 msgid "auth.shell.back"
 msgstr ""
 
@@ -566,6 +721,11 @@ msgstr ""
 #. js-lingui-explicit-id
 #: src/components/brand-system/brand-approval-review.tsx:42
 msgid "dashboard.brand.review.beforeAfter"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:75
+msgid "account.email.help"
 msgstr ""
 
 #. js-lingui-explicit-id
@@ -594,12 +754,12 @@ msgid "dashboard.navigation.brandSystem"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:67
+#: src/i18n/messages.ts:130
 msgid "dashboard.page.brandSystem.title"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:648
+#: src/i18n/messages.ts:716
 msgid "dashboard.action.brandCreated"
 msgstr ""
 
@@ -624,7 +784,17 @@ msgid "dashboard.brand.panel.themes"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:879
+#: src/components/enterprise-identity-settings.tsx:179
+msgid "enterpriseIdentity.breakGlass"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:202
+msgid "enterpriseIdentity.requestApproved"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:947
 msgid "auth.page.signUp.title"
 msgstr ""
 
@@ -639,7 +809,7 @@ msgid "dashboard.publishIssue.brokenTarget.label"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:98
+#: src/i18n/messages.ts:166
 msgid "dashboard.common.cancel"
 msgstr ""
 
@@ -664,27 +834,42 @@ msgid "dashboard.brand.editor.cardRadius"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:38
+#: src/i18n/messages.ts:101
 msgid "dashboard.locale.change"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:472
+#: src/components/account-security-settings.tsx:73
+msgid "account.password.change"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:540
 msgid "dashboard.viewModel.changesTracked"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:39
+#: src/i18n/messages.ts:102
 msgid "dashboard.locale.changing"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:977
+#: src/components/account-security-settings.tsx:69
+msgid "account.password.help"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1148
+msgid "auth.form.validation.reviewFields"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1193
 msgid "auth.form.checkEmail"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:350
+#: src/i18n/messages.ts:418
 msgid "dashboard.viewModel.checkedAt"
 msgstr ""
 
@@ -699,12 +884,17 @@ msgid "dashboard.recovery.checking"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:113
+#: src/i18n/messages.ts:88
+msgid "recoveryCode.submitting"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:181
 msgid "dashboard.viewModel.type.checklist"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:101
+#: src/i18n/messages.ts:169
 msgid "dashboard.common.choose"
 msgstr ""
 
@@ -714,7 +904,7 @@ msgid "dashboard.brand.editor.choose"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:656
+#: src/i18n/messages.ts:724
 msgid "dashboard.action.chooseBrandTheme"
 msgstr ""
 
@@ -724,7 +914,7 @@ msgid "dashboard.publishIssue.ambiguousTarget.message"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:931
+#: src/i18n/messages.ts:999
 msgid "auth.page.newPassword.title"
 msgstr ""
 
@@ -739,7 +929,7 @@ msgid "dashboard.publishIssue.unsupportedAction.message"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:770
+#: src/i18n/messages.ts:838
 msgid "dashboard.action.chooseToken"
 msgstr ""
 
@@ -749,7 +939,7 @@ msgid "dashboard.publishIssue.invalidPresentationArea.message"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:817
+#: src/i18n/messages.ts:885
 msgid "dashboard.action.chooseReleaseScope"
 msgstr ""
 
@@ -764,22 +954,22 @@ msgid "dashboard.environmentPolicy.chooseEarlier"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:715
+#: src/i18n/messages.ts:783
 msgid "dashboard.action.chooseEnvironment"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1074
+#: src/i18n/messages.ts:1348
 msgid "workspaceSelection.description"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:756
+#: src/i18n/messages.ts:824
 msgid "dashboard.action.chooseExperience"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:740
+#: src/i18n/messages.ts:808
 msgid "dashboard.action.chooseInstallation"
 msgstr ""
 
@@ -789,7 +979,7 @@ msgid "dashboard.support.chooseExperience"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:797
+#: src/i18n/messages.ts:865
 msgid "dashboard.action.chooseAnalyticsEnvironment"
 msgstr ""
 
@@ -819,7 +1009,7 @@ msgid "dashboard.publishIssue.missingTarget.message"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1023
+#: src/i18n/messages.ts:1293
 msgid "auth.form.choosePassword"
 msgstr ""
 
@@ -829,7 +1019,7 @@ msgid "dashboard.documents.clearSearch"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:97
+#: src/i18n/messages.ts:165
 msgid "dashboard.common.close"
 msgstr ""
 
@@ -844,13 +1034,23 @@ msgid "dashboard.brand.review.close"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:25
+#: src/i18n/messages.ts:26
 msgid "dashboard.navigation.close"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:26
+#: src/i18n/messages.ts:82
+msgid "recoveryCode.codeHelp"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:27
 msgid "dashboard.navigation.collapse"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:132
+msgid "enterpriseIdentity.domain"
 msgstr ""
 
 #. js-lingui-explicit-id
@@ -859,12 +1059,27 @@ msgid "dashboard.brand.review.description"
 msgstr ""
 
 #. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:124
+msgid "account.validation.required"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:206
+msgid "enterpriseIdentity.requiredFields"
+msgstr ""
+
+#. js-lingui-explicit-id
 #: src/components/release-recovery-panel.tsx:112
 msgid "dashboard.recovery.completeHistory"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:842
+#: src/i18n/messages.ts:41
+msgid "account.emailChange.description"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:910
 msgid "dashboard.action.releaseHistoryIncomplete"
 msgstr ""
 
@@ -884,8 +1099,28 @@ msgid "dashboard.analytics.fact.completion"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1003
+#: src/components/enterprise-identity-settings.tsx:39
+msgid "enterpriseIdentity.description"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:40
+msgid "account.emailChange.title"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:66
+msgid "account.confirmPassword"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1241
 msgid "auth.form.confirmPassword"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:162
+msgid "account.recoveryCodes.confirm"
 msgstr ""
 
 #. js-lingui-explicit-id
@@ -914,12 +1149,12 @@ msgid "dashboard.recovery.contentHash"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:310
+#: src/i18n/messages.ts:378
 msgid "dashboard.viewModel.contentHashStrongestEvidence"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:969
+#: src/i18n/messages.ts:1185
 msgid "auth.form.continue"
 msgstr ""
 
@@ -944,7 +1179,22 @@ msgid "dashboard.activation.continue"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:873
+#: src/i18n/messages.ts:1125
+msgid "auth.form.enterpriseSso"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1130
+msgid "auth.form.google"
+msgstr "Çôñţîñûé ŵîţh Gôôĝļé"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1131
+msgid "auth.form.microsoft"
+msgstr "Çôñţîñûé ŵîţh Mîçŕôšôƒţ"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:941
 msgid "auth.page.signIn.title"
 msgstr ""
 
@@ -974,52 +1224,62 @@ msgid "dashboard.installation.copy"
 msgstr ""
 
 #. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:176
+msgid "account.recoveryCodes.shownOnce"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:171
+msgid "enterpriseIdentity.scimToken"
+msgstr ""
+
+#. js-lingui-explicit-id
 #: src/components/authoring-activation-popup.tsx:91
 msgid "dashboard.activation.couldNotContinue"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1085
+#: src/i18n/messages.ts:1359
 msgid "workspaceSelection.createError"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/dashboard-auth-controls.tsx:31
+#: src/components/dashboard-auth-controls.tsx:32
 msgid "dashboard.account.createFailed"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1081
+#: src/i18n/messages.ts:1355
 msgid "workspaceSelection.openError"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/dashboard-auth-controls.tsx:35
+#: src/components/dashboard-auth-controls.tsx:36
 msgid "dashboard.account.signOutFailed"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/dashboard-auth-controls.tsx:27
+#: src/components/dashboard-auth-controls.tsx:28
 msgid "dashboard.account.switchFailed"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1078
+#: src/i18n/messages.ts:1352
 msgid "workspaceSelection.create"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:968
+#: src/i18n/messages.ts:1184
 msgid "auth.form.createAccount"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:976
+#: src/i18n/messages.ts:1192
 msgid "auth.form.createAnAccount"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1080
+#: src/i18n/messages.ts:1354
 msgid "workspaceSelection.createAndOpen"
 msgstr ""
 
@@ -1029,28 +1289,43 @@ msgid "dashboard.brand.empty.create"
 msgstr ""
 
 #. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:133
+msgid "enterpriseIdentity.startVerification"
+msgstr ""
+
+#. js-lingui-explicit-id
 #: src/components/sdk-snippet-panel.tsx:92
 msgid "dashboard.installation.create"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/dashboard-auth-controls.tsx:47
+#: src/components/enterprise-identity-settings.tsx:162
+msgid "enterpriseIdentity.createScimToken"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/components/dashboard-auth-controls.tsx:48
 msgid "dashboard.account.createWorkspace"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:883
+#: src/i18n/messages.ts:951
 msgid "auth.page.signUp.description"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:858
+#: src/i18n/messages.ts:926
 msgid "auth.shell.workflow"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:314
+#: src/i18n/messages.ts:382
 msgid "dashboard.viewModel.createdDuringPublication"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1183
+msgid "auth.form.creatingAccount"
 msgstr ""
 
 #. js-lingui-explicit-id
@@ -1064,18 +1339,28 @@ msgid "dashboard.brand.editor.radius.crisp"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:254
+#: src/i18n/messages.ts:322
 msgid "dashboard.viewModel.currentDraft"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:497
+#: src/i18n/messages.ts:565
 msgid "dashboard.viewModel.currentDraftRecorded"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:82
+msgid "account.email.oldVerified"
 msgstr ""
 
 #. js-lingui-explicit-id
 #: src/components/brand-system/brand-theme-editor.tsx:37
 msgid "dashboard.brand.editor.currentFont"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:64
+msgid "account.currentPassword"
 msgstr ""
 
 #. js-lingui-explicit-id
@@ -1089,8 +1374,13 @@ msgid "dashboard.launchQueue.currentReleaseState"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:203
+#: src/i18n/messages.ts:271
 msgid "dashboard.viewModel.currentSavedContent"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:91
+msgid "account.sessions.current"
 msgstr ""
 
 #. js-lingui-explicit-id
@@ -1109,6 +1399,11 @@ msgid "dashboard.brand.panel.description"
 msgstr ""
 
 #. js-lingui-explicit-id
+#: src/i18n/messages.ts:1105
+msgid "workspaceMembers.dangerZone"
+msgstr ""
+
+#. js-lingui-explicit-id
 #: src/components/brand-system/brand-theme-editor.tsx:32
 msgid "dashboard.brand.editor.darkMode"
 msgstr ""
@@ -1119,13 +1414,28 @@ msgid "dashboard.analytics.default"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:691
+#: src/i18n/messages.ts:759
 msgid "dashboard.action.defaultThemeInvalid"
 msgstr ""
 
 #. js-lingui-explicit-id
 #: src/components/brand-system/use-brand-system-controller.ts:47
 msgid "dashboard.brand.controller.defaultMissing"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:110
+msgid "account.danger.title"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:117
+msgid "account.delete.action"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:111
+msgid "account.danger.help"
 msgstr ""
 
 #. js-lingui-explicit-id
@@ -1144,7 +1454,7 @@ msgid "dashboard.recovery.unpublishDescription"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:87
+#: src/i18n/messages.ts:155
 msgid "dashboard.common.development"
 msgstr ""
 
@@ -1164,18 +1474,58 @@ msgid "dashboard.environmentPolicy.development"
 msgstr ""
 
 #. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:87
+msgid "account.sessions.help"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:181
+msgid "account.passkeys.deviceBound"
+msgstr ""
+
+#. js-lingui-explicit-id
 #: src/components/environment-policy-editor.tsx:43
 msgid "dashboard.environmentPolicy.directPublish"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:93
+#: src/components/enterprise-identity-settings.tsx:84
+msgid "enterpriseIdentity.disableConnection"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:167
+msgid "enterpriseIdentity.disableScimTokenConfirm"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:88
+msgid "enterpriseIdentity.disableConnectionConfirm"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:163
+msgid "enterpriseIdentity.disableScimToken"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:161
 msgid "dashboard.common.disabled"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:99
+msgid "enterpriseIdentity.status.disabled"
 msgstr ""
 
 #. js-lingui-explicit-id
 #: src/components/release-recovery-panel.tsx:82
 msgid "dashboard.recovery.disabled"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:126
+msgid "enterpriseIdentity.domainsHelp"
 msgstr ""
 
 #. js-lingui-explicit-id
@@ -1189,12 +1539,22 @@ msgid "dashboard.recentActivity.empty"
 msgstr ""
 
 #. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:109
+msgid "account.data.export"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:104
+msgid "account.data.help"
+msgstr ""
+
+#. js-lingui-explicit-id
 #: src/components/brand-tour-comparison.tsx:65
 msgid "dashboard.brand.preview.draft"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:86
+#: src/i18n/messages.ts:154
 msgid "dashboard.common.draft"
 msgstr ""
 
@@ -1204,12 +1564,17 @@ msgid "dashboard.documents.draft"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:461
+#: src/components/enterprise-identity-settings.tsx:93
+msgid "enterpriseIdentity.status.draft"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:529
 msgid "dashboard.viewModel.readinessDraft"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:131
+#: src/i18n/messages.ts:199
 msgid "dashboard.viewModel.draftNotPrepared"
 msgstr ""
 
@@ -1219,17 +1584,17 @@ msgid "dashboard.brand.panel.draftOnly"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:359
+#: src/i18n/messages.ts:427
 msgid "dashboard.viewModel.draftRevision"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:202
+#: src/i18n/messages.ts:270
 msgid "dashboard.viewModel.draftSaved"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:673
+#: src/i18n/messages.ts:741
 msgid "dashboard.action.draftSaved"
 msgstr ""
 
@@ -1249,28 +1614,48 @@ msgid "dashboard.brand.editor.editing"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:955
+#: src/i18n/messages.ts:1143
 msgid "auth.form.email"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:988
+#: src/i18n/messages.ts:1205
 msgid "auth.form.emailSecureLink"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1045
-msgid "auth.error.invalidCredentials"
+#: src/i18n/messages.ts:1066
+msgid "workspaceMembers.email"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:871
+#: src/components/account-security-settings.tsx:74
+msgid "account.email.title"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:80
+msgid "recoveryCode.identifier"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1144
+msgid "auth.form.identifier"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:939
 msgid "auth.page.emailVerification"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1012
+#: src/i18n/messages.ts:1277
 msgid "auth.form.emailVerified"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1315
+msgid "auth.error.invalidCredentials"
 msgstr ""
 
 #. js-lingui-explicit-id
@@ -1284,8 +1669,73 @@ msgid "dashboard.publishIssue.emptyTour.label"
 msgstr ""
 
 #. js-lingui-explicit-id
+#: src/i18n/messages.ts:1097
+msgid "workspaceMembers.invalidEmail"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:129
+msgid "account.validation.email"
+msgstr ""
+
+#. js-lingui-explicit-id
 #: src/components/environment-policy-editor.tsx:89
 msgid "dashboard.environmentPolicy.invalid"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1164
+msgid "auth.form.validation.emailInvalid"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:163
+msgid "account.recoveryCodes.confirmHelp"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:76
+msgid "recoveryCode.description"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1168
+msgid "auth.form.validation.identifierInvalid"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:89
+msgid "recoveryCode.invalid"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:133
+msgid "account.validation.delete"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:38
+msgid "enterpriseIdentity.title"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:49
+msgid "enterpriseIdentity.saved"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:45
+msgid "enterpriseIdentity.unavailable"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1126
+msgid "auth.form.enterpriseSsoUnavailable"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:146
+msgid "account.methods.saml"
 msgstr ""
 
 #. js-lingui-explicit-id
@@ -1309,7 +1759,7 @@ msgid "dashboard.environmentPolicy.title"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:631
+#: src/i18n/messages.ts:699
 msgid "dashboard.action.environmentPolicyUpdated"
 msgstr ""
 
@@ -1319,7 +1769,7 @@ msgid "dashboard.navigation.environments"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:72
+#: src/i18n/messages.ts:135
 msgid "dashboard.page.environments.title"
 msgstr ""
 
@@ -1334,17 +1784,17 @@ msgid "dashboard.environmentPolicy.invalidOrigin"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:504
+#: src/i18n/messages.ts:572
 msgid "dashboard.viewModel.flowHealthyDetail"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:432
+#: src/i18n/messages.ts:500
 msgid "dashboard.viewModel.exactArtifactVerified"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:282
+#: src/i18n/messages.ts:350
 msgid "dashboard.viewModel.exactArtifactVerifiedAt"
 msgstr ""
 
@@ -1364,7 +1814,7 @@ msgid "dashboard.analytics.fact.sdkErrorsDescription"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:294
+#: src/i18n/messages.ts:362
 msgid "dashboard.viewModel.exactStagedArtifactActiveAt"
 msgstr ""
 
@@ -1399,7 +1849,7 @@ msgid "dashboard.activation.existingTour"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:27
+#: src/i18n/messages.ts:28
 msgid "dashboard.navigation.expand"
 msgstr ""
 
@@ -1439,13 +1889,18 @@ msgid "dashboard.navigation.experiences"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:52
+#: src/i18n/messages.ts:115
 msgid "dashboard.page.experiences.title"
 msgstr ""
 
 #. js-lingui-explicit-id
 #: src/components/launch-queue.tsx:47
 msgid "dashboard.launchQueue.experiences"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1092
+msgid "workspaceMembers.expires"
 msgstr ""
 
 #. js-lingui-explicit-id
@@ -1459,7 +1914,7 @@ msgid "dashboard.recovery.failedAction"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:53
+#: src/i18n/messages.ts:116
 msgid "dashboard.page.experiences.description"
 msgstr ""
 
@@ -1479,7 +1934,7 @@ msgid "dashboard.activation.recoveryFinish"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:945
+#: src/i18n/messages.ts:1013
 msgid "auth.page.finishAccount.title"
 msgstr ""
 
@@ -1499,12 +1954,12 @@ msgid "dashboard.publishIssue.nonTerminatingFlow.label"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:502
+#: src/i18n/messages.ts:570
 msgid "dashboard.viewModel.flowHealth"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:48
+#: src/i18n/messages.ts:111
 msgid "dashboard.page.overview.description"
 msgstr ""
 
@@ -1519,6 +1974,16 @@ msgid "dashboard.brand.editor.fontFamily"
 msgstr ""
 
 #. js-lingui-explicit-id
+#: src/i18n/messages.ts:1141
+msgid "auth.form.forgotUsername"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:54
+msgid "account.forgotUsername.title"
+msgstr ""
+
+#. js-lingui-explicit-id
 #: src/components/analytics-panel.tsx:215
 msgid "dashboard.analytics.target.found"
 msgstr ""
@@ -1526,6 +1991,11 @@ msgstr ""
 #. js-lingui-explicit-id
 #: src/components/analytics-panel.tsx:121
 msgid "dashboard.analytics.targetSuccessBreakdown"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:161
+msgid "account.recoveryCodes.generate"
 msgstr ""
 
 #. js-lingui-explicit-id
@@ -1539,17 +2009,22 @@ msgid "dashboard.brand.editor.georgiaSerif"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:503
+#: src/components/enterprise-identity-settings.tsx:146
+msgid "enterpriseIdentity.mappingsHelp"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:571
 msgid "dashboard.viewModel.flowHealthy"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:21
+#: src/i18n/messages.ts:22
 msgid "dashboard.navigation.support"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:77
+#: src/i18n/messages.ts:145
 msgid "dashboard.page.support.title"
 msgstr ""
 
@@ -1564,7 +2039,12 @@ msgid "dashboard.brand.panel.hideImpact"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:412
+#: src/i18n/messages.ts:1147
+msgid "auth.form.hidePassword"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:480
 msgid "dashboard.viewModel.highConfidenceEvidence"
 msgstr ""
 
@@ -1574,13 +2054,28 @@ msgid "dashboard.analytics.historyOnly"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:115
+#: src/i18n/messages.ts:183
 msgid "dashboard.viewModel.type.hotspot"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:978
-msgid "auth.form.recoveryEmailSent"
+#: src/components/enterprise-identity-settings.tsx:72
+msgid "enterpriseIdentity.provider"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:145
+msgid "enterpriseIdentity.mappings"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1195
+msgid "auth.form.recoveryRequestAccepted"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1272
+msgid "auth.form.verificationRequestAccepted"
 msgstr ""
 
 #. js-lingui-explicit-id
@@ -1594,22 +2089,22 @@ msgid "dashboard.recovery.immutableArtifact"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:444
+#: src/i18n/messages.ts:512
 msgid "dashboard.viewModel.immutableBrandSnapshot"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:306
+#: src/i18n/messages.ts:374
 msgid "dashboard.viewModel.immutableCompiledArtifact"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:436
+#: src/i18n/messages.ts:504
 msgid "dashboard.viewModel.immutablePublication"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:660
+#: src/i18n/messages.ts:728
 msgid "dashboard.action.impactRefreshed"
 msgstr ""
 
@@ -1619,7 +2114,7 @@ msgid "dashboard.authoringLaunch.eyebrow"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:92
+#: src/i18n/messages.ts:160
 msgid "dashboard.common.inactive"
 msgstr ""
 
@@ -1654,7 +2149,7 @@ msgid "dashboard.publishIssue.incompleteMedia.label"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:63
+#: src/i18n/messages.ts:126
 msgid "dashboard.page.analytics.description"
 msgstr ""
 
@@ -1684,22 +2179,67 @@ msgid "dashboard.publishIssue.invalidPresentationArea.label"
 msgstr ""
 
 #. js-lingui-explicit-id
+#: src/i18n/messages.ts:1031
+msgid "workspaceInvitation.accepted"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:78
+msgid "enterpriseIdentity.provisioning.invitationOnly"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1069
+msgid "workspaceMembers.invitationQueued"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1061
+msgid "workspaceMembers.invite"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:141
+msgid "dashboard.page.members.description"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:75
+msgid "enterpriseIdentity.issuer"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1023
+msgid "workspaceInvitation.title"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1091
+msgid "workspaceMembers.joined"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1137
+msgid "auth.form.rememberMeHelp"
+msgstr ""
+
+#. js-lingui-explicit-id
 #: src/components/authoring-activation-popup.tsx:101
 msgid "dashboard.activation.readyDescription"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:116
+#: src/i18n/messages.ts:184
 msgid "dashboard.viewModel.type.knowledge"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:37
+#: src/i18n/messages.ts:100
 msgid "dashboard.locale.label"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:40
+#: src/i18n/messages.ts:103
 msgid "dashboard.locale.error"
 msgstr ""
 
@@ -1719,12 +2259,12 @@ msgid "dashboard.launchQueue.lastEditor"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:218
+#: src/i18n/messages.ts:286
 msgid "dashboard.viewModel.latestRecordAt"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:47
+#: src/i18n/messages.ts:110
 msgid "dashboard.page.overview.title"
 msgstr ""
 
@@ -1739,12 +2279,22 @@ msgid "dashboard.brand.binding.legacy"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:107
+#: src/components/account-security-settings.tsx:184
+msgid "account.methods.linkGoogle"
+msgstr "Ļîñķ Gôôĝļé"
+
+#. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:185
+msgid "account.methods.linkMicrosoft"
+msgstr "Ļîñķ Mîçŕôšôƒţ"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:175
 msgid "dashboard.viewModel.status.live"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:227
+#: src/i18n/messages.ts:295
 msgid "dashboard.viewModel.live"
 msgstr ""
 
@@ -1764,8 +2314,18 @@ msgid "dashboard.analytics.loading"
 msgstr ""
 
 #. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:118
+msgid "account.loading"
+msgstr ""
+
+#. js-lingui-explicit-id
 #: src/components/release-recovery-panel.tsx:83
 msgid "dashboard.recovery.loading"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:44
+msgid "enterpriseIdentity.loading"
 msgstr ""
 
 #. js-lingui-explicit-id
@@ -1779,12 +2339,12 @@ msgid "dashboard.brand.review.loading"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:96
+#: src/i18n/messages.ts:164
 msgid "dashboard.common.loading"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:318
+#: src/i18n/messages.ts:386
 msgid "dashboard.viewModel.accessibleFallback"
 msgstr ""
 
@@ -1794,7 +2354,7 @@ msgid "dashboard.installation.automaticOrigins"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:529
+#: src/i18n/messages.ts:597
 msgid "dashboard.entry.unavailableDescription"
 msgstr ""
 
@@ -1809,12 +2369,17 @@ msgid "dashboard.metadata.title"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1065
+#: src/i18n/messages.ts:1339
 msgid "auth.error.serviceUnavailable"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:420
+#: src/components/account-security-settings.tsx:98
+msgid "account.methods.help"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:488
 msgid "dashboard.viewModel.lowConfidenceEvidence"
 msgstr ""
 
@@ -1834,23 +2399,63 @@ msgid "dashboard.publishIssue.missingTerminalCompletion.message"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:73
+#: src/components/account-security-settings.tsx:52
+msgid "account.description"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:136
 msgid "dashboard.page.environments.description"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1091
+#: src/components/enterprise-identity-settings.tsx:151
+msgid "enterpriseIdentity.managedRole"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1089
+msgid "workspaceMembers.role.member"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1365
 msgid "workspaceSelection.role.member"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/dashboard-auth-controls.tsx:53
+#: src/components/dashboard-auth-controls.tsx:58
 msgid "dashboard.account.role.member"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:153
+msgid "enterpriseIdentity.role.member"
 msgstr ""
 
 #. js-lingui-explicit-id
 #: src/components/environment-policy-editor.tsx:106
 msgid "dashboard.role.member"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:21
+msgid "dashboard.navigation.members"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:140
+msgid "dashboard.page.members.title"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:74
+msgid "enterpriseIdentity.provider.entra"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:110
+msgid "enterpriseIdentity.minimumAssurance"
 msgstr ""
 
 #. js-lingui-explicit-id
@@ -1879,12 +2484,17 @@ msgid "dashboard.publishIssue.missingUrl.label"
 msgstr ""
 
 #. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:183
+msgid "account.passkeys.multiDevice"
+msgstr ""
+
+#. js-lingui-explicit-id
 #: src/components/environment-policy-editor.tsx:29
 msgid "dashboard.environmentPolicy.name"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:382
+#: src/i18n/messages.ts:450
 msgid "dashboard.viewModel.nearbyProductControls"
 msgstr ""
 
@@ -1894,17 +2504,17 @@ msgid "dashboard.activation.passwordHelp"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:341
+#: src/i18n/messages.ts:409
 msgid "dashboard.viewModel.needsApproval"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:457
+#: src/i18n/messages.ts:525
 msgid "dashboard.viewModel.readinessBlocked"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:207
+#: src/i18n/messages.ts:275
 msgid "dashboard.viewModel.needsPreview"
 msgstr ""
 
@@ -1914,7 +2524,7 @@ msgid "dashboard.support.needsPreview"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:121
+#: src/i18n/messages.ts:189
 msgid "dashboard.viewModel.needsReview"
 msgstr ""
 
@@ -1924,17 +2534,37 @@ msgid "dashboard.analytics.target.needsReview"
 msgstr ""
 
 #. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:63
+msgid "enterpriseIdentity.connectionsHelp"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:79
+msgid "account.email.new"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:84
+msgid "account.email.newVerified"
+msgstr ""
+
+#. js-lingui-explicit-id
 #: src/components/brand-system/brand-impact-panel.tsx:31
 msgid "dashboard.brand.impact.noLinkedDescription"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1001
+#: src/i18n/messages.ts:1239
 msgid "auth.form.newPassword"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:974
+#: src/components/account-security-settings.tsx:65
+msgid "account.newPassword"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1190
 msgid "auth.form.newToLodariq"
 msgstr ""
 
@@ -1944,22 +2574,22 @@ msgid "dashboard.activation.newTour"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/dashboard-auth-controls.tsx:46
+#: src/components/dashboard-auth-controls.tsx:47
 msgid "dashboard.account.newWorkspace"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/dashboard-auth-controls.tsx:42
+#: src/components/dashboard-auth-controls.tsx:43
 msgid "dashboard.account.newWorkspaceName"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:217
+#: src/i18n/messages.ts:285
 msgid "dashboard.viewModel.newerDraft"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:213
+#: src/i18n/messages.ts:281
 msgid "dashboard.viewModel.noEnvironmentPublicationRecord"
 msgstr ""
 
@@ -1974,22 +2604,27 @@ msgid "dashboard.analytics.empty"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:327
+#: src/i18n/messages.ts:395
 msgid "dashboard.viewModel.noApprovedVersion"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:269
+#: src/i18n/messages.ts:337
 msgid "dashboard.viewModel.noBlockingChecks"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:783
+#: src/i18n/messages.ts:851
 msgid "dashboard.action.noProductOrigins"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:208
+#: src/components/enterprise-identity-settings.tsx:144
+msgid "enterpriseIdentity.noDomains"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:276
 msgid "dashboard.viewModel.noCompiledDraft"
 msgstr ""
 
@@ -1999,12 +2634,17 @@ msgid "dashboard.support.noCustomerVersion"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:765
+#: src/i18n/messages.ts:833
 msgid "dashboard.action.noDeliveryRecord"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:485
+#: src/components/enterprise-identity-settings.tsx:68
+msgid "enterpriseIdentity.noConnections"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:553
 msgid "dashboard.viewModel.noPublicationRecord"
 msgstr ""
 
@@ -2054,7 +2694,7 @@ msgid "dashboard.environmentPolicy.tooManyOrigins"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:117
+#: src/i18n/messages.ts:185
 msgid "dashboard.viewModel.noOrigins"
 msgstr ""
 
@@ -2064,17 +2704,17 @@ msgid "dashboard.environments.empty"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:290
+#: src/i18n/messages.ts:358
 msgid "dashboard.viewModel.noProductionPublicationRecord"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:467
+#: src/i18n/messages.ts:535
 msgid "dashboard.viewModel.noPublishBlockers"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:212
+#: src/i18n/messages.ts:280
 msgid "dashboard.viewModel.noRecord"
 msgstr ""
 
@@ -2089,12 +2729,17 @@ msgid "dashboard.releases.emptyTitle"
 msgstr ""
 
 #. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:175
+msgid "enterpriseIdentity.noScimTokens"
+msgstr ""
+
+#. js-lingui-explicit-id
 #: src/components/analytics-panel.tsx:49
 msgid "dashboard.analytics.noEnvironment"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:278
+#: src/i18n/messages.ts:346
 msgid "dashboard.viewModel.noStagingPublicationRecord"
 msgstr ""
 
@@ -2109,7 +2754,7 @@ msgid "dashboard.installation.noOrigins"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:769
+#: src/i18n/messages.ts:837
 msgid "dashboard.action.noVersions"
 msgstr ""
 
@@ -2124,7 +2769,7 @@ msgid "dashboard.brand.impact.notActive"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:95
+#: src/i18n/messages.ts:163
 msgid "dashboard.common.notAvailable"
 msgstr ""
 
@@ -2139,22 +2784,22 @@ msgid "dashboard.installation.notInstalled"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:255
+#: src/i18n/messages.ts:323
 msgid "dashboard.viewModel.notPrepared"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:764
+#: src/i18n/messages.ts:832
 msgid "dashboard.action.notPrepared"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:277
+#: src/i18n/messages.ts:345
 msgid "dashboard.viewModel.notPublished"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:120
+#: src/i18n/messages.ts:188
 msgid "dashboard.viewModel.notSpecified"
 msgstr ""
 
@@ -2164,17 +2809,27 @@ msgid "dashboard.brand.review.notYet"
 msgstr ""
 
 #. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:76
+msgid "enterpriseIdentity.clientId"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:73
+msgid "enterpriseIdentity.provider.okta"
+msgstr ""
+
+#. js-lingui-explicit-id
 #: src/components/authoring-launch-panel.tsx:60
 msgid "dashboard.authoringLaunch.shortcut"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:607
+#: src/i18n/messages.ts:675
 msgid "dashboard.action.approvalRequired"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:918
+#: src/i18n/messages.ts:986
 msgid "auth.page.recovery.description"
 msgstr ""
 
@@ -2199,7 +2854,7 @@ msgid "dashboard.installation.oneLine"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:787
+#: src/i18n/messages.ts:855
 msgid "dashboard.action.ambiguousOrigin"
 msgstr ""
 
@@ -2214,6 +2869,11 @@ msgid "dashboard.installation.eyebrow"
 msgstr ""
 
 #. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:58
+msgid "enterpriseIdentity.ownerOnly"
+msgstr ""
+
+#. js-lingui-explicit-id
 #: src/i18n/server-feedback.ts:23
 msgid "dashboard.publishIssue.unsupportedDocumentType.message"
 msgstr ""
@@ -2224,7 +2884,7 @@ msgid "dashboard.authoringLaunch.openEnvironment"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/dashboard-auth-controls.tsx:36
+#: src/components/dashboard-auth-controls.tsx:37
 msgid "dashboard.account.openMenu"
 msgstr ""
 
@@ -2239,12 +2899,12 @@ msgid "dashboard.releases.openFlowMap"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:82
+#: src/i18n/messages.ts:150
 msgid "dashboard.page.openInProduct"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:983
+#: src/i18n/messages.ts:1200
 msgid "auth.form.openLocalRecoveryLink"
 msgstr ""
 
@@ -2264,7 +2924,7 @@ msgid "dashboard.brand.controller.reviewRequired"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1038
+#: src/i18n/messages.ts:1308
 msgid "auth.form.openVerificationLink"
 msgstr ""
 
@@ -2274,7 +2934,12 @@ msgid "dashboard.authoringLaunch.stayInProductDescription"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:24
+#: src/i18n/messages.ts:1036
+msgid "workspaceInvitation.openWorkspace"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:25
 msgid "dashboard.navigation.open"
 msgstr ""
 
@@ -2284,18 +2949,33 @@ msgid "dashboard.authoringLaunch.title"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:549
+#: src/components/account-security-settings.tsx:145
+msgid "account.methods.oidc"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1132
+msgid "auth.form.providerWaiting"
+msgstr "Ôþéñîñĝ šéçûŕé šîĝñ-îñ…"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:617
 msgid "dashboard.loading.label"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1014
+#: src/i18n/messages.ts:1279
 msgid "auth.form.openingWorkspace"
 msgstr ""
 
 #. js-lingui-explicit-id
 #: src/components/release-recovery-panel.tsx:118
 msgid "dashboard.recovery.operationActor"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:185
+msgid "enterpriseIdentity.reason"
 msgstr ""
 
 #. js-lingui-explicit-id
@@ -2309,12 +2989,17 @@ msgid "dashboard.navigation.overview"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1089
+#: src/i18n/messages.ts:1087
+msgid "workspaceMembers.role.owner"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1363
 msgid "workspaceSelection.role.owner"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/dashboard-auth-controls.tsx:55
+#: src/components/dashboard-auth-controls.tsx:60
 msgid "dashboard.account.role.owner"
 msgstr ""
 
@@ -2329,23 +3014,73 @@ msgid "dashboard.launchQueue.pageScope"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:956
+#: src/components/account-security-settings.tsx:144
+msgid "account.methods.passkey"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:152
+msgid "account.passkeys.name"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:147
+msgid "account.passkeys.title"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:148
+msgid "account.passkeys.help"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1145
 msgid "auth.form.password"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:909
+#: src/components/account-security-settings.tsx:68
+msgid "account.password.title"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:143
+msgid "account.methods.password"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:121
+msgid "enterpriseIdentity.invalidPolicy"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:977
 msgid "auth.page.recoveryDisabled.description"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1061
+#: src/i18n/messages.ts:1335
 msgid "auth.error.recoveryUnavailable"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:989
+#: src/i18n/messages.ts:1218
 msgid "auth.form.passwordsDoNotMatch"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:100
+msgid "enterpriseIdentity.status.pending"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:81
+msgid "account.email.pending"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1073
+msgid "workspaceMembers.pendingInvitations"
 msgstr ""
 
 #. js-lingui-explicit-id
@@ -2369,7 +3104,7 @@ msgid "dashboard.environmentPolicy.pipeline"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:966
+#: src/i18n/messages.ts:1181
 msgid "auth.form.pleaseTryAgain"
 msgstr ""
 
@@ -2384,12 +3119,17 @@ msgid "dashboard.environmentPolicy.noPublishSideEffect"
 msgstr ""
 
 #. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:103
+msgid "enterpriseIdentity.policyHelp"
+msgstr ""
+
+#. js-lingui-explicit-id
 #: src/components/document-debug-panel.tsx:27
 msgid "dashboard.support.description"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:135
+#: src/i18n/messages.ts:203
 msgid "dashboard.viewModel.prepareDraft"
 msgstr ""
 
@@ -2419,17 +3159,17 @@ msgid "dashboard.brand.panel.previewImpact"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:265
+#: src/i18n/messages.ts:333
 msgid "dashboard.viewModel.previewToPrepareArtifact"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:480
+#: src/i18n/messages.ts:548
 msgid "dashboard.viewModel.previewToPreparePublishing"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:136
+#: src/i18n/messages.ts:204
 msgid "dashboard.viewModel.previewToPrepareDraft"
 msgstr ""
 
@@ -2459,12 +3199,12 @@ msgid "dashboard.environments.productEnvironments"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:854
+#: src/i18n/messages.ts:922
 msgid "auth.shell.productExperiences"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:331
+#: src/i18n/messages.ts:399
 msgid "dashboard.viewModel.productMatchNotRecorded"
 msgstr ""
 
@@ -2474,12 +3214,12 @@ msgid "dashboard.brand.source.title"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:390
+#: src/i18n/messages.ts:458
 msgid "dashboard.viewModel.productSurfaceContext"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1079
+#: src/i18n/messages.ts:1353
 msgid "workspaceSelection.placeholder"
 msgstr ""
 
@@ -2489,12 +3229,12 @@ msgid "dashboard.brand.preview.tourCard"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:386
+#: src/i18n/messages.ts:454
 msgid "dashboard.viewModel.productTypography"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:89
+#: src/i18n/messages.ts:157
 msgid "dashboard.common.production"
 msgstr ""
 
@@ -2514,12 +3254,12 @@ msgid "dashboard.analytics.productionNotConfigured"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:257
+#: src/i18n/messages.ts:325
 msgid "dashboard.viewModel.productionEvidence"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:245
+#: src/i18n/messages.ts:313
 msgid "dashboard.viewModel.activeProvenanceUnavailable"
 msgstr ""
 
@@ -2529,12 +3269,12 @@ msgid "dashboard.analytics.isolationDescription"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:140
+#: src/i18n/messages.ts:208
 msgid "dashboard.viewModel.productionLive"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:241
+#: src/i18n/messages.ts:309
 msgid "dashboard.viewModel.exactArtifactPromoted"
 msgstr ""
 
@@ -2544,17 +3284,17 @@ msgid "dashboard.releases.exactArtifactDescription"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:611
+#: src/i18n/messages.ts:679
 msgid "dashboard.action.approvalNotRequired"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:141
+#: src/i18n/messages.ts:209
 msgid "dashboard.viewModel.productionPublished"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:146
+#: src/i18n/messages.ts:214
 msgid "dashboard.viewModel.productionUpdate"
 msgstr ""
 
@@ -2574,17 +3314,27 @@ msgid "dashboard.environmentPolicy.promotionSource"
 msgstr ""
 
 #. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:150
+msgid "enterpriseIdentity.groupId"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:77
+msgid "enterpriseIdentity.provisioning"
+msgstr ""
+
+#. js-lingui-explicit-id
 #: src/components/analytics-panel.tsx:143
 msgid "dashboard.analytics.publication"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:493
+#: src/i18n/messages.ts:561
 msgid "dashboard.viewModel.publicationRecorded"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:489
+#: src/i18n/messages.ts:557
 msgid "dashboard.viewModel.recordsUseEarlierHash"
 msgstr ""
 
@@ -2619,17 +3369,17 @@ msgid "dashboard.publishIssue.unknown.label"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:181
+#: src/i18n/messages.ts:249
 msgid "dashboard.viewModel.publishCurrentDraft"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:194
+#: src/i18n/messages.ts:262
 msgid "dashboard.viewModel.publishToStaging"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:232
+#: src/i18n/messages.ts:300
 msgid "dashboard.viewModel.published"
 msgstr ""
 
@@ -2639,22 +3389,22 @@ msgid "dashboard.recovery.published"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:237
+#: src/i18n/messages.ts:305
 msgid "dashboard.viewModel.publishedDeliveryUnconfirmed"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:302
+#: src/i18n/messages.ts:370
 msgid "dashboard.viewModel.publishedPointerNotExposed"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:286
+#: src/i18n/messages.ts:354
 msgid "dashboard.viewModel.publishedNoBrowserVerification"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:233
+#: src/i18n/messages.ts:301
 msgid "dashboard.viewModel.publishedVerificationPending"
 msgstr ""
 
@@ -2669,27 +3419,37 @@ msgid "dashboard.documents.publishing"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:339
+#: src/i18n/messages.ts:407
 msgid "dashboard.viewModel.radius"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:993
+#: src/components/email-change-verification.tsx:12
+msgid "account.emailChange.reading"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1028
+msgid "workspaceInvitation.reading"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1222
 msgid "auth.form.readingSecureLink"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1019
+#: src/i18n/messages.ts:1284
 msgid "auth.form.readingVerificationLink"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:476
+#: src/i18n/messages.ts:544
 msgid "dashboard.viewModel.readyFirstPublish"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:190
+#: src/i18n/messages.ts:258
 msgid "dashboard.viewModel.readyForStaging"
 msgstr ""
 
@@ -2699,7 +3459,7 @@ msgid "dashboard.activation.ready"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:462
+#: src/i18n/messages.ts:530
 msgid "dashboard.viewModel.readinessPreviewable"
 msgstr ""
 
@@ -2729,12 +3489,32 @@ msgid "dashboard.publishIssue.invalidFlowEdge.message"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:905
+#: src/i18n/messages.ts:87
+msgid "recoveryCode.submit"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:67
+msgid "account.forgotUsername.recoverAccess"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:81
+msgid "recoveryCode.code"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:156
+msgid "account.recoveryCodes.title"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:973
 msgid "auth.page.recoveryDisabled.title"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:100
+#: src/i18n/messages.ts:168
 msgid "dashboard.common.refresh"
 msgstr ""
 
@@ -2749,12 +3529,12 @@ msgid "dashboard.analytics.refresh"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:374
+#: src/i18n/messages.ts:442
 msgid "dashboard.viewModel.registeredDesignTokens"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:57
+#: src/i18n/messages.ts:120
 msgid "dashboard.page.releases.title"
 msgstr ""
 
@@ -2774,7 +3554,7 @@ msgid "dashboard.recovery.title"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:834
+#: src/i18n/messages.ts:902
 msgid "dashboard.action.releaseHistoryMissing"
 msgstr ""
 
@@ -2814,6 +3594,26 @@ msgid "dashboard.navigation.releases"
 msgstr ""
 
 #. js-lingui-explicit-id
+#: src/i18n/messages.ts:1136
+msgid "auth.form.rememberMe"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:86
+msgid "recoveryCode.rememberMe"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1082
+msgid "workspaceMembers.remove"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:102
+msgid "account.methods.remove"
+msgstr ""
+
+#. js-lingui-explicit-id
 #: src/components/dashboard-settings-views.tsx:55
 msgid "dashboard.environments.removeApproval"
 msgstr ""
@@ -2834,8 +3634,43 @@ msgid "dashboard.brand.preview.rendering"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:930
+#: src/components/enterprise-identity-settings.tsx:190
+msgid "enterpriseIdentity.requestCreated"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1194
+msgid "auth.form.requestAccepted"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1214
+msgid "auth.form.requestAgainIn"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:998
 msgid "auth.page.requestAnotherLink"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1210
+msgid "auth.form.requestAnotherLink"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1264
+msgid "auth.form.requestAnotherVerification"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:186
+msgid "enterpriseIdentity.requestBreakGlass"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:194
+msgid "enterpriseIdentity.approvalRequestId"
 msgstr ""
 
 #. js-lingui-explicit-id
@@ -2844,8 +3679,23 @@ msgid "dashboard.recovery.requestedTarget"
 msgstr ""
 
 #. js-lingui-explicit-id
+#: src/i18n/messages.ts:1206
+msgid "auth.form.requestingSecureLink"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1268
+msgid "auth.form.requestingVerification"
+msgstr ""
+
+#. js-lingui-explicit-id
 #: src/components/dashboard-settings-views.tsx:59
 msgid "dashboard.environments.requireApproval"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:108
+msgid "enterpriseIdentity.requireSso"
 msgstr ""
 
 #. js-lingui-explicit-id
@@ -2859,6 +3709,11 @@ msgid "dashboard.environmentPolicy.requireVerification"
 msgstr ""
 
 #. js-lingui-explicit-id
+#: src/i18n/messages.ts:1260
+msgid "auth.form.restartVerification"
+msgstr ""
+
+#. js-lingui-explicit-id
 #: src/components/release-recovery-panel.tsx:166
 msgid "dashboard.recovery.retryExact"
 msgstr ""
@@ -2869,12 +3724,22 @@ msgid "dashboard.analytics.retry"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:941
+#: src/i18n/messages.ts:1009
 msgid "auth.page.returnToAccountCreation"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:913
+#: src/i18n/messages.ts:49
+msgid "account.emailChange.returnToSecurity"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/components/email-change-verification.tsx:27
+msgid "account.emailChange.account"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:981
 msgid "auth.page.returnToSignIn"
 msgstr ""
 
@@ -2884,7 +3749,7 @@ msgid "dashboard.activation.returning"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:105
+#: src/i18n/messages.ts:173
 msgid "dashboard.viewModel.status.review"
 msgstr ""
 
@@ -2904,7 +3769,7 @@ msgid "dashboard.publishIssue.targetNeedsReview.message"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:122
+#: src/i18n/messages.ts:190
 msgid "dashboard.viewModel.reviewBlockers"
 msgstr ""
 
@@ -2914,37 +3779,37 @@ msgid "dashboard.brand.panel.reviewOpen"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:150
+#: src/i18n/messages.ts:218
 msgid "dashboard.viewModel.reviewProductionUpdate"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:164
+#: src/i18n/messages.ts:232
 msgid "dashboard.viewModel.reviewPromotion"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:416
+#: src/i18n/messages.ts:484
 msgid "dashboard.viewModel.reviewRecommended"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:90
+#: src/i18n/messages.ts:158
 msgid "dashboard.common.reviewRelease"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:145
+#: src/i18n/messages.ts:213
 msgid "dashboard.viewModel.reviewRelease"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:58
+#: src/i18n/messages.ts:121
 msgid "dashboard.page.releases.description"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:168
+#: src/i18n/messages.ts:236
 msgid "dashboard.viewModel.reviewVerification"
 msgstr ""
 
@@ -2954,12 +3819,27 @@ msgid "dashboard.brand.preview.sampleParagraph"
 msgstr ""
 
 #. js-lingui-explicit-id
+#: src/i18n/messages.ts:1081
+msgid "workspaceMembers.revoke"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:92
+msgid "account.sessions.revoke"
+msgstr ""
+
+#. js-lingui-explicit-id
 #: src/components/sdk-snippet-panel.tsx:99
 msgid "dashboard.installation.revoke"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:118
+#: src/components/account-security-settings.tsx:167
+msgid "account.recoveryCodes.revoke"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:186
 msgid "dashboard.viewModel.revoked"
 msgstr ""
 
@@ -2971,6 +3851,16 @@ msgstr ""
 #. js-lingui-explicit-id
 #: src/components/sdk-snippet-panel.tsx:98
 msgid "dashboard.installation.revoking"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1067
+msgid "workspaceMembers.role"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1057
+msgid "workspaceMembers.membersDescription"
 msgstr ""
 
 #. js-lingui-explicit-id
@@ -3029,12 +3919,12 @@ msgid "dashboard.installation.runtimeOnly"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:326
+#: src/i18n/messages.ts:394
 msgid "dashboard.viewModel.safeFallback"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:322
+#: src/i18n/messages.ts:390
 msgid "dashboard.viewModel.semanticDefaultsActive"
 msgstr ""
 
@@ -3044,8 +3934,18 @@ msgid "dashboard.brand.review.sameContent"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:99
+#: src/i18n/messages.ts:167
 msgid "dashboard.common.save"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:157
+msgid "account.recoveryCodes.help"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:120
+msgid "enterpriseIdentity.savePolicy"
 msgstr ""
 
 #. js-lingui-explicit-id
@@ -3054,13 +3954,23 @@ msgid "dashboard.brand.editor.save"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1004
+#: src/components/enterprise-identity-settings.tsx:155
+msgid "enterpriseIdentity.saveMapping"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1242
 msgid "auth.form.savePassword"
 msgstr ""
 
 #. js-lingui-explicit-id
 #: src/components/environment-policy-editor.tsx:88
 msgid "dashboard.environmentPolicy.save"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:67
+msgid "account.username.save"
 msgstr ""
 
 #. js-lingui-explicit-id
@@ -3079,6 +3989,11 @@ msgid "dashboard.releases.emptyDescription"
 msgstr ""
 
 #. js-lingui-explicit-id
+#: src/i18n/messages.ts:1246
+msgid "auth.form.savingPassword"
+msgstr ""
+
+#. js-lingui-explicit-id
 #: src/components/environment-policy-editor.tsx:87
 msgid "dashboard.environmentPolicy.saving"
 msgstr ""
@@ -3086,6 +4001,21 @@ msgstr ""
 #. js-lingui-explicit-id
 #: src/components/brand-system/brand-theme-editor.tsx:46
 msgid "dashboard.brand.editor.saving"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1114
+msgid "workspaceMembers.scheduleDeletion"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1106
+msgid "workspaceMembers.deletionDescription"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:156
+msgid "enterpriseIdentity.scim"
 msgstr ""
 
 #. js-lingui-explicit-id
@@ -3104,7 +4034,7 @@ msgid "dashboard.analytics.fact.sdkErrors"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:744
+#: src/i18n/messages.ts:812
 msgid "dashboard.action.installationNotFound"
 msgstr ""
 
@@ -3119,8 +4049,13 @@ msgid "dashboard.documents.search"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:862
+#: src/i18n/messages.ts:930
 msgid "auth.shell.secureAccess"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:119
+msgid "account.saved"
 msgstr ""
 
 #. js-lingui-explicit-id
@@ -3144,7 +4079,7 @@ msgid "dashboard.support.selectedExperience"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:378
+#: src/i18n/messages.ts:446
 msgid "dashboard.viewModel.selectedProductElement"
 msgstr ""
 
@@ -3154,8 +4089,18 @@ msgid "dashboard.brand.source.roles"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:355
+#: src/i18n/messages.ts:423
 msgid "dashboard.viewModel.tokensSavedAsDraft"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1068
+msgid "workspaceMembers.sendInvitation"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:80
+msgid "account.email.begin"
 msgstr ""
 
 #. js-lingui-explicit-id
@@ -3169,28 +4114,48 @@ msgid "dashboard.environmentPolicy.separateVerifier"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:957
+#: src/i18n/messages.ts:1172
 msgid "auth.form.setOrResetPassword"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:914
+#: src/i18n/messages.ts:982
 msgid "auth.page.recovery.title"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:68
+#: src/i18n/messages.ts:131
 msgid "dashboard.page.brandSystem.description"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:975
+#: src/i18n/messages.ts:1146
+msgid "auth.form.showPassword"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1191
 msgid "auth.form.signIn"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:564
+#: src/components/email-change-verification.tsx:28
+msgid "account.emailChange.signIn"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:141
+msgid "account.signInAgain"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:632
 msgid "dashboard.server.authenticationRequired"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:54
+msgid "enterpriseIdentity.reauthenticate"
 msgstr ""
 
 #. js-lingui-explicit-id
@@ -3199,13 +4164,33 @@ msgid "dashboard.activation.signInDescription"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:904
+#: src/i18n/messages.ts:1041
+msgid "workspaceInvitation.signInNewTab"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:972
 msgid "auth.page.signInInstead"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:519
+#: src/i18n/messages.ts:587
 msgid "dashboard.entry.signInTitle"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1133
+msgid "auth.form.passkey"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:63
+msgid "account.forgotUsername.signInWithEmail"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1037
+msgid "workspaceInvitation.signInRequired"
 msgstr ""
 
 #. js-lingui-explicit-id
@@ -3214,22 +4199,42 @@ msgid "dashboard.activation.signInTitle"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/dashboard-auth-controls.tsx:51
+#: src/components/dashboard-auth-controls.tsx:52
 msgid "dashboard.account.signOut"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:891
+#: src/components/account-security-settings.tsx:93
+msgid "account.sessions.signOutEverywhere"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:56
+msgid "account.profile.title"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:97
+msgid "account.methods.title"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:959
 msgid "auth.page.signUpDisabled.title"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:967
+#: src/i18n/messages.ts:1182
 msgid "auth.form.signingIn"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:719
+#: src/components/account-security-settings.tsx:182
+msgid "account.passkeys.singleDevice"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:787
 msgid "dashboard.action.siteLabelRequired"
 msgstr ""
 
@@ -3244,22 +4249,32 @@ msgid "dashboard.brand.editor.radius.soft"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:596
+#: src/i18n/messages.ts:664
 msgid "dashboard.server.partialData"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1044
+#: src/i18n/messages.ts:1314
 msgid "auth.form.soon"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:342
+#: src/i18n/messages.ts:410
 msgid "dashboard.viewModel.sourceRevision"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:88
+#: src/components/enterprise-identity-settings.tsx:131
+msgid "enterpriseIdentity.connection"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:62
+msgid "enterpriseIdentity.connections"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:156
 msgid "dashboard.common.staging"
 msgstr ""
 
@@ -3289,22 +4304,22 @@ msgid "dashboard.recovery.noEnvironments"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:256
+#: src/i18n/messages.ts:324
 msgid "dashboard.viewModel.stagingEvidence"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:160
+#: src/i18n/messages.ts:228
 msgid "dashboard.viewModel.stagingPublished"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:180
+#: src/i18n/messages.ts:248
 msgid "dashboard.viewModel.stagingUpdate"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:159
+#: src/i18n/messages.ts:227
 msgid "dashboard.viewModel.stagingVerified"
 msgstr ""
 
@@ -3319,7 +4334,7 @@ msgid "dashboard.documents.emptyDescription"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:878
+#: src/i18n/messages.ts:946
 msgid "auth.page.signUp.eyebrow"
 msgstr ""
 
@@ -3339,7 +4354,7 @@ msgid "dashboard.authoringLaunch.stayInProduct"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:23
+#: src/i18n/messages.ts:24
 msgid "dashboard.navigation.supportLabel"
 msgstr ""
 
@@ -3349,7 +4364,7 @@ msgid "dashboard.support.eyebrow"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:336
+#: src/i18n/messages.ts:404
 msgid "dashboard.viewModel.surface"
 msgstr ""
 
@@ -3359,23 +4374,28 @@ msgid "dashboard.brand.editor.surface"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:114
+#: src/i18n/messages.ts:182
 msgid "dashboard.viewModel.type.survey"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:33
+#: src/i18n/messages.ts:34
 msgid "dashboard.theme.switchToDark"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:32
+#: src/i18n/messages.ts:33
 msgid "dashboard.theme.switchToLight"
 msgstr ""
 
 #. js-lingui-explicit-id
 #: src/components/sdk-snippet-panel.tsx:97
 msgid "dashboard.installation.sync"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:180
+msgid "account.passkeys.synced"
 msgstr ""
 
 #. js-lingui-explicit-id
@@ -3419,12 +4439,12 @@ msgid "dashboard.analytics.targetResult"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:456
+#: src/i18n/messages.ts:524
 msgid "dashboard.viewModel.teamUpdate"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:337
+#: src/i18n/messages.ts:405
 msgid "dashboard.viewModel.text"
 msgstr ""
 
@@ -3444,47 +4464,67 @@ msgid "dashboard.analytics.rowBound"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:635
+#: src/components/enterprise-identity-settings.tsx:50
+msgid "enterpriseIdentity.mutationFailed"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:703
 msgid "dashboard.action.environmentPolicyChanged"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:627
+#: src/i18n/messages.ts:695
 msgid "dashboard.action.environmentPolicyInvalid"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:172
+#: src/i18n/messages.ts:240
 msgid "dashboard.viewModel.stagedArtifactReady"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:707
+#: src/i18n/messages.ts:775
 msgid "dashboard.action.experienceBrandUpdated"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:731
+#: src/i18n/messages.ts:93
+msgid "recoveryCode.unavailable"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:799
 msgid "dashboard.action.originsNotSynced"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:154
+#: src/i18n/messages.ts:222
 msgid "dashboard.viewModel.productionEarlierHash"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:185
+#: src/i18n/messages.ts:253
 msgid "dashboard.viewModel.stagingEarlierHash"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1043
+#: src/i18n/messages.ts:1313
 msgid "auth.form.linkExpires"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1053
+#: src/i18n/messages.ts:1234
+msgid "auth.form.passwordLinkUnavailableHelp"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1255
+msgid "auth.form.verificationLinkUnavailableHelp"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1327
 msgid "auth.error.invalidPasswordLink"
 msgstr ""
 
@@ -3494,12 +4534,12 @@ msgid "dashboard.support.customerVersionDescription"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:603
+#: src/i18n/messages.ts:671
 msgid "dashboard.action.productionApprovalInvalid"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:615
+#: src/i18n/messages.ts:683
 msgid "dashboard.action.productionChanged"
 msgstr ""
 
@@ -3509,12 +4549,12 @@ msgid "dashboard.installation.publicIdSafety"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:576
+#: src/i18n/messages.ts:644
 msgid "dashboard.server.conflict"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:829
+#: src/i18n/messages.ts:897
 msgid "dashboard.action.releaseRecoveryUncertain"
 msgstr ""
 
@@ -3529,22 +4569,22 @@ msgid "dashboard.recovery.requestFailed"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:821
+#: src/i18n/messages.ts:889
 msgid "dashboard.action.releaseRecoveryInvalid"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:556
+#: src/i18n/messages.ts:624
 msgid "dashboard.server.requestRejected"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:560
+#: src/i18n/messages.ts:628
 msgid "dashboard.server.invalidRequest"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:572
+#: src/i18n/messages.ts:640
 msgid "dashboard.server.notFound"
 msgstr ""
 
@@ -3554,17 +4594,17 @@ msgid "dashboard.brand.controller.previewFailed"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:198
+#: src/i18n/messages.ts:266
 msgid "dashboard.viewModel.noStagingRecordYet"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:932
+#: src/i18n/messages.ts:1000
 msgid "auth.page.newPassword.description"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:801
+#: src/i18n/messages.ts:869
 msgid "dashboard.action.analyticsEnvironmentUnavailable"
 msgstr ""
 
@@ -3579,12 +4619,12 @@ msgid "dashboard.recovery.failure.artifactIncompatible"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:176
+#: src/i18n/messages.ts:244
 msgid "dashboard.viewModel.stagedArtifactNeedsVerification"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1008
+#: src/i18n/messages.ts:1247
 msgid "auth.form.invalidVerificationLink"
 msgstr ""
 
@@ -3594,53 +4634,68 @@ msgid "dashboard.support.editableBackupDescription"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:540
+#: src/i18n/messages.ts:1101
+msgid "workspaceMembers.operationFailed"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:608
 msgid "dashboard.error.title"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:533
+#: src/i18n/messages.ts:601
 msgid "dashboard.entry.workspaceUnavailable"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:584
+#: src/i18n/messages.ts:652
 msgid "dashboard.server.unavailable"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:588
+#: src/i18n/messages.ts:656
 msgid "dashboard.server.requestFailed"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:592
+#: src/i18n/messages.ts:660
 msgid "dashboard.server.invalidResponse"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:703
+#: src/i18n/messages.ts:771
 msgid "dashboard.action.themeAcknowledgementInvalid"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:678
+#: src/i18n/messages.ts:746
 msgid "dashboard.action.themeApprovalInvalid"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:665
+#: src/i18n/messages.ts:733
 msgid "dashboard.action.themeIdentityInvalid"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:346
+#: src/i18n/messages.ts:414
 msgid "dashboard.viewModel.themeRevision"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:669
+#: src/i18n/messages.ts:737
 msgid "dashboard.action.themeValuesInvalid"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1077
+msgid "workspaceMembers.noPendingInvitations"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/components/email-change-verification.tsx:14
+msgid "account.emailChange.recorded"
 msgstr ""
 
 #. js-lingui-explicit-id
@@ -3654,12 +4709,12 @@ msgid "dashboard.activation.requestExpired"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:775
+#: src/i18n/messages.ts:843
 msgid "dashboard.action.brandChanged"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:895
+#: src/i18n/messages.ts:963
 msgid "auth.page.signUpDisabled.description"
 msgstr ""
 
@@ -3674,12 +4729,27 @@ msgid "dashboard.brand.review.noLinkedDescription"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:922
+#: src/i18n/messages.ts:1045
+msgid "workspaceInvitation.unavailable"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:990
 msgid "auth.page.incompleteLink.title"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:997
+#: src/components/email-change-verification.tsx:23
+msgid "account.emailChange.invalid"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1230
+msgid "auth.form.passwordLinkUnavailable"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1226
 msgid "auth.form.incompletePasswordLink"
 msgstr ""
 
@@ -3699,7 +4769,17 @@ msgid "dashboard.recovery.failure.environmentNotConfigured"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1018
+#: src/components/account-security-settings.tsx:137
+msgid "account.reauthenticate"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:172
+msgid "account.recoveryCodes.unconfirmed"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1283
 msgid "auth.form.moment"
 msgstr ""
 
@@ -3709,17 +4789,32 @@ msgid "dashboard.brand.preview.renderFailed"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1049
+#: src/i18n/messages.ts:1251
+msgid "auth.form.verificationLinkUnavailable"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1288
+msgid "auth.form.incompleteVerificationLink"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:157
+msgid "enterpriseIdentity.scimHelp"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1323
 msgid "auth.error.rateLimited"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:580
+#: src/i18n/messages.ts:648
 msgid "dashboard.server.rateLimited"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:108
+#: src/i18n/messages.ts:176
 msgid "dashboard.viewModel.type.tour"
 msgstr ""
 
@@ -3764,6 +4859,11 @@ msgid "dashboard.analytics.fact.tourStarts"
 msgstr ""
 
 #. js-lingui-explicit-id
+#: src/i18n/messages.ts:1083
+msgid "workspaceMembers.transferOwnership"
+msgstr ""
+
+#. js-lingui-explicit-id
 #: src/components/dashboard-settings-views.tsx:25
 msgid "dashboard.environments.trustedOrigins"
 msgstr ""
@@ -3774,82 +4874,107 @@ msgid "dashboard.installation.trustedOrigins"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:524
+#: src/i18n/messages.ts:592
 msgid "dashboard.entry.retryAction"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:548
+#: src/i18n/messages.ts:616
 msgid "dashboard.error.retry"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:338
+#: src/components/account-security-settings.tsx:120
+msgid "account.email.queued"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:141
+msgid "enterpriseIdentity.recordName"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:142
+msgid "enterpriseIdentity.recordValue"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:116
+msgid "account.delete.confirmation"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1110
+msgid "workspaceMembers.deletionConfirmation"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:406
 msgid "dashboard.viewModel.typography"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:687
+#: src/i18n/messages.ts:755
 msgid "dashboard.action.approveBrandFailed"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:652
+#: src/i18n/messages.ts:720
 msgid "dashboard.action.createBrandFailed"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:723
+#: src/i18n/messages.ts:791
 msgid "dashboard.action.createTokenFailed"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:661
+#: src/i18n/messages.ts:729
 msgid "dashboard.action.loadBrandImpactFailed"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:846
+#: src/i18n/messages.ts:914
 msgid "dashboard.action.releaseHistoryUnavailable"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:760
+#: src/i18n/messages.ts:828
 msgid "dashboard.action.loadSupportFailed"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:699
+#: src/i18n/messages.ts:767
 msgid "dashboard.action.setWorkspaceDefaultFailed"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:736
+#: src/i18n/messages.ts:804
 msgid "dashboard.action.prepareInstallationFailed"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:752
+#: src/i18n/messages.ts:820
 msgid "dashboard.action.revokeInstallationFailed"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:771
+#: src/i18n/messages.ts:839
 msgid "dashboard.action.revokeTokenFailed"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:674
+#: src/i18n/messages.ts:742
 msgid "dashboard.action.saveBrandDraftFailed"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:748
+#: src/i18n/messages.ts:816
 msgid "dashboard.action.syncOriginsFailed"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:623
+#: src/i18n/messages.ts:691
 msgid "dashboard.action.updateReleaseApprovalFailed"
 msgstr ""
 
@@ -3859,7 +4984,7 @@ msgid "dashboard.environments.unableToUpdateApproval"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:644
+#: src/i18n/messages.ts:712
 msgid "dashboard.action.updateEnvironmentPolicyFailed"
 msgstr ""
 
@@ -3869,7 +4994,7 @@ msgid "dashboard.environmentPolicy.unableToUpdate"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:711
+#: src/i18n/messages.ts:779
 msgid "dashboard.action.updateExperienceFailed"
 msgstr ""
 
@@ -3879,7 +5004,7 @@ msgid "dashboard.brand.review.unchanged"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:94
+#: src/i18n/messages.ts:162
 msgid "dashboard.common.unknown"
 msgstr ""
 
@@ -3894,7 +5019,7 @@ msgid "dashboard.analytics.unknownEvent"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:501
+#: src/i18n/messages.ts:569
 msgid "dashboard.viewModel.unknownTime"
 msgstr ""
 
@@ -3919,7 +5044,7 @@ msgid "dashboard.recovery.unpublishEllipsis"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:484
+#: src/i18n/messages.ts:552
 msgid "dashboard.viewModel.unpublished"
 msgstr ""
 
@@ -3984,7 +5109,7 @@ msgid "dashboard.publishIssue.unresolvedLifecycleHint.message"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:363
+#: src/i18n/messages.ts:431
 msgid "dashboard.viewModel.updatedAt"
 msgstr ""
 
@@ -4004,8 +5129,23 @@ msgid "dashboard.recovery.reasonHelp"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1002
+#: src/i18n/messages.ts:1240
 msgid "auth.form.passwordLength"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:125
+msgid "account.validation.password"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:75
+msgid "recoveryCode.title"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1135
+msgid "auth.form.recoveryCode"
 msgstr ""
 
 #. js-lingui-explicit-id
@@ -4014,7 +5154,7 @@ msgid "dashboard.publishIssue.unsafeUrl.message"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:987
+#: src/i18n/messages.ts:1204
 msgid "auth.form.useAnotherEmail"
 msgstr ""
 
@@ -4024,23 +5164,38 @@ msgid "dashboard.brand.impact.useApproved"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:78
+#: src/i18n/messages.ts:146
 msgid "dashboard.page.support.description"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:926
+#: src/i18n/messages.ts:1049
+msgid "workspaceInvitation.incomplete"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:45
+msgid "account.emailChange.invalidDescription"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:994
 msgid "auth.page.incompletePasswordLink.description"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:937
+#: src/i18n/messages.ts:1005
 msgid "auth.page.incompleteVerification.description"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:874
+#: src/i18n/messages.ts:942
 msgid "auth.page.signIn.description"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:62
+msgid "account.username"
 msgstr ""
 
 #. js-lingui-explicit-id
@@ -4049,17 +5204,42 @@ msgid "dashboard.brand.editor.usesLight"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:222
+#: src/components/enterprise-identity-settings.tsx:94
+msgid "enterpriseIdentity.status.validationRequired"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:290
 msgid "dashboard.viewModel.verified"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:223
+#: src/components/enterprise-identity-settings.tsx:101
+msgid "enterpriseIdentity.status.verified"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:125
+msgid "enterpriseIdentity.domains"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:291
 msgid "dashboard.viewModel.verifiedExactArtifactAt"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1029
+#: src/components/enterprise-identity-settings.tsx:82
+msgid "enterpriseIdentity.provisioning.jit"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:143
+msgid "enterpriseIdentity.verifyDomain"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1299
 msgid "auth.form.verifyAndContinue"
 msgstr ""
 
@@ -4069,17 +5249,27 @@ msgid "dashboard.publishIssue.unverifiedTarget.message"
 msgstr ""
 
 #. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:155
+msgid "account.passkeys.stepUp"
+msgstr ""
+
+#. js-lingui-explicit-id
 #: src/components/authoring-activation-popup.tsx:96
 msgid "dashboard.activation.verifying"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1013
+#: src/components/email-change-verification.tsx:13
+msgid "account.emailChange.verifying"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1278
 msgid "auth.form.verifyingEmail"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:372
+#: src/i18n/messages.ts:440
 msgid "dashboard.viewModel.version"
 msgstr ""
 
@@ -4089,7 +5279,7 @@ msgid "dashboard.brand.panel.approvedVersion"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:682
+#: src/i18n/messages.ts:750
 msgid "dashboard.action.versionApproved"
 msgstr ""
 
@@ -4109,27 +5299,47 @@ msgid "dashboard.support.viewDetails"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1092
+#: src/i18n/messages.ts:1090
+msgid "workspaceMembers.role.viewer"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1366
 msgid "workspaceSelection.role.viewer"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/dashboard-auth-controls.tsx:52
+#: src/components/dashboard-auth-controls.tsx:57
 msgid "dashboard.account.role.viewer"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:525
+#: src/components/enterprise-identity-settings.tsx:152
+msgid "enterpriseIdentity.role.viewer"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:83
+msgid "account.email.oldWaiting"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:85
+msgid "account.email.newWaiting"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1134
+msgid "auth.form.passkeyWaiting"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:593
 msgid "dashboard.entry.unavailableTitle"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1033
-msgid "auth.form.verificationSent"
-msgstr ""
-
-#. js-lingui-explicit-id
-#: src/i18n/messages.ts:872
+#: src/i18n/messages.ts:940
 msgid "auth.page.signIn.eyebrow"
 msgstr ""
 
@@ -4139,28 +5349,48 @@ msgid "dashboard.brand.empty.sampleTitle"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1073
+#: src/i18n/messages.ts:1347
 msgid "workspaceSelection.title"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:22
+#: src/components/account-security-settings.tsx:153
+msgid "account.passkeys.namePlaceholder"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:23
 msgid "dashboard.navigation.workspaceLabel"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:961
+#: src/i18n/messages.ts:38
+msgid "account.navigation.workspace"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1176
 msgid "auth.form.workspace"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1072
+#: src/i18n/messages.ts:1346
 msgid "workspaceSelection.eyebrow"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/dashboard-auth-controls.tsx:40
+#: src/components/dashboard-auth-controls.tsx:41
 msgid "dashboard.account.workspace"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1093
+msgid "workspaceMembers.unavailable"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:102
+msgid "enterpriseIdentity.policy"
 msgstr ""
 
 #. js-lingui-explicit-id
@@ -4169,8 +5399,13 @@ msgid "dashboard.brand.panel.workspaceDefault"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:695
+#: src/i18n/messages.ts:763
 msgid "dashboard.action.workspaceDefaultUpdated"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1022
+msgid "workspaceInvitation.eyebrow"
 msgstr ""
 
 #. js-lingui-explicit-id
@@ -4179,23 +5414,33 @@ msgid "dashboard.brand.impact.actionNeeded"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:452
+#: src/i18n/messages.ts:1056
+msgid "workspaceMembers.members"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:520
 msgid "dashboard.viewModel.workspaceTeammate"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:364
+#: src/i18n/messages.ts:432
 msgid "dashboard.viewModel.workspaceApprovedTokens"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/dashboard-auth-controls.tsx:41
+#: src/components/dashboard-auth-controls.tsx:42
 msgid "dashboard.account.workspaces"
 msgstr ""
 
 #. js-lingui-explicit-id
 #: src/components/sdk-snippet-panel.tsx:79
 msgid "dashboard.installation.readonlyExisting"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1032
+msgid "workspaceInvitation.acceptedHelp"
 msgstr ""
 
 #. js-lingui-explicit-id
@@ -4209,47 +5454,67 @@ msgid "dashboard.recovery.notAllowed"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:825
+#: src/i18n/messages.ts:893
 msgid "dashboard.action.releaseRecoveryForbidden"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:805
+#: src/i18n/messages.ts:873
 msgid "dashboard.action.analyticsForbidden"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:838
+#: src/i18n/messages.ts:906
 msgid "dashboard.action.releaseHistoryForbidden"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1024
+#: src/i18n/messages.ts:1294
 msgid "auth.form.choosePasswordHelp"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:946
+#: src/i18n/messages.ts:1014
 msgid "auth.page.finishAccount.description"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:954
+#: src/i18n/messages.ts:1142
 msgid "auth.form.yourName"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:962
+#: src/i18n/messages.ts:1118
+msgid "workspaceMembers.noManagementAccess"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1177
 msgid "auth.form.workspaceHelp"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:544
+#: src/components/email-change-verification.tsx:19
+msgid "account.emailChange.completed"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:57
+msgid "account.profile.help"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:58
+msgid "account.forgotUsername.description"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:612
 msgid "dashboard.error.description"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:520
+#: src/i18n/messages.ts:588
 msgid "dashboard.entry.signInDescription"
 msgstr ""
 
@@ -4259,21 +5524,26 @@ msgid "dashboard.recovery.failure.capabilityDenied"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:640
+#: src/i18n/messages.ts:708
 msgid "dashboard.action.environmentPolicyForbidden"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:619
+#: src/i18n/messages.ts:687
 msgid "dashboard.action.releasePolicyForbidden"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:568
+#: src/i18n/messages.ts:636
 msgid "dashboard.server.capabilityDenied"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:779
+#: src/i18n/messages.ts:847
 msgid "dashboard.action.brandForbidden"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:63
+msgid "account.username.placeholder"
 msgstr ""

@@ -18,6 +18,7 @@ import {
   getThemeReleaseReview,
   hasLegacyThemeReference,
   validateDocumentReleaseReadiness,
+  validMediaAssetsForDocument,
 } from './document-compilation';
 
 export async function handleAuthoringReleaseState(
@@ -58,7 +59,10 @@ export async function handleAuthoringReleaseState(
         run.compiledArtifactId === latestArtifact?.id &&
         run.contentHash === latestArtifact?.contentHash,
     ) ?? null;
-  const publishIssues = validateDocumentReleaseReadiness(record.document);
+  const publishIssues = validateDocumentReleaseReadiness(
+    record.document,
+    await validMediaAssetsForDocument(options.repository, record.document),
+  );
   const themeMigrationRequired = hasLegacyThemeReference(record.document);
   const themeReview = themeMigrationRequired
     ? null

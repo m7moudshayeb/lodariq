@@ -113,7 +113,18 @@ export abstract class ControllerHistoryReleaseFeature extends ControllerStepsTar
   }
 
   repairPublishIssue(issue: PublishReadinessIssue): void {
-    this.recordMetric('readiness.repair-opened');
+    this.recordMetric('readiness.repair-opened', {
+      ...(issue.blockId ? { blockId: issue.blockId } : {}),
+      ...(issue.targetId ? { targetId: issue.targetId } : {}),
+      reason: issue.code,
+    });
+    if (issue.targetId) {
+      this.recordMetric('target.repair-opened', {
+        ...(issue.blockId ? { blockId: issue.blockId } : {}),
+        targetId: issue.targetId,
+        reason: issue.code,
+      });
+    }
     const intent = publishIssueRepairIntent(issue);
     this.returnToEditorForPublishRepair();
     if (intent.action === 'add-step') {

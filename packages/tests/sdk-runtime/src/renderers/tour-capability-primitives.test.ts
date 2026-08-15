@@ -1,7 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { CompiledStep, StepChoreography, StepTransition } from '@lodariq/schema';
 import { applyStepMotion, resolveResponsiveTourStep } from '@lodariq/sdk-runtime/renderers/tour';
-import { executeStepChoreography } from '@lodariq/sdk-runtime/renderers/tour-choreography';
+import {
+  executeStepChoreography,
+  waitForObservedTargetInput,
+} from '@lodariq/sdk-runtime/renderers/tour-choreography';
 import { resolveStepTransition } from '@lodariq/sdk-runtime/renderers/tour-flow';
 import {
   chooseLowestCollisionCandidate,
@@ -44,6 +47,21 @@ describe('Tour runtime capability primitives', () => {
     controller.abort();
     await expect(pending).rejects.toThrow();
     expect(transition).not.toHaveBeenCalled();
+  });
+
+  it('observes target input without reading or retaining the field value', async () => {
+    const field = new EventTarget();
+    const valueGetter = vi.fn(() => 'private-before');
+    Object.defineProperty(field, 'value', { get: valueGetter });
+    const pending = waitForObservedTargetInput(
+      field as unknown as Element,
+      new AbortController().signal,
+    );
+
+    field.dispatchEvent(new Event('input'));
+    await pending;
+
+    expect(valueGetter).not.toHaveBeenCalled();
   });
 
   it('chooses the placement with the lowest weighted overlap', () => {

@@ -148,15 +148,17 @@ export function TourStoryboard({
           {flowMapOpen ? authoringText('Hide Flow Map') : authoringText('Show Flow Map')}
         </span>
         <ExperienceLanguageSelect controller={controller} snapshot={snapshot} />
-        <button
-          aria-expanded={flowMapOpen}
-          className="tour-flow-map-toggle"
-          onClick={() => onFlowMapOpenChange(!flowMapOpen)}
-          type="button"
-        >
-          <Network size={14} strokeWidth={2} aria-hidden="true" />
-          {flowMapOpen ? authoringText('Return to canvas') : authoringText('Flow Map')}
-        </button>
+        {snapshot.deliveryCapabilities.has('flow.v1') ? (
+          <button
+            aria-expanded={flowMapOpen}
+            className="tour-flow-map-toggle"
+            onClick={() => onFlowMapOpenChange(!flowMapOpen)}
+            type="button"
+          >
+            <Network size={14} strokeWidth={2} aria-hidden="true" />
+            {flowMapOpen ? authoringText('Return to canvas') : authoringText('Flow Map')}
+          </button>
+        ) : null}
       </div>
       {batchMode ? (
         <TourStepBatchToolbar controller={controller} count={snapshot.selectedStepIds.size} />

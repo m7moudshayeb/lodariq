@@ -39,6 +39,7 @@ export function TourStepInspector({
   const health = stepHealth(step, snapshot);
   const tooltip = stepTooltip(step);
   const [toolMode, setToolMode] = useState<StoryboardToolMode>('content');
+  const [contentTrayRequestToken, setContentTrayRequestToken] = useState(0);
 
   useEffect(() => setToolMode('content'), [step.id]);
 
@@ -59,7 +60,7 @@ export function TourStepInspector({
     >
       <section
         className="tour-step-editor-section storyboard-canvas"
-        aria-label={authoringText('Content')}
+        aria-label={authoringText('Rich content')}
       >
         <header className="storyboard-canvas-heading">
           <span>
@@ -72,6 +73,7 @@ export function TourStepInspector({
         </header>
         {tooltip ? (
           <RichStepContentEditor
+            contentTrayRequestToken={contentTrayRequestToken}
             controller={controller}
             health={health}
             onFlowMapOpen={onFlowMapOpen}
@@ -94,13 +96,14 @@ export function TourStepInspector({
                 className={active ? 'active' : undefined}
                 aria-label={option.label}
                 aria-pressed={active}
-                onClick={() =>
-                  setToolMode((current) =>
-                    current === option.value && option.value !== 'content'
-                      ? 'content'
-                      : option.value,
-                  )
-                }
+                onClick={() => {
+                  if (option.value === 'content') {
+                    setToolMode('content');
+                    setContentTrayRequestToken((token) => token + 1);
+                    return;
+                  }
+                  setToolMode((current) => (current === option.value ? 'content' : option.value));
+                }}
               >
                 <Icon size={20} strokeWidth={1.8} aria-hidden="true" />
                 <span>{option.label}</span>

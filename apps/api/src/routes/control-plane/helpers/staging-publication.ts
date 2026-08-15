@@ -41,6 +41,8 @@ import {
   toPublishReadinessIssueResponse,
   toPublicationResponse,
   validateDocumentReleaseReadiness,
+  validMediaAssetsForDocument,
+  compiledMediaAssetIds,
 } from './document-compilation';
 
 export async function handleAuthoringStagingPublication(
@@ -156,7 +158,11 @@ export async function handleAuthoringStagingPublication(
         message: 'The reviewed artifact changed or is no longer available; review staging again',
       });
     }
-    const publishIssues = validateDocumentReleaseReadiness(reviewed.document);
+    const validMediaAssets = await validMediaAssetsForDocument(
+      options.repository,
+      reviewed.document,
+    );
+    const publishIssues = validateDocumentReleaseReadiness(reviewed.document, validMediaAssets);
     const blockingPublishIssues = publishIssues.filter(isPublishReadinessBlocker);
     if (blockingPublishIssues.length) {
       return reply.code(409).send({
@@ -211,6 +217,10 @@ export async function handleAuthoringStagingPublication(
       expectedGeneration,
       expectedEnvironmentPolicyUpdatedAt: environmentPolicyScope.environment.updatedAt,
     });
+    await options.repository.publishAuthoringMediaAssets(
+      session.workspaceId,
+      compiledMediaAssetIds(artifact.compiled),
+    );
     emitObservability(
       options.observability,
       createObservabilityEvent({

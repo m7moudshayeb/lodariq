@@ -25,5 +25,12 @@ PRD.
 | [0016](0016-target-identity-v2.md)                    | Selector-free multi-evidence target identity                     | Accepted |
 | [0017](0017-lodariq-owned-authentication.md)          | Owned credentials, recovery, email outbox, sessions, and tenancy | Accepted |
 | [0018](0018-localization-boundaries.md)               | Git-first product catalogs + authored-content locale variants    | Accepted |
+| [0019](0019-provider-neutral-identity-model.md)       | Provider-neutral identities, identifiers, and session facts      | Accepted |
+| [0020](0020-resumable-identity-onboarding.md)         | Server-owned resumable account onboarding                        | Accepted |
+| [0021](0021-authoritative-tenant-administration.md)   | Authoritative tenant administration and invitation delivery      | Accepted |
+| [0022](0022-account-and-session-security.md)          | Account and session security lifecycle                           | Accepted |
+| [0023](0023-passkeys-assurance-and-recovery-codes.md) | Passkeys, session assurance, and recovery codes                  | Accepted |
+| [0024](0024-google-and-microsoft-oidc.md)              | Google and Microsoft OIDC with one Lodariq session               | Accepted |
+| [0025](0025-enterprise-identity-boundary.md)           | Enterprise OIDC, SCIM, policy, and recovery boundary             | Accepted |
 
 See [0000-template.md](0000-template.md) for the format.

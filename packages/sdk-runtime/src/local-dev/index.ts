@@ -5,6 +5,8 @@ import {
   RENDERER_CONTRACT_VERSION,
   validate,
   type BrandThemeSnapshot,
+  type AuthoringDiagnosticAttributes,
+  type AuthoringDiagnosticEventName,
   type CompiledDocument,
   type LodariqDocument as LodariqDocumentType,
 } from '@lodariq/schema';
@@ -19,48 +21,13 @@ import {
 const STORAGE_PREFIX = 'lodariq:doc:';
 const METRICS_PREFIX = 'lodariq:metrics:';
 
-export type LocalMetricName =
-  | 'authoring.opened'
-  | 'block.inserted'
-  | 'transaction.committed'
-  | 'transaction.coalesced'
-  | 'transaction.retried'
-  | 'transaction.conflicted'
-  | 'transaction.persisted'
-  | 'target.pick.started'
-  | 'target.pick.succeeded'
-  | 'target.pick.failed'
-  | 'target.pick.canceled'
-  | 'target.unavailable'
-  | 'target.context-restored'
-  | 'target.verification-passed'
-  | 'target.repair-opened'
-  | 'preview.opened'
-  | 'preview.from-step'
-  | 'preview.step-changed'
-  | 'preview.branch-chosen'
-  | 'preview.completed'
-  | 'preview.exited'
-  | 'choreography.stage-started'
-  | 'choreography.stage-satisfied'
-  | 'choreography.stage-timed-out'
-  | 'style.copied'
-  | 'style.applied'
-  | 'style.recipe-used'
-  | 'contrast.warning'
-  | 'contrast.blocker'
-  | 'readiness.finding'
-  | 'readiness.repair-opened'
-  | 'readiness.repair-completed'
-  | 'checkpoint.saved'
-  | 'checkpoint.restored'
-  | 'document.exported'
-  | 'document.imported';
+export type LocalMetricName = AuthoringDiagnosticEventName;
 
 export interface LocalMetricEvent {
   sessionId: string;
   documentId: string;
   name: LocalMetricName;
+  attributes?: AuthoringDiagnosticAttributes;
   at: number;
 }
 

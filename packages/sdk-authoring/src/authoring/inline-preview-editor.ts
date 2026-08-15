@@ -12,7 +12,8 @@ import { createAuthoringDomCombobox } from './dom-combobox';
 import { createInlineEditorStyles } from './inline-preview-styles';
 import { applyAuthoringLocale, authoringText } from '../i18n';
 
-export const INLINE_PREVIEW_CONTENT_TYPES = ['heading', 'paragraph', 'button', 'link'] as const;
+/** Rich content is authored in the tray; only separately modeled actions remain inline-editable. */
+export const INLINE_PREVIEW_CONTENT_TYPES = ['button', 'link'] as const;
 export type InlinePreviewContentType = (typeof INLINE_PREVIEW_CONTENT_TYPES)[number];
 
 const INLINE_PREVIEW_CONTENT_TYPE_SET = new Set<string>(INLINE_PREVIEW_CONTENT_TYPES);
@@ -28,8 +29,6 @@ const BLOCKED_RICH_INPUT_TYPES = new Set([
   'insertUnorderedList',
 ]);
 const INLINE_CONTENT_LABELS: Readonly<Record<InlinePreviewContentType, string>> = {
-  heading: authoringText('Edit heading in preview'),
-  paragraph: authoringText('Edit body text in preview'),
   button: authoringText('Edit button label in preview'),
   link: authoringText('Edit link label in preview'),
 };
@@ -176,11 +175,7 @@ export function createInlinePreviewEditor(
 
   const focusPrimary = (): void => {
     sync();
-    const primary =
-      [...editableElements.keys()].find((element) => {
-        const type = element.getAttribute(LODARIQ_RENDERED_NODE_TYPE_ATTRIBUTE);
-        return type === 'heading';
-      }) ?? editableElements.keys().next().value;
+    const primary = editableElements.keys().next().value;
     if (!(primary instanceof HTMLElement)) return;
     primary.focus();
     selectElementContents(primary);

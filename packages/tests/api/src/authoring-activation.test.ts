@@ -963,6 +963,81 @@ describe('activation grant document sessions', () => {
     expect(validate(AuthoringDocumentPayload, payload).valid).toBe(true);
     expect(payload.document.id).toBe(session.context.documentId);
 
+    const emptyResources = await app.inject({
+      method: 'GET',
+      url: '/v1/authoring/resources',
+      headers: editorHeaders,
+    });
+    expect(emptyResources.statusCode).toBe(200);
+    expect(emptyResources.json()).toEqual({ recipes: [], checkpoints: [], assets: [] });
+
+    const uploadedAsset = await app.inject({
+      method: 'POST',
+      url: '/v1/authoring/media-assets',
+      headers: editorHeaders,
+      payload: {
+        kind: 'image',
+        filename: 'preview.gif',
+        contentType: 'image/gif',
+        contentBase64: Buffer.from('GIF89a', 'ascii').toString('base64'),
+        savedToLibrary: true,
+      },
+    });
+    expect(uploadedAsset.statusCode, uploadedAsset.body).toBe(201);
+    const asset = uploadedAsset.json<{
+      id: string;
+      downloadPath: string;
+      savedToLibrary: boolean;
+    }>();
+    expect(asset).toMatchObject({
+      downloadPath: `/v1/authoring/media-assets/${asset.id}`,
+      savedToLibrary: true,
+    });
+
+    const authoringAsset = await app.inject({
+      method: 'GET',
+      url: asset.downloadPath,
+      headers: editorHeaders,
+    });
+    expect(authoringAsset.statusCode).toBe(200);
+    expect(authoringAsset.headers['content-type']).toContain('image/gif');
+
+    const unpublishedAsset = await app.inject({
+      method: 'GET',
+      url: `/v1/sdk/media-assets/${asset.id}`,
+    });
+    expect(unpublishedAsset.statusCode).toBe(404);
+
+    await repository.publishAuthoringMediaAssets(WORKSPACE_ID, [asset.id]);
+    const publishedAsset = await app.inject({
+      method: 'GET',
+      url: `/v1/sdk/media-assets/${asset.id}`,
+    });
+    expect(publishedAsset.statusCode).toBe(200);
+    expect(publishedAsset.headers['cache-control']).toContain('immutable');
+
+    const savedResources = await app.inject({
+      method: 'PUT',
+      url: '/v1/authoring/resources',
+      headers: editorHeaders,
+      payload: {
+        recipes: [],
+        checkpoints: [
+          {
+            id: 'checkpoint-hosted-api',
+            name: 'Before hosted edit',
+            createdAt: '2026-08-14T10:00:00.000Z',
+            document: payload.document,
+          },
+        ],
+      },
+    });
+    expect(savedResources.statusCode, savedResources.body).toBe(200);
+    expect(savedResources.json()).toMatchObject({
+      checkpoints: [{ id: 'checkpoint-hosted-api', name: 'Before hosted edit' }],
+      assets: [{ id: asset.id, kind: 'image', savedToLibrary: true }],
+    });
+
     const updatedDocument = {
       ...payload.document,
       title: 'Persisted from the hosted editor',

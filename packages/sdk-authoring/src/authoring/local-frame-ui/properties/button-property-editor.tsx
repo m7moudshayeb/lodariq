@@ -125,6 +125,11 @@ function ButtonPropertyControl({
   const value = property.read(context);
 
   if (property.control === 'segmented' && property.options) {
+    const options =
+      property.id === 'button.action' &&
+      !context.controller.supportsDeliveryCapability('choreography.v1')
+        ? property.options.filter((option) => option.value !== 'runSequence')
+        : property.options;
     return (
       <div className="storyboard-property-control" data-property-id={property.id}>
         <PropertyChoiceField
@@ -135,7 +140,7 @@ function ButtonPropertyControl({
               onActionTypeChange?.(nextValue as EditableActionType);
             }
           }}
-          options={property.options}
+          options={options}
           showIcons={property.id === 'button.action'}
           value={String(value)}
         />

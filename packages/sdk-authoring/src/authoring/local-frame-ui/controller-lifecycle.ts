@@ -6,6 +6,7 @@ import {
   type AuthoringPanelLayoutMode,
   type AuthoringAccessibilityPreviewMode,
   type AuthoringFlowSimulationContext,
+  type AuthoringDiagnosticAttributes,
 } from '@lodariq/schema';
 import { hasBlock } from '../document-ops';
 import { createBridgeCorrelationId } from '../../bridge/transport';
@@ -19,7 +20,10 @@ export abstract class ControllerLifecycleFeature extends ControllerBase {
   protected abstract flushPreviewPatches(): void;
   protected abstract readonly handlePageHide: () => void;
   protected abstract readonly handleWindowKeyDown: (event: globalThis.KeyboardEvent) => void;
-  protected abstract recordMetric(name: LocalAuthoringFrameMetricName): void;
+  protected abstract recordMetric(
+    name: LocalAuthoringFrameMetricName,
+    attributes?: AuthoringDiagnosticAttributes,
+  ): void;
   abstract refreshPanelWorkflowState(): void;
   abstract refreshStagingRelease(): void;
   protected abstract sendPreviewRequest(
@@ -61,6 +65,7 @@ export abstract class ControllerLifecycleFeature extends ControllerBase {
 
   destroy(): void {
     this.documentTransactions.flush();
+    this.releaseMediaAssetPreviews();
     if (!this.started) {
       this.interactionActor.stop();
       return;

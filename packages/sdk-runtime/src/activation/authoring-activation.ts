@@ -15,14 +15,6 @@ import {
   HOSTED_CREATOR_REGISTRATION_PROPERTY,
   type HostedCreatorPanelState,
 } from '@lodariq/schema/hosted-creator';
-import {
-  Eye,
-  EyeOff,
-  List,
-  Plus,
-  createElement as createLucideElement,
-  type IconNode,
-} from 'lucide';
 import { applyRuntimeLocale, currentRuntimeLocale, runtimeText } from '../i18n';
 import { consumeDashboardAuthoringEntryIntent } from './dashboard-authoring-entry';
 
@@ -59,12 +51,50 @@ const SUBRESOURCE_INTEGRITY = /^sha256-[A-Za-z0-9+/]+={0,2}$/u;
 const ACTIVATION_CAPABILITIES = ['documents:create', 'documents:list', 'documents:select'] as const;
 const NEW_TOUR_DOCUMENT_INTENT = { kind: 'new-draft', documentType: 'tour' } as const;
 
+type LauncherIconElement = readonly [
+  tag: 'circle' | 'line' | 'path',
+  attributes: Readonly<Record<string, string>>,
+];
+
 const LAUNCHER_ICONS = {
-  eye: Eye,
-  'eye-off': EyeOff,
-  list: List,
-  plus: Plus,
-} as const satisfies Readonly<Record<string, IconNode>>;
+  eye: [
+    [
+      'path',
+      {
+        d: 'M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0',
+      },
+    ],
+    ['circle', { cx: '12', cy: '12', r: '3' }],
+  ],
+  'eye-off': [
+    [
+      'path',
+      {
+        d: 'M10.733 5.076a10.744 10.744 0 0 1 11.205 6.575 1 1 0 0 1 0 .696 10.747 10.747 0 0 1-1.444 2.49',
+      },
+    ],
+    ['path', { d: 'M14.084 14.158a3 3 0 0 1-4.242-4.242' }],
+    [
+      'path',
+      {
+        d: 'M17.479 17.499a10.75 10.75 0 0 1-15.417-5.151 1 1 0 0 1 0-.696 10.75 10.75 0 0 1 4.446-5.143',
+      },
+    ],
+    ['path', { d: 'm2 2 20 20' }],
+  ],
+  list: [
+    ['path', { d: 'M3 5h.01' }],
+    ['path', { d: 'M3 12h.01' }],
+    ['path', { d: 'M3 19h.01' }],
+    ['path', { d: 'M8 5h13' }],
+    ['path', { d: 'M8 12h13' }],
+    ['path', { d: 'M8 19h13' }],
+  ],
+  plus: [
+    ['path', { d: 'M5 12h14' }],
+    ['path', { d: 'M12 5v14' }],
+  ],
+} as const satisfies Readonly<Record<string, readonly LauncherIconElement[]>>;
 type LauncherIconName = keyof typeof LAUNCHER_ICONS;
 
 const LAUNCHER_ACTIONS = [
@@ -815,13 +845,28 @@ interface SafeAreaInsets {
 }
 
 function createLauncherIcon(document: Document, iconName: LauncherIconName): SVGElement {
-  const icon = createLucideElement(LAUNCHER_ICONS[iconName], {
+  const namespace = 'http://www.w3.org/2000/svg';
+  const icon = document.createElementNS(namespace, 'svg');
+  for (const [name, value] of Object.entries({
     'aria-hidden': 'true',
+    fill: 'none',
     focusable: 'false',
     height: '20',
+    stroke: 'currentColor',
+    'stroke-linecap': 'round',
+    'stroke-linejoin': 'round',
+    'stroke-width': '2',
+    viewBox: '0 0 24 24',
     width: '20',
-  });
-  return icon.ownerDocument === document ? icon : (document.importNode(icon, true) as SVGElement);
+  })) {
+    icon.setAttribute(name, value);
+  }
+  for (const [tag, attributes] of LAUNCHER_ICONS[iconName]) {
+    const element = document.createElementNS(namespace, tag);
+    for (const [name, value] of Object.entries(attributes)) element.setAttribute(name, value);
+    icon.append(element);
+  }
+  return icon;
 }
 
 function createLauncherId(): string {

@@ -1,5 +1,6 @@
 import { ControllerPropertyFeature } from './controller-properties';
 import { authoringText } from '../../i18n';
+import type { LodariqBlock } from '@lodariq/schema';
 import {
   blocksReferenceTarget,
   createContentBlock,
@@ -13,6 +14,7 @@ import {
   reconcileInlineTextRuns,
   renumberTourSteps,
   removeStepChildBlock,
+  replaceRichContentInsideTourStep,
   reorderStepChildBlock,
   splitInlineTextRuns,
   updateBlockContent,
@@ -84,6 +86,23 @@ export abstract class ControllerContentFeature extends ControllerPropertyFeature
     this.setStatus(`Inserted ${blockTypeLabel(type).toLowerCase()} in step`);
     this.recordMetric('block.inserted');
     this.sendPreviewPatch(block.id, [{ op: 'insertStepContent', stepBlockId, block, index }]);
+  }
+
+  replaceStepRichContent(stepBlockId: string, richContent: readonly LodariqBlock[]): void {
+    if (!this.allowDocumentStructureMutation()) return;
+    const blocks = replaceRichContentInsideTourStep(
+      this.documentState.blocks,
+      stepBlockId,
+      richContent,
+    );
+    if (!blocks || JSON.stringify(blocks) === JSON.stringify(this.documentState.blocks)) return;
+    this.recordChange();
+    this.documentState = { ...this.documentState, blocks };
+    this.afterDocumentMutation();
+    this.services.saveDocument(this.documentState);
+    this.sendPreviewPatch(stepBlockId, [
+      { op: 'replaceStepRichContent', stepBlockId, blocks: [...richContent] },
+    ]);
   }
 
   continueStepContentBlock(
@@ -248,6 +267,19 @@ export abstract class ControllerContentFeature extends ControllerPropertyFeature
     this.focusBlock(childBlockId);
     this.setStatus(authoringText('Moved step content'));
     this.sendPreviewPatch(childBlockId, [{ op: 'moveStepContent', stepBlockId, direction }]);
+  }
+
+  moveStepActionRelativeToRichContent(
+    stepBlockId: string,
+    childBlockId: string,
+    position: BlockInsertPosition,
+  ): void {
+    const richContent = this.stepContentBlocks(this.documentState.blocks, stepBlockId).filter(
+      (block) => block.type !== 'button' && block.type !== 'link',
+    );
+    const target = position === 'before' ? richContent[0] : richContent[richContent.length - 1];
+    if (!target) return;
+    this.reorderStepContentBlock(stepBlockId, childBlockId, target.id, position);
   }
 
   reorderStepContentBlock(

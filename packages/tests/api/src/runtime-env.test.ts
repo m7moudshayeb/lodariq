@@ -126,6 +126,73 @@ describe('@lodariq/api runtime environment check', () => {
       runCheck(validApiEnv({ LODARIQ_PASSWORD_HASH_QUEUE_TIMEOUT_MS: 'unbounded' })),
     ).toThrow(/LODARIQ_PASSWORD_HASH_QUEUE_TIMEOUT_MS must be an integer/);
   });
+
+  it('requires OIDC secrets, complete providers, and the exact first-party callback', () => {
+    const google = {
+      LODARIQ_OIDC_MODE: 'enabled',
+      LODARIQ_OIDC_STATE_SECRET: 'oidc-state-secret-at-least-thirty-two-bytes',
+      LODARIQ_GOOGLE_OIDC_CLIENT_ID: 'google-client',
+      LODARIQ_GOOGLE_OIDC_CLIENT_SECRET: 'google-secret',
+      LODARIQ_GOOGLE_OIDC_REDIRECT_URI:
+        'https://app.lodariq.io/api/auth/oidc/google/callback',
+    };
+    expect(runCheck(validApiEnv(google))).toContain('ready for a live smoke check');
+    expect(() =>
+      runCheck(
+        validApiEnv({
+          ...google,
+          LODARIQ_GOOGLE_OIDC_REDIRECT_URI: 'https://app.lodariq.io/attacker-callback',
+        }),
+      ),
+    ).toThrow(/exact public HTTPS callback URL/u);
+    expect(() =>
+      runCheck(validApiEnv({ ...google, LODARIQ_GOOGLE_OIDC_CLIENT_SECRET: '' })),
+    ).toThrow(/configuration must be complete/u);
+  });
+
+  it('keeps enterprise OIDC disabled unless its callback and bounded secret map are complete', () => {
+    const connectionId = `sso_${'e'.repeat(24)}`;
+    const enterprise = {
+      LODARIQ_ENTERPRISE_OIDC_MODE: 'enabled',
+      LODARIQ_OIDC_STATE_SECRET: 'enterprise-oidc-state-secret-at-least-thirty-two-bytes',
+      LODARIQ_ENTERPRISE_OIDC_REDIRECT_URI:
+        'https://app.lodariq.io/api/auth/enterprise/oidc/callback',
+      LODARIQ_ENTERPRISE_OIDC_CLIENT_SECRETS: JSON.stringify({
+        [connectionId]: 'enterprise-client-secret-at-least-thirty-two-bytes',
+      }),
+    };
+    expect(runCheck(validApiEnv(enterprise))).toContain('ready for a live smoke check');
+    expect(() =>
+      runCheck(
+        validApiEnv({
+          ...enterprise,
+          LODARIQ_ENTERPRISE_OIDC_REDIRECT_URI:
+            'https://app.lodariq.io/api/auth/enterprise/oidc/attacker',
+        }),
+      ),
+    ).toThrow(/exact public HTTPS callback URL/u);
+    expect(() =>
+      runCheck(
+        validApiEnv({
+          ...enterprise,
+          LODARIQ_ENTERPRISE_OIDC_CLIENT_SECRETS: JSON.stringify({
+            invalid: 'enterprise-client-secret-at-least-thirty-two-bytes',
+          }),
+        }),
+      ),
+    ).toThrow(/invalid connection ID/u);
+  });
+
+  it('rejects enterprise validator credentials in the API runtime', () => {
+    expect(() =>
+      runCheck(
+        validApiEnv({
+          LODARIQ_ENTERPRISE_VALIDATION_DATABASE_URL:
+            'postgresql://lodariq_enterprise_validator:password@example.com/neondb?sslmode=require',
+        }),
+      ),
+    ).toThrow(/operator-only and must not enter the API runtime/u);
+  });
 });
 
 function validApiEnv(overrides: Record<string, string> = {}): Record<string, string> {

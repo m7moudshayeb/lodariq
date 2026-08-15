@@ -37,6 +37,13 @@ export const StepChoreographyTrigger = Type.Union(
       },
       { additionalProperties: false },
     ),
+    Type.Object(
+      {
+        type: Type.Literal('observeTargetInput'),
+        targetId: Type.Optional(Type.String(CHOREOGRAPHY_IDENTIFIER_OPTIONS)),
+      },
+      { additionalProperties: false },
+    ),
     Type.Object({ type: Type.Literal('manual') }, { additionalProperties: false }),
   ],
   { $id: 'StepChoreographyTrigger' },

@@ -6,6 +6,7 @@ export const TRIGGER_OPTIONS = [
   { value: 'activateTarget', label: authoringText('Activate the step target') },
   { value: 'observeTargetClick', label: authoringText('Wait for a target click') },
   { value: 'observeTargetFocus', label: authoringText('Wait for target focus') },
+  { value: 'observeTargetInput', label: authoringText('Wait for target input') },
 ] as const;
 
 export const WAIT_OPTIONS = [

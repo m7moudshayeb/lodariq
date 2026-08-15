@@ -2,6 +2,8 @@ import { ControllerReliabilityFeature } from './controller-reliability';
 import { authoringText } from '../../i18n';
 import {
   DEFAULT_EXPERIENCE_APPEARANCE,
+  CONTRAST_RATIO_TARGETS,
+  evaluateContrast,
   resolveExperienceAppearance,
   sanitizeTooltipLayoutProps,
   sanitizeTooltipStyleProps,
@@ -23,6 +25,8 @@ import {
   type ResponsiveStepPresentation,
   type SpotlightPresentation,
   type MediaPresentation,
+  type StructuredCompositionPresentation,
+  STRUCTURED_COMPOSITION_BLOCK_TYPE_VALUES,
 } from '@lodariq/schema';
 import {
   setBlockLayout as setBlockLayoutInTree,
@@ -44,12 +48,22 @@ import { slashCommandDefaultContent } from './controller-model';
 import { localizedAuthoringDocument, setAuthoringLocalizedTitle } from '../document-localization';
 import { blockSupportsAuthoringCapability } from '../experience-authoring-capabilities';
 
+const STRUCTURED_COMPOSITION_BLOCK_TYPES = new Set<string>(
+  STRUCTURED_COMPOSITION_BLOCK_TYPE_VALUES,
+);
+const TYPOGRAPHY_BLOCK_TYPES = new Set<LodariqBlock['type']>([
+  'heading',
+  'paragraph',
+  ...STRUCTURED_COMPOSITION_BLOCK_TYPE_VALUES,
+]);
+
 export abstract class ControllerPropertyFeature extends ControllerReliabilityFeature {
   setButtonAction(blockId: string, actionType: EditableActionType): void {
     this.setAction(blockId, actionType);
   }
 
   setButtonSequence(blockId: string, sequence: StepChoreography): void {
+    if (!this.deliveryCapabilities.has('choreography.v1')) return;
     const block = findBlockById(this.documentState.blocks, blockId);
     if (!block || (block.type !== 'button' && block.type !== 'link')) return;
     const action: BlockActionProps = { type: 'runSequence', sequence: structuredClone(sequence) };
@@ -68,6 +82,7 @@ export abstract class ControllerPropertyFeature extends ControllerReliabilityFea
   }
 
   setButtonTransition(blockId: string, transition: StepTransition | undefined): void {
+    if (!this.deliveryCapabilities.has('flow.v1')) return;
     const block = findBlockById(this.documentState.blocks, blockId);
     const currentAction = block?.props.action;
     if (!block || !currentAction || (block.type !== 'button' && block.type !== 'link')) return;
@@ -112,7 +127,7 @@ export abstract class ControllerPropertyFeature extends ControllerReliabilityFea
 
   setTextBlockStyle(blockId: string, patch: Partial<TextStyleProps>): void {
     const block = findBlockById(this.documentState.blocks, blockId);
-    if (!block || (block.type !== 'heading' && block.type !== 'paragraph')) return;
+    if (!block || !TYPOGRAPHY_BLOCK_TYPES.has(block.type)) return;
     const textStyle = { ...block.props.textStyle, ...patch };
     if (JSON.stringify(block.props.textStyle ?? {}) === JSON.stringify(textStyle)) return;
     this.commitCoordinatedMutation({
@@ -129,7 +144,7 @@ export abstract class ControllerPropertyFeature extends ControllerReliabilityFea
 
   resetTextBlockStyle(blockId: string): void {
     const block = findBlockById(this.documentState.blocks, blockId);
-    if (!block || (block.type !== 'heading' && block.type !== 'paragraph')) return;
+    if (!block || !TYPOGRAPHY_BLOCK_TYPES.has(block.type)) return;
     if (!block.props.textStyle) return;
     this.commitCoordinatedMutation({
       blockId,
@@ -223,6 +238,7 @@ export abstract class ControllerPropertyFeature extends ControllerReliabilityFea
       }),
       status: authoringText('Action styling updated'),
     });
+    this.recordCustomContrast(block.id, buttonStyle.textColor, buttonStyle.fillColor);
   }
 
   setTooltipLayout(blockId: string, patch: Partial<TooltipLayoutProps>): void {
@@ -274,6 +290,26 @@ export abstract class ControllerPropertyFeature extends ControllerReliabilityFea
         blocks: setTooltipStyleInTree(document.blocks, block.id, tooltipStyle),
       }),
       status: authoringText('Popup styling updated'),
+    });
+    this.recordCustomContrast(block.id, tooltipStyle?.textColor, tooltipStyle?.surfaceColor);
+  }
+
+  private recordCustomContrast(
+    blockId: string,
+    foreground: string | undefined,
+    background: string | undefined,
+  ): void {
+    if (!foreground || !background) return;
+    const result = evaluateContrast(
+      foreground,
+      background,
+      CONTRAST_RATIO_TARGETS.text,
+      CONTRAST_RATIO_TARGETS.textUnusable,
+    );
+    if (result.state === 'pass') return;
+    this.recordMetric(result.state === 'blocker' ? 'contrast.blocker' : 'contrast.warning', {
+      blockId,
+      state: result.state,
     });
   }
 
@@ -392,6 +428,7 @@ export abstract class ControllerPropertyFeature extends ControllerReliabilityFea
   }
 
   setTourCompletionBehavior(completion: TourCompletionBehavior | undefined): void {
+    if (!this.deliveryCapabilities.has('flow.v1')) return;
     const nextDocument = completion
       ? { ...this.documentState, completion: structuredClone(completion) }
       : (Object.fromEntries(
@@ -413,9 +450,11 @@ export abstract class ControllerPropertyFeature extends ControllerReliabilityFea
       motion?: TourMotionPresentation | undefined;
       responsive?: ResponsiveStepPresentation | undefined;
       spotlight?: SpotlightPresentation | undefined;
+      composition?: StructuredCompositionPresentation | undefined;
       accessibilityName?: string | undefined;
     },
   ): void {
+    if (!this.deliveryCapabilities.has('presentation.v1')) return;
     const block = findBlockById(this.documentState.blocks, blockId);
     if (!block || !blockSupportsAuthoringCapability(block, 'presentation')) return;
     const props = { ...block.props, ...patch };
@@ -442,6 +481,7 @@ export abstract class ControllerPropertyFeature extends ControllerReliabilityFea
       motion?: TourMotionPresentation | undefined;
       responsive?: ResponsiveStepPresentation | undefined;
       spotlight?: SpotlightPresentation | undefined;
+      composition?: StructuredCompositionPresentation | undefined;
       accessibilityName?: string | undefined;
     },
   ): void {
@@ -449,6 +489,7 @@ export abstract class ControllerPropertyFeature extends ControllerReliabilityFea
   }
 
   setBlockEntrySequence(blockId: string, entrySequence: StepChoreography | undefined): void {
+    if (!this.deliveryCapabilities.has('choreography.v1')) return;
     const block = findBlockById(this.documentState.blocks, blockId);
     if (!block || !blockSupportsAuthoringCapability(block, 'presentation')) return;
     const props = { ...block.props, entrySequence };
@@ -474,6 +515,7 @@ export abstract class ControllerPropertyFeature extends ControllerReliabilityFea
   }
 
   setMediaPresentation(blockId: string, media: MediaPresentation | undefined): void {
+    if (!this.deliveryCapabilities.has('media-assets.v1')) return;
     const block = findBlockById(this.documentState.blocks, blockId);
     if (block?.type !== 'media') return;
     const props = { ...block.props, media };
@@ -491,6 +533,27 @@ export abstract class ControllerPropertyFeature extends ControllerReliabilityFea
       }),
       scope: 'content',
       status: authoringText('Media settings updated'),
+    });
+  }
+
+  setStructuredCompositionAccessibilityName(blockId: string, accessibilityName: string): void {
+    const block = findBlockById(this.documentState.blocks, blockId);
+    if (!block || !STRUCTURED_COMPOSITION_BLOCK_TYPES.has(block.type)) return;
+    this.setBlockPresentation(blockId, {
+      composition: block.props.composition,
+      accessibilityName: accessibilityName.trim().slice(0, 300) || undefined,
+    });
+  }
+
+  setStructuredCompositionPresentation(
+    blockId: string,
+    composition: StructuredCompositionPresentation,
+  ): void {
+    const block = findBlockById(this.documentState.blocks, blockId);
+    if (!block || block.type !== composition.kind) return;
+    this.setBlockPresentation(blockId, {
+      composition,
+      accessibilityName: block.props.accessibilityName,
     });
   }
 }

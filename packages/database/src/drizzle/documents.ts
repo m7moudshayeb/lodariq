@@ -1,4 +1,5 @@
-import { and, desc, eq } from 'drizzle-orm';
+import { randomUUID } from 'node:crypto';
+import { and, desc, eq, inArray, isNotNull, sql } from 'drizzle-orm';
 import {
   type DocumentSummary,
   type PersistedCompiledArtifact,
@@ -6,9 +7,25 @@ import {
   type PersistedDocumentVersion,
   type PersistedReleaseOperation,
   type SaveDocumentInput,
+  DocumentSaveConflictError,
+  type CreateAuthoringMediaAssetInput,
+  type SaveAuthoringResourcesInput,
 } from '../repository';
 import { assertWorkspaceScope } from '../rls';
-import { compiledArtifacts, documents, documentVersions, releaseOperations } from '../schema';
+import {
+  authoringDraftCheckpoints,
+  authoringMediaAssets,
+  authoringStyleRecipes,
+  compiledArtifacts,
+  documents,
+  documentVersions,
+  releaseOperations,
+} from '../schema';
+import type {
+  AuthoringDraftCheckpointResource,
+  AuthoringMediaAssetResource,
+  AuthoringStepStyleRecipeResource,
+} from '@lodariq/schema';
 import {
   toPersistedArtifact,
   assertArtifactMatchesDocument,
@@ -19,6 +36,179 @@ import {
 import { DrizzleRepositoryPublication } from './publication';
 
 export class DrizzleRepositoryDocuments extends DrizzleRepositoryPublication {
+  async listAuthoringStyleRecipes(
+    workspaceId: string,
+  ): Promise<AuthoringStepStyleRecipeResource[]> {
+    return this.scoped(workspaceId, async (tx) => {
+      const rows = await tx
+        .select({ resource: authoringStyleRecipes.resource })
+        .from(authoringStyleRecipes)
+        .where(eq(authoringStyleRecipes.workspaceId, workspaceId))
+        .orderBy(desc(authoringStyleRecipes.updatedAt));
+      return rows.map((row) => structuredClone(row.resource));
+    });
+  }
+
+  async listAuthoringDraftCheckpoints(
+    workspaceId: string,
+    documentId: string,
+  ): Promise<AuthoringDraftCheckpointResource[]> {
+    return this.scoped(workspaceId, async (tx) => {
+      const rows = await tx
+        .select({ resource: authoringDraftCheckpoints.resource })
+        .from(authoringDraftCheckpoints)
+        .where(
+          and(
+            eq(authoringDraftCheckpoints.workspaceId, workspaceId),
+            eq(authoringDraftCheckpoints.documentId, documentId),
+          ),
+        )
+        .orderBy(desc(authoringDraftCheckpoints.createdAt));
+      return rows.map((row) => structuredClone(row.resource));
+    });
+  }
+
+  async listAuthoringMediaAssets(workspaceId: string): Promise<AuthoringMediaAssetResource[]> {
+    return this.scoped(workspaceId, async (tx) => {
+      const rows = await tx
+        .select()
+        .from(authoringMediaAssets)
+        .where(eq(authoringMediaAssets.workspaceId, workspaceId))
+        .orderBy(desc(authoringMediaAssets.createdAt));
+      return rows.map(authoringMediaAssetResource);
+    });
+  }
+
+  async getAuthoringMediaAsset(workspaceId: string, assetId: string) {
+    return this.scoped(workspaceId, async (tx) => {
+      const [row] = await tx
+        .select()
+        .from(authoringMediaAssets)
+        .where(
+          and(
+            eq(authoringMediaAssets.workspaceId, workspaceId),
+            eq(authoringMediaAssets.id, assetId),
+          ),
+        )
+        .limit(1);
+      if (!row) return null;
+      return {
+        ...authoringMediaAssetResource(row),
+        workspaceId: row.workspaceId,
+        contentBase64: row.contentBase64,
+        publishedAt: row.publishedAt?.toISOString() ?? null,
+      };
+    });
+  }
+
+  async getPublishedMediaAsset(assetId: string) {
+    return this.database.transaction(async (tx) => {
+      await tx.execute(sql`select set_config('lodariq.media_asset_id', ${assetId}, true)`);
+      const [row] = await tx
+        .select()
+        .from(authoringMediaAssets)
+        .where(
+          and(eq(authoringMediaAssets.id, assetId), isNotNull(authoringMediaAssets.publishedAt)),
+        )
+        .limit(1);
+      if (!row) return null;
+      return {
+        ...authoringMediaAssetResource(row),
+        workspaceId: row.workspaceId,
+        contentBase64: row.contentBase64,
+        publishedAt: row.publishedAt?.toISOString() ?? null,
+      };
+    });
+  }
+
+  async publishAuthoringMediaAssets(
+    workspaceId: string,
+    assetIds: readonly string[],
+  ): Promise<void> {
+    const ids = [...new Set(assetIds)];
+    if (ids.length === 0) return;
+    await this.scoped(workspaceId, async (tx) => {
+      await tx
+        .update(authoringMediaAssets)
+        .set({ publishedAt: new Date() })
+        .where(
+          and(
+            eq(authoringMediaAssets.workspaceId, workspaceId),
+            inArray(authoringMediaAssets.id, ids),
+          ),
+        );
+    });
+  }
+
+  async saveAuthoringResources(input: SaveAuthoringResourcesInput): Promise<void> {
+    for (const checkpoint of input.checkpoints) {
+      assertWorkspaceScope(checkpoint.document.workspaceId, input.workspaceId);
+      if (checkpoint.document.id !== input.documentId) {
+        throw new Error('Authoring checkpoint document scope mismatch');
+      }
+    }
+    await this.scoped(input.workspaceId, async (tx) => {
+      await tx
+        .delete(authoringStyleRecipes)
+        .where(eq(authoringStyleRecipes.workspaceId, input.workspaceId));
+      await tx
+        .delete(authoringDraftCheckpoints)
+        .where(
+          and(
+            eq(authoringDraftCheckpoints.workspaceId, input.workspaceId),
+            eq(authoringDraftCheckpoints.documentId, input.documentId),
+          ),
+        );
+      if (input.recipes.length > 0) {
+        await tx.insert(authoringStyleRecipes).values(
+          input.recipes.map((recipe) => ({
+            id: recipe.id,
+            workspaceId: input.workspaceId,
+            resource: structuredClone(recipe),
+            createdByUserId: input.actorUserId,
+          })),
+        );
+      }
+      if (input.checkpoints.length > 0) {
+        await tx.insert(authoringDraftCheckpoints).values(
+          input.checkpoints.map((checkpoint) => ({
+            id: checkpoint.id,
+            workspaceId: input.workspaceId,
+            documentId: input.documentId,
+            resource: structuredClone(checkpoint),
+            createdByUserId: input.actorUserId,
+            createdAt: new Date(checkpoint.createdAt),
+          })),
+        );
+      }
+    });
+  }
+
+  async createAuthoringMediaAsset(
+    input: CreateAuthoringMediaAssetInput,
+  ): Promise<AuthoringMediaAssetResource> {
+    return this.scoped(input.workspaceId, async (tx) => {
+      const id = `asset-${randomUUID()}`;
+      const [row] = await tx
+        .insert(authoringMediaAssets)
+        .values({
+          id,
+          workspaceId: input.workspaceId,
+          kind: input.kind,
+          filename: input.filename,
+          contentType: input.contentType,
+          byteLength: input.byteLength,
+          contentHash: input.contentHash,
+          contentBase64: input.contentBase64,
+          savedToLibrary: input.savedToLibrary,
+          createdByUserId: input.actorUserId,
+        })
+        .returning();
+      if (!row) throw new Error('Unable to persist authoring media asset');
+      return authoringMediaAssetResource(row);
+    });
+  }
+
   async listDocuments(workspaceId: string): Promise<DocumentSummary[]> {
     return this.scoped(workspaceId, async (tx) => {
       const rows = await tx
@@ -114,7 +304,23 @@ export class DrizzleRepositoryDocuments extends DrizzleRepositoryPublication {
     assertArtifactMatchesDocument(input);
 
     return this.scoped(input.workspaceId, async (tx) => {
-      const now = new Date();
+      let lockedCurrentUpdatedAt: Date | null = null;
+      if (input.expectedUpdatedAt !== undefined) {
+        const [current] = await tx
+          .select({ updatedAt: documents.updatedAt })
+          .from(documents)
+          .where(
+            and(eq(documents.workspaceId, input.workspaceId), eq(documents.id, input.document.id)),
+          )
+          .for('update')
+          .limit(1);
+        const currentUpdatedAt = current?.updatedAt.toISOString() ?? null;
+        if (currentUpdatedAt !== input.expectedUpdatedAt) {
+          throw new DocumentSaveConflictError(currentUpdatedAt);
+        }
+        lockedCurrentUpdatedAt = current?.updatedAt ?? null;
+      }
+      const now = new Date(Math.max(Date.now(), (lockedCurrentUpdatedAt?.getTime() ?? 0) + 1));
       const [savedDocument] = await tx
         .insert(documents)
         .values({
@@ -250,4 +456,20 @@ export class DrizzleRepositoryDocuments extends DrizzleRepositoryPublication {
       return operation ? toPersistedReleaseOperation(operation) : null;
     });
   }
+}
+
+function authoringMediaAssetResource(
+  row: typeof authoringMediaAssets.$inferSelect,
+): AuthoringMediaAssetResource {
+  return {
+    id: row.id,
+    kind: row.kind,
+    filename: row.filename,
+    contentType: row.contentType,
+    byteLength: row.byteLength,
+    contentHash: row.contentHash,
+    savedToLibrary: row.savedToLibrary,
+    createdAt: toIsoString(row.createdAt),
+    downloadPath: `/v1/authoring/media-assets/${row.id}`,
+  };
 }

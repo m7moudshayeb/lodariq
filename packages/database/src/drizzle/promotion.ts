@@ -42,7 +42,10 @@ export class DrizzleRepositoryPromotion extends DrizzleRepositoryReleaseChecks {
     if (!input.expectedSourcePublicationId.trim()) {
       throw new Error('promotion requires an expected source publication');
     }
-    const outcome = await this.scoped(input.workspaceId, async (tx): Promise<PromotionOutcome> => {
+    const outcome = await this.actorScoped(
+      input.workspaceId,
+      input.actorUserId,
+      async (tx): Promise<PromotionOutcome> => {
       const environmentRows = await tx
         .select()
         .from(environments)

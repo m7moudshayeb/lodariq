@@ -3,6 +3,8 @@ import { authoringText } from '../../i18n';
 import {
   AUTHORING_BRAND_DRIFT_PREVIEW_TYPE,
   BRIDGE_PROTOCOL_VERSION,
+  type AuthoringDiagnosticAttributes,
+  type AuthoringDeliveryCapability,
   type LodariqBlock,
 } from '@lodariq/schema';
 import { hasBlock, type BlockInsertPosition } from '../document-ops';
@@ -15,6 +17,10 @@ import { isProductLocale } from '@lodariq/i18n';
 import { localizedAuthoringDocument } from '../document-localization';
 
 export class ControllerSnapshotFeature extends ControllerTargetDocumentFeature {
+  supportsDeliveryCapability(capability: AuthoringDeliveryCapability): boolean {
+    return this.deliveryCapabilities.has(capability);
+  }
+
   setContentLocale(locale: string): void {
     if (!isProductLocale(locale) || locale === this.contentLocale) return;
     this.syncFocusedEditControl();
@@ -87,11 +93,15 @@ export class ControllerSnapshotFeature extends ControllerTargetDocumentFeature {
     this.redoStack.length = 0;
   }
 
-  protected recordMetric(name: LocalAuthoringFrameMetricName): void {
+  protected recordMetric(
+    name: LocalAuthoringFrameMetricName,
+    attributes?: AuthoringDiagnosticAttributes,
+  ): void {
     this.services.recordMetric({
       sessionId: this.metricsSessionId,
       documentId: this.documentState.id,
       name,
+      ...(attributes ? { attributes: structuredClone(attributes) } : {}),
     });
     this.renderMetrics();
     this.emit();
@@ -287,6 +297,7 @@ export class ControllerSnapshotFeature extends ControllerTargetDocumentFeature {
   protected makeSnapshot(): LocalAuthoringFrameSnapshot {
     return {
       documentState: localizedAuthoringDocument(this.documentState, this.contentLocale),
+      deliveryCapabilities: new Set(this.deliveryCapabilities),
       contentLocale: this.contentLocale,
       translation: {
         available: Boolean(this.services.translateDocument),
@@ -307,6 +318,7 @@ export class ControllerSnapshotFeature extends ControllerTargetDocumentFeature {
       stepStyleClipboardAvailable: Boolean(this.stepStyleClipboard),
       stepStyleRecipes: this.stepStyleRecipes.list(),
       draftCheckpoints: this.draftCheckpoints.list(),
+      mediaAssets: structuredClone(this.mediaAssets),
       dragTargetBlockId: this.dragTargetBlockId,
       dragTargetPosition: this.dragTargetPosition,
       targetDiagnostics: new Map(this.targetDiagnostics),

@@ -29,7 +29,10 @@ export default async function ResetPasswordPage({
         eyebrow={i18n._(AUTH_PAGE_MESSAGES.accountAccess)}
         title={i18n._(AUTH_PAGE_MESSAGES.incompleteLinkTitle)}
       >
-        <Link className={buttonVariants({ className: 'h-11 w-full' })} href="/forgot-password">
+        <Link
+          className={buttonVariants({ className: 'h-11 w-full' })}
+          href={`/forgot-password?returnTo=${encodeURIComponent(returnTo)}`}
+        >
           {i18n._(AUTH_PAGE_MESSAGES.requestAnotherLink)}
         </Link>
       </AuthShell>

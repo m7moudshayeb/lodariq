@@ -338,11 +338,6 @@ function stepQuickInsertLabel(command: StepContentCommand): string {
 }
 
 const STEP_QUICK_INSERT_LABELS = {
-  heading: authoringText('Title'),
-  paragraph: authoringText('Text'),
-  list: authoringText('List'),
-  divider: authoringText('Divider'),
+  paragraph: authoringText('Rich content'),
   button: authoringText('Button'),
-  link: authoringText('Link'),
-  media: authoringText('Media'),
 } as const satisfies Record<StepContentCommand, string>;

@@ -7,9 +7,9 @@ Source of truth: `../../refined-lodariq-prd.md` sections 7.4, 8.3-8.6, 9.5,
 Evidence source: the six-step authoring exercise documented in
 `../product-design/audits/authoring-showcase-tour-2026-08-13/README.md`.
 
-Status: **Local capability milestone integrated; reliability closure and external validation pending**
+Status: **Release-train code complete; rich-content regression and external validation pending**
 
-Last updated: 2026-08-14
+Last updated: 2026-08-15
 
 ## Current branch reconciliation — 2026-08-14
 
@@ -40,29 +40,122 @@ through the workspace override.
 | Security                    | Package audit passed with no known vulnerabilities                                                                              |
 | In-app browser visual check | Flow Map remained clear at default, 900 px, and 720 px widths; graph labels and safe keyboard behavior were verified; no errors |
 
-### Remaining code closure
+### Code closure completed — 2026-08-15
 
-The capability surfaces in release trains A through D are present, but the
-following system-level work remains before this plan can be called code-complete:
+The system-level closure work for release trains A through D is complete in the
+local workspace:
 
-- connect document transactions to real persistence outcomes, bridge-applied
-  revisions, retries, and conflict handling instead of recording persistence
-  immediately after scheduling a save;
-- coalesce preview patches and runtime positioning/collision recalculation on
-  animation frames;
-- expand structured release-readiness findings and repair routes for
+- document transactions now consume explicit applied, persisted, retrying, and
+  conflict outcomes; hosted and direct authoring saves use document-revision
+  compare-and-swap guards and adopt only confirmed persisted revisions;
+- preview patches, target/collision work, and runtime viewport positioning are
+  coalesced on animation frames;
+- structured release-readiness findings and direct repair routes cover
   choreography, timeout recovery, unsupported actions, media validity,
-  accessibility names/focus, reduced-motion equivalence, and responsive chrome;
-- complete bounded privacy-safe diagnostic envelopes and emit the currently
-  declared transaction, choreography, branch, contrast, and repair events;
-- provide durable host/API persistence for reusable recipes and named draft
-  checkpoints, subject to additive tenant-isolated storage review;
-- replace typed media asset identifiers with a validated asset picker/upload
-  capability and server-side asset resolution;
-- gate authoring controls on deployed compiler and renderer capability metadata;
-  and
-- add compiler-to-runtime round-trip and cross-browser end-to-end coverage for
-  the new flow, recovery, batch, accessibility, responsive, and media paths.
+  accessible names and focus, reduced-motion equivalence, nested content, and
+  responsive chrome;
+- bounded privacy-safe diagnostic envelopes emit transaction, preview,
+  choreography/recovery, branch, contrast, target-repair, and chrome events;
+- reusable step-style recipes, named draft checkpoints, and media metadata use
+  additive tenant-isolated persistence with row-level security;
+- the editor provides validated image, video, and caption upload/picker flows;
+  the server verifies MIME type, content signature, asset kind, and document
+  references before compilation and publication, and immutable public asset
+  delivery is limited to published assets;
+- authoring controls are gated by explicit compiler/renderer delivery
+  capability metadata; and
+- compiler-to-runtime round trips and cross-browser scenarios cover recovery,
+  flow, batching and one-step undo, accessibility/focus, reduced motion,
+  responsive presentation, and captioned-video accessibility rendering.
+
+The final closure audit also confirmed that:
+
+- passive input observation advances from semantic `input` events without
+  reading, retaining, or reporting the customer's input value;
+- callout, stat, and icon are typed canonical blocks with closed recipes,
+  allowlisted icons, accessible-name requirements, authoring serialization,
+  server compilation, immutable-artifact rendering, and legacy isolation;
+- the runtime emits bounded ordered announcements for wait, branch, recovery,
+  and completion states, supports every accessibility preview mode, dismisses
+  with Escape, and restores captured focus after completion or dismissal;
+- browser readiness reports keyboard-navigation and focus-restoration failures
+  with direct repair routing; and
+- launcher-only and tour-runtime localization are separate lazy catalogs, so
+  creator activation does not carry Tour playback copy.
+
+Local code closure is not a claim of deployment, physical assistive-technology
+coverage, or production release evidence. Those external checks remain listed
+separately below.
+
+### Closure verification
+
+| Gate                      | Result                                                                                                                                                   |
+| ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Unit and integration      | 154 files passed, 1 skipped; 1,238 tests passed, 12 environment-gated tests skipped                                                                      |
+| Browser E2E               | 104 passed, 4 intentionally skipped across Chromium, Firefox, and WebKit                                                                                 |
+| Repository verification   | Full `pnpm verify` passed, including typecheck, lint, boundaries, architecture, Knip, styles, migrations, tests, builds, sizes, SDK assets, and security |
+| Localization              | Dashboard 853, authoring 1,399, launcher runtime 23, and tour runtime 18 source messages complete; 11,520 translations validated across 8 locales        |
+| Runtime size              | Loader 3,065/3,072; public bootstrap 4,864/5,120; activation 16,927/18,432; public delivery 7,027/7,168; runtime + tour 46,811/47,104 bytes gzipped      |
+| Authoring size            | Authoring-owned 203,931/256,000; frame 86,977/146,432; toolbar 9,802/10,240; install 133,629/172,032; hosted entry 72,565/180,224 bytes gzipped          |
+| Distribution and security | 170 versioned SDK CDN assets prepared; package audit passed with no known vulnerabilities                                                                |
+| In-app browser            | Authored rich callout/stat/icon blocks from the Content tray, verified rendered popup output and property persistence, and observed no console errors    |
+| Formatting                | All changed implementation files pass Prettier; `git diff --check` passes                                                                                |
+
+### Post-closure rich-content expansion — 2026-08-15
+
+After the closure gate above, the creator-facing content model was simplified
+and expanded. The outer tray now exposes one reusable freeform **Rich content**
+field rather than separate heading, paragraph, list, media, callout, stat, and
+icon insertion blocks. CTA buttons remain separately modeled action items and
+can be placed before or after the rich content.
+
+The standalone `RichContentEditor` now provides:
+
+- selection-preserving inline formatting, color, highlight, safe links, and
+  bounded animation recipes;
+- normal text, headings, lists, callouts, dividers, emoji, and searchable
+  allowlisted Lucide icons with configurable color;
+- outside-click menu dismissal while emoji/icon pickers remain open across
+  repeated insertions;
+- numeric 0–96 pixel per-item spacing;
+- PNG/JPEG/GIF/WebP and MP4/WebM upload, optional WebVTT captions and
+  save-to-library metadata;
+- an immediate image/video preview, a progress line on the media, stable video
+  controls, eight-edge plus keyboard resizing, and creator-facing framing
+  choices; and
+- direct decorator selection/deletion plus adjacent Backspace/Delete behavior.
+
+Rich content still serializes to the closed canonical block registry and
+bounded inline runs. Lexical, selection state, upload progress, preview object
+URLs, Frimousse, and Lucide React remain authoring-only. The framework-free
+runtime renders compiled recipes and never imports Lexical or React.
+
+Local media now persists metadata and Blob data atomically in IndexedDB. A new
+editor iframe hydrates metadata before controller construction and fetches the
+Blob on demand to create a fresh object URL. Hosted authoring continues to use
+the authenticated media API and server validation. Existing local asset IDs
+whose bytes were lost before this durable store cannot be recovered.
+
+The earlier full repository and cross-browser results in **Closure
+verification** are a valid pre-expansion baseline, not evidence for this later
+delta. Current delta evidence is:
+
+| Gate                                | Current result                                                                                                                        |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| Focused rich-content/canvas tests   | 59 focused tests passed during the UX stabilization pass                                                                              |
+| Local media regression              | 7 local-dev tests passed after durable local storage                                                                                  |
+| SDK authoring checks                | Typecheck, lint, Prettier, and production build passed after the persistence change                                                   |
+| In-app interaction                  | Upload preview, progress placement, video thumbnail/controls, width and height resizing, and CTA before/after placement were verified |
+| In-app teardown/reopen persistence  | Pending final upload → close editor → reopen verification against the new IndexedDB path                                              |
+| Full repository regression          | Pending after this post-closure expansion; no new E2E was added or run during the requested UX-sharpening pass                        |
+| Deployed/assistive-technology proof | Still pending under **External evidence not claimed**                                                                                 |
+
+Accordingly, release trains A through D and the current capability code are
+implemented, but the plan is not yet 100% complete under its own Definition of
+Done. The fresh in-app lifecycle check, the full local repository regression
+gate for this delta, and the already-listed external evidence remain open.
+Bidirectional selection from the media library is a documented future extension
+and is not required by the original release-train scope.
 
 ## Initial implementation record — 2026-08-13
 
@@ -375,6 +468,8 @@ interface StepChoreography {
   trigger:
     | { type: 'activateTarget'; targetId: string }
     | { type: 'observeTargetClick'; targetId: string }
+    | { type: 'observeTargetFocus'; targetId: string }
+    | { type: 'observeTargetInput'; targetId: string }
     | { type: 'manual' };
   waitFor: Array<
     | { type: 'targetAvailable'; targetId: string }
@@ -725,10 +820,16 @@ has an explicit bounded loop, and no condition uses undeclared customer data.
 
 ### Structured content, spotlight, and media
 
-- Complete authoring and renderer coverage for the existing safe heading,
-  paragraph, list, divider, media, button, and link block registry.
+- Author safe headings, paragraphs, lists, callouts, dividers, links, emoji,
+  icons, and media through one reusable freeform Rich Content field; keep
+  behavior-owning CTA buttons separately modeled.
+- Preserve text selection across toolbar interaction and serialize bounded
+  inline marks, font size, color, highlight, animation, and safe links.
 - Add constrained media metadata and server-validated asset references; never
   make creators maintain `src` attributes.
+- Provide upload progress on the media, immediate image/video preview,
+  resizable dimensions, framing choices, caption attachment, and durable local
+  close/reopen resolution without persisting object URLs.
 - Ship spotlight as a renderer-owned emphasis treatment attached to a semantic
   target. Its geometry may render the mask but never locate or activate the
   target.
@@ -844,10 +945,11 @@ modify a shared environment destructively as part of this plan.
 | Schema          | `packages/schema/src/block.ts`, `document.ts`, `target.ts`, `target-verification.ts`, `bridge.ts`, `compiled.ts`, `version.ts`, registry and fixtures                         |
 | Authoring state | `packages/sdk-authoring/src/authoring/local-frame-ui/controller-*`, `state/interaction-machine.ts`, a new transaction coordinator and target-health ledger                    |
 | Authoring UI    | `components/contextual-property-tray.tsx`, `properties/property-controls.tsx`, `components/tour-sequence-rail.tsx`, target controls, Flow Map and sequence builder components |
+| Rich content    | Standalone `packages/sdk-authoring/src/editor/rich-content-editor.tsx`; bounded nodes/serialization in `src/editor`; injected media services and no Tour workflow ownership   |
 | Host chrome     | `packages/sdk-authoring/src/authoring/panel.ts`, `panel-geometry.ts`, `panel-config.ts`, page-context and preview service adapters                                            |
 | Compiler        | `packages/compiler/src/compile.ts`, `preflight.ts`, migration and graph validation helpers                                                                                    |
 | Runtime         | `packages/sdk-runtime/src/renderers/tour.ts`, loader preview contracts/controller, lifecycle and action executors                                                             |
-| Persistence/API | Existing draft save path; additive recipe resource only when workspace reuse ships                                                                                            |
+| Persistence/API | CAS-guarded draft saves; additive tenant-isolated recipe, checkpoint, and media resources; validated immutable published-asset delivery                                       |
 | Tests           | Schema, compiler, SDK authoring, SDK runtime, local fixture, and Playwright suites under `packages/tests`                                                                     |
 
 New modules should stay narrow. In particular, keep transaction reduction,
@@ -875,6 +977,12 @@ instead of expanding `panel.ts` or `tour.ts` into nested condition trees.
   preflight.
 - Serialization round trips cover every new canonical field and reject unknown
   CSS/script/selector-shaped input.
+- Rich-content tests cover selection preservation, inline-run round trips,
+  blur-committed links, repeated emoji/icon insertion, outside dismissal,
+  decorator deletion, and one-commit media resizing.
+- Local media tests and in-app verification cover atomic metadata/Blob storage,
+  iframe teardown, metadata hydration, on-demand Blob resolution, and fresh
+  object-URL rendering after reopen.
 
 ### Integration tests
 
@@ -997,3 +1105,5 @@ The complete program is done when:
 - this plan's status is updated with the exact implementation and external
   evidence actually completed, without claiming deployed or assistive-
   technology proof that was not run.
+- the freeform rich-content delta passes the full local regression gate and an
+  in-app upload, editor teardown, reopen, and media-render lifecycle check.

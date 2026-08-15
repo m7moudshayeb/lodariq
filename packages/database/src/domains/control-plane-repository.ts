@@ -27,7 +27,16 @@ import type {
   WorkspaceThemeRecord,
   WorkspaceThemeVersionRecord,
 } from './themes';
-import type { IdentityRepository, WorkspaceMembershipRecord } from './identity';
+import type {
+  IdentityRepository,
+  WorkspaceAuthPolicyRecord,
+  WorkspaceMembershipRecord,
+} from './identity';
+import type { TenantAdministrationRepository } from './tenant-administration';
+import type { AccountManagementRepository } from './account-management';
+import type { AssuranceRepository } from './assurance';
+import type { OidcRepository } from './oidc';
+import type { EnterpriseIdentityRepository } from './enterprise-identity';
 import type {
   AcknowledgeDocumentThemeInput,
   ActivatedAuthoringDocumentSessionRecord,
@@ -87,8 +96,41 @@ import type {
   QueryAnalyticsEventsInput,
   ResolvedEnvironmentToken,
 } from './analytics';
+import type {
+  CreateAuthoringMediaAssetInput,
+  PersistedAuthoringMediaAsset,
+  SaveAuthoringResourcesInput,
+} from './authoring-resources';
+import type {
+  AuthoringDraftCheckpointResource,
+  AuthoringMediaAssetResource,
+  AuthoringStepStyleRecipeResource,
+} from '@lodariq/schema';
 
-export interface ControlPlaneRepository extends IdentityRepository {
+export interface ControlPlaneRepository
+  extends
+    IdentityRepository,
+    TenantAdministrationRepository,
+    AccountManagementRepository,
+    AssuranceRepository,
+    OidcRepository,
+    EnterpriseIdentityRepository {
+  listAuthoringStyleRecipes(workspaceId: string): Promise<AuthoringStepStyleRecipeResource[]>;
+  listAuthoringDraftCheckpoints(
+    workspaceId: string,
+    documentId: string,
+  ): Promise<AuthoringDraftCheckpointResource[]>;
+  listAuthoringMediaAssets(workspaceId: string): Promise<AuthoringMediaAssetResource[]>;
+  getAuthoringMediaAsset(
+    workspaceId: string,
+    assetId: string,
+  ): Promise<PersistedAuthoringMediaAsset | null>;
+  getPublishedMediaAsset(assetId: string): Promise<PersistedAuthoringMediaAsset | null>;
+  publishAuthoringMediaAssets(workspaceId: string, assetIds: readonly string[]): Promise<void>;
+  saveAuthoringResources(input: SaveAuthoringResourcesInput): Promise<void>;
+  createAuthoringMediaAsset(
+    input: CreateAuthoringMediaAssetInput,
+  ): Promise<AuthoringMediaAssetResource>;
   /** Fail closed when the repository's required backing store is unavailable. */
   checkReadiness(): Promise<void>;
   /** Release backing-store resources owned by this repository. */
@@ -97,6 +139,7 @@ export interface ControlPlaneRepository extends IdentityRepository {
     workspaceId: string,
     userId: string,
   ): Promise<WorkspaceMembershipRecord | null>;
+  getWorkspaceAuthPolicy(workspaceId: string): Promise<WorkspaceAuthPolicyRecord | null>;
   listWorkspaceThemes(workspaceId: string): Promise<WorkspaceThemeRecord[]>;
   getWorkspaceTheme(workspaceId: string, themeId: string): Promise<WorkspaceThemeRecord | null>;
   getDefaultWorkspaceTheme(workspaceId: string): Promise<WorkspaceThemeRecord | null>;

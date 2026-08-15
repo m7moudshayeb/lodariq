@@ -16,6 +16,7 @@ import {
   PanelRightClose,
   PanelRightOpen,
   Rocket,
+  Users,
   X,
 } from 'lucide-react';
 import {
@@ -48,6 +49,7 @@ const NAVIGATION_ICONS = {
   analytics: ChartNoAxesCombined,
   brand: Palette,
   environments: Globe2,
+  members: Users,
   support: CircleHelp,
 } as const;
 

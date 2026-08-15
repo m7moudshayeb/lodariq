@@ -4,6 +4,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   createWorkspace,
   requestPasswordRecovery,
+  resendEmailVerification,
   selectWorkspace,
   setPassword,
   signIn,
@@ -27,6 +28,7 @@ export function useAuthMutations() {
       onSuccess: clearWorkspaceCache,
     }),
     requestPasswordRecovery: useMutation({ mutationFn: requestPasswordRecovery }),
+    resendEmailVerification: useMutation({ mutationFn: resendEmailVerification }),
     setPassword: useMutation({
       mutationFn: (input: { challengeId: string; token: string; password: string }) =>
         setPassword(input.challengeId, input.token, input.password),

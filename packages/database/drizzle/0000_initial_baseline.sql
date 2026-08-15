@@ -1357,6 +1357,7 @@ create index if not exists auth_sessions_expiry_idx on auth_sessions(absolute_ex
 create table if not exists email_verification_challenges (
   id text primary key,
   user_id text not null references users(id) on delete cascade,
+  key_id text not null default 'legacy',
   token_hash text not null,
   expires_at timestamptz not null,
   used_at timestamptz,
@@ -1365,6 +1366,8 @@ create table if not exists email_verification_challenges (
     check (id ~ '^verify_[A-Za-z0-9_-]{20,}$'),
   constraint email_verification_challenges_hash_check
     check (token_hash ~ '^[0-9a-f]{64}$'),
+  constraint email_verification_challenges_key_id_check
+    check (key_id ~ '^[a-z0-9][a-z0-9_-]{0,31}$'),
   constraint email_verification_challenges_expiry_check
     check (created_at < expires_at)
 );
@@ -1520,6 +1523,22 @@ create policy email_verification_challenges_token_lookup
     and token_hash = current_setting('lodariq.email_verification_hash', true)
   );
 
+-- UPDATE under RLS also requires SELECT visibility. Recovery completion binds
+-- this server-resolved user id before retiring any pending verification state.
+create policy email_verification_challenges_auth_user_lookup
+  on email_verification_challenges
+  for select
+  using (
+    user_id = current_setting('lodariq.auth_user_id', true)
+    and (
+      used_at is null
+      or used_at = nullif(
+        current_setting('lodariq.auth_recovery_mutation_at', true),
+        ''
+      )::timestamptz
+    )
+  );
+
 create policy email_verification_challenges_token_consume
   on email_verification_challenges
   for update
@@ -1634,11 +1653,13 @@ alter table auth_outbox
 alter table auth_outbox
   add constraint auth_outbox_delivery_payload_check
   check (
-    payload ?& array['challengeId', 'verificationPath']
+    payload ?& array['challengeId', 'verificationPath', 'keyId']
     and jsonb_typeof(payload->'challengeId') = 'string'
     and jsonb_typeof(payload->'verificationPath') = 'string'
+    and jsonb_typeof(payload->'keyId') = 'string'
     and payload->>'challengeId' ~ '^verify_[A-Za-z0-9_-]{20,}$'
     and char_length(payload->>'verificationPath') between 1 and 2048
+    and payload->>'keyId' ~ '^[a-z0-9][a-z0-9_-]{0,31}$'
   ) not valid;
 create index if not exists auth_outbox_due_idx
   on auth_outbox(available_at, created_at)
@@ -1647,6 +1668,7 @@ create index if not exists auth_outbox_due_idx
 create table if not exists set_password_challenges (
   id text primary key,
   user_id text not null references users(id) on delete cascade,
+  key_id text not null default 'legacy',
   token_hash text not null,
   email_normalized text not null,
   email_lookup_hash text not null,
@@ -1657,6 +1679,8 @@ create table if not exists set_password_challenges (
     check (id ~ '^reset_[A-Za-z0-9_-]{20,}$'),
   constraint set_password_challenges_hash_check
     check (token_hash ~ '^[0-9a-f]{64}$'),
+  constraint set_password_challenges_key_id_check
+    check (key_id ~ '^[a-z0-9][a-z0-9_-]{0,31}$'),
   constraint set_password_challenges_email_normalized_check
     check (
       char_length(email_normalized) between 3 and 320
@@ -1708,13 +1732,15 @@ create table if not exists set_password_outbox (
   constraint set_password_outbox_payload_check
     check (
       jsonb_typeof(payload) = 'object'
-      and payload ?& array['purpose', 'challengeId', 'resetPath']
+      and payload ?& array['purpose', 'challengeId', 'resetPath', 'keyId']
       and jsonb_typeof(payload->'purpose') = 'string'
       and jsonb_typeof(payload->'challengeId') = 'string'
       and jsonb_typeof(payload->'resetPath') = 'string'
+      and jsonb_typeof(payload->'keyId') = 'string'
       and payload->>'purpose' = 'set_password'
       and payload->>'challengeId' ~ '^reset_[A-Za-z0-9_-]{20,}$'
       and char_length(payload->>'resetPath') between 1 and 2048
+      and payload->>'keyId' ~ '^[a-z0-9][a-z0-9_-]{0,31}$'
     )
 );
 
@@ -1770,6 +1796,19 @@ create policy set_password_challenges_token_lookup on set_password_challenges
   using (
     id = current_setting('lodariq.set_password_challenge_id', true)
     and token_hash = current_setting('lodariq.set_password_challenge_hash', true)
+  );
+
+create policy set_password_challenges_user_lookup on set_password_challenges
+  for select
+  using (
+    user_id = current_setting('lodariq.auth_user_id', true)
+    and (
+      used_at is null
+      or used_at = nullif(
+        current_setting('lodariq.auth_recovery_mutation_at', true),
+        ''
+      )::timestamptz
+    )
   );
 
 create policy set_password_challenges_token_consume on set_password_challenges
@@ -1832,6 +1871,20 @@ create policy auth_outbox_set_password_cancel on auth_outbox
     and terminal_at is not null
   );
 
+create policy auth_outbox_auth_user_lookup on auth_outbox
+  for select
+  using (
+    user_id = current_setting('lodariq.auth_user_id', true)
+    and processed_at is null
+    and (
+      terminal_at is null
+      or terminal_at = nullif(
+        current_setting('lodariq.auth_recovery_mutation_at', true),
+        ''
+      )::timestamptz
+    )
+  );
+
 create policy set_password_outbox_user_cancel on set_password_outbox
   for update
   using (
@@ -1847,6 +1900,20 @@ create policy set_password_outbox_user_cancel on set_password_outbox
 create policy set_password_outbox_worker_select on set_password_outbox
   for select
   using (current_setting('lodariq.auth_outbox_worker', true) = 'true');
+
+create policy set_password_outbox_auth_user_lookup on set_password_outbox
+  for select
+  using (
+    user_id = current_setting('lodariq.auth_user_id', true)
+    and processed_at is null
+    and (
+      terminal_at is null
+      or terminal_at = nullif(
+        current_setting('lodariq.auth_recovery_mutation_at', true),
+        ''
+      )::timestamptz
+    )
+  );
 
 create policy set_password_outbox_worker_update on set_password_outbox
   for update
@@ -2444,5 +2511,1696 @@ create policy release_approvals_workspace_isolation on release_approvals
 create policy release_approvals_workspace_insert on release_approvals
   for insert
   with check (workspace_id = current_setting('lodariq.workspace_id', true));
+
+-- Squashed source: 0006_auth_lifecycle_reliability.sql
+create table if not exists workspace_invitations (
+  id text primary key,
+  workspace_id text not null references workspaces(id) on delete cascade,
+  email_normalized text not null,
+  email_lookup_hash text not null,
+  token_hash text not null,
+  role text not null,
+  invited_by_user_id text not null references users(id) on delete restrict,
+  expires_at timestamptz not null,
+  accepted_at timestamptz,
+  revoked_at timestamptz,
+  created_at timestamptz not null default now(),
+  constraint workspace_invitations_id_check check (id ~ '^invite_[A-Za-z0-9_-]{20,}$'),
+  constraint workspace_invitations_token_hash_check check (token_hash ~ '^[0-9a-f]{64}$'),
+  constraint workspace_invitations_lookup_hash_check check (email_lookup_hash ~ '^[0-9a-f]{64}$'),
+  constraint workspace_invitations_email_check check (
+    char_length(email_normalized) between 3 and 320
+    and email_normalized = lower(btrim(email_normalized))
+  ),
+  constraint workspace_invitations_role_check check (role in ('admin', 'member', 'viewer')),
+  constraint workspace_invitations_expiry_check check (created_at < expires_at),
+  constraint workspace_invitations_terminal_state_check check (
+    accepted_at is null or revoked_at is null
+  )
+);
+create index if not exists workspace_invitations_workspace_idx
+  on workspace_invitations(workspace_id);
+create unique index if not exists workspace_invitations_token_hash_idx
+  on workspace_invitations(token_hash);
+create unique index if not exists workspace_invitations_active_email_idx
+  on workspace_invitations(workspace_id, email_lookup_hash)
+  where accepted_at is null and revoked_at is null;
+alter table workspace_invitations enable row level security;
+alter table workspace_invitations force row level security;
+
+create table if not exists workspace_invitation_outbox (
+  id text primary key,
+  type text not null,
+  workspace_id text not null references workspaces(id) on delete cascade,
+  invitation_id text not null unique references workspace_invitations(id) on delete cascade,
+  recipient_email text not null,
+  payload jsonb not null,
+  available_at timestamptz not null,
+  processed_at timestamptz,
+  attempts integer not null default 0,
+  lease_version integer not null default 0,
+  last_error text,
+  terminal_at timestamptz,
+  created_at timestamptz not null default now(),
+  constraint workspace_invitation_outbox_id_check check (id ~ '^outbox_[A-Za-z0-9_-]{20,}$'),
+  constraint workspace_invitation_outbox_type_check check (type = 'workspace_invitation'),
+  constraint workspace_invitation_outbox_recipient_check check (
+    char_length(recipient_email) between 3 and 320 and recipient_email = lower(btrim(recipient_email))
+  ),
+  constraint workspace_invitation_outbox_attempts_check check (attempts between 0 and 20),
+  constraint workspace_invitation_outbox_lease_version_check check (lease_version between 0 and 2147483647),
+  constraint workspace_invitation_outbox_last_error_check check (
+    last_error is null or last_error ~ '^[a-z0-9][a-z0-9_-]{0,63}$'
+  ),
+  constraint workspace_invitation_outbox_payload_check check (
+    jsonb_typeof(payload) = 'object'
+    and payload ?& array['purpose', 'invitationId', 'acceptancePath', 'keyId']
+    and jsonb_typeof(payload->'purpose') = 'string'
+    and jsonb_typeof(payload->'invitationId') = 'string'
+    and jsonb_typeof(payload->'acceptancePath') = 'string'
+    and jsonb_typeof(payload->'keyId') = 'string'
+    and payload->>'purpose' = 'workspace_invitation'
+    and payload->>'invitationId' ~ '^invite_[A-Za-z0-9_-]{20,}$'
+    and char_length(payload->>'acceptancePath') between 1 and 2048
+    and payload->>'keyId' ~ '^[a-z0-9][a-z0-9_-]{0,31}$'
+  )
+);
+create index if not exists workspace_invitation_outbox_due_idx
+  on workspace_invitation_outbox(available_at, created_at)
+  where processed_at is null and terminal_at is null and attempts < 20;
+create index if not exists workspace_invitation_outbox_workspace_idx
+  on workspace_invitation_outbox(workspace_id);
+alter table workspace_invitation_outbox enable row level security;
+alter table workspace_invitation_outbox force row level security;
+create policy workspace_invitations_workspace_isolation on workspace_invitations
+  for select
+  using (workspace_id = current_setting('lodariq.workspace_id', true));
+
+create policy auth_outbox_delivery_lookup on auth_outbox for select
+  using (id = current_setting('lodariq.auth_delivery_outbox_id', true));
+create policy set_password_outbox_delivery_lookup on set_password_outbox for select
+  using (id = current_setting('lodariq.auth_delivery_outbox_id', true));
+create policy users_auth_maintenance_select on users for select using (current_setting('lodariq.auth_maintenance_worker', true) = 'true');
+create policy users_auth_maintenance_delete on users for delete using (current_setting('lodariq.auth_maintenance_worker', true) = 'true');
+create policy workspaces_auth_maintenance_select on workspaces for select using (current_setting('lodariq.auth_maintenance_worker', true) = 'true');
+create policy workspaces_auth_maintenance_delete on workspaces for delete using (current_setting('lodariq.auth_maintenance_worker', true) = 'true');
+create policy workspace_memberships_auth_maintenance_select on workspace_memberships for select using (current_setting('lodariq.auth_maintenance_worker', true) = 'true');
+create policy password_credentials_auth_maintenance_select on password_credentials for select using (current_setting('lodariq.auth_maintenance_worker', true) = 'true');
+create policy auth_sessions_auth_maintenance_select on auth_sessions for select using (current_setting('lodariq.auth_maintenance_worker', true) = 'true');
+create policy auth_sessions_auth_maintenance_delete on auth_sessions for delete using (current_setting('lodariq.auth_maintenance_worker', true) = 'true');
+create policy email_verification_challenges_auth_maintenance_select on email_verification_challenges for select using (current_setting('lodariq.auth_maintenance_worker', true) = 'true');
+create policy email_verification_challenges_auth_maintenance_delete on email_verification_challenges for delete using (current_setting('lodariq.auth_maintenance_worker', true) = 'true');
+create policy set_password_challenges_auth_maintenance_select on set_password_challenges for select using (current_setting('lodariq.auth_maintenance_worker', true) = 'true');
+create policy set_password_challenges_auth_maintenance_delete on set_password_challenges for delete using (current_setting('lodariq.auth_maintenance_worker', true) = 'true');
+create policy auth_outbox_auth_maintenance_select on auth_outbox for select using (current_setting('lodariq.auth_maintenance_worker', true) = 'true');
+create policy auth_outbox_auth_maintenance_delete on auth_outbox for delete using (current_setting('lodariq.auth_maintenance_worker', true) = 'true');
+create policy set_password_outbox_auth_maintenance_select on set_password_outbox for select using (current_setting('lodariq.auth_maintenance_worker', true) = 'true');
+create policy set_password_outbox_auth_maintenance_delete on set_password_outbox for delete using (current_setting('lodariq.auth_maintenance_worker', true) = 'true');
+create policy auth_rate_limits_auth_maintenance_select on auth_rate_limits for select using (current_setting('lodariq.auth_maintenance_worker', true) = 'true');
+create policy auth_rate_limits_auth_maintenance_delete on auth_rate_limits for delete using (current_setting('lodariq.auth_maintenance_worker', true) = 'true');
+create policy documents_auth_maintenance_guard on documents for select using (current_setting('lodariq.auth_maintenance_worker', true) = 'true');
+create policy public_sdk_installations_auth_maintenance_guard on public_sdk_installations for select using (current_setting('lodariq.auth_maintenance_worker', true) = 'true');
+create policy themes_auth_maintenance_guard on themes for select using (current_setting('lodariq.auth_maintenance_worker', true) = 'true');
+create policy workspace_invitations_auth_maintenance_guard on workspace_invitations for select using (current_setting('lodariq.auth_maintenance_worker', true) = 'true');
+
+commit;
+
+
+-- =============================================================================
+-- Squashed source: 0008_resumable_identity_onboarding.sql
+-- =============================================================================
+
+begin;
+
+create table if not exists identity_onboarding_states (
+  id text primary key,
+  user_id text not null references users(id) on delete cascade,
+  intent text not null,
+  status text not null,
+  target_workspace_id text,
+  target_workspace_name text,
+  invitation_id text,
+  requested_workspace_id text,
+  completed_workspace_id text references workspaces(id) on delete set null,
+  version integer not null default 1,
+  expires_at timestamptz not null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint identity_onboarding_id_check check (id ~ '^onboard_[A-Za-z0-9_-]{20,}$'),
+  constraint identity_onboarding_intent_check check (
+    intent in ('create_workspace', 'accept_invitation', 'request_access')
+  ),
+  constraint identity_onboarding_status_check check (
+    status in ('pending_identity', 'pending_destination', 'completed', 'cancelled')
+  ),
+  constraint identity_onboarding_version_check check (version between 1 and 2147483647),
+  constraint identity_onboarding_create_workspace_check check (
+    intent <> 'create_workspace' or (
+      target_workspace_id is not null
+      and char_length(target_workspace_name) between 1 and 120
+    )
+  ),
+  constraint identity_onboarding_completion_check check (
+    status <> 'completed' or completed_workspace_id is not null
+  ),
+  constraint identity_onboarding_expiry_check check (created_at < expires_at)
+);
+create unique index if not exists identity_onboarding_active_user_idx
+  on identity_onboarding_states(user_id)
+  where status in ('pending_identity', 'pending_destination');
+create index if not exists identity_onboarding_expiry_idx
+  on identity_onboarding_states(expires_at);
+
+create table if not exists auth_security_events (
+  id text primary key,
+  user_id text not null references users(id) on delete cascade,
+  actor_user_id text not null references users(id) on delete restrict,
+  event_type text not null,
+  identity_id text not null,
+  authorization_source text not null,
+  occurred_at timestamptz not null,
+  constraint auth_security_events_id_check check (id ~ '^authevt_[A-Za-z0-9_-]{20,}$'),
+  constraint auth_security_events_type_check check (
+    event_type in (
+      'identity_linked', 'identity_unlinked', 'identity_unlink_rejected_final_method'
+    )
+  ),
+  constraint auth_security_events_authorization_check check (
+    authorization_source in ('authenticated_session', 'strong_recovery')
+  )
+);
+create index if not exists auth_security_events_user_time_idx
+  on auth_security_events(user_id, occurred_at);
+
+alter table identity_onboarding_states enable row level security;
+alter table identity_onboarding_states force row level security;
+alter table auth_security_events enable row level security;
+alter table auth_security_events force row level security;
+
+create policy identity_onboarding_states_auth_self
+  on identity_onboarding_states for select using (
+    user_id = current_setting('lodariq.auth_user_id', true)
+  );
+create policy identity_onboarding_states_owned_insert
+  on identity_onboarding_states for insert with check (
+    user_id = current_setting('lodariq.auth_user_id', true)
+  );
+create policy identity_onboarding_states_owned_update
+  on identity_onboarding_states for update using (
+    user_id = current_setting('lodariq.auth_user_id', true)
+  ) with check (
+    user_id = current_setting('lodariq.auth_user_id', true)
+  );
+create policy auth_security_events_auth_self
+  on auth_security_events for select using (
+    user_id = current_setting('lodariq.auth_user_id', true)
+  );
+create policy auth_security_events_owned_insert
+  on auth_security_events for insert with check (
+    user_id = current_setting('lodariq.auth_user_id', true)
+    and actor_user_id = current_setting('lodariq.auth_user_id', true)
+  );
+
+commit;
+
+-- =============================================================================
+-- Squashed source: 0007_provider_neutral_identity.sql
+-- =============================================================================
+
+begin;
+
+create table if not exists user_emails (
+  id text primary key,
+  user_id text not null references users(id) on delete cascade,
+  normalized_email text not null,
+  is_primary boolean not null default false,
+  verified_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint user_emails_id_check check (id ~ '^email_[A-Za-z0-9_-]{20,}$'),
+  constraint user_emails_normalized_check check (
+    char_length(normalized_email) between 3 and 320
+    and normalized_email = lower(btrim(normalized_email))
+  )
+);
+create unique index if not exists user_emails_normalized_idx on user_emails(normalized_email);
+create unique index if not exists user_emails_primary_user_idx on user_emails(user_id)
+  where is_primary;
+create index if not exists user_emails_user_idx on user_emails(user_id);
+
+create table if not exists usernames (
+  id text primary key,
+  user_id text not null unique references users(id) on delete cascade,
+  normalized_username text not null,
+  display_username text not null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint usernames_id_check check (id ~ '^uname_[A-Za-z0-9_-]{20,}$'),
+  constraint usernames_normalized_check check (
+    char_length(normalized_username) between 3 and 32
+    and normalized_username = lower(btrim(normalized_username))
+    and normalized_username ~ '^[a-z0-9](?:[a-z0-9._-]*[a-z0-9])?$'
+    and normalized_username !~ '[._-]{2}'
+  ),
+  constraint usernames_display_check check (
+    char_length(display_username) between 3 and 32
+    and display_username = btrim(display_username)
+    and display_username ~ '^[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?$'
+    and display_username !~ '[._-]{2}'
+    and lower(display_username) = normalized_username
+  ),
+  constraint usernames_reserved_check check (
+    normalized_username not in (
+      'account', 'admin', 'administrator', 'api', 'app', 'auth', 'billing',
+      'dashboard', 'editor', 'help', 'lodariq', 'login', 'logout', 'me',
+      'oauth', 'owner', 'root', 'security', 'settings', 'signin', 'signup',
+      'sso', 'support', 'system', 'verify', 'www'
+    )
+  )
+);
+create unique index if not exists usernames_normalized_idx on usernames(normalized_username);
+
+create table if not exists auth_identities (
+  id text primary key,
+  user_id text not null references users(id) on delete cascade,
+  kind text not null,
+  issuer text not null,
+  subject text not null,
+  provider_tenant_id text,
+  created_at timestamptz not null default now(),
+  last_authenticated_at timestamptz,
+  constraint auth_identities_id_check check (id ~ '^ident_[A-Za-z0-9_-]{20,}$'),
+  constraint auth_identities_kind_check check (kind in ('password', 'passkey', 'oidc', 'saml')),
+  constraint auth_identities_provider_tenant_check check (
+    (
+      kind in ('password', 'passkey')
+      and issuer = 'https://lodariq.io'
+      and provider_tenant_id is null
+    ) or (
+      kind in ('oidc', 'saml')
+      and provider_tenant_id is not null
+    )
+  ),
+  constraint auth_identities_subject_check check (
+    char_length(subject) between 1 and 1024
+    and char_length(issuer) between 1 and 2048
+  )
+);
+create unique index if not exists auth_identities_issuer_subject_idx
+  on auth_identities(issuer, subject);
+create index if not exists auth_identities_user_idx on auth_identities(user_id);
+create index if not exists auth_identities_provider_tenant_idx
+  on auth_identities(provider_tenant_id);
+
+alter table auth_sessions add column if not exists identity_id text
+  references auth_identities(id) on delete restrict;
+alter table auth_sessions add column if not exists authentication_method text
+  not null default 'password';
+alter table auth_sessions add column if not exists assurance_level text
+  not null default 'aal1';
+alter table auth_sessions add column if not exists authenticated_at timestamptz
+  not null default now();
+alter table auth_sessions add column if not exists duration_policy text
+  not null default 'standard';
+alter table auth_sessions add constraint auth_sessions_method_check
+  check (authentication_method in ('password', 'passkey', 'oidc', 'saml', 'recovery'));
+alter table auth_sessions add constraint auth_sessions_assurance_check
+  check (assurance_level in ('aal1', 'aal2', 'aal3'));
+alter table auth_sessions add constraint auth_sessions_duration_policy_check
+  check (duration_policy in ('standard', 'remembered', 'managed'));
+-- Application writes enforce authenticated_at <= created_at. SQL validation is
+-- deferred until the provider-neutral expand/contract compatibility window ends.
+
+create table if not exists workspace_auth_policies (
+  workspace_id text primary key references workspaces(id) on delete cascade,
+  sso_required boolean not null default false,
+  minimum_assurance text not null default 'aal1',
+  password_allowed boolean not null default true,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint workspace_auth_policies_assurance_check
+    check (minimum_assurance in ('aal1', 'aal2', 'aal3')),
+  constraint workspace_auth_policies_viable_method_check
+    check (password_allowed or sso_required)
+);
+
+create table if not exists sso_connections (
+  id text primary key,
+  workspace_id text not null references workspaces(id) on delete cascade,
+  protocol text not null,
+  issuer text not null,
+  status text not null default 'draft',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint sso_connections_id_check check (id ~ '^sso_[A-Za-z0-9_-]{20,}$'),
+  constraint sso_connections_protocol_check check (protocol in ('oidc', 'saml')),
+  constraint sso_connections_status_check check (status in ('draft', 'verified', 'disabled')),
+  constraint sso_connections_issuer_check check (char_length(issuer) between 1 and 2048)
+);
+create unique index if not exists sso_connections_workspace_issuer_idx
+  on sso_connections(workspace_id, protocol, issuer);
+create index if not exists sso_connections_workspace_idx on sso_connections(workspace_id);
+
+alter table user_emails enable row level security;
+alter table user_emails force row level security;
+alter table usernames enable row level security;
+alter table usernames force row level security;
+alter table auth_identities enable row level security;
+alter table auth_identities force row level security;
+alter table workspace_auth_policies enable row level security;
+alter table workspace_auth_policies force row level security;
+alter table sso_connections enable row level security;
+alter table sso_connections force row level security;
+
+create policy user_emails_auth_self on user_emails for select
+  using (user_id = current_setting('lodariq.auth_user_id', true));
+create policy user_emails_owned_insert on user_emails for insert with check (
+  user_id = current_setting('lodariq.auth_user_id', true)
+  and normalized_email = current_setting('lodariq.auth_email_normalized', true)
+);
+create policy user_emails_owned_update on user_emails for update
+  using (user_id = current_setting('lodariq.auth_user_id', true))
+  with check (user_id = current_setting('lodariq.auth_user_id', true));
+create policy usernames_auth_lookup on usernames for select using (
+  normalized_username = current_setting('lodariq.auth_identifier_normalized', true)
+  or user_id = current_setting('lodariq.auth_user_id', true)
+);
+create policy usernames_owned_insert on usernames for insert
+  with check (user_id = current_setting('lodariq.auth_user_id', true));
+create policy usernames_owned_update on usernames for update
+  using (user_id = current_setting('lodariq.auth_user_id', true))
+  with check (user_id = current_setting('lodariq.auth_user_id', true));
+create policy auth_identities_auth_self on auth_identities for select
+  using (user_id = current_setting('lodariq.auth_user_id', true));
+create policy auth_identities_provider_lookup on auth_identities for select using (
+  issuer = current_setting('lodariq.auth_identity_issuer', true)
+  and subject = current_setting('lodariq.auth_identity_subject', true)
+);
+create policy auth_identities_owned_insert on auth_identities for insert
+  with check (user_id = current_setting('lodariq.auth_user_id', true));
+create policy auth_identities_owned_update on auth_identities for update
+  using (user_id = current_setting('lodariq.auth_user_id', true))
+  with check (user_id = current_setting('lodariq.auth_user_id', true));
+create policy workspace_auth_policies_workspace_isolation on workspace_auth_policies for all
+  using (workspace_id = current_setting('lodariq.workspace_id', true))
+  with check (workspace_id = current_setting('lodariq.workspace_id', true));
+create policy sso_connections_workspace_isolation on sso_connections for all
+  using (workspace_id = current_setting('lodariq.workspace_id', true))
+  with check (workspace_id = current_setting('lodariq.workspace_id', true));
+
+-- 0008 continuation: the onboarding tables above intentionally depend only on
+-- the long-lived users/workspaces foundation; identity lifecycle expansion
+-- follows the provider-neutral identity table definition.
+alter table auth_identities add column if not exists disabled_at timestamptz;
+
+-- =============================================================================
+-- Squashed source: 0009_tenant_administration.sql
+-- =============================================================================
+
+alter table workspaces add column if not exists deleted_at timestamptz;
+alter table workspaces add column if not exists retention_expires_at timestamptz;
+
+create table if not exists tenant_audit_events (
+  id text primary key,
+  workspace_id text not null references workspaces(id) on delete restrict,
+  actor_user_id text not null references users(id) on delete restrict,
+  event_type text not null,
+  target_user_id text references users(id) on delete set null,
+  invitation_id text,
+  previous_role text,
+  next_role text,
+  occurred_at timestamptz not null,
+  constraint tenant_audit_events_id_check check (id ~ '^tenevt_[A-Za-z0-9_-]{20,}$'),
+  constraint tenant_audit_events_type_check check (
+    event_type in (
+      'invitation_created', 'invitation_revoked', 'invitation_accepted',
+      'membership_role_changed', 'membership_removed', 'ownership_transferred',
+      'workspace_deletion_scheduled', 'workspace_deletion_cancelled'
+    )
+  ),
+  constraint tenant_audit_events_previous_role_check check (
+    previous_role is null or previous_role in ('owner', 'admin', 'member', 'viewer')
+  ),
+  constraint tenant_audit_events_next_role_check check (
+    next_role is null or next_role in ('owner', 'admin', 'member', 'viewer')
+  )
+);
+create index if not exists tenant_audit_events_workspace_time_idx
+  on tenant_audit_events(workspace_id, occurred_at);
+alter table tenant_audit_events enable row level security;
+alter table tenant_audit_events force row level security;
+
+create or replace function public.lodariq_current_workspace_role(candidate_workspace_id text)
+returns text
+language plpgsql
+stable
+security definer
+set search_path = public, pg_temp
+set row_security = off
+as $$
+begin
+  return (
+    select membership.role
+    from workspace_memberships membership
+    where candidate_workspace_id = current_setting('lodariq.workspace_id', true)
+      and membership.workspace_id = candidate_workspace_id
+      and membership.user_id = current_setting('lodariq.auth_user_id', true)
+    limit 1
+  );
+end
+$$;
+create or replace function public.lodariq_workspace_is_empty(candidate_workspace_id text)
+returns boolean
+language plpgsql
+stable
+security definer
+set search_path = public, pg_temp
+set row_security = off
+as $$
+begin
+  return candidate_workspace_id = current_setting('lodariq.workspace_id', true)
+    and not exists (
+      select 1 from workspace_memberships membership
+      where membership.workspace_id = candidate_workspace_id
+    );
+end
+$$;
+create or replace function public.lodariq_user_is_workspace_member(
+  candidate_user_id text,
+  candidate_workspace_id text
+)
+returns boolean
+language plpgsql
+stable
+security definer
+set search_path = public, pg_temp
+set row_security = off
+as $$
+begin
+  return exists (
+    select 1
+    from workspace_memberships membership
+    where membership.user_id = candidate_user_id
+      and membership.workspace_id = candidate_workspace_id
+  );
+end
+$$;
+create or replace function public.lodariq_accept_workspace_invitation(
+  candidate_invitation_id text,
+  candidate_token_hash text,
+  candidate_user_id text,
+  candidate_accepted_at timestamptz
+)
+returns boolean
+language plpgsql
+volatile
+security definer
+set search_path = public, pg_temp
+set row_security = off
+as $$
+declare
+  affected_rows integer;
+begin
+  if candidate_user_id is distinct from current_setting('lodariq.auth_user_id', true)
+    or candidate_token_hash is distinct from current_setting(
+      'lodariq.workspace_invitation_token_hash', true
+    )
+    or candidate_accepted_at is null
+    or candidate_accepted_at > clock_timestamp() + interval '5 minutes'
+  then
+    return false;
+  end if;
+
+  update workspace_invitations invitation
+  set accepted_at = candidate_accepted_at
+  where invitation.id = candidate_invitation_id
+    and invitation.token_hash = candidate_token_hash
+    and invitation.accepted_at is null
+    and invitation.revoked_at is null
+    and invitation.expires_at > candidate_accepted_at
+    and invitation.expires_at > clock_timestamp()
+    and exists (
+      select 1
+      from user_emails email
+      where email.user_id = candidate_user_id
+        and email.is_primary
+        and email.verified_at is not null
+        and email.normalized_email = invitation.email_normalized
+    );
+  get diagnostics affected_rows = row_count;
+  return affected_rows = 1;
+end
+$$;
+revoke all on function public.lodariq_current_workspace_role(text) from public;
+revoke all on function public.lodariq_workspace_is_empty(text) from public;
+revoke all on function public.lodariq_user_is_workspace_member(text, text) from public;
+revoke all on function public.lodariq_accept_workspace_invitation(text, text, text, timestamptz)
+  from public;
+-- Execution is granted only to the configured runtime role by the reviewed
+-- role-provisioning step. PUBLIC remains revoked so arbitrary database roles
+-- cannot manufacture session settings and invoke SECURITY DEFINER helpers.
+
+drop policy if exists workspace_memberships_workspace_isolation on workspace_memberships;
+drop policy if exists workspace_memberships_owned_creation on workspace_memberships;
+drop policy if exists workspace_memberships_invitation_accept on workspace_memberships;
+drop policy if exists workspace_memberships_admin_update on workspace_memberships;
+drop policy if exists workspace_memberships_admin_delete on workspace_memberships;
+create policy workspace_memberships_workspace_isolation on workspace_memberships
+  for select using (
+    workspace_id = current_setting('lodariq.workspace_id', true)
+    and public.lodariq_current_workspace_role(workspace_id) is not null
+  );
+create policy workspace_memberships_owned_creation on workspace_memberships
+  for insert with check (
+    workspace_id = current_setting('lodariq.workspace_id', true)
+    and user_id = current_setting('lodariq.auth_user_id', true)
+    and role = 'owner'
+    and public.lodariq_workspace_is_empty(workspace_id)
+  );
+create policy workspace_memberships_invitation_accept on workspace_memberships
+  for insert with check (
+    workspace_id = current_setting('lodariq.workspace_id', true)
+    and user_id = current_setting('lodariq.auth_user_id', true)
+    and exists (
+      select 1 from workspace_invitations invitation
+      where invitation.workspace_id = workspace_memberships.workspace_id
+        and invitation.role = workspace_memberships.role
+        and invitation.token_hash = current_setting('lodariq.workspace_invitation_token_hash', true)
+        and invitation.accepted_at is null
+        and invitation.revoked_at is null
+        and invitation.expires_at > now()
+    )
+  );
+create policy workspace_memberships_admin_update on workspace_memberships
+  for update using (
+    workspace_id = current_setting('lodariq.workspace_id', true)
+    and public.lodariq_current_workspace_role(workspace_id) in ('owner', 'admin')
+  ) with check (workspace_id = current_setting('lodariq.workspace_id', true));
+create policy workspace_memberships_admin_delete on workspace_memberships
+  for delete using (
+    workspace_id = current_setting('lodariq.workspace_id', true)
+    and public.lodariq_current_workspace_role(workspace_id) in ('owner', 'admin')
+  );
+
+drop policy if exists workspace_invitations_workspace_isolation on workspace_invitations;
+drop policy if exists workspace_invitations_token_accept_lookup on workspace_invitations;
+drop policy if exists workspace_invitations_admin_insert on workspace_invitations;
+drop policy if exists workspace_invitations_admin_update on workspace_invitations;
+drop policy if exists workspace_invitations_token_accept_update on workspace_invitations;
+create policy workspace_invitations_workspace_isolation on workspace_invitations
+  for select using (
+    workspace_id = current_setting('lodariq.workspace_id', true)
+    and public.lodariq_current_workspace_role(workspace_id) in ('owner', 'admin')
+  );
+create policy workspace_invitations_token_accept_lookup on workspace_invitations
+  for select using (
+    token_hash = current_setting('lodariq.workspace_invitation_token_hash', true)
+    and accepted_at is null
+    and revoked_at is null
+    and expires_at > now()
+    and exists (
+      select 1 from user_emails email
+      where email.user_id = current_setting('lodariq.auth_user_id', true)
+        and email.is_primary
+        and email.verified_at is not null
+        and email.normalized_email = workspace_invitations.email_normalized
+    )
+  );
+create policy workspace_invitations_admin_insert on workspace_invitations
+  for insert with check (
+    workspace_id = current_setting('lodariq.workspace_id', true)
+    and invited_by_user_id = current_setting('lodariq.auth_user_id', true)
+    and public.lodariq_current_workspace_role(workspace_id) in ('owner', 'admin')
+  );
+create policy workspace_invitations_admin_update on workspace_invitations
+  for update using (
+    workspace_id = current_setting('lodariq.workspace_id', true)
+    and public.lodariq_current_workspace_role(workspace_id) in ('owner', 'admin')
+  ) with check (workspace_id = current_setting('lodariq.workspace_id', true));
+create policy workspace_invitations_token_accept_update on workspace_invitations
+  for update using (false) with check (false);
+
+drop policy if exists workspace_invitation_outbox_workspace_isolation on workspace_invitation_outbox;
+drop policy if exists workspace_invitation_outbox_workspace_insert on workspace_invitation_outbox;
+drop policy if exists workspace_invitation_outbox_workspace_update on workspace_invitation_outbox;
+drop policy if exists workspace_invitation_outbox_worker_select on workspace_invitation_outbox;
+drop policy if exists workspace_invitation_outbox_worker_update on workspace_invitation_outbox;
+drop policy if exists workspace_invitation_outbox_delivery_lookup on workspace_invitation_outbox;
+drop policy if exists workspace_invitation_outbox_auth_maintenance_select on workspace_invitation_outbox;
+drop policy if exists workspace_invitation_outbox_auth_maintenance_delete on workspace_invitation_outbox;
+
+create policy workspace_invitation_outbox_workspace_isolation on workspace_invitation_outbox
+  for select using (
+    workspace_id = current_setting('lodariq.workspace_id', true)
+    and public.lodariq_current_workspace_role(workspace_id) in ('owner', 'admin')
+  );
+create policy workspace_invitation_outbox_workspace_insert on workspace_invitation_outbox
+  for insert with check (
+    workspace_id = current_setting('lodariq.workspace_id', true)
+    and public.lodariq_current_workspace_role(workspace_id) in ('owner', 'admin')
+    and exists (
+      select 1 from workspace_invitations invitation
+      where invitation.id = workspace_invitation_outbox.invitation_id
+        and invitation.workspace_id = workspace_invitation_outbox.workspace_id
+        and invitation.email_normalized = workspace_invitation_outbox.recipient_email
+        and invitation.invited_by_user_id = current_setting('lodariq.auth_user_id', true)
+    )
+  );
+create policy workspace_invitation_outbox_workspace_update on workspace_invitation_outbox
+  for update using (
+    workspace_id = current_setting('lodariq.workspace_id', true)
+    and public.lodariq_current_workspace_role(workspace_id) in ('owner', 'admin')
+  ) with check (workspace_id = current_setting('lodariq.workspace_id', true));
+create policy workspace_invitation_outbox_worker_select on workspace_invitation_outbox
+  for select using (current_setting('lodariq.auth_outbox_worker', true) = 'true');
+create policy workspace_invitation_outbox_worker_update on workspace_invitation_outbox
+  for update using (current_setting('lodariq.auth_outbox_worker', true) = 'true')
+  with check (current_setting('lodariq.auth_outbox_worker', true) = 'true');
+create policy workspace_invitation_outbox_delivery_lookup on workspace_invitation_outbox
+  for select using (id = current_setting('lodariq.auth_delivery_outbox_id', true));
+create policy workspace_invitation_outbox_auth_maintenance_select on workspace_invitation_outbox
+  for select using (current_setting('lodariq.auth_maintenance_worker', true) = 'true');
+create policy workspace_invitation_outbox_auth_maintenance_delete on workspace_invitation_outbox
+  for delete using (current_setting('lodariq.auth_maintenance_worker', true) = 'true');
+
+drop policy if exists user_emails_workspace_reference on user_emails;
+create policy user_emails_workspace_reference on user_emails
+  for select using (
+    is_primary
+    and public.lodariq_user_is_workspace_member(
+      user_emails.user_id,
+      current_setting('lodariq.workspace_id', true)
+    )
+  );
+drop policy if exists users_workspace_reference on users;
+create policy users_workspace_reference on users
+  for select using (
+    public.lodariq_user_is_workspace_member(
+      users.id,
+      current_setting('lodariq.workspace_id', true)
+    )
+  );
+drop policy if exists workspaces_user_discovery on workspaces;
+create policy workspaces_user_discovery on workspaces
+  for select using (
+    public.lodariq_user_is_workspace_member(
+      current_setting('lodariq.auth_user_id', true),
+      workspaces.id
+    )
+  );
+
+drop policy if exists tenant_audit_events_workspace_isolation on tenant_audit_events;
+drop policy if exists tenant_audit_events_workspace_insert on tenant_audit_events;
+create policy tenant_audit_events_workspace_isolation on tenant_audit_events
+  for select using (
+    workspace_id = current_setting('lodariq.workspace_id', true)
+    and public.lodariq_current_workspace_role(workspace_id) is not null
+  );
+create policy tenant_audit_events_workspace_insert on tenant_audit_events
+  for insert with check (
+    workspace_id = current_setting('lodariq.workspace_id', true)
+    and actor_user_id = current_setting('lodariq.auth_user_id', true)
+    and public.lodariq_current_workspace_role(workspace_id) is not null
+  );
+
+commit;
+
+-- =============================================================================
+-- Squashed source: 0010_account_session_management.sql
+-- =============================================================================
+
+-- Account and session management expand migration.
+-- Shared-environment execution requires explicit operator approval.
+begin;
+
+alter table users add column if not exists deleted_at timestamptz;
+alter table users add column if not exists retention_expires_at timestamptz;
+alter table auth_sessions add column if not exists device_label text
+  not null default 'Unknown device';
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint where conname = 'auth_sessions_device_label_check'
+  ) then
+    alter table auth_sessions add constraint auth_sessions_device_label_check
+      check (char_length(device_label) between 1 and 120 and device_label = btrim(device_label));
+  end if;
+end
+$$;
+
+create table if not exists account_security_events (
+  id text primary key,
+  user_id text not null references users(id) on delete cascade,
+  actor_user_id text not null references users(id) on delete restrict,
+  event_type text not null,
+  target_id text,
+  occurred_at timestamptz not null,
+  constraint account_security_events_id_check
+    check (id ~ '^acctevt_[A-Za-z0-9_-]{20,}$'),
+  constraint account_security_events_type_check check (
+    event_type in (
+      'password_changed', 'email_change_started', 'email_change_current_verified',
+      'email_change_new_verified', 'email_changed', 'session_revoked',
+      'sessions_revoked_all', 'account_deletion_scheduled', 'passkey_registered',
+      'passkey_authenticated', 'recovery_codes_generated',
+      'recovery_codes_confirmed', 'recovery_code_used', 'recovery_codes_revoked'
+    )
+  ),
+  constraint account_security_events_actor_check check (actor_user_id = user_id)
+);
+create index if not exists account_security_events_user_time_idx
+  on account_security_events(user_id, occurred_at);
+
+create table if not exists account_email_change_challenges (
+  id text primary key,
+  user_id text not null references users(id) on delete cascade,
+  current_email_normalized text not null,
+  new_email_normalized text not null,
+  new_email_lookup_hash text not null,
+  current_token_hash text not null unique,
+  new_token_hash text not null unique,
+  key_id text not null,
+  current_verified_at timestamptz,
+  new_verified_at timestamptz,
+  expires_at timestamptz not null,
+  consumed_at timestamptz,
+  revoked_at timestamptz,
+  created_at timestamptz not null default now(),
+  constraint account_email_change_id_check
+    check (id ~ '^emailchange_[A-Za-z0-9_-]{20,}$'),
+  constraint account_email_change_email_check check (
+    char_length(current_email_normalized) between 3 and 320
+    and char_length(new_email_normalized) between 3 and 320
+    and current_email_normalized = lower(btrim(current_email_normalized))
+    and new_email_normalized = lower(btrim(new_email_normalized))
+    and current_email_normalized <> new_email_normalized
+  ),
+  constraint account_email_change_hash_check check (
+    new_email_lookup_hash ~ '^[0-9a-f]{64}$'
+    and current_token_hash ~ '^[0-9a-f]{64}$'
+    and new_token_hash ~ '^[0-9a-f]{64}$'
+  ),
+  constraint account_email_change_key_check
+    check (key_id ~ '^[a-z0-9][a-z0-9_-]{0,31}$'),
+  constraint account_email_change_expiry_check check (created_at < expires_at)
+);
+create unique index if not exists account_email_change_active_user_idx
+  on account_email_change_challenges(user_id)
+  where consumed_at is null and revoked_at is null;
+create index if not exists account_email_change_expiry_idx
+  on account_email_change_challenges(expires_at);
+
+create table if not exists account_email_change_outbox (
+  id text primary key,
+  type text not null,
+  user_id text not null references users(id) on delete cascade,
+  challenge_id text not null references account_email_change_challenges(id) on delete cascade,
+  recipient_email text not null,
+  payload jsonb not null,
+  available_at timestamptz not null,
+  processed_at timestamptz,
+  attempts integer not null default 0,
+  lease_version integer not null default 0,
+  last_error text,
+  terminal_at timestamptz,
+  created_at timestamptz not null default now(),
+  constraint account_email_change_outbox_id_check
+    check (id ~ '^outbox_[A-Za-z0-9_-]{20,}$'),
+  constraint account_email_change_outbox_type_check
+    check (type = 'account_email_change'),
+  constraint account_email_change_outbox_recipient_check check (
+    char_length(recipient_email) between 3 and 320
+    and recipient_email = lower(btrim(recipient_email))
+  ),
+  constraint account_email_change_outbox_attempts_check
+    check (attempts between 0 and 20),
+  constraint account_email_change_outbox_lease_check
+    check (lease_version between 0 and 2147483647),
+  constraint account_email_change_outbox_error_check
+    check (last_error is null or last_error ~ '^[a-z0-9][a-z0-9_-]{0,63}$'),
+  constraint account_email_change_outbox_payload_check check (
+    jsonb_typeof(payload) = 'object'
+    and payload ?& array['purpose', 'challengeId', 'proof', 'changePath', 'keyId']
+    and payload->>'purpose' = 'account_email_change'
+    and payload->>'challengeId' ~ '^emailchange_[A-Za-z0-9_-]{20,}$'
+    and payload->>'proof' in ('current_email', 'new_email')
+    and char_length(payload->>'changePath') between 1 and 2048
+    and payload->>'keyId' ~ '^[a-z0-9][a-z0-9_-]{0,31}$'
+  )
+);
+create unique index if not exists account_email_change_outbox_proof_idx
+  on account_email_change_outbox(challenge_id, (payload->>'proof'));
+create index if not exists account_email_change_outbox_due_idx
+  on account_email_change_outbox(available_at, created_at)
+  where processed_at is null and terminal_at is null and attempts < 20;
+
+alter table account_security_events enable row level security;
+alter table account_security_events force row level security;
+alter table account_email_change_challenges enable row level security;
+alter table account_email_change_challenges force row level security;
+alter table account_email_change_outbox enable row level security;
+alter table account_email_change_outbox force row level security;
+
+create or replace function public.lodariq_schedule_account_deletion(
+  candidate_user_id text,
+  candidate_deleted_at timestamptz,
+  candidate_retention_expires_at timestamptz
+)
+returns text
+language plpgsql
+volatile
+security definer
+set search_path = public, pg_temp
+set row_security = off
+as $$
+declare
+  affected_rows integer;
+begin
+  if candidate_user_id is distinct from current_setting('lodariq.auth_user_id', true)
+    or candidate_deleted_at is null
+    or candidate_retention_expires_at is null
+    or candidate_deleted_at > clock_timestamp() + interval '5 minutes'
+    or candidate_retention_expires_at < candidate_deleted_at + interval '30 days'
+    or candidate_retention_expires_at > candidate_deleted_at + interval '31 days'
+  then
+    return 'conflict';
+  end if;
+
+  if exists (
+    select 1
+    from workspace_memberships owned
+    where owned.user_id = candidate_user_id
+      and owned.role = 'owner'
+      and not exists (
+        select 1
+        from workspace_memberships other_owner
+        where other_owner.workspace_id = owned.workspace_id
+          and other_owner.role = 'owner'
+          and other_owner.user_id <> candidate_user_id
+      )
+  ) then
+    return 'final_owner';
+  end if;
+
+  update users
+  set deleted_at = candidate_deleted_at,
+      retention_expires_at = candidate_retention_expires_at
+  where id = candidate_user_id
+    and deleted_at is null;
+  get diagnostics affected_rows = row_count;
+  if affected_rows <> 1 then
+    return 'conflict';
+  end if;
+
+  update auth_sessions
+  set revoked_at = candidate_deleted_at
+  where user_id = candidate_user_id and revoked_at is null;
+  update authoring_activation_grants
+  set revoked_at = candidate_deleted_at
+  where creator_id = candidate_user_id and revoked_at is null;
+  update authoring_sessions
+  set revoked_at = candidate_deleted_at
+  where created_by_user_id = candidate_user_id and revoked_at is null;
+  update identity_onboarding_states
+  set status = 'cancelled', updated_at = candidate_deleted_at, version = version + 1
+  where user_id = candidate_user_id
+    and status in ('pending_identity', 'pending_destination');
+  update account_email_change_challenges
+  set revoked_at = candidate_deleted_at
+  where user_id = candidate_user_id
+    and consumed_at is null
+    and revoked_at is null;
+  update account_email_change_outbox
+  set terminal_at = candidate_deleted_at,
+      last_error = 'account_deleted'
+  where user_id = candidate_user_id
+    and processed_at is null
+    and terminal_at is null;
+  update set_password_challenges
+  set used_at = candidate_deleted_at
+  where user_id = candidate_user_id
+    and used_at is null;
+  update set_password_outbox
+  set terminal_at = candidate_deleted_at,
+      last_error = 'account_deleted'
+  where user_id = candidate_user_id
+    and processed_at is null
+    and terminal_at is null;
+
+  return 'scheduled';
+end
+$$;
+revoke all on function public.lodariq_schedule_account_deletion(text, timestamptz, timestamptz)
+  from public;
+-- The reviewed runtime-role provisioning step grants this exact signature.
+-- PUBLIC remains revoked because session settings are not an authorization
+-- boundary against an arbitrary database login.
+
+
+drop policy if exists users_account_management_update on users;
+create policy users_account_management_update on users
+  for update using (
+    id = current_setting('lodariq.auth_user_id', true)
+  ) with check (
+    id = current_setting('lodariq.auth_user_id', true)
+  );
+
+drop policy if exists account_security_events_auth_self on account_security_events;
+drop policy if exists account_security_events_owned_insert on account_security_events;
+create policy account_security_events_auth_self on account_security_events
+  for select using (user_id = current_setting('lodariq.auth_user_id', true));
+create policy account_security_events_owned_insert on account_security_events
+  for insert with check (
+    user_id = current_setting('lodariq.auth_user_id', true)
+    and actor_user_id = current_setting('lodariq.auth_user_id', true)
+  );
+
+drop policy if exists account_email_change_challenges_auth_self on account_email_change_challenges;
+drop policy if exists account_email_change_challenges_owned_insert on account_email_change_challenges;
+drop policy if exists account_email_change_challenges_owned_update on account_email_change_challenges;
+create policy account_email_change_challenges_auth_self on account_email_change_challenges
+  for select using (user_id = current_setting('lodariq.auth_user_id', true));
+create policy account_email_change_challenges_owned_insert on account_email_change_challenges
+  for insert with check (user_id = current_setting('lodariq.auth_user_id', true));
+create policy account_email_change_challenges_owned_update on account_email_change_challenges
+  for update using (user_id = current_setting('lodariq.auth_user_id', true))
+  with check (user_id = current_setting('lodariq.auth_user_id', true));
+
+drop policy if exists account_email_change_outbox_auth_self on account_email_change_outbox;
+drop policy if exists account_email_change_outbox_owned_insert on account_email_change_outbox;
+drop policy if exists account_email_change_outbox_owned_update on account_email_change_outbox;
+drop policy if exists account_email_change_outbox_worker_select on account_email_change_outbox;
+drop policy if exists account_email_change_outbox_worker_update on account_email_change_outbox;
+drop policy if exists account_email_change_outbox_delivery_lookup on account_email_change_outbox;
+drop policy if exists account_email_change_outbox_maintenance_select on account_email_change_outbox;
+drop policy if exists account_email_change_outbox_maintenance_delete on account_email_change_outbox;
+create policy account_email_change_outbox_auth_self on account_email_change_outbox
+  for select using (user_id = current_setting('lodariq.auth_user_id', true));
+create policy account_email_change_outbox_owned_insert on account_email_change_outbox
+  for insert with check (
+    user_id = current_setting('lodariq.auth_user_id', true)
+    and exists (
+      select 1 from account_email_change_challenges challenge
+      where challenge.id = account_email_change_outbox.challenge_id
+        and challenge.user_id = account_email_change_outbox.user_id
+    )
+  );
+create policy account_email_change_outbox_owned_update on account_email_change_outbox
+  for update using (user_id = current_setting('lodariq.auth_user_id', true))
+  with check (user_id = current_setting('lodariq.auth_user_id', true));
+create policy account_email_change_outbox_worker_select on account_email_change_outbox
+  for select using (current_setting('lodariq.auth_outbox_worker', true) = 'true');
+create policy account_email_change_outbox_worker_update on account_email_change_outbox
+  for update using (current_setting('lodariq.auth_outbox_worker', true) = 'true')
+  with check (current_setting('lodariq.auth_outbox_worker', true) = 'true');
+create policy account_email_change_outbox_delivery_lookup on account_email_change_outbox
+  for select using (id = current_setting('lodariq.auth_delivery_outbox_id', true));
+create policy account_email_change_outbox_maintenance_select on account_email_change_outbox
+  for select using (current_setting('lodariq.auth_maintenance_worker', true) = 'true');
+create policy account_email_change_outbox_maintenance_delete on account_email_change_outbox
+  for delete using (current_setting('lodariq.auth_maintenance_worker', true) = 'true');
+
+create table webauthn_challenges (
+  id text primary key,
+  purpose text not null,
+  user_id text references users(id) on delete cascade,
+  challenge_hash text not null,
+  rp_id text not null,
+  origin text not null,
+  expires_at timestamptz not null,
+  consumed_at timestamptz,
+  created_at timestamptz not null default now(),
+  constraint webauthn_challenges_id_check check (id ~ '^authchal_[A-Za-z0-9_-]{20,}$'),
+  constraint webauthn_challenges_purpose_check check (purpose in ('passkey_registration', 'passkey_authentication', 'passkey_step_up')),
+  constraint webauthn_challenges_hash_check check (challenge_hash ~ '^[0-9a-f]{64}$'),
+  constraint webauthn_challenges_rp_check check (char_length(rp_id) between 1 and 253),
+  constraint webauthn_challenges_origin_check check (char_length(origin) between 8 and 2048),
+  constraint webauthn_challenges_expiry_check check (created_at < expires_at)
+);
+create unique index webauthn_challenges_hash_idx on webauthn_challenges(challenge_hash);
+create index webauthn_challenges_user_idx on webauthn_challenges(user_id);
+create index webauthn_challenges_expiry_idx on webauthn_challenges(expires_at);
+
+create table passkey_credentials (
+  id text primary key,
+  user_id text not null references users(id) on delete cascade,
+  identity_id text not null references auth_identities(id) on delete cascade,
+  credential_id text not null,
+  public_key text not null,
+  counter bigint not null default 0,
+  transports jsonb not null default '[]'::jsonb,
+  device_type text not null,
+  backed_up boolean not null,
+  aaguid text not null,
+  name text not null,
+  last_used_at timestamptz,
+  created_at timestamptz not null default now(),
+  constraint passkey_credentials_id_check check (id ~ '^passkey_[A-Za-z0-9_-]{20,}$'),
+  constraint passkey_credentials_credential_check check (
+    credential_id ~ '^[A-Za-z0-9_-]{16,}$' and char_length(credential_id) <= 2048
+  ),
+  constraint passkey_credentials_public_key_check check (
+    public_key ~ '^[A-Za-z0-9_-]{16,}$' and char_length(public_key) <= 8192
+  ),
+  constraint passkey_credentials_counter_check check (counter >= 0),
+  constraint passkey_credentials_device_check check (device_type in ('singleDevice', 'multiDevice')),
+  constraint passkey_credentials_name_check check (char_length(name) between 1 and 120)
+);
+create unique index passkey_credentials_credential_idx on passkey_credentials(credential_id);
+create unique index passkey_credentials_identity_idx on passkey_credentials(identity_id);
+create index passkey_credentials_user_idx on passkey_credentials(user_id);
+
+create table recovery_code_sets (
+  id text primary key,
+  user_id text not null references users(id) on delete cascade,
+  confirmed_at timestamptz,
+  revoked_at timestamptz,
+  created_at timestamptz not null default now(),
+  constraint recovery_code_sets_id_check check (id ~ '^recoveryset_[A-Za-z0-9_-]{20,}$')
+);
+create unique index recovery_code_sets_active_user_idx on recovery_code_sets(user_id)
+  where revoked_at is null;
+
+create table recovery_codes (
+  id text primary key,
+  set_id text not null references recovery_code_sets(id) on delete cascade,
+  user_id text not null references users(id) on delete cascade,
+  code_hash text not null,
+  used_at timestamptz,
+  created_at timestamptz not null default now(),
+  constraint recovery_codes_id_check check (id ~ '^recoverycode_[A-Za-z0-9_-]{20,}$'),
+  constraint recovery_codes_hash_check check (code_hash ~ '^[0-9a-f]{64}$')
+);
+create unique index recovery_codes_hash_idx on recovery_codes(code_hash);
+create index recovery_codes_user_idx on recovery_codes(user_id);
+create index recovery_codes_set_idx on recovery_codes(set_id);
+
+alter table webauthn_challenges enable row level security;
+alter table webauthn_challenges force row level security;
+alter table passkey_credentials enable row level security;
+alter table passkey_credentials force row level security;
+alter table recovery_code_sets enable row level security;
+alter table recovery_code_sets force row level security;
+alter table recovery_codes enable row level security;
+alter table recovery_codes force row level security;
+
+create policy webauthn_challenges_auth_self on webauthn_challenges
+  for select using (user_id = current_setting('lodariq.auth_user_id', true));
+create policy webauthn_challenges_auth_insert on webauthn_challenges
+  for insert with check (user_id = current_setting('lodariq.auth_user_id', true));
+create policy webauthn_challenges_auth_update on webauthn_challenges
+  for update using (user_id = current_setting('lodariq.auth_user_id', true))
+  with check (user_id = current_setting('lodariq.auth_user_id', true));
+create policy webauthn_challenges_public_insert on webauthn_challenges
+  for insert with check (
+    id = current_setting('lodariq.webauthn_challenge_id', true)
+    and purpose = 'passkey_authentication'
+    and user_id is null
+  );
+create policy webauthn_challenges_public_lookup on webauthn_challenges
+  for select using (id = current_setting('lodariq.webauthn_challenge_id', true));
+create policy webauthn_challenges_public_update on webauthn_challenges
+  for update using (id = current_setting('lodariq.webauthn_challenge_id', true))
+  with check (id = current_setting('lodariq.webauthn_challenge_id', true));
+
+create policy passkey_credentials_auth_self on passkey_credentials
+  for select using (user_id = current_setting('lodariq.auth_user_id', true));
+create policy passkey_credentials_auth_insert on passkey_credentials
+  for insert with check (user_id = current_setting('lodariq.auth_user_id', true));
+create policy passkey_credentials_auth_update on passkey_credentials
+  for update using (user_id = current_setting('lodariq.auth_user_id', true))
+  with check (user_id = current_setting('lodariq.auth_user_id', true));
+create policy passkey_credentials_auth_delete on passkey_credentials
+  for delete using (user_id = current_setting('lodariq.auth_user_id', true));
+create policy passkey_credentials_credential_lookup on passkey_credentials
+  for select using (credential_id = current_setting('lodariq.webauthn_credential_id', true));
+create policy passkey_credentials_credential_update on passkey_credentials
+  for update using (credential_id = current_setting('lodariq.webauthn_credential_id', true))
+  with check (credential_id = current_setting('lodariq.webauthn_credential_id', true));
+
+create policy recovery_code_sets_auth_self on recovery_code_sets
+  for select using (user_id = current_setting('lodariq.auth_user_id', true));
+create policy recovery_code_sets_auth_insert on recovery_code_sets
+  for insert with check (user_id = current_setting('lodariq.auth_user_id', true));
+create policy recovery_code_sets_auth_update on recovery_code_sets
+  for update using (user_id = current_setting('lodariq.auth_user_id', true))
+  with check (user_id = current_setting('lodariq.auth_user_id', true));
+
+create policy recovery_codes_auth_self on recovery_codes
+  for select using (user_id = current_setting('lodariq.auth_user_id', true));
+create policy recovery_codes_auth_insert on recovery_codes
+  for insert with check (user_id = current_setting('lodariq.auth_user_id', true));
+create policy recovery_codes_auth_update on recovery_codes
+  for update using (user_id = current_setting('lodariq.auth_user_id', true))
+  with check (user_id = current_setting('lodariq.auth_user_id', true));
+create policy recovery_codes_hash_lookup on recovery_codes
+  for select using (code_hash = current_setting('lodariq.recovery_code_hash', true));
+create policy recovery_codes_hash_consume on recovery_codes
+  for update using (code_hash = current_setting('lodariq.recovery_code_hash', true))
+  with check (code_hash = current_setting('lodariq.recovery_code_hash', true));
+
+-- =============================================================================
+-- Squashed source: 0012_oidc_authorization.sql
+-- =============================================================================
+
+create table if not exists oidc_authorization_attempts (
+  id text primary key,
+  provider_id text not null,
+  action text not null,
+  user_id text references users(id) on delete cascade,
+  state_hash text not null,
+  encrypted_verifier text not null,
+  nonce_hash text not null,
+  return_to text not null,
+  workspace_name text,
+  duration_policy text not null,
+  expires_at timestamptz not null,
+  consumed_at timestamptz,
+  created_at timestamptz not null default now(),
+  constraint oidc_authorization_attempts_id_check check (id ~ '^oidcattempt_[A-Za-z0-9_-]{20,}$'),
+  constraint oidc_authorization_attempts_provider_check check (provider_id ~ '^[a-z][a-z0-9_-]{1,63}$'),
+  constraint oidc_authorization_attempts_action_check check (action in ('sign_in', 'sign_up', 'link')),
+  constraint oidc_authorization_attempts_duration_check check (duration_policy in ('standard', 'remembered')),
+  constraint oidc_authorization_attempts_action_data_check check (
+    (action = 'link' and user_id is not null and workspace_name is null)
+    or (action = 'sign_up' and user_id is null and char_length(btrim(workspace_name)) between 1 and 120)
+    or (action = 'sign_in' and user_id is null and workspace_name is null)
+  ),
+  constraint oidc_authorization_attempts_state_check check (state_hash ~ '^[0-9a-f]{64}$'),
+  constraint oidc_authorization_attempts_nonce_check check (nonce_hash ~ '^[0-9a-f]{64}$'),
+  constraint oidc_authorization_attempts_verifier_check check (
+    char_length(encrypted_verifier) between 64 and 4096
+    and encrypted_verifier ~ '^[A-Za-z0-9_-]+$'
+  ),
+  constraint oidc_authorization_attempts_return_check check (
+    char_length(return_to) between 1 and 2048
+    and return_to like '/%'
+    and return_to not like '//%'
+  ),
+  constraint oidc_authorization_attempts_expiry_check check (created_at < expires_at)
+);
+create unique index if not exists oidc_authorization_attempts_state_idx
+  on oidc_authorization_attempts(state_hash);
+create index if not exists oidc_authorization_attempts_user_idx
+  on oidc_authorization_attempts(user_id);
+create index if not exists oidc_authorization_attempts_expiry_idx
+  on oidc_authorization_attempts(expires_at);
+
+alter table oidc_authorization_attempts enable row level security;
+alter table oidc_authorization_attempts force row level security;
+
+create policy oidc_authorization_attempts_bound_insert on oidc_authorization_attempts
+  for insert with check (
+    state_hash = current_setting('lodariq.oidc_state_hash', true)
+    and (
+      (action = 'link' and user_id = current_setting('lodariq.auth_user_id', true))
+      or (action in ('sign_in', 'sign_up') and user_id is null)
+    )
+  );
+create policy oidc_authorization_attempts_bound_lookup on oidc_authorization_attempts
+  for select using (state_hash = current_setting('lodariq.oidc_state_hash', true));
+create policy oidc_authorization_attempts_bound_consume on oidc_authorization_attempts
+  for update using (state_hash = current_setting('lodariq.oidc_state_hash', true))
+  with check (state_hash = current_setting('lodariq.oidc_state_hash', true));
+
+commit;
+
+-- =============================================================================
+-- Squashed source: 0013_enterprise_identity.sql
+-- =============================================================================
+
+
+begin;
+
+alter table sso_connections
+  add column if not exists provider text not null default 'other',
+  add column if not exists client_id text not null default 'migration-placeholder',
+  add column if not exists provisioning_mode text not null default 'invitation_only',
+  add column if not exists validated_at timestamptz;
+
+alter table sso_connections
+  add constraint sso_connections_provider_check check (provider in ('okta', 'entra', 'other')),
+  add constraint sso_connections_provisioning_mode_check check (provisioning_mode in ('invitation_only', 'jit')),
+  add constraint sso_connections_activation_check check (status <> 'verified' or validated_at is not null),
+  add constraint sso_connections_client_id_check check (char_length(client_id) between 1 and 512);
+
+create table if not exists enterprise_validation_evidence (
+  id text primary key,
+  connection_id text not null references sso_connections(id) on delete cascade,
+  workspace_id text not null references workspaces(id) on delete cascade,
+  target text not null,
+  protocol text not null,
+  evidence_reference text not null,
+  validated_by text not null,
+  validated_at timestamptz not null,
+  revoked_at timestamptz,
+  constraint enterprise_validation_evidence_id_check check (id ~ '^ssoevidence_[A-Za-z0-9_-]{16,}$'),
+  constraint enterprise_validation_evidence_target_check check (target in ('okta', 'entra')),
+  constraint enterprise_validation_evidence_protocol_check check (protocol in ('oidc', 'saml')),
+  constraint enterprise_validation_evidence_reference_check check (char_length(evidence_reference) between 8 and 512),
+  constraint enterprise_validation_evidence_actor_check check (char_length(validated_by) between 3 and 256),
+  unique(connection_id, target, protocol)
+);
+create index if not exists enterprise_validation_evidence_workspace_idx
+  on enterprise_validation_evidence(workspace_id);
+
+create table if not exists workspace_verified_domains (
+  id text primary key,
+  workspace_id text not null references workspaces(id) on delete cascade,
+  connection_id text not null references sso_connections(id) on delete cascade,
+  domain text not null unique,
+  status text not null default 'pending',
+  verification_token_hash text not null,
+  verification_record_name text not null,
+  verified_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint workspace_verified_domains_id_check check (id ~ '^ssodomain_[A-Za-z0-9_-]{16,}$'),
+  constraint workspace_verified_domains_domain_check check (domain = lower(domain) and char_length(domain) between 3 and 253),
+  constraint workspace_verified_domains_status_check check (status in ('pending', 'verified', 'disabled')),
+  constraint workspace_verified_domains_hash_check check (verification_token_hash ~ '^[0-9a-f]{64}$'),
+  constraint workspace_verified_domains_verified_check check (status <> 'verified' or verified_at is not null)
+);
+create index if not exists workspace_verified_domains_workspace_idx on workspace_verified_domains(workspace_id);
+create index if not exists workspace_verified_domains_connection_idx on workspace_verified_domains(connection_id);
+
+create table if not exists sso_group_role_mappings (
+  id text primary key,
+  workspace_id text not null references workspaces(id) on delete cascade,
+  connection_id text not null references sso_connections(id) on delete cascade,
+  group_id text not null,
+  role text not null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint sso_group_role_mappings_id_check check (id ~ '^ssogroup_[A-Za-z0-9_-]{16,}$'),
+  constraint sso_group_role_mappings_group_check check (char_length(group_id) between 1 and 512),
+  constraint sso_group_role_mappings_role_check check (role in ('admin', 'member', 'viewer')),
+  unique(connection_id, group_id)
+);
+create index if not exists sso_group_role_mappings_workspace_idx on sso_group_role_mappings(workspace_id);
+
+create table if not exists enterprise_scim_connections (
+  id text primary key,
+  workspace_id text not null references workspaces(id) on delete cascade,
+  connection_id text not null references sso_connections(id) on delete cascade,
+  token_hash text not null unique,
+  token_prefix text not null,
+  status text not null default 'active',
+  created_by_user_id text not null references users(id) on delete restrict,
+  last_used_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint enterprise_scim_connections_id_check check (id ~ '^scim_[A-Za-z0-9_-]{16,}$'),
+  constraint enterprise_scim_connections_hash_check check (token_hash ~ '^[0-9a-f]{64}$'),
+  constraint enterprise_scim_connections_prefix_check check (token_prefix ~ '^lq_scim_[A-Za-z0-9_-]{6,16}$'),
+  constraint enterprise_scim_connections_status_check check (status in ('active', 'disabled'))
+);
+create index if not exists enterprise_scim_connections_workspace_idx on enterprise_scim_connections(workspace_id);
+
+create table if not exists enterprise_principals (
+  id text primary key,
+  workspace_id text not null references workspaces(id) on delete cascade,
+  connection_id text not null references sso_connections(id) on delete cascade,
+  user_id text not null references users(id) on delete cascade,
+  external_id text not null,
+  issuer text not null,
+  subject text,
+  active boolean not null default true,
+  deprovisioned_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint enterprise_principals_id_check check (id ~ '^ssoprincipal_[A-Za-z0-9_-]{16,}$'),
+  constraint enterprise_principals_external_id_check check (char_length(external_id) between 1 and 512),
+  constraint enterprise_principals_issuer_check check (char_length(issuer) between 8 and 2048),
+  constraint enterprise_principals_subject_check check (subject is null or char_length(subject) between 1 and 1024),
+  constraint enterprise_principals_deprovision_check check (active or deprovisioned_at is not null),
+  unique(connection_id, external_id),
+  unique(workspace_id, user_id)
+);
+create unique index if not exists enterprise_principals_connection_subject_idx
+  on enterprise_principals(connection_id, subject) where subject is not null;
+create index if not exists enterprise_principals_user_idx on enterprise_principals(user_id);
+
+create table if not exists enterprise_audit_events (
+  id text primary key,
+  workspace_id text not null references workspaces(id) on delete cascade,
+  actor_user_id text references users(id) on delete set null,
+  event_type text not null,
+  connection_id text references sso_connections(id) on delete set null,
+  target_user_id text references users(id) on delete set null,
+  correlation_id text not null,
+  metadata jsonb not null,
+  occurred_at timestamptz not null,
+  constraint enterprise_audit_events_id_check check (id ~ '^ssoevt_[A-Za-z0-9_-]{16,}$'),
+  constraint enterprise_audit_events_type_check check (event_type in ('sso_connection_created','sso_connection_validated','sso_connection_disabled','workspace_auth_policy_updated','domain_verification_started','domain_verified','group_role_mapping_updated','scim_token_created','scim_token_disabled','scim_user_provisioned','scim_user_updated','scim_user_deprovisioned','enterprise_sso_authenticated','enterprise_sso_user_provisioned','break_glass_requested','break_glass_approved','break_glass_consumed')),
+  constraint enterprise_audit_events_correlation_check check (correlation_id ~ '^[A-Za-z0-9_-]{8,128}$'),
+  constraint enterprise_audit_events_metadata_check check (jsonb_typeof(metadata) = 'object')
+);
+create index if not exists enterprise_audit_events_workspace_time_idx on enterprise_audit_events(workspace_id, occurred_at);
+
+create table if not exists enterprise_break_glass_requests (
+  id text primary key,
+  workspace_id text not null references workspaces(id) on delete cascade,
+  requested_by_user_id text not null references users(id) on delete restrict,
+  approved_by_user_id text references users(id) on delete restrict,
+  status text not null default 'pending_approval',
+  reason text not null,
+  expires_at timestamptz not null,
+  approved_at timestamptz,
+  consumed_at timestamptz,
+  created_at timestamptz not null default now(),
+  constraint enterprise_break_glass_id_check check (id ~ '^breakglass_[A-Za-z0-9_-]{16,}$'),
+  constraint enterprise_break_glass_status_check check (status in ('pending_approval','approved','consumed','expired','rejected')),
+  constraint enterprise_break_glass_reason_check check (char_length(reason) between 20 and 1000),
+  constraint enterprise_break_glass_expiry_check check (created_at < expires_at),
+  constraint enterprise_break_glass_separation_check check (approved_by_user_id is null or approved_by_user_id <> requested_by_user_id),
+  constraint enterprise_break_glass_approval_check check (status = 'pending_approval' or (approved_by_user_id is not null and approved_at is not null)),
+  constraint enterprise_break_glass_consumption_check check (status <> 'consumed' or consumed_at is not null)
+);
+create index if not exists enterprise_break_glass_workspace_idx on enterprise_break_glass_requests(workspace_id, created_at);
+
+alter table enterprise_validation_evidence enable row level security;
+alter table enterprise_validation_evidence force row level security;
+alter table workspace_verified_domains enable row level security;
+alter table workspace_verified_domains force row level security;
+alter table sso_group_role_mappings enable row level security;
+alter table sso_group_role_mappings force row level security;
+alter table enterprise_scim_connections enable row level security;
+alter table enterprise_scim_connections force row level security;
+alter table enterprise_principals enable row level security;
+alter table enterprise_principals force row level security;
+alter table enterprise_audit_events enable row level security;
+alter table enterprise_audit_events force row level security;
+alter table enterprise_break_glass_requests enable row level security;
+alter table enterprise_break_glass_requests force row level security;
+
+create policy enterprise_validation_evidence_workspace_read on enterprise_validation_evidence
+  for select using (workspace_id = current_setting('lodariq.workspace_id', true));
+create policy enterprise_validation_evidence_operator_write on enterprise_validation_evidence
+  for insert with check (
+    workspace_id = current_setting('lodariq.workspace_id', true)
+    and current_user = 'lodariq_enterprise_validator'
+    and current_setting('lodariq.enterprise_validation_worker', true) = 'true'
+  );
+
+create policy workspace_verified_domains_workspace_access on workspace_verified_domains
+  for all using (workspace_id = current_setting('lodariq.workspace_id', true))
+  with check (workspace_id = current_setting('lodariq.workspace_id', true));
+create policy workspace_verified_domains_discovery on workspace_verified_domains
+  for select using (
+    status = 'verified'
+    and domain = current_setting('lodariq.enterprise_domain', true)
+  );
+create policy sso_connections_domain_discovery on sso_connections for select using (
+  status = 'verified'
+  and exists (
+    select 1 from workspace_verified_domains d
+    where d.connection_id = sso_connections.id
+      and d.status = 'verified'
+      and d.domain = current_setting('lodariq.enterprise_domain', true)
+  )
+);
+create policy sso_connections_enterprise_authorization on sso_connections for select using (
+  id = current_setting('lodariq.enterprise_connection_id', true)
+  and status = 'verified'
+);
+create policy enterprise_validation_evidence_domain_discovery on enterprise_validation_evidence
+  for select using (
+    revoked_at is null
+    and exists (
+      select 1 from workspace_verified_domains d
+      where d.connection_id = enterprise_validation_evidence.connection_id
+        and d.status = 'verified'
+        and d.domain = current_setting('lodariq.enterprise_domain', true)
+    )
+  );
+create policy enterprise_validation_evidence_authorization on enterprise_validation_evidence
+  for select using (
+    connection_id = current_setting('lodariq.enterprise_connection_id', true)
+    and revoked_at is null
+  );
+create policy workspace_verified_domains_authorization on workspace_verified_domains
+  for select using (
+    connection_id = current_setting('lodariq.enterprise_connection_id', true)
+    and status = 'verified'
+  );
+
+create policy sso_group_role_mappings_workspace_access on sso_group_role_mappings
+  for all using (workspace_id = current_setting('lodariq.workspace_id', true))
+  with check (workspace_id = current_setting('lodariq.workspace_id', true));
+create policy sso_group_role_mappings_enterprise_authorization on sso_group_role_mappings
+  for select using (
+    connection_id = current_setting('lodariq.enterprise_connection_id', true)
+  );
+create policy sso_group_role_mappings_scim_authorization on sso_group_role_mappings
+  for select using (
+    exists (
+      select 1 from enterprise_scim_connections sc
+      where sc.connection_id = sso_group_role_mappings.connection_id
+        and sc.token_hash = current_setting('lodariq.enterprise_scim_token_hash', true)
+        and sc.status = 'active'
+    )
+  );
+create policy enterprise_scim_connections_workspace_access on enterprise_scim_connections
+  for all using (workspace_id = current_setting('lodariq.workspace_id', true))
+  with check (workspace_id = current_setting('lodariq.workspace_id', true));
+create policy enterprise_scim_connections_token_access on enterprise_scim_connections
+  for all using (token_hash = current_setting('lodariq.enterprise_scim_token_hash', true))
+  with check (token_hash = current_setting('lodariq.enterprise_scim_token_hash', true));
+create policy enterprise_principals_workspace_access on enterprise_principals
+  for all using (workspace_id = current_setting('lodariq.workspace_id', true))
+  with check (workspace_id = current_setting('lodariq.workspace_id', true));
+create policy enterprise_principals_scim_access on enterprise_principals for all
+  using (exists (
+    select 1 from enterprise_scim_connections sc
+    where sc.connection_id = enterprise_principals.connection_id
+      and sc.token_hash = current_setting('lodariq.enterprise_scim_token_hash', true)
+      and sc.status = 'active'
+  ))
+  with check (exists (
+    select 1 from enterprise_scim_connections sc
+    where sc.connection_id = enterprise_principals.connection_id
+      and sc.token_hash = current_setting('lodariq.enterprise_scim_token_hash', true)
+      and sc.status = 'active'
+  ));
+create policy enterprise_principals_identity_assurance on enterprise_principals for select using (
+  workspace_id = current_setting('lodariq.workspace_id', true)
+  and exists (
+    select 1 from auth_identities ai
+    where ai.id = current_setting('lodariq.enterprise_identity_id', true)
+      and ai.user_id = enterprise_principals.user_id
+      and ai.issuer = enterprise_principals.issuer
+      and ai.subject = enterprise_principals.subject
+  )
+);
+create policy enterprise_principals_oidc_authorization on enterprise_principals for all
+  using (connection_id = current_setting('lodariq.enterprise_connection_id', true))
+  with check (connection_id = current_setting('lodariq.enterprise_connection_id', true));
+create policy auth_identities_enterprise_assurance on auth_identities for select using (
+  id = current_setting('lodariq.enterprise_identity_id', true)
+);
+
+create policy enterprise_audit_events_workspace_access on enterprise_audit_events
+  for select using (workspace_id = current_setting('lodariq.workspace_id', true));
+create policy enterprise_audit_events_workspace_insert on enterprise_audit_events
+  for insert with check (
+    workspace_id = current_setting('lodariq.workspace_id', true)
+    or (
+      current_user = 'lodariq_enterprise_validator'
+      and current_setting('lodariq.enterprise_validation_worker', true) = 'true'
+    )
+    or connection_id = current_setting('lodariq.enterprise_connection_id', true)
+    or exists (
+      select 1 from enterprise_scim_connections sc
+      where sc.workspace_id = enterprise_audit_events.workspace_id
+        and sc.token_hash = current_setting('lodariq.enterprise_scim_token_hash', true)
+        and sc.status = 'active'
+    )
+  );
+create policy enterprise_break_glass_workspace_access on enterprise_break_glass_requests
+  for all using (workspace_id = current_setting('lodariq.workspace_id', true))
+  with check (workspace_id = current_setting('lodariq.workspace_id', true));
+
+create policy workspace_invitations_enterprise_oidc on workspace_invitations
+  for select using (
+    workspace_id in (
+      select workspace_id from sso_connections
+      where id = current_setting('lodariq.enterprise_connection_id', true)
+        and status = 'verified'
+    )
+    and email_normalized = current_setting('lodariq.auth_email_normalized', true)
+  );
+create policy workspace_invitations_enterprise_oidc_accept on workspace_invitations
+  for update using (
+    workspace_id in (
+      select workspace_id from sso_connections
+      where id = current_setting('lodariq.enterprise_connection_id', true)
+        and status = 'verified'
+    )
+    and email_normalized = current_setting('lodariq.auth_email_normalized', true)
+    and accepted_at is null and revoked_at is null
+  ) with check (accepted_at is not null);
+create policy user_emails_enterprise_oidc_lookup on user_emails for select using (
+  normalized_email = current_setting('lodariq.auth_email_normalized', true)
+  and exists (
+    select 1 from sso_connections
+    where id = current_setting('lodariq.enterprise_connection_id', true)
+      and status = 'verified'
+  )
+);
+create policy users_enterprise_oidc_create on users for insert with check (
+  id = current_setting('lodariq.auth_user_id', true)
+  and exists (
+    select 1 from sso_connections
+    where id = current_setting('lodariq.enterprise_connection_id', true)
+      and status = 'verified'
+  )
+);
+create policy user_emails_enterprise_oidc_create on user_emails for insert with check (
+  user_id = current_setting('lodariq.auth_user_id', true)
+  and normalized_email = current_setting('lodariq.auth_email_normalized', true)
+  and exists (
+    select 1 from sso_connections
+    where id = current_setting('lodariq.enterprise_connection_id', true)
+      and status = 'verified'
+  )
+);
+create policy workspace_memberships_enterprise_oidc_create on workspace_memberships
+  for insert with check (
+    user_id = current_setting('lodariq.auth_user_id', true)
+    and workspace_id in (
+      select workspace_id from sso_connections
+      where id = current_setting('lodariq.enterprise_connection_id', true)
+        and status = 'verified'
+    )
+    and role in ('admin', 'member', 'viewer')
+  );
+create policy workspace_memberships_enterprise_oidc_update on workspace_memberships
+  for update using (
+    user_id = current_setting('lodariq.auth_user_id', true)
+    and workspace_id in (
+      select workspace_id from sso_connections
+      where id = current_setting('lodariq.enterprise_connection_id', true)
+        and status = 'verified'
+    )
+    and exists (
+      select 1 from enterprise_principals ep
+      where ep.connection_id = current_setting('lodariq.enterprise_connection_id', true)
+        and ep.workspace_id = workspace_memberships.workspace_id
+        and ep.user_id = workspace_memberships.user_id
+        and ep.active
+    )
+  ) with check (
+    user_id = current_setting('lodariq.auth_user_id', true)
+    and workspace_id in (
+      select workspace_id from sso_connections
+      where id = current_setting('lodariq.enterprise_connection_id', true)
+        and status = 'verified'
+    )
+    and role in ('admin', 'member', 'viewer')
+  );
+create policy auth_sessions_enterprise_oidc_create on auth_sessions for insert with check (
+  user_id = current_setting('lodariq.auth_user_id', true)
+  and active_workspace_id in (
+    select workspace_id from sso_connections
+    where id = current_setting('lodariq.enterprise_connection_id', true)
+      and status = 'verified'
+  )
+  and authentication_method = 'oidc'
+  and duration_policy = 'managed'
+);
+create policy auth_sessions_enterprise_connection_disable on auth_sessions for update
+  using (
+    exists (
+      select 1 from enterprise_principals ep
+      where ep.user_id = auth_sessions.user_id
+        and ep.workspace_id = current_setting('lodariq.workspace_id', true)
+        and ep.connection_id = current_setting('lodariq.enterprise_connection_id', true)
+    )
+    and exists (
+      select 1 from workspace_memberships wm
+      where wm.workspace_id = current_setting('lodariq.workspace_id', true)
+        and wm.user_id = current_setting('lodariq.auth_user_id', true)
+        and wm.role = 'owner'
+    )
+  )
+  with check (revoked_at is not null);
+create policy auth_sessions_enterprise_connection_disable_select on auth_sessions for select
+  using (
+    exists (
+      select 1 from enterprise_principals ep
+      where ep.user_id = auth_sessions.user_id
+        and ep.workspace_id = current_setting('lodariq.workspace_id', true)
+        and ep.connection_id = current_setting('lodariq.enterprise_connection_id', true)
+    )
+    and exists (
+      select 1 from workspace_memberships wm
+      where wm.workspace_id = current_setting('lodariq.workspace_id', true)
+        and wm.user_id = current_setting('lodariq.auth_user_id', true)
+        and wm.role = 'owner'
+    )
+  );
+
+-- SCIM is a separately authenticated machine principal. These policies only
+-- open the narrow writes used by the atomic provisioning/deprovisioning path.
+create policy users_scim_write on users for all
+  using (exists (
+    select 1 from enterprise_principals ep
+    join enterprise_scim_connections sc on sc.connection_id = ep.connection_id
+    where ep.user_id = users.id and sc.token_hash = current_setting('lodariq.enterprise_scim_token_hash', true)
+  ))
+  with check (exists (
+    select 1 from enterprise_scim_connections sc
+    where sc.token_hash = current_setting('lodariq.enterprise_scim_token_hash', true)
+      and sc.status = 'active'
+  ));
+create policy user_emails_scim_write on user_emails for all
+  using (exists (
+    select 1 from enterprise_principals ep
+    join enterprise_scim_connections sc on sc.connection_id = ep.connection_id
+    where ep.user_id = user_emails.user_id and sc.token_hash = current_setting('lodariq.enterprise_scim_token_hash', true)
+  ))
+  with check (exists (
+    select 1 from enterprise_scim_connections sc
+    where sc.token_hash = current_setting('lodariq.enterprise_scim_token_hash', true)
+      and sc.status = 'active'
+  ));
+create policy workspace_memberships_scim_write on workspace_memberships for all
+  using (exists (
+    select 1 from enterprise_scim_connections sc
+    where sc.workspace_id = workspace_memberships.workspace_id
+      and sc.token_hash = current_setting('lodariq.enterprise_scim_token_hash', true)
+  ))
+  with check (exists (
+    select 1 from enterprise_scim_connections sc
+    where sc.workspace_id = workspace_memberships.workspace_id
+      and sc.token_hash = current_setting('lodariq.enterprise_scim_token_hash', true)
+  ));
+create policy auth_sessions_scim_revoke on auth_sessions for update using (exists (
+  select 1 from enterprise_principals ep
+  join enterprise_scim_connections sc on sc.connection_id = ep.connection_id
+  where ep.user_id = auth_sessions.user_id
+    and sc.token_hash = current_setting('lodariq.enterprise_scim_token_hash', true)
+)) with check (revoked_at is not null);
+create policy auth_sessions_scim_revoke_select on auth_sessions for select using (exists (
+  select 1 from enterprise_principals ep
+  join enterprise_scim_connections sc on sc.connection_id = ep.connection_id
+  where ep.user_id = auth_sessions.user_id
+    and sc.token_hash = current_setting('lodariq.enterprise_scim_token_hash', true)
+));
+create policy authoring_activation_grants_scim_revoke on authoring_activation_grants for update using (exists (
+  select 1 from enterprise_principals ep
+  join enterprise_scim_connections sc on sc.connection_id = ep.connection_id
+  where ep.workspace_id = authoring_activation_grants.workspace_id
+    and ep.user_id = authoring_activation_grants.creator_id
+    and sc.token_hash = current_setting('lodariq.enterprise_scim_token_hash', true)
+)) with check (revoked_at is not null);
+create policy authoring_sessions_scim_revoke on authoring_sessions for update using (exists (
+  select 1 from enterprise_principals ep
+  join enterprise_scim_connections sc on sc.connection_id = ep.connection_id
+  where ep.workspace_id = authoring_sessions.workspace_id
+    and ep.user_id = authoring_sessions.created_by_user_id
+    and sc.token_hash = current_setting('lodariq.enterprise_scim_token_hash', true)
+)) with check (revoked_at is not null);
 
 commit;

@@ -21,7 +21,20 @@ import {
   type RecoverDocumentReleaseInput,
   type ReleaseRecoveryScopeInput,
 } from '../domains/releases';
-import { type PersistedDocument, type SaveDocumentInput } from '../domains/documents';
+import {
+  DocumentSaveConflictError,
+  type PersistedDocument,
+  type SaveDocumentInput,
+} from '../domains/documents';
+import type {
+  CreateAuthoringMediaAssetInput,
+  SaveAuthoringResourcesInput,
+} from '../domains/authoring-resources';
+import type {
+  AuthoringDraftCheckpointResource,
+  AuthoringMediaAssetResource,
+  AuthoringStepStyleRecipeResource,
+} from '@lodariq/schema';
 import {
   createCompletedRecoveryOperation,
   createNonPersistingRecoveryFailure,
@@ -41,6 +54,100 @@ import {
 import { InMemoryRepositoryThemes } from './themes';
 
 export class InMemoryRepositoryDocuments extends InMemoryRepositoryThemes {
+  async listAuthoringStyleRecipes(
+    workspaceId: string,
+  ): Promise<AuthoringStepStyleRecipeResource[]> {
+    return clone(this.authoringStyleRecipes.get(workspaceId) ?? []);
+  }
+
+  async listAuthoringDraftCheckpoints(
+    workspaceId: string,
+    documentId: string,
+  ): Promise<AuthoringDraftCheckpointResource[]> {
+    return clone(this.authoringDraftCheckpoints.get(this.key(workspaceId, documentId)) ?? []);
+  }
+
+  async listAuthoringMediaAssets(workspaceId: string): Promise<AuthoringMediaAssetResource[]> {
+    return [...this.authoringMediaAssets.values()]
+      .filter((asset) => asset.workspaceId === workspaceId)
+      .sort((left, right) => right.createdAt.localeCompare(left.createdAt))
+      .map(
+        ({
+          workspaceId: _workspaceId,
+          contentBase64: _contentBase64,
+          publishedAt: _publishedAt,
+          ...asset
+        }) => clone(asset),
+      );
+  }
+
+  async getAuthoringMediaAsset(workspaceId: string, assetId: string) {
+    const asset = this.authoringMediaAssets.get(this.key(workspaceId, assetId));
+    return asset ? clone(asset) : null;
+  }
+
+  async getPublishedMediaAsset(assetId: string) {
+    const asset = [...this.authoringMediaAssets.values()].find(
+      (candidate) => candidate.id === assetId && candidate.publishedAt !== null,
+    );
+    return asset ? clone(asset) : null;
+  }
+
+  async publishAuthoringMediaAssets(
+    workspaceId: string,
+    assetIds: readonly string[],
+  ): Promise<void> {
+    const publishedAt = new Date().toISOString();
+    for (const assetId of new Set(assetIds)) {
+      const key = this.key(workspaceId, assetId);
+      const asset = this.authoringMediaAssets.get(key);
+      if (asset) this.authoringMediaAssets.set(key, { ...asset, publishedAt });
+    }
+  }
+
+  async saveAuthoringResources(input: SaveAuthoringResourcesInput): Promise<void> {
+    for (const checkpoint of input.checkpoints) {
+      assertWorkspaceScope(checkpoint.document.workspaceId, input.workspaceId);
+      if (checkpoint.document.id !== input.documentId) {
+        throw new Error('Authoring checkpoint document scope mismatch');
+      }
+    }
+    this.authoringStyleRecipes.set(input.workspaceId, clone([...input.recipes]));
+    this.authoringDraftCheckpoints.set(
+      this.key(input.workspaceId, input.documentId),
+      clone([...input.checkpoints]),
+    );
+  }
+
+  async createAuthoringMediaAsset(
+    input: CreateAuthoringMediaAssetInput,
+  ): Promise<AuthoringMediaAssetResource> {
+    const id = `asset-${randomUUID()}`;
+    const createdAt = new Date().toISOString();
+    const asset = {
+      id,
+      workspaceId: input.workspaceId,
+      kind: input.kind,
+      filename: input.filename,
+      contentType: input.contentType,
+      byteLength: input.byteLength,
+      contentHash: input.contentHash,
+      savedToLibrary: input.savedToLibrary,
+      contentBase64: input.contentBase64,
+      publishedAt: null,
+      createdAt,
+      downloadPath: `/v1/authoring/media-assets/${id}`,
+    } as const;
+    this.authoringMediaAssets.set(this.key(input.workspaceId, id), clone(asset));
+    const {
+      workspaceId: _workspaceId,
+      contentBase64: _contentBase64,
+      publishedAt: _publishedAt,
+      ...resource
+    } = asset;
+    return clone(resource);
+  }
+
   async listDocuments(workspaceId: string): Promise<DocumentSummary[]> {
     return [...this.documents.values()]
       .filter((entry) => entry.document.workspaceId === workspaceId)
@@ -93,8 +200,12 @@ export class InMemoryRepositoryDocuments extends InMemoryRepositoryThemes {
   async saveDocument(input: SaveDocumentInput): Promise<PersistedDocument> {
     assertWorkspaceScope(input.document.workspaceId, input.workspaceId);
     assertArtifactMatchesDocument(input);
-    const now = new Date().toISOString();
     const existing = this.documents.get(this.key(input.workspaceId, input.document.id));
+    if (input.expectedUpdatedAt !== undefined && existing?.updatedAt !== input.expectedUpdatedAt) {
+      throw new DocumentSaveConflictError(existing?.updatedAt ?? null);
+    }
+    const existingTimestamp = existing ? Date.parse(existing.updatedAt) : 0;
+    const now = new Date(Math.max(Date.now(), existingTimestamp + 1)).toISOString();
     const documentVersion = this.createDocumentVersion(input, now);
     const latestArtifact = input.artifact
       ? this.persistCompiledArtifact(

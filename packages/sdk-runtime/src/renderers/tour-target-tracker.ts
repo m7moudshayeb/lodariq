@@ -189,10 +189,13 @@ function positionTrackedTourTarget(
   onOwnerAvailabilityChange: (available: boolean) => void,
 ): { stop: () => void; update: () => void } {
   let active = true;
+  let framePending = false;
   const owner = anchor.element;
   const reference = positioningReference(anchor, options.step.presentationAnchor);
   const placement = (options.step.placement as Placement) ?? 'bottom';
-  const update = (): void => {
+  const updateNow = (): void => {
+    framePending = false;
+    if (!active) return;
     if (!canOwnPresentation(anchor)) {
       onOwnerAvailabilityChange(false);
       return;
@@ -230,6 +233,11 @@ function positionTrackedTourTarget(
         options.onPositionError(normalizeTourPresentationError(error));
       });
   };
+  const update = (): void => {
+    if (!active || framePending) return;
+    framePending = true;
+    scheduleAnimationFrame(owner.ownerDocument.defaultView, updateNow);
+  };
   const ownerWindow = owner.ownerDocument.defaultView ?? window;
   const resizeObserver = ownerWindow.ResizeObserver ? new ownerWindow.ResizeObserver(update) : null;
   const scrollTargets: EventTarget[] = [
@@ -237,7 +245,7 @@ function positionTrackedTourTarget(
     ...presentationOwnerObservationRoots(owner).filter((root) => shadowRootHost(root)),
   ];
   resizeObserver?.observe(owner);
-  update();
+  updateNow();
   for (const target of scrollTargets) target.addEventListener?.('scroll', update, true);
   ownerWindow.addEventListener?.('resize', update);
   return {
@@ -250,6 +258,14 @@ function positionTrackedTourTarget(
       ownerWindow.removeEventListener?.('resize', update);
     },
   };
+}
+
+function scheduleAnimationFrame(view: Window | null, callback: () => void): void {
+  if (typeof view?.requestAnimationFrame === 'function') {
+    view.requestAnimationFrame(() => callback());
+    return;
+  }
+  setTimeout(callback, 16);
 }
 
 function normalizeTourPresentationError(error: unknown): Error {

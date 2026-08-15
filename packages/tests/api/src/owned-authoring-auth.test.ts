@@ -93,6 +93,108 @@ describe('owned identity authoring approval', () => {
     });
     await app.close();
   });
+
+  it('rejects a consumer OIDC session at the authoring popup when the workspace requires enterprise SSO', async () => {
+    const now = Date.now();
+    const timestamp = new Date(now).toISOString();
+    const rawSession = 'lq_sess_consumer_oidc_authoring';
+    const identityId = `ident_${'c'.repeat(24)}`;
+    const connectionId = `sso_${'e'.repeat(24)}`;
+    const repository = createInMemoryControlPlaneRepository({
+      workspaces: [workspace('wk_b', now)],
+      users: [user('usr_member', now)],
+      workspaceMemberships: [membership('wk_b', 'usr_member', 'owner', now)],
+      workspaceAuthPolicies: [
+        {
+          workspaceId: 'wk_b',
+          ssoRequired: true,
+          minimumAssurance: 'aal1',
+          passwordAllowed: false,
+          createdAt: timestamp,
+          updatedAt: timestamp,
+        },
+      ],
+      environments: [
+        {
+          id: 'env_b_staging',
+          workspaceId: 'wk_b',
+          kind: 'staging',
+          name: 'B staging',
+          originAllowlist: ['https://customer.example'],
+          createdAt: timestamp,
+          updatedAt: timestamp,
+        },
+      ],
+      authIdentities: [
+        {
+          id: identityId,
+          userId: 'usr_member',
+          kind: 'oidc',
+          issuer: 'https://accounts.google.com',
+          subject: 'consumer-authoring-subject',
+          providerTenantId: 'google',
+          createdAt: timestamp,
+          lastAuthenticatedAt: timestamp,
+          disabledAt: null,
+        },
+      ],
+      authSessions: [
+        {
+          ...session(rawSession, 'usr_member', 'wk_b', now),
+          identityId,
+          authenticationMethod: 'oidc',
+          assuranceLevel: 'aal2',
+        },
+      ],
+      enterpriseSsoConnections: [
+        {
+          id: connectionId,
+          workspaceId: 'wk_b',
+          provider: 'okta',
+          protocol: 'oidc',
+          issuer: 'https://tenant.okta.com/oauth2/default',
+          clientId: 'enterprise-client',
+          provisioningMode: 'invitation_only',
+          status: 'active',
+          validatedAt: timestamp,
+          createdAt: timestamp,
+          updatedAt: timestamp,
+        },
+      ],
+      enterpriseValidationEvidence: [
+        {
+          id: `ssoevidence_${'v'.repeat(20)}`,
+          connectionId,
+          workspaceId: 'wk_b',
+          target: 'okta',
+          protocol: 'oidc',
+          evidenceReference: 'ticket://validation/authoring',
+          validatedBy: 'release-operator',
+          validatedAt: timestamp,
+          revokedAt: null,
+        },
+      ],
+    });
+    const installationId = await configureAuthoringInstallation(repository);
+    const pending = await createPendingRequest(
+      repository,
+      installationId,
+      'state-enterprise-policy'.padEnd(40, 'e'),
+    );
+    const app = createApiApp({
+      repository,
+      authProvider: createLodariqAuthProvider(repository),
+    });
+
+    const response = await app.inject({
+      method: 'GET',
+      url: `/v1/authoring/authorization-requests/${pending.requestId}`,
+      headers: { authorization: `Bearer ${rawSession}`, origin: LODARIQ_APP_ORIGIN },
+    });
+    expect(response.statusCode).toBe(403);
+    expect(response.json<{ error: string }>().error).toBe('enterprise_sso_required');
+    await app.close();
+  });
 });
 
 async function configureAuthoringInstallation(repository: ControlPlaneRepository): Promise<string> {
@@ -168,6 +270,11 @@ function session(rawToken: string, userId: string, activeWorkspaceId: string, no
     userId,
     tokenHash: hashAuthSessionToken(rawToken),
     activeWorkspaceId,
+    identityId: null,
+    authenticationMethod: 'password' as const,
+    assuranceLevel: 'aal1' as const,
+    authenticatedAt: timestamp,
+    durationPolicy: 'standard' as const,
     createdAt: timestamp,
     lastSeenAt: timestamp,
     idleExpiresAt: new Date(now + 60 * 60 * 1_000).toISOString(),

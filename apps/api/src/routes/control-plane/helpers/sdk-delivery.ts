@@ -4,7 +4,12 @@ import {
   type ControlPlaneRepository,
 } from '@lodariq/database';
 import type { FastifyReply, FastifyRequest } from 'fastify';
-import { AuthError, type AuthContext, type AuthProvider } from '../../../auth';
+import {
+  AuthError,
+  workspaceSessionPolicyFailure,
+  type AuthContext,
+  type AuthProvider,
+} from '../../../auth';
 import { createObservabilityEvent, type ObservabilitySink } from '../../../observability';
 import {
   resolveAuthoritativeAnalyticsBatch,
@@ -173,12 +178,42 @@ export async function authenticateAuthoringAuthorizationRequest(
       });
       return null;
     }
+    const policy = await repository.getWorkspaceAuthPolicy(resolved.request.workspaceId);
+    if (!policy) {
+      await reply.code(403).send({
+        error: 'workspace_auth_policy_unavailable',
+        message: 'Workspace authentication policy could not be verified',
+      });
+      return null;
+    }
+    const workspaceSsoIdentitySatisfied = policy.ssoRequired
+      ? await repository.identitySatisfiesWorkspaceSso(
+          resolved.request.workspaceId,
+          identity.identityId ?? null,
+        )
+      : false;
+    const policyFailure = workspaceSessionPolicyFailure(
+      identity,
+      policy,
+      workspaceSsoIdentitySatisfied,
+    );
+    if (policyFailure) {
+      await reply.code(403).send({
+        error: policyFailure,
+        message: 'This session does not satisfy the workspace authentication policy',
+      });
+      return null;
+    }
     return {
       auth: {
         userId: resolved.membership.userId,
         workspaceId: resolved.request.workspaceId,
         role: authRoleFromMembership(resolved.membership.role),
         provider: identity.provider,
+        authenticationMethod: identity.authenticationMethod,
+        assuranceLevel: identity.assuranceLevel,
+        authenticatedAt: identity.authenticatedAt,
+        identityId: identity.identityId,
       },
       request: resolved.request,
     };

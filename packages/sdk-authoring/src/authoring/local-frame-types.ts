@@ -19,6 +19,12 @@ import {
   type AuthoringTranslationRequest,
   type AuthoringTranslationResult,
   type AuthoringWorkspaceView,
+  type AuthoringDiagnosticAttributes,
+  type AuthoringDiagnosticEventName,
+  type AuthoringDeliveryCapabilityMetadata,
+  type AuthoringDraftCheckpointResource,
+  type AuthoringMediaAssetKind,
+  type AuthoringMediaAssetResource,
 } from '@lodariq/schema';
 import type { AuthoringStepStyleRecipe } from './step-style-recipes';
 
@@ -31,43 +37,7 @@ export type {
   AuthoringStagingReleaseStateName,
 };
 
-export type LocalAuthoringFrameMetricName =
-  | 'authoring.opened'
-  | 'block.inserted'
-  | 'transaction.committed'
-  | 'transaction.coalesced'
-  | 'transaction.retried'
-  | 'transaction.conflicted'
-  | 'transaction.persisted'
-  | 'target.pick.started'
-  | 'target.pick.succeeded'
-  | 'target.pick.failed'
-  | 'target.pick.canceled'
-  | 'target.unavailable'
-  | 'target.context-restored'
-  | 'target.verification-passed'
-  | 'target.repair-opened'
-  | 'preview.opened'
-  | 'preview.from-step'
-  | 'preview.step-changed'
-  | 'preview.branch-chosen'
-  | 'preview.completed'
-  | 'preview.exited'
-  | 'choreography.stage-started'
-  | 'choreography.stage-satisfied'
-  | 'choreography.stage-timed-out'
-  | 'style.copied'
-  | 'style.applied'
-  | 'style.recipe-used'
-  | 'contrast.warning'
-  | 'contrast.blocker'
-  | 'readiness.finding'
-  | 'readiness.repair-opened'
-  | 'readiness.repair-completed'
-  | 'checkpoint.saved'
-  | 'checkpoint.restored'
-  | 'document.exported'
-  | 'document.imported';
+export type LocalAuthoringFrameMetricName = AuthoringDiagnosticEventName;
 
 export const AUTHORING_BRAND_SOURCE_KINDS = [
   'approved-theme',
@@ -237,6 +207,12 @@ export interface LocalAuthoringFrameMetricEvent {
   sessionId: string;
   documentId: string;
   name: LocalAuthoringFrameMetricName;
+  attributes?: AuthoringDiagnosticAttributes;
+}
+
+export interface AuthoringMediaUploadOptions {
+  onProgress?: (progress: number) => void;
+  savedToLibrary: boolean;
 }
 
 export interface LocalAuthoringFrameServices {
@@ -245,6 +221,21 @@ export interface LocalAuthoringFrameServices {
   /** Optional authoring-only workspace resource; recipes contain semantic style fields only. */
   loadStepStyleRecipes?: () => readonly AuthoringStepStyleRecipe[];
   saveStepStyleRecipes?: (recipes: readonly AuthoringStepStyleRecipe[]) => void;
+  loadDraftCheckpoints?: () => readonly AuthoringDraftCheckpointResource[];
+  loadMediaAssets?: () => readonly AuthoringMediaAssetResource[];
+  /** Persists the complete bounded workspace/document resource set atomically. */
+  saveAuthoringResources?: (
+    recipes: readonly AuthoringStepStyleRecipe[],
+    checkpoints: readonly AuthoringDraftCheckpointResource[],
+  ) => Promise<void>;
+  /** Hosted authoring-only upload. Runtime documents retain only the returned opaque id. */
+  uploadMediaAsset?: (
+    kind: AuthoringMediaAssetKind,
+    file: File,
+    options: AuthoringMediaUploadOptions,
+  ) => Promise<AuthoringMediaAssetResource>;
+  /** Resolves a draft asset through the authenticated authoring boundary. */
+  loadMediaAssetPreview?: (asset: AuthoringMediaAssetResource) => Promise<Blob>;
   /**
    * Optional durable save boundary. Local edits continue to use `saveDocument`
    * so typing and block operations never become network requests. Explicit
@@ -329,6 +320,8 @@ export interface LocalAuthoringFrameOptions {
   /** Approved session theme used by both the canvas and runtime preview recipe. */
   previewTheme?: BrandThemeSnapshot;
   previewPreferences?: { prefersDark: boolean; prefersReducedMotion: boolean };
+  /** Exact server compiler/renderer feature intersection for this session. */
+  deliveryCapabilities?: AuthoringDeliveryCapabilityMetadata;
   services: LocalAuthoringFrameServices;
   frameMode?: 'standalone' | 'panel';
   sessionId?: string;

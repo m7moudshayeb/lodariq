@@ -30,6 +30,8 @@ const VERIFICATION_CHECK_LABELS: Record<BrowserVerificationCheckCode, string> = 
   rtl: authoringText('Right-to-left layout'),
   reduced_motion: authoringText('Reduced motion'),
   zoom_200: authoringText('200% zoom'),
+  keyboard_navigation: authoringText('Keyboard navigation'),
+  focus_restoration: authoringText('Focus restores after tour'),
 };
 
 export interface ReleaseWorkflowCapabilities {

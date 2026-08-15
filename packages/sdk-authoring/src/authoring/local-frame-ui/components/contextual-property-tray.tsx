@@ -15,6 +15,7 @@ import type { StepHealthTone } from '../tour-step-model';
 import { BlockFlowInspector } from './block-flow-inspector';
 import {
   type ContextualToolMode,
+  type PopupCompositionSection,
   type PopupInspectorSection,
   type PopupThemeColors,
 } from './contextual-property-types';
@@ -48,11 +49,9 @@ export function ContextualPropertyTray({
   step,
   tooltip,
   toolMode,
-  textFontSize,
   onActiveTabChange,
   onClose,
   onOpenFlowMap,
-  onTextFontSizeChange,
   open,
 }: {
   activeTab: ActionPropertyTab;
@@ -66,14 +65,17 @@ export function ContextualPropertyTray({
   step: LodariqBlock;
   tooltip: LodariqBlock;
   toolMode: ContextualToolMode;
-  textFontSize?: number | 'default' | 'mixed';
   onActiveTabChange: (tab: ActionPropertyTab) => void;
   onClose: () => void;
   onOpenFlowMap: (mode: 'branch' | 'sequence') => void;
-  onTextFontSizeChange?: (value: number | 'default') => void;
   open: boolean;
 }) {
   const [popupSection, setPopupSection] = useState<PopupInspectorSection>('layout');
+  const popupSections = snapshot.deliveryCapabilities.has('presentation.v1')
+    ? POPUP_INSPECTOR_SECTIONS
+    : POPUP_INSPECTOR_SECTIONS.filter((section) => section.value !== 'presentation');
+  const popupCompositionSection: PopupCompositionSection =
+    popupSection === 'presentation' ? 'layout' : popupSection;
   const targetId = targetIdOf(step);
   const targetLabel = targetId
     ? targetLabelOf(snapshot.documentState, targetId)
@@ -81,7 +83,7 @@ export function ContextualPropertyTray({
   const placement = tooltip.props.placement ?? 'bottom';
   const selectedBlock = actionBlock ?? activeBlock;
   let title = authoringText('{name} settings', {
-    name: blockDisplayTitle(selectedBlock ?? step),
+    name: selectedBlock ? blockTypeLabel(selectedBlock.type) : blockDisplayTitle(step),
   });
   if (actionBlock) {
     title = authoringText('{name} {type}', {
@@ -89,12 +91,19 @@ export function ContextualPropertyTray({
       type: blockTypeLabel(actionBlock.type).toLowerCase(),
     });
   }
+  if (toolMode === 'content' && !actionBlock) {
+    title = authoringText('Rich content');
+  }
   if (toolMode === 'popup') {
-    title = POPUP_INSPECTOR_SECTIONS.find((section) => section.value === popupSection)!.label;
+    title =
+      popupSections.find((section) => section.value === popupSection)?.label ??
+      popupSections[0]!.label;
   }
   const scopeLabel =
-    toolMode === 'popup' ? authoringText('· This step') : authoringText('· This block');
-  let trayLabel = authoringText('Selected block settings');
+    toolMode === 'popup' || (toolMode === 'content' && !actionBlock)
+      ? authoringText('· This step')
+      : authoringText('· This block');
+  let trayLabel = authoringText('Rich content');
   if (actionBlock) trayLabel = authoringText('Selected action style');
   if (toolMode === 'popup') trayLabel = authoringText('Popup layout settings');
 
@@ -149,10 +158,10 @@ export function ContextualPropertyTray({
 
       {toolMode === 'content' && !actionBlock && activeBlock ? (
         <BlockFlowInspector
-          block={activeBlock}
+          activeBlock={activeBlock}
           controller={controller}
-          textFontSize={textFontSize}
-          onTextFontSizeChange={onTextFontSizeChange}
+          stepBlockId={step.id}
+          tooltip={tooltip}
         />
       ) : null}
 
@@ -161,7 +170,7 @@ export function ContextualPropertyTray({
       {toolMode === 'popup' ? (
         <>
           <nav className="popup-inspector-tabs" aria-label={authoringText('Popup layout settings')}>
-            {POPUP_INSPECTOR_SECTIONS.map((section) => (
+            {popupSections.map((section) => (
               <button
                 aria-current={popupSection === section.value ? 'page' : undefined}
                 key={section.value}
@@ -172,7 +181,8 @@ export function ContextualPropertyTray({
               </button>
             ))}
           </nav>
-          {popupSection === 'presentation' ? (
+          {popupSection === 'presentation' &&
+          snapshot.deliveryCapabilities.has('presentation.v1') ? (
             <StepPresentationInspector
               controller={controller}
               snapshot={snapshot}
@@ -183,7 +193,7 @@ export function ContextualPropertyTray({
           ) : (
             <PopupCompositionInspector
               controller={controller}
-              section={popupSection}
+              section={popupCompositionSection}
               themeColors={popupThemeColors}
               tooltip={tooltip}
             />

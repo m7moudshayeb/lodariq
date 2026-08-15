@@ -16,6 +16,7 @@ describe('@lodariq/dashboard client boundaries', () => {
       ['apps/dashboard/src/lib/client-authoring-activation-api.ts', 1],
       ['apps/dashboard/src/lib/client-dashboard-api.ts', 1],
       ['apps/dashboard/src/lib/client-locale-api.ts', 1],
+      ['apps/dashboard/src/lib/client-tenant-api.ts', 1],
     ]);
 
     expect(clientFiles.map((file) => relative(repoRoot, file))).toEqual(

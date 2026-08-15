@@ -97,6 +97,10 @@ describe('authoring reliability primitives', () => {
       },
     ]);
     expect(coordinator.acknowledge(50)).toBe('stale');
+    expect(coordinator.acknowledge(100)).toBe('applied');
+    expect(coordinator.saveState).toEqual({ state: 'saving', revision: 100 });
+    coordinator.markPersisted(100);
+    expect(coordinator.saveState).toEqual({ state: 'saved', revision: 100 });
     expect(coordinator.document).toEqual(document);
   });
 

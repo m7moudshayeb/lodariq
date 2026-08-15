@@ -1,6 +1,13 @@
-import { BLOCK_ACTION_TYPES, isPresentationAnchor, type LodariqBlock } from './block';
+import {
+  BLOCK_ACTION_TYPES,
+  isPresentationAnchor,
+  type BlockActionProps,
+  type LodariqBlock,
+} from './block';
+import type { StepChoreography } from './choreography';
 import type { LodariqDocument } from './document';
 import type { ResolverDiagnostic } from './bridge';
+import { STRUCTURED_COMPOSITION_BLOCK_TYPE_VALUES } from './presentation';
 import type { TourFlowIssueCode } from './tour-flow-contract';
 import { analyzeTourDocumentFlow } from './tour-flow-analysis';
 import { TARGET_MIN_CAPTURE_RUNNER_UP_MARGIN } from './target';
@@ -24,7 +31,12 @@ export type PublishReadinessIssueCode =
   | 'open_page_missing_url'
   | 'open_page_unsafe_url'
   | 'action_not_allowed'
+  | 'choreography_target_missing'
+  | 'choreography_step_missing'
+  | 'choreography_target_unverified'
   | 'incomplete_media'
+  | 'media_asset_invalid'
+  | 'missing_accessible_name'
   | 'unresolved_lifecycle_hint'
   | 'invalid_presentation_anchor'
   | 'invalid_block'
@@ -44,6 +56,12 @@ export interface ValidateTourPublishReadinessOptions {
     | Record<string, ResolverDiagnostic | { diagnostic: ResolverDiagnostic } | undefined>;
   /** Require a fresh factual observation for every target in this publish attempt. */
   requireVerifiedTargets?: boolean;
+  /** Server-resolved asset IDs available to this exact workspace. */
+  validMediaAssetIds?: ReadonlySet<string>;
+  /** Server-resolved asset IDs and their validated delivery kinds. */
+  validMediaAssets?: ReadonlyMap<string, 'image' | 'video' | 'captions'>;
+  /** Release boundaries require every media reference to resolve server-side. */
+  requireValidMediaAssets?: boolean;
 }
 
 type TargetDiagnosticValue = ResolverDiagnostic | { diagnostic: ResolverDiagnostic };
@@ -61,6 +79,9 @@ const TOUR_TOOLTIP_BLOCK_TYPES = new Set([
   'button',
   'link',
   'media',
+  'callout',
+  'stat',
+  'icon',
   'targetChip',
   'validationBadge',
 ]);
@@ -70,6 +91,9 @@ const RICH_TEXT_BLOCK_TYPES = new Set(['heading', 'paragraph']);
 const ACTION_STYLE_BLOCK_TYPES = new Set(['button', 'link']);
 const VISIBLE_WITHOUT_CONTENT_TYPES = new Set(['divider']);
 const HIDDEN_TOUR_CONTENT_TYPES = new Set(['media', 'targetChip', 'validationBadge']);
+const STRUCTURED_COMPOSITION_BLOCK_TYPES = new Set<string>(
+  STRUCTURED_COMPOSITION_BLOCK_TYPE_VALUES,
+);
 const ACTIONABLE_FINGERPRINT_TEXT_FIELDS = [
   'accessibleName',
   'role',
@@ -99,7 +123,12 @@ const PUBLISH_READINESS_ISSUE_LABELS = {
   open_page_missing_url: 'Missing URL',
   open_page_unsafe_url: 'Unsafe URL',
   action_not_allowed: 'Unsupported action',
+  choreography_target_missing: 'Sequence target is missing',
+  choreography_step_missing: 'Sequence recovery step is missing',
+  choreography_target_unverified: 'Sequence target is unverified',
   incomplete_media: 'Incomplete media',
+  media_asset_invalid: 'Media asset is unavailable',
+  missing_accessible_name: 'Missing accessible name',
   unresolved_lifecycle_hint: 'Unresolved lifecycle hint',
   invalid_presentation_anchor: 'Invalid presentation area',
   invalid_flow_edge: 'Broken flow connection',
@@ -113,7 +142,6 @@ const PUBLISH_READINESS_ISSUE_LABELS = {
 const TOOLTIP_CHILD_VALIDATORS: Readonly<Record<string, TooltipChildValidator>> = {
   button: (block, issues) => validateActionBlock(block, 'button', issues),
   link: (block, issues) => validateActionBlock(block, 'link', issues),
-  media: validateMediaBlock,
 };
 
 /**
@@ -138,6 +166,7 @@ export function validateTourPublishReadiness(
 
   const targetsById = new Map(document.targets.map((target) => [target.id, target]));
   const steps = document.blocks.filter((block) => block.type === 'tourStep');
+  const stepIds = new Set(steps.map((step) => step.id));
   if (steps.length === 0) {
     issues.push({ code: 'empty_tour', message: 'Add at least one step before publishing.' });
   }
@@ -151,7 +180,7 @@ export function validateTourPublishReadiness(
       });
       continue;
     }
-    validateTourStep(block, targetsById, options, issues);
+    validateTourStep(block, targetsById, stepIds, options, issues);
   }
 
   issues.push(
@@ -181,6 +210,7 @@ export function publishReadinessIssueLabel(code: PublishReadinessIssueCode): str
 function validateTourStep(
   step: LodariqBlock,
   targetsById: ReadonlyMap<string, LodariqDocument['targets'][number]>,
+  stepIds: ReadonlySet<string>,
   options: ValidateTourPublishReadinessOptions,
   issues: PublishReadinessIssue[],
 ): void {
@@ -212,6 +242,15 @@ function validateTourStep(
   }
 
   validatePresentationAnchorConfiguration(step, tooltip, issues);
+  validateChoreography(
+    step.props.entrySequence,
+    step.id,
+    targetIdOfTooltip(tooltip),
+    targetsById,
+    stepIds,
+    options,
+    issues,
+  );
   validateStructuredStylePlacement(step, issues);
   validateStructuredStylePlacement(tooltip, issues);
 
@@ -293,7 +332,10 @@ function validateTourStep(
     }
   }
 
-  for (const child of tooltip.children) validateTooltipChild(child, issues);
+  for (const child of tooltip.children) {
+    validateTooltipChild(child, options, issues);
+    validateActionChoreography(child, step.id, targetId, targetsById, stepIds, options, issues);
+  }
 }
 
 function validatePresentationAnchorConfiguration(
@@ -369,7 +411,11 @@ function validateTargetLifecycle(
   }
 }
 
-function validateTooltipChild(block: LodariqBlock, issues: PublishReadinessIssue[]): void {
+function validateTooltipChild(
+  block: LodariqBlock,
+  options: ValidateTourPublishReadinessOptions,
+  issues: PublishReadinessIssue[],
+): void {
   if (!TOUR_TOOLTIP_BLOCK_TYPES.has(block.type)) {
     issues.push({
       code: 'unsupported_tour_block',
@@ -388,7 +434,47 @@ function validateTooltipChild(block: LodariqBlock, issues: PublishReadinessIssue
   }
   validateInlineContent(block, issues);
   TOOLTIP_CHILD_VALIDATORS[block.type]?.(block, issues);
-  for (const child of block.children) validateTooltipChild(child, issues);
+  if (block.type === 'media') validateMediaBlock(block, options, issues);
+  validateStructuredCompositionBlock(block, issues);
+  for (const child of block.children) validateTooltipChild(child, options, issues);
+}
+
+function validateStructuredCompositionBlock(
+  block: LodariqBlock,
+  issues: PublishReadinessIssue[],
+): void {
+  const isCompositionBlock = STRUCTURED_COMPOSITION_BLOCK_TYPES.has(block.type);
+  if (!isCompositionBlock) return;
+  if (block.props.composition?.kind !== block.type) {
+    issues.push({
+      code: 'incomplete_block',
+      blockId: block.id,
+      message: `${blockLabel(block)} needs a matching structured-content recipe.`,
+    });
+  }
+  if (!block.props.accessibilityName?.trim()) {
+    issues.push({
+      code: 'missing_accessible_name',
+      blockId: block.id,
+      message: `${blockLabel(block)} needs an accessibility name.`,
+    });
+  }
+}
+
+export function collectTourMediaAssetIds(document: LodariqDocument): string[] {
+  const assetIds = new Set<string>();
+  for (const root of document.blocks) {
+    visitBlockTree(root, (block) => {
+      const media = block.props.media;
+      if (!media) return;
+      assetIds.add(media.assetId);
+      if (media.kind === 'video') {
+        if (media.captionsAssetId) assetIds.add(media.captionsAssetId);
+        if (media.posterAssetId) assetIds.add(media.posterAssetId);
+      }
+    });
+  }
+  return [...assetIds];
 }
 
 function validateStructuredStylePlacement(
@@ -423,6 +509,13 @@ function validateStructuredStylePlacement(
       message: `${blockLabel(block)} has popup styling outside a tooltip.`,
     });
   }
+  if (block.props.composition && !STRUCTURED_COMPOSITION_BLOCK_TYPES.has(block.type)) {
+    issues.push({
+      code: 'invalid_block',
+      blockId: block.id,
+      message: `${blockLabel(block)} has a structured-content recipe on an unsupported block.`,
+    });
+  }
 }
 
 function validateInlineContent(block: LodariqBlock, issues: PublishReadinessIssue[]): void {
@@ -443,13 +536,147 @@ function validateInlineContent(block: LodariqBlock, issues: PublishReadinessIssu
   }
 }
 
-function validateMediaBlock(block: LodariqBlock, issues: PublishReadinessIssue[]): void {
-  if (block.props.media) return;
-  issues.push({
-    code: 'incomplete_media',
-    blockId: block.id,
-    message: `${blockLabel(block)} needs media added or the placeholder removed.`,
+function validateMediaBlock(
+  block: LodariqBlock,
+  options: ValidateTourPublishReadinessOptions,
+  issues: PublishReadinessIssue[],
+): void {
+  const media = block.props.media;
+  if (!media) {
+    issues.push({
+      code: 'incomplete_media',
+      blockId: block.id,
+      message: `${blockLabel(block)} needs media added or the placeholder removed.`,
+    });
+    return;
+  }
+  if (!media.accessibilityName.trim()) {
+    issues.push({
+      code: 'missing_accessible_name',
+      blockId: block.id,
+      message: `${blockLabel(block)} needs an accessibility description.`,
+    });
+  }
+  if (media.kind === 'video' && !media.captionsAssetId) {
+    issues.push({
+      code: 'incomplete_media',
+      blockId: block.id,
+      message: `${blockLabel(block)} needs captions before it can be published.`,
+    });
+  }
+  if (!options.requireValidMediaAssets) return;
+  const references: Array<{ assetId: string; kind: 'image' | 'video' | 'captions' }> = [
+    { assetId: media.assetId, kind: media.kind },
+    ...(media.kind === 'video'
+      ? [
+          ...(media.captionsAssetId
+            ? [{ assetId: media.captionsAssetId, kind: 'captions' as const }]
+            : []),
+          ...(media.posterAssetId
+            ? [{ assetId: media.posterAssetId, kind: 'image' as const }]
+            : []),
+        ]
+      : []),
+  ];
+  const valid = references.every(({ assetId, kind }) => {
+    if (options.validMediaAssets) return options.validMediaAssets.get(assetId) === kind;
+    return options.validMediaAssetIds?.has(assetId) === true;
   });
+  if (valid) return;
+  issues.push({
+    code: 'media_asset_invalid',
+    blockId: block.id,
+    message: `${blockLabel(block)} references media that is unavailable in this workspace.`,
+  });
+}
+
+function validateActionChoreography(
+  block: LodariqBlock,
+  stepId: string,
+  stepTargetId: string | undefined,
+  targetsById: ReadonlyMap<string, LodariqDocument['targets'][number]>,
+  stepIds: ReadonlySet<string>,
+  options: ValidateTourPublishReadinessOptions,
+  issues: PublishReadinessIssue[],
+): void {
+  const action: BlockActionProps | undefined = block.props.action;
+  if (action?.type === 'runSequence') {
+    validateChoreography(
+      action.sequence,
+      block.id,
+      stepTargetId,
+      targetsById,
+      stepIds,
+      options,
+      issues,
+    );
+  }
+  for (const child of block.children) {
+    validateActionChoreography(child, stepId, stepTargetId, targetsById, stepIds, options, issues);
+  }
+}
+
+function validateChoreography(
+  sequence: StepChoreography | undefined,
+  blockId: string,
+  stepTargetId: string | undefined,
+  targetsById: ReadonlyMap<string, LodariqDocument['targets'][number]>,
+  stepIds: ReadonlySet<string>,
+  options: ValidateTourPublishReadinessOptions,
+  issues: PublishReadinessIssue[],
+): void {
+  if (!sequence) return;
+  const targetIds = new Set<string>();
+  if (sequence.trigger.type !== 'manual') {
+    const triggerTargetId = sequence.trigger.targetId ?? stepTargetId;
+    if (triggerTargetId) targetIds.add(triggerTargetId);
+    else {
+      issues.push({
+        code: 'choreography_target_missing',
+        blockId,
+        message: 'Sequence activation needs a semantic target.',
+      });
+    }
+  }
+  for (const wait of sequence.waitFor) {
+    if (wait.type === 'targetAvailable') targetIds.add(wait.targetId);
+  }
+  for (const targetId of targetIds) {
+    if (!targetsById.has(targetId)) {
+      issues.push({
+        code: 'choreography_target_missing',
+        blockId,
+        targetId,
+        message: 'Sequence references a target that no longer exists.',
+      });
+      continue;
+    }
+    const diagnostic = targetDiagnostic(options.targetDiagnostics, targetId);
+    if (options.requireVerifiedTargets && diagnostic?.state !== 'found') {
+      issues.push({
+        code: 'choreography_target_unverified',
+        blockId,
+        targetId,
+        message: 'Sequence target has not been verified in this environment and page state.',
+      });
+    }
+  }
+  const destinationStepIds = [
+    ...(sequence.transition.type === 'step' ? [sequence.transition.stepId] : []),
+    ...(sequence.onTimeout === 'goToStep' ? [sequence.timeoutStepId] : []),
+  ];
+  for (const destinationStepId of destinationStepIds) {
+    if (stepIds.has(destinationStepId)) continue;
+    issues.push({
+      code: 'choreography_step_missing',
+      blockId,
+      message: 'Sequence transition or timeout recovery points to a missing step.',
+    });
+  }
+}
+
+function targetIdOfTooltip(tooltip: LodariqBlock): string | undefined {
+  return typeof tooltip.props.targetId === 'string' ? tooltip.props.targetId : undefined;
 }
 
 function validateActionBlock(

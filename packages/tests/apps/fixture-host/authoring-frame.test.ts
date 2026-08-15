@@ -124,7 +124,8 @@ async function importTwoBlocks(): Promise<void> {
 
 async function flushPreviewPatchQueue(): Promise<void> {
   await Promise.resolve();
-  await new Promise<void>((resolve) => window.setTimeout(resolve, 0));
+  await new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve()));
+  await Promise.resolve();
   await waitForEditorReady();
 }
 
@@ -315,9 +316,18 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     expect(document.querySelector('.block')).toBeNull();
     expect(document.querySelector('.tour-step-accordion')).toBeNull();
     expect(document.querySelector('.rich-step-editor')).toBeTruthy();
-    expect(document.querySelector('.rich-step-toolbar')).toBeTruthy();
+    expect(document.querySelector('.rich-step-toolbar')).toBeNull();
     expect(document.querySelector('[role="group"][aria-label="Step content editor"]')).toBeTruthy();
-    expect(document.body.textContent).toContain('Content');
+    expect(document.body.textContent).not.toContain('Content');
+    document
+      .querySelector<HTMLElement>('.rich-step-rendered-content')
+      ?.dispatchEvent(new Event('pointerdown', { bubbles: true }));
+    await vi.waitFor(() => expect(document.querySelector('.rich-content-editor')).not.toBeNull());
+    expect(document.querySelector('.rich-content-toolbar')).not.toBeNull();
+    expect(document.querySelector('.rich-content-canvas[contenteditable="true"]')).not.toBeNull();
+    expect(
+      document.querySelector('.rich-step-rendered-content [contenteditable="true"]'),
+    ).toBeNull();
     expect(document.body.textContent).toContain('Placement');
     expect(document.body.textContent).toContain('Popup');
     expect(document.querySelector('.tour-position-options')).toBeNull();
@@ -436,6 +446,9 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
         document.querySelector<HTMLButtonElement>('button[aria-label="Action"]'),
       ).not.toBeNull(),
     );
+    const actionToolbar = document.querySelector<HTMLElement>('.action-context-toolbar');
+    expect(actionToolbar?.querySelector('select[aria-label="Block type"]')).toBeNull();
+    expect(actionToolbar?.querySelector('.action-context-type strong')?.textContent).toBe('Button');
     document.querySelector<HTMLButtonElement>('button[aria-label="Action"]')?.click();
     await vi.waitFor(() => expect(buttonWithText('Open page')).not.toBeNull());
     const behaviorTray = document.querySelector<HTMLElement>(
@@ -508,7 +521,7 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     window.history.replaceState(null, '', '/');
   });
 
-  it('edits and formats structured step copy through one rich-text surface', async () => {
+  it('authors a step through one standalone rich-content surface', async () => {
     document.body.innerHTML = '<div id="authoring"></div>';
     const saveDocument = vi.fn<(document: LodariqDocument) => void>();
     await mountLocalAuthoringFrame({
@@ -523,29 +536,32 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     });
     await flushPreviewPatchQueue();
 
-    const editor = document.querySelector<HTMLElement>(
-      '[role="group"][aria-label="Step content editor"]',
-    );
-    const heading = editor?.querySelector<HTMLElement>('[data-rich-block-id="block_heading_1"]');
-    const alignCenter = document.querySelector<HTMLButtonElement>('[aria-label="Align center"]');
-    const bold = document.querySelector<HTMLButtonElement>('[aria-label="Bold"]');
-    if (!editor || !heading || !alignCenter || !bold) {
-      throw new Error('rich step editor controls missing');
-    }
+    document
+      .querySelector<HTMLElement>('.rich-step-rendered-content')
+      ?.dispatchEvent(new Event('pointerdown', { bubbles: true }));
+    await vi.waitFor(() => expect(document.querySelector('.rich-content-editor')).not.toBeNull());
 
-    alignCenter.click();
-    bold.click();
-    heading.textContent = 'A better welcome';
-    heading.dispatchEvent(new FocusEvent('focusout', { bubbles: true }));
+    const editor = document.querySelector<HTMLElement>('.rich-content-editor');
+    expect(editor?.querySelectorAll('.rich-content-canvas')).toHaveLength(1);
+    expect(editor?.querySelector('[aria-label="Bold"]')).not.toBeNull();
+    expect(editor?.querySelector('[aria-label="Underline"]')).not.toBeNull();
+    expect(editor?.querySelector('[aria-label="Link"]')).not.toBeNull();
+    expect(editor?.querySelector('[aria-label="Emoji"]')).not.toBeNull();
+    expect(editor?.querySelector('[aria-label="Icon"]')).not.toBeNull();
+    expect(editor?.querySelector('[aria-label="Media"]')).not.toBeNull();
+    expect(editor?.textContent).not.toContain('Before');
+    expect(editor?.textContent).not.toContain('After');
+
+    const spacing = editor?.querySelector<HTMLInputElement>('[aria-label="Space after"]');
+    if (!spacing) throw new Error('exact spacing input missing');
+    const setInputValue = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
+    setInputValue?.call(spacing, '23');
+    spacing.dispatchEvent(new Event('change', { bubbles: true }));
     await flushPreviewPatchQueue();
 
     const lastSave = saveDocument.mock.calls[saveDocument.mock.calls.length - 1]?.[0];
-    const serialized = JSON.stringify(lastSave, null, 2);
-    expect(serialized).toContain('A better welcome');
-    expect(serialized).toContain('"align": "center"');
-    expect(serialized).toContain('"fontWeight": 700');
+    expect(JSON.stringify(lastSave)).toContain('"spacingAfterPx":23');
   });
-
   it('opens advanced step details inside the panel workspace', async () => {
     document.body.innerHTML = '<div id="authoring"></div>';
     const peer = { postMessage: vi.fn() } as unknown as Window;
@@ -1116,56 +1132,27 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     expect(document.querySelector('.inline-command-menu:not([hidden])')).toBeNull();
   });
 
-  it('inserts nested paragraph, button, and media placeholders inside a step', async () => {
+  it('routes text and media authoring through Rich content while keeping Button separate', async () => {
     await loadFrame();
 
-    const step = document.querySelector<HTMLElement>('.block[data-block-type="tourStep"]')!;
-    const composer = step.querySelector<HTMLInputElement>('input[aria-label="Step composer"]')!;
-    composer.value = 'Composer paragraph';
-    composer.dispatchEvent(new Event('input', { bubbles: true }));
-    composer.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
-
-    await flushPreviewPatchQueue();
-    const composerUpdatedStep = document.querySelector<HTMLElement>(
-      '.block[data-block-type="tourStep"]',
-    )!;
-    expect(composerUpdatedStep.querySelector('[aria-label="Add title to this step"]')).toBeTruthy();
-    expect(composerUpdatedStep.querySelector('[aria-label="Add text to this step"]')).toBeTruthy();
-    expect(
-      composerUpdatedStep.querySelector('[aria-label="Add button to this step"]'),
-    ).toBeTruthy();
-    expect(composerUpdatedStep.querySelector('[aria-label="Add media to this step"]')).toBeTruthy();
-    const mediaButton = composerUpdatedStep.querySelector<HTMLButtonElement>(
-      '[aria-label="Add media to this step"]',
-    )!;
-    mediaButton.dispatchEvent(new Event('pointerdown', { bubbles: true, cancelable: true }));
-    await flushPreviewPatchQueue();
-
-    const updatedStep = document.querySelector<HTMLElement>('.block[data-block-type="tourStep"]')!;
-    const mediaInput = updatedStep.querySelector<HTMLInputElement>(
-      '[aria-label="Media placeholder"]',
+    const openMenu = document.querySelector<HTMLButtonElement>(
+      'button[aria-label="Open add content menu"]',
     );
-    expect(mediaInput?.value).toBe('Media placeholder');
-    expect(updatedStep.textContent).toContain('Add media later');
+    expect(openMenu).not.toBeNull();
+    openMenu?.click();
+    await flushPreviewPatchQueue();
 
-    const doc = JSON.parse(documentJson().value) as {
-      blocks: Array<{
-        children: Array<{ children: Array<{ type: string; content?: string; status?: string }> }>;
-      }>;
-    };
-    const childTypes = doc.blocks[0]?.children[0]?.children.map((block) => block.type);
-    expect(childTypes).toEqual(['heading', 'paragraph', 'button', 'paragraph', 'media']);
-    expect(doc.blocks[0]?.children[0]?.children[3]).toMatchObject({
-      type: 'paragraph',
-      content: 'Composer paragraph',
-    });
-    expect(doc.blocks[0]?.children[0]?.children[4]).toMatchObject({
-      type: 'media',
-      content: 'Media placeholder',
-      status: 'incomplete',
-    });
+    const menu = document.querySelector<HTMLElement>('.step-command-menu');
+    const commands = [...(menu?.querySelectorAll<HTMLElement>('.command-item') ?? [])].map(
+      (command) => command.textContent?.trim(),
+    );
+    expect(commands).toHaveLength(2);
+    expect(commands.some((label) => label?.includes('Rich content'))).toBe(true);
+    expect(commands.some((label) => label?.includes('Button'))).toBe(true);
+    expect(menu?.textContent).not.toContain('Heading');
+    expect(menu?.textContent).not.toContain('Media');
+    expect(menu?.textContent).not.toContain('Callout');
   });
-
   it('renders nested slash commands as readable step command rows', async () => {
     await loadFrame();
 
@@ -1185,7 +1172,7 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     expect(firstCommand!.querySelector('.ui-button-label > .command-icon')).toBeTruthy();
     expect(
       firstCommand!.querySelector('.ui-button-label > .command-copy strong')?.textContent,
-    ).toBe('Heading');
+    ).toBe('Rich content');
   });
 
   it('opens the nested content menu from the step plus control', async () => {
@@ -1202,7 +1189,58 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     expect(openMenu?.getAttribute('aria-expanded')).toBe('true');
     expect(menu?.parentElement).toBe(document.body);
     expect(menu?.getAttribute('role')).toBe('listbox');
-    expect(menu?.querySelectorAll('.command-item')).toHaveLength(7);
+    expect(menu?.querySelectorAll('.command-item')).toHaveLength(2);
+    expect(menu?.textContent).toContain('Rich content');
+    expect(menu?.textContent).toContain('Button');
+    expect(menu?.textContent).not.toContain('Callout');
+    expect(menu?.textContent).not.toContain('Stat');
+    expect(menu?.textContent).not.toContain('Icon');
+  });
+
+  it('exposes structured recipes inside the freeform Rich content editor', async () => {
+    window.history.replaceState(null, '', '/authoring.html?lodariqFrame=panel');
+    await loadFrame();
+
+    document
+      .querySelector<HTMLElement>('.rich-step-rendered-content')
+      ?.dispatchEvent(new Event('pointerdown', { bubbles: true }));
+    await vi.waitFor(() => expect(document.querySelector('.rich-content-editor')).not.toBeNull());
+
+    document.querySelector<HTMLButtonElement>('.rich-content-block-style-trigger')?.click();
+    await vi.waitFor(() =>
+      expect(document.querySelector('.rich-content-block-menu')).not.toBeNull(),
+    );
+
+    const editor = document.querySelector<HTMLElement>('.rich-content-editor');
+    expect(document.querySelector('.rich-content-block-menu')?.textContent).toContain('Callout');
+    expect(editor?.querySelector('[aria-label="Icon"]')).not.toBeNull();
+    expect(editor?.querySelector('[aria-label="Media"]')).not.toBeNull();
+    expect(editor?.querySelector('[aria-label="Divider"]')).not.toBeNull();
+    expect(editor?.querySelector('[aria-label="Space after"]')).not.toBeNull();
+    expect(editor?.querySelector('[aria-label="Accessibility name"]')).toBeNull();
+
+    window.history.replaceState(null, '', '/');
+  });
+
+  it('closes the canvas property tray without reopening it on the next render', async () => {
+    window.history.replaceState(null, '', '/authoring.html?lodariqFrame=panel');
+    await loadFrame();
+
+    const richContentTool = document.querySelector<HTMLButtonElement>(
+      '.storyboard-tool-dock button[aria-label="Rich content"]',
+    );
+    richContentTool?.click();
+    await vi.waitFor(() =>
+      expect(document.querySelector('.storyboard-property-tray')).not.toBeNull(),
+    );
+
+    document.querySelector<HTMLButtonElement>('button[aria-label="Close settings"]')?.click();
+    await flushPreviewPatchQueue();
+    await flushPreviewPatchQueue();
+
+    expect(document.querySelector('.storyboard-property-tray')).toBeNull();
+
+    window.history.replaceState(null, '', '/');
   });
 
   it('inserts nested content from partial slash queries and arrow-key selection', async () => {
@@ -1233,9 +1271,8 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
       'paragraph',
       'button',
       'button',
-      'paragraph',
+      'button',
     ]);
-    expect(doc.blocks[0]?.children[0]?.children[4]?.content ?? '').toBe('');
   });
 
   it('supports keyboard selection in inline step insert menus', async () => {
@@ -1550,52 +1587,19 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     });
   });
 
-  it('exposes duplicate and delete actions on nested step content', async () => {
+  it('keeps rich-content lines free of per-block duplicate and delete chrome', async () => {
+    window.history.replaceState(null, '', '/authoring.html?lodariqFrame=panel');
     await loadFrame();
 
-    const firstParagraph = document.querySelector<HTMLElement>('.step-child-paragraph')!;
-    firstParagraph.querySelector<HTMLButtonElement>('[aria-label="Text move and format"]')?.click();
-    await flushPreviewPatchQueue();
+    expect(document.querySelector('.rich-step-rendered-content')).not.toBeNull();
+    expect(document.querySelector('[aria-label="Text move and format"]')).toBeNull();
+    expect(document.querySelector('[aria-label="Duplicate text"]')).toBeNull();
+    expect(document.querySelector('[aria-label="Delete text"]')).toBeNull();
+    expect(document.querySelector('.step-child-action-popover')).toBeNull();
+    expect(document.querySelector('[aria-label="Button label"]')).not.toBeNull();
 
-    const popover = document.querySelector<HTMLElement>('.step-child-action-popover');
-    expect(popover?.textContent).toContain('Move up');
-    expect(popover?.textContent).toContain('Format as');
-    expect(popover?.textContent).not.toContain('Duplicate');
-    expect(popover?.textContent).not.toContain('Delete');
-
-    firstParagraph.querySelector<HTMLButtonElement>('[aria-label="Duplicate text"]')?.click();
-    await flushPreviewPatchQueue();
-
-    let doc = JSON.parse(documentJson().value) as {
-      blocks: Array<{
-        children: Array<{ children: Array<{ id: string; type: string; content?: string }> }>;
-      }>;
-    };
-    let stepChildren = doc.blocks[0]?.children[0]?.children ?? [];
-    expect(stepChildren.map((child) => child.type)).toEqual([
-      'heading',
-      'paragraph',
-      'paragraph',
-      'button',
-    ]);
-    expect(stepChildren[2]?.content).toBe("Projects help organize your team's work.");
-
-    const duplicatedParagraphs = [
-      ...document.querySelectorAll<HTMLElement>('.step-child-paragraph'),
-    ];
-    const duplicatedParagraph = duplicatedParagraphs[1]!;
-    duplicatedParagraph.querySelector<HTMLButtonElement>('[aria-label="Delete text"]')?.click();
-    await flushPreviewPatchQueue();
-
-    doc = JSON.parse(documentJson().value) as {
-      blocks: Array<{
-        children: Array<{ children: Array<{ id: string; type: string; content?: string }> }>;
-      }>;
-    };
-    stepChildren = doc.blocks[0]?.children[0]?.children ?? [];
-    expect(stepChildren.map((child) => child.type)).toEqual(['heading', 'paragraph', 'button']);
+    window.history.replaceState(null, '', '/');
   });
-
   it('supports keyboard shortcuts on nested step content', async () => {
     await loadFrame();
 
@@ -1838,47 +1842,45 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     postMessage.mockRestore();
   });
 
-  it('emits one semantic preview patch when transforming a block', async () => {
+  it('emits one semantic preview patch when replacing rich content', async () => {
     const postMessage = vi.spyOn(window, 'postMessage').mockImplementation(() => undefined);
+    window.history.replaceState(null, '', '/authoring.html?lodariqFrame=panel');
     await loadFrame();
-    await importTwoBlocks();
-    await flushPreviewPatchQueue();
-    postMessage.mockClear();
 
     document
-      .querySelector<HTMLButtonElement>(
-        '[data-block-id="block_a_copy"] [aria-label="Text move and format"]',
-      )
-      ?.click();
-    await vi.waitFor(() => {
-      expect(
-        document.querySelector<HTMLButtonElement>(
-          '[data-block-id="block_a_copy"] [aria-label="Turn content into button"]',
-        ),
-      ).not.toBeNull();
-    });
-    document
-      .querySelector<HTMLButtonElement>(
-        '[data-block-id="block_a_copy"] [aria-label="Turn content into button"]',
-      )
-      ?.click();
+      .querySelector<HTMLElement>('.rich-step-rendered-content')
+      ?.dispatchEvent(new Event('pointerdown', { bubbles: true }));
+    await vi.waitFor(() => expect(document.querySelector('.rich-content-editor')).not.toBeNull());
+    postMessage.mockClear();
+
+    const spacing = document.querySelector<HTMLInputElement>('[aria-label="Space after"]');
+    if (!spacing) throw new Error('exact spacing input missing');
+    const setInputValue = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
+    setInputValue?.call(spacing, '31');
+    spacing.dispatchEvent(new Event('change', { bubbles: true }));
+
     expect(postMessage).not.toHaveBeenCalled();
     await flushPreviewPatchQueue();
 
-    expect(postMessage).toHaveBeenCalledOnce();
-    expect(postMessage).toHaveBeenCalledWith(
-      expect.objectContaining({
-        type: 'preview.patch',
-        blockId: 'block_a_copy',
-        patch: {
-          ops: [{ op: 'transformBlock', type: 'button' }],
-        },
-      }),
-      window.location.origin,
-    );
-    postMessage.mockRestore();
-  });
+    const previewPatches = postMessage.mock.calls
+      .map((call) => call[0])
+      .filter((message) => (message as { type?: string }).type === 'preview.patch');
+    expect(previewPatches).toHaveLength(1);
+    expect(previewPatches[0]).toMatchObject({
+      blockId: 'block_step_1',
+      patch: {
+        ops: [
+          expect.objectContaining({
+            op: 'replaceStepRichContent',
+            stepBlockId: 'block_step_1',
+          }),
+        ],
+      },
+    });
 
+    postMessage.mockRestore();
+    window.history.replaceState(null, '', '/');
+  });
   it('uses the configured session id for outbound bridge messages', async () => {
     document.body.innerHTML = '<div id="authoring"></div>';
     const root = document.getElementById('authoring')!;
@@ -1949,12 +1951,12 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     window.dispatchEvent(new Event('pagehide'));
   });
 
-  it('synchronizes direct preview text commits with canonical JSON and the dock field once', async () => {
+  it('ignores legacy direct-preview content commits now that the popup is output-only', async () => {
     document.body.innerHTML = '<div id="authoring"></div>';
     const root = document.getElementById('authoring')!;
     const peer = { postMessage: vi.fn() } as unknown as Window;
     const services = localFrameServices();
-    const sessionId = 'session_inline_preview';
+    const sessionId = 'session_output_only_preview';
 
     await mountLocalAuthoringFrame({
       root,
@@ -1968,86 +1970,39 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     });
     await flushPreviewPatchQueue();
     vi.mocked(peer.postMessage).mockClear();
+    vi.mocked(services.saveDocument).mockClear();
 
-    const dispatchCommit = (correlationId: string): void => {
-      window.dispatchEvent(
-        new MessageEvent('message', {
-          source: peer,
-          origin: window.location.origin,
-          data: {
-            protocol: BRIDGE_PROTOCOL_VERSION,
-            sessionId,
-            documentId: 'doc_tour_welcome',
-            correlationId,
-            type: AUTHORING_INLINE_CONTENT_COMMIT_TYPE,
-            blockId: 'block_heading_1',
-            content: 'Launch your first project',
-          },
-        }),
-      );
-    };
-
-    dispatchCommit('inline_content_1');
+    window.dispatchEvent(
+      new MessageEvent('message', {
+        source: peer,
+        origin: window.location.origin,
+        data: {
+          protocol: BRIDGE_PROTOCOL_VERSION,
+          sessionId,
+          documentId: 'doc_tour_welcome',
+          correlationId: 'legacy_inline_content',
+          type: AUTHORING_INLINE_CONTENT_COMMIT_TYPE,
+          blockId: 'block_heading_1',
+          content: 'This must not author the popup',
+        },
+      }),
+    );
     await flushPreviewPatchQueue();
 
     expect(
       document.querySelector<HTMLInputElement>(
         '[data-block-id="block_heading_1"][data-action="edit-content"]',
       )?.value,
-    ).toBe('Launch your first project');
+    ).toBe('Create your first project');
     const canonicalDocument = JSON.parse(documentJson().value) as {
       blocks: Array<{ children: Array<{ children: Array<{ id: string; content?: string }> }> }>;
     };
     expect(canonicalDocument.blocks[0]?.children[0]?.children[0]).toMatchObject({
       id: 'block_heading_1',
-      content: 'Launch your first project',
+      content: 'Create your first project',
     });
-    expect(services.saveDocument).toHaveBeenCalledWith(
-      expect.objectContaining({
-        blocks: [
-          expect.objectContaining({
-            children: [
-              expect.objectContaining({
-                children: [
-                  expect.objectContaining({
-                    id: 'block_heading_1',
-                    content: 'Launch your first project',
-                  }),
-                  expect.anything(),
-                  expect.anything(),
-                ],
-              }),
-            ],
-          }),
-        ],
-      }),
-    );
-
-    const previewPatches = (): Array<Extract<BridgeMessage, { type: 'preview.patch' }>> =>
-      vi
-        .mocked(peer.postMessage)
-        .mock.calls.map(([message]) => message as BridgeMessage)
-        .filter(
-          (message): message is Extract<BridgeMessage, { type: 'preview.patch' }> =>
-            message.type === 'preview.patch',
-        );
-    expect(previewPatches()).toEqual([
-      expect.objectContaining({
-        blockId: 'block_heading_1',
-        patch: {
-          ops: [{ op: 'updateContent', content: 'Launch your first project' }],
-        },
-      }),
-    ]);
-    expect(document.querySelector('#status')?.textContent).toContain('Content updated in preview');
-
-    dispatchCommit('inline_content_duplicate');
-    await flushPreviewPatchQueue();
-    expect(previewPatches()).toHaveLength(1);
-
-    window.dispatchEvent(new Event('pagehide'));
+    expect(services.saveDocument).not.toHaveBeenCalled();
   });
-
   it('shows a rail-selected tour step immediately through a semantic bridge request', async () => {
     document.body.innerHTML = '<div id="authoring"></div>';
     const root = document.getElementById('authoring')!;
@@ -2944,64 +2899,30 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     expect(documentJson().value).toBe(originalJson);
   });
 
-  it('supports transform controls, property chips, and undo/redo', async () => {
+  it('supports exact rich-content spacing without legacy property chips', async () => {
+    window.history.replaceState(null, '', '/authoring.html?lodariqFrame=panel');
     await loadFrame();
-    await importTwoBlocks();
 
+    document
+      .querySelector<HTMLElement>('.rich-step-rendered-content')
+      ?.dispatchEvent(new Event('pointerdown', { bubbles: true }));
+    await vi.waitFor(() => expect(document.querySelector('.rich-content-editor')).not.toBeNull());
+
+    const spacing = document.querySelector<HTMLInputElement>('[aria-label="Space after"]');
+    if (!spacing) throw new Error('exact spacing input missing');
+    const setInputValue = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
+    setInputValue?.call(spacing, '27');
+    spacing.dispatchEvent(new Event('change', { bubbles: true }));
+    await flushPreviewPatchQueue();
+    expect(
+      document
+        .querySelector('.rich-step-rendered-content')
+        ?.getAttribute('data-lodariq-spacing-after-px'),
+    ).toBe('27');
     expect(document.querySelector('.property-chip')).toBeNull();
 
-    document
-      .querySelector<HTMLButtonElement>(
-        '[data-block-id="block_a_copy"] [aria-label="Text move and format"]',
-      )
-      ?.click();
-    await vi.waitFor(() => {
-      expect(
-        document.querySelector<HTMLButtonElement>(
-          '[data-block-id="block_a_copy"] [aria-label="Turn content into button"]',
-        ),
-      ).not.toBeNull();
-    });
-    document
-      .querySelector<HTMLButtonElement>(
-        '[data-block-id="block_a_copy"] [aria-label="Turn content into button"]',
-      )
-      ?.click();
-    await flushPreviewPatchQueue();
-    expect(documentJson().value).toContain('"type": "button"');
-    expect(documentJson().value).toContain('"status": "incomplete"');
-
-    document.querySelector<HTMLButtonElement>('[data-action="undo"]')?.click();
-    await flushPreviewPatchQueue();
-    expect(documentJson().value).toContain('"type": "paragraph"');
-
-    document.querySelector<HTMLButtonElement>('[data-action="redo"]')?.click();
-    await flushPreviewPatchQueue();
-    expect(documentJson().value).toContain('"type": "button"');
-
-    document
-      .querySelector<HTMLElement>('.block[data-block-id="block_a"]')
-      ?.querySelector<HTMLButtonElement>('[aria-label="Step actions"]')
-      ?.click();
-    await vi.waitFor(() => {
-      expect(
-        document.querySelector<HTMLButtonElement>(
-          '[data-action="move-block"][data-block-id="block_a"][data-direction="down"]',
-        ),
-      ).not.toBeNull();
-    });
-    document
-      .querySelector<HTMLButtonElement>(
-        '[data-action="move-block"][data-block-id="block_a"][data-direction="down"]',
-      )
-      ?.click();
-    await flushPreviewPatchQueue();
-    const doc = JSON.parse(documentJson().value) as {
-      blocks: Array<{ id: string }>;
-    };
-    expect(doc.blocks.map((block) => block.id)).toEqual(['block_b', 'block_a']);
+    window.history.replaceState(null, '', '/');
   });
-
   it('supports top-level keyboard reorder without losing block focus', async () => {
     await loadFrame();
     await importTwoBlocks();

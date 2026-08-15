@@ -29,7 +29,10 @@
     "lint": "eslint .",
     "check:migrations": "node ./scripts/check-migration-safety.mjs",
     "provision:runtime-role": "node ./scripts/provision-runtime-role.mjs",
-    "verify:live-rls": "node ./scripts/verify-live-rls.mjs"
+    "provision:enterprise-validator-role": "node ./scripts/provision-enterprise-validator-role.mjs",
+    "verify:live-rls": "node ./scripts/verify-live-rls.mjs",
+    "inspect:auth-delivery": "pnpm build && node ./scripts/inspect-auth-delivery.mjs",
+    "record:enterprise-validation": "pnpm build && node ./scripts/record-enterprise-validation.mjs"
   },
   "dependencies": {
     "@lodariq/schema": "workspace:*",

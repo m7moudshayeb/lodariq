@@ -1,15 +1,24 @@
 import {
+  useEffect,
   useLayoutEffect,
   useRef,
+  useState,
   type InputHTMLAttributes,
   type KeyboardEvent,
   type ReactNode,
   type TextareaHTMLAttributes,
 } from 'react';
-import type { LodariqBlock } from '@lodariq/schema';
+import {
+  CALLOUT_TONE_VALUES,
+  ICON_RECIPE_VALUES,
+  MEDIA_ASPECT_RATIO_VALUES,
+  STAT_EMPHASIS_VALUES,
+  type LodariqBlock,
+  type StructuredCompositionPresentation,
+} from '@lodariq/schema';
 import { authoringText } from '../../../i18n';
 import type { LocalAuthoringFrameController } from '../controller';
-import { AuthoringSelect, Image, MousePointer2 } from '../design-system';
+import { AuthoringSelect, Image, MousePointer2, Shapes } from '../design-system';
 import {
   EDITABLE_ACTION_OPTIONS,
   EDITABLE_BUTTON_VARIANT_OPTIONS,
@@ -44,6 +53,9 @@ const CONTENT_FIELD_RENDERERS: Readonly<Record<string, ContentFieldRenderer>> = 
   media: renderMediaField,
   button: renderButtonField,
   link: renderLinkField,
+  callout: renderStructuredCompositionField,
+  stat: renderStructuredCompositionField,
+  icon: renderStructuredCompositionField,
 };
 
 export function ContentField(props: ContentFieldProps) {
@@ -64,44 +76,166 @@ function renderDividerField({ label }: ContentFieldContext): ReactNode {
   );
 }
 
+function renderStructuredCompositionField(context: ContentFieldContext): ReactNode {
+  const { block, controller } = context;
+  return (
+    <div className={`structured-composition-field structured-composition-${block.type}`}>
+      {renderTextField(context)}
+      <StructuredCompositionControls block={block} controller={controller} />
+    </div>
+  );
+}
+
+export function StructuredCompositionControls({
+  block,
+  controller,
+}: Pick<ContentFieldProps, 'block' | 'controller'>) {
+  const accessibilityName = block.props.accessibilityName ?? '';
+  return (
+    <div className="structured-composition-controls">
+      {renderStructuredCompositionRecipeControl(block, controller)}
+      <label>
+        <span>{authoringText('Accessibility name')}</span>
+        <input
+          aria-label={authoringText('Accessibility name')}
+          defaultValue={accessibilityName}
+          key={`${block.id}:${accessibilityName}`}
+          maxLength={300}
+          onBlur={(event) =>
+            controller.setStructuredCompositionAccessibilityName(
+              block.id,
+              event.currentTarget.value,
+            )
+          }
+          type="text"
+        />
+      </label>
+    </div>
+  );
+}
+
+const STRUCTURED_COMPOSITION_RECIPE_LABELS = {
+  info: authoringText('Information'),
+  success: authoringText('Success'),
+  warning: authoringText('Warning'),
+  standard: authoringText('Standard'),
+  strong: authoringText('Strong'),
+  check: authoringText('Check'),
+  star: authoringText('Star'),
+  rocket: authoringText('Rocket'),
+  search: authoringText('Search'),
+  link: authoringText('Link'),
+  lock: authoringText('Lock'),
+  target: authoringText('Target'),
+  settings: authoringText('Settings'),
+  heart: authoringText('Heart'),
+  sparkles: authoringText('Sparkles'),
+  play: authoringText('Play'),
+  flag: authoringText('Flag'),
+  bell: authoringText('Bell'),
+  calendar: authoringText('Calendar'),
+} as const;
+
+function renderStructuredCompositionRecipeControl(
+  block: LodariqBlock,
+  controller: LocalAuthoringFrameController,
+): ReactNode {
+  const config = structuredCompositionRecipeConfig(block);
+  if (!config) return null;
+  return (
+    <div className="cta-panel structured-composition-recipe-control">
+      <span className="cta-panel-label">{authoringText('Style')}</span>
+      <AuthoringSelect
+        ariaLabel={`${config.label} ${authoringText('Style')}`}
+        dataAction="set-structured-composition-style"
+        dataBlockId={block.id}
+        leadingIcon={block.type === 'icon' ? <Shapes size={15} strokeWidth={2.1} /> : undefined}
+        onValueChange={(value) => {
+          const composition = config.create(value);
+          if (composition) controller.setStructuredCompositionPresentation(block.id, composition);
+        }}
+        options={config.options}
+        search={
+          block.type === 'icon'
+            ? {
+                emptyLabel: authoringText('No matching content'),
+                label: authoringText('Search content'),
+                placeholder: authoringText('Search'),
+              }
+            : undefined
+        }
+        value={config.value}
+      />
+    </div>
+  );
+}
+
+interface StructuredCompositionRecipeConfig {
+  create: (value: string) => StructuredCompositionPresentation | null;
+  label: string;
+  options: ReadonlyArray<{ label: string; value: string }>;
+  value: string;
+}
+
+function structuredCompositionRecipeConfig(
+  block: LodariqBlock,
+): StructuredCompositionRecipeConfig | null {
+  if (block.type === 'callout') {
+    return {
+      create: (value) =>
+        CALLOUT_TONE_VALUES.includes(value as (typeof CALLOUT_TONE_VALUES)[number])
+          ? { kind: 'callout', tone: value as (typeof CALLOUT_TONE_VALUES)[number] }
+          : null,
+      label: authoringText('Callout'),
+      options: compositionRecipeOptions(CALLOUT_TONE_VALUES),
+      value: block.props.composition?.kind === 'callout' ? block.props.composition.tone : 'info',
+    };
+  }
+  if (block.type === 'stat') {
+    return {
+      create: (value) =>
+        STAT_EMPHASIS_VALUES.includes(value as (typeof STAT_EMPHASIS_VALUES)[number])
+          ? { kind: 'stat', emphasis: value as (typeof STAT_EMPHASIS_VALUES)[number] }
+          : null,
+      label: authoringText('Stat'),
+      options: compositionRecipeOptions(STAT_EMPHASIS_VALUES),
+      value:
+        block.props.composition?.kind === 'stat' ? block.props.composition.emphasis : 'standard',
+    };
+  }
+  if (block.type !== 'icon') return null;
+  return {
+    create: (value) =>
+      ICON_RECIPE_VALUES.includes(value as (typeof ICON_RECIPE_VALUES)[number])
+        ? { kind: 'icon', icon: value as (typeof ICON_RECIPE_VALUES)[number] }
+        : null,
+    label: authoringText('Icon'),
+    options: compositionRecipeOptions(ICON_RECIPE_VALUES),
+    value: block.props.composition?.kind === 'icon' ? block.props.composition.icon : 'info',
+  };
+}
+
+function compositionRecipeOptions(
+  values: readonly string[],
+): ReadonlyArray<{ label: string; value: string }> {
+  return values.map((value) => ({
+    value,
+    label:
+      STRUCTURED_COMPOSITION_RECIPE_LABELS[
+        value as keyof typeof STRUCTURED_COMPOSITION_RECIPE_LABELS
+      ] ?? humanizeRecipeName(value),
+  }));
+}
+
+function humanizeRecipeName(value: string): string {
+  return value
+    .split('-')
+    .map((part) => `${part.charAt(0).toUpperCase()}${part.slice(1)}`)
+    .join(' ');
+}
+
 function renderMediaField(context: ContentFieldContext): ReactNode {
   const { fieldConfig, label, value, block, controller } = context;
-  const media = block.props.media;
-  const kind = media?.kind ?? 'image';
-  const assetId = media?.assetId ?? '';
-  const accessibilityName = media?.accessibilityName ?? value;
-  const commit = (next: {
-    kind?: 'image' | 'video';
-    assetId?: string;
-    accessibilityName?: string;
-    captionsAssetId?: string;
-  }): void => {
-    const nextKind = next.kind ?? kind;
-    const nextAssetId = normalizeAssetReference(next.assetId ?? assetId);
-    const nextName = (next.accessibilityName ?? accessibilityName).trim().slice(0, 300);
-    if (!nextAssetId || !nextName) {
-      controller.setMediaPresentation(block.id, undefined);
-      return;
-    }
-    if (nextKind === 'video') {
-      const captionsAssetId = normalizeAssetReference(
-        next.captionsAssetId ?? (media?.kind === 'video' ? media.captionsAssetId : ''),
-      );
-      if (!captionsAssetId) return;
-      controller.setMediaPresentation(block.id, {
-        kind: nextKind,
-        assetId: nextAssetId,
-        accessibilityName: nextName,
-        captionsAssetId,
-      });
-      return;
-    }
-    controller.setMediaPresentation(block.id, {
-      kind: nextKind,
-      assetId: nextAssetId,
-      accessibilityName: nextName,
-    });
-  };
   return (
     <div className="content-field media-field">
       <span className="field-label">{label}</span>
@@ -117,61 +251,225 @@ function renderMediaField(context: ContentFieldContext): ReactNode {
         placeholder={fieldConfig.placeholder}
         onKeyDown={contentFieldKeyDownHandler(context)}
       />
+      <MediaPresentationControls block={block} controller={controller} />
+    </div>
+  );
+}
+
+export function MediaPresentationControls({
+  block,
+  controller,
+}: Pick<ContentFieldProps, 'block' | 'controller'>) {
+  const media = block.props.media;
+  const persistedCaptionsAssetId = media?.kind === 'video' ? (media.captionsAssetId ?? '') : '';
+  const [kind, setKind] = useState<'image' | 'video'>(media?.kind ?? 'image');
+  const [assetId, setAssetId] = useState(media?.assetId ?? '');
+  const [accessibilityName, setAccessibilityName] = useState(
+    media?.accessibilityName ?? block.content ?? '',
+  );
+  const [captionsAssetId, setCaptionsAssetId] = useState(persistedCaptionsAssetId);
+  const [aspectRatio, setAspectRatio] = useState<'' | (typeof MEDIA_ASPECT_RATIO_VALUES)[number]>(
+    media?.aspectRatio ?? '',
+  );
+  const mediaAssets = controller.getSnapshot().mediaAssets;
+  const availableAssets = mediaAssets.filter((asset) => asset.kind === kind);
+  const captionsAssets = mediaAssets.filter((asset) => asset.kind === 'captions');
+  const canUpload = controller.canUploadMediaAssets();
+
+  useEffect(() => {
+    setKind(media?.kind ?? 'image');
+    setAssetId(media?.assetId ?? '');
+    setAccessibilityName(media?.accessibilityName ?? block.content ?? '');
+    setCaptionsAssetId(persistedCaptionsAssetId);
+    setAspectRatio(media?.aspectRatio ?? '');
+  }, [
+    block.content,
+    media?.accessibilityName,
+    media?.assetId,
+    media?.aspectRatio,
+    media?.kind,
+    persistedCaptionsAssetId,
+  ]);
+
+  const commit = (next: {
+    kind?: 'image' | 'video';
+    assetId?: string;
+    accessibilityName?: string;
+    captionsAssetId?: string;
+    aspectRatio?: '' | (typeof MEDIA_ASPECT_RATIO_VALUES)[number];
+  }): void => {
+    const nextKind = next.kind ?? kind;
+    const nextAssetId = normalizeAssetReference(next.assetId ?? assetId);
+    const nextName = (next.accessibilityName ?? accessibilityName).trim().slice(0, 300);
+    const nextCaptionsAssetId = normalizeAssetReference(next.captionsAssetId ?? captionsAssetId);
+    const nextAspectRatio = next.aspectRatio ?? aspectRatio;
+    setKind(nextKind);
+    setAssetId(nextAssetId);
+    setAccessibilityName(nextName);
+    setCaptionsAssetId(nextKind === 'video' ? nextCaptionsAssetId : '');
+    setAspectRatio(nextAspectRatio);
+    if (!nextAssetId || !nextName) return;
+    if (nextKind === 'video') {
+      controller.setMediaPresentation(block.id, {
+        kind: nextKind,
+        assetId: nextAssetId,
+        accessibilityName: nextName,
+        ...(nextCaptionsAssetId ? { captionsAssetId: nextCaptionsAssetId } : {}),
+        ...(nextAspectRatio ? { aspectRatio: nextAspectRatio } : {}),
+      });
+      return;
+    }
+    controller.setMediaPresentation(block.id, {
+      kind: nextKind,
+      assetId: nextAssetId,
+      accessibilityName: nextName,
+      ...(nextAspectRatio ? { aspectRatio: nextAspectRatio } : {}),
+    });
+  };
+  return (
+    <div className="media-presentation-controls">
       <label>
         <span>{authoringText('Media type')}</span>
-        <select
-          aria-label={authoringText('Media type')}
-          onChange={(event) =>
-            commit({
-              kind: event.currentTarget.value as 'image' | 'video',
-              captionsAssetId:
-                event.currentTarget
-                  .closest('.media-field')
-                  ?.querySelector<HTMLInputElement>('[data-media-captions]')?.value ?? '',
-            })
-          }
+        <AuthoringSelect
+          ariaLabel={authoringText('Media type')}
+          dataAction="set-media-type"
+          dataBlockId={block.id}
+          leadingIcon={<Image size={15} strokeWidth={2.1} />}
+          onValueChange={(value) => commit({ kind: value as 'image' | 'video', assetId: '' })}
+          options={[
+            { value: 'image', label: authoringText('Image') },
+            { value: 'video', label: authoringText('Video with captions') },
+          ]}
           value={kind}
-        >
-          <option value="image">{authoringText('Image')}</option>
-          <option value="video">{authoringText('Video with captions')}</option>
-        </select>
+        />
       </label>
       <label>
         <span>{authoringText('Asset reference')}</span>
-        <input
-          aria-label={authoringText('Asset reference')}
-          defaultValue={assetId}
-          onBlur={(event) => commit({ assetId: event.currentTarget.value })}
-          placeholder={authoringText('Choose an uploaded asset')}
-          type="text"
+        <AuthoringSelect
+          ariaLabel={authoringText('Asset reference')}
+          dataAction="set-media-asset"
+          dataBlockId={block.id}
+          onValueChange={(value) => commit({ assetId: value })}
+          options={[
+            { value: '', label: authoringText('Choose an uploaded asset') },
+            ...availableAssets.map((asset) => ({ value: asset.id, label: asset.filename })),
+          ]}
+          value={assetId}
         />
+        {canUpload ? (
+          <MediaUploadControl
+            accept={
+              kind === 'image'
+                ? 'image/png,image/jpeg,image/gif,image/webp'
+                : 'video/mp4,video/webm'
+            }
+            ariaLabel={authoringText('Choose an uploaded asset')}
+            onFile={(file) => {
+              void controller.uploadMediaAsset(kind, file).then((asset) => {
+                if (asset)
+                  commit({
+                    assetId: asset.id,
+                    accessibilityName: accessibilityName || file.name,
+                  });
+              });
+            }}
+          />
+        ) : null}
       </label>
       <label>
         <span>{authoringText('Accessibility description')}</span>
         <input
           aria-label={authoringText('Accessibility description')}
-          defaultValue={accessibilityName}
+          className="ui-input"
           onBlur={(event) => commit({ accessibilityName: event.currentTarget.value })}
+          onChange={(event) => setAccessibilityName(event.currentTarget.value)}
           type="text"
+          value={accessibilityName}
         />
       </label>
       <label>
-        <span>{authoringText('Captions asset for video')}</span>
-        <input
-          aria-label={authoringText('Captions asset for video')}
-          data-media-captions
-          defaultValue={media?.kind === 'video' ? media.captionsAssetId : ''}
-          onBlur={(event) => {
-            if (kind === 'video') commit({ captionsAssetId: event.currentTarget.value });
-          }}
-          placeholder={authoringText('Choose a captions file')}
-          type="text"
+        <span>{authoringText('Aspect ratio')}</span>
+        <AuthoringSelect
+          ariaLabel={authoringText('Aspect ratio')}
+          dataAction="set-media-aspect-ratio"
+          dataBlockId={block.id}
+          onValueChange={(value) =>
+            commit({
+              aspectRatio: value as '' | (typeof MEDIA_ASPECT_RATIO_VALUES)[number],
+            })
+          }
+          options={[
+            { value: '', label: authoringText('Original') },
+            ...MEDIA_ASPECT_RATIO_VALUES.map((value) => ({ value, label: value })),
+          ]}
+          value={aspectRatio}
         />
       </label>
+      {kind === 'video' ? (
+        <label>
+          <span>{authoringText('Captions asset for video')}</span>
+          <AuthoringSelect
+            ariaLabel={authoringText('Captions asset for video')}
+            data-media-captions
+            dataAction="set-media-captions"
+            dataBlockId={block.id}
+            onValueChange={(value) => commit({ captionsAssetId: value })}
+            options={[
+              { value: '', label: authoringText('Choose a captions file') },
+              ...captionsAssets.map((asset) => ({ value: asset.id, label: asset.filename })),
+            ]}
+            value={captionsAssetId}
+          />
+          {canUpload ? (
+            <MediaUploadControl
+              accept="text/vtt,.vtt"
+              ariaLabel={authoringText('Choose a captions file')}
+              onFile={(file) => {
+                void controller.uploadMediaAsset('captions', file).then((asset) => {
+                  if (asset) commit({ captionsAssetId: asset.id });
+                });
+              }}
+            />
+          ) : null}
+        </label>
+      ) : null}
       {!media ? (
         <span className="media-placeholder-state">{authoringText('Add media later')}</span>
       ) : null}
+      {!canUpload ? (
+        <span className="media-placeholder-state">
+          {authoringText('Media upload is unavailable in this preview')}
+        </span>
+      ) : null}
     </div>
+  );
+}
+
+function MediaUploadControl({
+  accept,
+  ariaLabel,
+  onFile,
+}: {
+  accept: string;
+  ariaLabel: string;
+  onFile: (file: File) => void;
+}) {
+  return (
+    <label className="media-upload-control">
+      <Image size={14} strokeWidth={2.1} aria-hidden="true" />
+      <span>{authoringText('Upload media asset')}</span>
+      <input
+        accept={accept}
+        aria-label={ariaLabel}
+        className="visually-hidden"
+        onChange={(event) => {
+          const file = event.currentTarget.files?.[0];
+          if (file) onFile(file);
+          event.currentTarget.value = '';
+        }}
+        type="file"
+      />
+    </label>
   );
 }
 

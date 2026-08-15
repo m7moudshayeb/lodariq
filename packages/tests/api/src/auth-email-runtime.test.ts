@@ -19,6 +19,7 @@ describe('@lodariq/api auth email runtime', () => {
     ).toEqual({
       kind: 'email-verification-dispatcher-v1',
       secret: TOKEN_SECRET,
+      keyId: 'legacy',
     });
   });
 

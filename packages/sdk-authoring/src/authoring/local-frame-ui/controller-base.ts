@@ -1,4 +1,5 @@
 import {
+  CURRENT_AUTHORING_DELIVERY_CAPABILITY_METADATA,
   type BridgeMessage,
   type AuthoringSaveState,
   type PreviewPatchOperation,
@@ -7,7 +8,9 @@ import {
   type TargetLocale,
   type TargetViewportClass,
   type TourStepStyleSnapshot,
+  type AuthoringMediaAssetResource,
 } from '@lodariq/schema';
+import type { AuthoringDeliveryCapability } from '@lodariq/schema';
 import { authoringText } from '../../i18n';
 import { type BlockInsertPosition } from '../document-ops';
 import { LOCAL_AUTHORING_SESSION_ID } from '../constants';
@@ -55,6 +58,8 @@ export abstract class ControllerBase {
 
   protected readonly services: LocalAuthoringFrameOptions['services'];
 
+  protected readonly deliveryCapabilities: ReadonlySet<AuthoringDeliveryCapability>;
+
   protected previewTheme: LocalAuthoringFrameOptions['previewTheme'];
 
   protected previewPreferences: LocalAuthoringFrameOptions['previewPreferences'];
@@ -97,7 +102,21 @@ export abstract class ControllerBase {
 
   protected readonly stepStyleRecipes: AuthoringStepStyleRecipeLibrary;
 
-  protected readonly draftCheckpoints = new AuthoringDraftCheckpointStore();
+  protected readonly draftCheckpoints: AuthoringDraftCheckpointStore;
+
+  protected mediaAssets: AuthoringMediaAssetResource[];
+
+  protected readonly mediaAssetPreviewUrls = new Map<string, string>();
+
+  protected readonly mediaAssetPreviewRequests = new Map<string, Promise<string | null>>();
+
+  protected releaseMediaAssetPreviews(): void {
+    if (typeof URL.revokeObjectURL === 'function') {
+      for (const url of this.mediaAssetPreviewUrls.values()) URL.revokeObjectURL(url);
+    }
+    this.mediaAssetPreviewUrls.clear();
+    this.mediaAssetPreviewRequests.clear();
+  }
 
   protected readonly pendingPreviewPatches: Array<{
     blockId: string;
@@ -161,6 +180,8 @@ export abstract class ControllerBase {
   } | null = null;
 
   protected previewPatchFlushQueued = false;
+
+  protected previewPatchFlushToken = 0;
 
   protected focusRequest: FocusRequest | null = null;
 
@@ -244,8 +265,18 @@ export abstract class ControllerBase {
   constructor(protected readonly options: LocalAuthoringFrameOptions) {
     this.interactionActor.start();
     this.services = options.services;
+    this.deliveryCapabilities = new Set(
+      options.deliveryCapabilities?.capabilities ??
+        CURRENT_AUTHORING_DELIVERY_CAPABILITY_METADATA.capabilities,
+    );
     this.stepStyleRecipes = new AuthoringStepStyleRecipeLibrary(
       this.services.loadStepStyleRecipes?.() ?? [],
+    );
+    this.draftCheckpoints = new AuthoringDraftCheckpointStore(
+      this.services.loadDraftCheckpoints?.() ?? [],
+    );
+    this.mediaAssets = [...(this.services.loadMediaAssets?.() ?? [])].map((asset) =>
+      structuredClone(asset),
     );
     this.previewTheme = options.previewTheme ? structuredClone(options.previewTheme) : undefined;
     this.previewPreferences = options.previewPreferences

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   firstPublishBlocker,
+  collectTourMediaAssetIds,
   publishReadinessIssueLabel,
   validateTourPublishReadiness,
   type LodariqBlock,
@@ -40,6 +41,40 @@ describe('tour publish readiness', () => {
     body.splice(2, 0, listBlock(), dividerBlock(), linkBlock('/settings'));
 
     expect(validateTourPublishReadiness(document)).toEqual([]);
+  });
+
+  it('requires matching recipes and accessibility names for structured compositions', () => {
+    const document = cloneFixture();
+    tooltipBody(document).splice(
+      2,
+      0,
+      {
+        id: 'callout-valid',
+        type: 'callout',
+        content: 'Keep this page open.',
+        props: {
+          accessibilityName: 'Important reminder',
+          composition: { kind: 'callout', tone: 'info' },
+        },
+        children: [],
+      },
+      {
+        id: 'icon-invalid',
+        type: 'icon',
+        content: 'Recommended',
+        props: { composition: { kind: 'stat', emphasis: 'strong' } },
+        children: [],
+      },
+    );
+
+    const issues = validateTourPublishReadiness(document);
+    expect(issues).not.toContainEqual(expect.objectContaining({ blockId: 'callout-valid' }));
+    expect(issues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ code: 'incomplete_block', blockId: 'icon-invalid' }),
+        expect.objectContaining({ code: 'missing_accessible_name', blockId: 'icon-invalid' }),
+      ]),
+    );
   });
 
   it('keeps rich text, action styling, and popup composition on supported block types', () => {
@@ -181,6 +216,70 @@ describe('tour publish readiness', () => {
 
     expect(issueCodes(document)).toEqual(
       expect.arrayContaining(['open_page_missing_url', 'incomplete_media']),
+    );
+  });
+
+  it('validates nested media references against the exact server-resolved asset set', () => {
+    const document = cloneFixture();
+    const wrapper = tooltipBody(document).find((block) => block.type === 'paragraph')!;
+    wrapper.children.push({
+      id: 'nested-media',
+      type: 'media',
+      content: 'Product preview',
+      props: {
+        media: {
+          kind: 'video',
+          assetId: 'asset-video',
+          captionsAssetId: 'asset-captions',
+          accessibilityName: 'Product preview video',
+        },
+      },
+      status: 'ready',
+      children: [],
+    });
+
+    expect(collectTourMediaAssetIds(document)).toEqual(['asset-video', 'asset-captions']);
+    const blocked = validateTourPublishReadiness(document, {
+      requireValidMediaAssets: true,
+      validMediaAssets: new Map<string, 'image' | 'video' | 'captions'>([
+        ['asset-video', 'video'],
+        ['asset-captions', 'image'],
+      ]),
+    });
+    expect(blocked).toContainEqual(
+      expect.objectContaining({ code: 'media_asset_invalid', blockId: 'nested-media' }),
+    );
+    expect(
+      validateTourPublishReadiness(document, {
+        requireValidMediaAssets: true,
+        validMediaAssets: new Map<string, 'image' | 'video' | 'captions'>([
+          ['asset-video', 'video'],
+          ['asset-captions', 'captions'],
+        ]),
+      }).map((issue) => issue.code),
+    ).not.toContain('media_asset_invalid');
+  });
+
+  it('keeps an uploaded video in the draft while captions remain a publish requirement', () => {
+    const document = cloneFixture();
+    const wrapper = tooltipBody(document).find((block) => block.type === 'paragraph')!;
+    wrapper.children.push({
+      id: 'draft-video',
+      type: 'media',
+      props: {
+        media: {
+          kind: 'video',
+          assetId: 'asset-video',
+          accessibilityName: 'Draft product walkthrough',
+        },
+      },
+      status: 'ready',
+      children: [],
+    });
+
+    expect(collectTourMediaAssetIds(document)).toContain('asset-video');
+    expect(validateTourPublishReadiness(document)).toContainEqual(
+      expect.objectContaining({ code: 'incomplete_media', blockId: 'draft-video' }),
     );
   });
 

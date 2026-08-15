@@ -45,7 +45,7 @@ export const POPUP_RESIZE_CORNERS = [
 ] as const satisfies ReadonlyArray<{ value: PopupResizeCorner; label: string }>;
 
 export const STORYBOARD_TOOL_OPTIONS = [
-  { value: 'content', label: authoringText('Content'), icon: Type },
+  { value: 'content', label: authoringText('Rich content'), icon: Type },
   { value: 'placement', label: authoringText('Placement'), icon: MousePointer2 },
   { value: 'popup', label: authoringText('Popup'), icon: PanelTop },
 ] as const satisfies ReadonlyArray<{

@@ -665,7 +665,11 @@ describe('legacy token-bootstrap compatibility', () => {
       targets: [],
       blocks: [],
     };
-    const payload = { document, theme: LODARIQ_ACCESSIBLE_FALLBACK_THEME_V1 };
+    const payload = {
+      document,
+      documentUpdatedAt: '2026-08-14T12:00:00.000Z',
+      theme: LODARIQ_ACCESSIBLE_FALLBACK_THEME_V1,
+    };
     expect(validate(AuthoringDocumentPayload, payload).valid).toBe(true);
     expect(validate(AuthoringDocumentPayload, { document }).valid).toBe(false);
     expect(validate(AuthoringDocumentPayload, { ...payload, selector: '#unsafe' }).valid).toBe(

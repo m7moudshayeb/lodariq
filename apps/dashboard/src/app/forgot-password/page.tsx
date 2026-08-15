@@ -23,7 +23,10 @@ export default async function ForgotPasswordPage({
         eyebrow={i18n._(AUTH_PAGE_MESSAGES.accountAccess)}
         title={i18n._(AUTH_PAGE_MESSAGES.recoveryDisabledTitle)}
       >
-        <Link className={buttonVariants({ className: 'h-11 w-full' })} href="/sign-in">
+        <Link
+          className={buttonVariants({ className: 'h-11 w-full' })}
+          href={`/sign-in?returnTo=${encodeURIComponent(returnTo)}`}
+        >
           {i18n._(AUTH_PAGE_MESSAGES.returnToSignIn)}
         </Link>
       </AuthShell>

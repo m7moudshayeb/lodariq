@@ -30,6 +30,7 @@
     "migrations:check": "pnpm --filter @lodariq/database check:migrations",
     "db:provision:runtime-role": "pnpm --filter @lodariq/database provision:runtime-role",
     "rls:verify:live": "pnpm --filter @lodariq/database verify:live-rls",
+    "auth:delivery:inspect": "pnpm --filter @lodariq/database inspect:auth-delivery --",
     "live:check-env": "pnpm --filter @lodariq/api check:runtime-env && pnpm --filter @lodariq/dashboard check:runtime-env",
     "sdk:prepare-assets": "node scripts/prepare-sdk-assets.mjs",
     "deploy:api": "fly deploy -c apps/api/fly.toml",

@@ -1,4 +1,5 @@
 import { Type, type Static } from '@sinclair/typebox';
+import { AuthoringDeliveryCapabilityMetadata } from './authoring-capabilities';
 import {
   AuthoringDocumentIntent,
   ExistingAuthoringDocumentIntent,
@@ -549,6 +550,7 @@ export const AuthoringSessionContext = Type.Object(
     ]),
     creatorId: Type.String(IDENTIFIER_OPTIONS),
     capabilities: AuthoringSessionCapabilitySet,
+    deliveryCapabilities: Type.Optional(Type.Ref(AuthoringDeliveryCapabilityMetadata)),
     /** Optional authoring service availability, never a provider credential or runtime dependency. */
     translation: Type.Optional(
       Type.Object({ state: Type.Literal('available') }, { additionalProperties: false }),
@@ -573,6 +575,7 @@ export type AuthoringDocumentSessionResult = Static<typeof AuthoringDocumentSess
 export const AuthoringDocumentPayload = Type.Object(
   {
     document: Type.Ref(LodariqDocument),
+    documentUpdatedAt: Type.String({ format: 'date-time' }),
     /** Exact approved snapshot used by both hosted preview and server compilation. */
     theme: Type.Ref(BrandThemeSnapshot),
   },

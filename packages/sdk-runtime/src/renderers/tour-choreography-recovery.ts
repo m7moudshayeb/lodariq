@@ -1,4 +1,4 @@
-import { runtimeText } from '../i18n';
+import { tourRuntimeText } from '../tour-i18n';
 
 export interface TourChoreographyRecoveryActions {
   dismiss: () => void;
@@ -15,12 +15,12 @@ export function showTourChoreographyRecovery(
   region.className = 'tour-choreography-recovery';
   region.setAttribute('role', 'status');
   const message = card.ownerDocument.createElement('p');
-  message.textContent = runtimeText('This step could not continue.');
+  message.textContent = tourRuntimeText('This step could not continue.');
   region.appendChild(message);
   region.append(
-    recoveryButton(card.ownerDocument, runtimeText('Try again'), actions.retry),
-    recoveryButton(card.ownerDocument, runtimeText('Skip step'), actions.skip),
-    recoveryButton(card.ownerDocument, runtimeText('Exit tour'), actions.dismiss),
+    recoveryButton(card.ownerDocument, tourRuntimeText('Try again'), actions.retry),
+    recoveryButton(card.ownerDocument, tourRuntimeText('Skip step'), actions.skip),
+    recoveryButton(card.ownerDocument, tourRuntimeText('Exit tour'), actions.dismiss),
   );
   card.querySelector('.tour-content')?.appendChild(region);
   region.querySelector<HTMLButtonElement>('button')?.focus();

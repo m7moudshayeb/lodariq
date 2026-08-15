@@ -40,9 +40,9 @@ import {
   compareWorkspaceThemeImpact,
   compareWorkspaceThemes,
 } from '../domains/in-memory-helpers';
-import { InMemoryRepositoryIdentitySessions } from './identity-sessions';
+import { InMemoryRepositoryEnterpriseIdentity } from './enterprise-identity';
 
-export class InMemoryRepositoryThemes extends InMemoryRepositoryIdentitySessions {
+export class InMemoryRepositoryThemes extends InMemoryRepositoryEnterpriseIdentity {
   async listWorkspaceThemes(workspaceId: string): Promise<WorkspaceThemeRecord[]> {
     return [...this.themes.values()]
       .filter((theme) => theme.workspaceId === workspaceId)

@@ -36,7 +36,7 @@ export class DrizzleRepositoryReleaseChecks extends DrizzleRepositoryActivation 
   ): Promise<PublicationVerificationRecord> {
     assertBrowserVerificationReport(input.report);
     const verifiedOrigin = requireExactHttpOrigin(input.verifiedOrigin);
-    return this.scoped(input.workspaceId, async (tx) => {
+    return this.actorScoped(input.workspaceId, input.actorUserId, async (tx) => {
       const [environment] = await tx
         .select()
         .from(environments)
@@ -140,7 +140,7 @@ export class DrizzleRepositoryReleaseChecks extends DrizzleRepositoryActivation 
       throw new Error('release approval decision must be approved or rejected');
     }
     const reason = normalizeReleaseApprovalReason(input.reason);
-    return this.scoped(input.workspaceId, async (tx) => {
+    return this.actorScoped(input.workspaceId, input.actorUserId, async (tx) => {
       const [approverMembership] = await tx
         .select({ role: workspaceMemberships.role })
         .from(workspaceMemberships)

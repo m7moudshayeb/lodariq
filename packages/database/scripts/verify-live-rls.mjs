@@ -6,6 +6,18 @@ import { neon } from '@neondatabase/serverless';
 const tenantScopedTables = [
   'workspaces',
   'workspace_memberships',
+  'workspace_invitations',
+  'workspace_invitation_outbox',
+  'tenant_audit_events',
+  'workspace_auth_policies',
+  'sso_connections',
+  'enterprise_validation_evidence',
+  'workspace_verified_domains',
+  'sso_group_role_mappings',
+  'enterprise_scim_connections',
+  'enterprise_principals',
+  'enterprise_audit_events',
+  'enterprise_break_glass_requests',
   'environments',
   'environment_tokens',
   'public_sdk_installations',
@@ -18,6 +30,9 @@ const tenantScopedTables = [
   'style_sources',
   'product_style_applications',
   'brand_drift_runs',
+  'authoring_style_recipes',
+  'authoring_draft_checkpoints',
+  'authoring_media_assets',
   'documents',
   'document_versions',
   'compiled_artifacts',
@@ -34,6 +49,20 @@ const tenantScopedTables = [
 
 const identityScopedTables = [
   'users',
+  'user_emails',
+  'usernames',
+  'auth_identities',
+  'auth_security_events',
+  'account_security_events',
+  'account_email_change_challenges',
+  'account_email_change_outbox',
+  'webauthn_challenges',
+  'passkey_credentials',
+  'recovery_code_sets',
+  'recovery_codes',
+  'oidc_authorization_attempts',
+  'tenant_audit_events',
+  'identity_onboarding_states',
   'password_credentials',
   'auth_sessions',
   'email_verification_challenges',
@@ -44,7 +73,7 @@ const identityScopedTables = [
 ];
 
 const rlsProtectedTables = [...tenantScopedTables, ...identityScopedTables];
-const appendOnlyPhase2Tables = [
+const appendOnlyRuntimeTables = [
   'compiled_artifacts',
   'publications',
   'style_sources',
@@ -53,7 +82,26 @@ const appendOnlyPhase2Tables = [
   'publication_verifications',
   'release_approvals',
   'analytics_events',
+  'auth_security_events',
+  'account_security_events',
+  'enterprise_audit_events',
 ];
+const appendOnlyInsertPolicies = new Map([
+  ['auth_security_events', 'auth_security_events_owned_insert'],
+  ['account_security_events', 'account_security_events_owned_insert'],
+  ['tenant_audit_events', 'tenant_audit_events_workspace_insert'],
+  ['enterprise_audit_events', 'enterprise_audit_events_workspace_insert'],
+]);
+
+const workspaceIsolationPolicyNames = new Map([
+  ['enterprise_validation_evidence', 'enterprise_validation_evidence_workspace_read'],
+  ['workspace_verified_domains', 'workspace_verified_domains_workspace_access'],
+  ['sso_group_role_mappings', 'sso_group_role_mappings_workspace_access'],
+  ['enterprise_scim_connections', 'enterprise_scim_connections_workspace_access'],
+  ['enterprise_principals', 'enterprise_principals_workspace_access'],
+  ['enterprise_audit_events', 'enterprise_audit_events_workspace_access'],
+  ['enterprise_break_glass_requests', 'enterprise_break_glass_workspace_access'],
+]);
 
 const tokenLookupPolicies = new Map([
   ['environments', 'environments_token_lookup'],
@@ -63,6 +111,107 @@ const tokenLookupPolicies = new Map([
 
 const identityPolicies = new Map([
   [
+    'account_security_events',
+    ['account_security_events_auth_self', 'account_security_events_owned_insert'],
+  ],
+  [
+    'account_email_change_challenges',
+    [
+      'account_email_change_challenges_auth_self',
+      'account_email_change_challenges_owned_insert',
+      'account_email_change_challenges_owned_update',
+    ],
+  ],
+  [
+    'account_email_change_outbox',
+    [
+      'account_email_change_outbox_auth_self',
+      'account_email_change_outbox_owned_insert',
+      'account_email_change_outbox_owned_update',
+      'account_email_change_outbox_worker_select',
+      'account_email_change_outbox_worker_update',
+      'account_email_change_outbox_delivery_lookup',
+      'account_email_change_outbox_maintenance_select',
+      'account_email_change_outbox_maintenance_delete',
+    ],
+  ],
+  [
+    'webauthn_challenges',
+    [
+      'webauthn_challenges_auth_self',
+      'webauthn_challenges_auth_insert',
+      'webauthn_challenges_auth_update',
+      'webauthn_challenges_public_insert',
+      'webauthn_challenges_public_lookup',
+      'webauthn_challenges_public_update',
+    ],
+  ],
+  [
+    'passkey_credentials',
+    [
+      'passkey_credentials_auth_self',
+      'passkey_credentials_auth_insert',
+      'passkey_credentials_auth_update',
+      'passkey_credentials_auth_delete',
+      'passkey_credentials_credential_lookup',
+      'passkey_credentials_credential_update',
+    ],
+  ],
+  [
+    'recovery_code_sets',
+    [
+      'recovery_code_sets_auth_self',
+      'recovery_code_sets_auth_insert',
+      'recovery_code_sets_auth_update',
+    ],
+  ],
+  [
+    'recovery_codes',
+    [
+      'recovery_codes_auth_self',
+      'recovery_codes_auth_insert',
+      'recovery_codes_auth_update',
+      'recovery_codes_hash_lookup',
+      'recovery_codes_hash_consume',
+    ],
+  ],
+  [
+    'oidc_authorization_attempts',
+    [
+      'oidc_authorization_attempts_bound_insert',
+      'oidc_authorization_attempts_bound_lookup',
+      'oidc_authorization_attempts_bound_consume',
+    ],
+  ],
+  [
+    'user_emails',
+    [
+      'user_emails_auth_self',
+      'user_emails_workspace_reference',
+      'user_emails_owned_insert',
+      'user_emails_owned_update',
+    ],
+  ],
+  ['usernames', ['usernames_auth_lookup', 'usernames_owned_insert', 'usernames_owned_update']],
+  [
+    'auth_identities',
+    [
+      'auth_identities_auth_self',
+      'auth_identities_provider_lookup',
+      'auth_identities_owned_insert',
+      'auth_identities_owned_update',
+    ],
+  ],
+  ['auth_security_events', ['auth_security_events_auth_self', 'auth_security_events_owned_insert']],
+  [
+    'identity_onboarding_states',
+    [
+      'identity_onboarding_states_auth_self',
+      'identity_onboarding_states_owned_insert',
+      'identity_onboarding_states_owned_update',
+    ],
+  ],
+  [
     'users',
     [
       'users_auth_self',
@@ -71,6 +220,9 @@ const identityPolicies = new Map([
       'users_email_verification_update',
       'users_set_password_email_lookup',
       'users_set_password_update',
+      'users_auth_maintenance_select',
+      'users_auth_maintenance_delete',
+      'users_account_management_update',
     ],
   ],
   [
@@ -79,11 +231,22 @@ const identityPolicies = new Map([
       'password_credentials_email_lookup',
       'password_credentials_owned_insert',
       'password_credentials_owned_update',
+      'password_credentials_auth_maintenance_select',
     ],
   ],
   [
     'auth_sessions',
-    ['auth_sessions_token_lookup', 'auth_sessions_owned_insert', 'auth_sessions_token_update'],
+    [
+      'auth_sessions_token_lookup',
+      'auth_sessions_owned_insert',
+      'auth_sessions_token_update',
+      'auth_sessions_auth_maintenance_select',
+      'auth_sessions_auth_maintenance_delete',
+      'auth_sessions_enterprise_connection_disable',
+      'auth_sessions_enterprise_connection_disable_select',
+      'auth_sessions_scim_revoke',
+      'auth_sessions_scim_revoke_select',
+    ],
   ],
   [
     'email_verification_challenges',
@@ -92,6 +255,9 @@ const identityPolicies = new Map([
       'email_verification_challenges_token_lookup',
       'email_verification_challenges_token_consume',
       'email_verification_challenges_set_password_invalidate',
+      'email_verification_challenges_auth_user_lookup',
+      'email_verification_challenges_auth_maintenance_select',
+      'email_verification_challenges_auth_maintenance_delete',
     ],
   ],
   [
@@ -101,6 +267,10 @@ const identityPolicies = new Map([
       'auth_outbox_set_password_cancel',
       'auth_outbox_worker_select',
       'auth_outbox_worker_update',
+      'auth_outbox_auth_user_lookup',
+      'auth_outbox_delivery_lookup',
+      'auth_outbox_auth_maintenance_select',
+      'auth_outbox_auth_maintenance_delete',
     ],
   ],
   [
@@ -110,6 +280,9 @@ const identityPolicies = new Map([
       'set_password_challenges_token_lookup',
       'set_password_challenges_token_consume',
       'set_password_challenges_user_invalidate',
+      'set_password_challenges_user_lookup',
+      'set_password_challenges_auth_maintenance_select',
+      'set_password_challenges_auth_maintenance_delete',
     ],
   ],
   [
@@ -119,6 +292,10 @@ const identityPolicies = new Map([
       'set_password_outbox_user_cancel',
       'set_password_outbox_worker_select',
       'set_password_outbox_worker_update',
+      'set_password_outbox_auth_user_lookup',
+      'set_password_outbox_delivery_lookup',
+      'set_password_outbox_auth_maintenance_select',
+      'set_password_outbox_auth_maintenance_delete',
     ],
   ],
   [
@@ -129,13 +306,90 @@ const identityPolicies = new Map([
       'auth_rate_limits_bucket_update',
       'auth_rate_limits_prune_select',
       'auth_rate_limits_prune_delete',
+      'auth_rate_limits_auth_maintenance_select',
+      'auth_rate_limits_auth_maintenance_delete',
     ],
   ],
 ]);
 
 const identityBridgePolicies = new Map([
-  ['workspaces', ['workspaces_user_discovery']],
-  ['workspace_memberships', ['workspace_memberships_user_discovery']],
+  [
+    'workspaces',
+    [
+      'workspaces_user_discovery',
+      'workspaces_auth_maintenance_select',
+      'workspaces_auth_maintenance_delete',
+    ],
+  ],
+  [
+    'workspace_memberships',
+    [
+      'workspace_memberships_user_discovery',
+      'workspace_memberships_auth_maintenance_select',
+      'workspace_memberships_owned_creation',
+      'workspace_memberships_invitation_accept',
+      'workspace_memberships_admin_update',
+      'workspace_memberships_admin_delete',
+      'workspace_memberships_enterprise_oidc_create',
+      'workspace_memberships_enterprise_oidc_update',
+    ],
+  ],
+  [
+    'workspace_invitations',
+    [
+      'workspace_invitations_workspace_isolation',
+      'workspace_invitations_auth_maintenance_guard',
+      'workspace_invitations_token_accept_lookup',
+      'workspace_invitations_admin_insert',
+      'workspace_invitations_admin_update',
+      'workspace_invitations_token_accept_update',
+    ],
+  ],
+  [
+    'workspace_invitation_outbox',
+    [
+      'workspace_invitation_outbox_workspace_isolation',
+      'workspace_invitation_outbox_workspace_insert',
+      'workspace_invitation_outbox_workspace_update',
+      'workspace_invitation_outbox_worker_select',
+      'workspace_invitation_outbox_worker_update',
+      'workspace_invitation_outbox_delivery_lookup',
+      'workspace_invitation_outbox_auth_maintenance_select',
+      'workspace_invitation_outbox_auth_maintenance_delete',
+    ],
+  ],
+  [
+    'tenant_audit_events',
+    ['tenant_audit_events_workspace_isolation', 'tenant_audit_events_workspace_insert'],
+  ],
+  ['workspace_auth_policies', ['workspace_auth_policies_workspace_isolation']],
+  ['sso_connections', ['sso_connections_workspace_isolation']],
+  [
+    'enterprise_validation_evidence',
+    ['enterprise_validation_evidence_workspace_read', 'enterprise_validation_evidence_operator_write'],
+  ],
+  [
+    'workspace_verified_domains',
+    ['workspace_verified_domains_workspace_access', 'workspace_verified_domains_discovery'],
+  ],
+  [
+    'sso_group_role_mappings',
+    [
+      'sso_group_role_mappings_workspace_access',
+      'sso_group_role_mappings_enterprise_authorization',
+      'sso_group_role_mappings_scim_authorization',
+    ],
+  ],
+  [
+    'enterprise_scim_connections',
+    ['enterprise_scim_connections_workspace_access', 'enterprise_scim_connections_token_access'],
+  ],
+  [
+    'enterprise_principals',
+    ['enterprise_principals_workspace_access', 'enterprise_principals_scim_access'],
+  ],
+  ['enterprise_audit_events', ['enterprise_audit_events_workspace_access']],
+  ['enterprise_break_glass_requests', ['enterprise_break_glass_workspace_access']],
   ['authoring_authorization_requests', ['authoring_authorization_requests_auth_user_lookup']],
 ]);
 
@@ -198,11 +452,13 @@ async function verifyCatalogState(sql) {
   `;
   const policies = new Set(policyRows.map((row) => `${row.tablename}:${row.policyname}`));
   for (const table of tenantScopedTables) {
-    const policy = `${table}:${table}_workspace_isolation`;
+    const policyName = workspaceIsolationPolicyNames.get(table) ?? `${table}_workspace_isolation`;
+    const policy = `${table}:${policyName}`;
     if (!policies.has(policy)) fail(`Workspace isolation policy is missing for ${table}.`);
   }
-  for (const table of appendOnlyPhase2Tables) {
-    if (!policies.has(`${table}:${table}_workspace_insert`)) {
+  for (const table of appendOnlyRuntimeTables) {
+    const insertPolicy = appendOnlyInsertPolicies.get(table) ?? `${table}_workspace_insert`;
+    if (!policies.has(`${table}:${insertPolicy}`)) {
       fail(`Append-only insert policy is missing for ${table}.`);
     }
     const mutablePolicy = policyRows.find(

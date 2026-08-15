@@ -1,4 +1,5 @@
 import { Type, type Static, type TUnion } from '@sinclair/typebox';
+import { AuthoringDeliveryCapabilityMetadata } from './authoring-capabilities';
 import {
   BlockActionProps,
   BlockLayoutProps,
@@ -237,6 +238,14 @@ export const PreviewPatchOperation = Type.Union(
       block: LodariqBlock,
       index: Type.Number(),
     }),
+    Type.Object(
+      {
+        op: Type.Literal('replaceStepRichContent'),
+        stepBlockId: Type.String(),
+        blocks: Type.Array(LodariqBlock),
+      },
+      { additionalProperties: false },
+    ),
     Type.Object({ op: Type.Literal('updateContent'), content: Type.String() }),
     Type.Object(
       {
@@ -315,6 +324,9 @@ export const PreviewPatchOperation = Type.Union(
         Type.Literal('button'),
         Type.Literal('link'),
         Type.Literal('media'),
+        Type.Literal('callout'),
+        Type.Literal('stat'),
+        Type.Literal('icon'),
       ]),
     }),
     Type.Object({
@@ -407,6 +419,96 @@ export const PreviewTransactionMetadata = Type.Object(
   { $id: 'PreviewTransactionMetadata', additionalProperties: false },
 );
 export type PreviewTransactionMetadata = Static<typeof PreviewTransactionMetadata>;
+
+export const PREVIEW_TRANSACTION_RESULT_STATES = [
+  'applied',
+  'persisted',
+  'retrying',
+  'conflict',
+] as const;
+
+export const PreviewTransactionResultState = Type.Union(
+  PREVIEW_TRANSACTION_RESULT_STATES.map((state) => Type.Literal(state)),
+  { $id: 'PreviewTransactionResultState' },
+);
+export type PreviewTransactionResultState = Static<typeof PreviewTransactionResultState>;
+
+export const AUTHORING_DIAGNOSTIC_EVENT_NAMES = [
+  'authoring.opened',
+  'block.inserted',
+  'transaction.committed',
+  'transaction.coalesced',
+  'transaction.retried',
+  'transaction.conflicted',
+  'transaction.persisted',
+  'target.pick.started',
+  'target.pick.succeeded',
+  'target.pick.failed',
+  'target.pick.canceled',
+  'target.unavailable',
+  'target.context-restored',
+  'target.verification-passed',
+  'target.repair-opened',
+  'preview.opened',
+  'preview.from-step',
+  'preview.step-changed',
+  'preview.branch-chosen',
+  'preview.completed',
+  'preview.exited',
+  'choreography.stage-started',
+  'choreography.stage-satisfied',
+  'choreography.stage-timed-out',
+  'choreography.retried',
+  'choreography.skipped',
+  'choreography.completed',
+  'chrome.moved',
+  'chrome.collapsed',
+  'chrome.restored',
+  'chrome.collision-unresolved',
+  'style.copied',
+  'style.applied',
+  'style.recipe-used',
+  'contrast.warning',
+  'contrast.blocker',
+  'readiness.finding',
+  'readiness.repair-opened',
+  'readiness.repair-completed',
+  'checkpoint.saved',
+  'checkpoint.restored',
+  'document.exported',
+  'document.imported',
+] as const;
+
+export const AuthoringDiagnosticEventName = Type.Union(
+  AUTHORING_DIAGNOSTIC_EVENT_NAMES.map((name) => Type.Literal(name)),
+  { $id: 'AuthoringDiagnosticEventName' },
+);
+export type AuthoringDiagnosticEventName = Static<typeof AuthoringDiagnosticEventName>;
+
+/** Closed diagnostic dimensions that cannot carry customer or authored content. */
+export const AuthoringDiagnosticAttributes = Type.Object(
+  {
+    environment: Type.Optional(
+      Type.Union([
+        Type.Literal('development'),
+        Type.Literal('staging'),
+        Type.Literal('production'),
+      ]),
+    ),
+    stepId: Type.Optional(Type.String(BRIDGE_REFERENCE_ID_OPTIONS)),
+    blockId: Type.Optional(Type.String(BRIDGE_REFERENCE_ID_OPTIONS)),
+    targetId: Type.Optional(Type.String(BRIDGE_REFERENCE_ID_OPTIONS)),
+    transactionId: Type.Optional(Type.String(BRIDGE_REFERENCE_ID_OPTIONS)),
+    scope: Type.Optional(Type.Ref(AuthoringTransactionScope)),
+    revision: Type.Optional(Type.Integer({ minimum: 0, maximum: 2_147_483_647 })),
+    durationMs: Type.Optional(Type.Integer({ minimum: 0, maximum: 3_600_000 })),
+    count: Type.Optional(Type.Integer({ minimum: 0, maximum: 10_000 })),
+    state: Type.Optional(Type.String({ minLength: 1, maxLength: 80, pattern: '^[a-z0-9._-]+$' })),
+    reason: Type.Optional(Type.String({ minLength: 1, maxLength: 80, pattern: '^[a-z0-9._-]+$' })),
+  },
+  { $id: 'AuthoringDiagnosticAttributes', additionalProperties: false },
+);
+export type AuthoringDiagnosticAttributes = Static<typeof AuthoringDiagnosticAttributes>;
 
 export const ResolverDiagnostic = Type.Object(
   {
@@ -653,6 +755,7 @@ export const AuthoringInitMessage = Type.Object(
     theme: Type.Optional(BrandThemeSnapshot),
     prefersDark: Type.Optional(Type.Boolean()),
     prefersReducedMotion: Type.Optional(Type.Boolean()),
+    deliveryCapabilities: Type.Optional(Type.Ref(AuthoringDeliveryCapabilityMetadata)),
     releaseStateCapability: Type.Optional(
       Type.Literal(AUTHORING_SESSION_CAPABILITIES.READ_RELEASE_STATE),
     ),
@@ -1145,6 +1248,31 @@ export const BrandTokensAvailableMessage = Type.Object(
 );
 export type BrandTokensAvailableMessage = Static<typeof BrandTokensAvailableMessage>;
 
+export const PreviewTransactionResultMessage = Type.Object(
+  {
+    ...BridgeEnvelope.properties,
+    type: Type.Literal('preview.transaction.result'),
+    transactionId: Type.String(BRIDGE_REFERENCE_ID_OPTIONS),
+    revision: Type.Integer({ minimum: 1 }),
+    state: Type.Ref(PreviewTransactionResultState),
+    authoritativeRevision: Type.Optional(Type.Integer({ minimum: 0 })),
+    authoritativeDocument: Type.Optional(Type.Ref(LodariqDocument)),
+  },
+  { $id: 'PreviewTransactionResultMessage', additionalProperties: false },
+);
+export type PreviewTransactionResultMessage = Static<typeof PreviewTransactionResultMessage>;
+
+export const AuthoringDiagnosticRecordMessage = Type.Object(
+  {
+    ...BridgeEnvelope.properties,
+    type: Type.Literal('authoring.diagnostic.record'),
+    name: Type.Ref(AuthoringDiagnosticEventName),
+    attributes: Type.Optional(Type.Ref(AuthoringDiagnosticAttributes)),
+  },
+  { $id: 'AuthoringDiagnosticRecordMessage', additionalProperties: false },
+);
+export type AuthoringDiagnosticRecordMessage = Static<typeof AuthoringDiagnosticRecordMessage>;
+
 /** Discriminated union of bridge message bodies (PRD §9.5). */
 const ExistingBridgeMessage = Type.Intersect([
   BridgeEnvelope,
@@ -1227,7 +1355,53 @@ const ExistingBridgeMessage = Type.Intersect([
     }),
   ]),
 ]);
-const BRIDGE_MESSAGE_SCHEMAS = [
+type BridgeMessageSchema =
+  | typeof AuthoringInlineContentCommitMessage
+  | typeof AuthoringInlineControlCommitMessage
+  | typeof AuthoringPanelModeOpenMessage
+  | typeof AuthoringChromeActionRequestMessage
+  | typeof AuthoringPanelLayoutRequestMessage
+  | typeof AuthoringSaveAndExitRequestMessage
+  | typeof AuthoringSaveStateUpdateMessage
+  | typeof PresentationAnchorPickStartMessage
+  | typeof PresentationAnchorPickResultMessage
+  | typeof PresentationAnchorPickCanceledMessage
+  | typeof AuthoringStepPreviewRequestMessage
+  | typeof AuthoringFullPreviewRequestMessage
+  | typeof AuthoringInitMessage
+  | typeof AuthoringReleaseStateRequestMessage
+  | typeof AuthoringReleaseStateResultMessage
+  | typeof AuthoringReleaseRecoveryStateRequestMessage
+  | typeof AuthoringReleaseRecoveryStateResultMessage
+  | typeof AuthoringReleaseRecoveryRequestMessage
+  | typeof AuthoringReleaseRecoveryResultMessage
+  | typeof AuthoringPublishStagingRequestMessage
+  | typeof AuthoringPublishStagingResultMessage
+  | typeof AuthoringBrowserVerifyRequestMessage
+  | typeof AuthoringBrowserVerifyResultMessage
+  | typeof AuthoringSubmitVerificationRequestMessage
+  | typeof AuthoringSubmitVerificationResultMessage
+  | typeof AuthoringStyleSourceSaveRequestMessage
+  | typeof AuthoringStyleSourceSaveResultMessage
+  | typeof AuthoringBrandDriftCheckRequestMessage
+  | typeof AuthoringBrandDriftCheckResultMessage
+  | typeof AuthoringBrandDriftPreviewMessage
+  | typeof AuthoringBrandThemeAcknowledgeRequestMessage
+  | typeof AuthoringBrandThemeAcknowledgeResultMessage
+  | typeof AuthoringThemePreviewApplyMessage
+  | typeof AuthoringPromoteProductionRequestMessage
+  | typeof AuthoringPromoteProductionResultMessage
+  | typeof AuthoringApproveProductionRequestMessage
+  | typeof AuthoringApproveProductionResultMessage
+  | typeof StyleSampleStartMessage
+  | typeof StyleSampleResultMessage
+  | typeof StyleSampleCanceledMessage
+  | typeof BrandTokensAvailableMessage
+  | typeof PreviewTransactionResultMessage
+  | typeof AuthoringDiagnosticRecordMessage
+  | typeof ExistingBridgeMessage;
+
+const BRIDGE_MESSAGE_SCHEMAS: BridgeMessageSchema[] = [
   AuthoringInlineContentCommitMessage,
   AuthoringInlineControlCommitMessage,
   AuthoringPanelModeOpenMessage,
@@ -1269,11 +1443,12 @@ const BRIDGE_MESSAGE_SCHEMAS = [
   StyleSampleResultMessage,
   StyleSampleCanceledMessage,
   BrandTokensAvailableMessage,
+  PreviewTransactionResultMessage,
+  AuthoringDiagnosticRecordMessage,
   ExistingBridgeMessage,
 ];
 
-export const BridgeMessage: TUnion<typeof BRIDGE_MESSAGE_SCHEMAS> = Type.Union(
-  BRIDGE_MESSAGE_SCHEMAS,
-  { $id: 'BridgeMessage' },
-);
+export const BridgeMessage: TUnion<BridgeMessageSchema[]> = Type.Union(BRIDGE_MESSAGE_SCHEMAS, {
+  $id: 'BridgeMessage',
+});
 export type BridgeMessage = Static<typeof BridgeMessage>;

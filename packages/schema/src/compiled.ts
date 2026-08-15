@@ -79,6 +79,7 @@ const LegacyCompiledBodyProps = Type.Object(
       'motion',
       'responsive',
       'spotlight',
+      'composition',
       'accessibilityName',
     ]).properties,
     action: Type.Optional(LegacyCompiledActionProps),

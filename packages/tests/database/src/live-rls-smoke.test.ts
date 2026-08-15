@@ -29,6 +29,11 @@ describe('live Neon RLS verification script', () => {
       'users',
       'password_credentials',
       'auth_sessions',
+      'auth_security_events',
+      'account_security_events',
+      'account_email_change_challenges',
+      'account_email_change_outbox',
+      'identity_onboarding_states',
       'email_verification_challenges',
       'auth_outbox',
       'set_password_challenges',
@@ -42,18 +47,29 @@ describe('live Neon RLS verification script', () => {
       'password_credentials_email_lookup',
       'auth_sessions_token_lookup',
       'email_verification_challenges_token_consume',
+      'email_verification_challenges_auth_user_lookup',
       'set_password_challenges_token_consume',
+      'set_password_challenges_user_lookup',
       'set_password_outbox_worker_update',
+      'set_password_outbox_auth_user_lookup',
       'auth_outbox_worker_update',
+      'auth_outbox_auth_user_lookup',
       'auth_rate_limits_prune_delete',
       'workspace_memberships_user_discovery',
       'workspaces_user_discovery',
       'authoring_authorization_requests_auth_user_lookup',
+      'auth_security_events_owned_insert',
+      'account_security_events_owned_insert',
+      'account_email_change_challenges_owned_update',
+      'account_email_change_outbox_worker_update',
+      'identity_onboarding_states_owned_update',
     ]) {
       expect(source).toContain(`'${policy}'`);
     }
     expect(source).toContain('const rlsProtectedTables = [...tenantScopedTables');
     expect(source).toContain('verifyExpectedPolicies(policies, identityPolicies');
+    expect(source).toContain("'auth_security_events',");
+    expect(source).toContain('const appendOnlyRuntimeTables = [');
   });
 
   it('covers append-only Phase 2 style, release, and analytics evidence', () => {
@@ -82,6 +98,38 @@ describe('live Neon RLS verification script', () => {
       "policies.has('release_operations:release_operations_lifecycle_update')",
     );
     expect(source).toContain("row.cmd === 'ALL' || row.cmd === 'DELETE'");
+  });
+
+  it('covers enterprise isolation, validator evidence, and connection-disable revocation policy', () => {
+    const source = readFileSync(scriptPath, 'utf8');
+    for (const table of [
+      'sso_connections',
+      'enterprise_validation_evidence',
+      'workspace_verified_domains',
+      'sso_group_role_mappings',
+      'enterprise_scim_connections',
+      'enterprise_principals',
+      'enterprise_audit_events',
+      'enterprise_break_glass_requests',
+    ]) {
+      expect(source).toContain(`'${table}'`);
+    }
+    for (const policy of [
+      'enterprise_validation_evidence_operator_write',
+      'enterprise_scim_connections_token_access',
+      'enterprise_principals_scim_access',
+      'enterprise_audit_events_workspace_insert',
+      'auth_sessions_enterprise_connection_disable',
+      'auth_sessions_enterprise_connection_disable_select',
+      'auth_sessions_scim_revoke',
+      'auth_sessions_scim_revoke_select',
+      'workspace_memberships_enterprise_oidc_update',
+      'sso_group_role_mappings_enterprise_authorization',
+      'sso_group_role_mappings_scim_authorization',
+    ]) {
+      expect(source).toContain(`'${policy}'`);
+    }
+    expect(source).toContain('const workspaceIsolationPolicyNames = new Map');
   });
 
   it('activates a scratch theme only after its approved version exists', () => {

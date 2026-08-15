@@ -421,6 +421,12 @@ function createHostedPreviewServices(
                   options.onChoreographyStageChange?.(step.id, update),
               }
             : {}),
+          ...(options.onChoreographyRecovery
+            ? {
+                onChoreographyRecovery: (step, update) =>
+                  options.onChoreographyRecovery?.(step.id, update),
+              }
+            : {}),
           ...(options.onBranchChoice
             ? {
                 onBranchChoice: (step, ruleIndex, destination) =>
@@ -463,6 +469,12 @@ function createHostedPreviewServices(
           ? {
               onChoreographyStageChange: (step, update) =>
                 options.onChoreographyStageChange?.(step.id, update),
+            }
+          : {}),
+        ...(options.onChoreographyRecovery
+          ? {
+              onChoreographyRecovery: (step, update) =>
+                options.onChoreographyRecovery?.(step.id, update),
             }
           : {}),
         ...(options.onBranchChoice

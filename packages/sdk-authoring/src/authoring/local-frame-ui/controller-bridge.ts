@@ -2,7 +2,6 @@ import { ControllerPreviewFeature } from './controller-preview';
 import { authoringText } from '../../i18n';
 import {
   AUTHORING_INLINE_CONTROL_COMMIT_TYPE,
-  AUTHORING_INLINE_CONTENT_COMMIT_TYPE,
   AUTHORING_CHROME_ACTION_REQUEST_TYPE,
   AUTHORING_PANEL_MODE_OPEN_TYPE,
   AUTHORING_SAVE_STATE_UPDATE_TYPE,
@@ -19,10 +18,6 @@ import { createBridgeCorrelationId } from '../../bridge/transport';
 import { createTargetId } from '../../editor';
 import type { AuthoringPanelMode, DocumentTarget } from './types';
 import { findBlockById, targetInspectionStatus } from './utils';
-import {
-  isInlinePreviewContentType,
-  normalizeInlinePreviewContent,
-} from '../inline-preview-editor';
 import {
   firstBlockIdForTarget,
   firstTargetIdInBlock,
@@ -73,6 +68,49 @@ export abstract class ControllerBridgeFeature extends ControllerPreviewFeature {
       return;
     }
 
+    if (message.type === 'authoring.diagnostic.record') {
+      this.recordMetric(message.name, message.attributes);
+      return;
+    }
+
+    if (message.type === 'preview.transaction.result') {
+      if (message.state === 'applied') {
+        this.documentTransactions.acknowledge(message.revision);
+        return;
+      }
+      if (message.state === 'persisted') {
+        this.documentTransactions.markPersisted(message.revision);
+        this.recordMetric('transaction.persisted', {
+          transactionId: message.transactionId,
+          revision: message.revision,
+        });
+        return;
+      }
+      if (message.state === 'retrying') {
+        this.documentTransactions.markRetry(message.revision);
+        this.recordMetric('transaction.retried', {
+          transactionId: message.transactionId,
+          revision: message.revision,
+        });
+        this.setStatus(authoringText('Saving draft again…'));
+        return;
+      }
+      if (!message.authoritativeDocument || message.authoritativeRevision === undefined) return;
+      this.documentTransactions.markConflict(
+        message.authoritativeDocument,
+        message.authoritativeRevision,
+      );
+      this.documentState = this.normalizeDocument(message.authoritativeDocument);
+      this.redoStack.length = 0;
+      this.afterDocumentMutation();
+      this.recordMetric('transaction.conflicted', {
+        transactionId: message.transactionId,
+        revision: message.revision,
+      });
+      this.setStatus(authoringText('Draft changed elsewhere; review the refreshed version'));
+      return;
+    }
+
     if (message.type === AUTHORING_PANEL_MODE_OPEN_TYPE) {
       this.openAppearanceMode();
       return;
@@ -83,14 +121,6 @@ export abstract class ControllerBridgeFeature extends ControllerPreviewFeature {
       if (message.action === 'open-appearance') this.openAppearanceMode();
       if (message.action === 'open-release') this.openReleaseVerificationMode();
       if (message.action === 'save-and-exit') this.requestSaveAndExit();
-      return;
-    }
-
-    if (message.type === AUTHORING_INLINE_CONTENT_COMMIT_TYPE) {
-      const block = findBlockById(this.documentState.blocks, message.blockId);
-      if (!block || !isInlinePreviewContentType(block.type)) return;
-      this.commitContent(message.blockId, normalizeInlinePreviewContent(message.content));
-      this.setStatus(authoringText('Content updated in preview'));
       return;
     }
 
@@ -154,7 +184,7 @@ export abstract class ControllerBridgeFeature extends ControllerPreviewFeature {
       });
       this.targetHealthLedger.recordObservation(message.targetId, message.diagnostic);
       if (message.diagnostic.state === 'found') {
-        this.recordMetric('target.verification-passed');
+        this.recordMetric('target.verification-passed', { targetId: message.targetId });
       }
       this.setStatus(targetInspectionStatus(message.action, message.diagnostic));
       return;

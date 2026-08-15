@@ -82,16 +82,13 @@ export const AUTHORING_AGREED_STORYBOARD_CSS = `
     opacity: 0;
   }
 
-  .storyboard-editor-stage .action-context-toolbar .action-context-type select {
-    width: auto;
+  .storyboard-editor-stage .action-context-toolbar .action-context-type strong {
+    overflow: hidden;
     max-width: 104px;
-    height: 32px;
-    border: 0;
-    background: transparent;
     color: currentcolor;
     font-size: var(--lq-font-xs);
     font-weight: var(--lq-weight-semibold);
-    padding-inline: 0 var(--lq-space-4);
+    text-overflow: ellipsis;
   }
 
   .tour-storyboard-utilities {

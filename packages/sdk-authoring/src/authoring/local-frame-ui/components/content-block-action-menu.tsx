@@ -16,10 +16,12 @@ import { blockTypeEditorLabel } from './rich-text-editing';
 export function ContentBlockActionMenu({
   block,
   controller,
+  hasRichContent,
   stepId,
 }: {
   block: LodariqBlock;
   controller: LocalAuthoringFrameController;
+  hasRichContent: boolean;
   stepId: string;
 }) {
   const [open, setOpen] = useState(false);
@@ -49,20 +51,49 @@ export function ContentBlockActionMenu({
           role="menu"
           aria-label={authoringText('{type} line actions', { type: label })}
         >
-          <AuthoringButton
-            icon={<ArrowUp size={14} strokeWidth={2.2} />}
-            onClick={() => run(() => controller.moveStepContentBlock(stepId, block.id, 'up'))}
-            role="menuitem"
-          >
-            {authoringText('Move up')}
-          </AuthoringButton>
-          <AuthoringButton
-            icon={<ArrowDown size={14} strokeWidth={2.2} />}
-            onClick={() => run(() => controller.moveStepContentBlock(stepId, block.id, 'down'))}
-            role="menuitem"
-          >
-            {authoringText('Move down')}
-          </AuthoringButton>
+          {hasRichContent ? (
+            <>
+              <AuthoringButton
+                icon={<ArrowUp size={14} strokeWidth={2.2} />}
+                onClick={() =>
+                  run(() =>
+                    controller.moveStepActionRelativeToRichContent(stepId, block.id, 'before'),
+                  )
+                }
+                role="menuitem"
+              >
+                {authoringText('Place before rich content')}
+              </AuthoringButton>
+              <AuthoringButton
+                icon={<ArrowDown size={14} strokeWidth={2.2} />}
+                onClick={() =>
+                  run(() =>
+                    controller.moveStepActionRelativeToRichContent(stepId, block.id, 'after'),
+                  )
+                }
+                role="menuitem"
+              >
+                {authoringText('Place after rich content')}
+              </AuthoringButton>
+            </>
+          ) : (
+            <>
+              <AuthoringButton
+                icon={<ArrowUp size={14} strokeWidth={2.2} />}
+                onClick={() => run(() => controller.moveStepContentBlock(stepId, block.id, 'up'))}
+                role="menuitem"
+              >
+                {authoringText('Move up')}
+              </AuthoringButton>
+              <AuthoringButton
+                icon={<ArrowDown size={14} strokeWidth={2.2} />}
+                onClick={() => run(() => controller.moveStepContentBlock(stepId, block.id, 'down'))}
+                role="menuitem"
+              >
+                {authoringText('Move down')}
+              </AuthoringButton>
+            </>
+          )}
           <AuthoringButton
             icon={<Copy size={14} strokeWidth={2.2} />}
             onClick={() => run(() => controller.duplicateStepContentBlock(stepId, block.id))}

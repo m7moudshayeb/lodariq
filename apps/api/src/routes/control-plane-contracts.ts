@@ -307,6 +307,9 @@ export const SdkIngestEventsBody = Type.Object(
 );
 
 export const SdkAuthoringDocumentBody = Type.Object(
-  { document: Type.Unknown() },
+  {
+    document: Type.Unknown(),
+    expectedDocumentUpdatedAt: Type.Optional(Type.String({ format: 'date-time' })),
+  },
   { additionalProperties: false },
 );

@@ -64,7 +64,9 @@ export function AuthoringCanvas({
   const activeStep = activeStepIndex >= 0 ? (tourSteps[activeStepIndex] ?? null) : null;
   const advancedStep = tourSteps.find((step) => step.id === snapshot.advancedEditorStepId) ?? null;
   const opensFlowMap =
-    initialWorkspace?.kind === 'flowMap' && profile.capabilities.includes('flow');
+    initialWorkspace?.kind === 'flowMap' &&
+    profile.capabilities.includes('flow') &&
+    snapshot.deliveryCapabilities.has('flow.v1');
   const [flowMapOpen, setFlowMapOpen] = useState(opensFlowMap);
   const [flowMapFocusStepId, setFlowMapFocusStepId] = useState<string | null>(
     opensFlowMap ? (initialWorkspace.focusBlockId ?? null) : null,

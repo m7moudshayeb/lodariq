@@ -58,6 +58,7 @@ import {
   ResponsiveStepOverride,
   ResponsiveStepPresentation,
   SpotlightPresentation,
+  StructuredCompositionPresentation,
   TourMotionPresentation,
 } from './presentation';
 import { ElementFingerprint, RuntimeLifecycleHints, TargetIdentityV2 } from './target';
@@ -87,6 +88,7 @@ export const COMPILED_RUNTIME_SCHEMA_REFERENCES = [
   RuntimeLifecycleHints,
   SafeFontFamily,
   SpotlightPresentation,
+  StructuredCompositionPresentation,
   SrgbColorWithOptionalAlpha,
   StepChoreography,
   StepChoreographyTransition,
