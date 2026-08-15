@@ -198,9 +198,38 @@ function openCreatorAuthoringPanel(
             ownerId: previewOptions.ownerId,
             ...(previewOptions.locale ? { locale: previewOptions.locale } : {}),
             ...(previewOptions.interactive ? { interactive: true } : {}),
+            ...(previewOptions.flowConditionContext
+              ? { flowConditionContext: previewOptions.flowConditionContext }
+              : {}),
             ...(previewOptions.stepId ? { initialStepId: previewOptions.stepId } : {}),
             ...(previewOptions.authoringTargetOverride
               ? { authoringTargetOverride: previewOptions.authoringTargetOverride }
+              : {}),
+            ...(previewOptions.onStepChange
+              ? {
+                  onStepChange: (index, step) => previewOptions.onStepChange?.(index, step.id),
+                }
+              : {}),
+            ...(previewOptions.onComplete ? { onComplete: previewOptions.onComplete } : {}),
+            ...(previewOptions.onDismiss ? { onDismiss: previewOptions.onDismiss } : {}),
+            ...(previewOptions.onSkip ? { onSkip: previewOptions.onSkip } : {}),
+            ...(previewOptions.onChoreographyStageChange
+              ? {
+                  onChoreographyStageChange: (step, update) =>
+                    previewOptions.onChoreographyStageChange?.(step.id, update),
+                }
+              : {}),
+            ...(previewOptions.onBranchChoice
+              ? {
+                  onBranchChoice: (step, ruleIndex, destination) =>
+                    previewOptions.onBranchChoice?.(step.id, ruleIndex, destination),
+                }
+              : {}),
+            ...(previewOptions.getAuthoringProtectedSurfaces
+              ? { getAuthoringProtectedSurfaces: previewOptions.getAuthoringProtectedSurfaces }
+              : {}),
+            ...(previewOptions.onAuthoringSurfaceChange
+              ? { onAuthoringSurfaceChange: previewOptions.onAuthoringSurfaceChange }
               : {}),
           });
         },

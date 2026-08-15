@@ -59,7 +59,12 @@ msgid "dashboard.viewModel.blockingChecks"
 msgstr "{count} حظر {count, plural, one {فحص} other {فحوصات}}"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:778
+#: src/i18n/messages.ts:508
+msgid "dashboard.viewModel.flowIssues"
+msgstr "{count} {count, plural, one {مشكلة في التدفق} other {مشكلات في التدفق}}"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:792
 msgid "dashboard.action.ambiguousOrigins"
 msgstr "{count} تم تخطي تعيينات الأصل لأن نفس الأصل ينتمي إلى أكثر من بيئة واحدة."
 
@@ -107,6 +112,11 @@ msgstr "{environment} فقط · الصفوف المجمعة ذات نطاق ال
 #: src/components/document-debug-panel.tsx:53
 msgid "dashboard.support.readyForReview"
 msgstr "{experience} جاهز لمراجعة الدعم."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:512
+msgid "dashboard.viewModel.flowIssueSummary"
+msgstr "{first} · {remaining} أخرى"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages.ts:127
@@ -204,22 +214,22 @@ msgid "dashboard.brand.preview.accessibleFallback"
 msgstr "احتياطي يمكن الوصول إليه"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:856
+#: src/i18n/messages.ts:870
 msgid "auth.page.accountAccess"
 msgstr "الوصول إلى الحساب"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:873
+#: src/i18n/messages.ts:887
 msgid "auth.page.signUpDisabled.eyebrow"
 msgstr "إنشاء الحساب"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:886
+#: src/i18n/messages.ts:900
 msgid "auth.page.signUpDisabled.body"
 msgstr "إنشاء الحساب غير متاح في هذا النشر."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1043
+#: src/i18n/messages.ts:1057
 msgid "auth.error.signupUnavailable"
 msgstr "إنشاء الحساب غير متاح حاليًا."
 
@@ -274,6 +284,11 @@ msgid "dashboard.publishIssue.missingUrl.message"
 msgstr "أضف عنوان URL للصفحة الآمنة قبل النشر."
 
 #. js-lingui-explicit-id
+#: src/i18n/server-feedback.ts:196
+msgid "dashboard.publishIssue.nonTerminatingFlow.message"
+msgstr "أضف نتيجة تسمح بإنهاء هذا المسار المتكرر."
+
+#. js-lingui-explicit-id
 #: src/i18n/server-feedback.ts:30
 msgid "dashboard.publishIssue.emptyTour.message"
 msgstr "أضف خطوة واحدة على الأقل قبل النشر."
@@ -294,7 +309,7 @@ msgid "dashboard.publishIssue.missingStepContent.message"
 msgstr "أضف محتوى مرئيًا إلى هذه الخطوة قبل النشر."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1076
+#: src/i18n/messages.ts:1090
 msgid "workspaceSelection.role.admin"
 msgstr "المشرف"
 
@@ -329,7 +344,7 @@ msgid "dashboard.activation.approveDescription"
 msgstr "اسمح لمساحة عمل Lodariq الخاصة بك بإنشاء وتحرير الجولات على {host}."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:956
+#: src/i18n/messages.ts:970
 msgid "auth.form.existingAccount"
 msgstr "هل لديك حساب لوداريق بالفعل؟"
 
@@ -359,7 +374,7 @@ msgid "dashboard.page.analytics.title"
 msgstr "التحليلات"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:799
+#: src/i18n/messages.ts:813
 msgid "dashboard.action.analyticsUnavailable"
 msgstr "التحليلات غير متاحة مؤقتًا للبيئة المحددة."
 
@@ -369,7 +384,7 @@ msgid "dashboard.analytics.unavailable"
 msgstr "التحليلات غير متاحة مؤقتًا للبيئة المحددة."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:795
+#: src/i18n/messages.ts:809
 msgid "dashboard.action.analyticsInvalid"
 msgstr "لا يمكن التحقق من بيانات التحليلات. ولم تظهر أي نتائج جزئية."
 
@@ -394,7 +409,7 @@ msgid "dashboard.viewModel.type.announcement"
 msgstr "إعلان"
 
 #. js-lingui-explicit-id
-#: src/i18n/server-feedback.ts:220
+#: src/i18n/server-feedback.ts:251
 msgid "dashboard.recovery.failure.operationInProgress"
 msgstr "هناك عملية إصدار أخرى قيد التقدم بالفعل. حاول مرة أخرى قريبا."
 
@@ -414,7 +429,7 @@ msgid "dashboard.installation.applicationName"
 msgstr "اسم التطبيق"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:713
+#: src/i18n/messages.ts:727
 msgid "dashboard.action.applicationNameRequired"
 msgstr "اسم التطبيق مطلوب."
 
@@ -499,7 +514,7 @@ msgid "dashboard.activation.approveTitle"
 msgstr "المؤلف في هذا التطبيق؟"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:839
+#: src/i18n/messages.ts:853
 msgid "auth.shell.authorOnce"
 msgstr "أنشئ مرة واحدة"
 
@@ -529,7 +544,7 @@ msgid "dashboard.authoringLaunch.authoringSite"
 msgstr "موقع التأليف"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:852
+#: src/i18n/messages.ts:866
 msgid "auth.shell.back"
 msgstr "العودة"
 
@@ -584,7 +599,7 @@ msgid "dashboard.page.brandSystem.title"
 msgstr "نظام العلامة التجارية"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:634
+#: src/i18n/messages.ts:648
 msgid "dashboard.action.brandCreated"
 msgstr "تم إنشاء نظام العلامة التجارية. قم بمراجعة الأساسيات، ثم قم بالموافقة على الإصدار الأول."
 
@@ -609,9 +624,14 @@ msgid "dashboard.brand.panel.themes"
 msgstr "مواضيع العلامة التجارية"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:865
+#: src/i18n/messages.ts:879
 msgid "auth.page.signUp.title"
 msgstr "أضف التجربة إلى منتجك"
+
+#. js-lingui-explicit-id
+#: src/i18n/server-feedback.ts:181
+msgid "dashboard.publishIssue.invalidFlowEdge.label"
+msgstr "اتصال تدفق معطّل"
 
 #. js-lingui-explicit-id
 #: src/i18n/server-feedback.ts:64
@@ -659,7 +679,7 @@ msgid "dashboard.locale.changing"
 msgstr "تغيير اللغة"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:963
+#: src/i18n/messages.ts:977
 msgid "auth.form.checkEmail"
 msgstr "تحقق من بريدك الإلكتروني"
 
@@ -694,7 +714,7 @@ msgid "dashboard.brand.editor.choose"
 msgstr "اختر"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:642
+#: src/i18n/messages.ts:656
 msgid "dashboard.action.chooseBrandTheme"
 msgstr "اختر سمة العلامة التجارية."
 
@@ -704,7 +724,7 @@ msgid "dashboard.publishIssue.ambiguousTarget.message"
 msgstr "اختر موضعًا أكثر تحديدًا قبل النشر."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:917
+#: src/i18n/messages.ts:931
 msgid "auth.page.newPassword.title"
 msgstr "اختر كلمة مرور جديدة"
 
@@ -719,7 +739,7 @@ msgid "dashboard.publishIssue.unsupportedAction.message"
 msgstr "اختر إجراءً مدعومًا قبل النشر."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:756
+#: src/i18n/messages.ts:770
 msgid "dashboard.action.chooseToken"
 msgstr "اختر رمزًا مميزًا."
 
@@ -729,7 +749,7 @@ msgid "dashboard.publishIssue.invalidPresentationArea.message"
 msgstr "اختر منطقة صالحة داخل العنصر المحدد."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:803
+#: src/i18n/messages.ts:817
 msgid "dashboard.action.chooseReleaseScope"
 msgstr "اختر مستندًا صالحًا وبيئة الإصدار."
 
@@ -744,22 +764,22 @@ msgid "dashboard.environmentPolicy.chooseEarlier"
 msgstr "اختر بيئة سابقة"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:701
+#: src/i18n/messages.ts:715
 msgid "dashboard.action.chooseEnvironment"
 msgstr "اختر البيئة."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1060
+#: src/i18n/messages.ts:1074
 msgid "workspaceSelection.description"
 msgstr "اختر مساحة عمل موجودة أو أنشئ واحدة دون مغادرة هذه الشاشة."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:742
+#: src/i18n/messages.ts:756
 msgid "dashboard.action.chooseExperience"
 msgstr "اختر تجربة."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:726
+#: src/i18n/messages.ts:740
 msgid "dashboard.action.chooseInstallation"
 msgstr "اختر تثبيت SDK."
 
@@ -769,7 +789,7 @@ msgid "dashboard.support.chooseExperience"
 msgstr "اختر الخبرة"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:783
+#: src/i18n/messages.ts:797
 msgid "dashboard.action.chooseAnalyticsEnvironment"
 msgstr "اختر بيئة تحليلية واحدة صالحة."
 
@@ -799,7 +819,7 @@ msgid "dashboard.publishIssue.missingTarget.message"
 msgstr "اختر مكان ظهور هذه الخطوة قبل النشر."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1009
+#: src/i18n/messages.ts:1023
 msgid "auth.form.choosePassword"
 msgstr "اختر كلمة المرور الخاصة بك"
 
@@ -844,7 +864,7 @@ msgid "dashboard.recovery.completeHistory"
 msgstr "التاريخ الكامل"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:828
+#: src/i18n/messages.ts:842
 msgid "dashboard.action.releaseHistoryIncomplete"
 msgstr "سجل الإصدار الكامل غير متاح مؤقتًا. لم يتم اقتطاع أي شيء."
 
@@ -864,7 +884,7 @@ msgid "dashboard.analytics.fact.completion"
 msgstr "الانتهاء"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:989
+#: src/i18n/messages.ts:1003
 msgid "auth.form.confirmPassword"
 msgstr "تأكيد كلمة المرور"
 
@@ -872,6 +892,11 @@ msgstr "تأكيد كلمة المرور"
 #: src/components/release-recovery-panel.tsx:134
 msgid "dashboard.recovery.confirmExact"
 msgstr "التأكيد: {action}"
+
+#. js-lingui-explicit-id
+#: src/i18n/server-feedback.ts:189
+msgid "dashboard.publishIssue.unreachableStep.message"
+msgstr "اربط هذه الخطوة بمسار يمكن للأشخاص الوصول إليه."
 
 #. js-lingui-explicit-id
 #: src/components/sdk-snippet-panel.tsx:89
@@ -894,7 +919,7 @@ msgid "dashboard.viewModel.contentHashStrongestEvidence"
 msgstr "يعد تجزئة المحتوى أقوى دليل متاح على القطع الأثرية"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:955
+#: src/i18n/messages.ts:969
 msgid "auth.form.continue"
 msgstr "تابع"
 
@@ -919,7 +944,7 @@ msgid "dashboard.activation.continue"
 msgstr "الاستمرار في التأليف"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:859
+#: src/i18n/messages.ts:873
 msgid "auth.page.signIn.title"
 msgstr "واصل عملك"
 
@@ -954,7 +979,7 @@ msgid "dashboard.activation.couldNotContinue"
 msgstr "لا يمكن الاستمرار"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1071
+#: src/i18n/messages.ts:1085
 msgid "workspaceSelection.createError"
 msgstr "تعذر إنشاء مساحة العمل."
 
@@ -964,7 +989,7 @@ msgid "dashboard.account.createFailed"
 msgstr "لا يمكن إنشاء مساحة العمل."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1067
+#: src/i18n/messages.ts:1081
 msgid "workspaceSelection.openError"
 msgstr "تعذر فتح مساحة العمل هذه."
 
@@ -979,22 +1004,22 @@ msgid "dashboard.account.switchFailed"
 msgstr "لا يمكن تبديل مساحات العمل."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1064
+#: src/i18n/messages.ts:1078
 msgid "workspaceSelection.create"
 msgstr "إنشاء مساحة عمل"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:954
+#: src/i18n/messages.ts:968
 msgid "auth.form.createAccount"
 msgstr "إنشاء حساب"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:962
+#: src/i18n/messages.ts:976
 msgid "auth.form.createAnAccount"
 msgstr "إنشاء حساب"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1066
+#: src/i18n/messages.ts:1080
 msgid "workspaceSelection.createAndOpen"
 msgstr "إنشاء وفتح"
 
@@ -1014,12 +1039,12 @@ msgid "dashboard.account.createWorkspace"
 msgstr "إنشاء مساحة عمل"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:869
+#: src/i18n/messages.ts:883
 msgid "auth.page.signUp.description"
 msgstr "أنشئ حسابك ومساحة العمل الأولى معًا — بدون أي تحويلات في الإعداد."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:844
+#: src/i18n/messages.ts:858
 msgid "auth.shell.workflow"
 msgstr "أنشئ وراجع وانشر من مكان واحد، دون توزيع العمل بين علامات التبويب والأدوات."
 
@@ -1094,7 +1119,7 @@ msgid "dashboard.analytics.default"
 msgstr "الافتراضي"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:677
+#: src/i18n/messages.ts:691
 msgid "dashboard.action.defaultThemeInvalid"
 msgstr "طلب السمة الافتراضي غير صالح."
 
@@ -1104,7 +1129,7 @@ msgid "dashboard.brand.controller.defaultMissing"
 msgstr "لم يتم إرجاع الموضوع الافتراضي."
 
 #. js-lingui-explicit-id
-#: src/i18n/server-feedback.ts:212
+#: src/i18n/server-feedback.ts:243
 msgid "dashboard.recovery.failure.alreadyInactive"
 msgstr "التسليم غير نشط بالفعل لهذا المستند."
 
@@ -1204,7 +1229,7 @@ msgid "dashboard.viewModel.draftSaved"
 msgstr "تم حفظ المسودة"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:659
+#: src/i18n/messages.ts:673
 msgid "dashboard.action.draftSaved"
 msgstr "تم حفظ المسودة."
 
@@ -1224,27 +1249,27 @@ msgid "dashboard.brand.editor.editing"
 msgstr "مسودة التحرير"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:941
+#: src/i18n/messages.ts:955
 msgid "auth.form.email"
 msgstr "البريد الإلكتروني"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:974
+#: src/i18n/messages.ts:988
 msgid "auth.form.emailSecureLink"
 msgstr "أرسل رابطًا آمنًا عبر البريد الإلكتروني"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1031
+#: src/i18n/messages.ts:1045
 msgid "auth.error.invalidCredentials"
 msgstr "البريد الإلكتروني أو كلمة المرور غير صحيحة."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:857
+#: src/i18n/messages.ts:871
 msgid "auth.page.emailVerification"
 msgstr "التحقق من البريد الإلكتروني"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:998
+#: src/i18n/messages.ts:1012
 msgid "auth.form.emailVerified"
 msgstr "تم التحقق من البريد الإلكتروني"
 
@@ -1284,7 +1309,7 @@ msgid "dashboard.environmentPolicy.title"
 msgstr "السياسة البيئية"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:617
+#: src/i18n/messages.ts:631
 msgid "dashboard.action.environmentPolicyUpdated"
 msgstr "تم تحديث سياسة البيئة."
 
@@ -1307,6 +1332,11 @@ msgstr "أساسيات"
 #: src/components/environment-policy-editor.tsx:97
 msgid "dashboard.environmentPolicy.invalidOrigin"
 msgstr "يجب أن يكون كل أصل هو أصل HTTP(S) دقيقًا."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:504
+msgid "dashboard.viewModel.flowHealthyDetail"
+msgstr "لكل مسار يمكن الوصول إليه نتيجة نهائية."
 
 #. js-lingui-explicit-id
 #: src/i18n/messages.ts:432
@@ -1359,7 +1389,7 @@ msgid "dashboard.analytics.fact.tourStartsDescription"
 msgstr "الأحداث التي بدأت الجولة بالضبط؛ لا يوجد تقدير لمستخدم فريد أو تحويل."
 
 #. js-lingui-explicit-id
-#: src/components/dashboard-release-view.tsx:20
+#: src/components/dashboard-release-view.tsx:21
 msgid "dashboard.releases.exactArtifactPromotion"
 msgstr "الترويج قطعة أثرية بالضبط"
 
@@ -1449,7 +1479,7 @@ msgid "dashboard.activation.recoveryFinish"
 msgstr "انتهي من هذا، ثم أغلق هذه النافذة وابدأ في التأليف مرة أخرى."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:931
+#: src/i18n/messages.ts:945
 msgid "auth.page.finishAccount.title"
 msgstr "أكمل إعداد حسابك"
 
@@ -1462,6 +1492,16 @@ msgstr "الأول {first} · الأخير {last}"
 #: src/i18n/server-feedback.ts:168
 msgid "dashboard.publishIssue.invalidBlock.message"
 msgstr "قم بإصلاح تكوين هذه الكتلة قبل النشر."
+
+#. js-lingui-explicit-id
+#: src/i18n/server-feedback.ts:195
+msgid "dashboard.publishIssue.nonTerminatingFlow.label"
+msgstr "التدفق لا ينتهي"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:502
+msgid "dashboard.viewModel.flowHealth"
+msgstr "سلامة التدفق"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages.ts:48
@@ -1499,6 +1539,11 @@ msgid "dashboard.brand.editor.georgiaSerif"
 msgstr "جورجيا شريف"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages.ts:503
+msgid "dashboard.viewModel.flowHealthy"
+msgstr "سليم"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages.ts:21
 msgid "dashboard.navigation.support"
 msgstr "المساعدة والدعم"
@@ -1534,7 +1579,7 @@ msgid "dashboard.viewModel.type.hotspot"
 msgstr "نقطة اتصال"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:964
+#: src/i18n/messages.ts:978
 msgid "auth.form.recoveryEmailSent"
 msgstr "إذا كان هذا العنوان ينتمي إلى حساب Lodariq، فإن الرسالة الأحدث تحتوي على رابط كلمة مرور آمنة. تنتهي صلاحيته قريبًا ويعمل مرة واحدة."
 
@@ -1564,7 +1609,7 @@ msgid "dashboard.viewModel.immutablePublication"
 msgstr "منشور غير قابل للتغيير"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:646
+#: src/i18n/messages.ts:660
 msgid "dashboard.action.impactRefreshed"
 msgstr "تم تحديث التأثير."
 
@@ -1749,7 +1794,7 @@ msgid "dashboard.installation.automaticOrigins"
 msgstr "يقوم Lodariq تلقائيًا بتعيين الأصول الموثوقة التي تم تكوينها بالفعل للتطوير والتجهيز والإنتاج."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:515
+#: src/i18n/messages.ts:529
 msgid "dashboard.entry.unavailableDescription"
 msgstr "لم يتمكن لوداريق من التحقق من جلستك. قد تكون الخدمة غير متاحة مؤقتًا."
 
@@ -1764,7 +1809,7 @@ msgid "dashboard.metadata.title"
 msgstr "مساحة عمل Lodariq"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1051
+#: src/i18n/messages.ts:1065
 msgid "auth.error.serviceUnavailable"
 msgstr "تسجيل الدخول إلى Lodariq غير متاح مؤقتًا."
 
@@ -1784,12 +1829,17 @@ msgid "dashboard.brand.empty.title"
 msgstr "اجعل كل تجربة تبدو أصلية"
 
 #. js-lingui-explicit-id
+#: src/i18n/server-feedback.ts:206
+msgid "dashboard.publishIssue.missingTerminalCompletion.message"
+msgstr "تأكد من أن كل مسار ممكن يمكنه إكمال الجولة أو إغلاقها."
+
+#. js-lingui-explicit-id
 #: src/i18n/messages.ts:73
 msgid "dashboard.page.environments.description"
 msgstr "إدارة أصول المنتجات الموثوقة وكل عملية تثبيت في وقت تشغيل البيئة."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1077
+#: src/i18n/messages.ts:1091
 msgid "workspaceSelection.role.member"
 msgstr "عضو"
 
@@ -1807,6 +1857,11 @@ msgstr "عضو"
 #: src/components/analytics-panel.tsx:217
 msgid "dashboard.analytics.target.missing"
 msgstr "مفقود"
+
+#. js-lingui-explicit-id
+#: src/i18n/server-feedback.ts:202
+msgid "dashboard.publishIssue.missingTerminalCompletion.label"
+msgstr "مسار إكمال مفقود"
 
 #. js-lingui-explicit-id
 #: src/i18n/server-feedback.ts:50
@@ -1874,12 +1929,12 @@ msgid "dashboard.brand.impact.noLinkedDescription"
 msgstr "يمكن للتجارب الجديدة استخدام هذا الموضوع بعد الموافقة الأولى عليه."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:987
+#: src/i18n/messages.ts:1001
 msgid "auth.form.newPassword"
 msgstr "كلمة المرور الجديدة"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:960
+#: src/i18n/messages.ts:974
 msgid "auth.form.newToLodariq"
 msgstr "هل أنت جديد في لوداريق؟"
 
@@ -1929,7 +1984,7 @@ msgid "dashboard.viewModel.noBlockingChecks"
 msgstr "لا يوجد حظر الشيكات"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:769
+#: src/i18n/messages.ts:783
 msgid "dashboard.action.noProductOrigins"
 msgstr "لم يتم تكوين أصول المنتج الأساسية حتى الآن."
 
@@ -1944,7 +1999,7 @@ msgid "dashboard.support.noCustomerVersion"
 msgstr "لا يوجد إصدار العميل حتى الآن"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:751
+#: src/i18n/messages.ts:765
 msgid "dashboard.action.noDeliveryRecord"
 msgstr "لا يوجد سجل تسليم"
 
@@ -2029,7 +2084,7 @@ msgid "dashboard.recovery.noOperations"
 msgstr "لم يتم تسجيل أية عمليات إصدار لهذه البيئة."
 
 #. js-lingui-explicit-id
-#: src/components/dashboard-release-view.tsx:29
+#: src/components/dashboard-release-view.tsx:30
 msgid "dashboard.releases.emptyTitle"
 msgstr "لا توجد إصدارات للمراجعة"
 
@@ -2054,7 +2109,7 @@ msgid "dashboard.installation.noOrigins"
 msgstr "لم يتم تعيين أي أصول موثوقة حتى الآن. قم بإضافة الأصول إلى البيئات، ثم قم بالمزامنة."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:755
+#: src/i18n/messages.ts:769
 msgid "dashboard.action.noVersions"
 msgstr "لا توجد إصدارات"
 
@@ -2089,7 +2144,7 @@ msgid "dashboard.viewModel.notPrepared"
 msgstr "غير مستعد"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:750
+#: src/i18n/messages.ts:764
 msgid "dashboard.action.notPrepared"
 msgstr "غير مستعد"
 
@@ -2114,12 +2169,12 @@ msgid "dashboard.authoringLaunch.shortcut"
 msgstr "في موقع ممكّن للتأليف، يقوم {shortcut} بتبديل المشغل دون زيارة لوحة المعلومات."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:593
+#: src/i18n/messages.ts:607
 msgid "dashboard.action.approvalRequired"
 msgstr "يلزم الآن الحصول على موافقة واحدة قبل النقل إلى بيئة الإنتاج."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:904
+#: src/i18n/messages.ts:918
 msgid "auth.page.recovery.description"
 msgstr "يتيح رابط بريد إلكتروني واحد لمنشئ حالي إنشاء كلمة مرور Lodariq الخاصة به أو استبدالها."
 
@@ -2144,7 +2199,7 @@ msgid "dashboard.installation.oneLine"
 msgstr "سطر واحد، مرة واحدة"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:773
+#: src/i18n/messages.ts:787
 msgid "dashboard.action.ambiguousOrigin"
 msgstr "تم تخطي تعيين أصل واحد لأن نفس الأصل ينتمي إلى أكثر من بيئة واحدة."
 
@@ -2179,12 +2234,17 @@ msgid "dashboard.activation.openFromLauncher"
 msgstr "افتح التأليف من مشغل Lodariq داخل تطبيقك."
 
 #. js-lingui-explicit-id
+#: src/components/dashboard-release-view.tsx:36
+msgid "dashboard.releases.openFlowMap"
+msgstr "فتح خريطة التدفق"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages.ts:82
 msgid "dashboard.page.openInProduct"
 msgstr "فتح في المنتج"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:969
+#: src/i18n/messages.ts:983
 msgid "auth.form.openLocalRecoveryLink"
 msgstr "افتح رابط الاسترداد المحلي"
 
@@ -2204,7 +2264,7 @@ msgid "dashboard.brand.controller.reviewRequired"
 msgstr "افتح مراجعة الموافقة وانتظر معاينتي وقت التشغيل قبل الموافقة."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1024
+#: src/i18n/messages.ts:1038
 msgid "auth.form.openVerificationLink"
 msgstr "افتح رابط التحقق الكامل من بريدك الإلكتروني، ثم اختر كلمة المرور الخاصة بحسابك."
 
@@ -2224,12 +2284,12 @@ msgid "dashboard.authoringLaunch.title"
 msgstr "افتح المنتج الخاص بك"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:535
+#: src/i18n/messages.ts:549
 msgid "dashboard.loading.label"
 msgstr "فتح مساحة عمل Lodariq الخاصة بك"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1000
+#: src/i18n/messages.ts:1014
 msgid "auth.form.openingWorkspace"
 msgstr "فتح مساحة عمل Lodariq الخاصة بك..."
 
@@ -2249,7 +2309,7 @@ msgid "dashboard.navigation.overview"
 msgstr "نظرة عامة"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1075
+#: src/i18n/messages.ts:1089
 msgid "workspaceSelection.role.owner"
 msgstr "المالك"
 
@@ -2269,22 +2329,22 @@ msgid "dashboard.launchQueue.pageScope"
 msgstr "نطاق الصفحة"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:942
+#: src/i18n/messages.ts:956
 msgid "auth.form.password"
 msgstr "كلمة المرور"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:895
+#: src/i18n/messages.ts:909
 msgid "auth.page.recoveryDisabled.description"
 msgstr "لم يتم تمكين استعادة كلمة المرور لهذا النشر حتى الآن."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1047
+#: src/i18n/messages.ts:1061
 msgid "auth.error.recoveryUnavailable"
 msgstr "استعادة كلمة المرور غير متاحة مؤقتًا."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:975
+#: src/i18n/messages.ts:989
 msgid "auth.form.passwordsDoNotMatch"
 msgstr "كلمات المرور غير متطابقة."
 
@@ -2309,7 +2369,7 @@ msgid "dashboard.environmentPolicy.pipeline"
 msgstr "خط أنابيب"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:952
+#: src/i18n/messages.ts:966
 msgid "auth.form.pleaseTryAgain"
 msgstr "الرجاء المحاولة مرة أخرى."
 
@@ -2399,7 +2459,7 @@ msgid "dashboard.environments.productEnvironments"
 msgstr "بيئات المنتج"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:840
+#: src/i18n/messages.ts:854
 msgid "auth.shell.productExperiences"
 msgstr "تجارب تبدو جزءًا طبيعيًا من منتجك."
 
@@ -2419,7 +2479,7 @@ msgid "dashboard.viewModel.productSurfaceContext"
 msgstr "سياق سطح المنتج"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1065
+#: src/i18n/messages.ts:1079
 msgid "workspaceSelection.placeholder"
 msgstr "فريق المنتج"
 
@@ -2479,12 +2539,12 @@ msgid "dashboard.viewModel.exactArtifactPromoted"
 msgstr "يشير الإنتاج إلى القطعة الأثرية الدقيقة التي تم الترويج لها من العرض المسرحي."
 
 #. js-lingui-explicit-id
-#: src/components/dashboard-release-view.tsx:24
+#: src/components/dashboard-release-view.tsx:25
 msgid "dashboard.releases.exactArtifactDescription"
 msgstr "يجب أن يعيد ترويج الإنتاج استخدام قطعة التدريج التي تم التحقق منها بدون إعادة البناء أو تغيير السمة تلقائيًا أو نسخة البيئة."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:597
+#: src/i18n/messages.ts:611
 msgid "dashboard.action.approvalNotRequired"
 msgstr "لم يعد ترويج الإنتاج يتطلب موافقة منفصلة."
 
@@ -2614,12 +2674,12 @@ msgid "dashboard.viewModel.radius"
 msgstr "نصف القطر"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:979
+#: src/i18n/messages.ts:993
 msgid "auth.form.readingSecureLink"
 msgstr "جارٍ قراءة الرابط الآمن…"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1005
+#: src/i18n/messages.ts:1019
 msgid "auth.form.readingVerificationLink"
 msgstr "جارٍ قراءة رابط التحقق الآمن…"
 
@@ -2664,7 +2724,12 @@ msgid "dashboard.recentActivity.title"
 msgstr "النشاط الأخير"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:891
+#: src/i18n/server-feedback.ts:182
+msgid "dashboard.publishIssue.invalidFlowEdge.message"
+msgstr "أعد توصيل هذا الإجراء بخطوة لا تزال موجودة."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:905
 msgid "auth.page.recoveryDisabled.title"
 msgstr "الاسترداد غير متاح"
 
@@ -2709,7 +2774,7 @@ msgid "dashboard.recovery.title"
 msgstr "تاريخ الإصدار والاسترداد"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:820
+#: src/i18n/messages.ts:834
 msgid "dashboard.action.releaseHistoryMissing"
 msgstr "سجل الإصدار غير متوفر لهذا المستند."
 
@@ -2724,7 +2789,7 @@ msgid "dashboard.releaseProgress.label"
 msgstr "تقدم الافراج"
 
 #. js-lingui-explicit-id
-#: src/i18n/server-feedback.ts:182
+#: src/i18n/server-feedback.ts:213
 msgid "dashboard.recovery.failure.unknown"
 msgstr "تعذر إكمال عملية استرداد الإصدار."
 
@@ -2769,7 +2834,7 @@ msgid "dashboard.brand.preview.rendering"
 msgstr "جولة العرض…"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:916
+#: src/i18n/messages.ts:930
 msgid "auth.page.requestAnotherLink"
 msgstr "اطلب رابطًا آخر"
 
@@ -2804,12 +2869,12 @@ msgid "dashboard.analytics.retry"
 msgstr "أعد محاولة البيئة المحددة"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:927
+#: src/i18n/messages.ts:941
 msgid "auth.page.returnToAccountCreation"
 msgstr "العودة إلى إنشاء الحساب"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:899
+#: src/i18n/messages.ts:913
 msgid "auth.page.returnToSignIn"
 msgstr "العودة لتسجيل الدخول"
 
@@ -2989,7 +3054,7 @@ msgid "dashboard.brand.editor.save"
 msgstr "حفظ المسودة"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:990
+#: src/i18n/messages.ts:1004
 msgid "auth.form.savePassword"
 msgstr "احفظ كلمة المرور وتابع"
 
@@ -3009,7 +3074,7 @@ msgid "dashboard.brand.review.savedDraft"
 msgstr "المسودة المحفوظة"
 
 #. js-lingui-explicit-id
-#: src/components/dashboard-release-view.tsx:30
+#: src/components/dashboard-release-view.tsx:31
 msgid "dashboard.releases.emptyDescription"
 msgstr "ستظهر التجارب المحفوظة هنا مع سجلات النشر التي يمكن لواجهة برمجة التطبيقات الحالية إثباتها."
 
@@ -3039,7 +3104,7 @@ msgid "dashboard.analytics.fact.sdkErrors"
 msgstr "أخطاء SDK"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:730
+#: src/i18n/messages.ts:744
 msgid "dashboard.action.installationNotFound"
 msgstr "لم يتم العثور على تثبيت SDK."
 
@@ -3054,7 +3119,7 @@ msgid "dashboard.documents.search"
 msgstr "تجارب البحث"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:848
+#: src/i18n/messages.ts:862
 msgid "auth.shell.secureAccess"
 msgstr "وصول آمن ومباشر إلى Lodariq"
 
@@ -3064,7 +3129,7 @@ msgid "dashboard.brand.review.title"
 msgstr "شاهد التغيير حيث سيفعل العملاء"
 
 #. js-lingui-explicit-id
-#: src/i18n/server-feedback.ts:200
+#: src/i18n/server-feedback.ts:231
 msgid "dashboard.recovery.failure.rollbackTargetInvalid"
 msgstr "حدد منشورًا ناجحًا سابقًا من سجل الإصدار هذا."
 
@@ -3104,12 +3169,12 @@ msgid "dashboard.environmentPolicy.separateVerifier"
 msgstr "مدقق منفصل"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:943
+#: src/i18n/messages.ts:957
 msgid "auth.form.setOrResetPassword"
 msgstr "تعيين أو إعادة تعيين كلمة المرور"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:900
+#: src/i18n/messages.ts:914
 msgid "auth.page.recovery.title"
 msgstr "قم بتعيين أو إعادة تعيين كلمة المرور الخاصة بك"
 
@@ -3119,12 +3184,12 @@ msgid "dashboard.page.brandSystem.description"
 msgstr "قم بتشكيل تجربة العميل باستخدام الرموز المميزة الآمنة، ثم قم بالموافقة على كل إصدار."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:961
+#: src/i18n/messages.ts:975
 msgid "auth.form.signIn"
 msgstr "تسجيل الدخول"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:550
+#: src/i18n/messages.ts:564
 msgid "dashboard.server.authenticationRequired"
 msgstr "قم بتسجيل الدخول مرة أخرى للمتابعة."
 
@@ -3134,12 +3199,12 @@ msgid "dashboard.activation.signInDescription"
 msgstr "تسجيل الدخول هنا. ستستأنف هذه النافذة نفس طلب التأليف الآمن تلقائيًا."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:890
+#: src/i18n/messages.ts:904
 msgid "auth.page.signInInstead"
 msgstr "قم بتسجيل الدخول بدلاً من ذلك"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:505
+#: src/i18n/messages.ts:519
 msgid "dashboard.entry.signInTitle"
 msgstr "قم بتسجيل الدخول إلى لوداريق"
 
@@ -3154,17 +3219,17 @@ msgid "dashboard.account.signOut"
 msgstr "تسجيل الخروج"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:877
+#: src/i18n/messages.ts:891
 msgid "auth.page.signUpDisabled.title"
 msgstr "التسجيل غير متاح هنا"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:953
+#: src/i18n/messages.ts:967
 msgid "auth.form.signingIn"
 msgstr "تسجيل الدخول"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:705
+#: src/i18n/messages.ts:719
 msgid "dashboard.action.siteLabelRequired"
 msgstr "تسمية الموقع مطلوبة."
 
@@ -3179,12 +3244,12 @@ msgid "dashboard.brand.editor.radius.soft"
 msgstr "ناعم"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:582
+#: src/i18n/messages.ts:596
 msgid "dashboard.server.partialData"
 msgstr "بعض بيانات مساحة العمل غير متاحة مؤقتًا. الأقسام المتاحة تظل قابلة للاستخدام."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1030
+#: src/i18n/messages.ts:1044
 msgid "auth.form.soon"
 msgstr "قريبا"
 
@@ -3254,7 +3319,7 @@ msgid "dashboard.documents.emptyDescription"
 msgstr "ابدأ جولة في المنشئ، ثم سيظهر هنا للمراجعة والنشر."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:864
+#: src/i18n/messages.ts:878
 msgid "auth.page.signUp.eyebrow"
 msgstr "ابدأ بالتأليف"
 
@@ -3369,7 +3434,7 @@ msgid "dashboard.brand.editor.text"
 msgstr "نص"
 
 #. js-lingui-explicit-id
-#: src/i18n/server-feedback.ts:208
+#: src/i18n/server-feedback.ts:239
 msgid "dashboard.recovery.failure.deploymentChanged"
 msgstr "تم تغيير النشر النشط. قم بتحديث سجل الإصدار وحاول مرة أخرى."
 
@@ -3379,12 +3444,12 @@ msgid "dashboard.analytics.rowBound"
 msgstr "أرجعت واجهة برمجة التطبيقات (API) حد العرض المكون من 1000 صف. قد توجد صفوف إضافية ذات نطاق الإصدار؛ ولا يستدل على شيء خارج هذا الحد."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:621
+#: src/i18n/messages.ts:635
 msgid "dashboard.action.environmentPolicyChanged"
 msgstr "تغيرت سياسة البيئة أو تتعارض مع مسار الإصدار. قم بالتحديث وحاول مرة أخرى."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:613
+#: src/i18n/messages.ts:627
 msgid "dashboard.action.environmentPolicyInvalid"
 msgstr "سياسة البيئة غير صالحة."
 
@@ -3394,12 +3459,12 @@ msgid "dashboard.viewModel.stagedArtifactReady"
 msgstr "يتم التحقق من القطعة الأثرية التي تم تنظيمها بدقة وتكون جاهزة للترويج المتعمد للإنتاج."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:693
+#: src/i18n/messages.ts:707
 msgid "dashboard.action.experienceBrandUpdated"
 msgstr "ستستخدم التجربة إصدار العلامة التجارية المعتمد في ملفها المجمّع التالي."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:717
+#: src/i18n/messages.ts:731
 msgid "dashboard.action.originsNotSynced"
 msgstr "تم إنشاء التثبيت، لكن تعذرت مزامنة النطاقات الموثوقة. أعد مزامنتها قبل استخدام التثبيت."
 
@@ -3414,12 +3479,12 @@ msgid "dashboard.viewModel.stagingEarlierHash"
 msgstr "يستخدم أحدث سجل نشر مرحلي تجزئة محتوى أقدم من المسودة المحفوظة."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1029
+#: src/i18n/messages.ts:1043
 msgid "auth.form.linkExpires"
 msgstr "تنتهي صلاحية الرابط {expiry}."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1039
+#: src/i18n/messages.ts:1053
 msgid "auth.error.invalidPasswordLink"
 msgstr "رابط كلمة المرور غير صالح أو منتهي الصلاحية."
 
@@ -3429,12 +3494,12 @@ msgid "dashboard.support.customerVersionDescription"
 msgstr "النسخة المعدة التي يراها العملاء على موقعك."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:589
+#: src/i18n/messages.ts:603
 msgid "dashboard.action.productionApprovalInvalid"
 msgstr "سياسة الموافقة على الإنتاج غير صالحة."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:601
+#: src/i18n/messages.ts:615
 msgid "dashboard.action.productionChanged"
 msgstr "تغيرت بيئة الإنتاج في جلسة أخرى. قم بالتحديث وحاول مرة أخرى."
 
@@ -3444,17 +3509,17 @@ msgid "dashboard.installation.publicIdSafety"
 msgstr "معرف التثبيت العام قابل للإلغاء ولا يحتوي على سر مساحة العمل أو رمز البيئة أو جلسة التأليف أو بيانات اعتماد الحساب."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:562
+#: src/i18n/messages.ts:576
 msgid "dashboard.server.conflict"
 msgstr "تم تغيير السجل في جلسة أخرى. قم بالتحديث وحاول مرة أخرى."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:815
+#: src/i18n/messages.ts:829
 msgid "dashboard.action.releaseRecoveryUncertain"
 msgstr "نتيجة الاسترداد غير مؤكدة. أعد محاولة الطلب الدقيق أو قم بتحديث سجل الإصدار."
 
 #. js-lingui-explicit-id
-#: src/i18n/server-feedback.ts:196
+#: src/i18n/server-feedback.ts:227
 msgid "dashboard.recovery.failure.documentNotFound"
 msgstr "تعذر العثور على وثيقة الإصدار."
 
@@ -3464,22 +3529,22 @@ msgid "dashboard.recovery.requestFailed"
 msgstr "تعذر إكمال طلب استرداد الإصدار."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:807
+#: src/i18n/messages.ts:821
 msgid "dashboard.action.releaseRecoveryInvalid"
 msgstr "طلب استرداد الإصدار غير صالح."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:542
+#: src/i18n/messages.ts:556
 msgid "dashboard.server.requestRejected"
 msgstr "لا يمكن قبول الطلب."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:546
+#: src/i18n/messages.ts:560
 msgid "dashboard.server.invalidRequest"
 msgstr "الطلب غير صالح."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:558
+#: src/i18n/messages.ts:572
 msgid "dashboard.server.notFound"
 msgstr "لم يتم العثور على سجل مساحة العمل المطلوبة."
 
@@ -3494,12 +3559,12 @@ msgid "dashboard.viewModel.noStagingRecordYet"
 msgstr "المسودة المحفوظة لا تحتوي على سجل نشر مرحلي حتى الآن."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:918
+#: src/i18n/messages.ts:932
 msgid "auth.page.newPassword.description"
 msgstr "تتم إزالة الرمز السري من متصفحك قبل ظهور النموذج. عند الحفظ، سيتم تسجيل دخولك."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:787
+#: src/i18n/messages.ts:801
 msgid "dashboard.action.analyticsEnvironmentUnavailable"
 msgstr "بيئة التحليلات المحددة غير متاحة."
 
@@ -3509,7 +3574,7 @@ msgid "dashboard.brand.panel.missingTheme"
 msgstr "لم يعد موضوع العلامة التجارية المحدد متاحًا. قم بتحديث مساحة العمل هذه."
 
 #. js-lingui-explicit-id
-#: src/i18n/server-feedback.ts:204
+#: src/i18n/server-feedback.ts:235
 msgid "dashboard.recovery.failure.artifactIncompatible"
 msgstr "المنشور المحدد غير مدعوم في وقت التشغيل الحالي."
 
@@ -3519,7 +3584,7 @@ msgid "dashboard.viewModel.stagedArtifactNeedsVerification"
 msgstr "القطعة الأثرية المرحلية تتطابق مع المسودة؛ لا يزال التحقق الدقيق من المتصفح مطلوبًا."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:994
+#: src/i18n/messages.ts:1008
 msgid "auth.form.invalidVerificationLink"
 msgstr "رابط التحقق غير صالح أو منتهي الصلاحية."
 
@@ -3529,42 +3594,42 @@ msgid "dashboard.support.editableBackupDescription"
 msgstr "يمكن استخدام دعم الإصدار لاستعادة التحرير."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:526
+#: src/i18n/messages.ts:540
 msgid "dashboard.error.title"
 msgstr "لم يكتمل تحميل مساحة العمل"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:519
+#: src/i18n/messages.ts:533
 msgid "dashboard.entry.workspaceUnavailable"
 msgstr "مساحة العمل غير متاحة مؤقتًا."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:570
+#: src/i18n/messages.ts:584
 msgid "dashboard.server.unavailable"
 msgstr "مساحة العمل غير متاحة مؤقتًا."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:574
+#: src/i18n/messages.ts:588
 msgid "dashboard.server.requestFailed"
 msgstr "لا يمكن إكمال طلب مساحة العمل."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:578
+#: src/i18n/messages.ts:592
 msgid "dashboard.server.invalidResponse"
 msgstr "لا يمكن التحقق من استجابة مساحة العمل."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:689
+#: src/i18n/messages.ts:703
 msgid "dashboard.action.themeAcknowledgementInvalid"
 msgstr "طلب إقرار السمة غير صالح."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:664
+#: src/i18n/messages.ts:678
 msgid "dashboard.action.themeApprovalInvalid"
 msgstr "طلب الموافقة على الموضوع غير صالح."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:651
+#: src/i18n/messages.ts:665
 msgid "dashboard.action.themeIdentityInvalid"
 msgstr "اسم السمة أو المعرف غير صالح."
 
@@ -3574,7 +3639,7 @@ msgid "dashboard.viewModel.themeRevision"
 msgstr "مراجعة الموضوع {revision}"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:655
+#: src/i18n/messages.ts:669
 msgid "dashboard.action.themeValuesInvalid"
 msgstr "قيم السمة غير صالحة. قم بمراجعة عناصر التحكم المميزة."
 
@@ -3589,12 +3654,12 @@ msgid "dashboard.activation.requestExpired"
 msgstr "طلب التأليف هذا غير متوفر أو منتهي الصلاحية. ارجع إلى المشغل وأعد المحاولة."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:761
+#: src/i18n/messages.ts:775
 msgid "dashboard.action.brandChanged"
 msgstr "تم تغيير سمة العلامة التجارية هذه في جلسة أخرى. قم بتحديث تأثيره قبل المحاولة مرة أخرى."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:881
+#: src/i18n/messages.ts:895
 msgid "auth.page.signUpDisabled.description"
 msgstr "هذا النشر لا يقبل حسابات جديدة. يمكن للمبدعين الحاليين الاستمرار في حساب Lodariq الخاص بهم."
 
@@ -3609,12 +3674,12 @@ msgid "dashboard.brand.review.noLinkedDescription"
 msgstr "تؤدي هذه الموافقة الأولى إلى إنشاء نسخة للعلامة التجارية قابلة لإعادة الاستخدام؛ يبقى النشر خطوة منفصلة."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:908
+#: src/i18n/messages.ts:922
 msgid "auth.page.incompleteLink.title"
 msgstr "هذا الرابط غير كامل"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:983
+#: src/i18n/messages.ts:997
 msgid "auth.form.incompletePasswordLink"
 msgstr "رابط كلمة المرور هذا غير كامل. اطلب رابطًا جديدًا للمتابعة."
 
@@ -3624,17 +3689,17 @@ msgid "dashboard.publishIssue.unknown.message"
 msgstr "يحتاج فحص النشر هذا إلى الاهتمام قبل الإصدار."
 
 #. js-lingui-explicit-id
-#: src/i18n/server-feedback.ts:216
+#: src/i18n/server-feedback.ts:247
 msgid "dashboard.recovery.failure.idempotencyConflict"
 msgstr "يتعارض طلب الاسترداد هذا مع طلب سابق. قم بالتحديث وحاول مرة أخرى."
 
 #. js-lingui-explicit-id
-#: src/i18n/server-feedback.ts:192
+#: src/i18n/server-feedback.ts:223
 msgid "dashboard.recovery.failure.environmentNotConfigured"
 msgstr "لم يتم تكوين بيئة الإصدار هذه."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1004
+#: src/i18n/messages.ts:1018
 msgid "auth.form.moment"
 msgstr "يجب أن يستغرق هذا لحظة واحدة فقط."
 
@@ -3644,12 +3709,12 @@ msgid "dashboard.brand.preview.renderFailed"
 msgstr "تعذر عرض معاينة الجولة هذه."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1035
+#: src/i18n/messages.ts:1049
 msgid "auth.error.rateLimited"
 msgstr "محاولات كثيرة جدًا. انتظر قليلاً وحاول مرة أخرى."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:566
+#: src/i18n/messages.ts:580
 msgid "dashboard.server.rateLimited"
 msgstr "الطلبات كثيرة جدًا. انتظر لفترة وجيزة وحاول مرة أخرى."
 
@@ -3709,12 +3774,12 @@ msgid "dashboard.installation.trustedOrigins"
 msgstr "أصول موثوقة"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:510
+#: src/i18n/messages.ts:524
 msgid "dashboard.entry.retryAction"
 msgstr "حاول مرة أخرى"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:534
+#: src/i18n/messages.ts:548
 msgid "dashboard.error.retry"
 msgstr "حاول مرة أخرى"
 
@@ -3724,67 +3789,67 @@ msgid "dashboard.viewModel.typography"
 msgstr "الطباعة"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:673
+#: src/i18n/messages.ts:687
 msgid "dashboard.action.approveBrandFailed"
 msgstr "غير قادر على الموافقة على إصدار العلامة التجارية هذا."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:638
+#: src/i18n/messages.ts:652
 msgid "dashboard.action.createBrandFailed"
 msgstr "غير قادر على إنشاء نظام العلامة التجارية."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:709
+#: src/i18n/messages.ts:723
 msgid "dashboard.action.createTokenFailed"
 msgstr "غير قادر على إنشاء الرمز المميز."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:647
+#: src/i18n/messages.ts:661
 msgid "dashboard.action.loadBrandImpactFailed"
 msgstr "غير قادر على تحميل تأثير العلامة التجارية."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:832
+#: src/i18n/messages.ts:846
 msgid "dashboard.action.releaseHistoryUnavailable"
 msgstr "غير قادر على تحميل سجل الإصدار الكامل."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:746
+#: src/i18n/messages.ts:760
 msgid "dashboard.action.loadSupportFailed"
 msgstr "غير قادر على تحميل تفاصيل الدعم."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:685
+#: src/i18n/messages.ts:699
 msgid "dashboard.action.setWorkspaceDefaultFailed"
 msgstr "غير قادر على جعل هذا هو مساحة العمل الافتراضية."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:722
+#: src/i18n/messages.ts:736
 msgid "dashboard.action.prepareInstallationFailed"
 msgstr "غير قادر على تحضير تثبيت SDK."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:738
+#: src/i18n/messages.ts:752
 msgid "dashboard.action.revokeInstallationFailed"
 msgstr "غير قادر على إبطال تثبيت SDK."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:757
+#: src/i18n/messages.ts:771
 msgid "dashboard.action.revokeTokenFailed"
 msgstr "غير قادر على إبطال الرمز المميز."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:660
+#: src/i18n/messages.ts:674
 msgid "dashboard.action.saveBrandDraftFailed"
 msgstr "غير قادر على حفظ مسودة العلامة التجارية هذه."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:734
+#: src/i18n/messages.ts:748
 msgid "dashboard.action.syncOriginsFailed"
 msgstr "غير قادر على مزامنة الأصول الموثوقة."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:609
+#: src/i18n/messages.ts:623
 msgid "dashboard.action.updateReleaseApprovalFailed"
 msgstr "غير قادر على تحديث الموافقة على الإصدار."
 
@@ -3794,7 +3859,7 @@ msgid "dashboard.environments.unableToUpdateApproval"
 msgstr "غير قادر على تحديث الموافقة على الإصدار."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:630
+#: src/i18n/messages.ts:644
 msgid "dashboard.action.updateEnvironmentPolicyFailed"
 msgstr "غير قادر على تحديث سياسة البيئة."
 
@@ -3804,7 +3869,7 @@ msgid "dashboard.environmentPolicy.unableToUpdate"
 msgstr "غير قادر على تحديث سياسة البيئة."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:697
+#: src/i18n/messages.ts:711
 msgid "dashboard.action.updateExperienceFailed"
 msgstr "غير قادر على تحديث هذه التجربة."
 
@@ -3862,6 +3927,11 @@ msgstr "غير منشورة"
 #: src/components/release-recovery-panel.tsx:191
 msgid "dashboard.recovery.unpublished"
 msgstr "غير منشورة"
+
+#. js-lingui-explicit-id
+#: src/i18n/server-feedback.ts:188
+msgid "dashboard.publishIssue.unreachableStep.label"
+msgstr "خطوة لا يمكن الوصول إليها"
 
 #. js-lingui-explicit-id
 #: src/i18n/server-feedback.ts:147
@@ -3934,7 +4004,7 @@ msgid "dashboard.recovery.reasonHelp"
 msgstr "استخدم من 1 إلى 500 حرف بدون مسافات خارجية."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:988
+#: src/i18n/messages.ts:1002
 msgid "auth.form.passwordLength"
 msgstr "استخدم من 12 إلى 128 حرفًا."
 
@@ -3944,7 +4014,7 @@ msgid "dashboard.publishIssue.unsafeUrl.message"
 msgstr "استخدم عنوان URL HTTPS أو مسارًا نسبيًا آمنًا."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:973
+#: src/i18n/messages.ts:987
 msgid "auth.form.useAnotherEmail"
 msgstr "استخدم بريدًا إلكترونيًا آخر"
 
@@ -3959,17 +4029,17 @@ msgid "dashboard.page.support.description"
 msgstr "استخدم أدوات التأليف والتشخيص الاحتياطية فقط عند فشل المسار داخل المنتج."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:912
+#: src/i18n/messages.ts:926
 msgid "auth.page.incompletePasswordLink.description"
 msgstr "استخدم رابط كلمة المرور الكاملة من أحدث بريد إلكتروني خاص بك على Lodariq."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:923
+#: src/i18n/messages.ts:937
 msgid "auth.page.incompleteVerification.description"
 msgstr "استخدم رابط التحقق الكامل من أحدث بريد إلكتروني خاص بك على Lodariq."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:860
+#: src/i18n/messages.ts:874
 msgid "auth.page.signIn.description"
 msgstr "استخدم حساب Lodariq الخاص بك للعودة إلى مساحة عمل المنتج الخاص بك."
 
@@ -3989,7 +4059,7 @@ msgid "dashboard.viewModel.verifiedExactArtifactAt"
 msgstr "تم التحقق من القطعة الأثرية الدقيقة {date}"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1015
+#: src/i18n/messages.ts:1029
 msgid "auth.form.verifyAndContinue"
 msgstr "قم بالتحقق من البريد الإلكتروني والمتابعة"
 
@@ -4004,7 +4074,7 @@ msgid "dashboard.activation.verifying"
 msgstr "جارٍ التحقق من التطبيق ومساحة العمل..."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:999
+#: src/i18n/messages.ts:1013
 msgid "auth.form.verifyingEmail"
 msgstr "التحقق من بريدك الإلكتروني"
 
@@ -4019,7 +4089,7 @@ msgid "dashboard.brand.panel.approvedVersion"
 msgstr "تمت الموافقة على الإصدار {version}"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:668
+#: src/i18n/messages.ts:682
 msgid "dashboard.action.versionApproved"
 msgstr "تمت الموافقة على الإصدار {version}. تبقى القطع الأثرية الحية دون تغيير حتى تتبناها التجربة وتنشرها بشكل صريح."
 
@@ -4039,7 +4109,7 @@ msgid "dashboard.support.viewDetails"
 msgstr "عرض تفاصيل الدعم"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1078
+#: src/i18n/messages.ts:1092
 msgid "workspaceSelection.role.viewer"
 msgstr "مشاهد"
 
@@ -4049,17 +4119,17 @@ msgid "dashboard.account.role.viewer"
 msgstr "عارض"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:511
+#: src/i18n/messages.ts:525
 msgid "dashboard.entry.unavailableTitle"
 msgstr "لم نتمكن من فتح مساحة العمل الخاصة بك"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1019
+#: src/i18n/messages.ts:1033
 msgid "auth.form.verificationSent"
 msgstr "أرسلنا رابط تحقق آمن إلى {email}. أبقِ هذه الصفحة مفتوحة أو استخدم الرابط مباشرة."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:858
+#: src/i18n/messages.ts:872
 msgid "auth.page.signIn.eyebrow"
 msgstr "أهلًا بعودتك"
 
@@ -4069,7 +4139,7 @@ msgid "dashboard.brand.empty.sampleTitle"
 msgstr "مرحبًا بك في مساحة العمل الخاصة بك"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1059
+#: src/i18n/messages.ts:1073
 msgid "workspaceSelection.title"
 msgstr "أين تعمل اليوم؟"
 
@@ -4079,12 +4149,12 @@ msgid "dashboard.navigation.workspaceLabel"
 msgstr "مساحة العمل"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:947
+#: src/i18n/messages.ts:961
 msgid "auth.form.workspace"
 msgstr "مساحة العمل"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1058
+#: src/i18n/messages.ts:1072
 msgid "workspaceSelection.eyebrow"
 msgstr "مساحة العمل"
 
@@ -4099,7 +4169,7 @@ msgid "dashboard.brand.panel.workspaceDefault"
 msgstr "مساحة العمل الافتراضية"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:681
+#: src/i18n/messages.ts:695
 msgid "dashboard.action.workspaceDefaultUpdated"
 msgstr "تم تحديث مساحة العمل الافتراضية."
 
@@ -4139,71 +4209,71 @@ msgid "dashboard.recovery.notAllowed"
 msgstr "دورك الحالي أو سياسة البيئة هذه لا تسمح باسترداد الإصدار."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:811
+#: src/i18n/messages.ts:825
 msgid "dashboard.action.releaseRecoveryForbidden"
 msgstr "لا يمكن لوصولك الحالي إلى مساحة العمل تنفيذ إجراء استرداد الإصدار هذا."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:791
+#: src/i18n/messages.ts:805
 msgid "dashboard.action.analyticsForbidden"
 msgstr "لا يمكن للوصول إلى مساحة العمل الحالية قراءة التحليلات."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:824
+#: src/i18n/messages.ts:838
 msgid "dashboard.action.releaseHistoryForbidden"
 msgstr "لا يمكن لوصولك الحالي إلى مساحة العمل قراءة سجل الإصدار هذا."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1010
+#: src/i18n/messages.ts:1024
 msgid "auth.form.choosePasswordHelp"
 msgstr "أكد رابط البريد الإلكتروني أن الحساب يخصك. اختر الآن كلمة مرور آمنة."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:932
+#: src/i18n/messages.ts:946
 msgid "auth.page.finishAccount.description"
 msgstr "رابط بريدك الإلكتروني يثبت الملكية. اختر كلمة المرور التي ستحمي حسابك."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:940
+#: src/i18n/messages.ts:954
 msgid "auth.form.yourName"
 msgstr "اسمك"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:948
+#: src/i18n/messages.ts:962
 msgid "auth.form.workspaceHelp"
 msgstr "مساحتك المشتركة للتجارب والبيئات والإصدارات."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:530
+#: src/i18n/messages.ts:544
 msgid "dashboard.error.description"
 msgstr "عملك آمن. أعد محاولة الطلب دون مغادرة هذه الصفحة."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:506
+#: src/i18n/messages.ts:520
 msgid "dashboard.entry.signInDescription"
 msgstr "تظل مساحة العمل وأدوات التأليف الخاصة بك محمية من خلال جلسة Lodariq الخاصة بك."
 
 #. js-lingui-explicit-id
-#: src/i18n/server-feedback.ts:188
+#: src/i18n/server-feedback.ts:219
 msgid "dashboard.recovery.failure.capabilityDenied"
 msgstr "لا يمكن لدور مساحة العمل الخاصة بك تنفيذ إجراء الاسترداد هذا."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:626
+#: src/i18n/messages.ts:640
 msgid "dashboard.action.environmentPolicyForbidden"
 msgstr "لا يسمح دور مساحة العمل الخاصة بك بإجراء تغييرات على سياسة البيئة."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:605
+#: src/i18n/messages.ts:619
 msgid "dashboard.action.releasePolicyForbidden"
 msgstr "لا يسمح دور مساحة العمل الخاصة بك بإجراء تغييرات على سياسة الإصدار."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:554
+#: src/i18n/messages.ts:568
 msgid "dashboard.server.capabilityDenied"
 msgstr "دور مساحة العمل الخاصة بك لا يسمح بهذا الإجراء."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:765
+#: src/i18n/messages.ts:779
 msgid "dashboard.action.brandForbidden"
 msgstr "لا يسمح دور مساحة العمل الخاصة بك بإجراء العلامة التجارية هذا."

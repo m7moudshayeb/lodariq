@@ -82,6 +82,7 @@ export class ControllerSnapshotFeature extends ControllerTargetDocumentFeature {
   }
 
   protected recordChange(): void {
+    this.documentTransactions.flush();
     this.undoStack.push(this.snapshot());
     this.redoStack.length = 0;
   }
@@ -107,6 +108,7 @@ export class ControllerSnapshotFeature extends ControllerTargetDocumentFeature {
       this.translationRequestVersion += 1;
     }
     this.documentState = this.normalizeDocument(this.documentState);
+    this.documentTransactions.adoptOptimisticDocument(this.documentState);
     this.documentChangeSequence += 1;
     this.releaseRequestVersion += 1;
     this.panelWorkflowRequestVersion += 1;
@@ -301,9 +303,14 @@ export class ControllerSnapshotFeature extends ControllerTargetDocumentFeature {
       metricsText: this.metricsText,
       selectedBlockId: this.selectedBlockId,
       advancedEditorStepId: this.advancedEditorStepId,
+      selectedStepIds: new Set(this.selectedStepIds),
+      stepStyleClipboardAvailable: Boolean(this.stepStyleClipboard),
+      stepStyleRecipes: this.stepStyleRecipes.list(),
+      draftCheckpoints: this.draftCheckpoints.list(),
       dragTargetBlockId: this.dragTargetBlockId,
       dragTargetPosition: this.dragTargetPosition,
       targetDiagnostics: new Map(this.targetDiagnostics),
+      targetHealth: this.targetHealthLedger.snapshot(),
       advancedTargetIds: new Set(this.advancedTargetIds),
       focusRequest: this.focusRequest,
       release: {

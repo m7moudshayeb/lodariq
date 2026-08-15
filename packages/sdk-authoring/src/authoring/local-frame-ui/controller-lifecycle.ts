@@ -4,6 +4,8 @@ import {
   AUTHORING_PANEL_LAYOUT_REQUEST_TYPE,
   BRIDGE_PROTOCOL_VERSION,
   type AuthoringPanelLayoutMode,
+  type AuthoringAccessibilityPreviewMode,
+  type AuthoringFlowSimulationContext,
 } from '@lodariq/schema';
 import { hasBlock } from '../document-ops';
 import { createBridgeCorrelationId } from '../../bridge/transport';
@@ -20,7 +22,12 @@ export abstract class ControllerLifecycleFeature extends ControllerBase {
   protected abstract recordMetric(name: LocalAuthoringFrameMetricName): void;
   abstract refreshPanelWorkflowState(): void;
   abstract refreshStagingRelease(): void;
-  protected abstract sendPreviewRequest(mode: 'full' | 'step', stepId?: string): Promise<void>;
+  protected abstract sendPreviewRequest(
+    mode: 'full' | 'step',
+    stepId?: string,
+    accessibilityMode?: AuthoringAccessibilityPreviewMode,
+    simulationContext?: AuthoringFlowSimulationContext,
+  ): Promise<void>;
   protected abstract setStatus(message: string): void;
 
   protected allowDocumentStructureMutation(): boolean {
@@ -53,6 +60,7 @@ export abstract class ControllerLifecycleFeature extends ControllerBase {
   }
 
   destroy(): void {
+    this.documentTransactions.flush();
     if (!this.started) {
       this.interactionActor.stop();
       return;
@@ -86,6 +94,7 @@ export abstract class ControllerLifecycleFeature extends ControllerBase {
   selectBlock(blockId: string): void {
     if (!hasBlock(this.documentState.blocks, blockId)) return;
     if (this.selectedBlockId === blockId) return;
+    this.documentTransactions.flush();
     this.selectedBlockId = blockId;
     this.emit();
   }
@@ -95,6 +104,7 @@ export abstract class ControllerLifecycleFeature extends ControllerBase {
       (block) => block.id === stepId && block.type === 'tourStep',
     );
     if (!step) return;
+    this.documentTransactions.flush();
     this.selectedBlockId = stepId;
     this.advancedEditorStepId = null;
     void this.sendPreviewRequest('step', stepId).catch(() => {
@@ -108,6 +118,7 @@ export abstract class ControllerLifecycleFeature extends ControllerBase {
       (block) => block.id === stepId && block.type === 'tourStep',
     );
     if (!step) return;
+    this.documentTransactions.flush();
     if (this.panelMode !== 'edit') {
       this.brandDriftController?.restorePreview();
       this.panelWorkflowRequestVersion += 1;

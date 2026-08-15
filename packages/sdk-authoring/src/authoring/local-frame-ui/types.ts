@@ -19,6 +19,9 @@ import type {
   AuthoringReleaseRecoveryViewModel,
 } from '../release-recovery-model';
 import { authoringText } from '../../i18n';
+import type { AuthoringDraftCheckpoint } from '../draft-checkpoints';
+import type { AuthoringStepStyleRecipe } from '../step-style-recipes';
+import type { AuthoringTargetHealth } from '../target-health-ledger';
 
 export const SLASH_COMMANDS = [
   { value: 'step', label: authoringText('Step') },
@@ -71,6 +74,7 @@ export const EDITABLE_ACTION_OPTIONS = [
   { value: 'back', label: authoringText('Go back') },
   { value: 'complete', label: authoringText('Complete tour') },
   { value: 'clickTarget', label: authoringText('Click target') },
+  { value: 'runSequence', label: authoringText('Run a sequence') },
   { value: 'openPage', label: authoringText('Open page') },
   { value: 'dismiss', label: authoringText('Close experience') },
 ] as const;
@@ -225,9 +229,14 @@ export interface LocalAuthoringFrameSnapshot {
   metricsText: string;
   selectedBlockId: string | null;
   advancedEditorStepId: string | null;
+  selectedStepIds: Set<string>;
+  stepStyleClipboardAvailable: boolean;
+  stepStyleRecipes: readonly AuthoringStepStyleRecipe[];
+  draftCheckpoints: readonly AuthoringDraftCheckpoint[];
   dragTargetBlockId: string | null;
   dragTargetPosition: 'before' | 'after' | null;
   targetDiagnostics: Map<string, TargetInspectionState>;
+  targetHealth: Map<string, AuthoringTargetHealth>;
   advancedTargetIds: Set<string>;
   focusRequest: FocusRequest | null;
   release: AuthoringReleaseViewState;

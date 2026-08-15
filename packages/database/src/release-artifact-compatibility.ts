@@ -1,11 +1,9 @@
 import { createHash } from 'node:crypto';
 import {
-  BRAND_THEME_CONTRACT_VERSION,
-  COMPILED_ARTIFACT_SCHEMA_VERSION,
-  COMPILER_VERSION,
-  CompiledDocumentV3 as CompiledDocumentV3Schema,
-  RENDERER_CONTRACT_VERSION,
+  CompiledDocument as CompiledDocumentSchema,
   ReleaseArtifactPins as ReleaseArtifactPinsSchema,
+  isSupportedDeliveryContract,
+  isValidCompilerVersion,
   validate,
   type ReleaseArtifactPins,
 } from '@lodariq/schema';
@@ -92,11 +90,12 @@ export function isReleaseArtifactCurrentlyDeployable(
   artifact: ReleaseArtifactCompatibilityCandidate,
 ): boolean {
   const pins = extractHistoricalReleaseArtifactPins(artifact);
-  if (!pins || !hasCurrentCompatibilityPins(pins)) return false;
+  if (!pins || !hasSupportedCompatibilityPins(pins)) return false;
 
-  const compiledResult = validate(CompiledDocumentV3Schema, artifact.compiled);
+  const compiledResult = validate(CompiledDocumentSchema, artifact.compiled);
   if (!compiledResult.valid) return false;
   const compiled = compiledResult.value;
+  if (!('artifactSchemaVersion' in compiled) || !('theme' in compiled)) return false;
 
   if (
     artifact.rendererContractVersion !== compiled.rendererContractVersion ||
@@ -112,12 +111,14 @@ export function isReleaseArtifactCurrentlyDeployable(
   );
 }
 
-function hasCurrentCompatibilityPins(pins: ReleaseArtifactPins): boolean {
+function hasSupportedCompatibilityPins(pins: ReleaseArtifactPins): boolean {
   return (
-    pins.artifactSchemaVersion === COMPILED_ARTIFACT_SCHEMA_VERSION &&
-    pins.compilerVersion === COMPILER_VERSION &&
-    pins.rendererContractVersion === RENDERER_CONTRACT_VERSION &&
-    pins.themeContractVersion === BRAND_THEME_CONTRACT_VERSION
+    isValidCompilerVersion(pins.compilerVersion) &&
+    isSupportedDeliveryContract(
+      pins.artifactSchemaVersion,
+      pins.rendererContractVersion,
+      pins.themeContractVersion,
+    )
   );
 }
 

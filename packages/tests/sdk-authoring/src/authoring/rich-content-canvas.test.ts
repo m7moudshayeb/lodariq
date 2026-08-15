@@ -55,7 +55,7 @@ describe('unified popup content canvas', () => {
     const postMessage = vi.fn();
     const peer = { postMessage } as unknown as Window;
 
-    mountLocalAuthoringFrame({
+    await mountLocalAuthoringFrame({
       root: document.getElementById('authoring')!,
       baseDocument,
       services: {
@@ -94,6 +94,9 @@ describe('unified popup content canvas', () => {
     expect(document.querySelectorAll('.tour-storyboard-step')).toHaveLength(
       baseDocument.blocks.length,
     );
+    expect(document.querySelectorAll('.tour-step-multi-select input')).toHaveLength(
+      baseDocument.blocks.length,
+    );
     const buttonRow = document.querySelector<HTMLElement>(`[data-block-id="${button.id}"]`)!;
     buttonRow.dispatchEvent(new Event('pointerdown', { bubbles: true }));
     expect(document.querySelector('[aria-label="Selected action style"]')).toBeNull();
@@ -104,6 +107,11 @@ describe('unified popup content canvas', () => {
     });
     const actionToolbar = document.querySelector('[aria-label="Button configuration"]');
     if (!actionToolbar) throw new Error('Button configuration toolbar is missing');
+    expect(
+      [
+        ...actionToolbar.querySelectorAll<HTMLOptionElement>('[aria-label="Block type"] option'),
+      ].map((option) => option.value),
+    ).toEqual(['paragraph', 'heading', 'list', 'button', 'link', 'media', 'divider']);
     expect(actionToolbar?.querySelector('[aria-label="Behavior"]')).toBeNull();
     expect(actionToolbar?.querySelector('[aria-label="Alignment"]')).toBeNull();
     expect(actionToolbar?.querySelector('[aria-label="Colors"]')).toBeNull();
@@ -304,7 +312,7 @@ describe('unified popup content canvas', () => {
     expect(linkToolbar?.querySelector('[aria-label="Link behavior"]')).not.toBeNull();
     expect(linkToolbar?.querySelector('[aria-label="Alignment"]')).toBeNull();
     linkToolbar?.querySelector<HTMLButtonElement>('[aria-label="Link behavior"]')?.click();
-    const destination = await waitForInput('[aria-label="Behavior settings"] input');
+    const destination = await waitForInput('[data-property-id="button.destination"] input');
     expect(destination.value).toBe('/guide');
     expect(getComputedStyle(destination).height).toBe('var(--lq-control-sm)');
     expect(
@@ -312,7 +320,7 @@ describe('unified popup content canvas', () => {
     ).toBe('36px');
     document.querySelector<HTMLButtonElement>('[aria-label="Close link behavior"]')?.click();
     await vi.waitFor(() =>
-      expect(document.querySelector('[aria-label="Behavior settings"]')).toBeNull(),
+      expect(document.querySelector('[aria-label="Close link behavior"]')).toBeNull(),
     );
     document.querySelector<HTMLButtonElement>('[aria-label="Close link controls"]')?.click();
     await vi.waitFor(() =>
@@ -344,8 +352,8 @@ describe('unified popup content canvas', () => {
     window.getSelection()?.addRange(range);
     paragraphEditor.dispatchEvent(new Event('pointerup', { bubbles: true }));
     await vi.waitFor(() => {
-      expect(document.querySelector<HTMLSelectElement>('[aria-label="Font size"]')?.value).toBe(
-        'default',
+      expect(document.querySelector<HTMLInputElement>('input[aria-label="Font size"]')?.value).toBe(
+        '',
       );
     });
     expect(
@@ -355,13 +363,15 @@ describe('unified popup content canvas', () => {
     await vi.waitFor(() =>
       expect(document.querySelector('[aria-label="Block spacing"]')).not.toBeNull(),
     );
-    const fontSize = document.querySelector<HTMLSelectElement>('[aria-label="Font size"]');
+    const fontSize = document.querySelector<HTMLInputElement>('input[aria-label="Font size"]');
     if (!fontSize) throw new Error('Font size control is missing');
-    setNativeSelectValue(fontSize, '24');
-    fontSize.dispatchEvent(new Event('change', { bubbles: true }));
+    setNativeInputValue(fontSize, '20');
+    fontSize.dispatchEvent(new Event('input', { bubbles: true }));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    fontSize.dispatchEvent(new FocusEvent('focusout', { bubbles: true }));
     await vi.waitFor(() =>
       expect(latestSavedButton(saveDocument, paragraph.id)?.contentRuns).toEqual([
-        { text: paragraph.content?.slice(0, 5), fontSizePx: 24 },
+        { text: paragraph.content?.slice(0, 5), fontSizePx: 20 },
         { text: paragraph.content?.slice(5) },
       ]),
     );
@@ -507,10 +517,30 @@ describe('unified popup content canvas', () => {
     );
     expect(document.querySelector('.storyboard-popup-arrow')).toBeNull();
 
+    buttonByText(
+      document.querySelector('[aria-label="Popup layout settings"]'),
+      'Appearance',
+    ).click();
     await clickWhenPresent('[aria-label="Use #162033 for background"]');
+    buttonByText(
+      document.querySelector('[aria-label="Popup layout"] [aria-label="Appearance"]'),
+      'Text',
+    ).click();
     await clickWhenPresent('[aria-label="Use #ffffff for text"]');
+    buttonByText(
+      document.querySelector('[aria-label="Popup layout"] [aria-label="Appearance"]'),
+      'Border',
+    ).click();
     await clickWhenPresent('[aria-label="Use #006b58 for border"]');
+    buttonByText(
+      document.querySelector('[aria-label="Popup layout"] [aria-label="Appearance"]'),
+      'Border weight',
+    ).click();
     await clickInspectorChoice('Border weight', 'Strong');
+    buttonByText(
+      document.querySelector('[aria-label="Popup layout"] [aria-label="Appearance"]'),
+      'Shadow',
+    ).click();
     await clickInspectorChoice('Shadow', 'Strong');
     await vi.waitFor(() =>
       expect(latestSavedTooltip(saveDocument)?.props.tooltipStyle).toEqual({
@@ -574,7 +604,7 @@ describe('unified popup content canvas', () => {
     ];
     const saveDocument = vi.fn();
 
-    mountLocalAuthoringFrame({
+    await mountLocalAuthoringFrame({
       root: document.getElementById('authoring')!,
       baseDocument,
       services: {
@@ -642,7 +672,8 @@ async function waitForRichTextEditor(blockId: string): Promise<HTMLElement> {
 
 async function clickWhenPresent(selector: string): Promise<void> {
   await vi.waitFor(() => {
-    expect(document.querySelector<HTMLButtonElement>(selector)).not.toBeNull();
+    const button = document.querySelector<HTMLButtonElement>(selector);
+    if (!button) throw new Error(`${selector} button is missing`);
   });
   const button = document.querySelector<HTMLButtonElement>(selector);
   if (!button) throw new Error(`${selector} button is missing`);
@@ -694,12 +725,6 @@ function buttonByText(scope: ParentNode | null, label: string): HTMLButtonElemen
   );
   if (!button) throw new Error(`${label} button is missing`);
   return button;
-}
-
-function setNativeSelectValue(select: HTMLSelectElement, value: string): void {
-  const setter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value')?.set;
-  if (!setter) throw new Error('Native select value setter is unavailable');
-  setter.call(select, value);
 }
 
 function setNativeInputValue(input: HTMLInputElement, value: string): void {

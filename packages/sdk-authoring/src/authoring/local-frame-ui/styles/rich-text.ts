@@ -414,6 +414,19 @@ export const AUTHORING_RICH_TEXT_CSS = `
     width: 72px;
   }
 
+  .rich-step-toolbar .rich-step-font-size {
+    width: 88px;
+    height: var(--lq-control-sm);
+    border-color: transparent;
+    background: var(--lq-color-panel-strong);
+    font-size: var(--lq-font-xs);
+    font-weight: var(--lq-weight-semibold);
+  }
+
+  .rich-step-toolbar .rich-step-font-size input {
+    padding-left: var(--lq-space-2);
+  }
+
   .rich-step-toolbar button,
   .rich-step-color {
     display: inline-grid;

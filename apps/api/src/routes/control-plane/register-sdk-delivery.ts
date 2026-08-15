@@ -1,6 +1,6 @@
 import { canonicalJson } from '@lodariq/compiler';
 import { AuthoringDocumentPayload, LodariqDocument, validate } from '@lodariq/schema';
-import { COMPILED_ARTIFACT_SCHEMA_VERSION } from '@lodariq/schema/version';
+import { PUBLIC_MANIFEST_SCHEMA_VERSION } from '@lodariq/schema/version';
 import type { FastifyInstance } from 'fastify';
 import { createObservabilityEvent } from '../../observability';
 import { emitObservability } from '../control-plane-access';
@@ -131,7 +131,7 @@ export function registerSdkDeliveryRoutes(
                 deployment,
               )
             : {
-                schemaVersion: COMPILED_ARTIFACT_SCHEMA_VERSION,
+                schemaVersion: PUBLIC_MANIFEST_SCHEMA_VERSION,
                 workspaceId: deployment.workspaceId,
                 environmentId: deployment.environmentId,
                 documentId: deployment.documentId,

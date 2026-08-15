@@ -138,6 +138,7 @@ export type Migration = (doc: LodariqDocument) => LodariqDocument;
 
 const MIGRATIONS: Record<string, Migration> = {
   '0.9.0': (doc) => ({ ...doc, schemaVersion: '1.0.0' }),
+  '1.0.0': (doc) => ({ ...doc, schemaVersion: '2.0.0' }),
 };
 
 export function migrate(doc: LodariqDocument): LodariqDocument {

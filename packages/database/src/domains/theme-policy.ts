@@ -224,7 +224,13 @@ export function compiledArtifactMetadata(
   PersistedCompiledArtifact,
   'themeVersionId' | 'themeContentHash' | 'rendererContractVersion'
 > {
-  if (compiled.artifactSchemaVersion !== '2' && compiled.artifactSchemaVersion !== '3') return {};
+  if (
+    !('artifactSchemaVersion' in compiled) ||
+    !('theme' in compiled) ||
+    !('rendererContractVersion' in compiled)
+  ) {
+    return {};
+  }
   return {
     themeVersionId: compiled.theme.themeVersionId,
     themeContentHash: compiled.theme.contentHash,

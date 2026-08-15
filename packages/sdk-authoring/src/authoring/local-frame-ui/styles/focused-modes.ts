@@ -1,0 +1,13 @@
+import { AUTHORING_FOCUSED_STORYBOARD_CSS } from './focused-storyboard';
+import { AUTHORING_FOCUSED_BATCH_CSS } from './focused-batch';
+import { AUTHORING_FOCUSED_FLOW_CSS } from './focused-flow';
+import { AUTHORING_FOCUSED_PROPERTY_TRAY_CSS } from './focused-property-tray';
+import { AUTHORING_FOCUSED_RESPONSIVE_CSS } from './focused-responsive';
+
+export const AUTHORING_FOCUSED_MODES_CSS = `
+  ${AUTHORING_FOCUSED_STORYBOARD_CSS}
+  ${AUTHORING_FOCUSED_BATCH_CSS}
+  ${AUTHORING_FOCUSED_FLOW_CSS}
+  ${AUTHORING_FOCUSED_PROPERTY_TRAY_CSS}
+  ${AUTHORING_FOCUSED_RESPONSIVE_CSS}
+`;

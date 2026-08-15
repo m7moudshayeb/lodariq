@@ -2,7 +2,7 @@
 
 import { msg } from '@lingui/core/macro';
 import { useLingui } from '@lingui/react';
-import { Rocket, ShieldCheck } from 'lucide-react';
+import { Rocket, ShieldCheck, Workflow } from 'lucide-react';
 import type { DashboardViewModel } from '../lib/view-model';
 import { ReleaseProgress } from './release-progress';
 import {
@@ -15,6 +15,7 @@ import {
   OpenInProductAction,
 } from './dashboard-view-components';
 import { Badge } from './ui/badge';
+import { Button } from './ui/button';
 
 const COPY = {
   exactArtifactPromotion: msg({
@@ -32,6 +33,7 @@ const COPY = {
     message:
       'Saved experiences will appear here with the publication records the current API can prove.',
   }),
+  openFlowMap: msg({ id: 'dashboard.releases.openFlowMap', message: 'Open Flow Map' }),
 } as const;
 
 export function ReleasesView({
@@ -75,7 +77,7 @@ export function ReleasesView({
                 </Badge>
               </div>
               <ReleaseProgress compact stages={row.releaseStages} />
-              <dl className="mt-5 grid gap-3 border-t border-border pt-5 sm:grid-cols-2 xl:grid-cols-4">
+              <dl className="mt-5 grid gap-3 border-t border-border pt-5 sm:grid-cols-2 xl:grid-cols-5">
                 {row.releaseEvidence.map((evidence) => (
                   <div
                     className="grid content-start gap-1 rounded-lg border border-border bg-[var(--surface-subtle)] p-3"
@@ -86,6 +88,14 @@ export function ReleasesView({
                       <Badge variant={evidence.tone}>{evidence.value}</Badge>
                     </dt>
                     <dd className="text-xs leading-5 text-muted-foreground">{evidence.detail}</dd>
+                    {evidence.id === 'flow' && row.flowMapUrl ? (
+                      <Button asChild className="mt-1 w-fit" size="sm" variant="outline">
+                        <a href={row.flowMapUrl} rel="noreferrer" target="_blank">
+                          <Workflow aria-hidden="true" />
+                          {_(COPY.openFlowMap)}
+                        </a>
+                      </Button>
+                    ) : null}
                   </div>
                 ))}
               </dl>

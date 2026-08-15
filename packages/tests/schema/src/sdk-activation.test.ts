@@ -506,6 +506,20 @@ describe('document-scoped authoring session contracts', () => {
       }).valid,
     ).toBe(true);
     expect(
+      validate(CreateAuthoringDocumentSessionRequest, {
+        installationId: INSTALLATION_ID,
+        customerOrigin: CUSTOMER_ORIGIN,
+        pageContext: { pathname: '/projects/123' },
+        selectionScope: 'workspace',
+        documentIntent: {
+          kind: 'existing',
+          documentId: 'document_123',
+          workspace: 'flowMap',
+          focusBlockId: 'step_branch',
+        },
+      }).valid,
+    ).toBe(true);
+    expect(
       validate(AuthoringActivationGrantHeaders, {
         [AUTHORING_ACTIVATION_GRANT_HEADER]: ACTIVATION_GRANT,
       }).valid,

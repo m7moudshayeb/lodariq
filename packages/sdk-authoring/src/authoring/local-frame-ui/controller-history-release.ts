@@ -3,6 +3,8 @@ import { authoringText } from '../../i18n';
 import {
   AUTHORING_SAVE_AND_EXIT_REQUEST_TYPE,
   BRIDGE_PROTOCOL_VERSION,
+  type AuthoringAccessibilityPreviewMode,
+  type AuthoringFlowSimulationContext,
   type LodariqDocument,
   type PublishReadinessIssue,
   type ReleaseRecoveryRequest,
@@ -47,6 +49,7 @@ export abstract class ControllerHistoryReleaseFeature extends ControllerStepsTar
   protected abstract verifyCurrentStagingArtifactAsync(): Promise<void>;
 
   undo(): void {
+    this.documentTransactions.flush();
     const previous = this.undoStack.pop();
     if (!previous) return;
     this.redoStack.push(this.snapshot());
@@ -57,6 +60,7 @@ export abstract class ControllerHistoryReleaseFeature extends ControllerStepsTar
   }
 
   redo(): void {
+    this.documentTransactions.flush();
     const next = this.redoStack.pop();
     if (!next) return;
     this.undoStack.push(this.snapshot());
@@ -67,6 +71,7 @@ export abstract class ControllerHistoryReleaseFeature extends ControllerStepsTar
   }
 
   saveCurrentDocument(): void {
+    this.documentTransactions.flush();
     this.syncFocusedEditControl();
     this.documentState = this.normalizeDocument(this.documentState);
     this.jsonText = this.services.exportDocument(this.documentState);
@@ -108,6 +113,7 @@ export abstract class ControllerHistoryReleaseFeature extends ControllerStepsTar
   }
 
   repairPublishIssue(issue: PublishReadinessIssue): void {
+    this.recordMetric('readiness.repair-opened');
     const intent = publishIssueRepairIntent(issue);
     this.returnToEditorForPublishRepair();
     if (intent.action === 'add-step') {
@@ -387,6 +393,7 @@ export abstract class ControllerHistoryReleaseFeature extends ControllerStepsTar
   }
 
   compilePreview(): void {
+    this.documentTransactions.flush();
     this.documentState = this.normalizeDocument(this.documentState);
     this.jsonText = this.services.exportDocument(this.documentState);
     void this.services.compilePreview(this.documentState).then((doc) => {
@@ -398,6 +405,7 @@ export abstract class ControllerHistoryReleaseFeature extends ControllerStepsTar
   }
 
   previewCurrentStep(): void {
+    this.documentTransactions.flush();
     this.syncFocusedEditControl();
     this.documentState = this.normalizeDocument(this.documentState);
     this.jsonText = this.services.exportDocument(this.documentState);
@@ -419,6 +427,7 @@ export abstract class ControllerHistoryReleaseFeature extends ControllerStepsTar
   }
 
   previewFullTour(): void {
+    this.documentTransactions.flush();
     this.syncFocusedEditControl();
     this.documentState = this.normalizeDocument(this.documentState);
     this.jsonText = this.services.exportDocument(this.documentState);
@@ -429,6 +438,67 @@ export abstract class ControllerHistoryReleaseFeature extends ControllerStepsTar
         this.compiledText = JSON.stringify(doc, null, 2);
         this.recordMetric('preview.opened');
         this.setStatus(authoringText('Tour preview ready'));
+      })
+      .catch(() => this.setStatus(authoringText('Tour preview could not start')));
+    this.emit();
+  }
+
+  previewFullTourFromStep(stepId: string): void {
+    this.documentTransactions.flush();
+    this.syncFocusedEditControl();
+    const stepExists = this.documentState.blocks.some(
+      (block) => block.type === 'tourStep' && block.id === stepId,
+    );
+    if (!stepExists) {
+      this.setStatus(authoringText('Choose an existing step to preview'));
+      return;
+    }
+    this.documentState = this.normalizeDocument(this.documentState);
+    this.services.saveDocument(this.documentState);
+    void Promise.all([
+      this.sendPreviewRequest('full', stepId),
+      this.services.compilePreview(this.documentState),
+    ])
+      .then(([, document]) => {
+        this.compiledText = JSON.stringify(document, null, 2);
+        this.recordMetric('preview.from-step');
+        this.setStatus(authoringText('Tour preview started from this step'));
+      })
+      .catch(() => this.setStatus(authoringText('Tour preview could not start')));
+    this.emit();
+  }
+
+  previewFlowSimulation(simulationContext: AuthoringFlowSimulationContext, stepId?: string): void {
+    this.documentTransactions.flush();
+    this.syncFocusedEditControl();
+    this.documentState = this.normalizeDocument(this.documentState);
+    this.services.saveDocument(this.documentState);
+    void Promise.all([
+      this.sendPreviewRequest('full', stepId, undefined, simulationContext),
+      this.services.compilePreview(this.documentState),
+    ])
+      .then(([, document]) => {
+        this.compiledText = JSON.stringify(document, null, 2);
+        this.recordMetric(stepId ? 'preview.from-step' : 'preview.opened');
+        this.setStatus(authoringText('Branch simulation started'));
+      })
+      .catch(() => this.setStatus(authoringText('Tour preview could not start')));
+    this.emit();
+  }
+
+  previewAccessibilityMode(mode: AuthoringAccessibilityPreviewMode): void {
+    this.documentTransactions.flush();
+    this.syncFocusedEditControl();
+    this.documentState = this.normalizeDocument(this.documentState);
+    this.services.saveDocument(this.documentState);
+    void Promise.all([
+      this.sendPreviewRequest('full', undefined, mode),
+      this.services.compilePreview(this.documentState),
+    ])
+      .then(([, document]) => {
+        this.compiledText = JSON.stringify(document, null, 2);
+        this.recordMetric('preview.opened');
+        this.setStatus(authoringText('Accessibility preview started'));
       })
       .catch(() => this.setStatus(authoringText('Tour preview could not start')));
     this.emit();

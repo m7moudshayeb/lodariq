@@ -8,11 +8,7 @@ import type {
   NonProductionPublicSdkBootstrapContext,
 } from '@lodariq/schema';
 import { isSupportedLocale, type SupportedLocale } from '@lodariq/i18n';
-import {
-  AUTHORING_LAUNCHER_ENTRY_QUERY_PARAMETER,
-  AUTHORING_LAUNCHER_ENTRY_QUERY_VALUE,
-  AUTHORING_LAUNCHER_SHORTCUT,
-} from '@lodariq/schema/authoring-entry-runtime';
+import { AUTHORING_LAUNCHER_SHORTCUT } from '@lodariq/schema/authoring-entry-runtime';
 import {
   HOSTED_CREATOR_PANEL_STATE_EVENT,
   HOSTED_CREATOR_PANEL_TOGGLE_EVENT,
@@ -28,6 +24,7 @@ import {
   type IconNode,
 } from 'lucide';
 import { applyRuntimeLocale, currentRuntimeLocale, runtimeText } from '../i18n';
+import { consumeDashboardAuthoringEntryIntent } from './dashboard-authoring-entry';
 
 const ACTIVATION_PROTOCOL = 'lodariq.authoring.activation.v1';
 const BOOTSTRAP_GRANT_HEADER = 'x-lodariq-bootstrap-grant';
@@ -309,7 +306,10 @@ export function createPublicAuthoringLauncher(
 ): PublicAuthoringLauncher {
   const hostWindow = options.hostWindow ?? window;
   const hostDocument = hostWindow.document;
-  const initiallyVisible = options.initiallyVisible ?? resolveInitialLauncherVisibility(hostWindow);
+  const dashboardEntry = consumeDashboardAuthoringEntryIntent(hostWindow);
+  const initiallyVisible =
+    options.initiallyVisible ??
+    resolveInitialLauncherVisibility(hostWindow, dashboardEntry.present);
   const host = hostDocument.createElement('div');
   applyRuntimeLocale(host);
   host.setAttribute('data-lodariq-launcher', '');
@@ -432,6 +432,9 @@ export function createPublicAuthoringLauncher(
   let manuallyPlaced = false;
   let suppressClickAfterDrag = false;
   let suppressFocusReveal = false;
+  let pendingDashboardDocumentIntent = options.documentIntent
+    ? undefined
+    : dashboardEntry.documentIntent;
   let drag: LauncherDrag | null = null;
 
   const isVisible = (): boolean => host.style.display !== 'none';
@@ -585,6 +588,14 @@ export function createPublicAuthoringLauncher(
     if (panelState !== 'closed') {
       dismiss(false);
       hostWindow.dispatchEvent(new CustomEvent(HOSTED_CREATOR_PANEL_TOGGLE_EVENT));
+      return;
+    }
+    if (pendingDashboardDocumentIntent) {
+      const documentIntent = pendingDashboardDocumentIntent;
+      pendingDashboardDocumentIntent = undefined;
+      shell.dataset['dismissed'] = 'false';
+      setPinned(true);
+      void activate(documentIntent, false);
       return;
     }
     if (shell.dataset['pinned'] === 'true' || shell.dataset['surfaceOpen'] === 'true') {
@@ -849,8 +860,11 @@ function isLauncherVisibilityShortcut(event: KeyboardEvent): boolean {
   );
 }
 
-function resolveInitialLauncherVisibility(ownerWindow: Window): boolean {
-  if (consumeDashboardLauncherEntryIntent(ownerWindow)) {
+function resolveInitialLauncherVisibility(
+  ownerWindow: Window,
+  hasDashboardEntry: boolean,
+): boolean {
+  if (hasDashboardEntry) {
     storeLauncherVisibility(ownerWindow, true);
     return true;
   }
@@ -862,32 +876,6 @@ function resolveInitialLauncherVisibility(ownerWindow: Window): boolean {
   } catch {
     return false;
   }
-}
-
-function consumeDashboardLauncherEntryIntent(ownerWindow: Window): boolean {
-  let url: URL;
-  try {
-    url = new URL(ownerWindow.location.href);
-  } catch {
-    return false;
-  }
-  if (
-    url.searchParams.get(AUTHORING_LAUNCHER_ENTRY_QUERY_PARAMETER) !==
-    AUTHORING_LAUNCHER_ENTRY_QUERY_VALUE
-  ) {
-    return false;
-  }
-  url.searchParams.delete(AUTHORING_LAUNCHER_ENTRY_QUERY_PARAMETER);
-  try {
-    ownerWindow.history.replaceState(
-      ownerWindow.history.state,
-      '',
-      `${url.pathname}${url.search}${url.hash}`,
-    );
-  } catch {
-    /* The non-secret entry intent remains safe if the host blocks history replacement. */
-  }
-  return true;
 }
 
 function storeLauncherVisibility(ownerWindow: Window, visible: boolean): void {
@@ -1393,10 +1381,12 @@ function sameDocumentIntent(
     );
   }
   return (
-    exactRecord(value, ['kind', 'documentId']) &&
+    exactRecordWithOptional(value, ['kind', 'documentId'], ['workspace', 'focusBlockId']) &&
     value['kind'] === 'existing' &&
     nonEmpty(value['documentId']) &&
-    value['documentId'] === expected.documentId
+    value['documentId'] === expected.documentId &&
+    value['workspace'] === expected.workspace &&
+    value['focusBlockId'] === expected.focusBlockId
   );
 }
 

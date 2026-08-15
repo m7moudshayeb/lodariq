@@ -1,6 +1,7 @@
 import { defineConfig } from 'vite';
 
 export default defineConfig({
+  resolve: { dedupe: ['react', 'react-dom'] },
   server: { port: 4199 },
   preview: { port: 4199 },
   build: {

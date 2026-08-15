@@ -2,25 +2,25 @@ import {
   BASIC_VISUAL_PREFLIGHT_MAX_ISSUES,
   BASIC_VISUAL_PREFLIGHT_REPORT_SCHEMA_VERSION,
   BasicVisualPreflightReport,
-  CompiledDocumentV3,
+  CompiledDocumentV4,
   RENDERER_CONTRACT_VERSION,
+  CONTRAST_RATIO_TARGETS,
+  evaluateContrast,
   isValid,
   type BasicVisualPreflightContrastSubject,
   type BasicVisualPreflightIssue,
   type BasicVisualPreflightReport as BasicVisualPreflightReportType,
   type BasicVisualPreflightStatus,
-  type CompiledDocumentV3 as CompiledDocumentV3Type,
+  type CompiledDocumentV4 as CompiledDocumentV4Type,
   type ExperienceAppearance,
   type ThemeColorTokens,
+  type TourRendererRecipe,
 } from '@lodariq/schema';
 import { canonicalJson, sha256Hex } from './hash';
+import { validateCompiledTourFlow } from './flow-graph';
 
 // WCAG-aligned targets remain warnings until contrast drops below the lower
 // usable floor; only the latter blocks publication in this basic local pass.
-const TEXT_TARGET_CONTRAST_RATIO = 4.5;
-const TEXT_UNUSABLE_CONTRAST_RATIO = 3;
-const FOCUS_TARGET_CONTRAST_RATIO = 3;
-const FOCUS_UNUSABLE_CONTRAST_RATIO = 2;
 const LONG_COPY_CHARACTER_LIMIT = 240;
 const COMPACT_VIEWPORT_WIDTH_PX = 320;
 const COMPACT_VIEWPORT_GUTTER_PX = 24;
@@ -56,13 +56,13 @@ interface ContrastCheck {
  * zoom, RTL, and actual clipping remain runtime/browser checks in later slices.
  */
 export async function runBasicVisualPreflight(
-  artifact: CompiledDocumentV3Type,
+  artifact: CompiledDocumentV4Type,
   checkedAt: string,
 ): Promise<BasicVisualPreflightReportType> {
   assertValidCheckedAt(checkedAt);
   const issues: BasicVisualPreflightIssue[] = [];
 
-  if (!isValid(CompiledDocumentV3, artifact)) {
+  if (!isValid(CompiledDocumentV4, artifact)) {
     issues.push({ code: 'artifact_schema_invalid', severity: 'blocker' });
     return createReport(checkedAt, issues);
   }
@@ -84,6 +84,7 @@ export async function runBasicVisualPreflight(
 
   collectContrastIssues(artifact, issues);
   collectCopyAndViewportIssues(artifact, issues);
+  issues.push(...validateCompiledTourFlow(artifact));
   return createReport(checkedAt, issues);
 }
 
@@ -115,20 +116,20 @@ function createReport(
   };
 }
 
-async function computeArtifactContentHash(artifact: CompiledDocumentV3Type): Promise<string> {
-  const content = structuredClone(artifact) as Partial<CompiledDocumentV3Type>;
+async function computeArtifactContentHash(artifact: CompiledDocumentV4Type): Promise<string> {
+  const content = structuredClone(artifact) as Partial<CompiledDocumentV4Type>;
   delete content.contentHash;
   return `sha256-${await sha256Hex(canonicalJson(content))}`;
 }
 
-async function computeThemeContentHash(artifact: CompiledDocumentV3Type): Promise<string> {
-  const content = structuredClone(artifact.theme) as Partial<CompiledDocumentV3Type['theme']>;
+async function computeThemeContentHash(artifact: CompiledDocumentV4Type): Promise<string> {
+  const content = structuredClone(artifact.theme) as Partial<CompiledDocumentV4Type['theme']>;
   delete content.contentHash;
   return `sha256-${await sha256Hex(canonicalJson(content))}`;
 }
 
 function collectContrastIssues(
-  artifact: CompiledDocumentV3Type,
+  artifact: CompiledDocumentV4Type,
   issues: BasicVisualPreflightIssue[],
 ): void {
   const recipe = artifact.theme.definition.recipes.tour[artifact.appearance.preset];
@@ -141,15 +142,15 @@ function collectContrastIssues(
         subject: 'primary_control',
         foreground: mode.colors[recipe.primaryTextRole],
         background: mode.colors[recipe.primarySurfaceRole],
-        targetRatio: TEXT_TARGET_CONTRAST_RATIO,
-        unusableRatio: TEXT_UNUSABLE_CONTRAST_RATIO,
+        targetRatio: CONTRAST_RATIO_TARGETS.text,
+        unusableRatio: CONTRAST_RATIO_TARGETS.textUnusable,
       },
       {
         subject: 'secondary_control',
         foreground: mode.colors[recipe.secondaryTextRole],
         background: mode.colors[recipe.secondarySurfaceRole],
-        targetRatio: TEXT_TARGET_CONTRAST_RATIO,
-        unusableRatio: TEXT_UNUSABLE_CONTRAST_RATIO,
+        targetRatio: CONTRAST_RATIO_TARGETS.text,
+        unusableRatio: CONTRAST_RATIO_TARGETS.textUnusable,
       },
     ];
 
@@ -174,34 +175,58 @@ function collectContrastIssues(
     for (const check of checks) collectContrastIssue(mode.colorMode, check, issues);
     for (const [stepIndex, step] of artifact.steps.entries()) {
       const style = step.tooltipStyle;
-      if (!style?.surfaceColor && !style?.textColor) continue;
-      const background = style.surfaceColor ?? mode.colors[recipe.surfaceRole];
-      const foreground = style.textColor ?? mode.colors[recipe.textRole];
-      const mutedForeground = style.textColor ?? mode.colors[recipe.mutedTextRole];
-      collectContrastIssue(
-        mode.colorMode,
-        textContrastCheck('body_text', foreground, background),
-        issues,
-        stepIndex,
-      );
-      collectContrastIssue(
-        mode.colorMode,
-        textContrastCheck('muted_text', mutedForeground, background),
-        issues,
-        stepIndex,
-      );
-      collectContrastIssue(
-        mode.colorMode,
-        focusContrastCheck(mode.colors[recipe.focusRole], background),
-        issues,
-        stepIndex,
-      );
+      const background = style?.surfaceColor ?? mode.colors[recipe.surfaceRole];
+      const foreground = style?.textColor ?? mode.colors[recipe.textRole];
+      const mutedForeground = style?.textColor ?? mode.colors[recipe.mutedTextRole];
+      if (style?.surfaceColor || style?.textColor) {
+        collectContrastIssue(
+          mode.colorMode,
+          textContrastCheck('body_text', foreground, background),
+          issues,
+          stepIndex,
+        );
+        collectContrastIssue(
+          mode.colorMode,
+          textContrastCheck('muted_text', mutedForeground, background),
+          issues,
+          stepIndex,
+        );
+        collectContrastIssue(
+          mode.colorMode,
+          focusContrastCheck(mode.colors[recipe.focusRole], background),
+          issues,
+          stepIndex,
+        );
+      }
+      if (style?.borderColor) {
+        collectContrastIssue(
+          mode.colorMode,
+          focusContrastCheck(style.borderColor, background, 'control_border'),
+          issues,
+          stepIndex,
+        );
+      }
+      for (const [nodeIndex, node] of step.body.entries()) {
+        collectNodeContrastIssues({
+          background,
+          colorMode: mode.colorMode,
+          colors: mode.colors,
+          issues,
+          node,
+          nodeIndex,
+          recipe,
+          stepIndex,
+        });
+      }
     }
   }
 }
 
 function textContrastCheck(
-  subject: Extract<BasicVisualPreflightContrastSubject, 'body_text' | 'muted_text'>,
+  subject: Extract<
+    BasicVisualPreflightContrastSubject,
+    'body_text' | 'muted_text' | 'highlight_text'
+  >,
   foreground: string,
   background: string,
 ): ContrastCheck {
@@ -209,22 +234,29 @@ function textContrastCheck(
     subject,
     foreground,
     background,
-    targetRatio: TEXT_TARGET_CONTRAST_RATIO,
-    unusableRatio: TEXT_UNUSABLE_CONTRAST_RATIO,
+    targetRatio: CONTRAST_RATIO_TARGETS.text,
+    unusableRatio: CONTRAST_RATIO_TARGETS.textUnusable,
   };
 }
 
-function focusContrastCheck(foreground: string, background: string): ContrastCheck {
+function focusContrastCheck(
+  foreground: string,
+  background: string,
+  subject: Extract<
+    BasicVisualPreflightContrastSubject,
+    'focus_indicator' | 'control_border'
+  > = 'focus_indicator',
+): ContrastCheck {
   return {
-    subject: 'focus_indicator',
+    subject,
     foreground,
     background,
-    targetRatio: FOCUS_TARGET_CONTRAST_RATIO,
-    unusableRatio: FOCUS_UNUSABLE_CONTRAST_RATIO,
+    targetRatio: CONTRAST_RATIO_TARGETS.focus,
+    unusableRatio: CONTRAST_RATIO_TARGETS.focusUnusable,
   };
 }
 
-function activeColorModes(artifact: CompiledDocumentV3Type): ActiveColorMode[] {
+function activeColorModes(artifact: CompiledDocumentV4Type): ActiveColorMode[] {
   const modes = artifact.theme.definition.tokens.modes;
   if (artifact.appearance.colorMode === 'light') {
     return [{ colorMode: 'light', colors: modes.light.colors }];
@@ -246,35 +278,122 @@ function collectContrastIssue(
   check: ContrastCheck,
   issues: BasicVisualPreflightIssue[],
   stepIndex?: number,
+  nodeIndex?: number,
 ): void {
-  const measuredRatio = contrastRatio(check.foreground, check.background);
-  if (measuredRatio < check.unusableRatio) {
+  const evaluation = evaluateContrast(
+    check.foreground,
+    check.background,
+    check.targetRatio,
+    check.unusableRatio,
+  );
+  if (evaluation.state === 'blocker') {
     issues.push({
       code: 'contrast_unusable',
       severity: 'blocker',
       subject: check.subject,
       colorMode,
       ...(stepIndex !== undefined ? { stepIndex } : {}),
-      measuredRatio: roundRatio(measuredRatio),
-      requiredRatio: check.unusableRatio,
+      ...(nodeIndex !== undefined ? { nodeIndex } : {}),
+      measuredRatio: evaluation.ratio,
+      requiredRatio: evaluation.requiredRatio,
     });
     return;
   }
-  if (measuredRatio < check.targetRatio) {
+  if (evaluation.state === 'warning') {
     issues.push({
       code: 'contrast_below_target',
       severity: 'warning',
       subject: check.subject,
       colorMode,
       ...(stepIndex !== undefined ? { stepIndex } : {}),
-      measuredRatio: roundRatio(measuredRatio),
-      requiredRatio: check.targetRatio,
+      ...(nodeIndex !== undefined ? { nodeIndex } : {}),
+      measuredRatio: evaluation.ratio,
+      requiredRatio: evaluation.requiredRatio,
     });
   }
 }
 
+function collectNodeContrastIssues({
+  background,
+  colorMode,
+  colors,
+  issues,
+  node,
+  nodeIndex,
+  recipe,
+  stepIndex,
+}: {
+  background: string;
+  colorMode: ActiveColorMode['colorMode'];
+  colors: ThemeColorTokens;
+  issues: BasicVisualPreflightIssue[];
+  node: CompiledDocumentV4Type['steps'][number]['body'][number];
+  nodeIndex: number;
+  recipe: TourRendererRecipe;
+  stepIndex: number;
+}): void {
+  const textColor = node.props.textStyle?.color;
+  if (textColor) {
+    collectContrastIssue(
+      colorMode,
+      textContrastCheck('body_text', textColor, background),
+      issues,
+      stepIndex,
+      nodeIndex,
+    );
+  }
+  for (const run of node.contentRuns ?? []) {
+    const runForeground = run.color ?? textColor;
+    if (runForeground) {
+      collectContrastIssue(
+        colorMode,
+        textContrastCheck(
+          run.highlightColor ? 'highlight_text' : 'body_text',
+          runForeground,
+          run.highlightColor ?? background,
+        ),
+        issues,
+        stepIndex,
+        nodeIndex,
+      );
+    }
+  }
+  if (node.type !== 'button' && node.type !== 'link') return;
+  const primary = (node.props.variant ?? 'primary') === 'primary';
+  const fallbackFill = primary
+    ? colors[recipe.primarySurfaceRole]
+    : colors[recipe.secondarySurfaceRole];
+  const fallbackText = primary ? colors[recipe.primaryTextRole] : colors[recipe.secondaryTextRole];
+  const fill = node.props.buttonStyle?.fillColor ?? fallbackFill;
+  const label = node.props.buttonStyle?.textColor ?? fallbackText;
+  if (node.props.buttonStyle?.fillColor || node.props.buttonStyle?.textColor) {
+    collectContrastIssue(
+      colorMode,
+      {
+        subject: primary ? 'primary_control' : 'secondary_control',
+        foreground: label,
+        background: fill,
+        targetRatio: CONTRAST_RATIO_TARGETS.text,
+        unusableRatio: CONTRAST_RATIO_TARGETS.textUnusable,
+      },
+      issues,
+      stepIndex,
+      nodeIndex,
+    );
+  }
+  if (node.props.buttonStyle?.borderColor) {
+    collectContrastIssue(
+      colorMode,
+      focusContrastCheck(node.props.buttonStyle.borderColor, fill, 'control_border'),
+      issues,
+      stepIndex,
+      nodeIndex,
+    );
+  }
+}
+
 function collectCopyAndViewportIssues(
-  artifact: CompiledDocumentV3Type,
+  artifact: CompiledDocumentV4Type,
   issues: BasicVisualPreflightIssue[],
 ): void {
   const charactersPerLine = compactViewportCharactersPerLine(artifact);
@@ -309,7 +428,7 @@ function collectCopyAndViewportIssues(
   }
 }
 
-function compactViewportCharactersPerLine(artifact: CompiledDocumentV3Type): number {
+function compactViewportCharactersPerLine(artifact: CompiledDocumentV4Type): number {
   const tokens = artifact.theme.definition.tokens;
   const recipe = artifact.theme.definition.recipes.tour[artifact.appearance.preset];
   const configuredWidth = tokens.sizing[TOUR_WIDTH_TOKEN_BY_APPEARANCE[artifact.appearance.width]];
@@ -344,28 +463,4 @@ function normalizedCharacterCount(value: string | undefined): number {
   if (!value) return 0;
   const normalized = value.trim().replace(/\s+/gu, ' ');
   return Array.from(normalized).length;
-}
-
-function contrastRatio(foreground: string, background: string): number {
-  const foregroundLuminance = relativeLuminance(foreground);
-  const backgroundLuminance = relativeLuminance(background);
-  const lighter = Math.max(foregroundLuminance, backgroundLuminance);
-  const darker = Math.min(foregroundLuminance, backgroundLuminance);
-  return (lighter + 0.05) / (darker + 0.05);
-}
-
-function relativeLuminance(color: string): number {
-  const red = linearSrgbChannel(Number.parseInt(color.slice(1, 3), 16) / 255);
-  const green = linearSrgbChannel(Number.parseInt(color.slice(3, 5), 16) / 255);
-  const blue = linearSrgbChannel(Number.parseInt(color.slice(5, 7), 16) / 255);
-  return red * 0.2126 + green * 0.7152 + blue * 0.0722;
-}
-
-function linearSrgbChannel(channel: number): number {
-  if (channel <= 0.04045) return channel / 12.92;
-  return ((channel + 0.055) / 1.055) ** 2.4;
-}
-
-function roundRatio(value: number): number {
-  return Math.round(value * 100) / 100;
 }

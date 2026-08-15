@@ -1,7 +1,19 @@
 import { Type, type Static } from '@sinclair/typebox';
 import { Value } from '@sinclair/typebox/value';
 import { BlockDiagnostic, ValidationLevel } from './common';
+import { StepChoreography, sanitizeStepChoreography } from './choreography';
+import { StepTransition, sanitizeStepTransition } from './flow';
 import { isSafeNavigationUrl } from './url';
+import {
+  MediaPresentation,
+  ResponsiveStepPresentation,
+  SpotlightPresentation,
+  TourMotionPresentation,
+  sanitizeMediaPresentation,
+  sanitizeResponsiveStepPresentation,
+  sanitizeSpotlightPresentation,
+  sanitizeTourMotionPresentation,
+} from './presentation';
 
 export const LodariqBlockType = Type.Union(
   [
@@ -33,6 +45,7 @@ export const BLOCK_ACTION_TYPES = [
   'complete',
   'dismiss',
   'clickTarget',
+  'runSequence',
   'openPage',
 ] as const;
 export type BlockActionTypeValue = (typeof BLOCK_ACTION_TYPES)[number];
@@ -51,8 +64,9 @@ export const BUTTON_VARIANT_VALUES = ['primary', 'secondary', 'subtle', 'outline
 const BUTTON_VARIANT_SET = new Set<string>(BUTTON_VARIANT_VALUES);
 export const TEXT_ALIGNMENT_VALUES = ['left', 'center', 'right'] as const;
 const TEXT_ALIGNMENT_SET = new Set<string>(TEXT_ALIGNMENT_VALUES);
+/** Suggested authoring choices. The contract also accepts custom whole-pixel values in range. */
 export const TEXT_FONT_SIZE_VALUES = [10, 12, 14, 16, 18, 24, 28, 32] as const;
-const TEXT_FONT_SIZE_SET = new Set<number>(TEXT_FONT_SIZE_VALUES);
+export const TEXT_FONT_SIZE_PX_LIMITS = { min: 8, max: 96, step: 1 } as const;
 export const INLINE_TEXT_MARK_VALUES = ['bold', 'italic', 'underline'] as const;
 const INLINE_TEXT_MARK_SET = new Set<string>(INLINE_TEXT_MARK_VALUES);
 export const BLOCK_ALIGNMENT_VALUES = ['start', 'center', 'end', 'stretch'] as const;
@@ -89,22 +103,41 @@ const INLINE_TEXT_RUN_LENGTH_LIMIT = 10_000;
 const PRESENTATION_RATIO_BOUNDS = { minimum: 0, maximum: 1 } as const;
 const PRESENTATION_REGION_SIZE_BOUNDS = { exclusiveMinimum: 0, maximum: 1 } as const;
 
-export const BlockActionProps = Type.Object(
-  {
-    type: Type.Union([
-      Type.Literal('next'),
-      Type.Literal('back'),
-      Type.Literal('complete'),
-      Type.Literal('dismiss'),
-      Type.Literal('clickTarget'),
-      Type.Literal('openPage'),
-    ]),
-    url: Type.Optional(Type.String({ minLength: 1, maxLength: 2048 })),
-    navigationBehavior: Type.Optional(
-      Type.Union(OPEN_PAGE_NAVIGATION_BEHAVIOR_VALUES.map((value) => Type.Literal(value))),
+const OptionalStepTransition = Type.Optional(Type.Ref(StepTransition));
+
+/**
+ * Closed action registry. Each member declares only the fields it can consume,
+ * so behavior, navigation, and choreography data cannot leak across actions.
+ */
+export const BlockActionProps = Type.Union(
+  [
+    ...(['next', 'back', 'complete', 'dismiss', 'clickTarget'] as const).map((type) =>
+      Type.Object(
+        { type: Type.Literal(type), transition: OptionalStepTransition },
+        { additionalProperties: false },
+      ),
     ),
-  },
-  { $id: 'BlockActionProps', additionalProperties: false },
+    Type.Object(
+      {
+        type: Type.Literal('runSequence'),
+        sequence: Type.Ref(StepChoreography),
+        transition: OptionalStepTransition,
+      },
+      { additionalProperties: false },
+    ),
+    Type.Object(
+      {
+        type: Type.Literal('openPage'),
+        url: Type.Optional(Type.String({ minLength: 1, maxLength: 2048 })),
+        navigationBehavior: Type.Optional(
+          Type.Union(OPEN_PAGE_NAVIGATION_BEHAVIOR_VALUES.map((value) => Type.Literal(value))),
+        ),
+        transition: OptionalStepTransition,
+      },
+      { additionalProperties: false },
+    ),
+  ],
+  { $id: 'BlockActionProps' },
 );
 export type BlockActionProps = Static<typeof BlockActionProps>;
 
@@ -113,7 +146,10 @@ export const TextStyleProps = Type.Object(
   {
     align: Type.Optional(Type.Union(TEXT_ALIGNMENT_VALUES.map((value) => Type.Literal(value)))),
     fontSizePx: Type.Optional(
-      Type.Union(TEXT_FONT_SIZE_VALUES.map((value) => Type.Literal(value))),
+      Type.Integer({
+        minimum: TEXT_FONT_SIZE_PX_LIMITS.min,
+        maximum: TEXT_FONT_SIZE_PX_LIMITS.max,
+      }),
     ),
     color: Type.Optional(Type.String({ pattern: TEXT_COLOR_PATTERN })),
     fontWeight: Type.Optional(
@@ -135,7 +171,10 @@ export const InlineTextRun = Type.Object(
       }),
     ),
     fontSizePx: Type.Optional(
-      Type.Union(TEXT_FONT_SIZE_VALUES.map((value) => Type.Literal(value))),
+      Type.Integer({
+        minimum: TEXT_FONT_SIZE_PX_LIMITS.min,
+        maximum: TEXT_FONT_SIZE_PX_LIMITS.max,
+      }),
     ),
     color: Type.Optional(Type.String({ pattern: TEXT_COLOR_PATTERN })),
     highlightColor: Type.Optional(Type.String({ pattern: TEXT_COLOR_PATTERN })),
@@ -334,6 +373,13 @@ export const LodariqBlockProps = Type.Object(
     textStyle: Type.Optional(Type.Ref(TextStyleProps)),
     blockLayout: Type.Optional(Type.Ref(BlockLayoutProps)),
     buttonStyle: Type.Optional(Type.Ref(ButtonStyleProps)),
+    /** Optional passive sequence that starts when a Tour step becomes presentable. */
+    entrySequence: Type.Optional(Type.Ref(StepChoreography)),
+    media: Type.Optional(Type.Ref(MediaPresentation)),
+    motion: Type.Optional(Type.Ref(TourMotionPresentation)),
+    responsive: Type.Optional(Type.Ref(ResponsiveStepPresentation)),
+    spotlight: Type.Optional(Type.Ref(SpotlightPresentation)),
+    accessibilityName: Type.Optional(Type.String({ minLength: 1, maxLength: 300 })),
     tooltipLayout: Type.Optional(Type.Ref(TooltipLayoutProps)),
     tooltipStyle: Type.Optional(Type.Ref(TooltipStyleProps)),
     variant: Type.Optional(Type.Union(BUTTON_VARIANT_VALUES.map((value) => Type.Literal(value)))),
@@ -362,6 +408,19 @@ export function sanitizeBlockProps(props: Record<string, unknown>): LodariqBlock
   if (blockLayout) next.blockLayout = blockLayout;
   const buttonStyle = sanitizeButtonStyleProps(props.buttonStyle);
   if (buttonStyle) next.buttonStyle = buttonStyle;
+  const entrySequence = sanitizeStepChoreography(props.entrySequence);
+  if (entrySequence) next.entrySequence = entrySequence;
+  const media = sanitizeMediaPresentation(props.media);
+  if (media) next.media = media;
+  const motion = sanitizeTourMotionPresentation(props.motion);
+  if (motion) next.motion = motion;
+  const responsive = sanitizeResponsiveStepPresentation(props.responsive);
+  if (responsive) next.responsive = responsive;
+  const spotlight = sanitizeSpotlightPresentation(props.spotlight);
+  if (spotlight) next.spotlight = spotlight;
+  if (typeof props.accessibilityName === 'string' && props.accessibilityName.trim()) {
+    next.accessibilityName = props.accessibilityName.trim().slice(0, 300);
+  }
   const tooltipLayout = sanitizeTooltipLayoutProps(props.tooltipLayout);
   if (tooltipLayout) next.tooltipLayout = tooltipLayout;
   const tooltipStyle = sanitizeTooltipStyleProps(props.tooltipStyle);
@@ -380,7 +439,8 @@ export function sanitizeTextStyleProps(value: unknown): TextStyleProps | undefin
   if (
     typeof value.fontSizePx === 'number' &&
     Number.isInteger(value.fontSizePx) &&
-    TEXT_FONT_SIZE_SET.has(value.fontSizePx)
+    value.fontSizePx >= TEXT_FONT_SIZE_PX_LIMITS.min &&
+    value.fontSizePx <= TEXT_FONT_SIZE_PX_LIMITS.max
   ) {
     next.fontSizePx = value.fontSizePx as TextStyleProps['fontSizePx'];
   }
@@ -416,7 +476,8 @@ export function sanitizeInlineTextRuns(value: unknown): InlineTextRun[] | undefi
     const fontSizePx =
       typeof candidate.fontSizePx === 'number' &&
       Number.isInteger(candidate.fontSizePx) &&
-      TEXT_FONT_SIZE_SET.has(candidate.fontSizePx)
+      candidate.fontSizePx >= TEXT_FONT_SIZE_PX_LIMITS.min &&
+      candidate.fontSizePx <= TEXT_FONT_SIZE_PX_LIMITS.max
         ? (candidate.fontSizePx as InlineTextRun['fontSizePx'])
         : undefined;
     const linkCandidate =
@@ -592,13 +653,20 @@ function safeHexColor(value: unknown): string | undefined {
 function sanitizeActionProps(action: Record<string, unknown>): BlockActionProps | null {
   const type = blockActionTypeValue(action['type']);
   if (!type) return null;
-  if (type !== OPEN_PAGE_ACTION_TYPE) return { type };
+  if (type === 'runSequence') {
+    const sequence = sanitizeStepChoreography(action['sequence']);
+    const transition = sanitizeStepTransition(action['transition']);
+    return sequence ? { type, sequence, ...(transition ? { transition } : {}) } : null;
+  }
+  const transition = sanitizeStepTransition(action['transition']);
+  if (type !== OPEN_PAGE_ACTION_TYPE) return { type, ...(transition ? { transition } : {}) };
   const url = actionUrlValue(action['url']);
   const navigationBehavior = openPageNavigationBehaviorValue(action['navigationBehavior']);
   return {
     type,
     ...(url ? { url } : {}),
     ...(navigationBehavior ? { navigationBehavior } : {}),
+    ...(transition ? { transition } : {}),
   };
 }
 
@@ -655,7 +723,10 @@ export const LodariqBlock = Type.Recursive(
         contentRuns: Type.Optional(
           Type.Array(Type.Ref(InlineTextRun), { maxItems: INLINE_TEXT_RUN_LIMIT }),
         ),
-        props: LodariqBlockProps,
+        // Embed a scope-neutral copy so HTTP serializers resolve property
+        // references against the registered cross-system schemas rather than
+        // treating the nested LodariqBlockProps `$id` as a new URI base.
+        props: Type.Omit(LodariqBlockProps, []),
         children: Type.Array(Self),
         status: Type.Optional(Type.Ref(ValidationLevel)),
         diagnostics: Type.Optional(Type.Array(Type.Ref(BlockDiagnostic))),

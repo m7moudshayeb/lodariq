@@ -5,6 +5,7 @@ export type AuthoringInteractionMode =
 
 interface AuthoringInteractionContext {
   selectedBlockId: string | null;
+  activeContextualSurfaceId: string | null;
 }
 
 export type AuthoringInteractionEvent =
@@ -15,6 +16,8 @@ export type AuthoringInteractionEvent =
   | { type: 'BEGIN_TRANSFORM' }
   | { type: 'OPEN_INSERT' }
   | { type: 'OPEN_PREVIEW' }
+  | { type: 'OPEN_CONTEXTUAL_SURFACE'; surfaceId: string }
+  | { type: 'CLOSE_CONTEXTUAL_SURFACE'; surfaceId: string }
   | { type: 'CLOSE_OVERLAY' };
 
 export const authoringInteractionMachine = setup({
@@ -27,6 +30,19 @@ export const authoringInteractionMachine = setup({
     selectBlock: assign({
       selectedBlockId: ({ event }) => (event.type === 'SELECT_BLOCK' ? event.blockId : null),
     }),
+    openContextualSurface: assign({
+      activeContextualSurfaceId: ({ event, context }) =>
+        event.type === 'OPEN_CONTEXTUAL_SURFACE'
+          ? event.surfaceId
+          : context.activeContextualSurfaceId,
+    }),
+    closeContextualSurface: assign({
+      activeContextualSurfaceId: ({ event, context }) =>
+        event.type === 'CLOSE_CONTEXTUAL_SURFACE' &&
+        event.surfaceId === context.activeContextualSurfaceId
+          ? null
+          : context.activeContextualSurfaceId,
+    }),
   },
   guards: {
     hasSelection: ({ context }) => context.selectedBlockId !== null,
@@ -34,12 +50,14 @@ export const authoringInteractionMachine = setup({
 }).createMachine({
   id: 'authoringInteraction',
   initial: 'idle',
-  context: { selectedBlockId: null },
+  context: { selectedBlockId: null, activeContextualSurfaceId: null },
   on: {
     SELECT_BLOCK: { actions: 'selectBlock', target: '.inspecting' },
     CLEAR_SELECTION: { actions: 'clearSelection', target: '.idle' },
     OPEN_INSERT: { target: '.inserting' },
     OPEN_PREVIEW: { target: '.previewing' },
+    OPEN_CONTEXTUAL_SURFACE: { actions: 'openContextualSurface' },
+    CLOSE_CONTEXTUAL_SURFACE: { actions: 'closeContextualSurface' },
   },
   states: {
     idle: {},
@@ -86,4 +104,8 @@ export function createAuthoringInteractionActor(): AuthoringInteractionActor {
 
 export function selectedBlockIdOf(actor: AuthoringInteractionActor): string | null {
   return actor.getSnapshot().context.selectedBlockId;
+}
+
+export function activeContextualSurfaceIdOf(actor: AuthoringInteractionActor): string | null {
+  return actor.getSnapshot().context.activeContextualSurfaceId;
 }

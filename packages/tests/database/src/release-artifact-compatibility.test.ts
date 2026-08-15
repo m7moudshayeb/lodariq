@@ -22,7 +22,7 @@ const HELPER_PATH = fileURLToPath(
 );
 
 describe('release artifact compatibility', () => {
-  it('extracts historical pins separately from current deployability', () => {
+  it('treats compiler version as provenance when the emitted contracts are supported', () => {
     const historical = createArtifact({ compilerVersion: '0.2.0' });
 
     expect(extractHistoricalReleaseArtifactPins(historical)).toEqual({
@@ -35,21 +35,45 @@ describe('release artifact compatibility', () => {
       themeVersionId: historical.themeVersionId,
       themeContentHash: historical.themeContentHash,
     });
-    expect(isReleaseArtifactCurrentlyDeployable(historical)).toBe(false);
+    expect(isReleaseArtifactCurrentlyDeployable(historical)).toBe(true);
   });
 
-  it('requires every current compatibility version without hiding valid historical pins', () => {
-    const historicalArtifacts = [
-      createArtifact({ artifactSchemaVersion: '2' }),
-      createArtifact({ compilerVersion: '0.2.0' }),
-      createArtifact({ rendererContractVersion: '2' }),
-      createArtifact({ themeContractVersion: '2' }),
+  it('accepts every explicit historical artifact and renderer contract pair', () => {
+    const supportedArtifacts = [
+      createArtifact({
+        artifactSchemaVersion: '2',
+        rendererContractVersion: '2',
+        compilerVersion: '0.3.0',
+      }),
+      createArtifact({
+        artifactSchemaVersion: '3',
+        rendererContractVersion: '3',
+        compilerVersion: '0.4.0',
+      }),
     ];
 
-    for (const artifact of historicalArtifacts) {
+    for (const artifact of supportedArtifacts) {
+      expect(extractHistoricalReleaseArtifactPins(artifact)).not.toBeNull();
+      expect(isReleaseArtifactCurrentlyDeployable(artifact)).toBe(true);
+    }
+  });
+
+  it('rejects unsupported or mismatched compatibility tuples', () => {
+    const unsupportedArtifacts = [
+      createArtifact({ artifactSchemaVersion: '2' }),
+      createArtifact({ rendererContractVersion: '2' }),
+      createArtifact({ themeContractVersion: '2' }),
+      createArtifact({ artifactSchemaVersion: '99', rendererContractVersion: '99' }),
+    ];
+
+    for (const artifact of unsupportedArtifacts) {
       expect(extractHistoricalReleaseArtifactPins(artifact)).not.toBeNull();
       expect(isReleaseArtifactCurrentlyDeployable(artifact)).toBe(false);
     }
+
+    const invalidCompilerProvenance = createArtifact({ compilerVersion: 'not-semver' });
+    expect(extractHistoricalReleaseArtifactPins(invalidCompilerProvenance)).toBeNull();
+    expect(isReleaseArtifactCurrentlyDeployable(invalidCompilerProvenance)).toBe(false);
   });
 
   it('accepts only a fully consistent current artifact with canonical hashes', () => {
@@ -159,7 +183,7 @@ function createArtifact(
     appearance: DEFAULT_EXPERIENCE_APPEARANCE,
     targets: [],
     steps: [],
-    ...(artifactSchemaVersion === COMPILED_ARTIFACT_SCHEMA_VERSION
+    ...(artifactSchemaVersion === '3' || artifactSchemaVersion === COMPILED_ARTIFACT_SCHEMA_VERSION
       ? {
           localization: {
             defaultLocale: 'en',

@@ -1,14 +1,14 @@
 import type {
   ActiveManifestPointerV2,
   CompiledDocument,
+  CompiledDocumentV2,
   CompiledDocumentV3,
+  CompiledDocumentV4,
 } from '@lodariq/schema';
 import {
-  BRAND_THEME_CONTRACT_VERSION,
-  COMPILED_ARTIFACT_SCHEMA_VERSION,
-  COMPILER_VERSION,
-  RENDERER_CONTRACT_VERSION,
-} from '@lodariq/schema/version';
+  PUBLIC_MANIFEST_SCHEMA_VERSION,
+  isSupportedDeliveryContract,
+} from '@lodariq/schema/delivery-compatibility';
 
 const ARTIFACT_COMPATIBILITY_ERROR_MESSAGE = 'Lodariq artifact is incompatible with this runtime';
 
@@ -19,6 +19,8 @@ export class LodariqArtifactCompatibilityError extends Error {
     this.name = 'LodariqArtifactCompatibilityError';
   }
 }
+
+type SupportedCompiledDocument = CompiledDocumentV2 | CompiledDocumentV3 | CompiledDocumentV4;
 
 /**
  * Verifies the complete compatibility tuple before the public runtime is
@@ -32,11 +34,13 @@ export function assertSupportedArtifactManifest(manifest: ActiveManifestPointerV
   }
   const artifact = candidate['artifact'];
   if (
-    candidate['schemaVersion'] !== COMPILED_ARTIFACT_SCHEMA_VERSION ||
-    artifact['artifactSchemaVersion'] !== COMPILED_ARTIFACT_SCHEMA_VERSION ||
-    artifact['compilerVersion'] !== COMPILER_VERSION ||
-    artifact['rendererContractVersion'] !== RENDERER_CONTRACT_VERSION ||
-    artifact['themeContractVersion'] !== BRAND_THEME_CONTRACT_VERSION
+    candidate['schemaVersion'] !== PUBLIC_MANIFEST_SCHEMA_VERSION ||
+    typeof artifact['compilerVersion'] !== 'string' ||
+    !isSupportedDeliveryContract(
+      artifact['artifactSchemaVersion'],
+      artifact['rendererContractVersion'],
+      artifact['themeContractVersion'],
+    )
   ) {
     throw new LodariqArtifactCompatibilityError();
   }
@@ -53,7 +57,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 export function assertSupportedArtifactMatchesManifest(
   document: CompiledDocument,
   manifest: ActiveManifestPointerV2,
-): asserts document is CompiledDocumentV3 {
+): asserts document is SupportedCompiledDocument {
   assertSupportedArtifactManifest(manifest);
   assertSupportedCompiledArtifact(document);
   if (
@@ -72,17 +76,19 @@ export function assertSupportedArtifactMatchesManifest(
 /** Rejects every versioned artifact this runtime cannot render exactly. */
 export function assertSupportedCompiledArtifact(
   document: CompiledDocument,
-): asserts document is CompiledDocumentV3 {
+): asserts document is SupportedCompiledDocument {
   const candidate: unknown = document;
   if (!isRecord(candidate) || !isRecord(candidate['theme'])) {
     throw new LodariqArtifactCompatibilityError();
   }
   const theme = candidate['theme'];
   if (
-    candidate['artifactSchemaVersion'] !== COMPILED_ARTIFACT_SCHEMA_VERSION ||
-    candidate['compilerVersion'] !== COMPILER_VERSION ||
-    candidate['rendererContractVersion'] !== RENDERER_CONTRACT_VERSION ||
-    theme['contractVersion'] !== BRAND_THEME_CONTRACT_VERSION
+    typeof candidate['compilerVersion'] !== 'string' ||
+    !isSupportedDeliveryContract(
+      candidate['artifactSchemaVersion'],
+      candidate['rendererContractVersion'],
+      theme['contractVersion'],
+    )
   ) {
     throw new LodariqArtifactCompatibilityError();
   }

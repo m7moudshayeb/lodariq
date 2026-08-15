@@ -1,11 +1,6 @@
-import {
-  AUTHORING_LAUNCHER_ENTRY_QUERY_PARAMETER,
-  AUTHORING_LAUNCHER_ENTRY_QUERY_VALUE,
-  AUTHORING_LOCALE_QUERY_PARAMETER,
-} from '@lodariq/schema/authoring-entry-runtime';
-import { isAuthoringControlPlaneRole } from '@lodariq/schema';
-import { setupI18n, type MessageDescriptor } from '@lingui/core';
-import { DEFAULT_LOCALE, type SupportedLocale } from '@lodariq/i18n';
+import { isAuthoringControlPlaneRole, isPublishReadinessBlocker } from '@lodariq/schema';
+import { setupI18n } from '@lingui/core';
+import { DEFAULT_LOCALE } from '@lodariq/i18n';
 import { DASHBOARD_COMMON_MESSAGES, DASHBOARD_VIEW_MODEL_MESSAGES } from '../i18n/messages';
 import { dashboardPublishIssueCopy } from '../i18n/server-feedback';
 import type {
@@ -16,9 +11,26 @@ import type {
   WorkspaceThemeDto,
   WorkspaceEnvironmentDto,
 } from './api';
+import { buildAuthoringSiteOptions, type DashboardAuthoringSite } from './authoring-site-options';
+import {
+  buildBrandSourceSummary,
+  type DashboardBrandSourceSummary,
+} from './brand-source-view-model';
+import {
+  buildDocumentFlowMapUrl,
+  describeDocumentFlowEvidence,
+  documentFlowIssues,
+} from './dashboard-flow-health';
+import { formatDate, formatDateTime, timestampOf } from './view-model-formatters';
+import type { DashboardViewModelLocalization } from './view-model-localization';
+import type { DashboardStatusVariant } from './view-model-types';
+
+export type { DashboardAuthoringSite } from './authoring-site-options';
+export type { DashboardBrandSourceSummary } from './brand-source-view-model';
+export type { DashboardViewModelLocalization } from './view-model-localization';
+export type { DashboardStatusVariant } from './view-model-types';
 
 type PublicationVariant = 'success' | 'warning' | 'outline';
-export type DashboardStatusVariant = PublicationVariant | 'info' | 'destructive';
 export type ReleaseStageTone = 'complete' | 'current' | 'pending' | 'attention';
 export type DashboardDocumentReadiness = 'blocked' | 'draft' | 'previewable' | 'archived';
 
@@ -40,32 +52,11 @@ export interface DashboardRecentActivity {
 }
 
 export interface DashboardReleaseEvidence {
-  id: 'draft' | 'staging' | 'production' | 'artifact';
+  id: 'draft' | 'flow' | 'staging' | 'production' | 'artifact';
   label: string;
   value: string;
   detail: string;
   tone: DashboardStatusVariant;
-}
-
-export interface DashboardBrandSourceSummary {
-  sourceLabel: string;
-  sourceDetail: string;
-  statusLabel: string;
-  statusVariant: DashboardStatusVariant;
-  revisionLabel: string;
-  checkedAtLabel: string;
-  confidenceLabel: string | null;
-  semanticRoles: string[];
-}
-
-export interface DashboardAuthoringSite {
-  id: string;
-  environmentId: string;
-  environment: Exclude<WorkspaceEnvironmentDto['kind'], 'production'>;
-  environmentLabel: string;
-  exactOrigin: string;
-  label: string;
-  launchUrl: string;
 }
 
 export interface DashboardViewModel {
@@ -91,6 +82,8 @@ export interface DashboardViewModel {
       queueStatusVariant: DashboardStatusVariant;
       releaseActionLabel: string;
       releaseEvidence: DashboardReleaseEvidence[];
+      flowIssueCount: number;
+      flowMapUrl: string;
       releaseSummary: string;
       releaseStages: DashboardReleaseStage[];
     }
@@ -114,11 +107,6 @@ export interface DashboardViewModel {
   openInProductUrl: string;
   brandSourceSummary: DashboardBrandSourceSummary;
   recentActivity: DashboardRecentActivity[];
-}
-
-export interface DashboardViewModelLocalization {
-  locale: SupportedLocale;
-  translate: (descriptor: MessageDescriptor, values?: Record<string, string | number>) => string;
 }
 
 const ENGLISH_I18N = setupI18n({ locale: DEFAULT_LOCALE, messages: { [DEFAULT_LOCALE]: {} } });
@@ -160,6 +148,7 @@ export function buildDashboardViewModel(
     const publication = buildPublicationInfo(document, environmentById, localization);
     const releaseQueue = buildReleaseQueueInfo(document, localization);
     const readinessState = documentReadinessState(document);
+    const flowIssues = documentFlowIssues(document);
     return {
       ...document,
       statusLabel: formatDocumentStatus(document.status, translate),
@@ -176,6 +165,13 @@ export function buildDashboardViewModel(
       publicationDetail: publication.detail,
       publicationVariant: publication.variant,
       ...releaseQueue,
+      flowIssueCount: flowIssues.length,
+      flowMapUrl: buildDocumentFlowMapUrl(
+        authoringSiteOptions[0]?.exactOrigin,
+        document,
+        flowIssues[0]?.blockId,
+        locale,
+      ),
     };
   });
 
@@ -208,64 +204,6 @@ export function buildDashboardViewModel(
   };
 }
 
-function buildAuthoringSiteOptions(
-  installations: readonly PublicSdkInstallationDto[],
-  environmentById: ReadonlyMap<string, DashboardViewModel['environmentOptions'][number]>,
-  locale: SupportedLocale,
-): DashboardAuthoringSite[] {
-  const sitesByOrigin = new Map<string, DashboardAuthoringSite>();
-
-  for (const installation of installations) {
-    if (installation.revokedAt) continue;
-    for (const mapping of installation.origins) {
-      if (!mapping.authoringEnabled) continue;
-      const environment = environmentById.get(mapping.environmentId);
-      if (
-        !environment ||
-        environment.kind === 'production' ||
-        environment.enabled === false ||
-        environment.authoringEnabled === false
-      ) {
-        continue;
-      }
-      const exactOrigin = readHttpOrigin(mapping.exactOrigin);
-      if (!exactOrigin || !environmentAllowsOrigin(environment, exactOrigin)) continue;
-      sitesByOrigin.set(exactOrigin, {
-        id: `${environment.id}:${exactOrigin}`,
-        environmentId: environment.id,
-        environment: environment.kind,
-        environmentLabel: environment.name,
-        exactOrigin,
-        label: `${environment.name} · ${exactOrigin}`,
-        launchUrl: buildAuthoringLaunchUrl(exactOrigin, locale),
-      });
-    }
-  }
-
-  return [...sitesByOrigin.values()].sort((left, right) => {
-    const priority =
-      environmentOpenPriority(left.environment) - environmentOpenPriority(right.environment);
-    return priority || left.label.localeCompare(right.label);
-  });
-}
-
-function buildAuthoringLaunchUrl(exactOrigin: string, locale: SupportedLocale): string {
-  const url = new URL(exactOrigin);
-  url.searchParams.set(
-    AUTHORING_LAUNCHER_ENTRY_QUERY_PARAMETER,
-    AUTHORING_LAUNCHER_ENTRY_QUERY_VALUE,
-  );
-  url.searchParams.set(AUTHORING_LOCALE_QUERY_PARAMETER, locale);
-  return url.toString();
-}
-
-function environmentAllowsOrigin(
-  environment: WorkspaceEnvironmentDto,
-  exactOrigin: string,
-): boolean {
-  return environment.originAllowlist.some((value) => readHttpOrigin(value) === exactOrigin);
-}
-
 function buildReleaseQueueInfo(
   document: DocumentSummaryDto,
   localization: DashboardViewModelLocalization,
@@ -283,7 +221,8 @@ function buildReleaseQueueInfo(
   const stagingPublication = latestPublicationForEnvironment(document, 'staging');
   const productionPublication = latestPublicationForEnvironment(document, 'production');
   const latestContentHash = document.latestContentHash;
-  const hasBlockers = document.publishReadinessIssues.length > 0;
+  const blockingIssues = documentBlockingIssues(document);
+  const hasBlockers = blockingIssues.length > 0;
   const stagingIsCurrent = publicationMatchesDraft(stagingPublication, latestContentHash);
   const productionIsCurrent = publicationMatchesDraft(productionPublication, latestContentHash);
   const stagingVerification = publicationVerification(stagingPublication);
@@ -313,7 +252,7 @@ function buildReleaseQueueInfo(
       releaseActionLabel: translate(DASHBOARD_VIEW_MODEL_MESSAGES.reviewBlockers),
       releaseEvidence,
       releaseSummary: translate(DASHBOARD_VIEW_MODEL_MESSAGES.reviewBeforePublish, {
-        issues: formatIssueCount(document.publishReadinessIssues.length, translate),
+        issues: formatIssueCount(blockingIssues.length, translate),
       }),
       releaseStages,
     };
@@ -427,7 +366,7 @@ function buildDraftStage(
       id: 'draft',
       label: translate(DASHBOARD_COMMON_MESSAGES.draft),
       statusLabel: translate(DASHBOARD_VIEW_MODEL_MESSAGES.needsReview),
-      detail: issue.label,
+      detail: translate(dashboardPublishIssueCopy(issue.code).label),
       tone: 'attention',
     };
   }
@@ -607,6 +546,7 @@ function buildReleaseEvidence(
   );
   const productionEvidence = describeProductionEvidence(production, staging, localization);
   const artifactEvidence = describeArtifactEvidence(artifactPublication, artifactId, localization);
+  const flowEvidence = describeDocumentFlowEvidence(document, localization);
   return [
     {
       id: 'draft',
@@ -617,6 +557,15 @@ function buildReleaseEvidence(
       detail: draftEvidenceDetail(document, translate),
       tone: document.publishReadinessIssues.length ? 'warning' : 'outline',
     },
+    ...(flowEvidence
+      ? [
+          {
+            id: 'flow' as const,
+            label: translate(DASHBOARD_VIEW_MODEL_MESSAGES.flowHealth),
+            ...flowEvidence,
+          },
+        ]
+      : []),
     {
       id: 'staging',
       label: translate(DASHBOARD_VIEW_MODEL_MESSAGES.stagingEvidence),
@@ -642,7 +591,7 @@ function draftEvidenceDetail(
   if (!document.latestContentHash) {
     return translate(DASHBOARD_VIEW_MODEL_MESSAGES.previewToPrepareArtifact);
   }
-  const count = document.publishReadinessIssues.length;
+  const count = documentBlockingIssues(document).length;
   if (count === 0) return translate(DASHBOARD_VIEW_MODEL_MESSAGES.noBlockingChecks);
   return translate(DASHBOARD_VIEW_MODEL_MESSAGES.blockingChecks, { count });
 }
@@ -739,135 +688,6 @@ function describeArtifactEvidence(
     detail: translate(DASHBOARD_VIEW_MODEL_MESSAGES.createdDuringPublication),
     tone: 'warning',
   };
-}
-
-function buildBrandSourceSummary(
-  themes: WorkspaceThemeDto[],
-  localization: DashboardViewModelLocalization,
-): DashboardBrandSourceSummary {
-  const { locale, translate } = localization;
-  const semanticRoles = [
-    translate(DASHBOARD_VIEW_MODEL_MESSAGES.accent),
-    translate(DASHBOARD_VIEW_MODEL_MESSAGES.surface),
-    translate(DASHBOARD_VIEW_MODEL_MESSAGES.text),
-    translate(DASHBOARD_VIEW_MODEL_MESSAGES.typography),
-    translate(DASHBOARD_VIEW_MODEL_MESSAGES.radius),
-  ];
-  const theme = themes.find((item) => item.isDefault) ?? themes[0];
-  if (!theme) {
-    return {
-      sourceLabel: translate(DASHBOARD_VIEW_MODEL_MESSAGES.accessibleFallback),
-      sourceDetail: translate(DASHBOARD_VIEW_MODEL_MESSAGES.semanticDefaultsActive),
-      statusLabel: translate(DASHBOARD_VIEW_MODEL_MESSAGES.safeFallback),
-      statusVariant: 'outline',
-      revisionLabel: translate(DASHBOARD_VIEW_MODEL_MESSAGES.noApprovedVersion),
-      checkedAtLabel: translate(DASHBOARD_VIEW_MODEL_MESSAGES.productMatchNotRecorded),
-      confidenceLabel: null,
-      semanticRoles,
-    };
-  }
-  const styleSource = theme.latestStyleSource;
-  if (styleSource) {
-    return {
-      sourceLabel: productStyleSourceLabel(styleSource.kind, translate),
-      sourceDetail: productStyleSourceDetail(styleSource.kind, theme.name, translate),
-      statusLabel: translate(
-        theme.activeVersion
-          ? DASHBOARD_VIEW_MODEL_MESSAGES.approvedSource
-          : DASHBOARD_VIEW_MODEL_MESSAGES.needsApproval,
-      ),
-      statusVariant: theme.activeVersion ? 'success' : 'warning',
-      revisionLabel: styleSource.revision
-        ? translate(DASHBOARD_VIEW_MODEL_MESSAGES.sourceRevision, {
-            revision: styleSource.revision,
-          })
-        : translate(DASHBOARD_VIEW_MODEL_MESSAGES.themeRevision, { revision: theme.revision }),
-      checkedAtLabel: translate(DASHBOARD_VIEW_MODEL_MESSAGES.checkedAt, {
-        date: formatDateTime(styleSource.capturedAt, locale, translate),
-      }),
-      confidenceLabel: productStyleConfidenceLabel(styleSource.confidence, translate),
-      semanticRoles,
-    };
-  }
-  if (!theme.activeVersion) {
-    return {
-      sourceLabel: translate(DASHBOARD_VIEW_MODEL_MESSAGES.workspaceDraft, { theme: theme.name }),
-      sourceDetail: translate(DASHBOARD_VIEW_MODEL_MESSAGES.tokensSavedAsDraft),
-      statusLabel: translate(DASHBOARD_VIEW_MODEL_MESSAGES.needsApproval),
-      statusVariant: 'warning',
-      revisionLabel: translate(DASHBOARD_VIEW_MODEL_MESSAGES.draftRevision, {
-        revision: theme.revision,
-      }),
-      checkedAtLabel: translate(DASHBOARD_VIEW_MODEL_MESSAGES.updatedAt, {
-        date: formatDateTime(theme.updatedAt, locale, translate),
-      }),
-      confidenceLabel: null,
-      semanticRoles,
-    };
-  }
-  return {
-    sourceLabel: translate(DASHBOARD_VIEW_MODEL_MESSAGES.workspaceApprovedTokens),
-    sourceDetail: translate(DASHBOARD_VIEW_MODEL_MESSAGES.themeCompiledSnapshot, {
-      theme: theme.name,
-    }),
-    statusLabel: translate(DASHBOARD_VIEW_MODEL_MESSAGES.approvedSource),
-    statusVariant: 'success',
-    revisionLabel: translate(DASHBOARD_VIEW_MODEL_MESSAGES.version, {
-      version: theme.activeVersion.version,
-    }),
-    checkedAtLabel: translate(DASHBOARD_VIEW_MODEL_MESSAGES.approvedAt, {
-      date: formatDateTime(theme.activeVersion.approvedAt, locale, translate),
-    }),
-    confidenceLabel: null,
-    semanticRoles,
-  };
-}
-
-type DashboardProductStyleSourceKind = NonNullable<WorkspaceThemeDto['latestStyleSource']>['kind'];
-
-function productStyleSourceLabel(
-  kind: DashboardProductStyleSourceKind,
-  translate: DashboardViewModelLocalization['translate'],
-): string {
-  if (kind === 'registered_tokens') {
-    return translate(DASHBOARD_VIEW_MODEL_MESSAGES.registeredDesignTokens);
-  }
-  if (kind === 'selected_element') {
-    return translate(DASHBOARD_VIEW_MODEL_MESSAGES.selectedProductElement);
-  }
-  if (kind === 'nearby_control') {
-    return translate(DASHBOARD_VIEW_MODEL_MESSAGES.nearbyProductControls);
-  }
-  if (kind === 'page_typography') {
-    return translate(DASHBOARD_VIEW_MODEL_MESSAGES.productTypography);
-  }
-  if (kind === 'ancestor_context') {
-    return translate(DASHBOARD_VIEW_MODEL_MESSAGES.productSurfaceContext);
-  }
-  return translate(DASHBOARD_VIEW_MODEL_MESSAGES.accessibleFallbackShort);
-}
-
-function productStyleSourceDetail(
-  kind: DashboardProductStyleSourceKind,
-  themeName: string,
-  translate: DashboardViewModelLocalization['translate'],
-): string {
-  if (kind === 'registered_tokens') {
-    return translate(DASHBOARD_VIEW_MODEL_MESSAGES.groundedInTokens, { theme: themeName });
-  }
-  if (kind === 'selected_element') {
-    return translate(DASHBOARD_VIEW_MODEL_MESSAGES.proposedFromElement, { theme: themeName });
-  }
-  return translate(DASHBOARD_VIEW_MODEL_MESSAGES.privacySafeEvidence, { theme: themeName });
-}
-
-function productStyleConfidenceLabel(
-  confidence: number,
-  translate: DashboardViewModelLocalization['translate'],
-): string {
-  if (confidence >= 80) return translate(DASHBOARD_VIEW_MODEL_MESSAGES.highConfidenceEvidence);
-  if (confidence >= 60) return translate(DASHBOARD_VIEW_MODEL_MESSAGES.reviewRecommended);
-  return translate(DASHBOARD_VIEW_MODEL_MESSAGES.lowConfidenceEvidence);
 }
 
 function buildRecentActivity(
@@ -971,22 +791,6 @@ function formatIssueCount(
   return translate(DASHBOARD_VIEW_MODEL_MESSAGES.publishIssues, { count });
 }
 
-function environmentOpenPriority(kind: WorkspaceEnvironmentDto['kind']): number {
-  if (kind === 'staging') return 0;
-  if (kind === 'development') return 1;
-  return 2;
-}
-
-function readHttpOrigin(value: string): string {
-  try {
-    const url = new URL(value);
-    if (url.protocol !== 'https:' && url.protocol !== 'http:') return '';
-    return url.origin;
-  } catch {
-    return '';
-  }
-}
-
 function formatEnvironmentKind(
   environment: WorkspaceEnvironmentDto['kind'],
   translate: DashboardViewModelLocalization['translate'],
@@ -1054,8 +858,12 @@ const DOCUMENT_LIFECYCLE_VARIANTS: Readonly<
 
 function documentReadinessState(document: DocumentSummaryDto): DashboardDocumentReadiness {
   if (document.status === 'archived') return 'archived';
-  if (document.publishReadinessIssues.length) return 'blocked';
+  if (documentBlockingIssues(document).length) return 'blocked';
   return document.latestContentHash ? 'previewable' : 'draft';
+}
+
+function documentBlockingIssues(document: DocumentSummaryDto) {
+  return document.publishReadinessIssues.filter(isPublishReadinessBlocker);
 }
 
 function documentLifecycleVariant(status: DocumentSummaryDto['status']): DashboardStatusVariant {
@@ -1140,40 +948,4 @@ function buildPublicationInfo(
     detail: translate(DASHBOARD_VIEW_MODEL_MESSAGES.currentDraftRecorded, { sites: siteList }),
     variant: 'outline',
   };
-}
-
-function formatDate(
-  value: string,
-  locale: SupportedLocale,
-  translate: DashboardViewModelLocalization['translate'],
-): string {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return translate(DASHBOARD_COMMON_MESSAGES.unknown);
-  return new Intl.DateTimeFormat(locale, {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-    timeZone: 'UTC',
-  }).format(date);
-}
-
-function formatDateTime(
-  value: string,
-  locale: SupportedLocale,
-  translate: DashboardViewModelLocalization['translate'],
-): string {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return translate(DASHBOARD_VIEW_MODEL_MESSAGES.unknownTime);
-  return new Intl.DateTimeFormat(locale, {
-    month: 'short',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-    timeZone: 'UTC',
-  }).format(date);
-}
-
-function timestampOf(value: string): number {
-  const timestamp = new Date(value).getTime();
-  return Number.isNaN(timestamp) ? 0 : timestamp;
 }

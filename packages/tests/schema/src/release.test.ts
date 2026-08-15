@@ -6,6 +6,7 @@ import {
   DocumentDeployment,
   ManifestPointer,
   ManifestPointerV2,
+  PUBLIC_MANIFEST_SCHEMA_VERSION,
   ReleaseMutationGuard,
   RENDERER_CONTRACT_VERSION,
   VersionedManifestPointer,
@@ -72,7 +73,7 @@ describe('release pointer contracts', () => {
 
   it('validates strict active and inactive V2 manifests', () => {
     const active = {
-      schemaVersion: COMPILED_ARTIFACT_SCHEMA_VERSION,
+      schemaVersion: PUBLIC_MANIFEST_SCHEMA_VERSION,
       workspaceId: 'wk_1',
       environmentId: 'env_staging',
       documentId: 'doc_1',
@@ -96,12 +97,33 @@ describe('release pointer contracts', () => {
     expect(
       validate(ManifestPointerV2, {
         ...active,
+        artifact: {
+          ...active.artifact,
+          artifactSchemaVersion: '3',
+          compilerVersion: '0.4.0',
+          rendererContractVersion: '3',
+        },
+      }).valid,
+    ).toBe(true);
+    expect(
+      validate(ManifestPointerV2, {
+        ...active,
+        artifact: {
+          ...active.artifact,
+          artifactSchemaVersion: '3',
+          rendererContractVersion: '4',
+        },
+      }).valid,
+    ).toBe(false);
+    expect(
+      validate(ManifestPointerV2, {
+        ...active,
         artifact: { ...active.artifact, compilerVersion: 'future-compiler' },
       }).valid,
     ).toBe(false);
     expect(
       validate(ManifestPointerV2, {
-        schemaVersion: COMPILED_ARTIFACT_SCHEMA_VERSION,
+        schemaVersion: PUBLIC_MANIFEST_SCHEMA_VERSION,
         workspaceId: 'wk_1',
         environmentId: 'env_staging',
         documentId: 'doc_1',

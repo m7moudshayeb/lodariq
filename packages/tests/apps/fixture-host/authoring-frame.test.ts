@@ -26,10 +26,13 @@ async function loadFrame(): Promise<void> {
 }
 
 async function waitForEditorReady(): Promise<void> {
-  await vi.waitFor(() => {
-    expect(document.querySelector('[aria-label="Experience editor"]')).not.toBeNull();
-    expect(document.querySelector('.canvas-editor-loading')).toBeNull();
-  });
+  await vi.waitFor(
+    () => {
+      expect(document.querySelector('[aria-label="Experience editor"]')).not.toBeNull();
+      expect(document.querySelector('.canvas-editor-loading')).toBeNull();
+    },
+    { timeout: 5_000 },
+  );
 }
 
 function documentJson(): HTMLTextAreaElement {
@@ -301,7 +304,7 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     expect(document.querySelector('.tour-storyboard')).toBeTruthy();
     expect(
       document.querySelector(
-        '.tour-storyboard-language .ui-select-trigger[aria-label="Experience language"]',
+        '.tour-storyboard-utilities .ui-select-trigger[aria-label="Experience language"]',
       ),
     ).toBeTruthy();
     expect(document.querySelector('.tour-step-inspector')).toBeTruthy();
@@ -327,10 +330,188 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     window.history.replaceState(null, '', '/');
   });
 
+  it('keeps focused Flow Map, Batch Edit, and popup modes inside the existing workspace', async () => {
+    window.history.replaceState(null, '', '/authoring.html?lodariqFrame=panel');
+    await loadFrame();
+    document.querySelector<HTMLButtonElement>('.tour-storyboard-add')?.click();
+    await flushPreviewPatchQueue();
+
+    const flowMap = buttonWithText('Flow Map');
+    expect(flowMap).not.toBeNull();
+    flowMap?.click();
+    await vi.waitFor(() =>
+      expect(document.querySelector('.tour-flow-map-workspace')).not.toBeNull(),
+    );
+    await vi.waitFor(() => {
+      expect(document.querySelector('.react-flow[aria-label="Flow Map"]')).not.toBeNull();
+      expect(document.querySelector('.react-flow__node[aria-label*="Step"]')).not.toBeNull();
+    });
+    expect(buttonWithText('Select')).not.toBeNull();
+    expect(buttonWithText('Pan')).not.toBeNull();
+    expect(document.querySelector('.tour-flow-canvas-controls')).not.toBeNull();
+    expect(document.querySelector('.tour-flow-toolbar [aria-label="Zoom out"]')).toBeNull();
+    expect(document.querySelector('.tour-storyboard')).toBeNull();
+    expect(buttonWithText('Return to canvas')).not.toBeNull();
+
+    buttonWithText('Return to canvas')?.click();
+    await vi.waitFor(() => expect(document.querySelector('.tour-storyboard')).not.toBeNull());
+
+    const stepButtons = document.querySelectorAll<HTMLButtonElement>('.tour-storyboard-select');
+    stepButtons[0]?.dispatchEvent(new MouseEvent('click', { bubbles: true, metaKey: true }));
+    stepButtons[1]?.dispatchEvent(new MouseEvent('click', { bubbles: true, metaKey: true }));
+    await vi.waitFor(() => expect(document.querySelectorAll('.tour-batch-card')).toHaveLength(2));
+    expect(document.querySelector('.tour-step-batch-toolbar')).not.toBeNull();
+    expect(buttonWithText('Reorder')).not.toBeNull();
+    expect(buttonWithText('Move to…')).not.toBeNull();
+    expect(buttonWithText('Done')).not.toBeNull();
+
+    buttonWithText('Done')?.click();
+    await vi.waitFor(() => expect(document.querySelector('.rich-step-editor')).not.toBeNull());
+    expect(document.querySelector('.tour-batch-workspace')).toBeNull();
+
+    buttonWithText('Popup')?.click();
+    await vi.waitFor(() => expect(buttonWithText('Layout')).not.toBeNull());
+    expect(buttonWithText('Appearance')).not.toBeNull();
+    expect(buttonWithText('Step presentation')).not.toBeNull();
+    expect(document.body.textContent).toContain('Content alignment');
+
+    buttonWithText('Appearance')?.click();
+    await vi.waitFor(() => expect(document.body.textContent).toContain('Background'));
+    expect(document.body.textContent).not.toContain('Content alignment');
+    expect(
+      document
+        .querySelector('.popup-appearance-workspace .rich-step-color-field > legend')
+        ?.classList.contains('visually-hidden'),
+    ).toBe(true);
+
+    buttonWithText('Step presentation')?.click();
+    await vi.waitFor(() => expect(document.body.textContent).toContain('Motion recipe'));
+    buttonWithText('Fade')?.click();
+    await vi.waitFor(() =>
+      expect(
+        document
+          .querySelector('.step-presentation-preview-stage article')
+          ?.getAttribute('data-motion'),
+      ).toBe('fade'),
+    );
+    const canvasPopup = document.querySelector<HTMLElement>(
+      '.storyboard-editor-stage .rich-step-content',
+    );
+    const presentationPreview = document.querySelector<HTMLElement>(
+      '.step-presentation-preview-card',
+    );
+    expect(presentationPreview).not.toBeNull();
+    expect(presentationPreview?.dataset['lodariqContentAlign']).toBe(
+      canvasPopup?.dataset['lodariqContentAlign'],
+    );
+    expect(presentationPreview?.dataset['lodariqPopupRadius']).toBe(
+      canvasPopup?.dataset['lodariqPopupRadius'],
+    );
+    const canvasHeading = canvasPopup
+      ?.querySelector<HTMLElement>('[data-lodariq-node-type="heading"]')
+      ?.textContent?.trim();
+    const canvasAction = canvasPopup
+      ?.querySelector<HTMLInputElement>('[aria-label="Button label"]')
+      ?.value.trim();
+    expect(canvasHeading).toBeTruthy();
+    expect(canvasAction).toBeTruthy();
+    expect(presentationPreview?.textContent).toContain(canvasHeading);
+    expect(presentationPreview?.textContent).toContain(canvasAction);
+    expect(document.querySelector('[aria-label="Replay preview"]')).not.toBeNull();
+
+    window.history.replaceState(null, '', '/');
+  });
+
+  it('keeps Open page fields and moves sequence authoring into Flow Map', async () => {
+    window.history.replaceState(null, '', '/authoring.html?lodariqFrame=panel');
+    await loadFrame();
+
+    const buttonLabel = document.querySelector<HTMLInputElement>('[aria-label="Button label"]');
+    expect(buttonLabel).not.toBeNull();
+    buttonLabel
+      ?.closest<HTMLElement>('.rich-step-block-row')
+      ?.dispatchEvent(new Event('pointerdown', { bubbles: true }));
+    await vi.waitFor(() =>
+      expect(
+        document.querySelector<HTMLButtonElement>('button[aria-label="Action"]'),
+      ).not.toBeNull(),
+    );
+    document.querySelector<HTMLButtonElement>('button[aria-label="Action"]')?.click();
+    await vi.waitFor(() => expect(buttonWithText('Open page')).not.toBeNull());
+    const behaviorTray = document.querySelector<HTMLElement>(
+      '[aria-label="Selected action style"]',
+    );
+    expect(behaviorTray).not.toBeNull();
+    expect(behaviorTray?.querySelector('[aria-label="Button settings"]')?.textContent).toContain(
+      'Behavior',
+    );
+    expect(behaviorTray?.textContent).not.toContain('Add branch');
+    expect(behaviorTray?.querySelector('.sequence-property-editor')).toBeNull();
+    expect(behaviorTray?.querySelector('.transition-editor')).toBeNull();
+
+    buttonWithText('Open page')?.click();
+    await vi.waitFor(() =>
+      expect(
+        document.querySelector<HTMLInputElement>('[data-property-id="button.destination"] input'),
+      ).not.toBeNull(),
+    );
+    expect(document.body.textContent).toContain('Destination');
+    expect(document.body.textContent).toContain('After navigation');
+
+    buttonWithText('Run a sequence')?.click();
+    await vi.waitFor(() =>
+      expect(document.querySelector('.tour-flow-map-workspace')).not.toBeNull(),
+    );
+    expect(document.querySelector('.react-flow')).not.toBeNull();
+    expect(document.querySelector('.tour-flow-workbench[data-mode="sequence"]')).not.toBeNull();
+    expect(buttonWithText('Edit sequence')).not.toBeNull();
+
+    buttonWithText('Return to canvas')?.click();
+    await vi.waitFor(() => expect(document.querySelector('.rich-step-editor')).not.toBeNull());
+    document
+      .querySelector<HTMLInputElement>('[aria-label="Button label"]')
+      ?.closest<HTMLElement>('.rich-step-block-row')
+      ?.dispatchEvent(new Event('pointerdown', { bubbles: true }));
+    await vi.waitFor(() =>
+      expect(
+        document.querySelector<HTMLButtonElement>('button[aria-label="Action"]'),
+      ).not.toBeNull(),
+    );
+    document.querySelector<HTMLButtonElement>('button[aria-label="Action"]')?.click();
+    await vi.waitFor(() =>
+      expect(document.querySelector('.tour-flow-workbench[data-mode="sequence"]')).not.toBeNull(),
+    );
+    expect(document.querySelector('[aria-label="Selected action style"]')).toBeNull();
+
+    buttonWithText('Action branch')?.click();
+    await vi.waitFor(() => expect(buttonWithText('Add branch')).not.toBeNull());
+    buttonWithText('Add branch')?.click();
+    await vi.waitFor(() => expect(buttonWithText('Add rule')).not.toBeNull());
+    buttonWithText('Add rule')?.click();
+    await vi.waitFor(() =>
+      expect(document.querySelector('.transition-condition-fields')).not.toBeNull(),
+    );
+    expect(document.querySelector('.transition-condition-remove.ui-button-danger')).not.toBeNull();
+    expect(document.querySelector('.tour-flow-workbench-actions button.danger')).not.toBeNull();
+
+    buttonWithText('Branch simulation')?.click();
+    await vi.waitFor(() =>
+      expect(document.querySelector('[aria-label="Branch simulation"]')).not.toBeNull(),
+    );
+    const branchSimulation = document.querySelector<HTMLElement>(
+      '[aria-label="Branch simulation"]',
+    );
+    expect(branchSimulation?.textContent).toContain('Visitor trait key');
+    expect(branchSimulation?.textContent).not.toContain('Completion behavior');
+    expect(branchSimulation?.textContent).not.toContain('Draft checkpoints');
+
+    window.history.replaceState(null, '', '/');
+  });
+
   it('edits and formats structured step copy through one rich-text surface', async () => {
     document.body.innerHTML = '<div id="authoring"></div>';
     const saveDocument = vi.fn<(document: LodariqDocument) => void>();
-    mountLocalAuthoringFrame({
+    await mountLocalAuthoringFrame({
       root: document.getElementById('authoring')!,
       baseDocument: tourFixture as LodariqDocument,
       services: { ...localFrameServices(), saveDocument },
@@ -368,7 +549,7 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
   it('opens advanced step details inside the panel workspace', async () => {
     document.body.innerHTML = '<div id="authoring"></div>';
     const peer = { postMessage: vi.fn() } as unknown as Window;
-    mountLocalAuthoringFrame({
+    await mountLocalAuthoringFrame({
       root: document.getElementById('authoring')!,
       baseDocument: tourFixture as LodariqDocument,
       services: localFrameServices(),
@@ -395,7 +576,15 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     expect(document.querySelector('.panel-advanced-main .tour-position-options')).toBeNull();
     expect(document.querySelector('.panel-advanced-main > .document')).toBeNull();
     expect(document.querySelector('.panel-advanced-main > .insert-bar')).toBeNull();
-    expect(document.querySelector('.panel-advanced-main > .inspector')).not.toBeNull();
+    expect(document.querySelector('.panel-advanced-main .inspector')).toBeNull();
+    expect(
+      getComputedStyle(document.querySelector<HTMLElement>('.tour-review-main')!).overflowY,
+    ).toBe('auto');
+    buttonWithText('Edit details')?.click();
+    await vi.waitFor(() =>
+      expect(document.querySelector('.panel-advanced-main .inspector')).not.toBeNull(),
+    );
+    expect(document.querySelector('.panel-advanced-main .inspector')).not.toBeNull();
     const back = buttonWithText('Back to editor');
     expect(back?.querySelector('svg')).not.toBeNull();
     expect(back?.textContent?.trim()).toBe('Back to editor');
@@ -410,7 +599,7 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
 
   it('keeps staging release gracefully unavailable in local preview', async () => {
     document.body.innerHTML = '<div id="authoring"></div>';
-    mountLocalAuthoringFrame({
+    await mountLocalAuthoringFrame({
       root: document.getElementById('authoring')!,
       baseDocument: tourFixture as LodariqDocument,
       services: localFrameServices(),
@@ -505,7 +694,7 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
           },
         ],
       });
-    mountLocalAuthoringFrame({
+    await mountLocalAuthoringFrame({
       root: document.getElementById('authoring')!,
       baseDocument: tourFixture as LodariqDocument,
       services: {
@@ -570,7 +759,7 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
           },
         ],
       });
-    mountLocalAuthoringFrame({
+    await mountLocalAuthoringFrame({
       root: document.getElementById('authoring')!,
       baseDocument: tourFixture as LodariqDocument,
       services: {
@@ -606,7 +795,7 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     const peer = { postMessage: vi.fn() } as unknown as Window;
     const sessionId = 'session_compact_placement';
 
-    mountLocalAuthoringFrame({
+    await mountLocalAuthoringFrame({
       root,
       baseDocument: tourFixture as LodariqDocument,
       services: localFrameServices(),
@@ -694,6 +883,14 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     expect(
       placement?.querySelector<HTMLButtonElement>('[aria-label="Placement New project actions"]'),
     ).not.toBeNull();
+
+    document
+      .querySelector<HTMLElement>('.rich-step-block-row')
+      ?.dispatchEvent(new Event('pointerdown', { bubbles: true }));
+    await vi.waitFor(() =>
+      expect(document.querySelector<HTMLElement>('section[aria-label="Placement"]')).toBeNull(),
+    );
+    expect(document.querySelector('.rich-step-toolbar')).not.toBeNull();
   });
 
   it('offers one choose-element action for an unplaced compact step', async () => {
@@ -705,7 +902,7 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     if (!tooltip) throw new Error('Tour fixture tooltip missing');
     tooltip.props = { placement: 'bottom' };
 
-    mountLocalAuthoringFrame({
+    await mountLocalAuthoringFrame({
       root,
       baseDocument: unplacedDocument,
       services: localFrameServices(),
@@ -1688,7 +1885,7 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     const peer = { postMessage: vi.fn() } as unknown as Window;
     const sessionId = 'session_custom_authoring';
 
-    mountLocalAuthoringFrame({
+    await mountLocalAuthoringFrame({
       root,
       baseDocument: tourFixture as LodariqDocument,
       services: localFrameServices(),
@@ -1759,7 +1956,7 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     const services = localFrameServices();
     const sessionId = 'session_inline_preview';
 
-    mountLocalAuthoringFrame({
+    await mountLocalAuthoringFrame({
       root,
       baseDocument: tourFixture as LodariqDocument,
       services,
@@ -1857,7 +2054,7 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     const peer = { postMessage: vi.fn() } as unknown as Window;
     const sessionId = 'session_selected_step_preview';
 
-    mountLocalAuthoringFrame({
+    await mountLocalAuthoringFrame({
       root,
       baseDocument: tourFixture as LodariqDocument,
       services: localFrameServices(),
@@ -1893,7 +2090,7 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     const peer = { postMessage: vi.fn() } as unknown as Window;
     const sessionId = 'session_add_step_target';
 
-    mountLocalAuthoringFrame({
+    await mountLocalAuthoringFrame({
       root,
       baseDocument: tourFixture as LodariqDocument,
       services: localFrameServices(),
@@ -1929,7 +2126,7 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     const services = localFrameServices();
     const sessionId = 'session_inline_controls';
 
-    mountLocalAuthoringFrame({
+    await mountLocalAuthoringFrame({
       root,
       baseDocument: tourFixture as LodariqDocument,
       services,
@@ -2048,7 +2245,7 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
       scrollStrategy: 'center',
     };
 
-    mountLocalAuthoringFrame({
+    await mountLocalAuthoringFrame({
       root,
       baseDocument,
       services: localFrameServices(),
@@ -2122,7 +2319,7 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     const peer = { postMessage: vi.fn() } as unknown as Window;
     const sessionId = 'session_direct_placement_repair';
 
-    mountLocalAuthoringFrame({
+    await mountLocalAuthoringFrame({
       root,
       baseDocument: tourFixture as LodariqDocument,
       services: localFrameServices(),
@@ -2324,7 +2521,7 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     const peer = { postMessage: vi.fn() } as unknown as Window;
     const sessionId = 'session_route_readiness';
 
-    mountLocalAuthoringFrame({
+    await mountLocalAuthoringFrame({
       root,
       baseDocument: tourFixture as LodariqDocument,
       services: localFrameServices(),
@@ -2367,9 +2564,18 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
       route: '/projects',
       scrollState: { x: 0, y: 0 },
     });
+    const initialInspectionRequest = [...vi.mocked(peer.postMessage).mock.calls]
+      .reverse()
+      .map((call) => call[0] as BridgeMessage)
+      .find(
+        (message): message is Extract<BridgeMessage, { type: 'target.inspect.request' }> =>
+          message.type === 'target.inspect.request',
+      );
+    if (!initialInspectionRequest) throw new Error('initial inspection request missing');
     sendHostMessage({
       correlationId: 'target_inspect_found_1',
       type: 'target.inspect.result',
+      requestCorrelationId: initialInspectionRequest.correlationId,
       blockId: 'block_step_1',
       targetId: 'target_new_project',
       action: 'health',
@@ -2402,9 +2608,13 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     });
     await flushPreviewPatchQueue();
 
-    expect(document.querySelector('.tour-step-health')?.textContent).toContain('Unverified');
+    expect(document.querySelector('.tour-step-health')?.textContent).toContain(
+      'Unavailable in current context',
+    );
     expect(document.querySelector('.tour-health-count')?.textContent).toBe('0/1 verified');
-    expect(document.querySelector('.tour-active-step-footer')?.textContent).toContain('Unverified');
+    expect(document.querySelector('.tour-active-step-footer')?.textContent).toContain(
+      'Unavailable in current context',
+    );
     expect(document.querySelector('#status')?.textContent).toBe('Verifying placement');
     const reinspectionRequest = [...vi.mocked(peer.postMessage).mock.calls]
       .reverse()
@@ -2442,7 +2652,7 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     const peer = { postMessage: vi.fn() } as unknown as Window;
     const sessionId = 'session_target_inspection';
 
-    mountLocalAuthoringFrame({
+    await mountLocalAuthoringFrame({
       root,
       baseDocument: tourFixture as LodariqDocument,
       services: localFrameServices(),

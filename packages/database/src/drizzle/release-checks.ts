@@ -89,6 +89,13 @@ export class DrizzleRepositoryReleaseChecks extends DrizzleRepositoryActivation 
       if (!publication || publication.id !== input.expectedPublicationId) {
         throw new ActivePublicationChangedError(input.expectedPublicationId, actualPublicationId);
       }
+      const compiled = publication.artifact.compiled;
+      if (
+        !('rendererContractVersion' in compiled) ||
+        input.report.rendererContractVersion !== compiled.rendererContractVersion
+      ) {
+        throw new Error('publication verification renderer contract must match the exact artifact');
+      }
       const [verification] = await tx
         .insert(publicationVerifications)
         .values({

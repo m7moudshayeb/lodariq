@@ -80,7 +80,7 @@ describe('hosted editor authoring frame', () => {
 
     window.dispatchEvent(initEvent('https://staging.lodariq.io'));
 
-    expect((window as { __lodariqEditorMounted?: boolean }).__lodariqEditorMounted).toBe(true);
+    await waitForAuthoringFrameMount();
     expect(document.getElementById('authoring')?.getAttribute('data-state')).toBeNull();
   });
 
@@ -348,7 +348,7 @@ describe('hosted editor authoring frame', () => {
         document: sessionReady.document,
       }),
     );
-    expect((window as { __lodariqEditorMounted?: boolean }).__lodariqEditorMounted).toBe(true);
+    await waitForAuthoringFrameMount();
 
     window.dispatchEvent(
       new MessageEvent('message', {
@@ -526,6 +526,7 @@ describe('hosted editor authoring frame', () => {
         document: sessionReady.document,
       }),
     );
+    await waitForAuthoringFrameMount();
     window.dispatchEvent(
       new MessageEvent('message', {
         origin: PARENT_ORIGIN,
@@ -661,6 +662,7 @@ describe('hosted editor authoring frame', () => {
         document: sessionReady.document,
       }),
     );
+    await waitForAuthoringFrameMount();
 
     await vi.waitFor(() => expect(documentReleaseStatus()).not.toBeNull());
     buttonWithText('Release options')?.click();
@@ -783,6 +785,7 @@ describe('hosted editor authoring frame', () => {
         document: sessionReady.document,
       }),
     );
+    await waitForAuthoringFrameMount();
 
     await vi.waitFor(() =>
       expect(documentReleaseStatus()?.getAttribute('data-release-status')).toBe('ready'),
@@ -858,6 +861,12 @@ function initEvent(
     origin,
     source: window.parent,
   });
+}
+
+async function waitForAuthoringFrameMount(): Promise<void> {
+  await vi.waitFor(() =>
+    expect((window as { __lodariqEditorMounted?: boolean }).__lodariqEditorMounted).toBe(true),
+  );
 }
 
 function activationHandoff(

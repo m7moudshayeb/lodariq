@@ -166,6 +166,65 @@ describe('@lodariq/dashboard API integration', () => {
     expect(headers.has('x-lodariq-user-id')).toBe(false);
   });
 
+  it('exposes compiler-equivalent flow health through dashboard document summaries', async () => {
+    app = createApiApp({
+      defaultWorkspaceId: 'wk_dashboard_flow',
+      publicApiBaseUrl: 'https://api.lodariq.io',
+      loaderSrc: 'https://cdn.lodariq.io/sdk/lodariq-loader.js',
+      creatorLoaderSrc: 'https://cdn.lodariq.io/sdk/lodariq-creator.js',
+    });
+    const document = withWorkspace(baseDocument, 'wk_dashboard_flow');
+    document.id = 'doc_dashboard_flow';
+    const button = document.blocks[0]?.children[0]?.children.find(
+      (block) => block.type === 'button',
+    );
+    if (!button) throw new Error('fixture button missing');
+    button.props.action = {
+      type: 'next',
+      transition: {
+        rules: [],
+        fallback: { type: 'step', stepId: document.blocks[0]!.id },
+      },
+    };
+
+    const created = await app.inject({
+      method: 'POST',
+      url: '/v1/documents',
+      headers: {
+        'x-lodariq-workspace-id': 'wk_dashboard_flow',
+        'x-lodariq-user-id': 'user_dashboard',
+      },
+      payload: document,
+    });
+    expect(created.statusCode).toBe(201);
+
+    const response = await app.inject({
+      method: 'GET',
+      url: '/v1/documents',
+      headers: {
+        'x-lodariq-workspace-id': 'wk_dashboard_flow',
+        'x-lodariq-user-id': 'user_dashboard',
+      },
+    });
+    expect(response.statusCode).toBe(200);
+    const summary = response.json<{ documents: Array<{ publishReadinessIssues: unknown[] }> }>()
+      .documents[0];
+    expect(summary?.publishReadinessIssues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: 'non_terminating_flow',
+          severity: 'blocker',
+          blockId: document.blocks[0]!.id,
+        }),
+        expect.objectContaining({
+          code: 'missing_terminal_completion',
+          severity: 'blocker',
+          blockId: document.blocks[0]!.id,
+        }),
+      ]),
+    );
+  });
+
   it('redacts sensitive debug JSON before returning dashboard action state', async () => {
     const fetch = vi.fn<typeof globalThis.fetch>(async (input) => {
       const requestUrl = new URL(

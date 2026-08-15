@@ -92,7 +92,7 @@ export function localPublishReadinessFindings(
   return validateTourPublishReadiness(document).map((issue, index) => ({
     code: `local:${index}:${issue.code}`,
     label: authoringText(publishReadinessIssueLabel(issue.code)),
-    severity: 'blocker',
+    severity: issue.severity ?? 'blocker',
   }));
 }
 

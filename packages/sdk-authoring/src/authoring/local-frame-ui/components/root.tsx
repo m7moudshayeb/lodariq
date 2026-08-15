@@ -146,7 +146,12 @@ export function LocalAuthoringFrameRoot({ options }: { options: LocalAuthoringFr
         <FrameHeader status={snapshot.status} />
       )}
       <div className="workspace">
-        <AuthoringCanvas controller={controller} frameMode={frameMode} snapshot={snapshot} />
+        <AuthoringCanvas
+          controller={controller}
+          frameMode={frameMode}
+          initialWorkspace={options.initialWorkspace}
+          snapshot={snapshot}
+        />
       </div>
     </main>
   );

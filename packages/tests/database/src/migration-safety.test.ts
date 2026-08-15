@@ -6,9 +6,13 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import {
   INITIAL_BASELINE_FILE_NAME,
+  PUBLICATION_VERIFICATION_RENDERER_CONTRACT_FILE_NAME,
   PUBLICATION_VERIFICATION_RENDERER_V3_FILE_NAME,
+  PUBLICATION_VERIFICATION_RENDERER_V4_FILE_NAME,
   listCheckedInSqlFiles,
   readInitialBaseline,
+  readPublicationVerificationRendererContractMigration,
+  readPublicationVerificationRendererV4Migration,
 } from './migration-test-utils.js';
 
 const scriptPath = fileURLToPath(
@@ -20,7 +24,26 @@ describe('database migration safety guard', () => {
     expect(listCheckedInSqlFiles()).toEqual([
       INITIAL_BASELINE_FILE_NAME,
       PUBLICATION_VERIFICATION_RENDERER_V3_FILE_NAME,
+      PUBLICATION_VERIFICATION_RENDERER_V4_FILE_NAME,
+      PUBLICATION_VERIFICATION_RENDERER_CONTRACT_FILE_NAME,
     ]);
+  });
+
+  it('preserves renderer-v3 verification evidence while admitting renderer-v4 writes', () => {
+    const migration = readPublicationVerificationRendererV4Migration();
+
+    expect(migration).toContain("rendererContractVersion' in ('3', '4')");
+    expect(migration).toContain(') not valid;');
+    expect(migration).toContain('validate constraint publication_verifications_report_json_check;');
+  });
+
+  it('keeps future renderer evidence schema-valid without another literal-version migration', () => {
+    const migration = readPublicationVerificationRendererContractMigration();
+
+    expect(migration).toContain("rendererContractVersion' ~ '^[1-9][0-9]{0,31}$'");
+    expect(migration).not.toContain("rendererContractVersion' in (");
+    expect(migration).toContain(') not valid;');
+    expect(migration).toContain('validate constraint publication_verifications_report_json_check;');
   });
 
   it('passes the checked-in initial baseline', () => {

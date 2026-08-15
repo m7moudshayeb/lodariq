@@ -1,0 +1,78 @@
+name: End-to-end browser tests
+run-name: E2E / ${{ inputs.browser }} / ${{ github.ref_name }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      browser:
+        description: Browser coverage to run
+        required: true
+        default: chromium
+        type: choice
+        options:
+          - chromium
+          - firefox
+          - webkit
+          - all
+
+permissions:
+  contents: read
+
+concurrency:
+  group: e2e-${{ github.ref }}-${{ inputs.browser }}
+  cancel-in-progress: true
+
+jobs:
+  end-to-end-tests:
+    name: End-to-end / ${{ inputs.browser }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86
+        with:
+          version: 9.15.9
+
+      - name: Set up Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile --ignore-scripts
+
+      - name: Install selected Playwright browsers
+        env:
+          SELECTED_BROWSER: ${{ inputs.browser }}
+        run: |
+          if [ "$SELECTED_BROWSER" = "all" ]; then
+            pnpm exec playwright install --with-deps chromium firefox webkit
+          else
+            pnpm exec playwright install --with-deps "$SELECTED_BROWSER"
+          fi
+
+      - name: Run end-to-end browser tests
+        env:
+          SELECTED_BROWSER: ${{ inputs.browser }}
+        run: |
+          if [ "$SELECTED_BROWSER" = "all" ]; then
+            pnpm run test:e2e
+          else
+            pnpm run test:e2e -- --project="$SELECTED_BROWSER"
+          fi
+
+      # actions/upload-artifact v7.0.1, verified from the official tag on 2026-08-13.
+      - name: Preserve browser test evidence
+        if: ${{ always() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: lodariq-e2e-${{ github.run_id }}-${{ inputs.browser }}
+          path: |
+            playwright-report
+            test-results
+          if-no-files-found: ignore
+          retention-days: 7

@@ -1,5 +1,4 @@
-import type { CompiledDocument, CompiledDocumentV3 } from '@lodariq/schema';
-import { COMPILED_ARTIFACT_SCHEMA_VERSION } from '@lodariq/schema/version';
+import type { CompiledDocument, CompiledDocumentV3, CompiledDocumentV4 } from '@lodariq/schema';
 
 export interface ResolvedCompiledDocumentLocale {
   document: CompiledDocument;
@@ -25,17 +24,42 @@ export function resolveCompiledDocumentLocale(
     };
   }
 
+  if (document.artifactSchemaVersion === '4') {
+    const selected = selectCompiledVariant(document, requested);
+    const locale = selected?.locale ?? document.localization.defaultLocale;
+    const resolvedDocument: CompiledDocumentV4 = selected
+      ? { ...document, steps: structuredClone(selected.steps) }
+      : document;
+    return resolvedLocaleResult(
+      resolvedDocument,
+      locale,
+      selected?.title ?? document.localization.defaultTitle,
+      requested,
+    );
+  }
   const selected = selectCompiledVariant(document, requested);
   const locale = selected?.locale ?? document.localization.defaultLocale;
-  return {
-    document: selected
-      ? {
-          ...document,
-          steps: structuredClone(selected.steps),
-        }
-      : document,
+  const resolvedDocument: CompiledDocumentV3 = selected
+    ? { ...document, steps: structuredClone(selected.steps) }
+    : document;
+  return resolvedLocaleResult(
+    resolvedDocument,
     locale,
-    title: selected?.title ?? document.localization.defaultTitle,
+    selected?.title ?? document.localization.defaultTitle,
+    requested,
+  );
+}
+
+function resolvedLocaleResult(
+  document: CompiledDocumentV3 | CompiledDocumentV4,
+  locale: string,
+  title: string,
+  requested: string | null,
+): ResolvedCompiledDocumentLocale {
+  return {
+    document,
+    locale,
+    title,
     requestedLocale: requested,
     usedFallback: requested !== null && locale.toLowerCase() !== requested.toLowerCase(),
   };
@@ -53,17 +77,17 @@ function canonicalLocale(value: string | null | undefined): string | null {
 
 export function isLocalizedCompiledDocument(
   document: CompiledDocument,
-): document is CompiledDocumentV3 {
+): document is CompiledDocumentV3 | CompiledDocumentV4 {
   return (
-    document.artifactSchemaVersion === COMPILED_ARTIFACT_SCHEMA_VERSION &&
+    (document.artifactSchemaVersion === '3' || document.artifactSchemaVersion === '4') &&
     'localization' in document
   );
 }
 
-function selectCompiledVariant(
-  document: CompiledDocumentV3,
+function selectCompiledVariant<TDocument extends CompiledDocumentV3 | CompiledDocumentV4>(
+  document: TDocument,
   requested: string | null,
-): CompiledDocumentV3['localization']['variants'][number] | null {
+): TDocument['localization']['variants'][number] | null {
   if (!requested) return null;
   const exact = document.localization.variants.find(
     (variant) => variant.locale.toLowerCase() === requested.toLowerCase(),

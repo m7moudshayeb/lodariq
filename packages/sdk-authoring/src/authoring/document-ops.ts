@@ -147,6 +147,18 @@ export function updateBlockContent(
   );
 }
 
+export function updateBlockProps(
+  blocks: LodariqBlock[],
+  blockId: string,
+  props: LodariqBlock['props'],
+): LodariqBlock[] {
+  return blocks.map((block) =>
+    block.id === blockId
+      ? { ...block, props: sanitizeBlockProps(props) }
+      : { ...block, children: updateBlockProps(block.children, blockId, props) },
+  );
+}
+
 export function updateBlockContentRuns(
   blocks: LodariqBlock[],
   blockId: string,

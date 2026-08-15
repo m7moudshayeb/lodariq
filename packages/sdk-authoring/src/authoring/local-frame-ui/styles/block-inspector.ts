@@ -113,6 +113,16 @@ export const AUTHORING_BLOCK_INSPECTOR_CSS = `
     transition: border-color 120ms ease;
   }
 
+  .rich-step-block-stack,
+  .rich-step-block-row,
+  .rich-step-block,
+  .rich-step-special-block,
+  .rich-step-action-stage,
+  .rich-step-action-preview {
+    min-width: 0;
+    max-width: 100%;
+  }
+
   .rich-step-block-stack > .inline-insert,
   .rich-step-content > .inline-insert {
     min-height: var(--lq-space-3);
@@ -178,7 +188,10 @@ export const AUTHORING_BLOCK_INSPECTOR_CSS = `
   }
 
   .rich-step-block {
+    width: 100%;
     min-height: var(--lq-control-sm);
+    overflow: hidden;
+    overflow-wrap: anywhere;
     color: var(--lq-color-ink);
     line-height: 1.5;
     outline: 0;
@@ -420,8 +433,8 @@ export const AUTHORING_BLOCK_INSPECTOR_CSS = `
 
   .rich-step-action-preview input,
   .rich-step-special-block.button .rich-step-action-preview input {
-    width: auto;
-    min-width: 80px;
+    width: 100%;
+    min-width: 0;
     max-width: 100%;
     min-height: 0;
     field-sizing: content;
@@ -433,6 +446,8 @@ export const AUTHORING_BLOCK_INSPECTOR_CSS = `
     font-weight: var(--lq-weight-bold);
     padding: 0;
     text-align: inherit;
+    text-overflow: ellipsis;
+    white-space: nowrap;
     -webkit-text-fill-color: currentColor;
   }
 

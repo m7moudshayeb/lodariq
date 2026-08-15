@@ -130,7 +130,8 @@ export const AUTHORING_REVIEW_RELEASE_CSS = `
     padding: 8px 8px;
   }
 
-  .target-health.found {
+  .target-health.found,
+  .target-health.verified {
     border-color: var(--lq-color-success-border);
     background: var(--lq-color-success-soft);
     color: var(--lq-color-success);
@@ -138,10 +139,18 @@ export const AUTHORING_REVIEW_RELEASE_CSS = `
 
   .target-health.missing,
   .target-health.ambiguous,
-  .target-health.needs_review {
+  .target-health.needs_review,
+  .target-health.drifted {
     border-color: var(--lq-color-warning-border);
     background: var(--lq-color-warning-soft);
     color: var(--lq-color-warning);
+  }
+
+  .target-health.checking,
+  .target-health.unavailable-current-context {
+    border-color: var(--lq-color-blue-border);
+    background: var(--lq-color-blue-soft);
+    color: var(--lq-color-blue);
   }
 
   .target-health strong {

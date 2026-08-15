@@ -28,10 +28,13 @@ import {
   firstTargetIdInBlock,
   presentationAnchorMessageMatchesPending,
 } from './controller-model';
+import { authoringTargetIdentityKey } from '../target-health-ledger';
 
 export abstract class ControllerBridgeFeature extends ControllerPreviewFeature {
   protected abstract handlePageLifecycleUpdate(
     route: string,
+    routePatternId: string | undefined,
+    stateId: string | undefined,
     locale: TargetLocale | undefined,
     viewportClass: TargetViewportClass | undefined,
   ): void;
@@ -117,7 +120,13 @@ export abstract class ControllerBridgeFeature extends ControllerPreviewFeature {
     }
 
     if (message.type === 'page.lifecycle.update') {
-      this.handlePageLifecycleUpdate(message.route, message.locale, message.viewportClass);
+      this.handlePageLifecycleUpdate(
+        message.route,
+        message.routePatternId,
+        message.stateId,
+        message.locale,
+        message.viewportClass,
+      );
       return;
     }
 
@@ -143,6 +152,10 @@ export abstract class ControllerBridgeFeature extends ControllerPreviewFeature {
         action: message.action,
         diagnostic: message.diagnostic,
       });
+      this.targetHealthLedger.recordObservation(message.targetId, message.diagnostic);
+      if (message.diagnostic.state === 'found') {
+        this.recordMetric('target.verification-passed');
+      }
       this.setStatus(targetInspectionStatus(message.action, message.diagnostic));
       return;
     }
@@ -244,6 +257,10 @@ export abstract class ControllerBridgeFeature extends ControllerPreviewFeature {
       this.pendingPresentationAnchorPick = null;
     }
     this.targetDiagnostics.delete(targetId);
+    this.targetHealthLedger.registerTarget(
+      targetId,
+      authoringTargetIdentityKey(identity ?? message.fingerprint),
+    );
     this.selectedBlockId = message.blockId;
     this.afterDocumentMutation();
     this.services.saveDocument(this.documentState);

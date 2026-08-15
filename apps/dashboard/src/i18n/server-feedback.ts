@@ -177,6 +177,37 @@ const PUBLISH_ISSUE_COPY: Readonly<Record<string, PublishIssueCopy>> = {
       message: 'Complete the required fields before publishing.',
     }),
   ),
+  invalid_flow_edge: publishIssue(
+    msg({ id: 'dashboard.publishIssue.invalidFlowEdge.label', message: 'Broken flow connection' }),
+    msg({
+      id: 'dashboard.publishIssue.invalidFlowEdge.message',
+      message: 'Reconnect this action to a step that still exists.',
+    }),
+  ),
+  unreachable_step: publishIssue(
+    msg({ id: 'dashboard.publishIssue.unreachableStep.label', message: 'Unreachable step' }),
+    msg({
+      id: 'dashboard.publishIssue.unreachableStep.message',
+      message: 'Connect this step to a path people can reach.',
+    }),
+  ),
+  non_terminating_flow: publishIssue(
+    msg({ id: 'dashboard.publishIssue.nonTerminatingFlow.label', message: 'Flow does not finish' }),
+    msg({
+      id: 'dashboard.publishIssue.nonTerminatingFlow.message',
+      message: 'Add an outcome that lets this repeating path finish.',
+    }),
+  ),
+  missing_terminal_completion: publishIssue(
+    msg({
+      id: 'dashboard.publishIssue.missingTerminalCompletion.label',
+      message: 'Missing completion path',
+    }),
+    msg({
+      id: 'dashboard.publishIssue.missingTerminalCompletion.message',
+      message: 'Make sure every possible path can complete or dismiss the tour.',
+    }),
+  ),
 };
 
 const UNKNOWN_RECOVERY_FAILURE = msg({

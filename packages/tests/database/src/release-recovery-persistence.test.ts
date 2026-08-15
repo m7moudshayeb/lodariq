@@ -17,7 +17,7 @@ import {
   LODARIQ_ACCESSIBLE_FALLBACK_THEME_V1,
   RELEASE_RECOVERY_HISTORY_MAX_ITEMS,
   RENDERER_CONTRACT_VERSION,
-  type CompiledDocumentV3,
+  type NewCompiledDocument,
   type LodariqDocument,
   type ReleaseRecoveryRequest,
   type ReleaseRecoveryResult,
@@ -129,10 +129,7 @@ beforeAll(async () => {
 describe('release recovery in-memory persistence', () => {
   it('rolls back by reusing the exact historical artifact and provenance, never the later draft', async () => {
     const repository = createRepository();
-    const publicationsBefore = await repository.listDocumentPublications(
-      WORKSPACE_ID,
-      DOCUMENT_ID,
-    );
+    const publicationsBefore = await repository.listDocumentPublications(WORKSPACE_ID, DOCUMENT_ID);
     const latestArtifactBefore = await repository.getLatestCompiledArtifact(WORKSPACE_ID);
     const request = rollbackRequest();
 
@@ -152,11 +149,7 @@ describe('release recovery in-memory persistence', () => {
     expect(rollback.artifact).toEqual(expectedPins);
 
     await expect(
-      repository.getDocumentDeployment(
-        WORKSPACE_ID,
-        STAGING_ENVIRONMENT_ID,
-        DOCUMENT_ID,
-      ),
+      repository.getDocumentDeployment(WORKSPACE_ID, STAGING_ENVIRONMENT_ID, DOCUMENT_ID),
     ).resolves.toMatchObject({
       state: 'active',
       activePublicationId: rollback.publicationId,
@@ -200,25 +193,21 @@ describe('release recovery in-memory persistence', () => {
       errorCode: null,
     });
 
-    const publicationsAfter = await repository.listDocumentPublications(
-      WORKSPACE_ID,
-      DOCUMENT_ID,
-    );
+    const publicationsAfter = await repository.listDocumentPublications(WORKSPACE_ID, DOCUMENT_ID);
     expect(publicationsAfter).toHaveLength(publicationsBefore.length + 1);
     expect(await repository.getLatestCompiledArtifact(WORKSPACE_ID)).toEqual(latestArtifactBefore);
-    expect(await repository.getCompiledArtifact(
-      WORKSPACE_ID,
-      DOCUMENT_ID,
-      fixture.artifacts.laterDraft.id,
-    )).toEqual(fixture.artifacts.laterDraft);
+    expect(
+      await repository.getCompiledArtifact(
+        WORKSPACE_ID,
+        DOCUMENT_ID,
+        fixture.artifacts.laterDraft.id,
+      ),
+    ).toEqual(fixture.artifacts.laterDraft);
   });
 
   it('unpublishes only the active pointer and leaves immutable publications available', async () => {
     const repository = createRepository();
-    const publicationsBefore = await repository.listDocumentPublications(
-      WORKSPACE_ID,
-      DOCUMENT_ID,
-    );
+    const publicationsBefore = await repository.listDocumentPublications(WORKSPACE_ID, DOCUMENT_ID);
     const request = unpublishRequest();
 
     const result = await repository.recoverDocumentRelease({ ...ADMIN_SCOPE, request });
@@ -233,11 +222,7 @@ describe('release recovery in-memory persistence', () => {
       deactivatedArtifact: artifactPins(fixture.artifacts.current),
     });
     await expect(
-      repository.getDocumentDeployment(
-        WORKSPACE_ID,
-        STAGING_ENVIRONMENT_ID,
-        DOCUMENT_ID,
-      ),
+      repository.getDocumentDeployment(WORKSPACE_ID, STAGING_ENVIRONMENT_ID, DOCUMENT_ID),
     ).resolves.toEqual({
       workspaceId: WORKSPACE_ID,
       environmentId: STAGING_ENVIRONMENT_ID,
@@ -256,15 +241,12 @@ describe('release recovery in-memory persistence', () => {
       ),
     ).resolves.toBeNull();
 
-    const publicationsAfter = await repository.listDocumentPublications(
-      WORKSPACE_ID,
-      DOCUMENT_ID,
-    );
+    const publicationsAfter = await repository.listDocumentPublications(WORKSPACE_ID, DOCUMENT_ID);
     expect(publicationsAfter).toEqual(publicationsBefore);
     for (const publication of publicationsBefore) {
-      await expect(
-        repository.getPublicationById(WORKSPACE_ID, publication.id),
-      ).resolves.toEqual(publication);
+      await expect(repository.getPublicationById(WORKSPACE_ID, publication.id)).resolves.toEqual(
+        publication,
+      );
     }
 
     const state = await requireRecoveryState(repository);
@@ -304,7 +286,7 @@ describe('release recovery in-memory persistence', () => {
       action: 'publish',
       artifact: {
         compiledArtifactId: fixture.artifacts.incompatibleSecond.id,
-        compilerVersion: '0.2.0',
+        rendererContractVersion: '99',
       },
     });
     expect(JSON.stringify(state.history)).not.toContain(fixture.artifacts.laterDraft.id);
@@ -316,10 +298,7 @@ describe('release recovery in-memory persistence', () => {
       includeFuturePublication: true,
       includeCrossEnvironmentPublication: true,
     });
-    const publicationsBefore = await repository.listDocumentPublications(
-      WORKSPACE_ID,
-      DOCUMENT_ID,
-    );
+    const publicationsBefore = await repository.listDocumentPublications(WORKSPACE_ID, DOCUMENT_ID);
     const cases = [
       ['pub_missing', 'rollback_target_invalid'],
       [PUBLICATION_IDS.crossEnvironment, 'rollback_target_invalid'],
@@ -346,20 +325,16 @@ describe('release recovery in-memory persistence', () => {
         expectedActivePublicationId: PUBLICATION_IDS.current,
         actualActivePublicationId: PUBLICATION_IDS.current,
       });
-      expect(result && 'releaseOperationId' in result ? result.releaseOperationId : undefined).toEqual(
-        expect.any(String),
-      );
+      expect(
+        result && 'releaseOperationId' in result ? result.releaseOperationId : undefined,
+      ).toEqual(expect.any(String));
     }
 
-    expect(
-      await repository.listDocumentPublications(WORKSPACE_ID, DOCUMENT_ID),
-    ).toEqual(publicationsBefore);
+    expect(await repository.listDocumentPublications(WORKSPACE_ID, DOCUMENT_ID)).toEqual(
+      publicationsBefore,
+    );
     await expect(
-      repository.getDocumentDeployment(
-        WORKSPACE_ID,
-        STAGING_ENVIRONMENT_ID,
-        DOCUMENT_ID,
-      ),
+      repository.getDocumentDeployment(WORKSPACE_ID, STAGING_ENVIRONMENT_ID, DOCUMENT_ID),
     ).resolves.toMatchObject({
       state: 'active',
       generation: 3,
@@ -407,9 +382,7 @@ describe('release recovery in-memory persistence', () => {
 
     expect(replay).toEqual({ ...first, replayed: true });
     expect(await requireRecoveryState(repository)).toEqual(stateBeforeReplay);
-    expect(
-      await repository.listDocumentPublications(WORKSPACE_ID, DOCUMENT_ID),
-    ).toHaveLength(4);
+    expect(await repository.listDocumentPublications(WORKSPACE_ID, DOCUMENT_ID)).toHaveLength(4);
   });
 
   it('replays exact persisted failure diagnostics after the deployment moves again', async () => {
@@ -420,7 +393,10 @@ describe('release recovery in-memory persistence', () => {
       idempotencyKey: 'recovery:failure:replay',
       correlationId: 'correlation:failure:replay',
     });
-    const first = await repository.recoverDocumentRelease({ ...ADMIN_SCOPE, request: staleRequest });
+    const first = await repository.recoverDocumentRelease({
+      ...ADMIN_SCOPE,
+      request: staleRequest,
+    });
     expect(first).toMatchObject({
       ok: false,
       code: 'deployment_changed',
@@ -443,7 +419,10 @@ describe('release recovery in-memory persistence', () => {
     );
     const stateBeforeReplay = await requireRecoveryState(repository);
 
-    const replay = await repository.recoverDocumentRelease({ ...ADMIN_SCOPE, request: staleRequest });
+    const replay = await repository.recoverDocumentRelease({
+      ...ADMIN_SCOPE,
+      request: staleRequest,
+    });
     expect(replay).toEqual({ ...first, replayed: true });
     expect(await requireRecoveryState(repository)).toEqual(stateBeforeReplay);
   });
@@ -479,9 +458,9 @@ describe('release recovery in-memory persistence', () => {
     });
     expect(conflict && 'releaseOperationId' in conflict).toBe(false);
     expect(await requireRecoveryState(repository)).toEqual(stateBeforeConflict);
-    expect(
-      await repository.listDocumentPublications(WORKSPACE_ID, DOCUMENT_ID),
-    ).toEqual(publicationsBeforeConflict);
+    expect(await repository.listDocumentPublications(WORKSPACE_ID, DOCUMENT_ID)).toEqual(
+      publicationsBeforeConflict,
+    );
     await expect(
       repository.getReleaseOperationById(WORKSPACE_ID, first.releaseOperationId),
     ).resolves.toMatchObject({
@@ -505,7 +484,9 @@ describe('release recovery in-memory persistence', () => {
     });
 
     for (const request of [staleGeneration, staleActivePublication]) {
-      await expect(repository.recoverDocumentRelease({ ...ADMIN_SCOPE, request })).resolves.toMatchObject({
+      await expect(
+        repository.recoverDocumentRelease({ ...ADMIN_SCOPE, request }),
+      ).resolves.toMatchObject({
         ok: false,
         code: 'deployment_changed',
         actualGeneration: 3,
@@ -532,11 +513,7 @@ describe('release recovery in-memory persistence', () => {
       }),
     );
     await expect(
-      repository.getDocumentDeployment(
-        WORKSPACE_ID,
-        STAGING_ENVIRONMENT_ID,
-        DOCUMENT_ID,
-      ),
+      repository.getDocumentDeployment(WORKSPACE_ID, STAGING_ENVIRONMENT_ID, DOCUMENT_ID),
     ).resolves.toMatchObject({
       state: 'active',
       generation: 3,
@@ -608,7 +585,10 @@ describe('release recovery in-memory persistence', () => {
       idempotencyKey: 'recovery:viewer:denied',
       correlationId: 'correlation:viewer:denied',
     });
-    const denied = await repository.recoverDocumentRelease({ ...viewerScope, request: viewerRequest });
+    const denied = await repository.recoverDocumentRelease({
+      ...viewerScope,
+      request: viewerRequest,
+    });
     expect(denied).toMatchObject({
       ok: false,
       code: 'capability_denied',
@@ -691,11 +671,7 @@ describe('release recovery in-memory persistence', () => {
       }),
     );
     await expect(
-      disabledRepository.getDocumentDeployment(
-        WORKSPACE_ID,
-        STAGING_ENVIRONMENT_ID,
-        DOCUMENT_ID,
-      ),
+      disabledRepository.getDocumentDeployment(WORKSPACE_ID, STAGING_ENVIRONMENT_ID, DOCUMENT_ID),
     ).resolves.toMatchObject({
       state: 'active',
       generation: 3,
@@ -1106,7 +1082,7 @@ function requireUnpublishSuccess(result: ReleaseRecoveryResult | null) {
 }
 
 function artifactPins(artifact: PersistedCompiledArtifact) {
-  const compiled = artifact.compiled as CompiledDocumentV3;
+  const compiled = artifact.compiled as NewCompiledDocument;
   return {
     compiledArtifactId: artifact.id,
     artifactSchemaVersion: compiled.artifactSchemaVersion,
@@ -1171,7 +1147,7 @@ function documentVariant(label: string): LodariqDocument {
 }
 
 function persistedArtifact(
-  compiled: CompiledDocumentV3,
+  compiled: NewCompiledDocument,
   label: string,
   sequence: number,
 ): PersistedCompiledArtifact {
@@ -1195,15 +1171,15 @@ function makeHistoricallyReadableIncompatibleArtifact(
   source: PersistedCompiledArtifact,
 ): PersistedCompiledArtifact {
   const compiled = structuredClone(source.compiled) as unknown as Record<string, unknown>;
-  compiled['compilerVersion'] = '0.2.0';
+  compiled['rendererContractVersion'] = '99';
   delete compiled['contentHash'];
   const contentHash = sha256ContentHash(compiled);
   compiled['contentHash'] = contentHash;
   return {
     ...structuredClone(source),
-    id: 'artifact_second_historical_compiler',
+    id: 'artifact_second_unsupported_renderer',
     contentHash,
-    compilerVersion: '0.2.0',
+    rendererContractVersion: '99',
     compiled: compiled as unknown as PersistedCompiledArtifact['compiled'],
   };
 }

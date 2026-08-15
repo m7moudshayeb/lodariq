@@ -306,6 +306,16 @@ const EDITABLE_ACTION_FACTORIES: Readonly<
   back: () => ({ type: 'back' }),
   complete: () => ({ type: 'complete' }),
   clickTarget: () => ({ type: 'clickTarget' }),
+  runSequence: () => ({
+    type: 'runSequence',
+    sequence: {
+      trigger: { type: 'manual' },
+      waitFor: [],
+      transition: { type: 'next' },
+      timeoutMs: 3_000,
+      onTimeout: 'stay',
+    },
+  }),
   openPage: (currentAction) => {
     const url = currentOpenPageUrl(currentAction);
     const navigationBehavior =

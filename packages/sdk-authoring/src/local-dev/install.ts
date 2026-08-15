@@ -108,6 +108,26 @@ export async function installLocalLodariqAuthoringFromScript(
               ...(previewOptions.authoringTargetOverride
                 ? { authoringTargetOverride: previewOptions.authoringTargetOverride }
                 : {}),
+              ...(previewOptions.onStepChange
+                ? {
+                    onStepChange: (index, step) => previewOptions.onStepChange?.(index, step.id),
+                  }
+                : {}),
+              ...(previewOptions.onComplete ? { onComplete: previewOptions.onComplete } : {}),
+              ...(previewOptions.onDismiss ? { onDismiss: previewOptions.onDismiss } : {}),
+              ...(previewOptions.onSkip ? { onSkip: previewOptions.onSkip } : {}),
+              ...(previewOptions.onChoreographyStageChange
+                ? {
+                    onChoreographyStageChange: (step, update) =>
+                      previewOptions.onChoreographyStageChange?.(step.id, update),
+                  }
+                : {}),
+              ...(previewOptions.getAuthoringProtectedSurfaces
+                ? { getAuthoringProtectedSurfaces: previewOptions.getAuthoringProtectedSurfaces }
+                : {}),
+              ...(previewOptions.onAuthoringSurfaceChange
+                ? { onAuthoringSurfaceChange: previewOptions.onAuthoringSurfaceChange }
+                : {}),
             });
           },
           stopPreview: (ownerId) => lodariq?.stopAuthoringPreview?.(ownerId),

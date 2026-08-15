@@ -4,6 +4,7 @@ import {
   useLayoutEffect,
   useRef,
   useState,
+  useId,
   type CSSProperties,
   type DragEvent,
   type KeyboardEvent,
@@ -25,6 +26,7 @@ import {
 } from '../design-system';
 import { STEP_CONTENT_COMMANDS, type SlashCommand } from '../types';
 import { slashCommandLabel } from '../utils';
+import { claimContextualSurface } from '../../contextual-surface-coordinator';
 
 export const COMMAND_DETAILS: Record<SlashCommand, { description: string; icon: ReactNode }> = {
   button: {
@@ -143,6 +145,7 @@ function InlineInsertMenu<TCommand extends SlashCommand>({
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const searchRef = useRef<HTMLInputElement | null>(null);
   const [menuPosition, setMenuPosition] = useState<InlineCommandMenuPosition | null>(null);
+  const surfaceId = useId();
   const filteredCommands = commands.filter((command) => {
     const details = COMMAND_DETAILS[command];
     const labelText = slashCommandLabel(command);
@@ -161,6 +164,14 @@ function InlineInsertMenu<TCommand extends SlashCommand>({
     activeCommandIndexRef.current = nextIndex;
     setActiveCommandIndex(nextIndex);
   };
+
+  useEffect(() => {
+    if (!open) return;
+    return claimContextualSurface(`insert:${surfaceId}`, () => {
+      setOpen(false);
+      queueMicrotask(() => triggerRef.current?.focus());
+    });
+  }, [open, surfaceId]);
 
   useEffect(() => {
     if (!open) return;

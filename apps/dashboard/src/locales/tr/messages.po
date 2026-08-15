@@ -59,7 +59,12 @@ msgid "dashboard.viewModel.blockingChecks"
 msgstr "{count} engelleme {count, plural, one {kontrol} other {kontrolleri}}"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:778
+#: src/i18n/messages.ts:508
+msgid "dashboard.viewModel.flowIssues"
+msgstr "{count} {count, plural, one {akış sorunu} other {akış sorunu}}"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:792
 msgid "dashboard.action.ambiguousOrigins"
 msgstr "{count} kaynak eşlemeleri atlandı çünkü aynı kaynak birden fazla ortama aitti."
 
@@ -107,6 +112,11 @@ msgstr "Yalnızca {environment} · {count} sürüm kapsamlı toplu satırlar"
 #: src/components/document-debug-panel.tsx:53
 msgid "dashboard.support.readyForReview"
 msgstr "{experience} destek incelemesine hazır."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:512
+msgid "dashboard.viewModel.flowIssueSummary"
+msgstr "{first} · {remaining} tane daha"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages.ts:127
@@ -204,22 +214,22 @@ msgid "dashboard.brand.preview.accessibleFallback"
 msgstr "Erişilebilir yedek"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:856
+#: src/i18n/messages.ts:870
 msgid "auth.page.accountAccess"
 msgstr "Hesaba erişim"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:873
+#: src/i18n/messages.ts:887
 msgid "auth.page.signUpDisabled.eyebrow"
 msgstr "Hesap oluşturma"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:886
+#: src/i18n/messages.ts:900
 msgid "auth.page.signUpDisabled.body"
 msgstr "Hesap oluşturma bu dağıtımda mümkün değildir."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1043
+#: src/i18n/messages.ts:1057
 msgid "auth.error.signupUnavailable"
 msgstr "Hesap oluşturma şu anda kullanılamıyor."
 
@@ -274,6 +284,11 @@ msgid "dashboard.publishIssue.missingUrl.message"
 msgstr "Yayınlamadan önce güvenli bir sayfa URL'si ekleyin."
 
 #. js-lingui-explicit-id
+#: src/i18n/server-feedback.ts:196
+msgid "dashboard.publishIssue.nonTerminatingFlow.message"
+msgstr "Bu tekrarlanan yolun tamamlanmasını sağlayan bir sonuç ekleyin."
+
+#. js-lingui-explicit-id
 #: src/i18n/server-feedback.ts:30
 msgid "dashboard.publishIssue.emptyTour.message"
 msgstr "Yayınlamadan önce en az bir adım ekleyin."
@@ -294,7 +309,7 @@ msgid "dashboard.publishIssue.missingStepContent.message"
 msgstr "Yayınlamadan önce bu adıma görünür içerik ekleyin."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1076
+#: src/i18n/messages.ts:1090
 msgid "workspaceSelection.role.admin"
 msgstr "Yönetici"
 
@@ -329,7 +344,7 @@ msgid "dashboard.activation.approveDescription"
 msgstr "Lodariq çalışma alanınızın {host} üzerinde Turlar oluşturmasına ve düzenlemesine izin verin."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:956
+#: src/i18n/messages.ts:970
 msgid "auth.form.existingAccount"
 msgstr "Zaten bir Lodariq hesabınız var mı?"
 
@@ -359,7 +374,7 @@ msgid "dashboard.page.analytics.title"
 msgstr "Analitik"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:799
+#: src/i18n/messages.ts:813
 msgid "dashboard.action.analyticsUnavailable"
 msgstr "Analytics, seçilen ortam için geçici olarak kullanılamıyor."
 
@@ -369,7 +384,7 @@ msgid "dashboard.analytics.unavailable"
 msgstr "Analizler seçilen ortam için geçici olarak kullanılamıyor."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:795
+#: src/i18n/messages.ts:809
 msgid "dashboard.action.analyticsInvalid"
 msgstr "Analytics verileri doğrulanamadı. Hiçbir kısmi sonuç gösterilmemiştir."
 
@@ -394,7 +409,7 @@ msgid "dashboard.viewModel.type.announcement"
 msgstr "Duyuru"
 
 #. js-lingui-explicit-id
-#: src/i18n/server-feedback.ts:220
+#: src/i18n/server-feedback.ts:251
 msgid "dashboard.recovery.failure.operationInProgress"
 msgstr "Başka bir serbest bırakma işlemi halihazırda devam ediyor. Kısa süre sonra tekrar deneyin."
 
@@ -414,7 +429,7 @@ msgid "dashboard.installation.applicationName"
 msgstr "Uygulama adı"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:713
+#: src/i18n/messages.ts:727
 msgid "dashboard.action.applicationNameRequired"
 msgstr "Uygulama adı gerekli."
 
@@ -499,7 +514,7 @@ msgid "dashboard.activation.approveTitle"
 msgstr "Bu uygulamada yazar mısınız?"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:839
+#: src/i18n/messages.ts:853
 msgid "auth.shell.authorOnce"
 msgstr "Bir kez oluşturun"
 
@@ -529,7 +544,7 @@ msgid "dashboard.authoringLaunch.authoringSite"
 msgstr "Yazma sitesi"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:852
+#: src/i18n/messages.ts:866
 msgid "auth.shell.back"
 msgstr "Geri"
 
@@ -584,7 +599,7 @@ msgid "dashboard.page.brandSystem.title"
 msgstr "Marka sistemi"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:634
+#: src/i18n/messages.ts:648
 msgid "dashboard.action.brandCreated"
 msgstr "Marka sistemi oluşturuldu. Temelleri gözden geçirin ve ardından ilk sürümü onaylayın."
 
@@ -609,9 +624,14 @@ msgid "dashboard.brand.panel.themes"
 msgstr "Marka temaları"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:865
+#: src/i18n/messages.ts:879
 msgid "auth.page.signUp.title"
 msgstr "Deneyimi ürününüzün içine taşıyın"
+
+#. js-lingui-explicit-id
+#: src/i18n/server-feedback.ts:181
+msgid "dashboard.publishIssue.invalidFlowEdge.label"
+msgstr "Bozuk akış bağlantısı"
 
 #. js-lingui-explicit-id
 #: src/i18n/server-feedback.ts:64
@@ -659,7 +679,7 @@ msgid "dashboard.locale.changing"
 msgstr "Dili değiştirme"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:963
+#: src/i18n/messages.ts:977
 msgid "auth.form.checkEmail"
 msgstr "E-postanızı kontrol edin"
 
@@ -694,7 +714,7 @@ msgid "dashboard.brand.editor.choose"
 msgstr "Seç"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:642
+#: src/i18n/messages.ts:656
 msgid "dashboard.action.chooseBrandTheme"
 msgstr "Bir Marka teması seçin."
 
@@ -704,7 +724,7 @@ msgid "dashboard.publishIssue.ambiguousTarget.message"
 msgstr "Yayınlamadan önce daha spesifik bir yerleşim seçin."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:917
+#: src/i18n/messages.ts:931
 msgid "auth.page.newPassword.title"
 msgstr "Yeni bir şifre seçin"
 
@@ -719,7 +739,7 @@ msgid "dashboard.publishIssue.unsupportedAction.message"
 msgstr "Yayınlamadan önce desteklenen bir eylemi seçin."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:756
+#: src/i18n/messages.ts:770
 msgid "dashboard.action.chooseToken"
 msgstr "Bir jeton seçin."
 
@@ -729,7 +749,7 @@ msgid "dashboard.publishIssue.invalidPresentationArea.message"
 msgstr "Seçilen öğenin içinde geçerli bir alan seçin."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:803
+#: src/i18n/messages.ts:817
 msgid "dashboard.action.chooseReleaseScope"
 msgstr "Geçerli bir belge ve yayın ortamı seçin."
 
@@ -744,22 +764,22 @@ msgid "dashboard.environmentPolicy.chooseEarlier"
 msgstr "Daha erken bir ortam seçin"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:701
+#: src/i18n/messages.ts:715
 msgid "dashboard.action.chooseEnvironment"
 msgstr "Bir ortam seçin."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1060
+#: src/i18n/messages.ts:1074
 msgid "workspaceSelection.description"
 msgstr "Mevcut bir çalışma alanını seçin veya bu ekrandan ayrılmadan bir çalışma alanı oluşturun."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:742
+#: src/i18n/messages.ts:756
 msgid "dashboard.action.chooseExperience"
 msgstr "Bir deneyim seçin."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:726
+#: src/i18n/messages.ts:740
 msgid "dashboard.action.chooseInstallation"
 msgstr "Bir SDK kurulumu seçin."
 
@@ -769,7 +789,7 @@ msgid "dashboard.support.chooseExperience"
 msgstr "Deneyimi seçin"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:783
+#: src/i18n/messages.ts:797
 msgid "dashboard.action.chooseAnalyticsEnvironment"
 msgstr "Geçerli bir analiz ortamı seçin."
 
@@ -799,7 +819,7 @@ msgid "dashboard.publishIssue.missingTarget.message"
 msgstr "Yayınlamadan önce bu adımın nerede görüneceğini seçin."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1009
+#: src/i18n/messages.ts:1023
 msgid "auth.form.choosePassword"
 msgstr "Şifrenizi seçin"
 
@@ -844,7 +864,7 @@ msgid "dashboard.recovery.completeHistory"
 msgstr "Geçmişi tamamla"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:828
+#: src/i18n/messages.ts:842
 msgid "dashboard.action.releaseHistoryIncomplete"
 msgstr "Tam sürüm geçmişi geçici olarak kullanılamıyor. Hiçbir şey kesilmedi."
 
@@ -864,7 +884,7 @@ msgid "dashboard.analytics.fact.completion"
 msgstr "Tamamlama"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:989
+#: src/i18n/messages.ts:1003
 msgid "auth.form.confirmPassword"
 msgstr "Şifreyi onayla"
 
@@ -872,6 +892,11 @@ msgstr "Şifreyi onayla"
 #: src/components/release-recovery-panel.tsx:134
 msgid "dashboard.recovery.confirmExact"
 msgstr "Onayla: {action}"
+
+#. js-lingui-explicit-id
+#: src/i18n/server-feedback.ts:189
+msgid "dashboard.publishIssue.unreachableStep.message"
+msgstr "Bu adımı kullanıcıların ulaşabileceği bir yola bağlayın."
 
 #. js-lingui-explicit-id
 #: src/components/sdk-snippet-panel.tsx:89
@@ -894,7 +919,7 @@ msgid "dashboard.viewModel.contentHashStrongestEvidence"
 msgstr "İçerik karması mevcut en güçlü yapay kanıttır"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:955
+#: src/i18n/messages.ts:969
 msgid "auth.form.continue"
 msgstr "Devam et"
 
@@ -919,7 +944,7 @@ msgid "dashboard.activation.continue"
 msgstr "Yazmaya devam et"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:859
+#: src/i18n/messages.ts:873
 msgid "auth.page.signIn.title"
 msgstr "Çalışmanıza devam edin"
 
@@ -954,7 +979,7 @@ msgid "dashboard.activation.couldNotContinue"
 msgstr "Devam edilemedi"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1071
+#: src/i18n/messages.ts:1085
 msgid "workspaceSelection.createError"
 msgstr "Çalışma alanı oluşturulamadı."
 
@@ -964,7 +989,7 @@ msgid "dashboard.account.createFailed"
 msgstr "Çalışma alanı oluşturulamadı."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1067
+#: src/i18n/messages.ts:1081
 msgid "workspaceSelection.openError"
 msgstr "Bu çalışma alanı açılamadı."
 
@@ -979,22 +1004,22 @@ msgid "dashboard.account.switchFailed"
 msgstr "Çalışma alanları değiştirilemedi."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1064
+#: src/i18n/messages.ts:1078
 msgid "workspaceSelection.create"
 msgstr "Bir çalışma alanı oluştur"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:954
+#: src/i18n/messages.ts:968
 msgid "auth.form.createAccount"
 msgstr "Hesap oluştur"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:962
+#: src/i18n/messages.ts:976
 msgid "auth.form.createAnAccount"
 msgstr "Bir hesap oluştur"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1066
+#: src/i18n/messages.ts:1080
 msgid "workspaceSelection.createAndOpen"
 msgstr "Oluştur ve aç"
 
@@ -1014,12 +1039,12 @@ msgid "dashboard.account.createWorkspace"
 msgstr "Çalışma alanı oluştur"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:869
+#: src/i18n/messages.ts:883
 msgid "auth.page.signUp.description"
 msgstr "Hesabınızı ve ilk çalışma alanınızı birlikte oluşturun; kurulumdan sapmanıza gerek yok."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:844
+#: src/i18n/messages.ts:858
 msgid "auth.shell.workflow"
 msgstr "Yazma işini sekmeler ve araçlar arasında taşımadan oluşturun, inceleyin ve yayınlayın."
 
@@ -1094,7 +1119,7 @@ msgid "dashboard.analytics.default"
 msgstr "Varsayılan"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:677
+#: src/i18n/messages.ts:691
 msgid "dashboard.action.defaultThemeInvalid"
 msgstr "Varsayılan tema isteği geçersiz."
 
@@ -1104,7 +1129,7 @@ msgid "dashboard.brand.controller.defaultMissing"
 msgstr "Varsayılan tema döndürülmedi."
 
 #. js-lingui-explicit-id
-#: src/i18n/server-feedback.ts:212
+#: src/i18n/server-feedback.ts:243
 msgid "dashboard.recovery.failure.alreadyInactive"
 msgstr "Bu belge için teslimat zaten etkin değil."
 
@@ -1204,7 +1229,7 @@ msgid "dashboard.viewModel.draftSaved"
 msgstr "Taslak kaydedildi"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:659
+#: src/i18n/messages.ts:673
 msgid "dashboard.action.draftSaved"
 msgstr "Taslak kaydedildi."
 
@@ -1224,27 +1249,27 @@ msgid "dashboard.brand.editor.editing"
 msgstr "Taslak düzenleniyor"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:941
+#: src/i18n/messages.ts:955
 msgid "auth.form.email"
 msgstr "E-posta"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:974
+#: src/i18n/messages.ts:988
 msgid "auth.form.emailSecureLink"
 msgstr "Güvenli bir bağlantıyı e-postayla gönderin"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1031
+#: src/i18n/messages.ts:1045
 msgid "auth.error.invalidCredentials"
 msgstr "E-posta veya şifre yanlış."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:857
+#: src/i18n/messages.ts:871
 msgid "auth.page.emailVerification"
 msgstr "E-posta doğrulaması"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:998
+#: src/i18n/messages.ts:1012
 msgid "auth.form.emailVerified"
 msgstr "E-posta doğrulandı"
 
@@ -1284,7 +1309,7 @@ msgid "dashboard.environmentPolicy.title"
 msgstr "Çevre politikası"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:617
+#: src/i18n/messages.ts:631
 msgid "dashboard.action.environmentPolicyUpdated"
 msgstr "Ortam politikası güncellendi."
 
@@ -1307,6 +1332,11 @@ msgstr "Temel bilgiler"
 #: src/components/environment-policy-editor.tsx:97
 msgid "dashboard.environmentPolicy.invalidOrigin"
 msgstr "Her kaynak tam bir HTTP(S) kaynağı olmalıdır."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:504
+msgid "dashboard.viewModel.flowHealthyDetail"
+msgstr "Ulaşılabilir her yolun bir bitiş sonucu vardır."
 
 #. js-lingui-explicit-id
 #: src/i18n/messages.ts:432
@@ -1359,7 +1389,7 @@ msgid "dashboard.analytics.fact.tourStartsDescription"
 msgstr "Tam tur_başlatılan olaylar; benzersiz kullanıcı veya dönüşüm tahmini yok."
 
 #. js-lingui-explicit-id
-#: src/components/dashboard-release-view.tsx:20
+#: src/components/dashboard-release-view.tsx:21
 msgid "dashboard.releases.exactArtifactPromotion"
 msgstr "Tam eser tanıtımı"
 
@@ -1449,7 +1479,7 @@ msgid "dashboard.activation.recoveryFinish"
 msgstr "Orada bitirin, ardından bu pencereyi kapatın ve yazmaya yeniden başlayın."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:931
+#: src/i18n/messages.ts:945
 msgid "auth.page.finishAccount.title"
 msgstr "Hesabınızı tamamlayın"
 
@@ -1462,6 +1492,16 @@ msgstr "İlk {first} · Son {last}"
 #: src/i18n/server-feedback.ts:168
 msgid "dashboard.publishIssue.invalidBlock.message"
 msgstr "Yayınlamadan önce bu bloğun yapılandırmasını düzeltin."
+
+#. js-lingui-explicit-id
+#: src/i18n/server-feedback.ts:195
+msgid "dashboard.publishIssue.nonTerminatingFlow.label"
+msgstr "Akış tamamlanmıyor"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:502
+msgid "dashboard.viewModel.flowHealth"
+msgstr "Akış durumu"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages.ts:48
@@ -1499,6 +1539,11 @@ msgid "dashboard.brand.editor.georgiaSerif"
 msgstr "Gürcistan serif"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages.ts:503
+msgid "dashboard.viewModel.flowHealthy"
+msgstr "Sağlıklı"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages.ts:21
 msgid "dashboard.navigation.support"
 msgstr "Yardım ve destek"
@@ -1534,7 +1579,7 @@ msgid "dashboard.viewModel.type.hotspot"
 msgstr "Sıcak nokta"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:964
+#: src/i18n/messages.ts:978
 msgid "auth.form.recoveryEmailSent"
 msgstr "Bu adres bir Lodariq hesabına aitse, en yeni mesaj güvenli bir şifre bağlantısı içerir. Süresi kısa sürede dolar ve bir kez çalışır."
 
@@ -1564,7 +1609,7 @@ msgid "dashboard.viewModel.immutablePublication"
 msgstr "Değişmez yayın"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:646
+#: src/i18n/messages.ts:660
 msgid "dashboard.action.impactRefreshed"
 msgstr "Etki yenilendi."
 
@@ -1749,7 +1794,7 @@ msgid "dashboard.installation.automaticOrigins"
 msgstr "Lodariq, geliştirme, hazırlama ve üretim için halihazırda yapılandırılmış olan güvenilir kaynakları otomatik olarak eşler."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:515
+#: src/i18n/messages.ts:529
 msgid "dashboard.entry.unavailableDescription"
 msgstr "Lodariq oturumunuzu doğrulayamadı. Hizmet geçici olarak kullanılamayabilir."
 
@@ -1764,7 +1809,7 @@ msgid "dashboard.metadata.title"
 msgstr "Lodariq Çalışma Alanı"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1051
+#: src/i18n/messages.ts:1065
 msgid "auth.error.serviceUnavailable"
 msgstr "Lodariq'te oturum açma işlemi geçici olarak kullanılamıyor."
 
@@ -1784,12 +1829,17 @@ msgid "dashboard.brand.empty.title"
 msgstr "Her deneyimi yerel hissettirin"
 
 #. js-lingui-explicit-id
+#: src/i18n/server-feedback.ts:206
+msgid "dashboard.publishIssue.missingTerminalCompletion.message"
+msgstr "Olası her yolun turu tamamlayabildiğinden veya kapatabildiğinden emin olun."
+
+#. js-lingui-explicit-id
 #: src/i18n/messages.ts:73
 msgid "dashboard.page.environments.description"
 msgstr "Güvenilir ürün kökenlerini ve her ortamın çalışma zamanı kurulumunu yönetin."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1077
+#: src/i18n/messages.ts:1091
 msgid "workspaceSelection.role.member"
 msgstr "Üye"
 
@@ -1807,6 +1857,11 @@ msgstr "Üye"
 #: src/components/analytics-panel.tsx:217
 msgid "dashboard.analytics.target.missing"
 msgstr "Eksik"
+
+#. js-lingui-explicit-id
+#: src/i18n/server-feedback.ts:202
+msgid "dashboard.publishIssue.missingTerminalCompletion.label"
+msgstr "Eksik tamamlama yolu"
 
 #. js-lingui-explicit-id
 #: src/i18n/server-feedback.ts:50
@@ -1874,12 +1929,12 @@ msgid "dashboard.brand.impact.noLinkedDescription"
 msgstr "Yeni deneyimler bu temayı ilk onayından sonra kullanabilir."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:987
+#: src/i18n/messages.ts:1001
 msgid "auth.form.newPassword"
 msgstr "Yeni şifre"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:960
+#: src/i18n/messages.ts:974
 msgid "auth.form.newToLodariq"
 msgstr "Lodariq'te yeni misiniz?"
 
@@ -1929,7 +1984,7 @@ msgid "dashboard.viewModel.noBlockingChecks"
 msgstr "Engelleme kontrolü yok"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:769
+#: src/i18n/messages.ts:783
 msgid "dashboard.action.noProductOrigins"
 msgstr "Henüz hiçbir standart ürün kaynağı yapılandırılmadı."
 
@@ -1944,7 +1999,7 @@ msgid "dashboard.support.noCustomerVersion"
 msgstr "Henüz müşteri sürümü yok"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:751
+#: src/i18n/messages.ts:765
 msgid "dashboard.action.noDeliveryRecord"
 msgstr "Teslimat kaydı yok"
 
@@ -2029,7 +2084,7 @@ msgid "dashboard.recovery.noOperations"
 msgstr "Bu ortam için herhangi bir sürüm işlemi kaydedilmedi."
 
 #. js-lingui-explicit-id
-#: src/components/dashboard-release-view.tsx:29
+#: src/components/dashboard-release-view.tsx:30
 msgid "dashboard.releases.emptyTitle"
 msgstr "İncelenecek yayın yok"
 
@@ -2054,7 +2109,7 @@ msgid "dashboard.installation.noOrigins"
 msgstr "Henüz hiçbir güvenilir kaynak eşlenmedi. Kaynakları Ortamlara ekleyin, ardından senkronize edin."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:755
+#: src/i18n/messages.ts:769
 msgid "dashboard.action.noVersions"
 msgstr "Sürüm yok"
 
@@ -2089,7 +2144,7 @@ msgid "dashboard.viewModel.notPrepared"
 msgstr "Hazırlanmadım"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:750
+#: src/i18n/messages.ts:764
 msgid "dashboard.action.notPrepared"
 msgstr "Hazırlanmadı"
 
@@ -2114,12 +2169,12 @@ msgid "dashboard.authoringLaunch.shortcut"
 msgstr "Yazma özelliğinin etkin olduğu bir sitede, {shortcut}, kontrol panelini ziyaret etmeden başlatıcıyı değiştirir."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:593
+#: src/i18n/messages.ts:607
 msgid "dashboard.action.approvalRequired"
 msgstr "Üretime geçişten önce artık bir onay gerekiyor."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:904
+#: src/i18n/messages.ts:918
 msgid "auth.page.recovery.description"
 msgstr "Tek bir e-posta bağlantısı, mevcut yaratıcının Lodariq şifresini oluşturmasına veya değiştirmesine olanak tanır."
 
@@ -2144,7 +2199,7 @@ msgid "dashboard.installation.oneLine"
 msgstr "Bir satır, bir kez"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:773
+#: src/i18n/messages.ts:787
 msgid "dashboard.action.ambiguousOrigin"
 msgstr "Aynı kaynak birden fazla ortama ait olduğundan bir kaynak eşlemesi atlandı."
 
@@ -2179,12 +2234,17 @@ msgid "dashboard.activation.openFromLauncher"
 msgstr "Uygulamanızın içindeki Lodariq başlatıcısından yazmayı açın."
 
 #. js-lingui-explicit-id
+#: src/components/dashboard-release-view.tsx:36
+msgid "dashboard.releases.openFlowMap"
+msgstr "Akış Haritasını Aç"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages.ts:82
 msgid "dashboard.page.openInProduct"
 msgstr "Üründe aç"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:969
+#: src/i18n/messages.ts:983
 msgid "auth.form.openLocalRecoveryLink"
 msgstr "Yerel kurtarma bağlantısını aç"
 
@@ -2204,7 +2264,7 @@ msgid "dashboard.brand.controller.reviewRequired"
 msgstr "Onay incelemesini açın ve onaylamadan önce her iki çalışma zamanı önizlemesini de bekleyin."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1024
+#: src/i18n/messages.ts:1038
 msgid "auth.form.openVerificationLink"
 msgstr "E-postanızdaki tam doğrulama bağlantısını açın, ardından hesabınızın şifresini seçin."
 
@@ -2224,12 +2284,12 @@ msgid "dashboard.authoringLaunch.title"
 msgstr "Ürününüzü açın"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:535
+#: src/i18n/messages.ts:549
 msgid "dashboard.loading.label"
 msgstr "Lodariq çalışma alanınız açılıyor"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1000
+#: src/i18n/messages.ts:1014
 msgid "auth.form.openingWorkspace"
 msgstr "Lodariq çalışma alanınız açılıyor…"
 
@@ -2249,7 +2309,7 @@ msgid "dashboard.navigation.overview"
 msgstr "Genel Bakış"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1075
+#: src/i18n/messages.ts:1089
 msgid "workspaceSelection.role.owner"
 msgstr "Sahip"
 
@@ -2269,22 +2329,22 @@ msgid "dashboard.launchQueue.pageScope"
 msgstr "Sayfa kapsamı"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:942
+#: src/i18n/messages.ts:956
 msgid "auth.form.password"
 msgstr "Şifre"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:895
+#: src/i18n/messages.ts:909
 msgid "auth.page.recoveryDisabled.description"
 msgstr "Bu dağıtım için şifre kurtarma henüz etkinleştirilmedi."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1047
+#: src/i18n/messages.ts:1061
 msgid "auth.error.recoveryUnavailable"
 msgstr "Şifre kurtarma geçici olarak kullanılamıyor."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:975
+#: src/i18n/messages.ts:989
 msgid "auth.form.passwordsDoNotMatch"
 msgstr "Şifreler eşleşmiyor."
 
@@ -2309,7 +2369,7 @@ msgid "dashboard.environmentPolicy.pipeline"
 msgstr "Boru hattı"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:952
+#: src/i18n/messages.ts:966
 msgid "auth.form.pleaseTryAgain"
 msgstr "Lütfen tekrar deneyin."
 
@@ -2399,7 +2459,7 @@ msgid "dashboard.environments.productEnvironments"
 msgstr "Ürün ortamları"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:840
+#: src/i18n/messages.ts:854
 msgid "auth.shell.productExperiences"
 msgstr "Ürününüzün doğal bir parçası gibi hissettiren deneyimler."
 
@@ -2419,7 +2479,7 @@ msgid "dashboard.viewModel.productSurfaceContext"
 msgstr "Ürün yüzeyi bağlamı"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1065
+#: src/i18n/messages.ts:1079
 msgid "workspaceSelection.placeholder"
 msgstr "Ürün ekibi"
 
@@ -2479,12 +2539,12 @@ msgid "dashboard.viewModel.exactArtifactPromoted"
 msgstr "Prodüksiyon, sahnelemeden tanıtılan eserin aynısını işaret ediyor."
 
 #. js-lingui-explicit-id
-#: src/components/dashboard-release-view.tsx:24
+#: src/components/dashboard-release-view.tsx:25
 msgid "dashboard.releases.exactArtifactDescription"
 msgstr "Üretim promosyonu, doğrulanmış hazırlama yapıtını yeniden oluşturma, otomatik tema değiştirme veya ortam kopyalama olmadan yeniden kullanmalıdır."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:597
+#: src/i18n/messages.ts:611
 msgid "dashboard.action.approvalNotRequired"
 msgstr "Üretim promosyonu artık ayrı bir onay gerektirmiyor."
 
@@ -2614,12 +2674,12 @@ msgid "dashboard.viewModel.radius"
 msgstr "Yarıçap"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:979
+#: src/i18n/messages.ts:993
 msgid "auth.form.readingSecureLink"
 msgstr "Güvenli bağlantınız okunuyor…"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1005
+#: src/i18n/messages.ts:1019
 msgid "auth.form.readingVerificationLink"
 msgstr "Güvenli doğrulama bağlantınız okunuyor…"
 
@@ -2664,7 +2724,12 @@ msgid "dashboard.recentActivity.title"
 msgstr "Son etkinlik"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:891
+#: src/i18n/server-feedback.ts:182
+msgid "dashboard.publishIssue.invalidFlowEdge.message"
+msgstr "Bu eylemi hâlâ mevcut olan bir adıma yeniden bağlayın."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:905
 msgid "auth.page.recoveryDisabled.title"
 msgstr "Kurtarma kullanılamıyor"
 
@@ -2709,7 +2774,7 @@ msgid "dashboard.recovery.title"
 msgstr "Sürüm geçmişi ve kurtarma"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:820
+#: src/i18n/messages.ts:834
 msgid "dashboard.action.releaseHistoryMissing"
 msgstr "Bu belgenin yayın geçmişi mevcut değil."
 
@@ -2724,7 +2789,7 @@ msgid "dashboard.releaseProgress.label"
 msgstr "Sürüm ilerlemesi"
 
 #. js-lingui-explicit-id
-#: src/i18n/server-feedback.ts:182
+#: src/i18n/server-feedback.ts:213
 msgid "dashboard.recovery.failure.unknown"
 msgstr "Sürüm kurtarma işlemi tamamlanamadı."
 
@@ -2769,7 +2834,7 @@ msgid "dashboard.brand.preview.rendering"
 msgstr "Render Turu…"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:916
+#: src/i18n/messages.ts:930
 msgid "auth.page.requestAnotherLink"
 msgstr "Başka bir bağlantı iste"
 
@@ -2804,12 +2869,12 @@ msgid "dashboard.analytics.retry"
 msgstr "Seçilen ortamı yeniden dene"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:927
+#: src/i18n/messages.ts:941
 msgid "auth.page.returnToAccountCreation"
 msgstr "Hesap oluşturmaya dön"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:899
+#: src/i18n/messages.ts:913
 msgid "auth.page.returnToSignIn"
 msgstr "Oturum açmaya geri dönün"
 
@@ -2989,7 +3054,7 @@ msgid "dashboard.brand.editor.save"
 msgstr "Taslağı kaydet"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:990
+#: src/i18n/messages.ts:1004
 msgid "auth.form.savePassword"
 msgstr "Şifreyi kaydet ve devam et"
 
@@ -3009,7 +3074,7 @@ msgid "dashboard.brand.review.savedDraft"
 msgstr "Taslak kaydedildi"
 
 #. js-lingui-explicit-id
-#: src/components/dashboard-release-view.tsx:30
+#: src/components/dashboard-release-view.tsx:31
 msgid "dashboard.releases.emptyDescription"
 msgstr "Kaydedilen deneyimler, mevcut API'nin kanıtlayabileceği yayın kayıtlarıyla birlikte burada görünecektir."
 
@@ -3039,7 +3104,7 @@ msgid "dashboard.analytics.fact.sdkErrors"
 msgstr "SDK hataları"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:730
+#: src/i18n/messages.ts:744
 msgid "dashboard.action.installationNotFound"
 msgstr "SDK kurulumu bulunamadı."
 
@@ -3054,7 +3119,7 @@ msgid "dashboard.documents.search"
 msgstr "Arama deneyimleri"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:848
+#: src/i18n/messages.ts:862
 msgid "auth.shell.secureAccess"
 msgstr "Güvenli, doğrudan Lodariq erişimi"
 
@@ -3064,7 +3129,7 @@ msgid "dashboard.brand.review.title"
 msgstr "Müşterilerin yaşayacağı değişimi görün"
 
 #. js-lingui-explicit-id
-#: src/i18n/server-feedback.ts:200
+#: src/i18n/server-feedback.ts:231
 msgid "dashboard.recovery.failure.rollbackTargetInvalid"
 msgstr "Bu sürüm geçmişinden daha önceki başarılı bir yayını seçin."
 
@@ -3104,12 +3169,12 @@ msgid "dashboard.environmentPolicy.separateVerifier"
 msgstr "Ayrı doğrulayıcı"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:943
+#: src/i18n/messages.ts:957
 msgid "auth.form.setOrResetPassword"
 msgstr "Şifreyi ayarlayın veya sıfırlayın"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:900
+#: src/i18n/messages.ts:914
 msgid "auth.page.recovery.title"
 msgstr "Şifrenizi ayarlayın veya sıfırlayın"
 
@@ -3119,12 +3184,12 @@ msgid "dashboard.page.brandSystem.description"
 msgstr "Müşteri deneyimini güvenli tokenlarla şekillendirin ve ardından her sürümü onaylayın."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:961
+#: src/i18n/messages.ts:975
 msgid "auth.form.signIn"
 msgstr "Oturum aç"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:550
+#: src/i18n/messages.ts:564
 msgid "dashboard.server.authenticationRequired"
 msgstr "Devam etmek için tekrar oturum açın."
 
@@ -3134,12 +3199,12 @@ msgid "dashboard.activation.signInDescription"
 msgstr "Buradan oturum açın. Bu pencere aynı güvenli yazma isteğine otomatik olarak devam edecektir."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:890
+#: src/i18n/messages.ts:904
 msgid "auth.page.signInInstead"
 msgstr "Bunun yerine oturum açın"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:505
+#: src/i18n/messages.ts:519
 msgid "dashboard.entry.signInTitle"
 msgstr "Lodariq'te oturum aç"
 
@@ -3154,17 +3219,17 @@ msgid "dashboard.account.signOut"
 msgstr "Oturumu kapat"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:877
+#: src/i18n/messages.ts:891
 msgid "auth.page.signUpDisabled.title"
 msgstr "Burada kayıt yapılamıyor"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:953
+#: src/i18n/messages.ts:967
 msgid "auth.form.signingIn"
 msgstr "Oturum açılıyor"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:705
+#: src/i18n/messages.ts:719
 msgid "dashboard.action.siteLabelRequired"
 msgstr "Site etiketi gerekli."
 
@@ -3179,12 +3244,12 @@ msgid "dashboard.brand.editor.radius.soft"
 msgstr "Yumuşak"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:582
+#: src/i18n/messages.ts:596
 msgid "dashboard.server.partialData"
 msgstr "Bazı çalışma alanı verileri geçici olarak kullanılamıyor. Mevcut bölümler kullanılabilir durumda kalır."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1030
+#: src/i18n/messages.ts:1044
 msgid "auth.form.soon"
 msgstr "yakında"
 
@@ -3254,7 +3319,7 @@ msgid "dashboard.documents.emptyDescription"
 msgstr "İçerik oluşturucuda bir tur başlatın, ardından inceleme ve yayınlama için burada görünecektir."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:864
+#: src/i18n/messages.ts:878
 msgid "auth.page.signUp.eyebrow"
 msgstr "Yazmaya başla"
 
@@ -3369,7 +3434,7 @@ msgid "dashboard.brand.editor.text"
 msgstr "Metin"
 
 #. js-lingui-explicit-id
-#: src/i18n/server-feedback.ts:208
+#: src/i18n/server-feedback.ts:239
 msgid "dashboard.recovery.failure.deploymentChanged"
 msgstr "Etkin dağıtım değişti. Sürüm geçmişini yenileyip tekrar deneyin."
 
@@ -3379,12 +3444,12 @@ msgid "dashboard.analytics.rowBound"
 msgstr "API, 1000 satırlık görüntü sınırını döndürdü. Sürüm kapsamlı ek satırlar mevcut olabilir; bu sınırın ötesinde hiçbir şey çıkarılmaz."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:621
+#: src/i18n/messages.ts:635
 msgid "dashboard.action.environmentPolicyChanged"
 msgstr "Ortam politikası değişti veya sürüm hattıyla çakışıyor. Yenileyin ve tekrar deneyin."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:613
+#: src/i18n/messages.ts:627
 msgid "dashboard.action.environmentPolicyInvalid"
 msgstr "Ortam politikası geçersiz."
 
@@ -3394,12 +3459,12 @@ msgid "dashboard.viewModel.stagedArtifactReady"
 msgstr "Tam olarak aşamalandırılmış eser doğrulandı ve kasıtlı üretim tanıtımına hazır."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:693
+#: src/i18n/messages.ts:707
 msgid "dashboard.action.experienceBrandUpdated"
 msgstr "Deneyim, bir sonraki derlenmiş yapısında onaylanmış Marka sürümünü kullanacak."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:717
+#: src/i18n/messages.ts:731
 msgid "dashboard.action.originsNotSynced"
 msgstr "Kurulum oluşturuldu ancak güvenilen origin’ler eşitlenemedi. Kullanmadan önce eşitlemeyi yeniden deneyin."
 
@@ -3414,12 +3479,12 @@ msgid "dashboard.viewModel.stagingEarlierHash"
 msgstr "En son hazırlama yayın kaydı, kaydedilen taslaktan daha eski bir içerik karmasını kullanıyor."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1029
+#: src/i18n/messages.ts:1043
 msgid "auth.form.linkExpires"
 msgstr "Bağlantının süresi {expiry} tarihinde doluyor."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1039
+#: src/i18n/messages.ts:1053
 msgid "auth.error.invalidPasswordLink"
 msgstr "Şifre bağlantısı geçersiz veya süresi dolmuş."
 
@@ -3429,12 +3494,12 @@ msgid "dashboard.support.customerVersionDescription"
 msgstr "Müşterilerinizin sitenizde gördüğü hazırlanmış versiyon."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:589
+#: src/i18n/messages.ts:603
 msgid "dashboard.action.productionApprovalInvalid"
 msgstr "Üretim onay politikası geçersiz."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:601
+#: src/i18n/messages.ts:615
 msgid "dashboard.action.productionChanged"
 msgstr "Üretim ortamı başka bir oturumda değişti. Yenileyin ve tekrar deneyin."
 
@@ -3444,17 +3509,17 @@ msgid "dashboard.installation.publicIdSafety"
 msgstr "Genel kurulum kimliği geri alınabilir ve hiçbir çalışma alanı sırrı, ortam belirteci, yazma oturumu veya hesap kimlik bilgisi içermez."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:562
+#: src/i18n/messages.ts:576
 msgid "dashboard.server.conflict"
 msgstr "Kayıt başka bir oturumda değişti. Yenileyin ve tekrar deneyin."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:815
+#: src/i18n/messages.ts:829
 msgid "dashboard.action.releaseRecoveryUncertain"
 msgstr "Kurtarma sonucu belirsiz. Tam isteği yeniden deneyin veya sürüm geçmişini yenileyin."
 
 #. js-lingui-explicit-id
-#: src/i18n/server-feedback.ts:196
+#: src/i18n/server-feedback.ts:227
 msgid "dashboard.recovery.failure.documentNotFound"
 msgstr "Sürüm belgesi bulunamadı."
 
@@ -3464,22 +3529,22 @@ msgid "dashboard.recovery.requestFailed"
 msgstr "Sürüm kurtarma isteği tamamlanamadı."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:807
+#: src/i18n/messages.ts:821
 msgid "dashboard.action.releaseRecoveryInvalid"
 msgstr "Sürüm kurtarma isteği geçersiz."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:542
+#: src/i18n/messages.ts:556
 msgid "dashboard.server.requestRejected"
 msgstr "İstek kabul edilemedi."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:546
+#: src/i18n/messages.ts:560
 msgid "dashboard.server.invalidRequest"
 msgstr "İstek geçersizdi."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:558
+#: src/i18n/messages.ts:572
 msgid "dashboard.server.notFound"
 msgstr "İstenen çalışma alanı kaydı bulunamadı."
 
@@ -3494,12 +3559,12 @@ msgid "dashboard.viewModel.noStagingRecordYet"
 msgstr "Kaydedilen taslağın henüz bir hazırlama yayın kaydı yok."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:918
+#: src/i18n/messages.ts:932
 msgid "auth.page.newPassword.description"
 msgstr "Form görünmeden önce gizli bilgi tarayıcınızdan temizlenir. Kaydetme işlemi oturum açmanızı sağlar."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:787
+#: src/i18n/messages.ts:801
 msgid "dashboard.action.analyticsEnvironmentUnavailable"
 msgstr "Seçilen analiz ortamı kullanılamıyor."
 
@@ -3509,7 +3574,7 @@ msgid "dashboard.brand.panel.missingTheme"
 msgstr "Seçilen Marka teması artık mevcut değil. Bu çalışma alanını yenileyin."
 
 #. js-lingui-explicit-id
-#: src/i18n/server-feedback.ts:204
+#: src/i18n/server-feedback.ts:235
 msgid "dashboard.recovery.failure.artifactIncompatible"
 msgstr "Seçilen yayın geçerli çalışma zamanı tarafından desteklenmiyor."
 
@@ -3519,7 +3584,7 @@ msgid "dashboard.viewModel.stagedArtifactNeedsVerification"
 msgstr "Aşamalandırılan eser taslakla eşleşiyor; tam tarayıcı doğrulaması hala gereklidir."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:994
+#: src/i18n/messages.ts:1008
 msgid "auth.form.invalidVerificationLink"
 msgstr "Doğrulama bağlantısı geçersiz veya süresi dolmuş."
 
@@ -3529,42 +3594,42 @@ msgid "dashboard.support.editableBackupDescription"
 msgstr "Sürüm desteği, düzenlemeyi geri yüklemek için kullanılabilir."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:526
+#: src/i18n/messages.ts:540
 msgid "dashboard.error.title"
 msgstr "Çalışma alanının yüklenmesi tamamlanmadı"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:519
+#: src/i18n/messages.ts:533
 msgid "dashboard.entry.workspaceUnavailable"
 msgstr "Çalışma alanı geçici olarak kullanılamıyor."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:570
+#: src/i18n/messages.ts:584
 msgid "dashboard.server.unavailable"
 msgstr "Çalışma alanı geçici olarak kullanılamıyor."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:574
+#: src/i18n/messages.ts:588
 msgid "dashboard.server.requestFailed"
 msgstr "Çalışma alanı isteği tamamlanamadı."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:578
+#: src/i18n/messages.ts:592
 msgid "dashboard.server.invalidResponse"
 msgstr "Çalışma alanı yanıtı doğrulanamadı."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:689
+#: src/i18n/messages.ts:703
 msgid "dashboard.action.themeAcknowledgementInvalid"
 msgstr "Tema onay isteği geçersiz."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:664
+#: src/i18n/messages.ts:678
 msgid "dashboard.action.themeApprovalInvalid"
 msgstr "Tema onay isteği geçersiz."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:651
+#: src/i18n/messages.ts:665
 msgid "dashboard.action.themeIdentityInvalid"
 msgstr "Tema adı veya tanımlayıcı geçersiz."
 
@@ -3574,7 +3639,7 @@ msgid "dashboard.viewModel.themeRevision"
 msgstr "Tema revizyonu {revision}"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:655
+#: src/i18n/messages.ts:669
 msgid "dashboard.action.themeValuesInvalid"
 msgstr "Tema değerleri geçersiz. Vurgulanan kontrolleri inceleyin."
 
@@ -3589,12 +3654,12 @@ msgid "dashboard.activation.requestExpired"
 msgstr "Bu yazma isteği kullanılamıyor veya süresi dolmuş. Başlatıcıya dönün ve yeniden deneyin."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:761
+#: src/i18n/messages.ts:775
 msgid "dashboard.action.brandChanged"
 msgstr "Bu Marka teması başka bir oturumda değişti. Tekrar denemeden önce etkisini yenileyin."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:881
+#: src/i18n/messages.ts:895
 msgid "auth.page.signUpDisabled.description"
 msgstr "Bu dağıtım yeni hesapları kabul etmiyor. Mevcut içerik oluşturucular Lodariq hesaplarıyla devam edebilir."
 
@@ -3609,12 +3674,12 @@ msgid "dashboard.brand.review.noLinkedDescription"
 msgstr "Bu ilk onay, yeniden kullanılabilir bir Marka sürümü oluşturur; yayınlamak ayrı bir adımdır."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:908
+#: src/i18n/messages.ts:922
 msgid "auth.page.incompleteLink.title"
 msgstr "Bu bağlantı eksik"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:983
+#: src/i18n/messages.ts:997
 msgid "auth.form.incompletePasswordLink"
 msgstr "Bu şifre bağlantısı eksik. Devam etmek için yeni bir bağlantı isteyin."
 
@@ -3624,17 +3689,17 @@ msgid "dashboard.publishIssue.unknown.message"
 msgstr "Bu yayın kontrolüne yayınlanmadan önce dikkat edilmesi gerekiyor."
 
 #. js-lingui-explicit-id
-#: src/i18n/server-feedback.ts:216
+#: src/i18n/server-feedback.ts:247
 msgid "dashboard.recovery.failure.idempotencyConflict"
 msgstr "Bu kurtarma isteği daha önceki bir istekle çakışıyor. Yenileyin ve tekrar deneyin."
 
 #. js-lingui-explicit-id
-#: src/i18n/server-feedback.ts:192
+#: src/i18n/server-feedback.ts:223
 msgid "dashboard.recovery.failure.environmentNotConfigured"
 msgstr "Bu sürüm ortamı yapılandırılmadı."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1004
+#: src/i18n/messages.ts:1018
 msgid "auth.form.moment"
 msgstr "Bu sadece bir dakikanızı alacak."
 
@@ -3644,12 +3709,12 @@ msgid "dashboard.brand.preview.renderFailed"
 msgstr "Bu Tur önizlemesi oluşturulamadı."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1035
+#: src/i18n/messages.ts:1049
 msgid "auth.error.rateLimited"
 msgstr "Çok fazla deneme. Biraz bekleyip tekrar deneyin."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:566
+#: src/i18n/messages.ts:580
 msgid "dashboard.server.rateLimited"
 msgstr "Çok fazla istek var. Kısa bir süre bekleyin ve tekrar deneyin."
 
@@ -3709,12 +3774,12 @@ msgid "dashboard.installation.trustedOrigins"
 msgstr "Güvenilir kökenler"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:510
+#: src/i18n/messages.ts:524
 msgid "dashboard.entry.retryAction"
 msgstr "Tekrar dene"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:534
+#: src/i18n/messages.ts:548
 msgid "dashboard.error.retry"
 msgstr "Tekrar dene"
 
@@ -3724,67 +3789,67 @@ msgid "dashboard.viewModel.typography"
 msgstr "Tipografi"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:673
+#: src/i18n/messages.ts:687
 msgid "dashboard.action.approveBrandFailed"
 msgstr "Bu Marka sürümü onaylanamıyor."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:638
+#: src/i18n/messages.ts:652
 msgid "dashboard.action.createBrandFailed"
 msgstr "Marka sistemi oluşturulamıyor."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:709
+#: src/i18n/messages.ts:723
 msgid "dashboard.action.createTokenFailed"
 msgstr "Belirteç oluşturulamıyor."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:647
+#: src/i18n/messages.ts:661
 msgid "dashboard.action.loadBrandImpactFailed"
 msgstr "Marka etkisi yüklenemiyor."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:832
+#: src/i18n/messages.ts:846
 msgid "dashboard.action.releaseHistoryUnavailable"
 msgstr "Sürüm geçmişinin tamamı yüklenemiyor."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:746
+#: src/i18n/messages.ts:760
 msgid "dashboard.action.loadSupportFailed"
 msgstr "Destek ayrıntıları yüklenemiyor."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:685
+#: src/i18n/messages.ts:699
 msgid "dashboard.action.setWorkspaceDefaultFailed"
 msgstr "Bu, çalışma alanı varsayılanı yapılamadı."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:722
+#: src/i18n/messages.ts:736
 msgid "dashboard.action.prepareInstallationFailed"
 msgstr "SDK kurulumu hazırlanamadı."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:738
+#: src/i18n/messages.ts:752
 msgid "dashboard.action.revokeInstallationFailed"
 msgstr "SDK kurulumu iptal edilemiyor."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:757
+#: src/i18n/messages.ts:771
 msgid "dashboard.action.revokeTokenFailed"
 msgstr "Belirteç iptal edilemiyor."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:660
+#: src/i18n/messages.ts:674
 msgid "dashboard.action.saveBrandDraftFailed"
 msgstr "Bu Marka taslağı kaydedilemiyor."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:734
+#: src/i18n/messages.ts:748
 msgid "dashboard.action.syncOriginsFailed"
 msgstr "Güvenilir kaynaklar senkronize edilemiyor."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:609
+#: src/i18n/messages.ts:623
 msgid "dashboard.action.updateReleaseApprovalFailed"
 msgstr "Sürüm onayı güncellenemiyor."
 
@@ -3794,7 +3859,7 @@ msgid "dashboard.environments.unableToUpdateApproval"
 msgstr "Sürüm onayı güncellenemiyor."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:630
+#: src/i18n/messages.ts:644
 msgid "dashboard.action.updateEnvironmentPolicyFailed"
 msgstr "Ortam ilkesi güncellenemiyor."
 
@@ -3804,7 +3869,7 @@ msgid "dashboard.environmentPolicy.unableToUpdate"
 msgstr "Ortam ilkesi güncellenemiyor."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:697
+#: src/i18n/messages.ts:711
 msgid "dashboard.action.updateExperienceFailed"
 msgstr "Bu deneyim güncellenemiyor."
 
@@ -3862,6 +3927,11 @@ msgstr "yayınlanmamış"
 #: src/components/release-recovery-panel.tsx:191
 msgid "dashboard.recovery.unpublished"
 msgstr "yayınlanmamış"
+
+#. js-lingui-explicit-id
+#: src/i18n/server-feedback.ts:188
+msgid "dashboard.publishIssue.unreachableStep.label"
+msgstr "Ulaşılamayan adım"
 
 #. js-lingui-explicit-id
 #: src/i18n/server-feedback.ts:147
@@ -3934,7 +4004,7 @@ msgid "dashboard.recovery.reasonHelp"
 msgstr "Dış boşluk olmadan 1-500 karakter kullanın."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:988
+#: src/i18n/messages.ts:1002
 msgid "auth.form.passwordLength"
 msgstr "12 ila 128 karakter kullanın."
 
@@ -3944,7 +4014,7 @@ msgid "dashboard.publishIssue.unsafeUrl.message"
 msgstr "Bir HTTPS URL'si veya güvenli bir göreceli yol kullanın."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:973
+#: src/i18n/messages.ts:987
 msgid "auth.form.useAnotherEmail"
 msgstr "Başka bir e-posta kullan"
 
@@ -3959,17 +4029,17 @@ msgid "dashboard.page.support.description"
 msgstr "Geri dönüş yazma ve tanılama araçlarını yalnızca ürün içi yol başarısız olduğunda kullanın."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:912
+#: src/i18n/messages.ts:926
 msgid "auth.page.incompletePasswordLink.description"
 msgstr "En son Lodariq e-postanızdaki tam şifre bağlantısını kullanın."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:923
+#: src/i18n/messages.ts:937
 msgid "auth.page.incompleteVerification.description"
 msgstr "En son Lodariq e-postanızdaki tam doğrulama bağlantısını kullanın."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:860
+#: src/i18n/messages.ts:874
 msgid "auth.page.signIn.description"
 msgstr "Ürün çalışma alanınıza dönmek için Lodariq hesabınızı kullanın."
 
@@ -3989,7 +4059,7 @@ msgid "dashboard.viewModel.verifiedExactArtifactAt"
 msgstr "Kesin yapı doğrulandı {date}"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1015
+#: src/i18n/messages.ts:1029
 msgid "auth.form.verifyAndContinue"
 msgstr "E-postayı doğrulayın ve devam edin"
 
@@ -4004,7 +4074,7 @@ msgid "dashboard.activation.verifying"
 msgstr "Uygulama ve çalışma alanı doğrulanıyor…"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:999
+#: src/i18n/messages.ts:1013
 msgid "auth.form.verifyingEmail"
 msgstr "E-postanız doğrulanıyor"
 
@@ -4019,7 +4089,7 @@ msgid "dashboard.brand.panel.approvedVersion"
 msgstr "Sürüm {version} onaylandı"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:668
+#: src/i18n/messages.ts:682
 msgid "dashboard.action.versionApproved"
 msgstr "Sürüm {version} onaylandı. Canlı yapılar, bir deneyim onu ​​açıkça benimseyip yayınlayana kadar değişmeden kalır."
 
@@ -4039,7 +4109,7 @@ msgid "dashboard.support.viewDetails"
 msgstr "Destek ayrıntılarını görüntüle"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1078
+#: src/i18n/messages.ts:1092
 msgid "workspaceSelection.role.viewer"
 msgstr "Görüntüleyici"
 
@@ -4049,17 +4119,17 @@ msgid "dashboard.account.role.viewer"
 msgstr "Görüntüleyici"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:511
+#: src/i18n/messages.ts:525
 msgid "dashboard.entry.unavailableTitle"
 msgstr "Çalışma alanınızı açamadık"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1019
+#: src/i18n/messages.ts:1033
 msgid "auth.form.verificationSent"
 msgstr "{email} adresine güvenli bir doğrulama bağlantısı gönderdik. Bu sayfayı açık tutun veya doğrudan bağlantıyı kullanın."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:858
+#: src/i18n/messages.ts:872
 msgid "auth.page.signIn.eyebrow"
 msgstr "Tekrar hoş geldiniz"
 
@@ -4069,7 +4139,7 @@ msgid "dashboard.brand.empty.sampleTitle"
 msgstr "Çalışma alanınıza hoş geldiniz"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1059
+#: src/i18n/messages.ts:1073
 msgid "workspaceSelection.title"
 msgstr "Bugün hangi çalışma alanındasınız?"
 
@@ -4079,12 +4149,12 @@ msgid "dashboard.navigation.workspaceLabel"
 msgstr "Çalışma Alanı"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:947
+#: src/i18n/messages.ts:961
 msgid "auth.form.workspace"
 msgstr "Çalışma Alanı"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1058
+#: src/i18n/messages.ts:1072
 msgid "workspaceSelection.eyebrow"
 msgstr "Çalışma Alanı"
 
@@ -4099,7 +4169,7 @@ msgid "dashboard.brand.panel.workspaceDefault"
 msgstr "Çalışma alanı varsayılanı"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:681
+#: src/i18n/messages.ts:695
 msgid "dashboard.action.workspaceDefaultUpdated"
 msgstr "Çalışma alanı varsayılanı güncellendi."
 
@@ -4139,71 +4209,71 @@ msgid "dashboard.recovery.notAllowed"
 msgstr "Mevcut rolünüz veya bu ortam politikası, sürümün kurtarılmasına izin vermiyor."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:811
+#: src/i18n/messages.ts:825
 msgid "dashboard.action.releaseRecoveryForbidden"
 msgstr "Mevcut çalışma alanı erişiminiz bu sürüm kurtarma işlemini gerçekleştiremiyor."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:791
+#: src/i18n/messages.ts:805
 msgid "dashboard.action.analyticsForbidden"
 msgstr "Mevcut çalışma alanı erişiminiz analizleri okuyamıyor."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:824
+#: src/i18n/messages.ts:838
 msgid "dashboard.action.releaseHistoryForbidden"
 msgstr "Mevcut çalışma alanı erişiminiz bu sürüm geçmişini okuyamıyor."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1010
+#: src/i18n/messages.ts:1024
 msgid "auth.form.choosePasswordHelp"
 msgstr "E-posta bağlantısı hesabın size ait olduğunu doğruladı. Şimdi güvenli bir şifre seçin."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:932
+#: src/i18n/messages.ts:946
 msgid "auth.page.finishAccount.description"
 msgstr "E-posta bağlantınız size ait olduğunu kanıtlıyor. Hesabınızı koruyacak şifreyi seçin."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:940
+#: src/i18n/messages.ts:954
 msgid "auth.form.yourName"
 msgstr "Adınız"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:948
+#: src/i18n/messages.ts:962
 msgid "auth.form.workspaceHelp"
 msgstr "Deneyimler, ortamlar ve yayınlar için ortak çalışma alanınız."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:530
+#: src/i18n/messages.ts:544
 msgid "dashboard.error.description"
 msgstr "İşiniz güvende. Bu sayfadan ayrılmadan isteği yeniden deneyin."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:506
+#: src/i18n/messages.ts:520
 msgid "dashboard.entry.signInDescription"
 msgstr "Çalışma alanınız ve yazma araçlarınız Lodariq oturumunuz tarafından korunmaya devam eder."
 
 #. js-lingui-explicit-id
-#: src/i18n/server-feedback.ts:188
+#: src/i18n/server-feedback.ts:219
 msgid "dashboard.recovery.failure.capabilityDenied"
 msgstr "Çalışma alanı rolünüz bu kurtarma eylemini gerçekleştiremez."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:626
+#: src/i18n/messages.ts:640
 msgid "dashboard.action.environmentPolicyForbidden"
 msgstr "Çalışma alanı rolünüz çevre politikası değişikliklerine izin vermiyor."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:605
+#: src/i18n/messages.ts:619
 msgid "dashboard.action.releasePolicyForbidden"
 msgstr "Çalışma alanı rolünüz yayın politikası değişikliklerine izin vermiyor."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:554
+#: src/i18n/messages.ts:568
 msgid "dashboard.server.capabilityDenied"
 msgstr "Çalışma alanı rolünüz bu eyleme izin vermiyor."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:765
+#: src/i18n/messages.ts:779
 msgid "dashboard.action.brandForbidden"
 msgstr "Çalışma alanı rolünüz bu Marka işlemine izin vermiyor."

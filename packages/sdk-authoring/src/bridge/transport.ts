@@ -139,6 +139,9 @@ export class AuthoringBridge {
       correlationId: createBridgeCorrelationId('ack'),
       type: 'ack',
       ackOf: message.correlationId,
+      ...(message.type === 'preview.patch' && message.transaction
+        ? { appliedRevision: message.transaction.revision }
+        : {}),
     });
   }
 

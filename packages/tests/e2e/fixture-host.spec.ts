@@ -2509,8 +2509,7 @@ async function compilePreview(frame: FrameLocator): Promise<void> {
   await frame.getByRole('button', { name: 'Preview full tour' }).click();
   const panel = frame.owner().page().locator('lodariq-authoring-panel');
   await expect(panel).toHaveAttribute('data-lodariq-panel-minimized', 'true');
-  await panel.getByRole('button', { name: 'Restore authoring panel', exact: true }).click();
-  await expect(panel).not.toHaveAttribute('data-lodariq-panel-minimized', 'true');
+  await restoreAuthoringPanel(frame.owner().page());
   await openUtilityTab(frame, 'Preview package');
 }
 

@@ -2296,6 +2296,26 @@ describe('@lodariq/api control-plane routes', () => {
     });
     expect(incompleteVerification.statusCode, incompleteVerification.body).toBe(400);
 
+    const mismatchedRendererVerification = await app.inject({
+      method: 'POST',
+      url: '/v1/sdk/authoring/verifications',
+      headers: directHeaders,
+      payload: {
+        publicationId: stagingPublication.id,
+        report: {
+          ...reportIdentity,
+          rendererContractVersion: '3',
+          checks: BROWSER_VERIFICATION_CHECK_CODES.map((code) => ({
+            code,
+            status: 'passed',
+          })),
+        },
+      },
+    });
+    expect(mismatchedRendererVerification.statusCode, mismatchedRendererVerification.body).toBe(
+      400,
+    );
+
     const verification = await app.inject({
       method: 'POST',
       url: '/v1/sdk/authoring/verifications',

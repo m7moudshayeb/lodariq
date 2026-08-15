@@ -5,13 +5,15 @@ import {
   RENDERER_CONTRACT_VERSION,
   validate,
   type BrandThemeSnapshot,
-  type CompiledDocumentV3,
+  type NewCompiledDocument,
   type LodariqDocument,
 } from '@lodariq/schema';
 import {
   compileDocument,
   computeBrandThemeContentHash,
   runBasicVisualPreflight,
+  validateCompiledTourFlow,
+  validateTourDocumentFlow,
   type CompileInput,
 } from '@lodariq/compiler';
 import tourFixture from '@lodariq/schema/fixtures/tour.linear.v1.json';
@@ -202,7 +204,7 @@ describe('runBasicVisualPreflight', () => {
       url: 'https://customer.example/private',
     });
 
-    const report = await runBasicVisualPreflight(artifact as CompiledDocumentV3, CHECKED_AT);
+    const report = await runBasicVisualPreflight(artifact as NewCompiledDocument, CHECKED_AT);
 
     expect(report).toEqual({
       schemaVersion: '1',
@@ -217,6 +219,43 @@ describe('runBasicVisualPreflight', () => {
     const artifact = await compileDocument(themedInput(document));
 
     await expect(runBasicVisualPreflight(artifact, 'now')).rejects.toThrow(/checkedAt/);
+  });
+
+  it('reports the same non-terminating topology from canonical and compiled tour data', async () => {
+    const loopingDocument = structuredClone(document);
+    const button = loopingDocument.blocks[0]?.children[0]?.children.find(
+      (block) => block.type === 'button',
+    );
+    if (!button) throw new Error('fixture button missing');
+    button.props.action = {
+      type: 'next',
+      transition: {
+        rules: [],
+        fallback: { type: 'step', stepId: loopingDocument.blocks[0]!.id },
+      },
+    };
+
+    const artifact = await compileDocument(themedInput(loopingDocument));
+    const canonicalIssues = validateTourDocumentFlow(loopingDocument);
+    const compiledIssues = validateCompiledTourFlow(artifact);
+
+    expect(canonicalIssues.map((issue) => issue.code)).toEqual(
+      compiledIssues.map((issue) => issue.code),
+    );
+    expect(canonicalIssues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: 'non_terminating_flow',
+          severity: 'blocker',
+          stepId: loopingDocument.blocks[0]!.id,
+        }),
+        expect.objectContaining({
+          code: 'missing_terminal_completion',
+          severity: 'blocker',
+          stepId: loopingDocument.blocks[0]!.id,
+        }),
+      ]),
+    );
   });
 });
 

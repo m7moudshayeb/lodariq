@@ -1822,7 +1822,7 @@ describe('local authoring panel (PRD §16.1)', () => {
       new Set(['workspace.collapsed', 'workspace.expanded']),
     );
     expect(expanded.identity?.context.stateId).toBeUndefined();
-    expect(getTargetStateId).toHaveBeenCalledTimes(2);
+    expect(getTargetStateId).toHaveBeenCalledTimes(3);
 
     currentStateId = 'https://customer.example/private-state';
     window.dispatchEvent(
@@ -1866,7 +1866,7 @@ describe('local authoring panel (PRD §16.1)', () => {
     );
     await vi.waitFor(() => expect(outboundMessages(peer, 'target.pick.canceled')).toHaveLength(2));
     expect(outboundMessages(peer, 'target.pick.result')).toHaveLength(2);
-    expect(getTargetStateId).toHaveBeenCalledTimes(4);
+    expect(getTargetStateId).toHaveBeenCalledTimes(5);
 
     panel.close();
   });

@@ -23,7 +23,7 @@ import {
   COMPILER_VERSION,
   DEFAULT_EXPERIENCE_APPEARANCE,
   RENDERER_CONTRACT_VERSION,
-  type CompiledDocumentV3,
+  type NewCompiledDocument,
   type BrandThemeDefinition,
   type ProductStyleProposal,
   type ReleaseRecoveryResult,
@@ -140,10 +140,7 @@ describe('disposable PostgreSQL 16 CI wiring', () => {
     expect(workflow).toContain('pg_isready -U lodariq_ci_owner -d postgres');
     expect(workflow.indexOf('services:')).toBeLessThan(workflow.indexOf('run: pnpm run test'));
     expect(turboConfig.tasks?.test?.env).toEqual(
-      expect.arrayContaining([
-        'LODARIQ_DISPOSABLE_POSTGRES',
-        'LODARIQ_TEST_POSTGRES_ADMIN_URL',
-      ]),
+      expect.arrayContaining(['LODARIQ_DISPOSABLE_POSTGRES', 'LODARIQ_TEST_POSTGRES_ADMIN_URL']),
     );
   });
 });
@@ -234,6 +231,40 @@ describe.skipIf(!DISPOSABLE_POSTGRES_ENABLED)(
          where rolname = ${sqlLiteral(RUNTIME_ROLE)};`,
       );
       expect(roleContract).toBe('f|f');
+    });
+
+    it('keeps persisted renderer evidence version-agnostic after application admission', () => {
+      const constraintDefinition = runPsqlSync(
+        ownerDatabaseUrl,
+        `select pg_get_constraintdef(oid)
+         from pg_constraint
+         where conname = 'publication_verifications_report_json_check';`,
+      );
+      expect(constraintDefinition).toContain("'rendererContractVersion'::text) ~");
+      expect(constraintDefinition).not.toContain("'rendererContractVersion'::text) = ANY");
+
+      runPsqlSync(
+        ownerDatabaseUrl,
+        `begin;
+         insert into publication_verifications (
+           id, workspace_id, environment_id, document_id, publication_id,
+           result, report_json, verified_origin, verified_by_user_id, created_at
+         ) values (
+           'verification_pg16_future_renderer', ${sqlLiteral(WORKSPACE_A)},
+           ${sqlLiteral(ENVIRONMENT_A)}, ${sqlLiteral(PROMOTION_DOCUMENT_ID)},
+           ${sqlLiteral(PROMOTION_SOURCE_PUBLICATION)}, 'passed',
+           ${jsonbLiteral({
+             schemaVersion: '1',
+             checkedAt: CREATED_AT,
+             sdkVersion: 'pg16-test',
+             rendererContractVersion: '99',
+             status: 'passed',
+             checks: [{ code: 'artifact_integrity', status: 'passed' }],
+           })},
+           'https://a.example.test', ${sqlLiteral(APPROVER_A)}, ${sqlLiteral(CREATED_AT)}
+         );
+         rollback;`,
+      );
     });
 
     it('forces tenant isolation and keeps application receipts append-only for the runtime role', async () => {
@@ -537,15 +568,12 @@ describe.skipIf(!DISPOSABLE_POSTGRES_ENABLED)(
       ]);
       expect(race.filter((result) => result?.ok)).toHaveLength(1);
       const closedRaceFailures = race.filter(
-        (result): result is Extract<ReleaseRecoveryResult, { ok: false }> =>
-          result?.ok === false,
+        (result): result is Extract<ReleaseRecoveryResult, { ok: false }> => result?.ok === false,
       );
       expect(closedRaceFailures).toHaveLength(1);
       const [closedRaceFailure] = closedRaceFailures;
       expect(closedRaceFailure).toMatchObject({ ok: false, state: 'failed' });
-      expect(['deployment_changed', 'already_inactive']).toContain(
-        closedRaceFailure?.code,
-      );
+      expect(['deployment_changed', 'already_inactive']).toContain(closedRaceFailure?.code);
 
       const evidence = queryJson<{
         replayOperationCount: number;
@@ -1309,7 +1337,7 @@ function createPgReleaseArtifact(
   _artifactId: string,
   _label: string,
   environments: Array<'staging' | 'production'>,
-): CompiledDocumentV3 {
+): NewCompiledDocument {
   const contentWithoutHash = {
     artifactSchemaVersion: COMPILED_ARTIFACT_SCHEMA_VERSION,
     documentId,
@@ -1336,7 +1364,9 @@ function createPgReleaseArtifact(
 }
 
 function pgReleaseContentHash(value: unknown): string {
-  return `sha256-${createHash('sha256').update(JSON.stringify(sortCanonicalKeys(value))).digest('hex')}`;
+  return `sha256-${createHash('sha256')
+    .update(JSON.stringify(sortCanonicalKeys(value)))
+    .digest('hex')}`;
 }
 
 function sortCanonicalKeys(value: unknown): unknown {

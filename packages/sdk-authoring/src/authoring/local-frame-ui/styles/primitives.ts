@@ -207,6 +207,102 @@ export const AUTHORING_PRIMITIVE_CSS = `
     padding: 0 var(--lq-space-3);
   }
 
+  .ui-number-combobox {
+    display: grid;
+    width: 100%;
+    min-width: 0;
+    height: var(--lq-control-sm);
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    align-items: center;
+    overflow: hidden;
+    border: 1px solid var(--lq-color-border);
+    border-radius: var(--lq-radius-sm);
+    background: var(--lq-color-page);
+    color: var(--lq-color-ink);
+  }
+
+  .ui-number-combobox:focus-within {
+    border-color: var(--lq-color-primary);
+    box-shadow: 0 0 0 2px var(--lq-color-primary-soft);
+  }
+
+  .ui-number-combobox input {
+    width: 100%;
+    min-width: 0;
+    height: 100%;
+    border: 0;
+    outline: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    font-variant-numeric: tabular-nums;
+    appearance: textfield;
+    padding: 0 2px 0 var(--lq-space-3);
+  }
+
+  .ui-number-combobox input::-webkit-inner-spin-button,
+  .ui-number-combobox input::-webkit-outer-spin-button {
+    display: none;
+    margin: 0;
+    appearance: none;
+  }
+
+  .ui-number-combobox input::placeholder {
+    color: var(--lq-color-muted);
+    opacity: 1;
+  }
+
+  .ui-number-combobox-suffix {
+    color: var(--lq-color-muted);
+    font-size: var(--lq-font-xs);
+    pointer-events: none;
+  }
+
+  .ui-number-combobox-trigger {
+    display: grid;
+    width: var(--lq-control-sm);
+    height: 100%;
+    place-items: center;
+    border: 0;
+    background: transparent;
+    color: var(--lq-color-muted);
+    cursor: pointer;
+    padding: 0;
+  }
+
+  .ui-number-combobox-trigger:hover {
+    background: var(--lq-color-panel-strong);
+    color: var(--lq-color-ink);
+  }
+
+  .ui-number-combobox-content {
+    width: max(var(--radix-popover-trigger-width), 168px);
+    min-width: 168px;
+  }
+
+  .ui-number-combobox-options {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 2px;
+    max-height: 248px;
+    overflow-y: auto;
+    padding: var(--lq-space-1);
+  }
+
+  .ui-number-combobox-option {
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 0;
+    min-height: var(--lq-control-sm);
+    border: 0;
+    background: transparent;
+    text-align: left;
+  }
+
+  .ui-number-combobox-option[data-kind='special'] {
+    grid-column: 1 / -1;
+  }
+
   .ui-range-header {
     display: flex;
     align-items: center;

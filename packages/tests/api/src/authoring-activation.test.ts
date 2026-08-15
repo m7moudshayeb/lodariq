@@ -759,7 +759,12 @@ describe('activation grant document sessions', () => {
     const otherDocument = existingDocument('doc_other');
     const repository = createRepository({ documents: [targetDocument, otherDocument] });
     const app = createApiApp({ repository, creatorModule });
-    const targetIntent = { kind: 'existing', documentId: targetDocument.id } as const;
+    const targetIntent = {
+      kind: 'existing',
+      documentId: targetDocument.id,
+      workspace: 'flowMap',
+      focusBlockId: 'step_target',
+    } as const;
     const activation = await issueActivationGrant(app, {
       requestedCapabilities: [
         AUTHORING_ACTIVATION_CAPABILITIES.LIST_DOCUMENTS,
@@ -807,6 +812,13 @@ describe('activation grant document sessions', () => {
     });
     expect(wrongScope.statusCode).toBe(403);
     expect(wrongScope.body).not.toContain(activation.activationGrant);
+
+    const strippedWorkspace = await createActivatedSession(app, {
+      installationId: activation.installationId,
+      activationGrant: activation.activationGrant,
+      documentIntent: { kind: 'existing', documentId: targetDocument.id },
+    });
+    expect(strippedWorkspace.statusCode).toBe(403);
 
     const valid = await createActivatedSession(app, {
       installationId: activation.installationId,

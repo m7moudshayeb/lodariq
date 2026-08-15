@@ -295,27 +295,19 @@ export async function installLodariq(
         assertPlaybackArtifact(tour, Boolean(options.publicInstallationId), artifactManifest);
       }
       stopTour();
-      const { TourPlayer } = await loadTourRendererFn();
+      const [{ TourPlayer }, { createTrackedTourPlayer }] = await Promise.all([
+        loadTourRendererFn(),
+        import('./tracked-tour-player'),
+      ]);
       if (requestId !== tourRequestId) return;
-      const player = new TourPlayer(tour, {
-        ...playbackOptions,
-        onBeforeStepChange: (_index, step) => runtime.writeTourResume(playbackManifest, tour, step),
-        onStepChange: (_index, step) => runtime.writeTourResume(playbackManifest, tour, step),
-        onTargetResolution: (step, result) => {
-          runtime.trackTargetResolution(documentId, step.id, step.targetId, result);
-          playbackOptions.onTargetResolution?.(step, result);
-        },
-        onComplete: () => {
+      const player = createTrackedTourPlayer({
+        TourPlayer,
+        document: tour,
+        manifest: playbackManifest,
+        playback: playbackOptions,
+        runtime,
+        onStopped: () => {
           activeTour = null;
-          runtime.endTour('tour_completed', documentId);
-        },
-        onDismiss: () => {
-          activeTour = null;
-          runtime.endTour('tour_dismissed', documentId);
-        },
-        onSkip: () => {
-          activeTour = null;
-          runtime.endTour('tour_skipped', documentId);
         },
       });
       activeTour = player;

@@ -171,7 +171,7 @@ describe('creator SDK install', () => {
           { visualTopologies?: Array<{ stateId?: string }> } | undefined
       )?.visualTopologies?.[0]?.stateId,
     ).toBe('workspace.expanded');
-    expect(getTargetStateId).toHaveBeenCalledOnce();
+    expect(getTargetStateId).toHaveBeenCalledTimes(2);
     const targetPickCorrelationId = targetPickResult?.['correlationId'];
     if (typeof targetPickCorrelationId !== 'string') {
       throw new Error('Target pick correlation ID missing');

@@ -3,6 +3,9 @@ import {
   type ButtonStyleProps,
   type LodariqBlock,
   type TooltipLayoutProps,
+  CONTRAST_RATIO_TARGETS,
+  evaluateContrast,
+  type ContrastEvaluation,
 } from '@lodariq/schema';
 import type { LocalAuthoringFrameController } from '../controller';
 import { EDITABLE_ACTION_OPTIONS, EDITABLE_BUTTON_VARIANT_OPTIONS } from '../types';
@@ -89,7 +92,8 @@ export const BUTTON_PROPERTY_DEFINITIONS: ReadonlyArray<PropertyDefinition<Butto
       scope: 'block',
       control: 'text',
       isVisible: ({ block }) => block.props.action?.type === 'openPage',
-      read: ({ block }) => block.props.action?.url ?? '',
+      read: ({ block }) =>
+        block.props.action?.type === 'openPage' ? (block.props.action.url ?? '') : '',
       apply: ({ block, controller }, value) => {
         if (typeof value === 'string') controller.setActionUrl(block.id, value);
       },
@@ -103,7 +107,10 @@ export const BUTTON_PROPERTY_DEFINITIONS: ReadonlyArray<PropertyDefinition<Butto
       control: 'segmented',
       options: OPEN_PAGE_NAVIGATION_OPTIONS,
       isVisible: ({ block }) => block.props.action?.type === 'openPage',
-      read: ({ block }) => block.props.action?.navigationBehavior ?? 'stay',
+      read: ({ block }) =>
+        block.props.action?.type === 'openPage'
+          ? (block.props.action.navigationBehavior ?? 'stay')
+          : 'stay',
       apply: ({ block, controller }, value) => {
         if (!isOptionValue(OPEN_PAGE_NAVIGATION_OPTIONS, value)) return;
         controller.setActionNavigationBehavior(block.id, value);
@@ -273,6 +280,27 @@ export function buttonWidthDescription(block: LodariqBlock): string | null {
 export function buttonColorIsCustomized(block: LodariqBlock, propertyId: string): boolean {
   const field = propertyId.replace('button.', '') as keyof ButtonStyleProps;
   return block.props.buttonStyle?.[field] !== undefined;
+}
+
+export function buttonColorContrast(block: LodariqBlock, propertyId: string): ContrastEvaluation {
+  const style = block.props.buttonStyle;
+  const fill = style?.fillColor ?? '#006b58';
+  const text = style?.textColor ?? '#ffffff';
+  const border = style?.borderColor ?? fill;
+  if (propertyId === 'button.borderColor') {
+    return evaluateContrast(
+      border,
+      fill,
+      CONTRAST_RATIO_TARGETS.focus,
+      CONTRAST_RATIO_TARGETS.focusUnusable,
+    );
+  }
+  return evaluateContrast(
+    text,
+    fill,
+    CONTRAST_RATIO_TARGETS.text,
+    CONTRAST_RATIO_TARGETS.textUnusable,
+  );
 }
 
 export function actionAlignmentValue(

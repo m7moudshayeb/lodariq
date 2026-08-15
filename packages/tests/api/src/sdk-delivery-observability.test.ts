@@ -17,7 +17,7 @@ import {
   DEFAULT_EXPERIENCE_APPEARANCE,
   LODARIQ_ACCESSIBLE_FALLBACK_THEME_V1,
   RENDERER_CONTRACT_VERSION,
-  type CompiledDocumentV3,
+  type NewCompiledDocument,
 } from '@lodariq/schema';
 
 const WORKSPACE_ID = 'wk_delivery_observability';
@@ -424,7 +424,7 @@ function createArtifact(): PersistedCompiledArtifact {
     steps: [],
     localization: { defaultLocale: 'en', defaultTitle: 'Observed tour', variants: [] },
   };
-  const compiled: CompiledDocumentV3 = {
+  const compiled: NewCompiledDocument = {
     ...contentWithoutHash,
     contentHash: contentHash(contentWithoutHash),
   };

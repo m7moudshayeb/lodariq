@@ -14,8 +14,10 @@ import {
   sanitizePresentationAnchor,
   sanitizeTooltipLayoutProps,
   sanitizeTooltipStyleProps,
+  sanitizeTourCompletionBehavior,
+  TOUR_RENDERABLE_LEAF_BLOCK_TYPES,
   type BrandThemeSnapshot as BrandThemeSnapshotType,
-  type CompiledDocumentV3,
+  type CompiledDocumentV4,
   type CompiledStep,
   type LodariqBlock,
   type LodariqDocument,
@@ -24,16 +26,7 @@ import {
 import { canonicalJson, sha256Hex } from './hash';
 import { COMPILER_VERSION } from './version';
 
-/** Block types that carry render-ready leaf content into compiled steps. */
-const LEAF_CONTENT_TYPES = new Set([
-  'heading',
-  'paragraph',
-  'list',
-  'divider',
-  'button',
-  'link',
-  'media',
-]);
+const LEAF_CONTENT_TYPES = new Set<string>(TOUR_RENDERABLE_LEAF_BLOCK_TYPES);
 
 export interface CompileInput {
   document: LodariqDocument;
@@ -46,6 +39,10 @@ function collectBody(block: LodariqBlock, acc: CompiledStep['body']): void {
     const props = sanitizeBlockProps(block.props);
     const contentRuns = sanitizeInlineTextRuns(block.contentRuns);
     delete props.presentationAnchor;
+    delete props.entrySequence;
+    delete props.motion;
+    delete props.responsive;
+    delete props.spotlight;
     acc.push({
       id: block.id,
       type: block.type,
@@ -71,6 +68,8 @@ function compileTourStep(
   const presentationAnchor = sanitizePresentationAnchor(tooltip?.props.presentationAnchor);
   const tooltipLayout = sanitizeTooltipLayoutProps(tooltip?.props.tooltipLayout);
   const tooltipStyle = sanitizeTooltipStyleProps(tooltip?.props.tooltipStyle);
+  const stepProps = sanitizeBlockProps(step.props);
+  const entrySequence = stepProps.entrySequence;
   const lifecycle = typeof targetId === 'string' ? targetsById.get(targetId)?.lifecycle : null;
 
   return {
@@ -80,6 +79,11 @@ function compileTourStep(
     ...(presentationAnchor ? { presentationAnchor } : {}),
     ...(tooltipLayout ? { tooltipLayout: structuredClone(tooltipLayout) } : {}),
     ...(tooltipStyle ? { tooltipStyle: structuredClone(tooltipStyle) } : {}),
+    ...(entrySequence ? { entrySequence: structuredClone(entrySequence) } : {}),
+    ...(stepProps.motion ? { motion: structuredClone(stepProps.motion) } : {}),
+    ...(stepProps.responsive ? { responsive: structuredClone(stepProps.responsive) } : {}),
+    ...(stepProps.spotlight ? { spotlight: structuredClone(stepProps.spotlight) } : {}),
+    ...(stepProps.accessibilityName ? { accessibilityName: stepProps.accessibilityName } : {}),
     ...(lifecycle ? { lifecycle: structuredClone(lifecycle) } : {}),
     body,
   };
@@ -89,7 +93,7 @@ function compileTourStep(
  * Pure synchronous compile pass: canonical block JSON -> delivery JSON
  * (without the content hash). No DOM, no Node APIs (PRD §9.1).
  */
-export function compile(input: CompileInput): Omit<CompiledDocumentV3, 'contentHash'> {
+export function compile(input: CompileInput): Omit<CompiledDocumentV4, 'contentHash'> {
   const { document, rendererContractVersion } = input;
   if (!isValid(BrandThemeSnapshot, input.theme)) {
     throw new Error('Compiler requires a valid BrandThemeSnapshot');
@@ -100,10 +104,12 @@ export function compile(input: CompileInput): Omit<CompiledDocumentV3, 'contentH
   assertTargetIdentityBindings(document);
   assertPresentationAnchors(document);
   assertDocumentLocalization(document);
+  assertCompletionBehavior(document);
 
   const targetsById = new Map(document.targets.map((target) => [target.id, target]));
   const steps = compileSteps(document, targetsById);
   const localization = resolveDocumentLocalization(document);
+  const completion = sanitizeTourCompletionBehavior(document.completion);
   const localeVariants = localization.variants.map((variant) => {
     const locale = canonicalContentLocale(variant.locale) ?? variant.locale;
     const localizedDocument = materializeLocalizedDocument(document, locale);
@@ -126,6 +132,7 @@ export function compile(input: CompileInput): Omit<CompiledDocumentV3, 'contentH
     audience: structuredClone(document.audience),
     theme: structuredClone(input.theme),
     appearance: structuredClone(resolveExperienceAppearance(document.appearance)),
+    ...(completion ? { completion: structuredClone(completion) } : {}),
     targets: document.targets.map((t) => ({
       id: t.id,
       fingerprint: deliveryFingerprint(t.fingerprint, Boolean(t.identity)),
@@ -138,6 +145,23 @@ export function compile(input: CompileInput): Omit<CompiledDocumentV3, 'contentH
       variants: localeVariants,
     },
   };
+}
+
+function assertCompletionBehavior(document: LodariqDocument): void {
+  const completion = sanitizeTourCompletionBehavior(document.completion);
+  if (!completion) return;
+  if (
+    completion.type === 'showStep' &&
+    !document.blocks.some((block) => block.type === 'tourStep' && block.id === completion.stepId)
+  ) {
+    throw new Error(`Completion step ${completion.stepId} does not exist`);
+  }
+  if (
+    completion.type === 'activateTarget' &&
+    !document.targets.some((target) => target.id === completion.targetId)
+  ) {
+    throw new Error(`Completion target ${completion.targetId} does not exist`);
+  }
 }
 
 function compileSteps(
@@ -216,7 +240,7 @@ function assertBlockPresentationAnchor(
  * Compile and content-address the document (PRD §11.3).
  * Server-side for real publications; browser-side for local-dev preview only.
  */
-export async function compileDocument(input: CompileInput): Promise<CompiledDocumentV3> {
+export async function compileDocument(input: CompileInput): Promise<CompiledDocumentV4> {
   const compiled = compile(input);
   const [themeContentHash, artifactHash] = await Promise.all([
     computeBrandThemeContentHash(compiled.theme),

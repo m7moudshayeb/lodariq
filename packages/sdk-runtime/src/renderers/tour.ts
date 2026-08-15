@@ -1,5 +1,12 @@
-import type { CompiledDocument, CompiledStep, RuntimeLifecycleHints } from '@lodariq/schema';
-import { arrow, computePosition, flip, offset, shift, type Placement } from '@floating-ui/dom';
+import type {
+  CompiledDocument,
+  CompiledStep,
+  RuntimeLifecycleHints,
+  StepChoreography,
+  StepChoreographyTransition,
+  StepTransitionDestination,
+  AuthoringAccessibilityPreviewMode,
+} from '@lodariq/schema';
 import { resolveExperienceAppearance } from '@lodariq/schema/brand-runtime';
 import { LODARIQ_AUTHORING_PREVIEW_OWNER_ATTRIBUTE } from '@lodariq/schema/dom';
 import { assertSupportedCompiledArtifactIfVersioned } from '../artifact-compatibility';
@@ -11,14 +18,13 @@ import {
 } from '../i18n';
 import { resolveCompiledDocumentLocale } from '../document-localization';
 import { clearActiveContentLocale, setActiveContentLocale } from '../runtime/content-locale-state';
-import {
+import type {
+  ResolvedAnchor,
+  ResolutionResult,
+  TargetResolutionContext,
   resolve,
   resolveTarget,
-  type ResolvedAnchor,
-  type ResolutionResult,
-  type TargetResolutionContext,
 } from '../resolver';
-import { isVisible } from '../resolver/element-evidence';
 import { applyCompiledTourTheme } from './tour-theme';
 import { createTourStyles } from './tour-styles';
 import {
@@ -47,19 +53,28 @@ import {
   waitForResolvedElement,
   waitUntil,
 } from './tour-lifecycle';
+import { canOwnPresentation, createTargetOutline } from './tour-positioning';
+import type { ChoreographyStageUpdate } from './tour-choreography';
+import type { ProtectedSurfaceRect } from './protected-surface';
+import type { TourFlowConditionContext } from './tour-flow';
+import { applyStepMotion, resolveResponsiveTourStep } from './tour-presentation';
+import { appendAuthoringAccessibilityEvidence } from './tour-accessibility-preview';
+import { executeTourSequence } from './tour-choreography-sequence';
 import {
-  blurHiddenTourCard,
-  canOwnPresentation,
-  createTargetOutline,
-  mutationAffectsPresentationOwner,
-  positionTargetOutline,
-  positionTourArrow,
-  positioningReference,
-  presentationOwnerObservationRoots,
-  shadowRootHost,
-} from './tour-positioning';
+  removeTourChoreographyRecovery,
+  showTourChoreographyRecovery,
+} from './tour-choreography-recovery';
+import { runTourFlowDestination } from './tour-flow-navigation';
+import { trackTourTarget } from './tour-target-tracker';
 
 export { TourPresentationCanceledError, TourPresentationUnavailableError } from './tour-errors';
+export type { ProtectedSurfaceRect } from './protected-surface';
+export type { ChoreographyStageUpdate } from './tour-choreography';
+export {
+  applyStepMotion,
+  resolveResponsiveTourStep,
+  runtimeViewportClass,
+} from './tour-presentation';
 export {
   resolveTourActionRecipe,
   resolveTourCompositionRecipe,
@@ -75,15 +90,11 @@ export {
 } from './tour-theme';
 
 const DEFAULT_TARGET_RESOLUTION_TIMEOUT_MS = 1_500;
-const TARGET_GLOBAL_REVALIDATION_THROTTLE_MS = 500;
 
 type RuntimeActionType = RuntimeAction['type'];
 type RuntimeActionHandler = (player: TourPlayer, action: RuntimeAction) => void;
-
-interface TourPositionController {
-  stop: () => void;
-  update: () => void;
-}
+type TargetResolver = typeof resolveTarget;
+type FingerprintResolver = typeof resolve;
 
 /**
  * Exact, in-memory element chosen during authoring. It is intentionally absent
@@ -121,6 +132,7 @@ export interface TourPlayerOptions {
   authoringPreviewOwnerId?: string;
   /** Explicit full-preview mode; enables real tour navigation in authoring. */
   authoringPreviewInteractive?: boolean;
+  authoringAccessibilityMode?: AuthoringAccessibilityPreviewMode;
   /** Creator-only live anchor used while the selected element remains connected. */
   authoringTargetOverride?: AuthoringTargetOverride;
   onStepChange?: (index: number, step: CompiledStep) => void;
@@ -131,6 +143,17 @@ export interface TourPlayerOptions {
   onSkip?: () => void;
   /** One bounded result per step attempt for privacy-safe diagnostics. */
   onTargetResolution?: (step: CompiledStep, result: TourTargetResolutionDiagnostic) => void;
+  /** Bounded, payload-free stage diagnostics for runtime progress and telemetry. */
+  onChoreographyStageChange?: (step: CompiledStep, update: ChoreographyStageUpdate) => void;
+  /** Authoring-only live chrome rectangles; never used to resolve or activate a target. */
+  getAuthoringProtectedSurfaces?: () => readonly ProtectedSurfaceRect[];
+  /** Authoring-only runtime card geometry for reciprocal chrome avoidance. */
+  onAuthoringSurfaceChange?: (rect: ProtectedSurfaceRect | null) => void;
+  /** Explicit SDK-provided safe state used only by closed flow conditions. */
+  flowConditionContext?: Pick<TourFlowConditionContext, 'identifyTraits' | 'documentState'>;
+  onBranchChoice?: (step: CompiledStep, ruleIndex: number | null, destination: string) => void;
+  /** Resolves server-validated asset IDs; canonical documents never carry raw src attributes. */
+  resolveMediaAsset?: (assetId: string, kind: 'image' | 'video' | 'captions') => string | null;
   /** Opaque delivery context used by Target Identity V2 hard gates. */
   targetResolutionContext?: TargetResolutionContext;
 }
@@ -146,6 +169,9 @@ export class TourPlayer {
     dismiss: (player) => player.dismiss(),
     next: (player) => player.next(),
     openPage: (player, action) => player.openPage(action),
+    runSequence: (player, action) => {
+      if (action.type === 'runSequence') void player.runSequence(action.sequence);
+    },
   };
 
   private index: number;
@@ -159,6 +185,11 @@ export class TourPlayer {
   private renderAbortController: AbortController | null = null;
   private readiness: TourPresentationReadiness | null = null;
   private renderId = 0;
+  private choreographyRetryCount = 0;
+  private completionStepActive = false;
+  private readonly completedStepIds = new Set<string>();
+  private targetResolver: TargetResolver | null = null;
+  private fingerprintResolver: FingerprintResolver | null = null;
 
   readonly contentLocale: string;
 
@@ -190,6 +221,13 @@ export class TourPlayer {
     }
     if (authoringPreviewOwnerId) {
       this.host.setAttribute(LODARIQ_AUTHORING_PREVIEW_OWNER_ATTRIBUTE, authoringPreviewOwnerId);
+    }
+    if (options.authoringAccessibilityMode && !authoringPreviewOwnerId) {
+      throw new Error('Lodariq accessibility preview requires an owned authoring preview');
+    }
+    if (options.authoringAccessibilityMode) {
+      this.host.dataset['lodariqAccessibilityPreview'] = options.authoringAccessibilityMode;
+      if (options.authoringAccessibilityMode === 'rtl') this.host.dir = 'rtl';
     }
     if (previewContainer) {
       this.host.setAttribute('data-lodariq-embedded-preview', '');
@@ -275,6 +313,7 @@ export class TourPlayer {
       clearActiveContentLocale();
     }
     this.host.remove();
+    if (this.options.authoringPreviewOwnerId) this.options.onAuthoringSurfaceChange?.(null);
   }
 
   private render(): void {
@@ -283,7 +322,10 @@ export class TourPlayer {
     const abortController = new AbortController();
     this.renderAbortController = abortController;
     this.readiness = createTourPresentationReadiness(renderId);
-    const step = this.doc.steps[this.index];
+    const sourceStep = this.doc.steps[this.index];
+    const step = sourceStep
+      ? resolveResponsiveTourStep(sourceStep, document.documentElement.clientWidth)
+      : undefined;
     if (!step) {
       this.rejectReadiness(
         renderId,
@@ -292,19 +334,35 @@ export class TourPlayer {
       return;
     }
     this.clearStepEffects();
+    this.choreographyRetryCount = 0;
     if (this.targetOutline) this.targetOutline.hidden = true;
     this.options.onStepChange?.(this.index, step);
 
     this.card.innerHTML = '';
     this.card.hidden = Boolean(step.targetId);
     applyStepComposition(this.card, step);
+    applyStepMotion(this.card, step);
+    this.card.setAttribute('aria-label', step.accessibilityName ?? runtimeText('Lodariq tour'));
+    if (this.targetOutline) {
+      if (step.spotlight) {
+        this.targetOutline.dataset['lodariqSpotlight'] = step.spotlight.emphasis;
+        this.targetOutline.dataset['lodariqSpotlightPulse'] = step.spotlight.pulse
+          ? 'true'
+          : 'false';
+      } else {
+        delete this.targetOutline.dataset['lodariqSpotlight'];
+        delete this.targetOutline.dataset['lodariqSpotlightPulse'];
+      }
+    }
     const content = this.card.ownerDocument.createElement('div');
     content.className = 'tour-content';
     appendStepBody(content, step, (node) => this.createBodyElement(node));
     content.appendChild(this.createSkipButton());
+    appendAuthoringAccessibilityEvidence(content, step, this.options.authoringAccessibilityMode);
     this.card.appendChild(content);
     this.arrow.hidden = !step.targetId || step.tooltipLayout?.showArrow === false;
     this.card.appendChild(this.arrow);
+    this.armEntrySequence(step, renderId, abortController.signal);
 
     if (!step.targetId) {
       if (
@@ -345,9 +403,22 @@ export class TourPlayer {
       });
   }
 
+  private armEntrySequence(step: CompiledStep, renderId: number, signal: AbortSignal): void {
+    if (!step.entrySequence || this.options.embeddedPreviewContainer) return;
+    void this.waitUntilReady()
+      .then(() => {
+        if (signal.aborted || renderId !== this.renderId || !this.host.isConnected) return;
+        void this.runSequence(step.entrySequence!);
+      })
+      .catch(() => {});
+  }
+
   private createBodyElement(node: RuntimeBodyNode): HTMLElement {
     const renderer = BODY_NODE_RENDERERS[node.type] ?? renderTextNode;
-    return renderer(node, { onAction: (action) => this.handleAction(action) });
+    return renderer(node, {
+      onAction: (action) => this.handleAction(action),
+      resolveMediaAsset: this.options.resolveMediaAsset,
+    });
   }
 
   private handleAction(action: RuntimeAction | undefined): void {
@@ -357,7 +428,56 @@ export class TourPlayer {
     if (this.options.authoringPreviewOwnerId && !this.options.authoringPreviewInteractive) {
       return;
     }
+    if (action.type === 'runSequence') {
+      void this.runSequence(action.sequence, action.transition);
+      return;
+    }
+    if (action.transition) {
+      this.followActionTransition(action.transition);
+      return;
+    }
     TourPlayer.actionHandlers[action.type](this, action);
+  }
+
+  private followActionTransition(transition: NonNullable<RuntimeAction['transition']>): void {
+    const step = this.doc.steps[this.index];
+    if (!step) return;
+    this.completedStepIds.add(step.id);
+    void this.resolveActionTransition(step, transition);
+  }
+
+  private async resolveActionTransition(
+    step: CompiledStep,
+    transition: NonNullable<RuntimeAction['transition']>,
+  ): Promise<void> {
+    const { resolveStepTransition } = await import('./tour-flow');
+    if (!this.host.isConnected) return;
+    const resolved = resolveStepTransition(transition, {
+      ...this.options.flowConditionContext,
+      locale: this.contentLocale,
+      completedStepIds: this.completedStepIds,
+    });
+    try {
+      this.options.onBranchChoice?.(
+        step,
+        resolved.ruleIndex,
+        resolved.destination.type === 'step'
+          ? resolved.destination.stepId
+          : resolved.destination.type,
+      );
+    } catch {
+      /* Diagnostics hooks must never alter branch evaluation. */
+    }
+    this.runFlowDestination(resolved.destination);
+  }
+
+  private runFlowDestination(destination: StepTransitionDestination): void {
+    runTourFlowDestination(destination, {
+      complete: () => this.complete(),
+      dismiss: () => this.dismiss(),
+      goToStep: (stepId) => this.goToStep(stepId),
+      next: () => this.next(),
+    });
   }
 
   private createSkipButton(): HTMLButtonElement {
@@ -374,8 +494,43 @@ export class TourPlayer {
   }
 
   private complete(): void {
+    const completion = 'completion' in this.doc ? this.doc.completion : undefined;
+    if (!this.completionStepActive && completion) {
+      if (completion.type === 'showStep') {
+        const nextIndex = this.doc.steps.findIndex((step) => step.id === completion.stepId);
+        if (nextIndex >= 0 && nextIndex !== this.index) {
+          this.completionStepActive = true;
+          this.goToStep(completion.stepId);
+          return;
+        }
+      }
+      if (completion.type === 'activateTarget') {
+        this.activateCompletionTarget(completion.targetId);
+      }
+      if (completion.type === 'openPage') {
+        const destination = safeNavigationDestination(completion.url);
+        if (destination?.kind === 'external') {
+          window.open(destination.href, '_blank', 'noopener,noreferrer');
+        } else if (destination) {
+          window.location.assign(destination.href);
+        }
+      }
+    }
     this.options.onComplete?.();
     this.stop();
+  }
+
+  private activateCompletionTarget(targetId: string): void {
+    const target = this.doc.targets.find((candidate) => candidate.id === targetId);
+    if (!target) return;
+    void this.ensureResolvers().then(() => {
+      const result = this.targetResolver?.(target, document, {
+        ...this.options.targetResolutionContext,
+        requiredAction: 'observe-click',
+      });
+      if (!result?.anchor?.interactionSafe || !canOwnPresentation(result.anchor)) return;
+      if (result.anchor.element instanceof HTMLElement) result.anchor.element.click();
+    });
   }
 
   private dismiss(): void {
@@ -389,6 +544,7 @@ export class TourPlayer {
   }
 
   private openPage(action: RuntimeAction): void {
+    if (action.type !== 'openPage') return;
     const destination = safeNavigationDestination(action.url);
     if (!destination) return;
     if (destination.kind === 'external') {
@@ -411,11 +567,106 @@ export class TourPlayer {
     this.complete();
   }
 
+  private async runSequence(
+    sequence: StepChoreography,
+    actionTransition?: NonNullable<RuntimeAction['transition']>,
+  ): Promise<void> {
+    const step = this.doc.steps[this.index];
+    const signal = this.renderAbortController?.signal;
+    if (!step || !signal || signal.aborted || !this.host.isConnected) return;
+    removeTourChoreographyRecovery(this.card);
+    await this.ensureResolvers();
+    if (signal.aborted || !this.host.isConnected) return;
+    const result = await executeTourSequence({
+      sequence,
+      signal,
+      step,
+      resolveTarget: (targetId, requiredAction) =>
+        this.resolveChoreographyTarget(targetId, requiredAction),
+      runTransition: () => {
+        if (actionTransition) this.followActionTransition(actionTransition);
+        else this.runChoreographyTransition(sequence.transition);
+      },
+      onStageUpdate: (update) => {
+        try {
+          this.options.onChoreographyStageChange?.(step, update);
+        } catch {
+          /* Diagnostics hooks must never alter playback. */
+        }
+      },
+    });
+    if (result === 'aborted' || result === 'completed') return;
+    if (result === 'dismiss') this.dismiss();
+    else if (result === 'skip') this.next();
+    else if (typeof result === 'object') this.goToStep(result.stepId);
+    else if (result === 'retry' && this.choreographyRetryCount === 0) {
+      this.choreographyRetryCount += 1;
+      void this.runSequence(sequence, actionTransition);
+    } else {
+      this.showChoreographyRecovery(sequence, actionTransition);
+    }
+  }
+
+  private resolveChoreographyTarget(
+    targetId: string,
+    requiredAction: 'activate' | 'observe-click' | 'focus' | 'anchor',
+  ): Element | null {
+    const step = this.doc.steps[this.index];
+    if (step?.targetId === targetId) {
+      const override = this.resolveAuthoringTargetOverride(step)?.anchor;
+      if (override?.interactionSafe || requiredAction === 'anchor')
+        return override?.element ?? null;
+    }
+    const target = this.doc.targets.find((candidate) => candidate.id === targetId);
+    if (!target) return null;
+    const result = this.targetResolver?.(target, document, {
+      ...this.options.targetResolutionContext,
+      requiredAction: requiredAction === 'activate' ? 'observe-click' : requiredAction,
+    });
+    if (!result?.anchor || !canOwnPresentation(result.anchor)) return null;
+    if (requiredAction !== 'anchor' && !result.anchor.interactionSafe) return null;
+    return result.anchor.element;
+  }
+
+  private runChoreographyTransition(transition: StepChoreographyTransition): void {
+    if (transition.type === 'next') {
+      this.next();
+      return;
+    }
+    if (transition.type === 'complete') {
+      this.complete();
+      return;
+    }
+    if (transition.type === 'step') this.goToStep(transition.stepId);
+  }
+
+  private goToStep(stepId: string): void {
+    const nextIndex = this.doc.steps.findIndex((candidate) => candidate.id === stepId);
+    const nextStep = this.doc.steps[nextIndex];
+    if (nextIndex < 0 || !nextStep || nextIndex === this.index) return;
+    this.notifyBeforeStepChange(nextIndex, nextStep);
+    this.index = nextIndex;
+    this.render();
+  }
+
+  private showChoreographyRecovery(
+    sequence: StepChoreography,
+    actionTransition?: NonNullable<RuntimeAction['transition']>,
+  ): void {
+    showTourChoreographyRecovery(this.card, {
+      dismiss: () => this.dismiss(),
+      retry: () => void this.runSequence(sequence, actionTransition),
+      skip: () => this.next(),
+    });
+  }
+
   private async findTarget(
     step: CompiledStep,
     signal: AbortSignal,
   ): Promise<ResolvedAnchor | null> {
     if (this.options.embeddedPreviewContainer) return null;
+    await this.ensureResolvers();
+    throwIfTourPresentationCanceled(signal);
     await this.waitForLifecycle(step.lifecycle, signal);
     throwIfTourPresentationCanceled(signal);
     let result = this.resolveStepTarget(step);
@@ -452,7 +703,7 @@ export class TourPlayer {
       ...this.options.targetResolutionContext,
       ...(stepWaitsForTargetClick(step) ? { requiredAction: 'observe-click' as const } : {}),
     };
-    return resolveTarget(target, document, targetResolutionContext);
+    return this.targetResolver?.(target, document, targetResolutionContext) ?? null;
   }
 
   private resolveAuthoringTargetOverride(step: CompiledStep): ResolutionResult | null {
@@ -461,18 +712,19 @@ export class TourPlayer {
       return null;
     }
     const element = override.element;
-    if (element.ownerDocument !== document || !element.isConnected || !isVisible(element)) {
+    const anchor: ResolvedAnchor = {
+      kind: 'visual-region',
+      element,
+      interactionSafe: false,
+      getBoundingClientRect: () => element.getBoundingClientRect(),
+    };
+    if (element.ownerDocument !== document || !canOwnPresentation(anchor)) {
       return null;
     }
     return {
       state: 'found',
       element,
-      anchor: {
-        kind: 'visual-region',
-        element,
-        interactionSafe: false,
-        getBoundingClientRect: () => element.getBoundingClientRect(),
-      },
+      anchor,
       confidence: 100,
       candidateCount: 1,
       resolutionMethod: 'authoring_selection',
@@ -488,226 +740,29 @@ export class TourPlayer {
     initialAnchor: ResolvedAnchor,
     renderId: number,
   ): void {
-    let currentAnchor: ResolvedAnchor | null = null;
-    let currentTarget: Element | null = null;
-    let clearPosition = (): void => {};
-    let updatePosition = (): void => {};
-    let clearTargetAction = (): void => {};
-    let revalidationTimer: ReturnType<typeof setTimeout> | null = null;
-    let unavailable = false;
-    let focusedOnce = false;
-    let observer: MutationObserver | null = null;
-
-    const markUnavailable = (): void => {
-      if (!unavailable) blurHiddenTourCard(this.shadow, this.card);
-      this.card.hidden = true;
-      if (this.targetOutline) this.targetOutline.hidden = true;
-      unavailable = true;
-      clearTargetAction();
-      clearTargetAction = () => {};
-    };
-
-    const bind = (anchor: ResolvedAnchor): void => {
-      const target = anchor.element;
-      clearPosition();
-      clearTargetAction();
-      currentAnchor = anchor;
-      currentTarget = target;
-      unavailable = false;
-      this.card.hidden = true;
-      if (!this.options.authoringPreviewOwnerId || this.options.authoringPreviewInteractive) {
-        this.scrollForLifecycle(target, step.lifecycle);
-      }
-      const position = this.position(
-        anchor,
-        (step.placement as Placement) ?? 'bottom',
-        step.presentationAnchor,
-        handleOwnerAvailability,
-        () => this.resolveReadiness(renderId),
-        (error) => this.rejectReadiness(renderId, normalizeTourPresentationError(error)),
-      );
-      clearPosition = position.stop;
-      updatePosition = position.update;
-      if (!canOwnPresentation(anchor)) {
-        markUnavailable();
-        if (this.options.authoringPreviewOwnerId) {
-          this.rejectReadiness(
-            renderId,
-            new TourPresentationUnavailableError(
-              `Lodariq tour target is not visible for step ${step.id}`,
-            ),
-          );
-        }
-        scheduleRevalidation(true);
-        observePresentationOwnerRoots();
-        return;
-      }
-      this.card.hidden = false;
-      clearTargetAction =
-        anchor.interactionSafe &&
-        (!this.options.authoringPreviewOwnerId || this.options.authoringPreviewInteractive) &&
-        stepWaitsForTargetClick(step)
-          ? this.armTargetClickAdvance(step, target, handleInvalidOwnerClick)
-          : () => {};
-      if (
-        !focusedOnce &&
-        (!this.options.authoringPreviewOwnerId || this.options.authoringPreviewInteractive)
-      ) {
-        focusedOnce = true;
-        focusTourCard(this.card);
-      }
-      observePresentationOwnerRoots();
-    };
-
-    const revalidate = (): void => {
-      revalidationTimer = null;
-      if (renderId !== this.renderId || !this.host.isConnected) return;
-      const result = this.resolveStepTarget(step);
-      const safelyResolvedAnchor = result?.anchor;
-      if (!safelyResolvedAnchor || !canOwnPresentation(safelyResolvedAnchor)) {
-        markUnavailable();
-        return;
-      }
-      if (
-        safelyResolvedAnchor.element !== currentTarget ||
-        safelyResolvedAnchor.kind !== currentAnchor?.kind ||
-        unavailable
-      ) {
-        bind(safelyResolvedAnchor);
-      } else {
-        updatePosition();
-      }
-    };
-
-    function scheduleRevalidation(immediate = false): void {
-      if (revalidationTimer && !immediate) return;
-      if (revalidationTimer) clearTimeout(revalidationTimer);
-      revalidationTimer = setTimeout(
-        revalidate,
-        immediate ? 0 : TARGET_GLOBAL_REVALIDATION_THROTTLE_MS,
-      );
-    }
-
-    function handleInvalidOwnerClick(): void {
-      markUnavailable();
-      scheduleRevalidation(true);
-    }
-
-    function handleOwnerAvailability(available: boolean): void {
-      if (available) {
-        if (unavailable) scheduleRevalidation(true);
-        return;
-      }
-      markUnavailable();
-      scheduleRevalidation(true);
-    }
-
-    function observePresentationOwnerRoots(): void {
-      if (!observer || !currentTarget) return;
-      observer.disconnect();
-      for (const root of presentationOwnerObservationRoots(currentTarget)) {
-        observer.observe(root, {
-          attributes: true,
-          characterData: true,
-          childList: true,
-          subtree: true,
-        });
-      }
-    }
-
-    bind(initialAnchor);
-    const Observer = document.defaultView?.MutationObserver;
-    observer = Observer
-      ? new Observer((records) => {
-          if (renderId !== this.renderId) return;
-          if (!this.host.isConnected) {
-            this.stop();
-            return;
-          }
-          const ownerChanged = Boolean(
-            currentTarget &&
-            records.some((record) => mutationAffectsPresentationOwner(record, currentTarget!)),
-          );
-          if (ownerChanged) {
-            // Routine SPA updates may change owner evidence without making the
-            // live owner unusable. Hiding eagerly would blur authoring fields.
-            if (!currentAnchor || !canOwnPresentation(currentAnchor)) markUnavailable();
-            scheduleRevalidation(true);
-            return;
-          }
-          scheduleRevalidation();
-        })
-      : null;
-    observePresentationOwnerRoots();
-    this.addCleanup(() => {
-      observer?.disconnect();
-      if (revalidationTimer) clearTimeout(revalidationTimer);
-      revalidationTimer = null;
-      clearPosition();
-      updatePosition = () => {};
-      clearTargetAction();
-      currentAnchor = null;
-      currentTarget = null;
-    });
-  }
-
-  private position(
-    anchor: ResolvedAnchor,
-    placement: Placement,
-    presentationAnchor: CompiledStep['presentationAnchor'],
-    onOwnerAvailabilityChange: (available: boolean) => void,
-    onPositioned: () => void,
-    onPositionError: (error: unknown) => void,
-  ): TourPositionController {
-    let active = true;
-    const owner = anchor.element;
-    const reference = positioningReference(anchor, presentationAnchor);
-    const update = (): void => {
-      if (!canOwnPresentation(anchor)) {
-        onOwnerAvailabilityChange(false);
-        return;
-      }
-      onOwnerAvailabilityChange(true);
-      positionTargetOutline(this.targetOutline, anchor.element);
-      void computePosition(reference, this.card, {
-        placement,
-        strategy: 'fixed',
-        middleware: [offset(12), flip(), shift({ padding: 8 }), arrow({ element: this.arrow })],
-      })
-        .then(({ x, y, placement: resolvedPlacement, middlewareData }) => {
-          if (!active || !canOwnPresentation(anchor)) return;
-          Object.assign(this.card.style, { position: 'fixed', left: `${x}px`, top: `${y}px` });
-          positionTourArrow(this.arrow, resolvedPlacement, middlewareData.arrow);
-          onPositioned();
-        })
-        .catch((error: unknown) => {
-          if (active) {
-            if (this.targetOutline) this.targetOutline.hidden = true;
-            onPositionError(error);
-          }
-        });
-    };
-    const ownerWindow = owner.ownerDocument.defaultView ?? window;
-    const ResizeObserverConstructor = ownerWindow.ResizeObserver;
-    const resizeObserver = ResizeObserverConstructor ? new ResizeObserverConstructor(update) : null;
-    const scrollTargets: EventTarget[] = [
-      ownerWindow,
-      ...presentationOwnerObservationRoots(owner).filter((root) => shadowRootHost(root)),
-    ];
-    resizeObserver?.observe(owner);
-    update();
-    for (const target of scrollTargets) target.addEventListener?.('scroll', update, true);
-    ownerWindow.addEventListener('resize', update);
-    return {
-      update,
-      stop: () => {
-        active = false;
-        if (this.targetOutline) this.targetOutline.hidden = true;
-        resizeObserver?.disconnect();
-        for (const target of scrollTargets) target.removeEventListener?.('scroll', update, true);
-        ownerWindow.removeEventListener?.('resize', update);
-      },
-    };
+    this.addCleanup(
+      trackTourTarget({
+        anchor: initialAnchor,
+        arrow: this.arrow,
+        authoringPreviewInteractive: Boolean(this.options.authoringPreviewInteractive),
+        authoringPreviewOwnerId: this.options.authoringPreviewOwnerId,
+        card: this.card,
+        getProtectedSurfaces: this.options.getAuthoringProtectedSurfaces,
+        host: this.host,
+        isCurrentRender: () => renderId === this.renderId,
+        onPositionError: (error) => this.rejectReadiness(renderId, error),
+        onPositioned: () => this.resolveReadiness(renderId),
+        onSurfaceChange: this.options.onAuthoringSurfaceChange,
+        resolveStepTarget: () => this.resolveStepTarget(step),
+        scrollForLifecycle: (target) => this.scrollForLifecycle(target, step.lifecycle),
+        shadow: this.shadow,
+        step,
+        stopPlayer: () => this.stop(),
+        targetOutline: this.targetOutline,
+        armTargetClickAdvance: (target, onInvalidOwner) =>
+          this.armTargetClickAdvance(step, target, onInvalidOwner),
+      }),
+    );
   }
 
   private armTargetClickAdvance(
@@ -833,7 +888,7 @@ export class TourPlayer {
 
   private scrollForLifecycle(target: Element, lifecycle?: RuntimeLifecycleHints): void {
     const explicitContainer = lifecycle?.scrollContainer
-      ? resolve(lifecycle.scrollContainer).element
+      ? this.fingerprintResolver?.(lifecycle.scrollContainer).element
       : null;
     const container = explicitContainer ?? nearestScrollable(target);
     const block = scrollBlockFor(lifecycle?.scrollStrategy);
@@ -844,10 +899,17 @@ export class TourPlayer {
 
   private nudgeVirtualizedContainer(lifecycle?: RuntimeLifecycleHints): void {
     if (lifecycle?.scrollStrategy !== 'virtualized-search' || !lifecycle.scrollContainer) return;
-    const container = resolve(lifecycle.scrollContainer).element;
+    const container = this.fingerprintResolver?.(lifecycle.scrollContainer).element;
     if (!(container instanceof HTMLElement)) return;
     container.scrollTop += container.clientHeight || 200;
     container.dispatchEvent(new Event('scroll', { bubbles: true }));
+  }
+
+  private async ensureResolvers(): Promise<void> {
+    if (this.targetResolver && this.fingerprintResolver) return;
+    const resolver = await import('../resolver');
+    this.targetResolver = resolver.resolveTarget;
+    this.fingerprintResolver = resolver.resolve;
   }
 }
 

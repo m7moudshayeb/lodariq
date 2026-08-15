@@ -35,6 +35,10 @@ const PUBLISH_ISSUE_REPAIR_INTENTS = {
   incomplete_media: contentIntent(authoringText('Complete media')),
   unresolved_lifecycle_hint: placementIntent(authoringText('Review timing')),
   invalid_presentation_anchor: placementIntent(authoringText('Fix popup area')),
+  invalid_flow_edge: editorIntent(authoringText('Open Flow Map')),
+  unreachable_step: editorIntent(authoringText('Open Flow Map')),
+  non_terminating_flow: editorIntent(authoringText('Open Flow Map')),
+  missing_terminal_completion: editorIntent(authoringText('Open Flow Map')),
   invalid_block: editorIntent(authoringText('Review block')),
   incomplete_block: editorIntent(authoringText('Complete block')),
 } as const satisfies Record<PublishReadinessIssueCode, PublishIssueRepairIntent>;

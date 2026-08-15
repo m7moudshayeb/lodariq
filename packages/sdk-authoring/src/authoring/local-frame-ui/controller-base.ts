@@ -2,9 +2,11 @@ import {
   type BridgeMessage,
   type AuthoringSaveState,
   type PreviewPatchOperation,
+  type PreviewTransactionMetadata,
   type LodariqDocument,
   type TargetLocale,
   type TargetViewportClass,
+  type TourStepStyleSnapshot,
 } from '@lodariq/schema';
 import { authoringText } from '../../i18n';
 import { type BlockInsertPosition } from '../document-ops';
@@ -42,6 +44,10 @@ import {
 } from '../state/interaction-machine';
 import { accessibleFallbackBrandState, initialReleaseView } from './controller-model';
 import { resolveDocumentLocalization } from '@lodariq/schema';
+import { DocumentTransactionCoordinator } from '../document-transaction-coordinator';
+import { AuthoringTargetHealthLedger, authoringTargetIdentityKey } from '../target-health-ledger';
+import { AuthoringStepStyleRecipeLibrary } from '../step-style-recipes';
+import { AuthoringDraftCheckpointStore } from '../draft-checkpoints';
 
 export abstract class ControllerBase {
   protected readonly interactionActor: AuthoringInteractionActor =
@@ -73,6 +79,8 @@ export abstract class ControllerBase {
 
   protected readonly targetDiagnostics = new Map<string, TargetInspectionState>();
 
+  protected readonly targetHealthLedger = new AuthoringTargetHealthLedger();
+
   protected readonly activeTargetInspectionRequestIds = new Map<string, string>();
 
   protected readonly advancedTargetIds = new Set<string>();
@@ -81,11 +89,24 @@ export abstract class ControllerBase {
 
   protected readonly redoStack: LodariqDocument[] = [];
 
+  protected readonly selectedStepIds = new Set<string>();
+
+  protected stepSelectionAnchorId: string | null = null;
+
+  protected stepStyleClipboard: TourStepStyleSnapshot | null = null;
+
+  protected readonly stepStyleRecipes: AuthoringStepStyleRecipeLibrary;
+
+  protected readonly draftCheckpoints = new AuthoringDraftCheckpointStore();
+
   protected readonly pendingPreviewPatches: Array<{
     blockId: string;
     locale?: string;
+    transaction?: PreviewTransactionMetadata;
     ops: PreviewPatchOperation[];
   }> = [];
+
+  protected readonly documentTransactions: DocumentTransactionCoordinator;
 
   protected documentState: LodariqDocument;
 
@@ -112,6 +133,10 @@ export abstract class ControllerBase {
   protected advancedEditorStepId: string | null = null;
 
   protected hostPageRoute: string | undefined;
+
+  protected hostRoutePatternId: string | undefined;
+
+  protected hostStateId: string | undefined;
 
   protected hostPageLocale: TargetLocale | undefined;
 
@@ -219,6 +244,9 @@ export abstract class ControllerBase {
   constructor(protected readonly options: LocalAuthoringFrameOptions) {
     this.interactionActor.start();
     this.services = options.services;
+    this.stepStyleRecipes = new AuthoringStepStyleRecipeLibrary(
+      this.services.loadStepStyleRecipes?.() ?? [],
+    );
     this.previewTheme = options.previewTheme ? structuredClone(options.previewTheme) : undefined;
     this.previewPreferences = options.previewPreferences
       ? { ...options.previewPreferences }
@@ -232,6 +260,13 @@ export abstract class ControllerBase {
     this.documentState = this.normalizeDocument(
       this.services.loadDocument(this.baseDocument.id) ?? this.createBaseDocument(),
     );
+    this.documentTransactions = new DocumentTransactionCoordinator(this.documentState);
+    for (const target of this.documentState.targets) {
+      this.targetHealthLedger.registerTarget(
+        target.id,
+        authoringTargetIdentityKey(target.identity ?? target.fingerprint),
+      );
+    }
     this.contentLocale = resolveDocumentLocalization(this.documentState).defaultLocale;
     this.brandDriftController = this.createBrandDriftController();
     this.metricsSessionId = `${this.sessionId}:${options.now?.() ?? Date.now()}`;

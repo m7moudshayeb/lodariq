@@ -18,9 +18,15 @@ export interface AuthoringPageSessionContext {
   sessionId: string;
 }
 
+export interface AuthoringPageLifecycleOptions {
+  getRoutePatternId?: () => string | undefined;
+  getStateId?: () => string | undefined;
+}
+
 export function startPageLifecycleObserver(
   bridge: AuthoringBridge,
   session: AuthoringPageSessionContext,
+  options: AuthoringPageLifecycleOptions = {},
 ): () => void {
   let disposed = false;
   let scheduled = false;
@@ -43,7 +49,7 @@ export function startPageLifecycleObserver(
     scheduled = false;
     if (disposed) return;
 
-    const snapshot = currentLifecycleSnapshot();
+    const snapshot = currentLifecycleSnapshot(options);
     const serialized = JSON.stringify(snapshot);
     if (serialized === lastSent) return;
     lastSent = serialized;
@@ -57,6 +63,8 @@ export function startPageLifecycleObserver(
       correlationId: createBridgeCorrelationId('page_lifecycle_update'),
       type: 'page.lifecycle.update',
       route: snapshot.route,
+      ...(snapshot.routePatternId ? { routePatternId: snapshot.routePatternId } : {}),
+      ...(snapshot.stateId ? { stateId: snapshot.stateId } : {}),
       scrollState: snapshot.scrollState,
       ...(snapshot.locale ? { locale: snapshot.locale } : {}),
       viewportClass: snapshot.viewportClass,
@@ -91,8 +99,10 @@ export function startPageLifecycleObserver(
   };
 }
 
-function currentLifecycleSnapshot(): {
+function currentLifecycleSnapshot(options: AuthoringPageLifecycleOptions): {
   route: string;
+  routePatternId?: string;
+  stateId?: string;
   scrollState: { x: number; y: number };
   locale?: string;
   viewportClass: TargetViewportClass;
@@ -100,8 +110,12 @@ function currentLifecycleSnapshot(): {
   const locale = canonicalAuthoringLocale(
     document.documentElement.lang || window.navigator.language,
   );
+  const routePatternId = opaquePageContextId(options.getRoutePatternId?.());
+  const stateId = opaquePageContextId(options.getStateId?.());
   return {
     route: `${window.location.pathname}${window.location.search}${window.location.hash}`,
+    ...(routePatternId ? { routePatternId } : {}),
+    ...(stateId ? { stateId } : {}),
     scrollState: {
       x: window.scrollX,
       y: window.scrollY,
@@ -109,6 +123,11 @@ function currentLifecycleSnapshot(): {
     ...(locale ? { locale } : {}),
     viewportClass: authoringViewportClass(window.innerWidth),
   };
+}
+
+function opaquePageContextId(value: string | undefined): string | null {
+  const candidate = value?.trim() ?? '';
+  return /^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$/u.test(candidate) ? candidate : null;
 }
 
 function canonicalAuthoringLocale(value: string): string | null {

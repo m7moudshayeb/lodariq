@@ -7,13 +7,29 @@ import {
   TooltipStyleProps,
 } from './block';
 import { BrandThemeSnapshot, ExperienceAppearance } from './brand';
-import { AudienceDefinition, TriggerDefinition } from './document';
+import { AudienceDefinition, TourCompletionBehavior, TriggerDefinition } from './document';
 import { ContentLocale } from './document-localization';
 import { RendererContractVersion } from './release';
 import { ElementFingerprint, RuntimeLifecycleHints, TargetIdentityV2 } from './target';
 import { COMPILED_ARTIFACT_SCHEMA_VERSION } from './version';
 
 const CONTENT_HASH_PATTERN = '^sha256-[0-9a-f]{64}$';
+
+const LegacyCompiledActionProps = Type.Object(
+  {
+    type: Type.Union([
+      Type.Literal('next'),
+      Type.Literal('back'),
+      Type.Literal('complete'),
+      Type.Literal('dismiss'),
+      Type.Literal('clickTarget'),
+      Type.Literal('openPage'),
+    ]),
+    url: Type.Optional(Type.String({ minLength: 1, maxLength: 2_048 })),
+    navigationBehavior: Type.Optional(Type.Union([Type.Literal('stay'), Type.Literal('continue')])),
+  },
+  { additionalProperties: false },
+);
 
 /*
  * Phase 1 artifacts were validated before target fingerprints and lifecycle
@@ -52,6 +68,24 @@ const CompiledBodyProps = Type.Omit(LodariqBlockProps, ['presentationAnchor'], {
   additionalProperties: false,
 });
 
+/** Frozen pre-V4 body props; newer behavior/presentation fields must not validate as V2/V3. */
+const LegacyCompiledBodyProps = Type.Object(
+  {
+    ...Type.Omit(LodariqBlockProps, [
+      'action',
+      'presentationAnchor',
+      'entrySequence',
+      'media',
+      'motion',
+      'responsive',
+      'spotlight',
+      'accessibilityName',
+    ]).properties,
+    action: Type.Optional(LegacyCompiledActionProps),
+  },
+  { additionalProperties: false },
+);
+
 /**
  * Compiled delivery JSON consumed by the runtime/player (PRD §6.1, §11.3).
  *
@@ -67,21 +101,48 @@ export const CompiledStep = Type.Object(
     presentationAnchor: Type.Optional(Type.Ref(PresentationAnchor)),
     tooltipLayout: Type.Optional(Type.Ref(TooltipLayoutProps)),
     tooltipStyle: Type.Optional(Type.Ref(TooltipStyleProps)),
+    entrySequence: Type.Optional(LodariqBlockProps.properties.entrySequence),
+    motion: Type.Optional(LodariqBlockProps.properties.motion),
+    responsive: Type.Optional(LodariqBlockProps.properties.responsive),
+    spotlight: Type.Optional(LodariqBlockProps.properties.spotlight),
+    accessibilityName: Type.Optional(LodariqBlockProps.properties.accessibilityName),
     /** Pre-sanitized, render-ready node tree. */
     body: Type.Array(
-      Type.Object({
-        id: Type.String(),
-        type: Type.String(),
-        text: Type.Optional(Type.String()),
-        contentRuns: Type.Optional(Type.Array(Type.Ref(InlineTextRun))),
-        props: CompiledBodyProps,
-      }),
+      Type.Object(
+        {
+          id: Type.String(),
+          type: Type.String(),
+          text: Type.Optional(Type.String()),
+          contentRuns: Type.Optional(Type.Array(Type.Ref(InlineTextRun))),
+          props: CompiledBodyProps,
+        },
+        { additionalProperties: false },
+      ),
     ),
-    lifecycle: Type.Optional(CompiledRuntimeLifecycleHintsV1),
+    lifecycle: Type.Optional(Type.Ref(RuntimeLifecycleHints)),
   },
-  { $id: 'CompiledStep' },
+  { $id: 'CompiledStep', additionalProperties: false },
 );
 export type CompiledStep = Static<typeof CompiledStep>;
+
+const CompiledStepV1 = Type.Object({
+  id: Type.String(),
+  targetId: Type.Optional(Type.String()),
+  placement: Type.Optional(Type.String()),
+  presentationAnchor: Type.Optional(Type.Ref(PresentationAnchor)),
+  tooltipLayout: Type.Optional(Type.Ref(TooltipLayoutProps)),
+  tooltipStyle: Type.Optional(Type.Ref(TooltipStyleProps)),
+  body: Type.Array(
+    Type.Object({
+      id: Type.String(),
+      type: Type.String(),
+      text: Type.Optional(Type.String()),
+      contentRuns: Type.Optional(Type.Array(Type.Ref(InlineTextRun))),
+      props: LegacyCompiledBodyProps,
+    }),
+  ),
+  lifecycle: Type.Optional(CompiledRuntimeLifecycleHintsV1),
+});
 
 export const CompiledTarget = Type.Object(
   {
@@ -104,7 +165,7 @@ const CompiledBodyNodeV2 = Type.Object(
     type: Type.String(),
     text: Type.Optional(Type.String()),
     contentRuns: Type.Optional(Type.Array(Type.Ref(InlineTextRun))),
-    props: CompiledBodyProps,
+    props: LegacyCompiledBodyProps,
   },
   { additionalProperties: false },
 );
@@ -154,6 +215,27 @@ export const CompiledDocumentLocalization = Type.Object(
 );
 export type CompiledDocumentLocalization = Static<typeof CompiledDocumentLocalization>;
 
+export const CompiledDocumentLocaleVariantV4 = Type.Object(
+  {
+    locale: Type.Ref(ContentLocale),
+    fallbackLocale: Type.Ref(ContentLocale),
+    title: Type.String({ maxLength: 1_024 }),
+    steps: Type.Array(CompiledStep),
+  },
+  { $id: 'CompiledDocumentLocaleVariantV4', additionalProperties: false },
+);
+export type CompiledDocumentLocaleVariantV4 = Static<typeof CompiledDocumentLocaleVariantV4>;
+
+export const CompiledDocumentLocalizationV4 = Type.Object(
+  {
+    defaultLocale: Type.Ref(ContentLocale),
+    defaultTitle: Type.String({ maxLength: 1_024 }),
+    variants: Type.Array(Type.Ref(CompiledDocumentLocaleVariantV4), { maxItems: 50 }),
+  },
+  { $id: 'CompiledDocumentLocalizationV4', additionalProperties: false },
+);
+export type CompiledDocumentLocalizationV4 = Static<typeof CompiledDocumentLocalizationV4>;
+
 /** Phase 1 delivery shape retained so immutable stored artifacts remain readable. */
 export const CompiledDocumentV1 = Type.Object(
   {
@@ -166,7 +248,7 @@ export const CompiledDocumentV1 = Type.Object(
     schemaVersion: Type.String(),
     compilerVersion: Type.String(),
     targets: Type.Array(CompiledTarget),
-    steps: Type.Array(CompiledStep),
+    steps: Type.Array(CompiledStepV1),
   },
   { $id: 'CompiledDocumentV1' },
 );
@@ -204,16 +286,29 @@ export type CompiledDocumentV2 = Static<typeof CompiledDocumentV2>;
 export const CompiledDocumentV3 = Type.Object(
   {
     ...CompiledDocumentV2.properties,
-    artifactSchemaVersion: Type.Literal(COMPILED_ARTIFACT_SCHEMA_VERSION),
+    artifactSchemaVersion: Type.Literal('3'),
     localization: Type.Ref(CompiledDocumentLocalization),
   },
   { $id: 'CompiledDocumentV3', additionalProperties: false },
 );
 export type CompiledDocumentV3 = Static<typeof CompiledDocumentV3>;
 
+/** Closed choreography and typed-flow delivery contract. */
+export const CompiledDocumentV4 = Type.Object(
+  {
+    ...CompiledDocumentV2.properties,
+    artifactSchemaVersion: Type.Literal(COMPILED_ARTIFACT_SCHEMA_VERSION),
+    steps: Type.Array(CompiledStep),
+    localization: Type.Ref(CompiledDocumentLocalizationV4),
+    completion: Type.Optional(Type.Ref(TourCompletionBehavior)),
+  },
+  { $id: 'CompiledDocumentV4', additionalProperties: false },
+);
+export type CompiledDocumentV4 = Static<typeof CompiledDocumentV4>;
+
 /** Compatibility read contract for immutable Phase 1, Phase 2, and localized artifacts. */
 export const CompiledDocument = Type.Union(
-  [CompiledDocumentV1, CompiledDocumentV2, CompiledDocumentV3],
+  [CompiledDocumentV1, CompiledDocumentV2, CompiledDocumentV3, CompiledDocumentV4],
   {
     $id: 'CompiledDocument',
   },
@@ -221,5 +316,5 @@ export const CompiledDocument = Type.Union(
 export type CompiledDocument = Static<typeof CompiledDocument>;
 
 /** New compilations always return the localized delivery contract. */
-export const NewCompiledDocument = CompiledDocumentV3;
-export type NewCompiledDocument = CompiledDocumentV3;
+export const NewCompiledDocument = CompiledDocumentV4;
+export type NewCompiledDocument = CompiledDocumentV4;

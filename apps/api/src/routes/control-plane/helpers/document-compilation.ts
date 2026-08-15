@@ -1,7 +1,6 @@
 import { compileDocument } from '@lodariq/compiler';
 import type { LodariqDocument } from '@lodariq/schema';
 import {
-  COMPILED_ARTIFACT_SCHEMA_VERSION,
   DEFAULT_CONTENT_LOCALE,
   CompiledDocument,
   DEFAULT_EXPERIENCE_APPEARANCE,
@@ -15,6 +14,7 @@ import {
   type PublishReadinessIssue,
 } from '@lodariq/schema';
 import {
+  extractHistoricalReleaseArtifactPins,
   type ControlPlaneRepository,
   type DocumentSummary,
   type PersistedDocument,
@@ -134,7 +134,7 @@ export async function listDocumentSummariesWithReadiness(
         repository.getDocument(workspaceId, summary.id),
         repository.listDocumentPublications(workspaceId, summary.id),
       ]);
-      const issues = record ? validateTourPublishReadiness(record.document) : [];
+      const issues = record ? validateDocumentReleaseReadiness(record.document) : [];
       const deployments = workspaceDeployments.filter(
         (deployment) => deployment.documentId === summary.id,
       );
@@ -152,6 +152,12 @@ export async function listDocumentSummariesWithReadiness(
       };
     }),
   );
+}
+
+export function validateDocumentReleaseReadiness(
+  document: LodariqDocument,
+): PublishReadinessIssue[] {
+  return validateTourPublishReadiness(document);
 }
 
 export interface DocumentSummaryWithReleaseEvidence extends Omit<DocumentSummary, 'publications'> {
@@ -212,15 +218,14 @@ export async function latestDocumentPublicationEvidence(
             ? await repository.listPublicationVerifications(publication.workspaceId, publication.id)
             : [];
         const verification = verifications[0];
-        const compiled = publication.artifact.compiled;
-        const exactThemeEvidence =
-          compiled.artifactSchemaVersion === COMPILED_ARTIFACT_SCHEMA_VERSION
-            ? {
-                rendererContractVersion: compiled.rendererContractVersion,
-                themeVersionId: compiled.theme.themeVersionId,
-                themeContentHash: compiled.theme.contentHash,
-              }
-            : {};
+        const artifactPins = extractHistoricalReleaseArtifactPins(publication.artifact);
+        const exactThemeEvidence = artifactPins
+          ? {
+              rendererContractVersion: artifactPins.rendererContractVersion,
+              themeVersionId: artifactPins.themeVersionId,
+              themeContentHash: artifactPins.themeContentHash,
+            }
+          : {};
         const isActive =
           deployment?.state === 'active' && deployment.activePublicationId === publication.id;
         return {

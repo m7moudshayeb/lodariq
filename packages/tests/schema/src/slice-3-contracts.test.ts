@@ -125,6 +125,12 @@ describe('Slice 3 closed contracts', () => {
     expect(
       validate(BrowserVerificationReport, {
         ...report,
+        rendererContractVersion: '3',
+      }).valid,
+    ).toBe(true);
+    expect(
+      validate(BrowserVerificationReport, {
+        ...report,
         status: 'passed',
         checks: [{ code: 'artifact_integrity', status: 'passed' }],
       }).valid,

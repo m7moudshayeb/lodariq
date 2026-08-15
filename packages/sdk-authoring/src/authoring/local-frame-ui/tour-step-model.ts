@@ -49,18 +49,44 @@ export function stepHealth(
   const targetId = targetIdOf(step);
   if (!targetId) return { label: authoringText('Not placed'), repair: true, tone: 'repair' };
 
-  const diagnostic = snapshot.targetDiagnostics.get(targetId)?.diagnostic;
-  if (!diagnostic) return { label: authoringText('Unverified'), repair: false, tone: 'review' };
-  if (diagnostic.state === 'missing') {
+  const targetHealth = snapshot.targetHealth.get(targetId);
+  if (!targetHealth) {
+    const diagnostic = snapshot.targetDiagnostics.get(targetId)?.diagnostic;
+    if (diagnostic?.state === 'found') {
+      return { label: authoringText('Verified'), repair: false, tone: 'ready' };
+    }
+    if (diagnostic?.state === 'missing') {
+      return { label: authoringText('Missing'), repair: true, tone: 'repair' };
+    }
+    if (diagnostic?.state === 'ambiguous') {
+      return { label: authoringText('Ambiguous'), repair: true, tone: 'repair' };
+    }
+    return { label: authoringText('Unverified'), repair: false, tone: 'review' };
+  }
+  if (targetHealth.presentation === 'checking') {
+    return { label: authoringText('Checking'), repair: false, tone: 'review' };
+  }
+  if (targetHealth.presentation === 'unavailable_current_context') {
+    return {
+      label: authoringText('Unavailable in current context'),
+      repair: false,
+      tone: 'review',
+    };
+  }
+  if (targetHealth.presentation === 'missing') {
     return { label: authoringText('Missing'), repair: true, tone: 'repair' };
   }
-  if (diagnostic.state === 'ambiguous') {
+  if (targetHealth.presentation === 'ambiguous') {
     return { label: authoringText('Ambiguous'), repair: true, tone: 'repair' };
   }
-  if (diagnostic.state === 'needs_review') {
-    return targetDiagnosticIsDrift(diagnostic)
+  if (targetHealth.presentation === 'drifted') {
+    return { label: authoringText('Drift detected'), repair: true, tone: 'repair' };
+  }
+  if (targetHealth.presentation === 'unverified') {
+    const diagnostic = targetHealth.currentObservation;
+    return diagnostic && targetDiagnosticIsDrift(diagnostic)
       ? { label: authoringText('Drift detected'), repair: true, tone: 'repair' }
-      : { label: authoringText('Needs verification'), repair: true, tone: 'review' };
+      : { label: authoringText('Unverified'), repair: false, tone: 'review' };
   }
 
   const status = blockStatus(step);

@@ -11,7 +11,7 @@ import {
   timestamp,
   uniqueIndex,
 } from 'drizzle-orm/pg-core';
-import { RENDERER_CONTRACT_VERSION, type BrowserVerificationReport } from '@lodariq/schema';
+import type { BrowserVerificationReport } from '@lodariq/schema';
 import { compiledArtifacts, documents, documentVersions } from './documents';
 import { environments } from './environments';
 import { users, workspaceMemberships, workspaces } from './identity';
@@ -153,7 +153,7 @@ export const publicationVerifications = pgTable(
       'publication_verifications_report_json_check',
       sql`jsonb_typeof(${table.report}) = 'object'
         and ${table.report}->>'schemaVersion' = '1'
-        and ${table.report}->>'rendererContractVersion' = ${RENDERER_CONTRACT_VERSION}
+        and ${table.report}->>'rendererContractVersion' ~ '^[1-9][0-9]{0,31}$'
         and jsonb_typeof(${table.report}->'checks') = 'array'
         and jsonb_array_length(${table.report}->'checks') between 1 and 13
         and (

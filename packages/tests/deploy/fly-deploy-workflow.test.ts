@@ -8,7 +8,9 @@ import { describe, expect, it } from 'vitest';
 const repoRoot = resolve(fileURLToPath(new URL('../../..', import.meta.url)));
 const workflow = read('.github/workflows/deploy-fly.yml');
 const ciWorkflow = read('.github/workflows/verify.yml');
+const e2eWorkflow = read('.github/workflows/e2e.yml');
 const deployAction = read('.github/actions/deploy-fly/action.yml');
+const rootPackage = JSON.parse(read('package.json')) as { scripts: Record<string, string> };
 const prepareScript = read('scripts/deployment/prepare-fly-deployment.mjs');
 const targetsScript = read('scripts/deployment/fly-targets.mjs');
 const preflightScript = read('scripts/deployment/check-fly-resources.mjs');
@@ -42,18 +44,32 @@ describe('Fly deployment workflow', () => {
     expect(ciWorkflow).toContain('name: fly-development');
   });
 
-  it('waits for all CI signals but blocks Development only on build failure or cancellation', () => {
+  it('keeps manual E2E independent from deployment while retaining selectable browser coverage', () => {
+    const trigger = section(e2eWorkflow, 'on:', 'permissions:');
+    const triggerNames = [...trigger.matchAll(/^ {2}([a-z_]+):$/gmu)].map((match) => match[1]);
+
+    expect(triggerNames).toEqual(['workflow_dispatch']);
+    expect(trigger).not.toContain('pull_request:');
+    expect(trigger).not.toContain('push:');
+    expect(trigger).not.toContain('workflow_run:');
+    expect(e2eWorkflow).toContain('default: chromium');
+    expect(e2eWorkflow).toContain(
+      'options:\n          - chromium\n          - firefox\n          - webkit\n          - all',
+    );
+    expect(e2eWorkflow).toContain('pnpm run test:e2e -- --project="$SELECTED_BROWSER"');
+    expect(e2eWorkflow).toContain('if: ${{ always() }}');
+    expect(ciWorkflow).not.toContain('  end-to-end-tests:');
+    expect(rootPackage.scripts['verify']).not.toContain('test:e2e');
+    expect(rootPackage.scripts['test:e2e']).toContain('playwright test');
+  });
+
+  it('waits for deployment-critical CI signals and blocks Development only on build failure or cancellation', () => {
     const deployment = ciWorkflow.slice(ciWorkflow.indexOf('  deploy-development:'));
 
-    for (const prerequisite of [
-      'static-checks',
-      'unit-tests',
-      'build',
-      'end-to-end-tests',
-      'dependency-audit',
-    ]) {
+    for (const prerequisite of ['static-checks', 'unit-tests', 'build', 'dependency-audit']) {
       expect(deployment).toContain(`- ${prerequisite}`);
     }
+    expect(deployment).not.toContain('- end-to-end-tests');
     expect(deployment).toContain('!cancelled()');
     expect(deployment).toContain("needs.build.result == 'success'");
     expect(deployment).not.toContain('needs.unit-tests.result');
@@ -171,7 +187,7 @@ describe('Fly deployment workflow', () => {
   });
 
   it('pins every action and the Fly CLI while using Node 24 and frozen pnpm 9 installs', () => {
-    const actionReferences = [workflow, ciWorkflow, deployAction].flatMap((source) =>
+    const actionReferences = [workflow, ciWorkflow, e2eWorkflow, deployAction].flatMap((source) =>
       [...source.matchAll(/^\s*uses:\s+[^@\s]+@([^\s]+)$/gmu)].map((match) => match[1]),
     );
 

@@ -51,6 +51,78 @@ export function createTourStyles(): HTMLStyleElement {
         color var(--lq-tour-motion-duration) var(--lq-tour-motion-easing);
     }
 
+    div[role="dialog"][data-lodariq-motion="fade"] {
+      animation: lq-step-fade var(--lq-step-motion-duration) var(--lq-step-motion-easing) both;
+    }
+    div[role="dialog"][data-lodariq-motion="lift"] {
+      animation: lq-step-lift var(--lq-step-motion-duration) var(--lq-step-motion-easing) both;
+    }
+    div[role="dialog"][data-lodariq-motion="scale"] {
+      animation: lq-step-scale var(--lq-step-motion-duration) var(--lq-step-motion-easing) both;
+    }
+    div[role="dialog"][data-lodariq-motion="pulse"] {
+      animation: lq-step-pulse var(--lq-step-motion-duration) var(--lq-step-motion-easing) 2;
+    }
+    @keyframes lq-step-fade { from { opacity: 0; } }
+    @keyframes lq-step-lift { from { opacity: 0; transform: translateY(8px); } }
+    @keyframes lq-step-scale { from { opacity: 0; transform: scale(0.97); } }
+    @keyframes lq-step-pulse { 50% { transform: scale(1.02); } }
+
+    .tour-target-outline[data-lodariq-spotlight="subtle"] {
+      box-shadow: 0 0 0 4px var(--lq-tour-focus-halo-color);
+    }
+    .tour-target-outline[data-lodariq-spotlight="standard"] {
+      box-shadow: 0 0 0 8px var(--lq-tour-focus-halo-color);
+    }
+    .tour-target-outline[data-lodariq-spotlight="strong"] {
+      box-shadow: 0 0 0 12px var(--lq-tour-focus-halo-color);
+    }
+    .tour-target-outline[data-lodariq-spotlight-pulse="true"] {
+      animation: lq-step-pulse var(--lq-tour-motion-duration) var(--lq-tour-motion-easing) 2;
+    }
+
+    [data-lodariq-node-type="media"] {
+      display: block;
+      width: 100%;
+      max-width: 100%;
+      border-radius: var(--lq-tour-radius-sm);
+      object-fit: cover;
+    }
+    [data-lodariq-aspect-ratio="16:9"] { aspect-ratio: 16 / 9; }
+    [data-lodariq-aspect-ratio="4:3"] { aspect-ratio: 4 / 3; }
+    [data-lodariq-aspect-ratio="1:1"] { aspect-ratio: 1; }
+
+    @media (prefers-reduced-motion: reduce) {
+      div[role="dialog"][data-lodariq-motion],
+      .tour-target-outline[data-lodariq-spotlight-pulse="true"] {
+        animation: none;
+      }
+    }
+
+    :host([data-lodariq-accessibility-preview="reducedMotion"]) div[role="dialog"],
+    :host([data-lodariq-accessibility-preview="reducedMotion"]) .tour-target-outline {
+      animation: none !important;
+      transition: none !important;
+    }
+    :host([data-lodariq-accessibility-preview="zoom200"]) div[role="dialog"] {
+      font-size: 200%;
+      max-width: calc(50vw - 24px);
+    }
+    :host([data-lodariq-accessibility-preview="compactReflow"]) div[role="dialog"] {
+      width: min(296px, calc(100vw - 24px));
+    }
+
+    .tour-accessibility-evidence {
+      margin-top: var(--lq-tour-space-sm);
+      padding: var(--lq-tour-space-sm);
+      border: 1px dashed var(--lq-tour-border-color);
+      border-radius: var(--lq-tour-radius-sm);
+      font-size: var(--lq-tour-small-font-size);
+    }
+    .tour-accessibility-evidence ol,
+    .tour-accessibility-evidence p { margin: var(--lq-tour-space-xs) 0 0; }
+    .tour-accessibility-evidence ol { padding-inline-start: var(--lq-tour-space-md); }
+
     div[role="dialog"][data-lodariq-content-align="center"] { text-align: center; }
     div[role="dialog"][data-lodariq-content-align="right"] { text-align: right; }
     div[role="dialog"][data-lodariq-popup-radius="square"] { border-radius: 0; }
@@ -85,6 +157,39 @@ export function createTourStyles(): HTMLStyleElement {
 
     .tour-content {
       min-width: 0;
+    }
+
+    .tour-choreography-recovery {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--lq-tour-space-xs);
+      margin-top: var(--lq-tour-space-sm);
+      padding-top: var(--lq-tour-space-sm);
+      border-top: var(--lq-tour-border-width) solid var(--lq-tour-border-color);
+    }
+
+    .tour-choreography-recovery p {
+      flex: 1 0 100%;
+      margin: 0;
+      color: var(--lq-popup-text, var(--lq-tour-text-color));
+      font-size: var(--lq-tour-small-font-size);
+    }
+
+    .tour-choreography-recovery button {
+      min-height: 36px;
+      padding: 0 var(--lq-tour-space-sm);
+      border: var(--lq-tour-border-width) solid var(--lq-tour-border-color);
+      border-radius: var(--lq-tour-radius-sm);
+      background: var(--lq-tour-secondary-surface);
+      color: var(--lq-tour-secondary-text);
+      font: inherit;
+      font-weight: var(--lq-tour-action-font-weight);
+      cursor: pointer;
+    }
+
+    .tour-choreography-recovery button:focus-visible {
+      outline: 2px solid var(--lq-tour-focus-color);
+      outline-offset: 2px;
     }
 
     div[role="dialog"][data-lodariq-popup-height="custom"] > .tour-content {

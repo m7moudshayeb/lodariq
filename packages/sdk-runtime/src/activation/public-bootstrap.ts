@@ -4,12 +4,6 @@ import type {
   PublicSdkBootstrapContext,
 } from '@lodariq/schema';
 import { registerBrandTokens } from '../brand-token-registry';
-import {
-  BRAND_THEME_CONTRACT_VERSION,
-  COMPILED_ARTIFACT_SCHEMA_VERSION,
-  COMPILER_VERSION,
-  RENDERER_CONTRACT_VERSION,
-} from '@lodariq/schema/version';
 import type {
   PublicAuthoringActivationOptions,
   PublicAuthoringLauncher,
@@ -290,7 +284,7 @@ function isDocumentScopedDelivery(value: Record<string, unknown>, apiBaseUrl: st
     if (
       !isAvailableManifest(manifest) ||
       !record(manifest) ||
-      manifest['schemaVersion'] !== COMPILED_ARTIFACT_SCHEMA_VERSION
+      !Object.prototype.hasOwnProperty.call(manifest, 'schemaVersion')
     ) {
       return false;
     }
@@ -308,15 +302,11 @@ function isDocumentScopedDelivery(value: Record<string, unknown>, apiBaseUrl: st
 
 function isAvailableManifest(value: unknown): boolean {
   if (!record(value) || !nonEmpty(value['documentId'])) return false;
-  if (
-    Object.prototype.hasOwnProperty.call(value, 'schemaVersion') &&
-    value['schemaVersion'] !== COMPILED_ARTIFACT_SCHEMA_VERSION
-  ) {
-    return false;
-  }
-  if (value['schemaVersion'] !== COMPILED_ARTIFACT_SCHEMA_VERSION) {
+  const versioned = Object.prototype.hasOwnProperty.call(value, 'schemaVersion');
+  if (!versioned) {
     return Boolean(nonEmpty(value['currentVersion']));
   }
+  if (!nonEmpty(value['schemaVersion'])) return false;
   if (
     !exactRecord(value, [
       'schemaVersion',
@@ -352,11 +342,11 @@ function isAvailableManifest(value: unknown): boolean {
       'url',
       'integrity',
     ]) &&
-    artifact['artifactSchemaVersion'] === COMPILED_ARTIFACT_SCHEMA_VERSION &&
+    nonEmpty(artifact['artifactSchemaVersion']) &&
     /^sha256-[0-9a-f]{64}$/u.test(String(artifact['contentHash'])) &&
-    artifact['compilerVersion'] === COMPILER_VERSION &&
-    artifact['rendererContractVersion'] === RENDERER_CONTRACT_VERSION &&
-    artifact['themeContractVersion'] === BRAND_THEME_CONTRACT_VERSION &&
+    nonEmpty(artifact['compilerVersion']) &&
+    nonEmpty(artifact['rendererContractVersion']) &&
+    nonEmpty(artifact['themeContractVersion']) &&
     nonEmpty(artifact['themeVersionId']) &&
     /^sha256-[0-9a-f]{64}$/u.test(String(artifact['themeContentHash'])) &&
     isHttpUrl(artifact['url']) &&
@@ -377,7 +367,7 @@ function deliveryMatchesEnvironment(value: unknown, environmentId: unknown): boo
   const manifest = value['manifest'];
   return (
     !record(manifest) ||
-    manifest['schemaVersion'] !== COMPILED_ARTIFACT_SCHEMA_VERSION ||
+    !Object.prototype.hasOwnProperty.call(manifest, 'schemaVersion') ||
     manifest['environmentId'] === environmentId
   );
 }

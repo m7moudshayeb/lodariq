@@ -59,7 +59,12 @@ msgid "dashboard.viewModel.blockingChecks"
 msgstr "{count} blocking {count, plural, one {check} other {checks}}"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:778
+#: src/i18n/messages.ts:508
+msgid "dashboard.viewModel.flowIssues"
+msgstr "{count} flow {count, plural, one {issue} other {issues}}"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:792
 msgid "dashboard.action.ambiguousOrigins"
 msgstr "{count} origin mappings were skipped because the same origin belongs to more than one environment."
 
@@ -107,6 +112,11 @@ msgstr "{environment} only · {count} release-scoped aggregate rows"
 #: src/components/document-debug-panel.tsx:53
 msgid "dashboard.support.readyForReview"
 msgstr "{experience} is ready for support review."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:512
+msgid "dashboard.viewModel.flowIssueSummary"
+msgstr "{first} · {remaining} more"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages.ts:127
@@ -204,22 +214,22 @@ msgid "dashboard.brand.preview.accessibleFallback"
 msgstr "Accessible fallback"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:856
+#: src/i18n/messages.ts:870
 msgid "auth.page.accountAccess"
 msgstr "Account access"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:873
+#: src/i18n/messages.ts:887
 msgid "auth.page.signUpDisabled.eyebrow"
 msgstr "Account creation"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:886
+#: src/i18n/messages.ts:900
 msgid "auth.page.signUpDisabled.body"
 msgstr "Account creation is not available in this deployment."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1043
+#: src/i18n/messages.ts:1057
 msgid "auth.error.signupUnavailable"
 msgstr "Account creation is not available right now."
 
@@ -274,6 +284,11 @@ msgid "dashboard.publishIssue.missingUrl.message"
 msgstr "Add a safe page URL before publishing."
 
 #. js-lingui-explicit-id
+#: src/i18n/server-feedback.ts:196
+msgid "dashboard.publishIssue.nonTerminatingFlow.message"
+msgstr "Add an outcome that lets this repeating path finish."
+
+#. js-lingui-explicit-id
 #: src/i18n/server-feedback.ts:30
 msgid "dashboard.publishIssue.emptyTour.message"
 msgstr "Add at least one step before publishing."
@@ -294,7 +309,7 @@ msgid "dashboard.publishIssue.missingStepContent.message"
 msgstr "Add visible content to this step before publishing."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1076
+#: src/i18n/messages.ts:1090
 msgid "workspaceSelection.role.admin"
 msgstr "Admin"
 
@@ -329,7 +344,7 @@ msgid "dashboard.activation.approveDescription"
 msgstr "Allow your Lodariq workspace to create and edit Tours on {host}."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:956
+#: src/i18n/messages.ts:970
 msgid "auth.form.existingAccount"
 msgstr "Already have a Lodariq account?"
 
@@ -359,7 +374,7 @@ msgid "dashboard.page.analytics.title"
 msgstr "Analytics"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:799
+#: src/i18n/messages.ts:813
 msgid "dashboard.action.analyticsUnavailable"
 msgstr "Analytics are temporarily unavailable for the selected environment."
 
@@ -369,7 +384,7 @@ msgid "dashboard.analytics.unavailable"
 msgstr "Analytics are temporarily unavailable for the selected environment."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:795
+#: src/i18n/messages.ts:809
 msgid "dashboard.action.analyticsInvalid"
 msgstr "Analytics data could not be verified. No partial results were shown."
 
@@ -394,7 +409,7 @@ msgid "dashboard.viewModel.type.announcement"
 msgstr "Announcement"
 
 #. js-lingui-explicit-id
-#: src/i18n/server-feedback.ts:220
+#: src/i18n/server-feedback.ts:251
 msgid "dashboard.recovery.failure.operationInProgress"
 msgstr "Another release operation is already in progress. Try again shortly."
 
@@ -414,7 +429,7 @@ msgid "dashboard.installation.applicationName"
 msgstr "Application name"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:713
+#: src/i18n/messages.ts:727
 msgid "dashboard.action.applicationNameRequired"
 msgstr "Application name is required."
 
@@ -499,7 +514,7 @@ msgid "dashboard.activation.approveTitle"
 msgstr "Author in this application?"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:839
+#: src/i18n/messages.ts:853
 msgid "auth.shell.authorOnce"
 msgstr "Author once"
 
@@ -529,7 +544,7 @@ msgid "dashboard.authoringLaunch.authoringSite"
 msgstr "Authoring site"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:852
+#: src/i18n/messages.ts:866
 msgid "auth.shell.back"
 msgstr "Back"
 
@@ -584,7 +599,7 @@ msgid "dashboard.page.brandSystem.title"
 msgstr "Brand system"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:634
+#: src/i18n/messages.ts:648
 msgid "dashboard.action.brandCreated"
 msgstr "Brand system created. Review the essentials, then approve the first version."
 
@@ -609,9 +624,14 @@ msgid "dashboard.brand.panel.themes"
 msgstr "Brand themes"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:865
+#: src/i18n/messages.ts:879
 msgid "auth.page.signUp.title"
 msgstr "Bring the experience into the product"
+
+#. js-lingui-explicit-id
+#: src/i18n/server-feedback.ts:181
+msgid "dashboard.publishIssue.invalidFlowEdge.label"
+msgstr "Broken flow connection"
 
 #. js-lingui-explicit-id
 #: src/i18n/server-feedback.ts:64
@@ -659,7 +679,7 @@ msgid "dashboard.locale.changing"
 msgstr "Changing language"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:963
+#: src/i18n/messages.ts:977
 msgid "auth.form.checkEmail"
 msgstr "Check your email"
 
@@ -694,7 +714,7 @@ msgid "dashboard.brand.editor.choose"
 msgstr "Choose"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:642
+#: src/i18n/messages.ts:656
 msgid "dashboard.action.chooseBrandTheme"
 msgstr "Choose a Brand theme."
 
@@ -704,7 +724,7 @@ msgid "dashboard.publishIssue.ambiguousTarget.message"
 msgstr "Choose a more specific placement before publishing."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:917
+#: src/i18n/messages.ts:931
 msgid "auth.page.newPassword.title"
 msgstr "Choose a new password"
 
@@ -719,7 +739,7 @@ msgid "dashboard.publishIssue.unsupportedAction.message"
 msgstr "Choose a supported action before publishing."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:756
+#: src/i18n/messages.ts:770
 msgid "dashboard.action.chooseToken"
 msgstr "Choose a token."
 
@@ -729,7 +749,7 @@ msgid "dashboard.publishIssue.invalidPresentationArea.message"
 msgstr "Choose a valid area inside the selected element."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:803
+#: src/i18n/messages.ts:817
 msgid "dashboard.action.chooseReleaseScope"
 msgstr "Choose a valid document and release environment."
 
@@ -744,22 +764,22 @@ msgid "dashboard.environmentPolicy.chooseEarlier"
 msgstr "Choose an earlier environment"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:701
+#: src/i18n/messages.ts:715
 msgid "dashboard.action.chooseEnvironment"
 msgstr "Choose an environment."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1060
+#: src/i18n/messages.ts:1074
 msgid "workspaceSelection.description"
 msgstr "Choose an existing workspace or create one without leaving this screen."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:742
+#: src/i18n/messages.ts:756
 msgid "dashboard.action.chooseExperience"
 msgstr "Choose an experience."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:726
+#: src/i18n/messages.ts:740
 msgid "dashboard.action.chooseInstallation"
 msgstr "Choose an SDK installation."
 
@@ -769,7 +789,7 @@ msgid "dashboard.support.chooseExperience"
 msgstr "Choose experience"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:783
+#: src/i18n/messages.ts:797
 msgid "dashboard.action.chooseAnalyticsEnvironment"
 msgstr "Choose one valid analytics environment."
 
@@ -799,7 +819,7 @@ msgid "dashboard.publishIssue.missingTarget.message"
 msgstr "Choose where this step appears before publishing."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1009
+#: src/i18n/messages.ts:1023
 msgid "auth.form.choosePassword"
 msgstr "Choose your password"
 
@@ -844,7 +864,7 @@ msgid "dashboard.recovery.completeHistory"
 msgstr "Complete history"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:828
+#: src/i18n/messages.ts:842
 msgid "dashboard.action.releaseHistoryIncomplete"
 msgstr "Complete release history is temporarily unavailable. Nothing was truncated."
 
@@ -864,7 +884,7 @@ msgid "dashboard.analytics.fact.completion"
 msgstr "Completion"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:989
+#: src/i18n/messages.ts:1003
 msgid "auth.form.confirmPassword"
 msgstr "Confirm password"
 
@@ -872,6 +892,11 @@ msgstr "Confirm password"
 #: src/components/release-recovery-panel.tsx:134
 msgid "dashboard.recovery.confirmExact"
 msgstr "Confirm: {action}"
+
+#. js-lingui-explicit-id
+#: src/i18n/server-feedback.ts:189
+msgid "dashboard.publishIssue.unreachableStep.message"
+msgstr "Connect this step to a path people can reach."
 
 #. js-lingui-explicit-id
 #: src/components/sdk-snippet-panel.tsx:89
@@ -894,7 +919,7 @@ msgid "dashboard.viewModel.contentHashStrongestEvidence"
 msgstr "Content hash is the strongest artifact evidence available"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:955
+#: src/i18n/messages.ts:969
 msgid "auth.form.continue"
 msgstr "Continue"
 
@@ -919,7 +944,7 @@ msgid "dashboard.activation.continue"
 msgstr "Continue to authoring"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:859
+#: src/i18n/messages.ts:873
 msgid "auth.page.signIn.title"
 msgstr "Continue your work"
 
@@ -954,7 +979,7 @@ msgid "dashboard.activation.couldNotContinue"
 msgstr "Could not continue"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1071
+#: src/i18n/messages.ts:1085
 msgid "workspaceSelection.createError"
 msgstr "Could not create the workspace."
 
@@ -964,7 +989,7 @@ msgid "dashboard.account.createFailed"
 msgstr "Could not create the workspace."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1067
+#: src/i18n/messages.ts:1081
 msgid "workspaceSelection.openError"
 msgstr "Could not open this workspace."
 
@@ -979,22 +1004,22 @@ msgid "dashboard.account.switchFailed"
 msgstr "Could not switch workspaces."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1064
+#: src/i18n/messages.ts:1078
 msgid "workspaceSelection.create"
 msgstr "Create a workspace"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:954
+#: src/i18n/messages.ts:968
 msgid "auth.form.createAccount"
 msgstr "Create account"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:962
+#: src/i18n/messages.ts:976
 msgid "auth.form.createAnAccount"
 msgstr "Create an account"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1066
+#: src/i18n/messages.ts:1080
 msgid "workspaceSelection.createAndOpen"
 msgstr "Create and open"
 
@@ -1014,12 +1039,12 @@ msgid "dashboard.account.createWorkspace"
 msgstr "Create workspace"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:869
+#: src/i18n/messages.ts:883
 msgid "auth.page.signUp.description"
 msgstr "Create your account and first workspace together—no setup detour."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:844
+#: src/i18n/messages.ts:858
 msgid "auth.shell.workflow"
 msgstr "Create, review, and release without carrying authoring work across tabs and tools."
 
@@ -1094,7 +1119,7 @@ msgid "dashboard.analytics.default"
 msgstr "Default"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:677
+#: src/i18n/messages.ts:691
 msgid "dashboard.action.defaultThemeInvalid"
 msgstr "Default theme request is invalid."
 
@@ -1104,7 +1129,7 @@ msgid "dashboard.brand.controller.defaultMissing"
 msgstr "Default theme was not returned."
 
 #. js-lingui-explicit-id
-#: src/i18n/server-feedback.ts:212
+#: src/i18n/server-feedback.ts:243
 msgid "dashboard.recovery.failure.alreadyInactive"
 msgstr "Delivery is already inactive for this document."
 
@@ -1204,7 +1229,7 @@ msgid "dashboard.viewModel.draftSaved"
 msgstr "Draft saved"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:659
+#: src/i18n/messages.ts:673
 msgid "dashboard.action.draftSaved"
 msgstr "Draft saved."
 
@@ -1224,27 +1249,27 @@ msgid "dashboard.brand.editor.editing"
 msgstr "Editing draft"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:941
+#: src/i18n/messages.ts:955
 msgid "auth.form.email"
 msgstr "Email"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:974
+#: src/i18n/messages.ts:988
 msgid "auth.form.emailSecureLink"
 msgstr "Email a secure link"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1031
+#: src/i18n/messages.ts:1045
 msgid "auth.error.invalidCredentials"
 msgstr "Email or password is incorrect."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:857
+#: src/i18n/messages.ts:871
 msgid "auth.page.emailVerification"
 msgstr "Email verification"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:998
+#: src/i18n/messages.ts:1012
 msgid "auth.form.emailVerified"
 msgstr "Email verified"
 
@@ -1284,7 +1309,7 @@ msgid "dashboard.environmentPolicy.title"
 msgstr "Environment policy"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:617
+#: src/i18n/messages.ts:631
 msgid "dashboard.action.environmentPolicyUpdated"
 msgstr "Environment policy updated."
 
@@ -1307,6 +1332,11 @@ msgstr "Essentials"
 #: src/components/environment-policy-editor.tsx:97
 msgid "dashboard.environmentPolicy.invalidOrigin"
 msgstr "Every origin must be an exact HTTP(S) origin."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:504
+msgid "dashboard.viewModel.flowHealthyDetail"
+msgstr "Every reachable path has a terminal outcome."
 
 #. js-lingui-explicit-id
 #: src/i18n/messages.ts:432
@@ -1359,7 +1389,7 @@ msgid "dashboard.analytics.fact.tourStartsDescription"
 msgstr "Exact tour_started events; no unique-user or conversion estimate."
 
 #. js-lingui-explicit-id
-#: src/components/dashboard-release-view.tsx:20
+#: src/components/dashboard-release-view.tsx:21
 msgid "dashboard.releases.exactArtifactPromotion"
 msgstr "Exact-artifact promotion"
 
@@ -1449,7 +1479,7 @@ msgid "dashboard.activation.recoveryFinish"
 msgstr "Finish there, then close this window and start authoring again."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:931
+#: src/i18n/messages.ts:945
 msgid "auth.page.finishAccount.title"
 msgstr "Finish your account"
 
@@ -1462,6 +1492,16 @@ msgstr "First {first} · Last {last}"
 #: src/i18n/server-feedback.ts:168
 msgid "dashboard.publishIssue.invalidBlock.message"
 msgstr "Fix this block’s configuration before publishing."
+
+#. js-lingui-explicit-id
+#: src/i18n/server-feedback.ts:195
+msgid "dashboard.publishIssue.nonTerminatingFlow.label"
+msgstr "Flow does not finish"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:502
+msgid "dashboard.viewModel.flowHealth"
+msgstr "Flow health"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages.ts:48
@@ -1499,6 +1539,11 @@ msgid "dashboard.brand.editor.georgiaSerif"
 msgstr "Georgia serif"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages.ts:503
+msgid "dashboard.viewModel.flowHealthy"
+msgstr "Healthy"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages.ts:21
 msgid "dashboard.navigation.support"
 msgstr "Help & support"
@@ -1534,7 +1579,7 @@ msgid "dashboard.viewModel.type.hotspot"
 msgstr "Hotspot"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:964
+#: src/i18n/messages.ts:978
 msgid "auth.form.recoveryEmailSent"
 msgstr "If that address belongs to a Lodariq account, the newest message contains a secure password link. It expires shortly and works once."
 
@@ -1564,7 +1609,7 @@ msgid "dashboard.viewModel.immutablePublication"
 msgstr "Immutable publication"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:646
+#: src/i18n/messages.ts:660
 msgid "dashboard.action.impactRefreshed"
 msgstr "Impact refreshed."
 
@@ -1749,7 +1794,7 @@ msgid "dashboard.installation.automaticOrigins"
 msgstr "Lodariq automatically maps the trusted origins already configured for development, staging, and production."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:515
+#: src/i18n/messages.ts:529
 msgid "dashboard.entry.unavailableDescription"
 msgstr "Lodariq could not verify your session. The service may be temporarily unavailable."
 
@@ -1764,7 +1809,7 @@ msgid "dashboard.metadata.title"
 msgstr "Lodariq Experience Workspace"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1051
+#: src/i18n/messages.ts:1065
 msgid "auth.error.serviceUnavailable"
 msgstr "Lodariq sign-in is temporarily unavailable."
 
@@ -1784,12 +1829,17 @@ msgid "dashboard.brand.empty.title"
 msgstr "Make every experience feel native"
 
 #. js-lingui-explicit-id
+#: src/i18n/server-feedback.ts:206
+msgid "dashboard.publishIssue.missingTerminalCompletion.message"
+msgstr "Make sure every possible path can complete or dismiss the tour."
+
+#. js-lingui-explicit-id
 #: src/i18n/messages.ts:73
 msgid "dashboard.page.environments.description"
 msgstr "Manage trusted product origins and each environment runtime installation."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1077
+#: src/i18n/messages.ts:1091
 msgid "workspaceSelection.role.member"
 msgstr "Member"
 
@@ -1807,6 +1857,11 @@ msgstr "Member"
 #: src/components/analytics-panel.tsx:217
 msgid "dashboard.analytics.target.missing"
 msgstr "Missing"
+
+#. js-lingui-explicit-id
+#: src/i18n/server-feedback.ts:202
+msgid "dashboard.publishIssue.missingTerminalCompletion.label"
+msgstr "Missing completion path"
 
 #. js-lingui-explicit-id
 #: src/i18n/server-feedback.ts:50
@@ -1874,12 +1929,12 @@ msgid "dashboard.brand.impact.noLinkedDescription"
 msgstr "New experiences can use this theme after its first approval."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:987
+#: src/i18n/messages.ts:1001
 msgid "auth.form.newPassword"
 msgstr "New password"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:960
+#: src/i18n/messages.ts:974
 msgid "auth.form.newToLodariq"
 msgstr "New to Lodariq?"
 
@@ -1929,7 +1984,7 @@ msgid "dashboard.viewModel.noBlockingChecks"
 msgstr "No blocking checks"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:769
+#: src/i18n/messages.ts:783
 msgid "dashboard.action.noProductOrigins"
 msgstr "No canonical product origins are configured yet."
 
@@ -1944,7 +1999,7 @@ msgid "dashboard.support.noCustomerVersion"
 msgstr "No customer version yet"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:751
+#: src/i18n/messages.ts:765
 msgid "dashboard.action.noDeliveryRecord"
 msgstr "No delivery record"
 
@@ -2029,7 +2084,7 @@ msgid "dashboard.recovery.noOperations"
 msgstr "No release operations have been recorded for this environment."
 
 #. js-lingui-explicit-id
-#: src/components/dashboard-release-view.tsx:29
+#: src/components/dashboard-release-view.tsx:30
 msgid "dashboard.releases.emptyTitle"
 msgstr "No releases to review"
 
@@ -2054,7 +2109,7 @@ msgid "dashboard.installation.noOrigins"
 msgstr "No trusted origins are mapped yet. Add origins to Environments, then sync."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:755
+#: src/i18n/messages.ts:769
 msgid "dashboard.action.noVersions"
 msgstr "No versions"
 
@@ -2089,7 +2144,7 @@ msgid "dashboard.viewModel.notPrepared"
 msgstr "Not prepared"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:750
+#: src/i18n/messages.ts:764
 msgid "dashboard.action.notPrepared"
 msgstr "Not prepared"
 
@@ -2114,12 +2169,12 @@ msgid "dashboard.authoringLaunch.shortcut"
 msgstr "On an authoring-enabled site, {shortcut} toggles the launcher without a dashboard visit."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:593
+#: src/i18n/messages.ts:607
 msgid "dashboard.action.approvalRequired"
 msgstr "One approval is now required before production promotion."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:904
+#: src/i18n/messages.ts:918
 msgid "auth.page.recovery.description"
 msgstr "One email link lets an existing creator establish or replace their Lodariq password."
 
@@ -2144,7 +2199,7 @@ msgid "dashboard.installation.oneLine"
 msgstr "One line, one time"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:773
+#: src/i18n/messages.ts:787
 msgid "dashboard.action.ambiguousOrigin"
 msgstr "One origin mapping was skipped because the same origin belongs to more than one environment."
 
@@ -2179,12 +2234,17 @@ msgid "dashboard.activation.openFromLauncher"
 msgstr "Open authoring from the Lodariq launcher inside your application."
 
 #. js-lingui-explicit-id
+#: src/components/dashboard-release-view.tsx:36
+msgid "dashboard.releases.openFlowMap"
+msgstr "Open Flow Map"
+
+#. js-lingui-explicit-id
 #: src/i18n/messages.ts:82
 msgid "dashboard.page.openInProduct"
 msgstr "Open in product"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:969
+#: src/i18n/messages.ts:983
 msgid "auth.form.openLocalRecoveryLink"
 msgstr "Open local recovery link"
 
@@ -2204,7 +2264,7 @@ msgid "dashboard.brand.controller.reviewRequired"
 msgstr "Open the approval review and wait for both runtime previews before approving."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1024
+#: src/i18n/messages.ts:1038
 msgid "auth.form.openVerificationLink"
 msgstr "Open the complete verification link from your email, then choose the password for your account."
 
@@ -2224,12 +2284,12 @@ msgid "dashboard.authoringLaunch.title"
 msgstr "Open your product"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:535
+#: src/i18n/messages.ts:549
 msgid "dashboard.loading.label"
 msgstr "Opening your Lodariq workspace"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1000
+#: src/i18n/messages.ts:1014
 msgid "auth.form.openingWorkspace"
 msgstr "Opening your Lodariq workspace…"
 
@@ -2249,7 +2309,7 @@ msgid "dashboard.navigation.overview"
 msgstr "Overview"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1075
+#: src/i18n/messages.ts:1089
 msgid "workspaceSelection.role.owner"
 msgstr "Owner"
 
@@ -2269,22 +2329,22 @@ msgid "dashboard.launchQueue.pageScope"
 msgstr "Page scope"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:942
+#: src/i18n/messages.ts:956
 msgid "auth.form.password"
 msgstr "Password"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:895
+#: src/i18n/messages.ts:909
 msgid "auth.page.recoveryDisabled.description"
 msgstr "Password recovery has not been enabled for this deployment yet."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1047
+#: src/i18n/messages.ts:1061
 msgid "auth.error.recoveryUnavailable"
 msgstr "Password recovery is temporarily unavailable."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:975
+#: src/i18n/messages.ts:989
 msgid "auth.form.passwordsDoNotMatch"
 msgstr "Passwords do not match."
 
@@ -2309,7 +2369,7 @@ msgid "dashboard.environmentPolicy.pipeline"
 msgstr "Pipeline"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:952
+#: src/i18n/messages.ts:966
 msgid "auth.form.pleaseTryAgain"
 msgstr "Please try again."
 
@@ -2399,7 +2459,7 @@ msgid "dashboard.environments.productEnvironments"
 msgstr "Product environments"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:840
+#: src/i18n/messages.ts:854
 msgid "auth.shell.productExperiences"
 msgstr "Product experiences that stay close to the product."
 
@@ -2419,7 +2479,7 @@ msgid "dashboard.viewModel.productSurfaceContext"
 msgstr "Product surface context"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1065
+#: src/i18n/messages.ts:1079
 msgid "workspaceSelection.placeholder"
 msgstr "Product team"
 
@@ -2479,12 +2539,12 @@ msgid "dashboard.viewModel.exactArtifactPromoted"
 msgstr "Production points to the exact artifact promoted from staging."
 
 #. js-lingui-explicit-id
-#: src/components/dashboard-release-view.tsx:24
+#: src/components/dashboard-release-view.tsx:25
 msgid "dashboard.releases.exactArtifactDescription"
 msgstr "Production promotion must reuse the verified staging artifact with no rebuild, automatic theme mutation, or environment copy."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:597
+#: src/i18n/messages.ts:611
 msgid "dashboard.action.approvalNotRequired"
 msgstr "Production promotion no longer requires a separate approval."
 
@@ -2614,12 +2674,12 @@ msgid "dashboard.viewModel.radius"
 msgstr "Radius"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:979
+#: src/i18n/messages.ts:993
 msgid "auth.form.readingSecureLink"
 msgstr "Reading your secure link…"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1005
+#: src/i18n/messages.ts:1019
 msgid "auth.form.readingVerificationLink"
 msgstr "Reading your secure verification link…"
 
@@ -2664,7 +2724,12 @@ msgid "dashboard.recentActivity.title"
 msgstr "Recent activity"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:891
+#: src/i18n/server-feedback.ts:182
+msgid "dashboard.publishIssue.invalidFlowEdge.message"
+msgstr "Reconnect this action to a step that still exists."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:905
 msgid "auth.page.recoveryDisabled.title"
 msgstr "Recovery is unavailable"
 
@@ -2709,7 +2774,7 @@ msgid "dashboard.recovery.title"
 msgstr "Release history & recovery"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:820
+#: src/i18n/messages.ts:834
 msgid "dashboard.action.releaseHistoryMissing"
 msgstr "Release history is not available for this document."
 
@@ -2724,7 +2789,7 @@ msgid "dashboard.releaseProgress.label"
 msgstr "Release progress"
 
 #. js-lingui-explicit-id
-#: src/i18n/server-feedback.ts:182
+#: src/i18n/server-feedback.ts:213
 msgid "dashboard.recovery.failure.unknown"
 msgstr "Release recovery could not be completed."
 
@@ -2769,7 +2834,7 @@ msgid "dashboard.brand.preview.rendering"
 msgstr "Rendering Tour…"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:916
+#: src/i18n/messages.ts:930
 msgid "auth.page.requestAnotherLink"
 msgstr "Request another link"
 
@@ -2804,12 +2869,12 @@ msgid "dashboard.analytics.retry"
 msgstr "Retry selected environment"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:927
+#: src/i18n/messages.ts:941
 msgid "auth.page.returnToAccountCreation"
 msgstr "Return to account creation"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:899
+#: src/i18n/messages.ts:913
 msgid "auth.page.returnToSignIn"
 msgstr "Return to sign in"
 
@@ -2989,7 +3054,7 @@ msgid "dashboard.brand.editor.save"
 msgstr "Save draft"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:990
+#: src/i18n/messages.ts:1004
 msgid "auth.form.savePassword"
 msgstr "Save password and continue"
 
@@ -3009,7 +3074,7 @@ msgid "dashboard.brand.review.savedDraft"
 msgstr "Saved draft"
 
 #. js-lingui-explicit-id
-#: src/components/dashboard-release-view.tsx:30
+#: src/components/dashboard-release-view.tsx:31
 msgid "dashboard.releases.emptyDescription"
 msgstr "Saved experiences will appear here with the publication records the current API can prove."
 
@@ -3039,7 +3104,7 @@ msgid "dashboard.analytics.fact.sdkErrors"
 msgstr "SDK errors"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:730
+#: src/i18n/messages.ts:744
 msgid "dashboard.action.installationNotFound"
 msgstr "SDK installation was not found."
 
@@ -3054,7 +3119,7 @@ msgid "dashboard.documents.search"
 msgstr "Search experiences"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:848
+#: src/i18n/messages.ts:862
 msgid "auth.shell.secureAccess"
 msgstr "Secure, first-party Lodariq access"
 
@@ -3064,7 +3129,7 @@ msgid "dashboard.brand.review.title"
 msgstr "See the change where customers will"
 
 #. js-lingui-explicit-id
-#: src/i18n/server-feedback.ts:200
+#: src/i18n/server-feedback.ts:231
 msgid "dashboard.recovery.failure.rollbackTargetInvalid"
 msgstr "Select an earlier successful publication from this release history."
 
@@ -3104,12 +3169,12 @@ msgid "dashboard.environmentPolicy.separateVerifier"
 msgstr "Separate verifier"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:943
+#: src/i18n/messages.ts:957
 msgid "auth.form.setOrResetPassword"
 msgstr "Set or reset password"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:900
+#: src/i18n/messages.ts:914
 msgid "auth.page.recovery.title"
 msgstr "Set or reset your password"
 
@@ -3119,12 +3184,12 @@ msgid "dashboard.page.brandSystem.description"
 msgstr "Shape the customer experience with safe tokens, then approve each version."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:961
+#: src/i18n/messages.ts:975
 msgid "auth.form.signIn"
 msgstr "Sign in"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:550
+#: src/i18n/messages.ts:564
 msgid "dashboard.server.authenticationRequired"
 msgstr "Sign in again to continue."
 
@@ -3134,12 +3199,12 @@ msgid "dashboard.activation.signInDescription"
 msgstr "Sign in here. This window will resume the same secure authoring request automatically."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:890
+#: src/i18n/messages.ts:904
 msgid "auth.page.signInInstead"
 msgstr "Sign in instead"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:505
+#: src/i18n/messages.ts:519
 msgid "dashboard.entry.signInTitle"
 msgstr "Sign in to Lodariq"
 
@@ -3154,17 +3219,17 @@ msgid "dashboard.account.signOut"
 msgstr "Sign out"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:877
+#: src/i18n/messages.ts:891
 msgid "auth.page.signUpDisabled.title"
 msgstr "Sign-up is not available here"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:953
+#: src/i18n/messages.ts:967
 msgid "auth.form.signingIn"
 msgstr "Signing in"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:705
+#: src/i18n/messages.ts:719
 msgid "dashboard.action.siteLabelRequired"
 msgstr "Site label is required."
 
@@ -3179,12 +3244,12 @@ msgid "dashboard.brand.editor.radius.soft"
 msgstr "Soft"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:582
+#: src/i18n/messages.ts:596
 msgid "dashboard.server.partialData"
 msgstr "Some workspace data is temporarily unavailable. Available sections remain usable."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1030
+#: src/i18n/messages.ts:1044
 msgid "auth.form.soon"
 msgstr "soon"
 
@@ -3254,7 +3319,7 @@ msgid "dashboard.documents.emptyDescription"
 msgstr "Start a tour in the creator, then it will appear here for review and publishing."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:864
+#: src/i18n/messages.ts:878
 msgid "auth.page.signUp.eyebrow"
 msgstr "Start authoring"
 
@@ -3369,7 +3434,7 @@ msgid "dashboard.brand.editor.text"
 msgstr "Text"
 
 #. js-lingui-explicit-id
-#: src/i18n/server-feedback.ts:208
+#: src/i18n/server-feedback.ts:239
 msgid "dashboard.recovery.failure.deploymentChanged"
 msgstr "The active deployment changed. Refresh the release history and try again."
 
@@ -3379,12 +3444,12 @@ msgid "dashboard.analytics.rowBound"
 msgstr "The API returned the 1,000-row display bound. Additional release-scoped rows may exist; nothing beyond this bound is inferred."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:621
+#: src/i18n/messages.ts:635
 msgid "dashboard.action.environmentPolicyChanged"
 msgstr "The environment policy changed or conflicts with the release pipeline. Refresh and try again."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:613
+#: src/i18n/messages.ts:627
 msgid "dashboard.action.environmentPolicyInvalid"
 msgstr "The environment policy is invalid."
 
@@ -3394,12 +3459,12 @@ msgid "dashboard.viewModel.stagedArtifactReady"
 msgstr "The exact staged artifact is verified and ready for deliberate production promotion."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:693
+#: src/i18n/messages.ts:707
 msgid "dashboard.action.experienceBrandUpdated"
 msgstr "The experience will use the approved Brand version in its next compiled artifact."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:717
+#: src/i18n/messages.ts:731
 msgid "dashboard.action.originsNotSynced"
 msgstr "The installation was created, but trusted origins could not be synced. Retry the origin sync before using it."
 
@@ -3414,12 +3479,12 @@ msgid "dashboard.viewModel.stagingEarlierHash"
 msgstr "The latest staging publication record uses an earlier content hash than the saved draft."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1029
+#: src/i18n/messages.ts:1043
 msgid "auth.form.linkExpires"
 msgstr "The link expires {expiry}."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1039
+#: src/i18n/messages.ts:1053
 msgid "auth.error.invalidPasswordLink"
 msgstr "The password link is invalid or expired."
 
@@ -3429,12 +3494,12 @@ msgid "dashboard.support.customerVersionDescription"
 msgstr "The prepared version customers see on your site."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:589
+#: src/i18n/messages.ts:603
 msgid "dashboard.action.productionApprovalInvalid"
 msgstr "The production approval policy is invalid."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:601
+#: src/i18n/messages.ts:615
 msgid "dashboard.action.productionChanged"
 msgstr "The production environment changed in another session. Refresh and try again."
 
@@ -3444,17 +3509,17 @@ msgid "dashboard.installation.publicIdSafety"
 msgstr "The public installation ID is revocable and contains no workspace secret, environment token, authoring session, or account credential."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:562
+#: src/i18n/messages.ts:576
 msgid "dashboard.server.conflict"
 msgstr "The record changed in another session. Refresh and try again."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:815
+#: src/i18n/messages.ts:829
 msgid "dashboard.action.releaseRecoveryUncertain"
 msgstr "The recovery result is uncertain. Retry the exact request or refresh release history."
 
 #. js-lingui-explicit-id
-#: src/i18n/server-feedback.ts:196
+#: src/i18n/server-feedback.ts:227
 msgid "dashboard.recovery.failure.documentNotFound"
 msgstr "The release document could not be found."
 
@@ -3464,22 +3529,22 @@ msgid "dashboard.recovery.requestFailed"
 msgstr "The release recovery request could not be completed."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:807
+#: src/i18n/messages.ts:821
 msgid "dashboard.action.releaseRecoveryInvalid"
 msgstr "The release recovery request is invalid."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:542
+#: src/i18n/messages.ts:556
 msgid "dashboard.server.requestRejected"
 msgstr "The request could not be accepted."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:546
+#: src/i18n/messages.ts:560
 msgid "dashboard.server.invalidRequest"
 msgstr "The request was invalid."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:558
+#: src/i18n/messages.ts:572
 msgid "dashboard.server.notFound"
 msgstr "The requested workspace record was not found."
 
@@ -3494,12 +3559,12 @@ msgid "dashboard.viewModel.noStagingRecordYet"
 msgstr "The saved draft has no staging publication record yet."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:918
+#: src/i18n/messages.ts:932
 msgid "auth.page.newPassword.description"
 msgstr "The secret is cleared from your browser before the form appears. Saving signs you in."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:787
+#: src/i18n/messages.ts:801
 msgid "dashboard.action.analyticsEnvironmentUnavailable"
 msgstr "The selected analytics environment is unavailable."
 
@@ -3509,7 +3574,7 @@ msgid "dashboard.brand.panel.missingTheme"
 msgstr "The selected Brand theme is no longer available. Refresh this workspace."
 
 #. js-lingui-explicit-id
-#: src/i18n/server-feedback.ts:204
+#: src/i18n/server-feedback.ts:235
 msgid "dashboard.recovery.failure.artifactIncompatible"
 msgstr "The selected publication is not supported by the current runtime."
 
@@ -3519,7 +3584,7 @@ msgid "dashboard.viewModel.stagedArtifactNeedsVerification"
 msgstr "The staged artifact matches the draft; exact browser verification is still required."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:994
+#: src/i18n/messages.ts:1008
 msgid "auth.form.invalidVerificationLink"
 msgstr "The verification link is invalid or expired."
 
@@ -3529,42 +3594,42 @@ msgid "dashboard.support.editableBackupDescription"
 msgstr "The version support can use to restore editing."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:526
+#: src/i18n/messages.ts:540
 msgid "dashboard.error.title"
 msgstr "The workspace did not finish loading"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:519
+#: src/i18n/messages.ts:533
 msgid "dashboard.entry.workspaceUnavailable"
 msgstr "The workspace is temporarily unavailable."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:570
+#: src/i18n/messages.ts:584
 msgid "dashboard.server.unavailable"
 msgstr "The workspace is temporarily unavailable."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:574
+#: src/i18n/messages.ts:588
 msgid "dashboard.server.requestFailed"
 msgstr "The workspace request could not be completed."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:578
+#: src/i18n/messages.ts:592
 msgid "dashboard.server.invalidResponse"
 msgstr "The workspace response could not be verified."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:689
+#: src/i18n/messages.ts:703
 msgid "dashboard.action.themeAcknowledgementInvalid"
 msgstr "Theme acknowledgement request is invalid."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:664
+#: src/i18n/messages.ts:678
 msgid "dashboard.action.themeApprovalInvalid"
 msgstr "Theme approval request is invalid."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:651
+#: src/i18n/messages.ts:665
 msgid "dashboard.action.themeIdentityInvalid"
 msgstr "Theme name or identifier is invalid."
 
@@ -3574,7 +3639,7 @@ msgid "dashboard.viewModel.themeRevision"
 msgstr "Theme revision {revision}"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:655
+#: src/i18n/messages.ts:669
 msgid "dashboard.action.themeValuesInvalid"
 msgstr "Theme values are invalid. Review the highlighted controls."
 
@@ -3589,12 +3654,12 @@ msgid "dashboard.activation.requestExpired"
 msgstr "This authoring request is unavailable or expired. Return to the launcher and retry."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:761
+#: src/i18n/messages.ts:775
 msgid "dashboard.action.brandChanged"
 msgstr "This Brand theme changed in another session. Refresh its impact before trying again."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:881
+#: src/i18n/messages.ts:895
 msgid "auth.page.signUpDisabled.description"
 msgstr "This deployment is not accepting new accounts. Existing creators can continue with their Lodariq account."
 
@@ -3609,12 +3674,12 @@ msgid "dashboard.brand.review.noLinkedDescription"
 msgstr "This first approval creates a reusable Brand version; publishing stays a separate step."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:908
+#: src/i18n/messages.ts:922
 msgid "auth.page.incompleteLink.title"
 msgstr "This link is incomplete"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:983
+#: src/i18n/messages.ts:997
 msgid "auth.form.incompletePasswordLink"
 msgstr "This password link is incomplete. Request a new link to continue."
 
@@ -3624,17 +3689,17 @@ msgid "dashboard.publishIssue.unknown.message"
 msgstr "This publish check needs attention before release."
 
 #. js-lingui-explicit-id
-#: src/i18n/server-feedback.ts:216
+#: src/i18n/server-feedback.ts:247
 msgid "dashboard.recovery.failure.idempotencyConflict"
 msgstr "This recovery request conflicts with an earlier request. Refresh and try again."
 
 #. js-lingui-explicit-id
-#: src/i18n/server-feedback.ts:192
+#: src/i18n/server-feedback.ts:223
 msgid "dashboard.recovery.failure.environmentNotConfigured"
 msgstr "This release environment is not configured."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1004
+#: src/i18n/messages.ts:1018
 msgid "auth.form.moment"
 msgstr "This should only take a moment."
 
@@ -3644,12 +3709,12 @@ msgid "dashboard.brand.preview.renderFailed"
 msgstr "This Tour preview could not be rendered."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1035
+#: src/i18n/messages.ts:1049
 msgid "auth.error.rateLimited"
 msgstr "Too many attempts. Wait a little and try again."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:566
+#: src/i18n/messages.ts:580
 msgid "dashboard.server.rateLimited"
 msgstr "Too many requests. Wait briefly and try again."
 
@@ -3709,12 +3774,12 @@ msgid "dashboard.installation.trustedOrigins"
 msgstr "Trusted origins"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:510
+#: src/i18n/messages.ts:524
 msgid "dashboard.entry.retryAction"
 msgstr "Try again"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:534
+#: src/i18n/messages.ts:548
 msgid "dashboard.error.retry"
 msgstr "Try again"
 
@@ -3724,67 +3789,67 @@ msgid "dashboard.viewModel.typography"
 msgstr "Typography"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:673
+#: src/i18n/messages.ts:687
 msgid "dashboard.action.approveBrandFailed"
 msgstr "Unable to approve this Brand version."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:638
+#: src/i18n/messages.ts:652
 msgid "dashboard.action.createBrandFailed"
 msgstr "Unable to create the Brand system."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:709
+#: src/i18n/messages.ts:723
 msgid "dashboard.action.createTokenFailed"
 msgstr "Unable to create token."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:647
+#: src/i18n/messages.ts:661
 msgid "dashboard.action.loadBrandImpactFailed"
 msgstr "Unable to load Brand impact."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:832
+#: src/i18n/messages.ts:846
 msgid "dashboard.action.releaseHistoryUnavailable"
 msgstr "Unable to load complete release history."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:746
+#: src/i18n/messages.ts:760
 msgid "dashboard.action.loadSupportFailed"
 msgstr "Unable to load support details."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:685
+#: src/i18n/messages.ts:699
 msgid "dashboard.action.setWorkspaceDefaultFailed"
 msgstr "Unable to make this the workspace default."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:722
+#: src/i18n/messages.ts:736
 msgid "dashboard.action.prepareInstallationFailed"
 msgstr "Unable to prepare the SDK installation."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:738
+#: src/i18n/messages.ts:752
 msgid "dashboard.action.revokeInstallationFailed"
 msgstr "Unable to revoke the SDK installation."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:757
+#: src/i18n/messages.ts:771
 msgid "dashboard.action.revokeTokenFailed"
 msgstr "Unable to revoke token."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:660
+#: src/i18n/messages.ts:674
 msgid "dashboard.action.saveBrandDraftFailed"
 msgstr "Unable to save this Brand draft."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:734
+#: src/i18n/messages.ts:748
 msgid "dashboard.action.syncOriginsFailed"
 msgstr "Unable to sync trusted origins."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:609
+#: src/i18n/messages.ts:623
 msgid "dashboard.action.updateReleaseApprovalFailed"
 msgstr "Unable to update release approval."
 
@@ -3794,7 +3859,7 @@ msgid "dashboard.environments.unableToUpdateApproval"
 msgstr "Unable to update release approval."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:630
+#: src/i18n/messages.ts:644
 msgid "dashboard.action.updateEnvironmentPolicyFailed"
 msgstr "Unable to update the environment policy."
 
@@ -3804,7 +3869,7 @@ msgid "dashboard.environmentPolicy.unableToUpdate"
 msgstr "Unable to update the environment policy."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:697
+#: src/i18n/messages.ts:711
 msgid "dashboard.action.updateExperienceFailed"
 msgstr "Unable to update this experience."
 
@@ -3862,6 +3927,11 @@ msgstr "Unpublished"
 #: src/components/release-recovery-panel.tsx:191
 msgid "dashboard.recovery.unpublished"
 msgstr "Unpublished"
+
+#. js-lingui-explicit-id
+#: src/i18n/server-feedback.ts:188
+msgid "dashboard.publishIssue.unreachableStep.label"
+msgstr "Unreachable step"
 
 #. js-lingui-explicit-id
 #: src/i18n/server-feedback.ts:147
@@ -3934,7 +4004,7 @@ msgid "dashboard.recovery.reasonHelp"
 msgstr "Use 1–500 characters with no outer spaces."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:988
+#: src/i18n/messages.ts:1002
 msgid "auth.form.passwordLength"
 msgstr "Use 12 to 128 characters."
 
@@ -3944,7 +4014,7 @@ msgid "dashboard.publishIssue.unsafeUrl.message"
 msgstr "Use an HTTPS URL or a safe relative path."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:973
+#: src/i18n/messages.ts:987
 msgid "auth.form.useAnotherEmail"
 msgstr "Use another email"
 
@@ -3959,17 +4029,17 @@ msgid "dashboard.page.support.description"
 msgstr "Use fallback authoring and diagnostic tools only when the in-product path fails."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:912
+#: src/i18n/messages.ts:926
 msgid "auth.page.incompletePasswordLink.description"
 msgstr "Use the complete password link from your latest Lodariq email."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:923
+#: src/i18n/messages.ts:937
 msgid "auth.page.incompleteVerification.description"
 msgstr "Use the complete verification link from your latest Lodariq email."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:860
+#: src/i18n/messages.ts:874
 msgid "auth.page.signIn.description"
 msgstr "Use your Lodariq account to return to your product workspace."
 
@@ -3989,7 +4059,7 @@ msgid "dashboard.viewModel.verifiedExactArtifactAt"
 msgstr "Verified exact artifact {date}"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1015
+#: src/i18n/messages.ts:1029
 msgid "auth.form.verifyAndContinue"
 msgstr "Verify email and continue"
 
@@ -4004,7 +4074,7 @@ msgid "dashboard.activation.verifying"
 msgstr "Verifying the application and workspace…"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:999
+#: src/i18n/messages.ts:1013
 msgid "auth.form.verifyingEmail"
 msgstr "Verifying your email"
 
@@ -4019,7 +4089,7 @@ msgid "dashboard.brand.panel.approvedVersion"
 msgstr "Version {version} approved"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:668
+#: src/i18n/messages.ts:682
 msgid "dashboard.action.versionApproved"
 msgstr "Version {version} approved. Live artifacts stay unchanged until an experience explicitly adopts and publishes it."
 
@@ -4039,7 +4109,7 @@ msgid "dashboard.support.viewDetails"
 msgstr "View support details"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1078
+#: src/i18n/messages.ts:1092
 msgid "workspaceSelection.role.viewer"
 msgstr "Viewer"
 
@@ -4049,17 +4119,17 @@ msgid "dashboard.account.role.viewer"
 msgstr "Viewer"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:511
+#: src/i18n/messages.ts:525
 msgid "dashboard.entry.unavailableTitle"
 msgstr "We could not open your workspace"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1019
+#: src/i18n/messages.ts:1033
 msgid "auth.form.verificationSent"
 msgstr "We sent a secure verification link to {email}. Keep this page open or use the link directly."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:858
+#: src/i18n/messages.ts:872
 msgid "auth.page.signIn.eyebrow"
 msgstr "Welcome back"
 
@@ -4069,7 +4139,7 @@ msgid "dashboard.brand.empty.sampleTitle"
 msgstr "Welcome to your workspace"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1059
+#: src/i18n/messages.ts:1073
 msgid "workspaceSelection.title"
 msgstr "Where are you working today?"
 
@@ -4079,12 +4149,12 @@ msgid "dashboard.navigation.workspaceLabel"
 msgstr "Workspace"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:947
+#: src/i18n/messages.ts:961
 msgid "auth.form.workspace"
 msgstr "Workspace"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1058
+#: src/i18n/messages.ts:1072
 msgid "workspaceSelection.eyebrow"
 msgstr "Workspace"
 
@@ -4099,7 +4169,7 @@ msgid "dashboard.brand.panel.workspaceDefault"
 msgstr "Workspace default"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:681
+#: src/i18n/messages.ts:695
 msgid "dashboard.action.workspaceDefaultUpdated"
 msgstr "Workspace default updated."
 
@@ -4139,71 +4209,71 @@ msgid "dashboard.recovery.notAllowed"
 msgstr "Your current role or this environment policy does not allow release recovery."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:811
+#: src/i18n/messages.ts:825
 msgid "dashboard.action.releaseRecoveryForbidden"
 msgstr "Your current workspace access cannot perform this release recovery action."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:791
+#: src/i18n/messages.ts:805
 msgid "dashboard.action.analyticsForbidden"
 msgstr "Your current workspace access cannot read analytics."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:824
+#: src/i18n/messages.ts:838
 msgid "dashboard.action.releaseHistoryForbidden"
 msgstr "Your current workspace access cannot read this release history."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1010
+#: src/i18n/messages.ts:1024
 msgid "auth.form.choosePasswordHelp"
 msgstr "Your email link proved ownership. Choose the password that will protect this account."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:932
+#: src/i18n/messages.ts:946
 msgid "auth.page.finishAccount.description"
 msgstr "Your email link proves ownership. Choose the password that will protect your account."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:940
+#: src/i18n/messages.ts:954
 msgid "auth.form.yourName"
 msgstr "Your name"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:948
+#: src/i18n/messages.ts:962
 msgid "auth.form.workspaceHelp"
 msgstr "Your shared home for experiences, environments, and releases."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:530
+#: src/i18n/messages.ts:544
 msgid "dashboard.error.description"
 msgstr "Your work is safe. Retry the request without leaving this page."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:506
+#: src/i18n/messages.ts:520
 msgid "dashboard.entry.signInDescription"
 msgstr "Your workspace and authoring tools stay protected by your Lodariq session."
 
 #. js-lingui-explicit-id
-#: src/i18n/server-feedback.ts:188
+#: src/i18n/server-feedback.ts:219
 msgid "dashboard.recovery.failure.capabilityDenied"
 msgstr "Your workspace role cannot perform this recovery action."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:626
+#: src/i18n/messages.ts:640
 msgid "dashboard.action.environmentPolicyForbidden"
 msgstr "Your workspace role does not allow environment-policy changes."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:605
+#: src/i18n/messages.ts:619
 msgid "dashboard.action.releasePolicyForbidden"
 msgstr "Your workspace role does not allow release-policy changes."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:554
+#: src/i18n/messages.ts:568
 msgid "dashboard.server.capabilityDenied"
 msgstr "Your workspace role does not allow this action."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:765
+#: src/i18n/messages.ts:779
 msgid "dashboard.action.brandForbidden"
 msgstr "Your workspace role does not allow this Brand action."

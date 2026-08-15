@@ -9,7 +9,13 @@ export interface PendingActivation {
   environment: 'development' | 'staging';
   expiresAt: string;
   documentIntent?:
-    { kind: 'existing'; documentId: string } | { kind: 'new-draft'; documentType: 'tour' };
+    | {
+        kind: 'existing';
+        documentId: string;
+        workspace?: 'canvas' | 'flowMap' | 'reviewRecovery';
+        focusBlockId?: string;
+      }
+    | { kind: 'new-draft'; documentType: 'tour' };
 }
 
 export interface AuthorizationResult {

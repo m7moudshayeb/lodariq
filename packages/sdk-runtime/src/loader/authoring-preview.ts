@@ -29,11 +29,12 @@ export function createAuthoringPreviewController(
       if (requestIds.get(ownerId) !== requestId) {
         throw new Error('Lodariq authoring preview was canceled');
       }
-      const { ownerId: _ownerId, interactive, ...tourOptions } = options;
+      const { ownerId: _ownerId, interactive, accessibilityMode, ...tourOptions } = options;
       const player = new TourPlayer(document, {
         ...tourOptions,
         authoringPreviewOwnerId: ownerId,
         ...(interactive ? { authoringPreviewInteractive: true } : {}),
+        ...(accessibilityMode ? { authoringAccessibilityMode: accessibilityMode } : {}),
       });
       active.set(ownerId, player);
       player.start();

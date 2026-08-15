@@ -1,4 +1,4 @@
-import { Type, type Static } from '@sinclair/typebox';
+import { Type, type Static, type TUnion } from '@sinclair/typebox';
 import {
   BlockActionProps,
   BlockLayoutProps,
@@ -383,6 +383,31 @@ export const PreviewPatch = Type.Object(
 );
 export type PreviewPatch = Static<typeof PreviewPatch>;
 
+export const AuthoringTransactionScope = Type.Union(
+  [
+    Type.Literal('appearance'),
+    Type.Literal('content'),
+    Type.Literal('structure'),
+    Type.Literal('target'),
+    Type.Literal('behavior'),
+  ],
+  { $id: 'AuthoringTransactionScope' },
+);
+export type AuthoringTransactionScope = Static<typeof AuthoringTransactionScope>;
+
+/** Additive transaction V2 metadata accepted alongside legacy preview patches. */
+export const PreviewTransactionMetadata = Type.Object(
+  {
+    transactionId: Type.String(BRIDGE_REFERENCE_ID_OPTIONS),
+    baseRevision: Type.Integer({ minimum: 0 }),
+    revision: Type.Integer({ minimum: 1 }),
+    scope: Type.Ref(AuthoringTransactionScope),
+    coalescingKey: Type.Optional(Type.String(BRIDGE_REFERENCE_ID_OPTIONS)),
+  },
+  { $id: 'PreviewTransactionMetadata', additionalProperties: false },
+);
+export type PreviewTransactionMetadata = Static<typeof PreviewTransactionMetadata>;
+
 export const ResolverDiagnostic = Type.Object(
   {
     state: TargetResolutionStatus,
@@ -568,13 +593,51 @@ export const AuthoringStepPreviewRequestMessage = Type.Object(
 );
 export type AuthoringStepPreviewRequestMessage = Static<typeof AuthoringStepPreviewRequestMessage>;
 
-/** Preview the full experience. A step id is deliberately forbidden. */
+export const AuthoringAccessibilityPreviewMode = Type.Union(
+  [
+    Type.Literal('keyboard'),
+    Type.Literal('screenReader'),
+    Type.Literal('reducedMotion'),
+    Type.Literal('zoom200'),
+    Type.Literal('rtl'),
+    Type.Literal('compactReflow'),
+  ],
+  { $id: 'AuthoringAccessibilityPreviewMode' },
+);
+export type AuthoringAccessibilityPreviewMode = Static<typeof AuthoringAccessibilityPreviewMode>;
+
+const AuthoringFlowSimulationValue = Type.Union([
+  Type.String({ maxLength: 160 }),
+  Type.Number({ minimum: -1_000_000, maximum: 1_000_000 }),
+  Type.Boolean(),
+]);
+
+const AuthoringFlowSimulationValues = Type.Record(
+  Type.String({ pattern: '^[A-Za-z][A-Za-z0-9._:-]{0,79}$' }),
+  AuthoringFlowSimulationValue,
+  { maxProperties: 20, additionalProperties: false },
+);
+
+/** Explicit, bounded authoring-only inputs for deterministic branch simulation. */
+export const AuthoringFlowSimulationContext = Type.Object(
+  {
+    identifyTraits: Type.Optional(AuthoringFlowSimulationValues),
+    documentState: Type.Optional(AuthoringFlowSimulationValues),
+  },
+  { $id: 'AuthoringFlowSimulationContext', additionalProperties: false, minProperties: 1 },
+);
+export type AuthoringFlowSimulationContext = Static<typeof AuthoringFlowSimulationContext>;
+
+/** Preview the full experience, optionally beginning from an explicit step. */
 export const AuthoringFullPreviewRequestMessage = Type.Object(
   {
     ...BridgeEnvelope.properties,
     type: Type.Literal('authoring.preview.request'),
     mode: Type.Literal('full'),
     locale: Type.Optional(Type.Ref(ContentLocale)),
+    initialStepId: Type.Optional(Type.String(BRIDGE_REFERENCE_ID_OPTIONS)),
+    accessibilityMode: Type.Optional(Type.Ref(AuthoringAccessibilityPreviewMode)),
+    simulationContext: Type.Optional(Type.Ref(AuthoringFlowSimulationContext)),
   },
   { $id: 'AuthoringFullPreviewRequestMessage', additionalProperties: false },
 );
@@ -1132,6 +1195,7 @@ const ExistingBridgeMessage = Type.Intersect([
       type: Type.Literal('preview.patch'),
       blockId: Type.String(),
       locale: Type.Optional(Type.Ref(ContentLocale)),
+      transaction: Type.Optional(Type.Ref(PreviewTransactionMetadata)),
       patch: PreviewPatch,
     }),
     Type.Object({
@@ -1145,6 +1209,8 @@ const ExistingBridgeMessage = Type.Intersect([
     Type.Object({
       type: Type.Literal('page.lifecycle.update'),
       route: Type.String(),
+      routePatternId: Type.Optional(Type.String(BRIDGE_REFERENCE_ID_OPTIONS)),
+      stateId: Type.Optional(Type.String(BRIDGE_REFERENCE_ID_OPTIONS)),
       scrollState: ScrollState,
       locale: Type.Optional(TargetLocale),
       viewportClass: Type.Optional(TargetViewportClass),
@@ -1157,54 +1223,57 @@ const ExistingBridgeMessage = Type.Intersect([
     Type.Object({
       type: Type.Literal('ack'),
       ackOf: Type.String(),
+      appliedRevision: Type.Optional(Type.Integer({ minimum: 1 })),
     }),
   ]),
 ]);
-export const BridgeMessage = Type.Union(
-  [
-    AuthoringInlineContentCommitMessage,
-    AuthoringInlineControlCommitMessage,
-    AuthoringPanelModeOpenMessage,
-    AuthoringChromeActionRequestMessage,
-    AuthoringPanelLayoutRequestMessage,
-    AuthoringSaveAndExitRequestMessage,
-    AuthoringSaveStateUpdateMessage,
-    PresentationAnchorPickStartMessage,
-    PresentationAnchorPickResultMessage,
-    PresentationAnchorPickCanceledMessage,
-    AuthoringStepPreviewRequestMessage,
-    AuthoringFullPreviewRequestMessage,
-    AuthoringInitMessage,
-    AuthoringReleaseStateRequestMessage,
-    AuthoringReleaseStateResultMessage,
-    AuthoringReleaseRecoveryStateRequestMessage,
-    AuthoringReleaseRecoveryStateResultMessage,
-    AuthoringReleaseRecoveryRequestMessage,
-    AuthoringReleaseRecoveryResultMessage,
-    AuthoringPublishStagingRequestMessage,
-    AuthoringPublishStagingResultMessage,
-    AuthoringBrowserVerifyRequestMessage,
-    AuthoringBrowserVerifyResultMessage,
-    AuthoringSubmitVerificationRequestMessage,
-    AuthoringSubmitVerificationResultMessage,
-    AuthoringStyleSourceSaveRequestMessage,
-    AuthoringStyleSourceSaveResultMessage,
-    AuthoringBrandDriftCheckRequestMessage,
-    AuthoringBrandDriftCheckResultMessage,
-    AuthoringBrandDriftPreviewMessage,
-    AuthoringBrandThemeAcknowledgeRequestMessage,
-    AuthoringBrandThemeAcknowledgeResultMessage,
-    AuthoringThemePreviewApplyMessage,
-    AuthoringPromoteProductionRequestMessage,
-    AuthoringPromoteProductionResultMessage,
-    AuthoringApproveProductionRequestMessage,
-    AuthoringApproveProductionResultMessage,
-    StyleSampleStartMessage,
-    StyleSampleResultMessage,
-    StyleSampleCanceledMessage,
-    BrandTokensAvailableMessage,
-    ExistingBridgeMessage,
-  ],
+const BRIDGE_MESSAGE_SCHEMAS = [
+  AuthoringInlineContentCommitMessage,
+  AuthoringInlineControlCommitMessage,
+  AuthoringPanelModeOpenMessage,
+  AuthoringChromeActionRequestMessage,
+  AuthoringPanelLayoutRequestMessage,
+  AuthoringSaveAndExitRequestMessage,
+  AuthoringSaveStateUpdateMessage,
+  PresentationAnchorPickStartMessage,
+  PresentationAnchorPickResultMessage,
+  PresentationAnchorPickCanceledMessage,
+  AuthoringStepPreviewRequestMessage,
+  AuthoringFullPreviewRequestMessage,
+  AuthoringInitMessage,
+  AuthoringReleaseStateRequestMessage,
+  AuthoringReleaseStateResultMessage,
+  AuthoringReleaseRecoveryStateRequestMessage,
+  AuthoringReleaseRecoveryStateResultMessage,
+  AuthoringReleaseRecoveryRequestMessage,
+  AuthoringReleaseRecoveryResultMessage,
+  AuthoringPublishStagingRequestMessage,
+  AuthoringPublishStagingResultMessage,
+  AuthoringBrowserVerifyRequestMessage,
+  AuthoringBrowserVerifyResultMessage,
+  AuthoringSubmitVerificationRequestMessage,
+  AuthoringSubmitVerificationResultMessage,
+  AuthoringStyleSourceSaveRequestMessage,
+  AuthoringStyleSourceSaveResultMessage,
+  AuthoringBrandDriftCheckRequestMessage,
+  AuthoringBrandDriftCheckResultMessage,
+  AuthoringBrandDriftPreviewMessage,
+  AuthoringBrandThemeAcknowledgeRequestMessage,
+  AuthoringBrandThemeAcknowledgeResultMessage,
+  AuthoringThemePreviewApplyMessage,
+  AuthoringPromoteProductionRequestMessage,
+  AuthoringPromoteProductionResultMessage,
+  AuthoringApproveProductionRequestMessage,
+  AuthoringApproveProductionResultMessage,
+  StyleSampleStartMessage,
+  StyleSampleResultMessage,
+  StyleSampleCanceledMessage,
+  BrandTokensAvailableMessage,
+  ExistingBridgeMessage,
+];
+
+export const BridgeMessage: TUnion<typeof BRIDGE_MESSAGE_SCHEMAS> = Type.Union(
+  BRIDGE_MESSAGE_SCHEMAS,
   { $id: 'BridgeMessage' },
 );
 export type BridgeMessage = Static<typeof BridgeMessage>;

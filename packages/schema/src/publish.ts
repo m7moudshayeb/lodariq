@@ -1,10 +1,13 @@
 import { BLOCK_ACTION_TYPES, isPresentationAnchor, type LodariqBlock } from './block';
 import type { LodariqDocument } from './document';
 import type { ResolverDiagnostic } from './bridge';
+import type { TourFlowIssueCode } from './tour-flow-contract';
+import { analyzeTourDocumentFlow } from './tour-flow-analysis';
 import { TARGET_MIN_CAPTURE_RUNNER_UP_MARGIN } from './target';
 import { isSafeNavigationUrl } from './url';
 
 export type PublishReadinessIssueCode =
+  | TourFlowIssueCode
   | 'unsupported_document_type'
   | 'empty_tour'
   | 'unsupported_tour_block'
@@ -31,6 +34,7 @@ export interface PublishReadinessIssue {
   code: PublishReadinessIssueCode;
   blockId?: string;
   targetId?: string;
+  severity?: 'blocker' | 'warning';
   message: string;
 }
 
@@ -98,6 +102,10 @@ const PUBLISH_READINESS_ISSUE_LABELS = {
   incomplete_media: 'Incomplete media',
   unresolved_lifecycle_hint: 'Unresolved lifecycle hint',
   invalid_presentation_anchor: 'Invalid presentation area',
+  invalid_flow_edge: 'Broken flow connection',
+  unreachable_step: 'Unreachable step',
+  non_terminating_flow: 'Flow does not finish',
+  missing_terminal_completion: 'Missing completion path',
   invalid_block: 'Invalid block',
   incomplete_block: 'Incomplete block',
 } as const satisfies Record<PublishReadinessIssueCode, string>;
@@ -146,11 +154,24 @@ export function validateTourPublishReadiness(
     validateTourStep(block, targetsById, options, issues);
   }
 
+  issues.push(
+    ...analyzeTourDocumentFlow(document).findings.map((finding): PublishReadinessIssue => ({
+      code: finding.code,
+      blockId: finding.stepId,
+      severity: finding.severity,
+      message: publishReadinessIssueLabel(finding.code),
+    })),
+  );
+
   return issues;
 }
 
 export function firstPublishBlocker(document: LodariqDocument): string | null {
-  return validateTourPublishReadiness(document)[0]?.message ?? null;
+  return validateTourPublishReadiness(document).find(isPublishReadinessBlocker)?.message ?? null;
+}
+
+export function isPublishReadinessBlocker(issue: Pick<PublishReadinessIssue, 'severity'>): boolean {
+  return issue.severity !== 'warning';
 }
 
 export function publishReadinessIssueLabel(code: PublishReadinessIssueCode): string {
@@ -423,6 +444,7 @@ function validateInlineContent(block: LodariqBlock, issues: PublishReadinessIssu
 }
 
 function validateMediaBlock(block: LodariqBlock, issues: PublishReadinessIssue[]): void {
+  if (block.props.media) return;
   issues.push({
     code: 'incomplete_media',
     blockId: block.id,
@@ -452,14 +474,14 @@ function validateActionBlock(
     });
     return;
   }
-  if (action.type !== 'openPage' && action.url) {
+  if (action.type !== 'openPage' && 'url' in action && action.url) {
     issues.push({
       code: 'action_not_allowed',
       blockId: block.id,
       message: `${blockLabel(block)} has a page URL on an action that does not use one.`,
     });
   }
-  if (action.type !== 'openPage' && action.navigationBehavior) {
+  if (action.type !== 'openPage' && 'navigationBehavior' in action && action.navigationBehavior) {
     issues.push({
       code: 'action_not_allowed',
       blockId: block.id,

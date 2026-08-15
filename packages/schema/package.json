@@ -17,6 +17,21 @@
       "types": "./dist/version.d.ts",
       "import": "./dist/version.js"
     },
+    "./delivery-compatibility": {
+      "source": "./src/delivery-compatibility.ts",
+      "types": "./dist/delivery-compatibility.d.ts",
+      "import": "./dist/delivery-compatibility.js"
+    },
+    "./compiler-version": {
+      "source": "./src/compiler-version.ts",
+      "types": "./dist/compiler-version.d.ts",
+      "import": "./dist/compiler-version.js"
+    },
+    "./compiled-runtime": {
+      "source": "./src/compiled-runtime.ts",
+      "types": "./dist/compiled-runtime.d.ts",
+      "import": "./dist/compiled-runtime.js"
+    },
     "./dom": {
       "source": "./src/dom.ts",
       "types": "./dist/dom.d.ts",

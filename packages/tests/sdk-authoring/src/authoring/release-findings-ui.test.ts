@@ -40,7 +40,7 @@ describe('authoring Release options findings', () => {
       finding('contrast_unusable', 'blocker', 'Text contrast is unusable'),
     ];
     const saveDocument = vi.fn();
-    mountFrame(vi.fn().mockResolvedValue(releaseState({ findings })), { saveDocument });
+    await mountFrame(vi.fn().mockResolvedValue(releaseState({ findings })), { saveDocument });
 
     const releaseEntry = await waitForReleaseEntry('blocked');
     expect(releaseEntry.dataset['panelEntry']).toBe('release');
@@ -101,7 +101,7 @@ describe('authoring Release options findings', () => {
       }),
     },
   ])('keeps findings visible in the $label branch', async ({ state }) => {
-    mountFrame(vi.fn().mockResolvedValue(state));
+    await mountFrame(vi.fn().mockResolvedValue(state));
     const releaseEntry = await waitForReleaseEntry(state.state === 'current' ? 'current' : 'ready');
     releaseEntry.click();
 
@@ -123,7 +123,7 @@ describe('authoring Release options findings', () => {
     });
     const getReleaseState = vi.fn().mockResolvedValueOnce(initial).mockResolvedValueOnce(refreshed);
     const peer = { postMessage: vi.fn() } as unknown as Window;
-    mountFrame(getReleaseState, { peer });
+    await mountFrame(getReleaseState, { peer });
 
     const releaseEntry = await waitForReleaseEntry('ready');
     releaseEntry.click();
@@ -156,7 +156,7 @@ describe('authoring Release options findings', () => {
 
   it('counts remote findings with every local blocker and renders more than four local items', async () => {
     const baseDocument = documentWithLocalBlockers(7);
-    mountFrame(
+    await mountFrame(
       vi.fn().mockResolvedValue(
         releaseState({
           findings: [finding('remote_warning', 'warning', 'Remote release warning')],
@@ -196,7 +196,7 @@ describe('authoring Release options findings', () => {
     const button = findBlock(baseDocument.blocks, 'block_button_1');
     if (!button) throw new Error('Tour fixture button is missing');
     delete button.props.action;
-    mountFrame(vi.fn().mockResolvedValue(releaseState()), { baseDocument });
+    await mountFrame(vi.fn().mockResolvedValue(releaseState()), { baseDocument });
 
     const releaseEntry = await waitForReleaseEntry('ready');
     releaseEntry.click();
@@ -214,23 +214,25 @@ describe('authoring Release options findings', () => {
       const selectedBlock = document.querySelector<HTMLElement>(
         '.rich-step-block-row[data-block-id="block_button_1"]',
       );
-      const activeTab = document.querySelector<HTMLButtonElement>(
-        '.storyboard-property-tabs button[aria-current="page"]',
+      const behaviorTray = document.querySelector<HTMLElement>(
+        '[aria-label="Selected action style"]',
       );
       const actionControl = document.querySelector<HTMLElement>(
         '[data-property-id="button.action"]',
       );
       const firstAction = actionControl?.querySelector<HTMLButtonElement>('button');
       expect(selectedBlock?.classList.contains('active')).toBe(true);
-      expect(activeTab?.textContent).toContain('Behavior');
+      expect(behaviorTray?.querySelector('[aria-label="Button settings"]')?.textContent).toContain(
+        'Behavior',
+      );
       expect(actionControl).not.toBeNull();
       expect(document.activeElement).toBe(firstAction);
     });
     expect(document.querySelector('.release-blocker-card')).toBeNull();
 
-    document.querySelector<HTMLButtonElement>('.storyboard-tray-close')?.click();
+    document.querySelector<HTMLButtonElement>('[aria-label="Close settings"]')?.click();
     await vi.waitFor(() => {
-      expect(document.querySelector('.storyboard-property-tray')).toBeNull();
+      expect(document.querySelector('[aria-label="Selected action style"]')).toBeNull();
     });
   });
 
@@ -239,7 +241,7 @@ describe('authoring Release options findings', () => {
     const tooltip = findBlock(baseDocument.blocks, 'block_tooltip_1');
     if (!tooltip) throw new Error('Tour fixture tooltip is missing');
     delete tooltip.props.targetId;
-    mountFrame(vi.fn().mockResolvedValue(releaseState()), { baseDocument });
+    await mountFrame(vi.fn().mockResolvedValue(releaseState()), { baseDocument });
 
     const releaseEntry = await waitForReleaseEntry('ready');
     releaseEntry.click();
@@ -264,7 +266,7 @@ describe('authoring Release options findings', () => {
   });
 });
 
-function mountFrame(
+async function mountFrame(
   getReleaseState: NonNullable<LocalAuthoringFrameServices['getReleaseState']>,
   {
     baseDocument = tourFixture as LodariqDocument,
@@ -275,8 +277,8 @@ function mountFrame(
     peer?: Window;
     saveDocument?: LocalAuthoringFrameServices['saveDocument'];
   } = {},
-): void {
-  mountLocalAuthoringFrame({
+): Promise<void> {
+  await mountLocalAuthoringFrame({
     root: document.getElementById('authoring')!,
     baseDocument,
     services: {

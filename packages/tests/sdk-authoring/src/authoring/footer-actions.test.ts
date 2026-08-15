@@ -37,7 +37,7 @@ describe('authoring footer actions', () => {
     const postMessage = vi.fn();
     const peer = { postMessage } as unknown as Window;
 
-    mountLocalAuthoringFrame({
+    await mountLocalAuthoringFrame({
       root: document.getElementById('authoring')!,
       baseDocument,
       services: {
@@ -64,7 +64,7 @@ describe('authoring footer actions', () => {
     const moreActions = footer?.querySelector<HTMLButtonElement>(
       '[aria-label="More experience actions"]',
     );
-    const languageSection = document.querySelector<HTMLElement>('.tour-storyboard-language');
+    const languageSection = document.querySelector<HTMLElement>('.tour-storyboard-utilities');
     const languageSelect = languageSection?.querySelector<HTMLButtonElement>(
       '.ui-select-trigger[data-action="content-locale"]',
     );
@@ -84,22 +84,11 @@ describe('authoring footer actions', () => {
         ?.getAttribute('aria-label'),
     ).toBe('Release options');
     expect(moreActions?.querySelector('svg')).not.toBeNull();
-    expect(languageSection?.querySelector('.tour-storyboard-language-label')?.textContent).toBe(
-      'Experience language',
-    );
-    expect(
-      languageSelect?.querySelector('.ui-select-leading-icon .lucide-languages'),
-    ).not.toBeNull();
+    expect(languageSelect).not.toBeNull();
     expect(translateMissingCopy).not.toBeNull();
-    expect(translateMissingCopy?.classList.contains('ui-icon-button-default')).toBe(true);
+    expect(translateMissingCopy?.classList.contains('ui-icon-button-compact')).toBe(true);
     expect(translateMissingCopy?.disabled).toBe(true);
     expect(translateMissingCopy?.title).toBe('Automatic translation is not configured');
-    expect(languageSection?.querySelector('.experience-translate-label')?.textContent).toBe(
-      'Translate',
-    );
-    expect(languageSection?.querySelector('[role="status"]')?.textContent).toContain(
-      'Source language · Manual copy protected',
-    );
 
     document.querySelector<HTMLButtonElement>('[aria-label="More experience actions"]')?.click();
     await vi.waitFor(() => {
@@ -120,6 +109,30 @@ describe('authoring footer actions', () => {
     review.click();
     await vi.waitFor(() => expect(document.querySelector('.panel-advanced-editor')).not.toBeNull());
     expect(document.querySelector('.panel-workspace-footer')).not.toBeNull();
+    expect(document.querySelector('.tour-review-workspace')?.textContent).toContain(
+      'Accessibility preview',
+    );
+    expect(document.querySelector('.tour-review-workspace')?.textContent).toContain(
+      'Draft checkpoints',
+    );
+    expect(document.querySelector('.tour-review-workspace')?.textContent).toContain(
+      'Completion behavior',
+    );
+    const editDetails = [...document.querySelectorAll<HTMLButtonElement>('.tour-review-row')].find(
+      (button) => button.querySelector('strong')?.textContent === 'Edit details',
+    );
+    if (!editDetails) throw new Error('Edit details row is missing');
+    editDetails.click();
+    await vi.waitFor(() => expect(document.querySelector('.document-review')).not.toBeNull());
+    document.querySelector<HTMLDetailsElement>('.review-drawer')!.open = true;
+    document.querySelector<HTMLDetailsElement>('.utilities-drawer')!.open = true;
+    expect(document.querySelector('[role="tablist"][aria-label="Support package"]')).not.toBeNull();
+    expect(
+      buttonByText(document.querySelector('.utilities-drawer'), 'Restore backup'),
+    ).toBeTruthy();
+    expect(
+      buttonByText(document.querySelector('.utilities-drawer'), 'Activity report'),
+    ).toBeTruthy();
 
     saveAndExit.click();
     const requests = outbound(postMessage, AUTHORING_SAVE_AND_EXIT_REQUEST_TYPE);

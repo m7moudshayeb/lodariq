@@ -1,4 +1,4 @@
-import { basicVisualPreflightIssueLabel, validateTourPublishReadiness } from '@lodariq/schema';
+import { basicVisualPreflightIssueLabel, isPublishReadinessBlocker } from '@lodariq/schema';
 import {
   DeploymentChangedError,
   EnvironmentReleasePolicyChangedError,
@@ -40,6 +40,7 @@ import {
   getThemeReleaseReview,
   toPublishReadinessIssueResponse,
   toPublicationResponse,
+  validateDocumentReleaseReadiness,
 } from './document-compilation';
 
 export async function handleAuthoringStagingPublication(
@@ -155,11 +156,12 @@ export async function handleAuthoringStagingPublication(
         message: 'The reviewed artifact changed or is no longer available; review staging again',
       });
     }
-    const publishIssues = validateTourPublishReadiness(reviewed.document);
-    if (publishIssues.length) {
+    const publishIssues = validateDocumentReleaseReadiness(reviewed.document);
+    const blockingPublishIssues = publishIssues.filter(isPublishReadinessBlocker);
+    if (blockingPublishIssues.length) {
       return reply.code(409).send({
         error: 'publish_blocked',
-        message: publishIssues[0]?.message ?? 'Document is not ready to publish',
+        message: blockingPublishIssues[0]?.message ?? 'Document is not ready to publish',
         issues: publishIssues.map(toPublishReadinessIssueResponse),
       });
     }
