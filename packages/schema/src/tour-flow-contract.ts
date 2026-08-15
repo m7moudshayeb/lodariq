@@ -25,6 +25,9 @@ export const TOUR_RENDERABLE_LEAF_BLOCK_TYPES = [
   'button',
   'link',
   'media',
+  'callout',
+  'stat',
+  'icon',
 ] as const;
 
 export interface TourFlowActionNodeInput {

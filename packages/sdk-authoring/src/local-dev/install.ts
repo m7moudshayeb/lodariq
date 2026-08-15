@@ -122,6 +122,12 @@ export async function installLocalLodariqAuthoringFromScript(
                       previewOptions.onChoreographyStageChange?.(step.id, update),
                   }
                 : {}),
+              ...(previewOptions.onChoreographyRecovery
+                ? {
+                    onChoreographyRecovery: (step, update) =>
+                      previewOptions.onChoreographyRecovery?.(step.id, update),
+                  }
+                : {}),
               ...(previewOptions.getAuthoringProtectedSurfaces
                 ? { getAuthoringProtectedSurfaces: previewOptions.getAuthoringProtectedSurfaces }
                 : {}),

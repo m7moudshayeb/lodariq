@@ -37,9 +37,22 @@ import {
   type ReleaseApprovalRecord,
 } from '../domains/releases';
 import { type PersistedDocument } from '../domains/documents';
+import type { PersistedAuthoringMediaAsset } from '../domains/authoring-resources';
+import type {
+  AuthoringDraftCheckpointResource,
+  AuthoringStepStyleRecipeResource,
+} from '@lodariq/schema';
 import { type PersistedAnalyticsEventRecord } from '../domains/analytics';
 
 export class InMemoryRepositoryState {
+  protected readonly authoringStyleRecipes = new Map<string, AuthoringStepStyleRecipeResource[]>();
+
+  protected readonly authoringDraftCheckpoints = new Map<
+    string,
+    AuthoringDraftCheckpointResource[]
+  >();
+
+  protected readonly authoringMediaAssets = new Map<string, PersistedAuthoringMediaAsset>();
   protected readonly documents = new Map<string, PersistedDocument>();
 
   protected readonly documentVersions = new Map<string, PersistedDocumentVersion[]>();

@@ -19,7 +19,9 @@ const entries = {
 } as const;
 
 const declarationEntries = Object.fromEntries(
-  Object.entries(entries).filter(([name]) => name !== 'authoring/reliability'),
+  Object.entries(entries).filter(
+    ([name]) => name !== 'authoring/reliability' && name !== 'editor/index',
+  ),
 );
 
 // Creator-only authoring package. React, Lexical, Floating UI and @lodariq/*

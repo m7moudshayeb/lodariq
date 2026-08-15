@@ -13,6 +13,8 @@ import {
 import { computeBrandThemeContentHash } from '@lodariq/compiler';
 import { installCreatorLodariqFromScript } from '@lodariq/sdk-authoring/creator-install';
 
+const DOCUMENT_UPDATED_AT = '2099-08-07T11:00:00.000Z';
+
 describe('creator SDK install', () => {
   beforeEach(() => {
     document.head.innerHTML = '';
@@ -76,12 +78,12 @@ describe('creator SDK install', () => {
       if (init?.method === 'GET') {
         return {
           ok: true,
-          json: async () => ({ document: savedDocument(), theme: approvedTheme }),
+          json: async () => authoringDocumentPayload(approvedTheme),
         };
       }
       return {
         ok: true,
-        json: async () => ({}),
+        json: async () => authoringDocumentPayload(approvedTheme),
       };
     });
     vi.stubGlobal('fetch', fetch);
@@ -238,6 +240,7 @@ describe('creator SDK install', () => {
     expect(saveHeaders.get('x-lodariq-authoring-session')).toBe('lod_authoring_session');
     expect(JSON.parse(saveInit?.body as string)).toEqual({
       document: savedDocument(),
+      expectedDocumentUpdatedAt: DOCUMENT_UPDATED_AT,
     });
   });
 
@@ -249,6 +252,7 @@ describe('creator SDK install', () => {
         ok: true,
         json: async () => ({
           document: mismatchedDocument,
+          documentUpdatedAt: DOCUMENT_UPDATED_AT,
           theme: LODARIQ_ACCESSIBLE_FALLBACK_THEME_V1,
         }),
       })),
@@ -286,7 +290,7 @@ describe('creator SDK install', () => {
     const fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = input.toString();
       if (url === 'https://api.lodariq.io/v1/sdk/authoring/document') {
-        return new Response(JSON.stringify({ document: savedDocument(), theme: approvedTheme }), {
+        return new Response(JSON.stringify(authoringDocumentPayload(approvedTheme)), {
           status: 200,
           headers: { 'content-type': 'application/json' },
         });
@@ -429,7 +433,7 @@ describe('creator SDK install', () => {
       if (url.endsWith('/v1/sdk/authoring/document')) {
         return {
           ok: true,
-          json: async () => ({ document: savedDocument(), theme: approvedTheme }),
+          json: async () => authoringDocumentPayload(approvedTheme),
         };
       }
       if (url.endsWith('/v1/sdk/authoring/release-state')) {
@@ -622,6 +626,13 @@ function emptyRecoveryState(environmentId: string) {
     history: [],
     rollbackTargetPublicationIds: [],
   };
+}
+
+function authoringDocumentPayload(
+  theme: BrandThemeSnapshot,
+  document: LodariqDocument = savedDocument(),
+) {
+  return { document, documentUpdatedAt: DOCUMENT_UPDATED_AT, theme };
 }
 
 function savedDocument(): LodariqDocument {

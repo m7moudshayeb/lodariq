@@ -304,7 +304,7 @@ export async function installLodariq(
         TourPlayer,
         document: tour,
         manifest: playbackManifest,
-        playback: playbackOptions,
+        playback: withDefaultMediaAssetResolver(playbackOptions, config.apiBaseUrl),
         runtime,
         onStopped: () => {
           activeTour = null;
@@ -381,6 +381,18 @@ export async function installLodariq(
     await resumePendingTour(resume, runtime, manifest, context, loadCurrentTourFn, playTour);
   }
   return api;
+}
+
+function withDefaultMediaAssetResolver(
+  playback: TourPlaybackOptions,
+  apiBaseUrl?: string,
+): TourPlaybackOptions {
+  if (playback.resolveMediaAsset || !apiBaseUrl) return playback;
+  return {
+    ...playback,
+    resolveMediaAsset: (assetId) =>
+      new URL(`/v1/sdk/media-assets/${encodeURIComponent(assetId)}`, apiBaseUrl).toString(),
+  };
 }
 
 function createAuthoringStatus(

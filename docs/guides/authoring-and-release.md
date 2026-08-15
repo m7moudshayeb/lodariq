@@ -1,9 +1,8 @@
 # How to Author and Release with Lodariq
 
-This guide describes the workflow implemented locally through Phase 2 Slice 3.
-Current verification status is tracked in `../PROGRESS.md`. Phase 2 is still
-incomplete: drift handling, rollback/unpublish, and analytics isolation remain
-Slice 4 work.
+This guide describes the locally implemented authoring and release workflow.
+Current verification status is tracked in `../PROGRESS.md`; deployed and
+external evidence remains separate from local code completion.
 
 ## 1. Configure the Product Once
 
@@ -172,6 +171,15 @@ appear contextually when relevant instead of becoming permanent controls.
 
 The canonical document remains structured block JSON, but creators do not edit
 JSON, raw attributes, selectors, or a custom Markdown language.
+
+Tour popup copy is authored through one freeform **Rich content** field. It
+supports selection-based text formatting, headings, lists, callouts, links,
+emoji, allowlisted Lucide icons, images/GIFs, video/captions, inline animation,
+custom per-item spacing, and resizable/framed media. CTA buttons remain separate
+behavior-owning items and may be placed before or after the rich content. See
+[`Rich Content Authoring and Media Lifecycle`](rich-content-authoring.md) for
+the component, canonical serialization, upload, persistence, and preview
+lifecycle contract.
 
 ## 7. Preview and Repair
 

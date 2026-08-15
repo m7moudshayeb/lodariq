@@ -1,5 +1,7 @@
 import type {
   AuthoringSaveState,
+  AuthoringDeliveryCapability,
+  AuthoringMediaAssetResource,
   BrandThemeSnapshot,
   LodariqDocument,
   ResolverDiagnostic,
@@ -26,16 +28,25 @@ import type { AuthoringTargetHealth } from '../target-health-ledger';
 export const SLASH_COMMANDS = [
   { value: 'step', label: authoringText('Step') },
   { value: 'heading', label: authoringText('Heading') },
-  { value: 'paragraph', label: authoringText('Text') },
+  { value: 'paragraph', label: authoringText('Rich content') },
   { value: 'list', label: authoringText('List') },
   { value: 'divider', label: authoringText('Divider') },
   { value: 'button', label: authoringText('Button') },
   { value: 'link', label: authoringText('Link') },
   { value: 'media', label: authoringText('Media') },
+  { value: 'callout', label: authoringText('Callout') },
+  { value: 'stat', label: authoringText('Stat') },
+  { value: 'icon', label: authoringText('Icon') },
 ] as const;
 
 export type SlashCommand = (typeof SLASH_COMMANDS)[number]['value'];
-export const STEP_CONTENT_COMMANDS = [
+export const STEP_CONTENT_COMMANDS = ['paragraph', 'button'] as const;
+export type StepContentCommand = (typeof STEP_CONTENT_COMMANDS)[number];
+export const STEP_CONTENT_ENTRY_COMMANDS = [
+  'paragraph',
+] as const satisfies readonly StepContentCommand[];
+
+export const EDITABLE_BLOCK_TYPES = [
   'heading',
   'paragraph',
   'list',
@@ -43,10 +54,10 @@ export const STEP_CONTENT_COMMANDS = [
   'button',
   'link',
   'media',
+  'callout',
+  'stat',
+  'icon',
 ] as const;
-export type StepContentCommand = (typeof STEP_CONTENT_COMMANDS)[number];
-
-export const EDITABLE_BLOCK_TYPES = STEP_CONTENT_COMMANDS;
 export type EditableBlockTypeValue = (typeof EDITABLE_BLOCK_TYPES)[number];
 
 export const EDITABLE_BLOCK_FIELD_CONFIG = {
@@ -66,6 +77,12 @@ export const EDITABLE_BLOCK_FIELD_CONFIG = {
     fieldLabel: authoringText('Media placeholder'),
     placeholder: authoringText('Media placeholder'),
   },
+  callout: {
+    fieldLabel: authoringText('Callout'),
+    placeholder: authoringText('Write supporting copy'),
+  },
+  stat: { fieldLabel: authoringText('Stat'), placeholder: authoringText('Untitled heading') },
+  icon: { fieldLabel: authoringText('Icon'), placeholder: authoringText('Learn more') },
 } as const satisfies Record<EditableBlockTypeValue, { fieldLabel: string; placeholder: string }>;
 
 export const EDITABLE_ACTION_OPTIONS = [
@@ -213,6 +230,7 @@ export interface AuthoringPanelWorkflowState {
 
 export interface LocalAuthoringFrameSnapshot {
   documentState: LodariqDocument;
+  deliveryCapabilities: Set<AuthoringDeliveryCapability>;
   contentLocale: string;
   translation: {
     available: boolean;
@@ -233,6 +251,7 @@ export interface LocalAuthoringFrameSnapshot {
   stepStyleClipboardAvailable: boolean;
   stepStyleRecipes: readonly AuthoringStepStyleRecipe[];
   draftCheckpoints: readonly AuthoringDraftCheckpoint[];
+  mediaAssets: readonly AuthoringMediaAssetResource[];
   dragTargetBlockId: string | null;
   dragTargetPosition: 'before' | 'after' | null;
   targetDiagnostics: Map<string, TargetInspectionState>;

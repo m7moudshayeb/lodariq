@@ -8,6 +8,7 @@ import {
   validate,
 } from '@lodariq/schema';
 import { Type } from '@sinclair/typebox';
+import { DocumentSaveConflictError } from '@lodariq/database';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { createObservabilityEvent } from '../../observability';
 import {
@@ -74,6 +75,7 @@ export function registerAuthoringDocumentRoutes(
     }
     return validateAuthoringDocumentPayload({
       document: record.document,
+      documentUpdatedAt: record.updatedAt,
       theme,
     });
   });
@@ -96,7 +98,10 @@ export function registerAuthoringDocumentRoutes(
         return;
       }
 
-      const body = request.body as { document: unknown };
+      const body = request.body as {
+        document: unknown;
+        expectedDocumentUpdatedAt?: string;
+      };
       const payload = validate(LodariqDocument, body.document);
       if (!payload.valid) {
         return reply.code(400).send({
@@ -137,12 +142,27 @@ export function registerAuthoringDocumentRoutes(
           attributes: { source: 'hosted-editor-save', contentHash: compiled.contentHash },
         }),
       );
-      const saved = await options.repository.saveDocument({
-        workspaceId: session.workspaceId,
-        actorUserId: session.createdByUserId,
-        document,
-        artifact: compiled,
-      });
+      let saved;
+      try {
+        saved = await options.repository.saveDocument({
+          workspaceId: session.workspaceId,
+          actorUserId: session.createdByUserId,
+          document,
+          artifact: compiled,
+          ...(body.expectedDocumentUpdatedAt
+            ? { expectedUpdatedAt: body.expectedDocumentUpdatedAt }
+            : {}),
+        });
+      } catch (error) {
+        if (error instanceof DocumentSaveConflictError) {
+          return reply.code(409).send({
+            error: 'document_conflict',
+            message: 'The draft changed in another authoring session; reload before saving',
+            currentDocumentUpdatedAt: error.currentUpdatedAt,
+          });
+        }
+        throw error;
+      }
       emitObservability(
         options.observability,
         createObservabilityEvent({
@@ -160,6 +180,7 @@ export function registerAuthoringDocumentRoutes(
       );
       return validateAuthoringDocumentPayload({
         document: saved.document,
+        documentUpdatedAt: saved.updatedAt,
         theme: await resolveDocumentTheme(options.repository, saved.document),
       });
     },

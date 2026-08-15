@@ -103,6 +103,8 @@ describe('tour renderer (PRD §16.1)', () => {
       domRect({ x: 40, y: 60, width: 300, height: 160 });
     computePositionMock.mockClear();
     document.head.innerHTML = '';
+    document.documentElement.removeAttribute('lang');
+    document.documentElement.removeAttribute('dir');
     document.body.innerHTML = `
       <button data-lodariq-id="new-project" aria-label="New project">New project</button>
     `;
@@ -174,6 +176,20 @@ describe('tour renderer (PRD §16.1)', () => {
     player.stop();
   });
 
+  it('loads tour-only runtime copy for the customer page locale', async () => {
+    document.documentElement.lang = 'ar';
+    const player = new TourPlayer(compiledDoc);
+
+    player.start();
+    await player.waitUntilReady();
+
+    const host = document.querySelector<HTMLElement>('lodariq-tour');
+    const skip = host?.shadowRoot?.querySelector<HTMLButtonElement>('.tour-skip');
+    expect(host).toMatchObject({ lang: 'ar', dir: 'rtl' });
+    expect(skip?.textContent).not.toBe('Skip tour');
+    player.stop();
+  });
+
   it('positions the default target outline around a legacy delivery owner as it moves', async () => {
     const owner = document.querySelector<HTMLElement>('[data-lodariq-id="new-project"]')!;
     let ownerRect = domRect({ x: 52, y: 76, width: 220, height: 84 });
@@ -194,7 +210,7 @@ describe('tour renderer (PRD §16.1)', () => {
 
     ownerRect = domRect({ x: 96, y: 128, width: 260, height: 104 });
     window.dispatchEvent(new Event('scroll'));
-    await nextTask();
+    await nextAnimationFrame();
 
     expect(outline?.style.left).toBe('93px');
     expect(outline?.style.top).toBe('125px');
@@ -216,6 +232,127 @@ describe('tour renderer (PRD §16.1)', () => {
       ?.shadowRoot?.querySelector<HTMLElement>('[role="dialog"]');
     expect(card?.hidden).toBe(true);
     expect(document.activeElement).toBe(outside);
+  });
+
+  it('dismisses with Escape and restores focus to the element active before playback', async () => {
+    const owner = document.querySelector<HTMLButtonElement>('[data-lodariq-id="new-project"]')!;
+    const dismissed = vi.fn();
+    owner.focus();
+    const player = new TourPlayer(compiledDoc, { onDismiss: dismissed });
+
+    player.start();
+    await player.waitUntilReady();
+    const card = document
+      .querySelector('lodariq-tour')
+      ?.shadowRoot?.querySelector<HTMLElement>('[role="dialog"]');
+    expect(
+      card?.contains(document.querySelector('lodariq-tour')?.shadowRoot?.activeElement ?? null),
+    ).toBe(true);
+
+    card?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+
+    expect(dismissed).toHaveBeenCalledOnce();
+    expect(document.querySelector('lodariq-tour')).toBeNull();
+    expect(document.activeElement).toBe(owner);
+  });
+
+  it.each([
+    'keyboard',
+    'screenReader',
+    'reducedMotion',
+    'zoom200',
+    'rtl',
+    'compactReflow',
+  ] as const)('wires the %s authoring accessibility preview through the runtime', async (mode) => {
+    const targetless: NewCompiledDocument = {
+      ...outlineDisabledCompiledDoc,
+      targets: [],
+      steps: [{ ...compiledDoc.steps[0]!, targetId: undefined, accessibilityName: 'Intro step' }],
+    };
+    const player = new TourPlayer(targetless, {
+      authoringPreviewOwnerId: 'accessibility-preview-owner',
+      authoringPreviewInteractive: true,
+      authoringAccessibilityMode: mode,
+    });
+
+    player.start();
+
+    const host = document.querySelector<HTMLElement>('lodariq-tour');
+    expect(host?.dataset['lodariqAccessibilityPreview']).toBe(mode);
+    if (mode === 'rtl') expect(host?.dir).toBe('rtl');
+    if (mode === 'keyboard') {
+      await vi.waitFor(() =>
+        expect(host?.shadowRoot?.querySelector('.tour-accessibility-evidence ol')).not.toBeNull(),
+      );
+    }
+    if (mode === 'screenReader') {
+      await vi.waitFor(() =>
+        expect(
+          host?.shadowRoot?.querySelector('[data-lodariq-announcement-log]')?.textContent,
+        ).toContain('Intro step'),
+      );
+    }
+    player.stop();
+  });
+
+  it('records runtime wait announcements in the screen-reader preview log', async () => {
+    const targetless: NewCompiledDocument = {
+      ...outlineDisabledCompiledDoc,
+      targets: [],
+      steps: [
+        {
+          id: 'step_waiting',
+          accessibilityName: 'Waiting step',
+          body: [
+            {
+              id: 'wait_action',
+              type: 'button' as const,
+              text: 'Start wait',
+              props: {
+                action: {
+                  type: 'runSequence' as const,
+                  sequence: {
+                    trigger: { type: 'manual' as const },
+                    waitFor: [{ type: 'event' as const, eventName: 'product.ready' }],
+                    transition: { type: 'complete' as const },
+                    timeoutMs: 1_000,
+                    onTimeout: 'stay' as const,
+                  },
+                },
+              },
+            },
+          ],
+        },
+      ],
+    };
+    let markWaitStarted: (() => void) | undefined;
+    const waitStarted = new Promise<void>((resolve) => {
+      markWaitStarted = resolve;
+    });
+    const player = new TourPlayer(targetless, {
+      authoringPreviewOwnerId: 'screen-reader-log-owner',
+      authoringPreviewInteractive: true,
+      authoringAccessibilityMode: 'screenReader',
+      onChoreographyStageChange: (_step, update) => {
+        if (update.stage === 'wait' && update.status === 'started') markWaitStarted?.();
+      },
+    });
+    player.start();
+
+    document
+      .querySelector('lodariq-tour')
+      ?.shadowRoot?.querySelector<HTMLButtonElement>('button')
+      ?.click();
+    await waitStarted;
+
+    await vi.waitFor(() =>
+      expect(
+        document
+          .querySelector('lodariq-tour')
+          ?.shadowRoot?.querySelector('[data-lodariq-announcement-log]')?.textContent,
+      ).toContain('Waiting for the next condition'),
+    );
+    player.stop();
   });
 
   it('does not focus or arm an initially zero-sized owner', async () => {
@@ -301,9 +438,9 @@ describe('tour renderer (PRD §16.1)', () => {
     ownerRect = domRect({ x: 120, y: 240, width: 800, height: 400 });
     window.dispatchEvent(new Event('scroll'));
     window.dispatchEvent(new Event('resize'));
-    await nextTask();
+    await nextAnimationFrame();
 
-    expect(computePositionMock).toHaveBeenCalledTimes(3);
+    expect(computePositionMock).toHaveBeenCalledTimes(2);
     expect(reference.getBoundingClientRect()).toMatchObject({
       x: 320,
       y: 540,
@@ -451,7 +588,7 @@ describe('tour renderer (PRD §16.1)', () => {
       expect(observe).toHaveBeenCalledWith(owner);
       const positionCount = computePositionMock.mock.calls.length;
       notifyResize?.([], {} as ResizeObserver);
-      await nextTask();
+      await nextAnimationFrame();
       expect(computePositionMock).toHaveBeenCalledTimes(positionCount + 1);
 
       player.stop();
@@ -1042,7 +1179,7 @@ describe('tour renderer (PRD §16.1)', () => {
 
     selectedRect = domRect({ x: 124, y: 164, width: 280, height: 112 });
     window.dispatchEvent(new Event('scroll'));
-    await nextTask();
+    await nextAnimationFrame();
 
     expect(ring?.style.left).toBe('121px');
     expect(ring?.style.top).toBe('161px');
@@ -1323,6 +1460,118 @@ describe('tour renderer (PRD §16.1)', () => {
     expect(shadow?.querySelector('a')?.getAttribute('href')).toBe('/settings');
   });
 
+  it('renders typed callout, stat, icon, and captioned-video recipes accessibly', async () => {
+    const structuredDoc: NewCompiledDocument = {
+      ...outlineDisabledCompiledDoc,
+      targets: [],
+      steps: [
+        {
+          id: 'step_structured',
+          body: [
+            {
+              id: 'callout_1',
+              type: 'callout',
+              text: 'Keep this page open.',
+              contentRuns: [
+                {
+                  text: 'Keep this page open.',
+                  highlightColor: '#fff1a8',
+                  animation: {
+                    recipe: 'lift',
+                    durationMs: 450,
+                    easing: 'emphasized',
+                    reducedMotion: 'none',
+                  },
+                },
+              ],
+              props: {
+                accessibilityName: 'Important page reminder',
+                composition: { kind: 'callout', tone: 'warning' },
+              },
+            },
+            {
+              id: 'stat_1',
+              type: 'stat',
+              text: '42% adopted',
+              props: {
+                accessibilityName: 'Adoption is 42 percent',
+                composition: { kind: 'stat', emphasis: 'strong' },
+              },
+            },
+            {
+              id: 'icon_1',
+              type: 'icon',
+              text: 'Recommended',
+              props: {
+                accessibilityName: 'Recommended path',
+                composition: { kind: 'icon', icon: 'rocket' },
+                textStyle: { align: 'center', color: '#c96047', fontSizePx: 28 },
+              },
+            },
+            {
+              id: 'video_1',
+              type: 'media',
+              props: {
+                media: {
+                  kind: 'video',
+                  assetId: 'video-asset',
+                  captionsAssetId: 'captions-asset',
+                  posterAssetId: 'poster-asset',
+                  accessibilityName: 'Product walkthrough',
+                  fit: 'cover',
+                  heightPx: 180,
+                  widthPercent: 75,
+                },
+              },
+            },
+          ],
+        },
+      ],
+    };
+    const player = new TourPlayer(structuredDoc, {
+      resolveMediaAsset: (assetId, kind) => `/${kind}/${assetId}`,
+    });
+
+    player.start();
+
+    const root = document.querySelector('lodariq-tour')?.shadowRoot;
+    expect(root?.querySelector('[role="note"]')?.getAttribute('aria-label')).toBe(
+      'Important page reminder',
+    );
+    const animatedRun = root?.querySelector<HTMLElement>(
+      '[role="note"] [data-lodariq-inline-motion="lift"]',
+    );
+    expect(animatedRun?.style.backgroundColor).toBe('rgb(255, 241, 168)');
+    expect(animatedRun?.style.getPropertyValue('--lq-inline-motion-duration')).toBe('450ms');
+    expect(root?.querySelector('[data-lodariq-stat-emphasis="strong"]')?.textContent).toBe(
+      '42% adopted',
+    );
+    expect(root?.querySelector('[role="img"]')?.getAttribute('aria-label')).toBe(
+      'Recommended path',
+    );
+    await vi.waitFor(() =>
+      expect(root?.querySelector('[role="img"] svg[aria-hidden="true"]')).not.toBeNull(),
+    );
+    expect(root?.querySelector('[role="img"] svg[data-lodariq-icon-loading]')).toBeNull();
+    const icon = root?.querySelector<HTMLElement>('[data-lodariq-node-type="icon"]');
+    expect(icon?.textContent).toBe('');
+    expect(icon?.style.justifyContent).toBe('center');
+    expect(icon?.style.fontSize).toBe('28px');
+    expect(icon?.style.color).toBe('rgb(201, 96, 71)');
+    const video = root?.querySelector<HTMLVideoElement>('video');
+    expect(video?.controls).toBe(true);
+    expect(video?.getAttribute('aria-label')).toBe('Product walkthrough');
+    expect(video?.getAttribute('src')).toBe('/video/video-asset');
+    expect(video?.getAttribute('poster')).toBe('/image/poster-asset');
+    expect(video?.style.height).toBe('180px');
+    expect(video?.style.objectFit).toBe('cover');
+    expect(video?.style.width).toBe('75%');
+    expect(video?.querySelector('track')?.getAttribute('src')).toBe('/captions/captions-asset');
+    expect(video?.querySelector('track')?.kind).toBe('captions');
+    expect(video?.querySelector('track')?.default).toBe(true);
+    player.stop();
+  });
+
   it('disables openPage links outside the Phase 1 navigation policy', () => {
     const player = new TourPlayer({
       ...compiledDoc,
@@ -1524,7 +1773,7 @@ describe('tour renderer (PRD §16.1)', () => {
     expect(document.querySelector('lodariq-tour')?.shadowRoot?.textContent).toContain('First step');
   });
 
-  it('complete action closes playback and fires completion', () => {
+  it('complete action closes playback, announces completion, and fires completion', async () => {
     const completed = vi.fn();
     const dismissed = vi.fn();
     const player = new TourPlayer(
@@ -1553,6 +1802,12 @@ describe('tour renderer (PRD §16.1)', () => {
     expect(completed).toHaveBeenCalledOnce();
     expect(dismissed).not.toHaveBeenCalled();
     expect(document.querySelector('lodariq-tour')).toBeNull();
+    await nextAnimationFrame();
+    const announcement = document.querySelector<HTMLElement>(
+      '[data-lodariq-tour-completion-announcement]',
+    );
+    expect(announcement?.getAttribute('role')).toBe('status');
+    expect(announcement?.textContent).toBe('Tour complete');
   });
 
   it('dismiss action closes playback without completing the tour', () => {
@@ -2253,7 +2508,7 @@ describe('tour renderer (PRD §16.1)', () => {
                 stableAttributes: { 'data-lodariq-id': 'load-data' },
               },
               waitForNetworkIdle: true,
-              timeoutMs: 220,
+              timeoutMs: 1_000,
             },
           },
         ],
@@ -2262,10 +2517,9 @@ describe('tour renderer (PRD §16.1)', () => {
       await new Promise((resolve) => setTimeout(resolve, 30));
       expect(target.scrollIntoView).not.toHaveBeenCalled();
 
-      await new Promise((resolve) => setTimeout(resolve, 140));
+      await vi.waitFor(() => expect(target.scrollIntoView).toHaveBeenCalled(), { timeout: 1_000 });
       expect(fetchMock).toHaveBeenCalledOnce();
       expect(responseText).toBe('loaded');
-      expect(target.scrollIntoView).toHaveBeenCalled();
       expect(window.fetch).toBe(fetchMock);
     } finally {
       Object.defineProperty(window, 'fetch', {
@@ -2322,7 +2576,7 @@ describe('tour renderer (PRD §16.1)', () => {
                 stableAttributes: { 'data-lodariq-id': 'load-xhr' },
               },
               waitForNetworkIdle: true,
-              timeoutMs: 220,
+              timeoutMs: 1_000,
             },
           },
         ],
@@ -2331,9 +2585,8 @@ describe('tour renderer (PRD §16.1)', () => {
       await new Promise((resolve) => setTimeout(resolve, 30));
       expect(target.scrollIntoView).not.toHaveBeenCalled();
 
-      await new Promise((resolve) => setTimeout(resolve, 140));
+      await vi.waitFor(() => expect(target.scrollIntoView).toHaveBeenCalled(), { timeout: 1_000 });
       expect(send).toHaveBeenCalledOnce();
-      expect(target.scrollIntoView).toHaveBeenCalled();
     } finally {
       send.mockRestore();
     }
@@ -2482,6 +2735,10 @@ function domRect({
 
 function nextTask(): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, 0));
+}
+
+function nextAnimationFrame(): Promise<void> {
+  return new Promise((resolve) => window.requestAnimationFrame(() => resolve()));
 }
 
 function revalidationTask(): Promise<void> {

@@ -57,7 +57,8 @@ export const TOUR_FLOW_VOCABULARY: ExperienceFlowVocabulary = {
     if (trigger.type === 'manual') return block.content?.trim() || authoringText('Use this button');
     if (trigger.type === 'activateTarget') return authoringText('Activate the step target');
     if (trigger.type === 'observeTargetClick') return authoringText('Wait for a target click');
-    return authoringText('Wait for target focus');
+    if (trigger.type === 'observeTargetFocus') return authoringText('Wait for target focus');
+    return authoringText('Wait for target input');
   },
   waitSubtitle(wait, sequence) {
     if (wait.type === 'route') return wait.value;

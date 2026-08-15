@@ -65,6 +65,7 @@ import {
 import { StepPlacementEditor } from './step-placement-editor';
 
 export function RichStepContentEditor({
+  contentTrayRequestToken,
   controller,
   health,
   onFlowMapOpen,
@@ -75,6 +76,7 @@ export function RichStepContentEditor({
   tooltip,
   toolMode,
 }: {
+  contentTrayRequestToken: number;
   controller: LocalAuthoringFrameController;
   health: { label: string; repair: boolean; tone: StepHealthTone };
   onFlowMapOpen: (stepId: string, actionBlockId: string, mode?: 'branch' | 'sequence') => void;
@@ -86,12 +88,12 @@ export function RichStepContentEditor({
   toolMode: StoryboardToolMode;
 }) {
   const contentBlocks = tooltip.children.filter(isEditableContentBlock);
+  const firstRichContentBlockId = contentBlocks.find((block) => block.type !== 'link')?.id;
+  const hasRichContent = firstRichContentBlockId !== undefined;
   const initiallySelectedBlock = contentBlocks.find(
     (block) => block.id === snapshot.selectedBlockId,
   );
-  const [activeBlockId, setActiveBlockId] = useState(
-    initiallySelectedBlock?.id ?? contentBlocks[0]?.id ?? null,
-  );
+  const [activeBlockId, setActiveBlockId] = useState(initiallySelectedBlock?.id ?? null);
   const [selection, setSelection] = useState<RichTextSelection | null>(null);
   const [linkEditorOpen, setLinkEditorOpen] = useState(false);
   const [linkDraft, setLinkDraft] = useState('');
@@ -103,6 +105,7 @@ export function RichStepContentEditor({
     useState<ActionToolbarPosition | null>(null);
   const suppressedBlurCommitBlockIds = useRef(new Set<string>());
   const handledFocusRequestToken = useRef<number | null>(null);
+  const handledContentTrayRequestToken = useRef(0);
   const popupRef = useRef<HTMLDivElement | null>(null);
   const editorStageRef = useRef<HTMLDivElement | null>(null);
   const activeBlockRowRef = useRef<HTMLDivElement | null>(null);
@@ -110,7 +113,12 @@ export function RichStepContentEditor({
     ? (contentBlocks.find((block) => block.id === activeBlockId) ?? null)
     : null;
   const activeStyle = activeBlock?.props.textStyle;
-  const activeIsText = activeBlock?.type === 'heading' || activeBlock?.type === 'paragraph';
+  const activeIsInlineText = activeBlock?.type === 'heading' || activeBlock?.type === 'paragraph';
+  const activeSupportsTypography =
+    activeIsInlineText ||
+    activeBlock?.type === 'callout' ||
+    activeBlock?.type === 'stat' ||
+    activeBlock?.type === 'icon';
   const activeIsAction = activeBlock?.type === 'button' || activeBlock?.type === 'link';
   const trayActionBlock = activeIsAction ? activeBlock : null;
   const hasActiveTextSelection =
@@ -165,6 +173,20 @@ export function RichStepContentEditor({
   }, [activeBlockId, contentBlocks, step.id]);
 
   useEffect(() => setPopupSelected(false), [step.id]);
+
+  useEffect(() => {
+    if (
+      contentTrayRequestToken === 0 ||
+      handledContentTrayRequestToken.current === contentTrayRequestToken
+    ) {
+      return;
+    }
+    handledContentTrayRequestToken.current = contentTrayRequestToken;
+    setActiveBlockId(firstRichContentBlockId ?? null);
+    setLinkEditorOpen(false);
+    setPopupSelected(false);
+    setPropertyTrayOpen(true);
+  }, [contentBlocks, contentTrayRequestToken, firstRichContentBlockId]);
 
   useEffect(() => {
     if (toolMode === 'content') return;
@@ -344,7 +366,6 @@ export function RichStepContentEditor({
               }
               openPropertyTray('behavior');
             }}
-            onBlockTypeChange={(type) => controller.transformEditableBlock(activeBlock.id, type)}
             onMore={() => openPropertyTray('appearance')}
             position={contextToolbarPosition}
           />
@@ -371,7 +392,7 @@ export function RichStepContentEditor({
                 </option>
               ))}
             </select>
-            {activeIsText ? (
+            {activeSupportsTypography ? (
               <>
                 <AuthoringNumberCombobox
                   ariaLabel={authoringText('Font size')}
@@ -431,15 +452,17 @@ export function RichStepContentEditor({
                     }
                   }}
                 />
-                <InlineMarkButton
-                  active={inlineMarkActive(activeBlock, selection, 'underline')}
-                  disabled={!selection || selection.start === selection.end}
-                  icon={<Underline size={15} strokeWidth={2.2} aria-hidden="true" />}
-                  label={authoringText('Underline selection')}
-                  onApply={(enabled) =>
-                    updateInlineStyle({ mark: 'underline', markEnabled: enabled })
-                  }
-                />
+                {activeIsInlineText ? (
+                  <InlineMarkButton
+                    active={inlineMarkActive(activeBlock, selection, 'underline')}
+                    disabled={!selection || selection.start === selection.end}
+                    icon={<Underline size={15} strokeWidth={2.2} aria-hidden="true" />}
+                    label={authoringText('Underline selection')}
+                    onApply={(enabled) =>
+                      updateInlineStyle({ mark: 'underline', markEnabled: enabled })
+                    }
+                  />
+                ) : null}
                 <span className="rich-step-toolbar-divider" aria-hidden="true" />
                 {(
                   [
@@ -475,31 +498,35 @@ export function RichStepContentEditor({
                     }}
                   />
                 </label>
-                <label
-                  className="rich-step-color rich-step-highlight"
-                  title={authoringText('Highlight selection')}
-                >
-                  <Highlighter size={14} strokeWidth={2.1} aria-hidden="true" />
-                  <input
-                    type="color"
-                    aria-label={authoringText('Highlight selected text')}
-                    defaultValue="#fff0a8"
-                    disabled={!selection || selection.start === selection.end}
-                    onChange={(event) =>
-                      updateInlineStyle({ highlightColor: event.currentTarget.value })
-                    }
-                  />
-                </label>
-                <button
-                  type="button"
-                  aria-label={authoringText('Link selected text')}
-                  aria-pressed={linkEditorOpen}
-                  disabled={!selection || selection.start === selection.end}
-                  onPointerDown={(event) => event.preventDefault()}
-                  onClick={() => setLinkEditorOpen((value) => !value)}
-                >
-                  <Link size={15} strokeWidth={2.1} aria-hidden="true" />
-                </button>
+                {activeIsInlineText ? (
+                  <>
+                    <label
+                      className="rich-step-color rich-step-highlight"
+                      title={authoringText('Highlight selection')}
+                    >
+                      <Highlighter size={14} strokeWidth={2.1} aria-hidden="true" />
+                      <input
+                        type="color"
+                        aria-label={authoringText('Highlight selected text')}
+                        defaultValue="#fff0a8"
+                        disabled={!selection || selection.start === selection.end}
+                        onChange={(event) =>
+                          updateInlineStyle({ highlightColor: event.currentTarget.value })
+                        }
+                      />
+                    </label>
+                    <button
+                      type="button"
+                      aria-label={authoringText('Link selected text')}
+                      aria-pressed={linkEditorOpen}
+                      disabled={!selection || selection.start === selection.end}
+                      onPointerDown={(event) => event.preventDefault()}
+                      onClick={() => setLinkEditorOpen((value) => !value)}
+                    >
+                      <Link size={15} strokeWidth={2.1} aria-hidden="true" />
+                    </button>
+                  </>
+                ) : null}
                 <button
                   type="button"
                   aria-label={
@@ -681,74 +708,116 @@ export function RichStepContentEditor({
               label={authoringText('Insert content at start of popup')}
               stepBlockId={step.id}
             />
-            {contentBlocks.map((block, index) => (
-              <div className="rich-step-block-stack" key={block.id}>
-                <div
-                  ref={activeBlockId === block.id ? activeBlockRowRef : undefined}
-                  className={`rich-step-block-row ${activeBlockId === block.id ? 'active' : ''} ${
-                    snapshot.selectedBlockId === block.id ? 'selected' : ''
-                  }`.trim()}
-                  data-block-id={block.id}
-                  data-lodariq-spacing-after={block.props.blockLayout?.spacingAfter}
-                  data-lodariq-spacing-after-px={block.props.blockLayout?.spacingAfterPx}
-                  data-lodariq-spacing-before={block.props.blockLayout?.spacingBefore}
-                  data-step-block-id={step.id}
-                  style={blockSpacingAfterStyle(block.props.blockLayout)}
-                  onDragOver={(event) =>
-                    controller.handleStepContentDragOver(event, step.id, block.id)
-                  }
-                  onDrop={(event) => controller.handleStepContentDrop(event, step.id, block.id)}
-                  onPointerDown={() => activateBlock(block)}
-                >
-                  <button
-                    type="button"
-                    className="rich-step-block-drag"
-                    draggable
-                    aria-label={authoringText('Drag {type} block', {
-                      type: blockTypeEditorLabel(block),
-                    })}
-                    title={authoringText('Drag to reorder')}
-                    onDragEnd={() => controller.endDraggingStepContent()}
-                    onDragStart={(event) =>
-                      controller.startDraggingStepContent(step.id, block.id, event)
+            {contentBlocks.map((block, index) => {
+              const separateAction = block.type === 'button' || block.type === 'link';
+              if (!separateAction) {
+                return (
+                  <div
+                    className="rich-step-rendered-content"
+                    data-block-id={block.id}
+                    data-lodariq-spacing-after-px={block.props.blockLayout?.spacingAfterPx}
+                    data-step-block-id={step.id}
+                    key={block.id}
+                    onDragOver={(event) =>
+                      controller.handleStepContentDragOver(event, step.id, block.id)
                     }
-                  >
-                    <GripVertical size={14} strokeWidth={2.1} aria-hidden="true" />
-                  </button>
-                  <RichStepBlockEditor
-                    actionAlign={tooltip.props.tooltipLayout?.actionAlign}
-                    active={activeBlockId === block.id}
-                    block={block}
-                    canvasZoom={canvasZoom}
-                    controller={controller}
-                    onActivate={() => activateBlock(block)}
-                    onCommitRichText={(element) => commitBlock(block.id, element)}
-                    onKeyDown={(event, element) =>
-                      handleRichTextEditorKeyDown({
-                        block,
-                        controller,
-                        element,
-                        event,
-                        stepBlockId: step.id,
-                        suppressBlurCommit: () => suppressNextBlurCommit(block.id),
-                        totalBlocks: contentBlocks.length,
-                      })
-                    }
-                    onSelectionChange={(element) => {
-                      const nextSelection = richTextSelection(element, block.id);
-                      if (nextSelection) setSelection(nextSelection);
+                    onDrop={(event) => controller.handleStepContentDrop(event, step.id, block.id)}
+                    onPointerDown={() => {
+                      activateBlock(block);
+                      setPropertyTrayOpen(true);
                     }}
+                    style={blockSpacingAfterStyle(block.props.blockLayout)}
+                  >
+                    <RichStepBlockEditor
+                      active={activeBlockId === block.id}
+                      block={block}
+                      canvasZoom={canvasZoom}
+                      controller={controller}
+                      onActivate={() => {
+                        activateBlock(block);
+                        setPropertyTrayOpen(true);
+                      }}
+                      onCommitRichText={() => undefined}
+                      onKeyDown={() => undefined}
+                      onSelectionChange={() => undefined}
+                    />
+                  </div>
+                );
+              }
+              return (
+                <div className="rich-step-block-stack" key={block.id}>
+                  <div
+                    ref={activeBlockId === block.id ? activeBlockRowRef : undefined}
+                    className={`rich-step-block-row ${activeBlockId === block.id ? 'active' : ''} ${
+                      snapshot.selectedBlockId === block.id ? 'selected' : ''
+                    }`.trim()}
+                    data-block-id={block.id}
+                    data-lodariq-spacing-after={block.props.blockLayout?.spacingAfter}
+                    data-lodariq-spacing-after-px={block.props.blockLayout?.spacingAfterPx}
+                    data-lodariq-spacing-before={block.props.blockLayout?.spacingBefore}
+                    data-step-block-id={step.id}
+                    style={blockSpacingAfterStyle(block.props.blockLayout)}
+                    onDragOver={(event) =>
+                      controller.handleStepContentDragOver(event, step.id, block.id)
+                    }
+                    onDrop={(event) => controller.handleStepContentDrop(event, step.id, block.id)}
+                    onPointerDown={() => activateBlock(block)}
+                  >
+                    <button
+                      type="button"
+                      className="rich-step-block-drag"
+                      draggable
+                      aria-label={authoringText('Drag {type} block', {
+                        type: blockTypeEditorLabel(block),
+                      })}
+                      title={authoringText('Drag to reorder')}
+                      onDragEnd={() => controller.endDraggingStepContent()}
+                      onDragStart={(event) =>
+                        controller.startDraggingStepContent(step.id, block.id, event)
+                      }
+                    >
+                      <GripVertical size={14} strokeWidth={2.1} aria-hidden="true" />
+                    </button>
+                    <RichStepBlockEditor
+                      actionAlign={tooltip.props.tooltipLayout?.actionAlign}
+                      active={activeBlockId === block.id}
+                      block={block}
+                      canvasZoom={canvasZoom}
+                      controller={controller}
+                      onActivate={() => activateBlock(block)}
+                      onCommitRichText={(element) => commitBlock(block.id, element)}
+                      onKeyDown={(event, element) =>
+                        handleRichTextEditorKeyDown({
+                          block,
+                          controller,
+                          element,
+                          event,
+                          stepBlockId: step.id,
+                          suppressBlurCommit: () => suppressNextBlurCommit(block.id),
+                          totalBlocks: contentBlocks.length,
+                        })
+                      }
+                      onSelectionChange={(element) => {
+                        const nextSelection = richTextSelection(element, block.id);
+                        if (nextSelection) setSelection(nextSelection);
+                      }}
+                    />
+                    <ContentBlockActionMenu
+                      block={block}
+                      controller={controller}
+                      hasRichContent={hasRichContent}
+                      stepId={step.id}
+                    />
+                  </div>
+                  <InlineStepInsert
+                    controller={controller}
+                    index={index + 1}
+                    label={`Insert content after ${blockTypeEditorLabel(block)}`}
+                    stepBlockId={step.id}
                   />
-                  <ContentBlockActionMenu block={block} controller={controller} stepId={step.id} />
                 </div>
-                <InlineStepInsert
-                  controller={controller}
-                  index={index + 1}
-                  label={`Insert content after ${blockTypeEditorLabel(block)}`}
-                  stepBlockId={step.id}
-                />
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       </div>
@@ -775,23 +844,8 @@ export function RichStepContentEditor({
         step={step}
         tooltip={tooltip}
         toolMode={toolMode}
-        textFontSize={activeIsText ? activeFontSize : undefined}
         open={propertyTrayOpen || toolMode !== 'content'}
         onActiveTabChange={setActivePropertyTab}
-        onTextFontSizeChange={
-          activeIsText
-            ? (value) => {
-                if (hasActiveTextSelection && value === 'default') {
-                  updateInlineStyle({ fontSizePx: null });
-                  return;
-                }
-                const fontSizePx = boundedFontSizePx(value);
-                if (!fontSizePx) return;
-                if (hasActiveTextSelection) updateInlineStyle({ fontSizePx });
-                else updateStyle({ fontSizePx });
-              }
-            : undefined
-        }
         onClose={() => {
           setPropertyTrayOpen(false);
           if (toolMode !== 'content') onToolModeChange('content');

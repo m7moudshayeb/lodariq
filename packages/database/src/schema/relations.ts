@@ -3,6 +3,9 @@ import { authoritativeAnalyticsEvents, events } from './analytics';
 import { productStyleApplications, styleSources, themes, themeVersions } from './brand';
 import {
   brandDriftRuns,
+  authoringDraftCheckpoints,
+  authoringMediaAssets,
+  authoringStyleRecipes,
   compiledArtifacts,
   documents,
   documentVersions,
@@ -49,6 +52,9 @@ export const workspaceRelations = relations(workspaces, ({ many }) => ({
   productStyleApplications: many(productStyleApplications),
   brandDriftRuns: many(brandDriftRuns),
   documents: many(documents),
+  authoringStyleRecipes: many(authoringStyleRecipes),
+  authoringDraftCheckpoints: many(authoringDraftCheckpoints),
+  authoringMediaAssets: many(authoringMediaAssets),
   visualCheckRuns: many(visualCheckRuns),
   publicationVerifications: many(publicationVerifications),
   releaseApprovals: many(releaseApprovals),

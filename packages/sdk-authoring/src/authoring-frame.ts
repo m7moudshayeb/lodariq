@@ -10,6 +10,7 @@ export {
   mountLocalAuthoringFrame,
 } from './authoring/local-frame';
 export type {
+  AuthoringMediaUploadOptions,
   AuthoringBrandMatchProposal,
   AuthoringExactArtifactPromotionRequest,
   AuthoringExactArtifactPromotionResult,

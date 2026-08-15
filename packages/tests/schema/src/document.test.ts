@@ -176,7 +176,19 @@ describe('canonical tour fixture', () => {
     heading.content = 'Launch in 3 days';
     heading.contentRuns = [
       { text: 'Launch in ' },
-      { text: '3 days', marks: ['bold', 'underline'], fontSizePx: 24, color: '#006b58' },
+      {
+        text: '3 days',
+        marks: ['bold', 'underline'],
+        fontSizePx: 24,
+        color: '#006b58',
+        highlightColor: '#fff1a8',
+        animation: {
+          recipe: 'lift',
+          durationMs: 450,
+          easing: 'emphasized',
+          reducedMotion: 'none',
+        },
+      },
     ];
     heading.props.blockLayout = { spacingAfter: 'tight', spacingAfterPx: 18 };
     button.props.variant = 'outline';
@@ -216,7 +228,12 @@ describe('canonical tour fixture', () => {
     heading.contentRuns[1].fontSizePx = 97;
     expect(validate(LodariqDocument, document).valid).toBe(false);
     heading.contentRuns[1].fontSizePx = 24;
+    heading.contentRuns[1].animation.durationMs = 5_000;
+    expect(validate(LodariqDocument, document).valid).toBe(false);
+    heading.contentRuns[1].animation.durationMs = 450;
     heading.props.blockLayout.spacingAfterPx = 17;
+    expect(validate(LodariqDocument, document).valid).toBe(true);
+    heading.props.blockLayout.spacingAfterPx = 97;
     expect(validate(LodariqDocument, document).valid).toBe(false);
     heading.props.blockLayout.spacingAfterPx = 18;
     button.props.buttonStyle.widthPx = 82;

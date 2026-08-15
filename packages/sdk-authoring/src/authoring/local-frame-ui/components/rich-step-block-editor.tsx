@@ -9,8 +9,10 @@ import {
 import type { BlockLayoutProps, ButtonStyleProps, LodariqBlock } from '@lodariq/schema';
 import { resolveTourActionRecipe } from '@lodariq/sdk-runtime/renderers/tour';
 import { authoringText } from '../../../i18n';
+import { lucideIconName } from '../../../editor/rich-content-icons';
 import type { LocalAuthoringFrameController } from '../controller';
-import { Check, ChevronRight, ExternalLink } from '../design-system';
+import { Check, ChevronRight, ExternalLink, Image as ImageIcon } from '../design-system';
+import { DynamicIcon } from 'lucide-react/dynamic';
 import { stepContentCommandFromQuery } from '../utils';
 import { defaultActionVariant } from '../properties/button-properties';
 import { useActionResize } from '../../canvas/use-action-resize';
@@ -158,9 +160,6 @@ export function RichStepBlockEditor({
   canvasZoom,
   controller,
   onActivate,
-  onCommitRichText,
-  onKeyDown,
-  onSelectionChange,
 }: {
   actionAlign?: BlockLayoutProps['align'];
   active: boolean;
@@ -177,19 +176,10 @@ export function RichStepBlockEditor({
       <div
         key={`${block.id}:${block.content ?? ''}`}
         className={`rich-step-block ${block.type}`}
-        contentEditable
-        suppressContentEditableWarning
-        role="textbox"
-        aria-label={authoringText(block.type === 'heading' ? 'Step heading' : 'Step paragraph')}
-        aria-multiline="true"
         data-rich-block-id={block.id}
         data-lodariq-node-type={block.type}
         style={richTextBlockStyle(block)}
-        onBlur={(event) => onCommitRichText(event.currentTarget)}
-        onFocus={onActivate}
-        onKeyDown={(event) => onKeyDown(event, event.currentTarget)}
-        onKeyUp={(event) => onSelectionChange(event.currentTarget)}
-        onPointerUp={(event) => onSelectionChange(event.currentTarget)}
+        onPointerDown={onActivate}
       >
         {renderInlineTextRuns(block)}
       </div>
@@ -198,16 +188,76 @@ export function RichStepBlockEditor({
   if (block.type === 'divider') {
     return <div className="rich-step-divider-preview" role="separator" />;
   }
+  if (block.type === 'callout') {
+    const tone =
+      block.props.composition?.kind === 'callout' ? block.props.composition.tone : 'info';
+    return (
+      <aside
+        aria-label={block.props.accessibilityName}
+        className="rich-step-structured-preview callout"
+        data-lodariq-callout-tone={tone}
+        data-lodariq-node-type="callout"
+        role="note"
+        style={richTextBlockStyle(block)}
+        onPointerDown={onActivate}
+      >
+        {block.content}
+      </aside>
+    );
+  }
+  if (block.type === 'stat') {
+    const emphasis =
+      block.props.composition?.kind === 'stat' ? block.props.composition.emphasis : 'standard';
+    return (
+      <div
+        aria-label={block.props.accessibilityName}
+        className="rich-step-structured-preview stat"
+        data-lodariq-node-type="stat"
+        data-lodariq-stat-emphasis={emphasis}
+        role="group"
+        style={richTextBlockStyle(block)}
+        onPointerDown={onActivate}
+      >
+        {block.content}
+      </div>
+    );
+  }
+  if (block.type === 'icon') {
+    const iconName =
+      block.props.composition?.kind === 'icon' ? block.props.composition.icon : 'info';
+    return (
+      <div
+        aria-label={block.props.accessibilityName ?? block.content}
+        className="rich-step-structured-preview icon"
+        data-lodariq-node-type="icon"
+        role="img"
+        style={{
+          ...richTextBlockStyle(block),
+          justifyContent: structuredContentJustification(block),
+        }}
+        onPointerDown={onActivate}
+      >
+        <DynamicIcon aria-hidden="true" name={lucideIconName(iconName)} size={20} strokeWidth={2} />
+      </div>
+    );
+  }
+  if (block.type === 'media') {
+    return <MediaBlockPreview block={block} controller={controller} />;
+  }
   if (block.type === 'list') {
     return (
-      <textarea
-        key={`${block.id}:${block.content ?? ''}`}
-        className="rich-step-plain-field list"
-        aria-label={authoringText('List items')}
-        defaultValue={block.content ?? ''}
-        onFocus={onActivate}
-        onBlur={(event) => controller.commitRichTextContent(block.id, event.currentTarget.value)}
-      />
+      <ul
+        className="rich-step-list-preview"
+        data-lodariq-node-type="list"
+        onPointerDown={onActivate}
+      >
+        {(block.content ?? '')
+          .split('\n')
+          .filter(Boolean)
+          .map((item, index) => (
+            <li key={`${block.id}:${index}`}>{item}</li>
+          ))}
+      </ul>
     );
   }
   const label = BLOCK_EDITOR_INPUT_LABELS[block.type] ?? authoringText('Content label');
@@ -235,6 +285,106 @@ export function RichStepBlockEditor({
         onBlur={(event) => controller.commitRichTextContent(block.id, event.currentTarget.value)}
       />
     </div>
+  );
+}
+
+function structuredContentJustification(block: LodariqBlock): CSSProperties['justifyContent'] {
+  if (block.props.textStyle?.align === 'center') return 'center';
+  if (block.props.textStyle?.align === 'right') return 'flex-end';
+  return 'flex-start';
+}
+
+function MediaBlockPreview({
+  block,
+  controller,
+}: {
+  block: LodariqBlock;
+  controller: LocalAuthoringFrameController;
+}) {
+  const media = block.props.media;
+  const [sourceUrl, setSourceUrl] = useState<string | null>(null);
+  const [captionsUrl, setCaptionsUrl] = useState<string | null>(null);
+  const snapshot = controller.getSnapshot();
+  const asset = media
+    ? snapshot.mediaAssets.find((candidate) => candidate.id === media.assetId)
+    : undefined;
+
+  useEffect(() => {
+    let canceled = false;
+    setSourceUrl(null);
+    setCaptionsUrl(null);
+    if (!media) return () => undefined;
+    void controller.resolveMediaAssetPreview(media.assetId).then((url) => {
+      if (!canceled) setSourceUrl(url);
+    });
+    if (media.kind === 'video' && media.captionsAssetId) {
+      void controller.resolveMediaAssetPreview(media.captionsAssetId).then((url) => {
+        if (!canceled) setCaptionsUrl(url);
+      });
+    }
+    return () => {
+      canceled = true;
+    };
+  }, [controller, media]);
+
+  if (!media || !sourceUrl) {
+    return (
+      <div
+        aria-label={media?.accessibilityName ?? block.content}
+        className="rich-step-media-preview placeholder"
+        data-lodariq-node-type="media"
+        role="img"
+      >
+        <ImageIcon aria-hidden="true" size={24} strokeWidth={1.8} />
+        <span>{asset?.filename ?? block.content}</span>
+      </div>
+    );
+  }
+
+  if (media.kind === 'image') {
+    return (
+      <figure
+        className="rich-step-media-preview"
+        data-fixed-height={media.heightPx ? 'true' : undefined}
+        data-lodariq-aspect-ratio={media.aspectRatio}
+        data-lodariq-node-type="media"
+        style={{ justifySelf: 'start', maxWidth: '100%', width: `${media.widthPercent ?? 100}%` }}
+      >
+        <img
+          alt={media.accessibilityName}
+          src={sourceUrl}
+          style={{
+            ...(media.heightPx ? { height: `${media.heightPx}px` } : {}),
+            ...(media.heightPx ? { maxHeight: 'none' } : {}),
+            objectFit: media.fit ?? 'contain',
+          }}
+        />
+      </figure>
+    );
+  }
+
+  return (
+    <figure
+      className="rich-step-media-preview"
+      data-fixed-height={media.heightPx ? 'true' : undefined}
+      data-lodariq-aspect-ratio={media.aspectRatio}
+      data-lodariq-node-type="media"
+      style={{ justifySelf: 'start', maxWidth: '100%', width: `${media.widthPercent ?? 100}%` }}
+    >
+      <video
+        aria-label={media.accessibilityName}
+        controls
+        preload="metadata"
+        src={sourceUrl}
+        style={{
+          ...(media.heightPx ? { height: `${media.heightPx}px` } : {}),
+          ...(media.heightPx ? { maxHeight: 'none' } : {}),
+          objectFit: media.fit ?? 'contain',
+        }}
+      >
+        {captionsUrl ? <track default kind="captions" src={captionsUrl} /> : null}
+      </video>
+    </figure>
   );
 }
 

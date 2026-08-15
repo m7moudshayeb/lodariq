@@ -1930,10 +1930,12 @@ describe('@lodariq/api control-plane routes', () => {
     expect(
       draftResponse.json<{
         document: LodariqDocument;
+        documentUpdatedAt: string;
         theme: BrandThemeSnapshot;
       }>(),
     ).toEqual({
       document: savedDocument,
+      documentUpdatedAt: expect.any(String),
       theme: approvedVersion.snapshot,
     });
 

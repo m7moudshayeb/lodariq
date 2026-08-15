@@ -68,6 +68,23 @@ export function createTourStyles(): HTMLStyleElement {
     @keyframes lq-step-scale { from { opacity: 0; transform: scale(0.97); } }
     @keyframes lq-step-pulse { 50% { transform: scale(1.02); } }
 
+    [data-lodariq-inline-motion="fade"] {
+      animation: lq-step-fade var(--lq-inline-motion-duration)
+        var(--lq-inline-motion-easing) both;
+    }
+    [data-lodariq-inline-motion="lift"] {
+      animation: lq-step-lift var(--lq-inline-motion-duration)
+        var(--lq-inline-motion-easing) both;
+    }
+    [data-lodariq-inline-motion="scale"] {
+      animation: lq-step-scale var(--lq-inline-motion-duration)
+        var(--lq-inline-motion-easing) both;
+    }
+    [data-lodariq-inline-motion="pulse"] {
+      animation: lq-step-pulse var(--lq-inline-motion-duration)
+        var(--lq-inline-motion-easing) 2;
+    }
+
     .tour-target-outline[data-lodariq-spotlight="subtle"] {
       box-shadow: 0 0 0 4px var(--lq-tour-focus-halo-color);
     }
@@ -83,23 +100,57 @@ export function createTourStyles(): HTMLStyleElement {
 
     [data-lodariq-node-type="media"] {
       display: block;
-      width: 100%;
+      box-sizing: border-box;
       max-width: 100%;
       border-radius: var(--lq-tour-radius-sm);
-      object-fit: cover;
+      object-fit: contain;
     }
     [data-lodariq-aspect-ratio="16:9"] { aspect-ratio: 16 / 9; }
     [data-lodariq-aspect-ratio="4:3"] { aspect-ratio: 4 / 3; }
     [data-lodariq-aspect-ratio="1:1"] { aspect-ratio: 1; }
 
+    [data-lodariq-node-type="callout"] {
+      padding: var(--lq-tour-space-sm);
+      border-inline-start: 3px solid var(--lq-tour-focus-color);
+      border-radius: var(--lq-tour-radius-sm);
+      background: var(--lq-tour-secondary-surface);
+    }
+    [data-lodariq-node-type="callout"][data-lodariq-callout-tone="success"] {
+      border-inline-start-color: var(--lq-tour-primary-surface);
+    }
+    [data-lodariq-node-type="callout"][data-lodariq-callout-tone="warning"] {
+      border-inline-start-width: 5px;
+    }
+    [data-lodariq-node-type="stat"] {
+      font-size: 1.5em;
+      font-weight: 700;
+      line-height: 1.2;
+    }
+    [data-lodariq-node-type="stat"][data-lodariq-stat-emphasis="strong"] {
+      font-size: 2em;
+    }
+    [data-lodariq-node-type="icon"] {
+      display: flex;
+      align-items: center;
+      gap: var(--lq-tour-space-xs);
+      width: 100%;
+    }
+    .tour-composition-icon {
+      width: 1.25em;
+      height: 1.25em;
+      flex: none;
+    }
+
     @media (prefers-reduced-motion: reduce) {
       div[role="dialog"][data-lodariq-motion],
+      [data-lodariq-inline-motion],
       .tour-target-outline[data-lodariq-spotlight-pulse="true"] {
         animation: none;
       }
     }
 
     :host([data-lodariq-accessibility-preview="reducedMotion"]) div[role="dialog"],
+    :host([data-lodariq-accessibility-preview="reducedMotion"]) [data-lodariq-inline-motion],
     :host([data-lodariq-accessibility-preview="reducedMotion"]) .tour-target-outline {
       animation: none !important;
       transition: none !important;
@@ -122,6 +173,39 @@ export function createTourStyles(): HTMLStyleElement {
     .tour-accessibility-evidence ol,
     .tour-accessibility-evidence p { margin: var(--lq-tour-space-xs) 0 0; }
     .tour-accessibility-evidence ol { padding-inline-start: var(--lq-tour-space-md); }
+
+    .tour-choreography-recovery {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--lq-tour-space-xs);
+      margin-top: var(--lq-tour-space-sm);
+      padding-top: var(--lq-tour-space-sm);
+      border-top: var(--lq-tour-border-width) solid var(--lq-tour-border-color);
+    }
+
+    .tour-choreography-recovery p {
+      flex: 1 0 100%;
+      margin: 0;
+      color: var(--lq-popup-text, var(--lq-tour-text-color));
+      font-size: var(--lq-tour-small-font-size);
+    }
+
+    .tour-choreography-recovery button {
+      min-height: 36px;
+      padding: 0 var(--lq-tour-space-sm);
+      border: var(--lq-tour-border-width) solid var(--lq-tour-border-color);
+      border-radius: var(--lq-tour-radius-sm);
+      background: var(--lq-tour-secondary-surface);
+      color: var(--lq-tour-secondary-text);
+      font: inherit;
+      font-weight: var(--lq-tour-action-font-weight);
+      cursor: pointer;
+    }
+
+    .tour-choreography-recovery button:focus-visible {
+      outline: 2px solid var(--lq-tour-focus-color);
+      outline-offset: 2px;
+    }
 
     div[role="dialog"][data-lodariq-content-align="center"] { text-align: center; }
     div[role="dialog"][data-lodariq-content-align="right"] { text-align: right; }
@@ -157,39 +241,6 @@ export function createTourStyles(): HTMLStyleElement {
 
     .tour-content {
       min-width: 0;
-    }
-
-    .tour-choreography-recovery {
-      display: flex;
-      flex-wrap: wrap;
-      gap: var(--lq-tour-space-xs);
-      margin-top: var(--lq-tour-space-sm);
-      padding-top: var(--lq-tour-space-sm);
-      border-top: var(--lq-tour-border-width) solid var(--lq-tour-border-color);
-    }
-
-    .tour-choreography-recovery p {
-      flex: 1 0 100%;
-      margin: 0;
-      color: var(--lq-popup-text, var(--lq-tour-text-color));
-      font-size: var(--lq-tour-small-font-size);
-    }
-
-    .tour-choreography-recovery button {
-      min-height: 36px;
-      padding: 0 var(--lq-tour-space-sm);
-      border: var(--lq-tour-border-width) solid var(--lq-tour-border-color);
-      border-radius: var(--lq-tour-radius-sm);
-      background: var(--lq-tour-secondary-surface);
-      color: var(--lq-tour-secondary-text);
-      font: inherit;
-      font-weight: var(--lq-tour-action-font-weight);
-      cursor: pointer;
-    }
-
-    .tour-choreography-recovery button:focus-visible {
-      outline: 2px solid var(--lq-tour-focus-color);
-      outline-offset: 2px;
     }
 
     div[role="dialog"][data-lodariq-popup-height="custom"] > .tour-content {
@@ -336,7 +387,14 @@ export function createTourStyles(): HTMLStyleElement {
       border-top: var(--lq-tour-border-width) solid var(--lq-tour-border-color);
     }
 
-    [data-lodariq-node-type="media"] {
+    [data-lodariq-node-type="media"][data-lodariq-media-ready="true"] {
+      margin: var(--lq-tour-spacing) 0;
+      padding: 0;
+      border: 0;
+      background: transparent;
+    }
+
+    [data-lodariq-node-type="media"][data-lodariq-media-unavailable="true"] {
       margin: var(--lq-tour-spacing) 0;
       padding: var(--lq-tour-spacing);
       border: var(--lq-tour-border-width) dashed var(--lq-tour-border-color);

@@ -14,17 +14,23 @@ export const AUTHORING_AGREED_RESPONSIVE_CSS = `
       max-height: min(52%, 320px);
     }
 
-    .storyboard-property-tray > .rich-step-inspector.compact,
-    .storyboard-property-tray
-      > .rich-step-inspector.compact[data-has-font-size='false'] {
-      grid-template-columns: minmax(0, 1fr);
+    .storyboard-property-tray[data-tool-mode='placement'] > .placement-section {
+      grid-template-rows: auto auto minmax(0, 1fr);
+      overflow-y: auto;
     }
 
-    .storyboard-property-tray
-      > .rich-step-inspector.compact
-      > .rich-step-font-size-field
-      .ui-number-combobox {
-      max-width: 100%;
+    .rich-content-toolbar {
+      align-content: flex-start;
+      max-height: none;
+      overflow: visible;
+    }
+
+    .rich-content-toolbar-spacer {
+      display: none;
+    }
+
+    .rich-content-spacing-control {
+      margin-left: 4px;
     }
 
     .storyboard-property-tray[data-tool-mode='content']

@@ -1,5 +1,18 @@
 import type { TSchema } from '@sinclair/typebox';
 import {
+  AuthoringDeliveryCapability,
+  AuthoringDeliveryCapabilityMetadata,
+} from './authoring-capabilities';
+import {
+  AuthoringDraftCheckpointResource,
+  AuthoringMediaAssetKind,
+  AuthoringMediaAssetResource,
+  AuthoringResourceLibrary,
+  AuthoringStepStyleRecipeResource,
+  SaveAuthoringResourceLibraryRequest,
+  UploadAuthoringMediaAssetRequest,
+} from './authoring-resources';
+import {
   Environment,
   DocumentType,
   DocumentStatus,
@@ -61,6 +74,7 @@ import {
   ResponsiveStepOverride,
   ResponsiveStepPresentation,
   SpotlightPresentation,
+  StructuredCompositionPresentation,
   TourMotionPresentation,
 } from './presentation';
 import {
@@ -207,6 +221,9 @@ import {
   BridgeEnvelope,
   AuthoringTransactionScope,
   PreviewTransactionMetadata,
+  PreviewTransactionResultState,
+  AuthoringDiagnosticEventName,
+  AuthoringDiagnosticAttributes,
   ScrollState,
   PreviewPatch,
   PreviewPatchOperation,
@@ -228,6 +245,8 @@ import {
   StyleSampleResultMessage,
   StyleSampleCanceledMessage,
   BrandTokensAvailableMessage,
+  PreviewTransactionResultMessage,
+  AuthoringDiagnosticRecordMessage,
   BridgeMessage,
 } from './bridge';
 import {
@@ -317,6 +336,15 @@ import { AuthoringWorkspaceView } from './authoring-workspace';
  * with Ajv (PRD §11.1).
  */
 export const SCHEMA_REGISTRY: TSchema[] = [
+  AuthoringDeliveryCapability,
+  AuthoringDeliveryCapabilityMetadata,
+  AuthoringStepStyleRecipeResource,
+  AuthoringDraftCheckpointResource,
+  AuthoringMediaAssetKind,
+  AuthoringMediaAssetResource,
+  AuthoringResourceLibrary,
+  SaveAuthoringResourceLibraryRequest,
+  UploadAuthoringMediaAssetRequest,
   Environment,
   DocumentType,
   DocumentStatus,
@@ -364,6 +392,7 @@ export const SCHEMA_REGISTRY: TSchema[] = [
   ResponsiveStepPresentation,
   MediaPresentation,
   SpotlightPresentation,
+  StructuredCompositionPresentation,
   InlineTextRun,
   PresentationAnchor,
   ExactPresentationAnchor,
@@ -506,6 +535,9 @@ export const SCHEMA_REGISTRY: TSchema[] = [
   BridgeEnvelope,
   AuthoringTransactionScope,
   PreviewTransactionMetadata,
+  PreviewTransactionResultState,
+  AuthoringDiagnosticEventName,
+  AuthoringDiagnosticAttributes,
   ScrollState,
   PreviewPatchOperation,
   PreviewPatch,
@@ -527,6 +559,8 @@ export const SCHEMA_REGISTRY: TSchema[] = [
   StyleSampleResultMessage,
   StyleSampleCanceledMessage,
   BrandTokensAvailableMessage,
+  PreviewTransactionResultMessage,
+  AuthoringDiagnosticRecordMessage,
   BridgeMessage,
   AnalyticsEvent,
   AnalyticsPropertyValue,
@@ -612,6 +646,15 @@ export const SCHEMA_REGISTRY: TSchema[] = [
  * also mounted directly on routes.
  */
 export const FASTIFY_REFERENCE_SCHEMA_REGISTRY: TSchema[] = [
+  AuthoringDeliveryCapability,
+  AuthoringDeliveryCapabilityMetadata,
+  AuthoringStepStyleRecipeResource,
+  AuthoringDraftCheckpointResource,
+  AuthoringMediaAssetKind,
+  AuthoringMediaAssetResource,
+  AuthoringResourceLibrary,
+  SaveAuthoringResourceLibraryRequest,
+  UploadAuthoringMediaAssetRequest,
   Environment,
   DocumentType,
   DocumentStatus,
@@ -646,6 +689,7 @@ export const FASTIFY_REFERENCE_SCHEMA_REGISTRY: TSchema[] = [
   ResponsiveStepPresentation,
   MediaPresentation,
   SpotlightPresentation,
+  StructuredCompositionPresentation,
   PresentationAnchor,
   InlineTextRun,
   TextStyleProps,

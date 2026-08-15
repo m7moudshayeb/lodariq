@@ -2,6 +2,7 @@ import { canonicalJson } from '@lodariq/compiler';
 import { AuthoringDocumentPayload, LodariqDocument, validate } from '@lodariq/schema';
 import { PUBLIC_MANIFEST_SCHEMA_VERSION } from '@lodariq/schema/version';
 import type { FastifyInstance } from 'fastify';
+import { DocumentSaveConflictError } from '@lodariq/database';
 import { createObservabilityEvent } from '../../observability';
 import { emitObservability } from '../control-plane-access';
 import {
@@ -333,7 +334,11 @@ export function registerSdkDeliveryRoutes(
         return sendAuthoringSessionCompatibilityChanged(reply);
       }
 
-      return validateAuthoringDocumentPayload({ document: record.document, theme });
+      return validateAuthoringDocumentPayload({
+        document: record.document,
+        documentUpdatedAt: record.updatedAt,
+        theme,
+      });
     },
   );
 
@@ -354,7 +359,10 @@ export function registerSdkDeliveryRoutes(
       if (!authoringSession) return;
       setCredentialResponseHeaders(reply);
 
-      const body = request.body as { document: unknown };
+      const body = request.body as {
+        document: unknown;
+        expectedDocumentUpdatedAt?: string;
+      };
       const canonical = validate(LodariqDocument, body.document);
       if (!canonical.valid) {
         return reply.code(400).send({
@@ -395,12 +403,27 @@ export function registerSdkDeliveryRoutes(
           attributes: { source: 'creator-save', contentHash: compiled.contentHash },
         }),
       );
-      const saved = await options.repository.saveDocument({
-        workspaceId: token.workspaceId,
-        actorUserId: authoringSession.createdByUserId,
-        document,
-        artifact: compiled,
-      });
+      let saved;
+      try {
+        saved = await options.repository.saveDocument({
+          workspaceId: token.workspaceId,
+          actorUserId: authoringSession.createdByUserId,
+          document,
+          artifact: compiled,
+          ...(body.expectedDocumentUpdatedAt
+            ? { expectedUpdatedAt: body.expectedDocumentUpdatedAt }
+            : {}),
+        });
+      } catch (error) {
+        if (error instanceof DocumentSaveConflictError) {
+          return reply.code(409).send({
+            error: 'document_conflict',
+            message: 'The draft changed in another authoring session; reload before saving',
+            currentDocumentUpdatedAt: error.currentUpdatedAt,
+          });
+        }
+        throw error;
+      }
       emitObservability(
         options.observability,
         createObservabilityEvent({

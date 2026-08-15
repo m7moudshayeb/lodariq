@@ -1,4 +1,5 @@
 import type {
+  AuthoringMediaAssetResource,
   InlineTextRun,
   LodariqBlock,
   LodariqDocument,
@@ -171,6 +172,7 @@ export abstract class ControllerReliabilityFeature extends ControllerDragDropFea
       extractTourStepStyle(step),
     );
     this.services.saveStepStyleRecipes?.(this.stepStyleRecipes.list());
+    void this.persistAuthoringResources();
     this.setStatus(authoringText('Saved style recipe {name}', { name: recipe.name }));
   }
 
@@ -193,11 +195,13 @@ export abstract class ControllerReliabilityFeature extends ControllerDragDropFea
     const recipe = this.stepStyleRecipes.get(recipeId);
     if (!recipe || !this.stepStyleRecipes.delete(recipeId)) return;
     this.services.saveStepStyleRecipes?.(this.stepStyleRecipes.list());
+    void this.persistAuthoringResources();
     this.setStatus(authoringText('Deleted style recipe {name}', { name: recipe.name }));
   }
 
   saveDraftCheckpoint(name: string): void {
     const checkpoint = this.draftCheckpoints.save(name, this.documentState);
+    void this.persistAuthoringResources();
     this.recordMetric('checkpoint.saved');
     this.setStatus(authoringText('Saved checkpoint {name}', { name: checkpoint.name }));
   }
@@ -238,7 +242,75 @@ export abstract class ControllerReliabilityFeature extends ControllerDragDropFea
 
   deleteDraftCheckpoint(checkpointId: string): void {
     if (!this.draftCheckpoints.delete(checkpointId)) return;
+    void this.persistAuthoringResources();
     this.setStatus(authoringText('Checkpoint deleted'));
+  }
+
+  canUploadMediaAssets(): boolean {
+    return Boolean(
+      this.services.uploadMediaAsset && this.deliveryCapabilities.has('media-assets.v1'),
+    );
+  }
+
+  async resolveMediaAssetPreview(assetId: string): Promise<string | null> {
+    const cached = this.mediaAssetPreviewUrls.get(assetId);
+    if (cached) return cached;
+    const pending = this.mediaAssetPreviewRequests.get(assetId);
+    if (pending) return pending;
+    const asset = this.mediaAssets.find((candidate) => candidate.id === assetId);
+    const loadPreview = this.services.loadMediaAssetPreview;
+    if (!asset || !loadPreview || typeof URL.createObjectURL !== 'function') return null;
+    const request = loadPreview(structuredClone(asset))
+      .then((blob) => {
+        const url = URL.createObjectURL(blob);
+        this.mediaAssetPreviewUrls.set(assetId, url);
+        return url;
+      })
+      .catch(() => null)
+      .finally(() => this.mediaAssetPreviewRequests.delete(assetId));
+    this.mediaAssetPreviewRequests.set(assetId, request);
+    return request;
+  }
+
+  async uploadMediaAsset(
+    kind: 'image' | 'video' | 'captions',
+    file: File,
+    options: { onProgress?: (progress: number) => void; savedToLibrary: boolean } = {
+      savedToLibrary: false,
+    },
+  ): Promise<AuthoringMediaAssetResource | null> {
+    const upload = this.services.uploadMediaAsset;
+    if (!upload || !this.deliveryCapabilities.has('media-assets.v1')) return null;
+    this.setStatus(authoringText('Uploading media…'));
+    options.onProgress?.(0);
+    try {
+      const asset = await upload(kind, file, options);
+      this.mediaAssets = [
+        asset,
+        ...this.mediaAssets.filter((candidate) => candidate.id !== asset.id),
+      ];
+      if (typeof URL.createObjectURL === 'function') {
+        const existing = this.mediaAssetPreviewUrls.get(asset.id);
+        if (existing && typeof URL.revokeObjectURL === 'function') URL.revokeObjectURL(existing);
+        this.mediaAssetPreviewUrls.set(asset.id, URL.createObjectURL(file));
+      }
+      this.setStatus(authoringText('Media uploaded'));
+      options.onProgress?.(100);
+      return structuredClone(asset);
+    } catch {
+      this.setStatus(authoringText('Media upload failed. Try again.'));
+      return null;
+    }
+  }
+
+  private async persistAuthoringResources(): Promise<void> {
+    const persist = this.services.saveAuthoringResources;
+    if (!persist) return;
+    try {
+      await persist(this.stepStyleRecipes.list(), this.draftCheckpoints.list());
+    } catch {
+      this.setStatus(authoringText('Authoring resources could not be saved'));
+    }
   }
 
   protected commitCoordinatedMutation({
@@ -274,8 +346,12 @@ export abstract class ControllerReliabilityFeature extends ControllerDragDropFea
     this.services.saveDocument(this.documentState);
     const transaction = previewTransactionMetadata(staged.transaction);
     this.sendPreviewPatch(blockId, staged.transaction.operations, undefined, transaction);
-    this.recordMetric(staged.coalesced ? 'transaction.coalesced' : 'transaction.committed');
-    this.recordMetric('transaction.persisted');
+    this.recordMetric(staged.coalesced ? 'transaction.coalesced' : 'transaction.committed', {
+      transactionId: staged.transaction.transactionId,
+      revision: staged.transaction.revision,
+      scope: staged.transaction.scope,
+      count: staged.transaction.operations.length,
+    });
     this.setStatus(status);
   }
 

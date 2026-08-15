@@ -17,6 +17,13 @@ export interface AuthoringDraftCheckpointComparison {
 export class AuthoringDraftCheckpointStore {
   private readonly checkpoints = new Map<string, AuthoringDraftCheckpoint>();
 
+  constructor(initialCheckpoints: readonly AuthoringDraftCheckpoint[] = []) {
+    for (const checkpoint of initialCheckpoints) {
+      if (!checkpoint.id || !checkpoint.name || !checkpoint.createdAt) continue;
+      this.checkpoints.set(checkpoint.id, structuredClone(checkpoint));
+    }
+  }
+
   save(name: string, document: LodariqDocument, now = new Date()): AuthoringDraftCheckpoint {
     const boundedName = name.trim().slice(0, 80);
     if (!boundedName) throw new Error('Checkpoint name is required');

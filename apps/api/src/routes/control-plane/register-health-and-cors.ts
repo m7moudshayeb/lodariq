@@ -104,6 +104,9 @@ export function registerHealthAndCorsRoutes(
 
   for (const path of [
     '/v1/authoring/document',
+    '/v1/authoring/resources',
+    '/v1/authoring/media-assets',
+    '/v1/authoring/media-assets/:assetId',
     HOSTED_AUTHORING_TRANSLATION_PATH,
     '/v1/authoring/documents/query',
     '/v1/authoring/activation/revoke',

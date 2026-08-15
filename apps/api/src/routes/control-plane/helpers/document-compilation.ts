@@ -7,6 +7,7 @@ import {
   LODARIQ_ACCESSIBLE_FALLBACK_THEME_V1,
   RENDERER_CONTRACT_VERSION,
   publishReadinessIssueLabel,
+  collectTourMediaAssetIds,
   validate,
   validateTourPublishReadiness,
   type BrandThemeSnapshot as BrandThemeSnapshotType,
@@ -124,17 +125,21 @@ export async function listDocumentSummariesWithReadiness(
   repository: ControlPlaneRepository,
   workspaceId: string,
 ): Promise<DocumentSummaryWithReleaseEvidence[]> {
-  const [summaries, workspaceDeployments] = await Promise.all([
+  const [summaries, workspaceDeployments, mediaAssets] = await Promise.all([
     repository.listDocuments(workspaceId),
     repository.listDocumentDeployments(workspaceId),
+    repository.listAuthoringMediaAssets(workspaceId),
   ]);
+  const validMediaAssets = new Map(mediaAssets.map((asset) => [asset.id, asset.kind]));
   return Promise.all(
     summaries.map(async (summary) => {
       const [record, publicationRecords] = await Promise.all([
         repository.getDocument(workspaceId, summary.id),
         repository.listDocumentPublications(workspaceId, summary.id),
       ]);
-      const issues = record ? validateDocumentReleaseReadiness(record.document) : [];
+      const issues = record
+        ? validateDocumentReleaseReadiness(record.document, validMediaAssets)
+        : [];
       const deployments = workspaceDeployments.filter(
         (deployment) => deployment.documentId === summary.id,
       );
@@ -156,8 +161,49 @@ export async function listDocumentSummariesWithReadiness(
 
 export function validateDocumentReleaseReadiness(
   document: LodariqDocument,
+  validMediaAssets?: ReadonlyMap<string, 'image' | 'video' | 'captions'>,
 ): PublishReadinessIssue[] {
-  return validateTourPublishReadiness(document);
+  return validateTourPublishReadiness(document, {
+    ...(validMediaAssets ? { validMediaAssets, requireValidMediaAssets: true } : {}),
+  });
+}
+
+export async function validMediaAssetsForDocument(
+  repository: ControlPlaneRepository,
+  document: LodariqDocument,
+): Promise<ReadonlyMap<string, 'image' | 'video' | 'captions'>> {
+  const referenced = collectTourMediaAssetIds(document);
+  if (referenced.length === 0) return new Map();
+  const referencedIds = new Set(referenced);
+  const assets = await repository.listAuthoringMediaAssets(document.workspaceId);
+  return new Map(
+    assets.filter((asset) => referencedIds.has(asset.id)).map((asset) => [asset.id, asset.kind]),
+  );
+}
+
+export function compiledMediaAssetIds(compiled: CompiledDocumentType): string[] {
+  const assetIds = new Set<string>();
+  for (const step of compiled.steps) {
+    for (const node of step.body) {
+      const media = (
+        node.props as {
+          media?: {
+            assetId: string;
+            kind: 'image' | 'video';
+            captionsAssetId?: string;
+            posterAssetId?: string;
+          };
+        }
+      ).media;
+      if (!media) continue;
+      assetIds.add(media.assetId);
+      if (media.kind === 'video') {
+        if (media.captionsAssetId) assetIds.add(media.captionsAssetId);
+        if (media.posterAssetId) assetIds.add(media.posterAssetId);
+      }
+    }
+  }
+  return [...assetIds];
 }
 
 export interface DocumentSummaryWithReleaseEvidence extends Omit<DocumentSummary, 'publications'> {

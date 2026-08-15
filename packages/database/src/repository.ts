@@ -55,6 +55,7 @@ export * from './domains/sdk-authoring';
 export * from './domains/releases';
 export * from './domains/documents';
 export * from './domains/analytics';
+export * from './domains/authoring-resources';
 export * from './domains/control-plane-repository';
 export * from './domains/release-recovery';
 export * from './domains/authoring-policy';

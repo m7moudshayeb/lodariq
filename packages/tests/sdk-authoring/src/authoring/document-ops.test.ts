@@ -17,6 +17,7 @@ import {
   renumberTourSteps,
   removeStepChildBlock,
   removeTargetFromBlocks,
+  replaceRichContentInsideTourStep,
   reorderStepChildBlock,
   reorderTopLevelBlock,
   setBlockAction,
@@ -75,6 +76,33 @@ describe('authoring document ops', () => {
     expect(step.children[0]?.children[2]).toMatchObject({
       content: 'Continue',
       props: { variant: 'primary', action: { type: 'next' } },
+    });
+  });
+
+  it('creates typed accessible callout, stat, and icon compositions', () => {
+    expect(createContentBlock('callout')).toMatchObject({
+      type: 'callout',
+      props: {
+        accessibilityName: expect.any(String),
+        composition: { kind: 'callout', tone: 'info' },
+      },
+      status: 'ready',
+    });
+    expect(createContentBlock('stat')).toMatchObject({
+      type: 'stat',
+      props: {
+        accessibilityName: expect.any(String),
+        composition: { kind: 'stat', emphasis: 'strong' },
+      },
+      status: 'ready',
+    });
+    expect(createContentBlock('icon')).toMatchObject({
+      type: 'icon',
+      props: {
+        accessibilityName: expect.any(String),
+        composition: { kind: 'icon', icon: 'info' },
+      },
+      status: 'ready',
     });
   });
 
@@ -457,6 +485,41 @@ describe('authoring document ops', () => {
       duplicatedChildren[3]?.id,
     ]);
     expect(blocks[0]?.children[0]?.children.map((block) => block.id)).toEqual(['copy_1']);
+  });
+
+  it('replaces CTA placement as part of the ordered freeform rich-content document', () => {
+    const step = createTourStep(0);
+    const tooltip = step.children[0]!;
+    const button = tooltip.children.find((block) => block.type === 'button')!;
+    const firstRichContent = tooltip.children.find(
+      (block) => block.type !== 'button' && block.type !== 'link',
+    )!;
+    const replacementCopy = {
+      ...createContentBlock('paragraph', 'Replacement copy'),
+      id: 'replacement_copy',
+    };
+    const replacementBefore = [button, replacementCopy];
+    const replacementAfter = [replacementCopy, button];
+    const buttonBefore = reorderStepChildBlock(
+      [step],
+      step.id,
+      button.id,
+      firstRichContent.id,
+      'before',
+    );
+    const replacedBefore = buttonBefore
+      ? replaceRichContentInsideTourStep(buttonBefore, step.id, replacementBefore)
+      : null;
+    const replacedAfter = replaceRichContentInsideTourStep([step], step.id, replacementAfter);
+
+    expect(replacedBefore?.[0]?.children[0]?.children.map((block) => block.id)).toEqual([
+      button.id,
+      'replacement_copy',
+    ]);
+    expect(replacedAfter?.[0]?.children[0]?.children.map((block) => block.id)).toEqual([
+      'replacement_copy',
+      button.id,
+    ]);
   });
 
   it('wraps loose root content as tour steps for tour authoring', () => {

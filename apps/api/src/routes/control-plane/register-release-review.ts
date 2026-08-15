@@ -24,6 +24,7 @@ import {
   toPublishReadinessIssueResponse,
   toPublicationResponse,
   validateDocumentReleaseReadiness,
+  validMediaAssetsForDocument,
 } from './helpers';
 
 export function registerReleaseReviewRoutes(
@@ -192,9 +193,10 @@ export function registerReleaseReviewRoutes(
       return {
         canonical: record.document,
         latestArtifact: record.latestArtifact ?? null,
-        publishReadinessIssues: validateDocumentReleaseReadiness(record.document).map(
-          toPublishReadinessIssueResponse,
-        ),
+        publishReadinessIssues: validateDocumentReleaseReadiness(
+          record.document,
+          await validMediaAssetsForDocument(options.repository, record.document),
+        ).map(toPublishReadinessIssueResponse),
         versions,
       };
     },

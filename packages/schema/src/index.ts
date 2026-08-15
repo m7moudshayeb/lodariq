@@ -13,6 +13,8 @@ export * from './tour-flow-contract';
 export * from './tour-flow-analysis';
 export * from './presentation';
 export * from './authoring-style';
+export * from './authoring-capabilities';
+export * from './authoring-resources';
 export * from './contrast';
 export * from './target';
 export * from './target-verification';

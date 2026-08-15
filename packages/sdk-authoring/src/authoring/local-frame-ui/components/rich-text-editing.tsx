@@ -13,6 +13,9 @@ export const EDITOR_BLOCK_TYPE_OPTIONS = [
   { value: 'link', label: authoringText('Link') },
   { value: 'media', label: authoringText('Media') },
   { value: 'divider', label: authoringText('Divider') },
+  { value: 'callout', label: authoringText('Callout') },
+  { value: 'stat', label: authoringText('Stat') },
+  { value: 'icon', label: authoringText('Icon') },
 ] as const;
 
 export const BLOCK_EDITOR_LABELS: Partial<Record<LodariqBlock['type'], string>> = {
@@ -23,12 +26,18 @@ export const BLOCK_EDITOR_LABELS: Partial<Record<LodariqBlock['type'], string>> 
   button: authoringText('button'),
   link: authoringText('link'),
   media: authoringText('media'),
+  callout: authoringText('Callout'),
+  stat: authoringText('Stat'),
+  icon: authoringText('Icon'),
 };
 
 export const BLOCK_EDITOR_INPUT_LABELS: Partial<Record<LodariqBlock['type'], string>> = {
   button: authoringText('Button label'),
   link: authoringText('Link label'),
   media: authoringText('Media description'),
+  callout: authoringText('Callout'),
+  stat: authoringText('Stat'),
+  icon: authoringText('Icon'),
 };
 export function blockTypeEditorLabel(block: LodariqBlock): string {
   return BLOCK_EDITOR_LABELS[block.type] ?? authoringText('content');

@@ -1,7 +1,10 @@
 import type { AuthoringAccessibilityPreviewMode, CompiledDocument } from '@lodariq/schema';
 import type { TargetResolutionContext } from '../resolver';
 import type { AuthoringTargetOverride, TourTargetResolutionDiagnostic } from '../renderers/tour';
-import type { ChoreographyStageUpdate } from '../renderers/tour-choreography';
+import type {
+  ChoreographyRecoveryUpdate,
+  ChoreographyStageUpdate,
+} from '../renderers/tour-choreography';
 import type { ProtectedSurfaceRect } from '../renderers/protected-surface';
 import type { TourFlowConditionContext } from '../renderers/tour-flow';
 
@@ -20,6 +23,10 @@ export interface TourPlaybackOptions {
   onChoreographyStageChange?: (
     step: CompiledDocument['steps'][number],
     update: ChoreographyStageUpdate,
+  ) => void;
+  onChoreographyRecovery?: (
+    step: CompiledDocument['steps'][number],
+    update: ChoreographyRecoveryUpdate,
   ) => void;
   flowConditionContext?: Pick<TourFlowConditionContext, 'identifyTraits' | 'documentState'>;
   onBranchChoice?: (
@@ -68,6 +75,10 @@ export interface TourRendererModule {
       onChoreographyStageChange?: (
         step: CompiledDocument['steps'][number],
         update: ChoreographyStageUpdate,
+      ) => void;
+      onChoreographyRecovery?: (
+        step: CompiledDocument['steps'][number],
+        update: ChoreographyRecoveryUpdate,
       ) => void;
       getAuthoringProtectedSurfaces?: () => readonly ProtectedSurfaceRect[];
       onAuthoringSurfaceChange?: (rect: ProtectedSurfaceRect | null) => void;

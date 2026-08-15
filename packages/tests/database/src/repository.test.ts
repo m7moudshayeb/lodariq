@@ -5,6 +5,7 @@ import {
   AmbiguousCurrentPublicationError,
   DEPLOYMENT_CHANGED_ERROR_CODE,
   DeploymentChangedError,
+  DocumentSaveConflictError,
   IDEMPOTENCY_CONFLICT_ERROR_CODE,
   IdempotencyConflictError,
   createControlPlaneRepositoryFromEnvironment,
@@ -41,7 +42,7 @@ import {
   type LodariqDocument,
 } from '@lodariq/schema';
 import tourFixture from '@lodariq/schema/fixtures/tour.linear.v1.json';
-import { readInitialBaseline } from './migration-test-utils.js';
+import { readInitialBaseline, readMigrationChain } from './migration-test-utils.js';
 
 const baseDocument = tourFixture as LodariqDocument;
 
@@ -138,6 +139,81 @@ describe('control-plane repository', () => {
         document,
       }),
     ).rejects.toThrow(/workspace scope mismatch/);
+  });
+
+  it('uses compare-and-swap revisions so a stale authoring save cannot win', async () => {
+    const document = withWorkspace(baseDocument, 'wk_a');
+    const repository = createInMemoryControlPlaneRepository({ documents: [document] });
+    const loaded = await repository.getDocument('wk_a', document.id);
+    if (!loaded) throw new Error('fixture document missing');
+
+    const first = structuredClone(document);
+    first.title = 'First saved revision';
+    const saved = await repository.saveDocument({
+      workspaceId: 'wk_a',
+      actorUserId: 'user_a',
+      document: first,
+      expectedUpdatedAt: loaded.updatedAt,
+    });
+    expect(saved.document.title).toBe('First saved revision');
+
+    const stale = structuredClone(document);
+    stale.title = 'Stale overwrite';
+    await expect(
+      repository.saveDocument({
+        workspaceId: 'wk_a',
+        actorUserId: 'user_b',
+        document: stale,
+        expectedUpdatedAt: loaded.updatedAt,
+      }),
+    ).rejects.toBeInstanceOf(DocumentSaveConflictError);
+    await expect(repository.getDocument('wk_a', document.id)).resolves.toMatchObject({
+      document: { title: 'First saved revision' },
+    });
+  });
+
+  it('persists authoring checkpoints and publishes only explicitly released media assets', async () => {
+    const document = withWorkspace(baseDocument, 'wk_a');
+    const repository = createInMemoryControlPlaneRepository({ documents: [document] });
+    await repository.saveAuthoringResources({
+      workspaceId: 'wk_a',
+      documentId: document.id,
+      actorUserId: 'user_a',
+      recipes: [],
+      checkpoints: [
+        {
+          id: 'checkpoint-one',
+          name: 'Before branching',
+          createdAt: '2026-08-14T10:00:00.000Z',
+          document,
+        },
+      ],
+    });
+    await expect(
+      repository.listAuthoringDraftCheckpoints('wk_a', document.id),
+    ).resolves.toHaveLength(1);
+
+    const asset = await repository.createAuthoringMediaAsset({
+      workspaceId: 'wk_a',
+      actorUserId: 'user_a',
+      kind: 'image',
+      filename: 'tour.png',
+      contentType: 'image/png',
+      contentBase64: 'iVBORw0KGgo=',
+      byteLength: 8,
+      contentHash: `sha256-${'a'.repeat(64)}`,
+      savedToLibrary: true,
+    });
+    await expect(repository.listAuthoringMediaAssets('wk_a')).resolves.toEqual([
+      expect.objectContaining({ id: asset.id, savedToLibrary: true }),
+    ]);
+    await expect(repository.getPublishedMediaAsset(asset.id)).resolves.toBeNull();
+    await repository.publishAuthoringMediaAssets('wk_a', [asset.id]);
+    await expect(repository.getPublishedMediaAsset(asset.id)).resolves.toMatchObject({
+      id: asset.id,
+      workspaceId: 'wk_a',
+      publishedAt: expect.any(String),
+    });
   });
 
   it('records workspace-scoped document versions and links compiled artifacts to the producing version', async () => {
@@ -2304,9 +2380,9 @@ describe('control-plane repository', () => {
   });
 });
 
-describe('tenant-scoped database baseline', () => {
+describe('tenant-scoped database migrations', () => {
   it('enables row-level security policies on every tenant-scoped table', () => {
-    const migration = readInitialBaseline();
+    const migration = readMigrationChain();
 
     for (const table of tenantScopedTableNames) {
       expect(migration).toContain(`alter table ${table} enable row level security`);

@@ -54,6 +54,48 @@ describe('editor document migrations (PRD §16.1)', () => {
     expect(toBlockJson(parsed as ReturnType<typeof fromBlockJson>)).toEqual(blocks);
   });
 
+  it('round-trips typed structured composition blocks through the authoring editor boundary', () => {
+    const blocks = [
+      {
+        id: 'block_callout_1',
+        type: 'callout',
+        content: 'Review the workspace permissions.',
+        props: {
+          accessibilityName: 'Workspace permission reminder',
+          composition: { kind: 'callout', tone: 'warning' },
+        },
+        status: 'ready',
+        children: [],
+      },
+      {
+        id: 'block_stat_1',
+        type: 'stat',
+        content: '42% adoption',
+        props: {
+          accessibilityName: 'Adoption is 42 percent',
+          composition: { kind: 'stat', emphasis: 'strong' },
+        },
+        status: 'ready',
+        children: [],
+      },
+      {
+        id: 'block_icon_1',
+        type: 'icon',
+        content: 'Recommended',
+        props: {
+          accessibilityName: 'Recommended path',
+          composition: { kind: 'icon', icon: 'star' },
+        },
+        status: 'ready',
+        children: [],
+      },
+    ] as LodariqDocument['blocks'];
+    const editor = createLodariqEditor();
+    const parsed = editor.parseEditorState(JSON.stringify(fromBlockJson(blocks))).toJSON();
+
+    expect(toBlockJson(parsed as ReturnType<typeof fromBlockJson>)).toEqual(blocks);
+  });
+
   it('round-trips structured inline text runs through the Lexical boundary', () => {
     const blocks = [
       {

@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import {
+  AUTHORING_RESOURCES_FILE_NAME,
   INITIAL_BASELINE_FILE_NAME,
   PUBLICATION_VERIFICATION_RENDERER_CONTRACT_FILE_NAME,
   PUBLICATION_VERIFICATION_RENDERER_V3_FILE_NAME,
@@ -26,6 +27,7 @@ describe('database migration safety guard', () => {
       PUBLICATION_VERIFICATION_RENDERER_V3_FILE_NAME,
       PUBLICATION_VERIFICATION_RENDERER_V4_FILE_NAME,
       PUBLICATION_VERIFICATION_RENDERER_CONTRACT_FILE_NAME,
+      AUTHORING_RESOURCES_FILE_NAME,
     ]);
   });
 

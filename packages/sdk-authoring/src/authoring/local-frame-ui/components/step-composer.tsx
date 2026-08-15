@@ -3,7 +3,11 @@ import { createPortal } from 'react-dom';
 import { authoringText } from '../../../i18n';
 import type { LocalAuthoringFrameController } from '../controller';
 import { AuthoringButton, Plus } from '../design-system';
-import { STEP_CONTENT_COMMANDS, type StepContentCommand } from '../types';
+import {
+  STEP_CONTENT_COMMANDS,
+  STEP_CONTENT_ENTRY_COMMANDS,
+  type StepContentCommand,
+} from '../types';
 import { blockTypeLabel, stepContentCommandFromQuery } from '../utils';
 import { COMMAND_DETAILS } from './insert-menu';
 
@@ -35,7 +39,7 @@ export function StepComposer({
   const isCommandMenuOpen = trimmedValue.length > 0 || isPickerOpen;
   const showsCommands = isSlashCommand || (isPickerOpen && !isPlainText);
   const commandQuery = isSlashCommand ? trimmedValue.slice(1).toLowerCase() : '';
-  const filteredCommands = filterStepContentCommands(showsCommands, commandQuery);
+  const filteredCommands = filterStepContentCommands(isSlashCommand, commandQuery);
   const insert = (type: StepContentCommand, content?: string): void => {
     controller.insertStepContent(stepBlockId, type, index, content);
     setValue('');
@@ -148,7 +152,7 @@ export function StepComposer({
           }
         />
         <div className="step-quick-insert" aria-label={authoringText('Add content to this step')}>
-          {STEP_CONTENT_COMMANDS.map((command) => (
+          {STEP_CONTENT_ENTRY_COMMANDS.map((command) => (
             <AuthoringButton
               key={command}
               aria-label={authoringText('Add {type} to this step', {
@@ -267,7 +271,8 @@ function filterStepContentCommands(
   isSlashCommand: boolean,
   commandQuery: string,
 ): readonly StepContentCommand[] {
-  if (!isSlashCommand || commandQuery.length === 0) return STEP_CONTENT_COMMANDS;
+  if (!isSlashCommand) return STEP_CONTENT_ENTRY_COMMANDS;
+  if (commandQuery.length === 0) return STEP_CONTENT_COMMANDS;
   return STEP_CONTENT_COMMANDS.filter((command) => stepCommandMatchesQuery(command, commandQuery));
 }
 
@@ -338,11 +343,6 @@ function stepQuickInsertLabel(command: StepContentCommand): string {
 }
 
 const STEP_QUICK_INSERT_LABELS = {
-  heading: authoringText('Title'),
-  paragraph: authoringText('Text'),
-  list: authoringText('List'),
-  divider: authoringText('Divider'),
+  paragraph: authoringText('Rich content'),
   button: authoringText('Button'),
-  link: authoringText('Link'),
-  media: authoringText('Media'),
 } as const satisfies Record<StepContentCommand, string>;

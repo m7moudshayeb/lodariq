@@ -33,7 +33,7 @@ references like (PRD §16.0) point to that document.
   smoke/convergence evidence, the B4 measurement-backed ADR, and usability
   evidence remain pending**
   (PRD §16.4)
-- Last updated: 2026-08-09
+- Last updated: 2026-08-15
 - Current execution plan:
   `docs/plans/phase-2-technical-completion.md`
 
@@ -43,6 +43,30 @@ Status legend:
 - 🟡 Scaffolded — structure/contract in place; full behavior lands in a later phase.
 - ⏳ Pending — not started yet (belongs to a later phase).
 - ➖ N/A yet — deliberately deferred per the PRD.
+
+---
+
+## 2026-08-15 Tour rich-content checkpoint
+
+- The Tour popup uses one reusable freeform Rich Content editor for text,
+  headings, lists, callouts, dividers, links, emoji, allowlisted Lucide icons,
+  images/GIFs, videos/captions, inline highlight/motion, numeric spacing, and
+  resizable media. CTA buttons remain separate action items and can move before
+  or after the content.
+- Canonical output remains closed Lodariq block JSON with bounded inline runs;
+  Lexical, React, Frimousse, selection state, upload progress, and object URLs
+  remain authoring-only.
+- Hosted media continues through the authenticated API. Local media metadata
+  and Blobs now persist atomically in IndexedDB and resolve on demand across
+  editor iframe lifecycles.
+- Focused rich-content/canvas and local-dev tests, SDK authoring typecheck,
+  lint, formatting, and build pass. The latest delta still needs the final
+  in-app close/reopen media check and a fresh full repository regression gate;
+  earlier full verification remains a pre-expansion baseline.
+
+See `docs/guides/rich-content-authoring.md` and
+`docs/plans/tour-authoring-reliability-and-capabilities.md` for the detailed
+contract and completion boundary.
 
 ---
 
@@ -70,7 +94,7 @@ Status legend:
 | `packages/sdk-authoring` `@lodariq/sdk-authoring` (PRD §16.0)       | ✅     | authoring, bridge, editor                                              |
 | └ `src/authoring` (PRD §16.0)                                       | 🟡     | Local iframe shell + target-pick wiring                                |
 | └ `src/bridge` (PRD §16.0)                                          | 🟡     | Origin checks, validation, ack/timeouts, target pick                   |
-| └ `src/editor` (PRD §16.0)                                          | 🟡     | Lexical boundary, stable IDs, serialize/migrate hooks                  |
+| └ `src/editor` (PRD §16.0)                                          | ✅     | Reusable freeform Rich Content editor; see the rich-content guide      |
 | `apps/fixture-host` (PRD §16.0)                                     | ✅     | SaaS-like routes/drawer/scroll/lazy + SDK boot                         |
 | `apps/customer-like-host` (PRD §16.2)                               | ✅     | Secondary SDK host for Phase 0 overfitting checks                      |
 | `apps/sdk-playground` (PRD §16.0)                                   | ✅     | Compiles fixture to delivery JSON                                      |

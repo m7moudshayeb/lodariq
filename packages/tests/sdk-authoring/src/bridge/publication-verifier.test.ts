@@ -61,9 +61,46 @@ describe('publication browser verifier', () => {
       now: () => new Date('2026-08-08T12:00:00.000Z'),
     });
 
-    expect(report.checks).toHaveLength(13);
+    expect(report.checks).toHaveLength(15);
     expect(report.checks.find((check) => check.code === 'targets_resolved')?.status).toBe('failed');
     expect(report.status).toBe('failed');
+  });
+
+  it('checks keyboard traversal and focus restoration around exact-artifact playback', async () => {
+    const documentFixture = structuredClone(tourFixture) as LodariqDocument;
+    const compiled = await compileDocument({
+      document: documentFixture,
+      theme: structuredClone(LODARIQ_ACCESSIBLE_FALLBACK_THEME_V1),
+      rendererContractVersion: RENDERER_CONTRACT_VERSION,
+    });
+    const productTarget = document.createElement('button');
+    productTarget.setAttribute('data-lodariq-id', 'new-project');
+    productTarget.setAttribute('aria-label', 'New project');
+    document.body.append(productTarget);
+    productTarget.focus();
+
+    const report = await runPublicationBrowserVerification({
+      compiled,
+      expectedContentHash: compiled.contentHash,
+      previewOwnerId: PREVIEW_OWNER_ID,
+      playExactArtifact: async () => mountRenderedTour(),
+      stopExactArtifact: () => {
+        document
+          .querySelector(
+            `lodariq-tour[${LODARIQ_AUTHORING_PREVIEW_OWNER_ATTRIBUTE}="${PREVIEW_OWNER_ID}"]`,
+          )
+          ?.remove();
+        productTarget.focus();
+      },
+      now: () => new Date('2026-08-08T12:00:00.000Z'),
+    });
+
+    expect(report.checks.find((check) => check.code === 'keyboard_navigation')?.status).toBe(
+      'passed',
+    );
+    expect(report.checks.find((check) => check.code === 'focus_restoration')?.status).toBe(
+      'passed',
+    );
   });
 });
 

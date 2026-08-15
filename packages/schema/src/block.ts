@@ -8,10 +8,12 @@ import {
   MediaPresentation,
   ResponsiveStepPresentation,
   SpotlightPresentation,
+  StructuredCompositionPresentation,
   TourMotionPresentation,
   sanitizeMediaPresentation,
   sanitizeResponsiveStepPresentation,
   sanitizeSpotlightPresentation,
+  sanitizeStructuredCompositionPresentation,
   sanitizeTourMotionPresentation,
 } from './presentation';
 
@@ -24,6 +26,9 @@ export const LodariqBlockType = Type.Union(
     Type.Literal('divider'),
     // Media
     Type.Literal('media'),
+    Type.Literal('callout'),
+    Type.Literal('stat'),
+    Type.Literal('icon'),
     // Action
     Type.Literal('button'),
     Type.Literal('link'),
@@ -73,7 +78,7 @@ export const BLOCK_ALIGNMENT_VALUES = ['start', 'center', 'end', 'stretch'] as c
 const BLOCK_ALIGNMENT_SET = new Set<string>(BLOCK_ALIGNMENT_VALUES);
 export const BLOCK_SPACING_VALUES = ['none', 'tight', 'normal', 'relaxed'] as const;
 const BLOCK_SPACING_SET = new Set<string>(BLOCK_SPACING_VALUES);
-export const BLOCK_SPACING_PX_LIMITS = { min: 0, max: 24, step: 2 } as const;
+export const BLOCK_SPACING_PX_LIMITS = { min: 0, max: 96, step: 1 } as const;
 export const BUTTON_WIDTH_VALUES = ['hug', 'fill'] as const;
 const BUTTON_WIDTH_SET = new Set<string>(BUTTON_WIDTH_VALUES);
 export const BUTTON_WIDTH_PX_LIMITS = { min: 80, max: 480, step: 4 } as const;
@@ -178,6 +183,7 @@ export const InlineTextRun = Type.Object(
     ),
     color: Type.Optional(Type.String({ pattern: TEXT_COLOR_PATTERN })),
     highlightColor: Type.Optional(Type.String({ pattern: TEXT_COLOR_PATTERN })),
+    animation: Type.Optional(Type.Ref(TourMotionPresentation)),
     link: Type.Optional(Type.String({ minLength: 1, maxLength: 2_048 })),
   },
   { $id: 'InlineTextRun', additionalProperties: false },
@@ -379,6 +385,7 @@ export const LodariqBlockProps = Type.Object(
     motion: Type.Optional(Type.Ref(TourMotionPresentation)),
     responsive: Type.Optional(Type.Ref(ResponsiveStepPresentation)),
     spotlight: Type.Optional(Type.Ref(SpotlightPresentation)),
+    composition: Type.Optional(Type.Ref(StructuredCompositionPresentation)),
     accessibilityName: Type.Optional(Type.String({ minLength: 1, maxLength: 300 })),
     tooltipLayout: Type.Optional(Type.Ref(TooltipLayoutProps)),
     tooltipStyle: Type.Optional(Type.Ref(TooltipStyleProps)),
@@ -418,6 +425,8 @@ export function sanitizeBlockProps(props: Record<string, unknown>): LodariqBlock
   if (responsive) next.responsive = responsive;
   const spotlight = sanitizeSpotlightPresentation(props.spotlight);
   if (spotlight) next.spotlight = spotlight;
+  const composition = sanitizeStructuredCompositionPresentation(props.composition);
+  if (composition) next.composition = composition;
   if (typeof props.accessibilityName === 'string' && props.accessibilityName.trim()) {
     next.accessibilityName = props.accessibilityName.trim().slice(0, 300);
   }
@@ -473,6 +482,7 @@ export function sanitizeInlineTextRuns(value: unknown): InlineTextRun[] | undefi
       : undefined;
     const color = safeHexColor(candidate.color);
     const highlightColor = safeHexColor(candidate.highlightColor);
+    const animation = sanitizeTourMotionPresentation(candidate.animation);
     const fontSizePx =
       typeof candidate.fontSizePx === 'number' &&
       Number.isInteger(candidate.fontSizePx) &&
@@ -490,6 +500,7 @@ export function sanitizeInlineTextRuns(value: unknown): InlineTextRun[] | undefi
         ...(fontSizePx ? { fontSizePx } : {}),
         ...(color ? { color } : {}),
         ...(highlightColor ? { highlightColor } : {}),
+        ...(animation ? { animation } : {}),
         ...(link ? { link } : {}),
       },
     ];
@@ -640,6 +651,7 @@ function inlineRunStyleKey(run: InlineTextRun): string {
     fontSizePx: run.fontSizePx ?? null,
     color: run.color ?? null,
     highlightColor: run.highlightColor ?? null,
+    animation: run.animation ?? null,
     link: run.link ?? null,
   });
 }

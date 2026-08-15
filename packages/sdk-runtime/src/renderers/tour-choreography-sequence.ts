@@ -8,7 +8,7 @@ export interface ExecuteTourSequenceOptions {
   onStageUpdate?: (update: ChoreographyStageUpdate) => void;
   resolveTarget: (
     targetId: string,
-    requiredAction: 'activate' | 'observe-click' | 'focus' | 'anchor',
+    requiredAction: 'activate' | 'observe-click' | 'focus' | 'input' | 'anchor',
   ) => Element | null;
   runTransition: () => void;
   sequence: StepChoreography;

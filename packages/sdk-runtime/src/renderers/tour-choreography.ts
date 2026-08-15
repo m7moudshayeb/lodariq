@@ -16,6 +16,11 @@ export interface ChoreographyStageUpdate {
   elapsedMs: number;
 }
 
+export interface ChoreographyRecoveryUpdate {
+  status: 'completed' | 'retried' | 'skipped';
+  retryCount: number;
+}
+
 export interface ChoreographyExecutionEnvironment {
   runTrigger(
     trigger: StepChoreographyTrigger,
@@ -35,6 +40,29 @@ export class ChoreographyStageTimeoutError extends Error {
     super(`Tour choreography ${stage} stage timed out`);
     this.name = 'ChoreographyStageTimeoutError';
   }
+}
+
+/**
+ * Resolves after a visitor edits the target without reading or retaining the
+ * field value. Exported for deterministic privacy regression coverage.
+ */
+export function waitForObservedTargetInput(element: Element, signal: AbortSignal): Promise<void> {
+  return new Promise((resolveInput, rejectInput) => {
+    const cleanup = (): void => {
+      element.removeEventListener('input', onInput, true);
+      signal.removeEventListener('abort', onAbort);
+    };
+    const onInput = (): void => {
+      cleanup();
+      resolveInput();
+    };
+    const onAbort = (): void => {
+      cleanup();
+      rejectInput(new TourPresentationCanceledError());
+    };
+    element.addEventListener('input', onInput, { capture: true, once: true });
+    signal.addEventListener('abort', onAbort, { once: true });
+  });
 }
 
 /** Executes one closed sequence. Recovery policy stays with the Tour player. */

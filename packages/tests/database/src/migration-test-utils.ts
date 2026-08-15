@@ -9,6 +9,7 @@ export const PUBLICATION_VERIFICATION_RENDERER_V4_FILE_NAME =
   '0002_publication_verification_renderer_v4.sql';
 export const PUBLICATION_VERIFICATION_RENDERER_CONTRACT_FILE_NAME =
   '0003_publication_verification_renderer_contract.sql';
+export const AUTHORING_RESOURCES_FILE_NAME = '0004_authoring_resources.sql';
 
 export const INITIAL_BASELINE_PATH = fileURLToPath(
   new URL(`../../../database/drizzle/${INITIAL_BASELINE_FILE_NAME}`, import.meta.url),
@@ -50,4 +51,10 @@ export function listCheckedInSqlFiles(): string[] {
 
 export function listCheckedInSqlPaths(): string[] {
   return listCheckedInSqlFiles().map((fileName) => join(MIGRATIONS_DIRECTORY, fileName));
+}
+
+export function readMigrationChain(): string {
+  return listCheckedInSqlPaths()
+    .map((path) => readFileSync(path, 'utf8'))
+    .join('\n');
 }

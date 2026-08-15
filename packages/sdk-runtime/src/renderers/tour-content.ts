@@ -8,13 +8,6 @@ import {
   type SafeNavigationDestination,
 } from '@lodariq/schema/url';
 import {
-  ArrowRight,
-  Check,
-  ExternalLink,
-  createElement as createLucideElement,
-  type IconNode,
-} from 'lucide';
-import {
   TOUR_POPUP_STYLE_VARIABLES,
   resolveTourActionRecipe,
   resolveTourCompositionRecipe,
@@ -39,6 +32,9 @@ export const BODY_NODE_RENDERERS: Readonly<Record<string, BodyNodeRenderer>> = {
   list: renderListNode,
   media: renderMediaNode,
   paragraph: renderTextNode,
+  callout: renderCalloutNode,
+  stat: renderStatNode,
+  icon: renderIconNode,
 };
 
 function renderHeadingNode(node: RuntimeBodyNode): HTMLElement {
@@ -70,6 +66,46 @@ function renderDividerNode(node: RuntimeBodyNode): HTMLElement {
   return element;
 }
 
+function renderCalloutNode(node: RuntimeBodyNode): HTMLElement {
+  const element = document.createElement('aside');
+  element.setAttribute('role', 'note');
+  element.dataset['lodariqCalloutTone'] =
+    node.props.composition?.kind === 'callout' ? node.props.composition.tone : 'info';
+  setBodyNodeContent(element, node);
+  return element;
+}
+
+function renderStatNode(node: RuntimeBodyNode): HTMLElement {
+  const element = document.createElement('div');
+  element.setAttribute('role', 'group');
+  element.dataset['lodariqStatEmphasis'] =
+    node.props.composition?.kind === 'stat' ? node.props.composition.emphasis : 'standard';
+  setBodyNodeContent(element, node);
+  return element;
+}
+
+function renderIconNode(node: RuntimeBodyNode): HTMLElement {
+  const element = document.createElement('div');
+  element.setAttribute('role', 'img');
+  element.setAttribute('aria-label', node.props.accessibilityName ?? node.text ?? 'Icon');
+  setBodyNodeAttributes(element, node);
+  const iconName = node.props.composition?.kind === 'icon' ? node.props.composition.icon : 'info';
+  const icon = document.createElement('span');
+  icon.setAttribute('aria-hidden', 'true');
+  icon.classList.add('tour-composition-icon');
+  icon.dataset['lodariqIconLoading'] = iconName;
+  void import('./tour-rich-icons').then(({ createCompositionIcon }) => {
+    const resolvedIcon = createCompositionIcon(iconName);
+    resolvedIcon.setAttribute('aria-hidden', 'true');
+    resolvedIcon.classList.add('tour-composition-icon');
+    icon.replaceWith(resolvedIcon);
+  });
+  element.prepend(icon);
+  if (node.props.textStyle?.align === 'center') element.style.justifyContent = 'center';
+  if (node.props.textStyle?.align === 'right') element.style.justifyContent = 'flex-end';
+  return element;
+}
+
 function renderMediaNode(node: RuntimeBodyNode, context: BodyNodeRenderContext): HTMLElement {
   const media = node.props.media;
   if (!media) {
@@ -86,27 +122,38 @@ function renderMediaNode(node: RuntimeBodyNode, context: BodyNodeRenderContext):
     unavailable.setAttribute('role', 'img');
     unavailable.setAttribute('aria-label', media.accessibilityName);
     unavailable.dataset['lodariqAssetId'] = media.assetId;
+    unavailable.dataset['lodariqMediaUnavailable'] = 'true';
     return unavailable;
   }
   if (media.kind === 'image') {
     const image = document.createElement('img');
     setBodyNodeAttributes(image, node);
+    image.dataset['lodariqMediaReady'] = 'true';
     image.src = resolved.href;
     image.alt = media.accessibilityName;
     image.loading = 'lazy';
+    if (media.heightPx) image.style.height = `${media.heightPx}px`;
+    image.style.objectFit = media.fit ?? 'contain';
+    image.style.width = `${media.widthPercent ?? 100}%`;
     if (media.aspectRatio) image.dataset['lodariqAspectRatio'] = media.aspectRatio;
     return image;
   }
   const video = document.createElement('video');
   setBodyNodeAttributes(video, node);
+  video.dataset['lodariqMediaReady'] = 'true';
   video.src = resolved.href;
   video.controls = true;
   video.preload = 'metadata';
   video.setAttribute('aria-label', media.accessibilityName);
+  if (media.heightPx) video.style.height = `${media.heightPx}px`;
+  video.style.objectFit = media.fit ?? 'contain';
+  video.style.width = `${media.widthPercent ?? 100}%`;
   if (media.aspectRatio) video.dataset['lodariqAspectRatio'] = media.aspectRatio;
-  const captions = safeNavigationDestination(
-    context.resolveMediaAsset?.(media.captionsAssetId, 'captions') ?? undefined,
-  );
+  const captions = media.captionsAssetId
+    ? safeNavigationDestination(
+        context.resolveMediaAsset?.(media.captionsAssetId, 'captions') ?? undefined,
+      )
+    : null;
   if (captions) {
     const track = document.createElement('track');
     track.kind = 'captions';
@@ -217,13 +264,39 @@ function createInlineRunElement(
   if (run.fontSizePx) element.style.fontSize = `${run.fontSizePx}px`;
   if (run.color) element.style.color = run.color;
   if (run.highlightColor) element.style.backgroundColor = run.highlightColor;
+  if (run.animation) {
+    element.dataset['lodariqInlineMotion'] = run.animation.recipe;
+    element.style.setProperty('--lq-inline-motion-duration', `${run.animation.durationMs}ms`);
+    element.style.setProperty(
+      '--lq-inline-motion-easing',
+      inlineMotionEasing(run.animation.easing),
+    );
+  }
   return element;
 }
 
-const ACTION_ICON_NODES: Readonly<Record<string, IconNode>> = {
-  'arrow-right': ArrowRight,
-  check: Check,
-  'external-link': ExternalLink,
+function inlineMotionEasing(easing: 'standard' | 'emphasized' | 'linear'): string {
+  if (easing === 'linear') return 'linear';
+  if (easing === 'emphasized') return 'cubic-bezier(0.2, 0.8, 0.2, 1)';
+  return 'cubic-bezier(0.2, 0, 0, 1)';
+}
+
+type RuntimeIconElement = readonly [
+  tag: 'circle' | 'line' | 'path',
+  attributes: Readonly<Record<string, string>>,
+];
+
+const ACTION_ICON_NODES: Readonly<Record<string, readonly RuntimeIconElement[]>> = {
+  'arrow-right': [
+    ['path', { d: 'M5 12h14' }],
+    ['path', { d: 'm12 5 7 7-7 7' }],
+  ],
+  check: [['path', { d: 'M20 6 9 17l-5-5' }]],
+  'external-link': [
+    ['path', { d: 'M15 3h6v6' }],
+    ['path', { d: 'M10 14 21 3' }],
+    ['path', { d: 'M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6' }],
+  ],
 };
 
 function appendButtonIcon(element: HTMLElement, node: RuntimeBodyNode): void {
@@ -231,11 +304,34 @@ function appendButtonIcon(element: HTMLElement, node: RuntimeBodyNode): void {
   const iconName = node.props.buttonStyle?.icon;
   const iconNode = iconName ? ACTION_ICON_NODES[iconName] : undefined;
   if (!iconNode) return;
-  const icon = createLucideElement(iconNode);
-  icon.setAttribute('aria-hidden', 'true');
+  const icon = createRuntimeIcon(iconNode);
   icon.classList.add('tour-action-icon');
   if (node.props.buttonStyle?.iconPlacement === 'start') element.prepend(icon);
   else element.append(icon);
+}
+
+function createRuntimeIcon(iconNode: readonly RuntimeIconElement[]): SVGElement {
+  const namespace = 'http://www.w3.org/2000/svg';
+  const icon = document.createElementNS(namespace, 'svg');
+  for (const [name, value] of Object.entries({
+    'aria-hidden': 'true',
+    fill: 'none',
+    height: '24',
+    stroke: 'currentColor',
+    'stroke-linecap': 'round',
+    'stroke-linejoin': 'round',
+    'stroke-width': '2',
+    viewBox: '0 0 24 24',
+    width: '24',
+  })) {
+    icon.setAttribute(name, value);
+  }
+  for (const [tag, attributes] of iconNode) {
+    const element = document.createElementNS(namespace, tag);
+    for (const [name, value] of Object.entries(attributes)) element.setAttribute(name, value);
+    icon.append(element);
+  }
+  return icon;
 }
 
 function applyButtonPresentation(element: HTMLElement, node: RuntimeBodyNode): void {

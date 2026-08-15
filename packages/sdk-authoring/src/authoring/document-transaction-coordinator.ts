@@ -132,7 +132,6 @@ export class DocumentTransactionCoordinator {
   /** Stale acknowledgements never replace the optimistic document. */
   acknowledge(revision: number): 'applied' | 'stale' | 'future' {
     if (revision > this.revision) return 'future';
-    this.markPersisted(revision);
     return revision === this.revision ? 'applied' : 'stale';
   }
 

@@ -26,6 +26,9 @@ const STEP_CONTENT_ACTION_LABELS = {
   button: authoringText('button'),
   link: authoringText('link'),
   media: authoringText('media'),
+  callout: authoringText('Callout'),
+  stat: authoringText('Stat'),
+  icon: authoringText('Icon'),
 } as const satisfies Record<EditableBlockTypeValue, string>;
 
 export function StepChildBlock({

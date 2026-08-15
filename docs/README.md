@@ -57,6 +57,11 @@ When documents conflict, use this order:
   basic preflight. Slice 3 implements bounded Product Match with atomic
   draft/provenance persistence, immediate runtime preview, and exact browser
   verification. Slice 4 adds reviewed drift repair and acknowledgement.
+- Rich content: Tour popup copy uses one reusable freeform structured-content
+  editor with selection formatting, links, emoji, allowlisted Lucide icons,
+  images/GIFs, video/captions, inline motion, numeric spacing, and resizable
+  framed media. It emits canonical block JSON; CTA behavior remains separate,
+  and media bytes stay behind authoring asset services.
 - Targeting: selector-free Target Identity V2 for new capture, with one-click
   control normalization, independent durable evidence gates, and a
   presentation-only visual quorum for anonymous informational regions. Visual
@@ -98,6 +103,7 @@ When documents conflict, use this order:
 
 ## Current Plan
 
+- [`Authentication, Identity, and Tenant Hardening`](plans/authentication-identity-and-tenant-hardening.md)
 - [`Phase 2 In-Product Authoring, Brand, and Release Foundation`](plans/phase-2-brand-and-release-foundation.md)
 - [`Phase 2 Technical Completion`](plans/phase-2-technical-completion.md)
 - [`Creator authoring and release UX`](plans/ux-revamp.md)
@@ -117,6 +123,7 @@ When documents conflict, use this order:
 ## Guides and Operations
 
 - [`How to author and release`](guides/authoring-and-release.md)
+- [`Rich content authoring and media lifecycle`](guides/rich-content-authoring.md)
 - [`Localization workflow`](guides/localization.md)
 - [`Phase 1 Fly deployment runbook`](deployment/phase-1-fly.md)
 - [`Local SDK installation`](local-sdk-installation.md)

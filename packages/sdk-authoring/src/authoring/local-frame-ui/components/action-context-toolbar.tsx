@@ -2,21 +2,19 @@ import type { LodariqBlock } from '@lodariq/schema';
 import { authoringText } from '../../../i18n';
 import { MoreHorizontal, MousePointerClick, SquareMousePointer, X } from '../design-system';
 import { EDITABLE_ACTION_OPTIONS } from '../types';
-import { blockTypeLabel, editableActionValue, editableBlockTypeValue } from '../utils';
+import { blockTypeLabel, editableActionValue } from '../utils';
 import { canvasToolbarStyle } from '../../canvas/canvas-style';
 import type { ActionToolbarPosition } from './tour-sequence-options';
-import { blockTypeEditorLabel, EDITOR_BLOCK_TYPE_OPTIONS } from './rich-text-editing';
+import { blockTypeEditorLabel } from './rich-text-editing';
 
 export function ActionContextToolbar({
   block,
-  onBlockTypeChange,
   onDismiss,
   onBehavior,
   onMore,
   position,
 }: {
   block: LodariqBlock;
-  onBlockTypeChange: (type: NonNullable<ReturnType<typeof editableBlockTypeValue>>) => void;
   onDismiss: () => void;
   onBehavior: () => void;
   onMore: () => void;
@@ -45,20 +43,7 @@ export function ActionContextToolbar({
         })}
       >
         <SquareMousePointer size={16} strokeWidth={2} aria-hidden="true" />
-        <select
-          aria-label={authoringText('Block type')}
-          onChange={(event) => {
-            const type = editableBlockTypeValue(event.currentTarget.value);
-            if (type) onBlockTypeChange(type);
-          }}
-          value={block.type}
-        >
-          {EDITOR_BLOCK_TYPE_OPTIONS.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
+        <strong>{blockTypeLabel(block.type)}</strong>
         <small>· {itemLabel}</small>
       </span>
       <button

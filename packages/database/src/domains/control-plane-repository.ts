@@ -87,8 +87,34 @@ import type {
   QueryAnalyticsEventsInput,
   ResolvedEnvironmentToken,
 } from './analytics';
+import type {
+  CreateAuthoringMediaAssetInput,
+  PersistedAuthoringMediaAsset,
+  SaveAuthoringResourcesInput,
+} from './authoring-resources';
+import type {
+  AuthoringDraftCheckpointResource,
+  AuthoringMediaAssetResource,
+  AuthoringStepStyleRecipeResource,
+} from '@lodariq/schema';
 
 export interface ControlPlaneRepository extends IdentityRepository {
+  listAuthoringStyleRecipes(workspaceId: string): Promise<AuthoringStepStyleRecipeResource[]>;
+  listAuthoringDraftCheckpoints(
+    workspaceId: string,
+    documentId: string,
+  ): Promise<AuthoringDraftCheckpointResource[]>;
+  listAuthoringMediaAssets(workspaceId: string): Promise<AuthoringMediaAssetResource[]>;
+  getAuthoringMediaAsset(
+    workspaceId: string,
+    assetId: string,
+  ): Promise<PersistedAuthoringMediaAsset | null>;
+  getPublishedMediaAsset(assetId: string): Promise<PersistedAuthoringMediaAsset | null>;
+  publishAuthoringMediaAssets(workspaceId: string, assetIds: readonly string[]): Promise<void>;
+  saveAuthoringResources(input: SaveAuthoringResourcesInput): Promise<void>;
+  createAuthoringMediaAsset(
+    input: CreateAuthoringMediaAssetInput,
+  ): Promise<AuthoringMediaAssetResource>;
   /** Fail closed when the repository's required backing store is unavailable. */
   checkReadiness(): Promise<void>;
   /** Release backing-store resources owned by this repository. */
