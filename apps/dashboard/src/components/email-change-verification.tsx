@@ -5,7 +5,7 @@ import { useLingui } from '@lingui/react';
 import { Check, LoaderCircle } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
-import { verifyEmailChange } from '../lib/client-auth-api';
+import { userFacingClientError, verifyEmailChange } from '../lib/client-auth-api';
 import { buttonVariants } from './ui/button';
 
 const COPY = {
@@ -61,7 +61,7 @@ export function EmailChangeVerification({
       })
       .catch((error: unknown) => {
         setPhase('error');
-        setMessage(error instanceof Error ? error.message : _(COPY.invalid));
+        setMessage(userFacingClientError(error, _(COPY.invalid)));
       });
   }, [_, challengeId, proof]);
 

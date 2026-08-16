@@ -15,6 +15,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useId, useRef, useState, type FormEvent } from 'react';
 import type { AuthSessionSnapshot } from '../lib/auth-contract';
+import { userFacingClientError } from '../lib/client-auth-api';
 import { useAuthMutations } from '../hooks/use-auth-mutations';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -104,7 +105,7 @@ export function DashboardAuthControls({
       setOpen(false);
       router.refresh();
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : _(COPY.switchFailed));
+      setError(userFacingClientError(caught, _(COPY.switchFailed)));
     } finally {
       setPending('');
     }
@@ -124,7 +125,7 @@ export function DashboardAuthControls({
       setOpen(false);
       router.refresh();
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : _(COPY.createFailed));
+      setError(userFacingClientError(caught, _(COPY.createFailed)));
     } finally {
       setPending('');
     }
@@ -139,7 +140,7 @@ export function DashboardAuthControls({
       router.replace('/sign-in');
       router.refresh();
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : _(COPY.signOutFailed));
+      setError(userFacingClientError(caught, _(COPY.signOutFailed)));
       setPending('');
     }
   }

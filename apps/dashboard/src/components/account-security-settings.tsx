@@ -41,6 +41,7 @@ import {
   type PasskeySummary,
   type RecoveryCodeStatus,
   ClientAuthError,
+  userFacingClientError,
 } from '../lib/client-auth-api';
 import { Button } from './ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
@@ -232,7 +233,7 @@ export function AccountSecuritySettings({
       })
       .catch((caught) => {
         if (!active) return;
-        setError(errorMessage(caught, _(COPY.unavailable)));
+        setError(userFacingClientError(caught, _(COPY.unavailable)));
         setBusy('');
       });
     return () => {
@@ -254,7 +255,7 @@ export function AccountSecuritySettings({
       setReauthenticate(true);
       setError(_(COPY.reauthenticate));
     } else {
-      setError(errorMessage(caught, _(COPY.unavailable)));
+      setError(userFacingClientError(caught, _(COPY.unavailable)));
     }
     setBusy('');
   }
@@ -985,10 +986,6 @@ function validationFailure(
 ): void {
   setError(message);
   setBusy('');
-}
-
-function errorMessage(error: unknown, fallback: string): string {
-  return error instanceof Error && error.message.trim() ? error.message : fallback;
 }
 
 function buttonContent(loading: boolean, label: string): React.ReactNode {

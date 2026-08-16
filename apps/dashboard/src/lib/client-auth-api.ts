@@ -57,6 +57,10 @@ export class ClientAuthError extends Error {
   }
 }
 
+export function userFacingClientError(error: unknown, fallback: string): string {
+  return error instanceof ClientAuthError && error.message.trim() ? error.message : fallback;
+}
+
 export function signIn(input: SignInInput): Promise<AuthSessionSnapshot> {
   return authMutation('/api/auth/sign-in', input);
 }
