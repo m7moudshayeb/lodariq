@@ -22,7 +22,10 @@ export async function AuthShell({
   const { i18n } = await getDashboardI18n();
   return (
     <main className="min-h-screen bg-background p-4 text-foreground sm:p-8">
-      <div className="mx-auto grid min-h-[calc(100vh-2rem)] w-full max-w-5xl overflow-hidden rounded-2xl border border-border bg-card shadow-[0_22px_70px_rgba(30,55,47,.10)] sm:min-h-[calc(100vh-4rem)] lg:grid-cols-[minmax(0,.88fr)_minmax(420px,1fr)]">
+      <div className="relative mx-auto grid min-h-[calc(100vh-2rem)] w-full max-w-5xl overflow-hidden rounded-2xl border border-border bg-card shadow-[0_22px_70px_rgba(30,55,47,.10)] sm:min-h-[calc(100vh-4rem)] lg:grid-cols-[minmax(0,.88fr)_minmax(420px,1fr)]">
+        <div className="absolute top-4 end-4 z-20 w-48 sm:top-5 sm:end-5">
+          <LanguageSwitcher hideLabel />
+        </div>
         <section className="relative hidden flex-col justify-between overflow-hidden border-e border-border bg-[var(--surface-subtle)] p-10 lg:flex">
           <div className="flex items-center gap-3">
             <span className="grid size-10 place-items-center rounded-xl border border-border bg-card text-primary shadow-sm">
@@ -46,11 +49,8 @@ export async function AuthShell({
           </p>
         </section>
 
-        <section className="flex min-w-0 items-center justify-center p-5 sm:p-10 lg:p-14">
+        <section className="flex min-w-0 items-center justify-center p-5 pt-16 sm:p-10 sm:pt-16 lg:p-14 lg:pt-16">
           <div className="grid w-full max-w-md gap-7">
-            <div className="ms-auto w-full max-w-48">
-              <LanguageSwitcher />
-            </div>
             <div className="grid gap-5">
               <div className="flex items-center justify-between lg:hidden">
                 <span className="text-lg font-bold tracking-[-0.035em]">Lodariq</span>

@@ -1179,11 +1179,6 @@ msgid "dashboard.activation.continue"
 msgstr "Yazmaya devam et"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1125
-msgid "auth.form.enterpriseSso"
-msgstr "Şirket SSO’su ile devam et"
-
-#. js-lingui-explicit-id
 #: src/i18n/messages.ts:1130
 msgid "auth.form.google"
 msgstr "Google ile devam et"
@@ -1192,6 +1187,11 @@ msgstr "Google ile devam et"
 #: src/i18n/messages.ts:1131
 msgid "auth.form.microsoft"
 msgstr "Microsoft ile devam et"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1125
+msgid "auth.form.enterpriseSso"
+msgstr "SSO ile devam et"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages.ts:941
@@ -4179,11 +4179,6 @@ msgid "dashboard.entry.signInTitle"
 msgstr "Lodariq'te oturum aç"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1133
-msgid "auth.form.passkey"
-msgstr "Geçiş anahtarıyla oturum aç"
-
-#. js-lingui-explicit-id
 #: src/i18n/messages.ts:63
 msgid "account.forgotUsername.signInWithEmail"
 msgstr "E-posta ile oturum aç"
@@ -5167,6 +5162,11 @@ msgstr "Onaylanmış sürümü kullan"
 #: src/i18n/messages.ts:146
 msgid "dashboard.page.support.description"
 msgstr "Geri dönüş yazma ve tanılama araçlarını yalnızca ürün içi yol başarısız olduğunda kullanın."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1133
+msgid "auth.form.passkey"
+msgstr "Passkey kullan"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages.ts:1049

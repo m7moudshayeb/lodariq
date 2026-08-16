@@ -532,7 +532,7 @@ async function authMutation(path: string, body: unknown): Promise<AuthSessionSna
   const response = await sameOriginFetch(path, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+    body: JSON.stringify(body ?? {}),
   });
   if (!response.ok) throw await clientAuthError(response);
 

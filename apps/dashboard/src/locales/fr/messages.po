@@ -1179,11 +1179,6 @@ msgid "dashboard.activation.continue"
 msgstr "Continuer vers la création"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1125
-msgid "auth.form.enterpriseSso"
-msgstr "Continuer avec le SSO d’entreprise"
-
-#. js-lingui-explicit-id
 #: src/i18n/messages.ts:1130
 msgid "auth.form.google"
 msgstr "Continuer avec Google"
@@ -1192,6 +1187,11 @@ msgstr "Continuer avec Google"
 #: src/i18n/messages.ts:1131
 msgid "auth.form.microsoft"
 msgstr "Continuer avec Microsoft"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1125
+msgid "auth.form.enterpriseSso"
+msgstr "Continuer avec SSO"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages.ts:941
@@ -4179,11 +4179,6 @@ msgid "dashboard.entry.signInTitle"
 msgstr "Connectez-vous à Lodariq"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1133
-msgid "auth.form.passkey"
-msgstr "Se connecter avec une clé d’accès"
-
-#. js-lingui-explicit-id
 #: src/i18n/messages.ts:63
 msgid "account.forgotUsername.signInWithEmail"
 msgstr "Se connecter avec l’adresse e-mail"
@@ -5167,6 +5162,11 @@ msgstr "Utiliser la version approuvée"
 #: src/i18n/messages.ts:146
 msgid "dashboard.page.support.description"
 msgstr "Utilisez les outils de création et de diagnostic de secours uniquement lorsque le chemin intégré au produit échoue."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1133
+msgid "auth.form.passkey"
+msgstr "Utiliser une passkey"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages.ts:1049

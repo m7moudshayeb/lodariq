@@ -1179,11 +1179,6 @@ msgid "dashboard.activation.continue"
 msgstr "Continuar para a autoria"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1125
-msgid "auth.form.enterpriseSso"
-msgstr "Continuar com SSO da empresa"
-
-#. js-lingui-explicit-id
 #: src/i18n/messages.ts:1130
 msgid "auth.form.google"
 msgstr "Continuar com Google"
@@ -1192,6 +1187,11 @@ msgstr "Continuar com Google"
 #: src/i18n/messages.ts:1131
 msgid "auth.form.microsoft"
 msgstr "Continuar com Microsoft"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1125
+msgid "auth.form.enterpriseSso"
+msgstr "Continuar com SSO"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages.ts:941
@@ -4179,11 +4179,6 @@ msgid "dashboard.entry.signInTitle"
 msgstr "Faça login no Lodariq"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1133
-msgid "auth.form.passkey"
-msgstr "Iniciar sessão com uma chave de acesso"
-
-#. js-lingui-explicit-id
 #: src/i18n/messages.ts:63
 msgid "account.forgotUsername.signInWithEmail"
 msgstr "Iniciar sessão com e-mail"
@@ -5167,6 +5162,11 @@ msgstr "Usar versão aprovada"
 #: src/i18n/messages.ts:146
 msgid "dashboard.page.support.description"
 msgstr "Use ferramentas de autoria e diagnóstico de fallback somente quando o caminho no produto falhar."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1133
+msgid "auth.form.passkey"
+msgstr "Usar passkey"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages.ts:1049

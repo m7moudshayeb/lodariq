@@ -1179,11 +1179,6 @@ msgid "dashboard.activation.continue"
 msgstr "الاستمرار في التأليف"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1125
-msgid "auth.form.enterpriseSso"
-msgstr "المتابعة بتسجيل الدخول الموحّد للشركة"
-
-#. js-lingui-explicit-id
 #: src/i18n/messages.ts:1130
 msgid "auth.form.google"
 msgstr "متابعة باستخدام Google"
@@ -1192,6 +1187,11 @@ msgstr "متابعة باستخدام Google"
 #: src/i18n/messages.ts:1131
 msgid "auth.form.microsoft"
 msgstr "متابعة باستخدام Microsoft"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1125
+msgid "auth.form.enterpriseSso"
+msgstr "المتابعة عبر SSO"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages.ts:941
@@ -4179,11 +4179,6 @@ msgid "dashboard.entry.signInTitle"
 msgstr "قم بتسجيل الدخول إلى لوداريق"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1133
-msgid "auth.form.passkey"
-msgstr "تسجيل الدخول بمفتاح مرور"
-
-#. js-lingui-explicit-id
 #: src/i18n/messages.ts:63
 msgid "account.forgotUsername.signInWithEmail"
 msgstr "تسجيل الدخول بالبريد الإلكتروني"
@@ -5167,6 +5162,11 @@ msgstr "استخدم النسخة المعتمدة"
 #: src/i18n/messages.ts:146
 msgid "dashboard.page.support.description"
 msgstr "استخدم أدوات التأليف والتشخيص الاحتياطية فقط عند فشل المسار داخل المنتج."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1133
+msgid "auth.form.passkey"
+msgstr "استخدام مفتاح المرور"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages.ts:1049

@@ -17,6 +17,7 @@ import { dashboardRecoveryFailureMessage } from '../i18n/server-feedback';
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
 import { StatusBanner } from './ui/status-banner';
+import { statusToast } from './ui/toaster';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 
 export interface ReleaseRecoveryEnvironmentOption {
@@ -239,7 +240,6 @@ export function ReleaseRecoveryPanel({
   const [selectedEnvironmentId, setSelectedEnvironmentId] = React.useState(
     () => environments[0]?.id ?? '',
   );
-  const [feedback, setFeedback] = React.useState('');
   const [confirmation, setConfirmation] = React.useState<RecoveryConfirmationState | null>(null);
   const returnFocus = React.useRef<HTMLElement | null>(null);
   const restoreFocusAfterConfirmation = React.useRef(false);
@@ -259,7 +259,6 @@ export function ReleaseRecoveryPanel({
   }, [environments, selectedEnvironmentId]);
 
   React.useEffect(() => {
-    setFeedback('');
     setConfirmation(null);
   }, [selectedEnvironmentId]);
 
@@ -285,7 +284,6 @@ export function ReleaseRecoveryPanel({
       action === 'rollback' ? state.permissions.rollback : state.permissions.unpublish;
     if (!permission) return;
     returnFocus.current = trigger;
-    setFeedback('');
     setConfirmation({
       action,
       environmentId: selectedEnvironment.id,
@@ -311,7 +309,7 @@ export function ReleaseRecoveryPanel({
       })
       .then((result) => {
         if (result.status === 'error') {
-          setFeedback(result.retryExact ? '' : result.error);
+          if (!result.retryExact) statusToast('error', result.error);
           if (result.retryExact) {
             setConfirmation((current) =>
               current && current.idempotencyKey === confirmation.idempotencyKey
@@ -324,11 +322,11 @@ export function ReleaseRecoveryPanel({
           return;
         }
 
-        setFeedback(recoveryResultMessage(result.result, _));
+        statusToast('success', recoveryResultMessage(result.result, _));
         closeConfirmation();
       })
       .catch(() => {
-        setFeedback(_(COPY.requestFailed));
+        statusToast('error', _(COPY.requestFailed));
         closeConfirmation();
       });
   };
@@ -403,7 +401,6 @@ export function ReleaseRecoveryPanel({
           <p className="text-sm text-muted-foreground">{_(COPY.loading)}</p>
         ) : null}
         {loadError ? <StatusBanner kind="error" title={loadError} /> : null}
-        {feedback ? <StatusBanner kind="success" title={feedback} /> : null}
         {selectedState ? (
           <>
             <DeploymentSummary state={selectedState} />

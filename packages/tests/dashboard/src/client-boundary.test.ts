@@ -1,4 +1,4 @@
-import { readdirSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { extname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
@@ -57,6 +57,7 @@ describe('@lodariq/dashboard client boundaries', () => {
     expect(packageJson).toContain('"@tanstack/react-query"');
     expect(packageJson).toContain('"react-hook-form"');
     expect(packageJson).toContain('"lucide-react"');
+    expect(packageJson).toContain('"sonner"');
 
     const documentsTable = read(resolve(dashboardSrc, 'components/documents-table.tsx'));
     expect(documentsTable).toContain("from '@tanstack/react-table'");
@@ -109,16 +110,25 @@ describe('@lodariq/dashboard client boundaries', () => {
 
   it('keeps dashboard orchestration separate from feature UI and document readiness typed', () => {
     const dashboardWorkspace = read(resolve(dashboardSrc, 'components/dashboard-workspace.tsx'));
+    const accountPage = read(resolve(repoRoot, 'apps/dashboard/src/app/(dashboard)/account/page.tsx'));
     const brandPanel = read(resolve(dashboardSrc, 'components/brand-system-panel.tsx'));
     const viewModel = read(resolve(dashboardSrc, 'lib/view-model.ts'));
     const documentsTable = read(resolve(dashboardSrc, 'components/documents-table.tsx'));
 
     expect(dashboardWorkspace.split('\n').length).toBeLessThanOrEqual(250);
+    expect(accountPage).toContain('AccountWorkspaceShell');
     expect(brandPanel.split('\n').length).toBeLessThanOrEqual(300);
     expect(viewModel).toContain('DashboardDocumentReadiness');
     expect(`${viewModel}\n${documentsTable}`).not.toMatch(
       /(?:document\.status|status)\s*===\s*['"](?:ready|invalid)['"]/,
     );
+  });
+
+  it('keeps the full-width loading skeleton off auth pages', () => {
+    const loading = read(resolve(dashboardSrc, 'app/(dashboard)/loading.tsx'));
+    expect(existsSync(resolve(dashboardSrc, 'app/loading.tsx'))).toBe(false);
+    expect(loading).toContain('md:grid-cols-[72px_minmax(0,1fr)]');
+    expect(loading).not.toContain('max-w-6xl');
   });
 });
 

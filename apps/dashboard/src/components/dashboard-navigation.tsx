@@ -7,7 +7,7 @@ import {
   ChartNoAxesCombined,
   CircleHelp,
   FileStack,
-  Globe2,
+  Globe,
   LayoutDashboard,
   Menu,
   Palette,
@@ -31,7 +31,7 @@ import { ThemeToggle } from './theme-toggle';
 import { Button } from './ui/button';
 
 interface WorkspaceNavigationProps {
-  activeView: DashboardViewId;
+  activeView?: DashboardViewId;
   authControls?: React.ReactNode;
   onSelect: (view: DashboardViewId) => void;
 }
@@ -48,7 +48,7 @@ const NAVIGATION_ICONS = {
   releases: Rocket,
   analytics: ChartNoAxesCombined,
   brand: Palette,
-  environments: Globe2,
+  environments: Globe,
   members: Users,
   support: CircleHelp,
 } as const;
@@ -80,7 +80,7 @@ export function DesktopWorkspaceNavigation({
   );
   return (
     <aside
-      className="sticky top-0 hidden h-screen flex-col border-e border-border bg-card md:flex"
+      className="sticky top-0 hidden h-screen w-full min-w-0 flex-col border-e border-border bg-card md:flex"
       id="desktop-workspace-navigation"
     >
       <div
@@ -110,7 +110,7 @@ export function DesktopWorkspaceNavigation({
         items={DASHBOARD_PRIMARY_NAVIGATION}
         onSelect={onSelect}
       />
-      <div className="mt-auto grid gap-2 pb-4">
+      <div className="mt-auto grid min-w-0 gap-2 pb-4">
         <DashboardNavigation
           activeView={activeView}
           collapsed={!expanded}
@@ -119,7 +119,9 @@ export function DesktopWorkspaceNavigation({
         />
         <div
           className={
-            expanded ? 'mx-4 border-t border-border pt-3' : 'mx-2 border-t border-border pt-3'
+            expanded
+              ? 'min-w-0 border-t border-border px-3 pt-3'
+              : 'min-w-0 border-t border-border px-2 pt-3'
           }
         >
           {expanded && authControls ? <div className="mb-2 min-w-0">{authControls}</div> : null}
@@ -127,7 +129,7 @@ export function DesktopWorkspaceNavigation({
             <div className="mb-2 min-w-0">{compactAuthControls}</div>
           ) : null}
           {expanded ? (
-            <div className="mb-3 px-2">
+            <div className="mb-3 min-w-0">
               <LanguageSwitcher />
             </div>
           ) : (
@@ -136,9 +138,7 @@ export function DesktopWorkspaceNavigation({
             </div>
           )}
           <div
-            className={
-              expanded ? 'flex items-center justify-between gap-3 px-2' : 'flex justify-center'
-            }
+            className={expanded ? 'flex items-center justify-between gap-3' : 'flex justify-center'}
           >
             {expanded ? (
               <span className="text-xs font-medium text-muted-foreground">
@@ -317,10 +317,10 @@ export function MobileWorkspaceHeader({
                 items={[DASHBOARD_SUPPORT_NAVIGATION]}
                 onSelect={selectMobileView}
               />
-              <div className="mx-4 grid gap-3 border-t border-border pt-4">
+              <div className="grid min-w-0 gap-3 border-t border-border px-3 pt-4">
                 {authControls ? <div className="min-w-0">{authControls}</div> : null}
                 <LanguageSwitcher />
-                <div className="flex items-center justify-between gap-3 px-2">
+                <div className="flex items-center justify-between gap-3">
                   <span className="text-xs font-medium text-muted-foreground">
                     {_(DASHBOARD_NAVIGATION_MESSAGES.appearance)}
                   </span>
@@ -341,7 +341,7 @@ function DashboardNavigation({
   items,
   onSelect,
 }: {
-  activeView: DashboardViewId;
+  activeView?: DashboardViewId;
   collapsed?: boolean;
   items: readonly DashboardNavigationItem[];
   onSelect: (view: DashboardViewId) => void;

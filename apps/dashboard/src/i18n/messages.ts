@@ -1122,7 +1122,7 @@ export const WORKSPACE_MEMBERS_MESSAGES = {
 } as const;
 
 export const AUTH_FORM_MESSAGES = {
-  enterpriseSso: msg({ id: 'auth.form.enterpriseSso', message: 'Continue with company SSO' }),
+  enterpriseSso: msg({ id: 'auth.form.enterpriseSso', message: 'Continue with SSO' }),
   enterpriseSsoUnavailable: msg({
     id: 'auth.form.enterpriseSsoUnavailable',
     message: 'Enterprise sign-in is not configured for this company email.',
@@ -1130,7 +1130,7 @@ export const AUTH_FORM_MESSAGES = {
   google: msg({ id: 'auth.form.google', message: 'Continue with Google' }),
   microsoft: msg({ id: 'auth.form.microsoft', message: 'Continue with Microsoft' }),
   providerWaiting: msg({ id: 'auth.form.providerWaiting', message: 'Opening secure sign-in…' }),
-  passkey: msg({ id: 'auth.form.passkey', message: 'Sign in with a passkey' }),
+  passkey: msg({ id: 'auth.form.passkey', message: 'Use Passkey' }),
   passkeyWaiting: msg({ id: 'auth.form.passkeyWaiting', message: 'Waiting for your passkey…' }),
   recoveryCode: msg({ id: 'auth.form.recoveryCode', message: 'Use a recovery code' }),
   rememberMe: msg({ id: 'auth.form.rememberMe', message: 'Remember me' }),

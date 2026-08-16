@@ -1179,11 +1179,6 @@ msgid "dashboard.activation.continue"
 msgstr "Fahren Sie mit der Erstellung fort"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1125
-msgid "auth.form.enterpriseSso"
-msgstr "Mit Unternehmens-SSO fortfahren"
-
-#. js-lingui-explicit-id
 #: src/i18n/messages.ts:1130
 msgid "auth.form.google"
 msgstr "Mit Google fortfahren"
@@ -1192,6 +1187,11 @@ msgstr "Mit Google fortfahren"
 #: src/i18n/messages.ts:1131
 msgid "auth.form.microsoft"
 msgstr "Mit Microsoft fortfahren"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1125
+msgid "auth.form.enterpriseSso"
+msgstr "Mit SSO fortfahren"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages.ts:941
@@ -4179,11 +4179,6 @@ msgid "dashboard.entry.signInTitle"
 msgstr "Melden Sie sich bei Lodariq an"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1133
-msgid "auth.form.passkey"
-msgstr "Mit einem Passkey anmelden"
-
-#. js-lingui-explicit-id
 #: src/i18n/messages.ts:63
 msgid "account.forgotUsername.signInWithEmail"
 msgstr "Mit E-Mail anmelden"
@@ -5167,6 +5162,11 @@ msgstr "Verwenden Sie die zugelassene Version"
 #: src/i18n/messages.ts:146
 msgid "dashboard.page.support.description"
 msgstr "Verwenden Sie Fallback-Erstellungs- und Diagnosetools nur, wenn der produktinterne Pfad fehlschlägt."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1133
+msgid "auth.form.passkey"
+msgstr "Passkey verwenden"
 
 #. js-lingui-explicit-id
 #: src/i18n/messages.ts:1049

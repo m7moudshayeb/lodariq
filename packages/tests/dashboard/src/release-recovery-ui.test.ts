@@ -37,6 +37,7 @@ vi.mock('../../../../apps/dashboard/src/lib/client-dashboard-api', () => ({
 }));
 
 import { ReleaseRecoveryPanel } from '../../../../apps/dashboard/src/components/release-recovery-panel';
+import { DashboardToaster } from '../../../../apps/dashboard/src/components/ui/toaster';
 
 const DOCUMENT_ID = 'doc.dashboard:release';
 const STAGING_ID = 'env.staging:dashboard';
@@ -131,8 +132,10 @@ describe('@lodariq/dashboard release recovery UI', () => {
     expect(submitted.request.correlationId).toMatch(/^dashboard\.rollback\./u);
     expect(submitted.request).not.toHaveProperty('artifact');
     await vi.waitFor(() => expect(mounted.container.querySelector('[role="dialog"]')).toBeNull());
-    expect(mounted.container.textContent).toContain(
-      `Rolled back to ${PRIOR_PUBLICATION_ID} at generation 3.`,
+    await vi.waitFor(() =>
+      expect(document.body.textContent).toContain(
+        `Rolled back to ${PRIOR_PUBLICATION_ID} at generation 3.`,
+      ),
     );
     await vi.waitFor(() => expect(document.activeElement).toBe(rollbackButton));
 
@@ -181,7 +184,9 @@ describe('@lodariq/dashboard release recovery UI', () => {
       expectedActivePublicationId: CURRENT_PUBLICATION_ID,
     });
     await vi.waitFor(() => expect(mounted.container.querySelector('[role="dialog"]')).toBeNull());
-    expect(mounted.container.textContent).toContain('Release unpublished at generation 3.');
+    await vi.waitFor(() =>
+      expect(document.body.textContent).toContain('Release unpublished at generation 3.'),
+    );
 
     await unmount(mounted);
   });
@@ -202,6 +207,7 @@ async function mountPanel(): Promise<{ container: HTMLDivElement; root: Root }> 
         createElement(
           QueryClientProvider,
           { client: queryClient },
+          createElement(DashboardToaster),
           createElement(ReleaseRecoveryPanel, {
             documentId: DOCUMENT_ID,
             documentTitle: 'Checkout onboarding',

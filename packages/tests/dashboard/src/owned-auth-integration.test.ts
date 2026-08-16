@@ -536,7 +536,7 @@ describe('@lodariq/dashboard owned authentication', () => {
 
   it('wires owned forms, protected session loading, and account controls without Clerk', () => {
     expect(read('apps/dashboard/src/app/layout.tsx')).not.toMatch(/Clerk/i);
-    expect(read('apps/dashboard/src/app/page.tsx')).toContain('loadAuthSession()');
+    expect(read('apps/dashboard/src/app/(dashboard)/page.tsx')).toContain('loadAuthSession()');
     expect(read('apps/dashboard/src/proxy.ts')).toContain('dashboardSessionCookieName');
     expect(read('apps/dashboard/src/app/sign-in/[[...sign-in]]/page.tsx')).toContain(
       'mode="sign-in"',

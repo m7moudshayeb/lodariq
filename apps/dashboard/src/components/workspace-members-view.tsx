@@ -29,7 +29,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
-import { StatusBanner } from './ui/status-banner';
+import { statusToast } from './ui/toaster';
 
 interface WorkspaceMembersViewProps {
   currentRole: ControlPlaneRole;
@@ -51,15 +51,12 @@ export function WorkspaceMembersView({
   const [inviteRole, setInviteRole] = React.useState<WorkspaceInvitationRole>('member');
   const [deletionConfirmation, setDeletionConfirmation] = React.useState('');
   const [pendingAction, setPendingAction] = React.useState('');
-  const [feedback, setFeedback] = React.useState('');
-  const [error, setError] = React.useState('');
   const [emailError, setEmailError] = React.useState('');
   const [loading, setLoading] = React.useState(true);
   const canManage = currentRole === 'owner' || currentRole === 'admin';
   const canTransferOrDelete = currentRole === 'owner';
 
   const refresh = React.useCallback(async (): Promise<void> => {
-    setError('');
     try {
       const [nextMembers, nextInvitations] = await Promise.all([
         listWorkspaceMembers(workspaceId),
@@ -68,7 +65,7 @@ export function WorkspaceMembersView({
       setMembers(nextMembers);
       setInvitations(nextInvitations);
     } catch {
-      setError(_(WORKSPACE_MEMBERS_MESSAGES.unavailable));
+      statusToast('error', _(WORKSPACE_MEMBERS_MESSAGES.unavailable));
     } finally {
       setLoading(false);
     }
@@ -81,13 +78,11 @@ export function WorkspaceMembersView({
   async function runAction(key: string, action: () => Promise<void>): Promise<void> {
     if (pendingAction) return;
     setPendingAction(key);
-    setError('');
-    setFeedback('');
     try {
       await action();
       await refresh();
     } catch {
-      setError(_(WORKSPACE_MEMBERS_MESSAGES.operationFailed));
+      statusToast('error', _(WORKSPACE_MEMBERS_MESSAGES.operationFailed));
     } finally {
       setPendingAction('');
     }
@@ -106,7 +101,7 @@ export function WorkspaceMembersView({
     await runAction('invite', async () => {
       await createWorkspaceInvitation(workspaceId, normalizedEmail, inviteRole);
       setEmail('');
-      setFeedback(_(WORKSPACE_MEMBERS_MESSAGES.invitationQueued));
+      statusToast('success', _(WORKSPACE_MEMBERS_MESSAGES.invitationQueued));
     });
   }
 
@@ -121,7 +116,6 @@ export function WorkspaceMembersView({
           </CardHeader>
           <CardContent className="grid gap-3">
             {loading ? <LoadingMessage /> : null}
-            {error ? <Feedback kind="error" message={error} /> : null}
             {!loading
               ? members.map((member) => (
                   <MemberRow
@@ -205,7 +199,6 @@ export function WorkspaceMembersView({
                       </SelectContent>
                     </Select>
                   </div>
-                  {feedback ? <Feedback kind="success" message={feedback} /> : null}
                   <Button disabled={Boolean(pendingAction)} type="submit">
                     {pendingAction === 'invite' ? (
                       <LoaderCircle aria-hidden="true" className="animate-spin" />
@@ -403,16 +396,6 @@ function LoadingMessage(): React.ReactElement {
       {_(WORKSPACE_INVITATION_MESSAGES.reading)}
     </p>
   );
-}
-
-function Feedback({
-  kind,
-  message,
-}: {
-  kind: 'error' | 'success';
-  message: string;
-}): React.ReactElement {
-  return <StatusBanner kind={kind} title={message} />;
 }
 
 function availableInvitationRoles(role: ControlPlaneRole): readonly WorkspaceInvitationRole[] {

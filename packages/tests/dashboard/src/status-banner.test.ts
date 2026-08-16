@@ -20,7 +20,7 @@ describe('StatusBanner', () => {
     container = undefined;
   });
 
-  it('uses a deep icon and title with lighter body copy', () => {
+  it('uses a deep icon rail, white icon, and lighter body copy', () => {
     container = document.createElement('div');
     document.body.append(container);
     root = createRoot(container);
@@ -39,7 +39,10 @@ describe('StatusBanner', () => {
     expect(banner?.querySelector('svg')).toBeTruthy();
     expect(banner?.textContent).toContain('Account security is unavailable.');
     expect(banner?.textContent).toContain('Sign in again, then return here.');
+    const rail = banner?.firstElementChild;
     expect(banner?.className).toContain('--danger-bg');
+    expect(rail?.className).toContain('--danger-solid');
+    expect(rail?.querySelector('svg')?.getAttribute('class')).toContain('text-white');
     expect(container.querySelector('p')?.className).toContain('--danger-fg');
   });
 });

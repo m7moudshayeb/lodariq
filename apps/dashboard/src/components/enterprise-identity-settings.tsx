@@ -34,6 +34,7 @@ import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { StatusBanner } from './ui/status-banner';
+import { statusToast } from './ui/toaster';
 
 const COPY = {
   title: msg({ id: 'enterpriseIdentity.title', message: 'Enterprise identity' }),
@@ -234,7 +235,6 @@ export function EnterpriseIdentitySettings({
   );
   const [busy, setBusy] = React.useState('load');
   const [error, setError] = React.useState('');
-  const [notice, setNotice] = React.useState('');
   const [provider, setProvider] = React.useState<EnterpriseIdentityProvider>('okta');
   const [issuer, setIssuer] = React.useState('');
   const [clientId, setClientId] = React.useState('');
@@ -281,21 +281,19 @@ export function EnterpriseIdentitySettings({
   async function runMutation(key: string, mutation: () => Promise<void>): Promise<void> {
     if (busy) return;
     setBusy(key);
-    setError('');
-    setNotice('');
     try {
       await mutation();
       await refresh();
-      setNotice(_(COPY.saved));
+      statusToast('success', _(COPY.saved));
     } catch (caught) {
       if (
         caught instanceof ClientAuthError &&
         (caught.code === 'recent_authentication_required' ||
           caught.code === 'minimum_assurance_required')
       ) {
-        setError(_(COPY.reauthenticate));
+        statusToast('warning', _(COPY.reauthenticate));
       } else {
-        setError(_(COPY.mutationFailed));
+        statusToast('error', _(COPY.mutationFailed));
       }
     } finally {
       setBusy('');
@@ -305,7 +303,7 @@ export function EnterpriseIdentitySettings({
   async function submitConnection(event: React.FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
     if (!validHttpsUrl(issuer) || !clientId.trim()) {
-      setError(_(COPY.requiredFields));
+      statusToast('error', _(COPY.requiredFields));
       return;
     }
     await runMutation('connection', async () => {
@@ -326,7 +324,7 @@ export function EnterpriseIdentitySettings({
     event.preventDefault();
     const normalized = domain.trim().toLowerCase();
     if (!selectedConnectionId || !DOMAIN_PATTERN.test(normalized)) {
-      setError(_(COPY.requiredFields));
+      statusToast('error', _(COPY.requiredFields));
       return;
     }
     await runMutation('domain', async () => {
@@ -344,7 +342,7 @@ export function EnterpriseIdentitySettings({
   async function submitMapping(event: React.FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
     if (!selectedConnectionId || !groupId.trim()) {
-      setError(_(COPY.requiredFields));
+      statusToast('error', _(COPY.requiredFields));
       return;
     }
     await runMutation('mapping', async () => {
@@ -385,8 +383,6 @@ export function EnterpriseIdentitySettings({
         <p className="mt-1 text-sm text-muted-foreground">{_(COPY.description)}</p>
       </div>
       {!canEdit ? <Feedback kind="neutral" message={_(COPY.ownerOnly)} /> : null}
-      {error ? <Feedback kind="error" message={error} /> : null}
-      {notice ? <Feedback kind="success" message={notice} /> : null}
 
       <div className="grid items-start gap-5 xl:grid-cols-2">
         <Card className="shadow-none">
@@ -447,7 +443,7 @@ export function EnterpriseIdentitySettings({
               onSubmit={(event) => {
                 event.preventDefault();
                 if (!passwordAllowed && !ssoRequired) {
-                  setError(_(COPY.invalidPolicy));
+                  statusToast('error', _(COPY.invalidPolicy));
                   return;
                 }
                 void runMutation('policy', () =>
@@ -592,7 +588,7 @@ export function EnterpriseIdentitySettings({
             <form className="grid gap-3" noValidate onSubmit={(event) => {
               event.preventDefault();
               if (breakGlassReason.trim().length < 20) {
-                setError(_(COPY.requiredFields));
+                statusToast('error', _(COPY.requiredFields));
                 return;
               }
               void runMutation('break-glass-request', async () => {
@@ -622,13 +618,12 @@ export function EnterpriseIdentitySettings({
             <form className="grid gap-3" noValidate onSubmit={(event) => {
               event.preventDefault();
               if (!approvalRequestId.trim()) {
-                setError(_(COPY.requiredFields));
+                statusToast('error', _(COPY.requiredFields));
                 return;
               }
               void runMutation('break-glass-approve', async () => {
                 await approveEnterpriseBreakGlassRequest(workspaceId, approvalRequestId.trim());
                 setApprovalRequestId('');
-                setNotice(_(COPY.requestApproved));
               });
             }}>
               <FieldInput disabled={disabled} id="enterprise-break-glass-approval" label={_(COPY.approvalRequestId)} onChange={setApprovalRequestId} value={approvalRequestId} />

@@ -9,6 +9,7 @@ import { BrandDraftTourPreview } from './brand-tour-comparison';
 import { BrandApprovalReview } from './brand-system/brand-approval-review';
 import { BrandEmptyState } from './brand-system/brand-empty-state';
 import { BrandFeedbackBanner } from './brand-system/brand-feedback-banner';
+import { StatusBanner } from './ui/status-banner';
 import { BrandImpactPanel } from './brand-system/brand-impact-panel';
 import { BrandSourceSummaryCard } from './brand-system/brand-source-summary-card';
 import { BrandEssentialEditor, BrandSummary } from './brand-system/brand-theme-editor';
@@ -92,7 +93,7 @@ export function BrandSystemPanel({
   }
 
   if (!controller.theme || !controller.visibleDraft) {
-    return <BrandFeedbackBanner error={_(COPY.missingTheme)} message="" />;
+    return <StatusBanner kind="error" title={_(COPY.missingTheme)} />;
   }
 
   const theme = controller.theme;

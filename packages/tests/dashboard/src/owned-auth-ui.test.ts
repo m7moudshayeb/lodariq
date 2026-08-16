@@ -137,11 +137,13 @@ describe('@lodariq/dashboard owned auth UI', () => {
     const fetchMock = vi.fn<typeof globalThis.fetch>();
     vi.stubGlobal('fetch', fetchMock);
     const signIn = await mount(createElement(AuthForm, { embedded: true, mode: 'sign-in' }));
-    expect(signIn.container.textContent).toContain('Sign in with a passkey');
+    expect(signIn.container.textContent).toContain('Use Passkey');
     expect(signIn.container.textContent).toContain('Use a recovery code');
-    expect(signIn.container.textContent).toContain('Continue with Google');
-    expect(signIn.container.textContent).toContain('Continue with Microsoft');
-    expect(signIn.container.textContent).toContain('Continue with company SSO');
+    expect(signIn.container.textContent).toContain('Continue with SSO');
+    expect(signIn.container.querySelector('button[aria-label="Continue with Google"]')).not.toBeNull();
+    expect(
+      signIn.container.querySelector('button[aria-label="Continue with Microsoft"]'),
+    ).not.toBeNull();
     await unmount(signIn);
 
     const recovery = await mount(createElement(RecoveryCodeForm, { returnTo: '/' }));

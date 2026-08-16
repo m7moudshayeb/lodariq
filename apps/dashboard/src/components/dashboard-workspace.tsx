@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { DASHBOARD_VIEW_IDS, type DashboardViewId } from '../lib/dashboard-constants';
 import type { DashboardViewModel } from '../lib/view-model';
-import { DesktopWorkspaceNavigation, MobileWorkspaceHeader } from './dashboard-navigation';
+import { DashboardAppShell } from './dashboard-app-shell';
 import { AnalyticsView, ExperiencesView, OverviewView } from './dashboard-primary-views';
 import { ReleasesView } from './dashboard-release-view';
 import { BrandSystemView, EnvironmentsView, SupportView } from './dashboard-settings-views';
@@ -26,7 +26,6 @@ export function DashboardWorkspace({
   compactAuthControls,
 }: DashboardWorkspaceProps): React.ReactElement {
   const [activeView, setActiveView] = React.useState<DashboardViewId>('overview');
-  const [desktopNavigationExpanded, setDesktopNavigationExpanded] = React.useState(false);
   const [releaseDocumentId, setReleaseDocumentId] = React.useState('');
   const shouldFocusHeading = React.useRef(false);
 
@@ -68,44 +67,22 @@ export function DashboardWorkspace({
   };
 
   return (
-    <div
-      className={`min-h-screen bg-background text-foreground transition-[grid-template-columns] duration-200 motion-reduce:transition-none md:grid ${
-        desktopNavigationExpanded
-          ? 'md:grid-cols-[208px_minmax(0,1fr)]'
-          : 'md:grid-cols-[72px_minmax(0,1fr)]'
-      }`}
+    <DashboardAppShell
+      activeView={activeView}
+      authControls={authControls}
+      compactAuthControls={compactAuthControls}
+      onSelect={selectView}
     >
-      <DesktopWorkspaceNavigation
+      {apiError ? <DashboardError message={apiError} /> : null}
+      <ActiveDashboardView
         activeView={activeView}
-        authControls={authControls}
-        compactAuthControls={compactAuthControls}
-        expanded={desktopNavigationExpanded}
-        onExpandedChange={setDesktopNavigationExpanded}
-        onSelect={selectView}
+        releaseDocumentId={releaseDocumentId}
+        viewModel={viewModel}
+        workspaceId={workspaceId}
+        onReviewRelease={openReleaseDetails}
+        onSelectView={selectView}
       />
-
-      <div className="min-w-0 md:col-start-2">
-        <MobileWorkspaceHeader
-          activeView={activeView}
-          authControls={authControls}
-          onSelect={selectView}
-        />
-        <main
-          className="mx-auto min-h-screen w-full px-4 py-6 sm:px-6 md:px-8 md:py-16 lg:px-10"
-          id="dashboard-active-view"
-        >
-          {apiError ? <DashboardError message={apiError} /> : null}
-          <ActiveDashboardView
-            activeView={activeView}
-            releaseDocumentId={releaseDocumentId}
-            viewModel={viewModel}
-            workspaceId={workspaceId}
-            onReviewRelease={openReleaseDetails}
-            onSelectView={selectView}
-          />
-        </main>
-      </div>
-    </div>
+    </DashboardAppShell>
   );
 }
 

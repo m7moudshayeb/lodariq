@@ -86,7 +86,7 @@ export function AuthField({
                 ? _(AUTH_FORM_MESSAGES.hidePassword)
                 : _(AUTH_FORM_MESSAGES.showPassword)
             }
-            className="absolute inset-y-0 right-0 size-9 text-muted-foreground rtl:left-0 rtl:right-auto"
+            className="absolute inset-y-0 right-0 size-9 border-0 bg-transparent text-muted-foreground shadow-none hover:bg-transparent hover:text-foreground focus-visible:border-transparent rtl:left-0 rtl:right-auto"
             disabled={disabled}
             onClick={() => setPasswordVisible((visible) => !visible)}
             size="icon"

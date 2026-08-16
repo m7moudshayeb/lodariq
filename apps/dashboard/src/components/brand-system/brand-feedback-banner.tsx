@@ -1,5 +1,7 @@
-import type { ReactElement } from 'react';
-import { StatusBanner } from '../ui/status-banner';
+'use client';
+
+import { useEffect, type ReactElement } from 'react';
+import { statusToast } from '../ui/toaster';
 
 export function BrandFeedbackBanner({
   error,
@@ -8,6 +10,9 @@ export function BrandFeedbackBanner({
   error: string;
   message: string;
 }): ReactElement | null {
-  if (!error && !message) return null;
-  return <StatusBanner kind={error ? 'error' : 'success'} title={error || message} />;
+  useEffect(() => {
+    if (error) statusToast('error', error);
+    else if (message) statusToast('success', message);
+  }, [error, message]);
+  return null;
 }
