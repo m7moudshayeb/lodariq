@@ -14,17 +14,17 @@ msgstr ""
 "Plural-Forms: \n"
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:176
+#: src/components/release-recovery-panel.tsx:177
 msgid "dashboard.recovery.replayed"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/brand-system-panel.tsx:35
+#: src/components/brand-system-panel.tsx:36
 msgid "dashboard.brand.panel.defaultSr"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:131
+#: src/components/release-recovery-panel.tsx:132
 msgid "dashboard.recovery.dialogLabel"
 msgstr ""
 
@@ -219,22 +219,22 @@ msgid "auth.form.verificationSent"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:181
+#: src/components/enterprise-identity-settings.tsx:182
 msgid "enterpriseIdentity.breakGlassHelp"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/brand-system-panel.tsx:57
+#: src/components/brand-system-panel.tsx:58
 msgid "dashboard.brand.panel.askAdmin"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:115
+#: src/components/enterprise-identity-settings.tsx:116
 msgid "enterpriseIdentity.assurance.aal1"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:116
+#: src/components/enterprise-identity-settings.tsx:117
 msgid "enterpriseIdentity.assurance.aal2"
 msgstr ""
 
@@ -344,17 +344,17 @@ msgid "dashboard.viewModel.active"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:99
+#: src/components/enterprise-identity-settings.tsx:100
 msgid "enterpriseIdentity.status.active"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:211
+#: src/components/enterprise-identity-settings.tsx:212
 msgid "enterpriseIdentity.active"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:99
+#: src/components/release-recovery-panel.tsx:100
 msgid "dashboard.recovery.active"
 msgstr ""
 
@@ -364,12 +364,12 @@ msgid "dashboard.viewModel.activePublicationAt"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:213
+#: src/components/release-recovery-panel.tsx:214
 msgid "dashboard.recovery.activeAtAttempt"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:105
+#: src/components/release-recovery-panel.tsx:106
 msgid "dashboard.recovery.activePublication"
 msgstr ""
 
@@ -384,7 +384,7 @@ msgid "dashboard.viewModel.activeNoProvenanceAt"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:193
+#: src/components/release-recovery-panel.tsx:194
 msgid "dashboard.recovery.actualGeneration"
 msgstr ""
 
@@ -414,7 +414,7 @@ msgid "dashboard.publishIssue.emptyStep.message"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:84
+#: src/components/enterprise-identity-settings.tsx:85
 msgid "enterpriseIdentity.addConnection"
 msgstr ""
 
@@ -429,7 +429,7 @@ msgid "dashboard.installation.oneLineDescription"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:138
+#: src/components/enterprise-identity-settings.tsx:139
 msgid "enterpriseIdentity.dnsChallenge"
 msgstr ""
 
@@ -454,7 +454,7 @@ msgid "dashboard.account.role.admin"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:155
+#: src/components/enterprise-identity-settings.tsx:156
 msgid "enterpriseIdentity.role.admin"
 msgstr ""
 
@@ -479,7 +479,7 @@ msgid "dashboard.brand.preview.after"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:110
+#: src/components/enterprise-identity-settings.tsx:111
 msgid "enterpriseIdentity.allowPassword"
 msgstr ""
 
@@ -579,7 +579,7 @@ msgid "dashboard.action.applicationNameRequired"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/brand-system-panel.tsx:53
+#: src/components/brand-system-panel.tsx:54
 msgid "dashboard.brand.panel.adminApproval"
 msgstr ""
 
@@ -599,7 +599,7 @@ msgid "dashboard.brand.controller.reviewMissing"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:199
+#: src/components/enterprise-identity-settings.tsx:200
 msgid "enterpriseIdentity.approveBreakGlass"
 msgstr ""
 
@@ -619,7 +619,7 @@ msgid "dashboard.viewModel.approvedAt"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:117
+#: src/components/enterprise-identity-settings.tsx:118
 msgid "enterpriseIdentity.breakGlassId"
 msgstr ""
 
@@ -774,22 +774,22 @@ msgid "dashboard.brand.preview.fallbackTheme"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:130
+#: src/components/release-recovery-panel.tsx:131
 msgid "dashboard.recovery.brandTheme"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/brand-system-panel.tsx:34
+#: src/components/brand-system-panel.tsx:35
 msgid "dashboard.brand.panel.themes"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:180
+#: src/components/enterprise-identity-settings.tsx:181
 msgid "enterpriseIdentity.breakGlass"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:203
+#: src/components/enterprise-identity-settings.tsx:204
 msgid "enterpriseIdentity.requestApproved"
 msgstr ""
 
@@ -819,7 +819,7 @@ msgid "dashboard.activation.cancel"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:162
+#: src/components/release-recovery-panel.tsx:163
 msgid "dashboard.recovery.cancel"
 msgstr ""
 
@@ -879,7 +879,7 @@ msgid "dashboard.activation.checking"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:163
+#: src/components/release-recovery-panel.tsx:164
 msgid "dashboard.recovery.checking"
 msgstr ""
 
@@ -919,7 +919,7 @@ msgid "auth.page.newPassword.title"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:148
+#: src/components/release-recovery-panel.tsx:149
 msgid "dashboard.recovery.choosePublication"
 msgstr ""
 
@@ -1049,7 +1049,7 @@ msgid "dashboard.navigation.collapse"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:133
+#: src/components/enterprise-identity-settings.tsx:134
 msgid "enterpriseIdentity.domain"
 msgstr ""
 
@@ -1064,12 +1064,12 @@ msgid "account.validation.required"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:207
+#: src/components/enterprise-identity-settings.tsx:208
 msgid "enterpriseIdentity.requiredFields"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:113
+#: src/components/release-recovery-panel.tsx:114
 msgid "dashboard.recovery.completeHistory"
 msgstr ""
 
@@ -1099,7 +1099,7 @@ msgid "dashboard.analytics.fact.completion"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:40
+#: src/components/enterprise-identity-settings.tsx:41
 msgid "enterpriseIdentity.description"
 msgstr ""
 
@@ -1124,7 +1124,7 @@ msgid "account.recoveryCodes.confirm"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:135
+#: src/components/release-recovery-panel.tsx:136
 msgid "dashboard.recovery.confirmExact"
 msgstr ""
 
@@ -1144,7 +1144,7 @@ msgid "dashboard.analytics.contentHash"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:128
+#: src/components/release-recovery-panel.tsx:129
 msgid "dashboard.recovery.contentHash"
 msgstr ""
 
@@ -1229,7 +1229,7 @@ msgid "account.recoveryCodes.shownOnce"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:172
+#: src/components/enterprise-identity-settings.tsx:173
 msgid "enterpriseIdentity.scimToken"
 msgstr ""
 
@@ -1289,7 +1289,7 @@ msgid "dashboard.brand.empty.create"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:134
+#: src/components/enterprise-identity-settings.tsx:135
 msgid "enterpriseIdentity.startVerification"
 msgstr ""
 
@@ -1299,7 +1299,7 @@ msgid "dashboard.installation.create"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:163
+#: src/components/enterprise-identity-settings.tsx:164
 msgid "enterpriseIdentity.createScimToken"
 msgstr ""
 
@@ -1394,7 +1394,7 @@ msgid "dashboard.support.customerVersionAvailable"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/brand-system-panel.tsx:45
+#: src/components/brand-system-panel.tsx:46
 msgid "dashboard.brand.panel.description"
 msgstr ""
 
@@ -1444,12 +1444,12 @@ msgid "dashboard.recovery.failure.alreadyInactive"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:101
+#: src/components/release-recovery-panel.tsx:102
 msgid "dashboard.recovery.inactiveDescription"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:152
+#: src/components/release-recovery-panel.tsx:153
 msgid "dashboard.recovery.unpublishDescription"
 msgstr ""
 
@@ -1489,22 +1489,22 @@ msgid "dashboard.environmentPolicy.directPublish"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:85
+#: src/components/enterprise-identity-settings.tsx:86
 msgid "enterpriseIdentity.disableConnection"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:168
+#: src/components/enterprise-identity-settings.tsx:169
 msgid "enterpriseIdentity.disableScimTokenConfirm"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:89
+#: src/components/enterprise-identity-settings.tsx:90
 msgid "enterpriseIdentity.disableConnectionConfirm"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:164
+#: src/components/enterprise-identity-settings.tsx:165
 msgid "enterpriseIdentity.disableScimToken"
 msgstr ""
 
@@ -1514,17 +1514,17 @@ msgid "dashboard.common.disabled"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:100
+#: src/components/enterprise-identity-settings.tsx:101
 msgid "enterpriseIdentity.status.disabled"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:83
+#: src/components/release-recovery-panel.tsx:84
 msgid "dashboard.recovery.disabled"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:127
+#: src/components/enterprise-identity-settings.tsx:128
 msgid "enterpriseIdentity.domainsHelp"
 msgstr ""
 
@@ -1564,7 +1564,7 @@ msgid "dashboard.documents.draft"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:94
+#: src/components/enterprise-identity-settings.tsx:95
 msgid "enterpriseIdentity.status.draft"
 msgstr ""
 
@@ -1579,7 +1579,7 @@ msgid "dashboard.viewModel.draftNotPrepared"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/brand-system-panel.tsx:44
+#: src/components/brand-system-panel.tsx:45
 msgid "dashboard.brand.panel.draftOnly"
 msgstr ""
 
@@ -1599,7 +1599,7 @@ msgid "dashboard.action.draftSaved"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/brand-system-panel.tsx:52
+#: src/components/brand-system-panel.tsx:53
 msgid "dashboard.brand.panel.editDraft"
 msgstr ""
 
@@ -1714,17 +1714,17 @@ msgid "account.validation.delete"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:39
+#: src/components/enterprise-identity-settings.tsx:40
 msgid "enterpriseIdentity.title"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:50
+#: src/components/enterprise-identity-settings.tsx:51
 msgid "enterpriseIdentity.saved"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:46
+#: src/components/enterprise-identity-settings.tsx:47
 msgid "enterpriseIdentity.unavailable"
 msgstr ""
 
@@ -1744,7 +1744,7 @@ msgid "dashboard.activation.environment"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:139
+#: src/components/release-recovery-panel.tsx:140
 msgid "dashboard.recovery.confirmationDetails"
 msgstr ""
 
@@ -1854,7 +1854,7 @@ msgid "dashboard.navigation.expand"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:197
+#: src/components/release-recovery-panel.tsx:198
 msgid "dashboard.recovery.expectedGeneration"
 msgstr ""
 
@@ -1909,7 +1909,7 @@ msgid "dashboard.analytics.fact.exposure"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:188
+#: src/components/release-recovery-panel.tsx:189
 msgid "dashboard.recovery.failedAction"
 msgstr ""
 
@@ -1999,7 +1999,7 @@ msgid "account.recoveryCodes.generate"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:100
+#: src/components/release-recovery-panel.tsx:101
 msgid "dashboard.recovery.generation"
 msgstr ""
 
@@ -2009,7 +2009,7 @@ msgid "dashboard.brand.editor.georgiaSerif"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:147
+#: src/components/enterprise-identity-settings.tsx:148
 msgid "enterpriseIdentity.mappingsHelp"
 msgstr ""
 
@@ -2034,7 +2034,7 @@ msgid "dashboard.support.title"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/brand-system-panel.tsx:50
+#: src/components/brand-system-panel.tsx:51
 msgid "dashboard.brand.panel.hideImpact"
 msgstr ""
 
@@ -2059,12 +2059,12 @@ msgid "dashboard.viewModel.type.hotspot"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:73
+#: src/components/enterprise-identity-settings.tsx:74
 msgid "enterpriseIdentity.provider"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:146
+#: src/components/enterprise-identity-settings.tsx:147
 msgid "enterpriseIdentity.mappings"
 msgstr ""
 
@@ -2084,7 +2084,7 @@ msgid "dashboard.authoringLaunch.signInHandoff"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:124
+#: src/components/release-recovery-panel.tsx:125
 msgid "dashboard.recovery.immutableArtifact"
 msgstr ""
 
@@ -2119,7 +2119,7 @@ msgid "dashboard.common.inactive"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:98
+#: src/components/release-recovery-panel.tsx:99
 msgid "dashboard.recovery.inactive"
 msgstr ""
 
@@ -2184,7 +2184,7 @@ msgid "workspaceInvitation.accepted"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:79
+#: src/components/enterprise-identity-settings.tsx:80
 msgid "enterpriseIdentity.provisioning.invitationOnly"
 msgstr ""
 
@@ -2204,7 +2204,7 @@ msgid "dashboard.page.members.description"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:76
+#: src/components/enterprise-identity-settings.tsx:77
 msgid "enterpriseIdentity.issuer"
 msgstr ""
 
@@ -2319,12 +2319,12 @@ msgid "account.loading"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:84
+#: src/components/release-recovery-panel.tsx:85
 msgid "dashboard.recovery.loading"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:45
+#: src/components/enterprise-identity-settings.tsx:46
 msgid "enterpriseIdentity.loading"
 msgstr ""
 
@@ -2384,7 +2384,7 @@ msgid "dashboard.viewModel.lowConfidenceEvidence"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/brand-system-panel.tsx:66
+#: src/components/brand-system-panel.tsx:67
 msgid "dashboard.brand.panel.makeDefault"
 msgstr ""
 
@@ -2409,7 +2409,7 @@ msgid "dashboard.page.environments.description"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:152
+#: src/components/enterprise-identity-settings.tsx:153
 msgid "enterpriseIdentity.managedRole"
 msgstr ""
 
@@ -2429,7 +2429,7 @@ msgid "dashboard.account.role.member"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:154
+#: src/components/enterprise-identity-settings.tsx:155
 msgid "enterpriseIdentity.role.member"
 msgstr ""
 
@@ -2449,12 +2449,12 @@ msgid "dashboard.page.members.title"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:75
+#: src/components/enterprise-identity-settings.tsx:76
 msgid "enterpriseIdentity.provider.entra"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:111
+#: src/components/enterprise-identity-settings.tsx:112
 msgid "enterpriseIdentity.minimumAssurance"
 msgstr ""
 
@@ -2534,7 +2534,7 @@ msgid "dashboard.analytics.target.needsReview"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:64
+#: src/components/enterprise-identity-settings.tsx:65
 msgid "enterpriseIdentity.connectionsHelp"
 msgstr ""
 
@@ -2594,7 +2594,7 @@ msgid "dashboard.viewModel.noEnvironmentPublicationRecord"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:217
+#: src/components/release-recovery-panel.tsx:218
 msgid "dashboard.recovery.noActiveAtAttempt"
 msgstr ""
 
@@ -2619,7 +2619,7 @@ msgid "dashboard.action.noProductOrigins"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:145
+#: src/components/enterprise-identity-settings.tsx:146
 msgid "enterpriseIdentity.noDomains"
 msgstr ""
 
@@ -2639,7 +2639,7 @@ msgid "dashboard.action.noDeliveryRecord"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:69
+#: src/components/enterprise-identity-settings.tsx:70
 msgid "enterpriseIdentity.noConnections"
 msgstr ""
 
@@ -2719,7 +2719,7 @@ msgid "dashboard.viewModel.noRecord"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:114
+#: src/components/release-recovery-panel.tsx:115
 msgid "dashboard.recovery.noOperations"
 msgstr ""
 
@@ -2729,7 +2729,7 @@ msgid "dashboard.releases.emptyTitle"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:176
+#: src/components/enterprise-identity-settings.tsx:177
 msgid "enterpriseIdentity.noScimTokens"
 msgstr ""
 
@@ -2809,12 +2809,12 @@ msgid "dashboard.brand.review.notYet"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:77
+#: src/components/enterprise-identity-settings.tsx:78
 msgid "enterpriseIdentity.clientId"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:74
+#: src/components/enterprise-identity-settings.tsx:75
 msgid "enterpriseIdentity.provider.okta"
 msgstr ""
 
@@ -2869,7 +2869,7 @@ msgid "dashboard.installation.eyebrow"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:59
+#: src/components/enterprise-identity-settings.tsx:60
 msgid "enterpriseIdentity.ownerOnly"
 msgstr ""
 
@@ -2969,12 +2969,12 @@ msgid "auth.form.openingWorkspace"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:119
+#: src/components/release-recovery-panel.tsx:120
 msgid "dashboard.recovery.operationActor"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:186
+#: src/components/enterprise-identity-settings.tsx:187
 msgid "enterpriseIdentity.reason"
 msgstr ""
 
@@ -3049,7 +3049,7 @@ msgid "account.methods.password"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:122
+#: src/components/enterprise-identity-settings.tsx:123
 msgid "enterpriseIdentity.invalidPolicy"
 msgstr ""
 
@@ -3069,7 +3069,7 @@ msgid "auth.form.passwordsDoNotMatch"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:101
+#: src/components/enterprise-identity-settings.tsx:102
 msgid "enterpriseIdentity.status.pending"
 msgstr ""
 
@@ -3084,7 +3084,7 @@ msgid "workspaceMembers.pendingInvitations"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:109
+#: src/components/release-recovery-panel.tsx:110
 msgid "dashboard.recovery.pendingOperation"
 msgstr ""
 
@@ -3119,7 +3119,7 @@ msgid "dashboard.environmentPolicy.noPublishSideEffect"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:104
+#: src/components/enterprise-identity-settings.tsx:105
 msgid "enterpriseIdentity.policyHelp"
 msgstr ""
 
@@ -3154,7 +3154,7 @@ msgid "dashboard.installation.preparing"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/brand-system-panel.tsx:51
+#: src/components/brand-system-panel.tsx:52
 msgid "dashboard.brand.panel.previewImpact"
 msgstr ""
 
@@ -3179,12 +3179,12 @@ msgid "dashboard.brand.impact.description"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:209
+#: src/components/release-recovery-panel.tsx:210
 msgid "dashboard.recovery.previousPublication"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:144
+#: src/components/release-recovery-panel.tsx:145
 msgid "dashboard.recovery.priorPublication"
 msgstr ""
 
@@ -3299,7 +3299,7 @@ msgid "dashboard.viewModel.productionUpdate"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:190
+#: src/components/release-recovery-panel.tsx:191
 msgid "dashboard.recovery.promoted"
 msgstr ""
 
@@ -3314,12 +3314,12 @@ msgid "dashboard.environmentPolicy.promotionSource"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:151
+#: src/components/enterprise-identity-settings.tsx:152
 msgid "enterpriseIdentity.groupId"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:78
+#: src/components/enterprise-identity-settings.tsx:79
 msgid "enterpriseIdentity.provisioning"
 msgstr ""
 
@@ -3344,17 +3344,17 @@ msgid "dashboard.analytics.releaseFactsDescription"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:225
+#: src/components/release-recovery-panel.tsx:226
 msgid "dashboard.recovery.publicationIdentity"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:221
+#: src/components/release-recovery-panel.tsx:222
 msgid "dashboard.recovery.publicationSource"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:205
+#: src/components/release-recovery-panel.tsx:206
 msgid "dashboard.recovery.publicationTarget"
 msgstr ""
 
@@ -3384,7 +3384,7 @@ msgid "dashboard.viewModel.published"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:189
+#: src/components/release-recovery-panel.tsx:190
 msgid "dashboard.recovery.published"
 msgstr ""
 
@@ -3469,12 +3469,12 @@ msgid "dashboard.support.readyToPublish"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:157
+#: src/components/release-recovery-panel.tsx:158
 msgid "dashboard.recovery.reasonLabel"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:118
+#: src/components/release-recovery-panel.tsx:119
 msgid "dashboard.recovery.reason"
 msgstr ""
 
@@ -3519,7 +3519,7 @@ msgid "dashboard.common.refresh"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:81
+#: src/components/release-recovery-panel.tsx:82
 msgid "dashboard.recovery.refresh"
 msgstr ""
 
@@ -3539,7 +3539,7 @@ msgid "dashboard.page.releases.title"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:82
+#: src/components/release-recovery-panel.tsx:83
 msgid "dashboard.recovery.environment"
 msgstr ""
 
@@ -3549,7 +3549,7 @@ msgid "dashboard.analytics.fact.releaseHealth"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:75
+#: src/components/release-recovery-panel.tsx:76
 msgid "dashboard.recovery.title"
 msgstr ""
 
@@ -3559,7 +3559,7 @@ msgid "dashboard.action.releaseHistoryMissing"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:59
+#: src/components/release-recovery-panel.tsx:60
 msgid "dashboard.recovery.historyUnavailable"
 msgstr ""
 
@@ -3574,12 +3574,12 @@ msgid "dashboard.recovery.failure.unknown"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:71
+#: src/components/release-recovery-panel.tsx:72
 msgid "dashboard.recovery.regionLabel"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:184
+#: src/components/release-recovery-panel.tsx:185
 msgid "dashboard.recovery.unpublishedAt"
 msgstr ""
 
@@ -3624,7 +3624,7 @@ msgid "dashboard.publishIssue.unsupportedTourBlock.message"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:129
+#: src/components/release-recovery-panel.tsx:130
 msgid "dashboard.recovery.renderer"
 msgstr ""
 
@@ -3634,7 +3634,7 @@ msgid "dashboard.brand.preview.rendering"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:191
+#: src/components/enterprise-identity-settings.tsx:192
 msgid "enterpriseIdentity.requestCreated"
 msgstr ""
 
@@ -3664,17 +3664,17 @@ msgid "auth.form.requestAnotherVerification"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:187
+#: src/components/enterprise-identity-settings.tsx:188
 msgid "enterpriseIdentity.requestBreakGlass"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:195
+#: src/components/enterprise-identity-settings.tsx:196
 msgid "enterpriseIdentity.approvalRequestId"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:201
+#: src/components/release-recovery-panel.tsx:202
 msgid "dashboard.recovery.requestedTarget"
 msgstr ""
 
@@ -3694,7 +3694,7 @@ msgid "dashboard.environments.requireApproval"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:109
+#: src/components/enterprise-identity-settings.tsx:110
 msgid "enterpriseIdentity.requireSso"
 msgstr ""
 
@@ -3714,7 +3714,7 @@ msgid "auth.form.restartVerification"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:167
+#: src/components/release-recovery-panel.tsx:168
 msgid "dashboard.recovery.retryExact"
 msgstr ""
 
@@ -3754,7 +3754,7 @@ msgid "dashboard.viewModel.status.review"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/brand-system-panel.tsx:62
+#: src/components/brand-system-panel.tsx:63
 msgid "dashboard.brand.panel.reviewApprove"
 msgstr ""
 
@@ -3774,7 +3774,7 @@ msgid "dashboard.viewModel.reviewBlockers"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/brand-system-panel.tsx:61
+#: src/components/brand-system-panel.tsx:62
 msgid "dashboard.brand.panel.reviewOpen"
 msgstr ""
 
@@ -3864,22 +3864,22 @@ msgid "workspaceMembers.membersDescription"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:54
+#: src/components/release-recovery-panel.tsx:55
 msgid "dashboard.recovery.action.rollback"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:168
+#: src/components/release-recovery-panel.tsx:169
 msgid "dashboard.recovery.rollbackPublication"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:88
+#: src/components/release-recovery-panel.tsx:89
 msgid "dashboard.recovery.rollbackEllipsis"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:76
+#: src/components/release-recovery-panel.tsx:77
 msgid "dashboard.recovery.description"
 msgstr ""
 
@@ -3889,12 +3889,12 @@ msgid "dashboard.environmentPolicy.rollbackRoles"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:191
+#: src/components/release-recovery-panel.tsx:192
 msgid "dashboard.recovery.rolledBackAction"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:180
+#: src/components/release-recovery-panel.tsx:181
 msgid "dashboard.recovery.rolledBack"
 msgstr ""
 
@@ -3944,7 +3944,7 @@ msgid "account.recoveryCodes.help"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:121
+#: src/components/enterprise-identity-settings.tsx:122
 msgid "enterpriseIdentity.savePolicy"
 msgstr ""
 
@@ -3954,7 +3954,7 @@ msgid "dashboard.brand.editor.save"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:156
+#: src/components/enterprise-identity-settings.tsx:157
 msgid "enterpriseIdentity.saveMapping"
 msgstr ""
 
@@ -4014,7 +4014,7 @@ msgid "workspaceMembers.deletionDescription"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:157
+#: src/components/enterprise-identity-settings.tsx:158
 msgid "enterpriseIdentity.scim"
 msgstr ""
 
@@ -4154,7 +4154,7 @@ msgid "dashboard.server.authenticationRequired"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:55
+#: src/components/enterprise-identity-settings.tsx:56
 msgid "enterpriseIdentity.reauthenticate"
 msgstr ""
 
@@ -4259,12 +4259,12 @@ msgid "dashboard.viewModel.sourceRevision"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:132
+#: src/components/enterprise-identity-settings.tsx:133
 msgid "enterpriseIdentity.connection"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:63
+#: src/components/enterprise-identity-settings.tsx:64
 msgid "enterpriseIdentity.connections"
 msgstr ""
 
@@ -4294,7 +4294,7 @@ msgid "dashboard.environmentPolicy.staging"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:67
+#: src/components/release-recovery-panel.tsx:68
 msgid "dashboard.recovery.noEnvironments"
 msgstr ""
 
@@ -4399,7 +4399,7 @@ msgid "dashboard.installation.syncing"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:123
+#: src/components/release-recovery-panel.tsx:124
 msgid "dashboard.recovery.system"
 msgstr ""
 
@@ -4459,7 +4459,7 @@ msgid "dashboard.analytics.rowBound"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:51
+#: src/components/enterprise-identity-settings.tsx:52
 msgid "enterpriseIdentity.mutationFailed"
 msgstr ""
 
@@ -4559,7 +4559,7 @@ msgid "dashboard.recovery.failure.documentNotFound"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:63
+#: src/components/release-recovery-panel.tsx:64
 msgid "dashboard.recovery.requestFailed"
 msgstr ""
 
@@ -4604,7 +4604,7 @@ msgid "dashboard.action.analyticsEnvironmentUnavailable"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/brand-system-panel.tsx:30
+#: src/components/brand-system-panel.tsx:31
 msgid "dashboard.brand.panel.missingTheme"
 msgstr ""
 
@@ -4714,7 +4714,7 @@ msgid "auth.page.signUpDisabled.description"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:94
+#: src/components/release-recovery-panel.tsx:95
 msgid "dashboard.recovery.noDeployment"
 msgstr ""
 
@@ -4794,7 +4794,7 @@ msgid "auth.form.incompleteVerificationLink"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:158
+#: src/components/enterprise-identity-settings.tsx:159
 msgid "enterpriseIdentity.scimHelp"
 msgstr ""
 
@@ -4884,12 +4884,12 @@ msgid "account.email.queued"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:142
+#: src/components/enterprise-identity-settings.tsx:143
 msgid "enterpriseIdentity.recordName"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:143
+#: src/components/enterprise-identity-settings.tsx:144
 msgid "enterpriseIdentity.recordValue"
 msgstr ""
 
@@ -5019,12 +5019,12 @@ msgid "dashboard.viewModel.unknownTime"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:55
+#: src/components/release-recovery-panel.tsx:56
 msgid "dashboard.recovery.action.unpublish"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:172
+#: src/components/release-recovery-panel.tsx:173
 msgid "dashboard.recovery.unpublishRelease"
 msgstr ""
 
@@ -5034,7 +5034,7 @@ msgid "dashboard.environmentPolicy.unpublishRoles"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:89
+#: src/components/release-recovery-panel.tsx:90
 msgid "dashboard.recovery.unpublishEllipsis"
 msgstr ""
 
@@ -5044,7 +5044,7 @@ msgid "dashboard.viewModel.unpublished"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:192
+#: src/components/release-recovery-panel.tsx:193
 msgid "dashboard.recovery.unpublished"
 msgstr ""
 
@@ -5119,7 +5119,7 @@ msgid "dashboard.environments.updating"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:158
+#: src/components/release-recovery-panel.tsx:159
 msgid "dashboard.recovery.reasonHelp"
 msgstr ""
 
@@ -5204,7 +5204,7 @@ msgid "dashboard.brand.editor.usesLight"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:95
+#: src/components/enterprise-identity-settings.tsx:96
 msgid "enterpriseIdentity.status.validationRequired"
 msgstr ""
 
@@ -5214,12 +5214,12 @@ msgid "dashboard.viewModel.verified"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:102
+#: src/components/enterprise-identity-settings.tsx:103
 msgid "enterpriseIdentity.status.verified"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:126
+#: src/components/enterprise-identity-settings.tsx:127
 msgid "enterpriseIdentity.domains"
 msgstr ""
 
@@ -5229,12 +5229,12 @@ msgid "dashboard.viewModel.verifiedExactArtifactAt"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:83
+#: src/components/enterprise-identity-settings.tsx:84
 msgid "enterpriseIdentity.provisioning.jit"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:144
+#: src/components/enterprise-identity-settings.tsx:145
 msgid "enterpriseIdentity.verifyDomain"
 msgstr ""
 
@@ -5274,7 +5274,7 @@ msgid "dashboard.viewModel.version"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/brand-system-panel.tsx:40
+#: src/components/brand-system-panel.tsx:41
 msgid "dashboard.brand.panel.approvedVersion"
 msgstr ""
 
@@ -5314,7 +5314,7 @@ msgid "dashboard.account.role.viewer"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:153
+#: src/components/enterprise-identity-settings.tsx:154
 msgid "enterpriseIdentity.role.viewer"
 msgstr ""
 
@@ -5389,12 +5389,12 @@ msgid "workspaceMembers.unavailable"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:103
+#: src/components/enterprise-identity-settings.tsx:104
 msgid "enterpriseIdentity.policy"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/brand-system-panel.tsx:36
+#: src/components/brand-system-panel.tsx:37
 msgid "dashboard.brand.panel.workspaceDefault"
 msgstr ""
 
@@ -5449,7 +5449,7 @@ msgid "dashboard.activation.credentialSafety"
 msgstr ""
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:90
+#: src/components/release-recovery-panel.tsx:91
 msgid "dashboard.recovery.notAllowed"
 msgstr ""
 

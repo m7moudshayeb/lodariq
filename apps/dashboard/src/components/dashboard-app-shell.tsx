@@ -1,6 +1,5 @@
 'use client';
 
-import * as React from 'react';
 import { useState, type ReactElement, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import type { AuthSessionSnapshot } from '../lib/auth-contract';

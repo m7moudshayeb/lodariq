@@ -14,17 +14,17 @@ msgstr ""
 "Plural-Forms: \n"
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:176
+#: src/components/release-recovery-panel.tsx:177
 msgid "dashboard.recovery.replayed"
 msgstr " رد الطلب الدقيق بأمان."
 
 #. js-lingui-explicit-id
-#: src/components/brand-system-panel.tsx:35
+#: src/components/brand-system-panel.tsx:36
 msgid "dashboard.brand.panel.defaultSr"
 msgstr "، مساحة العمل الافتراضية"
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:131
+#: src/components/release-recovery-panel.tsx:132
 msgid "dashboard.recovery.dialogLabel"
 msgstr "إصدار {action} {environment}"
 
@@ -219,22 +219,22 @@ msgid "auth.form.verificationSent"
 msgstr "أرسلنا رابط تحقق آمن إلى {email}. أبقِ هذه الصفحة مفتوحة أو استخدم الرابط مباشرة."
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:181
+#: src/components/enterprise-identity-settings.tsx:182
 msgid "enterpriseIdentity.breakGlassHelp"
 msgstr "يلزم وجود جلسة قوية بلا كلمة مرور، ومالك مساحة عمل ثانٍ، وطلب قصير العمر لمرة واحدة."
 
 #. js-lingui-explicit-id
-#: src/components/brand-system-panel.tsx:57
+#: src/components/brand-system-panel.tsx:58
 msgid "dashboard.brand.panel.askAdmin"
 msgstr "يوافق مسؤول مساحة العمل أو مالكها على الإصدارات ويغير الإعدادات الافتراضية."
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:115
+#: src/components/enterprise-identity-settings.tsx:116
 msgid "enterpriseIdentity.assurance.aal1"
 msgstr "AAL1 · قياسي"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:116
+#: src/components/enterprise-identity-settings.tsx:117
 msgid "enterpriseIdentity.assurance.aal2"
 msgstr "AAL2 · متعدد العوامل"
 
@@ -344,17 +344,17 @@ msgid "dashboard.viewModel.active"
 msgstr "نشط"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:99
+#: src/components/enterprise-identity-settings.tsx:100
 msgid "enterpriseIdentity.status.active"
 msgstr "نشط"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:211
+#: src/components/enterprise-identity-settings.tsx:212
 msgid "enterpriseIdentity.active"
 msgstr "نشط"
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:99
+#: src/components/release-recovery-panel.tsx:100
 msgid "dashboard.recovery.active"
 msgstr "نشط"
 
@@ -364,12 +364,12 @@ msgid "dashboard.viewModel.activePublicationAt"
 msgstr "النشر النشط {date}"
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:213
+#: src/components/release-recovery-panel.tsx:214
 msgid "dashboard.recovery.activeAtAttempt"
 msgstr "النشر النشط عند المحاولة: {publication}"
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:105
+#: src/components/release-recovery-panel.tsx:106
 msgid "dashboard.recovery.activePublication"
 msgstr "النشر النشط: {publication}"
 
@@ -384,7 +384,7 @@ msgid "dashboard.viewModel.activeNoProvenanceAt"
 msgstr "نشط منذ {date} · المصدر الدقيق غير متوفر"
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:193
+#: src/components/release-recovery-panel.tsx:194
 msgid "dashboard.recovery.actualGeneration"
 msgstr "التوليد الفعلي {generation}"
 
@@ -414,7 +414,7 @@ msgid "dashboard.publishIssue.emptyStep.message"
 msgstr "أضف محتوى إلى هذه الخطوة قبل النشر."
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:84
+#: src/components/enterprise-identity-settings.tsx:85
 msgid "enterpriseIdentity.addConnection"
 msgstr "إضافة اتصال OIDC"
 
@@ -429,7 +429,7 @@ msgid "dashboard.installation.oneLineDescription"
 msgstr "أضف هذا التثبيت إلى غلاف التطبيق المشترك. يتم حل البيئة والوصول إلى التأليف من أصل الصفحة بالضبط."
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:138
+#: src/components/enterprise-identity-settings.tsx:139
 msgid "enterpriseIdentity.dnsChallenge"
 msgstr "أضف سجل TXT هذا الآن. تظهر قيمته فقط في جلسة المتصفح هذه."
 
@@ -454,7 +454,7 @@ msgid "dashboard.account.role.admin"
 msgstr "المشرف"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:155
+#: src/components/enterprise-identity-settings.tsx:156
 msgid "enterpriseIdentity.role.admin"
 msgstr "Admin"
 
@@ -479,7 +479,7 @@ msgid "dashboard.brand.preview.after"
 msgstr "بعد"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:110
+#: src/components/enterprise-identity-settings.tsx:111
 msgid "enterpriseIdentity.allowPassword"
 msgstr "السماح بجلسات كلمة المرور"
 
@@ -579,7 +579,7 @@ msgid "dashboard.action.applicationNameRequired"
 msgstr "اسم التطبيق مطلوب."
 
 #. js-lingui-explicit-id
-#: src/components/brand-system-panel.tsx:53
+#: src/components/brand-system-panel.tsx:54
 msgid "dashboard.brand.panel.adminApproval"
 msgstr "تعتبر الموافقة والتغييرات الافتراضية بمثابة إجراءات صريحة لمسؤول مساحة العمل."
 
@@ -599,7 +599,7 @@ msgid "dashboard.brand.controller.reviewMissing"
 msgstr "لم يتم إرجاع مراجعة الموافقة."
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:199
+#: src/components/enterprise-identity-settings.tsx:200
 msgid "enterpriseIdentity.approveBreakGlass"
 msgstr "الموافقة على طلب كسر الزجاج"
 
@@ -619,7 +619,7 @@ msgid "dashboard.viewModel.approvedAt"
 msgstr "تمت الموافقة عليه {date}"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:117
+#: src/components/enterprise-identity-settings.tsx:118
 msgid "enterpriseIdentity.breakGlassId"
 msgstr "معرّف طلب كسر الزجاج المعتمد (عند الحاجة فقط)"
 
@@ -774,22 +774,22 @@ msgid "dashboard.brand.preview.fallbackTheme"
 msgstr "موضوع العلامة التجارية"
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:130
+#: src/components/release-recovery-panel.tsx:131
 msgid "dashboard.recovery.brandTheme"
 msgstr "موضوع العلامة التجارية"
 
 #. js-lingui-explicit-id
-#: src/components/brand-system-panel.tsx:34
+#: src/components/brand-system-panel.tsx:35
 msgid "dashboard.brand.panel.themes"
 msgstr "مواضيع العلامة التجارية"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:180
+#: src/components/enterprise-identity-settings.tsx:181
 msgid "enterpriseIdentity.breakGlass"
 msgstr "استرداد كسر الزجاج"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:203
+#: src/components/enterprise-identity-settings.tsx:204
 msgid "enterpriseIdentity.requestApproved"
 msgstr "تمت الموافقة على طلب كسر الزجاج. يبقى قصير العمر ولمرة واحدة."
 
@@ -819,7 +819,7 @@ msgid "dashboard.activation.cancel"
 msgstr "إلغاء"
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:162
+#: src/components/release-recovery-panel.tsx:163
 msgid "dashboard.recovery.cancel"
 msgstr "إلغاء"
 
@@ -879,7 +879,7 @@ msgid "dashboard.activation.checking"
 msgstr "التحقق من الوصول"
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:163
+#: src/components/release-recovery-panel.tsx:164
 msgid "dashboard.recovery.checking"
 msgstr "جارٍ التحقق من الإصدار الدقيق…"
 
@@ -919,7 +919,7 @@ msgid "auth.page.newPassword.title"
 msgstr "اختر كلمة مرور جديدة"
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:148
+#: src/components/release-recovery-panel.tsx:149
 msgid "dashboard.recovery.choosePublication"
 msgstr "اختر منشورًا مسبقًا"
 
@@ -1049,7 +1049,7 @@ msgid "dashboard.navigation.collapse"
 msgstr "طي التنقل في مساحة العمل"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:133
+#: src/components/enterprise-identity-settings.tsx:134
 msgid "enterpriseIdentity.domain"
 msgstr "نطاق الشركة"
 
@@ -1064,12 +1064,12 @@ msgid "account.validation.required"
 msgstr "أكمل جميع الحقول."
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:207
+#: src/components/enterprise-identity-settings.tsx:208
 msgid "enterpriseIdentity.requiredFields"
 msgstr "أكمل كل حقل مطلوب بقيمة صالحة."
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:113
+#: src/components/release-recovery-panel.tsx:114
 msgid "dashboard.recovery.completeHistory"
 msgstr "التاريخ الكامل"
 
@@ -1099,7 +1099,7 @@ msgid "dashboard.analytics.fact.completion"
 msgstr "الانتهاء"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:40
+#: src/components/enterprise-identity-settings.tsx:41
 msgid "enterpriseIdentity.description"
 msgstr "اضبط تسجيل الدخول الموحّد للشركة والنطاقات الموثَّقة والأدوار المُدارة وSCIM دون ربط الحسابات بالبريد."
 
@@ -1124,7 +1124,7 @@ msgid "account.recoveryCodes.confirm"
 msgstr "تأكيد الرموز المحفوظة"
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:135
+#: src/components/release-recovery-panel.tsx:136
 msgid "dashboard.recovery.confirmExact"
 msgstr "التأكيد: {action}"
 
@@ -1144,7 +1144,7 @@ msgid "dashboard.analytics.contentHash"
 msgstr "تجزئة المحتوى"
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:128
+#: src/components/release-recovery-panel.tsx:129
 msgid "dashboard.recovery.contentHash"
 msgstr "تجزئة المحتوى"
 
@@ -1229,7 +1229,7 @@ msgid "account.recoveryCodes.shownOnce"
 msgstr "انسخ هذه الرموز الآن. لن تظهر مرة أخرى."
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:172
+#: src/components/enterprise-identity-settings.tsx:173
 msgid "enterpriseIdentity.scimToken"
 msgstr "انسخ هذا الرمز الآن. لن تعرضه Lodariq مرة أخرى."
 
@@ -1289,7 +1289,7 @@ msgid "dashboard.brand.empty.create"
 msgstr "إنشاء نظام العلامة التجارية"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:134
+#: src/components/enterprise-identity-settings.tsx:135
 msgid "enterpriseIdentity.startVerification"
 msgstr "إنشاء تحدّي DNS"
 
@@ -1299,7 +1299,7 @@ msgid "dashboard.installation.create"
 msgstr "إنشاء التثبيت لمرة واحدة"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:163
+#: src/components/enterprise-identity-settings.tsx:164
 msgid "enterpriseIdentity.createScimToken"
 msgstr "إنشاء رمز SCIM"
 
@@ -1394,7 +1394,7 @@ msgid "dashboard.support.customerVersionAvailable"
 msgstr "إصدار العميل متاح"
 
 #. js-lingui-explicit-id
-#: src/components/brand-system-panel.tsx:45
+#: src/components/brand-system-panel.tsx:46
 msgid "dashboard.brand.panel.description"
 msgstr "تبقى الرموز المميزة التي تواجه العملاء منفصلة عن تصميم لوحة المعلومات. الموافقة تخلق نسخة غير قابلة للتغيير. الإصدارات تعتمد ذلك صراحة."
 
@@ -1444,12 +1444,12 @@ msgid "dashboard.recovery.failure.alreadyInactive"
 msgstr "التسليم غير نشط بالفعل لهذا المستند."
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:101
+#: src/components/release-recovery-panel.tsx:102
 msgid "dashboard.recovery.inactiveDescription"
 msgstr "التسليم غير نشط. يتم الاحتفاظ بالمنشورات الثابتة وتاريخ الإصدار."
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:152
+#: src/components/release-recovery-panel.tsx:153
 msgid "dashboard.recovery.unpublishDescription"
 msgstr "سوف يصبح التسليم غير نشط. لن يتم حذف المنشورات غير القابلة للتغيير ومحفوظات الإلحاق فقط."
 
@@ -1489,22 +1489,22 @@ msgid "dashboard.environmentPolicy.directPublish"
 msgstr "النشر المباشر"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:85
+#: src/components/enterprise-identity-settings.tsx:86
 msgid "enterpriseIdentity.disableConnection"
 msgstr "تعطيل الاتصال"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:168
+#: src/components/enterprise-identity-settings.tsx:169
 msgid "enterpriseIdentity.disableScimTokenConfirm"
 msgstr "هل تريد تعطيل رمز SCIM هذا؟ ستتوقف طلبات التوفير التي تستخدمه فورًا."
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:89
+#: src/components/enterprise-identity-settings.tsx:90
 msgid "enterpriseIdentity.disableConnectionConfirm"
 msgstr "هل تريد تعطيل اتصال SSO هذا وإلغاء جلساته ومنح التأليف والنطاقات ورموز SCIM؟"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:164
+#: src/components/enterprise-identity-settings.tsx:165
 msgid "enterpriseIdentity.disableScimToken"
 msgstr "تعطيل الرمز"
 
@@ -1514,17 +1514,17 @@ msgid "dashboard.common.disabled"
 msgstr "معطل"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:100
+#: src/components/enterprise-identity-settings.tsx:101
 msgid "enterpriseIdentity.status.disabled"
 msgstr "معطّل"
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:83
+#: src/components/release-recovery-panel.tsx:84
 msgid "dashboard.recovery.disabled"
 msgstr "معطل"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:127
+#: src/components/enterprise-identity-settings.tsx:128
 msgid "enterpriseIdentity.domainsHelp"
 msgstr "يستخدم الاكتشاف ملكية DNS الموثَّقة فقط. لا يربط بريد مطابق أبدًا حساب Lodariq قائمًا."
 
@@ -1564,7 +1564,7 @@ msgid "dashboard.documents.draft"
 msgstr "مسودة"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:94
+#: src/components/enterprise-identity-settings.tsx:95
 msgid "enterpriseIdentity.status.draft"
 msgstr "مسودة"
 
@@ -1579,7 +1579,7 @@ msgid "dashboard.viewModel.draftNotPrepared"
 msgstr "المسودة لم يتم إعدادها"
 
 #. js-lingui-explicit-id
-#: src/components/brand-system-panel.tsx:44
+#: src/components/brand-system-panel.tsx:45
 msgid "dashboard.brand.panel.draftOnly"
 msgstr "مسودة فقط"
 
@@ -1599,7 +1599,7 @@ msgid "dashboard.action.draftSaved"
 msgstr "تم حفظ المسودة."
 
 #. js-lingui-explicit-id
-#: src/components/brand-system-panel.tsx:52
+#: src/components/brand-system-panel.tsx:53
 msgid "dashboard.brand.panel.editDraft"
 msgstr "تحرير المسودة"
 
@@ -1714,17 +1714,17 @@ msgid "account.validation.delete"
 msgstr "أدخل كلمة مرورك واكتب DELETE تماماً."
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:39
+#: src/components/enterprise-identity-settings.tsx:40
 msgid "enterpriseIdentity.title"
 msgstr "هوية المؤسسة"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:50
+#: src/components/enterprise-identity-settings.tsx:51
 msgid "enterpriseIdentity.saved"
 msgstr "تم حفظ إعداد هوية المؤسسة."
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:46
+#: src/components/enterprise-identity-settings.tsx:47
 msgid "enterpriseIdentity.unavailable"
 msgstr "تعذّر تحميل إعدادات هوية المؤسسة."
 
@@ -1744,7 +1744,7 @@ msgid "dashboard.activation.environment"
 msgstr "البيئة"
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:139
+#: src/components/release-recovery-panel.tsx:140
 msgid "dashboard.recovery.confirmationDetails"
 msgstr "البيئة {environment} · الجيل {generation} · النشر النشط {publication}"
 
@@ -1854,7 +1854,7 @@ msgid "dashboard.navigation.expand"
 msgstr "قم بتوسيع التنقل في مساحة العمل"
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:197
+#: src/components/release-recovery-panel.tsx:198
 msgid "dashboard.recovery.expectedGeneration"
 msgstr "الجيل المتوقع {generation}"
 
@@ -1909,7 +1909,7 @@ msgid "dashboard.analytics.fact.exposure"
 msgstr "التعرض"
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:188
+#: src/components/release-recovery-panel.tsx:189
 msgid "dashboard.recovery.failedAction"
 msgstr "فشل {action}"
 
@@ -1999,7 +1999,7 @@ msgid "account.recoveryCodes.generate"
 msgstr "إنشاء رموز جديدة"
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:100
+#: src/components/release-recovery-panel.tsx:101
 msgid "dashboard.recovery.generation"
 msgstr "الجيل {generation}"
 
@@ -2009,7 +2009,7 @@ msgid "dashboard.brand.editor.georgiaSerif"
 msgstr "جورجيا شريف"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:147
+#: src/components/enterprise-identity-settings.tsx:148
 msgid "enterpriseIdentity.mappingsHelp"
 msgstr "يمكن للمجموعات منح viewer أو member أو admin. لا يمكن لموفّري الهوية منح owner أبدًا."
 
@@ -2034,7 +2034,7 @@ msgid "dashboard.support.title"
 msgstr "حزمة المساعدة"
 
 #. js-lingui-explicit-id
-#: src/components/brand-system-panel.tsx:50
+#: src/components/brand-system-panel.tsx:51
 msgid "dashboard.brand.panel.hideImpact"
 msgstr "إخفاء التأثير"
 
@@ -2059,12 +2059,12 @@ msgid "dashboard.viewModel.type.hotspot"
 msgstr "نقطة اتصال"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:73
+#: src/components/enterprise-identity-settings.tsx:74
 msgid "enterpriseIdentity.provider"
 msgstr "موفّر الهوية"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:146
+#: src/components/enterprise-identity-settings.tsx:147
 msgid "enterpriseIdentity.mappings"
 msgstr "تعيين أدوار مجموعات IdP"
 
@@ -2084,7 +2084,7 @@ msgid "dashboard.authoringLaunch.signInHandoff"
 msgstr "إذا قمت بتسجيل الخروج، فسيفتح المشغل تسجيل الدخول إلى Lodariq ويعيدك إلى نفس صفحة المنتج تلقائيًا. لا يلزم تسليم المحرر المؤقت."
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:124
+#: src/components/release-recovery-panel.tsx:125
 msgid "dashboard.recovery.immutableArtifact"
 msgstr "قطعة أثرية غير قابلة للتغيير"
 
@@ -2119,7 +2119,7 @@ msgid "dashboard.common.inactive"
 msgstr "غير نشط"
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:98
+#: src/components/release-recovery-panel.tsx:99
 msgid "dashboard.recovery.inactive"
 msgstr "غير نشط"
 
@@ -2184,7 +2184,7 @@ msgid "workspaceInvitation.accepted"
 msgstr "تم قبول الدعوة"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:79
+#: src/components/enterprise-identity-settings.tsx:80
 msgid "enterpriseIdentity.provisioning.invitationOnly"
 msgstr "دعوة فقط"
 
@@ -2204,7 +2204,7 @@ msgid "dashboard.page.members.description"
 msgstr "ادعُ المتعاونين، وعيّن الأدوار، وراجع الوصول إلى مساحة العمل."
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:76
+#: src/components/enterprise-identity-settings.tsx:77
 msgid "enterpriseIdentity.issuer"
 msgstr "عنوان المُصدِر"
 
@@ -2319,12 +2319,12 @@ msgid "account.loading"
 msgstr "جارٍ تحميل أمان الحساب…"
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:84
+#: src/components/release-recovery-panel.tsx:85
 msgid "dashboard.recovery.loading"
 msgstr "جارٍ تحميل سجل الإصدار الكامل..."
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:45
+#: src/components/enterprise-identity-settings.tsx:46
 msgid "enterpriseIdentity.loading"
 msgstr "جارٍ تحميل هوية المؤسسة…"
 
@@ -2384,7 +2384,7 @@ msgid "dashboard.viewModel.lowConfidenceEvidence"
 msgstr "أدلة منخفضة الثقة"
 
 #. js-lingui-explicit-id
-#: src/components/brand-system-panel.tsx:66
+#: src/components/brand-system-panel.tsx:67
 msgid "dashboard.brand.panel.makeDefault"
 msgstr "جعل الافتراضي"
 
@@ -2409,7 +2409,7 @@ msgid "dashboard.page.environments.description"
 msgstr "إدارة أصول المنتجات الموثوقة وكل عملية تثبيت في وقت تشغيل البيئة."
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:152
+#: src/components/enterprise-identity-settings.tsx:153
 msgid "enterpriseIdentity.managedRole"
 msgstr "دور مُدار"
 
@@ -2429,7 +2429,7 @@ msgid "dashboard.account.role.member"
 msgstr "عضو"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:154
+#: src/components/enterprise-identity-settings.tsx:155
 msgid "enterpriseIdentity.role.member"
 msgstr "Member"
 
@@ -2449,12 +2449,12 @@ msgid "dashboard.page.members.title"
 msgstr "الأعضاء والوصول"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:75
+#: src/components/enterprise-identity-settings.tsx:76
 msgid "enterpriseIdentity.provider.entra"
 msgstr "Microsoft Entra ID"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:111
+#: src/components/enterprise-identity-settings.tsx:112
 msgid "enterpriseIdentity.minimumAssurance"
 msgstr "الحد الأدنى للضمان"
 
@@ -2534,7 +2534,7 @@ msgid "dashboard.analytics.target.needsReview"
 msgstr "يحتاج إلى مراجعة"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:64
+#: src/components/enterprise-identity-settings.tsx:65
 msgid "enterpriseIdentity.connectionsHelp"
 msgstr "تبقى الاتصالات الجديدة غير متاحة حتى تسجّل Lodariq تحققًا ناجحًا من المستأجر الحقيقي."
 
@@ -2594,7 +2594,7 @@ msgid "dashboard.viewModel.noEnvironmentPublicationRecord"
 msgstr "لا يوجد سجل نشر {environment}"
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:217
+#: src/components/release-recovery-panel.tsx:218
 msgid "dashboard.recovery.noActiveAtAttempt"
 msgstr "لا يوجد منشور نشط في المحاولة"
 
@@ -2619,7 +2619,7 @@ msgid "dashboard.action.noProductOrigins"
 msgstr "لم يتم تكوين أصول المنتج الأساسية حتى الآن."
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:145
+#: src/components/enterprise-identity-settings.tsx:146
 msgid "enterpriseIdentity.noDomains"
 msgstr "لم يُضبط أي نطاق شركة."
 
@@ -2639,7 +2639,7 @@ msgid "dashboard.action.noDeliveryRecord"
 msgstr "لا يوجد سجل تسليم"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:69
+#: src/components/enterprise-identity-settings.tsx:70
 msgid "enterpriseIdentity.noConnections"
 msgstr "لم يُضبط أي اتصال SSO مؤسسي."
 
@@ -2719,7 +2719,7 @@ msgid "dashboard.viewModel.noRecord"
 msgstr "لا يوجد سجل"
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:114
+#: src/components/release-recovery-panel.tsx:115
 msgid "dashboard.recovery.noOperations"
 msgstr "لم يتم تسجيل أية عمليات إصدار لهذه البيئة."
 
@@ -2729,7 +2729,7 @@ msgid "dashboard.releases.emptyTitle"
 msgstr "لا توجد إصدارات للمراجعة"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:176
+#: src/components/enterprise-identity-settings.tsx:177
 msgid "enterpriseIdentity.noScimTokens"
 msgstr "لم يُصدر أي رمز SCIM."
 
@@ -2809,12 +2809,12 @@ msgid "dashboard.brand.review.notYet"
 msgstr "ليس بعد"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:77
+#: src/components/enterprise-identity-settings.tsx:78
 msgid "enterpriseIdentity.clientId"
 msgstr "معرّف عميل OIDC"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:74
+#: src/components/enterprise-identity-settings.tsx:75
 msgid "enterpriseIdentity.provider.okta"
 msgstr "Okta"
 
@@ -2869,7 +2869,7 @@ msgid "dashboard.installation.eyebrow"
 msgstr "الإعداد لمرة واحدة"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:59
+#: src/components/enterprise-identity-settings.tsx:60
 msgid "enterpriseIdentity.ownerOnly"
 msgstr "يمكن لمالك مساحة العمل فقط تغيير إعدادات هوية المؤسسة."
 
@@ -2969,12 +2969,12 @@ msgid "auth.form.openingWorkspace"
 msgstr "فتح مساحة عمل Lodariq الخاصة بك..."
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:119
+#: src/components/release-recovery-panel.tsx:120
 msgid "dashboard.recovery.operationActor"
 msgstr "العملية {operation} · الممثل {actor}"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:186
+#: src/components/enterprise-identity-settings.tsx:187
 msgid "enterpriseIdentity.reason"
 msgstr "سبب الحادثة التشغيلية"
 
@@ -3049,7 +3049,7 @@ msgid "account.methods.password"
 msgstr "كلمة المرور"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:122
+#: src/components/enterprise-identity-settings.tsx:123
 msgid "enterpriseIdentity.invalidPolicy"
 msgstr "لا يمكن تعطيل كلمة المرور ما لم يكن تسجيل الدخول الموحّد للمؤسسة مطلوبًا."
 
@@ -3069,7 +3069,7 @@ msgid "auth.form.passwordsDoNotMatch"
 msgstr "كلمات المرور غير متطابقة."
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:101
+#: src/components/enterprise-identity-settings.tsx:102
 msgid "enterpriseIdentity.status.pending"
 msgstr "قيد الانتظار"
 
@@ -3084,7 +3084,7 @@ msgid "workspaceMembers.pendingInvitations"
 msgstr "الدعوات المعلّقة"
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:109
+#: src/components/release-recovery-panel.tsx:110
 msgid "dashboard.recovery.pendingOperation"
 msgstr "عملية الإصدار المعلقة: {operation}"
 
@@ -3119,7 +3119,7 @@ msgid "dashboard.environmentPolicy.noPublishSideEffect"
 msgstr "لا تنشر تغييرات السياسة أبدًا أي قطعة أثرية أو تعيد تجميعها."
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:104
+#: src/components/enterprise-identity-settings.tsx:105
 msgid "enterpriseIdentity.policyHelp"
 msgstr "يُفحص النهج عند اختيار مساحة العمل وفي كل تفويض لمستوى التحكم والتأليف."
 
@@ -3154,7 +3154,7 @@ msgid "dashboard.installation.preparing"
 msgstr "جارٍ التحضير…"
 
 #. js-lingui-explicit-id
-#: src/components/brand-system-panel.tsx:51
+#: src/components/brand-system-panel.tsx:52
 msgid "dashboard.brand.panel.previewImpact"
 msgstr "معاينة التأثير"
 
@@ -3179,12 +3179,12 @@ msgid "dashboard.brand.impact.description"
 msgstr "معاينة من يرتبط بهذا الموضوع. تعتمد كل تجربة نسخة جديدة معتمدة بشكل صريح؛ يبقى النشر عملا منفصلا."
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:209
+#: src/components/release-recovery-panel.tsx:210
 msgid "dashboard.recovery.previousPublication"
 msgstr "المنشور السابق: {publication}"
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:144
+#: src/components/release-recovery-panel.tsx:145
 msgid "dashboard.recovery.priorPublication"
 msgstr "منشور تم فحصه مسبقًا بواسطة الخادم"
 
@@ -3299,7 +3299,7 @@ msgid "dashboard.viewModel.productionUpdate"
 msgstr "تحديث الإنتاج"
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:190
+#: src/components/release-recovery-panel.tsx:191
 msgid "dashboard.recovery.promoted"
 msgstr "تمت ترقيته"
 
@@ -3314,12 +3314,12 @@ msgid "dashboard.environmentPolicy.promotionSource"
 msgstr "مصدر الترويج"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:151
+#: src/components/enterprise-identity-settings.tsx:152
 msgid "enterpriseIdentity.groupId"
 msgstr "معرّف مجموعة الموفّر"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:78
+#: src/components/enterprise-identity-settings.tsx:79
 msgid "enterpriseIdentity.provisioning"
 msgstr "وضع التوفير"
 
@@ -3344,17 +3344,17 @@ msgid "dashboard.analytics.releaseFactsDescription"
 msgstr "يظل النشر وتجزئة المحتوى وإنشاء المؤشر منفصلين لكل صف حدث، بما في ذلك عمليات التراجع التي تعيد استخدام المحتوى."
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:225
+#: src/components/release-recovery-panel.tsx:226
 msgid "dashboard.recovery.publicationIdentity"
 msgstr "النشر: {publication}"
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:221
+#: src/components/release-recovery-panel.tsx:222
 msgid "dashboard.recovery.publicationSource"
 msgstr "النشر: {publication} · المصدر: {source}"
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:205
+#: src/components/release-recovery-panel.tsx:206
 msgid "dashboard.recovery.publicationTarget"
 msgstr "النشر: {publication} · الهدف: {target}"
 
@@ -3384,7 +3384,7 @@ msgid "dashboard.viewModel.published"
 msgstr "تم النشر"
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:189
+#: src/components/release-recovery-panel.tsx:190
 msgid "dashboard.recovery.published"
 msgstr "تم النشر"
 
@@ -3469,12 +3469,12 @@ msgid "dashboard.support.readyToPublish"
 msgstr "جاهز للنشر"
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:157
+#: src/components/release-recovery-panel.tsx:158
 msgid "dashboard.recovery.reasonLabel"
 msgstr "السبب"
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:118
+#: src/components/release-recovery-panel.tsx:119
 msgid "dashboard.recovery.reason"
 msgstr "السبب: {reason}"
 
@@ -3519,7 +3519,7 @@ msgid "dashboard.common.refresh"
 msgstr "تحديث"
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:81
+#: src/components/release-recovery-panel.tsx:82
 msgid "dashboard.recovery.refresh"
 msgstr "تحديث"
 
@@ -3539,7 +3539,7 @@ msgid "dashboard.page.releases.title"
 msgstr "تفاصيل الإصدار"
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:82
+#: src/components/release-recovery-panel.tsx:83
 msgid "dashboard.recovery.environment"
 msgstr "الافراج عن البيئة"
 
@@ -3549,7 +3549,7 @@ msgid "dashboard.analytics.fact.releaseHealth"
 msgstr "الافراج عن الصحة"
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:75
+#: src/components/release-recovery-panel.tsx:76
 msgid "dashboard.recovery.title"
 msgstr "تاريخ الإصدار والاسترداد"
 
@@ -3559,7 +3559,7 @@ msgid "dashboard.action.releaseHistoryMissing"
 msgstr "سجل الإصدار غير متوفر لهذا المستند."
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:59
+#: src/components/release-recovery-panel.tsx:60
 msgid "dashboard.recovery.historyUnavailable"
 msgstr "سجل الإصدار غير متاح مؤقتًا لهذه البيئة."
 
@@ -3574,12 +3574,12 @@ msgid "dashboard.recovery.failure.unknown"
 msgstr "تعذر إكمال عملية استرداد الإصدار."
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:71
+#: src/components/release-recovery-panel.tsx:72
 msgid "dashboard.recovery.regionLabel"
 msgstr "تحرير الاسترداد لـ {document}"
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:184
+#: src/components/release-recovery-panel.tsx:185
 msgid "dashboard.recovery.unpublishedAt"
 msgstr "الإصدار غير منشور عند الإنشاء {generation}.{replay}"
 
@@ -3624,7 +3624,7 @@ msgid "dashboard.publishIssue.unsupportedTourBlock.message"
 msgstr "قم بإزالة أو تغيير الكتلة غير المدعومة قبل النشر."
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:129
+#: src/components/release-recovery-panel.tsx:130
 msgid "dashboard.recovery.renderer"
 msgstr "العارض"
 
@@ -3634,7 +3634,7 @@ msgid "dashboard.brand.preview.rendering"
 msgstr "جولة العرض…"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:191
+#: src/components/enterprise-identity-settings.tsx:192
 msgid "enterpriseIdentity.requestCreated"
 msgstr "ينتهي الطلب {requestId} في {expiresAt}. سلّم المعرّف لمالك مساحة عمل آخر."
 
@@ -3664,17 +3664,17 @@ msgid "auth.form.requestAnotherVerification"
 msgstr "طلب رابط تحقق آخر"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:187
+#: src/components/enterprise-identity-settings.tsx:188
 msgid "enterpriseIdentity.requestBreakGlass"
 msgstr "طلب موافقة كسر الزجاج"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:195
+#: src/components/enterprise-identity-settings.tsx:196
 msgid "enterpriseIdentity.approvalRequestId"
 msgstr "معرّف الطلب من مالك آخر"
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:201
+#: src/components/release-recovery-panel.tsx:202
 msgid "dashboard.recovery.requestedTarget"
 msgstr "الهدف المطلوب: {target}"
 
@@ -3694,7 +3694,7 @@ msgid "dashboard.environments.requireApproval"
 msgstr "تتطلب الموافقة"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:109
+#: src/components/enterprise-identity-settings.tsx:110
 msgid "enterpriseIdentity.requireSso"
 msgstr "اشتراط تسجيل الدخول الموحّد للمؤسسة"
 
@@ -3714,7 +3714,7 @@ msgid "auth.form.restartVerification"
 msgstr "إعادة بدء التحقق من الحساب"
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:167
+#: src/components/release-recovery-panel.tsx:168
 msgid "dashboard.recovery.retryExact"
 msgstr "أعد محاولة الطلب الدقيق"
 
@@ -3754,7 +3754,7 @@ msgid "dashboard.viewModel.status.review"
 msgstr "مراجعة"
 
 #. js-lingui-explicit-id
-#: src/components/brand-system-panel.tsx:62
+#: src/components/brand-system-panel.tsx:63
 msgid "dashboard.brand.panel.reviewApprove"
 msgstr "المراجعة والموافقة"
 
@@ -3774,7 +3774,7 @@ msgid "dashboard.viewModel.reviewBlockers"
 msgstr "مراجعة المحظورات"
 
 #. js-lingui-explicit-id
-#: src/components/brand-system-panel.tsx:61
+#: src/components/brand-system-panel.tsx:62
 msgid "dashboard.brand.panel.reviewOpen"
 msgstr "المراجعة مفتوحة"
 
@@ -3864,22 +3864,22 @@ msgid "workspaceMembers.membersDescription"
 msgstr "تُفرض الأدوار من عضوية الخادم الحالية عند كل طلب."
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:54
+#: src/components/release-recovery-panel.tsx:55
 msgid "dashboard.recovery.action.rollback"
 msgstr "التراجع"
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:168
+#: src/components/release-recovery-panel.tsx:169
 msgid "dashboard.recovery.rollbackPublication"
 msgstr "التراجع عن النشر"
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:88
+#: src/components/release-recovery-panel.tsx:89
 msgid "dashboard.recovery.rollbackEllipsis"
 msgstr "استرجاع…"
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:76
+#: src/components/release-recovery-panel.tsx:77
 msgid "dashboard.recovery.description"
 msgstr "يعيد التراجع استخدام قطعة أثرية غير قابلة للتغيير تم فحصها بواسطة الخادم. يؤدي إلغاء النشر إلى إلغاء تنشيط المؤشر الحالي فقط؛ يبقى التاريخ متاحا."
 
@@ -3889,12 +3889,12 @@ msgid "dashboard.environmentPolicy.rollbackRoles"
 msgstr "أدوار التراجع"
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:191
+#: src/components/release-recovery-panel.tsx:192
 msgid "dashboard.recovery.rolledBackAction"
 msgstr "تراجعت"
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:180
+#: src/components/release-recovery-panel.tsx:181
 msgid "dashboard.recovery.rolledBack"
 msgstr "تم الرجوع إلى {publication} عند الإنشاء {generation}.{replay}"
 
@@ -3944,7 +3944,7 @@ msgid "account.recoveryCodes.help"
 msgstr "احفظ الرموز العشرة أحادية الاستخدام دون اتصال. إنشاء مجموعة جديدة يلغي السابقة."
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:121
+#: src/components/enterprise-identity-settings.tsx:122
 msgid "enterpriseIdentity.savePolicy"
 msgstr "حفظ نهج المصادقة"
 
@@ -3954,7 +3954,7 @@ msgid "dashboard.brand.editor.save"
 msgstr "حفظ المسودة"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:156
+#: src/components/enterprise-identity-settings.tsx:157
 msgid "enterpriseIdentity.saveMapping"
 msgstr "حفظ تعيين المجموعة"
 
@@ -4014,7 +4014,7 @@ msgid "workspaceMembers.deletionDescription"
 msgstr "تؤدي جدولة الحذف إلى إلغاء الوصول النشط إلى مساحة العمل وبدء فترة الاحتفاظ."
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:157
+#: src/components/enterprise-identity-settings.tsx:158
 msgid "enterpriseIdentity.scim"
 msgstr "توفير SCIM"
 
@@ -4154,7 +4154,7 @@ msgid "dashboard.server.authenticationRequired"
 msgstr "قم بتسجيل الدخول مرة أخرى للمتابعة."
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:55
+#: src/components/enterprise-identity-settings.tsx:56
 msgid "enterpriseIdentity.reauthenticate"
 msgstr "سجّل الدخول مرة أخرى بمفتاح مرور أو طريقة قوية مكافئة قبل تغيير هذا الإعداد."
 
@@ -4259,12 +4259,12 @@ msgid "dashboard.viewModel.sourceRevision"
 msgstr "مراجعة المصدر {revision}"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:132
+#: src/components/enterprise-identity-settings.tsx:133
 msgid "enterpriseIdentity.connection"
 msgstr "اتصال SSO"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:63
+#: src/components/enterprise-identity-settings.tsx:64
 msgid "enterpriseIdentity.connections"
 msgstr "اتصالات SSO"
 
@@ -4294,7 +4294,7 @@ msgid "dashboard.environmentPolicy.staging"
 msgstr "التدريج"
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:67
+#: src/components/release-recovery-panel.tsx:68
 msgid "dashboard.recovery.noEnvironments"
 msgstr "لم يتم تكوين بيئات إصدار التدريج والإنتاج."
 
@@ -4399,7 +4399,7 @@ msgid "dashboard.installation.syncing"
 msgstr "جارٍ المزامنة…"
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:123
+#: src/components/release-recovery-panel.tsx:124
 msgid "dashboard.recovery.system"
 msgstr "النظام"
 
@@ -4459,7 +4459,7 @@ msgid "dashboard.analytics.rowBound"
 msgstr "أرجعت واجهة برمجة التطبيقات (API) حد العرض المكون من 1000 صف. قد توجد صفوف إضافية ذات نطاق الإصدار؛ ولا يستدل على شيء خارج هذا الحد."
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:51
+#: src/components/enterprise-identity-settings.tsx:52
 msgid "enterpriseIdentity.mutationFailed"
 msgstr "تعذّر إكمال تغيير هوية المؤسسة."
 
@@ -4559,7 +4559,7 @@ msgid "dashboard.recovery.failure.documentNotFound"
 msgstr "تعذر العثور على وثيقة الإصدار."
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:63
+#: src/components/release-recovery-panel.tsx:64
 msgid "dashboard.recovery.requestFailed"
 msgstr "تعذر إكمال طلب استرداد الإصدار."
 
@@ -4604,7 +4604,7 @@ msgid "dashboard.action.analyticsEnvironmentUnavailable"
 msgstr "بيئة التحليلات المحددة غير متاحة."
 
 #. js-lingui-explicit-id
-#: src/components/brand-system-panel.tsx:30
+#: src/components/brand-system-panel.tsx:31
 msgid "dashboard.brand.panel.missingTheme"
 msgstr "لم يعد موضوع العلامة التجارية المحدد متاحًا. قم بتحديث مساحة العمل هذه."
 
@@ -4714,7 +4714,7 @@ msgid "auth.page.signUpDisabled.description"
 msgstr "هذا النشر لا يقبل حسابات جديدة. يمكن للمبدعين الحاليين الاستمرار في حساب Lodariq الخاص بهم."
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:94
+#: src/components/release-recovery-panel.tsx:95
 msgid "dashboard.recovery.noDeployment"
 msgstr "لا يوجد نشر لهذا المستند في البيئة المحددة."
 
@@ -4794,7 +4794,7 @@ msgid "auth.form.incompleteVerificationLink"
 msgstr "رابط التحقق هذا غير مكتمل. أعد بدء التحقق من الحساب لطلب رابط جديد."
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:158
+#: src/components/enterprise-identity-settings.tsx:159
 msgid "enterpriseIdentity.scimHelp"
 msgstr "تُعرض الرموز مرة واحدة. إلغاء التوفير يزيل العضوية ويلغي الجلسات ومنح التأليف فورًا."
 
@@ -4884,12 +4884,12 @@ msgid "account.email.queued"
 msgstr "تمت جدولة رابطَي تحقق خاصّين. افتحهما قبل انتهاء صلاحيتهما."
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:142
+#: src/components/enterprise-identity-settings.tsx:143
 msgid "enterpriseIdentity.recordName"
 msgstr "اسم سجل TXT"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:143
+#: src/components/enterprise-identity-settings.tsx:144
 msgid "enterpriseIdentity.recordValue"
 msgstr "قيمة سجل TXT"
 
@@ -5019,12 +5019,12 @@ msgid "dashboard.viewModel.unknownTime"
 msgstr "وقت غير معروف"
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:55
+#: src/components/release-recovery-panel.tsx:56
 msgid "dashboard.recovery.action.unpublish"
 msgstr "إلغاء النشر"
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:172
+#: src/components/release-recovery-panel.tsx:173
 msgid "dashboard.recovery.unpublishRelease"
 msgstr "إلغاء نشر الإصدار"
 
@@ -5034,7 +5034,7 @@ msgid "dashboard.environmentPolicy.unpublishRoles"
 msgstr "إلغاء نشر الأدوار"
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:89
+#: src/components/release-recovery-panel.tsx:90
 msgid "dashboard.recovery.unpublishEllipsis"
 msgstr "إلغاء النشر..."
 
@@ -5044,7 +5044,7 @@ msgid "dashboard.viewModel.unpublished"
 msgstr "غير منشورة"
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:192
+#: src/components/release-recovery-panel.tsx:193
 msgid "dashboard.recovery.unpublished"
 msgstr "غير منشورة"
 
@@ -5119,7 +5119,7 @@ msgid "dashboard.environments.updating"
 msgstr "جارٍ التحديث…"
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:158
+#: src/components/release-recovery-panel.tsx:159
 msgid "dashboard.recovery.reasonHelp"
 msgstr "استخدم من 1 إلى 500 حرف بدون مسافات خارجية."
 
@@ -5204,7 +5204,7 @@ msgid "dashboard.brand.editor.usesLight"
 msgstr "يستخدم موضوع الضوء"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:95
+#: src/components/enterprise-identity-settings.tsx:96
 msgid "enterpriseIdentity.status.validationRequired"
 msgstr "يلزم التحقق"
 
@@ -5214,12 +5214,12 @@ msgid "dashboard.viewModel.verified"
 msgstr "تم التحقق منه"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:102
+#: src/components/enterprise-identity-settings.tsx:103
 msgid "enterpriseIdentity.status.verified"
 msgstr "موثَّق"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:126
+#: src/components/enterprise-identity-settings.tsx:127
 msgid "enterpriseIdentity.domains"
 msgstr "نطاقات الشركة الموثَّقة"
 
@@ -5229,12 +5229,12 @@ msgid "dashboard.viewModel.verifiedExactArtifactAt"
 msgstr "تم التحقق من القطعة الأثرية الدقيقة {date}"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:83
+#: src/components/enterprise-identity-settings.tsx:84
 msgid "enterpriseIdentity.provisioning.jit"
 msgstr "JIT لنطاق موثَّق"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:144
+#: src/components/enterprise-identity-settings.tsx:145
 msgid "enterpriseIdentity.verifyDomain"
 msgstr "التحقق من سجل DNS"
 
@@ -5274,7 +5274,7 @@ msgid "dashboard.viewModel.version"
 msgstr "الإصدار {version}"
 
 #. js-lingui-explicit-id
-#: src/components/brand-system-panel.tsx:40
+#: src/components/brand-system-panel.tsx:41
 msgid "dashboard.brand.panel.approvedVersion"
 msgstr "تمت الموافقة على الإصدار {version}"
 
@@ -5314,7 +5314,7 @@ msgid "dashboard.account.role.viewer"
 msgstr "عارض"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:153
+#: src/components/enterprise-identity-settings.tsx:154
 msgid "enterpriseIdentity.role.viewer"
 msgstr "Viewer"
 
@@ -5389,12 +5389,12 @@ msgid "workspaceMembers.unavailable"
 msgstr "تعذّر تحميل الوصول إلى مساحة العمل. حاول مرة أخرى."
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:103
+#: src/components/enterprise-identity-settings.tsx:104
 msgid "enterpriseIdentity.policy"
 msgstr "نهج مصادقة مساحة العمل"
 
 #. js-lingui-explicit-id
-#: src/components/brand-system-panel.tsx:36
+#: src/components/brand-system-panel.tsx:37
 msgid "dashboard.brand.panel.workspaceDefault"
 msgstr "مساحة العمل الافتراضية"
 
@@ -5449,7 +5449,7 @@ msgid "dashboard.activation.credentialSafety"
 msgstr "تظل بيانات الاعتماد الخاصة بك داخل Lodariq ولا يتم إرسالها أبدًا إلى صفحة العميل."
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:90
+#: src/components/release-recovery-panel.tsx:91
 msgid "dashboard.recovery.notAllowed"
 msgstr "دورك الحالي أو سياسة البيئة هذه لا تسمح باسترداد الإصدار."
 

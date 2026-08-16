@@ -1,6 +1,5 @@
 'use client';
 
-import * as React from 'react';
 import type { ReactElement, ReactNode } from 'react';
 import { DEFAULT_LOCALE, isSupportedLocale, localeDirection } from '@lodariq/i18n';
 import { useLingui } from '@lingui/react';
