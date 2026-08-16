@@ -21,7 +21,7 @@ export class DrizzleRepositoryAuthoringSessions extends DrizzleRepositoryTokens 
   async createAuthoringSession(
     input: CreateAuthoringSessionInput,
   ): Promise<AuthoringSessionRecord> {
-    return this.scoped(input.workspaceId, async (tx) => {
+    return this.actorScoped(input.workspaceId, input.actorUserId, async (tx) => {
       const [environment] = await tx
         .select()
         .from(environments)
@@ -149,6 +149,7 @@ export class DrizzleRepositoryAuthoringSessions extends DrizzleRepositoryTokens 
         .limit(1);
 
       if (!row) return null;
+      await this.setTenantActorScope(tx, row.workspaceId, row.createdByUserId);
       if (!(await this.hasAuthoringMembership(tx, row.workspaceId, row.createdByUserId))) {
         return null;
       }
@@ -174,7 +175,7 @@ export class DrizzleRepositoryAuthoringSessions extends DrizzleRepositoryTokens 
         .limit(1);
       if (!session) return null;
 
-      await this.setWorkspaceScope(tx, session.workspaceId);
+      await this.setTenantActorScope(tx, session.workspaceId, session.createdByUserId);
       const [environment] = await tx
         .select({ kind: environments.kind })
         .from(environments)
@@ -341,7 +342,7 @@ export class DrizzleRepositoryAuthoringSessions extends DrizzleRepositoryTokens 
         .limit(1);
       if (!session) return null;
 
-      await this.setWorkspaceScope(tx, session.workspaceId);
+      await this.setTenantActorScope(tx, session.workspaceId, session.createdByUserId);
       const [environment] = await tx
         .select({ kind: environments.kind })
         .from(environments)

@@ -1,6 +1,7 @@
 import 'server-only';
 import { createHmac } from 'node:crypto';
 import { isIP } from 'node:net';
+import { AUTH_CORRELATION_HEADER } from '@lodariq/schema';
 import { readSessionTokenFromCookieHeader } from './auth-contract';
 import { isPasswordRecoveryEnabled } from './password-recovery-config';
 import { isPublicSignupEnabled } from './signup-config';
@@ -8,14 +9,20 @@ import { authErrorMessageDescriptor } from '../i18n/error-messages';
 import { DASHBOARD_SERVER_MESSAGES } from '../i18n/messages';
 import { serverMessage } from '../i18n/server-message';
 
-const FORWARDED_RESPONSE_HEADERS = ['content-type', 'content-language', 'retry-after'] as const;
+const FORWARDED_RESPONSE_HEADERS = [
+  'content-type',
+  'content-language',
+  'retry-after',
+  AUTH_CORRELATION_HEADER,
+] as const;
 const AUTH_CLIENT_SOURCE_HEADER = 'x-lodariq-auth-client-source';
 const SOURCE_ID_CONTEXT = 'lodariq-auth-source-v1\0';
 const SOURCE_ENVELOPE_CONTEXT = 'lodariq-auth-source-envelope-v1\0';
-const SOURCE_RATE_LIMITED_PATHS = new Set([
+const PUBLIC_AUTH_FAILURE_PATHS = new Set([
   '/v1/auth/sign-up',
   '/v1/auth/sign-in',
   '/v1/auth/verify-email',
+  '/v1/auth/resend-verification',
   '/v1/auth/password-recovery',
   '/v1/auth/set-password',
 ]);
@@ -33,10 +40,17 @@ export async function proxyOwnedAuthRequest(
     const upstreamHeaders = new Headers({ accept: 'application/json' });
     const contentType = request.headers.get('content-type');
     if (contentType) upstreamHeaders.set('content-type', contentType);
+    for (const name of [
+      'x-lodariq-domain-verification',
+      'x-lodariq-break-glass-request-id',
+    ]) {
+      const value = request.headers.get(name);
+      if (value) upstreamHeaders.set(name, value.slice(0, 512));
+    }
 
-    const clientSource = SOURCE_RATE_LIMITED_PATHS.has(upstreamPath)
-      ? createAuthClientSource(request)
-      : undefined;
+    // Every BFF hop proves the dashboard, not a path allowlist. Production
+    // credential-gateway routes 401 when this header is missing.
+    const clientSource = createAuthClientSource(request);
     if (clientSource) upstreamHeaders.set(AUTH_CLIENT_SOURCE_HEADER, clientSource);
 
     const sessionToken = readSessionTokenFromCookieHeader(request.headers.get('cookie'));
@@ -62,7 +76,7 @@ export async function proxyOwnedAuthRequest(
     let responseBody: BodyInit | null = null;
     if (upstream.status !== 204) {
       responseBody =
-        isAuthEndpoint(upstreamPath) && !upstream.ok
+        PUBLIC_AUTH_FAILURE_PATHS.has(upstreamPath) && !upstream.ok
           ? JSON.stringify(await genericAuthFailure(upstream.status, upstreamPath))
           : await upstream.arrayBuffer();
     }
@@ -75,6 +89,127 @@ export async function proxyOwnedAuthRequest(
   } catch {
     return authErrorResponse('auth_service_unavailable', 503);
   }
+}
+
+export async function proxyOidcCallback(
+  request: Request,
+  provider: string,
+): Promise<Response> {
+  if (provider !== 'google' && provider !== 'microsoft') return oidcFailureRedirect(request);
+  const url = new URL(request.url);
+  const state = url.searchParams.get('state');
+  const code = url.searchParams.get('code');
+  const providerError = url.searchParams.get('error');
+  if (!state || !/^[A-Za-z0-9_-]{43,256}$/u.test(state) || Boolean(code) === Boolean(providerError)) {
+    return oidcFailureRedirect(request);
+  }
+  const description = url.searchParams.get('error_description');
+  const body = code
+    ? { state, code }
+    : {
+        state,
+        error: providerError!.slice(0, 256),
+        ...(description ? { errorDescription: description.slice(0, 1024) } : {}),
+      };
+  try {
+    const headers = new Headers({ accept: 'application/json', 'content-type': 'application/json' });
+    const source = createAuthClientSource(request);
+    if (source) headers.set(AUTH_CLIENT_SOURCE_HEADER, source);
+    const sessionToken = readSessionTokenFromCookieHeader(request.headers.get('cookie'));
+    if (sessionToken) headers.set('authorization', `Bearer ${sessionToken}`);
+    const upstream = await fetch(new URL(`/v1/auth/oidc/${provider}/callback`, apiBaseUrl()), {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(body),
+      cache: 'no-store',
+      redirect: 'manual',
+    });
+    if (!upstream.ok) return oidcFailureRedirect(request);
+    const payload = (await upstream.json()) as { returnTo?: unknown };
+    const responseHeaders = new Headers({
+      location: new URL(safeOidcReturnTo(payload.returnTo), request.url).toString(),
+      'cache-control': 'no-store',
+    });
+    for (const cookie of responseCookies(upstream.headers)) responseHeaders.append('set-cookie', cookie);
+    return new Response(null, { status: 303, headers: responseHeaders });
+  } catch {
+    return oidcFailureRedirect(request);
+  }
+}
+
+export async function proxyEnterpriseOidcCallback(request: Request): Promise<Response> {
+  const url = new URL(request.url);
+  const state = url.searchParams.get('state');
+  const code = url.searchParams.get('code');
+  const providerError = url.searchParams.get('error');
+  if (!state || !/^[A-Za-z0-9_-]{43,256}$/u.test(state) || Boolean(code) === Boolean(providerError)) {
+    return enterpriseOidcFailureRedirect(request);
+  }
+  const description = url.searchParams.get('error_description');
+  const body = code
+    ? { state, code: code.slice(0, 4096) }
+    : {
+        state,
+        error: providerError!.slice(0, 256),
+        ...(description ? { errorDescription: description.slice(0, 1024) } : {}),
+      };
+  try {
+    const headers = new Headers({ accept: 'application/json', 'content-type': 'application/json' });
+    const source = createAuthClientSource(request);
+    if (source) headers.set(AUTH_CLIENT_SOURCE_HEADER, source);
+    const upstream = await fetch(new URL('/v1/auth/enterprise/oidc/callback', apiBaseUrl()), {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(body),
+      cache: 'no-store',
+      redirect: 'manual',
+    });
+    if (!upstream.ok) return enterpriseOidcFailureRedirect(request);
+    const payload = (await upstream.json()) as { returnTo?: unknown };
+    const responseHeaders = new Headers({
+      location: new URL(safeOidcReturnTo(payload.returnTo), request.url).toString(),
+      'cache-control': 'no-store',
+    });
+    for (const cookie of responseCookies(upstream.headers)) {
+      responseHeaders.append('set-cookie', cookie);
+    }
+    return new Response(null, { status: 303, headers: responseHeaders });
+  } catch {
+    return enterpriseOidcFailureRedirect(request);
+  }
+}
+
+function safeOidcReturnTo(value: unknown): string {
+  if (typeof value !== 'string' || !value.startsWith('/') || value.startsWith('//')) return '/';
+  try {
+    const url = new URL(value, 'https://app.lodariq.io');
+    const allowed = new Set(['/', '/account', '/authoring/activate']);
+    return url.origin === 'https://app.lodariq.io' && allowed.has(url.pathname)
+      ? `${url.pathname}${url.search}${url.hash}`
+      : '/';
+  } catch {
+    return '/';
+  }
+}
+
+function oidcFailureRedirect(request: Request): Response {
+  return new Response(null, {
+    status: 303,
+    headers: {
+      location: new URL('/sign-in?oidc=failed', request.url).toString(),
+      'cache-control': 'no-store',
+    },
+  });
+}
+
+function enterpriseOidcFailureRedirect(request: Request): Response {
+  return new Response(null, {
+    status: 303,
+    headers: {
+      location: new URL('/sign-in?sso=failed', request.url).toString(),
+      'cache-control': 'no-store',
+    },
+  });
 }
 
 async function disabledPublicAuthCapability(path: string): Promise<Response | null> {
@@ -164,10 +299,6 @@ function hasRequestBody(method: string): boolean {
   return method !== 'GET' && method !== 'HEAD';
 }
 
-function isAuthEndpoint(path: string): boolean {
-  return path.startsWith('/v1/auth/');
-}
-
 async function genericAuthFailure(
   status: number,
   path: string,
@@ -177,8 +308,12 @@ async function genericAuthFailure(
     error = 'rate_limited';
   } else if (status === 401) {
     error = 'invalid_credentials';
+  } else if (status === 409) {
+    error = 'onboarding_incomplete';
   } else if (path === '/v1/auth/verify-email') {
     error = 'verification_invalid';
+  } else if (path === '/v1/auth/resend-verification' && status === 503) {
+    error = 'signup_unavailable';
   } else if (path === '/v1/auth/set-password') {
     error = 'password_reset_invalid';
   } else if (path === '/v1/auth/password-recovery' && status === 503) {

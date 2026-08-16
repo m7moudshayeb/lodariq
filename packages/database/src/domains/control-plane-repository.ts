@@ -27,7 +27,16 @@ import type {
   WorkspaceThemeRecord,
   WorkspaceThemeVersionRecord,
 } from './themes';
-import type { IdentityRepository, WorkspaceMembershipRecord } from './identity';
+import type {
+  IdentityRepository,
+  WorkspaceAuthPolicyRecord,
+  WorkspaceMembershipRecord,
+} from './identity';
+import type { TenantAdministrationRepository } from './tenant-administration';
+import type { AccountManagementRepository } from './account-management';
+import type { AssuranceRepository } from './assurance';
+import type { OidcRepository } from './oidc';
+import type { EnterpriseIdentityRepository } from './enterprise-identity';
 import type {
   AcknowledgeDocumentThemeInput,
   ActivatedAuthoringDocumentSessionRecord,
@@ -98,7 +107,14 @@ import type {
   AuthoringStepStyleRecipeResource,
 } from '@lodariq/schema';
 
-export interface ControlPlaneRepository extends IdentityRepository {
+export interface ControlPlaneRepository
+  extends
+    IdentityRepository,
+    TenantAdministrationRepository,
+    AccountManagementRepository,
+    AssuranceRepository,
+    OidcRepository,
+    EnterpriseIdentityRepository {
   listAuthoringStyleRecipes(workspaceId: string): Promise<AuthoringStepStyleRecipeResource[]>;
   listAuthoringDraftCheckpoints(
     workspaceId: string,
@@ -123,6 +139,7 @@ export interface ControlPlaneRepository extends IdentityRepository {
     workspaceId: string,
     userId: string,
   ): Promise<WorkspaceMembershipRecord | null>;
+  getWorkspaceAuthPolicy(workspaceId: string): Promise<WorkspaceAuthPolicyRecord | null>;
   listWorkspaceThemes(workspaceId: string): Promise<WorkspaceThemeRecord[]>;
   getWorkspaceTheme(workspaceId: string, themeId: string): Promise<WorkspaceThemeRecord | null>;
   getDefaultWorkspaceTheme(workspaceId: string): Promise<WorkspaceThemeRecord | null>;

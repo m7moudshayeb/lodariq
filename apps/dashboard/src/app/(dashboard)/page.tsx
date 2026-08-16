@@ -1,10 +1,10 @@
-import { DashboardAuthRequired } from '../components/dashboard-auth-required';
-import { DashboardShell } from '../components/dashboard-shell';
-import { WorkspaceRequired } from '../components/workspace-required';
-import { DASHBOARD_ENTRY_MESSAGES } from '../i18n/messages';
-import { getDashboardI18n } from '../i18n/server';
-import { dashboardErrorMessageDescriptor } from '../i18n/error-messages';
-import { DashboardApiError, loadAuthSession, loadDashboardData } from '../lib/api';
+import { DashboardAuthRequired } from '../../components/dashboard-auth-required';
+import { DashboardShell } from '../../components/dashboard-shell';
+import { WorkspaceRequired } from '../../components/workspace-required';
+import { DASHBOARD_ENTRY_MESSAGES } from '../../i18n/messages';
+import { getDashboardI18n } from '../../i18n/server';
+import { dashboardErrorMessageDescriptor } from '../../i18n/error-messages';
+import { DashboardApiError, loadAuthSession, loadDashboardData } from '../../lib/api';
 
 export const dynamic = 'force-dynamic';
 

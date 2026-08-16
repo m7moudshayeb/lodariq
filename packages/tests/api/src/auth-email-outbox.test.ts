@@ -4,6 +4,9 @@ import {
   AuthEmailOutboxWorker,
   authEmailIdempotencyKey,
   createResendAuthEmailSender,
+  createEmailVerificationToken,
+  createAccountEmailChangeToken,
+  createWorkspaceInvitationToken,
   readAuthEmailDeliveryEnvironment,
   type AcknowledgeAuthEmailRowInput,
   type AuthEmailOutboxQueue,
@@ -21,16 +24,47 @@ const VERIFY_ROW: ClaimedAuthEmailOutboxRow = {
   recipientEmail: 'creator@example.com',
   purpose: 'email_verification',
   challengeId: 'verify_abcdefghijklmnopqrstuvwxyz123456',
+  keyId: 'legacy',
   attempt: 1,
   leaseVersion: 7,
+  createdAt: '2026-08-07T11:58:00.000Z',
 };
 const RESET_ROW: ClaimedAuthEmailOutboxRow = {
   id: 'outbox_reset_abcdefghijklmnopqrstuv',
   recipientEmail: 'legacy@example.com',
   purpose: 'set_password',
   challengeId: 'reset_abcdefghijklmnopqrstuvwxyz1234567',
+  keyId: 'legacy',
   attempt: 1,
   leaseVersion: 11,
+  createdAt: '2026-08-07T11:59:00.000Z',
+};
+const INVITATION_ROW: ClaimedAuthEmailOutboxRow = {
+  id: 'outbox_invitation_abcdefghijklmnopqr',
+  recipientEmail: 'invitee@example.com',
+  purpose: 'workspace_invitation',
+  challengeId: 'invite_abcdefghijklmnopqrstuvwxyz12345',
+  keyId: 'legacy',
+  attempt: 1,
+  leaseVersion: 13,
+  createdAt: '2026-08-07T11:59:30.000Z',
+};
+const EMAIL_CHANGE_CURRENT_ROW: ClaimedAuthEmailOutboxRow = {
+  id: 'outbox_email_change_current_abcdefghijkl',
+  recipientEmail: 'current@example.com',
+  purpose: 'account_email_change_current',
+  challengeId: 'emailchange_abcdefghijklmnopqrstuvwxyz123456',
+  keyId: 'legacy',
+  attempt: 1,
+  leaseVersion: 17,
+  createdAt: '2026-08-07T11:59:40.000Z',
+};
+const EMAIL_CHANGE_NEW_ROW: ClaimedAuthEmailOutboxRow = {
+  ...EMAIL_CHANGE_CURRENT_ROW,
+  id: 'outbox_email_change_new_abcdefghijklmnop',
+  recipientEmail: 'new@example.com',
+  purpose: 'account_email_change_new',
+  leaseVersion: 18,
 };
 
 afterEach(() => {
@@ -56,7 +90,8 @@ describe('@lodariq/api auth email outbox', () => {
       appBaseUrl: 'https://app.lodariq.io',
       from: 'Lodariq <auth@lodariq.io>',
       apiKey: RESEND_API_KEY,
-      tokenSecret: TOKEN_SECRET,
+      activeTokenKeyId: 'legacy',
+      tokenKeys: { legacy: TOKEN_SECRET },
     });
 
     expect(
@@ -123,16 +158,76 @@ describe('@lodariq/api auth email outbox', () => {
         LODARIQ_AUTH_EMAIL_TOKEN_SECRET: 'too-short',
       }),
     ).toThrow(/between 32 and 256 bytes/u);
+
+    expect(
+      readAuthEmailDeliveryEnvironment({
+        LODARIQ_EMAIL_DELIVERY_MODE: 'resend',
+        LODARIQ_APP_BASE_URL: 'https://app.lodariq.io',
+        LODARIQ_AUTH_EMAIL_FROM: 'auth@lodariq.io',
+        RESEND_API_KEY,
+        LODARIQ_AUTH_EMAIL_TOKEN_KEYS: JSON.stringify({
+          previous: TOKEN_SECRET,
+          active: `${TOKEN_SECRET}-new`,
+        }),
+        LODARIQ_AUTH_EMAIL_TOKEN_ACTIVE_KEY_ID: 'active',
+      }),
+    ).toMatchObject({
+      activeTokenKeyId: 'active',
+      tokenKeys: { previous: TOKEN_SECRET, active: `${TOKEN_SECRET}-new` },
+    });
+  });
+
+  it('uses the row key id during rotation and terminally rejects a removed key', async () => {
+    const sends: SendAuthEmailInput[] = [];
+    const retainedQueue = new FakeAuthEmailQueue([{ ...VERIFY_ROW, keyId: 'previous' }]);
+    const retainedWorker = createWorker(
+      retainedQueue,
+      {
+        async send(input) {
+          sends.push(input);
+        },
+      },
+      {
+        tokenSecret: undefined,
+        tokenKeys: { previous: TOKEN_SECRET, active: `${TOKEN_SECRET}-new` },
+      },
+    );
+    await retainedWorker.runOnce();
+    const url = messageUrl(sends[0]?.message.text);
+    expect(decodeURIComponent(url.hash.slice('#token='.length))).toBe(
+      createEmailVerificationToken(VERIFY_ROW.challengeId, TOKEN_SECRET),
+    );
+
+    const removedQueue = new FakeAuthEmailQueue([{ ...VERIFY_ROW, keyId: 'retired' }]);
+    const removedWorker = createWorker(
+      removedQueue,
+      {
+        async send() {
+          throw new Error('must not send');
+        },
+      },
+      { tokenSecret: undefined, tokenKeys: { active: `${TOKEN_SECRET}-new` } },
+    );
+    await expect(removedWorker.runOnce()).resolves.toMatchObject({ terminal: 1 });
+    expect(removedQueue.retries[0]).toMatchObject({
+      failureCode: 'token_key_unavailable',
+      terminal: true,
+    });
   });
 
   it('derives purpose-specific links in memory and persists only lease-safe outcomes', async () => {
     const queue = new FakeAuthEmailQueue([VERIFY_ROW, RESET_ROW]);
     const sends: SendAuthEmailInput[] = [];
-    const worker = createWorker(queue, {
-      async send(input) {
-        sends.push(input);
+    const events: Array<{ name: string; attributes?: Record<string, unknown> }> = [];
+    const worker = createWorker(
+      queue,
+      {
+        async send(input) {
+          sends.push(input);
+        },
       },
-    });
+      { observability: { emit: (event) => events.push(event) } },
+    );
 
     await expect(worker.runOnce()).resolves.toEqual({
       claimed: 2,
@@ -169,6 +264,9 @@ describe('@lodariq/api auth email outbox', () => {
     const resetMessage = sends[1]?.message;
     expect(verifyMessage?.subject).toBe('Verify your Lodariq email');
     expect(resetMessage?.subject).toBe('Set or reset your Lodariq password');
+    expect(verifyMessage?.text).toContain('expires in 24 hours and works once');
+    expect(resetMessage?.text).toContain('expires in 30 minutes and works once');
+    expect(resetMessage?.text).toContain('Requesting another link invalidates this one');
 
     const verifyUrl = messageUrl(verifyMessage?.text);
     const resetUrl = messageUrl(resetMessage?.text);
@@ -182,6 +280,66 @@ describe('@lodariq/api auth email outbox', () => {
     expect(JSON.stringify(sends)).not.toContain(TOKEN_SECRET);
     expect(JSON.stringify(queue.acknowledgements)).not.toMatch(/lq_(?:verify|reset)_/u);
     expect(JSON.stringify(queue.retries)).not.toMatch(/lq_(?:verify|reset)_/u);
+    expect(events.map(({ name }) => name)).toEqual([
+      'auth.email.outbox_claimed',
+      'auth.email.provider_accepted',
+      'auth.email.outbox_claimed',
+      'auth.email.provider_accepted',
+    ]);
+    expect(events[0]?.attributes).toMatchObject({
+      outboxId: VERIFY_ROW.id,
+      challengeId: VERIFY_ROW.challengeId,
+      queueAgeMs: 120_000,
+    });
+    expect(JSON.stringify(events)).not.toContain(VERIFY_ROW.recipientEmail);
+    expect(JSON.stringify(events)).not.toContain(RESET_ROW.recipientEmail);
+  });
+
+  it('delivers workspace invitations without persisting or logging the raw secret', async () => {
+    const queue = new FakeAuthEmailQueue([INVITATION_ROW]);
+    const sends: SendAuthEmailInput[] = [];
+    const worker = createWorker(queue, {
+      async send(input) {
+        sends.push(input);
+      },
+    });
+
+    await expect(worker.runOnce()).resolves.toMatchObject({ claimed: 1, acknowledged: 1 });
+    const url = messageUrl(sends[0]?.message.text);
+    expect(url.pathname).toBe('/accept-invitation');
+    expect(url.searchParams.get('invitation')).toBe(INVITATION_ROW.challengeId);
+    expect(decodeURIComponent(url.hash.slice('#token='.length))).toBe(
+      createWorkspaceInvitationToken(INVITATION_ROW.challengeId, TOKEN_SECRET),
+    );
+    expect(JSON.stringify(queue.acknowledgements)).not.toContain('lq_invite_');
+  });
+
+  it('delivers purpose-bound email-change proofs to both addresses without persisting tokens', async () => {
+    const queue = new FakeAuthEmailQueue([EMAIL_CHANGE_CURRENT_ROW, EMAIL_CHANGE_NEW_ROW]);
+    const sends: SendAuthEmailInput[] = [];
+    const worker = createWorker(queue, {
+      async send(input) {
+        sends.push(input);
+      },
+    });
+
+    await expect(worker.runOnce()).resolves.toMatchObject({ claimed: 2, acknowledged: 2 });
+    const currentUrl = messageUrl(sends[0]?.message.text);
+    const newUrl = messageUrl(sends[1]?.message.text);
+    expect(currentUrl.pathname).toBe('/account/email-change');
+    expect(currentUrl.searchParams.get('proof')).toBe('current_email');
+    expect(newUrl.searchParams.get('proof')).toBe('new_email');
+    expect(decodeURIComponent(currentUrl.hash.slice('#token='.length))).toBe(
+      createAccountEmailChangeToken(
+        EMAIL_CHANGE_CURRENT_ROW.challengeId,
+        'current_email',
+        TOKEN_SECRET,
+      ),
+    );
+    expect(decodeURIComponent(newUrl.hash.slice('#token='.length))).toBe(
+      createAccountEmailChangeToken(EMAIL_CHANGE_NEW_ROW.challengeId, 'new_email', TOKEN_SECRET),
+    );
+    expect(JSON.stringify(queue.acknowledgements)).not.toContain('lq_email_change_');
   });
 
   it('retries transient failures with bounded exponential backoff and terminates exhausted rows', async () => {
@@ -229,6 +387,55 @@ describe('@lodariq/api auth email outbox', () => {
     ]);
     expect(JSON.stringify(queue.retries)).not.toContain(TOKEN_SECRET);
     expect(JSON.stringify(queue.retries)).not.toMatch(/lq_(?:verify|reset)_/u);
+  });
+
+  it('emits privacy-safe delivery age, retry, and terminal operational events', async () => {
+    const events: Array<{
+      name: string;
+      correlationId?: string;
+      attributes?: Record<string, unknown>;
+    }> = [];
+    const queue = new FakeAuthEmailQueue([
+      { ...VERIFY_ROW, attempt: 2, leaseVersion: 8 },
+      { ...RESET_ROW, attempt: 4, leaseVersion: 12 },
+    ]);
+    const worker = createWorker(
+      queue,
+      {
+        async send() {
+          throw new AuthEmailDeliveryError('resend_http_503', { retryable: true });
+        },
+      },
+      {
+        maxAttempts: 4,
+        retryJitterRatio: 0,
+        observability: { emit: (event) => events.push(event) },
+      },
+    );
+
+    await worker.runOnce();
+
+    expect(events.map(({ name }) => name)).toEqual([
+      'auth.email.outbox_claimed',
+      'auth.email.delivery_retry_scheduled',
+      'auth.email.outbox_claimed',
+      'auth.email.delivery_terminal',
+    ]);
+    expect(events[1]?.attributes).toMatchObject({
+      outboxId: VERIFY_ROW.id,
+      challengeId: VERIFY_ROW.challengeId,
+      queueAgeMs: 120_000,
+      failureCode: 'resend_http_503',
+    });
+    expect(events[3]?.attributes).toMatchObject({
+      outboxId: RESET_ROW.id,
+      challengeId: RESET_ROW.challengeId,
+      queueAgeMs: 60_000,
+      failureCode: 'resend_http_503',
+    });
+    expect(JSON.stringify(events)).not.toContain(TOKEN_SECRET);
+    expect(JSON.stringify(events)).not.toContain(VERIFY_ROW.recipientEmail);
+    expect(JSON.stringify(events)).not.toContain(RESET_ROW.recipientEmail);
   });
 
   it('rejects a challenge whose prefix does not match its outbox purpose', async () => {

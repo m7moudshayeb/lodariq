@@ -160,7 +160,7 @@ export class DrizzleRepositoryPublication extends DrizzleRepositoryThemePolicy {
   ): Promise<PersistedPublication> {
     assertWorkspaceScope(input.artifact.workspaceId, input.workspaceId);
 
-    return this.scoped(input.workspaceId, async (tx) => {
+    return this.actorScoped(input.workspaceId, input.actorUserId, async (tx) => {
       const [environment] = await tx
         .select()
         .from(environments)

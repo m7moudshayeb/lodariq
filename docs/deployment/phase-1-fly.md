@@ -144,10 +144,10 @@ need.
 The verification and Fly deployment workflows have three explicit paths:
 
 - Every push to `master`, including a merged pull request, runs every CI job in
-  `.github/workflows/verify.yml`. Its final `deploy-development` job waits for
-  all CI jobs to finish, but only the successful build-and-bundle job is a
-  deployment gate. Static checks, unit/integration tests, browser E2E suites,
-  and the security audit remain visible CI signals and do not block Development.
+  `.github/workflows/verify.yml`. `deploy-development` starts as soon as static
+  checks, the build-and-bundle job, and the security audit succeed. Unit and
+  integration tests keep running in parallel and do not delay or block
+  Development. Browser E2E suites remain a separate manual workflow.
   A failed build or a cancelled workflow prevents deployment. This job is bound
   directly to the `fly-development` GitHub Environment, so that Environment's
   Fly and R2 secrets are available without starting a second workflow run. The

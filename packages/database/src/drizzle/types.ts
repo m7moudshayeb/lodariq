@@ -29,6 +29,7 @@ export interface AuthEmailOutboxCandidate {
   recipientEmail: string;
   purpose: ClaimedAuthEmailOutboxRow['purpose'];
   challengeId: string;
+  keyId: string;
   availableAt: Date;
   createdAt: Date;
   attempts: number;

@@ -32,7 +32,7 @@ export class DrizzleRepositoryRecovery extends DrizzleRepositoryDocuments {
   async getReleaseRecoveryState(
     input: ReleaseRecoveryScopeInput,
   ): Promise<ReleaseRecoveryStateResponse | null> {
-    return this.scoped(input.workspaceId, async (tx) => {
+    return this.actorScoped(input.workspaceId, input.actorUserId, async (tx) => {
       const scope = await this.loadReleaseRecoveryScope(tx, input, false);
       if (!scope) return null;
       const deploymentRow = await this.findDocumentDeployment(
@@ -86,7 +86,7 @@ export class DrizzleRepositoryRecovery extends DrizzleRepositoryDocuments {
     const requestContract = validate(ReleaseRecoveryRequestSchema, input.request);
     if (!requestContract.valid) throw new Error('release recovery request is invalid');
     const request = requestContract.value;
-    return this.scoped(input.workspaceId, async (tx) => {
+    return this.actorScoped(input.workspaceId, input.actorUserId, async (tx) => {
       await this.lockSortedReleaseDocumentEnvironments(tx, input.workspaceId, input.documentId, [
         input.environmentId,
       ]);

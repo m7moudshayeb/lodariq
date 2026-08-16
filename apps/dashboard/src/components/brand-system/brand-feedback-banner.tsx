@@ -1,22 +1,18 @@
+'use client';
+
+import { useEffect, type ReactElement } from 'react';
+import { statusToast } from '../ui/toaster';
+
 export function BrandFeedbackBanner({
   error,
   message,
 }: {
   error: string;
   message: string;
-}): React.ReactElement | null {
-  if (!error && !message) return null;
-  return (
-    <div
-      aria-live="polite"
-      className={
-        error
-          ? 'rounded-lg border border-[var(--danger-border)] bg-[var(--danger-bg)] px-4 py-3 text-sm font-medium text-[var(--danger-fg)]'
-          : 'rounded-lg border border-[var(--success-border)] bg-[var(--success-bg)] px-4 py-3 text-sm font-medium text-[var(--success-fg)]'
-      }
-      role={error ? 'alert' : 'status'}
-    >
-      {error || message}
-    </div>
-  );
+}): ReactElement | null {
+  useEffect(() => {
+    if (error) statusToast('error', error);
+    else if (message) statusToast('success', message);
+  }, [error, message]);
+  return null;
 }

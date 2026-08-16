@@ -7,7 +7,7 @@ Source of truth: `../../refined-lodariq-prd.md` sections 7.4, 8.3-8.6, 9.5,
 Evidence source: the six-step authoring exercise documented in
 `../product-design/audits/authoring-showcase-tour-2026-08-13/README.md`.
 
-Status: **Local code complete; external deployment and assistive-technology evidence pending**
+Status: **Release-train code complete; rich-content regression and external validation pending**
 
 Last updated: 2026-08-15
 

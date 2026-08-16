@@ -53,7 +53,7 @@ export class DrizzleRepositoryAuthoringExchange extends DrizzleRepositoryAuthori
     }
 
     try {
-      return await this.scoped(input.workspaceId, async (tx) => {
+      return await this.actorScoped(input.workspaceId, input.creatorId, async (tx) => {
         const now = new Date();
         const [candidate] = await tx
           .select({ request: authoringAuthorizationRequests, environment: environments.kind })
@@ -206,7 +206,11 @@ export class DrizzleRepositoryAuthoringExchange extends DrizzleRepositoryAuthori
           .limit(1);
         if (!bootstrapGrant) return null;
 
-        await this.setWorkspaceScope(tx, candidate.request.workspaceId);
+        await this.setTenantActorScope(
+          tx,
+          candidate.request.workspaceId,
+          candidate.request.creatorId,
+        );
         if (
           !(await this.hasActiveAuthoringScope(
             tx,

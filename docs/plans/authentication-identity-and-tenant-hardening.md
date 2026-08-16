@@ -1,7 +1,7 @@
 # Authentication, Identity, and Tenant Hardening
 
 **Status:** Current, code-reconciled plan  
-**Last verified:** 2026-08-14  
+**Last verified:** 2026-08-15
 **Supersedes:** The unattached nine-phase authentication proposal used during the
 owned-auth rollout. This version removes work already present in the repository
 and incorporates the August 14 recovery incident and authentication UX audit.
@@ -108,36 +108,44 @@ an evidenced root cause. The current reset TTL is 30 minutes.
 
 ### Remaining work
 
-- [ ] Add a reviewed additive migration and matching fresh-database baseline
+- [x] Add a reviewed additive migration and matching fresh-database baseline
       policy that allows the exact prior active challenge and pending outbox rows to
       be invalidated inside the user-scoped replacement transaction without exposing
       another user's challenge.
-- [ ] Return a structured internal repository outcome such as `queued`,
+- [x] Return a structured internal repository outcome such as `queued`,
       `no_match`, `ambiguous_match`, or `persistence_conflict`. Keep the public
       anti-enumeration `202`, but never discard the internal outcome.
-- [ ] Emit privacy-safe structured events for recovery request, challenge
+- [x] Emit privacy-safe structured events for recovery request, challenge
       persisted, outbox claimed, provider accepted, challenge resolved, challenge
       consumed, and terminal failure. Correlate by request/outbox/challenge ids; never
       log tokens, password material, raw email, or session credentials.
-- [ ] Add a one-time operator runbook to retire a stuck active challenge after the
+- [x] Add a one-time operator runbook to retire a stuck active challenge after the
       migration is approved. Do not mutate the shared development database as part of
       ordinary code verification.
-- [ ] Add restricted-role PostgreSQL tests for first request, repeated request,
+- [x] Add restricted-role PostgreSQL tests for first request, repeated request,
       concurrent requests, exactly one active challenge, exactly one outbox row per
       accepted internal request, old-link invalidation, latest-link success, replay
       rejection, expiry, and unknown/ambiguous email behavior.
-- [ ] Test creation and comparison across Node and PostgreSQL clocks, assert the
+- [x] Test creation and comparison across Node and PostgreSQL clocks, assert the
       `timestamptz` round trip, record clock skew in readiness/diagnostics, and make
       the clock injectable in route/repository tests. Do not add timezone conversion
       workarounds to epoch timestamps.
-- [ ] Decide and document the user-facing reset TTL, include it in the recovery
+- [x] Decide and document the user-facing reset TTL, include it in the recovery
       message, and test boundary behavior. A link opened immediately must succeed;
       an expired or superseded link must lead directly to requesting a replacement.
-- [ ] Surface outbox age, retry count, and terminal-delivery counts to operational
+- [x] Surface outbox age, retry count, and terminal-delivery counts to operational
       monitoring with an actionable alert and runbook.
 - [ ] Prove the full deployed-development flow through Fly, Neon RLS, Resend, the
       dashboard link, password replacement, session creation, immediate retry, and
       replay rejection.
+
+Implementation verification passed on 2026-08-15: typecheck, lint, migration
+safety, 55 focused API/database/dashboard tests, and all 16 migration plus
+restricted-role PostgreSQL 16 tests. The PostgreSQL fixture deliberately used
+the `Asia/Hebron` database timezone and still passed immediate-use, exact-expiry,
+and UTC `timestamptz` round-trip checks. The remaining deployed-development item
+is an explicitly human-approved shared-environment release gate, not permission
+to apply migration `0005` from this implementation worktree.
 
 **Exit condition:** three sequential recovery requests create three observable
 internal outcomes, each successful replacement reaches Resend, only the newest
@@ -149,28 +157,38 @@ test is retained as release-gate evidence.
 This phase incorporates the UX audit findings and the only remaining validation
 work from the original production-parity phase.
 
-- [ ] Replace browser-native validation bubbles with application-owned,
+- [x] Replace browser-native validation bubbles with application-owned,
       localized field validation. Use `noValidate`, derive constraints from canonical
       TypeBox contracts, render stable inline messages, associate messages with
       `aria-describedby`, set `aria-invalid`, focus the first invalid field, and
       retain a summary for server/form errors.
-- [ ] Centralize authentication field definitions and error-code mappings so
+- [x] Centralize authentication field definitions and error-code mappings so
       sign-in, sign-up, verification, reset, popup auth, and account settings do not
       drift. Zod must not replace the canonical TypeBox/JSON Schema contracts.
-- [ ] Add password show/hide controls with accessible names, allow password
+- [x] Add password show/hide controls with accessible names, allow password
       manager paste/autofill, and present the actual password rule before submission.
-- [ ] Replace generic `invalid or expired` dead ends with an actionable state:
+- [x] Replace generic `invalid or expired` dead ends with an actionable state:
       request another link, explain supersession/expiry without leaking account
       existence, and preserve a safe `returnTo`.
-- [ ] Add cooldown feedback and resend controls to verification/recovery success
+- [x] Add cooldown feedback and resend controls to verification/recovery success
       states without claiming that delivery occurred merely because the public API
       returned `202`.
 - [ ] Run sign-up, verification, recovery, reset, replay, sign-in, sign-out, and
       session-restoration browser tests against the normal Neon + Resend local profile
       and the hosted development profile.
-- [ ] Add axe, keyboard, screen-reader announcement, autofill, RTL, and localized
+- [x] Add axe, keyboard, screen-reader announcement, autofill, RTL, and localized
       long-copy coverage for every auth surface, including the top-level creator
       popup.
+
+Implementation verification passed on 2026-08-15: all affected packages
+typecheck and lint; strict Lingui compilation has no missing product-locale
+entries; 73 focused schema/API/database/dashboard tests, 17 active migration and
+forced-RLS PostgreSQL 16 tests, and eight Chromium axe/keyboard/RTL browser tests
+pass. The live-parity flow is implemented in
+`packages/tests/e2e/auth-live-parity.spec.ts` and documented in the recovery
+runbook. Running it against normal Neon + Resend and hosted development remains
+an external-environment evidence gate requiring an isolated inbox/account and
+approved shared-environment migration/deployment.
 
 **Exit condition:** authentication forms never depend on native HTML error UI,
 every failure has a localized and actionable state, and production-parity browser
@@ -180,29 +198,38 @@ evidence covers all owned-auth lifecycles.
 
 Only unfinished items from the original lifecycle phase remain here.
 
-- [ ] Add a generic resend-verification endpoint and UI. Replacement must be
+- [x] Add a generic resend-verification endpoint and UI. Replacement must be
       cooldown/rate limited, invalidate the prior challenge atomically, and preserve
       account-enumeration resistance.
-- [ ] Fix duplicate sign-up so it never returns a newly generated challenge that
+- [x] Fix duplicate sign-up so it never returns a newly generated challenge that
       was not persisted. Provide the same public response shape while ensuring an
       existing unverified account receives a usable replacement through the approved
       resend lifecycle.
-- [ ] Add bounded cleanup for abandoned unverified accounts and their empty
+- [x] Add bounded cleanup for abandoned unverified accounts and their empty
       workspaces, expired/used challenges, expired/revoked sessions, stale rate
       buckets, and processed/terminal outbox rows. Define retention periods and
       protect non-empty or invited workspaces.
-- [ ] Add email-token secret key ids and an environment keyring so rotation signs
+- [x] Add email-token secret key ids and an environment keyring so rotation signs
       new links with the active key while outstanding links remain valid during a
       bounded verification window.
-- [ ] Add delivery reconciliation and support tooling that can answer whether a
+- [x] Add delivery reconciliation and support tooling that can answer whether a
       message was queued, retried, accepted by Resend, or terminal—without exposing
       raw tokens or making support staff query production tables manually.
-- [ ] Add abuse tests for distributed sources, normalized/case-variant identifiers,
+- [x] Add abuse tests for distributed sources, normalized/case-variant identifiers,
       concurrency, queue saturation, and resend cooldown bypass attempts.
 
 **Exit condition:** users cannot become permanently stuck after losing, expiring,
 or superseding a verification/recovery email, and operators can diagnose delivery
 state without database surgery.
+
+**Local evidence (2026-08-15):** schema, database, API, dashboard, and test
+typechecks; affected-package lint; migration safety; 80 focused lifecycle tests;
+26 runtime-environment tests; 46 repository-isolation tests; and 17 disposable
+PostgreSQL 16 restricted-role/RLS tests pass. The cleanup guard includes pending,
+non-expired workspace invitations, whose persistence foundation remains fail-closed
+until the Phase 5 issuance and acceptance APIs are implemented. Applying migrations
+or exercising hosted Fly/Neon/Resend environments still requires an explicit shared-
+environment sign-off.
 
 ## Phase 3 — Provider-neutral identities and login identifiers
 
@@ -235,57 +262,76 @@ sso_connections
   id, workspace_id, protocol, issuer, status
 ```
 
-- [ ] Define TypeBox contracts, centralized literal sets, repository interfaces,
+- [x] Define TypeBox contracts, centralized literal sets, repository interfaces,
       and an identity-provider adapter covering begin, callback/verification,
       enrollment, linking, unlinking, and assurance—not only request authentication.
-- [ ] Backfill a password identity for every existing password credential and a
+- [x] Backfill a password identity for every existing password credential and a
       primary email for every user; reject ambiguous normalized-email data instead
       of choosing an arbitrary user.
-- [ ] Support a unique, normalized username as a first-party login identifier.
+- [x] Support a unique, normalized username as a first-party login identifier.
       Change sign-in from `email` to `identifier`, preserve email login, and make
       username creation/change subject to reserved-name, spoofing, rate-limit, and
       account-recovery rules.
-- [ ] Add uniqueness for `(issuer, subject)` and provider-tenant constraints. Do
+- [x] Add uniqueness for `(issuer, subject)` and provider-tenant constraints. Do
       not treat an external provider email as its permanent subject.
-- [ ] Add RLS and restricted-role behavioral tests for every new table and every
+- [x] Add RLS and restricted-role behavioral tests for every new table and every
       backfill/rollback step.
-- [ ] Keep existing columns during the expand/contract rollback window; remove
+- [x] Keep existing columns during the expand/contract rollback window; remove
       them only under a separately approved contract migration after production
       evidence.
 
 **Exit condition:** one Lodariq user can safely own email, username, password,
 passkey, and provider identities without duplicate accounts or bypassing RLS.
 
+**Local evidence (2026-08-15):** the schema, database, API, dashboard, and tests
+typecheck; all affected packages lint; the additive migration guard and strict
+localization compile pass; 73 focused contract/repository/API/dashboard tests and
+11 disposable PostgreSQL 16 backfill, rollback, uniqueness, tenant-constraint,
+and restricted-role RLS tests pass. The rollout remains expand-only: legacy
+columns are preserved, and applying the migration to a shared environment still
+requires explicit human approval.
+
 ## Phase 4 — Separate authentication from onboarding
 
-- [ ] Split the current coupled sign-up transaction into: authenticate/register
+- [x] Split the current coupled sign-up transaction into: authenticate/register
       an identity; establish the Lodariq user; accept an invitation, request access,
       or create a workspace; select a workspace; enforce its auth policy.
-- [ ] Model onboarding as resumable server-owned state so provider cancellation,
+- [x] Model onboarding as resumable server-owned state so provider cancellation,
       email verification, invitation acceptance, and retry cannot create orphaned or
       partially owned tenants.
-- [ ] Link a provider only from an authenticated account or a strong recovery
+- [x] Link a provider only from an authenticated account or a strong recovery
       flow. Never auto-link solely because two providers report the same email.
-- [ ] Reject ambiguous email matches, record link/unlink security events, and
+- [x] Reject ambiguous email matches, record link/unlink security events, and
       prevent removal of the final usable authentication method.
-- [ ] Apply the same onboarding state machine to dashboard sign-in and the
+- [x] Apply the same onboarding state machine to dashboard sign-in and the
       first-party authoring popup.
 
 **Exit condition:** password, username, OAuth, passkey, and invitation entry all
 converge on one account/onboarding flow without pretending to be password sign-up.
 
+**Local evidence (2026-08-15):** schema, database, API, dashboard, and tests
+typecheck; affected packages lint; strict localization compilation and additive
+migration safety pass; 80 focused contract/repository/API/dashboard/popup tests
+and 12 fresh-baseline plus ordered-migration PostgreSQL 16 tests pass under the
+restricted runtime role. The PostgreSQL suite proves registration creates no
+tenant, verification advances server state, destination completion is resumable
+and idempotent, link/unlink history is append-only, the final method cannot be
+removed, and unscoped RLS reads return no rows. OAuth, passkey, and invitation
+issuance plug into this state machine in their dedicated later phases; no shared
+environment migration or deployment was performed.
+
 ## Phase 5 — Complete multi-tenant administration
 
-- [ ] Add workspace invitations with hash-stored, expiring, single-use tokens and
+- [x] Add workspace invitations with hash-stored, expiring, single-use tokens and
       acceptance after authentication.
-- [ ] Add member listing, role changes, member removal, ownership transfer, and
+- [x] Add member listing, role changes, member removal, ownership transfer, and
       protection against removing or demoting the final owner.
-- [ ] Add workspace deletion/retention, creation quotas, and abuse controls.
-- [ ] Revoke or rotate affected sessions and authoring grants immediately when a
+- [x] Add workspace deletion/retention, creation quotas, and abuse controls.
+- [x] Revoke or rotate affected sessions and authoring grants immediately when a
       membership is removed or materially downgraded.
-- [ ] Record append-only audit history for invitation, membership, role,
+- [x] Record append-only audit history for invitation, membership, role,
       ownership, and workspace-deletion changes.
-- [ ] Add a capability matrix test suite across owner, admin, member, viewer,
+- [x] Add a capability matrix test suite across owner, admin, member, viewer,
       removed member, and cross-workspace actors under the restricted RLS role.
 
 Every new action must resolve authoritative membership, enforce centralized role
@@ -295,22 +341,34 @@ workspace claims.
 **Exit condition:** Lodariq supports the full tenant lifecycle rather than only
 tenant-isolated storage and workspace selection.
 
+**Local evidence (2026-08-15):** schema, database, API, dashboard, and tests
+typecheck; affected packages lint; strict localization compilation and additive
+migration safety pass; 44 focused contract/repository/API/dashboard tests and
+five ordered-migration PostgreSQL 16 tests pass under the restricted runtime
+role with forced RLS. The database suite proves settings-bound invitation
+acceptance, wrong-account rejection, replay resistance, capability enforcement,
+session revocation, final-owner protection, ownership transfer, retention, and
+append-only audit history. Invitation delivery uses the bounded auth outbox and
+production responses expose no raw secret. Shared migration execution, Resend
+receipt, and hosted-environment smoke evidence still require explicit human
+approval and are not claimed by this worktree.
+
 ## Phase 6 — Account and session management
 
-- [ ] Add change-password with recent-auth confirmation and atomic revocation of
+- [x] Add change-password with recent-auth confirmation and atomic revocation of
       other sessions/recovery challenges.
-- [ ] Add change-email with verification of old and new addresses, collision
+- [x] Add change-email with verification of old and new addresses, collision
       handling, recovery protections, and audit events.
-- [ ] Add username creation/change and a safe identifier-recovery path.
-- [ ] Add active session/device listing, revoke-one, and sign-out-everywhere.
+- [x] Add username creation/change and a safe identifier-recovery path.
+- [x] Add active session/device listing, revoke-one, and sign-out-everywhere.
       Store only privacy-reviewed device metadata and make session names understandable.
-- [ ] Add explicit `Remember me` behavior. Define server-side `session` and
+- [x] Add explicit `Remember me` behavior. Define server-side `session` and
       `persistent` duration policies; a non-remembered login uses a session cookie
       and shorter server expiry, while a remembered login uses the reviewed idle and
       absolute limits. The checkbox must not be cosmetic or rely only on cookie expiry.
-- [ ] Add account deletion, retention, and export of relevant account information.
-- [ ] Add linked-method review and safe link/unlink controls.
-- [ ] Require recent or stepped-up authentication for ownership transfer, SSO
+- [x] Add account deletion, retention, and export of relevant account information.
+- [x] Add linked-method review and safe link/unlink controls.
+- [x] Require recent or stepped-up authentication for ownership transfer, SSO
       changes, email/password changes, production release-policy changes, and account
       deletion.
 
@@ -318,57 +376,115 @@ tenant-isolated storage and workspace selection.
 operations without database intervention, and session persistence reflects an
 explicit user choice.
 
+**Implementation evidence (2026-08-15):** canonical account/session contracts,
+the two-proof email-change state machine, transactional password/session
+revocation, linked-method safeguards, soft deletion/export, and explicit
+standard/remembered duration policies are implemented across schema, repository,
+API, BFF, and localized dashboard UI. Secret-bearing email links use fragments
+and the existing leased outbox. Focused Phase 6 coverage passes 67 contract,
+repository, API, BFF, and browser-component tests plus three ordered-migration
+PostgreSQL 16 tests under the restricted forced-RLS runtime role. A strict
+994-message catalog compiles with zero missing entries in all eight non-English
+locales; affected packages typecheck and lint. ADR 0022, the account rollout
+runbook, and the threat model record the controls and evidence boundary. Shared
+migration execution, live Resend receipt, and hosted Fly/Neon browser validation
+still require explicit operator approval and are not claimed by this worktree.
+
 ## Phase 7 — Assurance, MFA, and passkeys
 
-- [ ] Implement provider-neutral assurance levels and `authenticatedAt`/recent-auth
+- [x] Implement provider-neutral assurance levels and `authenticatedAt`/recent-auth
       evaluation before adding individual methods.
-- [ ] Add WebAuthn/passkeys with correct RP/origin binding for dashboard and
+- [x] Add WebAuthn/passkeys with correct RP/origin binding for dashboard and
       first-party popup flows.
-- [ ] Add TOTP only if product/customer evidence requires it.
-- [ ] Add hash-stored single-use recovery codes, enrollment confirmation, method
+- [x] Add TOTP only if product/customer evidence requires it. No qualifying
+      evidence exists, so ADR 0023 records the deliberate decision not to add a
+      shared-secret authenticator yet.
+- [x] Add hash-stored single-use recovery codes, enrollment confirmation, method
       removal, recovery, and step-up challenges.
-- [ ] Add workspace policies requiring MFA and tests proving a lower-assurance
+- [x] Add workspace policies requiring MFA and tests proving a lower-assurance
       session cannot enter or mutate a higher-assurance workspace.
 
 **Exit condition:** authorization can require a strong and recent session instead
 of asking only whether a user is signed in.
 
+**Implementation evidence (2026-08-15):** centralized assurance ordering,
+future-safe recent-auth evaluation, exact-host WebAuthn configuration, passkey
+registration/sign-in/step-up, atomic challenge and counter consumption, and
+confirmed hash-only recovery codes are implemented across TypeBox contracts,
+repository, API, BFF, and localized dashboard UI. Workspace selection and every
+control-plane decision enforce the persisted assurance/method policy; focused
+tests prove AAL1 rejection and AAL2 admission. Contract-negative, API,
+repository, dashboard, migration-safety, and restricted PostgreSQL 16 suites
+cover malformed inputs, replay, counter CAS, RLS isolation, recovery-code
+single use, and disabled-identity cleanup. All 1,027 dashboard messages compile
+with zero missing translations across eight non-English locales. ADR 0023, the
+rollout runbook, and the threat model record the boundary. Shared migration
+execution, real-authenticator coverage, and hosted Fly/Neon popup validation
+still require explicit operator evidence and are not claimed by this worktree.
+
 ## Phase 8 — OAuth/OIDC
 
-- [ ] Implement Google and Microsoft through the provider adapter, followed later
+- [x] Implement Google and Microsoft through the provider adapter, followed later
       by generic enterprise OIDC.
-- [ ] Use exact callback allowlists, Authorization Code flow, PKCE, `state`, OIDC
+- [x] Use exact callback allowlists, Authorization Code flow, PKCE, `state`, OIDC
       `nonce`, issuer/audience validation, and provider subject lookup.
-- [ ] Test cancellation/retry, collision/linking, disabled-provider, tenant, and
+- [x] Test cancellation/retry, collision/linking, disabled-provider, tenant, and
       callback replay behavior.
-- [ ] Do not store provider access/refresh tokens unless Lodariq needs the
+- [x] Do not store provider access/refresh tokens unless Lodariq needs the
       provider's APIs for a separately approved integration.
-- [ ] Prove both dashboard sign-in and first-party authoring-popup sign-in result
+- [x] Prove both dashboard sign-in and first-party authoring-popup sign-in result
       in the same opaque Lodariq session and tenant enforcement.
 
 **Exit condition:** OAuth and password users share one internal session,
 authorization, onboarding, and recovery model.
 
+**Repository evidence (2026-08-15):** Google and Microsoft use fixed-endpoint
+provider adapters with exact callbacks, Code + S256 PKCE, state, nonce,
+issuer/audience/tenant validation, and canonical issuer/subject identities.
+Migration `0012` persists only state/nonce hashes and an attempt-bound AES-GCM
+proof envelope behind forced RLS. API, database, schema, runtime-environment,
+dashboard BFF, and popup-shared-form tests cover cancellation/retry, collisions,
+explicit linking, disablement, callback replay, opaque-cookie forwarding, and
+tenant membership reuse. Provider access/refresh tokens are deliberately absent
+from contracts and persistence. Hosted provider consent remains a deployment
+runbook gate; repository tests do not claim it has run.
+
 ## Phase 9 — Enterprise SSO and SCIM
 
 Prepare the model earlier, but do not implement a SAML parser in Lodariq.
 
-- [ ] Add workspace SSO connections, verified company domains, and domain-based
+- [x] Add workspace SSO connections, verified company domains, and domain-based
       discovery without auto-linking accounts by email.
-- [ ] Add invitation-only and explicitly configured just-in-time provisioning.
-- [ ] Enforce `sso_required`, `minimum_assurance`, and `password_allowed` during
+- [x] Add invitation-only and explicitly configured just-in-time provisioning.
+- [x] Enforce `sso_required`, `minimum_assurance`, and `password_allowed` during
       workspace selection and every control-plane authorization decision.
-- [ ] Add a reviewed break-glass recovery procedure that is separately audited
+- [x] Add a reviewed break-glass recovery procedure that is separately audited
       and cannot silently become a password fallback.
-- [ ] Add IdP group-to-role mapping and SCIM provisioning/deprovisioning with
+- [x] Add IdP group-to-role mapping and SCIM provisioning/deprovisioning with
       immediate session/grant revocation.
-- [ ] Add enterprise audit events and optional SAML Single Logout only if required.
+- [x] Add enterprise audit events and optional SAML Single Logout only if required.
 - [ ] Validate supported configurations against real Okta and Microsoft Entra ID
       tenants before claiming enterprise availability.
 
 **Exit condition:** a workspace authentication policy cannot be bypassed through
 another linked method, stale membership, the authoring popup, or a lower-assurance
 existing session.
+
+**Repository evidence (2026-08-15):** Phase 9 implements TypeBox contracts,
+workspace-scoped forced-RLS persistence, external-validation-gated Okta/Entra OIDC,
+DNS domain discovery, explicit invitation/JIT provisioning, exact
+issuer/subject/principal binding, group-role mapping without owner assignment,
+bounded SCIM lifecycle with immediate normal/authoring access revocation,
+continuous workspace/control-plane/creator-popup policy enforcement, a two-owner
+AAL2 non-password break-glass flow, and an append-only enterprise audit ledger.
+The normal runtime cannot record connection validation evidence; a separately
+provisioned validator role and confirmation-bound operator command can activate
+only the exact tested connection. SAML and SLO remain deliberately unimplemented
+because no validated requirement currently justifies that parser/session
+boundary. In-memory, restricted PostgreSQL, API, schema, dashboard/BFF, popup,
+migration-safety, and runtime-environment tests are present. Real Okta and Entra
+tenant execution, evidence recording, rollback rehearsal, and availability
+approval remain external rollout gates and are intentionally not claimed here.
 
 ## Release gates for every phase
 

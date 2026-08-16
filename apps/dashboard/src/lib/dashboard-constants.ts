@@ -8,6 +8,7 @@ export const DASHBOARD_VIEW_IDS = [
   'analytics',
   'brand-system',
   'environments',
+  'members',
   'support',
 ] as const;
 
@@ -19,7 +20,14 @@ export interface DashboardNavigationItem {
   id: DashboardViewId;
   label: MessageDescriptor;
   icon:
-    'overview' | 'experiences' | 'releases' | 'analytics' | 'brand' | 'environments' | 'support';
+    | 'overview'
+    | 'experiences'
+    | 'releases'
+    | 'analytics'
+    | 'brand'
+    | 'environments'
+    | 'members'
+    | 'support';
 }
 
 export const DASHBOARD_PRIMARY_NAVIGATION = [
@@ -29,6 +37,7 @@ export const DASHBOARD_PRIMARY_NAVIGATION = [
   { id: 'analytics', label: DASHBOARD_NAVIGATION_MESSAGES.analytics, icon: 'analytics' },
   { id: 'brand-system', label: DASHBOARD_NAVIGATION_MESSAGES.brandSystem, icon: 'brand' },
   { id: 'environments', label: DASHBOARD_NAVIGATION_MESSAGES.environments, icon: 'environments' },
+  { id: 'members', label: DASHBOARD_NAVIGATION_MESSAGES.members, icon: 'members' },
 ] as const satisfies readonly DashboardNavigationItem[];
 
 export const DASHBOARD_SUPPORT_NAVIGATION = {
@@ -69,6 +78,10 @@ export const DASHBOARD_PAGE_COPY = {
   environments: {
     title: DASHBOARD_PAGE_MESSAGES.environmentsTitle,
     description: DASHBOARD_PAGE_MESSAGES.environmentsDescription,
+  },
+  members: {
+    title: DASHBOARD_PAGE_MESSAGES.membersTitle,
+    description: DASHBOARD_PAGE_MESSAGES.membersDescription,
   },
   support: {
     title: DASHBOARD_PAGE_MESSAGES.supportTitle,

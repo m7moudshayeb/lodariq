@@ -630,6 +630,24 @@ export function createTourStyles(): HTMLStyleElement {
       margin: 0;
     }
 
+    .tour-skip {
+      display: flex;
+      min-height: 28px;
+      margin: var(--lq-tour-spacing) 0 0 auto;
+      padding: 4px 4px;
+      border: 0;
+      border-radius: 4px;
+      background: transparent;
+      color: var(--lq-popup-muted-text, var(--lq-tour-muted-text-color));
+      font-size: var(--lq-tour-small-font-size);
+      font-weight: 600;
+    }
+
+    .tour-skip:hover {
+      color: var(--lq-popup-text, var(--lq-tour-text-color));
+      text-decoration: underline;
+    }
+
     button:focus-visible,
     a:focus-visible {
       outline: 2px solid var(--lq-tour-focus-color);
@@ -669,6 +687,10 @@ export function createTourStyles(): HTMLStyleElement {
 
     :host([data-lodariq-embedded-preview]) div[role="dialog"][data-lodariq-popup-height="custom"] {
       height: min(var(--lq-popup-height), 100%);
+    }
+
+    :host([data-lodariq-embedded-preview]) .tour-skip {
+      display: none;
     }
   `,
   );

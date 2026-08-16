@@ -10,7 +10,8 @@ const destructiveStatementChecks = [
   {
     code: 'drop-statement',
     description: 'DROP statements can remove shared-environment data or policies',
-    test: (statement) => /^\s*drop\b/iu.test(statement),
+    test: (statement) =>
+      /^\s*drop\b/iu.test(statement) && !/^\s*drop\s+policy\s+if\s+exists\b/iu.test(statement),
   },
   {
     code: 'truncate-statement',
@@ -97,6 +98,15 @@ function findDestructiveStatements(source, file) {
   const statements = splitStatements(sanitized);
   const findings = [];
   for (const statement of statements) {
+    const policyDrop = parseConditionalPolicyDrop(statement.text);
+    if (policyDrop && !hasPolicyReplacement(sanitized, policyDrop)) {
+      findings.push({
+        file,
+        line: lineNumberAt(sanitized, statement.start),
+        code: 'drop-policy-without-replacement',
+        description: 'DROP POLICY is allowed only when the same migration recreates or alters it',
+      });
+    }
     for (const check of destructiveStatementChecks) {
       if (!check.test(statement.text)) continue;
       findings.push({
@@ -108,6 +118,26 @@ function findDestructiveStatements(source, file) {
     }
   }
   return findings;
+}
+
+function parseConditionalPolicyDrop(statement) {
+  const match = statement.match(
+    /^\s*drop\s+policy\s+if\s+exists\s+([a-z_][a-z0-9_]*)\s+on\s+([a-z_][a-z0-9_]*)\s*;/iu,
+  );
+  return match ? { policy: match[1], table: match[2] } : null;
+}
+
+function hasPolicyReplacement(source, { policy, table }) {
+  const escapedPolicy = escapeRegularExpression(policy);
+  const escapedTable = escapeRegularExpression(table);
+  return new RegExp(
+    `\\b(?:create|alter)\\s+policy\\s+${escapedPolicy}\\s+on\\s+${escapedTable}\\b`,
+    'iu',
+  ).test(source);
+}
+
+function escapeRegularExpression(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&');
 }
 
 function splitStatements(source) {

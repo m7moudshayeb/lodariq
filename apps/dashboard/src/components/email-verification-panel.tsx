@@ -1,25 +1,33 @@
 'use client';
 
+import Link from 'next/link';
 import { Check, KeyRound, LoaderCircle, MailCheck, RotateCcw } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import { useLingui } from '@lingui/react';
 import type { AuthSessionSnapshot } from '../lib/auth-contract';
 import { useAuthMutations } from '../hooks/use-auth-mutations';
+import { useResendCooldown } from '../hooks/use-resend-cooldown';
 import { ClientAuthError } from '../lib/client-auth-api';
 import { authErrorMessageDescriptor } from '../i18n/error-messages';
 import { AUTH_FORM_MESSAGES } from '../i18n/messages';
-import { Button } from './ui/button';
-import { Input } from './ui/input';
-import { Label } from './ui/label';
+import {
+  focusFirstInvalidAuthField,
+  hasAuthFieldErrors,
+  validateAuthForm,
+  withoutAuthFieldError,
+  type AuthFieldErrors,
+} from '../lib/auth-form-validation';
+import { AuthField, AuthFormFeedback } from './auth-form-controls';
+import { Button, buttonVariants } from './ui/button';
 
 type VerificationPhase =
   | { name: 'ready' }
   | { name: 'verifying' }
   | { name: 'complete' }
-  | { name: 'error'; message: string };
+  | { name: 'error'; message: string; invalidLink: boolean };
 
 interface EmailVerificationPanelProps {
-  challengeId: string;
+  challengeId?: string;
   email?: string;
   expiresAt?: string;
   developmentToken?: string;
@@ -40,6 +48,8 @@ export function EmailVerificationPanel({
   onRestart,
 }: EmailVerificationPanelProps): React.ReactElement {
   const [phase, setPhase] = useState<VerificationPhase>({ name: 'ready' });
+  const [fieldErrors, setFieldErrors] = useState<AuthFieldErrors>({});
+  const [currentChallengeId, setCurrentChallengeId] = useState(challengeId ?? '');
   const verificationStarted = useRef(false);
   const fragmentRead = useRef(false);
   const exposedDevelopmentToken =
@@ -59,9 +69,15 @@ export function EmailVerificationPanel({
 
       let session: AuthSessionSnapshot | null = null;
       let failureMessage = '';
+      let invalidLink = false;
       try {
-        session = await auth.verifyEmail.mutateAsync({ challengeId, token, password });
+        session = await auth.verifyEmail.mutateAsync({
+          challengeId: currentChallengeId,
+          token,
+          password,
+        });
       } catch (caught) {
+        invalidLink = caught instanceof ClientAuthError && caught.code === 'verification_invalid';
         failureMessage =
           caught instanceof ClientAuthError
             ? _(authErrorMessageDescriptor(caught.code, caught.statusCode))
@@ -70,7 +86,7 @@ export function EmailVerificationPanel({
 
       if (!session) {
         verificationStarted.current = false;
-        setPhase({ name: 'error', message: failureMessage });
+        setPhase({ name: 'error', message: failureMessage, invalidLink });
         return;
       }
 
@@ -81,7 +97,7 @@ export function EmailVerificationPanel({
       }
       window.setTimeout(() => window.location.replace(returnTo), 650);
     },
-    [_, auth.verifyEmail, challengeId, onVerified, returnTo],
+    [_, auth.verifyEmail, currentChallengeId, onVerified, returnTo],
   );
 
   useEffect(() => {
@@ -100,14 +116,21 @@ export function EmailVerificationPanel({
   function submit(event: FormEvent<HTMLFormElement>): void {
     event.preventDefault();
     if (!verificationToken || verificationStarted.current) return;
-    const form = new FormData(event.currentTarget);
-    const password = passwordField(form, 'password');
-    const confirmation = passwordField(form, 'passwordConfirmation');
-    if (password !== confirmation) {
-      setPhase({ name: 'error', message: _(AUTH_FORM_MESSAGES.passwordsDoNotMatch) });
+    const validation = validateAuthForm(event.currentTarget, ['password', 'passwordConfirmation'], {
+      confirmPassword: true,
+    });
+    if (hasAuthFieldErrors(validation.errors)) {
+      setFieldErrors(validation.errors);
+      setPhase({ name: 'ready' });
+      focusFirstInvalidAuthField(
+        event.currentTarget,
+        ['password', 'passwordConfirmation'],
+        validation.errors,
+      );
       return;
     }
-    void verifyToken(verificationToken, password);
+    setFieldErrors({});
+    void verifyToken(verificationToken, validation.values.password);
   }
 
   if (phase.name === 'verifying' || phase.name === 'complete') {
@@ -141,9 +164,73 @@ export function EmailVerificationPanel({
     );
   }
 
+  if (phase.name === 'error' && phase.invalidLink) {
+    return (
+      <div className="grid gap-5">
+        <div className="grid gap-2" role="alert">
+          <h2 className="font-semibold text-foreground">
+            {_(AUTH_FORM_MESSAGES.verificationLinkUnavailable)}
+          </h2>
+          <p className="text-sm leading-6 text-muted-foreground">
+            {_(AUTH_FORM_MESSAGES.verificationLinkUnavailableHelp)}
+          </p>
+        </div>
+        {email ? (
+          <VerificationResendControls
+            email={email}
+            onDevelopmentReplacement={(replacement) => {
+              setCurrentChallengeId(replacement.challengeId);
+              setVerificationToken(replacement.verificationToken);
+              setPhase({ name: 'ready' });
+            }}
+          />
+        ) : (
+          <Link
+            className={buttonVariants({ className: 'h-11 w-full' })}
+            href={`/sign-up?returnTo=${encodeURIComponent(returnTo)}`}
+          >
+            {_(AUTH_FORM_MESSAGES.restartVerification)}
+          </Link>
+        )}
+        {onRestart ? (
+          <Button onClick={onRestart} type="button" variant="ghost">
+            <RotateCcw aria-hidden="true" />
+            {_(AUTH_FORM_MESSAGES.useAnotherEmail)}
+          </Button>
+        ) : null}
+      </div>
+    );
+  }
+
+  if (readTokenFromFragment && !verificationToken) {
+    return (
+      <div className="grid gap-5" role="alert">
+        <p className="text-sm leading-6 text-muted-foreground">
+          {_(AUTH_FORM_MESSAGES.incompleteVerificationLink)}
+        </p>
+        <Link
+          className={buttonVariants({ className: 'h-11 w-full' })}
+          href={`/sign-up?returnTo=${encodeURIComponent(returnTo)}`}
+        >
+          {_(AUTH_FORM_MESSAGES.restartVerification)}
+        </Link>
+      </div>
+    );
+  }
+
   if (verificationToken) {
     return (
-      <form className="grid gap-5" onSubmit={submit}>
+      <form
+        className="grid gap-5"
+        noValidate
+        onInput={(event) => {
+          const target = event.target;
+          if (target instanceof HTMLInputElement) {
+            setFieldErrors((current) => withoutAuthFieldError(current, target.name));
+          }
+        }}
+        onSubmit={submit}
+      >
         <div className="grid size-11 place-items-center rounded-xl bg-[var(--nav-active)] text-primary">
           <KeyRound aria-hidden="true" className="size-5" />
         </div>
@@ -155,44 +242,24 @@ export function EmailVerificationPanel({
             {_(AUTH_FORM_MESSAGES.choosePasswordHelp)}
           </p>
         </div>
-        <div className="grid gap-2">
-          <Label htmlFor="verification-password">{_(AUTH_FORM_MESSAGES.newPassword)}</Label>
-          <Input
-            autoComplete="new-password"
-            id="verification-password"
-            maxLength={128}
-            minLength={12}
-            name="password"
-            required
-            type="password"
-          />
-          <p className="text-xs leading-5 text-muted-foreground">
-            {_(AUTH_FORM_MESSAGES.passwordLength)}
-          </p>
-        </div>
-        <div className="grid gap-2">
-          <Label htmlFor="verification-password-confirmation">
-            {_(AUTH_FORM_MESSAGES.confirmPassword)}
-          </Label>
-          <Input
-            autoComplete="new-password"
-            id="verification-password-confirmation"
-            maxLength={128}
-            minLength={12}
-            name="passwordConfirmation"
-            required
-            type="password"
-          />
-        </div>
-        {phase.name === 'error' ? (
-          <p
-            className="rounded-lg border border-[var(--danger-border)] bg-[var(--danger-bg)] px-3 py-2 text-sm text-[var(--danger-fg)]"
-            role="alert"
-          >
-            {phase.message}
-          </p>
-        ) : null}
-        <Button className="h-11 w-full" type="submit">
+        <AuthField
+          autoComplete="new-password"
+          error={fieldErrors.password}
+          help={_(AUTH_FORM_MESSAGES.passwordLength)}
+          id="verification-password"
+          name="password"
+        />
+        <AuthField
+          autoComplete="new-password"
+          error={fieldErrors.passwordConfirmation}
+          id="verification-password-confirmation"
+          name="passwordConfirmation"
+        />
+        <AuthFormFeedback
+          fieldErrors={fieldErrors}
+          formError={phase.name === 'error' ? phase.message : undefined}
+        />
+        <Button className="h-11 w-full" disabled={verificationStarted.current} type="submit">
           <Check aria-hidden="true" />
           {_(AUTH_FORM_MESSAGES.verifyAndContinue)}
         </Button>
@@ -236,6 +303,15 @@ export function EmailVerificationPanel({
           {_(AUTH_FORM_MESSAGES.useAnotherEmail)}
         </Button>
       ) : null}
+      {email ? (
+        <VerificationResendControls
+          email={email}
+          onDevelopmentReplacement={(replacement) => {
+            setCurrentChallengeId(replacement.challengeId);
+            setVerificationToken(replacement.verificationToken);
+          }}
+        />
+      ) : null}
     </div>
   );
 }
@@ -244,9 +320,64 @@ function clearLocationFragment(): void {
   window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}`);
 }
 
-function passwordField(form: FormData, name: string): string {
-  const value = form.get(name);
-  return typeof value === 'string' ? value : '';
+function VerificationResendControls({
+  email,
+  onDevelopmentReplacement,
+}: {
+  email: string;
+  onDevelopmentReplacement: (replacement: {
+    challengeId: string;
+    verificationToken: string;
+  }) => void;
+}): React.ReactElement {
+  const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
+  const [pending, setPending] = useState(false);
+  const { remainingSeconds, restart } = useResendCooldown();
+  const auth = useAuthMutations();
+  const { _ } = useLingui();
+
+  async function resend(): Promise<void> {
+    if (pending || remainingSeconds > 0) return;
+    setError('');
+    setNotice('');
+    setPending(true);
+    try {
+      const response = await auth.resendEmailVerification.mutateAsync(email);
+      if ('challengeId' in response && 'verificationToken' in response) {
+        onDevelopmentReplacement(response);
+      }
+      setNotice(_(AUTH_FORM_MESSAGES.verificationRequestAccepted));
+      restart();
+    } catch (caught) {
+      setError(
+        caught instanceof ClientAuthError
+          ? _(authErrorMessageDescriptor(caught.code, caught.statusCode))
+          : _(AUTH_FORM_MESSAGES.pleaseTryAgain),
+      );
+    } finally {
+      setPending(false);
+    }
+  }
+
+  return (
+    <div className="grid gap-3">
+      {error ? <AuthFormFeedback fieldErrors={{}} formError={error} /> : null}
+      <Button
+        disabled={pending || remainingSeconds > 0}
+        onClick={() => void resend()}
+        type="button"
+        variant="outline"
+      >
+        {remainingSeconds > 0
+          ? _({ ...AUTH_FORM_MESSAGES.requestAgainIn, values: { seconds: remainingSeconds } })
+          : _(AUTH_FORM_MESSAGES.requestAnotherVerification)}
+      </Button>
+      <p aria-live="polite" className="text-xs leading-5 text-muted-foreground" role="status">
+        {pending ? _(AUTH_FORM_MESSAGES.requestingVerification) : notice}
+      </p>
+    </div>
+  );
 }
 
 function formatExpiry(value: string, locale: string, invalidFallback: string): string {

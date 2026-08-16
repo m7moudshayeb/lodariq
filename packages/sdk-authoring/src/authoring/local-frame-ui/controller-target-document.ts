@@ -336,10 +336,8 @@ export abstract class ControllerTargetDocumentFeature extends ControllerReleaseR
     let imported: LodariqDocument;
     try {
       imported = this.normalizeDocument(this.services.importDocument(json));
-    } catch (error) {
-      this.setStatus(
-        error instanceof Error ? error.message : authoringText('This backup is not valid.'),
-      );
+    } catch {
+      this.setStatus(authoringText('This backup is not valid.'));
       return null;
     }
     if (imported.id !== this.baseDocument.id) {

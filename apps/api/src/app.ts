@@ -13,14 +13,30 @@ import {
 import {
   createAuthProviderFromEnvironment,
   createAuthEmailRuntimeFromEnvironment,
+  createAuthLifecycleMaintenanceFromEnvironment,
   createPasswordHashAdmissionGateFromEnvironment,
+  readWebAuthnConfiguration,
+  readOidcConfiguration,
+  readEnterpriseOidcConfiguration,
   type AuthEmailRuntime,
+  type AuthLifecycleMaintenance,
   type AuthProvider,
   type EmailVerificationDeliveryCapability,
   type PasswordHashAdmissionGateLike,
+  type WebAuthnConfiguration,
+  type OidcConfiguration,
+  type EnterpriseOidcConfiguration,
 } from './auth';
 import { noopObservability, type ObservabilitySink } from './observability';
 import { registerAuthRoutes } from './routes/auth';
+import { registerAccountManagementRoutes } from './routes/account-management';
+import { registerTenantAdministrationRoutes } from './routes/tenant-administration';
+import { registerAssuranceRoutes } from './routes/assurance';
+import { registerOidcRoutes } from './routes/oidc';
+import {
+  registerEnterpriseIdentityRoutes,
+  type EnterpriseDomainVerificationCapability,
+} from './routes/enterprise-identity';
 import { registerControlPlaneRoutes } from './routes/control-plane';
 import {
   createDeepLAuthoringTranslationProvider,
@@ -42,8 +58,14 @@ export interface CreateApiAppOptions {
   observability?: ObservabilitySink;
   emailVerificationDelivery?: EmailVerificationDeliveryCapability;
   authEmailRuntime?: AuthEmailRuntime | null;
+  authLifecycleMaintenance?: AuthLifecycleMaintenance | null;
   passwordHashAdmissionGate?: PasswordHashAdmissionGateLike;
+  authClock?: () => Date;
   authoringTranslationProvider?: AuthoringTranslationProvider | null;
+  webAuthnConfiguration?: WebAuthnConfiguration | null;
+  oidcConfiguration?: OidcConfiguration | null;
+  enterpriseDomainVerification?: EnterpriseDomainVerificationCapability;
+  enterpriseOidcConfiguration?: EnterpriseOidcConfiguration | null;
 }
 
 export function createApiApp(options: CreateApiAppOptions = {}): FastifyInstance {
@@ -80,20 +102,24 @@ export function createApiApp(options: CreateApiAppOptions = {}): FastifyInstance
       defaultWorkspaceId: process.env.NODE_ENV === 'production' ? undefined : defaultWorkspaceId,
       defaultUserId: process.env.NODE_ENV === 'production' ? undefined : defaultUserId,
     });
-  let authEmailRuntime = options.authEmailRuntime;
-  if (authEmailRuntime === undefined) {
-    authEmailRuntime = options.emailVerificationDelivery
-      ? null
-      : createAuthEmailRuntimeFromEnvironment(repository);
-  }
-  const emailVerificationDelivery =
-    options.emailVerificationDelivery ?? authEmailRuntime?.deliveryCapability;
   const passwordHashAdmissionGate =
     options.passwordHashAdmissionGate ?? createPasswordHashAdmissionGateFromEnvironment();
   const authoringTranslationProvider =
     options.authoringTranslationProvider === null
       ? undefined
       : (options.authoringTranslationProvider ?? createDeepLAuthoringTranslationProvider());
+  const webAuthnConfiguration =
+    options.webAuthnConfiguration === undefined
+      ? readWebAuthnConfiguration(process.env)
+      : options.webAuthnConfiguration;
+  const oidcConfiguration =
+    options.oidcConfiguration === undefined
+      ? readOidcConfiguration(process.env)
+      : options.oidcConfiguration;
+  const enterpriseOidcConfiguration =
+    options.enterpriseOidcConfiguration === undefined
+      ? readEnterpriseOidcConfiguration(process.env)
+      : options.enterpriseOidcConfiguration;
 
   const fastify = Fastify({
     logger: options.logger
@@ -103,12 +129,17 @@ export function createApiApp(options: CreateApiAppOptions = {}): FastifyInstance
               'req.headers.authorization',
               'req.headers.cookie',
               'req.headers.x-lodariq-auth-client-source',
+              'req.headers.x-lodariq-domain-verification',
+              'req.headers.x-lodariq-break-glass-request-id',
               'res.headers.set-cookie',
               'password',
               '*.password',
               '*.token',
               '*.resetToken',
               '*.verificationToken',
+              '*.invitationToken',
+              '*.state',
+              '*.code',
             ],
             censor: '[REDACTED]',
           },
@@ -124,6 +155,30 @@ export function createApiApp(options: CreateApiAppOptions = {}): FastifyInstance
       },
     },
   });
+
+  const observability: ObservabilitySink =
+    options.observability ??
+    (options.logger
+      ? {
+          emit(event) {
+            fastify.log.info({ observability: event }, event.name);
+          },
+        }
+      : noopObservability);
+  let authEmailRuntime = options.authEmailRuntime;
+  if (authEmailRuntime === undefined) {
+    authEmailRuntime = options.emailVerificationDelivery
+      ? null
+      : createAuthEmailRuntimeFromEnvironment(repository, process.env, observability);
+  }
+  const emailVerificationDelivery =
+    options.emailVerificationDelivery ?? authEmailRuntime?.deliveryCapability;
+  let authLifecycleMaintenance = options.authLifecycleMaintenance;
+  if (authLifecycleMaintenance === undefined) {
+    authLifecycleMaintenance = ownsRepository
+      ? createAuthLifecycleMaintenanceFromEnvironment(repository, observability)
+      : null;
+  }
 
   for (const schema of FASTIFY_REFERENCE_SCHEMA_REGISTRY) {
     fastify.addSchema(schema);
@@ -173,6 +228,41 @@ export function createApiApp(options: CreateApiAppOptions = {}): FastifyInstance
         repository,
         emailVerificationDelivery,
         passwordHashAdmissionGate,
+        observability,
+        clock: options.authClock,
+      });
+      registerAccountManagementRoutes(authApi, {
+        repository,
+        observability,
+        emailVerificationDelivery,
+        passwordHashAdmissionGate,
+        clock: options.authClock,
+      });
+      registerTenantAdministrationRoutes(authApi, {
+        repository,
+        observability,
+        emailVerificationDelivery,
+        clock: options.authClock,
+      });
+      registerAssuranceRoutes(authApi, {
+        repository,
+        observability,
+        configuration: webAuthnConfiguration,
+        passwordHashAdmissionGate,
+        clock: options.authClock,
+      });
+      registerOidcRoutes(authApi, {
+        repository,
+        observability,
+        configuration: oidcConfiguration,
+        clock: options.authClock,
+      });
+      registerEnterpriseIdentityRoutes(authApi, {
+        repository,
+        observability,
+        domainVerification: options.enterpriseDomainVerification,
+        oidcConfiguration: enterpriseOidcConfiguration,
+        clock: options.authClock,
       });
     });
     registerControlPlaneRoutes(controlPlane, {
@@ -184,7 +274,7 @@ export function createApiApp(options: CreateApiAppOptions = {}): FastifyInstance
       creatorLoaderSrc,
       creatorModule,
       authoringIframeSrc,
-      observability: options.observability ?? noopObservability,
+      observability,
       authoringTranslationProvider,
     });
   });
@@ -195,9 +285,15 @@ export function createApiApp(options: CreateApiAppOptions = {}): FastifyInstance
       activeAuthEmailRuntime.worker.start();
     });
   }
-  if (activeAuthEmailRuntime || ownsRepository) {
+  if (authLifecycleMaintenance) {
+    fastify.addHook('onReady', () => {
+      authLifecycleMaintenance.start();
+    });
+  }
+  if (activeAuthEmailRuntime || authLifecycleMaintenance || ownsRepository) {
     fastify.addHook('onClose', async () => {
       if (activeAuthEmailRuntime) await activeAuthEmailRuntime.worker.stop();
+      if (authLifecycleMaintenance) await authLifecycleMaintenance.stop();
       if (ownsRepository) await repository.close?.();
     });
   }

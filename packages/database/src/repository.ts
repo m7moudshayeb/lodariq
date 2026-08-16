@@ -9,14 +9,23 @@ import {
   type WorkspaceThemeVersionRecord,
 } from './domains/themes';
 import {
+  type AuthIdentityRecord,
+  type AuthSecurityEventRecord,
   type AuthOutboxRecord,
   type AuthSessionRecord,
   type EmailVerificationChallengeRecord,
+  type IdentityOnboardingStateRecord,
   type PasswordCredentialRecord,
   type SetPasswordChallengeRecord,
   type SetPasswordOutboxRecord,
   type UserRecord,
+  type UserEmailRecord,
+  type UsernameRecord,
   type WorkspaceMembershipRecord,
+  type WorkspaceInvitationRecord,
+  type WorkspaceInvitationOutboxRecord,
+  type WorkspaceAuthPolicyRecord,
+  type SsoConnectionRecord,
 } from './domains/identity';
 import {
   type AuthoringActivationGrantRecord,
@@ -47,10 +56,38 @@ import {
 } from './domains/product-style';
 import { clone } from './domains/in-memory-helpers';
 import { InMemoryRepositoryAnalytics } from './in-memory/analytics';
+import type {
+  TenantAuditEventRecord,
+  TenantWorkspaceRecord,
+} from './domains/tenant-administration';
+import type {
+  AccountEmailChangeOutboxRecord,
+  AccountEmailChangeRecord,
+  AccountSecurityEventRecord,
+} from './domains/account-management';
+import type {
+  PasskeyCredentialRecord,
+  RecoveryCodeRecord,
+  RecoveryCodeSetRecord,
+  WebAuthnChallengeRecord,
+} from './domains/assurance';
+import type { OidcAuthorizationAttemptRecord } from './domains/oidc';
+import type {
+  EnterpriseAuditEventRecord,
+  EnterpriseBreakGlassRecord,
+  EnterpriseGroupRoleMappingRecord,
+  EnterprisePrincipalRecord,
+  EnterpriseScimConnectionRecord,
+  EnterpriseSsoConnectionRecord,
+  EnterpriseValidationEvidenceRecord,
+  EnterpriseVerifiedDomainRecord,
+} from './domains/enterprise-identity';
 
 export * from './domains/environments';
 export * from './domains/themes';
 export * from './domains/identity';
+export * from './domains/tenant-administration';
+export * from './domains/account-management';
 export * from './domains/sdk-authoring';
 export * from './domains/releases';
 export * from './domains/documents';
@@ -61,11 +98,42 @@ export * from './domains/release-recovery';
 export * from './domains/authoring-policy';
 export * from './domains/product-style';
 export * from './domains/theme-policy';
+export * from './domains/oidc';
+export * from './domains/enterprise-identity';
 
 export interface InMemoryControlPlaneSeed {
   users?: UserRecord[];
-  workspaces?: Array<{ id: string; name: string; createdAt: string; updatedAt: string }>;
+  userEmails?: UserEmailRecord[];
+  usernames?: UsernameRecord[];
+  authIdentities?: AuthIdentityRecord[];
+  authSecurityEvents?: AuthSecurityEventRecord[];
+  accountSecurityEvents?: AccountSecurityEventRecord[];
+  accountEmailChangeChallenges?: AccountEmailChangeRecord[];
+  accountEmailChangeOutbox?: AccountEmailChangeOutboxRecord[];
+  webAuthnChallenges?: WebAuthnChallengeRecord[];
+  passkeyCredentials?: PasskeyCredentialRecord[];
+  recoveryCodeSets?: RecoveryCodeSetRecord[];
+  recoveryCodes?: RecoveryCodeRecord[];
+  oidcAuthorizationAttempts?: OidcAuthorizationAttemptRecord[];
+  identityOnboardingStates?: IdentityOnboardingStateRecord[];
+  workspaces?: Array<
+    Omit<TenantWorkspaceRecord, 'deletedAt' | 'retentionExpiresAt'> &
+      Partial<Pick<TenantWorkspaceRecord, 'deletedAt' | 'retentionExpiresAt'>>
+  >;
   workspaceMemberships?: WorkspaceMembershipRecord[];
+  workspaceInvitations?: WorkspaceInvitationRecord[];
+  workspaceInvitationOutbox?: WorkspaceInvitationOutboxRecord[];
+  tenantAuditEvents?: TenantAuditEventRecord[];
+  workspaceAuthPolicies?: WorkspaceAuthPolicyRecord[];
+  ssoConnections?: SsoConnectionRecord[];
+  enterpriseSsoConnections?: EnterpriseSsoConnectionRecord[];
+  enterpriseValidationEvidence?: EnterpriseValidationEvidenceRecord[];
+  enterpriseVerifiedDomains?: EnterpriseVerifiedDomainRecord[];
+  enterpriseGroupRoleMappings?: EnterpriseGroupRoleMappingRecord[];
+  enterpriseScimConnections?: EnterpriseScimConnectionRecord[];
+  enterprisePrincipals?: EnterprisePrincipalRecord[];
+  enterpriseAuditEvents?: EnterpriseAuditEventRecord[];
+  enterpriseBreakGlassRequests?: EnterpriseBreakGlassRecord[];
   passwordCredentials?: PasswordCredentialRecord[];
   authSessions?: AuthSessionRecord[];
   emailVerificationChallenges?: EmailVerificationChallengeRecord[];
@@ -130,8 +198,51 @@ class InMemoryControlPlaneRepository
     for (const user of seed.users ?? []) {
       this.users.set(user.id, clone(user));
     }
+    for (const email of seed.userEmails ?? []) {
+      this.userEmails.set(email.normalizedEmail, clone(email));
+    }
+    for (const username of seed.usernames ?? []) {
+      this.usernames.set(username.normalizedUsername, clone(username));
+    }
+    for (const identity of seed.authIdentities ?? []) {
+      this.authIdentities.set(identity.id, clone(identity));
+    }
+    for (const event of seed.authSecurityEvents ?? []) {
+      this.authSecurityEvents.set(event.id, clone(event));
+    }
+    for (const event of seed.accountSecurityEvents ?? []) {
+      this.accountSecurityEvents.set(event.id, clone(event));
+    }
+    for (const challenge of seed.accountEmailChangeChallenges ?? []) {
+      this.accountEmailChangeChallenges.set(challenge.id, clone(challenge));
+    }
+    for (const message of seed.accountEmailChangeOutbox ?? []) {
+      this.accountEmailChangeOutbox.set(message.id, clone(message));
+    }
+    for (const challenge of seed.webAuthnChallenges ?? []) {
+      this.webAuthnChallenges.set(challenge.id, clone(challenge));
+    }
+    for (const credential of seed.passkeyCredentials ?? []) {
+      this.passkeyCredentials.set(credential.id, clone(credential));
+    }
+    for (const set of seed.recoveryCodeSets ?? []) {
+      this.recoveryCodeSets.set(set.id, clone(set));
+    }
+    for (const code of seed.recoveryCodes ?? []) {
+      this.recoveryCodes.set(code.id, clone(code));
+    }
+    for (const attempt of seed.oidcAuthorizationAttempts ?? []) {
+      this.oidcAuthorizationAttempts.set(attempt.id, clone(attempt));
+    }
+    for (const onboarding of seed.identityOnboardingStates ?? []) {
+      this.identityOnboardingStates.set(onboarding.id, clone(onboarding));
+    }
     for (const workspace of seed.workspaces ?? []) {
-      this.workspaces.set(workspace.id, clone(workspace));
+      this.workspaces.set(workspace.id, {
+        ...clone(workspace),
+        deletedAt: workspace.deletedAt ?? null,
+        retentionExpiresAt: workspace.retentionExpiresAt ?? null,
+      });
     }
     for (const membership of seed.workspaceMemberships ?? []) {
       this.workspaceMemberships.set(
@@ -139,8 +250,89 @@ class InMemoryControlPlaneRepository
         clone(membership),
       );
     }
+    for (const invitation of seed.workspaceInvitations ?? []) {
+      this.workspaceInvitations.set(invitation.id, clone(invitation));
+    }
+    for (const event of seed.tenantAuditEvents ?? []) {
+      this.tenantAuditEvents.set(event.id, clone(event));
+    }
+    for (const policy of seed.workspaceAuthPolicies ?? []) {
+      this.workspaceAuthPolicies.set(policy.workspaceId, clone(policy));
+    }
+    for (const connection of seed.ssoConnections ?? []) {
+      this.ssoConnections.set(connection.id, clone(connection));
+    }
+    for (const connection of seed.enterpriseSsoConnections ?? []) {
+      this.enterpriseSsoConnections.set(connection.id, clone(connection));
+    }
+    for (const evidence of seed.enterpriseValidationEvidence ?? []) {
+      this.enterpriseValidationEvidence.set(evidence.id, clone(evidence));
+    }
+    for (const domain of seed.enterpriseVerifiedDomains ?? []) {
+      this.enterpriseVerifiedDomains.set(domain.id, clone(domain));
+    }
+    for (const mapping of seed.enterpriseGroupRoleMappings ?? []) {
+      this.enterpriseGroupRoleMappings.set(mapping.id, clone(mapping));
+    }
+    for (const connection of seed.enterpriseScimConnections ?? []) {
+      this.enterpriseScimConnections.set(connection.id, clone(connection));
+    }
+    for (const principal of seed.enterprisePrincipals ?? []) {
+      this.enterprisePrincipals.set(principal.id, clone(principal));
+    }
+    for (const event of seed.enterpriseAuditEvents ?? []) {
+      this.enterpriseAuditEvents.set(event.id, clone(event));
+    }
+    for (const request of seed.enterpriseBreakGlassRequests ?? []) {
+      this.enterpriseBreakGlassRequests.set(request.id, clone(request));
+    }
+    for (const workspace of this.workspaces.values()) {
+      if (!this.workspaceAuthPolicies.has(workspace.id)) {
+        this.workspaceAuthPolicies.set(workspace.id, {
+          workspaceId: workspace.id,
+          ssoRequired: false,
+          minimumAssurance: 'aal1',
+          passwordAllowed: true,
+          createdAt: workspace.createdAt,
+          updatedAt: workspace.updatedAt,
+        });
+      }
+    }
     for (const credential of seed.passwordCredentials ?? []) {
       this.passwordCredentials.set(credential.emailNormalized, clone(credential));
+    }
+    for (const user of this.users.values()) {
+      const normalizedEmail = user.email.trim().toLowerCase();
+      if (!this.userEmails.has(normalizedEmail)) {
+        this.userEmails.set(normalizedEmail, {
+          id: expansionRecordId('email', user.id),
+          userId: user.id,
+          normalizedEmail,
+          isPrimary: true,
+          verifiedAt: user.emailVerifiedAt ?? null,
+          createdAt: user.createdAt,
+          updatedAt: user.createdAt,
+        });
+      }
+      const hasPassword = [...this.passwordCredentials.values()].some(
+        (credential) => credential.userId === user.id,
+      );
+      const hasPasswordIdentity = [...this.authIdentities.values()].some(
+        (identity) => identity.userId === user.id && identity.kind === 'password',
+      );
+      if (hasPassword && !hasPasswordIdentity) {
+        const id = expansionRecordId('ident', user.id);
+        this.authIdentities.set(id, {
+          id,
+          userId: user.id,
+          kind: 'password',
+          issuer: 'https://lodariq.io',
+          subject: `user:${user.id}`,
+          providerTenantId: null,
+          createdAt: user.createdAt,
+          lastAuthenticatedAt: null,
+        });
+      }
     }
     for (const session of seed.authSessions ?? []) {
       this.identitySessions.set(session.tokenHash, clone(session));
@@ -156,6 +348,9 @@ class InMemoryControlPlaneRepository
     }
     for (const message of seed.setPasswordOutbox ?? []) {
       this.setPasswordOutbox.set(message.id, clone(message));
+    }
+    for (const message of seed.workspaceInvitationOutbox ?? []) {
+      this.workspaceInvitationOutbox.set(message.id, clone(message));
     }
     for (const token of seed.environmentTokens ?? []) {
       this.environmentTokens.set(this.key(token.workspaceId, token.id), clone(token));
@@ -255,4 +450,9 @@ class InMemoryControlPlaneRepository
       });
     }
   }
+}
+
+function expansionRecordId(prefix: 'email' | 'ident', userId: string): string {
+  const safeUserId = userId.replace(/[^A-Za-z0-9_-]/gu, '_');
+  return `${prefix}_phase3_${safeUserId}_${'x'.repeat(20)}`;
 }

@@ -384,6 +384,7 @@ export class TourPlayer {
     this.announcementRegion.setAttribute('aria-atomic', 'true');
     content.appendChild(this.announcementRegion);
     appendStepBody(content, step, (node) => this.createBodyElement(node));
+    content.appendChild(this.createSkipButton());
     this.recordAccessibilityAnnouncement(
       step.accessibilityName ?? tourRuntimeText('Lodariq tour'),
       false,
@@ -524,6 +525,19 @@ export class TourPlayer {
     });
   }
 
+  private createSkipButton(): HTMLButtonElement {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'tour-skip';
+    button.textContent = tourRuntimeText('Skip tour');
+    button.addEventListener('click', () => {
+      if (this.options.embeddedPreviewContainer) return;
+      if (this.options.authoringPreviewOwnerId && !this.options.authoringPreviewInteractive) return;
+      this.skip();
+    });
+    return button;
+  }
+
   private complete(): void {
     const completion = 'completion' in this.doc ? this.doc.completion : undefined;
     if (!this.completionStepActive && completion) {
@@ -574,6 +588,11 @@ export class TourPlayer {
 
   private dismiss(): void {
     this.options.onDismiss?.();
+    this.stop();
+  }
+
+  private skip(): void {
+    this.options.onSkip?.();
     this.stop();
   }
 

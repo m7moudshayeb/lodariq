@@ -84,17 +84,17 @@ When documents conflict, use this order:
   unpublish, complete history, and environment-isolated analytics.
 - Commercial score: 48/50 is an evidence-gated target, not a roadmap claim.
 - Authentication: the active API/dashboard runtime and dependency graph are
-  Clerk-free. Lodariq now owns password credentials, opaque database-backed
-  sessions, first-party cookies, workspace selection, and membership-backed
-  authorization. Recovery/set-password, the unified verification/reset outbox
-  worker and Resend adapter, authoritative API/BFF capability gates, and the
-  activation reset-then-retry UX are code-complete. The full local milestone
-  gate passes. This is not a production cutover: the sole
-  `0000_initial_baseline.sql` must be applied exactly once to an approved empty
-  Neon database, then non-owner RLS validation, Resend domain/secrets,
-  coordinated API/dashboard flag enablement, deployment, and live probes remain
-  required. Public production signup and recovery stay disabled until those
-  gates pass.
+  Clerk-free. Lodariq owns password, username/email sign-in, remembered sessions,
+  account/session management, passkeys and recovery codes, Google/Microsoft OIDC,
+  resumable onboarding, authoritative tenant administration, and the unified
+  verification/reset delivery lifecycle. Phase 9 adds workspace-scoped enterprise
+  OIDC/SCIM, DNS-verified discovery, invitation/JIT provisioning, group-role
+  mapping, continuous workspace-policy enforcement, two-owner non-password
+  break-glass, and append-only enterprise audit evidence. This remains pre-release:
+  migrations, restricted-role/live RLS checks, Resend/provider configuration,
+  real Okta and Entra tenant validation, rollback rehearsal, deployment, and live
+  probes remain required. Public production auth and enterprise availability
+  claims stay disabled until their respective runbooks pass.
 - Phase status: the Phase 2 code milestone is complete locally. The 2026-08-09
   full Node 24 `pnpm verify` gate passes with 126 Vitest files / 1,064 tests and
   77 Playwright tests with four intentional skips. First deployment, live RLS,
@@ -117,6 +117,10 @@ When documents conflict, use this order:
 - [`ADR 0016 — Selector-free Target Identity V2`](adr/0016-target-identity-v2.md)
 - [`ADR 0017 — Lodariq-owned authentication and workspace sessions`](adr/0017-lodariq-owned-authentication.md)
 - [`ADR 0018 — Git-first localization and authored-content locale variants`](adr/0018-localization-boundaries.md)
+- [`ADR 0021 — Authoritative tenant administration`](adr/0021-authoritative-tenant-administration.md)
+- [`ADR 0023 — Passkeys, assurance, and recovery codes`](adr/0023-passkeys-assurance-and-recovery-codes.md)
+- [`ADR 0024 — Google and Microsoft OIDC`](adr/0024-google-and-microsoft-oidc.md)
+- [`ADR 0025 — Enterprise identity boundary`](adr/0025-enterprise-identity-boundary.md)
 - [`ADR 0003 — Server-side publication compilation`](adr/0003-server-side-publication-compilation.md)
 - [`ADR 0008 — Semantic target resolver`](adr/0008-resolver-strategy.md)
 
@@ -126,6 +130,13 @@ When documents conflict, use this order:
 - [`Rich content authoring and media lifecycle`](guides/rich-content-authoring.md)
 - [`Localization workflow`](guides/localization.md)
 - [`Phase 1 Fly deployment runbook`](deployment/phase-1-fly.md)
+- [`Authentication recovery operations`](deployment/auth-recovery-operations.md)
+- [`Tenant administration rollout`](deployment/tenant-administration-rollout.md)
+- [`Account and session management rollout`](deployment/account-session-management-rollout.md)
+- [`Passkey and recovery-code rollout`](deployment/passkey-and-recovery-code-rollout.md)
+- [`Google and Microsoft OIDC rollout`](deployment/google-microsoft-oidc-rollout.md)
+- [`Enterprise identity rollout`](deployment/enterprise-identity-rollout.md)
+- [`Enterprise authentication break-glass`](deployment/enterprise-break-glass.md)
 - [`Local SDK installation`](local-sdk-installation.md)
 - [`Manual and external validation handoff`](handoffs/manual-and-external-validation.md)
   — isolated migration/RLS evidence, deployment operations, optional

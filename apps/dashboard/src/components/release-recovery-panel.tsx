@@ -4,7 +4,7 @@ import * as React from 'react';
 import { msg } from '@lingui/core/macro';
 import { useLingui } from '@lingui/react';
 import { DEFAULT_LOCALE, isSupportedLocale } from '@lodariq/i18n';
-import { Ban, History, RefreshCw, RotateCcw, ShieldAlert } from 'lucide-react';
+import { Ban, History, RefreshCw, RotateCcw } from 'lucide-react';
 import {
   type ReleaseArtifactPins,
   type ReleaseHistoryEntry,
@@ -16,6 +16,8 @@ import { useReleaseRecovery } from '../hooks/use-release-recovery';
 import { dashboardRecoveryFailureMessage } from '../i18n/server-feedback';
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
+import { StatusBanner } from './ui/status-banner';
+import { statusToast } from './ui/toaster';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 
 export interface ReleaseRecoveryEnvironmentOption {
@@ -238,7 +240,6 @@ export function ReleaseRecoveryPanel({
   const [selectedEnvironmentId, setSelectedEnvironmentId] = React.useState(
     () => environments[0]?.id ?? '',
   );
-  const [feedback, setFeedback] = React.useState('');
   const [confirmation, setConfirmation] = React.useState<RecoveryConfirmationState | null>(null);
   const returnFocus = React.useRef<HTMLElement | null>(null);
   const restoreFocusAfterConfirmation = React.useRef(false);
@@ -258,7 +259,6 @@ export function ReleaseRecoveryPanel({
   }, [environments, selectedEnvironmentId]);
 
   React.useEffect(() => {
-    setFeedback('');
     setConfirmation(null);
   }, [selectedEnvironmentId]);
 
@@ -284,7 +284,6 @@ export function ReleaseRecoveryPanel({
       action === 'rollback' ? state.permissions.rollback : state.permissions.unpublish;
     if (!permission) return;
     returnFocus.current = trigger;
-    setFeedback('');
     setConfirmation({
       action,
       environmentId: selectedEnvironment.id,
@@ -310,7 +309,7 @@ export function ReleaseRecoveryPanel({
       })
       .then((result) => {
         if (result.status === 'error') {
-          setFeedback(result.retryExact ? '' : result.error);
+          if (!result.retryExact) statusToast('error', result.error);
           if (result.retryExact) {
             setConfirmation((current) =>
               current && current.idempotencyKey === confirmation.idempotencyKey
@@ -323,11 +322,11 @@ export function ReleaseRecoveryPanel({
           return;
         }
 
-        setFeedback(recoveryResultMessage(result.result, _));
+        statusToast('success', recoveryResultMessage(result.result, _));
         closeConfirmation();
       })
       .catch(() => {
-        setFeedback(_(COPY.requestFailed));
+        statusToast('error', _(COPY.requestFailed));
         closeConfirmation();
       });
   };
@@ -401,20 +400,7 @@ export function ReleaseRecoveryPanel({
         {recovery.query.isFetching ? (
           <p className="text-sm text-muted-foreground">{_(COPY.loading)}</p>
         ) : null}
-        {loadError ? (
-          <div
-            className="flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive"
-            role="alert"
-          >
-            <ShieldAlert aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
-            <p>{loadError}</p>
-          </div>
-        ) : null}
-        {feedback ? (
-          <p className="rounded-md border border-border bg-background p-3 text-sm" role="status">
-            {feedback}
-          </p>
-        ) : null}
+        {loadError ? <StatusBanner kind="error" title={loadError} /> : null}
         {selectedState ? (
           <>
             <DeploymentSummary state={selectedState} />

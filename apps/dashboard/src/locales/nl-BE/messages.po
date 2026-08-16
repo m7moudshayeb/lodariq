@@ -14,7 +14,7 @@ msgstr ""
 "Plural-Forms: \n"
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:175
+#: src/components/release-recovery-panel.tsx:176
 msgid "dashboard.recovery.replayed"
 msgstr " Exact verzoek veilig afgespeeld."
 
@@ -24,7 +24,7 @@ msgid "dashboard.brand.panel.defaultSr"
 msgstr ", standaardwerkruimte"
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:130
+#: src/components/release-recovery-panel.tsx:131
 msgid "dashboard.recovery.dialogLabel"
 msgstr "{action} {environment} vrijgegeven"
 
@@ -54,17 +54,17 @@ msgid "dashboard.support.savedDrafts"
 msgstr "{count, plural, one {# opgeslagen conceptversie} other {# opgeslagen conceptversies}}"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:273
+#: src/i18n/messages.ts:341
 msgid "dashboard.viewModel.blockingChecks"
 msgstr "{count} blokkeert {count, plural, one {controle} other {controles}}"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:508
+#: src/i18n/messages.ts:576
 msgid "dashboard.viewModel.flowIssues"
 msgstr "{count} {count, plural, one {flowprobleem} other {flowproblemen}}"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:792
+#: src/i18n/messages.ts:860
 msgid "dashboard.action.ambiguousOrigins"
 msgstr "{count} oorsprongstoewijzingen zijn overgeslagen omdat dezelfde oorsprong tot meer dan één omgeving behoort."
 
@@ -74,17 +74,22 @@ msgid "dashboard.documents.publishBlockers"
 msgstr "{count} publiceer {count, plural, one {blokker} other {blokkers}}"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:123
+#: src/i18n/messages.ts:191
 msgid "dashboard.viewModel.publishIssues"
 msgstr "{count} publiceer {count, plural, one {uitgave} other {uitgaves}}"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:424
+#: src/components/account-security-settings.tsx:170
+msgid "account.recoveryCodes.remaining"
+msgstr "Er zijn nog {count} ongebruikte codes."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:492
 msgid "dashboard.viewModel.documentUpdated"
 msgstr "{document} is voor het laatst bijgewerkt"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:428
+#: src/i18n/messages.ts:496
 msgid "dashboard.viewModel.documentPublished"
 msgstr "{document} is gepubliceerd naar {environment}"
 
@@ -114,12 +119,27 @@ msgid "dashboard.support.readyForReview"
 msgstr "{experience} is klaar voor ondersteuningsbeoordeling."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:512
+#: src/i18n/messages.ts:1152
+msgid "auth.form.validation.required"
+msgstr "{field} is verplicht."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1156
+msgid "auth.form.validation.tooShort"
+msgstr "{field} moet minstens {limit} tekens bevatten."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1160
+msgid "auth.form.validation.tooLong"
+msgstr "{field} mag maximaal {limit} tekens bevatten."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:580
 msgid "dashboard.viewModel.flowIssueSummary"
 msgstr "{first} · nog {remaining}"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:127
+#: src/i18n/messages.ts:195
 msgid "dashboard.viewModel.reviewBeforePublish"
 msgstr "{issues} moet worden beoordeeld voordat dit concept kan worden gepubliceerd."
 
@@ -134,37 +154,37 @@ msgid "dashboard.brand.preview.frameLabel"
 msgstr "{label}: {detail} Voorbeeld van tourrenderer"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:471
+#: src/i18n/messages.ts:539
 msgid "dashboard.viewModel.moreIssues"
 msgstr "{message} +{count} meer"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:440
+#: src/i18n/messages.ts:508
 msgid "dashboard.viewModel.brandVersionApproved"
 msgstr "{theme} Merkversie {version} is goedgekeurd"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:368
+#: src/i18n/messages.ts:436
 msgid "dashboard.viewModel.themeCompiledSnapshot"
 msgstr "{theme} wordt in releases gecompileerd als een onveranderlijke merkmomentopname."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:398
+#: src/i18n/messages.ts:466
 msgid "dashboard.viewModel.groundedInTokens"
 msgstr "{theme} is gebaseerd op expliciet geregistreerde semantische klanttokens."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:407
+#: src/i18n/messages.ts:475
 msgid "dashboard.viewModel.privacySafeEvidence"
 msgstr "{theme} maakt gebruik van privacyveilig bewijs van productstijl en slaat geen onbewerkte CSS- of DOM-snapshot op."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:402
+#: src/i18n/messages.ts:470
 msgid "dashboard.viewModel.proposedFromElement"
 msgstr "{theme} werd voorgesteld vanuit één representatief productelement en semantisch beoordeeld."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:351
+#: src/i18n/messages.ts:419
 msgid "dashboard.viewModel.workspaceDraft"
 msgstr "{theme} werkruimteconcept"
 
@@ -179,7 +199,12 @@ msgid "dashboard.brand.empty.sampleDescription"
 msgstr "Een helder, toegankelijk startpunt voor iedere productbeleving."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:249
+#: src/i18n/messages.ts:1062
+msgid "workspaceMembers.inviteDescription"
+msgstr "Voor dit e-mailadres wordt een persoonlijke uitnodiging voor eenmalig gebruik klaargezet voor verzending."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:317
 msgid "dashboard.viewModel.productionMatchesNoDeliveryEvidence"
 msgstr "Een productiepublicatie past bij het concept; Bewijs voor actieve levering is nog niet beschikbaar."
 
@@ -189,12 +214,32 @@ msgid "dashboard.environments.directPromotionDescription"
 msgstr "Een releaser kan het exact geverifieerde artefact rechtstreeks promoten."
 
 #. js-lingui-explicit-id
+#: src/i18n/messages.ts:1303
+msgid "auth.form.verificationSent"
+msgstr "We hebben een beveiligde verificatielink gestuurd naar {email}. Houd deze pagina open of gebruik de link direct."
+
+#. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:181
+msgid "enterpriseIdentity.breakGlassHelp"
+msgstr "Een sterke sessie zonder wachtwoord, een tweede workspace-eigenaar en een kortstondig eenmalig verzoek zijn vereist."
+
+#. js-lingui-explicit-id
 #: src/components/brand-system-panel.tsx:57
 msgid "dashboard.brand.panel.askAdmin"
 msgstr "Een beheerder of eigenaar van een werkruimte keurt versies goed en wijzigt de standaard."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:335
+#: src/components/enterprise-identity-settings.tsx:115
+msgid "enterpriseIdentity.assurance.aal1"
+msgstr "AAL1 · standaard"
+
+#. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:116
+msgid "enterpriseIdentity.assurance.aal2"
+msgstr "AAL2 · multifactor"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:403
 msgid "dashboard.viewModel.accent"
 msgstr "Accent"
 
@@ -204,7 +249,22 @@ msgid "dashboard.brand.editor.accent"
 msgstr "Accent"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:394
+#: src/i18n/messages.ts:1029
+msgid "workspaceInvitation.accept"
+msgstr "Uitnodiging accepteren"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1024
+msgid "workspaceInvitation.description"
+msgstr "Accepteer deze uitnodiging met het geverifieerde e-mailadres waarnaar ze is verzonden."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1030
+msgid "workspaceInvitation.accepting"
+msgstr "Uitnodiging wordt geaccepteerd"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:462
 msgid "dashboard.viewModel.accessibleFallbackShort"
 msgstr "Toegankelijke terugval"
 
@@ -214,62 +274,117 @@ msgid "dashboard.brand.preview.accessibleFallback"
 msgstr "Toegankelijke terugval"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:870
+#: src/components/account-security-settings.tsx:53
+msgid "account.title"
+msgstr "Account en beveiliging"
+
+#. js-lingui-explicit-id
+#: src/components/dashboard-auth-controls.tsx:54
+msgid "dashboard.account.security"
+msgstr "Account en beveiliging"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:53
+msgid "account.access.eyebrow"
+msgstr "Accounttoegang"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:938
 msgid "auth.page.accountAccess"
 msgstr "Accounttoegang"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:887
+#: src/i18n/messages.ts:955
 msgid "auth.page.signUpDisabled.eyebrow"
 msgstr "Account aanmaken"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:900
+#: src/i18n/messages.ts:968
 msgid "auth.page.signUpDisabled.body"
 msgstr "Het maken van accounts is niet beschikbaar in deze implementatie."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1057
+#: src/i18n/messages.ts:1331
 msgid "auth.error.signupUnavailable"
 msgstr "Het aanmaken van een account is momenteel niet beschikbaar."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:91
+#: src/components/account-security-settings.tsx:105
+msgid "account.data.title"
+msgstr "Accountgegevens"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:74
+msgid "recoveryCode.eyebrow"
+msgstr "Accountherstel"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:39
+msgid "account.security.eyebrow"
+msgstr "Accountbeveiliging"
+
+#. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:144
+msgid "account.unavailable"
+msgstr "Accountbeveiliging is niet beschikbaar."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1319
+msgid "auth.error.onboardingIncomplete"
+msgstr "De accountconfiguratie kon niet worden voltooid. Meld u opnieuw aan om veilig verder te gaan."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:159
 msgid "dashboard.common.active"
 msgstr "Actief"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:119
+#: src/i18n/messages.ts:187
 msgid "dashboard.viewModel.active"
 msgstr "Actief"
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:98
+#: src/components/enterprise-identity-settings.tsx:99
+msgid "enterpriseIdentity.status.active"
+msgstr "Actief"
+
+#. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:211
+msgid "enterpriseIdentity.active"
+msgstr "Actief"
+
+#. js-lingui-explicit-id
+#: src/components/release-recovery-panel.tsx:99
 msgid "dashboard.recovery.active"
 msgstr "Actief"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:228
+#: src/i18n/messages.ts:296
 msgid "dashboard.viewModel.activePublicationAt"
 msgstr "Actieve publicatie {date}"
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:212
+#: src/components/release-recovery-panel.tsx:213
 msgid "dashboard.recovery.activeAtAttempt"
 msgstr "Actieve publicatie bij poging: {publication}"
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:104
+#: src/components/release-recovery-panel.tsx:105
 msgid "dashboard.recovery.activePublication"
 msgstr "Actieve publicatie: {publication}"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:298
+#: src/components/account-security-settings.tsx:88
+msgid "account.sessions.title"
+msgstr "Actieve sessies"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:366
 msgid "dashboard.viewModel.activeNoProvenanceAt"
 msgstr "Actief sinds {date} · exacte enscenering herkomst niet beschikbaar"
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:192
+#: src/components/release-recovery-panel.tsx:193
 msgid "dashboard.recovery.actualGeneration"
 msgstr "Werkelijke generatie {generation}"
 
@@ -299,9 +414,24 @@ msgid "dashboard.publishIssue.emptyStep.message"
 msgstr "Voeg inhoud toe aan deze stap voordat u deze publiceert."
 
 #. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:84
+msgid "enterpriseIdentity.addConnection"
+msgstr "OIDC-verbinding toevoegen"
+
+#. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:156
+msgid "account.passkeys.add"
+msgstr "Passkey toevoegen"
+
+#. js-lingui-explicit-id
 #: src/components/sdk-snippet-panel.tsx:50
 msgid "dashboard.installation.oneLineDescription"
 msgstr "Voeg deze installatie toe aan de gedeelde applicatieshell. Omgevings- en auteurstoegang worden bepaald vanaf de exacte paginaoorsprong."
+
+#. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:138
+msgid "enterpriseIdentity.dnsChallenge"
+msgstr "Voeg dit TXT-record nu toe. De waarde wordt alleen in deze browsersessie getoond."
 
 #. js-lingui-explicit-id
 #: src/i18n/server-feedback.ts:51
@@ -309,14 +439,24 @@ msgid "dashboard.publishIssue.missingStepContent.message"
 msgstr "Voeg zichtbare inhoud toe aan deze stap voordat u deze publiceert."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1090
+#: src/i18n/messages.ts:1088
+msgid "workspaceMembers.role.admin"
+msgstr "Beheerder"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1364
 msgid "workspaceSelection.role.admin"
 msgstr "Beheerder"
 
 #. js-lingui-explicit-id
-#: src/components/dashboard-auth-controls.tsx:54
+#: src/components/dashboard-auth-controls.tsx:60
 msgid "dashboard.account.role.admin"
 msgstr "Beheerder"
+
+#. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:155
+msgid "enterpriseIdentity.role.admin"
+msgstr "Admin"
 
 #. js-lingui-explicit-id
 #: src/components/environment-policy-editor.tsx:105
@@ -339,12 +479,17 @@ msgid "dashboard.brand.preview.after"
 msgstr "Na"
 
 #. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:110
+msgid "enterpriseIdentity.allowPassword"
+msgstr "Wachtwoordsessies toestaan"
+
+#. js-lingui-explicit-id
 #: src/components/authoring-activation-popup.tsx:78
 msgid "dashboard.activation.approveDescription"
 msgstr "Laat uw Lodariq-werkruimte Tours aanmaken en bewerken op {host}."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:970
+#: src/i18n/messages.ts:1186
 msgid "auth.form.existingAccount"
 msgstr "Heeft u al een Lodariq-account?"
 
@@ -369,12 +514,12 @@ msgid "dashboard.navigation.analytics"
 msgstr "Analyse"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:62
+#: src/i18n/messages.ts:125
 msgid "dashboard.page.analytics.title"
 msgstr "Analyses"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:813
+#: src/i18n/messages.ts:881
 msgid "dashboard.action.analyticsUnavailable"
 msgstr "Analytics zijn tijdelijk niet beschikbaar voor de geselecteerde omgeving."
 
@@ -384,7 +529,7 @@ msgid "dashboard.analytics.unavailable"
 msgstr "Analytics is tijdelijk niet beschikbaar voor de geselecteerde omgeving."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:809
+#: src/i18n/messages.ts:877
 msgid "dashboard.action.analyticsInvalid"
 msgstr "Analytics-gegevens konden niet worden geverifieerd. Er werden geen gedeeltelijke resultaten getoond."
 
@@ -404,7 +549,7 @@ msgid "dashboard.analytics.results"
 msgstr "Analytics-resultaten"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:109
+#: src/i18n/messages.ts:177
 msgid "dashboard.viewModel.type.announcement"
 msgstr "Aankondiging"
 
@@ -414,7 +559,7 @@ msgid "dashboard.recovery.failure.operationInProgress"
 msgstr "Een andere vrijgaveoperatie is al aan de gang. Probeer het binnenkort opnieuw."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:28
+#: src/i18n/messages.ts:29
 msgid "dashboard.navigation.appearance"
 msgstr "Uiterlijk"
 
@@ -429,7 +574,7 @@ msgid "dashboard.installation.applicationName"
 msgstr "Naam van applicatie"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:727
+#: src/i18n/messages.ts:795
 msgid "dashboard.action.applicationNameRequired"
 msgstr "Applicatienaam is vereist."
 
@@ -454,22 +599,32 @@ msgid "dashboard.brand.controller.reviewMissing"
 msgstr "Er is geen goedkeuringsbeoordeling geretourneerd."
 
 #. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:199
+msgid "enterpriseIdentity.approveBreakGlass"
+msgstr "Break-glassverzoek goedkeuren"
+
+#. js-lingui-explicit-id
 #: src/components/brand-system/brand-approval-review.tsx:58
 msgid "dashboard.brand.review.approve"
 msgstr "Versie goedkeuren"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:106
+#: src/i18n/messages.ts:174
 msgid "dashboard.viewModel.status.approved"
 msgstr "Goedgekeurd"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:373
+#: src/i18n/messages.ts:441
 msgid "dashboard.viewModel.approvedAt"
 msgstr "Goedgekeurd {date}"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:340
+#: src/components/enterprise-identity-settings.tsx:117
+msgid "enterpriseIdentity.breakGlassId"
+msgstr "Goedgekeurde break-glassverzoek-ID (alleen indien vereist)"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:408
 msgid "dashboard.viewModel.approvedSource"
 msgstr "Goedgekeurde bron"
 
@@ -489,17 +644,17 @@ msgid "dashboard.brand.review.approving"
 msgstr "Goedkeuren…"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:466
+#: src/i18n/messages.ts:534
 msgid "dashboard.viewModel.archived"
 msgstr "Gearchiveerd"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:448
+#: src/i18n/messages.ts:516
 msgid "dashboard.viewModel.artifactShort"
 msgstr "Artefact …{suffix}"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:261
+#: src/i18n/messages.ts:329
 msgid "dashboard.viewModel.artifactIdentity"
 msgstr "Identiteit van artefacten"
 
@@ -514,7 +669,7 @@ msgid "dashboard.activation.approveTitle"
 msgstr "Auteur in deze toepassing?"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:853
+#: src/i18n/messages.ts:921
 msgid "auth.shell.authorOnce"
 msgstr "Eén keer maken"
 
@@ -544,7 +699,7 @@ msgid "dashboard.authoringLaunch.authoringSite"
 msgstr "Auteurssite"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:866
+#: src/i18n/messages.ts:934
 msgid "auth.shell.back"
 msgstr "Terug"
 
@@ -567,6 +722,11 @@ msgstr "Voor"
 #: src/components/brand-system/brand-approval-review.tsx:42
 msgid "dashboard.brand.review.beforeAfter"
 msgstr "Voor en na"
+
+#. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:77
+msgid "account.email.help"
+msgstr "Zowel uw huidige als uw nieuwe adres moeten de wijziging goedkeuren."
 
 #. js-lingui-explicit-id
 #: src/components/brand-system/use-brand-system-controller.ts:31
@@ -594,12 +754,12 @@ msgid "dashboard.navigation.brandSystem"
 msgstr "Merksysteem"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:67
+#: src/i18n/messages.ts:130
 msgid "dashboard.page.brandSystem.title"
 msgstr "Merk systeem"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:648
+#: src/i18n/messages.ts:716
 msgid "dashboard.action.brandCreated"
 msgstr "Merksysteem gemaakt. Bekijk de essentiële zaken en keur vervolgens de eerste versie goed."
 
@@ -614,7 +774,7 @@ msgid "dashboard.brand.preview.fallbackTheme"
 msgstr "Merk thema"
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:129
+#: src/components/release-recovery-panel.tsx:130
 msgid "dashboard.recovery.brandTheme"
 msgstr "Merk thema"
 
@@ -624,7 +784,17 @@ msgid "dashboard.brand.panel.themes"
 msgstr "Merkthema's"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:879
+#: src/components/enterprise-identity-settings.tsx:180
+msgid "enterpriseIdentity.breakGlass"
+msgstr "Break-glassherstel"
+
+#. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:203
+msgid "enterpriseIdentity.requestApproved"
+msgstr "Break-glassverzoek goedgekeurd. Het blijft kortstondig en eenmalig."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:947
 msgid "auth.page.signUp.title"
 msgstr "Breng de ervaring naar uw product"
 
@@ -639,7 +809,7 @@ msgid "dashboard.publishIssue.brokenTarget.label"
 msgstr "Gebroken doel"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:98
+#: src/i18n/messages.ts:166
 msgid "dashboard.common.cancel"
 msgstr "Annuleer"
 
@@ -649,7 +819,7 @@ msgid "dashboard.activation.cancel"
 msgstr "Annuleer"
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:161
+#: src/components/release-recovery-panel.tsx:162
 msgid "dashboard.recovery.cancel"
 msgstr "Annuleer"
 
@@ -664,27 +834,42 @@ msgid "dashboard.brand.editor.cardRadius"
 msgstr "Kaartradius"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:38
+#: src/i18n/messages.ts:101
 msgid "dashboard.locale.change"
 msgstr "Taal wijzigen"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:472
+#: src/components/account-security-settings.tsx:75
+msgid "account.password.change"
+msgstr "Wachtwoord wijzigen"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:540
 msgid "dashboard.viewModel.changesTracked"
 msgstr "Veranderingen worden bijgehouden"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:39
+#: src/i18n/messages.ts:102
 msgid "dashboard.locale.changing"
 msgstr "Taal wijzigen"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:977
+#: src/components/account-security-settings.tsx:71
+msgid "account.password.help"
+msgstr "Als u uw wachtwoord wijzigt, worden alle andere sessies en openstaande herstellinks ingetrokken."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1148
+msgid "auth.form.validation.reviewFields"
+msgstr "Controleer de gemarkeerde velden en probeer opnieuw."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1193
 msgid "auth.form.checkEmail"
 msgstr "Controleer uw e-mail"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:350
+#: src/i18n/messages.ts:418
 msgid "dashboard.viewModel.checkedAt"
 msgstr "Gecontroleerd {date}"
 
@@ -694,17 +879,22 @@ msgid "dashboard.activation.checking"
 msgstr "Toegang controleren"
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:162
+#: src/components/release-recovery-panel.tsx:163
 msgid "dashboard.recovery.checking"
 msgstr "Exacte vrijgave controleren..."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:113
+#: src/i18n/messages.ts:88
+msgid "recoveryCode.submitting"
+msgstr "Herstelcode controleren…"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:181
 msgid "dashboard.viewModel.type.checklist"
 msgstr "Controlelijst"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:101
+#: src/i18n/messages.ts:169
 msgid "dashboard.common.choose"
 msgstr "Kies"
 
@@ -714,7 +904,7 @@ msgid "dashboard.brand.editor.choose"
 msgstr "Kies"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:656
+#: src/i18n/messages.ts:724
 msgid "dashboard.action.chooseBrandTheme"
 msgstr "Kies een merkthema."
 
@@ -724,12 +914,12 @@ msgid "dashboard.publishIssue.ambiguousTarget.message"
 msgstr "Kies een specifiekere plaatsing voordat u deze publiceert."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:931
+#: src/i18n/messages.ts:999
 msgid "auth.page.newPassword.title"
 msgstr "Kies een nieuw wachtwoord"
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:147
+#: src/components/release-recovery-panel.tsx:148
 msgid "dashboard.recovery.choosePublication"
 msgstr "Kies een eerdere publicatie"
 
@@ -739,7 +929,7 @@ msgid "dashboard.publishIssue.unsupportedAction.message"
 msgstr "Kies een ondersteunde actie voordat u deze publiceert."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:770
+#: src/i18n/messages.ts:838
 msgid "dashboard.action.chooseToken"
 msgstr "Kies een token."
 
@@ -749,7 +939,7 @@ msgid "dashboard.publishIssue.invalidPresentationArea.message"
 msgstr "Kies een geldig gebied binnen het geselecteerde element."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:817
+#: src/i18n/messages.ts:885
 msgid "dashboard.action.chooseReleaseScope"
 msgstr "Kies een geldig document en release-omgeving."
 
@@ -764,22 +954,22 @@ msgid "dashboard.environmentPolicy.chooseEarlier"
 msgstr "Kies een eerdere omgeving"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:715
+#: src/i18n/messages.ts:783
 msgid "dashboard.action.chooseEnvironment"
 msgstr "Kies een omgeving."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1074
+#: src/i18n/messages.ts:1348
 msgid "workspaceSelection.description"
 msgstr "Kies een bestaande werkruimte of maak er een aan zonder dit scherm te verlaten."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:756
+#: src/i18n/messages.ts:824
 msgid "dashboard.action.chooseExperience"
 msgstr "Kies een ervaring."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:740
+#: src/i18n/messages.ts:808
 msgid "dashboard.action.chooseInstallation"
 msgstr "Kies een SDK-installatie."
 
@@ -789,7 +979,7 @@ msgid "dashboard.support.chooseExperience"
 msgstr "Kies ervaring"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:797
+#: src/i18n/messages.ts:865
 msgid "dashboard.action.chooseAnalyticsEnvironment"
 msgstr "Kies één geldige analyseomgeving."
 
@@ -819,7 +1009,7 @@ msgid "dashboard.publishIssue.missingTarget.message"
 msgstr "Kies waar deze stap verschijnt voordat u deze publiceert."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1023
+#: src/i18n/messages.ts:1293
 msgid "auth.form.choosePassword"
 msgstr "Kies uw wachtwoord"
 
@@ -829,7 +1019,7 @@ msgid "dashboard.documents.clearSearch"
 msgstr "Duidelijk zoeken naar ervaringen"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:97
+#: src/i18n/messages.ts:165
 msgid "dashboard.common.close"
 msgstr "Sluiten"
 
@@ -844,14 +1034,24 @@ msgid "dashboard.brand.review.close"
 msgstr "Goedkeuringsbeoordeling sluiten"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:25
+#: src/i18n/messages.ts:26
 msgid "dashboard.navigation.close"
 msgstr "Sluit de navigatie in de werkruimte"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:26
+#: src/i18n/messages.ts:82
+msgid "recoveryCode.codeHelp"
+msgstr "Codes beginnen met LQRC en werken één keer."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:27
 msgid "dashboard.navigation.collapse"
 msgstr "Navigatie in de werkruimte samenvouwen"
+
+#. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:133
+msgid "enterpriseIdentity.domain"
+msgstr "Bedrijfsdomein"
 
 #. js-lingui-explicit-id
 #: src/components/brand-system/brand-approval-review.tsx:23
@@ -859,12 +1059,27 @@ msgid "dashboard.brand.review.description"
 msgstr "Vergelijk het huidige goedgekeurde uiterlijk met dit concept in Lodariq's productie-Tour-renderer en controleer vervolgens elke gekoppelde ervaring voordat deze wordt goedgekeurd."
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:112
+#: src/components/account-security-settings.tsx:126
+msgid "account.validation.required"
+msgstr "Vul alle velden in."
+
+#. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:207
+msgid "enterpriseIdentity.requiredFields"
+msgstr "Vul elk verplicht veld in met een geldige waarde."
+
+#. js-lingui-explicit-id
+#: src/components/release-recovery-panel.tsx:113
 msgid "dashboard.recovery.completeHistory"
 msgstr "Volledige geschiedenis"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:842
+#: src/i18n/messages.ts:41
+msgid "account.emailChange.description"
+msgstr "Voltooi één helft van de verificatie via twee adressen."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:910
 msgid "dashboard.action.releaseHistoryIncomplete"
 msgstr "Volledige releasegeschiedenis is tijdelijk niet beschikbaar. Er werd niets ingekort."
 
@@ -884,12 +1099,32 @@ msgid "dashboard.analytics.fact.completion"
 msgstr "Voltooiing"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1003
+#: src/components/enterprise-identity-settings.tsx:40
+msgid "enterpriseIdentity.description"
+msgstr "Configureer bedrijfs-SSO, geverifieerde domeinen, beheerde rollen en SCIM zonder accounts via e-mail te koppelen."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:40
+msgid "account.emailChange.title"
+msgstr "E-mailwijziging bevestigen"
+
+#. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:68
+msgid "account.confirmPassword"
+msgstr "Nieuw wachtwoord bevestigen"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1241
 msgid "auth.form.confirmPassword"
 msgstr "Bevestig wachtwoord"
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:134
+#: src/components/account-security-settings.tsx:164
+msgid "account.recoveryCodes.confirm"
+msgstr "Opgeslagen codes bevestigen"
+
+#. js-lingui-explicit-id
+#: src/components/release-recovery-panel.tsx:135
 msgid "dashboard.recovery.confirmExact"
 msgstr "Bevestig: {action}"
 
@@ -909,17 +1144,17 @@ msgid "dashboard.analytics.contentHash"
 msgstr "Inhoud hasj"
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:127
+#: src/components/release-recovery-panel.tsx:128
 msgid "dashboard.recovery.contentHash"
 msgstr "Inhoud hasj"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:310
+#: src/i18n/messages.ts:378
 msgid "dashboard.viewModel.contentHashStrongestEvidence"
 msgstr "Inhoudshash is het sterkste artefactbewijs dat beschikbaar is"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:969
+#: src/i18n/messages.ts:1185
 msgid "auth.form.continue"
 msgstr "Ga verder"
 
@@ -944,7 +1179,22 @@ msgid "dashboard.activation.continue"
 msgstr "Ga door met schrijven"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:873
+#: src/i18n/messages.ts:1130
+msgid "auth.form.google"
+msgstr "Doorgaan met Google"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1131
+msgid "auth.form.microsoft"
+msgstr "Doorgaan met Microsoft"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1125
+msgid "auth.form.enterpriseSso"
+msgstr "Doorgaan met SSO"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:941
 msgid "auth.page.signIn.title"
 msgstr "Ga door met uw werk"
 
@@ -974,52 +1224,62 @@ msgid "dashboard.installation.copy"
 msgstr "Kopieer installatie"
 
 #. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:178
+msgid "account.recoveryCodes.shownOnce"
+msgstr "Kopieer deze codes nu. Ze worden niet opnieuw getoond."
+
+#. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:172
+msgid "enterpriseIdentity.scimToken"
+msgstr "Kopieer dit token nu. Lodariq toont het niet opnieuw."
+
+#. js-lingui-explicit-id
 #: src/components/authoring-activation-popup.tsx:91
 msgid "dashboard.activation.couldNotContinue"
 msgstr "Kon niet doorgaan"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1085
+#: src/i18n/messages.ts:1359
 msgid "workspaceSelection.createError"
 msgstr "Kan de werkruimte niet maken."
 
 #. js-lingui-explicit-id
-#: src/components/dashboard-auth-controls.tsx:31
+#: src/components/dashboard-auth-controls.tsx:33
 msgid "dashboard.account.createFailed"
 msgstr "Kan de werkruimte niet maken."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1081
+#: src/i18n/messages.ts:1355
 msgid "workspaceSelection.openError"
 msgstr "Kan deze werkruimte niet openen."
 
 #. js-lingui-explicit-id
-#: src/components/dashboard-auth-controls.tsx:35
+#: src/components/dashboard-auth-controls.tsx:37
 msgid "dashboard.account.signOutFailed"
 msgstr "Kan niet uitloggen."
 
 #. js-lingui-explicit-id
-#: src/components/dashboard-auth-controls.tsx:27
+#: src/components/dashboard-auth-controls.tsx:29
 msgid "dashboard.account.switchFailed"
 msgstr "Kan niet wisselen van werkruimte."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1078
+#: src/i18n/messages.ts:1352
 msgid "workspaceSelection.create"
 msgstr "Maak een werkruimte"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:968
+#: src/i18n/messages.ts:1184
 msgid "auth.form.createAccount"
 msgstr "Account aanmaken"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:976
+#: src/i18n/messages.ts:1192
 msgid "auth.form.createAnAccount"
 msgstr "Maak een account aan"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1080
+#: src/i18n/messages.ts:1354
 msgid "workspaceSelection.createAndOpen"
 msgstr "Maken en openen"
 
@@ -1029,29 +1289,44 @@ msgid "dashboard.brand.empty.create"
 msgstr "Creëer een merksysteem"
 
 #. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:134
+msgid "enterpriseIdentity.startVerification"
+msgstr "DNS-challenge maken"
+
+#. js-lingui-explicit-id
 #: src/components/sdk-snippet-panel.tsx:92
 msgid "dashboard.installation.create"
 msgstr "Maak een eenmalige installatie"
 
 #. js-lingui-explicit-id
-#: src/components/dashboard-auth-controls.tsx:47
+#: src/components/enterprise-identity-settings.tsx:163
+msgid "enterpriseIdentity.createScimToken"
+msgstr "SCIM-token maken"
+
+#. js-lingui-explicit-id
+#: src/components/dashboard-auth-controls.tsx:49
 msgid "dashboard.account.createWorkspace"
 msgstr "Creëer werkruimte"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:883
+#: src/i18n/messages.ts:951
 msgid "auth.page.signUp.description"
 msgstr "Maak uw account en eerste werkruimte samen aan - geen omweg bij het instellen."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:858
+#: src/i18n/messages.ts:926
 msgid "auth.shell.workflow"
 msgstr "Maak, controleer en publiceer zonder het werk over tabbladen en tools te verspreiden."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:314
+#: src/i18n/messages.ts:382
 msgid "dashboard.viewModel.createdDuringPublication"
 msgstr "Gemaakt tijdens publicatie op de server"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1183
+msgid "auth.form.creatingAccount"
+msgstr "Account wordt aangemaakt"
 
 #. js-lingui-explicit-id
 #: src/components/brand-system/brand-empty-state.tsx:17
@@ -1064,19 +1339,29 @@ msgid "dashboard.brand.editor.radius.crisp"
 msgstr "Fris"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:254
+#: src/i18n/messages.ts:322
 msgid "dashboard.viewModel.currentDraft"
 msgstr "Huidig ontwerp"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:497
+#: src/i18n/messages.ts:565
 msgid "dashboard.viewModel.currentDraftRecorded"
 msgstr "Huidig concept opgenomen voor {sites}"
+
+#. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:84
+msgid "account.email.oldVerified"
+msgstr "Huidig e-mailadres bevestigd"
 
 #. js-lingui-explicit-id
 #: src/components/brand-system/brand-theme-editor.tsx:37
 msgid "dashboard.brand.editor.currentFont"
 msgstr "Huidig lettertype"
+
+#. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:66
+msgid "account.currentPassword"
+msgstr "Huidig wachtwoord"
 
 #. js-lingui-explicit-id
 #: src/components/brand-system/brand-theme-editor.tsx:38
@@ -1089,9 +1374,14 @@ msgid "dashboard.launchQueue.currentReleaseState"
 msgstr "Huidige releasestatus"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:203
+#: src/i18n/messages.ts:271
 msgid "dashboard.viewModel.currentSavedContent"
 msgstr "Huidige opgeslagen inhoud"
+
+#. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:93
+msgid "account.sessions.current"
+msgstr "Huidige sessie"
 
 #. js-lingui-explicit-id
 #: src/components/document-debug-panel.tsx:48
@@ -1109,6 +1399,11 @@ msgid "dashboard.brand.panel.description"
 msgstr "Klantgerichte thematokens blijven gescheiden van de dashboardstijl. Goedkeuring creëert een onveranderlijke versie; releases nemen het expliciet over."
 
 #. js-lingui-explicit-id
+#: src/i18n/messages.ts:1105
+msgid "workspaceMembers.dangerZone"
+msgstr "Gevarenzone"
+
+#. js-lingui-explicit-id
 #: src/components/brand-system/brand-theme-editor.tsx:32
 msgid "dashboard.brand.editor.darkMode"
 msgstr "Donkere modus"
@@ -1119,7 +1414,7 @@ msgid "dashboard.analytics.default"
 msgstr "Standaard"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:691
+#: src/i18n/messages.ts:759
 msgid "dashboard.action.defaultThemeInvalid"
 msgstr "Standaardthemaverzoek is ongeldig."
 
@@ -1129,22 +1424,37 @@ msgid "dashboard.brand.controller.defaultMissing"
 msgstr "Het standaardthema is niet geretourneerd."
 
 #. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:112
+msgid "account.danger.title"
+msgstr "Account verwijderen"
+
+#. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:119
+msgid "account.delete.action"
+msgstr "Mijn account verwijderen"
+
+#. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:113
+msgid "account.danger.help"
+msgstr "Na verwijdering wordt u onmiddellijk afgemeld en start een bewaartermijn van 30 dagen. Draag eerst elke werkruimte over waarvan u de enige eigenaar bent."
+
+#. js-lingui-explicit-id
 #: src/i18n/server-feedback.ts:243
 msgid "dashboard.recovery.failure.alreadyInactive"
 msgstr "Levering is al inactief voor dit document."
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:100
+#: src/components/release-recovery-panel.tsx:101
 msgid "dashboard.recovery.inactiveDescription"
 msgstr "Levering is inactief. Onveranderlijke publicaties en releasegeschiedenis blijven behouden."
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:151
+#: src/components/release-recovery-panel.tsx:152
 msgid "dashboard.recovery.unpublishDescription"
 msgstr "De levering wordt inactief. Onveranderlijke publicaties en alleen-toegevoegde geschiedenis worden niet verwijderd."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:87
+#: src/i18n/messages.ts:155
 msgid "dashboard.common.development"
 msgstr "Ontwikkeling"
 
@@ -1164,19 +1474,59 @@ msgid "dashboard.environmentPolicy.development"
 msgstr "Ontwikkeling"
 
 #. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:89
+msgid "account.sessions.help"
+msgstr "Apparaatlabels zijn globaal en op privacy beoordeeld; IP-adressen worden hier niet opgeslagen."
+
+#. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:183
+msgid "account.passkeys.deviceBound"
+msgstr "Apparaatgebonden passkey"
+
+#. js-lingui-explicit-id
 #: src/components/environment-policy-editor.tsx:43
 msgid "dashboard.environmentPolicy.directPublish"
 msgstr "Direct publiceren"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:93
+#: src/components/enterprise-identity-settings.tsx:85
+msgid "enterpriseIdentity.disableConnection"
+msgstr "Verbinding uitschakelen"
+
+#. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:168
+msgid "enterpriseIdentity.disableScimTokenConfirm"
+msgstr "Dit SCIM-token uitschakelen? Provisioningverzoeken die het gebruiken, stoppen onmiddellijk."
+
+#. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:89
+msgid "enterpriseIdentity.disableConnectionConfirm"
+msgstr "Deze SSO-verbinding uitschakelen en de sessies, authoring-grants, domeinen en SCIM-tokens intrekken?"
+
+#. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:164
+msgid "enterpriseIdentity.disableScimToken"
+msgstr "Token uitschakelen"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:161
 msgid "dashboard.common.disabled"
 msgstr "Uitgeschakeld"
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:82
+#: src/components/enterprise-identity-settings.tsx:100
+msgid "enterpriseIdentity.status.disabled"
+msgstr "Uitgeschakeld"
+
+#. js-lingui-explicit-id
+#: src/components/release-recovery-panel.tsx:83
 msgid "dashboard.recovery.disabled"
 msgstr "Uitgeschakeld"
+
+#. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:127
+msgid "enterpriseIdentity.domainsHelp"
+msgstr "Ontdekking gebruikt alleen geverifieerd DNS-eigenaarschap. Een overeenkomend e-mailadres koppelt nooit een bestaand Lodariq-account."
 
 #. js-lingui-explicit-id
 #: src/components/analytics-panel.tsx:142
@@ -1189,12 +1539,22 @@ msgid "dashboard.recentActivity.empty"
 msgstr "Document-, release- en merkactiviteit worden hier weergegeven."
 
 #. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:111
+msgid "account.data.export"
+msgstr "Accountexport downloaden"
+
+#. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:106
+msgid "account.data.help"
+msgstr "Download het profiel, geverifieerde adressen, aanmeldmethoden en werkruimtelidmaatschappen die aan uw account zijn gekoppeld."
+
+#. js-lingui-explicit-id
 #: src/components/brand-tour-comparison.tsx:65
 msgid "dashboard.brand.preview.draft"
 msgstr "ontwerp"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:86
+#: src/i18n/messages.ts:154
 msgid "dashboard.common.draft"
 msgstr "Diepgang"
 
@@ -1204,12 +1564,17 @@ msgid "dashboard.documents.draft"
 msgstr "Diepgang"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:461
+#: src/components/enterprise-identity-settings.tsx:94
+msgid "enterpriseIdentity.status.draft"
+msgstr "Concept"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:529
 msgid "dashboard.viewModel.readinessDraft"
 msgstr "Ontwerp in uitvoering"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:131
+#: src/i18n/messages.ts:199
 msgid "dashboard.viewModel.draftNotPrepared"
 msgstr "Concept niet voorbereid"
 
@@ -1219,17 +1584,17 @@ msgid "dashboard.brand.panel.draftOnly"
 msgstr "Alleen concept"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:359
+#: src/i18n/messages.ts:427
 msgid "dashboard.viewModel.draftRevision"
 msgstr "Conceptrevisie {revision}"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:202
+#: src/i18n/messages.ts:270
 msgid "dashboard.viewModel.draftSaved"
 msgstr "Concept opgeslagen"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:673
+#: src/i18n/messages.ts:741
 msgid "dashboard.action.draftSaved"
 msgstr "Concept opgeslagen."
 
@@ -1249,29 +1614,49 @@ msgid "dashboard.brand.editor.editing"
 msgstr "Concept bewerken"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:955
+#: src/i18n/messages.ts:1143
 msgid "auth.form.email"
 msgstr "E-mail"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:988
+#: src/i18n/messages.ts:1205
 msgid "auth.form.emailSecureLink"
 msgstr "E-mail een beveiligde link"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1045
-msgid "auth.error.invalidCredentials"
-msgstr "E-mailadres of wachtwoord is onjuist."
+#: src/i18n/messages.ts:1066
+msgid "workspaceMembers.email"
+msgstr "E-mailadres"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:871
+#: src/components/account-security-settings.tsx:76
+msgid "account.email.title"
+msgstr "E-mailadres"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:80
+msgid "recoveryCode.identifier"
+msgstr "E-mail of gebruikersnaam"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1144
+msgid "auth.form.identifier"
+msgstr "E-mailadres of gebruikersnaam"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:939
 msgid "auth.page.emailVerification"
 msgstr "E-mailverificatie"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1012
+#: src/i18n/messages.ts:1277
 msgid "auth.form.emailVerified"
 msgstr "E-mailadres geverifieerd"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1315
+msgid "auth.error.invalidCredentials"
+msgstr "E-mailadres, gebruikersnaam of wachtwoord is onjuist."
 
 #. js-lingui-explicit-id
 #: src/i18n/server-feedback.ts:43
@@ -1284,9 +1669,74 @@ msgid "dashboard.publishIssue.emptyTour.label"
 msgstr "Lege rondleiding"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages.ts:1097
+msgid "workspaceMembers.invalidEmail"
+msgstr "Voer een volledig e-mailadres in."
+
+#. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:131
+msgid "account.validation.email"
+msgstr "Voer een volledig e-mailadres in."
+
+#. js-lingui-explicit-id
 #: src/components/environment-policy-editor.tsx:89
 msgid "dashboard.environmentPolicy.invalid"
 msgstr "Voer een naam en niet meer dan 100 exacte herkomsten in."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1164
+msgid "auth.form.validation.emailInvalid"
+msgstr "Voer een e-mailadres in met de notatie name@example.com."
+
+#. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:165
+msgid "account.recoveryCodes.confirmHelp"
+msgstr "Voer één getoonde code in om te bevestigen dat je de set hebt bewaard. De code blijft bruikbaar."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:76
+msgid "recoveryCode.description"
+msgstr "Voer één opgeslagen code voor eenmalig gebruik in. Lodariq vraagt nooit om meer dan één."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1168
+msgid "auth.form.validation.identifierInvalid"
+msgstr "Voer je e-mailadres of gebruikersnaam in zonder spaties."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:89
+msgid "recoveryCode.invalid"
+msgstr "Voer je identificatie en een volledige herstelcode in."
+
+#. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:135
+msgid "account.validation.delete"
+msgstr "Voer uw wachtwoord in en typ exact DELETE."
+
+#. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:39
+msgid "enterpriseIdentity.title"
+msgstr "Enterprise-identiteit"
+
+#. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:50
+msgid "enterpriseIdentity.saved"
+msgstr "Instelling voor enterprise-identiteit opgeslagen."
+
+#. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:46
+msgid "enterpriseIdentity.unavailable"
+msgstr "Instellingen voor enterprise-identiteit konden niet worden geladen."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1126
+msgid "auth.form.enterpriseSsoUnavailable"
+msgstr "Bedrijfsaanmelding is niet geconfigureerd voor dit bedrijfs-e-mailadres."
+
+#. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:148
+msgid "account.methods.saml"
+msgstr "Zakelijke SSO"
 
 #. js-lingui-explicit-id
 #: src/components/authoring-activation-popup.tsx:82
@@ -1294,7 +1744,7 @@ msgid "dashboard.activation.environment"
 msgstr "Milieu"
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:138
+#: src/components/release-recovery-panel.tsx:139
 msgid "dashboard.recovery.confirmationDetails"
 msgstr "Omgeving {environment} · generatie {generation} · actieve publicatie {publication}"
 
@@ -1309,7 +1759,7 @@ msgid "dashboard.environmentPolicy.title"
 msgstr "Milieubeleid"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:631
+#: src/i18n/messages.ts:699
 msgid "dashboard.action.environmentPolicyUpdated"
 msgstr "Omgevingsbeleid bijgewerkt."
 
@@ -1319,7 +1769,7 @@ msgid "dashboard.navigation.environments"
 msgstr "Omgevingen"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:72
+#: src/i18n/messages.ts:135
 msgid "dashboard.page.environments.title"
 msgstr "Omgevingen"
 
@@ -1334,17 +1784,17 @@ msgid "dashboard.environmentPolicy.invalidOrigin"
 msgstr "Elke oorsprong moet een exacte HTTP(S)-oorsprong zijn."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:504
+#: src/i18n/messages.ts:572
 msgid "dashboard.viewModel.flowHealthyDetail"
 msgstr "Elk bereikbaar pad heeft een eindresultaat."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:432
+#: src/i18n/messages.ts:500
 msgid "dashboard.viewModel.exactArtifactVerified"
 msgstr "Exact artefact geverifieerd"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:282
+#: src/i18n/messages.ts:350
 msgid "dashboard.viewModel.exactArtifactVerifiedAt"
 msgstr "Exact artefact geverifieerd {date}"
 
@@ -1364,7 +1814,7 @@ msgid "dashboard.analytics.fact.sdkErrorsDescription"
 msgstr "Exacte sdk_error-gebeurtenissen toegeschreven aan onveranderlijke release-aanwijzingen."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:294
+#: src/i18n/messages.ts:362
 msgid "dashboard.viewModel.exactStagedArtifactActiveAt"
 msgstr "Exact geënsceneerd artefact actief sinds {date}"
 
@@ -1399,12 +1849,12 @@ msgid "dashboard.activation.existingTour"
 msgstr "Bestaande rondleiding"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:27
+#: src/i18n/messages.ts:28
 msgid "dashboard.navigation.expand"
 msgstr "Vouw de navigatie in de werkruimte uit"
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:196
+#: src/components/release-recovery-panel.tsx:197
 msgid "dashboard.recovery.expectedGeneration"
 msgstr "Verwachte generatie {generation}"
 
@@ -1439,7 +1889,7 @@ msgid "dashboard.navigation.experiences"
 msgstr "Ervaringen"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:52
+#: src/i18n/messages.ts:115
 msgid "dashboard.page.experiences.title"
 msgstr "Ervaringen"
 
@@ -1449,17 +1899,22 @@ msgid "dashboard.launchQueue.experiences"
 msgstr "Ervaringen"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages.ts:1092
+msgid "workspaceMembers.expires"
+msgstr "Verloopt op {date}"
+
+#. js-lingui-explicit-id
 #: src/components/analytics-panel.tsx:156
 msgid "dashboard.analytics.fact.exposure"
 msgstr "Blootstelling"
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:187
+#: src/components/release-recovery-panel.tsx:188
 msgid "dashboard.recovery.failedAction"
 msgstr "Mislukt {action}"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:53
+#: src/i18n/messages.ts:116
 msgid "dashboard.page.experiences.description"
 msgstr "Vind elke opgeslagen ervaring en inspecteer de huidige publicatiestatus."
 
@@ -1479,7 +1934,7 @@ msgid "dashboard.activation.recoveryFinish"
 msgstr "Eindig daar, sluit vervolgens dit venster en begin opnieuw met schrijven."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:945
+#: src/i18n/messages.ts:1013
 msgid "auth.page.finishAccount.title"
 msgstr "Rond uw account af"
 
@@ -1499,12 +1954,12 @@ msgid "dashboard.publishIssue.nonTerminatingFlow.label"
 msgstr "Flow eindigt niet"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:502
+#: src/i18n/messages.ts:570
 msgid "dashboard.viewModel.flowHealth"
 msgstr "Flowstatus"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:48
+#: src/i18n/messages.ts:111
 msgid "dashboard.page.overview.description"
 msgstr "Volg de voortgang van ervaringen van ontwerp tot productie."
 
@@ -1519,6 +1974,16 @@ msgid "dashboard.brand.editor.fontFamily"
 msgstr "Lettertypefamilie"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages.ts:1141
+msgid "auth.form.forgotUsername"
+msgstr "Gebruikersnaam vergeten?"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:54
+msgid "account.forgotUsername.title"
+msgstr "Gebruikersnaam vergeten?"
+
+#. js-lingui-explicit-id
 #: src/components/analytics-panel.tsx:215
 msgid "dashboard.analytics.target.found"
 msgstr "Gevonden"
@@ -1529,7 +1994,12 @@ msgid "dashboard.analytics.targetSuccessBreakdown"
 msgstr "Gevonden {found} · Onbekend {unknown}. Gevonden en onbekende uitkomsten tellen niet mee als mislukkingen."
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:99
+#: src/components/account-security-settings.tsx:163
+msgid "account.recoveryCodes.generate"
+msgstr "Nieuwe codes genereren"
+
+#. js-lingui-explicit-id
+#: src/components/release-recovery-panel.tsx:100
 msgid "dashboard.recovery.generation"
 msgstr "Generatie {generation}"
 
@@ -1539,17 +2009,22 @@ msgid "dashboard.brand.editor.georgiaSerif"
 msgstr "Georgië schreef"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:503
+#: src/components/enterprise-identity-settings.tsx:147
+msgid "enterpriseIdentity.mappingsHelp"
+msgstr "Groepen kunnen viewer, member of admin toekennen. Identity providers kunnen nooit owner toekennen."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:571
 msgid "dashboard.viewModel.flowHealthy"
 msgstr "In orde"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:21
+#: src/i18n/messages.ts:22
 msgid "dashboard.navigation.support"
 msgstr "Hulp en ondersteuning"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:77
+#: src/i18n/messages.ts:145
 msgid "dashboard.page.support.title"
 msgstr "Hulp & ondersteuning"
 
@@ -1564,7 +2039,12 @@ msgid "dashboard.brand.panel.hideImpact"
 msgstr "Impact verbergen"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:412
+#: src/i18n/messages.ts:1147
+msgid "auth.form.hidePassword"
+msgstr "Wachtwoord verbergen"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:480
 msgid "dashboard.viewModel.highConfidenceEvidence"
 msgstr "Bewijsmateriaal met hoge betrouwbaarheid"
 
@@ -1574,14 +2054,29 @@ msgid "dashboard.analytics.historyOnly"
 msgstr "Alleen geschiedenis"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:115
+#: src/i18n/messages.ts:183
 msgid "dashboard.viewModel.type.hotspot"
 msgstr "Hotspot"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:978
-msgid "auth.form.recoveryEmailSent"
-msgstr "Als dat adres bij een Lodariq-account hoort, bevat het nieuwste bericht een beveiligde wachtwoordlink. Het verloopt binnenkort en werkt één keer."
+#: src/components/enterprise-identity-settings.tsx:73
+msgid "enterpriseIdentity.provider"
+msgstr "Identity provider"
+
+#. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:146
+msgid "enterpriseIdentity.mappings"
+msgstr "IdP-groepsroltoewijzing"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1195
+msgid "auth.form.recoveryRequestAccepted"
+msgstr "Als het adres bij een Lodariq-account hoort, is een veilige eenmalige link in de wachtrij geplaatst. De bezorging kan enkele minuten duren. Alleen de nieuwste link werkt en die vervalt na 30 minuten."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1272
+msgid "auth.form.verificationRequestAccepted"
+msgstr "Als de account op verificatie wacht, is een nieuwe eenmalige link in de wachtrij geplaatst. De bezorging kan enkele minuten duren."
 
 #. js-lingui-explicit-id
 #: src/components/authoring-launch-panel.tsx:55
@@ -1589,27 +2084,27 @@ msgid "dashboard.authoringLaunch.signInHandoff"
 msgstr "Als u bent afgemeld, opent het opstartprogramma de Lodariq-aanmelding en keert u automatisch terug naar dezelfde productpagina. Er is geen tijdelijke overdracht van de editor vereist."
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:123
+#: src/components/release-recovery-panel.tsx:124
 msgid "dashboard.recovery.immutableArtifact"
 msgstr "Onveranderlijk artefact"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:444
+#: src/i18n/messages.ts:512
 msgid "dashboard.viewModel.immutableBrandSnapshot"
 msgstr "Onveranderlijke momentopname van het merk"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:306
+#: src/i18n/messages.ts:374
 msgid "dashboard.viewModel.immutableCompiledArtifact"
 msgstr "Onveranderlijk gecompileerd artefact"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:436
+#: src/i18n/messages.ts:504
 msgid "dashboard.viewModel.immutablePublication"
 msgstr "Onveranderlijke publicatie"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:660
+#: src/i18n/messages.ts:728
 msgid "dashboard.action.impactRefreshed"
 msgstr "Impact vernieuwd."
 
@@ -1619,12 +2114,12 @@ msgid "dashboard.authoringLaunch.eyebrow"
 msgstr "In-product schrijven"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:92
+#: src/i18n/messages.ts:160
 msgid "dashboard.common.inactive"
 msgstr "Inactief"
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:97
+#: src/components/release-recovery-panel.tsx:98
 msgid "dashboard.recovery.inactive"
 msgstr "Inactief"
 
@@ -1654,7 +2149,7 @@ msgid "dashboard.publishIssue.incompleteMedia.label"
 msgstr "Onvolledige media"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:63
+#: src/i18n/messages.ts:126
 msgid "dashboard.page.analytics.description"
 msgstr "Inspecteer release-scope-feiten voor één expliciet geselecteerde omgeving tegelijk."
 
@@ -1684,22 +2179,67 @@ msgid "dashboard.publishIssue.invalidPresentationArea.label"
 msgstr "Ongeldig presentatiegebied"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages.ts:1031
+msgid "workspaceInvitation.accepted"
+msgstr "Uitnodiging geaccepteerd"
+
+#. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:79
+msgid "enterpriseIdentity.provisioning.invitationOnly"
+msgstr "Alleen uitnodiging"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1069
+msgid "workspaceMembers.invitationQueued"
+msgstr "Uitnodiging klaargezet voor verzending."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1061
+msgid "workspaceMembers.invite"
+msgstr "Een medewerker uitnodigen"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:141
+msgid "dashboard.page.members.description"
+msgstr "Nodig medewerkers uit, wijs rollen toe en controleer de toegang tot de werkruimte."
+
+#. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:76
+msgid "enterpriseIdentity.issuer"
+msgstr "Issuer-URL"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1023
+msgid "workspaceInvitation.title"
+msgstr "Word lid van je werkruimte"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1091
+msgid "workspaceMembers.joined"
+msgstr "Lid geworden op {date}"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1137
+msgid "auth.form.rememberMeHelp"
+msgstr "Houd dit apparaat maximaal 30 dagen aangemeld. Laat uitgevinkt voor een sessiecookie."
+
+#. js-lingui-explicit-id
 #: src/components/authoring-activation-popup.tsx:101
 msgid "dashboard.activation.readyDescription"
 msgstr "Houd dit venster open terwijl de Lodariq-launcher de veilige overdracht voltooit."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:116
+#: src/i18n/messages.ts:184
 msgid "dashboard.viewModel.type.knowledge"
 msgstr "Kennis"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:37
+#: src/i18n/messages.ts:100
 msgid "dashboard.locale.label"
 msgstr "Taal"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:40
+#: src/i18n/messages.ts:103
 msgid "dashboard.locale.error"
 msgstr "Taal kan niet worden gewijzigd. Probeer het opnieuw."
 
@@ -1719,12 +2259,12 @@ msgid "dashboard.launchQueue.lastEditor"
 msgstr "Laatste redacteur"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:218
+#: src/i18n/messages.ts:286
 msgid "dashboard.viewModel.latestRecordAt"
 msgstr "Laatste record {date}"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:47
+#: src/i18n/messages.ts:110
 msgid "dashboard.page.overview.title"
 msgstr "Start wachtrij"
 
@@ -1739,12 +2279,22 @@ msgid "dashboard.brand.binding.legacy"
 msgstr "Terugval uit de erfenis"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:107
+#: src/components/account-security-settings.tsx:186
+msgid "account.methods.linkGoogle"
+msgstr "Google koppelen"
+
+#. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:187
+msgid "account.methods.linkMicrosoft"
+msgstr "Microsoft koppelen"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:175
 msgid "dashboard.viewModel.status.live"
 msgstr "Leef"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:227
+#: src/i18n/messages.ts:295
 msgid "dashboard.viewModel.live"
 msgstr "Leef"
 
@@ -1764,9 +2314,19 @@ msgid "dashboard.analytics.loading"
 msgstr "{environment} analyses laden…"
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:83
+#: src/components/account-security-settings.tsx:120
+msgid "account.loading"
+msgstr "Accountbeveiliging laden…"
+
+#. js-lingui-explicit-id
+#: src/components/release-recovery-panel.tsx:84
 msgid "dashboard.recovery.loading"
 msgstr "Volledige releasegeschiedenis laden..."
+
+#. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:45
+msgid "enterpriseIdentity.loading"
+msgstr "Enterprise-identiteit laden…"
 
 #. js-lingui-explicit-id
 #: src/components/brand-system/brand-impact-panel.tsx:17
@@ -1779,12 +2339,12 @@ msgid "dashboard.brand.review.loading"
 msgstr "Gekoppelde ervaringen en de runtime-vergelijking laden."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:96
+#: src/i18n/messages.ts:164
 msgid "dashboard.common.loading"
 msgstr "Laden..."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:318
+#: src/i18n/messages.ts:386
 msgid "dashboard.viewModel.accessibleFallback"
 msgstr "Lodariq toegankelijke terugval"
 
@@ -1794,7 +2354,7 @@ msgid "dashboard.installation.automaticOrigins"
 msgstr "Lodariq brengt automatisch de vertrouwde oorsprong in kaart die al is geconfigureerd voor ontwikkeling, staging en productie."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:529
+#: src/i18n/messages.ts:597
 msgid "dashboard.entry.unavailableDescription"
 msgstr "Lodariq kon uw sessie niet verifiëren. Het kan zijn dat de dienst tijdelijk niet beschikbaar is."
 
@@ -1809,12 +2369,17 @@ msgid "dashboard.metadata.title"
 msgstr "Lodariq-werkruimte"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1065
+#: src/i18n/messages.ts:1339
 msgid "auth.error.serviceUnavailable"
 msgstr "Inloggen bij Lodariq is tijdelijk niet beschikbaar."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:420
+#: src/components/account-security-settings.tsx:100
+msgid "account.methods.help"
+msgstr "Lodariq laat u nooit uw laatste bruikbare aanmeldmethode verwijderen."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:488
 msgid "dashboard.viewModel.lowConfidenceEvidence"
 msgstr "Bewijs met weinig vertrouwen"
 
@@ -1834,24 +2399,64 @@ msgid "dashboard.publishIssue.missingTerminalCompletion.message"
 msgstr "Zorg dat elk mogelijk pad de rondleiding kan voltooien of sluiten."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:73
+#: src/components/account-security-settings.tsx:54
+msgid "account.description"
+msgstr "Beheer hoe u zich aanmeldt, waar uw account actief is en uw accountgegevens."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:136
 msgid "dashboard.page.environments.description"
 msgstr "Beheer vertrouwde productoorsprongen en runtime-installaties van elke omgeving."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1091
+#: src/components/enterprise-identity-settings.tsx:152
+msgid "enterpriseIdentity.managedRole"
+msgstr "Beheerde rol"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1089
+msgid "workspaceMembers.role.member"
+msgstr "Lid"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1365
 msgid "workspaceSelection.role.member"
 msgstr "Lid"
 
 #. js-lingui-explicit-id
-#: src/components/dashboard-auth-controls.tsx:53
+#: src/components/dashboard-auth-controls.tsx:59
 msgid "dashboard.account.role.member"
 msgstr "Lid"
+
+#. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:154
+msgid "enterpriseIdentity.role.member"
+msgstr "Member"
 
 #. js-lingui-explicit-id
 #: src/components/environment-policy-editor.tsx:106
 msgid "dashboard.role.member"
 msgstr "Lid"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:21
+msgid "dashboard.navigation.members"
+msgstr "Leden"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:140
+msgid "dashboard.page.members.title"
+msgstr "Leden en toegang"
+
+#. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:75
+msgid "enterpriseIdentity.provider.entra"
+msgstr "Microsoft Entra ID"
+
+#. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:111
+msgid "enterpriseIdentity.minimumAssurance"
+msgstr "Minimale assurance"
 
 #. js-lingui-explicit-id
 #: src/components/analytics-panel.tsx:217
@@ -1879,12 +2484,17 @@ msgid "dashboard.publishIssue.missingUrl.label"
 msgstr "Ontbrekende URL"
 
 #. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:185
+msgid "account.passkeys.multiDevice"
+msgstr "Meerdere apparaten"
+
+#. js-lingui-explicit-id
 #: src/components/environment-policy-editor.tsx:29
 msgid "dashboard.environmentPolicy.name"
 msgstr "Naam"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:382
+#: src/i18n/messages.ts:450
 msgid "dashboard.viewModel.nearbyProductControls"
 msgstr "Productcontroles in de buurt"
 
@@ -1894,17 +2504,17 @@ msgid "dashboard.activation.passwordHelp"
 msgstr "Wilt u uw wachtwoord instellen of opnieuw instellen?"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:341
+#: src/i18n/messages.ts:409
 msgid "dashboard.viewModel.needsApproval"
 msgstr "Heeft goedkeuring nodig"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:457
+#: src/i18n/messages.ts:525
 msgid "dashboard.viewModel.readinessBlocked"
 msgstr "Er zijn reparaties nodig voordat deze worden gepubliceerd"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:207
+#: src/i18n/messages.ts:275
 msgid "dashboard.viewModel.needsPreview"
 msgstr "Voorbeeld nodig"
 
@@ -1914,7 +2524,7 @@ msgid "dashboard.support.needsPreview"
 msgstr "Voorbeeld nodig"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:121
+#: src/i18n/messages.ts:189
 msgid "dashboard.viewModel.needsReview"
 msgstr "Moet worden beoordeeld"
 
@@ -1924,17 +2534,37 @@ msgid "dashboard.analytics.target.needsReview"
 msgstr "Moet worden beoordeeld"
 
 #. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:64
+msgid "enterpriseIdentity.connectionsHelp"
+msgstr "Nieuwe verbindingen blijven onbeschikbaar tot Lodariq een geslaagde echte-tenantvalidatie vastlegt."
+
+#. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:81
+msgid "account.email.new"
+msgstr "Nieuw e-mailadres"
+
+#. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:86
+msgid "account.email.newVerified"
+msgstr "Nieuw e-mailadres bevestigd"
+
+#. js-lingui-explicit-id
 #: src/components/brand-system/brand-impact-panel.tsx:31
 msgid "dashboard.brand.impact.noLinkedDescription"
 msgstr "Nieuwe ervaringen kunnen dit thema gebruiken na de eerste goedkeuring."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1001
+#: src/i18n/messages.ts:1239
 msgid "auth.form.newPassword"
 msgstr "Nieuw wachtwoord"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:974
+#: src/components/account-security-settings.tsx:67
+msgid "account.newPassword"
+msgstr "Nieuw wachtwoord"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1190
 msgid "auth.form.newToLodariq"
 msgstr "Nieuw bij Lodariq?"
 
@@ -1944,27 +2574,27 @@ msgid "dashboard.activation.newTour"
 msgstr "Nieuwe rondleiding"
 
 #. js-lingui-explicit-id
-#: src/components/dashboard-auth-controls.tsx:46
+#: src/components/dashboard-auth-controls.tsx:48
 msgid "dashboard.account.newWorkspace"
 msgstr "Nieuwe werkruimte"
 
 #. js-lingui-explicit-id
-#: src/components/dashboard-auth-controls.tsx:42
+#: src/components/dashboard-auth-controls.tsx:44
 msgid "dashboard.account.newWorkspaceName"
 msgstr "Nieuwe naam van de werkruimte"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:217
+#: src/i18n/messages.ts:285
 msgid "dashboard.viewModel.newerDraft"
 msgstr "Nieuwere versie"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:213
+#: src/i18n/messages.ts:281
 msgid "dashboard.viewModel.noEnvironmentPublicationRecord"
 msgstr "Geen {environment} publicatierecord"
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:216
+#: src/components/release-recovery-panel.tsx:217
 msgid "dashboard.recovery.noActiveAtAttempt"
 msgstr "Geen actieve publicatie bij poging"
 
@@ -1974,22 +2604,27 @@ msgid "dashboard.analytics.empty"
 msgstr "Er zijn geen verzamelde gebeurtenissen geregistreerd voor {environment}. Er zijn geen staging- of productiegegevens vervangen."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:327
+#: src/i18n/messages.ts:395
 msgid "dashboard.viewModel.noApprovedVersion"
 msgstr "Geen goedgekeurde versie"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:269
+#: src/i18n/messages.ts:337
 msgid "dashboard.viewModel.noBlockingChecks"
 msgstr "Geen blokkeringscontroles"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:783
+#: src/i18n/messages.ts:851
 msgid "dashboard.action.noProductOrigins"
 msgstr "Er zijn nog geen canonieke productoorsprongen geconfigureerd."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:208
+#: src/components/enterprise-identity-settings.tsx:145
+msgid "enterpriseIdentity.noDomains"
+msgstr "Er is geen bedrijfsdomein geconfigureerd."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:276
 msgid "dashboard.viewModel.noCompiledDraft"
 msgstr "Er is nog geen samengesteld ontwerp"
 
@@ -1999,12 +2634,17 @@ msgid "dashboard.support.noCustomerVersion"
 msgstr "Nog geen klantversie"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:765
+#: src/i18n/messages.ts:833
 msgid "dashboard.action.noDeliveryRecord"
 msgstr "Geen leveringsrecord"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:485
+#: src/components/enterprise-identity-settings.tsx:69
+msgid "enterpriseIdentity.noConnections"
+msgstr "Er is geen enterprise-SSO-verbinding geconfigureerd."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:553
 msgid "dashboard.viewModel.noPublicationRecord"
 msgstr "Nog geen milieupublicatierecord"
 
@@ -2054,7 +2694,7 @@ msgid "dashboard.environmentPolicy.tooManyOrigins"
 msgstr "Er zijn niet meer dan 100 oorsprongen toegestaan."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:117
+#: src/i18n/messages.ts:185
 msgid "dashboard.viewModel.noOrigins"
 msgstr "Geen oorsprong"
 
@@ -2064,22 +2704,22 @@ msgid "dashboard.environments.empty"
 msgstr "Er zijn geen productomgevingen geconfigureerd."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:290
+#: src/i18n/messages.ts:358
 msgid "dashboard.viewModel.noProductionPublicationRecord"
 msgstr "Geen productiepublicatierecord"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:467
+#: src/i18n/messages.ts:535
 msgid "dashboard.viewModel.noPublishBlockers"
 msgstr "Geen publicatieblokkeringen"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:212
+#: src/i18n/messages.ts:280
 msgid "dashboard.viewModel.noRecord"
 msgstr "Geen record"
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:113
+#: src/components/release-recovery-panel.tsx:114
 msgid "dashboard.recovery.noOperations"
 msgstr "Voor deze omgeving zijn geen releasebewerkingen geregistreerd."
 
@@ -2089,12 +2729,17 @@ msgid "dashboard.releases.emptyTitle"
 msgstr "Geen releases om te beoordelen"
 
 #. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:176
+msgid "enterpriseIdentity.noScimTokens"
+msgstr "Er is geen SCIM-token uitgegeven."
+
+#. js-lingui-explicit-id
 #: src/components/analytics-panel.tsx:49
 msgid "dashboard.analytics.noEnvironment"
 msgstr "Er is geen staging- of productieanalyseomgeving geconfigureerd."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:278
+#: src/i18n/messages.ts:346
 msgid "dashboard.viewModel.noStagingPublicationRecord"
 msgstr "Geen staging-publicatierecord"
 
@@ -2109,7 +2754,7 @@ msgid "dashboard.installation.noOrigins"
 msgstr "Er zijn nog geen vertrouwde oorsprongen in kaart gebracht. Voeg oorsprong toe aan Omgevingen en synchroniseer vervolgens."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:769
+#: src/i18n/messages.ts:837
 msgid "dashboard.action.noVersions"
 msgstr "Geen versies"
 
@@ -2124,7 +2769,7 @@ msgid "dashboard.brand.impact.notActive"
 msgstr "Niet actief in een omgeving"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:95
+#: src/i18n/messages.ts:163
 msgid "dashboard.common.notAvailable"
 msgstr "Niet beschikbaar"
 
@@ -2139,22 +2784,22 @@ msgid "dashboard.installation.notInstalled"
 msgstr "Niet geïnstalleerd"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:255
+#: src/i18n/messages.ts:323
 msgid "dashboard.viewModel.notPrepared"
 msgstr "Niet voorbereid"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:764
+#: src/i18n/messages.ts:832
 msgid "dashboard.action.notPrepared"
 msgstr "Niet voorbereid"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:277
+#: src/i18n/messages.ts:345
 msgid "dashboard.viewModel.notPublished"
 msgstr "Niet gepubliceerd"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:120
+#: src/i18n/messages.ts:188
 msgid "dashboard.viewModel.notSpecified"
 msgstr "Niet gespecificeerd"
 
@@ -2164,17 +2809,27 @@ msgid "dashboard.brand.review.notYet"
 msgstr "Nog niet"
 
 #. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:77
+msgid "enterpriseIdentity.clientId"
+msgstr "OIDC-client-ID"
+
+#. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:74
+msgid "enterpriseIdentity.provider.okta"
+msgstr "Okta"
+
+#. js-lingui-explicit-id
 #: src/components/authoring-launch-panel.tsx:60
 msgid "dashboard.authoringLaunch.shortcut"
 msgstr "Op een site met schrijfmogelijkheden schakelt {shortcut} het opstartprogramma in of uit zonder een dashboardbezoek."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:607
+#: src/i18n/messages.ts:675
 msgid "dashboard.action.approvalRequired"
 msgstr "Er is nu één goedkeuring vereist vóór de stap naar productie."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:918
+#: src/i18n/messages.ts:986
 msgid "auth.page.recovery.description"
 msgstr "Met één e-maillink kan een bestaande maker zijn/haar Lodariq-wachtwoord instellen of vervangen."
 
@@ -2199,7 +2854,7 @@ msgid "dashboard.installation.oneLine"
 msgstr "Eén regel, één keer"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:787
+#: src/i18n/messages.ts:855
 msgid "dashboard.action.ambiguousOrigin"
 msgstr "Eén oorsprongstoewijzing is overgeslagen omdat dezelfde oorsprong tot meer dan één omgeving behoort."
 
@@ -2214,6 +2869,11 @@ msgid "dashboard.installation.eyebrow"
 msgstr "Eenmalige installatie"
 
 #. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:59
+msgid "enterpriseIdentity.ownerOnly"
+msgstr "Alleen een workspace-eigenaar kan instellingen voor enterprise-identiteit wijzigen."
+
+#. js-lingui-explicit-id
 #: src/i18n/server-feedback.ts:23
 msgid "dashboard.publishIssue.unsupportedDocumentType.message"
 msgstr "Momenteel kunnen alleen tourervaringen worden gepubliceerd."
@@ -2224,7 +2884,7 @@ msgid "dashboard.authoringLaunch.openEnvironment"
 msgstr "Open {environment}"
 
 #. js-lingui-explicit-id
-#: src/components/dashboard-auth-controls.tsx:36
+#: src/components/dashboard-auth-controls.tsx:38
 msgid "dashboard.account.openMenu"
 msgstr "Open het account- en werkruimtemenu"
 
@@ -2239,12 +2899,12 @@ msgid "dashboard.releases.openFlowMap"
 msgstr "Flowkaart openen"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:82
+#: src/i18n/messages.ts:150
 msgid "dashboard.page.openInProduct"
 msgstr "Openen in product"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:983
+#: src/i18n/messages.ts:1200
 msgid "auth.form.openLocalRecoveryLink"
 msgstr "Open de lokale herstellink"
 
@@ -2264,7 +2924,7 @@ msgid "dashboard.brand.controller.reviewRequired"
 msgstr "Open de goedkeuringsbeoordeling en wacht op beide runtimevoorbeelden voordat u deze goedkeurt."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1038
+#: src/i18n/messages.ts:1308
 msgid "auth.form.openVerificationLink"
 msgstr "Open de volledige verificatielink vanuit uw e-mail en kies vervolgens het wachtwoord voor uw account."
 
@@ -2274,7 +2934,12 @@ msgid "dashboard.authoringLaunch.stayInProductDescription"
 msgstr "Open de site om Lodariq te onthullen, start vervolgens een rondleiding, hervat een ervaring op die pagina of bekijk een voorbeeld als gebruiker."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:24
+#: src/i18n/messages.ts:1036
+msgid "workspaceInvitation.openWorkspace"
+msgstr "Werkruimte openen"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:25
 msgid "dashboard.navigation.open"
 msgstr "Open de navigatie in de werkruimte"
 
@@ -2284,19 +2949,34 @@ msgid "dashboard.authoringLaunch.title"
 msgstr "Open uw product"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:549
+#: src/components/account-security-settings.tsx:147
+msgid "account.methods.oidc"
+msgstr "OpenID Connect"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1132
+msgid "auth.form.providerWaiting"
+msgstr "Beveiligde aanmelding openen…"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:617
 msgid "dashboard.loading.label"
 msgstr "Uw Lodariq-werkruimte openen"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1014
+#: src/i18n/messages.ts:1279
 msgid "auth.form.openingWorkspace"
 msgstr "Uw Lodariq-werkruimte openen…"
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:118
+#: src/components/release-recovery-panel.tsx:119
 msgid "dashboard.recovery.operationActor"
 msgstr "Operatie {operation} · Acteur {actor}"
+
+#. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:186
+msgid "enterpriseIdentity.reason"
+msgstr "Reden van het operationele incident"
 
 #. js-lingui-explicit-id
 #: src/components/document-debug-panel.tsx:31
@@ -2309,12 +2989,17 @@ msgid "dashboard.navigation.overview"
 msgstr "Overzicht"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1089
+#: src/i18n/messages.ts:1087
+msgid "workspaceMembers.role.owner"
+msgstr "Eigenaar"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1363
 msgid "workspaceSelection.role.owner"
 msgstr "Eigenaar"
 
 #. js-lingui-explicit-id
-#: src/components/dashboard-auth-controls.tsx:55
+#: src/components/dashboard-auth-controls.tsx:61
 msgid "dashboard.account.role.owner"
 msgstr "Eigenaar"
 
@@ -2329,27 +3014,77 @@ msgid "dashboard.launchQueue.pageScope"
 msgstr "Paginabereik"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:956
+#: src/components/account-security-settings.tsx:146
+msgid "account.methods.passkey"
+msgstr "Passkey"
+
+#. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:154
+msgid "account.passkeys.name"
+msgstr "Naam van passkey"
+
+#. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:149
+msgid "account.passkeys.title"
+msgstr "Passkeys"
+
+#. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:150
+msgid "account.passkeys.help"
+msgstr "Passkeys gebruiken dit apparaat of een beveiligingssleutel en zijn bestand tegen phishing."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1145
 msgid "auth.form.password"
 msgstr "Wachtwoord"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:909
+#: src/components/account-security-settings.tsx:70
+msgid "account.password.title"
+msgstr "Wachtwoord"
+
+#. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:145
+msgid "account.methods.password"
+msgstr "Wachtwoord"
+
+#. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:122
+msgid "enterpriseIdentity.invalidPolicy"
+msgstr "Wachtwoord kan niet worden uitgeschakeld tenzij enterprise-SSO verplicht is."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:977
 msgid "auth.page.recoveryDisabled.description"
 msgstr "Wachtwoordherstel is nog niet ingeschakeld voor deze implementatie."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1061
+#: src/i18n/messages.ts:1335
 msgid "auth.error.recoveryUnavailable"
 msgstr "Wachtwoordherstel is tijdelijk niet beschikbaar."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:989
+#: src/i18n/messages.ts:1218
 msgid "auth.form.passwordsDoNotMatch"
 msgstr "Wachtwoorden komen niet overeen."
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:108
+#: src/components/enterprise-identity-settings.tsx:101
+msgid "enterpriseIdentity.status.pending"
+msgstr "In behandeling"
+
+#. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:83
+msgid "account.email.pending"
+msgstr "Adres in afwachting: {email}"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1073
+msgid "workspaceMembers.pendingInvitations"
+msgstr "Openstaande uitnodigingen"
+
+#. js-lingui-explicit-id
+#: src/components/release-recovery-panel.tsx:109
 msgid "dashboard.recovery.pendingOperation"
 msgstr "In afwachting van vrijgavebewerking: {operation}"
 
@@ -2369,7 +3104,7 @@ msgid "dashboard.environmentPolicy.pipeline"
 msgstr "Pijpleiding"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:966
+#: src/i18n/messages.ts:1181
 msgid "auth.form.pleaseTryAgain"
 msgstr "Probeer het opnieuw."
 
@@ -2384,12 +3119,17 @@ msgid "dashboard.environmentPolicy.noPublishSideEffect"
 msgstr "Beleidswijzigingen publiceren of compileren nooit een artefact."
 
 #. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:104
+msgid "enterpriseIdentity.policyHelp"
+msgstr "Het beleid wordt gecontroleerd bij workspace-selectie en bij elke control-plane- en authoring-autorisatie."
+
+#. js-lingui-explicit-id
 #: src/components/document-debug-panel.tsx:27
 msgid "dashboard.support.description"
 msgstr "Bereid alleen een bewerkbare back-up en klantversie voor als ondersteuning of QA daarom vraagt."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:135
+#: src/i18n/messages.ts:203
 msgid "dashboard.viewModel.prepareDraft"
 msgstr "Ontwerp voorbereiden"
 
@@ -2419,17 +3159,17 @@ msgid "dashboard.brand.panel.previewImpact"
 msgstr "Voorbeeld van impact"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:265
+#: src/i18n/messages.ts:333
 msgid "dashboard.viewModel.previewToPrepareArtifact"
 msgstr "Bekijk één keer een voorbeeld om een publiceerbaar artefact voor te bereiden"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:480
+#: src/i18n/messages.ts:548
 msgid "dashboard.viewModel.previewToPreparePublishing"
 msgstr "Bekijk één keer een voorbeeld om de publicatie voor te bereiden"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:136
+#: src/i18n/messages.ts:204
 msgid "dashboard.viewModel.previewToPrepareDraft"
 msgstr "Bekijk één keer een voorbeeld van deze ervaring om een publiceerbaar concept voor te bereiden."
 
@@ -2439,12 +3179,12 @@ msgid "dashboard.brand.impact.description"
 msgstr "Bekijk een voorbeeld van wie er aan dit thema is gekoppeld. Elke ervaring neemt expliciet een nieuwe goedgekeurde versie over; publicatie blijft een aparte actie."
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:208
+#: src/components/release-recovery-panel.tsx:209
 msgid "dashboard.recovery.previousPublication"
 msgstr "Vorige publicatie: {publication}"
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:143
+#: src/components/release-recovery-panel.tsx:144
 msgid "dashboard.recovery.priorPublication"
 msgstr "Eerdere door de server gecontroleerde publicatie"
 
@@ -2459,12 +3199,12 @@ msgid "dashboard.environments.productEnvironments"
 msgstr "Productomgevingen"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:854
+#: src/i18n/messages.ts:922
 msgid "auth.shell.productExperiences"
 msgstr "Productervaringen die aanvoelen als een natuurlijk deel van uw product."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:331
+#: src/i18n/messages.ts:399
 msgid "dashboard.viewModel.productMatchNotRecorded"
 msgstr "Productmatch is niet geregistreerd"
 
@@ -2474,12 +3214,12 @@ msgid "dashboard.brand.source.title"
 msgstr "Bron van productovereenkomst"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:390
+#: src/i18n/messages.ts:458
 msgid "dashboard.viewModel.productSurfaceContext"
 msgstr "Context van productoppervlak"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1079
+#: src/i18n/messages.ts:1353
 msgid "workspaceSelection.placeholder"
 msgstr "Productteam"
 
@@ -2489,12 +3229,12 @@ msgid "dashboard.brand.preview.tourCard"
 msgstr "Producttourkaart"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:386
+#: src/i18n/messages.ts:454
 msgid "dashboard.viewModel.productTypography"
 msgstr "Producttypografie"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:89
+#: src/i18n/messages.ts:157
 msgid "dashboard.common.production"
 msgstr "Productie"
 
@@ -2514,12 +3254,12 @@ msgid "dashboard.analytics.productionNotConfigured"
 msgstr "Productieanalyses zijn niet geconfigureerd. Selecteer staging expliciet om de geïsoleerde feiten ervan te laden."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:257
+#: src/i18n/messages.ts:325
 msgid "dashboard.viewModel.productionEvidence"
 msgstr "Productie bewijs"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:245
+#: src/i18n/messages.ts:313
 msgid "dashboard.viewModel.activeProvenanceUnavailable"
 msgstr "De productie is actief, maar de exacte herkomst van het ensceneringsartefact is nog niet beschikbaar."
 
@@ -2529,12 +3269,12 @@ msgid "dashboard.analytics.isolationDescription"
 msgstr "Productie is de expliciete standaard indien geconfigureerd. Staging- en productiefeiten worden afzonderlijk opgevraagd en weergegeven; Lodariq combineert ze in deze visie nooit."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:140
+#: src/i18n/messages.ts:208
 msgid "dashboard.viewModel.productionLive"
 msgstr "Productie live"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:241
+#: src/i18n/messages.ts:309
 msgid "dashboard.viewModel.exactArtifactPromoted"
 msgstr "De productie verwijst naar het exacte artefact dat door de enscenering wordt gepromoot."
 
@@ -2544,22 +3284,22 @@ msgid "dashboard.releases.exactArtifactDescription"
 msgstr "Productiepromotie moet het geverifieerde staging-artefact hergebruiken zonder opnieuw te bouwen, automatische themamutatie of omgevingskopie."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:611
+#: src/i18n/messages.ts:679
 msgid "dashboard.action.approvalNotRequired"
 msgstr "Voor productiepromotie is geen aparte goedkeuring meer nodig."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:141
+#: src/i18n/messages.ts:209
 msgid "dashboard.viewModel.productionPublished"
 msgstr "Productie gepubliceerd"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:146
+#: src/i18n/messages.ts:214
 msgid "dashboard.viewModel.productionUpdate"
 msgstr "Productie-update"
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:189
+#: src/components/release-recovery-panel.tsx:190
 msgid "dashboard.recovery.promoted"
 msgstr "Gepromoveerd"
 
@@ -2574,17 +3314,27 @@ msgid "dashboard.environmentPolicy.promotionSource"
 msgstr "Promotiebron"
 
 #. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:151
+msgid "enterpriseIdentity.groupId"
+msgstr "Providergroep-ID"
+
+#. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:78
+msgid "enterpriseIdentity.provisioning"
+msgstr "Provisioningmodus"
+
+#. js-lingui-explicit-id
 #: src/components/analytics-panel.tsx:143
 msgid "dashboard.analytics.publication"
 msgstr "Publicatie"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:493
+#: src/i18n/messages.ts:561
 msgid "dashboard.viewModel.publicationRecorded"
 msgstr "Publicatie opgenomen"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:489
+#: src/i18n/messages.ts:557
 msgid "dashboard.viewModel.recordsUseEarlierHash"
 msgstr "Publicatierecords voor {sites} gebruiken een eerdere inhoudshash"
 
@@ -2594,17 +3344,17 @@ msgid "dashboard.analytics.releaseFactsDescription"
 msgstr "Publicatie, inhoudhash en pointergeneratie blijven gescheiden voor elke gebeurtenisrij, inclusief rollbacks waarbij inhoud wordt hergebruikt."
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:224
+#: src/components/release-recovery-panel.tsx:225
 msgid "dashboard.recovery.publicationIdentity"
 msgstr "Publicatie: {publication}"
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:220
+#: src/components/release-recovery-panel.tsx:221
 msgid "dashboard.recovery.publicationSource"
 msgstr "Publicatie: {publication} · bron: {source}"
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:204
+#: src/components/release-recovery-panel.tsx:205
 msgid "dashboard.recovery.publicationTarget"
 msgstr "Publicatie: {publication} · doel: {target}"
 
@@ -2619,42 +3369,42 @@ msgid "dashboard.publishIssue.unknown.label"
 msgstr "Publicatiecontrole"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:181
+#: src/i18n/messages.ts:249
 msgid "dashboard.viewModel.publishCurrentDraft"
 msgstr "Publiceer het huidige concept"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:194
+#: src/i18n/messages.ts:262
 msgid "dashboard.viewModel.publishToStaging"
 msgstr "Publiceren naar staging"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:232
+#: src/i18n/messages.ts:300
 msgid "dashboard.viewModel.published"
 msgstr "Gepubliceerd"
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:188
+#: src/components/release-recovery-panel.tsx:189
 msgid "dashboard.recovery.published"
 msgstr "Gepubliceerd"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:237
+#: src/i18n/messages.ts:305
 msgid "dashboard.viewModel.publishedDeliveryUnconfirmed"
 msgstr "Gepubliceerd {date} · actieve levering niet bevestigd"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:302
+#: src/i18n/messages.ts:370
 msgid "dashboard.viewModel.publishedPointerNotExposed"
 msgstr "Gepubliceerd {date} · actieve aanwijzer niet zichtbaar"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:286
+#: src/i18n/messages.ts:354
 msgid "dashboard.viewModel.publishedNoBrowserVerification"
 msgstr "Gepubliceerd {date} · browserverificatie niet geregistreerd"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:233
+#: src/i18n/messages.ts:301
 msgid "dashboard.viewModel.publishedVerificationPending"
 msgstr "Gepubliceerd {date} · verificatie in behandeling"
 
@@ -2669,27 +3419,37 @@ msgid "dashboard.documents.publishing"
 msgstr "Publiceren"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:339
+#: src/i18n/messages.ts:407
 msgid "dashboard.viewModel.radius"
 msgstr "Straal"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:993
+#: src/components/email-change-verification.tsx:13
+msgid "account.emailChange.reading"
+msgstr "Beveiligde link lezen…"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1028
+msgid "workspaceInvitation.reading"
+msgstr "Je beveiligde uitnodiging wordt gelezen"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1222
 msgid "auth.form.readingSecureLink"
 msgstr "Uw beveiligde link lezen…"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1019
+#: src/i18n/messages.ts:1284
 msgid "auth.form.readingVerificationLink"
 msgstr "Uw beveiligde verificatielink lezen…"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:476
+#: src/i18n/messages.ts:544
 msgid "dashboard.viewModel.readyFirstPublish"
 msgstr "Klaar voor eerste publicatie"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:190
+#: src/i18n/messages.ts:258
 msgid "dashboard.viewModel.readyForStaging"
 msgstr "Klaar voor enscenering"
 
@@ -2699,7 +3459,7 @@ msgid "dashboard.activation.ready"
 msgstr "Klaar om verbinding te maken"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:462
+#: src/i18n/messages.ts:530
 msgid "dashboard.viewModel.readinessPreviewable"
 msgstr "Klaar om een voorbeeld te bekijken"
 
@@ -2709,12 +3469,12 @@ msgid "dashboard.support.readyToPublish"
 msgstr "Klaar om te publiceren"
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:156
+#: src/components/release-recovery-panel.tsx:157
 msgid "dashboard.recovery.reasonLabel"
 msgstr "Reden"
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:117
+#: src/components/release-recovery-panel.tsx:118
 msgid "dashboard.recovery.reason"
 msgstr "Reden: {reason}"
 
@@ -2729,17 +3489,37 @@ msgid "dashboard.publishIssue.invalidFlowEdge.message"
 msgstr "Verbind deze actie opnieuw met een stap die nog bestaat."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:905
+#: src/i18n/messages.ts:87
+msgid "recoveryCode.submit"
+msgstr "Account herstellen"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:67
+msgid "account.forgotUsername.recoverAccess"
+msgstr "Accounttoegang herstellen"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:81
+msgid "recoveryCode.code"
+msgstr "Herstelcode"
+
+#. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:158
+msgid "account.recoveryCodes.title"
+msgstr "Herstelcodes"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:973
 msgid "auth.page.recoveryDisabled.title"
 msgstr "Herstel is niet beschikbaar"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:100
+#: src/i18n/messages.ts:168
 msgid "dashboard.common.refresh"
 msgstr "Vernieuwen"
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:80
+#: src/components/release-recovery-panel.tsx:81
 msgid "dashboard.recovery.refresh"
 msgstr "Vernieuwen"
 
@@ -2749,17 +3529,17 @@ msgid "dashboard.analytics.refresh"
 msgstr "Vernieuw de geselecteerde omgeving"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:374
+#: src/i18n/messages.ts:442
 msgid "dashboard.viewModel.registeredDesignTokens"
 msgstr "Geregistreerde ontwerppenningen"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:57
+#: src/i18n/messages.ts:120
 msgid "dashboard.page.releases.title"
 msgstr "Vrijgavedetails"
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:81
+#: src/components/release-recovery-panel.tsx:82
 msgid "dashboard.recovery.environment"
 msgstr "Omgeving vrijgeven"
 
@@ -2769,17 +3549,17 @@ msgid "dashboard.analytics.fact.releaseHealth"
 msgstr "Laat gezondheid los"
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:74
+#: src/components/release-recovery-panel.tsx:75
 msgid "dashboard.recovery.title"
 msgstr "Releasegeschiedenis en herstel"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:834
+#: src/i18n/messages.ts:902
 msgid "dashboard.action.releaseHistoryMissing"
 msgstr "Releasegeschiedenis is niet beschikbaar voor dit document."
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:58
+#: src/components/release-recovery-panel.tsx:59
 msgid "dashboard.recovery.historyUnavailable"
 msgstr "Releasegeschiedenis is tijdelijk niet beschikbaar voor deze omgeving."
 
@@ -2794,12 +3574,12 @@ msgid "dashboard.recovery.failure.unknown"
 msgstr "Releaseherstel kan niet worden voltooid."
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:70
+#: src/components/release-recovery-panel.tsx:71
 msgid "dashboard.recovery.regionLabel"
 msgstr "Releaseherstel voor {document}"
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:183
+#: src/components/release-recovery-panel.tsx:184
 msgid "dashboard.recovery.unpublishedAt"
 msgstr "Vrijgave ongepubliceerd bij generatie {generation}.{replay}"
 
@@ -2814,6 +3594,26 @@ msgid "dashboard.navigation.releases"
 msgstr "Releases"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages.ts:1136
+msgid "auth.form.rememberMe"
+msgstr "Onthoud mij"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:86
+msgid "recoveryCode.rememberMe"
+msgstr "Dit apparaat onthouden"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1082
+msgid "workspaceMembers.remove"
+msgstr "Verwijderen"
+
+#. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:104
+msgid "account.methods.remove"
+msgstr "Verwijderen"
+
+#. js-lingui-explicit-id
 #: src/components/dashboard-settings-views.tsx:55
 msgid "dashboard.environments.removeApproval"
 msgstr "Goedkeuring verwijderen"
@@ -2824,7 +3624,7 @@ msgid "dashboard.publishIssue.unsupportedTourBlock.message"
 msgstr "Verwijder of wijzig het niet-ondersteunde blok voordat u het publiceert."
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:128
+#: src/components/release-recovery-panel.tsx:129
 msgid "dashboard.recovery.renderer"
 msgstr "Renderer"
 
@@ -2834,19 +3634,69 @@ msgid "dashboard.brand.preview.rendering"
 msgstr "Renderrondleiding…"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:930
+#: src/components/enterprise-identity-settings.tsx:191
+msgid "enterpriseIdentity.requestCreated"
+msgstr "Verzoek {requestId} verloopt om {expiresAt}. Geef de ID aan een andere workspace-eigenaar."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1194
+msgid "auth.form.requestAccepted"
+msgstr "Aanvraag geaccepteerd"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1214
+msgid "auth.form.requestAgainIn"
+msgstr "Opnieuw aanvragen over {seconds} s"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:998
 msgid "auth.page.requestAnotherLink"
 msgstr "Vraag nog een link aan"
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:200
+#: src/i18n/messages.ts:1210
+msgid "auth.form.requestAnotherLink"
+msgstr "Nog een link aanvragen"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1264
+msgid "auth.form.requestAnotherVerification"
+msgstr "Nog een verificatielink aanvragen"
+
+#. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:187
+msgid "enterpriseIdentity.requestBreakGlass"
+msgstr "Break-glassgoedkeuring aanvragen"
+
+#. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:195
+msgid "enterpriseIdentity.approvalRequestId"
+msgstr "Verzoek-ID van een andere eigenaar"
+
+#. js-lingui-explicit-id
+#: src/components/release-recovery-panel.tsx:201
 msgid "dashboard.recovery.requestedTarget"
 msgstr "Gevraagd doel: {target}"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1206
+msgid "auth.form.requestingSecureLink"
+msgstr "Veilige link wordt aangevraagd"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1268
+msgid "auth.form.requestingVerification"
+msgstr "Nog een verificatielink wordt aangevraagd"
 
 #. js-lingui-explicit-id
 #: src/components/dashboard-settings-views.tsx:59
 msgid "dashboard.environments.requireApproval"
 msgstr "Goedkeuring vereisen"
+
+#. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:109
+msgid "enterpriseIdentity.requireSso"
+msgstr "Enterprise-SSO verplichten"
 
 #. js-lingui-explicit-id
 #: src/components/environment-policy-editor.tsx:51
@@ -2859,7 +3709,12 @@ msgid "dashboard.environmentPolicy.requireVerification"
 msgstr "Bronverificatie vereisen"
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:166
+#: src/i18n/messages.ts:1260
+msgid "auth.form.restartVerification"
+msgstr "Accountverificatie opnieuw starten"
+
+#. js-lingui-explicit-id
+#: src/components/release-recovery-panel.tsx:167
 msgid "dashboard.recovery.retryExact"
 msgstr "Probeer het exacte verzoek opnieuw"
 
@@ -2869,12 +3724,22 @@ msgid "dashboard.analytics.retry"
 msgstr "Probeer de geselecteerde omgeving opnieuw"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:941
+#: src/i18n/messages.ts:1009
 msgid "auth.page.returnToAccountCreation"
 msgstr "Terug naar het aanmaken van een account"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:913
+#: src/i18n/messages.ts:49
+msgid "account.emailChange.returnToSecurity"
+msgstr "Terug naar accountbeveiliging"
+
+#. js-lingui-explicit-id
+#: src/components/email-change-verification.tsx:28
+msgid "account.emailChange.account"
+msgstr "Terug naar accountbeveiliging"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:981
 msgid "auth.page.returnToSignIn"
 msgstr "Keer terug om in te loggen"
 
@@ -2884,7 +3749,7 @@ msgid "dashboard.activation.returning"
 msgstr "U keert terug naar de toepassing…"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:105
+#: src/i18n/messages.ts:173
 msgid "dashboard.viewModel.status.review"
 msgstr "Beoordeling"
 
@@ -2904,7 +3769,7 @@ msgid "dashboard.publishIssue.targetNeedsReview.message"
 msgstr "Controleer en verifieer deze plaatsing voordat u deze publiceert."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:122
+#: src/i18n/messages.ts:190
 msgid "dashboard.viewModel.reviewBlockers"
 msgstr "Reviewblokkers"
 
@@ -2914,37 +3779,37 @@ msgid "dashboard.brand.panel.reviewOpen"
 msgstr "Recensie geopend"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:150
+#: src/i18n/messages.ts:218
 msgid "dashboard.viewModel.reviewProductionUpdate"
 msgstr "Bekijk de productie-update"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:164
+#: src/i18n/messages.ts:232
 msgid "dashboard.viewModel.reviewPromotion"
 msgstr "Promotie beoordelen"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:416
+#: src/i18n/messages.ts:484
 msgid "dashboard.viewModel.reviewRecommended"
 msgstr "Beoordeling aanbevolen"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:90
+#: src/i18n/messages.ts:158
 msgid "dashboard.common.reviewRelease"
 msgstr "Recensie-uitgave"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:145
+#: src/i18n/messages.ts:213
 msgid "dashboard.viewModel.reviewRelease"
 msgstr "Recensie-uitgave"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:58
+#: src/i18n/messages.ts:121
 msgid "dashboard.page.releases.description"
 msgstr "Bekijk de omgevingsstatus die Lodariq momenteel kan bewijzen voor elke ervaring."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:168
+#: src/i18n/messages.ts:236
 msgid "dashboard.viewModel.reviewVerification"
 msgstr "Controleer de verificatie"
 
@@ -2954,12 +3819,27 @@ msgid "dashboard.brand.preview.sampleParagraph"
 msgstr "Bekijk wat klaar is om te worden geënsceneerd zonder het product te verlaten."
 
 #. js-lingui-explicit-id
+#: src/i18n/messages.ts:1081
+msgid "workspaceMembers.revoke"
+msgstr "Intrekken"
+
+#. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:94
+msgid "account.sessions.revoke"
+msgstr "Intrekken"
+
+#. js-lingui-explicit-id
 #: src/components/sdk-snippet-panel.tsx:99
 msgid "dashboard.installation.revoke"
 msgstr "Installatie intrekken"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:118
+#: src/components/account-security-settings.tsx:169
+msgid "account.recoveryCodes.revoke"
+msgstr "Herstelcodes intrekken"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:186
 msgid "dashboard.viewModel.revoked"
 msgstr "Ingetrokken"
 
@@ -2974,22 +3854,32 @@ msgid "dashboard.installation.revoking"
 msgstr "Intrekken…"
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:53
+#: src/i18n/messages.ts:1067
+msgid "workspaceMembers.role"
+msgstr "Rol"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1057
+msgid "workspaceMembers.membersDescription"
+msgstr "Rollen worden bij elke aanvraag afgedwongen op basis van het actuele lidmaatschap op de server."
+
+#. js-lingui-explicit-id
+#: src/components/release-recovery-panel.tsx:54
 msgid "dashboard.recovery.action.rollback"
 msgstr "Rol terug"
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:167
+#: src/components/release-recovery-panel.tsx:168
 msgid "dashboard.recovery.rollbackPublication"
 msgstr "Publicatie terugdraaien"
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:87
+#: src/components/release-recovery-panel.tsx:88
 msgid "dashboard.recovery.rollbackEllipsis"
 msgstr "Terugdraaien…"
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:75
+#: src/components/release-recovery-panel.tsx:76
 msgid "dashboard.recovery.description"
 msgstr "Rollback hergebruikt een door de server gecontroleerd onveranderlijk artefact. Unpubliceren deactiveert alleen de huidige aanwijzer; geschiedenis blijft beschikbaar."
 
@@ -2999,12 +3889,12 @@ msgid "dashboard.environmentPolicy.rollbackRoles"
 msgstr "Rollback-rollen"
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:190
+#: src/components/release-recovery-panel.tsx:191
 msgid "dashboard.recovery.rolledBackAction"
 msgstr "Teruggedraaid"
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:179
+#: src/components/release-recovery-panel.tsx:180
 msgid "dashboard.recovery.rolledBack"
 msgstr "Teruggedraaid naar {publication} bij generatie {generation}.{replay}"
 
@@ -3029,12 +3919,12 @@ msgid "dashboard.installation.runtimeOnly"
 msgstr "Alleen looptijd"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:326
+#: src/i18n/messages.ts:394
 msgid "dashboard.viewModel.safeFallback"
 msgstr "Veilige terugval"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:322
+#: src/i18n/messages.ts:390
 msgid "dashboard.viewModel.semanticDefaultsActive"
 msgstr "Veilige semantische standaardwaarden zijn actief totdat een merkthema voor de werkruimte wordt goedgekeurd."
 
@@ -3044,9 +3934,19 @@ msgid "dashboard.brand.review.sameContent"
 msgstr "Dezelfde inhoud · alleen themawijziging"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:99
+#: src/i18n/messages.ts:167
 msgid "dashboard.common.save"
 msgstr "Opslaan"
+
+#. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:159
+msgid "account.recoveryCodes.help"
+msgstr "Bewaar alle tien codes offline. Een nieuwe set trekt de vorige in."
+
+#. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:121
+msgid "enterpriseIdentity.savePolicy"
+msgstr "Authenticatiebeleid opslaan"
 
 #. js-lingui-explicit-id
 #: src/components/brand-system/brand-theme-editor.tsx:47
@@ -3054,7 +3954,12 @@ msgid "dashboard.brand.editor.save"
 msgstr "Concept opslaan"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1004
+#: src/components/enterprise-identity-settings.tsx:156
+msgid "enterpriseIdentity.saveMapping"
+msgstr "Groepstoewijzing opslaan"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1242
 msgid "auth.form.savePassword"
 msgstr "Wachtwoord opslaan en doorgaan"
 
@@ -3062,6 +3967,11 @@ msgstr "Wachtwoord opslaan en doorgaan"
 #: src/components/environment-policy-editor.tsx:88
 msgid "dashboard.environmentPolicy.save"
 msgstr "Beleid opslaan"
+
+#. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:69
+msgid "account.username.save"
+msgstr "Gebruikersnaam opslaan"
 
 #. js-lingui-explicit-id
 #: src/components/brand-tour-comparison.tsx:40
@@ -3079,6 +3989,11 @@ msgid "dashboard.releases.emptyDescription"
 msgstr "Opgeslagen ervaringen verschijnen hier met de publicatierecords die de huidige API kan bewijzen."
 
 #. js-lingui-explicit-id
+#: src/i18n/messages.ts:1246
+msgid "auth.form.savingPassword"
+msgstr "Wachtwoord wordt opgeslagen"
+
+#. js-lingui-explicit-id
 #: src/components/environment-policy-editor.tsx:87
 msgid "dashboard.environmentPolicy.saving"
 msgstr "Opslaan…"
@@ -3087,6 +4002,21 @@ msgstr "Opslaan…"
 #: src/components/brand-system/brand-theme-editor.tsx:46
 msgid "dashboard.brand.editor.saving"
 msgstr "Opslaan…"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1114
+msgid "workspaceMembers.scheduleDeletion"
+msgstr "Verwijdering van werkruimte plannen"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1106
+msgid "workspaceMembers.deletionDescription"
+msgstr "Door verwijdering te plannen wordt actieve toegang ingetrokken en begint de bewaartermijn."
+
+#. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:157
+msgid "enterpriseIdentity.scim"
+msgstr "SCIM-provisioning"
 
 #. js-lingui-explicit-id
 #: src/components/brand-system/brand-approval-review.tsx:59
@@ -3104,7 +4034,7 @@ msgid "dashboard.analytics.fact.sdkErrors"
 msgstr "SDK-fouten"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:744
+#: src/i18n/messages.ts:812
 msgid "dashboard.action.installationNotFound"
 msgstr "SDK-installatie is niet gevonden."
 
@@ -3119,9 +4049,14 @@ msgid "dashboard.documents.search"
 msgstr "Zoek ervaringen"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:862
+#: src/i18n/messages.ts:930
 msgid "auth.shell.secureAccess"
 msgstr "Veilige, directe toegang tot Lodariq"
+
+#. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:121
+msgid "account.saved"
+msgstr "Beveiligingsinstelling opgeslagen."
 
 #. js-lingui-explicit-id
 #: src/components/brand-system/brand-approval-review.tsx:19
@@ -3144,7 +4079,7 @@ msgid "dashboard.support.selectedExperience"
 msgstr "Geselecteerde ervaring"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:378
+#: src/i18n/messages.ts:446
 msgid "dashboard.viewModel.selectedProductElement"
 msgstr "Geselecteerd productelement"
 
@@ -3154,9 +4089,19 @@ msgid "dashboard.brand.source.roles"
 msgstr "Semantische merkrollen"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:355
+#: src/i18n/messages.ts:423
 msgid "dashboard.viewModel.tokensSavedAsDraft"
 msgstr "Semantische tokens worden opgeslagen als concept en kunnen live releases niet wijzigen."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1068
+msgid "workspaceMembers.sendInvitation"
+msgstr "Uitnodiging verzenden"
+
+#. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:82
+msgid "account.email.begin"
+msgstr "Verificatielinks verzenden"
 
 #. js-lingui-explicit-id
 #: src/components/environment-policy-editor.tsx:79
@@ -3169,29 +4114,49 @@ msgid "dashboard.environmentPolicy.separateVerifier"
 msgstr "Aparte verificateur"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:957
+#: src/i18n/messages.ts:1172
 msgid "auth.form.setOrResetPassword"
 msgstr "Wachtwoord instellen of opnieuw instellen"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:914
+#: src/i18n/messages.ts:982
 msgid "auth.page.recovery.title"
 msgstr "Stel uw wachtwoord in of reset het"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:68
+#: src/i18n/messages.ts:131
 msgid "dashboard.page.brandSystem.description"
 msgstr "Geef vorm aan de klantervaring met veilige tokens en keur vervolgens elke versie goed."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:975
+#: src/i18n/messages.ts:1146
+msgid "auth.form.showPassword"
+msgstr "Wachtwoord tonen"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1191
 msgid "auth.form.signIn"
 msgstr "Log in"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:564
+#: src/components/email-change-verification.tsx:29
+msgid "account.emailChange.signIn"
+msgstr "Aanmelden"
+
+#. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:143
+msgid "account.signInAgain"
+msgstr "Opnieuw aanmelden"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:632
 msgid "dashboard.server.authenticationRequired"
 msgstr "Meld u opnieuw aan om door te gaan."
+
+#. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:55
+msgid "enterpriseIdentity.reauthenticate"
+msgstr "Meld u opnieuw aan met een passkey of een even sterke methode voordat u deze instelling wijzigt."
 
 #. js-lingui-explicit-id
 #: src/components/authoring-activation-popup.tsx:53
@@ -3199,14 +4164,29 @@ msgid "dashboard.activation.signInDescription"
 msgstr "Meld u hier aan. In dit venster wordt hetzelfde beveiligde auteursverzoek automatisch hervat."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:904
+#: src/i18n/messages.ts:1041
+msgid "workspaceInvitation.signInNewTab"
+msgstr "Aanmelden in een nieuw tabblad"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:972
 msgid "auth.page.signInInstead"
 msgstr "Log in plaats daarvan in"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:519
+#: src/i18n/messages.ts:587
 msgid "dashboard.entry.signInTitle"
 msgstr "Meld u aan bij Lodariq"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:63
+msgid "account.forgotUsername.signInWithEmail"
+msgstr "Aanmelden met e-mail"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1037
+msgid "workspaceInvitation.signInRequired"
+msgstr "Meld je aan met het uitgenodigde e-mailadres, keer terug naar dit tabblad en probeer het opnieuw."
 
 #. js-lingui-explicit-id
 #: src/components/authoring-activation-popup.tsx:52
@@ -3214,22 +4194,42 @@ msgid "dashboard.activation.signInTitle"
 msgstr "Meld u aan en ga verder"
 
 #. js-lingui-explicit-id
-#: src/components/dashboard-auth-controls.tsx:51
+#: src/components/dashboard-auth-controls.tsx:53
 msgid "dashboard.account.signOut"
 msgstr "Meld u af"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:891
+#: src/components/account-security-settings.tsx:95
+msgid "account.sessions.signOutEverywhere"
+msgstr "Overal afmelden"
+
+#. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:58
+msgid "account.profile.title"
+msgstr "Aanmeldidentificatie"
+
+#. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:99
+msgid "account.methods.title"
+msgstr "Aanmeldmethoden"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:959
 msgid "auth.page.signUpDisabled.title"
 msgstr "Aanmelden is hier niet mogelijk"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:967
+#: src/i18n/messages.ts:1182
 msgid "auth.form.signingIn"
 msgstr "Aanmelden"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:719
+#: src/components/account-security-settings.tsx:184
+msgid "account.passkeys.singleDevice"
+msgstr "Eén apparaat"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:787
 msgid "dashboard.action.siteLabelRequired"
 msgstr "Sitelabel is vereist."
 
@@ -3244,22 +4244,32 @@ msgid "dashboard.brand.editor.radius.soft"
 msgstr "Zacht"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:596
+#: src/i18n/messages.ts:664
 msgid "dashboard.server.partialData"
 msgstr "Sommige werkruimtegegevens zijn tijdelijk niet beschikbaar. Beschikbare secties blijven bruikbaar."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1044
+#: src/i18n/messages.ts:1314
 msgid "auth.form.soon"
 msgstr "binnenkort"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:342
+#: src/i18n/messages.ts:410
 msgid "dashboard.viewModel.sourceRevision"
 msgstr "Bronrevisie {revision}"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:88
+#: src/components/enterprise-identity-settings.tsx:132
+msgid "enterpriseIdentity.connection"
+msgstr "SSO-verbinding"
+
+#. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:63
+msgid "enterpriseIdentity.connections"
+msgstr "SSO-verbindingen"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:156
 msgid "dashboard.common.staging"
 msgstr "Staging"
 
@@ -3284,27 +4294,27 @@ msgid "dashboard.environmentPolicy.staging"
 msgstr "Staging"
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:66
+#: src/components/release-recovery-panel.tsx:67
 msgid "dashboard.recovery.noEnvironments"
 msgstr "Staging- en productiereleaseomgevingen zijn niet geconfigureerd."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:256
+#: src/i18n/messages.ts:324
 msgid "dashboard.viewModel.stagingEvidence"
 msgstr "Bewijsmateriaal in scène zetten"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:160
+#: src/i18n/messages.ts:228
 msgid "dashboard.viewModel.stagingPublished"
 msgstr "Staging gepubliceerd"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:180
+#: src/i18n/messages.ts:248
 msgid "dashboard.viewModel.stagingUpdate"
 msgstr "Staging-update"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:159
+#: src/i18n/messages.ts:227
 msgid "dashboard.viewModel.stagingVerified"
 msgstr "Staging geverifieerd"
 
@@ -3319,7 +4329,7 @@ msgid "dashboard.documents.emptyDescription"
 msgstr "Start een rondleiding in de maker, waarna deze hier verschijnt ter beoordeling en publicatie."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:878
+#: src/i18n/messages.ts:946
 msgid "auth.page.signUp.eyebrow"
 msgstr "Begin met schrijven"
 
@@ -3339,7 +4349,7 @@ msgid "dashboard.authoringLaunch.stayInProduct"
 msgstr "Blijf in het product terwijl u creëert"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:23
+#: src/i18n/messages.ts:24
 msgid "dashboard.navigation.supportLabel"
 msgstr "Ondersteuning"
 
@@ -3349,7 +4359,7 @@ msgid "dashboard.support.eyebrow"
 msgstr "Ondersteuning"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:336
+#: src/i18n/messages.ts:404
 msgid "dashboard.viewModel.surface"
 msgstr "Oppervlak"
 
@@ -3359,17 +4369,17 @@ msgid "dashboard.brand.editor.surface"
 msgstr "Oppervlak"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:114
+#: src/i18n/messages.ts:182
 msgid "dashboard.viewModel.type.survey"
 msgstr "Enquête"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:33
+#: src/i18n/messages.ts:34
 msgid "dashboard.theme.switchToDark"
 msgstr "Schakel over naar het donkere thema"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:32
+#: src/i18n/messages.ts:33
 msgid "dashboard.theme.switchToLight"
 msgstr "Schakel over naar lichtthema"
 
@@ -3379,12 +4389,17 @@ msgid "dashboard.installation.sync"
 msgstr "Synchroniseer vertrouwde bronnen"
 
 #. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:182
+msgid "account.passkeys.synced"
+msgstr "Gesynchroniseerde passkey"
+
+#. js-lingui-explicit-id
 #: src/components/sdk-snippet-panel.tsx:96
 msgid "dashboard.installation.syncing"
 msgstr "Synchroniseren…"
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:122
+#: src/components/release-recovery-panel.tsx:123
 msgid "dashboard.recovery.system"
 msgstr "Systeem"
 
@@ -3419,12 +4434,12 @@ msgid "dashboard.analytics.targetResult"
 msgstr "Doelresultaat"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:456
+#: src/i18n/messages.ts:524
 msgid "dashboard.viewModel.teamUpdate"
 msgstr "Teamupdate"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:337
+#: src/i18n/messages.ts:405
 msgid "dashboard.viewModel.text"
 msgstr "Tekst"
 
@@ -3444,47 +4459,67 @@ msgid "dashboard.analytics.rowBound"
 msgstr "De API retourneerde de weergavegrens van 1000 rijen. Er kunnen extra release-scoped rijen bestaan; niets buiten deze grens wordt afgeleid."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:635
+#: src/components/enterprise-identity-settings.tsx:51
+msgid "enterpriseIdentity.mutationFailed"
+msgstr "De wijziging van enterprise-identiteit kon niet worden voltooid."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:703
 msgid "dashboard.action.environmentPolicyChanged"
 msgstr "Het omgevingsbeleid is gewijzigd of conflicteert met de releasepijplijn. Vernieuw en probeer het opnieuw."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:627
+#: src/i18n/messages.ts:695
 msgid "dashboard.action.environmentPolicyInvalid"
 msgstr "Het omgevingsbeleid is ongeldig."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:172
+#: src/i18n/messages.ts:240
 msgid "dashboard.viewModel.stagedArtifactReady"
 msgstr "Het exacte geënsceneerde artefact wordt geverifieerd en klaar voor doelbewuste productiepromotie."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:707
+#: src/i18n/messages.ts:775
 msgid "dashboard.action.experienceBrandUpdated"
 msgstr "De ervaring zal de goedgekeurde merkversie gebruiken in het volgende gecompileerde artefact."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:731
+#: src/i18n/messages.ts:93
+msgid "recoveryCode.unavailable"
+msgstr "De identificatie of herstelcode is onjuist."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:799
 msgid "dashboard.action.originsNotSynced"
 msgstr "De installatie is gemaakt, maar vertrouwde bronnen kunnen niet worden gesynchroniseerd. Probeer de oorspronkelijke synchronisatie opnieuw voordat u deze gebruikt."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:154
+#: src/i18n/messages.ts:222
 msgid "dashboard.viewModel.productionEarlierHash"
 msgstr "Het nieuwste productiepublicatierecord gebruikt een eerdere inhoudshash dan het opgeslagen concept."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:185
+#: src/i18n/messages.ts:253
 msgid "dashboard.viewModel.stagingEarlierHash"
 msgstr "Het nieuwste staging-publicatierecord gebruikt een eerdere inhoudshash dan het opgeslagen concept."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1043
+#: src/i18n/messages.ts:1313
 msgid "auth.form.linkExpires"
 msgstr "De link verloopt {expiry}."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1053
+#: src/i18n/messages.ts:1234
+msgid "auth.form.passwordLinkUnavailableHelp"
+msgstr "De link is mogelijk verlopen, al gebruikt of vervangen door een nieuwere aanvraag. Vraag een nieuwe link aan en gebruik alleen de nieuwste e-mail."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1255
+msgid "auth.form.verificationLinkUnavailableHelp"
+msgstr "De link is mogelijk verlopen, al gebruikt of vervangen door een nieuwere aanvraag. Vraag nog een link aan of start de accountaanmaak opnieuw."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1327
 msgid "auth.error.invalidPasswordLink"
 msgstr "De wachtwoordlink is ongeldig of verlopen."
 
@@ -3494,12 +4529,12 @@ msgid "dashboard.support.customerVersionDescription"
 msgstr "De voorbereide versie die klanten op uw site zien."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:603
+#: src/i18n/messages.ts:671
 msgid "dashboard.action.productionApprovalInvalid"
 msgstr "Het productiegoedkeuringsbeleid is ongeldig."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:615
+#: src/i18n/messages.ts:683
 msgid "dashboard.action.productionChanged"
 msgstr "De productieomgeving is in een andere sessie gewijzigd. Vernieuw en probeer het opnieuw."
 
@@ -3509,12 +4544,12 @@ msgid "dashboard.installation.publicIdSafety"
 msgstr "De openbare installatie-ID is herroepbaar en bevat geen werkruimtegeheim, omgevingstoken, auteurssessie of accountreferenties."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:576
+#: src/i18n/messages.ts:644
 msgid "dashboard.server.conflict"
 msgstr "Het record is gewijzigd in een andere sessie. Vernieuw en probeer het opnieuw."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:829
+#: src/i18n/messages.ts:897
 msgid "dashboard.action.releaseRecoveryUncertain"
 msgstr "Het herstelresultaat is onzeker. Probeer het exacte verzoek opnieuw of vernieuw de releasegeschiedenis."
 
@@ -3524,27 +4559,27 @@ msgid "dashboard.recovery.failure.documentNotFound"
 msgstr "Het vrijgavedocument kon niet worden gevonden."
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:62
+#: src/components/release-recovery-panel.tsx:63
 msgid "dashboard.recovery.requestFailed"
 msgstr "Het release-herstelverzoek kan niet worden voltooid."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:821
+#: src/i18n/messages.ts:889
 msgid "dashboard.action.releaseRecoveryInvalid"
 msgstr "Het verzoek om vrijgaveherstel is ongeldig."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:556
+#: src/i18n/messages.ts:624
 msgid "dashboard.server.requestRejected"
 msgstr "Het verzoek kon niet worden aanvaard."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:560
+#: src/i18n/messages.ts:628
 msgid "dashboard.server.invalidRequest"
 msgstr "Het verzoek was ongeldig."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:572
+#: src/i18n/messages.ts:640
 msgid "dashboard.server.notFound"
 msgstr "Het opgevraagde werkruimterecord is niet gevonden."
 
@@ -3554,17 +4589,17 @@ msgid "dashboard.brand.controller.previewFailed"
 msgstr "Het runtimevoorbeeld kan niet worden weergegeven. Sluit deze recensie en probeer het opnieuw."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:198
+#: src/i18n/messages.ts:266
 msgid "dashboard.viewModel.noStagingRecordYet"
 msgstr "Het opgeslagen concept heeft nog geen faseringspublicatierecord."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:932
+#: src/i18n/messages.ts:1000
 msgid "auth.page.newPassword.description"
 msgstr "De geheime code wordt uit uw browser verwijderd voordat het formulier verschijnt. Na het opslaan bent u aangemeld."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:801
+#: src/i18n/messages.ts:869
 msgid "dashboard.action.analyticsEnvironmentUnavailable"
 msgstr "De geselecteerde analyseomgeving is niet beschikbaar."
 
@@ -3579,12 +4614,12 @@ msgid "dashboard.recovery.failure.artifactIncompatible"
 msgstr "De geselecteerde publicatie wordt niet ondersteund door de huidige runtime."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:176
+#: src/i18n/messages.ts:244
 msgid "dashboard.viewModel.stagedArtifactNeedsVerification"
 msgstr "Het geënsceneerde artefact komt overeen met het ontwerp; exacte browserverificatie is nog steeds vereist."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1008
+#: src/i18n/messages.ts:1247
 msgid "auth.form.invalidVerificationLink"
 msgstr "De verificatielink is ongeldig of verlopen."
 
@@ -3594,54 +4629,69 @@ msgid "dashboard.support.editableBackupDescription"
 msgstr "De versie-ondersteuning kan worden gebruikt om het bewerken te herstellen."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:540
+#: src/i18n/messages.ts:1101
+msgid "workspaceMembers.operationFailed"
+msgstr "De wijziging aan de werkruimte kon niet worden voltooid."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:608
 msgid "dashboard.error.title"
 msgstr "Het laden van de werkruimte is niet voltooid"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:533
+#: src/i18n/messages.ts:601
 msgid "dashboard.entry.workspaceUnavailable"
 msgstr "De werkruimte is tijdelijk niet beschikbaar."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:584
+#: src/i18n/messages.ts:652
 msgid "dashboard.server.unavailable"
 msgstr "De werkruimte is tijdelijk niet beschikbaar."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:588
+#: src/i18n/messages.ts:656
 msgid "dashboard.server.requestFailed"
 msgstr "Het werkruimteverzoek kon niet worden voltooid."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:592
+#: src/i18n/messages.ts:660
 msgid "dashboard.server.invalidResponse"
 msgstr "Het werkruimteantwoord kon niet worden geverifieerd."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:703
+#: src/i18n/messages.ts:771
 msgid "dashboard.action.themeAcknowledgementInvalid"
 msgstr "Themabevestigingsverzoek is ongeldig."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:678
+#: src/i18n/messages.ts:746
 msgid "dashboard.action.themeApprovalInvalid"
 msgstr "Themagoedkeuringsverzoek is ongeldig."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:665
+#: src/i18n/messages.ts:733
 msgid "dashboard.action.themeIdentityInvalid"
 msgstr "Themanaam of -identificatie is ongeldig."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:346
+#: src/i18n/messages.ts:414
 msgid "dashboard.viewModel.themeRevision"
 msgstr "Thema herziening {revision}"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:669
+#: src/i18n/messages.ts:737
 msgid "dashboard.action.themeValuesInvalid"
 msgstr "Themawaarden zijn ongeldig. Bekijk de gemarkeerde bedieningselementen."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1077
+msgid "workspaceMembers.noPendingInvitations"
+msgstr "Er zijn geen openstaande uitnodigingen."
+
+#. js-lingui-explicit-id
+#: src/components/email-change-verification.tsx:15
+msgid "account.emailChange.recorded"
+msgstr "Dit adres is bevestigd. Open de verificatielink die naar het andere adres is gestuurd om af te ronden."
 
 #. js-lingui-explicit-id
 #: src/components/authoring-activation-popup.tsx:105
@@ -3654,17 +4704,17 @@ msgid "dashboard.activation.requestExpired"
 msgstr "Dit auteursverzoek is niet beschikbaar of verlopen. Keer terug naar het opstartprogramma en probeer het opnieuw."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:775
+#: src/i18n/messages.ts:843
 msgid "dashboard.action.brandChanged"
 msgstr "Dit merkthema is in een andere sessie gewijzigd. Vernieuw de impact ervan voordat u het opnieuw probeert."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:895
+#: src/i18n/messages.ts:963
 msgid "auth.page.signUpDisabled.description"
 msgstr "Deze implementatie accepteert geen nieuwe accounts. Bestaande makers kunnen doorgaan met hun Lodariq-account."
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:93
+#: src/components/release-recovery-panel.tsx:94
 msgid "dashboard.recovery.noDeployment"
 msgstr "Dit document is niet geïmplementeerd in de geselecteerde omgeving."
 
@@ -3674,12 +4724,27 @@ msgid "dashboard.brand.review.noLinkedDescription"
 msgstr "Door deze eerste goedkeuring ontstaat een herbruikbare merkversie; publiceren blijft een aparte stap."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:922
+#: src/i18n/messages.ts:1045
+msgid "workspaceInvitation.unavailable"
+msgstr "Deze uitnodiging is ongeldig, verlopen, al gebruikt of hoort bij een ander e-mailadres."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:990
 msgid "auth.page.incompleteLink.title"
 msgstr "Deze link is onvolledig"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:997
+#: src/components/email-change-verification.tsx:24
+msgid "account.emailChange.invalid"
+msgstr "Deze link is onvolledig, verlopen, al gebruikt of vervangen."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1230
+msgid "auth.form.passwordLinkUnavailable"
+msgstr "Deze wachtwoordlink kan niet worden gebruikt"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1226
 msgid "auth.form.incompletePasswordLink"
 msgstr "Deze wachtwoordlink is onvolledig. Vraag een nieuwe link aan om door te gaan."
 
@@ -3699,7 +4764,17 @@ msgid "dashboard.recovery.failure.environmentNotConfigured"
 msgstr "Deze releaseomgeving is niet geconfigureerd."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1018
+#: src/components/account-security-settings.tsx:139
+msgid "account.reauthenticate"
+msgstr "Voor deze gevoelige actie moet u recent zijn aangemeld. Meld u opnieuw aan en kom hier terug."
+
+#. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:174
+msgid "account.recoveryCodes.unconfirmed"
+msgstr "Deze set is pas actief nadat je één opgeslagen code bevestigt."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1283
 msgid "auth.form.moment"
 msgstr "Dit duurt maar even."
 
@@ -3709,17 +4784,32 @@ msgid "dashboard.brand.preview.renderFailed"
 msgstr "Dit Tourvoorbeeld kan niet worden weergegeven."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1049
+#: src/i18n/messages.ts:1251
+msgid "auth.form.verificationLinkUnavailable"
+msgstr "Deze verificatielink kan niet worden gebruikt"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1288
+msgid "auth.form.incompleteVerificationLink"
+msgstr "Deze verificatielink is onvolledig. Start de accountverificatie opnieuw om een nieuwe link aan te vragen."
+
+#. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:158
+msgid "enterpriseIdentity.scimHelp"
+msgstr "Tokens worden één keer getoond. Deprovisioning verwijdert het lidmaatschap en trekt sessies en authoring-grants onmiddellijk in."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1323
 msgid "auth.error.rateLimited"
 msgstr "Te veel pogingen. Wacht even en probeer het opnieuw."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:580
+#: src/i18n/messages.ts:648
 msgid "dashboard.server.rateLimited"
 msgstr "Te veel verzoeken. Wacht even en probeer het opnieuw."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:108
+#: src/i18n/messages.ts:176
 msgid "dashboard.viewModel.type.tour"
 msgstr "Rondleiding"
 
@@ -3764,6 +4854,11 @@ msgid "dashboard.analytics.fact.tourStarts"
 msgstr "Rondleiding begint"
 
 #. js-lingui-explicit-id
+#: src/i18n/messages.ts:1083
+msgid "workspaceMembers.transferOwnership"
+msgstr "Eigenaarschap overdragen"
+
+#. js-lingui-explicit-id
 #: src/components/dashboard-settings-views.tsx:25
 msgid "dashboard.environments.trustedOrigins"
 msgstr "Vertrouwde oorsprong"
@@ -3774,82 +4869,107 @@ msgid "dashboard.installation.trustedOrigins"
 msgstr "Vertrouwde oorsprong"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:524
+#: src/i18n/messages.ts:592
 msgid "dashboard.entry.retryAction"
 msgstr "Probeer het opnieuw"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:548
+#: src/i18n/messages.ts:616
 msgid "dashboard.error.retry"
 msgstr "Probeer het opnieuw"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:338
+#: src/components/account-security-settings.tsx:122
+msgid "account.email.queued"
+msgstr "Er zijn twee privéverificatielinks in de wachtrij geplaatst. Open beide voordat ze verlopen."
+
+#. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:142
+msgid "enterpriseIdentity.recordName"
+msgstr "TXT-recordnaam"
+
+#. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:143
+msgid "enterpriseIdentity.recordValue"
+msgstr "TXT-recordwaarde"
+
+#. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:118
+msgid "account.delete.confirmation"
+msgstr "Typ DELETE"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1110
+msgid "workspaceMembers.deletionConfirmation"
+msgstr "Typ de werkruimte-ID om te bevestigen: {workspaceId}"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:406
 msgid "dashboard.viewModel.typography"
 msgstr "Typografie"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:687
+#: src/i18n/messages.ts:755
 msgid "dashboard.action.approveBrandFailed"
 msgstr "Kan deze merkversie niet goedkeuren."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:652
+#: src/i18n/messages.ts:720
 msgid "dashboard.action.createBrandFailed"
 msgstr "Kan het merksysteem niet maken."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:723
+#: src/i18n/messages.ts:791
 msgid "dashboard.action.createTokenFailed"
 msgstr "Kan token niet aanmaken."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:661
+#: src/i18n/messages.ts:729
 msgid "dashboard.action.loadBrandImpactFailed"
 msgstr "Kan merkimpact niet laden."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:846
+#: src/i18n/messages.ts:914
 msgid "dashboard.action.releaseHistoryUnavailable"
 msgstr "Kan de volledige releasegeschiedenis niet laden."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:760
+#: src/i18n/messages.ts:828
 msgid "dashboard.action.loadSupportFailed"
 msgstr "Kan ondersteuningsgegevens niet laden."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:699
+#: src/i18n/messages.ts:767
 msgid "dashboard.action.setWorkspaceDefaultFailed"
 msgstr "Kan dit niet als standaardwerkruimte instellen."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:736
+#: src/i18n/messages.ts:804
 msgid "dashboard.action.prepareInstallationFailed"
 msgstr "Kan de SDK-installatie niet voorbereiden."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:752
+#: src/i18n/messages.ts:820
 msgid "dashboard.action.revokeInstallationFailed"
 msgstr "Kan de SDK-installatie niet intrekken."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:771
+#: src/i18n/messages.ts:839
 msgid "dashboard.action.revokeTokenFailed"
 msgstr "Kan token niet intrekken."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:674
+#: src/i18n/messages.ts:742
 msgid "dashboard.action.saveBrandDraftFailed"
 msgstr "Kan dit merkconcept niet opslaan."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:748
+#: src/i18n/messages.ts:816
 msgid "dashboard.action.syncOriginsFailed"
 msgstr "Kan vertrouwde bronnen niet synchroniseren."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:623
+#: src/i18n/messages.ts:691
 msgid "dashboard.action.updateReleaseApprovalFailed"
 msgstr "Kan releasegoedkeuring niet updaten."
 
@@ -3859,7 +4979,7 @@ msgid "dashboard.environments.unableToUpdateApproval"
 msgstr "Kan releasegoedkeuring niet updaten."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:644
+#: src/i18n/messages.ts:712
 msgid "dashboard.action.updateEnvironmentPolicyFailed"
 msgstr "Kan het omgevingsbeleid niet bijwerken."
 
@@ -3869,7 +4989,7 @@ msgid "dashboard.environmentPolicy.unableToUpdate"
 msgstr "Kan het omgevingsbeleid niet bijwerken."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:711
+#: src/i18n/messages.ts:779
 msgid "dashboard.action.updateExperienceFailed"
 msgstr "Kan deze ervaring niet updaten."
 
@@ -3879,7 +4999,7 @@ msgid "dashboard.brand.review.unchanged"
 msgstr "Onveranderd"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:94
+#: src/i18n/messages.ts:162
 msgid "dashboard.common.unknown"
 msgstr "Onbekend"
 
@@ -3894,17 +5014,17 @@ msgid "dashboard.analytics.unknownEvent"
 msgstr "Onbekende begrensde gebeurtenis"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:501
+#: src/i18n/messages.ts:569
 msgid "dashboard.viewModel.unknownTime"
 msgstr "Onbekende tijd"
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:54
+#: src/components/release-recovery-panel.tsx:55
 msgid "dashboard.recovery.action.unpublish"
 msgstr "Publicatie ongedaan maken"
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:171
+#: src/components/release-recovery-panel.tsx:172
 msgid "dashboard.recovery.unpublishRelease"
 msgstr "Publicatie van de release ongedaan maken"
 
@@ -3914,17 +5034,17 @@ msgid "dashboard.environmentPolicy.unpublishRoles"
 msgstr "Publiceer rollen ongedaan"
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:88
+#: src/components/release-recovery-panel.tsx:89
 msgid "dashboard.recovery.unpublishEllipsis"
 msgstr "Publicatie ongedaan maken…"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:484
+#: src/i18n/messages.ts:552
 msgid "dashboard.viewModel.unpublished"
 msgstr "Niet gepubliceerd"
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:191
+#: src/components/release-recovery-panel.tsx:192
 msgid "dashboard.recovery.unpublished"
 msgstr "Niet gepubliceerd"
 
@@ -3984,7 +5104,7 @@ msgid "dashboard.publishIssue.unresolvedLifecycleHint.message"
 msgstr "Werk de plaatsingsinstellingen bij, zodat het doel betrouwbaar kan worden voorbereid."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:363
+#: src/i18n/messages.ts:431
 msgid "dashboard.viewModel.updatedAt"
 msgstr "Bijgewerkt {date}"
 
@@ -3999,14 +5119,29 @@ msgid "dashboard.environments.updating"
 msgstr "Updaten…"
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:157
+#: src/components/release-recovery-panel.tsx:158
 msgid "dashboard.recovery.reasonHelp"
 msgstr "Gebruik 1–500 tekens zonder spaties."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1002
+#: src/i18n/messages.ts:1240
 msgid "auth.form.passwordLength"
 msgstr "Gebruik 12 tot 128 tekens."
+
+#. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:127
+msgid "account.validation.password"
+msgstr "Gebruik 12–128 tekens en zorg dat beide velden voor het nieuwe wachtwoord overeenkomen."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:75
+msgid "recoveryCode.title"
+msgstr "Een herstelcode gebruiken"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1135
+msgid "auth.form.recoveryCode"
+msgstr "Een herstelcode gebruiken"
 
 #. js-lingui-explicit-id
 #: src/i18n/server-feedback.ts:127
@@ -4014,7 +5149,7 @@ msgid "dashboard.publishIssue.unsafeUrl.message"
 msgstr "Gebruik een HTTPS-URL of een veilig relatief pad."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:987
+#: src/i18n/messages.ts:1204
 msgid "auth.form.useAnotherEmail"
 msgstr "Gebruik een ander e-mailadres"
 
@@ -4024,24 +5159,44 @@ msgid "dashboard.brand.impact.useApproved"
 msgstr "Gebruik goedgekeurde versie"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:78
+#: src/i18n/messages.ts:146
 msgid "dashboard.page.support.description"
 msgstr "Gebruik alleen fallback-ontwerp- en diagnosetools als het pad in het product mislukt."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:926
+#: src/i18n/messages.ts:1133
+msgid "auth.form.passkey"
+msgstr "Passkey gebruiken"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1049
+msgid "workspaceInvitation.incomplete"
+msgstr "Gebruik de volledige uitnodigingslink uit je meest recente Lodariq-e-mail."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:45
+msgid "account.emailChange.invalidDescription"
+msgstr "Gebruik de volledige link uit uw meest recente Lodariq-e-mail."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:994
 msgid "auth.page.incompletePasswordLink.description"
 msgstr "Gebruik de volledige wachtwoordlink uit uw laatste Lodariq-e-mail."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:937
+#: src/i18n/messages.ts:1005
 msgid "auth.page.incompleteVerification.description"
 msgstr "Gebruik de volledige verificatielink uit uw laatste Lodariq-e-mail."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:874
+#: src/i18n/messages.ts:942
 msgid "auth.page.signIn.description"
 msgstr "Gebruik uw Lodariq-account om terug te keren naar uw productwerkruimte."
+
+#. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:64
+msgid "account.username"
+msgstr "Gebruikersnaam"
 
 #. js-lingui-explicit-id
 #: src/components/brand-system/brand-theme-editor.tsx:34
@@ -4049,17 +5204,42 @@ msgid "dashboard.brand.editor.usesLight"
 msgstr "Maakt gebruik van een licht thema"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:222
+#: src/components/enterprise-identity-settings.tsx:95
+msgid "enterpriseIdentity.status.validationRequired"
+msgstr "Validatie vereist"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:290
 msgid "dashboard.viewModel.verified"
 msgstr "Geverifieerd"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:223
+#: src/components/enterprise-identity-settings.tsx:102
+msgid "enterpriseIdentity.status.verified"
+msgstr "Geverifieerd"
+
+#. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:126
+msgid "enterpriseIdentity.domains"
+msgstr "Geverifieerde bedrijfsdomeinen"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:291
 msgid "dashboard.viewModel.verifiedExactArtifactAt"
 msgstr "Geverifieerd exact artefact {date}"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1029
+#: src/components/enterprise-identity-settings.tsx:83
+msgid "enterpriseIdentity.provisioning.jit"
+msgstr "JIT voor geverifieerd domein"
+
+#. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:144
+msgid "enterpriseIdentity.verifyDomain"
+msgstr "DNS-record verifiëren"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1299
 msgid "auth.form.verifyAndContinue"
 msgstr "E-mail verifiëren en doorgaan"
 
@@ -4069,17 +5249,27 @@ msgid "dashboard.publishIssue.unverifiedTarget.message"
 msgstr "Controleer deze plaatsing in de huidige omgeving voordat u deze publiceert."
 
 #. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:157
+msgid "account.passkeys.stepUp"
+msgstr "Verifiëren met passkey"
+
+#. js-lingui-explicit-id
 #: src/components/authoring-activation-popup.tsx:96
 msgid "dashboard.activation.verifying"
 msgstr "De applicatie en werkruimte verifiëren…"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1013
+#: src/components/email-change-verification.tsx:14
+msgid "account.emailChange.verifying"
+msgstr "Dit adres verifiëren…"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1278
 msgid "auth.form.verifyingEmail"
 msgstr "Uw e-mailadres verifiëren"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:372
+#: src/i18n/messages.ts:440
 msgid "dashboard.viewModel.version"
 msgstr "Versie {version}"
 
@@ -4089,7 +5279,7 @@ msgid "dashboard.brand.panel.approvedVersion"
 msgstr "Versie {version} goedgekeurd"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:682
+#: src/i18n/messages.ts:750
 msgid "dashboard.action.versionApproved"
 msgstr "Versie {version} goedgekeurd. Live-artefacten blijven ongewijzigd totdat een ervaring deze expliciet overneemt en publiceert."
 
@@ -4109,27 +5299,47 @@ msgid "dashboard.support.viewDetails"
 msgstr "Bekijk ondersteuningsdetails"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1092
+#: src/i18n/messages.ts:1090
+msgid "workspaceMembers.role.viewer"
+msgstr "Kijker"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1366
 msgid "workspaceSelection.role.viewer"
 msgstr "Lezer"
 
 #. js-lingui-explicit-id
-#: src/components/dashboard-auth-controls.tsx:52
+#: src/components/dashboard-auth-controls.tsx:58
 msgid "dashboard.account.role.viewer"
 msgstr "Kijker"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:525
+#: src/components/enterprise-identity-settings.tsx:153
+msgid "enterpriseIdentity.role.viewer"
+msgstr "Viewer"
+
+#. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:85
+msgid "account.email.oldWaiting"
+msgstr "Wachten op huidig e-mailadres"
+
+#. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:87
+msgid "account.email.newWaiting"
+msgstr "Wachten op nieuw e-mailadres"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1134
+msgid "auth.form.passkeyWaiting"
+msgstr "Wachten op je passkey…"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:593
 msgid "dashboard.entry.unavailableTitle"
 msgstr "We konden uw werkruimte niet openen"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1033
-msgid "auth.form.verificationSent"
-msgstr "We hebben een beveiligde verificatielink gestuurd naar {email}. Houd deze pagina open of gebruik de link direct."
-
-#. js-lingui-explicit-id
-#: src/i18n/messages.ts:872
+#: src/i18n/messages.ts:940
 msgid "auth.page.signIn.eyebrow"
 msgstr "Welkom terug"
 
@@ -4139,29 +5349,49 @@ msgid "dashboard.brand.empty.sampleTitle"
 msgstr "Welkom in uw werkruimte"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1073
+#: src/i18n/messages.ts:1347
 msgid "workspaceSelection.title"
 msgstr "Waar werkt u vandaag?"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:22
+#: src/components/account-security-settings.tsx:155
+msgid "account.passkeys.namePlaceholder"
+msgstr "Werklaptop"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:23
 msgid "dashboard.navigation.workspaceLabel"
 msgstr "Werkruimte"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:961
+#: src/i18n/messages.ts:38
+msgid "account.navigation.workspace"
+msgstr "Werkruimte"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1176
 msgid "auth.form.workspace"
 msgstr "Werkruimte"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1072
+#: src/i18n/messages.ts:1346
 msgid "workspaceSelection.eyebrow"
 msgstr "Werkruimte"
 
 #. js-lingui-explicit-id
-#: src/components/dashboard-auth-controls.tsx:40
+#: src/components/dashboard-auth-controls.tsx:42
 msgid "dashboard.account.workspace"
 msgstr "Werkruimte"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1093
+msgid "workspaceMembers.unavailable"
+msgstr "De toegang tot de werkruimte kon niet worden geladen. Probeer het opnieuw."
+
+#. js-lingui-explicit-id
+#: src/components/enterprise-identity-settings.tsx:103
+msgid "enterpriseIdentity.policy"
+msgstr "Authenticatiebeleid van de workspace"
 
 #. js-lingui-explicit-id
 #: src/components/brand-system-panel.tsx:36
@@ -4169,9 +5399,14 @@ msgid "dashboard.brand.panel.workspaceDefault"
 msgstr "Standaard werkruimte"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:695
+#: src/i18n/messages.ts:763
 msgid "dashboard.action.workspaceDefaultUpdated"
 msgstr "Standaard werkruimte bijgewerkt."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1022
+msgid "workspaceInvitation.eyebrow"
+msgstr "Uitnodiging voor werkruimte"
 
 #. js-lingui-explicit-id
 #: src/components/brand-system/brand-impact-panel.tsx:39
@@ -4179,17 +5414,22 @@ msgid "dashboard.brand.impact.actionNeeded"
 msgstr "Actie van lid van werkruimte vereist"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:452
+#: src/i18n/messages.ts:1056
+msgid "workspaceMembers.members"
+msgstr "Leden van de werkruimte"
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:520
 msgid "dashboard.viewModel.workspaceTeammate"
 msgstr "Teamgenoot van de werkruimte"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:364
+#: src/i18n/messages.ts:432
 msgid "dashboard.viewModel.workspaceApprovedTokens"
 msgstr "Door de werkruimte goedgekeurde semantische tokens"
 
 #. js-lingui-explicit-id
-#: src/components/dashboard-auth-controls.tsx:41
+#: src/components/dashboard-auth-controls.tsx:43
 msgid "dashboard.account.workspaces"
 msgstr "Werkruimtes"
 
@@ -4199,57 +5439,82 @@ msgid "dashboard.installation.readonlyExisting"
 msgstr "U kunt deze installatie inspecteren en kopiëren. Een beheerder of eigenaar van een werkruimte beheert vertrouwde bronnen en intrekkingen."
 
 #. js-lingui-explicit-id
+#: src/i18n/messages.ts:1032
+msgid "workspaceInvitation.acceptedHelp"
+msgstr "Je hebt nu toegang tot de werkruimte."
+
+#. js-lingui-explicit-id
 #: src/components/authoring-activation-popup.tsx:58
 msgid "dashboard.activation.credentialSafety"
 msgstr "Uw inloggegevens blijven binnen Lodariq en worden nooit naar de klantpagina gestuurd."
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:89
+#: src/components/release-recovery-panel.tsx:90
 msgid "dashboard.recovery.notAllowed"
 msgstr "Uw huidige rol of dit omgevingsbeleid staat releaseherstel niet toe."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:825
+#: src/i18n/messages.ts:893
 msgid "dashboard.action.releaseRecoveryForbidden"
 msgstr "Uw huidige toegang tot de werkruimte kan deze releaseherstelactie niet uitvoeren."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:805
+#: src/i18n/messages.ts:873
 msgid "dashboard.action.analyticsForbidden"
 msgstr "Uw huidige toegang tot de werkruimte kan geen analyses lezen."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:838
+#: src/i18n/messages.ts:906
 msgid "dashboard.action.releaseHistoryForbidden"
 msgstr "Uw huidige toegang tot de werkruimte kan deze releasegeschiedenis niet lezen."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:1024
+#: src/i18n/messages.ts:1294
 msgid "auth.form.choosePasswordHelp"
 msgstr "De link in de e-mail heeft bevestigd dat het account van u is. Kies nu een veilig wachtwoord."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:946
+#: src/i18n/messages.ts:1014
 msgid "auth.page.finishAccount.description"
 msgstr "Uw e-maillink bewijst eigendom. Kies het wachtwoord dat uw account beschermt."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:954
+#: src/i18n/messages.ts:1142
 msgid "auth.form.yourName"
 msgstr "Uw naam"
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:962
+#: src/i18n/messages.ts:1118
+msgid "workspaceMembers.noManagementAccess"
+msgstr "Je rol kan leden bekijken, maar kan de toegang tot de werkruimte niet wijzigen."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:1177
 msgid "auth.form.workspaceHelp"
 msgstr "Uw gedeelde plek voor ervaringen, omgevingen en releases."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:544
+#: src/components/email-change-verification.tsx:20
+msgid "account.emailChange.completed"
+msgstr "Uw aanmeld-e-mailadres is gewijzigd. Andere sessies en herstellinks zijn ingetrokken."
+
+#. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:59
+msgid "account.profile.help"
+msgstr "Uw geverifieerde e-mailadres werkt altijd. Een gebruikersnaam biedt een andere privémanier om aan te melden."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:58
+msgid "account.forgotUsername.description"
+msgstr "Uw geverifieerde e-mailadres is altijd een geldige Lodariq-aanmeldidentificatie. Vraag een privéherstellink aan als u ook uw wachtwoord bent vergeten."
+
+#. js-lingui-explicit-id
+#: src/i18n/messages.ts:612
 msgid "dashboard.error.description"
 msgstr "Je werk is veilig. Probeer het verzoek opnieuw zonder deze pagina te verlaten."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:520
+#: src/i18n/messages.ts:588
 msgid "dashboard.entry.signInDescription"
 msgstr "Uw werkruimte en auteurstools blijven beschermd door uw Lodariq-sessie."
 
@@ -4259,21 +5524,26 @@ msgid "dashboard.recovery.failure.capabilityDenied"
 msgstr "Uw werkruimterol kan deze herstelactie niet uitvoeren."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:640
+#: src/i18n/messages.ts:708
 msgid "dashboard.action.environmentPolicyForbidden"
 msgstr "Uw werkruimterol staat geen wijzigingen in het omgevingsbeleid toe."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:619
+#: src/i18n/messages.ts:687
 msgid "dashboard.action.releasePolicyForbidden"
 msgstr "Uw werkruimterol staat geen wijzigingen in het releasebeleid toe."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:568
+#: src/i18n/messages.ts:636
 msgid "dashboard.server.capabilityDenied"
 msgstr "Uw werkruimterol staat deze actie niet toe."
 
 #. js-lingui-explicit-id
-#: src/i18n/messages.ts:779
+#: src/i18n/messages.ts:847
 msgid "dashboard.action.brandForbidden"
 msgstr "Uw werkruimterol staat deze merkactie niet toe."
+
+#. js-lingui-explicit-id
+#: src/components/account-security-settings.tsx:65
+msgid "account.username.placeholder"
+msgstr "uw-gebruikersnaam"

@@ -888,6 +888,11 @@ function runtimeRoleGrantsSql(): string {
     grant usage on type lodariq_release_action to ${role};
     grant usage on type lodariq_release_operation_status to ${role};
     grant select, insert, update, delete on all tables in schema public to ${role};
+    grant execute on function public.lodariq_current_workspace_role(text) to ${role};
+    grant execute on function public.lodariq_workspace_is_empty(text) to ${role};
+    grant execute on function public.lodariq_user_is_workspace_member(text, text) to ${role};
+    grant execute on function public.lodariq_accept_workspace_invitation(text, text, text, timestamptz) to ${role};
+    grant execute on function public.lodariq_schedule_account_deletion(text, timestamptz, timestamptz) to ${role};
     revoke update, delete on compiled_artifacts, publications,
       product_style_applications, style_sources from ${role};
     revoke update, delete on release_operations from ${role};

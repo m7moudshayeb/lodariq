@@ -1,7 +1,14 @@
 import { AUTHORING_SESSION_CAPABILITIES, type AuthoringSessionCapability } from '@lodariq/schema';
 import type { ControlPlaneRepository } from '@lodariq/database';
 import type { FastifyReply, FastifyRequest } from 'fastify';
-import { AuthError, type AuthContext, type AuthProvider, type AuthRole } from '../auth';
+import {
+  AuthError,
+  isRecentAuthentication,
+  workspaceSessionPolicyFailure,
+  type AuthContext,
+  type AuthProvider,
+  type AuthRole,
+} from '../auth';
 import type { ObservabilityEvent, ObservabilitySink } from '../observability';
 
 export type ReleaseCapability =
@@ -103,6 +110,19 @@ export function requireReleaseCapability(
   return false;
 }
 
+export function requireRecentControlPlaneAuthentication(
+  auth: AuthContext,
+  reply: FastifyReply,
+  now = new Date(),
+): boolean {
+  if (auth.authenticatedAt && isRecentAuthentication(auth.authenticatedAt, now)) return true;
+  void reply.code(403).send({
+    error: 'recent_authentication_required',
+    message: 'Sign in again before changing production security policy',
+  });
+  return false;
+}
+
 export function releaseRoleHasCapability(role: AuthRole, capability: ReleaseCapability): boolean {
   const capabilities: readonly ReleaseCapability[] = RELEASE_CAPABILITIES_BY_ROLE[role];
   return capabilities.includes(capability);
@@ -118,6 +138,29 @@ export async function authenticate(
     const auth = await authProvider.authenticate(request);
     const membership = await repository.resolveWorkspaceMembership(auth.workspaceId, auth.userId);
     if (membership) {
+      const policy = await repository.getWorkspaceAuthPolicy(auth.workspaceId);
+      if (!policy) {
+        await reply.code(403).send({
+          error: 'workspace_auth_policy_unavailable',
+          message: 'Workspace authentication policy could not be verified',
+        });
+        return null;
+      }
+      const workspaceSsoIdentitySatisfied = policy.ssoRequired
+        ? await repository.identitySatisfiesWorkspaceSso(auth.workspaceId, auth.identityId ?? null)
+        : false;
+      const policyFailure = workspaceSessionPolicyFailure(
+        auth,
+        policy,
+        workspaceSsoIdentitySatisfied,
+      );
+      if (policyFailure) {
+        await reply.code(403).send({
+          error: policyFailure,
+          message: workspacePolicyFailureMessage(policyFailure),
+        });
+        return null;
+      }
       return {
         ...auth,
         userId: membership.userId,
@@ -137,6 +180,18 @@ export async function authenticate(
     }
     throw error;
   }
+}
+
+function workspacePolicyFailureMessage(
+  failure: ReturnType<typeof workspaceSessionPolicyFailure> & string,
+): string {
+  if (failure === 'minimum_assurance_required') {
+    return 'A stronger authentication method is required for this workspace';
+  }
+  if (failure === 'password_not_allowed') {
+    return 'Password authentication is not allowed for this workspace';
+  }
+  return 'Enterprise sign-in is required for this workspace';
 }
 
 export function authRoleFromMembership(role: string): AuthRole {

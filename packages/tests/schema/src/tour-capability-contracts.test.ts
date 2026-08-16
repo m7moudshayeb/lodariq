@@ -146,6 +146,14 @@ describe('Tour reliability and flow contracts', () => {
       }).valid,
     ).toBe(true);
     expect(
+      validate(MediaPresentation, {
+        kind: 'video',
+        assetId: 'asset.demo',
+        accessibilityName: 'Product walkthrough',
+        src: 'https://evil.example/media.mp4',
+      }).valid,
+    ).toBe(false);
+    expect(
       validate(AuthoringFlowSimulationContext, {
         identifyTraits: { plan: 'pro' },
         documentState: { onboardingReady: true },

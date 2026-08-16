@@ -5,21 +5,38 @@ import {
   isSupportedLocale,
   LOCALE_OPTIONS,
   localeDirection,
+  type LocaleOption,
   type SupportedLocale,
 } from '@lodariq/i18n';
 import { useLingui } from '@lingui/react';
-import { Languages, LoaderCircle } from 'lucide-react';
+import { LoaderCircle } from 'lucide-react';
 import * as React from 'react';
 import { DASHBOARD_LOCALE_MESSAGES } from '../i18n/messages';
 import { updateDashboardLocale } from '../lib/client-locale-api';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 
+const LOCALE_FLAGS: Readonly<Record<SupportedLocale, string>> = {
+  en: '🇺🇸',
+  de: '🇩🇪',
+  fr: '🇫🇷',
+  es: '🇪🇸',
+  pt: '🇵🇹',
+  ar: '🇸🇦',
+  tr: '🇹🇷',
+  it: '🇮🇹',
+  'nl-BE': '🇧🇪',
+  'en-XA': '🏳️',
+  'ar-XB': '🏳️',
+};
+
 const PSEUDO_LOCALES_VISIBLE = process.env.NODE_ENV !== 'production';
 
 export function LanguageSwitcher({
   compact = false,
+  hideLabel = false,
 }: {
   compact?: boolean;
+  hideLabel?: boolean;
 }): React.ReactElement | null {
   const { _, i18n } = useLingui();
   const selectId = React.useId();
@@ -55,8 +72,8 @@ export function LanguageSwitcher({
   const changeLabel = _(DASHBOARD_LOCALE_MESSAGES.change);
   const feedback = error || (pending ? _(DASHBOARD_LOCALE_MESSAGES.changing) : '');
   const options = visibleOptions.map((option) => (
-    <SelectItem key={option.locale} value={option.locale}>
-      {option.label}
+    <SelectItem key={option.locale} textValue={option.label} value={option.locale}>
+      <LocaleFlagLabel option={option} />
     </SelectItem>
   ));
 
@@ -85,7 +102,9 @@ export function LanguageSwitcher({
             {pending ? (
               <LoaderCircle aria-hidden="true" className="size-[18px] animate-spin" />
             ) : (
-              <Languages aria-hidden="true" className="size-[18px]" />
+              <span aria-hidden="true" className="text-base leading-none">
+                {LOCALE_FLAGS[selectedLocale]}
+              </span>
             )}
           </SelectTrigger>
           <SelectContent align="end" side={rtl ? 'left' : 'right'} sideOffset={8}>
@@ -107,7 +126,10 @@ export function LanguageSwitcher({
 
   return (
     <div className="grid gap-1.5">
-      <label className="text-xs font-medium text-muted-foreground" htmlFor={selectId}>
+      <label
+        className={hideLabel ? 'sr-only' : 'text-xs font-medium text-muted-foreground'}
+        htmlFor={selectId}
+      >
         {label}
       </label>
       <Select
@@ -119,18 +141,25 @@ export function LanguageSwitcher({
         value={selectedLocale}
       >
         <SelectTrigger aria-label={changeLabel} className="ps-3" disabled={pending} id={selectId}>
-          {pending ? (
-            <LoaderCircle aria-hidden="true" className="size-4 animate-spin" />
-          ) : (
-            <Languages aria-hidden="true" className="size-4 text-muted-foreground" />
-          )}
+          {pending ? <LoaderCircle aria-hidden="true" className="size-4 animate-spin" /> : null}
           <SelectValue />
         </SelectTrigger>
-        <SelectContent>{options}</SelectContent>
+        <SelectContent align={hideLabel ? 'end' : 'start'}>{options}</SelectContent>
       </Select>
       <span aria-live="polite" className={error ? 'text-xs text-destructive' : 'sr-only'}>
         {feedback}
       </span>
     </div>
+  );
+}
+
+function LocaleFlagLabel({ option }: { option: LocaleOption }): React.ReactElement {
+  return (
+    <span className="flex items-center gap-2">
+      <span aria-hidden="true" className="text-base leading-none">
+        {LOCALE_FLAGS[option.locale]}
+      </span>
+      {option.label}
+    </span>
   );
 }

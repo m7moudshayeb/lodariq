@@ -9,14 +9,23 @@ import {
   type WorkspaceThemeVersionRecord,
 } from '../domains/themes';
 import {
+  type AuthIdentityRecord,
+  type AuthSecurityEventRecord,
   type AuthOutboxRecord,
   type AuthSessionRecord,
   type EmailVerificationChallengeRecord,
+  type IdentityOnboardingStateRecord,
   type PasswordCredentialRecord,
   type SetPasswordChallengeRecord,
   type SetPasswordOutboxRecord,
   type UserRecord,
+  type UserEmailRecord,
+  type UsernameRecord,
   type WorkspaceMembershipRecord,
+  type WorkspaceInvitationRecord,
+  type WorkspaceInvitationOutboxRecord,
+  type WorkspaceAuthPolicyRecord,
+  type SsoConnectionRecord,
 } from '../domains/identity';
 import {
   type AuthoringActivationGrantRecord,
@@ -43,6 +52,32 @@ import type {
   AuthoringStepStyleRecipeResource,
 } from '@lodariq/schema';
 import { type PersistedAnalyticsEventRecord } from '../domains/analytics';
+import type {
+  TenantAuditEventRecord,
+  TenantWorkspaceRecord,
+} from '../domains/tenant-administration';
+import type {
+  AccountEmailChangeOutboxRecord,
+  AccountEmailChangeRecord,
+  AccountSecurityEventRecord,
+} from '../domains/account-management';
+import type {
+  PasskeyCredentialRecord,
+  RecoveryCodeRecord,
+  RecoveryCodeSetRecord,
+  WebAuthnChallengeRecord,
+} from '../domains/assurance';
+import type { OidcAuthorizationAttemptRecord } from '../domains/oidc';
+import type {
+  EnterpriseAuditEventRecord,
+  EnterpriseBreakGlassRecord,
+  EnterpriseGroupRoleMappingRecord,
+  EnterprisePrincipalRecord,
+  EnterpriseScimConnectionRecord,
+  EnterpriseSsoConnectionRecord,
+  EnterpriseValidationEvidenceRecord,
+  EnterpriseVerifiedDomainRecord,
+} from '../domains/enterprise-identity';
 
 export class InMemoryRepositoryState {
   protected readonly authoringStyleRecipes = new Map<string, AuthoringStepStyleRecipeResource[]>();
@@ -78,12 +113,67 @@ export class InMemoryRepositoryState {
 
   protected readonly users = new Map<string, UserRecord>();
 
-  protected readonly workspaces = new Map<
-    string,
-    { id: string; name: string; createdAt: string; updatedAt: string }
-  >();
+  protected readonly userEmails = new Map<string, UserEmailRecord>();
+
+  protected readonly usernames = new Map<string, UsernameRecord>();
+
+  protected readonly authIdentities = new Map<string, AuthIdentityRecord>();
+
+  protected readonly authSecurityEvents = new Map<string, AuthSecurityEventRecord>();
+
+  protected readonly accountSecurityEvents = new Map<string, AccountSecurityEventRecord>();
+
+  protected readonly accountEmailChangeChallenges = new Map<string, AccountEmailChangeRecord>();
+
+  protected readonly accountEmailChangeOutbox = new Map<string, AccountEmailChangeOutboxRecord>();
+
+  protected readonly webAuthnChallenges = new Map<string, WebAuthnChallengeRecord>();
+
+  protected readonly passkeyCredentials = new Map<string, PasskeyCredentialRecord>();
+
+  protected readonly recoveryCodeSets = new Map<string, RecoveryCodeSetRecord>();
+
+  protected readonly recoveryCodes = new Map<string, RecoveryCodeRecord>();
+
+  protected readonly oidcAuthorizationAttempts = new Map<string, OidcAuthorizationAttemptRecord>();
+
+  protected readonly identityOnboardingStates = new Map<string, IdentityOnboardingStateRecord>();
+
+  protected readonly workspaces = new Map<string, TenantWorkspaceRecord>();
 
   protected readonly workspaceMemberships = new Map<string, WorkspaceMembershipRecord>();
+
+  protected readonly workspaceInvitations = new Map<string, WorkspaceInvitationRecord>();
+
+  protected readonly workspaceInvitationOutbox = new Map<string, WorkspaceInvitationOutboxRecord>();
+
+  protected readonly tenantAuditEvents = new Map<string, TenantAuditEventRecord>();
+
+  protected readonly workspaceAuthPolicies = new Map<string, WorkspaceAuthPolicyRecord>();
+
+  protected readonly ssoConnections = new Map<string, SsoConnectionRecord>();
+
+  protected readonly enterpriseSsoConnections = new Map<string, EnterpriseSsoConnectionRecord>();
+
+  protected readonly enterpriseValidationEvidence = new Map<
+    string,
+    EnterpriseValidationEvidenceRecord
+  >();
+
+  protected readonly enterpriseVerifiedDomains = new Map<string, EnterpriseVerifiedDomainRecord>();
+
+  protected readonly enterpriseGroupRoleMappings = new Map<
+    string,
+    EnterpriseGroupRoleMappingRecord
+  >();
+
+  protected readonly enterpriseScimConnections = new Map<string, EnterpriseScimConnectionRecord>();
+
+  protected readonly enterprisePrincipals = new Map<string, EnterprisePrincipalRecord>();
+
+  protected readonly enterpriseAuditEvents = new Map<string, EnterpriseAuditEventRecord>();
+
+  protected readonly enterpriseBreakGlassRequests = new Map<string, EnterpriseBreakGlassRecord>();
 
   protected readonly passwordCredentials = new Map<string, PasswordCredentialRecord>();
 

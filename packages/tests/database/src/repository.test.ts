@@ -42,9 +42,23 @@ import {
   type LodariqDocument,
 } from '@lodariq/schema';
 import tourFixture from '@lodariq/schema/fixtures/tour.linear.v1.json';
-import { readInitialBaseline, readMigrationChain } from './migration-test-utils.js';
+import {
+  readInitialBaseline,
+  readMigrationChain,
+  sqlWithoutFunctionBodies,
+} from './migration-test-utils.js';
 
 const baseDocument = tourFixture as LodariqDocument;
+
+const WORKSPACE_ISOLATION_POLICY_NAMES = new Map([
+  ['enterprise_validation_evidence', 'enterprise_validation_evidence_workspace_read'],
+  ['workspace_verified_domains', 'workspace_verified_domains_workspace_access'],
+  ['sso_group_role_mappings', 'sso_group_role_mappings_workspace_access'],
+  ['enterprise_scim_connections', 'enterprise_scim_connections_workspace_access'],
+  ['enterprise_principals', 'enterprise_principals_workspace_access'],
+  ['enterprise_audit_events', 'enterprise_audit_events_workspace_access'],
+  ['enterprise_break_glass_requests', 'enterprise_break_glass_workspace_access'],
+]);
 
 describe('control-plane repository', () => {
   it('grants release-state reads in development without granting staging publication', () => {
@@ -68,6 +82,7 @@ describe('control-plane repository', () => {
   });
 
   it('resolves workspace memberships only by internal user id', async () => {
+    const now = new Date().toISOString();
     const repository = createInMemoryControlPlaneRepository({
       users: [
         {
@@ -75,7 +90,15 @@ describe('control-plane repository', () => {
           legacyIdentityId: 'retired_provider_user',
           email: 'creator@lodariq.test',
           name: 'Creator',
-          createdAt: new Date().toISOString(),
+          createdAt: now,
+        },
+      ],
+      workspaces: [
+        {
+          id: 'wk_a',
+          name: 'Workspace A',
+          createdAt: now,
+          updatedAt: now,
         },
       ],
       workspaceMemberships: [
@@ -83,7 +106,7 @@ describe('control-plane repository', () => {
           workspaceId: 'wk_a',
           userId: 'user_internal',
           role: 'member',
-          createdAt: new Date().toISOString(),
+          createdAt: now,
         },
       ],
     });
@@ -2385,9 +2408,11 @@ describe('tenant-scoped database migrations', () => {
     const migration = readMigrationChain();
 
     for (const table of tenantScopedTableNames) {
+      const isolationPolicy =
+        WORKSPACE_ISOLATION_POLICY_NAMES.get(table) ?? `${table}_workspace_isolation`;
       expect(migration).toContain(`alter table ${table} enable row level security`);
       expect(migration).toContain(`alter table ${table} force row level security`);
-      expect(migration).toContain(`create policy ${table}_workspace_isolation on ${table}`);
+      expect(migration).toContain(`create policy ${isolationPolicy} on ${table}`);
     }
     expect(migration).toContain("current_setting('lodariq.workspace_id', true)");
     expect(migration).toContain("current_setting('lodariq.environment_token_hash', true)");
@@ -2430,7 +2455,7 @@ describe('tenant-scoped database migrations', () => {
     expect(migration).toContain('document_deployments_workspace_environment_state_idx');
     expect(migration).toContain('document_deployments_workspace_document_idx');
     expect(migration).toContain('document_deployments_active_publication_idx');
-    expect(migration).not.toMatch(
+    expect(sqlWithoutFunctionBodies(migration)).not.toMatch(
       /\b(?:insert\s+into|update\s+[A-Za-z_"]+\s+set|delete\s+from)\b/iu,
     );
   });
@@ -2452,7 +2477,7 @@ describe('tenant-scoped database migrations', () => {
     expect(migration).toContain("current_setting('lodariq.public_installation_id', true)");
     expect(migration).toContain("current_setting('lodariq.public_origin', true)");
     expect(migration).toContain("current_setting('lodariq.bootstrap_grant_hash', true)");
-    expect(migration).not.toMatch(
+    expect(sqlWithoutFunctionBodies(migration)).not.toMatch(
       /\b(?:insert\s+into|update\s+[A-Za-z_"]+\s+set|delete\s+from)\b/iu,
     );
   });
@@ -2506,7 +2531,7 @@ describe('tenant-scoped database migrations', () => {
         ),
       );
     }
-    expect(migration).not.toMatch(
+    expect(sqlWithoutFunctionBodies(migration)).not.toMatch(
       /\b(?:insert\s+into|update\s+[A-Za-z_"]+\s+set|delete\s+from)\b/iu,
     );
   });

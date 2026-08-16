@@ -18,6 +18,7 @@ export const DASHBOARD_NAVIGATION_MESSAGES = {
   analytics: msg({ id: 'dashboard.navigation.analytics', message: 'Analytics' }),
   brandSystem: msg({ id: 'dashboard.navigation.brandSystem', message: 'Brand system' }),
   environments: msg({ id: 'dashboard.navigation.environments', message: 'Environments' }),
+  members: msg({ id: 'dashboard.navigation.members', message: 'Members' }),
   support: msg({ id: 'dashboard.navigation.support', message: 'Help & support' }),
   workspace: msg({ id: 'dashboard.navigation.workspaceLabel', message: 'Workspace' }),
   supportLabel: msg({ id: 'dashboard.navigation.supportLabel', message: 'Support' }),
@@ -31,6 +32,68 @@ export const DASHBOARD_NAVIGATION_MESSAGES = {
 export const DASHBOARD_THEME_MESSAGES = {
   switchToLight: msg({ id: 'dashboard.theme.switchToLight', message: 'Switch to light theme' }),
   switchToDark: msg({ id: 'dashboard.theme.switchToDark', message: 'Switch to dark theme' }),
+} as const;
+
+export const ACCOUNT_PAGE_MESSAGES = {
+  workspace: msg({ id: 'account.navigation.workspace', message: 'Workspace' }),
+  securityEyebrow: msg({ id: 'account.security.eyebrow', message: 'Account security' }),
+  emailChangeTitle: msg({ id: 'account.emailChange.title', message: 'Confirm email change' }),
+  emailChangeDescription: msg({
+    id: 'account.emailChange.description',
+    message: 'Complete one half of the two-address verification.',
+  }),
+  emailChangeInvalidDescription: msg({
+    id: 'account.emailChange.invalidDescription',
+    message: 'Use the complete link from your most recent Lodariq email.',
+  }),
+  returnToSecurity: msg({
+    id: 'account.emailChange.returnToSecurity',
+    message: 'Return to account security',
+  }),
+  accessEyebrow: msg({ id: 'account.access.eyebrow', message: 'Account access' }),
+  forgotUsernameTitle: msg({
+    id: 'account.forgotUsername.title',
+    message: 'Forgot your username?',
+  }),
+  forgotUsernameDescription: msg({
+    id: 'account.forgotUsername.description',
+    message:
+      'Your verified email is always a valid Lodariq sign-in identifier. If you also forgot your password, request a private recovery link.',
+  }),
+  signInWithEmail: msg({
+    id: 'account.forgotUsername.signInWithEmail',
+    message: 'Sign in with email',
+  }),
+  recoverAccess: msg({
+    id: 'account.forgotUsername.recoverAccess',
+    message: 'Recover account access',
+  }),
+} as const;
+
+export const RECOVERY_CODE_MESSAGES = {
+  eyebrow: msg({ id: 'recoveryCode.eyebrow', message: 'Account recovery' }),
+  title: msg({ id: 'recoveryCode.title', message: 'Use a recovery code' }),
+  description: msg({
+    id: 'recoveryCode.description',
+    message: 'Enter one saved single-use code. Lodariq will never ask for more than one.',
+  }),
+  identifier: msg({ id: 'recoveryCode.identifier', message: 'Email or username' }),
+  code: msg({ id: 'recoveryCode.code', message: 'Recovery code' }),
+  codeHelp: msg({
+    id: 'recoveryCode.codeHelp',
+    message: 'Codes begin with LQRC and work once.',
+  }),
+  rememberMe: msg({ id: 'recoveryCode.rememberMe', message: 'Remember this device' }),
+  submit: msg({ id: 'recoveryCode.submit', message: 'Recover account' }),
+  submitting: msg({ id: 'recoveryCode.submitting', message: 'Checking recovery code…' }),
+  invalid: msg({
+    id: 'recoveryCode.invalid',
+    message: 'Enter your identifier and a complete recovery code.',
+  }),
+  unavailable: msg({
+    id: 'recoveryCode.unavailable',
+    message: 'The identifier or recovery code is incorrect.',
+  }),
 } as const;
 
 export const DASHBOARD_LOCALE_MESSAGES = {
@@ -73,6 +136,11 @@ export const DASHBOARD_PAGE_MESSAGES = {
   environmentsDescription: msg({
     id: 'dashboard.page.environments.description',
     message: 'Manage trusted product origins and each environment runtime installation.',
+  }),
+  membersTitle: msg({ id: 'dashboard.page.members.title', message: 'Members & access' }),
+  membersDescription: msg({
+    id: 'dashboard.page.members.description',
+    message: 'Invite collaborators, assign roles, and review workspace access.',
   }),
   supportTitle: msg({ id: 'dashboard.page.support.title', message: 'Help & support' }),
   supportDescription: msg({
@@ -950,10 +1018,157 @@ export const AUTH_PAGE_MESSAGES = {
   }),
 } as const;
 
+export const WORKSPACE_INVITATION_MESSAGES = {
+  eyebrow: msg({ id: 'workspaceInvitation.eyebrow', message: 'Workspace invitation' }),
+  title: msg({ id: 'workspaceInvitation.title', message: 'Join your workspace' }),
+  description: msg({
+    id: 'workspaceInvitation.description',
+    message: 'Accept this invitation with the verified email address it was sent to.',
+  }),
+  reading: msg({ id: 'workspaceInvitation.reading', message: 'Reading your secure invitation' }),
+  accept: msg({ id: 'workspaceInvitation.accept', message: 'Accept invitation' }),
+  accepting: msg({ id: 'workspaceInvitation.accepting', message: 'Accepting invitation' }),
+  accepted: msg({ id: 'workspaceInvitation.accepted', message: 'Invitation accepted' }),
+  acceptedHelp: msg({
+    id: 'workspaceInvitation.acceptedHelp',
+    message: 'You now have access to the workspace.',
+  }),
+  openWorkspace: msg({ id: 'workspaceInvitation.openWorkspace', message: 'Open workspace' }),
+  signInRequired: msg({
+    id: 'workspaceInvitation.signInRequired',
+    message: 'Sign in with the invited email address, then return to this tab and try again.',
+  }),
+  signInNewTab: msg({
+    id: 'workspaceInvitation.signInNewTab',
+    message: 'Sign in in a new tab',
+  }),
+  unavailable: msg({
+    id: 'workspaceInvitation.unavailable',
+    message: 'This invitation is invalid, expired, already used, or belongs to another email.',
+  }),
+  incomplete: msg({
+    id: 'workspaceInvitation.incomplete',
+    message: 'Use the complete invitation link from your latest Lodariq email.',
+  }),
+} as const;
+
+export const WORKSPACE_MEMBERS_MESSAGES = {
+  members: msg({ id: 'workspaceMembers.members', message: 'Workspace members' }),
+  membersDescription: msg({
+    id: 'workspaceMembers.membersDescription',
+    message: 'Roles are enforced from current server membership on every request.',
+  }),
+  invite: msg({ id: 'workspaceMembers.invite', message: 'Invite a collaborator' }),
+  inviteDescription: msg({
+    id: 'workspaceMembers.inviteDescription',
+    message: 'A private, single-use invitation will be queued for this email address.',
+  }),
+  email: msg({ id: 'workspaceMembers.email', message: 'Email address' }),
+  role: msg({ id: 'workspaceMembers.role', message: 'Role' }),
+  sendInvitation: msg({ id: 'workspaceMembers.sendInvitation', message: 'Send invitation' }),
+  invitationQueued: msg({
+    id: 'workspaceMembers.invitationQueued',
+    message: 'Invitation queued for delivery.',
+  }),
+  pendingInvitations: msg({
+    id: 'workspaceMembers.pendingInvitations',
+    message: 'Pending invitations',
+  }),
+  noPendingInvitations: msg({
+    id: 'workspaceMembers.noPendingInvitations',
+    message: 'There are no pending invitations.',
+  }),
+  revoke: msg({ id: 'workspaceMembers.revoke', message: 'Revoke' }),
+  remove: msg({ id: 'workspaceMembers.remove', message: 'Remove' }),
+  transferOwnership: msg({
+    id: 'workspaceMembers.transferOwnership',
+    message: 'Transfer ownership',
+  }),
+  owner: msg({ id: 'workspaceMembers.role.owner', message: 'Owner' }),
+  admin: msg({ id: 'workspaceMembers.role.admin', message: 'Admin' }),
+  member: msg({ id: 'workspaceMembers.role.member', message: 'Member' }),
+  viewer: msg({ id: 'workspaceMembers.role.viewer', message: 'Viewer' }),
+  joined: msg({ id: 'workspaceMembers.joined', message: 'Joined {date}' }),
+  expires: msg({ id: 'workspaceMembers.expires', message: 'Expires {date}' }),
+  unavailable: msg({
+    id: 'workspaceMembers.unavailable',
+    message: 'Workspace access could not be loaded. Try again.',
+  }),
+  invalidEmail: msg({
+    id: 'workspaceMembers.invalidEmail',
+    message: 'Enter a complete email address.',
+  }),
+  operationFailed: msg({
+    id: 'workspaceMembers.operationFailed',
+    message: 'The workspace change could not be completed.',
+  }),
+  dangerZone: msg({ id: 'workspaceMembers.dangerZone', message: 'Danger zone' }),
+  deletionDescription: msg({
+    id: 'workspaceMembers.deletionDescription',
+    message: 'Scheduling deletion revokes active workspace access and starts the retention window.',
+  }),
+  deletionConfirmation: msg({
+    id: 'workspaceMembers.deletionConfirmation',
+    message: 'Type the workspace ID to confirm: {workspaceId}',
+  }),
+  scheduleDeletion: msg({
+    id: 'workspaceMembers.scheduleDeletion',
+    message: 'Schedule workspace deletion',
+  }),
+  noManagementAccess: msg({
+    id: 'workspaceMembers.noManagementAccess',
+    message: 'Your role can view members but cannot change workspace access.',
+  }),
+} as const;
+
 export const AUTH_FORM_MESSAGES = {
+  enterpriseSso: msg({ id: 'auth.form.enterpriseSso', message: 'Continue with SSO' }),
+  enterpriseSsoUnavailable: msg({
+    id: 'auth.form.enterpriseSsoUnavailable',
+    message: 'Enterprise sign-in is not configured for this company email.',
+  }),
+  google: msg({ id: 'auth.form.google', message: 'Continue with Google' }),
+  microsoft: msg({ id: 'auth.form.microsoft', message: 'Continue with Microsoft' }),
+  providerWaiting: msg({ id: 'auth.form.providerWaiting', message: 'Opening secure sign-in…' }),
+  passkey: msg({ id: 'auth.form.passkey', message: 'Use Passkey' }),
+  passkeyWaiting: msg({ id: 'auth.form.passkeyWaiting', message: 'Waiting for your passkey…' }),
+  recoveryCode: msg({ id: 'auth.form.recoveryCode', message: 'Use a recovery code' }),
+  rememberMe: msg({ id: 'auth.form.rememberMe', message: 'Remember me' }),
+  rememberMeHelp: msg({
+    id: 'auth.form.rememberMeHelp',
+    message: 'Keep this device signed in for up to 30 days. Leave unchecked for a session cookie.',
+  }),
+  forgotUsername: msg({ id: 'auth.form.forgotUsername', message: 'Forgot username?' }),
   yourName: msg({ id: 'auth.form.yourName', message: 'Your name' }),
   email: msg({ id: 'auth.form.email', message: 'Email' }),
+  identifier: msg({ id: 'auth.form.identifier', message: 'Email or username' }),
   password: msg({ id: 'auth.form.password', message: 'Password' }),
+  showPassword: msg({ id: 'auth.form.showPassword', message: 'Show password' }),
+  hidePassword: msg({ id: 'auth.form.hidePassword', message: 'Hide password' }),
+  reviewFields: msg({
+    id: 'auth.form.validation.reviewFields',
+    message: 'Check the highlighted fields and try again.',
+  }),
+  fieldRequired: msg({
+    id: 'auth.form.validation.required',
+    message: '{field} is required.',
+  }),
+  fieldTooShort: msg({
+    id: 'auth.form.validation.tooShort',
+    message: '{field} must be at least {limit} characters.',
+  }),
+  fieldTooLong: msg({
+    id: 'auth.form.validation.tooLong',
+    message: '{field} must be no more than {limit} characters.',
+  }),
+  emailInvalid: msg({
+    id: 'auth.form.validation.emailInvalid',
+    message: 'Enter an email address in the format name@example.com.',
+  }),
+  identifierInvalid: msg({
+    id: 'auth.form.validation.identifierInvalid',
+    message: 'Enter your email address or username without spaces.',
+  }),
   setOrResetPassword: msg({
     id: 'auth.form.setOrResetPassword',
     message: 'Set or reset password',
@@ -965,6 +1180,7 @@ export const AUTH_FORM_MESSAGES = {
   }),
   pleaseTryAgain: msg({ id: 'auth.form.pleaseTryAgain', message: 'Please try again.' }),
   signingIn: msg({ id: 'auth.form.signingIn', message: 'Signing in' }),
+  creatingAccount: msg({ id: 'auth.form.creatingAccount', message: 'Creating account' }),
   createAccount: msg({ id: 'auth.form.createAccount', message: 'Create account' }),
   continue: msg({ id: 'auth.form.continue', message: 'Continue' }),
   existingAccount: msg({
@@ -975,10 +1191,11 @@ export const AUTH_FORM_MESSAGES = {
   signIn: msg({ id: 'auth.form.signIn', message: 'Sign in' }),
   createAnAccount: msg({ id: 'auth.form.createAnAccount', message: 'Create an account' }),
   checkEmail: msg({ id: 'auth.form.checkEmail', message: 'Check your email' }),
-  recoveryEmailSent: msg({
-    id: 'auth.form.recoveryEmailSent',
+  requestAccepted: msg({ id: 'auth.form.requestAccepted', message: 'Request accepted' }),
+  recoveryRequestAccepted: msg({
+    id: 'auth.form.recoveryRequestAccepted',
     message:
-      'If that address belongs to a Lodariq account, the newest message contains a secure password link. It expires shortly and works once.',
+      'If that address belongs to a Lodariq account, a secure one-time link has been queued. Delivery can take a few minutes. Only the newest link works, and it expires after 30 minutes.',
   }),
   openLocalRecoveryLink: msg({
     id: 'auth.form.openLocalRecoveryLink',
@@ -986,6 +1203,18 @@ export const AUTH_FORM_MESSAGES = {
   }),
   useAnotherEmail: msg({ id: 'auth.form.useAnotherEmail', message: 'Use another email' }),
   emailSecureLink: msg({ id: 'auth.form.emailSecureLink', message: 'Email a secure link' }),
+  requestingSecureLink: msg({
+    id: 'auth.form.requestingSecureLink',
+    message: 'Requesting a secure link',
+  }),
+  requestAnotherLink: msg({
+    id: 'auth.form.requestAnotherLink',
+    message: 'Request another link',
+  }),
+  requestAgainIn: msg({
+    id: 'auth.form.requestAgainIn',
+    message: 'Request again in {seconds}s',
+  }),
   passwordsDoNotMatch: msg({
     id: 'auth.form.passwordsDoNotMatch',
     message: 'Passwords do not match.',
@@ -998,6 +1227,15 @@ export const AUTH_FORM_MESSAGES = {
     id: 'auth.form.incompletePasswordLink',
     message: 'This password link is incomplete. Request a new link to continue.',
   }),
+  passwordLinkUnavailable: msg({
+    id: 'auth.form.passwordLinkUnavailable',
+    message: 'This password link cannot be used',
+  }),
+  passwordLinkUnavailableHelp: msg({
+    id: 'auth.form.passwordLinkUnavailableHelp',
+    message:
+      'The link may have expired, already been used, or been replaced by a newer request. Request a fresh link and use only the newest email.',
+  }),
   newPassword: msg({ id: 'auth.form.newPassword', message: 'New password' }),
   passwordLength: msg({ id: 'auth.form.passwordLength', message: 'Use 12 to 128 characters.' }),
   confirmPassword: msg({ id: 'auth.form.confirmPassword', message: 'Confirm password' }),
@@ -1005,9 +1243,36 @@ export const AUTH_FORM_MESSAGES = {
     id: 'auth.form.savePassword',
     message: 'Save password and continue',
   }),
+  savingPassword: msg({ id: 'auth.form.savingPassword', message: 'Saving password' }),
   invalidVerificationLink: msg({
     id: 'auth.form.invalidVerificationLink',
     message: 'The verification link is invalid or expired.',
+  }),
+  verificationLinkUnavailable: msg({
+    id: 'auth.form.verificationLinkUnavailable',
+    message: 'This verification link cannot be used',
+  }),
+  verificationLinkUnavailableHelp: msg({
+    id: 'auth.form.verificationLinkUnavailableHelp',
+    message:
+      'The link may have expired, already been used, or been replaced by a newer request. Request another link or restart account creation.',
+  }),
+  restartVerification: msg({
+    id: 'auth.form.restartVerification',
+    message: 'Restart account verification',
+  }),
+  requestAnotherVerification: msg({
+    id: 'auth.form.requestAnotherVerification',
+    message: 'Request another verification link',
+  }),
+  requestingVerification: msg({
+    id: 'auth.form.requestingVerification',
+    message: 'Requesting another verification link',
+  }),
+  verificationRequestAccepted: msg({
+    id: 'auth.form.verificationRequestAccepted',
+    message:
+      'If the account is awaiting verification, a new one-time link has been queued. Delivery can take a few minutes.',
   }),
   emailVerified: msg({ id: 'auth.form.emailVerified', message: 'Email verified' }),
   verifyingEmail: msg({ id: 'auth.form.verifyingEmail', message: 'Verifying your email' }),
@@ -1019,6 +1284,11 @@ export const AUTH_FORM_MESSAGES = {
   readingVerificationLink: msg({
     id: 'auth.form.readingVerificationLink',
     message: 'Reading your secure verification link…',
+  }),
+  incompleteVerificationLink: msg({
+    id: 'auth.form.incompleteVerificationLink',
+    message:
+      'This verification link is incomplete. Restart account verification to request a fresh link.',
   }),
   choosePassword: msg({ id: 'auth.form.choosePassword', message: 'Choose your password' }),
   choosePasswordHelp: msg({
@@ -1033,7 +1303,7 @@ export const AUTH_FORM_MESSAGES = {
   verificationSent: msg({
     id: 'auth.form.verificationSent',
     message:
-      'We sent a secure verification link to {email}. Keep this page open or use the link directly.',
+      'A secure verification link for {email} has been queued. Delivery can take a few minutes. Keep this page open or use the link directly.',
   }),
   openVerificationLink: msg({
     id: 'auth.form.openVerificationLink',
@@ -1044,7 +1314,11 @@ export const AUTH_FORM_MESSAGES = {
   soon: msg({ id: 'auth.form.soon', message: 'soon' }),
   invalidCredentials: msg({
     id: 'auth.error.invalidCredentials',
-    message: 'Email or password is incorrect.',
+    message: 'Email, username, or password is incorrect.',
+  }),
+  onboardingIncomplete: msg({
+    id: 'auth.error.onboardingIncomplete',
+    message: 'Account setup could not be completed. Sign in again to resume securely.',
   }),
   rateLimited: msg({
     id: 'auth.error.rateLimited',

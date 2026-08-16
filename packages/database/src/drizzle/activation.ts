@@ -36,7 +36,10 @@ export class DrizzleRepositoryActivation extends DrizzleRepositoryRecovery {
     assertReleaseMutationGuardInput(input);
     assertWorkspaceScope(input.artifact.workspaceId, input.workspaceId);
 
-    const outcome = await this.scoped(input.workspaceId, async (tx): Promise<ReleaseOutcome> => {
+    const outcome = await this.actorScoped(
+      input.workspaceId,
+      input.actorUserId,
+      async (tx): Promise<ReleaseOutcome> => {
       const [environment] = await tx
         .select()
         .from(environments)

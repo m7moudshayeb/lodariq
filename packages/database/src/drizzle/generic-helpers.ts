@@ -18,7 +18,12 @@ import {
   themeVersions,
   workspaceMemberships,
 } from '../schema';
-import { runWithWorkspaceScope } from '../scoped-transaction';
+import {
+  LODARIQ_AUTH_USER_ID_SETTING,
+  LODARIQ_WORKSPACE_ID_SETTING,
+  runWithTenantActorScope,
+  runWithWorkspaceScope,
+} from '../scoped-transaction';
 import { ACTIVATION_GRANT_HASH_SETTING } from './types';
 import type { LodariqTransaction } from './types';
 import {
@@ -73,6 +78,14 @@ export class DrizzleRepositoryGenericHelpers extends DrizzleRepositoryState {
     return runWithWorkspaceScope(this.database, workspaceId, operation);
   }
 
+  protected actorScoped<TResult>(
+    workspaceId: string,
+    actorUserId: string,
+    operation: (transaction: LodariqTransaction) => Promise<TResult>,
+  ): Promise<TResult> {
+    return runWithTenantActorScope(this.database, workspaceId, actorUserId, operation);
+  }
+
   protected async lockSortedReleaseDocumentEnvironments(
     tx: LodariqTransaction,
     workspaceId: string,
@@ -90,7 +103,19 @@ export class DrizzleRepositoryGenericHelpers extends DrizzleRepositoryState {
   }
 
   protected async setWorkspaceScope(tx: LodariqTransaction, workspaceId: string): Promise<void> {
-    await tx.execute(sql`select set_config('lodariq.workspace_id', ${workspaceId}, true)`);
+    await tx.execute(sql`select set_config(${LODARIQ_WORKSPACE_ID_SETTING}, ${workspaceId}, true)`);
+  }
+
+  protected async setTenantActorScope(
+    tx: LodariqTransaction,
+    workspaceId: string,
+    actorUserId: string,
+  ): Promise<void> {
+    await tx.execute(
+      sql`select
+        set_config(${LODARIQ_WORKSPACE_ID_SETTING}, ${workspaceId}, true),
+        set_config(${LODARIQ_AUTH_USER_ID_SETTING}, ${actorUserId}, true)`,
+    );
   }
 
   protected async findAuthoringEnvironment(
@@ -255,7 +280,11 @@ export class DrizzleRepositoryGenericHelpers extends DrizzleRepositoryState {
         .limit(1);
       if (!candidate || !isAuthoringEnvironmentKind(candidate.environment)) return null;
 
-      await this.setWorkspaceScope(tx, candidate.grant.workspaceId);
+      await this.setTenantActorScope(
+        tx,
+        candidate.grant.workspaceId,
+        candidate.grant.creatorId,
+      );
       if (
         !(await this.hasActiveAuthoringScope(
           tx,

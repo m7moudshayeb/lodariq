@@ -21,6 +21,7 @@ const AUTH_ERROR_BY_CODE: Readonly<Record<string, MessageDescriptor>> = {
   auth_request_failed: AUTH_FORM_MESSAGES.pleaseTryAgain,
   auth_service_unavailable: AUTH_FORM_MESSAGES.serviceUnavailable,
   invalid_credentials: AUTH_FORM_MESSAGES.invalidCredentials,
+  onboarding_incomplete: AUTH_FORM_MESSAGES.onboardingIncomplete,
   password_recovery_unavailable: AUTH_FORM_MESSAGES.recoveryUnavailable,
   rate_limited: AUTH_FORM_MESSAGES.rateLimited,
   signup_unavailable: AUTH_FORM_MESSAGES.signupUnavailable,

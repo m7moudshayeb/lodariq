@@ -65,15 +65,21 @@
   --queue-expanded: #fafbf8;
   --success-bg: #eaf5ef;
   --success-fg: #2d6954;
+  --success-solid: #2d6954;
+  --success-body: #5d8f7a;
   --success-border: #bcdccc;
   --warning-bg: #fff6e8;
   --warning-fg: #805d23;
+  --warning-solid: #805d23;
+  --warning-body: #b08940;
   --warning-border: #e9d3a7;
   --info-bg: #edf5f2;
   --info-fg: #315f52;
   --info-border: #c8ded6;
   --danger-bg: #fff1ee;
   --danger-fg: #9e3f31;
+  --danger-solid: #9e3f31;
+  --danger-body: #c46a58;
   --danger-border: #e8b9af;
 }
 
@@ -103,15 +109,21 @@ html.dark {
   --ring: oklch(0.77 0.105 190);
   --success-bg: oklch(0.22 0.044 160);
   --success-fg: oklch(0.83 0.084 160);
+  --success-solid: #2d6954;
+  --success-body: oklch(0.72 0.07 160);
   --success-border: oklch(0.39 0.064 160);
   --warning-bg: oklch(0.25 0.043 76);
   --warning-fg: oklch(0.84 0.11 83);
+  --warning-solid: #805d23;
+  --warning-body: oklch(0.74 0.09 83);
   --warning-border: oklch(0.43 0.075 78);
   --info-bg: oklch(0.24 0.05 230);
   --info-fg: oklch(0.82 0.078 230);
   --info-border: oklch(0.41 0.077 230);
   --danger-bg: oklch(0.24 0.057 27);
   --danger-fg: oklch(0.82 0.094 27);
+  --danger-solid: #9e3f31;
+  --danger-body: oklch(0.72 0.08 27);
   --danger-border: oklch(0.42 0.095 27);
   --surface-subtle: oklch(0.175 0.014 250);
   --attention: #e49a86;

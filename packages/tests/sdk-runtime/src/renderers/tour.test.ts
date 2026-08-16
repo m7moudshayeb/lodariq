@@ -184,9 +184,10 @@ describe('tour renderer (PRD §16.1)', () => {
     await player.waitUntilReady();
 
     const host = document.querySelector<HTMLElement>('lodariq-tour');
+    const skip = host?.shadowRoot?.querySelector<HTMLButtonElement>('.tour-skip');
     expect(host).toMatchObject({ lang: 'ar', dir: 'rtl' });
     expect(host?.dataset['lodariqContentLocale']).toBe('ar');
-    expect(host?.shadowRoot?.querySelector('.tour-skip')).toBeNull();
+    expect(skip?.textContent).not.toBe('Skip tour');
     player.stop();
   });
 

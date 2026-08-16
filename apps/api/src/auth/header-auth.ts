@@ -12,7 +12,14 @@ export function createHeaderAuthProvider(options: HeaderAuthProviderOptions = {}
     async authenticateIdentity(request: FastifyRequest) {
       const userId = readHeader(request, 'x-lodariq-user-id') ?? options.defaultUserId;
       if (!userId) throw new AuthError(401, 'Missing Lodariq user auth context');
-      return { userId, provider: 'headers' };
+      return {
+        userId,
+        provider: 'headers',
+        authenticationMethod: 'password',
+        assuranceLevel: 'aal1',
+        authenticatedAt: new Date().toISOString(),
+        identityId: null,
+      };
     },
     async authenticate(request: FastifyRequest): Promise<AuthContext> {
       const workspaceId =
@@ -29,6 +36,10 @@ export function createHeaderAuthProvider(options: HeaderAuthProviderOptions = {}
         userId,
         role,
         provider: 'headers',
+        authenticationMethod: 'password',
+        assuranceLevel: 'aal1',
+        authenticatedAt: new Date().toISOString(),
+        identityId: null,
       };
     },
   };

@@ -46,6 +46,33 @@ Status legend:
 
 ---
 
+## 2026-08-15 authentication and enterprise identity checkpoint
+
+- The nine-phase authentication hardening implementation is present across the
+  canonical TypeBox contracts, API/BFF, dashboard, provider-neutral identities,
+  onboarding, tenant administration, account/session security, passkeys,
+  recovery codes, Google/Microsoft OIDC, and workspace enterprise OIDC/SCIM.
+- Workspace enterprise policy is checked at selection, every control-plane
+  authorization, and creator-popup authorization. Consumer OIDC, password, stale
+  membership, lower assurance, and a disabled/deprovisioned enterprise principal
+  fail closed.
+- Enterprise activation requires real Okta/Entra evidence written by a dedicated
+  validator role; SCIM lifecycle and connection disablement revoke normal and
+  authoring access; break-glass is two-owner, AAL2, non-password, short-lived, and
+  single-use. SAML/SLO remain deliberately unsupported.
+- The implementation includes in-memory and disposable PostgreSQL/RLS tests,
+  schema negatives, API/dashboard/popup coverage, migration safety, runtime
+  preflight, ADRs, and rollout/rollback procedures. A fresh consolidated
+  verification run was intentionally not performed at handoff. Real Okta/Entra
+  tenant validation, evidence recording, isolated migration rehearsal, live RLS,
+  deployment smoke tests, and availability approval remain unclaimed.
+
+See `docs/plans/authentication-identity-and-tenant-hardening.md`,
+`docs/adr/0025-enterprise-identity-boundary.md`, and
+`docs/deployment/enterprise-identity-rollout.md` for the exact boundary.
+
+---
+
 ## 2026-08-15 Tour rich-content checkpoint
 
 - The Tour popup uses one reusable freeform Rich Content editor for text,
@@ -137,6 +164,7 @@ contract and completion boundary.
 | 0015 SDK-first in-product authoring entry  | §6.2.1, §7.3, §9.4, §16.4, §20   | ✅ Accepted; Phase 2 Slice 1 implementation locally verified  |
 | 0016 selector-free Target Identity V2      | §8.1–§8.6, §16.4, §18.2, §20     | ✅ Accepted; code checkpoint consolidated-verified            |
 | 0017 Lodariq-owned authentication          | §6.2.1, §11.2, §14.5, §16.4, §20 | ✅ Accepted; code milestone verified, production cutover open |
+| 0025 enterprise identity boundary           | §20                               | ✅ Accepted; code present, live provider rollout gated         |
 
 ---
 

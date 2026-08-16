@@ -12,6 +12,7 @@ import { WORKSPACE_SELECTION_MESSAGES } from '../i18n/messages';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
+import { StatusBanner } from './ui/status-banner';
 
 export function WorkspaceRequired({
   session,
@@ -140,11 +141,7 @@ export function WorkspaceRequired({
           </div>
         </form>
 
-        {error ? (
-          <p className="text-sm text-[var(--danger-fg)]" role="alert">
-            {error}
-          </p>
-        ) : null}
+        {error ? <StatusBanner kind="error" title={error} /> : null}
       </section>
     </main>
   );
