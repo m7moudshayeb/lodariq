@@ -12,6 +12,10 @@ const fromRoot = (path: string): string => resolve(repoRoot, path);
  * access to Web Crypto for content hashing.
  */
 export default defineConfig({
+  // Dashboard uses `jsx: preserve`; Next emits the automatic runtime, Vitest must too.
+  esbuild: {
+    jsx: 'automatic',
+  },
   resolve: {
     alias: [
       {
