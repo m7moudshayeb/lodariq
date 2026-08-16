@@ -164,11 +164,12 @@ jobs:
         !cancelled() &&
         github.event_name == 'push' &&
         github.ref == 'refs/heads/master' &&
-        needs.build.result == 'success'
+        needs.static-checks.result == 'success' &&
+        needs.build.result == 'success' &&
+        needs.dependency-audit.result == 'success'
       }}
     needs:
       - static-checks
-      - unit-tests
       - build
       - dependency-audit
     runs-on: ubuntu-latest

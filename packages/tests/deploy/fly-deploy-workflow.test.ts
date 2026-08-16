@@ -63,19 +63,20 @@ describe('Fly deployment workflow', () => {
     expect(rootPackage.scripts['test:e2e']).toContain('playwright test');
   });
 
-  it('waits for deployment-critical CI signals and blocks Development only on build failure or cancellation', () => {
+  it('starts Development after static checks, build, and audit without waiting for unit tests', () => {
     const deployment = ciWorkflow.slice(ciWorkflow.indexOf('  deploy-development:'));
 
-    for (const prerequisite of ['static-checks', 'unit-tests', 'build', 'dependency-audit']) {
+    for (const prerequisite of ['static-checks', 'build', 'dependency-audit']) {
       expect(deployment).toContain(`- ${prerequisite}`);
     }
+    expect(deployment).not.toContain('- unit-tests');
     expect(deployment).not.toContain('- end-to-end-tests');
     expect(deployment).toContain('!cancelled()');
+    expect(deployment).toContain("needs.static-checks.result == 'success'");
     expect(deployment).toContain("needs.build.result == 'success'");
+    expect(deployment).toContain("needs.dependency-audit.result == 'success'");
     expect(deployment).not.toContain('needs.unit-tests.result');
     expect(deployment).not.toContain('needs.end-to-end-tests.result');
-    expect(deployment).not.toContain('needs.static-checks.result');
-    expect(deployment).not.toContain('needs.dependency-audit.result');
   });
 
   it('requires a successful build for manual deployment without running tests as gates', () => {
