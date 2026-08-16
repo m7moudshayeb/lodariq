@@ -89,6 +89,7 @@ export function registerAccountManagementRoutes(
     async (request, reply) => {
       setPrivateResponseHeaders(reply);
       if (!requireTrustedMutationOrigin(request, reply)) return;
+      if (!requireCredentialGateway(request, reply)) return;
       const authenticated = await requireOwnedSession(options.repository, request, reply);
       if (!authenticated) return;
       const { sessionId } = request.params as AuthSessionRouteParams;
@@ -121,6 +122,7 @@ export function registerAccountManagementRoutes(
   fastify.post('/v1/auth/sign-out-everywhere', async (request, reply) => {
     setPrivateResponseHeaders(reply);
     if (!requireTrustedMutationOrigin(request, reply)) return;
+    if (!requireCredentialGateway(request, reply)) return;
     const authenticated = await requireOwnedSession(options.repository, request, reply);
     if (!authenticated) return;
     const now = readAccountClock(options.clock).toISOString();
@@ -335,6 +337,7 @@ export function registerAccountManagementRoutes(
     async (request, reply) => {
       setPrivateResponseHeaders(reply);
       if (!requireTrustedMutationOrigin(request, reply)) return;
+      if (!requireCredentialGateway(request, reply)) return;
       const authenticated = await requireOwnedSession(options.repository, request, reply);
       if (!authenticated) return;
       const body = request.body as VerifyEmailChangeBody;
@@ -403,6 +406,7 @@ export function registerAccountManagementRoutes(
     async (request, reply) => {
       setPrivateResponseHeaders(reply);
       if (!requireTrustedMutationOrigin(request, reply)) return;
+      if (!requireCredentialGateway(request, reply)) return;
       const authenticated = await requireOwnedSession(options.repository, request, reply);
       if (!authenticated) return;
       const now = readAccountClock(options.clock);

@@ -794,6 +794,7 @@ export function registerAuthRoutes(
   fastify.post('/v1/auth/sign-out', async (request, reply) => {
     setPrivateResponseHeaders(reply);
     if (!requireTrustedMutationOrigin(request, reply)) return;
+    if (!requireCredentialGateway(request, reply)) return;
     const rawToken = readAuthSessionToken(request);
     if (rawToken) {
       await options.repository.revokeAuthSession(
@@ -834,6 +835,7 @@ export function registerAuthRoutes(
     async (request, reply) => {
       setPrivateResponseHeaders(reply);
       if (!requireTrustedMutationOrigin(request, reply)) return;
+      if (!requireCredentialGateway(request, reply)) return;
       const authenticated = await requireOwnedSession(options.repository, request, reply);
       if (!authenticated) return;
       const name = (request.body as CreateWorkspaceRequestType).name.trim();
@@ -879,6 +881,7 @@ export function registerAuthRoutes(
     async (request, reply) => {
       setPrivateResponseHeaders(reply);
       if (!requireTrustedMutationOrigin(request, reply)) return;
+      if (!requireCredentialGateway(request, reply)) return;
       const authenticated = await requireOwnedSession(options.repository, request, reply);
       if (!authenticated) return;
       const { workspaceId } = request.params as SelectWorkspaceParamsType;

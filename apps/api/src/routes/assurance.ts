@@ -41,11 +41,16 @@ import {
   hashWebAuthnChallenge,
   isRecentAuthentication,
   serializeAuthSessionCookie,
+  type PasswordHashAdmissionGateLike,
   type WebAuthnConfiguration,
   verifyOwnedPassword,
 } from '../auth';
 import type { ObservabilitySink } from '../observability';
-import { requireCredentialGateway, requireTrustedMutationOrigin } from './auth';
+import {
+  requireCredentialGateway,
+  requireTrustedMutationOrigin,
+  runBoundedPasswordHash,
+} from './auth';
 
 const WEBAUTHN_CHALLENGE_TTL_MS = 5 * 60 * 1_000;
 
@@ -53,6 +58,7 @@ export interface RegisterAssuranceRoutesOptions {
   repository: ControlPlaneRepository;
   observability: ObservabilitySink;
   configuration: WebAuthnConfiguration | null;
+  passwordHashAdmissionGate: PasswordHashAdmissionGateLike;
   clock?: () => Date;
 }
 
@@ -84,6 +90,7 @@ export function registerAssuranceRoutes(
     async (request, reply) => {
       setPrivateHeaders(reply);
       if (!requireTrustedMutationOrigin(request, reply)) return;
+      if (!requireCredentialGateway(request, reply)) return;
       const configuration = requireWebAuthn(options.configuration, reply);
       if (!configuration) return;
       const authenticated = await requireSession(options.repository, request, reply);
@@ -135,6 +142,7 @@ export function registerAssuranceRoutes(
     async (request, reply) => {
       setPrivateHeaders(reply);
       if (!requireTrustedMutationOrigin(request, reply)) return;
+      if (!requireCredentialGateway(request, reply)) return;
       const configuration = requireWebAuthn(options.configuration, reply);
       if (!configuration) return;
       const authenticated = await requireSession(options.repository, request, reply);
@@ -392,6 +400,7 @@ function registerRecoveryCodeRoutes(
     async (request, reply) => {
       setPrivateHeaders(reply);
       if (!requireTrustedMutationOrigin(request, reply)) return;
+      if (!requireCredentialGateway(request, reply)) return;
       const authenticated = await requireSession(options.repository, request, reply);
       if (!authenticated) return;
       const now = readClock(options.clock);
@@ -401,12 +410,14 @@ function registerRecoveryCodeRoutes(
         const password = await options.repository.findPasswordAuthenticationByUserId(
           authenticated.session.userId,
         );
-        if (
-          !body.currentPassword ||
-          !(await verifyOwnedPassword(body.currentPassword, password?.credential ?? null))
-        ) {
-          return invalidCredentials(reply);
-        }
+        const verified = await runBoundedPasswordHash(
+          options.passwordHashAdmissionGate,
+          request,
+          reply,
+          () => verifyOwnedPassword(body.currentPassword ?? '', password?.credential ?? null),
+        );
+        if (!verified) return;
+        if (!body.currentPassword || !verified.value) return invalidCredentials(reply);
       }
       const rawCodes = createRecoveryCodes();
       const setId = id('recoveryset');
@@ -447,6 +458,7 @@ function registerRecoveryCodeRoutes(
     async (request, reply) => {
       setPrivateHeaders(reply);
       if (!requireTrustedMutationOrigin(request, reply)) return;
+      if (!requireCredentialGateway(request, reply)) return;
       const authenticated = await requireSession(options.repository, request, reply);
       if (!authenticated) return;
       const now = readClock(options.clock);
@@ -476,6 +488,7 @@ function registerRecoveryCodeRoutes(
   fastify.delete('/v1/auth/recovery-codes', async (request, reply) => {
     setPrivateHeaders(reply);
     if (!requireTrustedMutationOrigin(request, reply)) return;
+    if (!requireCredentialGateway(request, reply)) return;
     const authenticated = await requireSession(options.repository, request, reply);
     if (!authenticated) return;
     const now = readClock(options.clock);

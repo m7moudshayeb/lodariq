@@ -248,6 +248,7 @@ export function createApiApp(options: CreateApiAppOptions = {}): FastifyInstance
         repository,
         observability,
         configuration: webAuthnConfiguration,
+        passwordHashAdmissionGate,
         clock: options.authClock,
       });
       registerOidcRoutes(authApi, {

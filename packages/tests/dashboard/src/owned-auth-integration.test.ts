@@ -291,7 +291,7 @@ describe('@lodariq/dashboard owned authentication', () => {
     ).toBeUndefined();
   });
 
-  it('adds the signed source only to rate-limited auth calls and never forwards the raw IP', async () => {
+  it('adds the signed source to every BFF hop and never forwards the raw IP', async () => {
     vi.stubEnv('FLY_APP_NAME', 'lodariq-dashboard');
     vi.stubEnv('LODARIQ_AUTH_BFF_SOURCE_SECRET', '0123456789abcdef0123456789abcdef');
     const forwardedHeaders: Headers[] = [];
@@ -309,15 +309,19 @@ describe('@lodariq/dashboard owned authentication', () => {
       '/v1/auth/sign-in',
     );
     await proxyOwnedAuthRequest(
+      jsonRequest('https://app.lodariq.io/api/auth/username', sourceHeaders, 'PUT'),
+      '/v1/auth/username',
+    );
+    await proxyOwnedAuthRequest(
       jsonRequest('https://app.lodariq.io/api/workspaces/wk_product/select', sourceHeaders),
       '/v1/workspaces/wk_product/select',
     );
 
-    expect(forwardedHeaders[0]?.get('x-lodariq-auth-client-source')).toMatch(
-      /^v1\.\d+\.[A-Za-z0-9_-]{43}\.[A-Za-z0-9_-]{43}$/u,
-    );
-    expect(forwardedHeaders[1]?.has('x-lodariq-auth-client-source')).toBe(false);
+    expect(forwardedHeaders).toHaveLength(3);
     for (const headers of forwardedHeaders) {
+      expect(headers.get('x-lodariq-auth-client-source')).toMatch(
+        /^v1\.\d+\.[A-Za-z0-9_-]{43}\.[A-Za-z0-9_-]{43}$/u,
+      );
       expect(headers.has('fly-client-ip')).toBe(false);
       expect(headers.has('x-forwarded-for')).toBe(false);
       expect([...headers.values()].join(' ')).not.toContain('203.0.113.42');
@@ -565,9 +569,13 @@ describe('@lodariq/dashboard owned authentication', () => {
   });
 });
 
-function jsonRequest(url: string, headers: Record<string, string> = {}): Request {
+function jsonRequest(
+  url: string,
+  headers: Record<string, string> = {},
+  method = 'POST',
+): Request {
   return new Request(url, {
-    method: 'POST',
+    method,
     headers: {
       'content-type': 'application/json',
       origin: new URL(url).origin,

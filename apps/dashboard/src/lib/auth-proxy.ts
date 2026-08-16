@@ -18,20 +18,6 @@ const FORWARDED_RESPONSE_HEADERS = [
 const AUTH_CLIENT_SOURCE_HEADER = 'x-lodariq-auth-client-source';
 const SOURCE_ID_CONTEXT = 'lodariq-auth-source-v1\0';
 const SOURCE_ENVELOPE_CONTEXT = 'lodariq-auth-source-envelope-v1\0';
-const SOURCE_RATE_LIMITED_PATHS = new Set([
-  '/v1/auth/sign-up',
-  '/v1/auth/sign-in',
-  '/v1/auth/verify-email',
-  '/v1/auth/resend-verification',
-  '/v1/auth/password-recovery',
-  '/v1/auth/set-password',
-  '/v1/auth/change-password',
-  '/v1/auth/email-change',
-  '/v1/auth/account',
-  '/v1/auth/passkeys/authentication/options',
-  '/v1/auth/passkeys/authentication/verify',
-  '/v1/auth/recovery-code/sign-in',
-]);
 const PUBLIC_AUTH_FAILURE_PATHS = new Set([
   '/v1/auth/sign-up',
   '/v1/auth/sign-in',
@@ -62,9 +48,9 @@ export async function proxyOwnedAuthRequest(
       if (value) upstreamHeaders.set(name, value.slice(0, 512));
     }
 
-    const clientSource = isSourceRateLimitedPath(upstreamPath)
-      ? createAuthClientSource(request)
-      : undefined;
+    // Every BFF hop proves the dashboard, not a path allowlist. Production
+    // credential-gateway routes 401 when this header is missing.
+    const clientSource = createAuthClientSource(request);
     if (clientSource) upstreamHeaders.set(AUTH_CLIENT_SOURCE_HEADER, clientSource);
 
     const sessionToken = readSessionTokenFromCookieHeader(request.headers.get('cookie'));
@@ -191,23 +177,6 @@ export async function proxyEnterpriseOidcCallback(request: Request): Promise<Res
   } catch {
     return enterpriseOidcFailureRedirect(request);
   }
-}
-
-function isSourceRateLimitedPath(path: string): boolean {
-  if (SOURCE_RATE_LIMITED_PATHS.has(path) || path === '/v1/workspace-invitations/accept') {
-    return true;
-  }
-  return (
-    /^\/v1\/auth\/oidc\/(?:google|microsoft)\/(?:begin|callback)$/u.test(path) ||
-    path === '/v1/auth/sso/discover' ||
-    path === '/v1/auth/enterprise/oidc/begin' ||
-    /^\/v1\/workspaces\/[^/]+\/enterprise\//u.test(path) ||
-    /^\/v1\/auth\/identities\/[^/]+$/u.test(path) ||
-    /^\/v1\/workspaces\/[^/]+$/u.test(path) ||
-    /^\/v1\/workspaces\/[^/]+\/(?:invitations(?:\/[^/]+)?|members\/[^/]+|ownership-transfer|deletion\/cancel)$/u.test(
-      path,
-    )
-  );
 }
 
 function safeOidcReturnTo(value: unknown): string {

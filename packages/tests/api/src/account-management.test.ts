@@ -14,10 +14,9 @@ import {
   type PasswordCredentialRecord,
 } from '@lodariq/database';
 
-const NOW = new Date('2026-08-15T12:00:00.000Z');
-// authenticateOwnedSession uses wall-clock expiry, not authClock.
-const SESSION_IDLE_EXPIRES_AT = new Date(Date.now() + 12 * 60 * 60 * 1_000).toISOString();
-const SESSION_ABSOLUTE_EXPIRES_AT = new Date(Date.now() + 24 * 60 * 60 * 1_000).toISOString();
+const NOW = new Date();
+const SESSION_IDLE_EXPIRES_AT = new Date(NOW.getTime() + 12 * 60 * 60 * 1_000).toISOString();
+const SESSION_ABSOLUTE_EXPIRES_AT = new Date(NOW.getTime() + 24 * 60 * 60 * 1_000).toISOString();
 const USER_ID = 'usr_account_management';
 const WORKSPACE_ID = 'wk_account_management';
 const PASSWORD = 'correct-current-password';
