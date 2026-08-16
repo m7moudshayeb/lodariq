@@ -261,14 +261,15 @@ export function AccountSecuritySettings({
 
   async function updateUsername(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
+    const form = event.currentTarget;
     if (!begin('username')) return;
-    const values = formValues(event.currentTarget, ['username', 'currentPassword']);
+    const values = formValues(form, ['username', 'currentPassword']);
     if (!values) return validationFailure(_(COPY.validationRequired), setError, setBusy);
     try {
       await setUsername(values.username, values.currentPassword);
       setNotice(_(COPY.saved));
       setBusy('');
-      event.currentTarget.reset();
+      form.reset();
       router.refresh();
     } catch (caught) {
       fail(caught);
@@ -277,8 +278,9 @@ export function AccountSecuritySettings({
 
   async function updatePassword(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
+    const form = event.currentTarget;
     if (!begin('password')) return;
-    const values = formValues(event.currentTarget, [
+    const values = formValues(form, [
       'currentPassword',
       'newPassword',
       'confirmPassword',
@@ -295,7 +297,7 @@ export function AccountSecuritySettings({
       await changePassword(values.currentPassword, values.newPassword);
       setNotice(_(COPY.saved));
       setBusy('');
-      event.currentTarget.reset();
+      form.reset();
     } catch (caught) {
       fail(caught);
     }
@@ -303,8 +305,9 @@ export function AccountSecuritySettings({
 
   async function updateEmail(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
+    const form = event.currentTarget;
     if (!begin('email')) return;
-    const values = formValues(event.currentTarget, ['newEmail', 'currentPassword']);
+    const values = formValues(form, ['newEmail', 'currentPassword']);
     if (!values || !/^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/u.test(values.newEmail)) {
       return validationFailure(_(COPY.validationEmail), setError, setBusy);
     }
@@ -312,7 +315,7 @@ export function AccountSecuritySettings({
       setEmailChange(await startEmailChange(values.newEmail, values.currentPassword));
       setNotice(_(COPY.emailQueued));
       setBusy('');
-      event.currentTarget.reset();
+      form.reset();
     } catch (caught) {
       fail(caught);
     }
@@ -406,8 +409,9 @@ export function AccountSecuritySettings({
 
   async function addPasskey(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
+    const form = event.currentTarget;
     if (!begin('passkey:add')) return;
-    const values = formValues(event.currentTarget, ['name']);
+    const values = formValues(form, ['name']);
     if (!values) return validationFailure(_(COPY.validationRequired), setError, setBusy);
     try {
       await registerPasskey(values.name);
@@ -415,7 +419,7 @@ export function AccountSecuritySettings({
       setIdentities((await listAuthIdentities()).identities);
       setNotice(_(COPY.saved));
       setBusy('');
-      event.currentTarget.reset();
+      form.reset();
     } catch (caught) {
       fail(caught);
     }
@@ -435,8 +439,9 @@ export function AccountSecuritySettings({
 
   async function createRecoverySet(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
+    const form = event.currentTarget;
     if (!begin('recovery:generate')) return;
-    const password = new FormData(event.currentTarget).get('currentPassword');
+    const password = new FormData(form).get('currentPassword');
     try {
       const generated = await generateRecoveryCodes(
         typeof password === 'string' && password ? password : undefined,
@@ -449,7 +454,7 @@ export function AccountSecuritySettings({
         createdAt: new Date().toISOString(),
       });
       setBusy('');
-      event.currentTarget.reset();
+      form.reset();
     } catch (caught) {
       fail(caught);
     }
@@ -457,8 +462,9 @@ export function AccountSecuritySettings({
 
   async function confirmRecoverySet(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
+    const form = event.currentTarget;
     if (!recoveryCodes || !begin('recovery:confirm')) return;
-    const values = formValues(event.currentTarget, ['code']);
+    const values = formValues(form, ['code']);
     if (!values) return validationFailure(_(COPY.validationRequired), setError, setBusy);
     try {
       await confirmRecoveryCodes(recoveryCodes.setId, values.code);
@@ -466,7 +472,7 @@ export function AccountSecuritySettings({
       setRecoveryCodes(null);
       setNotice(_(COPY.saved));
       setBusy('');
-      event.currentTarget.reset();
+      form.reset();
     } catch (caught) {
       fail(caught);
     }
