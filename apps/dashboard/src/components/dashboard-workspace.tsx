@@ -7,6 +7,7 @@ import { DesktopWorkspaceNavigation, MobileWorkspaceHeader } from './dashboard-n
 import { AnalyticsView, ExperiencesView, OverviewView } from './dashboard-primary-views';
 import { ReleasesView } from './dashboard-release-view';
 import { BrandSystemView, EnvironmentsView, SupportView } from './dashboard-settings-views';
+import { StatusBanner } from './ui/status-banner';
 import { WorkspaceMembersView } from './workspace-members-view';
 
 interface DashboardWorkspaceProps {
@@ -167,14 +168,7 @@ function ActiveDashboardView({
 }
 
 function DashboardError({ message }: { message: string }): React.ReactElement {
-  return (
-    <div
-      className="mb-6 rounded-lg border border-[var(--danger-border)] bg-[var(--danger-bg)] p-3 text-sm font-medium text-[var(--danger-fg)]"
-      role="alert"
-    >
-      {message}
-    </div>
-  );
+  return <StatusBanner className="mb-6" kind="error" title={message} />;
 }
 
 function dashboardViewFromHash(hash: string): DashboardViewId | null {

@@ -33,6 +33,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
+import { StatusBanner } from './ui/status-banner';
 
 const COPY = {
   title: msg({ id: 'enterpriseIdentity.title', message: 'Enterprise identity' }),
@@ -738,15 +739,10 @@ function ReadonlyValue({ label, value }: { label: string; value: string }): Reac
 }
 
 function Feedback({ kind, message }: { kind: 'error' | 'neutral' | 'success'; message: string }): React.ReactElement {
-  let className = 'text-sm text-muted-foreground';
-  let role: 'alert' | 'status' = 'status';
-  if (kind === 'error') {
-    className = 'text-sm text-[var(--danger-fg)]';
-    role = 'alert';
-  } else if (kind === 'success') {
-    className = 'text-sm text-foreground';
+  if (kind === 'neutral') {
+    return <p className="text-sm text-muted-foreground" role="status">{message}</p>;
   }
-  return <p className={className} role={role}>{message}</p>;
+  return <StatusBanner kind={kind} title={message} />;
 }
 
 function providerLabel(translate: ReturnType<typeof useLingui>['_'], provider: EnterpriseIdentityProvider): string {

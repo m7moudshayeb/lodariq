@@ -45,6 +45,7 @@ import {
 } from '../lib/client-auth-api';
 import { Button } from './ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
+import { StatusBanner } from './ui/status-banner';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 
@@ -510,24 +511,13 @@ export function AccountSecuritySettings({
       </header>
 
       {error || notice ? (
-        <div
-          className={
-            error
-              ? 'rounded-lg border border-[var(--danger-border)] bg-[var(--danger-bg)] p-3 text-sm text-[var(--danger-fg)]'
-              : 'rounded-lg border border-border bg-[var(--success-bg)] p-3 text-sm text-[var(--success-fg)]'
-          }
-          role={error ? 'alert' : 'status'}
-        >
-          <p>{error || notice}</p>
+        <StatusBanner kind={accountBannerKind(error, reauthenticate)} title={error || notice}>
           {reauthenticate ? (
-            <a
-              className="mt-2 inline-block font-semibold underline"
-              href="/sign-in?returnTo=%2Faccount"
-            >
+            <a className="font-semibold underline" href="/sign-in?returnTo=%2Faccount">
               {_(COPY.signInAgain)}
             </a>
           ) : null}
-        </div>
+        </StatusBanner>
       ) : null}
 
       <div className="grid gap-5 lg:grid-cols-2">
@@ -977,6 +967,12 @@ function formValues<const T extends readonly string[]>(
   );
   if (entries.some(([, value]) => !value)) return null;
   return Object.fromEntries(entries) as { [K in T[number]]: string };
+}
+
+function accountBannerKind(error: string, reauthenticate: boolean): 'error' | 'warning' | 'success' {
+  if (reauthenticate) return 'warning';
+  if (error) return 'error';
+  return 'success';
 }
 
 function validationFailure(

@@ -14,7 +14,7 @@ msgstr ""
 "Plural-Forms: \n"
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:175
+#: src/components/release-recovery-panel.tsx:176
 msgid "dashboard.recovery.replayed"
 msgstr " Requête exacte rejouée en toute sécurité."
 
@@ -24,7 +24,7 @@ msgid "dashboard.brand.panel.defaultSr"
 msgstr ", espace de travail par défaut"
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:130
+#: src/components/release-recovery-panel.tsx:131
 msgid "dashboard.recovery.dialogLabel"
 msgstr "{action} {environment} version"
 
@@ -79,7 +79,7 @@ msgid "dashboard.viewModel.publishIssues"
 msgstr "{count} publier le {count, plural, one {numéro} other {numéros}}"
 
 #. js-lingui-explicit-id
-#: src/components/account-security-settings.tsx:168
+#: src/components/account-security-settings.tsx:170
 msgid "account.recoveryCodes.remaining"
 msgstr "Il reste {count} codes inutilisés."
 
@@ -219,7 +219,7 @@ msgid "auth.form.verificationSent"
 msgstr "Nous avons envoyé un lien de vérification sécurisé à {email}. Gardez cette page ouverte ou utilisez le lien directement."
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:180
+#: src/components/enterprise-identity-settings.tsx:181
 msgid "enterpriseIdentity.breakGlassHelp"
 msgstr "Une session forte sans mot de passe, un second propriétaire d’espace de travail et une demande à usage unique de courte durée sont requis."
 
@@ -229,12 +229,12 @@ msgid "dashboard.brand.panel.askAdmin"
 msgstr "Un administrateur ou un propriétaire d'espace de travail approuve les versions et modifie la valeur par défaut."
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:114
+#: src/components/enterprise-identity-settings.tsx:115
 msgid "enterpriseIdentity.assurance.aal1"
 msgstr "AAL1 · standard"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:115
+#: src/components/enterprise-identity-settings.tsx:116
 msgid "enterpriseIdentity.assurance.aal2"
 msgstr "AAL2 · multifactoriel"
 
@@ -274,12 +274,12 @@ msgid "dashboard.brand.preview.accessibleFallback"
 msgstr "Solution de secours accessible"
 
 #. js-lingui-explicit-id
-#: src/components/account-security-settings.tsx:51
+#: src/components/account-security-settings.tsx:53
 msgid "account.title"
 msgstr "Compte et sécurité"
 
 #. js-lingui-explicit-id
-#: src/components/dashboard-auth-controls.tsx:53
+#: src/components/dashboard-auth-controls.tsx:54
 msgid "dashboard.account.security"
 msgstr "Compte et sécurité"
 
@@ -309,7 +309,7 @@ msgid "auth.error.signupUnavailable"
 msgstr "La création de compte n'est pas disponible pour le moment."
 
 #. js-lingui-explicit-id
-#: src/components/account-security-settings.tsx:103
+#: src/components/account-security-settings.tsx:105
 msgid "account.data.title"
 msgstr "Données du compte"
 
@@ -324,7 +324,7 @@ msgid "account.security.eyebrow"
 msgstr "Sécurité du compte"
 
 #. js-lingui-explicit-id
-#: src/components/account-security-settings.tsx:142
+#: src/components/account-security-settings.tsx:144
 msgid "account.unavailable"
 msgstr "La sécurité du compte est indisponible."
 
@@ -344,17 +344,17 @@ msgid "dashboard.viewModel.active"
 msgstr "Actif"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:98
+#: src/components/enterprise-identity-settings.tsx:99
 msgid "enterpriseIdentity.status.active"
 msgstr "Actif"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:210
+#: src/components/enterprise-identity-settings.tsx:211
 msgid "enterpriseIdentity.active"
 msgstr "Actif"
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:98
+#: src/components/release-recovery-panel.tsx:99
 msgid "dashboard.recovery.active"
 msgstr "Actif"
 
@@ -364,17 +364,17 @@ msgid "dashboard.viewModel.activePublicationAt"
 msgstr "Publication active {date}"
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:212
+#: src/components/release-recovery-panel.tsx:213
 msgid "dashboard.recovery.activeAtAttempt"
 msgstr "Publication active lors de la tentative : {publication}"
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:104
+#: src/components/release-recovery-panel.tsx:105
 msgid "dashboard.recovery.activePublication"
 msgstr "Publication active : {publication}"
 
 #. js-lingui-explicit-id
-#: src/components/account-security-settings.tsx:86
+#: src/components/account-security-settings.tsx:88
 msgid "account.sessions.title"
 msgstr "Sessions actives"
 
@@ -384,7 +384,7 @@ msgid "dashboard.viewModel.activeNoProvenanceAt"
 msgstr "Actif depuis {date} · provenance exacte de la mise en scène indisponible"
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:192
+#: src/components/release-recovery-panel.tsx:193
 msgid "dashboard.recovery.actualGeneration"
 msgstr "Génération réelle {generation}"
 
@@ -414,12 +414,12 @@ msgid "dashboard.publishIssue.emptyStep.message"
 msgstr "Ajoutez du contenu à cette étape avant de publier."
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:83
+#: src/components/enterprise-identity-settings.tsx:84
 msgid "enterpriseIdentity.addConnection"
 msgstr "Ajouter une connexion OIDC"
 
 #. js-lingui-explicit-id
-#: src/components/account-security-settings.tsx:154
+#: src/components/account-security-settings.tsx:156
 msgid "account.passkeys.add"
 msgstr "Ajouter une clé d’accès"
 
@@ -429,7 +429,7 @@ msgid "dashboard.installation.oneLineDescription"
 msgstr "Ajoutez cette installation au shell de l'application partagée. L'environnement et l'accès à la création sont résolus à partir de l'origine exacte de la page."
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:137
+#: src/components/enterprise-identity-settings.tsx:138
 msgid "enterpriseIdentity.dnsChallenge"
 msgstr "Ajoutez cet enregistrement TXT maintenant. Sa valeur n’est affichée que dans cette session de navigateur."
 
@@ -449,12 +449,12 @@ msgid "workspaceSelection.role.admin"
 msgstr "Administrateur"
 
 #. js-lingui-explicit-id
-#: src/components/dashboard-auth-controls.tsx:59
+#: src/components/dashboard-auth-controls.tsx:60
 msgid "dashboard.account.role.admin"
 msgstr "Administrateur"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:154
+#: src/components/enterprise-identity-settings.tsx:155
 msgid "enterpriseIdentity.role.admin"
 msgstr "Admin"
 
@@ -479,7 +479,7 @@ msgid "dashboard.brand.preview.after"
 msgstr "Après"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:109
+#: src/components/enterprise-identity-settings.tsx:110
 msgid "enterpriseIdentity.allowPassword"
 msgstr "Autoriser les sessions par mot de passe"
 
@@ -599,7 +599,7 @@ msgid "dashboard.brand.controller.reviewMissing"
 msgstr "L'examen d'approbation n'a pas été renvoyé."
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:198
+#: src/components/enterprise-identity-settings.tsx:199
 msgid "enterpriseIdentity.approveBreakGlass"
 msgstr "Approuver la demande break-glass"
 
@@ -619,7 +619,7 @@ msgid "dashboard.viewModel.approvedAt"
 msgstr "Approuvé {date}"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:116
+#: src/components/enterprise-identity-settings.tsx:117
 msgid "enterpriseIdentity.breakGlassId"
 msgstr "ID de demande break-glass approuvée (uniquement si requis)"
 
@@ -724,7 +724,7 @@ msgid "dashboard.brand.review.beforeAfter"
 msgstr "Avant et après"
 
 #. js-lingui-explicit-id
-#: src/components/account-security-settings.tsx:75
+#: src/components/account-security-settings.tsx:77
 msgid "account.email.help"
 msgstr "Votre adresse actuelle et la nouvelle doivent toutes deux approuver la modification."
 
@@ -774,7 +774,7 @@ msgid "dashboard.brand.preview.fallbackTheme"
 msgstr "Thème de la marque"
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:129
+#: src/components/release-recovery-panel.tsx:130
 msgid "dashboard.recovery.brandTheme"
 msgstr "Thème de la marque"
 
@@ -784,12 +784,12 @@ msgid "dashboard.brand.panel.themes"
 msgstr "Thèmes de marque"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:179
+#: src/components/enterprise-identity-settings.tsx:180
 msgid "enterpriseIdentity.breakGlass"
 msgstr "Récupération break-glass"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:202
+#: src/components/enterprise-identity-settings.tsx:203
 msgid "enterpriseIdentity.requestApproved"
 msgstr "Demande break-glass approuvée. Elle reste de courte durée et à usage unique."
 
@@ -819,7 +819,7 @@ msgid "dashboard.activation.cancel"
 msgstr "Annuler"
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:161
+#: src/components/release-recovery-panel.tsx:162
 msgid "dashboard.recovery.cancel"
 msgstr "Annuler"
 
@@ -839,7 +839,7 @@ msgid "dashboard.locale.change"
 msgstr "Changer la langue"
 
 #. js-lingui-explicit-id
-#: src/components/account-security-settings.tsx:73
+#: src/components/account-security-settings.tsx:75
 msgid "account.password.change"
 msgstr "Modifier le mot de passe"
 
@@ -854,7 +854,7 @@ msgid "dashboard.locale.changing"
 msgstr "Changer la langue"
 
 #. js-lingui-explicit-id
-#: src/components/account-security-settings.tsx:69
+#: src/components/account-security-settings.tsx:71
 msgid "account.password.help"
 msgstr "La modification du mot de passe révoque toutes les autres sessions et les liens de récupération en attente."
 
@@ -879,7 +879,7 @@ msgid "dashboard.activation.checking"
 msgstr "Vérification de l'accès"
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:162
+#: src/components/release-recovery-panel.tsx:163
 msgid "dashboard.recovery.checking"
 msgstr "Vérification de la version exacte…"
 
@@ -919,7 +919,7 @@ msgid "auth.page.newPassword.title"
 msgstr "Choisissez un nouveau mot de passe"
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:147
+#: src/components/release-recovery-panel.tsx:148
 msgid "dashboard.recovery.choosePublication"
 msgstr "Choisissez une publication antérieure"
 
@@ -1049,7 +1049,7 @@ msgid "dashboard.navigation.collapse"
 msgstr "Réduire la navigation dans l'espace de travail"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:132
+#: src/components/enterprise-identity-settings.tsx:133
 msgid "enterpriseIdentity.domain"
 msgstr "Domaine de l’entreprise"
 
@@ -1059,17 +1059,17 @@ msgid "dashboard.brand.review.description"
 msgstr "Comparez l’apparence actuellement approuvée avec ce brouillon dans le moteur de rendu Tour de production de Lodariq, puis vérifiez chaque expérience liée avant approbation."
 
 #. js-lingui-explicit-id
-#: src/components/account-security-settings.tsx:124
+#: src/components/account-security-settings.tsx:126
 msgid "account.validation.required"
 msgstr "Remplissez tous les champs."
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:206
+#: src/components/enterprise-identity-settings.tsx:207
 msgid "enterpriseIdentity.requiredFields"
 msgstr "Renseignez chaque champ obligatoire avec une valeur valide."
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:112
+#: src/components/release-recovery-panel.tsx:113
 msgid "dashboard.recovery.completeHistory"
 msgstr "Historique complet"
 
@@ -1099,7 +1099,7 @@ msgid "dashboard.analytics.fact.completion"
 msgstr "Achèvement"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:39
+#: src/components/enterprise-identity-settings.tsx:40
 msgid "enterpriseIdentity.description"
 msgstr "Configurez le SSO d’entreprise, les domaines vérifiés, les rôles gérés et SCIM sans lier les comptes par e-mail."
 
@@ -1109,7 +1109,7 @@ msgid "account.emailChange.title"
 msgstr "Confirmer la modification de l’adresse e-mail"
 
 #. js-lingui-explicit-id
-#: src/components/account-security-settings.tsx:66
+#: src/components/account-security-settings.tsx:68
 msgid "account.confirmPassword"
 msgstr "Confirmer le nouveau mot de passe"
 
@@ -1119,12 +1119,12 @@ msgid "auth.form.confirmPassword"
 msgstr "Confirmer le mot de passe"
 
 #. js-lingui-explicit-id
-#: src/components/account-security-settings.tsx:162
+#: src/components/account-security-settings.tsx:164
 msgid "account.recoveryCodes.confirm"
 msgstr "Confirmer les codes enregistrés"
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:134
+#: src/components/release-recovery-panel.tsx:135
 msgid "dashboard.recovery.confirmExact"
 msgstr "Confirmez : {action}"
 
@@ -1144,7 +1144,7 @@ msgid "dashboard.analytics.contentHash"
 msgstr "Hachage du contenu"
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:127
+#: src/components/release-recovery-panel.tsx:128
 msgid "dashboard.recovery.contentHash"
 msgstr "Hachage du contenu"
 
@@ -1224,12 +1224,12 @@ msgid "dashboard.installation.copy"
 msgstr "Copier l'installation"
 
 #. js-lingui-explicit-id
-#: src/components/account-security-settings.tsx:176
+#: src/components/account-security-settings.tsx:178
 msgid "account.recoveryCodes.shownOnce"
 msgstr "Copiez ces codes maintenant. Ils ne seront plus affichés."
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:171
+#: src/components/enterprise-identity-settings.tsx:172
 msgid "enterpriseIdentity.scimToken"
 msgstr "Copiez ce jeton maintenant. Lodariq ne l’affichera plus."
 
@@ -1244,7 +1244,7 @@ msgid "workspaceSelection.createError"
 msgstr "Impossible de créer l'espace de travail."
 
 #. js-lingui-explicit-id
-#: src/components/dashboard-auth-controls.tsx:32
+#: src/components/dashboard-auth-controls.tsx:33
 msgid "dashboard.account.createFailed"
 msgstr "Impossible de créer l'espace de travail."
 
@@ -1254,12 +1254,12 @@ msgid "workspaceSelection.openError"
 msgstr "Impossible d'ouvrir cet espace de travail."
 
 #. js-lingui-explicit-id
-#: src/components/dashboard-auth-controls.tsx:36
+#: src/components/dashboard-auth-controls.tsx:37
 msgid "dashboard.account.signOutFailed"
 msgstr "Impossible de se déconnecter."
 
 #. js-lingui-explicit-id
-#: src/components/dashboard-auth-controls.tsx:28
+#: src/components/dashboard-auth-controls.tsx:29
 msgid "dashboard.account.switchFailed"
 msgstr "Impossible de changer d'espace de travail."
 
@@ -1289,7 +1289,7 @@ msgid "dashboard.brand.empty.create"
 msgstr "Créer un système de marque"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:133
+#: src/components/enterprise-identity-settings.tsx:134
 msgid "enterpriseIdentity.startVerification"
 msgstr "Créer le défi DNS"
 
@@ -1299,12 +1299,12 @@ msgid "dashboard.installation.create"
 msgstr "Créer une installation unique"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:162
+#: src/components/enterprise-identity-settings.tsx:163
 msgid "enterpriseIdentity.createScimToken"
 msgstr "Créer un jeton SCIM"
 
 #. js-lingui-explicit-id
-#: src/components/dashboard-auth-controls.tsx:48
+#: src/components/dashboard-auth-controls.tsx:49
 msgid "dashboard.account.createWorkspace"
 msgstr "Créer un espace de travail"
 
@@ -1349,7 +1349,7 @@ msgid "dashboard.viewModel.currentDraftRecorded"
 msgstr "Brouillon actuel enregistré pour {sites}"
 
 #. js-lingui-explicit-id
-#: src/components/account-security-settings.tsx:82
+#: src/components/account-security-settings.tsx:84
 msgid "account.email.oldVerified"
 msgstr "Adresse e-mail actuelle confirmée"
 
@@ -1359,7 +1359,7 @@ msgid "dashboard.brand.editor.currentFont"
 msgstr "Police actuelle"
 
 #. js-lingui-explicit-id
-#: src/components/account-security-settings.tsx:64
+#: src/components/account-security-settings.tsx:66
 msgid "account.currentPassword"
 msgstr "Mot de passe actuel"
 
@@ -1379,7 +1379,7 @@ msgid "dashboard.viewModel.currentSavedContent"
 msgstr "Contenu actuellement enregistré"
 
 #. js-lingui-explicit-id
-#: src/components/account-security-settings.tsx:91
+#: src/components/account-security-settings.tsx:93
 msgid "account.sessions.current"
 msgstr "Session actuelle"
 
@@ -1424,17 +1424,17 @@ msgid "dashboard.brand.controller.defaultMissing"
 msgstr "Le thème par défaut n'a pas été renvoyé."
 
 #. js-lingui-explicit-id
-#: src/components/account-security-settings.tsx:110
+#: src/components/account-security-settings.tsx:112
 msgid "account.danger.title"
 msgstr "Supprimer le compte"
 
 #. js-lingui-explicit-id
-#: src/components/account-security-settings.tsx:117
+#: src/components/account-security-settings.tsx:119
 msgid "account.delete.action"
 msgstr "Supprimer mon compte"
 
 #. js-lingui-explicit-id
-#: src/components/account-security-settings.tsx:111
+#: src/components/account-security-settings.tsx:113
 msgid "account.danger.help"
 msgstr "La suppression vous déconnecte immédiatement et lance une période de conservation de 30 jours. Transférez d’abord tout espace de travail dont vous êtes l’unique propriétaire."
 
@@ -1444,12 +1444,12 @@ msgid "dashboard.recovery.failure.alreadyInactive"
 msgstr "La diffusion est déjà inactive pour ce document."
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:100
+#: src/components/release-recovery-panel.tsx:101
 msgid "dashboard.recovery.inactiveDescription"
 msgstr "La livraison est inactive. Les publications immuables et l’historique des versions sont conservés."
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:151
+#: src/components/release-recovery-panel.tsx:152
 msgid "dashboard.recovery.unpublishDescription"
 msgstr "La livraison deviendra inactive. Les publications immuables et l’historique des ajouts uniquement ne seront pas supprimés."
 
@@ -1474,12 +1474,12 @@ msgid "dashboard.environmentPolicy.development"
 msgstr "Développement"
 
 #. js-lingui-explicit-id
-#: src/components/account-security-settings.tsx:87
+#: src/components/account-security-settings.tsx:89
 msgid "account.sessions.help"
 msgstr "Les libellés d’appareil sont génériques et vérifiés sous l’angle de la confidentialité ; les adresses IP ne sont pas stockées ici."
 
 #. js-lingui-explicit-id
-#: src/components/account-security-settings.tsx:181
+#: src/components/account-security-settings.tsx:183
 msgid "account.passkeys.deviceBound"
 msgstr "Clé liée à l’appareil"
 
@@ -1489,22 +1489,22 @@ msgid "dashboard.environmentPolicy.directPublish"
 msgstr "Publication directe"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:84
+#: src/components/enterprise-identity-settings.tsx:85
 msgid "enterpriseIdentity.disableConnection"
 msgstr "Désactiver la connexion"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:167
+#: src/components/enterprise-identity-settings.tsx:168
 msgid "enterpriseIdentity.disableScimTokenConfirm"
 msgstr "Désactiver ce jeton SCIM ? Les demandes de provisionnement qui l’utilisent s’arrêteront immédiatement."
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:88
+#: src/components/enterprise-identity-settings.tsx:89
 msgid "enterpriseIdentity.disableConnectionConfirm"
 msgstr "Désactiver cette connexion SSO et révoquer ses sessions, autorisations d’authoring, domaines et jetons SCIM ?"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:163
+#: src/components/enterprise-identity-settings.tsx:164
 msgid "enterpriseIdentity.disableScimToken"
 msgstr "Désactiver le jeton"
 
@@ -1514,17 +1514,17 @@ msgid "dashboard.common.disabled"
 msgstr "Désactivé"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:99
+#: src/components/enterprise-identity-settings.tsx:100
 msgid "enterpriseIdentity.status.disabled"
 msgstr "Désactivé"
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:82
+#: src/components/release-recovery-panel.tsx:83
 msgid "dashboard.recovery.disabled"
 msgstr "Désactivé"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:126
+#: src/components/enterprise-identity-settings.tsx:127
 msgid "enterpriseIdentity.domainsHelp"
 msgstr "La découverte n’utilise que la propriété DNS vérifiée. Un e-mail correspondant ne lie jamais un compte Lodariq existant."
 
@@ -1539,12 +1539,12 @@ msgid "dashboard.recentActivity.empty"
 msgstr "L’activité du document, de la version et de la marque apparaîtra ici."
 
 #. js-lingui-explicit-id
-#: src/components/account-security-settings.tsx:109
+#: src/components/account-security-settings.tsx:111
 msgid "account.data.export"
 msgstr "Télécharger l’export du compte"
 
 #. js-lingui-explicit-id
-#: src/components/account-security-settings.tsx:104
+#: src/components/account-security-settings.tsx:106
 msgid "account.data.help"
 msgstr "Téléchargez le profil, les adresses vérifiées, les méthodes de connexion et les appartenances aux espaces de travail liées à votre compte."
 
@@ -1564,7 +1564,7 @@ msgid "dashboard.documents.draft"
 msgstr "Brouillon"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:93
+#: src/components/enterprise-identity-settings.tsx:94
 msgid "enterpriseIdentity.status.draft"
 msgstr "Brouillon"
 
@@ -1629,7 +1629,7 @@ msgid "workspaceMembers.email"
 msgstr "Adresse e-mail"
 
 #. js-lingui-explicit-id
-#: src/components/account-security-settings.tsx:74
+#: src/components/account-security-settings.tsx:76
 msgid "account.email.title"
 msgstr "Adresse e-mail"
 
@@ -1674,7 +1674,7 @@ msgid "workspaceMembers.invalidEmail"
 msgstr "Saisissez une adresse e-mail complète."
 
 #. js-lingui-explicit-id
-#: src/components/account-security-settings.tsx:129
+#: src/components/account-security-settings.tsx:131
 msgid "account.validation.email"
 msgstr "Saisissez une adresse e-mail complète."
 
@@ -1689,7 +1689,7 @@ msgid "auth.form.validation.emailInvalid"
 msgstr "Saisissez une adresse e-mail au format name@example.com."
 
 #. js-lingui-explicit-id
-#: src/components/account-security-settings.tsx:163
+#: src/components/account-security-settings.tsx:165
 msgid "account.recoveryCodes.confirmHelp"
 msgstr "Saisissez l’un des codes affichés pour confirmer leur enregistrement. Il restera utilisable."
 
@@ -1709,22 +1709,22 @@ msgid "recoveryCode.invalid"
 msgstr "Saisissez votre identifiant et un code de récupération complet."
 
 #. js-lingui-explicit-id
-#: src/components/account-security-settings.tsx:133
+#: src/components/account-security-settings.tsx:135
 msgid "account.validation.delete"
 msgstr "Saisissez votre mot de passe et tapez exactement DELETE."
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:38
+#: src/components/enterprise-identity-settings.tsx:39
 msgid "enterpriseIdentity.title"
 msgstr "Identité d’entreprise"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:49
+#: src/components/enterprise-identity-settings.tsx:50
 msgid "enterpriseIdentity.saved"
 msgstr "Paramètre d’identité d’entreprise enregistré."
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:45
+#: src/components/enterprise-identity-settings.tsx:46
 msgid "enterpriseIdentity.unavailable"
 msgstr "Impossible de charger les paramètres d’identité d’entreprise."
 
@@ -1734,7 +1734,7 @@ msgid "auth.form.enterpriseSsoUnavailable"
 msgstr "La connexion d’entreprise n’est pas configurée pour cet e-mail professionnel."
 
 #. js-lingui-explicit-id
-#: src/components/account-security-settings.tsx:146
+#: src/components/account-security-settings.tsx:148
 msgid "account.methods.saml"
 msgstr "SSO d’entreprise"
 
@@ -1744,7 +1744,7 @@ msgid "dashboard.activation.environment"
 msgstr "Environnement"
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:138
+#: src/components/release-recovery-panel.tsx:139
 msgid "dashboard.recovery.confirmationDetails"
 msgstr "Environnement {environment} · génération {generation} · publication active {publication}"
 
@@ -1854,7 +1854,7 @@ msgid "dashboard.navigation.expand"
 msgstr "Développer la navigation dans l'espace de travail"
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:196
+#: src/components/release-recovery-panel.tsx:197
 msgid "dashboard.recovery.expectedGeneration"
 msgstr "Génération attendue {generation}"
 
@@ -1909,7 +1909,7 @@ msgid "dashboard.analytics.fact.exposure"
 msgstr "Exposition"
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:187
+#: src/components/release-recovery-panel.tsx:188
 msgid "dashboard.recovery.failedAction"
 msgstr "Échec {action}"
 
@@ -1994,12 +1994,12 @@ msgid "dashboard.analytics.targetSuccessBreakdown"
 msgstr "Trouvé {found} · Inconnu {unknown}. Les résultats trouvés et inconnus ne sont pas considérés comme des échecs."
 
 #. js-lingui-explicit-id
-#: src/components/account-security-settings.tsx:161
+#: src/components/account-security-settings.tsx:163
 msgid "account.recoveryCodes.generate"
 msgstr "Générer de nouveaux codes"
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:99
+#: src/components/release-recovery-panel.tsx:100
 msgid "dashboard.recovery.generation"
 msgstr "Génération {generation}"
 
@@ -2009,7 +2009,7 @@ msgid "dashboard.brand.editor.georgiaSerif"
 msgstr "Empattement de Géorgie"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:146
+#: src/components/enterprise-identity-settings.tsx:147
 msgid "enterpriseIdentity.mappingsHelp"
 msgstr "Les groupes peuvent accorder viewer, member ou admin. Les fournisseurs d’identité ne peuvent jamais accorder owner."
 
@@ -2059,12 +2059,12 @@ msgid "dashboard.viewModel.type.hotspot"
 msgstr "Point d'accès"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:72
+#: src/components/enterprise-identity-settings.tsx:73
 msgid "enterpriseIdentity.provider"
 msgstr "Fournisseur d’identité"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:145
+#: src/components/enterprise-identity-settings.tsx:146
 msgid "enterpriseIdentity.mappings"
 msgstr "Mapping des rôles de groupes IdP"
 
@@ -2084,7 +2084,7 @@ msgid "dashboard.authoringLaunch.signInHandoff"
 msgstr "Si vous êtes déconnecté, le lanceur ouvre la connexion Lodariq et vous renvoie automatiquement à la même page produit. Aucun transfert temporaire d’éditeur n’est requis."
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:123
+#: src/components/release-recovery-panel.tsx:124
 msgid "dashboard.recovery.immutableArtifact"
 msgstr "Artefact immuable"
 
@@ -2119,7 +2119,7 @@ msgid "dashboard.common.inactive"
 msgstr "Inactif"
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:97
+#: src/components/release-recovery-panel.tsx:98
 msgid "dashboard.recovery.inactive"
 msgstr "Inactif"
 
@@ -2184,7 +2184,7 @@ msgid "workspaceInvitation.accepted"
 msgstr "Invitation acceptée"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:78
+#: src/components/enterprise-identity-settings.tsx:79
 msgid "enterpriseIdentity.provisioning.invitationOnly"
 msgstr "Invitation uniquement"
 
@@ -2204,7 +2204,7 @@ msgid "dashboard.page.members.description"
 msgstr "Invitez des collaborateurs, attribuez des rôles et vérifiez les accès à l’espace de travail."
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:75
+#: src/components/enterprise-identity-settings.tsx:76
 msgid "enterpriseIdentity.issuer"
 msgstr "URL de l’émetteur"
 
@@ -2279,12 +2279,12 @@ msgid "dashboard.brand.binding.legacy"
 msgstr "Solution de secours héritée"
 
 #. js-lingui-explicit-id
-#: src/components/account-security-settings.tsx:184
+#: src/components/account-security-settings.tsx:186
 msgid "account.methods.linkGoogle"
 msgstr "Associer Google"
 
 #. js-lingui-explicit-id
-#: src/components/account-security-settings.tsx:185
+#: src/components/account-security-settings.tsx:187
 msgid "account.methods.linkMicrosoft"
 msgstr "Associer Microsoft"
 
@@ -2314,17 +2314,17 @@ msgid "dashboard.analytics.loading"
 msgstr "Chargement des analyses {environment}…"
 
 #. js-lingui-explicit-id
-#: src/components/account-security-settings.tsx:118
+#: src/components/account-security-settings.tsx:120
 msgid "account.loading"
 msgstr "Chargement de la sécurité du compte…"
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:83
+#: src/components/release-recovery-panel.tsx:84
 msgid "dashboard.recovery.loading"
 msgstr "Chargement de l'historique complet des versions…"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:44
+#: src/components/enterprise-identity-settings.tsx:45
 msgid "enterpriseIdentity.loading"
 msgstr "Chargement de l’identité d’entreprise…"
 
@@ -2374,7 +2374,7 @@ msgid "auth.error.serviceUnavailable"
 msgstr "La connexion à Lodariq est temporairement indisponible."
 
 #. js-lingui-explicit-id
-#: src/components/account-security-settings.tsx:98
+#: src/components/account-security-settings.tsx:100
 msgid "account.methods.help"
 msgstr "Lodariq ne vous laissera jamais supprimer votre dernière méthode de connexion utilisable."
 
@@ -2399,7 +2399,7 @@ msgid "dashboard.publishIssue.missingTerminalCompletion.message"
 msgstr "Vérifiez que chaque parcours possible peut terminer ou fermer la visite."
 
 #. js-lingui-explicit-id
-#: src/components/account-security-settings.tsx:52
+#: src/components/account-security-settings.tsx:54
 msgid "account.description"
 msgstr "Gérez vos modes de connexion, les endroits où votre compte est actif et les données du compte."
 
@@ -2409,7 +2409,7 @@ msgid "dashboard.page.environments.description"
 msgstr "Gérez les origines des produits approuvés et l'installation de chaque environnement d'exécution."
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:151
+#: src/components/enterprise-identity-settings.tsx:152
 msgid "enterpriseIdentity.managedRole"
 msgstr "Rôle géré"
 
@@ -2424,12 +2424,12 @@ msgid "workspaceSelection.role.member"
 msgstr "Membre"
 
 #. js-lingui-explicit-id
-#: src/components/dashboard-auth-controls.tsx:58
+#: src/components/dashboard-auth-controls.tsx:59
 msgid "dashboard.account.role.member"
 msgstr "Membre"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:153
+#: src/components/enterprise-identity-settings.tsx:154
 msgid "enterpriseIdentity.role.member"
 msgstr "Member"
 
@@ -2449,12 +2449,12 @@ msgid "dashboard.page.members.title"
 msgstr "Membres et accès"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:74
+#: src/components/enterprise-identity-settings.tsx:75
 msgid "enterpriseIdentity.provider.entra"
 msgstr "Microsoft Entra ID"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:110
+#: src/components/enterprise-identity-settings.tsx:111
 msgid "enterpriseIdentity.minimumAssurance"
 msgstr "Niveau d’assurance minimal"
 
@@ -2484,7 +2484,7 @@ msgid "dashboard.publishIssue.missingUrl.label"
 msgstr "URL manquante"
 
 #. js-lingui-explicit-id
-#: src/components/account-security-settings.tsx:183
+#: src/components/account-security-settings.tsx:185
 msgid "account.passkeys.multiDevice"
 msgstr "Plusieurs appareils"
 
@@ -2534,17 +2534,17 @@ msgid "dashboard.analytics.target.needsReview"
 msgstr "Besoin d'un examen"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:63
+#: src/components/enterprise-identity-settings.tsx:64
 msgid "enterpriseIdentity.connectionsHelp"
 msgstr "Les nouvelles connexions restent indisponibles jusqu’à ce que Lodariq enregistre une validation réelle du tenant."
 
 #. js-lingui-explicit-id
-#: src/components/account-security-settings.tsx:79
+#: src/components/account-security-settings.tsx:81
 msgid "account.email.new"
 msgstr "Nouvelle adresse e-mail"
 
 #. js-lingui-explicit-id
-#: src/components/account-security-settings.tsx:84
+#: src/components/account-security-settings.tsx:86
 msgid "account.email.newVerified"
 msgstr "Nouvelle adresse e-mail confirmée"
 
@@ -2559,7 +2559,7 @@ msgid "auth.form.newPassword"
 msgstr "Nouveau mot de passe"
 
 #. js-lingui-explicit-id
-#: src/components/account-security-settings.tsx:65
+#: src/components/account-security-settings.tsx:67
 msgid "account.newPassword"
 msgstr "Nouveau mot de passe"
 
@@ -2574,12 +2574,12 @@ msgid "dashboard.activation.newTour"
 msgstr "Nouvelle tournée"
 
 #. js-lingui-explicit-id
-#: src/components/dashboard-auth-controls.tsx:47
+#: src/components/dashboard-auth-controls.tsx:48
 msgid "dashboard.account.newWorkspace"
 msgstr "Nouvel espace de travail"
 
 #. js-lingui-explicit-id
-#: src/components/dashboard-auth-controls.tsx:43
+#: src/components/dashboard-auth-controls.tsx:44
 msgid "dashboard.account.newWorkspaceName"
 msgstr "Nom du nouvel espace de travail"
 
@@ -2594,7 +2594,7 @@ msgid "dashboard.viewModel.noEnvironmentPublicationRecord"
 msgstr "Aucun enregistrement de publication {environment}"
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:216
+#: src/components/release-recovery-panel.tsx:217
 msgid "dashboard.recovery.noActiveAtAttempt"
 msgstr "Aucune publication active lors de la tentative"
 
@@ -2619,7 +2619,7 @@ msgid "dashboard.action.noProductOrigins"
 msgstr "Aucune origine de produit canonique n'est encore configurée."
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:144
+#: src/components/enterprise-identity-settings.tsx:145
 msgid "enterpriseIdentity.noDomains"
 msgstr "Aucun domaine d’entreprise n’est configuré."
 
@@ -2639,7 +2639,7 @@ msgid "dashboard.action.noDeliveryRecord"
 msgstr "Aucun historique de livraison"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:68
+#: src/components/enterprise-identity-settings.tsx:69
 msgid "enterpriseIdentity.noConnections"
 msgstr "Aucune connexion SSO d’entreprise n’a été configurée."
 
@@ -2719,7 +2719,7 @@ msgid "dashboard.viewModel.noRecord"
 msgstr "Aucun enregistrement"
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:113
+#: src/components/release-recovery-panel.tsx:114
 msgid "dashboard.recovery.noOperations"
 msgstr "Aucune opération de release n'a été enregistrée pour cet environnement."
 
@@ -2729,7 +2729,7 @@ msgid "dashboard.releases.emptyTitle"
 msgstr "Aucune version à examiner"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:175
+#: src/components/enterprise-identity-settings.tsx:176
 msgid "enterpriseIdentity.noScimTokens"
 msgstr "Aucun jeton SCIM n’a été émis."
 
@@ -2809,12 +2809,12 @@ msgid "dashboard.brand.review.notYet"
 msgstr "Pas encore"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:76
+#: src/components/enterprise-identity-settings.tsx:77
 msgid "enterpriseIdentity.clientId"
 msgstr "ID client OIDC"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:73
+#: src/components/enterprise-identity-settings.tsx:74
 msgid "enterpriseIdentity.provider.okta"
 msgstr "Okta"
 
@@ -2869,7 +2869,7 @@ msgid "dashboard.installation.eyebrow"
 msgstr "Configuration unique"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:58
+#: src/components/enterprise-identity-settings.tsx:59
 msgid "enterpriseIdentity.ownerOnly"
 msgstr "Seul un propriétaire d’espace de travail peut modifier les paramètres d’identité d’entreprise."
 
@@ -2884,7 +2884,7 @@ msgid "dashboard.authoringLaunch.openEnvironment"
 msgstr "Ouvrir {environment}"
 
 #. js-lingui-explicit-id
-#: src/components/dashboard-auth-controls.tsx:37
+#: src/components/dashboard-auth-controls.tsx:38
 msgid "dashboard.account.openMenu"
 msgstr "Ouvrir le menu du compte et de l'espace de travail"
 
@@ -2949,7 +2949,7 @@ msgid "dashboard.authoringLaunch.title"
 msgstr "Ouvrez votre produit"
 
 #. js-lingui-explicit-id
-#: src/components/account-security-settings.tsx:145
+#: src/components/account-security-settings.tsx:147
 msgid "account.methods.oidc"
 msgstr "OpenID Connect"
 
@@ -2969,12 +2969,12 @@ msgid "auth.form.openingWorkspace"
 msgstr "Ouverture de votre espace de travail Lodariq…"
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:118
+#: src/components/release-recovery-panel.tsx:119
 msgid "dashboard.recovery.operationActor"
 msgstr "Opération {operation} · Acteur {actor}"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:185
+#: src/components/enterprise-identity-settings.tsx:186
 msgid "enterpriseIdentity.reason"
 msgstr "Motif de l’incident opérationnel"
 
@@ -2999,7 +2999,7 @@ msgid "workspaceSelection.role.owner"
 msgstr "Propriétaire"
 
 #. js-lingui-explicit-id
-#: src/components/dashboard-auth-controls.tsx:60
+#: src/components/dashboard-auth-controls.tsx:61
 msgid "dashboard.account.role.owner"
 msgstr "Propriétaire"
 
@@ -3014,22 +3014,22 @@ msgid "dashboard.launchQueue.pageScope"
 msgstr "Portée de la page"
 
 #. js-lingui-explicit-id
-#: src/components/account-security-settings.tsx:144
+#: src/components/account-security-settings.tsx:146
 msgid "account.methods.passkey"
 msgstr "Clé d’accès"
 
 #. js-lingui-explicit-id
-#: src/components/account-security-settings.tsx:152
+#: src/components/account-security-settings.tsx:154
 msgid "account.passkeys.name"
 msgstr "Nom de la clé d’accès"
 
 #. js-lingui-explicit-id
-#: src/components/account-security-settings.tsx:147
+#: src/components/account-security-settings.tsx:149
 msgid "account.passkeys.title"
 msgstr "Clés d’accès"
 
 #. js-lingui-explicit-id
-#: src/components/account-security-settings.tsx:148
+#: src/components/account-security-settings.tsx:150
 msgid "account.passkeys.help"
 msgstr "Les clés d’accès utilisent cet appareil ou une clé de sécurité et résistent au hameçonnage."
 
@@ -3039,17 +3039,17 @@ msgid "auth.form.password"
 msgstr "Mot de passe"
 
 #. js-lingui-explicit-id
-#: src/components/account-security-settings.tsx:68
+#: src/components/account-security-settings.tsx:70
 msgid "account.password.title"
 msgstr "Mot de passe"
 
 #. js-lingui-explicit-id
-#: src/components/account-security-settings.tsx:143
+#: src/components/account-security-settings.tsx:145
 msgid "account.methods.password"
 msgstr "Mot de passe"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:121
+#: src/components/enterprise-identity-settings.tsx:122
 msgid "enterpriseIdentity.invalidPolicy"
 msgstr "Le mot de passe ne peut pas être désactivé tant que le SSO d’entreprise n’est pas obligatoire."
 
@@ -3069,12 +3069,12 @@ msgid "auth.form.passwordsDoNotMatch"
 msgstr "Les mots de passe ne correspondent pas."
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:100
+#: src/components/enterprise-identity-settings.tsx:101
 msgid "enterpriseIdentity.status.pending"
 msgstr "En attente"
 
 #. js-lingui-explicit-id
-#: src/components/account-security-settings.tsx:81
+#: src/components/account-security-settings.tsx:83
 msgid "account.email.pending"
 msgstr "Adresse en attente : {email}"
 
@@ -3084,7 +3084,7 @@ msgid "workspaceMembers.pendingInvitations"
 msgstr "Invitations en attente"
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:108
+#: src/components/release-recovery-panel.tsx:109
 msgid "dashboard.recovery.pendingOperation"
 msgstr "Opération de libération en attente : {operation}"
 
@@ -3119,7 +3119,7 @@ msgid "dashboard.environmentPolicy.noPublishSideEffect"
 msgstr "Les modifications de stratégie ne publient ni ne recompilent jamais un artefact."
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:103
+#: src/components/enterprise-identity-settings.tsx:104
 msgid "enterpriseIdentity.policyHelp"
 msgstr "La politique est vérifiée à la sélection de l’espace de travail et à chaque autorisation du plan de contrôle et d’authoring."
 
@@ -3179,12 +3179,12 @@ msgid "dashboard.brand.impact.description"
 msgstr "Aperçu qui est lié à ce thème. Chaque expérience adopte explicitement une nouvelle version approuvée ; la publication reste une action distincte."
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:208
+#: src/components/release-recovery-panel.tsx:209
 msgid "dashboard.recovery.previousPublication"
 msgstr "Publication précédente : {publication}"
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:143
+#: src/components/release-recovery-panel.tsx:144
 msgid "dashboard.recovery.priorPublication"
 msgstr "Publication préalable vérifiée par le serveur"
 
@@ -3299,7 +3299,7 @@ msgid "dashboard.viewModel.productionUpdate"
 msgstr "Mise à jour de la production"
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:189
+#: src/components/release-recovery-panel.tsx:190
 msgid "dashboard.recovery.promoted"
 msgstr "Promu"
 
@@ -3314,12 +3314,12 @@ msgid "dashboard.environmentPolicy.promotionSource"
 msgstr "Origine des promotions"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:150
+#: src/components/enterprise-identity-settings.tsx:151
 msgid "enterpriseIdentity.groupId"
 msgstr "ID de groupe du fournisseur"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:77
+#: src/components/enterprise-identity-settings.tsx:78
 msgid "enterpriseIdentity.provisioning"
 msgstr "Mode de provisionnement"
 
@@ -3344,17 +3344,17 @@ msgid "dashboard.analytics.releaseFactsDescription"
 msgstr "La publication, le hachage de contenu et la génération de pointeur restent séparés pour chaque ligne d'événement, y compris les restaurations qui réutilisent le contenu."
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:224
+#: src/components/release-recovery-panel.tsx:225
 msgid "dashboard.recovery.publicationIdentity"
 msgstr "Publication : {publication}"
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:220
+#: src/components/release-recovery-panel.tsx:221
 msgid "dashboard.recovery.publicationSource"
 msgstr "Publication : {publication} · source : {source}"
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:204
+#: src/components/release-recovery-panel.tsx:205
 msgid "dashboard.recovery.publicationTarget"
 msgstr "Publication : {publication} · cible : {target}"
 
@@ -3384,7 +3384,7 @@ msgid "dashboard.viewModel.published"
 msgstr "Publié"
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:188
+#: src/components/release-recovery-panel.tsx:189
 msgid "dashboard.recovery.published"
 msgstr "Publié"
 
@@ -3424,7 +3424,7 @@ msgid "dashboard.viewModel.radius"
 msgstr "Rayon"
 
 #. js-lingui-explicit-id
-#: src/components/email-change-verification.tsx:12
+#: src/components/email-change-verification.tsx:13
 msgid "account.emailChange.reading"
 msgstr "Lecture du lien sécurisé…"
 
@@ -3469,12 +3469,12 @@ msgid "dashboard.support.readyToPublish"
 msgstr "Prêt à publier"
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:156
+#: src/components/release-recovery-panel.tsx:157
 msgid "dashboard.recovery.reasonLabel"
 msgstr "Raison"
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:117
+#: src/components/release-recovery-panel.tsx:118
 msgid "dashboard.recovery.reason"
 msgstr "Raison : {reason}"
 
@@ -3504,7 +3504,7 @@ msgid "recoveryCode.code"
 msgstr "Code de récupération"
 
 #. js-lingui-explicit-id
-#: src/components/account-security-settings.tsx:156
+#: src/components/account-security-settings.tsx:158
 msgid "account.recoveryCodes.title"
 msgstr "Codes de récupération"
 
@@ -3519,7 +3519,7 @@ msgid "dashboard.common.refresh"
 msgstr "Actualiser"
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:80
+#: src/components/release-recovery-panel.tsx:81
 msgid "dashboard.recovery.refresh"
 msgstr "Actualiser"
 
@@ -3539,7 +3539,7 @@ msgid "dashboard.page.releases.title"
 msgstr "Détails de la version"
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:81
+#: src/components/release-recovery-panel.tsx:82
 msgid "dashboard.recovery.environment"
 msgstr "Environnement de publication"
 
@@ -3549,7 +3549,7 @@ msgid "dashboard.analytics.fact.releaseHealth"
 msgstr "Libérer la santé"
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:74
+#: src/components/release-recovery-panel.tsx:75
 msgid "dashboard.recovery.title"
 msgstr "Historique des versions et récupération"
 
@@ -3559,7 +3559,7 @@ msgid "dashboard.action.releaseHistoryMissing"
 msgstr "L'historique des versions n'est pas disponible pour ce document."
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:58
+#: src/components/release-recovery-panel.tsx:59
 msgid "dashboard.recovery.historyUnavailable"
 msgstr "L'historique des versions est temporairement indisponible pour cet environnement."
 
@@ -3574,12 +3574,12 @@ msgid "dashboard.recovery.failure.unknown"
 msgstr "La récupération de la version n'a pas pu être terminée."
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:70
+#: src/components/release-recovery-panel.tsx:71
 msgid "dashboard.recovery.regionLabel"
 msgstr "Libérer la récupération pour {document}"
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:183
+#: src/components/release-recovery-panel.tsx:184
 msgid "dashboard.recovery.unpublishedAt"
 msgstr "Version inédite à la génération {generation}.{replay}"
 
@@ -3609,7 +3609,7 @@ msgid "workspaceMembers.remove"
 msgstr "Supprimer"
 
 #. js-lingui-explicit-id
-#: src/components/account-security-settings.tsx:102
+#: src/components/account-security-settings.tsx:104
 msgid "account.methods.remove"
 msgstr "Supprimer"
 
@@ -3624,7 +3624,7 @@ msgid "dashboard.publishIssue.unsupportedTourBlock.message"
 msgstr "Supprimez ou modifiez le bloc non pris en charge avant la publication."
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:128
+#: src/components/release-recovery-panel.tsx:129
 msgid "dashboard.recovery.renderer"
 msgstr "Moteur de rendu"
 
@@ -3634,7 +3634,7 @@ msgid "dashboard.brand.preview.rendering"
 msgstr "Visite guidée du rendu…"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:190
+#: src/components/enterprise-identity-settings.tsx:191
 msgid "enterpriseIdentity.requestCreated"
 msgstr "La demande {requestId} expire à {expiresAt}. Transmettez l’ID à un autre propriétaire d’espace de travail."
 
@@ -3664,17 +3664,17 @@ msgid "auth.form.requestAnotherVerification"
 msgstr "Demander un autre lien de vérification"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:186
+#: src/components/enterprise-identity-settings.tsx:187
 msgid "enterpriseIdentity.requestBreakGlass"
 msgstr "Demander une approbation break-glass"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:194
+#: src/components/enterprise-identity-settings.tsx:195
 msgid "enterpriseIdentity.approvalRequestId"
 msgstr "ID de demande d’un autre propriétaire"
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:200
+#: src/components/release-recovery-panel.tsx:201
 msgid "dashboard.recovery.requestedTarget"
 msgstr "Cible demandée : {target}"
 
@@ -3694,7 +3694,7 @@ msgid "dashboard.environments.requireApproval"
 msgstr "Exiger l'approbation"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:108
+#: src/components/enterprise-identity-settings.tsx:109
 msgid "enterpriseIdentity.requireSso"
 msgstr "Exiger le SSO d’entreprise"
 
@@ -3714,7 +3714,7 @@ msgid "auth.form.restartVerification"
 msgstr "Recommencer la vérification du compte"
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:166
+#: src/components/release-recovery-panel.tsx:167
 msgid "dashboard.recovery.retryExact"
 msgstr "Réessayez la demande exacte"
 
@@ -3734,7 +3734,7 @@ msgid "account.emailChange.returnToSecurity"
 msgstr "Revenir à la sécurité du compte"
 
 #. js-lingui-explicit-id
-#: src/components/email-change-verification.tsx:27
+#: src/components/email-change-verification.tsx:28
 msgid "account.emailChange.account"
 msgstr "Revenir à la sécurité du compte"
 
@@ -3824,7 +3824,7 @@ msgid "workspaceMembers.revoke"
 msgstr "Révoquer"
 
 #. js-lingui-explicit-id
-#: src/components/account-security-settings.tsx:92
+#: src/components/account-security-settings.tsx:94
 msgid "account.sessions.revoke"
 msgstr "Révoquer"
 
@@ -3834,7 +3834,7 @@ msgid "dashboard.installation.revoke"
 msgstr "Révoquer l'installation"
 
 #. js-lingui-explicit-id
-#: src/components/account-security-settings.tsx:167
+#: src/components/account-security-settings.tsx:169
 msgid "account.recoveryCodes.revoke"
 msgstr "Révoquer les codes de récupération"
 
@@ -3864,22 +3864,22 @@ msgid "workspaceMembers.membersDescription"
 msgstr "Les rôles sont appliqués à partir de l’appartenance actuelle sur le serveur à chaque requête."
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:53
+#: src/components/release-recovery-panel.tsx:54
 msgid "dashboard.recovery.action.rollback"
 msgstr "Revenir en arrière"
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:167
+#: src/components/release-recovery-panel.tsx:168
 msgid "dashboard.recovery.rollbackPublication"
 msgstr "Annuler la publication"
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:87
+#: src/components/release-recovery-panel.tsx:88
 msgid "dashboard.recovery.rollbackEllipsis"
 msgstr "Revenir en arrière…"
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:75
+#: src/components/release-recovery-panel.tsx:76
 msgid "dashboard.recovery.description"
 msgstr "La restauration réutilise un artefact immuable approuvé par le serveur. La dépublication désactive uniquement le pointeur actuel ; l’historique reste disponible."
 
@@ -3889,12 +3889,12 @@ msgid "dashboard.environmentPolicy.rollbackRoles"
 msgstr "Rôles de restauration"
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:190
+#: src/components/release-recovery-panel.tsx:191
 msgid "dashboard.recovery.rolledBackAction"
 msgstr "Annulé"
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:179
+#: src/components/release-recovery-panel.tsx:180
 msgid "dashboard.recovery.rolledBack"
 msgstr "Restauré à {publication} lors de la génération {generation}.{replay}"
 
@@ -3939,12 +3939,12 @@ msgid "dashboard.common.save"
 msgstr "Enregistrer"
 
 #. js-lingui-explicit-id
-#: src/components/account-security-settings.tsx:157
+#: src/components/account-security-settings.tsx:159
 msgid "account.recoveryCodes.help"
 msgstr "Conservez hors ligne les dix codes à usage unique. Un nouveau lot révoque le précédent."
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:120
+#: src/components/enterprise-identity-settings.tsx:121
 msgid "enterpriseIdentity.savePolicy"
 msgstr "Enregistrer la politique d’authentification"
 
@@ -3954,7 +3954,7 @@ msgid "dashboard.brand.editor.save"
 msgstr "Enregistrer le brouillon"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:155
+#: src/components/enterprise-identity-settings.tsx:156
 msgid "enterpriseIdentity.saveMapping"
 msgstr "Enregistrer le mapping de groupe"
 
@@ -3969,7 +3969,7 @@ msgid "dashboard.environmentPolicy.save"
 msgstr "Enregistrer la politique"
 
 #. js-lingui-explicit-id
-#: src/components/account-security-settings.tsx:67
+#: src/components/account-security-settings.tsx:69
 msgid "account.username.save"
 msgstr "Enregistrer le nom d’utilisateur"
 
@@ -4014,7 +4014,7 @@ msgid "workspaceMembers.deletionDescription"
 msgstr "La programmation de la suppression révoque les accès actifs et démarre la période de conservation."
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:156
+#: src/components/enterprise-identity-settings.tsx:157
 msgid "enterpriseIdentity.scim"
 msgstr "Provisionnement SCIM"
 
@@ -4054,7 +4054,7 @@ msgid "auth.shell.secureAccess"
 msgstr "Accès Lodariq sécurisé et direct"
 
 #. js-lingui-explicit-id
-#: src/components/account-security-settings.tsx:119
+#: src/components/account-security-settings.tsx:121
 msgid "account.saved"
 msgstr "Paramètre de sécurité enregistré."
 
@@ -4099,7 +4099,7 @@ msgid "workspaceMembers.sendInvitation"
 msgstr "Envoyer l’invitation"
 
 #. js-lingui-explicit-id
-#: src/components/account-security-settings.tsx:80
+#: src/components/account-security-settings.tsx:82
 msgid "account.email.begin"
 msgstr "Envoyer les liens de vérification"
 
@@ -4139,12 +4139,12 @@ msgid "auth.form.signIn"
 msgstr "Connectez-vous"
 
 #. js-lingui-explicit-id
-#: src/components/email-change-verification.tsx:28
+#: src/components/email-change-verification.tsx:29
 msgid "account.emailChange.signIn"
 msgstr "Se connecter"
 
 #. js-lingui-explicit-id
-#: src/components/account-security-settings.tsx:141
+#: src/components/account-security-settings.tsx:143
 msgid "account.signInAgain"
 msgstr "Se reconnecter"
 
@@ -4154,7 +4154,7 @@ msgid "dashboard.server.authenticationRequired"
 msgstr "Connectez-vous à nouveau pour continuer."
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:54
+#: src/components/enterprise-identity-settings.tsx:55
 msgid "enterpriseIdentity.reauthenticate"
 msgstr "Reconnectez-vous avec une passkey ou une méthode forte équivalente avant de modifier ce paramètre."
 
@@ -4199,22 +4199,22 @@ msgid "dashboard.activation.signInTitle"
 msgstr "Connectez-vous, puis continuez"
 
 #. js-lingui-explicit-id
-#: src/components/dashboard-auth-controls.tsx:52
+#: src/components/dashboard-auth-controls.tsx:53
 msgid "dashboard.account.signOut"
 msgstr "Se déconnecter"
 
 #. js-lingui-explicit-id
-#: src/components/account-security-settings.tsx:93
+#: src/components/account-security-settings.tsx:95
 msgid "account.sessions.signOutEverywhere"
 msgstr "Se déconnecter partout"
 
 #. js-lingui-explicit-id
-#: src/components/account-security-settings.tsx:56
+#: src/components/account-security-settings.tsx:58
 msgid "account.profile.title"
 msgstr "Identifiant de connexion"
 
 #. js-lingui-explicit-id
-#: src/components/account-security-settings.tsx:97
+#: src/components/account-security-settings.tsx:99
 msgid "account.methods.title"
 msgstr "Méthodes de connexion"
 
@@ -4229,7 +4229,7 @@ msgid "auth.form.signingIn"
 msgstr "Connexion"
 
 #. js-lingui-explicit-id
-#: src/components/account-security-settings.tsx:182
+#: src/components/account-security-settings.tsx:184
 msgid "account.passkeys.singleDevice"
 msgstr "Un seul appareil"
 
@@ -4264,12 +4264,12 @@ msgid "dashboard.viewModel.sourceRevision"
 msgstr "Révision source {revision}"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:131
+#: src/components/enterprise-identity-settings.tsx:132
 msgid "enterpriseIdentity.connection"
 msgstr "Connexion SSO"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:62
+#: src/components/enterprise-identity-settings.tsx:63
 msgid "enterpriseIdentity.connections"
 msgstr "Connexions SSO"
 
@@ -4299,7 +4299,7 @@ msgid "dashboard.environmentPolicy.staging"
 msgstr "Mise en scène"
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:66
+#: src/components/release-recovery-panel.tsx:67
 msgid "dashboard.recovery.noEnvironments"
 msgstr "Les environnements de préparation et de production ne sont pas configurés."
 
@@ -4394,7 +4394,7 @@ msgid "dashboard.installation.sync"
 msgstr "Synchroniser les origines fiables"
 
 #. js-lingui-explicit-id
-#: src/components/account-security-settings.tsx:180
+#: src/components/account-security-settings.tsx:182
 msgid "account.passkeys.synced"
 msgstr "Clé d’accès synchronisée"
 
@@ -4404,7 +4404,7 @@ msgid "dashboard.installation.syncing"
 msgstr "Synchronisation…"
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:122
+#: src/components/release-recovery-panel.tsx:123
 msgid "dashboard.recovery.system"
 msgstr "Système"
 
@@ -4464,7 +4464,7 @@ msgid "dashboard.analytics.rowBound"
 msgstr "L'API a renvoyé la limite d'affichage de 1 000 lignes. Des lignes supplémentaires liées à la version peuvent exister ; rien au-delà de cette limite n’est déduit."
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:50
+#: src/components/enterprise-identity-settings.tsx:51
 msgid "enterpriseIdentity.mutationFailed"
 msgstr "La modification d’identité d’entreprise n’a pas pu être effectuée."
 
@@ -4564,7 +4564,7 @@ msgid "dashboard.recovery.failure.documentNotFound"
 msgstr "Le document de sortie est introuvable."
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:62
+#: src/components/release-recovery-panel.tsx:63
 msgid "dashboard.recovery.requestFailed"
 msgstr "La demande de récupération de version n'a pas pu être complétée."
 
@@ -4694,7 +4694,7 @@ msgid "workspaceMembers.noPendingInvitations"
 msgstr "Il n’y a aucune invitation en attente."
 
 #. js-lingui-explicit-id
-#: src/components/email-change-verification.tsx:14
+#: src/components/email-change-verification.tsx:15
 msgid "account.emailChange.recorded"
 msgstr "Cette adresse est confirmée. Ouvrez le lien de vérification envoyé à l’autre adresse pour terminer."
 
@@ -4719,7 +4719,7 @@ msgid "auth.page.signUpDisabled.description"
 msgstr "Ce déploiement n'accepte pas de nouveaux comptes. Les créateurs existants peuvent continuer avec leur compte Lodariq."
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:93
+#: src/components/release-recovery-panel.tsx:94
 msgid "dashboard.recovery.noDeployment"
 msgstr "Ce document n'a aucun déploiement dans l'environnement sélectionné."
 
@@ -4739,7 +4739,7 @@ msgid "auth.page.incompleteLink.title"
 msgstr "Ce lien est incomplet"
 
 #. js-lingui-explicit-id
-#: src/components/email-change-verification.tsx:23
+#: src/components/email-change-verification.tsx:24
 msgid "account.emailChange.invalid"
 msgstr "Ce lien est incomplet, expiré, déjà utilisé ou a été remplacé."
 
@@ -4769,12 +4769,12 @@ msgid "dashboard.recovery.failure.environmentNotConfigured"
 msgstr "Cet environnement de version n'est pas configuré."
 
 #. js-lingui-explicit-id
-#: src/components/account-security-settings.tsx:137
+#: src/components/account-security-settings.tsx:139
 msgid "account.reauthenticate"
 msgstr "Cette action sensible nécessite une connexion récente. Reconnectez-vous, puis revenez ici."
 
 #. js-lingui-explicit-id
-#: src/components/account-security-settings.tsx:172
+#: src/components/account-security-settings.tsx:174
 msgid "account.recoveryCodes.unconfirmed"
 msgstr "Ce lot ne sera actif qu’après confirmation d’un code enregistré."
 
@@ -4799,7 +4799,7 @@ msgid "auth.form.incompleteVerificationLink"
 msgstr "Ce lien de vérification est incomplet. Recommencez la vérification du compte pour demander un nouveau lien."
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:157
+#: src/components/enterprise-identity-settings.tsx:158
 msgid "enterpriseIdentity.scimHelp"
 msgstr "Les jetons ne s’affichent qu’une fois. Le déprovisionnement retire l’appartenance et révoque immédiatement les sessions et autorisations d’authoring."
 
@@ -4884,22 +4884,22 @@ msgid "dashboard.error.retry"
 msgstr "Réessayez"
 
 #. js-lingui-explicit-id
-#: src/components/account-security-settings.tsx:120
+#: src/components/account-security-settings.tsx:122
 msgid "account.email.queued"
 msgstr "Deux liens de vérification privés ont été mis en attente. Ouvrez-les avant leur expiration."
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:141
+#: src/components/enterprise-identity-settings.tsx:142
 msgid "enterpriseIdentity.recordName"
 msgstr "Nom de l’enregistrement TXT"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:142
+#: src/components/enterprise-identity-settings.tsx:143
 msgid "enterpriseIdentity.recordValue"
 msgstr "Valeur de l’enregistrement TXT"
 
 #. js-lingui-explicit-id
-#: src/components/account-security-settings.tsx:116
+#: src/components/account-security-settings.tsx:118
 msgid "account.delete.confirmation"
 msgstr "Saisissez DELETE"
 
@@ -5024,12 +5024,12 @@ msgid "dashboard.viewModel.unknownTime"
 msgstr "Heure inconnue"
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:54
+#: src/components/release-recovery-panel.tsx:55
 msgid "dashboard.recovery.action.unpublish"
 msgstr "Annuler la publication"
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:171
+#: src/components/release-recovery-panel.tsx:172
 msgid "dashboard.recovery.unpublishRelease"
 msgstr "Dépublier la version"
 
@@ -5039,7 +5039,7 @@ msgid "dashboard.environmentPolicy.unpublishRoles"
 msgstr "Annuler la publication des rôles"
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:88
+#: src/components/release-recovery-panel.tsx:89
 msgid "dashboard.recovery.unpublishEllipsis"
 msgstr "Annuler la publication…"
 
@@ -5049,7 +5049,7 @@ msgid "dashboard.viewModel.unpublished"
 msgstr "Inédit"
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:191
+#: src/components/release-recovery-panel.tsx:192
 msgid "dashboard.recovery.unpublished"
 msgstr "Inédit"
 
@@ -5124,7 +5124,7 @@ msgid "dashboard.environments.updating"
 msgstr "Mise à jour…"
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:157
+#: src/components/release-recovery-panel.tsx:158
 msgid "dashboard.recovery.reasonHelp"
 msgstr "Utilisez entre 1 et 500 caractères sans espaces extérieurs."
 
@@ -5134,7 +5134,7 @@ msgid "auth.form.passwordLength"
 msgstr "Utilisez 12 à 128 caractères."
 
 #. js-lingui-explicit-id
-#: src/components/account-security-settings.tsx:125
+#: src/components/account-security-settings.tsx:127
 msgid "account.validation.password"
 msgstr "Utilisez 12 à 128 caractères et faites correspondre les deux champs du nouveau mot de passe."
 
@@ -5194,7 +5194,7 @@ msgid "auth.page.signIn.description"
 msgstr "Utilisez votre compte Lodariq pour revenir à l'espace de travail de votre produit."
 
 #. js-lingui-explicit-id
-#: src/components/account-security-settings.tsx:62
+#: src/components/account-security-settings.tsx:64
 msgid "account.username"
 msgstr "Nom d’utilisateur"
 
@@ -5204,7 +5204,7 @@ msgid "dashboard.brand.editor.usesLight"
 msgstr "Utilise un thème clair"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:94
+#: src/components/enterprise-identity-settings.tsx:95
 msgid "enterpriseIdentity.status.validationRequired"
 msgstr "Validation requise"
 
@@ -5214,12 +5214,12 @@ msgid "dashboard.viewModel.verified"
 msgstr "Vérifié"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:101
+#: src/components/enterprise-identity-settings.tsx:102
 msgid "enterpriseIdentity.status.verified"
 msgstr "Vérifié"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:125
+#: src/components/enterprise-identity-settings.tsx:126
 msgid "enterpriseIdentity.domains"
 msgstr "Domaines d’entreprise vérifiés"
 
@@ -5229,12 +5229,12 @@ msgid "dashboard.viewModel.verifiedExactArtifactAt"
 msgstr "Artefact exact vérifié {date}"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:82
+#: src/components/enterprise-identity-settings.tsx:83
 msgid "enterpriseIdentity.provisioning.jit"
 msgstr "JIT sur domaine vérifié"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:143
+#: src/components/enterprise-identity-settings.tsx:144
 msgid "enterpriseIdentity.verifyDomain"
 msgstr "Vérifier l’enregistrement DNS"
 
@@ -5249,7 +5249,7 @@ msgid "dashboard.publishIssue.unverifiedTarget.message"
 msgstr "Vérifiez cet emplacement dans l'environnement actuel avant de publier."
 
 #. js-lingui-explicit-id
-#: src/components/account-security-settings.tsx:155
+#: src/components/account-security-settings.tsx:157
 msgid "account.passkeys.stepUp"
 msgstr "Vérifier avec une clé d’accès"
 
@@ -5259,7 +5259,7 @@ msgid "dashboard.activation.verifying"
 msgstr "Vérification de l’application et de l’espace de travail…"
 
 #. js-lingui-explicit-id
-#: src/components/email-change-verification.tsx:13
+#: src/components/email-change-verification.tsx:14
 msgid "account.emailChange.verifying"
 msgstr "Vérification de cette adresse…"
 
@@ -5309,22 +5309,22 @@ msgid "workspaceSelection.role.viewer"
 msgstr "Lecteur"
 
 #. js-lingui-explicit-id
-#: src/components/dashboard-auth-controls.tsx:57
+#: src/components/dashboard-auth-controls.tsx:58
 msgid "dashboard.account.role.viewer"
 msgstr "Visionneuse"
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:152
+#: src/components/enterprise-identity-settings.tsx:153
 msgid "enterpriseIdentity.role.viewer"
 msgstr "Viewer"
 
 #. js-lingui-explicit-id
-#: src/components/account-security-settings.tsx:83
+#: src/components/account-security-settings.tsx:85
 msgid "account.email.oldWaiting"
 msgstr "En attente de l’adresse e-mail actuelle"
 
 #. js-lingui-explicit-id
-#: src/components/account-security-settings.tsx:85
+#: src/components/account-security-settings.tsx:87
 msgid "account.email.newWaiting"
 msgstr "En attente de la nouvelle adresse e-mail"
 
@@ -5354,7 +5354,7 @@ msgid "workspaceSelection.title"
 msgstr "Où travaillez-vous aujourd'hui ?"
 
 #. js-lingui-explicit-id
-#: src/components/account-security-settings.tsx:153
+#: src/components/account-security-settings.tsx:155
 msgid "account.passkeys.namePlaceholder"
 msgstr "Ordinateur professionnel"
 
@@ -5379,7 +5379,7 @@ msgid "workspaceSelection.eyebrow"
 msgstr "Espace de travail"
 
 #. js-lingui-explicit-id
-#: src/components/dashboard-auth-controls.tsx:41
+#: src/components/dashboard-auth-controls.tsx:42
 msgid "dashboard.account.workspace"
 msgstr "Espace de travail"
 
@@ -5389,7 +5389,7 @@ msgid "workspaceMembers.unavailable"
 msgstr "Impossible de charger les accès à l’espace de travail. Réessayez."
 
 #. js-lingui-explicit-id
-#: src/components/enterprise-identity-settings.tsx:102
+#: src/components/enterprise-identity-settings.tsx:103
 msgid "enterpriseIdentity.policy"
 msgstr "Politique d’authentification de l’espace de travail"
 
@@ -5429,7 +5429,7 @@ msgid "dashboard.viewModel.workspaceApprovedTokens"
 msgstr "Jetons sémantiques approuvés par Workspace"
 
 #. js-lingui-explicit-id
-#: src/components/dashboard-auth-controls.tsx:42
+#: src/components/dashboard-auth-controls.tsx:43
 msgid "dashboard.account.workspaces"
 msgstr "Espaces de travail"
 
@@ -5449,7 +5449,7 @@ msgid "dashboard.activation.credentialSafety"
 msgstr "Vos identifiants restent dans Lodariq et ne sont jamais envoyés vers la page client."
 
 #. js-lingui-explicit-id
-#: src/components/release-recovery-panel.tsx:89
+#: src/components/release-recovery-panel.tsx:90
 msgid "dashboard.recovery.notAllowed"
 msgstr "Votre rôle actuel ou cette stratégie d'environnement ne permet pas la récupération de version."
 
@@ -5494,12 +5494,12 @@ msgid "auth.form.workspaceHelp"
 msgstr "Votre espace partagé pour les expériences, les environnements et les publications."
 
 #. js-lingui-explicit-id
-#: src/components/email-change-verification.tsx:19
+#: src/components/email-change-verification.tsx:20
 msgid "account.emailChange.completed"
 msgstr "Votre adresse e-mail de connexion a été modifiée. Les autres sessions et liens de récupération ont été révoqués."
 
 #. js-lingui-explicit-id
-#: src/components/account-security-settings.tsx:57
+#: src/components/account-security-settings.tsx:59
 msgid "account.profile.help"
 msgstr "Votre adresse e-mail vérifiée fonctionne toujours. Un nom d’utilisateur offre un autre moyen privé de vous connecter."
 
@@ -5544,6 +5544,6 @@ msgid "dashboard.action.brandForbidden"
 msgstr "Votre rôle dans l'espace de travail n'autorise pas cette action de marque."
 
 #. js-lingui-explicit-id
-#: src/components/account-security-settings.tsx:63
+#: src/components/account-security-settings.tsx:65
 msgid "account.username.placeholder"
 msgstr "votre-identifiant"

@@ -13,6 +13,7 @@ import { AUTH_FORM_MESSAGES } from '../i18n/messages';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
+import { StatusBanner } from './ui/status-banner';
 
 const AUTH_FIELD_LABELS = {
   name: AUTH_FORM_MESSAGES.yourName,
@@ -124,14 +125,7 @@ export function AuthFormFeedback({
   const { _ } = useLingui();
   const hasFieldError = Object.keys(fieldErrors).length > 0;
   if (!formError && !hasFieldError) return null;
-  return (
-    <div
-      className="rounded-lg border border-[var(--danger-border)] bg-[var(--danger-bg)] px-3 py-2 text-sm text-[var(--danger-fg)]"
-      role="alert"
-    >
-      {formError || _(AUTH_FORM_MESSAGES.reviewFields)}
-    </div>
-  );
+  return <StatusBanner kind="error" title={formError || _(AUTH_FORM_MESSAGES.reviewFields)} />;
 }
 
 function authFieldErrorText(

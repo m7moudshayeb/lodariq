@@ -29,6 +29,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
+import { StatusBanner } from './ui/status-banner';
 
 interface WorkspaceMembersViewProps {
   currentRole: ControlPlaneRole;
@@ -411,14 +412,7 @@ function Feedback({
   kind: 'error' | 'success';
   message: string;
 }): React.ReactElement {
-  return (
-    <p
-      className={kind === 'error' ? 'text-sm text-[var(--danger-fg)]' : 'text-sm text-foreground'}
-      role={kind === 'error' ? 'alert' : 'status'}
-    >
-      {message}
-    </p>
-  );
+  return <StatusBanner kind={kind} title={message} />;
 }
 
 function availableInvitationRoles(role: ControlPlaneRole): readonly WorkspaceInvitationRole[] {

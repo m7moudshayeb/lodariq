@@ -2,11 +2,12 @@
 
 import { msg } from '@lingui/core/macro';
 import { useLingui } from '@lingui/react';
-import { Check, LoaderCircle } from 'lucide-react';
+import { LoaderCircle } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import { userFacingClientError, verifyEmailChange } from '../lib/client-auth-api';
 import { buttonVariants } from './ui/button';
+import { StatusBanner } from './ui/status-banner';
 
 const COPY = {
   reading: msg({ id: 'account.emailChange.reading', message: 'Reading the secure link…' }),
@@ -76,17 +77,10 @@ export function EmailChangeVerification({
   const successful = phase === 'recorded' || phase === 'completed';
   return (
     <div className="grid gap-5">
-      <div
-        className={
-          successful
-            ? 'rounded-lg border border-border bg-[var(--success-bg)] p-4 text-sm text-[var(--success-fg)]'
-            : 'rounded-lg border border-[var(--danger-border)] bg-[var(--danger-bg)] p-4 text-sm text-[var(--danger-fg)]'
-        }
-        role={successful ? 'status' : 'alert'}
-      >
-        {successful ? <Check aria-hidden="true" className="mb-2 size-5" /> : null}
-        {successful ? _(phase === 'completed' ? COPY.completed : COPY.recorded) : message}
-      </div>
+      <StatusBanner
+        kind={successful ? 'success' : 'error'}
+        title={successful ? _(phase === 'completed' ? COPY.completed : COPY.recorded) : message}
+      />
       <Link
         className={buttonVariants({ className: 'h-11 w-full' })}
         href={successful ? '/account' : '/sign-in?returnTo=%2Faccount'}

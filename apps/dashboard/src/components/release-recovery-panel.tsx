@@ -4,7 +4,7 @@ import * as React from 'react';
 import { msg } from '@lingui/core/macro';
 import { useLingui } from '@lingui/react';
 import { DEFAULT_LOCALE, isSupportedLocale } from '@lodariq/i18n';
-import { Ban, History, RefreshCw, RotateCcw, ShieldAlert } from 'lucide-react';
+import { Ban, History, RefreshCw, RotateCcw } from 'lucide-react';
 import {
   type ReleaseArtifactPins,
   type ReleaseHistoryEntry,
@@ -16,6 +16,7 @@ import { useReleaseRecovery } from '../hooks/use-release-recovery';
 import { dashboardRecoveryFailureMessage } from '../i18n/server-feedback';
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
+import { StatusBanner } from './ui/status-banner';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 
 export interface ReleaseRecoveryEnvironmentOption {
@@ -401,20 +402,8 @@ export function ReleaseRecoveryPanel({
         {recovery.query.isFetching ? (
           <p className="text-sm text-muted-foreground">{_(COPY.loading)}</p>
         ) : null}
-        {loadError ? (
-          <div
-            className="flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive"
-            role="alert"
-          >
-            <ShieldAlert aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
-            <p>{loadError}</p>
-          </div>
-        ) : null}
-        {feedback ? (
-          <p className="rounded-md border border-border bg-background p-3 text-sm" role="status">
-            {feedback}
-          </p>
-        ) : null}
+        {loadError ? <StatusBanner kind="error" title={loadError} /> : null}
+        {feedback ? <StatusBanner kind="success" title={feedback} /> : null}
         {selectedState ? (
           <>
             <DeploymentSummary state={selectedState} />
