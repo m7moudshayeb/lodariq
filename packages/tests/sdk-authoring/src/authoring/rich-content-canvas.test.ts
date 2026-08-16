@@ -133,11 +133,10 @@ describe('unified popup content canvas', () => {
     );
     expect(saveDocument.mock.calls.length).toBe(savesBeforeIdle);
     document.querySelector<HTMLInputElement>('[aria-label="Button label"]')?.blur();
-    await vi.waitFor(() =>
-      expect(savedButtonLabel(saveDocument.mock.calls.at(-1)?.[0] as LodariqDocument)).toBe(
-        'Continue now',
-      ),
-    );
+    await vi.waitFor(() => {
+      const lastCall = saveDocument.mock.calls[saveDocument.mock.calls.length - 1];
+      expect(savedButtonLabel(lastCall?.[0] as LodariqDocument)).toBe('Continue now');
+    });
     [...document.querySelectorAll<HTMLButtonElement>('.popup-inspector-tabs button')]
       .find((button) => button.textContent?.trim() === 'Appearance')
       ?.click();
@@ -153,7 +152,7 @@ describe('unified popup content canvas', () => {
       expect(document.querySelector('.storyboard-property-tray[data-tool-mode="content"]')).toBeNull();
       expect(document.querySelector('[aria-label="Popup layout settings"]')).not.toBeNull();
     });
-    expect(document.querySelector('.rich-step-content')?.dataset['lodariqActionLayout']).toBe(
+    expect(document.querySelector<HTMLElement>('.rich-step-content')?.dataset['lodariqActionLayout']).toBe(
       'stack',
     );
     expect(document.querySelector('[aria-label="Action layout"]')).not.toBeNull();
@@ -162,7 +161,7 @@ describe('unified popup content canvas', () => {
       .find((button) => button.textContent?.trim() === 'Inline')
       ?.click();
     await vi.waitFor(() =>
-      expect(document.querySelector('.rich-step-content')?.dataset['lodariqActionLayout']).toBe(
+      expect(document.querySelector<HTMLElement>('.rich-step-content')?.dataset['lodariqActionLayout']).toBe(
         'inline',
       ),
     );
@@ -170,7 +169,7 @@ describe('unified popup content canvas', () => {
       .find((button) => button.textContent?.trim() === 'Stretch')
       ?.click();
     await vi.waitFor(() =>
-      expect(document.querySelector('.rich-step-content')?.dataset['lodariqActionAlign']).toBe(
+      expect(document.querySelector<HTMLElement>('.rich-step-content')?.dataset['lodariqActionAlign']).toBe(
         'stretch',
       ),
     );
@@ -181,7 +180,7 @@ describe('unified popup content canvas', () => {
       .find((button) => button.textContent?.trim() === 'Relaxed')
       ?.click();
     await vi.waitFor(() =>
-      expect(document.querySelector('.rich-step-content')?.dataset['lodariqCompositionGap']).toBe(
+      expect(document.querySelector<HTMLElement>('.rich-step-content')?.dataset['lodariqCompositionGap']).toBe(
         'relaxed',
       ),
     );
@@ -189,7 +188,7 @@ describe('unified popup content canvas', () => {
       .find((button) => button.textContent?.trim() === 'Center')
       ?.click();
     await vi.waitFor(() =>
-      expect(document.querySelector('.rich-step-content')?.dataset['lodariqContentAlign']).toBe(
+      expect(document.querySelector<HTMLElement>('.rich-step-content')?.dataset['lodariqContentAlign']).toBe(
         'center',
       ),
     );

@@ -184,10 +184,9 @@ describe('tour renderer (PRD §16.1)', () => {
     await player.waitUntilReady();
 
     const host = document.querySelector<HTMLElement>('lodariq-tour');
-    const skip = host?.shadowRoot?.querySelector<HTMLButtonElement>('.tour-skip');
     expect(host).toMatchObject({ lang: 'ar', dir: 'rtl' });
     expect(host?.dataset['lodariqContentLocale']).toBe('ar');
-    expect(skip?.textContent).not.toBe('Skip tour');
+    expect(host?.shadowRoot?.querySelector('.tour-skip')).toBeNull();
     player.stop();
   });
 
@@ -1514,7 +1513,7 @@ describe('tour renderer (PRD §16.1)', () => {
               type: 'media',
               props: {
                 media: {
-                  kind: 'video',
+                  kind: 'video' as const,
                   assetId: 'video-asset',
                   captionsAssetId: 'captions-asset',
                   posterAssetId: 'poster-asset',
@@ -1580,10 +1579,10 @@ describe('tour renderer (PRD §16.1)', () => {
     });
     const player = new TourPlayer(
       {
-        ...compiledDoc,
+        ...outlineDisabledCompiledDoc,
         steps: [
           {
-            ...compiledDoc.steps[0]!,
+            ...outlineDisabledCompiledDoc.steps[0]!,
             body: [
               {
                 id: 'image_async',
@@ -1599,7 +1598,7 @@ describe('tour renderer (PRD §16.1)', () => {
             ],
           },
         ],
-      },
+      } as NewCompiledDocument,
       {
         resolveMediaAsset: () => pending,
       },
@@ -1620,10 +1619,10 @@ describe('tour renderer (PRD §16.1)', () => {
     const blobUrl = 'blob:http://localhost:3000/media-asset';
     const player = new TourPlayer(
       {
-        ...compiledDoc,
+        ...outlineDisabledCompiledDoc,
         steps: [
           {
-            ...compiledDoc.steps[0]!,
+            ...outlineDisabledCompiledDoc.steps[0]!,
             body: [
               {
                 id: 'image_blob',
@@ -1639,7 +1638,7 @@ describe('tour renderer (PRD §16.1)', () => {
             ],
           },
         ],
-      },
+      } as NewCompiledDocument,
       {
         resolveMediaAsset: async () => blobUrl,
       },
@@ -1967,7 +1966,7 @@ describe('tour renderer (PRD §16.1)', () => {
             ],
           },
         ],
-      },
+      } as NewCompiledDocument,
       {
         authoringPreviewOwnerId: 'authoring_owner_recovery',
         authoringPreviewInteractive: true,

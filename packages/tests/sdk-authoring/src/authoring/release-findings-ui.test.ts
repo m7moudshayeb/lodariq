@@ -229,7 +229,9 @@ describe('authoring Release options findings', () => {
     });
     expect(document.querySelector('.release-blocker-card')).toBeNull();
 
-    document.querySelector<HTMLButtonElement>('[aria-label="Configure button"]')?.click();
+    document.querySelector<HTMLButtonElement>(
+      '.storyboard-property-tray[data-tool-mode="content"] .storyboard-tray-close',
+    )?.click();
     await vi.waitFor(() => {
       expect(document.querySelector('[data-property-id="button.action"]')).toBeNull();
     });

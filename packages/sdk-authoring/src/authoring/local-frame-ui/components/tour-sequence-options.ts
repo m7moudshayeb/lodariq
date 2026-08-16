@@ -5,7 +5,6 @@ import {
   PanelLeft,
   PanelRight,
   PanelTop,
-  Type,
 } from '../design-system';
 import type { EditableActionType } from '../types';
 import type { PopupResizeCorner } from '../../canvas/use-popup-transform';
@@ -48,5 +47,5 @@ export const STORYBOARD_TOOL_OPTIONS = [
 ] as const satisfies ReadonlyArray<{
   value: StoryboardToolMode;
   label: string;
-  icon: typeof Type;
+  icon: typeof MousePointer2;
 }>;

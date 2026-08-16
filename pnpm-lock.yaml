@@ -507,6 +507,9 @@ importers:
       jsdom:
         specifier: ^25.0.1
         version: 25.0.1
+      lexical:
+        specifier: 0.21.0
+        version: 0.21.0
       pg:
         specifier: 8.23.0
         version: 8.23.0

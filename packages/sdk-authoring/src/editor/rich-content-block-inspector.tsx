@@ -1,8 +1,6 @@
 import {
   BLOCK_ALIGNMENT_VALUES,
   BUTTON_ICON_PLACEMENT_VALUES,
-  BUTTON_ICON_VALUES,
-  BUTTON_RADIUS_VALUES,
   BUTTON_SIZE_VALUES,
   BUTTON_WIDTH_VALUES,
   FORM_FIELD_CONTROL_VALUES,
@@ -50,13 +48,13 @@ const BUTTON_RADIUS_OPTIONS = [
   { value: 'square', label: authoringText('Square') },
   { value: 'soft', label: authoringText('Soft') },
   { value: 'round', label: authoringText('Pill') },
-] as const satisfies ReadonlyArray<{ value: (typeof BUTTON_RADIUS_VALUES)[number]; label: string }>;
+] as const;
 const BUTTON_ICON_OPTIONS = [
   { value: 'none', label: authoringText('None') },
   { value: 'arrow-right', label: authoringText('Arrow') },
   { value: 'external-link', label: authoringText('External') },
   { value: 'check', label: authoringText('Check') },
-] as const satisfies ReadonlyArray<{ value: (typeof BUTTON_ICON_VALUES)[number]; label: string }>;
+] as const;
 const BUTTON_ICON_PLACEMENT_OPTIONS = BUTTON_ICON_PLACEMENT_VALUES.map((value) => ({
   value,
   label: value === 'start' ? authoringText('Before') : authoringText('After'),
@@ -381,7 +379,9 @@ function ButtonInspector({
           ariaLabel={authoringText('Corner radius')}
           onValueChange={(value) =>
             update((node) =>
-              node.setButtonStyle({ radius: value as (typeof BUTTON_RADIUS_VALUES)[number] }),
+              node.setButtonStyle({
+                radius: value as (typeof BUTTON_RADIUS_OPTIONS)[number]['value'],
+              }),
             )
           }
           options={BUTTON_RADIUS_OPTIONS}
@@ -393,7 +393,9 @@ function ButtonInspector({
           ariaLabel={authoringText('Icon')}
           onValueChange={(value) =>
             update((node) =>
-              node.setButtonStyle({ icon: value as (typeof BUTTON_ICON_VALUES)[number] }),
+              node.setButtonStyle({
+                icon: value as (typeof BUTTON_ICON_OPTIONS)[number]['value'],
+              }),
             )
           }
           options={BUTTON_ICON_OPTIONS}
@@ -646,7 +648,10 @@ function FormFieldInspector({
         <RichContentSelect
           ariaLabel={authoringText('Corner radius')}
           onValueChange={(value) =>
-            patchField({ ...field, radius: value as (typeof BUTTON_RADIUS_VALUES)[number] })
+            patchField({
+              ...field,
+              radius: value as (typeof BUTTON_RADIUS_OPTIONS)[number]['value'],
+            })
           }
           options={BUTTON_RADIUS_OPTIONS}
           value={field.radius ?? 'theme'}

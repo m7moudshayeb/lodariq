@@ -28,6 +28,7 @@
     "@types/react-dom": "^19.0.2",
     "fake-indexeddb": "^6.2.5",
     "jsdom": "^25.0.1",
+    "lexical": "0.21.0",
     "pg": "8.23.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",

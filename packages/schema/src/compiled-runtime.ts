@@ -54,6 +54,7 @@ import {
   StepTransitionRule,
 } from './flow';
 import {
+  FormFieldPresentation,
   MediaPresentation,
   ResponsiveStepOverride,
   ResponsiveStepPresentation,
@@ -78,6 +79,7 @@ export const COMPILED_RUNTIME_SCHEMA_REFERENCES = [
   CompiledDocumentLocalizationV4,
   ContentLocale,
   ElementFingerprint,
+  FormFieldPresentation,
   InlineTextRun,
   MediaPresentation,
   OpaqueSrgbColor,
