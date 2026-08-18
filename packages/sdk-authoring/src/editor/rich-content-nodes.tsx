@@ -1,4 +1,5 @@
 import {
+  BUTTON_WIDTH_PX_LIMITS,
   MEDIA_HEIGHT_PX_LIMITS,
   MEDIA_WIDTH_PERCENT_LIMITS,
   type BlockActionTypeValue,
@@ -10,6 +11,13 @@ import {
   type MediaPresentation,
   type OpenPageNavigationBehavior,
 } from '@lodariq/schema';
+import {
+  EDGE_RESIZE_HORIZONTAL_DIRECTION,
+  EDGE_RESIZE_VERTICAL_DIRECTION,
+  clampSnappedWidth,
+  type EdgeResizeEdge,
+} from '../authoring/canvas/edge-resize';
+import { EdgeResizeHandles } from './edge-resize-handles';
 import { resolveTourActionRecipe } from '@lodariq/sdk-runtime/renderers/tour';
 import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext';
 import {
@@ -48,7 +56,7 @@ import { RichContentSelect } from './rich-content-select';
 
 type IconRecipe = (typeof ICON_RECIPE_VALUES)[number];
 
-const MEDIA_FIT_OPTIONS = [
+export const MEDIA_FIT_OPTIONS = [
   { label: authoringText('Fit entire media'), value: 'contain' },
   { label: authoringText('Fill the frame'), value: 'cover' },
   { label: authoringText('Stretch to frame'), value: 'fill' },
@@ -296,31 +304,7 @@ export class RichMediaNode extends DecoratorNode<ReactNode> {
   }
 }
 
-type MediaResizeEdge = 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w' | 'nw';
-
-const MEDIA_RESIZE_EDGES: readonly MediaResizeEdge[] = ['n', 'ne', 'e', 'se', 's', 'sw', 'w', 'nw'];
-
-const MEDIA_RESIZE_HORIZONTAL_DIRECTION: Readonly<Record<MediaResizeEdge, -1 | 0 | 1>> = {
-  n: 0,
-  ne: 1,
-  e: 1,
-  se: 1,
-  s: 0,
-  sw: -1,
-  w: -1,
-  nw: -1,
-};
-
-const MEDIA_RESIZE_VERTICAL_DIRECTION: Readonly<Record<MediaResizeEdge, -1 | 0 | 1>> = {
-  n: -1,
-  ne: -1,
-  e: 0,
-  se: 1,
-  s: 1,
-  sw: 1,
-  w: 0,
-  nw: -1,
-};
+type MediaResizeEdge = EdgeResizeEdge;
 
 interface MediaResizeState {
   canvasWidth: number;
@@ -349,6 +333,7 @@ function ResizableMediaPreview({
   uploadProgress?: number;
 }): ReactNode {
   const [editor] = useLexicalComposerContext();
+  const host = useContext(RichContentHostContext);
   const figureRef = useRef<HTMLElement | null>(null);
   const resizeState = useRef<MediaResizeState | null>(null);
   const pendingDraftSize = useRef<MediaDraftSize | null>(null);
@@ -408,6 +393,14 @@ function ResizableMediaPreview({
       setDraftSize(null);
     }
   }, [draftSize, media.heightPx, resizingEdge, widthPercent]);
+  const inspect = (): void => {
+    editor.update(() => {
+      const selection = $createNodeSelection();
+      selection.add(nodeKey);
+      $setSelection(selection);
+    });
+    host.onInspectOpen?.();
+  };
   const setFit = (value: string): void => {
     const fit = value as NonNullable<MediaPresentation['fit']>;
     editor.update(() => {
@@ -444,8 +437,8 @@ function ResizableMediaPreview({
     clientY: number,
     state: MediaResizeState,
   ): MediaDraftSize => {
-    const horizontalDirection = MEDIA_RESIZE_HORIZONTAL_DIRECTION[state.edge];
-    const verticalDirection = MEDIA_RESIZE_VERTICAL_DIRECTION[state.edge];
+    const horizontalDirection = EDGE_RESIZE_HORIZONTAL_DIRECTION[state.edge];
+    const verticalDirection = EDGE_RESIZE_VERTICAL_DIRECTION[state.edge];
     const deltaPercent = ((clientX - state.startX) / state.canvasWidth) * 100 * horizontalDirection;
     const deltaHeight = (clientY - state.startY) * verticalDirection;
     const next: MediaDraftSize = {
@@ -475,8 +468,8 @@ function ResizableMediaPreview({
     resizeState.current = null;
     setResizingEdge(null);
     setSize({
-      ...(MEDIA_RESIZE_VERTICAL_DIRECTION[state.edge] ? { heightPx: next.heightPx } : {}),
-      ...(MEDIA_RESIZE_HORIZONTAL_DIRECTION[state.edge] ? { widthPercent: next.widthPercent } : {}),
+      ...(EDGE_RESIZE_VERTICAL_DIRECTION[state.edge] ? { heightPx: next.heightPx } : {}),
+      ...(EDGE_RESIZE_HORIZONTAL_DIRECTION[state.edge] ? { widthPercent: next.widthPercent } : {}),
     });
   };
   const cancelResize = (pointerId?: number): void => {
@@ -573,6 +566,14 @@ function ResizableMediaPreview({
       data-media-kind={media.kind}
       data-resizing={resizingEdge ?? undefined}
       data-uploading={uploadProgress === undefined ? undefined : 'true'}
+      onClick={(event) => {
+        if ((event.target as HTMLElement).closest('.edge-resize-handle, .rich-content-media-fit-control')) {
+          return;
+        }
+        event.preventDefault();
+        event.stopPropagation();
+        inspect();
+      }}
       onKeyDownCapture={onKeyDown}
       ref={figureRef}
       style={style}
@@ -616,17 +617,12 @@ function ResizableMediaPreview({
             <span style={{ width: `${uploadProgress}%` }} />
           </div>
         )}
-        {pendingAsset
-          ? null
-          : MEDIA_RESIZE_EDGES.map((edge) => (
-              <div
-                aria-hidden="true"
-                className="rich-content-media-resize-edge"
-                data-edge={edge}
-                key={edge}
-                onPointerDown={(event) => onPointerDown(edge, event)}
-              />
-            ))}
+        {pendingAsset ? null : (
+          <EdgeResizeHandles
+            className="edge-resize-handle rich-content-media-resize-edge"
+            onPointerDown={onPointerDown}
+          />
+        )}
         {pendingAsset ? null : (
           <label className="rich-content-media-fit-control">
             <span>{authoringText('Media framing')}</span>
@@ -832,6 +828,15 @@ function RichButtonPreview({
 }: Pick<RichButtonNodeState, 'blockId' | 'content' | 'props'> & { nodeKey: NodeKey }): ReactNode {
   const [editor] = useLexicalComposerContext();
   const host = useContext(RichContentHostContext);
+  const shellRef = useRef<HTMLDivElement | null>(null);
+  const resizeState = useRef<{
+    edge: EdgeResizeEdge;
+    pointerId: number;
+    startWidth: number;
+    startX: number;
+  } | null>(null);
+  const [draftWidthPx, setDraftWidthPx] = useState<number | null>(null);
+  const [resizingEdge, setResizingEdge] = useState<EdgeResizeEdge | null>(null);
   const inspect = (): void => {
     editor.update(() => {
       const selection = $createNodeSelection();
@@ -842,19 +847,107 @@ function RichButtonPreview({
   };
   const deleteOnKey = useDeleteDecoratorOnKey(nodeKey);
   const recipe = resolveTourActionRecipe(props);
+  const committedWidthPx = recipe.widthPx ?? null;
+  const widthPx = draftWidthPx ?? committedWidthPx;
+  const setWidthPx = (next: number | undefined): void => {
+    editor.update(() => {
+      const node = $getNodeByKey(nodeKey);
+      if ($isRichButtonNode(node)) node.setButtonStyle({ widthPx: next });
+    });
+  };
+  const onPointerDown = (edge: EdgeResizeEdge, event: ReactPointerEvent<HTMLDivElement>): void => {
+    const startWidth =
+      shellRef.current?.querySelector<HTMLElement>('.rich-content-button-preview')?.getBoundingClientRect()
+        .width ?? BUTTON_WIDTH_PX_LIMITS.min;
+    event.preventDefault();
+    event.stopPropagation();
+    resizeState.current = {
+      edge,
+      pointerId: event.pointerId,
+      startWidth,
+      startX: event.clientX,
+    };
+    setDraftWidthPx(clampSnappedWidth(startWidth, BUTTON_WIDTH_PX_LIMITS));
+    setResizingEdge(edge);
+  };
+  const widthFromPointer = (clientX: number, edge: EdgeResizeEdge, startWidth: number, startX: number): number => {
+    const delta = (clientX - startX) * EDGE_RESIZE_HORIZONTAL_DIRECTION[edge];
+    return clampSnappedWidth(startWidth + delta, BUTTON_WIDTH_PX_LIMITS);
+  };
+  useEffect(() => {
+    if (!resizingEdge) return;
+    const ownerWindow = shellRef.current?.ownerDocument.defaultView ?? window;
+    const onPointerMove = (event: PointerEvent): void => {
+      const state = resizeState.current;
+      if (!state || state.pointerId !== event.pointerId) return;
+      event.preventDefault();
+      setDraftWidthPx(widthFromPointer(event.clientX, state.edge, state.startWidth, state.startX));
+    };
+    const onPointerUp = (event: PointerEvent): void => {
+      const state = resizeState.current;
+      if (!state || state.pointerId !== event.pointerId) return;
+      const next = widthFromPointer(event.clientX, state.edge, state.startWidth, state.startX);
+      resizeState.current = null;
+      setResizingEdge(null);
+      setDraftWidthPx(next);
+      setWidthPx(next);
+    };
+    const onPointerCancel = (): void => {
+      resizeState.current = null;
+      setResizingEdge(null);
+      setDraftWidthPx(null);
+    };
+    ownerWindow.addEventListener('pointermove', onPointerMove, true);
+    ownerWindow.addEventListener('pointerup', onPointerUp, true);
+    ownerWindow.addEventListener('pointercancel', onPointerCancel, true);
+    return () => {
+      ownerWindow.removeEventListener('pointermove', onPointerMove, true);
+      ownerWindow.removeEventListener('pointerup', onPointerUp, true);
+      ownerWindow.removeEventListener('pointercancel', onPointerCancel, true);
+    };
+  }, [resizingEdge]);
+  useEffect(() => {
+    if (resizingEdge || draftWidthPx === null || draftWidthPx === committedWidthPx) return;
+    setDraftWidthPx(null);
+  }, [committedWidthPx, draftWidthPx, resizingEdge]);
+  const onKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>): void => {
+    deleteOnKey(event);
+    if (event.defaultPrevented) return;
+    const step = event.shiftKey ? BUTTON_WIDTH_PX_LIMITS.step * 2 : BUTTON_WIDTH_PX_LIMITS.step;
+    if (event.key === 'Home') {
+      event.preventDefault();
+      event.stopPropagation();
+      setDraftWidthPx(null);
+      setWidthPx(undefined);
+      return;
+    }
+    if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
+    event.preventDefault();
+    event.stopPropagation();
+    const current =
+      widthPx ??
+      shellRef.current?.querySelector<HTMLElement>('.rich-content-button-preview')?.offsetWidth ??
+      BUTTON_WIDTH_PX_LIMITS.min;
+    setWidthPx(
+      clampSnappedWidth(current + (event.key === 'ArrowLeft' ? -step : step), BUTTON_WIDTH_PX_LIMITS),
+    );
+  };
   const style = props.buttonStyle;
   const actionStyle = {
     ...(style?.fillColor ? { '--lq-action-fill': style.fillColor } : {}),
     ...(style?.textColor ? { '--lq-action-text': style.textColor } : {}),
     ...(style?.borderColor ? { '--lq-action-border': style.borderColor } : {}),
-    ...(recipe.widthPx ? { '--lq-action-width': `${recipe.widthPx}px` } : {}),
+    ...(widthPx ? { '--lq-action-width': `${widthPx}px` } : {}),
   } as CSSProperties;
   return (
     <div
+      aria-label={authoringText('Resize button. Use arrow keys or drag any edge. Home resets.')}
       className="rich-content-button-preview-shell"
       data-block-id={blockId}
-      data-lodariq-action-width={recipe.widthPx ? 'custom' : recipe.width}
-      onKeyDownCapture={deleteOnKey}
+      data-lodariq-action-width={widthPx ? 'custom' : recipe.width}
+      data-resizing={resizingEdge ?? undefined}
+      onKeyDownCapture={onKeyDown}
+      ref={shellRef}
       style={actionStyle}
       tabIndex={0}
     >
@@ -864,14 +957,18 @@ function RichButtonPreview({
           data-lodariq-action-radius={recipe.radius}
           data-lodariq-action-size={recipe.size}
           data-lodariq-action-variant={recipe.variant}
-          data-lodariq-action-width={recipe.widthPx ? 'custom' : recipe.width}
+          data-lodariq-action-width={widthPx ? 'custom' : recipe.width}
           data-variant={recipe.variant}
           onClick={(event) => {
             event.preventDefault();
             event.stopPropagation();
             inspect();
           }}
-          onPointerDown={(event) => event.preventDefault()}
+          onPointerDown={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            inspect();
+          }}
           style={actionStyle}
           type="button"
         >
@@ -885,13 +982,21 @@ function RichButtonPreview({
             event.stopPropagation();
             inspect();
           }}
-          onPointerDown={(event) => event.preventDefault()}
+          onPointerDown={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            inspect();
+          }}
           title={authoringText('Configure button')}
           type="button"
         >
           <Settings2 aria-hidden="true" size={15} />
         </button>
       </div>
+      <EdgeResizeHandles
+        className="edge-resize-handle rich-content-button-resize-edge"
+        onPointerDown={onPointerDown}
+      />
     </div>
   );
 }
@@ -1278,6 +1383,10 @@ export class RichDividerNode extends DecoratorNode<ReactNode> {
     const element = document.createElement('div');
     element.className = 'rich-content-divider-node';
     return element;
+  }
+
+  override isInline(): boolean {
+    return false;
   }
 
   override updateDOM(): false {

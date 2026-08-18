@@ -14,7 +14,9 @@ const NL_BE_CATALOG: AuthoringCatalog = {
   'Drag to reorder, click for options': 'Sleep om te herschikken, klik voor opties',
   'Search content types': 'Contenttypen zoeken',
   'Search…': 'Zoeken…',
-  'Write, or use the toolbar to add content': 'Schrijf, of gebruik de werkbalk om inhoud toe te voegen',
+  'Write, or press / to add': 'Schrijf, of druk / om toe te voegen',
+  'More formatting': 'Meer opmaak',
+  'Insert': 'Invoegen',
   field: 'veld',
   'Answers stay in this experience. Lodariq does not read your product database.':
     'Antwoorden blijven in deze ervaring. Lodariq leest je productdatabase niet.',

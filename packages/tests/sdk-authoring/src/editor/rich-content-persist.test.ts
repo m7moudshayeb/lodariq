@@ -118,6 +118,25 @@ describe('rich content persist debounce', () => {
     ).toBe(true);
     inspectorHost.remove();
   });
+
+  it('persists a toolbar-inserted divider as a divider block', async () => {
+    const onPersist = vi.fn();
+    await act(async () => {
+      root.render(createElement(PersistHarness, { onPersist }));
+    });
+
+    await act(async () => {
+      document.querySelector<HTMLButtonElement>('[aria-label="Divider"]')?.click();
+    });
+    expect(document.querySelector('.rich-content-divider')).not.toBeNull();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(RICH_CONTENT_PERSIST_DEBOUNCE_MS + 50);
+    });
+    expect(
+      (onPersist.mock.calls.at(-1)?.[0] as LodariqBlock[]).some((block) => block.type === 'divider'),
+    ).toBe(true);
+  });
 });
 
 function PersistHarness({ onPersist }: { onPersist: (value: LodariqBlock[]) => void }) {

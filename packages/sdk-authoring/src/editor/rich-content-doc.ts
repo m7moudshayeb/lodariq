@@ -17,7 +17,6 @@ import {
   $getRoot,
   $getSelection,
   $isElementNode,
-  $isParagraphNode,
   $isRangeSelection,
   $isTextNode,
   type ElementNode,
@@ -195,15 +194,11 @@ export function exportRichContent(metadata: RichContentMetadata): LodariqBlock[]
 }
 
 function exportTopLevel(node: LexicalNode, metadata: RichContentMetadata): LodariqBlock[] {
-  if ($isParagraphNode(node) && paragraphHasFlowDecorator(node)) {
+  if ($isElementNode(node) && node.getChildren().some(isFlowDecorator)) {
     return flattenParagraph(node, metadata);
   }
   const block = blockFromNode(node, metadata);
   return block ? [block] : [];
-}
-
-function paragraphHasFlowDecorator(node: ElementNode): boolean {
-  return node.getChildren().some(isFlowDecorator);
 }
 
 function isFlowDecorator(node: LexicalNode): boolean {
@@ -211,7 +206,9 @@ function isFlowDecorator(node: LexicalNode): boolean {
     $isRichButtonNode(node) ||
     $isRichMediaNode(node) ||
     $isRichIconNode(node) ||
-    $isRichFormFieldNode(node)
+    $isRichFormFieldNode(node) ||
+    $isRichDividerNode(node) ||
+    node.getType() === 'lodariq-rich-divider'
   );
 }
 
@@ -350,16 +347,10 @@ function blockFromNode(node: LexicalNode, metadata: RichContentMetadata): Lodari
       original,
     );
   }
-  if ($isRichDividerNode(node)) {
-    const original = metadata.originalByBlockId.get(node.getBlockId());
-    return canonicalBlock(
-      node.getBlockId(),
-      'divider',
-      undefined,
-      original?.props ?? {},
-      undefined,
-      original,
-    );
+  if ($isRichDividerNode(node) || node.getType() === 'lodariq-rich-divider') {
+    const blockId = $isRichDividerNode(node) ? node.getBlockId() : createBlockId();
+    const original = metadata.originalByBlockId.get(blockId);
+    return canonicalBlock(blockId, 'divider', undefined, original?.props ?? {}, undefined, original);
   }
   if (!$isElementNode(node)) return null;
   const original = originalBlockForNode(node, metadata);

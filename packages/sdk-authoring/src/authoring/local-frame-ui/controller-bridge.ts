@@ -5,6 +5,9 @@ import {
   AUTHORING_CHROME_ACTION_REQUEST_TYPE,
   AUTHORING_PANEL_MODE_OPEN_TYPE,
   AUTHORING_SAVE_STATE_UPDATE_TYPE,
+  AUTHORING_SHELL_PRESENTATION_TYPE,
+  AUTHORING_SHELL_STEP_COMMAND_TYPE,
+  AUTHORING_SHELL_POPUP_SIZE_COMMIT_TYPE,
   BRIDGE_PROTOCOL_VERSION,
   isPresentationAnchor,
   DEFAULT_EXPERIENCE_APPEARANCE,
@@ -120,7 +123,39 @@ export abstract class ControllerBridgeFeature extends ControllerPreviewFeature {
       if (message.action === 'preview-full') this.previewFullTour();
       if (message.action === 'open-appearance') this.openAppearanceMode();
       if (message.action === 'open-release') this.openReleaseVerificationMode();
+      if (message.action === 'open-operations') this.openOperationsMode();
+      if (message.action === 'close-operations') this.closeOperationsMode();
       if (message.action === 'save-and-exit') this.requestSaveAndExit();
+      return;
+    }
+
+    if (message.type === AUTHORING_SHELL_PRESENTATION_TYPE) {
+      if (message.presentation === 'operations') this.openOperationsMode();
+      if (message.presentation === 'overlay' || message.presentation === 'collapsed') {
+        this.closeOperationsMode();
+      }
+      return;
+    }
+
+    if (message.type === AUTHORING_SHELL_STEP_COMMAND_TYPE) {
+      if (message.command === 'add') this.appendStepAndChooseTarget();
+      if (message.command === 'select' && message.stepId) this.activateTourStep(message.stepId);
+      if (message.command === 'collapse') return;
+      if (message.command === 'retarget' && message.stepId) this.startTargetPick(message.stepId);
+      if (message.command === 'move-up' && message.stepId) {
+        this.moveTopLevelBlock(message.stepId, 'up');
+      }
+      if (message.command === 'move-down' && message.stepId) {
+        this.moveTopLevelBlock(message.stepId, 'down');
+      }
+      return;
+    }
+
+    if (message.type === AUTHORING_SHELL_POPUP_SIZE_COMMIT_TYPE) {
+      this.setTooltipLayout(message.blockId, {
+        widthPx: message.widthPx,
+        heightPx: message.heightPx,
+      });
       return;
     }
 
@@ -145,7 +180,11 @@ export abstract class ControllerBridgeFeature extends ControllerPreviewFeature {
         this.setStatus(authoringText('Button action updated in preview'));
         return;
       }
-      if (operation.kind === 'openAdvanced') this.openAdvancedEditor(operation.stepId);
+      if (operation.kind === 'openAdvanced') {
+        this.openAdvancedEditor(operation.stepId);
+        if (this.isHostedInParent) this.openOperationsMode('review');
+        return;
+      }
       return;
     }
 
@@ -378,5 +417,6 @@ export abstract class ControllerBridgeFeature extends ControllerPreviewFeature {
     this.panelWorkflowNotice = null;
     this.panelFocusToken += 1;
     this.emit();
+    this.notifyShellPresentation(mode === 'edit' ? 'overlay' : 'operations');
   }
 }

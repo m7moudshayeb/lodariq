@@ -33,6 +33,12 @@ export function createTourStyles(): HTMLStyleElement {
       to { opacity: 1; }
     }
 
+    :host([data-lodariq-authoring-preview-owner]:not([data-lodariq-preview-interactive])) [role="dialog"],
+    :host([data-lodariq-authoring-preview-owner]:not([data-lodariq-preview-interactive])) .tour-arrow {
+      visibility: hidden;
+      pointer-events: none;
+    }
+
     div[role="dialog"] {
       box-sizing: border-box;
       width: min(var(--lq-tour-width), calc(100vw - 24px));

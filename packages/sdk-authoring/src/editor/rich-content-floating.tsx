@@ -100,7 +100,9 @@ export function RichContentFloatingMenu({
     if (!open || !reference || !floating) return;
     inheritRichContentFloatingTheme(reference, floating);
     setPosition(null);
-    const collisionBoundary = reference.closest<HTMLElement>('.panel-storyboard-workspace');
+    const collisionBoundary = reference.closest<HTMLElement>(
+      '.panel-storyboard-workspace, .overlay-step-shell',
+    );
     const overflowOptions = collisionBoundary
       ? { boundary: collisionBoundary, padding: FLOATING_BOUNDARY_PADDING_PX }
       : { padding: FLOATING_BOUNDARY_PADDING_PX };
@@ -198,7 +200,9 @@ export function RichContentFloatingAnchor({
     if (!open || !floating || !contextElement) return;
     inheritRichContentFloatingTheme(contextElement, floating);
     setPosition(null);
-    const collisionBoundary = contextElement.closest<HTMLElement>('.panel-storyboard-workspace');
+    const collisionBoundary = contextElement.closest<HTMLElement>(
+      '.panel-storyboard-workspace, .overlay-step-shell',
+    );
     const overflowOptions = collisionBoundary
       ? { boundary: collisionBoundary, padding: FLOATING_BOUNDARY_PADDING_PX }
       : { padding: FLOATING_BOUNDARY_PADDING_PX };

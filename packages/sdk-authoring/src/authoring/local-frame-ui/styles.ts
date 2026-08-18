@@ -10,6 +10,7 @@ import { AUTHORING_TOUR_RELEASE_CSS } from './styles/tour-release';
 import { AUTHORING_ADVANCED_SHELL_CSS } from './styles/advanced-shell';
 import { AUTHORING_RICH_TEXT_CSS } from './styles/rich-text';
 import { AUTHORING_STORYBOARD_SHELL_CSS } from './styles/storyboard-shell';
+import { AUTHORING_OVERLAY_SHELL_CSS } from './styles/overlay-shell';
 import { AUTHORING_STORYBOARD_CANVAS_CSS } from './styles/storyboard-canvas';
 import { AUTHORING_STORYBOARD_PROPERTY_CSS } from './styles/storyboard-properties';
 import { AUTHORING_POPUP_ARROW_CSS } from './styles/popup-arrow';
@@ -38,4 +39,5 @@ export const LOCAL_AUTHORING_FRAME_CSS = `
   ${AUTHORING_XYFLOW_FOUNDATION_CSS}
   ${AUTHORING_FOCUSED_MODES_CSS}
   ${AUTHORING_AGREED_MODES_CSS}
+  ${AUTHORING_OVERLAY_SHELL_CSS}
 `;

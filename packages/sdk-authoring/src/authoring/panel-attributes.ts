@@ -4,4 +4,5 @@ export const LOCAL_AUTHORING_TRIGGER_SELECTOR = '[data-lodariq-authoring-trigger
 export const AUTHORING_TARGET_PICKING_ATTRIBUTE = 'data-lodariq-target-picking';
 export const AUTHORING_PANEL_MINIMIZED_ATTRIBUTE = 'data-lodariq-panel-minimized';
 export const AUTHORING_PANEL_LAYOUT_ATTRIBUTE = 'data-lodariq-panel-layout';
+export const AUTHORING_SHELL_ATTRIBUTE = 'data-lodariq-shell';
 export const AUTHORING_PREVIEW_ACTIVE_ATTRIBUTE = 'data-lodariq-preview-active';

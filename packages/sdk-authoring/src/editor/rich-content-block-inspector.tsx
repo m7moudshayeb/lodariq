@@ -7,6 +7,7 @@ import {
   type FormFieldControl,
   type FormFieldPresentation,
   type LodariqBlockProps,
+  type MediaPresentation,
 } from '@lodariq/schema';
 import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext';
 import {
@@ -16,22 +17,27 @@ import {
   $isNodeSelection,
   $setSelection,
   type LexicalEditor,
+  type LexicalNode,
   type NodeKey,
 } from 'lexical';
 import { X } from 'lucide-react';
 import { useContext, useEffect, useRef, useState, type ReactElement, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { authoringText } from '../i18n';
+import { readViewportRect, RichContentFloatingAnchor } from './rich-content-floating';
 import { RichContentHostContext } from './rich-content-host-context';
 import {
   $isRichButtonNode,
   $isRichFormFieldNode,
+  $isRichMediaNode,
+  MEDIA_FIT_OPTIONS,
   RICH_BUTTON_ACTION_OPTIONS,
   RICH_BUTTON_SEQUENCE_ACTION_OPTION,
   RICH_BUTTON_VARIANT_OPTIONS,
   type RichButtonActionType,
   type RichButtonNode,
   type RichFormFieldNode,
+  type RichMediaNode,
 } from './rich-content-nodes';
 import { RichContentSelect } from './rich-content-select';
 
@@ -92,8 +98,21 @@ const FIELD_INSPECTOR_SECTIONS = [
   { value: 'appearance', label: authoringText('Appearance') },
 ] as const satisfies ReadonlyArray<{ value: 'field' | 'appearance'; label: string }>;
 
-type InspectedKind = 'button' | 'formField';
+type InspectedKind = 'button' | 'formField' | 'media';
 type InspectedTarget = { kind: InspectedKind; key: NodeKey };
+
+const INSPECTOR_LABELS: Record<InspectedKind, string> = {
+  button: authoringText('Button settings'),
+  formField: authoringText('Field settings'),
+  media: authoringText('Media framing'),
+};
+
+function inspectedTargetFromNode(node: LexicalNode): InspectedTarget | null {
+  if ($isRichButtonNode(node)) return { kind: 'button', key: node.getKey() };
+  if ($isRichFormFieldNode(node)) return { kind: 'formField', key: node.getKey() };
+  if ($isRichMediaNode(node)) return { kind: 'media', key: node.getKey() };
+  return null;
+}
 
 function sameInspectedTarget(
   current: InspectedTarget | null,
@@ -175,11 +194,7 @@ export function BlockInspectorPlugin(): ReactElement | null {
         if ($isNodeSelection(selection)) {
           dismissedRef.current = false;
           const node = selection.getNodes()[0];
-          const next = $isRichButtonNode(node)
-            ? { kind: 'button' as const, key: node.getKey() }
-            : $isRichFormFieldNode(node)
-              ? { kind: 'formField' as const, key: node.getKey() }
-              : null;
+          const next = node ? inspectedTargetFromNode(node) : null;
           setTarget((current) => (sameInspectedTarget(current, next) ? current : next));
           return;
         }
@@ -206,28 +221,37 @@ export function BlockInspectorPlugin(): ReactElement | null {
     if (target) onInspectOpenRef.current?.();
   }, [target]);
 
-  if (!host.inspectorHost || !target) return null;
+  if (!target) return null;
   const close = (): void => {
     dismissedRef.current = true;
     setTarget(null);
     closeInspector(editor);
   };
-  return createPortal(
-    <section
-      aria-label={
-        target.kind === 'button' ? authoringText('Button settings') : authoringText('Field settings')
-      }
-      className="storyboard-property-tray"
-      data-tool-mode="content"
-    >
+  let InspectorView = MediaInspector;
+  if (target.kind === 'button') InspectorView = ButtonInspector;
+  else if (target.kind === 'formField') InspectorView = FormFieldInspector;
+  const tray = (
+    <section aria-label={INSPECTOR_LABELS[target.kind]} className="storyboard-property-tray" data-tool-mode="content">
       <span aria-hidden="true" className="storyboard-tray-handle" />
-      {target.kind === 'button' ? (
-        <ButtonInspector nodeKey={target.key} onClose={close} />
-      ) : (
-        <FormFieldInspector nodeKey={target.key} onClose={close} />
-      )}
-    </section>,
-    host.inspectorHost,
+      <InspectorView nodeKey={target.key} onClose={close} />
+    </section>
+  );
+  if (host.inspectorHost) return createPortal(tray, host.inspectorHost);
+  const contextElement = editor.getRootElement();
+  if (!contextElement) return null;
+  return (
+    <RichContentFloatingAnchor
+      anchorRect={() => {
+        const element = editor.getElementByKey(target.key);
+        return element ? readViewportRect(element) : readViewportRect(contextElement);
+      }}
+      className="rich-content-inspector-popover"
+      contextElement={contextElement}
+      open
+      placement="right-start"
+    >
+      {tray}
+    </RichContentFloatingAnchor>
   );
 }
 
@@ -450,6 +474,47 @@ function ButtonInspector({
       </div>
           </>
         )}
+      </div>
+    </>
+  );
+}
+
+function MediaInspector({
+  nodeKey,
+  onClose,
+}: {
+  nodeKey: NodeKey;
+  onClose: () => void;
+}): ReactElement | null {
+  const [editor] = useLexicalComposerContext();
+  const snapshot = useInspectedSnapshot(editor, nodeKey, () => {
+    const node = $getNodeByKey(nodeKey);
+    return $isRichMediaNode(node) ? node.getMedia() : null;
+  });
+  if (!snapshot) return null;
+  const updateFit = (value: string): void => {
+    updateInspectedNode(editor, nodeKey, () => {
+      const node = $getNodeByKey(nodeKey);
+      if (!$isRichMediaNode(node)) return false;
+      node.setFit(value as NonNullable<MediaPresentation['fit']>);
+      return true;
+    });
+  };
+  return (
+    <>
+      <div className="content-inspector-chrome">
+        <p className="popup-inspector-title">{authoringText('Media framing')}</p>
+        <InspectorCloseButton onClose={onClose} />
+      </div>
+      <div className="storyboard-tab-panel behavior" data-section="media">
+        <InspectorField id="media.fit" label={authoringText('How media fills the frame')}>
+          <RichContentSelect
+            ariaLabel={authoringText('How media fills the frame')}
+            onValueChange={updateFit}
+            options={MEDIA_FIT_OPTIONS}
+            value={snapshot.fit ?? 'contain'}
+          />
+        </InspectorField>
       </div>
     </>
   );

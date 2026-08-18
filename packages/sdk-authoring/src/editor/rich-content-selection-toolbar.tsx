@@ -7,7 +7,7 @@ import {
   type TourMotionPresentation,
 } from '@lodariq/schema';
 import { $createLinkNode, $toggleLink } from '@lexical/link';
-import { insertList } from '@lexical/list';
+import { $createListItemNode, $createListNode, insertList } from '@lexical/list';
 import { $getSelectionStyleValueForProperty, $patchStyleText, $setBlocksType } from '@lexical/selection';
 import { $createHeadingNode } from '@lexical/rich-text';
 import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext';
@@ -29,11 +29,10 @@ import {
   Bold,
   ChevronDown,
   CircleDot,
-  Clapperboard,
+  Ellipsis,
   Hash,
   Heading,
   Highlighter,
-  Image,
   Italic,
   Link,
   List as ListIcon,
@@ -41,6 +40,7 @@ import {
   Minus,
   MousePointerClick,
   Palette,
+  Plus,
   Shapes,
   Smile,
   SquareCheck,
@@ -63,10 +63,11 @@ import {
   typeForNode,
   type RichContentMetadata,
 } from './rich-content-doc';
-import { RichContentFloatingMenu } from './rich-content-floating';
+import { readRangeViewportRect, RichContentFloatingAnchor, RichContentFloatingMenu } from './rich-content-floating';
 import {
   RichContentEmojiPickerPanel,
   RichContentIconPickerPanel,
+  RichContentInsertOption,
   RichContentMediaInsertPanel,
 } from './rich-content-insert-panels';
 import type { RichContentMediaUploadResult } from './rich-content-media-upload';
@@ -109,11 +110,11 @@ const ALIGNMENT_LABELS: Readonly<Record<'left' | 'center' | 'right', string>> = 
   right: authoringText('Align right'),
 };
 
-type InsertMenu = 'icon' | 'emoji' | 'media' | 'field' | null;
+type InsertMenu = 'add' | 'icon' | 'emoji' | 'field' | null;
 
 /**
- * Persistent format and insert toolbar. Always available while editing so
- * creators do not have to select text or hover a gutter to reach tools.
+ * Docked format chip: text style, bold/italic, link, add, and more.
+ * A selection bubble covers bold/italic/link while text is highlighted.
  */
 export function SelectionToolbarPlugin({
   metadata,
@@ -137,7 +138,6 @@ export function SelectionToolbarPlugin({
   const [spacingAfter, setSpacingAfter] = useState(8);
   const [blockMenuOpen, setBlockMenuOpen] = useState(false);
   const [fontSizeOpen, setFontSizeOpen] = useState(false);
-  const [animationOpen, setAnimationOpen] = useState(false);
   const [animationRecipe, setAnimationRecipe] = useState<TourMotionPresentation['recipe'] | 'none'>(
     DEFAULT_INLINE_ANIMATION.recipe,
   );
@@ -152,6 +152,8 @@ export function SelectionToolbarPlugin({
   const [linkSelectedText, setLinkSelectedText] = useState('');
   const [linkUrl, setLinkUrl] = useState('');
   const [insertMenu, setInsertMenu] = useState<InsertMenu>(null);
+  const [moreOpen, setMoreOpen] = useState(false);
+  const [selectionRect, setSelectionRect] = useState<DOMRect | null>(null);
   const [iconColor, setIconColor] = useState('#12715b');
   const [iconQuery, setIconQuery] = useState('');
   const savedSelection = useRef<RangeSelection | null>(null);
@@ -163,14 +165,14 @@ export function SelectionToolbarPlugin({
   const closeSubmenus = (): void => {
     setBlockMenuOpen(false);
     setFontSizeOpen(false);
-    setAnimationOpen(false);
     setLinkOpen(false);
     setInsertMenu(null);
+    setMoreOpen(false);
   };
   const menusOpenRef = useRef(false);
   const closeSubmenusRef = useRef(closeSubmenus);
   menusOpenRef.current = Boolean(
-    blockMenuOpen || fontSizeOpen || animationOpen || linkOpen || insertMenu,
+    blockMenuOpen || fontSizeOpen || linkOpen || insertMenu || moreOpen,
   );
   closeSubmenusRef.current = closeSubmenus;
 
@@ -179,15 +181,15 @@ export function SelectionToolbarPlugin({
     closeSubmenus();
     if (next) setBlockMenuOpen(true);
   };
-  const toggleAnimationMenu = (): void => {
-    const next = !animationOpen;
-    closeSubmenus();
-    if (next) setAnimationOpen(true);
-  };
   const toggleInsertMenu = (kind: Exclude<InsertMenu, null>): void => {
     const next = insertMenu !== kind;
     closeSubmenus();
     if (next) setInsertMenu(kind);
+  };
+  const toggleMoreMenu = (): void => {
+    const next = !moreOpen;
+    closeSubmenus();
+    if (next) setMoreOpen(true);
   };
 
   useEffect(() => {
@@ -238,6 +240,27 @@ export function SelectionToolbarPlugin({
               '',
             ) || '16';
           setFontSize((current) => (current === nextFontSize ? current : nextFontSize));
+          const native = ownerDocument.getSelection();
+          const range =
+            !selection.isCollapsed() && native && native.rangeCount > 0
+              ? native.getRangeAt(0)
+              : null;
+          const nextRect =
+            range && rootElement ? readRangeViewportRect(range, rootElement) : null;
+          setSelectionRect((current) => {
+            if (!nextRect) return current === null ? current : null;
+            if (
+              current &&
+              Math.abs(current.top - nextRect.top) < 1 &&
+              Math.abs(current.left - nextRect.left) < 1 &&
+              Math.abs(current.width - nextRect.width) < 1
+            ) {
+              return current;
+            }
+            return nextRect;
+          });
+        } else {
+          setSelectionRect(null);
         }
         const selectedNode = selectedTopLevelNode();
         if (selectedNode) {
@@ -350,7 +373,7 @@ export function SelectionToolbarPlugin({
     const url = safeAuthorUrl(urlRaw);
     if (url) {
       const displayAs = displayRaw.trim();
-      if (displayAs === selected || (!displayAs && selected)) {
+      if (selected && (displayAs === selected || !displayAs)) {
         withAuthorSelection(() => $toggleLink(url));
       } else {
         withAuthorSelection((selection) => {
@@ -377,6 +400,13 @@ export function SelectionToolbarPlugin({
     setSpacingAfter(rawValue);
     applyBlockSpacingAfter(editor, metadata, onChange, target.key, target.blockId, rawValue);
   };
+
+  const dockedMenuPlacement = document.querySelector('.overlay-step-main.toolbar-below')
+    ? 'top-start'
+    : 'bottom-start';
+  const dockedMenuEndPlacement = document.querySelector('.overlay-step-main.toolbar-below')
+    ? 'top-end'
+    : 'bottom-end';
 
   const toolbar = (
     <div
@@ -416,6 +446,7 @@ export function SelectionToolbarPlugin({
           </div>
         }
         open={blockMenuOpen}
+        placement={dockedMenuPlacement}
       >
         <button
           aria-expanded={blockMenuOpen}
@@ -443,139 +474,6 @@ export function SelectionToolbarPlugin({
         label={authoringText('Italic')}
         onClick={() => withAuthorSelection((selection) => selection.formatText('italic'))}
       />
-      <ToolbarButton
-        active={activeFormats.has('underline')}
-        icon={<Underline size={16} />}
-        label={authoringText('Underline')}
-        onClick={() => withAuthorSelection((selection) => selection.formatText('underline'))}
-      />
-      <RichContentSelect
-        ariaLabel={authoringText('Font size')}
-        className="rich-content-font-size-trigger"
-        onOpenChange={(nextOpen) => {
-          closeSubmenus();
-          setFontSizeOpen(nextOpen);
-        }}
-        onValueChange={(nextFontSize) => {
-          setFontSize(nextFontSize);
-          withAuthorSelection((selection) =>
-            $patchStyleText(selection, { 'font-size': `${nextFontSize}px` }),
-          );
-        }}
-        open={fontSizeOpen}
-        options={FONT_SIZE_OPTIONS}
-        value={fontSize}
-      />
-      <label className="rich-content-color-control" title={authoringText('Text color')}>
-        <Palette aria-hidden="true" size={16} />
-        <input
-          aria-label={authoringText('Text color')}
-          defaultValue="#172033"
-          onChange={(event) => {
-            const color = event.currentTarget.value;
-            withAuthorSelection((selection) => $patchStyleText(selection, { color }));
-          }}
-          type="color"
-        />
-      </label>
-      <label className="rich-content-color-control" title={authoringText('Selection background')}>
-        <Highlighter aria-hidden="true" size={16} />
-        <input
-          aria-label={authoringText('Selection background')}
-          defaultValue="#fff1a8"
-          onChange={(event) => {
-            const color = event.currentTarget.value;
-            withAuthorSelection((selection) =>
-              $patchStyleText(selection, { 'background-color': color }),
-            );
-          }}
-          type="color"
-        />
-      </label>
-      <RichContentFloatingMenu
-        content={
-          <div className="rich-content-menu rich-content-animation-menu">
-            <label>
-              <span>{authoringText('Effect')}</span>
-              <RichContentSelect
-                ariaLabel={authoringText('Animation effect')}
-                className="rich-content-animation-select"
-                onValueChange={(value) => {
-                  const recipe = value as TourMotionPresentation['recipe'] | 'none';
-                  setAnimationRecipe(recipe);
-                  applyInlineAnimation(recipe);
-                }}
-                options={ANIMATION_RECIPE_OPTIONS}
-                value={animationRecipe}
-              />
-            </label>
-            <label>
-              <span>{authoringText('Duration')}</span>
-              <span className="rich-content-animation-number">
-                <input
-                  aria-label={authoringText('Animation duration')}
-                  max={1200}
-                  min={100}
-                  onChange={(event) => {
-                    const durationMs = clampInlineAnimationDuration(
-                      event.currentTarget.valueAsNumber,
-                    );
-                    setAnimationDurationMs(durationMs);
-                    if (animationRecipe !== 'none') {
-                      applyInlineAnimation(animationRecipe, durationMs);
-                    }
-                  }}
-                  step={50}
-                  type="number"
-                  value={animationDurationMs}
-                />
-                <span>ms</span>
-              </span>
-            </label>
-            <label>
-              <span>{authoringText('Timing')}</span>
-              <RichContentSelect
-                ariaLabel={authoringText('Animation timing')}
-                className="rich-content-animation-select"
-                onValueChange={(value) => {
-                  const easing = value as TourMotionPresentation['easing'];
-                  setAnimationEasing(easing);
-                  if (animationRecipe !== 'none') {
-                    applyInlineAnimation(animationRecipe, animationDurationMs, easing);
-                  }
-                }}
-                options={ANIMATION_EASING_OPTIONS}
-                value={animationEasing}
-              />
-            </label>
-          </div>
-        }
-        open={animationOpen}
-      >
-        <ToolbarButton
-          active={animationOpen}
-          icon={<Clapperboard size={16} />}
-          label={authoringText('Animation')}
-          onClick={toggleAnimationMenu}
-        />
-      </RichContentFloatingMenu>
-
-      <span className="rich-content-toolbar-divider" aria-hidden="true" />
-      {(['left', 'center', 'right'] as const).map((align) => {
-        const Icon = align === 'left' ? AlignLeft : align === 'center' ? AlignCenter : AlignRight;
-        return (
-          <ToolbarButton
-            icon={<Icon size={16} />}
-            key={align}
-            label={ALIGNMENT_LABELS[align]}
-            onClick={() =>
-              editor.dispatchCommand(FORMAT_ELEMENT_COMMAND, align as ElementFormatType)
-            }
-          />
-        );
-      })}
-
-      <span className="rich-content-toolbar-divider" aria-hidden="true" />
       <RichContentFloatingMenu
         className="rich-content-toolbar-popover-end"
         content={
@@ -621,7 +519,7 @@ export function SelectionToolbarPlugin({
           </div>
         }
         open={linkOpen}
-        placement="bottom-end"
+        placement={dockedMenuEndPlacement}
       >
         <ToolbarButton
           active={linkOpen}
@@ -634,159 +532,377 @@ export function SelectionToolbarPlugin({
       <span className="rich-content-toolbar-divider" aria-hidden="true" />
       <RichContentFloatingMenu
         content={
-          <div className="rich-content-menu">
-            <RichContentIconPickerPanel
-              color={iconColor}
-              onColorChange={setIconColor}
-              onQueryChange={setIconQuery}
-              onSelect={(icon, label, color) => {
-                insertNodeAtSelection(editor, () =>
-                  $createRichIconNode(createBlockId(), icon, label, color),
+          <div className="rich-content-menu rich-content-insert-menu">
+            {insertMenu === 'add' ? (
+              <>
+                <div className="rich-content-insert-options" role="menu">
+                  <RichContentInsertOption
+                    icon={<Type size={16} />}
+                    label={authoringText('Normal text')}
+                    onSelect={() => {
+                      insertNodeAtSelection(editor, () => $createParagraphNode());
+                      setInsertMenu(null);
+                    }}
+                  />
+                  <RichContentInsertOption
+                    icon={<Heading size={16} />}
+                    label={authoringText('Heading')}
+                    onSelect={() => {
+                      insertNodeAtSelection(editor, () => $createHeadingNode('h2'));
+                      setInsertMenu(null);
+                    }}
+                  />
+                  <RichContentInsertOption
+                    icon={<ListIcon size={16} />}
+                    label={authoringText('Bulleted list')}
+                    onSelect={() => {
+                      insertNodeAtSelection(editor, () => {
+                        const list = $createListNode('bullet');
+                        list.append($createListItemNode());
+                        return list;
+                      });
+                      setInsertMenu(null);
+                    }}
+                  />
+                  <RichContentInsertOption
+                    icon={<MessageSquareWarning size={16} />}
+                    label={authoringText('Callout')}
+                    onSelect={() => {
+                      insertNodeAtSelection(editor, () => $createRichCalloutNode());
+                      setInsertMenu(null);
+                    }}
+                  />
+                  <RichContentInsertOption
+                    icon={<Hash size={16} />}
+                    label={authoringText('Stat')}
+                    onSelect={() => {
+                      insertNodeAtSelection(editor, () => $createRichStatNode());
+                      setInsertMenu(null);
+                    }}
+                  />
+                  <RichContentInsertOption
+                    icon={<Minus size={16} />}
+                    label={authoringText('Divider')}
+                    onSelect={() => {
+                      insertNodeAtSelection(editor, () => $createRichDividerNode(createBlockId()), {
+                        trailingParagraph: true,
+                      });
+                      setInsertMenu(null);
+                    }}
+                  />
+                  <RichContentInsertOption
+                    icon={<MousePointerClick size={16} />}
+                    label={authoringText('Button')}
+                    onSelect={() => {
+                      insertNodeAtSelection(editor, () =>
+                        $createRichButtonNode(createBlockId(), authoringText('Continue'), {
+                          action: { type: 'next' },
+                          variant: 'primary',
+                        }),
+                      );
+                      setInsertMenu(null);
+                    }}
+                  />
+                  <RichContentInsertOption
+                    icon={<SquareCheck size={16} />}
+                    label={authoringText('Field')}
+                    onSelect={() => toggleInsertMenu('field')}
+                  />
+                  <RichContentInsertOption
+                    icon={<Shapes size={16} />}
+                    label={authoringText('Icon')}
+                    onSelect={() => toggleInsertMenu('icon')}
+                  />
+                  <RichContentInsertOption
+                    icon={<Smile size={16} />}
+                    label={authoringText('Emoji')}
+                    onSelect={() => toggleInsertMenu('emoji')}
+                  />
+                </div>
+                {onUploadMedia ? (
+                  <RichContentMediaInsertPanel
+                    captionTargetVideo={Boolean(media.captionTargetVideo)}
+                    mediaUploadError={media.mediaUploadError}
+                    onUploadCaptions={(file) => {
+                      void media.uploadCaptions(file);
+                    }}
+                    onUploadMediaFile={(kind, file) => {
+                      void media.uploadMediaIntoCanvas(kind, file);
+                    }}
+                    saveMediaToLibrary={media.saveMediaToLibrary}
+                    setSaveMediaToLibrary={media.setSaveMediaToLibrary}
+                    uploading={media.uploading}
+                  />
+                ) : null}
+              </>
+            ) : null}
+            {insertMenu === 'icon' ? (
+              <RichContentIconPickerPanel
+                color={iconColor}
+                onBack={() => setInsertMenu('add')}
+                onColorChange={setIconColor}
+                onQueryChange={setIconQuery}
+                onSelect={(icon, label, color) => {
+                  insertNodeAtSelection(editor, () =>
+                    $createRichIconNode(createBlockId(), icon, label, color),
+                  );
+                }}
+                query={iconQuery}
+              />
+            ) : null}
+            {insertMenu === 'emoji' ? (
+              <RichContentEmojiPickerPanel
+                onBack={() => setInsertMenu('add')}
+                onSelect={(emoji) => insertTextAtSelection(editor, emoji)}
+              />
+            ) : null}
+            {insertMenu === 'field' ? (
+              <div className="rich-content-insert-options" role="menu">
+                {(
+                  [
+                    {
+                      control: 'checkbox',
+                      icon: <SquareCheck size={16} />,
+                      label: authoringText('Checkbox'),
+                    },
+                    {
+                      control: 'text',
+                      icon: <TextCursorInput size={16} />,
+                      label: authoringText('Text field'),
+                    },
+                    {
+                      control: 'radio',
+                      icon: <CircleDot size={16} />,
+                      label: authoringText('Radio'),
+                    },
+                  ] as const
+                ).map((option) => (
+                  <RichContentInsertOption
+                    icon={option.icon}
+                    key={option.control}
+                    label={option.label}
+                    onSelect={() => {
+                      const id = createBlockId();
+                      insertNodeAtSelection(editor, () =>
+                        $createRichFormFieldNode(
+                          id,
+                          formFieldInsertLabel(option.control),
+                          createFormFieldProps(option.control, id),
+                        ),
+                      );
+                      setInsertMenu(null);
+                    }}
+                  />
+                ))}
+              </div>
+            ) : null}
+          </div>
+        }
+        open={Boolean(insertMenu)}
+        placement={dockedMenuPlacement}
+      >
+        <ToolbarButton
+          active={Boolean(insertMenu)}
+          icon={<Plus size={16} />}
+          label={authoringText('Add content')}
+          onClick={() => toggleInsertMenu('add')}
+        />
+      </RichContentFloatingMenu>
+      <RichContentFloatingMenu
+        className="rich-content-toolbar-popover-end"
+        content={
+          <div className="rich-content-menu rich-content-more-menu">
+            <div className="rich-content-more-row">
+            <ToolbarButton
+              active={activeFormats.has('underline')}
+              icon={<Underline size={16} />}
+              label={authoringText('Underline')}
+              onClick={() => withAuthorSelection((selection) => selection.formatText('underline'))}
+            />
+            <RichContentSelect
+              ariaLabel={authoringText('Font size')}
+              className="rich-content-font-size-trigger"
+              onOpenChange={(nextOpen) => {
+                setFontSizeOpen(nextOpen);
+              }}
+              onValueChange={(nextFontSize) => {
+                setFontSize(nextFontSize);
+                withAuthorSelection((selection) =>
+                  $patchStyleText(selection, { 'font-size': `${nextFontSize}px` }),
                 );
               }}
-              query={iconQuery}
+              open={fontSizeOpen}
+              options={FONT_SIZE_OPTIONS}
+              value={fontSize}
             />
-          </div>
-        }
-        open={insertMenu === 'icon'}
-      >
-        <ToolbarButton
-          active={insertMenu === 'icon'}
-          icon={<Shapes size={16} />}
-          label={authoringText('Icon')}
-          onClick={() => toggleInsertMenu('icon')}
-        />
-      </RichContentFloatingMenu>
-      <RichContentFloatingMenu
-        content={
-          <div className="rich-content-menu">
-            <RichContentEmojiPickerPanel onSelect={(emoji) => insertTextAtSelection(editor, emoji)} />
-          </div>
-        }
-        open={insertMenu === 'emoji'}
-      >
-        <ToolbarButton
-          active={insertMenu === 'emoji'}
-          icon={<Smile size={16} />}
-          label={authoringText('Emoji')}
-          onClick={() => toggleInsertMenu('emoji')}
-        />
-      </RichContentFloatingMenu>
-      {onUploadMedia ? (
-        <RichContentFloatingMenu
-          content={
-            <div className="rich-content-menu">
-              <RichContentMediaInsertPanel
-                captionTargetVideo={Boolean(media.captionTargetVideo)}
-                mediaUploadError={media.mediaUploadError}
-                onUploadCaptions={(file) => {
-                  void media.uploadCaptions(file);
+            <label className="rich-content-color-control" title={authoringText('Text color')}>
+              <Palette aria-hidden="true" size={16} />
+              <input
+                aria-label={authoringText('Text color')}
+                defaultValue="#172033"
+                onChange={(event) => {
+                  const color = event.currentTarget.value;
+                  withAuthorSelection((selection) => $patchStyleText(selection, { color }));
                 }}
-                onUploadMediaFile={(kind, file) => {
-                  void media.uploadMediaIntoCanvas(kind, file);
-                }}
-                saveMediaToLibrary={media.saveMediaToLibrary}
-                setSaveMediaToLibrary={media.setSaveMediaToLibrary}
-                uploading={media.uploading}
+                type="color"
               />
-            </div>
-          }
-          open={insertMenu === 'media'}
-        >
-          <ToolbarButton
-            active={insertMenu === 'media'}
-            icon={<Image size={16} />}
-            label={authoringText('Media')}
-            onClick={() => toggleInsertMenu('media')}
-          />
-        </RichContentFloatingMenu>
-      ) : null}
-      <ToolbarButton
-        icon={<Minus size={16} />}
-        label={authoringText('Divider')}
-        onClick={() =>
-          insertNodeAtSelection(editor, () => $createRichDividerNode(createBlockId()), {
-            trailingParagraph: true,
-          })
-        }
-      />
-      <ToolbarButton
-        icon={<MousePointerClick size={16} />}
-        label={authoringText('Button')}
-        onClick={() =>
-          insertNodeAtSelection(editor, () =>
-            $createRichButtonNode(createBlockId(), authoringText('Continue'), {
-              action: { type: 'next' },
-              variant: 'primary',
-            }),
-          )
-        }
-      />
-      <RichContentFloatingMenu
-        content={
-          <div className="rich-content-menu">
-            <div className="rich-content-insert-options" role="menu">
-            {(
-              [
-                { control: 'checkbox', icon: <SquareCheck size={16} />, label: authoringText('Checkbox') },
-                { control: 'text', icon: <TextCursorInput size={16} />, label: authoringText('Text field') },
-                { control: 'radio', icon: <CircleDot size={16} />, label: authoringText('Radio') },
-              ] as const
-            ).map((option) => (
-              <button
-                key={option.control}
-                onClick={() => {
-                  const id = createBlockId();
-                  insertNodeAtSelection(editor, () =>
-                    $createRichFormFieldNode(
-                      id,
-                      formFieldInsertLabel(option.control),
-                      createFormFieldProps(option.control, id),
-                    ),
+            </label>
+            <label className="rich-content-color-control" title={authoringText('Selection background')}>
+              <Highlighter aria-hidden="true" size={16} />
+              <input
+                aria-label={authoringText('Selection background')}
+                defaultValue="#fff1a8"
+                onChange={(event) => {
+                  const color = event.currentTarget.value;
+                  withAuthorSelection((selection) =>
+                    $patchStyleText(selection, { 'background-color': color }),
                   );
-                  setInsertMenu(null);
                 }}
-                type="button"
-              >
-                {option.icon}
-                <span>{option.label}</span>
-              </button>
-            ))}
+                type="color"
+              />
+            </label>
             </div>
+            <div className="rich-content-more-row">
+              {(['left', 'center', 'right'] as const).map((align) => {
+                const Icon =
+                  align === 'left' ? AlignLeft : align === 'center' ? AlignCenter : AlignRight;
+                return (
+                  <ToolbarButton
+                    icon={<Icon size={16} />}
+                    key={align}
+                    label={ALIGNMENT_LABELS[align]}
+                    onClick={() =>
+                      editor.dispatchCommand(FORMAT_ELEMENT_COMMAND, align as ElementFormatType)
+                    }
+                  />
+                );
+              })}
+            </div>
+            <div className="rich-content-animation-menu">
+              <label>
+                <span>{authoringText('Effect')}</span>
+                <RichContentSelect
+                  ariaLabel={authoringText('Animation effect')}
+                  className="rich-content-animation-select"
+                  onValueChange={(value) => {
+                    const recipe = value as TourMotionPresentation['recipe'] | 'none';
+                    setAnimationRecipe(recipe);
+                    applyInlineAnimation(recipe);
+                  }}
+                  options={ANIMATION_RECIPE_OPTIONS}
+                  value={animationRecipe}
+                />
+              </label>
+              <label>
+                <span>{authoringText('Duration')}</span>
+                <span className="rich-content-animation-number">
+                  <input
+                    aria-label={authoringText('Animation duration')}
+                    max={1200}
+                    min={100}
+                    onChange={(event) => {
+                      const durationMs = clampInlineAnimationDuration(
+                        event.currentTarget.valueAsNumber,
+                      );
+                      setAnimationDurationMs(durationMs);
+                      if (animationRecipe !== 'none') {
+                        applyInlineAnimation(animationRecipe, durationMs);
+                      }
+                    }}
+                    step={50}
+                    type="number"
+                    value={animationDurationMs}
+                  />
+                  <span>ms</span>
+                </span>
+              </label>
+              <label>
+                <span>{authoringText('Timing')}</span>
+                <RichContentSelect
+                  ariaLabel={authoringText('Animation timing')}
+                  className="rich-content-animation-select"
+                  onValueChange={(value) => {
+                    const easing = value as TourMotionPresentation['easing'];
+                    setAnimationEasing(easing);
+                    if (animationRecipe !== 'none') {
+                      applyInlineAnimation(animationRecipe, animationDurationMs, easing);
+                    }
+                  }}
+                  options={ANIMATION_EASING_OPTIONS}
+                  value={animationEasing}
+                />
+              </label>
+            </div>
+            <label className="rich-content-spacing-control">
+              <span>{authoringText('Space after')}</span>
+              <span>
+                <input
+                  aria-label={authoringText('Space after')}
+                  max={BLOCK_SPACING_PX_LIMITS.max}
+                  min={BLOCK_SPACING_PX_LIMITS.min}
+                  onChange={(event) => applyFocusedSpacing(Number(event.currentTarget.value))}
+                  step={BLOCK_SPACING_PX_LIMITS.step}
+                  type="number"
+                  value={spacingAfter}
+                />
+                <span>{authoringText('px')}</span>
+              </span>
+            </label>
           </div>
         }
-        open={insertMenu === 'field'}
+        open={moreOpen}
+        placement={dockedMenuEndPlacement}
       >
         <ToolbarButton
-          active={insertMenu === 'field'}
-          icon={<SquareCheck size={16} />}
-          label={authoringText('Field')}
-          onClick={() => toggleInsertMenu('field')}
+          active={moreOpen}
+          icon={<Ellipsis size={16} />}
+          label={authoringText('More formatting')}
+          onClick={toggleMoreMenu}
         />
       </RichContentFloatingMenu>
-
-      <span className="rich-content-toolbar-spacer" aria-hidden="true" />
-      <label className="rich-content-spacing-control">
-        <span>{authoringText('Space after')}</span>
-        <span>
-          <input
-            aria-label={authoringText('Space after')}
-            max={BLOCK_SPACING_PX_LIMITS.max}
-            min={BLOCK_SPACING_PX_LIMITS.min}
-            onChange={(event) => applyFocusedSpacing(Number(event.currentTarget.value))}
-            step={BLOCK_SPACING_PX_LIMITS.step}
-            type="number"
-            value={spacingAfter}
-          />
-          <span>{authoringText('px')}</span>
-        </span>
-      </label>
     </div>
   );
 
+  const selectionBubble =
+    selectionRect && editor.getRootElement() ? (
+      <RichContentFloatingAnchor
+        anchorRect={() => selectionRect}
+        className="rich-content-selection-bubble"
+        contextElement={editor.getRootElement()}
+        open
+        placement="top"
+      >
+        <div className="rich-content-toolbar rich-content-selection-toolbar" role="toolbar">
+          <ToolbarButton
+            active={activeFormats.has('bold')}
+            icon={<Bold size={16} />}
+            label={authoringText('Bold')}
+            onClick={() => withAuthorSelection((selection) => selection.formatText('bold'))}
+          />
+          <ToolbarButton
+            active={activeFormats.has('italic')}
+            icon={<Italic size={16} />}
+            label={authoringText('Italic')}
+            onClick={() => withAuthorSelection((selection) => selection.formatText('italic'))}
+          />
+          <ToolbarButton
+            active={linkOpen}
+            icon={<Link size={16} />}
+            label={authoringText('Link')}
+            onClick={() => (linkOpen ? commitLink() : openLinkMenu())}
+          />
+        </div>
+      </RichContentFloatingAnchor>
+    ) : null;
+
   if (!editor.isEditable()) return null;
-  if (toolbarHost) return createPortal(toolbar, toolbarHost);
-  return toolbar;
+  const chrome = (
+    <>
+      {toolbarHost ? createPortal(toolbar, toolbarHost) : toolbar}
+      {selectionBubble}
+    </>
+  );
+  return chrome;
 }
 
 export function ToolbarButton({

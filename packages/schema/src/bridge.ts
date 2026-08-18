@@ -11,6 +11,8 @@ import {
   TextStyleProps,
   TooltipLayoutProps,
   TooltipStyleProps,
+  TOOLTIP_HEIGHT_PX_LIMITS,
+  TOOLTIP_WIDTH_PX_LIMITS,
 } from './block';
 import { LodariqDocument } from './document';
 import { ContentLocale } from './document-localization';
@@ -69,6 +71,9 @@ export const AUTHORING_INLINE_CONTENT_COMMIT_TYPE = 'authoring.inline-content.co
 export const AUTHORING_INLINE_CONTROL_COMMIT_TYPE = 'authoring.inline-control.commit' as const;
 export const AUTHORING_PANEL_MODE_OPEN_TYPE = 'authoring.panel-mode.open' as const;
 export const AUTHORING_CHROME_ACTION_REQUEST_TYPE = 'authoring.chrome-action.request' as const;
+export const AUTHORING_SHELL_PRESENTATION_TYPE = 'authoring.shell.presentation' as const;
+export const AUTHORING_SHELL_STEP_COMMAND_TYPE = 'authoring.shell.step-command' as const;
+export const AUTHORING_SHELL_POPUP_SIZE_COMMIT_TYPE = 'authoring.shell.popup-size.commit' as const;
 export const AUTHORING_PANEL_LAYOUT_REQUEST_TYPE = 'authoring.panel-layout.request' as const;
 export const AUTHORING_SAVE_AND_EXIT_REQUEST_TYPE = 'authoring.save-and-exit.request' as const;
 export const AUTHORING_SAVE_STATE_UPDATE_TYPE = 'authoring.save-state.update' as const;
@@ -150,6 +155,8 @@ export const AuthoringChromeActionRequestMessage = Type.Object(
       Type.Literal('preview-full'),
       Type.Literal('open-appearance'),
       Type.Literal('open-release'),
+      Type.Literal('open-operations'),
+      Type.Literal('close-operations'),
       Type.Literal('save-and-exit'),
     ]),
   },
@@ -157,6 +164,69 @@ export const AuthoringChromeActionRequestMessage = Type.Object(
 );
 export type AuthoringChromeActionRequestMessage = Static<
   typeof AuthoringChromeActionRequestMessage
+>;
+
+export const AuthoringShellPresentation = Type.Union([
+  Type.Literal('overlay'),
+  Type.Literal('collapsed'),
+  Type.Literal('picking'),
+  Type.Literal('operations'),
+  Type.Literal('previewing'),
+]);
+export type AuthoringShellPresentation = Static<typeof AuthoringShellPresentation>;
+
+/** Host and iframe share which in-product shell surface is visible. */
+export const AuthoringShellPresentationMessage = Type.Object(
+  {
+    ...BridgeEnvelope.properties,
+    type: Type.Literal(AUTHORING_SHELL_PRESENTATION_TYPE),
+    presentation: AuthoringShellPresentation,
+  },
+  { $id: 'AuthoringShellPresentationMessage', additionalProperties: false },
+);
+export type AuthoringShellPresentationMessage = Static<typeof AuthoringShellPresentationMessage>;
+
+export const AuthoringShellStepCommand = Type.Union([
+  Type.Literal('add'),
+  Type.Literal('select'),
+  Type.Literal('collapse'),
+  Type.Literal('retarget'),
+  Type.Literal('move-up'),
+  Type.Literal('move-down'),
+]);
+export type AuthoringShellStepCommand = Static<typeof AuthoringShellStepCommand>;
+
+export const AuthoringShellStepCommandMessage = Type.Object(
+  {
+    ...BridgeEnvelope.properties,
+    type: Type.Literal(AUTHORING_SHELL_STEP_COMMAND_TYPE),
+    command: AuthoringShellStepCommand,
+    stepId: Type.Optional(Type.String({ minLength: 1, maxLength: 256 })),
+  },
+  { $id: 'AuthoringShellStepCommandMessage', additionalProperties: false },
+);
+export type AuthoringShellStepCommandMessage = Static<typeof AuthoringShellStepCommandMessage>;
+
+export const AuthoringShellPopupSizeCommitMessage = Type.Object(
+  {
+    ...BridgeEnvelope.properties,
+    type: Type.Literal(AUTHORING_SHELL_POPUP_SIZE_COMMIT_TYPE),
+    blockId: Type.String({ minLength: 1, maxLength: 256 }),
+    widthPx: Type.Integer({
+      minimum: TOOLTIP_WIDTH_PX_LIMITS.min,
+      maximum: TOOLTIP_WIDTH_PX_LIMITS.max,
+      multipleOf: TOOLTIP_WIDTH_PX_LIMITS.step,
+    }),
+    heightPx: Type.Integer({
+      minimum: TOOLTIP_HEIGHT_PX_LIMITS.min,
+      maximum: TOOLTIP_HEIGHT_PX_LIMITS.max,
+      multipleOf: TOOLTIP_HEIGHT_PX_LIMITS.step,
+    }),
+  },
+  { $id: 'AuthoringShellPopupSizeCommitMessage', additionalProperties: false },
+);
+export type AuthoringShellPopupSizeCommitMessage = Static<
+  typeof AuthoringShellPopupSizeCommitMessage
 >;
 
 /** Creator-requested presentation size for the modeless authoring workspace. */
@@ -1361,6 +1431,9 @@ type BridgeMessageSchema =
   | typeof AuthoringInlineControlCommitMessage
   | typeof AuthoringPanelModeOpenMessage
   | typeof AuthoringChromeActionRequestMessage
+  | typeof AuthoringShellPresentationMessage
+  | typeof AuthoringShellStepCommandMessage
+  | typeof AuthoringShellPopupSizeCommitMessage
   | typeof AuthoringPanelLayoutRequestMessage
   | typeof AuthoringSaveAndExitRequestMessage
   | typeof AuthoringSaveStateUpdateMessage
@@ -1407,6 +1480,9 @@ const BRIDGE_MESSAGE_SCHEMAS: BridgeMessageSchema[] = [
   AuthoringInlineControlCommitMessage,
   AuthoringPanelModeOpenMessage,
   AuthoringChromeActionRequestMessage,
+  AuthoringShellPresentationMessage,
+  AuthoringShellStepCommandMessage,
+  AuthoringShellPopupSizeCommitMessage,
   AuthoringPanelLayoutRequestMessage,
   AuthoringSaveAndExitRequestMessage,
   AuthoringSaveStateUpdateMessage,

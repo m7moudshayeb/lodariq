@@ -2,6 +2,10 @@ import {
   AUTHORING_INLINE_CONTROL_COMMIT_TYPE,
   AUTHORING_INLINE_CONTENT_COMMIT_TYPE,
   AUTHORING_PANEL_LAYOUT_REQUEST_TYPE,
+  AUTHORING_CHROME_ACTION_REQUEST_TYPE,
+  AUTHORING_SHELL_PRESENTATION_TYPE,
+  AUTHORING_SHELL_STEP_COMMAND_TYPE,
+  AUTHORING_SHELL_POPUP_SIZE_COMMIT_TYPE,
   AUTHORING_SAVE_AND_EXIT_REQUEST_TYPE,
   AUTHORING_SAVE_STATE_UPDATE_TYPE,
   AUTHORING_APPROVE_PRODUCTION_REQUEST_TYPE,
@@ -32,6 +36,7 @@ import {
   LODARIQ_EDITOR_ORIGIN,
   validate,
   type AuthoringInlineControlOperation,
+  type AuthoringShellStepCommand,
   type AuthoringAccessibilityPreviewMode,
   type AuthoringSaveState,
   type AuthoringDiagnosticAttributes,
@@ -76,7 +81,6 @@ import type {
 } from '@lodariq/sdk-runtime/renderers/tour';
 import { resolveTarget } from '@lodariq/sdk-runtime/resolver';
 import type { InlinePreviewEditor } from './inline-preview-editor';
-import { ZoomIn } from 'lucide';
 import {
   AuthoringBridge,
   BRIDGE_PROTOCOL_VERSION,
@@ -88,59 +92,36 @@ import type { PresentationAnchorPicker } from '../bridge/presentation-anchor-pic
 import { startProductStylePicker, type ProductStylePicker } from '../bridge/product-style-picker';
 import { runPublicationBrowserVerification } from '../bridge/publication-verifier';
 import { createInlinePreviewEditor } from './inline-preview-editor';
-import { createAuthoringDomCombobox, type AuthoringDomCombobox } from './dom-combobox';
 import { createPanelStyles } from './panel-styles';
 import { clearTargetReveal, inspectTarget, startPageLifecycleObserver } from './page-context';
 import { applyPreviewPatch, inlinePreviewControlContext } from './preview-document';
+import { createOverlayShell } from './overlay/shell';
+import type { OverlayShell } from './overlay/types';
+import { tooltipOfStep, tourStepsOf } from './overlay/filmstrip';
+import type { OverlayPlacement } from './canvas/edge-resize';
 import {
   AUTHORING_AUTOSAVE_DEBOUNCE_MS,
   AUTHORING_AUTOSAVE_MAX_RETRIES,
   AUTHORING_AUTOSAVE_RETRY_MS,
-  AUTHORING_COLLAPSED_PANEL_HEIGHT,
-  AUTHORING_PANEL_HEADER_HEIGHT,
   AUTHORING_PANEL_LABELS,
-  AUTHORING_PANEL_LAYOUT_OPTIONS,
-  AUTHORING_PANEL_ZOOM_OPTIONS,
   AUTHORING_SAVE_REQUEST_TIMEOUT_MS,
-  DEFAULT_AUTHORING_PANEL_HEIGHT,
-  DEFAULT_AUTHORING_PANEL_LAYOUT,
-  DEFAULT_AUTHORING_PANEL_WIDTH,
-  DEFAULT_AUTHORING_PANEL_ZOOM,
   HOSTED_SESSION_CLOSE_TIMEOUT_MS,
-  type AuthoringPanelLayoutChoice,
   type AuthoringPanelRestoreState,
-  type AuthoringPanelZoomValue,
 } from './panel-config';
 import {
   activePanelFocusElement,
-  applyAuthoringPanelLayout,
-  applyClampedAuthoringPanelGeometry,
-  attachPanelDrag,
-  attachPanelResize,
-  authoringPanelLayoutMode,
-  panelZoomValue,
-  positionInitialAuthoringPanel,
-  readAuthoringPanelGeometry,
   restorePanelAfterTargetPicking,
   schedulePanelFocusRestore,
-  setAuthoringPanelIcon,
   setAuthoringPanelOpenState,
   setAuthoringTriggerPanelState,
-  setMinimizeButtonState,
   setPanelTargetPicking,
-  startPanelViewportSync,
 } from './panel-geometry';
-import {
-  chooseChromeGeometryAwayFrom,
-  domRectAsProtectedSurface,
-  type ProtectedChromeGeometry,
-} from './protected-surface-registry';
-import { AUTHORING_PREVIEW_ACTIVE_ATTRIBUTE } from './panel-attributes';
+import { domRectAsProtectedSurface } from './protected-surface-registry';
 import { LOCAL_AUTHORING_PANEL_TOGGLE_EVENT } from './constants';
 import { findContainingTourStepId, resolvePreviewStepId } from './preview-step-state';
 import {
-  AUTHORING_PANEL_LAYOUT_ATTRIBUTE,
   AUTHORING_PANEL_MINIMIZED_ATTRIBUTE,
+  AUTHORING_PREVIEW_ACTIVE_ATTRIBUTE,
   AUTHORING_TARGET_PICKING_ATTRIBUTE,
 } from './panel-attributes';
 
@@ -148,7 +129,7 @@ import {
  * Authoring shell (PRD §9.4).
  *
  * Loaded ONLY for authenticated creators entering authoring mode. Owns the
- * floating toolbar, element picker handoff, and the sandboxed iframe editor
+ * live overlay editor iframe, filmstrip, pulses, and operations modal.
  * served from a dedicated Lodariq origin (editor.lodariq.io, PRD §12.5).
  *
  * Ownership split (PRD §9.5):
@@ -281,14 +262,6 @@ export interface LocalAuthoringPreviewServices {
   playPreview: (doc: CompiledDocument, options: LocalAuthoringPreviewOptions) => Promise<void>;
   stopPreview?: (ownerId: string) => void;
   onPreviewError?: (error: unknown) => void;
-}
-
-function choreographyStageLabel(update: ChoreographyStageUpdate): string {
-  if (update.status === 'timed_out') return authoringText('Timed out');
-  if (update.status === 'failed') return authoringText('Failed');
-  if (update.stage === 'trigger') return authoringText('Activating');
-  if (update.stage === 'wait') return authoringText('Waiting');
-  return authoringText('Continuing');
 }
 
 export interface LocalAuthoringPanel {
@@ -429,7 +402,6 @@ function openAuthoringPanel(
 
   const host = document.createElement('lodariq-authoring-panel');
   applyAuthoringLocale(host);
-  host.setAttribute(AUTHORING_PANEL_LAYOUT_ATTRIBUTE, DEFAULT_AUTHORING_PANEL_LAYOUT);
   const shadow = host.attachShadow({ mode: 'open' });
   const iframeSrc = options.adoptedIframe
     ? options.adoptedIframe.src
@@ -544,10 +516,8 @@ function openAuthoringPanel(
   let inlinePreviewEditor: InlinePreviewEditor | null = null;
   let pendingInlineFocusBlockId: string | null = null;
   let stopLifecycleObserver: (() => void) | null = null;
-  let stopPanelViewportSync: (() => void) | null = null;
-  let stopPanelDrag: (() => void) | null = null;
-  let stopPanelResize: (() => void) | null = null;
   let stopPanelChrome: (() => void) | null = null;
+  let overlayShell: OverlayShell | null = null;
   let minimizedRestoreState: AuthoringPanelRestoreState | null = null;
   let targetPickingRestoreState: AuthoringPanelRestoreState | null = null;
   let presentationAnchorRestoreState: AuthoringPanelRestoreState | null = null;
@@ -582,96 +552,21 @@ function openAuthoringPanel(
   let currentSaveStateLabel: string = AUTHORING_PANEL_LABELS.draftSaved;
   let currentHeaderStepId =
     previewDocument?.blocks.find((block) => block.type === 'tourStep')?.id ?? null;
-  let previewPlaybackState: 'editing' | 'playing' | 'completed' | 'dismissed' | 'skipped' =
-    'editing';
-  let previewPlaybackIndex = 0;
-  let previewPlaybackTotal = 0;
-  let previewPlaybackBranching = false;
-  let previewChoreographyStage: ChoreographyStageUpdate | null = null;
   let previewPathStepIds: string[] = [];
   const pendingIframeSaveRequests = new Map<string, PendingIframeSaveRequest>();
 
   shadow.appendChild(
     createPanelStyles({
-      defaultHeight: DEFAULT_AUTHORING_PANEL_HEIGHT,
-      defaultWidth: DEFAULT_AUTHORING_PANEL_WIDTH,
-      headerHeight: AUTHORING_PANEL_HEADER_HEIGHT,
+      defaultHeight: 800,
+      defaultWidth: 1120,
+      headerHeight: 64,
     }),
   );
   const panelElement = document.createElement('section');
-  panelElement.className = 'panel';
-  panelElement.setAttribute('role', 'dialog');
+  panelElement.className = 'overlay-root';
+  panelElement.dataset['overlayRoot'] = 'true';
   panelElement.setAttribute('aria-label', authoringText('Lodariq authoring'));
-  panelElement.innerHTML = `
-    <header class="authoring-bar">
-      <div
-        class="panel-drag-handle"
-        role="button"
-        tabindex="0"
-        aria-label="${AUTHORING_PANEL_LABELS.movePanel}"
-        title="${escapeAuthoringText(authoringText('Drag to move the authoring panel'))}"
-      >
-        <span class="panel-drag-grip" data-panel-icon="drag" aria-hidden="true"></span>
-        <span class="target-picking-label">${AUTHORING_PANEL_LABELS.selectTarget}</span>
-      </div>
-      <span class="panel-heading">
-        <span class="panel-title-cluster">
-          <input
-            class="panel-document-title"
-            data-panel-document-title
-            aria-label="${escapeAuthoringText(authoringText('Experience title'))}"
-            value="${escapeAuthoringText(previewDocument?.title ?? authoringText('Untitled experience'))}"
-          />
-          <span class="panel-step-status" data-panel-step-status></span>
-        </span>
-      </span>
-      <div class="authoring-bar-actions">
-        <button
-          type="button"
-          class="return-to-editor"
-          data-panel-action="return-to-editor"
-        >${escapeAuthoringText(authoringText('Return to editor'))}</button>
-        <div data-panel-zoom-control></div>
-        <div data-panel-layout-control></div>
-        <button
-          type="button"
-          class="header-action"
-          data-panel-action="minimize"
-          data-tooltip="${AUTHORING_PANEL_LABELS.minimize}"
-          aria-label="${AUTHORING_PANEL_LABELS.minimize}"
-          title="${AUTHORING_PANEL_LABELS.minimize}"
-        >
-          <span class="header-action-icon" data-panel-icon="minimize" aria-hidden="true"></span>
-        </button>
-        <button
-          type="button"
-          class="header-action"
-          data-panel-action="close-panel"
-          data-tooltip="${AUTHORING_PANEL_LABELS.close}"
-          aria-label="${AUTHORING_PANEL_LABELS.close}"
-          title="${AUTHORING_PANEL_LABELS.close}"
-        >
-          <span class="header-action-icon" data-panel-icon="close" aria-hidden="true"></span>
-        </button>
-      </div>
-    </header>
-    <div class="panel-surface">
-      <slot name="authoring-frame"></slot>
-    </div>
-    <button
-      type="button"
-      class="panel-resize-handle"
-      data-panel-action="resize"
-      aria-label="${escapeAuthoringText(
-        authoringText('Resize Lodariq authoring panel. Use arrow keys to resize it.'),
-      )}"
-      title="${escapeAuthoringText(authoringText('Drag to resize the authoring panel'))}"
-    >
-      <svg class="panel-resize-icon" viewBox="0 0 18 18" aria-hidden="true">
-        <path d="M3.5 15.5 15.5 3.5M8.5 15.5l7-7M13.5 15.5l2-2"></path>
-      </svg>
-    </button>
-  `;
+  panelElement.innerHTML = `<slot name="authoring-frame"></slot>`;
   shadow.appendChild(panelElement);
 
   const iframe = options.adoptedIframe ?? document.createElement('iframe');
@@ -683,205 +578,39 @@ function openAuthoringPanel(
   }
   host.appendChild(iframe);
 
-  const panelCloseButton = shadow.querySelector<HTMLButtonElement>(
-    '[data-panel-action="close-panel"]',
-  );
-  const panelCloseIcon = shadow.querySelector<HTMLElement>('[data-panel-icon="close"]');
-  const panelDragIcon = shadow.querySelector<HTMLElement>('[data-panel-icon="drag"]');
-  const minimizeButton = shadow.querySelector<HTMLButtonElement>('[data-panel-action="minimize"]');
-  const returnToEditorButton = shadow.querySelector<HTMLButtonElement>(
-    '[data-panel-action="return-to-editor"]',
-  );
-  const minimizeIcon = shadow.querySelector<HTMLElement>('[data-panel-icon="minimize"]');
-  const panelLayoutControlSlot = shadow.querySelector<HTMLElement>('[data-panel-layout-control]');
-  const panelZoomControlSlot = shadow.querySelector<HTMLElement>('[data-panel-zoom-control]');
-  const panelDragHandle = shadow.querySelector<HTMLElement>('.panel-drag-handle');
-  const panelDragSurface = shadow.querySelector<HTMLElement>('.authoring-bar');
-  const panelResizeHandle = shadow.querySelector<HTMLButtonElement>('.panel-resize-handle');
+  overlayShell = createOverlayShell(host, shadow, iframe, {
+    onAddStep: () => sendShellStepCommand('add'),
+    onClose: () => close(),
+    onCollapse: () => collapseOverlayEditor(),
+    onExitPreview: () => {
+      stopOwnedPreview();
+      host.removeAttribute(AUTHORING_PREVIEW_ACTIVE_ATTRIBUTE);
+      restore();
+    },
+    onMoveStep: (stepId, direction) =>
+      sendShellStepCommand(direction === 'up' ? 'move-up' : 'move-down', stepId),
+    onCloseOperations: () => closeOperations(),
+    onOpenOperations: () => openOperations(),
+    onPlacementCommit: (blockId, placement) => commitOverlayPlacement(blockId, placement),
+    onPopupSizeCommit: (widthPx, heightPx) => commitOverlayPopupSize(widthPx, heightPx),
+    onRetarget: () => sendShellStepCommand('retarget', currentHeaderStepId ?? undefined),
+    onSelectStep: (stepId) => selectOverlayStep(stepId),
+    onTitleCommit: (title) => commitOverlayTitle(title),
+  });
+  overlayShell.setDocument(previewDocument, previewDocument?.title ?? authoringText('Untitled experience'));
+  overlayShell.setActiveStepId(currentHeaderStepId);
+  overlayShell.setPresentation('overlay');
   const panelDocumentTitle = shadow.querySelector<HTMLInputElement>('[data-panel-document-title]');
-  const panelStepStatus = shadow.querySelector<HTMLElement>('[data-panel-step-status]');
-
-  setAuthoringPanelIcon(panelCloseIcon, 'close');
-  setAuthoringPanelIcon(panelDragIcon, 'drag');
-  setMinimizeButtonState(minimizeButton, minimizeIcon, false);
 
   const syncPanelStepStatus = (): void => {
-    if (!panelStepStatus) return;
-    panelStepStatus.removeAttribute('title');
-    if (previewPlaybackState === 'playing') {
-      if (previewChoreographyStage) {
-        panelStepStatus.textContent = authoringText(
-          'Preview · Step {current} · {stage} · {elapsed} ms',
-          {
-            current: previewPlaybackIndex + 1,
-            stage: choreographyStageLabel(previewChoreographyStage),
-            elapsed: previewChoreographyStage.elapsedMs,
-          },
-        );
-        return;
-      }
-      if (previewPlaybackBranching) {
-        panelStepStatus.textContent = authoringText('Preview · Step {current}', {
-          current: previewPlaybackIndex + 1,
-        });
-        panelStepStatus.title = authoringText('Preview path: {path}', {
-          path: previewPathStepIds.join(' → '),
-        });
-        return;
-      }
-      panelStepStatus.textContent = authoringText('Preview · {current} of {total}', {
-        current: previewPlaybackIndex + 1,
-        total: Math.max(1, previewPlaybackTotal),
-      });
-      return;
-    }
-    if (previewPlaybackState === 'completed') {
-      panelStepStatus.textContent = authoringText('Preview complete');
-      return;
-    }
-    if (previewPlaybackState === 'dismissed') {
-      panelStepStatus.textContent = authoringText('Preview closed');
-      return;
-    }
-    if (previewPlaybackState === 'skipped') {
-      panelStepStatus.textContent = authoringText('Preview skipped');
-      return;
-    }
     const steps = previewDocument?.blocks.filter((block) => block.type === 'tourStep') ?? [];
-    if (!steps.length) {
-      panelStepStatus.textContent = authoringText('No steps');
-      return;
-    }
+    if (!steps.length) return;
     const currentIndex = steps.findIndex((step) => step.id === currentHeaderStepId);
     const safeIndex = currentIndex >= 0 ? currentIndex : 0;
     currentHeaderStepId = steps[safeIndex]?.id ?? null;
-    panelStepStatus.textContent = authoringText('Step {current} of {total}', {
-      current: safeIndex + 1,
-      total: steps.length,
-    });
+    overlayShell?.setActiveStepId(currentHeaderStepId);
   };
-
   syncPanelStepStatus();
-
-  let panelLayoutControl: AuthoringDomCombobox<AuthoringPanelLayoutChoice> | null = null;
-  const syncPanelLayoutControl = (): void => {
-    const rawLayout = host.getAttribute(AUTHORING_PANEL_LAYOUT_ATTRIBUTE);
-    const activeLayout: AuthoringPanelLayoutChoice =
-      rawLayout === 'custom'
-        ? 'custom'
-        : (authoringPanelLayoutMode(rawLayout ?? undefined) ?? 'standard');
-    panelLayoutControl?.setValue(activeLayout);
-    const selectedOption = AUTHORING_PANEL_LAYOUT_OPTIONS.find(
-      (option) => option.value === activeLayout,
-    );
-    const trigger = panelLayoutControl?.element.querySelector<HTMLButtonElement>(
-      '[data-panel-action="layout"]',
-    );
-    if (trigger && selectedOption) {
-      const label = authoringText('Workspace width: {width}', { width: selectedOption.label });
-      trigger.setAttribute('aria-label', label);
-      trigger.title = label;
-    }
-  };
-  if (panelLayoutControlSlot) {
-    panelLayoutControl = createAuthoringDomCombobox<AuthoringPanelLayoutChoice>({
-      document,
-      initialValue: DEFAULT_AUTHORING_PANEL_LAYOUT,
-      items: AUTHORING_PANEL_LAYOUT_OPTIONS,
-      label: authoringText('Workspace width'),
-      omitSelectedOption: true,
-      showSelectionIndicator: false,
-      controlIdPrefix: 'lodariq-panel-layout',
-      classNames: {
-        root: 'panel-layout-combobox',
-        trigger: 'panel-layout-trigger',
-        triggerIcon: 'panel-layout-trigger-icon',
-        value: 'panel-layout-value',
-        chevron: 'panel-layout-chevron',
-        listbox: 'panel-layout-listbox',
-        option: 'panel-layout-option',
-        optionIcon: 'panel-layout-option-icon',
-        check: 'panel-layout-check',
-      },
-      onChange: (value) => {
-        const mode = authoringPanelLayoutMode(value);
-        if (!mode) return;
-        applyAuthoringPanelLayout(host, mode);
-        syncPanelLayoutControl();
-      },
-    });
-    const trigger =
-      panelLayoutControl.element.querySelector<HTMLButtonElement>('.panel-layout-trigger');
-    trigger?.setAttribute('data-panel-action', 'layout');
-    for (const option of panelLayoutControl.element.querySelectorAll<HTMLButtonElement>(
-      '.panel-layout-option',
-    )) {
-      const mode = authoringPanelLayoutMode(option.dataset['value']);
-      if (mode) option.dataset['panelLayout'] = mode;
-    }
-    panelLayoutControlSlot.replaceWith(panelLayoutControl.element);
-    syncPanelLayoutControl();
-  }
-
-  const applyPanelZoom = (value: AuthoringPanelZoomValue): void => {
-    const zoom = Number(value) / 100;
-    iframe.style.transform = `scale(${zoom})`;
-    iframe.style.transformOrigin = 'top left';
-    iframe.style.width = `${100 / zoom}%`;
-    iframe.style.height = `${100 / zoom}%`;
-    iframe.dataset['lodariqEditorZoom'] = value;
-  };
-  let panelZoomControl: AuthoringDomCombobox<AuthoringPanelZoomValue> | null = null;
-  if (panelZoomControlSlot) {
-    panelZoomControl = createAuthoringDomCombobox<AuthoringPanelZoomValue>({
-      document,
-      initialValue: DEFAULT_AUTHORING_PANEL_ZOOM,
-      items: AUTHORING_PANEL_ZOOM_OPTIONS,
-      label: authoringText('Canvas zoom'),
-      omitSelectedOption: true,
-      showSelectionIndicator: false,
-      triggerIcon: ZoomIn,
-      controlIdPrefix: 'lodariq-panel-zoom',
-      classNames: {
-        root: 'panel-zoom-combobox',
-        trigger: 'panel-zoom-trigger',
-        triggerIcon: 'panel-zoom-trigger-icon',
-        value: 'panel-zoom-value',
-        chevron: 'panel-zoom-chevron',
-        listbox: 'panel-zoom-listbox',
-        option: 'panel-zoom-option',
-        optionIcon: 'panel-zoom-option-icon',
-        check: 'panel-zoom-check',
-      },
-      onChange: (value) => {
-        applyPanelZoom(value);
-        const trigger = panelZoomControl?.element.querySelector<HTMLButtonElement>(
-          '[data-panel-action="zoom"]',
-        );
-        if (trigger) {
-          const label = authoringText('Canvas zoom: {zoom}%', { zoom: value });
-          trigger.setAttribute('aria-label', label);
-          trigger.title = label;
-        }
-      },
-    });
-    const trigger =
-      panelZoomControl.element.querySelector<HTMLButtonElement>('.panel-zoom-trigger');
-    trigger?.setAttribute('data-panel-action', 'zoom');
-    if (trigger) {
-      const label = authoringText('Canvas zoom: {zoom}%', { zoom: 100 });
-      trigger.setAttribute('aria-label', label);
-      trigger.title = label;
-    }
-    for (const option of panelZoomControl.element.querySelectorAll<HTMLButtonElement>(
-      '.panel-zoom-option',
-    )) {
-      const value = panelZoomValue(option.dataset['value']);
-      if (value) option.dataset['panelZoom'] = value;
-    }
-    panelZoomControlSlot.replaceWith(panelZoomControl.element);
-  }
-  applyPanelZoom(DEFAULT_AUTHORING_PANEL_ZOOM);
 
   const destroyPanel = (): void => {
     if (pendingSaveBeforeClose) {
@@ -917,18 +646,10 @@ function openAuthoringPanel(
     pendingPresentationAnchorPick = null;
     presentationAnchorPicker?.cancel();
     presentationAnchorPicker = null;
-    stopPanelDrag?.();
-    stopPanelDrag = null;
-    stopPanelResize?.();
-    stopPanelResize = null;
-    stopPanelViewportSync?.();
-    stopPanelViewportSync = null;
+    overlayShell?.destroy();
+    overlayShell = null;
     stopPanelChrome?.();
     stopPanelChrome = null;
-    panelLayoutControl?.cleanup();
-    panelLayoutControl = null;
-    panelZoomControl?.cleanup();
-    panelZoomControl = null;
     stopLifecycleObserver?.();
     stopLifecycleObserver = null;
     inlinePreviewEditor?.destroy();
@@ -1009,22 +730,15 @@ function openAuthoringPanel(
 
   const captureRestoreState = (): AuthoringPanelRestoreState => ({
     focusedElement: activePanelFocusElement(shadow),
-    geometry: readAuthoringPanelGeometry(host),
+    geometry: { height: 0, left: 0, top: 0, width: 0 },
   });
 
   const minimize = (): void => {
     if (host.hasAttribute(AUTHORING_PANEL_MINIMIZED_ATTRIBUTE)) return;
     if (host.hasAttribute(AUTHORING_TARGET_PICKING_ATTRIBUTE)) return;
-    panelLayoutControl?.close();
-    panelZoomControl?.close();
     minimizedRestoreState = captureRestoreState();
     host.setAttribute(AUTHORING_PANEL_MINIMIZED_ATTRIBUTE, 'true');
-    const minimizedGeometry = {
-      ...minimizedRestoreState.geometry,
-      height: AUTHORING_COLLAPSED_PANEL_HEIGHT,
-    };
-    applyClampedAuthoringPanelGeometry(host, minimizedGeometry, 'minimized');
-    setMinimizeButtonState(minimizeButton, minimizeIcon, true);
+    overlayShell?.setPresentation('collapsed');
     setAuthoringTriggerPanelState('minimized');
     if (options.persistenceOwner === 'iframe') dispatchHostedCreatorPanelState('minimized');
     recordAuthoringDiagnostic('chrome.collapsed');
@@ -1052,14 +766,10 @@ function openAuthoringPanel(
 
     const restoreState = minimizedRestoreState;
     host.removeAttribute(AUTHORING_PANEL_MINIMIZED_ATTRIBUTE);
-    if (restoreState) {
-      applyClampedAuthoringPanelGeometry(host, restoreState.geometry, 'open');
-      schedulePanelFocusRestore(restoreState.focusedElement, panelDragHandle);
-    } else {
-      positionInitialAuthoringPanel(host);
-    }
+    host.removeAttribute(AUTHORING_PREVIEW_ACTIVE_ATTRIBUTE);
+    overlayShell?.setPresentation('overlay');
+    if (restoreState) schedulePanelFocusRestore(restoreState.focusedElement, null);
     minimizedRestoreState = null;
-    setMinimizeButtonState(minimizeButton, minimizeIcon, false);
     setAuthoringTriggerPanelState('open');
     if (options.persistenceOwner === 'iframe') dispatchHostedCreatorPanelState('open');
     recordAuthoringDiagnostic('chrome.restored');
@@ -1067,14 +777,6 @@ function openAuthoringPanel(
       void playPreviewDocument(pendingInlinePreviewStepId());
     }
   };
-
-  returnToEditorButton?.addEventListener('click', () => {
-    stopOwnedPreview();
-    previewPlaybackState = 'editing';
-    host.removeAttribute(AUTHORING_PREVIEW_ACTIVE_ATTRIBUTE);
-    syncPanelStepStatus();
-    restore();
-  });
 
   const panel: LocalAuthoringPanel = {
     close,
@@ -1085,54 +787,6 @@ function openAuthoringPanel(
     saveAndClose,
   };
 
-  const commitPanelDocumentTitle = (): void => {
-    if (!panelDocumentTitle) return;
-    const currentTitle = previewDocument?.title ?? 'Untitled experience';
-    const title = panelDocumentTitle.value.trim() || 'Untitled experience';
-    panelDocumentTitle.value = title;
-    if (title === currentTitle) return;
-    const activeBridge = bridge;
-    if (!activeBridge) {
-      panelDocumentTitle.value = currentTitle;
-      return;
-    }
-    setSaveState('saving', AUTHORING_PANEL_LABELS.savingDraft);
-    void activeBridge
-      .sendWithAck(
-        {
-          protocol: BRIDGE_PROTOCOL_VERSION,
-          sessionId: session.sessionId,
-          documentId: session.documentId,
-          correlationId: createBridgeCorrelationId('authoring_document_title_commit'),
-          type: AUTHORING_INLINE_CONTROL_COMMIT_TYPE,
-          operation: { kind: 'setDocumentTitle', title },
-        },
-        { timeoutMs: 2_000 },
-      )
-      .catch((error) => {
-        panelDocumentTitle.value = previewDocument?.title ?? currentTitle;
-        setSaveState('error', 'Title could not be saved');
-        preview?.onPreviewError?.(error);
-      });
-  };
-  panelDocumentTitle?.addEventListener('blur', commitPanelDocumentTitle);
-  panelDocumentTitle?.addEventListener('keydown', (event) => {
-    if (event.key === 'Enter') {
-      event.preventDefault();
-      panelDocumentTitle.blur();
-      return;
-    }
-    if (event.key !== 'Escape') return;
-    event.preventDefault();
-    panelDocumentTitle.value = previewDocument?.title ?? 'Untitled experience';
-    panelDocumentTitle.blur();
-  });
-
-  panelCloseButton?.addEventListener('click', close);
-  minimizeButton?.addEventListener('click', () => {
-    if (host.hasAttribute(AUTHORING_PANEL_MINIMIZED_ATTRIBUTE)) restore();
-    else minimize();
-  });
   const togglePanelFromLauncher = (): void => {
     if (host.hasAttribute(AUTHORING_TARGET_PICKING_ATTRIBUTE)) {
       restore();
@@ -1150,8 +804,6 @@ function openAuthoringPanel(
     window.removeEventListener(LOCAL_AUTHORING_PANEL_TOGGLE_EVENT, togglePanelFromLauncher);
     window.removeEventListener(HOSTED_CREATOR_PANEL_TOGGLE_EVENT, togglePanelFromLauncher);
   };
-  stopPanelDrag = attachPanelDrag(host, panelDragSurface, panelDragHandle);
-  stopPanelResize = attachPanelResize(host, panelResizeHandle, syncPanelLayoutControl);
   const mountInlinePreviewEditor = (): void => {
     if (!preview || inlinePreviewEditor) return;
     inlinePreviewEditor = createInlinePreviewEditor({
@@ -1206,9 +858,19 @@ function openAuthoringPanel(
       expectedSessionId: session.sessionId,
       expectedDocumentId: session.documentId,
       onMessage: (message) => {
+        if (message.type === AUTHORING_SHELL_PRESENTATION_TYPE) {
+          if (message.presentation === 'operations') {
+            host.removeAttribute(AUTHORING_PANEL_MINIMIZED_ATTRIBUTE);
+            overlayShell?.setPresentation('operations');
+          } else if (
+            message.presentation === 'overlay' &&
+            overlayShell?.presentation() === 'operations'
+          ) {
+            overlayShell.setPresentation('overlay');
+          }
+          return;
+        }
         if (message.type === AUTHORING_PANEL_LAYOUT_REQUEST_TYPE) {
-          applyAuthoringPanelLayout(host, message.mode);
-          syncPanelLayoutControl();
           return;
         }
         if (message.type === AUTHORING_SAVE_AND_EXIT_REQUEST_TYPE) {
@@ -1360,7 +1022,9 @@ function openAuthoringPanel(
             currentHeaderStepId = message.stepId;
             syncPanelStepStatus();
           } else {
-            minimize();
+            host.setAttribute(AUTHORING_PANEL_MINIMIZED_ATTRIBUTE, 'true');
+            overlayShell?.setPresentation('previewing');
+            setAuthoringTriggerPanelState('minimized');
           }
           return playPreviewDocument(
             message.mode === 'step' ? message.stepId : message.initialStepId,
@@ -1562,8 +1226,7 @@ function openAuthoringPanel(
       });
     } finally {
       host.style.visibility = previousVisibility;
-      applyClampedAuthoringPanelGeometry(host, restoreState.geometry, 'open');
-      schedulePanelFocusRestore(restoreState.focusedElement, panelDragHandle);
+      schedulePanelFocusRestore(restoreState.focusedElement, null);
     }
   }
 
@@ -1617,8 +1280,7 @@ function openAuthoringPanel(
       );
     } finally {
       host.style.visibility = previousVisibility;
-      applyClampedAuthoringPanelGeometry(host, restoreState.geometry, 'open');
-      schedulePanelFocusRestore(restoreState.focusedElement, panelDragHandle);
+      schedulePanelFocusRestore(restoreState.focusedElement, null);
       if (resumeDraftPreview) void playPreviewDocument(pendingInlinePreviewStepId());
     }
   }
@@ -1643,8 +1305,6 @@ function openAuthoringPanel(
 
   document.body.appendChild(host);
   setAuthoringPanelOpenState(true);
-  positionInitialAuthoringPanel(host);
-  stopPanelViewportSync = startPanelViewportSync(host);
   activePanel = panel;
   activePanelHost = host;
   activePanelSessionKey = sessionKey;
@@ -1682,6 +1342,7 @@ function openAuthoringPanel(
       authoringTargetOverrides.delete(affectedStepId);
     }
     previewDocument = applyPreviewPatch(current, blockId, ops, locale);
+    overlayShell?.setDocument(previewDocument, previewDocument.title);
     if (transaction) {
       latestPreviewTransactionRevision = transaction.revision;
       latestPreviewTransactionId = transaction.transactionId;
@@ -1748,6 +1409,133 @@ function openAuthoringPanel(
     }, 650);
   }
 
+  function sendShellStepCommand(command: AuthoringShellStepCommand, stepId?: string): void {
+    const activeBridge = bridge;
+    if (!activeBridge) return;
+    activeBridge.send({
+      protocol: BRIDGE_PROTOCOL_VERSION,
+      sessionId: session.sessionId,
+      documentId: session.documentId,
+      correlationId: createBridgeCorrelationId('authoring_shell_step'),
+      type: AUTHORING_SHELL_STEP_COMMAND_TYPE,
+      command,
+      ...(stepId ? { stepId } : {}),
+    });
+  }
+
+  function collapseOverlayEditor(): void {
+    overlayShell?.setPresentation('collapsed');
+    sendShellStepCommand('collapse', currentHeaderStepId ?? undefined);
+  }
+
+  function openOperations(): void {
+    host.removeAttribute(AUTHORING_PANEL_MINIMIZED_ATTRIBUTE);
+    overlayShell?.setPresentation('operations');
+    const activeBridge = bridge;
+    if (!activeBridge) return;
+    activeBridge.send({
+      protocol: BRIDGE_PROTOCOL_VERSION,
+      sessionId: session.sessionId,
+      documentId: session.documentId,
+      correlationId: createBridgeCorrelationId('authoring_open_operations'),
+      type: AUTHORING_CHROME_ACTION_REQUEST_TYPE,
+      action: 'open-operations',
+    });
+  }
+
+  function closeOperations(): void {
+    const activeBridge = bridge;
+    if (!activeBridge) return;
+    activeBridge.send({
+      protocol: BRIDGE_PROTOCOL_VERSION,
+      sessionId: session.sessionId,
+      documentId: session.documentId,
+      correlationId: createBridgeCorrelationId('authoring_close_operations'),
+      type: AUTHORING_CHROME_ACTION_REQUEST_TYPE,
+      action: 'close-operations',
+    });
+  }
+
+  function commitOverlayPlacement(blockId: string, placement: OverlayPlacement): void {
+    const activeBridge = bridge;
+    if (!activeBridge) return;
+    const operation: AuthoringInlineControlOperation = {
+      kind: 'setPlacement',
+      blockId,
+      placement,
+    };
+    void activeBridge
+      .sendWithAck(
+        {
+          protocol: BRIDGE_PROTOCOL_VERSION,
+          sessionId: session.sessionId,
+          documentId: session.documentId,
+          correlationId: createBridgeCorrelationId('authoring_overlay_placement'),
+          type: AUTHORING_INLINE_CONTROL_COMMIT_TYPE,
+          operation,
+        },
+        { timeoutMs: 2_000 },
+      )
+      .catch(() => {});
+  }
+
+  function commitOverlayPopupSize(widthPx: number, heightPx: number): void {
+    const activeBridge = bridge;
+    const step = tourStepsOf(previewDocument).find((item) => item.id === currentHeaderStepId);
+    const tooltipId = step ? tooltipOfStep(step)?.id : undefined;
+    if (!activeBridge || !tooltipId) return;
+    activeBridge.send({
+      protocol: BRIDGE_PROTOCOL_VERSION,
+      sessionId: session.sessionId,
+      documentId: session.documentId,
+      correlationId: createBridgeCorrelationId('authoring_overlay_popup_size'),
+      type: AUTHORING_SHELL_POPUP_SIZE_COMMIT_TYPE,
+      blockId: tooltipId,
+      widthPx,
+      heightPx,
+    });
+  }
+
+  function selectOverlayStep(stepId: string): void {
+    currentHeaderStepId = stepId;
+    overlayShell?.setActiveStepId(stepId);
+    overlayShell?.setPresentation('overlay');
+    sendShellStepCommand('select', stepId);
+    void playPreviewDocument(stepId);
+  }
+
+  function commitOverlayTitle(title: string): void {
+    const currentTitle = previewDocument?.title ?? 'Untitled experience';
+    const next = title.trim() || 'Untitled experience';
+    if (panelDocumentTitle) panelDocumentTitle.value = next;
+    if (next === currentTitle) return;
+    const activeBridge = bridge;
+    if (!activeBridge) {
+      if (panelDocumentTitle) panelDocumentTitle.value = currentTitle;
+      return;
+    }
+    setSaveState('saving', AUTHORING_PANEL_LABELS.savingDraft);
+    void activeBridge
+      .sendWithAck(
+        {
+          protocol: BRIDGE_PROTOCOL_VERSION,
+          sessionId: session.sessionId,
+          documentId: session.documentId,
+          correlationId: createBridgeCorrelationId('authoring_document_title_commit'),
+          type: AUTHORING_INLINE_CONTROL_COMMIT_TYPE,
+          operation: { kind: 'setDocumentTitle', title: next },
+        },
+        { timeoutMs: 2_000 },
+      )
+      .catch((error) => {
+        if (panelDocumentTitle) {
+          panelDocumentTitle.value = previewDocument?.title ?? currentTitle;
+        }
+        setSaveState('error', 'Title could not be saved');
+        preview?.onPreviewError?.(error);
+      });
+  }
+
   function playPreviewDocument(
     stepId?: string,
     rejectOnFailure = false,
@@ -1768,19 +1556,15 @@ function openAuthoringPanel(
       syncPanelStepStatus();
     }
     if (interactive) {
-      previewPlaybackState = 'playing';
       host.setAttribute(AUTHORING_PREVIEW_ACTIVE_ATTRIBUTE, 'true');
-      if (host.hasAttribute(AUTHORING_PANEL_MINIMIZED_ATTRIBUTE)) {
-        const minimizedGeometry = readAuthoringPanelGeometry(host);
-        applyClampedAuthoringPanelGeometry(
-          host,
-          { ...minimizedGeometry, width: Math.min(300, minimizedGeometry.width) },
-          'minimized',
-        );
-      }
+      host.setAttribute(AUTHORING_PANEL_MINIMIZED_ATTRIBUTE, 'true');
+      overlayShell?.setPresentation('previewing');
+      setAuthoringTriggerPanelState('minimized');
     } else {
-      previewPlaybackState = 'editing';
       host.removeAttribute(AUTHORING_PREVIEW_ACTIVE_ATTRIBUTE);
+      if (overlayShell?.presentation() !== 'operations') {
+        overlayShell?.setPresentation('overlay');
+      }
     }
     syncPanelStepStatus();
     const requestId = ++previewRequestId;
@@ -1799,13 +1583,6 @@ function openAuthoringPanel(
           return;
         }
         const previewStepId = stepId ?? compiled.steps[0]?.id;
-        previewPlaybackBranching = compiled.steps.some((step) =>
-          step.body.some((node) => {
-            const action = node.props.action;
-            return Boolean(action && 'transition' in action && action.transition);
-          }),
-        );
-        previewChoreographyStage = null;
         previewPathStepIds = previewStepId ? [previewStepId] : [];
         const selectedElement = previewStepId
           ? authoringTargetOverrides.get(previewStepId)
@@ -1823,10 +1600,6 @@ function openAuthoringPanel(
             ? {
                 onStepChange: (index: number, runtimeStepId: string) => {
                   if (requestId !== previewRequestId) return;
-                  previewPlaybackState = 'playing';
-                  previewPlaybackIndex = index;
-                  previewPlaybackTotal = compiled.steps.length;
-                  previewChoreographyStage = null;
                   if (previewPathStepIds[previewPathStepIds.length - 1] !== runtimeStepId) {
                     previewPathStepIds.push(runtimeStepId);
                   }
@@ -1841,7 +1614,6 @@ function openAuthoringPanel(
                 onSkip: () => completeInteractivePreview('skipped', requestId),
                 onChoreographyStageChange: (runtimeStepId, update) => {
                   if (requestId !== previewRequestId) return;
-                  previewChoreographyStage = update;
                   const eventName = choreographyDiagnosticName(update.status);
                   if (eventName) {
                     recordAuthoringDiagnostic(eventName, {
@@ -1869,11 +1641,13 @@ function openAuthoringPanel(
                     syncPanelStepStatus();
                   }
                 },
-                getAuthoringProtectedSurfaces: () => authoringProtectedSurfaces(),
-                onAuthoringSurfaceChange: (rect: ProtectedSurfaceRect | null) =>
-                  avoidInteractivePreviewSurface(rect, requestId),
               }
             : {}),
+          getAuthoringProtectedSurfaces: () => authoringProtectedSurfaces(),
+          onAuthoringSurfaceChange: (rect: ProtectedSurfaceRect | null) => {
+            overlayShell?.setCardRect(rect);
+            if (interactive) avoidInteractivePreviewSurface(rect, requestId);
+          },
           ...(stepId ? { stepId } : {}),
           ...(previewStepId && selectedElement?.isConnected
             ? {
@@ -1903,7 +1677,6 @@ function openAuthoringPanel(
         previewPending = false;
         previewPresented = false;
         if (interactive) {
-          previewPlaybackState = 'editing';
           host.removeAttribute(AUTHORING_PREVIEW_ACTIVE_ATTRIBUTE);
           syncPanelStepStatus();
         }
@@ -1917,8 +1690,6 @@ function openAuthoringPanel(
     requestId: number,
   ): void {
     if (requestId !== previewRequestId) return;
-    previewPlaybackState = state;
-    previewChoreographyStage = null;
     previewPending = false;
     previewPresented = false;
     recordAuthoringDiagnostic(state === 'completed' ? 'preview.completed' : 'preview.exited', {
@@ -1928,7 +1699,13 @@ function openAuthoringPanel(
   }
 
   function authoringProtectedSurfaces(): ProtectedSurfaceRect[] {
-    const surfaces = [domRectAsProtectedSurface(host.getBoundingClientRect(), 6)];
+    const surfaces: ProtectedSurfaceRect[] = [];
+    for (const element of panelElement.querySelectorAll<HTMLElement>(
+      '[data-lodariq-filmstrip], [data-lodariq-pulses], [data-lodariq-compass], [data-lodariq-exit-preview]',
+    )) {
+      if (!element.isConnected) continue;
+      surfaces.push(domRectAsProtectedSurface(element.getBoundingClientRect(), 3));
+    }
     for (const element of document.querySelectorAll<HTMLElement>(
       '[data-lodariq-authoring-control="true"]',
     )) {
@@ -1942,28 +1719,8 @@ function openAuthoringPanel(
     rect: ProtectedSurfaceRect | null,
     requestId: number,
   ): void {
-    if (
-      !rect ||
-      requestId !== previewRequestId ||
-      previewPlaybackState !== 'playing' ||
-      !host.hasAttribute(AUTHORING_PANEL_MINIMIZED_ATTRIBUTE)
-    ) {
-      return;
-    }
-    const current = readAuthoringPanelGeometry(host);
-    const next = chooseChromeGeometryAwayFrom(current, rect, {
-      width: window.innerWidth,
-      height: window.innerHeight,
-    });
-    if (next.left !== current.left || next.top !== current.top) {
-      recordAuthoringDiagnostic('chrome.moved', { reason: 'preview-collision' });
-    }
-    if (chromeIntersectsProtectedSurface(next, rect)) {
-      recordAuthoringDiagnostic('chrome.collision-unresolved', {
-        reason: 'viewport-constrained',
-      });
-    }
-    applyClampedAuthoringPanelGeometry(host, next, 'minimized');
+    if (requestId !== previewRequestId) return;
+    overlayShell?.setCardRect(rect);
   }
 
   function recordAuthoringDiagnostic(
@@ -1994,6 +1751,7 @@ function openAuthoringPanel(
   function restorePreviewAfterTargetPicking(): void {
     const suspended = suspendedPreview;
     suspendedPreview = null;
+    overlayShell?.setPresentation('overlay');
     if (!suspended || !host.isConnected) return;
     void playPreviewDocument(suspended.stepId);
   }
@@ -2002,8 +1760,6 @@ function openAuthoringPanel(
     previewRequestId += 1;
     previewPending = false;
     previewPresented = false;
-    previewPlaybackState = 'editing';
-    previewChoreographyStage = null;
     previewPathStepIds = [];
     host.removeAttribute(AUTHORING_PREVIEW_ACTIVE_ATTRIBUTE);
     preview?.stopPreview?.(previewOwnerId);
@@ -2350,6 +2106,7 @@ function openAuthoringPanel(
     suspendPreviewForTargetPicking(pickedStepId);
     targetPickingRestoreState ??= captureRestoreState();
     setPanelTargetPicking(host, true);
+    overlayShell?.setPresentation('picking');
 
     try {
       const [{ normalizeTargetStateId, startTargetPicker }, { resolve, resolveTargetIdentity }] =
@@ -2441,6 +2198,7 @@ function openAuthoringPanel(
     );
     presentationAnchorRestoreState ??= captureRestoreState();
     setPanelTargetPicking(host, true, AUTHORING_PANEL_LABELS.selectExactArea);
+    overlayShell?.setPresentation('picking');
 
     try {
       const [{ startPresentationAnchorPicker }, { resolveTarget }] = await Promise.all([
@@ -2659,18 +2417,6 @@ function choreographyDiagnosticName(
   return names[status] ?? null;
 }
 
-function chromeIntersectsProtectedSurface(
-  chrome: ProtectedChromeGeometry,
-  surface: ProtectedSurfaceRect,
-): boolean {
-  return !(
-    chrome.left + chrome.width <= surface.left ||
-    surface.right <= chrome.left ||
-    chrome.top + chrome.height <= surface.top ||
-    surface.bottom <= chrome.top
-  );
-}
-
 function previewThemeMatchesSession(
   candidate: BrandThemeSnapshot,
   initial: BrandThemeSnapshot,
@@ -2711,19 +2457,5 @@ function dispatchAuthoringSaveError(error: unknown): void {
     new CustomEvent('lodariq:authoring-save-error', {
       detail: { error },
     }),
-  );
-}
-
-function escapeAuthoringText(value: string): string {
-  return value.replace(
-    /[&<>"']/g,
-    (character) =>
-      ({
-        '&': '&amp;',
-        '<': '&lt;',
-        '>': '&gt;',
-        '"': '&quot;',
-        "'": '&#39;',
-      })[character] ?? character,
   );
 }

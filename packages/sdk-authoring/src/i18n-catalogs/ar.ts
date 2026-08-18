@@ -14,7 +14,9 @@ const AR_CATALOG: AuthoringCatalog = {
   'Drag to reorder, click for options': 'اسحب لإعادة الترتيب، وانقر للخيارات',
   'Search content types': 'البحث في أنواع المحتوى',
   'Search…': 'بحث…',
-  'Write, or use the toolbar to add content': 'اكتب، أو استخدم شريط الأدوات لإضافة محتوى',
+  'Write, or press / to add': 'اكتب، أو اضغط / للإضافة',
+  'More formatting': 'تنسيق إضافي',
+  'Insert': 'إدراج',
   field: 'حقل',
   'Answers stay in this experience. Lodariq does not read your product database.':
     'تبقى الإجابات في هذه التجربة. لا تقرأ Lodariq قاعدة بيانات منتجك.',

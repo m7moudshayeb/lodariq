@@ -17,6 +17,7 @@ import {
 } from '../design-system';
 import { blockDisplayTitle, targetIdOf } from '../utils';
 import { Inspector } from './inspector';
+import { StepPlacementEditor } from './step-placement-editor';
 import {
   AccessibilityPreviewEditor,
   CompletionBehaviorEditor,
@@ -48,6 +49,10 @@ export function TourReviewWorkspace({
   }).filter(isPublishReadinessBlocker);
   const steps = snapshot.documentState.blocks.filter((block) => block.type === 'tourStep');
   const placedSteps = steps.filter((candidate) => Boolean(targetIdOf(candidate))).length;
+  const stepIndex = Math.max(
+    0,
+    steps.findIndex((candidate) => candidate.id === step.id),
+  );
   const targetIssues = issues.filter((issue) => issue.code.includes('target'));
   const rows = reviewRows({
     issueCount: issues.length,
@@ -65,7 +70,7 @@ export function TourReviewWorkspace({
       <header className="tour-review-header panel-advanced-header">
         <button
           className="panel-advanced-back"
-          onClick={() => controller.closeAdvancedEditor()}
+          onClick={() => controller.closeOperationsMode()}
           type="button"
         >
           <ArrowLeft size={15} strokeWidth={2.2} aria-hidden="true" />
@@ -93,17 +98,11 @@ export function TourReviewWorkspace({
             return (
               <button
                 className="tour-review-row"
+                data-review-row={row.action}
                 data-tone={row.tone}
                 key={row.label}
-                aria-expanded={
-                  row.action === 'placement' ? undefined : activeSection === row.action
-                }
+                aria-expanded={activeSection === row.action}
                 onClick={() => {
-                  if (row.action === 'placement') {
-                    controller.closeAdvancedEditor();
-                    controller.activateTourStep(step.id);
-                    return;
-                  }
                   setActiveSection((current) => (current === row.action ? null : row.action));
                 }}
                 type="button"
@@ -148,6 +147,14 @@ export function TourReviewWorkspace({
             ) : null}
             {activeSection === 'details' ? (
               <Inspector controller={controller} snapshot={snapshot} />
+            ) : null}
+            {activeSection === 'placement' ? (
+              <StepPlacementEditor
+                controller={controller}
+                snapshot={snapshot}
+                step={step}
+                stepIndex={stepIndex}
+              />
             ) : null}
             {activeSection === 'accessibility' && issues.length ? (
               <aside className="tour-review-note">

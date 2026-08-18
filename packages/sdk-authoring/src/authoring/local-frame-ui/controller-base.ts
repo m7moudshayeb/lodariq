@@ -17,6 +17,7 @@ import { LOCAL_AUTHORING_SESSION_ID } from '../constants';
 import { AuthoringBridge } from '../../bridge/transport';
 import { createLodariqEditor } from '../../editor';
 import type {
+  AuthoringOperationsTab,
   AuthoringPanelMode,
   AuthoringPanelOperation,
   AuthoringReleaseViewState,
@@ -201,6 +202,8 @@ export abstract class ControllerBase {
   protected pendingPublicationRequest: AuthoringStagingPublicationRequest | null = null;
 
   protected panelMode: AuthoringPanelMode = 'edit';
+
+  protected operationsTab: AuthoringOperationsTab = 'flow';
 
   protected panelReturnMode: AuthoringPanelMode = 'edit';
 

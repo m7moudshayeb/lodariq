@@ -750,7 +750,9 @@ function hoverLabelFor(element: Element, currentPlacement: boolean): string {
 
 function isAuthoringChrome(element: Element): boolean {
   return Boolean(
-    element.closest('lodariq-authoring-panel, [data-lodariq-authoring-trigger="true"]'),
+    element.closest(
+      'lodariq-authoring-panel, [data-lodariq-authoring-trigger="true"], [data-lodariq-creator-launcher="true"]',
+    ),
   );
 }
 

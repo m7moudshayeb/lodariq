@@ -2,15 +2,17 @@ import { ControllerStepsTargetsFeature } from './controller-steps-targets';
 import { authoringText } from '../../i18n';
 import {
   AUTHORING_SAVE_AND_EXIT_REQUEST_TYPE,
+  AUTHORING_SHELL_PRESENTATION_TYPE,
   BRIDGE_PROTOCOL_VERSION,
   type AuthoringAccessibilityPreviewMode,
   type AuthoringFlowSimulationContext,
+  type AuthoringShellPresentation,
   type LodariqDocument,
   type PublishReadinessIssue,
   type ReleaseRecoveryRequest,
 } from '@lodariq/schema';
 import { createBridgeCorrelationId } from '../../bridge/transport';
-import type { AuthoringPanelMode } from './types';
+import type { AuthoringOperationsTab, AuthoringPanelMode } from './types';
 import type { AuthoringBrandMatchProposal, AuthoringBrandMatchRequest } from '../local-frame-types';
 import {
   createAuthoringReleaseRecoveryIntent,
@@ -104,12 +106,31 @@ export abstract class ControllerHistoryReleaseFeature extends ControllerStepsTar
 
   openAppearanceMode(): void {
     this.panelReturnFocus = 'appearance';
-    this.openPanelMode('appearance', 'edit');
+    this.openPanelMode('appearance', this.panelMode === 'operations' ? 'operations' : 'edit');
   }
 
   openReleaseVerificationMode(): void {
     this.panelReturnFocus = 'release';
-    this.openPanelMode('release-verification', 'edit');
+    this.openPanelMode(
+      'release-verification',
+      this.panelMode === 'operations' ? 'operations' : 'edit',
+    );
+  }
+
+  openOperationsMode(tab: AuthoringOperationsTab = 'flow'): void {
+    this.operationsTab = tab;
+    this.openPanelMode('operations', 'edit');
+  }
+
+  setOperationsTab(tab: AuthoringOperationsTab): void {
+    if (this.operationsTab === tab) return;
+    this.operationsTab = tab;
+    this.emit();
+  }
+
+  closeOperationsMode(): void {
+    this.brandDriftController?.restorePreview();
+    this.openPanelMode('edit', 'edit');
   }
 
   repairPublishIssue(issue: PublishReadinessIssue): void {
@@ -147,6 +168,11 @@ export abstract class ControllerHistoryReleaseFeature extends ControllerStepsTar
     }
 
     this.selectedBlockId = repairBlockId;
+    if (intent.reveal === 'placement') {
+      this.startTargetPick(repairBlockId);
+      this.setStatus(`${intent.actionLabel}: ${issue.message}`);
+      return;
+    }
     this.focusRequest = {
       blockId: repairBlockId,
       target: intent.focusTarget,
@@ -171,7 +197,10 @@ export abstract class ControllerHistoryReleaseFeature extends ControllerStepsTar
     );
     this.releaseRecoveryIntent = null;
     this.releaseRecoveryRequestIdentity = null;
-    this.openPanelMode('release-history', 'release-verification');
+    this.openPanelMode(
+      'release-history',
+      this.panelMode === 'operations' ? 'operations' : 'release-verification',
+    );
     void this.loadReleaseRecoveryState(environmentId);
   }
 
@@ -218,7 +247,7 @@ export abstract class ControllerHistoryReleaseFeature extends ControllerStepsTar
       this.cancelReleaseRecoveryConfirmation();
       return;
     }
-    if (this.panelMode === 'release-history') {
+    if (this.panelMode === 'release-history' && this.panelReturnMode !== 'operations') {
       this.releaseRecoveryIntent = null;
       this.releaseRecoveryRequestIdentity = null;
       this.panelMode = 'release-verification';
@@ -236,12 +265,25 @@ export abstract class ControllerHistoryReleaseFeature extends ControllerStepsTar
     this.panelOperation = null;
     const nextMode = this.panelReturnMode;
     this.panelMode = nextMode;
-    this.panelReturnMode = nextMode === 'edit' ? 'edit' : 'appearance';
+    this.panelReturnMode = nextMode === 'operations' || nextMode === 'edit' ? 'edit' : 'appearance';
     this.panelWorkflowError = null;
     this.panelWorkflowNotice = null;
     this.panelFocusTarget = null;
     this.panelFocusToken += 1;
     this.emit();
+    this.notifyShellPresentation(this.panelMode === 'edit' ? 'overlay' : 'operations');
+  }
+
+  protected notifyShellPresentation(presentation: AuthoringShellPresentation): void {
+    if (!this.isHostedInParent) return;
+    this.bridge.send({
+      protocol: BRIDGE_PROTOCOL_VERSION,
+      sessionId: this.sessionId,
+      documentId: this.documentState.id,
+      correlationId: createBridgeCorrelationId('authoring_shell_presentation'),
+      type: AUTHORING_SHELL_PRESENTATION_TYPE,
+      presentation,
+    });
   }
 
   private returnToEditorForPublishRepair(): void {

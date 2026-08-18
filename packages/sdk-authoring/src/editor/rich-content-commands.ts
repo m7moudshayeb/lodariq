@@ -54,8 +54,13 @@ export function insertNodeAtSelection(
       }
     } else {
       const selection = $getSelection();
-      if ($isRangeSelection(selection)) $insertNodes([node]);
-      else $getRoot().append(inline ? wrapInlineNode(node) : node);
+      if ($isRangeSelection(selection) && inline) {
+        $insertNodes([node]);
+      } else if ($isRangeSelection(selection)) {
+        selection.anchor.getNode().getTopLevelElementOrThrow().insertAfter(node);
+      } else {
+        $getRoot().append(inline ? wrapInlineNode(node) : node);
+      }
       if (options.trailingParagraph && !inline) {
         node.insertAfter($createParagraphNode());
         const trailing = node.getNextSibling();
@@ -64,6 +69,7 @@ export function insertNodeAtSelection(
         node.selectStart();
       }
     }
+    $hoistBlockDecorator(node);
   });
   editor.focus();
   return insertedNodeKey;
@@ -73,6 +79,14 @@ function wrapInlineNode(node: LexicalNode): LexicalNode {
   const paragraph = $createParagraphNode();
   paragraph.append(node);
   return paragraph;
+}
+
+function $hoistBlockDecorator(node: LexicalNode): void {
+  if (node.isInline()) return;
+  const parent = node.getParent();
+  if (!$isParagraphNode(parent)) return;
+  parent.insertAfter(node);
+  if (parent.getChildrenSize() === 0) parent.remove();
 }
 
 export function formFieldNameFromBlockId(blockId: string): string {

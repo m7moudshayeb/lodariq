@@ -70,6 +70,16 @@ export const AUTHORING_PANEL_LABELS = {
   discardingDraft: authoringText('Closing authoring…'),
   selectExactArea: authoringText('Choose an exact area · Esc to cancel'),
   selectTarget: authoringText('Select an element · Esc to cancel'),
+  addStep: authoringText('Add step'),
+  changeTarget: authoringText('Change target'),
+  operations: authoringText('Operations'),
+  exitPreview: authoringText('Exit preview'),
+  filmstrip: authoringText('Tour steps'),
+  experienceTitle: authoringText('Experience title'),
+  placementAbove: authoringText('Above'),
+  placementRight: authoringText('Right'),
+  placementBelow: authoringText('Below'),
+  placementLeft: authoringText('Left'),
 } as const;
 export const AUTHORING_PANEL_KEYBOARD_OFFSETS: Readonly<
   Partial<Record<KeyboardEvent['key'], { x: number; y: number }>>

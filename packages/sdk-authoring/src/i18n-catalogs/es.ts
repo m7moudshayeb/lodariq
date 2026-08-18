@@ -14,7 +14,9 @@ const ES_CATALOG: AuthoringCatalog = {
   'Drag to reorder, click for options': 'Arrastra para reordenar, haz clic para ver opciones',
   'Search content types': 'Buscar tipos de contenido',
   'Search…': 'Buscar…',
-  'Write, or use the toolbar to add content': 'Escribe o usa la barra para añadir contenido',
+  'Write, or press / to add': 'Escribe, o pulsa / para añadir',
+  'More formatting': 'Más formato',
+  'Insert': 'Insertar',
   field: 'campo',
   'Answers stay in this experience. Lodariq does not read your product database.':
     'Las respuestas permanecen en esta experiencia. Lodariq no lee la base de datos de tu producto.',

@@ -6,6 +6,9 @@ import {
   $createParagraphNode,
   $getNodeByKey,
   $getRoot,
+  $getSelection,
+  $isRangeSelection,
+  $isTextNode,
   type LexicalNode,
   type NodeKey,
 } from 'lexical';
@@ -103,6 +106,7 @@ export function BlockHandlesPlugin({
   const draggingKeyRef = useRef<NodeKey | null>(null);
   const dropTargetRef = useRef<DropTarget | null>(null);
   const didDragRef = useRef(false);
+  const slashQueryRef = useRef<string | null>(null);
   const media = useRichContentMediaUpload(editor, onUploadMedia);
   menuOpenRef.current = insertOpen || settingsOpen;
 
@@ -121,16 +125,22 @@ export function BlockHandlesPlugin({
 
     const locateBlock = (clientY: number): HoveredBlock | null => {
       const keys = editor.getEditorState().read(() => $getRoot().getChildrenKeys());
+      const located: HoveredBlock[] = [];
       for (const key of keys) {
         const element = editor.getElementByKey(key);
         if (!element) continue;
         const rect = readViewportRect(element);
-        if (rect.height <= 0) return { key, left: rect.left, top: rect.top };
-        if (clientY >= rect.top && clientY <= rect.bottom) {
-          return { key, left: rect.left, top: rect.top };
+        located.push({ key, left: rect.left, top: rect.top, height: rect.height, bottom: rect.bottom });
+      }
+      const visible = located.filter((block) => block.height > 0);
+      const pool = visible.length > 0 ? visible : located;
+      for (const block of pool) {
+        const bottom = block.height > 0 ? block.bottom : block.top;
+        if (clientY >= block.top && clientY <= bottom) {
+          return { key: block.key, left: block.left, top: block.top };
         }
       }
-      return null;
+      return pool[0] ? { key: pool[0].key, left: pool[0].left, top: pool[0].top } : null;
     };
 
     const onPointerMove = (event: PointerEvent): void => {
@@ -144,7 +154,7 @@ export function BlockHandlesPlugin({
         event.clientY >= rootRect.top &&
         event.clientY <= rootRect.bottom;
       if (!inBounds) {
-        setHovered(null);
+        if (!menuOpenRef.current) setHovered(null);
         return;
       }
       const next = locateBlock(event.clientY);
@@ -178,6 +188,47 @@ export function BlockHandlesPlugin({
       ownerDocument.removeEventListener('pointermove', onPointerMove);
       ownerDocument.removeEventListener('pointerdown', closeOnOutsidePointer, true);
     };
+  }, [editor]);
+
+  useEffect(() => {
+    if (!editor.isEditable()) return;
+    return editor.registerUpdateListener(({ editorState }) => {
+      editorState.read(() => {
+        const selection = $getSelection();
+        if (!$isRangeSelection(selection) || !selection.isCollapsed()) {
+          if (slashQueryRef.current !== null) {
+            slashQueryRef.current = null;
+            setInsertOpen(false);
+            setQuery('');
+          }
+          return;
+        }
+        const anchor = selection.anchor.getNode();
+        const prefix = $isTextNode(anchor)
+          ? anchor.getTextContent().slice(0, selection.anchor.offset)
+          : '';
+        const match = prefix.match(/^\/([^\s]*)$/u);
+        if (!match) {
+          if (slashQueryRef.current !== null) {
+            slashQueryRef.current = null;
+            setInsertOpen(false);
+            setQuery('');
+          }
+          return;
+        }
+        const top = anchor.getTopLevelElement();
+        const key = top?.getKey();
+        const element = key ? editor.getElementByKey(key) : null;
+        slashQueryRef.current = match[1] ?? '';
+        setQuery(match[1] ?? '');
+        setMenuView('list');
+        setInsertOpen(true);
+        if (key && element) {
+          const rect = readViewportRect(element);
+          setHovered({ key, left: rect.left, top: rect.top });
+        }
+      });
+    });
   }, [editor]);
 
   // The grip is portaled to document.body and the popup uses CSS zoom, so
@@ -307,10 +358,26 @@ export function BlockHandlesPlugin({
     closeMenus();
   };
 
+  const consumeSlashQuery = (): void => {
+    if (slashQueryRef.current === null) return;
+    editor.update(() => {
+      const selection = $getSelection();
+      if (!$isRangeSelection(selection)) return;
+      const node = selection.anchor.getNode();
+      if (!$isTextNode(node)) return;
+      const text = node.getTextContent();
+      const match = text.match(/^\/[^\s]*/u);
+      if (match) node.setTextContent(text.slice(match[0].length));
+    });
+    slashQueryRef.current = null;
+    setQuery('');
+  };
+
   const insertAfterHovered = (
     createNode: () => LexicalNode,
     options: { keepMenuOpen?: boolean; trailingParagraph?: boolean } = {},
   ): NodeKey | null => {
+    consumeSlashQuery();
     const inserted = insertNodeAtSelection(editor, createNode, {
       afterKey: hovered?.key ?? null,
       trailingParagraph: options.trailingParagraph,
@@ -323,6 +390,7 @@ export function BlockHandlesPlugin({
   };
 
   const insertEmoji = (emoji: string): void => {
+    consumeSlashQuery();
     insertTextAtSelection(editor, emoji, { afterKey: hovered?.key ?? null });
   };
 
@@ -331,10 +399,9 @@ export function BlockHandlesPlugin({
 
   const handleStyle: CSSProperties | null = hovered
     ? {
-        left: hovered.left,
+        left: Math.max(4, hovered.left - HANDLE_GUTTER_PX),
         position: 'fixed',
         top: hovered.top,
-        transform: 'translateX(-100%)',
       }
     : null;
 
@@ -453,14 +520,18 @@ export function BlockHandlesPlugin({
     <div className="rich-content-menu rich-content-insert-menu">
       {menuView === 'list' ? (
         <>
-          <input
-            aria-label={authoringText('Search content types')}
-            autoFocus
-            onChange={(event) => setQuery(event.currentTarget.value)}
-            placeholder={authoringText('Search…')}
-            type="search"
-            value={query}
-          />
+          {slashQueryRef.current === null ? (
+            <input
+              aria-label={authoringText('Search content types')}
+              autoFocus
+              onChange={(event) => setQuery(event.currentTarget.value)}
+              placeholder={authoringText('Search…')}
+              type="search"
+              value={query}
+            />
+          ) : (
+            <p className="rich-content-slash-hint">{authoringText('Insert')}</p>
+          )}
           <div className="rich-content-insert-options" role="menu">
             {visibleOptions.map((option) => (
               <RichContentInsertOption
@@ -484,6 +555,7 @@ export function BlockHandlesPlugin({
                 void media.uploadCaptions(file);
               }}
               onUploadMediaFile={(kind, file) => {
+                consumeSlashQuery();
                 void media.uploadMediaIntoCanvas(kind, file, hovered?.key ?? null);
                 closeMenus();
                 setHovered(null);

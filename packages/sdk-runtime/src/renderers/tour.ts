@@ -220,6 +220,9 @@ export class TourPlayer {
     if (authoringPreviewOwnerId) {
       this.host.setAttribute(LODARIQ_AUTHORING_PREVIEW_OWNER_ATTRIBUTE, authoringPreviewOwnerId);
     }
+    if (options.authoringPreviewInteractive) {
+      this.host.setAttribute('data-lodariq-preview-interactive', '');
+    }
     if (options.authoringAccessibilityMode && !authoringPreviewOwnerId) {
       throw new Error('Lodariq accessibility preview requires an owned authoring preview');
     }

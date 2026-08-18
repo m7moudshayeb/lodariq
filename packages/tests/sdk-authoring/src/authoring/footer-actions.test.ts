@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+  AUTHORING_CHROME_ACTION_REQUEST_TYPE,
   AUTHORING_SAVE_AND_EXIT_REQUEST_TYPE,
   AUTHORING_SAVE_STATE_UPDATE_TYPE,
   BRIDGE_PROTOCOL_VERSION,
@@ -58,18 +59,27 @@ describe('authoring footer actions', () => {
       targetOrigin: window.location.origin,
     });
 
+    window.dispatchEvent(
+      new MessageEvent('message', {
+        origin: window.location.origin,
+        source: peer,
+        data: {
+          protocol: BRIDGE_PROTOCOL_VERSION,
+          sessionId: SESSION_ID,
+          documentId: baseDocument.id,
+          correlationId: 'open_operations_footer',
+          type: AUTHORING_CHROME_ACTION_REQUEST_TYPE,
+          action: 'open-operations',
+        },
+      }),
+    );
+    await vi.waitFor(() => expect(document.querySelector('.panel-workspace-footer')).not.toBeNull());
+
     const footer = document.querySelector<HTMLElement>('.panel-workspace-footer');
     const saveAndExit = buttonByText(footer, 'Save & exit');
     const draftState = footer?.querySelector<HTMLElement>('.panel-save-status[data-save-state]');
     const moreActions = footer?.querySelector<HTMLButtonElement>(
       '[aria-label="More experience actions"]',
-    );
-    const languageSection = document.querySelector<HTMLElement>('.tour-storyboard-utilities');
-    const languageSelect = languageSection?.querySelector<HTMLButtonElement>(
-      '.ui-select-trigger[data-action="content-locale"]',
-    );
-    const translateMissingCopy = languageSection?.querySelector<HTMLButtonElement>(
-      '[aria-label="Translate missing copy"]',
     );
 
     expect(footer).not.toBeNull();
@@ -84,11 +94,7 @@ describe('authoring footer actions', () => {
         ?.getAttribute('aria-label'),
     ).toBe('Release options');
     expect(moreActions?.querySelector('svg')).not.toBeNull();
-    expect(languageSelect).not.toBeNull();
-    expect(translateMissingCopy).not.toBeNull();
-    expect(translateMissingCopy?.classList.contains('ui-icon-button-compact')).toBe(true);
-    expect(translateMissingCopy?.disabled).toBe(true);
-    expect(translateMissingCopy?.title).toBe('Automatic translation is not configured');
+    expect(document.querySelector('[data-operations-tab="translation"]')).not.toBeNull();
 
     document.querySelector<HTMLButtonElement>('[aria-label="More experience actions"]')?.click();
     await vi.waitFor(() => {
@@ -107,7 +113,8 @@ describe('authoring footer actions', () => {
     expect(appearance.querySelector('svg')).not.toBeNull();
     expect(review.querySelector('svg')).not.toBeNull();
     review.click();
-    await vi.waitFor(() => expect(document.querySelector('.panel-advanced-editor')).not.toBeNull());
+    document.querySelector<HTMLButtonElement>('[data-operations-tab="review"]')?.click();
+    await vi.waitFor(() => expect(document.querySelector('.tour-review-workspace')).not.toBeNull());
     expect(document.querySelector('.panel-workspace-footer')).not.toBeNull();
     expect(document.querySelector('.tour-review-workspace')?.textContent).toContain(
       'Accessibility preview',
@@ -118,6 +125,8 @@ describe('authoring footer actions', () => {
     expect(document.querySelector('.tour-review-workspace')?.textContent).toContain(
       'Completion behavior',
     );
+    document.querySelector<HTMLButtonElement>('[data-review-row="placement"]')?.click();
+    await vi.waitFor(() => expect(document.querySelector('.target-control')).not.toBeNull());
     const editDetails = [...document.querySelectorAll<HTMLButtonElement>('.tour-review-row')].find(
       (button) => button.querySelector('strong')?.textContent === 'Edit details',
     );
@@ -192,6 +201,63 @@ describe('authoring footer actions', () => {
       expect(document.querySelector('.panel-advanced-editor')).not.toBeNull();
       expect(document.querySelector('.panel-workspace-footer')).not.toBeNull();
     });
+  });
+
+  it('returns from appearance to operations and then to the overlay without publishing', async () => {
+    const baseDocument = structuredClone(tourFixture) as LodariqDocument;
+    const postMessage = vi.fn();
+    const peer = { postMessage } as unknown as Window;
+
+    await mountLocalAuthoringFrame({
+      root: document.getElementById('authoring')!,
+      baseDocument,
+      services: {
+        loadDocument: () => structuredClone(baseDocument),
+        saveDocument: vi.fn(),
+        exportDocument: (value) => JSON.stringify(value),
+        importDocument: (value) => JSON.parse(value) as LodariqDocument,
+        resetDocuments: vi.fn(),
+        compilePreview: vi.fn().mockResolvedValue({}),
+        recordMetric: vi.fn(),
+        getMetricsSummary: vi.fn(() => ({})),
+        exportMetricsReport: vi.fn(() => '{}'),
+      },
+      frameMode: 'panel',
+      sessionId: SESSION_ID,
+      peerWindow: peer,
+      allowedOrigins: [window.location.origin],
+      targetOrigin: window.location.origin,
+    });
+
+    window.dispatchEvent(
+      new MessageEvent('message', {
+        origin: window.location.origin,
+        source: peer,
+        data: {
+          protocol: BRIDGE_PROTOCOL_VERSION,
+          sessionId: SESSION_ID,
+          documentId: baseDocument.id,
+          correlationId: 'open_operations_back_path',
+          type: AUTHORING_CHROME_ACTION_REQUEST_TYPE,
+          action: 'open-operations',
+        },
+      }),
+    );
+    await vi.waitFor(() => expect(document.querySelector('.operations-hub')).not.toBeNull());
+    document.querySelector<HTMLButtonElement>('[data-operations-tab="appearance"]')?.click();
+    await vi.waitFor(() => {
+      expect(document.querySelector('[data-panel-mode-heading]')?.textContent).toBe(
+        'Feel native to this product',
+      );
+    });
+    document.querySelector<HTMLButtonElement>('[aria-label="Back to authoring"]')?.click();
+    await vi.waitFor(() => expect(document.querySelector('.operations-hub')).not.toBeNull());
+    document.querySelector<HTMLButtonElement>('[aria-label="Back to authoring"]')?.click();
+    await vi.waitFor(() => expect(document.querySelector('.overlay-step-shell')).not.toBeNull());
+    expect(postMessage).not.toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'authoring.publish.staging.request' }),
+      window.location.origin,
+    );
   });
 });
 

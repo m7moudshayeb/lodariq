@@ -237,6 +237,7 @@ function render(
     },
     panelWorkflow: {
       mode: 'edit',
+      operationsTab: 'flow',
       returnMode: 'edit',
       focusToken: 0,
       returnFocus: null,

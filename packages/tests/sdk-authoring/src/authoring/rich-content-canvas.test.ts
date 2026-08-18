@@ -91,24 +91,23 @@ describe('unified popup content canvas', () => {
     });
 
     // The Lexical editor mounts directly inside the popup — no activation step.
-    await vi.waitFor(() =>
-      expect(document.querySelector('.rich-step-content .rich-content-canvas')).not.toBeNull(),
-    );
+    await vi.waitFor(() => {
+      expect(document.querySelector('.rich-step-content .rich-content-canvas')).not.toBeNull();
+      expect(document.querySelector('[aria-label="Bold"]')).toBeInstanceOf(HTMLButtonElement);
+    });
     const canvas = document.querySelector<HTMLElement>('.rich-content-canvas')!;
     expect(canvas.getAttribute('contenteditable')).toBe('true');
     expect(canvas.textContent).toContain('Create your first project');
     expect(document.querySelector('.rich-step-rendered-content')).toBeNull();
     expect(document.querySelector('.rich-step-block-row')).toBeNull();
 
-    // Format and insert stay on a persistent toolbar — no selection or hover required.
+    // Compact docked chip: style, bold/italic, link, add, more.
     expect(document.querySelector('[aria-label="Bold"]')).toBeInstanceOf(HTMLButtonElement);
-    expect(document.querySelector('[aria-label="Icon"]')).toBeInstanceOf(HTMLButtonElement);
-    expect(document.querySelector('[aria-label="Emoji"]')).toBeInstanceOf(HTMLButtonElement);
-    expect(document.querySelector('[aria-label="Media"]')).toBeInstanceOf(HTMLButtonElement);
-    expect(document.querySelector('[aria-label="Divider"]')).toBeInstanceOf(HTMLButtonElement);
-    expect(document.querySelector('[aria-label="Button"]')).toBeInstanceOf(HTMLButtonElement);
-    expect(document.querySelector('[aria-label="Field"]')).toBeInstanceOf(HTMLButtonElement);
-    expect(document.querySelector('[aria-label="Space after"]')).toBeInstanceOf(HTMLInputElement);
+    expect(document.querySelector('[aria-label="Add content"]')).toBeInstanceOf(HTMLButtonElement);
+    expect(document.querySelector('[aria-label="More formatting"]')).toBeInstanceOf(
+      HTMLButtonElement,
+    );
+    expect(document.querySelector('.rich-content-toolbar [aria-label="Icon"]')).toBeNull();
     expect(canvas.querySelector('.rich-content-button-preview')).not.toBeNull();
     canvas.querySelector<HTMLButtonElement>('.rich-content-button-preview')?.click();
     await vi.waitFor(() =>
@@ -147,56 +146,8 @@ describe('unified popup content canvas', () => {
     expect(colorRow?.querySelector('[data-property-id="button.fillColor"]')).not.toBeNull();
     expect(colorRow?.querySelector('[data-property-id="button.textColor"]')).not.toBeNull();
     expect(colorRow?.querySelector('[data-property-id="button.borderColor"]')).not.toBeNull();
-    document.querySelector<HTMLButtonElement>('.storyboard-tool-dock [aria-label="Popup"]')?.click();
-    await vi.waitFor(() => {
-      expect(document.querySelector('.storyboard-property-tray[data-tool-mode="content"]')).toBeNull();
-      expect(document.querySelector('[aria-label="Popup layout settings"]')).not.toBeNull();
-    });
-    expect(document.querySelector<HTMLElement>('.rich-step-content')?.dataset['lodariqActionLayout']).toBe(
-      'stack',
-    );
-    expect(document.querySelector('[aria-label="Action layout"]')).not.toBeNull();
-    expect(document.querySelector('[aria-label="Action alignment"]')).not.toBeNull();
-    [...document.querySelectorAll<HTMLButtonElement>('[aria-label="Action layout"] button')]
-      .find((button) => button.textContent?.trim() === 'Inline')
-      ?.click();
-    await vi.waitFor(() =>
-      expect(document.querySelector<HTMLElement>('.rich-step-content')?.dataset['lodariqActionLayout']).toBe(
-        'inline',
-      ),
-    );
-    [...document.querySelectorAll<HTMLButtonElement>('[aria-label="Action alignment"] button')]
-      .find((button) => button.textContent?.trim() === 'Stretch')
-      ?.click();
-    await vi.waitFor(() =>
-      expect(document.querySelector<HTMLElement>('.rich-step-content')?.dataset['lodariqActionAlign']).toBe(
-        'stretch',
-      ),
-    );
-    expect(
-      document.querySelector('[aria-label="Popup layout settings"] .storyboard-tray-close'),
-    ).toBeInstanceOf(HTMLButtonElement);
-    [...document.querySelectorAll<HTMLButtonElement>('[aria-label="Action gap"] button')]
-      .find((button) => button.textContent?.trim() === 'Relaxed')
-      ?.click();
-    await vi.waitFor(() =>
-      expect(document.querySelector<HTMLElement>('.rich-step-content')?.dataset['lodariqCompositionGap']).toBe(
-        'relaxed',
-      ),
-    );
-    [...document.querySelectorAll<HTMLButtonElement>('[aria-label="Content alignment"] button')]
-      .find((button) => button.textContent?.trim() === 'Center')
-      ?.click();
-    await vi.waitFor(() =>
-      expect(document.querySelector<HTMLElement>('.rich-step-content')?.dataset['lodariqContentAlign']).toBe(
-        'center',
-      ),
-    );
-    canvas.querySelector<HTMLButtonElement>('.rich-content-button-preview')?.click();
-    await vi.waitFor(() => {
-      expect(document.querySelector('[aria-label="Button label"]')).toBeInstanceOf(HTMLInputElement);
-      expect(document.querySelector('[aria-label="Popup layout settings"]')).toBeNull();
-    });
+    expect(document.querySelector('.storyboard-tool-dock')).toBeNull();
+    expect(document.querySelector('[aria-label="Popup layout settings"]')).toBeNull();
     document.querySelector<HTMLButtonElement>('[aria-label="Close settings"]')?.click();
     await vi.waitFor(() =>
       expect(document.querySelector('.storyboard-property-tray[data-tool-mode="content"]')).toBeNull(),
@@ -218,7 +169,10 @@ describe('unified popup content canvas', () => {
       expect(document.querySelector('.rich-content-toolbar')).not.toBeNull(),
     );
     expect(document.querySelector('[aria-label="Italic"]')).not.toBeNull();
-    expect(document.querySelector('[aria-label="Underline"]')).not.toBeNull();
+    document.querySelector<HTMLButtonElement>('[aria-label="More formatting"]')?.click();
+    await vi.waitFor(() =>
+      expect(document.querySelector('[aria-label="Underline"]')).not.toBeNull(),
+    );
     expect(document.querySelector('[aria-label="Font size"]')).toBeInstanceOf(HTMLButtonElement);
     expect(document.querySelector('select[aria-label="Font size"]')).toBeNull();
     expect(document.querySelector('[aria-label="Text color"]')).toBeInstanceOf(HTMLInputElement);
@@ -226,7 +180,7 @@ describe('unified popup content canvas', () => {
       HTMLInputElement,
     );
 
-    document.querySelector<HTMLButtonElement>('[aria-label="Icon"]')?.click();
+    document.querySelector<HTMLButtonElement>('[aria-label="Add content"]')?.click();
     await vi.waitFor(() =>
       expect(document.querySelector('[data-rich-content-floating-menu="true"]')).not.toBeNull(),
     );
@@ -237,6 +191,10 @@ describe('unified popup content canvas', () => {
       expect(document.querySelector('[data-rich-content-floating-menu="true"]')).toBeNull(),
     );
 
+    document.querySelector<HTMLButtonElement>('[aria-label="More formatting"]')?.click();
+    await vi.waitFor(() =>
+      expect(document.querySelector('[aria-label="Font size"]')).toBeInstanceOf(HTMLButtonElement),
+    );
     document.querySelector<HTMLButtonElement>('[aria-label="Font size"]')?.click();
     await vi.waitFor(() =>
       expect(document.querySelector('[data-rich-content-select-content="true"]')).not.toBeNull(),
@@ -253,6 +211,10 @@ describe('unified popup content canvas', () => {
       expect(canvas.querySelector('strong.rich-content-bold')?.textContent).toHaveLength(4),
     );
 
+    document.querySelector<HTMLButtonElement>('[aria-label="More formatting"]')?.click();
+    await vi.waitFor(() =>
+      expect(document.querySelector('[aria-label="Text color"]')).toBeInstanceOf(HTMLInputElement),
+    );
     const textColor = document.querySelector<HTMLInputElement>('[aria-label="Text color"]');
     if (!textColor) throw new Error('Text color control is missing');
     setNativeInputValue(textColor, '#112233');
@@ -263,7 +225,12 @@ describe('unified popup content canvas', () => {
     if (!selectionBackground) throw new Error('Selection background control is missing');
     setNativeInputValue(selectionBackground, '#ffeeaa');
     selectionBackground.dispatchEvent(new Event('input', { bubbles: true }));
-    document.querySelector<HTMLButtonElement>('[aria-label="Animation"]')?.click();
+    document.querySelector<HTMLButtonElement>('[aria-label="More formatting"]')?.click();
+    await vi.waitFor(() =>
+      expect(document.querySelector('[aria-label="Animation effect"]')).toBeInstanceOf(
+        HTMLButtonElement,
+      ),
+    );
     expect(document.querySelector('select[aria-label="Animation effect"]')).toBeNull();
     await chooseDesignedSelect('Animation effect', 'Rise in');
     await vi.waitFor(() => {
@@ -277,7 +244,7 @@ describe('unified popup content canvas', () => {
         new MouseEvent('pointermove', { bubbles: true, clientX: 0, clientY: 0 }),
       );
       await vi.waitFor(() =>
-        expect(document.querySelector('[aria-label="Add content"]')).not.toBeNull(),
+        expect(document.querySelector('[aria-label="Block options"]')).not.toBeNull(),
       );
     };
 
@@ -326,7 +293,9 @@ describe('unified popup content canvas', () => {
       expect(document.querySelector('.rich-content-block-settings-menu')).toBeNull(),
     );
 
-    document.querySelector<HTMLButtonElement>('[aria-label="Add content"]')?.click();
+    document
+      .querySelector<HTMLButtonElement>('.rich-content-block-handles [aria-label="Add content"]')
+      ?.click();
     await vi.waitFor(() =>
       expect(document.querySelector('.rich-content-insert-menu')).not.toBeNull(),
     );
@@ -376,7 +345,9 @@ describe('unified popup content canvas', () => {
     });
 
     await hoverFirstBlock();
-    document.querySelector<HTMLButtonElement>('[aria-label="Add content"]')?.click();
+    document
+      .querySelector<HTMLButtonElement>('.rich-content-block-handles [aria-label="Add content"]')
+      ?.click();
     await vi.waitFor(() =>
       expect(document.querySelector('.rich-content-insert-menu')).not.toBeNull(),
     );

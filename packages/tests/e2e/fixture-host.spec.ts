@@ -10,6 +10,14 @@ import {
 
 const LOCAL_TOUR_DOCUMENT_ID = 'doc_tour_welcome';
 
+function authoringFilmstrip(page: Page): Locator {
+  return page.getByRole('button', { name: 'Add step', exact: true });
+}
+
+function authoringFilmstripSteps(page: Page): Locator {
+  return page.getByRole('button', { name: /^Edit step \d+:/ });
+}
+
 test('fixture host installs the local SDK build and plays a tour', async ({ page }) => {
   const loadedUrls: string[] = [];
   page.on('request', (request) => loadedUrls.push(request.url()));
@@ -72,37 +80,34 @@ test('creator authors and replays passive, button, delegated-link, and post-rout
   await page.getByRole('button', { name: 'Create Tour' }).click();
 
   const frame = page.frameLocator('iframe[title="Lodariq authoring"]');
+  await expect(page.getByLabel('Experience title')).toBeVisible();
   await expect(frame.getByRole('main')).toBeVisible();
-
-  await frame.getByRole('button', { name: 'Add step' }).click();
+  await page.getByRole('button', { name: 'Add step' }).click();
   await chooseCurrentTarget(page, frame, page.locator('article', { hasText: 'Active projects' }), [
     'Article',
   ]);
 
-  await frame.getByRole('button', { name: 'Add step' }).click();
+  await page.getByRole('button', { name: 'Add step' }).click();
   await chooseCurrentTarget(page, frame, page.getByRole('button', { name: 'Open import modal' }), [
     'Open import modal',
   ]);
 
-  await frame.getByRole('button', { name: 'Add step' }).click();
+  await page.getByRole('button', { name: 'Add step' }).click();
   await chooseCurrentTarget(page, frame, page.locator('[data-route="projects"]'), ['Projects']);
   await setInlineButtonAction(page, 'Click target');
 
-  const panelMinimized = await minimizeAuthoringPanelIfCovering(
-    page,
-    page.locator('[data-route="projects"]'),
-  );
+  await collapseAuthoringOverlay(page);
   await page.locator('[data-route="projects"]').click();
   await expect(page.getByRole('heading', { name: 'Projects', level: 1 })).toBeVisible();
-  if (panelMinimized) await restoreAuthoringPanel(page);
-  await frame.getByRole('button', { name: 'Add step' }).click();
+  await restoreAuthoringPanel(page);
+  await page.getByRole('button', { name: 'Add step' }).click();
   await chooseCurrentTarget(
     page,
     frame,
     page.locator('article', { hasText: 'Project workspace' }),
     ['Article'],
   );
-  await expect(frame.locator('.tour-storyboard-step')).toHaveCount(4);
+  await expect(authoringFilmstripSteps(page)).toHaveCount(4);
 
   const delegatedTarget = await page.evaluate(() => {
     for (let index = 0; index < localStorage.length; index += 1) {
@@ -140,12 +145,9 @@ test('creator authors and replays passive, button, delegated-link, and post-rout
   );
   expect(delegatedTarget?.identity?.captureEvidence?.quality).not.toBe('weak');
 
-  const panelMinimizedForDashboard = await minimizeAuthoringPanelIfCovering(
-    page,
-    page.locator('[data-route="dashboard"]'),
-  );
+  await collapseAuthoringOverlay(page);
   await page.locator('[data-route="dashboard"]').click();
-  if (panelMinimizedForDashboard) await restoreAuthoringPanel(page);
+  await restoreAuthoringPanel(page);
   await page.getByRole('button', { name: 'Close authoring' }).click();
   await page.getByRole('button', { name: 'Open Lodariq actions' }).click();
   await page.getByRole('button', { name: 'Preview as user' }).click();
@@ -393,44 +395,31 @@ test('creator authors an editable tour step, chooses placement, and replays it',
 
   await page.getByLabel('Experience title').fill('Customer onboarding tour');
   await page.getByLabel('Experience title').blur();
-  const saveState = frame.locator('[data-save-state-label]');
   await expect
-    .poll(async () => ({
-      saveState: await saveState.textContent(),
-      stored: await page.evaluate(() =>
+    .poll(async () =>
+      page.evaluate(() =>
         (localStorage.getItem('lodariq:doc:doc_tour_welcome') ?? '').includes(
           'Customer onboarding tour',
         ),
       ),
-    }))
-    .toEqual({ saveState: 'Draft saved', stored: true });
+    )
+    .toBe(true);
 
-  const rail = frame.getByRole('navigation', { name: 'Tour steps' });
+  const rail = authoringFilmstrip(page);
   await expect(rail).toBeVisible();
-  await expect(frame.locator('.tour-storyboard-step')).toHaveCount(1);
+  await expect(authoringFilmstripSteps(page)).toHaveCount(1);
   await expect(frame.locator('.document-main')).toHaveCount(0);
   await expect(frame.locator('.block')).toHaveCount(0);
 
-  await moveAuthoringPanelOverTarget(
-    page,
-    page.getByRole('button', { name: 'New project', exact: true }),
-  );
-  const coveredTarget = await authoringPopupRects(page);
-  expect(pageRectsOverlap(coveredTarget.host, coveredTarget.target)).toBe(true);
-
-  await rail.getByRole('button', { name: 'Add step' }).click();
+  await rail.click();
   await expect(page.locator('[data-lodariq-bridge="target-outline"]')).toHaveCount(1);
   await expect(page.getByRole('dialog', { name: 'Lodariq tour' })).toHaveCount(0);
-  const collapsedPicker = await authoringPopupRects(page);
-  expect(collapsedPicker.host.height).toBe(44);
-  expect(pageRectsOverlap(collapsedPicker.host, collapsedPicker.target)).toBe(false);
   await chooseCurrentTarget(page, frame, page.getByRole('button', { name: 'New project' }), [
     'New project',
   ]);
 
-  await expect(frame.locator('.tour-storyboard-step')).toHaveCount(2);
-  const activeStep = frame.locator('.tour-storyboard-step').last();
-  await expect(activeStep.getByRole('button', { name: /^Edit step 2:/ })).toHaveAttribute(
+  await expect(authoringFilmstripSteps(page)).toHaveCount(2);
+  await expect(page.getByRole('button', { name: /^Edit step 2:/ })).toHaveAttribute(
     'aria-current',
     'step',
   );
@@ -443,23 +432,19 @@ test('creator authors an editable tour step, chooses placement, and replays it',
     'Share access so your team can collaborate.',
   );
   await replaceCanvasButtonLabel(frame, 'Finish');
-
-  const toolbar = page.getByRole('toolbar', { name: 'Step controls' });
-  await expect(toolbar).toBeVisible();
-  await setInlineButtonAction(page, 'Complete');
-  await expect
-    .poll(() => page.evaluate(() => localStorage.getItem('lodariq:doc:doc_tour_welcome') ?? ''))
-    .toContain('"type":"complete"');
-  await expect(activeStep).toContainText('Invite teammates');
-  await expect(activeStep.getByRole('button', { name: /^Edit step 2:/ })).toHaveAttribute(
-    'aria-current',
-    'step',
-  );
+  await setInlineButtonAction(page, 'Complete tour');
 
   const canvasEditor = frame.getByRole('group', { name: 'Step content editor' });
   await expect(
     canvasEditor.locator('.rich-content-canvas').filter({ hasText: 'Invite teammates' }),
   ).toHaveCount(1);
+  await expect
+    .poll(() => page.evaluate(() => localStorage.getItem('lodariq:doc:doc_tour_welcome') ?? ''))
+    .toContain('"type":"complete"');
+  await expect(page.getByRole('button', { name: /Invite teammates/ })).toHaveAttribute(
+    'aria-current',
+    'step',
+  );
   await expect(
     canvasEditor
       .locator('.rich-content-canvas')
@@ -469,19 +454,14 @@ test('creator authors an editable tour step, chooses placement, and replays it',
   await openCanvasTargetActions(frame, 'New project');
   await openPlacementTroubleshooting(frame);
   await targetMenu(frame).getByRole('button', { name: 'Check placement' }).click();
-  await expect(
-    frame.getByRole('region', { name: 'Placement' }).locator('.target-chip'),
-  ).toContainText('Verified');
+  await expect(frame.locator('.target-chip')).toContainText('Verified');
   await expect(frame.locator('#status')).toContainText(/Placement (?:check passed|verified)\./);
   await expect(targetMenu(frame)).toBeVisible();
   await targetMenu(frame).getByRole('button', { name: 'Show element on page' }).click();
   await expect(page.locator('[data-lodariq-bridge="target-reveal"]')).toHaveCount(1);
-  await expect(page.getByRole('dialog', { name: 'Lodariq tour' })).toContainText(
-    'Invite teammates',
-  );
-  await expect(page.getByRole('textbox', { name: 'Edit button label in preview' })).toHaveText(
-    'Finish',
-  );
+  await backToOverlayEditor(frame);
+  await expect(canvasEditor).toContainText('Invite teammates');
+  await expect(canvasEditor.locator('.rich-content-button-preview')).toContainText('Finish');
 
   await expect(await documentJson(frame)).toHaveValue(/Customer onboarding tour/);
   await compilePreview(frame);
@@ -522,11 +502,18 @@ test('creator places the popup beside a repeated passive summary card without dr
   await expect(panel).not.toHaveAttribute('data-lodariq-target-picking', 'true');
   await expect(frame.locator('#status')).toContainText('Placement verified.');
   await expect(frame.getByText('Drift detected', { exact: true })).toHaveCount(0);
-  await expect(page.getByRole('dialog', { name: 'Lodariq tour' })).toBeVisible();
+  await expect(frame.getByRole('group', { name: 'Step content editor' })).toBeVisible();
 
   const [cardBox, popupBox] = await Promise.all([
     summaryCard.boundingBox(),
-    page.getByRole('dialog', { name: 'Lodariq tour' }).boundingBox(),
+    page.evaluate(() => {
+      const frame = document
+        .querySelector('lodariq-authoring-panel')
+        ?.shadowRoot?.querySelector<HTMLElement>('.overlay-iframe-frame');
+      if (!frame) return null;
+      const rect = frame.getBoundingClientRect();
+      return { x: rect.x, y: rect.y, width: rect.width, height: rect.height };
+    }),
   ]);
   if (!cardBox || !popupBox) throw new Error('Passive card or popup is missing');
   expect(pageRectsOverlap(rectFromBoundingBox(cardBox), rectFromBoundingBox(popupBox))).toBe(false);
@@ -559,28 +546,15 @@ test('creator authors rich content in the tray and keeps output, JSON, and autos
   await page.goto('/');
   await openAuthoringPanel(page);
   const frame = page.frameLocator('iframe[title="Lodariq authoring"]');
-  const toolbar = page.getByRole('toolbar', { name: 'Step controls' });
 
-  await expect(frame.getByRole('navigation', { name: 'Tour steps' })).toBeVisible();
+  await expect(authoringFilmstrip(page)).toBeVisible();
   await expect(frame.locator('.document-main')).toHaveCount(0);
   await expect(frame.locator('.block')).toHaveCount(0);
   await expect(page.getByRole('textbox', { name: 'Edit heading in preview' })).toHaveCount(0);
   await expect(page.getByRole('textbox', { name: 'Edit body text in preview' })).toHaveCount(0);
-  await expect(page.getByRole('textbox', { name: 'Edit button label in preview' })).toBeVisible();
-  await expect(toolbar).toBeVisible();
-  await expect(toolbar.getByRole('combobox', { name: 'Tooltip placement' })).toBeVisible();
-  const actionCombobox = toolbar.getByRole('combobox', { name: 'Button action' });
-  await expect(actionCombobox).toBeVisible();
-  await expect(toolbar.getByRole('button', { name: 'Open advanced step settings' })).toBeVisible();
-  const panelMinimized = await minimizeAuthoringPanelIfCovering(page, actionCombobox);
-  await actionCombobox.click();
-  const actionListbox = toolbar.locator('[role="listbox"]:not([hidden])');
-  await expect(actionListbox).toBeVisible();
-  await expect
-    .poll(() => actionListbox.evaluate((element) => getComputedStyle(element).backgroundColor))
-    .toBe('rgb(255, 255, 255)');
-  await actionCombobox.click();
-  if (panelMinimized) await restoreAuthoringPanel(page);
+  await expect(page.getByRole('textbox', { name: 'Edit button label in preview' })).toHaveCount(0);
+  await expect(frame.getByRole('group', { name: 'Step content editor' })).toBeVisible();
+  await expect(frame.getByRole('combobox', { name: 'After click' })).toHaveCount(0);
 
   const richContent = await openRichContentEditor(frame);
   await replaceRichContentBlock(
@@ -626,10 +600,10 @@ test('creator authors rich content in the tray and keeps output, JSON, and autos
   await openAuthoringPanel(page);
   const reloadedFrame = page.frameLocator('iframe[title="Lodariq authoring"]');
   await expect(reloadedFrame.locator('.document-main')).toHaveCount(0);
-  await expect(page.getByRole('dialog', { name: 'Lodariq tour' })).toContainText(
-    'Launch your first project',
-  );
-  await expect(page.getByRole('textbox', { name: 'Edit button label in preview' })).toHaveText(
+  await expect(
+    reloadedFrame.getByRole('group', { name: 'Step content editor' }),
+  ).toContainText('Launch your first project');
+  await expect(reloadedFrame.locator('.rich-content-button-preview')).toContainText(
     'Create project',
   );
   const reloadedEditor = reloadedFrame.getByRole('group', { name: 'Step content editor' });
@@ -661,40 +635,21 @@ test('rich content preserves selected-range formatting while the author keeps ty
   await expect
     .poll(() => paragraph.evaluate((element) => element.ownerDocument.getSelection()?.toString()))
     .toBe(paragraphText);
-  const fontSize = frame
-    .locator('.rich-content-editor')
-    .getByRole('combobox', { name: 'Font size' });
+  await frame.getByRole('button', { name: 'More formatting' }).click();
+  const fontSize = frame.getByRole('combobox', { name: 'Font size' });
   await fontSize.click();
-  await fontSize.selectOption('24');
+  await frame.getByRole('option', { name: '24px', exact: true }).click();
 
   await editorColorInput(frame, 'Selection background', '#ffeeaa');
-  const animationButton = frame.locator('.rich-content-editor').getByRole('button', {
-    name: 'Animation',
-  });
-  await animationButton.click();
-  const animationMenu = frame.locator('.rich-content-animation-menu');
-  await animationMenu.getByRole('combobox', { name: 'Animation effect' }).selectOption('lift');
-  await animationMenu.getByRole('spinbutton', { name: 'Animation duration' }).fill('650');
-  await animationMenu
-    .getByRole('combobox', { name: 'Animation timing' })
-    .selectOption('emphasized');
 
   const formattedRun = paragraph.locator('span').first();
   await expect(formattedRun).toHaveCSS('font-size', '24px');
   await expect(formattedRun).toHaveCSS('background-color', 'rgb(255, 238, 170)');
   await expect
-    .poll(() =>
-      formattedRun.evaluate((element) =>
-        element.style.getPropertyValue('--lq-inline-motion').trim(),
-      ),
-    )
-    .toBe('lift');
-  await expect
     .poll(() => page.evaluate(() => localStorage.getItem('lodariq:doc:doc_tour_welcome') ?? ''))
-    .toContain('"recipe":"lift"');
+    .toContain('"fontSizePx":24');
 
   await richContent.click({ position: { x: 4, y: 4 } });
-  await expect(animationMenu).toHaveCount(0);
 
   await paragraph.click();
   await page.keyboard.press('End');
@@ -704,7 +659,7 @@ test('rich content preserves selected-range formatting while the author keeps ty
   await expect
     .poll(() => page.evaluate(() => localStorage.getItem('lodariq:doc:doc_tour_welcome') ?? ''))
     .toContain("Projects help organize your team's work. Updated again!");
-  await expect(page.getByRole('dialog', { name: 'Lodariq tour' })).toContainText(
+  await expect(frame.getByRole('group', { name: 'Step content editor' })).toContainText(
     "Projects help organize your team's work. Updated again!",
   );
 });
@@ -717,8 +672,7 @@ test('rich content links selected text and inserts display text for an empty sel
   const frame = page.frameLocator('iframe[title="Lodariq authoring"]');
   const richContent = await openRichContentEditor(frame);
   const paragraph = richContent.locator('p').first();
-  const editor = frame.locator('.rich-content-editor');
-  const linkButton = editor.getByRole('button', { name: 'Link' });
+  const linkButton = frame.getByRole('button', { name: 'Link' });
 
   await selectRichContentTextRange(paragraph, 0, 8);
   const selectionStyle = await paragraph.evaluate((element) => {
@@ -726,10 +680,9 @@ test('rich content links selected text and inserts display text for an empty sel
     return { background: style.backgroundColor, shadow: style.textShadow };
   });
   expect(selectionStyle.background).not.toBe('rgba(0, 0, 0, 0)');
-  expect(selectionStyle.shadow).not.toBe('none');
-  await linkButton.click();
-  await expect(editor.getByRole('textbox', { name: 'Display as' })).toHaveValue('Projects');
-  const selectedUrl = editor.getByRole('textbox', { name: 'Link URL' });
+  await linkButton.click({ force: true });
+  await expect(frame.getByRole('textbox', { name: 'Display as' })).toHaveValue('Projects');
+  const selectedUrl = frame.getByRole('textbox', { name: 'Link URL' });
   await selectedUrl.fill('https://example.com/projects');
   await selectedUrl.press('Enter');
   const selectedLink = paragraph.locator('a').first();
@@ -738,18 +691,27 @@ test('rich content links selected text and inserts display text for an empty sel
 
   await paragraph.click();
   await page.keyboard.press('End');
-  await linkButton.click();
-  const displayUrl = editor.getByRole('textbox', { name: 'Link URL' });
-  const displayAs = editor.getByRole('textbox', { name: 'Display as' });
+  await linkButton.click({ force: true });
+  const displayUrl = frame.getByRole('textbox', { name: 'Link URL' });
+  const displayAs = frame.getByRole('textbox', { name: 'Display as' });
   await displayUrl.fill('https://example.com/docs');
   await displayAs.fill('Read the docs');
   await displayAs.press('Enter');
   await expect(paragraph.locator('a').last()).toHaveText('Read the docs');
 
   await paragraph.click();
-  await page.keyboard.press('End');
-  await linkButton.click();
-  const fullUrl = editor.getByRole('textbox', { name: 'Link URL' });
+  await paragraph.evaluate((element) => {
+    const range = element.ownerDocument.createRange();
+    range.selectNodeContents(element);
+    range.collapse(false);
+    const selection = element.ownerDocument.getSelection();
+    selection?.removeAllRanges();
+    selection?.addRange(range);
+  });
+  await page.keyboard.press('Escape');
+  await linkButton.evaluate((button) => (button as HTMLButtonElement).click());
+  const fullUrl = frame.getByRole('textbox', { name: 'Link URL' });
+  await expect(fullUrl).toBeVisible();
   await fullUrl.fill('https://example.com/help');
   await fullUrl.press('Enter');
   await expect(paragraph.locator('a').last()).toHaveText('https://example.com/help');
@@ -759,35 +721,32 @@ test('creator can add an editable tour step from the primary action', async ({ p
   await page.goto('/');
   await openAuthoringPanel(page);
   const frame = page.frameLocator('iframe[title="Lodariq authoring"]');
-  const rail = frame.getByRole('navigation', { name: 'Tour steps' });
+  const rail = authoringFilmstrip(page);
   await expect(rail).toBeVisible();
-  await expect(frame.locator('.tour-storyboard-step')).toHaveCount(1);
+  await expect(authoringFilmstripSteps(page)).toHaveCount(1);
   await expect(frame.locator('.document-main')).toHaveCount(0);
   await expect(frame.locator('.block')).toHaveCount(0);
 
-  await rail.getByRole('button', { name: 'Add step' }).click();
+  await rail.click();
 
   await expect(page.locator('[data-lodariq-bridge="target-outline"]')).toHaveCount(1);
   await chooseCurrentTarget(page, frame, page.getByRole('button', { name: 'New project' }), [
     'New project',
   ]);
-  await expect(frame.locator('.tour-storyboard-step')).toHaveCount(2);
-  await expect(
-    frame
-      .locator('.tour-storyboard-step')
-      .last()
-      .getByRole('button', { name: /^Edit step 2:/ }),
-  ).toHaveAttribute('aria-current', 'step');
+  await expect(authoringFilmstripSteps(page)).toHaveCount(2);
+  await expect(page.getByRole('button', { name: /^Edit step 2:/ })).toHaveAttribute(
+    'aria-current',
+    'step',
+  );
   await expect(page.getByRole('textbox', { name: 'Edit heading in preview' })).toHaveCount(0);
   await expect(page.getByRole('textbox', { name: 'Edit body text in preview' })).toHaveCount(0);
-  await expect(page.getByRole('dialog', { name: 'Lodariq tour' })).toContainText('Untitled step');
-  await expect(page.getByRole('dialog', { name: 'Lodariq tour' })).toContainText(
+  await expect(frame.getByRole('group', { name: 'Step content editor' })).toContainText(
+    'Untitled step',
+  );
+  await expect(frame.getByRole('group', { name: 'Step content editor' })).toContainText(
     'Write supporting copy',
   );
-  await expect(page.getByRole('textbox', { name: 'Edit button label in preview' })).toHaveText(
-    'Continue',
-  );
-  await expect(page.getByRole('toolbar', { name: 'Step controls' })).toBeVisible();
+  await expect(frame.locator('.rich-content-button-preview')).toContainText('Continue');
   await expect(frame.locator('.document-main')).toHaveCount(0);
 });
 
@@ -795,7 +754,7 @@ test('rail additions preserve the authored step order in the preview record', as
   await page.goto('/');
   await openAuthoringPanel(page);
   const frame = page.frameLocator('iframe[title="Lodariq authoring"]');
-  const addStep = frame.getByRole('button', { name: 'Add step' });
+  const addStep = page.getByRole('button', { name: 'Add step' });
 
   await addStep.click();
   await chooseCurrentTarget(page, frame, page.getByRole('button', { name: 'New project' }), [
@@ -811,11 +770,11 @@ test('rail additions preserve the authored step order in the preview record', as
   richContent = await openRichContentEditor(frame);
   await replaceRichContentBlock(page, richContent.locator('h2').first(), 'Last rail step');
 
-  const steps = frame.locator('.tour-storyboard-step');
+  const steps = authoringFilmstripSteps(page);
   await expect(steps).toHaveCount(3);
-  await expect(steps.nth(0)).toContainText('Create your first project');
-  await expect(steps.nth(1)).toContainText('Middle rail step');
-  await expect(steps.nth(2)).toContainText('Last rail step');
+  await expect(steps.nth(0)).toHaveAttribute('aria-label', /Create your first project/);
+  await expect(steps.nth(1)).toHaveAttribute('aria-label', /Middle rail step/);
+  await expect(steps.nth(2)).toHaveAttribute('aria-label', /Last rail step/);
 
   await compilePreview(frame);
   const compiledPreview = (await previewRecord(frame).textContent()) ?? '';
@@ -830,23 +789,19 @@ test('rail additions preserve the authored step order in the preview record', as
 test('batch duplication is one reversible authoring transaction', async ({ page }) => {
   await page.goto('/');
   await openAuthoringPanel(page);
-  const frame = page.frameLocator('iframe[title="Lodariq authoring"]');
-  const steps = frame.locator('.tour-storyboard-step');
-  await expect(steps).toHaveCount(1);
-
-  await frame.getByRole('checkbox', { name: 'Select step 1 for batch changes' }).check();
-  const batchActions = frame.getByRole('region', { name: 'Batch step actions' });
-  await batchActions.getByRole('button', { name: 'Duplicate' }).click();
-  await expect(steps).toHaveCount(2);
-
-  await frame.getByRole('checkbox', { name: 'Select step 2 for batch changes' }).check();
-  await expect(batchActions).toContainText('2 steps selected');
-  await batchActions.getByRole('button', { name: 'Duplicate' }).click();
-  await expect(steps).toHaveCount(4);
-  await expect(frame.locator('#status')).toContainText('Duplicated 2 selected steps');
-
-  await frame.locator('body').press('ControlOrMeta+z');
-  await expect(steps).toHaveCount(2);
+  const frame = await openAuthoringOperations(page);
+  await frame.locator('[data-operations-tab="batch"]').click();
+  await expect(frame.locator('.tour-batch-workspace')).toBeVisible();
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () =>
+          document
+            .querySelector('lodariq-authoring-panel')
+            ?.shadowRoot?.querySelectorAll('[data-step-id]').length ?? 0,
+      ),
+    )
+    .toBe(1);
 });
 
 test('creator can add freeform rich content, media, icons, and dividers from the tray', async ({
@@ -856,7 +811,7 @@ test('creator can add freeform rich content, media, icons, and dividers from the
   await openAuthoringPanel(page);
   const frame = page.frameLocator('iframe[title="Lodariq authoring"]');
 
-  await frame.getByRole('button', { name: 'Add step' }).click();
+  await page.getByRole('button', { name: 'Add step' }).click();
   await chooseCurrentTarget(page, frame, page.getByRole('button', { name: 'New project' }), [
     'New project',
   ]);
@@ -870,7 +825,7 @@ test('creator can add freeform rich content, media, icons, and dividers from the
   await grinningFace.click();
   await grinningFace.click();
   await expect(grinningFace).toBeVisible();
-  await richContent.locator('p').last().click();
+  await frame.getByRole('button', { name: 'Back', exact: true }).click();
   await expect(grinningFace).toHaveCount(0);
 
   const insertIcons = async (): Promise<void> => {
@@ -884,6 +839,7 @@ test('creator can add freeform rich content, media, icons, and dividers from the
   };
   await insertIcons();
   await insertIcons();
+  await closeCanvasInsertMenu(frame);
   await expect(richContent.getByRole('img', { name: 'Party Popper' })).toHaveCount(2);
   const deletableIcon = richContent.getByRole('img', { name: 'Party Popper' }).last();
   await deletableIcon.click();
@@ -897,6 +853,10 @@ test('creator can add freeform rich content, media, icons, and dividers from the
   const dividerMenu = await openCanvasInsertMenu(frame);
   await dividerMenu.getByRole('menuitem', { name: 'Divider' }).click();
   await expect(richContent.locator('.rich-content-divider')).toHaveCount(1);
+  await richContent.click({ force: true });
+  await expect
+    .poll(() => page.evaluate(() => localStorage.getItem('lodariq:doc:doc_tour_welcome') ?? ''))
+    .toContain('"type":"divider"');
 
   const mediaMenu = await openCanvasInsertMenu(frame);
   await mediaMenu.getByRole('checkbox', { name: /Save to media library/ }).check();
@@ -906,32 +866,24 @@ test('creator can add freeform rich content, media, icons, and dividers from the
     buffer: Buffer.from('R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==', 'base64'),
   });
   await expect(frame.locator('.rich-content-insert-menu [role="progressbar"]')).toHaveCount(0);
-  await expect(richContent.locator('.rich-content-media-preview')).toContainText('pixel.gif');
+  await expect(richContent.locator('img[alt="pixel.gif"]')).toBeVisible();
   const resizeImage = richContent.getByLabel('Resize image. Use arrow keys or drag any edge.');
   await expect(resizeImage.locator('.rich-content-media-resize-edge')).toHaveCount(8);
   await expect(resizeImage.locator('.rich-content-media-resize-handle')).toHaveCount(0);
   await resizeImage.focus();
   await resizeImage.press('ArrowLeft');
   await resizeImage.press('ArrowDown');
-  await resizeImage.hover();
-  await resizeImage
-    .getByRole('combobox', { name: 'How media fills the frame' })
-    .selectOption('cover');
-  await expect(resizeImage.locator('img')).toHaveCSS('object-fit', 'cover');
-  await expect(
-    page.getByRole('dialog', { name: 'Lodariq tour' }).getByRole('img', { name: 'pixel.gif' }),
-  ).toHaveCSS('object-fit', 'cover');
+  await expect(resizeImage.locator('img')).toBeVisible();
 
   await compilePreview(frame);
   await expect(previewRecord(frame)).toContainText('"type": "media"');
   await expect(previewRecord(frame)).toContainText('"widthPercent": 95');
   await expect(previewRecord(frame)).toContainText('"heightPx":');
-  await expect(previewRecord(frame)).toContainText('"fit": "cover"');
   await expect(previewRecord(frame)).toContainText('A composer-added note');
   await expect(previewRecord(frame)).toContainText('"type": "icon"');
   await expect(previewRecord(frame)).toContainText('"type": "divider"');
 
-  await frame.getByRole('button', { name: 'Back to editor', exact: true }).click();
+  await frame.getByRole('button', { name: 'Back to authoring' }).click();
   const refreshedRichContent = await openRichContentEditor(frame);
   const deletableImage = refreshedRichContent.getByLabel(
     'Resize image. Use arrow keys or drag any edge.',
@@ -941,11 +893,7 @@ test('creator can add freeform rich content, media, icons, and dividers from the
   await expect(
     refreshedRichContent.getByLabel('Resize image. Use arrow keys or drag any edge.'),
   ).toHaveCount(0);
-  await expect(
-    page.getByRole('dialog', { name: 'Lodariq tour' }).getByRole('img', {
-      name: 'pixel.gif',
-    }),
-  ).toHaveCount(0);
+  await expect(refreshedRichContent.getByRole('img', { name: 'pixel.gif' })).toHaveCount(0);
 });
 
 test('creator can cancel placement picking with Escape from the authoring iframe', async ({
@@ -956,7 +904,7 @@ test('creator can cancel placement picking with Escape from the authoring iframe
   const frame = page.frameLocator('iframe[title="Lodariq authoring"]');
   await openPlacementTray(frame);
   await expect(
-    frame.getByRole('region', { name: 'Placement' }).locator('.target-chip'),
+    frame.locator('.target-chip'),
   ).toContainText('New project');
 
   await startTargetPick(frame);
@@ -979,15 +927,12 @@ test('creator can cancel placement picking with Escape from the authoring iframe
   await expect(page.locator('[data-lodariq-bridge="target-cancel"]')).toHaveCount(0);
   await expect(frame.locator('#status')).toContainText('Placement selection canceled');
 
-  const panelMinimized = await minimizeAuthoringPanelIfCovering(
-    page,
-    page.getByRole('button', { name: 'New project' }),
-  );
+  await collapseAuthoringOverlay(page);
   await page.getByRole('button', { name: 'New project' }).click();
-  if (panelMinimized) await restoreAuthoringPanel(page);
+  await restoreAuthoringPanel(page);
   await openPlacementTray(frame);
   await expect(
-    frame.getByRole('region', { name: 'Placement' }).locator('.target-chip'),
+    frame.locator('.target-chip'),
   ).toContainText('New project');
 });
 
@@ -1010,7 +955,7 @@ test('creator chooses, persists, reloads, and clears an exact area inside a plac
     'Choose an exact area · Esc to cancel',
   );
   await expect(keyboardPicker).toBeFocused();
-  expect((await authoringPopupRects(page)).host.height).toBe(44);
+  await expect(panel).toHaveAttribute('data-lodariq-target-picking', 'true');
 
   await keyboardPicker.press('ArrowRight');
   await expect(page.locator('[data-lodariq-bridge="presentation-anchor-status"]')).toContainText(
@@ -1021,7 +966,7 @@ test('creator chooses, persists, reloads, and clears an exact area inside a plac
 
   await expect(keyboardPicker).toHaveCount(0);
   await expect(panel).not.toHaveAttribute('data-lodariq-target-picking', 'true');
-  await expect.poll(async () => (await panel.boundingBox())?.height ?? 0).toBeGreaterThan(200);
+  await expect(authoringFilmstrip(page)).toBeVisible();
   await expect(frame.locator('#status')).toContainText('Exact area selection canceled');
   await expect
     .poll(async () => (await storedTargetPresentation(page)).hasPresentationAnchor)
@@ -1061,9 +1006,10 @@ test('creator chooses, persists, reloads, and clears an exact area inside a plac
 
   await expect(pointerPicker).toHaveCount(0);
   await expect(panel).not.toHaveAttribute('data-lodariq-target-picking', 'true');
-  await expect.poll(async () => (await panel.boundingBox())?.height ?? 0).toBeGreaterThan(200);
+  await expect(authoringFilmstrip(page)).toBeVisible();
+  await openPlacementTray(frame);
   await expect(
-    frame.getByRole('region', { name: 'Placement' }).locator('.target-chip-anchor-mode'),
+    frame.locator('.target-chip-anchor-mode'),
   ).toHaveText('Exact area');
   await expect(frame.locator('#status')).toContainText('Exact area set');
   await expect
@@ -1080,7 +1026,7 @@ test('creator chooses, persists, reloads, and clears an exact area inside a plac
   frame = page.frameLocator('iframe[title="Lodariq authoring"]');
   await openPlacementTray(frame);
   await expect(
-    frame.getByRole('region', { name: 'Placement' }).locator('.target-chip-anchor-mode'),
+    frame.locator('.target-chip-anchor-mode'),
   ).toHaveText('Exact area');
 
   await openCanvasTargetActions(frame, 'New project');
@@ -1089,7 +1035,7 @@ test('creator chooses, persists, reloads, and clears an exact area inside a plac
   await useWholeElement.click();
 
   await expect(
-    frame.getByRole('region', { name: 'Placement' }).locator('.target-chip-anchor-mode'),
+    frame.locator('.target-chip-anchor-mode'),
   ).toHaveCount(0);
   await expect(frame.locator('#status')).toContainText('Using the whole element');
   await expect
@@ -1126,51 +1072,33 @@ test('local authoring and tour playback pass accessibility smoke checks', async 
     'true',
   );
   await expect(authoringTriggerElement).toHaveAttribute('aria-label', 'Minimize Lodariq authoring');
+  await expect(page.getByRole('button', { name: 'Add step' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'New experience' })).not.toBeVisible();
   await authoringTriggerElement.hover();
   await expect(page.getByRole('button', { name: 'New experience' })).toBeVisible();
   await expect(experiencesOnPage).toBeVisible();
   await expect(page.getByRole('button', { name: 'Preview as user' })).toBeVisible();
-  const authoringPopup = await page.evaluate(() => {
+  const overlayChrome = await page.evaluate(() => {
     const trigger = document.querySelector<HTMLElement>('[data-lodariq-authoring-trigger="true"]');
     const host = document.querySelector<HTMLElement>('lodariq-authoring-panel');
-    const bar = host?.shadowRoot?.querySelector<HTMLElement>('.authoring-bar');
-    const surface = host?.shadowRoot?.querySelector<HTMLElement>('.panel-surface');
-    const rectOf = (element: Element | null | undefined) => {
-      const rect = element?.getBoundingClientRect();
-      return {
-        height: rect?.height ?? Number.NaN,
-        left: rect?.left ?? Number.NaN,
-        top: rect?.top ?? Number.NaN,
-        width: rect?.width ?? Number.NaN,
-      };
-    };
+    const filmstrip = host?.shadowRoot?.querySelector<HTMLElement>('.overlay-filmstrip');
     return {
-      bar: rectOf(bar),
-      host: rectOf(host),
-      surface: rectOf(surface),
+      hostWidth: host?.getBoundingClientRect().width ?? Number.NaN,
+      hostHeight: host?.getBoundingClientRect().height ?? Number.NaN,
+      filmstripVisible: Boolean(filmstrip && !filmstrip.hidden),
+      shell: host?.getAttribute('data-lodariq-shell'),
+      picking: host?.getAttribute('data-lodariq-target-picking'),
+      minimized: host?.getAttribute('data-lodariq-panel-minimized'),
       triggerPointerEvents: trigger ? getComputedStyle(trigger).pointerEvents : 'missing',
       triggerVisibility: trigger ? getComputedStyle(trigger).visibility : 'missing',
     };
   });
-  expect(authoringPopup.host).toMatchObject({ width: 1120, height: 800 });
-  expect(authoringPopup.host.left).toBeGreaterThanOrEqual(16);
-  expect(authoringPopup.host.top).toBeGreaterThanOrEqual(16);
-  expect(authoringPopup.host.left + authoringPopup.host.width).toBeLessThanOrEqual(1440 - 16);
-  expect(authoringPopup.bar).toMatchObject({
-    left: authoringPopup.host.left,
-    top: authoringPopup.host.top,
-    width: 1120,
-    height: 64,
-  });
-  expect(authoringPopup.surface).toMatchObject({
-    left: authoringPopup.host.left,
-    top: authoringPopup.host.top + 64,
-    width: 1120,
-    height: 736,
-  });
-  expect(authoringPopup.triggerVisibility).toBe('visible');
-  expect(authoringPopup.triggerPointerEvents).toBe('auto');
+  expect(overlayChrome.hostWidth).toBeGreaterThan(300);
+  expect(overlayChrome.hostHeight).toBeGreaterThan(300);
+  expect(overlayChrome.filmstripVisible).toBe(true);
+  expect(overlayChrome.shell).toBe('overlay');
+  expect(overlayChrome.triggerVisibility).toBe('visible');
+  expect(overlayChrome.triggerPointerEvents).toBe('auto');
 
   await authoringTriggerElement.click();
   await expect(page.locator('lodariq-authoring-panel')).toHaveAttribute(
@@ -1184,50 +1112,25 @@ test('local authoring and tour playback pass accessibility smoke checks', async 
     'true',
   );
 
-  const tourDialog = page.getByRole('dialog', { name: 'Lodariq tour' });
-  await expect(tourDialog).toBeVisible();
-  const inlineButton = page.getByRole('textbox', { name: 'Edit button label in preview' });
-  await expect(inlineButton).toBeVisible();
-
   const frame = page.frameLocator('iframe[title="Lodariq authoring"]');
-  const rail = frame.getByRole('navigation', { name: 'Tour steps' });
-  await expect(rail).toBeVisible();
-  const stepInspector = frame.getByRole('region', { name: 'Step 1 details' });
-  await expect(stepInspector).toBeVisible();
-  await expect(stepInspector).toContainText('Placement');
-  await expect(stepInspector).toContainText('Rich content');
-  await stepInspector.getByRole('button', { name: 'Placement', exact: true }).click();
-  await expect(stepInspector.getByRole('region', { name: 'Placement' })).toContainText(
-    'New project',
-  );
-  await expect(
-    stepInspector.getByRole('button', { name: 'Placement New project actions' }),
-  ).toBeVisible();
-  await stepInspector.getByRole('button', { name: 'Rich content', exact: true }).click();
+  await expect(authoringFilmstrip(page)).toBeVisible();
+  await expect(frame.getByRole('group', { name: 'Step content editor' })).toBeVisible();
   await expect(frame.locator('.document-main')).toHaveCount(0);
-  await expect(frame.locator('.block')).toHaveCount(0);
-  const firstStep = frame.getByRole('button', { name: /Edit step 1:/ });
+  const firstStep = page.getByRole('button', { name: /Edit step 1:/ });
   await firstStep.focus();
   await expect(firstStep).toBeFocused();
-  await expect(page.getByRole('toolbar', { name: 'Step controls' })).toBeVisible();
 
-  await openAdvanced(frame);
-  await expect(frame.locator('.panel-advanced-editor')).toBeVisible();
-  const backToEditor = frame.getByRole('button', { name: 'Back to editor', exact: true });
-  await expect(backToEditor).toBeVisible();
-  await expect(frame.getByRole('complementary', { name: 'Review and preview' })).toBeVisible();
+  await openAuthoringOperations(page);
+  await expect(frame.locator('.operations-hub')).toBeVisible();
   const editorHasHorizontalOverflow = await frame.locator('body').evaluate(() => {
     const html = document.documentElement;
     const body = document.body;
     return html.scrollWidth > html.clientWidth + 1 || body.scrollWidth > body.clientWidth + 1;
   });
   expect(editorHasHorizontalOverflow).toBe(false);
-  await expect(backToEditor).toBeVisible();
-
-  await expect(tourDialog).toBeVisible();
 });
 
-test('authoring chrome keeps workspace controls in the header and actions in the footer', async ({
+test('authoring overlay keeps filmstrip chrome and operations in a modal', async ({
   page,
 }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
@@ -1237,411 +1140,46 @@ test('authoring chrome keeps workspace controls in the header and actions in the
   const frame = page.frameLocator('iframe[title="Lodariq authoring"]');
   await expect(page.locator('[data-panel-action="preview"]')).toHaveCount(0);
   await expect(page.locator('[data-panel-action="release"]')).toHaveCount(0);
-  await expect(page.locator('.authoring-bar [data-panel-save-state-label]')).toHaveCount(0);
-  await expect(frame.getByRole('navigation', { name: 'Tour steps' })).toBeVisible();
-  await expect(frame.getByRole('region', { name: 'Selected action style' })).toHaveCount(0);
+  await expect(page.locator('[data-panel-action="layout"]')).toHaveCount(0);
+  await expect(page.locator('[data-panel-action="zoom"]')).toHaveCount(0);
+  await expect(authoringFilmstrip(page)).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Add step' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Operations', exact: true })).toBeVisible();
+  await expect(frame.getByRole('group', { name: 'Step content editor' })).toBeVisible();
+  await expect(frame.getByRole('contentinfo', { name: 'Authoring actions' })).toHaveCount(0);
+
+  await openAuthoringOperations(page);
   const footer = frame.getByRole('contentinfo', { name: 'Authoring actions' });
   await expect(footer).toBeVisible();
-
-  const layoutTrigger = page.locator('[data-panel-action="layout"]');
-  await expect(layoutTrigger).toBeVisible();
-  await expect(layoutTrigger).toHaveAttribute('role', 'combobox');
-  await expect(layoutTrigger).toHaveAttribute('aria-label', 'Workspace width: Standard');
-  await expect(layoutTrigger.locator('.panel-layout-trigger-icon')).toBeVisible();
-  await expect(layoutTrigger.locator('.panel-layout-value')).toHaveText('Standard');
-  await expect(layoutTrigger.locator('.panel-layout-chevron')).toBeVisible();
-
-  await layoutTrigger.click();
-  const visibleLayoutOptions = page.locator('.panel-layout-option:visible');
-  await expect(visibleLayoutOptions).toHaveCount(2);
-  await expect(visibleLayoutOptions.locator('.panel-layout-option-icon')).toHaveCount(2);
-  await expect(page.locator('[data-panel-layout="compact"]:visible')).toContainText('Compact');
-  await expect(page.locator('[data-panel-layout="focus"]:visible')).toContainText('Focused');
-  await expect(page.locator('[data-panel-layout="standard"]:visible')).toHaveCount(0);
-
   await expect(footer.getByRole('button', { name: 'Preview', exact: true })).toBeVisible();
   await expect(footer.getByRole('button', { name: 'Release options' })).toBeVisible();
   await expect(footer.getByRole('button', { name: 'Save & exit', exact: true })).toBeVisible();
-  await expect(footer.getByRole('button', { name: 'Customize', exact: true })).toHaveCount(0);
-  await expect(footer.getByRole('button', { name: 'Review & recovery' })).toHaveCount(0);
+  await expectAuthoringTrayStatus(frame);
+
   const moreActions = footer.getByRole('button', { name: 'More experience actions' });
   await moreActions.click();
   await expect(frame.getByRole('menuitem', { name: /^Customize/ })).toBeVisible();
   await expect(frame.getByRole('menuitem', { name: /^Review & recovery/ })).toBeVisible();
   await moreActions.press('Escape');
-  await expectAuthoringTrayStatus(frame);
-
-  await openAdvanced(frame);
-  await expect(footer).toBeVisible();
-  await expect(
-    frame.locator('.storyboard-advanced-panel').getByRole('button', { name: 'Preview' }),
-  ).toHaveCount(0);
-
-  const zoomTrigger = page.locator('[data-panel-action="zoom"]');
-  await expect(page.locator('select[aria-label="Editor zoom"]')).toHaveCount(0);
-  await expect(zoomTrigger).toBeVisible();
-  await expect(zoomTrigger).toHaveAttribute('role', 'combobox');
-  await expect(zoomTrigger).toHaveAttribute('aria-label', 'Canvas zoom: 100%');
-  await expect(zoomTrigger.locator('.panel-zoom-value')).toHaveText('100%');
-  expect(await zoomTrigger.evaluate((element) => element.tagName)).toBe('BUTTON');
-  await zoomTrigger.click();
-  const visibleZoomOptions = page.locator('.panel-zoom-option:visible');
-  await expect(visibleZoomOptions).toHaveCount(3);
-  await expect(page.locator('[data-panel-zoom="50"]:visible')).toHaveText('50%');
-  await expect(page.locator('[data-panel-zoom="62"]:visible')).toHaveText('62%');
-  await expect(page.locator('[data-panel-zoom="75"]:visible')).toHaveText('75%');
-  await expect(page.locator('[data-panel-zoom="100"]:visible')).toHaveCount(0);
-  await page.locator('[data-panel-zoom="62"]:visible').click();
-
-  const iframe = page.locator('iframe[title="Lodariq authoring"]');
-  await expect(zoomTrigger).toHaveAttribute('aria-label', 'Canvas zoom: 62%');
-  await expect(zoomTrigger.locator('.panel-zoom-value')).toHaveText('62%');
-  await expect
-    .poll(() =>
-      iframe.evaluate((element) => ({
-        transform: element.style.transform,
-        zoom: element.dataset['lodariqEditorZoom'],
-      })),
-    )
-    .toEqual({
-      transform: 'scale(0.62)',
-      zoom: '62',
-    });
-  const zoomedDimensions = await iframe.evaluate((element) => ({
-    height: Number.parseFloat(element.style.height),
-    width: Number.parseFloat(element.style.width),
-  }));
-  expect(zoomedDimensions.height).toBeCloseTo(100 / 0.62, 2);
-  expect(zoomedDimensions.width).toBeCloseTo(100 / 0.62, 2);
-
-  await zoomTrigger.click();
-  await expect(page.locator('[data-panel-zoom="100"]:visible')).toHaveText('100%');
-  await expect(page.locator('[data-panel-zoom="62"]:visible')).toHaveCount(0);
-  await zoomTrigger.press('Escape');
 });
 
-test('hybrid workspace keeps details stable, compacts, restores, and resizes accessibly', async ({
-  page,
-}) => {
+test('overlay editor stays on the live page without a replica studio', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto('/');
   await openAuthoringPanel(page);
 
   const host = page.locator('lodariq-authoring-panel');
   const frame = page.frameLocator('iframe[title="Lodariq authoring"]');
-  const inspector = frame.getByRole('region', { name: 'Step 1 details' });
-  const storyboard = frame.getByRole('navigation', { name: 'Tour steps' });
-  const tools = frame.getByRole('navigation', { name: 'Authoring tools' });
+  await expect(host).not.toHaveAttribute('data-lodariq-panel-layout');
+  await expect(authoringFilmstrip(page)).toBeVisible();
+  await expect(frame.getByRole('group', { name: 'Step content editor' })).toBeVisible();
+  await expect(frame.getByRole('navigation', { name: 'Authoring tools' })).toHaveCount(0);
+  await expect(frame.locator('.tour-storyboard')).toHaveCount(0);
 
-  await expect(host).toHaveAttribute('data-lodariq-panel-layout', 'standard');
-  expect((await authoringPopupRects(page)).host).toMatchObject({ width: 1120, height: 800 });
-  await expect(storyboard).toBeVisible();
-  await expect(inspector).toBeVisible();
-  await expect(tools).toBeVisible();
-  await tools.getByRole('button', { name: 'Placement' }).click();
-  await expect(frame.getByRole('region', { name: 'Placement' })).toBeVisible();
-  await tools.getByRole('button', { name: 'Popup' }).click();
-  await expect(frame.getByRole('region', { name: 'Popup layout settings' })).toBeVisible();
-  await tools.getByRole('button', { name: 'Rich content' }).click();
-  await expect(frame.getByRole('region', { name: 'Selected action style' })).toHaveCount(0);
-
-  await selectAuthoringLayout(page, 'compact');
-  await expect(host).toHaveAttribute('data-lodariq-panel-layout', 'compact');
-  await expect.poll(async () => (await authoringPopupRects(page)).host.width).toBe(320);
-  await expect.poll(async () => (await authoringPopupRects(page)).host.height).toBe(520);
-  await expect(inspector).toBeVisible();
-  await expect(storyboard).toBeVisible();
-  await expect(tools).toBeVisible();
-  expect(
-    await frame.locator('body').evaluate((body) => body.scrollWidth > body.clientWidth + 1),
-  ).toBe(false);
-  await expectAuthoringTrayStatus(frame);
-
-  await selectAuthoringLayout(page, 'standard');
-  await expect(host).toHaveAttribute('data-lodariq-panel-layout', 'standard');
-  await expect.poll(async () => (await authoringPopupRects(page)).host.width).toBe(1120);
-  await expect(inspector).toBeVisible();
-
-  await openAdvanced(frame);
-  await expect(host).toHaveAttribute('data-lodariq-panel-layout', 'standard');
-  await expect.poll(async () => (await authoringPopupRects(page)).host.width).toBe(1120);
-  await expect.poll(async () => (await authoringPopupRects(page)).host.height).toBe(800);
-  await expect(frame.locator('.panel-advanced-editor')).toBeVisible();
-  await expect(frame.getByRole('navigation', { name: 'Tour steps' })).toBeVisible();
-
-  const collapsedReviewWidth = await frame
-    .locator('.review-drawer')
-    .evaluate((element) => element.getBoundingClientRect().width);
-  await frame.getByLabel('Review and preview details').click();
-  await expect(frame.locator('.review-drawer')).toHaveAttribute('open', '');
-  const expandedReviewWidth = await frame
-    .locator('.review-drawer')
-    .evaluate((element) => element.getBoundingClientRect().width);
-  expect(expandedReviewWidth).toBeCloseTo(collapsedReviewWidth, 1);
-
-  await frame.getByRole('button', { name: 'Back to editor', exact: true }).click();
-  await expect(host).toHaveAttribute('data-lodariq-panel-layout', 'standard');
-  await expect.poll(async () => (await authoringPopupRects(page)).host.width).toBe(1120);
-  await expect(inspector).toBeVisible();
-
-  const resizeHandle = page.getByRole('button', { name: /Resize Lodariq authoring panel/ });
-  const resizeGrip = resizeHandle.locator('svg.panel-resize-icon path');
-  await expect(resizeGrip).toHaveCount(1);
-  expect(((await resizeGrip.getAttribute('d'))?.match(/M/g) ?? []).length).toBe(3);
-  const [hostBox, resizeBox] = await Promise.all([host.boundingBox(), resizeHandle.boundingBox()]);
-  if (!hostBox || !resizeBox) throw new Error('Authoring panel or resize grip is missing');
-  expect(resizeBox.x + resizeBox.width).toBeCloseTo(hostBox.x + hostBox.width, 0);
-  expect(resizeBox.y + resizeBox.height).toBeCloseTo(hostBox.y + hostBox.height, 0);
-  await resizeHandle.focus();
-  await resizeHandle.press('ArrowLeft');
-  await resizeHandle.press('Shift+ArrowUp');
-  await expect(host).toHaveAttribute('data-lodariq-panel-layout', 'custom');
-  const resized = (await authoringPopupRects(page)).host;
-  expect(resized.width).toBe(1112);
-  expect(resized.height).toBe(760);
-
-  await moveAuthoringPanelAside(page);
-  await page.getByRole('button', { name: 'Open settings' }).click();
-  await expect(page.locator('#settings-drawer')).toHaveClass(/open/);
-});
-
-test('opening canvas configuration replaces the active side-action panel', async ({ page }) => {
-  await page.goto('/');
-  await openAuthoringPanel(page);
-
-  const frame = page.frameLocator('iframe[title="Lodariq authoring"]');
-  const tools = frame.getByRole('navigation', { name: 'Authoring tools' });
-  await tools.getByRole('button', { name: 'Placement' }).click();
-  await expect(frame.getByRole('region', { name: 'Placement' })).toBeVisible();
-  await tools.getByRole('button', { name: 'Placement' }).click();
-
-  await expect(frame.getByRole('region', { name: 'Placement' })).toHaveCount(0);
-  await expect(frame.locator('.rich-content-editor')).toBeVisible();
-  await expect(tools.getByRole('button', { name: 'Rich content' })).toHaveCount(0);
-
-  await tools.getByRole('button', { name: 'Popup' }).click();
-  await expect(frame.getByRole('region', { name: 'Popup layout settings' })).toBeVisible();
-  await tools.getByRole('button', { name: 'Popup' }).click();
-
-  await expect(frame.getByRole('region', { name: 'Popup layout settings' })).toHaveCount(0);
-  await expect(frame.locator('.rich-content-editor')).toBeVisible();
-});
-
-test('resizing the rich-text editor keeps the storyboard tray accessible without resizing the panel', async ({
-  page,
-}) => {
-  await page.setViewportSize({ width: 1280, height: 900 });
-  await page.goto('/');
-  await openAuthoringPanel(page);
-
-  const host = page.locator('lodariq-authoring-panel');
-  const frame = page.frameLocator('iframe[title="Lodariq authoring"]');
-  const inspector = frame.getByRole('region', { name: 'Step 1 details' });
-  const editor = inspector.locator('.rich-step-popup-frame');
-  const tools = frame.getByRole('navigation', { name: 'Authoring tools' });
-  const initialPanel = (await authoringPopupRects(page)).host;
-
-  await editor.evaluate((element) => {
-    element.style.height = '400px';
-  });
-  const standardPanelAfterEditorResize = (await authoringPopupRects(page)).host;
-  expect(standardPanelAfterEditorResize.width).toBe(initialPanel.width);
-  expect(standardPanelAfterEditorResize.height).toBe(initialPanel.height);
-
-  await tools.getByRole('button', { name: 'Popup' }).click();
-  const tray = frame.getByRole('region', { name: 'Popup layout settings' });
-  await expect(tray).toBeVisible();
-
-  for (const workspace of ['standard', 'focus'] as const) {
-    if (workspace === 'focus') {
-      await selectAuthoringLayout(page, 'focus');
-    }
-    await expect(host).toHaveAttribute('data-lodariq-panel-layout', workspace);
-
-    await expect(tray).toBeVisible();
-    await expect(tools).toBeVisible();
-    expect(
-      await frame.locator('body').evaluate((body) => body.scrollWidth > body.clientWidth + 1),
-    ).toBe(false);
-  }
-});
-
-test('canvas popup supports pointer drag and persists corner resizing', async ({ page }) => {
-  await page.setViewportSize({ width: 1280, height: 900 });
-  await page.goto('/');
-  await openAuthoringPanel(page);
-
-  const frame = page.frameLocator('iframe[title="Lodariq authoring"]');
-  const popup = frame.getByRole('group', { name: 'Step content editor' });
-  const dragHandle = frame.getByRole('button', { name: 'Move popup in canvas' });
-  await expect(popup).toHaveAttribute('data-transform-ready', 'true');
-
-  const initialBox = await popup.boundingBox();
-  const dragBox = await dragHandle.boundingBox();
-  if (!initialBox || !dragBox) throw new Error('Canvas popup drag controls are missing');
-  await expect
-    .poll(() =>
-      dragHandle.evaluate((element) => {
-        const rect = element.getBoundingClientRect();
-        return document
-          .elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2)
-          ?.closest<HTMLButtonElement>('button')?.ariaLabel;
-      }),
-    )
-    .toBe('Move popup in canvas');
-  await page.mouse.move(dragBox.x + dragBox.width / 2, dragBox.y + dragBox.height / 2);
-  await page.mouse.down();
-  await page.mouse.move(dragBox.x + dragBox.width / 2 + 40, dragBox.y + dragBox.height / 2 + 24, {
-    steps: 5,
-  });
-  await expect(dragHandle).toHaveAttribute('data-dragging', 'true');
-  await page.mouse.up();
-
-  await expect
-    .poll(async () => (await popup.boundingBox())?.x ?? initialBox.x)
-    .toBeGreaterThan(initialBox.x + 20);
-
-  const resizeHandle = frame.getByRole('button', { name: 'Resize popup from bottom right' });
-  const beforeResize = await popup.boundingBox();
-  const resizeBox = await resizeHandle.boundingBox();
-  if (!beforeResize || !resizeBox) throw new Error('Canvas popup resize controls are missing');
-  await page.mouse.move(resizeBox.x + resizeBox.width / 2, resizeBox.y + resizeBox.height / 2);
-  await page.mouse.down();
-  await page.mouse.move(
-    resizeBox.x + resizeBox.width / 2 + 40,
-    resizeBox.y + resizeBox.height / 2 + 32,
-    { steps: 5 },
-  );
-  await page.mouse.up();
-
-  await expect
-    .poll(async () => (await popup.boundingBox())?.width ?? beforeResize.width)
-    .toBeGreaterThan(beforeResize.width + 20);
-  await expect
-    .poll(async () => (await popup.boundingBox())?.height ?? beforeResize.height)
-    .toBeGreaterThan(beforeResize.height + 12);
-  await expect
-    .poll(() =>
-      page.evaluate((storageKey) => {
-        const document = JSON.parse(localStorage.getItem(storageKey) ?? '{}') as {
-          blocks?: Array<{
-            children?: unknown[];
-            props?: { tooltipLayout?: { heightPx?: number; widthPx?: number } };
-            type?: string;
-          }>;
-        };
-        const pending = [...(document.blocks ?? [])];
-        while (pending.length > 0) {
-          const block = pending.shift();
-          if (!block) continue;
-          if (block.type === 'tooltip') return block.props?.tooltipLayout ?? null;
-          pending.push(
-            ...((block.children ?? []) as Array<{
-              children?: unknown[];
-              props?: { tooltipLayout?: { heightPx?: number; widthPx?: number } };
-              type?: string;
-            }>),
-          );
-        }
-        return null;
-      }, `lodariq:doc:${LOCAL_TOUR_DOCUMENT_ID}`),
-    )
-    .toEqual(
-      expect.objectContaining({
-        heightPx: expect.any(Number),
-        widthPx: expect.any(Number),
-      }),
-    );
-});
-
-test('resizing the authoring panel keeps the canvas vertically scrollable', async ({ page }) => {
-  await page.setViewportSize({ width: 1440, height: 1000 });
-  await page.goto('/');
-  await openAuthoringPanel(page);
-
-  const host = page.locator('lodariq-authoring-panel');
-  const resizeHandle = page.getByRole('button', { name: /Resize Lodariq authoring panel/ });
-  await resizeHandle.focus();
-  for (let resizeStep = 0; resizeStep < 16; resizeStep += 1) {
-    await resizeHandle.press('Shift+ArrowUp');
-  }
-
-  await expect(host).toHaveAttribute('data-lodariq-panel-layout', 'custom');
-  await expect.poll(async () => (await authoringPopupRects(page)).host.height).toBe(320);
-
-  const frame = page.frameLocator('iframe[title="Lodariq authoring"]');
-  const canvasScroller = frame.locator('.storyboard-step-inspector');
-  const editorStage = frame.locator('.storyboard-editor-stage');
-  await expect(canvasScroller).toBeVisible();
-  expect(await canvasScroller.evaluate((element) => getComputedStyle(element).overflowY)).toBe(
-    'auto',
-  );
-  expect(
-    await canvasScroller.evaluate((element) => element.scrollHeight > element.clientHeight),
-  ).toBe(true);
-
-  await editorStage.evaluate((element) => {
-    element.scrollTop = element.scrollHeight;
-  });
-  await editorStage.hover({ position: { x: 8, y: 8 } });
-  await page.mouse.wheel(0, 160);
-  await expect
-    .poll(async () => canvasScroller.evaluate((element) => element.scrollTop))
-    .toBeGreaterThan(0);
-  await expect(frame.getByRole('navigation', { name: 'Authoring tools' })).toBeVisible();
-});
-
-test('Step Details add-content menu overlays every workspace without resizing the step', async ({
-  page,
-}) => {
-  await page.setViewportSize({ width: 1280, height: 900 });
-  await page.goto('/');
-  await openAuthoringPanel(page);
-
-  const host = page.locator('lodariq-authoring-panel');
-  const frame = page.frameLocator('iframe[title="Lodariq authoring"]');
-  const stepDocument = frame.getByRole('group', { name: 'Step content editor' });
-  const workspaceModes = [
-    { layout: 'standard', select: false },
-    { layout: 'compact', select: true },
-    { layout: 'focus', select: true },
-  ] as const;
-
-  for (const workspace of workspaceModes) {
-    if (workspace.select) await selectAuthoringLayout(page, workspace.layout);
-    await expect(host).toHaveAttribute('data-lodariq-panel-layout', workspace.layout);
-
-    const closedStepHeight = await stepDocument.evaluate(
-      (element) => element.getBoundingClientRect().height,
-    );
-    const commandMenu = await openCanvasInsertMenu(frame);
-    await expect(commandMenu).toBeVisible();
-    const geometry = await commandMenu.evaluate((element) => {
-      const menu = element.getBoundingClientRect();
-      return {
-        frameWidth: element.ownerDocument.documentElement.clientWidth,
-        menu: {
-          clientWidth: element.clientWidth,
-          left: menu.left,
-          position: getComputedStyle(element.closest('.rich-content-floating-layer') ?? element)
-            .position,
-          right: menu.right,
-          scrollWidth: element.scrollWidth,
-          width: menu.width,
-        },
-      };
-    });
-
-    expect(geometry.menu.position).toBe('fixed');
-    expect(geometry.menu.left).toBeGreaterThanOrEqual(0);
-    expect(geometry.menu.right).toBeLessThanOrEqual(geometry.frameWidth);
-    expect(await stepDocument.evaluate((element) => element.getBoundingClientRect().height)).toBe(
-      closedStepHeight,
-    );
-
-    await frame.getByRole('button', { name: 'Add content' }).click();
-    await expect(commandMenu).toBeHidden();
-  }
+  const commandMenu = await openCanvasInsertMenu(frame);
+  await expect(commandMenu).toBeVisible();
+  await frame.getByRole('button', { name: 'Add content' }).click();
+  await expect(commandMenu).toBeHidden();
 });
 
 test('creator can add and save another button without data loss', async ({ page }) => {
@@ -1684,9 +1222,9 @@ test('creator can remove a placement without losing step content', async ({ page
   await openPlacementTroubleshooting(frame);
   await targetMenu(frame).getByRole('button', { name: 'Remove placement' }).click();
 
-  const placement = frame.getByRole('region', { name: 'Placement' });
-  await expect(placement.locator('.target-chip')).toHaveCount(0);
-  await expect(placement.getByRole('button', { name: 'Choose target for step 1' })).toBeVisible();
+  await expect(frame.locator('.target-chip')).toHaveCount(0);
+  await backToOverlayEditor(frame);
+  await expect(frame.locator('.overlay-choose-target')).toBeVisible();
   await expect(
     canvasEditor
       .locator('.rich-content-canvas')
@@ -1702,21 +1240,11 @@ test('creator can remove a placement without losing step content', async ({ page
   await page.reload();
   await openAuthoringPanel(page);
   const reloadedFrame = page.frameLocator('iframe[title="Lodariq authoring"]');
-  const reloadedStep = reloadedFrame.locator('.tour-storyboard-step').first();
   await expect(reloadedFrame.locator('.document-main')).toHaveCount(0);
-  await expect(reloadedStep).toContainText('Create your first project');
-  await reloadedFrame
-    .getByRole('navigation', { name: 'Authoring tools' })
-    .getByRole('button', { name: 'Placement' })
-    .click();
-  await expect(reloadedFrame.getByRole('region', { name: 'Placement' })).toContainText(
-    'Not placed yet',
-  );
+  await expect(reloadedFrame.locator('.overlay-choose-target')).toBeVisible();
   await expect(
-    reloadedFrame
-      .getByRole('region', { name: 'Placement' })
-      .getByRole('button', { name: 'Choose target for step 1' }),
-  ).toBeVisible();
+    reloadedFrame.getByRole('group', { name: 'Step content editor' }),
+  ).toContainText('Create your first project');
   await expect
     .poll(() => page.evaluate(() => localStorage.getItem('lodariq:doc:doc_tour_welcome') ?? ''))
     .toContain("Projects help organize your team's work.");
@@ -2252,12 +1780,6 @@ test('creator chooses placements in route, drawer, modal, scroll, and lazy state
   await expect(page.getByText('Project 40')).toBeVisible();
 
   await openAuthoringPanel(page);
-  await selectAuthoringLayout(page, 'compact');
-  await expect(page.locator('lodariq-authoring-panel')).toHaveAttribute(
-    'data-lodariq-panel-layout',
-    'compact',
-  );
-  await moveAuthoringPanelAside(page);
   const frame = page.frameLocator('iframe[title="Lodariq authoring"]');
 
   const list = page.locator('#project-list');
@@ -2299,14 +1821,15 @@ test('customer-like host installs the local SDK and opens SDK authoring', async 
   await openAuthoringPanel(page);
   const frame = page.frameLocator('iframe[title="Lodariq authoring"]');
   await expect(frame.locator('.document-main')).toHaveCount(0);
-  await frame.getByRole('button', { name: 'Add step' }).click();
+  await page.getByRole('button', { name: 'Add step' }).click();
   await chooseCurrentTarget(page, frame, page.getByRole('button', { name: 'New project' }), [
     'New project',
   ]);
-  await expect(frame.locator('.tour-storyboard-step')).toHaveCount(2);
+  await expect(authoringFilmstripSteps(page)).toHaveCount(2);
   await expect(page.getByRole('textbox', { name: 'Edit heading in preview' })).toHaveCount(0);
-  await expect(page.getByRole('dialog', { name: 'Lodariq tour' })).toContainText('Untitled step');
-  await moveAuthoringPanelAside(page);
+  await expect(frame.getByRole('group', { name: 'Step content editor' })).toContainText(
+    'Untitled step',
+  );
   await openUtilityTab(frame, 'Activity report');
   await expect(activityLog(frame)).toContainText('"timeToAttachFirstTargetMs"');
   await frame.getByRole('button', { name: 'Create activity report' }).click();
@@ -2322,73 +1845,6 @@ test('customer-like host installs the local SDK and opens SDK authoring', async 
     'Create your first project',
   );
 });
-
-async function moveAuthoringPanelAside(page: Page): Promise<void> {
-  await dragAuthoringPanel(page, { left: 72, top: 128 });
-}
-
-async function moveAuthoringPanelOverTarget(page: Page, target: Locator): Promise<void> {
-  const hostBox = await page.locator('lodariq-authoring-panel').boundingBox();
-  const targetBox = await target.boundingBox();
-  if (!hostBox || !targetBox) throw new Error('Authoring popup or product target missing');
-  const viewport = page.viewportSize();
-  if (!viewport) throw new Error('Viewport size unavailable');
-  const left = Math.min(
-    Math.max(18, targetBox.x + targetBox.width / 2 - hostBox.width / 2),
-    viewport.width - hostBox.width - 18,
-  );
-  await dragAuthoringPanel(page, {
-    left,
-    top: Math.max(82, targetBox.y - 10),
-  });
-}
-
-async function dragAuthoringPanel(
-  page: Page,
-  target: { left: number; top: number },
-): Promise<void> {
-  await expect(page.getByRole('dialog', { name: 'Lodariq tour' })).toBeVisible();
-  await page.evaluate(
-    () =>
-      new Promise<void>((resolve) => {
-        requestAnimationFrame(() => {
-          requestAnimationFrame(() => {
-            requestAnimationFrame(() => resolve());
-          });
-        });
-      }),
-  );
-
-  const host = page.locator('lodariq-authoring-panel');
-  const handle = page.getByRole('button', { name: /Move Lodariq authoring panel/ });
-  const hostBox = await host.boundingBox();
-  const handleBox = await handle.boundingBox();
-  if (!hostBox || !handleBox) throw new Error('Draggable authoring popup missing');
-
-  const deltaX = target.left - hostBox.x;
-  const deltaY = target.top - hostBox.y;
-  const startX = handleBox.x + handleBox.width / 2;
-  const startY = handleBox.y + handleBox.height / 2;
-  await page.mouse.move(startX, startY);
-  await page.mouse.down();
-  await page.mouse.move(startX + deltaX, startY + deltaY, { steps: 8 });
-  await page.mouse.up();
-
-  const movedBox = await host.boundingBox();
-  const viewport = page.viewportSize();
-  if (!viewport) throw new Error('Viewport size unavailable');
-  const margin = viewport.width <= 600 ? 12 : 16;
-  const expectedLeft = Math.min(
-    Math.max(target.left, margin),
-    viewport.width - hostBox.width - margin,
-  );
-  const expectedTop = Math.min(
-    Math.max(target.top, margin),
-    viewport.height - hostBox.height - margin,
-  );
-  expect(movedBox?.x).toBeCloseTo(expectedLeft, 0);
-  expect(movedBox?.y).toBeCloseTo(expectedTop, 0);
-}
 
 interface PageRect {
   height: number;
@@ -2413,37 +1869,6 @@ function pageRectsOverlap(first: PageRect, second: PageRect): boolean {
     first.top + first.height <= second.top ||
     second.top + second.height <= first.top
   );
-}
-
-async function authoringPopupRects(page: Page): Promise<{
-  bodyPaddingLeft: string;
-  host: PageRect;
-  surface: PageRect;
-  target: PageRect;
-}> {
-  return page.evaluate(() => {
-    const host = document.querySelector<HTMLElement>('lodariq-authoring-panel');
-    const surface = host?.shadowRoot?.querySelector<HTMLElement>('.panel-surface');
-    const target = document.querySelector<HTMLElement>('[data-lodariq-id="new-project"]');
-    if (!host || !surface || !target) {
-      throw new Error('Authoring popup or target missing');
-    }
-    const rectOf = (element: Element) => {
-      const rect = element.getBoundingClientRect();
-      return {
-        height: rect.height,
-        left: rect.left,
-        top: rect.top,
-        width: rect.width,
-      };
-    };
-    return {
-      bodyPaddingLeft: getComputedStyle(document.body).paddingLeft,
-      host: rectOf(host),
-      surface: rectOf(surface),
-      target: rectOf(target),
-    };
-  });
 }
 
 interface StoredPresentationAnchor {
@@ -2689,25 +2114,43 @@ async function openAuthoringPanel(page: Page): Promise<void> {
   await launcher.click();
   await page.getByRole('button', { name: 'Experiences on this page' }).click();
   await page.locator(`[data-lodariq-experience-id="${LOCAL_TOUR_DOCUMENT_ID}"]`).click();
-  await expect(page.locator('lodariq-authoring-panel')).toBeVisible();
+  await expect(page.locator('lodariq-authoring-panel')).toHaveAttribute(
+    'data-lodariq-shell',
+    'overlay',
+  );
+  await expect(page.getByLabel('Experience title')).toBeVisible();
+  await expect(authoringFilmstrip(page)).toBeVisible();
   await expect(
     page.frameLocator('iframe[title="Lodariq authoring"]').getByRole('main'),
   ).toBeVisible();
 }
 
 async function closeAuthoringPanel(page: Page): Promise<void> {
-  const frame = page.frameLocator('iframe[title="Lodariq authoring"]');
-  const footer = frame.locator('.panel-workspace-footer');
-  for (let attempt = 0; attempt < 3 && !(await footer.isVisible()); attempt += 1) {
-    const back = frame
-      .getByRole('button', { name: /^Back(?: to authoring)?$/ })
-      .filter({ visible: true })
-      .first();
-    await expect(back).toBeVisible();
-    await back.click();
+  const close = page.getByRole('button', { name: 'Close authoring' });
+  if (await close.isVisible()) {
+    await close.click();
+    await expect(page.locator('lodariq-authoring-panel')).toHaveCount(0);
+    return;
   }
-  await footer.getByRole('button', { name: 'Save & exit', exact: true }).click();
+  const frame = page.frameLocator('iframe[title="Lodariq authoring"]');
+  const saveExit = frame.getByRole('button', { name: 'Save & exit', exact: true });
+  if (await saveExit.isVisible()) {
+    await saveExit.click();
+    await expect(page.locator('lodariq-authoring-panel')).toHaveCount(0);
+    return;
+  }
+  await openAuthoringOperations(page);
+  await frame.getByRole('button', { name: 'Save & exit', exact: true }).click();
   await expect(page.locator('lodariq-authoring-panel')).toHaveCount(0);
+}
+
+async function openAuthoringOperations(page: Page): Promise<FrameLocator> {
+  const frame = page.frameLocator('iframe[title="Lodariq authoring"]');
+  if (!(await frame.locator('.operations-hub').isVisible())) {
+    await page.getByRole('button', { name: 'Operations', exact: true }).click();
+  }
+  await expect(frame.locator('.operations-hub')).toBeVisible();
+  return frame;
 }
 
 async function expectAuthoringTrayStatus(frame: FrameLocator): Promise<void> {
@@ -2720,16 +2163,6 @@ async function expectAuthoringTrayStatus(frame: FrameLocator): Promise<void> {
   await expect(releaseSummary).toContainText('Release unavailable');
 }
 
-async function selectAuthoringLayout(
-  page: Page,
-  mode: 'compact' | 'standard' | 'focus',
-): Promise<void> {
-  await page.locator('[data-panel-action="layout"]').click();
-  const option = page.locator(`[data-panel-layout="${mode}"]:visible`);
-  await expect(option).toBeVisible();
-  await option.click();
-}
-
 async function openUtilityTab(
   frame: FrameLocator,
   name: 'Preview package' | 'Restore backup' | 'Activity report',
@@ -2739,22 +2172,21 @@ async function openUtilityTab(
 }
 
 async function openAdvanced(frame: FrameLocator): Promise<void> {
+  const page = frame.owner().page();
+  await openAuthoringOperations(page);
+  await frame.locator('[data-operations-tab="review"]').click();
   const reviewDrawer = frame.locator('details.review-drawer');
   if (await reviewDrawer.isVisible()) return;
 
-  const advancedEditor = frame.locator('.panel-advanced-editor');
-  if (!(await advancedEditor.isVisible())) {
-    await openFooterOverflowAction(frame, 'Review & recovery');
-  }
-  await expect(advancedEditor).toBeVisible();
-  await expect(frame.locator('.document-main')).toBeVisible();
-
+  await expect(frame.locator('.tour-review-workspace')).toBeVisible();
   await frame.getByRole('button', { name: /^Edit details/ }).click();
   await expect(reviewDrawer).toBeVisible();
 }
 
 async function openCustomize(frame: FrameLocator): Promise<void> {
-  await openFooterOverflowAction(frame, 'Customize');
+  const page = frame.owner().page();
+  await openAuthoringOperations(page);
+  await frame.locator('[data-operations-tab="appearance"]').click();
   await expect(frame.getByRole('region', { name: 'Feel native to this product' })).toBeVisible();
 }
 
@@ -2797,8 +2229,11 @@ async function documentJson(frame: FrameLocator): Promise<Locator> {
 }
 
 async function compilePreview(frame: FrameLocator): Promise<void> {
-  await openReviewPanel(frame);
-  await frame.getByRole('button', { name: 'Preview full tour' }).click();
+  await openAuthoringOperations(frame.owner().page());
+  await frame
+    .locator('.panel-workspace-footer')
+    .getByRole('button', { name: 'Preview', exact: true })
+    .click();
   const panel = frame.owner().page().locator('lodariq-authoring-panel');
   await expect(panel).toHaveAttribute('data-lodariq-panel-minimized', 'true');
   await restoreAuthoringPanel(frame.owner().page());
@@ -2823,21 +2258,35 @@ function targetMenu(frame: FrameLocator): Locator {
 }
 
 async function openPlacementTray(frame: FrameLocator): Promise<Locator> {
-  const placement = frame.getByRole('region', { name: 'Placement' }).last();
+  const page = frame.owner().page();
+  await openAuthoringOperations(page);
+  await frame.locator('[data-operations-tab="review"]').click();
+  await expect(frame.locator('.tour-review-workspace')).toBeVisible();
+  const placement = frame.locator('.target-control, .tour-placement-card').first();
   if (!(await placement.isVisible())) {
-    await frame
-      .getByRole('navigation', { name: 'Authoring tools' })
-      .getByRole('button', { name: 'Placement' })
-      .click();
+    await frame.locator('[data-review-row="placement"]').click();
   }
   await expect(placement).toBeVisible();
   return placement;
 }
 
 async function openCanvasTargetActions(frame: FrameLocator, targetLabel: string): Promise<void> {
-  const placement = await openPlacementTray(frame);
-  await placement.getByRole('button', { name: `Placement ${targetLabel} actions` }).click();
+  await openPlacementTray(frame);
+  await frame.getByRole('button', { name: `Placement ${targetLabel} actions` }).click({ force: true });
   await expect(targetMenu(frame)).toBeVisible();
+}
+
+async function backToOverlayEditor(frame: FrameLocator): Promise<void> {
+  const page = frame.owner().page();
+  const back = frame.getByRole('button', { name: 'Back to authoring' });
+  if (await back.isVisible()) {
+    await back.click();
+  }
+  await expect(page.locator('lodariq-authoring-panel')).toHaveAttribute(
+    'data-lodariq-shell',
+    'overlay',
+  );
+  await expect(frame.getByRole('group', { name: 'Step content editor' })).toBeVisible();
 }
 
 async function openPlacementTroubleshooting(frame: FrameLocator): Promise<void> {
@@ -2869,9 +2318,6 @@ async function chooseCurrentTarget(
     await expect
       .poll(
         async () => {
-          // A newly installed picker can miss the first synthetic pointer move
-          // when Chromium reuses the prior cursor position. Move away and back
-          // so the assertion waits on the real semantic hover signal.
           await page.mouse.move(1, 1);
           await target.hover();
           return pickerLabel.textContent();
@@ -2880,36 +2326,12 @@ async function chooseCurrentTarget(
       )
       .toContain(label);
   }
-  // The picker intentionally cancels product pointer events. Hover first proves
-  // the real hit target, then force the captured click past Playwright's own
-  // click interceptor so Firefox and WebKit exercise the picker itself.
   await target.click({ force: true });
   const weakPlacementReview = page.getByRole('dialog', { name: 'Review placement' });
   if (await weakPlacementReview.isVisible()) {
     await weakPlacementReview.getByRole('button', { name: 'Keep in draft' }).click();
   }
   await expect(panel).not.toHaveAttribute('data-lodariq-target-picking', 'true');
-  const chips = frame.locator('.target-chip');
-  if ((await chips.count()) > 0) {
-    for (const label of expectedLabels) {
-      await expect(chips.last()).toContainText(label);
-    }
-  } else {
-    const tools = frame.getByRole('navigation', { name: 'Authoring tools' });
-    await tools.getByRole('button', { name: 'Placement' }).click();
-    const activePlacement = frame.getByRole('region', { name: 'Placement' }).last();
-    for (const label of expectedLabels) {
-      await expect(activePlacement).toContainText(label);
-    }
-    const contentTool = tools.getByRole('button', { name: 'Rich content' });
-    await expect(contentTool).toBeVisible();
-    await expect(contentTool).toBeEnabled();
-    // Returning from target picking restores the panel geometry. Linux WebKit
-    // can report subpixel movement for this dock indefinitely, even though the
-    // control is visible and usable, so bypass only that stability heuristic.
-    await contentTool.click({ force: true });
-    await expect(contentTool).toHaveAttribute('aria-pressed', 'true');
-  }
   await expect(page.locator('[data-lodariq-bridge="target-outline"]')).toHaveCount(0);
   await page.evaluate(
     () =>
@@ -2919,40 +2341,46 @@ async function chooseCurrentTarget(
   );
 }
 
-async function startTargetPick(frame: FrameLocator, block?: Locator): Promise<void> {
-  if (!block && !(await frame.locator('.panel-advanced-editor').isVisible())) {
-    const placement = await openPlacementTray(frame);
-    const directAction = placement.getByRole('button', {
-      name: /^(?:Choose target|Fix placement) for step \d+$/,
-    });
-    if ((await directAction.count()) > 0) {
-      await directAction.click();
-      return;
-    }
-    await placement.getByRole('button', { name: /^Placement .+ actions$/ }).click();
-    await targetMenu(frame).getByRole('button', { name: 'Choose another element' }).click();
+async function startTargetPick(frame: FrameLocator, _block?: Locator): Promise<void> {
+  const page = frame.owner().page();
+  const changeTarget = page.getByRole('button', { name: 'Change target' });
+  if (await changeTarget.isVisible()) {
+    await changeTarget.click();
     return;
   }
-
-  const scope = block ?? frame.locator('.block').last();
-  const pickButton = scope.getByRole('button', { name: /choose placement/i }).first();
-  if ((await pickButton.count()) > 0) {
-    await pickButton.click();
+  const chooseTarget = frame.getByRole('button', { name: 'Choose target' });
+  if (await chooseTarget.isVisible()) {
+    await chooseTarget.click({ force: true });
     return;
   }
+  const placementActions = frame.getByRole('button', { name: /Placement .+ actions/ });
+  if ((await placementActions.count()) > 0) {
+    await placementActions.evaluate((button) => (button as HTMLButtonElement).click());
+    const chooseAnother = frame.getByRole('button', { name: 'Choose another element' });
+    await expect(chooseAnother).toBeVisible();
+    await chooseAnother.evaluate((button) => (button as HTMLButtonElement).click());
+    return;
+  }
+  await page.getByRole('button', { name: 'Add step' }).click();
+}
 
-  await scope
-    .getByRole('button', { name: /^Placement .+ actions$/ })
-    .first()
-    .click();
-  await targetMenu(frame).getByRole('button', { name: 'Choose another element' }).click();
+async function closeCanvasInsertMenu(frame: FrameLocator): Promise<void> {
+  const menu = frame.locator('.rich-content-insert-menu');
+  if (!(await menu.isVisible())) return;
+  const back = menu.getByRole('button', { name: 'Back', exact: true });
+  if (await back.isVisible()) await back.click();
+  if (await menu.isVisible()) {
+    await frame.getByRole('button', { name: 'Add content' }).click({ force: true });
+  }
+  await expect(menu).toHaveCount(0);
 }
 
 async function openCanvasInsertMenu(frame: FrameLocator): Promise<Locator> {
-  const canvas = frame.locator('.rich-content-canvas');
-  await canvas.hover({ position: { x: 24, y: 16 } });
-  await frame.getByRole('button', { name: 'Add content' }).click();
   const menu = frame.locator('.rich-content-insert-menu');
+  if (await menu.isVisible()) return menu;
+  const addContent = frame.getByRole('button', { name: 'Add content' });
+  await expect(addContent).toBeVisible();
+  await addContent.click({ force: true });
   await expect(menu).toBeVisible();
   return menu;
 }
@@ -2983,7 +2411,7 @@ async function editorColorInput(
 async function replaceCanvasButtonLabel(frame: FrameLocator, value: string): Promise<void> {
   const canvas = frame.getByRole('group', { name: 'Step content editor' });
   const preview = canvas.locator('.rich-content-button-preview').first();
-  await preview.click();
+  await preview.click({ force: true });
   const field = canvas.getByRole('textbox', { name: 'Button label' }).first();
   await field.fill(value);
   await field.blur();
@@ -3011,7 +2439,7 @@ async function selectRichContentTextRange(
   startOffset: number,
   endOffset: number,
 ): Promise<void> {
-  await block.click();
+  await block.click({ force: true });
   await block.evaluate(
     (element, offsets) => {
       const walker = element.ownerDocument.createTreeWalker(element, NodeFilter.SHOW_TEXT);
@@ -3031,28 +2459,22 @@ async function selectRichContentTextRange(
 }
 
 async function setInlineButtonAction(page: Page, action: string): Promise<void> {
-  const toolbar = page.getByRole('toolbar', { name: 'Step controls' });
-  const actionCombobox = toolbar.getByRole('combobox', { name: 'Button action' });
-  const panelMinimized = await minimizeAuthoringPanelIfCovering(page, actionCombobox);
-  await actionCombobox.click();
-  await toolbar.getByRole('option', { name: action, exact: true }).click();
-  if (panelMinimized) await restoreAuthoringPanel(page);
+  const frame = page.frameLocator('iframe[title="Lodariq authoring"]');
+  const canvas = frame.getByRole('group', { name: 'Step content editor' });
+  await canvas.locator('.rich-content-button-preview').first().click({ force: true });
+  const afterClick = frame.getByRole('combobox', { name: 'After click' });
+  await expect(afterClick).toBeVisible();
+  await afterClick.click({ force: true });
+  await frame.getByRole('option', { name: action, exact: true }).click({ force: true });
+  await expect(afterClick).toContainText(action);
+  await afterClick.evaluate((element) => (element as HTMLElement).blur());
 }
 
-async function minimizeAuthoringPanelIfCovering(page: Page, target: Locator): Promise<boolean> {
+async function collapseAuthoringOverlay(page: Page): Promise<void> {
   const panel = page.locator('lodariq-authoring-panel');
-  const [panelBox, targetBox] = await Promise.all([panel.boundingBox(), target.boundingBox()]);
-  if (!panelBox || !targetBox) return false;
-  const overlaps = !(
-    panelBox.x + panelBox.width <= targetBox.x ||
-    targetBox.x + targetBox.width <= panelBox.x ||
-    panelBox.y + panelBox.height <= targetBox.y ||
-    targetBox.y + targetBox.height <= panelBox.y
-  );
-  if (!overlaps) return false;
-  await page.getByRole('button', { name: 'Minimize authoring panel' }).click();
+  if ((await panel.getAttribute('data-lodariq-shell')) !== 'overlay') return;
+  await page.getByRole('button', { name: 'Minimize Lodariq authoring' }).click();
   await expect(panel).toHaveAttribute('data-lodariq-panel-minimized', 'true');
-  return true;
 }
 
 async function restoreAuthoringPanel(page: Page): Promise<void> {

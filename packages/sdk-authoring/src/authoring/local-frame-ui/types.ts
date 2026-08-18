@@ -176,6 +176,7 @@ export interface AuthoringReleaseViewState {
 
 export const AUTHORING_PANEL_MODES = [
   'edit',
+  'operations',
   'appearance',
   'brand-match-review',
   'release-verification',
@@ -184,6 +185,17 @@ export const AUTHORING_PANEL_MODES = [
   'release-recovery-confirmation',
 ] as const;
 export type AuthoringPanelMode = (typeof AUTHORING_PANEL_MODES)[number];
+
+export const AUTHORING_OPERATIONS_TABS = [
+  'flow',
+  'translation',
+  'batch',
+  'appearance',
+  'release',
+  'review',
+  'recovery',
+] as const;
+export type AuthoringOperationsTab = (typeof AUTHORING_OPERATIONS_TABS)[number];
 
 export const EDITABLE_BUTTON_VARIANT_OPTIONS = [
   { value: 'primary', label: authoringText('Primary') },
@@ -217,6 +229,7 @@ export interface AuthoringReleaseRecoveryWorkflowState {
 
 export interface AuthoringPanelWorkflowState {
   mode: AuthoringPanelMode;
+  operationsTab: AuthoringOperationsTab;
   returnMode: AuthoringPanelMode;
   focusToken: number;
   returnFocus: 'appearance' | 'release' | null;

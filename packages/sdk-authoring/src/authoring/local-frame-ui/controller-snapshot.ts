@@ -333,6 +333,7 @@ export class ControllerSnapshotFeature extends ControllerTargetDocumentFeature {
       },
       panelWorkflow: {
         mode: this.panelMode,
+        operationsTab: this.operationsTab,
         returnMode: this.panelReturnMode,
         focusToken: this.panelFocusToken,
         returnFocus: this.panelReturnFocus,

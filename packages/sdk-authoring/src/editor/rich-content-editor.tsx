@@ -198,7 +198,7 @@ export function RichContentEditor({
               }
               placeholder={
                 <div className="rich-content-placeholder">
-                  {authoringText('Write, or use the toolbar to add content')}
+                  {authoringText('Write, or press / to add')}
                 </div>
               }
               ErrorBoundary={LexicalErrorBoundary}

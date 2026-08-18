@@ -1,5 +1,5 @@
 import { authoringText } from '../../../i18n';
-import { lazy, Suspense, useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import type { LodariqBlock } from '@lodariq/schema';
 import {
   experienceAuthoringProfile,
@@ -9,9 +9,9 @@ import type { LocalAuthoringFrameController } from '../controller';
 import type { LocalAuthoringFrameSnapshot } from '../types';
 import type { LocalAuthoringInitialWorkspace } from '../../local-frame-types';
 import { PanelBodyMode } from './panel-body-mode';
+import { OverlayStepEditor } from './overlay-step-editor';
+import { OperationsHub } from './operations-hub';
 import { combinedReleaseFindings, releaseFooterSummary } from './release-findings';
-import { TourStoryboard } from './tour-storyboard';
-import { TourReviewWorkspace } from './tour-review-workspace';
 import {
   AuthoringPopover,
   Check,
@@ -24,21 +24,6 @@ import {
   Save,
   SlidersHorizontal,
 } from '../design-system';
-
-const LazyTourStepInspector = lazy(async () => {
-  const module = await import('./tour-sequence-rail');
-  return { default: module.TourStepInspector };
-});
-
-const LazyTourFlowMap = lazy(async () => {
-  const module = await import('./tour-flow-map');
-  return { default: module.TourFlowMap };
-});
-
-const LazyTourBatchWorkspace = lazy(async () => {
-  const module = await import('./tour-batch-workspace');
-  return { default: module.TourBatchWorkspace };
-});
 
 const LazyStandaloneAuthoringWorkspace = lazy(async () => {
   const module = await import('./standalone-authoring-workspace');
@@ -60,24 +45,39 @@ export function AuthoringCanvas({
   const experienceItems = selectExperienceRootBlocks(snapshot.documentState);
   const tourSteps = profile.workspace === 'sequence' ? experienceItems : [];
   const activeStepId = activeTourStepId(tourSteps, snapshot.selectedBlockId);
-  const activeStepIndex = tourSteps.findIndex((step) => step.id === activeStepId);
-  const activeStep = activeStepIndex >= 0 ? (tourSteps[activeStepIndex] ?? null) : null;
-  const advancedStep = tourSteps.find((step) => step.id === snapshot.advancedEditorStepId) ?? null;
-  const opensFlowMap =
-    initialWorkspace?.kind === 'flowMap' &&
-    profile.capabilities.includes('flow') &&
-    snapshot.deliveryCapabilities.has('flow.v1');
-  const [flowMapOpen, setFlowMapOpen] = useState(opensFlowMap);
-  const [flowMapFocusStepId, setFlowMapFocusStepId] = useState<string | null>(
-    opensFlowMap ? (initialWorkspace.focusBlockId ?? null) : null,
-  );
-  const [flowMapFocusActionId, setFlowMapFocusActionId] = useState<string | null>(null);
-  const [flowMapWorkbenchMode, setFlowMapWorkbenchMode] = useState<'branch' | 'sequence'>(
-    'sequence',
-  );
-  const batchMode = snapshot.selectedStepIds.size > 0;
+  const activeStep = tourSteps.find((step) => step.id === activeStepId) ?? null;
+  useEffect(() => {
+    if (
+      frameMode === 'panel' &&
+      initialWorkspace?.kind === 'flowMap' &&
+      snapshot.panelWorkflow.mode === 'edit'
+    ) {
+      controller.openOperationsMode('flow');
+    }
+  }, [controller, frameMode, initialWorkspace, snapshot.panelWorkflow.mode]);
 
   if (frameMode === 'panel') {
+    if (snapshot.panelWorkflow.mode === 'operations') {
+      return (
+        <section
+          className="canvas panel-canvas"
+          aria-label={authoringText('Experience editor')}
+          tabIndex={-1}
+        >
+          <div className="document-page">
+            <div className="panel-reference-workspace panel-mode-workspace">
+              <OperationsHub
+                controller={controller}
+                snapshot={snapshot}
+                step={activeStep}
+                steps={tourSteps}
+              />
+              <PanelWorkspaceFooter controller={controller} snapshot={snapshot} step={activeStep} />
+            </div>
+          </div>
+        </section>
+      );
+    }
     if (snapshot.panelWorkflow.mode !== 'edit') {
       return (
         <section
@@ -95,98 +95,7 @@ export function AuthoringCanvas({
       );
     }
     return (
-      <section
-        className="canvas panel-canvas"
-        aria-label={authoringText('Experience editor')}
-        tabIndex={-1}
-      >
-        <div className="document-page">
-          <div className="panel-reference-workspace">
-            {advancedStep ? (
-              <div className="panel-storyboard-workspace panel-advanced-workspace panel-review-workspace">
-                <TourStoryboard
-                  activeStepId={advancedStep.id}
-                  controller={controller}
-                  flowMapOpen={false}
-                  onFlowMapOpenChange={() => undefined}
-                  snapshot={snapshot}
-                  steps={tourSteps}
-                />
-                <TourReviewWorkspace
-                  controller={controller}
-                  snapshot={snapshot}
-                  step={advancedStep}
-                />
-              </div>
-            ) : (
-              <div
-                className="panel-storyboard-workspace"
-                data-flow-map-open={flowMapOpen ? 'true' : 'false'}
-              >
-                {flowMapOpen ? null : (
-                  <TourStoryboard
-                    activeStepId={activeStepId}
-                    controller={controller}
-                    flowMapOpen={false}
-                    onFlowMapOpenChange={(open) => {
-                      if (open) controller.clearTourStepBatchSelection();
-                      setFlowMapOpen(open);
-                    }}
-                    snapshot={snapshot}
-                    steps={tourSteps}
-                  />
-                )}
-                {flowMapOpen ? (
-                  <Suspense fallback={<CanvasEditorLoading />}>
-                    <LazyTourFlowMap
-                      controller={controller}
-                      document={snapshot.documentState}
-                      initialActionBlockId={flowMapFocusActionId}
-                      initialStepId={flowMapFocusStepId}
-                      initialWorkbenchMode={flowMapWorkbenchMode}
-                      onClose={() => {
-                        setFlowMapFocusActionId(null);
-                        setFlowMapFocusStepId(null);
-                        setFlowMapOpen(false);
-                      }}
-                      steps={tourSteps}
-                    />
-                  </Suspense>
-                ) : batchMode ? (
-                  <Suspense fallback={<CanvasEditorLoading />}>
-                    <LazyTourBatchWorkspace
-                      controller={controller}
-                      snapshot={snapshot}
-                      steps={tourSteps}
-                    />
-                  </Suspense>
-                ) : activeStep ? (
-                  <Suspense fallback={<CanvasEditorLoading />}>
-                    <LazyTourStepInspector
-                      controller={controller}
-                      onFlowMapOpen={(stepId, actionBlockId, mode = 'sequence') => {
-                        controller.clearTourStepBatchSelection();
-                        setFlowMapFocusActionId(actionBlockId);
-                        setFlowMapFocusStepId(stepId);
-                        setFlowMapWorkbenchMode(mode);
-                        setFlowMapOpen(true);
-                      }}
-                      snapshot={snapshot}
-                      step={activeStep}
-                      stepIndex={activeStepIndex}
-                    />
-                  </Suspense>
-                ) : null}
-              </div>
-            )}
-            <PanelWorkspaceFooter
-              controller={controller}
-              snapshot={snapshot}
-              step={advancedStep ?? activeStep}
-            />
-          </div>
-        </div>
-      </section>
+      <OverlayStepEditor controller={controller} snapshot={snapshot} step={activeStep} />
     );
   }
 
@@ -317,7 +226,8 @@ function PanelWorkspaceFooter({
                 className="review-recovery"
                 disabled={!step}
                 onClick={() => {
-                  if (step) runMoreAction(() => controller.openAdvancedEditor(step.id));
+                  if (!step) return;
+                  runMoreAction(() => controller.openOperationsMode('review'));
                 }}
                 role="menuitem"
               >

@@ -49,7 +49,6 @@ describe('local authoring initial workspace', () => {
     await vi.waitFor(() => {
       expect(document.querySelector('[aria-label="Flow Map"]')).not.toBeNull();
     });
-    expect(document.querySelector('[data-flow-map-open="true"]')).not.toBeNull();
     expect(document.querySelector('.tour-flow-node-inspector')?.textContent).toContain(
       'Create your first project',
     );

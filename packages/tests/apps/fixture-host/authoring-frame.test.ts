@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+  AUTHORING_CHROME_ACTION_REQUEST_TYPE,
   AUTHORING_INLINE_CONTROL_COMMIT_TYPE,
   AUTHORING_INLINE_CONTENT_COMMIT_TYPE,
   BRIDGE_PROTOCOL_VERSION,
@@ -35,6 +36,28 @@ async function waitForEditorReady(): Promise<void> {
   );
 }
 
+async function openPanelOperations(
+  peer: Window = window,
+  documentId: string = (tourFixture as LodariqDocument).id,
+  sessionId: string = LOCAL_AUTHORING_SESSION_ID,
+): Promise<void> {
+  window.dispatchEvent(
+    new MessageEvent('message', {
+      origin: window.location.origin,
+      source: peer,
+      data: {
+        protocol: BRIDGE_PROTOCOL_VERSION,
+        sessionId,
+        documentId,
+        correlationId: `open_operations_${Date.now()}`,
+        type: AUTHORING_CHROME_ACTION_REQUEST_TYPE,
+        action: 'open-operations',
+      },
+    }),
+  );
+  await vi.waitFor(() => expect(document.querySelector('.operations-hub')).not.toBeNull());
+}
+
 function documentJson(): HTMLTextAreaElement {
   return document.querySelector<HTMLTextAreaElement>('textarea[aria-label="Editable backup"]')!;
 }
@@ -51,14 +74,16 @@ async function hoverRichCanvas(): Promise<void> {
   document.dispatchEvent(
     new MouseEvent('pointermove', { bubbles: true, clientX: 0, clientY: 0 }),
   );
-  await vi.waitFor(() =>
-    expect(document.querySelector('[aria-label="Add content"]')).not.toBeNull(),
-  );
+    await vi.waitFor(() =>
+      expect(document.querySelector('[aria-label="Block options"]')).not.toBeNull(),
+    );
 }
 
 async function openRichContentInsertMenu(): Promise<void> {
   await hoverRichCanvas();
-  document.querySelector<HTMLButtonElement>('[aria-label="Add content"]')?.click();
+  document
+    .querySelector<HTMLButtonElement>('.rich-content-block-handles [aria-label="Add content"]')
+    ?.click();
   await vi.waitFor(() =>
     expect(document.querySelector('.rich-content-insert-menu')).not.toBeNull(),
   );
@@ -336,55 +361,42 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     expect(documentJson().value).toContain('Focus stays here');
   });
 
-  it('uses one storyboard workspace without duplicate inner chrome in panel mode', async () => {
+  it('uses overlay editor chrome in panel mode without a replica storyboard', async () => {
     window.history.replaceState(null, '', '/authoring.html?lodariqFrame=panel');
     await loadFrame();
 
     expect(document.querySelector('.shell-panel')).toBeTruthy();
+    expect(document.querySelector('.shell-overlay')).toBeTruthy();
     expect(document.querySelector('.topbar')).toBeNull();
-    expect(document.querySelector('.tour-storyboard')).toBeTruthy();
-    expect(
-      document.querySelector(
-        '.tour-storyboard-utilities .ui-select-trigger[aria-label="Experience language"]',
-      ),
-    ).toBeTruthy();
-    expect(document.querySelector('.tour-step-inspector')).toBeTruthy();
+    expect(document.querySelector('.tour-storyboard')).toBeNull();
+    expect(document.querySelector('.tour-step-inspector')).toBeNull();
     expect(document.querySelector('.tour-sequence-rail')).toBeNull();
     expect(document.querySelector('.tour-workspace-toggle')).toBeNull();
-    expect(document.querySelector('.tour-appearance-entry')).toBeNull();
     expect(document.querySelector('.document-main')).toBeNull();
     expect(document.querySelector('.block')).toBeNull();
-    expect(document.querySelector('.tour-step-accordion')).toBeNull();
-    expect(document.querySelector('.rich-step-editor')).toBeTruthy();
-    expect(document.querySelector('.rich-step-toolbar')).toBeNull();
+    expect(document.querySelector('.overlay-step-shell')).toBeTruthy();
     expect(document.querySelector('[role="group"][aria-label="Step content editor"]')).toBeTruthy();
-    expect(document.body.textContent).not.toContain('Content');
     await vi.waitFor(() =>
-      expect(document.querySelector('.rich-step-content .rich-content-canvas')).not.toBeNull(),
+      expect(document.querySelector('.overlay-step-card .rich-content-canvas')).not.toBeNull(),
     );
     expect(document.querySelector('.rich-content-canvas[contenteditable="true"]')).not.toBeNull();
     expect(document.querySelector('.rich-step-rendered-content')).toBeNull();
-    expect(document.body.textContent).toContain('Placement');
-    expect(document.body.textContent).toContain('Popup');
     expect(document.querySelector('.tour-position-options')).toBeNull();
-    expect(document.querySelector('.tour-advance-options')).toBeNull();
-    expect(document.body.textContent).not.toContain('Step details');
-    expect(document.body.textContent).not.toContain('Advanced settings');
+    expect(document.querySelector('.panel-workspace-footer')).toBeNull();
+
+    await openPanelOperations();
     expect(document.querySelector('button[aria-label="More experience actions"]')).toBeTruthy();
     expect(buttonWithText('Release options')).not.toBeNull();
 
     window.history.replaceState(null, '', '/');
   });
 
-  it('keeps focused Flow Map, Batch Edit, and popup modes inside the existing workspace', async () => {
+  it('keeps focused Flow Map, Batch Edit, and popup modes inside operations', async () => {
     window.history.replaceState(null, '', '/authoring.html?lodariqFrame=panel');
     await loadFrame();
-    document.querySelector<HTMLButtonElement>('.tour-storyboard-add')?.click();
-    await flushPreviewPatchQueue();
+    await openPanelOperations();
 
-    const flowMap = buttonWithText('Flow Map');
-    expect(flowMap).not.toBeNull();
-    flowMap?.click();
+    document.querySelector<HTMLButtonElement>('[data-operations-tab="flow"]')?.click();
     await vi.waitFor(() =>
       expect(document.querySelector('.tour-flow-map-workspace')).not.toBeNull(),
     );
@@ -395,66 +407,17 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     expect(buttonWithText('Select')).not.toBeNull();
     expect(buttonWithText('Pan')).not.toBeNull();
     expect(document.querySelector('.tour-flow-canvas-controls')).not.toBeNull();
-    expect(document.querySelector('.tour-flow-toolbar [aria-label="Zoom out"]')).toBeNull();
     expect(document.querySelector('.tour-storyboard')).toBeNull();
-    expect(buttonWithText('Return to canvas')).not.toBeNull();
 
-    buttonWithText('Return to canvas')?.click();
-    await vi.waitFor(() => expect(document.querySelector('.tour-storyboard')).not.toBeNull());
+    document.querySelector<HTMLButtonElement>('[data-operations-tab="batch"]')?.click();
+    await vi.waitFor(() => expect(document.querySelector('.tour-batch-workspace')).not.toBeNull());
 
-    const stepButtons = document.querySelectorAll<HTMLButtonElement>('.tour-storyboard-select');
-    stepButtons[0]?.dispatchEvent(new MouseEvent('click', { bubbles: true, metaKey: true }));
-    stepButtons[1]?.dispatchEvent(new MouseEvent('click', { bubbles: true, metaKey: true }));
-    await vi.waitFor(() => expect(document.querySelectorAll('.tour-batch-card')).toHaveLength(2));
-    expect(document.querySelector('.tour-step-batch-toolbar')).not.toBeNull();
-    expect(buttonWithText('Reorder')).not.toBeNull();
-    expect(buttonWithText('Move to…')).not.toBeNull();
-    expect(buttonWithText('Done')).not.toBeNull();
-
-    buttonWithText('Done')?.click();
-    await vi.waitFor(() => expect(document.querySelector('.rich-step-editor')).not.toBeNull());
-    expect(document.querySelector('.tour-batch-workspace')).toBeNull();
-
-    buttonWithText('Popup')?.click();
-    await vi.waitFor(() => expect(buttonWithText('Layout')).not.toBeNull());
-    expect(buttonWithText('Appearance')).not.toBeNull();
-    expect(buttonWithText('Step presentation')).not.toBeNull();
-    expect(document.body.textContent).toContain('Content alignment');
-
-    buttonWithText('Appearance')?.click();
-    await vi.waitFor(() => expect(document.body.textContent).toContain('Background'));
-    expect(document.body.textContent).not.toContain('Content alignment');
-    expect(
-      document
-        .querySelector('.popup-appearance-workspace .rich-step-color-field > legend')
-        ?.classList.contains('visually-hidden'),
-    ).toBe(true);
-
-    buttonWithText('Step presentation')?.click();
-    await vi.waitFor(() => expect(document.body.textContent).toContain('Motion recipe'));
-    const canvasPopup = document.querySelector<HTMLElement>(
-      '.storyboard-editor-stage .rich-step-content',
+    document.querySelector<HTMLButtonElement>('[data-operations-tab="flow"]')?.click();
+    await vi.waitFor(() =>
+      expect(document.querySelector('.tour-flow-map-workspace')).not.toBeNull(),
     );
-    const presentationPreview = document.querySelector<HTMLElement>(
-      '.step-presentation-preview-card',
-    );
-    expect(presentationPreview).not.toBeNull();
-    expect(presentationPreview?.dataset['lodariqContentAlign']).toBe(
-      canvasPopup?.dataset['lodariqContentAlign'],
-    );
-    expect(presentationPreview?.dataset['lodariqPopupRadius']).toBe(
-      canvasPopup?.dataset['lodariqPopupRadius'],
-    );
-    const canvasHeading = canvasPopup
-      ?.querySelector<HTMLElement>('h2, .rich-content-heading')
-      ?.textContent?.trim();
-    const canvasAction = canvasPopup
-      ?.querySelector<HTMLElement>('.rich-content-button-preview')
-      ?.textContent?.trim();
-    expect(canvasHeading).toBeTruthy();
-    expect(canvasAction).toBeTruthy();
-    expect(presentationPreview?.textContent).toContain(canvasHeading);
-    expect(presentationPreview?.textContent).toContain(canvasAction);
+    document.querySelector<HTMLButtonElement>('button[aria-label="Back to authoring"]')?.click();
+    await vi.waitFor(() => expect(document.querySelector('.overlay-step-shell')).not.toBeNull());
 
     window.history.replaceState(null, '', '/');
   });
@@ -482,7 +445,8 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     expect(document.querySelector('.sequence-property-editor')).toBeNull();
     expect(document.body.textContent).toContain('Page URL');
 
-    buttonWithText('Flow Map')?.click();
+    await openPanelOperations();
+    document.querySelector<HTMLButtonElement>('[data-operations-tab="flow"]')?.click();
     await vi.waitFor(() =>
       expect(document.querySelector('.tour-flow-map-workspace')).not.toBeNull(),
     );
@@ -516,7 +480,9 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     expect(document.querySelector('.rich-content-insert-menu')?.textContent).toContain('Emoji');
     expect(document.querySelector('.rich-content-insert-menu')?.textContent).toContain('Icon');
     expect(document.querySelector('.rich-content-insert-menu')?.textContent).toContain('Divider');
-    document.querySelector<HTMLButtonElement>('[aria-label="Add content"]')?.click();
+    document
+      .querySelector<HTMLButtonElement>('.rich-content-block-handles [aria-label="Add content"]')
+      ?.click();
 
     await openRichContentBlockSettings();
     const spacing = document.querySelector<HTMLInputElement>('[aria-label="Space after"]');
@@ -544,12 +510,9 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     });
     await flushPreviewPatchQueue();
 
-    document
-      .querySelector<HTMLButtonElement>('button[aria-label="More experience actions"]')
-      ?.click();
-    await vi.waitFor(() => expect(buttonWithText('Review & recovery')).not.toBeNull());
-    buttonWithText('Review & recovery')?.click();
-    await flushPreviewPatchQueue();
+    await openPanelOperations(peer, (tourFixture as LodariqDocument).id, 'session_workspace_layout');
+    document.querySelector<HTMLButtonElement>('[data-operations-tab="review"]')?.click();
+    await vi.waitFor(() => expect(document.querySelector('.tour-review-main')).not.toBeNull());
     expect(document.querySelector('.panel-advanced-title')?.textContent).toContain(
       'Review & recovery',
     );
@@ -583,23 +546,26 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
 
   it('keeps staging release gracefully unavailable in local preview', async () => {
     document.body.innerHTML = '<div id="authoring"></div>';
+    const peer = { postMessage: vi.fn() } as unknown as Window;
     await mountLocalAuthoringFrame({
       root: document.getElementById('authoring')!,
       baseDocument: tourFixture as LodariqDocument,
       services: localFrameServices(),
       frameMode: 'panel',
       sessionId: 'session_release_local',
-      peerWindow: { postMessage: vi.fn() } as unknown as Window,
+      peerWindow: peer,
       allowedOrigins: [window.location.origin],
       targetOrigin: window.location.origin,
     });
 
+    await openPanelOperations(peer, (tourFixture as LodariqDocument).id, 'session_release_local');
     const releaseFooter = document.querySelector<HTMLElement>('[aria-label="Release status"]');
     expect(releaseFooter?.dataset['releaseStatus']).toBe('unavailable');
     // Release actions sit beside the status chip, not inside it.
     buttonWithText('Release options')?.click();
-    await vi.waitFor(() => expect(panelModeView()).not.toBeNull());
-    expect(panelModeView()?.textContent).toContain('Local preview');
+    await vi.waitFor(() => {
+      expect(panelModeView()?.textContent).toContain('Local preview');
+    });
     expect(buttonWithText('Publish to staging', panelModeView() ?? document)).toBeNull();
   });
 
@@ -678,6 +644,7 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
           },
         ],
       });
+    const peer = { postMessage: vi.fn() } as unknown as Window;
     await mountLocalAuthoringFrame({
       root: document.getElementById('authoring')!,
       baseDocument: tourFixture as LodariqDocument,
@@ -689,11 +656,12 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
       },
       frameMode: 'panel',
       sessionId: 'session_release_hosted',
-      peerWindow: { postMessage: vi.fn() } as unknown as Window,
+      peerWindow: peer,
       allowedOrigins: [window.location.origin],
       targetOrigin: window.location.origin,
     });
 
+    await openPanelOperations(peer, (tourFixture as LodariqDocument).id, 'session_release_hosted');
     await vi.waitFor(() =>
       expect(
         document.querySelector<HTMLElement>('[aria-label="Release status"]')?.dataset[
@@ -743,6 +711,7 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
           },
         ],
       });
+    const peer = { postMessage: vi.fn() } as unknown as Window;
     await mountLocalAuthoringFrame({
       root: document.getElementById('authoring')!,
       baseDocument: tourFixture as LodariqDocument,
@@ -754,11 +723,12 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
       },
       frameMode: 'panel',
       sessionId: 'session_release_blocked',
-      peerWindow: { postMessage: vi.fn() } as unknown as Window,
+      peerWindow: peer,
       allowedOrigins: [window.location.origin],
       targetOrigin: window.location.origin,
     });
 
+    await openPanelOperations(peer, (tourFixture as LodariqDocument).id, 'session_release_blocked');
     await vi.waitFor(() =>
       expect(
         document.querySelector<HTMLElement>('[aria-label="Release status"]')?.dataset[
@@ -792,20 +762,9 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     });
     await flushPreviewPatchQueue();
 
-    buttonWithText('Placement', document.querySelector('.storyboard-tool-dock')!)?.click();
-    await vi.waitFor(() =>
-      expect(document.querySelector<HTMLElement>('section[aria-label="Placement"]')).not.toBeNull(),
-    );
-    const placement = document.querySelector<HTMLElement>('section[aria-label="Placement"]');
-    expect(placement?.textContent).toContain('Where the popup appears');
-    expect(placement?.textContent).toContain('New project');
-    expect(placement?.textContent).toContain('Unverified');
-    expect(placement?.textContent).not.toContain('Behavior');
-    expect(placement?.querySelector('[aria-label^="Duplicate step"]')).toBeNull();
-    expect(placement?.querySelector('[aria-label^="Delete step"]')).toBeNull();
-    expect(
-      placement?.querySelector<HTMLButtonElement>('[aria-label="Placement New project actions"]'),
-    ).not.toBeNull();
+    expect(document.querySelector('.storyboard-tool-dock')).toBeNull();
+    expect(document.querySelector('.overlay-step-shell')).not.toBeNull();
+    expect(document.querySelector('.rich-content-canvas')).not.toBeNull();
 
     window.dispatchEvent(
       new MessageEvent('message', {
@@ -829,50 +788,7 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
       }),
     );
     await flushPreviewPatchQueue();
-
-    expect(
-      placement?.querySelector<HTMLButtonElement>('[aria-label="Placement New project actions"]'),
-    ).not.toBeNull();
-    expect(placement?.textContent).toContain('Missing');
-
-    window.dispatchEvent(
-      new MessageEvent('message', {
-        source: peer,
-        origin: window.location.origin,
-        data: {
-          protocol: BRIDGE_PROTOCOL_VERSION,
-          sessionId,
-          documentId: 'doc_tour_welcome',
-          correlationId: 'target_inspect_found_compact',
-          type: 'target.inspect.result',
-          blockId: 'block_step_1',
-          targetId: 'target_new_project',
-          action: 'health',
-          diagnostic: {
-            state: 'found',
-            confidence: 1,
-            candidateCount: 1,
-          },
-        },
-      }),
-    );
-    await flushPreviewPatchQueue();
-
-    expect(placement?.textContent).toContain('Placement');
-    expect(placement?.textContent).toContain('New project');
-    expect(placement?.textContent).toContain('Verified');
-    expect(placement?.textContent).not.toContain('Needs check');
-    expect(placement?.textContent).not.toContain('Missing');
-    expect(placement?.textContent).not.toContain('Healthy');
-    expect(
-      placement?.querySelector<HTMLButtonElement>('[aria-label="Placement New project actions"]'),
-    ).not.toBeNull();
-
-    buttonWithText('Placement', document.querySelector('.storyboard-tool-dock')!)?.click();
-    await vi.waitFor(() =>
-      expect(document.querySelector<HTMLElement>('section[aria-label="Placement"]')).toBeNull(),
-    );
-    expect(document.querySelector('.rich-content-canvas')).not.toBeNull();
+    expect(document.querySelector('.overlay-step-shell')).not.toBeNull();
   });
 
   it('offers one choose-element action for an unplaced compact step', async () => {
@@ -897,16 +813,9 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     });
     await flushPreviewPatchQueue();
 
-    buttonWithText('Placement', document.querySelector('.storyboard-tool-dock')!)?.click();
-    await vi.waitFor(() =>
-      expect(document.querySelector<HTMLElement>('section[aria-label="Placement"]')).not.toBeNull(),
-    );
-    const placement = document.querySelector<HTMLElement>('section[aria-label="Placement"]');
-    expect(placement?.textContent).toContain('Placement');
-    expect(placement?.textContent).toContain('Not placed yet');
-    expect(
-      placement?.querySelector<HTMLButtonElement>('[aria-label="Choose target for step 1"]'),
-    ).not.toBeNull();
+    expect(document.querySelector('.storyboard-tool-dock')).toBeNull();
+    expect(document.querySelector('.overlay-choose-target')).not.toBeNull();
+    expect(document.querySelector('.overlay-choose-target')?.textContent).toContain('Choose target');
   });
 
   it('turns typed top-level text into a titled tour step and rejects content commands', async () => {
@@ -1176,7 +1085,9 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     expect(document.querySelector('.rich-content-insert-menu')?.textContent).toContain('Divider');
     expect(document.querySelector('.rich-content-insert-menu')?.textContent).toContain('Button');
     expect(document.querySelector('[aria-label="Accessibility name"]')).toBeNull();
-    document.querySelector<HTMLButtonElement>('[aria-label="Add content"]')?.click();
+    document
+      .querySelector<HTMLButtonElement>('.rich-content-block-handles [aria-label="Add content"]')
+      ?.click();
     await openRichContentBlockSettings();
     expect(document.querySelector('[aria-label="Space after"]')).toBeInstanceOf(HTMLInputElement);
 
@@ -1187,10 +1098,7 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     window.history.replaceState(null, '', '/authoring.html?lodariqFrame=panel');
     await loadFrame();
 
-    const placementTool = document.querySelector<HTMLButtonElement>(
-      '.storyboard-tool-dock button[aria-label="Placement"]',
-    );
-    placementTool?.click();
+    document.querySelector<HTMLButtonElement>('.rich-content-button-preview')?.click();
     await vi.waitFor(() =>
       expect(document.querySelector('.storyboard-property-tray')).not.toBeNull(),
     );
@@ -2142,7 +2050,8 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     });
     await flushPreviewPatchQueue();
     expect(document.querySelector('.panel-advanced-editor')).toBeTruthy();
-    expect(document.querySelector('.document-main')).toBeTruthy();
+    expect(document.querySelector('.operations-hub')).toBeTruthy();
+    expect(document.querySelector('.tour-review-workspace')).toBeTruthy();
 
     window.dispatchEvent(new Event('pagehide'));
   });

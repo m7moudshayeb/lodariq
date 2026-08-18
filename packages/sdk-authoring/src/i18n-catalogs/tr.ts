@@ -14,7 +14,9 @@ const TR_CATALOG: AuthoringCatalog = {
   'Drag to reorder, click for options': 'Yeniden sıralamak için sürükleyin, seçenekler için tıklayın',
   'Search content types': 'İçerik türlerini ara',
   'Search…': 'Ara…',
-  'Write, or use the toolbar to add content': 'Yazın veya içerik eklemek için araç çubuğunu kullanın',
+  'Write, or press / to add': 'Yazın veya eklemek için / tuşuna basın',
+  'More formatting': 'Daha fazla biçimlendirme',
+  'Insert': 'Ekle',
   field: 'alan',
   'Answers stay in this experience. Lodariq does not read your product database.':
     'Yanıtlar bu deneyimde kalır. Lodariq ürün veritabanınızı okumaz.',
