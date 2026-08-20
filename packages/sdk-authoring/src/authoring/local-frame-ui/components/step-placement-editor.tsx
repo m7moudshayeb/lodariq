@@ -18,11 +18,19 @@ export function StepPlacementEditor({
   snapshot,
   step,
   stepIndex,
+  variant = 'workspace',
 }: {
   controller: LocalAuthoringFrameController;
   snapshot: LocalAuthoringFrameSnapshot;
   step: LodariqBlock;
   stepIndex: number;
+  /**
+   * `inspector` is the anchored popover (§4.3), where this section is only the
+   * side the popup takes. The target has its own section there, so repeating its
+   * controls here meant a second popover opening on top of the first — and the
+   * §4.3 rule that the inspector is one surface, not a stack.
+   */
+  variant?: 'workspace' | 'inspector';
 }) {
   const health = stepHealth(step, snapshot);
   const targetId = targetIdOf(step);
@@ -32,11 +40,13 @@ export function StepPlacementEditor({
   const targetActionLabel = targetActionLabelFor(health.repair, Boolean(targetId));
   const tooltip = stepTooltip(step);
   const placement = tooltip?.props.placement ?? 'bottom';
+  const compact = variant === 'inspector';
   return (
     <section
       className="tour-step-config-section placement-section"
       aria-label={authoringText('Placement')}
     >
+      {compact ? null : (
       <header className="tour-config-heading">
         <span>
           <small>{authoringText('Placement')}</small>
@@ -44,7 +54,8 @@ export function StepPlacementEditor({
         </span>
         <span className={`tour-config-status ${health.tone}`}>{health.label}</span>
       </header>
-      {targetId ? (
+      )}
+      {compact ? null : targetId ? (
         <div className="tour-live-target">
           <TargetControls
             block={step}
@@ -97,6 +108,14 @@ export function StepPlacementEditor({
               );
             })}
           </div>
+          {/*
+            The prototype prints why this field exists next to it: dragging the
+            placement dots on the target is the real control (Tier 1), and the
+            field mirrors it so the same move is available from the keyboard.
+          */}
+          <p className="storyboard-property-hint">
+            {authoringText('Drag the dots on the target to set this. This mirrors them.')}
+          </p>
         </div>
       ) : null}
     </section>

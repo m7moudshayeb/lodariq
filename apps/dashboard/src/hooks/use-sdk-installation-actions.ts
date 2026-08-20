@@ -6,6 +6,7 @@ import type { DashboardWorkspaceData } from '@lodariq/schema';
 import {
   createPublicSdkInstallationAction,
   revokePublicSdkInstallationAction,
+  setPublicSdkInstallationSuspensionAction,
   syncPublicSdkInstallationAction,
 } from '../app/actions';
 import {
@@ -48,6 +49,11 @@ export function useSdkInstallationActions(workspaceId: string) {
       applyResult(await revokePublicSdkInstallationAction(state, formData)),
     [applyResult],
   );
+  const suspensionReducer = useCallback(
+    async (state: SdkInstallationActionState, formData: FormData) =>
+      applyResult(await setPublicSdkInstallationSuspensionAction(state, formData)),
+    [applyResult],
+  );
   const [createState, createAction] = useActionState(
     createReducer,
     initialSdkInstallationActionState,
@@ -57,7 +63,20 @@ export function useSdkInstallationActions(workspaceId: string) {
     revokeReducer,
     initialSdkInstallationActionState,
   );
-  return { createState, createAction, syncState, syncAction, revokeState, revokeAction };
+  const [suspensionState, suspensionAction] = useActionState(
+    suspensionReducer,
+    initialSdkInstallationActionState,
+  );
+  return {
+    createState,
+    createAction,
+    syncState,
+    syncAction,
+    revokeState,
+    revokeAction,
+    suspensionState,
+    suspensionAction,
+  };
 }
 
 function upsertInstallation(

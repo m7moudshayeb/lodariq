@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { computeBrandThemeContentHash } from '@lodariq/compiler';
 import {
   AUTHORING_ACTIVATION_GRANT_HEADER,
+  AUTHORING_CHROME_ACTION_REQUEST_TYPE,
   AUTHORING_INLINE_CONTROL_COMMIT_TYPE,
   AUTHORING_PANEL_MODE_OPEN_TYPE,
   AUTHORING_SESSION_CAPABILITIES,
@@ -681,7 +682,7 @@ describe('hosted editor authoring frame', () => {
     );
     await waitForAuthoringFrameMount();
 
-    await vi.waitFor(() => expect(documentReleaseStatus()).not.toBeNull());
+    await openOperations(sessionReady.context.sessionId, sessionReady.context.documentId);
     buttonWithText('Release options')?.click();
     await vi.waitFor(() => expect(buttonWithText('Review Staging history')).not.toBeNull());
     expect(buttonWithText('Review Production history')).not.toBeNull();
@@ -805,6 +806,7 @@ describe('hosted editor authoring frame', () => {
     );
     await waitForAuthoringFrameMount();
 
+    await openOperations(sessionReady.context.sessionId, sessionReady.context.documentId);
     await vi.waitFor(() =>
       expect(documentReleaseStatus()?.getAttribute('data-release-status')).toBe('ready'),
     );
@@ -813,11 +815,17 @@ describe('hosted editor authoring frame', () => {
     const publishButton = buttonWithText('Publish to staging');
     publishButton?.click();
 
-    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(7));
-    const releaseRequest = fetchMock.mock.calls[6]!;
-    expect(releaseRequest[0].toString()).toBe(
-      `${LODARIQ_STAGING_API_ORIGIN}/v1/authoring/publications`,
+    // Matched by URL, not by call index: Operations loads its own data in the
+    // background, so a positional assertion would break on unrelated traffic.
+    const publicationsUrl = `${LODARIQ_STAGING_API_ORIGIN}/v1/authoring/publications`;
+    await vi.waitFor(() =>
+      expect(
+        fetchMock.mock.calls.filter((call) => call[0].toString() === publicationsUrl),
+      ).toHaveLength(1),
     );
+    const releaseRequest = fetchMock.mock.calls.find(
+      (call) => call[0].toString() === publicationsUrl,
+    )!;
     const releaseHeaders = new Headers(releaseRequest[1]?.headers);
     expect(releaseHeaders.get(AUTHORING_SESSION_HEADER)).toBe(SESSION_TOKEN);
     expect(releaseHeaders.get('Idempotency-Key')).toMatch(/^staging_publish_/u);
@@ -881,9 +889,34 @@ function initEvent(
   });
 }
 
+/**
+ * Release lives in Operations (Tier 3). The mode pill opens it over the bridge,
+ * which is the same message this helper sends.
+ */
+async function openOperations(sessionId: string, documentId: string): Promise<void> {
+  window.dispatchEvent(
+    new MessageEvent('message', {
+      data: {
+        protocol: BRIDGE_PROTOCOL_VERSION,
+        sessionId,
+        documentId,
+        correlationId: 'authoring_open_operations_test',
+        type: AUTHORING_CHROME_ACTION_REQUEST_TYPE,
+        action: 'open-operations',
+      },
+      origin: PARENT_ORIGIN,
+      source: window.parent,
+    }),
+  );
+  await vi.waitFor(() => expect(documentReleaseStatus()).not.toBeNull());
+}
+
 async function waitForAuthoringFrameMount(): Promise<void> {
-  await vi.waitFor(() =>
-    expect((window as { __lodariqEditorMounted?: boolean }).__lodariqEditorMounted).toBe(true),
+  // The frame lazy-imports its React bundle, which under a cold module graph
+  // takes longer than the 1s default and made this suite flaky.
+  await vi.waitFor(
+    () => expect((window as { __lodariqEditorMounted?: boolean }).__lodariqEditorMounted).toBe(true),
+    { timeout: 10_000 },
   );
 }
 

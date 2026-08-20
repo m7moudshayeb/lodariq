@@ -203,7 +203,7 @@ export const AUTHORING_AGREED_FLOW_WORKBENCH_CSS = `
     color: var(--lq-color-muted);
     cursor: pointer;
     font: inherit;
-    font-size: var(--lq-font-2xs);
+    font-size: 8px;
     font-weight: var(--lq-weight-bold);
     padding: 0;
     place-items: center;
@@ -306,7 +306,7 @@ export const AUTHORING_AGREED_FLOW_WORKBENCH_CSS = `
     color: var(--lq-color-muted);
     cursor: pointer;
     font: inherit;
-    font-size: var(--lq-font-2xs);
+    font-size: 8px;
     font-weight: var(--lq-weight-bold);
     padding: 0;
     place-items: center;

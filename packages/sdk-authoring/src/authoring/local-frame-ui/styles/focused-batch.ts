@@ -23,20 +23,20 @@ export const AUTHORING_FOCUSED_BATCH_CSS = `
 
   .tour-batch-workspace-heading small {
     color: var(--lq-color-primary);
-    font-size: 10px;
-    font-weight: 700;
+    font-size: var(--lq-font-xs);
+    font-weight: var(--lq-weight-bold);
     letter-spacing: 0.08em;
     text-transform: uppercase;
   }
 
   .tour-batch-workspace-heading strong {
-    font-size: 16px;
+    font-size: var(--lq-font-lg);
   }
 
   .tour-batch-workspace-heading p {
     max-width: 480px;
     color: var(--lq-color-muted);
-    font-size: 10px;
+    font-size: var(--lq-font-xs);
     line-height: 1.5;
     margin: 0;
   }
@@ -88,8 +88,8 @@ export const AUTHORING_FOCUSED_BATCH_CSS = `
     border-radius: 999px;
     background: var(--lq-color-primary-soft);
     color: var(--lq-color-primary);
-    font-size: 10px;
-    font-weight: 700;
+    font-size: var(--lq-font-xs);
+    font-weight: var(--lq-weight-bold);
   }
 
   .tour-batch-card-facts {
@@ -109,7 +109,7 @@ export const AUTHORING_FOCUSED_BATCH_CSS = `
 
   .tour-batch-card-facts strong {
     overflow: hidden;
-    font-size: 10px;
+    font-size: var(--lq-font-xs);
     text-overflow: ellipsis;
     white-space: nowrap;
   }

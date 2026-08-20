@@ -110,6 +110,7 @@ describe('@lodariq/dashboard view model', () => {
           createdAt: '2026-06-30T00:00:00.000Z',
           updatedAt: '2026-06-30T00:00:00.000Z',
           revokedAt: null,
+          suspendedAt: null,
           sdkSnippet: '<script data-lodariq-installation="ins_pub_application_1234"></script>',
           origins: [
             {
@@ -403,6 +404,7 @@ describe('@lodariq/dashboard view model', () => {
           createdAt,
           updatedAt: createdAt,
           revokedAt: null,
+          suspendedAt: null,
           sdkSnippet: '<script></script>',
           origins: mappings.map(([environmentId, exactOrigin, authoringEnabled]) => ({
             installationId: 'ins_pub_policy_launcher',
@@ -452,6 +454,7 @@ describe('@lodariq/dashboard view model', () => {
           createdAt,
           updatedAt: createdAt,
           revokedAt: null,
+          suspendedAt: null,
           sdkSnippet: '<script></script>',
           origins: [
             {

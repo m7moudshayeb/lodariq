@@ -5,6 +5,10 @@ type RuntimeCatalog = Readonly<Record<string, string>>;
 const EMPTY_CATALOG: RuntimeCatalog = {};
 
 const DE_CATALOG: RuntimeCatalog = {
+  Announcement: 'Ankündigung',
+  Hotspot: 'Hotspot',
+  Survey: 'Umfrage',
+  Checklist: 'Checkliste',
   'Allow the popup, then retry': 'Lassen Sie das Popup zu und versuchen Sie es erneut',
   'Authoring open': 'Authoring geöffnet',
   'Browse experiences — close current authoring first':
@@ -37,6 +41,10 @@ const DE_CATALOG: RuntimeCatalog = {
 };
 
 const FR_CATALOG: RuntimeCatalog = {
+  Announcement: 'Annonce',
+  Hotspot: 'Point d’intérêt',
+  Survey: 'Enquête',
+  Checklist: 'Liste de contrôle',
   'Allow the popup, then retry': 'Autorisez le popup, puis réessayez',
   'Authoring open': 'Création ouverte',
   'Browse experiences — close current authoring first':
@@ -67,6 +75,10 @@ const FR_CATALOG: RuntimeCatalog = {
 };
 
 const ES_CATALOG: RuntimeCatalog = {
+  Announcement: 'Anuncio',
+  Hotspot: 'Punto de interés',
+  Survey: 'Encuesta',
+  Checklist: 'Lista de comprobación',
   'Allow the popup, then retry': 'Permita la ventana emergente, luego vuelva a intentarlo',
   'Authoring open': 'Autoría abierta',
   'Browse experiences — close current authoring first':
@@ -98,6 +110,10 @@ const ES_CATALOG: RuntimeCatalog = {
 };
 
 const PT_CATALOG: RuntimeCatalog = {
+  Announcement: 'Anúncio',
+  Hotspot: 'Ponto de destaque',
+  Survey: 'Inquérito',
+  Checklist: 'Lista de verificação',
   'Allow the popup, then retry': 'Permita o pop-up e tente novamente',
   'Authoring open': 'Autoria aberta',
   'Browse experiences — close current authoring first':
@@ -129,6 +145,10 @@ const PT_CATALOG: RuntimeCatalog = {
 };
 
 const AR_CATALOG: RuntimeCatalog = {
+  Announcement: 'إعلان',
+  Hotspot: 'نقطة تمييز',
+  Survey: 'استطلاع',
+  Checklist: 'قائمة مهام',
   'Allow the popup, then retry': 'اسمح بالنافذة المنبثقة، ثم أعد المحاولة',
   'Authoring open': 'التأليف مفتوح',
   'Browse experiences — close current authoring first': 'تصفح التجارب — أغلق التأليف الحالي أولاً',
@@ -156,6 +176,10 @@ const AR_CATALOG: RuntimeCatalog = {
 };
 
 const TR_CATALOG: RuntimeCatalog = {
+  Announcement: 'Duyuru',
+  Hotspot: 'Odak noktası',
+  Survey: 'Anket',
+  Checklist: 'Kontrol listesi',
   'Allow the popup, then retry': 'Açılır pencereye izin verin ve ardından yeniden deneyin',
   'Authoring open': 'Yazma açık',
   'Browse experiences — close current authoring first':
@@ -184,6 +208,10 @@ const TR_CATALOG: RuntimeCatalog = {
 };
 
 const IT_CATALOG: RuntimeCatalog = {
+  Announcement: 'Annuncio',
+  Hotspot: 'Punto di interesse',
+  Survey: 'Sondaggio',
+  Checklist: 'Elenco di controllo',
   'Allow the popup, then retry': 'Consenti il popup, quindi riprova',
   'Authoring open': 'Creazione aperta',
   'Browse experiences — close current authoring first':
@@ -215,6 +243,10 @@ const IT_CATALOG: RuntimeCatalog = {
 };
 
 const NL_BE_CATALOG: RuntimeCatalog = {
+  Announcement: 'Aankondiging',
+  Hotspot: 'Hotspot',
+  Survey: 'Enquête',
+  Checklist: 'Checklist',
   'Allow the popup, then retry': 'Sta de pop-up toe en probeer het opnieuw',
   'Authoring open': 'Auteursrecht geopend',
   'Browse experiences — close current authoring first':

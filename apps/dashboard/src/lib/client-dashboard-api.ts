@@ -4,12 +4,26 @@ import {
   AnalyticsAggregateResponse,
   DashboardClientError,
   DashboardWorkspaceData,
+  ExperienceAnalytics,
+  ExperienceMeasurementConfig,
+  ExperienceSessionsResponse,
+  ExperimentResponse,
   ReleaseRecoveryStateResponse,
+  WorkspaceApplicationsResponse,
   releaseRecoveryStateMatchesScope,
   validate,
   type AnalyticsAggregateResponse as AnalyticsAggregateResponseDto,
+  type ApplicationSummary as ApplicationSummaryDto,
   type DashboardWorkspaceData as DashboardWorkspaceDataDto,
+  type ExperienceAnalytics as ExperienceAnalyticsDto,
+  type ExperienceMeasurementConfig as ExperienceMeasurementConfigDto,
+  type ExperienceSession as ExperienceSessionDto,
+  type Experiment as ExperimentDto,
+  type ExperimentResponse as ExperimentResponseDto,
   type ReleaseRecoveryStateResponse as ReleaseRecoveryStateResponseDto,
+  type UpdateExperienceMeasurementBody as UpdateExperienceMeasurementBodyDto,
+  type UpdateExperimentBody as UpdateExperimentBodyDto,
+  type UpsertWorkspaceApplicationBody as UpsertWorkspaceApplicationBodyDto,
 } from '@lodariq/schema';
 
 export class DashboardClientApiError extends Error {
@@ -80,16 +94,134 @@ export async function loadDashboardReleaseRecovery(
   return result.value;
 }
 
+/** Everything one experience needs to be judged: numbers, what success is, and the live test. */
+export async function loadExperienceMeasurement(
+  documentId: string,
+  environmentId: string,
+  signal?: AbortSignal,
+): Promise<ExperienceMeasurementSnapshot> {
+  const search = new URLSearchParams({ documentId, environmentId });
+  const value = await dashboardJson(`/api/dashboard/experience?${search.toString()}`, signal);
+  return requireExperienceSnapshot(value, documentId, environmentId);
+}
+
+export async function saveExperienceSuccessEvent(
+  documentId: string,
+  successEvent: UpdateExperienceMeasurementBodyDto['successEvent'],
+): Promise<ExperienceMeasurementConfigDto> {
+  const search = new URLSearchParams({ documentId });
+  const value = await dashboardMutation(
+    `/api/dashboard/experience?${search.toString()}`,
+    'PATCH',
+    { successEvent },
+  );
+  const result = validate(ExperienceMeasurementConfig, (value as { measurement?: unknown }).measurement);
+  if (!result.valid) throw invalidClientResponse();
+  return result.value;
+}
+
+export async function saveExperimentChange(
+  experimentId: string,
+  change: UpdateExperimentBodyDto,
+): Promise<ExperimentDto> {
+  const search = new URLSearchParams({ experimentId });
+  const value = await dashboardMutation(
+    `/api/dashboard/experiment?${search.toString()}`,
+    'PATCH',
+    change,
+  );
+  const result = validate(ExperimentResponse, {
+    experiment: (value as { experiment?: unknown }).experiment,
+    results: null,
+  });
+  if (!result.valid || !result.value.experiment) throw invalidClientResponse();
+  return result.value.experiment;
+}
+
+export async function loadWorkspaceApplications(
+  signal?: AbortSignal,
+): Promise<readonly ApplicationSummaryDto[]> {
+  const value = await dashboardJson('/api/dashboard/applications', signal);
+  const result = validate(WorkspaceApplicationsResponse, value);
+  if (!result.valid) throw invalidClientResponse();
+  return result.value.applications;
+}
+
+export async function saveWorkspaceApplication(
+  application: UpsertWorkspaceApplicationBodyDto,
+): Promise<readonly ApplicationSummaryDto[]> {
+  const value = await dashboardMutation('/api/dashboard/applications', 'PUT', application);
+  const result = validate(WorkspaceApplicationsResponse, value);
+  if (!result.valid) throw invalidClientResponse();
+  return result.value.applications;
+}
+
+export interface ExperienceMeasurementSnapshot {
+  analytics: ExperienceAnalyticsDto;
+  measurement: ExperienceMeasurementConfigDto;
+  experiment: ExperimentResponseDto;
+  sessions: readonly ExperienceSessionDto[];
+}
+
+function requireExperienceSnapshot(
+  value: unknown,
+  documentId: string,
+  environmentId: string,
+): ExperienceMeasurementSnapshot {
+  const payload = value as Partial<Record<keyof ExperienceMeasurementSnapshot, unknown>>;
+  const analytics = validate(ExperienceAnalytics, payload.analytics);
+  const measurement = validate(ExperienceMeasurementConfig, payload.measurement);
+  const experiment = validate(ExperimentResponse, payload.experiment);
+  const sessions = validate(ExperienceSessionsResponse, { sessions: payload.sessions });
+  if (!analytics.valid || !measurement.valid || !experiment.valid || !sessions.valid) {
+    throw invalidClientResponse();
+  }
+  // The scope the caller asked for is the scope it must render; anything else
+  // would silently attribute one environment's numbers to another.
+  if (
+    analytics.value.documentId !== documentId ||
+    analytics.value.environmentId !== environmentId ||
+    measurement.value.documentId !== documentId
+  ) {
+    throw invalidClientResponse();
+  }
+  return {
+    analytics: analytics.value,
+    measurement: measurement.value,
+    experiment: experiment.value,
+    sessions: sessions.value.sessions,
+  };
+}
+
+async function dashboardMutation(
+  path: string,
+  method: 'PATCH' | 'PUT',
+  body: unknown,
+): Promise<unknown> {
+  return dashboardRequest(path, {
+    method,
+    credentials: 'same-origin',
+    cache: 'no-store',
+    headers: { accept: 'application/json', 'content-type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+}
+
 async function dashboardJson(path: string, signal?: AbortSignal): Promise<unknown> {
+  return dashboardRequest(path, {
+    method: 'GET',
+    credentials: 'same-origin',
+    cache: 'no-store',
+    headers: { accept: 'application/json' },
+    ...(signal ? { signal } : {}),
+  });
+}
+
+async function dashboardRequest(path: string, init: RequestInit): Promise<unknown> {
+  const signal = init.signal ?? undefined;
   let response: Response;
   try {
-    response = await fetch(path, {
-      method: 'GET',
-      credentials: 'same-origin',
-      cache: 'no-store',
-      headers: { accept: 'application/json' },
-      signal,
-    });
+    response = await fetch(path, init);
   } catch (error) {
     if (signal?.aborted) throw error;
     throw new DashboardClientApiError(

@@ -220,7 +220,7 @@ export const AUTHORING_AGREED_FLOW_CANVAS_CSS = `
 
   .react-flow__edge-text {
     fill: var(--lq-color-muted);
-    font-size: var(--lq-font-2xs);
+    font-size: 8px;
     font-weight: var(--lq-weight-semibold);
   }
 

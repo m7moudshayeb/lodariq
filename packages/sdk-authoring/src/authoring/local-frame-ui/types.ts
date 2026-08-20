@@ -6,7 +6,15 @@ import type {
   LodariqDocument,
   ResolverDiagnostic,
   RuntimeLifecycleHints,
+  StepBackdrop,
+  TargetOutline,
+  ViewportFocus,
   TargetInspectAction,
+  AdaptivePolicy,
+  AdoptionImpact,
+  ApplicationSummary,
+  Experiment,
+  ExperimentResults,
 } from '@lodariq/schema';
 import type { AuthoringReleaseFinding } from '../local-frame-types';
 import type {
@@ -14,6 +22,8 @@ import type {
   AuthoringBrandWorkspaceState,
   AuthoringReleaseWorkflowState,
 } from '../local-frame-types';
+import type { AiAssistState } from '../ai/assist-machine';
+import type { NarrationVoice } from '../narration/narration-model';
 import type { AuthoringBrandDriftControllerSnapshot } from '../brand-drift-controller';
 import type {
   AuthoringReleaseRecoveryIntent,
@@ -129,6 +139,20 @@ export interface TargetInspectionState {
   diagnostic: ResolverDiagnostic;
 }
 
+/** A partial emphasis write, merged against the live document (§4.3). */
+export interface StepEmphasisPatch {
+  backdrop?: Partial<StepBackdrop> | undefined;
+  targetOutline?: Partial<TargetOutline> | undefined;
+  viewportFocus?: Partial<ViewportFocus> | undefined;
+}
+
+/** The on-page ring asked for §4.3's target kind. `token` makes it fire once. */
+export interface TargetInspectRequest {
+  stepId: string;
+  section?: string;
+  token: number;
+}
+
 export type FocusRevealTarget = 'content' | 'behavior' | 'placement' | 'popup';
 
 export interface FocusRequest {
@@ -137,6 +161,24 @@ export interface FocusRequest {
   caret?: 'start' | 'end' | number;
   propertyId?: string;
   reveal?: FocusRevealTarget;
+  token: number;
+}
+
+/**
+ * A structural change to the card, asked for from outside the card.
+ *
+ * On the overlay the card *is* a Lexical editor, and the editor holds the only
+ * live copy of its content — it reads the document once, on mount. So a surface
+ * that is not inside the editor, such as the inspector, cannot add or remove a
+ * block by writing to the document: the change would be invisible until the step
+ * changed, and the editor's next save would overwrite it.
+ *
+ * The request travels through the snapshot instead, and a plugin inside the
+ * editor performs it. `token` makes it fire once.
+ */
+export interface CardCommandRequest {
+  kind: 'add-button' | 'remove-block' | 'select-block';
+  blockId?: string;
   token: number;
 }
 
@@ -176,6 +218,7 @@ export interface AuthoringReleaseViewState {
 
 export const AUTHORING_PANEL_MODES = [
   'edit',
+  'operations',
   'appearance',
   'brand-match-review',
   'release-verification',
@@ -184,6 +227,44 @@ export const AUTHORING_PANEL_MODES = [
   'release-recovery-confirmation',
 ] as const;
 export type AuthoringPanelMode = (typeof AUTHORING_PANEL_MODES)[number];
+
+export const AUTHORING_OPERATIONS_TABS = [
+  // Author
+  'flow',
+  'storyboard',
+  'batch',
+  'templates',
+  // Look
+  'appearance',
+  'translation',
+  'narration',
+  // Reach
+  'audience',
+  'experiment',
+  // Prove
+  /** Pre-publish report: contrast, layout simulation, targets, alt text (§4.6). */
+  'check',
+  'analytics',
+  // Ship
+  'release',
+  'review',
+  'recovery',
+  'collaboration',
+  'share',
+] as const;
+export type AuthoringOperationsTab = (typeof AUTHORING_OPERATIONS_TABS)[number];
+
+/** Nav grouping. Fifteen flat entries is a list; five groups is a menu. */
+export const AUTHORING_OPERATIONS_GROUPS = [
+  { id: 'author', tabs: ['flow', 'storyboard', 'batch', 'templates'] },
+  { id: 'look', tabs: ['appearance', 'translation', 'narration'] },
+  { id: 'reach', tabs: ['audience', 'experiment'] },
+  { id: 'prove', tabs: ['check', 'analytics'] },
+  { id: 'ship', tabs: ['release', 'review', 'recovery', 'collaboration', 'share'] },
+] as const satisfies ReadonlyArray<{
+  readonly id: string;
+  readonly tabs: readonly AuthoringOperationsTab[];
+}>;
 
 export const EDITABLE_BUTTON_VARIANT_OPTIONS = [
   { value: 'primary', label: authoringText('Primary') },
@@ -217,6 +298,7 @@ export interface AuthoringReleaseRecoveryWorkflowState {
 
 export interface AuthoringPanelWorkflowState {
   mode: AuthoringPanelMode;
+  operationsTab: AuthoringOperationsTab;
   returnMode: AuthoringPanelMode;
   focusToken: number;
   returnFocus: 'appearance' | 'release' | null;
@@ -224,6 +306,9 @@ export interface AuthoringPanelWorkflowState {
   operation: AuthoringPanelOperation;
   brand: AuthoringBrandWorkspaceState;
   brandProposal: AuthoringBrandMatchProposal | null;
+  /** The §7.5 preview loop's state, or its idle form when assist is unavailable. */
+  assist: AiAssistState;
+  assistAvailable: boolean;
   brandDrift: AuthoringBrandDriftControllerSnapshot;
   release: AuthoringReleaseWorkflowState | null;
   releaseRecovery: AuthoringReleaseRecoveryWorkflowState;
@@ -231,15 +316,84 @@ export interface AuthoringPanelWorkflowState {
   notice: string | null;
 }
 
+/** What Operations reads. Every field is optional: absent means "not measured yet". */
+export interface ExperienceFunnelEntry {
+  readonly stepId: string;
+  readonly reached: number;
+}
+
+export interface ExperienceFormResponseSummary {
+  readonly blockId: string;
+  readonly label: string;
+  readonly answerCount: number;
+  readonly topAnswer?: string;
+}
+
+export interface ExperienceAnalyticsSnapshot {
+  /** Counts are per environment; staging and production are never merged. */
+  readonly environmentId: string;
+  readonly shown: number;
+  readonly completed: number;
+  readonly dismissed: number;
+  readonly funnel: readonly ExperienceFunnelEntry[];
+  readonly adoption?: readonly AdoptionImpact[];
+  readonly formResponses?: readonly ExperienceFormResponseSummary[];
+}
+
+export interface PresencePeer {
+  readonly id: string;
+  readonly name: string;
+  readonly stepId: string;
+  readonly holdsLock: boolean;
+}
+
+export interface StepComment {
+  readonly id: string;
+  readonly stepId: string;
+  readonly author: string;
+  readonly body: string;
+  readonly resolved: boolean;
+}
+
+export interface DemoCaptureSnapshot {
+  readonly stateCount: number;
+  readonly capturedAtLabel: string;
+  readonly staleStepIds: readonly string[];
+  /** Regions that look like customer data and have not been reviewed. */
+  readonly unreviewedRegions: number;
+}
+
+export interface DemoLinkSnapshot {
+  readonly enabled: boolean;
+  readonly url: string;
+}
+
 export interface LocalAuthoringFrameSnapshot {
   documentState: LodariqDocument;
+  /** Tier 3 reach and proof. Populated from the control plane when available. */
+  applications?: readonly ApplicationSummary[];
+  knownEventNames?: readonly string[];
+  demonstratedBehaviours?: readonly string[];
+  adaptivePolicy?: AdaptivePolicy;
+  experiment?: Experiment;
+  experimentResults?: ExperimentResults;
+  experienceAnalytics?: ExperienceAnalyticsSnapshot;
+  presence?: { readonly peers: readonly PresencePeer[] };
+  comments?: readonly StepComment[];
+  demoCapture?: DemoCaptureSnapshot;
+  demoLink?: DemoLinkSnapshot;
+  activeStepId?: string | null;
   deliveryCapabilities: Set<AuthoringDeliveryCapability>;
   contentLocale: string;
+  /** Voices this session may offer. Empty when no narration provider is configured. */
+  narrationVoices?: readonly NarrationVoice[];
   translation: {
     available: boolean;
     state: 'idle' | 'translating' | 'error';
   };
   previewTheme?: BrandThemeSnapshot | null;
+  /** True when the workspace theme moved past the one rendered here (§6.3). */
+  themeStale: boolean;
   previewPreferences?: { prefersDark: boolean; prefersReducedMotion: boolean } | null;
   status: string;
   saveState: { state: AuthoringSaveState; label: string };
@@ -253,6 +407,15 @@ export interface LocalAuthoringFrameSnapshot {
   selectedStepIds: Set<string>;
   stepStyleClipboardAvailable: boolean;
   stepStyleRecipes: readonly AuthoringStepStyleRecipe[];
+  /**
+   * Which saved style a step was last given, by step id.
+   *
+   * WIRE_DB: the document has no `styleId` — a binding is derived by comparing
+   * content hashes, so the moment a creator nudges a colour the step matches
+   * nothing and the name it wore is lost. This remembers it for the session,
+   * which is what lets `Update “<name>”` know what to update.
+   */
+  stepStyleRecipeByStep: ReadonlyMap<string, string>;
   draftCheckpoints: readonly AuthoringDraftCheckpoint[];
   mediaAssets: readonly AuthoringMediaAssetResource[];
   dragTargetBlockId: string | null;
@@ -261,6 +424,8 @@ export interface LocalAuthoringFrameSnapshot {
   targetHealth: Map<string, AuthoringTargetHealth>;
   advancedTargetIds: Set<string>;
   focusRequest: FocusRequest | null;
+  cardCommandRequest: CardCommandRequest | null;
+  targetInspectRequest: TargetInspectRequest | null;
   release: AuthoringReleaseViewState;
   panelWorkflow: AuthoringPanelWorkflowState;
 }

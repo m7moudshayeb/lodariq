@@ -7,7 +7,7 @@ import {
   type TourMotionPresentation,
 } from '@lodariq/schema';
 import { $createLinkNode, $toggleLink } from '@lexical/link';
-import { insertList } from '@lexical/list';
+import { $createListItemNode, $createListNode, insertList } from '@lexical/list';
 import { $getSelectionStyleValueForProperty, $patchStyleText, $setBlocksType } from '@lexical/selection';
 import { $createHeadingNode } from '@lexical/rich-text';
 import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext';
@@ -28,12 +28,13 @@ import {
   AlignRight,
   Bold,
   ChevronDown,
+  ChevronLeft,
   CircleDot,
-  Clapperboard,
+  Ellipsis,
   Hash,
   Heading,
   Highlighter,
-  Image,
+  Image as ImageIcon,
   Italic,
   Link,
   List as ListIcon,
@@ -41,12 +42,15 @@ import {
   Minus,
   MousePointerClick,
   Palette,
+  Plus,
   Shapes,
   Smile,
+  Sparkles,
   SquareCheck,
   TextCursorInput,
   Type,
   Underline,
+  Video as VideoIcon,
 } from 'lucide-react';
 import { useEffect, useRef, useState, type ReactElement, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
@@ -64,9 +68,16 @@ import {
   type RichContentMetadata,
 } from './rich-content-doc';
 import { RichContentFloatingMenu } from './rich-content-floating';
+import { AssistVerbMenu } from './rich-content-assist-menu';
+import type { AiRewriteVerb } from '../authoring/ai/assist-contract';
+import {
+  toolbarContextForBlockType,
+  type ToolbarContextKind,
+} from '../authoring/overlay/toolbar-context';
 import {
   RichContentEmojiPickerPanel,
   RichContentIconPickerPanel,
+  RichContentInsertOption,
   RichContentMediaInsertPanel,
 } from './rich-content-insert-panels';
 import type { RichContentMediaUploadResult } from './rich-content-media-upload';
@@ -109,20 +120,45 @@ const ALIGNMENT_LABELS: Readonly<Record<'left' | 'center' | 'right', string>> = 
   right: authoringText('Align right'),
 };
 
-type InsertMenu = 'icon' | 'emoji' | 'media' | 'field' | null;
+type InsertMenu = 'add' | 'icon' | 'emoji' | 'field' | 'media' | null;
 
 /**
- * Persistent format and insert toolbar. Always available while editing so
- * creators do not have to select text or hover a gutter to reach tools.
+ * Surfaces that count as "still inside the toolbar". Menus are portalled to
+ * `document.body`, so `toolbarRef.contains` cannot see them. Shared by both
+ * guards below: when they drifted, opening a select in the More menu let the
+ * selection sync clobber the author's range and every control silently no-opped.
  */
+const TOOLBAR_SURFACE_SELECTOR = [
+  '[data-rich-content-floating-menu="true"]',
+  '[data-rich-content-select-content="true"]',
+  '.rich-content-toolbar-popover',
+  '.rich-content-toolbar .ui-select-trigger',
+].join(', ');
+
+/** Docked format chip: text style, bold/italic, link, add, and more. */
 export function SelectionToolbarPlugin({
+  insertHost,
   metadata,
+  onAskAssist,
   onChange,
+  onContextChange,
+  onRewriteSelection,
   onUploadMedia,
   toolbarHost,
 }: {
+  /**
+   * Where the pinned Insert control lands. When set, Insert leaves the swapping
+   * middle so it stays put across selections (§4.2a rule 4).
+   */
+  insertHost?: HTMLElement | null;
   metadata: RichContentMetadata;
+  /** Opens the free-form prompt for the current step (§7.5). */
+  onAskAssist?: () => void;
   onChange: (value: LodariqBlock[]) => void;
+  /** Reports what the contextual middle is editing, so the frame can name it (§4.2a). */
+  onContextChange?: (kind: ToolbarContextKind) => void;
+  /** Rewrites the current selection with one verb (§7.4). */
+  onRewriteSelection?: (verb: AiRewriteVerb, text: string) => void;
   onUploadMedia?: (
     kind: 'image' | 'video' | 'captions',
     file: File,
@@ -137,7 +173,6 @@ export function SelectionToolbarPlugin({
   const [spacingAfter, setSpacingAfter] = useState(8);
   const [blockMenuOpen, setBlockMenuOpen] = useState(false);
   const [fontSizeOpen, setFontSizeOpen] = useState(false);
-  const [animationOpen, setAnimationOpen] = useState(false);
   const [animationRecipe, setAnimationRecipe] = useState<TourMotionPresentation['recipe'] | 'none'>(
     DEFAULT_INLINE_ANIMATION.recipe,
   );
@@ -152,10 +187,17 @@ export function SelectionToolbarPlugin({
   const [linkSelectedText, setLinkSelectedText] = useState('');
   const [linkUrl, setLinkUrl] = useState('');
   const [insertMenu, setInsertMenu] = useState<InsertMenu>(null);
+  const [moreOpen, setMoreOpen] = useState(false);
+  const [assistOpen, setAssistOpen] = useState(false);
+  /** Labels of controls the bar could not fit, so the More menu can offer them. */
+  const [overflowedLabels, setOverflowedLabels] = useState<readonly string[]>([]);
   const [iconColor, setIconColor] = useState('#12715b');
   const [iconQuery, setIconQuery] = useState('');
   const savedSelection = useRef<RangeSelection | null>(null);
   const toolbarRef = useRef<HTMLDivElement | null>(null);
+  const contextKindRef = useRef<ToolbarContextKind | null>(null);
+  const onContextChangeRef = useRef(onContextChange);
+  onContextChangeRef.current = onContextChange;
   const linkStateRef = useRef({ linkDisplayAs, linkOpen, linkSelectedText, linkUrl });
   linkStateRef.current = { linkDisplayAs, linkOpen, linkSelectedText, linkUrl };
   const media = useRichContentMediaUpload(editor, onUploadMedia);
@@ -163,14 +205,15 @@ export function SelectionToolbarPlugin({
   const closeSubmenus = (): void => {
     setBlockMenuOpen(false);
     setFontSizeOpen(false);
-    setAnimationOpen(false);
     setLinkOpen(false);
     setInsertMenu(null);
+    setMoreOpen(false);
+    setAssistOpen(false);
   };
   const menusOpenRef = useRef(false);
   const closeSubmenusRef = useRef(closeSubmenus);
   menusOpenRef.current = Boolean(
-    blockMenuOpen || fontSizeOpen || animationOpen || linkOpen || insertMenu,
+    blockMenuOpen || fontSizeOpen || linkOpen || insertMenu || moreOpen,
   );
   closeSubmenusRef.current = closeSubmenus;
 
@@ -179,15 +222,15 @@ export function SelectionToolbarPlugin({
     closeSubmenus();
     if (next) setBlockMenuOpen(true);
   };
-  const toggleAnimationMenu = (): void => {
-    const next = !animationOpen;
-    closeSubmenus();
-    if (next) setAnimationOpen(true);
-  };
   const toggleInsertMenu = (kind: Exclude<InsertMenu, null>): void => {
     const next = insertMenu !== kind;
     closeSubmenus();
     if (next) setInsertMenu(kind);
+  };
+  const toggleMoreMenu = (): void => {
+    const next = !moreOpen;
+    closeSubmenus();
+    if (next) setMoreOpen(true);
   };
 
   useEffect(() => {
@@ -195,21 +238,81 @@ export function SelectionToolbarPlugin({
     const onPointerDown = (event: PointerEvent): void => {
       if (!menusOpenRef.current) return;
       const target = event.target;
-      if (
-        target instanceof Element &&
-        target.closest(
-          '[data-rich-content-floating-menu="true"], [data-rich-content-select-content="true"], .rich-content-toolbar-popover, .rich-content-toolbar .ui-select-trigger',
-        )
-      ) {
-        return;
-      }
+      if (target instanceof Element && target.closest(TOOLBAR_SURFACE_SELECTOR)) return;
       closeSubmenusRef.current();
     };
     ownerDocument.addEventListener('pointerdown', onPointerDown, true);
     return () => ownerDocument.removeEventListener('pointerdown', onPointerDown, true);
   }, [editor]);
 
+  /**
+   * Overflow into the trailing menu instead of scrolling sideways (§4.2a rule 4).
+   *
+   * A toolbar with a horizontal scrollbar hides controls behind a gesture nobody
+   * performs, which is the same failure as a control that vanishes. Controls that
+   * do not fit are hidden — so they leave the tab order too, rather than being
+   * clipped-but-focusable — and every one of them also exists in the More menu, so
+   * hiding never removes the only route to an action.
+   */
   useEffect(() => {
+    const bar = toolbarRef.current;
+    const track = bar?.parentElement;
+    if (!bar || !track) return;
+    const naturalWidths = new WeakMap<HTMLElement, number>();
+    const fixedWidth = (): number =>
+      [...bar.children]
+        .filter((child): child is HTMLElement => child instanceof HTMLElement)
+        .filter((child) => !child.hasAttribute('data-collapsible'))
+        .reduce((total, child) => total + child.offsetWidth, 0);
+    const measure = (): void => {
+      const items = [...bar.querySelectorAll<HTMLElement>('[data-collapsible]')];
+      for (const item of items) {
+        item.hidden = false;
+        // Cache once: reading after a hide would record zero and never recover.
+        if (!naturalWidths.has(item)) naturalWidths.set(item, item.offsetWidth);
+      }
+      const available = track.clientWidth;
+      /*
+       * The block-type picker is the widest thing on this bar, and it is not
+       * collapsible — it names what the caret is in. When even the fixed items
+       * do not fit, its label comes off before any formatting control is hidden:
+       * a glyph and a chevron say the same thing in a third of the width. Over a
+       * narrow card this was the difference between a bar with bold, italic,
+       * link and More on it and a bar with none of them.
+       */
+      bar.dataset['blockTypeLabel'] = 'shown';
+      if (fixedWidth() > available) bar.dataset['blockTypeLabel'] = 'hidden';
+      const fixed = fixedWidth();
+      const gaps = Number.parseFloat(getComputedStyle(bar).columnGap || '0') || 0;
+      let used = fixed + gaps * Math.max(0, bar.children.length - 1);
+      for (const item of items) {
+        const width = naturalWidths.get(item) ?? item.offsetWidth;
+        if (used + width <= available) {
+          used += width;
+          continue;
+        }
+        // Once one drops out, everything after it does too: order is priority.
+        item.hidden = true;
+        used += 0;
+      }
+      setOverflowedLabels(
+        items.filter((item) => item.hidden).map((item) => item.dataset['collapsible'] ?? ''),
+      );
+    };
+    measure();
+    // Observe the track, not the bar: the bar's own size is what we are changing.
+    const observer = new ResizeObserver(measure);
+    observer.observe(track);
+    return () => observer.disconnect();
+  }, [activeBlockType, onRewriteSelection]);
+
+  useEffect(() => {
+    /** Deduped: the label may not re-render on every keystroke inside one block. */
+    const reportContext = (kind: ToolbarContextKind): void => {
+      if (contextKindRef.current === kind) return;
+      contextKindRef.current = kind;
+      onContextChangeRef.current?.(kind);
+    };
     const syncToolbar = (): void => {
       const rootElement = editor.getRootElement();
       if (!rootElement) return;
@@ -217,9 +320,7 @@ export function SelectionToolbarPlugin({
       const activeElement = ownerDocument.activeElement;
       const toolbarActive = Boolean(
         toolbarRef.current?.contains(activeElement) ||
-          activeElement?.closest?.(
-            '[data-rich-content-floating-menu="true"], [data-rich-content-select-content="true"]',
-          ),
+          activeElement?.closest?.(TOOLBAR_SURFACE_SELECTOR),
       );
       if (toolbarActive) return;
       editor.getEditorState().read(() => {
@@ -246,6 +347,10 @@ export function SelectionToolbarPlugin({
           const nextSpacing = original?.props.blockLayout?.spacingAfterPx ?? 8;
           setActiveBlockType((current) => (current === nextBlockType ? current : nextBlockType));
           setSpacingAfter((current) => (current === nextSpacing ? current : nextSpacing));
+          reportContext(toolbarContextForBlockType(nextBlockType));
+        } else {
+          // Nothing inside the card is selected, so the step itself is the subject.
+          reportContext('step');
         }
       });
     };
@@ -350,7 +455,7 @@ export function SelectionToolbarPlugin({
     const url = safeAuthorUrl(urlRaw);
     if (url) {
       const displayAs = displayRaw.trim();
-      if (displayAs === selected || (!displayAs && selected)) {
+      if (selected && (displayAs === selected || !displayAs)) {
         withAuthorSelection(() => $toggleLink(url));
       } else {
         withAuthorSelection((selection) => {
@@ -377,6 +482,262 @@ export function SelectionToolbarPlugin({
     setSpacingAfter(rawValue);
     applyBlockSpacingAfter(editor, metadata, onChange, target.key, target.blockId, rawValue);
   };
+
+  /**
+   * Open away from the card, not onto it (§3.4 rule 1).
+   *
+   * This read the other way round: with the toolbar below the card it opened
+   * upward, straight over the card — and with the toolbar above, downward, also
+   * over the card. Both branches aimed the menu at the one surface it must not
+   * cover. The card is on the far side of the toolbar from the free space, so the
+   * menu wants the same side the toolbar is on.
+   */
+  const toolbarBelowCard = Boolean(document.querySelector('.overlay-step-main.toolbar-below'));
+  const dockedMenuPlacement = toolbarBelowCard ? 'bottom-start' : 'top-start';
+  const dockedMenuEndPlacement = toolbarBelowCard ? 'bottom-end' : 'top-end';
+
+  /**
+   * Insert is pinned to the left of the frame (§4.2a), so it never moves when the
+   * contextual middle swaps. The frame decides where it lands; this only decides
+   * what it does.
+   */
+  const insertControl = (
+    <RichContentFloatingMenu
+      content={
+        <div className="rich-content-menu rich-content-insert-menu">
+          {insertMenu === 'add' ? (
+            <>
+              {/*
+                Four-up, in the prototype's order (§4.2a): block types are
+                recognised by shape long before the label is read, and a single
+                column of fourteen rows is a list nobody scans.
+              */}
+              <p className="rich-content-insert-heading">
+                {authoringText('Insert into this step')}
+              </p>
+              <div className="rich-content-insert-grid" role="menu">
+                <RichContentInsertOption
+                  icon={<Heading size={17} />}
+                  label={authoringText('Heading')}
+                  onSelect={() => {
+                    insertNodeAtSelection(editor, () => $createHeadingNode('h2'));
+                    setInsertMenu(null);
+                  }}
+                />
+                <RichContentInsertOption
+                  icon={<Type size={17} />}
+                  label={authoringText('Text')}
+                  onSelect={() => {
+                    insertNodeAtSelection(editor, () => $createParagraphNode());
+                    setInsertMenu(null);
+                  }}
+                />
+                <RichContentInsertOption
+                  icon={<ListIcon size={17} />}
+                  label={authoringText('List')}
+                  onSelect={() => {
+                    insertNodeAtSelection(editor, () => {
+                      const list = $createListNode('bullet');
+                      list.append($createListItemNode());
+                      return list;
+                    });
+                    setInsertMenu(null);
+                  }}
+                />
+                <RichContentInsertOption
+                  icon={<Minus size={17} />}
+                  label={authoringText('Divider')}
+                  onSelect={() => {
+                    insertNodeAtSelection(editor, () => $createRichDividerNode(createBlockId()), {
+                      trailingParagraph: true,
+                    });
+                    setInsertMenu(null);
+                  }}
+                />
+                {/*
+                  Media carries an asset id, so these open the upload panel
+                  rather than dropping an empty frame the creator then has to
+                  discover how to fill.
+                */}
+                <RichContentInsertOption
+                  icon={<ImageIcon size={17} />}
+                  label={authoringText('Image')}
+                  onSelect={() => toggleInsertMenu('media')}
+                />
+                <RichContentInsertOption
+                  icon={<VideoIcon size={17} />}
+                  label={authoringText('Video')}
+                  onSelect={() => toggleInsertMenu('media')}
+                />
+                <RichContentInsertOption
+                  icon={<MessageSquareWarning size={17} />}
+                  label={authoringText('Callout')}
+                  onSelect={() => {
+                    insertNodeAtSelection(editor, () => $createRichCalloutNode());
+                    setInsertMenu(null);
+                  }}
+                />
+                <RichContentInsertOption
+                  icon={<Hash size={17} />}
+                  label={authoringText('Stat')}
+                  onSelect={() => {
+                    insertNodeAtSelection(editor, () => $createRichStatNode());
+                    setInsertMenu(null);
+                  }}
+                />
+                <RichContentInsertOption
+                  icon={<Shapes size={17} />}
+                  label={authoringText('Icon + text')}
+                  onSelect={() => toggleInsertMenu('icon')}
+                />
+                <RichContentInsertOption
+                  icon={<SquareCheck size={17} />}
+                  label={authoringText('Form field')}
+                  onSelect={() => toggleInsertMenu('field')}
+                />
+                <RichContentInsertOption
+                  icon={<MousePointerClick size={17} />}
+                  label={authoringText('Buttons')}
+                  onSelect={() => {
+                    insertNodeAtSelection(editor, () =>
+                      $createRichButtonNode(createBlockId(), authoringText('Continue'), {
+                        action: { type: 'next' },
+                        variant: 'primary',
+                      }),
+                    );
+                    setInsertMenu(null);
+                  }}
+                />
+                <RichContentInsertOption
+                  icon={<Link size={17} />}
+                  label={authoringText('Link')}
+                  onSelect={() => {
+                    insertNodeAtSelection(editor, () => {
+                      const paragraph = $createParagraphNode();
+                      const link = $createLinkNode('https://');
+                      link.append($createTextNode(authoringText('Read the guide')));
+                      paragraph.append(link);
+                      return paragraph;
+                    });
+                    setInsertMenu(null);
+                  }}
+                />
+                <RichContentInsertOption
+                  icon={<Smile size={17} />}
+                  label={authoringText('Emoji')}
+                  onSelect={() => toggleInsertMenu('emoji')}
+                />
+              </div>
+              <div className="rich-content-insert-separator" aria-hidden="true" />
+              <p className="rich-content-insert-note">
+                {authoringText('Blocks flow like a document. Drag the gutter handle to reorder.')}
+              </p>
+            </>
+          ) : null}
+          {insertMenu === 'media' && onUploadMedia ? (
+            <>
+              <button
+                className="rich-content-insert-back"
+                onClick={() => setInsertMenu('add')}
+                onPointerDown={(event) => event.preventDefault()}
+                type="button"
+              >
+                <ChevronLeft size={14} />
+                <span>{authoringText('Back')}</span>
+              </button>
+              <RichContentMediaInsertPanel
+                  captionTargetVideo={Boolean(media.captionTargetVideo)}
+                  mediaUploadError={media.mediaUploadError}
+                  onUploadCaptions={(file) => {
+                    void media.uploadCaptions(file);
+                  }}
+                  onUploadMediaFile={(kind, file) => {
+                    void media.uploadMediaIntoCanvas(kind, file);
+                    // Every other insert option closes the menu; media did not,
+                    // leaving the panel sitting over the card after a drop.
+                    setInsertMenu(null);
+                  }}
+                  saveMediaToLibrary={media.saveMediaToLibrary}
+                  setSaveMediaToLibrary={media.setSaveMediaToLibrary}
+                  uploading={media.uploading}
+                />
+            </>
+          ) : null}
+          {insertMenu === 'icon' ? (
+            <RichContentIconPickerPanel
+              color={iconColor}
+              onBack={() => setInsertMenu('add')}
+              onColorChange={setIconColor}
+              onQueryChange={setIconQuery}
+              onSelect={(icon, label, color) => {
+                insertNodeAtSelection(editor, () =>
+                  $createRichIconNode(createBlockId(), icon, label, color),
+                );
+              }}
+              query={iconQuery}
+            />
+          ) : null}
+          {insertMenu === 'emoji' ? (
+            <RichContentEmojiPickerPanel
+              onBack={() => setInsertMenu('add')}
+              onSelect={(emoji) => insertTextAtSelection(editor, emoji)}
+            />
+          ) : null}
+          {insertMenu === 'field' ? (
+            <div className="rich-content-insert-options" role="menu">
+              {(
+                [
+                  {
+                    control: 'checkbox',
+                    icon: <SquareCheck size={16} />,
+                    label: authoringText('Checkbox'),
+                  },
+                  {
+                    control: 'text',
+                    icon: <TextCursorInput size={16} />,
+                    label: authoringText('Text field'),
+                  },
+                  {
+                    control: 'radio',
+                    icon: <CircleDot size={16} />,
+                    label: authoringText('Radio'),
+                  },
+                ] as const
+              ).map((option) => (
+                <RichContentInsertOption
+                  icon={option.icon}
+                  key={option.control}
+                  label={option.label}
+                  onSelect={() => {
+                    const id = createBlockId();
+                    insertNodeAtSelection(editor, () =>
+                      $createRichFormFieldNode(
+                        id,
+                        formFieldInsertLabel(option.control),
+                        createFormFieldProps(option.control, id),
+                      ),
+                    );
+                    setInsertMenu(null);
+                  }}
+                />
+              ))}
+            </div>
+          ) : null}
+        </div>
+      }
+      open={Boolean(insertMenu)}
+      placement={dockedMenuPlacement}
+    >
+      {/* The bar's one always-present verb, so it is worded rather than a glyph. */}
+      <ToolbarButton
+        active={Boolean(insertMenu)}
+        icon={<Plus size={16} />}
+        label={authoringText('Insert')}
+        onClick={() => toggleInsertMenu('add')}
+        showLabel
+      />
+    </RichContentFloatingMenu>
+  );
 
   const toolbar = (
     <div
@@ -416,6 +777,7 @@ export function SelectionToolbarPlugin({
           </div>
         }
         open={blockMenuOpen}
+        placement={dockedMenuPlacement}
       >
         <button
           aria-expanded={blockMenuOpen}
@@ -430,152 +792,120 @@ export function SelectionToolbarPlugin({
         </button>
       </RichContentFloatingMenu>
 
-      <span className="rich-content-toolbar-divider" aria-hidden="true" />
-      <ToolbarButton
-        active={activeFormats.has('bold')}
-        icon={<Bold size={16} />}
-        label={authoringText('Bold')}
-        onClick={() => withAuthorSelection((selection) => selection.formatText('bold'))}
+      <span
+        className="rich-content-toolbar-divider"
+        data-collapsible="divider"
+        aria-hidden="true"
       />
-      <ToolbarButton
-        active={activeFormats.has('italic')}
-        icon={<Italic size={16} />}
-        label={authoringText('Italic')}
-        onClick={() => withAuthorSelection((selection) => selection.formatText('italic'))}
-      />
-      <ToolbarButton
-        active={activeFormats.has('underline')}
-        icon={<Underline size={16} />}
-        label={authoringText('Underline')}
-        onClick={() => withAuthorSelection((selection) => selection.formatText('underline'))}
-      />
-      <RichContentSelect
-        ariaLabel={authoringText('Font size')}
-        className="rich-content-font-size-trigger"
-        onOpenChange={(nextOpen) => {
-          closeSubmenus();
-          setFontSizeOpen(nextOpen);
-        }}
-        onValueChange={(nextFontSize) => {
-          setFontSize(nextFontSize);
-          withAuthorSelection((selection) =>
-            $patchStyleText(selection, { 'font-size': `${nextFontSize}px` }),
-          );
-        }}
-        open={fontSizeOpen}
-        options={FONT_SIZE_OPTIONS}
-        value={fontSize}
-      />
-      <label className="rich-content-color-control" title={authoringText('Text color')}>
-        <Palette aria-hidden="true" size={16} />
-        <input
-          aria-label={authoringText('Text color')}
-          defaultValue="#172033"
-          onChange={(event) => {
-            const color = event.currentTarget.value;
-            withAuthorSelection((selection) => $patchStyleText(selection, { color }));
-          }}
-          type="color"
+      <span data-collapsible={authoringText('Bold')}>
+        <ToolbarButton
+          active={activeFormats.has('bold')}
+          icon={<Bold size={16} />}
+          label={authoringText('Bold')}
+          onClick={() => withAuthorSelection((selection) => selection.formatText('bold'))}
         />
-      </label>
-      <label className="rich-content-color-control" title={authoringText('Selection background')}>
-        <Highlighter aria-hidden="true" size={16} />
-        <input
-          aria-label={authoringText('Selection background')}
-          defaultValue="#fff1a8"
-          onChange={(event) => {
-            const color = event.currentTarget.value;
+      </span>
+      <span data-collapsible={authoringText('Italic')}>
+        <ToolbarButton
+          active={activeFormats.has('italic')}
+          icon={<Italic size={16} />}
+          label={authoringText('Italic')}
+          onClick={() => withAuthorSelection((selection) => selection.formatText('italic'))}
+        />
+      </span>
+      {/*
+        Bold, italic and underline belong together: they are one decision made
+        three ways, and splitting the third into an overflow menu made creators
+        hunt for it. Size and colour follow for the same reason — they are the
+        controls a creator reaches for while the caret is still in the word.
+        Each stays collapsible, and each is re-offered in More when it collapses,
+        so a narrow bar never removes the only route (§4.2a rule 4).
+      */}
+      <span data-collapsible={authoringText('Underline')}>
+        <ToolbarButton
+          active={activeFormats.has('underline')}
+          icon={<Underline size={16} />}
+          label={authoringText('Underline')}
+          onClick={() => withAuthorSelection((selection) => selection.formatText('underline'))}
+        />
+      </span>
+      <span
+        className="rich-content-toolbar-divider"
+        data-collapsible="divider-type"
+        aria-hidden="true"
+      />
+      <span data-collapsible={authoringText('Font size')}>
+        <RichContentSelect
+          ariaLabel={authoringText('Font size')}
+          className="rich-content-font-size-trigger"
+          onOpenChange={setFontSizeOpen}
+          onValueChange={(nextFontSize) => {
+            setFontSize(nextFontSize);
             withAuthorSelection((selection) =>
-              $patchStyleText(selection, { 'background-color': color }),
+              $patchStyleText(selection, { 'font-size': `${nextFontSize}px` }),
             );
           }}
-          type="color"
+          open={fontSizeOpen}
+          options={FONT_SIZE_OPTIONS}
+          value={fontSize}
         />
-      </label>
-      <RichContentFloatingMenu
-        content={
-          <div className="rich-content-menu rich-content-animation-menu">
-            <label>
-              <span>{authoringText('Effect')}</span>
-              <RichContentSelect
-                ariaLabel={authoringText('Animation effect')}
-                className="rich-content-animation-select"
-                onValueChange={(value) => {
-                  const recipe = value as TourMotionPresentation['recipe'] | 'none';
-                  setAnimationRecipe(recipe);
-                  applyInlineAnimation(recipe);
-                }}
-                options={ANIMATION_RECIPE_OPTIONS}
-                value={animationRecipe}
-              />
-            </label>
-            <label>
-              <span>{authoringText('Duration')}</span>
-              <span className="rich-content-animation-number">
-                <input
-                  aria-label={authoringText('Animation duration')}
-                  max={1200}
-                  min={100}
-                  onChange={(event) => {
-                    const durationMs = clampInlineAnimationDuration(
-                      event.currentTarget.valueAsNumber,
-                    );
-                    setAnimationDurationMs(durationMs);
-                    if (animationRecipe !== 'none') {
-                      applyInlineAnimation(animationRecipe, durationMs);
-                    }
-                  }}
-                  step={50}
-                  type="number"
-                  value={animationDurationMs}
-                />
-                <span>ms</span>
-              </span>
-            </label>
-            <label>
-              <span>{authoringText('Timing')}</span>
-              <RichContentSelect
-                ariaLabel={authoringText('Animation timing')}
-                className="rich-content-animation-select"
-                onValueChange={(value) => {
-                  const easing = value as TourMotionPresentation['easing'];
-                  setAnimationEasing(easing);
-                  if (animationRecipe !== 'none') {
-                    applyInlineAnimation(animationRecipe, animationDurationMs, easing);
-                  }
-                }}
-                options={ANIMATION_EASING_OPTIONS}
-                value={animationEasing}
-              />
-            </label>
-          </div>
-        }
-        open={animationOpen}
-      >
-        <ToolbarButton
-          active={animationOpen}
-          icon={<Clapperboard size={16} />}
-          label={authoringText('Animation')}
-          onClick={toggleAnimationMenu}
-        />
-      </RichContentFloatingMenu>
-
-      <span className="rich-content-toolbar-divider" aria-hidden="true" />
-      {(['left', 'center', 'right'] as const).map((align) => {
-        const Icon = align === 'left' ? AlignLeft : align === 'center' ? AlignCenter : AlignRight;
-        return (
-          <ToolbarButton
-            icon={<Icon size={16} />}
-            key={align}
-            label={ALIGNMENT_LABELS[align]}
-            onClick={() =>
-              editor.dispatchCommand(FORMAT_ELEMENT_COMMAND, align as ElementFormatType)
-            }
+      </span>
+      <span data-collapsible={authoringText('Text color')}>
+        <label className="rich-content-color-control" title={authoringText('Text color')}>
+          <Palette aria-hidden="true" size={16} />
+          <input
+            aria-label={authoringText('Text color')}
+            defaultValue="#172033"
+            onChange={(event) => {
+              const color = event.currentTarget.value;
+              withAuthorSelection((selection) => $patchStyleText(selection, { color }));
+            }}
+            type="color"
           />
-        );
-      })}
+        </label>
+      </span>
+      {onRewriteSelection ? (
+        <RichContentFloatingMenu
+          content={
+            <AssistVerbMenu
+              onPick={(verb) => {
+                const text = editor
+                  .getEditorState()
+                  .read(() => savedSelection.current?.getTextContent() ?? '');
+                closeSubmenus();
+                if (text.trim()) onRewriteSelection(verb, text);
+              }}
+              {...(onAskAssist
+                ? {
+                    onAsk: () => {
+                      closeSubmenus();
+                      onAskAssist();
+                    },
+                  }
+                : {})}
+            />
+          }
+          open={assistOpen}
+        >
+          <button
+            aria-expanded={assistOpen}
+            aria-label={authoringText('Assist')}
+            className="rich-content-assist-trigger"
+            data-assist-trigger=""
+            onClick={() => {
+              const next = !assistOpen;
+              closeSubmenus();
+              setAssistOpen(next);
+            }}
+            onPointerDown={(event) => event.preventDefault()}
+            title={authoringText('Assist')}
+            type="button"
+          >
+            <Sparkles size={16} />
+          </button>
+        </RichContentFloatingMenu>
+      ) : null}
 
-      <span className="rich-content-toolbar-divider" aria-hidden="true" />
       <RichContentFloatingMenu
         className="rich-content-toolbar-popover-end"
         content={
@@ -621,7 +951,7 @@ export function SelectionToolbarPlugin({
           </div>
         }
         open={linkOpen}
-        placement="bottom-end"
+        placement={dockedMenuEndPlacement}
       >
         <ToolbarButton
           active={linkOpen}
@@ -631,162 +961,203 @@ export function SelectionToolbarPlugin({
         />
       </RichContentFloatingMenu>
 
-      <span className="rich-content-toolbar-divider" aria-hidden="true" />
+      {insertHost ? null : insertControl}
       <RichContentFloatingMenu
+        className="rich-content-toolbar-popover-end"
         content={
-          <div className="rich-content-menu">
-            <RichContentIconPickerPanel
-              color={iconColor}
-              onColorChange={setIconColor}
-              onQueryChange={setIconQuery}
-              onSelect={(icon, label, color) => {
-                insertNodeAtSelection(editor, () =>
-                  $createRichIconNode(createBlockId(), icon, label, color),
-                );
-              }}
-              query={iconQuery}
-            />
-          </div>
-        }
-        open={insertMenu === 'icon'}
-      >
-        <ToolbarButton
-          active={insertMenu === 'icon'}
-          icon={<Shapes size={16} />}
-          label={authoringText('Icon')}
-          onClick={() => toggleInsertMenu('icon')}
-        />
-      </RichContentFloatingMenu>
-      <RichContentFloatingMenu
-        content={
-          <div className="rich-content-menu">
-            <RichContentEmojiPickerPanel onSelect={(emoji) => insertTextAtSelection(editor, emoji)} />
-          </div>
-        }
-        open={insertMenu === 'emoji'}
-      >
-        <ToolbarButton
-          active={insertMenu === 'emoji'}
-          icon={<Smile size={16} />}
-          label={authoringText('Emoji')}
-          onClick={() => toggleInsertMenu('emoji')}
-        />
-      </RichContentFloatingMenu>
-      {onUploadMedia ? (
-        <RichContentFloatingMenu
-          content={
-            <div className="rich-content-menu">
-              <RichContentMediaInsertPanel
-                captionTargetVideo={Boolean(media.captionTargetVideo)}
-                mediaUploadError={media.mediaUploadError}
-                onUploadCaptions={(file) => {
-                  void media.uploadCaptions(file);
-                }}
-                onUploadMediaFile={(kind, file) => {
-                  void media.uploadMediaIntoCanvas(kind, file);
-                }}
-                saveMediaToLibrary={media.saveMediaToLibrary}
-                setSaveMediaToLibrary={media.setSaveMediaToLibrary}
-                uploading={media.uploading}
-              />
-            </div>
-          }
-          open={insertMenu === 'media'}
-        >
-          <ToolbarButton
-            active={insertMenu === 'media'}
-            icon={<Image size={16} />}
-            label={authoringText('Media')}
-            onClick={() => toggleInsertMenu('media')}
-          />
-        </RichContentFloatingMenu>
-      ) : null}
-      <ToolbarButton
-        icon={<Minus size={16} />}
-        label={authoringText('Divider')}
-        onClick={() =>
-          insertNodeAtSelection(editor, () => $createRichDividerNode(createBlockId()), {
-            trailingParagraph: true,
-          })
-        }
-      />
-      <ToolbarButton
-        icon={<MousePointerClick size={16} />}
-        label={authoringText('Button')}
-        onClick={() =>
-          insertNodeAtSelection(editor, () =>
-            $createRichButtonNode(createBlockId(), authoringText('Continue'), {
-              action: { type: 'next' },
-              variant: 'primary',
-            }),
-          )
-        }
-      />
-      <RichContentFloatingMenu
-        content={
-          <div className="rich-content-menu">
-            <div className="rich-content-insert-options" role="menu">
-            {(
-              [
-                { control: 'checkbox', icon: <SquareCheck size={16} />, label: authoringText('Checkbox') },
-                { control: 'text', icon: <TextCursorInput size={16} />, label: authoringText('Text field') },
-                { control: 'radio', icon: <CircleDot size={16} />, label: authoringText('Radio') },
-              ] as const
-            ).map((option) => (
-              <button
-                key={option.control}
-                onClick={() => {
-                  const id = createBlockId();
-                  insertNodeAtSelection(editor, () =>
-                    $createRichFormFieldNode(
-                      id,
-                      formFieldInsertLabel(option.control),
-                      createFormFieldProps(option.control, id),
-                    ),
+          <div className="rich-content-menu rich-content-more-menu">
+            {/*
+              Whatever the bar could not fit appears here first, so a narrow
+              toolbar never removes the only route to Bold or Italic.
+            */}
+            {overflowedLabels.length > 0 ? (
+              <div className="rich-content-more-row" data-overflowed="">
+                {overflowedLabels.includes(authoringText('Bold')) ? (
+                  <ToolbarButton
+                    active={activeFormats.has('bold')}
+                    icon={<Bold size={16} />}
+                    label={authoringText('Bold')}
+                    onClick={() => withAuthorSelection((selection) => selection.formatText('bold'))}
+                  />
+                ) : null}
+                {overflowedLabels.includes(authoringText('Italic')) ? (
+                  <ToolbarButton
+                    active={activeFormats.has('italic')}
+                    icon={<Italic size={16} />}
+                    label={authoringText('Italic')}
+                    onClick={() =>
+                      withAuthorSelection((selection) => selection.formatText('italic'))
+                    }
+                  />
+                ) : null}
+                {overflowedLabels.includes(authoringText('Underline')) ? (
+                  <ToolbarButton
+                    active={activeFormats.has('underline')}
+                    icon={<Underline size={16} />}
+                    label={authoringText('Underline')}
+                    onClick={() =>
+                      withAuthorSelection((selection) => selection.formatText('underline'))
+                    }
+                  />
+                ) : null}
+                {overflowedLabels.includes(authoringText('Font size')) ? (
+                  <RichContentSelect
+                    ariaLabel={authoringText('Font size')}
+                    className="rich-content-font-size-trigger"
+                    onValueChange={(nextFontSize) => {
+                      setFontSize(nextFontSize);
+                      withAuthorSelection((selection) =>
+                        $patchStyleText(selection, { 'font-size': `${nextFontSize}px` }),
+                      );
+                    }}
+                    options={FONT_SIZE_OPTIONS}
+                    value={fontSize}
+                  />
+                ) : null}
+                {overflowedLabels.includes(authoringText('Text color')) ? (
+                  <label className="rich-content-color-control" title={authoringText('Text color')}>
+                    <Palette aria-hidden="true" size={16} />
+                    <input
+                      aria-label={authoringText('Text color')}
+                      defaultValue="#172033"
+                      onChange={(event) => {
+                        const color = event.currentTarget.value;
+                        withAuthorSelection((selection) => $patchStyleText(selection, { color }));
+                      }}
+                      type="color"
+                    />
+                  </label>
+                ) : null}
+              </div>
+            ) : null}
+            <div className="rich-content-more-row">
+            <label className="rich-content-color-control" title={authoringText('Selection background')}>
+              <Highlighter aria-hidden="true" size={16} />
+              <input
+                aria-label={authoringText('Selection background')}
+                defaultValue="#fff1a8"
+                onChange={(event) => {
+                  const color = event.currentTarget.value;
+                  withAuthorSelection((selection) =>
+                    $patchStyleText(selection, { 'background-color': color }),
                   );
-                  setInsertMenu(null);
                 }}
-                type="button"
-              >
-                {option.icon}
-                <span>{option.label}</span>
-              </button>
-            ))}
+                type="color"
+              />
+            </label>
             </div>
+            <div className="rich-content-more-row">
+              {(['left', 'center', 'right'] as const).map((align) => {
+                const Icon =
+                  align === 'left' ? AlignLeft : align === 'center' ? AlignCenter : AlignRight;
+                return (
+                  <ToolbarButton
+                    icon={<Icon size={16} />}
+                    key={align}
+                    label={ALIGNMENT_LABELS[align]}
+                    onClick={() =>
+                      editor.dispatchCommand(FORMAT_ELEMENT_COMMAND, align as ElementFormatType)
+                    }
+                  />
+                );
+              })}
+            </div>
+            <div className="rich-content-animation-menu">
+              <label>
+                <span>{authoringText('Effect')}</span>
+                <RichContentSelect
+                  ariaLabel={authoringText('Animation effect')}
+                  className="rich-content-animation-select"
+                  onValueChange={(value) => {
+                    const recipe = value as TourMotionPresentation['recipe'] | 'none';
+                    setAnimationRecipe(recipe);
+                    applyInlineAnimation(recipe);
+                  }}
+                  options={ANIMATION_RECIPE_OPTIONS}
+                  value={animationRecipe}
+                />
+              </label>
+              <label>
+                <span>{authoringText('Duration')}</span>
+                <span className="rich-content-animation-number">
+                  <input
+                    aria-label={authoringText('Animation duration')}
+                    max={1200}
+                    min={100}
+                    onChange={(event) => {
+                      const durationMs = clampInlineAnimationDuration(
+                        event.currentTarget.valueAsNumber,
+                      );
+                      setAnimationDurationMs(durationMs);
+                      if (animationRecipe !== 'none') {
+                        applyInlineAnimation(animationRecipe, durationMs);
+                      }
+                    }}
+                    step={50}
+                    type="number"
+                    value={animationDurationMs}
+                  />
+                  <span>ms</span>
+                </span>
+              </label>
+              <label>
+                <span>{authoringText('Timing')}</span>
+                <RichContentSelect
+                  ariaLabel={authoringText('Animation timing')}
+                  className="rich-content-animation-select"
+                  onValueChange={(value) => {
+                    const easing = value as TourMotionPresentation['easing'];
+                    setAnimationEasing(easing);
+                    if (animationRecipe !== 'none') {
+                      applyInlineAnimation(animationRecipe, animationDurationMs, easing);
+                    }
+                  }}
+                  options={ANIMATION_EASING_OPTIONS}
+                  value={animationEasing}
+                />
+              </label>
+            </div>
+            <label className="rich-content-spacing-control">
+              <span>{authoringText('Space after')}</span>
+              <span>
+                <input
+                  aria-label={authoringText('Space after')}
+                  max={BLOCK_SPACING_PX_LIMITS.max}
+                  min={BLOCK_SPACING_PX_LIMITS.min}
+                  onChange={(event) => applyFocusedSpacing(Number(event.currentTarget.value))}
+                  step={BLOCK_SPACING_PX_LIMITS.step}
+                  type="number"
+                  value={spacingAfter}
+                />
+                <span>{authoringText('px')}</span>
+              </span>
+            </label>
           </div>
         }
-        open={insertMenu === 'field'}
+        open={moreOpen}
+        placement={dockedMenuEndPlacement}
       >
         <ToolbarButton
-          active={insertMenu === 'field'}
-          icon={<SquareCheck size={16} />}
-          label={authoringText('Field')}
-          onClick={() => toggleInsertMenu('field')}
+          active={moreOpen}
+          icon={<Ellipsis size={16} />}
+          label={authoringText('More formatting')}
+          onClick={toggleMoreMenu}
         />
       </RichContentFloatingMenu>
-
-      <span className="rich-content-toolbar-spacer" aria-hidden="true" />
-      <label className="rich-content-spacing-control">
-        <span>{authoringText('Space after')}</span>
-        <span>
-          <input
-            aria-label={authoringText('Space after')}
-            max={BLOCK_SPACING_PX_LIMITS.max}
-            min={BLOCK_SPACING_PX_LIMITS.min}
-            onChange={(event) => applyFocusedSpacing(Number(event.currentTarget.value))}
-            step={BLOCK_SPACING_PX_LIMITS.step}
-            type="number"
-            value={spacingAfter}
-          />
-          <span>{authoringText('px')}</span>
-        </span>
-      </label>
     </div>
   );
 
   if (!editor.isEditable()) return null;
-  if (toolbarHost) return createPortal(toolbar, toolbarHost);
-  return toolbar;
+  // One toolbar, never two (§4.2a rule 4): the old selection bubble duplicated
+  // Bold/Italic/Link over the card, on the same pixels the bar already owns.
+  const middle = toolbarHost ? createPortal(toolbar, toolbarHost) : toolbar;
+  if (!insertHost) return middle;
+  return (
+    <>
+      {createPortal(insertControl, insertHost)}
+      {middle}
+    </>
+  );
 }
 
 export function ToolbarButton({
@@ -795,12 +1166,15 @@ export function ToolbarButton({
   icon,
   label,
   onClick,
+  showLabel = false,
 }: {
   active?: boolean;
   disabled?: boolean;
   icon: ReactNode;
   label: string;
   onClick: () => void;
+  /** Printed beside the icon. Reserved for the bar's anchor control (§4.2a). */
+  showLabel?: boolean;
 }): ReactElement {
   return (
     <button
@@ -813,6 +1187,7 @@ export function ToolbarButton({
       type="button"
     >
       {icon}
+      {showLabel ? <span>{label}</span> : null}
     </button>
   );
 }

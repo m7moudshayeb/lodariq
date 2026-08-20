@@ -23,7 +23,7 @@ export function setAllowedSdkCorsHeaders(origin: string, reply: FastifyReply): v
 }
 
 export function setSdkCorsPolicyHeaders(reply: FastifyReply): void {
-  reply.header('access-control-allow-methods', 'GET,POST,OPTIONS');
+  reply.header('access-control-allow-methods', 'GET,POST,PATCH,DELETE,OPTIONS');
   reply.header(
     'access-control-allow-headers',
     `authorization,content-type,${AUTHORING_SESSION_HEADER},${PUBLIC_SDK_INSTALLATION_HEADER},${AUTHORING_BOOTSTRAP_GRANT_HEADER},${IDEMPOTENCY_KEY_HEADER},${RELEASE_CORRELATION_ID_HEADER},${SDK_DELIVERY_RETRY_ATTEMPT_HEADER}`,

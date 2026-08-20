@@ -10,6 +10,8 @@ export interface ControlPlaneRouteOptions {
   publicApiBaseUrl: string;
   loaderSrc?: string;
   publicLoaderSrc?: string;
+  /** Optional `sha384-…` digest pinned to the deployed public loader build. */
+  publicLoaderIntegrity?: string;
   creatorLoaderSrc?: string;
   creatorModule?: CreatorModuleDescriptorType;
   authoringIframeSrc: string;

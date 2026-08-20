@@ -8,3 +8,4 @@ export * from './range';
 export * from './segmented-control';
 export * from './select';
 export * from './tabs';
+export { ExclusiveFloatingGroup, useExclusiveFloating } from './exclusive-floating';

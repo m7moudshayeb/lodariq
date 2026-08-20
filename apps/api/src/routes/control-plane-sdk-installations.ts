@@ -3,6 +3,7 @@ import {
   DashboardPublicSdkInstallationCreateResponse,
   DashboardPublicSdkInstallationOriginsResponse,
   DashboardPublicSdkInstallationRevokeResponse,
+  DashboardPublicSdkInstallationSuspensionBody,
   DashboardSdkInstallationsResponse,
 } from '@lodariq/schema';
 import type { FastifyInstance, FastifyReply } from 'fastify';
@@ -36,6 +37,8 @@ export function registerControlPlaneSdkInstallationRoutes(
           sdkSnippet: renderPublicSdkInstallationSnippet({
             installationId: installation.installationId,
             loaderSrc: options.publicLoaderSrc,
+            apiBaseUrl: options.publicApiBaseUrl,
+            loaderIntegrity: options.publicLoaderIntegrity,
           }),
         })),
       };
@@ -66,6 +69,8 @@ export function registerControlPlaneSdkInstallationRoutes(
         sdkSnippet: renderPublicSdkInstallationSnippet({
           installationId: installation.installationId,
           loaderSrc: options.publicLoaderSrc,
+          apiBaseUrl: options.publicApiBaseUrl,
+          loaderIntegrity: options.publicLoaderIntegrity,
         }),
       });
     },
@@ -153,6 +158,47 @@ export function registerControlPlaneSdkInstallationRoutes(
       );
       if (!installation)
         return reply.code(404).send({ error: 'not_found', message: 'Installation not found' });
+      return { installation };
+    },
+  );
+
+  /**
+   * The kill switch (ADR-0027).
+   *
+   * Reversible, unlike revoke, and reachable by an admin in seconds. The point
+   * is that a customer who suspects Lodariq of breaking their page can prove or
+   * disprove it themselves — without a support ticket, a deploy, or an edit to
+   * their markup.
+   */
+  fastify.post(
+    '/v1/sdk-installations/:installationId/suspension',
+    {
+      schema: {
+        params: PublicSdkInstallationParams,
+        body: DashboardPublicSdkInstallationSuspensionBody,
+        response: {
+          200: DashboardPublicSdkInstallationRevokeResponse,
+          404: ApiErrorResponse,
+        },
+      },
+    },
+    async (request, reply) => {
+      const auth = await authenticate(options.repository, options.authProvider, request, reply);
+      if (!auth) return;
+      if (!requireRole(auth, 'admin', reply)) return;
+      const { installationId } = request.params as { installationId: string };
+      const { suspended } = request.body as { suspended: boolean };
+      const installation = await options.repository.setPublicSdkInstallationSuspension({
+        workspaceId: auth.workspaceId,
+        installationId,
+        suspended,
+        actorUserId: auth.userId,
+      });
+      if (!installation) {
+        return reply
+          .code(404)
+          .send({ error: 'not_found', message: 'Installation not found or already revoked' });
+      }
       return { installation };
     },
   );

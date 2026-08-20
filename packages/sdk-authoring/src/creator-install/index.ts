@@ -35,6 +35,7 @@ import {
   type ManifestPointer,
   type SdkInstallContext,
 } from '@lodariq/schema';
+import { createAuthoringOperationsClient } from '../authoring/operations/operations-client';
 import {
   installLodariq,
   readConfigFromScript,
@@ -246,6 +247,18 @@ function openCreatorAuthoringPanel(
         const saved = await saveCreatorDocument(config, context, document, documentUpdatedAt);
         documentUpdatedAt = saved.documentUpdatedAt;
       },
+      // §4.7 — the Operations sections read and write real product data. Both
+      // credentials stay on this side of the boundary; the frame only ever
+      // asks the host.
+      ...(config.apiBaseUrl && config.clientToken && config.authoringSessionToken
+        ? {
+            operations: createAuthoringOperationsClient({
+              baseUrl: config.apiBaseUrl,
+              authorization: () => `Bearer ${config.clientToken}`,
+              authoringSession: () => config.authoringSessionToken as string,
+            }),
+          }
+        : {}),
       ...(context.authoring.release?.releaseState.capability ===
       AUTHORING_SESSION_CAPABILITIES.READ_RELEASE_STATE
         ? {

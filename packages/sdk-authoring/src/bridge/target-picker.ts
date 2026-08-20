@@ -1,9 +1,25 @@
-import type { ElementFingerprint, TargetIdentityV2 } from '@lodariq/schema';
-import { createNonceStyleElement, roleOf } from '@lodariq/schema/dom';
-import { localizedLabelOf } from '@lodariq/sdk-runtime/resolver';
-import { CREATOR_CHROME_FONT_STACK, CREATOR_CHROME_TOKENS } from '../creator-chrome-tokens';
+import type { ElementFingerprint, TargetIdentityV2, TargetSelectionPolicy } from '@lodariq/schema';
+import { createNonceStyleElement } from '@lodariq/schema/dom';
+import { describeTarget, pickBigger, pickSmaller } from './targeting/legibility';
+import {
+  lookAlikeQuestion,
+  matchCountLabel,
+  type LookAlikeOption,
+} from './targeting/disambiguation';
+import { resolveTarget } from '@lodariq/sdk-runtime/resolver';
+import { startPageFreeze } from './targeting/page-freeze';
+import { createPickerBand } from './targeting/picker-band';
+import {
+  AUTHORING_TYPOGRAPHY_CSS_PROPERTIES,
+  CREATOR_CHROME_CONTROL_TOKENS,
+  CREATOR_CHROME_FONT_STACK,
+  CREATOR_CHROME_GLASS,
+  CREATOR_CHROME_STATUS_TOKENS,
+  CREATOR_CHROME_TOKENS,
+} from '../creator-chrome-tokens';
 import { applyAuthoringLocale, authoringText } from '../i18n';
 import {
+  ambiguousCandidates,
   captureElementFingerprint,
   captureNeedsConfirmation,
   captureTargetEvidence,
@@ -24,6 +40,8 @@ export interface TargetPickResult {
   element: Element;
   fingerprint: ElementFingerprint;
   identity: TargetIdentityV2;
+  /** Author's answer to the disambiguation question, when one was asked. */
+  selection?: TargetSelectionPolicy;
 }
 
 export interface TargetPicker {
@@ -67,28 +85,83 @@ interface CurrentEvidence {
   capture: TargetEvidenceCapture;
 }
 
+/**
+ * One picker per document. Two concurrent pickers would fight over the outline,
+ * the freeze listeners and the click suppression, so starting a new one retires
+ * the old one first — in the product and in tests alike.
+ */
+const activePickers = new WeakMap<Document, () => void>();
+
 export function startTargetPicker(options: TargetPickerOptions): TargetPicker {
   const doc = options.root ?? document;
+  activePickers.get(doc)?.();
   const variantStateId = normalizeTargetStateId(options.stateId);
   const outline = createOutline(doc);
   const label = createHoverLabel(doc);
   const labelText = label.querySelector<HTMLElement>('[data-lodariq-bridge="target-label-text"]')!;
-  const pickerActions = createPickerActions(doc);
   const controls = createWeakTargetCard(doc);
+  /**
+   * The bands are the picker's self-announcement (§3.3) and the home of the
+   * visible controls that replace DevTools' modifier chords (§4.4a).
+   */
+  const band = createPickerBand(doc, PICKER_Z_INDEX + 3, {
+    onCancel: () => cancel(),
+    onPickBigger: () => stepTrail('bigger'),
+    onPickSmaller: () => stepTrail('smaller'),
+    // Without this, an ancestor reached through the trail could only be
+    // committed by clicking the page again — which re-picks whatever is there.
+    onUseThis: () => pickCurrentTarget(),
+    /*
+     * Freeze is a mode, not a one-shot. It pinned whatever was already open and
+     * then reported `frozen()`, so pressing it with no menu on screen did
+     * nothing visible at all. Every layer that opens from here is pinned by the
+     * observer for the picker's whole life, which is what the creator asked for.
+     */
+    onFreeze: () => {
+      freeze.freezeNow();
+      band.setFrozen(true);
+    },
+    onUnfreeze: () => {
+      freeze.unfreeze();
+      band.setFrozen(false);
+    },
+    onInteractOnce: () => {
+      pendingWeakResult = null;
+      clickThroughNext = true;
+      controls.style.display = 'none';
+      showLabel(
+        authoringText('Interact with the page\nYour next click will not choose a placement'),
+        current?.getBoundingClientRect() ?? { left: 12, top: 56, width: 0, height: 0 },
+      );
+    },
+    onCrumb: (element) => selectElement(element),
+    onCrumbHover: (element) => previewElement(element),
+  });
+  /**
+   * Automatic avoidance first (§4.4a): a menu that opens while picking is frozen
+   * before the creator notices it would have closed.
+   */
+  const freeze = startPageFreeze({
+    root: doc,
+    ignore: (element) => Boolean(element.closest('[data-lodariq-bridge]')) || isAuthoringChrome(element),
+    onFroze: () => band.setFrozen(true),
+  });
   const cursor = createPickerCursorStyle(doc);
   const previousPickerState = doc.documentElement.getAttribute('data-lodariq-target-picker');
 
   doc.documentElement.setAttribute('data-lodariq-target-picker', 'active');
   doc.head.appendChild(cursor);
-  doc.body.append(outline, label, controls, pickerActions);
+  doc.body.append(outline, label, controls, ...band.elements);
 
   let currentCandidates: Element[] = [];
   let currentCandidateKey = '';
   let currentIndex = 0;
   let current: Element | null = null;
   let currentEvidence: CurrentEvidence | null = null;
+  let ambiguousCache: { element: Element; candidates: readonly Element[] } | null = null;
   let activeProbe: PassiveTargetProbe | null = null;
   let pendingWeakResult: TargetPickResult | null = null;
+  let lookAlikeOptions: readonly LookAlikeOption[] = [];
   let committedElement: Element | null = null;
   let clickThroughNext = false;
   let manualTargetOverride = false;
@@ -97,9 +170,11 @@ export function startTargetPicker(options: TargetPickerOptions): TargetPicker {
   let elementSequence = 0;
   const elementIds = new WeakMap<Element, number>();
 
+  const retire = (): void => cleanup();
   const cleanup = (preserveProbe = false): void => {
     if (done) return;
     done = true;
+    if (activePickers.get(doc) === retire) activePickers.delete(doc);
     doc.removeEventListener('pointerover', onPointer, true);
     doc.removeEventListener('pointermove', onPointer, true);
     doc.removeEventListener('pointerdown', suppressProductEvent, true);
@@ -109,17 +184,17 @@ export function startTargetPicker(options: TargetPickerOptions): TargetPicker {
     doc.removeEventListener('click', onClick, true);
     doc.removeEventListener('keydown', onKeyDown, true);
     controls.removeEventListener('click', onControlClick);
-    pickerActions.removeEventListener('click', onPickerActionClick);
     if (!preserveProbe) activeProbe?.cancel();
     if (previousPickerState === null) {
       doc.documentElement.removeAttribute('data-lodariq-target-picker');
     } else {
       doc.documentElement.setAttribute('data-lodariq-target-picker', previousPickerState);
     }
+    freeze.stop();
+    band.destroy();
     outline.remove();
     label.remove();
     controls.remove();
-    pickerActions.remove();
     cursor.remove();
   };
 
@@ -164,15 +239,58 @@ export function startTargetPicker(options: TargetPickerOptions): TargetPicker {
       return;
     }
     const rect = current.getBoundingClientRect();
-    positionPickerActionsAwayFromTarget(pickerActions, rect, doc);
+    // A crumb preview leaves the alternate tint behind otherwise.
+    outline.style.borderColor = CREATOR_CHROME_TOKENS.action;
+    outline.style.background = `color-mix(in srgb, ${CREATOR_CHROME_TOKENS.action} 14%, transparent)`;
     outline.style.display = 'block';
     outline.style.left = `${rect.left}px`;
     outline.style.top = `${rect.top}px`;
     outline.style.width = `${rect.width}px`;
     outline.style.height = `${rect.height}px`;
     controls.style.display = 'none';
-    showLabel(hoverLabelFor(current, showingInitialTarget), rect);
+    // Evidence first: the hover card's look-alike count has to come from the
+    // same capture the weak-target blocker reads, or it promises "1 of 1" and
+    // is contradicted one click later.
     startEvidenceProbe(current);
+    showTargetCard(current, showingInitialTarget, rect);
+    band.setTarget(current);
+  }
+
+  /** `Pick bigger` / `Pick smaller` — one level per click, box-first (§4.4). */
+  function stepTrail(direction: 'bigger' | 'smaller'): void {
+    if (!current) return;
+    const next = direction === 'bigger' ? pickBigger(current) : pickSmaller(current);
+    if (next) selectElement(next);
+  }
+
+  /** A crumb click is a pick, so it goes through the same trail as a hover. */
+  function selectElement(element: Element): void {
+    pendingWeakResult = null;
+    manualTargetOverride = true;
+    currentEvidence = null;
+    currentCandidates = [element];
+    currentCandidateKey = '';
+    currentIndex = 0;
+    showingInitialTarget = false;
+    renderCurrentTarget();
+  }
+
+  /** Hovering a crumb previews its highlight in the alternate tint (§4.4). */
+  function previewElement(element: Element | null): void {
+    const rect = (element ?? current)?.getBoundingClientRect();
+    if (!rect) return;
+    const preview = Boolean(element) && element !== current;
+    outline.style.borderColor = preview
+      ? CREATOR_CHROME_STATUS_TOKENS.attention
+      : CREATOR_CHROME_TOKENS.action;
+    outline.style.background = `color-mix(in srgb, ${
+      preview ? CREATOR_CHROME_STATUS_TOKENS.attention : CREATOR_CHROME_TOKENS.action
+    } 14%, transparent)`;
+    outline.style.display = 'block';
+    outline.style.left = `${rect.left}px`;
+    outline.style.top = `${rect.top}px`;
+    outline.style.width = `${rect.width}px`;
+    outline.style.height = `${rect.height}px`;
   }
 
   function startEvidenceProbe(element: Element): void {
@@ -188,6 +306,7 @@ export function startTargetPicker(options: TargetPickerOptions): TargetPicker {
       element,
       capture: mergeTargetCaptureVariants(options.initialIdentity, initialCapture),
     };
+    ambiguousCache = null;
     activeProbe = observeTargetEvidence(element, initialCapture, {
       locale: options.locale,
       requiredAction: options.requiredAction,
@@ -197,12 +316,20 @@ export function startTargetPicker(options: TargetPickerOptions): TargetPicker {
         const capture = mergeTargetCaptureVariants(options.initialIdentity, updatedCapture);
         if (currentEvidence?.element === element) {
           currentEvidence = { element, capture };
+          ambiguousCache = null;
         }
         if (committedElement === element) {
           options.onEvidenceUpdate?.({ element, ...capture });
         }
         if (pendingWeakResult?.element === element) {
-          pendingWeakResult = { element, ...capture };
+          // A later sample re-describes the element; it does not un-answer the
+          // disambiguation question the creator already answered.
+          const answered = pendingWeakResult.selection;
+          pendingWeakResult = {
+            element,
+            ...capture,
+            ...(answered ? { selection: answered } : {}),
+          };
           updateWeakTargetCard(pendingWeakResult.identity);
         }
       },
@@ -213,11 +340,78 @@ export function startTargetPicker(options: TargetPickerOptions): TargetPicker {
     outline.style.display = 'none';
     label.style.display = 'none';
     controls.style.display = 'none';
+    band.setTarget(null);
   }
 
   function showLabel(text: string, anchor: Event | RectAnchor): void {
     const point = labelPoint(anchor);
+    for (const part of ['title', 'size', 'count', 'hint'] as const) {
+      labelPart(part).style.display = 'none';
+    }
+    labelText.style.display = 'block';
     labelText.textContent = text;
+    label.style.display = 'block';
+    label.style.left = `${point.x}px`;
+    label.style.top = `${point.y}px`;
+  }
+
+  /**
+   * The look-alike set for whatever is under the pointer, when evidence for it
+   * has already been captured. Falls back to nothing rather than re-capturing:
+   * this runs on every pointer move.
+   */
+  function currentAmbiguousCandidates(element: Element): readonly Element[] | undefined {
+    if (currentEvidence?.element !== element) return undefined;
+    // Memoised: this is a whole-page scan plus a visual fingerprint per candidate,
+    // and the caller runs on every pointermove, not on every new element.
+    if (ambiguousCache?.element !== element) {
+      ambiguousCache = {
+        element,
+        candidates: ambiguousCandidates(element, currentEvidence.capture.identity),
+      };
+    }
+    return ambiguousCache.candidates;
+  }
+
+  function labelPart(name: string): HTMLElement {
+    return label.querySelector<HTMLElement>(`[data-lodariq-bridge="target-label-${name}"]`)!;
+  }
+
+  /** The hover card proper: identity, size, look-alike count, and what a click does. */
+  function showTargetCard(element: Element, currentPlacement: boolean, anchor: RectAnchor): void {
+    const description = describeTarget(element);
+    labelText.style.display = 'none';
+    const title = labelPart('title');
+    title.style.display = 'flex';
+    title.querySelector<HTMLElement>('[data-lodariq-bridge="target-label-name"]')!.textContent =
+      description.name
+        ? `${description.kind} · ${truncate(description.name, 60)}`
+        : description.kind;
+    const size = labelPart('size');
+    size.style.display = 'block';
+    size.textContent = authoringText('{width} × {height}', {
+      width: description.widthPx,
+      height: description.heightPx,
+    });
+    // A target smaller than the tap minimum is padded at runtime; saying so here
+    // is the only moment the creator can pick something bigger instead.
+    if (Math.min(description.widthPx, description.heightPx) < TAP_TARGET_MIN_PX) {
+      const warning = element.ownerDocument.createElement('span');
+      warning.style.color = CREATOR_CHROME_STATUS_TOKENS.attention;
+      warning.textContent = ` · ${authoringText('under {min}×{min}', { min: TAP_TARGET_MIN_PX })}`;
+      size.appendChild(warning);
+    }
+    const count = labelPart('count');
+    count.style.display = 'flex';
+    count.textContent = matchCountLabel(element, {
+      candidates: currentAmbiguousCandidates(element),
+    });
+    const hint = labelPart('hint');
+    hint.style.display = 'block';
+    hint.textContent = currentPlacement
+      ? authoringText('Click to keep or choose another')
+      : authoringText('Click to attach');
+    const point = labelPoint(anchor);
     label.style.display = 'block';
     label.style.left = `${point.x}px`;
     label.style.top = `${point.y}px`;
@@ -239,25 +433,46 @@ export function startTargetPicker(options: TargetPickerOptions): TargetPicker {
   }
 
   function updateWeakTargetCard(identity: TargetIdentityV2): void {
-    const similar = identity.captureEvidence.uniqueCandidateCount !== 1;
+    // `ambiguityIsSoleWeakness` is the flag that says an answer exists. A low
+    // runner-up margin at one exact match is ambiguous too, and keying off the
+    // count alone left that case blocked with nothing to click. Undefined on
+    // capture written before the flag, so the count is still the fallback.
+    const similar =
+      identity.captureEvidence.ambiguityIsSoleWeakness ??
+      identity.captureEvidence.uniqueCandidateCount !== 1;
     const title = controls.querySelector<HTMLElement>('[data-lodariq-bridge="target-card-title"]');
     const copy = controls.querySelector<HTMLElement>('[data-lodariq-bridge="target-card-copy"]');
     const details = controls.querySelector<HTMLElement>(
       '[data-lodariq-bridge="target-card-technical-copy"]',
     );
+    const question =
+      similar && pendingWeakResult
+        ? lookAlikeQuestion(pendingWeakResult.element, {
+            root: doc,
+            candidates: ambiguousCandidates(pendingWeakResult.element, identity),
+          })
+        : null;
+    renderLookAlikeChoices(question);
+    /*
+     * `similar` without a question means the candidates could not even be
+     * enumerated — there is too little durable evidence to compare anything, so
+     * there is no "which one" to ask and no more specific area to choose. Saying
+     * "choose a more specific area" there sent creators looking for a smaller
+     * box that does not exist; the honest ask is for something to identify it by.
+     */
     if (title) {
-      title.textContent = similar
-        ? authoringText('Choose a more specific area')
-        : authoringText('This placement may change');
+      title.textContent = question ? question.headline : authoringText('This placement may change');
     }
     if (copy) {
-      copy.textContent = similar
-        ? authoringText(
-            'A few places look the same. You can keep this in the draft, but release stays blocked until the placement is specific.',
-          )
-        : authoringText(
-            'You can keep this in the draft, but release stays blocked until Lodariq can verify it.',
-          );
+      copy.textContent = question
+        ? authoringText('Which one did you mean? Hover an answer to see what it matches.')
+        : similar
+          ? authoringText(
+              'This page does not give Lodariq enough to tell this element apart. You can keep it in the draft, but release stays blocked.',
+            )
+          : authoringText(
+              'You can keep this in the draft, but release stays blocked until Lodariq can verify it.',
+            );
     }
     if (details) {
       const evidence = identity.captureEvidence;
@@ -274,6 +489,74 @@ export function startTargetPicker(options: TargetPickerOptions): TargetPicker {
     const larger = controls.querySelector<HTMLButtonElement>('[data-action="parent"]');
     if (smaller) smaller.disabled = currentIndex <= 0;
     if (larger) larger.disabled = currentIndex >= currentCandidates.length - 1;
+  }
+
+  /**
+   * The answers to "which one did you mean", as buttons. Choosing one records an
+   * author selection policy, which is what lets the resolver settle a genuine
+   * tie deterministically instead of reporting it forever.
+   */
+  function renderLookAlikeChoices(question: ReturnType<typeof lookAlikeQuestion>): void {
+    const host = controls.querySelector<HTMLElement>('[data-lodariq-bridge="target-card-choices"]');
+    if (!host) return;
+    if (!question) {
+      host.style.display = 'none';
+      host.replaceChildren();
+      // Or `data-choice` would index answers for a question no longer on screen.
+      lookAlikeOptions = [];
+      return;
+    }
+    host.style.display = 'grid';
+    host.replaceChildren();
+    question.options.forEach((option, index) => {
+      // Nothing is pre-selected. The previous default was the first option,
+      // which was "just the one I clicked" — the one answer that cannot unblock
+      // a release, silently pre-committed on the creator's behalf.
+      const chosen = pendingWeakResult?.selection
+        ? sameSelection(pendingWeakResult.selection, option.policy)
+        : false;
+      const button = doc.createElement('button');
+      button.type = 'button';
+      button.setAttribute('role', 'radio');
+      button.setAttribute('aria-checked', String(chosen));
+      button.dataset['lodariqBridge'] = 'target-control';
+      button.dataset['action'] = 'choose-look-alike';
+      button.dataset['choice'] = String(index);
+      button.textContent = option.caveat ? `${option.label} — ${option.caveat}` : option.label;
+      Object.assign(button.style, {
+        minHeight: '36px',
+        padding: '7px 9px',
+        textAlign: 'left',
+        border: `1px solid ${chosen ? CREATOR_CHROME_TOKENS.action : 'rgba(255,255,255,0.14)'}`,
+        borderRadius: '9px',
+        background: chosen ? 'rgba(124,140,255,0.16)' : 'transparent',
+        color: CREATOR_CHROME_TOKENS.ink,
+        font: 'inherit',
+        fontWeight: chosen ? '700' : '500',
+        cursor: 'pointer',
+      });
+      button.addEventListener('pointerenter', () => previewSelection(option.policy));
+      button.addEventListener('pointerleave', () => {
+        if (current) previewElement(current);
+      });
+      host.appendChild(button);
+    });
+    lookAlikeOptions = question.options;
+  }
+
+  /** Shows what an answer would actually match, before it is chosen. */
+  function previewSelection(policy: TargetSelectionPolicy): void {
+    if (!pendingWeakResult) return;
+    const resolved = resolveTarget(
+      {
+        id: pendingWeakResult.identity.targetId,
+        fingerprint: pendingWeakResult.fingerprint,
+        identity: pendingWeakResult.identity,
+        selection: policy,
+      },
+      doc,
+    );
+    if (resolved.element) previewElement(resolved.element);
   }
 
   function labelPoint(anchor: Event | RectAnchor): { x: number; y: number } {
@@ -318,6 +601,14 @@ export function startTargetPicker(options: TargetPickerOptions): TargetPicker {
     event.preventDefault();
     event.stopPropagation();
     const action = button.dataset['action'];
+    if (action === 'choose-look-alike') {
+      const option = lookAlikeOptions[Number.parseInt(button.dataset['choice'] ?? '0', 10)];
+      if (option && pendingWeakResult) {
+        pendingWeakResult = { ...pendingWeakResult, selection: option.policy };
+        updateWeakTargetCard(pendingWeakResult.identity);
+      }
+      return;
+    }
     if (action === 'use') {
       if (pendingWeakResult) finishPick(pendingWeakResult);
       return;
@@ -325,7 +616,7 @@ export function startTargetPicker(options: TargetPickerOptions): TargetPicker {
     if (action === 'pick-another') {
       pendingWeakResult = null;
       controls.style.display = 'none';
-      if (current) showLabel(hoverLabelFor(current, false), current.getBoundingClientRect());
+      if (current) showTargetCard(current, false, current.getBoundingClientRect());
       return;
     }
     if (action === 'parent') {
@@ -344,27 +635,6 @@ export function startTargetPicker(options: TargetPickerOptions): TargetPicker {
     currentEvidence = null;
     controls.style.display = 'none';
     renderCurrentTarget();
-  }
-
-  function onPickerActionClick(event: Event): void {
-    const button = (event.target as HTMLElement | null)?.closest<HTMLButtonElement>('button');
-    if (!button) return;
-    event.preventDefault();
-    event.stopPropagation();
-    const action = button.dataset['action'];
-    if (action === 'cancel') {
-      cancel();
-      return;
-    }
-    if (action === 'click-through') {
-      pendingWeakResult = null;
-      clickThroughNext = true;
-      controls.style.display = 'none';
-      showLabel(
-        authoringText('Interact with the page\nYour next click will not choose a placement'),
-        current?.getBoundingClientRect() ?? { left: 12, top: 56, width: 0, height: 0 },
-      );
-    }
   }
 
   function suppressProductEvent(event: Event): void {
@@ -459,8 +729,8 @@ export function startTargetPicker(options: TargetPickerOptions): TargetPicker {
   doc.addEventListener('click', onClick, true);
   doc.addEventListener('keydown', onKeyDown, true);
   controls.addEventListener('click', onControlClick);
-  pickerActions.addEventListener('click', onPickerActionClick);
 
+  band.setTarget(null);
   if (options.initialTarget) {
     const trail = targetHierarchyFromElement(options.initialTarget);
     currentCandidates = trail.elements;
@@ -469,6 +739,7 @@ export function startTargetPicker(options: TargetPickerOptions): TargetPicker {
     renderCurrentTarget();
   }
 
+  activePickers.set(doc, retire);
   return { cancel };
 }
 
@@ -476,18 +747,26 @@ function createOutline(doc: Document): HTMLDivElement {
   const outline = doc.createElement('div');
   outline.dataset['lodariqBridge'] = 'target-outline';
   outline.setAttribute('aria-hidden', 'true');
+  // §4.4's picking highlight is a tinted fill with a hairline, not the target
+  // ring: a 2px ring here reads as "this is already the target".
   Object.assign(outline.style, {
     position: 'fixed',
     zIndex: String(PICKER_Z_INDEX),
     pointerEvents: 'none',
-    border: `2px solid ${CREATOR_CHROME_TOKENS.focus}`,
-    borderRadius: '8px',
-    boxShadow: '0 0 0 4px rgba(61, 232, 176, 0.2)',
+    border: `1px solid ${CREATOR_CHROME_TOKENS.action}`,
+    borderRadius: '5px',
+    background: `color-mix(in srgb, ${CREATOR_CHROME_TOKENS.action} 14%, transparent)`,
+    transition: 'all 0.09s linear',
     display: 'none',
   });
   return outline;
 }
 
+/**
+ * §4.4's hover card: what this is, how big it is, how many things look like it,
+ * and what a click will do. It is anchored to the element rather than to the
+ * cursor, so the prototype's pin has nothing to fix and is left out.
+ */
 function createHoverLabel(doc: Document): HTMLDivElement {
   const label = doc.createElement('div');
   label.dataset['lodariqBridge'] = 'target-label';
@@ -497,102 +776,34 @@ function createHoverLabel(doc: Document): HTMLDivElement {
     zIndex: String(PICKER_Z_INDEX + 1),
     pointerEvents: 'none',
     display: 'none',
-    maxWidth: '220px',
-    padding: '7px 9px',
-    border: '1px solid rgba(255, 255, 255, 0.12)',
+    minWidth: '212px',
+    maxWidth: '280px',
+    padding: '9px 11px',
+    border: `1px solid ${CREATOR_CHROME_CONTROL_TOKENS.menuBorder}`,
     borderRadius: '9px',
-    background: CREATOR_CHROME_TOKENS.chrome,
-    color: CREATOR_CHROME_TOKENS.onChrome,
-    boxShadow: '0 12px 28px rgba(0, 0, 0, 0.4)',
-    font: `600 12px/1.35 ${CREATOR_CHROME_FONT_STACK}`,
-    whiteSpace: 'pre-line',
+    background: CREATOR_CHROME_CONTROL_TOKENS.menu,
+    color: CREATOR_CHROME_TOKENS.ink,
+    boxShadow: CREATOR_CHROME_GLASS.shadowRaised,
+    font: `var(--lq-font-sm)/1.4 ${CREATOR_CHROME_FONT_STACK}`,
   });
-  const labelText = doc.createElement('div');
-  labelText.dataset['lodariqBridge'] = 'target-label-text';
-  label.appendChild(labelText);
+  label.style.cssText += AUTHORING_TYPOGRAPHY_CSS_PROPERTIES;
+  label.innerHTML = `
+    <div data-lodariq-bridge="target-label-title" style="display:none;align-items:center;gap:6px;font:var(--lq-weight-semibold) var(--lq-font-sm)/1.3 ${CREATOR_CHROME_FONT_STACK};margin-bottom:4px">
+      ${CROSSHAIR_GLYPH}<span data-lodariq-bridge="target-label-name"></span>
+    </div>
+    <div data-lodariq-bridge="target-label-size" style="display:none;color:${CREATOR_CHROME_TOKENS.muted};font-size:var(--lq-font-sm);line-height:1.55"></div>
+    <div data-lodariq-bridge="target-label-count" style="display:none;align-items:center;gap:6px;margin-top:7px;padding-top:7px;border-top:1px solid ${CREATOR_CHROME_CONTROL_TOKENS.menuBorder};color:${CREATOR_CHROME_TOKENS.action};font-size:var(--lq-font-sm)"></div>
+    <div data-lodariq-bridge="target-label-hint" style="display:none;margin-top:6px;font-size:var(--lq-font-xs);color:${CREATOR_CHROME_TOKENS.subtle}"></div>
+    <div data-lodariq-bridge="target-label-text" style="display:none;white-space:pre-line;font-weight:var(--lq-weight-semibold);font-size:var(--lq-font-sm)"></div>
+  `;
   return label;
 }
 
-function createPickerActions(doc: Document): HTMLDivElement {
-  const actions = doc.createElement('div');
-  applyAuthoringLocale(actions);
-  actions.dataset['lodariqBridge'] = 'target-picker-actions';
-  Object.assign(actions.style, {
-    position: 'fixed',
-    top: '14px',
-    left: '14px',
-    zIndex: String(PICKER_Z_INDEX + 2),
-    display: 'flex',
-    alignItems: 'center',
-    gap: '7px',
-    pointerEvents: 'auto',
-    font: `700 12px/1 ${CREATOR_CHROME_FONT_STACK}`,
-  });
-  actions.innerHTML = `
-    <button type="button" data-lodariq-bridge="target-interact" data-action="click-through" aria-label="${authoringText('Interact with the page once')}">${authoringText('Interact first')}</button>
-    <button type="button" data-lodariq-bridge="target-cancel" data-action="cancel" aria-label="${authoringText('Cancel placement selection')}">${authoringText('Cancel')}</button>
-  `;
-  for (const button of actions.querySelectorAll<HTMLButtonElement>('button')) {
-    Object.assign(button.style, {
-      minHeight: '40px',
-      padding: '0 15px',
-      border: '1px solid rgba(255, 255, 255, 0.12)',
-      borderRadius: '999px',
-      background: CREATOR_CHROME_TOKENS.chrome,
-      color: CREATOR_CHROME_TOKENS.ink,
-      boxShadow: '0 10px 28px rgba(0, 0, 0, 0.4)',
-      cursor: 'pointer',
-      font: 'inherit',
-    });
-  }
-  return actions;
-}
+const CROSSHAIR_GLYPH =
+  '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" style="flex:none"><circle cx="12" cy="12" r="8"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></svg>';
 
-function positionPickerActionsAwayFromTarget(
-  actions: HTMLElement,
-  target: RectAnchor,
-  doc: Document,
-): void {
-  const margin = 14;
-  const clearance = 10;
-  const viewportWidth = doc.defaultView?.innerWidth ?? doc.documentElement.clientWidth;
-  const viewportHeight = doc.defaultView?.innerHeight ?? doc.documentElement.clientHeight;
-  const actionRect = actions.getBoundingClientRect();
-  const width = actionRect.width;
-  const height = actionRect.height;
-  // The authoring panel collapses into a bottom-center chip while picking, so
-  // the action pills stack above it instead of on top of it.
-  const collapsedPanelClearance = 44 + 12;
-  const centeredX = Math.max(margin, (viewportWidth - width) / 2);
-  const bottomY = viewportHeight - height - margin - collapsedPanelClearance;
-  const positions = [
-    { x: centeredX, y: bottomY },
-    { x: centeredX, y: margin },
-    { x: viewportWidth - width - margin, y: bottomY },
-    { x: margin, y: bottomY },
-  ];
-  const expandedTarget = {
-    left: target.left - clearance,
-    top: target.top - clearance,
-    right: target.left + target.width + clearance,
-    bottom: target.top + target.height + clearance,
-  };
-  const position =
-    positions.find((candidate) => {
-      const right = candidate.x + width;
-      const bottom = candidate.y + height;
-      return (
-        right <= expandedTarget.left ||
-        candidate.x >= expandedTarget.right ||
-        bottom <= expandedTarget.top ||
-        candidate.y >= expandedTarget.bottom
-      );
-    }) ?? positions[0]!;
-
-  actions.style.inset = 'auto';
-  actions.style.left = `${Math.max(margin, position.x)}px`;
-  actions.style.top = `${Math.max(margin, position.y)}px`;
-}
+/** Under this in either dimension, the runtime pads the hit area (§4.4). */
+const TAP_TARGET_MIN_PX = 44;
 
 function createWeakTargetCard(doc: Document): HTMLDivElement {
   const controls = doc.createElement('div');
@@ -613,26 +824,27 @@ function createWeakTargetCard(doc: Document): HTMLDivElement {
     background: CREATOR_CHROME_TOKENS.surface,
     color: CREATOR_CHROME_TOKENS.ink,
     boxShadow: '0 18px 44px rgba(0, 0, 0, 0.44)',
-    font: `12px/1.45 ${CREATOR_CHROME_FONT_STACK}`,
+    font: `var(--lq-font-sm)/1.45 ${CREATOR_CHROME_FONT_STACK}`,
   });
+  controls.style.cssText += AUTHORING_TYPOGRAPHY_CSS_PROPERTIES;
   controls.innerHTML = `
     <div data-lodariq-bridge="target-card-header" style="display:grid; gap: 4px;">
-      <strong data-lodariq-bridge="target-card-title" style="font-size: 14px; line-height:1.3;">${authoringText('This placement may change')}</strong>
+      <strong data-lodariq-bridge="target-card-title" style="font-size: var(--lq-font-md); line-height:1.3;">${authoringText('This placement may change')}</strong>
       <span data-lodariq-bridge="target-card-copy" style="color:${CREATOR_CHROME_TOKENS.muted};">${authoringText('Lodariq may have trouble finding this after the page changes.')}</span>
     </div>
+    <div data-lodariq-bridge="target-card-choices" role="radiogroup" style="display:none; gap:2px;"></div>
     <div data-lodariq-bridge="target-card-actions" style="display:grid; grid-template-columns:1fr 1fr; gap: 8px;">
       <button type="button" data-lodariq-bridge="target-control" data-action="use">${authoringText('Keep in draft')}</button>
       <button type="button" data-lodariq-bridge="target-control" data-action="pick-another">${authoringText('Choose another')}</button>
     </div>
     <details data-lodariq-bridge="target-card-details" style="border-top:1px solid ${CREATOR_CHROME_TOKENS.border}; padding-top: 8px; color:${CREATOR_CHROME_TOKENS.muted};">
-      <summary data-lodariq-bridge="target-card-summary" style="cursor:pointer; font-weight: 700; color:${CREATOR_CHROME_TOKENS.ink};">${authoringText('Troubleshooting details')}</summary>
+      <summary data-lodariq-bridge="target-card-summary" style="cursor:pointer; font-weight: var(--lq-weight-bold); color:${CREATOR_CHROME_TOKENS.ink};">${authoringText('Troubleshooting details')}</summary>
       <p data-lodariq-bridge="target-card-technical-copy" style="margin: 8px 0;">${authoringText('Lodariq is checking this placement.')}</p>
       <div style="display:grid; grid-template-columns:1fr 1fr; gap: 8px;">
         <button type="button" data-lodariq-bridge="target-control" data-action="deeper">${authoringText('Smaller area')}</button>
         <button type="button" data-lodariq-bridge="target-control" data-action="parent">${authoringText('Larger area')}</button>
       </div>
     </details>
-  ils>
   `;
   for (const button of controls.querySelectorAll<HTMLButtonElement>('button')) {
     Object.assign(button.style, {
@@ -643,7 +855,7 @@ function createWeakTargetCard(doc: Document): HTMLDivElement {
       background: 'transparent',
       color: CREATOR_CHROME_TOKENS.ink,
       font: 'inherit',
-      fontWeight: '600',
+      fontWeight: 'var(--lq-weight-semibold)',
       cursor: 'pointer',
     });
   }
@@ -653,7 +865,7 @@ function createWeakTargetCard(doc: Document): HTMLDivElement {
       borderColor: CREATOR_CHROME_TOKENS.action,
       background: CREATOR_CHROME_TOKENS.action,
       color: CREATOR_CHROME_TOKENS.onAction,
-      fontWeight: '700',
+      fontWeight: 'var(--lq-weight-bold)',
     });
   }
   return controls;
@@ -739,18 +951,23 @@ function uniqueElements(elements: readonly Element[]): Element[] {
   });
 }
 
-function hoverLabelFor(element: Element, currentPlacement: boolean): string {
-  const name = localizedLabelOf(element)?.replace(/\s+/g, ' ').trim();
-  const role = roleOf(element) ?? element.tagName.toLowerCase();
-  const title = name ? `“${truncate(name, 72)}”` : humanizeToken(role);
-  return currentPlacement
-    ? authoringText('Current placement · {title}\nClick to keep or choose another', { title })
-    : authoringText('{title}\nClick to attach', { title });
+/**
+ * The hover card (§4.4), borrowed from DevTools and stripped of implementation
+ * detail: what the thing is in plain language, its size, and how many things on
+ * the page look like it. Never a selector, never DOM depth.
+ *
+ * The match count is the most useful number during picking and no DAP shows it.
+ */
+/** Two policies mean the same answer when their whole shape matches. */
+function sameSelection(a: TargetSelectionPolicy, b: TargetSelectionPolicy): boolean {
+  return JSON.stringify(a) === JSON.stringify(b);
 }
 
 function isAuthoringChrome(element: Element): boolean {
   return Boolean(
-    element.closest('lodariq-authoring-panel, [data-lodariq-authoring-trigger="true"]'),
+    element.closest(
+      'lodariq-authoring-panel, [data-lodariq-authoring-trigger="true"], [data-lodariq-creator-launcher="true"]',
+    ),
   );
 }
 
@@ -778,13 +995,6 @@ function isDocumentBoundary(element: Element): boolean {
   return (
     element === element.ownerDocument.documentElement || element === element.ownerDocument.body
   );
-}
-
-function humanizeToken(value: string): string {
-  const words = value.replace(/[-_]+/g, ' ').trim();
-  return words
-    ? `${words[0]?.toUpperCase() ?? ''}${words.slice(1)}`
-    : authoringText('Page element');
 }
 
 function truncate(value: string, maxLength: number): string {

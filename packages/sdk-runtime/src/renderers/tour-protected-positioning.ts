@@ -11,23 +11,37 @@ export interface CollisionAwareTourPositionOptions {
   arrowElement: HTMLElement;
   card: HTMLElement;
   placement: Placement;
+  /** Author-set gap between target and card. Defaults to the renderer's own. */
+  offsetPx?: number;
+  /** Flip to the opposite side when the chosen one does not fit. Defaults to on. */
+  autoFlip?: boolean;
   protectedSurfaces?: readonly ProtectedSurfaceRect[];
   reference: Parameters<typeof computePosition>[0];
 }
+
+const DEFAULT_ANCHOR_OFFSET_PX = 12;
 
 export async function computeCollisionAwareTourPosition({
   anchor,
   arrowElement,
   card,
   placement,
+  offsetPx,
+  autoFlip,
   protectedSurfaces,
   reference,
 }: CollisionAwareTourPositionOptions): ReturnType<typeof computePosition> {
+  const gap = offsetPx ?? DEFAULT_ANCHOR_OFFSET_PX;
   const standard = () =>
     computePosition(reference, card, {
       placement,
       strategy: 'fixed',
-      middleware: [offset(12), flip(), shift({ padding: 8 }), arrow({ element: arrowElement })],
+      middleware: [
+        offset(gap),
+        ...(autoFlip === false ? [] : [flip()]),
+        shift({ padding: 8 }),
+        arrow({ element: arrowElement }),
+      ],
     });
   if (!protectedSurfaces) return standard();
   const positioned = await Promise.all(
@@ -35,7 +49,7 @@ export async function computeCollisionAwareTourPosition({
       result: await computePosition(reference, card, {
         placement: candidatePlacement,
         strategy: 'fixed',
-        middleware: [offset(12), shift({ padding: 8 }), arrow({ element: arrowElement })],
+        middleware: [offset(gap), shift({ padding: 8 }), arrow({ element: arrowElement })],
       }),
     })),
   );

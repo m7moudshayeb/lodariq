@@ -73,6 +73,32 @@ export abstract class ControllerStepsTargetsFeature extends ControllerContentFea
     if (blockId) this.startTargetPick(blockId);
   }
 
+  /**
+   * A step inserted where the creator pointed, not at the end (§4.5), then the
+   * picker — creating a step and choosing what it points at is one gesture.
+   */
+  insertStepBeforeAndChooseTarget(neighbourStepId: string): void {
+    if (!this.allowDocumentStructureMutation()) return;
+    const index = this.documentState.blocks.findIndex((block) => block.id === neighbourStepId);
+    if (index < 0) {
+      this.appendStepAndChooseTarget();
+      return;
+    }
+    const block = createTourStep(index);
+    this.recordChange();
+    const blocks = [...this.documentState.blocks];
+    blocks.splice(index, 0, block);
+    this.documentState = { ...this.documentState, blocks: renumberTourSteps(blocks) };
+    this.afterDocumentMutation();
+    this.clearSlash();
+    this.selectedBlockId = block.id;
+    this.services.saveDocument(this.documentState);
+    this.setStatus(authoringText('Added step'));
+    this.recordMetric('block.inserted');
+    this.sendPreviewPatch(block.id, [{ op: 'insertBlock', block }]);
+    this.startTargetPick(block.id);
+  }
+
   moveTopLevelBlock(blockId: string, direction: BlockDirection): void {
     if (!this.allowDocumentStructureMutation()) return;
     const blocks = moveTopLevelBlocks(this.documentState.blocks, blockId, direction);
@@ -235,6 +261,23 @@ export abstract class ControllerStepsTargetsFeature extends ControllerContentFea
       }
       return next;
     });
+  }
+
+  /** §4.3's target kind, asked for by the on-page ring (§4.4). */
+  inspectTarget(stepId: string, section?: string): void {
+    this.selectBlock(stepId);
+    this.targetInspectRequest = { stepId, ...(section ? { section } : {}), token: ++this.targetInspectToken };
+    // The ledger only hears about explicit inspections, so a target the ring is
+    // drawn around still read as "not looked at yet" until this ran.
+    this.verifyActiveTarget();
+    this.emit();
+  }
+
+  /** Asks the host to resolve the selected step's target and file the result. */
+  protected verifyActiveTarget(): void {
+    const step = this.selectedTourStep();
+    const targetId = step ? firstTargetIdInBlock(step) : null;
+    if (step && targetId) this.requestTargetInspection(step.id, targetId, 'health');
   }
 
   startTargetPick(blockId: string): void {

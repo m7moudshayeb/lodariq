@@ -60,8 +60,8 @@ export const AUTHORING_SHELL_CSS = `
   .eyebrow {
     margin: 0;
     color: var(--lq-color-muted);
-    font-size: 10px;
-    font-weight: 700;
+    font-size: var(--lq-font-xs);
+    font-weight: var(--lq-weight-bold);
     letter-spacing: 0;
     text-transform: uppercase;
   }
@@ -74,13 +74,13 @@ export const AUTHORING_SHELL_CSS = `
   }
 
   h1 {
-    font-size: 14px;
+    font-size: var(--lq-font-md);
     line-height: 1.18;
   }
 
   h2 {
     font-size: 28px;
-    font-weight: 700;
+    font-weight: var(--lq-weight-bold);
     line-height: 1.08;
   }
 
@@ -91,7 +91,7 @@ export const AUTHORING_SHELL_CSS = `
     background: transparent;
     color: var(--lq-color-ink);
     font-size: 28px;
-    font-weight: 700;
+    font-weight: var(--lq-weight-bold);
     line-height: 1.08;
     padding: 4px 8px;
     transform: translateX(-6px);
@@ -120,7 +120,7 @@ export const AUTHORING_SHELL_CSS = `
     max-width: 58ch;
     overflow-wrap: anywhere;
     color: var(--lq-color-chrome-muted);
-    font-size: 12px;
+    font-size: var(--lq-font-sm);
     line-height: 1.35;
   }
 `;

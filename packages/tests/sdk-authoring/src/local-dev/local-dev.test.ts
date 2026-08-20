@@ -82,7 +82,7 @@ describe('local-dev authoring install helper', () => {
     expect(document.documentElement.hasAttribute('data-lodariq-authoring-panel-open')).toBe(true);
   });
 
-  it('creates a distinct Tour draft from the launcher type picker', async () => {
+  it('creates a distinct draft from the launcher type picker', async () => {
     await installLocalLodariqAuthoringFromScript({
       baseDocument,
       script: localLoaderScript('development'),
@@ -98,8 +98,13 @@ describe('local-dev authoring install helper', () => {
     const typeChoices = [
       ...document.querySelectorAll<HTMLButtonElement>('[data-lodariq-experience-type]'),
     ];
-    expect(typeChoices).toHaveLength(1);
-    expect(typeChoices[0]?.dataset['lodariqExperienceType']).toBe('tour');
+    expect(typeChoices.map((choice) => choice.dataset['lodariqExperienceType'])).toEqual([
+      'tour',
+      'announcement',
+      'hotspot',
+      'survey',
+      'checklist',
+    ]);
     expect(typeChoices[0]?.getAttribute('aria-label')).toBe('Create Tour');
     typeChoices[0]?.click();
 
@@ -174,7 +179,8 @@ describe('local-dev authoring install helper', () => {
     await mountLocalAuthoringDevFrame({ root, baseDocument });
 
     expect(document.body.textContent).toContain('Editing Selected local tour');
-    expect(document.querySelector('[aria-label="Tour steps"]')).not.toBeNull();
+    // Panel mode renders the card; the filmstrip is host chrome, not frame content.
+    expect(document.querySelector('[aria-label="Experience editor"]')).not.toBeNull();
   });
 
   it('boots the iframe from the provided base document before it has local draft storage', async () => {
@@ -191,7 +197,8 @@ describe('local-dev authoring install helper', () => {
     await mountLocalAuthoringDevFrame({ root, baseDocument });
 
     expect(document.body.textContent).toContain(`Editing ${baseDocument.title}`);
-    expect(document.querySelector('[aria-label="Tour steps"]')).not.toBeNull();
+    // Panel mode renders the card; the filmstrip is host chrome, not frame content.
+    expect(document.querySelector('[aria-label="Experience editor"]')).not.toBeNull();
   });
 
   it('keeps the install entry free of static authoring-frame imports', () => {

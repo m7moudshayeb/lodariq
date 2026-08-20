@@ -5,8 +5,16 @@ import {
 } from '@lodariq/sdk-authoring/creator-experiences';
 
 describe('creator experience capabilities', () => {
-  it('advertises only experience types that Phase 2 can actually create and run', () => {
-    expect(CREATOR_ENABLED_EXPERIENCE_TYPES.map((type) => type.id)).toEqual(['tour']);
+  it('advertises only experience types the pipeline can create, compile and run', () => {
+    // `knowledge` is registered but seeds no blocks, so it stays out of the
+    // catalog rather than authoring into an artifact with nothing in it.
+    expect(CREATOR_ENABLED_EXPERIENCE_TYPES.map((type) => type.id)).toEqual([
+      'tour',
+      'announcement',
+      'hotspot',
+      'survey',
+      'checklist',
+    ]);
   });
 
   it('creates a distinct empty draft tour without showing a step initially', () => {

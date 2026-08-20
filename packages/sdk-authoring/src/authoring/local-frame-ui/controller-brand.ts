@@ -1,4 +1,4 @@
-import { ControllerBridgeFeature } from './controller-bridge';
+import { ControllerOperationsFeature } from './controller-operations';
 import { authoringText } from '../../i18n';
 import { AUTHORING_THEME_PREVIEW_APPLY_TYPE, BRIDGE_PROTOCOL_VERSION } from '@lodariq/schema';
 import { createBridgeCorrelationId } from '../../bridge/transport';
@@ -9,7 +9,7 @@ import type {
 } from '../local-frame-types';
 import { exactArtifactPromotionRequest, firstTargetIdInBlock } from './controller-model';
 
-export abstract class ControllerBrandFeature extends ControllerBridgeFeature {
+export abstract class ControllerBrandFeature extends ControllerOperationsFeature {
   protected async matchProductBrandAsync(
     requestedStrategy: AuthoringBrandMatchRequest['strategy'],
   ): Promise<void> {

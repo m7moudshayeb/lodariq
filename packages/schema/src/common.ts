@@ -8,15 +8,17 @@ export const Environment = Type.Union(
 export type Environment = Static<typeof Environment>;
 
 /** Document types act as root renderers (PRD §7.5). */
+export const DOCUMENT_TYPES = [
+  'tour',
+  'announcement',
+  'checklist',
+  'survey',
+  'hotspot',
+  'knowledge',
+] as const;
+
 export const DocumentType = Type.Union(
-  [
-    Type.Literal('tour'),
-    Type.Literal('announcement'),
-    Type.Literal('checklist'),
-    Type.Literal('survey'),
-    Type.Literal('hotspot'),
-    Type.Literal('knowledge'),
-  ],
+  DOCUMENT_TYPES.map((value) => Type.Literal(value)),
   { $id: 'DocumentType' },
 );
 export type DocumentType = Static<typeof DocumentType>;

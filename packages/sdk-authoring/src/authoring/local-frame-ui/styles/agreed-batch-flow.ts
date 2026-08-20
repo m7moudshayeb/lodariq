@@ -70,7 +70,7 @@ export const AUTHORING_AGREED_BATCH_FLOW_CSS = `
   .tour-step-batch-menu.batch-fields > span > strong {
     grid-column: 1 / -1;
     color: var(--lq-color-muted);
-    font-size: var(--lq-font-2xs);
+    font-size: 8px;
     font-weight: var(--lq-weight-bold);
   }
 
@@ -191,7 +191,7 @@ export const AUTHORING_AGREED_BATCH_FLOW_CSS = `
 
   .tour-flow-branch-workbench .ui-field-label,
   .tour-flow-branch-workbench .transition-editor label > span {
-    font-size: var(--lq-font-2xs);
+    font-size: 8px;
   }
 
 `;

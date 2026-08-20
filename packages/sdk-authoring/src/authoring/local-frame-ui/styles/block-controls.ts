@@ -75,15 +75,15 @@ export const AUTHORING_BLOCK_CONTROL_CSS = `
   .step-child-menu-header span,
   .step-child-menu-label {
     color: var(--lq-color-muted);
-    font-size: 10px;
-    font-weight: 700;
+    font-size: var(--lq-font-xs);
+    font-weight: var(--lq-weight-bold);
     line-height: 1.2;
   }
 
   .step-child-menu-header strong {
     color: var(--lq-color-ink);
-    font-size: 12px;
-    font-weight: 700;
+    font-size: var(--lq-font-sm);
+    font-weight: var(--lq-weight-bold);
     line-height: 1.25;
   }
 
@@ -168,7 +168,7 @@ export const AUTHORING_BLOCK_CONTROL_CSS = `
     background: transparent;
     color: var(--lq-color-ink);
     font-family: inherit;
-    font-size: 14px;
+    font-size: var(--lq-font-md);
     line-height: 1.4;
     padding: 4px 8px;
     transition:
@@ -189,8 +189,8 @@ export const AUTHORING_BLOCK_CONTROL_CSS = `
 
   .block-input-heading {
     color: var(--lq-color-ink);
-    font-size: 18px;
-    font-weight: 700;
+    font-size: var(--lq-font-xl);
+    font-weight: var(--lq-weight-bold);
     line-height: 1.22;
   }
 
@@ -214,8 +214,8 @@ export const AUTHORING_BLOCK_CONTROL_CSS = `
     background: var(--lq-color-primary);
     color: var(--lq-color-page);
     box-shadow: 0 2px 8px rgba(23, 79, 85, 0.1);
-    font-size: 14px;
-    font-weight: 700;
+    font-size: var(--lq-font-md);
+    font-weight: var(--lq-weight-bold);
     padding: 8px 12px;
     text-align: center;
   }
@@ -235,8 +235,8 @@ export const AUTHORING_BLOCK_CONTROL_CSS = `
     width: 100%;
     min-height: 24px;
     color: var(--lq-color-primary);
-    font-size: 14px;
-    font-weight: 700;
+    font-size: var(--lq-font-md);
+    font-weight: var(--lq-weight-bold);
     padding: 4px 8px;
     text-decoration: underline;
     text-underline-offset: 3px;
@@ -290,8 +290,8 @@ export const AUTHORING_BLOCK_CONTROL_CSS = `
     border-radius: 0;
     background: transparent;
     color: var(--lq-color-muted);
-    font-size: 10px;
-    font-weight: 600;
+    font-size: var(--lq-font-xs);
+    font-weight: var(--lq-weight-semibold);
     padding: 0;
     white-space: nowrap;
   }
@@ -353,7 +353,7 @@ export const AUTHORING_BLOCK_CONTROL_CSS = `
     border: 1px solid transparent;
     border-radius: 8px;
     color: var(--lq-color-ink-soft);
-    font-size: 12px;
+    font-size: var(--lq-font-sm);
     padding: 4px 8px;
   }
 
@@ -403,8 +403,8 @@ export const AUTHORING_BLOCK_CONTROL_CSS = `
     display: inline-flex;
     flex: 0 0 auto;
     color: var(--lq-color-subtle);
-    font-size: 10px;
-    font-weight: 600;
+    font-size: var(--lq-font-xs);
+    font-weight: var(--lq-weight-semibold);
     line-height: 1;
   }
 
@@ -416,8 +416,8 @@ export const AUTHORING_BLOCK_CONTROL_CSS = `
     border-color: transparent;
     background: transparent;
     color: var(--lq-color-ink-soft);
-    font-size: 12px;
-    font-weight: 600;
+    font-size: var(--lq-font-sm);
+    font-weight: var(--lq-weight-semibold);
     padding: 4px 8px;
     box-shadow: none;
   }
@@ -446,7 +446,7 @@ export const AUTHORING_BLOCK_CONTROL_CSS = `
     border-radius: var(--lq-radius-sm);
     background: var(--lq-color-page);
     color: var(--lq-color-ink);
-    font-size: 12px;
+    font-size: var(--lq-font-sm);
     padding: 8px 8px 8px 12px;
     text-align: left;
   }

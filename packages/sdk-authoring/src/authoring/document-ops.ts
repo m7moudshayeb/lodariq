@@ -16,6 +16,11 @@ import {
   type TextStyleProps,
   type TooltipLayoutProps,
   type TooltipStyleProps,
+  type AnchorAlign,
+  sanitizeStepEmphasis,
+  sanitizeStepTransitionCondition,
+  type StepEmphasis,
+  type StepTransitionCondition,
 } from '@lodariq/schema';
 import { createBlockId } from '../editor/ids';
 import { authoringText } from '../i18n';
@@ -344,16 +349,23 @@ export function setBlockPlacement(
   blocks: LodariqBlock[],
   blockId: string,
   placement: TooltipPlacement,
+  /** Compass extras. Absent means "leave what is already there". */
+  anchor: { align?: AnchorAlign; offsetPx?: number } = {},
 ): LodariqBlock[] {
   return blocks.map((block) =>
     block.id === blockId
       ? {
           ...block,
-          props: sanitizeBlockProps({ ...block.props, placement }),
+          props: sanitizeBlockProps({
+            ...block.props,
+            placement,
+            ...(anchor.align ? { anchorAlign: anchor.align } : {}),
+            ...(anchor.offsetPx === undefined ? {} : { anchorOffsetPx: anchor.offsetPx }),
+          }),
         }
       : {
           ...block,
-          children: setBlockPlacement(block.children, blockId, placement),
+          children: setBlockPlacement(block.children, blockId, placement, anchor),
         },
   );
 }
@@ -946,7 +958,12 @@ function replaceRichContentInsideStep(
     const actionsAfterRichContent = editableChildren
       .slice(Math.max(firstRichContentIndex, 0))
       .filter((child) => SEPARATE_STEP_ACTION_TYPES.has(child.type));
-    const utilityChildren = currentChildren.slice(utilityStart);
+    /* The card owns chips and badges too, so anything it already exported must not
+     * come back a second time from the utility tail. */
+    const authored = new Set(richContent.map((child) => child.id));
+    const utilityChildren = currentChildren
+      .slice(utilityStart)
+      .filter((child) => !authored.has(child.id));
     return [
       ...actionsBeforeRichContent,
       ...richContent.map((child) => structuredClone(child)),
@@ -1060,11 +1077,15 @@ function duplicateBlock(block: LodariqBlock): LodariqBlock {
   });
 }
 
+/** Only the trailing run counts: a chip a creator placed mid-card is body, not a utility. */
 function firstUtilityChildIndex(children: LodariqBlock[]): number {
-  const index = children.findIndex(
-    (child) => child.type === 'targetChip' || child.type === 'validationBadge',
-  );
-  return index < 0 ? children.length : index;
+  let index = children.length;
+  while (index > 0 && isUtilityChild(children[index - 1]!)) index -= 1;
+  return index;
+}
+
+function isUtilityChild(child: LodariqBlock): boolean {
+  return child.type === 'targetChip' || child.type === 'validationBadge';
 }
 
 function setAction(
@@ -1285,4 +1306,60 @@ function presentationAnchorProps(
   const rest: Record<string, unknown> = { ...props };
   delete rest['presentationAnchor'];
   return rest;
+}
+
+/**
+ * Sets or clears a block's visibility rule. On a step this gates the whole step;
+ * on a child it varies content inside one step — the same contract, both jobs.
+ */
+export function setBlockShowWhen(
+  blocks: LodariqBlock[],
+  blockId: string,
+  showWhen?: StepTransitionCondition,
+): LodariqBlock[] {
+  return blocks.map((block) => {
+    if (block.id !== blockId) {
+      return { ...block, children: setBlockShowWhen(block.children, blockId, showWhen) };
+    }
+    const props = { ...block.props };
+    const safe = sanitizeStepTransitionCondition(showWhen);
+    if (safe) props.showWhen = safe;
+    else delete props.showWhen;
+    return { ...block, props: sanitizeBlockProps(props) };
+  });
+}
+
+/** Sets or clears a step's emphasis: backdrop, target outline, viewport focus. */
+export function setBlockEmphasis(
+  blocks: LodariqBlock[],
+  blockId: string,
+  emphasis?: StepEmphasis,
+): LodariqBlock[] {
+  return blocks.map((block) => {
+    if (block.id !== blockId) {
+      return { ...block, children: setBlockEmphasis(block.children, blockId, emphasis) };
+    }
+    const props = { ...block.props };
+    const safe = sanitizeStepEmphasis(emphasis);
+    if (safe) props.emphasis = safe;
+    else delete props.emphasis;
+    return { ...block, props: sanitizeBlockProps(props) };
+  });
+}
+
+/** The behaviour a step exists to teach, used by adaptive delivery. */
+export function setBlockTeaches(
+  blocks: LodariqBlock[],
+  blockId: string,
+  eventName?: string,
+): LodariqBlock[] {
+  return blocks.map((block) => {
+    if (block.id !== blockId) {
+      return { ...block, children: setBlockTeaches(block.children, blockId, eventName) };
+    }
+    const props = { ...block.props };
+    if (eventName) props.teaches = eventName;
+    else delete props.teaches;
+    return { ...block, props: sanitizeBlockProps(props) };
+  });
 }

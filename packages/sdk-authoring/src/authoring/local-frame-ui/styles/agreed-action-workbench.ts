@@ -53,6 +53,17 @@ export const AUTHORING_AGREED_ACTION_WORKBENCH_CSS = `
     border-bottom: 1px solid var(--lq-color-border-soft);
   }
 
+  .storyboard-property-tray[data-tool-mode='content'] > .content-inspector-chrome > .popup-inspector-title {
+    display: grid;
+    min-height: 44px;
+    flex: 1 1 auto;
+    align-items: center;
+    margin: 0;
+    padding: 0 20px;
+    font-size: var(--lq-font-xs);
+    font-weight: var(--lq-weight-semibold);
+  }
+
   .storyboard-property-tray[data-tool-mode='content']
     > .content-inspector-chrome
     > .popup-inspector-tabs {

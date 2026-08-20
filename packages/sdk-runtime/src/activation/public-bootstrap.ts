@@ -3,7 +3,9 @@ import type {
   NonProductionPublicSdkBootstrapContext,
   PublicSdkBootstrapContext,
 } from '@lodariq/schema';
+import { patternMatchesPage, readPageEligibilityContext } from '@lodariq/schema/page-eligibility';
 import { registerBrandTokens } from '../brand-token-registry';
+import { watchPagePathname, type PageNavigationWatch } from './page-navigation-watch';
 import type {
   PublicAuthoringActivationOptions,
   PublicAuthoringLauncher,
@@ -55,6 +57,8 @@ const TRUSTED_PUBLIC_API_ORIGINS = new Set([
 ]);
 
 const PUBLIC_BOOTSTRAP_PATH = '/v1/sdk/bootstrap';
+const PUBLIC_ELIGIBILITY_PATH_PREFIX = '/v1/sdk/installations/';
+const PUBLIC_ELIGIBILITY_PATH_SUFFIX = '/eligibility';
 const AUTO_INSTALL_ATTRIBUTE = 'data-lodariq-public-installed';
 const PUBLIC_INSTALLATION_ID_PATTERN = /^ins_pub_[A-Za-z0-9_-]{16,128}$/u;
 const LEGACY_SCRIPT_CONFIG_ATTRIBUTES = [
@@ -147,6 +151,27 @@ export async function installPublicSdkFromScript(
   const href = options.pageIntent?.href ?? currentPageIntent.href;
   if (href) pageIntent.href = href;
   if (currentPageIntent.origin) pageIntent.origin = currentPageIntent.origin;
+  // Pre-flight before the bootstrap POST (ADR-0027).
+  //
+  // On most page views of most applications the honest answer is "nothing here
+  // for you", and that answer is cacheable. Asking for it first means a visitor
+  // clicking through an application pays one cacheable GET for the whole
+  // session instead of an uncacheable POST per page — and pays nothing at all
+  // once the browser has the digest.
+  //
+  // Every failure path proceeds to the bootstrap. A digest that is missing,
+  // malformed, stale, or unreachable must never be able to hide a live
+  // experience; the worst it may do is fail to save a request.
+  const eligibility = await readPublicSdkEligibility(config, pageIntent);
+  if (eligibility === 'stop') {
+    script.setAttribute('data-lodariq-state', 'idle');
+    return null;
+  }
+  if (eligibility === 'disabled') {
+    script.setAttribute('data-lodariq-state', 'disabled');
+    return null;
+  }
+
   const context = await fetchPublicSdkBootstrapContext(config, pageIntent);
   const [runtime, authoringModule] = await Promise.all([
     context.delivery.state === 'available'
@@ -182,8 +207,84 @@ export async function installPublicSdkFromScript(
     runtime,
     launcher,
     registerBrandTokens,
-    destroy: () => launcher?.destroy(),
+    destroy: () => {
+      runtime?.stopTour();
+      launcher?.destroy();
+    },
   };
+}
+
+type PublicSdkEligibility = 'proceed' | 'stop' | 'disabled';
+
+/**
+ * Read the cacheable eligibility digest and decide whether this page is worth a
+ * bootstrap.
+ *
+ * Deliberately total: nothing in here throws, and every uncertain outcome
+ * resolves to `proceed`. It is an optimisation, and an optimisation that can
+ * break delivery is not one.
+ */
+export async function readPublicSdkEligibility(
+  config: PublicLoaderConfig,
+  pageIntent: PublicBootstrapPageIntent,
+): Promise<PublicSdkEligibility> {
+  const page = readPageEligibilityContext(pageIntent.href, pageIntent.origin ?? '');
+  try {
+    const url = new URL(
+      `${PUBLIC_ELIGIBILITY_PATH_PREFIX}${encodeURIComponent(config.installationId)}${PUBLIC_ELIGIBILITY_PATH_SUFFIX}`,
+      config.apiBaseUrl,
+    );
+    const response = await fetch(url, { credentials: 'omit' });
+    if (!response.ok) return 'proceed';
+    const digest: unknown = await response.json();
+    if (!isEligibilityDigest(digest, config.installationId)) return 'proceed';
+    if (!digest.enabled) return 'disabled';
+    const scope = digest.scope;
+    if (scope.kind === 'none') return 'stop';
+    if (scope.kind === 'all') return 'proceed';
+    // Without a usable page context there is nothing to match against, so the
+    // patterns cannot rule this page out.
+    if (!page) return 'proceed';
+    return scope.patterns.some((entry) => patternMatchesPage(entry.pattern, entry.mode, page))
+      ? 'proceed'
+      : 'stop';
+  } catch {
+    return 'proceed';
+  }
+}
+
+interface EligibilityDigestShape {
+  enabled: boolean;
+  scope:
+    | { kind: 'none' }
+    | { kind: 'all' }
+    | { kind: 'patterns'; patterns: { pattern: string; mode: 'exact' | 'prefix' | 'contains' }[] };
+}
+
+/**
+ * Structural check on the digest.
+ *
+ * Strict about shape but forgiving about outcome: anything unrecognised makes
+ * the caller proceed to the bootstrap, so a future digest version can be rolled
+ * out without stranding older loaders on cached copies they cannot read.
+ */
+function isEligibilityDigest(
+  value: unknown,
+  installationId: string,
+): value is EligibilityDigestShape {
+  if (!record(value)) return false;
+  if (value['schemaVersion'] !== '1' || value['installationId'] !== installationId) return false;
+  if (typeof value['enabled'] !== 'boolean') return false;
+  const scope = value['scope'];
+  if (!record(scope)) return false;
+  if (scope['kind'] === 'none' || scope['kind'] === 'all') return true;
+  if (scope['kind'] !== 'patterns' || !Array.isArray(scope['patterns'])) return false;
+  return scope['patterns'].every(
+    (entry: unknown) =>
+      record(entry) &&
+      typeof entry['pattern'] === 'string' &&
+      (entry['mode'] === 'exact' || entry['mode'] === 'prefix' || entry['mode'] === 'contains'),
+  );
 }
 
 function createRequest(
@@ -484,13 +585,29 @@ function findPublicInstallScript(): HTMLScriptElement | null {
   );
 }
 
+let automaticInstallation: PublicSdkInstallation | null = null;
+let automaticNavigationWatch: PageNavigationWatch | null = null;
+let automaticInstallQueue: Promise<void> = Promise.resolve();
+
+function scheduleAutomaticInstall(script: HTMLScriptElement): void {
+  automaticInstallQueue = automaticInstallQueue
+    .then(async () => {
+      const next = await installPublicSdkFromScript({ script });
+      const previous = automaticInstallation;
+      automaticInstallation = next;
+      if (previous && previous !== next) previous.destroy();
+    })
+    .catch(() => {
+      script.setAttribute('data-lodariq-state', 'unavailable');
+    });
+}
+
 function autoInstallPublicSdk(): void {
   const script = findPublicInstallScript();
   if (!script || script.getAttribute(AUTO_INSTALL_ATTRIBUTE) === 'true') return;
   script.setAttribute(AUTO_INSTALL_ATTRIBUTE, 'true');
-  void installPublicSdkFromScript({ script }).catch(() => {
-    script.setAttribute('data-lodariq-state', 'unavailable');
-  });
+  automaticNavigationWatch ??= watchPagePathname(() => scheduleAutomaticInstall(script));
+  scheduleAutomaticInstall(script);
 }
 
 if (typeof window !== 'undefined' && typeof document !== 'undefined') {

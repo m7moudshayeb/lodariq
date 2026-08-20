@@ -10,11 +10,13 @@ import {
 } from '../../../../../packages/sdk-authoring/src/authoring/local-frame-ui/utils';
 
 describe('local frame target inspection helpers', () => {
-  it('labels factual verification states consistently', () => {
+  it('labels every diagnostic with one of the creator’s three states (§4.4)', () => {
     expect(targetHealthTitle('found')).toBe('Verified');
-    expect(targetHealthTitle('missing')).toBe('Missing');
-    expect(targetHealthTitle('ambiguous')).toBe('Ambiguous');
-    expect(targetHealthTitle('needs_review')).toBe('Needs verification');
+    // `missing` and `ambiguous` are both failed evidence gates.
+    expect(targetHealthTitle('missing')).toBe('Can’t find');
+    expect(targetHealthTitle('ambiguous')).toBe('Can’t find');
+    // Not confirmed *here* is not a failure — audit #2's false alarm.
+    expect(targetHealthTitle('needs_review')).toBe('Needs context');
     expect(
       targetHealthTitle({
         state: 'needs_review',
@@ -22,7 +24,7 @@ describe('local frame target inspection helpers', () => {
         candidateCount: 1,
         reasonCode: 'evidence_drift',
       }),
-    ).toBe('Drift detected');
+    ).toBe('Can’t find');
   });
 
   it('formats target inspection status and fallback copy for each state', () => {

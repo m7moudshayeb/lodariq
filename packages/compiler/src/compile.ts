@@ -16,6 +16,7 @@ import {
   sanitizeTooltipStyleProps,
   sanitizeTourCompletionBehavior,
   TOUR_RENDERABLE_LEAF_BLOCK_TYPES,
+  type ApplicationSummary,
   type BrandThemeSnapshot as BrandThemeSnapshotType,
   type CompiledDocumentV4,
   type CompiledStep,
@@ -32,6 +33,11 @@ export interface CompileInput {
   document: LodariqDocument;
   theme: BrandThemeSnapshotType;
   rendererContractVersion: RendererContractVersionType;
+  /**
+   * Applications a step may hand off to. Only the ones actually referenced are
+   * emitted, so the artifact never carries the whole workspace registry.
+   */
+  applications?: readonly ApplicationSummary[];
 }
 
 function collectBody(block: LodariqBlock, acc: CompiledStep['body']): void {
@@ -69,6 +75,7 @@ function compileTourStep(
   const tooltipLayout = sanitizeTooltipLayoutProps(tooltip?.props.tooltipLayout);
   const tooltipStyle = sanitizeTooltipStyleProps(tooltip?.props.tooltipStyle);
   const stepProps = sanitizeBlockProps(step.props);
+  const tooltipProps = tooltip ? sanitizeBlockProps(tooltip.props) : undefined;
   const entrySequence = stepProps.entrySequence;
   const lifecycle = typeof targetId === 'string' ? targetsById.get(targetId)?.lifecycle : null;
 
@@ -76,6 +83,17 @@ function compileTourStep(
     id: step.id,
     ...(typeof targetId === 'string' ? { targetId } : {}),
     ...(typeof placement === 'string' ? { placement } : {}),
+    ...(tooltipProps?.anchorAlign ? { anchorAlign: tooltipProps.anchorAlign } : {}),
+    ...(tooltipProps?.anchorOffsetPx === undefined
+      ? {}
+      : { anchorOffsetPx: tooltipProps.anchorOffsetPx }),
+    ...(tooltipProps?.anchorAutoFlip === undefined
+      ? {}
+      : { anchorAutoFlip: tooltipProps.anchorAutoFlip }),
+    ...(stepProps.emphasis ? { emphasis: structuredClone(stepProps.emphasis) } : {}),
+    ...(stepProps.showWhen ? { showWhen: structuredClone(stepProps.showWhen) } : {}),
+    ...(stepProps.teaches ? { teaches: stepProps.teaches } : {}),
+    ...(stepProps.handoff ? { handoff: structuredClone(stepProps.handoff) } : {}),
     ...(presentationAnchor ? { presentationAnchor } : {}),
     ...(tooltipLayout ? { tooltipLayout: structuredClone(tooltipLayout) } : {}),
     ...(tooltipStyle ? { tooltipStyle: structuredClone(tooltipStyle) } : {}),
@@ -105,6 +123,7 @@ export function compile(input: CompileInput): Omit<CompiledDocumentV4, 'contentH
   assertPresentationAnchors(document);
   assertDocumentLocalization(document);
   assertCompletionBehavior(document);
+  const handoffApplications = referencedApplications(document, input.applications);
 
   const targetsById = new Map(document.targets.map((target) => [target.id, target]));
   const steps = compileSteps(document, targetsById);
@@ -133,6 +152,7 @@ export function compile(input: CompileInput): Omit<CompiledDocumentV4, 'contentH
     theme: structuredClone(input.theme),
     appearance: structuredClone(resolveExperienceAppearance(document.appearance)),
     ...(completion ? { completion: structuredClone(completion) } : {}),
+    ...(handoffApplications.length ? { applications: handoffApplications } : {}),
     targets: document.targets.map((t) => ({
       id: t.id,
       fingerprint: deliveryFingerprint(t.fingerprint, Boolean(t.identity)),
@@ -145,6 +165,23 @@ export function compile(input: CompileInput): Omit<CompiledDocumentV4, 'contentH
       variants: localeVariants,
     },
   };
+}
+
+/** A handoff naming an application the workspace does not have fails to compile. */
+function referencedApplications(
+  document: LodariqDocument,
+  available: readonly ApplicationSummary[] | undefined,
+): ApplicationSummary[] {
+  const referenced = new Set(
+    document.blocks
+      .map((block) => block.props?.handoff?.applicationId)
+      .filter((id): id is string => typeof id === 'string'),
+  );
+  if (!referenced.size) return [];
+  const byId = new Map((available ?? []).map((application) => [application.id, application]));
+  const missing = [...referenced].filter((id) => !byId.has(id));
+  if (missing.length) throw new Error(`Unknown handoff application ${missing[0]}`);
+  return [...referenced].map((id) => structuredClone(byId.get(id)!));
 }
 
 function assertCompletionBehavior(document: LodariqDocument): void {
@@ -169,8 +206,31 @@ function compileSteps(
   targetsById: ReadonlyMap<string, LodariqDocument['targets'][number]>,
 ): CompiledStep[] {
   return document.blocks
-    .filter((block) => block.type === 'tourStep')
-    .map((step) => compileTourStep(step, targetsById));
+    .filter((block) => COMPILABLE_ROOT_BLOCK_TYPES.has(block.type))
+    .map((block) => compileTourStep(asStep(block), targetsById));
+}
+
+/**
+ * Root blocks that become a delivered step.
+ *
+ * The model is type-agnostic: a tour is a sequence of surfaces and an
+ * announcement, hotspot, survey or checklist is one surface. Only `tourStep`
+ * used to compile, so every non-tour type authored fine and then delivered an
+ * empty artifact — the experience existed everywhere except in front of a user.
+ */
+const COMPILABLE_ROOT_BLOCK_TYPES: ReadonlySet<string> = new Set([
+  'tourStep',
+  'tooltip',
+  'spotlight',
+]);
+
+/**
+ * A single-surface root is compiled as a one-step sequence. The wrapper is
+ * synthetic and never persisted: it exists so one renderer serves every type.
+ */
+function asStep(block: LodariqBlock): LodariqBlock {
+  if (block.type === 'tourStep') return block;
+  return { id: block.id, type: 'tourStep', props: {}, children: [block] };
 }
 
 function assertDocumentLocalization(document: LodariqDocument): void {
@@ -199,10 +259,13 @@ function assertTargetIdentityBindings(document: LodariqDocument): void {
 
 function assertPresentationAnchors(document: LodariqDocument): void {
   for (const block of document.blocks) {
+    // A root tooltip is its own compiled surface, so it is its own anchor owner.
     const compiledTooltip =
       block.type === 'tourStep'
         ? (block.children.find((child) => child.type === 'tooltip') ?? null)
-        : null;
+        : block.type === 'tooltip'
+          ? block
+          : null;
     assertBlockPresentationAnchor(block, null, compiledTooltip);
   }
 }

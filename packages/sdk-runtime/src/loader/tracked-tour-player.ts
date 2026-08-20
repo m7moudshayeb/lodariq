@@ -37,6 +37,7 @@ export function createTrackedTourPlayer({
         : {}),
     },
     onBeforeStepChange: (_index, step) => runtime.writeTourResume(manifest, document, step),
+    onFormResponses: (responses) => runtime.submitFormResponses(documentId, responses),
     onStepChange: (index, step) => {
       runtime.writeTourResume(manifest, document, step);
       runtime.track('tour_step_changed', { documentId, stepId: step.id, index });

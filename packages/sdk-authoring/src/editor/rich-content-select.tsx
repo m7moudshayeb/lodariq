@@ -1,12 +1,21 @@
-import * as RadixSelect from '@radix-ui/react-select';
-import { Check, ChevronDown } from 'lucide-react';
-import { useEffect, useRef, useState, type PointerEventHandler, type ReactElement } from 'react';
+import type { PointerEventHandler, ReactElement } from 'react';
+import { AuthoringSelect } from '../authoring/local-frame-ui/design-system';
 
 export interface RichContentSelectOption {
   label: string;
   value: string;
 }
 
+/**
+ * The picker used inside the card's own inspectors.
+ *
+ * It was a second implementation — a Radix Select, where the rest of the
+ * authoring chrome uses the popover listbox. That cost two visible things at
+ * once in the Button settings panel: a Radix Select is modal, so moving between
+ * two rows took two clicks, and each root dismissed only itself, which let
+ * Width and Icon position sit open over each other. It is now the same control
+ * the step inspector uses, so both surfaces behave and read alike.
+ */
 export function RichContentSelect({
   ariaLabel,
   className = '',
@@ -26,58 +35,17 @@ export function RichContentSelect({
   options: readonly RichContentSelectOption[];
   value: string;
 }): ReactElement {
-  const triggerRef = useRef<HTMLButtonElement | null>(null);
-  const [collisionBoundary, setCollisionBoundary] = useState<HTMLElement | null>(null);
-
-  useEffect(() => {
-    setCollisionBoundary(
-      triggerRef.current?.closest<HTMLElement>('.panel-storyboard-workspace') ?? null,
-    );
-  }, []);
-
   return (
-    <RadixSelect.Root
+    <AuthoringSelect
+      ariaLabel={ariaLabel}
+      className={className}
       onOpenChange={onOpenChange}
+      onPointerDown={onPointerDown}
       onValueChange={onValueChange}
       open={open}
+      options={options}
+      size="compact"
       value={value}
-    >
-      <RadixSelect.Trigger
-        ref={triggerRef}
-        aria-label={ariaLabel}
-        className={`ui-select-trigger ${className}`.trim()}
-        onPointerDown={onPointerDown}
-      >
-        <span className="ui-select-value">
-          <RadixSelect.Value />
-        </span>
-        <RadixSelect.Icon asChild>
-          <ChevronDown aria-hidden="true" size={14} strokeWidth={2.2} />
-        </RadixSelect.Icon>
-      </RadixSelect.Trigger>
-      <RadixSelect.Portal>
-        <RadixSelect.Content
-          align="start"
-          avoidCollisions
-          className="ui-select-content"
-          collisionBoundary={collisionBoundary ?? undefined}
-          collisionPadding={8}
-          data-rich-content-select-content="true"
-          position="popper"
-          sideOffset={8}
-        >
-          <RadixSelect.Viewport className="ui-select-viewport">
-            {options.map((option) => (
-              <RadixSelect.Item className="ui-select-item" key={option.value} value={option.value}>
-                <RadixSelect.ItemText>{option.label}</RadixSelect.ItemText>
-                <RadixSelect.ItemIndicator className="ui-select-indicator">
-                  <Check aria-hidden="true" size={14} strokeWidth={2.2} />
-                </RadixSelect.ItemIndicator>
-              </RadixSelect.Item>
-            ))}
-          </RadixSelect.Viewport>
-        </RadixSelect.Content>
-      </RadixSelect.Portal>
-    </RadixSelect.Root>
+    />
   );
 }

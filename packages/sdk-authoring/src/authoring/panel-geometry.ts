@@ -93,22 +93,6 @@ export function positionInitialAuthoringPanel(host: HTMLElement): void {
   );
 }
 
-function positionTargetPickingPanel(host: HTMLElement): void {
-  const viewport = visibleViewportBounds(window);
-  const margin = authoringPanelMargin(viewport.width);
-  const width = authoringPanelWidth(viewport, margin, true);
-  applyClampedAuthoringPanelGeometry(
-    host,
-    {
-      height: AUTHORING_COLLAPSED_PANEL_HEIGHT,
-      left: viewport.left + (viewport.width - width) / 2,
-      top: viewport.bottom - AUTHORING_COLLAPSED_PANEL_HEIGHT - margin,
-      width,
-    },
-    'target-picking',
-  );
-}
-
 function authoringPanelMargin(viewportWidth: number): number {
   return viewportWidth <= 600 ? 12 : 16;
 }
@@ -555,18 +539,9 @@ function moveAuthoringPanel(host: HTMLElement, left: number, top: number): void 
   );
 }
 
-export function setPanelTargetPicking(host: HTMLElement, active: boolean, label?: string): void {
-  const targetPickingLabel = host.shadowRoot?.querySelector<HTMLElement>('.target-picking-label');
-  if (active) {
-    host.setAttribute(AUTHORING_TARGET_PICKING_ATTRIBUTE, 'true');
-    if (targetPickingLabel) {
-      targetPickingLabel.textContent = label ?? AUTHORING_PANEL_LABELS.selectTarget;
-    }
-    positionTargetPickingPanel(host);
-  } else {
-    host.removeAttribute(AUTHORING_TARGET_PICKING_ATTRIBUTE);
-    if (targetPickingLabel) targetPickingLabel.textContent = AUTHORING_PANEL_LABELS.selectTarget;
-  }
+/** The attribute alone: each picker announces itself with its own band or card. */
+export function setPanelTargetPicking(host: HTMLElement, active: boolean): void {
+  host.toggleAttribute(AUTHORING_TARGET_PICKING_ATTRIBUTE, active);
 }
 
 export function restorePanelAfterTargetPicking(
@@ -575,14 +550,7 @@ export function restorePanelAfterTargetPicking(
   restoreFocus = true,
 ): void {
   host.removeAttribute(AUTHORING_TARGET_PICKING_ATTRIBUTE);
-  const targetPickingLabel = host.shadowRoot?.querySelector<HTMLElement>('.target-picking-label');
-  if (targetPickingLabel) targetPickingLabel.textContent = AUTHORING_PANEL_LABELS.selectTarget;
-  if (!restoreState) {
-    positionInitialAuthoringPanel(host);
-    return;
-  }
-  applyClampedAuthoringPanelGeometry(host, restoreState.geometry, 'open');
-  if (restoreFocus) schedulePanelFocusRestore(restoreState.focusedElement, null);
+  if (restoreFocus) schedulePanelFocusRestore(restoreState?.focusedElement ?? null, null);
 }
 
 export function activePanelFocusElement(shadow: ShadowRoot): HTMLElement | null {

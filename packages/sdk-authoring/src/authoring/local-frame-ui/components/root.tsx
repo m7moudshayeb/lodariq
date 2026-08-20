@@ -135,7 +135,13 @@ export function LocalAuthoringFrameRoot({ options }: { options: LocalAuthoringFr
   return (
     <main
       ref={shellRef}
-      className={`shell ${frameMode === 'panel' ? 'shell-panel' : ''}`.trim()}
+      className={`shell ${
+        frameMode === 'panel'
+          ? snapshot.panelWorkflow.mode === 'edit'
+            ? 'shell-panel shell-overlay'
+            : 'shell-panel shell-operations'
+          : ''
+      }`.trim()}
       onPaste={(event) => controller.handlePaste(event)}
     >
       {frameMode === 'panel' ? (

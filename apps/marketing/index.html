@@ -1,0 +1,280 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Lodariq — Install once. Nobody touches code again.</title>
+    <meta
+      name="description"
+      content="Lodariq is an in-product launch workspace. Build tours on your live product, verify on staging, and promote the exact same artifact to production. No CSS, no selectors."
+    />
+    <link rel="canonical" href="https://lodariq.io/" />
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%230b0d11'/%3E%3Crect x='5' y='5' width='22' height='22' rx='7' fill='%237c8cff'/%3E%3Crect x='10' y='11' width='12' height='3.2' rx='1.6' fill='%230b0d11'/%3E%3Crect x='10' y='17.5' width='7' height='3.2' rx='1.6' fill='%230b0d11' opacity='.65'/%3E%3Ccircle cx='21' cy='19.1' r='2.1' fill='%230b0d11'/%3E%3C/svg%3E"
+    />
+    <meta property="og:title" content="Lodariq — Install once. Nobody touches code again." />
+    <meta
+      property="og:description"
+      content="Build tours on your live product, verify on staging, promote the exact artifact to production. The demo on this page runs the real SDK."
+    />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://lodariq.io/" />
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to content</a>
+
+    <header class="site-header" data-header>
+      <div class="shell header-row">
+        <a class="wordmark" href="/" aria-label="Lodariq home">
+          <svg class="mark" viewBox="0 0 32 32" width="26" height="26" aria-hidden="true">
+            <rect x="1" y="1" width="30" height="30" rx="9" fill="url(#mark-fill)" />
+            <rect x="8" y="10" width="16" height="3.4" rx="1.7" fill="#0b0d11" />
+            <rect x="8" y="17" width="9.5" height="3.4" rx="1.7" fill="#0b0d11" opacity=".62" />
+            <circle cx="21.6" cy="18.7" r="2.3" fill="#0b0d11" />
+            <defs>
+              <linearGradient id="mark-fill" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0" stop-color="#96a3ff" />
+                <stop offset="1" stop-color="#6e7ef2" />
+              </linearGradient>
+            </defs>
+          </svg>
+          <span>Lodariq</span>
+        </a>
+        <nav class="site-nav" aria-label="Primary">
+          <a href="#demo">Live demo</a>
+          <a href="#how">How it works</a>
+          <a href="#why">Why Lodariq</a>
+        </nav>
+        <div class="header-actions">
+          <a class="button ghost" href="https://app.lodariq.io/sign-in">Sign in</a>
+          <a class="button primary" href="#waitlist">Join the waitlist</a>
+        </div>
+      </div>
+    </header>
+
+    <main id="main">
+      <!-- ───────────────────────────── hero ───────────────────────────── -->
+      <section class="hero">
+        <div class="hero-glow" aria-hidden="true"></div>
+        <div class="shell hero-copy">
+          <p class="eyebrow"><i aria-hidden="true"></i>Early access · launching soon</p>
+          <h1>
+            Install once.<br />
+            <em>Nobody</em> touches code again.
+          </h1>
+          <p class="lede">
+            Lodariq is an in-product launch workspace. Product marketing builds tours directly on
+            the live product, verifies an immutable artifact on staging, and promotes that exact
+            artifact to production. No CSS, no selectors, no second dashboard.
+          </p>
+          <div class="hero-actions">
+            <a class="button primary lg" href="#waitlist">Join the waitlist</a>
+            <a class="button quiet lg" href="#demo">Watch it run below&thinsp;↓</a>
+          </div>
+        </div>
+
+        <!-- The centerpiece: the real fixture host with the real SDK. -->
+        <div class="shell wide" id="demo">
+          <figure class="demo" data-demo aria-label="Live Lodariq demo">
+            <div class="demo-chrome">
+              <span class="demo-dots" aria-hidden="true"><i></i><i></i><i></i></span>
+              <span class="demo-url" aria-hidden="true">meridian.app — a product like yours</span>
+              <span class="demo-live"><i aria-hidden="true"></i>Real SDK, running now</span>
+            </div>
+            <div class="demo-stage" data-demo-stage>
+              <iframe
+                data-demo-frame
+                title="Meridian, a demo product with the Lodariq SDK installed"
+                width="1280"
+                height="832"
+              ></iframe>
+            </div>
+            <div class="demo-controls">
+              <button class="button demo-play" type="button" data-demo-play>
+                <svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true">
+                  <path d="M4 2.5v11l9-5.5z" fill="currentColor" />
+                </svg>
+                Play the tour
+              </button>
+              <ol class="demo-steps" aria-label="Tour progress">
+                <li data-demo-step data-state="todo"><span class="sr-only">Step 1</span></li>
+                <li data-demo-step data-state="todo"><span class="sr-only">Step 2</span></li>
+                <li data-demo-step data-state="todo"><span class="sr-only">Step 3</span></li>
+                <li data-demo-step data-state="todo"><span class="sr-only">Step 4</span></li>
+              </ol>
+              <p class="demo-status" data-demo-status aria-live="polite"></p>
+              <button class="button demo-reset" type="button" data-demo-reset>Reset</button>
+            </div>
+            <figcaption class="demo-note">
+              <strong>Nothing here is a recording.</strong> The window above is a working product
+              with the Lodariq SDK installed. The tour is a real document — compiled in your
+              browser, themed by the Brand System, played through the same API a customer page uses.
+              Steps anchor to what elements <em>mean</em>; no CSS selectors exist for any of them.
+            </figcaption>
+          </figure>
+        </div>
+      </section>
+
+      <!-- ─────────────────────────── install ──────────────────────────── -->
+      <section class="install" id="install" data-reveal>
+        <div class="shell split">
+          <div>
+            <p class="kicker">The install</p>
+            <h2>The developer's <em>entire</em> job</h2>
+            <p class="body">
+              One script tag, added once, before <code>&lt;/body&gt;</code>. It stays invisible to
+              your users until something is published, and it never changes again — new tours,
+              edits, translations and rollbacks all ship without touching it.
+            </p>
+          </div>
+          <div class="snippet-card">
+            <div class="snippet-head">
+              <span>index.html</span>
+              <button class="button snippet-copy" type="button" data-copy-target="#install-snippet">
+                Copy
+              </button>
+            </div>
+            <pre
+              id="install-snippet"
+            ><code><span class="t">&lt;script</span> <span class="a">async</span> <span class="a">src</span>=<span class="s">"https://cdn.lodariq.io/lodariq.js"</span>
+  <span class="a">data-workspace</span>=<span class="s">"wk_your_workspace"</span>
+  <span class="a">data-env</span>=<span class="s">"production"</span><span class="t">&gt;&lt;/script&gt;</span></code></pre>
+          </div>
+        </div>
+      </section>
+
+      <!-- ────────────────────────── how it works ──────────────────────── -->
+      <section class="how" id="how" data-reveal>
+        <div class="shell">
+          <p class="kicker">How it works</p>
+          <h2>Idea to production, <em>without leaving</em> your product</h2>
+          <ol class="steps">
+            <li>
+              <span class="step-index" data-hue="indigo">1</span>
+              <h3>Install the snippet</h3>
+              <p>
+                Paste the script tag once. No browser extension, no staging-only build, no code for
+                anyone to maintain afterwards.
+              </p>
+            </li>
+            <li>
+              <span class="step-index" data-hue="mint">2</span>
+              <h3>Create on the live product</h3>
+              <p>
+                On staging, press <kbd>⌘</kbd><kbd>⇧</kbd><kbd>L</kbd>. The editor opens on the page
+                itself — each step is written next to the thing it points at.
+              </p>
+            </li>
+            <li>
+              <span class="step-index" data-hue="amber">3</span>
+              <h3>Verify on staging</h3>
+              <p>
+                Publishing compiles an immutable, content-addressed artifact. You review it exactly
+                as your users will see it — same bytes, same theme.
+              </p>
+            </li>
+            <li>
+              <span class="step-index" data-hue="indigo">4</span>
+              <h3>Promote the exact artifact</h3>
+              <p>
+                Production receives the artifact you verified — not a re-build, not a copy. Rollback
+                is one pointer move to a version that already existed.
+              </p>
+            </li>
+          </ol>
+        </div>
+      </section>
+
+      <!-- ───────────────────────────── why ────────────────────────────── -->
+      <section class="why" id="why" data-reveal>
+        <div class="shell">
+          <p class="kicker">Why Lodariq</p>
+          <h2>What the category gets wrong, <em>on purpose</em></h2>
+          <p class="section-lede">
+            Every established tool in this space eventually hands you a CSS editor and calls it
+            no-code. Lodariq is built so that escape hatch never needs to exist.
+          </p>
+          <div class="claims">
+            <article class="claim">
+              <span class="claim-dot" data-hue="indigo" aria-hidden="true"></span>
+              <h3>One surface</h3>
+              <p>
+                Authoring, targeting, theming, review and release all happen on your page. There is
+                no second application where tours are described in the abstract and broken in the
+                concrete.
+              </p>
+            </article>
+            <article class="claim">
+              <span class="claim-dot" data-hue="mint" aria-hidden="true"></span>
+              <h3>No code after install</h3>
+              <p>
+                Steps anchor to elements by role, accessible name and context — the way a person
+                finds them. There are no selectors to write, so there are no selectors to go stale.
+              </p>
+            </article>
+            <article class="claim">
+              <span class="claim-dot" data-hue="amber" aria-hidden="true"></span>
+              <h3>Releases you can trust</h3>
+              <p>
+                Staging and production run pinned, immutable artifacts. When your UI changes,
+                Lodariq shows you which steps need attention — before your users find out for you.
+              </p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <!-- ─────────────────────────── waitlist ─────────────────────────── -->
+      <section class="waitlist" id="waitlist" data-reveal>
+        <div class="shell narrow waitlist-card">
+          <p class="kicker">Early access</p>
+          <h2>We're launching with a <em>small group</em> first</h2>
+          <p class="section-lede">
+            Lodariq isn't generally available yet. Leave an email and we'll invite teams in small
+            batches — one email when it's your turn, nothing else.
+          </p>
+          <form class="waitlist-form" data-waitlist novalidate>
+            <label class="sr-only" for="waitlist-email">Work email</label>
+            <input
+              id="waitlist-email"
+              name="email"
+              type="email"
+              autocomplete="email"
+              placeholder="you@company.com"
+              required
+            />
+            <button class="button primary lg" type="submit">Request early access</button>
+            <p class="waitlist-message" data-waitlist-message aria-live="polite"></p>
+          </form>
+          <p class="waitlist-aside">
+            Already invited? <a href="https://app.lodariq.io/sign-up">Create your account</a> or
+            <a href="https://app.lodariq.io/sign-in">sign in</a>.
+          </p>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <div class="shell footer-row">
+        <span class="wordmark small">
+          <svg class="mark" viewBox="0 0 32 32" width="20" height="20" aria-hidden="true">
+            <rect x="1" y="1" width="30" height="30" rx="9" fill="#7c8cff" />
+            <rect x="8" y="10" width="16" height="3.4" rx="1.7" fill="#0b0d11" />
+            <rect x="8" y="17" width="9.5" height="3.4" rx="1.7" fill="#0b0d11" opacity=".62" />
+            <circle cx="21.6" cy="18.7" r="2.3" fill="#0b0d11" />
+          </svg>
+          <span>Lodariq</span>
+        </span>
+        <nav aria-label="Footer">
+          <a href="https://app.lodariq.io/sign-in">Sign in</a>
+          <a href="https://app.lodariq.io/sign-up">Create account</a>
+          <a href="mailto:hello@lodariq.io">hello@lodariq.io</a>
+        </nav>
+        <p class="footer-note">The SDK ships framework-free. So does this page.</p>
+      </div>
+    </footer>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

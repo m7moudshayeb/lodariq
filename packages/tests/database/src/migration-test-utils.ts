@@ -19,6 +19,8 @@ export const ACCOUNT_SESSION_MANAGEMENT_FILE_NAME = '0010_account_session_manage
 export const ASSURANCE_PASSKEYS_RECOVERY_FILE_NAME = '0011_assurance_passkeys_recovery.sql';
 export const OIDC_AUTHORIZATION_FILE_NAME = '0012_oidc_authorization.sql';
 export const ENTERPRISE_IDENTITY_FILE_NAME = '0013_enterprise_identity.sql';
+export const EXPERIENCE_MEASUREMENT_FILE_NAME = '0014_experience_measurement.sql';
+export const SDK_INSTALLATION_KILL_SWITCH_FILE_NAME = '0015_sdk_installation_kill_switch.sql';
 
 export const INITIAL_BASELINE_PATH = fileURLToPath(
   new URL(`../../../database/drizzle/${INITIAL_BASELINE_FILE_NAME}`, import.meta.url),
@@ -58,6 +60,9 @@ export const OIDC_AUTHORIZATION_PATH = fileURLToPath(
 );
 export const ENTERPRISE_IDENTITY_PATH = fileURLToPath(
   new URL(`../../../database/drizzle/${ENTERPRISE_IDENTITY_FILE_NAME}`, import.meta.url),
+);
+export const EXPERIENCE_MEASUREMENT_PATH = fileURLToPath(
+  new URL(`../../../database/drizzle/${EXPERIENCE_MEASUREMENT_FILE_NAME}`, import.meta.url),
 );
 
 export const MIGRATIONS_DIRECTORY = fileURLToPath(
@@ -106,6 +111,10 @@ export function readOidcAuthorizationMigration(): string {
 
 export function readEnterpriseIdentityMigration(): string {
   return readFileSync(ENTERPRISE_IDENTITY_PATH, 'utf8');
+}
+
+export function readExperienceMeasurementMigration(): string {
+  return readFileSync(EXPERIENCE_MEASUREMENT_PATH, 'utf8');
 }
 
 export function listCheckedInSqlFiles(): string[] {

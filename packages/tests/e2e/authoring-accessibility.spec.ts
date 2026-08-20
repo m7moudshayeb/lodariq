@@ -21,6 +21,8 @@ async function openAuthoringPanel(page: Page): Promise<void> {
   await page.getByRole('button', { name: 'Experiences on this page' }).click();
   await page.getByRole('button', { name: 'Open Welcome tour' }).click();
   await expect(page.locator('lodariq-authoring-panel')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Add step', exact: true })).toBeVisible();
+  await expect(page.getByLabel('Experience title')).toBeVisible();
   await expect(
     page.frameLocator('iframe[title="Lodariq authoring"]').getByRole('main'),
   ).toBeVisible();

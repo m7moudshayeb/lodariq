@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+  AUTHORING_CHROME_ACTION_REQUEST_TYPE,
   BRIDGE_PROTOCOL_VERSION,
   type AuthoringReleaseFinding,
   type AuthoringStagingReleaseState,
@@ -11,6 +12,7 @@ import tourFixture from '@lodariq/schema/fixtures/tour.linear.v1.json';
 import { mountLocalAuthoringFrame, type LocalAuthoringFrameServices } from '@lodariq/sdk-authoring';
 
 const SESSION_ID = 'session_release_findings_ui';
+let mountedPeer: Window | null = null;
 
 describe('authoring Release options findings', () => {
   beforeEach(() => {
@@ -42,14 +44,14 @@ describe('authoring Release options findings', () => {
     const saveDocument = vi.fn();
     await mountFrame(vi.fn().mockResolvedValue(releaseState({ findings })), { saveDocument });
 
+    const selectedStepLabel = document
+      .querySelector<HTMLElement>('.overlay-step-shell')
+      ?.getAttribute('aria-label');
     const releaseEntry = await waitForReleaseEntry('blocked');
     expect(releaseEntry.dataset['panelEntry']).toBe('release');
     expect(document.querySelector('.panel-release-summary')?.textContent).toBe(
       'Needs attention · 3 findings',
     );
-    const selectedStepLabel = document
-      .querySelector<HTMLButtonElement>('.tour-storyboard-select[aria-current="step"]')
-      ?.getAttribute('aria-label');
 
     releaseEntry.focus();
     releaseEntry.click();
@@ -68,16 +70,10 @@ describe('authoring Release options findings', () => {
 
     backToAuthoringButton().click();
     await vi.waitFor(() => {
-      const returnedEntry = document.querySelector<HTMLButtonElement>(
-        '.panel-workspace-footer [data-panel-entry="release"]',
-      );
-      expect(returnedEntry).not.toBeNull();
-      expect(document.activeElement).toBe(returnedEntry);
+      expect(document.querySelector('.overlay-step-shell')).not.toBeNull();
     });
     expect(
-      document
-        .querySelector<HTMLButtonElement>('.tour-storyboard-select[aria-current="step"]')
-        ?.getAttribute('aria-label'),
+      document.querySelector<HTMLElement>('.overlay-step-shell')?.getAttribute('aria-label'),
     ).toBe(selectedStepLabel);
     expect(saveDocument).not.toHaveBeenCalled();
   });
@@ -257,13 +253,12 @@ describe('authoring Release options findings', () => {
     repairButton!.click();
 
     await vi.waitFor(() => {
-      const placementPanel = document.querySelector<HTMLElement>(
-        '.storyboard-property-tray .placement-section',
-      );
-      const chooseTarget = placementPanel?.querySelector<HTMLButtonElement>('.tour-placement-card');
-      expect(placementPanel).not.toBeNull();
-      expect(document.activeElement).toBe(chooseTarget);
+      expect(document.querySelector('.overlay-choose-target')).not.toBeNull();
     });
+    expect(mountedPeer?.postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'target.pick.start' }),
+      window.location.origin,
+    );
   });
 });
 
@@ -279,6 +274,7 @@ async function mountFrame(
     saveDocument?: LocalAuthoringFrameServices['saveDocument'];
   } = {},
 ): Promise<void> {
+  mountedPeer = peer;
   await mountLocalAuthoringFrame({
     root: document.getElementById('authoring')!,
     baseDocument,
@@ -304,6 +300,21 @@ async function mountFrame(
 }
 
 async function waitForReleaseEntry(status: string): Promise<HTMLButtonElement> {
+  if (!mountedPeer) throw new Error('authoring frame peer is missing');
+  window.dispatchEvent(
+    new MessageEvent('message', {
+      origin: window.location.origin,
+      source: mountedPeer,
+      data: {
+        protocol: BRIDGE_PROTOCOL_VERSION,
+        sessionId: SESSION_ID,
+        documentId: (tourFixture as LodariqDocument).id,
+        correlationId: `open_release_${status}`,
+        type: AUTHORING_CHROME_ACTION_REQUEST_TYPE,
+        action: 'open-release',
+      },
+    }),
+  );
   await vi.waitFor(() => {
     expect(
       document.querySelector<HTMLElement>('[aria-label="Release status"]')?.dataset[

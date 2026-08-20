@@ -30,7 +30,11 @@ import {
   type ProductionPromotionResult,
   type ReleaseApproval,
   type ReleaseRecoveryRequest,
+  AUTHORING_OPERATIONS_REQUEST_TYPE,
+  AUTHORING_OPERATIONS_RESULT_TYPE,
+  type AuthoringOperationsResultMessage,
 } from '@lodariq/schema';
+import { createBridgeOperationsServices } from './operations/operations-bridge';
 import {
   AuthoringBridge,
   RELEASE_RECOVERY_BRIDGE_MESSAGE_BYTE_LIMITS,
@@ -63,6 +67,8 @@ const DIRECT_OPTIONAL_PANEL_RESULT_TYPES = new Set<string>([
 export interface DirectAuthoringHostFrameServices extends Required<
   Pick<LocalAuthoringFrameServices, 'getReleaseState' | 'persistDocument'>
 > {
+  /** §4.7 — always present: the host answers, or says the session cannot. */
+  operations: LocalAuthoringFrameServices['operations'];
   publishToStaging?: LocalAuthoringFrameServices['publishToStaging'];
   getReleaseRecoveryState?: LocalAuthoringFrameServices['getReleaseRecoveryState'];
   recoverRelease?: LocalAuthoringFrameServices['recoverRelease'];
@@ -109,6 +115,7 @@ export function createDirectAuthoringHostServicesImplementation(
 ): DirectAuthoringHostServiceHandle {
   const releaseStateRequests = new Map<string, PendingRequest<AuthoringStagingReleaseState>>();
   let optionalPanelServices: DirectAuthoringOptionalPanelServices | undefined;
+  const operationsListeners = new Set<(message: AuthoringOperationsResultMessage) => void>();
 
   const bridge = new AuthoringBridge(options.peerWindow, {
     allowedOrigins: options.allowedOrigins,
@@ -119,6 +126,10 @@ export function createDirectAuthoringHostServicesImplementation(
     onMessage: (message) => {
       if (message.type === AUTHORING_RELEASE_STATE_RESULT_TYPE) {
         settleReleaseStateRequest(releaseStateRequests, message);
+        return;
+      }
+      if (message.type === AUTHORING_OPERATIONS_RESULT_TYPE) {
+        for (const listener of operationsListeners) listener(message);
         return;
       }
       if (isOptionalPanelResultMessage(message.type)) {
@@ -132,8 +143,30 @@ export function createDirectAuthoringHostServicesImplementation(
     optionalPanelServices = createDirectAuthoringOptionalPanelServices(bridge, options);
   }
 
+  // The frame's Operations calls become bridge requests; the host owns the URL
+  // and the bearer, and answers with normalized data.
+  const operations = createBridgeOperationsServices({
+    send: (requestId, method, args) => {
+      bridge.send({
+        protocol: BRIDGE_PROTOCOL_VERSION,
+        sessionId: options.sessionId,
+        documentId: options.documentId,
+        correlationId: createBridgeCorrelationId('authoring_operations_request'),
+        type: AUTHORING_OPERATIONS_REQUEST_TYPE,
+        requestId,
+        method,
+        ...(args.length ? { args: [...args] } : {}),
+      });
+    },
+    subscribe: (listener) => {
+      operationsListeners.add(listener);
+      return () => operationsListeners.delete(listener);
+    },
+  });
+
   return {
     services: {
+      operations,
       persistDocument: (document) => persistDocument(bridge, options, document),
       getReleaseState: () => requestReleaseState(bridge, options, releaseStateRequests),
       ...(options.readReleaseRecovery

@@ -1,22 +1,31 @@
-import { ControllerTargetDocumentFeature } from './controller-target-document';
+import { ControllerAssistFeature } from './controller-assist';
+import { INITIAL_AI_ASSIST_STATE } from '../ai/assist-machine';
 import { authoringText } from '../../i18n';
 import {
   AUTHORING_BRAND_DRIFT_PREVIEW_TYPE,
   BRIDGE_PROTOCOL_VERSION,
   type AuthoringDiagnosticAttributes,
+  sanitizeStepNarration,
   type AuthoringDeliveryCapability,
+  type BrandThemeSnapshot,
   type LodariqBlock,
+  type StepNarration,
 } from '@lodariq/schema';
-import { hasBlock, type BlockInsertPosition } from '../document-ops';
+import { hasBlock, updateBlockProps, type BlockInsertPosition } from '../document-ops';
 import { createBridgeCorrelationId } from '../../bridge/transport';
 import type { LocalAuthoringFrameSnapshot } from './types';
 import type { LocalAuthoringFrameMetricName } from '../local-frame-types';
 import { findBlockById, isEditableContentBlock } from './utils';
 import { AuthoringBrandDriftController } from '../brand-drift-controller';
 import { isProductLocale } from '@lodariq/i18n';
-import { localizedAuthoringDocument } from '../document-localization';
+import { themeHandleOf, themeIsStale } from '../theme-staleness';
+import {
+  authoringLocalizedTarget,
+  localizedAuthoringDocument,
+  setAuthoringLocalizedTarget,
+} from '../document-localization';
 
-export class ControllerSnapshotFeature extends ControllerTargetDocumentFeature {
+export class ControllerSnapshotFeature extends ControllerAssistFeature {
   supportsDeliveryCapability(capability: AuthoringDeliveryCapability): boolean {
     return this.deliveryCapabilities.has(capability);
   }
@@ -28,6 +37,81 @@ export class ControllerSnapshotFeature extends ControllerTargetDocumentFeature {
     this.translationState = 'idle';
     this.translationRequestVersion += 1;
     this.setStatus(authoringText('Editing experience copy in {locale}', { locale }));
+  }
+
+  /**
+   * Points this step's target somewhere else for the selected locale (§7.6).
+   * Targets stay shared by default; this is the escape hatch for a localized UI
+   * that genuinely differs, and publish resolves it without a manual sync.
+   */
+  setLocalizedTarget(targetId: string, replacementTargetId: string | null): void {
+    if (authoringLocalizedTarget(this.documentState, this.contentLocale, targetId) === replacementTargetId) {
+      return;
+    }
+    this.recordChange();
+    this.documentState = this.normalizeDocument(
+      setAuthoringLocalizedTarget(
+        this.documentState,
+        this.contentLocale,
+        targetId,
+        replacementTargetId,
+      ),
+    );
+    this.afterDocumentMutation();
+    this.services.saveDocument(this.documentState);
+    this.setStatus(
+      replacementTargetId
+        ? authoringText('This step points somewhere else in {locale}', { locale: this.contentLocale })
+        : authoringText('This step uses the shared target again'),
+    );
+    this.emit();
+  }
+
+  /**
+   * Writes the spoken script for one step (§7.7). Passing `null` removes it. The
+   * script is never mirrored into the on-screen copy: keeping the two apart is the
+   * whole point.
+   */
+  setStepNarration(stepId: string, narration: Partial<StepNarration> | null): void {
+    const step = findBlockById(this.documentState.blocks, stepId);
+    if (!step) return;
+    const next = narration === null ? undefined : sanitizeStepNarration(narration);
+    this.recordChange();
+    this.documentState = this.normalizeDocument({
+      ...this.documentState,
+      blocks: updateBlockProps(this.documentState.blocks, stepId, {
+        ...step.props,
+        ...(next ? { narration: next } : { narration: undefined }),
+      }),
+    });
+    this.afterDocumentMutation();
+    this.services.saveDocument(this.documentState);
+    this.setStatus(next ? authoringText('Narration saved') : authoringText('Narration removed'));
+    this.emit();
+  }
+
+  /** The replacement target this locale uses, or null when the shared one applies. */
+  localizedTargetFor(targetId: string): string | null {
+    return authoringLocalizedTarget(this.documentState, this.contentLocale, targetId);
+  }
+
+  /**
+   * The workspace theme moved while this session was open (§6.3). Recorded rather
+   * than applied: a theme change mid-edit must be visible and deliberate, never a
+   * surprise re-render under the creator's hands.
+   */
+  noteWorkspaceTheme(snapshot: BrandThemeSnapshot): void {
+    this.workspaceThemeSnapshot = structuredClone(snapshot);
+    this.emit();
+  }
+
+  /** Adopts the workspace theme the frame was told about, and re-renders on it. */
+  reloadTheme(): void {
+    if (!this.workspaceThemeSnapshot) return;
+    this.previewTheme = structuredClone(this.workspaceThemeSnapshot);
+    this.workspaceThemeSnapshot = null;
+    this.setStatus(authoringText('Theme reloaded'));
+    this.emit();
   }
 
   async translateMissingCopy(): Promise<void> {
@@ -299,13 +383,22 @@ export class ControllerSnapshotFeature extends ControllerTargetDocumentFeature {
   protected makeSnapshot(): LocalAuthoringFrameSnapshot {
     return {
       documentState: localizedAuthoringDocument(this.documentState, this.contentLocale),
+      ...this.operationsSnapshot(),
+      activeStepId: this.selectedBlockId ?? null,
       deliveryCapabilities: new Set(this.deliveryCapabilities),
       contentLocale: this.contentLocale,
+      ...(this.services.narrationVoices
+        ? { narrationVoices: structuredClone(this.services.narrationVoices) }
+        : {}),
       translation: {
         available: Boolean(this.services.translateDocument),
         state: this.translationState,
       },
       previewTheme: this.previewTheme ? structuredClone(this.previewTheme) : null,
+      themeStale: themeIsStale(
+        themeHandleOf(this.previewTheme),
+        themeHandleOf(this.workspaceThemeSnapshot),
+      ),
       previewPreferences: this.previewPreferences ? { ...this.previewPreferences } : null,
       status: this.status,
       saveState: { ...this.saveState },
@@ -319,6 +412,7 @@ export class ControllerSnapshotFeature extends ControllerTargetDocumentFeature {
       selectedStepIds: new Set(this.selectedStepIds),
       stepStyleClipboardAvailable: Boolean(this.stepStyleClipboard),
       stepStyleRecipes: this.stepStyleRecipes.list(),
+      stepStyleRecipeByStep: new Map(this.stepStyleRecipeByStep),
       draftCheckpoints: this.draftCheckpoints.list(),
       mediaAssets: structuredClone(this.mediaAssets),
       dragTargetBlockId: this.dragTargetBlockId,
@@ -327,12 +421,15 @@ export class ControllerSnapshotFeature extends ControllerTargetDocumentFeature {
       targetHealth: this.targetHealthLedger.snapshot(),
       advancedTargetIds: new Set(this.advancedTargetIds),
       focusRequest: this.focusRequest,
+      cardCommandRequest: this.cardCommandRequest,
+      targetInspectRequest: this.targetInspectRequest,
       release: {
         ...this.release,
         findings: structuredClone(this.release.findings),
       },
       panelWorkflow: {
         mode: this.panelMode,
+        operationsTab: this.operationsTab,
         returnMode: this.panelReturnMode,
         focusToken: this.panelFocusToken,
         returnFocus: this.panelReturnFocus,
@@ -340,6 +437,13 @@ export class ControllerSnapshotFeature extends ControllerTargetDocumentFeature {
         operation: this.panelOperation,
         brand: structuredClone(this.brandWorkflow),
         brandProposal: this.brandProposal ? structuredClone(this.brandProposal) : null,
+        /*
+         * The base constructor builds the first snapshot, which runs before this
+         * subclass's field initialisers — so the very first read lands here with
+         * `assistState` still undefined. Every later snapshot has it.
+         */
+        assist: this.assistState ?? INITIAL_AI_ASSIST_STATE,
+        assistAvailable: Boolean(this.services.requestAiAssist),
         brandDrift: structuredClone(this.brandDrift),
         release: this.releaseWorkflow ? structuredClone(this.releaseWorkflow) : null,
         releaseRecovery: {

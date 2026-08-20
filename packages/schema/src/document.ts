@@ -1,6 +1,7 @@
 import { Type, type Static } from '@sinclair/typebox';
 import { Value } from '@sinclair/typebox/value';
 import { DocumentStatus, DocumentType, Environment } from './common';
+import { ExperienceSurfaceForm } from './experience-form';
 import { LodariqBlock } from './block';
 import { ExperienceAppearance, ThemeBinding } from './brand';
 import { DocumentLocalization } from './document-localization';
@@ -151,6 +152,8 @@ export const LodariqDocument = Type.Object(
     themeRef: Type.Optional(Type.String()),
     themeBinding: Type.Optional(ThemeBinding),
     appearance: Type.Optional(ExperienceAppearance),
+    /** Set by dropping the card, not by a radio group (§5). Authoring-only today. */
+    surfaceForm: Type.Optional(Type.Ref(ExperienceSurfaceForm)),
     completion: Type.Optional(Type.Ref(TourCompletionBehavior)),
     targets: Type.Array(Target),
     blocks: Type.Array(Type.Ref(LodariqBlock)),

@@ -12,6 +12,7 @@ import {
   RENDERER_CONTRACT_VERSION,
   ReleaseMutationGuard,
   SCHEMA_VERSION,
+  patternMatchesPage,
   validate,
   type AuthoringActivationCapability,
   type AuthoringDocumentIntent,
@@ -283,12 +284,8 @@ export function matchesAuthoringPageContext(
   if (document.trigger.type === 'pageLoad') return true;
   if (document.trigger.type !== 'urlMatch') return false;
 
-  const candidates = [pathname, `${exactOrigin}${pathname}`];
-  const mode = document.trigger.config.mode ?? 'exact';
-  const pattern = document.trigger.config.pattern;
-  if (mode === 'prefix') return candidates.some((candidate) => candidate.startsWith(pattern));
-  if (mode === 'contains') return candidates.some((candidate) => candidate.includes(pattern));
-  return candidates.includes(pattern);
+  const { pattern, mode } = document.trigger.config;
+  return patternMatchesPage(pattern, mode ?? 'exact', { exactOrigin, pathname });
 }
 
 export function requireExactHttpOrigin(value: string): string {

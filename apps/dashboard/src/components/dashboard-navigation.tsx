@@ -7,6 +7,7 @@ import {
   ChartNoAxesCombined,
   CircleHelp,
   FileStack,
+  Boxes,
   Globe,
   LayoutDashboard,
   Menu,
@@ -49,6 +50,7 @@ const NAVIGATION_ICONS = {
   analytics: ChartNoAxesCombined,
   brand: Palette,
   environments: Globe,
+  applications: Boxes,
   members: Users,
   support: CircleHelp,
 } as const;

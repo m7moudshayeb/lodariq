@@ -23,9 +23,9 @@ hosted entry architecture is amended and superseded by this direct in-product
 entry contract. The implementation has been aligned without undoing the Phase
 0/1 runtime, schema, persistence, and security foundations:
 
-- Local and hosted authoring implement the compact, modeless, draggable
-  authoring popup and runtime overlay. It keeps the customer product visible and
-  clickable instead of reserving a full-width bar or permanent left dock.
+- Local and hosted authoring implement the live overlay editor, filmstrip,
+  pulses, and runtime overlay. The customer product stays visible and clickable
+  instead of sitting behind a floating studio or a permanent dock.
 - The dashboard implements the Editorial Air compatibility shell: light-first
   navigation, a release-led overview, environment progress, recent activity,
   and focused destinations for the existing setup/admin capabilities. It does
@@ -68,12 +68,11 @@ entry contract. The implementation has been aligned without undoing the Phase
   first-party recovery flow in a new tab. The creator finishes there, closes the
   activation window, and retries from the launcher so the original one-time
   request is never silently reused or weakened.
-- The activated launcher opens the same modeless draggable authoring popup and
-  runtime-backed overlay used by local authoring.
-  The popup captures input only inside its visible bounds; the surrounding
-  customer page remains usable. Entering placement selection collapses the
-  popup to a small movable instruction chip so it cannot obstruct the element
-  being selected.
+- The activated launcher opens the same live overlay editor and runtime overlay
+  used by local authoring. Overlay, filmstrip, pulse, and launcher pixels
+  capture input; the surrounding customer page remains usable. Entering
+  placement selection collapses overlay chrome to a small movable instruction
+  chip so it cannot obstruct the element being selected.
 - The launcher center minimizes/restores the active hosted surface instead of
   starting a duplicate activation. The dedicated Close action revokes the
   activation/session and drops only unpersisted iframe state; prior autosaves
@@ -154,7 +153,7 @@ document editor, raw JSON editor, Markdown source view, or debugger-like panel.
 
 ## Core Principles
 
-- The compact launcher and modeless popup own session controls; the customer
+- The compact launcher and live overlay own session controls; the customer
   product remains the primary authoring canvas.
 - The active experience surface is the content editor: tooltip, modal, hotspot,
   survey, checklist drawer, or knowledge widget.
@@ -275,18 +274,25 @@ until the creator chooses an item.
   distinct Tour draft. Only then does the editor iframe create and own the
   document-scoped authoring session.
 
-### Modeless Authoring Popup
+### Live Overlay Authoring Shell
 
-The launcher opens the same compact modeless popup and runtime overlay for local
-and hosted authoring. The popup is draggable by a dedicated handle, restores its
-last valid session-local position, and clamps to the visual viewport, safe area,
-zoom, orientation, and on-screen keyboard. Its position is UI state, never
-canonical document or Brand Theme data.
+The launcher opens the same live overlay editor and runtime tour for local and
+hosted authoring. The editor iframe aligns over the runtime tooltip. It is not
+a floating studio panel. Filmstrip, pulses, placement compass, and overlay
+iframe pixels intercept input; everything else on the customer page stays
+clickable. Positions are UI state, never canonical document or Brand Theme data.
 
-Only the popup's visible pixels intercept pointer input. No modal backdrop,
-page resizing, full-width bar, or permanent rail may block the customer product.
-Minimizing preserves the draft, selected experience/step, and position; `Save &
-exit` explicitly ends the session and never publishes.
+No modal backdrop, page resizing, full-width bar, or permanent rail may block
+the customer product during writing. The operations modal is the explicit
+exception: it covers the page only after the creator opens it, and closing it
+never publishes.
+
+Clicking outside the open overlay popup deselects once (the card becomes a
+pulse, the draft stays, the product click does not fire). After that the page
+is interactive. Click a pulse or filmstrip step to reopen that popup.
+
+Minimizing preserves the draft, selected experience/step, and filmstrip;
+`Save & exit` explicitly ends the session and never publishes.
 
 The dedicated Close icon is not an alias for `Save & exit`. Close revokes the
 activation/session and may drop only the iframe edits that have not reached the
@@ -295,10 +301,10 @@ the latest iframe state before revocation. Both controls have explicit labels or
 accessible names, and neither deletes prior saved work or publishes.
 
 Target selection temporarily captures the deliberate selection click while
-suppressing the host product action. At entry, the popup collapses to a small
-draggable instruction chip with `Cancel`; hovered candidates receive a semantic
-outline and Escape restores the previous editing state. There is no blanket
-page dimming, and the chip can be moved away from any candidate.
+suppressing the host product action. At entry, overlay chrome collapses to a
+small draggable instruction chip with `Cancel`; hovered candidates receive a
+semantic outline and Escape restores the previous editing state. There is no
+blanket page dimming, and the chip can be moved away from any candidate.
 
 ### Shell States
 
@@ -307,8 +313,8 @@ page dimming, and the chip can be moved away from any candidate.
 | Signed out                   | Sign in to author                      | Cancel                                                | Top-level first-party auth popup; no embedded credentials      |
 | Idle or minimized            | New, Experiences on this page, Preview | Sign out/minimize as appropriate                      | Compact draggable launcher; page remains fully usable          |
 | Choosing outcome or format   | Available New flow                     | Cancel                                                | Compact chooser; page remains visible                          |
-| Selecting placement          | Cancel selection                       | None                                                  | Popup collapses to movable chip; candidates highlight on hover |
-| Editing experience           | Preview or derived release action      | Relevant repair/history, minimize, Close, Save & exit | Active experience is outlined; modeless popup stays movable    |
+| Selecting placement          | Cancel selection                       | None                                                  | Overlay collapses to movable chip; candidates highlight on hover |
+| Editing experience           | Preview or derived release action      | Filmstrip, pulses, Operations, Close, Save & exit     | Live popup is the editor; other visible targets show pulses      |
 | Previewing                   | Exit preview                           | Relevant release status                               | Popup minimizes while the runtime behavior remains interactive |
 | Saving                       | None                                   | Exit guarded                                          | Quiet status reads Saving                                      |
 | Saved draft                  | Preview or Publish to Staging          | Relevant release/history                              | Draft and environment versions remain explicit                 |
@@ -458,8 +464,8 @@ UI:
 - The popup shows Preview or the derived release action plus quiet autosave and
   independent draft/staging/production state. Repair and history appear only
   when relevant.
-- Any structural surface, such as tour steps or checklist items, stays in the
-  movable modeless popup and never reserves a permanent dock.
+- Any structural surface, such as tour steps, stays in the filmstrip and never
+  reserves a permanent dock.
 
 Allowed actions:
 
@@ -746,7 +752,7 @@ Creation flow:
 3. Creator clicks a page element.
 4. Lodariq opens an anchored tooltip editor beside that element.
 5. The pinned launcher keeps its stable actions and Preview becomes available.
-6. The draggable authoring popup shows the compact step list.
+6. A filmstrip lists every step. Visible targets show numbered pulses.
 
 Tour editor surface:
 
@@ -759,7 +765,8 @@ Tour editor surface:
 
 Step list:
 
-- Appears inside the draggable modeless popup; it is not a permanent left rail.
+- Appears as a thin filmstrip on the page; it is not a permanent left rail or
+  a floating editor panel.
 - Shows steps as compact rows.
 - Selecting a row previews that exact step; it does not expand a form beneath
   the list.
@@ -1571,7 +1578,7 @@ Required behavior:
   completed foundation work incomplete.
 - **Phase 2:** Slice 1 has converged hosted development/staging entry on the
   permanent SDK, direct launcher, first-party popup activation, short-lived
-  exact-origin handoff, route-aware browser, and the modeless draggable popup/
+  exact-origin handoff, route-aware browser, and the live overlay editor, filmstrip, pulses, and operations modal.
   runtime overlay. Slice 2 implements persisted Brand Theme authoring, tokenized
   Tour preview/delivery, document-specific reads, deterministic readiness, and
   contextual staging release state/action; its milestone gate and visual QA pass.

@@ -3,12 +3,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AuthoringMediaAssetResource, LodariqDocument } from '@lodariq/schema';
 import tourFixture from '@lodariq/schema/fixtures/tour.linear.v1.json';
 import { mountLocalAuthoringFrame } from '@lodariq/sdk-authoring';
+import { installJsdomInteractionShims } from '../support/jsdom-interaction';
 import { RICH_CONTENT_PERSIST_DEBOUNCE_MS } from '@lodariq/sdk-authoring/editor';
+import { $getRoot, $isElementNode, getNearestEditorFromDOMNode } from 'lexical';
 
 const SESSION_ID = 'session_rich_content_canvas';
 
 describe('unified popup content canvas', () => {
   beforeEach(() => {
+    installJsdomInteractionShims();
     const NativeURL = URL;
     vi.stubGlobal(
       'URL',
@@ -91,24 +94,24 @@ describe('unified popup content canvas', () => {
     });
 
     // The Lexical editor mounts directly inside the popup — no activation step.
-    await vi.waitFor(() =>
-      expect(document.querySelector('.rich-step-content .rich-content-canvas')).not.toBeNull(),
-    );
+    await vi.waitFor(() => {
+      expect(document.querySelector('.rich-step-content .rich-content-canvas')).not.toBeNull();
+      expect(document.querySelector('[aria-label="Bold"]')).toBeInstanceOf(HTMLButtonElement);
+    });
     const canvas = document.querySelector<HTMLElement>('.rich-content-canvas')!;
     expect(canvas.getAttribute('contenteditable')).toBe('true');
     expect(canvas.textContent).toContain('Create your first project');
     expect(document.querySelector('.rich-step-rendered-content')).toBeNull();
     expect(document.querySelector('.rich-step-block-row')).toBeNull();
 
-    // Format and insert stay on a persistent toolbar — no selection or hover required.
+    // Compact docked chip: style, bold/italic, link, insert, more. Insert is the
+    // bar's one worded control (§4.2a), so it is named rather than a glyph.
     expect(document.querySelector('[aria-label="Bold"]')).toBeInstanceOf(HTMLButtonElement);
-    expect(document.querySelector('[aria-label="Icon"]')).toBeInstanceOf(HTMLButtonElement);
-    expect(document.querySelector('[aria-label="Emoji"]')).toBeInstanceOf(HTMLButtonElement);
-    expect(document.querySelector('[aria-label="Media"]')).toBeInstanceOf(HTMLButtonElement);
-    expect(document.querySelector('[aria-label="Divider"]')).toBeInstanceOf(HTMLButtonElement);
-    expect(document.querySelector('[aria-label="Button"]')).toBeInstanceOf(HTMLButtonElement);
-    expect(document.querySelector('[aria-label="Field"]')).toBeInstanceOf(HTMLButtonElement);
-    expect(document.querySelector('[aria-label="Space after"]')).toBeInstanceOf(HTMLInputElement);
+    expect(document.querySelector('[aria-label="Insert"]')).toBeInstanceOf(HTMLButtonElement);
+    expect(document.querySelector('[aria-label="More formatting"]')).toBeInstanceOf(
+      HTMLButtonElement,
+    );
+    expect(document.querySelector('.rich-content-toolbar [aria-label="Icon"]')).toBeNull();
     expect(canvas.querySelector('.rich-content-button-preview')).not.toBeNull();
     canvas.querySelector<HTMLButtonElement>('.rich-content-button-preview')?.click();
     await vi.waitFor(() =>
@@ -117,7 +120,9 @@ describe('unified popup content canvas', () => {
     expect(document.querySelector('[aria-label="After click"]')).toBeInstanceOf(HTMLButtonElement);
     expect(document.querySelector('[data-property-id="button.alignment"]')).toBeNull();
     expect(document.querySelector('.storyboard-property-tray[data-tool-mode="content"]')).not.toBeNull();
-    expect(document.querySelector('.popup-inspector-tabs')).not.toBeNull();
+    // Sections, not tabs (§4.3): every inspector renders the same section list.
+    expect(document.querySelector('.popup-inspector-tabs')).toBeNull();
+    expect(document.querySelector('.inspector-section[data-section="button"]')).not.toBeNull();
     const label = document.querySelector<HTMLInputElement>('[aria-label="Button label"]')!;
     label.focus();
     setNativeInputValue(label, 'Continue now');
@@ -137,9 +142,7 @@ describe('unified popup content canvas', () => {
       const lastCall = saveDocument.mock.calls[saveDocument.mock.calls.length - 1];
       expect(savedButtonLabel(lastCall?.[0] as LodariqDocument)).toBe('Continue now');
     });
-    [...document.querySelectorAll<HTMLButtonElement>('.popup-inspector-tabs button')]
-      .find((button) => button.textContent?.trim() === 'Appearance')
-      ?.click();
+    openInspectorSection('style');
     await vi.waitFor(() =>
       expect(document.querySelector('[data-property-id="button.fillColor"]')).not.toBeNull(),
     );
@@ -147,56 +150,8 @@ describe('unified popup content canvas', () => {
     expect(colorRow?.querySelector('[data-property-id="button.fillColor"]')).not.toBeNull();
     expect(colorRow?.querySelector('[data-property-id="button.textColor"]')).not.toBeNull();
     expect(colorRow?.querySelector('[data-property-id="button.borderColor"]')).not.toBeNull();
-    document.querySelector<HTMLButtonElement>('.storyboard-tool-dock [aria-label="Popup"]')?.click();
-    await vi.waitFor(() => {
-      expect(document.querySelector('.storyboard-property-tray[data-tool-mode="content"]')).toBeNull();
-      expect(document.querySelector('[aria-label="Popup layout settings"]')).not.toBeNull();
-    });
-    expect(document.querySelector<HTMLElement>('.rich-step-content')?.dataset['lodariqActionLayout']).toBe(
-      'stack',
-    );
-    expect(document.querySelector('[aria-label="Action layout"]')).not.toBeNull();
-    expect(document.querySelector('[aria-label="Action alignment"]')).not.toBeNull();
-    [...document.querySelectorAll<HTMLButtonElement>('[aria-label="Action layout"] button')]
-      .find((button) => button.textContent?.trim() === 'Inline')
-      ?.click();
-    await vi.waitFor(() =>
-      expect(document.querySelector<HTMLElement>('.rich-step-content')?.dataset['lodariqActionLayout']).toBe(
-        'inline',
-      ),
-    );
-    [...document.querySelectorAll<HTMLButtonElement>('[aria-label="Action alignment"] button')]
-      .find((button) => button.textContent?.trim() === 'Stretch')
-      ?.click();
-    await vi.waitFor(() =>
-      expect(document.querySelector<HTMLElement>('.rich-step-content')?.dataset['lodariqActionAlign']).toBe(
-        'stretch',
-      ),
-    );
-    expect(
-      document.querySelector('[aria-label="Popup layout settings"] .storyboard-tray-close'),
-    ).toBeInstanceOf(HTMLButtonElement);
-    [...document.querySelectorAll<HTMLButtonElement>('[aria-label="Action gap"] button')]
-      .find((button) => button.textContent?.trim() === 'Relaxed')
-      ?.click();
-    await vi.waitFor(() =>
-      expect(document.querySelector<HTMLElement>('.rich-step-content')?.dataset['lodariqCompositionGap']).toBe(
-        'relaxed',
-      ),
-    );
-    [...document.querySelectorAll<HTMLButtonElement>('[aria-label="Content alignment"] button')]
-      .find((button) => button.textContent?.trim() === 'Center')
-      ?.click();
-    await vi.waitFor(() =>
-      expect(document.querySelector<HTMLElement>('.rich-step-content')?.dataset['lodariqContentAlign']).toBe(
-        'center',
-      ),
-    );
-    canvas.querySelector<HTMLButtonElement>('.rich-content-button-preview')?.click();
-    await vi.waitFor(() => {
-      expect(document.querySelector('[aria-label="Button label"]')).toBeInstanceOf(HTMLInputElement);
-      expect(document.querySelector('[aria-label="Popup layout settings"]')).toBeNull();
-    });
+    expect(document.querySelector('.storyboard-tool-dock')).toBeNull();
+    expect(document.querySelector('[aria-label="Popup layout settings"]')).toBeNull();
     document.querySelector<HTMLButtonElement>('[aria-label="Close settings"]')?.click();
     await vi.waitFor(() =>
       expect(document.querySelector('.storyboard-property-tray[data-tool-mode="content"]')).toBeNull(),
@@ -218,7 +173,10 @@ describe('unified popup content canvas', () => {
       expect(document.querySelector('.rich-content-toolbar')).not.toBeNull(),
     );
     expect(document.querySelector('[aria-label="Italic"]')).not.toBeNull();
-    expect(document.querySelector('[aria-label="Underline"]')).not.toBeNull();
+    document.querySelector<HTMLButtonElement>('[aria-label="More formatting"]')?.click();
+    await vi.waitFor(() =>
+      expect(document.querySelector('[aria-label="Underline"]')).not.toBeNull(),
+    );
     expect(document.querySelector('[aria-label="Font size"]')).toBeInstanceOf(HTMLButtonElement);
     expect(document.querySelector('select[aria-label="Font size"]')).toBeNull();
     expect(document.querySelector('[aria-label="Text color"]')).toBeInstanceOf(HTMLInputElement);
@@ -226,7 +184,7 @@ describe('unified popup content canvas', () => {
       HTMLInputElement,
     );
 
-    document.querySelector<HTMLButtonElement>('[aria-label="Icon"]')?.click();
+    document.querySelector<HTMLButtonElement>('[aria-label="Add content"]')?.click();
     await vi.waitFor(() =>
       expect(document.querySelector('[data-rich-content-floating-menu="true"]')).not.toBeNull(),
     );
@@ -237,6 +195,10 @@ describe('unified popup content canvas', () => {
       expect(document.querySelector('[data-rich-content-floating-menu="true"]')).toBeNull(),
     );
 
+    document.querySelector<HTMLButtonElement>('[aria-label="More formatting"]')?.click();
+    await vi.waitFor(() =>
+      expect(document.querySelector('[aria-label="Font size"]')).toBeInstanceOf(HTMLButtonElement),
+    );
     document.querySelector<HTMLButtonElement>('[aria-label="Font size"]')?.click();
     await vi.waitFor(() =>
       expect(document.querySelector('[data-rich-content-select-content="true"]')).not.toBeNull(),
@@ -253,6 +215,10 @@ describe('unified popup content canvas', () => {
       expect(canvas.querySelector('strong.rich-content-bold')?.textContent).toHaveLength(4),
     );
 
+    document.querySelector<HTMLButtonElement>('[aria-label="More formatting"]')?.click();
+    await vi.waitFor(() =>
+      expect(document.querySelector('[aria-label="Text color"]')).toBeInstanceOf(HTMLInputElement),
+    );
     const textColor = document.querySelector<HTMLInputElement>('[aria-label="Text color"]');
     if (!textColor) throw new Error('Text color control is missing');
     setNativeInputValue(textColor, '#112233');
@@ -263,8 +229,14 @@ describe('unified popup content canvas', () => {
     if (!selectionBackground) throw new Error('Selection background control is missing');
     setNativeInputValue(selectionBackground, '#ffeeaa');
     selectionBackground.dispatchEvent(new Event('input', { bubbles: true }));
-    document.querySelector<HTMLButtonElement>('[aria-label="Animation"]')?.click();
+    // Editing inside an open menu never closes it; the trigger stays untouched.
+    await vi.waitFor(() =>
+      expect(document.querySelector('[aria-label="Animation effect"]')).toBeInstanceOf(
+        HTMLButtonElement,
+      ),
+    );
     expect(document.querySelector('select[aria-label="Animation effect"]')).toBeNull();
+    selectFirstTextRun();
     await chooseDesignedSelect('Animation effect', 'Rise in');
     await vi.waitFor(() => {
       const latestCall = saveDocument.mock.calls[saveDocument.mock.calls.length - 1];
@@ -277,7 +249,7 @@ describe('unified popup content canvas', () => {
         new MouseEvent('pointermove', { bubbles: true, clientX: 0, clientY: 0 }),
       );
       await vi.waitFor(() =>
-        expect(document.querySelector('[aria-label="Add content"]')).not.toBeNull(),
+        expect(document.querySelector('[aria-label="Block options"]')).not.toBeNull(),
       );
     };
 
@@ -326,21 +298,26 @@ describe('unified popup content canvas', () => {
       expect(document.querySelector('.rich-content-block-settings-menu')).toBeNull(),
     );
 
-    document.querySelector<HTMLButtonElement>('[aria-label="Add content"]')?.click();
+    document
+      .querySelector<HTMLButtonElement>('.rich-content-block-handles [aria-label="Add content"]')
+      ?.click();
     await vi.waitFor(() =>
       expect(document.querySelector('.rich-content-insert-menu')).not.toBeNull(),
     );
+    // §4.2a: pressing the handle opens the four-up grid of block types. One
+    // "Form field" tile, not one per control — the control is a property on the
+    // field and the inspector switches it.
     const insertOption = (label: string): HTMLButtonElement | undefined =>
       [
-        ...document.querySelectorAll<HTMLButtonElement>('.rich-content-insert-options button'),
+        ...document.querySelectorAll<HTMLButtonElement>('.rich-content-insert-grid button'),
       ].find((candidate) => candidate.textContent?.trim() === label);
     expect(insertOption('Heading')).toBeDefined();
     expect(insertOption('Divider')).toBeDefined();
     expect(insertOption('Stat')).toBeDefined();
-    expect(insertOption('Checkbox')).toBeDefined();
-    expect(insertOption('Text field')).toBeDefined();
-    expect(insertOption('Radio')).toBeDefined();
-    insertOption('Icon')?.click();
+    expect(insertOption('Form field')).toBeDefined();
+    expect(insertOption('Target chip')).toBeDefined();
+    expect(insertOption('Status badge')).toBeDefined();
+    insertOption('Icon + text')?.click();
     const iconColor = await waitForInput('input[aria-label="Icon color"]');
     setNativeInputValue(iconColor, '#c2410c');
     iconColor.dispatchEvent(new Event('input', { bubbles: true }));
@@ -376,11 +353,13 @@ describe('unified popup content canvas', () => {
     });
 
     await hoverFirstBlock();
-    document.querySelector<HTMLButtonElement>('[aria-label="Add content"]')?.click();
+    document
+      .querySelector<HTMLButtonElement>('.rich-content-block-handles [aria-label="Add content"]')
+      ?.click();
     await vi.waitFor(() =>
       expect(document.querySelector('.rich-content-insert-menu')).not.toBeNull(),
     );
-    insertOption('Checkbox')?.click();
+    insertOption('Form field')?.click();
     await vi.waitFor(() =>
       expect(canvas.querySelector('.rich-content-form-field-preview')).not.toBeNull(),
     );
@@ -393,9 +372,7 @@ describe('unified popup content canvas', () => {
     expect(document.body.textContent).toContain(
       'Answers stay in this experience. Lodariq does not read your product database.',
     );
-    [...document.querySelectorAll<HTMLButtonElement>('.popup-inspector-tabs button')]
-      .find((button) => button.textContent?.trim() === 'Appearance')
-      ?.click();
+    openInspectorSection('style');
     await vi.waitFor(() =>
       expect(document.querySelector('[data-property-id="formField.fillColor"]')).not.toBeNull(),
     );
@@ -408,9 +385,14 @@ describe('unified popup content canvas', () => {
       expect(savedDocumentHasBlockType(latestCall?.[0] as LodariqDocument, 'formField')).toBe(true);
     });
 
-    // Media uploads live in the same insert menu.
-    await hoverFirstBlock();
-    document.querySelector<HTMLButtonElement>('[aria-label="Add content"]')?.click();
+    // Media uploads live in the same insert menu, one step in: an image carries
+    // an asset id, so its tile opens the upload panel rather than dropping an
+    // empty frame the creator then has to work out how to fill.
+    openToolbarInsertMenu();
+    await vi.waitFor(() =>
+      expect(document.querySelector('.rich-content-insert-grid')).not.toBeNull(),
+    );
+    insertOption('Image')?.click();
     const saveToLibrary = await waitForInput('.rich-content-library-option input[type="checkbox"]');
     saveToLibrary.click();
     const imageInput = await waitForInput('.rich-content-insert-media input[accept^="image/"]');
@@ -468,12 +450,13 @@ describe('unified popup content canvas', () => {
       expect(savedDocumentHasBlockType(latestCall?.[0] as LodariqDocument, 'media')).toBe(false);
     });
 
-    await hoverFirstBlock();
-    document.querySelector<HTMLButtonElement>('[aria-label="Add content"]')?.click();
-    const videoInput = await waitForInput('.rich-content-insert-media input[accept^="video/"]');
+    openToolbarInsertMenu();
+    await vi.waitFor(() =>
+      expect(document.querySelector('.rich-content-insert-grid')).not.toBeNull(),
+    );
+    insertOption('Video')?.click();
     const video = new File(['video'], 'walkthrough.mp4', { type: 'video/mp4' });
-    Object.defineProperty(videoInput, 'files', { configurable: true, value: [video] });
-    videoInput.dispatchEvent(new Event('change', { bubbles: true }));
+    await pickMediaFile('video', video);
     await vi.waitFor(() => expect(uploadMediaAsset).toHaveBeenCalledTimes(2));
     const pendingVideo = canvas.querySelector<HTMLVideoElement>(
       'video[data-video-thumbnail="true"]',
@@ -504,9 +487,13 @@ describe('unified popup content canvas', () => {
       expect(savedVideoAssetId(latestCall?.[0] as LodariqDocument)).toBe(uploadedVideoAsset.id);
     });
 
-    // Captions upload appears in the insert menu once a video has been added.
-    await hoverFirstBlock();
-    document.querySelector<HTMLButtonElement>('[aria-label="Add content"]')?.click();
+    // Captions attach to the video that was just uploaded, so they are offered by
+    // the same media panel that uploaded it — the toolbar's, not the gutter's.
+    openToolbarInsertMenu();
+    await vi.waitFor(() =>
+      expect(document.querySelector('.rich-content-insert-grid')).not.toBeNull(),
+    );
+    insertOption('Video')?.click();
     const captionsInput = await waitForInput('.rich-content-insert-media input[accept="text/vtt"]');
     const captions = new File(['WEBVTT'], 'walkthrough.vtt', { type: 'text/vtt' });
     Object.defineProperty(captionsInput, 'files', { configurable: true, value: [captions] });
@@ -601,14 +588,48 @@ function savedDocumentHasAnimatedHighlight(document: LodariqDocument | undefined
   );
 }
 
+/** Expands an inspector section by clicking its summary, the way a creator would. */
+function openInspectorSection(id: string): void {
+  const summary = document.querySelector<HTMLElement>(
+    `.inspector-section[data-section="${id}"] > summary`,
+  );
+  if (!summary) throw new Error(`Inspector section "${id}" is missing`);
+  summary.click();
+}
+
+/**
+ * The toolbar's Insert menu is always mounted; the block-handle menu closes with
+ * hover. Insert lives in the frame's pinned slot rather than inside the editor's
+ * toolbar — §4.2a keeps it still while the contextual middle swaps.
+ */
+function openToolbarInsertMenu(): void {
+  const trigger = document.querySelector<HTMLButtonElement>(
+    '.overlay-step-toolbar-insert [aria-label="Insert"], .rich-content-toolbar [aria-label="Insert"]',
+  );
+  if (!trigger) throw new Error('Toolbar insert trigger is missing');
+  trigger.click();
+}
+
 async function waitForInput(selector: string): Promise<HTMLInputElement> {
   let input: HTMLInputElement | null = null;
   await vi.waitFor(() => {
     input = document.querySelector<HTMLInputElement>(selector);
     expect(input, selector).not.toBeNull();
+    // A menu that is being torn down still matches the selector for a tick.
+    expect(input?.isConnected, `${selector} is detached`).toBe(true);
   });
   if (!input) throw new Error(`${selector} input is missing`);
   return input;
+}
+
+/** Picks a file through the toolbar's insert menu, re-querying so the node is live. */
+async function pickMediaFile(accept: 'image' | 'video', file: File): Promise<void> {
+  const selector = `.rich-content-insert-media input[accept^="${accept}/"]`;
+  await waitForInput(selector);
+  const input = document.querySelector<HTMLInputElement>(selector);
+  if (!input?.isConnected) throw new Error(`${accept} input is not live`);
+  Object.defineProperty(input, 'files', { configurable: true, value: [file] });
+  input.dispatchEvent(new Event('change', { bubbles: true }));
 }
 
 async function chooseDesignedSelect(ariaLabel: string, optionLabel: string): Promise<void> {
@@ -626,7 +647,23 @@ async function chooseDesignedSelect(ariaLabel: string, optionLabel: string): Pro
   });
   const option = findSelectOption(optionLabel);
   if (!option) throw new Error(`${optionLabel} select option is missing`);
+  // The designed select commits on pointer release, not a synthetic click.
+  for (const type of ['pointermove', 'pointerdown', 'pointerup'] as const) {
+    option.dispatchEvent(new MouseEvent(type, { bubbles: true }));
+  }
   option.click();
+}
+
+/** Re-selects the first run through Lexical; a jsdom range dies on a node split. */
+function selectFirstTextRun(): void {
+  const canvas = document.querySelector('.rich-content-canvas');
+  if (!(canvas instanceof HTMLElement)) throw new Error('Rich content canvas is missing');
+  const editor = getNearestEditorFromDOMNode(canvas);
+  if (!editor) throw new Error('Lexical editor is missing');
+  editor.update(() => {
+    const first = $getRoot().getFirstChild();
+    if ($isElementNode(first)) first.select(0, 1);
+  });
 }
 
 function findSelectOption(label: string): HTMLElement | undefined {

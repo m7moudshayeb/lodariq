@@ -1,3 +1,4 @@
+import { CREATOR_CHROME_TOKENS } from '../../../creator-chrome-tokens';
 export const AUTHORING_TOUR_RELEASE_CSS = `
 
   .shell-panel .tour-sequence-rail {
@@ -43,7 +44,7 @@ export const AUTHORING_TOUR_RELEASE_CSS = `
 
   .panel-advanced-header small {
     color: var(--lq-color-muted);
-    font-size: var(--lq-font-2xs);
+    font-size: 8px;
     font-weight: var(--lq-weight-bold);
     letter-spacing: 0.06em;
     text-transform: uppercase;
@@ -176,15 +177,15 @@ export const AUTHORING_TOUR_RELEASE_CSS = `
 
   .tour-sequence-rail.compact .compact-header > strong {
     color: var(--lq-color-ink);
-    font-size: 12px;
-    font-weight: 700;
+    font-size: var(--lq-font-sm);
+    font-weight: var(--lq-weight-bold);
     letter-spacing: -0.01em;
   }
 
   .tour-sequence-rail.compact .compact-header > span {
     color: var(--lq-color-muted);
-    font-size: 10px;
-    font-weight: 600;
+    font-size: var(--lq-font-xs);
+    font-weight: var(--lq-weight-semibold);
   }
 
   .shell-panel .tour-sequence-rail.compact .tour-step-list {
@@ -230,7 +231,7 @@ export const AUTHORING_TOUR_RELEASE_CSS = `
     width: 22px;
     height: 24px;
     border-color: var(--lq-color-border);
-    font-size: 10px;
+    font-size: var(--lq-font-xs);
   }
 
   .tour-sequence-rail.compact .tour-step-copy {
@@ -238,7 +239,7 @@ export const AUTHORING_TOUR_RELEASE_CSS = `
   }
 
   .tour-sequence-rail.compact .tour-step-copy strong {
-    font-size: 12px;
+    font-size: var(--lq-font-sm);
   }
 
   .tour-sequence-rail.compact .tour-step-placement {
@@ -281,8 +282,8 @@ export const AUTHORING_TOUR_RELEASE_CSS = `
 
   .tour-step-detail-label {
     color: var(--lq-color-muted);
-    font-size: 10px;
-    font-weight: 700;
+    font-size: var(--lq-font-xs);
+    font-weight: var(--lq-weight-bold);
     letter-spacing: 0.02em;
   }
 
@@ -312,8 +313,8 @@ export const AUTHORING_TOUR_RELEASE_CSS = `
 
   .tour-step-detail-status strong {
     color: var(--lq-color-ink);
-    font-size: 12px;
-    font-weight: 600;
+    font-size: var(--lq-font-sm);
+    font-weight: var(--lq-weight-semibold);
     line-height: 1.3;
   }
 
@@ -327,8 +328,8 @@ export const AUTHORING_TOUR_RELEASE_CSS = `
     background: rgba(255, 255, 255, 0.04);
     color: var(--lq-color-ink-soft);
     cursor: pointer;
-    font-size: 12px;
-    font-weight: 700;
+    font-size: var(--lq-font-sm);
+    font-weight: var(--lq-weight-bold);
     padding: 0 12px;
   }
 
@@ -340,8 +341,8 @@ export const AUTHORING_TOUR_RELEASE_CSS = `
 
   .tour-step-behavior-summary {
     color: var(--lq-color-ink);
-    font-size: 12px;
-    font-weight: 600;
+    font-size: var(--lq-font-sm);
+    font-weight: var(--lq-weight-semibold);
     line-height: 1.35;
   }
 
@@ -356,8 +357,8 @@ export const AUTHORING_TOUR_RELEASE_CSS = `
     background: rgba(255, 255, 255, 0.04);
     color: var(--lq-color-ink);
     cursor: pointer;
-    font-size: 12px;
-    font-weight: 700;
+    font-size: var(--lq-font-sm);
+    font-weight: var(--lq-weight-bold);
     padding: 0 12px;
   }
 
@@ -386,8 +387,8 @@ export const AUTHORING_TOUR_RELEASE_CSS = `
     background: var(--lq-color-panel);
     color: var(--lq-color-ink-soft);
     cursor: pointer;
-    font-size: 12px;
-    font-weight: 700;
+    font-size: var(--lq-font-sm);
+    font-weight: var(--lq-weight-bold);
     padding: 8px 12px;
   }
 
@@ -406,7 +407,7 @@ export const AUTHORING_TOUR_RELEASE_CSS = `
     border-color: var(--lq-color-primary);
     background: var(--lq-color-primary);
     color: var(--lq-color-on-primary);
-    box-shadow: 0 8px 20px rgba(61, 232, 176, 0.18);
+    box-shadow: 0 8px 20px color-mix(in srgb, ${CREATOR_CHROME_TOKENS.action} 18%, transparent);
   }
 
   .tour-sequence-rail.compact .tour-contextual-actions .tour-add-step:hover {

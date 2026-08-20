@@ -5,6 +5,8 @@ type TourRuntimeCatalog = Readonly<Record<string, string>>;
 const EMPTY_CATALOG: TourRuntimeCatalog = {};
 
 const DE_CATALOG: TourRuntimeCatalog = {
+  'Lodariq could not find what this step points at on this page':
+    'Lodariq konnte nicht finden, worauf dieser Schritt auf dieser Seite zeigt',
   'Announcement: {label}': 'Ankündigung: {label}',
   'Exit tour': 'Tour beenden',
   'Keyboard focus order': 'Tastatur-Fokusreihenfolge',
@@ -26,6 +28,8 @@ const DE_CATALOG: TourRuntimeCatalog = {
 };
 
 const FR_CATALOG: TourRuntimeCatalog = {
+  'Lodariq could not find what this step points at on this page':
+    'Lodariq n’a pas trouvé ce que cette étape désigne sur cette page',
   'Announcement: {label}': 'Annonce : {label}',
   'Exit tour': 'Quitter la visite',
   'Keyboard focus order': 'Ordre de focus au clavier',
@@ -47,6 +51,8 @@ const FR_CATALOG: TourRuntimeCatalog = {
 };
 
 const ES_CATALOG: TourRuntimeCatalog = {
+  'Lodariq could not find what this step points at on this page':
+    'Lodariq no encontró en esta página aquello a lo que apunta este paso',
   'Announcement: {label}': 'Anuncio: {label}',
   'Exit tour': 'Salir del recorrido',
   'Keyboard focus order': 'Orden de enfoque del teclado',
@@ -68,6 +74,8 @@ const ES_CATALOG: TourRuntimeCatalog = {
 };
 
 const PT_CATALOG: TourRuntimeCatalog = {
+  'Lodariq could not find what this step points at on this page':
+    'O Lodariq não encontrou nesta página aquilo a que esta etapa aponta',
   'Announcement: {label}': 'Anúncio: {label}',
   'Exit tour': 'Sair do tour',
   'Keyboard focus order': 'Ordem de foco do teclado',
@@ -88,6 +96,8 @@ const PT_CATALOG: TourRuntimeCatalog = {
 };
 
 const AR_CATALOG: TourRuntimeCatalog = {
+  'Lodariq could not find what this step points at on this page':
+    'لم يعثر لودارِك في هذه الصفحة على ما تشير إليه هذه الخطوة',
   'Announcement: {label}': 'الإعلان: {label}',
   'Exit tour': 'إنهاء الجولة',
   'Keyboard focus order': 'ترتيب تركيز لوحة المفاتيح',
@@ -108,6 +118,8 @@ const AR_CATALOG: TourRuntimeCatalog = {
 };
 
 const TR_CATALOG: TourRuntimeCatalog = {
+  'Lodariq could not find what this step points at on this page':
+    'Lodariq bu adımın işaret ettiği şeyi bu sayfada bulamadı',
   'Announcement: {label}': 'Duyuru: {label}',
   'Exit tour': 'Turdan çık',
   'Keyboard focus order': 'Klavye odak sırası',
@@ -128,6 +140,8 @@ const TR_CATALOG: TourRuntimeCatalog = {
 };
 
 const IT_CATALOG: TourRuntimeCatalog = {
+  'Lodariq could not find what this step points at on this page':
+    'Lodariq non ha trovato in questa pagina ciò a cui punta questo passaggio',
   'Announcement: {label}': 'Annuncio: {label}',
   'Exit tour': 'Esci dal tour',
   'Keyboard focus order': 'Ordine di attivazione da tastiera',
@@ -150,6 +164,8 @@ const IT_CATALOG: TourRuntimeCatalog = {
 };
 
 const NL_BE_CATALOG: TourRuntimeCatalog = {
+  'Lodariq could not find what this step points at on this page':
+    'Lodariq vond niet waar deze stap op deze pagina naar verwijst',
   'Announcement: {label}': 'Aankondiging: {label}',
   'Exit tour': 'Rondleiding afsluiten',
   'Keyboard focus order': 'Toetsenbordfocusvolgorde',

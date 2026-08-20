@@ -1,5 +1,11 @@
 import { canonicalJson } from '@lodariq/compiler';
-import { AuthoringDocumentPayload, LodariqDocument, validate } from '@lodariq/schema';
+import {
+  AuthoringDocumentPayload,
+  LodariqDocument,
+  SdkFormResponsesBody,
+  validate,
+  type SdkFormResponsesBody as SdkFormResponsesBodyType,
+} from '@lodariq/schema';
 import { PUBLIC_MANIFEST_SCHEMA_VERSION } from '@lodariq/schema/version';
 import type { FastifyInstance } from 'fastify';
 import { DocumentSaveConflictError } from '@lodariq/database';
@@ -295,6 +301,32 @@ export function registerSdkDeliveryRoutes(
     },
   );
 
+  /**
+   * Answers arrive over the same token-bound public channel as SDK events but
+   * land through their own endpoint: free text is customer content and must
+   * never travel as an analytics property.
+   */
+  fastify.post(
+    '/v1/sdk/form-responses',
+    { schema: { body: SdkFormResponsesBody } },
+    async (request, reply) => {
+      const scope = await resolvePublicSdkScope(options.repository, request, reply);
+      if (!scope) return;
+      const body = request.body as SdkFormResponsesBodyType;
+      const document = await options.repository.getDocument(scope.workspaceId, body.documentId);
+      if (!document) {
+        return reply.code(404).send({ error: 'not_found', message: 'Document not found' });
+      }
+      const accepted = await options.repository.recordFormResponses({
+        workspaceId: scope.workspaceId,
+        environmentId: scope.environmentId,
+        documentId: body.documentId,
+        responses: body.responses,
+      });
+      return reply.code(202).send({ accepted });
+    },
+  );
+
   fastify.get(
     '/v1/sdk/authoring/document',
     {
@@ -456,4 +488,27 @@ export function registerSdkDeliveryRoutes(
       });
     },
   );
+}
+
+/**
+ * Either public-SDK credential resolves to the same thing: which workspace and
+ * environment this page is allowed to write to. Callers never read it off the body.
+ */
+async function resolvePublicSdkScope(
+  repository: ControlPlaneRouteOptions['repository'],
+  request: Parameters<typeof resolvePublicSdkRequest>[1],
+  reply: Parameters<typeof resolvePublicSdkRequest>[2],
+): Promise<{ workspaceId: string; environmentId: string } | null> {
+  if (readHeader(request, PUBLIC_SDK_INSTALLATION_HEADER)) {
+    const resolved = await resolvePublicSdkRequest(repository, request, reply);
+    if (!resolved) return null;
+    return {
+      workspaceId: resolved.installation.workspaceId,
+      environmentId: resolved.environment.id,
+    };
+  }
+  const token = await authenticateEnvironmentToken(repository, request, reply);
+  if (!token) return null;
+  if (!requireSdkOrigin(token, request, reply)) return null;
+  return { workspaceId: token.workspaceId, environmentId: token.environmentId };
 }

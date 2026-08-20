@@ -279,6 +279,7 @@ export function toPublicSdkInstallationRecord(
     createdAt: toIsoString(installation.createdAt),
     updatedAt: toIsoString(installation.updatedAt),
     revokedAt: installation.revokedAt ? toIsoString(installation.revokedAt) : null,
+    suspendedAt: installation.suspendedAt ? toIsoString(installation.suspendedAt) : null,
   };
 }
 

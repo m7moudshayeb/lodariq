@@ -30,14 +30,24 @@ export const AUTHORING_AGREED_CONTENT_PROPERTIES_CSS = `
     min-width: 0;
   }
 
+  /*
+   * One column: the second held a "configure" button that opened the inspector
+   * a click on the field already opens, and it sat outside the card where it
+   * read as part of the customer's page rather than as authoring chrome.
+   */
   .rich-content-form-field-preview {
     position: relative;
     display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
     align-items: start;
-    gap: 6px;
+    gap: var(--lq-field-gap, 6px);
     width: 100%;
-    color: var(--lq-field-label, var(--lq-color-ink));
+    /*
+     * The card wears the customer's theme, so its text is the tour's ink. This
+     * fell back to the creator chrome's ink — pale, because that one is written
+     * for dark glass — and every unstyled field label rendered near-invisible on
+     * a white card.
+     */
+    color: var(--lq-field-label, var(--lq-tour-text-color, var(--lq-color-ink)));
     outline: none;
   }
 
@@ -52,25 +62,85 @@ export const AUTHORING_AGREED_CONTENT_PROPERTIES_CSS = `
   .rich-content-form-field-preview fieldset,
   .rich-content-form-field-preview > label {
     display: grid;
-    gap: 6px;
+    gap: var(--lq-field-gap, 6px);
     margin: 0;
     border: 0;
     padding: 0;
-    color: var(--lq-color-ink);
+    color: inherit;
     font: inherit;
   }
 
   .rich-content-form-field-preview legend,
   .rich-content-form-field-preview > label > span {
-    font-size: 11px;
-    font-weight: 650;
+    font-size: var(--lq-font-sm);
+    font-weight: var(--lq-weight-semibold);
   }
 
-  .rich-content-form-field-preview label {
+  /* A checkbox's caption reads as body copy, not as a field label. */
+  .rich-content-form-field-preview[data-control='checkbox'] > label > span {
+    font-size: var(--lq-font-md);
+    font-weight: inherit;
+  }
+
+  /* Label beside the control: caption takes its own width, the box takes the rest. */
+  .rich-content-form-field-preview[data-control='text'][data-lodariq-field-label='beside'] > label {
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+  }
+
+  /*
+   * Hidden means off the screen, never removed: the caption is still the field's
+   * accessible name, so a bare box still says what it asks for.
+   */
+  .rich-content-form-field-preview[data-lodariq-field-label='hidden'] [data-lodariq-field-caption] {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .rich-content-form-field-preview[data-lodariq-field-label-size='small'] [data-lodariq-field-caption] {
+    font-size: var(--lq-font-sm);
+  }
+
+  .rich-content-form-field-preview[data-lodariq-field-label-size='large'] [data-lodariq-field-caption] {
+    font-size: var(--lq-font-md);
+  }
+
+  .rich-content-form-field-preview[data-lodariq-field-label-weight='regular'] [data-lodariq-field-caption] {
+    font-weight: var(--lq-weight-regular);
+  }
+
+  .rich-content-form-field-preview[data-lodariq-field-label-weight='medium'] [data-lodariq-field-caption] {
+    font-weight: var(--lq-weight-semibold);
+  }
+
+  .rich-content-form-field-preview[data-lodariq-field-label-weight='bold'] [data-lodariq-field-caption] {
+    font-weight: var(--lq-weight-bold);
+  }
+
+  .rich-content-form-field-preview[data-lodariq-field-control-width='half'] input[type='text'] {
+    width: 50%;
+  }
+
+  .rich-content-form-field-preview[data-lodariq-field-control-width='auto'] input[type='text'] {
+    width: auto;
+  }
+
+  /*
+   * The options inside a radio group, and a checkbox's own row — box then words.
+   * This was written as a bare descendant selector, so it also caught the text
+   * field's outer label and laid its caption beside the box no matter what the
+   * creator chose. The runtime never had the bug, so the preview was lying.
+   */
+  .rich-content-form-field-preview fieldset label,
+  .rich-content-form-field-preview[data-control='checkbox'] > label {
     display: flex;
     align-items: center;
-    gap: 8px;
-    font-size: 13px;
+    gap: var(--lq-field-gap, 8px);
+    font-size: var(--lq-font-md);
   }
 
   .rich-content-form-field-preview input[type='text'] {
@@ -152,11 +222,15 @@ export const AUTHORING_AGREED_CONTENT_PROPERTIES_CSS = `
     flex-wrap: nowrap;
     align-items: center;
     gap: 4px;
-    overflow-x: auto;
-    overflow-y: hidden;
+    /*
+     * No scrollbar. A control parked off the right edge of a 36px-tall bar is a
+     * control nobody finds, and the horizontal scroll that revealed it was the
+     * least discoverable affordance on the surface. Overflow belongs in the
+     * More menu, which already re-offers whatever does not fit.
+     */
+    overflow: hidden;
     background: transparent;
     padding: 0;
-    scrollbar-width: thin;
   }
 
   .rich-content-toolbar-spacer {
@@ -214,6 +288,16 @@ export const AUTHORING_AGREED_CONTENT_PROPERTIES_CSS = `
     white-space: nowrap;
   }
 
+  /* Set by the bar's own measurement when the fixed items alone do not fit. */
+  .rich-content-toolbar[data-block-type-label='hidden'] .rich-content-block-style-trigger {
+    min-width: 0 !important;
+    padding: 0 6px;
+  }
+
+  .rich-content-toolbar[data-block-type-label='hidden'] .rich-content-block-style-trigger > span {
+    display: none;
+  }
+
   .rich-content-toolbar-divider {
     width: 1px;
     height: 22px;
@@ -267,6 +351,12 @@ export const AUTHORING_AGREED_CONTENT_PROPERTIES_CSS = `
     max-height: var(--rich-content-floating-available-height, calc(100vh - 16px));
   }
 
+  /**
+   * panel, not page: a menu is a surface, and the page is the ground it floats
+   * over. They happened to be the same white in the workspace, so the distinction
+   * cost nothing there — but over a customer's product the ground is transparent,
+   * and the menu rendered as bare text on whatever was underneath.
+   */
   .rich-content-menu,
   .rich-content-emoji-picker,
   .rich-content-picker-loading {
@@ -275,7 +365,7 @@ export const AUTHORING_AGREED_CONTENT_PROPERTIES_CSS = `
     max-height: var(--rich-content-floating-available-height, calc(100vh - 16px));
     border: 1px solid var(--lq-color-border);
     border-radius: var(--lq-radius-sm);
-    background: var(--lq-color-page);
+    background: var(--lq-color-panel);
     box-shadow: var(--lq-shadow-popover);
     color: var(--lq-color-ink);
   }
@@ -289,6 +379,33 @@ export const AUTHORING_AGREED_CONTENT_PROPERTIES_CSS = `
     color: var(--lq-color-muted);
     font-size: var(--lq-font-sm);
     padding: 8px;
+  }
+
+  /* Failure stays the size of the panel that failed, and offers the way out. */
+  .rich-content-picker-error {
+    display: grid;
+    min-width: 180px;
+    justify-items: start;
+    gap: 8px;
+    color: var(--lq-color-muted);
+    font-size: var(--lq-font-sm);
+    padding: 12px;
+  }
+
+  .rich-content-picker-error button {
+    border: 1px solid var(--lq-color-border);
+    border-radius: var(--lq-radius-sm);
+    background: var(--lq-color-control);
+    color: var(--lq-color-ink);
+    cursor: pointer;
+    font: inherit;
+    font-weight: var(--lq-weight-semibold);
+    padding: 5px 10px;
+  }
+
+  .rich-content-picker-error button:hover {
+    background: var(--lq-color-control-hover);
+    color: var(--lq-color-ink-strong);
   }
 
   .rich-content-menu {
@@ -355,6 +472,45 @@ export const AUTHORING_AGREED_CONTENT_PROPERTIES_CSS = `
 
   .rich-content-animation-menu {
     width: 242px;
+  }
+
+  .rich-content-more-menu {
+    min-width: 252px;
+    max-width: 320px;
+  }
+
+  .rich-content-more-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .rich-content-slash-hint {
+    margin: 0;
+    color: var(--lq-color-muted);
+    font-size: var(--lq-font-sm);
+    font-weight: var(--lq-weight-semibold);
+    padding: 4px 12px 0;
+  }
+
+  .rich-content-floating-layer.rich-content-inspector-popover {
+    width: 320px;
+    max-width: min(320px, calc(100vw - 24px));
+  }
+
+  .rich-content-inspector-popover .storyboard-property-tray {
+    width: 320px;
+    max-height: 360px;
+    overflow: auto;
+    border: 1px solid var(--lq-color-border);
+    border-radius: 12px;
+    background: var(--lq-color-page);
+    box-shadow: var(--lq-shadow-popover);
+  }
+
+  .rich-content-inspector-popover .storyboard-tray-handle {
+    display: none;
   }
 
   .rich-content-animation-select {
@@ -499,7 +655,7 @@ export const AUTHORING_AGREED_CONTENT_PROPERTIES_CSS = `
     border-radius: 6px;
     background: transparent;
     cursor: pointer;
-    font-size: 19px;
+    font-size: var(--lq-font-xl);
   }
 
   .rich-content-emoji-picker button:hover {
@@ -537,39 +693,46 @@ export const AUTHORING_AGREED_CONTENT_PROPERTIES_CSS = `
     top: 2px;
     left: 0;
     color: var(--lq-color-muted);
-    font-size: 13px;
+    font-size: var(--lq-font-md);
     pointer-events: none;
   }
 
+  /*
+   * A 22px column in the card's own gutter (§4.2a rule 6). Grip, insert, options
+   * — stacked, so the block's first line stays the leftmost thing a creator
+   * reads, and nothing Lodariq draws sits inside the published card box.
+   */
   .rich-content-block-handles {
     z-index: 330;
-    display: inline-flex;
+    display: flex;
+    width: 22px;
+    flex-direction: column;
     align-items: center;
-    gap: 1px;
-    padding-right: 5px;
+    gap: 2px;
   }
 
+  .rich-content-block-handles button,
   .rich-content-block-handles > .rich-content-toolbar-popover > button {
     display: inline-grid;
-    width: 32px;
-    height: 32px;
+    width: 20px;
+    height: 20px;
     place-items: center;
-    border: 1px solid var(--lq-color-border);
-    border-radius: var(--lq-radius-sm);
-    background: var(--lq-color-page);
-    color: var(--lq-color-muted);
+    border: 0;
+    border-radius: 5px;
+    background: color-mix(in srgb, var(--lq-color-chrome) 90%, transparent);
+    color: var(--lq-color-ink-soft);
     cursor: pointer;
     padding: 0;
   }
 
+  .rich-content-block-handles button:hover,
   .rich-content-block-handles > .rich-content-toolbar-popover > button:hover,
   .rich-content-block-handles > .rich-content-toolbar-popover > button[aria-expanded='true'] {
-    border-color: var(--lq-color-primary-border);
-    background: var(--lq-color-primary-soft);
-    color: var(--lq-color-primary);
+    background: var(--lq-color-control-hover);
+    color: var(--lq-color-ink-strong);
   }
 
-  .rich-content-block-handles > .rich-content-toolbar-popover > button[draggable='true'] {
+  .rich-content-block-grip {
     cursor: grab;
     -webkit-user-drag: element;
   }
@@ -584,8 +747,17 @@ export const AUTHORING_AGREED_CONTENT_PROPERTIES_CSS = `
     transform: translateY(-1px);
   }
 
+  /*
+   * Sized by the grid, not by a column of rows: four tiles wide enough to hold
+   * "Icon + text" on one line is what the menu measures, and 236px forced every
+   * two-word label to wrap.
+   */
   .rich-content-insert-menu {
-    width: 236px;
+    width: max-content;
+    min-width: 236px;
+    max-width: 360px;
+    padding: 5px;
+    gap: 0;
   }
 
   .rich-content-insert-menu > input,
@@ -608,6 +780,66 @@ export const AUTHORING_AGREED_CONTENT_PROPERTIES_CSS = `
     max-height: 250px;
     gap: 2px;
     overflow-y: auto;
+  }
+
+  /*
+   * Four-up (§4.2a). A block type is recognised by its shape before its label is
+   * read, so the insert menu is a grid of shapes rather than a column of rows —
+   * fourteen rows is a list nobody scans to the bottom of.
+   */
+  .rich-content-insert-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 4px;
+    padding: 4px;
+  }
+
+  .rich-content-insert-grid > button {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    min-height: 0;
+    border: 0;
+    border-radius: 6px;
+    background: none;
+    color: var(--lq-color-muted);
+    cursor: pointer;
+    font-size: var(--lq-font-xs);
+    /* Regular: the tile is read by its shape, and bold labels fought the icons. */
+    font-weight: var(--lq-weight-regular);
+    padding: 8px 4px;
+    text-align: center;
+  }
+
+  .rich-content-insert-grid > button:hover {
+    background: var(--lq-color-control-hover);
+    color: var(--lq-color-ink-strong);
+  }
+
+  .rich-content-insert-heading {
+    margin: 0;
+    padding: 7px 9px 5px;
+    color: var(--lq-color-subtle);
+    font-size: var(--lq-font-xs);
+    font-weight: var(--lq-weight-bold);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  .rich-content-insert-separator {
+    height: 1px;
+    margin: 4px 0;
+    background: var(--lq-color-menu-border);
+  }
+
+  .rich-content-insert-note {
+    margin: 0;
+    padding: 6px 9px;
+    color: var(--lq-color-muted);
+    font-size: var(--lq-font-sm);
+    line-height: 1.5;
   }
 
   .rich-content-insert-empty {
@@ -701,10 +933,82 @@ export const AUTHORING_AGREED_CONTENT_PROPERTIES_CSS = `
     padding: var(--lq-tour-space-sm, 9px);
   }
 
+  /*
+   * The chip that names what this step points at. It takes the brand accent
+   * rather than creator chrome: it renders inside the published card, so it has
+   * to look like part of the customer's product, not part of Lodariq.
+   */
+  .rich-content-target-chip {
+    display: inline-flex;
+    align-items: center;
+    align-self: flex-start;
+    gap: 6px;
+    width: fit-content;
+    border: 1px solid
+      color-mix(in srgb, var(--lq-tour-focus-color, var(--lq-color-primary)) 22%, transparent);
+    border-radius: 20px;
+    background: color-mix(
+      in srgb,
+      var(--lq-tour-focus-color, var(--lq-color-primary)) 12%,
+      var(--lq-tour-secondary-surface, transparent)
+    );
+    color: var(--lq-tour-focus-color, var(--lq-color-primary));
+    font-size: var(--lq-font-sm);
+    font-weight: var(--lq-weight-semibold);
+    padding: 4px 9px;
+  }
+
+  /*
+   * The crosshair is drawn as a mask rather than an inline SVG child: Lexical
+   * owns this element's children and would export any DOM added here as content.
+   */
+  .rich-content-target-chip::before {
+    display: block;
+    width: 13px;
+    height: 13px;
+    flex: none;
+    background: currentColor;
+    content: '';
+    mask: var(--lq-glyph-target) center / contain no-repeat;
+    -webkit-mask: var(--lq-glyph-target) center / contain no-repeat;
+  }
+
+  /* The three states are the document's own ValidationLevel, no more. */
+  .rich-content-validation-badge {
+    display: flex;
+    width: fit-content;
+    align-items: center;
+    align-self: flex-start;
+    gap: 6px;
+    border: 1px solid;
+    border-radius: 7px;
+    font-size: var(--lq-font-sm);
+    font-weight: var(--lq-weight-semibold);
+    padding: 4px 9px;
+  }
+
+  .rich-content-validation-badge[data-validation-state='ready'] {
+    border-color: var(--lq-color-success-border);
+    background: var(--lq-color-success-soft);
+    color: var(--lq-color-success-ink);
+  }
+
+  .rich-content-validation-badge[data-validation-state='incomplete'] {
+    border-color: var(--lq-color-warning-border);
+    background: var(--lq-color-warning-soft);
+    color: var(--lq-color-warning-ink);
+  }
+
+  .rich-content-validation-badge[data-validation-state='invalid'] {
+    border-color: var(--lq-color-danger-border);
+    background: var(--lq-color-danger-soft);
+    color: var(--lq-color-danger-ink);
+  }
+
   .rich-content-stat {
     color: inherit;
     font-size: 24px;
-    font-weight: 720;
+    font-weight: var(--lq-weight-bold);
     line-height: 1.2;
   }
 
@@ -721,6 +1025,25 @@ export const AUTHORING_AGREED_CONTENT_PROPERTIES_CSS = `
     max-width: 100%;
     gap: 8px;
     outline: none;
+  }
+
+  .rich-content-button-preview-shell::after {
+    position: absolute;
+    inset: -2px;
+    border: 1px dashed transparent;
+    border-radius: 10px;
+    content: '';
+    pointer-events: none;
+  }
+
+  .rich-content-button-preview-shell:hover::after,
+  .rich-content-button-preview-shell:focus-visible::after,
+  .rich-content-button-preview-shell[data-resizing]::after {
+    border-color: var(--lq-color-primary);
+  }
+
+  .rich-content-button-preview-shell[data-resizing] {
+    user-select: none;
   }
 
   .rich-content-button-preview-shell[data-lodariq-action-width='fill'] {
@@ -751,8 +1074,14 @@ export const AUTHORING_AGREED_CONTENT_PROPERTIES_CSS = `
     width: 100%;
   }
 
+  /*
+   * A definite width, not a percentage. The decorator span that wraps this shell
+   * hugs its contents, so a percentage measured the button's own label — a
+   * dragged width committed to the document and changed nothing on screen. The
+   * shell's own max-width still holds it inside the card.
+   */
   .rich-content-button-preview-shell[data-lodariq-action-width='custom'] {
-    width: min(100%, var(--lq-action-width, 100%));
+    width: var(--lq-action-width, 100%);
   }
 
   .rich-content-button-preview[data-variant='secondary'] {
@@ -773,33 +1102,7 @@ export const AUTHORING_AGREED_CONTENT_PROPERTIES_CSS = `
     color: var(--lq-action-text, var(--lq-tour-primary-surface, var(--lq-color-primary)));
   }
 
-  .rich-content-button-config-trigger {
-    position: absolute;
-    top: 50%;
-    right: 0;
-    display: inline-grid;
-    width: 32px;
-    height: 32px;
-    place-items: center;
-    border: 1px solid var(--lq-color-border);
-    border-radius: var(--lq-radius-sm);
-    background: var(--lq-color-page);
-    color: var(--lq-color-muted);
-    cursor: pointer;
-    opacity: 0;
-    transform: translate(calc(100% + 6px), -50%);
-  }
-
-  .rich-content-button-preview-shell:hover .rich-content-button-config-trigger,
-  .rich-content-button-preview-shell:focus-within .rich-content-button-config-trigger,
-  .rich-content-form-field-preview:hover .rich-content-button-config-trigger,
-  .rich-content-form-field-preview:focus-within .rich-content-button-config-trigger,
-  .rich-content-button-node[data-rich-selected='true'] .rich-content-button-config-trigger,
-  .rich-content-form-field-node[data-rich-selected='true'] .rich-content-button-config-trigger {
-    opacity: 1;
-  }
-
-  .rich-content-bold { font-weight: 700; }
+  .rich-content-bold { font-weight: var(--lq-weight-bold); }
   .rich-content-italic { font-style: italic; }
   .rich-content-underline { text-decoration: underline; }
 
@@ -1165,15 +1468,18 @@ export const AUTHORING_AGREED_CONTENT_PROPERTIES_CSS = `
 
   .rich-content-media-unavailable small {
     color: var(--lq-color-muted);
-    font-size: 10px;
+    font-size: var(--lq-font-xs);
   }
 
+  .edge-resize-handle,
   .rich-content-media-resize-edge {
     position: absolute;
     z-index: 3;
     touch-action: none;
   }
 
+  .edge-resize-handle[data-edge='n'],
+  .edge-resize-handle[data-edge='s'],
   .rich-content-media-resize-edge[data-edge='n'],
   .rich-content-media-resize-edge[data-edge='s'] {
     right: 10px;
@@ -1182,44 +1488,44 @@ export const AUTHORING_AGREED_CONTENT_PROPERTIES_CSS = `
     cursor: ns-resize;
   }
 
-  .rich-content-media-resize-edge[data-edge='n'] { top: -5px; }
-  .rich-content-media-resize-edge[data-edge='s'] { bottom: -5px; }
+  .edge-resize-handle[data-edge='n'] { top: -5px; }
+  .edge-resize-handle[data-edge='s'] { bottom: -5px; }
 
-  .rich-content-media-resize-edge[data-edge='e'],
-  .rich-content-media-resize-edge[data-edge='w'] {
+  .edge-resize-handle[data-edge='e'],
+  .edge-resize-handle[data-edge='w'] {
     top: 10px;
     bottom: 10px;
     width: 10px;
     cursor: ew-resize;
   }
 
-  .rich-content-media-resize-edge[data-edge='e'] { right: -5px; }
-  .rich-content-media-resize-edge[data-edge='w'] { left: -5px; }
+  .edge-resize-handle[data-edge='e'] { right: -5px; }
+  .edge-resize-handle[data-edge='w'] { left: -5px; }
 
-  .rich-content-media-resize-edge:is([data-edge='ne'], [data-edge='se'], [data-edge='sw'], [data-edge='nw']) {
+  .edge-resize-handle:is([data-edge='ne'], [data-edge='se'], [data-edge='sw'], [data-edge='nw']) {
     width: 14px;
     height: 14px;
   }
 
-  .rich-content-media-resize-edge[data-edge='ne'] {
+  .edge-resize-handle[data-edge='ne'] {
     top: -7px;
     right: -7px;
     cursor: nesw-resize;
   }
 
-  .rich-content-media-resize-edge[data-edge='se'] {
+  .edge-resize-handle[data-edge='se'] {
     right: -7px;
     bottom: -7px;
     cursor: nwse-resize;
   }
 
-  .rich-content-media-resize-edge[data-edge='sw'] {
+  .edge-resize-handle[data-edge='sw'] {
     bottom: -7px;
     left: -7px;
     cursor: nesw-resize;
   }
 
-  .rich-content-media-resize-edge[data-edge='nw'] {
+  .edge-resize-handle[data-edge='nw'] {
     top: -7px;
     left: -7px;
     cursor: nwse-resize;
@@ -1332,16 +1638,16 @@ export const AUTHORING_AGREED_CONTENT_PROPERTIES_CSS = `
 
   .sequence-summary-header small {
     color: var(--lq-color-ink);
-    font-size: 10px;
-    font-weight: 700;
+    font-size: var(--lq-font-xs);
+    font-weight: var(--lq-weight-bold);
     letter-spacing: 0.05em;
     text-transform: uppercase;
   }
 
   .sequence-summary-header strong {
     color: var(--lq-color-muted);
-    font-size: 9px;
-    font-weight: 500;
+    font-size: var(--lq-font-xs);
+    font-weight: var(--lq-weight-semibold);
   }
 
   .sequence-summary-strip {
@@ -1376,7 +1682,7 @@ export const AUTHORING_AGREED_CONTENT_PROPERTIES_CSS = `
 
   .sequence-summary-card strong {
     overflow: hidden;
-    font-size: 10px;
+    font-size: var(--lq-font-xs);
     text-overflow: ellipsis;
     white-space: nowrap;
   }
@@ -1402,8 +1708,8 @@ export const AUTHORING_AGREED_CONTENT_PROPERTIES_CSS = `
     width: max-content;
     color: var(--lq-color-primary);
     cursor: pointer;
-    font-size: 10px;
-    font-weight: 700;
+    font-size: var(--lq-font-xs);
+    font-weight: var(--lq-weight-bold);
   }
 
   .sequence-details-grid {
@@ -1450,7 +1756,7 @@ export const AUTHORING_AGREED_CONTENT_PROPERTIES_CSS = `
     border-radius: 999px;
     background: var(--lq-color-primary-soft);
     color: var(--lq-color-primary);
-    font-size: var(--lq-font-2xs);
+    font-size: 8px;
   }
 
   .sequence-guided-card > .ui-field,
@@ -1508,7 +1814,7 @@ export const AUTHORING_AGREED_CONTENT_PROPERTIES_CSS = `
 
   .sequence-native-field > span {
     color: var(--lq-color-muted);
-    font-size: var(--lq-font-2xs);
+    font-size: 8px;
     font-weight: var(--lq-weight-bold);
   }
 

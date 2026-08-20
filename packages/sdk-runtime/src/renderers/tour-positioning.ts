@@ -3,7 +3,7 @@ import type { CompiledStep } from '@lodariq/schema';
 import type { ResolvedAnchor } from '../resolver';
 import { isVisible } from '../resolver/element-evidence';
 
-const TARGET_OUTLINE_GAP_PX = 3;
+export const TARGET_OUTLINE_GAP_PX = 3;
 
 export function createTargetOutline(doc: Document): HTMLDivElement {
   const outline = doc.createElement('div');
@@ -14,15 +14,23 @@ export function createTargetOutline(doc: Document): HTMLDivElement {
   return outline;
 }
 
-export function positionTargetOutline(outline: HTMLElement | null, owner: Element): void {
+export function positionTargetOutline(
+  outline: HTMLElement | null,
+  owner: Element,
+  offsetPx: number = TARGET_OUTLINE_GAP_PX,
+): void {
   if (!outline) return;
   const rect = owner.getBoundingClientRect();
   Object.assign(outline.style, {
-    left: `${rect.left - TARGET_OUTLINE_GAP_PX}px`,
-    top: `${rect.top - TARGET_OUTLINE_GAP_PX}px`,
-    width: `${rect.width + TARGET_OUTLINE_GAP_PX * 2}px`,
-    height: `${rect.height + TARGET_OUTLINE_GAP_PX * 2}px`,
+    left: `${rect.left - offsetPx}px`,
+    top: `${rect.top - offsetPx}px`,
+    width: `${rect.width + offsetPx * 2}px`,
+    height: `${rect.height + offsetPx * 2}px`,
   });
+  if (outline.dataset['lodariqOutlineFollowRadius'] === 'true') {
+    const radius = owner.ownerDocument.defaultView?.getComputedStyle(owner).borderRadius;
+    if (radius) outline.style.setProperty('--lq-outline-radius', radius);
+  }
   outline.hidden = false;
 }
 

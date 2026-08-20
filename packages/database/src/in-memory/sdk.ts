@@ -15,6 +15,7 @@ import {
   type PublicSdkInstallationRecord,
   type PublicSdkInstallationWithOrigins,
   type ResolvedPublicSdkInstallation,
+  type SetPublicSdkInstallationSuspensionInput,
 } from '../domains/sdk-authoring';
 import {
   type ConsumePublicSdkBootstrapGrantInput,
@@ -167,6 +168,7 @@ export class InMemoryRepositorySdk extends InMemoryRepositoryReleasePromotion {
       createdAt: now,
       updatedAt: now,
       revokedAt: null,
+      suspendedAt: null,
     };
     this.publicSdkInstallations.set(installation.installationId, installation);
     return clone(installation);
@@ -353,6 +355,25 @@ export class InMemoryRepositorySdk extends InMemoryRepositoryReleasePromotion {
     };
     this.publicSdkInstallations.set(installationId, revokedInstallation);
     return clone(revokedInstallation);
+  }
+
+  async setPublicSdkInstallationSuspension(
+    input: SetPublicSdkInstallationSuspensionInput,
+  ): Promise<PublicSdkInstallationRecord | null> {
+    const installation = this.publicSdkInstallations.get(input.installationId);
+    if (!installation || installation.workspaceId !== input.workspaceId || installation.revokedAt) {
+      return null;
+    }
+    const now = new Date().toISOString();
+    const updated: PublicSdkInstallationRecord = {
+      ...installation,
+      // Re-suspending keeps the original timestamp so the pause reads as one
+      // continuous incident rather than restarting on every dashboard click.
+      suspendedAt: input.suspended ? (installation.suspendedAt ?? now) : null,
+      updatedAt: now,
+    };
+    this.publicSdkInstallations.set(input.installationId, updated);
+    return clone(updated);
   }
 
   async createPublicSdkBootstrapGrant(

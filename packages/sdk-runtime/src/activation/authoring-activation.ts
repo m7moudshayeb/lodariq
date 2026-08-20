@@ -49,7 +49,28 @@ const CREATOR_CONTENT_ADDRESS = /\/sha256-([0-9a-f]{64})(?:\/|$)/u;
 const SUBRESOURCE_INTEGRITY = /^sha256-[A-Za-z0-9+/]+={0,2}$/u;
 
 const ACTIVATION_CAPABILITIES = ['documents:create', 'documents:list', 'documents:select'] as const;
-const NEW_TOUR_DOCUMENT_INTENT = { kind: 'new-draft', documentType: 'tour' } as const;
+/**
+ * What the launcher offers when a creator starts something new (§5).
+ *
+ * One hardcoded Tour button made every other experience type unreachable from the
+ * product, which is where creators actually start. The list is the document-type
+ * union with its creator-facing copy — a type the product supports is a type the
+ * launcher offers.
+ */
+const NEW_EXPERIENCE_TYPES = [
+  {
+    type: 'tour',
+    label: runtimeText('Tour'),
+    description: runtimeText('Guide people through a sequence of steps.'),
+  },
+  // Only Tour carries a description. The rest are named, not explained: five
+  // extra sentences ship in every locale on the customer's page, which costs
+  // more than it buys once the name already says it.
+  { type: 'announcement', label: runtimeText('Announcement') },
+  { type: 'hotspot', label: runtimeText('Hotspot') },
+  { type: 'survey', label: runtimeText('Survey') },
+  { type: 'checklist', label: runtimeText('Checklist') },
+] as const;
 
 type LauncherIconElement = readonly [
   tag: 'circle' | 'line' | 'path',
@@ -124,8 +145,6 @@ const LAUNCHER_COPY = {
   newExperienceDescription: runtimeText('Choose an experience type to start.'),
   newExperienceTitle: runtimeText('New experience'),
   restoreAuthoring: runtimeText('Restore Lodariq authoring'),
-  tourDescription: runtimeText('Guide people through a sequence of steps.'),
-  tourLabel: runtimeText('Tour'),
 } as const;
 
 const LAUNCHER_STATE_COPY = {
@@ -403,23 +422,27 @@ export function createPublicAuthoringLauncher(
   const typeDescription = hostDocument.createElement('span');
   typeDescription.className = 'type-description';
   typeDescription.textContent = LAUNCHER_COPY.newExperienceDescription;
-  const tourButton = hostDocument.createElement('button');
-  tourButton.type = 'button';
-  tourButton.className = 'type-option';
-  tourButton.dataset['experienceType'] = 'tour';
-  const tourCopy = hostDocument.createElement('span');
-  tourCopy.className = 'type-option-copy';
-  const tourLabel = hostDocument.createElement('strong');
-  tourLabel.textContent = LAUNCHER_COPY.tourLabel;
-  const tourDescription = hostDocument.createElement('span');
-  tourDescription.textContent = LAUNCHER_COPY.tourDescription;
-  const tourArrow = hostDocument.createElement('span');
-  tourArrow.className = 'type-option-arrow';
-  tourArrow.setAttribute('aria-hidden', 'true');
-  tourArrow.textContent = '→';
-  tourCopy.append(tourLabel, tourDescription);
-  tourButton.append(tourCopy, tourArrow);
-  typeSurface.append(typeHeading, typeDescription, tourButton);
+  const typeButtons = NEW_EXPERIENCE_TYPES.map((entry) => {
+    const option = hostDocument.createElement('button');
+    option.type = 'button';
+    option.className = 'type-option';
+    option.dataset['experienceType'] = entry.type;
+    const copy = hostDocument.createElement('span');
+    copy.className = 'type-option-copy';
+    const label = hostDocument.createElement('strong');
+    label.textContent = entry.label;
+    const description = hostDocument.createElement('span');
+    description.textContent = 'description' in entry ? entry.description : '';
+    const arrow = hostDocument.createElement('span');
+    arrow.className = 'type-option-arrow';
+    arrow.setAttribute('aria-hidden', 'true');
+    arrow.textContent = '→';
+    copy.append(label, description);
+    option.append(copy, arrow);
+    return option;
+  });
+  const tourButton = typeButtons[0] as HTMLButtonElement;
+  typeSurface.append(typeHeading, typeDescription, ...typeButtons);
 
   const actionButtons = new Map<LauncherActionId, HTMLButtonElement>();
   const actionTooltips = new Map<LauncherActionId, HTMLElement>();
@@ -773,16 +796,20 @@ export function createPublicAuthoringLauncher(
   for (const [actionId, actionButton] of actionButtons) {
     actionButton.addEventListener('click', () => runAction(actionId, actionButton));
   }
-  tourButton.addEventListener('click', () => {
-    if (tourButton.getAttribute('aria-busy') === 'true') return;
-    tourButton.setAttribute('aria-busy', 'true');
-    closeTypeSurface();
-    setPinned(true);
-    actionButtons.get('new-experience')?.focus();
-    void activate(NEW_TOUR_DOCUMENT_INTENT).finally(() => {
-      tourButton.removeAttribute('aria-busy');
+  for (const option of typeButtons) {
+    option.addEventListener('click', () => {
+      if (option.getAttribute('aria-busy') === 'true') return;
+      option.setAttribute('aria-busy', 'true');
+      closeTypeSurface();
+      setPinned(true);
+      actionButtons.get('new-experience')?.focus();
+      const documentType = (option.dataset['experienceType'] ??
+        'tour') as AuthoringDocumentIntent extends { documentType: infer T } ? T : never;
+      void activate({ kind: 'new-draft', documentType }).finally(() => {
+        option.removeAttribute('aria-busy');
+      });
     });
-  });
+  }
   button.addEventListener('click', handleLauncherClick);
   button.addEventListener('focus', handleLauncherFocus);
   button.addEventListener('keydown', handleLauncherKeyDown);
@@ -1550,6 +1577,15 @@ function normalizeActivationError(error: unknown): Error {
 
 const launcherStyles = `
   :host {
+    --lq-font-xs: 10px;
+    --lq-font-sm: 12px;
+    --lq-font-md: 14px;
+    --lq-font-lg: 16px;
+    --lq-font-xl: 18px;
+    --lq-weight-regular: 400;
+    --lq-weight-medium: 400;
+    --lq-weight-semibold: 500;
+    --lq-weight-bold: 700;
     color-scheme: light;
     font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   }
@@ -1618,8 +1654,8 @@ const launcherStyles = `
     border: 1px solid rgba(255,255,255,.24);
     border-radius: 999px;
     background: rgba(255,255,255,.08);
-    font-size: 12px;
-    font-weight: 790;
+    font-size: var(--lq-font-sm);
+    font-weight: var(--lq-weight-bold);
     letter-spacing: -.04em;
   }
   .palette {
@@ -1719,8 +1755,8 @@ const launcherStyles = `
     background: rgba(255,255,255,.97);
     color: #163b34;
     box-shadow: 0 10px 28px rgba(12,33,28,.15);
-    font-size: 12px;
-    font-weight: 650;
+    font-size: var(--lq-font-sm);
+    font-weight: var(--lq-weight-semibold);
     line-height: 1.2;
     opacity: 0;
     pointer-events: none;
@@ -1763,8 +1799,8 @@ const launcherStyles = `
   .type-surface[hidden] { display: none; }
   .shell[data-align-left='true'] .type-surface { right: auto; left: ${LAUNCHER_SIZE + TYPE_SURFACE_GAP}px; }
   .shell[data-palette-below='true'] .type-surface { top: 0; bottom: auto; }
-  .type-heading { font-size: 14px; font-weight: 740; line-height: 1.25; }
-  .type-description { color: #61756f; font-size: 12px; font-weight: 520; line-height: 1.4; }
+  .type-heading { font-size: var(--lq-font-md); font-weight: var(--lq-weight-bold); line-height: 1.25; }
+  .type-description { color: #61756f; font-size: var(--lq-font-sm); font-weight: var(--lq-weight-semibold); line-height: 1.4; }
   .type-option {
     display: grid;
     width: 100%;
@@ -1784,9 +1820,9 @@ const launcherStyles = `
   }
   .type-option:hover { border-color: rgba(11,102,85,.36); background: #e7f2ed; transform: translateY(-1px); }
   .type-option-copy { display: grid; gap: 2px; min-width: 0; }
-  .type-option-copy strong { font-size: 13px; font-weight: 700; line-height: 1.25; }
-  .type-option-copy span { color: #61756f; font-size: 11px; font-weight: 520; line-height: 1.35; }
-  .type-option-arrow { color: #0b6655; font-size: 18px; font-weight: 650; }
+  .type-option-copy strong { font-size: var(--lq-font-md); font-weight: var(--lq-weight-bold); line-height: 1.25; }
+  .type-option-copy span { color: #61756f; font-size: var(--lq-font-sm); font-weight: var(--lq-weight-semibold); line-height: 1.35; }
+  .type-option-arrow { color: #0b6655; font-size: var(--lq-font-xl); font-weight: var(--lq-weight-semibold); }
   .status {
     position: absolute;
     right: ${LAUNCHER_SIZE + TYPE_SURFACE_GAP}px;
@@ -1802,8 +1838,8 @@ const launcherStyles = `
     box-shadow: 0 14px 42px rgba(7,31,27,.22);
     -webkit-backdrop-filter: blur(16px) saturate(1.15);
     backdrop-filter: blur(16px) saturate(1.15);
-    font-size: 12px;
-    font-weight: 650;
+    font-size: var(--lq-font-sm);
+    font-weight: var(--lq-weight-semibold);
     line-height: 1.25;
   }
   .status[hidden] { display: none; }

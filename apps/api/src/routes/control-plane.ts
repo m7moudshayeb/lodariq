@@ -9,6 +9,7 @@ import { registerHealthAndCorsRoutes } from './control-plane/register-health-and
 import { registerSdkBootstrapRoutes } from './control-plane/register-sdk-bootstrap';
 import { registerSdkDeliveryRoutes } from './control-plane/register-sdk-delivery';
 import { registerSdkAuthoringRoutes } from './control-plane/register-sdk-authoring';
+import { registerSdkAuthoringOperationsRoutes } from './control-plane/register-sdk-authoring-operations';
 import { registerDocumentRoutes } from './control-plane/register-documents';
 import { registerDocumentReleaseRoutes } from './control-plane/register-document-releases';
 import { registerReleaseReviewRoutes } from './control-plane/register-release-review';
@@ -16,12 +17,14 @@ import { registerAuthoringSessionRoutes } from './control-plane/register-authori
 import { registerAuthoringDocumentRoutes } from './control-plane/register-authoring-documents';
 import { registerAuthoringReleaseRoutes } from './control-plane/register-authoring-releases';
 import { registerAuthoringResourceRoutes } from './control-plane/register-authoring-resources';
+import { registerExperienceMeasurementRoutes } from './control-plane/register-experience-measurement';
 
 const CONTROL_PLANE_ROUTE_REGISTRARS = [
   registerHealthAndCorsRoutes,
   registerSdkBootstrapRoutes,
   registerSdkDeliveryRoutes,
   registerSdkAuthoringRoutes,
+  registerSdkAuthoringOperationsRoutes,
   registerDocumentRoutes,
   registerDocumentReleaseRoutes,
   registerReleaseReviewRoutes,
@@ -34,6 +37,7 @@ const CONTROL_PLANE_ROUTE_REGISTRARS = [
   registerAuthoringResourceRoutes,
   registerAuthoringReleaseRoutes,
   registerControlPlaneAnalyticsRoutes,
+  registerExperienceMeasurementRoutes,
 ] as const;
 
 export function registerControlPlaneRoutes(

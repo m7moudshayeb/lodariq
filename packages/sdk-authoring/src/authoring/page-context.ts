@@ -266,7 +266,9 @@ function revealTarget(element: Element): void {
     pointerEvents: 'none',
     border: `2px solid ${CREATOR_CHROME_TOKENS.focus}`,
     borderRadius: '6px',
-    boxShadow: '0 0 0 5px rgba(61, 232, 176, 0.2)',
+    // A template literal: single quotes made this an invalid literal `${…}`, so
+    // the reveal marker has been drawing with no glow at all.
+    boxShadow: `0 0 0 5px color-mix(in srgb, ${CREATOR_CHROME_TOKENS.action} 20%, transparent)`,
   });
   doc.body.appendChild(marker);
   window.setTimeout(() => marker.remove(), 1200);

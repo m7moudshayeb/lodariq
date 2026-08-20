@@ -1,4 +1,5 @@
 import {
+  BUTTON_WIDTH_PX_LIMITS,
   MEDIA_HEIGHT_PX_LIMITS,
   MEDIA_WIDTH_PERCENT_LIMITS,
   type BlockActionTypeValue,
@@ -9,7 +10,16 @@ import {
   type LodariqBlockProps,
   type MediaPresentation,
   type OpenPageNavigationBehavior,
+  type ValidationLevel,
 } from '@lodariq/schema';
+import {
+  EDGE_RESIZE_HORIZONTAL_DIRECTION,
+  EDGE_RESIZE_VERTICAL_DIRECTION,
+  capturePointerForResize,
+  clampSnappedWidth,
+  type EdgeResizeEdge,
+} from '../authoring/canvas/edge-resize';
+import { EdgeResizeHandles } from './edge-resize-handles';
 import { resolveTourActionRecipe } from '@lodariq/sdk-runtime/renderers/tour';
 import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext';
 import {
@@ -29,7 +39,7 @@ import {
   type SerializedParagraphNode,
   type Spread,
 } from 'lexical';
-import { Settings2 } from 'lucide-react';
+import { Check, TriangleAlert, X } from 'lucide-react';
 import { DynamicIcon } from 'lucide-react/dynamic';
 import {
   useContext,
@@ -48,7 +58,7 @@ import { RichContentSelect } from './rich-content-select';
 
 type IconRecipe = (typeof ICON_RECIPE_VALUES)[number];
 
-const MEDIA_FIT_OPTIONS = [
+export const MEDIA_FIT_OPTIONS = [
   { label: authoringText('Fit entire media'), value: 'contain' },
   { label: authoringText('Fill the frame'), value: 'cover' },
   { label: authoringText('Stretch to frame'), value: 'fill' },
@@ -119,6 +129,55 @@ export function $createRichCalloutNode(): RichCalloutNode {
 
 export function $isRichCalloutNode(node: LexicalNode | null | undefined): node is RichCalloutNode {
   return node instanceof RichCalloutNode;
+}
+
+export type SerializedRichTargetChipNode = Spread<
+  { type: 'lodariq-rich-target-chip'; version: 1 },
+  SerializedParagraphNode
+>;
+
+/**
+ * The chip that names the element this step is attached to.
+ *
+ * Its text is editable because the label a creator wants ("Create project") is
+ * rarely the one the DOM offers, and its icon is drawn by CSS rather than as a
+ * DOM child: Lexical reconciles this element's children, so anything Lodariq
+ * appends there would be treated as content and exported into the step.
+ */
+export class RichTargetChipNode extends ParagraphNode {
+  static override getType(): string {
+    return 'lodariq-rich-target-chip';
+  }
+
+  static override clone(node: RichTargetChipNode): RichTargetChipNode {
+    return new RichTargetChipNode(node.__key);
+  }
+
+  static override importJSON(): RichTargetChipNode {
+    return new RichTargetChipNode();
+  }
+
+  override createDOM(config: EditorConfig): HTMLElement {
+    const element = document.createElement('p');
+    const className = config.theme.paragraph;
+    if (typeof className === 'string') element.className = className;
+    element.classList.add('rich-content-target-chip');
+    return element;
+  }
+
+  override exportJSON(): SerializedRichTargetChipNode {
+    return { ...super.exportJSON(), type: 'lodariq-rich-target-chip', version: 1 };
+  }
+}
+
+export function $createRichTargetChipNode(): RichTargetChipNode {
+  return $applyNodeReplacement(new RichTargetChipNode());
+}
+
+export function $isRichTargetChipNode(
+  node: LexicalNode | null | undefined,
+): node is RichTargetChipNode {
+  return node instanceof RichTargetChipNode;
 }
 
 export type SerializedRichStatNode = Spread<
@@ -294,33 +353,24 @@ export class RichMediaNode extends DecoratorNode<ReactNode> {
     const writable = this.getWritable();
     writable.__media = { ...writable.__media, fit };
   }
+
+  /** `free` drops the constraint, which is how the prototype spells "no ratio". */
+  setAspectRatio(aspectRatio: MediaPresentation['aspectRatio'] | undefined): void {
+    const writable = this.getWritable();
+    const next = { ...writable.__media };
+    if (aspectRatio) next.aspectRatio = aspectRatio;
+    else delete next.aspectRatio;
+    writable.__media = next;
+  }
+
+  /** The alt text. Named for what a screen reader announces, not for the tag. */
+  setAccessibilityName(accessibilityName: string): void {
+    const writable = this.getWritable();
+    writable.__media = { ...writable.__media, accessibilityName };
+  }
 }
 
-type MediaResizeEdge = 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w' | 'nw';
-
-const MEDIA_RESIZE_EDGES: readonly MediaResizeEdge[] = ['n', 'ne', 'e', 'se', 's', 'sw', 'w', 'nw'];
-
-const MEDIA_RESIZE_HORIZONTAL_DIRECTION: Readonly<Record<MediaResizeEdge, -1 | 0 | 1>> = {
-  n: 0,
-  ne: 1,
-  e: 1,
-  se: 1,
-  s: 0,
-  sw: -1,
-  w: -1,
-  nw: -1,
-};
-
-const MEDIA_RESIZE_VERTICAL_DIRECTION: Readonly<Record<MediaResizeEdge, -1 | 0 | 1>> = {
-  n: -1,
-  ne: -1,
-  e: 0,
-  se: 1,
-  s: 1,
-  sw: 1,
-  w: 0,
-  nw: -1,
-};
+type MediaResizeEdge = EdgeResizeEdge;
 
 interface MediaResizeState {
   canvasWidth: number;
@@ -349,6 +399,7 @@ function ResizableMediaPreview({
   uploadProgress?: number;
 }): ReactNode {
   const [editor] = useLexicalComposerContext();
+  const host = useContext(RichContentHostContext);
   const figureRef = useRef<HTMLElement | null>(null);
   const resizeState = useRef<MediaResizeState | null>(null);
   const pendingDraftSize = useRef<MediaDraftSize | null>(null);
@@ -408,6 +459,14 @@ function ResizableMediaPreview({
       setDraftSize(null);
     }
   }, [draftSize, media.heightPx, resizingEdge, widthPercent]);
+  const inspect = (): void => {
+    editor.update(() => {
+      const selection = $createNodeSelection();
+      selection.add(nodeKey);
+      $setSelection(selection);
+    });
+    host.onInspectOpen?.();
+  };
   const setFit = (value: string): void => {
     const fit = value as NonNullable<MediaPresentation['fit']>;
     editor.update(() => {
@@ -424,6 +483,7 @@ function ResizableMediaPreview({
     if (canvasWidth <= 0 || figureWidth <= 0 || startHeightPx <= 0) return;
     event.preventDefault();
     event.stopPropagation();
+    capturePointerForResize(event.currentTarget, event.pointerId);
     resizeState.current = {
       canvasWidth,
       edge,
@@ -444,8 +504,8 @@ function ResizableMediaPreview({
     clientY: number,
     state: MediaResizeState,
   ): MediaDraftSize => {
-    const horizontalDirection = MEDIA_RESIZE_HORIZONTAL_DIRECTION[state.edge];
-    const verticalDirection = MEDIA_RESIZE_VERTICAL_DIRECTION[state.edge];
+    const horizontalDirection = EDGE_RESIZE_HORIZONTAL_DIRECTION[state.edge];
+    const verticalDirection = EDGE_RESIZE_VERTICAL_DIRECTION[state.edge];
     const deltaPercent = ((clientX - state.startX) / state.canvasWidth) * 100 * horizontalDirection;
     const deltaHeight = (clientY - state.startY) * verticalDirection;
     const next: MediaDraftSize = {
@@ -475,8 +535,8 @@ function ResizableMediaPreview({
     resizeState.current = null;
     setResizingEdge(null);
     setSize({
-      ...(MEDIA_RESIZE_VERTICAL_DIRECTION[state.edge] ? { heightPx: next.heightPx } : {}),
-      ...(MEDIA_RESIZE_HORIZONTAL_DIRECTION[state.edge] ? { widthPercent: next.widthPercent } : {}),
+      ...(EDGE_RESIZE_VERTICAL_DIRECTION[state.edge] ? { heightPx: next.heightPx } : {}),
+      ...(EDGE_RESIZE_HORIZONTAL_DIRECTION[state.edge] ? { widthPercent: next.widthPercent } : {}),
     });
   };
   const cancelResize = (pointerId?: number): void => {
@@ -573,6 +633,14 @@ function ResizableMediaPreview({
       data-media-kind={media.kind}
       data-resizing={resizingEdge ?? undefined}
       data-uploading={uploadProgress === undefined ? undefined : 'true'}
+      onClick={(event) => {
+        if ((event.target as HTMLElement).closest('.edge-resize-handle, .rich-content-media-fit-control')) {
+          return;
+        }
+        event.preventDefault();
+        event.stopPropagation();
+        inspect();
+      }}
       onKeyDownCapture={onKeyDown}
       ref={figureRef}
       style={style}
@@ -616,17 +684,12 @@ function ResizableMediaPreview({
             <span style={{ width: `${uploadProgress}%` }} />
           </div>
         )}
-        {pendingAsset
-          ? null
-          : MEDIA_RESIZE_EDGES.map((edge) => (
-              <div
-                aria-hidden="true"
-                className="rich-content-media-resize-edge"
-                data-edge={edge}
-                key={edge}
-                onPointerDown={(event) => onPointerDown(edge, event)}
-              />
-            ))}
+        {pendingAsset ? null : (
+          <EdgeResizeHandles
+            className="edge-resize-handle rich-content-media-resize-edge"
+            onPointerDown={onPointerDown}
+          />
+        )}
         {pendingAsset ? null : (
           <label className="rich-content-media-fit-control">
             <span>{authoringText('Media framing')}</span>
@@ -832,6 +895,15 @@ function RichButtonPreview({
 }: Pick<RichButtonNodeState, 'blockId' | 'content' | 'props'> & { nodeKey: NodeKey }): ReactNode {
   const [editor] = useLexicalComposerContext();
   const host = useContext(RichContentHostContext);
+  const shellRef = useRef<HTMLDivElement | null>(null);
+  const resizeState = useRef<{
+    edge: EdgeResizeEdge;
+    pointerId: number;
+    startWidth: number;
+    startX: number;
+  } | null>(null);
+  const [draftWidthPx, setDraftWidthPx] = useState<number | null>(null);
+  const [resizingEdge, setResizingEdge] = useState<EdgeResizeEdge | null>(null);
   const inspect = (): void => {
     editor.update(() => {
       const selection = $createNodeSelection();
@@ -842,19 +914,108 @@ function RichButtonPreview({
   };
   const deleteOnKey = useDeleteDecoratorOnKey(nodeKey);
   const recipe = resolveTourActionRecipe(props);
+  const committedWidthPx = recipe.widthPx ?? null;
+  const widthPx = draftWidthPx ?? committedWidthPx;
+  const setWidthPx = (next: number | undefined): void => {
+    editor.update(() => {
+      const node = $getNodeByKey(nodeKey);
+      if ($isRichButtonNode(node)) node.setButtonStyle({ widthPx: next });
+    });
+  };
+  const onPointerDown = (edge: EdgeResizeEdge, event: ReactPointerEvent<HTMLDivElement>): void => {
+    const startWidth =
+      shellRef.current?.querySelector<HTMLElement>('.rich-content-button-preview')?.getBoundingClientRect()
+        .width ?? BUTTON_WIDTH_PX_LIMITS.min;
+    event.preventDefault();
+    event.stopPropagation();
+    capturePointerForResize(event.currentTarget, event.pointerId);
+    resizeState.current = {
+      edge,
+      pointerId: event.pointerId,
+      startWidth,
+      startX: event.clientX,
+    };
+    setDraftWidthPx(clampSnappedWidth(startWidth, BUTTON_WIDTH_PX_LIMITS));
+    setResizingEdge(edge);
+  };
+  const widthFromPointer = (clientX: number, edge: EdgeResizeEdge, startWidth: number, startX: number): number => {
+    const delta = (clientX - startX) * EDGE_RESIZE_HORIZONTAL_DIRECTION[edge];
+    return clampSnappedWidth(startWidth + delta, BUTTON_WIDTH_PX_LIMITS);
+  };
+  useEffect(() => {
+    if (!resizingEdge) return;
+    const ownerWindow = shellRef.current?.ownerDocument.defaultView ?? window;
+    const onPointerMove = (event: PointerEvent): void => {
+      const state = resizeState.current;
+      if (!state || state.pointerId !== event.pointerId) return;
+      event.preventDefault();
+      setDraftWidthPx(widthFromPointer(event.clientX, state.edge, state.startWidth, state.startX));
+    };
+    const onPointerUp = (event: PointerEvent): void => {
+      const state = resizeState.current;
+      if (!state || state.pointerId !== event.pointerId) return;
+      const next = widthFromPointer(event.clientX, state.edge, state.startWidth, state.startX);
+      resizeState.current = null;
+      setResizingEdge(null);
+      setDraftWidthPx(next);
+      setWidthPx(next);
+    };
+    const onPointerCancel = (): void => {
+      resizeState.current = null;
+      setResizingEdge(null);
+      setDraftWidthPx(null);
+    };
+    ownerWindow.addEventListener('pointermove', onPointerMove, true);
+    ownerWindow.addEventListener('pointerup', onPointerUp, true);
+    ownerWindow.addEventListener('pointercancel', onPointerCancel, true);
+    return () => {
+      ownerWindow.removeEventListener('pointermove', onPointerMove, true);
+      ownerWindow.removeEventListener('pointerup', onPointerUp, true);
+      ownerWindow.removeEventListener('pointercancel', onPointerCancel, true);
+    };
+  }, [resizingEdge]);
+  useEffect(() => {
+    if (resizingEdge || draftWidthPx === null || draftWidthPx === committedWidthPx) return;
+    setDraftWidthPx(null);
+  }, [committedWidthPx, draftWidthPx, resizingEdge]);
+  const onKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>): void => {
+    deleteOnKey(event);
+    if (event.defaultPrevented) return;
+    const step = event.shiftKey ? BUTTON_WIDTH_PX_LIMITS.step * 2 : BUTTON_WIDTH_PX_LIMITS.step;
+    if (event.key === 'Home') {
+      event.preventDefault();
+      event.stopPropagation();
+      setDraftWidthPx(null);
+      setWidthPx(undefined);
+      return;
+    }
+    if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
+    event.preventDefault();
+    event.stopPropagation();
+    const current =
+      widthPx ??
+      shellRef.current?.querySelector<HTMLElement>('.rich-content-button-preview')?.offsetWidth ??
+      BUTTON_WIDTH_PX_LIMITS.min;
+    setWidthPx(
+      clampSnappedWidth(current + (event.key === 'ArrowLeft' ? -step : step), BUTTON_WIDTH_PX_LIMITS),
+    );
+  };
   const style = props.buttonStyle;
   const actionStyle = {
     ...(style?.fillColor ? { '--lq-action-fill': style.fillColor } : {}),
     ...(style?.textColor ? { '--lq-action-text': style.textColor } : {}),
     ...(style?.borderColor ? { '--lq-action-border': style.borderColor } : {}),
-    ...(recipe.widthPx ? { '--lq-action-width': `${recipe.widthPx}px` } : {}),
+    ...(widthPx ? { '--lq-action-width': `${widthPx}px` } : {}),
   } as CSSProperties;
   return (
     <div
+      aria-label={authoringText('Resize button. Use arrow keys or drag any edge. Home resets.')}
       className="rich-content-button-preview-shell"
       data-block-id={blockId}
-      data-lodariq-action-width={recipe.widthPx ? 'custom' : recipe.width}
-      onKeyDownCapture={deleteOnKey}
+      data-lodariq-action-width={widthPx ? 'custom' : recipe.width}
+      data-resizing={resizingEdge ?? undefined}
+      onKeyDownCapture={onKeyDown}
+      ref={shellRef}
       style={actionStyle}
       tabIndex={0}
     >
@@ -864,34 +1025,33 @@ function RichButtonPreview({
           data-lodariq-action-radius={recipe.radius}
           data-lodariq-action-size={recipe.size}
           data-lodariq-action-variant={recipe.variant}
-          data-lodariq-action-width={recipe.widthPx ? 'custom' : recipe.width}
+          data-lodariq-action-width={widthPx ? 'custom' : recipe.width}
           data-variant={recipe.variant}
           onClick={(event) => {
             event.preventDefault();
             event.stopPropagation();
             inspect();
           }}
-          onPointerDown={(event) => event.preventDefault()}
+          onPointerDown={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            inspect();
+          }}
           style={actionStyle}
           type="button"
         >
           {content || authoringText('Continue')}
         </button>
-        <button
-          aria-label={authoringText('Configure button')}
-          className="rich-content-button-config-trigger"
-          onClick={(event) => {
-            event.preventDefault();
-            event.stopPropagation();
-            inspect();
-          }}
-          onPointerDown={(event) => event.preventDefault()}
-          title={authoringText('Configure button')}
-          type="button"
-        >
-          <Settings2 aria-hidden="true" size={15} />
-        </button>
+        {/*
+          No settings glyph beside it: the button itself opens its settings, so
+          the glyph was a second control for the one thing the first already did
+          — and it widened every button on the card to say so.
+        */}
       </div>
+      <EdgeResizeHandles
+        className="edge-resize-handle rich-content-button-resize-edge"
+        onPointerDown={onPointerDown}
+      />
     </div>
   );
 }
@@ -1029,6 +1189,7 @@ function RichFormFieldPreview({
   const deleteOnKey = useDeleteDecoratorOnKey(nodeKey);
   const label = content || authoringText('Label');
   const previewStyle = {
+    ...(field?.gapPx === undefined ? {} : { '--lq-field-gap': `${field.gapPx}px` }),
     ...(field?.fillColor ? { '--lq-field-fill': field.fillColor } : {}),
     ...(field?.textColor ? { '--lq-field-text': field.textColor } : {}),
     ...(field?.labelColor ? { '--lq-field-label': field.labelColor } : {}),
@@ -1040,21 +1201,38 @@ function RichFormFieldPreview({
       data-block-id={blockId}
       data-control={control}
       data-lodariq-block-align={props.blockLayout?.align}
+      data-lodariq-field-control={control}
+      data-lodariq-field-control-width={field?.controlWidth}
+      data-lodariq-field-label={field?.labelPlacement}
+      data-lodariq-field-label-size={field?.labelSize}
+      data-lodariq-field-label-weight={field?.labelWeight}
       data-lodariq-field-radius={field?.radius}
       data-lodariq-field-size={field?.size}
+      /*
+       * The field itself opens its settings, as the button already does — the
+       * settings glyph beside it was a second control for that one job, parked
+       * outside the card where it read as part of the customer's page.
+       *
+       * Pointer-down rather than click alone: the editor consumes the click on a
+       * decorator, which is why the glyph was the only thing that worked.
+       */
       onClick={(event) => {
         event.preventDefault();
         event.stopPropagation();
         inspect();
       }}
       onKeyDownCapture={deleteOnKey}
-      onPointerDown={(event) => event.preventDefault()}
+      onPointerDown={(event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        inspect();
+      }}
       style={previewStyle}
       tabIndex={0}
     >
       {control === 'radio' ? (
         <fieldset>
-          <legend>{label}</legend>
+          <legend data-lodariq-field-caption="">{label}</legend>
           {(field?.options ?? []).map((option) => (
             <label key={option.id}>
               <input disabled tabIndex={-1} type="radio" />
@@ -1065,11 +1243,11 @@ function RichFormFieldPreview({
       ) : control === 'checkbox' ? (
         <label>
           <input disabled tabIndex={-1} type="checkbox" />
-          {label}
+          <span data-lodariq-field-caption="">{label}</span>
         </label>
       ) : (
         <label>
-          <span>{label}</span>
+          <span data-lodariq-field-caption="">{label}</span>
           <input
             disabled
             placeholder={field?.placeholder}
@@ -1078,15 +1256,6 @@ function RichFormFieldPreview({
           />
         </label>
       )}
-      <button
-        aria-label={authoringText('Configure field')}
-        className="rich-content-button-config-trigger"
-        onClick={inspect}
-        title={authoringText('Configure field')}
-        type="button"
-      >
-        <Settings2 aria-hidden="true" size={15} />
-      </button>
     </div>
   );
 }
@@ -1249,6 +1418,149 @@ export function $isRichIconNode(node: LexicalNode | null | undefined): node is R
   return node instanceof RichIconNode;
 }
 
+interface RichValidationBadgeNodeState {
+  blockId: string;
+  state: ValidationLevel;
+  text: string;
+}
+
+export type SerializedRichValidationBadgeNode = Spread<
+  RichValidationBadgeNodeState & { type: 'lodariq-rich-validation-badge'; version: 1 },
+  SerializedLexicalNode
+>;
+
+/**
+ * A status badge: what the step asserts about the screen it is standing on.
+ *
+ * Unlike the target chip this is not typed into. Its three states are the same
+ * `ValidationLevel` the rest of the document already uses, so a badge cannot
+ * drift into a state the validator has no name for — it is chosen in the
+ * inspector, not spelled out by hand.
+ */
+export class RichValidationBadgeNode extends DecoratorNode<ReactNode> {
+  __blockId: string;
+  __state: ValidationLevel;
+  __text: string;
+
+  static override getType(): string {
+    return 'lodariq-rich-validation-badge';
+  }
+
+  static override clone(node: RichValidationBadgeNode): RichValidationBadgeNode {
+    return new RichValidationBadgeNode(node.__blockId, node.__state, node.__text, node.__key);
+  }
+
+  static override importJSON(node: SerializedRichValidationBadgeNode): RichValidationBadgeNode {
+    return new RichValidationBadgeNode(node.blockId, node.state, node.text);
+  }
+
+  constructor(blockId: string, state: ValidationLevel, text: string, key?: NodeKey) {
+    super(key);
+    this.__blockId = blockId;
+    this.__state = state;
+    this.__text = text;
+  }
+
+  override createDOM(): HTMLElement {
+    const element = document.createElement('div');
+    element.className = 'rich-content-validation-badge-node';
+    return element;
+  }
+
+  override isInline(): boolean {
+    return false;
+  }
+
+  override updateDOM(): false {
+    return false;
+  }
+
+  override decorate(): ReactNode {
+    return (
+      <RichValidationBadgePreview
+        nodeKey={this.getKey()}
+        state={this.__state}
+        text={this.__text}
+      />
+    );
+  }
+
+  override exportJSON(): SerializedRichValidationBadgeNode {
+    return {
+      ...super.exportJSON(),
+      blockId: this.__blockId,
+      state: this.__state,
+      text: this.__text,
+      type: 'lodariq-rich-validation-badge',
+      version: 1,
+    };
+  }
+
+  getBlockId(): string {
+    return this.__blockId;
+  }
+
+  getState(): ValidationLevel {
+    return this.__state;
+  }
+
+  getText(): string {
+    return this.__text;
+  }
+
+  setState(state: ValidationLevel): void {
+    this.getWritable().__state = state;
+  }
+
+  setText(text: string): void {
+    this.getWritable().__text = text;
+  }
+}
+
+const VALIDATION_BADGE_ICONS: Readonly<Record<ValidationLevel, typeof Check>> = {
+  ready: Check,
+  incomplete: TriangleAlert,
+  invalid: X,
+};
+
+function RichValidationBadgePreview({
+  nodeKey,
+  state,
+  text,
+}: {
+  nodeKey: NodeKey;
+  state: ValidationLevel;
+  text: string;
+}): ReactNode {
+  const deleteOnKey = useDeleteDecoratorOnKey(nodeKey);
+  const Icon = VALIDATION_BADGE_ICONS[state];
+  return (
+    <span
+      className="rich-content-validation-badge"
+      data-validation-state={state}
+      onKeyDownCapture={deleteOnKey}
+      tabIndex={0}
+    >
+      <Icon size={13} />
+      <span>{text}</span>
+    </span>
+  );
+}
+
+export function $createRichValidationBadgeNode(
+  blockId: string,
+  state: ValidationLevel,
+  text: string,
+): RichValidationBadgeNode {
+  return $applyNodeReplacement(new RichValidationBadgeNode(blockId, state, text));
+}
+
+export function $isRichValidationBadgeNode(
+  node: LexicalNode | null | undefined,
+): node is RichValidationBadgeNode {
+  return node instanceof RichValidationBadgeNode;
+}
+
 export type SerializedRichDividerNode = Spread<
   { blockId: string; type: 'lodariq-rich-divider'; version: 1 },
   SerializedLexicalNode
@@ -1278,6 +1590,10 @@ export class RichDividerNode extends DecoratorNode<ReactNode> {
     const element = document.createElement('div');
     element.className = 'rich-content-divider-node';
     return element;
+  }
+
+  override isInline(): boolean {
+    return false;
   }
 
   override updateDOM(): false {

@@ -152,6 +152,8 @@ export const DashboardPublicSdkInstallation = Type.Object(
     createdAt: DashboardTimestamp,
     updatedAt: DashboardTimestamp,
     revokedAt: Type.Union([DashboardTimestamp, Type.Null()]),
+    /** Set while the kill switch is engaged; null when the install is live. */
+    suspendedAt: Type.Union([DashboardTimestamp, Type.Null()]),
     origins: Type.Array(DashboardPublicSdkInstallationOrigin, { maxItems: 100 }),
     sdkSnippet: Type.String({ minLength: 1, maxLength: 16_384 }),
   },
@@ -333,6 +335,14 @@ export const DashboardPublicSdkInstallationRevokeResponse = Type.Object(
   { installation: DashboardPublicSdkInstallationRecord },
   { additionalProperties: false },
 );
+
+export const DashboardPublicSdkInstallationSuspensionBody = Type.Object(
+  { suspended: Type.Boolean() },
+  { $id: 'DashboardPublicSdkInstallationSuspensionBody', additionalProperties: false },
+);
+export type DashboardPublicSdkInstallationSuspensionBody = Static<
+  typeof DashboardPublicSdkInstallationSuspensionBody
+>;
 
 export const DashboardThemeMutationResponse = Type.Object(
   { theme: DashboardWorkspaceTheme },

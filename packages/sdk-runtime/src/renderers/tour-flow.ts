@@ -29,6 +29,19 @@ export function resolveStepTransition(
   return { destination: transition.fallback, ruleIndex: null };
 }
 
+/**
+ * Whether a block renders for this visitor. A step uses it to decide whether to
+ * show at all; a child block uses it to vary content inside one step. Absent
+ * means "always", so an unconditioned document behaves exactly as before.
+ */
+export function showWhenMatches(
+  showWhen: StepTransitionCondition | undefined,
+  context: TourFlowConditionContext,
+): boolean {
+  if (!showWhen) return true;
+  return conditionMatches(showWhen, context);
+}
+
 function conditionMatches(
   condition: StepTransitionCondition,
   context: TourFlowConditionContext,

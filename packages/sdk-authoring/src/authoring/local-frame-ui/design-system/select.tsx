@@ -1,11 +1,19 @@
 import * as RadixPopover from '@radix-ui/react-popover';
-import * as RadixSelect from '@radix-ui/react-select';
-import { useId, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
+import {
+  useId,
+  useRef,
+  useState,
+  type KeyboardEvent,
+  type PointerEventHandler,
+  type ReactNode,
+} from 'react';
 import { Check, ChevronDown, Search as SearchIcon } from './icons';
+import { useExclusiveFloating } from './exclusive-floating';
 
-const EMPTY_SELECT_VALUE = '__lodariq_empty__';
 
 export interface AuthoringSelectOption {
+  /** Shown only in the open list; the trigger always stays the bare label. */
+  description?: string;
   label: string;
   searchText?: string;
   value: string;
@@ -19,105 +27,93 @@ export interface AuthoringSelectSearchConfig {
 
 export interface AuthoringSelectProps {
   ariaLabel: string;
-  dataAction: string;
-  dataBlockId: string;
+  /** Extra class on the trigger, for callers that size or place it themselves. */
+  className?: string;
+  dataAction?: string;
+  dataBlockId?: string;
   leadingIcon?: ReactNode;
+  /** Controlled open state. Left out, the control manages its own. */
+  onOpenChange?: (open: boolean) => void;
+  onPointerDown?: PointerEventHandler<HTMLButtonElement>;
   onValueChange?: (value: string) => void;
+  open?: boolean;
   options: readonly AuthoringSelectOption[];
   search?: AuthoringSelectSearchConfig;
+  /**
+   * `compact` is the prototype's `.pk` pill: a control sized for the 320px
+   * anchored inspector rather than for a form in the workspace. A size, not a
+   * different control — the menu, the keyboard model and the value are identical.
+   */
+  size?: 'default' | 'compact';
   value: string;
 }
 
 export function AuthoringSelect({
   ariaLabel,
+  className,
   dataAction,
   dataBlockId,
   leadingIcon,
+  onOpenChange,
+  onPointerDown,
   onValueChange,
+  open,
   options,
   search,
+  size = 'default',
   value,
 }: AuthoringSelectProps) {
-  if (search) {
-    return (
-      <AuthoringSearchableSelect
-        ariaLabel={ariaLabel}
-        dataAction={dataAction}
-        dataBlockId={dataBlockId}
-        leadingIcon={leadingIcon}
-        onValueChange={onValueChange}
-        options={options}
-        search={search}
-        value={value}
-      />
-    );
-  }
-
-  const radixValue = toRadixSelectValue(value);
+  /*
+   * One implementation for both shapes. The plain select used to be a Radix
+   * Select, which is modal: while its list is open the page stops receiving
+   * pointer events, so a click on the picker in the row below only dismissed
+   * the first one and a second click was needed to open the second. Inside a
+   * 320px inspector that is most of the interaction. The listbox below is a
+   * popover, so neighbouring pickers hand over in one click.
+   */
   return (
-    <RadixSelect.Root
-      value={radixValue}
-      onValueChange={(nextValue) => onValueChange?.(fromRadixSelectValue(nextValue))}
-    >
-      <RadixSelect.Trigger
-        aria-label={ariaLabel}
-        className="ui-select-trigger"
-        data-action={dataAction}
-        data-block-id={dataBlockId}
-      >
-        <SelectLeadingIcon icon={leadingIcon} />
-        <span className="ui-select-value">
-          <RadixSelect.Value />
-        </span>
-        <RadixSelect.Icon asChild>
-          <ChevronDown size={14} strokeWidth={2.2} />
-        </RadixSelect.Icon>
-      </RadixSelect.Trigger>
-      <RadixSelect.Portal>
-        <RadixSelect.Content className="ui-select-content" position="popper" sideOffset={5}>
-          <RadixSelect.Viewport className="ui-select-viewport">
-            {options.map((option) => (
-              <RadixSelect.Item
-                key={option.value}
-                className="ui-select-item"
-                value={toRadixSelectValue(option.value)}
-              >
-                <RadixSelect.ItemText>{option.label}</RadixSelect.ItemText>
-                <RadixSelect.ItemIndicator className="ui-select-indicator">
-                  <Check size={14} strokeWidth={2.3} />
-                </RadixSelect.ItemIndicator>
-              </RadixSelect.Item>
-            ))}
-          </RadixSelect.Viewport>
-        </RadixSelect.Content>
-      </RadixSelect.Portal>
-      <NativeSelectMirror
-        ariaLabel={ariaLabel}
-        dataAction={dataAction}
-        dataBlockId={dataBlockId}
-        onValueChange={onValueChange}
-        options={options}
-        value={value}
-      />
-    </RadixSelect.Root>
+    <AuthoringListboxSelect
+      ariaLabel={ariaLabel}
+      className={className}
+      dataAction={dataAction}
+      dataBlockId={dataBlockId}
+      leadingIcon={leadingIcon}
+      onOpenChange={onOpenChange}
+      onPointerDown={onPointerDown}
+      onValueChange={onValueChange}
+      open={open}
+      options={options}
+      size={size}
+      {...(search ? { search } : {})}
+      value={value}
+    />
   );
 }
 
-function AuthoringSearchableSelect({
+function AuthoringListboxSelect({
   ariaLabel,
+  className,
   dataAction,
   dataBlockId,
   leadingIcon,
+  onOpenChange,
+  onPointerDown,
   onValueChange,
+  open: openProp,
   options,
   search,
+  size = 'default',
   value,
-}: AuthoringSelectProps & { search: AuthoringSelectSearchConfig }) {
+}: AuthoringSelectProps) {
   const [activeIndex, setActiveIndex] = useState(0);
-  const [open, setOpen] = useState(false);
+  const { open, setOpen, toggle } = useExclusiveFloating({
+    ...(onOpenChange ? { onOpenChange } : {}),
+    ...(openProp === undefined ? {} : { open: openProp }),
+  });
   const [query, setQuery] = useState('');
   const listboxId = useId();
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const optionsRef = useRef<HTMLDivElement>(null);
   const normalizedQuery = normalizeSearchText(query);
   const filteredOptions = normalizedQuery
     ? options.filter((option) => optionMatchesSearch(option, normalizedQuery))
@@ -130,7 +126,7 @@ function AuthoringSearchableSelect({
     setOpen(false);
     setQuery('');
   };
-  const handleSearchKeyDown = (event: KeyboardEvent<HTMLInputElement>): void => {
+  const handleSearchKeyDown = (event: KeyboardEvent<HTMLElement>): void => {
     if (event.key === 'Escape') {
       setOpen(false);
       return;
@@ -165,57 +161,91 @@ function AuthoringSearchableSelect({
           );
         }}
       >
-        <RadixPopover.Trigger asChild>
+        {/*
+          Anchor rather than Trigger, so this button owns the toggle.
+          Radix's own trigger toggles on click, and when another picker's
+          dismiss layer has already consumed the pointerdown that click never
+          arrives — which is why moving between two pickers took two clicks.
+          Toggling on pointerdown puts it in the same phase as the dismissal,
+          and the group resolves the two writes in order.
+        */}
+        <RadixPopover.Anchor asChild>
           <button
             type="button"
             aria-controls={listboxId}
             aria-expanded={open}
             aria-haspopup="listbox"
             aria-label={ariaLabel}
-            className="ui-select-trigger"
+            className={`ui-select-trigger ${className ?? ''}`.trim()}
             data-action={dataAction}
             data-block-id={dataBlockId}
+            data-size={size}
+            onKeyDown={(event) => {
+              if (event.key !== 'Enter' && event.key !== ' ' && event.key !== 'ArrowDown') return;
+              event.preventDefault();
+              setOpen(true);
+            }}
+            onPointerDown={(event) => {
+              event.preventDefault();
+              onPointerDown?.(event);
+              toggle();
+            }}
             role="combobox"
           >
             <SelectLeadingIcon icon={leadingIcon} />
             <span className="ui-select-value">{selectedOption?.label}</span>
             <ChevronDown size={14} strokeWidth={2.2} aria-hidden="true" />
           </button>
-        </RadixPopover.Trigger>
+        </RadixPopover.Anchor>
         <RadixPopover.Portal>
           <RadixPopover.Content
             align="start"
-            className="ui-select-content ui-searchable-select-content"
+            className={`ui-select-content${search ? ' ui-searchable-select-content' : ''}`}
+            onKeyDown={search ? undefined : handleSearchKeyDown}
             onOpenAutoFocus={(event) => {
               event.preventDefault();
-              searchInputRef.current?.focus();
+              /* Without a search box the list itself takes the caret, so the
+                 arrow keys land somewhere that can act on them. */
+              (searchInputRef.current ?? optionsRef.current)?.focus();
             }}
             sideOffset={5}
           >
-            <div className="ui-select-search-field">
-              <SearchIcon size={14} strokeWidth={2} aria-hidden="true" />
-              <input
-                ref={searchInputRef}
-                aria-activedescendant={
-                  activeOption ? searchableOptionId(listboxId, activeIndex) : undefined
-                }
-                aria-controls={listboxId}
-                aria-expanded="true"
-                aria-label={search.label}
-                autoComplete="off"
-                onChange={(event) => {
-                  setQuery(event.currentTarget.value);
-                  setActiveIndex(0);
-                }}
-                onKeyDown={handleSearchKeyDown}
-                placeholder={search.placeholder}
-                role="combobox"
-                spellCheck={false}
-                type="search"
-                value={query}
-              />
-            </div>
-            <div className="ui-searchable-select-options" id={listboxId} role="listbox">
+            {search ? (
+              <div className="ui-select-search-field">
+                <SearchIcon size={14} strokeWidth={2} aria-hidden="true" />
+                <input
+                  ref={searchInputRef}
+                  aria-activedescendant={
+                    activeOption ? searchableOptionId(listboxId, activeIndex) : undefined
+                  }
+                  aria-controls={listboxId}
+                  aria-expanded="true"
+                  aria-label={search.label}
+                  autoComplete="off"
+                  onChange={(event) => {
+                    setQuery(event.currentTarget.value);
+                    setActiveIndex(0);
+                  }}
+                  onKeyDown={handleSearchKeyDown}
+                  placeholder={search.placeholder}
+                  role="combobox"
+                  spellCheck={false}
+                  type="search"
+                  value={query}
+                />
+              </div>
+            ) : null}
+            <div
+              ref={optionsRef}
+              aria-activedescendant={
+                search || !activeOption ? undefined : searchableOptionId(listboxId, activeIndex)
+              }
+              aria-label={search ? undefined : ariaLabel}
+              className="ui-searchable-select-options"
+              id={listboxId}
+              role="listbox"
+              tabIndex={search ? undefined : -1}
+            >
               {filteredOptions.map((option, index) => (
                 <button
                   type="button"
@@ -227,7 +257,12 @@ function AuthoringSearchableSelect({
                   onMouseEnter={() => setActiveIndex(index)}
                   role="option"
                 >
-                  <span>{option.label}</span>
+                  <span className="ui-select-item-text">
+                    {option.label}
+                    {option.description ? (
+                      <small className="ui-select-item-description">{option.description}</small>
+                    ) : null}
+                  </span>
                   {option.value === value ? (
                     <span className="ui-select-indicator" aria-hidden="true">
                       <Check size={14} strokeWidth={2.3} />
@@ -235,7 +270,7 @@ function AuthoringSearchableSelect({
                   ) : null}
                 </button>
               ))}
-              {filteredOptions.length === 0 ? (
+              {search && filteredOptions.length === 0 ? (
                 <div className="ui-select-empty" role="status">
                   {search.emptyLabel}
                 </div>
@@ -246,8 +281,8 @@ function AuthoringSearchableSelect({
       </RadixPopover.Root>
       <NativeSelectMirror
         ariaLabel={ariaLabel}
-        dataAction={dataAction}
-        dataBlockId={dataBlockId}
+        dataAction={dataAction ?? ''}
+        dataBlockId={dataBlockId ?? ''}
         onValueChange={onValueChange}
         options={options}
         value={value}
@@ -312,13 +347,7 @@ function NativeSelectMirror({
   );
 }
 
-function toRadixSelectValue(value: string): string {
-  return value === '' ? EMPTY_SELECT_VALUE : value;
-}
 
-function fromRadixSelectValue(value: string): string {
-  return value === EMPTY_SELECT_VALUE ? '' : value;
-}
 
 export function SelectField({ children, label }: { children: ReactNode; label: string }) {
   return (

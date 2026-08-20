@@ -4,7 +4,12 @@ import * as React from 'react';
 import { DASHBOARD_VIEW_IDS, type DashboardViewId } from '../lib/dashboard-constants';
 import type { DashboardViewModel } from '../lib/view-model';
 import { DashboardAppShell } from './dashboard-app-shell';
-import { AnalyticsView, ExperiencesView, OverviewView } from './dashboard-primary-views';
+import {
+  AnalyticsView,
+  ApplicationsView,
+  ExperiencesView,
+  OverviewView,
+} from './dashboard-primary-views';
 import { ReleasesView } from './dashboard-release-view';
 import { BrandSystemView, EnvironmentsView, SupportView } from './dashboard-settings-views';
 import { StatusBanner } from './ui/status-banner';
@@ -128,6 +133,9 @@ function ActiveDashboardView({
   }
   if (activeView === 'environments') {
     return <EnvironmentsView viewModel={viewModel} workspaceId={workspaceId} />;
+  }
+  if (activeView === 'applications') {
+    return <ApplicationsView workspaceId={workspaceId} />;
   }
   if (activeView === 'members') {
     return (

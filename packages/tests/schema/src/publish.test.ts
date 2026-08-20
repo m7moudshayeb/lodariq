@@ -209,6 +209,64 @@ describe('tour publish readiness', () => {
     expect(issueCodes(document)).toContain('target_needs_review');
   });
 
+  it('releases an ambiguous placement once the author has said which one they meant', () => {
+    const document = cloneFixture();
+    const target = document.targets[0]!;
+    target.identity = createTargetIdentityV2(target.id);
+    // The fixture header case: several controls the evidence cannot separate,
+    // but nothing else wrong with the capture.
+    target.identity.captureEvidence.quality = 'weak';
+    target.identity.captureEvidence.ambiguityIsSoleWeakness = true;
+    target.identity.captureEvidence.uniqueCandidateCount = 3;
+    target.identity.captureEvidence.runnerUpMargin = 0;
+
+    expect(issueCodes(document)).toContain('target_needs_review');
+
+    target.selection = { kind: 'ordinal', position: 2, order: 'reading-order' };
+    expect(issueCodes(document)).not.toContain('target_needs_review');
+  });
+
+  it('keeps blocking when the answer is "just the one I clicked"', () => {
+    const document = cloneFixture();
+    const target = document.targets[0]!;
+    target.identity = createTargetIdentityV2(target.id);
+    target.identity.captureEvidence.quality = 'weak';
+    target.identity.captureEvidence.ambiguityIsSoleWeakness = true;
+    target.identity.captureEvidence.uniqueCandidateCount = 3;
+    target.identity.captureEvidence.runnerUpMargin = 0;
+    // `only` declines to give the resolver a rule, so the tie is still a tie.
+    target.selection = { kind: 'only' };
+
+    expect(issueCodes(document)).toContain('target_needs_review');
+  });
+
+  it('keeps blocking when the capture is weak for a reason no answer can fix', () => {
+    const document = cloneFixture();
+    const target = document.targets[0]!;
+    target.identity = createTargetIdentityV2(target.id);
+    // Thin or non-actionable evidence: ambiguity was not the whole problem, so
+    // the flag is absent and no selection policy may wave it through.
+    target.identity.captureEvidence.quality = 'weak';
+    target.identity.captureEvidence.uniqueCandidateCount = 3;
+    target.identity.captureEvidence.runnerUpMargin = 0;
+    target.selection = { kind: 'first' };
+
+    expect(issueCodes(document)).toContain('target_needs_review');
+  });
+
+  it('keeps blocking capture written before ambiguity could be answered for', () => {
+    const document = cloneFixture();
+    const target = document.targets[0]!;
+    target.identity = createTargetIdentityV2(target.id);
+    target.identity.captureEvidence.quality = 'weak';
+    target.identity.captureEvidence.uniqueCandidateCount = 2;
+    target.identity.captureEvidence.runnerUpMargin = 0;
+    delete target.identity.captureEvidence.ambiguityIsSoleWeakness;
+    target.selection = { kind: 'first' };
+
+    expect(issueCodes(document)).toContain('target_needs_review');
+  });
+
   it('blocks incomplete action and media placeholders', () => {
     const document = cloneFixture();
     const body = tooltipBody(document);

@@ -52,6 +52,14 @@ import type {
   AuthoringStepStyleRecipeResource,
 } from '@lodariq/schema';
 import { type PersistedAnalyticsEventRecord } from '../domains/analytics';
+import {
+  type ExperienceCommentRecord,
+  type ExperienceExperimentRecord,
+  type ExperienceFormResponseRecord,
+  type ExperienceMeasurementRecord,
+  type ExperienceStepLockRecord,
+  type WorkspaceApplicationRecord,
+} from '../domains/experience-measurement';
 import type {
   TenantAuditEventRecord,
   TenantWorkspaceRecord,
@@ -224,4 +232,16 @@ export class InMemoryRepositoryState {
   protected readonly analyticsEvents: PersistedAnalyticsEventRecord[] = [];
 
   protected readonly events: Array<{ workspaceId: string; event: AnalyticsEvent }> = [];
+
+  protected readonly experienceMeasurement = new Map<string, ExperienceMeasurementRecord>();
+
+  protected readonly experienceExperiments = new Map<string, ExperienceExperimentRecord>();
+
+  protected readonly experienceFormResponses: ExperienceFormResponseRecord[] = [];
+
+  protected readonly experienceComments = new Map<string, ExperienceCommentRecord>();
+
+  protected readonly experienceStepLocks = new Map<string, ExperienceStepLockRecord>();
+
+  protected readonly workspaceApplications = new Map<string, WorkspaceApplicationRecord>();
 }

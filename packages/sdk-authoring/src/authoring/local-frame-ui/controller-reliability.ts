@@ -1,12 +1,19 @@
-import type {
-  AuthoringMediaAssetResource,
-  InlineTextRun,
-  LodariqBlock,
-  LodariqDocument,
-  PreviewPatchOperation,
-  PreviewTransactionMetadata,
-  TourStepStyleSnapshot,
+import {
+  AUTHORING_SHELL_CAPABILITIES_TYPE,
+  AUTHORING_SHELL_MENU_STATE_TYPE,
+  AUTHORING_SHELL_PALETTE_OPEN_TYPE,
+  AUTHORING_SHELL_NOTICE_TYPE,
+  AUTHORING_SHELL_SELECTION_TYPE,
+  BRIDGE_PROTOCOL_VERSION,
+  type AuthoringMediaAssetResource,
+  type InlineTextRun,
+  type LodariqBlock,
+  type LodariqDocument,
+  type PreviewPatchOperation,
+  type PreviewTransactionMetadata,
+  type TourStepStyleSnapshot,
 } from '@lodariq/schema';
+import { createBridgeCorrelationId } from '../../bridge/transport';
 import { authoringText } from '../../i18n';
 import type {
   AuthoringDocumentTransaction,
@@ -43,6 +50,84 @@ export abstract class ControllerReliabilityFeature extends ControllerDragDropFea
     transaction?: PreviewTransactionMetadata,
   ): void;
 
+  /** Tells the host which steps are selected so the filmstrip can mark them (§4.5). */
+  protected sendShellSelection(): void {
+    if (!this.isHostedInParent) return;
+    this.bridge.send({
+      protocol: BRIDGE_PROTOCOL_VERSION,
+      sessionId: this.sessionId,
+      documentId: this.documentState.id,
+      correlationId: createBridgeCorrelationId('authoring_shell_selection'),
+      type: AUTHORING_SHELL_SELECTION_TYPE,
+      stepIds: [...this.selectedStepIds],
+    });
+  }
+
+  /**
+   * The host paints its own chrome above the frame, so a dropdown inside the
+   * frame opens underneath the card's resize handles. Telling the host a menu is
+   * open lets it stand its handles down for the duration.
+   */
+  setFrameMenuOpen(open: boolean): void {
+    if (!this.isHostedInParent) return;
+    this.bridge.send({
+      protocol: BRIDGE_PROTOCOL_VERSION,
+      sessionId: this.sessionId,
+      documentId: this.documentState.id,
+      correlationId: createBridgeCorrelationId('authoring_shell_menu_state'),
+      type: AUTHORING_SHELL_MENU_STATE_TYPE,
+      open,
+    });
+  }
+
+  /**
+   * What this session can do, answered to the host's `init`.
+   *
+   * The assist provider is a per-session service the host never sees, so without
+   * this the palette's AI rows would have to either lie or hide. Neither is the
+   * house rule: a control that cannot work is printed and says why.
+   */
+  sendShellCapabilities(): void {
+    if (!this.isHostedInParent) return;
+    this.bridge.send({
+      protocol: BRIDGE_PROTOCOL_VERSION,
+      sessionId: this.sessionId,
+      documentId: this.documentState.id,
+      correlationId: createBridgeCorrelationId('authoring_shell_capabilities'),
+      type: AUTHORING_SHELL_CAPABILITIES_TYPE,
+      assist: Boolean(this.services.requestAiAssist),
+    });
+  }
+
+  /**
+   * ⌘K, pressed in here. The palette is host chrome and a key pressed inside the
+   * frame never reaches the host document, so the chord travels instead.
+   */
+  requestCommandPalette(): void {
+    if (!this.isHostedInParent) return;
+    this.bridge.send({
+      protocol: BRIDGE_PROTOCOL_VERSION,
+      sessionId: this.sessionId,
+      documentId: this.documentState.id,
+      correlationId: createBridgeCorrelationId('authoring_shell_palette_open'),
+      type: AUTHORING_SHELL_PALETTE_OPEN_TYPE,
+    });
+  }
+
+  /** A transient notice over the page. Already-localized creator text only. */
+  notify(message: string, kind?: 'neutral' | 'positive' | 'warning' | 'danger'): void {
+    if (!this.isHostedInParent) return;
+    this.bridge.send({
+      protocol: BRIDGE_PROTOCOL_VERSION,
+      sessionId: this.sessionId,
+      documentId: this.documentState.id,
+      correlationId: createBridgeCorrelationId('authoring_shell_notice'),
+      type: AUTHORING_SHELL_NOTICE_TYPE,
+      message,
+      ...(kind ? { kind } : {}),
+    });
+  }
+
   toggleStepStyleSelection(stepId: string): void {
     const step = this.documentState.blocks.find(
       (candidate) => candidate.id === stepId && candidate.type === 'tourStep',
@@ -51,6 +136,7 @@ export abstract class ControllerReliabilityFeature extends ControllerDragDropFea
     if (this.selectedStepIds.has(stepId)) this.selectedStepIds.delete(stepId);
     else this.selectedStepIds.add(stepId);
     this.stepSelectionAnchorId = stepId;
+    this.sendShellSelection();
     this.emit();
   }
 
@@ -73,11 +159,13 @@ export abstract class ControllerReliabilityFeature extends ControllerDragDropFea
       else this.selectedStepIds.add(stepId);
     }
     this.stepSelectionAnchorId = stepId;
+    this.sendShellSelection();
     this.emit();
   }
 
   clearTourStepBatchSelection(): void {
     this.selectedStepIds.clear();
+    this.sendShellSelection();
     this.stepSelectionAnchorId = null;
     this.emit();
   }
@@ -171,15 +259,37 @@ export abstract class ControllerReliabilityFeature extends ControllerDragDropFea
       authoringText('{title} style', { title: blockDisplayTitle(step) }),
       extractTourStepStyle(step),
     );
+    this.stepStyleRecipeByStep.set(stepId, recipe.id);
     this.services.saveStepStyleRecipes?.(this.stepStyleRecipes.list());
     void this.persistAuthoringResources();
     this.setStatus(authoringText('Saved style recipe {name}', { name: recipe.name }));
+  }
+
+  /**
+   * Re-saves a named style from a step that has since drifted from it, keeping the
+   * name and dropping the old entry — a recipe id is its content hash, so saving
+   * a changed snapshot mints a new one rather than overwriting.
+   */
+  updateStepStyleRecipe(recipeId: string, stepId: string): void {
+    const prior = this.stepStyleRecipes.get(recipeId);
+    const step = this.documentState.blocks.find((candidate) => candidate.id === stepId);
+    if (!prior || !step || step.type !== 'tourStep') return;
+    const recipe = this.stepStyleRecipes.save(prior.name, extractTourStepStyle(step));
+    if (recipe.id !== prior.id) this.stepStyleRecipes.delete(prior.id);
+    for (const [boundStepId, boundRecipeId] of this.stepStyleRecipeByStep) {
+      if (boundRecipeId === prior.id) this.stepStyleRecipeByStep.set(boundStepId, recipe.id);
+    }
+    this.services.saveStepStyleRecipes?.(this.stepStyleRecipes.list());
+    void this.persistAuthoringResources();
+    this.setStatus(authoringText('Updated style {name}', { name: recipe.name }));
+    this.recordMetric('style.recipe-updated');
   }
 
   applyStepStyleRecipe(recipeId: string, fallbackStepId: string): void {
     const recipe = this.stepStyleRecipes.get(recipeId);
     if (!recipe) return;
     const stepIds = this.selectedStepIds.size ? [...this.selectedStepIds] : [fallbackStepId];
+    for (const stepId of stepIds) this.stepStyleRecipeByStep.set(stepId, recipeId);
     this.applyStepStyleSnapshot(
       stepIds,
       recipe.snapshot,

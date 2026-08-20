@@ -6,12 +6,16 @@ import {
   TooltipLayoutProps,
   TooltipStyleProps,
 } from './block';
+import { ApplicationSummary } from './application';
 import { BrandThemeSnapshot, ExperienceAppearance } from './brand';
 import { AudienceDefinition, TourCompletionBehavior, TriggerDefinition } from './document';
 import { ContentLocale } from './document-localization';
 import { RendererContractVersion } from './release';
 import { ElementFingerprint, RuntimeLifecycleHints, TargetIdentityV2 } from './target';
 import { COMPILED_ARTIFACT_SCHEMA_VERSION } from './version';
+
+/** One journey spanning more than a handful of products is a different problem. */
+export const APPLICATION_HANDOFF_MAX = 16;
 
 const CONTENT_HASH_PATTERN = '^sha256-[0-9a-f]{64}$';
 
@@ -63,8 +67,15 @@ const CompiledRuntimeLifecycleHintsV1 = Type.Object({
   selectTab: Type.Optional(CompiledElementFingerprintV1),
 });
 
-/** Step presentation belongs beside the target binding, never in body props. */
-const CompiledBodyProps = Type.Omit(LodariqBlockProps, ['presentationAnchor'], {
+/**
+ * Step presentation belongs beside the target binding, never in body props.
+ *
+ * `narration` is omitted too, and for a stronger reason: a spoken script has no
+ * renderer, and audio only belongs in an artifact once it can be embedded
+ * content-addressed alongside the theme snapshot (§7.7, pending the ADR-0014
+ * amendment). Until then it stays draft-only data.
+ */
+const CompiledBodyProps = Type.Omit(LodariqBlockProps, ['presentationAnchor', 'narration'], {
   additionalProperties: false,
 });
 
@@ -74,6 +85,7 @@ const LegacyCompiledBodyProps = Type.Object(
     ...Type.Omit(LodariqBlockProps, [
       'action',
       'presentationAnchor',
+      'narration',
       'entrySequence',
       'media',
       'motion',
@@ -99,6 +111,13 @@ export const CompiledStep = Type.Object(
     id: Type.String(),
     targetId: Type.Optional(Type.String()),
     placement: Type.Optional(Type.String()),
+    anchorAlign: Type.Optional(LodariqBlockProps.properties.anchorAlign),
+    anchorOffsetPx: Type.Optional(LodariqBlockProps.properties.anchorOffsetPx),
+    anchorAutoFlip: Type.Optional(LodariqBlockProps.properties.anchorAutoFlip),
+    emphasis: Type.Optional(LodariqBlockProps.properties.emphasis),
+    showWhen: Type.Optional(LodariqBlockProps.properties.showWhen),
+    teaches: Type.Optional(LodariqBlockProps.properties.teaches),
+    handoff: Type.Optional(LodariqBlockProps.properties.handoff),
     presentationAnchor: Type.Optional(Type.Ref(PresentationAnchor)),
     tooltipLayout: Type.Optional(Type.Ref(TooltipLayoutProps)),
     tooltipStyle: Type.Optional(Type.Ref(TooltipStyleProps)),
@@ -302,6 +321,13 @@ export const CompiledDocumentV4 = Type.Object(
     steps: Type.Array(CompiledStep),
     localization: Type.Ref(CompiledDocumentLocalizationV4),
     completion: Type.Optional(Type.Ref(TourCompletionBehavior)),
+    /**
+     * Applications a step may hand off to. Carried in the artifact so a
+     * cross-origin continuation resolves its destination without a lookup.
+     */
+    applications: Type.Optional(
+      Type.Array(Type.Ref(ApplicationSummary), { maxItems: APPLICATION_HANDOFF_MAX }),
+    ),
   },
   { $id: 'CompiledDocumentV4', additionalProperties: false },
 );

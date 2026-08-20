@@ -1166,7 +1166,14 @@ describe('tour renderer (PRD §16.1)', () => {
     expect(ring?.style.height).toBe('102px');
     expect(host?.style.getPropertyValue('--lq-tour-focus-color')).toBe('#0b63ce');
     const styles = host?.shadowRoot?.querySelector('style')?.textContent ?? '';
-    expect(styles).toContain('border: 2px solid var(--lq-tour-focus-color)');
+    // The ring is customisable per step, so its default lives in the fallbacks —
+    // and a step with no emphasis must leave every override unset.
+    expect(styles).toContain(
+      'border: var(--lq-outline-weight, 2px) var(--lq-outline-line, solid)\n        var(--lq-outline-color, var(--lq-tour-focus-color))',
+    );
+    expect(ring?.style.getPropertyValue('--lq-outline-weight')).toBe('');
+    expect(ring?.style.getPropertyValue('--lq-outline-color')).toBe('');
+    expect(ring?.hasAttribute('data-lodariq-outline-line')).toBe(false);
     expect(styles).toContain('pointer-events: none');
     expect(onTargetResolution).toHaveBeenCalledWith(
       expect.objectContaining({ id: 'step_1' }),

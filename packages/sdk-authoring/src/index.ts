@@ -1,5 +1,10 @@
 export * from './authoring';
 export * from './authoring/local-frame';
+export type { AuthoringOperationsServices } from './authoring/operations/operations-services';
+export {
+  createAuthoringOperationsClient,
+  type AuthoringOperationsClientOptions,
+} from './authoring/operations/operations-client';
 export * from './authoring/direct-host-services';
 export * from './authoring/constants';
 export * from './authoring/document-ops';

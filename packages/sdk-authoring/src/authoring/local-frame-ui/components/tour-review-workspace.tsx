@@ -13,18 +13,29 @@ import {
   RotateCcw,
   Save,
   ShieldCheck,
-  SlidersHorizontal,
 } from '../design-system';
-import { blockDisplayTitle, targetIdOf } from '../utils';
-import { Inspector } from './inspector';
+import { blockDisplayTitle } from '../utils';
 import {
   AccessibilityPreviewEditor,
   CompletionBehaviorEditor,
   DraftCheckpointEditor,
 } from '../properties/flow-settings-editors';
 
+/*
+ * Placement and Edit details used to be rows here and are not any more.
+ *
+ * Placement rendered the *same* `StepPlacementEditor` the card's own property
+ * tray does — one component, two places, and the card is where you are looking
+ * when you care about placement. Edit details opened the review-and-preview
+ * aside, whose preview buttons are on the toolbar, whose issue list is Check,
+ * and whose support package is one of Advanced's four links. Its label promised
+ * step settings it never showed.
+ *
+ * What is left is what only this surface offers: the three flow-level settings
+ * that belong to the experience rather than to a step.
+ */
 interface ReviewRow {
-  action: 'accessibility' | 'checkpoints' | 'completion' | 'details' | 'placement';
+  action: 'accessibility' | 'checkpoints' | 'completion';
   description: string;
   detail: string;
   icon: typeof Check;
@@ -47,14 +58,9 @@ export function TourReviewWorkspace({
     requireVerifiedTargets: true,
   }).filter(isPublishReadinessBlocker);
   const steps = snapshot.documentState.blocks.filter((block) => block.type === 'tourStep');
-  const placedSteps = steps.filter((candidate) => Boolean(targetIdOf(candidate))).length;
-  const targetIssues = issues.filter((issue) => issue.code.includes('target'));
   const rows = reviewRows({
     issueCount: issues.length,
-    placedSteps,
     saveLabel: snapshot.saveState.label,
-    targetIssueCount: targetIssues.length,
-    totalSteps: steps.length,
   });
 
   return (
@@ -65,7 +71,7 @@ export function TourReviewWorkspace({
       <header className="tour-review-header panel-advanced-header">
         <button
           className="panel-advanced-back"
-          onClick={() => controller.closeAdvancedEditor()}
+          onClick={() => controller.closeOperationsMode()}
           type="button"
         >
           <ArrowLeft size={15} strokeWidth={2.2} aria-hidden="true" />
@@ -93,17 +99,11 @@ export function TourReviewWorkspace({
             return (
               <button
                 className="tour-review-row"
+                data-review-row={row.action}
                 data-tone={row.tone}
                 key={row.label}
-                aria-expanded={
-                  row.action === 'placement' ? undefined : activeSection === row.action
-                }
+                aria-expanded={activeSection === row.action}
                 onClick={() => {
-                  if (row.action === 'placement') {
-                    controller.closeAdvancedEditor();
-                    controller.activateTourStep(step.id);
-                    return;
-                  }
                   setActiveSection((current) => (current === row.action ? null : row.action));
                 }}
                 type="button"
@@ -146,9 +146,6 @@ export function TourReviewWorkspace({
                 steps={steps}
               />
             ) : null}
-            {activeSection === 'details' ? (
-              <Inspector controller={controller} snapshot={snapshot} />
-            ) : null}
             {activeSection === 'accessibility' && issues.length ? (
               <aside className="tour-review-note">
                 <CircleAlert size={15} strokeWidth={2} aria-hidden="true" />
@@ -169,16 +166,10 @@ export function TourReviewWorkspace({
 
 function reviewRows({
   issueCount,
-  placedSteps,
   saveLabel,
-  targetIssueCount,
-  totalSteps,
 }: {
   issueCount: number;
-  placedSteps: number;
   saveLabel: string;
-  targetIssueCount: number;
-  totalSteps: number;
 }): readonly ReviewRow[] {
   return [
     {
@@ -191,17 +182,6 @@ function reviewRows({
       icon: ShieldCheck,
       label: authoringText('Accessibility preview'),
       tone: issueCount > 0 ? 'attention' : 'ready',
-    },
-    {
-      action: 'placement',
-      description:
-        targetIssueCount > 0
-          ? authoringText('{count} to fix before release', { count: targetIssueCount })
-          : authoringText('Verified in this context.'),
-      detail: `${placedSteps}/${totalSteps}`,
-      icon: Check,
-      label: authoringText('Placement'),
-      tone: targetIssueCount > 0 ? 'attention' : 'ready',
     },
     {
       action: 'checkpoints',
@@ -217,14 +197,6 @@ function reviewRows({
       detail: authoringText('Ready'),
       icon: RotateCcw,
       label: authoringText('Completion behavior'),
-      tone: 'ready',
-    },
-    {
-      action: 'details',
-      description: authoringText('Open advanced step settings'),
-      detail: authoringText('Edit details'),
-      icon: SlidersHorizontal,
-      label: authoringText('Edit details'),
       tone: 'ready',
     },
   ];

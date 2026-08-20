@@ -10,6 +10,7 @@ import { compilePreview, loadDocument, saveDocument } from '@lodariq/sdk-runtime
 import { LOCAL_AUTHORING_SESSION_ID } from '../authoring/constants';
 import { createLocalExperienceId, createTourDraft } from '../creator-experiences';
 import { resolveLocalMediaAssetUrl } from './local-media-store';
+import { createMockPresence, mockPresenceRequested } from './mock-presence';
 import {
   installCreatorToolbar,
   type CreatorPageExperienceSummary,
@@ -144,6 +145,15 @@ export async function installLocalLodariqAuthoringFromScript(
           saveDocument(nextDocument);
           rememberLocalExperience(localConfig.workspaceId, currentPageRouteKey(), nextDocument.id);
         },
+        ...(mockPresenceRequested()
+          ? {
+              presence: createMockPresence(documentSessionId, () =>
+                currentDocument(localConfig, options.baseDocument, documentId)
+                  .blocks.filter((block) => block.type === 'tourStep')
+                  .map((block) => block.id),
+              ),
+            }
+          : {}),
       },
     );
   };

@@ -518,6 +518,7 @@ function createSeed(tokens: FixtureTokens): InMemoryControlPlaneSeed {
         createdAt: CREATED_AT,
         updatedAt: CREATED_AT,
         revokedAt: null,
+        suspendedAt: null,
       },
     ],
     publicSdkInstallationOrigins: [

@@ -508,6 +508,7 @@ describe('control-plane repository', () => {
           createdAt,
           updatedAt: createdAt,
           revokedAt: null,
+          suspendedAt: null,
         },
       ],
       publicSdkInstallationOrigins: [
@@ -560,6 +561,7 @@ describe('control-plane repository', () => {
           createdAt,
           updatedAt: createdAt,
           revokedAt: null,
+          suspendedAt: null,
         },
       ],
       publicSdkInstallationOrigins: [
@@ -626,6 +628,7 @@ describe('control-plane repository', () => {
           createdAt,
           updatedAt: createdAt,
           revokedAt: null,
+          suspendedAt: null,
         },
       ],
       publicSdkInstallationOrigins: [
@@ -766,6 +769,7 @@ describe('control-plane repository', () => {
           createdAt: '2026-01-01T00:00:00.000Z',
           updatedAt: '2026-01-02T00:00:00.000Z',
           revokedAt: '2026-01-02T00:00:00.000Z',
+          suspendedAt: null,
         },
         {
           installationId: 'ins_pub_bbbbbbbbbbbbbbbb',
@@ -775,6 +779,7 @@ describe('control-plane repository', () => {
           createdAt: '2026-01-01T00:00:00.000Z',
           updatedAt: '2026-01-03T00:00:00.000Z',
           revokedAt: null,
+          suspendedAt: null,
         },
         {
           installationId: 'ins_pub_cccccccccccccccc',
@@ -784,6 +789,7 @@ describe('control-plane repository', () => {
           createdAt: '2026-01-01T00:00:00.000Z',
           updatedAt: '2026-01-04T00:00:00.000Z',
           revokedAt: null,
+          suspendedAt: null,
         },
       ],
       publicSdkInstallationOrigins: [
@@ -828,6 +834,7 @@ describe('control-plane repository', () => {
     ]);
     expect(installations[1]).toMatchObject({
       revokedAt: '2026-01-02T00:00:00.000Z',
+      suspendedAt: null,
       origins: [{ exactOrigin: 'https://app.example.com' }],
     });
     await expect(repository.listPublicSdkInstallations('wk_b')).resolves.toHaveLength(1);
@@ -1803,6 +1810,7 @@ describe('control-plane repository', () => {
           createdAt: now,
           updatedAt: now,
           revokedAt: null,
+          suspendedAt: null,
         },
       ],
       publicSdkInstallationOrigins: [

@@ -1,3 +1,4 @@
+import { useMemo, useState } from 'react';
 import {
   DEFAULT_EXPERIENCE_APPEARANCE,
   resolveExperienceAppearance,
@@ -20,7 +21,9 @@ import {
   Wand2,
 } from '../design-system';
 import type { LocalAuthoringFrameSnapshot } from '../types';
+import { brandThemeOffer, type BrandVariantId } from '../../brand-theme-offer';
 import { BrandDriftPanel } from './brand-drift';
+import { BrandVariantChoice } from './brand-variant-choice';
 import { PanelEmptyState, PanelFeedback, PanelModeShell } from './panel-mode-shell';
 
 export function AppearanceMode({
@@ -57,6 +60,20 @@ export function AppearanceMode({
       title={authoringText('Feel native to this product')}
     >
       <PanelFeedback error={workflow.error} notice={workflow.notice} />
+      {snapshot.themeStale ? (
+        <p className="appearance-theme-stale" role="status">
+          <span>{authoringText('Theme updated — reload to see it')}</span>
+          <button
+            className="panel-mode-text-button"
+            data-theme-reload
+            onClick={() => controller.reloadTheme()}
+            type="button"
+          >
+            <RotateCcw size={14} strokeWidth={2.2} aria-hidden="true" />
+            {authoringText('Reload')}
+          </button>
+        </p>
+      ) : null}
       <ol className="appearance-flow" aria-label={authoringText('Appearance setup')}>
         <li className="appearance-step completed" data-appearance-step="1">
           <span className="appearance-step-marker" aria-hidden="true">
@@ -241,6 +258,11 @@ export function BrandMatchReviewMode({
   const workflow = snapshot.panelWorkflow;
   const proposal = workflow.brandProposal;
   const busy = workflow.operation === 'applying-brand' || workflow.operation === 'sampling-brand';
+  const offer = useMemo(
+    () => (proposal ? brandThemeOffer(proposal.evidence) : null),
+    [proposal?.evidence],
+  );
+  const [variant, setVariant] = useState<BrandVariantId>('blended');
 
   return (
     <PanelModeShell
@@ -273,6 +295,10 @@ export function BrandMatchReviewMode({
             ) : null}
           </section>
 
+          {offer ? (
+            <BrandVariantChoice chosen={variant} offer={offer} onChoose={setVariant} />
+          ) : null}
+
           <section className="panel-mode-section" aria-labelledby="semantic-changes-title">
             <div className="panel-mode-section-heading">
               <span>
@@ -300,7 +326,7 @@ export function BrandMatchReviewMode({
             <button
               className="panel-mode-primary-button"
               disabled={busy}
-              onClick={() => controller.acceptBrandMatch()}
+              onClick={() => controller.acceptBrandMatch(offer ? variant : undefined)}
               type="button"
             >
               {busy ? (
@@ -309,6 +335,15 @@ export function BrandMatchReviewMode({
                 <Check size={16} strokeWidth={2.4} aria-hidden="true" />
               )}
               {busy ? authoringText('Saving proposal…') : authoringText('Use proposed draft')}
+            </button>
+            <button
+              className="panel-mode-secondary-button"
+              data-brand-variant="plain"
+              disabled={busy}
+              onClick={() => controller.startPlainBrandTheme()}
+              type="button"
+            >
+              {authoringText('Start plain')}
             </button>
             <button
               className="panel-mode-secondary-button"

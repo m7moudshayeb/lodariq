@@ -1,6 +1,7 @@
 import type { CompiledDocument, ManifestPointer, SdkInstallContext } from '@lodariq/schema';
 import type { LodariqRuntime } from '../runtime';
 import type { TourPlaybackOptions } from './contracts';
+import { resumeArrivingHandoff } from './arriving-handoff';
 
 type ResumeState = NonNullable<ReturnType<LodariqRuntime['readTourResume']>>;
 type LoadCurrentTour = (
@@ -8,8 +9,34 @@ type LoadCurrentTour = (
   context: SdkInstallContext,
 ) => Promise<CompiledDocument>;
 
-/** Same-tab navigation recovery stays outside the sub-3 KiB bootstrap graph. */
-export async function resumePendingTour(
+/**
+ * Picking the tour back up after an interruption — a same-tab navigation, or a
+ * handoff from another application. Both live here so the bootstrap pays for one
+ * lazy import instead of two, and neither joins the sub-3 KiB critical graph.
+ *
+ * A handoff token names a step explicitly, so it outranks whatever this origin
+ * happened to remember.
+ */
+export async function continueInterruptedTour(
+  resume: ResumeState | null,
+  runtime: LodariqRuntime,
+  manifest: ManifestPointer,
+  context: SdkInstallContext,
+  loadCurrentTour: LoadCurrentTour | undefined,
+  playTour: (document: CompiledDocument, options?: TourPlaybackOptions) => Promise<void>,
+): Promise<void> {
+  const handedOff = await resumeArrivingHandoff(
+    runtime,
+    manifest,
+    context,
+    loadCurrentTour,
+    playTour,
+  );
+  if (handedOff || !resume) return;
+  await resumePendingTour(resume, runtime, manifest, context, loadCurrentTour, playTour);
+}
+
+async function resumePendingTour(
   resume: ResumeState,
   runtime: LodariqRuntime,
   manifest: ManifestPointer,

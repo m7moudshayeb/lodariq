@@ -375,10 +375,12 @@ export async function installLodariq(
   };
 
   window.Lodariq = api;
+  // Recovery is sniffed for, not loaded for: only the rare page that carries a
+  // handoff token or a stored resume pulls the module that handles them.
   const resume = runtime.readTourResume(manifest);
-  if (resume) {
-    const { resumePendingTour } = await import('./resume-tour');
-    await resumePendingTour(resume, runtime, manifest, context, loadCurrentTourFn, playTour);
+  if (resume || window.location?.search?.includes('lq_journey=')) {
+    const { continueInterruptedTour } = await import('./resume-tour');
+    await continueInterruptedTour(resume, runtime, manifest, context, loadCurrentTourFn, playTour);
   }
   return api;
 }

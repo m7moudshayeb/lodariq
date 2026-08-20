@@ -2,6 +2,8 @@
 
 - Status: Accepted
 - Date: 2026-08-07
+- Amended: 2026-08-20 — "Admit Structure as Bounded Evidence, Never as a Selector",
+  and the rule that an author's recorded selection settles ambiguity.
 - PRD references: §8.1–§8.6, §16.4, §18.2, §20
 - Related: ADR 0008 (Phase 1 legacy resolver), ADR 0014 (immutable releases),
   ADR 0015 (SDK-first in-product authoring)
@@ -91,8 +93,9 @@ capability. Layout drift on an otherwise safe result is reported as
 
 The remaining visual families are one-way summaries: structural SimHash, an
 8x8 descendant-occupancy mask, quantized appearance SimHash, and bounded
-neighborhood SimHash. Optional sibling index/count evidence is used only by an
-explicit `layout-slot` mode. These values exclude customer text, raw CSS, class
+neighborhood SimHash. Sibling index/count evidence backs both the explicit
+`layout-slot` mode and, under the conditions below, the `sibling-position`
+family available to ordinary targets. These values exclude customer text, raw CSS, class
 names, HTML, screenshots, URLs, and coordinates, and they ignore Lodariq-owned
 chrome so mounting a tour cannot change a customer's target fingerprint.
 
@@ -135,13 +138,14 @@ correlated fields:
 - visual structure;
 - visual appearance;
 - visual neighborhood;
-- optional layout slot; and
+- optional layout slot;
+- optional sibling position; and
 - locale-scoped text.
 
 Semantic and interaction resolution requires at least two durable nonvisual
 families, a confidence floor, one actionable winner, and a strict margin over
-the runner-up. Visual evidence and localized text do not count toward that
-durable minimum. Presentation-only `visual-anchor` and `layout-slot` modes
+the runner-up. Visual evidence, localized text, and sibling position do not
+count toward that durable minimum. Presentation-only `visual-anchor` and `layout-slot` modes
 require `requiredAction: 'anchor'`, at least three independent visual families,
 a confidence floor, and the same strict runner-up rule. They return a
 non-interactive visual-region anchor. A locale's text is considered only for
@@ -177,6 +181,73 @@ reason codes, locale/viewport context, and timestamps; they exclude customer
 text, attributes, selectors, DOM fragments, screenshots, coordinates, and raw
 URLs.
 
+### Admit Structure as Bounded Evidence, Never as a Selector
+
+A row of hand-authored controls — a page header's `Export CSV` / `Schedule report`
+/ `Save report` — carries no attribute, no registry key, and no distinguishing
+accessible name. Every durable family scores all three identically, because the
+only difference between them is their words and words are not durable identity.
+Capture reports three indistinguishable candidates and release is blocked, on a
+placement a person would call obvious.
+
+The obvious repair is the one this ADR already refuses: persist
+`.head-actions > button:nth-child(2)`. A selector is refused because of *how it
+fails*, not because it is structural. Under conditional rendering, a permission
+that hides one control, a responsive collapse into an overflow menu, an inserted
+wrapper, or a reordering, a stored selector keeps matching — it just matches
+something else, and the runtime clicks a real, wrong control with full
+confidence. That is the failure this whole model exists to prevent.
+
+Position is admitted as evidence when it is measured rather than written down,
+and when it can tell that it has gone stale:
+
+- The measurement is the pair `{ siblingIndex, siblingCount }` already captured
+  for `layout-slot` — two bounded integers, not a query string, and nothing that
+  can be pasted into `querySelector`.
+- **Both numbers must agree at resolution.** The count is the tripwire: every
+  change listed above alters it, so the signal drops out and the resolver
+  abstains instead of sliding one position over. A signal that cannot detect its
+  own staleness would not be admissible; this one can.
+- It is offered only where the bounded passive probe already found the position
+  stable across its samples, and only in `semantic` mode. `visual-anchor`
+  capture is left free to be promoted into `layout-slot` mode as before.
+- It is refused inside a list, table, grid, or other repeated-data container.
+  There the count survives a sort or a filter while the occupant changes, so the
+  one substitution the tripwire cannot see is also the most likely one. The
+  author-declared collection policies (`first-in-collection`,
+  `newest-in-collection`) are the tools for that case.
+- It is weighted to clear the runner-up margin cap exactly once, and it is
+  excluded from the independent-family count on both the capture and resolution
+  sides. It can separate two candidates that nothing else separates; it can
+  never make "a button in the second of three slots" into an identity, and it
+  cannot veto a target the remaining evidence still identifies without it.
+
+The residual risk is accepted and named: two controls that swap places keep both
+their count and their indices, so position follows the slot rather than the
+control. Visual topology and neighborhood already behave this way, the case is
+rare in hand-authored chrome, and live verification reports it before release.
+
+### Let the Author Settle What the Page Cannot
+
+Where evidence genuinely ties, "which one did you mean" has an answer, and it is
+the only weakness in a capture that does. A recorded `Target.selection` therefore
+clears the ambiguity half of the release gate — but only that half, only for
+policies the resolver can act on, and only when ambiguity was the whole problem.
+
+Capture states that last condition explicitly rather than leaving it inferred:
+`quality` answers *is this evidence sound* and `uniqueCandidateCount` /
+`runnerUpMargin` answer *is this target decided*. Thin evidence, a drifting
+layout slot, and an element that cannot take the required action are facts about
+the page that no author answer changes, and they keep blocking however the
+question was answered. `only` — "just the one I clicked" — is not an answer: it
+declines to give the resolver a rule, so it abstains at runtime and blocks at
+release.
+
+The question the creator is asked must be built from the candidate set the
+resolver actually ties on. Asking about a set derived some other way — by
+accessible name, say — describes different elements than the ones that tie, so
+an ordinal answer counts within the wrong set and points at the wrong control.
+
 ### Keep Pixel Verification Optional and Permissioned
 
 Screenshot or pixel comparison is not required by the installed SDK's base
@@ -199,10 +270,18 @@ extension mandatory for normal authoring.
   target locator or interaction trigger.
 - Existing Phase 1 artifacts remain readable. Their CSS hint is a contained
   compatibility liability, not a pattern for new capture.
+- Sibling position resolves the common uninstrumented action row without an
+  attribute, a selector, or a question for the creator. It is deliberately
+  brittle in the safe direction: a page that adds, hides, or reorders a control
+  loses the signal and falls back to the previous behaviour rather than
+  resolving onto a neighbour.
+- Ambiguity is no longer a permanent release blocker. It is a question, and an
+  answered question releases. Capture must therefore keep saying *why* it is
+  weak; capture written before it did stays blocked until it is picked again.
 - The product cannot promise perfect zero-code targeting across cross-origin
   frames, closed shadow roots, canvas/WebGL, unmounted virtualized content, or
-  indistinguishable repeated controls. These cases fail closed or use an
-  explicit optional customer contract.
+  indistinguishable repeated controls. These cases fail closed, use an explicit
+  optional customer contract, or ask the author which one they meant.
 - Verification observations are suitable for target-health and release gates,
   but persistence, environment-wide verification history, assisted repair
   proposals, and permissioned pixel verification remain later work.

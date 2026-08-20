@@ -1,9 +1,17 @@
 import { Type, type Static } from '@sinclair/typebox';
 import { Value } from '@sinclair/typebox/value';
 import { BlockDiagnostic, ValidationLevel } from './common';
+import { JourneyHandoff, sanitizeJourneyHandoff } from './application';
 import { StepChoreography, sanitizeStepChoreography } from './choreography';
-import { StepTransition, sanitizeStepTransition } from './flow';
+import { StepEmphasis, sanitizeStepEmphasis } from './emphasis';
+import {
+  StepTransition,
+  StepTransitionCondition,
+  sanitizeStepTransition,
+  sanitizeStepTransitionCondition,
+} from './flow';
 import { isSafeNavigationUrl } from './url';
+import { StepNarration, sanitizeStepNarration } from './narration';
 import {
   FormFieldPresentation,
   MediaPresentation,
@@ -64,6 +72,7 @@ export type OpenPageNavigationBehavior = (typeof OPEN_PAGE_NAVIGATION_BEHAVIOR_V
 const BLOCK_ACTION_TYPE_SET = new Set<string>(BLOCK_ACTION_TYPES);
 const OPEN_PAGE_ACTION_TYPE: BlockActionTypeValue = 'openPage';
 const OPEN_PAGE_NAVIGATION_BEHAVIOR_SET = new Set<string>(OPEN_PAGE_NAVIGATION_BEHAVIOR_VALUES);
+const TEACHES_PATTERN = /^[a-z][a-z0-9_]*$/;
 const HEADING_LEVEL_VALUES = [1, 2, 3] as const;
 const HEADING_LEVEL_SET = new Set<number>(HEADING_LEVEL_VALUES);
 const PLACEMENT_VALUES = ['top', 'right', 'bottom', 'left'] as const;
@@ -71,6 +80,11 @@ const PLACEMENT_SET = new Set<string>(PLACEMENT_VALUES);
 export const BUTTON_VARIANT_VALUES = ['primary', 'secondary', 'subtle', 'outline', 'link'] as const;
 const BUTTON_VARIANT_SET = new Set<string>(BUTTON_VARIANT_VALUES);
 export const TEXT_ALIGNMENT_VALUES = ['left', 'center', 'right'] as const;
+/** Where the card sits along the side it is anchored to. */
+export const ANCHOR_ALIGN_VALUES = ['start', 'center', 'end'] as const;
+const ANCHOR_ALIGN_SET = new Set<string>(ANCHOR_ALIGN_VALUES);
+export const ANCHOR_OFFSET_PX_LIMITS = { min: 0, max: 96, step: 1 } as const;
+export type AnchorAlign = (typeof ANCHOR_ALIGN_VALUES)[number];
 const TEXT_ALIGNMENT_SET = new Set<string>(TEXT_ALIGNMENT_VALUES);
 /** Suggested authoring choices. The contract also accepts custom whole-pixel values in range. */
 export const TEXT_FONT_SIZE_VALUES = [10, 12, 14, 16, 18, 24, 28, 32] as const;
@@ -378,6 +392,13 @@ export const LodariqBlockProps = Type.Object(
       ]),
     ),
     presentationAnchor: Type.Optional(Type.Ref(PresentationAnchor)),
+    /** Position along the anchored side; the compass sets this directly. */
+    anchorAlign: Type.Optional(Type.Union(ANCHOR_ALIGN_VALUES.map((value) => Type.Literal(value)))),
+    anchorOffsetPx: Type.Optional(
+      Type.Integer({ minimum: ANCHOR_OFFSET_PX_LIMITS.min, maximum: ANCHOR_OFFSET_PX_LIMITS.max }),
+    ),
+    /** Flip to the opposite side when the chosen one does not fit. Defaults to on. */
+    anchorAutoFlip: Type.Optional(Type.Boolean()),
     targetId: Type.Optional(Type.String({ minLength: 1 })),
     textStyle: Type.Optional(Type.Ref(TextStyleProps)),
     blockLayout: Type.Optional(Type.Ref(BlockLayoutProps)),
@@ -389,8 +410,21 @@ export const LodariqBlockProps = Type.Object(
     motion: Type.Optional(Type.Ref(TourMotionPresentation)),
     responsive: Type.Optional(Type.Ref(ResponsiveStepPresentation)),
     spotlight: Type.Optional(Type.Ref(SpotlightPresentation)),
+    /** Backdrop, target outline and viewport focus for this step. */
+    emphasis: Type.Optional(Type.Ref(StepEmphasis)),
+    /**
+     * Whether this block renders at all. On a step it gates the whole step; on a
+     * child it varies content inside one step. One contract, both jobs.
+     */
+    showWhen: Type.Optional(Type.Ref(StepTransitionCondition)),
+    /** Behaviour this step exists to teach; adaptive delivery skips it once shown. */
+    teaches: Type.Optional(Type.String({ minLength: 1, maxLength: 64, pattern: '^[a-z][a-z0-9_]*$' })),
+    /** Hands the journey to a second application after this step. */
+    handoff: Type.Optional(Type.Ref(JourneyHandoff)),
     composition: Type.Optional(Type.Ref(StructuredCompositionPresentation)),
     accessibilityName: Type.Optional(Type.String({ minLength: 1, maxLength: 300 })),
+    /** Spoken script, authored separately from the on-screen copy (§7.7). */
+    narration: Type.Optional(Type.Ref(StepNarration)),
     tooltipLayout: Type.Optional(Type.Ref(TooltipLayoutProps)),
     tooltipStyle: Type.Optional(Type.Ref(TooltipStyleProps)),
     variant: Type.Optional(Type.Union(BUTTON_VARIANT_VALUES.map((value) => Type.Literal(value)))),
@@ -412,7 +446,21 @@ export function sanitizeBlockProps(props: Record<string, unknown>): LodariqBlock
   if (placement) next.placement = placement;
   const presentationAnchor = sanitizePresentationAnchor(props.presentationAnchor);
   if (presentationAnchor) next.presentationAnchor = presentationAnchor;
+  if (typeof props.anchorAlign === 'string' && ANCHOR_ALIGN_SET.has(props.anchorAlign)) {
+    next.anchorAlign = props.anchorAlign as (typeof ANCHOR_ALIGN_VALUES)[number];
+  }
+  if (
+    typeof props.anchorOffsetPx === 'number' &&
+    Number.isInteger(props.anchorOffsetPx) &&
+    props.anchorOffsetPx >= ANCHOR_OFFSET_PX_LIMITS.min &&
+    props.anchorOffsetPx <= ANCHOR_OFFSET_PX_LIMITS.max
+  ) {
+    next.anchorOffsetPx = props.anchorOffsetPx;
+  }
+  if (typeof props.anchorAutoFlip === 'boolean') next.anchorAutoFlip = props.anchorAutoFlip;
   if (typeof props.targetId === 'string' && props.targetId.trim()) next.targetId = props.targetId;
+  const narration = sanitizeStepNarration(props.narration);
+  if (narration) next.narration = narration;
   const textStyle = sanitizeTextStyleProps(props.textStyle);
   if (textStyle) next.textStyle = textStyle;
   const blockLayout = sanitizeBlockLayoutProps(props.blockLayout);
@@ -431,6 +479,15 @@ export function sanitizeBlockProps(props: Record<string, unknown>): LodariqBlock
   if (responsive) next.responsive = responsive;
   const spotlight = sanitizeSpotlightPresentation(props.spotlight);
   if (spotlight) next.spotlight = spotlight;
+  const emphasis = sanitizeStepEmphasis(props.emphasis);
+  if (emphasis) next.emphasis = emphasis;
+  const showWhen = sanitizeStepTransitionCondition(props.showWhen);
+  if (showWhen) next.showWhen = showWhen;
+  if (typeof props.teaches === 'string' && TEACHES_PATTERN.test(props.teaches)) {
+    next.teaches = props.teaches;
+  }
+  const handoff = sanitizeJourneyHandoff(props.handoff);
+  if (handoff) next.handoff = handoff;
   const composition = sanitizeStructuredCompositionPresentation(props.composition);
   if (composition) next.composition = composition;
   if (typeof props.accessibilityName === 'string' && props.accessibilityName.trim()) {
