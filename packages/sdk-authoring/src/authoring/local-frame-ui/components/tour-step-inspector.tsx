@@ -39,13 +39,16 @@ export function TourStepInspector({
   const health = stepHealth(step, snapshot);
   const tooltip = stepTooltip(step);
   const [toolMode, setToolMode] = useState<StoryboardToolMode>('content');
-  const [contentTrayRequestToken, setContentTrayRequestToken] = useState(0);
 
   useEffect(() => setToolMode('content'), [step.id]);
 
   useEffect(() => {
     const request = snapshot.focusRequest;
-    if (!request || request.blockId !== step.id) return;
+    if (!request) return;
+    const inThisStep =
+      request.blockId === step.id ||
+      Boolean(tooltip?.children.some((block) => block.id === request.blockId));
+    if (!inThisStep) return;
     if (request.reveal === 'placement' || request.reveal === 'popup') {
       setToolMode(request.reveal);
       return;
@@ -73,7 +76,6 @@ export function TourStepInspector({
         </header>
         {tooltip ? (
           <RichStepContentEditor
-            contentTrayRequestToken={contentTrayRequestToken}
             controller={controller}
             health={health}
             onFlowMapOpen={onFlowMapOpen}
@@ -96,14 +98,9 @@ export function TourStepInspector({
                 className={active ? 'active' : undefined}
                 aria-label={option.label}
                 aria-pressed={active}
-                onClick={() => {
-                  if (option.value === 'content') {
-                    setToolMode('content');
-                    setContentTrayRequestToken((token) => token + 1);
-                    return;
-                  }
-                  setToolMode((current) => (current === option.value ? 'content' : option.value));
-                }}
+                onClick={() =>
+                  setToolMode((current) => (current === option.value ? 'content' : option.value))
+                }
               >
                 <Icon size={20} strokeWidth={1.8} aria-hidden="true" />
                 <span>{option.label}</span>

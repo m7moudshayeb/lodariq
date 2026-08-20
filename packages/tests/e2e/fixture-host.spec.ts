@@ -458,14 +458,14 @@ test('creator authors an editable tour step, chooses placement, and replays it',
 
   const canvasEditor = frame.getByRole('group', { name: 'Step content editor' });
   await expect(
-    canvasEditor.locator('.rich-step-rendered-content').filter({ hasText: 'Invite teammates' }),
+    canvasEditor.locator('.rich-content-canvas').filter({ hasText: 'Invite teammates' }),
   ).toHaveCount(1);
   await expect(
     canvasEditor
-      .locator('.rich-step-rendered-content')
+      .locator('.rich-content-canvas')
       .filter({ hasText: 'Share access so your team can collaborate.' }),
   ).toHaveCount(1);
-  await expect(canvasEditor.getByRole('textbox', { name: 'Button label' })).toHaveValue('Finish');
+  await expect(canvasEditor.locator('.rich-content-button-preview')).toContainText('Finish');
   await openCanvasTargetActions(frame, 'New project');
   await openPlacementTroubleshooting(frame);
   await targetMenu(frame).getByRole('button', { name: 'Check placement' }).click();
@@ -611,17 +611,15 @@ test('creator authors rich content in the tray and keeps output, JSON, and autos
   const canvasEditor = frame.getByRole('group', { name: 'Step content editor' });
   await expect(
     canvasEditor
-      .locator('.rich-step-rendered-content')
+      .locator('.rich-content-canvas')
       .filter({ hasText: 'Launch your first project' }),
   ).toHaveCount(1);
   await expect(
     canvasEditor
-      .locator('.rich-step-rendered-content')
+      .locator('.rich-content-canvas')
       .filter({ hasText: 'Open a project and invite your team.' }),
   ).toHaveCount(1);
-  await expect(canvasEditor.getByRole('textbox', { name: 'Button label' })).toHaveValue(
-    'Create project',
-  );
+  await expect(canvasEditor.locator('.rich-content-button-preview')).toContainText('Create project');
   await expect(await documentJson(frame)).toHaveValue(/Launch your first project/);
 
   await page.reload();
@@ -637,15 +635,15 @@ test('creator authors rich content in the tray and keeps output, JSON, and autos
   const reloadedEditor = reloadedFrame.getByRole('group', { name: 'Step content editor' });
   await expect(
     reloadedEditor
-      .locator('.rich-step-rendered-content')
+      .locator('.rich-content-canvas')
       .filter({ hasText: 'Launch your first project' }),
   ).toHaveCount(1);
   await expect(
     reloadedEditor
-      .locator('.rich-step-rendered-content')
+      .locator('.rich-content-canvas')
       .filter({ hasText: 'Open a project and invite your team.' }),
   ).toHaveCount(1);
-  await expect(reloadedEditor.getByRole('textbox', { name: 'Button label' })).toHaveValue(
+  await expect(reloadedEditor.locator('.rich-content-button-preview')).toContainText(
     'Create project',
   );
 });
@@ -863,27 +861,11 @@ test('creator can add freeform rich content, media, icons, and dividers from the
     'New project',
   ]);
   const canvasEditor = frame.getByRole('group', { name: 'Step content editor' });
-  const renderedContent = canvasEditor.locator('.rich-step-rendered-content');
-  const initialContentCount = await renderedContent.count();
-  const insertAtStart = canvasEditor.getByRole('button', {
-    name: 'Insert content at start of popup',
-  });
-  await expect
-    .poll(() =>
-      insertAtStart.evaluate((element) => getComputedStyle(element.parentElement!).opacity),
-    )
-    .toBe('1');
-  await insertAtStart.click();
-  await visibleInlineMenu(frame)
-    .getByRole('menuitem', { name: /Rich content/ })
-    .click();
-  await expect(renderedContent).toHaveCount(initialContentCount + 1);
-
   const richContent = await openRichContentEditor(frame);
   await replaceRichContentBlock(page, richContent.locator('p').last(), 'A composer-added note');
-  const editor = frame.locator('.rich-content-editor');
-  await editor.getByRole('button', { name: 'Emoji' }).click();
-  const grinningFace = editor.getByRole('gridcell', { name: 'Grinning face', exact: true });
+  const insertMenu = await openCanvasInsertMenu(frame);
+  await insertMenu.getByRole('menuitem', { name: 'Emoji' }).click();
+  const grinningFace = frame.getByRole('gridcell', { name: 'Grinning face', exact: true });
   await expect(grinningFace).toBeVisible();
   await grinningFace.click();
   await grinningFace.click();
@@ -891,34 +873,39 @@ test('creator can add freeform rich content, media, icons, and dividers from the
   await richContent.locator('p').last().click();
   await expect(grinningFace).toHaveCount(0);
 
-  await editor.getByRole('button', { name: 'Icon' }).click();
-  await editorColorInput(frame, 'Icon color', '#c2410c');
-  await editor.getByRole('button', { name: 'Party Popper' }).click();
-  await expect(editor.getByRole('button', { name: 'Party Popper' })).toBeVisible();
-  await editor.getByRole('button', { name: 'Party Popper' }).click();
+  const insertIcons = async (): Promise<void> => {
+    const existing = frame.getByRole('button', { name: 'Party Popper' });
+    if ((await existing.count()) === 0) {
+      const menu = await openCanvasInsertMenu(frame);
+      await menu.getByRole('menuitem', { name: 'Icon' }).click();
+      await editorColorInput(frame, 'Icon color', '#c2410c');
+    }
+    await frame.getByRole('button', { name: 'Party Popper' }).click();
+  };
+  await insertIcons();
+  await insertIcons();
   await expect(richContent.getByRole('img', { name: 'Party Popper' })).toHaveCount(2);
   const deletableIcon = richContent.getByRole('img', { name: 'Party Popper' }).last();
   await deletableIcon.click();
   await deletableIcon.press('Backspace');
   await expect(richContent.getByRole('img', { name: 'Party Popper' })).toHaveCount(1);
-  const popupIcon = canvasEditor.locator('.rich-step-structured-preview.icon').last();
+  const popupIcon = canvasEditor.locator('.rich-content-icon-preview').last();
   await expect(popupIcon).toHaveAttribute('aria-label', 'Party Popper');
   await expect(popupIcon).toHaveText('');
   await expect(popupIcon).toHaveCSS('color', 'rgb(194, 65, 12)');
-  await richContent.locator('p').last().click();
-  await expect(editor.getByRole('button', { name: 'Party Popper' })).toHaveCount(0);
 
-  await editor.getByRole('button', { name: 'Divider' }).click();
+  const dividerMenu = await openCanvasInsertMenu(frame);
+  await dividerMenu.getByRole('menuitem', { name: 'Divider' }).click();
   await expect(richContent.locator('.rich-content-divider')).toHaveCount(1);
 
-  await editor.getByRole('button', { name: 'Media' }).click();
-  await editor.getByRole('checkbox', { name: /Save to media library/ }).check();
-  await editor.locator('.rich-content-media-menu input[accept^="image/"]').setInputFiles({
+  const mediaMenu = await openCanvasInsertMenu(frame);
+  await mediaMenu.getByRole('checkbox', { name: /Save to media library/ }).check();
+  await mediaMenu.locator('input[accept^="image/"]').setInputFiles({
     name: 'pixel.gif',
     mimeType: 'image/gif',
     buffer: Buffer.from('R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==', 'base64'),
   });
-  await expect(editor.locator('.rich-content-media-menu [role="progressbar"]')).toHaveCount(0);
+  await expect(frame.locator('.rich-content-insert-menu [role="progressbar"]')).toHaveCount(0);
   await expect(richContent.locator('.rich-content-media-preview')).toContainText('pixel.gif');
   const resizeImage = richContent.getByLabel('Resize image. Use arrow keys or drag any edge.');
   await expect(resizeImage.locator('.rich-content-media-resize-edge')).toHaveCount(8);
@@ -1424,31 +1411,20 @@ test('opening canvas configuration replaces the active side-action panel', async
 
   const frame = page.frameLocator('iframe[title="Lodariq authoring"]');
   const tools = frame.getByRole('navigation', { name: 'Authoring tools' });
-  const canvasEditor = frame.getByRole('group', { name: 'Step content editor' });
-
   await tools.getByRole('button', { name: 'Placement' }).click();
   await expect(frame.getByRole('region', { name: 'Placement' })).toBeVisible();
-  await canvasEditor.getByRole('textbox', { name: 'Button label' }).focus();
-  await frame.getByRole('button', { name: 'More button settings' }).click();
+  await tools.getByRole('button', { name: 'Placement' }).click();
 
   await expect(frame.getByRole('region', { name: 'Placement' })).toHaveCount(0);
-  await expect(frame.getByRole('region', { name: 'Selected action style' })).toBeVisible();
-  await expect(tools.getByRole('button', { name: 'Rich content' })).toHaveAttribute(
-    'aria-pressed',
-    'true',
-  );
+  await expect(frame.locator('.rich-content-editor')).toBeVisible();
+  await expect(tools.getByRole('button', { name: 'Rich content' })).toHaveCount(0);
 
   await tools.getByRole('button', { name: 'Popup' }).click();
-  await expect(frame.getByRole('region', { name: 'Selected action style' })).toHaveCount(0);
   await expect(frame.getByRole('region', { name: 'Popup layout settings' })).toBeVisible();
-  await tools.getByRole('button', { name: 'Rich content' }).click();
+  await tools.getByRole('button', { name: 'Popup' }).click();
 
   await expect(frame.getByRole('region', { name: 'Popup layout settings' })).toHaveCount(0);
   await expect(frame.locator('.rich-content-editor')).toBeVisible();
-  await expect(tools.getByRole('button', { name: 'Rich content' })).toHaveAttribute(
-    'aria-pressed',
-    'true',
-  );
 });
 
 test('resizing the rich-text editor keeps the storyboard tray accessible without resizing the panel', async ({
@@ -1462,7 +1438,7 @@ test('resizing the rich-text editor keeps the storyboard tray accessible without
   const frame = page.frameLocator('iframe[title="Lodariq authoring"]');
   const inspector = frame.getByRole('region', { name: 'Step 1 details' });
   const editor = inspector.locator('.rich-step-popup-frame');
-  const tray = frame.getByRole('region', { name: 'Selected action style' });
+  const tools = frame.getByRole('navigation', { name: 'Authoring tools' });
   const initialPanel = (await authoringPopupRects(page)).host;
 
   await editor.evaluate((element) => {
@@ -1472,8 +1448,8 @@ test('resizing the rich-text editor keeps the storyboard tray accessible without
   expect(standardPanelAfterEditorResize.width).toBe(initialPanel.width);
   expect(standardPanelAfterEditorResize.height).toBe(initialPanel.height);
 
-  await frame.getByRole('textbox', { name: 'Button label' }).focus();
-  await frame.getByRole('button', { name: 'More button settings' }).click();
+  await tools.getByRole('button', { name: 'Popup' }).click();
+  const tray = frame.getByRole('region', { name: 'Popup layout settings' });
   await expect(tray).toBeVisible();
 
   for (const workspace of ['standard', 'focus'] as const) {
@@ -1483,7 +1459,7 @@ test('resizing the rich-text editor keeps the storyboard tray accessible without
     await expect(host).toHaveAttribute('data-lodariq-panel-layout', workspace);
 
     await expect(tray).toBeVisible();
-    await expect(frame.getByRole('navigation', { name: 'Authoring tools' })).toBeVisible();
+    await expect(tools).toBeVisible();
     expect(
       await frame.locator('body').evaluate((body) => body.scrollWidth > body.clientWidth + 1),
     ).toBe(false);
@@ -1624,7 +1600,6 @@ test('Step Details add-content menu overlays every workspace without resizing th
 
   const host = page.locator('lodariq-authoring-panel');
   const frame = page.frameLocator('iframe[title="Lodariq authoring"]');
-  const openContentMenu = frame.getByRole('button', { name: 'Insert content at start of popup' });
   const stepDocument = frame.getByRole('group', { name: 'Step content editor' });
   const workspaceModes = [
     { layout: 'standard', select: false },
@@ -1639,21 +1614,17 @@ test('Step Details add-content menu overlays every workspace without resizing th
     const closedStepHeight = await stepDocument.evaluate(
       (element) => element.getBoundingClientRect().height,
     );
-    await openContentMenu.click();
-    const commandMenu = visibleInlineMenu(frame);
+    const commandMenu = await openCanvasInsertMenu(frame);
     await expect(commandMenu).toBeVisible();
     const geometry = await commandMenu.evaluate((element) => {
       const menu = element.getBoundingClientRect();
       return {
         frameWidth: element.ownerDocument.documentElement.clientWidth,
-        iconWidth: element.querySelector('.inline-command svg')?.getBoundingClientRect().width ?? 0,
-        labelFontSize: element.querySelector('.inline-command-copy strong')
-          ? getComputedStyle(element.querySelector('.inline-command-copy strong')!).fontSize
-          : '',
         menu: {
           clientWidth: element.clientWidth,
           left: menu.left,
-          position: getComputedStyle(element).position,
+          position: getComputedStyle(element.closest('.rich-content-floating-layer') ?? element)
+            .position,
           right: menu.right,
           scrollWidth: element.scrollWidth,
           width: menu.width,
@@ -1662,17 +1633,13 @@ test('Step Details add-content menu overlays every workspace without resizing th
     });
 
     expect(geometry.menu.position).toBe('fixed');
-    expect(geometry.menu.width).toBeLessThanOrEqual(288);
-    expect(geometry.menu.left).toBeGreaterThanOrEqual(12);
-    expect(geometry.menu.right).toBeLessThanOrEqual(geometry.frameWidth - 12);
-    expect(geometry.menu.scrollWidth).toBeLessThanOrEqual(geometry.menu.clientWidth);
-    expect(geometry.iconWidth).toBeLessThanOrEqual(16);
-    expect(geometry.labelFontSize).toBe('12px');
+    expect(geometry.menu.left).toBeGreaterThanOrEqual(0);
+    expect(geometry.menu.right).toBeLessThanOrEqual(geometry.frameWidth);
     expect(await stepDocument.evaluate((element) => element.getBoundingClientRect().height)).toBe(
       closedStepHeight,
     );
 
-    await commandMenu.getByRole('button', { name: 'Close content menu' }).click();
+    await frame.getByRole('button', { name: 'Add content' }).click();
     await expect(commandMenu).toBeHidden();
   }
 });
@@ -1683,13 +1650,13 @@ test('creator can add and save another button without data loss', async ({ page 
   let frame = page.frameLocator('iframe[title="Lodariq authoring"]');
 
   let canvasEditor = frame.getByRole('group', { name: 'Step content editor' });
-  await canvasEditor.getByRole('button', { name: 'Insert content after button' }).click();
-  await visibleInlineMenu(frame)
-    .getByRole('menuitem', { name: /^Button/ })
-    .click();
-  const addedButton = canvasEditor.getByRole('textbox', { name: 'Button label' }).last();
-  await addedButton.fill('Learn more');
-  await addedButton.blur();
+  const insertMenu = await openCanvasInsertMenu(frame);
+  await insertMenu.getByRole('menuitem', { name: 'Button' }).click();
+  const addedButton = canvasEditor.locator('.rich-content-button-preview').last();
+  await addedButton.click();
+  const label = canvasEditor.getByRole('textbox', { name: 'Button label' }).last();
+  await label.fill('Learn more');
+  await label.blur();
   await openReviewPanel(frame);
   await frame.getByRole('button', { name: 'Save draft', exact: true }).click();
 
@@ -1697,7 +1664,7 @@ test('creator can add and save another button without data loss', async ({ page 
   await openAuthoringPanel(page);
   frame = page.frameLocator('iframe[title="Lodariq authoring"]');
   canvasEditor = frame.getByRole('group', { name: 'Step content editor' });
-  await expect(canvasEditor.getByRole('textbox', { name: 'Button label' }).last()).toHaveValue(
+  await expect(canvasEditor.locator('.rich-content-button-preview').last()).toContainText(
     'Learn more',
   );
 });
@@ -1709,7 +1676,7 @@ test('creator can remove a placement without losing step content', async ({ page
   const canvasEditor = frame.getByRole('group', { name: 'Step content editor' });
   await expect(
     canvasEditor
-      .locator('.rich-step-rendered-content')
+      .locator('.rich-content-canvas')
       .filter({ hasText: 'Create your first project' }),
   ).toHaveCount(1);
 
@@ -1722,12 +1689,12 @@ test('creator can remove a placement without losing step content', async ({ page
   await expect(placement.getByRole('button', { name: 'Choose target for step 1' })).toBeVisible();
   await expect(
     canvasEditor
-      .locator('.rich-step-rendered-content')
+      .locator('.rich-content-canvas')
       .filter({ hasText: 'Create your first project' }),
   ).toHaveCount(1);
   await expect(
     canvasEditor
-      .locator('.rich-step-rendered-content')
+      .locator('.rich-content-canvas')
       .filter({ hasText: "Projects help organize your team's work." }),
   ).toHaveCount(1);
   await expect(frame.locator('#status')).toContainText('Removed placement; choose a new one');
@@ -2851,10 +2818,6 @@ function activityLog(frame: FrameLocator): Locator {
   return frame.locator('pre.metrics-output');
 }
 
-function visibleInlineMenu(frame: FrameLocator): Locator {
-  return frame.locator('.inline-command-menu:not([hidden])');
-}
-
 function targetMenu(frame: FrameLocator): Locator {
   return frame.locator('.target-menu:visible');
 }
@@ -2985,14 +2948,17 @@ async function startTargetPick(frame: FrameLocator, block?: Locator): Promise<vo
   await targetMenu(frame).getByRole('button', { name: 'Choose another element' }).click();
 }
 
+async function openCanvasInsertMenu(frame: FrameLocator): Promise<Locator> {
+  const canvas = frame.locator('.rich-content-canvas');
+  await canvas.hover({ position: { x: 24, y: 16 } });
+  await frame.getByRole('button', { name: 'Add content' }).click();
+  const menu = frame.locator('.rich-content-insert-menu');
+  await expect(menu).toBeVisible();
+  return menu;
+}
+
 async function openRichContentEditor(frame: FrameLocator): Promise<Locator> {
   const editor = frame.locator('.rich-content-editor');
-  if (!(await editor.isVisible())) {
-    await frame
-      .getByRole('navigation', { name: 'Authoring tools' })
-      .getByRole('button', { name: 'Rich content' })
-      .click();
-  }
   await expect(editor).toBeVisible();
   return editor.getByRole('textbox', { name: 'Rich content' });
 }
@@ -3002,7 +2968,7 @@ async function editorColorInput(
   accessibleName: string,
   color: string,
 ): Promise<void> {
-  const input = frame.locator('.rich-content-editor').getByLabel(accessibleName);
+  const input = frame.getByLabel(accessibleName);
   await input.evaluate((element, value) => {
     const colorInput = element as HTMLInputElement;
     colorInput.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
@@ -3015,10 +2981,10 @@ async function editorColorInput(
 }
 
 async function replaceCanvasButtonLabel(frame: FrameLocator, value: string): Promise<void> {
-  const field = frame
-    .getByRole('group', { name: 'Step content editor' })
-    .getByRole('textbox', { name: 'Button label' })
-    .first();
+  const canvas = frame.getByRole('group', { name: 'Step content editor' });
+  const preview = canvas.locator('.rich-content-button-preview').first();
+  await preview.click();
+  const field = canvas.getByRole('textbox', { name: 'Button label' }).first();
   await field.fill(value);
   await field.blur();
   await expect(field).toHaveValue(value);

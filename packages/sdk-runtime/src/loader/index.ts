@@ -336,7 +336,7 @@ export async function installLodariq(
     playbackOptions: AuthoringPreviewPlaybackOptions,
   ): Promise<void> {
     const controller = await getAuthoringPreviewController();
-    await controller.play(doc, playbackOptions);
+    await controller.play(doc, withDefaultMediaAssetResolver(playbackOptions, config.apiBaseUrl));
   }
 
   function stopAuthoringPreview(ownerIdValue: string): void {
@@ -383,10 +383,10 @@ export async function installLodariq(
   return api;
 }
 
-function withDefaultMediaAssetResolver(
-  playback: TourPlaybackOptions,
+function withDefaultMediaAssetResolver<T extends TourPlaybackOptions>(
+  playback: T,
   apiBaseUrl?: string,
-): TourPlaybackOptions {
+): T {
   if (playback.resolveMediaAsset || !apiBaseUrl) return playback;
   return {
     ...playback,

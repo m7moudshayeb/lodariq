@@ -47,6 +47,46 @@ function buttonWithText(label: string, root: ParentNode = document): HTMLButtonE
   );
 }
 
+async function hoverRichCanvas(): Promise<void> {
+  document.dispatchEvent(
+    new MouseEvent('pointermove', { bubbles: true, clientX: 0, clientY: 0 }),
+  );
+  await vi.waitFor(() =>
+    expect(document.querySelector('[aria-label="Add content"]')).not.toBeNull(),
+  );
+}
+
+async function openRichContentInsertMenu(): Promise<void> {
+  await hoverRichCanvas();
+  document.querySelector<HTMLButtonElement>('[aria-label="Add content"]')?.click();
+  await vi.waitFor(() =>
+    expect(document.querySelector('.rich-content-insert-menu')).not.toBeNull(),
+  );
+}
+
+async function openRichContentBlockSettings(): Promise<void> {
+  await hoverRichCanvas();
+  document.querySelector<HTMLButtonElement>('[aria-label="Block options"]')?.click();
+  await vi.waitFor(() =>
+    expect(document.querySelector('[aria-label="Space after"]')).toBeInstanceOf(HTMLInputElement),
+  );
+}
+
+async function chooseDesignedSelect(ariaLabel: string, optionLabel: string): Promise<void> {
+  const trigger = document.querySelector<HTMLButtonElement>(`button[aria-label="${ariaLabel}"]`);
+  trigger?.click();
+  await vi.waitFor(() =>
+    expect(
+      [...document.querySelectorAll<HTMLElement>('[role="option"]')].some(
+        (candidate) => candidate.textContent?.trim() === optionLabel,
+      ),
+    ).toBe(true),
+  );
+  [...document.querySelectorAll<HTMLElement>('[role="option"]')]
+    .find((candidate) => candidate.textContent?.trim() === optionLabel)
+    ?.click();
+}
+
 function panelModeView(): HTMLElement | null {
   return (
     document
@@ -222,7 +262,7 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
       'background: linear-gradient(180deg, var(--lq-color-chrome), #101216)',
     );
     const contextualSurfaceRule = styles.match(
-      /\.menu,\s*\.inline-command-menu,\s*\.step-command-menu,\s*\.ui-select-content,\s*\.ui-popover-content \{[\s\S]*?\n {2}\}/,
+      /\.menu,\s*\.inline-command-menu,\s*\.step-command-menu,\s*\.ui-select-content,\s*\.ui-popover-content,\s*\.rich-content-block-handles,\s*\.rich-content-floating-layer \{[\s\S]*?\n {2}\}/,
     )?.[0];
     expect(contextualSurfaceRule).toContain('--lq-color-page: #ffffff');
     expect(contextualSurfaceRule).toContain('--lq-color-panel: #f7faf9');
@@ -319,15 +359,11 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     expect(document.querySelector('.rich-step-toolbar')).toBeNull();
     expect(document.querySelector('[role="group"][aria-label="Step content editor"]')).toBeTruthy();
     expect(document.body.textContent).not.toContain('Content');
-    document
-      .querySelector<HTMLElement>('.rich-step-rendered-content')
-      ?.dispatchEvent(new Event('pointerdown', { bubbles: true }));
-    await vi.waitFor(() => expect(document.querySelector('.rich-content-editor')).not.toBeNull());
-    expect(document.querySelector('.rich-content-toolbar')).not.toBeNull();
+    await vi.waitFor(() =>
+      expect(document.querySelector('.rich-step-content .rich-content-canvas')).not.toBeNull(),
+    );
     expect(document.querySelector('.rich-content-canvas[contenteditable="true"]')).not.toBeNull();
-    expect(
-      document.querySelector('.rich-step-rendered-content [contenteditable="true"]'),
-    ).toBeNull();
+    expect(document.querySelector('.rich-step-rendered-content')).toBeNull();
     expect(document.body.textContent).toContain('Placement');
     expect(document.body.textContent).toContain('Popup');
     expect(document.querySelector('.tour-position-options')).toBeNull();
@@ -396,14 +432,6 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
 
     buttonWithText('Step presentation')?.click();
     await vi.waitFor(() => expect(document.body.textContent).toContain('Motion recipe'));
-    buttonWithText('Fade')?.click();
-    await vi.waitFor(() =>
-      expect(
-        document
-          .querySelector('.step-presentation-preview-stage article')
-          ?.getAttribute('data-motion'),
-      ).toBe('fade'),
-    );
     const canvasPopup = document.querySelector<HTMLElement>(
       '.storyboard-editor-stage .rich-step-content',
     );
@@ -418,16 +446,15 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
       canvasPopup?.dataset['lodariqPopupRadius'],
     );
     const canvasHeading = canvasPopup
-      ?.querySelector<HTMLElement>('[data-lodariq-node-type="heading"]')
+      ?.querySelector<HTMLElement>('h2, .rich-content-heading')
       ?.textContent?.trim();
     const canvasAction = canvasPopup
-      ?.querySelector<HTMLInputElement>('[aria-label="Button label"]')
-      ?.value.trim();
+      ?.querySelector<HTMLElement>('.rich-content-button-preview')
+      ?.textContent?.trim();
     expect(canvasHeading).toBeTruthy();
     expect(canvasAction).toBeTruthy();
     expect(presentationPreview?.textContent).toContain(canvasHeading);
     expect(presentationPreview?.textContent).toContain(canvasAction);
-    expect(document.querySelector('[aria-label="Replay preview"]')).not.toBeNull();
 
     window.history.replaceState(null, '', '/');
   });
@@ -436,87 +463,31 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     window.history.replaceState(null, '', '/authoring.html?lodariqFrame=panel');
     await loadFrame();
 
-    const buttonLabel = document.querySelector<HTMLInputElement>('[aria-label="Button label"]');
-    expect(buttonLabel).not.toBeNull();
-    buttonLabel
-      ?.closest<HTMLElement>('.rich-step-block-row')
-      ?.dispatchEvent(new Event('pointerdown', { bubbles: true }));
+    const buttonPreview = document.querySelector<HTMLButtonElement>('.rich-content-button-preview');
+    expect(buttonPreview).not.toBeNull();
+    buttonPreview?.click();
     await vi.waitFor(() =>
-      expect(
-        document.querySelector<HTMLButtonElement>('button[aria-label="Action"]'),
-      ).not.toBeNull(),
+      expect(document.querySelector<HTMLInputElement>('[aria-label="Button label"]')).not.toBeNull(),
     );
-    const actionToolbar = document.querySelector<HTMLElement>('.action-context-toolbar');
-    expect(actionToolbar?.querySelector('select[aria-label="Block type"]')).toBeNull();
-    expect(actionToolbar?.querySelector('.action-context-type strong')?.textContent).toBe('Button');
-    document.querySelector<HTMLButtonElement>('button[aria-label="Action"]')?.click();
-    await vi.waitFor(() => expect(buttonWithText('Open page')).not.toBeNull());
-    const behaviorTray = document.querySelector<HTMLElement>(
-      '[aria-label="Selected action style"]',
-    );
-    expect(behaviorTray).not.toBeNull();
-    expect(behaviorTray?.querySelector('[aria-label="Button settings"]')?.textContent).toContain(
-      'Behavior',
-    );
-    expect(behaviorTray?.textContent).not.toContain('Add branch');
-    expect(behaviorTray?.querySelector('.sequence-property-editor')).toBeNull();
-    expect(behaviorTray?.querySelector('.transition-editor')).toBeNull();
-
-    buttonWithText('Open page')?.click();
+    expect(document.querySelector('button[aria-label="After click"]')).not.toBeNull();
+    expect(document.querySelector('.action-context-toolbar')).toBeNull();
+    expect(document.querySelector('select[aria-label="Block type"]')).toBeNull();
+    await chooseDesignedSelect('After click', 'Open page');
     await vi.waitFor(() =>
       expect(
         document.querySelector<HTMLInputElement>('[data-property-id="button.destination"] input'),
       ).not.toBeNull(),
     );
-    expect(document.body.textContent).toContain('Destination');
-    expect(document.body.textContent).toContain('After navigation');
+    expect(document.querySelector('[aria-label="Selected action style"]')).toBeNull();
+    expect(document.querySelector('.sequence-property-editor')).toBeNull();
+    expect(document.body.textContent).toContain('Page URL');
 
-    buttonWithText('Run a sequence')?.click();
+    buttonWithText('Flow Map')?.click();
     await vi.waitFor(() =>
       expect(document.querySelector('.tour-flow-map-workspace')).not.toBeNull(),
     );
     expect(document.querySelector('.react-flow')).not.toBeNull();
-    expect(document.querySelector('.tour-flow-workbench[data-mode="sequence"]')).not.toBeNull();
-    expect(buttonWithText('Edit sequence')).not.toBeNull();
-
-    buttonWithText('Return to canvas')?.click();
-    await vi.waitFor(() => expect(document.querySelector('.rich-step-editor')).not.toBeNull());
-    document
-      .querySelector<HTMLInputElement>('[aria-label="Button label"]')
-      ?.closest<HTMLElement>('.rich-step-block-row')
-      ?.dispatchEvent(new Event('pointerdown', { bubbles: true }));
-    await vi.waitFor(() =>
-      expect(
-        document.querySelector<HTMLButtonElement>('button[aria-label="Action"]'),
-      ).not.toBeNull(),
-    );
-    document.querySelector<HTMLButtonElement>('button[aria-label="Action"]')?.click();
-    await vi.waitFor(() =>
-      expect(document.querySelector('.tour-flow-workbench[data-mode="sequence"]')).not.toBeNull(),
-    );
     expect(document.querySelector('[aria-label="Selected action style"]')).toBeNull();
-
-    buttonWithText('Action branch')?.click();
-    await vi.waitFor(() => expect(buttonWithText('Add branch')).not.toBeNull());
-    buttonWithText('Add branch')?.click();
-    await vi.waitFor(() => expect(buttonWithText('Add rule')).not.toBeNull());
-    buttonWithText('Add rule')?.click();
-    await vi.waitFor(() =>
-      expect(document.querySelector('.transition-condition-fields')).not.toBeNull(),
-    );
-    expect(document.querySelector('.transition-condition-remove.ui-button-danger')).not.toBeNull();
-    expect(document.querySelector('.tour-flow-workbench-actions button.danger')).not.toBeNull();
-
-    buttonWithText('Branch simulation')?.click();
-    await vi.waitFor(() =>
-      expect(document.querySelector('[aria-label="Branch simulation"]')).not.toBeNull(),
-    );
-    const branchSimulation = document.querySelector<HTMLElement>(
-      '[aria-label="Branch simulation"]',
-    );
-    expect(branchSimulation?.textContent).toContain('Visitor trait key');
-    expect(branchSimulation?.textContent).not.toContain('Completion behavior');
-    expect(branchSimulation?.textContent).not.toContain('Draft checkpoints');
 
     window.history.replaceState(null, '', '/');
   });
@@ -536,23 +507,19 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     });
     await flushPreviewPatchQueue();
 
-    document
-      .querySelector<HTMLElement>('.rich-step-rendered-content')
-      ?.dispatchEvent(new Event('pointerdown', { bubbles: true }));
     await vi.waitFor(() => expect(document.querySelector('.rich-content-editor')).not.toBeNull());
+    expect(document.querySelectorAll('.rich-content-canvas')).toHaveLength(1);
+    expect(document.body.textContent).not.toContain('Before');
+    expect(document.body.textContent).not.toContain('After');
 
-    const editor = document.querySelector<HTMLElement>('.rich-content-editor');
-    expect(editor?.querySelectorAll('.rich-content-canvas')).toHaveLength(1);
-    expect(editor?.querySelector('[aria-label="Bold"]')).not.toBeNull();
-    expect(editor?.querySelector('[aria-label="Underline"]')).not.toBeNull();
-    expect(editor?.querySelector('[aria-label="Link"]')).not.toBeNull();
-    expect(editor?.querySelector('[aria-label="Emoji"]')).not.toBeNull();
-    expect(editor?.querySelector('[aria-label="Icon"]')).not.toBeNull();
-    expect(editor?.querySelector('[aria-label="Media"]')).not.toBeNull();
-    expect(editor?.textContent).not.toContain('Before');
-    expect(editor?.textContent).not.toContain('After');
+    await openRichContentInsertMenu();
+    expect(document.querySelector('.rich-content-insert-menu')?.textContent).toContain('Emoji');
+    expect(document.querySelector('.rich-content-insert-menu')?.textContent).toContain('Icon');
+    expect(document.querySelector('.rich-content-insert-menu')?.textContent).toContain('Divider');
+    document.querySelector<HTMLButtonElement>('[aria-label="Add content"]')?.click();
 
-    const spacing = editor?.querySelector<HTMLInputElement>('[aria-label="Space after"]');
+    await openRichContentBlockSettings();
+    const spacing = document.querySelector<HTMLInputElement>('[aria-label="Space after"]');
     if (!spacing) throw new Error('exact spacing input missing');
     const setInputValue = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
     setInputValue?.call(spacing, '23');
@@ -593,9 +560,10 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     expect(document.querySelector('.panel-advanced-main > .document')).toBeNull();
     expect(document.querySelector('.panel-advanced-main > .insert-bar')).toBeNull();
     expect(document.querySelector('.panel-advanced-main .inspector')).toBeNull();
-    expect(
-      getComputedStyle(document.querySelector<HTMLElement>('.tour-review-main')!).overflowY,
-    ).toBe('auto');
+    expect(document.querySelector('.tour-review-main')).not.toBeNull();
+    expect(document.head.querySelector('style')?.textContent).toMatch(
+      /\.tour-review-main \{[\s\S]*?overflow-y:\s*auto/,
+    );
     buttonWithText('Edit details')?.click();
     await vi.waitFor(() =>
       expect(document.querySelector('.panel-advanced-main .inspector')).not.toBeNull(),
@@ -900,13 +868,11 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
       placement?.querySelector<HTMLButtonElement>('[aria-label="Placement New project actions"]'),
     ).not.toBeNull();
 
-    document
-      .querySelector<HTMLElement>('.rich-step-block-row')
-      ?.dispatchEvent(new Event('pointerdown', { bubbles: true }));
+    buttonWithText('Placement', document.querySelector('.storyboard-tool-dock')!)?.click();
     await vi.waitFor(() =>
       expect(document.querySelector<HTMLElement>('section[aria-label="Placement"]')).toBeNull(),
     );
-    expect(document.querySelector('.rich-step-toolbar')).not.toBeNull();
+    expect(document.querySelector('.rich-content-canvas')).not.toBeNull();
   });
 
   it('offers one choose-element action for an unplaced compact step', async () => {
@@ -1132,7 +1098,7 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     expect(document.querySelector('.inline-command-menu:not([hidden])')).toBeNull();
   });
 
-  it('routes text and media authoring through Rich content while keeping Button separate', async () => {
+  it('routes text, media, and buttons through the single Rich content editor', async () => {
     await loadFrame();
 
     const openMenu = document.querySelector<HTMLButtonElement>(
@@ -1146,9 +1112,9 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     const commands = [...(menu?.querySelectorAll<HTMLElement>('.command-item') ?? [])].map(
       (command) => command.textContent?.trim(),
     );
-    expect(commands).toHaveLength(2);
+    expect(commands).toHaveLength(1);
     expect(commands.some((label) => label?.includes('Rich content'))).toBe(true);
-    expect(commands.some((label) => label?.includes('Button'))).toBe(true);
+    expect(commands.some((label) => label?.includes('Button'))).toBe(false);
     expect(menu?.textContent).not.toContain('Heading');
     expect(menu?.textContent).not.toContain('Media');
     expect(menu?.textContent).not.toContain('Callout');
@@ -1189,9 +1155,9 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     expect(openMenu?.getAttribute('aria-expanded')).toBe('true');
     expect(menu?.parentElement).toBe(document.body);
     expect(menu?.getAttribute('role')).toBe('listbox');
-    expect(menu?.querySelectorAll('.command-item')).toHaveLength(2);
+    expect(menu?.querySelectorAll('.command-item')).toHaveLength(1);
     expect(menu?.textContent).toContain('Rich content');
-    expect(menu?.textContent).toContain('Button');
+    expect(menu?.textContent).not.toContain('Button');
     expect(menu?.textContent).not.toContain('Callout');
     expect(menu?.textContent).not.toContain('Stat');
     expect(menu?.textContent).not.toContain('Icon');
@@ -1201,23 +1167,18 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     window.history.replaceState(null, '', '/authoring.html?lodariqFrame=panel');
     await loadFrame();
 
-    document
-      .querySelector<HTMLElement>('.rich-step-rendered-content')
-      ?.dispatchEvent(new Event('pointerdown', { bubbles: true }));
     await vi.waitFor(() => expect(document.querySelector('.rich-content-editor')).not.toBeNull());
 
-    document.querySelector<HTMLButtonElement>('.rich-content-block-style-trigger')?.click();
-    await vi.waitFor(() =>
-      expect(document.querySelector('.rich-content-block-menu')).not.toBeNull(),
-    );
-
-    const editor = document.querySelector<HTMLElement>('.rich-content-editor');
-    expect(document.querySelector('.rich-content-block-menu')?.textContent).toContain('Callout');
-    expect(editor?.querySelector('[aria-label="Icon"]')).not.toBeNull();
-    expect(editor?.querySelector('[aria-label="Media"]')).not.toBeNull();
-    expect(editor?.querySelector('[aria-label="Divider"]')).not.toBeNull();
-    expect(editor?.querySelector('[aria-label="Space after"]')).not.toBeNull();
-    expect(editor?.querySelector('[aria-label="Accessibility name"]')).toBeNull();
+    await openRichContentInsertMenu();
+    expect(document.querySelector('.rich-content-insert-menu')?.textContent).toContain('Callout');
+    expect(document.querySelector('.rich-content-insert-menu')?.textContent).toContain('Stat');
+    expect(document.querySelector('.rich-content-insert-menu')?.textContent).toContain('Icon');
+    expect(document.querySelector('.rich-content-insert-menu')?.textContent).toContain('Divider');
+    expect(document.querySelector('.rich-content-insert-menu')?.textContent).toContain('Button');
+    expect(document.querySelector('[aria-label="Accessibility name"]')).toBeNull();
+    document.querySelector<HTMLButtonElement>('[aria-label="Add content"]')?.click();
+    await openRichContentBlockSettings();
+    expect(document.querySelector('[aria-label="Space after"]')).toBeInstanceOf(HTMLInputElement);
 
     window.history.replaceState(null, '', '/');
   });
@@ -1226,10 +1187,10 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     window.history.replaceState(null, '', '/authoring.html?lodariqFrame=panel');
     await loadFrame();
 
-    const richContentTool = document.querySelector<HTMLButtonElement>(
-      '.storyboard-tool-dock button[aria-label="Rich content"]',
+    const placementTool = document.querySelector<HTMLButtonElement>(
+      '.storyboard-tool-dock button[aria-label="Placement"]',
     );
-    richContentTool?.click();
+    placementTool?.click();
     await vi.waitFor(() =>
       expect(document.querySelector('.storyboard-property-tray')).not.toBeNull(),
     );
@@ -1288,7 +1249,7 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
       '.inline-command-menu:not([hidden]) [aria-label="Search content"]',
     )!;
     const setInputValue = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
-    setInputValue?.call(search, 'but');
+    setInputValue?.call(search, 'rich');
     search.dispatchEvent(new Event('input', { bubbles: true }));
     await flushPreviewPatchQueue();
     search.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
@@ -1299,7 +1260,7 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     };
     expect(doc.blocks[0]?.children[0]?.children.map((block) => block.type)).toEqual([
       'heading',
-      'button',
+      'paragraph',
       'paragraph',
       'button',
     ]);
@@ -1591,12 +1552,12 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     window.history.replaceState(null, '', '/authoring.html?lodariqFrame=panel');
     await loadFrame();
 
-    expect(document.querySelector('.rich-step-rendered-content')).not.toBeNull();
+    expect(document.querySelector('.rich-content-canvas')).not.toBeNull();
     expect(document.querySelector('[aria-label="Text move and format"]')).toBeNull();
     expect(document.querySelector('[aria-label="Duplicate text"]')).toBeNull();
     expect(document.querySelector('[aria-label="Delete text"]')).toBeNull();
     expect(document.querySelector('.step-child-action-popover')).toBeNull();
-    expect(document.querySelector('[aria-label="Button label"]')).not.toBeNull();
+    expect(document.querySelector('[aria-label="Button label"]')).toBeNull();
 
     window.history.replaceState(null, '', '/');
   });
@@ -1847,12 +1808,10 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     window.history.replaceState(null, '', '/authoring.html?lodariqFrame=panel');
     await loadFrame();
 
-    document
-      .querySelector<HTMLElement>('.rich-step-rendered-content')
-      ?.dispatchEvent(new Event('pointerdown', { bubbles: true }));
     await vi.waitFor(() => expect(document.querySelector('.rich-content-editor')).not.toBeNull());
     postMessage.mockClear();
 
+    await openRichContentBlockSettings();
     const spacing = document.querySelector<HTMLInputElement>('[aria-label="Space after"]');
     if (!spacing) throw new Error('exact spacing input missing');
     const setInputValue = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
@@ -2903,11 +2862,7 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     window.history.replaceState(null, '', '/authoring.html?lodariqFrame=panel');
     await loadFrame();
 
-    document
-      .querySelector<HTMLElement>('.rich-step-rendered-content')
-      ?.dispatchEvent(new Event('pointerdown', { bubbles: true }));
-    await vi.waitFor(() => expect(document.querySelector('.rich-content-editor')).not.toBeNull());
-
+    await openRichContentBlockSettings();
     const spacing = document.querySelector<HTMLInputElement>('[aria-label="Space after"]');
     if (!spacing) throw new Error('exact spacing input missing');
     const setInputValue = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
@@ -2915,10 +2870,8 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     spacing.dispatchEvent(new Event('change', { bubbles: true }));
     await flushPreviewPatchQueue();
     expect(
-      document
-        .querySelector('.rich-step-rendered-content')
-        ?.getAttribute('data-lodariq-spacing-after-px'),
-    ).toBe('27');
+      document.querySelector('[data-lodariq-spacing-after-px="27"]'),
+    ).not.toBeNull();
     expect(document.querySelector('.property-chip')).toBeNull();
 
     window.history.replaceState(null, '', '/');

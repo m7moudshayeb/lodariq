@@ -175,6 +175,7 @@ import {
 } from './choreography';
 import { TourStepStyleContent, TourStepStyleSnapshot } from './authoring-style';
 import {
+  FormFieldPresentation,
   MediaPresentation,
   ResponsiveStepOverride,
   ResponsiveStepPresentation,
@@ -597,6 +598,7 @@ export const SCHEMA_REGISTRY: TSchema[] = [
   ResponsiveStepOverride,
   ResponsiveStepPresentation,
   MediaPresentation,
+  FormFieldPresentation,
   SpotlightPresentation,
   StructuredCompositionPresentation,
   InlineTextRun,
@@ -898,6 +900,7 @@ export const FASTIFY_REFERENCE_SCHEMA_REGISTRY: TSchema[] = [
   ResponsiveStepOverride,
   ResponsiveStepPresentation,
   MediaPresentation,
+  FormFieldPresentation,
   SpotlightPresentation,
   StructuredCompositionPresentation,
   PresentationAnchor,

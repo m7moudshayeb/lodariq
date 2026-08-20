@@ -105,14 +105,16 @@ separately below.
 
 After the closure gate above, the creator-facing content model was simplified
 and expanded. The outer tray now exposes one reusable freeform **Rich content**
-field rather than separate heading, paragraph, list, media, callout, stat, and
-icon insertion blocks. CTA buttons remain separately modeled action items and
-can be placed before or after the rich content.
+field rather than separate heading, paragraph, list, media, callout, stat, icon,
+and button insertion workflows. CTA buttons remain typed canonical action
+blocks, but are now authored as contextual decorator nodes inside the same
+ordered Rich content document.
 
 The standalone `RichContentEditor` now provides:
 
-- selection-preserving inline formatting, color, highlight, safe links, and
-  bounded animation recipes;
+- selection-preserving direct controls for inline formatting, color, highlight,
+  safe links, and bounded animation recipes without a separate area-selection
+  mode;
 - normal text, headings, lists, callouts, dividers, emoji, and searchable
   allowlisted Lucide icons with configurable color;
 - outside-click menu dismissal while emoji/icon pickers remain open across
@@ -123,6 +125,8 @@ The standalone `RichContentEditor` now provides:
 - an immediate image/video preview, a progress line on the media, stable video
   controls, eight-edge plus keyboard resizing, and creator-facing framing
   choices; and
+- contextual in-document CTA label, behavior, destination, and recipe controls;
+- 200 ms trailing throttling for canonical rich-content updates; and
 - direct decorator selection/deletion plus adjacent Backspace/Delete behavior.
 
 Rich content still serializes to the closed canonical block registry and
@@ -136,26 +140,47 @@ Blob on demand to create a fresh object URL. Hosted authoring continues to use
 the authenticated media API and server validation. Existing local asset IDs
 whose bytes were lost before this durable store cannot be recovered.
 
+The local path now enforces the same 5 MiB per-asset contract as hosted
+authoring, validates Blob/metadata agreement, checks browser quota when the
+Storage API exposes it, and reports size or quota failures rather than saving an
+asset that will disappear on reload. IndexedDB remains a local-preview cache;
+the future reusable media library requires hosted object storage and a streaming
+upload path for materially larger video limits.
+
+Stored media width, height, and framing now render consistently in the editor,
+authored canvas, and runtime popup. Custom heights are no longer capped by the
+canvas thumbnail rule, and visible media captions/filenames were removed while
+the accessibility name remains intact.
+
 The earlier full repository and cross-browser results in **Closure
 verification** are a valid pre-expansion baseline, not evidence for this later
 delta. Current delta evidence is:
 
-| Gate                                | Current result                                                                                                                        |
-| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| Focused rich-content/canvas tests   | 59 focused tests passed during the UX stabilization pass                                                                              |
-| Local media regression              | 7 local-dev tests passed after durable local storage                                                                                  |
-| SDK authoring checks                | Typecheck, lint, Prettier, and production build passed after the persistence change                                                   |
-| In-app interaction                  | Upload preview, progress placement, video thumbnail/controls, width and height resizing, and CTA before/after placement were verified |
-| In-app teardown/reopen persistence  | Pending final upload → close editor → reopen verification against the new IndexedDB path                                              |
-| Full repository regression          | Pending after this post-closure expansion; no new E2E was added or run during the requested UX-sharpening pass                        |
-| Deployed/assistive-technology proof | Still pending under **External evidence not claimed**                                                                                 |
+| Gate                                | Current result                                                                                                                                                                                                                   |
+| ----------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Focused rich-content/canvas tests   | 108 tests passed across the editor, document operations, fixture-host canvas, local media store, and schema capability contracts                                                                                                 |
+| Local media regression              | IndexedDB metadata/Blob round trip and invalid oversized-record rejection passed                                                                                                                                                 |
+| SDK authoring checks                | Typecheck, lint, Prettier, and production build passed after the persistence change                                                                                                                                              |
+| In-app interaction                  | Single Rich content entry, contextual animation and CTA controls, designed selects, outside dismissal, and footer-safe floating placement verified; exact-range color/highlight is covered by the focused Lexical/DOM regression |
+| Local media persistence             | Independent IndexedDB metadata/Blob reads and invalid oversized-record rejection covered; prior orphaned asset bytes remain unrecoverable                                                                                        |
+| Full repository regression          | Full `pnpm verify` passed: 155 test files passed, 1 skipped; 1,242 tests passed, 12 environment-gated tests skipped; all 20 typecheck, 13 lint, and 14 build/size tasks passed                                                   |
+| Localization                        | Dashboard 853, authoring 1,451, launcher runtime 23, and tour runtime 18 source messages complete; 11,936 translations validated across 8 locales                                                                                |
+| Distribution and security           | 184 versioned SDK CDN assets prepared; all runtime and authoring size budgets passed; package audit found no known vulnerabilities                                                                                               |
+| Deployed/assistive-technology proof | Still pending under **External evidence not claimed**                                                                                                                                                                            |
 
 Accordingly, release trains A through D and the current capability code are
-implemented, but the plan is not yet 100% complete under its own Definition of
-Done. The fresh in-app lifecycle check, the full local repository regression
-gate for this delta, and the already-listed external evidence remain open.
-Bidirectional selection from the media library is a documented future extension
-and is not required by the original release-train scope.
+implemented locally. Bidirectional selection from the media library and a
+streaming/object-storage path for larger video are documented future extensions
+and are not required by the original release-train scope. Deployment, physical
+assistive-technology sessions, and real-environment release evidence remain
+external validation rather than unfinished local code.
+
+The native file chooser is not scriptable through the in-app browser control
+surface, so the local media byte lifecycle is verified at the IndexedDB boundary
+with independent writes and reads while rendered media behavior is verified in
+the in-app editor and popup separately. A human-operated chooser, editor
+teardown, reopen, and render pass remains an explicit release evidence item; it
+does not represent unfinished implementation code.
 
 ## Initial implementation record — 2026-08-13
 

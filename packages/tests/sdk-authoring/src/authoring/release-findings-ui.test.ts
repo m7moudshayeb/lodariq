@@ -209,30 +209,31 @@ describe('authoring Release options findings', () => {
       expect(repairButton?.textContent).toContain('Choose action');
     });
     repairButton!.click();
+    await vi.waitFor(() =>
+      expect(
+        document.querySelector('.rich-content-button-preview-shell[data-block-id="block_button_1"]'),
+      ).not.toBeNull(),
+    );
+    document
+      .querySelector<HTMLButtonElement>(
+        '[data-block-id="block_button_1"] [aria-label="Configure button"]',
+      )
+      ?.click();
 
     await vi.waitFor(() => {
-      const selectedBlock = document.querySelector<HTMLElement>(
-        '.rich-step-block-row[data-block-id="block_button_1"]',
-      );
-      const behaviorTray = document.querySelector<HTMLElement>(
-        '[aria-label="Selected action style"]',
-      );
       const actionControl = document.querySelector<HTMLElement>(
         '[data-property-id="button.action"]',
       );
-      const firstAction = actionControl?.querySelector<HTMLButtonElement>('button');
-      expect(selectedBlock?.classList.contains('active')).toBe(true);
-      expect(behaviorTray?.querySelector('[aria-label="Button settings"]')?.textContent).toContain(
-        'Behavior',
-      );
       expect(actionControl).not.toBeNull();
-      expect(document.activeElement).toBe(firstAction);
+      expect(actionControl?.querySelector('button')).not.toBeNull();
     });
     expect(document.querySelector('.release-blocker-card')).toBeNull();
 
-    document.querySelector<HTMLButtonElement>('[aria-label="Close settings"]')?.click();
+    document.querySelector<HTMLButtonElement>(
+      '.storyboard-property-tray[data-tool-mode="content"] .storyboard-tray-close',
+    )?.click();
     await vi.waitFor(() => {
-      expect(document.querySelector('[aria-label="Selected action style"]')).toBeNull();
+      expect(document.querySelector('[data-property-id="button.action"]')).toBeNull();
     });
   });
 

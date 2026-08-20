@@ -327,6 +327,7 @@ export const PreviewPatchOperation = Type.Union(
         Type.Literal('callout'),
         Type.Literal('stat'),
         Type.Literal('icon'),
+        Type.Literal('formField'),
       ]),
     }),
     Type.Object({

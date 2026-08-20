@@ -100,6 +100,7 @@ const BLOCK_CAPABILITIES: Partial<
   callout: ['structuredContent', 'presentation'],
   stat: ['structuredContent', 'presentation'],
   icon: ['structuredContent', 'presentation'],
+  formField: ['structuredContent'],
   button: ['structuredContent', 'actions'],
   link: ['structuredContent', 'actions'],
 };

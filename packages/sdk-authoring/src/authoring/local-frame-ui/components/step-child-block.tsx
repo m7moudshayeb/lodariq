@@ -29,6 +29,7 @@ const STEP_CONTENT_ACTION_LABELS = {
   callout: authoringText('Callout'),
   stat: authoringText('Stat'),
   icon: authoringText('Icon'),
+  formField: authoringText('field'),
 } as const satisfies Record<EditableBlockTypeValue, string>;
 
 export function StepChildBlock({

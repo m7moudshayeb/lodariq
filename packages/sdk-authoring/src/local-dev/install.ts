@@ -9,6 +9,7 @@ import { installLodariq, readConfigFromScript } from '@lodariq/sdk-runtime/lodar
 import { compilePreview, loadDocument, saveDocument } from '@lodariq/sdk-runtime/lodariq-local-dev';
 import { LOCAL_AUTHORING_SESSION_ID } from '../authoring/constants';
 import { createLocalExperienceId, createTourDraft } from '../creator-experiences';
+import { resolveLocalMediaAssetUrl } from './local-media-store';
 import {
   installCreatorToolbar,
   type CreatorPageExperienceSummary,
@@ -102,6 +103,7 @@ export async function installLocalLodariqAuthoringFromScript(
             }
             return lodariq.playAuthoringPreview(compiled, {
               ownerId: previewOptions.ownerId,
+              resolveMediaAsset: resolveLocalMediaAssetUrl,
               ...(previewOptions.locale ? { locale: previewOptions.locale } : {}),
               ...(previewOptions.interactive ? { interactive: true } : {}),
               ...(previewOptions.stepId ? { initialStepId: previewOptions.stepId } : {}),
@@ -173,7 +175,9 @@ export async function installLocalLodariqAuthoringFromScript(
     onPreview: async () => {
       if (!lodariq) throw new Error('Lodariq local preview is not installed');
       const document = currentDocument(localConfig, options.baseDocument, activeDocumentId);
-      await lodariq.playTour(await compilePreview(document));
+      await lodariq.playTour(await compilePreview(document), {
+        resolveMediaAsset: resolveLocalMediaAssetUrl,
+      });
     },
   });
   return api;

@@ -32,6 +32,7 @@ describe('Lodariq Lexical nodes (PRD §16.1)', () => {
       'callout',
       'stat',
       'icon',
+      'formField',
       'link',
       'tourStep',
       'tooltip',

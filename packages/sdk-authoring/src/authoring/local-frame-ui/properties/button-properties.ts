@@ -2,19 +2,17 @@ import {
   BLOCK_SPACING_PX_LIMITS,
   type ButtonStyleProps,
   type LodariqBlock,
-  type TooltipLayoutProps,
   CONTRAST_RATIO_TARGETS,
   evaluateContrast,
   type ContrastEvaluation,
 } from '@lodariq/schema';
 import type { LocalAuthoringFrameController } from '../controller';
 import { EDITABLE_ACTION_OPTIONS, EDITABLE_BUTTON_VARIANT_OPTIONS } from '../types';
-import { BLOCK_ALIGNMENT_OPTIONS } from './options';
 import type { PropertyDefinition } from './registry';
 import { authoringText } from '../../../i18n';
 
 export type ButtonPropertyGroup =
-  'appearance' | 'behavior' | 'size' | 'alignment' | 'shape' | 'colors' | 'spacing';
+  'appearance' | 'behavior' | 'size' | 'shape' | 'colors' | 'spacing';
 
 export interface ButtonPropertyContext {
   block: LodariqBlock;
@@ -142,21 +140,6 @@ export const BUTTON_PROPERTY_DEFINITIONS: ReadonlyArray<PropertyDefinition<Butto
       apply: ({ block, controller }, value) => {
         if (isOptionValue(BUTTON_SIZE_OPTIONS, value))
           controller.setButtonStyle(block.id, { size: value });
-      },
-    },
-    {
-      id: 'button.alignment',
-      group: 'alignment',
-      label: authoringText('Alignment'),
-      scope: 'surface',
-      control: 'segmented',
-      options: BLOCK_ALIGNMENT_OPTIONS,
-      quick: true,
-      read: ({ block, tooltip }) =>
-        tooltip.props.tooltipLayout?.actionAlign ?? block.props.blockLayout?.align ?? 'start',
-      apply: ({ block, controller, tooltip }, value) => {
-        if (!isOptionValue(BLOCK_ALIGNMENT_OPTIONS, value)) return;
-        controller.setActionAlignment(block.id, tooltip.id, value);
       },
     },
     ...buttonStyleDefinitions(),
@@ -301,11 +284,4 @@ export function buttonColorContrast(block: LodariqBlock, propertyId: string): Co
     CONTRAST_RATIO_TARGETS.text,
     CONTRAST_RATIO_TARGETS.textUnusable,
   );
-}
-
-export function actionAlignmentValue(
-  block: LodariqBlock,
-  tooltip: LodariqBlock,
-): NonNullable<TooltipLayoutProps['actionAlign']> {
-  return tooltip.props.tooltipLayout?.actionAlign ?? block.props.blockLayout?.align ?? 'start';
 }

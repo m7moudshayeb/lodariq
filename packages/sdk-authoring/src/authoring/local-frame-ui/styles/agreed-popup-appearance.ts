@@ -2,7 +2,7 @@
 export const AUTHORING_AGREED_POPUP_APPEARANCE_CSS = `
   /* Appearance and presentation stay attached to the selected popup. */
   .storyboard-canvas .rich-step-editor:has(.storyboard-property-tray[data-tool-mode='popup']) {
-    grid-template-rows: minmax(128px, 1fr) auto;
+    grid-template-rows: auto minmax(128px, 1fr) auto;
   }
 
   .rich-step-editor:has(.storyboard-property-tray[data-tool-mode='popup'])
@@ -30,13 +30,31 @@ export const AUTHORING_AGREED_POPUP_APPEARANCE_CSS = `
     display: none;
   }
 
+  .storyboard-property-tray[data-tool-mode='popup'] {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
   .storyboard-property-tray[data-tool-mode='popup'] > .popup-inspector-tabs {
     position: relative;
     top: 0;
+    grid-column: 1;
+    grid-row: 1;
     height: 44px;
     min-height: 44px;
     align-items: stretch;
     padding: 0 20px;
+  }
+
+  .storyboard-property-tray[data-tool-mode='popup'] > .storyboard-tray-close {
+    grid-column: 2;
+    grid-row: 1;
+    align-self: center;
+    margin-inline-end: 12px;
+  }
+
+  .storyboard-property-tray[data-tool-mode='popup'] > .popup-inspector-tabs ~ * {
+    grid-column: 1 / -1;
   }
 
   .storyboard-property-tray[data-tool-mode='popup'] > .popup-inspector-tabs button {

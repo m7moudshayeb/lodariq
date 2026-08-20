@@ -98,7 +98,7 @@ export abstract class ControllerContentFeature extends ControllerPropertyFeature
     if (!blocks || JSON.stringify(blocks) === JSON.stringify(this.documentState.blocks)) return;
     this.recordChange();
     this.documentState = { ...this.documentState, blocks };
-    this.afterDocumentMutation();
+    this.afterDocumentMutation({ skipNormalize: true });
     this.services.saveDocument(this.documentState);
     this.sendPreviewPatch(stepBlockId, [
       { op: 'replaceStepRichContent', stepBlockId, blocks: [...richContent] },

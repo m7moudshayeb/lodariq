@@ -112,12 +112,14 @@ export class ControllerSnapshotFeature extends ControllerTargetDocumentFeature {
     this.metricsText = JSON.stringify(summary ?? {}, null, 2);
   }
 
-  protected afterDocumentMutation(): void {
+  protected afterDocumentMutation(options?: { skipNormalize?: boolean }): void {
     if (this.translationState === 'translating') {
       this.translationState = 'idle';
       this.translationRequestVersion += 1;
     }
-    this.documentState = this.normalizeDocument(this.documentState);
+    if (!options?.skipNormalize) {
+      this.documentState = this.normalizeDocument(this.documentState);
+    }
     this.documentTransactions.adoptOptimisticDocument(this.documentState);
     this.documentChangeSequence += 1;
     this.releaseRequestVersion += 1;

@@ -10,7 +10,7 @@ describe('tour renderer recipes', () => {
   it('provides the same complete popup defaults to authoring and runtime', () => {
     expect(resolveTourCompositionRecipe(undefined)).toEqual({
       actionAlign: 'start',
-      actionLayout: 'inline',
+      actionLayout: 'stack',
       contentAlign: 'left',
       gap: 'normal',
       heightPx: null,

@@ -17,6 +17,7 @@ import {
   Heading,
   Image,
   CircleAlert,
+  CircleCheck,
   Activity,
   Shapes,
   Link as LinkIcon,
@@ -27,7 +28,7 @@ import {
   Wand2,
   X,
 } from '../design-system';
-import { STEP_CONTENT_COMMANDS, type SlashCommand } from '../types';
+import { STEP_CONTENT_ENTRY_COMMANDS, type SlashCommand } from '../types';
 import { slashCommandLabel } from '../utils';
 import { claimContextualSurface } from '../../contextual-surface-coordinator';
 
@@ -55,6 +56,10 @@ export const COMMAND_DETAILS: Record<SlashCommand, { description: string; icon: 
   icon: {
     description: authoringText('Add an icon'),
     icon: <Shapes size={14} strokeWidth={2.2} />,
+  },
+  formField: {
+    description: authoringText('Add a form field'),
+    icon: <CircleCheck size={14} strokeWidth={2.2} />,
   },
   link: {
     description: authoringText('Add a link'),
@@ -122,7 +127,7 @@ export function InlineStepInsert({
 }) {
   return (
     <InlineInsertMenu
-      commands={STEP_CONTENT_COMMANDS}
+      commands={STEP_CONTENT_ENTRY_COMMANDS}
       compact
       label={label}
       onCommand={(command) => controller.insertStepContent(stepBlockId, command, index)}

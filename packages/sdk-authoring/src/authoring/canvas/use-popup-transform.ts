@@ -238,10 +238,11 @@ function clampOffset(
   if (!stage) return { x: snapToGrid(next.x, 4), y: snapToGrid(next.y, 4) };
   const stageRect = stage.getBoundingClientRect();
   const popupRect = popup.getBoundingClientRect();
-  const minX = current.x + (stageRect.left + 12 - popupRect.left) / scale;
-  const maxX = current.x + (stageRect.right - 96 - popupRect.right) / scale;
-  const minY = current.y + (stageRect.top + 12 - popupRect.top) / scale;
-  const maxY = current.y + (stageRect.bottom - 48 - popupRect.top) / scale;
+  const inset = 12;
+  const minX = current.x + (stageRect.left + inset - popupRect.left) / scale;
+  const maxX = current.x + (stageRect.right - inset - popupRect.right) / scale;
+  const minY = current.y + (stageRect.top + inset - popupRect.top) / scale;
+  const maxY = current.y + (stageRect.bottom - inset - popupRect.bottom) / scale;
   return {
     x: clamp(snapToGrid(next.x, 4), Math.min(minX, maxX), Math.max(minX, maxX)),
     y: clamp(snapToGrid(next.y, 4), Math.min(minY, maxY), Math.max(minY, maxY)),

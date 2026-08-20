@@ -456,6 +456,7 @@ export const AUTHORING_ADVANCED_SHELL_CSS = `
     --lq-color-blue: #367bf5;
     --lq-color-blue-soft: #eef4ff;
     --lq-color-blue-border: #367bf5;
+    --lq-shadow-popover: 0 18px 44px rgba(15, 36, 31, 0.16);
     container-name: authoring-frame;
     container-type: inline-size;
     color-scheme: light;

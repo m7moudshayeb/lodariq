@@ -13,9 +13,27 @@ blocks from the outer tray. The creator authors a continuous document with a
 caret and selection. Lodariq translates that document to safe structured block
 JSON at the editor boundary.
 
-CTA buttons remain separate action items because they own Tour behavior. A CTA
-can be placed before or after the rich content, and the popup's insertion
-controls remain visible without requiring hover.
+Writing happens in place inside the popup. Format and insert controls live on a
+persistent toolbar in the authoring chrome around that popup, so the published
+preview stays clean and the tools stay available without a text selection or a
+hover. Hover gutter handles remain as an extra way to insert after a block,
+reorder, and open per-block settings.
+
+Media, icons, buttons, and form fields sit in the document flow. Icons can sit
+in a line of text. Media, buttons, and fields occupy a row but keep a caret
+before and after them, so the popup behaves like a Notion page rather than a
+stack of locked bricks. Consecutive buttons stack by default. The Popup tray
+**Action layout** control is the only way to put them on one line; **Action
+alignment** and **Action gap** live next to it and apply to the whole action
+row, not to a single button. **Start** keeps inline actions packed; **Stretch**
+spreads hug buttons to the popup edges.
+
+CTA buttons and form fields open a property tray under the canvas. Button
+and field settings use tabs, like popup layout. Fill, label color, and border
+stay on one row. Opening Placement or Popup closes that tray, and selecting a
+button or field closes Placement or Popup. The tray edits the Lexical node
+directly so the canvas stays in sync. Form field answers stay in the experience
+player; Lodariq does not read a customer database.
 
 The component is `RichContentEditor` in
 `packages/sdk-authoring/src/editor/rich-content-editor.tsx`. It is a standalone,
@@ -34,9 +52,15 @@ without importing those workflows.
 
 ## Editing behavior
 
-Creators can author normal text, headings, bulleted lists, callouts, dividers,
-links, emoji, icons, images, GIFs, and videos in one field. Text selection can
-apply:
+Creators can author normal text, headings, bulleted lists, callouts, stats,
+dividers, links, emoji, icons, images, GIFs, videos, CTA buttons, and form
+fields (checkbox, text, radio) in one field. The toolbar is always visible
+while editing. Format actions apply to the current selection, or to the next
+typed characters when the caret is collapsed. Icon, emoji, media, divider,
+button, and field insert at the caret from the toolbar.
+Text color and highlight remain direct toolbar controls; animation opens in a
+contextual Floating UI panel without introducing a separate area-selection
+mode. A selection or caret can apply:
 
 - bold, italic, and underline;
 - a bounded font size;
@@ -62,9 +86,14 @@ stay deterministic even though the picker artwork comes from Lucide.
 Spacing after the active content item is a whole-pixel input from 0 through 96
 instead of a small set of subjective presets.
 
-Decorator items—media, icons, and dividers—can be selected directly. Backspace
-or Delete removes a selected decorator, and a collapsed caret removes the
-adjacent decorator in the expected direction.
+Decorator items—buttons, media, icons, and dividers—can be selected directly.
+Backspace or Delete removes a selected decorator, and a collapsed caret removes
+the adjacent decorator in the expected direction.
+
+Canonical change delivery is debounced until typing is idle (300 ms). Lexical
+still updates its local editing surface synchronously, so typing and selection
+remain immediate while persistence and the authored popup are not rebuilt for
+every keystroke.
 
 ## Media authoring
 
@@ -101,6 +130,12 @@ control uses creator-facing labels:
 
 Backspace or Delete removes focused or selected media.
 
+Stored width, height, and framing values are applied by all three surfaces: the
+rich editor, the authored canvas popup, and the framework-free runtime popup. A
+custom height is not capped by the canvas's default thumbnail height. The media
+accessibility name remains available to assistive technology but is not rendered
+as a visible filename or caption beneath the media.
+
 ## Persistence and preview lifecycle
 
 The canonical document stores only an opaque asset ID plus bounded presentation
@@ -121,6 +156,17 @@ controller. Preview resolution fetches the matching Blob on demand and creates
 an iframe-owned object URL. This separation keeps large media bytes out of
 `localStorage` and avoids loading every media Blob when the editor opens.
 
+IndexedDB is a durable local-preview cache, not an unlimited media store. The
+current canonical and hosted-upload contract limits one asset to 5 MiB. Local
+authoring enforces the same limit before reading or hashing the file, verifies
+that metadata and Blob sizes agree, checks `navigator.storage.estimate()` when
+available, and turns `QuotaExceededError` into creator-facing copy. Browser
+quota is origin- and device-dependent and may be evicted, especially in private
+browsing or under storage pressure. Durable reusable media therefore belongs in
+the hosted media library; increasing the production video limit requires a
+streaming/object-storage upload design rather than simply accepting larger
+IndexedDB Blobs or base64 request bodies.
+
 Object URLs are preview-only and are revoked with the owning authoring
 lifecycle. Closing and reopening the editor must therefore recreate an object
 URL from the durable Blob rather than retaining an iframe URL.
@@ -131,24 +177,28 @@ cannot be recovered from its orphaned asset ID and must be uploaded once again.
 ## Canonical and runtime boundary
 
 Lexical is used only inside `packages/sdk-authoring/src/editor`. The editor
-serializes to heading, paragraph, list, callout, divider, icon, and media blocks
-plus bounded `contentRuns` for inline marks, color, highlight, animation, and
-links. Lexical node keys, toolbar state, open menus, upload progress, local
-preview URLs, and selection state are never canonical data.
+serializes to heading, paragraph, list, callout, stat, divider, icon, media,
+button, and formField blocks plus bounded `contentRuns` for inline marks, color,
+highlight, animation, and links. Lexical node keys, toolbar state, open menus,
+upload progress, local preview URLs, and selection state are never canonical
+data.
 
 The compiler validates this structured JSON and the runtime renders the same
 ordered content. Runtime media resolution applies the stored dimensions and
 framing recipe, videos expose controls and optional captions/poster assets, and
-inline links are resolved through the safe-navigation policy. No raw HTML,
-arbitrary CSS, JavaScript, or custom icon SVG enters the document.
+inline links are resolved through the safe-navigation policy. Form fields render
+as native checkbox, text, and radio controls whose values stay in the player.
+No raw HTML, arbitrary CSS, JavaScript, or custom icon SVG enters the document.
 
 ## Current verification boundary
 
 Focused rich-content/canvas tests, the local-dev suite, SDK authoring typecheck,
-lint, formatting, and build pass. In-app verification has covered insertion,
-selection formatting, image/video preview, upload progress placement,
-width/height resizing, stable video controls, and CTA placement. The final local
-upload → close editor → reopen → on-demand Blob resolution check remains pending
-after the IndexedDB fix, as does the full repository regression gate for this
-latest capability expansion. No new E2E coverage was added during the UX
-sharpening pass.
+lint, formatting, and build pass. In-app verification covers the single entry
+point, contextual animation and CTA editing, outside dismissal, non-native
+selects, footer collision avoidance, and authored popup updates. A focused
+Lexical/DOM regression selects only four characters and verifies that text color,
+highlight, and animation serialize on that exact range. Automated coverage also
+verifies IndexedDB Blob round trips across independent reads, early rejection of
+invalid oversized records, persisted media dimensions in the authored canvas,
+and runtime dimensions. No new E2E coverage was added or run during this
+requested UX-sharpening pass.

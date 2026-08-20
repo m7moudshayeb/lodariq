@@ -184,9 +184,9 @@ describe('tour renderer (PRD §16.1)', () => {
     await player.waitUntilReady();
 
     const host = document.querySelector<HTMLElement>('lodariq-tour');
-    const skip = host?.shadowRoot?.querySelector<HTMLButtonElement>('.tour-skip');
     expect(host).toMatchObject({ lang: 'ar', dir: 'rtl' });
-    expect(skip?.textContent).not.toBe('Skip tour');
+    expect(host?.dataset['lodariqContentLocale']).toBe('ar');
+    expect(host?.shadowRoot?.querySelector('.tour-skip')).toBeNull();
     player.stop();
   });
 
@@ -1513,7 +1513,7 @@ describe('tour renderer (PRD §16.1)', () => {
               type: 'media',
               props: {
                 media: {
-                  kind: 'video',
+                  kind: 'video' as const,
                   assetId: 'video-asset',
                   captionsAssetId: 'captions-asset',
                   posterAssetId: 'poster-asset',
@@ -1569,6 +1569,91 @@ describe('tour renderer (PRD §16.1)', () => {
     expect(video?.querySelector('track')?.getAttribute('src')).toBe('/captions/captions-asset');
     expect(video?.querySelector('track')?.kind).toBe('captions');
     expect(video?.querySelector('track')?.default).toBe(true);
+    player.stop();
+  });
+
+  it('hydrates media after an async asset resolver returns', async () => {
+    let resolveAsset!: (url: string) => void;
+    const pending = new Promise<string>((resolve) => {
+      resolveAsset = resolve;
+    });
+    const player = new TourPlayer(
+      {
+        ...outlineDisabledCompiledDoc,
+        steps: [
+          {
+            ...outlineDisabledCompiledDoc.steps[0]!,
+            body: [
+              {
+                id: 'image_async',
+                type: 'media',
+                props: {
+                  media: {
+                    kind: 'image',
+                    assetId: 'image-asset',
+                    accessibilityName: 'Landscape',
+                  },
+                },
+              },
+            ],
+          },
+        ],
+      } as NewCompiledDocument,
+      {
+        resolveMediaAsset: () => pending,
+      },
+    );
+    player.start();
+    const root = document.querySelector('lodariq-tour')?.shadowRoot;
+    expect(root?.querySelector('[data-lodariq-media-unavailable="true"]')).not.toBeNull();
+    resolveAsset('/image/image-asset');
+    await vi.waitFor(() =>
+      expect(root?.querySelector<HTMLImageElement>('img')?.getAttribute('src')).toBe(
+        '/image/image-asset',
+      ),
+    );
+    player.stop();
+  });
+
+  it('renders local blob preview URLs from the media resolver', async () => {
+    const blobUrl = 'blob:http://localhost:3000/media-asset';
+    const player = new TourPlayer(
+      {
+        ...outlineDisabledCompiledDoc,
+        steps: [
+          {
+            ...outlineDisabledCompiledDoc.steps[0]!,
+            body: [
+              {
+                id: 'image_blob',
+                type: 'media',
+                props: {
+                  media: {
+                    kind: 'image',
+                    assetId: 'image-asset',
+                    accessibilityName: 'Landscape',
+                  },
+                },
+              },
+            ],
+          },
+        ],
+      } as NewCompiledDocument,
+      {
+        resolveMediaAsset: async () => blobUrl,
+      },
+    );
+    player.start();
+    await vi.waitFor(() =>
+      expect(
+        document.querySelector('lodariq-tour')?.shadowRoot?.querySelector('img')?.getAttribute('src'),
+      ).toBe(blobUrl),
+    );
+    expect(
+      document
+        .querySelector('lodariq-tour')
+        ?.shadowRoot?.querySelector('[data-lodariq-media-unavailable="true"]'),
+    ).toBeNull();
     player.stop();
   });
 
@@ -1841,30 +1926,64 @@ describe('tour renderer (PRD §16.1)', () => {
     expect(document.querySelector('lodariq-tour')).toBeNull();
   });
 
-  it('offers an explicit skip control and reports it separately from dismiss and completion', () => {
-    const completed = vi.fn();
-    const dismissed = vi.fn();
-    const skipped = vi.fn();
-    const player = new TourPlayer(compiledDoc, {
-      onComplete: completed,
-      onDismiss: dismissed,
-      onSkip: skipped,
-    });
+  it('does not inject a static skip control; skip is authored as a canvas button', () => {
+    const player = new TourPlayer(compiledDoc);
 
     player.start();
     const root = document.querySelector('lodariq-tour')?.shadowRoot;
-    const skip = root?.querySelector<HTMLButtonElement>('.tour-skip');
 
-    expect(skip?.textContent).toBe('Skip tour');
-    expect(root?.querySelector('style')?.textContent).toContain(
-      '[data-lodariq-node-type="button"]',
+    expect(root?.querySelector('.tour-skip')).toBeNull();
+    expect(root?.textContent).not.toContain('Skip tour');
+    player.stop();
+  });
+
+  it('does not paint choreography recovery chrome on an authoring preview', async () => {
+    const player = new TourPlayer(
+      {
+        ...outlineDisabledCompiledDoc,
+        targets: [],
+        steps: [
+          {
+            id: 'step_waiting',
+            body: [
+              {
+                id: 'wait_action',
+                type: 'button',
+                text: 'Start wait',
+                props: {
+                  action: {
+                    type: 'runSequence',
+                    sequence: {
+                      trigger: { type: 'manual' },
+                      waitFor: [{ type: 'event', eventName: 'never.arrives' }],
+                      transition: { type: 'complete' },
+                      timeoutMs: 20,
+                      onTimeout: 'stay',
+                    },
+                  },
+                },
+              },
+            ],
+          },
+        ],
+      } as NewCompiledDocument,
+      {
+        authoringPreviewOwnerId: 'authoring_owner_recovery',
+        authoringPreviewInteractive: true,
+      },
     );
-    skip?.click();
-
-    expect(skipped).toHaveBeenCalledOnce();
-    expect(dismissed).not.toHaveBeenCalled();
-    expect(completed).not.toHaveBeenCalled();
-    expect(document.querySelector('lodariq-tour')).toBeNull();
+    player.start();
+    document
+      .querySelector('lodariq-tour')
+      ?.shadowRoot?.querySelector<HTMLButtonElement>('button')
+      ?.click();
+    await new Promise((resolve) => setTimeout(resolve, 80));
+    const root = document.querySelector('lodariq-tour')?.shadowRoot;
+    expect(root?.querySelector('.tour-choreography-recovery')).toBeNull();
+    expect(root?.textContent).not.toContain('Try again');
+    expect(root?.textContent).not.toContain('Skip step');
+    expect(root?.textContent).not.toContain('Exit tour');
+    player.stop();
   });
 
   it('advances after the user clicks the resolved product target', async () => {

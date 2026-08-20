@@ -82,15 +82,6 @@ export const AUTHORING_AGREED_STORYBOARD_CSS = `
     opacity: 0;
   }
 
-  .storyboard-editor-stage .action-context-toolbar .action-context-type strong {
-    overflow: hidden;
-    max-width: 104px;
-    color: currentcolor;
-    font-size: var(--lq-font-xs);
-    font-weight: var(--lq-weight-semibold);
-    text-overflow: ellipsis;
-  }
-
   .tour-storyboard-utilities {
     gap: 6px;
     padding-inline: 8px;

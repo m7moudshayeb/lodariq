@@ -1,8 +1,9 @@
-import type {
-  AuthoringMediaAssetKind,
-  AuthoringMediaAssetResource,
-  BrandThemeSnapshot,
-  LodariqDocument,
+import {
+  AUTHORING_RESOURCE_LIMITS,
+  type AuthoringMediaAssetKind,
+  type AuthoringMediaAssetResource,
+  type BrandThemeSnapshot,
+  type LodariqDocument,
 } from '@lodariq/schema';
 import {
   compilePreview,
@@ -149,6 +150,10 @@ async function uploadLocalMediaAsset(
   file: File,
   options: { onProgress?: (progress: number) => void; savedToLibrary: boolean },
 ): Promise<AuthoringMediaAssetResource> {
+  if (file.size < 1 || file.size > AUTHORING_RESOURCE_LIMITS.assetBytes) {
+    const maxMegabytes = AUTHORING_RESOURCE_LIMITS.assetBytes / 1_048_576;
+    throw new Error(`Media files must be ${maxMegabytes} MB or smaller.`);
+  }
   const id = `asset_local_${crypto.randomUUID().split('-').join('')}`;
   const bytes = await readFileWithProgress(file, options.onProgress);
   const digest = await crypto.subtle.digest('SHA-256', bytes);

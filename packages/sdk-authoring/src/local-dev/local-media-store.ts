@@ -1,4 +1,5 @@
 import {
+  AUTHORING_RESOURCE_LIMITS,
   AuthoringMediaAssetResource as AuthoringMediaAssetResourceSchema,
   validate,
   type AuthoringMediaAssetResource,
@@ -8,6 +9,7 @@ const LOCAL_MEDIA_DATABASE_NAME = 'lodariq-local-authoring';
 const LOCAL_MEDIA_DATABASE_VERSION = 1;
 const LOCAL_MEDIA_RESOURCE_STORE = 'media-asset-resources';
 const LOCAL_MEDIA_BLOB_STORE = 'media-asset-blobs';
+const LOCAL_MEDIA_STORAGE_HEADROOM_BYTES = 2_097_152;
 
 export interface LocalMediaAssetRecord {
   blob: Blob;
@@ -39,8 +41,22 @@ export async function loadLocalMediaAssetBlob(assetId: string): Promise<Blob | n
   return record.blob;
 }
 
+const localMediaPreviewUrls = new Map<string, string>();
+
+export async function resolveLocalMediaAssetUrl(assetId: string): Promise<string | null> {
+  const cached = localMediaPreviewUrls.get(assetId);
+  if (cached) return cached;
+  const blob = await loadLocalMediaAssetBlob(assetId);
+  if (!blob || typeof URL.createObjectURL !== 'function') return null;
+  const url = URL.createObjectURL(blob);
+  localMediaPreviewUrls.set(assetId, url);
+  return url;
+}
+
 export async function saveLocalMediaAssetRecord(record: LocalMediaAssetRecord): Promise<void> {
+  assertValidLocalMediaAssetRecord(record);
   if (!hasIndexedDatabase()) return;
+  await assertLocalMediaStorageCapacity(record.blob.size);
   const storedResource: StoredLocalMediaAssetResource = {
     id: record.resource.id,
     resource: structuredClone(record.resource),
@@ -49,7 +65,46 @@ export async function saveLocalMediaAssetRecord(record: LocalMediaAssetRecord): 
     id: record.resource.id,
     blob: record.blob,
   };
-  await runLocalMediaWrite(storedResource, storedBlob);
+  try {
+    await runLocalMediaWrite(storedResource, storedBlob);
+  } catch (error) {
+    if (isQuotaError(error)) {
+      throw new Error('This browser does not have enough local storage for that media file.');
+    }
+    throw error;
+  }
+}
+
+function assertValidLocalMediaAssetRecord(record: LocalMediaAssetRecord): void {
+  const validation = validate(AuthoringMediaAssetResourceSchema, record.resource);
+  if (!validation.valid) {
+    throw new Error('The media file does not meet the supported upload requirements.');
+  }
+  if (record.blob.size !== record.resource.byteLength) {
+    throw new Error('The saved media file is incomplete. Please upload it again.');
+  }
+  if (record.blob.size > AUTHORING_RESOURCE_LIMITS.assetBytes) {
+    throw new Error(localMediaFileSizeMessage());
+  }
+}
+
+async function assertLocalMediaStorageCapacity(requiredBytes: number): Promise<void> {
+  const storage = globalThis.navigator?.storage;
+  if (!storage?.estimate) return;
+  const estimate = await storage.estimate();
+  if (estimate.quota === undefined || estimate.usage === undefined) return;
+  const availableBytes = Math.max(0, estimate.quota - estimate.usage);
+  if (availableBytes >= requiredBytes + LOCAL_MEDIA_STORAGE_HEADROOM_BYTES) return;
+  throw new Error('This browser does not have enough local storage for that media file.');
+}
+
+function localMediaFileSizeMessage(): string {
+  const maxMegabytes = AUTHORING_RESOURCE_LIMITS.assetBytes / 1_048_576;
+  return `Media files must be ${maxMegabytes} MB or smaller.`;
+}
+
+function isQuotaError(error: unknown): boolean {
+  return error instanceof DOMException && error.name === 'QuotaExceededError';
 }
 
 function hasIndexedDatabase(): boolean {

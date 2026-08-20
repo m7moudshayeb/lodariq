@@ -281,6 +281,40 @@ describe('canonical tour fixture', () => {
         elevation: 'floating',
       },
     });
+    expect(
+      sanitizeBlockProps({
+        formField: {
+          control: 'radio',
+          name: 'plan',
+          required: true,
+          fillColor: '#12715b',
+          labelColor: 'red',
+          borderColor: '#006B58',
+          size: 'compact',
+          radius: 'round',
+          options: [
+            { id: 'option_a', label: 'Starter' },
+            { id: 'option_b', label: 'Growth' },
+            { id: '1bad', label: 'Skip' },
+          ],
+          onChange: 'alert(1)',
+        },
+      }),
+    ).toEqual({
+      formField: {
+        control: 'radio',
+        name: 'plan',
+        required: true,
+        fillColor: '#12715b',
+        borderColor: '#006B58',
+        size: 'compact',
+        radius: 'round',
+        options: [
+          { id: 'option_a', label: 'Starter' },
+          { id: 'option_b', label: 'Growth' },
+        ],
+      },
+    });
   });
 
   it('rejects arbitrary layout and action style values', () => {

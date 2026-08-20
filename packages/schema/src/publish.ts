@@ -82,6 +82,7 @@ const TOUR_TOOLTIP_BLOCK_TYPES = new Set([
   'callout',
   'stat',
   'icon',
+  'formField',
   'targetChip',
   'validationBadge',
 ]);
@@ -142,6 +143,7 @@ const PUBLISH_READINESS_ISSUE_LABELS = {
 const TOOLTIP_CHILD_VALIDATORS: Readonly<Record<string, TooltipChildValidator>> = {
   button: (block, issues) => validateActionBlock(block, 'button', issues),
   link: (block, issues) => validateActionBlock(block, 'link', issues),
+  formField: validateFormFieldBlock,
 };
 
 /**
@@ -532,6 +534,32 @@ function validateInlineContent(block: LodariqBlock, issues: PublishReadinessIssu
       code: 'open_page_unsafe_url',
       blockId: block.id,
       message: `${blockLabel(block)} contains a text link that is not allowed.`,
+    });
+  }
+}
+
+function validateFormFieldBlock(block: LodariqBlock, issues: PublishReadinessIssue[]): void {
+  const field = block.props.formField;
+  if (!field) {
+    issues.push({
+      code: 'incomplete_block',
+      blockId: block.id,
+      message: `${blockLabel(block)} needs a form field type before publishing.`,
+    });
+    return;
+  }
+  if (!block.content?.trim()) {
+    issues.push({
+      code: 'incomplete_block',
+      blockId: block.id,
+      message: `${blockLabel(block)} needs a visible label before publishing.`,
+    });
+  }
+  if (field.control === 'radio' && (field.options?.length ?? 0) < 2) {
+    issues.push({
+      code: 'incomplete_block',
+      blockId: block.id,
+      message: `${blockLabel(block)} needs at least two radio choices before publishing.`,
     });
   }
 }

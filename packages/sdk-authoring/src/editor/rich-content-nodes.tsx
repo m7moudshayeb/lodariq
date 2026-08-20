@@ -1,14 +1,25 @@
 import {
   MEDIA_HEIGHT_PX_LIMITS,
   MEDIA_WIDTH_PERCENT_LIMITS,
+  type BlockActionTypeValue,
+  type ButtonStyleProps,
+  type FormFieldControl,
+  type FormFieldPresentation,
   type ICON_RECIPE_VALUES,
+  type LodariqBlockProps,
   type MediaPresentation,
+  type OpenPageNavigationBehavior,
 } from '@lodariq/schema';
+import { resolveTourActionRecipe } from '@lodariq/sdk-runtime/renderers/tour';
 import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext';
 import {
   $applyNodeReplacement,
+  $createNodeSelection,
   $getNodeByKey,
+  $getRoot,
   $isDecoratorNode,
+  $isParagraphNode,
+  $setSelection,
   DecoratorNode,
   ParagraphNode,
   type EditorConfig,
@@ -18,8 +29,10 @@ import {
   type SerializedParagraphNode,
   type Spread,
 } from 'lexical';
+import { Settings2 } from 'lucide-react';
 import { DynamicIcon } from 'lucide-react/dynamic';
 import {
+  useContext,
   useEffect,
   useRef,
   useState,
@@ -29,6 +42,7 @@ import {
   type ReactNode,
 } from 'react';
 import { authoringText } from '../i18n';
+import { RichContentHostContext } from './rich-content-host-context';
 import { lucideIconName } from './rich-content-icons';
 import { RichContentSelect } from './rich-content-select';
 
@@ -39,6 +53,33 @@ const MEDIA_FIT_OPTIONS = [
   { label: authoringText('Fill the frame'), value: 'cover' },
   { label: authoringText('Stretch to frame'), value: 'fill' },
 ];
+
+export type RichButtonActionType = Exclude<BlockActionTypeValue, 'runSequence'>;
+
+export const RICH_BUTTON_SEQUENCE_ACTION_OPTION = {
+  value: 'runSequence',
+  label: authoringText('Run a sequence'),
+} as const;
+
+export const RICH_BUTTON_ACTION_OPTIONS: ReadonlyArray<{
+  label: string;
+  value: RichButtonActionType;
+}> = [
+  { value: 'next', label: authoringText('Go to next step') },
+  { value: 'back', label: authoringText('Go back') },
+  { value: 'complete', label: authoringText('Complete tour') },
+  { value: 'clickTarget', label: authoringText('Click target') },
+  { value: 'openPage', label: authoringText('Open page') },
+  { value: 'dismiss', label: authoringText('Close experience') },
+];
+
+export const RICH_BUTTON_VARIANT_OPTIONS = [
+  { value: 'primary', label: authoringText('Primary') },
+  { value: 'secondary', label: authoringText('Secondary') },
+  { value: 'subtle', label: authoringText('Subtle') },
+  { value: 'outline', label: authoringText('Outline') },
+  { value: 'link', label: authoringText('Link style') },
+] as const;
 
 export type SerializedRichCalloutNode = Spread<
   { type: 'lodariq-rich-callout'; version: 1 },
@@ -78,6 +119,45 @@ export function $createRichCalloutNode(): RichCalloutNode {
 
 export function $isRichCalloutNode(node: LexicalNode | null | undefined): node is RichCalloutNode {
   return node instanceof RichCalloutNode;
+}
+
+export type SerializedRichStatNode = Spread<
+  { type: 'lodariq-rich-stat'; version: 1 },
+  SerializedParagraphNode
+>;
+
+export class RichStatNode extends ParagraphNode {
+  static override getType(): string {
+    return 'lodariq-rich-stat';
+  }
+
+  static override clone(node: RichStatNode): RichStatNode {
+    return new RichStatNode(node.__key);
+  }
+
+  static override importJSON(): RichStatNode {
+    return new RichStatNode();
+  }
+
+  override createDOM(config: EditorConfig): HTMLElement {
+    const element = document.createElement('p');
+    const className = config.theme.paragraph;
+    if (typeof className === 'string') element.className = className;
+    element.classList.add('rich-content-stat');
+    return element;
+  }
+
+  override exportJSON(): SerializedRichStatNode {
+    return { ...super.exportJSON(), type: 'lodariq-rich-stat', version: 1 };
+  }
+}
+
+export function $createRichStatNode(): RichStatNode {
+  return $applyNodeReplacement(new RichStatNode());
+}
+
+export function $isRichStatNode(node: LexicalNode | null | undefined): node is RichStatNode {
+  return node instanceof RichStatNode;
 }
 
 interface RichMediaNodeState {
@@ -131,9 +211,13 @@ export class RichMediaNode extends DecoratorNode<ReactNode> {
   }
 
   override createDOM(): HTMLElement {
-    const element = document.createElement('div');
+    const element = document.createElement('span');
     element.className = 'rich-content-media-node';
     return element;
+  }
+
+  override isInline(): boolean {
+    return true;
   }
 
   override updateDOM(): false {
@@ -557,7 +641,6 @@ function ResizableMediaPreview({
           </label>
         )}
       </div>
-      {pendingAsset ? null : <figcaption>{media.accessibilityName}</figcaption>}
     </figure>
   );
 }
@@ -588,6 +671,438 @@ export function $createRichMediaNode(
 
 export function $isRichMediaNode(node: LexicalNode | null | undefined): node is RichMediaNode {
   return node instanceof RichMediaNode;
+}
+
+interface RichButtonNodeState {
+  blockId: string;
+  content: string;
+  props: LodariqBlockProps;
+}
+
+export type SerializedRichButtonNode = Spread<
+  RichButtonNodeState & { type: 'lodariq-rich-button'; version: 1 },
+  SerializedLexicalNode
+>;
+
+export class RichButtonNode extends DecoratorNode<ReactNode> {
+  __blockId: string;
+  __content: string;
+  __props: LodariqBlockProps;
+
+  static override getType(): string {
+    return 'lodariq-rich-button';
+  }
+
+  static override clone(node: RichButtonNode): RichButtonNode {
+    return new RichButtonNode(node.__blockId, node.__content, node.__props, node.__key);
+  }
+
+  static override importJSON(node: SerializedRichButtonNode): RichButtonNode {
+    return new RichButtonNode(node.blockId, node.content, node.props);
+  }
+
+  constructor(blockId: string, content: string, props: LodariqBlockProps, key?: NodeKey) {
+    super(key);
+    this.__blockId = blockId;
+    this.__content = content;
+    this.__props = structuredClone(props);
+  }
+
+  override createDOM(): HTMLElement {
+    const element = document.createElement('span');
+    element.className = 'rich-content-button-node';
+    return element;
+  }
+
+  override isInline(): boolean {
+    return true;
+  }
+
+  override updateDOM(): false {
+    return false;
+  }
+
+  override decorate(): ReactNode {
+    return (
+      <RichButtonPreview
+        blockId={this.__blockId}
+        content={this.__content}
+        nodeKey={this.getKey()}
+        props={this.__props}
+      />
+    );
+  }
+
+  override exportJSON(): SerializedRichButtonNode {
+    return {
+      ...super.exportJSON(),
+      blockId: this.__blockId,
+      content: this.__content,
+      props: structuredClone(this.__props),
+      type: 'lodariq-rich-button',
+      version: 1,
+    };
+  }
+
+  getBlockId(): string {
+    return this.__blockId;
+  }
+
+  getContent(): string {
+    return this.__content;
+  }
+
+  getProps(): LodariqBlockProps {
+    return structuredClone(this.__props);
+  }
+
+  setContent(content: string): void {
+    this.getWritable().__content = content.slice(0, 300);
+  }
+
+  setActionType(type: RichButtonActionType): void {
+    const writable = this.getWritable();
+    const current = writable.__props.action;
+    const transition = current?.transition;
+    if (type === 'openPage') {
+      writable.__props = {
+        ...writable.__props,
+        action: {
+          type,
+          ...(current?.type === 'openPage' && current.url ? { url: current.url } : {}),
+          ...(transition ? { transition } : {}),
+        },
+      };
+      return;
+    }
+    writable.__props = {
+      ...writable.__props,
+      action: { type, ...(transition ? { transition } : {}) },
+    };
+  }
+
+  setActionUrl(url: string): void {
+    const writable = this.getWritable();
+    const current = writable.__props.action;
+    if (current?.type !== 'openPage') return;
+    const normalized = url.trim();
+    const { url: _currentUrl, ...actionWithoutUrl } = current;
+    writable.__props = {
+      ...writable.__props,
+      action: normalized
+        ? { ...actionWithoutUrl, url: normalized.slice(0, 2048) }
+        : actionWithoutUrl,
+    };
+  }
+
+  setVariant(variant: NonNullable<LodariqBlockProps['variant']>): void {
+    const writable = this.getWritable();
+    writable.__props = { ...writable.__props, variant };
+  }
+
+  setNavigationBehavior(navigationBehavior: OpenPageNavigationBehavior): void {
+    const writable = this.getWritable();
+    const current = writable.__props.action;
+    if (current?.type !== 'openPage') return;
+    writable.__props = { ...writable.__props, action: { ...current, navigationBehavior } };
+  }
+
+  setButtonStyle(style: ButtonStyleProps): void {
+    const writable = this.getWritable();
+    writable.__props = {
+      ...writable.__props,
+      buttonStyle: { ...writable.__props.buttonStyle, ...style },
+    };
+  }
+
+  setBlockAlign(align: NonNullable<LodariqBlockProps['blockLayout']>['align']): void {
+    const writable = this.getWritable();
+    writable.__props = {
+      ...writable.__props,
+      blockLayout: { ...writable.__props.blockLayout, align },
+    };
+  }
+}
+
+function RichButtonPreview({
+  blockId,
+  content,
+  nodeKey,
+  props,
+}: Pick<RichButtonNodeState, 'blockId' | 'content' | 'props'> & { nodeKey: NodeKey }): ReactNode {
+  const [editor] = useLexicalComposerContext();
+  const host = useContext(RichContentHostContext);
+  const inspect = (): void => {
+    editor.update(() => {
+      const selection = $createNodeSelection();
+      selection.add(nodeKey);
+      $setSelection(selection);
+    });
+    host.onInspectOpen?.();
+  };
+  const deleteOnKey = useDeleteDecoratorOnKey(nodeKey);
+  const recipe = resolveTourActionRecipe(props);
+  const style = props.buttonStyle;
+  const actionStyle = {
+    ...(style?.fillColor ? { '--lq-action-fill': style.fillColor } : {}),
+    ...(style?.textColor ? { '--lq-action-text': style.textColor } : {}),
+    ...(style?.borderColor ? { '--lq-action-border': style.borderColor } : {}),
+    ...(recipe.widthPx ? { '--lq-action-width': `${recipe.widthPx}px` } : {}),
+  } as CSSProperties;
+  return (
+    <div
+      className="rich-content-button-preview-shell"
+      data-block-id={blockId}
+      data-lodariq-action-width={recipe.widthPx ? 'custom' : recipe.width}
+      onKeyDownCapture={deleteOnKey}
+      style={actionStyle}
+      tabIndex={0}
+    >
+      <div className="rich-content-button-preview-row">
+        <button
+          className="rich-content-button-preview rich-step-action-preview"
+          data-lodariq-action-radius={recipe.radius}
+          data-lodariq-action-size={recipe.size}
+          data-lodariq-action-variant={recipe.variant}
+          data-lodariq-action-width={recipe.widthPx ? 'custom' : recipe.width}
+          data-variant={recipe.variant}
+          onClick={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            inspect();
+          }}
+          onPointerDown={(event) => event.preventDefault()}
+          style={actionStyle}
+          type="button"
+        >
+          {content || authoringText('Continue')}
+        </button>
+        <button
+          aria-label={authoringText('Configure button')}
+          className="rich-content-button-config-trigger"
+          onClick={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            inspect();
+          }}
+          onPointerDown={(event) => event.preventDefault()}
+          title={authoringText('Configure button')}
+          type="button"
+        >
+          <Settings2 aria-hidden="true" size={15} />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+export function $createRichButtonNode(
+  blockId: string,
+  content: string,
+  props: LodariqBlockProps,
+): RichButtonNode {
+  return $applyNodeReplacement(new RichButtonNode(blockId, content, props));
+}
+
+export function $isRichButtonNode(node: LexicalNode | null | undefined): node is RichButtonNode {
+  return node instanceof RichButtonNode;
+}
+
+interface RichFormFieldNodeState {
+  blockId: string;
+  content: string;
+  props: LodariqBlockProps;
+}
+
+export type SerializedRichFormFieldNode = Spread<
+  RichFormFieldNodeState & { type: 'lodariq-rich-form-field'; version: 1 },
+  SerializedLexicalNode
+>;
+
+export class RichFormFieldNode extends DecoratorNode<ReactNode> {
+  __blockId: string;
+  __content: string;
+  __props: LodariqBlockProps;
+
+  static override getType(): string {
+    return 'lodariq-rich-form-field';
+  }
+
+  static override clone(node: RichFormFieldNode): RichFormFieldNode {
+    return new RichFormFieldNode(node.__blockId, node.__content, node.__props, node.__key);
+  }
+
+  static override importJSON(node: SerializedRichFormFieldNode): RichFormFieldNode {
+    return new RichFormFieldNode(node.blockId, node.content, node.props);
+  }
+
+  constructor(blockId: string, content: string, props: LodariqBlockProps, key?: NodeKey) {
+    super(key);
+    this.__blockId = blockId;
+    this.__content = content;
+    this.__props = structuredClone(props);
+  }
+
+  override createDOM(): HTMLElement {
+    const element = document.createElement('span');
+    element.className = 'rich-content-form-field-node';
+    return element;
+  }
+
+  override isInline(): boolean {
+    return true;
+  }
+
+  override updateDOM(): false {
+    return false;
+  }
+
+  override decorate(): ReactNode {
+    return (
+      <RichFormFieldPreview
+        blockId={this.__blockId}
+        content={this.__content}
+        nodeKey={this.getKey()}
+        props={this.__props}
+      />
+    );
+  }
+
+  override exportJSON(): SerializedRichFormFieldNode {
+    return {
+      ...super.exportJSON(),
+      blockId: this.__blockId,
+      content: this.__content,
+      props: structuredClone(this.__props),
+      type: 'lodariq-rich-form-field',
+      version: 1,
+    };
+  }
+
+  getBlockId(): string {
+    return this.__blockId;
+  }
+
+  getContent(): string {
+    return this.__content;
+  }
+
+  getProps(): LodariqBlockProps {
+    return structuredClone(this.__props);
+  }
+
+  setContent(content: string): void {
+    this.getWritable().__content = content.slice(0, 300);
+  }
+
+  setFormField(formField: FormFieldPresentation): void {
+    this.getWritable().__props = { ...this.__props, formField: structuredClone(formField) };
+  }
+
+  setBlockAlign(align: NonNullable<LodariqBlockProps['blockLayout']>['align']): void {
+    const writable = this.getWritable();
+    writable.__props = {
+      ...writable.__props,
+      blockLayout: { ...writable.__props.blockLayout, align },
+    };
+  }
+}
+
+function RichFormFieldPreview({
+  blockId,
+  content,
+  nodeKey,
+  props,
+}: Pick<RichFormFieldNodeState, 'blockId' | 'content' | 'props'> & { nodeKey: NodeKey }): ReactNode {
+  const [editor] = useLexicalComposerContext();
+  const host = useContext(RichContentHostContext);
+  const field = props.formField;
+  const control: FormFieldControl = field?.control ?? 'text';
+  const inspect = (): void => {
+    editor.update(() => {
+      const selection = $createNodeSelection();
+      selection.add(nodeKey);
+      $setSelection(selection);
+    });
+    host.onInspectOpen?.();
+  };
+  const deleteOnKey = useDeleteDecoratorOnKey(nodeKey);
+  const label = content || authoringText('Label');
+  const previewStyle = {
+    ...(field?.fillColor ? { '--lq-field-fill': field.fillColor } : {}),
+    ...(field?.textColor ? { '--lq-field-text': field.textColor } : {}),
+    ...(field?.labelColor ? { '--lq-field-label': field.labelColor } : {}),
+    ...(field?.borderColor ? { '--lq-field-border': field.borderColor } : {}),
+  } as CSSProperties;
+  return (
+    <div
+      className="rich-content-form-field-preview"
+      data-block-id={blockId}
+      data-control={control}
+      data-lodariq-block-align={props.blockLayout?.align}
+      data-lodariq-field-radius={field?.radius}
+      data-lodariq-field-size={field?.size}
+      onClick={(event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        inspect();
+      }}
+      onKeyDownCapture={deleteOnKey}
+      onPointerDown={(event) => event.preventDefault()}
+      style={previewStyle}
+      tabIndex={0}
+    >
+      {control === 'radio' ? (
+        <fieldset>
+          <legend>{label}</legend>
+          {(field?.options ?? []).map((option) => (
+            <label key={option.id}>
+              <input disabled tabIndex={-1} type="radio" />
+              {option.label}
+            </label>
+          ))}
+        </fieldset>
+      ) : control === 'checkbox' ? (
+        <label>
+          <input disabled tabIndex={-1} type="checkbox" />
+          {label}
+        </label>
+      ) : (
+        <label>
+          <span>{label}</span>
+          <input
+            disabled
+            placeholder={field?.placeholder}
+            tabIndex={-1}
+            type="text"
+          />
+        </label>
+      )}
+      <button
+        aria-label={authoringText('Configure field')}
+        className="rich-content-button-config-trigger"
+        onClick={inspect}
+        title={authoringText('Configure field')}
+        type="button"
+      >
+        <Settings2 aria-hidden="true" size={15} />
+      </button>
+    </div>
+  );
+}
+
+export function $createRichFormFieldNode(
+  blockId: string,
+  content: string,
+  props: LodariqBlockProps,
+): RichFormFieldNode {
+  return $applyNodeReplacement(new RichFormFieldNode(blockId, content, props));
+}
+
+export function $isRichFormFieldNode(
+  node: LexicalNode | null | undefined,
+): node is RichFormFieldNode {
+  return node instanceof RichFormFieldNode;
 }
 
 interface RichIconNodeState {
@@ -644,6 +1159,10 @@ export class RichIconNode extends DecoratorNode<ReactNode> {
     const element = document.createElement('span');
     element.className = 'rich-content-icon-node';
     return element;
+  }
+
+  override isInline(): boolean {
+    return true;
   }
 
   override updateDOM(): false {
@@ -805,7 +1324,16 @@ function useDeleteDecoratorOnKey(
     event.stopPropagation();
     editor.update(() => {
       const node = $getNodeByKey(nodeKey);
-      if ($isDecoratorNode(node)) node.remove();
+      if (!$isDecoratorNode(node)) return;
+      const parent = node.getParent();
+      node.remove();
+      if (
+        $isParagraphNode(parent) &&
+        parent.getChildrenSize() === 0 &&
+        $getRoot().getChildrenSize() > 1
+      ) {
+        parent.remove();
+      }
     });
   };
 }

@@ -21,6 +21,55 @@ import { inheritRichContentFloatingTheme } from './rich-content-floating-theme';
 
 const FLOATING_GAP_PX = 7;
 const FLOATING_BOUNDARY_PADDING_PX = 8;
+const CSS_ZOOM_ALREADY_APPLIED_TOLERANCE = 0.08;
+
+/**
+ * Canvas popup frames use CSS `zoom`. Layers portaled to `document.body` with
+ * `position: fixed` must use viewport coordinates. Chromium's
+ * `getBoundingClientRect` already returns post-zoom viewport rects; engines
+ * that still report unzoomed layout boxes need the accumulated zoom applied.
+ */
+export function readViewportRect(element: Element): DOMRect {
+  return scaleRectForCssZoom(element.getBoundingClientRect(), cssZoomCompensation(element));
+}
+
+export function readRangeViewportRect(
+  range: { getBoundingClientRect?: () => DOMRect },
+  contextElement: Element,
+): DOMRect {
+  const rect = range.getBoundingClientRect?.();
+  const fallback = readViewportRect(contextElement);
+  if (!rect || (rect.width <= 0 && rect.height <= 0)) {
+    return new DOMRect(fallback.left, fallback.top, Math.max(fallback.width, 1), 1);
+  }
+  return scaleRectForCssZoom(rect, cssZoomCompensation(contextElement));
+}
+
+function cssZoomCompensation(element: Element): number {
+  const zoom = accumulatedCssZoom(element);
+  if (zoom === 1 || !(element instanceof HTMLElement) || element.offsetWidth === 0) return 1;
+  const visualWidth = element.getBoundingClientRect().width;
+  if (Math.abs(visualWidth / element.offsetWidth - zoom) < CSS_ZOOM_ALREADY_APPLIED_TOLERANCE) {
+    return 1;
+  }
+  return zoom;
+}
+
+function accumulatedCssZoom(element: Element): number {
+  let zoom = 1;
+  let current: Element | null = element;
+  while (current) {
+    const value = Number.parseFloat(getComputedStyle(current).zoom || '1');
+    if (Number.isFinite(value) && value > 0) zoom *= value;
+    current = current.parentElement;
+  }
+  return zoom;
+}
+
+function scaleRectForCssZoom(rect: DOMRect, scale: number): DOMRect {
+  if (scale === 1) return rect;
+  return new DOMRect(rect.x * scale, rect.y * scale, rect.width * scale, rect.height * scale);
+}
 
 interface FloatingPosition {
   strategy: Strategy;
@@ -116,5 +165,86 @@ export function RichContentFloatingMenu({
           )
         : null}
     </div>
+  );
+}
+
+/**
+ * Floating layer anchored to a virtual rect (e.g. the live text selection)
+ * instead of a trigger element. `contextElement` scopes scroll/resize tracking,
+ * theming, and the collision boundary.
+ */
+export function RichContentFloatingAnchor({
+  anchorRect,
+  children,
+  className = '',
+  contextElement,
+  open,
+  placement = 'top',
+}: {
+  anchorRect: () => DOMRect;
+  children: ReactNode;
+  className?: string;
+  contextElement: HTMLElement | null;
+  open: boolean;
+  placement?: Placement;
+}): ReactElement | null {
+  const floatingRef = useRef<HTMLDivElement | null>(null);
+  const anchorRectRef = useRef(anchorRect);
+  const [position, setPosition] = useState<FloatingPosition | null>(null);
+  anchorRectRef.current = anchorRect;
+
+  useLayoutEffect(() => {
+    const floating = floatingRef.current;
+    if (!open || !floating || !contextElement) return;
+    inheritRichContentFloatingTheme(contextElement, floating);
+    setPosition(null);
+    const collisionBoundary = contextElement.closest<HTMLElement>('.panel-storyboard-workspace');
+    const overflowOptions = collisionBoundary
+      ? { boundary: collisionBoundary, padding: FLOATING_BOUNDARY_PADDING_PX }
+      : { padding: FLOATING_BOUNDARY_PADDING_PX };
+    const virtualReference = {
+      contextElement,
+      getBoundingClientRect: () => anchorRectRef.current(),
+    };
+    const update = (): void => {
+      void computePosition(virtualReference, floating, {
+        middleware: [
+          offset(FLOATING_GAP_PX),
+          flip({ ...overflowOptions, fallbackStrategy: 'bestFit' }),
+          shift(overflowOptions),
+        ],
+        placement,
+        strategy: 'fixed',
+      }).then(({ strategy, x, y }) => setPosition({ strategy, x, y }));
+    };
+    const stopUpdating = autoUpdate(virtualReference, floating, update, {
+      ancestorResize: true,
+      ancestorScroll: true,
+      elementResize: false,
+      layoutShift: typeof IntersectionObserver !== 'undefined',
+    });
+    return stopUpdating;
+  }, [contextElement, open, placement]);
+
+  if (!open || !contextElement) return null;
+  const floatingStyle: CSSProperties = {
+    left: 0,
+    position: position?.strategy ?? 'fixed',
+    top: 0,
+    transform: position
+      ? `translate3d(${Math.round(position.x)}px, ${Math.round(position.y)}px, 0)`
+      : undefined,
+    visibility: position ? 'visible' : 'hidden',
+  };
+  return createPortal(
+    <div
+      ref={floatingRef}
+      className={`rich-content-floating-layer ${className}`.trim()}
+      data-rich-content-floating-menu="true"
+      style={floatingStyle}
+    >
+      {children}
+    </div>,
+    contextElement.ownerDocument.body,
   );
 }

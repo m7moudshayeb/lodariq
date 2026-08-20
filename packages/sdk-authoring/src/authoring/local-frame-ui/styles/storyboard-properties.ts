@@ -67,15 +67,11 @@ export const AUTHORING_STORYBOARD_PROPERTY_CSS = `
 
     .storyboard-canvas .rich-step-editor {
       position: relative;
-      grid-template-rows: minmax(0, 1fr);
+      grid-template-rows: auto minmax(0, 1fr) auto;
     }
 
     .storyboard-editor-stage {
       padding: 72px var(--lq-space-3) var(--lq-space-5);
-    }
-
-    .storyboard-editor-stage .rich-step-toolbar {
-      max-width: calc(100% - var(--lq-space-5));
     }
 
     .storyboard-editor-stage .rich-step-popup-frame {
@@ -92,7 +88,7 @@ export const AUTHORING_STORYBOARD_PROPERTY_CSS = `
       right: var(--lq-space-3);
       bottom: var(--lq-space-3);
       width: auto;
-      grid-template-columns: repeat(3, var(--lq-control-lg));
+      grid-template-columns: repeat(2, var(--lq-control-lg));
     }
 
     .rich-step-editor:has(.storyboard-property-tray) .storyboard-tool-dock {
@@ -153,14 +149,6 @@ export const AUTHORING_STORYBOARD_PROPERTY_CSS = `
 
     .storyboard-editor-stage {
       padding: 64px 80px var(--lq-space-4) var(--lq-space-5);
-    }
-
-    .storyboard-editor-stage .rich-step-toolbar {
-      top: 64px;
-    }
-
-    .storyboard-editor-stage .rich-step-link-editor {
-      top: 120px;
     }
 
     .storyboard-editor-stage .rich-step-popup-frame,
@@ -244,20 +232,12 @@ export const AUTHORING_STORYBOARD_PROPERTY_CSS = `
     }
 
     .storyboard-canvas .rich-step-editor {
-      grid-template-rows: minmax(160px, 1fr) minmax(112px, 144px);
+      grid-template-rows: auto minmax(160px, 1fr) minmax(112px, 144px);
       overflow: visible;
     }
 
     .storyboard-editor-stage {
       padding: 64px 80px var(--lq-space-2) var(--lq-space-5);
-    }
-
-    .storyboard-editor-stage .rich-step-toolbar {
-      top: var(--lq-space-5);
-    }
-
-    .storyboard-editor-stage .rich-step-link-editor {
-      top: 72px;
     }
 
     .storyboard-editor-stage .rich-step-popup-frame,
@@ -388,14 +368,12 @@ export const AUTHORING_STORYBOARD_PROPERTY_CSS = `
   }
 
   .storyboard-canvas .rich-step-editor {
-    grid-template-rows: minmax(180px, 1fr) auto;
+    grid-template-rows: auto minmax(180px, 1fr) auto;
   }
 
   .storyboard-canvas-zoom {
-    position: absolute;
+    position: relative;
     z-index: 8;
-    top: 12px;
-    left: 12px;
     display: inline-flex;
     width: max-content;
     height: 36px;
