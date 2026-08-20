@@ -6,9 +6,14 @@ import type {
   StepChoreographyTransition,
   StepTransitionDestination,
   AuthoringAccessibilityPreviewMode,
+  JourneyHandoff,
 } from '@lodariq/schema';
 import { resolveExperienceAppearance } from '@lodariq/schema/brand-runtime';
-import { LODARIQ_AUTHORING_PREVIEW_OWNER_ATTRIBUTE } from '@lodariq/schema/dom';
+import {
+  LODARIQ_AUTHORING_PREVIEW_OWNER_ATTRIBUTE,
+  LODARIQ_TOUR_ANCHORED_ATTRIBUTE,
+} from '@lodariq/schema/dom';
+import { hostSafe } from '../host-safety';
 import { assertSupportedCompiledArtifactIfVersioned } from '../artifact-compatibility';
 import { applyRuntimeLocale, configureRuntimeLocale, currentRuntimeLocale } from '../i18n';
 import { tourRuntimeText } from '../tour-i18n';
@@ -50,16 +55,26 @@ import {
   waitUntil,
 } from './tour-lifecycle';
 import { canOwnPresentation, createTargetOutline } from './tour-positioning';
+import {
+  applyStepOutlineEmphasis,
+  applyViewportZoom,
+  armBackdropClick,
+  createTourBackdrop,
+} from './tour-emphasis';
 import type { ChoreographyRecoveryUpdate, ChoreographyStageUpdate } from './tour-choreography';
 import type { ProtectedSurfaceRect } from './protected-surface';
-import type { TourFlowConditionContext } from './tour-flow';
+import { showWhenMatches, type TourFlowConditionContext } from './tour-flow';
 import { applyStepMotion, resolveResponsiveTourStep } from './tour-presentation';
 import { executeTourSequence } from './tour-choreography-sequence';
 import { runTourFlowDestination } from './tour-flow-navigation';
 import { trackTourTarget } from './tour-target-tracker';
+import { collectStepFormResponses, type CapturedFormResponse } from './tour-form-responses';
+import { handoffDestinationUrl } from '../journey-handoff';
 
 export { TourPresentationCanceledError, TourPresentationUnavailableError } from './tour-errors';
 export type { ProtectedSurfaceRect } from './protected-surface';
+/** The ring's default gap, so authoring chrome can sit on the ring it drew. */
+export { TARGET_OUTLINE_GAP_PX } from './tour-positioning';
 export type { ChoreographyRecoveryUpdate, ChoreographyStageUpdate } from './tour-choreography';
 export {
   applyStepMotion,
@@ -127,6 +142,11 @@ export interface TourPlayerOptions {
   /** Creator-only live anchor used while the selected element remains connected. */
   authoringTargetOverride?: AuthoringTargetOverride;
   onStepChange?: (index: number, step: CompiledStep) => void;
+  /**
+   * Answers a visitor gave on the step being left. Customer content, so it is
+   * handed over separately from analytics and never as event properties.
+   */
+  onFormResponses?: (responses: readonly CapturedFormResponse[]) => void;
   onBeforeStepChange?: (index: number, step: CompiledStep) => void;
   onComplete?: () => void;
   onDismiss?: () => void;
@@ -144,6 +164,8 @@ export interface TourPlayerOptions {
   /** Explicit SDK-provided safe state used only by closed flow conditions. */
   flowConditionContext?: Pick<TourFlowConditionContext, 'identifyTraits' | 'documentState'>;
   onBranchChoice?: (step: CompiledStep, ruleIndex: number | null, destination: string) => void;
+  /** Fires immediately before this origin navigates away for a cross-app handoff. */
+  onJourneyHandoff?: (step: CompiledStep, handoff: JourneyHandoff, destination: string) => void;
   /** Resolves server-validated asset IDs; canonical documents never carry raw src attributes. */
   resolveMediaAsset?: (
     assetId: string,
@@ -175,6 +197,7 @@ export class TourPlayer {
   private readonly card: HTMLDivElement;
   private readonly arrow: HTMLDivElement;
   private readonly targetOutline: HTMLDivElement | null;
+  private readonly backdrop: HTMLDivElement;
   private readonly cleanups: Array<() => void> = [];
   private readonly lifetimeCleanups: Array<() => void> = [];
   private renderAbortController: AbortController | null = null;
@@ -255,8 +278,10 @@ export class TourPlayer {
     ).displayTargetOutline
       ? createTargetOutline(document)
       : null;
+    this.backdrop = createTourBackdrop(document);
     this.lifetimeCleanups.push(applyCompiledTourTheme(this.host, this.doc));
     this.shadow.appendChild(createTourStyles());
+    this.shadow.appendChild(this.backdrop);
     if (this.targetOutline) this.shadow.appendChild(this.targetOutline);
     this.shadow.appendChild(this.card);
   }
@@ -305,7 +330,16 @@ export class TourPlayer {
   }
 
   private advanceToNext(notify: boolean): void {
-    const nextIndex = this.index + 1;
+    // A step that hands off ends this application's part of the journey; the
+    // destination continues it. Nothing after this line runs on this origin.
+    if (this.leaveForHandoff(this.doc.steps[this.index])) return;
+    // Steps whose visibility rule excludes this visitor are stepped over, not
+    // rendered and hidden — a card that flashes and vanishes is worse than one
+    // that never appears.
+    let nextIndex = this.index + 1;
+    while (nextIndex < this.doc.steps.length && !this.stepIsVisible(this.doc.steps[nextIndex])) {
+      nextIndex += 1;
+    }
     const nextStep = this.doc.steps[nextIndex];
     if (!nextStep) {
       this.complete();
@@ -314,6 +348,44 @@ export class TourPlayer {
     if (notify) this.notifyBeforeStepChange(nextIndex, nextStep);
     this.index = nextIndex;
     this.render();
+  }
+
+  /**
+   * Navigates to the application this step hands off to, carrying progress in
+   * the URL because the two origins share no storage. Returns false — and stays
+   * put — whenever the destination cannot be resolved from the artifact, so a
+   * misconfigured handoff degrades to an ordinary next step.
+   */
+  private leaveForHandoff(step: CompiledStep | undefined): boolean {
+    const handoff = step?.handoff;
+    if (!handoff || this.options.authoringPreviewOwnerId || this.options.embeddedPreviewContainer) {
+      return false;
+    }
+    const applications = 'applications' in this.doc ? this.doc.applications : undefined;
+    const application = applications?.find((entry) => entry.id === handoff.applicationId);
+    if (!application) return false;
+    const destination = handoffDestinationUrl(application, {
+      applicationId: handoff.applicationId,
+      documentId: handoff.documentId ?? this.doc.documentId,
+      stepId: step!.id,
+      contentHash: this.doc.contentHash,
+      resumeMode: handoff.resumeMode,
+      issuedAt: Date.now(),
+    });
+    if (!destination) return false;
+    this.options.onJourneyHandoff?.(step!, handoff, destination);
+    window.location.assign(destination);
+    return true;
+  }
+
+  /** A step with no rule always shows, so existing documents behave unchanged. */
+  private stepIsVisible(step: CompiledStep | undefined): boolean {
+    if (!step?.showWhen) return true;
+    return showWhenMatches(step.showWhen, {
+      ...this.options.flowConditionContext,
+      locale: this.contentLocale,
+      completedStepIds: this.completedStepIds,
+    });
   }
 
   stop(): void {
@@ -360,10 +432,18 @@ export class TourPlayer {
     this.clearStepEffects();
     this.choreographyRetryCount = 0;
     if (this.targetOutline) this.targetOutline.hidden = true;
+    this.backdrop.hidden = true;
     this.options.onStepChange?.(this.index, step);
 
     this.card.innerHTML = '';
     this.card.hidden = Boolean(step.targetId);
+    /*
+     * An anchored card is placed by the positioner once its target resolves. A
+     * targetless one never goes through that path, so without this it inherits
+     * the host's origin and renders in the page's top-left corner, over whatever
+     * the product has there.
+     */
+    this.card.toggleAttribute(LODARIQ_TOUR_ANCHORED_ATTRIBUTE, Boolean(step.targetId));
     applyStepComposition(this.card, step);
     applyStepMotion(this.card, step);
     this.card.setAttribute('aria-label', step.accessibilityName ?? tourRuntimeText('Lodariq tour'));
@@ -377,6 +457,19 @@ export class TourPlayer {
         delete this.targetOutline.dataset['lodariqSpotlight'];
         delete this.targetOutline.dataset['lodariqSpotlightPulse'];
       }
+    }
+    applyStepOutlineEmphasis(this.targetOutline, step.emphasis);
+    this.addCleanup(
+      armBackdropClick(this.backdrop, step.emphasis?.backdrop, {
+        advance: () => this.advanceToNext(true),
+        dismiss: () => this.dismiss(),
+      }),
+    );
+    /* Zoom scales the whole host page, so while the creator is still editing it
+     * fights every rect the overlay measures — and each replay would re-apply it.
+     * It belongs to Preview, which is where the setting says it will be seen. */
+    if (!this.options.authoringPreviewOwnerId || this.options.authoringPreviewInteractive) {
+      this.addCleanup(applyViewportZoom(step, document));
     }
     const content = this.card.ownerDocument.createElement('div');
     content.className = 'tour-content';
@@ -558,6 +651,7 @@ export class TourPlayer {
         announceAfterTourStops(ownerDocument, completionAnnouncement);
       });
     }
+    this.captureFormResponses();
     this.options.onComplete?.();
     this.stop();
   }
@@ -576,6 +670,8 @@ export class TourPlayer {
   }
 
   private dismiss(): void {
+    // Someone who answers and then closes still answered.
+    this.captureFormResponses();
     this.options.onDismiss?.();
     this.stop();
   }
@@ -849,6 +945,7 @@ export class TourPlayer {
         step,
         stopPlayer: () => this.stop(),
         targetOutline: this.targetOutline,
+        backdrop: this.backdrop,
         armTargetClickAdvance: (target, onInvalidOwner) =>
           this.armTargetClickAdvance(step, target, onInvalidOwner),
       }),
@@ -864,9 +961,18 @@ export class TourPlayer {
     const onClick = (): void => {
       if (consumed) return;
       const freshlyResolved = this.resolveStepTarget(step);
+      /**
+       * The listener sits on the target, so the click was on it by
+       * construction. Identity is still required while that element is in the
+       * document — a re-flow can slide a different control under the pointer.
+       * Once it has been replaced, though, a fresh resolution is the only
+       * honest answer: a product that re-renders on click is not a product
+       * whose tour should stop.
+       */
+      const replaced = !target.isConnected;
       if (
         !freshlyResolved?.anchor?.interactionSafe ||
-        freshlyResolved.anchor.element !== target ||
+        (!replaced && freshlyResolved.anchor.element !== target) ||
         !canOwnPresentation(freshlyResolved.anchor)
       ) {
         onInvalidOwner();
@@ -880,11 +986,33 @@ export class TourPlayer {
         if (this.host.isConnected) this.advanceToNext(false);
       }, 0);
     };
-    target.addEventListener('click', onClick, true);
-    return () => target.removeEventListener('click', onClick, true);
+    // Capture phase on the customer's own element: a throw here would abort
+    // their click dispatch, so the boundary is not optional.
+    const safeOnClick = hostSafe('tour.advanceOnTargetClick', onClick);
+    target.addEventListener('click', safeOnClick, true);
+    return () => target.removeEventListener('click', safeOnClick, true);
+  }
+
+  /**
+   * Answers are read when the step is left rather than on every keystroke: a
+   * half-typed sentence is not an answer, and streaming one would be the kind of
+   * input capture ADR-0015 rules out.
+   */
+  private captureFormResponses(): void {
+    if (!this.options.onFormResponses || this.options.authoringPreviewOwnerId) return;
+    const step = this.doc.steps[this.index];
+    if (!step) return;
+    const responses = collectStepFormResponses(this.card, step.id);
+    if (!responses.length) return;
+    try {
+      this.options.onFormResponses(responses);
+    } catch {
+      /* Losing an answer must never strand the visitor mid-experience. */
+    }
   }
 
   private notifyBeforeStepChange(index: number, step: CompiledStep): void {
+    this.captureFormResponses();
     try {
       this.options.onBeforeStepChange?.(index, step);
     } catch {

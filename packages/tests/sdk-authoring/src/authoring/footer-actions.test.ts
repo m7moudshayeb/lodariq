@@ -67,12 +67,15 @@ describe('authoring footer actions', () => {
           protocol: BRIDGE_PROTOCOL_VERSION,
           sessionId: SESSION_ID,
           documentId: baseDocument.id,
-          correlationId: 'open_operations_footer',
+          correlationId: 'open_release_footer',
           type: AUTHORING_CHROME_ACTION_REQUEST_TYPE,
-          action: 'open-operations',
+          action: 'open-release',
         },
       }),
     );
+    /* Release, not Operations: the sheet deliberately has no footer — it is a
+       place you go from the canvas and come back to, and Close/Esc is its way
+       out. Every other panel mode still carries the footer. */
     await vi.waitFor(() => expect(document.querySelector('.panel-workspace-footer')).not.toBeNull());
 
     const footer = document.querySelector<HTMLElement>('.panel-workspace-footer');
@@ -94,7 +97,6 @@ describe('authoring footer actions', () => {
         ?.getAttribute('aria-label'),
     ).toBe('Release options');
     expect(moreActions?.querySelector('svg')).not.toBeNull();
-    expect(document.querySelector('[data-operations-tab="translation"]')).not.toBeNull();
 
     document.querySelector<HTMLButtonElement>('[aria-label="More experience actions"]')?.click();
     await vi.waitFor(() => {
@@ -112,37 +114,6 @@ describe('authoring footer actions', () => {
     if (!appearance || !review) throw new Error('Footer overflow actions are missing');
     expect(appearance.querySelector('svg')).not.toBeNull();
     expect(review.querySelector('svg')).not.toBeNull();
-    review.click();
-    document.querySelector<HTMLButtonElement>('[data-operations-tab="review"]')?.click();
-    await vi.waitFor(() => expect(document.querySelector('.tour-review-workspace')).not.toBeNull());
-    expect(document.querySelector('.panel-workspace-footer')).not.toBeNull();
-    expect(document.querySelector('.tour-review-workspace')?.textContent).toContain(
-      'Accessibility preview',
-    );
-    expect(document.querySelector('.tour-review-workspace')?.textContent).toContain(
-      'Draft checkpoints',
-    );
-    expect(document.querySelector('.tour-review-workspace')?.textContent).toContain(
-      'Completion behavior',
-    );
-    document.querySelector<HTMLButtonElement>('[data-review-row="placement"]')?.click();
-    await vi.waitFor(() => expect(document.querySelector('.target-control')).not.toBeNull());
-    const editDetails = [...document.querySelectorAll<HTMLButtonElement>('.tour-review-row')].find(
-      (button) => button.querySelector('strong')?.textContent === 'Edit details',
-    );
-    if (!editDetails) throw new Error('Edit details row is missing');
-    editDetails.click();
-    await vi.waitFor(() => expect(document.querySelector('.document-review')).not.toBeNull());
-    document.querySelector<HTMLDetailsElement>('.review-drawer')!.open = true;
-    document.querySelector<HTMLDetailsElement>('.utilities-drawer')!.open = true;
-    expect(document.querySelector('[role="tablist"][aria-label="Support package"]')).not.toBeNull();
-    expect(
-      buttonByText(document.querySelector('.utilities-drawer'), 'Restore backup'),
-    ).toBeTruthy();
-    expect(
-      buttonByText(document.querySelector('.utilities-drawer'), 'Activity report'),
-    ).toBeTruthy();
-
     saveAndExit.click();
     const requests = outbound(postMessage, AUTHORING_SAVE_AND_EXIT_REQUEST_TYPE);
     expect(requests).toHaveLength(1);
@@ -176,12 +147,8 @@ describe('authoring footer actions', () => {
       );
     });
 
-    document.querySelector<HTMLButtonElement>('[aria-label="More experience actions"]')?.click();
-    await vi.waitFor(() =>
-      expect(
-        document.querySelector<HTMLButtonElement>('[role="menuitem"][aria-label="Customize"]'),
-      ).not.toBeNull(),
-    );
+    /* The overflow is already open from the assertions above; clicking the
+       trigger again would close it. */
     document.querySelector<HTMLButtonElement>('[role="menuitem"][aria-label="Customize"]')?.click();
     await vi.waitFor(() => {
       expect(document.querySelector('[data-panel-mode-heading]')?.textContent).toBe(
@@ -197,13 +164,16 @@ describe('authoring footer actions', () => {
       ).not.toBeNull(),
     );
     document.querySelector<HTMLButtonElement>('.review-recovery[role="menuitem"]')?.click();
+    /* Review & recovery opens the sheet on its Review section, which carries no
+       footer of its own — the sheet is the surface now. */
     await vi.waitFor(() => {
       expect(document.querySelector('.panel-advanced-editor')).not.toBeNull();
-      expect(document.querySelector('.panel-workspace-footer')).not.toBeNull();
+      expect(document.querySelector('.operations-hub')).not.toBeNull();
     });
+    expect(document.querySelector('.panel-workspace-footer')).toBeNull();
   });
 
-  it('returns from appearance to operations and then to the overlay without publishing', async () => {
+  it('keeps appearance, release and history inside the sheet, and gives it no footer', async () => {
     const baseDocument = structuredClone(tourFixture) as LodariqDocument;
     const postMessage = vi.fn();
     const peer = { postMessage } as unknown as Window;
@@ -244,15 +214,40 @@ describe('authoring footer actions', () => {
       }),
     );
     await vi.waitFor(() => expect(document.querySelector('.operations-hub')).not.toBeNull());
+
+    /* The sheet is the whole surface: no workspace footer, and Close is the way
+       out rather than Save & exit. */
+    expect(document.querySelector('.panel-workspace-footer')).toBeNull();
+    expect(document.querySelector('.operations-hub-close')).not.toBeNull();
+    expect(document.querySelector('[data-operations-tab="translation"]')).not.toBeNull();
+
+    /* Appearance is a section, not a mode. The nav survives the click and the
+       sheet's own head names the section — it used to swap the whole surface
+       out for a panel mode with its own header. */
     document.querySelector<HTMLButtonElement>('[data-operations-tab="appearance"]')?.click();
     await vi.waitFor(() => {
-      expect(document.querySelector('[data-panel-mode-heading]')?.textContent).toBe(
-        'Feel native to this product',
-      );
+      expect(document.querySelector('.appearance-mode-shell')).not.toBeNull();
     });
-    document.querySelector<HTMLButtonElement>('[aria-label="Back to authoring"]')?.click();
-    await vi.waitFor(() => expect(document.querySelector('.operations-hub')).not.toBeNull());
-    document.querySelector<HTMLButtonElement>('[aria-label="Back to authoring"]')?.click();
+    expect(document.querySelector('.operations-hub')).not.toBeNull();
+    expect(document.querySelector('.operations-hub-nav')).not.toBeNull();
+    expect(document.querySelector('.operations-hub-head h2')?.textContent).toContain('Appearance');
+
+    /* Review keeps only the flow-level settings. Placement belongs to the card's
+       own property tray, and "Edit details" opened a review aside rather than
+       the step settings its label promised. */
+    document.querySelector<HTMLButtonElement>('[data-operations-tab="review"]')?.click();
+    await vi.waitFor(() => expect(document.querySelector('.tour-review-workspace')).not.toBeNull());
+    const reviewRows = [...document.querySelectorAll('.tour-review-row strong')].map(
+      (node) => node.textContent,
+    );
+    expect(reviewRows).toEqual([
+      'Accessibility preview',
+      'Draft checkpoints',
+      'Completion behavior',
+    ]);
+
+    /* One way out, straight back to the canvas. */
+    document.querySelector<HTMLButtonElement>('.operations-hub-close')?.click();
     await vi.waitFor(() => expect(document.querySelector('.overlay-step-shell')).not.toBeNull());
     expect(postMessage).not.toHaveBeenCalledWith(
       expect.objectContaining({ type: 'authoring.publish.staging.request' }),

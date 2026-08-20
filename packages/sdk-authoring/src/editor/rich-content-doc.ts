@@ -34,6 +34,8 @@ import {
   $createRichIconNode,
   $createRichMediaNode,
   $createRichStatNode,
+  $createRichTargetChipNode,
+  $createRichValidationBadgeNode,
   $isRichCalloutNode,
   $isRichButtonNode,
   $isRichDividerNode,
@@ -41,6 +43,8 @@ import {
   $isRichIconNode,
   $isRichMediaNode,
   $isRichStatNode,
+  $isRichTargetChipNode,
+  $isRichValidationBadgeNode,
 } from './rich-content-nodes';
 
 /** Canonical block types that the freeform Rich Content editor owns. */
@@ -55,6 +59,8 @@ export const RICH_CONTENT_BLOCK_TYPES = new Set<LodariqBlockType>([
   'icon',
   'button',
   'formField',
+  'targetChip',
+  'validationBadge',
 ]);
 
 export const TEXT_BLOCK_TYPES = new Set<LodariqBlockType>([
@@ -63,6 +69,7 @@ export const TEXT_BLOCK_TYPES = new Set<LodariqBlockType>([
   'list',
   'callout',
   'stat',
+  'targetChip',
 ]);
 
 const INLINE_MOTION_RECIPE_SET = new Set<string>(TOUR_MOTION_RECIPE_VALUES);
@@ -122,6 +129,13 @@ export function nodeFromBlock(block: LodariqBlock): LexicalNode | null {
     );
   }
   if (block.type === 'divider') return $createRichDividerNode(block.id);
+  if (block.type === 'validationBadge') {
+    return $createRichValidationBadgeNode(
+      block.id,
+      block.status ?? 'ready',
+      block.content ?? authoringText('Verified on this screen'),
+    );
+  }
   if (!TEXT_BLOCK_TYPES.has(block.type)) return null;
   if (block.type === 'list') {
     const list = $createListNode('bullet');
@@ -141,7 +155,9 @@ export function nodeFromBlock(block: LodariqBlock): LexicalNode | null {
         ? $createRichCalloutNode()
         : block.type === 'stat'
           ? $createRichStatNode()
-          : $createParagraphNode();
+          : block.type === 'targetChip'
+            ? $createRichTargetChipNode()
+            : $createParagraphNode();
   appendRuns(
     element,
     block.contentRuns?.length ? block.contentRuns : [{ text: block.content ?? '' }],
@@ -208,6 +224,7 @@ function isFlowDecorator(node: LexicalNode): boolean {
     $isRichIconNode(node) ||
     $isRichFormFieldNode(node) ||
     $isRichDividerNode(node) ||
+    $isRichValidationBadgeNode(node) ||
     node.getType() === 'lodariq-rich-divider'
   );
 }
@@ -351,6 +368,22 @@ function blockFromNode(node: LexicalNode, metadata: RichContentMetadata): Lodari
     const blockId = $isRichDividerNode(node) ? node.getBlockId() : createBlockId();
     const original = metadata.originalByBlockId.get(blockId);
     return canonicalBlock(blockId, 'divider', undefined, original?.props ?? {}, undefined, original);
+  }
+  if ($isRichValidationBadgeNode(node)) {
+    const original = metadata.originalByBlockId.get(node.getBlockId());
+    // The badge's state IS the block's validation status, so it is written back
+    // there rather than duplicated into props where the two could disagree.
+    return {
+      ...canonicalBlock(
+        node.getBlockId(),
+        'validationBadge',
+        node.getText(),
+        original?.props ?? {},
+        undefined,
+        original,
+      ),
+      status: node.getState(),
+    };
   }
   if (!$isElementNode(node)) return null;
   const original = originalBlockForNode(node, metadata);
@@ -521,6 +554,8 @@ export function typeForNode(node: LexicalNode, originalType?: LodariqBlockType):
   if ($isRichIconNode(node)) return 'icon';
   if ($isRichFormFieldNode(node)) return 'formField';
   if ($isRichDividerNode(node)) return 'divider';
+  if ($isRichTargetChipNode(node)) return 'targetChip';
+  if ($isRichValidationBadgeNode(node)) return 'validationBadge';
   return originalType && TEXT_BLOCK_TYPES.has(originalType) ? originalType : 'paragraph';
 }
 

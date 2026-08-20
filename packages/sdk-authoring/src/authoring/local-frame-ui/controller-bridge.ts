@@ -1,4 +1,5 @@
-import { ControllerPreviewFeature } from './controller-preview';
+import { ControllerChromeFeature } from './controller-chrome';
+import { AUTHORING_OPERATIONS_TABS, type AuthoringOperationsTab } from './types';
 import { authoringText } from '../../i18n';
 import {
   AUTHORING_INLINE_CONTROL_COMMIT_TYPE,
@@ -28,7 +29,7 @@ import {
 } from './controller-model';
 import { authoringTargetIdentityKey } from '../target-health-ledger';
 
-export abstract class ControllerBridgeFeature extends ControllerPreviewFeature {
+export abstract class ControllerBridgeFeature extends ControllerChromeFeature {
   protected abstract handlePageLifecycleUpdate(
     route: string,
     routePatternId: string | undefined,
@@ -39,6 +40,8 @@ export abstract class ControllerBridgeFeature extends ControllerPreviewFeature {
   protected abstract handleTargetEvidenceUpdate(
     message: Extract<BridgeMessage, { type: 'target.evidence.update' }>,
   ): void;
+  /** §7.5's palette ask. Implemented where the assist machine lives. */
+  protected abstract askFromChrome(prompt: string): void;
 
   protected handleBridgeMessage(message: BridgeMessage): Promise<void> | void {
     if (message.sessionId !== this.sessionId || message.documentId !== this.documentState.id) {
@@ -57,6 +60,7 @@ export abstract class ControllerBridgeFeature extends ControllerPreviewFeature {
           window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ??
           false,
       };
+      this.sendShellCapabilities();
       this.emit();
       return;
     }
@@ -123,9 +127,29 @@ export abstract class ControllerBridgeFeature extends ControllerPreviewFeature {
       if (message.action === 'preview-full') this.previewFullTour();
       if (message.action === 'open-appearance') this.openAppearanceMode();
       if (message.action === 'open-release') this.openReleaseVerificationMode();
-      if (message.action === 'open-operations') this.openOperationsMode();
+      if (message.action === 'open-operations') {
+        const requested = (message as { tab?: string }).tab;
+        this.openOperationsMode(
+          AUTHORING_OPERATIONS_TABS.includes(requested as AuthoringOperationsTab)
+            ? (requested as AuthoringOperationsTab)
+            : undefined,
+        );
+      }
       if (message.action === 'close-operations') this.closeOperationsMode();
       if (message.action === 'save-and-exit') this.requestSaveAndExit();
+      if (message.action === 'switch-experience') {
+        const type = (message as { experienceType?: string }).experienceType;
+        if (type) this.switchExperienceType(type);
+      }
+      if (message.action === 'toggle-recording') this.toggleStepRecording();
+      // The predictive pass has a home already — Check — so this runs it and
+      // lands the creator on the findings rather than inventing a second report.
+      if (message.action === 'simulate-user') this.openOperationsMode('check');
+      if (message.action === 'canvas-zoom-in') this.zoomCanvas('in');
+      if (message.action === 'canvas-zoom-out') this.zoomCanvas('out');
+      if (message.action === 'canvas-zoom-reset') this.zoomCanvas('reset');
+      if (message.action === 'restart') this.restartFromFirstStep();
+      if (message.action === 'ask-lodariq') this.askFromChrome(message.prompt ?? '');
       return;
     }
 
@@ -142,19 +166,38 @@ export abstract class ControllerBridgeFeature extends ControllerPreviewFeature {
       if (message.command === 'select' && message.stepId) this.activateTourStep(message.stepId);
       if (message.command === 'collapse') return;
       if (message.command === 'retarget' && message.stepId) this.startTargetPick(message.stepId);
+      if (message.command === 'select-target' && message.stepId) this.inspectTarget(message.stepId);
       if (message.command === 'move-up' && message.stepId) {
         this.moveTopLevelBlock(message.stepId, 'up');
       }
       if (message.command === 'move-down' && message.stepId) {
         this.moveTopLevelBlock(message.stepId, 'down');
       }
+      if (message.command === 'remove' && message.stepId) {
+        this.deleteTopLevelBlock(message.stepId);
+      }
+      if (message.command === 'duplicate' && message.stepId) {
+        this.duplicateTopLevelBlock(message.stepId);
+      }
+      if (message.command === 'insert-before' && message.stepId) {
+        this.insertStepBeforeAndChooseTarget(message.stepId);
+      }
+      // Filmstrip multi-select (§4.5): the selection the style menu applies to.
+      if (message.command === 'select-add' && message.stepId) {
+        this.selectTourStepForBatch(message.stepId, { additive: true });
+      }
+      if (message.command === 'select-range' && message.stepId) {
+        this.selectTourStepForBatch(message.stepId, { additive: true, range: true });
+      }
       return;
     }
 
     if (message.type === AUTHORING_SHELL_POPUP_SIZE_COMMIT_TYPE) {
+      // A patch, not a replacement: an axis the drag did not drive is absent and
+      // has to stay at whatever the step already had.
       this.setTooltipLayout(message.blockId, {
-        widthPx: message.widthPx,
-        heightPx: message.heightPx,
+        ...(message.widthPx === undefined ? {} : { widthPx: message.widthPx }),
+        ...(message.heightPx === undefined ? {} : { heightPx: message.heightPx }),
       });
       return;
     }
@@ -170,7 +213,10 @@ export abstract class ControllerBridgeFeature extends ControllerPreviewFeature {
         return;
       }
       if (operation.kind === 'setPlacement') {
-        this.setTooltipPlacement(operation.blockId, operation.placement);
+        this.setTooltipPlacement(operation.blockId, operation.placement, {
+          ...(operation.align ? { align: operation.align } : {}),
+          ...(operation.offsetPx === undefined ? {} : { offsetPx: operation.offsetPx }),
+        });
         return;
       }
       if (operation.kind === 'setAction') {
@@ -300,6 +346,9 @@ export abstract class ControllerBridgeFeature extends ControllerPreviewFeature {
     const identity = message.identity
       ? { ...structuredClone(message.identity), targetId }
       : undefined;
+    // A fresh pick replaces the previous answer; re-picking without answering
+    // clears it, so a stale policy can never outlive the target it described.
+    const selection = message.selection ?? undefined;
     const nextTarget: DocumentTarget = {
       id: targetId,
       fingerprint: message.fingerprint,
@@ -307,6 +356,8 @@ export abstract class ControllerBridgeFeature extends ControllerPreviewFeature {
         ? { lifecycle: structuredClone(previousTarget.lifecycle) }
         : {}),
       ...(identity ? { identity } : {}),
+      ...(selection ? { selection: structuredClone(selection) } : {}),
+      ...(previousTarget?.approach ? { approach: structuredClone(previousTarget.approach) } : {}),
     };
     this.documentState = {
       ...this.documentState,

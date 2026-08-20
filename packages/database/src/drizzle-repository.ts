@@ -1,6 +1,6 @@
 import type { ControlPlaneRepository } from './repository';
 import type { LodariqDatabase } from './neon';
-import { DrizzleRepositoryAnalytics } from './drizzle/analytics';
+import { DrizzleRepositoryExperienceMeasurement } from './drizzle/experience-measurement';
 
 export function createDrizzleControlPlaneRepository(
   database: LodariqDatabase,
@@ -9,7 +9,7 @@ export function createDrizzleControlPlaneRepository(
 }
 
 class DrizzleControlPlaneRepository
-  extends DrizzleRepositoryAnalytics
+  extends DrizzleRepositoryExperienceMeasurement
   implements ControlPlaneRepository
 {
   async close(): Promise<void> {

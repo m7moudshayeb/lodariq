@@ -9,6 +9,8 @@ import {
   $isElementNode,
   $isParagraphNode,
   $isRangeSelection,
+  createCommand,
+  type LexicalCommand,
   type LexicalEditor,
   type LexicalNode,
   type NodeKey,
@@ -20,6 +22,18 @@ import {
   type RichContentMetadata,
 } from './rich-content-doc';
 import { $isRichMediaNode } from './rich-content-nodes';
+
+/**
+ * Persist the card now, whatever has focus.
+ *
+ * The debounced save deliberately holds off while focus sits in an inspector, so
+ * that typing in a property field cannot race the inspector's own document
+ * write. A structural change made *by* an inspector needs the opposite: the
+ * editor already holds the new content and the document does not, so it has to
+ * be handed over before anything else reads it.
+ */
+export const FLUSH_RICH_CONTENT_COMMAND: LexicalCommand<void> =
+  createCommand('FLUSH_RICH_CONTENT');
 
 export function insertNodeAtSelection(
   editor: LexicalEditor,
@@ -37,10 +51,13 @@ export function insertNodeAtSelection(
       const placed = inline ? wrapInlineNode(node) : node;
       if (anchor) anchor.insertAfter(placed);
       else $getRoot().append(placed);
+      /* A paragraph holding a button or other decorator reads as empty text, so
+       * check its children before clearing the row away. */
       if (
         anchor &&
         $isParagraphNode(anchor) &&
         anchor.getTextContent() === '' &&
+        !anchor.getChildren().some($isDecoratorNode) &&
         !$isDecoratorNode(node) &&
         !inline
       ) {

@@ -165,7 +165,7 @@ export const AUTHORING_XYFLOW_FOUNDATION_CSS = `
 
   .react-flow__edge-text {
     font-family: inherit;
-    font-size: var(--lq-font-2xs);
+    font-size: 8px;
     pointer-events: none;
     user-select: none;
   }

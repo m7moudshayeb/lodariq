@@ -39,6 +39,10 @@ export default defineConfig({
         replacement: fromRoot('packages/schema/src/authoring-entry-runtime.ts'),
       },
       {
+        find: /^@lodariq\/schema\/page-eligibility$/,
+        replacement: fromRoot('packages/schema/src/page-eligibility.ts'),
+      },
+      {
         find: /^@lodariq\/schema$/,
         replacement: fromRoot('packages/schema/src/index.ts'),
       },

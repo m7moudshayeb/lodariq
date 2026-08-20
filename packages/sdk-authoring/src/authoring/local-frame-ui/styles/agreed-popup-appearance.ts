@@ -146,7 +146,7 @@ export const AUTHORING_AGREED_POPUP_APPEARANCE_CSS = `
     background: transparent;
     color: var(--lq-color-muted);
     cursor: pointer;
-    font-size: var(--lq-font-2xs);
+    font-size: 8px;
     font-weight: var(--lq-weight-semibold);
     padding-inline: var(--lq-space-2);
     text-overflow: ellipsis;
@@ -209,8 +209,8 @@ export const AUTHORING_AGREED_POPUP_APPEARANCE_CSS = `
   .step-presentation-preview-heading > small,
   .step-presentation-settings > small {
     color: var(--lq-color-muted);
-    font-size: 9px;
-    font-weight: 700;
+    font-size: var(--lq-font-xs);
+    font-weight: var(--lq-weight-bold);
     letter-spacing: 0.06em;
     text-transform: uppercase;
   }
@@ -231,14 +231,14 @@ export const AUTHORING_AGREED_POPUP_APPEARANCE_CSS = `
   }
 
   .popup-contrast-check > div > span {
-    font-size: 13px;
-    font-weight: 700;
+    font-size: var(--lq-font-md);
+    font-weight: var(--lq-weight-bold);
   }
 
   .popup-contrast-check > div > small {
     grid-column: 1 / -1;
     color: var(--lq-color-muted);
-    font-size: 9px;
+    font-size: var(--lq-font-xs);
   }
 
 `;

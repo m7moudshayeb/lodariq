@@ -1,9 +1,11 @@
 import { BLOCK_SPACING_PX_LIMITS, type LodariqBlock } from '@lodariq/schema';
+import { $createLinkNode } from '@lexical/link';
 import { $createListItemNode, $createListNode } from '@lexical/list';
 import { $createHeadingNode } from '@lexical/rich-text';
 import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext';
 import {
   $createParagraphNode,
+  $createTextNode,
   $getNodeByKey,
   $getRoot,
   $getSelection,
@@ -15,28 +17,42 @@ import {
 import {
   ArrowDown,
   ArrowUp,
-  CircleDot,
+  ChartColumn,
+  ChevronLeft,
+  FormInput,
   GripVertical,
-  Hash,
   Heading,
+  Image as ImageIcon,
+  Link as LinkIcon,
   List as ListIcon,
-  MessageSquareWarning,
+  MessageSquare,
   Minus,
-  MousePointerClick,
+  MoreHorizontal,
   Plus,
-  Shapes,
+  Shield,
   Smile,
-  SquareCheck,
-  TextCursorInput,
+  Star,
+  Target,
   Trash2,
   Type,
+  Video,
+  Zap,
 } from 'lucide-react';
-import { useEffect, useRef, useState, type CSSProperties, type ReactElement, type ReactNode } from 'react';
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type ReactElement,
+  type ReactNode,
+} from 'react';
 import { createPortal } from 'react-dom';
 import type { AuthoringMediaUploadOptions } from '../authoring/local-frame-types';
 import { authoringText } from '../i18n';
 import { createBlockId } from './ids';
 import { applyBlockSpacingAfter, createFormFieldProps, formFieldInsertLabel, insertNodeAtSelection, insertTextAtSelection } from './rich-content-commands';
+import { OVERLAY_CARD_GUTTER_OFFSET_PX } from '../authoring/overlay/constants';
 import { blockIdForNode, type RichContentMetadata } from './rich-content-doc';
 import { readViewportRect, RichContentFloatingMenu } from './rich-content-floating';
 import {
@@ -54,14 +70,41 @@ import {
   $createRichFormFieldNode,
   $createRichIconNode,
   $createRichStatNode,
+  $createRichTargetChipNode,
+  $createRichValidationBadgeNode,
 } from './rich-content-nodes';
 
+/**
+ * WIRE_DASHBOARD: a Link block starts pointed at the workspace's own docs base.
+ * The real default belongs to the workspace's link settings; until that exists,
+ * an obviously-placeholder URL beats an empty href that publishes as a dead link.
+ */
+const AUTHORED_LINK_PLACEHOLDER_URL = 'https://docs.example.com';
+
+/**
+ * How far the handle column sits outside the card, and how wide it is (§4.2a
+ * rule 6). Entirely outside the card box on purpose: anything drawn inside it
+ * changes the geometry the step publishes with, so a creator would be editing
+ * against a card that is not the card their user sees.
+ */
 const HANDLE_GUTTER_PX = 44;
+
 
 interface HoveredBlock {
   key: NodeKey;
   left: number;
   top: number;
+  /** The block's bottom edge, which the "Add block" pill sits just under. */
+  bottom: number;
+  /** The card's left edge, which the gutter hangs off rather than the block's. */
+  cardLeft: number;
+  /** The card's width, so the pill can centre on the card rather than the block. */
+  cardWidth: number;
+}
+
+/** A candidate during hover resolution: full geometry, before it narrows to a hover. */
+interface LocatedBlock extends HoveredBlock {
+  height: number;
 }
 
 interface DropTarget {
@@ -69,7 +112,7 @@ interface DropTarget {
   position: 'before' | 'after';
 }
 
-type InsertMenuView = 'list' | 'icons' | 'emoji';
+type InsertMenuView = 'list' | 'icons' | 'emoji' | 'media';
 
 /**
  * Hover gutter beside each top-level block: `+` opens a searchable insert
@@ -123,30 +166,77 @@ export function BlockHandlesPlugin({
     if (!rootElement || !editor.isEditable()) return;
     const ownerDocument = rootElement.ownerDocument;
 
+    /**
+     * The published card, when this editor is the on-page overlay. The block's
+     * own left edge sits inside the card's padding, so hanging the gutter off it
+     * put the handles on top of the copy.
+     */
+    const cardBox = (): { left: number; width: number } => {
+      const card = rootElement.closest('.overlay-step-card') ?? rootElement;
+      const rect = readViewportRect(card);
+      return { left: rect.left, width: rect.width };
+    };
+
     const locateBlock = (clientY: number): HoveredBlock | null => {
+      const card = cardBox();
       const keys = editor.getEditorState().read(() => $getRoot().getChildrenKeys());
-      const located: HoveredBlock[] = [];
+      const located: LocatedBlock[] = [];
       for (const key of keys) {
         const element = editor.getElementByKey(key);
         if (!element) continue;
         const rect = readViewportRect(element);
-        located.push({ key, left: rect.left, top: rect.top, height: rect.height, bottom: rect.bottom });
+        located.push({
+          key,
+          left: rect.left,
+          top: rect.top,
+          height: rect.height,
+          bottom: rect.bottom,
+          cardLeft: card.left,
+          cardWidth: card.width,
+        });
       }
       const visible = located.filter((block) => block.height > 0);
       const pool = visible.length > 0 ? visible : located;
+      const hovered = (block: LocatedBlock): HoveredBlock => ({
+        key: block.key,
+        left: block.left,
+        top: block.top,
+        bottom: block.height > 0 ? block.bottom : block.top,
+        cardLeft: block.cardLeft,
+        cardWidth: block.cardWidth,
+      });
       for (const block of pool) {
-        const bottom = block.height > 0 ? block.bottom : block.top;
-        if (clientY >= block.top && clientY <= bottom) {
-          return { key: block.key, left: block.left, top: block.top };
+        if (clientY >= block.top && clientY <= hovered(block).bottom) return hovered(block);
+      }
+      /*
+       * Between two blocks, take the nearest one. Falling back to the first
+       * block meant the gutter jumped to the top of the card whenever the
+       * pointer crossed the gap between paragraphs — including the gap it has to
+       * cross on the way to the gutter itself, so the handles moved out from
+       * under the cursor as it arrived.
+       */
+      let nearest: LocatedBlock | null = null;
+      let shortest = Number.POSITIVE_INFINITY;
+      for (const block of pool) {
+        const bottom = hovered(block).bottom;
+        const distance =
+          clientY < block.top ? block.top - clientY : clientY > bottom ? clientY - bottom : 0;
+        if (distance < shortest) {
+          shortest = distance;
+          nearest = block;
         }
       }
-      return pool[0] ? { key: pool[0].key, left: pool[0].left, top: pool[0].top } : null;
+      return nearest ? hovered(nearest) : null;
     };
 
     const onPointerMove = (event: PointerEvent): void => {
       if (menuOpenRef.current || draggingKeyRef.current) return;
       const target = event.target;
-      if (target instanceof Element && target.closest('[data-rich-block-handles="true"]')) return;
+      if (
+        target instanceof Element &&
+        target.closest('[data-rich-block-handles="true"]')
+      )
+        return;
       const rootRect = readViewportRect(rootElement);
       const inBounds =
         event.clientX >= rootRect.left - HANDLE_GUTTER_PX &&
@@ -225,7 +315,17 @@ export function BlockHandlesPlugin({
         setInsertOpen(true);
         if (key && element) {
           const rect = readViewportRect(element);
-          setHovered({ key, left: rect.left, top: rect.top });
+          const root = editor.getRootElement();
+          const card = root?.closest('.overlay-step-card') ?? root;
+          const cardRect = card ? readViewportRect(card) : rect;
+          setHovered({
+            key,
+            left: rect.left,
+            top: rect.top,
+            bottom: rect.bottom,
+            cardLeft: cardRect.left,
+            cardWidth: cardRect.width,
+          });
         }
       });
     });
@@ -394,12 +494,46 @@ export function BlockHandlesPlugin({
     insertTextAtSelection(editor, emoji, { afterKey: hovered?.key ?? null });
   };
 
+  /*
+   * The gutter is measured on hover and drawn `position: fixed`, so anything that
+   * moves the card afterwards leaves it behind — opening the inspector shifts the
+   * card 270px right and the grip stayed put, on top of the inspector. Re-measured
+   * after every commit, guarded so an unchanged position is not a new render.
+   */
+  useLayoutEffect(() => {
+    if (!hovered) return;
+    const element = editor.getElementByKey(hovered.key);
+    const root = editor.getRootElement();
+    const card = root?.closest('.overlay-step-card') ?? root;
+    if (!element || !card) return;
+    const block = readViewportRect(element);
+    const cardRect = readViewportRect(card);
+    setHovered((current) => {
+      if (!current || current.key !== hovered.key) return current;
+      if (
+        current.top === block.top &&
+        current.bottom === block.bottom &&
+        current.cardLeft === cardRect.left &&
+        current.cardWidth === cardRect.width
+      ) {
+        return current;
+      }
+      return {
+        ...current,
+        top: block.top,
+        bottom: block.bottom,
+        cardLeft: cardRect.left,
+        cardWidth: cardRect.width,
+      };
+    });
+  });
+
   const ownerDocument = editor.getRootElement()?.ownerDocument;
   if (!ownerDocument || !editor.isEditable()) return null;
 
   const handleStyle: CSSProperties | null = hovered
     ? {
-        left: Math.max(4, hovered.left - HANDLE_GUTTER_PX),
+        left: Math.max(4, hovered.cardLeft + OVERLAY_CARD_GUTTER_OFFSET_PX),
         position: 'fixed',
         top: hovered.top,
       }
@@ -412,21 +546,21 @@ export function BlockHandlesPlugin({
     onSelect: () => void;
   }[] = [
     {
-      id: 'paragraph',
-      icon: <Type size={16} />,
-      label: authoringText('Normal text'),
-      onSelect: () => insertAfterHovered(() => $createParagraphNode()),
-    },
-    {
       id: 'heading',
-      icon: <Heading size={16} />,
+      icon: <Heading size={17} />,
       label: authoringText('Heading'),
       onSelect: () => insertAfterHovered(() => $createHeadingNode('h2')),
     },
     {
+      id: 'paragraph',
+      icon: <Type size={17} />,
+      label: authoringText('Text'),
+      onSelect: () => insertAfterHovered(() => $createParagraphNode()),
+    },
+    {
       id: 'list',
-      icon: <ListIcon size={16} />,
-      label: authoringText('Bulleted list'),
+      icon: <ListIcon size={17} />,
+      label: authoringText('List'),
       onSelect: () =>
         insertAfterHovered(() => {
           const list = $createListNode('bullet');
@@ -435,20 +569,8 @@ export function BlockHandlesPlugin({
         }),
     },
     {
-      id: 'callout',
-      icon: <MessageSquareWarning size={16} />,
-      label: authoringText('Callout'),
-      onSelect: () => insertAfterHovered(() => $createRichCalloutNode()),
-    },
-    {
-      id: 'stat',
-      icon: <Hash size={16} />,
-      label: authoringText('Stat'),
-      onSelect: () => insertAfterHovered(() => $createRichStatNode()),
-    },
-    {
       id: 'divider',
-      icon: <Minus size={16} />,
+      icon: <Minus size={17} />,
       label: authoringText('Divider'),
       onSelect: () =>
         insertAfterHovered(() => $createRichDividerNode(createBlockId()), {
@@ -456,9 +578,53 @@ export function BlockHandlesPlugin({
         }),
     },
     {
+      id: 'image',
+      icon: <ImageIcon size={17} />,
+      label: authoringText('Image'),
+      onSelect: () => setMenuView('media'),
+    },
+    {
+      id: 'video',
+      icon: <Video size={17} />,
+      label: authoringText('Video'),
+      onSelect: () => setMenuView('media'),
+    },
+    {
+      id: 'callout',
+      icon: <MessageSquare size={17} />,
+      label: authoringText('Callout'),
+      onSelect: () => insertAfterHovered(() => $createRichCalloutNode()),
+    },
+    {
+      id: 'stat',
+      icon: <ChartColumn size={17} />,
+      label: authoringText('Stat'),
+      onSelect: () => insertAfterHovered(() => $createRichStatNode()),
+    },
+    {
+      id: 'icon',
+      icon: <Star size={17} />,
+      label: authoringText('Icon + text'),
+      onSelect: () => setMenuView('icons'),
+    },
+    {
+      id: 'form-field',
+      icon: <FormInput size={17} />,
+      label: authoringText('Form field'),
+      onSelect: () =>
+        insertAfterHovered(() => {
+          const id = createBlockId();
+          return $createRichFormFieldNode(
+            id,
+            formFieldInsertLabel('text'),
+            createFormFieldProps('text', id),
+          );
+        }),
+    },
+    {
       id: 'button',
-      icon: <MousePointerClick size={16} />,
-      label: authoringText('Button'),
+      icon: <Zap size={17} />,
+      label: authoringText('Buttons'),
       onSelect: () =>
         insertAfterHovered(() =>
           $createRichButtonNode(createBlockId(), authoringText('Continue'), {
@@ -468,44 +634,47 @@ export function BlockHandlesPlugin({
         ),
     },
     {
-      id: 'checkbox',
-      icon: <SquareCheck size={16} />,
-      label: authoringText('Checkbox'),
+      id: 'link',
+      icon: <LinkIcon size={17} />,
+      label: authoringText('Link'),
       onSelect: () =>
         insertAfterHovered(() => {
-          const id = createBlockId();
-          return $createRichFormFieldNode(id, formFieldInsertLabel('checkbox'), createFormFieldProps('checkbox', id));
+          const paragraph = $createParagraphNode();
+          const link = $createLinkNode(AUTHORED_LINK_PLACEHOLDER_URL);
+          link.append($createTextNode(authoringText('Read the guide')));
+          paragraph.append(link);
+          return paragraph;
         }),
     },
     {
-      id: 'text-field',
-      icon: <TextCursorInput size={16} />,
-      label: authoringText('Text field'),
+      id: 'target-chip',
+      icon: <Target size={17} />,
+      label: authoringText('Target chip'),
       onSelect: () =>
         insertAfterHovered(() => {
-          const id = createBlockId();
-          return $createRichFormFieldNode(id, formFieldInsertLabel('text'), createFormFieldProps('text', id));
+          const chip = $createRichTargetChipNode();
+          chip.append($createTextNode(authoringText('Create project')));
+          return chip;
         }),
     },
     {
-      id: 'radio',
-      icon: <CircleDot size={16} />,
-      label: authoringText('Radio'),
+      id: 'validation-badge',
+      icon: <Shield size={17} />,
+      label: authoringText('Status badge'),
       onSelect: () =>
-        insertAfterHovered(() => {
-          const id = createBlockId();
-          return $createRichFormFieldNode(id, formFieldInsertLabel('radio'), createFormFieldProps('radio', id));
-        }),
-    },
-    {
-      id: 'icon',
-      icon: <Shapes size={16} />,
-      label: authoringText('Icon'),
-      onSelect: () => setMenuView('icons'),
+        insertAfterHovered(
+          () =>
+            $createRichValidationBadgeNode(
+              createBlockId(),
+              'ready',
+              authoringText('Verified on this screen'),
+            ),
+          { trailingParagraph: true },
+        ),
     },
     {
       id: 'emoji',
-      icon: <Smile size={16} />,
+      icon: <Smile size={17} />,
       label: authoringText('Emoji'),
       onSelect: () => setMenuView('emoji'),
     },
@@ -515,24 +684,26 @@ export function BlockHandlesPlugin({
   const visibleOptions = insertOptions.filter((option) =>
     option.label.toLowerCase().includes(normalizedQuery),
   );
+  /*
+   * Typing `/` is already a filter, so that path keeps the narrowing list. A
+   * creator who pressed a button instead is choosing from the whole set, and
+   * shape reads faster than label there — so that path gets the four-up grid.
+   */
+  const slashDriven = slashQueryRef.current !== null;
 
-  const insertMenu = (
+  const renderInsertMenu = (heading: string): ReactElement => (
     <div className="rich-content-menu rich-content-insert-menu">
       {menuView === 'list' ? (
         <>
-          {slashQueryRef.current === null ? (
-            <input
-              aria-label={authoringText('Search content types')}
-              autoFocus
-              onChange={(event) => setQuery(event.currentTarget.value)}
-              placeholder={authoringText('Search…')}
-              type="search"
-              value={query}
-            />
-          ) : (
+          {slashDriven ? (
             <p className="rich-content-slash-hint">{authoringText('Insert')}</p>
+          ) : (
+            <p className="rich-content-insert-heading">{heading}</p>
           )}
-          <div className="rich-content-insert-options" role="menu">
+          <div
+            className={slashDriven ? 'rich-content-insert-options' : 'rich-content-insert-grid'}
+            role="menu"
+          >
             {visibleOptions.map((option) => (
               <RichContentInsertOption
                 icon={option.icon}
@@ -547,24 +718,43 @@ export function BlockHandlesPlugin({
               </span>
             ) : null}
           </div>
-          {onUploadMedia ? (
-            <RichContentMediaInsertPanel
-              captionTargetVideo={Boolean(media.captionTargetVideo)}
-              mediaUploadError={media.mediaUploadError}
-              onUploadCaptions={(file) => {
-                void media.uploadCaptions(file);
-              }}
-              onUploadMediaFile={(kind, file) => {
-                consumeSlashQuery();
-                void media.uploadMediaIntoCanvas(kind, file, hovered?.key ?? null);
-                closeMenus();
-                setHovered(null);
-              }}
-              saveMediaToLibrary={media.saveMediaToLibrary}
-              setSaveMediaToLibrary={media.setSaveMediaToLibrary}
-              uploading={media.uploading}
-            />
-          ) : null}
+          {slashDriven ? null : (
+            <>
+              <div className="rich-content-insert-separator" />
+              <p className="rich-content-insert-note">
+                {authoringText('Blocks flow like a document. Drag the gutter handle to reorder.')}
+              </p>
+            </>
+          )}
+        </>
+      ) : null}
+      {menuView === 'media' && onUploadMedia ? (
+        <>
+          <button
+            className="rich-content-insert-back"
+            onClick={() => setMenuView('list')}
+            onPointerDown={(event) => event.preventDefault()}
+            type="button"
+          >
+            <ChevronLeft size={14} />
+            <span>{authoringText('Back')}</span>
+          </button>
+          <RichContentMediaInsertPanel
+            captionTargetVideo={Boolean(media.captionTargetVideo)}
+            mediaUploadError={media.mediaUploadError}
+            onUploadCaptions={(file) => {
+              void media.uploadCaptions(file);
+            }}
+            onUploadMediaFile={(kind, file) => {
+              consumeSlashQuery();
+              void media.uploadMediaIntoCanvas(kind, file, hovered?.key ?? null);
+              closeMenus();
+              setHovered(null);
+            }}
+            saveMediaToLibrary={media.saveMediaToLibrary}
+            setSaveMediaToLibrary={media.setSaveMediaToLibrary}
+            uploading={media.uploading}
+          />
         </>
       ) : null}
       {menuView === 'icons' ? (
@@ -643,7 +833,46 @@ export function BlockHandlesPlugin({
           data-rich-block-handles="true"
           style={handleStyle}
         >
-          <RichContentFloatingMenu content={insertMenu} open={insertOpen} placement="bottom-start">
+          {/*
+            Grip, insert, options — three, in the prototype's order. The grip
+            drags and does nothing else: overloading it with a click menu meant a
+            creator who missed the drag threshold got a menu they did not ask for.
+          */}
+          <button
+            aria-label={authoringText('Drag to reorder')}
+            className="rich-content-block-grip"
+            draggable
+            onClick={(event) => event.preventDefault()}
+            onDragEnd={() => {
+              draggingKeyRef.current = null;
+              dropTargetRef.current = null;
+              setDropIndicator(null);
+              ownerDocument.defaultView?.setTimeout(() => {
+                didDragRef.current = false;
+              }, 0);
+            }}
+            onDragStart={(event) => {
+              if (!hovered) return;
+              closeMenus();
+              didDragRef.current = true;
+              draggingKeyRef.current = hovered.key;
+              if (event.dataTransfer) {
+                event.dataTransfer.effectAllowed = 'move';
+                event.dataTransfer.setData('text/plain', hovered.key);
+                const blockElement = editor.getElementByKey(hovered.key);
+                if (blockElement) event.dataTransfer.setDragImage(blockElement, 0, 0);
+              }
+            }}
+            title={authoringText('Drag to reorder')}
+            type="button"
+          >
+            <GripVertical size={13} />
+          </button>
+          <RichContentFloatingMenu
+            content={renderInsertMenu(authoringText('Insert after'))}
+            open={insertOpen}
+            placement="bottom-start"
+          >
             <button
               aria-expanded={insertOpen}
               aria-label={authoringText('Add content')}
@@ -657,7 +886,7 @@ export function BlockHandlesPlugin({
               title={authoringText('Add content')}
               type="button"
             >
-              <Plus size={15} />
+              <Plus size={13} />
             </button>
           </RichContentFloatingMenu>
           <RichContentFloatingMenu
@@ -668,7 +897,6 @@ export function BlockHandlesPlugin({
             <button
               aria-expanded={settingsOpen}
               aria-label={authoringText('Block options')}
-              draggable
               onClick={(event) => {
                 if (didDragRef.current) {
                   event.preventDefault();
@@ -696,10 +924,10 @@ export function BlockHandlesPlugin({
                   if (blockElement) event.dataTransfer.setDragImage(blockElement, 0, 0);
                 }
               }}
-              title={authoringText('Drag to reorder, click for options')}
+              title={authoringText('Block options')}
               type="button"
             >
-              <GripVertical size={15} />
+              <MoreHorizontal size={13} />
             </button>
           </RichContentFloatingMenu>
         </div>

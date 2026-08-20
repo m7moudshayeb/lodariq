@@ -5,6 +5,38 @@ export default {
       files: ['packages/sdk-authoring/src/**/*.ts'],
       rules: {
         'custom-property-pattern': '^lq-[a-z0-9-]+$',
+        /**
+         * Anti-drift: creator-chrome surfaces may not carry raw colour literals.
+         * Every colour comes from `creator-chrome-tokens.ts` through an `--lq-*`
+         * custom property, so a palette change is one edit rather than a sweep.
+         */
+        'declaration-property-value-disallowed-list': [
+          {
+            background: [/#[0-9a-fA-F]{3,8}/, /\brgba?\(/, /\bhsla?\(/],
+            'background-color': [/#[0-9a-fA-F]{3,8}/, /\brgba?\(/, /\bhsla?\(/],
+            border: [/#[0-9a-fA-F]{3,8}/, /\brgba?\(/, /\bhsla?\(/],
+            'border-color': [/#[0-9a-fA-F]{3,8}/, /\brgba?\(/, /\bhsla?\(/],
+            'box-shadow': [/#[0-9a-fA-F]{3,8}/, /\brgba?\(/, /\bhsla?\(/],
+            color: [/#[0-9a-fA-F]{3,8}/, /\brgba?\(/, /\bhsla?\(/],
+            fill: [/#[0-9a-fA-F]{3,8}/, /\brgba?\(/, /\bhsla?\(/],
+            outline: [/#[0-9a-fA-F]{3,8}/, /\brgba?\(/, /\bhsla?\(/],
+            stroke: [/#[0-9a-fA-F]{3,8}/, /\brgba?\(/, /\bhsla?\(/],
+          },
+          {
+            message:
+              'Use an --lq-* custom property from creator-chrome-tokens.ts instead of a raw colour.',
+            severity: 'warning',
+          },
+        ],
+      },
+    },
+    {
+      /** `foundation.ts` declares the custom properties from the tokens, so it is
+       *  the one file allowed to hold interpolated colour values. */
+      customSyntax: 'postcss-styled-syntax',
+      files: ['packages/sdk-authoring/src/authoring/local-frame-ui/styles/foundation.ts'],
+      rules: {
+        'declaration-property-value-disallowed-list': null,
       },
     },
   ],

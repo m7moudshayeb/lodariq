@@ -30,17 +30,34 @@ The ordinary production path loads only production runtime code. Add
 explicitly sends to Lodariq.
 
 ```html
+<link rel="preconnect" href="https://cdn.lodariq.io" crossorigin />
+<link rel="preconnect" href="https://api.lodariq.io" crossorigin />
 <script
-  src="https://cdn.lodariq.io/loader/v1/lodariq-loader.js"
-  data-installation="ins_pub_xxx"
+  type="module"
   async
   crossorigin="anonymous"
+  src="https://cdn.lodariq.io/sdk/lodariq-public-bootstrap.js"
+  data-lodariq-loader
+  data-installation="ins_pub_xxx"
 ></script>
 ```
+
+Copy the exact snippet from the dashboard rather than the one above: it carries
+the real installation ID, the API origin for the deployment, and — when the
+deployment pins one — an `integrity` digest for the loader build. The two
+`preconnect` hints are not decoration: the loader is fetched from the CDN and
+then immediately talks to the API, so without them the first eligibility check
+pays a cold DNS and TLS handshake.
 
 The installation ID is public configuration identity, not a bearer secret. The
 API maps the browser's exact origin to one environment and fails a missing,
 disallowed, or ambiguous mapping closed.
+
+A page with no experience targeting it stops after the bootstrap — no runtime,
+no renderer, no artifact — and the check that decides this is cacheable, so
+repeat page views cost no network at all. See
+[What Lodariq Costs a Page](sdk-page-cost.md) for the measured numbers, the
+Content-Security-Policy directives, and the reversible kill switch.
 
 Creating the public installation ID, mapping exact origins to environments, or
 issuing a compatibility environment token verifies configuration but does not

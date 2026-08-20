@@ -30,8 +30,13 @@ const checks = [
     entries: ['creator-toolbar/index.js'],
     // Localization baseline (2026-08-12): 9,675 bytes, including the shared
     // locale policy and dynamic catalog selector.
+    //
+    // Raised from 10 KiB when the toolbar's hover states moved off raw rgba
+    // onto `color-mix` over the accent token (ADR-0013). The token form is
+    // longer than the literal it replaced; keeping the literal would put a
+    // colour value back in a file the design-token gate exists to keep clean.
     baseline: 9_675,
-    limit: 10 * 1024,
+    limit: 10.25 * 1024,
   },
   {
     name: 'creator-install',

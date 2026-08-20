@@ -8,10 +8,19 @@ import {
   CreatorModuleDescriptor,
   MAX_ACTIVE_DOCUMENT_MANIFESTS,
   PUBLIC_MANIFEST_SCHEMA_VERSION,
+  SDK_ELIGIBILITY_DIGEST_SCHEMA_VERSION,
+  SdkEligibilityDigest,
   findSupportedDeliveryContract,
   isValidCompilerVersion,
+  readPageEligibilityContext,
+  triggerMatchesPage,
   validate,
   type ActiveManifestPointerV2,
+  type PageEligibilityContext,
+  type SdkEligibilityDigest as SdkEligibilityDigestType,
+  type SdkEligibilityPagePattern as SdkEligibilityPagePatternType,
+  type SdkEligibilityScope as SdkEligibilityScopeType,
+  type TriggerDefinition,
   type CreatorModuleDescriptor as CreatorModuleDescriptorType,
   type PublicSdkBootstrapContext as PublicSdkBootstrapContextType,
   type PublicSdkBootstrapRequest as PublicSdkBootstrapRequestType,
@@ -23,6 +32,7 @@ import {
   type ControlPlaneRepository,
   type PersistedDocumentDeployment,
   type PersistedPublication,
+  type PublicSdkInstallationRecord,
   type ResolvedEnvironmentToken,
 } from '@lodariq/database';
 import type { FastifyReply, FastifyRequest } from 'fastify';
@@ -77,6 +87,22 @@ export async function bootstrapPublicSdkInstallation(
   }
   setAllowedSdkCorsHeaders(exactOrigin, reply);
 
+  // The kill switch, enforced a second time here. The digest already stops most
+  // pages before they reach this route, but a visitor holding a cached digest
+  // from before the pause must not be able to start a tour on the strength of
+  // it, so the authoritative path re-checks.
+  if (!isInstallationEnabled(resolved.installation)) {
+    return validatePublicSdkBootstrapContext({
+      installationId: resolved.installation.installationId,
+      environmentId: resolved.environment.id,
+      environment: resolved.environment.kind,
+      customerOrigin: exactOrigin,
+      correlationId: createCorrelationId('bootstrap'),
+      delivery: { state: 'unavailable' },
+      authoring: { state: 'disabled', reason: 'not_enabled' },
+    });
+  }
+
   const deployments = await options.repository.listDocumentDeployments(
     resolved.installation.workspaceId,
     resolved.environment.id,
@@ -94,19 +120,24 @@ export async function bootstrapPublicSdkInstallation(
         maximum: MAX_ACTIVE_DOCUMENT_MANIFESTS,
       });
     }
-    const manifests = await Promise.all(
+    const candidates = await Promise.all(
       activeDeployments.map((deployment) =>
-        createActiveManifestPointer(options.repository, options.publicApiBaseUrl, deployment),
+        createActiveManifestCandidate(options.repository, options.publicApiBaseUrl, deployment),
       ),
     );
-    if (manifests.some((manifest) => manifest === null)) {
+    if (candidates.some((candidate) => candidate === null)) {
       return reply.code(409).send({
         error: 'deployment_publication_missing',
         message: 'An active document deployment does not resolve to an immutable publication',
       });
     }
-    const activeManifests = manifests.filter(
-      (manifest): manifest is ActiveManifestPointerV2 => manifest !== null,
+    // Page scoping (ADR-0027). A visitor on a page no active experience targets
+    // pays the bootstrap request and nothing else: no delivery module, no
+    // runtime, no artifact. Unparseable or absent page intent falls through to
+    // the whole active set, so a missing href can never hide a live experience.
+    const activeManifests = selectManifestsForPage(
+      candidates.filter((candidate): candidate is ActiveManifestCandidate => candidate !== null),
+      readPageEligibilityContext(body.href, exactOrigin),
     );
     delivery =
       activeManifests.length > 0
@@ -126,6 +157,17 @@ export async function bootstrapPublicSdkInstallation(
       reply,
     );
     if (reply.sent) return reply;
+    // The deprecated environment-global branch is page-scoped on the same rule,
+    // so a customer still on the compatibility install gets the same idle cost.
+    const legacyCompiled = publication?.artifact.compiled;
+    const legacyTrigger =
+      legacyCompiled && 'trigger' in legacyCompiled
+        ? (legacyCompiled.trigger as TriggerDefinition)
+        : null;
+    const legacyPage = readPageEligibilityContext(body.href, exactOrigin);
+    if (publication && legacyTrigger && legacyPage && !triggerMatchesPage(legacyTrigger, legacyPage)) {
+      publication = null;
+    }
     delivery = publication
       ? {
           state: 'available',
@@ -139,9 +181,13 @@ export async function bootstrapPublicSdkInstallation(
       : { state: 'unavailable' };
   }
 
-  let authoring: PublicSdkBootstrapContextType['authoring'] = { state: 'disabled' };
   const canAuthor =
     resolved.environment.kind !== 'production' && resolved.authoringEnabled === true;
+  // §14.4: say which of the two reasons applies, so the SDK can explain the path.
+  let authoring: PublicSdkBootstrapContextType['authoring'] = {
+    state: 'disabled',
+    reason: resolved.environment.kind === 'production' ? 'production_environment' : 'not_enabled',
+  };
   if (canAuthor) {
     const bootstrapGrant = createPublicSdkBootstrapGrant();
     const bootstrapGrantExpiresAt = new Date(
@@ -179,6 +225,101 @@ export async function bootstrapPublicSdkInstallation(
     delivery,
     authoring,
   });
+}
+
+/**
+ * Narrow the active pointers to those whose trigger can fire on this page.
+ *
+ * Fails open twice over: with no usable page context every pointer is kept, and
+ * `triggerMatchesPage` keeps anything that is not an explicit `urlMatch` miss.
+ * The only way to be dropped here is to carry a URL pattern that demonstrably
+ * does not match where the visitor is standing.
+ */
+export function selectManifestsForPage(
+  candidates: readonly ActiveManifestCandidate[],
+  page: PageEligibilityContext | null,
+): ActiveManifestPointerV2[] {
+  if (!page) return candidates.map((candidate) => candidate.pointer);
+  return candidates
+    .filter((candidate) => !candidate.trigger || triggerMatchesPage(candidate.trigger, page))
+    .map((candidate) => candidate.pointer);
+}
+
+/**
+ * Reduce every active experience's trigger to the smallest scope that still
+ * admits all of them.
+ *
+ * The moment one active experience can fire anywhere — a manual document played
+ * by host code, an event document fired by a later `track` call — the whole
+ * installation is `all`, because no URL can rule those out. Only when every
+ * active experience is pinned to a URL pattern can a page rule itself out.
+ */
+export function resolveEligibilityScope(
+  triggers: readonly (TriggerDefinition | null)[],
+): SdkEligibilityScopeType {
+  if (triggers.length === 0) return { kind: 'none' };
+  const patterns: SdkEligibilityPagePatternType[] = [];
+  for (const trigger of triggers) {
+    if (!trigger || trigger.type !== 'urlMatch') return { kind: 'all' };
+    patterns.push({ pattern: trigger.config.pattern, mode: trigger.config.mode ?? 'exact' });
+  }
+  return patterns.length > 0 ? { kind: 'patterns', patterns } : { kind: 'none' };
+}
+
+/**
+ * Whether an installation may deliver anything at all right now.
+ *
+ * Suspension is checked here rather than inside `resolvePublicSdkInstallation`
+ * on purpose: a suspended installation must still resolve, so the digest can
+ * report `enabled: false` and the page can distinguish "paused" from "this
+ * origin is not yours" — one is a customer's own deliberate act, the other is a
+ * misconfiguration worth surfacing.
+ */
+export function isInstallationEnabled(installation: PublicSdkInstallationRecord): boolean {
+  return !installation.revokedAt && !installation.suspendedAt;
+}
+
+/** Assemble the cacheable digest for one installation. */
+export async function buildSdkEligibilityDigest(
+  options: ControlPlaneRouteOptions,
+  installationId: string,
+  workspaceId: string,
+  environmentId: string,
+  enabled: boolean,
+): Promise<SdkEligibilityDigestType> {
+  if (!enabled) {
+    // A disabled installation reports no scope at all, so a stale digest can
+    // never re-enable delivery on its own.
+    return validateEligibilityDigest({
+      schemaVersion: SDK_ELIGIBILITY_DIGEST_SCHEMA_VERSION,
+      installationId,
+      enabled: false,
+      scope: { kind: 'none' },
+    });
+  }
+  const deployments = await options.repository.listDocumentDeployments(workspaceId, environmentId);
+  const activeDeployments = deployments.filter((deployment) => deployment.state === 'active');
+  const candidates = await Promise.all(
+    activeDeployments.map((deployment) =>
+      createActiveManifestCandidate(options.repository, options.publicApiBaseUrl, deployment),
+    ),
+  );
+  const resolvable = candidates.filter(
+    (candidate): candidate is ActiveManifestCandidate => candidate !== null,
+  );
+  return validateEligibilityDigest({
+    schemaVersion: SDK_ELIGIBILITY_DIGEST_SCHEMA_VERSION,
+    installationId,
+    enabled: true,
+    scope: resolveEligibilityScope(resolvable.map((candidate) => candidate.trigger)),
+  });
+}
+
+/** The digest is validated on the way out; a malformed one is a server fault. */
+function validateEligibilityDigest(digest: SdkEligibilityDigestType): SdkEligibilityDigestType {
+  const result = validate(SdkEligibilityDigest, digest);
+  if (!result.valid) throw new Error('Lodariq SDK eligibility digest failed validation');
+  return result.value;
 }
 
 export function resolveCreatorModule(
@@ -283,6 +424,42 @@ export function createManifestPointer(
         : {}),
     },
   };
+}
+
+/**
+ * An active pointer together with the trigger that decides where it may fire.
+ *
+ * The trigger is read from the immutable published artifact, never from the
+ * editable document, so page scoping can never disagree with what is actually
+ * deliverable. V1 artifacts predate triggers and report `null`, which the
+ * matcher treats as eligible everywhere.
+ */
+export interface ActiveManifestCandidate {
+  pointer: ActiveManifestPointerV2;
+  trigger: TriggerDefinition | null;
+}
+
+export async function createActiveManifestCandidate(
+  repository: ControlPlaneRepository,
+  publicApiBaseUrl: string,
+  deployment: PersistedDocumentDeployment,
+): Promise<ActiveManifestCandidate | null> {
+  if (deployment.state !== 'active') return null;
+  const publication = await repository.getCurrentPublicationForDocument(
+    deployment.workspaceId,
+    deployment.environmentId,
+    deployment.documentId,
+  );
+  if (!publication) return null;
+  const pointer = createActiveManifestPointerFromPublication(
+    publicApiBaseUrl,
+    deployment,
+    publication,
+  );
+  if (!pointer) return null;
+  const compiled = publication.artifact.compiled;
+  const trigger = 'trigger' in compiled ? (compiled.trigger as TriggerDefinition) : null;
+  return { pointer, trigger };
 }
 
 export async function createActiveManifestPointer(

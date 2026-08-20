@@ -82,6 +82,11 @@
       "types": "./dist/url.d.ts",
       "import": "./dist/url.js"
     },
+    "./page-eligibility": {
+      "source": "./src/page-eligibility.ts",
+      "types": "./dist/page-eligibility.d.ts",
+      "import": "./dist/page-eligibility.js"
+    },
     "./package.json": "./package.json",
     "./fixtures/*": "./fixtures/*"
   },

@@ -8,17 +8,20 @@ import {
   mutationAffectsPresentationOwner,
   positionTargetOutline,
   positionTourArrow,
+  TARGET_OUTLINE_GAP_PX,
   positioningReference,
   presentationOwnerObservationRoots,
   shadowRootHost,
 } from './tour-positioning';
 import { rectFromDomRect, type ProtectedSurfaceRect } from './protected-surface';
 import { computeCollisionAwareTourPosition } from './tour-protected-positioning';
+import { outlineOffsetPx, positionTourBackdrop } from './tour-emphasis';
 
 const TARGET_REVALIDATION_THROTTLE_MS = 500;
 
 export interface TrackTourTargetOptions {
   anchor: ResolvedAnchor;
+  backdrop: HTMLElement | null;
   armTargetClickAdvance: (target: Element, onInvalidOwner: () => void) => () => void;
   arrow: HTMLElement;
   authoringPreviewInteractive: boolean;
@@ -53,6 +56,7 @@ export function trackTourTarget(options: TrackTourTargetOptions): () => void {
     if (!unavailable) blurHiddenTourCard(options.shadow, options.card);
     options.card.hidden = true;
     if (options.targetOutline) options.targetOutline.hidden = true;
+    if (options.backdrop) options.backdrop.hidden = true;
     unavailable = true;
     clearTargetAction();
     clearTargetAction = () => {};
@@ -192,7 +196,7 @@ function positionTrackedTourTarget(
   let framePending = false;
   const owner = anchor.element;
   const reference = positioningReference(anchor, options.step.presentationAnchor);
-  const placement = (options.step.placement as Placement) ?? 'bottom';
+  const placement = anchoredPlacement(options.step);
   const updateNow = (): void => {
     framePending = false;
     if (!active) return;
@@ -201,7 +205,9 @@ function positionTrackedTourTarget(
       return;
     }
     onOwnerAvailabilityChange(true);
-    positionTargetOutline(options.targetOutline, anchor.element);
+    const offsetPx = outlineOffsetPx(options.step.emphasis, TARGET_OUTLINE_GAP_PX);
+    positionTargetOutline(options.targetOutline, anchor.element, offsetPx);
+    positionTourBackdrop(options.backdrop, anchor.element, options.step.emphasis, offsetPx);
     let protectedSurfaces: readonly ProtectedSurfaceRect[] | undefined;
     if (options.authoringPreviewOwnerId && options.getProtectedSurfaces) {
       try {
@@ -215,6 +221,12 @@ function positionTrackedTourTarget(
       arrowElement: options.arrow,
       card: options.card,
       placement,
+      ...(options.step.anchorOffsetPx === undefined
+        ? {}
+        : { offsetPx: options.step.anchorOffsetPx }),
+      ...(options.step.anchorAutoFlip === undefined
+        ? {}
+        : { autoFlip: options.step.anchorAutoFlip }),
       protectedSurfaces,
       reference,
     })
@@ -230,6 +242,7 @@ function positionTrackedTourTarget(
       .catch((error: unknown) => {
         if (!active) return;
         if (options.targetOutline) options.targetOutline.hidden = true;
+        if (options.backdrop) options.backdrop.hidden = true;
         options.onPositionError(normalizeTourPresentationError(error));
       });
   };
@@ -253,6 +266,7 @@ function positionTrackedTourTarget(
     stop: () => {
       active = false;
       if (options.targetOutline) options.targetOutline.hidden = true;
+      if (options.backdrop) options.backdrop.hidden = true;
       resizeObserver?.disconnect();
       for (const target of scrollTargets) target.removeEventListener?.('scroll', update, true);
       ownerWindow.removeEventListener?.('resize', update);
@@ -279,4 +293,15 @@ function stepWaitsForTargetClick(step: CompiledStep): boolean {
 
 function focusTourCard(card: HTMLElement): void {
   (card.querySelector<HTMLElement>('button, a[href]') ?? card).focus();
+}
+
+/**
+ * Floating UI expresses side and alignment in one string. `center` is the plain
+ * side, so it stays the default and never widens the placement vocabulary.
+ */
+function anchoredPlacement(step: CompiledStep): Placement {
+  const side = (step.placement as Placement) ?? 'bottom';
+  const align = step.anchorAlign;
+  if (!align || align === 'center') return side;
+  return `${side.split('-')[0]}-${align}` as Placement;
 }

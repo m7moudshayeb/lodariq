@@ -50,8 +50,8 @@ export const AUTHORING_STEP_SETTINGS_CSS = `
     padding: 0;
   }
 
-  .rich-step-choice-field legend,
-  .rich-step-color-field legend {
+  .rich-step-choice-field > .rich-step-field-label,
+  .rich-step-color-field > .rich-step-field-label {
     color: var(--lq-color-muted);
     font-size: var(--lq-font-xs);
     font-weight: var(--lq-weight-bold);
@@ -141,7 +141,7 @@ export const AUTHORING_STEP_SETTINGS_CSS = `
     border-radius: 999px;
     color: var(--lq-color-primary);
     cursor: pointer;
-    font-size: var(--lq-font-2xs);
+    font-size: 8px;
     font-weight: var(--lq-weight-semibold);
     padding: 0 var(--lq-space-2);
   }
@@ -159,7 +159,7 @@ export const AUTHORING_STEP_SETTINGS_CSS = `
     background: transparent;
     color: var(--lq-color-primary);
     cursor: pointer;
-    font-size: var(--lq-font-2xs);
+    font-size: 8px;
     font-weight: var(--lq-weight-bold);
     padding: 0 var(--lq-space-1);
   }
@@ -174,7 +174,7 @@ export const AUTHORING_STEP_SETTINGS_CSS = `
     display: block;
     margin-top: var(--lq-space-1);
     color: var(--lq-color-muted);
-    font-size: var(--lq-font-2xs);
+    font-size: 8px;
     font-weight: var(--lq-weight-semibold);
   }
 
@@ -290,7 +290,7 @@ export const AUTHORING_STEP_SETTINGS_CSS = `
     flex: 1;
     overflow: hidden;
     color: var(--lq-color-muted);
-    font-size: var(--lq-font-2xs);
+    font-size: 8px;
     text-overflow: ellipsis;
   }
 
@@ -300,7 +300,7 @@ export const AUTHORING_STEP_SETTINGS_CSS = `
     background: transparent;
     color: var(--lq-color-primary);
     cursor: pointer;
-    font-size: var(--lq-font-2xs);
+    font-size: 8px;
     font-weight: var(--lq-weight-bold);
     padding: 0;
   }
@@ -329,7 +329,7 @@ export const AUTHORING_STEP_SETTINGS_CSS = `
 
   .rich-step-url-field.prominent small {
     color: var(--lq-color-muted);
-    font-size: 10px;
+    font-size: var(--lq-font-xs);
     line-height: 1.4;
   }
 

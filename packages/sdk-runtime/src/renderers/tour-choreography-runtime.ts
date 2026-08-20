@@ -11,12 +11,26 @@ import {
   waitForObservedTargetInput,
   type ChoreographyStageUpdate,
 } from './tour-choreography';
-import { TourPresentationCanceledError } from './tour-errors';
-import { acquireNetworkActivityTracker, delay } from './tour-lifecycle';
+import { TourPresentationCanceledError, TourPresentationUnavailableError } from './tour-errors';
+import { tourRuntimeText } from '../tour-i18n';
+import { acquireNetworkActivityTracker } from './tour-lifecycle';
 
 export { ChoreographyStageTimeoutError };
 
 export type ChoreographyTargetAction = 'activate' | 'observe-click' | 'focus' | 'input' | 'anchor';
+
+/** Coalesces a burst of mutations into one resolution instead of one each. */
+const TARGET_WAIT_DEBOUNCE_MS = 16;
+/**
+ * Lowest share of the main thread Lodariq will leave to the host app while
+ * waiting. A resolution costing 20 ms therefore buys the page 80 ms of quiet,
+ * so a continuously mutating app cannot drive us back to full occupancy.
+ */
+const TARGET_WAIT_DUTY_DIVISOR = 4;
+/** Safety net for reveals a MutationObserver cannot see — stylesheet swaps, transitions. */
+const TARGET_WAIT_BACKOFF_MS = [50, 100, 200, 400, 800] as const;
+/** Waiting forever is not a state a viewer can act on. */
+const TARGET_WAIT_DEADLINE_MS = 10_000;
 
 export interface RuntimeChoreographyEnvironment {
   resolveTarget: (targetId: string, requiredAction: ChoreographyTargetAction) => Element | null;
@@ -84,7 +98,7 @@ async function runWait(
   signal: AbortSignal,
 ): Promise<void> {
   if (wait.type === 'targetAvailable') {
-    await waitForTarget(wait.targetId, 'anchor', resolveTarget, signal);
+    await waitForTarget(wait.targetId, 'anchor', resolveTarget, signal, timeoutMs);
     return;
   }
   if (wait.type === 'route') {
@@ -108,18 +122,103 @@ async function runWait(
   }
 }
 
-async function waitForTarget(
+/**
+ * Wait for a step's target to appear.
+ *
+ * This used to be a 50 ms poll. A resolution costs more than 50 ms on a large
+ * page, so the loop ran back to back and held the main thread at full occupancy
+ * for as long as the target was missing — Lodariq janked the customer's app worst
+ * at exactly the moment their app was busy enough to be slow.
+ *
+ * Now the DOM says when to look. The backoff is only a safety net for reveals a
+ * MutationObserver cannot see, and the deadline turns "never appeared" into
+ * something the viewer can be told about.
+ */
+function waitForTarget(
   targetId: string,
   requiredAction: ChoreographyTargetAction,
   resolveTarget: RuntimeChoreographyEnvironment['resolveTarget'],
   signal: AbortSignal,
+  deadlineMs: number = TARGET_WAIT_DEADLINE_MS,
 ): Promise<Element> {
-  let element = resolveTarget(targetId, requiredAction);
-  while (!element) {
-    await delay(50, signal);
-    element = resolveTarget(targetId, requiredAction);
-  }
-  return element;
+  const immediate = resolveTarget(targetId, requiredAction);
+  if (immediate) return Promise.resolve(immediate);
+
+  return new Promise<Element>((resolveWait, rejectWait) => {
+    let settled = false;
+    let debounceTimer = 0;
+    let backoffTimer = 0;
+    let backoffStep = 0;
+    let lastCostMs = 0;
+
+    const settle = (complete: () => void): void => {
+      if (settled) return;
+      settled = true;
+      observer.disconnect();
+      window.clearTimeout(debounceTimer);
+      window.clearTimeout(backoffTimer);
+      window.clearTimeout(deadlineTimer);
+      signal.removeEventListener('abort', onAbort);
+      complete();
+    };
+
+    const attempt = (): void => {
+      if (settled) return;
+      if (signal.aborted) {
+        settle(() => rejectWait(new TourPresentationCanceledError()));
+        return;
+      }
+      const startedAt = performance.now();
+      const element = resolveTarget(targetId, requiredAction);
+      lastCostMs = performance.now() - startedAt;
+      if (element) settle(() => resolveWait(element));
+      else scheduleBackoff();
+    };
+
+    // One resolution per burst: a pending attempt absorbs further mutations
+    // rather than queueing a pass behind every one of them.
+    const onMutation = (): void => {
+      if (settled || debounceTimer) return;
+      debounceTimer = window.setTimeout(
+        () => {
+          debounceTimer = 0;
+          attempt();
+        },
+        Math.max(TARGET_WAIT_DEBOUNCE_MS, lastCostMs * TARGET_WAIT_DUTY_DIVISOR),
+      );
+    };
+
+    const scheduleBackoff = (): void => {
+      window.clearTimeout(backoffTimer);
+      const index = Math.min(backoffStep, TARGET_WAIT_BACKOFF_MS.length - 1);
+      backoffStep += 1;
+      backoffTimer = window.setTimeout(attempt, TARGET_WAIT_BACKOFF_MS[index]);
+    };
+
+    const onAbort = (): void => settle(() => rejectWait(new TourPresentationCanceledError()));
+    signal.addEventListener('abort', onAbort, { once: true });
+
+    const deadlineTimer = window.setTimeout(() => {
+      settle(() =>
+        rejectWait(
+          new TourPresentationUnavailableError(
+            tourRuntimeText('Lodariq could not find what this step points at on this page'),
+          ),
+        ),
+      );
+    }, Math.max(0, deadlineMs) || TARGET_WAIT_DEADLINE_MS);
+
+    const observer = new MutationObserver(onMutation);
+    observer.observe(document.documentElement, {
+      subtree: true,
+      childList: true,
+      // A target revealed by a class or style change is the common case, so
+      // attributes have to be watched; their old values are never needed.
+      attributes: true,
+    });
+
+    scheduleBackoff();
+  });
 }
 
 function routeMatches(wait: Extract<StepChoreographyWait, { type: 'route' }>): boolean {

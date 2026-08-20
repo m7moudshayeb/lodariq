@@ -1,3 +1,4 @@
+import { CREATOR_CHROME_TOKENS } from '../../creator-chrome-tokens';
 import { createNonceStyleElement } from '@lodariq/schema/dom';
 import { useLayoutEffect } from 'react';
 
@@ -30,7 +31,7 @@ const OPTIONAL_PANEL_MODE_CSS = `
   .panel-mode-header small {
     color: var(--lq-color-muted);
     font-size: 8px;
-    font-weight: 700;
+    font-weight: var(--lq-weight-bold);
     letter-spacing: 0.065em;
     text-transform: uppercase;
   }
@@ -38,8 +39,8 @@ const OPTIONAL_PANEL_MODE_CSS = `
   .panel-mode-header strong {
     overflow: hidden;
     color: var(--lq-color-ink);
-    font-size: 12px;
-    font-weight: 700;
+    font-size: var(--lq-font-sm);
+    font-weight: var(--lq-weight-bold);
     line-height: 1.35;
     outline: none;
     text-overflow: ellipsis;
@@ -85,8 +86,8 @@ const OPTIONAL_PANEL_MODE_CSS = `
     border-radius: 8px;
     background: var(--lq-color-success-soft);
     color: var(--lq-color-success);
-    font-size: 10px;
-    font-weight: 600;
+    font-size: var(--lq-font-xs);
+    font-weight: var(--lq-weight-semibold);
     line-height: 1.45;
     padding: 8px 12px;
   }
@@ -107,6 +108,19 @@ const OPTIONAL_PANEL_MODE_CSS = `
     background: var(--lq-color-panel);
     padding: 12px;
     box-shadow: 0 6px 18px rgba(0, 0, 0, 0.24);
+  }
+
+  /* The card is a grid, so a lone button stretches the full measure. This one
+     is a way out, not a primary action bar. */
+  .release-blocker-card > button {
+    justify-self: start;
+  }
+
+  .release-blocker-detail {
+    margin: 0;
+    color: var(--lq-color-muted);
+    font-size: var(--lq-font-sm);
+    line-height: 1.6;
   }
 
   .panel-mode-disclosure {
@@ -142,14 +156,14 @@ const OPTIONAL_PANEL_MODE_CSS = `
   .panel-mode-disclosure > summary small {
     color: var(--lq-color-muted);
     font-size: 8px;
-    font-weight: 700;
+    font-weight: var(--lq-weight-bold);
     letter-spacing: 0.055em;
     text-transform: uppercase;
   }
 
   .panel-mode-disclosure > summary strong {
     color: var(--lq-color-ink);
-    font-size: 10px;
+    font-size: var(--lq-font-xs);
     line-height: 1.35;
   }
 
@@ -202,7 +216,7 @@ const OPTIONAL_PANEL_MODE_CSS = `
   .panel-mode-section-heading small {
     color: var(--lq-color-muted);
     font-size: 8px;
-    font-weight: 700;
+    font-weight: var(--lq-weight-bold);
     letter-spacing: 0.055em;
     line-height: 1.25;
     text-transform: uppercase;
@@ -219,7 +233,7 @@ const OPTIONAL_PANEL_MODE_CSS = `
   .panel-mode-section-heading strong {
     overflow: hidden;
     color: var(--lq-color-ink);
-    font-size: 10px;
+    font-size: var(--lq-font-xs);
     line-height: 1.35;
     text-overflow: ellipsis;
   }
@@ -233,8 +247,8 @@ const OPTIONAL_PANEL_MODE_CSS = `
     border-radius: 999px;
     background: var(--lq-color-page);
     color: var(--lq-color-muted);
-    font-size: 10px;
-    font-weight: 500;
+    font-size: var(--lq-font-xs);
+    font-weight: var(--lq-weight-semibold);
     line-height: 1;
     padding: 4px 8px;
     white-space: nowrap;
@@ -272,7 +286,7 @@ const OPTIONAL_PANEL_MODE_CSS = `
     gap: 4px 8px;
     color: var(--lq-color-primary);
     font-size: 8px;
-    font-weight: 700;
+    font-weight: var(--lq-weight-bold);
     line-height: 1.4;
   }
 
@@ -285,7 +299,7 @@ const OPTIONAL_PANEL_MODE_CSS = `
   .panel-mode-help,
   .panel-mode-inline-note {
     color: var(--lq-color-muted);
-    font-size: 10px;
+    font-size: var(--lq-font-xs);
     line-height: 1.5;
   }
 
@@ -323,10 +337,10 @@ const OPTIONAL_PANEL_MODE_CSS = `
     background: var(--lq-color-primary);
     color: var(--lq-color-on-primary);
     cursor: pointer;
-    font-size: 12px;
-    font-weight: 500;
+    font-size: var(--lq-font-sm);
+    font-weight: var(--lq-weight-semibold);
     padding: 8px 12px;
-    box-shadow: 0 8px 20px rgba(61, 232, 176, 0.18);
+    box-shadow: 0 8px 20px color-mix(in srgb, ${CREATOR_CHROME_TOKENS.action} 18%, transparent);
   }
 
   .panel-mode-secondary-button {
@@ -369,7 +383,7 @@ const OPTIONAL_PANEL_MODE_CSS = `
     color: var(--lq-color-primary);
     cursor: pointer;
     font-size: 8px;
-    font-weight: 700;
+    font-weight: var(--lq-weight-bold);
     padding: 8px 8px;
   }
 
@@ -388,7 +402,7 @@ const OPTIONAL_PANEL_MODE_CSS = `
   .appearance-choice-group legend {
     color: var(--lq-color-muted);
     font-size: 8px;
-    font-weight: 700;
+    font-weight: var(--lq-weight-bold);
     line-height: 1.3;
     padding: 0;
     margin-bottom: 4px;
@@ -408,8 +422,8 @@ const OPTIONAL_PANEL_MODE_CSS = `
     background: var(--lq-color-panel);
     color: var(--lq-color-ink-soft);
     cursor: pointer;
-    font-size: 12px;
-    font-weight: 500;
+    font-size: var(--lq-font-sm);
+    font-weight: var(--lq-weight-semibold);
     padding: 8px;
   }
 
@@ -437,7 +451,7 @@ const OPTIONAL_PANEL_MODE_CSS = `
   .brand-change-label {
     color: var(--lq-color-muted);
     font-size: 8px;
-    font-weight: 700;
+    font-weight: var(--lq-weight-bold);
   }
 
   .brand-change-values {
@@ -463,7 +477,7 @@ const OPTIONAL_PANEL_MODE_CSS = `
 
   .brand-change-values strong {
     overflow: hidden;
-    font-size: 10px;
+    font-size: var(--lq-font-xs);
     line-height: 1.35;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -500,12 +514,12 @@ const OPTIONAL_PANEL_MODE_CSS = `
   }
 
   .panel-empty-state strong {
-    font-size: 12px;
+    font-size: var(--lq-font-sm);
   }
 
   .panel-empty-state p {
     color: var(--lq-color-muted);
-    font-size: 10px;
+    font-size: var(--lq-font-xs);
     line-height: 1.5;
   }
 
@@ -513,7 +527,7 @@ const OPTIONAL_PANEL_MODE_CSS = `
     overflow-wrap: anywhere;
     color: var(--lq-color-muted);
     font-size: 8px;
-    font-weight: 700;
+    font-weight: var(--lq-weight-bold);
     line-height: 1.4;
     padding: 0 4px;
   }
@@ -560,7 +574,7 @@ const OPTIONAL_PANEL_MODE_CSS = `
 
   .panel-check-list strong {
     color: var(--lq-color-ink);
-    font-size: 10px;
+    font-size: var(--lq-font-xs);
     line-height: 1.35;
   }
 
@@ -580,7 +594,7 @@ const OPTIONAL_PANEL_MODE_CSS = `
   }
 
   .release-finding-severity {
-    font-weight: 700;
+    font-weight: var(--lq-weight-bold);
   }
 
   .artifact-inline-facts,
@@ -611,7 +625,7 @@ const OPTIONAL_PANEL_MODE_CSS = `
   .panel-fact-list dt {
     color: var(--lq-color-muted);
     font-size: 8px;
-    font-weight: 700;
+    font-weight: var(--lq-weight-bold);
   }
 
   .artifact-inline-facts dd,
@@ -620,7 +634,7 @@ const OPTIONAL_PANEL_MODE_CSS = `
     overflow-wrap: anywhere;
     color: var(--lq-color-ink);
     font-size: 8px;
-    font-weight: 600;
+    font-weight: var(--lq-weight-semibold);
     line-height: 1.35;
     margin: 0;
   }
@@ -636,7 +650,7 @@ const OPTIONAL_PANEL_MODE_CSS = `
 
   .exact-artifact-banner strong {
     color: var(--lq-color-ink);
-    font-size: 10px;
+    font-size: var(--lq-font-xs);
   }
 
   .exact-artifact-banner small {
@@ -711,22 +725,22 @@ const OPTIONAL_PANEL_MODE_CSS = `
   .release-history-item header strong {
     margin-right: auto;
     color: var(--lq-color-ink);
-    font-size: 12px;
+    font-size: var(--lq-font-sm);
   }
 
   .release-history-item header span {
     border-radius: 999px;
     background: var(--lq-color-panel-strong);
     color: var(--lq-color-muted);
-    font-size: 10px;
-    font-weight: 700;
+    font-size: var(--lq-font-xs);
+    font-weight: var(--lq-weight-bold);
     padding: 4px 8px;
   }
 
   .release-history-item > article > p {
     margin: 8px 0;
     color: var(--lq-color-muted);
-    font-size: 12px;
+    font-size: var(--lq-font-sm);
     line-height: 1.5;
   }
 
@@ -742,7 +756,7 @@ const OPTIONAL_PANEL_MODE_CSS = `
     display: grid;
     grid-template-columns: minmax(110px, 0.42fr) minmax(0, 1fr);
     gap: 12px;
-    font-size: 10px;
+    font-size: var(--lq-font-xs);
   }
 
   .release-history-item dt,
@@ -770,8 +784,8 @@ const OPTIONAL_PANEL_MODE_CSS = `
 
   .panel-mode-field > span {
     color: var(--lq-color-ink);
-    font-size: 12px;
-    font-weight: 700;
+    font-size: var(--lq-font-sm);
+    font-weight: var(--lq-weight-bold);
   }
 
   .panel-mode-field select,
@@ -791,7 +805,7 @@ const OPTIONAL_PANEL_MODE_CSS = `
 
   .panel-mode-field small {
     color: var(--lq-color-muted);
-    font-size: 10px;
+    font-size: var(--lq-font-xs);
     line-height: 1.4;
   }
 
@@ -817,7 +831,7 @@ const OPTIONAL_PANEL_MODE_CSS = `
   }
 
   .appearance-mode-shell .panel-mode-header strong {
-    font-size: 14px;
+    font-size: var(--lq-font-md);
     line-height: 1.3;
   }
 
@@ -825,7 +839,7 @@ const OPTIONAL_PANEL_MODE_CSS = `
     overflow: hidden;
     margin: 4px 0 0;
     color: var(--lq-color-muted);
-    font-size: 10px;
+    font-size: var(--lq-font-xs);
     line-height: 1.4;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -879,8 +893,8 @@ const OPTIONAL_PANEL_MODE_CSS = `
     border-radius: 999px;
     background: var(--lq-color-panel);
     color: var(--lq-color-primary);
-    font-size: 10px;
-    font-weight: 700;
+    font-size: var(--lq-font-xs);
+    font-weight: var(--lq-weight-bold);
     line-height: 1;
   }
 
@@ -917,8 +931,8 @@ const OPTIONAL_PANEL_MODE_CSS = `
 
   .appearance-step-heading-copy > strong {
     color: var(--lq-color-ink);
-    font-size: 12px;
-    font-weight: 700;
+    font-size: var(--lq-font-sm);
+    font-weight: var(--lq-weight-bold);
     line-height: 1.35;
   }
 
@@ -931,7 +945,7 @@ const OPTIONAL_PANEL_MODE_CSS = `
     background: var(--lq-color-panel);
     color: var(--lq-color-muted);
     font-size: 8px;
-    font-weight: 700;
+    font-weight: var(--lq-weight-bold);
     line-height: 1;
     padding: 4px 8px;
     white-space: nowrap;
@@ -967,8 +981,8 @@ const OPTIONAL_PANEL_MODE_CSS = `
   .appearance-brand-name > strong {
     overflow: hidden;
     color: var(--lq-color-ink);
-    font-size: 10px;
-    font-weight: 700;
+    font-size: var(--lq-font-xs);
+    font-weight: var(--lq-weight-bold);
     line-height: 1.35;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -998,7 +1012,7 @@ const OPTIONAL_PANEL_MODE_CSS = `
 
   .appearance-brand-source strong {
     overflow: hidden;
-    font-size: 10px;
+    font-size: var(--lq-font-xs);
     line-height: 1.3;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -1012,7 +1026,7 @@ const OPTIONAL_PANEL_MODE_CSS = `
 
   .appearance-brand-row .panel-mode-help {
     margin: 0;
-    font-size: 10px;
+    font-size: var(--lq-font-xs);
     line-height: 1.45;
   }
 
@@ -1072,7 +1086,7 @@ const OPTIONAL_PANEL_MODE_CSS = `
 
   .brand-drift-status-copy strong {
     color: var(--lq-color-danger);
-    font-size: 10px;
+    font-size: var(--lq-font-xs);
     line-height: 1.35;
   }
 
@@ -1148,7 +1162,7 @@ const OPTIONAL_PANEL_MODE_CSS = `
     overflow: hidden;
     color: var(--lq-color-muted);
     font-size: 8px;
-    font-weight: 600;
+    font-weight: var(--lq-weight-semibold);
     line-height: 1.4;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -1258,7 +1272,7 @@ const OPTIONAL_PANEL_MODE_CSS = `
     .appearance-step-marker {
       width: 24px;
       height: 24px;
-      font-size: 10px;
+      font-size: var(--lq-font-xs);
     }
 
     .appearance-step:not(:last-child)::after {

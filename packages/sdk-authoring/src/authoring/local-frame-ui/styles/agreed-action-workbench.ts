@@ -61,7 +61,7 @@ export const AUTHORING_AGREED_ACTION_WORKBENCH_CSS = `
     margin: 0;
     padding: 0 20px;
     font-size: var(--lq-font-xs);
-    font-weight: 600;
+    font-weight: var(--lq-weight-semibold);
   }
 
   .storyboard-property-tray[data-tool-mode='content']

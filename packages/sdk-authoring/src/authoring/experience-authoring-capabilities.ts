@@ -1,83 +1,17 @@
+import { registerBuiltInExperiences } from './experiences/built-in';
+import { experienceDefinition, type ExperienceDefinition } from './experiences/definition';
+import type { DocumentType, LodariqBlock, LodariqBlockType, LodariqDocument } from '@lodariq/schema';
+
+export {
+  AUTHORING_EXPERIENCE_CAPABILITIES,
+  type AuthoringExperienceCapability,
+  type ExperienceAuthoringProfile,
+  type ExperienceWorkspaceKind,
+} from './experiences/capabilities';
 import type {
-  DocumentType,
-  LodariqBlock,
-  LodariqBlockType,
-  LodariqDocument,
-} from '@lodariq/schema';
-
-export const AUTHORING_EXPERIENCE_CAPABILITIES = [
-  'structuredContent',
-  'actions',
-  'targeting',
-  'popupComposition',
-  'presentation',
-  'flow',
-  'batch',
-  'reviewRecovery',
-] as const;
-
-export type AuthoringExperienceCapability = (typeof AUTHORING_EXPERIENCE_CAPABILITIES)[number];
-export type ExperienceWorkspaceKind = 'sequence' | 'singleSurface' | 'collection';
-
-export interface ExperienceAuthoringProfile {
-  capabilities: readonly AuthoringExperienceCapability[];
-  rootBlockTypes: readonly LodariqBlockType[];
-  workspace: ExperienceWorkspaceKind;
-}
-
-const SURFACE_CAPABILITIES = [
-  'structuredContent',
-  'actions',
-  'targeting',
-  'popupComposition',
-  'presentation',
-  'reviewRecovery',
-] as const satisfies readonly AuthoringExperienceCapability[];
-
-const CONTENT_CAPABILITIES = [
-  'structuredContent',
-  'actions',
-  'presentation',
-  'reviewRecovery',
-] as const satisfies readonly AuthoringExperienceCapability[];
-
-/**
- * The profile is the only experience-type switch in the authoring layer.
- * New root renderers compose existing capabilities and provide only the blocks
- * and workspace behavior that are genuinely experience-specific.
- */
-export const EXPERIENCE_AUTHORING_PROFILES = {
-  tour: {
-    capabilities: [...SURFACE_CAPABILITIES, 'flow', 'batch'],
-    rootBlockTypes: ['tourStep'],
-    workspace: 'sequence',
-  },
-  announcement: {
-    capabilities: SURFACE_CAPABILITIES,
-    rootBlockTypes: ['tooltip'],
-    workspace: 'singleSurface',
-  },
-  hotspot: {
-    capabilities: SURFACE_CAPABILITIES,
-    rootBlockTypes: ['spotlight', 'tooltip'],
-    workspace: 'singleSurface',
-  },
-  checklist: {
-    capabilities: CONTENT_CAPABILITIES,
-    rootBlockTypes: [],
-    workspace: 'collection',
-  },
-  survey: {
-    capabilities: CONTENT_CAPABILITIES,
-    rootBlockTypes: [],
-    workspace: 'collection',
-  },
-  knowledge: {
-    capabilities: CONTENT_CAPABILITIES,
-    rootBlockTypes: [],
-    workspace: 'collection',
-  },
-} as const satisfies Record<DocumentType, ExperienceAuthoringProfile>;
+  AuthoringExperienceCapability,
+  ExperienceAuthoringProfile,
+} from './experiences/capabilities';
 
 const BLOCK_CAPABILITIES: Partial<
   Record<LodariqBlockType, readonly AuthoringExperienceCapability[]>
@@ -105,17 +39,24 @@ const BLOCK_CAPABILITIES: Partial<
   link: ['structuredContent', 'actions'],
 };
 
+/**
+ * Reads the experience registry, which is the one place a type's capabilities are
+ * declared. A second table here is exactly the drift this indirection prevents.
+ */
 export function experienceAuthoringProfile(type: DocumentType): ExperienceAuthoringProfile {
-  return EXPERIENCE_AUTHORING_PROFILES[type];
+  const definition = requireExperience(type);
+  return {
+    capabilities: definition.capabilities,
+    rootBlockTypes: definition.rootBlockTypes,
+    workspace: definition.workspace,
+  };
 }
 
 export function experienceSupportsAuthoringCapability(
   type: DocumentType,
   capability: AuthoringExperienceCapability,
 ): boolean {
-  const capabilities: readonly AuthoringExperienceCapability[] =
-    EXPERIENCE_AUTHORING_PROFILES[type].capabilities;
-  return capabilities.includes(capability);
+  return requireExperience(type).capabilities.includes(capability);
 }
 
 export function blockSupportsAuthoringCapability(
@@ -126,8 +67,19 @@ export function blockSupportsAuthoringCapability(
 }
 
 export function selectExperienceRootBlocks(document: LodariqDocument): LodariqBlock[] {
-  const rootTypes = new Set<LodariqBlockType>(
-    EXPERIENCE_AUTHORING_PROFILES[document.type].rootBlockTypes,
-  );
+  const rootTypes = new Set<LodariqBlockType>(requireExperience(document.type).rootBlockTypes);
   return document.blocks.filter((block) => rootTypes.has(block.type));
+}
+
+/**
+ * Registration is idempotent and happens on first read, so no caller has to
+ * remember to bootstrap the registry and no import order can leave it empty.
+ */
+function requireExperience(type: DocumentType): ExperienceDefinition {
+  const existing = experienceDefinition(type);
+  if (existing) return existing;
+  registerBuiltInExperiences();
+  const registered = experienceDefinition(type);
+  if (!registered) throw new Error(`Lodariq: no experience definition for "${type}"`);
+  return registered;
 }

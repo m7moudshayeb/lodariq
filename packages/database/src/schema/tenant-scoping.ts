@@ -40,6 +40,12 @@ export const tenantScopedTableNames = [
   'authoring_sessions',
   'events',
   'analytics_events',
+  'experience_measurement',
+  'experience_experiments',
+  'experience_form_responses',
+  'experience_comments',
+  'experience_step_locks',
+  'workspace_applications',
 ] as const;
 
 export type TenantScopedTableName = (typeof tenantScopedTableNames)[number];

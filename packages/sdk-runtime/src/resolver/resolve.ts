@@ -12,8 +12,10 @@ import type {
   Target,
   TargetIdentityV2,
   TargetRelationship,
+  TargetSelectionPolicy,
   TargetSignalFamily,
 } from '@lodariq/schema/target';
+import { selectionSettlesAmbiguity } from '@lodariq/schema/target';
 import {
   MAX_RUNNER_UP_MARGIN,
   MIN_CAPTURE_RUNNER_UP_MARGIN,
@@ -32,11 +34,13 @@ import {
   type TargetResolutionContext,
 } from './types';
 import { visualEvidenceFor } from './capture';
+import { applySelectionPolicy } from './selection';
 import {
   ancestorRolesOf,
   belongsToRoot,
   collectElements,
   collectLegacyElements,
+  createResolutionPass,
   controlGroupMatches,
   currentLocale,
   exactAttributesMatch,
@@ -52,6 +56,7 @@ import {
   parentElementAcrossOpenShadow,
   semanticRoleOf,
   stableKeyMatches,
+  type ResolutionPass,
 } from './element-evidence';
 import { viewportClassOf, visualTopologyMatches } from './visual-topology';
 
@@ -81,6 +86,19 @@ const NON_DURABLE_IDENTITY_FAMILIES = new Set<TargetSignalFamily>([
   'layout-slot',
 ]);
 
+/**
+ * Durable enough to settle a tie, not independent enough to be an identity.
+ *
+ * `sibling-position` survives a re-render the way `ancestor-context` does — it is
+ * not a hash of how the page happened to look — so it belongs in the durable
+ * score, where separating two identical controls is the whole of its job. It is
+ * kept out of the independent-family count so that "a button in the second of
+ * three slots" can never become an identity on its own, and out of the drift
+ * check so that a row gaining a fourth button cannot break a target the rest of
+ * the evidence still identifies without it.
+ */
+const SUPPORTING_DURABLE_FAMILIES = new Set<TargetSignalFamily>(['sibling-position']);
+
 const VISUAL_ANCHOR_FAMILIES = new Set<TargetSignalFamily>([
   'visual-topology',
   'visual-structure',
@@ -88,6 +106,40 @@ const VISUAL_ANCHOR_FAMILIES = new Set<TargetSignalFamily>([
   'visual-neighborhood',
   'layout-slot',
 ]);
+
+/**
+ * One resolution's cost and shape (T10).
+ *
+ * Nothing in the resolver was measured before this, so every threshold in the
+ * system was a guess. Reported through an observer rather than the result so the
+ * artifact schema stays untouched and a host that does not care pays nothing.
+ */
+export interface ResolutionTelemetry {
+  /** Which pool the winner came out of. `full-scan` means the index was empty. */
+  readonly path: 'indexed' | 'full-scan';
+  readonly registryOffered: boolean;
+  readonly corpusSize: number;
+  readonly poolSize: number;
+  readonly corpusMs: number;
+  readonly poolMs: number;
+  readonly gateMs: number;
+  readonly totalMs: number;
+  readonly state: ResolutionResult['state'];
+}
+
+let telemetryObserver: ((sample: ResolutionTelemetry) => void) | null = null;
+
+/** Subscribe to per-resolution timings. Pass `null` to stop. */
+export function setResolutionTelemetryObserver(
+  observer: ((sample: ResolutionTelemetry) => void) | null,
+): void {
+  telemetryObserver = observer;
+}
+
+/** Zero when the host has no observer, so an unmeasured page pays no clock reads. */
+function nowMs(): number {
+  return telemetryObserver ? (globalThis.performance?.now?.() ?? 0) : 0;
+}
 
 interface CandidateGateCounters {
   notVisible: number;
@@ -225,6 +277,8 @@ export function resolveTargetIdentity(
   identity: TargetIdentityV2,
   root: ParentNode = document,
   context: TargetResolutionContext = {},
+  /** Author's answer to the disambiguation question; applied only on a tie. */
+  selection?: TargetSelectionPolicy,
 ): ResolutionResult {
   const fallbackLocale = currentLocale(root, context.locale);
   if (!identityIsUsable(identity)) {
@@ -237,11 +291,13 @@ export function resolveTargetIdentity(
   const contextFailure = validateResolutionContext(identity, context, fallbackLocale);
   if (contextFailure) return contextFailure;
 
+  const startedAt = nowMs();
   const collection = collectElements(root);
   if (collection.truncated) {
     return emptyResult('needs_review', 'scan_limit_exceeded', fallbackLocale);
   }
   const allElements = collection.elements.filter((element) => !isLodariqOwnedElement(element));
+  const corpusMs = nowMs() - startedAt;
   const resolvedRegistryTarget = resolveRegistryTarget(identity, root, context);
   const registryTarget =
     resolvedRegistryTarget && !isLodariqOwnedElement(resolvedRegistryTarget)
@@ -263,9 +319,15 @@ export function resolveTargetIdentity(
   };
   const candidates: ScoredCandidate[] = [];
 
-  for (const element of allElements) {
+  const poolStartedAt = nowMs();
+  const pool = candidatePool(identity, allElements, registryTarget);
+  const poolMs = nowMs() - poolStartedAt;
+  const pass = createResolutionPass();
+
+  const gateStartedAt = nowMs();
+  for (const element of pool.elements) {
     const relevant = isPotentialIdentityCandidate(identity, element, registryTarget);
-    if (!isVisible(element)) {
+    if (!isVisible(element, pass)) {
       if (relevant) counters.notVisible += 1;
       continue;
     }
@@ -273,7 +335,7 @@ export function resolveTargetIdentity(
       if (relevant) counters.semanticMismatch += 1;
       continue;
     }
-    if (!requiredActionsPass(element, identity, context)) {
+    if (!requiredActionsPass(element, identity, context, pass)) {
       if (relevant) counters.notActionable += 1;
       continue;
     }
@@ -287,6 +349,27 @@ export function resolveTargetIdentity(
       candidates.push(candidate);
     }
   }
+  const gateMs = nowMs() - gateStartedAt;
+
+  const finish = (result: ResolutionResult): ResolutionResult => {
+    // A misbehaving observer must not fail the resolution it is measuring.
+    try {
+      telemetryObserver?.({
+        path: pool.indexed ? 'indexed' : 'full-scan',
+        registryOffered: Boolean(registryTarget),
+        corpusSize: allElements.length,
+        poolSize: pool.elements.length,
+        corpusMs,
+        poolMs,
+        gateMs,
+        totalMs: nowMs() - startedAt,
+        state: result.state,
+      });
+    } catch {
+      /* telemetry is never load-bearing */
+    }
+    return result;
+  };
 
   if (isVisualResolution(identity)) {
     const visualCandidates = hydrateVisualAnchorCandidates(identity, candidates, scoringContext);
@@ -309,17 +392,17 @@ export function resolveTargetIdentity(
   );
 
   if (!top) {
-    return {
+    return finish({
       state: 'missing',
       element: null,
       anchor: null,
       ...common,
       reasonCode: missingReasonCode(counters),
-    };
+    });
   }
 
   if (isVisualResolution(identity)) {
-    return resolveVisualAnchorResult(identity, top, second, common);
+    return finish(resolveVisualAnchorResult(identity, top, second, common));
   }
 
   const topDurableFamilyCount = durableFamilyCount(top);
@@ -332,13 +415,13 @@ export function resolveTargetIdentity(
     topDurableScore < MIN_IDENTITY_CONFIDENCE ||
     topDurableFamilyCount < MIN_INDEPENDENT_IDENTITY_FAMILIES
   ) {
-    return {
+    return finish({
       state: 'needs_review',
       element: null,
       anchor: null,
       ...common,
       reasonCode: localeWasRequiredButUnavailable ? 'locale_unverified' : 'low_confidence',
-    };
+    });
   }
 
   if (
@@ -346,38 +429,63 @@ export function resolveTargetIdentity(
     topDurableScore - durableScore(second) < requiredRunnerUpMargin(topDurableScore) &&
     !localizedTextSafelyBreaksDurableTie(identity, top, candidates)
   ) {
-    return {
+    // Evidence cannot separate these. An author who already answered the
+    // disambiguation question gets their answer applied; everyone else keeps
+    // the honest ambiguous result.
+    const margin = requiredRunnerUpMargin(topDurableScore);
+    const tied = candidates.filter(
+      (candidate) => topDurableScore - durableScore(candidate) < margin,
+    );
+    const selected = applySelectionPolicy(selection, tied);
+    if (selected) {
+      return finish({
+        ...common,
+        state: 'found',
+        element: selected.element,
+        anchor: elementAnchor(selected.element),
+        resolutionMethod: selected.method,
+        candidateCount: tied.length,
+        reasonCode: 'resolved',
+      });
+    }
+    return finish({
       state: 'ambiguous',
       element: null,
       anchor: null,
       ...common,
-      reasonCode:
-        topDurableScore === durableScore(second) ? 'multiple_candidates' : 'insufficient_margin',
-    };
+      // `any-matching` checks words, so an uncaptured locale fails it closed.
+      // Say which it was: "they look alike" and "this page is in a language the
+      // target has never seen" have different fixes.
+      reasonCode: localeWasRequiredButUnavailable
+        ? 'locale_unverified'
+        : topDurableScore === durableScore(second)
+          ? 'multiple_candidates'
+          : 'insufficient_margin',
+    });
   }
 
-  const captureIssue = captureEvidenceIssue(identity);
+  const captureIssue = captureEvidenceIssue(identity, selection);
   if (captureIssue) {
-    return {
+    return finish({
       state: captureIssue.state,
       element: null,
       anchor: null,
       ...common,
       reasonCode: captureIssue.reasonCode,
-    };
+    });
   }
 
   const hasDrift = stableEvidenceHasDrift(identity, top);
   if (hasDrift) {
-    return {
+    return finish({
       state: 'needs_review',
       element: null,
       anchor: null,
       ...common,
       reasonCode: 'evidence_drift',
-    };
+    });
   }
-  return {
+  return finish({
     state: 'found',
     element: top.element,
     anchor: elementAnchor(top.element),
@@ -385,7 +493,7 @@ export function resolveTargetIdentity(
     reasonCode: visualEvidenceHasDrift(identity, top, root, context)
       ? 'resolved_with_drift'
       : 'resolved',
-  };
+  });
 }
 
 /**
@@ -443,7 +551,7 @@ function hasPrimaryLocalizedEvidence(
 
 /** Prefer V2 identity when present; malformed V2 data never falls back silently. */
 export function resolveTarget(
-  target: Pick<Target, 'id' | 'fingerprint' | 'identity'>,
+  target: Pick<Target, 'id' | 'fingerprint' | 'identity' | 'selection'>,
   root: ParentNode = document,
   context: TargetResolutionContext = {},
 ): ResolutionResult {
@@ -467,7 +575,7 @@ export function resolveTarget(
   if (target.identity.targetId !== target.id) {
     return emptyResult('needs_review', 'identity_invalid', currentLocale(root, context.locale));
   }
-  return resolveTargetIdentity(target.identity, root, context);
+  return resolveTargetIdentity(target.identity, root, context, target.selection);
 }
 
 function scoreIdentityCandidate(
@@ -533,12 +641,25 @@ function scoreIdentityCandidate(
   };
 }
 
+/**
+ * Second-pass evidence for a semantic near-tie, and only for a near-tie.
+ *
+ * Computed style and descendant layout are expensive, so this runs over the
+ * handful of candidates the durable evidence already failed to separate. That
+ * bound is also what makes `sibling-position` affordable: it is asked for at
+ * exactly the moment a tie needs breaking, never across the page.
+ */
 function addVisualRankingEvidence(
   identity: TargetIdentityV2,
   candidates: ScoredCandidate[],
   context: IdentityScoringContext,
 ): void {
-  if (!identity.visualTopologies?.length || candidates.length === 0) return;
+  if (candidates.length === 0) return;
+  const hasRankingEvidence =
+    Boolean(identity.visualTopologies?.length) ||
+    (Boolean(identity.visualFingerprints?.length) &&
+      identity.captureEvidence.stableSignalFamilies.includes('sibling-position'));
+  if (!hasRankingEvidence) return;
   sortIdentityCandidates(candidates);
   const topScore = durableScore(candidates[0]!);
   const eligibleIndexes = candidates
@@ -602,13 +723,14 @@ function requiredActionsPass(
   element: Element,
   identity: TargetIdentityV2,
   context: TargetResolutionContext,
+  pass?: ResolutionPass,
 ): boolean {
   const requiredActions = new Set(
     [identity.intent.requiredAction, context.requiredAction].filter(
       (action): action is NonNullable<typeof action> => Boolean(action),
     ),
   );
-  return [...requiredActions].every((action) => matchesRequiredAction(element, action));
+  return [...requiredActions].every((action) => matchesRequiredAction(element, action, pass));
 }
 
 function resolutionModeIsValid(
@@ -779,7 +901,36 @@ function isPotentialIdentityCandidate(
   if (identity.semantics.tagName && element.tagName.toLowerCase() === identity.semantics.tagName) {
     return true;
   }
+  if (matchesElementKind(element, identity.intent.elementKind)) return true;
   return false;
+}
+
+/**
+ * The candidate pool (T2).
+ *
+ * The gates and the scorer used to run over every element on the page, and the
+ * visibility gate alone is ~95% of a resolution's cost. The predicate above
+ * already describes what a viable candidate looks like — it was only being used
+ * to count diagnostics. Applying it first turns the expensive pass over 6,000
+ * elements into an expensive pass over the few hundred that could possibly win.
+ *
+ * The pool is filtered from the corpus rather than queried with
+ * `querySelectorAll`: the corpus walk crosses open shadow roots and a selector
+ * query does not, and the walk has to happen anyway because context evidence
+ * (heading proximity, visual topology) is scored against the whole document.
+ *
+ * An empty pool falls back to the corpus, so an identity that describes nothing
+ * queryable resolves exactly as it did before — slowly, but correctly.
+ */
+function candidatePool(
+  identity: TargetIdentityV2,
+  corpus: readonly Element[],
+  registryTarget: Element | null,
+): { elements: readonly Element[]; indexed: boolean } {
+  const pool = corpus.filter((element) =>
+    isPotentialIdentityCandidate(identity, element, registryTarget),
+  );
+  return pool.length > 0 ? { elements: pool, indexed: true } : { elements: corpus, indexed: false };
 }
 
 function validateResolutionContext(
@@ -835,17 +986,36 @@ function identityIsUsable(value: unknown): value is TargetIdentityV2 {
   return hasTargetIdentityV2Envelope(value);
 }
 
+/**
+ * What the saved capture says about a target the live page did not tie on.
+ *
+ * Reaching here means this render separated the candidates. The capture may
+ * still remember that several elements looked alike when the creator picked —
+ * and if they never answered for that, the honest answer is still `ambiguous`,
+ * because the page that ties may just be the next one.
+ *
+ * An author who did answer is a different case. Their rule is what release was
+ * granted on (`selectionSettlesAmbiguity` in the publish gate reads the same two
+ * fields), so refusing here would block, at runtime, an experience the product
+ * already accepted as publishable. Weakness the answer does not cover keeps
+ * blocking: `ambiguityIsSoleWeakness` is only set when the evidence was rich,
+ * stable and actionable, and ambiguity was the whole of the problem.
+ */
 function captureEvidenceIssue(
   identity: TargetIdentityV2,
+  selection?: TargetSelectionPolicy,
 ): Pick<ResolutionResult, 'state' | 'reasonCode'> | null {
   const capture = identity.captureEvidence;
-  if (capture.uniqueCandidateCount !== 1) {
-    return { state: 'ambiguous', reasonCode: 'multiple_candidates' };
+  const answered = selectionSettlesAmbiguity(selection);
+  if (!answered) {
+    if (capture.uniqueCandidateCount !== 1) {
+      return { state: 'ambiguous', reasonCode: 'multiple_candidates' };
+    }
+    if (capture.runnerUpMargin < MIN_CAPTURE_RUNNER_UP_MARGIN) {
+      return { state: 'ambiguous', reasonCode: 'insufficient_margin' };
+    }
   }
-  if (capture.runnerUpMargin < MIN_CAPTURE_RUNNER_UP_MARGIN) {
-    return { state: 'ambiguous', reasonCode: 'insufficient_margin' };
-  }
-  if (capture.quality === 'weak') {
+  if (capture.quality === 'weak' && !(answered && capture.ambiguityIsSoleWeakness === true)) {
     return { state: 'needs_review', reasonCode: 'low_confidence' };
   }
   return null;
@@ -854,7 +1024,7 @@ function captureEvidenceIssue(
 function stableEvidenceHasDrift(identity: TargetIdentityV2, candidate: ScoredCandidate): boolean {
   const matched = new Set(candidate.evidence.map((entry) => entry.family));
   return identity.captureEvidence.stableSignalFamilies.some((family) => {
-    if (NON_DURABLE_IDENTITY_FAMILIES.has(family)) {
+    if (NON_DURABLE_IDENTITY_FAMILIES.has(family) || SUPPORTING_DURABLE_FAMILIES.has(family)) {
       // Supporting evidence can explain or diagnose a result, but it cannot
       // turn an otherwise safe durable identity into a production blocker.
       return false;
@@ -884,7 +1054,10 @@ function durableFamilyCount(candidate: ScoredCandidate): number {
   return new Set(
     candidate.evidence
       .map((entry) => entry.family)
-      .filter((family) => !NON_DURABLE_IDENTITY_FAMILIES.has(family)),
+      .filter(
+        (family) =>
+          !NON_DURABLE_IDENTITY_FAMILIES.has(family) && !SUPPORTING_DURABLE_FAMILIES.has(family),
+      ),
   ).size;
 }
 

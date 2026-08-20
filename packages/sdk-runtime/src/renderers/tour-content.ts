@@ -222,8 +222,9 @@ function renderFormFieldNode(node: RuntimeBodyNode): HTMLElement {
   if (control === 'radio') {
     const fieldset = document.createElement('fieldset');
     setBodyNodeAttributes(fieldset, node);
-    applyFormFieldPresentation(fieldset, field);
+    applyFormFieldPresentation(fieldset, field, control);
     const legend = document.createElement('legend');
+    legend.dataset['lodariqFieldCaption'] = '';
     legend.textContent = labelText;
     fieldset.append(legend);
     const options = field?.options?.length
@@ -246,19 +247,25 @@ function renderFormFieldNode(node: RuntimeBodyNode): HTMLElement {
   }
   const label = document.createElement('label');
   setBodyNodeAttributes(label, node);
-  applyFormFieldPresentation(label, field);
+  applyFormFieldPresentation(label, field, control);
   const input = document.createElement('input');
   input.name = name;
   if (field?.required) input.required = true;
+  /*
+   * The caption is an element rather than a bare text node so the label can be
+   * sized, weighted and — when the creator hides it — taken off the screen
+   * without ever leaving the field unnamed.
+   */
+  const caption = document.createElement('span');
+  caption.dataset['lodariqFieldCaption'] = '';
+  caption.textContent = labelText;
   if (control === 'checkbox') {
     input.type = 'checkbox';
-    label.append(input, document.createTextNode(labelText));
+    label.append(input, caption);
     return label;
   }
   input.type = 'text';
   if (field?.placeholder) input.placeholder = field.placeholder;
-  const caption = document.createElement('span');
-  caption.textContent = labelText;
   label.append(caption, input);
   return label;
 }
@@ -266,10 +273,17 @@ function renderFormFieldNode(node: RuntimeBodyNode): HTMLElement {
 function applyFormFieldPresentation(
   element: HTMLElement,
   field: RuntimeBodyNode['props']['formField'],
+  control: 'checkbox' | 'text' | 'radio',
 ): void {
+  element.dataset['lodariqFieldControl'] = control;
   if (!field) return;
   if (field.size) element.dataset['lodariqFieldSize'] = field.size;
   if (field.radius) element.dataset['lodariqFieldRadius'] = field.radius;
+  if (field.labelPlacement) element.dataset['lodariqFieldLabel'] = field.labelPlacement;
+  if (field.labelSize) element.dataset['lodariqFieldLabelSize'] = field.labelSize;
+  if (field.labelWeight) element.dataset['lodariqFieldLabelWeight'] = field.labelWeight;
+  if (field.controlWidth) element.dataset['lodariqFieldControlWidth'] = field.controlWidth;
+  if (field.gapPx !== undefined) element.style.setProperty('--lq-field-gap', `${field.gapPx}px`);
   if (field.fillColor) element.style.setProperty('--lq-field-fill', field.fillColor);
   if (field.textColor) element.style.setProperty('--lq-field-text', field.textColor);
   if (field.labelColor) element.style.setProperty('--lq-field-label', field.labelColor);

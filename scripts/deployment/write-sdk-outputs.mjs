@@ -17,17 +17,35 @@ export function readCreatorModule(manifestPath = 'dist/sdk-assets/manifest.json'
   return creator;
 }
 
+/**
+ * The public loader's SRI digest (ADR-0027).
+ *
+ * Read from the same prepared manifest the upload uses, so the digest the API
+ * hands to customers always describes the bytes that were actually published.
+ */
+export function readPublicLoader(manifestPath = 'dist/sdk-assets/manifest.json') {
+  const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
+  const loader = manifest.publicLoader;
+
+  if (typeof loader?.path !== 'string' || typeof loader?.integrity !== 'string') {
+    throw new Error('Prepared SDK manifest has no public loader identity.');
+  }
+  return loader;
+}
+
 export function writeSdkOutputs(environment = process.env) {
   const outputPath = environment.GITHUB_OUTPUT;
   if (!outputPath) throw new Error('GITHUB_OUTPUT is required.');
 
   const creator = readCreatorModule();
+  const publicLoader = readPublicLoader();
   appendFileSync(
     outputPath,
     [
       `creator_module_url=${creator.url}`,
       `creator_module_version=${creator.version}`,
       `creator_module_integrity=${creator.integrity}`,
+      `public_loader_integrity=${publicLoader.integrity}`,
       '',
     ].join('\n'),
     'utf8',

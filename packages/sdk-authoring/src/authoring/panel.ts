@@ -3,7 +3,14 @@ import {
   AUTHORING_INLINE_CONTENT_COMMIT_TYPE,
   AUTHORING_PANEL_LAYOUT_REQUEST_TYPE,
   AUTHORING_CHROME_ACTION_REQUEST_TYPE,
+  AUTHORING_OPERATIONS_REQUEST_TYPE,
+  AUTHORING_OPERATIONS_RESULT_TYPE,
   AUTHORING_SHELL_PRESENTATION_TYPE,
+  AUTHORING_SHELL_MENU_STATE_TYPE,
+  AUTHORING_SHELL_CAPABILITIES_TYPE,
+  AUTHORING_SHELL_PALETTE_OPEN_TYPE,
+  AUTHORING_SHELL_NOTICE_TYPE,
+  AUTHORING_SHELL_SELECTION_TYPE,
   AUTHORING_SHELL_STEP_COMMAND_TYPE,
   AUTHORING_SHELL_POPUP_SIZE_COMMIT_TYPE,
   AUTHORING_SAVE_AND_EXIT_REQUEST_TYPE,
@@ -70,10 +77,12 @@ import {
   type TargetIdentityV2,
   type HostedAuthoringSessionCloseMode,
   type HostedCreatorPanelState,
+  type AnchorAlign,
 } from '@lodariq/schema';
 import { applyAuthoringLocale, authoringText, currentAuthoringLocale } from '../i18n';
 import { AUTHORING_LOCALE_QUERY_PARAMETER } from '@lodariq/schema/authoring-entry-runtime';
 import type { ResolutionResult } from '@lodariq/sdk-runtime/resolver';
+import type { AuthoringOperationsServices } from './operations/operations-services';
 import type {
   ChoreographyRecoveryUpdate,
   ChoreographyStageUpdate,
@@ -96,6 +105,8 @@ import { createPanelStyles } from './panel-styles';
 import { clearTargetReveal, inspectTarget, startPageLifecycleObserver } from './page-context';
 import { applyPreviewPatch, inlinePreviewControlContext } from './preview-document';
 import { createOverlayShell } from './overlay/shell';
+import { publishTargetRingState } from './overlay/target-ring';
+import { stepEditability, type PresenceState } from './presence/presence-model';
 import type { OverlayShell } from './overlay/types';
 import { tooltipOfStep, tourStepsOf } from './overlay/filmstrip';
 import type { OverlayPlacement } from './canvas/edge-resize';
@@ -103,9 +114,12 @@ import {
   AUTHORING_AUTOSAVE_DEBOUNCE_MS,
   AUTHORING_AUTOSAVE_MAX_RETRIES,
   AUTHORING_AUTOSAVE_RETRY_MS,
+  AUTHORING_ENVIRONMENT_LABELS,
   AUTHORING_PANEL_LABELS,
+  AUTHORING_SELECTABLE_ENVIRONMENTS,
   AUTHORING_SAVE_REQUEST_TIMEOUT_MS,
   HOSTED_SESSION_CLOSE_TIMEOUT_MS,
+  PILL_SAVE_STATE_BY_SAVE_STATE,
   type AuthoringPanelRestoreState,
 } from './panel-config';
 import {
@@ -117,9 +131,17 @@ import {
   setPanelTargetPicking,
 } from './panel-geometry';
 import { domRectAsProtectedSurface } from './protected-surface-registry';
+import { listExperienceDefinitions } from './experiences/definition';
+// The registry is populated by the frame, but the pill lives on the host and
+// needs the same list to print the Experience type group. Registration is
+// idempotent, so asking here costs nothing and never diverges from the frame.
+import { registerBuiltInExperiences } from './experiences/built-in';
+import { EXPERIENCE_TYPE_LABELS } from './overlay/mode-pill-copy';
+import { CREATOR_ENABLED_EXPERIENCE_TYPES } from '../creator-experience-types';
 import { LOCAL_AUTHORING_PANEL_TOGGLE_EVENT } from './constants';
 import { findContainingTourStepId, resolvePreviewStepId } from './preview-step-state';
 import {
+  AUTHORING_FRAME_MENU_OPEN_ATTRIBUTE,
   AUTHORING_PANEL_MINIMIZED_ATTRIBUTE,
   AUTHORING_PREVIEW_ACTIVE_ATTRIBUTE,
   AUTHORING_TARGET_PICKING_ATTRIBUTE,
@@ -158,7 +180,26 @@ export interface LocalAuthoringPanelOptions {
   autoPreview?: boolean;
   preview?: LocalAuthoringPreviewServices;
   release?: LocalAuthoringReleaseServices;
+  /**
+   * The Operations boundary (§4.7). The host owns the API origin and both
+   * credentials; the frame asks over the bridge and receives normalized data.
+   * Absent in local preview, which makes the measurement, experiment and
+   * collaboration sections read-only rather than half-working.
+   */
+  operations?: AuthoringOperationsServices;
+  /**
+   * WIRE_BE: who else is on this document (§15.2). The host owns identity, so
+   * presence can only arrive from it — there is no bridge message for it yet.
+   * Absent means single-player, and the faces, the step locks and the conflict
+   * chooser all simply do not render.
+   */
+  presence?: LocalAuthoringPresenceServices;
   onSave?: (document: LodariqDocument) => Promise<void> | void;
+}
+
+export interface LocalAuthoringPresenceServices {
+  /** Pushes a fresh snapshot whenever it changes; returns an unsubscribe. */
+  subscribe: (onChange: (presence: PresenceState | null) => void) => () => void;
 }
 
 /**
@@ -518,6 +559,8 @@ function openAuthoringPanel(
   let stopLifecycleObserver: (() => void) | null = null;
   let stopPanelChrome: (() => void) | null = null;
   let overlayShell: OverlayShell | null = null;
+  let stopPresence: (() => void) | null = null;
+  let currentPresence: PresenceState | null = null;
   let minimizedRestoreState: AuthoringPanelRestoreState | null = null;
   let targetPickingRestoreState: AuthoringPanelRestoreState | null = null;
   let presentationAnchorRestoreState: AuthoringPanelRestoreState | null = null;
@@ -580,6 +623,9 @@ function openAuthoringPanel(
 
   overlayShell = createOverlayShell(host, shadow, iframe, {
     onAddStep: () => sendShellStepCommand('add'),
+    onInsertStepBefore: (stepId) => sendShellStepCommand('insert-before', stepId),
+    onDeleteStep: (stepId) => sendShellStepCommand('remove', stepId),
+    onDuplicateStep: (stepId) => sendShellStepCommand('duplicate', stepId),
     onClose: () => close(),
     onCollapse: () => collapseOverlayEditor(),
     onExitPreview: () => {
@@ -590,16 +636,94 @@ function openAuthoringPanel(
     onMoveStep: (stepId, direction) =>
       sendShellStepCommand(direction === 'up' ? 'move-up' : 'move-down', stepId),
     onCloseOperations: () => closeOperations(),
-    onOpenOperations: () => openOperations(),
-    onPlacementCommit: (blockId, placement) => commitOverlayPlacement(blockId, placement),
+    onOpenOperations: (tab?: string) => openOperations(tab),
+    onPlacementCommit: (blockId, placement, align) =>
+      commitOverlayPlacement(blockId, placement, align),
+    onAnchorOffsetCommit: (blockId, offsetPx) =>
+      commitOverlayPlacement(blockId, undefined, undefined, offsetPx),
     onPopupSizeCommit: (widthPx, heightPx) => commitOverlayPopupSize(widthPx, heightPx),
     onRetarget: () => sendShellStepCommand('retarget', currentHeaderStepId ?? undefined),
+    onSelectTarget: () => sendShellStepCommand('select-target', currentHeaderStepId ?? undefined),
+    onTargetStateChange: (state) =>
+      publishTargetRingState(host.ownerDocument, previewOwnerId, state),
     onSelectStep: (stepId) => selectOverlayStep(stepId),
+    onSelectStepAdditive: (stepId, mode) =>
+      sendShellStepCommand(mode === 'range' ? 'select-range' : 'select-add', stepId),
     onTitleCommit: (title) => commitOverlayTitle(title),
+    onBrowsingChange: (browsing) =>
+      recordAuthoringDiagnostic(browsing ? 'chrome.collapsed' : 'chrome.restored'),
+    onStartPreview: () => startOverlayPreview(),
+    onEditPreviewStep: () => editPreviewingStep(),
+    onPreviewStep: (direction) => stepPreview(direction),
+    onToggleAllPanels: (hidden) =>
+      recordAuthoringDiagnostic(hidden ? 'chrome.collapsed' : 'chrome.restored'),
+    onRetrySave: () => void flushAutoSave().catch(() => {}),
+    onAskLodariq: (prompt) => sendChromeAction('ask-lodariq', { prompt }),
+    onSwitchExperience: (experienceType) => {
+      // The host asked for the change, so the pill shows it immediately; the
+      // frame's next document refresh is still the authority and will correct
+      // this if the type turns out to be unavailable.
+      overlayShell?.setPillState({ experienceType });
+      sendChromeAction('switch-experience', { experienceType });
+    },
+    onEnvironmentChange: (environment) => setAuthoringEnvironment(environment),
+    onToggleRecording: () => sendChromeAction('toggle-recording'),
+    onSimulateUser: () => sendChromeAction('simulate-user'),
+    onCanvasZoom: (direction) =>
+      sendChromeAction(
+        direction === 'in'
+          ? 'canvas-zoom-in'
+          : direction === 'out'
+            ? 'canvas-zoom-out'
+            : 'canvas-zoom-reset',
+      ),
+    onRestart: () => sendChromeAction('restart'),
   });
-  overlayShell.setDocument(previewDocument, previewDocument?.title ?? authoringText('Untitled experience'));
+  stopPresence =
+    options.presence?.subscribe((next) => {
+      currentPresence = next;
+      overlayShell?.setPresence(next);
+    }) ?? null;
+  overlayShell.setDocument(
+    previewDocument,
+    previewDocument?.title ?? authoringText('Untitled experience'),
+  );
   overlayShell.setActiveStepId(currentHeaderStepId);
+  registerBuiltInExperiences();
+  overlayShell.setPillState({
+    environment: AUTHORING_ENVIRONMENT_LABELS[session.environment],
+    experienceType: previewDocument?.type ?? 'tour',
+    // Printed from the registry rather than a hardcoded list, so a build that
+    // registers a type gets the row and a build that does not never offers it.
+    // The registry knows more types than the product ships; the creator catalog
+    // is the shipped set, so the menu and the launcher always agree.
+    experienceTypes: listExperienceDefinitions()
+      .filter((definition) =>
+        CREATOR_ENABLED_EXPERIENCE_TYPES.some((entry) => entry.id === definition.type),
+      )
+      .map((definition) => ({
+        type: definition.type,
+        label: EXPERIENCE_TYPE_LABELS[definition.type] ?? definition.type,
+      })),
+    environments: AUTHORING_SELECTABLE_ENVIRONMENTS,
+  });
   overlayShell.setPresentation('overlay');
+  /**
+   * The panel says what it is, once, on the surface it just took over. Nothing
+   * else on the page explains that the product is now editable, and a creator who
+   * has to guess that will not find the inspector or Operations at all.
+   */
+  host.ownerDocument.defaultView?.setTimeout(() => {
+    overlayShell?.notify(
+      authoringText(
+        'Lodariq is open on your product. Drag what you can see, open the inspector for what you selected, open Operations for the whole thing.',
+      ),
+      {
+        durationMs: COACH_TIP_MS,
+        action: { label: authoringText('Show me'), onSelect: () => openOperations() },
+      },
+    );
+  }, COACH_TIP_DELAY_MS);
   const panelDocumentTitle = shadow.querySelector<HTMLInputElement>('[data-panel-document-title]');
 
   const syncPanelStepStatus = (): void => {
@@ -646,6 +770,9 @@ function openAuthoringPanel(
     pendingPresentationAnchorPick = null;
     presentationAnchorPicker?.cancel();
     presentationAnchorPicker = null;
+    stopPresence?.();
+    stopPresence = null;
+    currentPresence = null;
     overlayShell?.destroy();
     overlayShell = null;
     stopPanelChrome?.();
@@ -908,6 +1035,9 @@ function openAuthoringPanel(
           }
           return;
         }
+        if (message.type === AUTHORING_OPERATIONS_REQUEST_TYPE) {
+          return respondToOperationsRequest(message.requestId, message.method, message.args ?? []);
+        }
         if (message.type === AUTHORING_RELEASE_STATE_REQUEST_TYPE) {
           return respondToReleaseStateRequest(message.correlationId);
         }
@@ -1015,6 +1145,28 @@ function openAuthoringPanel(
           }
           return;
         }
+        if (message.type === AUTHORING_SHELL_NOTICE_TYPE) {
+          overlayShell?.notify(message.message, { kind: message.kind ?? 'neutral' });
+          return;
+        }
+        if (message.type === AUTHORING_SHELL_MENU_STATE_TYPE) {
+          // Handles are host chrome and always paint above the frame; they stand
+          // down so an in-frame menu is not opened underneath them.
+          host.toggleAttribute(AUTHORING_FRAME_MENU_OPEN_ATTRIBUTE, message.open);
+          return;
+        }
+        if (message.type === AUTHORING_SHELL_SELECTION_TYPE) {
+          overlayShell?.setSelectedStepIds(message.stepIds);
+          return;
+        }
+        if (message.type === AUTHORING_SHELL_CAPABILITIES_TYPE) {
+          overlayShell?.setAssistAvailable(message.assist);
+          return;
+        }
+        if (message.type === AUTHORING_SHELL_PALETTE_OPEN_TYPE) {
+          overlayShell?.openCommandPalette();
+          return;
+        }
         if (message.type === 'authoring.preview.request') {
           previewContentLocale = message.locale ?? previewContentLocale;
           if (message.mode === 'step') {
@@ -1022,9 +1174,7 @@ function openAuthoringPanel(
             currentHeaderStepId = message.stepId;
             syncPanelStepStatus();
           } else {
-            host.setAttribute(AUTHORING_PANEL_MINIMIZED_ATTRIBUTE, 'true');
             overlayShell?.setPresentation('previewing');
-            setAuthoringTriggerPanelState('minimized');
           }
           return playPreviewDocument(
             message.mode === 'step' ? message.stepId : message.initialStepId,
@@ -1333,6 +1483,29 @@ function openAuthoringPanel(
     }
 
     const affectedStepId = findContainingTourStepId(current.blocks, blockId);
+    const protectedStepIds = ops.some((operation) => operation.op === 'replaceDocument')
+      ? current.blocks.filter((block) => block.type === 'tourStep').map((block) => block.id)
+      : affectedStepId
+        ? [affectedStepId]
+        : currentHeaderStepId
+          ? [currentHeaderStepId]
+          : [];
+    const blockingEditability = currentPresence
+      ? protectedStepIds
+          .map((stepId) => stepEditability(currentPresence!, stepId, Date.now()))
+          .find((editability) => !editability.editable)
+      : undefined;
+    if (blockingEditability && !blockingEditability.editable) {
+      const message =
+        blockingEditability.reason === 'document'
+          ? authoringText('A teammate is changing the whole experience. Try again in a moment.')
+          : authoringText('{name} is editing this step, so your copy stays read-only.', {
+              name: blockingEditability.holder?.name ?? authoringText('A teammate'),
+            });
+      overlayShell?.notify(message);
+      if (transaction) sendPreviewTransactionResult(transaction, 'conflict', current);
+      return;
+    }
     if (ops.some((operation) => operation.op === 'replaceDocument')) {
       authoringTargetOverrides.clear();
     } else if (
@@ -1428,7 +1601,7 @@ function openAuthoringPanel(
     sendShellStepCommand('collapse', currentHeaderStepId ?? undefined);
   }
 
-  function openOperations(): void {
+  function openOperations(tab?: string): void {
     host.removeAttribute(AUTHORING_PANEL_MINIMIZED_ATTRIBUTE);
     overlayShell?.setPresentation('operations');
     const activeBridge = bridge;
@@ -1440,7 +1613,94 @@ function openAuthoringPanel(
       correlationId: createBridgeCorrelationId('authoring_open_operations'),
       type: AUTHORING_CHROME_ACTION_REQUEST_TYPE,
       action: 'open-operations',
+      // A menu row that names a section should land on it, not on the hub's
+      // default tab and leave the creator to find it again.
+      ...(tab ? { tab } : {}),
     });
+  }
+
+  /**
+   * The pill menu's non-Operations rows (§3.3). Each is a real frame command —
+   * a menu that prints a capability the build cannot perform is worse than a
+   * short menu, so nothing here is decorative.
+   */
+  function sendChromeAction(
+    action:
+      | 'switch-experience'
+      | 'toggle-recording'
+      | 'simulate-user'
+      | 'canvas-zoom-in'
+      | 'canvas-zoom-out'
+      | 'canvas-zoom-reset'
+      | 'restart'
+      | 'ask-lodariq',
+    extra: { experienceType?: string; prompt?: string } = {},
+  ): void {
+    const activeBridge = bridge;
+    if (!activeBridge) return;
+    activeBridge.send({
+      protocol: BRIDGE_PROTOCOL_VERSION,
+      sessionId: session.sessionId,
+      documentId: session.documentId,
+      correlationId: createBridgeCorrelationId(`authoring_${action.replace(/-/gu, '_')}`),
+      type: AUTHORING_CHROME_ACTION_REQUEST_TYPE,
+      action,
+      ...extra,
+    });
+  }
+
+  /**
+   * The environment chip (§3.3). A session is opened against one environment, so
+   * this changes what preview and the Operations numbers are read against — it
+   * does not silently re-point publishing, which stays the session's own.
+   */
+  function setAuthoringEnvironment(environment: string): void {
+    if (environment === AUTHORING_ENVIRONMENT_LABELS[session.environment]) return;
+    overlayShell?.setPillState({ environment });
+    overlayShell?.notify(AUTHORING_PANEL_LABELS.environmentSwitched(environment));
+  }
+
+  /**
+   * Runs one Operations call on the host, where the bearer lives, and returns the
+   * result to the frame. Failures come back as a creator-facing reason so a
+   * section can say why it is empty instead of spinning.
+   */
+  async function respondToOperationsRequest(
+    requestId: string,
+    method: string,
+    args: readonly unknown[],
+  ): Promise<void> {
+    const activeBridge = bridge;
+    if (!activeBridge) return;
+    const envelope = {
+      protocol: BRIDGE_PROTOCOL_VERSION,
+      sessionId: session.sessionId,
+      documentId: session.documentId,
+      correlationId: createBridgeCorrelationId('authoring_operations_result'),
+      type: AUTHORING_OPERATIONS_RESULT_TYPE,
+      requestId,
+    } as const;
+
+    const services = options.operations;
+    const call = services?.[method as keyof AuthoringOperationsServices] as
+      ((...callArgs: readonly unknown[]) => Promise<unknown>) | undefined;
+    if (!call) {
+      activeBridge.send({
+        ...envelope,
+        error: AUTHORING_PANEL_LABELS.operationsUnavailable,
+      });
+      return;
+    }
+
+    try {
+      const result = await call.apply(services, [...args]);
+      activeBridge.send({ ...envelope, ...(result === undefined ? {} : { result }) });
+    } catch (error) {
+      activeBridge.send({
+        ...envelope,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
   }
 
   function closeOperations(): void {
@@ -1456,13 +1716,21 @@ function openAuthoringPanel(
     });
   }
 
-  function commitOverlayPlacement(blockId: string, placement: OverlayPlacement): void {
+  function commitOverlayPlacement(
+    blockId: string,
+    placement?: OverlayPlacement,
+    align?: AnchorAlign,
+    offsetPx?: number,
+  ): void {
     const activeBridge = bridge;
     if (!activeBridge) return;
+    const side = placement ?? currentPlacementOf(blockId) ?? 'bottom';
     const operation: AuthoringInlineControlOperation = {
       kind: 'setPlacement',
       blockId,
-      placement,
+      placement: side,
+      ...(align ? { align } : {}),
+      ...(offsetPx === undefined ? {} : { offsetPx }),
     };
     void activeBridge
       .sendWithAck(
@@ -1479,11 +1747,28 @@ function openAuthoringPanel(
       .catch(() => {});
   }
 
-  function commitOverlayPopupSize(widthPx: number, heightPx: number): void {
+  /** The side already on the block, so an offset-only commit does not reset it. */
+  function currentPlacementOf(blockId: string): OverlayPlacement | null {
+    for (const step of tourStepsOf(previewDocument)) {
+      const tooltip = tooltipOfStep(step);
+      if (tooltip?.id !== blockId) continue;
+      const placement = tooltip.props.placement;
+      return placement === 'top' ||
+        placement === 'right' ||
+        placement === 'bottom' ||
+        placement === 'left'
+        ? placement
+        : null;
+    }
+    return null;
+  }
+
+  /** Each axis is sent only when the dragged edge drove it (§3.4 rule 4). */
+  function commitOverlayPopupSize(widthPx: number | null, heightPx: number | null): void {
     const activeBridge = bridge;
     const step = tourStepsOf(previewDocument).find((item) => item.id === currentHeaderStepId);
     const tooltipId = step ? tooltipOfStep(step)?.id : undefined;
-    if (!activeBridge || !tooltipId) return;
+    if (!activeBridge || !tooltipId || (widthPx === null && heightPx === null)) return;
     activeBridge.send({
       protocol: BRIDGE_PROTOCOL_VERSION,
       sessionId: session.sessionId,
@@ -1491,8 +1776,8 @@ function openAuthoringPanel(
       correlationId: createBridgeCorrelationId('authoring_overlay_popup_size'),
       type: AUTHORING_SHELL_POPUP_SIZE_COMMIT_TYPE,
       blockId: tooltipId,
-      widthPx,
-      heightPx,
+      ...(widthPx === null ? {} : { widthPx }),
+      ...(heightPx === null ? {} : { heightPx }),
     });
   }
 
@@ -1502,6 +1787,39 @@ function openAuthoringPanel(
     overlayShell?.setPresentation('overlay');
     sendShellStepCommand('select', stepId);
     void playPreviewDocument(stepId);
+  }
+
+  /** The pill's `Preview` button (§4.7): the runtime renders, every authoring pixel goes. */
+  function startOverlayPreview(): void {
+    overlayShell?.setPresentation('previewing');
+    host.setAttribute(AUTHORING_PREVIEW_ACTIVE_ATTRIBUTE, 'true');
+    void playPreviewDocument(currentHeaderStepId ?? pendingInlinePreviewStepId(), true, true).catch(
+      (error: unknown) => {
+        // The usual cause is a step whose target is not on this page. Saying so is
+        // the difference between "preview is broken" and "go to the right screen".
+        overlayShell?.notify(previewFailureMessage(error), { kind: 'warning' });
+      },
+    );
+  }
+
+  /** The preview bar's arrows (§4.7): replay from the step either side of this one. */
+  function stepPreview(direction: 'previous' | 'next'): void {
+    const steps = (previewDocument?.blocks ?? []).filter((block) => block.type === 'tourStep');
+    const showing = previewPathStepIds[previewPathStepIds.length - 1] ?? currentHeaderStepId;
+    const index = steps.findIndex((step) => step.id === showing);
+    const next = steps[index + (direction === 'next' ? 1 : -1)];
+    if (index < 0 || !next) return;
+    void playPreviewDocument(next.id, true, true).catch((error: unknown) => {
+      overlayShell?.notify(previewFailureMessage(error), { kind: 'warning' });
+    });
+  }
+
+  /** `Edit this step` on the preview bar: select what is showing, keep preview state. */
+  function editPreviewingStep(): void {
+    const runtimeStepId = previewPathStepIds[previewPathStepIds.length - 1] ?? currentHeaderStepId;
+    host.removeAttribute(AUTHORING_PREVIEW_ACTIVE_ATTRIBUTE);
+    if (runtimeStepId) selectOverlayStep(runtimeStepId);
+    else overlayShell?.setPresentation('overlay');
   }
 
   function commitOverlayTitle(title: string): void {
@@ -1603,6 +1921,8 @@ function openAuthoringPanel(
                   if (previewPathStepIds[previewPathStepIds.length - 1] !== runtimeStepId) {
                     previewPathStepIds.push(runtimeStepId);
                   }
+                  // Audit #6: progress follows the runtime, not the editor selection.
+                  overlayShell?.setRuntimeStepId(runtimeStepId);
                   recordAuthoringDiagnostic('preview.step-changed', {
                     stepId: runtimeStepId,
                     count: index,
@@ -1677,7 +1997,17 @@ function openAuthoringPanel(
         previewPending = false;
         previewPresented = false;
         if (interactive) {
+          /*
+           * Undo everything the attempt did. Interactive preview minimizes the
+           * panel and switches the shell to `previewing` so the tour has the page
+           * to itself; leaving either in place after a failure takes the whole
+           * authoring surface away with no explanation, which is much worse than
+           * the preview simply not starting.
+           */
           host.removeAttribute(AUTHORING_PREVIEW_ACTIVE_ATTRIBUTE);
+          host.removeAttribute(AUTHORING_PANEL_MINIMIZED_ATTRIBUTE);
+          setAuthoringTriggerPanelState('open');
+          overlayShell?.setPresentation('overlay');
           syncPanelStepStatus();
         }
         preview.onPreviewError?.(error);
@@ -1761,6 +2091,7 @@ function openAuthoringPanel(
     previewPending = false;
     previewPresented = false;
     previewPathStepIds = [];
+    overlayShell?.setRuntimeStepId(null);
     host.removeAttribute(AUTHORING_PREVIEW_ACTIVE_ATTRIBUTE);
     preview?.stopPreview?.(previewOwnerId);
     inlinePreviewEditor?.refresh();
@@ -2073,6 +2404,7 @@ function openAuthoringPanel(
     if (state === currentSaveState && label === currentSaveStateLabel) return;
     currentSaveState = state;
     currentSaveStateLabel = label;
+    overlayShell?.setPillState({ save: PILL_SAVE_STATE_BY_SAVE_STATE[state] });
     sendSaveStateUpdate();
   }
 
@@ -2133,11 +2465,15 @@ function openAuthoringPanel(
         ...(message.requiredAction ? { requiredAction: message.requiredAction } : {}),
         ...(stateId ? { stateId } : {}),
         ...(suggestedTarget ? { initialTarget: suggestedTarget } : {}),
-        onPick: ({ element, fingerprint, identity }) => {
+        onPick: ({ element, fingerprint, identity, selection }) => {
           if (pendingTargetPickCorrelationId !== message.correlationId) return;
           pendingTargetPickCorrelationId = null;
           picker = null;
           if (pickedStepId) authoringTargetOverrides.set(pickedStepId, element);
+          // Tell the shell where the chosen element is. Re-resolving by identity
+          // can fail on a freshly picked or ambiguous target, and the chrome must
+          // still be placed clear of the thing the creator just pointed at.
+          overlayShell?.setTargetRect(domRectAsProtectedSurface(element.getBoundingClientRect()));
           restorePanelAfterTargetPicking(host, targetPickingRestoreState, false);
           targetPickingRestoreState = null;
           const activeBridge = bridge;
@@ -2158,6 +2494,7 @@ function openAuthoringPanel(
                 blockId: message.blockId,
                 fingerprint,
                 identity,
+                ...(selection ? { selection } : {}),
                 captureCorrelationId: message.correlationId,
               },
               { timeoutMs: 2000 },
@@ -2197,7 +2534,7 @@ function openAuthoringPanel(
         : undefined,
     );
     presentationAnchorRestoreState ??= captureRestoreState();
-    setPanelTargetPicking(host, true, AUTHORING_PANEL_LABELS.selectExactArea);
+    setPanelTargetPicking(host, true);
     overlayShell?.setPresentation('picking');
 
     try {
@@ -2426,6 +2763,19 @@ function previewThemeMatchesSession(
     candidate.schemaVersion === initial.schemaVersion &&
     candidate.contractVersion === initial.contractVersion
   );
+}
+
+/** Long enough to read a sentence; it is the only thing that explains the mode. */
+const COACH_TIP_MS = 9_000;
+/** After the chrome has settled, so it does not land mid-paint. */
+const COACH_TIP_DELAY_MS = 700;
+
+/** Names the common cause rather than printing an exception at the creator. */
+function previewFailureMessage(error: unknown): string {
+  const name = error instanceof Error ? error.name : '';
+  return name === 'TourPresentationUnavailableError'
+    ? authoringText('Preview stopped: this step points at something that is not on this page.')
+    : authoringText('Preview could not start.');
 }
 
 function dispatchHostedCreatorPanelState(state: HostedCreatorPanelState): void {

@@ -10,18 +10,43 @@ const checks = [
   {
     name: 'loader',
     entries: ['lodariq-loader.js'],
-    limit: 3 * 1024,
+    // Raised from 3 KiB for cross-application handoff: the bootstrap now sniffs
+    // the URL for a journey token so an arriving visitor resumes on the step
+    // they were sent to. The module that does the work stays lazy — only the
+    // sniff and its branch are in the critical path.
+    limit: 3.125 * 1024,
     forbidden: productionRuntimeForbiddenPatterns(),
   },
   {
+    // This bundle IS the idle-page cost. A visitor on a page with no eligible
+    // experience downloads exactly this and nothing else, so the number below
+    // is the honest answer to "what does Lodariq cost a page that shows
+    // nothing?" — the one figure a customer's performance review asks for.
+    //
+    // Raised from 5 KiB for the cacheable eligibility pre-flight (ADR-0027):
+    // ~650 bytes that let a page rule itself out from a GET the browser can
+    // cache, instead of an uncacheable POST on every single page view. Bytes
+    // bought a request, which is the right direction for this trade.
     name: 'public-bootstrap',
     entries: ['lodariq-public-bootstrap.js'],
-    limit: 5 * 1024,
+    limit: 6 * 1024,
     forbidden: productionRuntimeForbiddenPatterns(),
     forbiddenStatic: [
       {
         name: 'eager authoring activation client',
         pattern: /lodariq\.authoring\.activation\.v1|data-lodariq-launcher/,
+      },
+      // The whole design rests on delivery and runtime being reachable only
+      // through `import()`. A refactor that turns either into a static import
+      // would quietly restore the old cost on every page — and nothing else in
+      // CI would notice, because the totals below would still pass.
+      {
+        name: 'eagerly linked public delivery module',
+        pattern: /Lodariq public delivery configuration is invalid/,
+      },
+      {
+        name: 'eagerly linked viewer runtime',
+        pattern: /Lodariq\.playTour requires compiled delivery JSON/,
       },
     ],
   },
@@ -46,7 +71,22 @@ const checks = [
     entries: ['lodariq-runtime.js', 'renderers/tour.js'],
     // Includes the viewer-facing labels for all production locales; authored
     // experience content remains in the separately fetched artifact.
-    limit: 46 * 1024,
+    //
+    // Raised from 46 KiB for the emphasis layer (backdrop, outline, zoom),
+    // continuous target tracking, and journey handoff — all load-bearing for a
+    // tour that follows a moving target, so none of it is separable behind a
+    // lazy import without an async boundary in the reposition path.
+    //
+    // Raised from 49 KiB for the resolver's candidate pool, pass-scoped
+    // visibility memo, and timing hooks — ~0.5 KiB that halves resolution on a
+    // 6,700-element page (40.6 ms -> 18.9 ms p50). Bytes here buy back main-thread
+    // time on the customer's page, which is the scarcer budget.
+    //
+    // Then to 52 KiB for the launcher's experience chooser: it offered Tour alone,
+    // which made every other experience type unreachable from the product. The
+    // cost is the type names in all eight locales, so the chooser names the types
+    // and describes only Tour.
+    limit: 52 * 1024,
     forbidden: productionRuntimeForbiddenPatterns(),
   },
 ];

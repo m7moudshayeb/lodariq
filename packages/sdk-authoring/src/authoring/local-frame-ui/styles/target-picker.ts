@@ -53,7 +53,7 @@ export const AUTHORING_TARGET_PICKER_CSS = `
     outline: 0;
     background: transparent;
     color: var(--lq-color-ink);
-    font-size: 12px;
+    font-size: var(--lq-font-sm);
     padding: 0;
   }
 
@@ -61,10 +61,29 @@ export const AUTHORING_TARGET_PICKER_CSS = `
     color: var(--lq-color-subtle);
   }
 
+  /* The 48px allowance is the search field's, and only the searchable variant
+     draws one — every other picker was paying for a box it does not have. */
   .ui-searchable-select-options {
-    max-height: min(232px, calc(var(--radix-popover-content-available-height) - 48px));
+    max-height: min(232px, calc(var(--radix-popover-content-available-height, 232px) - 8px));
     overflow-y: auto;
     padding-top: 4px;
+  }
+
+  .ui-searchable-select-content .ui-searchable-select-options {
+    max-height: min(232px, calc(var(--radix-popover-content-available-height, 232px) - 56px));
+  }
+
+  /* The trigger stays a bare value; the reason for each choice reads here. */
+  .ui-select-item-text {
+    display: grid;
+    gap: 1px;
+    min-width: 0;
+  }
+
+  .ui-select-item-description {
+    color: var(--lq-color-subtle);
+    font-size: var(--lq-font-sm);
+    line-height: 1.35;
   }
 
   .ui-select-item {
@@ -75,7 +94,7 @@ export const AUTHORING_TARGET_PICKER_CSS = `
     border-radius: var(--lq-radius-xs);
     color: var(--lq-color-ink);
     cursor: default;
-    font-size: 12px;
+    font-size: var(--lq-font-sm);
     line-height: 1.2;
     padding: 8px 32px 8px 8px;
     user-select: none;
@@ -101,7 +120,7 @@ export const AUTHORING_TARGET_PICKER_CSS = `
 
   .ui-select-empty {
     color: var(--lq-color-muted);
-    font-size: 12px;
+    font-size: var(--lq-font-sm);
     padding: var(--lq-space-3) var(--lq-space-2);
     text-align: center;
   }
@@ -128,7 +147,7 @@ export const AUTHORING_TARGET_PICKER_CSS = `
     overflow: hidden;
     border-radius: 999px;
     padding: 4px 8px;
-    font-size: 12px;
+    font-size: var(--lq-font-sm);
     line-height: 1.35;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -138,15 +157,15 @@ export const AUTHORING_TARGET_PICKER_CSS = `
     border: 1px solid var(--lq-color-success-border);
     background: var(--lq-color-success-soft);
     color: var(--lq-color-success);
-    font-weight: 700;
+    font-weight: var(--lq-weight-bold);
     text-transform: none;
   }
 
   .block-title .badge {
     min-height: 24px;
     border-radius: 8px;
-    font-size: 10px;
-    font-weight: 700;
+    font-size: var(--lq-font-xs);
+    font-weight: var(--lq-weight-bold);
     padding: 4px 8px;
   }
 
@@ -168,8 +187,8 @@ export const AUTHORING_TARGET_PICKER_CSS = `
     border-radius: 8px;
     background: transparent;
     color: var(--lq-color-ink-soft);
-    font-size: 12px;
-    font-weight: 700;
+    font-size: var(--lq-font-sm);
+    font-weight: var(--lq-weight-bold);
     padding: 4px 8px;
     white-space: nowrap;
     box-shadow: none;
@@ -233,7 +252,7 @@ export const AUTHORING_TARGET_PICKER_CSS = `
     border-radius: 0;
     background: transparent;
     color: var(--lq-color-ink);
-    font-weight: 700;
+    font-weight: var(--lq-weight-bold);
     padding: 4px 4px 4px 8px;
   }
 
@@ -266,7 +285,7 @@ export const AUTHORING_TARGET_PICKER_CSS = `
     background: var(--lq-color-blue-soft);
     color: var(--lq-color-blue);
     font-size: 8px;
-    font-weight: 700;
+    font-weight: var(--lq-weight-bold);
     line-height: 1.2;
     padding: 4px 4px;
   }
@@ -277,8 +296,8 @@ export const AUTHORING_TARGET_PICKER_CSS = `
     gap: 4px;
     border-left: 0;
     color: var(--target-accent);
-    font-size: 10px;
-    font-weight: 700;
+    font-size: var(--lq-font-xs);
+    font-weight: var(--lq-weight-bold);
     padding-left: 4px;
   }
 
@@ -389,15 +408,15 @@ export const AUTHORING_TARGET_PICKER_CSS = `
   .target-menu-eyebrow {
     grid-column: 1 / -1;
     color: var(--lq-color-muted);
-    font-size: 10px;
-    font-weight: 700;
+    font-size: var(--lq-font-xs);
+    font-weight: var(--lq-weight-bold);
     text-transform: none;
   }
 
   .target-menu-header strong {
     overflow: hidden;
     color: var(--lq-color-ink);
-    font-size: 12px;
+    font-size: var(--lq-font-sm);
     line-height: 1.25;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -409,8 +428,8 @@ export const AUTHORING_TARGET_PICKER_CSS = `
     gap: 4px;
     align-self: center;
     color: var(--lq-color-blue);
-    font-size: 10px;
-    font-weight: 700;
+    font-size: var(--lq-font-xs);
+    font-weight: var(--lq-weight-bold);
     white-space: nowrap;
   }
 
@@ -446,7 +465,7 @@ export const AUTHORING_TARGET_PICKER_CSS = `
     min-width: 0;
     min-height: 36px;
     justify-content: center;
-    font-size: 12px;
+    font-size: var(--lq-font-sm);
     padding: 4px 8px;
   }
 

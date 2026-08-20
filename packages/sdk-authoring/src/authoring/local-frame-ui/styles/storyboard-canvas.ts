@@ -32,7 +32,7 @@ export const AUTHORING_STORYBOARD_CANVAS_CSS = `
 
   .storyboard-canvas-heading small {
     color: var(--lq-color-primary);
-    font-size: var(--lq-font-2xs);
+    font-size: 8px;
     font-weight: var(--lq-weight-bold);
     text-transform: uppercase;
   }
@@ -190,7 +190,7 @@ export const AUTHORING_STORYBOARD_CANVAS_CSS = `
     background: transparent;
     color: var(--lq-color-ink-soft);
     cursor: pointer;
-    font-size: var(--lq-font-2xs);
+    font-size: 8px;
     font-weight: var(--lq-weight-semibold);
     pointer-events: auto;
   }
@@ -335,7 +335,7 @@ export const AUTHORING_STORYBOARD_CANVAS_CSS = `
     background: #ffffff;
     color: var(--lq-color-ink-soft);
     cursor: pointer;
-    font-size: var(--lq-font-2xs);
+    font-size: 8px;
     font-weight: var(--lq-weight-semibold);
     padding: 0 var(--lq-space-2);
   }
@@ -384,7 +384,7 @@ export const AUTHORING_STORYBOARD_CANVAS_CSS = `
   }
 
   .storyboard-custom-color span {
-    font-size: var(--lq-font-2xs);
+    font-size: 8px;
     font-weight: var(--lq-weight-semibold);
     white-space: nowrap;
   }

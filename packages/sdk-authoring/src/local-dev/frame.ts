@@ -27,6 +27,7 @@ import {
   loadLocalMediaAssetResources,
   saveLocalMediaAssetRecord,
 } from './local-media-store';
+import { mockAssistProposal } from './mock-assist';
 
 export interface MountLocalAuthoringDevFrameOptions {
   root: HTMLElement;
@@ -55,9 +56,19 @@ export async function mountLocalAuthoringDevFrame(
   if (frameContext.documentId && !contextDocument) {
     throw new Error(`Lodariq local authoring document not found: ${frameContext.documentId}`);
   }
+  const activeDocument = contextDocument ?? options.baseDocument;
+  /*
+   * WIRE_BE: the authenticated session supplies the real provider. Without one
+   * the whole assist surface is unavailable, which makes it impossible to review
+   * — so local development gets a deterministic stand-in with the same contract.
+   */
+  if (!services.requestAiAssist) {
+    services.requestAiAssist = async (request) =>
+      mockAssistProposal(request, services.loadDocument(activeDocument.id) ?? activeDocument);
+  }
   await mountLocalAuthoringFrame({
     root: options.root,
-    baseDocument: contextDocument ?? options.baseDocument,
+    baseDocument: activeDocument,
     ...(options.previewTheme ? { previewTheme: structuredClone(options.previewTheme) } : {}),
     frameMode: options.frameMode ?? frameModeFromLocation(options.root.ownerDocument.defaultView),
     sessionId: options.sessionId ?? frameContext.sessionId ?? LOCAL_AUTHORING_SESSION_ID,

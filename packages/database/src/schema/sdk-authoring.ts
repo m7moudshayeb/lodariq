@@ -55,6 +55,13 @@ export const publicSdkInstallations = pgTable(
       onDelete: 'set null',
     }),
     revokedAt: timestamp('revoked_at', { withTimezone: true }),
+    /**
+     * The kill switch (ADR-0027). Distinct from `revoked_at`: revocation is
+     * permanent and retires the installation identity, while suspension is a
+     * reversible pause a customer can flip when their page misbehaves and flip
+     * back when it does not.
+     */
+    suspendedAt: timestamp('suspended_at', { withTimezone: true }),
     ...timestamps,
   },
   (table) => [

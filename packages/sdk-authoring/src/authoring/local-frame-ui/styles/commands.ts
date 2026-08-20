@@ -61,7 +61,7 @@ export const AUTHORING_COMMAND_CSS = `
     border-radius: 8px;
     background: var(--lq-color-page);
     color: var(--lq-color-ink);
-    font-size: 12px;
+    font-size: var(--lq-font-sm);
     padding: 8px 12px;
     box-shadow: 0 1px 0 rgba(255, 255, 255, 0.06);
   }
@@ -90,7 +90,7 @@ export const AUTHORING_COMMAND_CSS = `
 
   .inline-command-empty {
     color: var(--lq-color-muted);
-    font-size: 12px;
+    font-size: var(--lq-font-sm);
     padding: 8px;
   }
 
@@ -124,13 +124,13 @@ export const AUTHORING_COMMAND_CSS = `
 
   .inline-command-copy strong {
     color: var(--lq-color-ink);
-    font-size: 12px;
+    font-size: var(--lq-font-sm);
   }
 
   .inline-command-copy small {
     color: var(--lq-color-muted);
-    font-size: 10px;
-    font-weight: 500;
+    font-size: var(--lq-font-xs);
+    font-weight: var(--lq-weight-semibold);
   }
 
   .block {
@@ -342,8 +342,8 @@ export const AUTHORING_COMMAND_CSS = `
     border-radius: 999px;
     background: var(--lq-color-panel);
     color: var(--lq-color-ink-soft);
-    font-size: 10px;
-    font-weight: 700;
+    font-size: var(--lq-font-xs);
+    font-weight: var(--lq-weight-bold);
     line-height: 1;
     padding: 4px 8px;
     white-space: nowrap;
@@ -355,8 +355,8 @@ export const AUTHORING_COMMAND_CSS = `
     border-radius: 0;
     background: transparent;
     color: var(--lq-color-muted);
-    font-size: 10px;
-    font-weight: 700;
+    font-size: var(--lq-font-xs);
+    font-weight: var(--lq-weight-bold);
     letter-spacing: 0;
     padding: 0;
   }
@@ -382,8 +382,8 @@ export const AUTHORING_COMMAND_CSS = `
     min-width: 0;
     overflow: hidden;
     color: var(--lq-color-muted);
-    font-size: 12px;
-    font-weight: 600;
+    font-size: var(--lq-font-sm);
+    font-weight: var(--lq-weight-semibold);
     line-height: 1.25;
     text-overflow: ellipsis;
     white-space: nowrap;

@@ -52,6 +52,7 @@ export interface CreateApiAppOptions {
   publicApiBaseUrl?: string;
   loaderSrc?: string;
   publicLoaderSrc?: string;
+  publicLoaderIntegrity?: string;
   creatorLoaderSrc?: string;
   creatorModule?: CreatorModuleDescriptor;
   authoringIframeSrc?: string;
@@ -73,6 +74,8 @@ export function createApiApp(options: CreateApiAppOptions = {}): FastifyInstance
     options.publicApiBaseUrl ?? process.env.LODARIQ_PUBLIC_API_BASE_URL ?? 'https://api.lodariq.io';
   const loaderSrc = options.loaderSrc ?? process.env.LODARIQ_LOADER_SRC;
   const publicLoaderSrc = options.publicLoaderSrc ?? process.env.LODARIQ_PUBLIC_LOADER_SRC;
+  const publicLoaderIntegrity =
+    options.publicLoaderIntegrity ?? process.env.LODARIQ_PUBLIC_LOADER_INTEGRITY;
   const creatorLoaderSrc =
     options.creatorLoaderSrc ??
     process.env.LODARIQ_CREATOR_LOADER_SRC ??
@@ -271,6 +274,7 @@ export function createApiApp(options: CreateApiAppOptions = {}): FastifyInstance
       publicApiBaseUrl,
       loaderSrc,
       publicLoaderSrc,
+      publicLoaderIntegrity,
       creatorLoaderSrc,
       creatorModule,
       authoringIframeSrc,

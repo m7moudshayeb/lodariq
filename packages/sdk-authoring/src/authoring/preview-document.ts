@@ -21,7 +21,10 @@ import {
   reorderStepChildBlock,
   reorderTopLevelBlock,
   setBlockAction,
+  setBlockEmphasis,
   setBlockLayout,
+  setBlockShowWhen,
+  setBlockTeaches,
   setBlockPlacement,
   setBlockPresentationAnchor,
   setBlockTextStyle,
@@ -168,7 +171,28 @@ export function applyPreviewPatch(
       next = { ...next, blocks: setBlockVariant(next.blocks, blockId, op.variant) };
     }
     if (op.op === 'setPlacement') {
-      next = { ...next, blocks: setBlockPlacement(next.blocks, blockId, op.placement) };
+      next = {
+        ...next,
+        blocks: setBlockPlacement(next.blocks, blockId, op.placement, {
+          ...(op.align ? { align: op.align } : {}),
+          ...(op.offsetPx === undefined ? {} : { offsetPx: op.offsetPx }),
+        }),
+      };
+    }
+    /*
+     * The three step-level facts. They were declared on the bridge and reduced
+     * optimistically in the frame, but never applied here — so a visibility
+     * rule, an emphasis or a teaches event showed in the inspector, replayed
+     * once, and was gone on the next load.
+     */
+    if (op.op === 'setShowWhen') {
+      next = { ...next, blocks: setBlockShowWhen(next.blocks, blockId, op.showWhen) };
+    }
+    if (op.op === 'setEmphasis') {
+      next = { ...next, blocks: setBlockEmphasis(next.blocks, blockId, op.emphasis) };
+    }
+    if (op.op === 'setTeaches') {
+      next = { ...next, blocks: setBlockTeaches(next.blocks, blockId, op.eventName) };
     }
     if (op.op === 'setPresentationAnchor') {
       const presentationAnchor = op.presentationAnchor;

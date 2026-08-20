@@ -365,7 +365,7 @@ describe('public authoring activation client', () => {
     expect(document.querySelector('[data-lodariq-launcher]')).toBeNull();
   });
 
-  it('opens a compact Tour-only chooser and activates New with an explicit draft intent', async () => {
+  it('offers every experience type and activates New with an explicit draft intent', async () => {
     const harness = createLauncherActivationHarness();
     const launcher = createPublicAuthoringLauncher(context, harness.options);
     const root = launcher.element.shadowRoot;
@@ -374,7 +374,11 @@ describe('public authoring activation client', () => {
     const surface = root?.querySelector<HTMLElement>('.type-surface');
     expect(surface?.hidden).toBe(false);
     expect(surface?.textContent).toContain('New experience');
-    expect(surface?.querySelectorAll('[data-experience-type]')).toHaveLength(1);
+    // Every type the product supports is reachable from the product itself (§5).
+    const offered = [...(surface?.querySelectorAll('[data-experience-type]') ?? [])].map(
+      (option) => (option as HTMLElement).dataset['experienceType'],
+    );
+    expect(offered).toEqual(['tour', 'announcement', 'hotspot', 'survey', 'checklist']);
     expect(surface?.textContent).toContain('Tour');
 
     surface?.querySelector<HTMLButtonElement>('[data-experience-type="tour"]')?.click();

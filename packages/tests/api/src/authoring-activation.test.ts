@@ -323,6 +323,7 @@ describe('hosted authoring activation API', () => {
           createdAt: now,
           updatedAt: now,
           revokedAt: null,
+          suspendedAt: null,
         },
       ],
       publicSdkInstallationOrigins: [
@@ -386,6 +387,7 @@ describe('hosted authoring activation API', () => {
           createdAt: now,
           updatedAt: now,
           revokedAt: null,
+          suspendedAt: null,
         },
       ],
       publicSdkInstallationOrigins: [
@@ -856,6 +858,7 @@ describe('activation grant document sessions', () => {
           createdAt: now,
           updatedAt: now,
           revokedAt: null,
+          suspendedAt: null,
         },
       ],
       publicSdkInstallationOrigins: [

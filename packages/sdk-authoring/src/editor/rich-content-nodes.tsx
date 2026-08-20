@@ -10,10 +10,12 @@ import {
   type LodariqBlockProps,
   type MediaPresentation,
   type OpenPageNavigationBehavior,
+  type ValidationLevel,
 } from '@lodariq/schema';
 import {
   EDGE_RESIZE_HORIZONTAL_DIRECTION,
   EDGE_RESIZE_VERTICAL_DIRECTION,
+  capturePointerForResize,
   clampSnappedWidth,
   type EdgeResizeEdge,
 } from '../authoring/canvas/edge-resize';
@@ -37,7 +39,7 @@ import {
   type SerializedParagraphNode,
   type Spread,
 } from 'lexical';
-import { Settings2 } from 'lucide-react';
+import { Check, TriangleAlert, X } from 'lucide-react';
 import { DynamicIcon } from 'lucide-react/dynamic';
 import {
   useContext,
@@ -127,6 +129,55 @@ export function $createRichCalloutNode(): RichCalloutNode {
 
 export function $isRichCalloutNode(node: LexicalNode | null | undefined): node is RichCalloutNode {
   return node instanceof RichCalloutNode;
+}
+
+export type SerializedRichTargetChipNode = Spread<
+  { type: 'lodariq-rich-target-chip'; version: 1 },
+  SerializedParagraphNode
+>;
+
+/**
+ * The chip that names the element this step is attached to.
+ *
+ * Its text is editable because the label a creator wants ("Create project") is
+ * rarely the one the DOM offers, and its icon is drawn by CSS rather than as a
+ * DOM child: Lexical reconciles this element's children, so anything Lodariq
+ * appends there would be treated as content and exported into the step.
+ */
+export class RichTargetChipNode extends ParagraphNode {
+  static override getType(): string {
+    return 'lodariq-rich-target-chip';
+  }
+
+  static override clone(node: RichTargetChipNode): RichTargetChipNode {
+    return new RichTargetChipNode(node.__key);
+  }
+
+  static override importJSON(): RichTargetChipNode {
+    return new RichTargetChipNode();
+  }
+
+  override createDOM(config: EditorConfig): HTMLElement {
+    const element = document.createElement('p');
+    const className = config.theme.paragraph;
+    if (typeof className === 'string') element.className = className;
+    element.classList.add('rich-content-target-chip');
+    return element;
+  }
+
+  override exportJSON(): SerializedRichTargetChipNode {
+    return { ...super.exportJSON(), type: 'lodariq-rich-target-chip', version: 1 };
+  }
+}
+
+export function $createRichTargetChipNode(): RichTargetChipNode {
+  return $applyNodeReplacement(new RichTargetChipNode());
+}
+
+export function $isRichTargetChipNode(
+  node: LexicalNode | null | undefined,
+): node is RichTargetChipNode {
+  return node instanceof RichTargetChipNode;
 }
 
 export type SerializedRichStatNode = Spread<
@@ -302,6 +353,21 @@ export class RichMediaNode extends DecoratorNode<ReactNode> {
     const writable = this.getWritable();
     writable.__media = { ...writable.__media, fit };
   }
+
+  /** `free` drops the constraint, which is how the prototype spells "no ratio". */
+  setAspectRatio(aspectRatio: MediaPresentation['aspectRatio'] | undefined): void {
+    const writable = this.getWritable();
+    const next = { ...writable.__media };
+    if (aspectRatio) next.aspectRatio = aspectRatio;
+    else delete next.aspectRatio;
+    writable.__media = next;
+  }
+
+  /** The alt text. Named for what a screen reader announces, not for the tag. */
+  setAccessibilityName(accessibilityName: string): void {
+    const writable = this.getWritable();
+    writable.__media = { ...writable.__media, accessibilityName };
+  }
 }
 
 type MediaResizeEdge = EdgeResizeEdge;
@@ -417,6 +483,7 @@ function ResizableMediaPreview({
     if (canvasWidth <= 0 || figureWidth <= 0 || startHeightPx <= 0) return;
     event.preventDefault();
     event.stopPropagation();
+    capturePointerForResize(event.currentTarget, event.pointerId);
     resizeState.current = {
       canvasWidth,
       edge,
@@ -861,6 +928,7 @@ function RichButtonPreview({
         .width ?? BUTTON_WIDTH_PX_LIMITS.min;
     event.preventDefault();
     event.stopPropagation();
+    capturePointerForResize(event.currentTarget, event.pointerId);
     resizeState.current = {
       edge,
       pointerId: event.pointerId,
@@ -974,24 +1042,11 @@ function RichButtonPreview({
         >
           {content || authoringText('Continue')}
         </button>
-        <button
-          aria-label={authoringText('Configure button')}
-          className="rich-content-button-config-trigger"
-          onClick={(event) => {
-            event.preventDefault();
-            event.stopPropagation();
-            inspect();
-          }}
-          onPointerDown={(event) => {
-            event.preventDefault();
-            event.stopPropagation();
-            inspect();
-          }}
-          title={authoringText('Configure button')}
-          type="button"
-        >
-          <Settings2 aria-hidden="true" size={15} />
-        </button>
+        {/*
+          No settings glyph beside it: the button itself opens its settings, so
+          the glyph was a second control for the one thing the first already did
+          — and it widened every button on the card to say so.
+        */}
       </div>
       <EdgeResizeHandles
         className="edge-resize-handle rich-content-button-resize-edge"
@@ -1134,6 +1189,7 @@ function RichFormFieldPreview({
   const deleteOnKey = useDeleteDecoratorOnKey(nodeKey);
   const label = content || authoringText('Label');
   const previewStyle = {
+    ...(field?.gapPx === undefined ? {} : { '--lq-field-gap': `${field.gapPx}px` }),
     ...(field?.fillColor ? { '--lq-field-fill': field.fillColor } : {}),
     ...(field?.textColor ? { '--lq-field-text': field.textColor } : {}),
     ...(field?.labelColor ? { '--lq-field-label': field.labelColor } : {}),
@@ -1145,21 +1201,38 @@ function RichFormFieldPreview({
       data-block-id={blockId}
       data-control={control}
       data-lodariq-block-align={props.blockLayout?.align}
+      data-lodariq-field-control={control}
+      data-lodariq-field-control-width={field?.controlWidth}
+      data-lodariq-field-label={field?.labelPlacement}
+      data-lodariq-field-label-size={field?.labelSize}
+      data-lodariq-field-label-weight={field?.labelWeight}
       data-lodariq-field-radius={field?.radius}
       data-lodariq-field-size={field?.size}
+      /*
+       * The field itself opens its settings, as the button already does — the
+       * settings glyph beside it was a second control for that one job, parked
+       * outside the card where it read as part of the customer's page.
+       *
+       * Pointer-down rather than click alone: the editor consumes the click on a
+       * decorator, which is why the glyph was the only thing that worked.
+       */
       onClick={(event) => {
         event.preventDefault();
         event.stopPropagation();
         inspect();
       }}
       onKeyDownCapture={deleteOnKey}
-      onPointerDown={(event) => event.preventDefault()}
+      onPointerDown={(event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        inspect();
+      }}
       style={previewStyle}
       tabIndex={0}
     >
       {control === 'radio' ? (
         <fieldset>
-          <legend>{label}</legend>
+          <legend data-lodariq-field-caption="">{label}</legend>
           {(field?.options ?? []).map((option) => (
             <label key={option.id}>
               <input disabled tabIndex={-1} type="radio" />
@@ -1170,11 +1243,11 @@ function RichFormFieldPreview({
       ) : control === 'checkbox' ? (
         <label>
           <input disabled tabIndex={-1} type="checkbox" />
-          {label}
+          <span data-lodariq-field-caption="">{label}</span>
         </label>
       ) : (
         <label>
-          <span>{label}</span>
+          <span data-lodariq-field-caption="">{label}</span>
           <input
             disabled
             placeholder={field?.placeholder}
@@ -1183,15 +1256,6 @@ function RichFormFieldPreview({
           />
         </label>
       )}
-      <button
-        aria-label={authoringText('Configure field')}
-        className="rich-content-button-config-trigger"
-        onClick={inspect}
-        title={authoringText('Configure field')}
-        type="button"
-      >
-        <Settings2 aria-hidden="true" size={15} />
-      </button>
     </div>
   );
 }
@@ -1352,6 +1416,149 @@ export function $createRichIconNode(
 
 export function $isRichIconNode(node: LexicalNode | null | undefined): node is RichIconNode {
   return node instanceof RichIconNode;
+}
+
+interface RichValidationBadgeNodeState {
+  blockId: string;
+  state: ValidationLevel;
+  text: string;
+}
+
+export type SerializedRichValidationBadgeNode = Spread<
+  RichValidationBadgeNodeState & { type: 'lodariq-rich-validation-badge'; version: 1 },
+  SerializedLexicalNode
+>;
+
+/**
+ * A status badge: what the step asserts about the screen it is standing on.
+ *
+ * Unlike the target chip this is not typed into. Its three states are the same
+ * `ValidationLevel` the rest of the document already uses, so a badge cannot
+ * drift into a state the validator has no name for — it is chosen in the
+ * inspector, not spelled out by hand.
+ */
+export class RichValidationBadgeNode extends DecoratorNode<ReactNode> {
+  __blockId: string;
+  __state: ValidationLevel;
+  __text: string;
+
+  static override getType(): string {
+    return 'lodariq-rich-validation-badge';
+  }
+
+  static override clone(node: RichValidationBadgeNode): RichValidationBadgeNode {
+    return new RichValidationBadgeNode(node.__blockId, node.__state, node.__text, node.__key);
+  }
+
+  static override importJSON(node: SerializedRichValidationBadgeNode): RichValidationBadgeNode {
+    return new RichValidationBadgeNode(node.blockId, node.state, node.text);
+  }
+
+  constructor(blockId: string, state: ValidationLevel, text: string, key?: NodeKey) {
+    super(key);
+    this.__blockId = blockId;
+    this.__state = state;
+    this.__text = text;
+  }
+
+  override createDOM(): HTMLElement {
+    const element = document.createElement('div');
+    element.className = 'rich-content-validation-badge-node';
+    return element;
+  }
+
+  override isInline(): boolean {
+    return false;
+  }
+
+  override updateDOM(): false {
+    return false;
+  }
+
+  override decorate(): ReactNode {
+    return (
+      <RichValidationBadgePreview
+        nodeKey={this.getKey()}
+        state={this.__state}
+        text={this.__text}
+      />
+    );
+  }
+
+  override exportJSON(): SerializedRichValidationBadgeNode {
+    return {
+      ...super.exportJSON(),
+      blockId: this.__blockId,
+      state: this.__state,
+      text: this.__text,
+      type: 'lodariq-rich-validation-badge',
+      version: 1,
+    };
+  }
+
+  getBlockId(): string {
+    return this.__blockId;
+  }
+
+  getState(): ValidationLevel {
+    return this.__state;
+  }
+
+  getText(): string {
+    return this.__text;
+  }
+
+  setState(state: ValidationLevel): void {
+    this.getWritable().__state = state;
+  }
+
+  setText(text: string): void {
+    this.getWritable().__text = text;
+  }
+}
+
+const VALIDATION_BADGE_ICONS: Readonly<Record<ValidationLevel, typeof Check>> = {
+  ready: Check,
+  incomplete: TriangleAlert,
+  invalid: X,
+};
+
+function RichValidationBadgePreview({
+  nodeKey,
+  state,
+  text,
+}: {
+  nodeKey: NodeKey;
+  state: ValidationLevel;
+  text: string;
+}): ReactNode {
+  const deleteOnKey = useDeleteDecoratorOnKey(nodeKey);
+  const Icon = VALIDATION_BADGE_ICONS[state];
+  return (
+    <span
+      className="rich-content-validation-badge"
+      data-validation-state={state}
+      onKeyDownCapture={deleteOnKey}
+      tabIndex={0}
+    >
+      <Icon size={13} />
+      <span>{text}</span>
+    </span>
+  );
+}
+
+export function $createRichValidationBadgeNode(
+  blockId: string,
+  state: ValidationLevel,
+  text: string,
+): RichValidationBadgeNode {
+  return $applyNodeReplacement(new RichValidationBadgeNode(blockId, state, text));
+}
+
+export function $isRichValidationBadgeNode(
+  node: LexicalNode | null | undefined,
+): node is RichValidationBadgeNode {
+  return node instanceof RichValidationBadgeNode;
 }
 
 export type SerializedRichDividerNode = Spread<

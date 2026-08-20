@@ -1,7 +1,14 @@
 import { createNonceStyleElement } from '@lodariq/schema/csp';
 import type { LodariqBrowserApi } from '@lodariq/sdk-runtime/lodariq-loader';
-import { LOCAL_AUTHORING_PANEL_TOGGLE_EVENT } from '../authoring/constants';
-import { CREATOR_CHROME_FONT_STACK, CREATOR_CHROME_TOKENS } from '../creator-chrome-tokens';
+import {
+  LOCAL_AUTHORING_LAUNCHER_ACTION_EVENT,
+  LOCAL_AUTHORING_PANEL_TOGGLE_EVENT,
+} from '../authoring/constants';
+import {
+  AUTHORING_TYPOGRAPHY_CSS_PROPERTIES,
+  CREATOR_CHROME_FONT_STACK,
+  CREATOR_CHROME_TOKENS,
+} from '../creator-chrome-tokens';
 import {
   CREATOR_ENABLED_EXPERIENCE_TYPES,
   type CreatorEnabledExperienceType,
@@ -117,6 +124,7 @@ let launcherIdSequence = 0;
 
 const CREATOR_TOOLBAR_CSS = `
 [data-lodariq-creator-launcher='true'] {
+  ${AUTHORING_TYPOGRAPHY_CSS_PROPERTIES}
   position: fixed;
   right: 18px;
   bottom: 18px;
@@ -129,9 +137,20 @@ const CREATOR_TOOLBAR_CSS = `
   box-sizing: border-box;
 }
 
-/* The open panel owns its footprint; its header already provides minimize and close actions. */
+/*
+ * The open panel owns its footprint. Its mode pill carries the same quick
+ * actions once it is open (§3.3), so a launcher floating over the corner the
+ * pill wants is redundant chrome the pill would have to dodge. Minimized keeps
+ * it visible: that is the only way back.
+ */
 [data-lodariq-creator-launcher='true'][data-lodariq-authoring-panel-state='open'] {
   z-index: 2147483645;
+}
+
+[data-lodariq-creator-launcher='true'][data-lodariq-authoring-panel-state='open']
+  [data-lodariq-creator-toolbar='true'] {
+  visibility: hidden;
+  pointer-events: none;
 }
 
 [data-lodariq-creator-toolbar='true'] {
@@ -150,7 +169,7 @@ const CREATOR_TOOLBAR_CSS = `
     0 4px 12px rgba(0, 0, 0, 0.3),
     0 0 0 1px rgba(255, 255, 255, 0.05) inset;
   cursor: grab;
-  font: 700 12px/1 ${CREATOR_CHROME_FONT_STACK};
+  font: var(--lq-weight-bold) var(--lq-font-sm)/1 ${CREATOR_CHROME_FONT_STACK};
   letter-spacing: -0.02em;
   padding: 0;
   touch-action: none;
@@ -164,7 +183,7 @@ const CREATOR_TOOLBAR_CSS = `
 }
 
 [data-lodariq-creator-toolbar='true']:hover {
-  border-color: rgba(61, 232, 176, 0.5);
+  border-color: color-mix(in srgb, ${CREATOR_CHROME_TOKENS.action} 50%, transparent);
   box-shadow:
     0 20px 48px rgba(0, 0, 0, 0.46),
     0 4px 12px rgba(0, 0, 0, 0.32),
@@ -287,7 +306,7 @@ const CREATOR_TOOLBAR_CSS = `
 }
 
 [data-lodariq-launcher-action='true']:hover {
-  border-color: rgba(61, 232, 176, 0.5);
+  border-color: color-mix(in srgb, ${CREATOR_CHROME_TOKENS.action} 50%, transparent);
   color: ${CREATOR_CHROME_TOKENS.onChrome};
   transform: translateX(-2px);
 }
@@ -310,7 +329,7 @@ const CREATOR_TOOLBAR_CSS = `
   background: ${CREATOR_CHROME_TOKENS.surface};
   color: ${CREATOR_CHROME_TOKENS.ink};
   box-shadow: 0 10px 28px rgba(0, 0, 0, 0.4);
-  font: 400 12px/1.2 ${CREATOR_CHROME_FONT_STACK};
+  font: var(--lq-weight-regular) var(--lq-font-sm)/1.2 ${CREATOR_CHROME_FONT_STACK};
   opacity: 0;
   padding: 8px 8px;
   pointer-events: none;
@@ -387,14 +406,14 @@ const CREATOR_TOOLBAR_CSS = `
 
 .lodariq-launcher-surface-header strong {
   color: ${CREATOR_CHROME_TOKENS.ink};
-  font: 720 14px/1.2 ${CREATOR_CHROME_FONT_STACK};
+  font: var(--lq-weight-bold) var(--lq-font-md)/1.2 ${CREATOR_CHROME_FONT_STACK};
 }
 
 .lodariq-launcher-surface-header span,
 .lodariq-launcher-surface-status,
 .lodariq-launcher-surface-item span {
   color: ${CREATOR_CHROME_TOKENS.muted};
-  font: 540 12px/1.35 ${CREATOR_CHROME_FONT_STACK};
+  font: var(--lq-weight-semibold) var(--lq-font-sm)/1.35 ${CREATOR_CHROME_FONT_STACK};
 }
 
 .lodariq-launcher-surface-status {
@@ -426,7 +445,7 @@ const CREATOR_TOOLBAR_CSS = `
 }
 
 .lodariq-launcher-surface-item:hover {
-  border-color: rgba(61, 232, 176, 0.3);
+  border-color: color-mix(in srgb, ${CREATOR_CHROME_TOKENS.action} 30%, transparent);
   background: rgba(255, 255, 255, 0.05);
 }
 
@@ -437,7 +456,7 @@ const CREATOR_TOOLBAR_CSS = `
 
 .lodariq-launcher-surface-item strong {
   overflow: hidden;
-  font: 680 13px/1.3 ${CREATOR_CHROME_FONT_STACK};
+  font: var(--lq-weight-bold) var(--lq-font-md)/1.3 ${CREATOR_CHROME_FONT_STACK};
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -450,15 +469,15 @@ const CREATOR_TOOLBAR_CSS = `
 
 .lodariq-launcher-surface-item-copy small {
   color: ${CREATOR_CHROME_TOKENS.muted};
-  font: 520 11px/1.35 ${CREATOR_CHROME_FONT_STACK};
+  font: var(--lq-weight-semibold) var(--lq-font-sm)/1.35 ${CREATOR_CHROME_FONT_STACK};
 }
 
 .lodariq-launcher-surface-item > span:last-child {
   border-radius: 999px;
-  background: rgba(61, 232, 176, 0.12);
+  background: color-mix(in srgb, ${CREATOR_CHROME_TOKENS.action} 12%, transparent);
   color: ${CREATOR_CHROME_TOKENS.action};
-  font-size: 10px;
-  font-weight: 700;
+  font-size: var(--lq-font-xs);
+  font-weight: var(--lq-weight-bold);
   padding: 4px 8px;
   text-transform: uppercase;
 }
@@ -569,10 +588,12 @@ export function installCreatorToolbar(
   launcher.append(button, palette, surface);
   container.appendChild(launcher);
   applyAuthoringLocale(launcher);
-  launcherCleanupByElement.set(
-    launcher,
-    attachLauncherInteractions(launcher, button, surface, doc),
-  );
+  const stopInteractions = attachLauncherInteractions(launcher, button, surface, doc);
+  const stopRemoteActions = attachRemoteLauncherActions(launcher, doc);
+  launcherCleanupByElement.set(launcher, () => {
+    stopInteractions();
+    stopRemoteActions();
+  });
   return button;
 }
 
@@ -587,6 +608,25 @@ export function removeCreatorToolbar(container?: HTMLElement): void {
     launcher.remove();
   }
   target.querySelector<HTMLButtonElement>(TOOLBAR_SELECTOR)?.remove();
+}
+
+/**
+ * The panel asks for a quick action once it is covering the launcher (§3.3). It
+ * is answered by clicking the launcher's own button, so there is one
+ * implementation of each action rather than two that can drift apart.
+ */
+function attachRemoteLauncherActions(launcher: HTMLElement, doc: Document): () => void {
+  const view = doc.defaultView;
+  if (!view) return () => {};
+  const onRequest = (event: Event): void => {
+    const actionId = (event as CustomEvent<{ actionId?: string }>).detail?.actionId;
+    if (!actionId) return;
+    launcher
+      .querySelector<HTMLButtonElement>(`[data-lodariq-launcher-action-id="${actionId}"]`)
+      ?.click();
+  };
+  view.addEventListener(LOCAL_AUTHORING_LAUNCHER_ACTION_EVENT, onRequest);
+  return () => view.removeEventListener(LOCAL_AUTHORING_LAUNCHER_ACTION_EVENT, onRequest);
 }
 
 function attachLauncherInteractions(

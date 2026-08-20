@@ -10,7 +10,7 @@ import {
 } from '@lodariq/schema';
 import { hasBlock } from '../document-ops';
 import { createBridgeCorrelationId } from '../../bridge/transport';
-import type { LocalAuthoringFrameSnapshot } from './types';
+import type { CardCommandRequest, LocalAuthoringFrameSnapshot } from './types';
 import type { LocalAuthoringFrameMetricName } from '../local-frame-types';
 import { blockDisplayTitle } from './utils';
 import { isDefaultDocumentLocale } from '../document-localization';
@@ -18,6 +18,8 @@ import { isDefaultDocumentLocale } from '../document-localization';
 export abstract class ControllerLifecycleFeature extends ControllerBase {
   protected abstract emit(): void;
   protected abstract flushPreviewPatches(): void;
+  /** Implemented alongside the other frame→host announcements. */
+  protected abstract sendShellCapabilities(): void;
   protected abstract readonly handlePageHide: () => void;
   protected abstract readonly handleWindowKeyDown: (event: globalThis.KeyboardEvent) => void;
   protected abstract recordMetric(
@@ -55,6 +57,10 @@ export abstract class ControllerLifecycleFeature extends ControllerBase {
     if (this.started) return;
     this.started = true;
     this.bridge.start();
+    // Announced as soon as the frame can talk, not only in reply to `init`: the
+    // host sends that the moment its own bridge is up, which can be before this
+    // one is listening, and a reply to a message never received never happens.
+    this.sendShellCapabilities();
     window.addEventListener('pagehide', this.handlePageHide, { once: true });
     window.addEventListener('keydown', this.handleWindowKeyDown);
     this.recordMetric('authoring.opened');
@@ -104,6 +110,21 @@ export abstract class ControllerLifecycleFeature extends ControllerBase {
     this.emit();
   }
 
+  /**
+   * Ask the card to change its own structure (§4.3).
+   *
+   * The inspector can set any *property* of a block by writing to the document,
+   * because properties round-trip through the editor's own export. Adding or
+   * removing a block cannot: on the overlay the card is a Lexical editor holding
+   * the only live copy of its content, so a block written straight to the
+   * document would never appear and would be dropped on the editor's next save.
+   * The command goes to the editor and the document follows from there.
+   */
+  requestCardCommand(kind: CardCommandRequest['kind'], blockId?: string): void {
+    this.cardCommandRequest = { kind, blockId, token: ++this.cardCommandToken };
+    this.emit();
+  }
+
   activateTourStep(stepId: string): void {
     const step = this.documentState.blocks.find(
       (block) => block.id === stepId && block.type === 'tourStep',
@@ -116,6 +137,9 @@ export abstract class ControllerLifecycleFeature extends ControllerBase {
       this.setStatus(authoringText('Step preview could not start'));
     });
     this.setStatus(`Showing ${blockDisplayTitle(step)}`);
+    // Without this the inspector's tag reads "Needs context" for a target the
+    // ring is drawn around: the ledger only hears about explicit inspections.
+    this.verifyActiveTarget();
   }
 
   openAdvancedEditor(stepId: string): void {

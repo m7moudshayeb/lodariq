@@ -45,6 +45,8 @@ import {
   CompiledDocumentV4,
   type CompiledDocument,
 } from './compiled';
+import { ApplicationSummary, JourneyHandoff } from './application';
+import { StepBackdrop, StepEmphasis, TargetOutline, ViewportFocus } from './emphasis';
 import { TourCompletionBehavior } from './document';
 import { ContentLocale } from './document-localization';
 import {
@@ -70,6 +72,7 @@ import { ElementFingerprint, RuntimeLifecycleHints, TargetIdentityV2 } from './t
  * SDK can lazy-load validation without bundling dashboard/authoring contracts.
  */
 export const COMPILED_RUNTIME_SCHEMA_REFERENCES = [
+  ApplicationSummary,
   BlockLayoutProps,
   BrandThemeDefinition,
   ButtonStyleProps,
@@ -81,6 +84,7 @@ export const COMPILED_RUNTIME_SCHEMA_REFERENCES = [
   ElementFingerprint,
   FormFieldPresentation,
   InlineTextRun,
+  JourneyHandoff,
   MediaPresentation,
   OpaqueSrgbColor,
   PresentationAnchor,
@@ -90,6 +94,8 @@ export const COMPILED_RUNTIME_SCHEMA_REFERENCES = [
   RuntimeLifecycleHints,
   SafeFontFamily,
   SpotlightPresentation,
+  StepBackdrop,
+  StepEmphasis,
   StructuredCompositionPresentation,
   SrgbColorWithOptionalAlpha,
   StepChoreography,
@@ -101,6 +107,7 @@ export const COMPILED_RUNTIME_SCHEMA_REFERENCES = [
   StepTransitionDestination,
   StepTransitionRule,
   TargetIdentityV2,
+  TargetOutline,
   TextStyleProps,
   ThemeBorderTokens,
   ThemeColorTokens,
@@ -118,6 +125,7 @@ export const COMPILED_RUNTIME_SCHEMA_REFERENCES = [
   TourCompletionBehavior,
   TourMotionPresentation,
   TourRendererRecipe,
+  ViewportFocus,
 ] as const satisfies readonly TSchema[];
 
 const VERSIONED_COMPILED_DOCUMENT_SCHEMAS = {

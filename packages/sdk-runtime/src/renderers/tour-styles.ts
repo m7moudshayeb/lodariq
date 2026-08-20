@@ -1,4 +1,7 @@
-import { createNonceStyleElement } from '@lodariq/schema/dom';
+import {
+  LODARIQ_TOUR_ANCHORED_ATTRIBUTE,
+  createNonceStyleElement,
+} from '@lodariq/schema/dom';
 
 export function createTourStyles(): HTMLStyleElement {
   return createNonceStyleElement(
@@ -12,16 +15,40 @@ export function createTourStyles(): HTMLStyleElement {
       font-family: var(--lq-tour-font-family);
     }
 
+    /* The dim is the box-shadow spread; the box itself is the hole over the target. */
+    .tour-backdrop {
+      box-sizing: border-box;
+      position: fixed;
+      z-index: -1;
+      border-radius: calc(var(--lq-tour-radius) + 2px);
+      pointer-events: none;
+      animation: tour-target-outline-in var(--lq-tour-motion-duration)
+        var(--lq-tour-motion-easing) both;
+    }
+
+    .tour-backdrop[hidden] {
+      display: none;
+    }
+
     .tour-target-outline {
       box-sizing: border-box;
       position: fixed;
       z-index: 0;
-      border: 2px solid var(--lq-tour-focus-color);
-      border-radius: calc(var(--lq-tour-radius) + 2px);
+      border: var(--lq-outline-weight, 2px) var(--lq-outline-line, solid)
+        var(--lq-outline-color, var(--lq-tour-focus-color));
+      border-radius: var(--lq-outline-radius, calc(var(--lq-tour-radius) + 2px));
       box-shadow: 0 0 0 4px var(--lq-tour-focus-halo-color);
       pointer-events: none;
       animation: tour-target-outline-in var(--lq-tour-motion-duration)
         var(--lq-tour-motion-easing) both;
+    }
+
+    .tour-target-outline[data-lodariq-outline-line="dashed"] { --lq-outline-line: dashed; }
+    .tour-target-outline[data-lodariq-outline-line="dotted"] { --lq-outline-line: dotted; }
+    .tour-target-outline[data-lodariq-outline-glow="true"] {
+      box-shadow:
+        0 0 0 4px var(--lq-tour-focus-halo-color),
+        0 0 18px 4px var(--lq-outline-color, var(--lq-tour-focus-color));
     }
 
     .tour-target-outline[hidden] {
@@ -37,6 +64,43 @@ export function createTourStyles(): HTMLStyleElement {
     :host([data-lodariq-authoring-preview-owner]:not([data-lodariq-preview-interactive])) .tour-arrow {
       visibility: hidden;
       pointer-events: none;
+    }
+
+    /*
+     * §4.4's ring states, drawn on the one ring rather than beside it.
+     *
+     * Only an authoring session sets the attribute, so a delivered tour never
+     * shows a creator's diagnostic. "ok" is the ring as authored and needs no
+     * rule; the other two override the creator's treatment on purpose — a
+     * warning that can be styled into invisibility is not a warning. The hue
+     * arrives with the attribute: status colours belong to the creator chrome's
+     * token file, and ADR-0013 keeps literals out of here.
+     */
+    :host([data-lodariq-authoring-target-state="ctx"]) .tour-target-outline,
+    :host([data-lodariq-authoring-target-state="bad"]) .tour-target-outline {
+      border-width: 2px;
+      border-color: var(--lq-authoring-target-state-color);
+      box-shadow: 0 0 0 3px var(--lq-authoring-target-state-halo);
+    }
+
+    :host([data-lodariq-authoring-target-state="ctx"]) .tour-target-outline {
+      border-style: dashed;
+    }
+
+    :host([data-lodariq-authoring-target-state="bad"]) .tour-target-outline {
+      border-style: solid;
+    }
+
+    /*
+     * Centred is the resting place for a card with nothing to point at — a
+     * welcome or an announcement. Anchored cards opt out: the positioner writes
+     * their exact coordinates once the target resolves.
+     */
+    div[role="dialog"]:not([${LODARIQ_TOUR_ANCHORED_ATTRIBUTE}]) {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
     }
 
     div[role="dialog"] {
@@ -148,12 +212,55 @@ export function createTourStyles(): HTMLStyleElement {
     }
     [data-lodariq-node-type="formField"] {
       display: grid;
-      gap: var(--lq-tour-space-xs, 6px);
+      gap: var(--lq-field-gap, var(--lq-tour-space-xs, 6px));
       margin: 0;
       border: 0;
       padding: 0;
       color: var(--lq-field-label, inherit);
       font: inherit;
+    }
+    /* A checkbox's caption reads as body copy, not as a field label. */
+    [data-lodariq-node-type="formField"][data-lodariq-field-control="checkbox"] > span {
+      font-size: inherit;
+      font-weight: inherit;
+    }
+    /* Label beside the control: caption takes its own width, the box takes the rest. */
+    [data-lodariq-node-type="formField"][data-lodariq-field-control="text"][data-lodariq-field-label="beside"] {
+      grid-template-columns: auto minmax(0, 1fr);
+      align-items: center;
+    }
+    /*
+     * Hidden means off the screen, never removed: the caption is still the
+     * field's accessible name, so a bare box still says what it asks for.
+     */
+    [data-lodariq-node-type="formField"][data-lodariq-field-label="hidden"] [data-lodariq-field-caption] {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip-path: inset(50%);
+      white-space: nowrap;
+    }
+    [data-lodariq-node-type="formField"][data-lodariq-field-label-size="small"] [data-lodariq-field-caption] {
+      font-size: var(--lq-tour-small-font-size, 11px);
+    }
+    [data-lodariq-node-type="formField"][data-lodariq-field-label-size="large"] [data-lodariq-field-caption] {
+      font-size: var(--lq-tour-font-size, 14px);
+    }
+    [data-lodariq-node-type="formField"][data-lodariq-field-label-weight="regular"] [data-lodariq-field-caption] {
+      font-weight: 400;
+    }
+    [data-lodariq-node-type="formField"][data-lodariq-field-label-weight="medium"] [data-lodariq-field-caption] {
+      font-weight: 550;
+    }
+    [data-lodariq-node-type="formField"][data-lodariq-field-label-weight="bold"] [data-lodariq-field-caption] {
+      font-weight: 700;
+    }
+    [data-lodariq-node-type="formField"][data-lodariq-field-control-width="half"] input[type="text"] {
+      width: 50%;
+    }
+    [data-lodariq-node-type="formField"][data-lodariq-field-control-width="auto"] input[type="text"] {
+      width: auto;
     }
     [data-lodariq-node-type="formField"] legend,
     [data-lodariq-node-type="formField"] > span {
@@ -206,6 +313,8 @@ export function createTourStyles(): HTMLStyleElement {
     @media (prefers-reduced-motion: reduce) {
       div[role="dialog"][data-lodariq-motion],
       [data-lodariq-inline-motion],
+      .tour-backdrop,
+      .tour-target-outline,
       .tour-target-outline[data-lodariq-spotlight-pulse="true"] {
         animation: none;
       }
@@ -213,6 +322,7 @@ export function createTourStyles(): HTMLStyleElement {
 
     :host([data-lodariq-accessibility-preview="reducedMotion"]) div[role="dialog"],
     :host([data-lodariq-accessibility-preview="reducedMotion"]) [data-lodariq-inline-motion],
+    :host([data-lodariq-accessibility-preview="reducedMotion"]) .tour-backdrop,
     :host([data-lodariq-accessibility-preview="reducedMotion"]) .tour-target-outline {
       animation: none !important;
       transition: none !important;
@@ -675,6 +785,15 @@ export function createTourStyles(): HTMLStyleElement {
 
     :host([data-lodariq-embedded-preview]) div[role="dialog"][data-lodariq-popup-height="custom"] {
       height: min(var(--lq-popup-height), 100%);
+    }
+    /*
+     * Last word on visibility. The card is hidden on purpose until its target
+     * resolves, and any display declaration elsewhere — the custom-height rule,
+     * for one — silently defeats the UA's own [hidden] handling and leaves the
+     * card sitting unpositioned in the page's top-left corner.
+     */
+    div[role="dialog"][hidden] {
+      display: none;
     }
   `,
   );

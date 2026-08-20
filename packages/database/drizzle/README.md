@@ -18,6 +18,7 @@ baseline before the first shared environment was initialized:
 0011_assurance_passkeys_recovery.sql
 0012_oidc_authorization.sql
 0013_enterprise_identity.sql
+0014_experience_measurement.sql
 ```
 
 The baseline creates the complete current Neon-compatible PostgreSQL schema,
@@ -70,6 +71,9 @@ psql -X -v ON_ERROR_STOP=1 "$NEON_OWNER_DATABASE_URL" \
 
 psql -X -v ON_ERROR_STOP=1 "$NEON_OWNER_DATABASE_URL" \
   -f packages/database/drizzle/0013_enterprise_identity.sql
+
+psql -X -v ON_ERROR_STOP=1 "$NEON_OWNER_DATABASE_URL" \
+  -f packages/database/drizzle/0014_experience_measurement.sql
 ```
 
 Migration `0007` adds verified-email, username, provider-identity, session
@@ -99,6 +103,11 @@ verified domains, group-to-role mappings, hash-only SCIM credentials, managed
 principals, append-only enterprise audit events, and dual-owner break-glass
 requests. Connection activation is reserved for the dedicated
 `lodariq_enterprise_validator` role after external Okta or Entra validation.
+Migration `0014` adds per-document success events and adaptive policy, a single
+live experiment per document, form responses in their own table rather than in
+analytics payloads, step-anchored review comments, expiring step leases, and the
+workspace application registry that cross-application handoffs resolve against.
+Every table is workspace-isolated with forced RLS.
 
 Do not apply the baseline to a database that already contains Lodariq objects.
 Once the first shared environment has been initialized, treat this baseline as

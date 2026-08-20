@@ -1,5 +1,7 @@
 import { Type, type Static } from '@sinclair/typebox';
 import { Value } from '@sinclair/typebox/value';
+import { TargetApproach } from './approach';
+import { TARGET_COLLECTION_ORDERS, TARGET_SELECTION_ORDINAL_LIMITS } from './target-runtime';
 import {
   TARGET_ATTRIBUTE_VALUE_MAX_LENGTH,
   TARGET_ATTRIBUTE_VALUE_PATTERN,
@@ -41,6 +43,9 @@ import {
 
 export {
   TARGET_CAPTURE_QUALITIES,
+  TARGET_COLLECTION_ORDERS,
+  TARGET_SELECTION_KINDS,
+  TARGET_SELECTION_ORDINAL_LIMITS,
   TARGET_CONFIGURED_ATTRIBUTE_NAME_PATTERN,
   TARGET_CONTEXT_GROUP_ROLES,
   TARGET_ELEMENT_KINDS,
@@ -373,6 +378,17 @@ export const TargetCaptureEvidence = Type.Object(
     /** Normalized difference between the selected candidate and its runner-up. */
     runnerUpMargin: Type.Number({ minimum: 0, maximum: 1 }),
     quality: TargetCaptureQuality,
+    /**
+     * True when candidate ambiguity is the *only* reason `quality` is `weak` —
+     * the evidence itself is rich, stable and actionable, and several elements
+     * simply cannot be told apart.
+     *
+     * Ambiguity is the one weakness an author can answer for (§4.4a), so this
+     * is what lets a recorded `Target.selection` clear the publish gate without
+     * also excusing thin evidence or a non-actionable element. Absent on capture
+     * written before this field existed, which keeps those targets blocked.
+     */
+    ambiguityIsSoleWeakness: Type.Optional(Type.Boolean()),
   },
   { additionalProperties: false },
 );
@@ -503,6 +519,80 @@ export const RuntimeLifecycleHints = Type.Object(
 export type RuntimeLifecycleHints = Static<typeof RuntimeLifecycleHints>;
 
 /**
+ * Author intent about which match to take, kept out of the identity model so it
+ * can never be mistaken for evidence. Answers the disambiguation question in
+ * the creator's own words.
+ */
+export const TargetSelectionPolicy = Type.Union(
+  [
+    Type.Object(
+      {
+        kind: Type.Union([
+          Type.Literal('only'),
+          Type.Literal('any-matching'),
+          Type.Literal('first'),
+          Type.Literal('last'),
+        ]),
+      },
+      { additionalProperties: false },
+    ),
+    Type.Object(
+      {
+        kind: Type.Literal('ordinal'),
+        position: Type.Integer({
+          minimum: TARGET_SELECTION_ORDINAL_LIMITS.min,
+          maximum: TARGET_SELECTION_ORDINAL_LIMITS.max,
+        }),
+        order: Type.Optional(
+          Type.Union(TARGET_COLLECTION_ORDERS.map((value) => Type.Literal(value))),
+        ),
+      },
+      { additionalProperties: false },
+    ),
+    Type.Object(
+      {
+        kind: Type.Union([
+          Type.Literal('newest-in-collection'),
+          Type.Literal('first-in-collection'),
+        ]),
+        /** Collection the rank is taken within, named by its own accessible label. */
+        collectionLabel: Type.Optional(
+          Type.String({ minLength: 1, maxLength: TARGET_AUTHOR_LABEL_MAX_LENGTH }),
+        ),
+      },
+      { additionalProperties: false },
+    ),
+    Type.Object(
+      {
+        kind: Type.Literal('within-container'),
+        containerLabel: Type.String({
+          minLength: 1,
+          maxLength: TARGET_AUTHOR_LABEL_MAX_LENGTH,
+        }),
+      },
+      { additionalProperties: false },
+    ),
+  ],
+  { $id: 'TargetSelectionPolicy' },
+);
+export type TargetSelectionPolicy = Static<typeof TargetSelectionPolicy>;
+
+/**
+ * Whether an author's answer is one the runtime can actually act on.
+ *
+ * `only` — "just the one I clicked" — is the absence of an answer: when the
+ * evidence genuinely cannot separate the candidates there is nothing for the
+ * resolver to apply, so it abstains and the target stays blocked. Every other
+ * policy names a rule the resolver can follow. The conditional ones (a named
+ * collection or container, `recency` order) can still fail against a live page;
+ * that failure surfaces as an `ambiguous` verification diagnostic rather than
+ * as a capture-time guess.
+ */
+export function selectionSettlesAmbiguity(policy: TargetSelectionPolicy | undefined): boolean {
+  return Boolean(policy) && policy?.kind !== 'only';
+}
+
+/**
  * A target binds a Lodariq block to a host-page element. The canonical model
  * stores the fingerprint plus optional lifecycle hints; the resolver turns
  * this into a live element at runtime.
@@ -514,7 +604,16 @@ export const Target = Type.Object(
     /** Additive V2 identity; legacy fingerprints remain required and readable. */
     identity: Type.Optional(Type.Ref(TargetIdentityV2)),
     lifecycle: Type.Optional(Type.Ref(RuntimeLifecycleHints)),
+    /** How to choose when evidence cannot separate candidates. Defaults to `only`. */
+    selection: Type.Optional(Type.Ref(TargetSelectionPolicy)),
+    /** How the runtime reaches this target when it is not on the current screen. */
+    approach: Type.Optional(Type.Ref(TargetApproach)),
   },
   { $id: 'Target', additionalProperties: false },
 );
 export type Target = Static<typeof Target>;
+
+export function sanitizeTargetSelectionPolicy(value: unknown): TargetSelectionPolicy | undefined {
+  if (!Value.Check(TargetSelectionPolicy, [], value)) return undefined;
+  return structuredClone(value as TargetSelectionPolicy);
+}

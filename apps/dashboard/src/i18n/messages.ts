@@ -19,6 +19,7 @@ export const DASHBOARD_NAVIGATION_MESSAGES = {
   brandSystem: msg({ id: 'dashboard.navigation.brandSystem', message: 'Brand system' }),
   environments: msg({ id: 'dashboard.navigation.environments', message: 'Environments' }),
   members: msg({ id: 'dashboard.navigation.members', message: 'Members' }),
+  applications: msg({ id: 'dashboard.navigation.applications', message: 'Applications' }),
   support: msg({ id: 'dashboard.navigation.support', message: 'Help & support' }),
   workspace: msg({ id: 'dashboard.navigation.workspaceLabel', message: 'Workspace' }),
   supportLabel: msg({ id: 'dashboard.navigation.supportLabel', message: 'Support' }),
@@ -141,6 +142,12 @@ export const DASHBOARD_PAGE_MESSAGES = {
   membersDescription: msg({
     id: 'dashboard.page.members.description',
     message: 'Invite collaborators, assign roles, and review workspace access.',
+  }),
+  applicationsTitle: msg({ id: 'dashboard.page.applications.title', message: 'Applications' }),
+  applicationsDescription: msg({
+    id: 'dashboard.page.applications.description',
+    message:
+      'One application is one brand theme plus one content library. A journey hands off between them.',
   }),
   supportTitle: msg({ id: 'dashboard.page.support.title', message: 'Help & support' }),
   supportDescription: msg({
@@ -820,6 +827,14 @@ export const DASHBOARD_ACTION_MESSAGES = {
   revokeInstallationFailed: msg({
     id: 'dashboard.action.revokeInstallationFailed',
     message: 'Unable to revoke the SDK installation.',
+  }),
+  pauseInstallationFailed: msg({
+    id: 'dashboard.action.pauseInstallationFailed',
+    message: 'Unable to pause the SDK installation.',
+  }),
+  resumeInstallationFailed: msg({
+    id: 'dashboard.action.resumeInstallationFailed',
+    message: 'Unable to resume the SDK installation.',
   }),
   chooseExperience: msg({
     id: 'dashboard.action.chooseExperience',

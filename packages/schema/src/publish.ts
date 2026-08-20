@@ -10,7 +10,7 @@ import type { ResolverDiagnostic } from './bridge';
 import { STRUCTURED_COMPOSITION_BLOCK_TYPE_VALUES } from './presentation';
 import type { TourFlowIssueCode } from './tour-flow-contract';
 import { analyzeTourDocumentFlow } from './tour-flow-analysis';
-import { TARGET_MIN_CAPTURE_RUNNER_UP_MARGIN } from './target';
+import { TARGET_MIN_CAPTURE_RUNNER_UP_MARGIN, selectionSettlesAmbiguity } from './target';
 import { isSafeNavigationUrl } from './url';
 
 export type PublishReadinessIssueCode =
@@ -285,12 +285,7 @@ function validateTourStep(
   } else {
     const target = targetsById.get(targetId);
     validateTargetLifecycle(step, target, issues);
-    const captureNeedsReview = Boolean(
-      target?.identity &&
-      (target.identity.captureEvidence.quality === 'weak' ||
-        target.identity.captureEvidence.uniqueCandidateCount !== 1 ||
-        target.identity.captureEvidence.runnerUpMargin < TARGET_MIN_CAPTURE_RUNNER_UP_MARGIN),
-    );
+    const captureNeedsReview = captureBlocksRelease(target);
     if (captureNeedsReview) {
       issues.push({
         code: 'target_needs_review',
@@ -338,6 +333,33 @@ function validateTourStep(
     validateTooltipChild(child, options, issues);
     validateActionChoreography(child, step.id, targetId, targetsById, stepIds, options, issues);
   }
+}
+
+/**
+ * Whether saved capture evidence is enough to release, ignoring live verification.
+ *
+ * Two independent questions, deliberately kept apart. *Is the evidence sound?*
+ * — rich enough, stable enough, and pointed at an element that can take the
+ * required action. *Is the target decided?* — do several elements read the same
+ * way, and if so did the author say which one they meant.
+ *
+ * Only the second question has an author-side answer, so only the second is
+ * cleared by `Target.selection`. A capture that is weak for any reason beyond
+ * ambiguity keeps blocking however the author answered: no policy can make thin
+ * evidence thick. Capture written before `ambiguityIsSoleWeakness` existed omits
+ * it, which keeps those targets blocked until they are picked again.
+ */
+function captureBlocksRelease(target: LodariqDocument['targets'][number] | undefined): boolean {
+  const evidence = target?.identity?.captureEvidence;
+  if (!evidence) return false;
+  const undecided =
+    evidence.uniqueCandidateCount !== 1 ||
+    evidence.runnerUpMargin < TARGET_MIN_CAPTURE_RUNNER_UP_MARGIN;
+  const settled = undecided && selectionSettlesAmbiguity(target?.selection);
+  if (undecided && !settled) return true;
+  if (evidence.quality !== 'weak') return false;
+  // Weak *and* answered: releasable only when ambiguity was the whole problem.
+  return !(settled && evidence.ambiguityIsSoleWeakness === true);
 }
 
 function validatePresentationAnchorConfiguration(

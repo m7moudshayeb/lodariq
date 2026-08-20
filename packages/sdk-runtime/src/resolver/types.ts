@@ -28,6 +28,7 @@ export const RESOLUTION_METHOD_BY_FAMILY: Readonly<Record<TargetSignalFamily, st
   'visual-appearance': 'visual_appearance',
   'visual-neighborhood': 'visual_neighborhood',
   'layout-slot': 'layout_slot',
+  'sibling-position': 'sibling_position',
   'localized-text': 'localized_text',
 };
 

@@ -1,4 +1,7 @@
 import { type LodariqDocument } from '@lodariq/schema';
+export * from './domains/experience-measurement';
+export * from './domains/experience-measurement-repository';
+export * from './domains/experience-sessions';
 import { normalizeWorkspaceEnvironments, type WorkspaceEnvironment } from './domains/environments';
 import {
   type BrandDriftRunRecord,
@@ -55,7 +58,7 @@ import {
   compareStyleSourceOrdinal,
 } from './domains/product-style';
 import { clone } from './domains/in-memory-helpers';
-import { InMemoryRepositoryAnalytics } from './in-memory/analytics';
+import { InMemoryRepositoryExperienceMeasurement } from './in-memory/experience-measurement';
 import type {
   TenantAuditEventRecord,
   TenantWorkspaceRecord,
@@ -172,7 +175,7 @@ export function createInMemoryControlPlaneRepository(
 }
 
 class InMemoryControlPlaneRepository
-  extends InMemoryRepositoryAnalytics
+  extends InMemoryRepositoryExperienceMeasurement
   implements ControlPlaneRepository
 {
   constructor(seed: InMemoryControlPlaneSeed) {

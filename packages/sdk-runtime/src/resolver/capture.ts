@@ -3,6 +3,7 @@ import type {
   TargetSignalFamily,
   TargetVisualFingerprint,
 } from '@lodariq/schema/target';
+import { isInsideCollection } from '@lodariq/schema/dom';
 import { bitGridSimilarity, hashSimilarity } from './hashing';
 import { captureVisualStructure } from './structural';
 import { viewportClassOf } from './visual-topology';
@@ -15,7 +16,11 @@ const VISUAL_NEIGHBORHOOD_FLOOR = 0.72;
 export interface VisualEvidenceMatch {
   family: Extract<
     TargetSignalFamily,
-    'visual-structure' | 'visual-appearance' | 'visual-neighborhood' | 'layout-slot'
+    | 'visual-structure'
+    | 'visual-appearance'
+    | 'visual-neighborhood'
+    | 'layout-slot'
+    | 'sibling-position'
   >;
   similarity: number;
 }
@@ -66,14 +71,31 @@ export function visualEvidenceFor(
   if (neighborhoodSimilarity >= VISUAL_NEIGHBORHOOD_FLOOR) {
     matches.push({ family: 'visual-neighborhood', similarity: neighborhoodSimilarity });
   }
+  const slotMatches =
+    Boolean(expected.layoutSlot) &&
+    Boolean(actual.layoutSlot) &&
+    expected.layoutSlot?.siblingIndex === actual.layoutSlot?.siblingIndex &&
+    expected.layoutSlot?.siblingCount === actual.layoutSlot?.siblingCount;
+  if (identity.intent.resolutionMode === 'layout-slot') {
+    if (slotMatches) matches.push({ family: 'layout-slot', similarity: 1 });
+    return matches;
+  }
+  /*
+   * The same measurement, offered to ordinary targets as a tie-breaker (ADR-0016).
+   *
+   * Both numbers have to agree, so a sibling added, hidden or folded away drops
+   * the signal instead of sliding it one over. A swap at constant count still
+   * matches the wrong one — hence a supporting family the resolver never lets
+   * qualify a target alone. Offered only where the position held across samples,
+   * and never inside a collection, where position is data rather than layout.
+   */
   if (
-    identity.intent.resolutionMode === 'layout-slot' &&
-    expected.layoutSlot &&
-    actual.layoutSlot &&
-    expected.layoutSlot.siblingIndex === actual.layoutSlot.siblingIndex &&
-    expected.layoutSlot.siblingCount === actual.layoutSlot.siblingCount
+    slotMatches &&
+    (identity.intent.resolutionMode ?? 'semantic') === 'semantic' &&
+    identity.captureEvidence.stableSignalFamilies.includes('sibling-position') &&
+    !isInsideCollection(element)
   ) {
-    matches.push({ family: 'layout-slot', similarity: 1 });
+    matches.push({ family: 'sibling-position', similarity: 1 });
   }
   return matches;
 }

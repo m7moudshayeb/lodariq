@@ -19,6 +19,10 @@ export default defineConfig({
     'authoring-entry-runtime': 'src/authoring-entry-runtime.ts',
     'events-runtime': 'src/events-runtime.ts',
     url: 'src/url.ts',
+    // Browser-safe and TypeBox-free on purpose: the SDK loader imports this
+    // subpath so page matching stays one implementation without dragging the
+    // whole schema barrel into a 5 KB bundle.
+    'page-eligibility': 'src/page-eligibility.ts',
   },
   format: ['esm'],
   target: 'es2020',

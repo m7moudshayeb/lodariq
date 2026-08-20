@@ -14,6 +14,7 @@ import {
 import { createBridgeCorrelationId } from '../../bridge/transport';
 import type { AuthoringOperationsTab, AuthoringPanelMode } from './types';
 import type { AuthoringBrandMatchProposal, AuthoringBrandMatchRequest } from '../local-frame-types';
+import { brandThemeOffer, type BrandVariantId } from '../brand-theme-offer';
 import {
   createAuthoringReleaseRecoveryIntent,
   type AuthoringReleaseRecoveryIntent,
@@ -53,23 +54,32 @@ export abstract class ControllerHistoryReleaseFeature extends ControllerStepsTar
   undo(): void {
     this.documentTransactions.flush();
     const previous = this.undoStack.pop();
-    if (!previous) return;
+    // Silence here reads as a broken shortcut, which is worse than a refusal.
+    if (!previous) {
+      this.notify(authoringText('Nothing to undo'));
+      return;
+    }
     this.redoStack.push(this.snapshot());
     this.documentState = previous;
     this.afterDocumentMutation();
     this.services.saveDocument(this.documentState);
     this.setStatus(authoringText('Undid change'));
+    this.notify(authoringText('Undid change'), 'positive');
   }
 
   redo(): void {
     this.documentTransactions.flush();
     const next = this.redoStack.pop();
-    if (!next) return;
+    if (!next) {
+      this.notify(authoringText('Nothing to redo'));
+      return;
+    }
     this.undoStack.push(this.snapshot());
     this.documentState = next;
     this.afterDocumentMutation();
     this.services.saveDocument(this.documentState);
     this.setStatus(authoringText('Redid change'));
+    this.notify(authoringText('Redid change'), 'positive');
   }
 
   saveCurrentDocument(): void {
@@ -104,17 +114,60 @@ export abstract class ControllerHistoryReleaseFeature extends ControllerStepsTar
     void this.publishCurrentTourToStagingAsync();
   }
 
+  /*
+   * From the canvas this opens the full-surface mode. From inside Operations it
+   * selects the section instead — the sheet has an Appearance row of its own,
+   * and swapping the whole surface out from under a creator who asked for a
+   * section they can already see is not what "open Appearance" means there.
+   */
   openAppearanceMode(): void {
+    if (this.panelMode === 'operations') {
+      this.setOperationsTab('appearance');
+      return;
+    }
     this.panelReturnFocus = 'appearance';
-    this.openPanelMode('appearance', this.panelMode === 'operations' ? 'operations' : 'edit');
+    this.openPanelMode('appearance', 'edit');
   }
 
-  openReleaseVerificationMode(): void {
-    this.panelReturnFocus = 'release';
-    this.openPanelMode(
-      'release-verification',
-      this.panelMode === 'operations' ? 'operations' : 'edit',
+  /**
+   * The data half of `openReleaseVerificationMode`, without the mode switch.
+   *
+   * Operations renders Release inside the sheet like every other section, so it
+   * needs what that opener loads and none of the navigation it performs. Silent
+   * on purpose: switching to a section is not an action worth announcing, and
+   * the opener's `announce` exists for the creator who pressed Refresh.
+   */
+  loadReleaseForOperations(): void {
+    void this.loadStagingReleaseState(false);
+  }
+
+  /**
+   * The same for `openReleaseHistoryMode`. The recovery state it seeds — the
+   * environment, the entry to focus, and the cleared intent — is what the
+   * section reads, so it is set here rather than left to the opener.
+   */
+  loadRecoveryForOperations(environmentId: string): void {
+    if (!this.services.getReleaseRecoveryState || !environmentId.trim()) return;
+    if (this.releaseRecoveryEnvironmentId === environmentId) return;
+    this.releaseRecoveryEnvironmentId = environmentId;
+    this.releaseRecoveryEntryFocusTarget = releaseHistoryEntryFocusTarget(
+      this.releaseWorkflow,
+      environmentId,
     );
+    this.releaseRecoveryIntent = null;
+    this.releaseRecoveryRequestIdentity = null;
+    void this.loadReleaseRecoveryState(environmentId);
+  }
+
+  /** Same rule as `openAppearanceMode`: a section inside the sheet, a mode outside it. */
+  openReleaseVerificationMode(): void {
+    if (this.panelMode === 'operations') {
+      this.setOperationsTab('release');
+      this.loadReleaseForOperations();
+      return;
+    }
+    this.panelReturnFocus = 'release';
+    this.openPanelMode('release-verification', 'edit');
   }
 
   openOperationsMode(tab: AuthoringOperationsTab = 'flow'): void {
@@ -188,8 +241,14 @@ export abstract class ControllerHistoryReleaseFeature extends ControllerStepsTar
     this.openPanelMode('promotion-confirmation', 'release-verification');
   }
 
+  /** Same rule again. Inside the sheet the recovery state still has to be seeded. */
   openReleaseHistoryMode(environmentId: string): void {
     if (!this.services.getReleaseRecoveryState || !environmentId.trim()) return;
+    if (this.panelMode === 'operations') {
+      this.setOperationsTab('recovery');
+      this.loadRecoveryForOperations(environmentId);
+      return;
+    }
     this.releaseRecoveryEnvironmentId = environmentId;
     this.releaseRecoveryEntryFocusTarget = releaseHistoryEntryFocusTarget(
       this.releaseWorkflow,
@@ -197,10 +256,8 @@ export abstract class ControllerHistoryReleaseFeature extends ControllerStepsTar
     );
     this.releaseRecoveryIntent = null;
     this.releaseRecoveryRequestIdentity = null;
-    this.openPanelMode(
-      'release-history',
-      this.panelMode === 'operations' ? 'operations' : 'release-verification',
-    );
+    /* Only reachable from Release itself now, so Back goes back to it. */
+    this.openPanelMode('release-history', 'release-verification');
     void this.loadReleaseRecoveryState(environmentId);
   }
 
@@ -335,10 +392,31 @@ export abstract class ControllerHistoryReleaseFeature extends ControllerStepsTar
     this.brandDriftController?.acknowledge();
   }
 
-  acceptBrandMatch(): void {
+  /**
+   * Accepts the sampled evidence, optionally as one of the two generated
+   * variants (§7.1). The variant only ever replaces the proposal's *semantic
+   * tokens*; the evidence, its provenance, and the server-side apply boundary
+   * are untouched.
+   */
+  acceptBrandMatch(variant?: BrandVariantId): void {
     const proposal = this.brandProposal;
     if (!proposal) return;
-    void this.applyBrandMatchProposal(proposal);
+    void this.applyBrandMatchProposal(variant ? withBrandVariant(proposal, variant) : proposal);
+  }
+
+  /**
+   * The equal third option. A near-miss of someone's brand irritates more than an
+   * obviously generic theme (§13), so declining is a first-class outcome and
+   * persists nothing.
+   */
+  startPlainBrandTheme(): void {
+    this.brandProposal = null;
+    this.panelMode = 'appearance';
+    this.panelReturnMode = 'edit';
+    this.panelWorkflowError = null;
+    this.panelWorkflowNotice = authoringText('Kept the plain theme. Nothing was saved.');
+    this.panelFocusToken += 1;
+    this.emit();
   }
 
   chooseAnotherBrandSource(): void {
@@ -565,4 +643,14 @@ export abstract class ControllerHistoryReleaseFeature extends ControllerStepsTar
   protected readonly handlePageHide = (): void => {
     this.destroy();
   };
+}
+
+/** Swaps in the chosen variant's semantic tokens, leaving the evidence intact. */
+function withBrandVariant(
+  proposal: AuthoringBrandMatchProposal,
+  variant: BrandVariantId,
+): AuthoringBrandMatchProposal {
+  const chosen = brandThemeOffer(proposal.evidence).variants.find((item) => item.id === variant);
+  if (!chosen) return proposal;
+  return { ...proposal, evidence: { ...proposal.evidence, tokens: chosen.values } };
 }

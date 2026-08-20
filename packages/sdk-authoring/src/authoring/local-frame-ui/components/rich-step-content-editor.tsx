@@ -15,6 +15,8 @@ import type { LocalAuthoringFrameSnapshot } from '../types';
 import { targetIdOf, cssString } from '../utils';
 import { usePopupTransform } from '../../canvas/use-popup-transform';
 import type { StepHealthTone } from '../tour-step-model';
+import type { AiAssistRequest } from '../../ai/assist-contract';
+import { AssistPreview, AssistPrompt } from './assist-preview';
 import { ContextualPropertyTray } from './contextual-property-tray';
 import { PopupPointerArrow } from './popup-pointer-arrow';
 import {
@@ -68,6 +70,9 @@ export function RichStepContentEditor({
   const [canvasZoom, setCanvasZoom] = useState(DEFAULT_CANVAS_ZOOM);
   const [popupSelected, setPopupSelected] = useState(false);
   const [toolbarHost, setToolbarHost] = useState<HTMLElement | null>(null);
+  const [assistPromptOpen, setAssistPromptOpen] = useState(false);
+  const [assistRequest, setAssistRequest] = useState<AiAssistRequest | null>(null);
+  const assistAvailable = snapshot.panelWorkflow.assistAvailable;
   const [inspectorHost, setInspectorHost] = useState<HTMLElement | null>(null);
   const handledFocusRequestToken = useRef<number | null>(null);
   const popupRef = useRef<HTMLDivElement | null>(null);
@@ -175,6 +180,24 @@ export function RichStepContentEditor({
       : {}),
   } as CSSProperties;
 
+  const startAssist = (request: AiAssistRequest): void => {
+    setAssistRequest(request);
+    controller.askAiAssist(request);
+  };
+
+  /** ⌘K is the host's palette (§7.5), wherever it is pressed. See the note in
+   *  `overlay-step-editor.tsx`: two surfaces on one chord left it unreachable. */
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent): void => {
+      if (event.key !== 'k' || !(event.metaKey || event.ctrlKey)) return;
+      event.preventDefault();
+      controller.requestCommandPalette();
+    };
+    const view = editorStageRef.current?.ownerDocument;
+    view?.addEventListener('keydown', onKeyDown);
+    return () => view?.removeEventListener('keydown', onKeyDown);
+  }, [controller]);
+
   return (
     <div className="rich-step-editor">
       <div className="rich-content-editor-chrome">
@@ -280,6 +303,13 @@ export function RichStepContentEditor({
               suppressInspector={suppressInspector}
               toolbarHost={toolbarHost}
               onOpenSequence={(blockId) => onFlowMapOpen(step.id, blockId, 'sequence')}
+              {...(assistAvailable
+                ? {
+                    onAskAssist: () => setAssistPromptOpen(true),
+                    onRewriteSelection: (verb, text) =>
+                      startAssist({ kind: 'rewrite', scope: 'selection', verb, text }),
+                  }
+                : {})}
               onResolveMediaPreview={(assetId) => controller.resolveMediaAssetPreview(assetId)}
               onUploadMedia={
                 controller.canUploadMediaAssets()
@@ -298,6 +328,24 @@ export function RichStepContentEditor({
           </div>
         </div>
       </div>
+      {assistAvailable ? (
+        <div className="rich-step-assist">
+          {assistPromptOpen ? (
+            <AssistPrompt
+              onClose={() => setAssistPromptOpen(false)}
+              onSubmit={(prompt) => {
+                setAssistPromptOpen(false);
+                startAssist({ kind: 'command', scope: 'step', prompt, stepIds: [step.id] });
+              }}
+            />
+          ) : null}
+          <AssistPreview
+            controller={controller}
+            request={assistRequest}
+            state={snapshot.panelWorkflow.assist}
+          />
+        </div>
+      ) : null}
       <ContextualPropertyTray
         controller={controller}
         health={health}

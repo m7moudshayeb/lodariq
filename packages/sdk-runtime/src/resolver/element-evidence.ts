@@ -1,4 +1,4 @@
-import { accessibleNameOf, roleOf } from '@lodariq/schema/dom';
+import { accessibleNameOf, isLodariqOwnSurface, roleOf } from '@lodariq/schema/dom';
 import { TARGET_CONTEXT_GROUP_ROLES } from '@lodariq/schema/target-runtime';
 import type {
   TargetElementKind,
@@ -117,7 +117,7 @@ const STABLE_KEY_ATTRIBUTE_NAME_PATTERN =
   /^(?:id|name|data-[a-z][a-z0-9_.:-]{0,62}|aria-[a-z][a-z0-9_.:-]{0,62})$/;
 
 type KindMatcher = (element: Element) => boolean;
-type ActionMatcher = (element: Element) => boolean;
+type ActionMatcher = (element: Element, pass?: ResolutionPass) => boolean;
 
 const KIND_MATCHERS: Readonly<Record<TargetElementKind, KindMatcher>> = {
   control: (element) => {
@@ -151,8 +151,8 @@ const KIND_MATCHERS: Readonly<Record<TargetElementKind, KindMatcher>> = {
 
 const ACTION_MATCHERS: Readonly<Record<TargetRequiredAction, ActionMatcher>> = {
   anchor: () => true,
-  'observe-click': (element) =>
-    isEnabled(element) && receivesPointerEvents(element) && isClickable(element),
+  'observe-click': (element, pass) =>
+    isEnabled(element) && receivesPointerEvents(element, pass) && isClickable(element),
   focus: (element) => isEnabled(element) && isFocusable(element),
   input: (element) => isEnabled(element) && isEditable(element),
 };
@@ -160,6 +160,27 @@ const ACTION_MATCHERS: Readonly<Record<TargetRequiredAction, ActionMatcher>> = {
 export interface ElementCollection {
   elements: Element[];
   truncated: boolean;
+}
+
+/**
+ * Scratch memory for one resolution pass (T1).
+ *
+ * `isVisible` climbs the ancestor chain calling `getComputedStyle` at every step,
+ * and it is called once per candidate — so a page of n elements pays O(n · depth)
+ * style reads, nearly all of them repeats of the same ancestors.
+ *
+ * The pass is deliberately not a module-level cache. Style changes between passes,
+ * and a cache that outlives its pass answers questions about a page that no longer
+ * exists. Callers create one, use it for a single resolution, and drop it.
+ */
+export interface ResolutionPass {
+  readonly styles: Map<Element, CSSStyleDeclaration | null>;
+  /** Whether the element and every ancestor above it are themselves visible. */
+  readonly chain: Map<Element, boolean>;
+}
+
+export function createResolutionPass(): ResolutionPass {
+  return { styles: new Map(), chain: new Map() };
 }
 
 /** Enumerate V2 candidates without turning a CSS query into a hidden locator. */
@@ -204,28 +225,62 @@ export function belongsToRoot(element: Element, root: ParentNode): boolean {
   return root.contains(element);
 }
 
-export function isVisible(element: Element): boolean {
+export function isVisible(element: Element, pass?: ResolutionPass): boolean {
+  // Only the element itself can be a hidden input; the check does not inherit,
+  // so it stays outside the memoized chain.
   if (
     element.tagName.toLowerCase() === 'input' &&
     normalizedAttribute(element, 'type') === 'hidden'
   ) {
     return false;
   }
+  return chainIsVisible(element, pass);
+}
 
-  let current: Element | null = element;
-  while (current) {
-    if (current.hasAttribute('hidden') || current.hasAttribute('inert')) return false;
-    if (normalizedAttribute(current, 'aria-hidden') === 'true') return false;
-    const style = computedStyleOf(current);
-    if (
-      style &&
-      (style.display === 'none' || style.visibility === 'hidden' || style.visibility === 'collapse')
-    ) {
-      return false;
+/** Self-visibility of one element, ignoring its ancestors. */
+function selfIsVisible(element: Element, pass?: ResolutionPass): boolean {
+  if (element.hasAttribute('hidden') || element.hasAttribute('inert')) return false;
+  if (normalizedAttribute(element, 'aria-hidden') === 'true') return false;
+  const style = computedStyleOf(element, pass);
+  return !(
+    style &&
+    (style.display === 'none' || style.visibility === 'hidden' || style.visibility === 'collapse')
+  );
+}
+
+/**
+ * Climb to the first ancestor whose answer is already known, then write the answer
+ * back down the chain. Two candidates under the same hidden panel cost one climb.
+ */
+function chainIsVisible(element: Element, pass?: ResolutionPass): boolean {
+  if (!pass) {
+    let current: Element | null = element;
+    while (current) {
+      if (!selfIsVisible(current)) return false;
+      current = parentElementAcrossOpenShadow(current);
     }
+    return true;
+  }
+
+  const climbed: Element[] = [];
+  let current: Element | null = element;
+  let result = true;
+  while (current) {
+    const known = pass.chain.get(current);
+    if (known !== undefined) {
+      result = known;
+      break;
+    }
+    if (!selfIsVisible(current, pass)) {
+      pass.chain.set(current, false);
+      result = false;
+      break;
+    }
+    climbed.push(current);
     current = parentElementAcrossOpenShadow(current);
   }
-  return true;
+  for (const seen of climbed) pass.chain.set(seen, result);
+  return result;
 }
 
 /** Runtime and creator chrome must never become host-page target evidence. */
@@ -270,9 +325,10 @@ export function matchesElementKind(element: Element, kind: TargetElementKind): b
 export function matchesRequiredAction(
   element: Element,
   requiredAction: TargetRequiredAction | undefined,
+  pass?: ResolutionPass,
 ): boolean {
   if (!requiredAction) return true;
-  return ACTION_MATCHERS[requiredAction](element);
+  return ACTION_MATCHERS[requiredAction](element, pass);
 }
 
 export function exactAttributesMatch(
@@ -442,6 +498,10 @@ function addElement(
 ): void {
   if (seen.has(element)) return;
   seen.add(element);
+  // Lodariq's own chrome is not the customer's product. Its shadow root is not
+  // descended into either: an authoring preview renders the step's copy, and a
+  // control named after the element being authored would compete with it.
+  if (isLodariqOwnSurface(element)) return;
   elements.push(element);
   if (element.shadowRoot) roots.push(element.shadowRoot);
 }
@@ -511,17 +571,22 @@ function isContentEditable(element: Element): boolean {
   return value === '' || value === 'true' || value === 'plaintext-only';
 }
 
-function receivesPointerEvents(element: Element): boolean {
-  const style = computedStyleOf(element);
+function receivesPointerEvents(element: Element, pass?: ResolutionPass): boolean {
+  const style = computedStyleOf(element, pass);
   return !style || style.pointerEvents !== 'none';
 }
 
-function computedStyleOf(element: Element): CSSStyleDeclaration | null {
+function computedStyleOf(element: Element, pass?: ResolutionPass): CSSStyleDeclaration | null {
+  const cached = pass?.styles.get(element);
+  if (cached !== undefined) return cached;
+  let style: CSSStyleDeclaration | null;
   try {
-    return element.ownerDocument.defaultView?.getComputedStyle(element) ?? null;
+    style = element.ownerDocument.defaultView?.getComputedStyle(element) ?? null;
   } catch {
-    return null;
+    style = null;
   }
+  pass?.styles.set(element, style);
+  return style;
 }
 
 function normalizedAttribute(element: Element, name: string): string | null {

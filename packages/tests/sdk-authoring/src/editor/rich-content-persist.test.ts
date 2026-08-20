@@ -119,14 +119,31 @@ describe('rich content persist debounce', () => {
     inspectorHost.remove();
   });
 
-  it('persists a toolbar-inserted divider as a divider block', async () => {
+  it('persists a gutter-inserted divider as a divider block', async () => {
     const onPersist = vi.fn();
     await act(async () => {
       root.render(createElement(PersistHarness, { onPersist }));
     });
 
+    // §4.2a rule 6: the gutter is a hover affordance, so the handles only exist
+    // once a pointer is over a block. Clicking straight through found nothing.
     await act(async () => {
-      document.querySelector<HTMLButtonElement>('[aria-label="Divider"]')?.click();
+      // jsdom has no PointerEvent; the handler only reads target and clientX/Y.
+      document.dispatchEvent(
+        new MouseEvent('pointermove', { bubbles: true, clientX: 0, clientY: 0 }),
+      );
+    });
+    const insert = document.querySelector<HTMLButtonElement>('[aria-label="Add content"]');
+    if (!insert) throw new Error('Block gutter did not offer an insert handle');
+    await act(async () => {
+      insert.click();
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    const divider = insertMenuItem('Divider');
+    await act(async () => {
+      divider.click();
     });
     expect(document.querySelector('.rich-content-divider')).not.toBeNull();
 
@@ -134,7 +151,9 @@ describe('rich content persist debounce', () => {
       await vi.advanceTimersByTimeAsync(RICH_CONTENT_PERSIST_DEBOUNCE_MS + 50);
     });
     expect(
-      (onPersist.mock.calls.at(-1)?.[0] as LodariqBlock[]).some((block) => block.type === 'divider'),
+      (
+        onPersist.mock.calls[onPersist.mock.calls.length - 1]?.[0] as LodariqBlock[]
+      ).some((block) => block.type === 'divider'),
     ).toBe(true);
   });
 });
@@ -184,4 +203,13 @@ function typeInCanvas(text: string): void {
     const selection = $getSelection();
     if ($isRangeSelection(selection)) selection.insertText(text);
   });
+}
+
+/** Insert-menu rows are named by their visible text, not an `aria-label`. */
+function insertMenuItem(label: string): HTMLButtonElement {
+  const item = [
+    ...document.querySelectorAll<HTMLButtonElement>('[role="menuitem"]'),
+  ].find((candidate) => candidate.textContent?.trim() === label);
+  if (!item) throw new Error(`Insert menu did not offer "${label}"`);
+  return item;
 }

@@ -32,5 +32,7 @@ PRD.
 | [0023](0023-passkeys-assurance-and-recovery-codes.md) | Passkeys, session assurance, and recovery codes                  | Accepted |
 | [0024](0024-google-and-microsoft-oidc.md)              | Google and Microsoft OIDC with one Lodariq session               | Accepted |
 | [0025](0025-enterprise-identity-boundary.md)           | Enterprise OIDC, SCIM, policy, and recovery boundary             | Accepted |
+| [0026](0026-step-partitioned-concurrent-authoring.md)  | Step-partitioned concurrent authoring, not CRDT co-editing        | Accepted |
+| [0027](0027-idle-page-cost-and-kill-switch.md)          | Idle-page cost, page scoping, and the SDK kill switch             | Accepted |
 
 See [0000-template.md](0000-template.md) for the format.

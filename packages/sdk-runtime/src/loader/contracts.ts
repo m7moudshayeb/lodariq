@@ -1,4 +1,9 @@
-import type { AuthoringAccessibilityPreviewMode, CompiledDocument } from '@lodariq/schema';
+import type {
+  AuthoringAccessibilityPreviewMode,
+  CompiledDocument,
+  JourneyHandoff,
+} from '@lodariq/schema';
+import type { SubmittedFormResponse } from '../runtime';
 import type { TargetResolutionContext } from '../resolver';
 import type { AuthoringTargetOverride, TourTargetResolutionDiagnostic } from '../renderers/tour';
 import type {
@@ -35,6 +40,13 @@ export interface TourPlaybackOptions {
   onBranchChoice?: (
     step: CompiledDocument['steps'][number],
     ruleIndex: number | null,
+    destination: string,
+  ) => void;
+  /** Answers given on the step being left. Customer content, sent separately. */
+  onFormResponses?: (responses: readonly SubmittedFormResponse[]) => void;
+  onJourneyHandoff?: (
+    step: CompiledDocument['steps'][number],
+    handoff: JourneyHandoff,
     destination: string,
   ) => void;
 }

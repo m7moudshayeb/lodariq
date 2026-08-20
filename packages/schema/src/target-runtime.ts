@@ -3,6 +3,27 @@ export const TARGET_IDENTITY_SCHEMA_VERSION = 2 as const;
 export const TARGET_ELEMENT_KINDS = ['control', 'field', 'content', 'container'] as const;
 export const TARGET_REQUIRED_ACTIONS = ['anchor', 'observe-click', 'focus', 'input'] as const;
 export const TARGET_RESOLUTION_MODES = ['semantic', 'visual-anchor', 'layout-slot'] as const;
+
+/**
+ * Which match to take when the evidence genuinely cannot separate several
+ * candidates. `only` is the default and keeps today's behaviour: ambiguity is
+ * reported, never guessed. The rest are explicit author answers to the
+ * disambiguation question, and the data-relative ones survive the data
+ * changing — which happens far more often than the UI changing.
+ */
+export const TARGET_SELECTION_KINDS = [
+  'only',
+  'any-matching',
+  'ordinal',
+  'first',
+  'last',
+  'newest-in-collection',
+  'first-in-collection',
+  'within-container',
+] as const;
+export const TARGET_SELECTION_ORDINAL_LIMITS = { min: 1, max: 50 } as const;
+/** Collection ordering signals a data-relative selection may rank on. */
+export const TARGET_COLLECTION_ORDERS = ['reading-order', 'recency'] as const;
 export const TARGET_RELATIONSHIP_KINDS = [
   'inside',
   'labelled-by',
@@ -32,6 +53,7 @@ export const TARGET_SIGNAL_FAMILIES = [
   'visual-appearance',
   'visual-neighborhood',
   'layout-slot',
+  'sibling-position',
   'localized-text',
 ] as const;
 export const TARGET_CAPTURE_QUALITIES = ['strong', 'usable', 'weak'] as const;
@@ -69,6 +91,16 @@ export const TARGET_IDENTITY_SCORE_BY_FAMILY = {
   'visual-appearance': 18,
   'visual-neighborhood': 22,
   'layout-slot': 35,
+  /*
+   * Enough to separate two candidates nothing else can separate, and never more.
+   *
+   * `TARGET_MAX_RESOLUTION_RUNNER_UP_MARGIN` caps the gap a winner must open over
+   * its runner-up at 30, so one confirmed positional match (30 × the stable
+   * multiplier = 33) always clears it, while an identity built on position plus
+   * one other family cannot: `sibling-position` is excluded from the independent
+   * family count on both sides. It decides ties; it does not establish identity.
+   */
+  'sibling-position': 30,
   'localized-text': 15,
 } as const satisfies Readonly<Record<(typeof TARGET_SIGNAL_FAMILIES)[number], number>>;
 export const TARGET_STABLE_SIGNAL_MULTIPLIER = 1.1;
@@ -246,6 +278,7 @@ const TARGET_CAPTURE_EVIDENCE_KEYS = new Set([
   'uniqueCandidateCount',
   'runnerUpMargin',
   'quality',
+  'ambiguityIsSoleWeakness',
 ]);
 const TARGET_DISPLAY_KEYS = new Set(['authorLabel']);
 
@@ -401,7 +434,8 @@ function hasCaptureEvidenceEnvelope(value: unknown): boolean {
     ) &&
     isIntegerInRange(value.uniqueCandidateCount, 0, TARGET_MAX_CANDIDATE_COUNT) &&
     isNumberInRange(value.runnerUpMargin, 0, 1) &&
-    isMember(value.quality, TARGET_CAPTURE_QUALITY_SET)
+    isMember(value.quality, TARGET_CAPTURE_QUALITY_SET) &&
+    isOptionalBoolean(value.ambiguityIsSoleWeakness)
   );
 }
 
@@ -450,6 +484,10 @@ function isOptionalAttributeRecord(value: unknown, keyPattern: RegExp): boolean 
 
 function isMember(value: unknown, allowedValues: ReadonlySet<string>): value is string {
   return typeof value === 'string' && allowedValues.has(value);
+}
+
+function isOptionalBoolean(value: unknown): boolean {
+  return value === undefined || typeof value === 'boolean';
 }
 
 function isOptionalMember(value: unknown, allowedValues: ReadonlySet<string>): boolean {

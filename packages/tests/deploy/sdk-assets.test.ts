@@ -18,6 +18,10 @@ interface SdkAssetManifest {
     version: string;
     integrity: string;
   };
+  publicLoader: {
+    path: string;
+    integrity: string;
+  };
   files: Array<{
     path: string;
     bytes: number;
@@ -62,6 +66,17 @@ describe('SDK CDN asset packaging', () => {
     expect(manifest.creatorModule.integrity).toBe(
       `sha256-${createHash('sha256').update(creatorModuleBytes).digest('base64')}`,
     );
+
+    // The loader digest must describe the bytes actually uploaded (ADR-0027).
+    // A pinned integrity that disagrees with the published file fails closed on
+    // the customer's page, which is strictly worse than shipping no pin at all.
+    expect(manifest.publicLoader.path).toBe('/sdk/lodariq-public-bootstrap.js');
+    expect(manifest.publicLoader.integrity).toBe(
+      `sha256-${createHash('sha256')
+        .update(readFileSync(resolve(repoRoot, 'dist/sdk-assets/sdk/lodariq-public-bootstrap.js')))
+        .digest('base64')}`,
+    );
+    expect(files.has(manifest.publicLoader.path)).toBe(true);
 
     const creatorModuleDirectory = creatorModuleUrl.pathname.slice(
       0,

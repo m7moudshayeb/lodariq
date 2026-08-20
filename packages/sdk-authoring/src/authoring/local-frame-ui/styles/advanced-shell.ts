@@ -1,3 +1,7 @@
+import {
+  AUTHORING_CONTEXT_SURFACE_TOKENS,
+  CREATOR_CHROME_TOKENS,
+} from '../../../creator-chrome-tokens';
 export const AUTHORING_ADVANCED_SHELL_CSS = `
 
   .tour-appearance-copy {
@@ -9,7 +13,7 @@ export const AUTHORING_ADVANCED_SHELL_CSS = `
   .tour-appearance-copy small {
     color: var(--lq-color-muted);
     font-size: 8px;
-    font-weight: 700;
+    font-weight: var(--lq-weight-bold);
     letter-spacing: 0.055em;
     line-height: 1.25;
     text-transform: uppercase;
@@ -17,7 +21,7 @@ export const AUTHORING_ADVANCED_SHELL_CSS = `
 
   .tour-appearance-copy strong {
     overflow: hidden;
-    font-size: 10px;
+    font-size: var(--lq-font-xs);
     line-height: 1.3;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -53,7 +57,7 @@ export const AUTHORING_ADVANCED_SHELL_CSS = `
   }
 
   .tour-sequence-rail.compact .tour-release-copy strong {
-    font-size: 12px;
+    font-size: var(--lq-font-sm);
   }
 
   .tour-release-strip {
@@ -101,7 +105,7 @@ export const AUTHORING_ADVANCED_SHELL_CSS = `
     overflow: hidden;
     color: var(--lq-color-muted);
     font-size: 8px;
-    font-weight: 700;
+    font-weight: var(--lq-weight-bold);
     line-height: 1.35;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -159,7 +163,7 @@ export const AUTHORING_ADVANCED_SHELL_CSS = `
   .tour-release-copy small {
     color: var(--lq-color-muted);
     font-size: 8px;
-    font-weight: 700;
+    font-weight: var(--lq-weight-bold);
     letter-spacing: 0.06em;
     line-height: 1.25;
     text-transform: uppercase;
@@ -167,14 +171,14 @@ export const AUTHORING_ADVANCED_SHELL_CSS = `
 
   .tour-release-copy strong {
     color: var(--lq-color-ink);
-    font-size: 12px;
-    font-weight: 700;
+    font-size: var(--lq-font-sm);
+    font-weight: var(--lq-weight-bold);
     line-height: 1.35;
   }
 
   .tour-release-copy > span {
     color: var(--lq-color-muted);
-    font-size: 10px;
+    font-size: var(--lq-font-xs);
     line-height: 1.4;
   }
 
@@ -193,7 +197,7 @@ export const AUTHORING_ADVANCED_SHELL_CSS = `
     align-items: center;
     gap: 8px;
     color: var(--lq-color-muted);
-    font-size: 10px;
+    font-size: var(--lq-font-xs);
     line-height: 1.3;
   }
 
@@ -220,10 +224,10 @@ export const AUTHORING_ADVANCED_SHELL_CSS = `
     background: var(--lq-color-primary);
     color: var(--lq-color-on-primary);
     cursor: pointer;
-    font-size: 12px;
-    font-weight: 700;
+    font-size: var(--lq-font-sm);
+    font-weight: var(--lq-weight-bold);
     padding: 8px 12px;
-    box-shadow: 0 8px 20px rgba(61, 232, 176, 0.2);
+    box-shadow: 0 8px 20px color-mix(in srgb, ${CREATOR_CHROME_TOKENS.action} 20%, transparent);
   }
 
   .tour-release-action:hover {
@@ -268,13 +272,13 @@ export const AUTHORING_ADVANCED_SHELL_CSS = `
   .tour-step-inspector-header small,
   .tour-step-open-details small {
     color: var(--lq-color-muted);
-    font-size: 10px;
+    font-size: var(--lq-font-xs);
     line-height: 1.35;
   }
 
   .tour-step-inspector-header > span > small {
     font-size: 8px;
-    font-weight: 700;
+    font-weight: var(--lq-weight-bold);
     letter-spacing: 0.055em;
     text-transform: uppercase;
   }
@@ -282,8 +286,8 @@ export const AUTHORING_ADVANCED_SHELL_CSS = `
   .tour-step-inspector-header strong {
     overflow: hidden;
     color: var(--lq-color-ink);
-    font-size: 14px;
-    font-weight: 700;
+    font-size: var(--lq-font-md);
+    font-weight: var(--lq-weight-bold);
     line-height: 1.35;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -300,8 +304,8 @@ export const AUTHORING_ADVANCED_SHELL_CSS = `
     background: var(--lq-color-panel);
     color: var(--lq-color-ink-soft);
     cursor: pointer;
-    font-size: 10px;
-    font-weight: 700;
+    font-size: var(--lq-font-xs);
+    font-weight: var(--lq-weight-bold);
     padding: 0 12px;
   }
 
@@ -320,8 +324,8 @@ export const AUTHORING_ADVANCED_SHELL_CSS = `
 
   .tour-step-content-summary strong {
     color: var(--lq-color-ink);
-    font-size: 12px;
-    font-weight: 700;
+    font-size: var(--lq-font-sm);
+    font-weight: var(--lq-weight-bold);
     line-height: 1.4;
   }
 
@@ -329,7 +333,7 @@ export const AUTHORING_ADVANCED_SHELL_CSS = `
     display: -webkit-box;
     overflow: hidden;
     color: var(--lq-color-muted);
-    font-size: 12px;
+    font-size: var(--lq-font-sm);
     line-height: 1.45;
     -webkit-box-orient: vertical;
     -webkit-line-clamp: 1;
@@ -357,8 +361,8 @@ export const AUTHORING_ADVANCED_SHELL_CSS = `
 
   .tour-step-inspector-row small {
     color: var(--lq-color-muted);
-    font-size: 10px;
-    font-weight: 700;
+    font-size: var(--lq-font-xs);
+    font-weight: var(--lq-weight-bold);
     letter-spacing: 0.02em;
     line-height: 1.25;
   }
@@ -366,8 +370,8 @@ export const AUTHORING_ADVANCED_SHELL_CSS = `
   .tour-step-inspector-row > span > strong {
     overflow: hidden;
     color: var(--lq-color-ink);
-    font-size: 12px;
-    font-weight: 600;
+    font-size: var(--lq-font-sm);
+    font-weight: var(--lq-weight-semibold);
     line-height: 1.35;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -383,8 +387,8 @@ export const AUTHORING_ADVANCED_SHELL_CSS = `
     background: var(--lq-color-panel);
     color: var(--lq-color-ink-soft);
     cursor: pointer;
-    font-size: 10px;
-    font-weight: 700;
+    font-size: var(--lq-font-xs);
+    font-weight: var(--lq-weight-bold);
     padding: 0 12px;
   }
 
@@ -396,8 +400,8 @@ export const AUTHORING_ADVANCED_SHELL_CSS = `
 
   .tour-step-on-canvas-hint {
     color: var(--lq-color-muted);
-    font-size: 10px;
-    font-weight: 600;
+    font-size: var(--lq-font-xs);
+    font-weight: var(--lq-weight-semibold);
     white-space: nowrap;
   }
 
@@ -429,8 +433,8 @@ export const AUTHORING_ADVANCED_SHELL_CSS = `
   }
 
   .tour-step-open-details strong {
-    font-size: 12px;
-    font-weight: 700;
+    font-size: var(--lq-font-sm);
+    font-weight: var(--lq-weight-bold);
   }
 
   .tour-step-accordion .tour-step-open-details.compact-details {
@@ -438,27 +442,45 @@ export const AUTHORING_ADVANCED_SHELL_CSS = `
     margin: 0;
   }
 
-  .shell-panel {
-    --lq-color-ink: #162033;
+  /**
+   * The light Editorial Air workspace palette.
+   *
+   * Both exclusions are load-bearing, for the same reason: those roots are
+   * "shell-panel shell-overlay" and "shell-panel shell-operations", so without
+   * them this block relit the floating chrome (dark-navy icons on dark glass)
+   * and the Operations sheet (light ink on its near-black ground).
+   *
+   * Values come from the token module rather than literals — these were hardcoded
+   * mint (#006b58) and survived the 2026-08-17 palette adoption unchanged, which
+   * is the drift the token boundary exists to stop.
+   */
+  .shell-panel:not(.shell-overlay):not(.shell-operations) {
+    --lq-color-ink: ${AUTHORING_CONTEXT_SURFACE_TOKENS.ink};
     --lq-color-ink-soft: #334155;
-    --lq-color-muted: #667085;
+    --lq-color-muted: ${AUTHORING_CONTEXT_SURFACE_TOKENS.muted};
     --lq-color-subtle: #8b95a5;
-    --lq-color-page: #ffffff;
-    --lq-color-panel: #ffffff;
-    --lq-color-panel-strong: #f7faf9;
-    --lq-color-border: #d8dfe3;
-    --lq-color-border-soft: #e8ecee;
-    --lq-color-primary: #006b58;
-    --lq-color-primary-hover: #005647;
+    --lq-color-page: ${AUTHORING_CONTEXT_SURFACE_TOKENS.surface};
+    --lq-color-panel: ${AUTHORING_CONTEXT_SURFACE_TOKENS.surface};
+    --lq-color-panel-strong: ${AUTHORING_CONTEXT_SURFACE_TOKENS.elevated};
+    --lq-color-border: ${AUTHORING_CONTEXT_SURFACE_TOKENS.border};
+    --lq-color-border-soft: ${AUTHORING_CONTEXT_SURFACE_TOKENS.borderSoft};
+    --lq-color-primary: ${AUTHORING_CONTEXT_SURFACE_TOKENS.accent};
+    --lq-color-primary-hover: ${AUTHORING_CONTEXT_SURFACE_TOKENS.accentHover};
     --lq-color-on-primary: #ffffff;
-    --lq-color-primary-soft: #edf8f5;
-    --lq-color-primary-border: #3b8d7e;
-    --lq-color-blue: #367bf5;
+    --lq-color-primary-soft: ${AUTHORING_CONTEXT_SURFACE_TOKENS.accentSoft};
+    --lq-color-primary-border: ${AUTHORING_CONTEXT_SURFACE_TOKENS.accent};
+    --lq-color-blue: ${AUTHORING_CONTEXT_SURFACE_TOKENS.focus};
     --lq-color-blue-soft: #eef4ff;
-    --lq-color-blue-border: #367bf5;
-    --lq-shadow-popover: 0 18px 44px rgba(15, 36, 31, 0.16);
+    --lq-color-blue-border: ${AUTHORING_CONTEXT_SURFACE_TOKENS.focus};
+    --lq-shadow-popover: ${AUTHORING_CONTEXT_SURFACE_TOKENS.shadow};
     container-name: authoring-frame;
     container-type: inline-size;
     color-scheme: light;
+  }
+
+  /* Both still need the container query context, just not the palette. */
+  .shell-panel.shell-overlay,
+  .shell-panel.shell-operations {
+    container-name: authoring-frame;
   }
 `;

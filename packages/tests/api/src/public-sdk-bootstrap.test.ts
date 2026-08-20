@@ -305,7 +305,8 @@ describe('origin-resolved public SDK bootstrap', () => {
       environment: string;
     }>();
     expect(context.environment).toBe('production');
-    expect(context.authoring).toEqual({ state: 'disabled' });
+    // §14: the dead end names its reason, and still leaks no activation surface.
+    expect(context.authoring).toEqual({ state: 'disabled', reason: 'production_environment' });
     expect(JSON.stringify(context)).not.toMatch(
       /activationUrl|appOrigin|exchangeUrl|creator|editor|bootstrapGrant/i,
     );

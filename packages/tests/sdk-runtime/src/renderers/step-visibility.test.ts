@@ -1,0 +1,46 @@
+import { describe, expect, it } from 'vitest';
+import { showWhenMatches } from '../../../../../packages/sdk-runtime/src/renderers/tour-flow';
+
+const context = {
+  identifyTraits: { plan: 'growth', role: 'admin' },
+  documentState: { importedRows: 1204 },
+  locale: 'en',
+  completedStepIds: new Set(['step_2']),
+};
+
+describe('a block’s visibility rule', () => {
+  it('shows everything when no rule is set, so old documents are unchanged', () => {
+    expect(showWhenMatches(undefined, context)).toBe(true);
+  });
+
+  it('matches an identified trait', () => {
+    expect(
+      showWhenMatches({ source: 'identifyTrait', key: 'plan', operator: 'equals', value: 'growth' }, context),
+    ).toBe(true);
+    expect(
+      showWhenMatches({ source: 'identifyTrait', key: 'plan', operator: 'equals', value: 'free' }, context),
+    ).toBe(false);
+  });
+
+  it('matches declared document state', () => {
+    expect(
+      showWhenMatches({ source: 'documentState', key: 'importedRows', operator: 'exists' }, context),
+    ).toBe(true);
+    expect(
+      showWhenMatches({ source: 'documentState', key: 'seats', operator: 'exists' }, context),
+    ).toBe(false);
+  });
+
+  it('matches a completed step and a locale', () => {
+    expect(showWhenMatches({ source: 'completedStep', stepId: 'step_2' }, context)).toBe(true);
+    expect(showWhenMatches({ source: 'completedStep', stepId: 'step_9' }, context)).toBe(false);
+    expect(showWhenMatches({ source: 'locale', locale: 'en-GB' }, context)).toBe(true);
+    expect(showWhenMatches({ source: 'locale', locale: 'de' }, context)).toBe(false);
+  });
+
+  it('uses the same vocabulary as branching, so a creator learns it once', () => {
+    // Identical shape to a StepTransitionCondition — deliberately one contract.
+    const shared = { source: 'identifyTrait', key: 'role', operator: 'notEquals', value: 'viewer' } as const;
+    expect(showWhenMatches(shared, context)).toBe(true);
+  });
+});

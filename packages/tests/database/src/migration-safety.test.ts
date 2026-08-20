@@ -19,6 +19,8 @@ import {
   ASSURANCE_PASSKEYS_RECOVERY_FILE_NAME,
   OIDC_AUTHORIZATION_FILE_NAME,
   ENTERPRISE_IDENTITY_FILE_NAME,
+  EXPERIENCE_MEASUREMENT_FILE_NAME,
+  SDK_INSTALLATION_KILL_SWITCH_FILE_NAME,
   listCheckedInSqlFiles,
   readInitialBaseline,
   readProviderNeutralIdentityMigration,
@@ -28,6 +30,7 @@ import {
   readAssurancePasskeysRecoveryMigration,
   readOidcAuthorizationMigration,
   readEnterpriseIdentityMigration,
+  readExperienceMeasurementMigration,
   readPublicationVerificationRendererContractMigration,
   readPublicationVerificationRendererV4Migration,
 } from './migration-test-utils.js';
@@ -53,6 +56,8 @@ describe('database migration safety guard', () => {
       ASSURANCE_PASSKEYS_RECOVERY_FILE_NAME,
       OIDC_AUTHORIZATION_FILE_NAME,
       ENTERPRISE_IDENTITY_FILE_NAME,
+      EXPERIENCE_MEASUREMENT_FILE_NAME,
+      SDK_INSTALLATION_KILL_SWITCH_FILE_NAME,
     ]);
   });
 
@@ -103,6 +108,20 @@ describe('database migration safety guard', () => {
     expect(migration).toContain("current_user = 'lodariq_enterprise_validator'");
     expect(migration).toContain('auth_sessions_enterprise_connection_disable');
     expect(migration).not.toMatch(/\b(?:raw_token|client_secret|access_token|refresh_token)\b/iu);
+    expect(migration).not.toMatch(/\bdrop\s+(?:table|column|constraint)\b/iu);
+  });
+
+  it('keeps experience measurement additive, tenant-isolated, and single-live-experiment', () => {
+    const migration = readExperienceMeasurementMigration();
+    expect(migration).toContain('create table if not exists experience_measurement');
+    expect(migration).toContain('create table if not exists experience_experiments');
+    expect(migration).toContain('create table if not exists experience_form_responses');
+    expect(migration).toContain('create table if not exists experience_step_locks');
+    expect(migration).toContain('create table if not exists workspace_applications');
+    // One live experiment per document, and one primary application per workspace.
+    expect(migration).toContain("where status in ('draft', 'running')");
+    expect(migration).toContain("where is_primary = 'true'");
+    expect(migration).toContain('force row level security');
     expect(migration).not.toMatch(/\bdrop\s+(?:table|column|constraint)\b/iu);
   });
 

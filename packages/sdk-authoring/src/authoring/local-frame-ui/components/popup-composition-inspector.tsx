@@ -1,7 +1,10 @@
 import { useState } from 'react';
 import {
+  apcaLightnessContrast,
   CONTRAST_RATIO_TARGETS,
   evaluateContrast,
+  TOOLTIP_HEIGHT_PX_LIMITS,
+  TOOLTIP_WIDTH_PX_LIMITS,
   type LodariqBlock,
   type TooltipLayoutProps,
   type TooltipStyleProps,
@@ -19,48 +22,88 @@ import {
   POPUP_PADDING_OPTIONS,
   POPUP_RADIUS_OPTIONS,
 } from '../properties/options';
-import { PropertyChoiceField, PropertyColorField } from '../properties/property-controls';
+import {
+  PropertyChoiceField,
+  PropertyColorField,
+  PropertyNumberField,
+} from '../properties/property-controls';
 import type {
   PopupAppearanceSection,
   PopupCompositionSection,
+  PopupAppearanceScope,
+  PopupLayoutScope,
   PopupThemeColors,
 } from './contextual-property-types';
 
 const POPUP_APPEARANCE_SECTIONS = [
-  { value: 'surface', label: authoringText('Background') },
+  { value: 'surface', label: authoringText('Surface') },
   { value: 'text', label: authoringText('Text') },
   { value: 'border', label: authoringText('Border') },
   { value: 'weight', label: authoringText('Border weight') },
-  { value: 'shadow', label: authoringText('Shadow') },
+  { value: 'shadow', label: authoringText('Elevation') },
 ] as const satisfies ReadonlyArray<{ value: PopupAppearanceSection; label: string }>;
 
 export function PopupCompositionInspector({
+  appearanceScope = 'all',
   controller,
+  density = 'comfortable',
+  layoutScope = 'all',
   section,
   themeColors,
   tooltip,
 }: {
+  /** Which half of the appearance fields to render. Defaults to all of them. */
+  appearanceScope?: PopupAppearanceScope;
   controller: LocalAuthoringFrameController;
+  /**
+   * `compact` is the anchored inspector (§4.3): every property is one `.fld` row
+   * with a pill that opens its choices. The five appearance tabs exist only
+   * because each control was a full-width group — as rows they all fit, so the
+   * tab strip and the review aside both go.
+   */
+  density?: 'comfortable' | 'compact';
   section: PopupCompositionSection;
+  /** Which half of the layout fields to render. Defaults to all of them. */
+  layoutScope?: PopupLayoutScope;
   themeColors: PopupThemeColors;
   tooltip: LodariqBlock;
 }) {
   const [appearanceSection, setAppearanceSection] = useState<PopupAppearanceSection>('surface');
+  const compact = density === 'compact';
+  const presentation = compact ? ('menu' as const) : ('segmented' as const);
+  const COLOUR_ITEMS = new Set<PopupAppearanceSection>(['surface', 'text']);
+  /** Compact shows every appearance property as a row; the tabs are the wide form. */
+  const showsAppearance = (item: PopupAppearanceSection): boolean => {
+    if (appearanceScope === 'colours' && !COLOUR_ITEMS.has(item)) return false;
+    if (appearanceScope === 'edges' && COLOUR_ITEMS.has(item)) return false;
+    return compact || appearanceSection === item;
+  };
+  /** `style` is the old whole-half scope; `spacing` and `frame` split it further. */
+  const showsLayout = (part: Exclude<PopupLayoutScope, 'all'>): boolean =>
+    layoutScope === 'all' ||
+    layoutScope === part ||
+    (layoutScope === 'style' && (part === 'spacing' || part === 'frame'));
   const layout = tooltip.props.tooltipLayout ?? {};
   const popupStyle = tooltip.props.tooltipStyle ?? {};
   const customized = Object.keys(popupStyle).length > 0;
+  const surfaceColor = popupStyle.surfaceColor ?? themeColors.surfaceColor;
+  const textColor = popupStyle.textColor ?? themeColors.textColor;
+  const borderColor = popupStyle.borderColor ?? themeColors.borderColor;
   const textContrast = evaluateContrast(
-    popupStyle.textColor ?? themeColors.textColor,
-    popupStyle.surfaceColor ?? themeColors.surfaceColor,
+    textColor,
+    surfaceColor,
     CONTRAST_RATIO_TARGETS.text,
     CONTRAST_RATIO_TARGETS.textUnusable,
   );
   const focusContrast = evaluateContrast(
-    popupStyle.borderColor ?? themeColors.borderColor,
-    popupStyle.surfaceColor ?? themeColors.surfaceColor,
+    borderColor,
+    surfaceColor,
     CONTRAST_RATIO_TARGETS.focus,
     CONTRAST_RATIO_TARGETS.focusUnusable,
   );
+  // Secondary readouts, computed on the pairs actually in use (§7.2).
+  const textLc = apcaLightnessContrast(textColor, surfaceColor);
+  const borderLc = apcaLightnessContrast(borderColor, surfaceColor);
   return (
     <section
       className="storyboard-tab-panel popup-layout"
@@ -69,7 +112,9 @@ export function PopupCompositionInspector({
     >
       {section === 'layout' ? (
         <>
+          {showsLayout('frame') ? (
           <PropertyChoiceField
+            presentation={presentation}
             label={authoringText('Content alignment')}
             value={layout.contentAlign ?? 'left'}
             options={CONTENT_ALIGNMENT_OPTIONS}
@@ -79,7 +124,16 @@ export function PopupCompositionInspector({
               })
             }
           />
+          ) : null}
+          {/*
+            The action rows belong to the inspector's own Actions section, which
+            also lists the buttons they arrange. The wide tray has no such
+            section, so it keeps them here.
+          */}
+          {layoutScope === 'all' ? (
+          <>
           <PropertyChoiceField
+            presentation={presentation}
             label={authoringText('Action layout')}
             value={layout.actionLayout ?? 'stack'}
             options={ACTION_LAYOUT_OPTIONS}
@@ -90,6 +144,7 @@ export function PopupCompositionInspector({
             }
           />
           <PropertyChoiceField
+            presentation={presentation}
             label={authoringText('Action alignment')}
             value={layout.actionAlign ?? 'start'}
             options={BLOCK_ALIGNMENT_OPTIONS}
@@ -100,6 +155,7 @@ export function PopupCompositionInspector({
             }
           />
           <PropertyChoiceField
+            presentation={presentation}
             label={authoringText('Action gap')}
             value={layout.gap ?? 'normal'}
             options={BLOCK_SPACING_OPTIONS}
@@ -109,7 +165,12 @@ export function PopupCompositionInspector({
               })
             }
           />
+          </>
+          ) : null}
+          {showsLayout('spacing') ? (
+          <>
           <PropertyChoiceField
+            presentation={presentation}
             label={authoringText('Padding')}
             value={layout.padding ?? 'standard'}
             options={POPUP_PADDING_OPTIONS}
@@ -120,7 +181,8 @@ export function PopupCompositionInspector({
             }
           />
           <PropertyChoiceField
-            label={authoringText('Corner radius')}
+            presentation={presentation}
+            label={authoringText('Corner')}
             value={layout.radius ?? 'theme'}
             options={POPUP_RADIUS_OPTIONS}
             onChange={(radius) =>
@@ -129,7 +191,12 @@ export function PopupCompositionInspector({
               })
             }
           />
+          </>
+          ) : null}
+          {showsLayout('frame') ? (
+          <>
           <PropertyChoiceField
+            presentation={presentation}
             label={authoringText('Pointer arrow')}
             value={layout.showArrow === false ? 'hide' : 'show'}
             options={POPUP_ARROW_OPTIONS}
@@ -137,10 +204,43 @@ export function PopupCompositionInspector({
               controller.setTooltipLayout(tooltip.id, { showArrow: visibility === 'show' })
             }
           />
+          {/*
+            §4.3 puts the card's own size here. Dragging a handle answers "about
+            this big"; these answer "396", which is the question a creator
+            matching a spec is actually asking. Height is a minimum, so leaving
+            it empty means the card grows with its content.
+          */}
+          <PropertyNumberField
+            label={authoringText('Width')}
+            max={TOOLTIP_WIDTH_PX_LIMITS.max}
+            min={TOOLTIP_WIDTH_PX_LIMITS.min}
+            onChange={(widthPx) =>
+              controller.setTooltipLayout(tooltip.id, { widthPx: widthPx ?? undefined })
+            }
+            placeholder={authoringText('auto')}
+            step={TOOLTIP_WIDTH_PX_LIMITS.step}
+            suffix={authoringText('px')}
+            value={layout.widthPx ?? null}
+          />
+          <PropertyNumberField
+            label={authoringText('Min height')}
+            max={TOOLTIP_HEIGHT_PX_LIMITS.max}
+            min={TOOLTIP_HEIGHT_PX_LIMITS.min}
+            onChange={(heightPx) =>
+              controller.setTooltipLayout(tooltip.id, { heightPx: heightPx ?? undefined })
+            }
+            placeholder={authoringText('auto')}
+            step={TOOLTIP_HEIGHT_PX_LIMITS.step}
+            suffix={authoringText('px')}
+            value={layout.heightPx ?? null}
+          />
+          </>
+          ) : null}
         </>
       ) : (
         <div className="popup-appearance-workspace">
           <div className="popup-appearance-progressive">
+            {compact ? null : (
             <nav className="progressive-setting-tabs" aria-label={authoringText('Appearance')}>
               {POPUP_APPEARANCE_SECTIONS.map((item) => (
                 <button
@@ -153,14 +253,17 @@ export function PopupCompositionInspector({
                 </button>
               ))}
             </nav>
+            )}
             <div className="progressive-setting-panel">
-              {appearanceSection === 'surface' ? (
+              {showsAppearance('surface') ? (
                 <PropertyColorField
+                  presentation={presentation}
+                  apcaLc={textLc}
                   contrast={textContrast}
                   customized={Boolean(popupStyle.surfaceColor)}
-                  hideLegend
-                  label={authoringText('Background')}
-                  value={popupStyle.surfaceColor ?? themeColors.surfaceColor}
+                  hideLegend={!compact}
+                  label={authoringText('Surface')}
+                  value={surfaceColor}
                   onChange={(surfaceColor) =>
                     controller.setTooltipStyle(tooltip.id, { surfaceColor })
                   }
@@ -170,25 +273,29 @@ export function PopupCompositionInspector({
                   resetLabel={authoringText('Use Brand surface')}
                 />
               ) : null}
-              {appearanceSection === 'text' ? (
+              {showsAppearance('text') ? (
                 <PropertyColorField
+                  presentation={presentation}
+                  apcaLc={textLc}
                   contrast={textContrast}
                   customized={Boolean(popupStyle.textColor)}
-                  hideLegend
+                  hideLegend={!compact}
                   label={authoringText('Text')}
-                  value={popupStyle.textColor ?? themeColors.textColor}
+                  value={textColor}
                   onChange={(textColor) => controller.setTooltipStyle(tooltip.id, { textColor })}
                   onReset={() => controller.setTooltipStyle(tooltip.id, { textColor: undefined })}
                   resetLabel={authoringText('Use Brand text')}
                 />
               ) : null}
-              {appearanceSection === 'border' ? (
+              {showsAppearance('border') ? (
                 <PropertyColorField
+                  presentation={presentation}
+                  apcaLc={borderLc}
                   contrast={focusContrast}
                   customized={Boolean(popupStyle.borderColor)}
-                  hideLegend
+                  hideLegend={!compact}
                   label={authoringText('Border')}
-                  value={popupStyle.borderColor ?? themeColors.borderColor}
+                  value={borderColor}
                   onChange={(borderColor) =>
                     controller.setTooltipStyle(tooltip.id, { borderColor })
                   }
@@ -196,9 +303,10 @@ export function PopupCompositionInspector({
                   resetLabel={authoringText('Use Brand border')}
                 />
               ) : null}
-              {appearanceSection === 'weight' ? (
+              {showsAppearance('weight') ? (
                 <PropertyChoiceField
-                  hideLegend
+                  presentation={presentation}
+                  hideLegend={!compact}
                   label={authoringText('Border weight')}
                   value={popupStyle.borderWeight ?? 'theme'}
                   options={POPUP_BORDER_WEIGHT_OPTIONS}
@@ -209,10 +317,11 @@ export function PopupCompositionInspector({
                   }
                 />
               ) : null}
-              {appearanceSection === 'shadow' ? (
+              {showsAppearance('shadow') ? (
                 <PropertyChoiceField
-                  hideLegend
-                  label={authoringText('Shadow')}
+                  presentation={presentation}
+                  hideLegend={!compact}
+                  label={authoringText('Elevation')}
                   value={popupStyle.elevation ?? 'theme'}
                   options={POPUP_ELEVATION_OPTIONS}
                   onChange={(elevation) =>
@@ -223,15 +332,24 @@ export function PopupCompositionInspector({
                 />
               ) : null}
             </div>
-            <button
-              className="popup-style-reset"
-              disabled={!customized}
-              onClick={() => controller.resetTooltipStyle(tooltip.id)}
-              type="button"
-            >
-              {authoringText('Reset all to Brand')}
-            </button>
+            {/* Compact says this once, in the override banner above the rows. */}
+            {compact ? null : (
+              <button
+                className="popup-style-reset"
+                disabled={!customized}
+                onClick={() => controller.resetTooltipStyle(tooltip.id)}
+                type="button"
+              >
+                {authoringText('Reset all to Brand')}
+              </button>
+            )}
           </div>
+          {/*
+            §7.2: the audit is a publish-blocking item in Operations → Check, and
+            what belongs beside the control is a non-blocking inline warning. This
+            aside was the audit, permanently open, inside a 320px popover.
+          */}
+          {compact ? null : (
           <aside className="popup-contrast-check" aria-label={authoringText('Review and preview')}>
             <small>{authoringText('Review and preview')}</small>
             <div>
@@ -245,6 +363,7 @@ export function PopupCompositionInspector({
               <small>{authoringText('Border')}</small>
             </div>
           </aside>
+          )}
         </div>
       )}
     </section>

@@ -5,6 +5,8 @@ import {
   BlockLayoutProps,
   ButtonStyleProps,
   ExactPresentationAnchor,
+  ANCHOR_ALIGN_VALUES,
+  ANCHOR_OFFSET_PX_LIMITS,
   InlineTextRun,
   LodariqBlock,
   PresentationAnchor,
@@ -15,6 +17,8 @@ import {
   TOOLTIP_WIDTH_PX_LIMITS,
 } from './block';
 import { LodariqDocument } from './document';
+import { StepEmphasis } from './emphasis';
+import { StepTransitionCondition } from './flow';
 import { ContentLocale } from './document-localization';
 import {
   AuthoringBrandDriftCheckResult,
@@ -30,6 +34,7 @@ import {
   TargetIdentityV2,
   TargetLocale,
   TargetRequiredAction,
+  TargetSelectionPolicy,
   TargetSignalFamily,
   TargetViewportClass,
 } from './target';
@@ -74,6 +79,25 @@ export const AUTHORING_CHROME_ACTION_REQUEST_TYPE = 'authoring.chrome-action.req
 export const AUTHORING_SHELL_PRESENTATION_TYPE = 'authoring.shell.presentation' as const;
 export const AUTHORING_SHELL_STEP_COMMAND_TYPE = 'authoring.shell.step-command' as const;
 export const AUTHORING_SHELL_POPUP_SIZE_COMMIT_TYPE = 'authoring.shell.popup-size.commit' as const;
+export const AUTHORING_SHELL_SELECTION_TYPE = 'authoring.shell.selection' as const;
+/**
+ * A menu inside the frame is open. The host's own chrome always paints above the
+ * frame, so without this a dropdown opens underneath the card's resize handles.
+ */
+export const AUTHORING_SHELL_MENU_STATE_TYPE = 'authoring.shell.menu-state' as const;
+export const AUTHORING_SHELL_CAPABILITIES_TYPE = 'authoring.shell.capabilities' as const;
+export const AUTHORING_SHELL_PALETTE_OPEN_TYPE = 'authoring.shell.palette-open' as const;
+/** A transient notice the frame wants shown over the page, not inside itself. */
+export const AUTHORING_SHELL_NOTICE_TYPE = 'authoring.shell.notice' as const;
+/**
+ * Operations, as one RPC pair rather than a message per method.
+ *
+ * The frame never holds a credential, so every Operations call is made by the
+ * host and the frame only asks. A uniform pair keeps that boundary in one place
+ * instead of spreading twenty-eight message shapes across it.
+ */
+export const AUTHORING_OPERATIONS_REQUEST_TYPE = 'authoring.operations.request' as const;
+export const AUTHORING_OPERATIONS_RESULT_TYPE = 'authoring.operations.result' as const;
 export const AUTHORING_PANEL_LAYOUT_REQUEST_TYPE = 'authoring.panel-layout.request' as const;
 export const AUTHORING_SAVE_AND_EXIT_REQUEST_TYPE = 'authoring.save-and-exit.request' as const;
 export const AUTHORING_SAVE_STATE_UPDATE_TYPE = 'authoring.save-state.update' as const;
@@ -158,7 +182,24 @@ export const AuthoringChromeActionRequestMessage = Type.Object(
       Type.Literal('open-operations'),
       Type.Literal('close-operations'),
       Type.Literal('save-and-exit'),
+      /** §5 — re-author the document as a different kind of experience. */
+      Type.Literal('switch-experience'),
+      Type.Literal('toggle-recording'),
+      /** Predictive pass over the draft; the frame opens Check on the findings. */
+      Type.Literal('simulate-user'),
+      Type.Literal('canvas-zoom-in'),
+      Type.Literal('canvas-zoom-out'),
+      Type.Literal('canvas-zoom-reset'),
+      Type.Literal('restart'),
+      /** §7.5's palette. The frame anchors the ask to a step before it runs. */
+      Type.Literal('ask-lodariq'),
     ]),
+    /** Operations section to land on, when the caller asked for one by name. */
+    tab: Type.Optional(Type.String({ minLength: 1, maxLength: 64 })),
+    /** The creator's own words for `ask-lodariq`, verbatim from the palette. */
+    prompt: Type.Optional(Type.String({ minLength: 1, maxLength: 400 })),
+    /** Experience type for `switch-experience`. Validated by the frame's registry. */
+    experienceType: Type.Optional(Type.String({ minLength: 1, maxLength: 64 })),
   },
   { $id: 'AuthoringChromeActionRequestMessage', additionalProperties: false },
 );
@@ -191,8 +232,23 @@ export const AuthoringShellStepCommand = Type.Union([
   Type.Literal('select'),
   Type.Literal('collapse'),
   Type.Literal('retarget'),
+  /** The on-page ring was clicked: show §4.3's Target kind for this step. */
+  Type.Literal('select-target'),
   Type.Literal('move-up'),
   Type.Literal('move-down'),
+  /** Removal belongs where insertion is — the filmstrip is Tier 1 for both (§4.5). */
+  Type.Literal('remove'),
+  /** The lock band's `Duplicate instead`: your own copy of a held step (§15.2). */
+  Type.Literal('duplicate'),
+  /**
+   * Insert before `stepId`, from the ⊕ between two chips (§4.5). Carried as a
+   * neighbour rather than an index: an index would be read against a document
+   * the host does not own, and a stale one would insert in the wrong place.
+   */
+  Type.Literal('insert-before'),
+  /** Filmstrip multi-select: the prerequisite for `Apply to…` and batch ops (§4.5). */
+  Type.Literal('select-add'),
+  Type.Literal('select-range'),
 ]);
 export type AuthoringShellStepCommand = Static<typeof AuthoringShellStepCommand>;
 
@@ -207,21 +263,152 @@ export const AuthoringShellStepCommandMessage = Type.Object(
 );
 export type AuthoringShellStepCommandMessage = Static<typeof AuthoringShellStepCommandMessage>;
 
+/**
+ * The frame's batch selection, so the on-page filmstrip can mark it (§4.5).
+ * Step ids only: no content and no coordinates cross the bridge for this.
+ */
+export const AuthoringShellSelectionMessage = Type.Object(
+  {
+    ...BridgeEnvelope.properties,
+    type: Type.Literal(AUTHORING_SHELL_SELECTION_TYPE),
+    stepIds: Type.Array(Type.String({ minLength: 1, maxLength: 256 }), { maxItems: 500 }),
+  },
+  { $id: 'AuthoringShellSelectionMessage', additionalProperties: false },
+);
+export type AuthoringShellSelectionMessage = Static<typeof AuthoringShellSelectionMessage>;
+
+/** Whether a menu is open inside the frame. No content, only the fact. */
+export const AuthoringShellMenuStateMessage = Type.Object(
+  {
+    ...BridgeEnvelope.properties,
+    type: Type.Literal(AUTHORING_SHELL_MENU_STATE_TYPE),
+    open: Type.Boolean(),
+  },
+  { $id: 'AuthoringShellMenuStateMessage', additionalProperties: false },
+);
+export type AuthoringShellMenuStateMessage = Static<typeof AuthoringShellMenuStateMessage>;
+
+/**
+ * What this session can actually do, so host chrome can disable a control rather
+ * than offer it and fail. An assist provider is supplied per session, not per
+ * build, and only the frame holds it.
+ */
+export const AuthoringShellCapabilitiesMessage = Type.Object(
+  {
+    ...BridgeEnvelope.properties,
+    type: Type.Literal(AUTHORING_SHELL_CAPABILITIES_TYPE),
+    assist: Type.Boolean(),
+  },
+  { $id: 'AuthoringShellCapabilitiesMessage', additionalProperties: false },
+);
+export type AuthoringShellCapabilitiesMessage = Static<typeof AuthoringShellCapabilitiesMessage>;
+
+/**
+ * The creator pressed the palette chord inside the frame (§7.5).
+ *
+ * ⌘K has to mean one thing wherever the focus happens to be, and the palette is
+ * host chrome. A key pressed in the frame never reaches the host document, so the
+ * frame forwards the chord rather than answering it with a second surface.
+ */
+export const AuthoringShellPaletteOpenMessage = Type.Object(
+  {
+    ...BridgeEnvelope.properties,
+    type: Type.Literal(AUTHORING_SHELL_PALETTE_OPEN_TYPE),
+  },
+  { $id: 'AuthoringShellPaletteOpenMessage', additionalProperties: false },
+);
+export type AuthoringShellPaletteOpenMessage = Static<typeof AuthoringShellPaletteOpenMessage>;
+
+/**
+ * Creator-facing text only. It is shown verbatim, so it must already be
+ * localized and must never carry customer content.
+ */
+export const AuthoringShellNoticeMessage = Type.Object(
+  {
+    ...BridgeEnvelope.properties,
+    type: Type.Literal(AUTHORING_SHELL_NOTICE_TYPE),
+    message: Type.String({ minLength: 1, maxLength: 240 }),
+    kind: Type.Optional(
+      Type.Union([
+        Type.Literal('neutral'),
+        Type.Literal('positive'),
+        Type.Literal('warning'),
+        Type.Literal('danger'),
+      ]),
+    ),
+  },
+  { $id: 'AuthoringShellNoticeMessage', additionalProperties: false },
+);
+export type AuthoringShellNoticeMessage = Static<typeof AuthoringShellNoticeMessage>;
+
+export const AUTHORING_OPERATIONS_METHODS = [
+  'readMeasurement',
+  'updateMeasurement',
+  'readAnalytics',
+  'listSessions',
+  'readExperiment',
+  'createExperiment',
+  'updateExperiment',
+  'listComments',
+  'addComment',
+  'resolveComment',
+  'listStepLocks',
+  'claimStepLock',
+  'listApplications',
+] as const;
+export type AuthoringOperationsMethod = (typeof AUTHORING_OPERATIONS_METHODS)[number];
+
+export const AuthoringOperationsRequestMessage = Type.Object(
+  {
+    ...BridgeEnvelope.properties,
+    type: Type.Literal(AUTHORING_OPERATIONS_REQUEST_TYPE),
+    requestId: Type.String({ minLength: 1, maxLength: 128 }),
+    method: Type.Union(AUTHORING_OPERATIONS_METHODS.map((name) => Type.Literal(name))),
+    /** Method arguments, validated by the host against the route's own contract. */
+    args: Type.Optional(Type.Array(Type.Unknown(), { maxItems: 4 })),
+  },
+  { $id: 'AuthoringOperationsRequestMessage', additionalProperties: false },
+);
+export type AuthoringOperationsRequestMessage = Static<typeof AuthoringOperationsRequestMessage>;
+
+export const AuthoringOperationsResultMessage = Type.Object(
+  {
+    ...BridgeEnvelope.properties,
+    type: Type.Literal(AUTHORING_OPERATIONS_RESULT_TYPE),
+    requestId: Type.String({ minLength: 1, maxLength: 128 }),
+    result: Type.Optional(Type.Unknown()),
+    /** Creator-facing reason. Present only when the call failed. */
+    error: Type.Optional(Type.String({ minLength: 1, maxLength: 240 })),
+  },
+  { $id: 'AuthoringOperationsResultMessage', additionalProperties: false },
+);
+export type AuthoringOperationsResultMessage = Static<typeof AuthoringOperationsResultMessage>;
+
 export const AuthoringShellPopupSizeCommitMessage = Type.Object(
   {
     ...BridgeEnvelope.properties,
     type: Type.Literal(AUTHORING_SHELL_POPUP_SIZE_COMMIT_TYPE),
     blockId: Type.String({ minLength: 1, maxLength: 256 }),
-    widthPx: Type.Integer({
-      minimum: TOOLTIP_WIDTH_PX_LIMITS.min,
-      maximum: TOOLTIP_WIDTH_PX_LIMITS.max,
-      multipleOf: TOOLTIP_WIDTH_PX_LIMITS.step,
-    }),
-    heightPx: Type.Integer({
-      minimum: TOOLTIP_HEIGHT_PX_LIMITS.min,
-      maximum: TOOLTIP_HEIGHT_PX_LIMITS.max,
-      multipleOf: TOOLTIP_HEIGHT_PX_LIMITS.step,
-    }),
+    /**
+     * Each axis is present only when the dragged edge drives it: an east edge
+     * authors a width and says nothing about the height. Sending both meant a
+     * width drag also stamped a height, which the minimum then rounded up — the
+     * card grew taller for a gesture that was purely horizontal.
+     */
+    widthPx: Type.Optional(
+      Type.Integer({
+        minimum: TOOLTIP_WIDTH_PX_LIMITS.min,
+        maximum: TOOLTIP_WIDTH_PX_LIMITS.max,
+        multipleOf: TOOLTIP_WIDTH_PX_LIMITS.step,
+      }),
+    ),
+    heightPx: Type.Optional(
+      Type.Integer({
+        minimum: TOOLTIP_HEIGHT_PX_LIMITS.min,
+        maximum: TOOLTIP_HEIGHT_PX_LIMITS.max,
+        multipleOf: TOOLTIP_HEIGHT_PX_LIMITS.step,
+      }),
+    ),
   },
   { $id: 'AuthoringShellPopupSizeCommitMessage', additionalProperties: false },
 );
@@ -418,6 +605,21 @@ export const PreviewPatchOperation = Type.Union(
       { additionalProperties: false },
     ),
     Type.Object({
+      op: Type.Literal('setTeaches'),
+      /** Absent means the step teaches nothing measurable. */
+      eventName: Type.Optional(Type.String({ minLength: 1, maxLength: 64, pattern: '^[a-z][a-z0-9_]*$' })),
+    }),
+    Type.Object({
+      op: Type.Literal('setEmphasis'),
+      /** Absent clears every emphasis on the step. */
+      emphasis: Type.Optional(Type.Ref(StepEmphasis)),
+    }),
+    Type.Object({
+      op: Type.Literal('setShowWhen'),
+      /** Absent clears the rule, so the block shows unconditionally again. */
+      showWhen: Type.Optional(Type.Ref(StepTransitionCondition)),
+    }),
+    Type.Object({
       op: Type.Literal('setPlacement'),
       placement: Type.Union([
         Type.Literal('top'),
@@ -425,6 +627,21 @@ export const PreviewPatchOperation = Type.Union(
         Type.Literal('bottom'),
         Type.Literal('left'),
       ]),
+      /**
+       * Position along that side, and the gap to the target.
+       *
+       * These used to travel only on the host-side commit the compass sends, so
+       * a creator dragging a dot saw the card move and a creator setting the
+       * same two values from a menu did not — the document changed and the live
+       * card stayed put. Absent still means "leave what is already there".
+       */
+      align: Type.Optional(Type.Union(ANCHOR_ALIGN_VALUES.map((value) => Type.Literal(value)))),
+      offsetPx: Type.Optional(
+        Type.Integer({
+          minimum: ANCHOR_OFFSET_PX_LIMITS.min,
+          maximum: ANCHOR_OFFSET_PX_LIMITS.max,
+        }),
+      ),
     }),
     Type.Object(
       {
@@ -539,6 +756,7 @@ export const AUTHORING_DIAGNOSTIC_EVENT_NAMES = [
   'style.copied',
   'style.applied',
   'style.recipe-used',
+  'style.recipe-updated',
   'contrast.warning',
   'contrast.blocker',
   'readiness.finding',
@@ -548,6 +766,9 @@ export const AUTHORING_DIAGNOSTIC_EVENT_NAMES = [
   'checkpoint.restored',
   'document.exported',
   'document.imported',
+  'experience.type.changed',
+  'recording.started',
+  'recording.stopped',
 ] as const;
 
 export const AuthoringDiagnosticEventName = Type.Union(
@@ -666,6 +887,17 @@ export const AuthoringInlineControlOperation = Type.Union(
           Type.Literal('bottom'),
           Type.Literal('left'),
         ]),
+        /** Position along that side, set by the compass dot the creator chose. */
+        align: Type.Optional(
+          Type.Union(ANCHOR_ALIGN_VALUES.map((value) => Type.Literal(value))),
+        ),
+        /** Gap between target and card, set by dragging the dot outward. */
+        offsetPx: Type.Optional(
+          Type.Integer({
+            minimum: ANCHOR_OFFSET_PX_LIMITS.min,
+            maximum: ANCHOR_OFFSET_PX_LIMITS.max,
+          }),
+        ),
       },
       { additionalProperties: false },
     ),
@@ -1360,6 +1592,8 @@ const ExistingBridgeMessage = Type.Intersect([
       blockId: Type.String(),
       fingerprint: ElementFingerprint,
       identity: Type.Optional(Type.Ref(TargetIdentityV2)),
+      /** Author's answer to the disambiguation question, when one was asked. */
+      selection: Type.Optional(Type.Ref(TargetSelectionPolicy)),
       captureCorrelationId: Type.Optional(Type.String()),
     }),
     Type.Object({
@@ -1434,6 +1668,13 @@ type BridgeMessageSchema =
   | typeof AuthoringShellPresentationMessage
   | typeof AuthoringShellStepCommandMessage
   | typeof AuthoringShellPopupSizeCommitMessage
+  | typeof AuthoringShellSelectionMessage
+  | typeof AuthoringShellMenuStateMessage
+  | typeof AuthoringShellCapabilitiesMessage
+  | typeof AuthoringShellPaletteOpenMessage
+  | typeof AuthoringShellNoticeMessage
+  | typeof AuthoringOperationsRequestMessage
+  | typeof AuthoringOperationsResultMessage
   | typeof AuthoringPanelLayoutRequestMessage
   | typeof AuthoringSaveAndExitRequestMessage
   | typeof AuthoringSaveStateUpdateMessage
@@ -1483,6 +1724,13 @@ const BRIDGE_MESSAGE_SCHEMAS: BridgeMessageSchema[] = [
   AuthoringShellPresentationMessage,
   AuthoringShellStepCommandMessage,
   AuthoringShellPopupSizeCommitMessage,
+  AuthoringShellSelectionMessage,
+  AuthoringShellMenuStateMessage,
+  AuthoringShellCapabilitiesMessage,
+  AuthoringShellPaletteOpenMessage,
+  AuthoringShellNoticeMessage,
+  AuthoringOperationsRequestMessage,
+  AuthoringOperationsResultMessage,
   AuthoringPanelLayoutRequestMessage,
   AuthoringSaveAndExitRequestMessage,
   AuthoringSaveStateUpdateMessage,

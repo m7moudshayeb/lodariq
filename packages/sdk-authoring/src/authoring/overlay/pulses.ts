@@ -40,6 +40,36 @@ export function createPulseLayer(doc: Document): HTMLElement {
   return layer;
 }
 
+/**
+ * Where the numbered badge sits for a target rect.
+ *
+ * The target's top-left corner, not its centre: centred, the badge covers the
+ * label of the customer's own control, which is the one thing the creator is
+ * looking at while deciding whether that is the right target.
+ */
+export function pulseAnchor(rect: {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+}): { left: number; top: number } {
+  return { left: rect.left, top: rect.top };
+}
+
+function rectCoveredByCard(
+  rect: { left: number; top: number; width: number; height: number },
+  card: { left: number; top: number; width: number; height: number } | null | undefined,
+): boolean {
+  if (!card || card.width <= 0 || card.height <= 0) return false;
+  const anchor = pulseAnchor(rect);
+  return (
+    anchor.left >= card.left &&
+    anchor.left <= card.left + card.width &&
+    anchor.top >= card.top &&
+    anchor.top <= card.top + card.height
+  );
+}
+
 export function syncPulses(
   layer: HTMLElement,
   options: {
@@ -48,6 +78,15 @@ export function syncPulses(
     hideActive: boolean;
     onSelect: (stepId: string) => void;
     root?: ParentNode;
+    /**
+     * The card. A pulse marks another step's target, and when that target is
+     * underneath the card the numbered badge lands on the card's own copy — the
+     * §3.4 rule 1 overlap. Those steps are still reachable from the filmstrip, so
+     * withholding the badge costs nothing.
+     */
+    card?: { left: number; top: number; width: number; height: number } | null;
+    /** Steps another creator is holding (§15.2): presence, not status. */
+    peerStepIds?: ReadonlySet<string>;
   },
 ): void {
   const doc = layer.ownerDocument;
@@ -68,6 +107,7 @@ export function syncPulses(
     if (!element || !('getBoundingClientRect' in element)) continue;
     const rect = element.getBoundingClientRect();
     if (!rectIntersectsViewport(rect, viewport)) continue;
+    if (rectCoveredByCard(rect, options.card)) continue;
     nextIds.add(step.id);
     let pulse = layer.querySelector<HTMLButtonElement>(`[data-pulse-step="${step.id}"]`);
     if (!pulse) {
@@ -83,11 +123,13 @@ export function syncPulses(
       });
       layer.appendChild(pulse);
     }
+    pulse.dataset['peer'] = options.peerStepIds?.has(step.id) ? 'true' : 'false';
     const number = typeof step.props.index === 'number' ? step.props.index + 1 : index + 1;
     pulse.textContent = String(number);
     pulse.setAttribute('aria-label', authoringText('Edit step {number}', { number }));
-    pulse.style.left = `${rect.left + rect.width / 2}px`;
-    pulse.style.top = `${rect.top + rect.height / 2}px`;
+    const anchor = pulseAnchor(rect);
+    pulse.style.left = `${anchor.left}px`;
+    pulse.style.top = `${anchor.top}px`;
   }
   for (const pulse of [...layer.querySelectorAll<HTMLElement>('[data-pulse-step]')]) {
     const stepId = pulse.dataset['pulseStep'];

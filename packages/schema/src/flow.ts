@@ -104,3 +104,10 @@ export function sanitizeStepTransition(value: unknown): StepTransition | undefin
   }
   return structuredClone(value as StepTransition);
 }
+
+export function sanitizeStepTransitionCondition(
+  value: unknown,
+): StepTransitionCondition | undefined {
+  if (!Value.Check(StepTransitionCondition, [], value)) return undefined;
+  return structuredClone(value as StepTransitionCondition);
+}

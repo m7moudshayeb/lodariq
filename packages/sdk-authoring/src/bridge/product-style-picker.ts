@@ -1,6 +1,7 @@
 import { createNonceStyleElement } from '@lodariq/schema/dom';
 import { normalizeTargetElement } from './fingerprint';
 import { applyAuthoringLocale, authoringText } from '../i18n';
+import { AUTHORING_TYPOGRAPHY_CSS_PROPERTIES } from '../creator-chrome-tokens';
 
 const STYLE_PICKER_LAYER = 2_147_483_644;
 
@@ -32,6 +33,7 @@ export function startProductStylePicker(options: ProductStylePickerOptions): Pro
       box-shadow: 0 0 0 3px color-mix(in srgb, #5b5cf0 20%, transparent);
     }
     [data-lodariq-style-picker-hint] {
+      ${AUTHORING_TYPOGRAPHY_CSS_PROPERTIES}
       position: fixed;
       inset: 16px auto auto 50%;
       transform: translateX(-50%);
@@ -44,7 +46,7 @@ export function startProductStylePicker(options: ProductStylePickerOptions): Pro
       background: rgba(24,24,31,.82);
       box-shadow: 0 10px 30px rgba(15,23,42,.24);
       backdrop-filter: blur(14px);
-      font: 600 12px/1.2 system-ui, sans-serif;
+      font: var(--lq-weight-semibold) var(--lq-font-sm)/1.2 system-ui, sans-serif;
     }
   `;
   outline.setAttribute('data-lodariq-style-picker-outline', '');

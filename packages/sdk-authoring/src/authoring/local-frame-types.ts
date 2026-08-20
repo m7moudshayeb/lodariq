@@ -1,3 +1,6 @@
+import type { AiAssistProposal, AiAssistRequest } from './ai/assist-contract';
+import type { NarrationVoice } from './narration/narration-model';
+import type { AuthoringOperationsServices } from './operations/operations-services';
 import {
   AUTHORING_STAGING_RELEASE_STATES,
   type AuthoringReleaseFinding,
@@ -268,6 +271,12 @@ export interface LocalAuthoringFrameServices {
   publishToStaging?: (
     request: AuthoringStagingPublicationRequest,
   ) => Promise<AuthoringStagingPublicationResult>;
+  /**
+   * The Operations boundary (§4.7). Absent in local preview, which makes the
+   * measurement, experiment and collaboration sections read-only rather than
+   * half-working. Implementations own HTTP and the session bearer.
+   */
+  operations?: AuthoringOperationsServices;
   /** Optional Slice 3 authoring-only Brand source and product-matching boundary. */
   getBrandWorkflowState?: () => Promise<AuthoringBrandWorkspaceState>;
   /**
@@ -275,6 +284,17 @@ export interface LocalAuthoringFrameServices {
    * interaction and returns only a privacy-safe semantic proposal.
    */
   sampleBrandStyle?: (request: AuthoringBrandMatchRequest) => Promise<AuthoringBrandMatchProposal>;
+  /**
+   * The AI assist seam (§7.4–§7.6). Returns a *proposal*; the frame decides
+   * whether it is ever applied. Absent in unauthenticated sessions, which makes
+   * the whole assist surface unavailable rather than half-working.
+   */
+  requestAiAssist?: (request: AiAssistRequest) => Promise<AiAssistProposal>;
+  /**
+   * Voices this session may offer for narration (§7.7). Generation and playback
+   * stay out of the frame until audio can live inside the immutable artifact.
+   */
+  narrationVoices?: readonly NarrationVoice[];
   /** Converts a drift proposal into the existing Product Match review model without adopting it. */
   prepareBrandMatchProposal?: (proposal: ProductStyleProposal) => AuthoringBrandMatchProposal;
   /** Authenticated detection appends only an immutable bounded report. */

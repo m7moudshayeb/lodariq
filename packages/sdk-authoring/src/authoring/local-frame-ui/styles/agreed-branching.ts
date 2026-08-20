@@ -115,7 +115,7 @@ export const AUTHORING_AGREED_BRANCHING_CSS = `
     place-items: center;
     border-radius: 999px;
     background: #eef2f1;
-    font-size: var(--lq-font-2xs);
+    font-size: 8px;
   }
 
   .transition-rule-tabs button[aria-current='page'] {
@@ -157,13 +157,13 @@ export const AUTHORING_AGREED_BRANCHING_CSS = `
 
   .transition-rule > legend small {
     color: var(--lq-color-muted);
-    font-size: var(--lq-font-2xs);
+    font-size: 8px;
   }
 
   .transition-rule-prompt {
     margin: var(--lq-space-1) 0 0;
     color: var(--lq-color-muted);
-    font-size: var(--lq-font-2xs);
+    font-size: 8px;
     font-weight: var(--lq-weight-semibold);
   }
 

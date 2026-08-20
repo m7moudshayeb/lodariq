@@ -120,7 +120,11 @@ describe('local authoring panel (PRD §16.1)', () => {
     expect(host?.shadowRoot?.querySelector('.overlay-filmstrip')).not.toBeNull();
     expect(host?.shadowRoot?.querySelector<HTMLElement>('.overlay-filmstrip')?.hidden).toBe(false);
     expect(host?.shadowRoot?.querySelector('[data-filmstrip-add-step]')).not.toBeNull();
-    expect(host?.shadowRoot?.querySelector('[data-filmstrip-operations]')).not.toBeNull();
+    // Operations and Close are document-scoped, so they live in the mode pill's menu.
+    expect(host?.shadowRoot?.querySelector('[data-filmstrip-operations]')).toBeNull();
+    expect(host?.shadowRoot?.querySelector('.overlay-mode-pill')).not.toBeNull();
+    expect(host?.shadowRoot?.querySelector('[data-pill-operations]')).not.toBeNull();
+    expect(host?.shadowRoot?.querySelector('[data-pill-mode="browsing"]')).not.toBeNull();
     expect(host?.shadowRoot?.querySelector('.save-state')).toBeNull();
     expect(host?.shadowRoot?.querySelector('[data-panel-save-state-label]')).toBeNull();
     expect(
@@ -155,7 +159,7 @@ describe('local authoring panel (PRD §16.1)', () => {
     );
     const host = document.querySelector<HTMLElement>('lodariq-authoring-panel');
     if (!host) throw new Error('authoring panel missing');
-    expect(host.shadowRoot?.querySelector('[data-filmstrip-operations]')).not.toBeNull();
+    expect(host.shadowRoot?.querySelector('[data-pill-operations]')).not.toBeNull();
     expect(host.shadowRoot?.querySelector('[data-filmstrip-add-step]')).not.toBeNull();
     expect(host.shadowRoot?.querySelector('[data-panel-action="zoom"]')).toBeNull();
     expect(host.shadowRoot?.querySelector('[data-panel-action="layout"]')).toBeNull();
@@ -304,7 +308,7 @@ describe('local authoring panel (PRD §16.1)', () => {
     expect(controller.getSnapshot().status).toBe('Translated 3 items to fr');
   });
 
-  it('opens operations from the filmstrip without publishing', () => {
+  it('opens operations from the mode pill without publishing', () => {
     const peer = { postMessage: vi.fn() } as unknown as Window;
     const panel = openLocalAuthoringPanel(
       {
@@ -318,7 +322,7 @@ describe('local authoring panel (PRD §16.1)', () => {
     const host = document.querySelector<HTMLElement>('lodariq-authoring-panel');
     const iframe = host?.querySelector('iframe');
     const operations = host?.shadowRoot?.querySelector<HTMLButtonElement>(
-      '[data-filmstrip-operations]',
+      '[data-pill-operations]',
     );
     if (!host || !iframe || !operations) throw new Error('authoring overlay missing');
     Object.defineProperty(iframe, 'contentWindow', { value: peer, configurable: true });

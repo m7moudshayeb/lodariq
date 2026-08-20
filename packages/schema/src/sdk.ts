@@ -154,8 +154,24 @@ export const AuthoringSessionCapabilitySet = Type.Array(AuthoringSessionCapabili
 });
 export type AuthoringSessionCapabilitySet = Static<typeof AuthoringSessionCapabilitySet>;
 
+/**
+ * Why authoring is unavailable, as a closed set (§14.4). A dead end that explains
+ * itself converts; a bare `disabled` churns. The reason is an enum rather than a
+ * message so no server text crosses the boundary and the SDK owns the wording.
+ */
+export const AUTHORING_DISABLED_REASONS = ['production_environment', 'not_enabled'] as const;
+export const AuthoringDisabledReason = Type.Union(
+  AUTHORING_DISABLED_REASONS.map((value) => Type.Literal(value)),
+  { $id: 'AuthoringDisabledReason' },
+);
+export type AuthoringDisabledReason = Static<typeof AuthoringDisabledReason>;
+
 export const DisabledAuthoringActivationDescriptor = Type.Object(
-  { state: Type.Literal('disabled') },
+  {
+    state: Type.Literal('disabled'),
+    /** Optional so a pre-existing payload stays valid. */
+    reason: Type.Optional(Type.Ref(AuthoringDisabledReason)),
+  },
   { $id: 'DisabledAuthoringActivationDescriptor', additionalProperties: false },
 );
 export type DisabledAuthoringActivationDescriptor = Static<
@@ -997,3 +1013,77 @@ export const SdkInstallContext = Type.Object(
   { $id: 'SdkInstallContext', additionalProperties: false },
 );
 export type SdkInstallContext = Static<typeof SdkInstallContext>;
+
+/**
+ * The pre-flight an installed page reads before it will talk to the control
+ * plane at all (ADR-0027).
+ *
+ * The bootstrap POST cannot be cached — it is a POST, it carries page intent,
+ * and it can mint a short-lived authoring grant. That makes it the wrong shape
+ * for the question almost every page view actually asks, which is "is there
+ * anything here for me?". The digest answers exactly that question with a
+ * cacheable GET, so a visitor clicking through twenty pages of an application
+ * that has one tour on one screen makes one network request, not twenty.
+ *
+ * It is deliberately not a security boundary. Everything in it is already
+ * visible to anyone reading the installed page, and a page that fails to fetch
+ * it proceeds to the bootstrap exactly as before.
+ */
+export const SDK_ELIGIBILITY_DIGEST_SCHEMA_VERSION = '1';
+
+export const SdkEligibilityPagePattern = Type.Object(
+  {
+    pattern: Type.String({ minLength: 1, maxLength: 2_048 }),
+    mode: Type.Union([Type.Literal('exact'), Type.Literal('prefix'), Type.Literal('contains')]),
+  },
+  { $id: 'SdkEligibilityPagePattern', additionalProperties: false },
+);
+export type SdkEligibilityPagePattern = Static<typeof SdkEligibilityPagePattern>;
+
+/**
+ * `none` — nothing is published, so no page is eligible.
+ * `all` — at least one active experience can fire anywhere, so every page is.
+ * `patterns` — only pages matching one of these are eligible.
+ */
+export const SdkEligibilityScope = Type.Union(
+  [
+    Type.Object({ kind: Type.Literal('none') }, { additionalProperties: false }),
+    Type.Object({ kind: Type.Literal('all') }, { additionalProperties: false }),
+    Type.Object(
+      {
+        kind: Type.Literal('patterns'),
+        patterns: Type.Array(SdkEligibilityPagePattern, {
+          minItems: 1,
+          maxItems: MAX_ACTIVE_DOCUMENT_MANIFESTS,
+        }),
+      },
+      { additionalProperties: false },
+    ),
+  ],
+  { $id: 'SdkEligibilityScope' },
+);
+export type SdkEligibilityScope = Static<typeof SdkEligibilityScope>;
+
+export const SdkEligibilityDigest = Type.Object(
+  {
+    schemaVersion: Type.Literal(SDK_ELIGIBILITY_DIGEST_SCHEMA_VERSION),
+    installationId: PublicSdkInstallationId,
+    /**
+     * The kill switch. `false` stops the SDK before it loads any further
+     * module, so a customer whose page is misbehaving can turn Lodariq off from
+     * the dashboard without shipping a deploy or editing their markup.
+     */
+    enabled: Type.Boolean(),
+    scope: SdkEligibilityScope,
+  },
+  { $id: 'SdkEligibilityDigest', additionalProperties: false },
+);
+export type SdkEligibilityDigest = Static<typeof SdkEligibilityDigest>;
+
+/**
+ * How long a visitor may reuse a cached digest, and how long an edge may serve
+ * a stale one while revalidating. The freshness window is also the worst-case
+ * delay on the kill switch, which is why it is minutes rather than hours.
+ */
+export const SDK_ELIGIBILITY_DIGEST_MAX_AGE_SECONDS = 300;
+export const SDK_ELIGIBILITY_DIGEST_STALE_WHILE_REVALIDATE_SECONDS = 86_400;

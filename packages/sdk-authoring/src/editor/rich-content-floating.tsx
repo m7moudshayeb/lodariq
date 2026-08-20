@@ -33,18 +33,6 @@ export function readViewportRect(element: Element): DOMRect {
   return scaleRectForCssZoom(element.getBoundingClientRect(), cssZoomCompensation(element));
 }
 
-export function readRangeViewportRect(
-  range: { getBoundingClientRect?: () => DOMRect },
-  contextElement: Element,
-): DOMRect {
-  const rect = range.getBoundingClientRect?.();
-  const fallback = readViewportRect(contextElement);
-  if (!rect || (rect.width <= 0 && rect.height <= 0)) {
-    return new DOMRect(fallback.left, fallback.top, Math.max(fallback.width, 1), 1);
-  }
-  return scaleRectForCssZoom(rect, cssZoomCompensation(contextElement));
-}
-
 function cssZoomCompensation(element: Element): number {
   const zoom = accumulatedCssZoom(element);
   if (zoom === 1 || !(element instanceof HTMLElement) || element.offsetWidth === 0) return 1;
@@ -106,6 +94,16 @@ export function RichContentFloatingMenu({
     const overflowOptions = collisionBoundary
       ? { boundary: collisionBoundary, padding: FLOATING_BOUNDARY_PADDING_PX }
       : { padding: FLOATING_BOUNDARY_PADDING_PX };
+    /**
+     * `bestFit` deliberately, even though it can put a menu over the authored card.
+     *
+     * Pinning menus to the side away from the card was tried and is wrong here:
+     * the toolbar sits flush against the frame edge, so "away from the card" is a
+     * 12px gap and the menu collapsed to a sliver. A transient popover that
+     * dismisses on outside click may cover the card; §3.4 rule 1 is about the
+     * persistent surfaces. What it may never do is get cut off, which is what the
+     * frame growth and `size` below are for.
+     */
     const update = (): void => {
       void computePosition(reference, floating, {
         middleware: [

@@ -65,6 +65,13 @@ export function AuthoringCanvas({
           tabIndex={-1}
         >
           <div className="document-page">
+            {/*
+              No workspace footer here, unlike every other panel mode. The sheet
+              is a place you go *from* the canvas and come back to it — Close is
+              top-right and Esc works — so a Save & exit / Preview bar under it
+              offers a second, different way out of a surface you have not
+              finished with. The prototype's sheet has none for the same reason.
+            */}
             <div className="panel-reference-workspace panel-mode-workspace">
               <OperationsHub
                 controller={controller}
@@ -72,7 +79,6 @@ export function AuthoringCanvas({
                 step={activeStep}
                 steps={tourSteps}
               />
-              <PanelWorkspaceFooter controller={controller} snapshot={snapshot} step={activeStep} />
             </div>
           </div>
         </section>

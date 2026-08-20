@@ -357,13 +357,13 @@ export const AUTHORING_STORYBOARD_PROPERTY_CSS = `
   }
 
   .panel-more-actions-menu strong {
-    font-size: 12px;
+    font-size: var(--lq-font-sm);
     line-height: 1.2;
   }
 
   .panel-more-actions-menu small {
     color: #667085;
-    font-size: 10px;
+    font-size: var(--lq-font-xs);
     line-height: 1.3;
   }
 

@@ -71,56 +71,86 @@ export function rectIntersectsViewport(
   rect: Readonly<{ left: number; top: number; right: number; bottom: number }>,
   viewport: Readonly<{ width: number; height: number }>,
 ): boolean {
-  return rect.right > 0 && rect.bottom > 0 && rect.left < viewport.width && rect.top < viewport.height;
+  return (
+    rect.right > 0 && rect.bottom > 0 && rect.left < viewport.width && rect.top < viewport.height
+  );
+}
+
+/** Which axes the dragged edge actually moved. `e` drives width and nothing else. */
+export interface EdgeResizeAxes {
+  readonly width: boolean;
+  readonly height: boolean;
 }
 
 export interface AttachEdgeResizeOptions {
   getSize: () => { width: number; height: number };
   heightMode?: 'both' | 'width-only';
   heightLimits?: EdgeResizeLimits;
-  onCommit: (size: { width: number; height: number }) => void;
+  onCommit: (size: { width: number; height: number }, axes: EdgeResizeAxes) => void;
   onDraft?: (size: { width: number; height: number }) => void;
   widthLimits: EdgeResizeLimits;
 }
 
-export function attachEdgeResize(
-  frame: HTMLElement,
-  options: AttachEdgeResizeOptions,
-): () => void {
+export function attachEdgeResize(frame: HTMLElement, options: AttachEdgeResizeOptions): () => void {
   const handles = [...frame.querySelectorAll<HTMLElement>('[data-edge-resize]')];
   const cleanups: Array<() => void> = [];
   for (const handle of handles) {
     const edge = handle.dataset['edgeResize'];
     if (!isEdgeResizeEdge(edge)) continue;
+    const axes: EdgeResizeAxes = {
+      width: EDGE_RESIZE_HORIZONTAL_DIRECTION[edge] !== 0,
+      height: EDGE_RESIZE_VERTICAL_DIRECTION[edge] !== 0 && options.heightMode !== 'width-only',
+    };
     const onPointerDown = (event: PointerEvent): void => {
       if (event.button !== 0) return;
       event.preventDefault();
       event.stopPropagation();
       const startSize = options.getSize();
       const start = { ...startSize, x: event.clientX, y: event.clientY };
-      const ownerWindow = frame.ownerDocument.defaultView ?? window;
+      /**
+       * Capture the pointer on the handle, and listen on the handle.
+       *
+       * Window listeners are enough only while the pointer stays in the same
+       * document. The overlay's card renders inside an iframe that covers the area
+       * the creator drags across, and pointer events do not cross that boundary —
+       * so the first move inward went to the iframe, the top window saw no
+       * `pointermove` and no `pointerup`, and the drag died silently with the card
+       * still at its original size. Capture retargets every event for this pointer
+       * back here regardless of what it travels over.
+       */
+      handle.setPointerCapture(event.pointerId);
       frame.dataset['resizing'] = 'true';
       const apply = (clientX: number, clientY: number): { width: number; height: number } => {
         const next = resizedSize(edge, start, { x: clientX, y: clientY });
         if (options.heightMode === 'width-only') next.height = startSize.height;
-        return options.heightLimits
+        const sized = options.heightLimits
           ? clampSnappedSize(next, options.widthLimits, options.heightLimits)
           : { width: clampSnappedWidth(next.width, options.widthLimits), height: next.height };
+        /*
+         * An axis the edge does not drive keeps the size it started at, unsnapped
+         * and unclamped. Passing it through the clamp rounded a card drawn at its
+         * content height up to the authored minimum, so dragging the width alone
+         * made the card taller.
+         */
+        return {
+          width: axes.width ? sized.width : startSize.width,
+          height: axes.height ? sized.height : startSize.height,
+        };
       };
       const onMove = (moveEvent: PointerEvent): void => {
         moveEvent.preventDefault();
         options.onDraft?.(apply(moveEvent.clientX, moveEvent.clientY));
       };
       const onUp = (upEvent: PointerEvent): void => {
-        ownerWindow.removeEventListener('pointermove', onMove, true);
-        ownerWindow.removeEventListener('pointerup', onUp, true);
-        ownerWindow.removeEventListener('pointercancel', onUp, true);
+        handle.removeEventListener('pointermove', onMove);
+        handle.removeEventListener('pointerup', onUp);
+        handle.removeEventListener('pointercancel', onUp);
         delete frame.dataset['resizing'];
-        options.onCommit(apply(upEvent.clientX, upEvent.clientY));
+        options.onCommit(apply(upEvent.clientX, upEvent.clientY), axes);
       };
-      ownerWindow.addEventListener('pointermove', onMove, true);
-      ownerWindow.addEventListener('pointerup', onUp, true);
-      ownerWindow.addEventListener('pointercancel', onUp, true);
+      handle.addEventListener('pointermove', onMove);
+      handle.addEventListener('pointerup', onUp);
+      handle.addEventListener('pointercancel', onUp);
     };
     handle.addEventListener('pointerdown', onPointerDown);
     cleanups.push(() => handle.removeEventListener('pointerdown', onPointerDown));
@@ -128,6 +158,26 @@ export function attachEdgeResize(
   return () => {
     for (const cleanup of cleanups) cleanup();
   };
+}
+
+/**
+ * Hold a resize drag to the handle that started it.
+ *
+ * The card renders inside an iframe sized to the card, so a drag outward crosses
+ * that boundary within a few pixels: the frame's window stops seeing
+ * `pointermove` and never sees `pointerup`, so the gesture freezes, then
+ * resumes — still stuck to the cursor — the moment the pointer wanders back in.
+ * Capture retargets every event for this pointer to the handle whatever it
+ * travels over, and the browser releases it on `pointerup` itself.
+ */
+export function capturePointerForResize(handle: Element, pointerId: number): void {
+  /* A pointer that is already gone (a synthesised or replayed event) cannot be
+   * captured; the drag is still worth starting for the in-frame case. */
+  try {
+    handle.setPointerCapture(pointerId);
+  } catch {
+    /* no capture available — window listeners still cover the in-frame drag */
+  }
 }
 
 function isEdgeResizeEdge(value: string | undefined): value is EdgeResizeEdge {

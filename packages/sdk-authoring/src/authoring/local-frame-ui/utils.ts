@@ -17,6 +17,7 @@ import {
   type TargetInspectionState,
 } from './types';
 import { authoringText } from '../../i18n';
+import { targetVerificationPresentation } from '../target-verification';
 
 const EDITABLE_BLOCK_TYPE_SET = new Set<string>(EDITABLE_BLOCK_TYPES);
 const STEP_CONTENT_COMMAND_SET = new Set<string>(STEP_CONTENT_COMMANDS);
@@ -187,18 +188,24 @@ export function propertyChipLabels(block: LodariqBlock): string[] {
   ].filter(isPresent);
 }
 
+/**
+ * One diagnostic, one of the creator's three states (§4.4).
+ *
+ * `needs_review` without drift is `Needs context`, not a failure: the resolver
+ * has not confirmed it *here*, which is not the same as failing to find it.
+ */
 export function targetHealthTitle(
   diagnosticOrState: ResolverDiagnostic | ResolverDiagnostic['state'],
 ): string {
   const state = typeof diagnosticOrState === 'string' ? diagnosticOrState : diagnosticOrState.state;
-  if (state === 'found') return authoringText('Verified');
+  if (state === 'found') return targetVerificationPresentation('verified').label;
   if (state === 'needs_review') {
     return targetDiagnosticIsDrift(diagnosticOrState)
-      ? authoringText('Drift detected')
-      : authoringText('Needs verification');
+      ? targetVerificationPresentation('drifted').label
+      : targetVerificationPresentation('unverified').label;
   }
-  if (state === 'ambiguous') return authoringText('Ambiguous');
-  return authoringText('Missing');
+  if (state === 'ambiguous') return targetVerificationPresentation('ambiguous').label;
+  return targetVerificationPresentation('missing').label;
 }
 
 export function targetHealthDetails(inspection: TargetInspectionState): string {

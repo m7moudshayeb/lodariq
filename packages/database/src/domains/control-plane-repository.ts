@@ -1,3 +1,4 @@
+import type { ExperienceMeasurementRepository } from './experience-measurement-repository';
 import type {
   AnalyticsEventAggregate,
   QueryAuthoringDocumentsResult,
@@ -51,6 +52,7 @@ import type {
   PublicSdkInstallationWithOrigins,
   ResolvedAuthoringAuthorizationForUser,
   ResolvedPublicSdkInstallation,
+  SetPublicSdkInstallationSuspensionInput,
 } from './sdk-authoring';
 import type {
   CreatePublicationVerificationInput,
@@ -109,6 +111,7 @@ import type {
 
 export interface ControlPlaneRepository
   extends
+    ExperienceMeasurementRepository,
     IdentityRepository,
     TenantAdministrationRepository,
     AccountManagementRepository,
@@ -270,6 +273,9 @@ export interface ControlPlaneRepository
     workspaceId: string,
     installationId: string,
     actorUserId: string,
+  ): Promise<PublicSdkInstallationRecord | null>;
+  setPublicSdkInstallationSuspension(
+    input: SetPublicSdkInstallationSuspensionInput,
   ): Promise<PublicSdkInstallationRecord | null>;
   createPublicSdkBootstrapGrant(
     input: CreatePublicSdkBootstrapGrantInput,

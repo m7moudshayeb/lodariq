@@ -58,6 +58,35 @@ async function openPanelOperations(
   await vi.waitFor(() => expect(document.querySelector('.operations-hub')).not.toBeNull());
 }
 
+/**
+ * Release opened from the canvas, which is a panel mode of its own and still
+ * carries the workspace footer. The Operations sheet deliberately has none, so
+ * anything asserting the footer's release chip has to start here.
+ */
+async function openPanelRelease(
+  peer: Window = window,
+  documentId: string = (tourFixture as LodariqDocument).id,
+  sessionId: string = LOCAL_AUTHORING_SESSION_ID,
+): Promise<void> {
+  window.dispatchEvent(
+    new MessageEvent('message', {
+      origin: window.location.origin,
+      source: peer,
+      data: {
+        protocol: BRIDGE_PROTOCOL_VERSION,
+        sessionId,
+        documentId,
+        correlationId: `open_release_${Date.now()}`,
+        type: AUTHORING_CHROME_ACTION_REQUEST_TYPE,
+        action: 'open-release',
+      },
+    }),
+  );
+  await vi.waitFor(() =>
+    expect(document.querySelector('.panel-workspace-footer')).not.toBeNull(),
+  );
+}
+
 function documentJson(): HTMLTextAreaElement {
   return document.querySelector<HTMLTextAreaElement>('textarea[aria-label="Editable backup"]')!;
 }
@@ -113,10 +142,14 @@ async function chooseDesignedSelect(ariaLabel: string, optionLabel: string): Pro
 }
 
 function panelModeView(): HTMLElement | null {
+  /* A panel mode is the section behind its back button; the Operations sheet has
+     no back button, because Close is its way out. */
   return (
     document
       .querySelector<HTMLButtonElement>('button[aria-label="Back to authoring"]')
-      ?.closest<HTMLElement>('section') ?? null
+      ?.closest<HTMLElement>('section') ??
+    document.querySelector<HTMLElement>('.operations-hub-body') ??
+    null
   );
 }
 
@@ -385,8 +418,10 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     expect(document.querySelector('.panel-workspace-footer')).toBeNull();
 
     await openPanelOperations();
-    expect(document.querySelector('button[aria-label="More experience actions"]')).toBeTruthy();
-    expect(buttonWithText('Release options')).not.toBeNull();
+    /* The sheet is the whole surface: no workspace footer, Close instead. */
+    expect(document.querySelector('.panel-workspace-footer')).toBeNull();
+    expect(document.querySelector('.operations-hub-close')).not.toBeNull();
+    expect(document.querySelector('[data-operations-tab="release"]')).not.toBeNull();
 
     window.history.replaceState(null, '', '/');
   });
@@ -416,7 +451,7 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     await vi.waitFor(() =>
       expect(document.querySelector('.tour-flow-map-workspace')).not.toBeNull(),
     );
-    document.querySelector<HTMLButtonElement>('button[aria-label="Back to authoring"]')?.click();
+    document.querySelector<HTMLButtonElement>('.operations-hub-close')?.click();
     await vi.waitFor(() => expect(document.querySelector('.overlay-step-shell')).not.toBeNull());
 
     window.history.replaceState(null, '', '/');
@@ -527,11 +562,14 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     expect(document.head.querySelector('style')?.textContent).toMatch(
       /\.tour-review-main \{[\s\S]*?overflow-y:\s*auto/,
     );
-    buttonWithText('Edit details')?.click();
-    await vi.waitFor(() =>
-      expect(document.querySelector('.panel-advanced-main .inspector')).not.toBeNull(),
-    );
-    expect(document.querySelector('.panel-advanced-main .inspector')).not.toBeNull();
+    /* "Edit details" is gone. It opened the review-and-preview aside, not the
+       step settings its label promised — preview is on the toolbar, the issue
+       list is Check, and the support package is one of Advanced's links. Review
+       keeps only the three flow-level settings. */
+    expect(buttonWithText('Edit details')).toBeNull();
+    expect(
+      [...document.querySelectorAll('.tour-review-row strong')].map((node) => node.textContent),
+    ).toEqual(['Accessibility preview', 'Draft checkpoints', 'Completion behavior']);
     const back = buttonWithText('Back to editor');
     expect(back?.querySelector('svg')).not.toBeNull();
     expect(back?.textContent?.trim()).toBe('Back to editor');
@@ -558,7 +596,7 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
       targetOrigin: window.location.origin,
     });
 
-    await openPanelOperations(peer, (tourFixture as LodariqDocument).id, 'session_release_local');
+    await openPanelRelease(peer, (tourFixture as LodariqDocument).id, 'session_release_local');
     const releaseFooter = document.querySelector<HTMLElement>('[aria-label="Release status"]');
     expect(releaseFooter?.dataset['releaseStatus']).toBe('unavailable');
     // Release actions sit beside the status chip, not inside it.
@@ -661,7 +699,7 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
       targetOrigin: window.location.origin,
     });
 
-    await openPanelOperations(peer, (tourFixture as LodariqDocument).id, 'session_release_hosted');
+    await openPanelRelease(peer, (tourFixture as LodariqDocument).id, 'session_release_hosted');
     await vi.waitFor(() =>
       expect(
         document.querySelector<HTMLElement>('[aria-label="Release status"]')?.dataset[
@@ -728,7 +766,7 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
       targetOrigin: window.location.origin,
     });
 
-    await openPanelOperations(peer, (tourFixture as LodariqDocument).id, 'session_release_blocked');
+    await openPanelRelease(peer, (tourFixture as LodariqDocument).id, 'session_release_blocked');
     await vi.waitFor(() =>
       expect(
         document.querySelector<HTMLElement>('[aria-label="Release status"]')?.dataset[
@@ -814,8 +852,12 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     await flushPreviewPatchQueue();
 
     expect(document.querySelector('.storyboard-tool-dock')).toBeNull();
-    expect(document.querySelector('.overlay-choose-target')).not.toBeNull();
-    expect(document.querySelector('.overlay-choose-target')?.textContent).toContain('Choose target');
+    // §4.2a: a glyph on the bar, worded in its label. The labelled pill took a
+    // third of a 420px toolbar and pushed the step's own controls out of the
+    // contextual middle, so the words live where a screen reader still reads them.
+    const chooseTarget = document.querySelector('.overlay-choose-target');
+    expect(chooseTarget).not.toBeNull();
+    expect(chooseTarget?.getAttribute('aria-label')).toBe('Choose target');
   });
 
   it('turns typed top-level text into a titled tour step and rejects content commands', async () => {
@@ -2161,9 +2203,12 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     expect(
       document.querySelector<HTMLButtonElement>('[aria-label="Fix placement for step 1"]'),
     ).toBeNull();
-    expect(document.querySelector('.tour-step-health')?.textContent).toContain('Unverified');
+    // §4.4: not confirmed here is `Needs context`, never a failure (audit #2).
+    expect(document.querySelector('.tour-step-health')?.textContent).toContain('Needs context');
     expect(document.querySelector('.tour-health-count')?.textContent).toBe('0/1 verified');
-    expect(document.querySelector('.tour-active-step-footer')?.textContent).toContain('Unverified');
+    expect(document.querySelector('.tour-active-step-footer')?.textContent).toContain(
+      'Needs context',
+    );
 
     window.dispatchEvent(
       new MessageEvent('message', {
@@ -2431,12 +2476,11 @@ describe('fixture host authoring frame (PRD §16.1)', () => {
     });
     await flushPreviewPatchQueue();
 
-    expect(document.querySelector('.tour-step-health')?.textContent).toContain(
-      'Unavailable in current context',
-    );
+    // The audit's modal-Close case: reachable the recorded way, absent right now.
+    expect(document.querySelector('.tour-step-health')?.textContent).toContain('Needs context');
     expect(document.querySelector('.tour-health-count')?.textContent).toBe('0/1 verified');
     expect(document.querySelector('.tour-active-step-footer')?.textContent).toContain(
-      'Unavailable in current context',
+      'Needs context',
     );
     expect(document.querySelector('#status')?.textContent).toBe('Verifying placement');
     const reinspectionRequest = [...vi.mocked(peer.postMessage).mock.calls]

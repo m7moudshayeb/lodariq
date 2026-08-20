@@ -70,6 +70,8 @@ describe('@lodariq/dashboard client boundaries', () => {
     expect(sdkPanel).toContain('useSdkInstallationActions');
     expect(sdkPanel).toContain('canManageSdkInstallations');
     expect(sdkPanel).toContain('A workspace admin or owner');
+    // The kill switch is an admin control and must stay behind the same gate.
+    expect(sdkPanel).toContain('suspensionAction');
 
     const brandPanel = read(resolve(dashboardSrc, 'components/brand-system-panel.tsx'));
     const brandController = read(

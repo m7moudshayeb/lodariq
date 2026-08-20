@@ -1,6 +1,10 @@
 import { X, createElement as createLucideElement } from 'lucide';
 import { createNonceStyleElement } from '@lodariq/schema/dom';
-import { CREATOR_CHROME_FONT_STACK, CREATOR_CHROME_TOKENS } from './creator-chrome-tokens';
+import {
+  AUTHORING_TYPOGRAPHY_CSS_PROPERTIES,
+  CREATOR_CHROME_FONT_STACK,
+  CREATOR_CHROME_TOKENS,
+} from './creator-chrome-tokens';
 import { applyAuthoringLocale, authoringText } from './i18n';
 
 const BROWSE_SHELL_WIDTH = 390;
@@ -26,6 +30,7 @@ export function mountHostedBrowseShell(options: HostedBrowseShellOptions): Hoste
   const style = createNonceStyleElement(document, '');
   style.textContent = `
     :host {
+      ${AUTHORING_TYPOGRAPHY_CSS_PROPERTIES}
       color: ${CREATOR_CHROME_TOKENS.ink};
       display: block;
       font-family: ${CREATOR_CHROME_FONT_STACK};
@@ -63,8 +68,8 @@ export function mountHostedBrowseShell(options: HostedBrowseShellOptions): Hoste
     }
     header:active { cursor: grabbing; }
     .copy { display: grid; gap: 4px; min-width: 0; }
-    .copy strong { font-size: 12px; font-weight: 600; letter-spacing: .01em; }
-    .copy span { color: ${CREATOR_CHROME_TOKENS.muted}; font-size: 10px; }
+    .copy strong { font-size: var(--lq-font-sm); font-weight: var(--lq-weight-semibold); letter-spacing: .01em; }
+    .copy span { color: ${CREATOR_CHROME_TOKENS.muted}; font-size: var(--lq-font-xs); }
     button {
       align-items: center;
       background: transparent;

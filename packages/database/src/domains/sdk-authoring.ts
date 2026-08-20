@@ -21,6 +21,15 @@ export interface PublicSdkInstallationRecord {
   createdAt: string;
   updatedAt: string;
   revokedAt: string | null;
+  /** Set while the installation is paused by the kill switch; null when live. */
+  suspendedAt: string | null;
+}
+
+export interface SetPublicSdkInstallationSuspensionInput {
+  workspaceId: string;
+  installationId: string;
+  suspended: boolean;
+  actorUserId: string;
 }
 
 export interface PublicSdkInstallationOriginRecord {

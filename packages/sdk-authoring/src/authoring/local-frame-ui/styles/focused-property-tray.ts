@@ -32,8 +32,8 @@ export const AUTHORING_FOCUSED_PROPERTY_TRAY_CSS = `
     background: transparent;
     color: var(--lq-color-muted);
     cursor: pointer;
-    font-size: 10px;
-    font-weight: 600;
+    font-size: var(--lq-font-xs);
+    font-weight: var(--lq-weight-semibold);
     padding: 0 0 8px;
   }
 
@@ -138,13 +138,13 @@ export const AUTHORING_FOCUSED_PROPERTY_TRAY_CSS = `
   }
 
   .transition-editor > header strong {
-    font-size: 11px;
+    font-size: var(--lq-font-sm);
   }
 
   .transition-editor > header span,
   .storyboard-property-note {
     color: var(--lq-color-muted);
-    font-size: 9px;
+    font-size: var(--lq-font-xs);
     line-height: 1.4;
   }
 
@@ -281,8 +281,8 @@ export const AUTHORING_FOCUSED_PROPERTY_TRAY_CSS = `
 
   .storyboard-property-tray > .rich-step-inspector.compact > label > span {
     color: var(--lq-color-muted);
-    font-size: 10px;
-    font-weight: 700;
+    font-size: var(--lq-font-xs);
+    font-weight: var(--lq-weight-bold);
   }
 
   .storyboard-property-tray > .rich-step-inspector.compact select {

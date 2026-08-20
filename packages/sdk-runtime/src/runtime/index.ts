@@ -4,6 +4,7 @@ import type {
   ManifestPointer,
   SdkAnalyticsEvent,
 } from '@lodariq/schema';
+import { hostSafe, setHostErrorSink } from '../host-safety';
 import { SDK_VERSION } from '../version';
 import { createRuntimeAnalyticsEvent, type RuntimeAnalyticsDocumentPointer } from './analytics';
 import { activeContentLocale, clearActiveContentLocale } from './content-locale-state';
@@ -22,6 +23,15 @@ export interface IdentifyTraits {
   userId: string;
   email?: string;
   [key: string]: unknown;
+}
+
+const FORM_RESPONSES_PATH = '/v1/sdk/form-responses';
+
+export interface SubmittedFormResponse {
+  readonly stepId: string;
+  readonly blockId: string;
+  readonly label: string;
+  readonly answer: string;
 }
 
 export interface RuntimeConfig {
@@ -58,6 +68,8 @@ export interface RuntimeErrorContext {
   documentId?: string;
   stepId?: string;
   correlationId?: string;
+  /** Names the host-page callback whose boundary caught this error. */
+  hostCallback?: string;
 }
 
 /** Bounded resolver fields accepted by the runtime telemetry adapter. */
@@ -90,8 +102,18 @@ export class LodariqRuntime {
   constructor(private readonly config: RuntimeConfig) {
     for (const pointer of config.analyticsPointers ?? []) this.registerAnalyticsPointer(pointer);
     if (typeof window !== 'undefined') {
-      window.addEventListener('pagehide', () => this.flush(true));
+      // pagehide fires inside the browser's unload sequence on the customer's
+      // page; a throw here would surface as their error, not ours.
+      window.addEventListener(
+        'pagehide',
+        hostSafe('runtime.pagehide', () => this.flush(true)),
+      );
     }
+    // Route every boundary-caught error into this runtime's reporter. Handlers
+    // installed before any runtime existed start reporting from here on.
+    setHostErrorSink((error, context) =>
+      this.reportError(error, { phase: 'runtime', hostCallback: context.label }),
+    );
   }
 
   identify(traits: IdentifyTraits): void {
@@ -299,6 +321,46 @@ export class LodariqRuntime {
       keepalive: true,
     }).catch(() => {
       /* swallow: analytics must never break the host app */
+    });
+  }
+
+  /**
+   * Answers go to their own endpoint, not into the analytics batch. Free text is
+   * customer content: it must not sit in a queue that is also flushed by
+   * `sendBeacon` on exit, and it must not be indistinguishable from an event
+   * property. The origin comes from `ingestUrl`, which is already pinned to the
+   * API host, so nothing here trusts a page-supplied URL.
+   */
+  submitFormResponses(documentId: string, responses: readonly SubmittedFormResponse[]): void {
+    if (!responses.length || !this.config.ingestUrl) return;
+    let endpoint: string;
+    try {
+      endpoint = new URL(FORM_RESPONSES_PATH, this.config.ingestUrl).toString();
+    } catch {
+      return;
+    }
+    const headers: Record<string, string> = { 'content-type': 'application/json' };
+    if (this.config.authorizationToken) {
+      headers['authorization'] = `Bearer ${this.config.authorizationToken}`;
+    }
+    if (this.config.publicInstallationId) {
+      headers['x-lodariq-installation-id'] = this.config.publicInstallationId;
+    }
+    const occurredAt = new Date().toISOString();
+    void fetch(endpoint, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        documentId,
+        responses: responses.map((response) => ({
+          ...response,
+          ...(this.config.correlationId ? { correlationId: this.config.correlationId } : {}),
+          occurredAt,
+        })),
+      }),
+      keepalive: true,
+    }).catch(() => {
+      /* A lost answer must never break the host application. */
     });
   }
 

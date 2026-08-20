@@ -2,6 +2,11 @@ import type { LodariqBlock } from '@lodariq/schema';
 import type { EditableActionType, LocalAuthoringFrameSnapshot } from './types';
 import { blockStatus, targetDiagnosticIsDrift, targetIdOf } from './utils';
 import { authoringText } from '../../i18n';
+import type { AuthoringTargetHealthPresentation } from '../target-health-ledger';
+import {
+  targetVerificationPresentation,
+  type TargetVerificationState,
+} from '../target-verification';
 
 export type StepHealthTone = 'ready' | 'repair' | 'review';
 
@@ -42,6 +47,16 @@ export function stepPlacementFact(
   return `${targetLabel} · ${status}`;
 }
 
+/**
+ * Step verification in the creator's three states (§4.4, audit #2).
+ *
+ * The build used to distinguish `Unverified`, `Unavailable in current context`,
+ * `Drift detected`, `Ambiguous` and `Missing` — five words for three situations,
+ * and the audit caught the worst of it: a modal `Close` button reported as a
+ * failure because it was simply not on screen at that moment.
+ *
+ * Verified · Needs context · Can’t find. Each says what to do about it.
+ */
 export function stepHealth(
   step: LodariqBlock,
   snapshot: LocalAuthoringFrameSnapshot,
@@ -49,45 +64,8 @@ export function stepHealth(
   const targetId = targetIdOf(step);
   if (!targetId) return { label: authoringText('Not placed'), repair: true, tone: 'repair' };
 
-  const targetHealth = snapshot.targetHealth.get(targetId);
-  if (!targetHealth) {
-    const diagnostic = snapshot.targetDiagnostics.get(targetId)?.diagnostic;
-    if (diagnostic?.state === 'found') {
-      return { label: authoringText('Verified'), repair: false, tone: 'ready' };
-    }
-    if (diagnostic?.state === 'missing') {
-      return { label: authoringText('Missing'), repair: true, tone: 'repair' };
-    }
-    if (diagnostic?.state === 'ambiguous') {
-      return { label: authoringText('Ambiguous'), repair: true, tone: 'repair' };
-    }
-    return { label: authoringText('Unverified'), repair: false, tone: 'review' };
-  }
-  if (targetHealth.presentation === 'checking') {
-    return { label: authoringText('Checking'), repair: false, tone: 'review' };
-  }
-  if (targetHealth.presentation === 'unavailable_current_context') {
-    return {
-      label: authoringText('Unavailable in current context'),
-      repair: false,
-      tone: 'review',
-    };
-  }
-  if (targetHealth.presentation === 'missing') {
-    return { label: authoringText('Missing'), repair: true, tone: 'repair' };
-  }
-  if (targetHealth.presentation === 'ambiguous') {
-    return { label: authoringText('Ambiguous'), repair: true, tone: 'repair' };
-  }
-  if (targetHealth.presentation === 'drifted') {
-    return { label: authoringText('Drift detected'), repair: true, tone: 'repair' };
-  }
-  if (targetHealth.presentation === 'unverified') {
-    const diagnostic = targetHealth.currentObservation;
-    return diagnostic && targetDiagnosticIsDrift(diagnostic)
-      ? { label: authoringText('Drift detected'), repair: true, tone: 'repair' }
-      : { label: authoringText('Unverified'), repair: false, tone: 'review' };
-  }
+  const presentation = targetPresentationFor(targetId, snapshot);
+  if (presentation) return healthFromPresentation(presentation);
 
   const status = blockStatus(step);
   if (status === 'invalid') {
@@ -96,7 +74,48 @@ export function stepHealth(
   if (status === 'incomplete') {
     return { label: authoringText('Needs review'), repair: false, tone: 'review' };
   }
-  return { label: authoringText('Verified'), repair: false, tone: 'ready' };
+  return healthFromPresentation('verified');
+}
+
+/** The ledger's view when it has one, otherwise the last raw diagnostic. */
+function targetPresentationFor(
+  targetId: string,
+  snapshot: LocalAuthoringFrameSnapshot,
+): AuthoringTargetHealthPresentation | null {
+  const health = snapshot.targetHealth.get(targetId);
+  if (health) {
+    // A drifted observation is a failure even when the ledger still says unverified.
+    if (health.presentation === 'unverified') {
+      const diagnostic = health.currentObservation;
+      return diagnostic && targetDiagnosticIsDrift(diagnostic) ? 'drifted' : 'unverified';
+    }
+    return health.presentation;
+  }
+  const diagnostic = snapshot.targetDiagnostics.get(targetId)?.diagnostic;
+  if (diagnostic?.state === 'found') return 'verified';
+  if (diagnostic?.state === 'missing') return 'missing';
+  if (diagnostic?.state === 'ambiguous') return 'ambiguous';
+  return null;
+}
+
+const HEALTH_TONE_BY_STATE: Readonly<Record<TargetVerificationState, StepHealthTone>> = {
+  verified: 'ready',
+  'needs-context': 'review',
+  'cannot-find': 'repair',
+  checking: 'review',
+};
+
+function healthFromPresentation(presentation: AuthoringTargetHealthPresentation): {
+  label: string;
+  repair: boolean;
+  tone: StepHealthTone;
+} {
+  const shown = targetVerificationPresentation(presentation);
+  return {
+    label: shown.label,
+    repair: shown.state === 'cannot-find',
+    tone: HEALTH_TONE_BY_STATE[shown.state],
+  };
 }
 
 export function stepTooltip(step: LodariqBlock): LodariqBlock | null {

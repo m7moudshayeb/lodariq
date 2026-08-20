@@ -8,5 +8,6 @@ export * from './schema/sdk-authoring';
 export * from './schema/releases';
 export * from './schema/authoring-sessions';
 export * from './schema/analytics';
+export * from './schema/measurement';
 export * from './schema/relations';
 export * from './schema/tenant-scoping';

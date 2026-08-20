@@ -50,8 +50,8 @@ export const AUTHORING_PANEL_SHELL_CSS = `
   .review-summary-copy strong {
     overflow: hidden;
     color: var(--lq-color-ink);
-    font-size: 14px;
-    font-weight: 700;
+    font-size: var(--lq-font-md);
+    font-weight: var(--lq-weight-bold);
     text-overflow: ellipsis;
     white-space: nowrap;
   }
@@ -59,8 +59,8 @@ export const AUTHORING_PANEL_SHELL_CSS = `
   .review-summary-copy span {
     overflow: hidden;
     color: var(--lq-color-muted);
-    font-size: 12px;
-    font-weight: 600;
+    font-size: var(--lq-font-sm);
+    font-weight: var(--lq-weight-semibold);
     text-overflow: ellipsis;
     white-space: nowrap;
   }
@@ -85,8 +85,8 @@ export const AUTHORING_PANEL_SHELL_CSS = `
     min-width: 0;
     border: 1px solid var(--lq-color-border);
     border-radius: 999px;
-    font-size: 12px;
-    font-weight: 700;
+    font-size: var(--lq-font-sm);
+    font-weight: var(--lq-weight-bold);
     line-height: 1;
     padding: 4px 8px;
     white-space: nowrap;
@@ -140,15 +140,15 @@ export const AUTHORING_PANEL_SHELL_CSS = `
 
   .utilities-drawer > summary span {
     color: var(--lq-color-ink-soft);
-    font-size: 12px;
-    font-weight: 700;
+    font-size: var(--lq-font-sm);
+    font-weight: var(--lq-weight-bold);
   }
 
   .utilities-drawer > summary small {
     overflow: hidden;
     color: var(--lq-color-subtle);
-    font-size: 10px;
-    font-weight: 600;
+    font-size: var(--lq-font-xs);
+    font-weight: var(--lq-weight-semibold);
     text-overflow: ellipsis;
     white-space: nowrap;
   }
@@ -198,7 +198,7 @@ export const AUTHORING_PANEL_SHELL_CSS = `
     background: var(--lq-color-panel);
     color: var(--lq-color-ink);
     font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-    font-size: 12px;
+    font-size: var(--lq-font-sm);
     line-height: 1.45;
     padding: 12px;
     resize: vertical;
@@ -213,7 +213,7 @@ export const AUTHORING_PANEL_SHELL_CSS = `
     background: var(--lq-color-panel);
     color: var(--lq-color-ink);
     font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-    font-size: 12px;
+    font-size: var(--lq-font-sm);
     line-height: 1.45;
     padding: 12px;
   }

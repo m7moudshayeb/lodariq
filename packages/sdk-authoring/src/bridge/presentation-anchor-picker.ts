@@ -1,5 +1,9 @@
 import type { PresentationAnchor } from '@lodariq/schema';
-import { CREATOR_CHROME_FONT_STACK, CREATOR_CHROME_TOKENS } from '../creator-chrome-tokens';
+import {
+  AUTHORING_TYPOGRAPHY_CSS_PROPERTIES,
+  CREATOR_CHROME_FONT_STACK,
+  CREATOR_CHROME_TOKENS,
+} from '../creator-chrome-tokens';
 import { applyAuthoringLocale, authoringText } from '../i18n';
 
 const PICKER_Z_INDEX = 2_147_483_645;
@@ -390,12 +394,13 @@ function createGuidance(doc: Document): HTMLDivElement {
     background: CREATOR_CHROME_TOKENS.chrome,
     color: CREATOR_CHROME_TOKENS.onChrome,
     boxShadow: '0 16px 36px rgba(12, 33, 28, 0.24)',
-    font: `600 12px/1.4 ${CREATOR_CHROME_FONT_STACK}`,
+    font: `var(--lq-weight-semibold) var(--lq-font-sm)/1.4 ${CREATOR_CHROME_FONT_STACK}`,
     pointerEvents: 'auto',
   });
+  guidance.style.cssText += AUTHORING_TYPOGRAPHY_CSS_PROPERTIES;
   guidance.innerHTML = `
     <span style="display:grid; min-width:0; gap: 1px; flex:1 1 auto;">
-      <strong id="lodariq-presentation-anchor-instructions" style="font-size: 12px;">${authoringText('Choose an exact area')}</strong>
+      <strong id="lodariq-presentation-anchor-instructions" style="font-size: var(--lq-font-sm);">${authoringText('Choose an exact area')}</strong>
       <span id="lodariq-presentation-anchor-status" data-lodariq-bridge="presentation-anchor-status" role="status" aria-live="polite">${defaultGuidance()}</span>
     </span>
     <button type="button" data-lodariq-bridge="presentation-anchor-cancel" data-action="cancel-presentation-anchor" aria-label="${authoringText('Cancel exact area selection')}">${authoringText('Cancel')}</button>
@@ -412,7 +417,7 @@ function createGuidance(doc: Document): HTMLDivElement {
       color: CREATOR_CHROME_TOKENS.onChrome,
       cursor: 'pointer',
       font: 'inherit',
-      fontWeight: '700',
+      fontWeight: 'var(--lq-weight-bold)',
     });
   }
   return guidance;
