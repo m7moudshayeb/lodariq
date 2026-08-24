@@ -35,6 +35,8 @@ const DE_CATALOG: TourRuntimeCatalog = {
   'Unlabeled control': 'Steuerelement ohne Beschriftung',
   'Waiting for the next condition': 'Warten auf die nächste Bedingung',
   '{number}. {label}': '{number}. {label}',
+  '{current} of {total}': '{current} von {total}',
+  'Step {current} of {total}': 'Schritt {current} von {total}',
 };
 
 const FR_CATALOG: TourRuntimeCatalog = {
@@ -68,6 +70,8 @@ const FR_CATALOG: TourRuntimeCatalog = {
   'Unlabeled control': 'Contrôle sans libellé',
   'Waiting for the next condition': 'En attente de la condition suivante',
   '{number}. {label}': '{number}. {label}',
+  '{current} of {total}': '{current} sur {total}',
+  'Step {current} of {total}': 'Étape {current} sur {total}',
 };
 
 const ES_CATALOG: TourRuntimeCatalog = {
@@ -101,6 +105,8 @@ const ES_CATALOG: TourRuntimeCatalog = {
   'Unlabeled control': 'Control sin etiqueta',
   'Waiting for the next condition': 'Esperando la siguiente condición',
   '{number}. {label}': '{number}. {label}',
+  '{current} of {total}': '{current} de {total}',
+  'Step {current} of {total}': 'Paso {current} de {total}',
 };
 
 const PT_CATALOG: TourRuntimeCatalog = {
@@ -133,6 +139,8 @@ const PT_CATALOG: TourRuntimeCatalog = {
   'Unlabeled control': 'Controle sem rótulo',
   'Waiting for the next condition': 'Aguardando a próxima condição',
   '{number}. {label}': '{number}. {label}',
+  '{current} of {total}': '{current} de {total}',
+  'Step {current} of {total}': 'Etapa {current} de {total}',
 };
 
 const AR_CATALOG: TourRuntimeCatalog = {
@@ -164,6 +172,8 @@ const AR_CATALOG: TourRuntimeCatalog = {
   'Unlabeled control': 'عنصر تحكم بلا تسمية',
   'Waiting for the next condition': 'في انتظار الشرط التالي',
   '{number}. {label}': '{number}. {label}',
+  '{current} of {total}': '{current} من {total}',
+  'Step {current} of {total}': 'الخطوة {current} من {total}',
 };
 
 const TR_CATALOG: TourRuntimeCatalog = {
@@ -196,6 +206,8 @@ const TR_CATALOG: TourRuntimeCatalog = {
   'Unlabeled control': 'Etiketsiz denetim',
   'Waiting for the next condition': 'Sonraki koşul bekleniyor',
   '{number}. {label}': '{number}. {label}',
+  '{current} of {total}': '{current} / {total}',
+  'Step {current} of {total}': 'Adım {current}/{total}',
 };
 
 const IT_CATALOG: TourRuntimeCatalog = {
@@ -230,6 +242,8 @@ const IT_CATALOG: TourRuntimeCatalog = {
   'Unlabeled control': 'Controllo senza etichetta',
   'Waiting for the next condition': 'In attesa della condizione successiva',
   '{number}. {label}': '{number}. {label}',
+  '{current} of {total}': '{current} di {total}',
+  'Step {current} of {total}': 'Passo {current} di {total}',
 };
 
 const NL_BE_CATALOG: TourRuntimeCatalog = {
@@ -262,6 +276,8 @@ const NL_BE_CATALOG: TourRuntimeCatalog = {
   'Unlabeled control': 'Besturingselement zonder label',
   'Waiting for the next condition': 'Wachten op de volgende voorwaarde',
   '{number}. {label}': '{number}. {label}',
+  '{current} of {total}': '{current} van {total}',
+  'Step {current} of {total}': 'Stap {current} van {total}',
 };
 
 export const TOUR_RUNTIME_CATALOGS: Readonly<Record<SupportedLocale, TourRuntimeCatalog>> = {

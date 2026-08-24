@@ -1,13 +1,22 @@
 import type { ReactNode } from 'react';
-import type { LodariqBlock, TooltipLayoutProps } from '@lodariq/schema';
+import {
+  defaultExperienceBehavior,
+  type LodariqBlock,
+  type TooltipLayoutProps,
+  type TourBehavior,
+} from '@lodariq/schema';
 import { authoringText } from '../../../i18n';
 import type { LocalAuthoringFrameController } from '../controller';
 import { Plus, X } from '../design-system';
 import { EDITABLE_ACTION_OPTIONS, EDITABLE_BUTTON_VARIANT_OPTIONS } from '../types';
+import type { LocalAuthoringFrameSnapshot } from '../types';
 import {
   ACTION_LAYOUT_OPTIONS,
   BLOCK_ALIGNMENT_OPTIONS,
   BLOCK_SPACING_OPTIONS,
+  STEP_INDICATOR_COUNT_FORM_OPTIONS,
+  STEP_INDICATOR_OPTIONS,
+  STEP_INDICATOR_PLACEMENT_OPTIONS,
 } from '../properties/options';
 import { PropertyChoiceField } from '../properties/property-controls';
 import { defaultActionVariant } from '../properties/button-properties';
@@ -26,9 +35,11 @@ import { defaultActionVariant } from '../properties/button-properties';
  */
 export function StepActionsSection({
   controller,
+  snapshot,
   tooltip,
 }: {
   controller: LocalAuthoringFrameController;
+  snapshot: LocalAuthoringFrameSnapshot;
   tooltip: LodariqBlock;
 }): ReactNode {
   const actions = tooltip.children.filter(
@@ -56,6 +67,7 @@ export function StepActionsSection({
             <span>{authoringText('Add a button')}</span>
           </button>
         </div>
+        <StepIndicatorFields controller={controller} snapshot={snapshot} />
       </div>
     );
   }
@@ -95,6 +107,7 @@ export function StepActionsSection({
           })
         }
       />
+      <StepIndicatorFields controller={controller} snapshot={snapshot} />
       <p className="overlay-step-inspector-note">
         {authoringText('Drag a button onto another to put them on one row.')}
       </p>
@@ -155,4 +168,76 @@ function actionSummary(block: LodariqBlock): string {
     (option) => option.value === actionType,
   )?.label;
   return actionLabel ? `${variantLabel} · ${actionLabel}` : variantLabel;
+}
+
+/**
+ * The step indicator sits on the card's footer row, which is why it is edited
+ * beside the action layout rather than in a section of its own — but it is
+ * `TourBehavior`, so it is set once for the whole tour, and the note says so.
+ */
+function StepIndicatorFields({
+  controller,
+  snapshot,
+}: {
+  controller: LocalAuthoringFrameController;
+  snapshot: LocalAuthoringFrameSnapshot;
+}): ReactNode {
+  if (snapshot.documentState.type !== 'tour') return null;
+  const behavior: TourBehavior =
+    snapshot.documentState.experience?.type === 'tour'
+      ? snapshot.documentState.experience
+      : (defaultExperienceBehavior('tour') as TourBehavior);
+  const style = behavior.stepIndicator ?? 'none';
+
+  return (
+    <>
+      <PropertyChoiceField
+        presentation="track"
+        label={authoringText('Step indicator')}
+        value={style}
+        options={STEP_INDICATOR_OPTIONS}
+        onChange={(stepIndicator) =>
+          controller.setExperienceBehavior({
+            ...behavior,
+            stepIndicator: stepIndicator as NonNullable<TourBehavior['stepIndicator']>,
+          })
+        }
+      />
+      {style === 'none' ? null : (
+        <PropertyChoiceField
+          presentation="track"
+          label={authoringText('Indicator position')}
+          value={behavior.stepIndicatorPlacement ?? 'block'}
+          options={STEP_INDICATOR_PLACEMENT_OPTIONS}
+          onChange={(stepIndicatorPlacement) =>
+            controller.setExperienceBehavior({
+              ...behavior,
+              stepIndicatorPlacement:
+                stepIndicatorPlacement as NonNullable<TourBehavior['stepIndicatorPlacement']>,
+            })
+          }
+        />
+      )}
+      {style === 'count' ? (
+        <PropertyChoiceField
+          presentation="track"
+          label={authoringText('Wording')}
+          value={behavior.stepIndicatorCountForm ?? 'bare'}
+          options={STEP_INDICATOR_COUNT_FORM_OPTIONS}
+          onChange={(stepIndicatorCountForm) =>
+            controller.setExperienceBehavior({
+              ...behavior,
+              stepIndicatorCountForm:
+                stepIndicatorCountForm as NonNullable<TourBehavior['stepIndicatorCountForm']>,
+            })
+          }
+        />
+      ) : null}
+      {style === 'none' ? null : (
+        <p className="overlay-step-inspector-note">
+          {authoringText('Set once for the whole tour, not per step.')}
+        </p>
+      )}
+    </>
+  );
 }

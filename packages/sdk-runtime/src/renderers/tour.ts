@@ -37,6 +37,12 @@ import {
   type RuntimeAction,
   type RuntimeBodyNode,
 } from './tour-content';
+import { resolveTourCompositionRecipe } from './tour-recipes';
+import {
+  attachTourStepIndicator,
+  createTourStepIndicator,
+  resolveTourStepIndicatorRecipe,
+} from './tour-step-indicator';
 import {
   TourPresentationCanceledError,
   TourPresentationUnavailableError,
@@ -664,6 +670,21 @@ export class TourPlayer {
           }
         }),
     );
+    // Denominator is the authored step count, held fixed: a total that moved as
+    // conditions resolved would be more confusing than one that overstates.
+    const totalSteps = this.doc.steps.length;
+    const indicatorRecipe = resolveTourStepIndicatorRecipe(
+      'experience' in this.doc ? this.doc.experience : undefined,
+      totalSteps,
+      resolveTourCompositionRecipe(step.tooltipLayout).actionLayout,
+    );
+    const stepIndicator = createTourStepIndicator(
+      this.card.ownerDocument,
+      indicatorRecipe,
+      this.index,
+      totalSteps,
+    );
+    if (stepIndicator) attachTourStepIndicator(content, stepIndicator, indicatorRecipe.placement);
     this.recordAccessibilityAnnouncement(step.accessibilityName ?? this.runtimeLabel(), false);
     this.card.appendChild(content);
     const experienceRuntimeCleanup = this.experienceRuntime?.mountExperienceRuntime(

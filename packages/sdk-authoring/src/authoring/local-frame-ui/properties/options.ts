@@ -32,6 +32,25 @@ export const ACTION_LAYOUT_OPTIONS = [
   { value: 'stack', label: authoringText('Stacked') },
 ] as const;
 
+export const STEP_INDICATOR_OPTIONS = [
+  { value: 'none', label: authoringText('None') },
+  { value: 'count', label: authoringText('Count') },
+  { value: 'dots', label: authoringText('Dots') },
+  { value: 'bar', label: authoringText('Bar') },
+] as const;
+
+/** `block` is the indicator's own line above the buttons; `inline` shares their row. */
+export const STEP_INDICATOR_PLACEMENT_OPTIONS = [
+  { value: 'block', label: authoringText('Own line') },
+  { value: 'inline', label: authoringText('With the buttons') },
+] as const;
+
+/** Labelled with the result rather than the setting name, which reads faster. */
+export const STEP_INDICATOR_COUNT_FORM_OPTIONS = [
+  { value: 'bare', label: authoringText('1 of 5') },
+  { value: 'labeled', label: authoringText('Step 1 of 5') },
+] as const;
+
 export const POPUP_PADDING_OPTIONS = [
   { value: 'compact', label: authoringText('Compact') },
   { value: 'standard', label: authoringText('Standard') },

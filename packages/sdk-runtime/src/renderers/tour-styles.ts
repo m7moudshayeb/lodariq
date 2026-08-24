@@ -646,6 +646,76 @@ export function createTourStyles(): HTMLStyleElement {
     div[role="dialog"][data-lodariq-composition-gap="normal"] .tour-action-group { gap: var(--lq-tour-space-sm); }
     div[role="dialog"][data-lodariq-composition-gap="relaxed"] .tour-action-group { gap: var(--lq-tour-space-md); }
 
+    /* Wraps the indicator and the action group so inline placement never has to
+       reach inside .tour-action-group, whose justification belongs to actionAlign. */
+    .tour-footer {
+      display: flex;
+      align-items: center;
+      gap: var(--lq-tour-space-sm);
+      margin: var(--lq-tour-space-xs) 0 0;
+    }
+
+    .tour-footer > .tour-action-group { margin: 0 0 0 auto; }
+
+    .tour-progress {
+      display: flex;
+      align-items: center;
+      gap: var(--lq-tour-space-xs);
+      margin: var(--lq-tour-space-sm) 0 0;
+      color: var(--lq-tour-muted-text-color);
+      font-size: var(--lq-tour-small-font-size);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .tour-footer > .tour-progress { flex: 0 0 auto; margin: 0; }
+
+    .tour-progress[data-lodariq-step-indicator="bar"] { display: block; }
+    .tour-footer > .tour-progress[data-lodariq-step-indicator="bar"] {
+      flex: 1 1 auto;
+      min-width: 56px;
+      max-width: 40%;
+    }
+
+    .tour-progress-dot {
+      flex: none;
+      width: 6px;
+      height: 6px;
+      border-radius: 999px;
+      background: color-mix(in srgb, var(--lq-tour-primary-surface) 24%, transparent);
+      transition: width var(--lq-tour-motion-duration) var(--lq-tour-motion-easing);
+    }
+
+    .tour-progress-dot[data-lodariq-step-state="done"] {
+      background: color-mix(in srgb, var(--lq-tour-primary-surface) 55%, transparent);
+    }
+
+    .tour-progress-dot[data-lodariq-step-state="current"] {
+      width: 16px;
+      background: var(--lq-tour-primary-surface);
+    }
+
+    .tour-progress-track {
+      display: block;
+      width: 100%;
+      height: 4px;
+      border-radius: 999px;
+      background: color-mix(in srgb, var(--lq-tour-primary-surface) 18%, transparent);
+      overflow: hidden;
+    }
+
+    .tour-progress-fill {
+      display: block;
+      height: 100%;
+      border-radius: inherit;
+      background: var(--lq-tour-primary-surface);
+      transition: width var(--lq-tour-motion-duration) var(--lq-tour-motion-easing);
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .tour-progress-dot,
+      .tour-progress-fill { transition: none; }
+    }
+
     button {
       display: inline-flex;
       align-items: center;

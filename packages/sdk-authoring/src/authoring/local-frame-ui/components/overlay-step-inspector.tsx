@@ -267,7 +267,7 @@ function sectionBodies({
         </p>
       </>
     ),
-    actions: <StepActionsSection controller={controller} tooltip={tooltip} />,
+    actions: <StepActionsSection controller={controller} snapshot={snapshot} tooltip={tooltip} />,
     flow: (
       <StepFlowSection
         controller={controller}
