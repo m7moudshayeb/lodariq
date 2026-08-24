@@ -1033,11 +1033,12 @@ Work done on branch `worktree-phase-2-remaining`, uncommitted.
   into `price.custom_data` and looks for it before charging. That is why the
   usage rate is deployment config: a catalog `price_id` has nowhere to put one.
 
-- **H12.** `0041_analytics_events_partitioning.sql` authored and tested against a
-  scratch database; retention ships as `maintainAnalyticsEventPartitions` on the
-  analytics export worker tick, inert until the migration lands. The migration
-  carries **no sign-off line** and `migrations:check` fails on it deliberately.
-  See `drizzle/README.md`.
+- **H12.** `0041_analytics_events_partitioning.sql` is authored and tested
+  against a scratch database; retention ships as
+  `maintainAnalyticsEventPartitions` on the analytics export worker tick, inert
+  until the migration lands. It now carries explicit approval metadata, so
+  `migrations:check` passes, but it remains unapplied and requires a separate
+  maintenance-window rollout after `0035`-`0040`. See `drizzle/README.md`.
 
 - **ADR 0030 §1.** `engagementKey` now on the events that end an experience.
   +53 bytes gzipped in `runtime+tour`, leaving 59 of 59,392.

@@ -48,7 +48,7 @@ migration.
 0038_hot_query_indexes.sql
 0039_analytics_events_indexes.sql
 0040_dead_letter_and_rotation.sql
-0041_analytics_events_partitioning.sql   (authored, NOT approved, applied nowhere)
+0041_analytics_events_partitioning.sql   (approved for controlled rollout, applied nowhere)
 ```
 
 ## Where each environment sits
@@ -452,16 +452,19 @@ runtime database role does not have `BYPASSRLS`, workspace-scoped reads cannot
 cross tenants, unscoped reads fail closed, and narrow public/session lookup
 policies expose only their bound context.
 
-## Not approved: 0041 analytics_events partitioning
+## Approved for controlled rollout: 0041 analytics_events partitioning
 
 `0041_analytics_events_partitioning.sql` is authored, tested against a scratch
-database, and applied nowhere. It carries **no sign-off line**, so
-`pnpm migrations:check` fails on it deliberately — the guard is satisfied by any
-non-empty approver string, so a placeholder would have passed the check while
-approving nothing. `migration-safety.test.ts` asserts it is the only flagged
-file, which keeps a second unapproved migration from hiding behind it.
+database, and applied nowhere. It carries explicit approval metadata, so
+`pnpm migrations:check` passes. The approval is for a controlled maintenance
+window and does not substitute for a fresh snapshot, row-count comparison, or
+postflight verification.
 
-It is not part of the `0035`-`0040` batch and must not be applied with it.
+It is not part of the `0035`-`0040` batch and must be applied separately, only
+after `0035`-`0040` have been verified. Stop ingestion, snapshot the target,
+run the file on its own, compare the printed pre/post row counts, and keep
+`analytics_events_pre_partition` until the partitioned table has been observed
+in production-like traffic.
 
 What it does, and why it is in its own category:
 

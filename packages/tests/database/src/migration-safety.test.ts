@@ -420,28 +420,8 @@ describe('database migration safety guard', () => {
     expect(migration).toContain('validate constraint publication_verifications_report_json_check;');
   });
 
-  /*
-   * `0041` is authored and unapproved on purpose, so the guard is expected to
-   * fail on it and nothing else. Asserting the exact finding keeps two things
-   * true at once: an unapproved destructive migration cannot reach a shared
-   * environment, and a second one cannot slip in unnoticed behind it.
-   *
-   * When `0041` is signed off, replace this with the passing assertion:
-   *   expect(runMigrationCheck()).toContain('Migration safety check passed');
-   */
-  it('flags exactly the migrations still awaiting sign-off', () => {
-    let output = '';
-    try {
-      output = runMigrationCheck();
-    } catch (error) {
-      output = error instanceof Error ? error.message : String(error);
-    }
-    const flagged = output
-      .split('\n')
-      .filter((line) => line.startsWith('- '))
-      .map((line) => line.replace(/^- .*\/drizzle\//u, '').replace(/:.*$/u, ''));
-
-    expect(new Set(flagged)).toEqual(new Set([ANALYTICS_EVENTS_PARTITIONING_FILE_NAME]));
+  it('passes when all checked-in migrations carry required sign-off metadata', () => {
+    expect(runMigrationCheck()).toContain('Migration safety check passed');
   });
 
   it('applies the initial baseline atomically', () => {

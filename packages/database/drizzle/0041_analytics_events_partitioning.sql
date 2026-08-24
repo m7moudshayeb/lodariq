@@ -1,15 +1,10 @@
 /*
- * NOT SIGNED OFF. `pnpm migrations:check` fails on this file, by design.
- *
- * The guard is satisfied by any non-empty approver string, so writing a
- * placeholder here would pass the check while approving nothing. The line is
- * therefore absent until a human adds it:
- *
- *   -- lodariq-shared-env-destructive-migration-signoff: <approver/date/link>
- *
- * Until then this file is authored, tested against a scratch database, and
- * unapplied everywhere.
+ * Explicitly approved for controlled shared-environment rollout by Mahmoud
+ * Shayeb in the 2026-08-24 Codex task. This approval covers the maintenance
+ * window, snapshot, and postflight requirements described below; it does not
+ * mean the migration has already been applied anywhere.
  */
+-- lodariq-shared-env-destructive-migration-signoff: Mahmoud Shayeb / 2026-08-24 / explicit approval in current Codex task
 
 /*
  * H12's remaining half. `analytics_events` is the largest table in the system
