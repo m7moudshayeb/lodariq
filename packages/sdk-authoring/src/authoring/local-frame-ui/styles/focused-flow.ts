@@ -96,6 +96,15 @@ export const AUTHORING_FOCUSED_FLOW_CSS = `
     touch-action: none;
   }
 
+  .tour-flow-canvas-loading {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    color: var(--lq-color-muted);
+    font-size: var(--lq-font-sm);
+  }
+
   .tour-flow-canvas[data-tool='pan'] {
     cursor: grab;
   }

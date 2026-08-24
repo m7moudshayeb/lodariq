@@ -62,7 +62,7 @@ export function StepActionsSection({
           {authoringText('This step has no buttons yet.')}
         </p>
         <div className="inspector-menu">
-          <button type="button" data-action="step-action-add" onClick={addButton}>
+          <button type="button" onClick={addButton}>
             <Plus size={13} aria-hidden="true" />
             <span>{authoringText('Add a button')}</span>
           </button>
@@ -139,7 +139,7 @@ export function StepActionsSection({
         ))}
       </div>
       <div className="inspector-menu">
-        <button type="button" data-action="step-action-add" onClick={addButton}>
+        <button type="button" onClick={addButton}>
           <Plus size={13} aria-hidden="true" />
           <span>{authoringText('Add a button')}</span>
         </button>
@@ -164,9 +164,7 @@ function actionSummary(block: LodariqBlock): string {
    * instruction sitting in a description is a control that cannot be clicked.
    */
   if (!actionType) return `${variantLabel} · ${authoringText('No action yet')}`;
-  const actionLabel = EDITABLE_ACTION_OPTIONS.find(
-    (option) => option.value === actionType,
-  )?.label;
+  const actionLabel = EDITABLE_ACTION_OPTIONS.find((option) => option.value === actionType)?.label;
   return actionLabel ? `${variantLabel} · ${actionLabel}` : variantLabel;
 }
 
@@ -212,8 +210,9 @@ function StepIndicatorFields({
           onChange={(stepIndicatorPlacement) =>
             controller.setExperienceBehavior({
               ...behavior,
-              stepIndicatorPlacement:
-                stepIndicatorPlacement as NonNullable<TourBehavior['stepIndicatorPlacement']>,
+              stepIndicatorPlacement: stepIndicatorPlacement as NonNullable<
+                TourBehavior['stepIndicatorPlacement']
+              >,
             })
           }
         />
@@ -227,8 +226,9 @@ function StepIndicatorFields({
           onChange={(stepIndicatorCountForm) =>
             controller.setExperienceBehavior({
               ...behavior,
-              stepIndicatorCountForm:
-                stepIndicatorCountForm as NonNullable<TourBehavior['stepIndicatorCountForm']>,
+              stepIndicatorCountForm: stepIndicatorCountForm as NonNullable<
+                TourBehavior['stepIndicatorCountForm']
+              >,
             })
           }
         />

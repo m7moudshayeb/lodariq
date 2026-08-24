@@ -15,7 +15,6 @@ import {
   AUTHORING_PANEL_MINIMIZED_ATTRIBUTE,
   AUTHORING_SHELL_ATTRIBUTE,
 } from '../panel-attributes';
-import { attachOverlayClickOutside } from './click-outside';
 import type { OverlayPlacement } from '../canvas/edge-resize';
 import { createCompass, syncCompass } from './compass';
 import {
@@ -323,12 +322,6 @@ export function createOverlayShell(
         ),
       );
     },
-  });
-  const stopClickOutside = attachOverlayClickOutside({
-    host,
-    iframe,
-    isActive: () => presentation === 'overlay' && !browsing,
-    onCollapse: callbacks.onCollapse,
   });
   const layers = createOverlayLayerManager({
     stage: () => ({
@@ -828,7 +821,6 @@ export function createOverlayShell(
     destroy: () => {
       reportedGeometry.disconnect();
       stopFrame();
-      stopClickOutside();
       stopPulses();
       stopFilmstripLayer();
       stopPillLayer();

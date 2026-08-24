@@ -117,10 +117,7 @@ import {
   stepPageDestination,
   PreviewPageUnreachableError,
 } from './preview-page-navigation';
-import {
-  clearDraftPreviewResume,
-  writeDraftPreviewResume,
-} from './preview-resume';
+import { clearDraftPreviewResume, writeDraftPreviewResume } from './preview-resume';
 import { publishTargetRingState } from './overlay/target-ring';
 import { stepEditability, type PresenceState } from './presence/presence-model';
 import type { OverlayShell } from './overlay/types';
@@ -680,7 +677,6 @@ function openAuthoringPanel(
     onDeleteStep: (stepId) => sendShellStepCommand('remove', stepId),
     onDuplicateStep: (stepId) => sendShellStepCommand('duplicate', stepId),
     onClose: () => close(),
-    onCollapse: () => collapseOverlayEditor(),
     onExitPreview: () => leaveInteractivePreview(),
     onMoveStep: (stepId, direction) =>
       sendShellStepCommand(direction === 'up' ? 'move-up' : 'move-down', stepId),
@@ -1781,11 +1777,6 @@ function openAuthoringPanel(
       command,
       ...(stepId ? { stepId } : {}),
     });
-  }
-
-  function collapseOverlayEditor(): void {
-    overlayShell?.setPresentation('collapsed');
-    sendShellStepCommand('collapse', currentHeaderStepId ?? undefined);
   }
 
   function openOperations(tab?: string): void {
@@ -3068,7 +3059,8 @@ const COACH_TIP_DELAY_MS = 700;
 function previewFailureMessage(error: unknown): string {
   const name = error instanceof Error ? error.name : '';
   const message = error instanceof Error ? error.message : '';
-  return name === 'TourPresentationUnavailableError' && message.includes('target could not be resolved')
+  return name === 'TourPresentationUnavailableError' &&
+    message.includes('target could not be resolved')
     ? authoringText('Preview stopped: this step points at something that is not on this page.')
     : authoringText('Preview could not start.');
 }

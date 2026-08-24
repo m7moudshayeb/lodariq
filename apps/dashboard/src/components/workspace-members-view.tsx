@@ -108,199 +108,205 @@ export function WorkspaceMembersView({
   return (
     <>
       <DashboardPageHeader view="members" />
-      <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1.2fr)_minmax(340px,.8fr)]">
-        <Card className="shadow-none">
-          <CardHeader>
-            <CardTitle>{_(WORKSPACE_MEMBERS_MESSAGES.members)}</CardTitle>
-            <CardDescription>{_(WORKSPACE_MEMBERS_MESSAGES.membersDescription)}</CardDescription>
-          </CardHeader>
-          <CardContent className="grid gap-3">
-            {loading ? <LoadingMessage /> : null}
-            {!loading
-              ? members.map((member) => (
-                  <MemberRow
-                    actorRole={currentRole}
-                    currentUserId={currentUserId}
-                    key={member.userId}
-                    member={member}
-                    pending={Boolean(pendingAction)}
-                    onRemove={() =>
-                      runAction(`remove:${member.userId}`, () =>
-                        removeWorkspaceMember(workspaceId, member.userId),
-                      )
-                    }
-                    onRoleChange={(role) =>
-                      runAction(`role:${member.userId}`, () =>
-                        updateWorkspaceMemberRole(workspaceId, member.userId, role),
-                      )
-                    }
-                    onTransfer={() =>
-                      runAction(`transfer:${member.userId}`, () =>
-                        transferWorkspaceOwnership(workspaceId, member.userId),
-                      )
-                    }
-                  />
-                ))
-              : null}
-          </CardContent>
-        </Card>
-
-        <div className="grid gap-5">
-          <Card className="shadow-none">
+      <section className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm shadow-black/[0.04]">
+        <div className="grid items-start xl:grid-cols-[minmax(0,1.2fr)_minmax(340px,.8fr)]">
+          <Card className="rounded-none border-0 shadow-none">
             <CardHeader>
-              <CardTitle>{_(WORKSPACE_MEMBERS_MESSAGES.invite)}</CardTitle>
-              <CardDescription>{_(WORKSPACE_MEMBERS_MESSAGES.inviteDescription)}</CardDescription>
+              <CardTitle>{_(WORKSPACE_MEMBERS_MESSAGES.members)}</CardTitle>
+              <CardDescription>{_(WORKSPACE_MEMBERS_MESSAGES.membersDescription)}</CardDescription>
             </CardHeader>
-            <CardContent>
-              {canManage ? (
-                <form
-                  className="grid gap-4"
-                  noValidate
-                  onSubmit={(event) => void submitInvitation(event)}
-                >
-                  <div className="grid gap-2">
-                    <Label htmlFor="invitation-email">{_(WORKSPACE_MEMBERS_MESSAGES.email)}</Label>
-                    <Input
-                      aria-describedby={emailError ? 'invitation-email-error' : undefined}
-                      aria-invalid={Boolean(emailError)}
-                      autoComplete="email"
-                      disabled={Boolean(pendingAction)}
-                      id="invitation-email"
-                      name="invitation-email"
-                      onChange={(event) => {
-                        setEmail(event.target.value);
-                        setEmailError('');
-                      }}
-                      type="email"
-                      value={email}
+            <CardContent className="grid gap-3">
+              {loading ? <LoadingMessage /> : null}
+              {!loading
+                ? members.map((member) => (
+                    <MemberRow
+                      actorRole={currentRole}
+                      currentUserId={currentUserId}
+                      key={member.userId}
+                      member={member}
+                      pending={Boolean(pendingAction)}
+                      onRemove={() =>
+                        runAction(`remove:${member.userId}`, () =>
+                          removeWorkspaceMember(workspaceId, member.userId),
+                        )
+                      }
+                      onRoleChange={(role) =>
+                        runAction(`role:${member.userId}`, () =>
+                          updateWorkspaceMemberRole(workspaceId, member.userId, role),
+                        )
+                      }
+                      onTransfer={() =>
+                        runAction(`transfer:${member.userId}`, () =>
+                          transferWorkspaceOwnership(workspaceId, member.userId),
+                        )
+                      }
                     />
-                    {emailError ? (
-                      <p className="text-sm text-[var(--danger-fg)]" id="invitation-email-error">
-                        {emailError}
-                      </p>
-                    ) : null}
-                  </div>
-                  <div className="grid gap-2">
-                    <Label>{_(WORKSPACE_MEMBERS_MESSAGES.role)}</Label>
-                    <Select
-                      disabled={Boolean(pendingAction)}
-                      onValueChange={(role) => setInviteRole(role as WorkspaceInvitationRole)}
-                      value={inviteRole}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {availableInvitationRoles(currentRole).map((role) => (
-                          <SelectItem key={role} value={role}>
-                            {_(roleMessage(role))}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <Button disabled={Boolean(pendingAction)} type="submit">
-                    {pendingAction === 'invite' ? (
-                      <LoaderCircle aria-hidden="true" className="animate-spin" />
-                    ) : (
-                      <UserPlus aria-hidden="true" />
-                    )}
-                    {_(WORKSPACE_MEMBERS_MESSAGES.sendInvitation)}
-                  </Button>
-                </form>
-              ) : (
-                <p className="text-sm text-muted-foreground">
-                  {_(WORKSPACE_MEMBERS_MESSAGES.noManagementAccess)}
-                </p>
-              )}
+                  ))
+                : null}
             </CardContent>
           </Card>
 
-          {canManage ? (
-            <Card className="shadow-none">
+          <div className="grid divide-y divide-border border-t border-border xl:border-s xl:border-t-0">
+            <Card className="rounded-none border-0 bg-[var(--surface-subtle)] shadow-none">
               <CardHeader>
-                <CardTitle>{_(WORKSPACE_MEMBERS_MESSAGES.pendingInvitations)}</CardTitle>
+                <CardTitle>{_(WORKSPACE_MEMBERS_MESSAGES.invite)}</CardTitle>
+                <CardDescription>{_(WORKSPACE_MEMBERS_MESSAGES.inviteDescription)}</CardDescription>
               </CardHeader>
-              <CardContent className="grid gap-3">
-                {invitations.length ? (
-                  invitations.map((invitation) => (
-                    <div
-                      className="flex items-center justify-between gap-3 rounded-lg border border-border p-3"
-                      key={invitation.id}
-                    >
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-semibold">{invitation.email}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {_(roleMessage(invitation.role))} ·{' '}
-                          {_({
-                            ...WORKSPACE_MEMBERS_MESSAGES.expires,
-                            values: { date: formatDate(invitation.expiresAt, i18n.locale) },
-                          })}
-                        </p>
-                      </div>
-                      <Button
+              <CardContent>
+                {canManage ? (
+                  <form
+                    className="grid gap-4"
+                    noValidate
+                    onSubmit={(event) => void submitInvitation(event)}
+                  >
+                    <div className="grid gap-2">
+                      <Label htmlFor="invitation-email">
+                        {_(WORKSPACE_MEMBERS_MESSAGES.email)}
+                      </Label>
+                      <Input
+                        aria-describedby={emailError ? 'invitation-email-error' : undefined}
+                        aria-invalid={Boolean(emailError)}
+                        autoComplete="email"
                         disabled={Boolean(pendingAction)}
-                        onClick={() =>
-                          void runAction(`revoke:${invitation.id}`, () =>
-                            revokeWorkspaceInvitation(workspaceId, invitation.id),
-                          )
-                        }
-                        type="button"
-                        variant="outline"
-                      >
-                        {_(WORKSPACE_MEMBERS_MESSAGES.revoke)}
-                      </Button>
+                        id="invitation-email"
+                        name="invitation-email"
+                        onChange={(event) => {
+                          setEmail(event.target.value);
+                          setEmailError('');
+                        }}
+                        type="email"
+                        value={email}
+                      />
+                      {emailError ? (
+                        <p className="text-sm text-[var(--danger-fg)]" id="invitation-email-error">
+                          {emailError}
+                        </p>
+                      ) : null}
                     </div>
-                  ))
+                    <div className="grid gap-2">
+                      <Label>{_(WORKSPACE_MEMBERS_MESSAGES.role)}</Label>
+                      <Select
+                        disabled={Boolean(pendingAction)}
+                        onValueChange={(role) => setInviteRole(role as WorkspaceInvitationRole)}
+                        value={inviteRole}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {availableInvitationRoles(currentRole).map((role) => (
+                            <SelectItem key={role} value={role}>
+                              {_(roleMessage(role))}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <Button disabled={Boolean(pendingAction)} type="submit">
+                      {pendingAction === 'invite' ? (
+                        <LoaderCircle aria-hidden="true" className="animate-spin" />
+                      ) : (
+                        <UserPlus aria-hidden="true" />
+                      )}
+                      {_(WORKSPACE_MEMBERS_MESSAGES.sendInvitation)}
+                    </Button>
+                  </form>
                 ) : (
                   <p className="text-sm text-muted-foreground">
-                    {_(WORKSPACE_MEMBERS_MESSAGES.noPendingInvitations)}
+                    {_(WORKSPACE_MEMBERS_MESSAGES.noManagementAccess)}
                   </p>
                 )}
               </CardContent>
             </Card>
-          ) : null}
 
-          {canTransferOrDelete ? (
-            <Card className="border-[var(--danger-border)] shadow-none">
-              <CardHeader>
-                <div className="flex items-center gap-2 text-[var(--danger-fg)]">
-                  <ShieldAlert aria-hidden="true" />
-                  <CardTitle>{_(WORKSPACE_MEMBERS_MESSAGES.dangerZone)}</CardTitle>
-                </div>
-                <CardDescription>
-                  {_(WORKSPACE_MEMBERS_MESSAGES.deletionDescription)}
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="grid gap-3">
-                <Label htmlFor="workspace-deletion-confirmation">
-                  {_({
-                    ...WORKSPACE_MEMBERS_MESSAGES.deletionConfirmation,
-                    values: { workspaceId },
-                  })}
-                </Label>
-                <Input
-                  autoComplete="off"
-                  disabled={Boolean(pendingAction)}
-                  id="workspace-deletion-confirmation"
-                  onChange={(event) => setDeletionConfirmation(event.target.value)}
-                  value={deletionConfirmation}
-                />
-                <Button
-                  disabled={deletionConfirmation !== workspaceId || Boolean(pendingAction)}
-                  onClick={() =>
-                    void runAction('delete-workspace', () => scheduleWorkspaceDeletion(workspaceId))
-                  }
-                  type="button"
-                  variant="destructive"
-                >
-                  {_(WORKSPACE_MEMBERS_MESSAGES.scheduleDeletion)}
-                </Button>
-              </CardContent>
-            </Card>
-          ) : null}
+            {canManage ? (
+              <Card className="rounded-none border-0 bg-[var(--surface-subtle)] shadow-none">
+                <CardHeader>
+                  <CardTitle>{_(WORKSPACE_MEMBERS_MESSAGES.pendingInvitations)}</CardTitle>
+                </CardHeader>
+                <CardContent className="grid gap-3">
+                  {invitations.length ? (
+                    invitations.map((invitation) => (
+                      <div
+                        className="flex items-center justify-between gap-3 border-b border-border p-3 last:border-0"
+                        key={invitation.id}
+                      >
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-semibold">{invitation.email}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {_(roleMessage(invitation.role))} ·{' '}
+                            {_({
+                              ...WORKSPACE_MEMBERS_MESSAGES.expires,
+                              values: { date: formatDate(invitation.expiresAt, i18n.locale) },
+                            })}
+                          </p>
+                        </div>
+                        <Button
+                          disabled={Boolean(pendingAction)}
+                          onClick={() =>
+                            void runAction(`revoke:${invitation.id}`, () =>
+                              revokeWorkspaceInvitation(workspaceId, invitation.id),
+                            )
+                          }
+                          type="button"
+                          variant="outline"
+                        >
+                          {_(WORKSPACE_MEMBERS_MESSAGES.revoke)}
+                        </Button>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-sm text-muted-foreground">
+                      {_(WORKSPACE_MEMBERS_MESSAGES.noPendingInvitations)}
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
+            ) : null}
+
+            {canTransferOrDelete ? (
+              <Card className="rounded-none border-0 border-t border-[var(--danger-border)] bg-[var(--danger-bg)]/45 shadow-none">
+                <CardHeader>
+                  <div className="flex items-center gap-2 text-[var(--danger-fg)]">
+                    <ShieldAlert aria-hidden="true" />
+                    <CardTitle>{_(WORKSPACE_MEMBERS_MESSAGES.dangerZone)}</CardTitle>
+                  </div>
+                  <CardDescription>
+                    {_(WORKSPACE_MEMBERS_MESSAGES.deletionDescription)}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="grid gap-3">
+                  <Label htmlFor="workspace-deletion-confirmation">
+                    {_({
+                      ...WORKSPACE_MEMBERS_MESSAGES.deletionConfirmation,
+                      values: { workspaceId },
+                    })}
+                  </Label>
+                  <Input
+                    autoComplete="off"
+                    disabled={Boolean(pendingAction)}
+                    id="workspace-deletion-confirmation"
+                    onChange={(event) => setDeletionConfirmation(event.target.value)}
+                    value={deletionConfirmation}
+                  />
+                  <Button
+                    disabled={deletionConfirmation !== workspaceId || Boolean(pendingAction)}
+                    onClick={() =>
+                      void runAction('delete-workspace', () =>
+                        scheduleWorkspaceDeletion(workspaceId),
+                      )
+                    }
+                    type="button"
+                    variant="destructive"
+                  >
+                    {_(WORKSPACE_MEMBERS_MESSAGES.scheduleDeletion)}
+                  </Button>
+                </CardContent>
+              </Card>
+            ) : null}
+          </div>
         </div>
-      </div>
+      </section>
       {canManage ? (
         <EnterpriseIdentitySettings currentRole={currentRole} workspaceId={workspaceId} />
       ) : null}
@@ -332,7 +338,7 @@ function MemberRow({
     (actorRole === 'owner' ||
       (actorRole === 'admin' && member.role !== 'owner' && member.role !== 'admin'));
   return (
-    <div className="grid gap-3 rounded-lg border border-border p-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+    <div className="grid gap-3 border-b border-border py-4 last:border-0 last:pb-0 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center first:pt-0">
       <div className="min-w-0">
         <div className="flex flex-wrap items-center gap-2">
           <p className="truncate text-sm font-semibold">{member.name ?? member.email}</p>

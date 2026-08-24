@@ -19,9 +19,11 @@ export default defineConfig({
    * discovers `frimousse` when a creator first opens that panel — and rebuilding
    * the SDK invalidates the optimiser mid-session. The chunk then 504s with
    * "Outdated Optimize Dep" and the picker never arrives. Naming it up front
-   * makes it a known dependency instead of one discovered too late.
+   * makes it a known dependency instead of one discovered too late. Flow map
+   * uses React Flow lazily as well; prebundle it up front so its React import
+   * cannot be invalidated into a second optimized React URL mid-session.
    */
-  optimizeDeps: { include: ['frimousse'] },
+  optimizeDeps: { include: ['frimousse', '@xyflow/react'] },
   /*
    * Cross-origin embedding for local evaluation: a host app on another port
    * (SocialHub's dev build on :3000) loads `src/lodariq-embed.ts` and
