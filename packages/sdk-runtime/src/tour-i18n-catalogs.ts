@@ -5,6 +5,16 @@ type TourRuntimeCatalog = Readonly<Record<string, string>>;
 const EMPTY_CATALOG: TourRuntimeCatalog = {};
 
 const DE_CATALOG: TourRuntimeCatalog = {
+  Narration: 'Narration',
+  'Play narration': 'Narration abspielen',
+  'Pause narration': 'Narration pausieren',
+  'Narration timeline': 'Narrationszeitleiste',
+  Captions: 'Untertitel',
+  'Loading narration…': 'Narration wird geladen…',
+  'Press play to continue narration.': 'Drücken Sie Wiedergabe, um die Narration fortzusetzen.',
+  'Narration starts shortly.': 'Die Narration beginnt gleich.',
+  'Narration is unavailable. Continue manually.':
+    'Die Narration ist nicht verfügbar. Fahren Sie manuell fort.',
   'Lodariq could not find what this step points at on this page':
     'Lodariq konnte nicht finden, worauf dieser Schritt auf dieser Seite zeigt',
   'Announcement: {label}': 'Ankündigung: {label}',
@@ -28,6 +38,16 @@ const DE_CATALOG: TourRuntimeCatalog = {
 };
 
 const FR_CATALOG: TourRuntimeCatalog = {
+  Narration: 'Narration',
+  'Play narration': 'Lire la narration',
+  'Pause narration': 'Mettre la narration en pause',
+  'Narration timeline': 'Chronologie de la narration',
+  Captions: 'Sous-titres',
+  'Loading narration…': 'Chargement de la narration…',
+  'Press play to continue narration.': 'Appuyez sur Lecture pour poursuivre la narration.',
+  'Narration starts shortly.': 'La narration va bientôt commencer.',
+  'Narration is unavailable. Continue manually.':
+    'La narration est indisponible. Continuez manuellement.',
   'Lodariq could not find what this step points at on this page':
     'Lodariq n’a pas trouvé ce que cette étape désigne sur cette page',
   'Announcement: {label}': 'Annonce : {label}',
@@ -51,6 +71,16 @@ const FR_CATALOG: TourRuntimeCatalog = {
 };
 
 const ES_CATALOG: TourRuntimeCatalog = {
+  Narration: 'Narración',
+  'Play narration': 'Reproducir narración',
+  'Pause narration': 'Pausar narración',
+  'Narration timeline': 'Línea de tiempo de la narración',
+  Captions: 'Subtítulos',
+  'Loading narration…': 'Cargando narración…',
+  'Press play to continue narration.': 'Pulsa reproducir para continuar la narración.',
+  'Narration starts shortly.': 'La narración comenzará en breve.',
+  'Narration is unavailable. Continue manually.':
+    'La narración no está disponible. Continúa manualmente.',
   'Lodariq could not find what this step points at on this page':
     'Lodariq no encontró en esta página aquello a lo que apunta este paso',
   'Announcement: {label}': 'Anuncio: {label}',
@@ -74,6 +104,16 @@ const ES_CATALOG: TourRuntimeCatalog = {
 };
 
 const PT_CATALOG: TourRuntimeCatalog = {
+  Narration: 'Narração',
+  'Play narration': 'Reproduzir narração',
+  'Pause narration': 'Pausar narração',
+  'Narration timeline': 'Linha temporal da narração',
+  Captions: 'Legendas',
+  'Loading narration…': 'A carregar narração…',
+  'Press play to continue narration.': 'Prima reproduzir para continuar a narração.',
+  'Narration starts shortly.': 'A narração começará em breve.',
+  'Narration is unavailable. Continue manually.':
+    'A narração não está disponível. Continue manualmente.',
   'Lodariq could not find what this step points at on this page':
     'O Lodariq não encontrou nesta página aquilo a que esta etapa aponta',
   'Announcement: {label}': 'Anúncio: {label}',
@@ -96,6 +136,15 @@ const PT_CATALOG: TourRuntimeCatalog = {
 };
 
 const AR_CATALOG: TourRuntimeCatalog = {
+  Narration: 'السرد',
+  'Play narration': 'تشغيل السرد',
+  'Pause narration': 'إيقاف السرد مؤقتًا',
+  'Narration timeline': 'الخط الزمني للسرد',
+  Captions: 'التسميات التوضيحية',
+  'Loading narration…': 'جارٍ تحميل السرد…',
+  'Press play to continue narration.': 'اضغط تشغيل لمتابعة السرد.',
+  'Narration starts shortly.': 'سيبدأ السرد بعد قليل.',
+  'Narration is unavailable. Continue manually.': 'السرد غير متاح. تابع يدويًا.',
   'Lodariq could not find what this step points at on this page':
     'لم يعثر لودارِك في هذه الصفحة على ما تشير إليه هذه الخطوة',
   'Announcement: {label}': 'الإعلان: {label}',
@@ -118,6 +167,16 @@ const AR_CATALOG: TourRuntimeCatalog = {
 };
 
 const TR_CATALOG: TourRuntimeCatalog = {
+  Narration: 'Anlatım',
+  'Play narration': 'Anlatımı oynat',
+  'Pause narration': 'Anlatımı duraklat',
+  'Narration timeline': 'Anlatım zaman çizelgesi',
+  Captions: 'Altyazılar',
+  'Loading narration…': 'Anlatım yükleniyor…',
+  'Press play to continue narration.': 'Anlatıma devam etmek için oynat düğmesine basın.',
+  'Narration starts shortly.': 'Anlatım birazdan başlayacak.',
+  'Narration is unavailable. Continue manually.':
+    'Anlatım kullanılamıyor. Manuel olarak devam edin.',
   'Lodariq could not find what this step points at on this page':
     'Lodariq bu adımın işaret ettiği şeyi bu sayfada bulamadı',
   'Announcement: {label}': 'Duyuru: {label}',
@@ -140,6 +199,16 @@ const TR_CATALOG: TourRuntimeCatalog = {
 };
 
 const IT_CATALOG: TourRuntimeCatalog = {
+  Narration: 'Narrazione',
+  'Play narration': 'Riproduci narrazione',
+  'Pause narration': 'Metti in pausa la narrazione',
+  'Narration timeline': 'Sequenza temporale della narrazione',
+  Captions: 'Sottotitoli',
+  'Loading narration…': 'Caricamento narrazione…',
+  'Press play to continue narration.': 'Premi Riproduci per continuare la narrazione.',
+  'Narration starts shortly.': 'La narrazione inizierà a breve.',
+  'Narration is unavailable. Continue manually.':
+    'La narrazione non è disponibile. Continua manualmente.',
   'Lodariq could not find what this step points at on this page':
     'Lodariq non ha trovato in questa pagina ciò a cui punta questo passaggio',
   'Announcement: {label}': 'Annuncio: {label}',
@@ -164,6 +233,16 @@ const IT_CATALOG: TourRuntimeCatalog = {
 };
 
 const NL_BE_CATALOG: TourRuntimeCatalog = {
+  Narration: 'Vertelling',
+  'Play narration': 'Vertelling afspelen',
+  'Pause narration': 'Vertelling pauzeren',
+  'Narration timeline': 'Tijdlijn van de vertelling',
+  Captions: 'Ondertitels',
+  'Loading narration…': 'Vertelling laden…',
+  'Press play to continue narration.': 'Druk op afspelen om de vertelling voort te zetten.',
+  'Narration starts shortly.': 'De vertelling begint zo.',
+  'Narration is unavailable. Continue manually.':
+    'De vertelling is niet beschikbaar. Ga handmatig verder.',
   'Lodariq could not find what this step points at on this page':
     'Lodariq vond niet waar deze stap op deze pagina naar verwijst',
   'Announcement: {label}': 'Aankondiging: {label}',

@@ -13,6 +13,16 @@ export abstract class ControllerBrandFeature extends ControllerOperationsFeature
   protected async matchProductBrandAsync(
     requestedStrategy: AuthoringBrandMatchRequest['strategy'],
   ): Promise<void> {
+    const themeRuns = this.operationsState.commercialUsage?.themeGenerationRuns;
+    const themeGenerationLimitReached =
+      themeRuns !== undefined && themeRuns.limit !== null && themeRuns.used >= themeRuns.limit;
+    if (!this.supportsCommercialFeature('theme-generation') || themeGenerationLimitReached) {
+      this.panelWorkflowError = authoringText(
+        'The workspace has reached its Brand theme generation limit.',
+      );
+      this.emit();
+      return;
+    }
     const sampleBrandStyle = this.services.sampleBrandStyle;
     if (!sampleBrandStyle) {
       this.panelWorkflowError = authoringText(
@@ -54,6 +64,7 @@ export abstract class ControllerBrandFeature extends ControllerOperationsFeature
       this.panelFocusToken += 1;
       this.emit();
     } catch {
+      this.refreshCommercialUsage();
       if (!this.panelWorkflowRequestIsCurrent(requestVersion)) return;
       this.panelOperation = null;
       this.panelWorkflowNotice = null;
@@ -126,6 +137,7 @@ export abstract class ControllerBrandFeature extends ControllerOperationsFeature
       }
       if (!this.panelWorkflowRequestIsCurrent(requestVersion)) return;
       this.brandWorkflow = structuredClone(result.brand);
+      this.refreshCommercialUsage();
       this.brandProposal = null;
       this.panelOperation = null;
       if (!automatic) {
@@ -139,6 +151,7 @@ export abstract class ControllerBrandFeature extends ControllerOperationsFeature
       }
       this.emit();
     } catch {
+      this.refreshCommercialUsage();
       if (!this.panelWorkflowRequestIsCurrent(requestVersion)) return;
       if (!automatic) {
         this.panelOperation = null;

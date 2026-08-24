@@ -3,47 +3,25 @@ import {
   sanitizeInlineTextRuns,
   type InlineTextRun,
   type LodariqBlockProps,
-  type LodariqBlockType,
   type ValidationLevel,
 } from '@lodariq/schema';
+import {
+  type LodariqMvpBlockType,
+  type SerializedLodariqBlockNode,
+} from './block-node-types';
 import {
   $applyNodeReplacement,
   ElementNode,
   type EditorConfig,
   type LexicalNode,
   type NodeKey,
-  type SerializedElementNode,
 } from 'lexical';
 
-export const LODARIQ_MVP_BLOCK_TYPES = [
-  'paragraph',
-  'heading',
-  'list',
-  'divider',
-  'media',
-  'callout',
-  'stat',
-  'icon',
-  'formField',
-  'link',
-  'tourStep',
-  'tooltip',
-  'button',
-  'targetChip',
-  'validationBadge',
-] as const satisfies readonly LodariqBlockType[];
-
-export type LodariqMvpBlockType = (typeof LODARIQ_MVP_BLOCK_TYPES)[number];
-
-export interface SerializedLodariqBlockNode extends SerializedElementNode {
-  type: 'lodariq-block';
-  version: 1;
-  lodariqBlockId: string;
-  blockType: LodariqMvpBlockType;
-  props: LodariqBlockProps;
-  contentRuns?: InlineTextRun[];
-  status?: ValidationLevel;
-}
+export {
+  LODARIQ_MVP_BLOCK_TYPES,
+  type LodariqMvpBlockType,
+  type SerializedLodariqBlockNode,
+} from './block-node-types';
 
 export class LodariqBlockNode extends ElementNode {
   __lodariqBlockId: string;

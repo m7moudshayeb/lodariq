@@ -49,7 +49,11 @@ describe('overlay layer manager (§3.4)', () => {
     // Both want the same corner; the second must be displaced.
     const first = surface('first', 400, 38);
     const second = surface('second', 400, 38);
-    manager.register({ id: 'first', element: first, preference: () => [...OVERLAY_CHROME_CORNERS] });
+    manager.register({
+      id: 'first',
+      element: first,
+      preference: () => [...OVERLAY_CHROME_CORNERS],
+    });
     manager.register({
       id: 'second',
       element: second,
@@ -75,7 +79,12 @@ describe('overlay layer manager (§3.4)', () => {
     manager.solve({ force: true });
     // Displaced means "off the card", not "in a different corner": sliding up
     // the same edge clears it and keeps the pill where the creator expects it.
-    expect(findOverlaps([...manager.placements(), { id: 'card', rect: { left: 900, top: 600, width: 340, height: 180 } }])).toEqual([]);
+    expect(
+      findOverlaps([
+        ...manager.placements(),
+        { id: 'card', rect: { left: 900, top: 600, width: 340, height: 180 } },
+      ]),
+    ).toEqual([]);
   });
 
   it('reports a collision rather than silently overlapping when no corner is free', () => {

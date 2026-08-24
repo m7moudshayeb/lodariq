@@ -99,7 +99,13 @@ const ENTERPRISE_AUDIT_METADATA_KEYS = new Set([
 ]);
 
 const ScimUserParams = Type.Object(
-  { id: Type.String({ minLength: 24, maxLength: 128, pattern: '^ssoprincipal_[A-Za-z0-9_-]{16,}$' }) },
+  {
+    id: Type.String({
+      minLength: 24,
+      maxLength: 128,
+      pattern: '^ssoprincipal_[A-Za-z0-9_-]{16,}$',
+    }),
+  },
   { additionalProperties: false },
 );
 type ScimUserRouteParams = Static<typeof ScimUserParams>;
@@ -442,11 +448,18 @@ export function registerEnterpriseIdentityRoutes(
       return {
         policy: result.value.policy,
         connections: result.value.connections,
-        domains: result.value.domains.map(({ verificationTokenHash: _secret, ...domain }) => domain),
+        domains: result.value.domains.map(
+          ({ verificationTokenHash: _secret, ...domain }) => domain,
+        ),
         groupRoleMappings: result.value.groupRoleMappings,
         scimConnections: result.value.scimConnections.map(
-          ({ tokenHash: _secret, workspaceId: _workspaceId, createdByUserId: _actor, updatedAt: _updated, ...connection }) =>
-            connection,
+          ({
+            tokenHash: _secret,
+            workspaceId: _workspaceId,
+            createdByUserId: _actor,
+            updatedAt: _updated,
+            ...connection
+          }) => connection,
         ),
       };
     },
@@ -507,7 +520,14 @@ export function registerEnterpriseIdentityRoutes(
           },
         }),
       });
-      emitMutation(options.observability, request, workspaceId, context.userId, result, 'enterprise.sso.create');
+      emitMutation(
+        options.observability,
+        request,
+        workspaceId,
+        context.userId,
+        result,
+        'enterprise.sso.create',
+      );
       if (result !== 'completed') return sendMutationFailure(reply, result);
       return reply.code(201).send({
         id,
@@ -534,7 +554,10 @@ export function registerEnterpriseIdentityRoutes(
       const { workspaceId } = request.params as WorkspaceRouteParams;
       const body = request.body as CreateDomainBody;
       const domain = normalizeDomain(body.domain);
-      if (!domain) return reply.code(400).send({ error: 'invalid_domain', message: 'Company domain is invalid' });
+      if (!domain)
+        return reply
+          .code(400)
+          .send({ error: 'invalid_domain', message: 'Company domain is invalid' });
       const now = context.now.toISOString();
       const id = createId('ssodomain');
       const token = randomBytes(32).toString('base64url');
@@ -597,7 +620,9 @@ export function registerEnterpriseIdentityRoutes(
       // different caller-controlled domain cannot verify this record.
       const rawProof = readSingleHeader(request, 'x-lodariq-domain-verification');
       if (!rawProof) {
-        return reply.code(400).send({ error: 'invalid_domain_proof', message: 'DNS verification proof is required' });
+        return reply
+          .code(400)
+          .send({ error: 'invalid_domain_proof', message: 'DNS verification proof is required' });
       }
       const pending = await options.repository.getEnterpriseDomainForVerification(
         workspaceId,
@@ -608,7 +633,9 @@ export function registerEnterpriseIdentityRoutes(
       const recordName = pending.value.verificationRecordName;
       const expectedValue = `lodariq-domain-verification=${rawProof}`;
       if (!(await domainVerification.verifyTxtRecord(recordName, expectedValue))) {
-        return reply.code(409).send({ error: 'domain_not_verified', message: 'Expected DNS TXT record was not found' });
+        return reply
+          .code(409)
+          .send({ error: 'domain_not_verified', message: 'Expected DNS TXT record was not found' });
       }
       const now = context.now.toISOString();
       const result = await options.repository.verifyEnterpriseDomain({
@@ -645,12 +672,12 @@ export function registerEnterpriseIdentityRoutes(
         });
       }
       const current = await options.repository.getWorkspaceAuthPolicy(workspaceId);
-      if (!current) return reply.code(404).send({ error: 'workspace_not_found', message: 'Workspace not found' });
+      if (!current)
+        return reply
+          .code(404)
+          .send({ error: 'workspace_not_found', message: 'Workspace not found' });
       const ssoSatisfied = current.ssoRequired
-        ? await options.repository.identitySatisfiesWorkspaceSso(
-            workspaceId,
-            context.identityId,
-          )
+        ? await options.repository.identitySatisfiesWorkspaceSso(workspaceId, context.identityId)
         : false;
       const policyFailure = workspaceSessionPolicyFailure(context.session, current, ssoSatisfied);
       const breakGlassRequestId = policyFailure
@@ -701,7 +728,9 @@ export function registerEnterpriseIdentityRoutes(
 
   fastify.put(
     '/v1/workspaces/:workspaceId/enterprise/sso-connections/:connectionId/group-role-mappings',
-    { schema: { params: EnterpriseConnectionParams, body: UpsertEnterpriseGroupRoleMappingRequest } },
+    {
+      schema: { params: EnterpriseConnectionParams, body: UpsertEnterpriseGroupRoleMappingRequest },
+    },
     async (request, reply) => {
       const context = await requireEnterpriseAdminMutation(options, request, reply);
       if (!context) return;
@@ -872,7 +901,7 @@ export function registerEnterpriseIdentityRoutes(
     },
   );
 
-  fastify.get('/scim/v2/ServiceProviderConfig', async (_request, reply) => {
+  fastify.get('/v1/scim/ServiceProviderConfig', async (_request, reply) => {
     reply.type('application/scim+json');
     return {
       schemas: ['urn:ietf:params:scim:schemas:core:2.0:ServiceProviderConfig'],
@@ -887,7 +916,7 @@ export function registerEnterpriseIdentityRoutes(
   });
 
   fastify.get(
-    '/scim/v2/Users',
+    '/v1/scim/Users',
     { schema: { querystring: ScimUserListQuery } },
     async (request, reply) => {
       const scim = await authenticateScim(options.repository, request, reply, options.clock);
@@ -915,7 +944,7 @@ export function registerEnterpriseIdentityRoutes(
   );
 
   fastify.get(
-    '/scim/v2/Users/:id',
+    '/v1/scim/Users/:id',
     { schema: { params: ScimUserParams } },
     async (request, reply) => {
       const scim = await authenticateScim(options.repository, request, reply, options.clock);
@@ -933,7 +962,7 @@ export function registerEnterpriseIdentityRoutes(
   );
 
   fastify.post(
-    '/scim/v2/Users',
+    '/v1/scim/Users',
     { schema: { body: ScimCreateUserRequest } },
     async (request, reply) => {
       const scim = await authenticateScim(options.repository, request, reply, options.clock);
@@ -1001,9 +1030,11 @@ export function registerEnterpriseIdentityRoutes(
           metadata: { principalId },
         }),
       });
-      if (result.status === 'conflict') return scimError(reply, 409, 'uniqueness', 'User requires administrator reconciliation');
-      if (result.status !== 'created') return scimError(reply, 400, 'invalidValue', 'SCIM user could not be provisioned');
-      reply.type('application/scim+json').header('location', `/scim/v2/Users/${principalId}`);
+      if (result.status === 'conflict')
+        return scimError(reply, 409, 'uniqueness', 'User requires administrator reconciliation');
+      if (result.status !== 'created')
+        return scimError(reply, 400, 'invalidValue', 'SCIM user could not be provisioned');
+      reply.type('application/scim+json').header('location', `/v1/scim/Users/${principalId}`);
       return reply.code(201).send({
         schemas: [SCIM_USER_SCHEMA],
         id: principalId,
@@ -1016,7 +1047,7 @@ export function registerEnterpriseIdentityRoutes(
   );
 
   fastify.put(
-    '/scim/v2/Users/:id',
+    '/v1/scim/Users/:id',
     { schema: { params: ScimUserParams, body: ScimReplaceUserRequest } },
     async (request, reply) => {
       const scim = await authenticateScim(options.repository, request, reply, options.clock);
@@ -1070,7 +1101,7 @@ export function registerEnterpriseIdentityRoutes(
   );
 
   fastify.patch(
-    '/scim/v2/Users/:id',
+    '/v1/scim/Users/:id',
     { schema: { params: ScimUserParams, body: ScimPatchUserRequest } },
     async (request, reply) => {
       const scim = await authenticateScim(options.repository, request, reply, options.clock);
@@ -1079,9 +1110,7 @@ export function registerEnterpriseIdentityRoutes(
       const body = request.body as ScimPatchBody;
       const activeOperation = body.Operations.find((operation) => operation.path === 'active');
       const nameOperation = body.Operations.find((operation) => operation.path === 'displayName');
-      const activeValue = activeOperation
-        ? parseScimBoolean(activeOperation.value)
-        : undefined;
+      const activeValue = activeOperation ? parseScimBoolean(activeOperation.value) : undefined;
       if (activeOperation && activeValue === null) {
         return scimError(reply, 400, 'invalidValue', 'active must be boolean');
       }
@@ -1097,9 +1126,7 @@ export function registerEnterpriseIdentityRoutes(
         ...(nameOperation && typeof nameOperation.value === 'string'
           ? { displayName: nameOperation.value.trim() }
           : {}),
-        ...(typeof activeValue === 'boolean'
-          ? { active: activeValue }
-          : {}),
+        ...(typeof activeValue === 'boolean' ? { active: activeValue } : {}),
         occurredAt: now,
         auditEvent: auditEvent(request, {
           workspaceId: scim.workspaceId,
@@ -1111,7 +1138,8 @@ export function registerEnterpriseIdentityRoutes(
         }),
       });
       if (result === 'not_found') return scimError(reply, 404, undefined, 'SCIM user not found');
-      if (result !== 'completed') return scimError(reply, 409, 'mutability', 'SCIM update requires administrator review');
+      if (result !== 'completed')
+        return scimError(reply, 409, 'mutability', 'SCIM update requires administrator review');
       return reply.code(204).send();
     },
   );
@@ -1130,11 +1158,21 @@ async function requireEnterpriseAdminMutation(
   if (!authenticated) return null;
   const now = readClock(options.clock);
   if (!isRecentAuthentication(authenticated.session.authenticatedAt, now)) {
-    await reply.code(403).send({ error: 'recent_authentication_required', message: 'Sign in again before changing enterprise identity settings' });
+    await reply
+      .code(403)
+      .send({
+        error: 'recent_authentication_required',
+        message: 'Sign in again before changing enterprise identity settings',
+      });
     return null;
   }
   if (!assuranceAtLeast(authenticated.session.assuranceLevel, 'aal2')) {
-    await reply.code(403).send({ error: 'minimum_assurance_required', message: 'A passkey or equivalent step-up is required' });
+    await reply
+      .code(403)
+      .send({
+        error: 'minimum_assurance_required',
+        message: 'A passkey or equivalent step-up is required',
+      });
     return null;
   }
   const allowed = await options.repository.consumeAuthRateLimit({
@@ -1222,15 +1260,16 @@ function auditEvent(
   assertSafeEnterpriseAuditMetadata(input.metadata);
   return {
     id: createId('ssoevt'),
-    correlationId: String(request.id).replace(/[^A-Za-z0-9_-]/gu, '_').padEnd(8, '_').slice(0, 128),
+    correlationId: String(request.id)
+      .replace(/[^A-Za-z0-9_-]/gu, '_')
+      .padEnd(8, '_')
+      .slice(0, 128),
     targetUserId: input.targetUserId ?? null,
     ...input,
   };
 }
 
-function assertSafeEnterpriseAuditMetadata(
-  metadata: EnterpriseAuditEventRecord['metadata'],
-): void {
+function assertSafeEnterpriseAuditMetadata(metadata: EnterpriseAuditEventRecord['metadata']): void {
   for (const key of Object.keys(metadata)) {
     if (!ENTERPRISE_AUDIT_METADATA_KEYS.has(key)) {
       throw new Error(`Enterprise audit metadata key is not allowlisted: ${key}`);
@@ -1257,22 +1296,48 @@ function emitMutation(
 }
 
 function sendMutationFailure(reply: FastifyReply, result: EnterpriseMutationResult) {
-  if (result === 'forbidden') return reply.code(403).send({ error: 'forbidden', message: 'Workspace owner permission is required' });
-  if (result === 'not_found') return reply.code(404).send({ error: 'not_found', message: 'Enterprise identity resource not found' });
-  if (result === 'validation_required') return reply.code(409).send({ error: 'validation_required', message: 'Real-tenant validation evidence is required before activation' });
-  if (result === 'invalid_input') return reply.code(400).send({ error: 'invalid_input', message: 'Enterprise identity input is invalid' });
-  return reply.code(409).send({ error: 'enterprise_identity_conflict', message: 'Enterprise identity state changed; refresh and retry' });
+  if (result === 'forbidden')
+    return reply
+      .code(403)
+      .send({ error: 'forbidden', message: 'Workspace owner permission is required' });
+  if (result === 'not_found')
+    return reply
+      .code(404)
+      .send({ error: 'not_found', message: 'Enterprise identity resource not found' });
+  if (result === 'validation_required')
+    return reply
+      .code(409)
+      .send({
+        error: 'validation_required',
+        message: 'Real-tenant validation evidence is required before activation',
+      });
+  if (result === 'invalid_input')
+    return reply
+      .code(400)
+      .send({ error: 'invalid_input', message: 'Enterprise identity input is invalid' });
+  return reply
+    .code(409)
+    .send({
+      error: 'enterprise_identity_conflict',
+      message: 'Enterprise identity state changed; refresh and retry',
+    });
 }
 
 function sendReadFailure(reply: FastifyReply, result: 'forbidden' | 'not_found') {
   return result === 'not_found'
-    ? reply.code(404).send({ error: 'not_found', message: 'Enterprise identity resource not found' })
-    : reply.code(403).send({ error: 'forbidden', message: 'Workspace administrator permission is required' });
+    ? reply
+        .code(404)
+        .send({ error: 'not_found', message: 'Enterprise identity resource not found' })
+    : reply
+        .code(403)
+        .send({ error: 'forbidden', message: 'Workspace administrator permission is required' });
 }
 
 function sendRateLimited(reply: FastifyReply, retryAfterSeconds: number) {
   reply.header('retry-after', String(Math.max(1, retryAfterSeconds)));
-  return reply.code(429).send({ error: 'rate_limited', message: 'Too many attempts; try again later' });
+  return reply
+    .code(429)
+    .send({ error: 'rate_limited', message: 'Too many attempts; try again later' });
 }
 
 function enterpriseSsoUnavailable(reply: FastifyReply) {
@@ -1289,7 +1354,12 @@ function invalidEnterpriseCallback(reply: FastifyReply) {
   });
 }
 
-function scimError(reply: FastifyReply, status: number, scimType: string | undefined, detail: string) {
+function scimError(
+  reply: FastifyReply,
+  status: number,
+  scimType: string | undefined,
+  detail: string,
+) {
   reply.type('application/scim+json');
   return reply.code(status).send({
     schemas: ['urn:ietf:params:scim:api:messages:2.0:Error'],

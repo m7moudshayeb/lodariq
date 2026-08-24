@@ -1,8 +1,12 @@
 import type {
   AdaptivePolicy,
+  AdaptiveBehaviorEvidence,
   ApplicationSummary,
+  AuthoringPresenceSelection,
   ExperienceAnalytics,
   ExperienceComment,
+  ExperienceCommentAnchor,
+  ExperienceCommentAuditEvent,
   ExperienceSession,
   ExperienceStepLock,
   Experiment,
@@ -10,12 +14,39 @@ import type {
   ExperimentResults,
   SuccessEvent,
 } from '@lodariq/schema';
-import type { ExperienceMeasurementRecord } from './experience-measurement';
+import type {
+  AuthoringPresenceRecord,
+  ExperienceExperimentAssignmentRecord,
+  ExperienceMeasurementRecord,
+  ReadAdaptiveBehaviorEvidenceInput,
+} from './experience-measurement';
+import type { ExperienceStepLockRecord } from './experience-measurement';
 import type { ListExperienceSessionsInput } from './experience-sessions';
+import type {
+  AnalyticsExportAuditEventRecord,
+  AnalyticsExportScope,
+  ClaimAnalyticsExportJobsInput,
+  CompleteAnalyticsExportJobInput,
+  CreateAnalyticsExportJobInput,
+  FailAnalyticsExportJobInput,
+  PersistedAnalyticsExportJob,
+  ReadAnalyticsExportEventsInput,
+} from './analytics-exports';
+import type { PersistedAnalyticsEventRecord } from './analytics';
 
 export interface ExperienceScope {
   workspaceId: string;
   documentId: string;
+}
+
+export interface ExperienceExperimentScope extends ExperienceScope {
+  environmentId?: string;
+}
+
+export interface ResolveExperimentAssignmentInput extends ExperienceScope {
+  environmentId: string;
+  experimentId: string;
+  assignmentKey: string;
 }
 
 export interface UpdateExperienceMeasurementInput extends ExperienceScope {
@@ -29,6 +60,8 @@ export interface QueryExperienceAnalyticsInput extends ExperienceScope {
   environmentId: string;
   /** Document order, so a branch that goes backwards does not reorder the funnel. */
   stepIdsInOrder: readonly string[];
+  /** Freezes an asynchronous export to events present when it was requested. */
+  asOf?: string;
 }
 
 export interface RecordFormResponsesInput extends ExperienceScope {
@@ -61,7 +94,16 @@ export interface UpdateExperimentInput {
 }
 
 export interface CreateExperienceCommentInput extends ExperienceScope {
-  stepId: string;
+  anchor: ExperienceCommentAnchor;
+  body: string;
+  authorUserId: string;
+  authorName: string;
+}
+
+export interface ReplyExperienceCommentInput {
+  workspaceId: string;
+  documentId?: string;
+  threadId: string;
   body: string;
   authorUserId: string;
   authorName: string;
@@ -81,6 +123,25 @@ export interface ClaimStepLockInput extends ExperienceScope {
   holderUserId: string;
   holderName: string;
   sessionId: string;
+  takeover?: boolean;
+}
+
+export interface HeartbeatAuthoringPresenceInput extends ExperienceScope {
+  sessionId: string;
+  creatorId: string;
+  creatorName: string;
+  stepId: string | null;
+  selection: AuthoringPresenceSelection | null;
+  documentUpdatedAt?: string;
+}
+
+export interface LeaveAuthoringPresenceInput extends ExperienceScope {
+  sessionId: string;
+}
+
+export interface ExperienceStepLockClaimResult {
+  lock: ExperienceStepLock;
+  acquired: boolean;
 }
 
 export interface UpsertWorkspaceApplicationInput extends ApplicationSummary {
@@ -93,20 +154,71 @@ export interface ExperienceMeasurementRepository {
   updateExperienceMeasurement(
     input: UpdateExperienceMeasurementInput,
   ): Promise<ExperienceMeasurementRecord>;
+  readAdaptiveBehaviorEvidence(
+    input: ReadAdaptiveBehaviorEvidenceInput,
+  ): Promise<AdaptiveBehaviorEvidence[]>;
   readExperienceAnalytics(input: QueryExperienceAnalyticsInput): Promise<ExperienceAnalytics>;
   recordFormResponses(input: RecordFormResponsesInput): Promise<number>;
   listExperienceSessions(input: ListExperienceSessionsInput): Promise<ExperienceSession[]>;
   readExperiment(
-    scope: ExperienceScope,
+    scope: ExperienceExperimentScope,
   ): Promise<{ experiment: Experiment | null; results: ExperimentResults | null }>;
   createExperiment(input: CreateExperimentInput): Promise<Experiment>;
   updateExperiment(input: UpdateExperimentInput): Promise<Experiment | null>;
+  getOrCreateExperimentAssignment(
+    input: ResolveExperimentAssignmentInput,
+  ): Promise<ExperienceExperimentAssignmentRecord | null>;
+  findExperimentAssignment(
+    input: ResolveExperimentAssignmentInput,
+  ): Promise<ExperienceExperimentAssignmentRecord | null>;
   listExperienceComments(scope: ExperienceScope): Promise<ExperienceComment[]>;
   createExperienceComment(input: CreateExperienceCommentInput): Promise<ExperienceComment>;
+  replyToExperienceComment(input: ReplyExperienceCommentInput): Promise<ExperienceComment | null>;
   resolveExperienceComment(input: ResolveExperienceCommentInput): Promise<ExperienceComment | null>;
+  listExperienceCommentAuditEvents(scope: ExperienceScope): Promise<ExperienceCommentAuditEvent[]>;
   listExperienceStepLocks(scope: ExperienceScope): Promise<ExperienceStepLock[]>;
-  claimExperienceStepLock(input: ClaimStepLockInput): Promise<ExperienceStepLock>;
+  listExperienceStepLockRecords(scope: ExperienceScope): Promise<ExperienceStepLockRecord[]>;
+  findExperienceStepLock(
+    scope: ExperienceScope,
+    stepId: string,
+  ): Promise<ExperienceStepLockRecord | null>;
+  claimExperienceStepLock(input: ClaimStepLockInput): Promise<ExperienceStepLockClaimResult>;
   releaseExperienceStepLock(input: ClaimStepLockInput): Promise<void>;
+  heartbeatAuthoringPresence(
+    input: HeartbeatAuthoringPresenceInput,
+  ): Promise<AuthoringPresenceRecord>;
+  listAuthoringPresence(scope: ExperienceScope): Promise<AuthoringPresenceRecord[]>;
+  leaveAuthoringPresence(input: LeaveAuthoringPresenceInput): Promise<void>;
   listWorkspaceApplications(workspaceId: string): Promise<ApplicationSummary[]>;
   upsertWorkspaceApplication(input: UpsertWorkspaceApplicationInput): Promise<ApplicationSummary>;
+  createAnalyticsExportJob(
+    input: CreateAnalyticsExportJobInput,
+  ): Promise<PersistedAnalyticsExportJob>;
+  listAnalyticsExportJobs(scope: AnalyticsExportScope): Promise<PersistedAnalyticsExportJob[]>;
+  getAnalyticsExportJob(
+    workspaceId: string,
+    jobId: string,
+  ): Promise<PersistedAnalyticsExportJob | null>;
+  claimAnalyticsExportJobs(
+    input: ClaimAnalyticsExportJobsInput,
+  ): Promise<PersistedAnalyticsExportJob[]>;
+  readAnalyticsExportEvents(
+    input: ReadAnalyticsExportEventsInput,
+  ): Promise<PersistedAnalyticsEventRecord[]>;
+  completeAnalyticsExportJob(
+    input: CompleteAnalyticsExportJobInput,
+  ): Promise<PersistedAnalyticsExportJob | null>;
+  failAnalyticsExportJob(
+    input: FailAnalyticsExportJobInput,
+  ): Promise<PersistedAnalyticsExportJob | null>;
+  markAnalyticsExportDownloaded(
+    workspaceId: string,
+    jobId: string,
+    actorUserId: string,
+    downloadedAt: string,
+  ): Promise<boolean>;
+  expireAnalyticsExportJobs(now: string): Promise<number>;
+  listAnalyticsExportAuditEvents(
+    scope: AnalyticsExportScope,
+  ): Promise<AnalyticsExportAuditEventRecord[]>;
 }

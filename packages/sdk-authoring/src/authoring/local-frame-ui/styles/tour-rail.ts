@@ -140,6 +140,14 @@ export const AUTHORING_TOUR_RAIL_CSS = `
     background: transparent;
   }
 
+  .tour-step-row.drop-before {
+    box-shadow: inset 0 3px 0 var(--lq-color-primary);
+  }
+
+  .tour-step-row.drop-after {
+    box-shadow: inset 0 -3px 0 var(--lq-color-primary);
+  }
+
   .tour-step-row-main {
     display: grid;
     min-width: 0;

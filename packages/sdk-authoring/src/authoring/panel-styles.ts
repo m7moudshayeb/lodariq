@@ -10,6 +10,7 @@ import {
   OVERLAY_CHROME_GHOST_OPACITY,
   OVERLAY_CHROME_MOTION,
 } from '../creator-chrome-tokens';
+import { EXPERIENCE_MENU_CSS, EXPERIENCE_NAME_DIALOG_CSS } from '../experience-menu/styles';
 import { bandStyles } from './overlay/band-styles';
 import {
   AUTHORING_BROWSING_ATTRIBUTE,
@@ -45,14 +46,36 @@ export function createPanelStyles(_options: AuthoringPanelStyleOptions): HTMLSty
       color-scheme: light;
     }
 
-    /**
-     * Every surface here is toggled with the hidden property, and every one of
-     * them declares a display. A declared display beats the UA sheet's [hidden]
-     * rule, so "hidden" chrome stays painted over the customer's page. This is the
-     * one place to state it rather than four separate guards that can drift.
-     */
+    /* A declared display beats the UA [hidden] rule, so state it once here. */
     [hidden] {
       display: none !important;
+    }
+
+    * {
+      scrollbar-color: ${CREATOR_CHROME_TOKENS.border} transparent;
+      scrollbar-width: thin;
+    }
+
+    ::-webkit-scrollbar {
+      width: 10px;
+      height: 10px;
+    }
+
+    ::-webkit-scrollbar-track,
+    ::-webkit-scrollbar-corner {
+      background: transparent;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      border: 3px solid transparent;
+      border-radius: 999px;
+      background-color: ${CREATOR_CHROME_TOKENS.border};
+      background-clip: padding-box;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background-color: ${CREATOR_CHROME_TOKENS.muted};
+      background-clip: padding-box;
     }
 
     .overlay-root {
@@ -61,18 +84,7 @@ export function createPanelStyles(_options: AuthoringPanelStyleOptions): HTMLSty
       pointer-events: none;
     }
 
-    /*
-     * A shadow root does not inherit the page's box model, and every measurement
-     * in this file is written as a border-box one. Without this a 36px thumbnail
-     * with 6px of padding renders 50px tall.
-     */
-    /*
-     * A shadow root inherits no page reset, so every box here defaults to
-     * content-box while the prototype's document is border-box throughout. Every
-     * bordered chrome element was therefore drawn larger than its stated size —
-     * the resize squares at 11px instead of 9, the compass dots at 18 instead of
-     * 13. Stated size is the drawn size, everywhere, as the prototype has it.
-     */
+    /* A shadow root inherits no reset, and every measurement here is border-box. */
     [data-overlay-root],
     [data-overlay-root] *,
     [data-overlay-root] *::before,
@@ -102,7 +114,6 @@ export function createPanelStyles(_options: AuthoringPanelStyleOptions): HTMLSty
       z-index: 4;
       display: flex;
       max-width: min(940px, 72vw);
-      /* Bottom-aligned: chips and the trailing Add share one baseline. */
       align-items: flex-end;
       gap: 0;
       border: 1px solid ${CREATOR_CHROME_TOKENS.border};
@@ -115,7 +126,6 @@ export function createPanelStyles(_options: AuthoringPanelStyleOptions): HTMLSty
     }
 
 
-    /* Vertical rail: it names the strip without taking a thumbnail's width. */
     .overlay-filmstrip-rail {
       align-self: center;
       color: ${CREATOR_CHROME_TOKENS.subtle};
@@ -163,11 +173,6 @@ export function createPanelStyles(_options: AuthoringPanelStyleOptions): HTMLSty
       align-items: stretch;
     }
 
-    /**
-     * Removal, on the chip it removes (§4.5). Revealed on hover or focus rather
-     * than always drawn: eight steps each carrying a permanent × turns the strip
-     * into a row of delete buttons with numbers on them.
-     */
     .overlay-filmstrip-step-remove {
       position: absolute;
       top: -5px;
@@ -199,11 +204,6 @@ export function createPanelStyles(_options: AuthoringPanelStyleOptions): HTMLSty
       color: ${CREATOR_CHROME_TOKENS.onAction};
     }
 
-    /**
-     * A step is a thumbnail, not a number (§4.5). Scanning seven steps for "the
-     * one with the image" is the job the strip exists for, and a row of numbered
-     * chips cannot do it.
-     */
     .overlay-filmstrip-step {
       position: relative;
       display: flex;
@@ -225,11 +225,6 @@ export function createPanelStyles(_options: AuthoringPanelStyleOptions): HTMLSty
       background: ${CREATOR_CHROME_CONTROL_TOKENS.hover};
     }
 
-    /*
-     * Darker than the chip it sits in: the thumbnail is a miniature of the
-     * customer's card, and it has to read as a picture rather than as another
-     * button. The number and the state dot float over it in its own corners.
-     */
     .overlay-filmstrip-step-frame {
       position: relative;
       display: flex;
@@ -243,11 +238,6 @@ export function createPanelStyles(_options: AuthoringPanelStyleOptions): HTMLSty
       padding: 5px 5px 0;
     }
 
-    /*
-     * Number and state dot sit on the chip, not inside the picture: at the
-     * thumbnail's own corners they collided with its first line and its call to
-     * action, which are the two things the miniature exists to show.
-     */
     .overlay-filmstrip-step-number {
       position: absolute;
       top: 8px;
@@ -273,7 +263,6 @@ export function createPanelStyles(_options: AuthoringPanelStyleOptions): HTMLSty
       background: ${CREATOR_CHROME_TOKENS.thumbnailInk};
     }
 
-    /* The heading, in miniature: the line a creator recognises the step by. */
     .overlay-filmstrip-step-line:first-child {
       background: ${CREATOR_CHROME_TOKENS.action};
       opacity: 0.75;
@@ -341,11 +330,6 @@ export function createPanelStyles(_options: AuthoringPanelStyleOptions): HTMLSty
       color: ${CREATOR_CHROME_TOKENS.action};
     }
 
-    /*
-     * State dot, in the thumbnail's corner where a status badge is looked for.
-     * Four states, and never the only carrier — the same word is in the chip's
-     * tooltip and in its accessible name (§3.1a).
-     */
     .overlay-filmstrip-step::after {
       content: '';
       position: absolute;
@@ -370,10 +354,6 @@ export function createPanelStyles(_options: AuthoringPanelStyleOptions): HTMLSty
       background: ${CREATOR_CHROME_STATUS_TOKENS.danger};
     }
 
-    /*
-     * The sequence forks here. A mark rather than a count: the flow map is where
-     * a branch is read, and this only has to stop the fork being a surprise.
-     */
     .overlay-filmstrip-step-branch {
       position: absolute;
       right: 6px;
@@ -386,10 +366,6 @@ export function createPanelStyles(_options: AuthoringPanelStyleOptions): HTMLSty
       border-bottom-right-radius: 3px;
     }
 
-    /*
-     * Insert between two steps (§4.5). A hairline until it is wanted: eight
-     * permanent ⊕ between eight chips is a row of buttons with steps in it.
-     */
     .overlay-filmstrip-insert-slot {
       align-self: stretch;
     }
@@ -440,17 +416,10 @@ export function createPanelStyles(_options: AuthoringPanelStyleOptions): HTMLSty
       opacity: 1;
     }
 
-    /* Multi-select (§4.5): a ring, so it reads as "also selected" not "active". */
     .overlay-filmstrip-step[data-batch-selected='true'] .overlay-filmstrip-step-frame {
       box-shadow: inset 0 0 0 2px ${CREATOR_CHROME_TOKENS.action};
     }
 
-    /*
-     * The ring's paint comes from the runtime, so what is styled here is what
-     * publishes. This is the band that makes it selectable, and nothing else.
-     * Only the band takes the click: a ring whose middle were hittable would
-     * make the customer's own button unclickable while editing.
-     */
     .overlay-target-ring {
       position: fixed;
       z-index: 1;
@@ -499,12 +468,10 @@ export function createPanelStyles(_options: AuthoringPanelStyleOptions): HTMLSty
       right: calc(var(--overlay-ring-edge) * -1);
     }
 
-    /* Hovering the band says it is a control before the creator commits a click. */
     .overlay-target-ring-edge:hover {
       background: color-mix(in srgb, ${CREATOR_CHROME_TOKENS.action} 14%, transparent);
     }
 
-    /* Selected: the ring is the thing the inspector is talking about. */
     .overlay-target-ring[data-selected='true'] {
       outline: 1px dashed ${CREATOR_CHROME_TOKENS.action};
       outline-offset: 4px;
@@ -515,14 +482,6 @@ export function createPanelStyles(_options: AuthoringPanelStyleOptions): HTMLSty
       outline-offset: 1px;
     }
 
-    /**
-     * Another step's target, numbered (§4.5).
-     *
-     * Anchored to the target's top-left corner and pulled mostly outside it: a
-     * 32px disc at the centre of a button sat squarely on the customer's own
-     * label, so the creator could not read the thing they were being asked to
-     * recognise. 22px, on the corner, is a marker rather than a cover.
-     */
     .overlay-pulse {
       position: fixed;
       z-index: 3;
@@ -538,7 +497,6 @@ export function createPanelStyles(_options: AuthoringPanelStyleOptions): HTMLSty
       transform: translate(-60%, -60%);
     }
 
-    /* The expanding halo is what makes it read as a pulse rather than a badge. */
     .overlay-pulse::after {
       position: absolute;
       inset: -4px;
@@ -561,7 +519,6 @@ export function createPanelStyles(_options: AuthoringPanelStyleOptions): HTMLSty
       }
     }
 
-    /* Presence, not status (§15): another creator is holding that step. */
     .overlay-pulse[data-peer='true'] {
       border-color: ${CREATOR_CHROME_STATUS_TOKENS.peer};
       background: ${CREATOR_CHROME_STATUS_TOKENS.peer};
@@ -578,7 +535,6 @@ export function createPanelStyles(_options: AuthoringPanelStyleOptions): HTMLSty
       }
     }
 
-    /* The dashed rect the dots sit on, so the gap they set is a visible distance. */
     .overlay-compass {
       position: fixed;
       z-index: 3;
@@ -587,22 +543,6 @@ export function createPanelStyles(_options: AuthoringPanelStyleOptions): HTMLSty
       border-radius: 10px;
     }
 
-    /**
-     * Placement dots (§4.4), the prototype's .cmp affordance.
-     *
-     * Four 14px accent dots with a light ring, centred on the target's edges —
-     * small, unmistakably ours, and they do not bury the customer's neighbouring
-     * controls the way 32px glass discs did. Position carries the meaning: the dot
-     * above the target places the card above it.
-     *
-     * The painted dot is 14px and the button is 20px, so the hit area is a little
-     * larger without a negative inset — an inset would swallow pointer events over
-     * the page in a region where nothing is drawn. The panel test guards that.
-     *
-     * Offset a full button outside the target rather than centred on its edge: on
-     * a 90px button the edge-centred dot lands in the middle of the customer's own
-     * label, which is the text the creator is reading to confirm the target.
-     */
     .overlay-compass-hit,
     .overlay-compass-retarget {
       position: absolute;
@@ -632,7 +572,6 @@ export function createPanelStyles(_options: AuthoringPanelStyleOptions): HTMLSty
       transition: transform ${OVERLAY_CHROME_MOTION.chromeAvoidMs}ms ease;
     }
 
-    /* The chevron does not fit inside 14px, so position alone carries direction. */
     .overlay-compass-hit svg {
       display: none;
     }
@@ -642,11 +581,6 @@ export function createPanelStyles(_options: AuthoringPanelStyleOptions): HTMLSty
       transform: scale(1.28);
     }
 
-    /*
-     * Twelve dots: three alignments on each of four sides. The solver writes the
-     * coordinates, so CSS only centres the painted dot on them. Centre dots read
-     * as the primary choice; the two flanking alignments are quieter until hovered.
-     */
     .overlay-compass-hit {
       transform: translate(-50%, -50%);
     }
@@ -665,11 +599,6 @@ export function createPanelStyles(_options: AuthoringPanelStyleOptions): HTMLSty
       opacity: 1;
     }
 
-    /*
-     * The live gap, shown only while a dot is being dragged away from the
-     * target: a dashed rule the length of the gap, with the number on it. A
-     * badge alone states a size without showing which distance it measures.
-     */
     .overlay-compass-line {
       position: absolute;
       height: 0;
@@ -692,18 +621,12 @@ export function createPanelStyles(_options: AuthoringPanelStyleOptions): HTMLSty
       pointer-events: none;
     }
 
-    /**
-     * The current placement is inverted rather than hidden: it is the one dot the
-     * creator needs to read rather than press, and hiding it would leave the ring
-     * with a gap that looks like a rendering fault.
-     */
     .overlay-compass-hit[aria-pressed='true']::before {
       border-color: ${CREATOR_CHROME_TOKENS.action};
       background: ${CREATOR_CHROME_TOKENS.onAction};
       transform: scale(1.35);
     }
 
-    /* Re-pointing lives on the target's corner, out of the dots' way. */
     .overlay-compass-retarget {
       left: auto;
       right: -11px;
@@ -748,11 +671,6 @@ export function createPanelStyles(_options: AuthoringPanelStyleOptions): HTMLSty
       color-scheme: normal;
     }
 
-    /*
-     * The card's own outline while composing, three pixels outside its corner —
-     * the creator has to see what they are about to resize before they reach for
-     * a handle, so it is drawn rather than revealed on hover.
-     */
     .overlay-iframe-frame {
       position: fixed;
       z-index: 3;
@@ -766,10 +684,6 @@ export function createPanelStyles(_options: AuthoringPanelStyleOptions): HTMLSty
       border-color: ${CREATOR_CHROME_TOKENS.focus};
     }
 
-    /*
-     * Stacked on the card's right edge, outside its box. Glass, because they are
-     * chrome over the customer's product rather than part of the card.
-     */
     .overlay-card-tools {
       position: absolute;
       top: 0;
@@ -781,13 +695,6 @@ export function createPanelStyles(_options: AuthoringPanelStyleOptions): HTMLSty
       pointer-events: auto;
     }
 
-    /*
-     * Flipped left, the tools have to clear the block gutter, which lives in the
-     * same column on that side. They did not: the tools render on the host page
-     * above the iframe, so they silently swallowed every click meant for the
-     * gutter's grip, insert and options — the gutter looked present and did
-     * nothing. Sitting outside it keeps both reachable.
-     */
     .overlay-iframe-frame[data-card-tools-hidden='true'] .overlay-card-tools {
       opacity: 0;
       pointer-events: none;
@@ -800,12 +707,6 @@ export function createPanelStyles(_options: AuthoringPanelStyleOptions): HTMLSty
       margin-left: 0;
     }
 
-    /*
-     * Drawn rather than revealed on hover: the frame that would carry the hover
-     * is pointer-events:none by necessity — it sits over the customer's page —
-     * so there is no card-hover to hang them off without a bridge round trip for
-     * every pointer move. Two 22px glyphs at the edge is a quiet enough cost.
-     */
 
     .overlay-card-tool {
       display: grid;
@@ -840,7 +741,6 @@ export function createPanelStyles(_options: AuthoringPanelStyleOptions): HTMLSty
       cursor: grab;
     }
 
-    /* Above the card, out of the pointer's way, gone the moment the drag ends. */
     .overlay-size-tip {
       position: absolute;
       top: -26px;
@@ -862,21 +762,7 @@ export function createPanelStyles(_options: AuthoringPanelStyleOptions): HTMLSty
       touch-action: none;
     }
 
-    /*
-     * The grab area stays generous; the drawn square is small. Separating them is
-     * the point — a 9px target is unhittable, and a 14px marker looks like a bead
-     * on the card rather than a handle on its edge.
-     */
-    /*
-     * Everything the host page draws around the card stands down while a menu is
-     * open inside the frame.
-     *
-     * In the prototype the menu is simply the topmost layer, so nothing can cover
-     * it. Here the menu renders inside the iframe and this chrome renders on the
-     * host page, so no z-index can put it on top — the outline and the tools were
-     * drawing straight across an open menu. Standing them down is the only way to
-     * reproduce "the menu is the topmost thing" across that boundary.
-     */
+    /* The menu is in the iframe and this chrome is on the host, so no z-index wins. */
     :host([${AUTHORING_FRAME_MENU_OPEN_ATTRIBUTE}]) .overlay-iframe-frame .edge-resize-handle,
     :host([${AUTHORING_FRAME_MENU_OPEN_ATTRIBUTE}]) .overlay-card-tools {
       opacity: 0;
@@ -896,9 +782,16 @@ export function createPanelStyles(_options: AuthoringPanelStyleOptions): HTMLSty
       height: 9px;
       border: 1.5px solid ${CREATOR_CHROME_TOKENS.action};
       border-radius: 3px;
-      /* Near-white fill so the square reads on a light card and a dark one. */
       background: ${CREATOR_CHROME_TOKENS.ink};
       transform: translate(-50%, -50%);
+    }
+
+    .overlay-iframe-frame[data-resize-at-limit~='width'] .edge-resize-handle[data-edge='e']::after,
+    .overlay-iframe-frame[data-resize-at-limit~='width'] .edge-resize-handle[data-edge='w']::after,
+    .overlay-iframe-frame[data-resize-at-limit~='height'] .edge-resize-handle[data-edge='n']::after,
+    .overlay-iframe-frame[data-resize-at-limit~='height'] .edge-resize-handle[data-edge='s']::after {
+      border-color: ${CREATOR_CHROME_STATUS_TOKENS.attention};
+      background: ${CREATOR_CHROME_STATUS_TOKENS.attention};
     }
 
     .overlay-iframe-frame .edge-resize-handle[data-edge='n'],
@@ -928,11 +821,13 @@ export function createPanelStyles(_options: AuthoringPanelStyleOptions): HTMLSty
     .overlay-iframe-frame .edge-resize-handle[data-edge='sw'] { bottom: -7px; left: -7px; cursor: nesw-resize; }
     .overlay-iframe-frame .edge-resize-handle[data-edge='nw'] { top: -7px; left: -7px; cursor: nwse-resize; }
 
-    /* Transient notices, top centre (§4.1). Above the modal and the palette: a
-       notice raised from inside either has to stay readable. */
+    /* Transient notices, bottom centre. §4.1 said top centre, which is where
+       every full-bleed sheet puts its title and lede — the coach tip covered
+       the opening line of whatever section you had just opened. Above the modal
+       and the palette: a notice raised from inside either has to stay readable. */
     .overlay-toasts {
       position: fixed;
-      top: 14px;
+      bottom: ${OVERLAY_CHROME_GEOMETRY.stagePadding + 52}px;
       left: 50%;
       z-index: 9;
       display: flex;
@@ -943,6 +838,11 @@ export function createPanelStyles(_options: AuthoringPanelStyleOptions): HTMLSty
       /* The stack is not a target; each notice inside it is. */
       pointer-events: none;
       transform: translateX(-50%);
+    }
+
+    /* Keep notices above the caption rail without relying on :has(). */
+    .overlay-captions:not([hidden]) ~ .overlay-toasts {
+      bottom: ${OVERLAY_CHROME_GEOMETRY.stagePadding + 108}px;
     }
 
     .overlay-toast {
@@ -962,12 +862,12 @@ export function createPanelStyles(_options: AuthoringPanelStyleOptions): HTMLSty
     }
 
     @keyframes overlay-toast-in {
-      from { opacity: 0; transform: translateY(-8px); }
+      from { opacity: 0; transform: translateY(8px); }
     }
 
     .overlay-toast[data-leaving='true'] {
       opacity: 0;
-      transform: translateY(-6px);
+      transform: translateY(6px);
       transition: opacity 280ms ease, transform 280ms ease;
     }
 
@@ -1007,7 +907,6 @@ export function createPanelStyles(_options: AuthoringPanelStyleOptions): HTMLSty
     }
 
 
-    /* ── mode pill (§4.1). Fixed contents; it may never grow into a rail. ── */
     .overlay-mode-pill {
       position: fixed;
       z-index: 5;
@@ -1033,11 +932,6 @@ export function createPanelStyles(_options: AuthoringPanelStyleOptions): HTMLSty
       cursor: grabbing;
     }
 
-    /*
-     * Corner placement is owned by the layer manager, which sets data-corner.
-     * The transition is what makes automatic avoidance read as movement rather
-     * than a glitch (§3.4 rule 5).
-     */
     .overlay-filmstrip,
     .overlay-mode-pill {
       left: ${OVERLAY_CHROME_GEOMETRY.stagePadding}px;
@@ -1078,11 +972,6 @@ export function createPanelStyles(_options: AuthoringPanelStyleOptions): HTMLSty
       overflow: hidden;
     }
 
-    /*
-     * Collapsed, the pill is still glass — only its contents go. A filled disc
-     * reads as a status light; a glass circle with one accent dot reads as the
-     * same surface, folded up (§4.1).
-     */
     .overlay-mode-pill-dot {
       display: grid;
       width: 100%;
@@ -1102,7 +991,6 @@ export function createPanelStyles(_options: AuthoringPanelStyleOptions): HTMLSty
       background: ${CREATOR_CHROME_TOKENS.action};
     }
 
-    /* A recess, not another control: the track has to read as cut into the glass. */
     .overlay-mode-pill-switch {
       display: flex;
       gap: 2px;
@@ -1128,7 +1016,6 @@ export function createPanelStyles(_options: AuthoringPanelStyleOptions): HTMLSty
       color: ${CREATOR_CHROME_TOKENS.ink};
     }
 
-    /* The pill is draggable to any corner; the grip is what says so (§3.4). */
     .overlay-mode-pill-grip {
       display: flex;
       align-items: center;
@@ -1136,10 +1023,6 @@ export function createPanelStyles(_options: AuthoringPanelStyleOptions): HTMLSty
       cursor: grab;
     }
 
-    /*
-     * Preview is the second-most-used control after the mode switch, so it sits on
-     * the bar rather than one level down in the menu.
-     */
     .overlay-mode-pill-preview,
     .overlay-mode-pill-icon {
       display: flex;
@@ -1183,8 +1066,6 @@ export function createPanelStyles(_options: AuthoringPanelStyleOptions): HTMLSty
       background: ${CREATOR_CHROME_TOKENS.border};
     }
 
-    /* Draft-diverged dot (§8.2), paired with the environment word, never alone. */
-    /* The environment is the one status word that must never be skimmed past. */
     .overlay-mode-pill-env {
       display: inline-flex;
       align-items: center;
@@ -1200,11 +1081,6 @@ export function createPanelStyles(_options: AuthoringPanelStyleOptions): HTMLSty
       background: ${CREATOR_CHROME_STATUS_TOKENS.attention};
     }
 
-    /*
-     * Presence faces (§4.1, §15.2 layer 1). Overlapped so a crowd stays the width
-     * of two faces; the ring is the pill's own ground, which is what separates
-     * one face from the next rather than a gap.
-     */
     .overlay-mode-pill-faces {
       display: flex;
       align-items: center;
@@ -1233,7 +1109,6 @@ export function createPanelStyles(_options: AuthoringPanelStyleOptions): HTMLSty
       color: ${CREATOR_CHROME_TOKENS.inkSoft};
     }
 
-    /* The fact in words, for a screen reader. Clipped, never removed (§9.1). */
     .overlay-mode-pill-peers-text {
       position: absolute;
       width: 1px;
@@ -1243,7 +1118,6 @@ export function createPanelStyles(_options: AuthoringPanelStyleOptions): HTMLSty
       white-space: nowrap;
     }
 
-    /* Who is on which step. Initials, so it never depends on colour. */
     .overlay-filmstrip-steps > li {
       position: relative;
     }
@@ -1269,6 +1143,11 @@ export function createPanelStyles(_options: AuthoringPanelStyleOptions): HTMLSty
       padding: 0 2px;
       color: ${CREATOR_CHROME_TOKENS.onAction};
       font: var(--lq-weight-semibold) 8px/1 ${CREATOR_CHROME_FONT_STACK};
+    }
+
+    .overlay-filmstrip-peer[data-selecting='true'] {
+      outline: 1px solid ${CREATOR_CHROME_STATUS_TOKENS.attention};
+      outline-offset: 1px;
     }
 
     .overlay-mode-pill-tone {
@@ -1313,11 +1192,6 @@ export function createPanelStyles(_options: AuthoringPanelStyleOptions): HTMLSty
       color: ${CREATOR_CHROME_TOKENS.onAction};
     }
 
-    /*
-     * A menu floats above glass and is opaque, so it takes the menu pair rather
-     * than the panel's surface. Capped in width so the disabled row's reason
-     * wraps into a paragraph instead of stretching the menu across the viewport.
-     */
     .overlay-mode-pill-menu {
       position: absolute;
       right: 0;
@@ -1332,7 +1206,6 @@ export function createPanelStyles(_options: AuthoringPanelStyleOptions): HTMLSty
       background: ${CREATOR_CHROME_CONTROL_TOKENS.menu};
       box-shadow: ${CREATOR_CHROME_GLASS.shadowRaised};
       padding: 5px;
-      /* The pill itself never wraps; its menu is prose and must. */
       white-space: normal;
     }
 
@@ -1361,6 +1234,42 @@ export function createPanelStyles(_options: AuthoringPanelStyleOptions): HTMLSty
 
     .overlay-mode-pill-menu button > svg {
       flex: none;
+    }
+
+    /*
+     * The submenu marker: trailing edge, reading direction, never flipped by
+     * where the flyout happens to open. See the note in mode-pill.ts.
+     *
+     * Leading it instead would indent the three submenu rows by its own width
+     * and their icons would stop lining up with the fifteen rows that have none.
+     *
+     * Addressed through the button, not on its own class: the generic row rule
+     * above is ".overlay-mode-pill-menu button > span { flex: 1 }" and this is a
+     * span child too, so on its own it lost, grew to half the row, and wrapped
+     * every submenu label onto a second line.
+     */
+    .overlay-mode-pill-menu button > .overlay-mode-pill-menu-more {
+      display: flex;
+      flex: none;
+      align-items: center;
+      margin-right: -2px;
+      color: ${CREATOR_CHROME_TOKENS.subtle};
+    }
+
+    /* Reading direction, so the marker still trails the label in Arabic. */
+    :host([dir='rtl']) .overlay-mode-pill-menu button > .overlay-mode-pill-menu-more,
+    [dir='rtl'] .overlay-mode-pill-menu button > .overlay-mode-pill-menu-more {
+      transform: scaleX(-1);
+    }
+
+    .overlay-mode-pill-menu button[data-pill-submenu]:hover .overlay-mode-pill-menu-more,
+    .overlay-mode-pill-menu button[aria-expanded='true'] .overlay-mode-pill-menu-more {
+      color: inherit;
+    }
+
+    .overlay-mode-pill-menu button[aria-expanded='true'] {
+      background: ${CREATOR_CHROME_CONTROL_TOKENS.hover};
+      color: ${CREATOR_CHROME_TOKENS.inkStrong};
     }
 
     /* The shortcut is a reminder, never the only way in (§3.1a). */
@@ -1422,7 +1331,6 @@ export function createPanelStyles(_options: AuthoringPanelStyleOptions): HTMLSty
       font-weight: var(--lq-weight-bold);
     }
 
-    /* A named-but-unavailable row explains the limit rather than hiding it (§14.4). */
     .overlay-mode-pill-menu button[disabled] {
       cursor: not-allowed;
       opacity: 0.4;
@@ -1438,10 +1346,6 @@ export function createPanelStyles(_options: AuthoringPanelStyleOptions): HTMLSty
       color: ${CREATOR_CHROME_TOKENS.inkSoft};
     }
 
-    /*
-     * Browsing (§3.3): the authoring layer ghosts and every click reaches the
-     * product. The pill is excluded — it is the way back to Editing.
-     */
     :host([${AUTHORING_BROWSING_ATTRIBUTE}]) .overlay-filmstrip,
     :host([${AUTHORING_BROWSING_ATTRIBUTE}]) .overlay-pulses,
     :host([${AUTHORING_BROWSING_ATTRIBUTE}]) .overlay-compass,
@@ -1453,15 +1357,7 @@ export function createPanelStyles(_options: AuthoringPanelStyleOptions): HTMLSty
       transition: opacity ${OVERLAY_CHROME_MOTION.modeFadeMs}ms ease;
     }
 
-    /**
-     * Picking has to reach the whole page.
-     *
-     * The frame decoration was hidden here but the iframe itself was not, so it
-     * stayed at pointer-events: auto and nothing underneath it could be picked —
-     * a dead zone the size of the card plus its toolbar. §4.2a rule 1 widened the
-     * frame to the toolbar's minimum, which made the zone bigger and the symptom
-     * obvious, but the hole was always there.
-     */
+    /* The iframe itself must stop taking pointer events, or picking hits a dead zone. */
     :host([${AUTHORING_TARGET_PICKING_ATTRIBUTE}="true"]) slot[name="authoring-frame"]::slotted(iframe) {
       opacity: ${OVERLAY_CHROME_GHOST_OPACITY.browsing};
       pointer-events: none;
@@ -1502,11 +1398,6 @@ export function createPanelStyles(_options: AuthoringPanelStyleOptions): HTMLSty
       pointer-events: none;
     }
 
-    /*
-     * The only chrome that survives hiding, so it is also the only way back
-     * (§3.3). Bottom-right, out of the way of a product's own header and of the
-     * mode pill, and it names Lodariq because at that moment nothing else does.
-     */
     .overlay-show-chip {
       position: fixed;
       right: ${OVERLAY_CHROME_GEOMETRY.stagePadding}px;
@@ -1523,9 +1414,7 @@ export function createPanelStyles(_options: AuthoringPanelStyleOptions): HTMLSty
       box-shadow: ${CREATOR_CHROME_GLASS.shadow};
       color: ${CREATOR_CHROME_TOKENS.ink};
       cursor: pointer;
-      /* Regular weight, as in the prototype: it is the way back, not an alarm. */
       font: var(--lq-weight-regular) var(--lq-font-sm)/1.5 ${CREATOR_CHROME_FONT_STACK};
-      /* The layer passes clicks through to the product; this one takes them. */
       pointer-events: auto;
       padding: 0 12px;
     }
@@ -1540,12 +1429,10 @@ export function createPanelStyles(_options: AuthoringPanelStyleOptions): HTMLSty
 
     ${bandStyles(6)}
 
-    /* The lock band is the one band this document draws; the picker owns the rest. */
     .overlay-lock-band {
       position: absolute;
     }
 
-    /* Preview's own chrome (§4.7), bottom centre where the pill is not. */
     .overlay-preview-bar {
       position: fixed;
       bottom: ${OVERLAY_CHROME_GEOMETRY.stagePadding}px;
@@ -1566,34 +1453,6 @@ export function createPanelStyles(_options: AuthoringPanelStyleOptions): HTMLSty
       pointer-events: auto;
       transform: translateX(-50%);
       user-select: none;
-    }
-
-    /*
-     * The narration caption (§4.7), directly above the bar so the two read as one
-     * piece of preview chrome. Its own dark plate rather than the chrome glass:
-     * this is subtitle text over a customer's product, and it has to stay legible
-     * on whatever is behind it.
-     */
-    .overlay-captions {
-      position: fixed;
-      bottom: ${OVERLAY_CHROME_GEOMETRY.stagePadding + 52}px;
-      left: 50%;
-      z-index: 5;
-      max-width: min(70vw, 620px);
-      border-radius: 10px;
-      background: ${CREATOR_CHROME_TOKENS.captionScrim};
-      backdrop-filter: blur(6px);
-      color: ${CREATOR_CHROME_TOKENS.onImage};
-      font: var(--lq-weight-regular) var(--lq-font-md)/1.5 ${CREATOR_CHROME_FONT_STACK};
-      padding: 10px 16px;
-      /* A caption is read, never clicked; the product underneath keeps its clicks. */
-      pointer-events: none;
-      text-align: center;
-      transform: translateX(-50%);
-    }
-
-    .overlay-captions[hidden] {
-      display: none;
     }
 
     .overlay-preview-bar-progress {
@@ -1635,33 +1494,9 @@ export function createPanelStyles(_options: AuthoringPanelStyleOptions): HTMLSty
       color: ${CREATOR_CHROME_TOKENS.onAction};
     }
 
-    /* Disabled, not removed: §14.4 — a missing control reads as a missing
-       feature, a dimmed one with a reason on it explains the limit. */
-    .overlay-preview-bar-icon:disabled,
-    .overlay-preview-bar-scrub[aria-disabled='true'] {
+    .overlay-preview-bar-icon:disabled {
       cursor: not-allowed;
-      /* Same 0.45 the bands use. The ghost token is the whole layer's, at 0.15. */
       opacity: 0.45;
-    }
-
-    /* The narration timeline. Drawn empty because there is no clock to fill it. */
-    .overlay-preview-bar-scrub {
-      position: relative;
-      width: 150px;
-      height: 4px;
-      flex: none;
-      border-radius: 3px;
-      background: ${CREATOR_CHROME_TOKENS.surfaceRecessed};
-    }
-
-    .overlay-preview-bar-scrub i {
-      position: absolute;
-      top: 0;
-      bottom: 0;
-      left: 0;
-      width: 0;
-      border-radius: 3px;
-      background: ${CREATOR_CHROME_TOKENS.action};
     }
 
     .overlay-preview-bar-button[data-primary='true'] {
@@ -1671,11 +1506,6 @@ export function createPanelStyles(_options: AuthoringPanelStyleOptions): HTMLSty
       font-weight: var(--lq-weight-bold);
     }
 
-    /*
-     * The one modal (§10). Above every other surface here because it is the only
-     * one that asks for the creator's whole attention — but under the toasts, so
-     * a notice raised from inside it is still readable.
-     */
     .overlay-big-modal {
       position: fixed;
       inset: 0;
@@ -1765,7 +1595,6 @@ export function createPanelStyles(_options: AuthoringPanelStyleOptions): HTMLSty
       border-top: 0;
     }
 
-    /* Wide enough for the longest chord printed, so the labels line up. */
     .overlay-big-modal-table td:first-child {
       width: 150px;
     }
@@ -1807,10 +1636,6 @@ export function createPanelStyles(_options: AuthoringPanelStyleOptions): HTMLSty
       font-weight: var(--lq-weight-bold);
     }
 
-    /*
-     * §7.5's palette. Above the modal — it is opened from anywhere, including
-     * over one — and under the toasts, which answer it.
-     */
     .overlay-palette {
       position: fixed;
       top: 88px;
@@ -1880,7 +1705,6 @@ export function createPanelStyles(_options: AuthoringPanelStyleOptions): HTMLSty
       color: ${CREATOR_CHROME_TOKENS.inkStrong};
     }
 
-    /* Same 0.45 the bands and the preview bar use for a control that cannot run. */
     .overlay-palette-row[aria-disabled='true'] {
       cursor: not-allowed;
       opacity: 0.45;
@@ -1900,6 +1724,13 @@ export function createPanelStyles(_options: AuthoringPanelStyleOptions): HTMLSty
       white-space: nowrap;
     }
 
+    /*
+     * The experiences submenu, shared with the launcher's palette on the host
+     * page. The same stylesheet is added to both roots so the two routes to
+     * these menus are the same pixels rather than two drawings of one idea.
+     */
+    ${EXPERIENCE_MENU_CSS}
+    ${EXPERIENCE_NAME_DIALOG_CSS}
     `,
   );
 }

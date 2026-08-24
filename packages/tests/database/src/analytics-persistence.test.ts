@@ -1,16 +1,99 @@
 import { describe, expect, it } from 'vitest';
 import {
-  createInMemoryControlPlaneRepository,
+  hashAdaptiveVisitorKey,
   tenantScopedTableNames,
   type PersistedAnalyticsEventRecord,
 } from '@lodariq/database';
+import { createGrandfatheredInMemoryControlPlaneRepository as createInMemoryControlPlaneRepository } from '../../fixtures/commercial.js';
 import type { AuthoritativeAnalyticsEvent } from '@lodariq/schema';
 import { readInitialBaseline } from './migration-test-utils.js';
 
 const stagingHash = `sha256-${'a'.repeat(64)}`;
 const productionHash = `sha256-${'b'.repeat(64)}`;
+const segmentA = {
+  id: `audseg_${'c'.repeat(64)}`,
+  definitionVersion: 1 as const,
+  ruleCount: 1,
+};
+const segmentB = {
+  id: `audseg_${'d'.repeat(64)}`,
+  definitionVersion: 1 as const,
+  ruleCount: 2,
+};
 
 describe('authoritative analytics persistence', () => {
+  it('derives bounded adaptive evidence from one scoped anonymous visitor', async () => {
+    const repository = createInMemoryControlPlaneRepository();
+    const adaptiveVisitorKeyHash = hashAdaptiveVisitorKey({
+      workspaceId: 'wk_a',
+      environmentId: 'env_staging',
+      assignmentKey: `lqv_${'a'.repeat(32)}`,
+    });
+    await repository.ingestAuthoritativeEvents({
+      workspaceId: 'wk_a',
+      environmentId: 'env_staging',
+      adaptiveVisitorKeyHash,
+      events: Array.from({ length: 25 }, (_unused, index) =>
+        event({
+          name: 'project_created',
+          timestamp: new Date(Date.UTC(2026, 7, 21, 8, index)).toISOString(),
+        }),
+      ),
+    });
+    await repository.ingestAuthoritativeEvents({
+      workspaceId: 'wk_a',
+      environmentId: 'env_production',
+      adaptiveVisitorKeyHash: hashAdaptiveVisitorKey({
+        workspaceId: 'wk_a',
+        environmentId: 'env_production',
+        assignmentKey: `lqv_${'a'.repeat(32)}`,
+      }),
+      events: [
+        event({
+          environmentId: 'env_production',
+          publicationId: 'pub_production',
+          contentHash: productionHash,
+          name: 'project_created',
+          timestamp: '2026-08-21T09:00:00.000Z',
+        }),
+      ],
+    });
+
+    await expect(
+      repository.readAdaptiveBehaviorEvidence({
+        workspaceId: 'wk_a',
+        environmentId: 'env_staging',
+        adaptiveVisitorKeyHash,
+        eventNames: ['project_created', 'undeclared_event'],
+        lookbackDays: 30,
+        evaluatedAt: '2026-08-21T12:00:00.000Z',
+      }),
+    ).resolves.toEqual([
+      {
+        eventName: 'project_created',
+        occurrences: 20,
+        lastObservedAt: '2026-08-21T08:24:00.000Z',
+      },
+    ]);
+    const listed = await repository.listAnalyticsEvents({
+      workspaceId: 'wk_a',
+      query: { environmentId: 'env_staging' },
+    });
+    expect(listed[0]).not.toHaveProperty('adaptiveVisitorKeyHash');
+  });
+
+  it('rejects a non-digest adaptive visitor identity', async () => {
+    const repository = createInMemoryControlPlaneRepository();
+    await expect(
+      repository.ingestAuthoritativeEvents({
+        workspaceId: 'wk_a',
+        environmentId: 'env_staging',
+        adaptiveVisitorKeyHash: 'raw-browser-key',
+        events: [event()],
+      }),
+    ).rejects.toThrow(/SHA-256 digest/u);
+  });
+
   it('preserves server-owned delivery identity and keeps environment reads isolated', async () => {
     const repository = createInMemoryControlPlaneRepository();
     await repository.ingestAuthoritativeEvents({
@@ -89,6 +172,13 @@ describe('authoritative analytics persistence', () => {
       repository.ingestAuthoritativeEvents({
         workspaceId: 'wk_a',
         environmentId: 'env_staging',
+        events: [event({ experimentId: 'exp_1' })],
+      }),
+    ).rejects.toThrow(/experiment identity must be complete/u);
+    await expect(
+      repository.ingestAuthoritativeEvents({
+        workspaceId: 'wk_a',
+        environmentId: 'env_staging',
         events: [event({ props: { nested: { workspace_id: 'wk_spoofed' } } })],
       }),
     ).rejects.toThrow(/must not contain identity/u);
@@ -107,6 +197,13 @@ describe('authoritative analytics persistence', () => {
         }),
       ).rejects.toThrow(/raw host or credential data/u);
     }
+    await expect(
+      repository.ingestAuthoritativeEvents({
+        workspaceId: 'wk_a',
+        environmentId: 'env_staging',
+        events: [event({ props: { traits: { plan: 'growth' } } })],
+      }),
+    ).rejects.toThrow(/raw audience data/u);
     await expect(
       repository.ingestAuthoritativeEvents({
         workspaceId: 'wk_a',
@@ -173,6 +270,32 @@ describe('authoritative analytics persistence', () => {
         count: 1,
       }),
     ]);
+  });
+
+  it('filters and groups by the trusted audience segment identity', async () => {
+    const repository = createInMemoryControlPlaneRepository();
+    await repository.ingestAuthoritativeEvents({
+      workspaceId: 'wk_a',
+      environmentId: 'env_staging',
+      events: [
+        event({ audienceSegment: segmentA, timestamp: '2026-08-09T08:00:00.000Z' }),
+        event({ audienceSegment: segmentA, timestamp: '2026-08-09T08:05:00.000Z' }),
+        event({ audienceSegment: segmentB, timestamp: '2026-08-09T08:10:00.000Z' }),
+      ],
+    });
+
+    await expect(
+      repository.aggregateAnalyticsEvents({
+        workspaceId: 'wk_a',
+        query: { environmentId: 'env_staging', audienceSegmentId: segmentA.id },
+      }),
+    ).resolves.toEqual([expect.objectContaining({ audienceSegment: segmentA, count: 2 })]);
+    await expect(
+      repository.listAnalyticsEvents({
+        workspaceId: 'wk_a',
+        query: { environmentId: 'env_staging', audienceSegmentId: segmentB.id },
+      }),
+    ).resolves.toEqual([expect.objectContaining({ audienceSegment: segmentB })]);
   });
 
   it('groups and filters delivery analytics by canonical content locale', async () => {

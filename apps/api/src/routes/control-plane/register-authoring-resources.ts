@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { CommercialEntitlementError } from '@lodariq/database';
 import {
   AUTHORING_RESOURCE_LIMITS,
   AUTHORING_SESSION_CAPABILITIES,
@@ -30,6 +31,7 @@ const ALLOWED_CONTENT_TYPES: Readonly<Record<AuthoringMediaAssetKind, ReadonlySe
   image: new Set(['image/gif', 'image/jpeg', 'image/png', 'image/webp']),
   video: new Set(['video/mp4', 'video/webm']),
   captions: new Set(['text/vtt']),
+  audio: new Set(['audio/mpeg', 'audio/ogg', 'audio/wav']),
 };
 
 export function registerAuthoringResourceRoutes(
@@ -146,13 +148,14 @@ export function registerAuthoringResourceRoutes(
   fastify.post(
     '/v1/authoring/media-assets',
     {
-      bodyLimit: 7_100_000,
+      bodyLimit: AUTHORING_RESOURCE_LIMITS.uploadBodyBytes,
       schema: {
         body: UploadAuthoringMediaAssetRequest,
         response: {
           201: AuthoringMediaAssetResource,
           400: ApiErrorResponse,
           403: ApiErrorResponse,
+          413: ApiErrorResponse,
         },
       },
     },
@@ -200,18 +203,28 @@ export function registerAuthoringResourceRoutes(
           .send({ error: 'invalid_asset_filename', message: 'Media filename is required' });
       }
       const contentHash = `sha256-${createHash('sha256').update(content).digest('hex')}`;
-      const asset = await options.repository.createAuthoringMediaAsset({
-        workspaceId: session.workspaceId,
-        actorUserId: session.createdByUserId,
-        kind: parsed.value.kind,
-        filename,
-        contentType: parsed.value.contentType,
-        contentBase64: content.toString('base64'),
-        byteLength: content.byteLength,
-        contentHash,
-        savedToLibrary: parsed.value.savedToLibrary ?? false,
-      });
-      return reply.code(201).send(asset);
+      try {
+        const asset = await options.repository.createAuthoringMediaAsset({
+          workspaceId: session.workspaceId,
+          actorUserId: session.createdByUserId,
+          kind: parsed.value.kind,
+          filename,
+          contentType: parsed.value.contentType,
+          contentBase64: content.toString('base64'),
+          byteLength: content.byteLength,
+          contentHash,
+          savedToLibrary: parsed.value.savedToLibrary ?? false,
+        });
+        return reply.code(201).send(asset);
+      } catch (error) {
+        if (error instanceof CommercialEntitlementError && error.limitKey === 'asset-bytes') {
+          return reply.code(413).send({
+            error: error.code,
+            message: 'Media asset exceeds the workspace plan limit',
+          });
+        }
+        throw error;
+      }
     },
   );
 
@@ -274,6 +287,19 @@ function contentMatchesDeclaredType(content: Buffer, contentType: string): boole
       .toString('utf8')
       .replace(/^\uFEFF/u, '')
       .startsWith('WEBVTT');
+  }
+  if (contentType === 'audio/mpeg') {
+    return (
+      content.subarray(0, 3).toString('ascii') === 'ID3' ||
+      (content[0] === 0xff && (Number(content[1]) & 0xe0) === 0xe0)
+    );
+  }
+  if (contentType === 'audio/ogg') return content.subarray(0, 4).toString('ascii') === 'OggS';
+  if (contentType === 'audio/wav') {
+    return (
+      content.subarray(0, 4).toString('ascii') === 'RIFF' &&
+      content.subarray(8, 12).toString('ascii') === 'WAVE'
+    );
   }
   return false;
 }

@@ -122,6 +122,7 @@ describe('measurement contracts', () => {
         status: 'running',
         varies: 'copy',
         successEventName: 'project_created',
+        allocationRevision: 1,
         arms,
       }),
     ).toBeTruthy();
@@ -131,6 +132,7 @@ describe('measurement contracts', () => {
         status: 'running',
         varies: 'copy',
         successEventName: 'project_created',
+        allocationRevision: 1,
         arms: [arms[0]],
       }),
     ).toBeUndefined();

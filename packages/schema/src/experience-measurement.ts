@@ -1,5 +1,7 @@
 import { Type, type Static } from '@sinclair/typebox';
 import { ApplicationSummary } from './application';
+import { ContentLocale } from './document-localization';
+import { AnalyticsAudienceSegmentIdentity } from './events';
 import {
   AdaptivePolicy,
   AdoptionImpact,
@@ -17,9 +19,8 @@ import {
 /**
  * The control-plane surface behind the Operations sheet.
  *
- * Everything here is *about* an experience rather than part of it, which is why
- * none of it is compiled into the artifact: a success event can change without
- * republishing, and a running experiment must not force a new content hash.
+ * Measurement stays mutable; closed experiment variants compile into the next
+ * immutable artifact while traffic allocation remains operational state.
  */
 
 export const DocumentIdParam = Type.Object(
@@ -50,16 +51,80 @@ export const ExperienceFormResponseSummary = Type.Object(
 );
 export type ExperienceFormResponseSummary = Static<typeof ExperienceFormResponseSummary>;
 
+const ExperienceAnalyticsCounts = {
+  shown: Type.Integer({ minimum: 0 }),
+  completed: Type.Integer({ minimum: 0 }),
+  dismissed: Type.Integer({ minimum: 0 }),
+  funnel: Type.Array(Type.Ref(ExperienceFunnelStep), { maxItems: 200 }),
+  adoption: Type.Array(Type.Ref(AdoptionImpact), { maxItems: 8 }),
+  formResponses: Type.Array(Type.Ref(ExperienceFormResponseSummary), { maxItems: 100 }),
+};
+
+export const ExperienceReleaseAnalytics = Type.Object(
+  {
+    publicationId: Type.String({ minLength: 1, maxLength: 128 }),
+    contentHash: Type.String({ pattern: '^sha256-[0-9a-f]{64}$' }),
+    pointerGeneration: Type.Integer({ minimum: 1 }),
+    audienceSegment: Type.Optional(Type.Ref(AnalyticsAudienceSegmentIdentity)),
+    ...ExperienceAnalyticsCounts,
+  },
+  { $id: 'ExperienceReleaseAnalytics', additionalProperties: false },
+);
+export type ExperienceReleaseAnalytics = Static<typeof ExperienceReleaseAnalytics>;
+
+export const ExperienceLocaleAnalytics = Type.Object(
+  {
+    locale: Type.Ref(ContentLocale),
+    ...ExperienceAnalyticsCounts,
+  },
+  { $id: 'ExperienceLocaleAnalytics', additionalProperties: false },
+);
+export type ExperienceLocaleAnalytics = Static<typeof ExperienceLocaleAnalytics>;
+
+export const ExperienceAudienceSegmentAnalytics = Type.Object(
+  {
+    ...AnalyticsAudienceSegmentIdentity.properties,
+    ...ExperienceAnalyticsCounts,
+  },
+  { $id: 'ExperienceAudienceSegmentAnalytics', additionalProperties: false },
+);
+export type ExperienceAudienceSegmentAnalytics = Static<typeof ExperienceAudienceSegmentAnalytics>;
+
+export const ExperienceRetentionWeek = Type.Object(
+  {
+    week: Type.Integer({ minimum: 0, maximum: 51 }),
+    exposedCohort: Type.Integer({ minimum: 0 }),
+    exposedReturned: Type.Integer({ minimum: 0 }),
+    baselineCohort: Type.Integer({ minimum: 0 }),
+    baselineReturned: Type.Integer({ minimum: 0 }),
+  },
+  { $id: 'ExperienceRetentionWeek', additionalProperties: false },
+);
+export type ExperienceRetentionWeek = Static<typeof ExperienceRetentionWeek>;
+
+export const ExperienceAnalyticsBreakdown = Type.Object(
+  {
+    definitionVersion: Type.Literal(1),
+    asOf: Type.String({ format: 'date-time' }),
+    retentionDays: Type.Integer({ minimum: 1, maximum: 3_650 }),
+    retentionCutoff: Type.String({ format: 'date-time' }),
+    releases: Type.Array(Type.Ref(ExperienceReleaseAnalytics), { maxItems: 100 }),
+    locales: Type.Array(Type.Ref(ExperienceLocaleAnalytics), { maxItems: 50 }),
+    audienceSegments: Type.Optional(
+      Type.Array(Type.Ref(ExperienceAudienceSegmentAnalytics), { maxItems: 100 }),
+    ),
+    retention: Type.Array(Type.Ref(ExperienceRetentionWeek), { maxItems: 52 }),
+  },
+  { $id: 'ExperienceAnalyticsBreakdown', additionalProperties: false },
+);
+export type ExperienceAnalyticsBreakdown = Static<typeof ExperienceAnalyticsBreakdown>;
+
 export const ExperienceAnalytics = Type.Object(
   {
     documentId: Type.String({ minLength: 1, maxLength: 128 }),
     environmentId: Type.String({ minLength: 1, maxLength: 128 }),
-    shown: Type.Integer({ minimum: 0 }),
-    completed: Type.Integer({ minimum: 0 }),
-    dismissed: Type.Integer({ minimum: 0 }),
-    funnel: Type.Array(Type.Ref(ExperienceFunnelStep), { maxItems: 200 }),
-    adoption: Type.Array(Type.Ref(AdoptionImpact), { maxItems: 8 }),
-    formResponses: Type.Array(Type.Ref(ExperienceFormResponseSummary), { maxItems: 100 }),
+    ...ExperienceAnalyticsCounts,
+    breakdown: Type.Optional(Type.Ref(ExperienceAnalyticsBreakdown)),
   },
   { $id: 'ExperienceAnalytics', additionalProperties: false },
 );
@@ -176,13 +241,48 @@ export const ExperimentResponse = Type.Object(
 );
 export type ExperimentResponse = Static<typeof ExperimentResponse>;
 
+export const ExperienceCommentAnchor = Type.Union(
+  [
+    Type.Object(
+      {
+        type: Type.Literal('step'),
+        stepId: Type.String({ minLength: 1, maxLength: 128 }),
+      },
+      { additionalProperties: false },
+    ),
+    Type.Object(
+      {
+        type: Type.Literal('target'),
+        stepId: Type.String({ minLength: 1, maxLength: 128 }),
+        targetId: Type.String({ minLength: 1, maxLength: 128 }),
+      },
+      { additionalProperties: false },
+    ),
+  ],
+  { $id: 'ExperienceCommentAnchor' },
+);
+export type ExperienceCommentAnchor = Static<typeof ExperienceCommentAnchor>;
+
+export const ExperienceCommentReply = Type.Object(
+  {
+    id: Type.String({ minLength: 1, maxLength: 128 }),
+    author: Type.String({ minLength: 1, maxLength: 160 }),
+    body: Type.String({ minLength: 1, maxLength: 2_000 }),
+    createdAt: Type.String({ format: 'date-time' }),
+  },
+  { $id: 'ExperienceCommentReply', additionalProperties: false },
+);
+export type ExperienceCommentReply = Static<typeof ExperienceCommentReply>;
+
 export const ExperienceComment = Type.Object(
   {
     id: Type.String({ minLength: 1, maxLength: 128 }),
-    stepId: Type.String({ minLength: 1, maxLength: 128 }),
+    anchor: Type.Ref(ExperienceCommentAnchor),
     author: Type.String({ minLength: 1, maxLength: 160 }),
     body: Type.String({ minLength: 1, maxLength: 2_000 }),
+    replies: Type.Array(Type.Ref(ExperienceCommentReply), { maxItems: 200 }),
     resolved: Type.Boolean(),
+    resolvedAt: Type.Optional(Type.String({ format: 'date-time' })),
     createdAt: Type.String({ format: 'date-time' }),
   },
   { $id: 'ExperienceComment', additionalProperties: false },
@@ -191,12 +291,18 @@ export type ExperienceComment = Static<typeof ExperienceComment>;
 
 export const CreateExperienceCommentBody = Type.Object(
   {
-    stepId: Type.String({ minLength: 1, maxLength: 128 }),
+    anchor: Type.Ref(ExperienceCommentAnchor),
     body: Type.String({ minLength: 1, maxLength: 2_000 }),
   },
   { $id: 'CreateExperienceCommentBody', additionalProperties: false },
 );
 export type CreateExperienceCommentBody = Static<typeof CreateExperienceCommentBody>;
+
+export const ReplyExperienceCommentBody = Type.Object(
+  { body: Type.String({ minLength: 1, maxLength: 2_000 }) },
+  { $id: 'ReplyExperienceCommentBody', additionalProperties: false },
+);
+export type ReplyExperienceCommentBody = Static<typeof ReplyExperienceCommentBody>;
 
 export const ResolveExperienceCommentBody = Type.Object(
   { resolved: Type.Boolean() },
@@ -204,14 +310,126 @@ export const ResolveExperienceCommentBody = Type.Object(
 );
 export type ResolveExperienceCommentBody = Static<typeof ResolveExperienceCommentBody>;
 
+export const EXPERIENCE_COMMENT_AUDIT_EVENT_TYPES = [
+  'thread_created',
+  'reply_added',
+  'thread_resolved',
+  'thread_reopened',
+] as const;
+
+export const ExperienceCommentAuditEvent = Type.Object(
+  {
+    id: Type.String({ minLength: 1, maxLength: 128 }),
+    threadId: Type.String({ minLength: 1, maxLength: 128 }),
+    commentId: Type.String({ minLength: 1, maxLength: 128 }),
+    eventType: Type.Union(EXPERIENCE_COMMENT_AUDIT_EVENT_TYPES.map((value) => Type.Literal(value))),
+    actorUserId: Type.String({ minLength: 1, maxLength: 128 }),
+    occurredAt: Type.String({ format: 'date-time' }),
+  },
+  { $id: 'ExperienceCommentAuditEvent', additionalProperties: false },
+);
+export type ExperienceCommentAuditEvent = Static<typeof ExperienceCommentAuditEvent>;
+
+/**
+ * Collaboration is semantic and deliberately small. It reports where a creator
+ * is inside the canonical document without carrying DOM paths, selectors,
+ * coordinates, text input, or editor state.
+ */
+export const AUTHORING_PRESENCE_TTL_SECONDS = 30;
+export const AUTHORING_PRESENCE_HEARTBEAT_SECONDS = 10;
+
+export const AuthoringPresenceSelection = Type.Union(
+  [
+    Type.Object(
+      { type: Type.Literal('block'), blockId: Type.String({ minLength: 1, maxLength: 128 }) },
+      { additionalProperties: false },
+    ),
+    Type.Object(
+      { type: Type.Literal('target'), targetId: Type.String({ minLength: 1, maxLength: 128 }) },
+      { additionalProperties: false },
+    ),
+  ],
+  { $id: 'AuthoringPresenceSelection' },
+);
+export type AuthoringPresenceSelection = Static<typeof AuthoringPresenceSelection>;
+
+export const AuthoringPresenceHeartbeatBody = Type.Object(
+  {
+    stepId: Type.Union([Type.String({ minLength: 1, maxLength: 128 }), Type.Null()]),
+    selection: Type.Union([Type.Ref(AuthoringPresenceSelection), Type.Null()]),
+    /** Exact draft version held by this client, when its host exposes one. */
+    documentUpdatedAt: Type.Optional(Type.String({ format: 'date-time' })),
+  },
+  { $id: 'AuthoringPresenceHeartbeatBody', additionalProperties: false },
+);
+export type AuthoringPresenceHeartbeatBody = Static<typeof AuthoringPresenceHeartbeatBody>;
+
+export const AuthoringPresencePeer = Type.Object(
+  {
+    participantId: Type.String({ pattern: '^presence_[a-f0-9]{24}$' }),
+    creatorId: Type.String({ minLength: 1, maxLength: 128 }),
+    name: Type.String({ minLength: 1, maxLength: 160 }),
+    stepId: Type.Union([Type.String({ minLength: 1, maxLength: 128 }), Type.Null()]),
+    selection: Type.Union([Type.Ref(AuthoringPresenceSelection), Type.Null()]),
+    lastSeenAt: Type.String({ format: 'date-time' }),
+    /** True for another active authoring session owned by the current creator. */
+    sameCreator: Type.Boolean(),
+  },
+  { $id: 'AuthoringPresencePeer', additionalProperties: false },
+);
+export type AuthoringPresencePeer = Static<typeof AuthoringPresencePeer>;
+
+/** `holderParticipantId` is the opaque handle a peer is addressed by; the
+ * holder's user id is not part of the snapshot. */
+export const AuthoringCollaborationStepLock = Type.Object(
+  {
+    stepId: Type.String({ minLength: 1, maxLength: 128 }),
+    holderName: Type.String({ minLength: 1, maxLength: 160 }),
+    holderParticipantId: Type.Optional(Type.String({ pattern: '^presence_[a-f0-9]{24}$' })),
+    expiresAt: Type.String({ format: 'date-time' }),
+  },
+  { $id: 'AuthoringCollaborationStepLock', additionalProperties: false },
+);
+export type AuthoringCollaborationStepLock = Static<typeof AuthoringCollaborationStepLock>;
+
+export const AuthoringCollaborationSnapshot = Type.Object(
+  {
+    selfParticipantId: Type.String({ pattern: '^presence_[a-f0-9]{24}$' }),
+    generatedAt: Type.String({ format: 'date-time' }),
+    documentUpdatedAt: Type.String({ format: 'date-time' }),
+    /** The canonical draft moved beyond the exact version this client reported. */
+    draftChanged: Type.Boolean(),
+    peers: Type.Array(Type.Ref(AuthoringPresencePeer), { maxItems: 100 }),
+    locks: Type.Array(Type.Ref(AuthoringCollaborationStepLock), { maxItems: 200 }),
+    comments: Type.Array(Type.Ref(ExperienceComment), { maxItems: 500 }),
+  },
+  { $id: 'AuthoringCollaborationSnapshot', additionalProperties: false },
+);
+export type AuthoringCollaborationSnapshot = Static<typeof AuthoringCollaborationSnapshot>;
+
+export const AuthoringCollaborationEvent = Type.Object(
+  {
+    eventId: Type.String({ minLength: 1, maxLength: 80 }),
+    snapshot: Type.Ref(AuthoringCollaborationSnapshot),
+  },
+  { $id: 'AuthoringCollaborationEvent', additionalProperties: false },
+);
+export type AuthoringCollaborationEvent = Static<typeof AuthoringCollaborationEvent>;
+
 /** A lease, not a lock: it lapses so a closed laptop never blocks a colleague. */
 export const EXPERIENCE_STEP_LOCK_TTL_SECONDS = 180;
+export const EXPERIENCE_STEP_LOCK_HEARTBEAT_SECONDS = EXPERIENCE_STEP_LOCK_TTL_SECONDS / 2;
 
+/**
+ * What a colleague is allowed to know: which step, who by name, and until when.
+ * The holder's internal user id stays server-side — `holderName` is the whole
+ * UX intent, and the id is a workspace-wide identifier this response has no
+ * reason to hand to a page.
+ */
 export const ExperienceStepLock = Type.Object(
   {
     stepId: Type.String({ minLength: 1, maxLength: 128 }),
     holderName: Type.String({ minLength: 1, maxLength: 160 }),
-    holderUserId: Type.String({ minLength: 1, maxLength: 128 }),
     expiresAt: Type.String({ format: 'date-time' }),
   },
   { $id: 'ExperienceStepLock', additionalProperties: false },
@@ -221,11 +439,23 @@ export type ExperienceStepLock = Static<typeof ExperienceStepLock>;
 export const ClaimExperienceStepLockBody = Type.Object(
   {
     stepId: Type.String({ minLength: 1, maxLength: 128 }),
-    sessionId: Type.String({ minLength: 1, maxLength: 128 }),
+    /** Required by control-plane callers; authoring routes bind the authenticated session. */
+    sessionId: Type.Optional(Type.String({ minLength: 1, maxLength: 128 })),
+    takeover: Type.Optional(Type.Boolean()),
   },
   { $id: 'ClaimExperienceStepLockBody', additionalProperties: false },
 );
 export type ClaimExperienceStepLockBody = Static<typeof ClaimExperienceStepLockBody>;
+
+export const ExperienceStepLockClaimResponse = Type.Object(
+  {
+    lock: Type.Ref(ExperienceStepLock),
+    acquired: Type.Boolean(),
+    canTakeover: Type.Boolean(),
+  },
+  { $id: 'ExperienceStepLockClaimResponse', additionalProperties: false },
+);
+export type ExperienceStepLockClaimResponse = Static<typeof ExperienceStepLockClaimResponse>;
 
 export const ExperienceStepLocksResponse = Type.Object(
   { locks: Type.Array(Type.Ref(ExperienceStepLock), { maxItems: 200 }) },
@@ -313,6 +543,11 @@ export type SdkFormResponsesBody = Static<typeof SdkFormResponsesBody>;
 export const EXPERIENCE_MEASUREMENT_SCHEMAS = [
   ExperienceFunnelStep,
   ExperienceFormResponseSummary,
+  ExperienceReleaseAnalytics,
+  ExperienceLocaleAnalytics,
+  ExperienceAudienceSegmentAnalytics,
+  ExperienceRetentionWeek,
+  ExperienceAnalyticsBreakdown,
   ExperienceAnalytics,
   ExperienceSessionBeat,
   ExperienceSession,
@@ -322,11 +557,22 @@ export const EXPERIENCE_MEASUREMENT_SCHEMAS = [
   CreateExperimentBody,
   UpdateExperimentBody,
   ExperimentResponse,
+  ExperienceCommentAnchor,
+  ExperienceCommentReply,
   ExperienceComment,
   CreateExperienceCommentBody,
+  ReplyExperienceCommentBody,
   ResolveExperienceCommentBody,
+  ExperienceCommentAuditEvent,
+  AuthoringPresenceSelection,
+  AuthoringPresenceHeartbeatBody,
+  AuthoringPresencePeer,
+  AuthoringCollaborationStepLock,
+  AuthoringCollaborationSnapshot,
+  AuthoringCollaborationEvent,
   ExperienceStepLock,
   ClaimExperienceStepLockBody,
+  ExperienceStepLockClaimResponse,
   ExperienceStepLocksResponse,
   ExperienceCommentsResponse,
   WorkspaceApplicationsResponse,

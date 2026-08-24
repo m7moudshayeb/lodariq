@@ -36,10 +36,18 @@ export const MODE_PILL_COPY = {
   productionNote: authoringText(
     'Production is rejected at every layer. Promote a verified staging artifact from Operations → Release.',
   ),
-  groupExperienceType: authoringText('Experience type'),
+  /**
+   * The launcher's quick actions, printed here because the panel covers the
+   * launcher (§3.3). Their labels now come from the shared experience menu, so
+   * the two routes to the same list cannot end up naming it differently.
+   *
+   * `Experience type` used to head a group of its own here. It is one row under
+   * Operations now — see the note in `mode-pill.ts` for why five bare rows next
+   * to "New experience" was the wrong shape.
+   */
+  groupExperiences: authoringText('Experiences'),
   recordSteps: authoringText('Record steps from my clicks'),
   stopRecording: authoringText('Stop recording steps'),
-  simulateConfusedUser: authoringText('Simulate a confused first-time user'),
   zoomCanvasIn: authoringText('Zoom the canvas in'),
   zoomCanvasOut: authoringText('Zoom the canvas out'),
   resetCanvasZoom: authoringText('Reset canvas zoom'),
@@ -78,7 +86,6 @@ export function peerPresenceLabel(count: number): string {
 export function composeProgressLabel(number: number, total: number): string {
   return authoringText('Step {number} of {total}', { number, total });
 }
-
 
 /** `Border colour didn't save` — §8.1, never a generic failure. */
 export function saveFailureLabel(property: string): string {

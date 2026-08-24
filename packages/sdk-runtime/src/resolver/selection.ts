@@ -1,4 +1,4 @@
-import type { TargetSelectionPolicy } from '@lodariq/schema';
+import type { TargetCaptureEvidence, TargetSelectionPolicy } from '@lodariq/schema';
 import { parentElementAcrossOpenShadow, semanticRoleOf } from './element-evidence';
 import type { ScoredCandidate } from './types';
 
@@ -29,53 +29,63 @@ export interface SelectionOutcome {
 export function applySelectionPolicy(
   policy: TargetSelectionPolicy | undefined,
   tied: readonly ScoredCandidate[],
+  captured: TargetCaptureEvidence,
 ): SelectionOutcome | null {
   if (!policy || policy.kind === 'only' || tied.length === 0) return null;
   const ordered = inDocumentOrder(tied.map((candidate) => candidate.element));
+  /*
+   * Every position policy counts among the controls the author was choosing
+   * between, and those controls read alike — that is why they tied. A release
+   * that drops a differently-worded control into the tied set shifts every
+   * position by one, so "the second one" silently becomes something the author
+   * never saw. Count only the candidates whose text still matches, exactly as
+   * `any-matching` does, and fail closed when none do.
+   *
+   * "First in the list" is the same claim about position, so the collection
+   * policies count the same set. `within-container` is the exception and stays
+   * on the whole tie: it names a container rather than a rank, and it already
+   * refuses unless exactly one candidate is inside — filtering there would make
+   * it resolve *more* often, which is a different question.
+   */
+  const named = inDocumentOrder(
+    tied.filter((candidate) => matchedItsText(candidate)).map((candidate) => candidate.element),
+  );
+  if (ranksItsSet(policy) && setShrankSinceCapture(named.length, captured)) return null;
 
   switch (policy.kind) {
     /*
      * "Any button that says X" is a claim about the words, and the words are
      * exactly what durable scoring left out — that is why these candidates tied
-     * in the first place. Taking the first of the tied set would answer a
-     * question nobody asked and land on a differently-worded control that
+     * in the first place. Taking the first of the *unfiltered* set would answer
+     * a question nobody asked and land on a differently-worded control that
      * happens to sit earlier in the document: a confident click on the wrong
      * button, which is the one outcome worse than abstaining.
-     *
-     * So the author's answer is applied as what it says: keep the candidates
-     * whose text actually matched the captured evidence, then take the first.
-     * None matched — the words moved, or the locale is unavailable — and the
-     * policy fails closed like every other one here.
      */
-    case 'any-matching': {
-      const named = inDocumentOrder(
-        tied.filter((candidate) => matchedItsText(candidate)).map((candidate) => candidate.element),
-      );
+    case 'any-matching':
       return named[0] ? { element: named[0], method: 'selection_any_matching' } : null;
-    }
 
     case 'first':
-      return ordered[0] ? { element: ordered[0], method: 'selection_first' } : null;
+      return named[0] ? { element: named[0], method: 'selection_first' } : null;
 
     case 'last': {
-      const last = ordered[ordered.length - 1];
+      const last = named[named.length - 1];
       return last ? { element: last, method: 'selection_last' } : null;
     }
 
     case 'ordinal': {
-      const pool = policy.order === 'recency' ? orderedByDeclaredRecency(ordered) : ordered;
+      const pool = policy.order === 'recency' ? orderedByDeclaredRecency(named) : named;
       if (!pool) return null;
       const picked = pool[policy.position - 1];
       return picked ? { element: picked, method: 'selection_ordinal' } : null;
     }
 
     case 'first-in-collection': {
-      const scoped = withinCollection(ordered, policy.collectionLabel);
+      const scoped = withinCollection(named, policy.collectionLabel);
       return scoped?.[0] ? { element: scoped[0], method: 'selection_first_in_collection' } : null;
     }
 
     case 'newest-in-collection': {
-      const scoped = withinCollection(ordered, policy.collectionLabel);
+      const scoped = withinCollection(named, policy.collectionLabel);
       if (!scoped?.length) return null;
       // Only honour "newest" where the product actually declares its ordering.
       const pool = orderedByDeclaredRecency(scoped);
@@ -99,6 +109,34 @@ export function applySelectionPolicy(
 /** Whether this candidate matched the identity's own locale-scoped text. */
 function matchedItsText(candidate: ScoredCandidate): boolean {
   return candidate.evidence.some((entry) => entry.family === 'localized-text');
+}
+
+/** Policies whose answer is a rank, and therefore only means what the set means. */
+function ranksItsSet(policy: TargetSelectionPolicy): boolean {
+  return policy.kind !== 'any-matching' && policy.kind !== 'within-container';
+}
+
+/**
+ * A look-alike the author was counting among has gone.
+ *
+ * Filtering by text fixed the case where the set *grew*; losing a member is the
+ * same hazard running backwards. Renaming one of five buttons leaves four, and
+ * every rank after the missing one now names the control that used to follow it
+ * — including, when the renamed one was the author's own, the neighbour. There
+ * is no evidence to tell those two pages apart, so re-indexing the survivors
+ * answers a question about a page the author never saw. Fail closed instead.
+ *
+ * Armed only where capture said the tie was *purely* a look-alike tie. The two
+ * counts are measured differently — capture counts candidates that scored the
+ * same, this counts candidates whose words still match — and they only mean the
+ * same set when every tied candidate read alike. That flag is what says they
+ * did, and it is also what a weak capture needs before an answer can ship at
+ * all. Absent, the tripwire stays off rather than guess against an older
+ * capture that never recorded it.
+ */
+function setShrankSinceCapture(matching: number, captured: TargetCaptureEvidence): boolean {
+  if (captured.ambiguityIsSoleWeakness !== true) return false;
+  return captured.uniqueCandidateCount >= 2 && matching < captured.uniqueCandidateCount;
 }
 
 function inDocumentOrder(elements: readonly Element[]): Element[] {

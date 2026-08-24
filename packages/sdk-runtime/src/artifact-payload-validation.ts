@@ -1,12 +1,20 @@
-import type { CompiledDocument } from '@lodariq/schema';
+import type { ActiveManifestPointerV2, CompiledDocument, ManifestPointer } from '@lodariq/schema';
 import { isValidCompiledRuntimeArtifact } from '@lodariq/schema/compiled-runtime';
+import {
+  LodariqArtifactCompatibilityError,
+  assertSupportedArtifactMatchesManifest,
+  assertSupportedCompiledArtifactIfVersioned,
+} from './artifact-compatibility';
 
 const MAX_PUBLIC_ARTIFACT_BYTES = 2 * 1024 * 1024;
 const INITIAL_PUBLIC_ARTIFACT_BUFFER_BYTES = 16 * 1024;
 const INVALID_PUBLIC_ARTIFACT_MESSAGE = 'Lodariq public document response is invalid';
 
 /** Byte-bounds, parses, and fully validates one untrusted public artifact response. */
-export async function readValidatedPublicArtifact(response: Response): Promise<CompiledDocument> {
+export async function readValidatedPublicArtifact(
+  response: Response,
+  manifest: ManifestPointer | ActiveManifestPointerV2,
+): Promise<CompiledDocument> {
   const declaredLength = response.headers.get('content-length');
   if (declaredLength !== null && exceedsArtifactByteLimit(declaredLength)) {
     throw new Error(INVALID_PUBLIC_ARTIFACT_MESSAGE);
@@ -23,7 +31,30 @@ export async function readValidatedPublicArtifact(response: Response): Promise<C
   if (!isValidCompiledRuntimeArtifact(value)) {
     throw new Error(INVALID_PUBLIC_ARTIFACT_MESSAGE);
   }
+  if (isActiveManifestV2(manifest)) {
+    assertSupportedArtifactMatchesManifest(value, manifest);
+    if (manifest.experimentAssignment) {
+      const { materializeExperimentAssignment } = await import(
+        './activation/experiment-runtime'
+      );
+      return materializeExperimentAssignment(value, manifest.experimentAssignment);
+    }
+    return value;
+  }
+  assertSupportedCompiledArtifactIfVersioned(value);
+  if (Object.prototype.hasOwnProperty.call(value, 'artifactSchemaVersion')) {
+    throw new LodariqArtifactCompatibilityError();
+  }
+  if (value.documentId !== manifest.documentId || value.contentHash !== manifest.currentVersion) {
+    throw new Error(INVALID_PUBLIC_ARTIFACT_MESSAGE);
+  }
   return value;
+}
+
+function isActiveManifestV2(
+  manifest: ManifestPointer | ActiveManifestPointerV2,
+): manifest is ActiveManifestPointerV2 {
+  return manifest.schemaVersion !== undefined;
 }
 
 async function readBoundedUtf8Body(response: Response): Promise<string> {

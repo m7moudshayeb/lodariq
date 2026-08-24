@@ -73,6 +73,11 @@ export const authoringSessions = pgTable(
       ],
     }).onDelete('restrict'),
     uniqueIndex('authoring_sessions_hash_idx').on(table.tokenHash),
+    uniqueIndex('authoring_sessions_presence_scope_idx').on(
+      table.workspaceId,
+      table.documentId,
+      table.id,
+    ),
     uniqueIndex('authoring_sessions_activation_grant_idx')
       .on(table.activationGrantId)
       .where(sql`${table.activationGrantId} is not null`),

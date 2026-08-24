@@ -1,6 +1,7 @@
 import {
   AUTHORING_APPROVE_PRODUCTION_RESULT_TYPE,
   AUTHORING_BROWSER_VERIFY_RESULT_TYPE,
+  AUTHORING_LOCALE_LAYOUT_QA_RESULT_TYPE,
   AUTHORING_BRAND_DRIFT_CHECK_RESULT_TYPE,
   AUTHORING_BRAND_THEME_ACKNOWLEDGE_RESULT_TYPE,
   AUTHORING_PUBLISH_STAGING_RESULT_TYPE,
@@ -23,6 +24,7 @@ import {
   type AuthoringStagingVerificationResult,
   type AuthoringReleaseStateResultMessage,
   type BrowserVerificationReport,
+  type LocaleLayoutQaReport,
   type BrandDriftCheckRequest,
   type LodariqDocument,
   type ProductStyleProposal,
@@ -59,6 +61,7 @@ const DIRECT_OPTIONAL_PANEL_RESULT_TYPES = new Set<string>([
   AUTHORING_BRAND_THEME_ACKNOWLEDGE_RESULT_TYPE,
   AUTHORING_PUBLISH_STAGING_RESULT_TYPE,
   AUTHORING_BROWSER_VERIFY_RESULT_TYPE,
+  AUTHORING_LOCALE_LAYOUT_QA_RESULT_TYPE,
   AUTHORING_SUBMIT_VERIFICATION_RESULT_TYPE,
   AUTHORING_PROMOTE_PRODUCTION_RESULT_TYPE,
   AUTHORING_APPROVE_PRODUCTION_RESULT_TYPE,
@@ -69,6 +72,7 @@ export interface DirectAuthoringHostFrameServices extends Required<
 > {
   /** §4.7 — always present: the host answers, or says the session cannot. */
   operations: LocalAuthoringFrameServices['operations'];
+  requestAiAssist: NonNullable<LocalAuthoringFrameServices['requestAiAssist']>;
   publishToStaging?: LocalAuthoringFrameServices['publishToStaging'];
   getReleaseRecoveryState?: LocalAuthoringFrameServices['getReleaseRecoveryState'];
   recoverRelease?: LocalAuthoringFrameServices['recoverRelease'];
@@ -85,6 +89,7 @@ export interface DirectAuthoringHostFrameServices extends Required<
     publicationId: string,
     expectedContentHash: string,
   ) => Promise<BrowserVerificationReport>;
+  runLocaleLayoutQa?: (expectedDocumentRevision: number) => Promise<LocaleLayoutQaReport>;
   submitStagingVerification?: (
     request: AuthoringStagingVerificationRequest,
   ) => Promise<AuthoringStagingVerificationResult>;
@@ -167,6 +172,7 @@ export function createDirectAuthoringHostServicesImplementation(
   return {
     services: {
       operations,
+      requestAiAssist: (request) => operations.requestAiAssist!(request),
       persistDocument: (document) => persistDocument(bridge, options, document),
       getReleaseState: () => requestReleaseState(bridge, options, releaseStateRequests),
       ...(options.readReleaseRecovery
@@ -217,6 +223,12 @@ export function createDirectAuthoringHostServicesImplementation(
         ? {
             verifyBrowserPublication: (publicationId: string, expectedContentHash: string) =>
               optionalPanelServices!.verifyBrowserPublication(publicationId, expectedContentHash),
+          }
+        : {}),
+      ...(options.localeLayoutQa
+        ? {
+            runLocaleLayoutQa: (expectedDocumentRevision: number) =>
+              optionalPanelServices!.runLocaleLayoutQa(expectedDocumentRevision),
           }
         : {}),
       ...(options.submitStagingVerification
@@ -364,6 +376,7 @@ function hasOptionalPanelServices(options: DirectAuthoringHostServiceOptions): b
     options.acknowledgeBrandTheme ||
     options.publishToStaging ||
     options.verifyBrowserPublication ||
+    options.localeLayoutQa ||
     options.submitStagingVerification ||
     options.promoteProduction ||
     options.approveProduction,

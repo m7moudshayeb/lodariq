@@ -6,6 +6,12 @@
  * intercept input, and every action here has a visible labelled control (§3.1a).
  */
 import { CREATOR_CHROME_PEER_HUES } from '../../creator-chrome-tokens';
+import { EXPERIENCE_MENU_COPY } from '../../experience-menu/copy';
+import { experienceTypeGlyph } from '../../experience-menu/glyphs';
+import { isExperienceMenuEvent } from '../../experience-menu/is-menu-event';
+import { requestExperienceMenuProvider } from '../../experience-menu/provider-bridge';
+import type { ExperienceFlyout } from '../../experience-menu/flyout';
+import type { ExperienceMenuKind } from '../../experience-menu/types';
 import { peerInitials } from '../presence/presence-model';
 import { OVERLAY_PILL_IDLE_COLLAPSE_MS } from './constants';
 import { escapeHtml } from './html';
@@ -45,6 +51,7 @@ const DEFAULT_STATE: ModePillState = {
   experienceTypes: [],
   recording: false,
   environments: ['Dev', 'Staging'],
+  launcherActions: [],
 };
 
 /** Status word plus the dot tone that pairs with it. Never a colour alone. */
@@ -73,12 +80,68 @@ export function createModePill(doc: Document, callbacks: ModePillCallbacks): Mod
   let corner: OverlayChromeCorner = readStoredCorner();
   let collapsed = false;
   let idleTimer: ReturnType<typeof setTimeout> | null = null;
+  let flyout: ExperienceFlyout | null = null;
+  let flyoutLoading: Promise<void> | null = null;
+  let pendingFlyoutOpen: {
+    kind: ExperienceMenuKind;
+    row: HTMLElement;
+    focus: boolean;
+  } | null = null;
+  let destroyed = false;
+
+  /**
+   * Built on first use, not at construction.
+   *
+   * The flyout mounts beside the pill rather than inside it — the pill's menu is
+   * a scroll container, and the pill itself carries a backdrop-filter, which
+   * would make it the containing block for a fixed child. Its root is only
+   * knowable once the pill has been attached, which is after this returns.
+   */
+  function openExperienceFlyout(kind: ExperienceMenuKind, row: HTMLElement, focus = false): void {
+    if (flyout) {
+      flyout.open(kind, row, { focus });
+      return;
+    }
+    pendingFlyoutOpen = { kind, row, focus };
+    flyoutLoading ??= import('../../experience-menu')
+      .then((menu) => {
+        if (destroyed) return;
+        const root = element.getRootNode();
+        const container =
+          root instanceof ShadowRoot ? root : (element.parentElement ?? doc.body ?? element);
+        flyout = menu.createExperienceFlyout({
+          doc,
+          container,
+          provider: () => requestExperienceMenuProvider(doc.defaultView ?? window),
+          typeSwitch: {
+            currentType: () => state.experienceType,
+            stepCount: () => state.stepCount,
+            onSwitch: (type) => callbacks.onSwitchExperience(type),
+          },
+          onDone: () => closeMenu(),
+          onError: (error) => callbacks.onExperienceMenuError?.(error),
+        });
+        const pending = pendingFlyoutOpen;
+        pendingFlyoutOpen = null;
+        if (pending?.row.isConnected) {
+          flyout.open(pending.kind, pending.row, { focus: pending.focus });
+        }
+      })
+      .catch((error: unknown) => {
+        flyoutLoading = null;
+        pendingFlyoutOpen = null;
+        callbacks.onExperienceMenuError?.(error);
+      });
+  }
 
   const render = (): void => {
+    // Every row this could be anchored to is about to be replaced, so a flyout
+    // left open would be pointing at a node that no longer exists.
+    flyout?.close();
     element.dataset['mode'] = state.mode;
     element.dataset['corner'] = corner;
     element.dataset['collapsed'] = collapsed ? 'true' : 'false';
-    element.innerHTML = collapsed ? renderCollapsed() : renderComposing(state);
+    element.innerHTML = collapsed ? renderCollapsed() : renderComposing(state, corner);
     wire();
   };
 
@@ -96,6 +159,7 @@ export function createModePill(doc: Document, callbacks: ModePillCallbacks): Mod
     on('[data-pill-mode="editing"]', () => callbacks.onModeChange('editing'));
     on('[data-pill-mode="browsing"]', () => callbacks.onModeChange('browsing'));
     on('[data-pill-preview]', () => callbacks.onPreview());
+    on('[data-pill-menu-preview]', () => runFromMenu(callbacks.onPreview));
     on('[data-pill-retry]', () => callbacks.onRetrySave());
     on('[data-pill-menu]', () => toggleMenu());
     on('[data-pill-operations]', () => runFromMenu(callbacks.onOpenOperations));
@@ -110,24 +174,67 @@ export function createModePill(doc: Document, callbacks: ModePillCallbacks): Mod
         runFromMenu(() => callbacks.onOpenOperations(tab.tab)),
       );
     }
-    for (const entry of state.experienceTypes) {
-      on(`[data-pill-experience="${entry.type}"]`, () =>
-        runFromMenu(() => callbacks.onSwitchExperience(entry.type)),
-      );
-    }
     for (const environment of state.environments) {
       on(`[data-pill-environment="${environment}"]`, () =>
         runFromMenu(() => callbacks.onEnvironmentChange(environment)),
       );
     }
+    wireSubmenuRows();
     on('[data-pill-record]', () => runFromMenu(callbacks.onToggleRecording));
-    on('[data-pill-simulate]', () => runFromMenu(callbacks.onSimulateUser));
     on('[data-pill-zoom-in]', () => runFromMenu(() => callbacks.onCanvasZoom('in')));
     on('[data-pill-zoom-out]', () => runFromMenu(() => callbacks.onCanvasZoom('out')));
     on('[data-pill-zoom-reset]', () => runFromMenu(() => callbacks.onCanvasZoom('reset')));
     on('[data-pill-keyboard-map]', () => runFromMenu(callbacks.onKeyboardMap));
     on('[data-pill-command-palette]', () => runFromMenu(callbacks.onCommandPalette));
     on('[data-pill-restart]', () => runFromMenu(callbacks.onRestart));
+  }
+
+  /**
+   * The two rows that open a submenu instead of running (§3.3).
+   *
+   * Not routed through `on()` on purpose: that helper closes the menu, and these
+   * rows are the menu's own navigation. Hover is the affordance the creator will
+   * find; click, Enter and the arrow key toward the flyout are what make it
+   * reachable without a mouse.
+   */
+  function wireSubmenuRows(): void {
+    const submenus: { selector: string; kind: ExperienceMenuKind }[] = [
+      ...LAUNCHER_QUICK_ACTIONS.filter((action) => state.launcherActions.includes(action.id)).map(
+        (action) => ({
+          selector: `[data-pill-launcher-action="${action.id}"]`,
+          kind: action.kind as ExperienceMenuKind,
+        }),
+      ),
+      ...(state.experienceTypes.length > 0
+        ? [
+            {
+              selector: '[data-pill-change-experience-type]',
+              kind: 'change-experience-type' as ExperienceMenuKind,
+            },
+          ]
+        : []),
+    ];
+
+    for (const submenu of submenus) {
+      const row = element.querySelector<HTMLElement>(submenu.selector);
+      if (!row) continue;
+      const side = row.dataset['pillSubmenu'] === 'right' ? 'right' : 'left';
+      const forward = side === 'left' ? 'ArrowLeft' : 'ArrowRight';
+
+      row.addEventListener('mouseenter', () => openExperienceFlyout(submenu.kind, row));
+      row.addEventListener('mouseleave', () => flyout?.scheduleClose());
+      row.addEventListener('click', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        if (flyout) flyout.toggle(submenu.kind, row);
+        else openExperienceFlyout(submenu.kind, row);
+      });
+      row.addEventListener('keydown', (event) => {
+        if (event.key !== forward && event.key !== 'Enter' && event.key !== ' ') return;
+        event.preventDefault();
+        openExperienceFlyout(submenu.kind, row, true);
+      });
+    }
   }
 
   function menuElement(): HTMLElement | null {
@@ -146,6 +253,7 @@ export function createModePill(doc: Document, callbacks: ModePillCallbacks): Mod
   }
 
   function closeMenu(): void {
+    flyout?.close();
     if (menuElement()?.hidden !== false) return;
     setMenuOpen(false);
   }
@@ -196,7 +304,11 @@ export function createModePill(doc: Document, callbacks: ModePillCallbacks): Mod
    * and Exit all did nothing but collapse the overlay.
    */
   const onDocumentPointerDown = (event: Event): void => {
-    if (!event.composedPath().includes(element)) closeMenu();
+    if (event.composedPath().includes(element)) return;
+    // The submenu and its name dialog are mounted outside the pill, so without
+    // this the first click inside either one closed the menu behind them.
+    if (isExperienceMenuEvent(event)) return;
+    closeMenu();
   };
   doc.addEventListener('pointerdown', onDocumentPointerDown, true);
 
@@ -244,8 +356,13 @@ export function createModePill(doc: Document, callbacks: ModePillCallbacks): Mod
       if (modeChanged) restartIdleTimer();
     },
     destroy: () => {
+      destroyed = true;
       if (idleTimer) clearTimeout(idleTimer);
       idleTimer = null;
+      flyout?.destroy();
+      flyout = null;
+      flyoutLoading = null;
+      pendingFlyoutOpen = null;
       stopDrag();
       doc.removeEventListener('pointerdown', onDocumentPointerDown, true);
       doc.removeEventListener('keydown', onDocumentKeyDown);
@@ -254,6 +371,18 @@ export function createModePill(doc: Document, callbacks: ModePillCallbacks): Mod
   };
 }
 
+/**
+ * Every field the menu draws from, not just the ones on the pill's face.
+ *
+ * A patch that changes nothing here is dropped *before* `state` is assigned, so
+ * an omitted field is not merely a missed repaint — the pill keeps the old value
+ * forever. `experienceType` was missing, and the type-switch submenu reads it to
+ * decide which row is the current one: after a switch the menu still called the
+ * old type current and printed the new one as an option, which made switching
+ * back impossible because the row leading home was the disabled one.
+ *
+ * `recording` was missing too, so the Record row never became Stop recording.
+ */
 function isSameState(a: ModePillState, b: ModePillState): boolean {
   return (
     a.mode === b.mode &&
@@ -264,14 +393,29 @@ function isSameState(a: ModePillState, b: ModePillState): boolean {
     a.saveProperty === b.saveProperty &&
     a.panelsHidden === b.panelsHidden &&
     samePeers(a.peers, b.peers) &&
-    a.draftDiverged === b.draftDiverged
+    a.draftDiverged === b.draftDiverged &&
+    a.experienceType === b.experienceType &&
+    a.recording === b.recording &&
+    sameStrings(a.environments, b.environments) &&
+    sameStrings(a.launcherActions, b.launcherActions) &&
+    a.experienceTypes.length === b.experienceTypes.length &&
+    a.experienceTypes.every((entry, index) => entry.type === b.experienceTypes[index]?.type)
   );
+}
+
+function sameStrings(a: readonly string[], b: readonly string[]): boolean {
+  return a.length === b.length && a.every((value, index) => value === b[index]);
 }
 
 function samePeers(a: readonly ModePillPeer[], b: readonly ModePillPeer[]): boolean {
   return (
     a.length === b.length &&
-    a.every((peer, index) => peer.creatorId === b[index]?.creatorId && peer.name === b[index]?.name)
+    a.every(
+      (peer, index) =>
+        peer.creatorId === b[index]?.creatorId &&
+        peer.name === b[index]?.name &&
+        peer.detail === b[index]?.detail,
+    )
   );
 }
 
@@ -288,7 +432,7 @@ function renderCollapsed(): string {
 }
 
 /** Switch first and largest, then state, then the menu (§4.1). */
-function renderComposing(state: ModePillState): string {
+function renderComposing(state: ModePillState, corner: OverlayChromeCorner): string {
   const editing = state.mode !== 'browsing';
   return `
     <span class="overlay-mode-pill-grip" aria-hidden="true" title="${escapeHtml(MODE_PILL_COPY.drag)}">${OVERLAY_GLYPHS.grip}</span>
@@ -314,7 +458,7 @@ function renderComposing(state: ModePillState): string {
       title="${escapeHtml(MODE_PILL_COPY.more)}"
     >${OVERLAY_GLYPHS.chevronDown}</button>
     <div class="overlay-mode-pill-menu" data-pill-menu-list hidden role="menu">
-      ${renderMenu(state)}
+      ${renderMenu(state, corner)}
     </div>
   `;
 }
@@ -336,7 +480,6 @@ function switchButton(
     >${glyph}<span>${escapeHtml(label)}</span></button>
   `;
 }
-
 
 /** The one authoring pixel that survives preview (§4.7), bound to the runtime step. */
 /** Hairline between status facts, so three words do not read as one sentence. */
@@ -386,7 +529,7 @@ function renderPeers(peers: readonly ModePillPeer[]): string {
   if (peers.length === 0) return '';
   const shown = peers.slice(0, PILL_FACE_LIMIT);
   const overflow = peers.length - shown.length;
-  const names = peers.map((peer) => peer.name).join(', ');
+  const names = peers.map((peer) => peer.detail ?? peer.name).join(', ');
   return `
     <span class="overlay-mode-pill-faces" data-pill-peers="${peers.length}" title="${escapeHtml(names)}">
       ${shown
@@ -410,8 +553,10 @@ function renderPeers(peers: readonly ModePillPeer[]): string {
  */
 function isTypingTarget(target: EventTarget | null): boolean {
   if (!(target instanceof Element)) return false;
-  return target.closest('input, textarea, select, [contenteditable]:not([contenteditable="false"])')
-    != null;
+  return (
+    target.closest('input, textarea, select, [contenteditable]:not([contenteditable="false"])') !=
+    null
+  );
 }
 
 /** Stable per person: the same creator keeps the same colour across sessions. */
@@ -430,10 +575,16 @@ function peerHue(creatorId: string): string {
  * nobody reads. Only rows with somewhere to go are printed — a menu that names a
  * capability the build does not have is worse than one that is short.
  */
-function renderMenu(state: ModePillState): string {
-  const panels = state.panelsHidden
-    ? MODE_PILL_COPY.showAllPanels
-    : MODE_PILL_COPY.hideAllPanels;
+function renderMenu(state: ModePillState, corner: OverlayChromeCorner): string {
+  const panels = state.panelsHidden ? MODE_PILL_COPY.showAllPanels : MODE_PILL_COPY.hideAllPanels;
+  /*
+   * Which way the submenu chevron points.
+   *
+   * The pill is draggable to any of the four corners, so this cannot be a fixed
+   * "left". Parked on the right — where it starts — the room is on the left, and
+   * the flyout's own placement makes the same call from the same fact.
+   */
+  const submenuSide: 'left' | 'right' = corner.endsWith('right') ? 'left' : 'right';
 
   const groups: Array<{ label?: string; rows: readonly MenuRow[]; note?: string }> = [
     /* Ungrouped and first: the palette reaches every row below it, so it is the
@@ -448,16 +599,35 @@ function renderMenu(state: ModePillState): string {
         },
       ],
     },
+    /*
+     * The launcher's quick actions (§3.3). While the panel is open the launcher
+     * is hidden outright — chrome floating over the corner the pill wants — so
+     * this group is the only route left to them. Rows print only for actions the
+     * launcher actually has, because a row naming a capability this build lacks
+     * is worse than a shorter menu.
+     */
     {
-      label: MODE_PILL_COPY.groupExperienceType,
-      rows: state.experienceTypes.map((entry) => ({
-        key: `experience-${entry.type}`,
-        label: entry.label,
-        attribute: `data-pill-experience="${entry.type}"`,
-        current: entry.type === state.experienceType,
-        icon: EXPERIENCE_TYPE_GLYPHS[entry.type] ?? OVERLAY_GLYPHS.layers,
+      label: MODE_PILL_COPY.groupExperiences,
+      rows: LAUNCHER_QUICK_ACTIONS.filter((action) =>
+        state.launcherActions.includes(action.id),
+      ).map((action) => ({
+        key: `launcher-${action.id}`,
+        label: action.label,
+        attribute: `data-pill-launcher-action="${action.id}"`,
+        icon: action.icon,
+        submenu: submenuSide,
       })),
     },
+    /*
+     * This experience: what can be done to the document that is already open.
+     *
+     * The type switch lives here now, behind one row instead of five. Printed
+     * flat it was a second list of the same five type names sitting directly
+     * under "New experience" — one starts a document, the other converts this
+     * one, and nothing in the two rows above said which was which. Switching
+     * re-filters the canvas by the new type's root blocks, so converting a Tour
+     * empties the canvas; the row leads to a confirm that says so.
+     */
     {
       label: MODE_PILL_COPY.groupOperations,
       rows: [
@@ -468,6 +638,17 @@ function renderMenu(state: ModePillState): string {
           attribute: `data-pill-operations-tab="${entry.tab}"`,
           icon: entry.icon,
         })),
+        // Only once the build has types to switch between.
+        ...(state.experienceTypes.length > 0
+          ? [
+              {
+                key: 'change-experience-type',
+                label: EXPERIENCE_MENU_COPY.changeType,
+                icon: experienceTypeGlyph(state.experienceType),
+                submenu: submenuSide,
+              },
+            ]
+          : []),
       ],
     },
     {
@@ -476,6 +657,7 @@ function renderMenu(state: ModePillState): string {
         {
           key: 'preview',
           label: MODE_PILL_COPY.previewAsUser,
+          attribute: 'data-pill-menu-preview',
           shortcut: 'P',
           icon: OVERLAY_GLYPHS.eye,
         },
@@ -489,11 +671,6 @@ function renderMenu(state: ModePillState): string {
           key: 'record',
           label: state.recording ? MODE_PILL_COPY.stopRecording : MODE_PILL_COPY.recordSteps,
           icon: OVERLAY_GLYPHS.crosshair,
-        },
-        {
-          key: 'simulate',
-          label: MODE_PILL_COPY.simulateConfusedUser,
-          icon: OVERLAY_GLYPHS.bot,
         },
       ],
     },
@@ -548,17 +725,14 @@ interface MenuRow {
   readonly shortcut?: string;
   /** What makes a fifteen-row menu scannable. Absent leaves the gutter empty. */
   readonly icon?: string;
+  /**
+   * Opens a flyout instead of doing something. Renders a chevron pointing at the
+   * side the flyout will appear on, so the row promises what it delivers.
+   */
+  readonly submenu?: 'left' | 'right';
 }
 
-/** §5. The environment rows deliberately have none: they are words, not things. */
-const EXPERIENCE_TYPE_GLYPHS: Readonly<Record<string, string>> = {
-  tour: OVERLAY_GLYPHS.map,
-  announcement: OVERLAY_GLYPHS.bell,
-  hotspot: OVERLAY_GLYPHS.sparkle,
-  survey: OVERLAY_GLYPHS.form,
-  checklist: OVERLAY_GLYPHS.check,
-  knowledge: OVERLAY_GLYPHS.layers,
-};
+/** §5's glyphs now live with the experience menu, which draws the same list. */
 
 function renderMenuGroup(group: {
   label?: string;
@@ -582,9 +756,25 @@ function renderMenuGroup(group: {
         const shortcut = row.shortcut
           ? `<kbd class="overlay-mode-pill-menu-key">${escapeHtml(row.shortcut)}</kbd>`
           : '';
-        return `<button type="button" role="menuitem" ${address}${state}${disabled}>${
+        const submenu = row.submenu
+          ? ` aria-haspopup="true" aria-expanded="false" data-pill-submenu="${row.submenu}"`
+          : '';
+        /*
+         * One marker, always the same, always trailing.
+         *
+         * It used to point at whichever side the flyout would open on, which
+         * put a left-pointing caret on the right-hand edge of the row and read
+         * as a mistake rather than as a promise. A trailing chevron in the
+         * reading direction is what every menu uses for "there is a submenu
+         * here" — it is not a claim about where on screen it will appear, and
+         * the flyout picks that from the room it has. Mirrored for RTL by CSS.
+         */
+        const chevron = row.submenu
+          ? `<span class="overlay-mode-pill-menu-more" aria-hidden="true">${OVERLAY_GLYPHS.chevronRight}</span>`
+          : '';
+        return `<button type="button" role="menuitem" ${address}${state}${disabled}${submenu}>${
           row.icon ?? ''
-        }<span>${escapeHtml(row.label)}</span>${shortcut}</button>`;
+        }<span>${escapeHtml(row.label)}</span>${shortcut}${chevron}</button>`;
       })
       .join('')}
     ${note}
@@ -595,6 +785,36 @@ function renderMenuGroup(group: {
  * Sections worth a direct route. Narration is here so its row is wired, but it
  * is printed under Play — it is something a creator watches, not a report.
  */
+/**
+ * The launcher's quick actions, as menu rows (§3.3).
+ *
+ * The panel hides the launcher while it is open, so this is the only route left
+ * to them. Both open a submenu rather than doing something, because both name a
+ * category: "New experience" was never an action on its own, only a question
+ * about which kind, and the answer is a list either way.
+ *
+ * `preview-as-user` is deliberately absent: Play already carries it.
+ */
+const LAUNCHER_QUICK_ACTIONS = [
+  {
+    id: 'new-experience',
+    label: EXPERIENCE_MENU_COPY.newExperience,
+    icon: OVERLAY_GLYPHS.plus,
+    kind: 'new-experience',
+  },
+  {
+    id: 'experiences-on-page',
+    label: EXPERIENCE_MENU_COPY.viewExperiences,
+    icon: OVERLAY_GLYPHS.list,
+    kind: 'experiences-on-page',
+  },
+] as const satisfies readonly {
+  id: string;
+  label: string;
+  icon: string;
+  kind: ExperienceMenuKind;
+}[];
+
 const MENU_OPERATIONS_TABS = [
   { tab: 'flow', label: MODE_PILL_COPY.flowMap, icon: OVERLAY_GLYPHS.map },
   { tab: 'storyboard', label: MODE_PILL_COPY.storyboard, icon: OVERLAY_GLYPHS.columns },

@@ -54,7 +54,9 @@ const TOUR: ExperienceDefinition = {
 
 const ANNOUNCEMENT: ExperienceDefinition = {
   type: 'announcement',
-  capabilities: SURFACE_CAPABILITIES,
+  // Composition, not targeting: an announcement is triggered, and its form comes
+  // from the region it is dropped in. Survey and checklist already read this way.
+  capabilities: [...CONTENT_CAPABILITIES, 'popupComposition'],
   rootBlockTypes: ['tooltip'],
   workspace: 'singleSurface',
   /**

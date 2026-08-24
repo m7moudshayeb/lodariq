@@ -20,10 +20,16 @@ export const AUTHORING_TARGET_PICKER_CSS = `
     padding: 4px;
   }
 
+  /*
+   * Wide enough for its own search field. Pinned to the trigger width, a narrow
+   * trigger clipped the placeholder mid-word — the box telling you what you can
+   * type was the one thing too small to read.
+   */
   .ui-searchable-select-content {
     display: grid;
-    width: var(--radix-popover-trigger-width);
-    min-width: var(--radix-popover-trigger-width);
+    width: max-content;
+    min-width: max(var(--radix-popover-trigger-width), 232px);
+    max-width: min(320px, var(--radix-popover-content-available-width));
     max-height: min(280px, var(--radix-popover-content-available-height));
     grid-template-rows: auto minmax(0, 1fr);
     padding: 4px;
@@ -61,8 +67,6 @@ export const AUTHORING_TARGET_PICKER_CSS = `
     color: var(--lq-color-subtle);
   }
 
-  /* The 48px allowance is the search field's, and only the searchable variant
-     draws one — every other picker was paying for a box it does not have. */
   .ui-searchable-select-options {
     max-height: min(232px, calc(var(--radix-popover-content-available-height, 232px) - 8px));
     overflow-y: auto;
@@ -73,7 +77,6 @@ export const AUTHORING_TARGET_PICKER_CSS = `
     max-height: min(232px, calc(var(--radix-popover-content-available-height, 232px) - 56px));
   }
 
-  /* The trigger stays a bare value; the reason for each choice reads here. */
   .ui-select-item-text {
     display: grid;
     gap: 1px;

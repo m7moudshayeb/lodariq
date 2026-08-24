@@ -37,4 +37,11 @@ export const CREATOR_ENABLED_EXPERIENCE_TYPES = [
 ] as const;
 
 export type CreatorEnabledExperienceType = (typeof CREATOR_ENABLED_EXPERIENCE_TYPES)[number]['id'];
+
+/** Narrows a canonical document type to the shipped catalog above. */
+export function isCreatorEnabledExperienceType(
+  value: string,
+): value is CreatorEnabledExperienceType {
+  return CREATOR_ENABLED_EXPERIENCE_TYPES.some((entry) => entry.id === value);
+}
 import { authoringText } from './i18n';

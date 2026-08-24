@@ -21,9 +21,13 @@ export function createTrackedTourPlayer({
   onStopped,
 }: CreateTrackedTourPlayerOptions): TourPlayerLike {
   const documentId = document.documentId;
-  const finish = (eventName: 'tour_completed' | 'tour_dismissed' | 'tour_skipped'): void => {
+  const eventPrefix = deliverableEventPrefix(document.type);
+  const finish = (outcome: 'completed' | 'dismissed' | 'skipped'): void => {
     onStopped();
-    runtime.endTour(eventName, documentId);
+    // Finishing and skipping are decisions about the experience; dismissing is a
+    // decision about right now, so only the first two are remembered.
+    if (outcome !== 'dismissed') runtime.recordExperienceOutcome(documentId, outcome);
+    runtime.endTour(`${eventPrefix}_${outcome}`, documentId);
   };
 
   return new TourPlayer(document, {
@@ -36,11 +40,13 @@ export function createTrackedTourPlayer({
         ? { documentState: playback.flowConditionContext.documentState }
         : {}),
     },
-    onBeforeStepChange: (_index, step) => runtime.writeTourResume(manifest, document, step),
+    onBeforeStepChange: (_index, step) => {
+      if (document.type === 'tour') runtime.writeTourResume(manifest, document, step);
+    },
     onFormResponses: (responses) => runtime.submitFormResponses(documentId, responses),
     onStepChange: (index, step) => {
-      runtime.writeTourResume(manifest, document, step);
-      runtime.track('tour_step_changed', { documentId, stepId: step.id, index });
+      if (document.type === 'tour') runtime.writeTourResume(manifest, document, step);
+      runtime.track(`${eventPrefix}_step_changed`, { documentId, stepId: step.id, index });
     },
     onTargetResolution: (step, result) => {
       runtime.trackTargetResolution(documentId, step.id, step.targetId, result);
@@ -65,6 +71,16 @@ export function createTrackedTourPlayer({
       });
       playback.onChoreographyRecovery?.(step, update);
     },
+    onConditionDiagnostic: (step, diagnostic) => {
+      runtime.track('tour_condition_diagnostic', {
+        documentId,
+        stepId: step.id,
+        blockId: diagnostic.blockId,
+        reason: diagnostic.reason,
+        source: diagnostic.source,
+      });
+      playback.onConditionDiagnostic?.(step, diagnostic);
+    },
     onBranchChoice: (step, ruleIndex, destination) => {
       runtime.track('tour_branch_chosen', {
         documentId,
@@ -74,8 +90,48 @@ export function createTrackedTourPlayer({
       });
       playback.onBranchChoice?.(step, ruleIndex, destination);
     },
-    onComplete: () => finish('tour_completed'),
-    onDismiss: () => finish('tour_dismissed'),
-    onSkip: () => finish('tour_skipped'),
+    onAdaptiveDecision: playback.onAdaptiveDecision,
+    onAdaptiveSkip: (step, decision) => {
+      runtime.track('tour_adaptive_step_skipped', {
+        documentId,
+        stepId: step.id,
+        reason: decision.reason,
+        eventName: decision.eventName,
+        occurrences: decision.occurrences,
+        minimumOccurrences: decision.minimumOccurrences,
+        lookbackDays: decision.lookbackDays,
+      });
+      playback.onAdaptiveSkip?.(step, decision);
+    },
+    onChecklistItemChange: (blockId, completed, completedCount, total) => {
+      runtime.track('checklist_item_completed', {
+        documentId,
+        blockId,
+        completed,
+        completedCount,
+        total,
+      });
+    },
+    onSurveySubmit: () => runtime.track('survey_submitted', { documentId }),
+    onStart: () => {
+      runtime.track(`${eventPrefix}_started`, { documentId });
+      runtime.track('experience_shown', { documentId, experienceType: eventPrefix });
+    },
+    onFrequencySuppressed: () => {
+      onStopped();
+      runtime.track(`${eventPrefix}_frequency_suppressed`, { documentId });
+    },
+    onComplete: () => finish('completed'),
+    onDismiss: () => finish('dismissed'),
+    onSkip: () => finish('skipped'),
   });
+}
+
+function deliverableEventPrefix(
+  type: string,
+): 'announcement' | 'checklist' | 'hotspot' | 'survey' | 'tour' {
+  if (type === 'announcement' || type === 'checklist' || type === 'hotspot' || type === 'survey') {
+    return type;
+  }
+  return 'tour';
 }

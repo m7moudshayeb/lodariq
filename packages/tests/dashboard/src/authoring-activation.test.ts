@@ -190,7 +190,7 @@ describe('@lodariq/dashboard first-party authoring activation', () => {
 
     expect(fetchMock).toHaveBeenCalledOnce();
     expect(fetchMock).toHaveBeenCalledWith(
-      '/authoring/activate/request',
+      '/v1/authoring/activation',
       expect.objectContaining({
         method: 'POST',
         credentials: 'same-origin',
@@ -263,9 +263,9 @@ describe('@lodariq/dashboard first-party authoring activation', () => {
     await flushAsyncWork();
 
     expect(fetchMock).toHaveBeenCalledTimes(3);
-    expect(fetchMock.mock.calls[1]?.[0]).toBe('/api/auth/sign-in');
+    expect(fetchMock.mock.calls[1]?.[0]).toBe('/v1/auth/sign-in');
     expect(fetchMock.mock.calls[2]).toEqual([
-      '/authoring/activate/request',
+      '/v1/authoring/activation',
       expect.objectContaining({
         body: JSON.stringify({ action: 'inspect', requestId: REQUEST_ID }),
       }),
@@ -309,7 +309,7 @@ describe('@lodariq/dashboard first-party authoring activation', () => {
 
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(fetchMock.mock.calls[1]).toEqual([
-      '/authoring/activate/request',
+      '/v1/authoring/activation',
       expect.objectContaining({
         method: 'POST',
         credentials: 'same-origin',
@@ -377,7 +377,7 @@ function sessionSnapshot(): Record<string, unknown> {
 }
 
 function jsonRequest(body: Record<string, unknown>): Request {
-  return new Request('https://app.lodariq.io/authoring/activate/request', {
+  return new Request('https://app.lodariq.io/v1/authoring/activation', {
     method: 'POST',
     headers: {
       'content-type': 'application/json',

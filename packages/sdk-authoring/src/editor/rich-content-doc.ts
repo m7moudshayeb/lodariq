@@ -47,30 +47,16 @@ import {
   $isRichValidationBadgeNode,
 } from './rich-content-nodes';
 
-/** Canonical block types that the freeform Rich Content editor owns. */
-export const RICH_CONTENT_BLOCK_TYPES = new Set<LodariqBlockType>([
-  'paragraph',
-  'heading',
-  'list',
-  'divider',
-  'media',
-  'callout',
-  'stat',
-  'icon',
-  'button',
-  'formField',
-  'targetChip',
-  'validationBadge',
-]);
+/**
+ * Canonical block types that the freeform Rich Content editor owns.
+ *
+ * Defined in `rich-content-block-types` and re-exported here so callers that
+ * already hold Lexical keep one import, while callers that only need the sets
+ * can reach them without it.
+ */
+import { RICH_CONTENT_BLOCK_TYPES, TEXT_BLOCK_TYPES } from './rich-content-block-types';
 
-export const TEXT_BLOCK_TYPES = new Set<LodariqBlockType>([
-  'paragraph',
-  'heading',
-  'list',
-  'callout',
-  'stat',
-  'targetChip',
-]);
+export { RICH_CONTENT_BLOCK_TYPES, TEXT_BLOCK_TYPES };
 
 const INLINE_MOTION_RECIPE_SET = new Set<string>(TOUR_MOTION_RECIPE_VALUES);
 const INLINE_MOTION_EASING_SET = new Set<string>(TOUR_MOTION_EASING_VALUES);

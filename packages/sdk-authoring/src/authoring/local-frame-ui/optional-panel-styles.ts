@@ -110,8 +110,6 @@ const OPTIONAL_PANEL_MODE_CSS = `
     box-shadow: 0 6px 18px rgba(0, 0, 0, 0.24);
   }
 
-  /* The card is a grid, so a lone button stretches the full measure. This one
-     is a way out, not a primary action bar. */
   .release-blocker-card > button {
     justify-self: start;
   }
@@ -526,8 +524,8 @@ const OPTIONAL_PANEL_MODE_CSS = `
   .panel-release-truth {
     overflow-wrap: anywhere;
     color: var(--lq-color-muted);
-    font-size: 8px;
-    font-weight: var(--lq-weight-bold);
+    font-size: var(--lq-font-sm);
+    font-weight: var(--lq-weight-regular);
     line-height: 1.4;
     padding: 0 4px;
   }

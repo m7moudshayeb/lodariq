@@ -6,6 +6,7 @@ import { type BlockDirection, type BlockInsertPosition } from '../document-ops';
 import { isEditableControl } from './utils';
 import {
   DRAG_AUTO_SCROLL_EDGE_PX,
+  type BlockDragLayout,
   dragAutoScrollDelta,
   dropPosition,
   primeDragTransfer,
@@ -33,19 +34,28 @@ export abstract class ControllerDragDropFeature extends ControllerNativeEventsFe
     this.setStatus(authoringText('Move item to a new position'));
   }
 
-  handleBlockDragOver(event: DragEvent<HTMLElement>): void {
+  handleBlockDragOver(event: DragEvent<HTMLElement>, layout: BlockDragLayout = {}): void {
     if (!this.draggingBlockId || this.draggingStepBlockId) return;
     event.preventDefault();
-    this.autoScrollDuringDrag(event);
+    this.autoScrollDuringDrag(event, layout);
     const transfer = reactDataTransfer(event);
     if (transfer) transfer.dropEffect = 'move';
     this.updateDragTarget(
       event.currentTarget.dataset['blockId'] ?? null,
-      dropPosition(event, this.dropPositionFallback(event.currentTarget.dataset['blockId'] ?? '')),
+      dropPosition(
+        event,
+        this.dropPositionFallback(event.currentTarget.dataset['blockId'] ?? ''),
+        layout.selector,
+        layout.axis,
+      ),
     );
   }
 
-  handleBlockDrop(event: DragEvent<HTMLElement>, targetBlockId: string): void {
+  handleBlockDrop(
+    event: DragEvent<HTMLElement>,
+    targetBlockId: string,
+    layout: BlockDragLayout = {},
+  ): void {
     event.preventDefault();
     if (this.draggingStepBlockId) {
       this.clearDragState();
@@ -55,7 +65,12 @@ export abstract class ControllerDragDropFeature extends ControllerNativeEventsFe
       this.reorderTopLevelBlock(
         this.draggingBlockId,
         targetBlockId,
-        dropPosition(event, this.dropPositionFallback(targetBlockId)),
+        dropPosition(
+          event,
+          this.dropPositionFallback(targetBlockId),
+          layout.selector,
+          layout.axis,
+        ),
       );
     }
     this.clearDragState();
@@ -169,7 +184,23 @@ export abstract class ControllerDragDropFeature extends ControllerNativeEventsFe
     return draggingIndex < targetIndex ? 'after' : 'before';
   }
 
-  protected autoScrollDuringDrag(event: Event | DragEvent<HTMLElement>): void {
+  protected autoScrollDuringDrag(
+    event: Event | DragEvent<HTMLElement>,
+    layout: BlockDragLayout = {},
+  ): void {
+    if (layout.axis === 'x' && layout.scrollSelector && event.currentTarget instanceof Element) {
+      const scroller = event.currentTarget.closest<HTMLElement>(layout.scrollSelector);
+      const clientX = 'clientX' in event ? event.clientX : null;
+      if (!scroller || typeof clientX !== 'number' || !Number.isFinite(clientX)) return;
+      const rect = scroller.getBoundingClientRect();
+      const edge = Math.min(DRAG_AUTO_SCROLL_EDGE_PX, rect.width / 3);
+      if (clientX < rect.left + edge) {
+        scroller.scrollBy(-dragAutoScrollDelta(rect.left + edge - clientX), 0);
+      } else if (clientX > rect.right - edge) {
+        scroller.scrollBy(dragAutoScrollDelta(clientX - (rect.right - edge)), 0);
+      }
+      return;
+    }
     const clientY = 'clientY' in event ? event.clientY : null;
     if (typeof clientY !== 'number' || !Number.isFinite(clientY) || clientY <= 0) return;
 
@@ -241,6 +272,20 @@ export abstract class ControllerDragDropFeature extends ControllerNativeEventsFe
     if (!moveShortcut) return;
     event.preventDefault();
     this.moveTopLevelBlock(blockId, event.key === 'ArrowUp' ? 'up' : 'down');
+  }
+
+  handleBlockReorderKeyDown(
+    event: KeyboardEvent<HTMLElement>,
+    blockId: string,
+    orientation: 'horizontal' | 'vertical' = 'vertical',
+  ): void {
+    if (!event.altKey) return;
+    const previousKey = orientation === 'horizontal' ? 'ArrowLeft' : 'ArrowUp';
+    const nextKey = orientation === 'horizontal' ? 'ArrowRight' : 'ArrowDown';
+    if (event.key !== previousKey && event.key !== nextKey) return;
+    event.preventDefault();
+    event.stopPropagation();
+    this.moveTopLevelBlock(blockId, event.key === previousKey ? 'up' : 'down');
   }
 
   handleStepContentKeyDown(

@@ -28,6 +28,7 @@ import {
 } from '@lodariq/schema';
 import {
   createPublicSdkBootstrapGrant,
+  hashAdaptiveVisitorKey,
   hashPublicSdkBootstrapGrant,
   type ControlPlaneRepository,
   type PersistedDocumentDeployment,
@@ -135,9 +136,15 @@ export async function bootstrapPublicSdkInstallation(
     // pays the bootstrap request and nothing else: no delivery module, no
     // runtime, no artifact. Unparseable or absent page intent falls through to
     // the whole active set, so a missing href can never hide a live experience.
-    const activeManifests = selectManifestsForPage(
+    const selectedManifests = selectManifestsForPage(
       candidates.filter((candidate): candidate is ActiveManifestCandidate => candidate !== null),
       readPageEligibilityContext(body.href, exactOrigin),
+    );
+    const activeManifests = await attachDeliveryDecisions(
+      options.repository,
+      candidates.filter((candidate): candidate is ActiveManifestCandidate => candidate !== null),
+      selectedManifests,
+      body.assignmentKey,
     );
     delivery =
       activeManifests.length > 0
@@ -147,6 +154,10 @@ export async function bootstrapPublicSdkInstallation(
             manifests: activeManifests,
             defaultDocumentId: activeManifests[0]!.documentId,
             ingestUrl: new URL('/v1/sdk/events', options.publicApiBaseUrl).toString(),
+            catalogUrl: new URL(
+              '/v1/sdk/catalog-observations',
+              options.publicApiBaseUrl,
+            ).toString(),
           }
         : { state: 'unavailable' };
   } else {
@@ -165,7 +176,12 @@ export async function bootstrapPublicSdkInstallation(
         ? (legacyCompiled.trigger as TriggerDefinition)
         : null;
     const legacyPage = readPageEligibilityContext(body.href, exactOrigin);
-    if (publication && legacyTrigger && legacyPage && !triggerMatchesPage(legacyTrigger, legacyPage)) {
+    if (
+      publication &&
+      legacyTrigger &&
+      legacyPage &&
+      !triggerMatchesPage(legacyTrigger, legacyPage)
+    ) {
       publication = null;
     }
     delivery = publication
@@ -177,6 +193,7 @@ export async function bootstrapPublicSdkInstallation(
             options.publicApiBaseUrl,
           ).toString(),
           ingestUrl: new URL('/v1/sdk/events', options.publicApiBaseUrl).toString(),
+          catalogUrl: new URL('/v1/sdk/catalog-observations', options.publicApiBaseUrl).toString(),
         }
       : { state: 'unavailable' };
   }
@@ -437,6 +454,8 @@ export function createManifestPointer(
 export interface ActiveManifestCandidate {
   pointer: ActiveManifestPointerV2;
   trigger: TriggerDefinition | null;
+  experimentId: string | null;
+  adaptiveEventNames: readonly string[];
 }
 
 export async function createActiveManifestCandidate(
@@ -459,7 +478,87 @@ export async function createActiveManifestCandidate(
   if (!pointer) return null;
   const compiled = publication.artifact.compiled;
   const trigger = 'trigger' in compiled ? (compiled.trigger as TriggerDefinition) : null;
-  return { pointer, trigger };
+  const experimentId =
+    'experiment' in compiled && compiled.experiment ? compiled.experiment.id : null;
+  const adaptiveEventNames = [
+    ...new Set(
+      compiled.steps
+        .map((step) => ('teaches' in step ? step.teaches : undefined))
+        .filter((name): name is string => Boolean(name)),
+    ),
+  ].slice(0, 200);
+  return { pointer, trigger, experimentId, adaptiveEventNames };
+}
+
+async function attachDeliveryDecisions(
+  repository: ControlPlaneRepository,
+  candidates: readonly ActiveManifestCandidate[],
+  manifests: readonly ActiveManifestPointerV2[],
+  assignmentKey?: string,
+): Promise<ActiveManifestPointerV2[]> {
+  if (!assignmentKey) return [...manifests];
+  const byDocumentId = new Map(
+    candidates.map((candidate) => [candidate.pointer.documentId, candidate]),
+  );
+  const evaluatedAt = new Date().toISOString();
+  return Promise.all(
+    manifests.map(async (manifest) => {
+      const candidate = byDocumentId.get(manifest.documentId);
+      if (!candidate) return manifest;
+      const assignment = candidate.experimentId
+        ? await repository.getOrCreateExperimentAssignment({
+            workspaceId: manifest.workspaceId,
+            environmentId: manifest.environmentId,
+            documentId: manifest.documentId,
+            experimentId: candidate.experimentId,
+            assignmentKey,
+          })
+        : null;
+      let adaptive: ActiveManifestPointerV2['adaptive'];
+      if (candidate.adaptiveEventNames.length > 0) {
+        try {
+          const measurement = await repository.readExperienceMeasurement({
+            workspaceId: manifest.workspaceId,
+            documentId: manifest.documentId,
+          });
+          if (measurement.adaptivePolicy.enabled) {
+            const adaptiveVisitorKeyHash = hashAdaptiveVisitorKey({
+              workspaceId: manifest.workspaceId,
+              environmentId: manifest.environmentId,
+              assignmentKey,
+            });
+            adaptive = {
+              policy: measurement.adaptivePolicy,
+              evaluatedAt,
+              evidence: await repository.readAdaptiveBehaviorEvidence({
+                workspaceId: manifest.workspaceId,
+                environmentId: manifest.environmentId,
+                adaptiveVisitorKeyHash,
+                eventNames: candidate.adaptiveEventNames,
+                lookbackDays: measurement.adaptivePolicy.lookbackDays,
+                evaluatedAt,
+              }),
+            };
+          }
+        } catch {
+          // Analytics must fail open: delivery continues without adaptive skips.
+        }
+      }
+      return {
+        ...manifest,
+        ...(assignment
+          ? {
+              experimentAssignment: {
+                experimentId: assignment.experimentId,
+                armId: assignment.armId,
+                allocationRevision: assignment.allocationRevision,
+              },
+            }
+          : {}),
+        ...(adaptive ? { adaptive } : {}),
+      };
+    }),
+  );
 }
 
 export async function createActiveManifestPointer(
@@ -525,6 +624,13 @@ export function createActiveManifestPointerFromPublication(
     generation: deployment.generation,
     publicationId: publication.id,
     activatedAt: publication.publishedAt,
+    activation:
+      'trigger' in compiled && 'audience' in compiled
+        ? {
+            trigger: structuredClone(compiled.trigger),
+            audience: structuredClone(compiled.audience),
+          }
+        : undefined,
     artifact: {
       artifactSchemaVersion: supportedContract.artifactSchemaVersion,
       contentHash: compiled.contentHash,

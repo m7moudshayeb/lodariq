@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { LodariqDocument } from '@lodariq/schema';
+import { resolveCommercialEntitlements, type LodariqDocument } from '@lodariq/schema';
 import tourFixture from '@lodariq/schema/fixtures/tour.linear.v1.json';
 import { mountLocalAuthoringFrame } from '@lodariq/sdk-authoring';
 import { installJsdomInteractionShims } from '../support/jsdom-interaction';
@@ -36,7 +36,7 @@ describe('step style reuse', () => {
     vi.restoreAllMocks();
   });
 
-  async function mount(): Promise<void> {
+  async function mount(planId?: 'free'): Promise<void> {
     const baseDocument = structuredClone(tourFixture) as LodariqDocument;
     await mountLocalAuthoringFrame({
       root: document.getElementById('authoring')!,
@@ -53,6 +53,15 @@ describe('step style reuse', () => {
         recordMetric: vi.fn(),
         getMetricsSummary: vi.fn(() => ({})),
         exportMetricsReport: vi.fn(() => '{}'),
+        ...(planId
+          ? {
+              operations: {
+                readCommercialUsage: async () => ({
+                  features: [...resolveCommercialEntitlements(planId).features],
+                }),
+              } as never,
+            }
+          : {}),
       },
       frameMode: 'panel',
       sessionId: SESSION_ID,
@@ -60,13 +69,9 @@ describe('step style reuse', () => {
       allowedOrigins: [window.location.origin],
       targetOrigin: window.location.origin,
     });
-    await vi.waitFor(() =>
-      expect(document.querySelector('.overlay-step-settings')).not.toBeNull(),
-    );
+    await vi.waitFor(() => expect(document.querySelector('.overlay-step-settings')).not.toBeNull());
     document.querySelector<HTMLButtonElement>('.overlay-step-settings')?.click();
-    await vi.waitFor(() =>
-      expect(document.querySelector('.step-style-reuse')).not.toBeNull(),
-    );
+    await vi.waitFor(() => expect(document.querySelector('.step-style-reuse')).not.toBeNull());
   }
 
   const action = (name: string): HTMLButtonElement => {
@@ -97,15 +102,13 @@ describe('step style reuse', () => {
     await mount();
     action('copy').click();
     await vi.waitFor(() => expect(action('apply-to').disabled).toBe(false));
-    expect(action('apply-to').textContent).toContain('this step');
+    expect(action('apply-to').textContent).toContain('Apply to');
   });
 
   it('saves a named style and offers it back for reuse', async () => {
     await mount();
     action('create').click();
-    await vi.waitFor(() =>
-      expect(document.querySelector('[data-style-recipe]')).not.toBeNull(),
-    );
+    await vi.waitFor(() => expect(document.querySelector('[data-style-recipe]')).not.toBeNull());
     const recipe = document.querySelector<HTMLButtonElement>('[data-style-recipe]');
     expect(recipe?.textContent?.trim().length).toBeGreaterThan(0);
     expect(document.querySelector('.step-style-recipe-swatch')).not.toBeNull();
@@ -115,5 +118,14 @@ describe('step style reuse', () => {
     await mount();
     const hint = document.querySelector('.step-style-reuse-hint');
     expect(hint?.textContent).toContain('filmstrip');
+  });
+
+  it('keeps style reuse visible but disables named-style actions on Free', async () => {
+    await mount('free');
+    await vi.waitFor(() => expect(action('copy').disabled).toBe(true));
+    for (const name of ['copy', 'paste', 'apply-to', 'create', 'update']) {
+      expect(action(name).disabled, name).toBe(true);
+      expect(action(name).title, name).toContain('not included');
+    }
   });
 });

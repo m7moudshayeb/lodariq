@@ -14,7 +14,10 @@ export const AUTHORING_RESOURCE_LIMITS = {
   recipes: 100,
   checkpoints: 100,
   assets: 250,
-  assetBytes: 5_242_880,
+  /** Admission ceiling; the workspace entitlement supplies the lower effective limit. */
+  assetBytes: 104_857_600,
+  /** JSON/base64 envelope ceiling for the admission limit. */
+  uploadBodyBytes: 140_100_000,
 } as const;
 
 export const AuthoringStepStyleRecipeResource = Type.Object(
@@ -48,7 +51,7 @@ export const AuthoringDraftCheckpointResource = Type.Object(
 );
 export type AuthoringDraftCheckpointResource = Static<typeof AuthoringDraftCheckpointResource>;
 
-export const AUTHORING_MEDIA_ASSET_KINDS = ['image', 'video', 'captions'] as const;
+export const AUTHORING_MEDIA_ASSET_KINDS = ['image', 'video', 'captions', 'audio'] as const;
 export const AuthoringMediaAssetKind = Type.Union(
   AUTHORING_MEDIA_ASSET_KINDS.map((kind) => Type.Literal(kind)),
   { $id: 'AuthoringMediaAssetKind' },
@@ -107,7 +110,7 @@ export const UploadAuthoringMediaAssetRequest = Type.Object(
     kind: Type.Ref(AuthoringMediaAssetKind),
     filename: Type.String({ minLength: 1, maxLength: 180 }),
     contentType: Type.String({ minLength: 1, maxLength: 100 }),
-    contentBase64: Type.String({ minLength: 4, maxLength: 7_000_000 }),
+    contentBase64: Type.String({ minLength: 4, maxLength: 140_000_000 }),
     savedToLibrary: Type.Optional(Type.Boolean({ default: false })),
   },
   { $id: 'UploadAuthoringMediaAssetRequest', additionalProperties: false },

@@ -8,12 +8,14 @@ import {
   type LodariqBlock,
   type Target,
 } from '@lodariq/schema';
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { authoringText } from '../../../i18n';
 import type { LocalAuthoringFrameController } from '../controller';
 import type { LocalAuthoringFrameSnapshot, StepEmphasisPatch } from '../types';
 import {
   AuthoringRange,
+  ArrowDown,
+  ArrowUp,
   Check,
   ChevronRight,
   CircleAlert,
@@ -21,6 +23,7 @@ import {
   Pencil,
   Play,
   RefreshCcw,
+  Trash2,
 } from '../design-system';
 import { PropertyChoiceField, PropertyColorField } from '../properties/property-controls';
 import { INSPECTOR_SECTION_LABELS } from '../../overlay/inspector-copy';
@@ -363,6 +366,7 @@ function ApproachSection({
   step: LodariqBlock;
   target: Target | undefined;
 }): ReactNode {
+  const [editing, setEditing] = useState(false);
   const legs = target?.approach?.legs ?? [];
   return (
     <div data-target-section="approach">
@@ -376,7 +380,49 @@ function ApproachSection({
           {legs.map((leg, index) => (
             <li key={`${leg.label}-${index}`}>
               <span className="target-approach-index">{index + 1}</span>
-              <span>{leg.label}</span>
+              {editing && target ? (
+                <>
+                  <input
+                    aria-label={authoringText('Approach step {step}', { step: index + 1 })}
+                    defaultValue={leg.label}
+                    maxLength={120}
+                    onBlur={(event) =>
+                      controller.setTargetApproachLabel(
+                        target.id,
+                        index,
+                        event.currentTarget.value,
+                      )
+                    }
+                  />
+                  <span className="target-approach-leg-actions">
+                    <button
+                      aria-label={authoringText('Move approach step up')}
+                      disabled={index === 0}
+                      onClick={() => controller.moveTargetApproachLeg(target.id, index, 'up')}
+                      type="button"
+                    >
+                      <ArrowUp size={12} strokeWidth={2} aria-hidden="true" />
+                    </button>
+                    <button
+                      aria-label={authoringText('Move approach step down')}
+                      disabled={index === legs.length - 1}
+                      onClick={() => controller.moveTargetApproachLeg(target.id, index, 'down')}
+                      type="button"
+                    >
+                      <ArrowDown size={12} strokeWidth={2} aria-hidden="true" />
+                    </button>
+                    <button
+                      aria-label={authoringText('Remove approach step')}
+                      onClick={() => controller.removeTargetApproachLeg(target.id, index)}
+                      type="button"
+                    >
+                      <Trash2 size={12} strokeWidth={2} aria-hidden="true" />
+                    </button>
+                  </span>
+                </>
+              ) : (
+                <span>{leg.label}</span>
+              )}
             </li>
           ))}
         </ol>
@@ -385,16 +431,31 @@ function ApproachSection({
           {authoringText('Nothing recorded — this target is on the screen you started from.')}
         </p>
       )}
+      {target?.approach?.lastOutcome ? (
+        <p className={`target-approach-outcome is-${target.approach.lastOutcome}`}>
+          {approachOutcomeLabel(target.approach.lastOutcome)}
+        </p>
+      ) : null}
       <div className="inspector-menu">
-        {/* WIRE_IFRAME: replaying a route means driving the host page from the frame. */}
-        <button data-target-action="approach-replay" disabled type="button">
+        <button
+          data-target-action="approach-replay"
+          disabled={!target || legs.length === 0}
+          onClick={() => {
+            if (target) controller.replayTargetApproach(step.id, target.id);
+          }}
+          type="button"
+        >
           <Play size={13} strokeWidth={2.2} aria-hidden="true" />
-          {authoringText('Replay — needs the host-page bridge')}
+          {authoringText('Replay approach')}
         </button>
-        {/* WIRE_DB: legs are stored but nothing writes an edited label back yet. */}
-        <button data-target-action="approach-edit" disabled type="button">
+        <button
+          data-target-action="approach-edit"
+          disabled={!target || legs.length === 0}
+          onClick={() => setEditing((current) => !current)}
+          type="button"
+        >
           <Pencil size={13} strokeWidth={2.2} aria-hidden="true" />
-          {authoringText('Edit the recipe — not writable yet')}
+          {editing ? authoringText('Done editing') : authoringText('Edit the recipe')}
         </button>
         <button
           data-target-action="approach-record"
@@ -402,11 +463,17 @@ function ApproachSection({
           type="button"
         >
           <Crosshair size={13} strokeWidth={2.2} aria-hidden="true" />
-          {authoringText('Record again')}
+          {authoringText('Choose target again')}
         </button>
       </div>
     </div>
   );
+}
+
+function approachOutcomeLabel(outcome: 'pass' | 'fail' | 'unknown'): string {
+  if (outcome === 'pass') return authoringText('Last replay passed');
+  if (outcome === 'fail') return authoringText('Last replay needs repair');
+  return authoringText('Replay has not completed');
 }
 
 /**

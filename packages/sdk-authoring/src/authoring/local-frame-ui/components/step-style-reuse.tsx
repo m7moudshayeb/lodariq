@@ -26,6 +26,11 @@ export function StepStyleReuse({
   const selectedCount = snapshot.selectedStepIds.size;
   const recipes = snapshot.stepStyleRecipes;
   const canPaste = snapshot.stepStyleClipboardAvailable;
+  const enabled =
+    !snapshot.commercialUsage || snapshot.commercialUsage.features.includes('named-step-styles');
+  const unavailableTitle = enabled
+    ? undefined
+    : authoringText('This tool is not included in the current workspace plan.');
   /* The style this step last wore, which is what `Update` would rewrite. */
   const boundRecipeId = snapshot.stepStyleRecipeByStep.get(step.id);
   const boundRecipe = recipes.find((recipe) => recipe.id === boundRecipeId);
@@ -36,7 +41,9 @@ export function StepStyleReuse({
         <button
           type="button"
           data-style-action="copy"
+          disabled={!enabled}
           onClick={() => controller.copyStepStyle(step.id)}
+          title={unavailableTitle}
         >
           <Copy size={14} strokeWidth={2.2} aria-hidden="true" />
           <span>{authoringText('Copy style')}</span>
@@ -45,8 +52,9 @@ export function StepStyleReuse({
         <button
           type="button"
           data-style-action="paste"
-          disabled={!canPaste}
+          disabled={!enabled || !canPaste}
           onClick={() => controller.pasteStepStyle(step.id)}
+          title={unavailableTitle}
         >
           <ClipboardPaste size={14} strokeWidth={2.2} aria-hidden="true" />
           <span>{authoringText('Paste style')}</span>
@@ -55,8 +63,9 @@ export function StepStyleReuse({
         <button
           type="button"
           data-style-action="apply-to"
-          disabled={!canPaste}
+          disabled={!enabled || !canPaste}
           onClick={() => controller.applyCopiedStyleToSelected(step.id)}
+          title={unavailableTitle}
         >
           <Layers size={14} strokeWidth={2.2} aria-hidden="true" />
           <span>
@@ -68,7 +77,9 @@ export function StepStyleReuse({
         <button
           type="button"
           data-style-action="create"
+          disabled={!enabled}
           onClick={() => controller.saveStepStyleRecipe(step.id)}
+          title={unavailableTitle}
         >
           <Plus size={14} strokeWidth={2.2} aria-hidden="true" />
           <span>{authoringText('Create style from this step…')}</span>
@@ -77,10 +88,11 @@ export function StepStyleReuse({
         <button
           type="button"
           data-style-action="update"
-          disabled={!boundRecipe}
+          disabled={!enabled || !boundRecipe}
           onClick={() => {
             if (boundRecipe) controller.updateStepStyleRecipe(boundRecipe.id, step.id);
           }}
+          title={unavailableTitle}
         >
           <Save size={14} strokeWidth={2.2} aria-hidden="true" />
           <span>
@@ -102,7 +114,9 @@ export function StepStyleReuse({
               <button
                 type="button"
                 data-style-recipe={recipe.id}
+                disabled={!enabled}
                 onClick={() => controller.applyStepStyleRecipe(recipe.id, step.id)}
+                title={unavailableTitle}
               >
                 <span
                   aria-hidden="true"
@@ -119,7 +133,9 @@ export function StepStyleReuse({
                 type="button"
                 className="step-style-recipe-remove"
                 aria-label={authoringText('Delete {name}', { name: recipe.name })}
+                disabled={!enabled}
                 onClick={() => controller.deleteStepStyleRecipe(recipe.id)}
+                title={unavailableTitle}
               >
                 ✕
               </button>

@@ -62,7 +62,9 @@ describe('predictive layout QA (§7.3)', () => {
 
   it('reports a placement that flips to a side the creator did not choose', () => {
     // No room above, so a `top` preference becomes `bottom`.
-    const findings = simulateStep(step({ placement: 'top', target: { left: 500, top: 4, width: 120, height: 40 } }));
+    const findings = simulateStep(
+      step({ placement: 'top', target: { left: 500, top: 4, width: 120, height: 40 } }),
+    );
     const flipped = findings.find((finding) => finding.kind === 'placement-flipped');
     expect(flipped?.severity).toBe('warning');
     expect(flipped?.message).toContain('bottom');
@@ -89,6 +91,20 @@ describe('predictive layout QA (§7.3)', () => {
     expect(overflow?.locale).toBe('de');
     expect(overflow?.message).toContain('de');
     expect(overflow?.fixSection).toBe('style');
+  });
+
+  it('checks every configured locale instead of only the longest label', () => {
+    const findings = simulateStep(
+      step({
+        card: { width: 280, height: 120 },
+        localizedText: [
+          { locale: 'en', characters: 80 },
+          { locale: 'de', characters: 600 },
+          { locale: 'fr', characters: 70 },
+        ],
+      }),
+    ).filter((finding) => finding.kind === 'text-overflows-longest-locale');
+    expect(findings.map((finding) => finding.locale)).toEqual(['de']);
   });
 
   it('flags a target below the fold only when nothing scrolls to it', () => {

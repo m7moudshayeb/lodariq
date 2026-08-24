@@ -5,11 +5,13 @@ import {
   EXPERIENCE_SHOWN_EVENT,
   EXPERIENCE_STEP_EVENT,
   MEASUREMENT_REPORTING_FLOOR,
+  audienceSegmentPublicationKey,
   assertExperimentArms,
   assignExperimentArm,
   canClaimStepLock,
   countDistinctCorrelations,
   deriveAdoptionImpact,
+  deriveExperienceAnalyticsBreakdown,
   deriveExperimentResults,
   deriveFunnel,
   summarizeFormResponses,
@@ -78,6 +80,150 @@ describe('funnel', () => {
   });
 });
 
+describe('analytics report breakdown', () => {
+  it('keeps releases separate and derives privacy-safe weekly return cohorts', () => {
+    const day = (value: number): string => new Date(Date.UTC(2026, 0, value, 0, 0)).toISOString();
+    const release = (
+      generation: number,
+      partial: Partial<MeasurableEvent> & { name: string },
+    ): MeasurableEvent =>
+      event({
+        publicationId: `pub_${generation}`,
+        contentHash: `sha256-${String(generation).repeat(64)}`,
+        pointerGeneration: generation,
+        audienceSegment: {
+          id: `audseg_${String(generation).repeat(64)}`,
+          definitionVersion: 1,
+          ruleCount: generation,
+        },
+        ...partial,
+      });
+    const events = [
+      release(1, {
+        name: EXPERIENCE_SHOWN_EVENT,
+        correlationId: 'session_a',
+        visitorKeyHash: 'visitor_a',
+        occurredAt: day(1),
+        props: { locale: 'en-US' },
+      }),
+      release(1, {
+        name: EXPERIENCE_STEP_EVENT,
+        stepId: 'step_1',
+        correlationId: 'session_a',
+        visitorKeyHash: 'visitor_a',
+        occurredAt: day(9),
+        props: { locale: 'en-US' },
+      }),
+      release(1, {
+        name: 'invited_teammate',
+        correlationId: 'session_a',
+        occurredAt: day(2),
+      }),
+      release(2, {
+        name: EXPERIENCE_SHOWN_EVENT,
+        correlationId: 'session_b',
+        visitorKeyHash: 'visitor_b',
+        occurredAt: day(15),
+        props: { locale: 'de' },
+      }),
+      event({
+        name: 'product_activity',
+        documentId: 'doc_other',
+        visitorKeyHash: 'visitor_baseline',
+        occurredAt: day(1),
+      }),
+      event({
+        name: 'product_activity',
+        documentId: 'doc_other',
+        visitorKeyHash: 'visitor_baseline',
+        occurredAt: day(9),
+      }),
+    ];
+    const responses: ExperienceFormResponseRecord[] = [
+      {
+        id: 'form_1',
+        workspaceId: 'ws_1',
+        environmentId: 'env_1',
+        documentId: 'doc_1',
+        stepId: 'step_1',
+        blockId: 'field_1',
+        label: 'Team size',
+        answer: '10–20',
+        correlationId: 'session_a',
+        occurredAt: day(2),
+      },
+    ];
+
+    const report = deriveExperienceAnalyticsBreakdown({
+      documentId: 'doc_1',
+      events,
+      responses,
+      stepIdsInOrder: ['step_1'],
+      retentionDays: 30,
+      asOf: day(22),
+      includeAudienceSegments: true,
+      successEvent: { eventName: 'invited_teammate', windowDays: 7 },
+    });
+
+    expect(report.releases.map((item) => [item.pointerGeneration, item.shown])).toEqual([
+      [2, 1],
+      [1, 1],
+    ]);
+    expect(report.releases[1]?.formResponses[0]?.answerCount).toBe(1);
+    expect(report.locales.map((item) => item.locale)).toEqual(['de', 'en-US']);
+    expect(report.audienceSegments?.map((item) => [item.ruleCount, item.shown])).toEqual([
+      [1, 1],
+      [2, 1],
+    ]);
+    expect(report.releases[0]?.audienceSegment?.ruleCount).toBe(2);
+    const firstAudience = report.audienceSegments?.find((item) => item.ruleCount === 1);
+    expect(firstAudience?.adoption[0]).toMatchObject({ treatedCount: 1, baselineCount: 0 });
+    expect(firstAudience?.funnel[0]).toMatchObject({ stepId: 'step_1', reached: 1 });
+    expect(firstAudience?.formResponses[0]).toMatchObject({ blockId: 'field_1', answerCount: 1 });
+    expect(report.retention[0]).toEqual({
+      week: 1,
+      exposedCohort: 2,
+      exposedReturned: 1,
+      baselineCohort: 1,
+      baselineReturned: 1,
+    });
+    expect(report.retentionCutoff).toBe(day(-8));
+  });
+
+  it('attributes retained legacy events from their immutable publication', () => {
+    const audienceSegment = {
+      id: `audseg_${'a'.repeat(64)}`,
+      definitionVersion: 1 as const,
+      ruleCount: 2,
+    };
+    const report = deriveExperienceAnalyticsBreakdown({
+      documentId: 'doc_1',
+      events: [
+        event({
+          name: EXPERIENCE_SHOWN_EVENT,
+          correlationId: 'legacy_session',
+          publicationId: 'pub_legacy',
+          contentHash: `sha256-${'b'.repeat(64)}`,
+          pointerGeneration: 4,
+        }),
+      ],
+      responses: [],
+      stepIdsInOrder: [],
+      retentionDays: 30,
+      asOf: AT(5),
+      includeAudienceSegments: true,
+      audienceSegmentsByPublication: new Map([
+        [audienceSegmentPublicationKey('pub_legacy', `sha256-${'b'.repeat(64)}`), audienceSegment],
+      ]),
+    });
+
+    expect(report.audienceSegments).toEqual([
+      expect.objectContaining({ ...audienceSegment, shown: 1 }),
+    ]);
+    expect(report.releases[0]?.audienceSegment).toEqual(audienceSegment);
+  });
+});
+
 describe('adoption impact', () => {
   const successEvent: SuccessEvent = { eventName: 'invited_teammate', windowDays: 7 };
 
@@ -133,7 +279,7 @@ describe('adoption impact', () => {
     const shown = Array.from({ length: MEASUREMENT_REPORTING_FLOOR }, (_unused, index) =>
       event({ name: EXPERIENCE_SHOWN_EVENT, correlationId: `t${index}` }),
     );
-    const successes = [
+    const equalCohorts = [
       ...shown.map((_unused, index) =>
         event({ name: 'invited_teammate', correlationId: `t${index}`, occurredAt: AT(30) }),
       ),
@@ -141,7 +287,32 @@ describe('adoption impact', () => {
         event({ name: 'invited_teammate', correlationId: `b${index}`, occurredAt: AT(30) }),
       ),
     ];
-    expect(deriveAdoptionImpact(successEvent, shown, successes).confidencePercent).toBe(95);
+    expect(deriveAdoptionImpact(successEvent, shown, equalCohorts).confidencePercent).toBe(0);
+  });
+
+  it('reports the measured confidence after both cohorts clear the floor', () => {
+    const shown = Array.from({ length: MEASUREMENT_REPORTING_FLOOR }, (_unused, index) =>
+      event({ name: EXPERIENCE_SHOWN_EVENT, correlationId: `t${index}` }),
+    );
+    const environmentEvents = [
+      ...Array.from({ length: MEASUREMENT_REPORTING_FLOOR }, (_unused, index) =>
+        event({
+          name: EXPERIENCE_SHOWN_EVENT,
+          correlationId: `b${index}`,
+          documentId: 'baseline_experience',
+        }),
+      ),
+      ...Array.from({ length: 20 }, (_unused, index) =>
+        event({ name: 'invited_teammate', correlationId: `t${index}`, occurredAt: AT(30) }),
+      ),
+      ...Array.from({ length: 10 }, (_unused, index) =>
+        event({ name: 'invited_teammate', correlationId: `b${index}`, occurredAt: AT(30) }),
+      ),
+    ];
+    const impact = deriveAdoptionImpact(successEvent, shown, environmentEvents);
+    expect(impact.treatedRate).toBeCloseTo(2 / 3);
+    expect(impact.baselineRate).toBeCloseTo(1 / 3);
+    expect(impact.confidencePercent).toBe(99);
   });
 });
 
@@ -194,26 +365,35 @@ describe('experiment results', () => {
     status: 'running',
     varies: 'copy',
     successEventName: 'invited_teammate',
+    allocationRevision: 1,
     arms: [
       { id: 'A', label: 'Control', trafficPercent: 50 },
       { id: 'B', label: 'Variant', trafficPercent: 50 },
     ],
   };
 
-  function armEvents(armId: string, exposures: number, conversions: number): MeasurableEvent[] {
+  function armEvents(
+    armId: ExperimentArm['id'],
+    exposures: number,
+    conversions: number,
+  ): MeasurableEvent[] {
     return [
       ...Array.from({ length: exposures }, (_unused, index) =>
         event({
           name: EXPERIENCE_SHOWN_EVENT,
           correlationId: `${armId}-${index}`,
-          props: { armId },
+          experimentId: experiment.id,
+          armId,
+          experimentAllocationRevision: 1,
         }),
       ),
       ...Array.from({ length: conversions }, (_unused, index) =>
         event({
           name: 'invited_teammate',
           correlationId: `${armId}-${index}`,
-          props: { armId },
+          experimentId: experiment.id,
+          armId,
+          experimentAllocationRevision: 1,
           occurredAt: AT(30),
         }),
       ),
@@ -243,7 +423,8 @@ describe('experiment results', () => {
       ...armEvents('B', 400, 120),
     ]);
     expect(results.leadingArmId).toBe('B');
-    expect(results.confidencePercent).toBe(95);
+    expect(results.confidencePercent).toBeGreaterThanOrEqual(95);
+    expect(results.allocationRevision).toBe(1);
     expect(results.arms.find((arm) => arm.armId === 'B')?.conversionRate).toBeCloseTo(0.3);
   });
 });

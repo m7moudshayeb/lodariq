@@ -1,6 +1,5 @@
 /** Approved contextual action workbench. */
 export const AUTHORING_AGREED_ACTION_WORKBENCH_CSS = `
-  /* Action creation is the compact bottom workbench from the approved design. */
   .storyboard-canvas .rich-step-editor:has(.storyboard-property-tray[data-workspace='action']) {
     grid-template-rows: auto minmax(104px, 1fr) auto;
   }

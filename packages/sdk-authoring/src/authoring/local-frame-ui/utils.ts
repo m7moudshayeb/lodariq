@@ -122,7 +122,7 @@ export function targetLabelOf(documentState: LodariqDocument, targetId: string):
   return (
     target?.identity?.display.authorLabel ??
     target?.fingerprint.accessibleName ??
-    target?.fingerprint.stableAttributes['data-lodariq-id'] ??
+    target?.fingerprint.stableAttributes?.['data-lodariq-id'] ??
     targetId
   );
 }

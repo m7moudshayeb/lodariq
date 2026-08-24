@@ -5,6 +5,7 @@ import {
   resolveTourCompositionRecipe,
   resolveTourPopupStyleRecipe,
   resolveTourThemeStyle,
+  tourCompositionPaddingVariables,
   tourPopupStyleVariables,
 } from '@lodariq/sdk-runtime/renderers/tour';
 import { ArrowRight, Check, ExternalLink } from '../design-system';
@@ -39,6 +40,7 @@ export function StepPresentationPreview({
   const previewStyle = {
     ...resolvedTheme.variables,
     ...tourPopupStyleVariables(appearance),
+    ...tourCompositionPaddingVariables(composition),
     '--lq-preview-motion-duration': `${motion?.durationMs ?? 240}ms`,
     ...(composition.widthPx ? { '--lq-preview-popup-width': `${composition.widthPx}px` } : {}),
     ...(composition.heightPx ? { '--lq-preview-popup-height': `${composition.heightPx}px` } : {}),

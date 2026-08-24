@@ -54,7 +54,12 @@ export async function executeRuntimeChoreography(
       runTrigger: (trigger, _timeoutMs, stageSignal) =>
         runTrigger(step, trigger, environment.resolveTarget, stageSignal),
       runWait: (wait, timeoutMs, stageSignal) =>
-        runWait(wait, timeoutMs, environment.resolveTarget, stageSignal),
+        waitForRuntimeChoreographyCondition(
+          wait,
+          timeoutMs,
+          environment.resolveTarget,
+          stageSignal,
+        ),
       runTransition: environment.runTransition,
       onStageUpdate: environment.onStageUpdate,
     },
@@ -72,42 +77,45 @@ async function runTrigger(
   const targetId = trigger.targetId ?? step.targetId;
   if (!targetId) throw new Error('Tour choreography target is unavailable');
   if (trigger.type === 'activateTarget') {
-    const target = await waitForTarget(targetId, 'activate', resolveTarget, signal);
+    const target = await waitForRuntimeTarget(targetId, 'activate', resolveTarget, signal);
     if (!(target instanceof HTMLElement)) throw new Error('Tour choreography target is unsafe');
     target.click();
     return;
   }
   if (trigger.type === 'observeTargetFocus') {
-    const target = await waitForTarget(targetId, 'focus', resolveTarget, signal);
+    const target = await waitForRuntimeTarget(targetId, 'focus', resolveTarget, signal);
     await waitForElementFocus(target, signal);
     return;
   }
   if (trigger.type === 'observeTargetInput') {
-    const target = await waitForTarget(targetId, 'input', resolveTarget, signal);
+    const target = await waitForRuntimeTarget(targetId, 'input', resolveTarget, signal);
     await waitForObservedTargetInput(target, signal);
     return;
   }
-  const target = await waitForTarget(targetId, 'observe-click', resolveTarget, signal);
+  const target = await waitForRuntimeTarget(targetId, 'observe-click', resolveTarget, signal);
   await waitForElementClick(target, signal);
 }
 
-async function runWait(
+export async function waitForRuntimeChoreographyCondition(
   wait: StepChoreographyWait,
   timeoutMs: number,
   resolveTarget: RuntimeChoreographyEnvironment['resolveTarget'],
   signal: AbortSignal,
 ): Promise<void> {
   if (wait.type === 'targetAvailable') {
-    await waitForTarget(wait.targetId, 'anchor', resolveTarget, signal, timeoutMs);
+    await waitForRuntimeTarget(wait.targetId, 'anchor', resolveTarget, signal, timeoutMs);
     return;
   }
   if (wait.type === 'route') {
-    await waitForCondition(() => routeMatches(wait), signal);
+    await waitForRuntimeCondition(() => routeMatches(wait), signal);
     return;
   }
   if (wait.type === 'textVisible') {
     if (!localeMatches(wait.locale)) return;
-    await waitForCondition(() => document.body.textContent?.includes(wait.value) ?? false, signal);
+    await waitForRuntimeCondition(
+      () => document.body.textContent?.includes(wait.value) ?? false,
+      signal,
+    );
     return;
   }
   if (wait.type === 'event') {
@@ -134,7 +142,7 @@ async function runWait(
  * MutationObserver cannot see, and the deadline turns "never appeared" into
  * something the viewer can be told about.
  */
-function waitForTarget(
+export function waitForRuntimeTarget(
   targetId: string,
   requiredAction: ChoreographyTargetAction,
   resolveTarget: RuntimeChoreographyEnvironment['resolveTarget'],
@@ -241,7 +249,10 @@ function localeMatches(locale: string): boolean {
   }
 }
 
-function waitForCondition(predicate: () => boolean, signal: AbortSignal): Promise<void> {
+export function waitForRuntimeCondition(
+  predicate: () => boolean,
+  signal: AbortSignal,
+): Promise<void> {
   return new Promise((resolveWait, rejectWait) => {
     const check = (): void => {
       if (signal.aborted) {

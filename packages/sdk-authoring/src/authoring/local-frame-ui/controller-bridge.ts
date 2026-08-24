@@ -14,12 +14,13 @@ import {
   DEFAULT_EXPERIENCE_APPEARANCE,
   resolveExperienceAppearance,
   type BridgeMessage,
+  type TargetIdentityV2,
   type TargetLocale,
   type TargetViewportClass,
 } from '@lodariq/schema';
 import { attachTargetToBlocks, hasBlock } from '../document-ops';
 import { createBridgeCorrelationId } from '../../bridge/transport';
-import { createTargetId } from '../../editor';
+import { createTargetId } from '../../editor/ids';
 import type { AuthoringPanelMode, DocumentTarget } from './types';
 import { findBlockById, targetInspectionStatus } from './utils';
 import {
@@ -40,6 +41,11 @@ export abstract class ControllerBridgeFeature extends ControllerChromeFeature {
   protected abstract handleTargetEvidenceUpdate(
     message: Extract<BridgeMessage, { type: 'target.evidence.update' }>,
   ): void;
+  protected recordSemanticTarget(_identity: TargetIdentityV2): void {}
+  protected recordSemanticLifecycle(
+    _routePatternId: string | undefined,
+    _stateId: string | undefined,
+  ): void {}
   /** §7.5's palette ask. Implemented where the assist machine lives. */
   protected abstract askFromChrome(prompt: string): void;
 
@@ -142,9 +148,6 @@ export abstract class ControllerBridgeFeature extends ControllerChromeFeature {
         if (type) this.switchExperienceType(type);
       }
       if (message.action === 'toggle-recording') this.toggleStepRecording();
-      // The predictive pass has a home already — Check — so this runs it and
-      // lands the creator on the findings rather than inventing a second report.
-      if (message.action === 'simulate-user') this.openOperationsMode('check');
       if (message.action === 'canvas-zoom-in') this.zoomCanvas('in');
       if (message.action === 'canvas-zoom-out') this.zoomCanvas('out');
       if (message.action === 'canvas-zoom-reset') this.zoomCanvas('reset');
@@ -235,6 +238,7 @@ export abstract class ControllerBridgeFeature extends ControllerChromeFeature {
     }
 
     if (message.type === 'page.lifecycle.update') {
+      this.recordSemanticLifecycle(message.routePatternId, message.stateId);
       this.handlePageLifecycleUpdate(
         message.route,
         message.routePatternId,
@@ -270,6 +274,7 @@ export abstract class ControllerBridgeFeature extends ControllerChromeFeature {
       this.targetHealthLedger.recordObservation(message.targetId, message.diagnostic);
       if (message.diagnostic.state === 'found') {
         this.recordMetric('target.verification-passed', { targetId: message.targetId });
+        this.learnTargetLanguage(message.targetId, message.diagnostic.learnedLocalizedEvidence);
       }
       this.setStatus(targetInspectionStatus(message.action, message.diagnostic));
       return;
@@ -311,6 +316,7 @@ export abstract class ControllerBridgeFeature extends ControllerChromeFeature {
     }
 
     if (message.type === 'target.evidence.update') {
+      this.recordSemanticTarget(message.identity);
       this.handleTargetEvidenceUpdate(message);
       return;
     }
@@ -338,7 +344,7 @@ export abstract class ControllerBridgeFeature extends ControllerChromeFeature {
     const label =
       message.identity?.display.authorLabel ??
       message.fingerprint.accessibleName ??
-      message.fingerprint.stableAttributes['data-lodariq-id'] ??
+      message.fingerprint.stableAttributes?.['data-lodariq-id'] ??
       message.fingerprint.tagName;
 
     this.recordChange();
@@ -394,6 +400,7 @@ export abstract class ControllerBridgeFeature extends ControllerChromeFeature {
         targetId,
         fingerprint: message.fingerprint,
         ...(identity ? { identity } : {}),
+        ...(selection ? { selection: structuredClone(selection) } : {}),
       },
     ]);
     this.setStatus(`Placement set: ${label}. Verifying…`);

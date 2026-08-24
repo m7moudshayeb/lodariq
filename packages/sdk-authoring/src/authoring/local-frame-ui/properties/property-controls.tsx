@@ -22,7 +22,12 @@ import {
   PanelRight,
   SlidersHorizontal,
 } from '../design-system';
-import { AuthoringPopover, AuthoringSegmentedControl as SegmentedControl, AuthoringSelect, ChevronDown } from '../design-system';
+import {
+  AuthoringPopover,
+  AuthoringSegmentedControl as SegmentedControl,
+  AuthoringSelect,
+  ChevronDown,
+} from '../design-system';
 
 /**
  * Quick picks for a colour override.
@@ -91,6 +96,7 @@ const CHOICE_ICON_BY_VALUE: Readonly<Record<string, LucideIcon>> = {
 };
 
 export function PropertyChoiceField({
+  disabled = false,
   hideLegend = false,
   label,
   onChange,
@@ -99,6 +105,7 @@ export function PropertyChoiceField({
   showIcons = false,
   value,
 }: {
+  disabled?: boolean;
   hideLegend?: boolean;
   label: string;
   onChange: (value: string) => void;
@@ -115,6 +122,7 @@ export function PropertyChoiceField({
         </span>
         <AuthoringSelect
           ariaLabel={label}
+          disabled={disabled}
           onValueChange={onChange}
           options={options}
           size="compact"
@@ -133,6 +141,7 @@ export function PropertyChoiceField({
       </span>
       <SegmentedControl
         ariaLabel={label}
+        disabled={disabled}
         onValueChange={onChange}
         options={options.map((option) => {
           const Icon = CHOICE_ICON_BY_VALUE[option.value] ?? SlidersHorizontal;
@@ -197,6 +206,71 @@ export function PropertyNumberField({
         />
         {/* "auto px" is not a measurement — the unit belongs to a number. */}
         {suffix && value !== null ? <span aria-hidden="true">{suffix}</span> : null}
+      </span>
+    </div>
+  );
+}
+
+/**
+ * A slider for a value that has a preset behind it.
+ *
+ * `null` means "whatever the preset says", which is the state almost every
+ * popup is in and the one worth being able to get back to — so the thumb rests
+ * at `fallback` and the readout says Auto until the creator moves it, and the
+ * reset returns it rather than leaving them to guess which number was the
+ * preset's.
+ */
+export function PropertyRangeField({
+  fallback,
+  label,
+  max,
+  min,
+  onChange,
+  step = 1,
+  suffix,
+  value,
+}: {
+  fallback: number;
+  label: string;
+  max: number;
+  min: number;
+  onChange: (value: number | null) => void;
+  step?: number;
+  suffix?: string;
+  value: number | null;
+}) {
+  const shown = value ?? fallback;
+  return (
+    <div className="rich-step-choice-field" data-presentation="range">
+      <span className="rich-step-field-label">{label}</span>
+      <span className="rich-step-range-value">
+        <input
+          aria-label={label}
+          aria-valuetext={
+            value === null ? authoringText('Auto') : `${value}${suffix ? ` ${suffix}` : ''}`
+          }
+          max={max}
+          min={min}
+          onChange={(event) => {
+            const next = Number.parseInt(event.currentTarget.value, 10);
+            if (Number.isFinite(next)) onChange(Math.min(max, Math.max(min, next)));
+          }}
+          step={step}
+          type="range"
+          value={String(shown)}
+        />
+        <output>
+          {value === null ? authoringText('Auto') : `${value}${suffix ? ` ${suffix}` : ''}`}
+        </output>
+        <button
+          className="rich-step-range-reset"
+          disabled={value === null}
+          onClick={() => onChange(null)}
+          title={authoringText('Follow the padding preset')}
+          type="button"
+        >
+          {authoringText('Auto')}
+        </button>
       </span>
     </div>
   );
@@ -392,7 +466,11 @@ function PropertyColorPill({
         portal
         trigger={
           <button className="inspector-pill" type="button" aria-label={label}>
-            <span className="inspector-pill-swatch" style={{ background: value }} aria-hidden="true" />
+            <span
+              className="inspector-pill-swatch"
+              style={{ background: value }}
+              aria-hidden="true"
+            />
             <span className="inspector-pill-value">
               {customized ? authoringText('Custom') : authoringText('Brand')}
             </span>

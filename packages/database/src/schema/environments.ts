@@ -10,7 +10,7 @@ import {
   text,
   uniqueIndex,
 } from 'drizzle-orm/pg-core';
-import type { EnvironmentReleasePolicy } from '@lodariq/schema';
+import type { EnvironmentGovernanceCapability, EnvironmentReleasePolicy } from '@lodariq/schema';
 import { workspaces } from './identity';
 import { environmentEnum, timestamps } from './shared';
 
@@ -30,6 +30,12 @@ export const environments = pgTable(
     authoringEnabled: boolean('authoring_enabled').notNull(),
     promotionSourceEnvironmentId: text('promotion_source_environment_id'),
     releasePolicy: jsonb('release_policy_json').$type<EnvironmentReleasePolicy>().notNull(),
+    governanceCapabilities: jsonb('governance_capabilities')
+      .$type<EnvironmentGovernanceCapability[]>()
+      .notNull()
+      .default(
+        sql`'["release:approve","release:promote","release:schedule","release:rollback","release:unpublish","release-policy:manage"]'::jsonb`,
+      ),
     ...timestamps,
   },
   (table) => [
@@ -119,6 +125,28 @@ export const environments = pgTable(
             and not (${table.releasePolicy}->>'allowDirectPublish')::boolean
             and (${table.releasePolicy}->>'requireSourceVerification')::boolean
           )
+        )`,
+    ),
+    check(
+      'environments_governance_capabilities_check',
+      sql`jsonb_typeof(${table.governanceCapabilities}) = 'array'
+        and jsonb_array_length(${table.governanceCapabilities}) between 1 and 11
+        and ${table.governanceCapabilities} <@ '["authoring:read","authoring:write","product-style:sample","release:publish","release:verify","release:approve","release:promote","release:schedule","release:rollback","release:unpublish","release-policy:manage"]'::jsonb
+        and jsonb_array_length(${table.governanceCapabilities}) =
+          (case when ${table.governanceCapabilities} ? 'authoring:read' then 1 else 0 end)
+          + (case when ${table.governanceCapabilities} ? 'authoring:write' then 1 else 0 end)
+          + (case when ${table.governanceCapabilities} ? 'product-style:sample' then 1 else 0 end)
+          + (case when ${table.governanceCapabilities} ? 'release:publish' then 1 else 0 end)
+          + (case when ${table.governanceCapabilities} ? 'release:verify' then 1 else 0 end)
+          + (case when ${table.governanceCapabilities} ? 'release:approve' then 1 else 0 end)
+          + (case when ${table.governanceCapabilities} ? 'release:promote' then 1 else 0 end)
+          + (case when ${table.governanceCapabilities} ? 'release:schedule' then 1 else 0 end)
+          + (case when ${table.governanceCapabilities} ? 'release:rollback' then 1 else 0 end)
+          + (case when ${table.governanceCapabilities} ? 'release:unpublish' then 1 else 0 end)
+          + (case when ${table.governanceCapabilities} ? 'release-policy:manage' then 1 else 0 end)
+        and (
+          ${table.kind} <> 'production'
+          or not (${table.governanceCapabilities} ?| array['authoring:read','authoring:write','release:publish'])
         )`,
     ),
   ],

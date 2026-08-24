@@ -442,18 +442,6 @@ export const AUTHORING_ADVANCED_SHELL_CSS = `
     margin: 0;
   }
 
-  /**
-   * The light Editorial Air workspace palette.
-   *
-   * Both exclusions are load-bearing, for the same reason: those roots are
-   * "shell-panel shell-overlay" and "shell-panel shell-operations", so without
-   * them this block relit the floating chrome (dark-navy icons on dark glass)
-   * and the Operations sheet (light ink on its near-black ground).
-   *
-   * Values come from the token module rather than literals — these were hardcoded
-   * mint (#006b58) and survived the 2026-08-17 palette adoption unchanged, which
-   * is the drift the token boundary exists to stop.
-   */
   .shell-panel:not(.shell-overlay):not(.shell-operations) {
     --lq-color-ink: ${AUTHORING_CONTEXT_SURFACE_TOKENS.ink};
     --lq-color-ink-soft: #334155;
@@ -478,7 +466,6 @@ export const AUTHORING_ADVANCED_SHELL_CSS = `
     color-scheme: light;
   }
 
-  /* Both still need the container query context, just not the palette. */
   .shell-panel.shell-overlay,
   .shell-panel.shell-operations {
     container-name: authoring-frame;

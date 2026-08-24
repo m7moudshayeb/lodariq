@@ -142,6 +142,12 @@ When documents conflict, use this order:
   — isolated migration/RLS evidence, deployment operations, optional
   deliverability/SSO validation, paid-pilot/product-score evidence, and
   propagation/residency/legal work that repository code cannot prove.
+- [`Operational launch readiness`](launch/operational-launch-readiness.md)
+  — Milestone 4 gate ownership, evidence rules, and customer-claim lock.
+- [`Security review evidence package`](launch/security-review-evidence-package.md)
+  — repository control map and open deployment/legal review requests.
+- [`Commercial validation plan`](launch/commercial-validation-plan.md)
+  — price, AI-cost, engaged-user, support, and origin-policy validation.
 
 ## Evidence and Visual Exploration
 

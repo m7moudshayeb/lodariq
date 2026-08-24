@@ -12,6 +12,7 @@ import {
   WorkspaceApplicationsResponse,
   releaseRecoveryStateMatchesScope,
   validate,
+  validateWithReferences,
   type AnalyticsAggregateResponse as AnalyticsAggregateResponseDto,
   type ApplicationSummary as ApplicationSummaryDto,
   type DashboardWorkspaceData as DashboardWorkspaceDataDto,
@@ -25,6 +26,15 @@ import {
   type UpdateExperimentBody as UpdateExperimentBodyDto,
   type UpsertWorkspaceApplicationBody as UpsertWorkspaceApplicationBodyDto,
 } from '@lodariq/schema';
+import {
+  BillingOverview,
+  BillingRedirectSession,
+  COMMERCIAL_BILLING_REFERENCE_SCHEMAS,
+  type BillingOverview as BillingOverviewDto,
+  type BillingRedirectSession as BillingRedirectSessionDto,
+  type CreateBillingCheckoutSessionRequest as CreateBillingCheckoutSessionRequestDto,
+  type CreateBillingPortalSessionRequest as CreateBillingPortalSessionRequestDto,
+} from '@lodariq/schema/commercial-billing';
 
 export class DashboardClientApiError extends Error {
   readonly code: string;
@@ -44,7 +54,7 @@ export async function loadDashboardWorkspace(
   workspaceId: string,
   signal?: AbortSignal,
 ): Promise<DashboardWorkspaceDataDto> {
-  const value = await dashboardJson('/api/dashboard', signal);
+  const value = await dashboardJson('/v1/dashboard', signal);
   const result = validate(DashboardWorkspaceData, value);
   if (!result.valid || result.value.controlPlaneContext.workspaceId !== workspaceId) {
     throw invalidClientResponse();
@@ -58,7 +68,7 @@ export async function loadDashboardAnalytics(
   signal?: AbortSignal,
 ): Promise<AnalyticsAggregateResponseDto> {
   const search = new URLSearchParams({ environmentId });
-  const value = await dashboardJson(`/api/dashboard/analytics?${search.toString()}`, signal);
+  const value = await dashboardJson(`/v1/dashboard/analytics?${search.toString()}`, signal);
   const result = validate(AnalyticsAggregateResponse, value);
   if (
     !result.valid ||
@@ -79,7 +89,7 @@ export async function loadDashboardReleaseRecovery(
   signal?: AbortSignal,
 ): Promise<ReleaseRecoveryStateResponseDto> {
   const search = new URLSearchParams({ documentId, environmentId });
-  const value = await dashboardJson(`/api/dashboard/release-recovery?${search.toString()}`, signal);
+  const value = await dashboardJson(`/v1/dashboard/release-recovery?${search.toString()}`, signal);
   const result = validate(ReleaseRecoveryStateResponse, value);
   if (
     !result.valid ||
@@ -101,7 +111,7 @@ export async function loadExperienceMeasurement(
   signal?: AbortSignal,
 ): Promise<ExperienceMeasurementSnapshot> {
   const search = new URLSearchParams({ documentId, environmentId });
-  const value = await dashboardJson(`/api/dashboard/experience?${search.toString()}`, signal);
+  const value = await dashboardJson(`/v1/dashboard/experience?${search.toString()}`, signal);
   return requireExperienceSnapshot(value, documentId, environmentId);
 }
 
@@ -110,12 +120,13 @@ export async function saveExperienceSuccessEvent(
   successEvent: UpdateExperienceMeasurementBodyDto['successEvent'],
 ): Promise<ExperienceMeasurementConfigDto> {
   const search = new URLSearchParams({ documentId });
-  const value = await dashboardMutation(
-    `/api/dashboard/experience?${search.toString()}`,
-    'PATCH',
-    { successEvent },
+  const value = await dashboardMutation(`/v1/dashboard/experience?${search.toString()}`, 'PATCH', {
+    successEvent,
+  });
+  const result = validate(
+    ExperienceMeasurementConfig,
+    (value as { measurement?: unknown }).measurement,
   );
-  const result = validate(ExperienceMeasurementConfig, (value as { measurement?: unknown }).measurement);
   if (!result.valid) throw invalidClientResponse();
   return result.value;
 }
@@ -126,7 +137,7 @@ export async function saveExperimentChange(
 ): Promise<ExperimentDto> {
   const search = new URLSearchParams({ experimentId });
   const value = await dashboardMutation(
-    `/api/dashboard/experiment?${search.toString()}`,
+    `/v1/dashboard/experiment?${search.toString()}`,
     'PATCH',
     change,
   );
@@ -141,16 +152,60 @@ export async function saveExperimentChange(
 export async function loadWorkspaceApplications(
   signal?: AbortSignal,
 ): Promise<readonly ApplicationSummaryDto[]> {
-  const value = await dashboardJson('/api/dashboard/applications', signal);
+  const value = await dashboardJson('/v1/dashboard/applications', signal);
   const result = validate(WorkspaceApplicationsResponse, value);
   if (!result.valid) throw invalidClientResponse();
   return result.value.applications;
 }
 
+export async function loadWorkspaceBilling(
+  workspaceId: string,
+  signal?: AbortSignal,
+): Promise<BillingOverviewDto> {
+  const value = await dashboardJson('/v1/dashboard/billing', signal);
+  const result = validateWithReferences(
+    BillingOverview,
+    COMMERCIAL_BILLING_REFERENCE_SCHEMAS,
+    value,
+  );
+  if (!result.valid || result.value.subscription.workspaceId !== workspaceId) {
+    throw invalidClientResponse();
+  }
+  return result.value;
+}
+
+export async function createBillingCheckoutSession(
+  input: CreateBillingCheckoutSessionRequestDto,
+): Promise<BillingRedirectSessionDto> {
+  return billingSessionRequest('/v1/dashboard/billing/checkout-sessions', input);
+}
+
+export async function createBillingPortalSession(
+  input: CreateBillingPortalSessionRequestDto,
+): Promise<BillingRedirectSessionDto> {
+  return billingSessionRequest('/v1/dashboard/billing/portal-sessions', input);
+}
+
+async function billingSessionRequest(
+  path: string,
+  input: CreateBillingCheckoutSessionRequestDto | CreateBillingPortalSessionRequestDto,
+): Promise<BillingRedirectSessionDto> {
+  const value = await dashboardRequest(path, {
+    method: 'POST',
+    credentials: 'same-origin',
+    cache: 'no-store',
+    headers: { accept: 'application/json', 'content-type': 'application/json' },
+    body: JSON.stringify(input),
+  });
+  const result = validate(BillingRedirectSession, value);
+  if (!result.valid) throw invalidClientResponse();
+  return result.value;
+}
+
 export async function saveWorkspaceApplication(
   application: UpsertWorkspaceApplicationBodyDto,
 ): Promise<readonly ApplicationSummaryDto[]> {
-  const value = await dashboardMutation('/api/dashboard/applications', 'PUT', application);
+  const value = await dashboardMutation('/v1/dashboard/applications', 'PUT', application);
   const result = validate(WorkspaceApplicationsResponse, value);
   if (!result.valid) throw invalidClientResponse();
   return result.value.applications;

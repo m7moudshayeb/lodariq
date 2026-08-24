@@ -20,6 +20,7 @@ export const DASHBOARD_NAVIGATION_MESSAGES = {
   environments: msg({ id: 'dashboard.navigation.environments', message: 'Environments' }),
   members: msg({ id: 'dashboard.navigation.members', message: 'Members' }),
   applications: msg({ id: 'dashboard.navigation.applications', message: 'Applications' }),
+  billing: msg({ id: 'dashboard.navigation.billing', message: 'Billing' }),
   support: msg({ id: 'dashboard.navigation.support', message: 'Help & support' }),
   workspace: msg({ id: 'dashboard.navigation.workspaceLabel', message: 'Workspace' }),
   supportLabel: msg({ id: 'dashboard.navigation.supportLabel', message: 'Support' }),
@@ -148,6 +149,11 @@ export const DASHBOARD_PAGE_MESSAGES = {
     id: 'dashboard.page.applications.description',
     message:
       'One application is one brand theme plus one content library. A journey hands off between them.',
+  }),
+  billingTitle: msg({ id: 'dashboard.page.billing.title', message: 'Billing & usage' }),
+  billingDescription: msg({
+    id: 'dashboard.page.billing.description',
+    message: 'Review plan limits, reconciled usage, invoices, and subscription status.',
   }),
   supportTitle: msg({ id: 'dashboard.page.support.title', message: 'Help & support' }),
   supportDescription: msg({

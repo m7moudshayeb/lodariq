@@ -2,11 +2,11 @@
   "name": "@lodariq/marketing",
   "version": "0.0.0",
   "private": true,
-  "description": "Lodariq marketing site (lodariq.io). The hero embeds the real fixture-host with the real SDK installed, so visitors can run an actual tour (PRD §20: public demos never live on the authenticated dashboard origin).",
+  "description": "Lodariq marketing site (lodariq.io). The hero embeds the real fixture-host with the real SDK installed, so visitors can run an actual tour (PRD \u00a720: public demos never live on the authenticated dashboard origin).",
   "type": "module",
   "scripts": {
     "demo:prepare": "node scripts/prepare-demo.mjs",
-    "dev": "node scripts/prepare-demo.mjs --if-missing && vite",
+    "dev": "node scripts/prepare-demo.mjs --if-stale && vite",
     "build": "tsc --noEmit && node scripts/prepare-demo.mjs && vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
@@ -19,6 +19,7 @@
     "@lodariq/schema": "workspace:*"
   },
   "devDependencies": {
+    "@lodariq/fixture-host": "workspace:*",
     "typescript": "^5.7.2",
     "vite": "^6.0.7"
   }

@@ -87,7 +87,11 @@ describe('overlay inspector solver', () => {
   });
 
   it('falls back to a corner with a leader line when neither side fits', () => {
-    const solution = solveInspector(card({ left: 300, width: 900 }), { width: 1000, height: 900 }, 300);
+    const solution = solveInspector(
+      card({ left: 300, width: 900 }),
+      { width: 1000, height: 900 },
+      300,
+    );
     expect(solution.anchor).toBe('corner');
     expect(solution.needsLeader).toBe(true);
   });
@@ -184,6 +188,11 @@ describe('layer invariant', () => {
   it('detects an overlap when one is introduced', () => {
     const a: SolverRect = { left: 0, top: 0, width: 100, height: 100 };
     const b: SolverRect = { left: 50, top: 50, width: 100, height: 100 };
-    expect(findOverlaps([{ id: 'a', rect: a }, { id: 'b', rect: b }])).toEqual([['a', 'b']]);
+    expect(
+      findOverlaps([
+        { id: 'a', rect: a },
+        { id: 'b', rect: b },
+      ]),
+    ).toEqual([['a', 'b']]);
   });
 });

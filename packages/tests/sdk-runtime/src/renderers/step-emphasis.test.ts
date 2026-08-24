@@ -3,12 +3,13 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { CompiledStep, StepEmphasis } from '@lodariq/schema';
 import {
   applyStepOutlineEmphasis,
-  applyViewportZoom,
   armBackdropClick,
   createTourBackdrop,
   outlineOffsetPx,
   positionTourBackdrop,
+  resetTourBackdrop,
 } from '../../../../../packages/sdk-runtime/src/renderers/tour-emphasis';
+import { applyViewportFocus } from '../../../../../packages/sdk-runtime/src/renderers/tour-viewport-focus';
 import {
   createTargetOutline,
   positionTargetOutline,
@@ -35,6 +36,8 @@ function targetAt(rect: { x: number; y: number; width: number; height: number })
 describe('step emphasis', () => {
   beforeEach(() => {
     document.body.innerHTML = '';
+    document.body.style.zoom = '';
+    vi.unstubAllGlobals();
   });
 
   it('leaves the ring on the theme default when a step declares no emphasis', () => {
@@ -109,6 +112,37 @@ describe('step emphasis', () => {
     expect(backdrop.hidden).toBe(true);
   });
 
+  it('eases one spotlight hole between semantic targets and cancels stale travel', async () => {
+    const backdrop = createTourBackdrop(document);
+    const cancel = vi.fn();
+    const animate = vi.fn(() => ({ cancel }) as unknown as Animation);
+    backdrop.animate = animate;
+    const emphasis: StepEmphasis = {
+      backdrop: { dimPercent: 50, clickBehavior: 'none' },
+    };
+    const first = targetAt({ x: 20, y: 40, width: 100, height: 40 });
+    const second = targetAt({ x: 300, y: 180, width: 180, height: 64 });
+
+    positionTourBackdrop(backdrop, first, emphasis, 4);
+    positionTourBackdrop(backdrop, second, emphasis, 4);
+
+    await vi.waitFor(() => expect(animate).toHaveBeenCalledTimes(1));
+    expect(animate).toHaveBeenCalledWith(
+      [
+        expect.objectContaining({ left: '16px', top: '36px', width: '108px', height: '48px' }),
+        expect.objectContaining({ left: '296px', top: '176px', width: '188px', height: '72px' }),
+      ],
+      { duration: 240, easing: 'cubic-bezier(0.16, 1, 0.3, 1)' },
+    );
+
+    positionTourBackdrop(backdrop, second, emphasis, 6);
+    expect(cancel).toHaveBeenCalledTimes(1);
+    expect(animate).toHaveBeenCalledTimes(1);
+
+    resetTourBackdrop(backdrop);
+    expect(backdrop.hidden).toBe(true);
+  });
+
   it('acts on a click outside the hole and ignores one on the target', () => {
     const backdrop = createTourBackdrop(document);
     const target = targetAt({ x: 100, y: 100, width: 100, height: 50 });
@@ -153,23 +187,135 @@ describe('step emphasis', () => {
     expect(dismiss).not.toHaveBeenCalled();
   });
 
-  it('only transforms the page when a step opts into zoom, and always restores it', () => {
+  it('centres an opted-in target without zooming the product surface', () => {
+    const target = targetAt({ x: 100, y: 200, width: 240, height: 48 });
+    target.scrollIntoView = vi.fn();
+    const host = document.createElement('lodariq-tour');
+    document.body.appendChild(host);
     const scrolling = {
       id: 'step_1',
       emphasis: { viewportFocus: { behavior: 'scroll-into-view' } },
     };
-    expect(applyViewportZoom(scrolling as unknown as CompiledStep, document)).toBeInstanceOf(
-      Function,
-    );
-    expect(document.documentElement.style.transform).toBe('');
+    const restore = applyViewportFocus(scrolling as unknown as CompiledStep, target, host);
 
+    expect(target.scrollIntoView).toHaveBeenCalledWith(
+      { behavior: 'smooth', block: 'center', inline: 'center' },
+    );
+    expect(document.body.style.zoom).toBe('');
+    expect(host.parentNode).toBe(document.body);
+    restore();
+  });
+
+  it('zooms only the product surface, bounds the scale, and restores host ownership', () => {
+    const target = targetAt({ x: 100, y: 200, width: 240, height: 48 });
+    target.scrollIntoView = vi.fn();
+    const host = document.createElement('lodariq-tour');
+    document.body.appendChild(host);
     const zooming = {
       id: 'step_2',
       emphasis: { viewportFocus: { behavior: 'zoom', scalePercent: 150 } },
     };
-    const restore = applyViewportZoom(zooming as unknown as CompiledStep, document);
-    expect(document.documentElement.style.transform).toBe('scale(1.5)');
+    const restore = applyViewportFocus(zooming as unknown as CompiledStep, target, host);
+
+    expect(document.body.style.zoom).toBe('1.5');
+    expect(host.parentNode).toBe(document.documentElement);
+    expect(target.scrollIntoView).toHaveBeenCalledWith(
+      { behavior: 'smooth', block: 'center', inline: 'center' },
+    );
     restore();
-    expect(document.documentElement.style.transform).toBe('');
+    expect(document.body.style.zoom).toBe('');
+    expect(host.parentNode).toBe(document.body);
+  });
+
+  it('avoids transient product transforms around sticky chrome', () => {
+    const animate = vi.fn(() => ({ cancel: vi.fn() }) as unknown as Animation);
+    Object.defineProperty(document.body, 'animate', { configurable: true, value: animate });
+    const header = document.createElement('header');
+    header.style.position = 'sticky';
+    header.getBoundingClientRect = () => domRect({ x: 0, y: 0, width: 1024, height: 64 });
+    document.body.appendChild(header);
+    const target = targetAt({ x: 100, y: 200, width: 240, height: 48 });
+    target.scrollIntoView = vi.fn();
+    const host = document.createElement('lodariq-tour');
+    document.body.appendChild(host);
+    const zooming = {
+      id: 'step_2',
+      emphasis: { viewportFocus: { behavior: 'zoom', scalePercent: 150 } },
+    };
+
+    const restore = applyViewportFocus(zooming as unknown as CompiledStep, target, host);
+
+    expect(document.body.style.zoom).toBe('1.5');
+    expect(animate).not.toHaveBeenCalled();
+    restore();
+    Reflect.deleteProperty(document.body, 'animate');
+  });
+
+  it('does not enlarge a target that already fills a narrow viewport', () => {
+    vi.stubGlobal('innerWidth', 360);
+    const target = targetAt({ x: 10, y: 80, width: 340, height: 48 });
+    target.scrollIntoView = vi.fn();
+    const host = document.createElement('lodariq-tour');
+    document.body.appendChild(host);
+    const zooming = {
+      id: 'step_2',
+      emphasis: { viewportFocus: { behavior: 'zoom', scalePercent: 180 } },
+    };
+
+    applyViewportFocus(zooming as unknown as CompiledStep, target, host);
+
+    expect(document.body.style.zoom).toBe('');
+    expect(host.parentNode).toBe(document.body);
+  });
+
+  it('uses the non-animated focus equivalent for reduced motion', () => {
+    vi.stubGlobal('matchMedia', vi.fn(() => ({ matches: true })));
+    const target = targetAt({ x: 100, y: 200, width: 240, height: 48 });
+    target.scrollIntoView = vi.fn();
+    const host = document.createElement('lodariq-tour');
+    document.body.appendChild(host);
+    const zooming = {
+      id: 'step_2',
+      emphasis: { viewportFocus: { behavior: 'zoom', scalePercent: 150 } },
+    };
+
+    applyViewportFocus(zooming as unknown as CompiledStep, target, host);
+
+    expect(document.body.style.zoom).toBe('');
+    expect(host.parentNode).toBe(document.body);
+    expect(target.scrollIntoView).toHaveBeenCalledWith(
+      { behavior: 'auto', block: 'center', inline: 'center' },
+    );
+  });
+
+  it('honours the explicit authoring reduced-motion preview on the runtime host', () => {
+    const target = targetAt({ x: 100, y: 200, width: 240, height: 48 });
+    target.scrollIntoView = vi.fn();
+    const host = document.createElement('lodariq-tour');
+    host.dataset['lodariqAccessibilityPreview'] = 'reducedMotion';
+    document.body.appendChild(host);
+    const zooming = {
+      id: 'step_2',
+      emphasis: { viewportFocus: { behavior: 'zoom', scalePercent: 150 } },
+    };
+
+    applyViewportFocus(zooming as unknown as CompiledStep, target, host);
+
+    expect(document.body.style.zoom).toBe('');
+    expect(host.parentNode).toBe(document.body);
+    expect(target.scrollIntoView).toHaveBeenCalledWith(
+      { behavior: 'auto', block: 'center', inline: 'center' },
+    );
   });
 });
+
+function domRect(rect: { x: number; y: number; width: number; height: number }): DOMRect {
+  return {
+    ...rect,
+    left: rect.x,
+    top: rect.y,
+    right: rect.x + rect.width,
+    bottom: rect.y + rect.height,
+    toJSON: () => ({}),
+  } as DOMRect;
+}

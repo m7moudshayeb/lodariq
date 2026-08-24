@@ -23,6 +23,7 @@ const REPLAYED_EVENTS = new Set([
   'tour_started',
   'tour_step_changed',
   'tour_branch_chosen',
+  'tour_adaptive_step_skipped',
   'tour_completed',
   'tour_dismissed',
   'tour_skipped',
@@ -69,7 +70,9 @@ export function buildExperienceSessions(
     );
     const startMs = Date.parse(ordered[0]!.occurredAt);
     const endMs = Date.parse(ordered[ordered.length - 1]!.occurredAt);
-    const beats = ordered.slice(0, EXPERIENCE_SESSION_MAX_BEATS).map((event) => toBeat(event, startMs));
+    const beats = ordered
+      .slice(0, EXPERIENCE_SESSION_MAX_BEATS)
+      .map((event) => toBeat(event, startMs));
     const stepsReached = new Set(
       ordered.filter((event) => event.name === 'tour_step_changed').map((event) => event.stepId),
     ).size;

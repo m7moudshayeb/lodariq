@@ -579,8 +579,9 @@ describe('Target Identity V2 authoring capture', () => {
     const runnerUp = document.createElement('button');
     selected.type = 'button';
     runnerUp.type = 'button';
+    // Same words too, or the name would separate them and geometry never gets asked.
     selected.textContent = 'Create project';
-    runnerUp.textContent = 'Create template';
+    runnerUp.textContent = 'Create project';
     // One control per wrapper, so both sit at the same slot and positional
     // evidence cannot separate them either. Geometry is then the only thing
     // left that differs, which is the claim under test.
@@ -881,14 +882,15 @@ describe('Target Identity V2 authoring capture', () => {
   });
 
   /**
-   * Two action rows of the same shape, whose controls differ only in their words.
-   *
-   * The words are not durable identity and the slot is the same in both rows, so
-   * nothing separates the second control of the first row from the second control
-   * of the second row — the residual tie that positional evidence deliberately
-   * cannot fix, and the case the disambiguation question exists for.
+   * Two action rows of the same shape. The slot is the same in both, so the words
+   * are the only thing that could separate the second control of one row from the
+   * second control of the other. `sharedName` takes even that away: the residual
+   * tie the disambiguation question exists for.
    */
-  function renderWordAlikes(): { selected: HTMLButtonElement; twin: HTMLButtonElement } {
+  function renderWordAlikes(options: { sharedName?: boolean } = {}): {
+    selected: HTMLButtonElement;
+    twin: HTMLButtonElement;
+  } {
     const main = document.createElement('main');
     const heading = document.createElement('h1');
     heading.textContent = 'Reports';
@@ -897,7 +899,7 @@ describe('Target Identity V2 authoring capture', () => {
 
     const rows = [
       ['Export CSV', 'Schedule report', 'Save report'],
-      ['Download PDF', 'Email digest', 'Archive'],
+      ['Download PDF', options.sharedName ? 'Schedule report' : 'Email digest', 'Archive'],
     ].map((labels, row) => {
       const actions = document.createElement('div');
       const buttons = labels.map((text, column) => {
@@ -917,7 +919,7 @@ describe('Target Identity V2 authoring capture', () => {
   }
 
   it('marks a placement weak only for ambiguity when nothing else about it is thin', () => {
-    const { selected } = renderWordAlikes();
+    const { selected } = renderWordAlikes({ sharedName: true });
     const capture = captureTargetEvidence(selected, undefined, {
       locale: 'en',
       requiredAction: 'observe-click',
@@ -933,22 +935,30 @@ describe('Target Identity V2 authoring capture', () => {
     expect(captureNeedsConfirmation(capture.identity)).toBe(true);
   });
 
-  it('asks which one was meant, about the elements the resolver actually ties on', () => {
-    const { selected, twin } = renderWordAlikes();
+  it('says nothing to ask when the name is the one thing that differs', () => {
+    const { selected } = renderWordAlikes();
     const capture = captureTargetEvidence(selected, undefined, {
       locale: 'en',
       requiredAction: 'observe-click',
       targetId: 'target_schedule_report',
     });
 
-    /*
-     * The accessible name is unique on this page, so counting look-alikes by name
-     * says the placement is unique and there is nothing to ask — while capture
-     * blocks the release for ambiguity. That disagreement is what left the card
-     * showing a blocker with no answer on it.
-     */
+    // Counting by name and counting by evidence used to disagree here, which is
+    // what left the card showing a blocker with no answer on it.
     expect(countLookAlikes(selected).total).toBe(1);
+    expect(capture.identity.captureEvidence.uniqueCandidateCount).toBe(1);
+    expect(capture.identity.captureEvidence.quality).not.toBe('weak');
+    expect(ambiguousCandidates(selected, capture.identity)).toEqual([]);
     expect(lookAlikeQuestion(selected)).toBeNull();
+  });
+
+  it('asks which one was meant, about the elements the resolver actually ties on', () => {
+    const { selected, twin } = renderWordAlikes({ sharedName: true });
+    const capture = captureTargetEvidence(selected, undefined, {
+      locale: 'en',
+      requiredAction: 'observe-click',
+      targetId: 'target_schedule_report',
+    });
 
     const candidates = ambiguousCandidates(selected, capture.identity);
     expect(candidates.length).toBe(capture.identity.captureEvidence.uniqueCandidateCount);
@@ -975,6 +985,40 @@ describe('Target Identity V2 authoring capture', () => {
     // And the answer that cannot unblock a release is last, and says so.
     expect(lastOption(question)?.resolution).toBe('exact');
     expect(lastOption(question)?.caveat).toBeTruthy();
+  });
+
+  it('does not invent a rival when the candidate scan hits its own cap', () => {
+    const main = document.createElement('main');
+    renderAt(main, { left: 0, top: 0, width: 1_200, height: 4_000 });
+    const selected = document.createElement('section');
+    selected.setAttribute('aria-label', 'Project workspace setup');
+    const heading = document.createElement('h2');
+    heading.textContent = 'Project workspace';
+    selected.appendChild(heading);
+    main.appendChild(selected);
+    renderAt(selected, { left: 40, top: 40, width: 1_100, height: 240 });
+    renderAt(heading, { left: 60, top: 60, width: 300, height: 32 });
+    // Past MAX_CANDIDATES, so the scan stops before it has seen the whole page.
+    // Left unmeasured on purpose: 200 more rectangle spies cost seconds.
+    for (let index = 0; index < 200; index += 1) {
+      const filler = document.createElement('div');
+      filler.textContent = `Row ${index}`;
+      main.appendChild(filler);
+    }
+    document.body.appendChild(main);
+
+    const capture = captureTargetEvidence(selected, undefined, {
+      locale: 'en',
+      requiredAction: 'anchor',
+      targetId: 'target_workspace_section',
+    });
+    const evidence = capture.identity.captureEvidence;
+
+    // The bug: a capped scan reported two candidates and an empty tied set, so
+    // the card showed a blocker with no question and no answer on it.
+    expect(evidence.uniqueCandidateCount).toBe(1);
+    expect(ambiguousCandidates(selected, capture.identity)).toEqual([]);
+    expect(captureNeedsConfirmation(capture.identity)).toBe(false);
   });
 
   it('uses an explicit layout slot to distinguish repeated presentation cards', () => {

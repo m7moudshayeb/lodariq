@@ -47,9 +47,7 @@ describe('chrome slides along its edge before it gives up', () => {
       { left: 0, top: 0, width: 1440, height: 200 },
       { left: 0, top: 200, width: 900, height: 580 },
     ];
-    const solved = solveChromeAmong({ width: 200, height: 38 }, STAGE, obstacles, [
-      'bottom-right',
-    ]);
+    const solved = solveChromeAmong({ width: 200, height: 38 }, STAGE, obstacles, ['bottom-right']);
     expect(solved.collides).toBe(false);
     expect(solved.corner).toBe('bottom-right');
     expect(obstacles.some((o) => rectsIntersect(solved.rect, o))).toBe(false);
@@ -69,20 +67,18 @@ describe('the whole authoring frame clears the target', () => {
   const target: SolverRect = { left: 243, top: 202, width: 491, height: 110 };
 
   it('ignores a requested toolbar side that would put the frame back on the target', () => {
-    const solved = solveOverlayFrame(
-      { left: 308, top: 330, width: 360, height: 148 },
-      stage,
-      { target, toolbarPlacement: 'above' },
-    );
+    const solved = solveOverlayFrame({ left: 308, top: 330, width: 360, height: 148 }, stage, {
+      target,
+      toolbarPlacement: 'above',
+    });
     expect(rectsIntersect(solved.frame, target)).toBe(false);
   });
 
   it('still honours a requested side that clears the target', () => {
-    const solved = solveOverlayFrame(
-      { left: 308, top: 470, width: 360, height: 148 },
-      stage,
-      { target, toolbarPlacement: 'above' },
-    );
+    const solved = solveOverlayFrame({ left: 308, top: 470, width: 360, height: 148 }, stage, {
+      target,
+      toolbarPlacement: 'above',
+    });
     expect(solved.toolbar.top).toBeLessThan(470);
     expect(rectsIntersect(solved.frame, target)).toBe(false);
   });

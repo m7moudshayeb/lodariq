@@ -53,6 +53,13 @@ export const authoritativeAnalyticsEvents = pgTable(
     publicationId: text('publication_id').notNull(),
     contentHash: text('content_hash').notNull(),
     pointerGeneration: integer('pointer_generation').notNull(),
+    experimentId: text('experiment_id'),
+    experimentArmId: text('experiment_arm_id'),
+    experimentAllocationRevision: integer('experiment_allocation_revision'),
+    audienceSegmentId: text('audience_segment_id'),
+    audienceSegmentDefinitionVersion: integer('audience_segment_definition_version'),
+    audienceSegmentRuleCount: integer('audience_segment_rule_count'),
+    adaptiveVisitorKeyHash: text('adaptive_visitor_key_hash'),
     name: text('name').notNull(),
     stepId: text('step_id'),
     sdkVersion: text('sdk_version').notNull(),
@@ -95,14 +102,75 @@ export const authoritativeAnalyticsEvents = pgTable(
       table.environmentId,
       table.publicationId,
     ),
+    index('analytics_events_experiment_occurred_idx').on(
+      table.workspaceId,
+      table.environmentId,
+      table.experimentId,
+      table.occurredAt,
+    ),
+    index('analytics_events_audience_segment_occurred_idx').on(
+      table.workspaceId,
+      table.environmentId,
+      table.documentId,
+      table.audienceSegmentId,
+      table.occurredAt,
+    ),
+    index('analytics_events_adaptive_evidence_idx').on(
+      table.workspaceId,
+      table.environmentId,
+      table.adaptiveVisitorKeyHash,
+      table.name,
+      table.occurredAt,
+    ),
+    index('analytics_events_warehouse_cursor_idx').on(
+      table.workspaceId,
+      table.environmentId,
+      table.documentId,
+      table.ingestedAt,
+      table.id,
+    ),
+    index('analytics_events_document_time_idx').on(
+      table.workspaceId,
+      table.documentId,
+      table.occurredAt,
+    ),
+    index('analytics_events_workspace_time_idx').on(table.workspaceId, table.occurredAt),
     check(
       'analytics_events_content_hash_check',
       sql`${table.contentHash} ~ '^sha256-[0-9a-f]{64}$'`,
     ),
     check('analytics_events_pointer_generation_check', sql`${table.pointerGeneration} >= 1`),
     check(
+      'analytics_events_experiment_identity_check',
+      sql`(
+        ${table.experimentId} is null and
+        ${table.experimentArmId} is null and
+        ${table.experimentAllocationRevision} is null
+      ) or (
+        ${table.experimentId} is not null and
+        ${table.experimentArmId} in ('A', 'B', 'C', 'D') and
+        ${table.experimentAllocationRevision} >= 1
+      )`,
+    ),
+    check(
+      'analytics_events_audience_segment_identity_check',
+      sql`(
+        ${table.audienceSegmentId} is null and
+        ${table.audienceSegmentDefinitionVersion} is null and
+        ${table.audienceSegmentRuleCount} is null
+      ) or (
+        ${table.audienceSegmentId} ~ '^audseg_[0-9a-f]{64}$' and
+        ${table.audienceSegmentDefinitionVersion} = 1 and
+        ${table.audienceSegmentRuleCount} between 0 and 50
+      )`,
+    ),
+    check(
       'analytics_events_name_check',
       sql`char_length(${table.name}) between 1 and 80 and ${table.name} ~ '^[a-z][a-z0-9_.-]*$'`,
+    ),
+    check(
+      'analytics_events_adaptive_visitor_hash_check',
+      sql`${table.adaptiveVisitorKeyHash} is null or ${table.adaptiveVisitorKeyHash} ~ '^[0-9a-f]{64}$'`,
     ),
     check(
       'analytics_events_sdk_version_check',

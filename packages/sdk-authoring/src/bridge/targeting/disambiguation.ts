@@ -137,7 +137,13 @@ export function lookAlikeQuestion(
   const count = questionCandidates(element, options);
   if (count.total < 2) return null;
   const description = describeTarget(element);
-  const answers: LookAlikeOption[] = [];
+  /*
+   * The collection answers lead, because a collection is now the only place the
+   * question is asked: everywhere else the ordinal is recorded without asking.
+   * "The 3rd one" is the wrong answer about rows and it used to be offered first.
+   */
+  const answers: LookAlikeOption[] = [...dataRelativeOptions(element)];
+  const aboutRows = answers.length > 0;
   if (description.name) {
     answers.push({
       resolution: 'by-name',
@@ -153,18 +159,15 @@ export function lookAlikeQuestion(
   if (count.index <= TARGET_SELECTION_ORDINAL_LIMITS.max) {
     answers.push({
       resolution: 'nth',
-      label: authoringText('The {position} one, in reading order', {
-        position: ordinal(count.index),
-      }),
+      label: authoringText('Always the {position} one', { position: ordinal(count.index) }),
       policy: { kind: 'ordinal', position: count.index, order: 'reading-order' },
     });
   }
   answers.push({
     resolution: 'any',
-    label: authoringText('Any of them — the first one wins'),
+    label: authoringText('Always the first one'),
     policy: { kind: 'first' },
   });
-  answers.push(...dataRelativeOptions(element));
   /*
    * "Just the one I clicked" is last, and carries its consequence.
    *
@@ -181,9 +184,11 @@ export function lookAlikeQuestion(
     caveat: authoringText('Release stays blocked while the page cannot tell them apart.'),
   });
   return {
-    headline: authoringText('{count} things on this page look like this one.', {
-      count: count.total,
-    }),
+    headline: aboutRows
+      ? authoringText('This is one of several items in a list. Which one did you mean?')
+      : authoringText('{count} things on this page look like this one.', {
+          count: count.total,
+        }),
     options: answers,
   };
 }

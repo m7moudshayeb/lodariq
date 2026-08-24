@@ -13,7 +13,9 @@ import {
 } from 'drizzle-orm/pg-core';
 import type { ExperimentArm } from '@lodariq/schema';
 import { documents } from './documents';
+import { environments } from './environments';
 import { users, workspaces } from './identity';
+import { authoringSessions } from './authoring-sessions';
 
 /**
  * What an experience is trying to change, and whether it did.
@@ -85,9 +87,12 @@ export const experienceExperiments = pgTable(
       .references(() => workspaces.id, { onDelete: 'cascade' }),
     documentId: text('document_id').notNull(),
     status: text('status').notNull().default('draft'),
+    /** Canonical variation kind; `varies` remains for legacy rows. */
+    variationKind: text('variation_kind'),
     varies: text('varies').notNull(),
     successEventName: text('success_event_name').notNull(),
     arms: jsonb('arms').$type<ExperimentArm[]>().notNull(),
+    allocationRevision: integer('allocation_revision').notNull().default(1),
     startedAt: timestamp('started_at', { withTimezone: true }),
     stoppedAt: timestamp('stopped_at', { withTimezone: true }),
     promotedArmId: text('promoted_arm_id'),
@@ -117,6 +122,10 @@ export const experienceExperiments = pgTable(
       sql`${table.varies} in ('copy', 'placement', 'style', 'media')`,
     ),
     check(
+      'experience_experiments_variation_kind_check',
+      sql`${table.variationKind} is null or ${table.variationKind} in ('copy', 'placement', 'style', 'conditions', 'media')`,
+    ),
+    check(
       'experience_experiments_success_event_check',
       sql`${table.successEventName} ~ '^[a-z][a-z0-9_]*$'`,
     ),
@@ -132,6 +141,100 @@ export const experienceExperiments = pgTable(
     check(
       'experience_experiments_promoted_arm_check',
       sql`${table.promotedArmId} is null or ${table.promotedArmId} in ('A', 'B', 'C', 'D')`,
+    ),
+    check(
+      'experience_experiments_allocation_revision_check',
+      sql`${table.allocationRevision} >= 1`,
+    ),
+  ],
+);
+
+/** Append-only traffic allocation snapshots. */
+export const experienceExperimentAllocations = pgTable(
+  'experience_experiment_allocations',
+  {
+    workspaceId: text('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    experimentId: text('experiment_id').notNull(),
+    revision: integer('revision').notNull(),
+    arms: jsonb('arms').$type<ExperimentArm[]>().notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    primaryKey({
+      name: 'experience_experiment_allocations_workspace_experiment_revision_pk',
+      columns: [table.workspaceId, table.experimentId, table.revision],
+    }),
+    foreignKey({
+      name: 'experience_experiment_allocations_experiment_scope_fk',
+      columns: [table.workspaceId, table.experimentId],
+      foreignColumns: [experienceExperiments.workspaceId, experienceExperiments.id],
+    }).onDelete('cascade'),
+    check('experience_experiment_allocations_revision_check', sql`${table.revision} >= 1`),
+    check(
+      'experience_experiment_allocations_arms_check',
+      sql`jsonb_typeof(${table.arms}) = 'array'
+        and jsonb_array_length(${table.arms}) between 2 and 4`,
+    ),
+  ],
+);
+
+/** Stable anonymous assignments; only the scoped key hash is retained. */
+export const experienceExperimentAssignments = pgTable(
+  'experience_experiment_assignments',
+  {
+    workspaceId: text('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    environmentId: text('environment_id').notNull(),
+    experimentId: text('experiment_id').notNull(),
+    assignmentKeyHash: text('assignment_key_hash').notNull(),
+    armId: text('arm_id').notNull(),
+    allocationRevision: integer('allocation_revision').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    primaryKey({
+      name: 'experience_experiment_assignments_identity_pk',
+      columns: [
+        table.workspaceId,
+        table.environmentId,
+        table.experimentId,
+        table.assignmentKeyHash,
+      ],
+    }),
+    index('experience_experiment_assignments_experiment_idx').on(
+      table.workspaceId,
+      table.environmentId,
+      table.experimentId,
+      table.createdAt,
+    ),
+    foreignKey({
+      name: 'experience_experiment_assignments_environment_scope_fk',
+      columns: [table.workspaceId, table.environmentId],
+      foreignColumns: [environments.workspaceId, environments.id],
+    }).onDelete('cascade'),
+    foreignKey({
+      name: 'experience_experiment_assignments_allocation_scope_fk',
+      columns: [table.workspaceId, table.experimentId, table.allocationRevision],
+      foreignColumns: [
+        experienceExperimentAllocations.workspaceId,
+        experienceExperimentAllocations.experimentId,
+        experienceExperimentAllocations.revision,
+      ],
+    }).onDelete('cascade'),
+    check(
+      'experience_experiment_assignments_hash_check',
+      sql`${table.assignmentKeyHash} ~ '^[0-9a-f]{64}$'`,
+    ),
+    check(
+      'experience_experiment_assignments_arm_check',
+      sql`${table.armId} in ('A', 'B', 'C', 'D')`,
+    ),
+    check(
+      'experience_experiment_assignments_allocation_revision_check',
+      sql`${table.allocationRevision} >= 1`,
     ),
   ],
 );
@@ -184,7 +287,7 @@ export const experienceFormResponses = pgTable(
   ],
 );
 
-/** Review that happens on the step instead of in a chat thread (§15.2). */
+/** Immutable review messages. Roots own resolution; replies inherit the anchor. */
 export const experienceComments = pgTable(
   'experience_comments',
   {
@@ -194,6 +297,8 @@ export const experienceComments = pgTable(
       .references(() => workspaces.id, { onDelete: 'cascade' }),
     documentId: text('document_id').notNull(),
     stepId: text('step_id').notNull(),
+    targetId: text('target_id'),
+    parentCommentId: text('parent_comment_id'),
     body: text('body').notNull(),
     authorUserId: text('author_user_id').references(() => users.id, { onDelete: 'set null' }),
     authorName: text('author_name').notNull(),
@@ -215,11 +320,78 @@ export const experienceComments = pgTable(
       columns: [table.workspaceId, table.documentId],
       foreignColumns: [documents.workspaceId, documents.id],
     }).onDelete('cascade'),
+    foreignKey({
+      name: 'experience_comments_parent_scope_fk',
+      columns: [table.workspaceId, table.parentCommentId],
+      foreignColumns: [table.workspaceId, table.id],
+    }).onDelete('cascade'),
     check('experience_comments_id_check', sql`${table.id} ~ '^cmt_[A-Za-z0-9_-]{8,}$'`),
     check('experience_comments_body_check', sql`char_length(${table.body}) between 1 and 2000`),
     check(
+      'experience_comments_target_check',
+      sql`${table.targetId} is null or char_length(${table.targetId}) between 1 and 128`,
+    ),
+    check(
+      'experience_comments_parent_check',
+      sql`${table.parentCommentId} is null or ${table.parentCommentId} <> ${table.id}`,
+    ),
+    check(
       'experience_comments_resolution_check',
-      sql`(${table.resolvedAt} is null) = (${table.resolvedByUserId} is null)`,
+      sql`((${table.resolvedAt} is null) = (${table.resolvedByUserId} is null))
+        and (${table.parentCommentId} is null
+          or (${table.resolvedAt} is null and ${table.resolvedByUserId} is null))`,
+    ),
+  ],
+);
+
+/** Append-only evidence for every review-thread mutation. */
+export const experienceCommentAuditEvents = pgTable(
+  'experience_comment_audit_events',
+  {
+    id: text('id').primaryKey(),
+    workspaceId: text('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    documentId: text('document_id').notNull(),
+    threadId: text('thread_id').notNull(),
+    commentId: text('comment_id').notNull(),
+    eventType: text('event_type').notNull(),
+    actorUserId: text('actor_user_id').notNull(),
+    occurredAt: timestamp('occurred_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('experience_comment_audit_events_workspace_id_idx').on(table.workspaceId, table.id),
+    index('experience_comment_audit_events_document_time_idx').on(
+      table.workspaceId,
+      table.documentId,
+      table.occurredAt,
+    ),
+    index('experience_comment_audit_workspace_time_idx').on(
+      table.workspaceId,
+      table.occurredAt.desc(),
+    ),
+    foreignKey({
+      name: 'experience_comment_audit_events_document_scope_fk',
+      columns: [table.workspaceId, table.documentId],
+      foreignColumns: [documents.workspaceId, documents.id],
+    }).onDelete('cascade'),
+    foreignKey({
+      name: 'experience_comment_audit_events_thread_scope_fk',
+      columns: [table.workspaceId, table.threadId],
+      foreignColumns: [experienceComments.workspaceId, experienceComments.id],
+    }).onDelete('cascade'),
+    foreignKey({
+      name: 'experience_comment_audit_events_comment_scope_fk',
+      columns: [table.workspaceId, table.commentId],
+      foreignColumns: [experienceComments.workspaceId, experienceComments.id],
+    }).onDelete('cascade'),
+    check(
+      'experience_comment_audit_events_id_check',
+      sql`${table.id} ~ '^cmtaud_[A-Za-z0-9_-]{8,}$'`,
+    ),
+    check(
+      'experience_comment_audit_events_type_check',
+      sql`${table.eventType} in ('thread_created','reply_added','thread_resolved','thread_reopened')`,
     ),
   ],
 );
@@ -261,6 +433,69 @@ export const experienceStepLocks = pgTable(
 );
 
 /**
+ * Short-lived authoring presence. Rows are operational coordination state, not
+ * document history, and expire without a cleanup worker being required.
+ */
+export const authoringPresence = pgTable(
+  'authoring_presence',
+  {
+    workspaceId: text('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    documentId: text('document_id').notNull(),
+    sessionId: text('session_id').notNull(),
+    creatorId: text('creator_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    creatorName: text('creator_name').notNull(),
+    stepId: text('step_id'),
+    selectionType: text('selection_type'),
+    selectionId: text('selection_id'),
+    documentUpdatedAt: timestamp('document_updated_at', { withTimezone: true }),
+    lastSeenAt: timestamp('last_seen_at', { withTimezone: true }).notNull().defaultNow(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+  },
+  (table) => [
+    primaryKey({
+      name: 'authoring_presence_workspace_document_session_pk',
+      columns: [table.workspaceId, table.documentId, table.sessionId],
+    }),
+    index('authoring_presence_document_expiry_idx').on(
+      table.workspaceId,
+      table.documentId,
+      table.expiresAt,
+    ),
+    index('authoring_presence_expiry_idx').on(table.expiresAt),
+    foreignKey({
+      name: 'authoring_presence_document_scope_fk',
+      columns: [table.workspaceId, table.documentId],
+      foreignColumns: [documents.workspaceId, documents.id],
+    }).onDelete('cascade'),
+    foreignKey({
+      name: 'authoring_presence_session_scope_fk',
+      columns: [table.workspaceId, table.documentId, table.sessionId],
+      foreignColumns: [
+        authoringSessions.workspaceId,
+        authoringSessions.documentId,
+        authoringSessions.id,
+      ],
+    }).onDelete('cascade'),
+    check(
+      'authoring_presence_selection_check',
+      sql`((${table.selectionType} is null) = (${table.selectionId} is null))
+        and (${table.selectionType} is null or ${table.selectionType} in ('block','target'))`,
+    ),
+    check(
+      'authoring_presence_bounds_check',
+      sql`char_length(${table.creatorName}) between 1 and 160
+        and (${table.stepId} is null or char_length(${table.stepId}) between 1 and 128)
+        and (${table.selectionId} is null or char_length(${table.selectionId}) between 1 and 128)
+        and ${table.expiresAt} > ${table.lastSeenAt}`,
+    ),
+  ],
+);
+
+/**
  * One application is one brand theme plus one content library. Origins are
  * patterns because several hostnames commonly serve the same application.
  */
@@ -273,6 +508,8 @@ export const workspaceApplications = pgTable(
       .references(() => workspaces.id, { onDelete: 'cascade' }),
     name: text('name').notNull(),
     originPatterns: jsonb('origin_patterns').$type<string[]>().notNull(),
+    // 0036 adds the composite scope FK with PostgreSQL's column-specific
+    // `on delete set null (theme_id)`, which Drizzle 0.45 cannot represent.
     themeId: text('theme_id'),
     isPrimary: text('is_primary').notNull().default('false'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),

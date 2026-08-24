@@ -59,7 +59,9 @@ expected — the inspector dismisses on it, the picker cancels on it, and the as
 
 Not the same thing as shortcuts, and not optional:
 
-- 44×44 CSS px minimum targets; hover never required and never activating.
+- 44×44 CSS px minimum targets for controls that stand on their own. That is WCAG 2.2's AAA bar
+  (AA asks 24×24, 2.5.8); a full-width row inside a menu is sized to its list and is large by area.
+  Hover is never required and never activating.
 - Enter/Space activate; drag needs a handle plus a movement threshold and suppresses the click.
 - The inspector is a focus-trapped popover: `Esc` dismisses, Tab cycles inside it, and focus returns to
   whatever opened it.

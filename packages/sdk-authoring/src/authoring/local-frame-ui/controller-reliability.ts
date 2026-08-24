@@ -6,6 +6,7 @@ import {
   AUTHORING_SHELL_SELECTION_TYPE,
   BRIDGE_PROTOCOL_VERSION,
   type AuthoringMediaAssetResource,
+  type CommercialFeatureId,
   type InlineTextRun,
   type LodariqBlock,
   type LodariqDocument,
@@ -34,6 +35,7 @@ import { ControllerDragDropFeature } from './controller-drag-drop';
 import { blockDisplayTitle } from './utils';
 
 export abstract class ControllerReliabilityFeature extends ControllerDragDropFeature {
+  protected abstract supportsCommercialFeature(feature: CommercialFeatureId): boolean;
   protected abstract afterDocumentMutation(options?: { skipNormalize?: boolean }): void;
   protected abstract commitContentRuns(
     blockId: string,
@@ -171,6 +173,7 @@ export abstract class ControllerReliabilityFeature extends ControllerDragDropFea
   }
 
   setSelectedStepPlacement(placement: TourStepBatchPlacement): void {
+    if (!this.supportsCommercialFeature('batch-operations')) return;
     this.commitSelectedStepBatch(
       (document, stepIds) => applyTourStepBatchPlacement(document, stepIds, placement),
       authoringText('Placement applied to {count} steps', { count: this.selectedStepIds.size }),
@@ -179,6 +182,7 @@ export abstract class ControllerReliabilityFeature extends ControllerDragDropFea
   }
 
   setSelectedStepTimeoutPolicy(onTimeout: TourStepBatchTimeoutPolicy): void {
+    if (!this.supportsCommercialFeature('batch-operations')) return;
     this.commitSelectedStepBatch(
       (document, stepIds) => applyTourStepBatchTimeoutPolicy(document, stepIds, onTimeout),
       authoringText('Timeout policy applied to {count} steps', {
@@ -189,6 +193,7 @@ export abstract class ControllerReliabilityFeature extends ControllerDragDropFea
   }
 
   duplicateSelectedSteps(): void {
+    if (!this.supportsCommercialFeature('batch-operations')) return;
     if (!this.allowDocumentStructureMutation()) return;
     this.commitSelectedStepBatch(
       duplicateSelectedTourSteps,
@@ -198,6 +203,7 @@ export abstract class ControllerReliabilityFeature extends ControllerDragDropFea
   }
 
   moveSelectedSteps(direction: TourStepBatchDirection): void {
+    if (!this.supportsCommercialFeature('batch-operations')) return;
     if (!this.allowDocumentStructureMutation()) return;
     this.commitSelectedStepBatch(
       (document, stepIds) => moveSelectedTourSteps(document, stepIds, direction),
@@ -207,6 +213,7 @@ export abstract class ControllerReliabilityFeature extends ControllerDragDropFea
   }
 
   deleteSelectedSteps(): void {
+    if (!this.supportsCommercialFeature('batch-operations')) return;
     if (!this.allowDocumentStructureMutation()) return;
     const count = this.selectedStepIds.size;
     this.commitSelectedStepBatch(
@@ -218,6 +225,7 @@ export abstract class ControllerReliabilityFeature extends ControllerDragDropFea
   }
 
   copyStepStyle(stepId: string): void {
+    if (!this.supportsCommercialFeature('named-step-styles')) return;
     const step = this.documentState.blocks.find((candidate) => candidate.id === stepId);
     if (!step || step.type !== 'tourStep') return;
     this.stepStyleClipboard = extractTourStepStyle(step);
@@ -226,6 +234,7 @@ export abstract class ControllerReliabilityFeature extends ControllerDragDropFea
   }
 
   pasteStepStyle(stepId: string): void {
+    if (!this.supportsCommercialFeature('named-step-styles')) return;
     if (!this.stepStyleClipboard) {
       this.setStatus(authoringText('Copy a step style first'));
       return;
@@ -239,6 +248,7 @@ export abstract class ControllerReliabilityFeature extends ControllerDragDropFea
   }
 
   applyCopiedStyleToSelected(fallbackStepId: string): void {
+    if (!this.supportsCommercialFeature('named-step-styles')) return;
     if (!this.stepStyleClipboard) {
       this.setStatus(authoringText('Copy a step style first'));
       return;
@@ -253,6 +263,7 @@ export abstract class ControllerReliabilityFeature extends ControllerDragDropFea
   }
 
   saveStepStyleRecipe(stepId: string): void {
+    if (!this.supportsCommercialFeature('named-step-styles')) return;
     const step = this.documentState.blocks.find((candidate) => candidate.id === stepId);
     if (!step || step.type !== 'tourStep') return;
     const recipe = this.stepStyleRecipes.save(
@@ -271,6 +282,7 @@ export abstract class ControllerReliabilityFeature extends ControllerDragDropFea
    * a changed snapshot mints a new one rather than overwriting.
    */
   updateStepStyleRecipe(recipeId: string, stepId: string): void {
+    if (!this.supportsCommercialFeature('named-step-styles')) return;
     const prior = this.stepStyleRecipes.get(recipeId);
     const step = this.documentState.blocks.find((candidate) => candidate.id === stepId);
     if (!prior || !step || step.type !== 'tourStep') return;
@@ -286,6 +298,7 @@ export abstract class ControllerReliabilityFeature extends ControllerDragDropFea
   }
 
   applyStepStyleRecipe(recipeId: string, fallbackStepId: string): void {
+    if (!this.supportsCommercialFeature('named-step-styles')) return;
     const recipe = this.stepStyleRecipes.get(recipeId);
     if (!recipe) return;
     const stepIds = this.selectedStepIds.size ? [...this.selectedStepIds] : [fallbackStepId];
@@ -302,6 +315,7 @@ export abstract class ControllerReliabilityFeature extends ControllerDragDropFea
   }
 
   deleteStepStyleRecipe(recipeId: string): void {
+    if (!this.supportsCommercialFeature('named-step-styles')) return;
     const recipe = this.stepStyleRecipes.get(recipeId);
     if (!recipe || !this.stepStyleRecipes.delete(recipeId)) return;
     this.services.saveStepStyleRecipes?.(this.stepStyleRecipes.list());
@@ -310,6 +324,7 @@ export abstract class ControllerReliabilityFeature extends ControllerDragDropFea
   }
 
   saveDraftCheckpoint(name: string): void {
+    if (!this.supportsCommercialFeature('recovery')) return;
     const checkpoint = this.draftCheckpoints.save(name, this.documentState);
     void this.persistAuthoringResources();
     this.recordMetric('checkpoint.saved');
@@ -317,6 +332,7 @@ export abstract class ControllerReliabilityFeature extends ControllerDragDropFea
   }
 
   restoreDraftCheckpoint(checkpointId: string): void {
+    if (!this.supportsCommercialFeature('recovery')) return;
     const document = this.draftCheckpoints.restore(checkpointId);
     if (!document || document.id !== this.documentState.id) return;
     this.documentTransactions.flush();
@@ -432,7 +448,7 @@ export abstract class ControllerReliabilityFeature extends ControllerDragDropFea
     status,
   }: {
     blockId: string;
-    coalescingKey: string;
+    coalescingKey?: string;
     operations: PreviewPatchOperation[];
     reduce: (document: LodariqDocument) => LodariqDocument;
     scope?: AuthoringTransactionScope;
@@ -441,7 +457,7 @@ export abstract class ControllerReliabilityFeature extends ControllerDragDropFea
     const staged = this.documentTransactions.stage({
       document: this.documentState,
       scope,
-      coalescingKey,
+      ...(coalescingKey ? { coalescingKey } : {}),
       operations,
       reduce,
     });
@@ -451,18 +467,28 @@ export abstract class ControllerReliabilityFeature extends ControllerDragDropFea
     }
     this.documentState = staged.document;
     this.selectedBlockId = blockId;
+    /*
+     * The metric and the status line are set before the emit rather than after
+     * it. This used to emit twice for one edit — once for the document, once for
+     * the status — and the second snapshot rebuilt everything the first had just
+     * built, for a string. `afterDocumentMutation` also renders the metrics
+     * text, so a metric recorded after it was always one mutation stale.
+     */
+    this.recordMetricWithoutEmit(
+      staged.coalesced ? 'transaction.coalesced' : 'transaction.committed',
+      {
+        transactionId: staged.transaction.transactionId,
+        revision: staged.transaction.revision,
+        scope: staged.transaction.scope,
+        count: staged.transaction.operations.length,
+      },
+    );
+    this.status = status;
     this.afterDocumentMutation();
     this.documentTransactions.adoptOptimisticDocument(this.documentState);
     this.services.saveDocument(this.documentState);
     const transaction = previewTransactionMetadata(staged.transaction);
     this.sendPreviewPatch(blockId, staged.transaction.operations, undefined, transaction);
-    this.recordMetric(staged.coalesced ? 'transaction.coalesced' : 'transaction.committed', {
-      transactionId: staged.transaction.transactionId,
-      revision: staged.transaction.revision,
-      scope: staged.transaction.scope,
-      count: staged.transaction.operations.length,
-    });
-    this.setStatus(status);
   }
 
   private commitSelectedStepBatch(

@@ -60,6 +60,23 @@ const MediaHeightPx = Type.Integer({
   maximum: MEDIA_HEIGHT_PX_LIMITS.max,
 });
 
+const MediaLocale = Type.String({ minLength: 2, maxLength: 35 });
+export const LocalizedMediaVariant = Type.Object(
+  {
+    locale: MediaLocale,
+    assetId: ASSET_ID,
+    captionsAssetId: Type.Optional(ASSET_ID),
+    accessibilityName: Type.String({ minLength: 1, maxLength: 300 }),
+  },
+  { $id: 'LocalizedMediaVariant', additionalProperties: false },
+);
+export type LocalizedMediaVariant = Static<typeof LocalizedMediaVariant>;
+
+const LocalizedMediaProperties = {
+  localeVariants: Type.Optional(Type.Array(Type.Ref(LocalizedMediaVariant), { maxItems: 50 })),
+  fallbackLocale: Type.Optional(MediaLocale),
+} as const;
+
 export const MediaPresentation = Type.Union(
   [
     Type.Object(
@@ -71,6 +88,7 @@ export const MediaPresentation = Type.Union(
         heightPx: Type.Optional(MediaHeightPx),
         fit: Type.Optional(MediaFit),
         widthPercent: Type.Optional(MediaWidthPercent),
+        ...LocalizedMediaProperties,
       },
       { additionalProperties: false },
     ),
@@ -85,6 +103,7 @@ export const MediaPresentation = Type.Union(
         heightPx: Type.Optional(MediaHeightPx),
         fit: Type.Optional(MediaFit),
         widthPercent: Type.Optional(MediaWidthPercent),
+        ...LocalizedMediaProperties,
       },
       { additionalProperties: false },
     ),
@@ -92,6 +111,38 @@ export const MediaPresentation = Type.Union(
   { $id: 'MediaPresentation' },
 );
 export type MediaPresentation = Static<typeof MediaPresentation>;
+
+/** Selects only approved locale media metadata; the base asset remains the explicit fallback. */
+export function resolveMediaPresentationForLocale(
+  media: MediaPresentation,
+  locale: string | undefined,
+): MediaPresentation {
+  if (!locale || !media.localeVariants?.length) return structuredClone(media);
+  const normalizedLocale = locale.toLowerCase();
+  const exact = media.localeVariants.find(
+    (variant) => variant.locale.toLowerCase() === normalizedLocale,
+  );
+  const language = normalizedLocale.split('-')[0];
+  const languageMatch = media.localeVariants.find(
+    (variant) => variant.locale.toLowerCase().split('-')[0] === language,
+  );
+  const fallback = media.fallbackLocale
+    ? media.localeVariants.find(
+        (variant) => variant.locale.toLowerCase() === media.fallbackLocale!.toLowerCase(),
+      )
+    : undefined;
+  const variant = exact ?? languageMatch ?? fallback;
+  if (!variant) return structuredClone(media);
+  const selected = {
+    ...structuredClone(media),
+    assetId: variant.assetId,
+    accessibilityName: variant.accessibilityName,
+  } as MediaPresentation;
+  if ('captionsAssetId' in variant && variant.captionsAssetId) {
+    if ('captionsAssetId' in selected) selected.captionsAssetId = variant.captionsAssetId;
+  }
+  return selected;
+}
 
 /** Closed form-control recipe. Values stay in the player; Lodariq does not read a customer database. */
 export const FORM_FIELD_CONTROL_VALUES = ['checkbox', 'text', 'radio'] as const;
@@ -168,7 +219,10 @@ export const FormFieldPresentation = Type.Object(
     ),
     /** Space between the label and its control, in CSS px. */
     gapPx: Type.Optional(
-      Type.Integer({ minimum: FORM_FIELD_GAP_PX_LIMITS.min, maximum: FORM_FIELD_GAP_PX_LIMITS.max }),
+      Type.Integer({
+        minimum: FORM_FIELD_GAP_PX_LIMITS.min,
+        maximum: FORM_FIELD_GAP_PX_LIMITS.max,
+      }),
     ),
   },
   { $id: 'FormFieldPresentation', additionalProperties: false },
@@ -306,7 +360,7 @@ export function sanitizeResponsiveStepPresentation(
 }
 
 export function sanitizeMediaPresentation(value: unknown): MediaPresentation | undefined {
-  return checkedClone<MediaPresentation>(MediaPresentation, value);
+  return checkedClone<MediaPresentation>(MediaPresentation, value, [LocalizedMediaVariant]);
 }
 
 export function sanitizeFormFieldPresentation(value: unknown): FormFieldPresentation | undefined {

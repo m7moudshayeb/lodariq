@@ -1,4 +1,29 @@
-import { type AnalyticsEvent } from '@lodariq/schema';
+import { createHash, randomUUID } from 'node:crypto';
+import {
+  CommercialEntitlementError,
+  type AiCreditLedgerRecord,
+  type WorkspaceEntitlementSnapshotRecord,
+  type WorkspaceSubscriptionRecord,
+  type WorkspaceUsageLedgerRecord,
+} from '../domains/commercial-entitlements';
+import type {
+  BillingAccountRecord,
+  BillingInvoiceRecord,
+  BillingMeterBatchRecord,
+  BillingProviderEventRecord,
+} from '../domains/commercial-billing';
+import {
+  COMMERCIAL_PLAN_VERSION,
+  resolveCommercialEntitlements,
+  type AnalyticsEvent,
+  type CommercialPlanId,
+  type DataCatalogEntry,
+  type DeliveryTransitionHistoryEntry,
+} from '@lodariq/schema';
+import type {
+  PersistedDeliveryScheduleJob,
+  PersistedDeploymentSchedule,
+} from '../domains/delivery-orchestration';
 import { type WorkspaceEnvironment } from '../domains/environments';
 import {
   type BrandDriftRunRecord,
@@ -52,9 +77,17 @@ import type {
   AuthoringStepStyleRecipeResource,
 } from '@lodariq/schema';
 import { type PersistedAnalyticsEventRecord } from '../domains/analytics';
+import type {
+  AnalyticsExportAuditEventRecord,
+  PersistedAnalyticsExportJob,
+} from '../domains/analytics-exports';
 import {
+  type AuthoringPresenceRecord,
   type ExperienceCommentRecord,
+  type ExperienceCommentAuditEventRecord,
   type ExperienceExperimentRecord,
+  type ExperienceExperimentAllocationRecord,
+  type ExperienceExperimentAssignmentRecord,
   type ExperienceFormResponseRecord,
   type ExperienceMeasurementRecord,
   type ExperienceStepLockRecord,
@@ -86,8 +119,129 @@ import type {
   EnterpriseValidationEvidenceRecord,
   EnterpriseVerifiedDomainRecord,
 } from '../domains/enterprise-identity';
+import type {
+  GovernanceCapabilityProfileAssignmentRecord,
+  GovernanceCapabilityProfileRecord,
+  WorkspaceGovernanceCapabilityProfileAssignmentRecord,
+  WebhookDeliveryRecord,
+  WebhookEndpointRecord,
+  WebhookEventRecord,
+  DataResidencyMigrationRecord,
+  WorkspaceDataPlacementRecord,
+} from '../domains/governance';
+import type { AuthoringCopyRecord, AuthoringRoadmapRecord } from '../domains/authoring-roadmap';
+import type {
+  DataResidencyMigrationEvidenceRecord,
+  DataResidencyMigrationExecutionRecord,
+} from '../domains/data-residency';
+import type {
+  AnalyticsWarehouseDestinationRecord,
+  AnalyticsWarehouseSyncRunRecord,
+} from '../domains/analytics-warehouse';
+import type {
+  AccessibilityFinding,
+  AccessibilitySweep,
+} from '@lodariq/schema/accessibility-governance';
+
+export interface AccessibilityFindingEventRecord {
+  id: string;
+  workspaceId: string;
+  findingId: string;
+  eventType: 'opened' | 'resolved';
+  actorUserId: string;
+  findingRevision: number;
+  occurredAt: string;
+}
 
 export class InMemoryRepositoryState {
+  protected readonly governanceCapabilityProfiles = new Map<
+    string,
+    GovernanceCapabilityProfileRecord
+  >();
+
+  protected readonly governanceCapabilityProfileAssignments = new Map<
+    string,
+    GovernanceCapabilityProfileAssignmentRecord
+  >();
+
+  protected readonly workspaceGovernanceCapabilityProfileAssignments = new Map<
+    string,
+    WorkspaceGovernanceCapabilityProfileAssignmentRecord
+  >();
+
+  protected readonly webhookEndpoints = new Map<string, WebhookEndpointRecord>();
+
+  protected readonly webhookEvents = new Map<string, WebhookEventRecord>();
+
+  protected readonly webhookDeliveries = new Map<
+    string,
+    WebhookDeliveryRecord & { leaseOwner: string | null; leasedUntil: string | null }
+  >();
+
+  protected readonly workspaceDataPlacements = new Map<string, WorkspaceDataPlacementRecord>();
+
+  protected readonly dataResidencyMigrations = new Map<string, DataResidencyMigrationRecord>();
+
+  protected readonly dataResidencyMigrationExecutions = new Map<
+    string,
+    DataResidencyMigrationExecutionRecord
+  >();
+
+  protected readonly dataResidencyMigrationEvidence = new Map<
+    string,
+    DataResidencyMigrationEvidenceRecord
+  >();
+
+  protected readonly dataResidencyMigrationHistory = new Map<
+    string,
+    {
+      id: string;
+      workspaceId: string;
+      migrationId: string;
+      previousStatus: DataResidencyMigrationRecord['status'] | null;
+      nextStatus: DataResidencyMigrationRecord['status'];
+      actorId: string;
+      failureCode: string | null;
+      occurredAt: string;
+    }
+  >();
+
+  protected readonly authoringRoadmapRecords = new Map<string, AuthoringRoadmapRecord>();
+
+  protected readonly authoringCopyRecords = new Map<string, AuthoringCopyRecord>();
+
+  protected readonly deploymentSchedules = new Map<string, PersistedDeploymentSchedule>();
+
+  protected readonly deliveryScheduleJobs = new Map<string, PersistedDeliveryScheduleJob>();
+
+  protected readonly deliveryTransitionHistory: DeliveryTransitionHistoryEntry[] = [];
+
+  protected readonly workspaceDataCatalogEntries = new Map<
+    string,
+    DataCatalogEntry & { workspaceId: string; environmentId: string; catalogVersion: number }
+  >();
+
+  protected readonly workspaceDataCatalogVersions = new Map<string, number>();
+
+  protected readonly workspaceSubscriptions = new Map<string, WorkspaceSubscriptionRecord>();
+
+  protected readonly effectiveEntitlementSnapshots = new Map<
+    string,
+    WorkspaceEntitlementSnapshotRecord[]
+  >();
+
+  protected readonly workspaceUsageLedger = new Map<string, WorkspaceUsageLedgerRecord>();
+
+  protected readonly aiCreditLedger = new Map<string, AiCreditLedgerRecord>();
+
+  protected readonly workspaceBillingAccounts = new Map<string, BillingAccountRecord>();
+
+  protected readonly billingProviderEvents = new Map<string, BillingProviderEventRecord>();
+
+  protected readonly billingInvoices = new Map<string, BillingInvoiceRecord>();
+
+  protected readonly billingMeterBatches = new Map<string, BillingMeterBatchRecord>();
+
   protected readonly authoringStyleRecipes = new Map<string, AuthoringStepStyleRecipeResource[]>();
 
   protected readonly authoringDraftCheckpoints = new Map<
@@ -156,6 +310,15 @@ export class InMemoryRepositoryState {
   protected readonly workspaceInvitationOutbox = new Map<string, WorkspaceInvitationOutboxRecord>();
 
   protected readonly tenantAuditEvents = new Map<string, TenantAuditEventRecord>();
+
+  /*
+   * Which of those rows drizzle puts in `governance_audit_events` rather than
+   * `tenant_audit_events`. Both tables share one record shape here, and
+   * `listTenantAuditEvents` unions them on both sides — but change history
+   * labels them by table, so without this the same event reads as
+   * `tenant-governance` in tests and `platform-governance` in Postgres.
+   */
+  protected readonly platformGovernanceAuditEventIds = new Set<string>();
 
   protected readonly workspaceAuthPolicies = new Map<string, WorkspaceAuthPolicyRecord>();
 
@@ -231,17 +394,115 @@ export class InMemoryRepositoryState {
 
   protected readonly analyticsEvents: PersistedAnalyticsEventRecord[] = [];
 
+  protected readonly analyticsExportJobs = new Map<string, PersistedAnalyticsExportJob>();
+
+  protected readonly analyticsExportAuditEvents: AnalyticsExportAuditEventRecord[] = [];
+
+  protected readonly analyticsWarehouseDestinations = new Map<
+    string,
+    AnalyticsWarehouseDestinationRecord
+  >();
+
+  protected readonly analyticsWarehouseSyncRuns: AnalyticsWarehouseSyncRunRecord[] = [];
+
+  protected readonly accessibilitySweeps = new Map<string, AccessibilitySweep>();
+
+  protected readonly accessibilityFindings = new Map<string, AccessibilityFinding>();
+
+  protected readonly accessibilityFindingEvents: AccessibilityFindingEventRecord[] = [];
+
   protected readonly events: Array<{ workspaceId: string; event: AnalyticsEvent }> = [];
 
   protected readonly experienceMeasurement = new Map<string, ExperienceMeasurementRecord>();
 
   protected readonly experienceExperiments = new Map<string, ExperienceExperimentRecord>();
 
+  protected readonly experienceExperimentAllocations = new Map<
+    string,
+    ExperienceExperimentAllocationRecord[]
+  >();
+
+  protected readonly experienceExperimentAssignments = new Map<
+    string,
+    ExperienceExperimentAssignmentRecord
+  >();
+
   protected readonly experienceFormResponses: ExperienceFormResponseRecord[] = [];
 
   protected readonly experienceComments = new Map<string, ExperienceCommentRecord>();
 
+  protected readonly experienceCommentAuditEvents = new Map<
+    string,
+    ExperienceCommentAuditEventRecord
+  >();
+
   protected readonly experienceStepLocks = new Map<string, ExperienceStepLockRecord>();
 
+  protected readonly authoringPresence = new Map<string, AuthoringPresenceRecord>();
+
   protected readonly workspaceApplications = new Map<string, WorkspaceApplicationRecord>();
+
+  protected resolveWorkspaceEntitlements(
+    workspaceId: string,
+    fallbackPlan: CommercialPlanId = 'free',
+  ): WorkspaceEntitlementSnapshotRecord {
+    let subscription = this.workspaceSubscriptions.get(workspaceId);
+    if (!subscription) {
+      const now = new Date();
+      const periodStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+      const periodEnd = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1));
+      subscription = {
+        workspaceId,
+        planId: fallbackPlan,
+        planVersion: COMMERCIAL_PLAN_VERSION,
+        status: 'active',
+        entitlementOverrides: {},
+        currentPeriodStart: periodStart.toISOString(),
+        currentPeriodEnd: periodEnd.toISOString(),
+        revision: 1,
+        createdAt: now.toISOString(),
+        updatedAt: now.toISOString(),
+      };
+      this.workspaceSubscriptions.set(workspaceId, subscription);
+    }
+    const snapshots = this.effectiveEntitlementSnapshots.get(workspaceId) ?? [];
+    const current = snapshots.find(
+      (snapshot) => snapshot.subscriptionRevision === subscription.revision,
+    );
+    if (current) return structuredClone(current);
+    const entitlements = resolveCommercialEntitlements(
+      subscription.planId,
+      subscription.entitlementOverrides,
+    );
+    const createdAt = subscription.updatedAt;
+    const snapshot: WorkspaceEntitlementSnapshotRecord = {
+      id: `entsnap_${randomUUID()}`,
+      workspaceId,
+      subscriptionRevision: subscription.revision,
+      planId: subscription.planId,
+      planVersion: subscription.planVersion,
+      entitlements,
+      entitlementHash: `sha256-${createHash('sha256')
+        .update(JSON.stringify(entitlements))
+        .digest('hex')}`,
+      reason: subscription.revision === 1 ? 'workspace_created' : 'plan_changed',
+      changeActorId: 'system:repository',
+      effectiveFrom: createdAt,
+      createdAt,
+    };
+    snapshots.push(snapshot);
+    this.effectiveEntitlementSnapshots.set(workspaceId, snapshots);
+    return structuredClone(snapshot);
+  }
+
+  protected assertCreatorSeatAvailable(workspaceId: string): void {
+    const limit = this.resolveWorkspaceEntitlements(workspaceId).entitlements.creatorSeats;
+    if (limit === null) return;
+    const used = [...this.workspaceMemberships.values()].filter(
+      (membership) => membership.workspaceId === workspaceId && membership.role !== 'viewer',
+    ).length;
+    if (used + 1 > limit) {
+      throw new CommercialEntitlementError('creator-seats', used, limit);
+    }
+  }
 }

@@ -22,10 +22,20 @@ export const ExistingAuthoringDocumentIntent = Type.Object(
 );
 export type ExistingAuthoringDocumentIntent = Static<typeof ExistingAuthoringDocumentIntent>;
 
+export const AUTHORING_DRAFT_DOCUMENT_TYPES = [
+  'tour',
+  'announcement',
+  'hotspot',
+  'survey',
+  'checklist',
+] as const;
+
 export const NewAuthoringDocumentIntent = Type.Object(
   {
     kind: Type.Literal('new-draft'),
-    documentType: Type.Literal('tour'),
+    documentType: Type.Union(
+      AUTHORING_DRAFT_DOCUMENT_TYPES.map((documentType) => Type.Literal(documentType)),
+    ),
   },
   { $id: 'NewAuthoringDocumentIntent', additionalProperties: false },
 );

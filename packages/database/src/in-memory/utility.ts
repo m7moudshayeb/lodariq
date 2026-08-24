@@ -1,4 +1,8 @@
-import { type AuthoringDocumentIntent, type AuthoringEnvironment } from '@lodariq/schema';
+import {
+  isDeliverableExperienceType,
+  type AuthoringDocumentIntent,
+  type AuthoringEnvironment,
+} from '@lodariq/schema';
 import { normalizeExactOrigin, type WorkspaceEnvironment } from '../domains/environments';
 import {
   type AuthoringActivationGrantRecord,
@@ -158,7 +162,7 @@ export class InMemoryRepositoryUtility extends InMemoryRepositoryState {
   ): boolean {
     if (!documentIntent || documentIntent.kind === 'new-draft') return true;
     const document = this.documents.get(this.key(workspaceId, documentIntent.documentId));
-    return Boolean(document && document.document.type === 'tour');
+    return Boolean(document && isDeliverableExperienceType(document.document.type));
   }
 
   protected mutateAuthoringActivationGrant(

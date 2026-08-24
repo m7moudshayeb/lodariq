@@ -89,7 +89,9 @@ describe('brand variant choice (§7.1)', () => {
         onChoose: () => undefined,
       }),
     );
-    const surfaces = [...markup.matchAll(/class="brand-variant-preview" style="background:([^;]+);/gu)];
+    const surfaces = [
+      ...markup.matchAll(/class="brand-variant-preview" style="background:([^;]+);/gu),
+    ];
     expect(surfaces).toHaveLength(2);
     expect(surfaces[0]?.[1]).not.toBe(surfaces[1]?.[1]);
   });

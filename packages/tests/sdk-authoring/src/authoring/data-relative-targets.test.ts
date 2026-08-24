@@ -95,6 +95,7 @@ describe('a recorded approach survives on the target', () => {
     const routeLeg = persisted?.legs.find((leg) => leg.wait?.type === 'route');
     expect(routeLeg?.wait).toEqual({ type: 'route', match: 'contains', value: '/projects/import' });
     expect(JSON.stringify(persisted)).not.toMatch(/delay|timeout|ms/i);
+    expect(JSON.stringify(persisted)).not.toMatch(/selector|className|coordinate|client[XY]/i);
   });
 
   it('round-trips back into an editable recipe', () => {

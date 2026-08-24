@@ -13,6 +13,7 @@ import {
   type ReleaseRecoveryScopeInput,
   createReleaseRecoveryRequestHash,
   ReleaseRecoveryHistoryLimitExceededError,
+  assertCommercialFeature,
 } from '../repository';
 import { isReleaseArtifactCurrentlyDeployable } from '../release-artifact-compatibility';
 import { documentDeployments, publications, releaseOperations } from '../schema';
@@ -122,6 +123,11 @@ export class DrizzleRepositoryRecovery extends DrizzleRepositoryDocuments {
         const replay = await this.materializeReleaseRecoveryResult(tx, existing, true);
         return replay ?? drizzleNonPersistingRecoveryFailure(request, 'internal_error');
       }
+
+      assertCommercialFeature(
+        (await this.resolveWorkspaceEntitlements(tx, input.workspaceId)).entitlements,
+        'recovery',
+      );
 
       const deploymentRow = await this.findDocumentDeploymentForUpdate(tx, input);
       const deployment = deploymentRow ? toPersistedDocumentDeployment(deploymentRow) : null;

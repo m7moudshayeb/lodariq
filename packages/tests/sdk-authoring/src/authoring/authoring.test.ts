@@ -2,7 +2,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { compile, compileDocument, computeBrandThemeContentHash } from '@lodariq/compiler';
 import {
-  AUTHORING_INLINE_CONTROL_COMMIT_TYPE,
   AUTHORING_INLINE_CONTENT_COMMIT_TYPE,
   AUTHORING_CHROME_ACTION_REQUEST_TYPE,
   AUTHORING_SHELL_STEP_COMMAND_TYPE,
@@ -127,9 +126,7 @@ describe('local authoring panel (PRD §16.1)', () => {
     expect(host?.shadowRoot?.querySelector('[data-pill-mode="browsing"]')).not.toBeNull();
     expect(host?.shadowRoot?.querySelector('.save-state')).toBeNull();
     expect(host?.shadowRoot?.querySelector('[data-panel-save-state-label]')).toBeNull();
-    expect(
-      host?.shadowRoot?.querySelector<HTMLInputElement>('[data-panel-document-title]')?.value,
-    ).toBe('Untitled experience');
+    expect(host?.shadowRoot?.querySelector('[data-panel-document-title]')).toBeNull();
     expect(host?.shadowRoot?.querySelector('[data-panel-action="zoom"]')).toBeNull();
     expect(host?.shadowRoot?.querySelector('[data-panel-action="layout"]')).toBeNull();
     expect(host?.shadowRoot?.querySelector('.panel-drag-handle')).toBeNull();
@@ -197,17 +194,19 @@ describe('local authoring panel (PRD §16.1)', () => {
         children: [],
       },
     );
+    const saveDocument = vi.fn();
+    const recordMetric = vi.fn();
     const controller = new LocalAuthoringFrameController({
       root: document.body,
       baseDocument: documentWithMixedOrder,
       services: {
         loadDocument: () => structuredClone(documentWithMixedOrder),
-        saveDocument: vi.fn(),
+        saveDocument,
         exportDocument: (value) => JSON.stringify(value),
         importDocument: (value) => JSON.parse(value) as LodariqDocument,
         resetDocuments: vi.fn(),
         compilePreview: vi.fn(),
-        recordMetric: vi.fn(),
+        recordMetric,
         getMetricsSummary: vi.fn(() => ({})),
         exportMetricsReport: vi.fn(() => '{}'),
       },
@@ -226,7 +225,29 @@ describe('local authoring panel (PRD §16.1)', () => {
     } as unknown as Parameters<LocalAuthoringFrameController['handleBlockDrop']>[0];
 
     controller.startDraggingBlock('step_3');
+    controller.handleBlockDragOver({
+      ...dropEvent,
+      currentTarget: { dataset: { blockId: 'step_1' } },
+    } as unknown as Parameters<LocalAuthoringFrameController['handleBlockDragOver']>[0]);
+    expect(saveDocument).not.toHaveBeenCalled();
     controller.handleBlockDrop(dropEvent, 'step_1');
+    expect(controller.getSnapshot().documentState.blocks.map((block) => block.id)).toEqual([
+      'step_3',
+      'step_1',
+      'step_2',
+    ]);
+    expect(saveDocument).toHaveBeenCalledOnce();
+    expect(recordMetric).toHaveBeenCalledWith(
+      expect.objectContaining({ name: 'transaction.committed' }),
+    );
+
+    controller.undo();
+    expect(controller.getSnapshot().documentState.blocks.map((block) => block.id)).toEqual([
+      'step_1',
+      'step_2',
+      'step_3',
+    ]);
+    controller.redo();
     expect(controller.getSnapshot().documentState.blocks.map((block) => block.id)).toEqual([
       'step_3',
       'step_1',
@@ -297,11 +318,12 @@ describe('local authoring panel (PRD §16.1)', () => {
     await controller.translateMissingCopy();
 
     expect(controller.getSnapshot().translation.available).toBe(true);
-    expect(translateDocument).toHaveBeenCalledWith({
+    expect(translateDocument).toHaveBeenCalledWith(expect.objectContaining({
       document: expect.objectContaining({ id: baseDocument.id }),
       targetLocale: 'fr',
       mode: 'missing',
-    });
+      operationId: expect.stringMatching(/^aiop_/u),
+    }));
     expect(saveDocument).toHaveBeenCalledOnce();
     expect(controller.getSnapshot().documentState.title).toBe('Visite de bienvenue');
     expect(controller.getSnapshot().translation.state).toBe('idle');
@@ -321,9 +343,7 @@ describe('local authoring panel (PRD §16.1)', () => {
     );
     const host = document.querySelector<HTMLElement>('lodariq-authoring-panel');
     const iframe = host?.querySelector('iframe');
-    const operations = host?.shadowRoot?.querySelector<HTMLButtonElement>(
-      '[data-pill-operations]',
-    );
+    const operations = host?.shadowRoot?.querySelector<HTMLButtonElement>('[data-pill-operations]');
     if (!host || !iframe || !operations) throw new Error('authoring overlay missing');
     Object.defineProperty(iframe, 'contentWindow', { value: peer, configurable: true });
     iframe.dispatchEvent(new Event('load'));
@@ -449,7 +469,7 @@ describe('local authoring panel (PRD §16.1)', () => {
     expect(outboundMessages(peer, 'authoring.save.request')).toHaveLength(0);
   });
 
-  it('edits the experience title once in the panel chrome through a semantic commit', async () => {
+  it('keeps the experience title out of step-scoped host chrome', () => {
     const panel = openLocalAuthoringPanel(
       {
         sessionId: LOCAL_AUTHORING_SESSION_ID,
@@ -463,21 +483,11 @@ describe('local authoring panel (PRD §16.1)', () => {
       },
     );
     const host = document.querySelector<HTMLElement>('lodariq-authoring-panel');
-    const iframe = host?.querySelector('iframe');
-    const title = host?.shadowRoot?.querySelector<HTMLInputElement>('[data-panel-document-title]');
-    if (!host || !iframe || !title) throw new Error('authoring panel missing');
-    const peer = { postMessage: vi.fn() } as unknown as Window;
-    Object.defineProperty(iframe, 'contentWindow', { value: peer, configurable: true });
-    iframe.dispatchEvent(new Event('load'));
-
-    title.value = 'Customer onboarding tour';
-    title.dispatchEvent(new FocusEvent('blur'));
-
-    const titleCommit = await waitForOutboundMessage(peer, AUTHORING_INLINE_CONTROL_COMMIT_TYPE);
-    expect(titleCommit).toMatchObject({
-      operation: { kind: 'setDocumentTitle', title: 'Customer onboarding tour' },
-    });
-    ackOutboundMessage(peer, titleCommit);
+    if (!host) throw new Error('authoring panel missing');
+    expect(host.shadowRoot?.querySelector('[data-panel-document-title]')).toBeNull();
+    expect(host.shadowRoot?.querySelector('.overlay-filmstrip')?.textContent).not.toContain(
+      baseDocument.title,
+    );
 
     panel.close();
   });
@@ -1508,13 +1518,10 @@ describe('local authoring panel (PRD §16.1)', () => {
     );
     const host = document.querySelector<HTMLElement>('lodariq-authoring-panel');
     const iframe = host?.querySelector('iframe');
-    const title = host?.shadowRoot?.querySelector<HTMLInputElement>('[data-panel-document-title]');
-    if (!host || !iframe || !title) throw new Error('authoring panel missing');
+    if (!host || !iframe) throw new Error('authoring panel missing');
     const peer = { postMessage: vi.fn() } as unknown as Window;
     Object.defineProperty(iframe, 'contentWindow', { value: peer, configurable: true });
     iframe.dispatchEvent(new Event('load'));
-    title.focus();
-
     window.dispatchEvent(
       new MessageEvent('message', {
         data: {

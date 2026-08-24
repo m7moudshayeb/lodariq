@@ -29,7 +29,7 @@ import {
 import { ClientAuthError } from './client-auth-api';
 
 export async function listWorkspaceMembers(workspaceId: string): Promise<WorkspaceMember[]> {
-  const payload = await tenantRequest(`/api/workspaces/${encodeURIComponent(workspaceId)}/members`);
+  const payload = await tenantRequest(`/v1/workspaces/${encodeURIComponent(workspaceId)}/members`);
   if (!isValid(WorkspaceMemberList, payload)) throw invalidTenantResponse();
   return payload.members;
 }
@@ -38,7 +38,7 @@ export async function listWorkspaceInvitations(
   workspaceId: string,
 ): Promise<WorkspaceInvitationSummary[]> {
   const payload = await tenantRequest(
-    `/api/workspaces/${encodeURIComponent(workspaceId)}/invitations`,
+    `/v1/workspaces/${encodeURIComponent(workspaceId)}/invitations`,
   );
   if (!isValid(WorkspaceInvitationList, payload)) throw invalidTenantResponse();
   return payload.invitations;
@@ -50,7 +50,7 @@ export async function createWorkspaceInvitation(
   role: WorkspaceInvitationRole,
 ): Promise<void> {
   const payload = await tenantRequest(
-    `/api/workspaces/${encodeURIComponent(workspaceId)}/invitations`,
+    `/v1/workspaces/${encodeURIComponent(workspaceId)}/invitations`,
     { method: 'POST', body: JSON.stringify({ email, role }) },
   );
   if (!isValid(WorkspaceInvitationResult, payload)) throw invalidTenantResponse();
@@ -61,7 +61,7 @@ export async function revokeWorkspaceInvitation(
   invitationId: string,
 ): Promise<void> {
   await tenantRequest(
-    `/api/workspaces/${encodeURIComponent(workspaceId)}/invitations/${encodeURIComponent(invitationId)}`,
+    `/v1/workspaces/${encodeURIComponent(workspaceId)}/invitations/${encodeURIComponent(invitationId)}`,
     { method: 'DELETE', body: '{}' },
     true,
   );
@@ -73,7 +73,7 @@ export async function updateWorkspaceMemberRole(
   role: WorkspaceInvitationRole,
 ): Promise<void> {
   await tenantRequest(
-    `/api/workspaces/${encodeURIComponent(workspaceId)}/members/${encodeURIComponent(userId)}`,
+    `/v1/workspaces/${encodeURIComponent(workspaceId)}/members/${encodeURIComponent(userId)}`,
     { method: 'PATCH', body: JSON.stringify({ role }) },
     true,
   );
@@ -81,7 +81,7 @@ export async function updateWorkspaceMemberRole(
 
 export async function removeWorkspaceMember(workspaceId: string, userId: string): Promise<void> {
   await tenantRequest(
-    `/api/workspaces/${encodeURIComponent(workspaceId)}/members/${encodeURIComponent(userId)}`,
+    `/v1/workspaces/${encodeURIComponent(workspaceId)}/members/${encodeURIComponent(userId)}`,
     { method: 'DELETE', body: '{}' },
     true,
   );
@@ -92,14 +92,14 @@ export async function transferWorkspaceOwnership(
   targetUserId: string,
 ): Promise<void> {
   await tenantRequest(
-    `/api/workspaces/${encodeURIComponent(workspaceId)}/ownership-transfer`,
+    `/v1/workspaces/${encodeURIComponent(workspaceId)}/ownership-transfer`,
     { method: 'POST', body: JSON.stringify({ targetUserId }) },
     true,
   );
 }
 
 export async function scheduleWorkspaceDeletion(workspaceId: string): Promise<void> {
-  await tenantRequest(`/api/workspaces/${encodeURIComponent(workspaceId)}`, {
+  await tenantRequest(`/v1/workspaces/${encodeURIComponent(workspaceId)}`, {
     method: 'DELETE',
     body: '{}',
   });
@@ -109,7 +109,7 @@ export async function getEnterpriseConfiguration(
   workspaceId: string,
 ): Promise<EnterpriseConfiguration> {
   const payload = await tenantRequest(
-    `/api/workspaces/${encodeURIComponent(workspaceId)}/enterprise/configuration`,
+    `/v1/workspaces/${encodeURIComponent(workspaceId)}/enterprise/configuration`,
   );
   if (!isValid(EnterpriseWorkspaceConfiguration, payload)) throw invalidTenantResponse();
   return payload;
@@ -126,7 +126,7 @@ export async function createEnterpriseSsoConnection(
   },
 ): Promise<EnterpriseConnection> {
   const payload = await tenantRequest(
-    `/api/workspaces/${encodeURIComponent(workspaceId)}/enterprise/sso-connections`,
+    `/v1/workspaces/${encodeURIComponent(workspaceId)}/enterprise/sso-connections`,
     { method: 'POST', body: JSON.stringify(input) },
   );
   if (!isValid(EnterpriseSsoConnection, payload)) throw invalidTenantResponse();
@@ -138,7 +138,7 @@ export async function disableEnterpriseSsoConnection(
   connectionId: string,
 ): Promise<void> {
   await tenantRequest(
-    `/api/workspaces/${encodeURIComponent(workspaceId)}/enterprise/sso-connections/${encodeURIComponent(connectionId)}`,
+    `/v1/workspaces/${encodeURIComponent(workspaceId)}/enterprise/sso-connections/${encodeURIComponent(connectionId)}`,
     { method: 'DELETE', body: '{}' },
     true,
   );
@@ -150,7 +150,7 @@ export async function createEnterpriseDomain(
   domain: string,
 ): Promise<EnterpriseDomainResult> {
   const payload = await tenantRequest(
-    `/api/workspaces/${encodeURIComponent(workspaceId)}/enterprise/domains`,
+    `/v1/workspaces/${encodeURIComponent(workspaceId)}/enterprise/domains`,
     { method: 'POST', body: JSON.stringify({ connectionId, domain }) },
   );
   if (!isValid(EnterpriseDomain, payload)) throw invalidTenantResponse();
@@ -163,7 +163,7 @@ export async function verifyEnterpriseDomain(
   proof: string,
 ): Promise<void> {
   await tenantRequest(
-    `/api/workspaces/${encodeURIComponent(workspaceId)}/enterprise/domains/${encodeURIComponent(domainId)}/verify`,
+    `/v1/workspaces/${encodeURIComponent(workspaceId)}/enterprise/domains/${encodeURIComponent(domainId)}/verify`,
     {
       method: 'POST',
       body: '{}',
@@ -185,7 +185,7 @@ export async function updateEnterpriseAuthPolicy(
   breakGlassRequestId?: string,
 ): Promise<void> {
   await tenantRequest(
-    `/api/workspaces/${encodeURIComponent(workspaceId)}/enterprise/auth-policy`,
+    `/v1/workspaces/${encodeURIComponent(workspaceId)}/enterprise/auth-policy`,
     {
       method: 'PUT',
       body: JSON.stringify(input),
@@ -204,7 +204,7 @@ export async function upsertEnterpriseGroupRoleMapping(
   role: EnterpriseManagedRole,
 ): Promise<EnterpriseMapping> {
   const payload = await tenantRequest(
-    `/api/workspaces/${encodeURIComponent(workspaceId)}/enterprise/sso-connections/${encodeURIComponent(connectionId)}/group-role-mappings`,
+    `/v1/workspaces/${encodeURIComponent(workspaceId)}/enterprise/sso-connections/${encodeURIComponent(connectionId)}/group-role-mappings`,
     { method: 'PUT', body: JSON.stringify({ groupId, role }) },
   );
   if (!isValid(EnterpriseGroupRoleMapping, payload)) throw invalidTenantResponse();
@@ -216,7 +216,7 @@ export async function createEnterpriseScimToken(
   connectionId: string,
 ): Promise<ScimTokenResult> {
   const payload = await tenantRequest(
-    `/api/workspaces/${encodeURIComponent(workspaceId)}/enterprise/scim-tokens`,
+    `/v1/workspaces/${encodeURIComponent(workspaceId)}/enterprise/scim-tokens`,
     { method: 'POST', body: JSON.stringify({ connectionId }) },
   );
   if (!isValid(CreateScimTokenResult, payload)) throw invalidTenantResponse();
@@ -228,7 +228,7 @@ export async function disableEnterpriseScimToken(
   scimConnectionId: string,
 ): Promise<void> {
   await tenantRequest(
-    `/api/workspaces/${encodeURIComponent(workspaceId)}/enterprise/scim-tokens/${encodeURIComponent(scimConnectionId)}`,
+    `/v1/workspaces/${encodeURIComponent(workspaceId)}/enterprise/scim-tokens/${encodeURIComponent(scimConnectionId)}`,
     { method: 'DELETE', body: '{}' },
     true,
   );
@@ -239,7 +239,7 @@ export async function createEnterpriseBreakGlassRequest(
   reason: string,
 ): Promise<BreakGlassResult> {
   const payload = await tenantRequest(
-    `/api/workspaces/${encodeURIComponent(workspaceId)}/enterprise/break-glass`,
+    `/v1/workspaces/${encodeURIComponent(workspaceId)}/enterprise/break-glass`,
     { method: 'POST', body: JSON.stringify({ reason }) },
   );
   if (!isValid(EnterpriseBreakGlassRecord, payload)) throw invalidTenantResponse();
@@ -251,7 +251,7 @@ export async function approveEnterpriseBreakGlassRequest(
   requestId: string,
 ): Promise<void> {
   await tenantRequest(
-    `/api/workspaces/${encodeURIComponent(workspaceId)}/enterprise/break-glass/${encodeURIComponent(requestId)}/approve`,
+    `/v1/workspaces/${encodeURIComponent(workspaceId)}/enterprise/break-glass/${encodeURIComponent(requestId)}/approve`,
     { method: 'POST', body: '{}' },
     true,
   );

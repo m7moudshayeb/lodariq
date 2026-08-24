@@ -8,10 +8,12 @@ import {
   type SafeNavigationDestination,
 } from '@lodariq/schema/url';
 import {
+  TOUR_COMPOSITION_PADDING_VARIABLES,
   TOUR_POPUP_STYLE_VARIABLES,
   resolveTourActionRecipe,
   resolveTourCompositionRecipe,
   resolveTourPopupStyleRecipe,
+  tourCompositionPaddingVariables,
   tourPopupStyleVariables,
 } from './tour-recipes';
 
@@ -23,7 +25,7 @@ interface BodyNodeRenderContext {
   onAction: (action: RuntimeAction | undefined) => void;
   resolveMediaAsset?: (
     assetId: string,
-    kind: 'image' | 'video' | 'captions',
+    kind: 'image' | 'video' | 'captions' | 'audio',
   ) => string | null | Promise<string | null>;
 }
 
@@ -191,17 +193,21 @@ function unavailableMedia(
   return unavailable;
 }
 
-function isPendingMediaUrl(value: string | null | Promise<string | null>): value is Promise<string | null> {
+function isPendingMediaUrl(
+  value: string | null | Promise<string | null>,
+): value is Promise<string | null> {
   return typeof value === 'object' && value !== null && 'then' in value;
 }
 
-function syncMediaHref(value: string | null | Promise<string | null> | undefined): string | undefined {
+function syncMediaHref(
+  value: string | null | Promise<string | null> | undefined,
+): string | undefined {
   if (typeof value !== 'string') return undefined;
   return safeMediaAssetUrl(value) ?? undefined;
 }
 
 /** Resolver-backed media URLs, not author-controlled action links. */
-function safeMediaAssetUrl(url: string | null | undefined): string | null {
+export function safeMediaAssetUrl(url: string | null | undefined): string | null {
   const trimmed = url?.trim();
   if (!trimmed) return null;
   if (trimmed.startsWith('blob:')) {
@@ -492,6 +498,11 @@ export function applyStepComposition(card: HTMLElement, step: CompiledStep): voi
   card.dataset['lodariqActionAlign'] = recipe.actionAlign;
   card.dataset['lodariqCompositionGap'] = recipe.gap;
   card.dataset['lodariqCompositionPadding'] = recipe.padding;
+  // Cleared first: a re-render that drops an override has to drop the variable.
+  for (const variable of TOUR_COMPOSITION_PADDING_VARIABLES) card.style.removeProperty(variable);
+  for (const [variable, value] of Object.entries(tourCompositionPaddingVariables(recipe))) {
+    card.style.setProperty(variable, value);
+  }
   card.dataset['lodariqPopupRadius'] = recipe.radius;
   card.dataset['lodariqPointerArrow'] = recipe.showArrow ? 'show' : 'hide';
   card.dataset['lodariqPopupBorderWeight'] = popupStyle.borderWeight;
@@ -506,9 +517,11 @@ export function appendStepBody(
   card: HTMLElement,
   step: CompiledStep,
   createBodyElement: (node: RuntimeBodyNode) => HTMLElement,
+  shouldRender: (node: RuntimeBodyNode) => boolean,
 ): void {
   let actionGroup: HTMLElement | null = null;
   for (const node of step.body) {
+    if (!shouldRender(node)) continue;
     const isAction = node.type === 'button' || node.type === 'link';
     if (!isAction) {
       actionGroup = null;

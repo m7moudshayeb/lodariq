@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react';
-import type { LodariqBlock } from '@lodariq/schema';
+import type { LodariqBlock, WorkspaceCommercialUsage } from '@lodariq/schema';
 import { authoringText } from '../../../i18n';
 import type { AiAssistRequest, AiRewriteVerb } from '../../ai/assist-contract';
 import type { LocalAuthoringFrameController } from '../controller';
@@ -60,13 +60,6 @@ const REWRITE_VERBS: ReadonlyArray<{
 ];
 
 /**
- * WIRE_BE: the workspace's remaining assist allowance. The control plane owns
- * the real number; the menu shows it at the point of use because a creator
- * deciding whether to press a generate button is the moment it matters.
- */
-const ASSIST_CREDITS_REMAINING = 1180;
-
-/**
  * The toolbar's assist control (§7.4, §7.5).
  *
  * Everything here is anchored: a rewrite acts on the selected text, the drafts
@@ -82,17 +75,26 @@ const ASSIST_CREDITS_REMAINING = 1180;
  */
 export function OverlayToolbarAssist({
   controller,
+  commercialUsage,
   onAsk,
   onStartAssist,
   step,
 }: {
   readonly controller: LocalAuthoringFrameController;
+  readonly commercialUsage?: WorkspaceCommercialUsage;
   readonly onAsk: () => void;
   readonly onStartAssist: (request: AiAssistRequest) => void;
   readonly step: LodariqBlock;
 }) {
   const [trigger, setTrigger] = useState<HTMLElement | null>(null);
   const [open, setOpen] = useState(false);
+  const creditNote = assistCreditNote(commercialUsage);
+  const creditsAvailable = assistCreditsAvailable(commercialUsage);
+  const copyAssistEnabled =
+    creditsAvailable && assistFeatureEnabled(commercialUsage, 'copy-assist');
+  const askAssistEnabled = creditsAvailable && assistFeatureEnabled(commercialUsage, 'ask-assist');
+  const narrationAssistEnabled =
+    askAssistEnabled && assistFeatureEnabled(commercialUsage, 'narration');
   const close = (): void => setOpen(false);
   const run = (request: AiAssistRequest): void => {
     close();
@@ -108,7 +110,10 @@ export function OverlayToolbarAssist({
         aria-label={authoringText('Assist')}
         className="overlay-toolbar-glyph"
         data-toolbar-control="assist"
-        onClick={() => setOpen((wasOpen) => !wasOpen)}
+        onClick={() => {
+          if (!open) controller.loadCommercialUsage();
+          setOpen((wasOpen) => !wasOpen);
+        }}
         ref={setTrigger}
         title={authoringText('Assist')}
       >
@@ -125,6 +130,7 @@ export function OverlayToolbarAssist({
           <ChromeMenuHeading>{authoringText('Rewrite the selection')}</ChromeMenuHeading>
           {REWRITE_VERBS.map((option) => (
             <ChromeMenuItem
+              disabled={!copyAssistEnabled}
               icon={option.icon}
               key={option.verb}
               label={option.label}
@@ -142,6 +148,7 @@ export function OverlayToolbarAssist({
           <ChromeMenuSeparator />
           <ChromeMenuHeading>{authoringText('This step')}</ChromeMenuHeading>
           <ChromeMenuItem
+            disabled={!copyAssistEnabled}
             icon={<Wand2 size={14} strokeWidth={2} aria-hidden="true" />}
             label={authoringText('Draft this step from the target')}
             onSelect={() =>
@@ -163,6 +170,7 @@ export function OverlayToolbarAssist({
             value="draft-step"
           />
           <ChromeMenuItem
+            disabled={!narrationAssistEnabled}
             icon={<Mic size={14} strokeWidth={2} aria-hidden="true" />}
             label={authoringText('Write the spoken script')}
             onSelect={() =>
@@ -176,6 +184,7 @@ export function OverlayToolbarAssist({
             value="narration"
           />
           <ChromeMenuItem
+            disabled={!askAssistEnabled}
             icon={<Accessibility size={14} strokeWidth={2} aria-hidden="true" />}
             label={authoringText('Describe the image for me')}
             onSelect={() =>
@@ -189,6 +198,7 @@ export function OverlayToolbarAssist({
             value="alt-text"
           />
           <ChromeMenuItem
+            disabled={!askAssistEnabled}
             icon={<Bot size={14} strokeWidth={2} aria-hidden="true" />}
             label={authoringText('Ask Lodariq…')}
             onSelect={() => {
@@ -204,15 +214,33 @@ export function OverlayToolbarAssist({
           <ChromeMenuNote>
             {authoringText(
               'Assist may add content and styles. It never edits your theme tokens or named styles, and every change previews before it applies.',
-            )}{' '}
-            {authoringText('{count} credits left this month.', {
-              count: ASSIST_CREDITS_REMAINING,
-            })}
+            )}
+            {creditNote ? <> {creditNote}</> : null}
           </ChromeMenuNote>
         </ChromeMenu>
       ) : null}
     </>
   );
+}
+
+function assistCreditNote(usage: WorkspaceCommercialUsage | undefined): string | null {
+  const limit = usage?.aiCredits.limit;
+  if (!usage || limit === null || limit === undefined) return null;
+  return authoringText('{count} credits left this month.', {
+    count: Math.max(0, limit - usage.aiCredits.used),
+  });
+}
+
+function assistFeatureEnabled(
+  usage: WorkspaceCommercialUsage | undefined,
+  feature: WorkspaceCommercialUsage['features'][number],
+): boolean {
+  return !usage || usage.features.includes(feature);
+}
+
+function assistCreditsAvailable(usage: WorkspaceCommercialUsage | undefined): boolean {
+  const limit = usage?.aiCredits.limit;
+  return !usage || limit === null || limit === undefined || usage.aiCredits.used < limit;
 }
 
 /** A rewrite acts on what is selected; the step's body copy is the fallback. */

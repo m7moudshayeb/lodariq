@@ -12,11 +12,13 @@ const checks = [
     catalogPath: 'packages/sdk-authoring/src/i18n-catalogs',
     functionName: 'authoringText',
     label: 'authoring',
+    sharedCatalogName: 'AUTHORING_ROADMAP_FALLBACK_CATALOG',
     roots: ['packages/sdk-authoring/src', 'apps/editor/src'],
     staticMessages: [
       ['packages/schema/src/release-recovery-constants.ts', 'RELEASE_RECOVERY_FAILURE_MESSAGES'],
       ['packages/schema/src/publish.ts', 'PUBLISH_READINESS_ISSUE_LABELS'],
       ['packages/schema/src/brand.ts', 'BASIC_VISUAL_PREFLIGHT_ISSUE_LABELS'],
+      ['packages/schema/src/accessibility-governance.ts', 'ACCESSIBILITY_FINDING_LABELS'],
     ],
   },
   {
@@ -30,6 +32,13 @@ const checks = [
     catalogPath: 'packages/sdk-runtime/src/tour-i18n-catalogs.ts',
     functionName: 'tourRuntimeText',
     label: 'tour runtime',
+    roots: ['packages/sdk-runtime/src'],
+    staticMessages: [],
+  },
+  {
+    catalogPath: 'packages/sdk-runtime/src/experience-i18n-catalogs.ts',
+    functionName: 'experienceRuntimeText',
+    label: 'experience runtime',
     roots: ['packages/sdk-runtime/src'],
     staticMessages: [],
   },
@@ -53,8 +62,12 @@ for (const check of checks) {
   for (const locale of productLocales) {
     if (locale === 'en') continue;
     const catalogName = `${locale.replace(/[^A-Za-z0-9]/gu, '_').toUpperCase()}_CATALOG`;
-    const catalog = catalogs.get(catalogName);
-    if (!catalog) fail(`${check.label}: ${locale} catalog is missing`);
+    const localeCatalog = catalogs.get(catalogName);
+    if (!localeCatalog) fail(`${check.label}: ${locale} catalog is missing`);
+    const sharedCatalog = check.sharedCatalogName
+      ? (catalogs.get(check.sharedCatalogName) ?? new Map())
+      : new Map();
+    const catalog = new Map([...sharedCatalog, ...localeCatalog]);
 
     const missing = [...expected].filter((source) => !catalog.has(source));
     const stale = [...catalog.keys()].filter((source) => !expected.has(source));

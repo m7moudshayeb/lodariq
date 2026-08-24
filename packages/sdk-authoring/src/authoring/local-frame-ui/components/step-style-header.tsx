@@ -1,5 +1,9 @@
-import { useState } from 'react';
-import type { LodariqBlock } from '@lodariq/schema';
+import {
+  DEFAULT_EXPERIENCE_APPEARANCE,
+  resolveExperienceAppearance,
+  type ExperienceAppearance,
+  type LodariqBlock,
+} from '@lodariq/schema';
 import { authoringText } from '../../../i18n';
 import { extractTourStepStyle, styleSnapshotHash } from '../../step-style-recipes';
 import type { LocalAuthoringFrameController } from '../controller';
@@ -8,37 +12,69 @@ import { PropertyChoiceField } from '../properties/property-controls';
 
 const CUSTOM_STYLE_VALUE = 'custom';
 
-/** A whole named set of roles; the individual roles are the rows below it. */
+/**
+ * A scheme is a whole named set of role tokens, and the names come from the
+ * theme's own Tour recipes — the same three the Appearance panel offers. It
+ * listed four invented ones, `surface` and `muted` among them, which no recipe
+ * answers to.
+ */
 const COLOUR_SCHEMES = [
   {
-    value: 'surface',
-    label: authoringText('Surface'),
+    value: 'default',
+    label: authoringText('Brand'),
     description: authoringText('Quiet on the page'),
   },
-  { value: 'muted', label: authoringText('Muted'), description: authoringText('Tinted surface') },
   { value: 'accent', label: authoringText('Accent'), description: authoringText('The loud one') },
   {
     value: 'inverse',
     label: authoringText('Inverse'),
     description: authoringText('Dark on light pages'),
   },
-] as const;
+] as const satisfies ReadonlyArray<{
+  value: ExperienceAppearance['preset'];
+  label: string;
+  description: string;
+}>;
 
 /**
- * WIRE_BE: a scheme is a Brand-level bundle of role tokens, so the list and the
- * step's binding both belong to the theme the control plane serves. The document
- * models the roles individually, not the bundle, so this holds for the session.
+ * The scheme is a property of the experience, not of one step: a theme names its
+ * recipes per experience, and the roles inside one are not addressable
+ * individually. So this writes the document's appearance preset — which is what
+ * `resolveTourThemeStyle` reads to paint every card, including the one on the
+ * canvas.
+ *
+ * It used to hold the choice in local state and write nothing at all, so picking
+ * a scheme moved a pill and repainted no card.
  */
-function ColourScheme() {
-  const [scheme, setScheme] = useState<string>('surface');
+function ColourScheme({
+  controller,
+  snapshot,
+}: {
+  controller: LocalAuthoringFrameController;
+  snapshot: LocalAuthoringFrameSnapshot;
+}) {
+  const appearance = resolveExperienceAppearance(
+    snapshot.documentState.appearance ?? DEFAULT_EXPERIENCE_APPEARANCE,
+  );
   return (
-    <PropertyChoiceField
-      label={authoringText('Colour scheme')}
-      onChange={setScheme}
-      options={COLOUR_SCHEMES}
-      presentation="menu"
-      value={scheme}
-    />
+    <>
+      <PropertyChoiceField
+        label={authoringText('Colour scheme')}
+        onChange={(preset) =>
+          controller.setDocumentAppearance({
+            ...appearance,
+            preset: preset as ExperienceAppearance['preset'],
+          })
+        }
+        options={COLOUR_SCHEMES}
+        presentation="menu"
+        value={appearance.preset}
+      />
+      {/* Said once, next to the only row in this section with that reach. */}
+      <p className="storyboard-property-hint">
+        {authoringText('Applies to every step in this experience.')}
+      </p>
+    </>
   );
 }
 
@@ -97,7 +133,7 @@ export function StepStyleHeader({
           </button>
         </p>
       )}
-      <ColourScheme />
+      <ColourScheme controller={controller} snapshot={snapshot} />
     </>
   );
 }

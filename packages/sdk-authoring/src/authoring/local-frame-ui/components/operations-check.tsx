@@ -1,17 +1,12 @@
 import type { LodariqBlock } from '@lodariq/schema';
+import { productCapabilityIsImplemented } from '@lodariq/schema/product-capabilities-runtime';
 import { authoringText } from '../../../i18n';
 import { Rocket } from '../design-system';
-import {
-  buildCheckReport,
-  type CheckReport,
-  type CheckRow,
-  type CheckRowKind,
-} from '../../publish-check';
-import type { QaStepInput } from '../../predictive-qa';
-import type { AuthoringTargetHealthPresentation } from '../../target-health-ledger';
+import type { CheckRow, CheckRowKind } from '../../publish-check';
 import type { LocalAuthoringFrameController } from '../controller';
 import type { LocalAuthoringFrameSnapshot } from '../types';
-import { stepTooltip } from '../tour-step-model';
+import { useTargetInspections } from '../use-target-inspections';
+import { buildOperationsCheckReport, documentLocales } from './operations-check-report';
 
 /**
  * Operations → Check (§4.6). One pre-publish report, every row with a
@@ -21,40 +16,26 @@ import { stepTooltip } from '../tour-step-model';
  * Opening this never publishes and never mutates release state (§4.6
  * non-negotiables): it reads the draft and simulates.
  */
-/** The locales this document claims, which is what a check is measured against. */
-export function documentLocales(snapshot: LocalAuthoringFrameSnapshot): readonly string[] {
-  return snapshot.documentState.localization?.variants.map((variant) => variant.locale) ?? [];
-}
-
-/**
- * One report for the section and for the nav badge that counts it. Built by the
- * hub and handed down, so the row and the section can never disagree.
- */
-export function buildOperationsCheckReport(
-  snapshot: LocalAuthoringFrameSnapshot,
-  steps: readonly LodariqBlock[],
-): CheckReport {
-  return buildCheckReport({
-    document: snapshot.documentState,
-    steps: steps.map(simulationInputFor),
-    targetHealth: targetHealthMap(snapshot),
-    locales: documentLocales(snapshot),
-  });
-}
-
 export function OperationsCheck({
   controller,
-  locales,
-  report,
-  stepCount,
+  snapshot,
+  steps,
 }: {
   controller: LocalAuthoringFrameController;
-  locales: number;
-  report: CheckReport;
-  stepCount: number;
+  snapshot: LocalAuthoringFrameSnapshot;
+  steps: readonly LodariqBlock[];
 }) {
+  const report = buildOperationsCheckReport(snapshot, steps);
+  const locales = documentLocales(snapshot).length;
+  const localeLayoutQa = snapshot.localeLayoutQa;
+  const localeLayoutQaAvailable = snapshot.localeLayoutQaAvailable ?? false;
+  const accessibilitySweep = snapshot.accessibilitySweep;
+  const accessibilitySweepAvailable = snapshot.accessibilitySweepAvailable ?? false;
   const warnings = report.rows.length - report.blockers.length;
   const blocked = report.blockers.length > 0;
+
+  // A report on evidence nobody gathered is worse than no report.
+  useTargetInspections(controller, steps);
 
   return (
     <section className="operations-check" aria-label={authoringText('Check')}>
@@ -71,24 +52,47 @@ export function OperationsCheck({
           tone={warnings > 0 ? 'warning' : 'clear'}
           value={warnings}
         />
-        <CheckTally label={authoringText('Steps')} tone="neutral" value={stepCount} />
+        <CheckTally label={authoringText('Steps')} tone="neutral" value={steps.length} />
         <CheckTally label={authoringText('Languages')} tone="neutral" value={locales} />
       </div>
 
       <div className="operations-check-actions">
-        {/* Printed and disabled with the reason rather than hidden (§3 WIRE_). */}
-        {UNBUILT_SWEEPS.map((sweep) => (
-          <button
-            className="ops-btn"
-            data-check-action={sweep.id}
-            disabled
-            key={sweep.id}
-            title={sweep.reason}
-            type="button"
-          >
-            {sweep.label}
-          </button>
-        ))}
+        <button
+          className="ops-btn"
+          data-check-action="locale-layout"
+          disabled={
+            !productCapabilityIsImplemented('authoring.locale-layout-qa') ||
+            !localeLayoutQaAvailable ||
+            localeLayoutQa?.state === 'running'
+          }
+          onClick={() => controller.runLocaleLayoutQa()}
+          title={
+            localeLayoutQaAvailable
+              ? undefined
+              : authoringText('Live language layout checking is unavailable in this session.')
+          }
+          type="button"
+        >
+          {localeLayoutQa?.state === 'running'
+            ? authoringText('Checking live layouts…')
+            : authoringText('Check live language layouts')}
+        </button>
+        <button
+          className="ops-btn"
+          data-check-action="a11y"
+          disabled={!accessibilitySweepAvailable || accessibilitySweep?.state === 'running'}
+          onClick={() => controller.runAccessibilitySweep()}
+          title={
+            accessibilitySweepAvailable
+              ? undefined
+              : authoringText('Workspace accessibility checking is unavailable in this session.')
+          }
+          type="button"
+        >
+          {accessibilitySweep?.state === 'running'
+            ? authoringText('Checking workspace accessibility…')
+            : authoringText('Accessibility sweep')}
+        </button>
         <span className="ops-spacer" />
         {/*
           Alone on the right, because it is the one action here that changes what
@@ -114,12 +118,69 @@ export function OperationsCheck({
         </button>
       </div>
       <p className="operations-note" role="status">
-        {authoringText('Simulation and the accessibility sweep are not built yet.')}
+        {authoringText(
+          'Predictive checks run automatically. Live language layouts render on this page; workspace accessibility findings are pinned to immutable document versions.',
+        )}
       </p>
+
+      {accessibilitySweep?.state === 'error' ? (
+        <p className="ops-callout" data-tone="warning" role="alert">
+          {authoringText('Workspace accessibility checking failed.')}
+        </p>
+      ) : null}
+      {accessibilitySweep?.state === 'complete' && accessibilitySweep.result ? (
+        <div className="ops-box" data-kind="readiness" data-accessibility-sweep-summary="">
+          <h3>{authoringText('Workspace accessibility result')}</h3>
+          <p>
+            {authoringText('Checked {documents} experiences across {locales} language versions.', {
+              documents: accessibilitySweep.result.sweep.documentCount,
+              locales: accessibilitySweep.result.sweep.localeCount,
+            })}
+          </p>
+          <p>
+            {authoringText('{blockers} blockers · {warnings} warnings', {
+              blockers: accessibilitySweep.result.sweep.blockerCount,
+              warnings: accessibilitySweep.result.sweep.warningCount,
+            })}
+          </p>
+        </div>
+      ) : null}
+
+      {localeLayoutQa?.state === 'error' ? (
+        <p className="ops-callout" data-tone="warning" role="alert">
+          {authoringText('Live language layouts could not be checked on this page.')}
+        </p>
+      ) : null}
+      {localeLayoutQa?.state === 'complete' && localeLayoutQa.report ? (
+        <div className="ops-box" data-kind="layout" data-locale-layout-summary="">
+          <h3>{authoringText('Live language layout result')}</h3>
+          <p>
+            {authoringText(
+              'Checked {presentations} presentations across {locales} languages and {steps} steps at {width}×{height}.',
+              {
+                presentations: localeLayoutQa.report.checkedPresentationCount,
+                locales: localeLayoutQa.report.checkedLocaleCount,
+                steps: localeLayoutQa.report.checkedStepCount,
+                width: localeLayoutQa.report.viewport.width,
+                height: localeLayoutQa.report.viewport.height,
+              },
+            )}
+          </p>
+          <p>
+            {authoringText('{passed} passed · {failed} failed · {unavailable} unavailable', {
+              passed: localeLayoutQa.report.passedCount,
+              failed: localeLayoutQa.report.failedCount,
+              unavailable: localeLayoutQa.report.unavailableCount,
+            })}
+          </p>
+        </div>
+      ) : null}
 
       {report.rows.length === 0 ? (
         <p className="ops-callout" data-tone="ok" role="status">
-          {authoringText('Nothing to fix. Contrast, layout, targets and descriptions all check out.')}
+          {authoringText(
+            'Nothing to fix. Contrast, layout, targets and descriptions all check out.',
+          )}
         </p>
       ) : null}
 
@@ -144,12 +205,13 @@ export function OperationsCheck({
                   {row.message}
                   {row.detail ? <small className="ops-list-meta">{row.detail}</small> : null}
                 </span>
-                {row.jump ? (
+                {row.jump || row.repairIssue ? (
                   <button
                     className="ops-btn"
                     data-size="sm"
                     type="button"
-                    data-check-jump={row.jump.section}
+                    data-check-jump={row.jump?.section}
+                    data-publish-issue-code={row.repairIssue?.code}
                     onClick={() => jumpTo(controller, row)}
                   >
                     {authoringText('Take me there')}
@@ -163,31 +225,6 @@ export function OperationsCheck({
     </section>
   );
 }
-
-/**
- * Two of the prototype's Check actions that this build cannot run yet.
- *
- * WIRE_IFRAME: the simulated user needs to drive the real page — click through
- * each step against the test user's attributes and report where it stalls. The
- * `simulate-user` chrome action exists but only opens this section; nothing
- * drives the page from here.
- *
- * WIRE_BE: the accessibility sweep is a workspace-level report over every
- * experience, not a re-run of the rules already in the list below. Nothing
- * carries one to this frame.
- */
-const UNBUILT_SWEEPS: ReadonlyArray<{ id: string; label: string; reason: string }> = [
-  {
-    id: 'simulate',
-    label: authoringText('Simulate a confused user'),
-    reason: authoringText('Simulation cannot drive your page yet.'),
-  },
-  {
-    id: 'a11y',
-    label: authoringText('Accessibility sweep'),
-    reason: authoringText('The sweep is a workspace report and is not available yet.'),
-  },
-];
 
 const CHECK_KIND_LABELS: Record<CheckRowKind, string> = {
   readiness: authoringText('Things that stop this publishing'),
@@ -228,47 +265,11 @@ function groupByKind(rows: readonly CheckRow[]): Array<[CheckRowKind, CheckRow[]
 
 /** Selects the step and closes Operations, so the fix is one click away. */
 function jumpTo(controller: LocalAuthoringFrameController, row: CheckRow): void {
+  if (row.repairIssue) {
+    controller.repairPublishIssue(row.repairIssue);
+    return;
+  }
   if (!row.jump) return;
   controller.closeOperationsMode();
   controller.activateTourStep(row.jump.stepId);
-}
-
-function simulationInputFor(step: LodariqBlock): QaStepInput {
-  const tooltip = stepTooltip(step);
-  const layout = tooltip?.props.tooltipLayout;
-  const placement = tooltip?.props.placement ?? 'bottom';
-  return {
-    stepId: step.id,
-    card: {
-      width: layout?.widthPx ?? 320,
-      height: layout?.heightPx ?? 200,
-    },
-    /**
-     * Captured target geometry does not cross the bridge (ADR-0016 keeps
-     * coordinates diagnostic-only), so the simulation runs against a neutral box
-     * of the size a control usually is. That still catches the card-shape
-     * failures — overflow, occlusion, flips — which are what §7.3 is for.
-     */
-    target: { left: 0, top: 0, width: 120, height: 40 },
-    placement: placement === 'top' || placement === 'left' || placement === 'right' ? placement : 'bottom',
-    scrollsIntoView: true,
-    tapTargets: (tooltip?.children ?? [])
-      .filter((child) => child.type === 'button')
-      .map((child) => ({
-        label: child.content ?? authoringText('Button'),
-        // Authored buttons render at the recipes' sizes; the recipe floor is 44px.
-        width: 120,
-        height: 44,
-      })),
-  };
-}
-
-function targetHealthMap(
-  snapshot: LocalAuthoringFrameSnapshot,
-): ReadonlyMap<string, AuthoringTargetHealthPresentation> {
-  const entries = new Map<string, AuthoringTargetHealthPresentation>();
-  for (const [targetId, health] of snapshot.targetHealth) {
-    entries.set(targetId, health.presentation);
-  }
-  return entries;
 }

@@ -27,6 +27,7 @@ import type {
 } from '../domains/enterprise-identity';
 import { isValidAuthIdentityRecord, isValidAuthSessionRecord } from '../domains/identity';
 import { clone } from '../domains/in-memory-helpers';
+import { assertCommercialFeature } from '../domains/commercial-entitlements';
 import { InMemoryRepositoryOidc } from './oidc';
 
 export class InMemoryRepositoryEnterpriseIdentity
@@ -68,7 +69,8 @@ export class InMemoryRepositoryEnterpriseIdentity
   }
 
   async getEnterpriseWorkspaceConfiguration(workspaceId: string, actorUserId: string) {
-    if (!this.hasEnterpriseAdminRole(workspaceId, actorUserId)) return { status: 'forbidden' as const };
+    if (!this.hasEnterpriseAdminRole(workspaceId, actorUserId))
+      return { status: 'forbidden' as const };
     const policy = this.workspaceAuthPolicies.get(workspaceId);
     if (!policy) return { status: 'not_found' as const };
     return {
@@ -100,8 +102,14 @@ export class InMemoryRepositoryEnterpriseIdentity
     input: CreateEnterpriseSsoConnectionInput,
   ): Promise<EnterpriseMutationResult> {
     const connection = input.connection;
+    if (!this.hasEnterpriseOwnerRole(connection.workspaceId, input.actorUserId)) {
+      return 'forbidden';
+    }
+    assertCommercialFeature(
+      this.resolveWorkspaceEntitlements(connection.workspaceId).entitlements,
+      'sso',
+    );
     if (
-      !this.hasEnterpriseOwnerRole(connection.workspaceId, input.actorUserId) ||
       !validEnterpriseConnection(connection) ||
       input.auditEvent.workspaceId !== connection.workspaceId ||
       input.auditEvent.connectionId !== connection.id
@@ -215,8 +223,12 @@ export class InMemoryRepositoryEnterpriseIdentity
     input: CreateEnterpriseDomainInput,
   ): Promise<EnterpriseMutationResult> {
     const record = input.domain;
-    const connection = this.enterpriseSsoConnections.get(record.connectionId);
     if (!this.hasEnterpriseOwnerRole(record.workspaceId, input.actorUserId)) return 'forbidden';
+    assertCommercialFeature(
+      this.resolveWorkspaceEntitlements(record.workspaceId).entitlements,
+      'sso',
+    );
+    const connection = this.enterpriseSsoConnections.get(record.connectionId);
     if (
       !connection ||
       connection.workspaceId !== record.workspaceId ||
@@ -281,6 +293,12 @@ export class InMemoryRepositoryEnterpriseIdentity
   ): Promise<EnterpriseMutationResult> {
     if (input.minimumAssurance === 'aal3') return 'invalid_input';
     if (!this.hasEnterpriseOwnerRole(input.workspaceId, input.actorUserId)) return 'forbidden';
+    if (input.ssoRequired) {
+      assertCommercialFeature(
+        this.resolveWorkspaceEntitlements(input.workspaceId).entitlements,
+        'sso',
+      );
+    }
     const current = this.workspaceAuthPolicies.get(input.workspaceId);
     if (!current) return 'not_found';
     if (!input.passwordAllowed && !input.ssoRequired) return 'invalid_input';
@@ -344,6 +362,10 @@ export class InMemoryRepositoryEnterpriseIdentity
   ): Promise<EnterpriseMutationResult> {
     const mapping = input.mapping;
     if (!this.hasEnterpriseOwnerRole(mapping.workspaceId, input.actorUserId)) return 'forbidden';
+    assertCommercialFeature(
+      this.resolveWorkspaceEntitlements(mapping.workspaceId).entitlements,
+      'sso',
+    );
     const connection = this.enterpriseSsoConnections.get(mapping.connectionId);
     if (
       !connection ||
@@ -357,7 +379,8 @@ export class InMemoryRepositoryEnterpriseIdentity
       (candidate) =>
         candidate.connectionId === mapping.connectionId && candidate.groupId === mapping.groupId,
     );
-    if (previous && previous.id !== mapping.id) this.enterpriseGroupRoleMappings.delete(previous.id);
+    if (previous && previous.id !== mapping.id)
+      this.enterpriseGroupRoleMappings.delete(previous.id);
     this.enterpriseGroupRoleMappings.set(mapping.id, clone(mapping));
     this.enterpriseAuditEvents.set(input.auditEvent.id, clone(input.auditEvent));
     return 'completed';
@@ -368,6 +391,10 @@ export class InMemoryRepositoryEnterpriseIdentity
   ): Promise<EnterpriseMutationResult> {
     const scim = input.connection;
     if (!this.hasEnterpriseOwnerRole(scim.workspaceId, input.actorUserId)) return 'forbidden';
+    assertCommercialFeature(
+      this.resolveWorkspaceEntitlements(scim.workspaceId).entitlements,
+      'scim',
+    );
     const sso = this.enterpriseSsoConnections.get(scim.connectionId);
     if (
       !isActiveValidatedConnection(sso, this.enterpriseValidationEvidence) ||
@@ -488,6 +515,9 @@ export class InMemoryRepositoryEnterpriseIdentity
       ),
     );
     const provisionedRole = mappedRole ?? input.role;
+    if (provisionedRole !== 'viewer') {
+      this.assertCreatorSeatAvailable(scim.workspaceId);
+    }
     if (
       this.users.has(input.user.id) ||
       this.userEmails.has(input.email.normalizedEmail) ||
@@ -552,7 +582,9 @@ export class InMemoryRepositoryEnterpriseIdentity
     return 'completed';
   }
 
-  async bindEnterpriseIdentity(input: BindEnterpriseIdentityInput): Promise<EnterpriseMutationResult> {
+  async bindEnterpriseIdentity(
+    input: BindEnterpriseIdentityInput,
+  ): Promise<EnterpriseMutationResult> {
     const connection = this.enterpriseSsoConnections.get(input.connectionId);
     const principal = [...this.enterprisePrincipals.values()].find(
       (candidate) =>
@@ -654,7 +686,12 @@ export class InMemoryRepositoryEnterpriseIdentity
       });
       this.identitySessions.set(session.tokenHash, clone(session));
       this.rememberEnterpriseAuthenticationEvent(input, principal.userId, false);
-      return { status: 'authenticated', userId: principal.userId, session: clone(session), created: false };
+      return {
+        status: 'authenticated',
+        userId: principal.userId,
+        session: clone(session),
+        created: false,
+      };
     }
 
     // A provider identity already linked outside this enterprise connection may
@@ -714,6 +751,9 @@ export class InMemoryRepositoryEnterpriseIdentity
       !input.candidateEmail.verifiedAt
     ) {
       return { status: 'conflict' };
+    }
+    if (role !== 'viewer') {
+      this.assertCreatorSeatAvailable(connection.workspaceId);
     }
     const session = enterpriseSessionForUser(
       input.candidateSession,
@@ -862,7 +902,11 @@ export class InMemoryRepositoryEnterpriseIdentity
       }
     }
     for (const [grantId, grant] of this.authoringActivationGrants) {
-      if (grant.workspaceId === workspaceId && grant.creatorId === userId && grant.revokedAt === null) {
+      if (
+        grant.workspaceId === workspaceId &&
+        grant.creatorId === userId &&
+        grant.revokedAt === null
+      ) {
         this.authoringActivationGrants.set(grantId, { ...grant, revokedAt });
       }
     }
@@ -944,10 +988,10 @@ function isActiveValidatedConnection(
 ): connection is EnterpriseSsoConnectionRecord {
   return Boolean(
     connection?.status === 'active' &&
-      connection.validatedAt &&
-      [...evidence.values()].some(
-        (record) => record.connectionId === connection.id && record.revokedAt === null,
-      ),
+    connection.validatedAt &&
+    [...evidence.values()].some(
+      (record) => record.connectionId === connection.id && record.revokedAt === null,
+    ),
   );
 }
 

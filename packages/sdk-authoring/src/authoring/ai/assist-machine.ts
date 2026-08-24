@@ -91,13 +91,12 @@ export function aiAssistReducer(state: AiAssistState, event: AiAssistEvent): AiA
       if (state.phase !== 'confirming') return state;
       return { ...state, phase: 'applied', appliedRevision: state.appliedRevision + 1 };
     case 'reject':
-    /**
-     * Same resting state as a reject, and deliberately so: `applied` has nothing
-     * left to show, because the edit is in the document and `⌘Z` owns taking it
-     * back. Sitting in `applied` left the panel on screen with every branch
-     * false — an empty box the creator could not dismiss.
-     */
+      return { ...INITIAL_AI_ASSIST_STATE, appliedRevision: state.appliedRevision };
     case 'dismiss':
+      /**
+       * Same resting state as a reject: the accepted edit is already in the
+       * document and the editor's history owns taking it back.
+       */
       return { ...INITIAL_AI_ASSIST_STATE, appliedRevision: state.appliedRevision };
     case 'undo': {
       const previous = state.history[state.history.length - 1];

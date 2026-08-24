@@ -13,12 +13,6 @@ export const AUTHORING_ASSIST_CSS = `
     gap: var(--lq-space-2);
   }
 
-  /*
-   * Third column rather than an overlay: this row is one line and has the space.
-   * The element selector is deliberate — the generic rule below paints the primary
-   * Ask fill on every button here, and a close button wearing it competes with the
-   * action it sits beside.
-   */
   .assist-prompt button.assist-prompt-close {
     display: grid;
     width: var(--lq-control-md);
@@ -80,7 +74,6 @@ export const AUTHORING_ASSIST_CSS = `
     padding: var(--lq-space-3);
   }
 
-  /* Top-right of the panel, out of the grid so it never adds a row of its own. */
   .assist-preview-close {
     position: absolute;
     top: 6px;

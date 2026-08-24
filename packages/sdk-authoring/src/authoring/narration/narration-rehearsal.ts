@@ -1,16 +1,8 @@
 /**
  * Rehearsing narration (§7.7).
  *
- * Audio still cannot ship: it has to sit inside the immutable artifact so
- * preview and production sound identical, which needs the ADR-0014 amendment.
- * What a creator actually needs first is cheaper and available now — to hear the
- * *shape* of it: how long each step holds the screen, where a sentence runs
- * long, whether the whole thing outlasts anyone's patience.
- *
- * So this plays the script as timed captions. The timing is honest about being
- * an estimate, and the estimate is the same one a voice would follow: words at a
- * speaking rate, adjusted by the step's speed, with a floor so a three-word
- * sentence does not flash past.
+ * This fast, provider-free pass shows the shape of a script before audio is
+ * generated. Full preview uses the content-addressed audio and exact cues.
  */
 import type { LodariqBlock, StepNarration } from '@lodariq/schema';
 

@@ -1,4 +1,11 @@
-import { AUTHORING_SESSION_CAPABILITIES, type AuthoringSessionCapability } from '@lodariq/schema';
+import {
+  AUTHORING_SESSION_CAPABILITIES,
+  resolveEnvironmentGovernanceCapabilities,
+  resolveWorkspaceGovernanceCapabilities,
+  type AuthoringSessionCapability,
+  type GovernanceCapability,
+  type WorkspaceGovernanceCapability,
+} from '@lodariq/schema';
 import type { ControlPlaneRepository } from '@lodariq/database';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import {
@@ -17,19 +24,21 @@ export type ReleaseCapability =
   | 'promote-production'
   | 'publish-staging'
   | 'rollback-release'
+  | 'schedule-release'
   | 'sample-product-style'
   | 'unpublish-release'
   | 'verify-staging';
 
 export const RELEASE_CAPABILITIES_BY_ROLE = {
   viewer: [],
-  member: ['publish-staging', 'sample-product-style', 'verify-staging'],
+  member: ['publish-staging', 'sample-product-style', 'schedule-release', 'verify-staging'],
   admin: [
     'approve-production',
     'manage-release-policy',
     'promote-production',
     'publish-staging',
     'rollback-release',
+    'schedule-release',
     'sample-product-style',
     'unpublish-release',
     'verify-staging',
@@ -40,6 +49,7 @@ export const RELEASE_CAPABILITIES_BY_ROLE = {
     'promote-production',
     'publish-staging',
     'rollback-release',
+    'schedule-release',
     'sample-product-style',
     'unpublish-release',
     'verify-staging',
@@ -53,6 +63,7 @@ export const RELEASE_CAPABILITY_BY_AUTHORING_SESSION_CAPABILITY: Partial<
   [AUTHORING_SESSION_CAPABILITIES.PROMOTE_PRODUCTION]: 'promote-production',
   [AUTHORING_SESSION_CAPABILITIES.PUBLISH_STAGING]: 'publish-staging',
   [AUTHORING_SESSION_CAPABILITIES.ROLLBACK_RELEASE]: 'rollback-release',
+  [AUTHORING_SESSION_CAPABILITIES.SCHEDULE_RELEASE]: 'schedule-release',
   [AUTHORING_SESSION_CAPABILITIES.SAMPLE_PRODUCT_STYLE]: 'sample-product-style',
   [AUTHORING_SESSION_CAPABILITIES.UNPUBLISH_RELEASE]: 'unpublish-release',
   [AUTHORING_SESSION_CAPABILITIES.VERIFY_STAGING]: 'verify-staging',
@@ -64,10 +75,23 @@ export const RELEASE_CAPABILITY_FORBIDDEN_MESSAGES = {
   'promote-production': 'This workspace membership cannot promote to production',
   'publish-staging': 'This workspace membership cannot publish to staging',
   'rollback-release': 'This workspace membership cannot roll back releases',
+  'schedule-release': 'This workspace membership cannot schedule releases',
   'sample-product-style': 'This workspace membership cannot save product style sources',
   'unpublish-release': 'This workspace membership cannot unpublish releases',
   'verify-staging': 'This workspace membership cannot verify staging releases',
 } as const satisfies Record<ReleaseCapability, string>;
+
+export const GOVERNANCE_CAPABILITY_BY_RELEASE_CAPABILITY = {
+  'approve-production': 'release:approve',
+  'manage-release-policy': 'release-policy:manage',
+  'promote-production': 'release:promote',
+  'publish-staging': 'release:publish',
+  'rollback-release': 'release:rollback',
+  'schedule-release': 'release:schedule',
+  'sample-product-style': 'product-style:sample',
+  'unpublish-release': 'release:unpublish',
+  'verify-staging': 'release:verify',
+} as const satisfies Readonly<Record<ReleaseCapability, GovernanceCapability>>;
 
 const AUTH_ROLE_RANK = {
   viewer: 0,
@@ -106,6 +130,86 @@ export function requireReleaseCapability(
   void reply.code(403).send({
     error: 'forbidden',
     message: RELEASE_CAPABILITY_FORBIDDEN_MESSAGES[capability],
+  });
+  return false;
+}
+
+export async function requireEnvironmentReleaseCapability(
+  repository: ControlPlaneRepository,
+  auth: AuthContext,
+  environmentId: string,
+  capability: ReleaseCapability,
+  reply: FastifyReply,
+): Promise<boolean> {
+  if (await environmentReleaseCapabilityAllowed(repository, auth, environmentId, capability)) {
+    return true;
+  }
+  void reply.code(403).send({
+    error: 'forbidden',
+    message: RELEASE_CAPABILITY_FORBIDDEN_MESSAGES[capability],
+  });
+  return false;
+}
+
+export async function environmentReleaseCapabilityAllowed(
+  repository: ControlPlaneRepository,
+  auth: AuthContext,
+  environmentId: string,
+  capability: ReleaseCapability,
+): Promise<boolean> {
+  const [environment, resolved] = await Promise.all([
+    repository
+      .listEnvironments(auth.workspaceId)
+      .then((environments) => environments.find((item) => item.id === environmentId) ?? null),
+    repository.resolveGovernanceCapabilityProfile(auth.workspaceId, environmentId, auth.userId),
+  ]);
+  const requiredCapability = GOVERNANCE_CAPABILITY_BY_RELEASE_CAPABILITY[capability];
+  if (environment && resolved && resolved.membershipRole === auth.role) {
+    const grants = resolveEnvironmentGovernanceCapabilities({
+      role: resolved.membershipRole,
+      environmentCapabilities: environment.governanceCapabilities ?? [],
+      profile: resolved.profile,
+    });
+    if (grants.includes(requiredCapability)) return true;
+  }
+  return false;
+}
+
+export async function workspaceGovernanceCapabilityAllowed(
+  repository: ControlPlaneRepository,
+  workspaceId: string,
+  userId: string,
+  capability: WorkspaceGovernanceCapability,
+): Promise<boolean> {
+  const resolved = await repository.resolveWorkspaceGovernanceCapabilityProfile(
+    workspaceId,
+    userId,
+  );
+  if (!resolved) return false;
+  return resolveWorkspaceGovernanceCapabilities(resolved.membershipRole, resolved.profile).includes(
+    capability,
+  );
+}
+
+export async function requireWorkspaceGovernanceCapability(
+  repository: ControlPlaneRepository,
+  auth: AuthContext,
+  capability: WorkspaceGovernanceCapability,
+  reply: FastifyReply,
+): Promise<boolean> {
+  if (
+    await workspaceGovernanceCapabilityAllowed(
+      repository,
+      auth.workspaceId,
+      auth.userId,
+      capability,
+    )
+  ) {
+    return true;
+  }
+  void reply.code(403).send({
+    error: 'forbidden',
+    message: `The ${capability} workspace capability is required`,
   });
   return false;
 }

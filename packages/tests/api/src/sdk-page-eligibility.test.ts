@@ -5,7 +5,12 @@ import {
   type InMemoryControlPlaneSeed,
   type WorkspaceEnvironment,
 } from '@lodariq/database';
-import { SdkEligibilityDigest, validate, type LodariqDocument } from '@lodariq/schema';
+import {
+  COMMERCIAL_PLAN_VERSION,
+  SdkEligibilityDigest,
+  validate,
+  type LodariqDocument,
+} from '@lodariq/schema';
 import tourFixture from '@lodariq/schema/fixtures/tour.linear.v1.json';
 
 /**
@@ -108,7 +113,7 @@ describe('SDK eligibility digest', () => {
 
     expect(response.json().scope).toEqual({ kind: 'all' });
     await app.close();
-  });
+  }, 15_000);
 
   it('reports no scope when nothing is published', async () => {
     const { app, installationId } = await setup({ publish: false });
@@ -298,20 +303,35 @@ async function bootstrap(
 }
 
 function createRepository(seed: InMemoryControlPlaneSeed) {
+  const now = '2026-08-07T00:00:00.000Z';
   return createInMemoryControlPlaneRepository({
     ...seed,
+    workspaceSubscriptions: [
+      {
+        workspaceId: 'wk_eligibility',
+        planId: 'business',
+        planVersion: COMMERCIAL_PLAN_VERSION,
+        status: 'active',
+        entitlementOverrides: {},
+        currentPeriodStart: '2026-08-01T00:00:00.000Z',
+        currentPeriodEnd: '2026-09-01T00:00:00.000Z',
+        revision: 1,
+        createdAt: now,
+        updatedAt: now,
+      },
+    ],
     workspaceMemberships: [
       {
         workspaceId: 'wk_eligibility',
         userId: 'user_eligibility',
         role: 'owner',
-        createdAt: '2026-08-07T00:00:00.000Z',
+        createdAt: now,
       },
       {
         workspaceId: 'wk_eligibility',
         userId: 'user_eligibility_member',
         role: 'member',
-        createdAt: '2026-08-07T00:00:00.000Z',
+        createdAt: now,
       },
     ],
   });

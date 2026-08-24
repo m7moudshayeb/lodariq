@@ -11,7 +11,7 @@ import {
 } from '../../../../../packages/sdk-authoring/src/authoring/overlay/filmstrip';
 import { createModePill } from '../../../../../packages/sdk-authoring/src/authoring/overlay/mode-pill';
 import type { ModePillCallbacks } from '../../../../../packages/sdk-authoring/src/authoring/overlay/mode-pill.types';
-import { StepLockBanner } from '../../../../../packages/sdk-authoring/src/authoring/local-frame-ui/components/step-lock-banner';
+import { createLockBand } from '../../../../../packages/sdk-authoring/src/authoring/overlay/lock-band';
 import { ConflictChooser } from '../../../../../packages/sdk-authoring/src/authoring/local-frame-ui/components/conflict-chooser';
 import { conflictPrompt } from '../../../../../packages/sdk-authoring/src/authoring/presence/conflict';
 import type { LodariqDocument } from '@lodariq/schema';
@@ -34,9 +34,25 @@ describe('presence on the filmstrip (§15.2 layer 1)', () => {
     expect(avatars[0]?.textContent).toBe('DH');
     expect(avatars[0]?.getAttribute('title')).toBe('Dina Haddad');
     // Never colour-only: the group names everyone for assistive tech.
-    expect(filmstrip.querySelector('.overlay-filmstrip-peers')?.getAttribute('aria-label')).toContain(
-      'Dina Haddad',
-    );
+    expect(
+      filmstrip.querySelector('.overlay-filmstrip-peers')?.getAttribute('aria-label'),
+    ).toContain('Dina Haddad');
+  });
+
+  it('marks a semantic selection without adding another piece of chrome', () => {
+    const filmstrip = createFilmstrip(document);
+    document.body.append(filmstrip);
+    renderFilmstripSteps(filmstrip, stepsDocument(), 'step_1', new Set(), {
+      peersOnStep: (stepId) =>
+        stepId === 'step_2'
+          ? [{ name: 'Mina Chen', initials: 'MC', selectionLabel: 'Welcome heading' }]
+          : [],
+    });
+
+    const avatar = filmstrip.querySelector<HTMLElement>('[data-peer]');
+    expect(avatar?.dataset.selecting).toBe('true');
+    expect(avatar?.title).toBe('Mina Chen is selecting Welcome heading');
+    expect(filmstrip.querySelectorAll('[data-peer]')).toHaveLength(1);
   });
 
   it('caps the faces and counts the rest', () => {
@@ -83,6 +99,19 @@ describe('presence in the mode pill (§15.2 layer 1)', () => {
     expect(group.textContent).toContain('2 other people');
     expect(group.getAttribute('title')).toContain('Dina Haddad');
 
+    pill.setState({
+      peers: [
+        {
+          creatorId: 'c1',
+          name: 'Dina Haddad',
+          detail: 'Dina Haddad is selecting Welcome heading',
+        },
+      ],
+    });
+    expect(pill.element.querySelector('[data-pill-peers]')?.getAttribute('title')).toContain(
+      'selecting Welcome heading',
+    );
+
     pill.setState({ peers: [{ creatorId: 'c1', name: 'Dina Haddad' }] });
     expect(pill.element.querySelector('[data-pill-peers]')?.textContent).toContain(
       '1 other person',
@@ -95,72 +124,41 @@ describe('presence in the mode pill (§15.2 layer 1)', () => {
 });
 
 describe('a step someone else holds (§15.2 layer 2)', () => {
-  it('names the holder and offers to ask rather than to take', () => {
-    const markup = renderToStaticMarkup(
-      createElement(StepLockBanner, {
-        canForceRelease: false,
-        editability: {
-          editable: false,
-          reason: 'step',
-          holder: { creatorId: 'creator_dina', name: 'Dina Haddad', stepId: 'step_2', lastSeenAt: 0 },
-        },
-        onAsk: () => undefined,
-        onForceRelease: () => undefined,
-      }),
-    );
-    expect(markup).toContain('Dina Haddad is editing this step');
-    expect(markup).toContain('data-step-lock-action="ask"');
-    expect(markup).not.toContain('data-step-lock-action="force"');
-  });
+  it('names the holder and offers ask or duplicate, never force-release', () => {
+    const onAsk = vi.fn();
+    const onDuplicate = vi.fn();
+    const band = createLockBand(document, { onAsk, onDuplicate });
+    document.body.append(band.element);
+    band.setHolder({ stepId: 'step_2', holderName: 'Dina Haddad', reason: 'step' });
 
-  it('offers force-release only to an admin, and records it through the host', async () => {
-    const onForceRelease = vi.fn();
-    const rootElement = document.createElement('div');
-    document.body.append(rootElement);
-    const root = createRoot(rootElement);
-    await act(async () => {
-      root.render(
-        createElement(StepLockBanner, {
-          canForceRelease: true,
-          editability: { editable: false, reason: 'step', holder: null },
-          onAsk: () => undefined,
-          onForceRelease,
-        }),
-      );
-    });
-
-    rootElement.querySelector<HTMLButtonElement>('[data-step-lock-action="force"]')?.click();
-    expect(onForceRelease).toHaveBeenCalledOnce();
-    await act(async () => root.unmount());
+    expect(band.element.hidden).toBe(false);
+    expect(band.element.textContent).toContain('Dina Haddad is editing this step');
+    band.element.querySelector<HTMLButtonElement>('[data-lock-band-action="ask"]')?.click();
+    band.element.querySelector<HTMLButtonElement>('[data-lock-band-action="duplicate"]')?.click();
+    expect(onAsk).toHaveBeenCalledWith('step_2', 'Dina Haddad');
+    expect(onDuplicate).toHaveBeenCalledWith('step_2');
+    expect(band.element.textContent).not.toContain('Force');
   });
 
   it('states a document-scoped hold plainly and offers nothing to click', () => {
-    const markup = renderToStaticMarkup(
-      createElement(StepLockBanner, {
-        canForceRelease: true,
-        editability: {
-          editable: false,
-          reason: 'document',
-          holder: { creatorId: 'creator_sami', name: 'Sami', stepId: null, lastSeenAt: 0 },
-        },
-        onAsk: () => undefined,
-        onForceRelease: () => undefined,
-      }),
-    );
-    expect(markup).toContain('Sami is reordering steps');
-    expect(markup).not.toContain('<button');
+    const band = createLockBand(document, {
+      onAsk: () => undefined,
+      onDuplicate: () => undefined,
+    });
+    band.setHolder({ stepId: 'step_2', holderName: 'Sami', reason: 'document' });
+    expect(band.element.textContent).toContain('Sami is reordering steps');
+    for (const action of band.element.querySelectorAll<HTMLButtonElement>('button')) {
+      expect(action.hidden).toBe(true);
+    }
   });
 
   it('renders nothing at all when the step is yours', () => {
-    const markup = renderToStaticMarkup(
-      createElement(StepLockBanner, {
-        canForceRelease: false,
-        editability: { editable: true },
-        onAsk: () => undefined,
-        onForceRelease: () => undefined,
-      }),
-    );
-    expect(markup).toBe('');
+    const band = createLockBand(document, {
+      onAsk: () => undefined,
+      onDuplicate: () => undefined,
+    });
+    band.setHolder(null);
+    expect(band.element.hidden).toBe(true);
   });
 });
 
@@ -206,19 +204,17 @@ function callbacks(): ModePillCallbacks {
   return {
     onModeChange: () => undefined,
     onPreview: () => undefined,
-    onExitPreview: () => undefined,
-    onEditPreviewStep: () => undefined,
     onOpenOperations: () => undefined,
     onToggleAllPanels: () => undefined,
     onRetrySave: () => undefined,
     onExitAuthoring: () => undefined,
-  onSwitchExperience: () => undefined,
-  onEnvironmentChange: () => undefined,
-  onToggleRecording: () => undefined,
-  onSimulateUser: () => undefined,
-  onCanvasZoom: () => undefined,
-  onKeyboardMap: () => undefined,
-  onRestart: () => undefined,
+    onSwitchExperience: () => undefined,
+    onEnvironmentChange: () => undefined,
+    onToggleRecording: () => undefined,
+    onCanvasZoom: () => undefined,
+    onKeyboardMap: () => undefined,
+    onCommandPalette: () => undefined,
+    onRestart: () => undefined,
   };
 }
 

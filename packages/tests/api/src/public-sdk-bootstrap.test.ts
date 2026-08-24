@@ -9,6 +9,7 @@ import {
 import {
   BRAND_THEME_CONTRACT_VERSION,
   COMPILED_ARTIFACT_SCHEMA_VERSION,
+  COMMERCIAL_PLAN_VERSION,
   COMPILER_VERSION,
   ControlPlaneAuthContext,
   MAX_ACTIVE_DOCUMENT_MANIFESTS,
@@ -249,6 +250,58 @@ describe('origin-resolved public SDK bootstrap', () => {
     await app.close();
   });
 
+  it('accepts only value-free catalog observations from an origin-bound installation', async () => {
+    const repository = createPublicSdkRepository({ environments });
+    const app = createApiApp({ repository });
+    const installationId = await createInstallation(app, 'Catalog application');
+    const mapped = await app.inject({
+      method: 'PUT',
+      url: `/v1/sdk-installations/${installationId}/origins`,
+      headers: authHeaders,
+      payload: {
+        environmentId: 'env_staging',
+        origin: 'https://staging.customer.example',
+        authoringEnabled: true,
+      },
+    });
+    expect(mapped.statusCode).toBe(200);
+
+    const observed = await app.inject({
+      method: 'POST',
+      url: '/v1/sdk/catalog-observations',
+      headers: {
+        origin: 'https://staging.customer.example',
+        'x-lodariq-installation-id': installationId,
+      },
+      payload: {
+        schemaVersion: '1',
+        observations: [
+          {
+            source: 'identify_trait',
+            key: 'account.plan',
+            valueType: 'string',
+            observedAt: '2026-08-21T10:00:00.000Z',
+          },
+          {
+            source: 'track_event',
+            key: 'checkout_completed',
+            valueType: 'unknown',
+            observedAt: '2026-08-21T10:00:01.000Z',
+          },
+        ],
+      },
+    });
+    expect(observed.statusCode, observed.body).toBe(202);
+    expect(observed.json()).toEqual({ accepted: 2, version: 1 });
+    const catalog = await repository.readWorkspaceDataCatalog('wk_public_sdk');
+    expect(catalog.entries).toMatchObject([
+      { source: 'identify_trait', key: 'account.plan' },
+      { source: 'track_event', key: 'checkout_completed' },
+    ]);
+    expect(JSON.stringify(catalog)).not.toMatch(/growth|order|visitor/iu);
+    await app.close();
+  });
+
   it('returns a structurally data-free authoring branch for production', async () => {
     const app = createApiApp({
       repository: createPublicSdkRepository({ environments }),
@@ -486,6 +539,208 @@ describe('origin-resolved public SDK bootstrap', () => {
       },
     });
     expect(wrongOrigin.statusCode).toBe(403);
+    await app.close();
+  });
+
+  it('assigns a compiled experiment and stamps its arm on accepted events', async () => {
+    const repository = createPublicSdkRepository({ environments });
+    const app = createApiApp({ repository, publicApiBaseUrl: 'https://api.lodariq.io' });
+    const document = {
+      ...structuredClone(baseDocument),
+      id: 'doc_experiment_delivery',
+      workspaceId: 'wk_public_sdk',
+      blocks: structuredClone(baseDocument.blocks).map((block) =>
+        block.type === 'tourStep' && block.props.index === 0
+          ? { ...block, props: { ...block.props, teaches: 'project_created' } }
+          : block,
+      ),
+    };
+    expect(
+      (
+        await app.inject({
+          method: 'POST',
+          url: '/v1/documents',
+          headers: authHeaders,
+          payload: document,
+        })
+      ).statusCode,
+    ).toBe(201);
+    const createdExperiment = await app.inject({
+      method: 'POST',
+      url: `/v1/documents/${document.id}/experiment`,
+      headers: authHeaders,
+      payload: {
+        varies: 'copy',
+        successEventName: 'project_created',
+        arms: [
+          { id: 'A', label: 'Control', trafficPercent: 50, overrides: [] },
+          {
+            id: 'B',
+            label: 'Variant',
+            trafficPercent: 50,
+            overrides: [{ type: 'copy', blockId: 'block_heading_1', text: 'Create a project now' }],
+          },
+        ],
+      },
+    });
+    const experimentId = createdExperiment.json<{ experiment: { id: string } }>().experiment.id;
+    const resaved = await app.inject({
+      method: 'POST',
+      url: '/v1/documents',
+      headers: authHeaders,
+      payload: document,
+    });
+    const artifact = resaved.json<{ latestArtifact: ReviewedArtifact }>().latestArtifact;
+    const published = await app.inject({
+      method: 'POST',
+      url: `/v1/documents/${document.id}/publications`,
+      headers: {
+        ...authHeaders,
+        'idempotency-key': 'release:experiment-delivery',
+        'x-lodariq-correlation-id': 'corr_experiment_delivery',
+      },
+      payload: {
+        environmentId: 'env_staging',
+        expectedGeneration: 0,
+        expectedArtifactId: artifact.id,
+        expectedContentHash: artifact.contentHash,
+      },
+    });
+    expect(published.statusCode).toBe(201);
+    expect(
+      (
+        await app.inject({
+          method: 'PATCH',
+          url: `/v1/documents/${document.id}/measurement`,
+          headers: authHeaders,
+          payload: {
+            adaptivePolicy: { enabled: true, minimumOccurrences: 2, lookbackDays: 30 },
+          },
+        })
+      ).statusCode,
+    ).toBe(200);
+    expect(
+      (
+        await app.inject({
+          method: 'PATCH',
+          url: `/v1/experiments/${experimentId}`,
+          headers: authHeaders,
+          payload: { status: 'running' },
+        })
+      ).statusCode,
+    ).toBe(200);
+
+    const installationId = await createInstallation(app, 'Experiment delivery');
+    await app.inject({
+      method: 'PUT',
+      url: `/v1/sdk-installations/${installationId}/origins`,
+      headers: authHeaders,
+      payload: {
+        environmentId: 'env_staging',
+        origin: 'https://staging.customer.example',
+        authoringEnabled: true,
+      },
+    });
+    const assignmentKey = `lqv_${'9'.repeat(32)}`;
+    const bootstrap = await app.inject({
+      method: 'POST',
+      url: '/v1/sdk/bootstrap',
+      headers: { origin: 'https://staging.customer.example' },
+      payload: { installationId, assignmentKey },
+    });
+    const manifest = readFirstManifest(bootstrap.json()) as PublicManifestLocation & {
+      generation: number;
+      publicationId: string;
+      experimentAssignment: {
+        experimentId: string;
+        armId: 'A' | 'B';
+        allocationRevision: number;
+      };
+      adaptive: {
+        policy: { enabled: boolean; minimumOccurrences: number; lookbackDays: number };
+        evidence: Array<{ eventName: string; occurrences: number; lastObservedAt: string }>;
+      };
+    };
+    expect(manifest.experimentAssignment).toMatchObject({
+      experimentId,
+      allocationRevision: 1,
+    });
+    expect(manifest.adaptive).toMatchObject({
+      policy: { enabled: true, minimumOccurrences: 2, lookbackDays: 30 },
+      evidence: [],
+    });
+
+    const publicHeaders = {
+      origin: 'https://staging.customer.example',
+      'x-lodariq-installation-id': installationId,
+    };
+    const adaptiveObservedAt = [
+      new Date(Date.now() - 120_000).toISOString(),
+      new Date(Date.now() - 60_000).toISOString(),
+    ];
+    const accepted = await app.inject({
+      method: 'POST',
+      url: '/v1/sdk/events',
+      headers: publicHeaders,
+      payload: {
+        assignmentKey,
+        events: [
+          {
+            name: 'experience_shown',
+            documentId: document.id,
+            pointer: {
+              generation: manifest.generation,
+              publicationId: manifest.publicationId,
+              contentHash: manifest.artifact.contentHash,
+            },
+            sdkVersion: '0.0.0-test',
+            correlationId: 'visitor_experiment',
+            timestamp: '2026-08-21T10:00:00.000Z',
+            props: { trigger: 'manual' },
+          },
+          ...adaptiveObservedAt.map((timestamp) => ({
+            name: 'project_created',
+            documentId: document.id,
+            pointer: {
+              generation: manifest.generation,
+              publicationId: manifest.publicationId,
+              contentHash: manifest.artifact.contentHash,
+            },
+            sdkVersion: '0.0.0-test',
+            correlationId: 'visitor_experiment',
+            timestamp,
+          })),
+        ],
+      },
+    });
+    expect(accepted.json()).toEqual({ accepted: 3, rejected: 0, diagnostics: [] });
+    const adaptedBootstrap = await app.inject({
+      method: 'POST',
+      url: '/v1/sdk/bootstrap',
+      headers: { origin: 'https://staging.customer.example' },
+      payload: { installationId, assignmentKey },
+    });
+    expect(
+      (readFirstManifest(adaptedBootstrap.json()) as typeof manifest).adaptive.evidence,
+    ).toEqual([
+      {
+        eventName: 'project_created',
+        occurrences: 2,
+        lastObservedAt: adaptiveObservedAt[1],
+      },
+    ]);
+    const analytics = await app.inject({
+      method: 'GET',
+      url: '/v1/analytics/events?environmentId=env_staging',
+      headers: authHeaders,
+    });
+    const stored = analytics.json<{ events: Array<Record<string, unknown>> }>().events;
+    expect(stored[0]).toMatchObject({
+      experimentId,
+      armId: manifest.experimentAssignment.armId,
+      experimentAllocationRevision: 1,
+    });
+    expect(stored[0]).not.toHaveProperty('adaptiveVisitorKeyHash');
     await app.close();
   });
 
@@ -940,26 +1195,41 @@ describe('origin-resolved public SDK bootstrap', () => {
 });
 
 function createPublicSdkRepository(seed: InMemoryControlPlaneSeed) {
+  const now = '2026-08-07T00:00:00.000Z';
   return createInMemoryControlPlaneRepository({
     ...seed,
+    workspaceSubscriptions: [
+      {
+        workspaceId: 'wk_public_sdk',
+        planId: 'business',
+        planVersion: COMMERCIAL_PLAN_VERSION,
+        status: 'active',
+        entitlementOverrides: {},
+        currentPeriodStart: '2026-08-01T00:00:00.000Z',
+        currentPeriodEnd: '2026-09-01T00:00:00.000Z',
+        revision: 1,
+        createdAt: now,
+        updatedAt: now,
+      },
+    ],
     workspaceMemberships: seed.workspaceMemberships ?? [
       {
         workspaceId: 'wk_public_sdk',
         userId: 'user_public_sdk',
         role: 'owner',
-        createdAt: '2026-08-07T00:00:00.000Z',
+        createdAt: now,
       },
       {
         workspaceId: 'wk_public_sdk',
         userId: 'user_public_sdk_member',
         role: 'member',
-        createdAt: '2026-08-07T00:00:00.000Z',
+        createdAt: now,
       },
       {
         workspaceId: 'wk_public_sdk',
         userId: 'user_public_sdk_viewer',
         role: 'viewer',
-        createdAt: '2026-08-07T00:00:00.000Z',
+        createdAt: now,
       },
     ],
   });

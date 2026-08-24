@@ -5,6 +5,11 @@ import { registerControlPlaneEnvironmentRoutes } from './control-plane-environme
 import { registerControlPlaneSdkInstallationRoutes } from './control-plane-sdk-installations';
 import { registerControlPlaneEnvironmentTokenRoutes } from './control-plane-environment-tokens';
 import { registerControlPlaneAnalyticsRoutes } from './control-plane-analytics';
+import { registerControlPlaneGovernanceRoutes } from './control-plane-governance';
+import { registerControlPlaneBillingRoutes } from './control-plane-billing';
+import { registerControlPlaneAnalyticsWarehouseRoutes } from './control-plane-analytics-warehouse';
+import { registerControlPlaneChangeHistoryRoutes } from './control-plane-change-history';
+import { registerControlPlaneAccessibilityRoutes } from './control-plane-accessibility';
 import { registerHealthAndCorsRoutes } from './control-plane/register-health-and-cors';
 import { registerSdkBootstrapRoutes } from './control-plane/register-sdk-bootstrap';
 import { registerSdkDeliveryRoutes } from './control-plane/register-sdk-delivery';
@@ -37,6 +42,11 @@ const CONTROL_PLANE_ROUTE_REGISTRARS = [
   registerAuthoringResourceRoutes,
   registerAuthoringReleaseRoutes,
   registerControlPlaneAnalyticsRoutes,
+  registerControlPlaneGovernanceRoutes,
+  registerControlPlaneBillingRoutes,
+  registerControlPlaneAnalyticsWarehouseRoutes,
+  registerControlPlaneChangeHistoryRoutes,
+  registerControlPlaneAccessibilityRoutes,
   registerExperienceMeasurementRoutes,
 ] as const;
 

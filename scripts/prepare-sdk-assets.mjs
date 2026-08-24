@@ -6,6 +6,7 @@ import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { dirname, join, normalize, relative, resolve } from 'node:path';
 import process from 'node:process';
 import { fileURLToPath, URL } from 'node:url';
+import ts from 'typescript';
 
 const repoRoot = resolve(fileURLToPath(new URL('..', import.meta.url)));
 const outputPrefix = '/sdk/';
@@ -25,10 +26,11 @@ const assetSets = [
       'lodariq-public-bootstrap.js',
       'lodariq-loader.js',
       'lodariq-runtime.js',
+      'lodariq-demo-player.js',
       'runtime/index.js',
       'renderers/tour.js',
     ],
-    publicEntries: ['lodariq-public-bootstrap.js', 'lodariq-loader.js'],
+    publicEntries: ['lodariq-public-bootstrap.js', 'lodariq-loader.js', 'lodariq-demo-player.js'],
   },
   {
     sourceRoot: creatorModuleSourceRoot,
@@ -41,7 +43,7 @@ const manifest = {
   generatedAt: new Date().toISOString(),
   prefix: outputPrefix,
   entries: {
-    runtime: ['lodariq-public-bootstrap.js', 'lodariq-loader.js'],
+    runtime: ['lodariq-public-bootstrap.js', 'lodariq-loader.js', 'lodariq-demo-player.js'],
     authoring: ['lodariq-creator.js'],
   },
   creatorModule: null,
@@ -125,12 +127,29 @@ function readTextSync(path) {
 }
 
 function moduleSpecifiers(source) {
-  return [
-    ...source.matchAll(/import\s*(?:[^'"]+?\s*from\s*)?['"]([^'"]+)['"]/g),
-    ...source.matchAll(/import\(\s*['"]([^'"]+)'\s*\)/g),
-    ...source.matchAll(/import\(\s*"([^"]+)"\s*\)/g),
-    ...source.matchAll(/export\s*[^'"]+?\s*from\s*['"]([^'"]+)['"]/g),
-  ].map((match) => match[1]);
+  const sourceFile = ts.createSourceFile(
+    'sdk-asset.js',
+    source,
+    ts.ScriptTarget.Latest,
+    false,
+    ts.ScriptKind.JS,
+  );
+  const specifiers = [];
+
+  const addSpecifier = (node) => {
+    if (node && ts.isStringLiteralLike(node)) specifiers.push(node.text);
+  };
+  const visit = (node) => {
+    if (ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) {
+      addSpecifier(node.moduleSpecifier);
+    } else if (ts.isCallExpression(node) && node.expression.kind === ts.SyntaxKind.ImportKeyword) {
+      addSpecifier(node.arguments[0]);
+    }
+    ts.forEachChild(node, visit);
+  };
+
+  visit(sourceFile);
+  return specifiers;
 }
 
 async function copyContentAddressedCreatorModule() {

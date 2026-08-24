@@ -28,6 +28,7 @@ import {
   authSessions,
   authoringActivationGrants,
   authoringSessions,
+  governanceAuditEvents,
   tenantAuditEvents,
   userEmails,
   users,
@@ -42,6 +43,7 @@ import {
   runWithTenantActorScope,
   runWithWorkspaceInvitationScope,
 } from '../scoped-transaction';
+import { assertCommercialFeature } from '../domains/commercial-entitlements';
 import { identityWorkspaceRole, isUniqueConstraintViolation, toIsoString } from './helpers';
 import { DrizzleRepositoryIdentitySessions } from './identity-sessions';
 import type { LodariqTransaction } from './types';
@@ -177,6 +179,10 @@ export class DrizzleRepositoryTenantAdministration extends DrizzleRepositoryIden
             return { status: 'forbidden' };
           }
           if (context.role === 'admin' && role === 'admin') return { status: 'forbidden' };
+          assertCommercialFeature(
+            (await this.resolveWorkspaceEntitlements(tx, workspaceId)).entitlements,
+            'roles',
+          );
 
           const [existingMember] = await tx
             .select({ userId: workspaceMemberships.userId })
@@ -312,6 +318,22 @@ export class DrizzleRepositoryTenantAdministration extends DrizzleRepositoryIden
             .limit(1);
           if (existing) return { status: 'membership_conflict' };
 
+          if (role !== 'viewer') {
+            await tx.execute(
+              sql`select pg_advisory_xact_lock(hashtextextended(${`creator-seats:${invitation.workspaceId}`}, 0))`,
+            );
+            const seatLimit = (await this.resolveWorkspaceEntitlements(tx, invitation.workspaceId))
+              .entitlements.creatorSeats;
+            if (seatLimit !== null) {
+              const seatCount = await tx.execute<{ used: string }>(
+                sql`select public.lodariq_count_creator_seats(${invitation.workspaceId}) as used`,
+              );
+              if (Number(seatCount.rows[0]?.used ?? 0) + 1 > seatLimit) {
+                return { status: 'seat_limit_reached' };
+              }
+            }
+          }
+
           await tx.insert(workspaceMemberships).values({
             workspaceId: invitation.workspaceId,
             userId: input.userId,
@@ -437,6 +459,12 @@ export class DrizzleRepositoryTenantAdministration extends DrizzleRepositoryIden
         if (!canManageTargetRole(context.role, target.role, input.nextRole)) return 'forbidden';
         if (target.role === 'owner' && ownerCount(memberships) <= 1) return 'final_owner';
         if (target.userId === input.actorUserId) return 'forbidden';
+        if (target.role === 'viewer' && input.nextRole !== 'viewer') {
+          const limit = (await this.resolveWorkspaceEntitlements(tx, input.workspaceId))
+            .entitlements.creatorSeats;
+          const used = memberships.filter((membership) => membership.role !== 'viewer').length;
+          if (limit !== null && used + 1 > limit) return 'seat_limit_reached';
+        }
 
         const changedAt = new Date(input.changedAt);
         const updated = await tx
@@ -703,14 +731,15 @@ export class DrizzleRepositoryTenantAdministration extends DrizzleRepositoryIden
       const context = await this.resolveWorkspaceActor(tx, workspaceId, actorUserId);
       if (!context) return this.workspaceExists(tx, workspaceId, false);
       if (!tenantRoleHasCapability(context.role, 'members:read')) return { status: 'forbidden' };
-      const rows = await tx
-        .select()
-        .from(tenantAuditEvents)
-        .where(eq(tenantAuditEvents.workspaceId, workspaceId))
-        .orderBy(asc(tenantAuditEvents.occurredAt), asc(tenantAuditEvents.id));
-      return {
-        status: 'ok',
-        value: rows.map((row) => ({
+      const [tenantRows, governanceRows] = await Promise.all([
+        tx.select().from(tenantAuditEvents).where(eq(tenantAuditEvents.workspaceId, workspaceId)),
+        tx
+          .select()
+          .from(governanceAuditEvents)
+          .where(eq(governanceAuditEvents.workspaceId, workspaceId)),
+      ]);
+      const rows: TenantAuditEventRecord[] = [
+        ...tenantRows.map((row) => ({
           id: row.id,
           workspaceId: row.workspaceId,
           actorUserId: row.actorUserId,
@@ -719,8 +748,31 @@ export class DrizzleRepositoryTenantAdministration extends DrizzleRepositoryIden
           invitationId: row.invitationId,
           previousRole: row.previousRole ? identityWorkspaceRole(row.previousRole) : null,
           nextRole: row.nextRole ? identityWorkspaceRole(row.nextRole) : null,
+          environmentId: row.environmentId,
+          resourceId: row.resourceId,
           occurredAt: toIsoString(row.occurredAt),
         })),
+        ...governanceRows.map((row) => ({
+          id: row.id,
+          workspaceId: row.workspaceId,
+          actorUserId: row.actorUserId,
+          eventType: row.eventType as TenantAuditEventType,
+          targetUserId: row.targetUserId,
+          invitationId: null,
+          previousRole: null,
+          nextRole: null,
+          environmentId: row.environmentId,
+          resourceId: row.resourceId,
+          occurredAt: toIsoString(row.occurredAt),
+        })),
+      ].sort((left, right) =>
+        left.occurredAt === right.occurredAt
+          ? left.id.localeCompare(right.id)
+          : left.occurredAt.localeCompare(right.occurredAt),
+      );
+      return {
+        status: 'ok',
+        value: rows,
       };
     });
   }
@@ -845,6 +897,8 @@ export class DrizzleRepositoryTenantAdministration extends DrizzleRepositoryIden
       invitationId: event.invitationId,
       previousRole: event.previousRole,
       nextRole: event.nextRole,
+      environmentId: event.environmentId ?? null,
+      resourceId: event.resourceId ?? null,
       occurredAt: new Date(event.occurredAt),
     });
   }

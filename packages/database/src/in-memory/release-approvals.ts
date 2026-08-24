@@ -13,6 +13,7 @@ import {
   type ReleaseApprovalRecord,
 } from '../domains/releases';
 import { requireExactHttpOrigin } from '../domains/authoring-policy';
+import { assertCommercialFeature } from '../domains/commercial-entitlements';
 import {
   assertBrowserVerificationReport,
   normalizeReleaseApprovalReason,
@@ -111,6 +112,10 @@ export class InMemoryRepositoryReleaseApprovals extends InMemoryRepositoryPublic
     ) {
       return clone(existing);
     }
+    assertCommercialFeature(
+      this.resolveWorkspaceEntitlements(input.workspaceId).entitlements,
+      'review-approval',
+    );
     if (operation.status !== 'awaiting_approval') {
       throw new Error('release operation is not awaiting approval');
     }

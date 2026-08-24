@@ -46,6 +46,19 @@ export function registerInspectorSections(
   registry.set(kind, merged);
 }
 
+/** Experience cards replace one another; their section sets are mutually exclusive. */
+export function replaceInspectorSections(
+  kind: InspectorSelectionKind,
+  sections: readonly InspectorSectionDefinition[],
+): void {
+  if (sections.length > OVERLAY_INSPECTOR_MAX_SECTIONS) {
+    throw new Error(
+      `Lodariq inspector: "${kind}" would have ${sections.length} sections, over the ${OVERLAY_INSPECTOR_MAX_SECTIONS} cap.`,
+    );
+  }
+  registry.set(kind, [...sections]);
+}
+
 /** Advanced last, then by order — a stable rule that ignores registration order. */
 function compare(a: InspectorSectionDefinition, b: InspectorSectionDefinition): number {
   if (Boolean(a.advanced) !== Boolean(b.advanced)) return a.advanced ? 1 : -1;

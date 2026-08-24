@@ -279,7 +279,6 @@ export const AUTHORING_STORYBOARD_PROPERTY_CSS = `
     }
   }
 
-  /* Focused contextual configuration: one selected item, one compact tray. */
   .panel-workspace-footer {
     min-height: 56px;
     padding: 8px 16px;

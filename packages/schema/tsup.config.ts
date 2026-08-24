@@ -18,11 +18,24 @@ export default defineConfig({
     'hosted-creator': 'src/hosted-creator.ts',
     'authoring-entry-runtime': 'src/authoring-entry-runtime.ts',
     'events-runtime': 'src/events-runtime.ts',
+    'adaptive-runtime': 'src/adaptive-runtime.ts',
+    'product-capabilities-runtime': 'src/product-capabilities-runtime.ts',
+    'product-capability-inventory': 'src/product-capability-inventory.ts',
+    'accessibility-governance': 'src/accessibility-governance.ts',
+    'accessibility-governance-runtime': 'src/accessibility-governance-runtime.ts',
+    'analytics-warehouse': 'src/analytics-warehouse.ts',
+    'commercial-billing': 'src/commercial-billing.ts',
+    'governance-change-history': 'src/governance-change-history.ts',
+    'server-registry': 'src/server-registry.ts',
+    'public-demo-runtime': 'src/public-demo-runtime.ts',
     url: 'src/url.ts',
     // Browser-safe and TypeBox-free on purpose: the SDK loader imports this
     // subpath so page matching stays one implementation without dragging the
     // whole schema barrel into a 5 KB bundle.
     'page-eligibility': 'src/page-eligibility.ts',
+    // Same reason, one layer down: the resolver and authoring capture both need
+    // the step-level page key and neither may pull in TypeBox to get it.
+    'page-key': 'src/page-key.ts',
   },
   format: ['esm'],
   target: 'es2020',

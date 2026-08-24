@@ -8,11 +8,17 @@ import type {
 import { installLodariq, readConfigFromScript } from '@lodariq/sdk-runtime/lodariq-loader';
 import { compilePreview, loadDocument, saveDocument } from '@lodariq/sdk-runtime/lodariq-local-dev';
 import { LOCAL_AUTHORING_SESSION_ID } from '../authoring/constants';
-import { createLocalExperienceId, createTourDraft } from '../creator-experiences';
+import { createExperienceDraft, createLocalExperienceId } from '../creator-experiences';
+import { isCreatorEnabledExperienceType } from '../creator-experience-types';
 import { resolveLocalMediaAssetUrl } from './local-media-store';
+import { selectExperienceRootBlocks } from '../authoring/experience-authoring-capabilities';
 import { createMockPresence, mockPresenceRequested } from './mock-presence';
+import { readDraftPreviewResume } from '../authoring/preview-resume';
 import {
   installCreatorToolbar,
+  type CreatorExperienceScope,
+  type CreatorPageExperiencePage,
+  type CreatorPageExperienceQuery,
   type CreatorPageExperienceSummary,
   type CreatorToolbarOptions,
 } from '../creator-toolbar';
@@ -61,11 +67,17 @@ export async function installLocalLodariqAuthoringFromScript(
   let lodariq: LodariqBrowserApi | null = null;
   const sessionId = options.sessionId ?? LOCAL_AUTHORING_SESSION_ID;
   const environment = localAuthoringEnvironment(localConfig.environment);
-  let activeDocumentId = options.baseDocument.id;
   let lastOpenedDocumentId: string | null = null;
-  rememberLocalExperience(localConfig.workspaceId, currentPageRouteKey(), options.baseDocument.id);
+  rememberLocalExperience(
+    localConfig.workspaceId,
+    currentPageRouteKey(),
+    currentDocument(localConfig, options.baseDocument, options.baseDocument.id),
+  );
 
-  const openDocument = async (documentId: string): Promise<void> => {
+  const openDocument = async (
+    documentId: string,
+    restored?: { stepId: string; interactive: boolean },
+  ): Promise<void> => {
     const document = currentDocument(localConfig, options.baseDocument, documentId);
     const { openLocalAuthoringPanel, saveAndCloseActiveLocalAuthoringPanel } =
       await import('../authoring');
@@ -74,10 +86,9 @@ export async function installLocalLodariqAuthoringFromScript(
     }
     if (!lodariq) throw new Error('Lodariq local preview is not installed');
 
-    activeDocumentId = documentId;
     lastOpenedDocumentId = documentId;
     const documentSessionId = localDocumentSessionId(sessionId, documentId);
-    rememberLocalExperience(localConfig.workspaceId, currentPageRouteKey(), documentId);
+    rememberLocalExperience(localConfig.workspaceId, currentPageRouteKey(), document);
     openLocalAuthoringPanel(
       {
         sessionId: documentSessionId,
@@ -87,6 +98,12 @@ export async function installLocalLodariqAuthoringFromScript(
       },
       {
         autoPreview: true,
+        ...(restored
+          ? {
+              initialPreviewStepId: restored.stepId,
+              ...(restored.interactive ? { initialPreviewInteractive: true } : {}),
+            }
+          : {}),
         iframeSrc: localAuthoringFrameSrc(
           options.iframeSrc ?? DEFAULT_AUTHORING_IFRAME_SRC,
           documentSessionId,
@@ -107,9 +124,24 @@ export async function installLocalLodariqAuthoringFromScript(
               resolveMediaAsset: resolveLocalMediaAssetUrl,
               ...(previewOptions.locale ? { locale: previewOptions.locale } : {}),
               ...(previewOptions.interactive ? { interactive: true } : {}),
+              ...(previewOptions.accessibilityMode
+                ? { accessibilityMode: previewOptions.accessibilityMode }
+                : {}),
+              ...(previewOptions.flowConditionContext
+                ? { flowConditionContext: previewOptions.flowConditionContext }
+                : {}),
+              ...(previewOptions.adaptiveContext
+                ? { adaptiveContext: previewOptions.adaptiveContext }
+                : {}),
               ...(previewOptions.stepId ? { initialStepId: previewOptions.stepId } : {}),
               ...(previewOptions.authoringTargetOverride
                 ? { authoringTargetOverride: previewOptions.authoringTargetOverride }
+                : {}),
+              ...(previewOptions.onBeforeStepChange
+                ? {
+                    onBeforeStepChange: (index, step) =>
+                      previewOptions.onBeforeStepChange?.(index, step.id),
+                  }
                 : {}),
               ...(previewOptions.onStepChange
                 ? {
@@ -131,6 +163,18 @@ export async function installLocalLodariqAuthoringFromScript(
                       previewOptions.onChoreographyRecovery?.(step.id, update),
                   }
                 : {}),
+              ...(previewOptions.onBranchChoice
+                ? {
+                    onBranchChoice: (step, ruleIndex, destination) =>
+                      previewOptions.onBranchChoice?.(step.id, ruleIndex, destination),
+                  }
+                : {}),
+              ...(previewOptions.onAdaptiveSkip
+                ? {
+                    onAdaptiveSkip: (step, decision) =>
+                      previewOptions.onAdaptiveSkip?.(step.id, decision),
+                  }
+                : {}),
               ...(previewOptions.getAuthoringProtectedSurfaces
                 ? { getAuthoringProtectedSurfaces: previewOptions.getAuthoringProtectedSurfaces }
                 : {}),
@@ -143,14 +187,17 @@ export async function installLocalLodariqAuthoringFromScript(
         },
         onSave: (nextDocument) => {
           saveDocument(nextDocument);
-          rememberLocalExperience(localConfig.workspaceId, currentPageRouteKey(), nextDocument.id);
+          // Passing the document, not just its id: the index caches the title so
+          // the list never has to parse a document to print a row, and a rename
+          // has to reach that cache or the list keeps showing the old name.
+          rememberLocalExperience(localConfig.workspaceId, currentPageRouteKey(), nextDocument);
         },
         ...(mockPresenceRequested()
           ? {
               presence: createMockPresence(documentSessionId, () =>
-                currentDocument(localConfig, options.baseDocument, documentId)
-                  .blocks.filter((block) => block.type === 'tourStep')
-                  .map((block) => block.id),
+                selectExperienceRootBlocks(
+                  currentDocument(localConfig, options.baseDocument, documentId),
+                ).map((block) => block.id),
               ),
             }
           : {}),
@@ -166,29 +213,33 @@ export async function installLocalLodariqAuthoringFromScript(
   });
 
   lodariq = api;
+  // A reload ends the authoring session, so the panel has to come back before a
+  // step means anything. Nothing is read from or written to the address bar: the
+  // creator is authoring against a customer application whose routing is theirs.
+  const previewResume = readDraftPreviewResume(localConfig.workspaceId);
+  if (previewResume) {
+    void openDocument(previewResume.documentId, {
+      stepId: previewResume.stepId,
+      interactive: previewResume.interactive,
+    });
+  }
   installLocalCreatorLauncher(options.authoringTrigger, {
-    onCreateExperience: async (type) => {
-      if (type !== 'tour') throw new Error(`Unsupported local experience type: ${type}`);
-      const document = createTourDraft({
+    onCreateExperience: async (type, details) => {
+      const document = createExperienceDraft({
         documentId: createLocalExperienceId(),
         workspaceId: localConfig.workspaceId,
         environment,
         schemaVersion: options.baseDocument.schemaVersion,
+        title: details.title,
+        type,
       });
       saveDocument(document);
-      rememberLocalExperience(localConfig.workspaceId, currentPageRouteKey(), document.id);
+      rememberLocalExperience(localConfig.workspaceId, currentPageRouteKey(), document);
       await openDocument(document.id);
     },
-    listExperiencesForPage: () =>
-      listLocalPageExperiences(localConfig, options.baseDocument, currentPageRouteKey()),
+    listExperiences: (query) =>
+      listLocalPageExperiences(localConfig, options.baseDocument, currentPageRouteKey(), query),
     onOpenExperience: openDocument,
-    onPreview: async () => {
-      if (!lodariq) throw new Error('Lodariq local preview is not installed');
-      const document = currentDocument(localConfig, options.baseDocument, activeDocumentId);
-      await lodariq.playTour(await compilePreview(document), {
-        resolveMediaAsset: resolveLocalMediaAssetUrl,
-      });
-    },
   });
   return api;
 }
@@ -197,7 +248,7 @@ function installLocalCreatorLauncher(
   triggerOptions: LocalAuthoringTriggerOptions | false | undefined,
   creatorActions: Pick<
     CreatorToolbarOptions,
-    'listExperiencesForPage' | 'onCreateExperience' | 'onOpenExperience' | 'onPreview'
+    'listExperiences' | 'onCreateExperience' | 'onOpenExperience'
   >,
 ): HTMLButtonElement | null {
   if (triggerOptions === false) return null;
@@ -211,21 +262,115 @@ function installLocalCreatorLauncher(
   });
 }
 
+/**
+ * The index carries what a row needs to render.
+ *
+ * `title` and `type` are cached here on purpose. Listing used to load every
+ * document on the page and read two fields off each one, which meant parsing an
+ * entire authored sequence — blocks, targets, appearance — to print its name.
+ * They stay optional so an index written before this still reads.
+ */
 interface LocalExperienceIndexEntry {
   documentId: string;
   routeKey: string;
+  title?: string;
+  type?: string;
 }
 
+/**
+ * One page of the list, straight from localStorage.
+ *
+ * The cursor is the offset into the filtered set, which is honest for an index
+ * that is a single array: a keyset cursor would be pretending to a stability
+ * localStorage does not have. `total` is free here for the same reason — the
+ * whole set is already in hand — and it is what the collapsed second section
+ * prints in its header.
+ */
 function listLocalPageExperiences(
   config: LocalAuthoringLoaderConfig,
   baseDocument: LodariqDocument,
   routeKey: string,
-): CreatorPageExperienceSummary[] {
-  return readLocalExperienceIndex(config.workspaceId)
-    .filter((entry) => entry.routeKey === routeKey)
-    .map((entry) => localExperienceDocument(config, baseDocument, entry.documentId))
-    .filter((document): document is LodariqDocument => document?.type === 'tour')
-    .map((document) => ({ id: document.id, title: document.title, type: 'tour' }));
+  query: CreatorPageExperienceQuery,
+): CreatorPageExperiencePage {
+  const summaries = localExperienceEntriesInScope(
+    readLocalExperienceIndex(config.workspaceId),
+    routeKey,
+    query.scope,
+  )
+    .map((entry) => localExperienceSummary(config, baseDocument, entry))
+    .filter((summary): summary is CreatorPageExperienceSummary => summary !== null);
+
+  const needle = query.query?.trim().toLowerCase() ?? '';
+  const matching = needle
+    ? summaries.filter(
+        (summary) =>
+          summary.title.toLowerCase().includes(needle) ||
+          summary.type.toLowerCase().includes(needle),
+      )
+    : summaries;
+
+  const offset = Number.parseInt(query.cursor ?? '0', 10);
+  const start = Number.isFinite(offset) && offset > 0 ? offset : 0;
+  const end = start + query.limit;
+  return {
+    items: matching.slice(start, end),
+    total: matching.length,
+    ...(end < matching.length ? { nextCursor: String(end) } : {}),
+  };
+}
+
+/**
+ * Which entries belong to which of the two lists.
+ *
+ * "All tours" takes nothing out for the page scope — the two lists answer
+ * different questions and a tour is allowed to be in both. It still collapses
+ * the index to one entry per document: a document is filed under every route
+ * it was opened on, so an unfiltered index prints the same tour once per screen
+ * it has ever been touched from, which is a repeat inside a single list.
+ */
+function localExperienceEntriesInScope(
+  index: readonly LocalExperienceIndexEntry[],
+  routeKey: string,
+  scope: CreatorExperienceScope,
+): LocalExperienceIndexEntry[] {
+  if (scope === 'page') return index.filter((entry) => entry.routeKey === routeKey);
+  const seen = new Set<string>();
+  const everything: LocalExperienceIndexEntry[] = [];
+  // The index is newest-first, so the first entry for a document is the page it
+  // was last authored on — the one worth printing under its name.
+  for (const entry of index) {
+    if (seen.has(entry.documentId)) continue;
+    seen.add(entry.documentId);
+    everything.push(entry);
+  }
+  return everything;
+}
+
+/**
+ * A row, from the index alone where possible.
+ *
+ * An entry written before the cache existed still has to render, so it falls
+ * back to loading that one document — one, not all of them — and the next save
+ * writes the cache back.
+ */
+function localExperienceSummary(
+  config: LocalAuthoringLoaderConfig,
+  baseDocument: LodariqDocument,
+  entry: LocalExperienceIndexEntry,
+): CreatorPageExperienceSummary | null {
+  if (entry.type !== undefined && entry.title !== undefined) {
+    return isCreatorEnabledExperienceType(entry.type)
+      ? { id: entry.documentId, title: entry.title, type: entry.type, routeKey: entry.routeKey }
+      : null;
+  }
+  const document = localExperienceDocument(config, baseDocument, entry.documentId);
+  if (!document || !isCreatorEnabledExperienceType(document.type)) return null;
+  return {
+    id: document.id,
+    title: document.title,
+    type: document.type,
+    routeKey: entry.routeKey,
+  };
 }
 
 function localExperienceDocument(
@@ -239,12 +384,28 @@ function localExperienceDocument(
   return loadDocument(documentId);
 }
 
-function rememberLocalExperience(workspaceId: string, routeKey: string, documentId: string): void {
+function rememberLocalExperience(
+  workspaceId: string,
+  routeKey: string,
+  document: LodariqDocument,
+): void {
   const previous = readLocalExperienceIndex(workspaceId).filter(
-    (entry) => entry.documentId !== documentId || entry.routeKey !== routeKey,
+    (entry) => entry.documentId !== document.id || entry.routeKey !== routeKey,
   );
-  const next = [{ documentId, routeKey }, ...previous];
+  const next: LocalExperienceIndexEntry[] = [
+    { documentId: document.id, routeKey, title: document.title, type: document.type },
+    ...previous,
+  ];
   localStorage.setItem(localExperienceIndexKey(workspaceId), JSON.stringify(next));
+}
+
+/** Registers a draft created by a local operations service with a page-scoped chooser. */
+export function rememberLocalExperienceForPage(
+  workspaceId: string,
+  routeKey: string,
+  document: LodariqDocument,
+): void {
+  rememberLocalExperience(workspaceId, routeKey, document);
 }
 
 function readLocalExperienceIndex(workspaceId: string): LocalExperienceIndexEntry[] {
@@ -262,15 +423,36 @@ function readLocalExperienceIndex(workspaceId: string): LocalExperienceIndexEntr
 function isLocalExperienceIndexEntry(value: unknown): value is LocalExperienceIndexEntry {
   if (!value || typeof value !== 'object') return false;
   const entry = value as Partial<LocalExperienceIndexEntry>;
-  return typeof entry.documentId === 'string' && typeof entry.routeKey === 'string';
+  if (typeof entry.documentId !== 'string' || typeof entry.routeKey !== 'string') return false;
+  // The cached pair is optional but must be the right shape when present, or a
+  // half-written entry renders a row titled "undefined".
+  if (entry.title !== undefined && typeof entry.title !== 'string') return false;
+  return entry.type === undefined || typeof entry.type === 'string';
 }
 
 function localExperienceIndexKey(workspaceId: string): string {
   return `${LOCAL_CREATOR_INDEX_PREFIX}${workspaceId}`;
 }
 
+/**
+ * Which page a local draft belongs to.
+ *
+ * Deliberately `pathname + hash`, never `search`. Query strings carry view
+ * state — filters, sort order, pagination, a selected record id — so including
+ * them files a draft under a key that changes the moment the creator sorts a
+ * list, and the experience disappears from a page it plainly belongs to.
+ *
+ * The hash is the opposite case and must be kept: hash-routed hosts put the
+ * actual screen there (`/settings/#channels` vs `/settings/#users`), and
+ * dropping it collapses every one of those screens into a single key.
+ *
+ * This mirrors the product's own page matching, which narrows on `pathname`
+ * alone (`readPageEligibilityContext` in `@lodariq/schema/page-eligibility`);
+ * the hash is added here because a local draft is scoped more tightly than a
+ * published trigger.
+ */
 function currentPageRouteKey(): string {
-  return `${window.location.pathname}${window.location.search}`;
+  return `${window.location.pathname}${window.location.hash}`;
 }
 
 function localDocumentSessionId(baseSessionId: string, documentId: string): string {

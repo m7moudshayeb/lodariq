@@ -1,6 +1,5 @@
 /** Focused storyboard rail, batch toolbar, and batch workspace. */
 export const AUTHORING_FOCUSED_STORYBOARD_CSS = `
-  /* Compact Step Rail + focused authoring modes. */
   .panel-storyboard-workspace {
     grid-template-rows: auto minmax(0, 1fr);
   }

@@ -200,7 +200,6 @@ export const AUTHORING_STORYBOARD_SHELL_CSS = `
 
   }
 
-  /* Storyboard Studio: selected Editorial Air authoring composition. */
   html:has(.shell-panel),
   body:has(.shell-panel),
   .shell-panel,
@@ -374,6 +373,14 @@ export const AUTHORING_STORYBOARD_SHELL_CSS = `
   .tour-storyboard-step.active {
     border-color: var(--lq-color-primary-border);
     background: var(--lq-color-primary-soft);
+  }
+
+  .tour-storyboard-step.drop-before {
+    box-shadow: inset 3px 0 0 var(--lq-color-primary);
+  }
+
+  .tour-storyboard-step.drop-after {
+    box-shadow: inset -3px 0 0 var(--lq-color-primary);
   }
 
   .tour-storyboard-step.repair:not(.active) {

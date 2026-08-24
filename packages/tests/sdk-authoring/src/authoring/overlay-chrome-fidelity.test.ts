@@ -95,7 +95,10 @@ describe('creator chrome matches the prototype it was adopted from', () => {
 
 describe('the overlay frame is glass, not a white bar', () => {
   it('gives the floating toolbar and inspector the glass surface', () => {
-    for (const surface of ['.overlay-step-toolbar', ".overlay-step-inspector[data-present='true']"]) {
+    for (const surface of [
+      '.overlay-step-toolbar',
+      ".overlay-step-inspector[data-present='true']",
+    ]) {
       const glassRules = declarationBlocksFor(surface).filter((block) =>
         block.includes('--lq-glass-bg'),
       );

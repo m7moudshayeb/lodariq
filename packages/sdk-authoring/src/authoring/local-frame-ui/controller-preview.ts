@@ -14,21 +14,21 @@ import {
   slashCommandType,
 } from './utils';
 import { blockContainsId, targetInspectActionForButtonAction } from './controller-model';
+import { selectExperienceRootBlocks } from '../experience-authoring-capabilities';
 
 export abstract class ControllerPreviewFeature extends ControllerHistoryReleaseFeature {
   protected selectedTourStep(): LodariqBlock | null {
+    const surfaces = selectExperienceRootBlocks(this.documentState);
     const selectedBlockId = this.selectedBlockId;
     if (selectedBlockId) {
-      const selectedStep = this.documentState.blocks.find(
-        (block) => block.type === 'tourStep' && blockContainsId(block, selectedBlockId),
-      );
+      const selectedStep = surfaces.find((block) => blockContainsId(block, selectedBlockId));
       if (selectedStep) return selectedStep;
     }
-    return this.documentState.blocks.find((block) => block.type === 'tourStep') ?? null;
+    return surfaces[0] ?? null;
   }
 
   protected sendPreviewRequest(
-    mode: 'full' | 'step',
+    mode: 'approach' | 'full' | 'step',
     stepId?: string,
     accessibilityMode?: AuthoringAccessibilityPreviewMode,
     simulationContext?: AuthoringFlowSimulationContext,
@@ -42,9 +42,9 @@ export abstract class ControllerPreviewFeature extends ControllerHistoryReleaseF
       type: 'authoring.preview.request' as const,
       locale: this.contentLocale,
     };
-    if (mode === 'step') {
+    if (mode === 'step' || mode === 'approach') {
       if (!stepId) return Promise.reject(new Error('Lodariq step preview requires a step id'));
-      return this.bridge.sendWithAck({ ...envelope, mode: 'step', stepId }, { timeoutMs: 2_000 });
+      return this.bridge.sendWithAck({ ...envelope, mode, stepId }, { timeoutMs: 20_000 });
     }
     return this.bridge.sendWithAck(
       {

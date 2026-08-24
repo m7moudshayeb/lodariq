@@ -5,6 +5,8 @@ const AUTHORING_REQUEST_TIMEOUT_MS = 15_000;
 interface AuthoringRequestOptions extends Omit<RequestInit, 'credentials' | 'mode' | 'redirect'> {
   activationGrant?: string;
   useSession?: boolean;
+  /** SSE is aborted by the caller/session lifecycle rather than the JSON deadline. */
+  longLived?: boolean;
 }
 
 export class HostedAuthoringApiClient {
@@ -32,7 +34,7 @@ export class HostedAuthoringApiClient {
   async request(path: string | URL, options: AuthoringRequestOptions = {}): Promise<Response> {
     const url = this.resolveUrl(path);
     const headers = new Headers(options.headers);
-    headers.set('accept', 'application/json');
+    if (!headers.has('accept')) headers.set('accept', 'application/json');
     if (options.activationGrant) {
       headers.set(AUTHORING_ACTIVATION_GRANT_HEADER, options.activationGrant);
     }
@@ -40,14 +42,20 @@ export class HostedAuthoringApiClient {
       if (!this.sessionToken) throw new Error('Authoring session is unavailable');
       headers.set(AUTHORING_SESSION_HEADER, this.sessionToken);
     }
-    const { activationGrant: _activationGrant, useSession: _useSession, ...init } = options;
+    const {
+      activationGrant: _activationGrant,
+      useSession: _useSession,
+      longLived: _longLived,
+      ...init
+    } = options;
     const controller = new AbortController();
-    const timeout = options.keepalive
-      ? undefined
-      : window.setTimeout(
-          () => controller.abort('authoring_request_timeout'),
-          AUTHORING_REQUEST_TIMEOUT_MS,
-        );
+    const timeout =
+      options.keepalive || options.longLived
+        ? undefined
+        : window.setTimeout(
+            () => controller.abort('authoring_request_timeout'),
+            AUTHORING_REQUEST_TIMEOUT_MS,
+          );
     const signal = combineAbortSignals(options.signal, controller.signal);
     if (!options.keepalive) this.activeRequests.add(controller);
     try {

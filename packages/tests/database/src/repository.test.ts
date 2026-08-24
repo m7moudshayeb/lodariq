@@ -12,7 +12,6 @@ import {
   createAuthoringActivationGrant,
   createAuthoringAuthorizationCode,
   createAuthoringSessionToken,
-  createInMemoryControlPlaneRepository,
   createPublicSdkBootstrapGrant,
   deriveAuthoringPkceS256Challenge,
   getAuthoringDocumentSessionCapabilities,
@@ -29,6 +28,7 @@ import {
   tenantScopedTableNames,
   type WorkspaceEnvironment,
 } from '@lodariq/database';
+import { createGrandfatheredInMemoryControlPlaneRepository as createInMemoryControlPlaneRepository } from '../../fixtures/commercial.js';
 import {
   AUTHORING_ACTIVATION_CAPABILITIES,
   AUTHORING_SESSION_CAPABILITIES,
@@ -51,6 +51,12 @@ import {
 const baseDocument = tourFixture as LodariqDocument;
 
 const WORKSPACE_ISOLATION_POLICY_NAMES = new Map([
+  ['workspace_subscriptions', 'workspace_subscriptions_workspace_read'],
+  ['effective_entitlement_snapshots', 'effective_entitlement_snapshots_workspace_read'],
+  ['workspace_usage_ledger', 'workspace_usage_ledger_workspace_read'],
+  ['ai_credit_ledger', 'ai_credit_ledger_workspace_read'],
+  ['billing_provider_events', 'billing_provider_events_workspace_select'],
+  ['billing_meter_batches', 'billing_meter_batches_workspace_select'],
   ['enterprise_validation_evidence', 'enterprise_validation_evidence_workspace_read'],
   ['workspace_verified_domains', 'workspace_verified_domains_workspace_access'],
   ['sso_group_role_mappings', 'sso_group_role_mappings_workspace_access'],
@@ -58,6 +64,15 @@ const WORKSPACE_ISOLATION_POLICY_NAMES = new Map([
   ['enterprise_principals', 'enterprise_principals_workspace_access'],
   ['enterprise_audit_events', 'enterprise_audit_events_workspace_access'],
   ['enterprise_break_glass_requests', 'enterprise_break_glass_workspace_access'],
+  ['governance_audit_events', 'governance_audit_events_workspace_select'],
+  ['webhook_endpoints', 'webhook_endpoints_workspace_select'],
+  ['webhook_events', 'webhook_events_workspace_select'],
+  ['data_residency_migration_history', 'data_residency_migration_history_workspace_select'],
+  ['data_residency_migration_evidence', 'data_residency_migration_evidence_workspace_select'],
+  ['analytics_warehouse_sync_runs', 'analytics_warehouse_sync_runs_workspace_select'],
+  ['accessibility_sweeps', 'accessibility_sweeps_workspace_isolation'],
+  ['accessibility_findings', 'accessibility_findings_workspace_isolation'],
+  ['accessibility_finding_events', 'accessibility_finding_events_workspace_select'],
 ]);
 
 describe('control-plane repository', () => {
@@ -2413,7 +2428,7 @@ describe('control-plane repository', () => {
 
 describe('tenant-scoped database migrations', () => {
   it('enables row-level security policies on every tenant-scoped table', () => {
-    const migration = readMigrationChain();
+    const migration = readMigrationChain().replace(/\s+/gu, ' ');
 
     for (const table of tenantScopedTableNames) {
       const isolationPolicy =

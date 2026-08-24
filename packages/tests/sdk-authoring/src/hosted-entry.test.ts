@@ -318,9 +318,7 @@ describe('content-addressed hosted creator entry', () => {
     expect(sessionStorage.length).toBe(0);
 
     const panelHost = document.querySelector<HTMLElement>('lodariq-authoring-panel');
-    panelHost?.shadowRoot
-      ?.querySelector<HTMLButtonElement>('[data-pill-exit-authoring]')
-      ?.click();
+    panelHost?.shadowRoot?.querySelector<HTMLButtonElement>('[data-pill-exit-authoring]')?.click();
     await flushMicrotasks();
     const closeRequest = lastItem(outboundMessages(peer, 'hosted-authoring.session.close.request'));
     dispatchFromEditor(peer, {

@@ -11,7 +11,7 @@ import {
   LODARIQ_MVP_BLOCK_TYPES,
   type SerializedLodariqBlockNode,
   type LodariqMvpBlockType,
-} from './nodes';
+} from './block-node-types';
 
 /**
  * Serialization boundary between Lexical editor state and canonical Lodariq

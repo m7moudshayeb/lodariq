@@ -27,6 +27,7 @@ import {
   CreateReleaseApprovalBody,
   EnvironmentParams,
   HOSTED_RELEASE_RECOVERY_PATH,
+  ReleaseRecoveryForbiddenResponse,
   ReleaseOperationParams,
 } from '../control-plane-contracts';
 import type { ControlPlaneRouteOptions } from '../control-plane-context';
@@ -66,7 +67,7 @@ export function registerAuthoringReleaseRoutes(
         response: {
           200: ReleaseRecoveryResult,
           201: ReleaseRecoveryResult,
-          403: ReleaseRecoveryResult,
+          403: ReleaseRecoveryForbiddenResponse,
           404: ReleaseRecoveryResult,
           409: ReleaseRecoveryResult,
           500: ReleaseRecoveryResult,
@@ -172,7 +173,7 @@ export function registerAuthoringReleaseRoutes(
         return;
       }
       return handleAuthoringBrandDriftCheck(
-        options.repository,
+        options,
         session,
         request.body as BrandDriftCheckRequestType,
         reply,

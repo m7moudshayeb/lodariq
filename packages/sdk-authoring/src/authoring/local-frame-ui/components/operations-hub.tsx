@@ -1,7 +1,14 @@
-import { lazy, Suspense, useEffect, useMemo, useState, type ReactNode } from 'react';
-import type { LodariqBlock } from '@lodariq/schema';
+import { lazy, Suspense, useEffect, useLayoutEffect, useRef, type ReactNode } from 'react';
+import {
+  COMMERCIAL_PLAN_LABELS,
+  documentLocaleCount,
+  type CommercialFeatureId,
+  type CommercialUsageValue,
+  type LodariqBlock,
+  type WorkspaceCommercialUsage,
+} from '@lodariq/schema';
 import { authoringText } from '../../../i18n';
-import { incompleteLocales, type CheckReport } from '../../publish-check';
+import { incompleteLocales } from '../../publish-check';
 import type { LocalAuthoringFrameController } from '../controller';
 import {
   AUTHORING_OPERATIONS_GROUPS,
@@ -10,6 +17,7 @@ import {
 } from '../types';
 import {
   ChartColumn,
+  ClipboardPaste,
   CircleCheck,
   Columns2,
   ExternalLink,
@@ -20,15 +28,16 @@ import {
   MapIcon,
   Mic,
   Palette,
+  Pencil,
   Rocket,
   ShieldCheck,
   Split,
   User,
   Users,
+  Video,
   X,
 } from '../design-system';
 import { useOptionalPanelModeStyles } from '../optional-panel-styles';
-import { buildOperationsCheckReport, documentLocales, OperationsCheck } from './operations-check';
 import { TourReviewWorkspace } from './tour-review-workspace';
 
 const LazyTourFlowMap = lazy(async () => {
@@ -50,6 +59,14 @@ const LazyTemplates = lazy(async () => {
   const module = await import('./operations-templates');
   return { default: module.OperationsTemplates };
 });
+const LazyVoice = lazy(async () => {
+  const module = await import('./operations-voice');
+  return { default: module.OperationsVoice };
+});
+const LazyRecord = lazy(async () => {
+  const module = await import('./operations-record');
+  return { default: module.OperationsRecord };
+});
 const LazyAudience = lazy(async () => {
   const module = await import('./operations-audience');
   return { default: module.OperationsAudience };
@@ -70,6 +87,10 @@ const LazyNarration = lazy(async () => {
   const module = await import('./operations-narration');
   return { default: module.OperationsNarration };
 });
+const LazyCopy = lazy(async () => {
+  const module = await import('./operations-copy');
+  return { default: module.OperationsCopy };
+});
 const LazyLanguage = lazy(async () => {
   const module = await import('./operations-language');
   return { default: module.OperationsLanguage };
@@ -86,9 +107,21 @@ const LazyRecovery = lazy(async () => {
   const module = await import('./panel-body-mode-impl');
   return { default: module.ReleaseHistoryMode };
 });
+const LazyDiff = lazy(async () => {
+  const module = await import('./operations-diff');
+  return { default: module.OperationsDiff };
+});
 const LazyShare = lazy(async () => {
   const module = await import('./operations-share');
   return { default: module.OperationsShare };
+});
+const LazyAudit = lazy(async () => {
+  const module = await import('./operations-audit');
+  return { default: module.OperationsAudit };
+});
+const LazyCheck = lazy(async () => {
+  const module = await import('./operations-check');
+  return { default: module.OperationsCheck };
 });
 
 /**
@@ -118,7 +151,7 @@ const OPERATIONS_TABS: Record<AuthoringOperationsTab, OperationsTabPresentation>
     label: authoringText('Storyboard'),
     icon: <Columns2 size={15} strokeWidth={2} aria-hidden="true" />,
     lede: authoringText(
-      'Every step on one surface. The filmstrip shows order; this shows the whole story — which is how you notice that step 4 repeats step 2.',
+      'Every step on one surface. The filmstrip shows order; this shows the whole story — which is how a repeated or contradictory step gives itself away.',
     ),
   },
   batch: {
@@ -133,6 +166,20 @@ const OPERATIONS_TABS: Record<AuthoringOperationsTab, OperationsTabPresentation>
     icon: <FileText size={15} strokeWidth={2} aria-hidden="true" />,
     lede: authoringText(
       'Proven starting points. Pick one and Lodariq proposes the targets by reading your page — matched against what is actually on screen, not a placeholder you have to fix later.',
+    ),
+  },
+  voice: {
+    label: authoringText('Voice authoring'),
+    icon: <Mic size={15} strokeWidth={2} aria-hidden="true" />,
+    lede: authoringText(
+      'Speak a step, review the bounded proposal, and add it to the draft only when the words and intent look right.',
+    ),
+  },
+  record: {
+    label: authoringText('Record to author'),
+    icon: <Video size={15} strokeWidth={2} aria-hidden="true" />,
+    lede: authoringText(
+      'Capture semantic targets and lifecycle states during an explicit session, then review the proposed flow before adding draft steps.',
     ),
   },
   appearance: {
@@ -154,6 +201,13 @@ const OPERATIONS_TABS: Record<AuthoringOperationsTab, OperationsTabPresentation>
     icon: <Mic size={15} strokeWidth={2} aria-hidden="true" />,
     lede: authoringText(
       'The spoken script for each step, and the voice that reads it. Written here, it also becomes the on-screen captions.',
+    ),
+  },
+  copy: {
+    label: authoringText('Copy fixes'),
+    icon: <Pencil size={15} strokeWidth={2} aria-hidden="true" />,
+    lede: authoringText(
+      'Turn bounded drift evidence into before-and-after copy patches with confidence, explicit apply, and undo.',
     ),
   },
   audience: {
@@ -203,11 +257,25 @@ const OPERATIONS_TABS: Record<AuthoringOperationsTab, OperationsTabPresentation>
       'Every version, a readable difference between any two, and a way back. Restoring never changes what is live — it makes a new draft.',
     ),
   },
+  diff: {
+    label: authoringText('Semantic diff'),
+    icon: <FileText size={15} strokeWidth={2} aria-hidden="true" />,
+    lede: authoringText(
+      'Compare the available canonical baseline with this draft by meaning, then link each finding to review before release.',
+    ),
+  },
   collaboration: {
     label: authoringText('Collaboration'),
     icon: <User size={15} strokeWidth={2} aria-hidden="true" />,
     lede: authoringText(
       'Not co-editing, but three ways to keep out of each other’s way: presence, a lock on the step someone holds, and a chooser for when a lock lapses anyway.',
+    ),
+  },
+  audit: {
+    label: authoringText('Audit log'),
+    icon: <ClipboardPaste size={15} strokeWidth={2} aria-hidden="true" />,
+    lede: authoringText(
+      'A chronological record of sensitive workspace changes, with actor and target details and a safe CSV export.',
     ),
   },
   share: {
@@ -221,11 +289,28 @@ const OPERATIONS_TABS: Record<AuthoringOperationsTab, OperationsTabPresentation>
 
 /** Sections backed by the operations service rather than by the document. */
 const OPERATIONS_DATA_TABS = new Set<AuthoringOperationsTab>([
+  'diff',
+  'copy',
   'audience',
   'experiment',
   'analytics',
   'collaboration',
+  'audit',
 ]);
+
+const COMMERCIAL_FEATURE_BY_OPERATIONS_TAB: Partial<
+  Record<AuthoringOperationsTab, CommercialFeatureId>
+> = {
+  flow: 'flow-map',
+  batch: 'batch-operations',
+  narration: 'narration',
+  audience: 'audience-segmentation',
+  experiment: 'experiments',
+  release: 'release-management',
+  recovery: 'recovery',
+  collaboration: 'presence',
+  audit: 'audit-log',
+};
 
 const OPERATIONS_GROUP_LABELS: Record<string, string> = {
   author: authoringText('Author'),
@@ -244,20 +329,29 @@ interface OperationsBadge {
 
 /**
  * What each section would tell you if you opened it, on the row instead (§4.6).
- * Counts are read from the same report the section renders, so the row and the
- * section can never disagree.
+ * Persisted and rendered diagnostics are available without loading the full
+ * predictive Check implementation. The complete report remains deferred until
+ * the creator opens Check.
  */
 function operationsBadge(
   tab: AuthoringOperationsTab,
-  report: CheckReport,
   snapshot: LocalAuthoringFrameSnapshot,
 ): OperationsBadge | null {
   if (tab === 'check') {
-    if (report.rows.length === 0) return null;
+    const layoutFindings = snapshot.localeLayoutQa?.report?.findings ?? [];
+    const accessibilityFindings =
+      snapshot.accessibilitySweep?.result?.findings.filter(
+        (finding) => finding.status === 'open',
+      ) ?? [];
+    const count = layoutFindings.length + accessibilityFindings.length;
+    if (count === 0) return null;
+    const blocked =
+      layoutFindings.some((finding) => finding.status === 'failed') ||
+      accessibilityFindings.some((finding) => finding.severity === 'blocker');
     return {
-      count: report.rows.length,
-      tone: report.blockers.length > 0 ? 'blocker' : 'warning',
-      label: authoringText('{count} to look at before publishing', { count: report.rows.length }),
+      count,
+      tone: blocked ? 'blocker' : 'warning',
+      label: authoringText('{count} to look at before publishing', { count }),
     };
   }
   if (tab === 'translation') {
@@ -314,20 +408,40 @@ export function OperationsHub({
      render as bare markup — an ordered list where the steps should be. */
   useOptionalPanelModeStyles();
 
-  const [tab, setTab] = useState<AuthoringOperationsTab>(snapshot.panelWorkflow.operationsTab);
+  const tab = snapshot.panelWorkflow.operationsTab;
+  const bodyRef = useRef<HTMLDivElement | null>(null);
+  const hubRef = useRef<HTMLElement | null>(null);
+  const operationsViewRef = useRef(snapshot.panelWorkflow.operationsView);
+  operationsViewRef.current = snapshot.panelWorkflow.operationsView;
   const recoveryEnvironmentId =
     snapshot.panelWorkflow.releaseRecovery.environmentId ??
     snapshot.panelWorkflow.release?.staging?.environmentId ??
     snapshot.panelWorkflow.release?.production?.environmentId ??
     null;
 
-  /* Built here rather than in Check, so the nav badge and the section are one
-     answer. Check receives it instead of recomputing. */
-  const report = useMemo(() => buildOperationsCheckReport(snapshot, steps), [snapshot, steps]);
+  const tabEntitled = commercialTabEnabled(tab, snapshot.commercialUsage);
 
-  useEffect(() => {
-    setTab(snapshot.panelWorkflow.operationsTab);
-  }, [snapshot.panelWorkflow.operationsTab, snapshot.panelWorkflow.focusToken]);
+  useLayoutEffect(() => {
+    const view = operationsViewRef.current;
+    const restore = (): void => {
+      const body = bodyRef.current;
+      if (!body) return;
+      body.scrollTop = view.scrollTop;
+      if (!view.focusKey) return;
+      const target = [
+        ...(hubRef.current?.querySelectorAll<HTMLElement>('[data-operations-focus-key]') ?? []),
+      ].find((candidate) => candidate.dataset['operationsFocusKey'] === view.focusKey);
+      target?.focus();
+    };
+    restore();
+    queueMicrotask(restore);
+    const frame = window.requestAnimationFrame(restore);
+    const timers = [40, 160].map((delay) => window.setTimeout(restore, delay));
+    return () => {
+      window.cancelAnimationFrame(frame);
+      for (const timer of timers) window.clearTimeout(timer);
+    };
+  }, [snapshot.panelWorkflow.focusToken, tab]);
 
   /*
    * Esc closes the sheet, which the Close button has been printing as its
@@ -359,6 +473,10 @@ export function OperationsHub({
   // Only the sections that read control-plane data pay for it. The flow map is
   // the common reason to open Operations and needs none of it.
   useEffect(() => {
+    controller.loadCommercialUsage();
+  }, [controller]);
+
+  useEffect(() => {
     if (!OPERATIONS_DATA_TABS.has(tab)) return;
     controller.loadOperationsData(recoveryEnvironmentId ?? undefined);
   }, [controller, recoveryEnvironmentId, tab]);
@@ -366,7 +484,7 @@ export function OperationsHub({
   /* What the three panel-mode openers used to load on the way in. Release and
      History are sections here, so the load has to happen without the switch. */
   useEffect(() => {
-    if (tab === 'release') controller.loadReleaseForOperations();
+    if (tab === 'release' || tab === 'audience') controller.loadReleaseForOperations();
     if (tab === 'recovery' && recoveryEnvironmentId) {
       controller.loadRecoveryForOperations(recoveryEnvironmentId);
     }
@@ -380,8 +498,8 @@ export function OperationsHub({
    * actions and the command palette, which reach them from the canvas.
    */
   const openTab = (next: AuthoringOperationsTab): void => {
+    controller.rememberOperationsView(tab, { scrollTop: bodyRef.current?.scrollTop ?? 0 });
     controller.setOperationsTab(next);
-    setTab(next);
   };
 
   return (
@@ -394,7 +512,7 @@ export function OperationsHub({
      * belong to the section and scroll away with it, and gives the nav its own
      * full-height column beside them.
      */
-    <section className="operations-hub" aria-label={authoringText('Operations')}>
+    <section ref={hubRef} className="operations-hub" aria-label={authoringText('Operations')}>
       <nav className="operations-hub-nav" aria-label={authoringText('Operations')}>
         <p className="operations-hub-brand">
           <Layers size={16} strokeWidth={2} aria-hidden="true" />
@@ -407,8 +525,10 @@ export function OperationsHub({
         <label className="operations-hub-title">
           <span>{authoringText('Experience title')}</span>
           <input
+            data-action="edit-title"
+            data-operations-focus-key="experience-title"
             defaultValue={snapshot.documentState.title}
-            key={snapshot.documentState.id}
+            key={`${snapshot.documentState.id}:${snapshot.documentState.title}`}
             onBlur={(event) => controller.commitDocumentTitle(event.currentTarget.value)}
             onKeyDown={(event) => {
               if (event.key === 'Enter') event.currentTarget.blur();
@@ -419,14 +539,22 @@ export function OperationsHub({
           <div className="operations-hub-group" key={group.id}>
             <p className="operations-hub-group-label">{OPERATIONS_GROUP_LABELS[group.id]}</p>
             {group.tabs.map((item) => {
-              const badge = operationsBadge(item, report, snapshot);
+              const badge = operationsBadge(item, snapshot);
+              const entitled = commercialTabEnabled(item, snapshot.commercialUsage);
               return (
                 <button
                   key={item}
                   type="button"
                   aria-current={tab === item ? 'page' : undefined}
+                  disabled={!entitled}
                   data-operations-tab={item}
+                  data-operations-focus-key={`tab:${item}`}
                   onClick={() => openTab(item)}
+                  title={
+                    entitled
+                      ? undefined
+                      : authoringText('This tool is not included in the current workspace plan.')
+                  }
                 >
                   <span aria-hidden="true" className="operations-hub-nav-icon">
                     {OPERATIONS_TABS[item].icon}
@@ -447,9 +575,27 @@ export function OperationsHub({
             })}
           </div>
         ))}
-        <OperationsPlanFooter localeCount={documentLocales(snapshot).length} />
+        <OperationsPlanFooter
+          localeCount={documentLocaleCount(
+            snapshot.canonicalDocumentState ?? snapshot.documentState,
+          )}
+          usage={snapshot.commercialUsage}
+        />
       </nav>
-      <div className="operations-hub-body">
+      <div
+        ref={bodyRef}
+        className="operations-hub-body"
+        onFocusCapture={(event) => {
+          const target = event.target;
+          if (!(target instanceof HTMLElement)) return;
+          const keyed = target.closest<HTMLElement>('[data-operations-focus-key]');
+          const focusKey = keyed?.dataset['operationsFocusKey'];
+          if (focusKey) controller.rememberOperationsView(tab, { focusKey });
+        }}
+        onScroll={(event) =>
+          controller.rememberOperationsView(tab, { scrollTop: event.currentTarget.scrollTop })
+        }
+      >
         {/* Top-right of the body, over the content it dismisses, with its
             shortcut printed next to it — the prototype's `.sclose`. */}
         <button
@@ -468,98 +614,142 @@ export function OperationsHub({
           </h2>
           <p>{OPERATIONS_TABS[tab].lede}</p>
         </header>
-        {tab === 'flow' ? (
-          <Suspense fallback={<OperationsLoading />}>
-            <LazyTourFlowMap
-              controller={controller}
-              document={snapshot.documentState}
-              onClose={() => controller.closeOperationsMode()}
-              steps={steps}
-            />
-          </Suspense>
-        ) : null}
-        {tab === 'translation' ? (
-          <Suspense fallback={<OperationsLoading />}>
-            <LazyLanguage controller={controller} snapshot={snapshot} />
-          </Suspense>
-        ) : null}
-        {tab === 'batch' ? (
-          <Suspense fallback={<OperationsLoading />}>
-            <LazyTourBatchWorkspace controller={controller} snapshot={snapshot} steps={steps} />
-          </Suspense>
-        ) : null}
-        {tab === 'check' ? (
-          <OperationsCheck
-            controller={controller}
-            locales={documentLocales(snapshot).length}
-            report={report}
-            stepCount={steps.length}
-          />
-        ) : null}
-        {tab === 'review' && step ? (
-          <TourReviewWorkspace controller={controller} snapshot={snapshot} step={step} />
-        ) : null}
-        {tab === 'review' && !step ? (
-          <p role="status">{authoringText('Add a step from the filmstrip')}</p>
-        ) : null}
-        {tab === 'storyboard' ? (
-          <Suspense fallback={<OperationsLoading />}>
-            <LazyStoryboard controller={controller} snapshot={snapshot} steps={steps} />
-          </Suspense>
-        ) : null}
-        {tab === 'templates' ? (
-          <Suspense fallback={<OperationsLoading />}>
-            <LazyTemplates controller={controller} />
-          </Suspense>
-        ) : null}
-        {tab === 'narration' ? (
-          <Suspense fallback={<OperationsLoading />}>
-            <LazyNarration controller={controller} steps={steps} />
-          </Suspense>
-        ) : null}
-        {tab === 'audience' ? (
-          <Suspense fallback={<OperationsLoading />}>
-            <LazyAudience controller={controller} snapshot={snapshot} steps={steps} />
-          </Suspense>
-        ) : null}
-        {tab === 'experiment' ? (
-          <Suspense fallback={<OperationsLoading />}>
-            <LazyExperiment controller={controller} snapshot={snapshot} />
-          </Suspense>
-        ) : null}
-        {tab === 'analytics' ? (
-          <Suspense fallback={<OperationsLoading />}>
-            <LazyAnalytics controller={controller} snapshot={snapshot} steps={steps} />
-          </Suspense>
-        ) : null}
-        {tab === 'collaboration' ? (
-          <Suspense fallback={<OperationsLoading />}>
-            <LazyCollaboration controller={controller} snapshot={snapshot} steps={steps} />
-          </Suspense>
-        ) : null}
-        {tab === 'appearance' ? (
-          <Suspense fallback={<OperationsLoading />}>
-            <LazyAppearance controller={controller} snapshot={snapshot} />
-          </Suspense>
-        ) : null}
-        {tab === 'release' ? (
-          <Suspense fallback={<OperationsLoading />}>
-            <LazyRelease controller={controller} snapshot={snapshot} />
-          </Suspense>
-        ) : null}
-        {tab === 'recovery' ? (
-          <Suspense fallback={<OperationsLoading />}>
-            <LazyRecovery controller={controller} snapshot={snapshot} />
-          </Suspense>
-        ) : null}
-        {tab === 'share' ? (
-          <Suspense fallback={<OperationsLoading />}>
-            <LazyShare controller={controller} snapshot={snapshot} />
-          </Suspense>
-        ) : null}
+        {tabEntitled ? (
+          <>
+            {tab === 'flow' ? (
+              <Suspense fallback={<OperationsLoading />}>
+                <LazyTourFlowMap
+                  controller={controller}
+                  document={snapshot.documentState}
+                  initialStepId={step?.id}
+                  onClose={() => controller.closeOperationsMode()}
+                  steps={steps}
+                />
+              </Suspense>
+            ) : null}
+            {tab === 'translation' ? (
+              <Suspense fallback={<OperationsLoading />}>
+                <LazyLanguage controller={controller} snapshot={snapshot} />
+              </Suspense>
+            ) : null}
+            {tab === 'batch' ? (
+              <Suspense fallback={<OperationsLoading />}>
+                <LazyTourBatchWorkspace controller={controller} snapshot={snapshot} steps={steps} />
+              </Suspense>
+            ) : null}
+            {tab === 'check' ? (
+              <Suspense fallback={<OperationsLoading />}>
+                <LazyCheck controller={controller} snapshot={snapshot} steps={steps} />
+              </Suspense>
+            ) : null}
+            {tab === 'review' && step ? (
+              <TourReviewWorkspace controller={controller} snapshot={snapshot} step={step} />
+            ) : null}
+            {tab === 'review' && !step ? (
+              <p role="status">{authoringText('Add a step from the filmstrip')}</p>
+            ) : null}
+            {tab === 'storyboard' ? (
+              <Suspense fallback={<OperationsLoading />}>
+                <LazyStoryboard controller={controller} snapshot={snapshot} steps={steps} />
+              </Suspense>
+            ) : null}
+            {tab === 'templates' ? (
+              <Suspense fallback={<OperationsLoading />}>
+                <LazyTemplates controller={controller} snapshot={snapshot} />
+              </Suspense>
+            ) : null}
+            {tab === 'voice' ? (
+              <Suspense fallback={<OperationsLoading />}>
+                <LazyVoice controller={controller} snapshot={snapshot} />
+              </Suspense>
+            ) : null}
+            {tab === 'record' ? (
+              <Suspense fallback={<OperationsLoading />}>
+                <LazyRecord controller={controller} snapshot={snapshot} />
+              </Suspense>
+            ) : null}
+            {tab === 'narration' ? (
+              <Suspense fallback={<OperationsLoading />}>
+                <LazyNarration controller={controller} steps={steps} />
+              </Suspense>
+            ) : null}
+            {tab === 'copy' ? (
+              <Suspense fallback={<OperationsLoading />}>
+                <LazyCopy controller={controller} snapshot={snapshot} />
+              </Suspense>
+            ) : null}
+            {tab === 'audience' ? (
+              <Suspense fallback={<OperationsLoading />}>
+                <LazyAudience controller={controller} snapshot={snapshot} steps={steps} />
+              </Suspense>
+            ) : null}
+            {tab === 'experiment' ? (
+              <Suspense fallback={<OperationsLoading />}>
+                <LazyExperiment controller={controller} snapshot={snapshot} />
+              </Suspense>
+            ) : null}
+            {tab === 'analytics' ? (
+              <Suspense fallback={<OperationsLoading />}>
+                <LazyAnalytics controller={controller} snapshot={snapshot} steps={steps} />
+              </Suspense>
+            ) : null}
+            {tab === 'collaboration' ? (
+              <Suspense fallback={<OperationsLoading />}>
+                <LazyCollaboration controller={controller} snapshot={snapshot} steps={steps} />
+              </Suspense>
+            ) : null}
+            {tab === 'audit' ? (
+              <Suspense fallback={<OperationsLoading />}>
+                <LazyAudit controller={controller} snapshot={snapshot} />
+              </Suspense>
+            ) : null}
+            {tab === 'appearance' ? (
+              <Suspense fallback={<OperationsLoading />}>
+                <LazyAppearance controller={controller} snapshot={snapshot} />
+              </Suspense>
+            ) : null}
+            {tab === 'release' ? (
+              <Suspense fallback={<OperationsLoading />}>
+                <LazyRelease controller={controller} snapshot={snapshot} />
+              </Suspense>
+            ) : null}
+            {tab === 'recovery' ? (
+              <Suspense fallback={<OperationsLoading />}>
+                <LazyRecovery controller={controller} snapshot={snapshot} />
+              </Suspense>
+            ) : null}
+            {tab === 'diff' ? (
+              <Suspense fallback={<OperationsLoading />}>
+                <LazyDiff controller={controller} snapshot={snapshot} />
+              </Suspense>
+            ) : null}
+            {tab === 'share' ? (
+              <Suspense fallback={<OperationsLoading />}>
+                <LazyShare controller={controller} snapshot={snapshot} />
+              </Suspense>
+            ) : null}
+          </>
+        ) : (
+          <p className="operations-note" role="status">
+            {authoringText('This tool is not included in the current workspace plan.')}
+          </p>
+        )}
       </div>
     </section>
   );
+}
+
+function documentLocales(snapshot: LocalAuthoringFrameSnapshot): readonly string[] {
+  const document = snapshot.canonicalDocumentState ?? snapshot.documentState;
+  return document.localization?.variants.map((variant) => variant.locale) ?? [];
+}
+
+function commercialTabEnabled(
+  tab: AuthoringOperationsTab,
+  usage: WorkspaceCommercialUsage | undefined,
+): boolean {
+  const feature = COMMERCIAL_FEATURE_BY_OPERATIONS_TAB[tab];
+  return !usage || !feature || usage.features.includes(feature);
 }
 
 function OperationsLoading() {
@@ -575,12 +765,16 @@ function OperationsLoading() {
  * puts it — the moment you wonder whether you can add a locale is the moment you
  * are looking at the Language row.
  *
- * WIRE_BE: only the locale count is the document's to know. Seats, live
- * experiences, the plan name and the AI allowance are the workspace's, and no
- * message carries them to this frame yet. Printing invented numbers would read
- * as a real quota, so the line says what it is waiting for instead.
+ * Document locale coverage stays beside the server-authoritative workspace
+ * limits so the footer never invents commercial state.
  */
-function OperationsPlanFooter({ localeCount }: { localeCount: number }) {
+function OperationsPlanFooter({
+  localeCount,
+  usage,
+}: {
+  localeCount: number;
+  usage?: WorkspaceCommercialUsage;
+}) {
   return (
     <div className="operations-hub-plan">
       <p className="operations-hub-group-label">{authoringText('This workspace')}</p>
@@ -591,9 +785,35 @@ function OperationsPlanFooter({ localeCount }: { localeCount: number }) {
             : '{count} languages in this experience',
           { count: localeCount },
         )}
-        <br />
-        {authoringText('Seats and plan limits load with the workspace.')}
+        {usage ? (
+          <>
+            <br />
+            {authoringText('{plan} plan', { plan: COMMERCIAL_PLAN_LABELS[usage.planId] })}
+            <br />
+            {usageLine(authoringText('Creator seats'), usage.creatorSeats)}
+            <br />
+            {usageLine(authoringText('Live experiences'), usage.liveExperiences)}
+            <br />
+            {usageLine(authoringText('AI credits'), usage.aiCredits)}
+          </>
+        ) : (
+          <>
+            <br />
+            {authoringText('Seats and plan limits load with the workspace.')}
+          </>
+        )}
       </p>
     </div>
   );
+}
+
+function usageLine(label: string, usage: CommercialUsageValue): string {
+  if (usage.limit === null) {
+    return authoringText('{label}: {used}, no limit', { label, used: usage.used });
+  }
+  return authoringText('{label}: {used} of {limit}', {
+    label,
+    used: usage.used,
+    limit: usage.limit,
+  });
 }

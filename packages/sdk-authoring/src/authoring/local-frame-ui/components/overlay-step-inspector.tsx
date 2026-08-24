@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, type ReactNode } from 'react';
+import { lazy, Suspense, useEffect, useId, useRef, type ReactNode } from 'react';
 import type { LodariqBlock } from '@lodariq/schema';
 import { authoringText } from '../../../i18n';
 import { INSPECTOR_COPY } from '../../overlay/inspector-copy';
@@ -19,6 +19,21 @@ import { StepStyleHeader } from './step-style-header';
 import { StepStyleReuse } from './step-style-reuse';
 import { StepConditionsSection } from './step-conditions-section';
 import { StepTargetSection } from './step-target-section';
+import type { ExperienceBehaviorSectionProps } from './experience-behavior-section';
+import { registerExperienceInspectorSections } from '../../experiences/inspector-registration';
+
+const LazyExperienceBehaviorSection = lazy(async () => {
+  const module = await import('./experience-behavior-section');
+  return { default: module.ExperienceBehaviorSection };
+});
+
+function ExperienceBehaviorSection(props: ExperienceBehaviorSectionProps) {
+  return (
+    <Suspense fallback={null}>
+      <LazyExperienceBehaviorSection {...props} />
+    </Suspense>
+  );
+}
 
 /**
  * The step inspector (§4.3): one popover, anchored to the card, replacing the
@@ -48,8 +63,20 @@ export function OverlayStepInspector({
   stepIndex: number;
   tooltip: LodariqBlock;
 }) {
+  registerExperienceInspectorSections(snapshot.documentState.type);
   const containerRef = useRef<HTMLElement | null>(null);
   const titleId = useId();
+  /**
+   * The trap below opens the popover and restores focus when it closes, so it
+   * must run on open and on close and at no other time. `onClose` is written
+   * inline by the caller and so is a new function on every render — as a
+   * dependency it re-ran the whole effect on every keystroke, moving focus to
+   * the opener and back to the first section, which is what sent the creator's
+   * scroll position to the top mid-edit. The ref carries the latest callback
+   * without making the effect depend on its identity.
+   */
+  const closeRef = useRef(onClose);
+  closeRef.current = onClose;
 
   /**
    * §9.1: a focus-trapped popover, `Esc` to dismiss, focus restored to whatever
@@ -65,7 +92,7 @@ export function OverlayStepInspector({
     const onKeyDown = (event: KeyboardEvent): void => {
       if (event.key === 'Escape') {
         event.stopPropagation();
-        onClose();
+        closeRef.current();
         return;
       }
       if (event.key !== 'Tab') return;
@@ -87,7 +114,7 @@ export function OverlayStepInspector({
       container.removeEventListener('keydown', onKeyDown);
       if (opener instanceof HTMLElement && opener.isConnected) opener.focus();
     };
-  }, [onClose]);
+  }, []);
 
   const bodies = sectionBodies({
     controller,
@@ -266,6 +293,39 @@ function sectionBodies({
         step={step}
         tooltip={tooltip}
       />
+    ),
+    dismissal: (
+      <ExperienceBehaviorSection controller={controller} section="dismissal" snapshot={snapshot} />
+    ),
+    frequency: (
+      <ExperienceBehaviorSection controller={controller} section="frequency" snapshot={snapshot} />
+    ),
+    audience: (
+      <ExperienceBehaviorSection controller={controller} section="content" snapshot={snapshot} />
+    ),
+    marker: (
+      <ExperienceBehaviorSection controller={controller} section="marker" snapshot={snapshot} />
+    ),
+    trigger: (
+      <ExperienceBehaviorSection controller={controller} section="trigger" snapshot={snapshot} />
+    ),
+    tooltip: (
+      <ExperienceBehaviorSection controller={controller} section="content" snapshot={snapshot} />
+    ),
+    question: (
+      <ExperienceBehaviorSection controller={controller} section="content" snapshot={snapshot} />
+    ),
+    options: (
+      <ExperienceBehaviorSection controller={controller} section="content" snapshot={snapshot} />
+    ),
+    logic: (
+      <ExperienceBehaviorSection controller={controller} section="logic" snapshot={snapshot} />
+    ),
+    items: (
+      <ExperienceBehaviorSection controller={controller} section="items" snapshot={snapshot} />
+    ),
+    completion: (
+      <ExperienceBehaviorSection controller={controller} section="completion" snapshot={snapshot} />
     ),
     /**
      * Advanced also carries the destructive action. `deleteTopLevelBlock` has

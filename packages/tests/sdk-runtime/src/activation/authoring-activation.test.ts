@@ -381,16 +381,16 @@ describe('public authoring activation client', () => {
     expect(offered).toEqual(['tour', 'announcement', 'hotspot', 'survey', 'checklist']);
     expect(surface?.textContent).toContain('Tour');
 
-    surface?.querySelector<HTMLButtonElement>('[data-experience-type="tour"]')?.click();
+    surface?.querySelector<HTMLButtonElement>('[data-experience-type="survey"]')?.click();
     await vi.waitFor(() => expect(harness.handedOff).toHaveLength(1));
 
     expect(harness.authorizationBodies[0]?.['documentIntent']).toEqual({
       kind: 'new-draft',
-      documentType: 'tour',
+      documentType: 'survey',
     });
     expect(harness.handedOff[0]?.documentIntent).toEqual({
       kind: 'new-draft',
-      documentType: 'tour',
+      documentType: 'survey',
     });
     expect(surface?.hidden).toBe(true);
     expect(root?.querySelector<HTMLElement>('.shell')?.dataset['pinned']).toBe('true');

@@ -1,6 +1,5 @@
 /** Approved review and recovery workspace. */
 export const AUTHORING_AGREED_REVIEW_CSS = `
-  /* Review and recovery is a proper workspace, not an empty disclosure. */
   .panel-review-workspace {
     grid-template-rows: 56px minmax(0, 1fr);
   }

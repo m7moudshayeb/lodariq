@@ -41,6 +41,54 @@ chrome. Geometry snaps to the SDK ladders (type 12–32, space 4–40, radius
 8/12/16, motion 200ms). Display headlines use Fraunces; UI text is Inter, both
 self-hosted. The dashboard is expected to migrate to this same system.
 
+## SEO / GEO
+
+- `public/robots.txt` — disallows `/demo/` (fixture product, must never be indexed
+  as its own page) and explicitly welcomes GPTBot, ClaudeBot, PerplexityBot,
+  Google-Extended, Applebot-Extended and cohere-ai on everything else.
+- `public/llms.txt` — a plain-language factual summary for AI systems, including
+  what Lodariq is _not_ and a note that Meridian is a fixture, not a customer.
+- `public/sitemap.xml`, `public/og-image.png` (1200×630, regenerate by rendering
+  the same markup if the headline changes).
+- JSON-LD `@graph` in `index.html`: Organization, WebSite, SoftwareApplication,
+  FAQPage. **The FAQPage entries are generated from the FAQ markup** so the
+  schema text can never drift from what the page shows — if you edit an
+  answer, update the corresponding `acceptedAnswer` too.
+- `scripts/prepare-demo.mjs` injects `<meta name="robots" content="noindex, nofollow">`
+  into the demo build. Both that and the robots.txt rule are needed: a
+  disallowed URL can still be indexed from an external link.
+
+Two rendering rules protect crawlability:
+
+1. `[data-reveal]` sections are **visible by default**; `main.ts` sets
+   `data-reveal-armed` on `<html>` to opt into the animation. A crawler or a
+   failed script sees content, not `opacity: 0`.
+2. The demo iframe loads on the `load` event — unconditionally, but after first
+   paint, so ~700KB of fixture-host bundle doesn't compete with LCP.
+
+## Content accuracy
+
+The copy is written for the **buyer — a product marketing manager**, not for the
+developer who approves the script tag. Technical detail lives in the FAQ, which
+is where an evaluator looks; the page body stays in outcome language.
+
+Constrained by `docs/product-design/plan-features.md` and
+`positioning-and-pricing.md`:
+
+- **Tours are the only shipped experience type.** The four use cases on the page
+  are all jobs a tour does. Announcements, hotspots, checklists and surveys are
+  named as coming, never as available.
+- **No prices are published** — the plan doc marks every figure a placeholder
+  pending design partners. The page sells the _metric_ (engaged users) instead.
+- **No resolution-rate claim.** That number is unmeasured; the FAQ says so.
+- **Analytics claims stop at completions, drop-off and dismissals.** Funnels,
+  cohorts and export are labelled as still being built.
+- No customer logos, testimonials or case studies, because there are none.
+- **No competitor is named anywhere** on the page or in `llms.txt`. Naming one
+  commits you to defending that characterisation as their product changes.
+  Category placement uses the generic terms ("digital adoption platform",
+  "product tour tool"), which is what carries the SEO value anyway.
+
 ## Waitlist
 
 Pre-launch, the form POSTs `{ email, source }` to `VITE_WAITLIST_ENDPOINT`

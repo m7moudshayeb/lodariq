@@ -1,7 +1,7 @@
 # 0014. Environment/document release pointers and exact-artifact promotion
 
 - Status: Accepted
-- PRD references: §3.2, §10, §11.3, §16.4, §20
+- PRD references: §3.2, §7.7, §10, §11.3, §16.4, §20
 - Extends: ADR 0003
 
 ## Context
@@ -48,6 +48,23 @@ The active deployment key is:
   environment token and deployment pointer.
 - Product environments remain distinct from Lodariq control-plane deployment
   environments.
+
+### Content-addressed narration amendment
+
+- TTS runs server-side through a provider-neutral adapter. Provider credentials
+  and raw responses never enter the authoring frame or public runtime.
+- Generated audio is stored as an authoring media asset and pinned in the
+  compiled step by `assetId`, SHA-256 content hash, content type, duration, and
+  bounded caption cues. Audio is never inlined into document JSON.
+- Preview and delivery resolve the same immutable published asset. Promotion and
+  rollback reuse it with the artifact and never regenerate speech.
+- TTS debits measured provider usage through the idempotent AI-credit ledger.
+  Generation never publishes or advances a deployment pointer.
+- Standard provider voices retain only the generated asset and bounded usage
+  evidence under the workspace retention policy. Raw provider requests and
+  responses are not retained.
+- Voice cloning is intentionally not offered. Lodariq uses standard provider
+  narration voices and does not enroll, clone, or reproduce a customer voice.
 
 ## Consequences
 

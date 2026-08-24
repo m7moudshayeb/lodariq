@@ -39,12 +39,24 @@ describe('inspector section registry (§4.3)', () => {
     expect(inspectorSectionsFor('card').sections.map((section) => section.id)).toEqual([
       'style',
       'actions',
-      'placement',
+      'flow',
       'target',
       'conditions',
       'narration',
       'advanced',
     ]);
+  });
+
+  it.each([
+    ['announcement', ['style', 'dismissal', 'frequency', 'audience', 'advanced']],
+    ['hotspot', ['marker', 'tooltip', 'trigger', 'style', 'advanced']],
+    ['survey', ['question', 'options', 'logic', 'style', 'advanced']],
+    ['checklist', ['items', 'completion', 'style', 'advanced']],
+  ] as const)('replaces card sections with the %s authoring model', (type, expected) => {
+    registerBuiltInInspectorSections(INSPECTOR_SECTION_LABELS);
+    registerBuiltInExperiences();
+    registerExperienceInspectorSections(type);
+    expect(inspectorSectionsFor('card').sections.map((section) => section.id)).toEqual(expected);
   });
 
   it('keeps Advanced last, whatever its order weight', () => {
@@ -95,7 +107,7 @@ describe('inspector section registry (§4.3)', () => {
     expect(sections.map((section) => section.id)).toEqual([
       'style',
       'actions',
-      'placement',
+      'flow',
       'target',
       'conditions',
       'narration',

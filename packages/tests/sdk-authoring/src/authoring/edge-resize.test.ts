@@ -1,4 +1,8 @@
-import { BUTTON_WIDTH_PX_LIMITS, TOOLTIP_HEIGHT_PX_LIMITS, TOOLTIP_WIDTH_PX_LIMITS } from '@lodariq/schema';
+import {
+  BUTTON_WIDTH_PX_LIMITS,
+  TOOLTIP_HEIGHT_PX_LIMITS,
+  TOOLTIP_WIDTH_PX_LIMITS,
+} from '@lodariq/schema';
 import { describe, expect, it } from 'vitest';
 import {
   clampSnappedSize,
@@ -27,7 +31,11 @@ describe('shared 8-edge resize', () => {
 
   it('clamps overlay popup size to tooltip limits', () => {
     expect(
-      clampSnappedSize({ width: 100, height: 900 }, TOOLTIP_WIDTH_PX_LIMITS, TOOLTIP_HEIGHT_PX_LIMITS),
+      clampSnappedSize(
+        { width: 100, height: 900 },
+        TOOLTIP_WIDTH_PX_LIMITS,
+        TOOLTIP_HEIGHT_PX_LIMITS,
+      ),
     ).toEqual({ width: 240, height: 640 });
   });
 
@@ -41,10 +49,16 @@ describe('shared 8-edge resize', () => {
 
   it('treats off-viewport targets as filmstrip-only', () => {
     expect(
-      rectIntersectsViewport({ left: -40, top: 10, right: -8, bottom: 40 }, { width: 800, height: 600 }),
+      rectIntersectsViewport(
+        { left: -40, top: 10, right: -8, bottom: 40 },
+        { width: 800, height: 600 },
+      ),
     ).toBe(false);
     expect(
-      rectIntersectsViewport({ left: 20, top: 20, right: 80, bottom: 60 }, { width: 800, height: 600 }),
+      rectIntersectsViewport(
+        { left: 20, top: 20, right: 80, bottom: 60 },
+        { width: 800, height: 600 },
+      ),
     ).toBe(true);
   });
 });

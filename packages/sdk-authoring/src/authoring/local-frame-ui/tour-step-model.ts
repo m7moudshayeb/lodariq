@@ -119,6 +119,7 @@ function healthFromPresentation(presentation: AuthoringTargetHealthPresentation)
 }
 
 export function stepTooltip(step: LodariqBlock): LodariqBlock | null {
+  if (step.type === 'tooltip') return step;
   return step.children.find((child) => child.type === 'tooltip') ?? null;
 }
 

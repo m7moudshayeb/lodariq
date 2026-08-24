@@ -1,4 +1,11 @@
 import type { ExperienceMeasurementRepository } from './experience-measurement-repository';
+import type { CommercialEntitlementRepository } from './commercial-entitlements';
+import type { CommercialBillingRepository } from './commercial-billing';
+import type { DeliveryOrchestrationRepository } from './delivery-orchestration';
+import type { GovernanceRepository } from './governance';
+import type { AnalyticsWarehouseRepository } from './analytics-warehouse';
+import type { GovernanceChangeHistoryRepository } from './governance-change-history';
+import type { AccessibilityGovernanceRepository } from './accessibility-governance';
 import type {
   AnalyticsEventAggregate,
   QueryAuthoringDocumentsResult,
@@ -108,10 +115,26 @@ import type {
   AuthoringMediaAssetResource,
   AuthoringStepStyleRecipeResource,
 } from '@lodariq/schema';
+import type {
+  AuthoringRoadmapRecord,
+  AuthoringRoadmapRecordKind,
+  CreateAuthoringRoadmapRecordInput,
+  UpdateAuthoringRoadmapRecordInput,
+  AuthoringCopyRecord,
+  AuthoringCopyRecordKind,
+  CreateAuthoringCopyRecordInput,
+} from './authoring-roadmap';
 
 export interface ControlPlaneRepository
   extends
     ExperienceMeasurementRepository,
+    CommercialEntitlementRepository,
+    CommercialBillingRepository,
+    DeliveryOrchestrationRepository,
+    GovernanceRepository,
+    AnalyticsWarehouseRepository,
+    GovernanceChangeHistoryRepository,
+    AccessibilityGovernanceRepository,
     IdentityRepository,
     TenantAdministrationRepository,
     AccountManagementRepository,
@@ -134,6 +157,30 @@ export interface ControlPlaneRepository
   createAuthoringMediaAsset(
     input: CreateAuthoringMediaAssetInput,
   ): Promise<AuthoringMediaAssetResource>;
+  createAuthoringRoadmapRecord(
+    input: CreateAuthoringRoadmapRecordInput,
+  ): Promise<AuthoringRoadmapRecord>;
+  getAuthoringRoadmapRecord(
+    workspaceId: string,
+    id: string,
+  ): Promise<AuthoringRoadmapRecord | null>;
+  /** Public demo lookup is limited by the database policy to active demo links. */
+  getAuthoringRoadmapRecordById(id: string): Promise<AuthoringRoadmapRecord | null>;
+  listAuthoringRoadmapRecords(
+    workspaceId: string,
+    kind?: AuthoringRoadmapRecordKind,
+    documentId?: string,
+  ): Promise<AuthoringRoadmapRecord[]>;
+  updateAuthoringRoadmapRecord(
+    input: UpdateAuthoringRoadmapRecordInput,
+  ): Promise<AuthoringRoadmapRecord | null>;
+  createAuthoringCopyRecord(input: CreateAuthoringCopyRecordInput): Promise<AuthoringCopyRecord>;
+  getAuthoringCopyRecord(workspaceId: string, id: string): Promise<AuthoringCopyRecord | null>;
+  listAuthoringCopyRecords(
+    workspaceId: string,
+    documentId: string,
+    kind?: AuthoringCopyRecordKind,
+  ): Promise<AuthoringCopyRecord[]>;
   /** Fail closed when the repository's required backing store is unavailable. */
   checkReadiness(): Promise<void>;
   /** Release backing-store resources owned by this repository. */
@@ -188,6 +235,11 @@ export interface ControlPlaneRepository
     workspaceId: string,
     documentId: string,
     artifactId: string,
+  ): Promise<PersistedCompiledArtifact | null>;
+  getCompiledArtifactForDocumentVersion(
+    workspaceId: string,
+    documentId: string,
+    documentVersionId: string,
   ): Promise<PersistedCompiledArtifact | null>;
   getCurrentPublication(
     workspaceId: string,

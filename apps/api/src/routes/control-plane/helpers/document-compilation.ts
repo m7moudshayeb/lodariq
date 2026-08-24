@@ -11,6 +11,7 @@ import {
   validate,
   validateTourPublishReadiness,
   type BrandThemeSnapshot as BrandThemeSnapshotType,
+  type AuthoringMediaAssetKind,
   type CompiledDocument as CompiledDocumentType,
   type PublishReadinessIssue,
 } from '@lodariq/schema';
@@ -34,11 +35,28 @@ export async function compileAndValidate(
   repository: ControlPlaneRepository,
   document: LodariqDocument,
 ): Promise<CompiledDocumentType> {
-  const theme = await resolveDocumentTheme(repository, document);
+  const [theme, entitlement, experiment, mediaAssets] = await Promise.all([
+    resolveDocumentTheme(repository, document),
+    repository.readWorkspaceEntitlementSnapshot(document.workspaceId),
+    repository.readExperiment({ workspaceId: document.workspaceId, documentId: document.id }),
+    repository.listAuthoringMediaAssets(document.workspaceId),
+  ]);
   const compiled = await compileDocument({
     document,
     theme,
     rendererContractVersion: RENDERER_CONTRACT_VERSION,
+    showLodariqBadge: !entitlement.entitlements.removeBadge,
+    ...(experiment.experiment ? { experiment: experiment.experiment } : {}),
+    mediaAssets: new Map(
+      mediaAssets.map((asset) => [
+        asset.id,
+        {
+          kind: asset.kind,
+          contentHash: asset.contentHash,
+          contentType: asset.contentType,
+        },
+      ]),
+    ),
   });
   const result = validate(CompiledDocument, compiled);
   if (!result.valid) {
@@ -161,7 +179,7 @@ export async function listDocumentSummariesWithReadiness(
 
 export function validateDocumentReleaseReadiness(
   document: LodariqDocument,
-  validMediaAssets?: ReadonlyMap<string, 'image' | 'video' | 'captions'>,
+  validMediaAssets?: ReadonlyMap<string, AuthoringMediaAssetKind>,
 ): PublishReadinessIssue[] {
   return validateTourPublishReadiness(document, {
     ...(validMediaAssets ? { validMediaAssets, requireValidMediaAssets: true } : {}),
@@ -171,7 +189,7 @@ export function validateDocumentReleaseReadiness(
 export async function validMediaAssetsForDocument(
   repository: ControlPlaneRepository,
   document: LodariqDocument,
-): Promise<ReadonlyMap<string, 'image' | 'video' | 'captions'>> {
+): Promise<ReadonlyMap<string, AuthoringMediaAssetKind>> {
   const referenced = collectTourMediaAssetIds(document);
   if (referenced.length === 0) return new Map();
   const referencedIds = new Set(referenced);
@@ -184,6 +202,9 @@ export async function validMediaAssetsForDocument(
 export function compiledMediaAssetIds(compiled: CompiledDocumentType): string[] {
   const assetIds = new Set<string>();
   for (const step of compiled.steps) {
+    if ('narration' in step && step.narration) {
+      assetIds.add(step.narration.audio.assetId);
+    }
     for (const node of step.body) {
       const media = (
         node.props as {

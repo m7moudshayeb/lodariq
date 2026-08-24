@@ -27,12 +27,14 @@ import {
   type ResponsiveStepPresentation,
   type SpotlightPresentation,
   type MediaPresentation,
+  type LocalizedMediaVariant,
   type StructuredCompositionPresentation,
   STRUCTURED_COMPOSITION_BLOCK_TYPE_VALUES,
   type ExperienceSurfaceForm,
   type AnchorAlign,
   type StepEmphasis,
   type StepTransitionCondition,
+  type ExperienceBehavior,
 } from '@lodariq/schema';
 import {
   setBlockLayout as setBlockLayoutInTree,
@@ -54,8 +56,10 @@ import type { EditableButtonVariant, EditableActionType } from './types';
 import { blockTypeLabel, findBlockById, isEditableContentBlock } from './utils';
 import { slashCommandDefaultContent } from './controller-model';
 import { localizedAuthoringDocument, setAuthoringLocalizedTitle } from '../document-localization';
-import { blockSupportsAuthoringCapability } from '../experience-authoring-capabilities';
-import { experienceDefinition } from '../experiences/definition';
+import {
+  blockSupportsAuthoringCapability,
+  registeredExperienceDefinition,
+} from '../experience-authoring-capabilities';
 import { dropRegion, type DropPoint } from '../experiences/gestures';
 
 const STRUCTURED_COMPOSITION_BLOCK_TYPES = new Set<string>(
@@ -489,7 +493,7 @@ export abstract class ControllerPropertyFeature extends ControllerReliabilityFea
    * does not answer the gesture ignores the drop.
    */
   setSurfaceFormFromDrop(point: DropPoint): void {
-    const definition = experienceDefinition(this.documentState.type);
+    const definition = registeredExperienceDefinition(this.documentState.type);
     if (!definition?.formFromRegion) return;
     const form = definition.formFromRegion(dropRegion(point));
     if (this.documentState.surfaceForm === form) return;
@@ -499,6 +503,42 @@ export abstract class ControllerPropertyFeature extends ControllerReliabilityFea
     this.services.saveDocument(this.documentState);
     this.setStatus(SURFACE_FORM_STATUS[form]);
     this.emit();
+  }
+
+  setExperienceSurfaceForm(form: ExperienceSurfaceForm): void {
+    const definition = registeredExperienceDefinition(this.documentState.type);
+    if (!definition?.formFromRegion) return;
+    const allowed =
+      this.documentState.type === 'announcement'
+        ? form === 'modal' || form === 'banner' || form === 'slideIn'
+        : this.documentState.type === 'checklist' && (form === 'drawer' || form === 'floating');
+    if (!allowed || this.documentState.surfaceForm === form) return;
+    const nextDocument = this.normalizeDocument({ ...this.documentState, surfaceForm: form });
+    this.commitCoordinatedMutation({
+      blockId: this.documentState.id,
+      coalescingKey: `surface-form:${this.documentState.id}`,
+      operations: [{ op: 'replaceDocument', document: nextDocument }],
+      reduce: () => nextDocument,
+      scope: 'behavior',
+      status: SURFACE_FORM_STATUS[form],
+    });
+  }
+
+  setExperienceBehavior(experience: ExperienceBehavior): void {
+    if (experience.type !== this.documentState.type) return;
+    if (JSON.stringify(this.documentState.experience) === JSON.stringify(experience)) return;
+    const nextDocument = this.normalizeDocument({
+      ...this.documentState,
+      experience: structuredClone(experience),
+    });
+    this.commitCoordinatedMutation({
+      blockId: this.documentState.id,
+      coalescingKey: `experience-behavior:${this.documentState.id}`,
+      operations: [{ op: 'replaceDocument', document: nextDocument }],
+      reduce: () => nextDocument,
+      scope: 'behavior',
+      status: authoringText('Experience behavior updated'),
+    });
   }
 
   setTourCompletionBehavior(completion: TourCompletionBehavior | undefined): void {
@@ -630,6 +670,25 @@ export abstract class ControllerPropertyFeature extends ControllerReliabilityFea
       }),
       scope: 'content',
       status: authoringText('Media settings updated'),
+    });
+  }
+
+  setMediaLocaleVariant(
+    blockId: string,
+    variant: LocalizedMediaVariant,
+    fallbackLocale?: string,
+  ): void {
+    const block = findBlockById(this.documentState.blocks, blockId);
+    const media = block?.props.media;
+    if (!media || !variant.assetId || !variant.accessibilityName.trim()) return;
+    const localeVariants = [
+      ...(media.localeVariants ?? []).filter((candidate) => candidate.locale !== variant.locale),
+      structuredClone(variant),
+    ];
+    this.setMediaPresentation(blockId, {
+      ...structuredClone(media),
+      localeVariants,
+      ...(fallbackLocale ? { fallbackLocale } : {}),
     });
   }
 

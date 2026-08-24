@@ -5,7 +5,7 @@ import type {
   TargetLocalizedEvidence,
   TargetRequiredAction,
 } from '@lodariq/schema/target';
-import { localizedTextSimilarity } from './text';
+import { localizedTextContains, localizedTextSimilarity, tokenize } from './text';
 
 const FIELD_ROLES = new Set([
   'checkbox',
@@ -433,24 +433,40 @@ export function localizedEvidenceFor(
   return sameLanguage.length === 1 ? (sameLanguage[0] ?? null) : null;
 }
 
-export function localizedTextMatches(element: Element, expected: TargetLocalizedEvidence): boolean {
-  const locale = canonicalLocale(expected.locale) ?? expected.locale;
-  const actualByField = {
+const LOCALIZED_TEXT_FIELDS = ['accessibleName', 'label', 'placeholder', 'title'] as const;
+type LocalizedTextField = (typeof LOCALIZED_TEXT_FIELDS)[number];
+
+const LOCALIZED_TEXT_MATCH_SIMILARITY = 0.72;
+
+function localizedTextFieldsOf(element: Element): Record<LocalizedTextField, string | undefined> {
+  return {
     accessibleName: localizedLabelOf(element),
     label: associatedLabelOf(element),
     placeholder: element.getAttribute('placeholder') ?? undefined,
     title: element.getAttribute('title') ?? undefined,
-  } as const;
+  };
+}
 
-  const exactFieldMatch = (Object.keys(actualByField) as Array<keyof typeof actualByField>).some(
-    (field) => textEquals(actualByField[field], expected[field], locale),
-  );
-  if (exactFieldMatch) return true;
+function localizedFieldAgrees(
+  actual: string | undefined,
+  expectedText: string | undefined,
+  expected: TargetLocalizedEvidence,
+  locale: string,
+): boolean {
+  if (textEquals(actual, expectedText, locale)) return true;
+  // The rest of a fragment's string is data it never accounted for.
+  if (expected.partial) return localizedTextContains(actual, expectedText, locale);
+  return localizedTextSimilarity(actual, expectedText, locale) >= LOCALIZED_TEXT_MATCH_SIMILARITY;
+}
 
-  const fuzzyFieldMatch = (Object.keys(actualByField) as Array<keyof typeof actualByField>).some(
-    (field) => localizedTextSimilarity(actualByField[field], expected[field], locale) >= 0.72,
+export function localizedTextMatches(element: Element, expected: TargetLocalizedEvidence): boolean {
+  const locale = canonicalLocale(expected.locale) ?? expected.locale;
+  const actualByField = localizedTextFieldsOf(element);
+
+  const fieldMatch = LOCALIZED_TEXT_FIELDS.some((field) =>
+    localizedFieldAgrees(actualByField[field], expected[field], expected, locale),
   );
-  if (fuzzyFieldMatch) return true;
+  if (fieldMatch) return true;
 
   // Nearby copy is useful for anonymous regions, but it must not make every
   // item in a repeated control group match a specifically named control.
@@ -460,6 +476,68 @@ export function localizedTextMatches(element: Element, expected: TargetLocalized
   if (nearbyText.length === 0) return false;
   const actualNearby = parentElementAcrossOpenShadow(element)?.textContent;
   return nearbyText.some((text) => textIncludes(actualNearby, text, locale));
+}
+
+/**
+ * How closely an element carries the recorded name. `exact` may settle a tie
+ * between equals; `near` may only veto one, because a plural or a casing slip
+ * reads as the same words to the person looking at the page.
+ */
+export function localizedNameAgreement(
+  element: Element,
+  expected: TargetLocalizedEvidence,
+): 'exact' | 'near' | null {
+  const locale = canonicalLocale(expected.locale) ?? expected.locale;
+  const actualByField = localizedTextFieldsOf(element);
+  let near = false;
+  for (const field of LOCALIZED_TEXT_FIELDS) {
+    const expectedText = expected[field];
+    const actual = actualByField[field];
+    if (!expectedText || !actual) continue;
+    // A fragment accounts for its own words only; the rest of the string is data.
+    const whole = expected.partial
+      ? localizedTextContains(actual, expectedText, locale)
+      : textEquals(actual, expectedText, locale);
+    if (whole) return 'exact';
+    near ||= sameWordsToWithinALetter(actual, expectedText, locale);
+  }
+  return near ? 'near' : null;
+}
+
+/** Token overlap cannot see this: "item" and "items" share no token at all. */
+function sameWordsToWithinALetter(actual: string, expected: string, locale: string): boolean {
+  const wanted = tokenize(expected, locale);
+  const found = tokenize(actual, locale);
+  if (wanted.length === 0 || wanted.length !== found.length) return false;
+  return wanted.every((word, index) => {
+    const other = found[index]!;
+    const [short, long] = word.length <= other.length ? [word, other] : [other, word];
+    return long.length - short.length <= 2 && long.startsWith(short);
+  });
+}
+
+/**
+ * Copy that disagrees, not copy that went missing. Both sides must say
+ * something about the same field and share no word. Partial overlap answers
+ * nothing: renamed copy and a wrong neighbour look alike from halfway.
+ */
+export function localizedTextContradicts(
+  element: Element,
+  expected: TargetLocalizedEvidence,
+): boolean {
+  const locale = canonicalLocale(expected.locale) ?? expected.locale;
+  const actualByField = localizedTextFieldsOf(element);
+
+  let comparable = 0;
+  for (const field of LOCALIZED_TEXT_FIELDS) {
+    const expectedText = expected[field];
+    const actual = actualByField[field];
+    if (!expectedText || !actual) continue;
+    comparable += 1;
+    if (localizedFieldAgrees(actual, expectedText, expected, locale)) return false;
+    if (localizedTextSimilarity(actual, expectedText, locale) > 0) return false;
+  }
+  return comparable > 0;
 }
 
 /**

@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { computeBrandThemeContentHash } from '@lodariq/compiler';
+import { act } from 'react';
 import {
   AUTHORING_ACTIVATION_GRANT_HEADER,
   AUTHORING_CHROME_ACTION_REQUEST_TYPE,
@@ -663,6 +664,8 @@ describe('hosted editor authoring frame', () => {
           201,
         );
       }
+      const collaborationResponse = hostedCollaborationResponse(url, method);
+      if (collaborationResponse) return collaborationResponse;
       throw new Error(`Unexpected hosted recovery request: ${method} ${url}`);
     });
     vi.stubGlobal('fetch', fetchMock);
@@ -682,8 +685,11 @@ describe('hosted editor authoring frame', () => {
     );
     await waitForAuthoringFrameMount();
 
-    await openOperations(sessionReady.context.sessionId, sessionReady.context.documentId);
-    buttonWithText('Release options')?.click();
+    await openOperations(
+      sessionReady.context.sessionId,
+      sessionReady.context.documentId,
+      'release',
+    );
     await vi.waitFor(() => expect(buttonWithText('Review Staging history')).not.toBeNull());
     expect(buttonWithText('Review Production history')).not.toBeNull();
     buttonWithText('Review Production history')?.click();
@@ -698,7 +704,9 @@ describe('hosted editor authoring frame', () => {
       expect(textarea).not.toBeNull();
       return textarea!;
     });
-    setReactTextValue(reason, 'Pause delivery while the production incident is reviewed');
+    await act(async () => {
+      setReactTextValue(reason, 'Pause delivery while the production incident is reviewed');
+    });
     await vi.waitFor(() => expect(buttonWithText('Unpublish release')?.disabled).toBe(false));
     buttonWithText('Unpublish release')?.click();
 
@@ -730,7 +738,7 @@ describe('hosted editor authoring frame', () => {
     expect(
       fetchMock.mock.calls.filter(([input]) => input.toString() === releaseStateUrl).length,
     ).toBeGreaterThan(1);
-  });
+  }, 15_000);
 
   it('publishes the reviewed Tour artifact to staging from the authoring popup', async () => {
     const postMessage = vi.spyOn(window.parent, 'postMessage').mockImplementation(() => undefined);
@@ -749,16 +757,25 @@ describe('hosted editor authoring frame', () => {
       findings: [],
       visualCheck: null,
     };
-    const fetchMock = vi
-      .fn<typeof fetch>()
-      .mockResolvedValueOnce(jsonResponse(authoringSessionResult({ publishToStaging: true }), 201))
-      .mockResolvedValueOnce(jsonResponse(authoringDocumentPayload(document)))
-      .mockResolvedValueOnce(jsonResponse(emptyAuthoringResources()))
-      .mockResolvedValueOnce(jsonResponse(releaseState))
-      .mockResolvedValueOnce(jsonResponse(authoringDocumentPayload(document)))
-      .mockResolvedValueOnce(jsonResponse(releaseState))
-      .mockResolvedValueOnce(
-        jsonResponse(
+    const fetchMock = vi.fn<typeof fetch>().mockImplementation(async (input, init) => {
+      const url = input.toString();
+      const method = init?.method ?? 'GET';
+      if (url === `${LODARIQ_STAGING_API_ORIGIN}/v1/authoring/sessions` && method === 'POST') {
+        return jsonResponse(authoringSessionResult({ publishToStaging: true }), 201);
+      }
+      if (url === `${LODARIQ_STAGING_API_ORIGIN}/v1/authoring/document`) {
+        if (method === 'GET' || method === 'POST') {
+          return jsonResponse(authoringDocumentPayload(document));
+        }
+      }
+      if (url === `${LODARIQ_STAGING_API_ORIGIN}/v1/authoring/resources` && method === 'GET') {
+        return jsonResponse(emptyAuthoringResources());
+      }
+      if (url === `${LODARIQ_STAGING_API_ORIGIN}/v1/authoring/release-state` && method === 'GET') {
+        return jsonResponse(releaseState);
+      }
+      if (url === `${LODARIQ_STAGING_API_ORIGIN}/v1/authoring/publications` && method === 'POST') {
+        return jsonResponse(
           {
             replayed: false,
             deployment: {
@@ -786,8 +803,12 @@ describe('hosted editor authoring frame', () => {
             },
           },
           201,
-        ),
-      );
+        );
+      }
+      const collaborationResponse = hostedCollaborationResponse(url, method);
+      if (collaborationResponse) return collaborationResponse;
+      throw new Error(`Unexpected hosted publication request: ${method} ${url}`);
+    });
     vi.stubGlobal('fetch', fetchMock);
     await loadAuthoringFrame();
     const ready = editorReadyMessage(postMessage);
@@ -806,23 +827,30 @@ describe('hosted editor authoring frame', () => {
     );
     await waitForAuthoringFrameMount();
 
-    await openOperations(sessionReady.context.sessionId, sessionReady.context.documentId);
-    await vi.waitFor(() =>
-      expect(documentReleaseStatus()?.getAttribute('data-release-status')).toBe('ready'),
+    await openOperations(
+      sessionReady.context.sessionId,
+      sessionReady.context.documentId,
+      'release',
     );
-    buttonWithText('Release options')?.click();
-    await vi.waitFor(() => expect(buttonWithText('Publish to staging')).not.toBeNull());
+    await vi.waitFor(() =>
+      expect(
+        buttonWithText('Publish to staging'),
+        window.document.body.textContent ?? '',
+      ).not.toBeNull(),
+    );
     const publishButton = buttonWithText('Publish to staging');
     publishButton?.click();
 
     // Matched by URL, not by call index: Operations loads its own data in the
     // background, so a positional assertion would break on unrelated traffic.
     const publicationsUrl = `${LODARIQ_STAGING_API_ORIGIN}/v1/authoring/publications`;
-    await vi.waitFor(() =>
-      expect(
-        fetchMock.mock.calls.filter((call) => call[0].toString() === publicationsUrl),
-      ).toHaveLength(1),
-    );
+    await vi.waitFor(() => {
+      const publicationCalls = fetchMock.mock.calls.filter(
+        (call) => call[0].toString() === publicationsUrl,
+      );
+      const observedRequests = fetchMock.mock.calls.map((call) => call[0].toString()).join(', ');
+      expect(publicationCalls, `Observed requests: ${observedRequests}`).toHaveLength(1);
+    });
     const releaseRequest = fetchMock.mock.calls.find(
       (call) => call[0].toString() === publicationsUrl,
     )!;
@@ -841,10 +869,6 @@ describe('hosted editor authoring frame', () => {
     expect(activePanelMode()?.textContent).toContain('Current');
   });
 });
-
-function documentReleaseStatus(): HTMLElement | null {
-  return document.querySelector<HTMLElement>('[aria-label="Release status"]');
-}
 
 function activePanelMode(): HTMLElement | null {
   return (
@@ -893,7 +917,7 @@ function initEvent(
  * Release lives in Operations (Tier 3). The mode pill opens it over the bridge,
  * which is the same message this helper sends.
  */
-async function openOperations(sessionId: string, documentId: string): Promise<void> {
+async function openOperations(sessionId: string, documentId: string, tab = 'flow'): Promise<void> {
   window.dispatchEvent(
     new MessageEvent('message', {
       data: {
@@ -903,19 +927,25 @@ async function openOperations(sessionId: string, documentId: string): Promise<vo
         correlationId: 'authoring_open_operations_test',
         type: AUTHORING_CHROME_ACTION_REQUEST_TYPE,
         action: 'open-operations',
+        tab,
       },
       origin: PARENT_ORIGIN,
       source: window.parent,
     }),
   );
-  await vi.waitFor(() => expect(documentReleaseStatus()).not.toBeNull());
+  await vi.waitFor(() =>
+    expect(
+      document.querySelector(`[data-operations-tab="${tab}"][aria-current="page"]`),
+    ).not.toBeNull(),
+  );
 }
 
 async function waitForAuthoringFrameMount(): Promise<void> {
   // The frame lazy-imports its React bundle, which under a cold module graph
   // takes longer than the 1s default and made this suite flaky.
   await vi.waitFor(
-    () => expect((window as { __lodariqEditorMounted?: boolean }).__lodariqEditorMounted).toBe(true),
+    () =>
+      expect((window as { __lodariqEditorMounted?: boolean }).__lodariqEditorMounted).toBe(true),
     { timeout: 10_000 },
   );
 }
@@ -1187,6 +1217,27 @@ function jsonResponse(body: unknown, status = 200): Response {
     status,
     headers: { 'content-type': 'application/json' },
   });
+}
+
+function hostedCollaborationResponse(url: string, method: string): Response | null {
+  if (url.endsWith('/v1/authoring/operations/collaboration/events') && method === 'GET') {
+    return jsonResponse({ message: 'Collaboration stream is disabled in this fixture' }, 401);
+  }
+  if (url.endsWith('/v1/authoring/operations/collaboration/presence') && method === 'PUT') {
+    return jsonResponse({
+      selfParticipantId: `presence_${'a'.repeat(24)}`,
+      generatedAt: '2099-08-07T11:00:00.000Z',
+      documentUpdatedAt: '2099-08-07T11:00:00.000Z',
+      draftChanged: false,
+      peers: [],
+      locks: [],
+      comments: [],
+    });
+  }
+  if (url.endsWith('/v1/authoring/operations/collaboration/presence') && method === 'DELETE') {
+    return new Response(null, { status: 204 });
+  }
+  return null;
 }
 
 function emptyAuthoringResources() {

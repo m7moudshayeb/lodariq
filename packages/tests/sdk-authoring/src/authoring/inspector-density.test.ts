@@ -64,7 +64,7 @@ describe('the anchored inspector stays at the prototype’s density (§4.3)', ()
     const source = read('properties/property-controls.tsx');
     const menu = source.slice(source.indexOf('function PropertyColorPill'));
     expect(menu).toContain('QUICK_COLORS.map');
-    expect(menu).toContain("type=\"color\"");
+    expect(menu).toContain('type="color"');
     expect(menu).toContain('rich-step-theme-color');
   });
 

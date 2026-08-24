@@ -21,6 +21,9 @@ export interface CollisionAwareTourPositionOptions {
 
 const DEFAULT_ANCHOR_OFFSET_PX = 12;
 
+/** Gutter kept between the card and the edge of the screen, shared by shift and scoring. */
+const VIEWPORT_PADDING_PX = 8;
+
 export async function computeCollisionAwareTourPosition({
   anchor,
   arrowElement,
@@ -39,7 +42,7 @@ export async function computeCollisionAwareTourPosition({
       middleware: [
         offset(gap),
         ...(autoFlip === false ? [] : [flip()]),
-        shift({ padding: 8 }),
+        shift({ padding: VIEWPORT_PADDING_PX }),
         arrow({ element: arrowElement }),
       ],
     });
@@ -49,11 +52,19 @@ export async function computeCollisionAwareTourPosition({
       result: await computePosition(reference, card, {
         placement: candidatePlacement,
         strategy: 'fixed',
-        middleware: [offset(gap), shift({ padding: 8 }), arrow({ element: arrowElement })],
+        middleware: [offset(gap), shift({ padding: VIEWPORT_PADDING_PX }), arrow({ element: arrowElement })],
       }),
     })),
   );
   const obstacles = [rectFromDomRect(anchor.getBoundingClientRect(), 2), ...protectedSurfaces];
+  /*
+   * The candidates here are hand-enumerated flips rather than `flip()`, so
+   * nothing else in this branch knows where the screen ends. `shift()` only
+   * slides along the axis parallel to the reference edge, which leaves a wide
+   * card beside a target near the left edge hanging off it — and off-screen
+   * collides with nothing, so it used to win.
+   */
+  const viewport = viewportRect(card);
   const chosen = chooseLowestCollisionCandidate(
     positioned.map(({ result }) => ({
       x: result.x,
@@ -63,8 +74,31 @@ export async function computeCollisionAwareTourPosition({
       value: result,
     })),
     obstacles,
+    viewport ? { viewport } : {},
   );
   return chosen?.value ?? standard();
+}
+
+/**
+ * The visible region, in the same fixed-strategy coordinates the candidates use.
+ *
+ * Inset by the gutter the `shift()` middleware already reserves, so the two
+ * agree on where the edge is: a card the shifter considers flush against the
+ * boundary must not read as overflowing here.
+ */
+function viewportRect(card: HTMLElement): ProtectedSurfaceRect | null {
+  const view = card.ownerDocument.defaultView;
+  if (!view) return null;
+  const right = Math.max(VIEWPORT_PADDING_PX, view.innerWidth - VIEWPORT_PADDING_PX);
+  const bottom = Math.max(VIEWPORT_PADDING_PX, view.innerHeight - VIEWPORT_PADDING_PX);
+  return {
+    left: VIEWPORT_PADDING_PX,
+    top: VIEWPORT_PADDING_PX,
+    right,
+    bottom,
+    width: right - VIEWPORT_PADDING_PX,
+    height: bottom - VIEWPORT_PADDING_PX,
+  };
 }
 
 function orderedPlacements(preferred: Placement): Placement[] {

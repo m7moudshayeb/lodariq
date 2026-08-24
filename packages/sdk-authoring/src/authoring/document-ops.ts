@@ -21,7 +21,9 @@ import {
   sanitizeStepTransitionCondition,
   type StepEmphasis,
   type StepTransitionCondition,
+  type LodariqDocument,
 } from '@lodariq/schema';
+import { normalizeAuthoringDocumentLocalization } from './document-localization';
 import { createBlockId } from '../editor/ids';
 import { authoringText } from '../i18n';
 
@@ -529,6 +531,21 @@ export function blocksReferenceTarget(blocks: LodariqBlock[], targetId: string):
   );
 }
 
+/**
+ * Rebuild a document around a smaller block tree. A deleted block takes its
+ * targets and translations with it, or the document stops compiling.
+ */
+export function documentWithBlocks(
+  document: LodariqDocument,
+  blocks: LodariqBlock[],
+): LodariqDocument {
+  return normalizeAuthoringDocumentLocalization({
+    ...document,
+    blocks,
+    targets: document.targets.filter((target) => blocksReferenceTarget(blocks, target.id)),
+  });
+}
+
 export function moveTopLevelBlock(
   blocks: LodariqBlock[],
   blockId: string,
@@ -754,6 +771,10 @@ function insertInsideStep(
     });
     return changed ? { ...block, children } : block;
   }
+  if (block.type === 'tooltip') {
+    const children = insertBeforeUtilityChildren(block.children, blockToInsert, index);
+    return children === block.children ? block : { ...block, children };
+  }
   if (block.type !== 'tourStep') return block;
   const children = stepTooltipChildren(block, (currentChildren) =>
     insertBeforeUtilityChildren(currentChildren, blockToInsert, index),
@@ -808,6 +829,10 @@ function moveInsideStep(
     });
     return changed ? { ...block, children } : block;
   }
+  if (block.type === 'tooltip') {
+    const children = moveEditableTooltipChild(block.children, childBlockId, direction);
+    return children === block.children ? block : { ...block, children };
+  }
   if (block.type !== 'tourStep') return block;
   const children = stepTooltipChildren(block, (currentChildren) =>
     moveEditableTooltipChild(currentChildren, childBlockId, direction),
@@ -841,6 +866,15 @@ function reorderInsideStep(
     });
     return changed ? { ...block, children } : block;
   }
+  if (block.type === 'tooltip') {
+    const children = reorderEditableTooltipChild(
+      block.children,
+      childBlockId,
+      targetChildBlockId,
+      position,
+    );
+    return children === block.children ? block : { ...block, children };
+  }
   if (block.type !== 'tourStep') return block;
   const children = stepTooltipChildren(block, (currentChildren) =>
     reorderEditableTooltipChild(currentChildren, childBlockId, targetChildBlockId, position),
@@ -866,6 +900,10 @@ function duplicateInsideStep(
     });
     return changed ? { ...block, children } : block;
   }
+  if (block.type === 'tooltip') {
+    const children = duplicateEditableTooltipChild(block.children, childBlockId);
+    return children === block.children ? block : { ...block, children };
+  }
   if (block.type !== 'tourStep') return block;
   const children = stepTooltipChildren(block, (currentChildren) =>
     duplicateEditableTooltipChild(currentChildren, childBlockId),
@@ -890,6 +928,10 @@ function removeInsideStep(
       return updated;
     });
     return changed ? { ...block, children } : block;
+  }
+  if (block.type === 'tooltip') {
+    const children = removeEditableTooltipChild(block.children, childBlockId);
+    return children === block.children ? block : { ...block, children };
   }
   if (block.type !== 'tourStep') return block;
   const children = stepTooltipChildren(block, (currentChildren) =>
@@ -942,8 +984,8 @@ function replaceRichContentInsideStep(
     });
     return changed ? { ...block, children } : block;
   }
-  if (block.type !== 'tourStep') return block;
-  const children = stepTooltipChildren(block, (currentChildren) => {
+  if (block.type !== 'tourStep' && block.type !== 'tooltip') return block;
+  const update = (currentChildren: LodariqBlock[]): LodariqBlock[] => {
     const utilityStart = firstUtilityChildIndex(currentChildren);
     const editableChildren = currentChildren.slice(0, utilityStart);
     const firstRichContentIndex = editableChildren.findIndex(
@@ -970,7 +1012,12 @@ function replaceRichContentInsideStep(
       ...actionsAfterRichContent,
       ...utilityChildren,
     ];
-  });
+  };
+  if (block.type === 'tooltip') {
+    const children = update(block.children);
+    return children === block.children ? block : { ...block, children };
+  }
+  const children = stepTooltipChildren(block, update);
   return children === block.children ? block : { ...block, children };
 }
 

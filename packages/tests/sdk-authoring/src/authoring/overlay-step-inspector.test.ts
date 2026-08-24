@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { LodariqDocument } from '@lodariq/schema';
 import tourFixture from '@lodariq/schema/fixtures/tour.linear.v1.json';
 import { mountLocalAuthoringFrame } from '@lodariq/sdk-authoring';
+import { createExperienceDraft } from '@lodariq/sdk-authoring/creator-experiences';
 
 const SESSION_ID = 'session_overlay_step_inspector';
 
@@ -31,14 +32,17 @@ describe('overlay step inspector', () => {
     vi.restoreAllMocks();
   });
 
-  async function mount(): Promise<LodariqDocument> {
-    const baseDocument = structuredClone(tourFixture) as LodariqDocument;
+  async function mount(
+    inputDocument: LodariqDocument = structuredClone(tourFixture) as LodariqDocument,
+  ): Promise<{ baseDocument: LodariqDocument; saveDocument: ReturnType<typeof vi.fn> }> {
+    const baseDocument = structuredClone(inputDocument);
+    const saveDocument = vi.fn();
     await mountLocalAuthoringFrame({
       root: document.getElementById('authoring')!,
       baseDocument,
       services: {
         loadDocument: () => structuredClone(baseDocument),
-        saveDocument: vi.fn(),
+        saveDocument,
         loadMediaAssets: () => [],
         loadMediaAssetPreview: async () => new Blob(['test'], { type: 'image/png' }),
         exportDocument: (value) => JSON.stringify(value),
@@ -59,7 +63,7 @@ describe('overlay step inspector', () => {
       expect(document.querySelector('.overlay-step-card')).not.toBeNull();
       expect(document.querySelector('.overlay-step-settings')).not.toBeNull();
     });
-    return baseDocument;
+    return { baseDocument, saveDocument };
   }
 
   const settingsButton = (): HTMLButtonElement => {
@@ -91,14 +95,16 @@ describe('overlay step inspector', () => {
     expect(sectionIds()).toEqual([
       'style',
       'actions',
-      'placement',
+      'flow',
       'target',
       'conditions',
       'narration',
       'advanced',
     ]);
     // No tab strip: the trays' tab navigation is what sections replace.
-    expect(document.querySelector('.overlay-step-inspector-panel .popup-inspector-tabs')).toBeNull();
+    expect(
+      document.querySelector('.overlay-step-inspector-panel .popup-inspector-tabs'),
+    ).toBeNull();
     const open = [...document.querySelectorAll('.inspector-section[open]')];
     expect(open).toHaveLength(1);
     expect((open[0] as HTMLElement).dataset['section']).toBe('style');
@@ -136,5 +142,38 @@ describe('overlay step inspector', () => {
     expect(column?.dataset['present']).toBe('false');
     settingsButton().click();
     await vi.waitFor(() => expect(column?.dataset['present']).toBe('true'));
+  });
+
+  it('edits announcement frequency and presentation in the shared card inspector', async () => {
+    const announcement = createExperienceDraft({
+      documentId: 'doc_announcement_inspector',
+      workspaceId: 'wk_inspector',
+      environment: 'staging',
+      schemaVersion: '2.0.0',
+      type: 'announcement',
+    });
+    const { saveDocument } = await mount(announcement);
+    settingsButton().click();
+    await vi.waitFor(() => expect(sectionIds()).toContain('frequency'));
+    const frequency = document.querySelector<HTMLDetailsElement>(
+      '.inspector-section[data-section="frequency"]',
+    );
+    frequency?.querySelector('summary')?.click();
+    await vi.waitFor(() => expect(frequency?.querySelectorAll('select')).toHaveLength(2));
+    const selects = frequency?.querySelectorAll<HTMLSelectElement>('select');
+    const frequencySelect = selects?.[0];
+    const presentationSelect = selects?.[1];
+    if (!frequencySelect || !presentationSelect) throw new Error('announcement controls missing');
+    frequencySelect.value = 'visitor';
+    frequencySelect.dispatchEvent(new Event('change', { bubbles: true }));
+    presentationSelect.value = 'banner';
+    presentationSelect.dispatchEvent(new Event('change', { bubbles: true }));
+
+    await vi.waitFor(() => {
+      const calls = saveDocument.mock.calls;
+      const saved = calls[calls.length - 1]?.[0] as LodariqDocument | undefined;
+      expect(saved?.experience).toMatchObject({ type: 'announcement', frequency: 'visitor' });
+      expect(saved?.surfaceForm).toBe('banner');
+    });
   });
 });

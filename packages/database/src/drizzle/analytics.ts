@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { and, asc, desc, eq, gte, lte, sql } from 'drizzle-orm';
 import { type AnalyticsEventAggregate } from '@lodariq/schema';
 import {
@@ -10,8 +10,10 @@ import {
   type VisualCheckRunRecord,
   assertAnalyticsEnvironmentQuery,
   assertAuthoritativeAnalyticsBatch,
+  assertCommercialFeature,
   assertVisualCheckReport,
   DEFAULT_ANALYTICS_EVENT_QUERY_LIMIT,
+  calendarMonthPeriod,
 } from '../repository';
 import {
   compiledArtifacts,
@@ -20,6 +22,7 @@ import {
   environments,
   events,
   visualCheckRuns,
+  workspaceUsageLedger,
 } from '../schema';
 import {
   toVisualCheckRunRecord,
@@ -135,6 +138,13 @@ export class DrizzleRepositoryAnalytics extends DrizzleRepositoryAuthoringSessio
           publicationId: event.publicationId,
           contentHash: event.contentHash,
           pointerGeneration: event.pointerGeneration,
+          experimentId: event.experimentId ?? null,
+          experimentArmId: event.armId ?? null,
+          experimentAllocationRevision: event.experimentAllocationRevision ?? null,
+          audienceSegmentId: event.audienceSegment?.id ?? null,
+          audienceSegmentDefinitionVersion: event.audienceSegment?.definitionVersion ?? null,
+          audienceSegmentRuleCount: event.audienceSegment?.ruleCount ?? null,
+          adaptiveVisitorKeyHash: input.adaptiveVisitorKeyHash ?? null,
           name: event.name,
           stepId: event.stepId ?? null,
           sdkVersion: event.sdkVersion,
@@ -143,6 +153,49 @@ export class DrizzleRepositoryAnalytics extends DrizzleRepositoryAuthoringSessio
           props: event.props ?? null,
         })),
       );
+
+      const engaged = new Map<string, (typeof input.events)[number]>();
+      for (const event of input.events) {
+        if (event.name === 'experience_shown' && event.engagementKey) {
+          const period = calendarMonthPeriod(event.timestamp);
+          engaged.set(`${period.start.toISOString()}:${event.engagementKey}`, event);
+        }
+      }
+      if (engaged.size) {
+        await tx
+          .insert(workspaceUsageLedger)
+          .values(
+            [...engaged.values()].map((event) => {
+              const period = calendarMonthPeriod(event.timestamp);
+              return {
+                id: `usage_${randomUUID()}`,
+                workspaceId: input.workspaceId,
+                environmentId: input.environmentId,
+                scopeKey: input.environmentId,
+                metric: 'engaged-users' as const,
+                periodStart: period.start,
+                periodEnd: period.end,
+                quantity: 1,
+                dedupeKeyHash: engagementDedupeHash(
+                  input.workspaceId,
+                  input.environmentId,
+                  event.engagementKey!,
+                ),
+                occurredAt: new Date(event.timestamp),
+                createdAt: new Date(),
+              };
+            }),
+          )
+          .onConflictDoNothing({
+            target: [
+              workspaceUsageLedger.workspaceId,
+              workspaceUsageLedger.scopeKey,
+              workspaceUsageLedger.metric,
+              workspaceUsageLedger.periodStart,
+              workspaceUsageLedger.dedupeKeyHash,
+            ],
+          });
+      }
 
       return input.events.length;
     });
@@ -154,6 +207,14 @@ export class DrizzleRepositoryAnalytics extends DrizzleRepositoryAuthoringSessio
     assertAnalyticsEnvironmentQuery(input.query);
     const query = input.query;
     return this.scoped(input.workspaceId, async (tx) => {
+      const entitlements = (await this.resolveWorkspaceEntitlements(tx, input.workspaceId))
+        .entitlements;
+      const retentionDays = entitlements.analyticsRetentionDays;
+      const includeAudienceSegments = entitlements.features.includes('audience-segment-results');
+      if (query.audienceSegmentId) {
+        assertCommercialFeature(entitlements, 'audience-segment-results');
+      }
+      const retentionCutoff = new Date(Date.now() - retentionDays * 24 * 60 * 60 * 1_000);
       const rows = await tx
         .select()
         .from(authoritativeAnalyticsEvents)
@@ -170,12 +231,16 @@ export class DrizzleRepositoryAnalytics extends DrizzleRepositoryAuthoringSessio
             query.contentHash
               ? eq(authoritativeAnalyticsEvents.contentHash, query.contentHash)
               : undefined,
+            query.audienceSegmentId
+              ? eq(authoritativeAnalyticsEvents.audienceSegmentId, query.audienceSegmentId)
+              : undefined,
             query.locale
               ? eq(sql`${authoritativeAnalyticsEvents.props} ->> 'locale'`, query.locale)
               : undefined,
             query.from
               ? gte(authoritativeAnalyticsEvents.occurredAt, new Date(query.from))
               : undefined,
+            gte(authoritativeAnalyticsEvents.occurredAt, retentionCutoff),
             query.to ? lte(authoritativeAnalyticsEvents.occurredAt, new Date(query.to)) : undefined,
           ),
         )
@@ -184,7 +249,12 @@ export class DrizzleRepositoryAnalytics extends DrizzleRepositoryAuthoringSessio
           desc(authoritativeAnalyticsEvents.id),
         )
         .limit(query.limit ?? DEFAULT_ANALYTICS_EVENT_QUERY_LIMIT);
-      return rows.map(toPersistedAnalyticsEventRecord);
+      return rows.map((row) => {
+        const event = toPersistedAnalyticsEventRecord(row);
+        if (includeAudienceSegments) return event;
+        const { audienceSegment: _audienceSegment, ...basicEvent } = event;
+        return basicEvent;
+      });
     });
   }
 
@@ -194,6 +264,14 @@ export class DrizzleRepositoryAnalytics extends DrizzleRepositoryAuthoringSessio
     assertAnalyticsEnvironmentQuery(input.query);
     const query = input.query;
     return this.scoped(input.workspaceId, async (tx) => {
+      const entitlements = (await this.resolveWorkspaceEntitlements(tx, input.workspaceId))
+        .entitlements;
+      const retentionDays = entitlements.analyticsRetentionDays;
+      const includeAudienceSegments = entitlements.features.includes('audience-segment-results');
+      if (query.audienceSegmentId) {
+        assertCommercialFeature(entitlements, 'audience-segment-results');
+      }
+      const retentionCutoff = new Date(Date.now() - retentionDays * 24 * 60 * 60 * 1_000);
       const targetResolutionStatus = sql<string | null>`case
         when ${authoritativeAnalyticsEvents.name} = 'target_resolution' then
           case
@@ -218,6 +296,18 @@ export class DrizzleRepositoryAnalytics extends DrizzleRepositoryAuthoringSessio
           publicationId: authoritativeAnalyticsEvents.publicationId,
           contentHash: authoritativeAnalyticsEvents.contentHash,
           pointerGeneration: authoritativeAnalyticsEvents.pointerGeneration,
+          experimentId: authoritativeAnalyticsEvents.experimentId,
+          experimentArmId: authoritativeAnalyticsEvents.experimentArmId,
+          experimentAllocationRevision: authoritativeAnalyticsEvents.experimentAllocationRevision,
+          audienceSegmentId: includeAudienceSegments
+            ? authoritativeAnalyticsEvents.audienceSegmentId
+            : sql<string | null>`null`,
+          audienceSegmentDefinitionVersion: includeAudienceSegments
+            ? authoritativeAnalyticsEvents.audienceSegmentDefinitionVersion
+            : sql<number | null>`null`,
+          audienceSegmentRuleCount: includeAudienceSegments
+            ? authoritativeAnalyticsEvents.audienceSegmentRuleCount
+            : sql<number | null>`null`,
           name: authoritativeAnalyticsEvents.name,
           targetResolutionStatus,
           contentLocale,
@@ -239,12 +329,16 @@ export class DrizzleRepositoryAnalytics extends DrizzleRepositoryAuthoringSessio
             query.contentHash
               ? eq(authoritativeAnalyticsEvents.contentHash, query.contentHash)
               : undefined,
+            query.audienceSegmentId
+              ? eq(authoritativeAnalyticsEvents.audienceSegmentId, query.audienceSegmentId)
+              : undefined,
             query.locale
               ? eq(sql`${authoritativeAnalyticsEvents.props} ->> 'locale'`, query.locale)
               : undefined,
             query.from
               ? gte(authoritativeAnalyticsEvents.occurredAt, new Date(query.from))
               : undefined,
+            gte(authoritativeAnalyticsEvents.occurredAt, retentionCutoff),
             query.to ? lte(authoritativeAnalyticsEvents.occurredAt, new Date(query.to)) : undefined,
           ),
         )
@@ -255,6 +349,16 @@ export class DrizzleRepositoryAnalytics extends DrizzleRepositoryAuthoringSessio
           authoritativeAnalyticsEvents.publicationId,
           authoritativeAnalyticsEvents.contentHash,
           authoritativeAnalyticsEvents.pointerGeneration,
+          authoritativeAnalyticsEvents.experimentId,
+          authoritativeAnalyticsEvents.experimentArmId,
+          authoritativeAnalyticsEvents.experimentAllocationRevision,
+          ...(includeAudienceSegments
+            ? [
+                authoritativeAnalyticsEvents.audienceSegmentId,
+                authoritativeAnalyticsEvents.audienceSegmentDefinitionVersion,
+                authoritativeAnalyticsEvents.audienceSegmentRuleCount,
+              ]
+            : []),
           authoritativeAnalyticsEvents.name,
           targetResolutionStatus,
           contentLocale,
@@ -274,6 +378,22 @@ export class DrizzleRepositoryAnalytics extends DrizzleRepositoryAuthoringSessio
           publicationId: row.publicationId,
           contentHash: row.contentHash,
           pointerGeneration: row.pointerGeneration,
+          ...(row.experimentId
+            ? {
+                experimentId: row.experimentId,
+                armId: row.experimentArmId as 'A' | 'B' | 'C' | 'D',
+                experimentAllocationRevision: row.experimentAllocationRevision!,
+              }
+            : {}),
+          ...(row.audienceSegmentId
+            ? {
+                audienceSegment: {
+                  id: row.audienceSegmentId,
+                  definitionVersion: row.audienceSegmentDefinitionVersion as 1,
+                  ruleCount: row.audienceSegmentRuleCount!,
+                },
+              }
+            : {}),
           count: row.count,
           firstTimestamp: toIsoString(row.firstTimestamp),
           lastTimestamp: toIsoString(row.lastTimestamp),
@@ -307,4 +427,14 @@ export class DrizzleRepositoryAnalytics extends DrizzleRepositoryAuthoringSessio
       return input.events.length;
     });
   }
+}
+
+function engagementDedupeHash(
+  workspaceId: string,
+  environmentId: string,
+  engagementKey: string,
+): string {
+  return `sha256-${createHash('sha256')
+    .update(`${workspaceId}\0${environmentId}\0${engagementKey}`)
+    .digest('hex')}`;
 }

@@ -33,6 +33,24 @@ describe('the script is a separate field (§7.7)', () => {
     expect(clampNarrationSpeed(0.1)).toBe(NARRATION_SPEED_RANGE.min);
   });
 
+  it('keeps only bounded, ordered immutable audio metadata', () => {
+    const valid = {
+      assetId: 'asset_narration',
+      contentHash: `sha256-${'1'.repeat(64)}`,
+      sourceHash: `sha256-${'2'.repeat(64)}`,
+      contentType: 'audio/wav',
+      durationMs: 1_000,
+      cues: [{ text: 'Hello.', startMs: 0, durationMs: 1_000 }],
+    };
+    expect(sanitizeStepNarration({ script: 'Hello.', audio: valid })?.audio).toEqual(valid);
+    expect(
+      sanitizeStepNarration({
+        script: 'Hello.',
+        audio: { ...valid, cues: [{ text: 'Too late.', startMs: 900, durationMs: 500 }] },
+      })?.audio,
+    ).toBeUndefined();
+  });
+
   it('builds a readable script from the step’s visible copy on request', () => {
     expect(
       narrationScriptFromStepText(['Create a project', '  Give it a name.  ', '', 'Ready?']),
@@ -46,9 +64,9 @@ describe('language is inferred from the script, not picked (§7.7)', () => {
   });
 
   it('scores function words for Latin-script languages', () => {
-    expect(inferNarrationLocale('Klicken Sie auf die Schaltfläche für das Projekt', SUPPORTED)).toBe(
-      'de',
-    );
+    expect(
+      inferNarrationLocale('Klicken Sie auf die Schaltfläche für das Projekt', SUPPORTED),
+    ).toBe('de');
     expect(inferNarrationLocale('Click the button and name your project', SUPPORTED)).toBe('en');
     expect(inferNarrationLocale('Haz clic en el botón para tu proyecto', SUPPORTED)).toBe('es');
   });
@@ -66,7 +84,11 @@ describe('language is inferred from the script, not picked (§7.7)', () => {
     const spanish = voicesForNarration({ script: 'Haz clic en el botón' }, VOICES, SUPPORTED);
     expect(spanish.map((voice) => voice.id)).toEqual(['v_es_f']);
 
-    const english = voicesForNarration({ script: 'Click the button and continue' }, VOICES, SUPPORTED);
+    const english = voicesForNarration(
+      { script: 'Click the button and continue' },
+      VOICES,
+      SUPPORTED,
+    );
     expect(english.map((voice) => voice.id)).toEqual(['v_en_f', 'v_en_m']);
   });
 
@@ -80,7 +102,11 @@ describe('language is inferred from the script, not picked (§7.7)', () => {
   });
 
   it('never hands back an empty voice list', () => {
-    const filtered = voicesForNarration({ script: 'Klicken Sie auf die Schaltfläche' }, VOICES, SUPPORTED);
+    const filtered = voicesForNarration(
+      { script: 'Klicken Sie auf die Schaltfläche' },
+      VOICES,
+      SUPPORTED,
+    );
     expect(filtered).toEqual(VOICES);
   });
 });
@@ -102,9 +128,9 @@ describe('pronunciation lexicon (§7.7)', () => {
   });
 
   it('treats entries as literal text, not patterns', () => {
-    expect(applyNarrationLexicon('Cost is $5 (net)', [{ written: '$5 (net)', spoken: 'five dollars' }])).toBe(
-      'Cost is five dollars',
-    );
+    expect(
+      applyNarrationLexicon('Cost is $5 (net)', [{ written: '$5 (net)', spoken: 'five dollars' }]),
+    ).toBe('Cost is five dollars');
   });
 
   it('ignores blank entries', () => {

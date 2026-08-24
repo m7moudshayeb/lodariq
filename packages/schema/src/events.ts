@@ -41,6 +41,36 @@ const AnalyticsIdentifier = Type.String({
   maxLength: ANALYTICS_EVENT_LIMITS.identifierLength,
 });
 const AnalyticsContentHash = Type.String({ pattern: '^sha256-[0-9a-f]{64}$' });
+const AnalyticsEngagementKey = Type.String({ pattern: '^eng_[0-9a-f]{64}$' });
+const AnalyticsExperimentArmId = Type.Union(
+  ['A', 'B', 'C', 'D'].map((armId) => Type.Literal(armId)),
+);
+export const ANALYTICS_AUDIENCE_SEGMENT_DEFINITION_VERSION = 1;
+export const ANALYTICS_AUDIENCE_SEGMENT_IDENTITY_KEYS = [
+  'audienceSegment',
+  'audienceSegmentId',
+  'audienceSegmentDefinitionVersion',
+  'audienceSegmentRuleCount',
+] as const;
+export const ANALYTICS_FORBIDDEN_AUDIENCE_DATA_KEYS = [
+  'audience',
+  'audienceRules',
+  'audienceTraits',
+  'traits',
+  'identifyTraits',
+  'userAttributes',
+] as const;
+
+/** Server-derived identity for the immutable audience definition on a release. */
+export const AnalyticsAudienceSegmentIdentity = Type.Object(
+  {
+    id: Type.String({ pattern: '^audseg_[0-9a-f]{64}$' }),
+    definitionVersion: Type.Literal(ANALYTICS_AUDIENCE_SEGMENT_DEFINITION_VERSION),
+    ruleCount: Type.Integer({ minimum: 0, maximum: 50 }),
+  },
+  { $id: 'AnalyticsAudienceSegmentIdentity', additionalProperties: false },
+);
+export type AnalyticsAudienceSegmentIdentity = Static<typeof AnalyticsAudienceSegmentIdentity>;
 
 /** Privacy-safe, bounded JSON values accepted as event properties. */
 export const AnalyticsPropertyValue = Type.Recursive(
@@ -123,6 +153,8 @@ export const SdkAnalyticsEvent = Type.Object(
     correlationId: Type.Optional(
       Type.String({ minLength: 1, maxLength: ANALYTICS_EVENT_LIMITS.correlationIdLength }),
     ),
+    /** Workspace-scoped one-way identity used only to coalesce shown-user usage. */
+    engagementKey: Type.Optional(AnalyticsEngagementKey),
     timestamp: Type.String({ format: 'date-time' }),
     props: Type.Optional(AnalyticsEventProperties),
   },
@@ -139,6 +171,10 @@ export const AuthoritativeAnalyticsEvent = Type.Object(
     publicationId: AnalyticsIdentifier,
     contentHash: AnalyticsContentHash,
     pointerGeneration: Type.Integer({ minimum: 1 }),
+    experimentId: Type.Optional(AnalyticsIdentifier),
+    armId: Type.Optional(AnalyticsExperimentArmId),
+    experimentAllocationRevision: Type.Optional(Type.Integer({ minimum: 1 })),
+    audienceSegment: Type.Optional(Type.Ref(AnalyticsAudienceSegmentIdentity)),
     name: Type.String({
       minLength: 1,
       maxLength: ANALYTICS_EVENT_LIMITS.eventNameLength,
@@ -149,6 +185,7 @@ export const AuthoritativeAnalyticsEvent = Type.Object(
     correlationId: Type.Optional(
       Type.String({ minLength: 1, maxLength: ANALYTICS_EVENT_LIMITS.correlationIdLength }),
     ),
+    engagementKey: Type.Optional(AnalyticsEngagementKey),
     timestamp: Type.String({ format: 'date-time' }),
     props: Type.Optional(AnalyticsEventProperties),
   },
@@ -195,6 +232,7 @@ export const AnalyticsEnvironmentQuery = Type.Object(
     documentId: Type.Optional(AnalyticsIdentifier),
     publicationId: Type.Optional(AnalyticsIdentifier),
     contentHash: Type.Optional(AnalyticsContentHash),
+    audienceSegmentId: Type.Optional(Type.String({ pattern: '^audseg_[0-9a-f]{64}$' })),
     locale: Type.Optional(Type.Ref(ContentLocale)),
     from: Type.Optional(Type.String({ format: 'date-time' })),
     to: Type.Optional(Type.String({ format: 'date-time' })),
@@ -225,6 +263,10 @@ const AnalyticsAggregateDimensions = {
   publicationId: AnalyticsIdentifier,
   contentHash: AnalyticsContentHash,
   pointerGeneration: Type.Integer({ minimum: 1 }),
+  experimentId: Type.Optional(AnalyticsIdentifier),
+  armId: Type.Optional(AnalyticsExperimentArmId),
+  experimentAllocationRevision: Type.Optional(Type.Integer({ minimum: 1 })),
+  audienceSegment: Type.Optional(Type.Ref(AnalyticsAudienceSegmentIdentity)),
   locale: Type.Optional(Type.Ref(ContentLocale)),
   count: Type.Integer({ minimum: 1, maximum: Number.MAX_SAFE_INTEGER }),
   firstTimestamp: Type.String({ format: 'date-time' }),

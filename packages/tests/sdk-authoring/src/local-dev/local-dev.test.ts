@@ -52,7 +52,7 @@ describe('local-dev authoring install helper', () => {
     const actionLabels = [
       ...document.querySelectorAll<HTMLButtonElement>('[data-lodariq-launcher-action="true"]'),
     ].map((button) => button.getAttribute('aria-label'));
-    expect(actionLabels).toEqual(['New experience', 'Experiences on this page', 'Preview as user']);
+    expect(actionLabels).toEqual(['New experience', 'View experiences']);
     document
       .querySelector<HTMLButtonElement>('[data-lodariq-launcher-action-id="experiences-on-page"]')
       ?.click();
@@ -66,9 +66,12 @@ describe('local-dev authoring install helper', () => {
     document
       .querySelector<HTMLButtonElement>(`[data-lodariq-experience-id="${baseDocument.id}"]`)
       ?.click();
-    await vi.waitFor(() => {
-      expect(document.querySelector('lodariq-authoring-panel')).not.toBeNull();
-    });
+    await vi.waitFor(
+      () => {
+        expect(document.querySelector('lodariq-authoring-panel')).not.toBeNull();
+      },
+      { timeout: 3_000 },
+    );
 
     await lodariq?.playTour();
     expect(starts).toContain(baseDocument.id);
@@ -95,6 +98,10 @@ describe('local-dev authoring install helper', () => {
       .querySelector<HTMLButtonElement>('[data-lodariq-launcher-action-id="new-experience"]')
       ?.click();
 
+    // The menu is imported on the first hover, so it is not in this tick yet.
+    await vi.waitFor(() => {
+      expect(document.querySelector('[data-lodariq-experience-type]')).not.toBeNull();
+    });
     const typeChoices = [
       ...document.querySelectorAll<HTMLButtonElement>('[data-lodariq-experience-type]'),
     ];
@@ -107,6 +114,17 @@ describe('local-dev authoring install helper', () => {
     ]);
     expect(typeChoices[0]?.getAttribute('aria-label')).toBe('Create Tour');
     typeChoices[0]?.click();
+
+    // The type is chosen, but the document does not exist until it is named.
+    await vi.waitFor(() => {
+      expect(
+        document.querySelector('[data-lodariq-experience-dialog-scrim="true"]'),
+      ).not.toBeNull();
+    });
+    expect(
+      Object.keys(localStorage).filter((key) => key.startsWith('lodariq:doc:doc_local_')),
+    ).toHaveLength(0);
+    document.querySelector<HTMLButtonElement>('[data-lodariq-experience-dialog-confirm]')?.click();
 
     await vi.waitFor(() => {
       expect(
@@ -123,14 +141,88 @@ describe('local-dev authoring install helper', () => {
     expect(createdDocument).toMatchObject({
       type: 'tour',
       status: 'draft',
-      title: 'Untitled tour',
+      // The name the dialog offered, accepted unchanged.
+      title: 'Untitled Tour',
       targets: [],
     });
     expect(createdDocument.id).not.toBe(baseDocument.id);
     expect(createdDocument.blocks).toHaveLength(0);
-    await vi.waitFor(() => {
-      expect(document.querySelector('lodariq-authoring-panel')).not.toBeNull();
+    await vi.waitFor(
+      () => {
+        expect(document.querySelector('lodariq-authoring-panel')).not.toBeNull();
+      },
+      { timeout: 3_000 },
+    );
+  });
+
+  it('lists this page above the whole workspace, with one row per tour', async () => {
+    // Written before install, which prepends the base document under the
+    // current route. Two of these are the same document filed under two pages,
+    // which is what happens the moment a tour is opened from a second screen.
+    localStorage.setItem(
+      'lodariq:creator-index:wk_local_dev',
+      JSON.stringify([
+        { documentId: 'doc_here', routeKey: '/', title: 'Welcome walkthrough', type: 'tour' },
+        { documentId: 'doc_billing', routeKey: '/billing', title: 'Invoice tour', type: 'tour' },
+        {
+          documentId: 'doc_here',
+          routeKey: '/billing',
+          title: 'Welcome walkthrough',
+          type: 'tour',
+        },
+        {
+          documentId: 'doc_reports',
+          routeKey: '/reports#monthly',
+          title: 'Reports tour',
+          type: 'tour',
+        },
+        { documentId: 'doc_reports', routeKey: '/archive', title: 'Reports tour', type: 'tour' },
+      ]),
+    );
+
+    await installLocalLodariqAuthoringFromScript({
+      baseDocument,
+      script: localLoaderScript('development'),
+      iframeSrc: '/authoring.html',
+      installOptions: fakeInstallOptions(),
     });
+
+    document.querySelector<HTMLButtonElement>('[data-lodariq-creator-toolbar="true"]')?.click();
+    document
+      .querySelector<HTMLButtonElement>('[data-lodariq-launcher-action-id="experiences-on-page"]')
+      ?.click();
+
+    const heads = await vi.waitFor(() => {
+      const found = [
+        ...document.querySelectorAll<HTMLButtonElement>('[data-experience-scope-head]'),
+      ];
+      if (found.length !== 2) throw new Error('experience scopes missing');
+      return found;
+    });
+    const [onPage, elsewhere] = heads;
+    if (!onPage || !elsewhere) throw new Error('experience scopes missing');
+    const rowsIn = (head: HTMLButtonElement): string[] => {
+      const list = document.getElementById(head.getAttribute('aria-controls') ?? '');
+      return [...(list?.querySelectorAll<HTMLElement>('[data-lodariq-experience-id]') ?? [])].map(
+        (row) => row.dataset['lodariqExperienceId'] ?? '',
+      );
+    };
+
+    // Install files the base document under the current route, so it heads the
+    // first list. Nothing is taken out of the second because of it.
+    await vi.waitFor(() => expect(rowsIn(onPage)).toEqual([baseDocument.id, 'doc_here']));
+    // Everything, this page included — but one row per tour: doc_here is filed
+    // under two pages and doc_reports under two more, and each prints once,
+    // under the newest page it was authored on.
+    expect(rowsIn(elsewhere)).toEqual([baseDocument.id, 'doc_here', 'doc_billing', 'doc_reports']);
+    expect(
+      [
+        ...(document
+          .getElementById(elsewhere.getAttribute('aria-controls') ?? '')
+          ?.querySelectorAll('small') ?? []),
+      ].map((node) => node.textContent),
+    ).toEqual(['/', '/', '/billing', '/reports#monthly']);
+    expect(elsewhere.querySelector('.lodariq-experience-menu-scope-count')?.textContent).toBe('4');
   });
 
   it('injects local authoring trigger styles with the host CSP nonce', async () => {
@@ -179,6 +271,11 @@ describe('local-dev authoring install helper', () => {
     await mountLocalAuthoringDevFrame({ root, baseDocument });
 
     expect(document.body.textContent).toContain('Editing Selected local tour');
+    document.querySelector<HTMLButtonElement>('[aria-label="Step settings"]')?.click();
+    await vi.waitFor(() => {
+      expect(document.body.textContent).toContain('Local neutral');
+      expect(document.body.textContent).not.toContain('No voices available');
+    });
     // Panel mode renders the card; the filmstrip is host chrome, not frame content.
     expect(document.querySelector('[aria-label="Experience editor"]')).not.toBeNull();
   });
@@ -211,6 +308,9 @@ describe('local-dev authoring install helper', () => {
     expect(source).not.toContain("from '../authoring/local-frame'");
     expect(source).not.toContain("from './frame'");
     expect(source).toMatch(/await import\(\s*['"]\.\.\/authoring['"]\s*\)/);
+    expect(source).toContain('accessibilityMode: previewOptions.accessibilityMode');
+    expect(source).toContain('flowConditionContext: previewOptions.flowConditionContext');
+    expect(source).toContain('onBranchChoice: (step, ruleIndex, destination)');
   });
 });
 

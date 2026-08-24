@@ -1,5 +1,7 @@
 import { Type, type Static, type TSchema } from '@sinclair/typebox';
 import { PUBLIC_MANIFEST_SCHEMA_VERSION, SUPPORTED_DELIVERY_CONTRACTS } from './version';
+import { AudienceDefinition, TriggerDefinition } from './document';
+import { AdaptiveDecisionContext, EXPERIMENT_ARM_IDS } from './measurement';
 import {
   RELEASE_RECOVERY_ACTIONS,
   RELEASE_RECOVERY_FAILURE_CODES,
@@ -45,6 +47,7 @@ export const BROWSER_VERIFICATION_STATUSES = ['passed', 'warning', 'failed'] as 
 export const PRODUCTION_PROMOTION_FAILURE_CODES = [
   'source_not_active',
   'source_not_verified',
+  'accessibility_sweep_blocked',
   'artifact_changed',
   'approval_required',
   'approval_rejected',
@@ -537,6 +540,16 @@ export const ManifestArtifactPointerV2 = Type.Union(
 );
 export type ManifestArtifactPointerV2 = Static<typeof ManifestArtifactPointerV2>;
 
+export const ActiveExperimentAssignment = Type.Object(
+  {
+    experimentId: Type.String({ minLength: 1, maxLength: 128 }),
+    armId: Type.Union(EXPERIMENT_ARM_IDS.map((value) => Type.Literal(value))),
+    allocationRevision: Type.Integer({ minimum: 1 }),
+  },
+  { $id: 'ActiveExperimentAssignment', additionalProperties: false },
+);
+export type ActiveExperimentAssignment = Static<typeof ActiveExperimentAssignment>;
+
 export const ActiveManifestPointerV2 = Type.Object(
   {
     schemaVersion: Type.Literal(PUBLIC_MANIFEST_SCHEMA_VERSION),
@@ -547,6 +560,14 @@ export const ActiveManifestPointerV2 = Type.Object(
     generation: Type.Integer({ minimum: 1 }),
     publicationId: Type.String({ minLength: 1 }),
     activatedAt: Type.String({ minLength: 1 }),
+    activation: Type.Optional(
+      Type.Object(
+        { trigger: TriggerDefinition, audience: AudienceDefinition },
+        { additionalProperties: false },
+      ),
+    ),
+    experimentAssignment: Type.Optional(Type.Ref(ActiveExperimentAssignment)),
+    adaptive: Type.Optional(Type.Ref(AdaptiveDecisionContext)),
     artifact: ManifestArtifactPointerV2,
   },
   { $id: 'ActiveManifestPointerV2', additionalProperties: false },

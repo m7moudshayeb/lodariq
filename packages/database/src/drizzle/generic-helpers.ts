@@ -1,4 +1,5 @@
 import { and, eq, isNull, sql } from 'drizzle-orm';
+import { isDeliverableExperienceType } from '@lodariq/schema';
 import {
   type AuthoringActivationGrantRecord,
   type ConsumeAuthoringActivationGrantInput,
@@ -146,17 +147,13 @@ export class DrizzleRepositoryGenericHelpers extends DrizzleRepositoryState {
   ): Promise<boolean> {
     if (!documentIntent || documentIntent.kind === 'new-draft') return true;
     const [document] = await tx
-      .select({ id: documents.id })
+      .select({ id: documents.id, canonical: documents.canonical })
       .from(documents)
       .where(
-        and(
-          eq(documents.workspaceId, workspaceId),
-          eq(documents.id, documentIntent.documentId),
-          eq(documents.type, 'tour'),
-        ),
+        and(eq(documents.workspaceId, workspaceId), eq(documents.id, documentIntent.documentId)),
       )
       .limit(1);
-    return Boolean(document);
+    return Boolean(document && isDeliverableExperienceType(document.canonical.type));
   }
 
   protected async hasAuthoringMembership(
@@ -280,11 +277,7 @@ export class DrizzleRepositoryGenericHelpers extends DrizzleRepositoryState {
         .limit(1);
       if (!candidate || !isAuthoringEnvironmentKind(candidate.environment)) return null;
 
-      await this.setTenantActorScope(
-        tx,
-        candidate.grant.workspaceId,
-        candidate.grant.creatorId,
-      );
+      await this.setTenantActorScope(tx, candidate.grant.workspaceId, candidate.grant.creatorId);
       if (
         !(await this.hasActiveAuthoringScope(
           tx,

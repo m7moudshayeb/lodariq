@@ -6,11 +6,9 @@
  * radio group *before* the creator has seen anything; making the form a consequence
  * of where the card was dropped turns a Tier-3 dialog into a Tier-1 gesture.
  *
- * Authoring-only for now. The runtime renders popup / modal / hotspot surfaces
- * today, so banner, slide-in, drawer and floating are authored and stored but not
- * yet rendered; the compiled artifact does not carry this field, exactly as it does
- * not carry narration. Storing the creator's decision now means the renderers
- * inherit correct data instead of a migration.
+ * The compiler validates this authoring gesture against the document type and
+ * emits an explicit renderer surface. Invalid cross-type combinations fail
+ * closed instead of being guessed by the runtime.
  */
 import { Type, type Static } from '@sinclair/typebox';
 

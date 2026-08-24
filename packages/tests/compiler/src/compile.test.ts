@@ -9,6 +9,7 @@ import {
   RENDERER_CONTRACT_VERSION,
   validate,
   type BrandThemeSnapshot,
+  type Experiment,
   type LodariqBlock,
   type LodariqDocument,
   type PresentationAnchor,
@@ -26,6 +27,167 @@ import { createTargetIdentityV2 } from '../../fixtures/target-identity-v2';
 const document = tourFixture as LodariqDocument;
 
 describe('compile', () => {
+  it('compiles closed experiment patches and applies only a promoted winner', () => {
+    const experiment: Experiment = {
+      id: 'exp_copy_variant',
+      status: 'running',
+      varies: 'copy',
+      successEventName: 'project_created',
+      allocationRevision: 1,
+      arms: [
+        { id: 'A', label: 'Control', trafficPercent: 50, overrides: [] },
+        {
+          id: 'B',
+          label: 'Clearer copy',
+          trafficPercent: 50,
+          overrides: [{ type: 'copy', blockId: 'block_heading_1', text: 'Create a project now' }],
+        },
+      ],
+    };
+
+    const running = compile({ ...themedInput(document), experiment });
+    expect(running.experiment).toMatchObject({
+      id: experiment.id,
+      arms: [
+        { id: 'A', overrides: [] },
+        { id: 'B', overrides: [{ type: 'copy', blockId: 'block_heading_1' }] },
+      ],
+    });
+    expect(running.steps[0]?.body[0]?.text).not.toBe('Create a project now');
+
+    const promoted = compile({
+      ...themedInput(document),
+      experiment: { ...experiment, status: 'promoted', promotedArmId: 'B' },
+    });
+    expect(promoted.experiment).toBeUndefined();
+    expect(promoted.steps[0]?.body[0]?.text).toBe('Create a project now');
+  });
+
+  it('rejects unresolved or mismatched experiment patches', () => {
+    const base: Experiment = {
+      id: 'exp_invalid_variant',
+      status: 'draft',
+      varies: 'copy',
+      successEventName: 'project_created',
+      allocationRevision: 1,
+      arms: [
+        { id: 'A', label: 'Control', trafficPercent: 50, overrides: [] },
+        { id: 'B', label: 'Variant', trafficPercent: 50, overridesRef: 'legacy_patch' },
+      ],
+    };
+    expect(() => compile({ ...themedInput(document), experiment: base })).toThrow(
+      /unresolved override reference/,
+    );
+    expect(() =>
+      compile({
+        ...themedInput(document),
+        experiment: {
+          ...base,
+          arms: [
+            base.arms[0]!,
+            {
+              id: 'B',
+              label: 'Variant',
+              trafficPercent: 50,
+              overrides: [{ type: 'copy', blockId: 'missing', text: 'Nope' }],
+            },
+          ],
+        },
+      }),
+    ).toThrow(/missing block/);
+  });
+
+  it('compiles an immutable semantic target approach without mutable outcomes', async () => {
+    const withApproach = structuredClone(document);
+    withApproach.targets.push({
+      id: 'target_open_menu',
+      fingerprint: {
+        tagName: 'button',
+        role: 'button',
+        accessibleName: 'Open menu',
+        stableAttributes: { 'data-testid': 'open-menu' },
+      },
+    });
+    withApproach.targets[0]!.approach = {
+      legs: [
+        {
+          act: { kind: 'activateTarget', targetId: 'target_open_menu' },
+          wait: { type: 'targetAvailable', targetId: 'target_new_project' },
+          label: 'Open the project menu',
+        },
+      ],
+      lastOutcome: 'fail',
+    };
+
+    const compiled = await compileDocument(themedInput(withApproach));
+    expect(compiled.targets[0]?.approach).toEqual({
+      legs: [
+        {
+          act: { kind: 'activateTarget', targetId: 'target_open_menu' },
+          wait: { type: 'targetAvailable', targetId: 'target_new_project' },
+          label: 'Open the project menu',
+        },
+      ],
+    });
+    expect(compiled.targets[0]?.approach).not.toHaveProperty('lastOutcome');
+    expect(JSON.stringify(compiled.targets[0]?.approach)).not.toMatch(
+      /selector|coordinate|delayMs/,
+    );
+  });
+
+  it.each([
+    {
+      name: 'a missing activation target',
+      approach: {
+        legs: [
+          {
+            act: { kind: 'activateTarget', targetId: 'missing' },
+            label: 'Open it',
+          },
+        ],
+      },
+    },
+    {
+      name: 'self activation',
+      approach: {
+        legs: [
+          {
+            act: { kind: 'activateTarget', targetId: 'target_new_project' },
+            label: 'Open itself',
+          },
+        ],
+      },
+    },
+    {
+      name: 'an unresolved route-pattern action',
+      approach: {
+        legs: [
+          {
+            act: { kind: 'navigate', routePatternId: 'projects' },
+            label: 'Open projects',
+          },
+        ],
+      },
+    },
+    {
+      name: 'an empty observation',
+      approach: { legs: [{ act: { kind: 'observe' }, label: 'Wait' }] },
+    },
+  ])('rejects an approach with $name', ({ approach }) => {
+    const malformed = structuredClone(document);
+    malformed.targets[0]!.approach = approach as LodariqDocument['targets'][number]['approach'];
+    expect(() => compile(themedInput(malformed))).toThrow(/Target approach/);
+  });
+
+  it('content-addresses the plan badge in the immutable artifact', async () => {
+    const withoutBadge = await compileDocument(themedInput(document));
+    const withBadge = await compileDocument({ ...themedInput(document), showLodariqBadge: true });
+
+    expect(withoutBadge.showLodariqBadge).toBeUndefined();
+    expect(withBadge.showLodariqBadge).toBe(true);
+    expect(withBadge.contentHash).not.toBe(withoutBadge.contentHash);
+  });
+
   it('writes one explicit semantic appearance into every new artifact', () => {
     const legacyDocument = structuredClone(document);
     delete legacyDocument.appearance;
@@ -93,7 +255,9 @@ describe('compile', () => {
 
   it('produces one step per tourStep block with body + target binding', () => {
     const compiled = compile(themedInput(document));
-    expect(compiled.steps).toHaveLength(1);
+    // The rule is one step per tourStep block, not a fixed count — the fixture
+    // grows, and a magic number would have to be chased every time it does.
+    expect(compiled.steps).toHaveLength(document.blocks.length);
     const [step] = compiled.steps;
     expect(step?.targetId).toBe('target_new_project');
     expect(step?.placement).toBe('bottom');
@@ -154,6 +318,46 @@ describe('compile', () => {
       'Une formulation française différente.';
     const changed = await compileDocument(themedInput(changedDocument));
     expect(changed.contentHash).not.toBe(compiled.contentHash);
+  });
+
+  it('preserves child visibility rules across compiled locale variants', async () => {
+    const conditionalDocument = structuredClone(document);
+    const heading = tourTooltip(conditionalDocument).children.find(
+      (block) => block.id === 'block_heading_1',
+    );
+    if (!heading) throw new Error('fixture heading missing');
+    heading.props.showWhen = {
+      source: 'identifyTrait',
+      key: 'plan',
+      operator: 'equals',
+      value: 'growth',
+    };
+    conditionalDocument.localization = {
+      defaultLocale: 'en',
+      variants: [
+        {
+          locale: 'de',
+          fallbackLocale: 'en',
+          blocks: [{ blockId: heading.id, content: 'Erstellen Sie Ihr erstes Projekt' }],
+        },
+      ],
+    };
+
+    const compiled = await compileDocument(themedInput(conditionalDocument));
+    const expected = {
+      source: 'identifyTrait',
+      key: 'plan',
+      operator: 'equals',
+      value: 'growth',
+    };
+
+    expect(
+      compiled.steps[0]?.body.find((block) => block.id === heading.id)?.props.showWhen,
+    ).toEqual(expected);
+    expect(
+      compiled.localization.variants[0]?.steps[0]?.body.find((block) => block.id === heading.id)
+        ?.props.showWhen,
+    ).toEqual(expected);
   });
 
   it('rejects invalid authored-content fallback graphs before publication', () => {
@@ -385,8 +589,8 @@ describe('compile', () => {
     expect(compiled.artifactSchemaVersion).toBe(COMPILED_ARTIFACT_SCHEMA_VERSION);
     expect(compiled.rendererContractVersion).toBe(RENDERER_CONTRACT_VERSION);
     expect(compiled.compilerVersion).toBe(COMPILER_VERSION);
-    expect(COMPILER_VERSION).toBe('0.5.0');
-    expect(RENDERER_CONTRACT_VERSION).toBe('4');
+    expect(COMPILER_VERSION).toBe('0.6.0');
+    expect(RENDERER_CONTRACT_VERSION).toBe('5');
     expect(compiled.theme).toEqual(LODARIQ_ACCESSIBLE_FALLBACK_THEME_V1);
     const result = validate(CompiledDocument, compiled);
     if (!result.valid) {
@@ -399,6 +603,84 @@ describe('compile', () => {
     const a = await compileDocument(themedInput(document));
     const b = await compileDocument(themedInput(document));
     expect(a.contentHash).toBe(b.contentHash);
+  });
+
+  it('pins generated narration metadata from the server media record', async () => {
+    const narrated = structuredClone(document);
+    const step = narrated.blocks[0];
+    if (!step || step.type !== 'tourStep') throw new Error('fixture step missing');
+    step.props.narration = {
+      script: 'Create a project, then continue.',
+      voiceId: 'voice_en',
+      startOffsetMs: 350,
+      advanceOnEnd: true,
+      audio: {
+        assetId: 'asset_narration_1',
+        contentHash: `sha256-${'1'.repeat(64)}`,
+        sourceHash: `sha256-${'2'.repeat(64)}`,
+        contentType: 'audio/wav',
+        durationMs: 1_500,
+        cues: [{ text: 'Create a project, then continue.', startMs: 0, durationMs: 1_500 }],
+      },
+    };
+
+    const compiled = await compileDocument({
+      ...themedInput(narrated),
+      mediaAssets: new Map([
+        [
+          'asset_narration_1',
+          {
+            kind: 'audio' as const,
+            contentHash: `sha256-${'a'.repeat(64)}`,
+            contentType: 'audio/wav',
+          },
+        ],
+      ]),
+    });
+
+    expect(compiled.steps[0]?.narration).toEqual({
+      script: 'Create a project, then continue.',
+      startOffsetMs: 350,
+      advanceOnEnd: true,
+      audio: {
+        ...step.props.narration.audio,
+        contentHash: `sha256-${'a'.repeat(64)}`,
+      },
+    });
+    expect(compiled.steps[0]?.body.every((block) => !('narration' in block.props))).toBe(true);
+  });
+
+  it('rejects narration whose server media record is not audio', () => {
+    const narrated = structuredClone(document);
+    const step = narrated.blocks[0];
+    if (!step || step.type !== 'tourStep') throw new Error('fixture step missing');
+    step.props.narration = {
+      script: 'Create a project.',
+      audio: {
+        assetId: 'asset_wrong_kind',
+        contentHash: `sha256-${'1'.repeat(64)}`,
+        sourceHash: `sha256-${'2'.repeat(64)}`,
+        contentType: 'audio/wav',
+        durationMs: 1_000,
+        cues: [{ text: 'Create a project.', startMs: 0, durationMs: 1_000 }],
+      },
+    };
+
+    expect(() =>
+      compile({
+        ...themedInput(narrated),
+        mediaAssets: new Map([
+          [
+            'asset_wrong_kind',
+            {
+              kind: 'image' as const,
+              contentHash: `sha256-${'a'.repeat(64)}`,
+              contentType: 'image/png',
+            },
+          ],
+        ]),
+      }),
+    ).toThrow(/unavailable/iu);
   });
 
   it('hashes the exact theme snapshot and renderer contract version', async () => {
@@ -607,11 +889,13 @@ describe('compile', () => {
     if (!heading) throw new Error('fixture heading missing');
 
     heading.props.level = 3;
-    mutableDocument.targets[0]!.fingerprint.stableAttributes['data-lodariq-id'] = 'changed';
+    const stableAttributes = mutableDocument.targets[0]!.fingerprint.stableAttributes;
+    if (!stableAttributes) throw new Error('fixture stable attributes missing');
+    stableAttributes['data-lodariq-id'] = 'changed';
 
     const compiledHeading = compiled.steps[0]?.body.find((block) => block.id === 'block_heading_1');
     expect(compiledHeading?.props).toEqual({ level: 2 });
-    expect(compiled.targets[0]?.fingerprint.stableAttributes['data-lodariq-id']).toBe(
+    expect(compiled.targets[0]?.fingerprint.stableAttributes?.['data-lodariq-id']).toBe(
       'new-project',
     );
     expect(compiled.targets[0]?.fingerprint.diagnosticCoordinates).toBeUndefined();

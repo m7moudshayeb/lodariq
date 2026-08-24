@@ -10,7 +10,6 @@ import {
 import { Check, ChevronDown, Search as SearchIcon } from './icons';
 import { useExclusiveFloating } from './exclusive-floating';
 
-
 export interface AuthoringSelectOption {
   /** Shown only in the open list; the trigger always stays the bare label. */
   description?: string;
@@ -23,6 +22,15 @@ export interface AuthoringSelectSearchConfig {
   emptyLabel: string;
   label: string;
   placeholder: string;
+  /**
+   * Turns the list from a gate into a suggestion: whatever was typed can be
+   * committed even when nothing matches. `accept` normalizes it and returns null
+   * to refuse, `label` names the row that offers it.
+   */
+  custom?: {
+    accept: (query: string) => string | null;
+    label: (query: string) => string;
+  };
 }
 
 export interface AuthoringSelectProps {
@@ -31,6 +39,7 @@ export interface AuthoringSelectProps {
   className?: string;
   dataAction?: string;
   dataBlockId?: string;
+  disabled?: boolean;
   leadingIcon?: ReactNode;
   /** Controlled open state. Left out, the control manages its own. */
   onOpenChange?: (open: boolean) => void;
@@ -45,6 +54,13 @@ export interface AuthoringSelectProps {
    * different control — the menu, the keyboard model and the value are identical.
    */
   size?: 'default' | 'compact';
+  /**
+   * Fixed text for the trigger instead of the selected option. For a picker that
+   * performs an action rather than reporting a state — "Add a language" has to
+   * say so, not sit there reading "English".
+   */
+  triggerLabel?: string;
+  title?: string;
   value: string;
 }
 
@@ -53,6 +69,7 @@ export function AuthoringSelect({
   className,
   dataAction,
   dataBlockId,
+  disabled,
   leadingIcon,
   onOpenChange,
   onPointerDown,
@@ -61,6 +78,8 @@ export function AuthoringSelect({
   options,
   search,
   size = 'default',
+  triggerLabel,
+  title,
   value,
 }: AuthoringSelectProps) {
   /*
@@ -77,6 +96,7 @@ export function AuthoringSelect({
       className={className}
       dataAction={dataAction}
       dataBlockId={dataBlockId}
+      disabled={disabled}
       leadingIcon={leadingIcon}
       onOpenChange={onOpenChange}
       onPointerDown={onPointerDown}
@@ -85,6 +105,8 @@ export function AuthoringSelect({
       options={options}
       size={size}
       {...(search ? { search } : {})}
+      {...(triggerLabel ? { triggerLabel } : {})}
+      {...(title ? { title } : {})}
       value={value}
     />
   );
@@ -95,6 +117,7 @@ function AuthoringListboxSelect({
   className,
   dataAction,
   dataBlockId,
+  disabled = false,
   leadingIcon,
   onOpenChange,
   onPointerDown,
@@ -103,6 +126,8 @@ function AuthoringListboxSelect({
   options,
   search,
   size = 'default',
+  triggerLabel,
+  title,
   value,
 }: AuthoringSelectProps) {
   const [activeIndex, setActiveIndex] = useState(0);
@@ -119,7 +144,15 @@ function AuthoringListboxSelect({
     ? options.filter((option) => optionMatchesSearch(option, normalizedQuery))
     : options;
   const activeOption = filteredOptions[activeIndex] ?? filteredOptions[0];
-  const selectedOption = options.find((option) => option.value === value) ?? options[0];
+  /* A free-form value is legitimately not in `options`, so the trigger falls back
+     to the value itself rather than to the first row, which would misreport it. */
+  const selectedOption =
+    options.find((option) => option.value === value) ??
+    (search?.custom && value ? { label: value, value } : options[0]);
+
+  /* Offered only when nothing matched, so the list stays the fast path. */
+  const customValue =
+    search?.custom && filteredOptions.length === 0 ? search.custom.accept(query) : null;
 
   const chooseOption = (option: AuthoringSelectOption): void => {
     onValueChange?.(option.value);
@@ -140,17 +173,25 @@ function AuthoringListboxSelect({
       );
       return;
     }
-    if (event.key === 'Enter' && activeOption) {
+    if (event.key !== 'Enter') return;
+    if (activeOption) {
       event.preventDefault();
       chooseOption(activeOption);
+      return;
+    }
+    // Enter commits what was typed, so free-form entry never needs the mouse.
+    if (customValue) {
+      event.preventDefault();
+      chooseOption({ label: customValue, value: customValue });
     }
   };
 
   return (
     <>
       <RadixPopover.Root
-        open={open}
+        open={disabled ? false : open}
         onOpenChange={(nextOpen) => {
+          if (disabled) return;
           setOpen(nextOpen);
           setQuery('');
           setActiveIndex(
@@ -180,6 +221,7 @@ function AuthoringListboxSelect({
             data-action={dataAction}
             data-block-id={dataBlockId}
             data-size={size}
+            disabled={disabled}
             onKeyDown={(event) => {
               if (event.key !== 'Enter' && event.key !== ' ' && event.key !== 'ArrowDown') return;
               event.preventDefault();
@@ -191,9 +233,10 @@ function AuthoringListboxSelect({
               toggle();
             }}
             role="combobox"
+            title={title}
           >
             <SelectLeadingIcon icon={leadingIcon} />
-            <span className="ui-select-value">{selectedOption?.label}</span>
+            <span className="ui-select-value">{triggerLabel ?? selectedOption?.label}</span>
             <ChevronDown size={14} strokeWidth={2.2} aria-hidden="true" />
           </button>
         </RadixPopover.Anchor>
@@ -270,7 +313,19 @@ function AuthoringListboxSelect({
                   ) : null}
                 </button>
               ))}
-              {search && filteredOptions.length === 0 ? (
+              {customValue ? (
+                <button
+                  type="button"
+                  className="ui-select-item ui-searchable-select-option active"
+                  data-select-custom={customValue}
+                  onClick={() => chooseOption({ label: customValue, value: customValue })}
+                  role="option"
+                  aria-selected={false}
+                >
+                  <span className="ui-select-item-text">{search?.custom?.label(query)}</span>
+                </button>
+              ) : null}
+              {search && filteredOptions.length === 0 && !customValue ? (
                 <div className="ui-select-empty" role="status">
                   {search.emptyLabel}
                 </div>
@@ -338,6 +393,11 @@ function NativeSelectMirror({
       tabIndex={-1}
       value={value}
     >
+      {/* A free-form value has no row of its own; without one React reports the
+          mirror as unset and the test hook reads the wrong language. */}
+      {options.some((option) => option.value === value) ? null : (
+        <option value={value}>{value}</option>
+      )}
       {options.map((option) => (
         <option key={option.value} value={option.value}>
           {option.label}
@@ -346,8 +406,6 @@ function NativeSelectMirror({
     </select>
   );
 }
-
-
 
 export function SelectField({ children, label }: { children: ReactNode; label: string }) {
   return (

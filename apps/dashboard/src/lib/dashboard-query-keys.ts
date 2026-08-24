@@ -9,6 +9,7 @@ export const dashboardQueryKeys = {
     ['dashboard', 'workspace', workspaceId, 'experience', documentId, environmentId] as const,
   applications: (workspaceId: string) =>
     ['dashboard', 'workspace', workspaceId, 'applications'] as const,
+  billing: (workspaceId: string) => ['dashboard', 'workspace', workspaceId, 'billing'] as const,
   documentDebug: (workspaceId: string) =>
     ['dashboard', 'workspace', workspaceId, 'document-debug'] as const,
 } as const;

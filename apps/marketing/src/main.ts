@@ -42,7 +42,14 @@ function wireHeaderShade(): void {
   update();
 }
 
-/** Quiet entrance for below-the-fold sections; skipped under reduced motion. */
+/**
+ * Quiet entrance for below-the-fold sections; skipped under reduced motion.
+ *
+ * Sections are VISIBLE by default in CSS and this function opts them into the
+ * animation by marking the document. Without that, a crawler or a visitor
+ * whose JS fails sees `opacity: 0` content — and a throttled
+ * IntersectionObserver (background tab) would never turn it back on.
+ */
 function wireReveals(): void {
   const revealables = document.querySelectorAll<HTMLElement>('[data-reveal]');
   if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
@@ -51,6 +58,7 @@ function wireReveals(): void {
     });
     return;
   }
+  document.documentElement.dataset['revealArmed'] = 'true';
   const observer = new IntersectionObserver(
     (entries) => {
       for (const entry of entries) {

@@ -3,6 +3,7 @@ import { BrandThemeDefinition, BrandThemeSnapshot, ProductStyleSource } from './
 import { Environment, DocumentStatus, DocumentType } from './common';
 import { ControlPlaneAuthContext } from './control-plane';
 import { EnvironmentPolicyValidationIssue, EnvironmentReleasePolicy } from './environment-policy';
+import { EnvironmentGovernanceCapability } from './governance-capabilities';
 import { DocumentDeployment } from './release';
 import { AuthoringActivationCapabilitySet, AuthoringDocumentIntent } from './sdk';
 
@@ -105,6 +106,9 @@ export const DashboardWorkspaceEnvironment = Type.Object(
     authoringEnabled: Type.Optional(Type.Boolean()),
     promotionSourceEnvironmentId: Type.Optional(DashboardIdentifier),
     releasePolicy: Type.Optional(Type.Ref(EnvironmentReleasePolicy)),
+    governanceCapabilities: Type.Optional(
+      Type.Array(Type.Ref(EnvironmentGovernanceCapability), { minItems: 1, maxItems: 11, uniqueItems: true }),
+    ),
     createdAt: DashboardTimestamp,
     updatedAt: DashboardTimestamp,
   },

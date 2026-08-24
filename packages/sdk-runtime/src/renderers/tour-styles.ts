@@ -1,7 +1,4 @@
-import {
-  LODARIQ_TOUR_ANCHORED_ATTRIBUTE,
-  createNonceStyleElement,
-} from '@lodariq/schema/dom';
+import { LODARIQ_TOUR_ANCHORED_ATTRIBUTE, createNonceStyleElement } from '@lodariq/schema/dom';
 
 export function createTourStyles(): HTMLStyleElement {
   return createNonceStyleElement(
@@ -15,7 +12,6 @@ export function createTourStyles(): HTMLStyleElement {
       font-family: var(--lq-tour-font-family);
     }
 
-    /* The dim is the box-shadow spread; the box itself is the hole over the target. */
     .tour-backdrop {
       box-sizing: border-box;
       position: fixed;
@@ -66,16 +62,6 @@ export function createTourStyles(): HTMLStyleElement {
       pointer-events: none;
     }
 
-    /*
-     * §4.4's ring states, drawn on the one ring rather than beside it.
-     *
-     * Only an authoring session sets the attribute, so a delivered tour never
-     * shows a creator's diagnostic. "ok" is the ring as authored and needs no
-     * rule; the other two override the creator's treatment on purpose — a
-     * warning that can be styled into invisibility is not a warning. The hue
-     * arrives with the attribute: status colours belong to the creator chrome's
-     * token file, and ADR-0013 keeps literals out of here.
-     */
     :host([data-lodariq-authoring-target-state="ctx"]) .tour-target-outline,
     :host([data-lodariq-authoring-target-state="bad"]) .tour-target-outline {
       border-width: 2px;
@@ -91,11 +77,6 @@ export function createTourStyles(): HTMLStyleElement {
       border-style: solid;
     }
 
-    /*
-     * Centred is the resting place for a card with nothing to point at — a
-     * welcome or an announcement. Anchored cards opt out: the positioner writes
-     * their exact coordinates once the target resolves.
-     */
     div[role="dialog"]:not([${LODARIQ_TOUR_ANCHORED_ATTRIBUTE}]) {
       position: fixed;
       top: 50%;
@@ -106,7 +87,14 @@ export function createTourStyles(): HTMLStyleElement {
     div[role="dialog"] {
       box-sizing: border-box;
       width: min(var(--lq-tour-width), calc(100vw - 24px));
-      padding: var(--lq-tour-composition-padding, var(--lq-tour-spacing));
+      padding: var(
+          --lq-tour-composition-padding-block,
+          var(--lq-tour-composition-padding, var(--lq-tour-spacing))
+        )
+        var(
+          --lq-tour-composition-padding-inline,
+          var(--lq-tour-composition-padding, var(--lq-tour-spacing))
+        );
       border: var(--lq-tour-border-width) solid
         var(--lq-popup-border, var(--lq-tour-border-color));
       border-radius: var(--lq-tour-radius);
@@ -121,6 +109,11 @@ export function createTourStyles(): HTMLStyleElement {
         color var(--lq-tour-motion-duration) var(--lq-tour-motion-easing);
     }
 
+    @keyframes lq-step-fade { from { opacity: 0; } }
+    @keyframes lq-step-lift { from { opacity: 0; transform: translateY(8px); } }
+    @keyframes lq-step-scale { from { opacity: 0; transform: scale(0.97); } }
+    @keyframes lq-step-pulse { 50% { transform: scale(1.02); } }
+
     div[role="dialog"][data-lodariq-motion="fade"] {
       animation: lq-step-fade var(--lq-step-motion-duration) var(--lq-step-motion-easing) both;
     }
@@ -133,10 +126,6 @@ export function createTourStyles(): HTMLStyleElement {
     div[role="dialog"][data-lodariq-motion="pulse"] {
       animation: lq-step-pulse var(--lq-step-motion-duration) var(--lq-step-motion-easing) 2;
     }
-    @keyframes lq-step-fade { from { opacity: 0; } }
-    @keyframes lq-step-lift { from { opacity: 0; transform: translateY(8px); } }
-    @keyframes lq-step-scale { from { opacity: 0; transform: scale(0.97); } }
-    @keyframes lq-step-pulse { 50% { transform: scale(1.02); } }
 
     [data-lodariq-inline-motion="fade"] {
       animation: lq-step-fade var(--lq-inline-motion-duration)
@@ -219,20 +208,14 @@ export function createTourStyles(): HTMLStyleElement {
       color: var(--lq-field-label, inherit);
       font: inherit;
     }
-    /* A checkbox's caption reads as body copy, not as a field label. */
     [data-lodariq-node-type="formField"][data-lodariq-field-control="checkbox"] > span {
       font-size: inherit;
       font-weight: inherit;
     }
-    /* Label beside the control: caption takes its own width, the box takes the rest. */
     [data-lodariq-node-type="formField"][data-lodariq-field-control="text"][data-lodariq-field-label="beside"] {
       grid-template-columns: auto minmax(0, 1fr);
       align-items: center;
     }
-    /*
-     * Hidden means off the screen, never removed: the caption is still the
-     * field's accessible name, so a bare box still says what it asks for.
-     */
     [data-lodariq-node-type="formField"][data-lodariq-field-label="hidden"] [data-lodariq-field-caption] {
       position: absolute;
       width: 1px;
@@ -413,6 +396,40 @@ export function createTourStyles(): HTMLStyleElement {
 
     .tour-content {
       min-width: 0;
+      scrollbar-color: var(--lq-popup-border, var(--lq-tour-border-color)) transparent;
+      scrollbar-width: thin;
+    }
+
+    .tour-narration {
+      display: grid;
+      grid-template-columns: auto minmax(72px, 1fr) auto;
+      align-items: center;
+      gap: var(--lq-tour-space-xs);
+      margin-block-start: var(--lq-tour-space-sm);
+      padding-block-start: var(--lq-tour-space-sm);
+      border-block-start: var(--lq-tour-border-width) solid var(--lq-tour-border-color);
+    }
+    .tour-narration > button {
+      min-height: 32px;
+      padding: var(--lq-tour-space-xs);
+      border-color: var(--lq-tour-border-color);
+      background: var(--lq-tour-secondary-surface);
+      color: var(--lq-tour-secondary-text);
+      font-size: .82em;
+    }
+    .tour-narration-timeline { min-width: 0; accent-color: var(--lq-tour-focus-color); }
+    .tour-narration-caption {
+      grid-column: 1 / -1;
+      margin: 0;
+      color: var(--lq-tour-text-color);
+      font-size: .9em;
+      text-align: center;
+    }
+    .tour-narration-status {
+      grid-column: 1 / -1;
+      min-height: 1em;
+      color: var(--lq-tour-muted-text);
+      font-size: .78em;
     }
 
     div[role="dialog"][data-lodariq-popup-height="custom"] > .tour-content {
@@ -786,12 +803,7 @@ export function createTourStyles(): HTMLStyleElement {
     :host([data-lodariq-embedded-preview]) div[role="dialog"][data-lodariq-popup-height="custom"] {
       height: min(var(--lq-popup-height), 100%);
     }
-    /*
-     * Last word on visibility. The card is hidden on purpose until its target
-     * resolves, and any display declaration elsewhere — the custom-height rule,
-     * for one — silently defeats the UA's own [hidden] handling and leaves the
-     * card sitting unpositioned in the page's top-left corner.
-     */
+
     div[role="dialog"][hidden] {
       display: none;
     }

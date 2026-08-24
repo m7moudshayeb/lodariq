@@ -1,5 +1,36 @@
 import { afterEach } from 'vitest';
 
+interface JsdomCssError extends Error {
+  detail?: unknown;
+  type?: unknown;
+}
+
+interface TestVirtualConsole {
+  listeners(event: 'jsdomError'): Array<(error: JsdomCssError) => void>;
+  on(event: 'jsdomError', listener: (error: JsdomCssError) => void): void;
+  removeAllListeners(event: 'jsdomError'): void;
+}
+
+interface TestJsdom {
+  virtualConsole: TestVirtualConsole;
+}
+
+const testJsdom = (globalThis as typeof globalThis & { jsdom?: TestJsdom }).jsdom;
+if (testJsdom) {
+  const virtualConsole = testJsdom.virtualConsole;
+  const jsdomErrorListeners = virtualConsole.listeners('jsdomError');
+  virtualConsole.removeAllListeners('jsdomError');
+  virtualConsole.on('jsdomError', (error) => {
+    const knownContainerQueryGap =
+      error.type === 'css parsing' &&
+      typeof error.detail === 'string' &&
+      error.detail.includes('--lq-font-xs') &&
+      error.detail.includes('@container authoring-frame');
+    if (knownContainerQueryGap) return;
+    for (const listener of jsdomErrorListeners) listener(error);
+  });
+}
+
 class TestResizeObserver implements ResizeObserver {
   observe(): void {}
   unobserve(): void {}

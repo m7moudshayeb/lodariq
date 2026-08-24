@@ -7,10 +7,10 @@
  * everywhere. Keeping the direction one-way is what stops a cycle.
  */
 import type { DocumentType } from '@lodariq/schema';
-import { registerInspectorSections } from '../overlay/inspector-sections';
-import { experienceDefinition } from './definition';
+import { replaceInspectorSections } from '../overlay/inspector-sections';
+import { registeredExperienceDefinition } from '../experience-authoring-capabilities';
 
 export function registerExperienceInspectorSections(type: DocumentType): void {
-  const definition = experienceDefinition(type);
-  if (definition) registerInspectorSections('card', definition.inspectorSections);
+  const definition = registeredExperienceDefinition(type);
+  if (definition) replaceInspectorSections('card', definition.inspectorSections);
 }

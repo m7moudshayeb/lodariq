@@ -76,7 +76,9 @@ describe('authoring footer actions', () => {
     /* Release, not Operations: the sheet deliberately has no footer — it is a
        place you go from the canvas and come back to, and Close/Esc is its way
        out. Every other panel mode still carries the footer. */
-    await vi.waitFor(() => expect(document.querySelector('.panel-workspace-footer')).not.toBeNull());
+    await vi.waitFor(() =>
+      expect(document.querySelector('.panel-workspace-footer')).not.toBeNull(),
+    );
 
     const footer = document.querySelector<HTMLElement>('.panel-workspace-footer');
     const saveAndExit = buttonByText(footer, 'Save & exit');

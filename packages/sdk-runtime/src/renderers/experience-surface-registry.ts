@@ -1,4 +1,5 @@
-export type ExperienceSurfaceKind = 'popup' | 'modal' | 'hotspot';
+export type ExperienceSurfaceKind =
+  'popup' | 'modal' | 'hotspot' | 'banner' | 'slideIn' | 'drawer' | 'floating';
 
 export interface ExperienceSurfaceDefinition {
   kind: ExperienceSurfaceKind;
@@ -41,6 +42,46 @@ const EXPERIENCE_SURFACE_REGISTRY = Object.freeze({
     backdrop: false,
     resizable: false,
     defaultSize: Object.freeze({ width: 40, height: 40 }),
+  }),
+  banner: Object.freeze({
+    kind: 'banner',
+    anchor: 'viewport',
+    ariaRole: 'dialog',
+    focus: 'contained',
+    dismissal: ['close-control', 'escape'] as const,
+    backdrop: false,
+    resizable: true,
+    defaultSize: Object.freeze({ width: 960, height: 120 }),
+  }),
+  slideIn: Object.freeze({
+    kind: 'slideIn',
+    anchor: 'viewport',
+    ariaRole: 'dialog',
+    focus: 'contained',
+    dismissal: ['close-control', 'escape', 'outside-press'] as const,
+    backdrop: false,
+    resizable: true,
+    defaultSize: Object.freeze({ width: 400, height: 520 }),
+  }),
+  drawer: Object.freeze({
+    kind: 'drawer',
+    anchor: 'viewport',
+    ariaRole: 'dialog',
+    focus: 'contained',
+    dismissal: ['close-control', 'escape'] as const,
+    backdrop: false,
+    resizable: true,
+    defaultSize: Object.freeze({ width: 400, height: 640 }),
+  }),
+  floating: Object.freeze({
+    kind: 'floating',
+    anchor: 'viewport',
+    ariaRole: 'dialog',
+    focus: 'contained',
+    dismissal: ['close-control', 'escape'] as const,
+    backdrop: false,
+    resizable: true,
+    defaultSize: Object.freeze({ width: 368, height: 420 }),
   }),
 } as const satisfies Record<ExperienceSurfaceKind, ExperienceSurfaceDefinition>);
 

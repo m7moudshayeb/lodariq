@@ -54,4 +54,32 @@ describe('local authoring initial workspace', () => {
     );
     expect(document.querySelector('.tour-storyboard')).toBeNull();
   });
+
+  it('consumes a review deep link once and allows the creator to close it', async () => {
+    const baseDocument = structuredClone(tourFixture) as LodariqDocument;
+
+    await mountLocalAuthoringFrame({
+      root: document.getElementById('authoring')!,
+      baseDocument,
+      initialWorkspace: { kind: 'reviewRecovery', focusBlockId: baseDocument.blocks[0]!.id },
+      services: {
+        loadDocument: () => structuredClone(baseDocument),
+        saveDocument: vi.fn(),
+        exportDocument: (value) => JSON.stringify(value),
+        importDocument: (value) => JSON.parse(value) as LodariqDocument,
+        resetDocuments: vi.fn(),
+        compilePreview: vi.fn().mockResolvedValue({}),
+        recordMetric: vi.fn(),
+        getMetricsSummary: vi.fn(() => ({})),
+        exportMetricsReport: vi.fn(() => '{}'),
+      },
+      frameMode: 'panel',
+    });
+
+    await vi.waitFor(() => expect(document.querySelector('.tour-review-workspace')).not.toBeNull());
+    document.querySelector<HTMLButtonElement>('.operations-hub-close')?.click();
+    await vi.waitFor(() => expect(document.querySelector('.operations-hub')).toBeNull());
+    await new Promise((resolve) => window.setTimeout(resolve, 0));
+    expect(document.querySelector('.operations-hub')).toBeNull();
+  });
 });

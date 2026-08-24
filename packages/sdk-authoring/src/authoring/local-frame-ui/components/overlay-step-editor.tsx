@@ -4,13 +4,17 @@ import {
   resolveTourCompositionRecipe,
   resolveTourPopupStyleRecipe,
   resolveTourThemeStyle,
+  tourCompositionPaddingVariables,
   tourPopupStyleVariables,
 } from '@lodariq/sdk-runtime/renderers/tour';
 import { authoringText } from '../../../i18n';
 import { INSPECTOR_COPY } from '../../overlay/inspector-copy';
-import { selectExperienceRootBlocks } from '../../experience-authoring-capabilities';
-import { RICH_CONTENT_BLOCK_TYPES } from '../../../editor/rich-content-doc';
-import { RichContentEditor } from '../../../editor/rich-content-editor';
+import {
+  experienceAnswersGesture,
+  selectExperienceRootBlocks,
+} from '../../experience-authoring-capabilities';
+import { RICH_CONTENT_BLOCK_TYPES } from '../../../editor/rich-content-block-types';
+import { LazyRichContentEditor } from './lazy-rich-content-editor';
 import type { LocalAuthoringFrameController } from '../controller';
 import type { LocalAuthoringFrameSnapshot } from '../types';
 import { stepTooltip } from '../tour-step-model';
@@ -27,6 +31,13 @@ import { OverlayToolbarAssist } from './overlay-toolbar-assist';
 import { OverlayToolbarStepControls } from './overlay-toolbar-step-controls';
 import { ToolbarStylePicker } from './toolbar-style-picker';
 import { useToolbarFit } from './use-toolbar-fit';
+
+/** Rewritten by React on any controlled input it re-renders; none affects layout. */
+const LAYOUT_INERT_ATTRIBUTES = new Set(['name', 'type', 'value', 'checked']);
+
+function isInertAttributeRecord(record: MutationRecord): boolean {
+  return record.type === 'attributes' && LAYOUT_INERT_ATTRIBUTES.has(record.attributeName ?? '');
+}
 
 /** A scroller's own padding, which its content height does not include. */
 function verticalPadding(element: HTMLElement): number {
@@ -46,6 +57,7 @@ export function OverlayStepEditor({
 }) {
   const tooltip = step ? stepTooltip(step) : null;
   const targetId = step ? targetIdOf(step) : null;
+  const answersTargetPick = experienceAnswersGesture(snapshot.documentState.type, 'pick-target');
   const [toolbarAnchor, setToolbarAnchor] = useState<'above' | 'below' | 'docked'>('above');
   const toolbarBelow = toolbarAnchor === 'below';
   const [toolbarHost, setToolbarHost] = useState<HTMLElement | null>(null);
@@ -102,6 +114,7 @@ export function OverlayStepEditor({
   const popupStyle = {
     ...resolvedPopupTheme.variables,
     ...(popupAppearance ? tourPopupStyleVariables(popupAppearance) : {}),
+    ...(popupComposition ? tourCompositionPaddingVariables(popupComposition) : {}),
   } as CSSProperties;
   const richContentValue = tooltip
     ? tooltip.children.filter((block) => RICH_CONTENT_BLOCK_TYPES.has(block.type))
@@ -196,7 +209,17 @@ export function OverlayStepEditor({
     };
     sync();
     requestAnimationFrame(sync);
-    const mutations = new MutationObserver(sync);
+    /*
+     * `sync` reads offsetHeight and scrollHeight, so every record it acts on
+     * costs a forced reflow. React rewrites `name` and `type` on every
+     * controlled input it re-renders — around forty per edit across this
+     * column — and not one of them changes a height, so a batch made only of
+     * those is skipped rather than measured.
+     */
+    const mutations = new MutationObserver((records) => {
+      if (records.every((record) => isInertAttributeRecord(record))) return;
+      sync();
+    });
     mutations.observe(column, { attributes: true, childList: true, subtree: true });
     const resize = new ResizeObserver(sync);
     resize.observe(column);
@@ -274,11 +297,26 @@ export function OverlayStepEditor({
     const frame = window.frameElement as HTMLIFrameElement | null;
     const shell = document.querySelector('.overlay-step-shell');
     if (!frame || !shell) return;
+    let watched: HTMLElement | null = null;
+    // Declared first so `sync` can re-point it at whichever card box is mounted.
+    const resize = new ResizeObserver(() => sync());
     const sync = (): void => {
       const cardBox = shell.querySelector<HTMLElement>('.overlay-step-card');
       if (!cardBox) {
         delete frame.dataset['overlayContentHeight'];
         return;
+      }
+      /*
+       * The card's own box, not only the shell around it. The shell is as tall as
+       * the iframe, and the iframe is sized from this very number — so when the
+       * card shrank on its own, nothing was watching a box that had changed and
+       * the stale height held the frame open. Leaving a preview did exactly that:
+       * a 240px ring around a 156px card, and no event left to correct it.
+       */
+      if (watched !== cardBox) {
+        if (watched) resize.unobserve(watched);
+        resize.observe(cardBox);
+        watched = cardBox;
       }
       /**
        * The card's own box, padding included — the toolbar is placed against its
@@ -303,7 +341,6 @@ export function OverlayStepEditor({
     requestAnimationFrame(sync);
     const mutations = new MutationObserver(sync);
     mutations.observe(shell, { childList: true, subtree: true });
-    const resize = new ResizeObserver(sync);
     resize.observe(shell);
     shell.addEventListener('load', sync, true);
     return () => {
@@ -466,6 +503,7 @@ export function OverlayStepEditor({
           <OverlayToolbarAssist
             controller={controller}
             onAsk={() => setAssistPromptOpen(true)}
+            commercialUsage={snapshot.commercialUsage}
             onStartAssist={(request) => {
               setAssistRequest(request);
               controller.askAiAssist(request);
@@ -477,8 +515,13 @@ export function OverlayStepEditor({
           Always on the bar, not only while the step is targetless: re-pointing a
           step is the single most common repair, and hiding the control once a
           target exists meant the only way back was the inspector.
+
+          Only for the types that are anchored to something, though. A tour step
+          and a hotspot point at an element; an announcement, survey or checklist
+          is triggered, so asking it for a target invents a requirement its own
+          publish gate does not have.
         */}
-        {step ? (
+        {step && answersTargetPick ? (
           <button
             type="button"
             className="overlay-choose-target"
@@ -543,9 +586,10 @@ export function OverlayStepEditor({
           data-lodariq-pointer-arrow={popupComposition?.showArrow ? 'show' : 'hide'}
           style={popupStyle}
         >
-          <RichContentEditor
+          <LazyRichContentEditor
             key={step.id}
             cardCommand={snapshot.cardCommandRequest}
+            contentLocale={snapshot.contentLocale}
             insertHost={insertHost}
             inspectorHost={inspectorHost}
             onChange={(next) => controller.replaceStepRichContent(step.id, next)}

@@ -1,5 +1,13 @@
-import type { AudienceRule, LodariqBlock } from '@lodariq/schema';
-import type { ReactNode } from 'react';
+import type {
+  AudienceRule,
+  DataCatalogEntry,
+  DeploymentSchedule,
+  LodariqBlock,
+  TriggerDefinition,
+} from '@lodariq/schema';
+import { productCapabilityIsImplemented } from '@lodariq/schema/product-capabilities-runtime';
+import { planAdaptiveSteps } from '@lodariq/schema/adaptive-runtime';
+import { useState, type ReactNode } from 'react';
 import { authoringText } from '../../../i18n';
 import {
   AuthoringSelect,
@@ -14,25 +22,7 @@ import { blockDisplayTitle } from '../utils';
 import type { LocalAuthoringFrameController } from '../controller';
 import type { LocalAuthoringFrameSnapshot } from '../types';
 
-/**
- * WIRE_RUNTIME: the control plane can store the adaptive policy and the compiler
- * can stamp `teaches`, but the published runtime does not yet use behavioural
- * evidence to omit a step. Keep the prototype surface visible, but do not let it
- * claim that enabling the policy changes delivery until that path exists.
- */
-const ADAPTIVE_DELIVERY_AVAILABLE = false;
-const ADAPTIVE_DELIVERY_UNAVAILABLE_COPY = authoringText(
-  'Adaptive delivery is not available yet. Step outcomes can still be declared for future delivery rules.',
-);
-
-/**
- * WIRE_BE: who sees this and when it starts are document properties this frame
- * can read but not write — there is no bridge message for either, and both are
- * publish-time state the control plane owns. They are shown with their real
- * values and their edit controls disabled, rather than left off the page: a
- * creator who cannot see the segment cannot tell whether one exists.
- */
-const AUDIENCE_EDITING_AVAILABLE = false;
+const AUDIENCE_EDITING_AVAILABLE = productCapabilityIsImplemented('delivery.audience-rules');
 const AUDIENCE_EDITING_REASON = authoringText('Editing who sees this is not available here yet.');
 
 /**
@@ -52,14 +42,28 @@ export function OperationsAudience({
 }): ReactNode {
   const applications = snapshot.applications ?? [];
   const events = snapshot.knownEventNames ?? [];
-  const demonstrated = snapshot.demonstratedBehaviours ?? [];
-  const adaptiveOn = snapshot.adaptivePolicy?.enabled ?? false;
+  const catalogEntries = snapshot.dataCatalog?.entries ?? [];
+  const adaptivePolicy = snapshot.adaptivePolicy ?? {
+    enabled: false,
+    minimumOccurrences: 2,
+    lookbackDays: 30,
+  };
+  const adaptiveOn = adaptivePolicy.enabled;
   const rules = snapshot.documentState.audience?.rules ?? [];
   const environments = snapshot.documentState.audience?.environments ?? [];
 
-  const visible = steps.filter(
-    (step) => !(adaptiveOn && step.props.teaches && demonstrated.includes(step.props.teaches)),
+  const adaptiveDecisions = planAdaptiveSteps(
+    steps.map((step) => ({ id: step.id, teaches: step.props.teaches })),
+    {
+      policy: adaptivePolicy,
+      evaluatedAt: new Date().toISOString(),
+      evidence: snapshot.adaptiveEvidence ?? [],
+    },
   );
+  const decisionByStepId = new Map(
+    adaptiveDecisions.map((decision) => [decision.stepId, decision]),
+  );
+  const visible = adaptiveDecisions.filter((decision) => decision.action === 'show');
 
   return (
     <section className="operations-audience" aria-label={authoringText('Audience and triggers')}>
@@ -71,9 +75,7 @@ export function OperationsAudience({
             {authoringText('Who sees this')}
             <span className="ops-box-actions">
               <span className="ops-tag">
-                {rules.length === 0
-                  ? authoringText('Everyone')
-                  : authoringText('All must be true')}
+                {rules.length === 0 ? authoringText('Everyone') : authoringText('All must be true')}
               </span>
             </span>
           </h3>
@@ -89,22 +91,27 @@ export function OperationsAudience({
                     <span className="operations-audience-rule-index">{index + 1}</span>
                     {audienceRuleLabel(rule)}
                   </span>
-                  <span className="ops-tag">{sourceLabel(rule.source)}</span>
+                  <span className="ops-row">
+                    <span className="ops-tag">{sourceLabel(rule.source)}</span>
+                    <button
+                      aria-label={authoringText('Remove audience rule')}
+                      className="ops-btn"
+                      data-size="sm"
+                      onClick={() => controller.removeAudienceRule(index)}
+                      type="button"
+                    >
+                      {authoringText('Remove')}
+                    </button>
+                  </span>
                 </li>
               ))}
             </ol>
           )}
-          <div className="ops-row operations-audience-footer">
-            <button
-              className="ops-btn"
-              data-size="sm"
-              disabled={!AUDIENCE_EDITING_AVAILABLE}
-              title={AUDIENCE_EDITING_REASON}
-              type="button"
-            >
-              {authoringText('Add a rule')}
-            </button>
-          </div>
+          <AudienceRuleComposer
+            available={AUDIENCE_EDITING_AVAILABLE}
+            catalogEntries={catalogEntries}
+            onAdd={(rule) => controller.addAudienceRule(rule)}
+          />
         </div>
 
         <div className="ops-box">
@@ -124,19 +131,21 @@ export function OperationsAudience({
                 : authoringText('Not published anywhere yet')}
             </dd>
           </dl>
-          <div className="ops-row operations-audience-footer">
-            <button
-              className="ops-btn"
-              data-size="sm"
-              disabled={!AUDIENCE_EDITING_AVAILABLE}
-              title={AUDIENCE_EDITING_REASON}
-              type="button"
-            >
-              {authoringText('Edit when it starts')}
-            </button>
-          </div>
+          <TriggerEditor
+            available={AUDIENCE_EDITING_AVAILABLE}
+            events={events}
+            onChange={(trigger) => controller.setDeliveryTrigger(trigger)}
+            trigger={snapshot.documentState.trigger}
+          />
         </div>
       </div>
+
+      <ScheduleEditor
+        historyCount={snapshot.deliveryTransitionHistory?.length ?? 0}
+        onCancel={(schedule) => controller.cancelDeliverySchedule(schedule.id, schedule.revision)}
+        onCreate={(startAt, endAt) => controller.createDeliverySchedule(startAt, endAt)}
+        schedules={snapshot.deploymentSchedules ?? []}
+      />
 
       <div className="ops-box">
         <h3>
@@ -149,12 +158,18 @@ export function OperationsAudience({
             <button
               className="ops-btn"
               data-size="sm"
-              disabled={!ADAPTIVE_DELIVERY_AVAILABLE}
               onClick={() => controller.setAdaptiveEnabled(!adaptiveOn)}
-              title={ADAPTIVE_DELIVERY_AVAILABLE ? undefined : ADAPTIVE_DELIVERY_UNAVAILABLE_COPY}
               type="button"
             >
               {adaptiveOn ? authoringText('Turn off') : authoringText('Turn on')}
+            </button>
+            <button
+              className="ops-btn"
+              data-size="sm"
+              onClick={() => controller.previewAdaptiveTour()}
+              type="button"
+            >
+              {authoringText('Preview')}
             </button>
           </span>
         </h3>
@@ -168,15 +183,24 @@ export function OperationsAudience({
             <tr>
               <th scope="col">{authoringText('Step')}</th>
               <th scope="col">{authoringText('Teaches')}</th>
-              <th scope="col">{authoringText('Already done it?')}</th>
+              <th scope="col">{authoringText('Preview decision')}</th>
             </tr>
           </thead>
           <tbody>
             {steps.map((step, index) => {
               const teaches = step.props.teaches;
-              const known = Boolean(teaches && demonstrated.includes(teaches));
+              const decision = decisionByStepId.get(step.id);
+              const demonstrated = Boolean(
+                teaches &&
+                snapshot.adaptiveEvidence?.some(
+                  (entry) =>
+                    entry.eventName === teaches &&
+                    entry.occurrences >= adaptivePolicy.minimumOccurrences,
+                ),
+              );
+              const willSkip = decision?.action === 'skip';
               return (
-                <tr key={step.id} data-skipped={adaptiveOn && known ? 'true' : 'false'}>
+                <tr key={step.id} data-skipped={willSkip ? 'true' : 'false'}>
                   <td className="ops-table-key">
                     {index + 1}. {blockDisplayTitle(step)}
                   </td>
@@ -194,13 +218,23 @@ export function OperationsAudience({
                     />
                   </td>
                   <td>
-                    {known ? (
-                      <span className="ops-tag" data-tone="ok">
-                        {authoringText('Yes')}
+                    <span className="ops-row">
+                      <span className="ops-tag" data-tone={willSkip ? 'ok' : undefined}>
+                        {adaptiveDecisionLabel(decision?.reason)}
                       </span>
-                    ) : (
-                      <span className="operations-audience-none">{authoringText('No')}</span>
-                    )}
+                      {teaches ? (
+                        <button
+                          className="ops-btn"
+                          data-size="sm"
+                          onClick={() =>
+                            controller.setAdaptiveBehaviourDemonstrated(teaches, !demonstrated)
+                          }
+                          type="button"
+                        >
+                          {demonstrated ? authoringText('Clear') : authoringText('Simulate done')}
+                        </button>
+                      ) : null}
+                    </span>
                   </td>
                 </tr>
               );
@@ -212,19 +246,18 @@ export function OperationsAudience({
             ) : null}
           </tbody>
         </table>
-        <p
-          className="ops-callout"
-          data-tone={ADAPTIVE_DELIVERY_AVAILABLE && adaptiveOn ? 'ok' : 'info'}
-          role="status"
-        >
-          {!ADAPTIVE_DELIVERY_AVAILABLE
-            ? ADAPTIVE_DELIVERY_UNAVAILABLE_COPY
-            : adaptiveOn
-              ? authoringText('This visitor would see {shown} of {total} steps.', {
+        <p className="ops-callout" data-tone={adaptiveOn ? 'ok' : 'info'} role="status">
+          {adaptiveOn
+            ? authoringText(
+                'This preview visitor would see {shown} of {total} steps after {minimum} occurrences in {days} days.',
+                {
                   shown: visible.length,
                   total: steps.length,
-                })
-              : authoringText('Everyone sees every step.')}
+                  minimum: adaptivePolicy.minimumOccurrences,
+                  days: adaptivePolicy.lookbackDays,
+                },
+              )
+            : authoringText('Everyone sees every step.')}
         </p>
       </div>
 
@@ -311,7 +344,7 @@ export function OperationsAudience({
               </tr>
             </thead>
             <tbody>
-              {identifyKeys(rules).map((entry) => (
+              {catalogIdentifyEntries(catalogEntries, rules).map((entry) => (
                 <tr key={entry.key}>
                   <td className="ops-table-key">{entry.key}</td>
                   <td>
@@ -323,7 +356,7 @@ export function OperationsAudience({
                   </td>
                 </tr>
               ))}
-              {identifyKeys(rules).length === 0 ? (
+              {catalogIdentifyEntries(catalogEntries, rules).length === 0 ? (
                 <tr>
                   <td colSpan={2}>
                     {authoringText('Nothing yet. Your product sends these when someone signs in.')}
@@ -389,6 +422,290 @@ export function OperationsAudience({
   );
 }
 
+function TriggerEditor({
+  available,
+  events,
+  onChange,
+  trigger,
+}: {
+  available: boolean;
+  events: readonly string[];
+  onChange: (trigger: TriggerDefinition) => void;
+  trigger: TriggerDefinition;
+}): ReactNode {
+  const triggerOptions = [
+    { value: 'manual', label: authoringText('When product code starts it') },
+    { value: 'pageLoad', label: authoringText('When the page loads') },
+    { value: 'urlMatch', label: authoringText('When the address matches') },
+    { value: 'event', label: authoringText('When an event happens') },
+  ];
+  return (
+    <div className="operations-audience-editor">
+      <AuthoringSelect
+        ariaLabel={authoringText('Start condition')}
+        disabled={!available}
+        onValueChange={(value) => onChange(defaultTrigger(value, events))}
+        options={triggerOptions}
+        value={trigger.type}
+      />
+      {trigger.type === 'pageLoad' ? (
+        <label className="operations-audience-field">
+          <span>{authoringText('Wait in milliseconds')}</span>
+          <input
+            className="ui-input"
+            disabled={!available}
+            max={60_000}
+            min={0}
+            onChange={(event) =>
+              onChange({
+                type: 'pageLoad',
+                config: { delayMs: Number(event.currentTarget.value) || 0 },
+              })
+            }
+            type="number"
+            value={trigger.config?.delayMs ?? 0}
+          />
+        </label>
+      ) : null}
+      {trigger.type === 'urlMatch' ? (
+        <label className="operations-audience-field">
+          <span>{authoringText('Address pattern')}</span>
+          <input
+            className="ui-input"
+            disabled={!available}
+            onBlur={(event) => {
+              const pattern = event.currentTarget.value.trim();
+              if (pattern) onChange({ ...trigger, config: { ...trigger.config, pattern } });
+            }}
+            defaultValue={trigger.config.pattern}
+            key={trigger.config.pattern}
+          />
+        </label>
+      ) : null}
+      {trigger.type === 'event' ? (
+        <AuthoringSelect
+          ariaLabel={authoringText('Event name')}
+          disabled={!available || events.length === 0}
+          onValueChange={(eventName) => onChange({ type: 'event', config: { eventName } })}
+          options={events.map((eventName) => ({ value: eventName, label: eventName }))}
+          value={trigger.config.eventName}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+function AudienceRuleComposer({
+  available,
+  catalogEntries,
+  onAdd,
+}: {
+  available: boolean;
+  catalogEntries: readonly DataCatalogEntry[];
+  onAdd: (rule: AudienceRule) => void;
+}): ReactNode {
+  const [source, setSource] = useState<AudienceRule['source']>('identify');
+  const matchingEntries = catalogEntries.filter((entry) =>
+    source === 'identify' ? entry.source === 'identify_trait' : entry.source === 'track_event',
+  );
+  const [key, setKey] = useState('');
+  const [operator, setOperator] = useState<AudienceRule['operator']>('exists');
+  const [value, setValue] = useState('');
+  const selectedKey = matchingEntries.some((entry) => entry.key === key)
+    ? key
+    : (matchingEntries[0]?.key ?? '');
+  const needsValue = operator === 'equals' || operator === 'notEquals' || operator === 'contains';
+  return (
+    <div className="operations-audience-editor">
+      <div className="ops-row operations-audience-rule-controls">
+        <AuthoringSelect
+          ariaLabel={authoringText('Rule source')}
+          disabled={!available}
+          onValueChange={(next) => {
+            setSource(next as AudienceRule['source']);
+            setKey('');
+            setOperator('exists');
+          }}
+          options={[
+            { value: 'identify', label: authoringText('Visitor detail') },
+            { value: 'event', label: authoringText('Event') },
+          ]}
+          value={source}
+        />
+        <AuthoringSelect
+          ariaLabel={authoringText('Rule field')}
+          disabled={!available || matchingEntries.length === 0}
+          onValueChange={setKey}
+          options={matchingEntries.map((entry) => ({ value: entry.key, label: entry.key }))}
+          value={selectedKey}
+        />
+        <AuthoringSelect
+          ariaLabel={authoringText('Rule operator')}
+          disabled={!available}
+          onValueChange={(next) => setOperator(next as AudienceRule['operator'])}
+          options={[
+            { value: 'exists', label: authoringText('is set') },
+            { value: 'notExists', label: authoringText('is not set') },
+            { value: 'equals', label: authoringText('is') },
+            { value: 'notEquals', label: authoringText('is not') },
+            { value: 'contains', label: authoringText('contains') },
+          ]}
+          value={operator}
+        />
+      </div>
+      {needsValue ? (
+        <input
+          aria-label={authoringText('Rule value')}
+          className="ui-input"
+          disabled={!available}
+          onChange={(event) => setValue(event.currentTarget.value)}
+          placeholder={authoringText('Value')}
+          value={value}
+        />
+      ) : null}
+      <button
+        className="ops-btn"
+        data-size="sm"
+        disabled={!available || !selectedKey || (needsValue && !value)}
+        onClick={() =>
+          onAdd({
+            source,
+            key: selectedKey,
+            operator,
+            ...(needsValue ? { value } : {}),
+          })
+        }
+        title={available ? undefined : AUDIENCE_EDITING_REASON}
+        type="button"
+      >
+        {authoringText('Add rule')}
+      </button>
+    </div>
+  );
+}
+
+function ScheduleEditor({
+  historyCount,
+  onCancel,
+  onCreate,
+  schedules,
+}: {
+  historyCount: number;
+  onCancel: (schedule: DeploymentSchedule) => void;
+  onCreate: (startAt: string, endAt?: string) => void;
+  schedules: readonly DeploymentSchedule[];
+}): ReactNode {
+  const [startAt, setStartAt] = useState('');
+  const [endAt, setEndAt] = useState('');
+  const startIso = localDateTimeToIso(startAt);
+  const endIso = localDateTimeToIso(endAt);
+  const validWindow = Boolean(startIso && (!endAt || (endIso && endIso > startIso)));
+  return (
+    <div className="ops-box operations-audience-schedule">
+      <h3>
+        <Calendar size={15} strokeWidth={2} aria-hidden="true" />
+        {authoringText('Schedule production')}
+        <span className="ops-box-actions">
+          <span className="ops-tag">
+            {authoringText('{count} transitions recorded', { count: historyCount })}
+          </span>
+        </span>
+      </h3>
+      <p className="ops-box-body">
+        {authoringText(
+          'The verified staging artifact is pinned now. The schedule only moves the production pointer.',
+        )}
+      </p>
+      <div className="ops-row operations-audience-schedule-grid">
+        <label className="operations-audience-field">
+          <span>{authoringText('Start')}</span>
+          <input
+            className="ui-input"
+            onChange={(event) => setStartAt(event.currentTarget.value)}
+            type="datetime-local"
+            value={startAt}
+          />
+        </label>
+        <label className="operations-audience-field">
+          <span>{authoringText('End (optional)')}</span>
+          <input
+            className="ui-input"
+            onChange={(event) => setEndAt(event.currentTarget.value)}
+            type="datetime-local"
+            value={endAt}
+          />
+        </label>
+        <button
+          className="ops-btn"
+          data-variant="primary"
+          disabled={!validWindow}
+          onClick={() => {
+            if (!startIso) return;
+            onCreate(startIso, endIso);
+          }}
+          type="button"
+        >
+          {authoringText('Schedule')}
+        </button>
+      </div>
+      <ol className="ops-list">
+        {schedules.slice(0, 5).map((schedule) => (
+          <li key={schedule.id}>
+            <span>
+              <strong>{formatScheduleTime(schedule.startAt)}</strong>
+              <span className="ops-list-meta">
+                {schedule.endAt
+                  ? authoringText('Ends {time}', { time: formatScheduleTime(schedule.endAt) })
+                  : authoringText('No automatic end')}
+              </span>
+            </span>
+            <span className="ops-row">
+              <span
+                className="ops-tag"
+                data-tone={schedule.status === 'failed' ? 'bad' : undefined}
+              >
+                {schedule.status}
+              </span>
+              {schedule.status === 'scheduled' ? (
+                <button
+                  className="ops-btn"
+                  data-size="sm"
+                  onClick={() => onCancel(schedule)}
+                  type="button"
+                >
+                  {authoringText('Cancel')}
+                </button>
+              ) : null}
+            </span>
+          </li>
+        ))}
+      </ol>
+    </div>
+  );
+}
+
+function defaultTrigger(value: string, events: readonly string[]): TriggerDefinition {
+  if (value === 'pageLoad') return { type: 'pageLoad', config: { delayMs: 0 } };
+  if (value === 'urlMatch') return { type: 'urlMatch', config: { pattern: '/', mode: 'exact' } };
+  if (value === 'event') {
+    return { type: 'event', config: { eventName: events[0] ?? 'experience_started' } };
+  }
+  return { type: 'manual' };
+}
+
+function localDateTimeToIso(value: string): string | undefined {
+  if (!value) return undefined;
+  const timestamp = new Date(value);
+  return Number.isFinite(timestamp.getTime()) ? timestamp.toISOString() : undefined;
+}
+
+function formatScheduleTime(value: string): string {
+  return new Intl.DateTimeFormat(undefined, {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  }).format(new Date(value));
+}
+
 /** Plain language for a rule, because "notEquals" is not a thing anyone says. */
 function audienceRuleLabel(rule: AudienceRule): string {
   const value = String(rule.value ?? '');
@@ -405,6 +722,16 @@ function audienceRuleLabel(rule: AudienceRule): string {
 
 function sourceLabel(source: AudienceRule['source']): string {
   return source === 'event' ? authoringText('Event') : authoringText('Visitor detail');
+}
+
+function adaptiveDecisionLabel(reason: string | undefined): string {
+  if (reason === 'demonstrated') return authoringText('Skip · demonstrated');
+  if (reason === 'flow-guard') return authoringText('Show · keeps flow valid');
+  if (reason === 'insufficient-evidence') return authoringText('Show · needs more evidence');
+  if (reason === 'no-evidence') return authoringText('Show · no evidence');
+  if (reason === 'no-behaviour') return authoringText('Show · no event');
+  if (reason === 'disabled') return authoringText('Show · adaptive off');
+  return authoringText('Show');
 }
 
 function triggerLabel(snapshot: LocalAuthoringFrameSnapshot): string {
@@ -435,6 +762,20 @@ function identifyKeys(
     counts.set(rule.key, (counts.get(rule.key) ?? 0) + 1);
   }
   return [...counts.entries()].map(([key, uses]) => ({ key, uses }));
+}
+
+function catalogIdentifyEntries(
+  catalogEntries: readonly DataCatalogEntry[],
+  rules: readonly AudienceRule[],
+): ReadonlyArray<{ key: string; uses: number }> {
+  const uses = new Map(identifyKeys(rules).map((entry) => [entry.key, entry.uses]));
+  const keys = new Set(
+    catalogEntries.filter((entry) => entry.source === 'identify_trait').map((entry) => entry.key),
+  );
+  for (const key of uses.keys()) keys.add(key);
+  return [...keys]
+    .sort((left, right) => left.localeCompare(right))
+    .map((key) => ({ key, uses: uses.get(key) ?? 0 }));
 }
 
 function eventUses(

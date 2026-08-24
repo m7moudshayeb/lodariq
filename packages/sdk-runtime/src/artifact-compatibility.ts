@@ -4,6 +4,7 @@ import type {
   CompiledDocumentV2,
   CompiledDocumentV3,
   CompiledDocumentV4,
+  CompiledDocumentV5,
 } from '@lodariq/schema';
 import {
   PUBLIC_MANIFEST_SCHEMA_VERSION,
@@ -20,7 +21,8 @@ export class LodariqArtifactCompatibilityError extends Error {
   }
 }
 
-type SupportedCompiledDocument = CompiledDocumentV2 | CompiledDocumentV3 | CompiledDocumentV4;
+type SupportedCompiledDocument =
+  CompiledDocumentV2 | CompiledDocumentV3 | CompiledDocumentV4 | CompiledDocumentV5;
 
 /**
  * Verifies the complete compatibility tuple before the public runtime is

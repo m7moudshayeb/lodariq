@@ -21,7 +21,6 @@ export const AUTHORING_FOUNDATION_CSS = `
     --lq-color-page: ${CREATOR_CHROME_TOKENS.canvas};
     --lq-color-panel: ${CREATOR_CHROME_TOKENS.surface};
     --lq-color-panel-strong: ${CREATOR_CHROME_TOKENS.surfaceStrong};
-    /* A well rather than a raised surface: index chips, tracks, grooves. */
     --lq-color-panel-recessed: ${CREATOR_CHROME_TOKENS.surfaceRecessed};
     --lq-color-border: ${CREATOR_CHROME_TOKENS.border};
     --lq-color-border-soft: ${CREATOR_CHROME_TOKENS.borderSoft};
@@ -46,21 +45,10 @@ export const AUTHORING_FOUNDATION_CSS = `
     --lq-color-danger-soft: color-mix(in srgb, ${CREATOR_CHROME_STATUS_TOKENS.danger} 12%, transparent);
     --lq-color-danger-border: color-mix(in srgb, ${CREATOR_CHROME_STATUS_TOKENS.danger} 34%, transparent);
     --lq-color-peer: ${CREATOR_CHROME_STATUS_TOKENS.peer};
-    /*
-     * Concentric-circle crosshair, as a mask so it inherits the colour of
-     * whatever draws it. It lives here rather than in a component because it is
-     * painted by a pseudo-element, which cannot hold an inline SVG child.
-     */
     --lq-glyph-target: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.75'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Ccircle cx='12' cy='12' r='5'/%3E%3Ccircle cx='12' cy='12' r='1'/%3E%3C/svg%3E");
     --lq-color-success-ink: ${CREATOR_CHROME_STATUS_TOKENS.positiveInk};
     --lq-color-warning-ink: ${CREATOR_CHROME_STATUS_TOKENS.attentionInk};
     --lq-color-danger-ink: ${CREATOR_CHROME_STATUS_TOKENS.dangerInk};
-    /*
-     * The hairline that pairs with glass on floating chrome. Separate from
-     * --lq-color-border because that one is re-declared per surface context
-     * (light in the workspace, menu-dark over a customer page) — glass chrome
-     * is the same dark chip in every shell, so its edge must not follow.
-     */
     --lq-color-chrome-border: ${CREATOR_CHROME_TOKENS.border};
     --lq-glass-bg: ${CREATOR_CHROME_GLASS.background};
     --lq-glass-blur: ${CREATOR_CHROME_GLASS.blur};
@@ -108,6 +96,34 @@ export const AUTHORING_FOUNDATION_CSS = `
   textarea {
     max-width: 100%;
     font: inherit;
+  }
+
+  /* Both spellings: standard for Chrome 121+ and Firefox, pseudo-elements for the rest. */
+  * {
+    scrollbar-color: var(--lq-color-border) transparent;
+    scrollbar-width: thin;
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  ::-webkit-scrollbar-track,
+  ::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    border: 3px solid transparent;
+    border-radius: 999px;
+    background-color: var(--lq-color-border);
+    background-clip: padding-box;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: var(--lq-color-muted);
+    background-clip: padding-box;
   }
 
   button:focus-visible,

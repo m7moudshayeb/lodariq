@@ -1,5 +1,6 @@
 import { Type, type Static } from '@sinclair/typebox';
 import { InlineTextRun, type LodariqBlock } from './block';
+import { resolveMediaPresentationForLocale } from './presentation';
 
 export const DEFAULT_CONTENT_LOCALE = 'en' as const;
 export const CONTENT_LOCALE_PATTERN = '^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})*$';
@@ -121,6 +122,15 @@ export function resolveDocumentLocalization(
   };
 }
 
+export function documentLocaleCount(document: Pick<LocalizableDocument, 'localization'>): number {
+  const localization = resolveDocumentLocalization(document);
+  const locales = new Set<string>([localization.defaultLocale]);
+  for (const variant of localization.variants) {
+    locales.add(canonicalContentLocale(variant.locale) ?? variant.locale);
+  }
+  return locales.size;
+}
+
 /**
  * Resolves exact tag, same-language variant, explicit fallbacks, then the
  * canonical default. The returned order starts with the selected locale.
@@ -183,6 +193,7 @@ export function materializeLocalizedDocument<T extends LocalizableDocument>(
       next.blocks = next.blocks.map((block) => retargetBlock(block, targetSwaps));
     }
   }
+  next.blocks = next.blocks.map((block) => localizeBlockMedia(block, requestedLocale));
   return next;
 }
 
@@ -274,6 +285,23 @@ function localizeBlock(
   if (localized.contentRuns) next.contentRuns = structuredClone(localized.contentRuns);
   else delete next.contentRuns;
   return next;
+}
+
+function localizeBlockMedia(
+  block: LodariqBlock,
+  requestedLocale: string | null | undefined,
+): LodariqBlock {
+  const media = block.props.media;
+  return {
+    ...block,
+    props: media
+      ? {
+          ...block.props,
+          media: resolveMediaPresentationForLocale(media, requestedLocale ?? undefined),
+        }
+      : block.props,
+    children: block.children.map((child) => localizeBlockMedia(child, requestedLocale)),
+  };
 }
 
 /**

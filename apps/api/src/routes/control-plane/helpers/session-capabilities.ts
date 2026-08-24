@@ -4,6 +4,7 @@ import {
   BRAND_THEME_CONTRACT_VERSION,
   COMPILER_VERSION,
   RENDERER_CONTRACT_VERSION,
+  resolveEnvironmentGovernanceCapabilities,
   type BrandThemeSnapshot as BrandThemeSnapshotType,
   type AuthoringSessionCapability,
   type CompiledDocument as CompiledDocumentType,
@@ -17,9 +18,16 @@ import {
 } from '@lodariq/database';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { parseExactBrowserOrigin } from '../../../sdk-origin';
-import { RELEASE_CAPABILITIES_BY_ROLE, type ReleaseCapability } from '../../control-plane-access';
+import {
+  GOVERNANCE_CAPABILITY_BY_RELEASE_CAPABILITY,
+  type ReleaseCapability,
+} from '../../control-plane-access';
 import { sendReleaseRecoveryCapabilityDenied } from './release-recovery';
-import { findEnvironment, resolveCurrentAuthoringMembershipRole } from './authoring-membership';
+import {
+  authoringSessionCapabilitiesForGovernance,
+  findEnvironment,
+  resolveCurrentAuthoringMembershipRole,
+} from './authoring-membership';
 import { readHeader, isExactEditorIframeSource } from './sdk-auth';
 
 export function requireVerificationOrigin(
@@ -78,7 +86,10 @@ export async function authenticateHostedEditorSession(
     });
     return null;
   }
-  return session;
+  return {
+    ...session,
+    capabilities: await authoringSessionCapabilitiesForGovernance(repository, session),
+  };
 }
 
 export function authoringSessionThemeMatches(
@@ -208,7 +219,7 @@ export async function requireDirectReleaseRecoveryCapability(
     request.action === 'rollback' ? 'rollback-release' : 'unpublish-release';
   if (
     session.environment === 'staging' &&
-    directSdkSessionHasExplicitCapability(session, sessionCapability) &&
+    directSdkSessionHasCapability(session, sessionCapability) &&
     (await currentAuthoringMemberHasReleaseCapability(repository, session, releaseCapability))
   ) {
     return true;
@@ -262,14 +273,11 @@ export async function directSdkSessionCanPublishToStaging(
   return currentAuthoringMemberCanPublishToStaging(repository, session);
 }
 
+/**
+ * `authoring_sessions.capabilities` is nullable, so a session can carry no
+ * capability list at all. That grants nothing — it is not a wildcard.
+ */
 export function directSdkSessionHasCapability(
-  session: AuthoringSessionRecord,
-  capability: AuthoringSessionCapability,
-): boolean {
-  return !Array.isArray(session.capabilities) || session.capabilities.includes(capability);
-}
-
-export function directSdkSessionHasExplicitCapability(
   session: AuthoringSessionRecord,
   capability: AuthoringSessionCapability,
 ): boolean {
@@ -301,6 +309,16 @@ export async function currentAuthoringMemberHasReleaseCapability(
   ) {
     return false;
   }
-  const capabilities: readonly ReleaseCapability[] = RELEASE_CAPABILITIES_BY_ROLE[role];
-  return capabilities.includes(capability);
+  const resolved = await repository.resolveGovernanceCapabilityProfile(
+    session.workspaceId,
+    session.environmentId,
+    session.createdByUserId,
+  );
+  if (!resolved || resolved.membershipRole !== role) return false;
+  const grants = resolveEnvironmentGovernanceCapabilities({
+    role: resolved.membershipRole,
+    environmentCapabilities: environment.governanceCapabilities ?? [],
+    profile: resolved.profile,
+  });
+  return grants.includes(GOVERNANCE_CAPABILITY_BY_RELEASE_CAPABILITY[capability]);
 }

@@ -12,6 +12,7 @@ import {
   Trash2,
 } from '../design-system';
 import { stepHealth, type StepHealthTone } from '../tour-step-model';
+import { useTargetInspections } from '../use-target-inspections';
 import { blockDisplayTitle, targetIdOf, targetLabelOf } from '../utils';
 
 /**
@@ -33,6 +34,9 @@ export function TourBatchWorkspace({
   snapshot: LocalAuthoringFrameSnapshot;
   steps: readonly LodariqBlock[];
 }) {
+  // Every row states a health, and `Only the broken ones` acts on it.
+  useTargetInspections(controller, steps);
+
   const selected = steps.filter((step) => snapshot.selectedStepIds.has(step.id));
   const count = selected.length;
   const none = count === 0;
@@ -296,6 +300,10 @@ function selectBroken(
 ): void {
   controller.clearTourStepBatchSelection();
   for (const step of steps) {
+    // Not `!== 'ready'`: that swept up every target the ledger had simply not
+    // looked at yet, so the first click on a healthy tour selected nearly all of it.
+    const targetId = targetIdOf(step);
+    if (targetId && snapshot.targetHealth.get(targetId)?.presentation === 'unverified') continue;
     if (stepHealth(step, snapshot).tone !== 'ready') controller.toggleStepStyleSelection(step.id);
   }
 }

@@ -9,6 +9,8 @@ import {
   hashOwnedPassword,
   hashAuthSessionToken,
   OWNED_PASSWORD_ALGORITHM,
+  PASSWORD_HASH_PARAMETERS,
+  PASSWORD_HASH_PRODUCTION_PARAMETERS,
   PasswordHashAdmissionGate,
   verifyOwnedPassword,
 } from '@lodariq/api';
@@ -33,8 +35,19 @@ describe('@lodariq/api owned authentication', () => {
 
     expect(credential.algorithm).toBe(OWNED_PASSWORD_ALGORITHM);
     expect(credential.algorithm).toBe('argon2id-v1');
+    // Production cost is pinned here; the encoding is checked against whichever
+    // profile is in force, so the suite's reduced cost cannot mask a drop.
+    expect(PASSWORD_HASH_PRODUCTION_PARAMETERS).toEqual({
+      memoryCost: 65_536,
+      timeCost: 3,
+      parallelism: 1,
+    });
+    const { memoryCost, parallelism, timeCost } = PASSWORD_HASH_PARAMETERS;
     expect(credential.passwordHash).toMatch(
-      /^\$argon2id\$v=19\$m=65536,p=1,t=3\$[A-Za-z0-9+/]{22}\$[A-Za-z0-9+/]{43}$/u,
+      new RegExp(
+        `^\\$argon2id\\$v=19\\$m=${memoryCost},p=${parallelism},t=${timeCost}\\$[A-Za-z0-9+/]{22}\\$[A-Za-z0-9+/]{43}$`,
+        'u',
+      ),
     );
     await expect(verifyOwnedPassword(PASSWORD, credential)).resolves.toBe(true);
     await expect(verifyOwnedPassword('a-different-test-password', credential)).resolves.toBe(false);

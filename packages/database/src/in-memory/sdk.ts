@@ -10,6 +10,10 @@ import {
   type WorkspaceEnvironment,
 } from '../domains/environments';
 import {
+  assertCommercialFeature,
+  assertWithinCommercialLimit,
+} from '../domains/commercial-entitlements';
+import {
   type PublicSdkBootstrapGrantRecord,
   type PublicSdkInstallationOriginRecord,
   type PublicSdkInstallationRecord,
@@ -69,6 +73,12 @@ export class InMemoryRepositorySdk extends InMemoryRepositoryReleasePromotion {
     if (current.updatedAt !== expectedUpdatedAt) {
       throw new EnvironmentReleasePolicyChangedError(expectedUpdatedAt, current.updatedAt);
     }
+    if (input.requiredApprovalCount > 0) {
+      assertCommercialFeature(
+        this.resolveWorkspaceEntitlements(input.workspaceId).entitlements,
+        'required-production-approval',
+      );
+    }
     const updated: WorkspaceEnvironment = {
       ...current,
       requiredApprovalCount: input.requiredApprovalCount,
@@ -106,6 +116,8 @@ export class InMemoryRepositorySdk extends InMemoryRepositoryReleasePromotion {
       pipelinePosition: input.pipelinePosition,
       authoringEnabled: input.authoringEnabled,
       releasePolicy: clone(input.releasePolicy),
+      governanceCapabilities:
+        input.governanceCapabilities ?? current.governanceCapabilities,
       updatedAt: new Date().toISOString(),
     };
     if (input.promotionSourceEnvironmentId) {
@@ -120,6 +132,15 @@ export class InMemoryRepositorySdk extends InMemoryRepositoryReleasePromotion {
       environment.id === input.environmentId ? candidate : environment,
     );
     assertValidWorkspaceEnvironmentPolicy(input.workspaceId, candidates);
+    const entitlements = this.resolveWorkspaceEntitlements(input.workspaceId).entitlements;
+    if (input.releasePolicy.requiredApprovalCount > 0) {
+      assertCommercialFeature(entitlements, 'required-production-approval');
+    }
+    assertWithinCommercialLimit(
+      'environments',
+      configuredEnvironmentCount(candidates),
+      entitlements.environments,
+    );
     this.environments.set(key, candidate);
     return (
       normalizeWorkspaceEnvironments(candidates)
@@ -449,4 +470,10 @@ export class InMemoryRepositorySdk extends InMemoryRepositoryReleasePromotion {
     this.publicSdkBootstrapGrants.set(consumedGrant.id, consumedGrant);
     return clone(consumedGrant);
   }
+}
+
+function configuredEnvironmentCount(environments: readonly WorkspaceEnvironment[]): number {
+  return environments.filter(
+    (environment) => environment.enabled && environment.originAllowlist.length > 0,
+  ).length;
 }

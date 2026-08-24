@@ -167,18 +167,20 @@ describe('authoring Release options findings', () => {
     expect((await waitForFindingsList()).textContent).toContain('Remote release warning');
     let localFindingCount = 0;
     await vi.waitFor(() => {
-      const localRows = document.querySelectorAll('.release-blocker-card .panel-check-list > li');
-      expect(
-        localRows.length,
-        [...localRows].map((row) => row.textContent).join(' | '),
-      ).toBeGreaterThan(4);
-      localFindingCount = localRows.length;
-      expect(document.querySelector('[aria-labelledby="blocker-title"]')?.textContent).toContain(
-        `${localFindingCount} items need attention`,
+      const blockerTitle = document.querySelector('#blocker-title')?.textContent ?? '';
+      const count = Number.parseInt(blockerTitle, 10);
+      expect(count).toBeGreaterThan(4);
+      localFindingCount = count;
+    });
+
+    buttonWithText('Take me to Check').click();
+    await vi.waitFor(() => {
+      expect(document.querySelectorAll('.operations-check .ops-list > li').length).toBeGreaterThan(
+        4,
       );
     });
 
-    backToAuthoringButton().click();
+    document.querySelector<HTMLButtonElement>('.operations-hub-close')?.click();
     await waitForReleaseEntry('ready');
     await vi.waitFor(() => {
       expect(document.querySelector('.panel-release-summary')?.textContent).toBe(
@@ -196,26 +198,28 @@ describe('authoring Release options findings', () => {
 
     const releaseEntry = await waitForReleaseEntry('ready');
     releaseEntry.click();
+    buttonWithText('Take me to Check').click();
 
     let repairButton: HTMLButtonElement | null = null;
     await vi.waitFor(() => {
       repairButton = document.querySelector<HTMLButtonElement>(
         '[data-publish-issue-code="button_missing_action"]',
       );
-      expect(repairButton?.textContent).toContain('Choose action');
+      expect(repairButton?.textContent).toContain('Take me there');
     });
     repairButton!.click();
     await vi.waitFor(() =>
       expect(
-        document.querySelector('.rich-content-button-preview-shell[data-block-id="block_button_1"]'),
+        document.querySelector(
+          '.rich-content-button-preview-shell[data-block-id="block_button_1"]',
+        ),
       ).not.toBeNull(),
     );
     document
       .querySelector<HTMLButtonElement>(
-        '[data-block-id="block_button_1"] [aria-label="Configure button"]',
+        '.rich-content-button-preview-shell[data-block-id="block_button_1"] .rich-content-button-preview',
       )
       ?.click();
-
     await vi.waitFor(() => {
       const actionControl = document.querySelector<HTMLElement>(
         '[data-property-id="button.action"]',
@@ -225,9 +229,11 @@ describe('authoring Release options findings', () => {
     });
     expect(document.querySelector('.release-blocker-card')).toBeNull();
 
-    document.querySelector<HTMLButtonElement>(
-      '.storyboard-property-tray[data-tool-mode="content"] .storyboard-tray-close',
-    )?.click();
+    document
+      .querySelector<HTMLButtonElement>(
+        '.storyboard-property-tray[data-tool-mode="content"] .storyboard-tray-close',
+      )
+      ?.click();
     await vi.waitFor(() => {
       expect(document.querySelector('[data-property-id="button.action"]')).toBeNull();
     });
@@ -242,13 +248,14 @@ describe('authoring Release options findings', () => {
 
     const releaseEntry = await waitForReleaseEntry('ready');
     releaseEntry.click();
+    buttonWithText('Take me to Check').click();
 
     let repairButton: HTMLButtonElement | null = null;
     await vi.waitFor(() => {
       repairButton = document.querySelector<HTMLButtonElement>(
         '[data-publish-issue-code="missing_step_target"]',
       );
-      expect(repairButton?.textContent).toContain('Choose target');
+      expect(repairButton?.textContent).toContain('Take me there');
     });
     repairButton!.click();
 
@@ -341,6 +348,14 @@ function backToAuthoringButton(): HTMLButtonElement {
     'button[aria-label="Back to authoring"]',
   );
   if (!button) throw new Error('Back to authoring button is missing');
+  return button;
+}
+
+function buttonWithText(label: string): HTMLButtonElement {
+  const button = [...document.querySelectorAll<HTMLButtonElement>('button')].find((candidate) =>
+    candidate.textContent?.includes(label),
+  );
+  if (!button) throw new Error(`Button "${label}" is missing`);
   return button;
 }
 

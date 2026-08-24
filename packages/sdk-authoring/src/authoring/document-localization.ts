@@ -25,8 +25,7 @@ export function normalizeAuthoringDocumentLocalization(document: LodariqDocument
     const requestedFallback = canonicalContentLocale(candidate.fallbackLocale);
     // Overrides are dropped with their targets, exactly as translations are with blocks.
     const targetOverrides = (candidate.targetOverrides ?? []).filter(
-      (override) =>
-        targetIds.has(override.targetId) && targetIds.has(override.replacementTargetId),
+      (override) => targetIds.has(override.targetId) && targetIds.has(override.replacementTargetId),
     );
     variants.set(locale, {
       locale,
@@ -134,10 +133,26 @@ function visitBlocks(blocks: readonly LodariqBlock[], visit: (block: LodariqBloc
 }
 
 /**
- * Points one step's target at a different element for a single locale (§7.6).
- * Passing `null` removes the override, restoring the shared target. Overrides
- * only exist on non-default locales: the default *is* the shared binding.
+ * Adds an empty variant so the language shows up before a word is written.
+ *
+ * Copy already creates one on demand, but a language that only appears once you
+ * have translated something into it means `Add a language` looks like it did
+ * nothing. Returns the document unchanged for the default locale, which is not a
+ * variant, and for a tag that is not canonical.
  */
+export function addAuthoringDocumentLocale(
+  document: LodariqDocument,
+  locale: string,
+): LodariqDocument {
+  const canonical = canonicalContentLocale(locale);
+  if (!canonical) return document;
+  const next = normalizeAuthoringDocumentLocalization(document);
+  if (isDefaultDocumentLocale(next, canonical)) return next;
+  mutableVariant(next, canonical);
+  return next;
+}
+
+/** Points one step's target at a different element for a single locale. */
 export function setAuthoringLocalizedTarget(
   document: LodariqDocument,
   locale: string,

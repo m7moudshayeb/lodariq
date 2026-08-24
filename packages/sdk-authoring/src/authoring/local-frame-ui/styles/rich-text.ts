@@ -1,7 +1,5 @@
 export const AUTHORING_RICH_TEXT_CSS = `
 
-  /* The light workspace's ground. Excluded for the same two roots as the palette
-     itself (advanced-shell.ts) — both paint their own. */
   .shell-panel:not(.shell-overlay):not(.shell-operations),
   .shell-panel:not(.shell-operations) .panel-canvas,
   .shell-panel:not(.shell-operations) .document-page,
@@ -338,8 +336,6 @@ export const AUTHORING_RICH_TEXT_CSS = `
     margin: var(--lq-space-3) var(--lq-space-4) 0;
     border: 1px solid var(--lq-color-border-soft);
     border-radius: var(--lq-radius-md);
-    /* Token, not a literal: this section also renders inside the dark glass
-       inspector, where a hardcoded white left its text unreadable. */
     background: var(--lq-color-panel);
     padding: var(--lq-space-3);
     box-shadow: 0 var(--lq-space-1) var(--lq-space-3) rgba(15, 36, 31, 0.04);

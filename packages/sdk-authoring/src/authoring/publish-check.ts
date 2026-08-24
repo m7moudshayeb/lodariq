@@ -18,19 +18,16 @@ import {
   validateTourPublishReadiness,
   type LodariqBlock,
   type LodariqDocument,
+  type PublishReadinessIssue,
 } from '@lodariq/schema';
 import { authoringText } from '../i18n';
 import { simulateDocument, type QaFinding, type QaStepInput } from './predictive-qa';
 import { targetVerificationPresentation } from './target-verification';
 import type { AuthoringTargetHealthPresentation } from './target-health-ledger';
+import { selectExperienceRootBlocks } from './experience-authoring-capabilities';
 
 export type CheckRowKind =
-  | 'contrast'
-  | 'layout'
-  | 'target'
-  | 'alt-text'
-  | 'translation'
-  | 'readiness';
+  'contrast' | 'layout' | 'target' | 'alt-text' | 'translation' | 'readiness';
 
 export type CheckSeverity = 'blocker' | 'warning' | 'info';
 
@@ -45,8 +42,11 @@ export interface CheckRow {
   readonly message: string;
   /** Absent only for rows that belong to the document rather than a step. */
   readonly jump?: CheckJump;
+  /** Exact schema finding when the controller can open the failing setting. */
+  readonly repairIssue?: PublishReadinessIssue;
   /** Secondary readout, shown beside the primary result rather than instead of it. */
   readonly detail?: string;
+  readonly locale?: string;
 }
 
 export interface CheckReport {
@@ -66,13 +66,15 @@ export interface CheckInput {
 }
 
 export function buildCheckReport(input: CheckInput): CheckReport {
+  const readinessIssues = validateTourPublishReadiness(input.document);
   const rows = [
-    ...readinessRows(input.document),
+    ...readinessRows(input.document, readinessIssues),
     ...contrastRows(input.document),
     ...layoutRows(simulateDocument(input.steps)),
-    ...targetRows(input),
+    ...targetRows(input, readinessIssues),
     ...altTextRows(input.document),
     ...translationRows(input),
+    ...localeShapeRows(input.document),
   ];
   return { rows, blockers: rows.filter((row) => row.severity === 'blocker') };
 }
@@ -99,14 +101,18 @@ const TARGET_CODES_ALREADY_REPORTED = new Set([
  * Check and still be refused — and the two surfaces could disagree about a step
  * without either being wrong.
  */
-function readinessRows(document: LodariqDocument): readonly CheckRow[] {
+function readinessRows(
+  document: LodariqDocument,
+  issues: readonly PublishReadinessIssue[],
+): readonly CheckRow[] {
   const stepIds = new Set(tourSteps(document).map((step) => step.id));
-  return validateTourPublishReadiness(document)
+  return issues
     .filter((issue) => !TARGET_CODES_ALREADY_REPORTED.has(issue.code))
     .map((issue) => ({
       kind: 'readiness' as const,
       severity: issue.severity === 'warning' ? ('warning' as const) : ('blocker' as const),
       message: publishReadinessIssueLabel(issue.code),
+      repairIssue: issue,
       ...(issue.blockId && stepIds.has(issue.blockId)
         ? { jump: { stepId: issue.blockId, section: 'style' as const } }
         : {}),
@@ -120,7 +126,8 @@ function readinessRows(document: LodariqDocument): readonly CheckRow[] {
 function contrastRows(document: LodariqDocument): readonly CheckRow[] {
   const rows: CheckRow[] = [];
   for (const step of tourSteps(document)) {
-    const tooltip = step.children.find((child) => child.type === 'tooltip');
+    const tooltip =
+      step.type === 'tooltip' ? step : step.children.find((child) => child.type === 'tooltip');
     const style = tooltip?.props.tooltipStyle;
     if (!style?.textColor || !style.surfaceColor) continue;
     const wcag = evaluateContrast(
@@ -134,10 +141,13 @@ function contrastRows(document: LodariqDocument): readonly CheckRow[] {
     rows.push({
       kind: 'contrast',
       severity: wcag.state === 'blocker' ? 'blocker' : 'warning',
-      message: authoringText('Body text on this card is {ratio}:1, below the {required}:1 minimum.', {
-        ratio: wcag.ratio,
-        required: wcag.requiredRatio,
-      }),
+      message: authoringText(
+        'Body text on this card is {ratio}:1, below the {required}:1 minimum.',
+        {
+          ratio: wcag.ratio,
+          required: wcag.requiredRatio,
+        },
+      ),
       detail: authoringText('APCA Lc {value}, where body text wants {target}.', {
         value: Math.round(apca),
         target: APCA_TARGETS.bodyText,
@@ -158,27 +168,37 @@ function layoutRows(findings: readonly QaFinding[]): readonly CheckRow[] {
     kind: 'layout' as const,
     severity: LAYOUT_SECTION_SEVERITY[finding.severity],
     message: finding.message,
+    ...(finding.locale ? { locale: finding.locale } : {}),
     jump: { stepId: finding.stepId, section: finding.fixSection },
   }));
 }
 
 /** Targets grouped by the creator's three states, so the report matches the canvas. */
-function targetRows(input: CheckInput): readonly CheckRow[] {
+function targetRows(
+  input: CheckInput,
+  issues: readonly PublishReadinessIssue[],
+): readonly CheckRow[] {
   const rows: CheckRow[] = [];
   for (const step of tourSteps(input.document)) {
-    const tooltip = step.children.find((child) => child.type === 'tooltip');
+    const tooltip =
+      step.type === 'tooltip' ? step : step.children.find((child) => child.type === 'tooltip');
     const targetId = tooltip?.props.targetId ?? step.props.targetId;
     if (!targetId) {
+      const repairIssue = issues.find(
+        (issue) => issue.code === 'missing_step_target' && issue.blockId === step.id,
+      );
       rows.push({
         kind: 'target',
         severity: 'blocker',
         message: authoringText('This step does not point at anything yet.'),
         jump: { stepId: step.id, section: 'target' },
+        ...(repairIssue ? { repairIssue } : {}),
       });
       continue;
     }
     const presentation = input.targetHealth.get(targetId);
-    if (!presentation) continue;
+    // `unverified` is no observation yet, not a finding — same as no entry at all.
+    if (!presentation || presentation === 'unverified') continue;
     const shown = targetVerificationPresentation(presentation);
     if (shown.state === 'verified' || shown.state === 'checking') continue;
     rows.push({
@@ -248,7 +268,9 @@ function translationRows(input: CheckInput): readonly CheckRow[] {
     }
     for (const override of variant.targetOverrides ?? []) {
       const presentation = input.targetHealth.get(override.replacementTargetId);
-      const shown = targetVerificationPresentation(presentation ?? 'unverified');
+      // Same rule as `targetRows`: never looked at is not a finding.
+      if (!presentation || presentation === 'unverified') continue;
+      const shown = targetVerificationPresentation(presentation);
       if (shown.state === 'verified') continue;
       rows.push({
         kind: 'translation',
@@ -260,6 +282,43 @@ function translationRows(input: CheckInput): readonly CheckRow[] {
         detail: shown.action,
       });
     }
+  }
+  return rows;
+}
+
+/**
+ * Two regions of one language with no plain version of it (§7.6).
+ *
+ * The runtime matches a viewer by exact tag, then by the plain language, then by
+ * any region of it. A document holding `pt-BR` and `pt-PT` but no `pt` has
+ * nothing to give a Portuguese speaker in Angola except one of the two, chosen
+ * for them. That choice is now deterministic rather than authoring-order, but it
+ * is still a choice the creator did not make and cannot see — so it is said out
+ * loud here instead.
+ */
+function localeShapeRows(document: LodariqDocument): readonly CheckRow[] {
+  const locales = (document.localization?.variants ?? []).map((variant) => variant.locale);
+  const byLanguage = new Map<string, string[]>();
+  for (const locale of locales) {
+    const language = locale.split('-')[0]?.toLowerCase();
+    if (!language) continue;
+    byLanguage.set(language, [...(byLanguage.get(language) ?? []), locale]);
+  }
+  const rows: CheckRow[] = [];
+  for (const [language, tags] of byLanguage) {
+    const regional = tags.filter((tag) => tag.toLowerCase() !== language);
+    if (regional.length < 2 || tags.length !== regional.length) continue;
+    rows.push({
+      kind: 'translation',
+      severity: 'warning',
+      message: authoringText('{locales} cover {language}, but plain {language} is missing.', {
+        locales: regional.join(', '),
+        language,
+      }),
+      detail: authoringText('Readers elsewhere get one of them picked for them. Add {language}.', {
+        language,
+      }),
+    });
   }
   return rows;
 }
@@ -280,7 +339,9 @@ export function incompleteLocales(
   return locales.filter((locale) => {
     const variant = variants.get(locale);
     if (!variant) return true;
-    return translatable.some((blockId) => !variant.blocks.some((block) => block.blockId === blockId));
+    return translatable.some(
+      (blockId) => !variant.blocks.some((block) => block.blockId === blockId),
+    );
   });
 }
 
@@ -308,9 +369,7 @@ export function localeCoverage(
   );
   const translatable = translatableBlockIds(document);
   return locales.map((locale) => {
-    const written = new Set(
-      (variants.get(locale)?.blocks ?? []).map((block) => block.blockId),
-    );
+    const written = new Set((variants.get(locale)?.blocks ?? []).map((block) => block.blockId));
     const translated = translatable.filter((blockId) => written.has(blockId)).length;
     const total = translatable.length;
     return {
@@ -332,7 +391,7 @@ function translatableBlockIds(document: LodariqDocument): readonly string[] {
 }
 
 function tourSteps(document: LodariqDocument): readonly LodariqBlock[] {
-  return document.blocks.filter((block) => block.type === 'tourStep');
+  return selectExperienceRootBlocks(document);
 }
 
 function descendants(block: LodariqBlock): readonly LodariqBlock[] {

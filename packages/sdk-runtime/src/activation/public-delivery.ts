@@ -18,8 +18,6 @@ import {
 import {
   LodariqArtifactCompatibilityError,
   assertSupportedArtifactManifest,
-  assertSupportedArtifactMatchesManifest,
-  assertSupportedCompiledArtifactIfVersioned,
 } from '../artifact-compatibility';
 
 const PUBLIC_INSTALLATION_HEADER = 'x-lodariq-installation-id';
@@ -42,6 +40,7 @@ export interface PublicDeliveryBrowserApi extends LodariqBrowserApi {
   readonly defaultDocumentId: string;
   registerBrandTokens(registration: CustomerBrandTokenRegistration): void;
   playTourById(documentId: string, options?: TourPlaybackOptions): Promise<void>;
+  destroyDelivery(): void;
 }
 
 /**
@@ -50,6 +49,7 @@ export interface PublicDeliveryBrowserApi extends LodariqBrowserApi {
  */
 export async function installPublicSdkDelivery(
   context: PublicSdkBootstrapContext,
+  assignmentKey?: string,
 ): Promise<PublicDeliveryBrowserApi | null> {
   if (context.delivery.state !== 'available') return null;
 
@@ -107,14 +107,20 @@ export async function installPublicSdkDelivery(
 
   const api = await installLodariq(config, {
     publicInstallationId: context.installationId,
+    assignmentKey,
     analyticsPointers,
     fetchInstallContext: async () => installContext,
-    loadCurrentTour: async () => loadDocument(defaultSource),
+    // Honours the manifest it is asked for. Resume names the experience the
+    // visitor was actually in, which on a multi-document install is often not
+    // the default one.
+    loadCurrentTour: async (requestedManifest) =>
+      loadDocument(sourceByDocumentId.get(requestedManifest.documentId) ?? defaultSource),
     resolveManifestForDocument: (documentId) => sourceByDocumentId.get(documentId)?.manifest,
     resolveArtifactManifestForDocument: (documentId) =>
       sourceByDocumentId.get(documentId)?.artifactManifest,
   });
   const publicApi = api as PublicDeliveryBrowserApi;
+  const playTour = api.playTour.bind(api);
   Object.defineProperties(publicApi, {
     manifests: {
       enumerable: true,
@@ -128,10 +134,32 @@ export async function installPublicSdkDelivery(
   ): Promise<void> => {
     const source = sourceByDocumentId.get(documentId);
     if (!source) throw new Error('Lodariq public tour is not available');
-    await api.playTour(await loadDocument(source), options);
+    return publicApi.playTour(await loadDocument(source), options);
+  };
+  publicApi.playTour = async (document, options = {}): Promise<void> => {
+    const source = sourceByDocumentId.get(document?.documentId ?? defaultDocumentId);
+    await playTour(document, withServerAdaptiveContext(source, options));
   };
   publicApi.registerBrandTokens = registerBrandTokens;
+  const { installDeliveryHooks } = await import('./delivery-hooks');
+  publicApi.destroyDelivery = installDeliveryHooks({
+    api: publicApi,
+    sources,
+    environment: context.environment,
+    installationId: context.installationId,
+    catalogUrl: delivery.catalogUrl,
+  });
   return publicApi;
+}
+
+function withServerAdaptiveContext(
+  source: PublicDocumentSource | undefined,
+  options: TourPlaybackOptions,
+): TourPlaybackOptions {
+  const { adaptiveContext: _ignoredClientContext, ...rest } = options;
+  return source?.artifactManifest?.adaptive
+    ? { ...rest, adaptiveContext: source.artifactManifest.adaptive }
+    : rest;
 }
 
 export async function fetchPublicCurrentDocument(
@@ -157,19 +185,7 @@ export async function fetchPublicCurrentDocument(
   }
   if (!response.ok) throw new Error('Lodariq public document request failed');
   const { readValidatedPublicArtifact } = await import('../artifact-payload-validation');
-  const value = await readValidatedPublicArtifact(response);
-  assertSupportedCompiledArtifactIfVersioned(value);
-  if (isManifestV2(manifest)) {
-    assertSupportedArtifactMatchesManifest(value, manifest);
-  } else {
-    if (Object.prototype.hasOwnProperty.call(value, 'artifactSchemaVersion')) {
-      throw new LodariqArtifactCompatibilityError();
-    }
-    if (value.documentId !== manifest.documentId || value.contentHash !== manifest.currentVersion) {
-      throw new Error('Lodariq public document response is invalid');
-    }
-  }
-  return value;
+  return readValidatedPublicArtifact(response, manifest);
 }
 
 function createDocumentSources(

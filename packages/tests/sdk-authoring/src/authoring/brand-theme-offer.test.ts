@@ -64,7 +64,12 @@ const richProposal = (): ProductStyleProposal =>
       sourceId: 'lodariq.inferred.page',
       kind: 'page_typography',
       confidence: 82,
-      values: { backgroundColor: '#ffffff', color: '#101828', fontFamilies: ['Inter'], widthPx: 1_280 },
+      values: {
+        backgroundColor: '#ffffff',
+        color: '#101828',
+        fontFamilies: ['Inter'],
+        widthPx: 1_280,
+      },
     }),
   ]);
 

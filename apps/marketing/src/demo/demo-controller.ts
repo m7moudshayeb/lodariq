@@ -6,7 +6,7 @@
  * product's own code would.
  */
 import { compileDocument } from '@lodariq/compiler';
-import { RENDERER_CONTRACT_VERSION, type CompiledDocumentV4 } from '@lodariq/schema';
+import { RENDERER_CONTRACT_VERSION, type NewCompiledDocument } from '@lodariq/schema';
 import { DEMO_URL, DEMO_VIEWPORT } from '../config';
 import { demoBrandTheme } from './demo-theme';
 import { MERIDIAN_TOUR } from './meridian-tour';
@@ -49,7 +49,7 @@ export function mountDemo(root: HTMLElement): void {
   const statusLine = requireElement(root, '[data-demo-status]');
   const stepDots = Array.from(root.querySelectorAll<HTMLElement>('[data-demo-step]'));
 
-  let compiled: CompiledDocumentV4 | null = null;
+  let compiled: NewCompiledDocument | null = null;
   let tourWatch: ReturnType<typeof setInterval> | undefined;
 
   const setStatus = (status: DemoStatus): void => {
@@ -91,7 +91,7 @@ export function mountDemo(root: HTMLElement): void {
     }
   };
 
-  const compileTour = async (): Promise<CompiledDocumentV4> => {
+  const compileTour = async (): Promise<NewCompiledDocument> => {
     // Browser compilation is preview-only by design — identical to how the
     // authoring surface previews a draft before server-side publication.
     compiled ??= await compileDocument({
@@ -162,11 +162,18 @@ export function mountDemo(root: HTMLElement): void {
   fitFrame();
   setStatus('loading');
 
-  // The demo IS the hero, so it loads immediately and unconditionally.
+  // The demo IS the hero, so it loads unconditionally — but after the page's
+  // own load event, so ~700KB of fixture-host bundle never competes with the
+  // landing page's first paint.
+  //
   // (An IntersectionObserver-based lazy load proved unreliable here: a page
   // opened in a background tab never fires the observer until refocus, and
   // the centerpiece must never depend on that.)
-  iframe.src = DEMO_URL;
+  const startDemo = (): void => {
+    iframe.src = DEMO_URL;
+  };
+  if (document.readyState === 'complete') startDemo();
+  else window.addEventListener('load', startDemo, { once: true });
 }
 
 function requireElement<T extends HTMLElement = HTMLElement>(

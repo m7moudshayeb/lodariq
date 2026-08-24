@@ -287,7 +287,7 @@ export function requireExpectedEditorOrigin(
 export function setExpectedEditorCorsHeaders(reply: FastifyReply, expectedOrigin: string): void {
   reply.header('access-control-allow-origin', expectedOrigin);
   reply.header('vary', 'Origin');
-  reply.header('access-control-allow-methods', 'GET,POST,PATCH,DELETE,OPTIONS');
+  reply.header('access-control-allow-methods', 'GET,POST,PUT,PATCH,DELETE,OPTIONS');
   reply.header(
     'access-control-allow-headers',
     `content-type,${AUTHORING_ACTIVATION_GRANT_HEADER},${AUTHORING_SESSION_HEADER},${IDEMPOTENCY_KEY_HEADER},${RELEASE_CORRELATION_ID_HEADER}`,

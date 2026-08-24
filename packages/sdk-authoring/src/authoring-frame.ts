@@ -8,6 +8,7 @@
 export {
   AUTHORING_STAGING_RELEASE_STATES,
   mountLocalAuthoringFrame,
+  prewarmLocalAuthoringFrame,
 } from './authoring/local-frame';
 export { AUTHORING_TYPOGRAPHY_CSS_PROPERTIES } from './creator-chrome-tokens';
 export type {

@@ -65,6 +65,7 @@ import {
 } from './rich-content-nodes';
 import { type RichContentMediaUploadResult } from './rich-content-media-upload';
 import { SelectionToolbarPlugin } from './rich-content-selection-toolbar';
+import { contentLocaleDirection } from '../authoring/content-locales';
 
 /** Persist after typing pauses. Leading throttle mid-keystroke re-rendered the authoring tree and stole the caret. */
 export const RICH_CONTENT_PERSIST_DEBOUNCE_MS = 300;
@@ -119,6 +120,12 @@ export interface RichContentEditorProps {
   onAskAssist?: () => void;
   /** Reports what the toolbar's contextual middle is editing (§4.2a). */
   onContextChange?: (kind: ToolbarContextKind) => void;
+  /**
+   * The language this copy is being written in, so the canvas can carry `lang`
+   * and `dir` the way the runtime already does. Without it Arabic and Hebrew are
+   * authored into a left-to-right card and only come out right once published.
+   */
+  contentLocale?: string;
   /** Host element for the persistent format/insert toolbar. When omitted, the toolbar renders above the canvas. */
   toolbarHost?: HTMLElement | null;
   /** Host element for the pinned Insert control, when the frame owns its position. */
@@ -163,6 +170,7 @@ export function RichContentEditor({
   onInspectOpen,
   cardCommand = null,
   readOnly = false,
+  contentLocale,
 }: RichContentEditorProps): ReactElement {
   const metadata = useRef<RichContentMetadata>({
     blockIdByNodeKey: new Map(),
@@ -240,7 +248,18 @@ export function RichContentEditor({
               toolbarHost={toolbarHost}
             />
           ) : null}
-          <div className="rich-content-canvas-shell">
+          {/*
+            Direction sits on the shell rather than on the editable: Lexical owns
+            `dir` on its own root and strips the prop, but it inherits through.
+            Without this Arabic is authored into a left-to-right card and only
+            comes out right once published.
+          */}
+          <div
+            className="rich-content-canvas-shell"
+            {...(contentLocale
+              ? { lang: contentLocale, dir: contentLocaleDirection(contentLocale) }
+              : {})}
+          >
             <RichTextPlugin
               contentEditable={
                 <ContentEditable

@@ -68,16 +68,39 @@ export function createBridgeOperationsServices(
     readMeasurement: () => call('readMeasurement'),
     updateMeasurement: (request) => call('updateMeasurement', request),
     readAnalytics: (environmentId) => call('readAnalytics', environmentId),
+    listSessions: () => call('listSessions'),
     readExperiment: () => call('readExperiment'),
     createExperiment: (request) => call('createExperiment', request),
-    updateExperiment: (experimentId, request) =>
-      call('updateExperiment', experimentId, request),
+    updateExperiment: (experimentId, request) => call('updateExperiment', experimentId, request),
     listComments: () => call('listComments'),
-    addComment: (stepId, body) => call('addComment', stepId, body),
+    addComment: (anchor, body) => call('addComment', anchor, body),
+    replyToComment: (commentId, body) => call('replyToComment', commentId, body),
     resolveComment: (commentId, resolved) => call('resolveComment', commentId, resolved),
     listStepLocks: () => call('listStepLocks'),
-    claimStepLock: (stepId) => call('claimStepLock', stepId),
+    claimStepLock: (stepId, takeover) => call('claimStepLock', stepId, takeover),
+    releaseStepLock: (stepId) => call('releaseStepLock', stepId),
+    heartbeatCollaboration: (state) => call('heartbeatCollaboration', state),
+    leaveCollaboration: () => call('leaveCollaboration'),
     listApplications: () => call('listApplications'),
+    readCommercialUsage: () => call('readCommercialUsage'),
+    instantiateTemplate: (templateId) => call('instantiateTemplate', templateId),
+    listDocumentVersions: () => call('listDocumentVersions'),
+    compareDocumentVersions: (beforeVersionId, afterVersionId) =>
+      call('compareDocumentVersions', beforeVersionId, afterVersionId),
+    listCopySuggestions: () => call('listCopySuggestions'),
+    createCopySuggestions: (beforeVersionId, afterVersionId) =>
+      call('createCopySuggestions', beforeVersionId, afterVersionId),
+    decideCopySuggestion: (suggestionId, decision) =>
+      call('decideCopySuggestion', suggestionId, decision),
+    requestAiAssist: (request) => call('requestAiAssist', request),
+    generateNarration: (stepId) => call('generateNarration', stepId),
+    listAuditEvents: () => call('listAuditEvents'),
+    exportAuditCsv: () => call('exportAuditCsv'),
+    readDemoLinks: () => call('readDemoLinks'),
+    readDemoAnalytics: () => call('readDemoAnalytics'),
+    reviewDemoArtifact: (request) => call('reviewDemoArtifact', request),
+    createDemoLink: (request) => call('createDemoLink', request),
+    revokeDemoLink: (demoId) => call('revokeDemoLink', demoId),
   };
 }
 

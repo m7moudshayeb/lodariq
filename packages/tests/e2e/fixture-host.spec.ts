@@ -1593,6 +1593,78 @@ test('tour resumes the next step after an authored open-page action reloads the 
   );
 });
 
+test('a tour started from the host chrome survives a hard navigation to another screen', async ({
+  page,
+}) => {
+  // Started through the product's own launcher rather than `Lodariq.playTour`:
+  // that is the path the report came from, and the one where the host used to
+  // keep a resume key of its own that restarted the tour at step 1.
+  await page.goto('/#/projects/all');
+  await page.waitForFunction(() => Boolean((window as { __meridian?: unknown }).__meridian));
+  await page.evaluate(() =>
+    (window as unknown as { __meridian: { playTour: () => Promise<void> } }).__meridian.playTour(),
+  );
+
+  const tour = page.getByRole('dialog', { name: 'Lodariq tour' });
+  await expect(tour).toContainText('Create your first project');
+  await tour.getByRole('button', { name: 'Continue' }).click();
+  await expect(tour).toContainText('Narrow the list');
+
+  const urlBeforeReload = page.url();
+  await page.reload();
+  await page.waitForFunction(() => Boolean((window as { __meridian?: unknown }).__meridian));
+
+  await expect(tour).toContainText('Narrow the list');
+  // Resume is invisible from the address bar: appending to a customer's URL
+  // breaks their routing, their analytics and the back button.
+  expect(page.url()).toBe(urlBeforeReload);
+  expect(
+    await page.evaluate(() => Object.keys(sessionStorage).filter((key) => /resume/i.test(key))),
+  ).toEqual(['lodariq:tour-resume:wk_local_dev:development']);
+
+  // A hard load on a screen the step does not belong to, then back again. The
+  // step has no page of its own to be suspended from, so this is the case that
+  // used to leave it hidden for the rest of the visit.
+  await page.goto('/#/billing/plan');
+  await page.reload();
+  await page.waitForFunction(() => Boolean((window as { __meridian?: unknown }).__meridian));
+  expect(page.url()).not.toMatch(/[?&](tour|step)=/);
+
+  await page.evaluate(() => {
+    window.location.hash = '#/projects/all';
+  });
+  await expect(tour).toContainText('Narrow the list');
+  await expect(tour).toBeVisible();
+
+  await page.evaluate(() =>
+    (window as unknown as { __meridian: { stopTour: () => void } }).__meridian.stopTour(),
+  );
+  await page.reload();
+  await page.waitForFunction(() => Boolean((window as { __meridian?: unknown }).__meridian));
+  await expect(page.getByRole('dialog', { name: 'Lodariq tour' })).toHaveCount(0);
+});
+
+test('preview comes back on the step the creator was on after a reload', async ({ page }) => {
+  // Preview cannot borrow the runtime's resume: that one is checked against a
+  // published manifest version and content hash, and a draft has neither. What
+  // has to come back here is the session — the panel itself — before a step
+  // means anything.
+  await page.goto('/#/projects/all');
+  await openAuthoringPanel(page);
+
+  const steps = authoringFilmstripSteps(page);
+  await steps.nth(2).click();
+  const tour = page.getByRole('dialog', { name: 'Lodariq tour' });
+  await expect(tour).toContainText('Sort how you think');
+
+  const urlBeforeReload = page.url();
+  await page.reload();
+
+  await expect(page.locator('lodariq-authoring-panel')).toBeVisible();
+  await expect(tour).toContainText('Sort how you think');
+  expect(page.url()).toBe(urlBeforeReload);
+});
+
 test('runtime lifecycle opens a configured panel before resolving a target', async ({ page }) => {
   await page.goto('/');
   await openAuthoringPanel(page);

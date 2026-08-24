@@ -1,0 +1,2 @@
+export const ADAPTIVE_EVIDENCE_MAX_ITEMS = 200;
+export const ADAPTIVE_OCCURRENCE_MAX = 20;

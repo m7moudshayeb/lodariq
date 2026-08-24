@@ -65,10 +65,7 @@ export const TargetOutline = Type.Object(
 );
 export type TargetOutline = Static<typeof TargetOutline>;
 
-/**
- * `scroll-into-view` is the default because a page-level transform fights the host's
- * own sticky headers and rect-based positioning. `zoom` is opt-in per step.
- */
+/** `scroll-into-view` is the default; bounded product-surface zoom is opt-in per step. */
 export const ViewportFocus = Type.Object(
   {
     behavior: Type.Union(VIEWPORT_FOCUS_BEHAVIORS.map((value) => Type.Literal(value))),

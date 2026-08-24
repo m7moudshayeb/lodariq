@@ -40,7 +40,7 @@ import {
   type Spread,
 } from 'lexical';
 import { Check, TriangleAlert, X } from 'lucide-react';
-import { DynamicIcon } from 'lucide-react/dynamic';
+
 import {
   useContext,
   useEffect,
@@ -53,7 +53,7 @@ import {
 } from 'react';
 import { authoringText } from '../i18n';
 import { RichContentHostContext } from './rich-content-host-context';
-import { lucideIconName } from './rich-content-icons';
+import { RichContentIcon } from './rich-content-icon-set';
 import { RichContentSelect } from './rich-content-select';
 
 type IconRecipe = (typeof ICON_RECIPE_VALUES)[number];
@@ -1400,7 +1400,7 @@ function RichIconPreview({
       style={color ? { color } : undefined}
       tabIndex={0}
     >
-      <DynamicIcon name={lucideIconName(icon)} size={24} strokeWidth={1.9} />
+      <RichContentIcon icon={icon} size={24} strokeWidth={1.9} />
     </span>
   );
 }

@@ -36,7 +36,6 @@ export interface OverlayShellCallbacks {
   onSelectStep: (stepId: string) => void;
   /** ⌘-click adds, ⇧-click extends — the selection `Apply to…` acts on (§4.5). */
   onSelectStepAdditive: (stepId: string, mode: 'add' | 'range') => void;
-  onTitleCommit: (title: string) => void;
   /** The Editing ⇄ Browsing switch (§3.3). */
   onBrowsingChange: (browsing: boolean) => void;
   onStartPreview: () => void;
@@ -45,8 +44,6 @@ export interface OverlayShellCallbacks {
   onEnvironmentChange: (environment: string) => void;
   /** Turns the creator's own clicks on the product into steps (§4.4c). */
   onToggleRecording: () => void;
-  /** Runs the predictive pass and opens Check on what it found (§7.3). */
-  onSimulateUser: () => void;
   onCanvasZoom: (direction: 'in' | 'out' | 'reset') => void;
   /** Replays the experience from its first step. */
   onRestart: () => void;
@@ -68,7 +65,7 @@ export interface OverlayShell {
   refreshPulses: () => void;
   setActiveStepId: (stepId: string | null) => void;
   setCardRect: (rect: ProtectedSurfaceRect | null) => void;
-  setDocument: (document: LodariqDocument | null, title?: string) => void;
+  setDocument: (document: LodariqDocument | null) => void;
   setPresentation: (presentation: OverlayShellPresentation) => void;
   setTargetRect: (rect: ProtectedSurfaceRect | null) => void;
   /** Whether the inspector is showing the target rather than the card (§4.3). */

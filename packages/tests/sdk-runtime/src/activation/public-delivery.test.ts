@@ -6,6 +6,7 @@ import {
   COMPILER_VERSION,
   DEFAULT_EXPERIENCE_APPEARANCE,
   LODARIQ_ACCESSIBLE_FALLBACK_THEME_V1,
+  PUBLIC_MANIFEST_SCHEMA_VERSION,
   RENDERER_CONTRACT_VERSION,
   type ActiveManifestPointerV2,
   type CompiledDocumentV3,
@@ -80,7 +81,7 @@ const activeManifest = (
   >['manifests'][number],
   { state: 'active' }
 > => ({
-  schemaVersion: COMPILED_ARTIFACT_SCHEMA_VERSION,
+  schemaVersion: PUBLIC_MANIFEST_SCHEMA_VERSION,
   workspaceId: 'wk_public_delivery',
   environmentId: 'env_production',
   documentId: document.documentId,

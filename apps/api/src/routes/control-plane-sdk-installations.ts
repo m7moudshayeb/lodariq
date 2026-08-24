@@ -269,7 +269,16 @@ function sendInstallationMutationError(error: unknown, reply: FastifyReply, sync
     return reply.code(409).send({ error: 'environment_policy_forbidden', message: error.message });
   }
   if (syncing) {
-    return reply.code(400).send({ error: 'invalid_origin_sync', message: error.message });
+    /*
+     * A fixed message. `error.message` here is whatever threw — including raw
+     * Postgres constraint text, which names columns and constraints to a
+     * caller who should never see them, and reports an infrastructure failure
+     * as a 400 the client will not retry.
+     */
+    return reply.code(400).send({
+      error: 'invalid_origin_sync',
+      message: 'Origin sync request is not valid for this installation',
+    });
   }
   throw error;
 }

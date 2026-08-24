@@ -11,6 +11,7 @@ import {
 import * as databaseSchema from '@lodariq/database/schema';
 import { listCheckedInSqlPaths } from './migration-test-utils.js';
 import {
+  businessWorkspaceSubscriptionSql,
   createDisposablePostgresFixture,
   DISPOSABLE_POSTGRES_ENABLED,
   runtimeRoleGrantsSql,
@@ -328,6 +329,7 @@ function seedSql(): string {
       ('email_pg_enterprise_managed_${'m'.repeat(20)}', '${MANAGED_ID}', 'managed@example.com', true, '${NOW}', '${NOW}', '${NOW}');
     insert into workspaces (id, name, created_at, updated_at)
       values ('${WORKSPACE_ID}', 'PostgreSQL Enterprise', '${NOW}', '${NOW}');
+    ${businessWorkspaceSubscriptionSql(WORKSPACE_ID, NOW)}
     insert into workspace_memberships (workspace_id, user_id, role, created_at) values
       ('${WORKSPACE_ID}', '${OWNER_ID}', 'owner', '${NOW}'),
       ('${WORKSPACE_ID}', '${MANAGED_ID}', 'member', '${NOW}');

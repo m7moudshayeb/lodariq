@@ -113,6 +113,15 @@ export const TOOLTIP_ACTION_LAYOUT_VALUES = ['inline', 'stack'] as const;
 const TOOLTIP_ACTION_LAYOUT_SET = new Set<string>(TOOLTIP_ACTION_LAYOUT_VALUES);
 export const TOOLTIP_PADDING_VALUES = ['compact', 'standard', 'relaxed'] as const;
 const TOOLTIP_PADDING_SET = new Set<string>(TOOLTIP_PADDING_VALUES);
+/**
+ * Exact padding, per axis, when the three presets are not the answer.
+ *
+ * The presets stay: they are one decision instead of two and they track the
+ * theme's spacing scale, so most popups should keep using them. These override
+ * the preset on whichever axis is set, which is why they are separate optionals
+ * rather than a replacement — a document that never touches them is unchanged.
+ */
+export const TOOLTIP_PADDING_PX_LIMITS = { min: 0, max: 64, step: 2 } as const;
 export const TOOLTIP_RADIUS_VALUES = ['theme', 'square', 'soft', 'round'] as const;
 const TOOLTIP_RADIUS_SET = new Set<string>(TOOLTIP_RADIUS_VALUES);
 export const TOOLTIP_BORDER_WEIGHT_VALUES = ['theme', 'none', 'subtle', 'strong'] as const;
@@ -281,6 +290,22 @@ export const TooltipLayoutProps = Type.Object(
     ),
     gap: Type.Optional(Type.Union(BLOCK_SPACING_VALUES.map((value) => Type.Literal(value)))),
     padding: Type.Optional(Type.Union(TOOLTIP_PADDING_VALUES.map((value) => Type.Literal(value)))),
+    /** Top and bottom, in px. Overrides `padding` on this axis only. */
+    paddingBlockPx: Type.Optional(
+      Type.Integer({
+        minimum: TOOLTIP_PADDING_PX_LIMITS.min,
+        maximum: TOOLTIP_PADDING_PX_LIMITS.max,
+        multipleOf: TOOLTIP_PADDING_PX_LIMITS.step,
+      }),
+    ),
+    /** Left and right, in px. Overrides `padding` on this axis only. */
+    paddingInlinePx: Type.Optional(
+      Type.Integer({
+        minimum: TOOLTIP_PADDING_PX_LIMITS.min,
+        maximum: TOOLTIP_PADDING_PX_LIMITS.max,
+        multipleOf: TOOLTIP_PADDING_PX_LIMITS.step,
+      }),
+    ),
     radius: Type.Optional(Type.Union(TOOLTIP_RADIUS_VALUES.map((value) => Type.Literal(value)))),
     showArrow: Type.Optional(Type.Boolean()),
   },
@@ -634,6 +659,17 @@ export function sanitizeButtonStyleProps(value: unknown): ButtonStyleProps | und
   return Object.keys(next).length > 0 ? next : undefined;
 }
 
+/** Both axes share one range, so they share one guard. */
+function isTooltipPaddingPx(value: unknown): value is number {
+  return (
+    typeof value === 'number' &&
+    Number.isInteger(value) &&
+    value >= TOOLTIP_PADDING_PX_LIMITS.min &&
+    value <= TOOLTIP_PADDING_PX_LIMITS.max &&
+    value % TOOLTIP_PADDING_PX_LIMITS.step === 0
+  );
+}
+
 export function sanitizeTooltipLayoutProps(value: unknown): TooltipLayoutProps | undefined {
   if (!isRecord(value)) return undefined;
   const next: TooltipLayoutProps = {};
@@ -670,6 +706,8 @@ export function sanitizeTooltipLayoutProps(value: unknown): TooltipLayoutProps |
   if (typeof value.padding === 'string' && TOOLTIP_PADDING_SET.has(value.padding)) {
     next.padding = value.padding as TooltipLayoutProps['padding'];
   }
+  if (isTooltipPaddingPx(value.paddingBlockPx)) next.paddingBlockPx = value.paddingBlockPx;
+  if (isTooltipPaddingPx(value.paddingInlinePx)) next.paddingInlinePx = value.paddingInlinePx;
   if (typeof value.radius === 'string' && TOOLTIP_RADIUS_SET.has(value.radius)) {
     next.radius = value.radius as TooltipLayoutProps['radius'];
   }

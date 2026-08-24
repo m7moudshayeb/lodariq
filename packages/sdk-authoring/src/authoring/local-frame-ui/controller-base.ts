@@ -15,9 +15,10 @@ import { authoringText } from '../../i18n';
 import { type BlockInsertPosition } from '../document-ops';
 import { LOCAL_AUTHORING_SESSION_ID } from '../constants';
 import { AuthoringBridge } from '../../bridge/transport';
-import { createLodariqEditor } from '../../editor';
+import { createLodariqEditor } from '../../editor/create-editor';
 import type {
   AuthoringOperationsTab,
+  AuthoringOperationsViewState,
   AuthoringPanelMode,
   AuthoringPanelOperation,
   AuthoringReleaseViewState,
@@ -56,6 +57,26 @@ import { AuthoringStepStyleRecipeLibrary } from '../step-style-recipes';
 import { AuthoringDraftCheckpointStore } from '../draft-checkpoints';
 
 export abstract class ControllerBase {
+  protected syncStepLockForSelection(_blockId: string | null): void {
+    // Operations overrides this when the authenticated collaboration boundary exists.
+  }
+
+  protected releaseStepLockLease(): void {
+    // Operations overrides this when the authenticated collaboration boundary exists.
+  }
+
+  protected startCollaborationTransport(): void {
+    // Operations overrides this when collaboration transport is available.
+  }
+
+  protected stopCollaborationTransport(): void {
+    // Operations overrides this when collaboration transport is available.
+  }
+
+  protected syncCollaborationPresence(): void {
+    // Operations overrides this when collaboration transport is available.
+  }
+
   protected readonly interactionActor: AuthoringInteractionActor =
     createAuthoringInteractionActor();
 
@@ -222,6 +243,11 @@ export abstract class ControllerBase {
   protected panelMode: AuthoringPanelMode = 'edit';
 
   protected operationsTab: AuthoringOperationsTab = 'flow';
+
+  protected readonly operationsViews = new Map<
+    AuthoringOperationsTab,
+    AuthoringOperationsViewState
+  >();
 
   protected panelReturnMode: AuthoringPanelMode = 'edit';
 

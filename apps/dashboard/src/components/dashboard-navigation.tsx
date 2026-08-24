@@ -6,6 +6,7 @@ import * as React from 'react';
 import {
   ChartNoAxesCombined,
   CircleHelp,
+  CreditCard,
   FileStack,
   Boxes,
   Globe,
@@ -52,6 +53,7 @@ const NAVIGATION_ICONS = {
   environments: Globe,
   applications: Boxes,
   members: Users,
+  billing: CreditCard,
   support: CircleHelp,
 } as const;
 

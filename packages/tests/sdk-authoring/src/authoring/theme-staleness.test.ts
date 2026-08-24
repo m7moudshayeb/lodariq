@@ -15,19 +15,19 @@ const HASH_B = `sha256-${'b'.repeat(64)}`;
 
 describe('theme snapshot staleness (§6.3)', () => {
   it('compares by content hash, not by version alone', () => {
-    expect(themeFreshness({ version: 3, contentHash: HASH_A }, { version: 9, contentHash: HASH_A })).toBe(
-      'current',
-    );
-    expect(themeFreshness({ version: 3, contentHash: HASH_A }, { version: 4, contentHash: HASH_B })).toBe(
-      'stale',
-    );
+    expect(
+      themeFreshness({ version: 3, contentHash: HASH_A }, { version: 9, contentHash: HASH_A }),
+    ).toBe('current');
+    expect(
+      themeFreshness({ version: 3, contentHash: HASH_A }, { version: 4, contentHash: HASH_B }),
+    ).toBe('stale');
   });
 
   it('does not call a newer rendered snapshot stale', () => {
     // A frame that already adopted version 5 is not behind version 4.
-    expect(themeFreshness({ version: 5, contentHash: HASH_B }, { version: 4, contentHash: HASH_A })).toBe(
-      'current',
-    );
+    expect(
+      themeFreshness({ version: 5, contentHash: HASH_B }, { version: 4, contentHash: HASH_A }),
+    ).toBe('current');
   });
 
   it('says unknown rather than guessing when either side is missing', () => {
@@ -103,19 +103,17 @@ function callbacks(): ModePillCallbacks {
   return {
     onModeChange: () => undefined,
     onPreview: () => undefined,
-    onExitPreview: () => undefined,
-    onEditPreviewStep: () => undefined,
     onOpenOperations: () => undefined,
     onToggleAllPanels: () => undefined,
     onRetrySave: () => undefined,
     onExitAuthoring: () => undefined,
-  onSwitchExperience: () => undefined,
-  onEnvironmentChange: () => undefined,
-  onToggleRecording: () => undefined,
-  onSimulateUser: () => undefined,
-  onCanvasZoom: () => undefined,
-  onKeyboardMap: () => undefined,
-  onRestart: () => undefined,
+    onSwitchExperience: () => undefined,
+    onEnvironmentChange: () => undefined,
+    onToggleRecording: () => undefined,
+    onCanvasZoom: () => undefined,
+    onKeyboardMap: () => undefined,
+    onCommandPalette: () => undefined,
+    onRestart: () => undefined,
   };
 }
 

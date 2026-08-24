@@ -5,9 +5,7 @@
  * lock shows a name, and the conflict chooser shows words.
  */
 export const AUTHORING_PRESENCE_CSS = `
-  /* The step lock is a band on the page now — see overlay/lock-band.ts (§15.2). */
 
-  /* §6.3: a theme change must never be silent. */
   .appearance-theme-stale {
     display: flex;
     flex-wrap: wrap;

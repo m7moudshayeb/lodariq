@@ -2,6 +2,7 @@ import { Type, type Static } from '@sinclair/typebox';
 import { AuthoringDeliveryCapabilityMetadata } from './authoring-capabilities';
 import {
   AuthoringDocumentIntent,
+  AUTHORING_DRAFT_DOCUMENT_TYPES,
   ExistingAuthoringDocumentIntent,
   NewAuthoringDocumentIntent,
 } from './authoring-workspace';
@@ -18,6 +19,7 @@ import {
   PRODUCT_STYLE_MAX_SOURCES,
 } from './brand';
 import { AnalyticsDocumentPointer } from './events';
+import { NarrationVoice } from './narration-generation';
 import {
   ActiveManifestPointerV2,
   BrowserVerificationReport,
@@ -89,6 +91,7 @@ export const AUTHORING_SESSION_CAPABILITIES = {
   READ_DOCUMENT: 'document:read',
   READ_RELEASE_STATE: 'document:read-release-state',
   ROLLBACK_RELEASE: 'document:rollback',
+  SCHEDULE_RELEASE: 'document:schedule-release',
   SAMPLE_PRODUCT_STYLE: 'brand:sample-product-style',
   SELECT_TARGET: 'target:select',
   UNPUBLISH_RELEASE: 'document:unpublish',
@@ -102,6 +105,15 @@ export const PublicSdkInstallationId = Type.String({
   $id: 'PublicSdkInstallationId',
 });
 export type PublicSdkInstallationId = Static<typeof PublicSdkInstallationId>;
+
+/** Anonymous browser seed used only for stable experiment assignment. */
+export const ExperimentAssignmentKey = Type.String({
+  $id: 'ExperimentAssignmentKey',
+  minLength: 36,
+  maxLength: 36,
+  pattern: '^lqv_[0-9a-f]{32}$',
+});
+export type ExperimentAssignmentKey = Static<typeof ExperimentAssignmentKey>;
 
 export const AuthoringEnvironment = Type.Union(
   [Type.Literal('development'), Type.Literal('staging')],
@@ -136,6 +148,7 @@ export const AuthoringSessionCapability = Type.Union(
     Type.Literal(AUTHORING_SESSION_CAPABILITIES.READ_DOCUMENT),
     Type.Literal(AUTHORING_SESSION_CAPABILITIES.READ_RELEASE_STATE),
     Type.Literal(AUTHORING_SESSION_CAPABILITIES.ROLLBACK_RELEASE),
+    Type.Literal(AUTHORING_SESSION_CAPABILITIES.SCHEDULE_RELEASE),
     Type.Literal(AUTHORING_SESSION_CAPABILITIES.SAMPLE_PRODUCT_STYLE),
     Type.Literal(AUTHORING_SESSION_CAPABILITIES.SELECT_TARGET),
     Type.Literal(AUTHORING_SESSION_CAPABILITIES.UNPUBLISH_RELEASE),
@@ -229,6 +242,7 @@ export type CreatorModuleDescriptor = Static<typeof CreatorModuleDescriptor>;
 export const PublicSdkBootstrapRequest = Type.Object(
   {
     installationId: PublicSdkInstallationId,
+    assignmentKey: Type.Optional(Type.Ref(ExperimentAssignmentKey)),
     href: Type.Optional(Type.String({ minLength: 1 })),
     origin: Type.Optional(Type.String({ pattern: EXACT_ORIGIN_PATTERN })),
   },
@@ -254,6 +268,7 @@ export const AvailableSdkDeliveryDescriptor = Type.Object(
     manifest: AvailableSdkManifestPointer,
     currentDocumentUrl: Type.String({ minLength: 1 }),
     ingestUrl: Type.String({ minLength: 1 }),
+    catalogUrl: Type.Optional(Type.String({ minLength: 1 })),
   },
   { $id: 'AvailableSdkDeliveryDescriptor', additionalProperties: false },
 );
@@ -275,6 +290,7 @@ export const DocumentScopedSdkDeliveryDescriptor = Type.Object(
     }),
     defaultDocumentId: Type.String(IDENTIFIER_OPTIONS),
     ingestUrl: Type.String({ minLength: 1 }),
+    catalogUrl: Type.Optional(Type.String({ minLength: 1 })),
   },
   { $id: 'DocumentScopedSdkDeliveryDescriptor', additionalProperties: false },
 );
@@ -490,7 +506,9 @@ export const AuthoringPageDocumentSummary = Type.Object(
   {
     id: Type.String(IDENTIFIER_OPTIONS),
     title: Type.String(),
-    type: Type.Literal('tour'),
+    type: Type.Union(
+      AUTHORING_DRAFT_DOCUMENT_TYPES.map((documentType) => Type.Literal(documentType)),
+    ),
     status: DocumentStatus,
     updatedAt: Type.String({ minLength: 1 }),
     releases: Type.Array(AuthoringPageDocumentReleaseSummary),
@@ -570,6 +588,18 @@ export const AuthoringSessionContext = Type.Object(
     /** Optional authoring service availability, never a provider credential or runtime dependency. */
     translation: Type.Optional(
       Type.Object({ state: Type.Literal('available') }, { additionalProperties: false }),
+    ),
+    assist: Type.Optional(
+      Type.Object({ state: Type.Literal('available') }, { additionalProperties: false }),
+    ),
+    narration: Type.Optional(
+      Type.Object(
+        {
+          state: Type.Literal('available'),
+          voices: Type.Array(Type.Ref(NarrationVoice), { maxItems: 200 }),
+        },
+        { additionalProperties: false },
+      ),
     ),
     expiresAt: Type.String({ minLength: 1 }),
   },

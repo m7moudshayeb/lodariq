@@ -10,6 +10,7 @@ import {
   AUTHORING_SHELL_CAPABILITIES_TYPE,
   AUTHORING_SHELL_PALETTE_OPEN_TYPE,
   AUTHORING_SHELL_NOTICE_TYPE,
+  AUTHORING_COLLABORATION_STATE_TYPE,
   AUTHORING_SHELL_SELECTION_TYPE,
   AUTHORING_SHELL_STEP_COMMAND_TYPE,
   AUTHORING_SHELL_POPUP_SIZE_COMMIT_TYPE,
@@ -18,6 +19,8 @@ import {
   AUTHORING_APPROVE_PRODUCTION_REQUEST_TYPE,
   AUTHORING_BROWSER_VERIFY_REQUEST_TYPE,
   AUTHORING_BROWSER_VERIFY_RESULT_TYPE,
+  AUTHORING_LOCALE_LAYOUT_QA_REQUEST_TYPE,
+  AUTHORING_LOCALE_LAYOUT_QA_RESULT_TYPE,
   AUTHORING_BRAND_DRIFT_CHECK_REQUEST_TYPE,
   AUTHORING_BRAND_DRIFT_PREVIEW_TYPE,
   AUTHORING_BRAND_THEME_ACKNOWLEDGE_REQUEST_TYPE,
@@ -42,9 +45,12 @@ import {
   isPresentationAnchor,
   LODARIQ_EDITOR_ORIGIN,
   validate,
+  EXPERIENCE_STEP_LOCK_TTL_SECONDS,
   type AuthoringInlineControlOperation,
   type AuthoringShellStepCommand,
   type AuthoringAccessibilityPreviewMode,
+  type AdaptiveDecisionContext,
+  type AuthoringFlowSimulationContext,
   type AuthoringSaveState,
   type AuthoringDiagnosticAttributes,
   type AuthoringDiagnosticEventName,
@@ -79,6 +85,7 @@ import {
   type HostedCreatorPanelState,
   type AnchorAlign,
 } from '@lodariq/schema';
+import type { AdaptiveStepDecision } from '@lodariq/schema/adaptive-runtime';
 import { applyAuthoringLocale, authoringText, currentAuthoringLocale } from '../i18n';
 import { AUTHORING_LOCALE_QUERY_PARAMETER } from '@lodariq/schema/authoring-entry-runtime';
 import type { ResolutionResult } from '@lodariq/sdk-runtime/resolver';
@@ -105,6 +112,15 @@ import { createPanelStyles } from './panel-styles';
 import { clearTargetReveal, inspectTarget, startPageLifecycleObserver } from './page-context';
 import { applyPreviewPatch, inlinePreviewControlContext } from './preview-document';
 import { createOverlayShell } from './overlay/shell';
+import {
+  goToPreviewPage,
+  stepPageDestination,
+  PreviewPageUnreachableError,
+} from './preview-page-navigation';
+import {
+  clearDraftPreviewResume,
+  writeDraftPreviewResume,
+} from './preview-resume';
 import { publishTargetRingState } from './overlay/target-ring';
 import { stepEditability, type PresenceState } from './presence/presence-model';
 import type { OverlayShell } from './overlay/types';
@@ -178,6 +194,9 @@ export interface LocalAuthoringPanelOptions {
   /** Reads a customer-configured opaque route pattern identifier. */
   getTargetRoutePatternId?: () => string | undefined;
   autoPreview?: boolean;
+  /** Step a restored session was previewing, so a reload does not land on step 1. */
+  initialPreviewStepId?: string;
+  initialPreviewInteractive?: boolean;
   preview?: LocalAuthoringPreviewServices;
   release?: LocalAuthoringReleaseServices;
   /**
@@ -188,10 +207,9 @@ export interface LocalAuthoringPanelOptions {
    */
   operations?: AuthoringOperationsServices;
   /**
-   * WIRE_BE: who else is on this document (§15.2). The host owns identity, so
-   * presence can only arrive from it — there is no bridge message for it yet.
-   * Absent means single-player, and the faces, the step locks and the conflict
-   * chooser all simply do not render.
+   * Optional local-development presence source. Hosted sessions receive the
+   * same semantic state through the authoring bridge after authenticated
+   * heartbeat/SSE setup. Absent means single-player until that stream starts.
    */
   presence?: LocalAuthoringPresenceServices;
   onSave?: (document: LodariqDocument) => Promise<void> | void;
@@ -279,8 +297,16 @@ export interface LocalAuthoringPreviewOptions {
     identifyTraits?: Readonly<Record<string, string | number | boolean>>;
     documentState?: Readonly<Record<string, string | number | boolean>>;
   };
+  adaptiveContext?: AdaptiveDecisionContext;
   /** Exact live selection for immediate creator preview; never persisted. */
   authoringTargetOverride?: { stepId: string; element: Element };
+  /**
+   * Synchronous, before the renderer leaves for the step. The click that
+   * advances a step may also be a real navigation that unloads the page, so
+   * anything that must survive the reload (the preview resume record) has to
+   * be written here — `onStepChange` may never fire.
+   */
+  onBeforeStepChange?: (index: number, stepId: string) => void;
   onStepChange?: (index: number, stepId: string) => void;
   onComplete?: () => void;
   onDismiss?: () => void;
@@ -288,6 +314,7 @@ export interface LocalAuthoringPreviewOptions {
   onChoreographyStageChange?: (stepId: string, update: ChoreographyStageUpdate) => void;
   onChoreographyRecovery?: (stepId: string, update: ChoreographyRecoveryUpdate) => void;
   onBranchChoice?: (stepId: string, ruleIndex: number | null, destination: string) => void;
+  onAdaptiveSkip?: (stepId: string, decision: AdaptiveStepDecision) => void;
   getAuthoringProtectedSurfaces?: () => readonly ProtectedSurfaceRect[];
   onAuthoringSurfaceChange?: (rect: ProtectedSurfaceRect | null) => void;
 }
@@ -510,6 +537,29 @@ function openAuthoringPanel(
   let latestPreviewTransactionId: string | null = null;
   let previewPending = false;
   let previewPresented = false;
+  /*
+   * The replay a burst of edits collapses into.
+   *
+   * `playPreview` has one shape: stop the mounted player and build a new one,
+   * which recompiles the document, re-resolves the step's target against the
+   * page and re-mounts the card. Every patch asked for that, so dragging a
+   * padding slider tore the preview down and rebuilt it around eleven times a
+   * second — the flicker, and the bulk of an edit's main-thread cost, which the
+   * profile puts in the resolver's element scan.
+   *
+   * Leading edge, then a floor between replays: the first move of a drag is
+   * answered immediately, so nothing feels delayed, and the rest arrive at a
+   * rate a creator can actually read. A superseded request is dropped rather
+   * than queued — the document already holds every change, so the last request
+   * describes all of them.
+   *
+   * Discrete edits are further apart than the floor, so a pill or a menu still
+   * replays on the spot.
+   */
+  const PREVIEW_REPLAY_FLOOR_MS = 220;
+  let queuedPreviewReplay: PreviewPlaybackRequest | null = null;
+  let queuedPreviewReplayTimer: ReturnType<typeof setTimeout> | null = null;
+  let lastPreviewReplayAt = 0;
   let previewContentLocale = previewDocument?.localization?.defaultLocale ?? 'en';
   let suspendedPreview: { stepId?: string } | null = null;
   const authoringTargetOverrides = new Map<string, Element>();
@@ -538,7 +588,10 @@ function openAuthoringPanel(
           readPreviewTheme: () => (previewTheme ? structuredClone(previewTheme) : undefined),
           playPreviewTheme: async (theme) => {
             previewTheme = theme ? structuredClone(theme) : undefined;
-            await playPreviewDocument(pendingInlinePreviewStepId(), true);
+            await playPreviewDocument({
+              stepId: pendingInlinePreviewStepId(),
+              rejectOnFailure: true,
+            });
           },
         },
         adoptDocument: (document) => {
@@ -561,6 +614,7 @@ function openAuthoringPanel(
   let overlayShell: OverlayShell | null = null;
   let stopPresence: (() => void) | null = null;
   let currentPresence: PresenceState | null = null;
+  let collaborationConflictNotified = false;
   let minimizedRestoreState: AuthoringPanelRestoreState | null = null;
   let targetPickingRestoreState: AuthoringPanelRestoreState | null = null;
   let presentationAnchorRestoreState: AuthoringPanelRestoreState | null = null;
@@ -593,8 +647,7 @@ function openAuthoringPanel(
   let closeNotified = false;
   let currentSaveState: AuthoringSaveState = 'saved';
   let currentSaveStateLabel: string = AUTHORING_PANEL_LABELS.draftSaved;
-  let currentHeaderStepId =
-    previewDocument?.blocks.find((block) => block.type === 'tourStep')?.id ?? null;
+  let currentHeaderStepId = tourStepsOf(previewDocument)[0]?.id ?? null;
   let previewPathStepIds: string[] = [];
   const pendingIframeSaveRequests = new Map<string, PendingIframeSaveRequest>();
 
@@ -628,11 +681,7 @@ function openAuthoringPanel(
     onDuplicateStep: (stepId) => sendShellStepCommand('duplicate', stepId),
     onClose: () => close(),
     onCollapse: () => collapseOverlayEditor(),
-    onExitPreview: () => {
-      stopOwnedPreview();
-      host.removeAttribute(AUTHORING_PREVIEW_ACTIVE_ATTRIBUTE);
-      restore();
-    },
+    onExitPreview: () => leaveInteractivePreview(),
     onMoveStep: (stepId, direction) =>
       sendShellStepCommand(direction === 'up' ? 'move-up' : 'move-down', stepId),
     onCloseOperations: () => closeOperations(),
@@ -649,7 +698,6 @@ function openAuthoringPanel(
     onSelectStep: (stepId) => selectOverlayStep(stepId),
     onSelectStepAdditive: (stepId, mode) =>
       sendShellStepCommand(mode === 'range' ? 'select-range' : 'select-add', stepId),
-    onTitleCommit: (title) => commitOverlayTitle(title),
     onBrowsingChange: (browsing) =>
       recordAuthoringDiagnostic(browsing ? 'chrome.collapsed' : 'chrome.restored'),
     onStartPreview: () => startOverlayPreview(),
@@ -668,7 +716,6 @@ function openAuthoringPanel(
     },
     onEnvironmentChange: (environment) => setAuthoringEnvironment(environment),
     onToggleRecording: () => sendChromeAction('toggle-recording'),
-    onSimulateUser: () => sendChromeAction('simulate-user'),
     onCanvasZoom: (direction) =>
       sendChromeAction(
         direction === 'in'
@@ -684,10 +731,7 @@ function openAuthoringPanel(
       currentPresence = next;
       overlayShell?.setPresence(next);
     }) ?? null;
-  overlayShell.setDocument(
-    previewDocument,
-    previewDocument?.title ?? authoringText('Untitled experience'),
-  );
+  overlayShell.setDocument(previewDocument);
   overlayShell.setActiveStepId(currentHeaderStepId);
   registerBuiltInExperiences();
   overlayShell.setPillState({
@@ -724,10 +768,8 @@ function openAuthoringPanel(
       },
     );
   }, COACH_TIP_DELAY_MS);
-  const panelDocumentTitle = shadow.querySelector<HTMLInputElement>('[data-panel-document-title]');
-
   const syncPanelStepStatus = (): void => {
-    const steps = previewDocument?.blocks.filter((block) => block.type === 'tourStep') ?? [];
+    const steps = tourStepsOf(previewDocument);
     if (!steps.length) return;
     const currentIndex = steps.findIndex((step) => step.id === currentHeaderStepId);
     const safeIndex = currentIndex >= 0 ? currentIndex : 0;
@@ -871,7 +913,8 @@ function openAuthoringPanel(
     recordAuthoringDiagnostic('chrome.collapsed');
   };
 
-  const restore = (): void => {
+  /** `replayPreview: false` when the caller selects a step itself — that replays. */
+  const restore = (restoreOptions: { replayPreview?: boolean } = {}): void => {
     if (host.hasAttribute(AUTHORING_TARGET_PICKING_ATTRIBUTE)) {
       if (pendingPresentationAnchorPick) {
         cancelActivePresentationAnchorPick();
@@ -900,8 +943,8 @@ function openAuthoringPanel(
     setAuthoringTriggerPanelState('open');
     if (options.persistenceOwner === 'iframe') dispatchHostedCreatorPanelState('open');
     recordAuthoringDiagnostic('chrome.restored');
-    if (preview && previewDocument) {
-      void playPreviewDocument(pendingInlinePreviewStepId());
+    if (preview && previewDocument && restoreOptions.replayPreview !== false) {
+      void playPreviewDocument({ stepId: pendingInlinePreviewStepId() });
     }
   };
 
@@ -1074,6 +1117,12 @@ function openAuthoringPanel(
             message.expectedContentHash,
           );
         }
+        if (message.type === AUTHORING_LOCALE_LAYOUT_QA_REQUEST_TYPE) {
+          return respondToLocaleLayoutQaRequest(
+            message.correlationId,
+            message.expectedDocumentRevision,
+          );
+        }
         if (message.type === AUTHORING_STYLE_SOURCE_SAVE_REQUEST_TYPE) {
           return hostOptionalPanelServices.then((services) =>
             services.respondToStyleSourceSaveRequest(message.correlationId, message.proposal),
@@ -1141,12 +1190,68 @@ function openAuthoringPanel(
           previewTheme = structuredClone(message.previewTheme);
           previewThemeRevision = message.draftRevision;
           if (changed && (previewPending || previewPresented)) {
-            return playPreviewDocument(pendingInlinePreviewStepId(), true);
+            return playPreviewDocument({
+              stepId: pendingInlinePreviewStepId(),
+              rejectOnFailure: true,
+            });
           }
           return;
         }
         if (message.type === AUTHORING_SHELL_NOTICE_TYPE) {
           overlayShell?.notify(message.message, { kind: message.kind ?? 'neutral' });
+          return;
+        }
+        if (message.type === AUTHORING_COLLABORATION_STATE_TYPE) {
+          const peers = message.peers.map((peer) => ({
+            creatorId: peer.participantId,
+            name: peer.name,
+            stepId: peer.stepId,
+            selection: peer.selection,
+            sameCreator: peer.sameCreator,
+            lastSeenAt: Date.parse(peer.lastSeenAt),
+          }));
+          const knownPeerIds = new Set(peers.map((peer) => peer.creatorId));
+          const stepLocks = message.locks.map((lock) => {
+            // One lock per step, so the step is the key when the holder has
+            // no live presence session to be addressed by.
+            const creatorId = lock.holderParticipantId ?? `lock:${lock.stepId}`;
+            if (creatorId !== message.selfParticipantId && !knownPeerIds.has(creatorId)) {
+              peers.push({
+                creatorId,
+                name: lock.holderName,
+                stepId: lock.stepId,
+                selection: null,
+                sameCreator: false,
+                lastSeenAt: Date.now(),
+              });
+              knownPeerIds.add(creatorId);
+            }
+            const lastEditAt =
+              Date.parse(lock.expiresAt) - EXPERIENCE_STEP_LOCK_TTL_SECONDS * 1_000;
+            return {
+              stepId: lock.stepId,
+              creatorId,
+              acquiredAt: lastEditAt,
+              lastEditAt,
+            };
+          });
+          currentPresence = {
+            selfId: message.selfParticipantId,
+            peers,
+            stepLocks,
+            documentLock: null,
+          };
+          overlayShell?.setPresence(currentPresence);
+          if (message.draftChanged && !collaborationConflictNotified) {
+            collaborationConflictNotified = true;
+            overlayShell?.notify(
+              authoringText(
+                'The draft changed in another authoring session. Review before saving.',
+              ),
+              { kind: 'warning' },
+            );
+          }
+          if (!message.draftChanged) collaborationConflictNotified = false;
           return;
         }
         if (message.type === AUTHORING_SHELL_MENU_STATE_TYPE) {
@@ -1169,20 +1274,22 @@ function openAuthoringPanel(
         }
         if (message.type === 'authoring.preview.request') {
           previewContentLocale = message.locale ?? previewContentLocale;
-          if (message.mode === 'step') {
+          if (message.mode === 'step' || message.mode === 'approach') {
             pendingInlineFocusBlockId = message.stepId;
             currentHeaderStepId = message.stepId;
             syncPanelStepStatus();
           } else {
             overlayShell?.setPresentation('previewing');
           }
-          return playPreviewDocument(
-            message.mode === 'step' ? message.stepId : message.initialStepId,
-            true,
-            message.mode === 'full',
-            message.mode === 'full' ? message.accessibilityMode : undefined,
-            message.mode === 'full' ? message.simulationContext : undefined,
-          );
+          return playPreviewDocument({
+            stepId: message.mode === 'full' ? message.initialStepId : message.stepId,
+            rejectOnFailure: true,
+            interactive: message.mode === 'full',
+            accessibilityMode: message.mode === 'full' ? message.accessibilityMode : undefined,
+            simulationContext: message.mode === 'full' ? message.simulationContext : undefined,
+            approachReplay: message.mode === 'approach',
+            goToStepPage: message.mode !== 'approach',
+          });
         }
         if (message.type === 'preview.patch') {
           return queuePreview(
@@ -1301,9 +1408,17 @@ function openAuthoringPanel(
       ...(options.getTargetStateId ? { getStateId: options.getTargetStateId } : {}),
     });
     if (options.autoPreview) {
-      const firstStepId = previewDocument?.blocks.find((block) => block.type === 'tourStep')?.id;
-      pendingInlineFocusBlockId = firstStepId ?? null;
-      if (firstStepId) void playPreviewDocument(firstStepId);
+      const steps = tourStepsOf(previewDocument);
+      const restored = options.initialPreviewStepId;
+      const startStepId =
+        restored && steps.some((step) => step.id === restored) ? restored : steps[0]?.id;
+      pendingInlineFocusBlockId = startStepId ?? null;
+      if (startStepId) {
+        void playPreviewDocument({
+          stepId: startStepId,
+          ...(options.initialPreviewInteractive ? { interactive: true } : {}),
+        });
+      }
     }
   };
 
@@ -1391,6 +1506,7 @@ function openAuthoringPanel(
       sendHostOperationFailure(
         activeBridge,
         requestCorrelationId,
+        AUTHORING_BROWSER_VERIFY_RESULT_TYPE,
         'verification_unavailable',
         authoringText('Exact staging verification is unavailable on this page.'),
       );
@@ -1425,19 +1541,93 @@ function openAuthoringPanel(
       sendHostOperationFailure(
         activeBridge,
         requestCorrelationId,
+        AUTHORING_BROWSER_VERIFY_RESULT_TYPE,
         'verification_failed',
         authoringText('The exact staging artifact could not be verified.'),
       );
     } finally {
       host.style.visibility = previousVisibility;
       schedulePanelFocusRestore(restoreState.focusedElement, null);
-      if (resumeDraftPreview) void playPreviewDocument(pendingInlinePreviewStepId());
+      if (resumeDraftPreview) void playPreviewDocument({ stepId: pendingInlinePreviewStepId() });
+    }
+  }
+
+  async function respondToLocaleLayoutQaRequest(
+    requestCorrelationId: string,
+    expectedDocumentRevision: number,
+  ): Promise<void> {
+    const activeBridge = bridge;
+    const document = previewDocument;
+    if (!activeBridge) return;
+    if (!preview || !document) {
+      sendHostOperationFailure(
+        activeBridge,
+        requestCorrelationId,
+        AUTHORING_LOCALE_LAYOUT_QA_RESULT_TYPE,
+        'locale_layout_unavailable',
+        authoringText('Live language layout checking is unavailable on this page.'),
+      );
+      return;
+    }
+    if (latestPreviewTransactionRevision !== expectedDocumentRevision) {
+      sendHostOperationFailure(
+        activeBridge,
+        requestCorrelationId,
+        AUTHORING_LOCALE_LAYOUT_QA_RESULT_TYPE,
+        'locale_layout_stale',
+        authoringText('The draft changed before live language layouts could be checked.'),
+      );
+      return;
+    }
+
+    const restoreState = captureRestoreState();
+    const previousVisibility = host.style.visibility;
+    const resumeDraftPreview = previewPresented;
+    const ownerIdPrefix = createBridgeCorrelationId('locale_layout_qa_owner');
+    host.style.visibility = 'hidden';
+    preview.stopPreview?.(previewOwnerId);
+    try {
+      const compiled = await preview.compilePreview(
+        structuredClone(document),
+        previewTheme ? structuredClone(previewTheme) : undefined,
+      );
+      const { runLocaleLayoutVerification } = await import('../bridge/locale-layout-verifier');
+      const report = await runLocaleLayoutVerification({
+        compiled,
+        documentRevision: expectedDocumentRevision,
+        ownerIdPrefix,
+        playPreview: (options) => preview.playPreview(compiled, options),
+        stopPreview: (ownerId) => preview.stopPreview?.(ownerId),
+      });
+      activeBridge.send({
+        protocol: BRIDGE_PROTOCOL_VERSION,
+        sessionId: session.sessionId,
+        documentId: session.documentId,
+        correlationId: createBridgeCorrelationId('authoring_locale_layout_qa_result'),
+        type: AUTHORING_LOCALE_LAYOUT_QA_RESULT_TYPE,
+        requestCorrelationId,
+        result: { ok: true, report },
+      });
+    } catch {
+      sendHostOperationFailure(
+        activeBridge,
+        requestCorrelationId,
+        AUTHORING_LOCALE_LAYOUT_QA_RESULT_TYPE,
+        'locale_layout_failed',
+        authoringText('Live language layouts could not be checked on this page.'),
+      );
+    } finally {
+      host.style.visibility = previousVisibility;
+      schedulePanelFocusRestore(restoreState.focusedElement, null);
+      if (resumeDraftPreview) void playPreviewDocument({ stepId: pendingInlinePreviewStepId() });
     }
   }
 
   function sendHostOperationFailure(
     activeBridge: AuthoringBridge,
     requestCorrelationId: string,
+    type:
+      typeof AUTHORING_BROWSER_VERIFY_RESULT_TYPE | typeof AUTHORING_LOCALE_LAYOUT_QA_RESULT_TYPE,
     code: string,
     message: string,
   ): void {
@@ -1446,7 +1636,7 @@ function openAuthoringPanel(
       sessionId: session.sessionId,
       documentId: session.documentId,
       correlationId: createBridgeCorrelationId('authoring_host_operation_result'),
-      type: AUTHORING_BROWSER_VERIFY_RESULT_TYPE,
+      type,
       requestCorrelationId,
       result: { ok: false, code, message },
     });
@@ -1484,7 +1674,7 @@ function openAuthoringPanel(
 
     const affectedStepId = findContainingTourStepId(current.blocks, blockId);
     const protectedStepIds = ops.some((operation) => operation.op === 'replaceDocument')
-      ? current.blocks.filter((block) => block.type === 'tourStep').map((block) => block.id)
+      ? tourStepsOf(current).map((block) => block.id)
       : affectedStepId
         ? [affectedStepId]
         : currentHeaderStepId
@@ -1515,7 +1705,7 @@ function openAuthoringPanel(
       authoringTargetOverrides.delete(affectedStepId);
     }
     previewDocument = applyPreviewPatch(current, blockId, ops, locale);
-    overlayShell?.setDocument(previewDocument, previewDocument.title);
+    overlayShell?.setDocument(previewDocument);
     if (transaction) {
       latestPreviewTransactionRevision = transaction.revision;
       latestPreviewTransactionId = transaction.transactionId;
@@ -1526,9 +1716,6 @@ function openAuthoringPanel(
     const persistence = ops.some((operation) => operation.op === 'removeTarget')
       ? flushAutoSave()
       : undefined;
-    if (panelDocumentTitle && panelDocumentTitle !== shadow.activeElement) {
-      panelDocumentTitle.value = previewDocument.title;
-    }
     if (!preview) return persistence;
     if (ops.every((operation) => operation.op === 'updateTargetEvidence')) return persistence;
     const contentOnlyPatch = ops.every(
@@ -1540,7 +1727,7 @@ function openAuthoringPanel(
       suspendedPreview = stepId ? { stepId } : (suspendedPreview ?? {});
       return persistence;
     }
-    void playPreviewDocument(stepId);
+    scheduleQueuedPreviewReplay({ stepId });
     return persistence;
   }
 
@@ -1628,7 +1815,6 @@ function openAuthoringPanel(
     action:
       | 'switch-experience'
       | 'toggle-recording'
-      | 'simulate-user'
       | 'canvas-zoom-in'
       | 'canvas-zoom-out'
       | 'canvas-zoom-reset'
@@ -1786,32 +1972,51 @@ function openAuthoringPanel(
     overlayShell?.setActiveStepId(stepId);
     overlayShell?.setPresentation('overlay');
     sendShellStepCommand('select', stepId);
-    void playPreviewDocument(stepId);
+    void playPreviewDocument({ stepId, goToStepPage: true });
   }
 
   /** The pill's `Preview` button (§4.7): the runtime renders, every authoring pixel goes. */
   function startOverlayPreview(): void {
     overlayShell?.setPresentation('previewing');
     host.setAttribute(AUTHORING_PREVIEW_ACTIVE_ATTRIBUTE, 'true');
-    void playPreviewDocument(currentHeaderStepId ?? pendingInlinePreviewStepId(), true, true).catch(
+    void playPreviewDocument({
+      stepId: currentHeaderStepId ?? pendingInlinePreviewStepId(),
+      rejectOnFailure: true,
+      interactive: true,
+    }).catch((error: unknown) => {
+      // The usual cause is a step whose target is not on this page. Saying so is
+      // the difference between "preview is broken" and "go to the right screen".
+      overlayShell?.notify(previewFailureMessage(error), { kind: 'warning' });
+    });
+  }
+
+  /** The preview bar's arrows (§4.7): replay from the step either side of this one. */
+  function stepPreview(direction: 'previous' | 'next'): void {
+    const steps = tourStepsOf(previewDocument);
+    const showing = previewPathStepIds[previewPathStepIds.length - 1] ?? currentHeaderStepId;
+    const index = steps.findIndex((step) => step.id === showing);
+    const next = steps[index + (direction === 'next' ? 1 : -1)];
+    if (index < 0 || !next) return;
+    void playPreviewDocument({ stepId: next.id, rejectOnFailure: true, interactive: true }).catch(
       (error: unknown) => {
-        // The usual cause is a step whose target is not on this page. Saying so is
-        // the difference between "preview is broken" and "go to the right screen".
         overlayShell?.notify(previewFailureMessage(error), { kind: 'warning' });
       },
     );
   }
 
-  /** The preview bar's arrows (§4.7): replay from the step either side of this one. */
-  function stepPreview(direction: 'previous' | 'next'): void {
-    const steps = (previewDocument?.blocks ?? []).filter((block) => block.type === 'tourStep');
-    const showing = previewPathStepIds[previewPathStepIds.length - 1] ?? currentHeaderStepId;
-    const index = steps.findIndex((step) => step.id === showing);
-    const next = steps[index + (direction === 'next' ? 1 : -1)];
-    if (index < 0 || !next) return;
-    void playPreviewDocument(next.id, true, true).catch((error: unknown) => {
-      overlayShell?.notify(previewFailureMessage(error), { kind: 'warning' });
-    });
+  function followRuntimePreviewStep(stepId: string): void {
+    if (stepId === currentHeaderStepId) return;
+    currentHeaderStepId = stepId;
+    overlayShell?.setActiveStepId(stepId);
+  }
+
+  function leaveInteractivePreview(): void {
+    const showingStepId =
+      previewPathStepIds[previewPathStepIds.length - 1] ?? currentHeaderStepId ?? null;
+    stopOwnedPreview();
+    host.removeAttribute(AUTHORING_PREVIEW_ACTIVE_ATTRIBUTE);
+    restore({ replayPreview: !showingStepId });
+    if (showingStepId) selectOverlayStep(showingStepId);
   }
 
   /** `Edit this step` on the preview bar: select what is showing, keep preview state. */
@@ -1822,54 +2027,35 @@ function openAuthoringPanel(
     else overlayShell?.setPresentation('overlay');
   }
 
-  function commitOverlayTitle(title: string): void {
-    const currentTitle = previewDocument?.title ?? 'Untitled experience';
-    const next = title.trim() || 'Untitled experience';
-    if (panelDocumentTitle) panelDocumentTitle.value = next;
-    if (next === currentTitle) return;
-    const activeBridge = bridge;
-    if (!activeBridge) {
-      if (panelDocumentTitle) panelDocumentTitle.value = currentTitle;
-      return;
-    }
-    setSaveState('saving', AUTHORING_PANEL_LABELS.savingDraft);
-    void activeBridge
-      .sendWithAck(
-        {
-          protocol: BRIDGE_PROTOCOL_VERSION,
-          sessionId: session.sessionId,
-          documentId: session.documentId,
-          correlationId: createBridgeCorrelationId('authoring_document_title_commit'),
-          type: AUTHORING_INLINE_CONTROL_COMMIT_TYPE,
-          operation: { kind: 'setDocumentTitle', title: next },
-        },
-        { timeoutMs: 2_000 },
-      )
-      .catch((error) => {
-        if (panelDocumentTitle) {
-          panelDocumentTitle.value = previewDocument?.title ?? currentTitle;
-        }
-        setSaveState('error', 'Title could not be saved');
-        preview?.onPreviewError?.(error);
-      });
+  interface PreviewPlaybackRequest {
+    readonly stepId?: string;
+    readonly rejectOnFailure?: boolean;
+    readonly interactive?: boolean;
+    readonly accessibilityMode?: AuthoringAccessibilityPreviewMode;
+    readonly simulationContext?: AuthoringFlowSimulationContext;
+    readonly approachReplay?: boolean;
+    readonly goToStepPage?: boolean;
   }
 
-  function playPreviewDocument(
-    stepId?: string,
-    rejectOnFailure = false,
-    interactive = false,
-    accessibilityMode?: AuthoringAccessibilityPreviewMode,
-    flowConditionContext?: LocalAuthoringPreviewOptions['flowConditionContext'],
-  ): Promise<void> {
+  function playPreviewDocument(request: PreviewPlaybackRequest = {}): Promise<void> {
+    // An explicit replay answers whatever a patch had queued, so the queue goes.
+    cancelQueuedPreviewReplay();
+    lastPreviewReplayAt = Date.now();
+    const {
+      stepId,
+      rejectOnFailure = false,
+      interactive = false,
+      accessibilityMode,
+      simulationContext,
+      approachReplay = false,
+      goToStepPage = interactive,
+    } = request;
     if (!preview || !previewDocument) {
       return rejectOnFailure
         ? Promise.reject(new Error('Lodariq preview runtime is unavailable'))
         : Promise.resolve();
     }
-    if (
-      stepId &&
-      previewDocument.blocks.some((block) => block.type === 'tourStep' && block.id === stepId)
-    ) {
+    if (stepId && tourStepsOf(previewDocument).some((block) => block.id === stepId)) {
       currentHeaderStepId = stepId;
       syncPanelStepStatus();
     }
@@ -1892,7 +2078,7 @@ function openAuthoringPanel(
         structuredClone(previewDocument),
         previewTheme ? structuredClone(previewTheme) : undefined,
       )
-      .then((compiled) => {
+      .then(async (compiled) => {
         if (requestId !== previewRequestId || !host.isConnected) return;
         if (compiled.steps.length === 0) {
           stopOwnedPreview();
@@ -1901,6 +2087,26 @@ function openAuthoringPanel(
           return;
         }
         const previewStepId = stepId ?? compiled.steps[0]?.id;
+        // A step lives on one screen. Asking for it from another is a request to
+        // go there — a tour cannot start off its first page, and a step selected
+        // from the filmstrip cannot be edited against a target that is not here.
+        if (goToStepPage) {
+          const destination = stepPageDestination(compiled, previewStepId);
+          if (destination) {
+            const outcome = await goToPreviewPage(destination);
+            if (requestId !== previewRequestId || !host.isConnected) return;
+            if (outcome.kind === 'unreachable') {
+              overlayShell?.notify(
+                authoringText('This step is on {page}. Open that page, then preview.', {
+                  page: outcome.destination,
+                }),
+                { kind: 'warning' },
+              );
+              // Selecting still renders: needs-context beats an empty canvas.
+              if (interactive) throw new PreviewPageUnreachableError(outcome.destination);
+            }
+          }
+        }
         previewPathStepIds = previewStepId ? [previewStepId] : [];
         const selectedElement = previewStepId
           ? authoringTargetOverrides.get(previewStepId)
@@ -1908,21 +2114,60 @@ function openAuthoringPanel(
         if (previewStepId && selectedElement && !selectedElement.isConnected) {
           authoringTargetOverrides.delete(previewStepId);
         }
+        const runtimeInteractive = interactive || approachReplay;
         const previewOptions: LocalAuthoringPreviewOptions = {
           ownerId: previewOwnerId,
           locale: previewContentLocale,
-          ...(interactive ? { interactive: true } : {}),
+          ...(runtimeInteractive ? { interactive: true } : {}),
           ...(accessibilityMode ? { accessibilityMode } : {}),
-          ...(flowConditionContext ? { flowConditionContext } : {}),
+          ...(simulationContext?.identifyTraits || simulationContext?.documentState
+            ? {
+                flowConditionContext: {
+                  ...(simulationContext.identifyTraits
+                    ? { identifyTraits: simulationContext.identifyTraits }
+                    : {}),
+                  ...(simulationContext.documentState
+                    ? { documentState: simulationContext.documentState }
+                    : {}),
+                },
+              }
+            : {}),
+          ...(simulationContext?.adaptive ? { adaptiveContext: simulationContext.adaptive } : {}),
           ...(interactive
             ? {
+                /*
+                 * The record must already name the step the visitor advanced TO
+                 * before their click finishes: a step that advances on the
+                 * customer's own element may be a real navigation, and the page
+                 * unloads before `onStepChange` fires. Left stale, the resume
+                 * replays the step the preview STARTED on and — because a
+                 * restored interactive preview goes to its step's page — drags
+                 * the creator back to the screen they just left. Mirrors
+                 * delivery's `tracked-tour-player`, which writes on both hooks.
+                 */
+                onBeforeStepChange: (_index: number, runtimeStepId: string) => {
+                  if (requestId !== previewRequestId) return;
+                  writeDraftPreviewResume(session.workspaceId, {
+                    sessionId: session.sessionId,
+                    documentId: session.documentId,
+                    stepId: runtimeStepId,
+                    interactive: runtimeInteractive,
+                  });
+                },
                 onStepChange: (index: number, runtimeStepId: string) => {
                   if (requestId !== previewRequestId) return;
+                  writeDraftPreviewResume(session.workspaceId, {
+                    sessionId: session.sessionId,
+                    documentId: session.documentId,
+                    stepId: runtimeStepId,
+                    interactive: runtimeInteractive,
+                  });
                   if (previewPathStepIds[previewPathStepIds.length - 1] !== runtimeStepId) {
                     previewPathStepIds.push(runtimeStepId);
                   }
                   // Audit #6: progress follows the runtime, not the editor selection.
                   overlayShell?.setRuntimeStepId(runtimeStepId);
+                  followRuntimePreviewStep(runtimeStepId);
                   recordAuthoringDiagnostic('preview.step-changed', {
                     stepId: runtimeStepId,
                     count: index,
@@ -1961,6 +2206,12 @@ function openAuthoringPanel(
                     syncPanelStepStatus();
                   }
                 },
+                onAdaptiveSkip: (runtimeStepId, decision) => {
+                  if (requestId !== previewRequestId) return;
+                  overlayShell?.notify(adaptiveSkipPreviewMessage(runtimeStepId, decision), {
+                    kind: 'neutral',
+                  });
+                },
               }
             : {}),
           getAuthoringProtectedSurfaces: () => authoringProtectedSurfaces(),
@@ -1982,6 +2233,16 @@ function openAuthoringPanel(
           if (requestId !== previewRequestId || !host.isConnected) return;
           previewPending = false;
           previewPresented = true;
+          // Recorded where the creator actually is, not where the request asked
+          // to go: a preview that never presented is not a place to come back to.
+          if (previewStepId) {
+            writeDraftPreviewResume(session.workspaceId, {
+              sessionId: session.sessionId,
+              documentId: session.documentId,
+              stepId: previewStepId,
+              interactive: runtimeInteractive,
+            });
+          }
           if (interactive) {
             inlinePreviewEditor?.destroy();
             inlinePreviewEditor = null;
@@ -2026,6 +2287,11 @@ function openAuthoringPanel(
       state,
     });
     syncPanelStepStatus();
+    // Deferred: the renderer stops itself right after calling this.
+    queueMicrotask(() => {
+      if (requestId !== previewRequestId || !host.isConnected) return;
+      leaveInteractivePreview();
+    });
   }
 
   function authoringProtectedSurfaces(): ProtectedSurfaceRect[] {
@@ -2083,13 +2349,41 @@ function openAuthoringPanel(
     suspendedPreview = null;
     overlayShell?.setPresentation('overlay');
     if (!suspended || !host.isConnected) return;
-    void playPreviewDocument(suspended.stepId);
+    void playPreviewDocument({ stepId: suspended.stepId });
+  }
+
+  function scheduleQueuedPreviewReplay(request: PreviewPlaybackRequest): void {
+    queuedPreviewReplay = request;
+    if (queuedPreviewReplayTimer !== null) return;
+    const wait = Math.max(0, PREVIEW_REPLAY_FLOOR_MS - (Date.now() - lastPreviewReplayAt));
+    if (wait === 0) {
+      runQueuedPreviewReplay();
+      return;
+    }
+    queuedPreviewReplayTimer = setTimeout(runQueuedPreviewReplay, wait);
+  }
+
+  function runQueuedPreviewReplay(): void {
+    queuedPreviewReplayTimer = null;
+    const next = queuedPreviewReplay;
+    queuedPreviewReplay = null;
+    if (!next || !host.isConnected) return;
+    lastPreviewReplayAt = Date.now();
+    void playPreviewDocument(next);
+  }
+
+  function cancelQueuedPreviewReplay(): void {
+    if (queuedPreviewReplayTimer !== null) clearTimeout(queuedPreviewReplayTimer);
+    queuedPreviewReplayTimer = null;
+    queuedPreviewReplay = null;
   }
 
   function stopOwnedPreview(): void {
+    cancelQueuedPreviewReplay();
     previewRequestId += 1;
     previewPending = false;
     previewPresented = false;
+    clearDraftPreviewResume(session.workspaceId);
     previewPathStepIds = [];
     overlayShell?.setRuntimeStepId(null);
     host.removeAttribute(AUTHORING_PREVIEW_ACTIVE_ATTRIBUTE);
@@ -2773,9 +3067,18 @@ const COACH_TIP_DELAY_MS = 700;
 /** Names the common cause rather than printing an exception at the creator. */
 function previewFailureMessage(error: unknown): string {
   const name = error instanceof Error ? error.name : '';
-  return name === 'TourPresentationUnavailableError'
+  const message = error instanceof Error ? error.message : '';
+  return name === 'TourPresentationUnavailableError' && message.includes('target could not be resolved')
     ? authoringText('Preview stopped: this step points at something that is not on this page.')
     : authoringText('Preview could not start.');
+}
+
+function adaptiveSkipPreviewMessage(stepId: string, decision: AdaptiveStepDecision): string {
+  return authoringText('Adaptive preview skipped {stepId}: {eventName} happened {count} times.', {
+    stepId,
+    eventName: decision.eventName ?? authoringText('the declared event'),
+    count: decision.occurrences,
+  });
 }
 
 function dispatchHostedCreatorPanelState(state: HostedCreatorPanelState): void {

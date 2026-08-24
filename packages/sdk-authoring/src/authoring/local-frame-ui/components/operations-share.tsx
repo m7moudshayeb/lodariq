@@ -1,30 +1,13 @@
 import type { ReactNode } from 'react';
+import { productCapabilityIsImplemented } from '@lodariq/schema/product-capabilities-runtime';
 import { authoringText } from '../../../i18n';
-import { ChartColumn, Eye, Link, Video } from '../design-system';
+import { ChartColumn, Eye, Link } from '../design-system';
 import type { LocalAuthoringFrameController } from '../controller';
 import type { LocalAuthoringFrameSnapshot } from '../types';
 
-/**
- * WIRE_IFRAME: capture and redaction need a semantic host-page capture bridge.
- * WIRE_BE: reviewed captures and public-link state need document-scoped storage
- * and link issuance. Keep the prototype section visible, but inert, until both
- * sides exist so a status-only click cannot masquerade as a capture.
- */
-const DEMO_CAPTURE_AVAILABLE = false;
-const DEMO_SHARING_AVAILABLE = false;
+const DEMO_SHARING_AVAILABLE = productCapabilityIsImplemented('authoring.shareable-demo-links');
 
-/**
- * The same experience, authored once, playing two ways: a guided tour for a real
- * user, and a self-playing demo for a prospect.
- *
- * The demo is a *capture* — but content and capture stay separate objects here,
- * which is the whole difference from the category. Targets bind by accessible
- * name and role, so when the product changes you re-capture the surface and the
- * content re-binds. Drift detection says which captures went stale.
- *
- * Redaction is not optional: a capture serializes an authenticated page, and a
- * link cannot be created until that pass has been made.
- */
+/** Artifact-backed sharing; no customer page, DOM, selectors, or coordinates are captured. */
 export function OperationsShare({
   controller,
   snapshot,
@@ -33,153 +16,113 @@ export function OperationsShare({
   snapshot: LocalAuthoringFrameSnapshot;
 }): ReactNode {
   const demo = snapshot.demoLink;
-  const capture = snapshot.demoCapture;
-  const redactionPending = (capture?.unreviewedRegions ?? 0) > 0;
+  const review = snapshot.demoArtifactReview;
+  const analytics = snapshot.demoAnalytics;
+  const staging = snapshot.panelWorkflow.release?.staging;
+  const reviewIsCurrent = Boolean(
+    review?.approved &&
+    review.publicationId === staging?.publicationId &&
+    review.sourceContentHash === staging?.contentHash,
+  );
 
   return (
     <section className="operations-share" aria-label={authoringText('Share a demo')}>
-      {/* The section's opening line is the sheet header's, not a second copy. */}
       <div className="ops-cols" data-cols="2">
-        <div className="ops-box">
-          <h3>
-            <Video size={15} strokeWidth={2} aria-hidden="true" />
-            {authoringText('What was recorded')}
-            <span className="ops-box-actions">
-              <button
-                className="ops-btn"
-                data-size="sm"
-                disabled={!DEMO_CAPTURE_AVAILABLE}
-                onClick={() => controller.captureDemoSurface()}
-                title={
-                  DEMO_CAPTURE_AVAILABLE
-                    ? undefined
-                    : authoringText('Demo capture and public links are not available yet.')
-                }
-                type="button"
-              >
-                {capture ? authoringText('Record it again') : authoringText('Record the flow')}
-              </button>
-            </span>
-          </h3>
-          {capture ? (
-            <dl className="ops-kv">
-              <dt>{authoringText('States captured')}</dt>
-              <dd>{capture.stateCount}</dd>
-              <dt>{authoringText('Captured')}</dt>
-              <dd>{capture.capturedAtLabel}</dd>
-              <dt>{authoringText('Out of date')}</dt>
-              <dd>
-                {capture.staleStepIds.length
-                  ? authoringText('{count} steps drifted since capture', {
-                      count: capture.staleStepIds.length,
-                    })
-                  : authoringText('Nothing has drifted')}
-              </dd>
-            </dl>
-          ) : (
-            <p className="ops-box-body">
-              {authoringText(
-                'Walk the flow once. The same pass records the steps and the states they need, so a step inside a menu still has a menu to sit in.',
-              )}
-            </p>
-          )}
-        </div>
-
-        {/* Not optional and not last: a capture serializes a signed-in page, so
-            the link cannot exist until somebody has looked at what is in it. */}
-        <div className="ops-box" data-blocking={redactionPending ? 'true' : 'false'}>
+        <div className="ops-box" data-blocking={reviewIsCurrent ? undefined : 'true'}>
           <h3>
             <Eye size={15} strokeWidth={2} aria-hidden="true" />
-            {authoringText('What a stranger would see')}
+            {authoringText('Structured artifact review')}
             <span className="ops-box-actions">
-              <span className="ops-tag" data-tone={redactionPending ? 'warning' : undefined}>
-                {capture
-                  ? redactionPending
-                    ? authoringText('{count} to check', { count: capture.unreviewedRegions })
-                    : authoringText('Checked')
-                  : authoringText('Nothing recorded')}
+              <span className="ops-tag" data-tone={reviewIsCurrent ? undefined : 'warning'}>
+                {reviewIsCurrent ? authoringText('Approved') : authoringText('Review required')}
               </span>
             </span>
           </h3>
           <p className="ops-box-body">
             {authoringText(
-              'A capture contains whatever was on screen. Every region that looks like customer data must be reviewed before this can be shared.',
+              'The server creates a targetless presentation from the immutable staging artifact. Product targets, lifecycle actions, external links, audience rules, raw DOM, CSS, selectors, and coordinates are excluded.',
             )}
           </p>
           <button
             className="ops-btn"
             data-size="sm"
-            disabled={!DEMO_CAPTURE_AVAILABLE || !capture}
-            onClick={() => controller.openDemoRedaction()}
-            title={
-              DEMO_CAPTURE_AVAILABLE
-                ? undefined
-                : authoringText('Demo capture and public links are not available yet.')
-            }
+            disabled={!DEMO_SHARING_AVAILABLE || !staging?.publicationId || !staging.contentHash}
+            onClick={() => controller.reviewDemoArtifact()}
             type="button"
           >
-            {authoringText('Review what will be published')}
+            {reviewIsCurrent ? authoringText('Review again') : authoringText('Review artifact')}
           </button>
+        </div>
+
+        <div className="ops-box">
+          <h3>
+            <Link size={15} strokeWidth={2} aria-hidden="true" />
+            {authoringText('The link you send')}
+            <span className="ops-box-actions">
+              <button
+                className="ops-btn"
+                data-size="sm"
+                data-variant={demo?.enabled ? undefined : 'primary'}
+                disabled={!DEMO_SHARING_AVAILABLE || (!demo?.enabled && !reviewIsCurrent)}
+                onClick={() => controller.setDemoLinkEnabled(!demo?.enabled)}
+                type="button"
+              >
+                {demo?.enabled
+                  ? authoringText('Turn the link off')
+                  : authoringText('Create the link')}
+              </button>
+            </span>
+          </h3>
+          {demo?.enabled ? (
+            <p className="ops-code operations-share-link">{demo.url}</p>
+          ) : (
+            <p className="ops-box-body">
+              {reviewIsCurrent
+                ? authoringText('The reviewed artifact is ready for a time-limited link.')
+                : authoringText('Nothing is shared yet.')}
+            </p>
+          )}
         </div>
       </div>
 
-      <div className="ops-box">
-        <h3>
-          <Link size={15} strokeWidth={2} aria-hidden="true" />
-          {authoringText('The link you send')}
-          <span className="ops-box-actions">
-            <button
-              className="ops-btn"
-              data-size="sm"
-              data-variant={demo?.enabled ? undefined : 'primary'}
-              disabled={!DEMO_SHARING_AVAILABLE || !capture || redactionPending}
-              onClick={() => controller.setDemoLinkEnabled(!demo?.enabled)}
-              title={
-                DEMO_SHARING_AVAILABLE
-                  ? redactionPending
-                    ? authoringText('Blocked until the redaction pass is done.')
-                    : undefined
-                  : authoringText('Demo capture and public links are not available yet.')
-              }
-              type="button"
-            >
-              {demo?.enabled ? authoringText('Turn the link off') : authoringText('Create the link')}
-            </button>
-          </span>
-        </h3>
-        {demo?.enabled ? (
-          <p className="ops-code operations-share-link">{demo.url}</p>
-        ) : (
-          <p className="ops-box-body">
-            {redactionPending
-              ? authoringText('Blocked until the redaction pass is done.')
-              : authoringText('Nothing is shared yet.')}
-          </p>
-        )}
-      </div>
+      {review ? (
+        <div className="ops-box">
+          <h3>{authoringText('Review evidence')}</h3>
+          <dl className="ops-kv">
+            <dt>{authoringText('Policy version')}</dt>
+            <dd>{review.policyVersion}</dd>
+            <dt>{authoringText('Target bindings removed')}</dt>
+            <dd>{review.summary.targetBindingsRemoved}</dd>
+            <dt>{authoringText('Product actions replaced')}</dt>
+            <dd>{review.summary.unsafeActionsReplaced}</dd>
+            <dt>{authoringText('External links removed')}</dt>
+            <dd>{review.summary.externalLinksRemoved}</dd>
+            <dt>{authoringText('Audience rules removed')}</dt>
+            <dd>{review.summary.audienceRulesRemoved}</dd>
+          </dl>
+        </div>
+      ) : null}
 
-      {/*
-        WIRE_BE: who watched and where they stopped is workspace telemetry keyed
-        to a link that cannot be issued yet. Printed because it is the reason to
-        send one at all.
-      */}
       <div className="ops-box">
         <h3>
           <ChartColumn size={15} strokeWidth={2} aria-hidden="true" />
-          {authoringText('Who watched it')}
+          {authoringText('Anonymous demo activity')}
         </h3>
         <table className="ops-table">
           <thead>
             <tr>
-              <th scope="col">{authoringText('Viewer')}</th>
-              <th scope="col">{authoringText('Watched')}</th>
-              <th scope="col">{authoringText('Stopped at')}</th>
+              <th scope="col">{authoringText('Views')}</th>
+              <th scope="col">{authoringText('Completed')}</th>
+              <th scope="col">{authoringText('Last step')}</th>
             </tr>
           </thead>
           <tbody>
             <tr>
-              <td colSpan={3}>
-                {authoringText('Create the link to start collecting views.')}
+              <td>{analytics?.views ?? 0}</td>
+              <td>{analytics?.completions ?? 0}</td>
+              <td>
+                {analytics?.lastStepIds?.[analytics.lastStepIds.length - 1] ??
+                  authoringText('No visits yet')}
               </td>
             </tr>
           </tbody>
@@ -187,7 +130,13 @@ export function OperationsShare({
       </div>
 
       <p className="ops-callout" data-tone="info" role="status">
-        {authoringText('Demo capture and public links are not available yet.')}
+        {demo?.enabled
+          ? authoringText(
+              'Views are anonymous and scoped to this demo link. The active publication is never mutated.',
+            )
+          : authoringText(
+              'Publish to staging, review the structured artifact, then create a time-limited demo link.',
+            )}
       </p>
     </section>
   );

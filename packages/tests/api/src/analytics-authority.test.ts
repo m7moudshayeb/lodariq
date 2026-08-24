@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { createApiApp } from '@lodariq/api';
 import {
   createInMemoryControlPlaneRepository,
+  deriveAnalyticsAudienceSegment,
   getEnvironmentTokenPrefix,
   hashEnvironmentToken,
   type InMemoryControlPlaneSeed,
@@ -9,6 +10,7 @@ import {
   type PersistedPublication,
   type WorkspaceEnvironment,
 } from '@lodariq/database';
+import { COMMERCIAL_PLAN_VERSION } from '@lodariq/schema';
 
 const WORKSPACE_ID = 'wk_analytics';
 const DOCUMENT_ID = 'doc_analytics';
@@ -142,6 +144,7 @@ describe('SDK analytics authority and environment isolation', () => {
           environmentId: string;
           publicationId: string;
           contentHash: string;
+          audienceSegment: ReturnType<typeof deriveAnalyticsAudienceSegment>;
         }>;
       }>().events,
     ).toEqual(
@@ -151,6 +154,7 @@ describe('SDK analytics authority and environment isolation', () => {
           environmentId: 'env_staging',
           publicationId: 'pub_analytics_staging',
           contentHash: STAGING_HASH,
+          audienceSegment: deriveAnalyticsAudienceSegment({ rules: [] }),
         }),
       ]),
     );
@@ -184,11 +188,16 @@ describe('SDK analytics authority and environment isolation', () => {
           name: string;
           count: number;
           targetResolutionStatus?: string;
+          audienceSegment?: ReturnType<typeof deriveAnalyticsAudienceSegment>;
         }>;
       }>().aggregates,
     ).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ name: 'tour_started', count: 1 }),
+        expect.objectContaining({
+          name: 'tour_started',
+          count: 1,
+          audienceSegment: deriveAnalyticsAudienceSegment({ rules: [] }),
+        }),
         expect.objectContaining({
           name: 'target_resolution',
           targetResolutionStatus: 'missing',
@@ -197,6 +206,51 @@ describe('SDK analytics authority and environment isolation', () => {
       ]),
     );
 
+    await app.close();
+  });
+
+  it('keeps basic API analytics visible without exposing plan-gated segment results', async () => {
+    const seed = analyticsSeed();
+    seed.workspaceSubscriptions = seed.workspaceSubscriptions?.map((subscription) => ({
+      ...subscription,
+      planId: 'free',
+    }));
+    const repository = createInMemoryControlPlaneRepository(seed);
+    const app = createApiApp({ repository, publicApiBaseUrl: 'https://api.lodariq.io' });
+    const pointer = await bootstrapPointer(app, STAGING_TOKEN, 'staging');
+    await app.inject({
+      method: 'POST',
+      url: '/v1/sdk/events',
+      headers: { authorization: `Bearer ${STAGING_TOKEN}` },
+      payload: {
+        events: [{ ...sdkEvent(pointer), timestamp: '2026-08-21T12:00:00.000Z' }],
+      },
+    });
+
+    const events = await app.inject({
+      method: 'GET',
+      url: '/v1/analytics/events?environmentId=env_staging',
+      headers: authHeaders,
+    });
+    expect(events.statusCode).toBe(200);
+    expect(events.json<{ events: unknown[] }>().events[0]).not.toHaveProperty('audienceSegment');
+
+    const aggregate = await app.inject({
+      method: 'GET',
+      url: '/v1/analytics/aggregate?environmentId=env_staging',
+      headers: authHeaders,
+    });
+    expect(aggregate.statusCode).toBe(200);
+    expect(aggregate.json<{ aggregates: unknown[] }>().aggregates[0]).not.toHaveProperty(
+      'audienceSegment',
+    );
+
+    const filtered = await app.inject({
+      method: 'GET',
+      url: `/v1/analytics/events?environmentId=env_staging&audienceSegmentId=${deriveAnalyticsAudienceSegment({ rules: [] }).id}`,
+      headers: authHeaders,
+    });
+    expect(filtered.statusCode).toBe(403);
     await app.close();
   });
 
@@ -330,6 +384,20 @@ function analyticsSeed(): InMemoryControlPlaneSeed {
     publication('pub_analytics_production', 'env_production', 'production', artifacts[1]!),
   ];
   return {
+    workspaceSubscriptions: [
+      {
+        workspaceId: WORKSPACE_ID,
+        planId: 'business',
+        planVersion: COMMERCIAL_PLAN_VERSION,
+        status: 'active',
+        entitlementOverrides: {},
+        currentPeriodStart: '2026-08-01T00:00:00.000Z',
+        currentPeriodEnd: '2026-09-01T00:00:00.000Z',
+        revision: 1,
+        createdAt: '2026-08-09T00:00:00.000Z',
+        updatedAt: '2026-08-09T00:00:00.000Z',
+      },
+    ],
     environments,
     environmentTokens: [
       {

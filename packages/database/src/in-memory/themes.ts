@@ -35,6 +35,7 @@ import {
   normalizeWorkspaceThemeName,
   themeImpactBinding,
 } from '../domains/theme-policy';
+import { assertCommercialFeature } from '../domains/commercial-entitlements';
 import {
   clone,
   compareWorkspaceThemeImpact,
@@ -80,6 +81,15 @@ export class InMemoryRepositoryThemes extends InMemoryRepositoryEnterpriseIdenti
   async createWorkspaceTheme(input: CreateWorkspaceThemeInput): Promise<WorkspaceThemeRecord> {
     const name = normalizeWorkspaceThemeName(input.name);
     assertWorkspaceThemeDraft(input.draft);
+    const existingThemeCount = [...this.themes.values()].filter(
+      (theme) => theme.workspaceId === input.workspaceId,
+    ).length;
+    if (existingThemeCount > 0) {
+      assertCommercialFeature(
+        this.resolveWorkspaceEntitlements(input.workspaceId).entitlements,
+        'multiple-themes',
+      );
+    }
     const now = new Date().toISOString();
     const theme: WorkspaceThemeRecord = {
       id: `theme_${randomUUID()}`,

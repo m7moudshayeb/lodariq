@@ -1,5 +1,5 @@
 import type { LodariqBlock, LodariqDocument, StepChoreography } from '@lodariq/schema';
-import { blocksReferenceTarget, duplicateTopLevelBlock, renumberTourSteps } from './document-ops';
+import { documentWithBlocks, duplicateTopLevelBlock, renumberTourSteps } from './document-ops';
 
 export type TourStepBatchDirection = 'up' | 'down';
 export type TourStepBatchPlacement = 'top' | 'right' | 'bottom' | 'left';
@@ -91,11 +91,7 @@ export function deleteSelectedTourSteps(
   stepIds: ReadonlySet<string>,
 ): LodariqDocument {
   const blocks = renumberTourSteps(document.blocks.filter((block) => !stepIds.has(block.id)));
-  return {
-    ...document,
-    blocks,
-    targets: document.targets.filter((target) => blocksReferenceTarget(blocks, target.id)),
-  };
+  return documentWithBlocks(document, blocks);
 }
 
 function mapSelectedSteps(

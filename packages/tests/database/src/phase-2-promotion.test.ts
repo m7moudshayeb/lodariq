@@ -5,9 +5,11 @@ import {
   EnvironmentReleasePolicyChangedError,
   RELEASE_APPROVAL_REJECTED_ERROR_CODE,
   ReleaseApprovalRejectedError,
-  createInMemoryControlPlaneRepository,
   type WorkspaceEnvironment,
 } from '@lodariq/database';
+import {
+  createGrandfatheredInMemoryControlPlaneRepository as createInMemoryControlPlaneRepository,
+} from '../../fixtures/commercial.js';
 import {
   BROWSER_VERIFICATION_CHECK_CODES,
   LODARIQ_ACCESSIBLE_FALLBACK_THEME_V1,

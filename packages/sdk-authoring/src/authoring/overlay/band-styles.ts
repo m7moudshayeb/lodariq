@@ -20,15 +20,6 @@ export const BAND_HEIGHT_PX = 46;
 
 export function bandStyles(zIndex: number): string {
   return `
-  /*
-   * Edge to edge and pointer-transparent.
-   *
-   * The band has to be readable as a mode the whole page is in, which is why it
-   * spans the viewport. But the top edge is where a product keeps its own
-   * navigation, and that is often exactly what the creator is trying to point
-   * at — so the strip takes no clicks and only its controls do. The highlight
-   * and the crosshair still track whatever is underneath.
-   */
   .lq-band {
     ${AUTHORING_TYPOGRAPHY_CSS_PROPERTIES}
     position: fixed;
@@ -49,14 +40,7 @@ export function bandStyles(zIndex: number): string {
     transition: opacity 120ms linear;
   }
 
-  /*
-   * Automatic avoidance (§3.4 rule 5). Pointer-transparency means you can reach
-   * the header under the band, but not see it, and you cannot choose what you
-   * cannot see. So the band steps aside while the thing you are pointing at is
-   * underneath it, and comes back the moment it is not. Reaching for the band's
-   * own buttons restores it, because a child with pointer-events still hovers
-   * its parent.
-   */
+  /* The band steps aside while you point at what is under it (§3.4 rule 5). */
   .lq-band[data-dodge='true'] {
     opacity: 0.12;
   }
@@ -77,7 +61,6 @@ export function bandStyles(zIndex: number): string {
     pointer-events: auto;
   }
 
-  /* Flex children ignore the hidden attribute unless it is said again. */
   .lq-band [hidden] {
     display: none;
   }
@@ -113,7 +96,6 @@ export function bandStyles(zIndex: number): string {
     white-space: nowrap;
   }
 
-  /* A button's glyph is smaller than the band's own lead icon, as in §4.4a. */
   .lq-band button svg {
     flex: none;
     width: 13px;
@@ -129,7 +111,6 @@ export function bandStyles(zIndex: number): string {
     opacity: 0.45;
   }
 
-  /* One primary per band: the thing the mode exists to do. */
   .lq-band button[data-band-primary] {
     border-color: ${CREATOR_CHROME_TOKENS.action};
     background: ${CREATOR_CHROME_TOKENS.action};
@@ -155,7 +136,6 @@ export function bandStyles(zIndex: number): string {
     text-transform: uppercase;
   }
 
-  /* The ancestor trail, in plain language. Every crumb is a click target (§4.4). */
   .lq-band-crumbs {
     display: flex;
     flex-wrap: wrap;

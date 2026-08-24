@@ -1,6 +1,5 @@
 /** Approved popup appearance workspace and contrast presentation. */
 export const AUTHORING_AGREED_POPUP_APPEARANCE_CSS = `
-  /* Appearance and presentation stay attached to the selected popup. */
   .storyboard-canvas .rich-step-editor:has(.storyboard-property-tray[data-tool-mode='popup']) {
     grid-template-rows: auto minmax(128px, 1fr) auto;
   }

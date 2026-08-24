@@ -8,7 +8,11 @@ import {
 } from '@lodariq/schema';
 import { $createLinkNode, $toggleLink } from '@lexical/link';
 import { $createListItemNode, $createListNode, insertList } from '@lexical/list';
-import { $getSelectionStyleValueForProperty, $patchStyleText, $setBlocksType } from '@lexical/selection';
+import {
+  $getSelectionStyleValueForProperty,
+  $patchStyleText,
+  $setBlocksType,
+} from '@lexical/selection';
 import { $createHeadingNode } from '@lexical/rich-text';
 import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext';
 import {
@@ -57,7 +61,13 @@ import { createPortal } from 'react-dom';
 import type { AuthoringMediaUploadOptions } from '../authoring/local-frame-types';
 import { authoringText } from '../i18n';
 import { createBlockId } from './ids';
-import { applyBlockSpacingAfter, createFormFieldProps, formFieldInsertLabel, insertNodeAtSelection, insertTextAtSelection } from './rich-content-commands';
+import {
+  applyBlockSpacingAfter,
+  createFormFieldProps,
+  formFieldInsertLabel,
+  insertNodeAtSelection,
+  insertTextAtSelection,
+} from './rich-content-commands';
 import {
   blockIdForNode,
   inlineAnimationCssEasing,
@@ -130,7 +140,7 @@ type InsertMenu = 'add' | 'icon' | 'emoji' | 'field' | 'media' | null;
  */
 const TOOLBAR_SURFACE_SELECTOR = [
   '[data-rich-content-floating-menu="true"]',
-  '[data-rich-content-select-content="true"]',
+  '.ui-select-content',
   '.rich-content-toolbar-popover',
   '.rich-content-toolbar .ui-select-trigger',
 ].join(', ');
@@ -268,8 +278,15 @@ export function SelectionToolbarPlugin({
       const items = [...bar.querySelectorAll<HTMLElement>('[data-collapsible]')];
       for (const item of items) {
         item.hidden = false;
-        // Cache once: reading after a hide would record zero and never recover.
-        if (!naturalWidths.has(item)) naturalWidths.set(item, item.offsetWidth);
+      }
+      /*
+       * Widths in a second pass, after every item is back: reading inside the
+       * loop above measures each one while the rest are still hidden. Keep the
+       * largest ever seen, so a reading taken mid-layout cannot pin an item at a
+       * width smaller than it really wants and quietly disable its own overflow.
+       */
+      for (const item of items) {
+        naturalWidths.set(item, Math.max(naturalWidths.get(item) ?? 0, item.offsetWidth));
       }
       const available = track.clientWidth;
       /*
@@ -285,15 +302,28 @@ export function SelectionToolbarPlugin({
       const fixed = fixedWidth();
       const gaps = Number.parseFloat(getComputedStyle(bar).columnGap || '0') || 0;
       let used = fixed + gaps * Math.max(0, bar.children.length - 1);
+      /*
+       * Order is priority, so the first control that does not fit ends the bar:
+       * everything after it goes too. Testing each one independently let a 1px
+       * divider slip in behind a dropped Bold, which is how a narrow bar ended up
+       * showing two separators with nothing between them to separate.
+       */
+      let dropping = false;
       for (const item of items) {
         const width = naturalWidths.get(item) ?? item.offsetWidth;
-        if (used + width <= available) {
+        if (!dropping && used + width <= available) {
           used += width;
           continue;
         }
-        // Once one drops out, everything after it does too: order is priority.
+        dropping = true;
         item.hidden = true;
-        used += 0;
+      }
+      // A separator that survives its group separates nothing. Drop the trailing ones.
+      for (let index = items.length - 1; index >= 0; index -= 1) {
+        const item = items[index];
+        if (!item || item.hidden) continue;
+        if (!item.dataset['collapsible']?.startsWith('divider')) break;
+        item.hidden = true;
       }
       setOverflowedLabels(
         items.filter((item) => item.hidden).map((item) => item.dataset['collapsible'] ?? ''),
@@ -304,7 +334,15 @@ export function SelectionToolbarPlugin({
     const observer = new ResizeObserver(measure);
     observer.observe(track);
     return () => observer.disconnect();
-  }, [activeBlockType, onRewriteSelection]);
+    /*
+     * `toolbarHost` belongs here: the bar is portaled into the overlay's slot the
+     * moment the host arrives, which changes `bar.parentElement`. Without it the
+     * effect measured against the pre-portal parent — or bailed on a null ref and
+     * never retried — so nothing ever collapsed. The bar is `overflow: hidden`, so
+     * that did not scroll, it silently clipped Bold through More off the right
+     * edge with no route to any of them.
+     */
+  }, [activeBlockType, onRewriteSelection, toolbarHost]);
 
   useEffect(() => {
     /** Deduped: the label may not re-render on every keystroke inside one block. */
@@ -320,7 +358,7 @@ export function SelectionToolbarPlugin({
       const activeElement = ownerDocument.activeElement;
       const toolbarActive = Boolean(
         toolbarRef.current?.contains(activeElement) ||
-          activeElement?.closest?.(TOOLBAR_SURFACE_SELECTOR),
+        activeElement?.closest?.(TOOLBAR_SURFACE_SELECTOR),
       );
       if (toolbarActive) return;
       editor.getEditorState().read(() => {
@@ -332,7 +370,9 @@ export function SelectionToolbarPlugin({
               selection.hasFormat(format as 'bold'),
             ),
           );
-          setActiveFormats((current) => (sameStringSet(current, nextFormats) ? current : nextFormats));
+          setActiveFormats((current) =>
+            sameStringSet(current, nextFormats) ? current : nextFormats,
+          );
           const nextFontSize =
             $getSelectionStyleValueForProperty(selection, 'font-size', '16px').replace(
               /px$/u,
@@ -374,9 +414,7 @@ export function SelectionToolbarPlugin({
     });
   };
 
-  const applyBlockType = (
-    type: 'paragraph' | 'heading' | 'list' | 'callout' | 'stat',
-  ): void => {
+  const applyBlockType = (type: 'paragraph' | 'heading' | 'list' | 'callout' | 'stat'): void => {
     setBlockMenuOpen(false);
     if (type === 'list') {
       const currentBlockId = editor.getEditorState().read(() => {
@@ -450,8 +488,11 @@ export function SelectionToolbarPlugin({
   };
 
   const commitLink = (): void => {
-    const { linkDisplayAs: displayRaw, linkSelectedText: selected, linkUrl: urlRaw } =
-      linkStateRef.current;
+    const {
+      linkDisplayAs: displayRaw,
+      linkSelectedText: selected,
+      linkUrl: urlRaw,
+    } = linkStateRef.current;
     const url = safeAuthorUrl(urlRaw);
     if (url) {
       const displayAs = displayRaw.trim();
@@ -646,21 +687,21 @@ export function SelectionToolbarPlugin({
                 <span>{authoringText('Back')}</span>
               </button>
               <RichContentMediaInsertPanel
-                  captionTargetVideo={Boolean(media.captionTargetVideo)}
-                  mediaUploadError={media.mediaUploadError}
-                  onUploadCaptions={(file) => {
-                    void media.uploadCaptions(file);
-                  }}
-                  onUploadMediaFile={(kind, file) => {
-                    void media.uploadMediaIntoCanvas(kind, file);
-                    // Every other insert option closes the menu; media did not,
-                    // leaving the panel sitting over the card after a drop.
-                    setInsertMenu(null);
-                  }}
-                  saveMediaToLibrary={media.saveMediaToLibrary}
-                  setSaveMediaToLibrary={media.setSaveMediaToLibrary}
-                  uploading={media.uploading}
-                />
+                captionTargetVideo={Boolean(media.captionTargetVideo)}
+                mediaUploadError={media.mediaUploadError}
+                onUploadCaptions={(file) => {
+                  void media.uploadCaptions(file);
+                }}
+                onUploadMediaFile={(kind, file) => {
+                  void media.uploadMediaIntoCanvas(kind, file);
+                  // Every other insert option closes the menu; media did not,
+                  // leaving the panel sitting over the card after a drop.
+                  setInsertMenu(null);
+                }}
+                saveMediaToLibrary={media.saveMediaToLibrary}
+                setSaveMediaToLibrary={media.setSaveMediaToLibrary}
+                uploading={media.uploading}
+              />
             </>
           ) : null}
           {insertMenu === 'icon' ? (
@@ -1031,20 +1072,23 @@ export function SelectionToolbarPlugin({
               </div>
             ) : null}
             <div className="rich-content-more-row">
-            <label className="rich-content-color-control" title={authoringText('Selection background')}>
-              <Highlighter aria-hidden="true" size={16} />
-              <input
-                aria-label={authoringText('Selection background')}
-                defaultValue="#fff1a8"
-                onChange={(event) => {
-                  const color = event.currentTarget.value;
-                  withAuthorSelection((selection) =>
-                    $patchStyleText(selection, { 'background-color': color }),
-                  );
-                }}
-                type="color"
-              />
-            </label>
+              <label
+                className="rich-content-color-control"
+                title={authoringText('Selection background')}
+              >
+                <Highlighter aria-hidden="true" size={16} />
+                <input
+                  aria-label={authoringText('Selection background')}
+                  defaultValue="#fff1a8"
+                  onChange={(event) => {
+                    const color = event.currentTarget.value;
+                    withAuthorSelection((selection) =>
+                      $patchStyleText(selection, { 'background-color': color }),
+                    );
+                  }}
+                  type="color"
+                />
+              </label>
             </div>
             <div className="rich-content-more-row">
               {(['left', 'center', 'right'] as const).map((align) => {

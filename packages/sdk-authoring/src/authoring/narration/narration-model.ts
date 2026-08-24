@@ -4,10 +4,7 @@
  * What lives here: the script/copy split, language inference, voice filtering,
  * the pronunciation lexicon, and the cache key that stops regeneration churn.
  *
- * What deliberately does not: generation, playback, and publication. Audio has to
- * sit inside the immutable artifact so preview and production sound identical,
- * which needs the ADR-0014 amendment and a content-addressed object-storage
- * design. Writing the script needs neither, so it ships first.
+ * Generation and playback live at the service and runtime boundaries.
  */
 import { NARRATION_SPEED_RANGE, type StepNarration } from '@lodariq/schema';
 

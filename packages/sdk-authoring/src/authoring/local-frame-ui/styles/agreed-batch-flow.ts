@@ -1,6 +1,5 @@
 /** Approved batch workspace and base flow-map composition. */
 export const AUTHORING_AGREED_BATCH_FLOW_CSS = `
-  /* Batch mode keeps the approved rail and moves selection detail to cards. */
   .tour-storyboard[data-batch-mode='true'] {
     grid-template-rows: 56px 48px;
   }
@@ -74,7 +73,6 @@ export const AUTHORING_AGREED_BATCH_FLOW_CSS = `
     font-weight: var(--lq-weight-bold);
   }
 
-  /* Flow map is a canvas workspace with draggable nodes and readable edges. */
   .tour-flow-map-workspace {
     grid-template-rows: 48px minmax(0, 1fr) auto;
   }

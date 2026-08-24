@@ -48,8 +48,12 @@ describe('why authoring did not open (§8.4)', () => {
     expect(classifyActivationFailure({ storageBlocked: true })).toBe('storage-restricted');
     expect(classifyActivationFailure({ navigatedAway: true })).toBe('redirected-away');
     expect(classifyActivationFailure({ popup: { closed: true } as Window })).toBe('popup-closed');
-    expect(classifyActivationFailure({ error: new Error('Session expired') })).toBe('session-expired');
-    expect(classifyActivationFailure({ error: new Error('Grant rejected') })).toBe('grant-rejected');
+    expect(classifyActivationFailure({ error: new Error('Session expired') })).toBe(
+      'session-expired',
+    );
+    expect(classifyActivationFailure({ error: new Error('Grant rejected') })).toBe(
+      'grant-rejected',
+    );
     expect(classifyActivationFailure({ error: new Error('fetch failed') })).toBe('network');
     expect(classifyActivationFailure({})).toBe('unknown');
   });

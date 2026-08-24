@@ -203,9 +203,18 @@ function openCreatorAuthoringPanel(
             ...(previewOptions.flowConditionContext
               ? { flowConditionContext: previewOptions.flowConditionContext }
               : {}),
+            ...(previewOptions.adaptiveContext
+              ? { adaptiveContext: previewOptions.adaptiveContext }
+              : {}),
             ...(previewOptions.stepId ? { initialStepId: previewOptions.stepId } : {}),
             ...(previewOptions.authoringTargetOverride
               ? { authoringTargetOverride: previewOptions.authoringTargetOverride }
+              : {}),
+            ...(previewOptions.onBeforeStepChange
+              ? {
+                  onBeforeStepChange: (index, step) =>
+                    previewOptions.onBeforeStepChange?.(index, step.id),
+                }
               : {}),
             ...(previewOptions.onStepChange
               ? {
@@ -233,6 +242,12 @@ function openCreatorAuthoringPanel(
                     previewOptions.onBranchChoice?.(step.id, ruleIndex, destination),
                 }
               : {}),
+            ...(previewOptions.onAdaptiveSkip
+              ? {
+                  onAdaptiveSkip: (step, decision) =>
+                    previewOptions.onAdaptiveSkip?.(step.id, decision),
+                }
+              : {}),
             ...(previewOptions.getAuthoringProtectedSurfaces
               ? { getAuthoringProtectedSurfaces: previewOptions.getAuthoringProtectedSurfaces }
               : {}),
@@ -256,6 +271,7 @@ function openCreatorAuthoringPanel(
               baseUrl: config.apiBaseUrl,
               authorization: () => `Bearer ${config.clientToken}`,
               authoringSession: () => config.authoringSessionToken as string,
+              documentUpdatedAt: () => documentUpdatedAt,
             }),
           }
         : {}),

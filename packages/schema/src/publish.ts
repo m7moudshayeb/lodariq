@@ -12,10 +12,13 @@ import type { TourFlowIssueCode } from './tour-flow-contract';
 import { analyzeTourDocumentFlow } from './tour-flow-analysis';
 import { TARGET_MIN_CAPTURE_RUNNER_UP_MARGIN, selectionSettlesAmbiguity } from './target';
 import { isSafeNavigationUrl } from './url';
+import type { AuthoringMediaAssetKind } from './authoring-resources';
+import { isDeliverableExperienceType, isExperienceBehaviorForType } from './experience';
 
 export type PublishReadinessIssueCode =
   | TourFlowIssueCode
   | 'unsupported_document_type'
+  | 'invalid_experience_configuration'
   | 'empty_tour'
   | 'unsupported_tour_block'
   | 'empty_step'
@@ -36,6 +39,8 @@ export type PublishReadinessIssueCode =
   | 'choreography_target_unverified'
   | 'incomplete_media'
   | 'media_asset_invalid'
+  | 'narration_audio_missing'
+  | 'narration_audio_invalid'
   | 'missing_accessible_name'
   | 'unresolved_lifecycle_hint'
   | 'invalid_presentation_anchor'
@@ -59,7 +64,7 @@ export interface ValidateTourPublishReadinessOptions {
   /** Server-resolved asset IDs available to this exact workspace. */
   validMediaAssetIds?: ReadonlySet<string>;
   /** Server-resolved asset IDs and their validated delivery kinds. */
-  validMediaAssets?: ReadonlyMap<string, 'image' | 'video' | 'captions'>;
+  validMediaAssets?: ReadonlyMap<string, AuthoringMediaAssetKind>;
   /** Release boundaries require every media reference to resolve server-side. */
   requireValidMediaAssets?: boolean;
 }
@@ -71,6 +76,15 @@ type ActionBlockKind = 'button' | 'link';
 type TooltipChildValidator = (block: LodariqBlock, issues: PublishReadinessIssue[]) => void;
 
 const TOUR_ROOT_BLOCK_TYPES = new Set(['tourStep']);
+const SINGLE_SURFACE_ROOT_BLOCK_TYPES = new Set(['tooltip']);
+const HOTSPOT_ROOT_BLOCK_TYPES = new Set(['tooltip', 'spotlight']);
+const DELIVERABLE_DOCUMENT_TYPES = new Set([
+  'tour',
+  'announcement',
+  'hotspot',
+  'survey',
+  'checklist',
+]);
 const TOUR_TOOLTIP_BLOCK_TYPES = new Set([
   'heading',
   'paragraph',
@@ -109,6 +123,7 @@ const MISSING_ACTION_ISSUE_CODES = {
 } as const satisfies Record<ActionBlockKind, PublishReadinessIssueCode>;
 const PUBLISH_READINESS_ISSUE_LABELS = {
   unsupported_document_type: 'Unsupported document',
+  invalid_experience_configuration: 'Invalid experience configuration',
   empty_tour: 'Empty tour',
   unsupported_tour_block: 'Unsupported block',
   empty_step: 'Empty step',
@@ -129,6 +144,8 @@ const PUBLISH_READINESS_ISSUE_LABELS = {
   choreography_target_unverified: 'Sequence target is unverified',
   incomplete_media: 'Incomplete media',
   media_asset_invalid: 'Media asset is unavailable',
+  narration_audio_missing: 'Narration audio is missing',
+  narration_audio_invalid: 'Narration audio is unavailable',
   missing_accessible_name: 'Missing accessible name',
   unresolved_lifecycle_hint: 'Unresolved lifecycle hint',
   invalid_presentation_anchor: 'Invalid presentation area',
@@ -147,7 +164,7 @@ const TOOLTIP_CHILD_VALIDATORS: Readonly<Record<string, TooltipChildValidator>> 
 };
 
 /**
- * Publish-equivalent readiness gate for Phase 1 linear tours.
+ * Publish-equivalent readiness gate for every shipped in-product experience.
  *
  * Draft saves remain permissive; this function is used before publish or
  * production-shaped local playback so creators get actionable blockers.
@@ -157,44 +174,112 @@ export function validateTourPublishReadiness(
   options: ValidateTourPublishReadinessOptions = {},
 ): PublishReadinessIssue[] {
   const issues: PublishReadinessIssue[] = [];
-  if (document.type !== 'tour') {
+  if (!DELIVERABLE_DOCUMENT_TYPES.has(document.type)) {
     return [
       {
         code: 'unsupported_document_type',
-        message: 'Only tour documents can be published in this phase.',
+        message: 'This experience type does not have a delivery renderer.',
       },
     ];
   }
+  if (
+    !isDeliverableExperienceType(document.type) ||
+    (document.experience !== undefined &&
+      !isExperienceBehaviorForType(document.type, document.experience)) ||
+    !experienceSurfaceConfigurationIsValid(document)
+  ) {
+    issues.push({
+      code: 'invalid_experience_configuration',
+      message: 'This experience has settings from a different experience type.',
+    });
+  }
 
   const targetsById = new Map(document.targets.map((target) => [target.id, target]));
-  const steps = document.blocks.filter((block) => block.type === 'tourStep');
+  const allowedRoots =
+    document.type === 'tour'
+      ? TOUR_ROOT_BLOCK_TYPES
+      : document.type === 'hotspot'
+        ? HOTSPOT_ROOT_BLOCK_TYPES
+        : SINGLE_SURFACE_ROOT_BLOCK_TYPES;
+  const steps = document.blocks.filter((block) => allowedRoots.has(block.type));
   const stepIds = new Set(steps.map((step) => step.id));
   if (steps.length === 0) {
-    issues.push({ code: 'empty_tour', message: 'Add at least one step before publishing.' });
+    issues.push({ code: 'empty_tour', message: 'Add experience content before publishing.' });
   }
 
   for (const block of document.blocks) {
-    if (!TOUR_ROOT_BLOCK_TYPES.has(block.type)) {
+    if (!allowedRoots.has(block.type)) {
       issues.push({
         code: 'unsupported_tour_block',
         blockId: block.id,
-        message: `${blockLabel(block)} is not supported at the top level of a tour.`,
+        message: `${blockLabel(block)} is not supported at the top level of this experience.`,
       });
       continue;
     }
-    validateTourStep(block, targetsById, stepIds, options, issues);
+    validateTourStep(
+      block,
+      targetsById,
+      stepIds,
+      options,
+      issues,
+      document.type === 'tour' || document.type === 'hotspot',
+    );
   }
 
-  issues.push(
-    ...analyzeTourDocumentFlow(document).findings.map((finding): PublishReadinessIssue => ({
-      code: finding.code,
-      blockId: finding.stepId,
-      severity: finding.severity,
-      message: publishReadinessIssueLabel(finding.code),
-    })),
-  );
+  if (
+    document.type === 'survey' &&
+    !document.blocks.some((block) => containsBlockType(block, 'formField'))
+  ) {
+    issues.push({
+      code: 'incomplete_block',
+      message: 'Add at least one survey question before publishing.',
+    });
+  }
+  if (
+    document.type === 'checklist' &&
+    !document.blocks.some((block) => containsBlockType(block, 'list'))
+  ) {
+    issues.push({
+      code: 'incomplete_block',
+      message: 'Add at least one checklist item before publishing.',
+    });
+  }
+
+  if (document.type === 'tour') {
+    issues.push(
+      ...analyzeTourDocumentFlow(document).findings.map((finding): PublishReadinessIssue => ({
+        code: finding.code,
+        blockId: finding.stepId,
+        severity: finding.severity,
+        message: publishReadinessIssueLabel(finding.code),
+      })),
+    );
+  }
 
   return issues;
+}
+
+function experienceSurfaceConfigurationIsValid(document: LodariqDocument): boolean {
+  if (document.type === 'announcement') {
+    return (
+      document.surfaceForm === undefined ||
+      document.surfaceForm === 'modal' ||
+      document.surfaceForm === 'banner' ||
+      document.surfaceForm === 'slideIn'
+    );
+  }
+  if (document.type === 'checklist') {
+    return (
+      document.surfaceForm === undefined ||
+      document.surfaceForm === 'drawer' ||
+      document.surfaceForm === 'floating'
+    );
+  }
+  return document.surfaceForm === undefined;
+}
+
+function containsBlockType(block: LodariqBlock, type: LodariqBlock['type']): boolean {
+  return block.type === type || block.children.some((child) => containsBlockType(child, type));
 }
 
 export function firstPublishBlocker(document: LodariqDocument): string | null {
@@ -215,6 +300,7 @@ function validateTourStep(
   stepIds: ReadonlySet<string>,
   options: ValidateTourPublishReadinessOptions,
   issues: PublishReadinessIssue[],
+  requireTarget: boolean,
 ): void {
   if (step.status === 'invalid') {
     issues.push({
@@ -224,7 +310,10 @@ function validateTourStep(
     });
   }
 
-  const unsupportedChild = step.children.find((child) => !TOUR_STEP_CHILD_TYPES.has(child.type));
+  const unsupportedChild =
+    step.type === 'tourStep'
+      ? step.children.find((child) => !TOUR_STEP_CHILD_TYPES.has(child.type))
+      : undefined;
   if (unsupportedChild) {
     issues.push({
       code: 'unsupported_tour_block',
@@ -233,7 +322,10 @@ function validateTourStep(
     });
   }
 
-  const tooltip = step.children.find((child) => child.type === 'tooltip');
+  const tooltip =
+    step.type === 'tooltip' || step.type === 'spotlight'
+      ? step
+      : step.children.find((child) => child.type === 'tooltip');
   if (!tooltip) {
     issues.push({
       code: 'missing_step_tooltip',
@@ -254,6 +346,7 @@ function validateTourStep(
     issues,
   );
   validateStructuredStylePlacement(step, issues);
+  validateStepNarration(step, options, issues);
   validateStructuredStylePlacement(tooltip, issues);
 
   const editableChildren = tooltip.children.filter(
@@ -269,22 +362,23 @@ function validateTourStep(
   }
 
   const targetId = typeof tooltip.props.targetId === 'string' ? tooltip.props.targetId : undefined;
-  if (!targetId) {
+  if (!targetId && requireTarget) {
     issues.push({
       code: 'missing_step_target',
       blockId: step.id,
       message: `${stepLabel(step)} needs a placement before publishing.`,
     });
-  } else if (!targetsById.has(targetId)) {
+  } else if (targetId && !targetsById.has(targetId)) {
     issues.push({
       code: 'broken_target_reference',
       blockId: step.id,
       targetId,
       message: `${stepLabel(step)} references a placement that no longer exists.`,
     });
-  } else {
+  } else if (targetId) {
     const target = targetsById.get(targetId);
     validateTargetLifecycle(step, target, issues);
+    validateTargetApproach(step, target, targetsById, options, issues);
     const captureNeedsReview = captureBlocksRelease(target);
     if (captureNeedsReview) {
       issues.push({
@@ -332,6 +426,53 @@ function validateTourStep(
   for (const child of tooltip.children) {
     validateTooltipChild(child, options, issues);
     validateActionChoreography(child, step.id, targetId, targetsById, stepIds, options, issues);
+  }
+}
+
+function validateTargetApproach(
+  step: LodariqBlock,
+  target: LodariqDocument['targets'][number] | undefined,
+  targetsById: ReadonlyMap<string, LodariqDocument['targets'][number]>,
+  options: ValidateTourPublishReadinessOptions,
+  issues: PublishReadinessIssue[],
+): void {
+  if (!target?.approach) return;
+  for (const leg of target.approach.legs) {
+    const referencedTargetIds = [
+      ...(leg.act.kind === 'activateTarget' ? [leg.act.targetId] : []),
+      ...(leg.wait?.type === 'targetAvailable' ? [leg.wait.targetId] : []),
+    ];
+    if (leg.act.kind === 'navigate' || (leg.act.kind === 'observe' && !leg.wait)) {
+      issues.push({
+        code: 'action_not_allowed',
+        blockId: step.id,
+        targetId: target.id,
+        message: 'Approach contains an action that cannot run in delivery.',
+      });
+    }
+    for (const targetId of referencedTargetIds) {
+      if (
+        !targetsById.has(targetId) ||
+        (targetId === target.id && leg.act.kind === 'activateTarget')
+      ) {
+        issues.push({
+          code: 'choreography_target_missing',
+          blockId: step.id,
+          targetId,
+          message: 'Approach references a target that cannot be activated.',
+        });
+        continue;
+      }
+      const diagnostic = targetDiagnostic(options.targetDiagnostics, targetId);
+      if (options.requireVerifiedTargets && diagnostic?.state !== 'found') {
+        issues.push({
+          code: 'choreography_target_unverified',
+          blockId: step.id,
+          targetId,
+          message: 'Approach target has not been verified in this environment and page state.',
+        });
+      }
+    }
   }
 }
 
@@ -488,6 +629,7 @@ function validateStructuredCompositionBlock(
 export function collectTourMediaAssetIds(document: LodariqDocument): string[] {
   const assetIds = new Set<string>();
   for (const root of document.blocks) {
+    if (root.props.narration?.audio) assetIds.add(root.props.narration.audio.assetId);
     visitBlockTree(root, (block) => {
       const media = block.props.media;
       if (!media) return;
@@ -496,9 +638,40 @@ export function collectTourMediaAssetIds(document: LodariqDocument): string[] {
         if (media.captionsAssetId) assetIds.add(media.captionsAssetId);
         if (media.posterAssetId) assetIds.add(media.posterAssetId);
       }
+      for (const variant of media.localeVariants ?? []) {
+        assetIds.add(variant.assetId);
+        if (variant.captionsAssetId) assetIds.add(variant.captionsAssetId);
+      }
     });
   }
   return [...assetIds];
+}
+
+function validateStepNarration(
+  step: LodariqBlock,
+  options: ValidateTourPublishReadinessOptions,
+  issues: PublishReadinessIssue[],
+): void {
+  const narration = step.props.narration;
+  if (!narration?.script.trim()) return;
+  if (!narration.audio) {
+    issues.push({
+      code: 'narration_audio_missing',
+      blockId: step.id,
+      message: `${stepLabel(step)} needs generated narration audio before publishing.`,
+    });
+    return;
+  }
+  if (
+    options.requireValidMediaAssets &&
+    options.validMediaAssets?.get(narration.audio.assetId) !== 'audio'
+  ) {
+    issues.push({
+      code: 'narration_audio_invalid',
+      blockId: step.id,
+      message: `${stepLabel(step)} references narration audio that is unavailable in this workspace.`,
+    });
+  }
 }
 
 function validateStructuredStylePlacement(
@@ -614,6 +787,33 @@ function validateMediaBlock(
       message: `${blockLabel(block)} needs captions before it can be published.`,
     });
   }
+  const localeVariants = media.localeVariants ?? [];
+  const seenLocales = new Set<string>();
+  for (const variant of localeVariants) {
+    const locale = variant.locale.toLowerCase();
+    if (seenLocales.has(locale)) {
+      issues.push({
+        code: 'incomplete_media',
+        blockId: block.id,
+        message: `${blockLabel(block)} repeats the ${variant.locale} media variant.`,
+      });
+    }
+    seenLocales.add(locale);
+    if (media.kind === 'video' && !variant.captionsAssetId) {
+      issues.push({
+        code: 'incomplete_media',
+        blockId: block.id,
+        message: `${blockLabel(block)} needs captions for its ${variant.locale} video.`,
+      });
+    }
+  }
+  if (media.fallbackLocale && !seenLocales.has(media.fallbackLocale.toLowerCase())) {
+    issues.push({
+      code: 'incomplete_media',
+      blockId: block.id,
+      message: `${blockLabel(block)} has a media fallback locale without an approved variant.`,
+    });
+  }
   if (!options.requireValidMediaAssets) return;
   const references: Array<{ assetId: string; kind: 'image' | 'video' | 'captions' }> = [
     { assetId: media.assetId, kind: media.kind },
@@ -627,6 +827,12 @@ function validateMediaBlock(
             : []),
         ]
       : []),
+    ...localeVariants.flatMap((variant) => [
+      { assetId: variant.assetId, kind: media.kind },
+      ...(variant.captionsAssetId
+        ? [{ assetId: variant.captionsAssetId, kind: 'captions' as const }]
+        : []),
+    ]),
   ];
   const valid = references.every(({ assetId, kind }) => {
     if (options.validMediaAssets) return options.validMediaAssets.get(assetId) === kind;
@@ -795,7 +1001,7 @@ function hasActionableFingerprint(fingerprint: TargetFingerprint): boolean {
   return (
     ACTIONABLE_FINGERPRINT_TEXT_FIELDS.some((field) => hasText(fingerprint[field])) ||
     fingerprint.nearbyText?.some(hasText) === true ||
-    Object.values(fingerprint.stableAttributes).some(hasText)
+    Object.values(fingerprint.stableAttributes ?? {}).some(hasText)
   );
 }
 

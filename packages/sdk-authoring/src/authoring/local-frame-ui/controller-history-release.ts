@@ -12,7 +12,11 @@ import {
   type ReleaseRecoveryRequest,
 } from '@lodariq/schema';
 import { createBridgeCorrelationId } from '../../bridge/transport';
-import type { AuthoringOperationsTab, AuthoringPanelMode } from './types';
+import type {
+  AuthoringOperationsTab,
+  AuthoringOperationsViewState,
+  AuthoringPanelMode,
+} from './types';
 import type { AuthoringBrandMatchProposal, AuthoringBrandMatchRequest } from '../local-frame-types';
 import { brandThemeOffer, type BrandVariantId } from '../brand-theme-offer';
 import {
@@ -170,18 +174,35 @@ export abstract class ControllerHistoryReleaseFeature extends ControllerStepsTar
     this.openPanelMode('release-verification', 'edit');
   }
 
-  openOperationsMode(tab: AuthoringOperationsTab = 'flow'): void {
-    this.operationsTab = tab;
+  openOperationsMode(tab?: AuthoringOperationsTab): void {
+    this.operationsTab = tab ?? this.operationsTab;
     this.openPanelMode('operations', 'edit');
   }
 
   setOperationsTab(tab: AuthoringOperationsTab): void {
     if (this.operationsTab === tab) return;
     this.operationsTab = tab;
+    this.panelFocusToken += 1;
     this.emit();
   }
 
+  rememberOperationsView(
+    tab: AuthoringOperationsTab,
+    patch: Partial<AuthoringOperationsViewState>,
+  ): void {
+    const current = this.operationsViews.get(tab) ?? { focusKey: null, scrollTop: 0 };
+    this.operationsViews.set(tab, {
+      focusKey: patch.focusKey === undefined ? current.focusKey : patch.focusKey,
+      scrollTop:
+        patch.scrollTop === undefined || !Number.isFinite(patch.scrollTop)
+          ? current.scrollTop
+          : Math.max(0, patch.scrollTop),
+    });
+  }
+
   closeOperationsMode(): void {
+    this.syncFocusedEditControl();
+    this.documentTransactions.flush();
     this.brandDriftController?.restorePreview();
     this.openPanelMode('edit', 'edit');
   }
@@ -600,6 +621,7 @@ export abstract class ControllerHistoryReleaseFeature extends ControllerStepsTar
   }
 
   previewFlowSimulation(simulationContext: AuthoringFlowSimulationContext, stepId?: string): void {
+    const adaptive = Boolean(simulationContext.adaptive);
     this.documentTransactions.flush();
     this.syncFocusedEditControl();
     this.documentState = this.normalizeDocument(this.documentState);
@@ -611,7 +633,11 @@ export abstract class ControllerHistoryReleaseFeature extends ControllerStepsTar
       .then(([, document]) => {
         this.compiledText = JSON.stringify(document, null, 2);
         this.recordMetric(stepId ? 'preview.from-step' : 'preview.opened');
-        this.setStatus(authoringText('Branch simulation started'));
+        this.setStatus(
+          adaptive
+            ? authoringText('Adaptive preview started')
+            : authoringText('Branch simulation started'),
+        );
       })
       .catch(() => this.setStatus(authoringText('Tour preview could not start')));
     this.emit();

@@ -28,6 +28,8 @@ import {
   type AuthoringDraftCheckpointResource,
   type AuthoringMediaAssetKind,
   type AuthoringMediaAssetResource,
+  type GenerateNarrationResult,
+  type LocaleLayoutQaReport,
 } from '@lodariq/schema';
 import type { AuthoringStepStyleRecipe } from './step-style-recipes';
 
@@ -290,6 +292,9 @@ export interface LocalAuthoringFrameServices {
    * the whole assist surface unavailable rather than half-working.
    */
   requestAiAssist?: (request: AiAssistRequest) => Promise<AiAssistProposal>;
+  generateNarration?: (stepId: string) => Promise<GenerateNarrationResult>;
+  /** Renders every locale/step pair on the real host page and returns only bounded issue codes. */
+  runLocaleLayoutQa?: (expectedDocumentRevision: number) => Promise<LocaleLayoutQaReport>;
   /**
    * Voices this session may offer for narration (§7.7). Generation and playback
    * stay out of the frame until audio can live inside the immutable artifact.

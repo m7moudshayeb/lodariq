@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { and, desc, eq, inArray, isNotNull, sql } from 'drizzle-orm';
+import { and, desc, eq, gte, inArray, isNotNull, sql } from 'drizzle-orm';
 import {
   type DocumentSummary,
   type PersistedCompiledArtifact,
@@ -8,6 +8,8 @@ import {
   type PersistedReleaseOperation,
   type SaveDocumentInput,
   DocumentSaveConflictError,
+  CommercialEntitlementError,
+  assertCommercialFeature,
   type CreateAuthoringMediaAssetInput,
   type SaveAuthoringResourcesInput,
 } from '../repository';
@@ -15,6 +17,8 @@ import { assertWorkspaceScope } from '../rls';
 import {
   authoringDraftCheckpoints,
   authoringMediaAssets,
+  authoringMediaAssetsV2,
+  authoringNarrationAssets,
   authoringStyleRecipes,
   compiledArtifacts,
   documents,
@@ -26,6 +30,7 @@ import type {
   AuthoringMediaAssetResource,
   AuthoringStepStyleRecipeResource,
 } from '@lodariq/schema';
+import { commercialDocumentFeatures, documentLocaleCount } from '@lodariq/schema';
 import {
   toPersistedArtifact,
   assertArtifactMatchesDocument,
@@ -70,33 +75,70 @@ export class DrizzleRepositoryDocuments extends DrizzleRepositoryPublication {
 
   async listAuthoringMediaAssets(workspaceId: string): Promise<AuthoringMediaAssetResource[]> {
     return this.scoped(workspaceId, async (tx) => {
-      const rows = await tx
-        .select()
-        .from(authoringMediaAssets)
-        .where(eq(authoringMediaAssets.workspaceId, workspaceId))
-        .orderBy(desc(authoringMediaAssets.createdAt));
-      return rows.map(authoringMediaAssetResource);
+      const [legacyRows, rows, narrationRows] = await Promise.all([
+        tx
+          .select()
+          .from(authoringMediaAssets)
+          .where(eq(authoringMediaAssets.workspaceId, workspaceId)),
+        tx
+          .select()
+          .from(authoringMediaAssetsV2)
+          .where(eq(authoringMediaAssetsV2.workspaceId, workspaceId)),
+        tx
+          .select()
+          .from(authoringNarrationAssets)
+          .where(eq(authoringNarrationAssets.workspaceId, workspaceId)),
+      ]);
+      return [...legacyRows, ...rows, ...narrationRows]
+        .sort((left, right) => right.createdAt.getTime() - left.createdAt.getTime())
+        .map(authoringMediaAssetResource);
     });
   }
 
   async getAuthoringMediaAsset(workspaceId: string, assetId: string) {
     return this.scoped(workspaceId, async (tx) => {
-      const [row] = await tx
+      const [narrationRow] = await tx
         .select()
-        .from(authoringMediaAssets)
+        .from(authoringNarrationAssets)
         .where(
           and(
-            eq(authoringMediaAssets.workspaceId, workspaceId),
-            eq(authoringMediaAssets.id, assetId),
+            eq(authoringNarrationAssets.workspaceId, workspaceId),
+            eq(authoringNarrationAssets.id, assetId),
           ),
         )
         .limit(1);
-      if (!row) return null;
+      const [row] = narrationRow
+        ? []
+        : await tx
+            .select()
+            .from(authoringMediaAssetsV2)
+            .where(
+              and(
+                eq(authoringMediaAssetsV2.workspaceId, workspaceId),
+                eq(authoringMediaAssetsV2.id, assetId),
+              ),
+            )
+            .limit(1);
+      const [legacyRow] =
+        narrationRow || row
+          ? []
+          : await tx
+              .select()
+              .from(authoringMediaAssets)
+              .where(
+                and(
+                  eq(authoringMediaAssets.workspaceId, workspaceId),
+                  eq(authoringMediaAssets.id, assetId),
+                ),
+              )
+              .limit(1);
+      const resolved = narrationRow ?? row ?? legacyRow;
+      if (!resolved) return null;
       return {
-        ...authoringMediaAssetResource(row),
-        workspaceId: row.workspaceId,
-        contentBase64: row.contentBase64,
-        publishedAt: row.publishedAt?.toISOString() ?? null,
+        ...authoringMediaAssetResource(resolved),
+        workspaceId: resolved.workspaceId,
+        contentBase64: resolved.contentBase64,
+        publishedAt: resolved.publishedAt?.toISOString() ?? null,
       };
     });
   }
@@ -104,19 +146,48 @@ export class DrizzleRepositoryDocuments extends DrizzleRepositoryPublication {
   async getPublishedMediaAsset(assetId: string) {
     return this.database.transaction(async (tx) => {
       await tx.execute(sql`select set_config('lodariq.media_asset_id', ${assetId}, true)`);
-      const [row] = await tx
+      const [narrationRow] = await tx
         .select()
-        .from(authoringMediaAssets)
+        .from(authoringNarrationAssets)
         .where(
-          and(eq(authoringMediaAssets.id, assetId), isNotNull(authoringMediaAssets.publishedAt)),
+          and(
+            eq(authoringNarrationAssets.id, assetId),
+            isNotNull(authoringNarrationAssets.publishedAt),
+          ),
         )
         .limit(1);
-      if (!row) return null;
+      const [row] = narrationRow
+        ? []
+        : await tx
+            .select()
+            .from(authoringMediaAssetsV2)
+            .where(
+              and(
+                eq(authoringMediaAssetsV2.id, assetId),
+                isNotNull(authoringMediaAssetsV2.publishedAt),
+              ),
+            )
+            .limit(1);
+      const [legacyRow] =
+        narrationRow || row
+          ? []
+          : await tx
+              .select()
+              .from(authoringMediaAssets)
+              .where(
+                and(
+                  eq(authoringMediaAssets.id, assetId),
+                  isNotNull(authoringMediaAssets.publishedAt),
+                ),
+              )
+              .limit(1);
+      const resolved = narrationRow ?? row ?? legacyRow;
+      if (!resolved) return null;
       return {
-        ...authoringMediaAssetResource(row),
-        workspaceId: row.workspaceId,
-        contentBase64: row.contentBase64,
-        publishedAt: row.publishedAt?.toISOString() ?? null,
+        ...authoringMediaAssetResource(resolved),
+        workspaceId: resolved.workspaceId,
+        contentBase64: resolved.contentBase64,
+        publishedAt: resolved.publishedAt?.toISOString() ?? null,
       };
     });
   }
@@ -137,6 +208,24 @@ export class DrizzleRepositoryDocuments extends DrizzleRepositoryPublication {
             inArray(authoringMediaAssets.id, ids),
           ),
         );
+      await tx
+        .update(authoringMediaAssetsV2)
+        .set({ publishedAt: new Date() })
+        .where(
+          and(
+            eq(authoringMediaAssetsV2.workspaceId, workspaceId),
+            inArray(authoringMediaAssetsV2.id, ids),
+          ),
+        );
+      await tx
+        .update(authoringNarrationAssets)
+        .set({ publishedAt: new Date() })
+        .where(
+          and(
+            eq(authoringNarrationAssets.workspaceId, workspaceId),
+            inArray(authoringNarrationAssets.id, ids),
+          ),
+        );
     });
   }
 
@@ -148,6 +237,10 @@ export class DrizzleRepositoryDocuments extends DrizzleRepositoryPublication {
       }
     }
     await this.scoped(input.workspaceId, async (tx) => {
+      const entitlements = (await this.resolveWorkspaceEntitlements(tx, input.workspaceId))
+        .entitlements;
+      if (input.recipes.length > 0) assertCommercialFeature(entitlements, 'named-step-styles');
+      if (input.checkpoints.length > 0) assertCommercialFeature(entitlements, 'recovery');
       await tx
         .delete(authoringStyleRecipes)
         .where(eq(authoringStyleRecipes.workspaceId, input.workspaceId));
@@ -188,9 +281,15 @@ export class DrizzleRepositoryDocuments extends DrizzleRepositoryPublication {
     input: CreateAuthoringMediaAssetInput,
   ): Promise<AuthoringMediaAssetResource> {
     return this.scoped(input.workspaceId, async (tx) => {
+      const limit = (await this.resolveWorkspaceEntitlements(tx, input.workspaceId)).entitlements
+        .assetBytes;
+      if (input.byteLength > limit) {
+        throw new CommercialEntitlementError('asset-bytes', input.byteLength, limit);
+      }
       const id = `asset-${randomUUID()}`;
+      const target = input.kind === 'audio' ? authoringNarrationAssets : authoringMediaAssetsV2;
       const [row] = await tx
-        .insert(authoringMediaAssets)
+        .insert(target)
         .values({
           id,
           workspaceId: input.workspaceId,
@@ -211,8 +310,24 @@ export class DrizzleRepositoryDocuments extends DrizzleRepositoryPublication {
 
   async listDocuments(workspaceId: string): Promise<DocumentSummary[]> {
     return this.scoped(workspaceId, async (tx) => {
+      /*
+       * A projection: the two fields this needs from `canonical` are read
+       * below, and the column is the whole authored document as jsonb. Selecting
+       * it for every row in the workspace pulled megabytes across to read two
+       * strings out of each.
+       */
       const rows = await tx
-        .select()
+        .select({
+          id: documents.id,
+          workspaceId: documents.workspaceId,
+          title: documents.title,
+          schemaVersion: documents.schemaVersion,
+          createdByUserId: documents.createdByUserId,
+          updatedByUserId: documents.updatedByUserId,
+          updatedAt: documents.updatedAt,
+          type: sql<string>`${documents.canonical} ->> 'type'`,
+          status: sql<string>`${documents.canonical} ->> 'status'`,
+        })
         .from(documents)
         .where(eq(documents.workspaceId, workspaceId))
         .orderBy(desc(documents.updatedAt));
@@ -223,8 +338,8 @@ export class DrizzleRepositoryDocuments extends DrizzleRepositoryPublication {
         summaries.push({
           id: row.id,
           workspaceId: row.workspaceId,
-          type: row.canonical.type,
-          status: row.canonical.status,
+          type: row.type as DocumentSummary['type'],
+          status: row.status as DocumentSummary['status'],
           title: row.title,
           schemaVersion: row.schemaVersion,
           createdByUserId: row.createdByUserId,
@@ -263,6 +378,12 @@ export class DrizzleRepositoryDocuments extends DrizzleRepositoryPublication {
     documentId: string,
   ): Promise<PersistedDocumentVersion[]> {
     return this.scoped(workspaceId, async (tx) => {
+      const retentionDays = (await this.resolveWorkspaceEntitlements(tx, workspaceId)).entitlements
+        .versionRetentionDays;
+      const cutoff =
+        retentionDays === null
+          ? undefined
+          : new Date(Date.now() - retentionDays * 24 * 60 * 60 * 1_000);
       const rows = await tx
         .select()
         .from(documentVersions)
@@ -270,6 +391,7 @@ export class DrizzleRepositoryDocuments extends DrizzleRepositoryPublication {
           and(
             eq(documentVersions.workspaceId, workspaceId),
             eq(documentVersions.documentId, documentId),
+            cutoff ? gte(documentVersions.createdAt, cutoff) : undefined,
           ),
         )
         .orderBy(desc(documentVersions.version));
@@ -284,6 +406,12 @@ export class DrizzleRepositoryDocuments extends DrizzleRepositoryPublication {
     documentVersionId: string,
   ): Promise<PersistedDocumentVersion | null> {
     return this.scoped(workspaceId, async (tx) => {
+      const retentionDays = (await this.resolveWorkspaceEntitlements(tx, workspaceId)).entitlements
+        .versionRetentionDays;
+      const cutoff =
+        retentionDays === null
+          ? undefined
+          : new Date(Date.now() - retentionDays * 24 * 60 * 60 * 1_000);
       const [version] = await tx
         .select()
         .from(documentVersions)
@@ -292,6 +420,7 @@ export class DrizzleRepositoryDocuments extends DrizzleRepositoryPublication {
             eq(documentVersions.workspaceId, workspaceId),
             eq(documentVersions.documentId, documentId),
             eq(documentVersions.id, documentVersionId),
+            cutoff ? gte(documentVersions.createdAt, cutoff) : undefined,
           ),
         )
         .limit(1);
@@ -304,6 +433,16 @@ export class DrizzleRepositoryDocuments extends DrizzleRepositoryPublication {
     assertArtifactMatchesDocument(input);
 
     return this.scoped(input.workspaceId, async (tx) => {
+      const entitlements = (await this.resolveWorkspaceEntitlements(tx, input.workspaceId))
+        .entitlements;
+      const localeLimit = entitlements.locales;
+      const localeCount = documentLocaleCount(input.document);
+      if (localeLimit !== null && localeCount > localeLimit) {
+        throw new CommercialEntitlementError('locales', localeCount, localeLimit);
+      }
+      for (const feature of commercialDocumentFeatures(input.document)) {
+        assertCommercialFeature(entitlements, feature);
+      }
       let lockedCurrentUpdatedAt: Date | null = null;
       if (input.expectedUpdatedAt !== undefined) {
         const [current] = await tx
@@ -407,6 +546,28 @@ export class DrizzleRepositoryDocuments extends DrizzleRepositoryPublication {
     });
   }
 
+  async getCompiledArtifactForDocumentVersion(
+    workspaceId: string,
+    documentId: string,
+    documentVersionId: string,
+  ): Promise<PersistedCompiledArtifact | null> {
+    return this.scoped(workspaceId, async (tx) => {
+      const [artifact] = await tx
+        .select()
+        .from(compiledArtifacts)
+        .where(
+          and(
+            eq(compiledArtifacts.workspaceId, workspaceId),
+            eq(compiledArtifacts.documentId, documentId),
+            eq(compiledArtifacts.documentVersionId, documentVersionId),
+          ),
+        )
+        .orderBy(desc(compiledArtifacts.createdAt))
+        .limit(1);
+      return artifact ? toPersistedArtifact(artifact) : null;
+    });
+  }
+
   async getCurrentPublishedArtifact(
     workspaceId: string,
     environmentId: string,
@@ -459,7 +620,10 @@ export class DrizzleRepositoryDocuments extends DrizzleRepositoryPublication {
 }
 
 function authoringMediaAssetResource(
-  row: typeof authoringMediaAssets.$inferSelect,
+  row:
+    | typeof authoringMediaAssets.$inferSelect
+    | typeof authoringMediaAssetsV2.$inferSelect
+    | typeof authoringNarrationAssets.$inferSelect,
 ): AuthoringMediaAssetResource {
   return {
     id: row.id,

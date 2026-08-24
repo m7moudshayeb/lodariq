@@ -1,0 +1,250 @@
+{
+  "$comment": [
+    "Committed baseline for the targeting-accuracy corpus. Counts, not percentages.",
+    "Regenerating this file is a human decision, never an automatic one: run",
+    "UPDATE_TARGETING_BASELINE=1 pnpm vitest run targeting-accuracy, then read the",
+    "diff and say in the commit message which classes moved and why.",
+    "wrong must be 0 in every class of both arms. That one is absolute, not ratcheted.",
+    "nearMiss is keyed <arm>/<bucket>. Only the Arm A count is a safety number: Arm B",
+    "declared a policy precisely so the ranking would not decide."
+  ],
+  "totals": {
+    "trials": 662,
+    "unanswered": 368,
+    "answered": 294
+  },
+  "unanswered": {
+    "ab-variant-inserted": {
+      "abstained": 5,
+      "correct": 10
+    },
+    "accessible-name-changed": {
+      "abstained": 5,
+      "correct": 9
+    },
+    "accessible-name-rewritten": {
+      "abstained": 11,
+      "correct": 3
+    },
+    "class-rename": {
+      "abstained": 5,
+      "correct": 10
+    },
+    "compound:adversarial-drift": {
+      "abstained": 6,
+      "correct": 4
+    },
+    "compound:rebrand-localized": {
+      "abstained": 5,
+      "correct": 10
+    },
+    "compound:redesign": {
+      "abstained": 8,
+      "correct": 6
+    },
+    "compound:redesign-plus-copy": {
+      "abstained": 9,
+      "correct": 4
+    },
+    "compound:refactor": {
+      "abstained": 6,
+      "correct": 1
+    },
+    "compound:remount-experiment": {
+      "abstained": 5,
+      "correct": 10
+    },
+    "compound:restyle": {
+      "abstained": 7,
+      "correct": 8
+    },
+    "compound:retag-restyle": {
+      "abstained": 7,
+      "correct": 6
+    },
+    "compound:rtl-rebrand": {
+      "abstained": 5,
+      "correct": 10
+    },
+    "compound:tailwind-drift": {
+      "abstained": 1,
+      "correct": 1
+    },
+    "control-disabled": {
+      "abstained": 10,
+      "correct": 4
+    },
+    "element-retagged": {
+      "abstained": 5,
+      "correct": 8
+    },
+    "generated-ids-reissued": {
+      "abstained": 1,
+      "correct": 1
+    },
+    "generated-ids-swapped": {
+      "abstained": 1,
+      "correct": 1
+    },
+    "i18n-text-swap": {
+      "abstained": 5,
+      "correct": 10
+    },
+    "instrumentation-stripped": {
+      "abstained": 5,
+      "correct": 2
+    },
+    "labels-exchanged": {
+      "abstained": 8,
+      "correct": 2
+    },
+    "layout-reflow": {
+      "abstained": 5,
+      "correct": 10
+    },
+    "lookalikes-swapped": {
+      "abstained": 6,
+      "correct": 4
+    },
+    "modal-portalled": {
+      "correct": 2
+    },
+    "moved-into-collection": {
+      "abstained": 5,
+      "correct": 10
+    },
+    "pristine": {
+      "abstained": 5,
+      "correct": 10
+    },
+    "rtl-locale-flip": {
+      "abstained": 5,
+      "correct": 10
+    },
+    "siblings-reordered": {
+      "abstained": 7,
+      "correct": 7
+    },
+    "target-removed": {
+      "abstained": 10
+    },
+    "utility-classes-tweaked": {
+      "abstained": 1,
+      "correct": 1
+    },
+    "virtualized-remount": {
+      "abstained": 5,
+      "correct": 10
+    },
+    "wrapper-inserted": {
+      "abstained": 7,
+      "correct": 8
+    }
+  },
+  "answered": {
+    "ab-variant-inserted": {
+      "abstained": 4,
+      "honoured": 4,
+      "intent-violated": 6
+    },
+    "accessible-name-changed": {
+      "abstained": 10,
+      "honoured": 2,
+      "intent-violated": 2
+    },
+    "accessible-name-rewritten": {
+      "abstained": 10,
+      "honoured": 2,
+      "intent-violated": 2
+    },
+    "class-rename": {
+      "abstained": 2,
+      "honoured": 6,
+      "intent-violated": 6
+    },
+    "compound:rebrand-localized": {
+      "abstained": 14
+    },
+    "compound:redesign": {
+      "abstained": 2,
+      "honoured": 6,
+      "intent-violated": 6
+    },
+    "compound:redesign-plus-copy": {
+      "abstained": 10,
+      "honoured": 2,
+      "intent-violated": 2
+    },
+    "compound:remount-experiment": {
+      "abstained": 4,
+      "honoured": 4,
+      "intent-violated": 6
+    },
+    "compound:restyle": {
+      "abstained": 2,
+      "honoured": 6,
+      "intent-violated": 6
+    },
+    "compound:retag-restyle": {
+      "abstained": 2,
+      "honoured": 6,
+      "intent-violated": 6
+    },
+    "compound:rtl-rebrand": {
+      "abstained": 14
+    },
+    "control-disabled": {
+      "abstained": 2,
+      "honoured": 6,
+      "intent-violated": 6
+    },
+    "element-retagged": {
+      "abstained": 2,
+      "honoured": 6,
+      "intent-violated": 6
+    },
+    "i18n-text-swap": {
+      "abstained": 14
+    },
+    "layout-reflow": {
+      "abstained": 2,
+      "honoured": 6,
+      "intent-violated": 6
+    },
+    "moved-into-collection": {
+      "abstained": 8,
+      "honoured": 2,
+      "intent-violated": 4
+    },
+    "pristine": {
+      "abstained": 2,
+      "honoured": 6,
+      "intent-violated": 6
+    },
+    "rtl-locale-flip": {
+      "abstained": 12,
+      "honoured": 2
+    },
+    "siblings-reordered": {
+      "abstained": 2,
+      "honoured": 6,
+      "intent-violated": 6
+    },
+    "virtualized-remount": {
+      "abstained": 2,
+      "honoured": 6,
+      "intent-violated": 6
+    },
+    "wrapper-inserted": {
+      "abstained": 2,
+      "honoured": 6,
+      "intent-violated": 6
+    }
+  },
+  "nearMiss": {
+    "answered/near-miss": 276,
+    "answered/none": 18,
+    "unanswered/near-miss": 123,
+    "unanswered/none": 245
+  }
+}

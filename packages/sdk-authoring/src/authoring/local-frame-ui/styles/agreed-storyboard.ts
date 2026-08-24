@@ -1,6 +1,5 @@
 /** Approved compact storyboard rail and step-selection states. */
 export const AUTHORING_AGREED_STORYBOARD_CSS = `
-  /* The compact rail stays recognizable at every authoring mode. */
   .tour-storyboard-step {
     min-width: 100px;
     max-width: 124px;

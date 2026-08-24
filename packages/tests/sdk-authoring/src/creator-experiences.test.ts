@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   CREATOR_ENABLED_EXPERIENCE_TYPES,
+  createExperienceDraft,
   createTourDraft,
 } from '@lodariq/sdk-authoring/creator-experiences';
 
@@ -16,6 +17,22 @@ describe('creator experience capabilities', () => {
       'checklist',
     ]);
   });
+
+  it.each(['announcement', 'hotspot', 'survey', 'checklist'] as const)(
+    'creates seeded %s drafts with closed default behavior',
+    (type) => {
+      const document = createExperienceDraft({
+        documentId: `doc_${type}`,
+        workspaceId: 'wk_creator',
+        environment: 'staging',
+        schemaVersion: '2.0.0',
+        type,
+      });
+      expect(document.type).toBe(type);
+      expect(document.experience?.type).toBe(type);
+      expect(document.blocks.length).toBeGreaterThan(0);
+    },
+  );
 
   it('creates a distinct empty draft tour without showing a step initially', () => {
     const document = createTourDraft({

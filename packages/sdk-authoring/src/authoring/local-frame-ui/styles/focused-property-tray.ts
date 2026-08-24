@@ -55,7 +55,6 @@ export const AUTHORING_FOCUSED_PROPERTY_TRAY_CSS = `
     display: none;
   }
 
-  /* Focused tray content: bounded, readable, and free of horizontal work. */
   .storyboard-tray-header {
     box-sizing: border-box;
     height: 56px;

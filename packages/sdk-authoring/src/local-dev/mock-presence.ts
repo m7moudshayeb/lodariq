@@ -4,10 +4,8 @@ import type { LocalAuthoringPresenceServices } from '../authoring/panel';
 /**
  * Two colleagues on the document, for local development only.
  *
- * WIRE_BE: real presence is a heartbeat over the host's collaboration channel —
- * there is no bridge message for it yet, and `panel.ts` takes it through
- * `LocalAuthoringPresenceServices`, so swapping this for the real thing is one
- * assignment in `local-dev/install.ts`. Nothing here ships to a hosted origin.
+ * Hosted presence uses the authenticated heartbeat/SSE transport and semantic
+ * bridge. This source remains only for reviewing the chrome without an API.
  *
  * It exists so the presence surfaces can be seen and reviewed: the pill's faces,
  * the filmstrip's avatars and the step lock are invisible in single-player, and
@@ -45,20 +43,27 @@ export function createMockPresence(
   const snapshot = (): PresenceState => {
     const steps = stepIds();
     const now = Date.now();
-    // Clamped, because the fixture usually has one step and a peer parked on a
-    // step that does not exist demonstrates nothing.
-    const stepOf = (index: number): string | null => steps[Math.min(index, steps.length - 1)] ?? null;
+    // Clamped: a peer parked on a step that does not exist demonstrates nothing.
+    // The fixture now has five, so these two land on distinct steps.
+    const stepOf = (index: number): string | null =>
+      steps[Math.min(index, steps.length - 1)] ?? null;
     return {
       selfId,
-      peers: DEMO_PEERS.map((peer) => ({
-        creatorId: peer.creatorId,
-        name: peer.name,
-        stepId: stepOf(peer.stepIndex),
-        lastSeenAt: now,
-      })),
+      peers: DEMO_PEERS.map((peer, index) => {
+        const stepId = stepOf(peer.stepIndex);
+        return {
+          creatorId: peer.creatorId,
+          name: peer.name,
+          stepId,
+          selection: index === 0 && stepId ? { type: 'block' as const, blockId: stepId } : null,
+          lastSeenAt: now,
+        };
+      }),
       stepLocks: DEMO_PEERS.flatMap((peer) => {
         const stepId = peer.holding ? stepOf(peer.stepIndex) : null;
-        return stepId ? [{ stepId, creatorId: peer.creatorId, acquiredAt: now, lastEditAt: now }] : [];
+        return stepId
+          ? [{ stepId, creatorId: peer.creatorId, acquiredAt: now, lastEditAt: now }]
+          : [];
       }),
       documentLock: null,
     };

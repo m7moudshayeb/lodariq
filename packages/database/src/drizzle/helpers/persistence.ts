@@ -36,6 +36,20 @@ export function toPersistedAnalyticsEventRecord(
     publicationId: event.publicationId,
     contentHash: event.contentHash,
     pointerGeneration: event.pointerGeneration,
+    ...(event.experimentId ? { experimentId: event.experimentId } : {}),
+    ...(event.experimentArmId ? { armId: event.experimentArmId as 'A' | 'B' | 'C' | 'D' } : {}),
+    ...(event.experimentAllocationRevision
+      ? { experimentAllocationRevision: event.experimentAllocationRevision }
+      : {}),
+    ...(event.audienceSegmentId
+      ? {
+          audienceSegment: {
+            id: event.audienceSegmentId,
+            definitionVersion: event.audienceSegmentDefinitionVersion as 1,
+            ruleCount: event.audienceSegmentRuleCount!,
+          },
+        }
+      : {}),
     name: event.name,
     ...(event.stepId ? { stepId: event.stepId } : {}),
     sdkVersion: event.sdkVersion,

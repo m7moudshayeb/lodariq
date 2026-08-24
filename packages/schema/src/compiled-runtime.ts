@@ -35,14 +35,21 @@ import {
   StepChoreographyWait,
 } from './choreography';
 import {
+  CompiledTargetApproach,
+  CompiledTargetV4,
+  CompiledExperiment,
+  CompiledExperimentArm,
   CompiledDocumentLocaleVariant,
   CompiledDocumentLocaleVariantV4,
   CompiledDocumentLocalization,
   CompiledDocumentLocalizationV4,
+  CompiledDocumentLocaleVariantV5,
+  CompiledDocumentLocalizationV5,
   CompiledDocumentV1,
   CompiledDocumentV2,
   CompiledDocumentV3,
   CompiledDocumentV4,
+  CompiledDocumentV5,
   type CompiledDocument,
 } from './compiled';
 import { ApplicationSummary, JourneyHandoff } from './application';
@@ -57,6 +64,7 @@ import {
 } from './flow';
 import {
   FormFieldPresentation,
+  LocalizedMediaVariant,
   MediaPresentation,
   ResponsiveStepOverride,
   ResponsiveStepPresentation,
@@ -64,12 +72,19 @@ import {
   StructuredCompositionPresentation,
   TourMotionPresentation,
 } from './presentation';
-import { ElementFingerprint, RuntimeLifecycleHints, TargetIdentityV2 } from './target';
+import {
+  ElementFingerprint,
+  RuntimeLifecycleHints,
+  TargetIdentityV2,
+  TargetSelectionPolicy,
+} from './target';
+import { ExperimentOverride } from './measurement';
+import { CompiledNarration, NarrationAudio, NarrationCue } from './narration';
+import { CompiledExperienceBehavior } from './experience';
 
 /**
  * Minimal TypeBox reference closure required to validate immutable compiled
  * artifacts. Keep this separate from the full schema registry so the public
- * SDK can lazy-load validation without bundling dashboard/authoring contracts.
  */
 export const COMPILED_RUNTIME_SCHEMA_REFERENCES = [
   ApplicationSummary,
@@ -80,11 +95,23 @@ export const COMPILED_RUNTIME_SCHEMA_REFERENCES = [
   CompiledDocumentLocaleVariantV4,
   CompiledDocumentLocalization,
   CompiledDocumentLocalizationV4,
+  CompiledDocumentLocaleVariantV5,
+  CompiledDocumentLocalizationV5,
+  CompiledTargetApproach,
+  CompiledTargetV4,
+  CompiledExperiment,
+  CompiledExperimentArm,
   ContentLocale,
   ElementFingerprint,
+  ExperimentOverride,
+  CompiledNarration,
+  CompiledExperienceBehavior,
+  NarrationAudio,
+  NarrationCue,
   FormFieldPresentation,
   InlineTextRun,
   JourneyHandoff,
+  LocalizedMediaVariant,
   MediaPresentation,
   OpaqueSrgbColor,
   PresentationAnchor,
@@ -108,6 +135,7 @@ export const COMPILED_RUNTIME_SCHEMA_REFERENCES = [
   StepTransitionRule,
   TargetIdentityV2,
   TargetOutline,
+  TargetSelectionPolicy,
   TextStyleProps,
   ThemeBorderTokens,
   ThemeColorTokens,
@@ -132,6 +160,7 @@ const VERSIONED_COMPILED_DOCUMENT_SCHEMAS = {
   '2': CompiledDocumentV2,
   '3': CompiledDocumentV3,
   '4': CompiledDocumentV4,
+  '5': CompiledDocumentV5,
 } as const;
 
 /** Fully validates one public delivery artifact against its exact immutable schema. */

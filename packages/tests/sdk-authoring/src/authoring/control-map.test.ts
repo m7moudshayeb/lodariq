@@ -16,7 +16,9 @@ interface Row {
 
 function rows(): readonly Row[] {
   return MAP.split('\n')
-    .filter((line) => line.startsWith('| ') && !line.startsWith('| Action') && !line.startsWith('| ---'))
+    .filter(
+      (line) => line.startsWith('| ') && !line.startsWith('| Action') && !line.startsWith('| ---'),
+    )
     .map((line) => line.split('|').map((cell) => cell.trim()))
     .filter((cells) => cells.length >= 6)
     .map((cells) => ({ action: cells[1]!, control: cells[2]!, accelerator: cells[4]! }));

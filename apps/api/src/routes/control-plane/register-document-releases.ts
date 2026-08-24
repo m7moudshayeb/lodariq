@@ -5,12 +5,19 @@ import {
   EnvironmentPolicyMutationForbiddenError,
   IdempotencyConflictError,
   ReleaseOperationInProgressError,
+  AccessibilityReleaseBlockedError,
   type PersistedCompiledArtifact,
   type VisualCheckRunRecord,
 } from '@lodariq/database';
+import { assertAccessibilityReleaseGate } from '../../accessibility-governance';
 import type { FastifyInstance } from 'fastify';
 import { createObservabilityEvent } from '../../observability';
-import { authenticate, emitObservability, requireReleaseCapability } from '../control-plane-access';
+import { enqueueReleaseWebhookEvent } from '../../governance-events';
+import {
+  authenticate,
+  emitObservability,
+  requireEnvironmentReleaseCapability,
+} from '../control-plane-access';
 import { CreateStagingPublicationBody, DocumentParams } from '../control-plane-contracts';
 import type { ControlPlaneRouteOptions } from '../control-plane-context';
 import {
@@ -47,8 +54,6 @@ export function registerDocumentReleaseRoutes(
     async (request, reply) => {
       const auth = await authenticate(options.repository, options.authProvider, request, reply);
       if (!auth) return;
-      if (!requireReleaseCapability(auth, 'publish-staging', reply)) return;
-
       const idempotencyKey = readHeader(request, IDEMPOTENCY_KEY_HEADER);
       if (!idempotencyKey || !IDEMPOTENCY_KEY_PATTERN.test(idempotencyKey)) {
         return reply.code(400).send({
@@ -71,6 +76,16 @@ export function registerDocumentReleaseRoutes(
         expectedArtifactId: string;
         expectedContentHash: string;
       };
+      if (
+        !(await requireEnvironmentReleaseCapability(
+          options.repository,
+          auth,
+          body.environmentId,
+          'publish-staging',
+          reply,
+        ))
+      )
+        return;
       const [record, environment] = await Promise.all([
         options.repository.getDocument(auth.workspaceId, documentId),
         findEnvironment(options.repository, auth.workspaceId, body.environmentId),
@@ -185,6 +200,22 @@ export function registerDocumentReleaseRoutes(
           });
         }
         artifact = reviewed.artifact;
+        try {
+          await assertAccessibilityReleaseGate(
+            options.repository,
+            auth.workspaceId,
+            artifact.documentVersionId,
+          );
+        } catch (error) {
+          if (error instanceof AccessibilityReleaseBlockedError) {
+            return reply.code(409).send({
+              error: error.code,
+              message: error.message,
+              findings: error.findings,
+            });
+          }
+          throw error;
+        }
         visualCheck = await runAndPersistVisualPreflight({
           repository: options.repository,
           workspaceId: auth.workspaceId,
@@ -218,6 +249,17 @@ export function registerDocumentReleaseRoutes(
           auth.workspaceId,
           compiledMediaAssetIds(artifact.compiled),
         );
+        await enqueueReleaseWebhookEvent(options.repository, {
+          workspaceId: auth.workspaceId,
+          environmentId: environment.id,
+          documentId,
+          operationId: result.operation.id,
+          action: 'activated',
+          occurredAt: result.operation.completedAt ?? result.publication.publishedAt,
+          generation: result.deployment.generation,
+          publicationId: result.publication.id,
+          contentHash: result.publication.contentHash,
+        });
         emitObservability(
           options.observability,
           createObservabilityEvent({

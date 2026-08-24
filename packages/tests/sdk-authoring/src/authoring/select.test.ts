@@ -42,7 +42,9 @@ describe('AuthoringSelect search', () => {
     });
 
     const trigger = document.querySelector<HTMLButtonElement>('[aria-label="Experience language"]');
-    await act(async () => trigger?.click());
+    await act(async () => {
+      trigger?.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true }));
+    });
 
     const search = document.querySelector<HTMLInputElement>('[aria-label="Search languages"]');
     expect(search).not.toBeNull();

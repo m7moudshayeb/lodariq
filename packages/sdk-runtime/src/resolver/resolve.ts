@@ -2,20 +2,24 @@ import { accessibleNameOf, ancestorLandmarksOf } from '@lodariq/schema/dom';
 import {
   TARGET_CONTEXT_GROUP_ROLES,
   TARGET_IDENTITY_SCORE_BY_FAMILY,
+  TARGET_LOCALIZED_TEXT_MAX_LENGTH,
   TARGET_MIN_RESOLUTION_RUNNER_UP_RATIO,
   TARGET_STABLE_SIGNAL_MULTIPLIER,
   TARGET_UNCONFIRMED_SIGNAL_MULTIPLIER,
+  ancestorContextSimilarity,
   hasTargetIdentityV2Envelope,
 } from '@lodariq/schema/target-runtime';
 import type {
   ElementFingerprint,
   Target,
   TargetIdentityV2,
+  TargetLocalizedEvidence,
   TargetRelationship,
   TargetSelectionPolicy,
   TargetSignalFamily,
 } from '@lodariq/schema/target';
 import { selectionSettlesAmbiguity } from '@lodariq/schema/target';
+import { currentPageKey, pageKeyMatches } from '@lodariq/schema/page-key';
 import {
   MAX_RUNNER_UP_MARGIN,
   MIN_CAPTURE_RUNNER_UP_MARGIN,
@@ -50,7 +54,10 @@ import {
   isVisible,
   localeForElement,
   localizedEvidenceFor,
+  localizedLabelOf,
+  localizedTextContradicts,
   localizedTextMatches,
+  localizedNameAgreement,
   matchesElementKind,
   matchesRequiredAction,
   parentElementAcrossOpenShadow,
@@ -64,6 +71,7 @@ export * from './types';
 export {
   localizedEvidenceFor,
   localizedLabelOf,
+  localizedNameAgreement,
   localizedTextMatches,
   matchesRequiredAction,
 } from './element-evidence';
@@ -139,6 +147,49 @@ export function setResolutionTelemetryObserver(
 /** Zero when the host has no observer, so an unmeasured page pays no clock reads. */
 function nowMs(): number {
   return telemetryObserver ? (globalThis.performance?.now?.() ?? 0) : 0;
+}
+
+/** One candidate as the ranking saw it, reduced to what the sort turns on. */
+export interface ResolutionRankedCandidate {
+  /** Live node, valid only for the duration of the call. Must not be retained. */
+  readonly element: Element;
+  readonly durableScore: number;
+  readonly durableFamilyCount: number;
+  readonly families: readonly TargetSignalFamily[];
+}
+
+/**
+ * The candidate ranking behind one resolution, in the resolver's own sort order.
+ *
+ * Deliberately not part of `ResolutionTelemetry`, and deliberately never
+ * serialised. Telemetry is numbers and enum strings — safe to send anywhere.
+ * This names *which* elements lost, and a candidate inside a customer's table row
+ * can be a person. Handing live nodes keeps that where it belongs: a node cannot
+ * leave the page, a description of one can. So the sample is synchronous, valid
+ * for the call only, and must not be retained, stored, or transmitted.
+ *
+ * Why publish it at all: a resolution that abstains returns `element: null`, so
+ * from outside there is no way to tell "nothing matched" from "the wrong element
+ * won and one veto stopped it". The second predicts future wrong clicks, and it
+ * is also what drift repair has to show an author — which control now outscores
+ * the one they picked.
+ */
+export interface ResolutionRankingSample {
+  readonly candidates: readonly ResolutionRankedCandidate[];
+}
+
+let rankingObserver: ((sample: ResolutionRankingSample) => void) | null = null;
+
+/**
+ * Subscribe to per-resolution candidate rankings. Pass `null` to stop.
+ *
+ * Off until someone asks. Unsubscribed, the optional call short-circuits before
+ * its argument exists, so a page nobody is measuring pays one null check.
+ */
+export function setResolutionRankingObserver(
+  observer: ((sample: ResolutionRankingSample) => void) | null,
+): void {
+  rankingObserver = observer;
 }
 
 interface CandidateGateCounters {
@@ -368,6 +419,21 @@ export function resolveTargetIdentity(
     } catch {
       /* telemetry is never load-bearing */
     }
+    // Unconditional, `found` included: a resolution that landed on the wrong
+    // element is exactly the one worth catching, and gating on failure would
+    // hide it.
+    try {
+      rankingObserver?.({
+        candidates: candidates.map((candidate) => ({
+          element: candidate.element,
+          durableScore: durableScore(candidate),
+          durableFamilyCount: durableFamilyCount(candidate),
+          families: candidate.evidence.map((entry) => entry.family),
+        })),
+      });
+    } catch {
+      /* measurement is never load-bearing */
+    }
     return result;
   };
 
@@ -424,10 +490,45 @@ export function resolveTargetIdentity(
     });
   }
 
+  /*
+   * The control we recorded cannot take this step's action any more, and what is
+   * left is standing unopposed.
+   *
+   * A removed target and a disabled one are the same page to the resolver: a
+   * candidate that plausibly matched has been taken out of the running, and
+   * whoever is still standing wins by walkover rather than by evidence. Where a
+   * rival survives there is something to check the winner against; where none
+   * does, "the only one left" is not a reason to click it.
+   *
+   * Unless the winner carries evidence a neighbour could not have carried. A
+   * testid or a registry key is issued to one element, so matching it is a claim
+   * about identity rather than about kind — that is the wizard case, where the
+   * filter correctly drops a disabled look-alike and the instrumented target is
+   * still the target. Every other family a sibling can also satisfy.
+   */
+  if (
+    counters.notActionable > 0 &&
+    !carriesUnsharableEvidence(top) &&
+    durableRivals(top, candidates).length === 0
+  ) {
+    return finish({
+      state: 'needs_review',
+      element: null,
+      anchor: null,
+      ...common,
+      reasonCode: 'not_actionable',
+    });
+  }
+
+  // An author who already answered "which one" keeps their answer: a name that
+  // happens to separate the tie must not quietly overrule a declared position.
+  const nameSettlesTie =
+    !selectionSettlesAmbiguity(selection) &&
+    localizedTextSafelyBreaksDurableTie(identity, top, candidates);
   if (
     second &&
     topDurableScore - durableScore(second) < requiredRunnerUpMargin(topDurableScore) &&
-    !localizedTextSafelyBreaksDurableTie(identity, top, candidates)
+    !nameSettlesTie
   ) {
     // Evidence cannot separate these. An author who already answered the
     // disambiguation question gets their answer applied; everyone else keeps
@@ -436,7 +537,7 @@ export function resolveTargetIdentity(
     const tied = candidates.filter(
       (candidate) => topDurableScore - durableScore(candidate) < margin,
     );
-    const selected = applySelectionPolicy(selection, tied);
+    const selected = applySelectionPolicy(selection, tied, identity.captureEvidence);
     if (selected) {
       return finish({
         ...common,
@@ -464,7 +565,7 @@ export function resolveTargetIdentity(
     });
   }
 
-  const captureIssue = captureEvidenceIssue(identity, selection);
+  const captureIssue = captureEvidenceIssue(identity, selection, nameSettlesTie);
   if (captureIssue) {
     return finish({
       state: captureIssue.state,
@@ -475,8 +576,8 @@ export function resolveTargetIdentity(
     });
   }
 
-  const hasDrift = stableEvidenceHasDrift(identity, top);
-  if (hasDrift) {
+  const contradiction = evidenceContradiction(identity, top, candidates);
+  if (stableEvidenceHasDrift(identity, top) || contradiction === 'wrong-element') {
     return finish({
       state: 'needs_review',
       element: null,
@@ -485,32 +586,50 @@ export function resolveTargetIdentity(
       reasonCode: 'evidence_drift',
     });
   }
+  const drifted =
+    contradiction === 'changed-copy' || visualEvidenceHasDrift(identity, top, root, context);
+  const learned = drifted ? undefined : unrecordedLocalizedEvidence(identity, top);
   return finish({
     state: 'found',
     element: top.element,
     anchor: elementAnchor(top.element),
     ...common,
-    reasonCode: visualEvidenceHasDrift(identity, top, root, context)
-      ? 'resolved_with_drift'
-      : 'resolved',
+    ...(learned ? { learnedLocalizedEvidence: learned } : {}),
+    reasonCode: drifted ? 'resolved_with_drift' : 'resolved',
   });
 }
 
 /**
- * Locale-bound text may distinguish otherwise equivalent semantic controls,
- * but only after the winner has already cleared the independent durable
- * evidence quorum. It never rescues a weak identity or overrides a stronger
- * durable candidate, and it fails closed when locale copy changes.
+ * The winner's copy, when the target has none for this language. Offered only
+ * on a spotless win: a shaky one would teach the wrong word permanently.
+ */
+function unrecordedLocalizedEvidence(
+  identity: TargetIdentityV2,
+  top: ScoredCandidate,
+): TargetLocalizedEvidence | undefined {
+  if (!top.locale) return undefined;
+  if (localizedEvidenceFor(identity.localizedEvidence, top.locale)) return undefined;
+  const accessibleName = localizedLabelOf(top.element)?.slice(0, TARGET_LOCALIZED_TEXT_MAX_LENGTH);
+  return accessibleName ? { locale: top.locale, accessibleName } : undefined;
+}
+
+/**
+ * The words settle what the durable evidence cannot, once the winner has
+ * already cleared the durable quorum on its own: this never rescues a weak
+ * identity, it only separates equals.
+ *
+ * Strict about the winner, generous about doubt. The winner must carry the
+ * recorded name whole; a rival that merely resembles it is enough to abstain.
+ * Copy that changed therefore fails closed, back to the honest tie.
  */
 function localizedTextSafelyBreaksDurableTie(
   identity: TargetIdentityV2,
   top: ScoredCandidate,
   candidates: readonly ScoredCandidate[],
 ): boolean {
-  if (identity.semantics.tagName !== 'a') return false;
   const expected = localizedEvidenceFor(identity.localizedEvidence, top.locale);
   if (!expected || !hasPrimaryLocalizedEvidence(expected)) return false;
-  if (!candidateHasEvidence(top, 'localized-text')) return false;
+  if (localizedNameAgreement(top.element, expected) !== 'exact') return false;
 
   const topDurableScore = durableScore(top);
   const requiredMargin = requiredRunnerUpMargin(topDurableScore);
@@ -518,27 +637,15 @@ function localizedTextSafelyBreaksDurableTie(
     (candidate) => candidate !== top && topDurableScore - durableScore(candidate) < requiredMargin,
   );
   if (durableNearTies.length === 0) return false;
-  if (durableNearTies.some((candidate) => candidateHasEvidence(candidate, 'localized-text'))) {
-    return false;
-  }
-
-  const topSemanticScore = topDurableScore + evidenceScore(top, 'localized-text');
-  const runnerUpSemanticScore = Math.max(
-    ...durableNearTies.map(
-      (candidate) => durableScore(candidate) + evidenceScore(candidate, 'localized-text'),
-    ),
+  return !durableNearTies.some(
+    (candidate) =>
+      localizedNameAgreement(candidate.element, expected) !== null ||
+      localizedTextMatches(candidate.element, expected),
   );
-  return topSemanticScore - runnerUpSemanticScore >= requiredMargin;
 }
 
 function candidateHasEvidence(candidate: ScoredCandidate, family: TargetSignalFamily): boolean {
   return candidate.evidence.some((entry) => entry.family === family);
-}
-
-function evidenceScore(candidate: ScoredCandidate, family: TargetSignalFamily): number {
-  return candidate.evidence
-    .filter((entry) => entry.family === family)
-    .reduce((total, entry) => total + entry.score, 0);
 }
 
 function hasPrimaryLocalizedEvidence(
@@ -603,7 +710,8 @@ function scoreIdentityCandidate(
     addEvidence('semantic-attribute');
   }
   if (identitySemanticsMatch(identity, element)) addEvidence('element-semantics');
-  if (ancestorContextMatches(identity, element)) addEvidence('ancestor-context');
+  const ancestorAgreement = ancestorContextAgreement(identity, element);
+  if (ancestorAgreement > 0) addEvidence('ancestor-context', ancestorAgreement);
   if (relationshipContextMatches(identity, element, context)) {
     addEvidence('relationship-context');
   }
@@ -751,7 +859,7 @@ function isVisualResolution(identity: TargetIdentityV2): boolean {
 
 function legacyEvidenceOf(fingerprint: ElementFingerprint, element: Element): EvidenceMatch[] {
   const evidence: EvidenceMatch[] = [];
-  const stableEntries = Object.entries(fingerprint.stableAttributes);
+  const stableEntries = Object.entries(fingerprint.stableAttributes ?? {});
   const matchingStableAttributes = stableEntries.filter(
     ([name, value]) => element.getAttribute(name) === value,
   );
@@ -825,7 +933,28 @@ function identitySemanticGatesPass(identity: TargetIdentityV2, element: Element)
 function identitySemanticsMatch(identity: TargetIdentityV2, element: Element): boolean {
   const expected = identity.semantics;
   const checks: boolean[] = [];
-  if (expected.tagName) checks.push(element.tagName.toLowerCase() === expected.tagName);
+  if (expected.tagName) {
+    /*
+     * A retag is a change of construction, not of identity.
+     *
+     * Reimplementing a `<button>` as an `<a role="button">` is one of the most
+     * ordinary things a design-system migration does, and the product says so
+     * in the markup: the role it declares is a better statement of what the
+     * element *is* than the tag it happens to be built from. Requiring the tag
+     * demoted the real target by one whole family below every look-alike that
+     * kept its tag — the exact 33.00 gap Step 2 measured five times over.
+     *
+     * Only the tag check yields, and only to an explicitly declared role. Every
+     * other check in the family still has to pass, so this substitutes one
+     * statement of kind for another rather than paying partial credit for a
+     * partial match.
+     */
+    const declaredRole = element.getAttribute('role')?.trim().toLowerCase().split(/\s+/)[0];
+    checks.push(
+      element.tagName.toLowerCase() === expected.tagName ||
+        (Boolean(expected.role) && declaredRole === expected.role),
+    );
+  }
   if (expected.role) checks.push(semanticRoleOf(element) === expected.role);
   if (expected.inputType) {
     checks.push(inputTypeOf(element) === expected.inputType);
@@ -834,10 +963,10 @@ function identitySemanticsMatch(identity: TargetIdentityV2, element: Element): b
   return checks.length > 0 && checks.every(Boolean);
 }
 
-function ancestorContextMatches(identity: TargetIdentityV2, element: Element): boolean {
+function ancestorContextAgreement(identity: TargetIdentityV2, element: Element): number {
   const expected = identity.context.ancestorRoles;
-  if (!expected?.length) return false;
-  return isOrderedSubsequence(expected, ancestorRolesOf(element));
+  if (!expected?.length) return 0;
+  return ancestorContextSimilarity(expected, ancestorRolesOf(element));
 }
 
 function relationshipContextMatches(
@@ -938,6 +1067,15 @@ function validateResolutionContext(
   context: TargetResolutionContext,
   locale: string | null,
 ): ResolutionResult | null {
+  const expectedPage = identity.context.page;
+  if (expectedPage) {
+    // Fails open when the key is unreadable — a non-browser host has no page to
+    // be wrong about, and blocking there would break every server-side check.
+    const page = context.pageKey ?? currentPageKey();
+    if (page && !pageKeyMatches(expectedPage.key, expectedPage.match, page)) {
+      return emptyResult('missing', 'route_mismatch', locale);
+    }
+  }
   const expectedRoute = identity.context.routePatternId;
   if (expectedRoute && !context.routePatternId) {
     return emptyResult('needs_review', 'context_unverified', locale);
@@ -1003,10 +1141,12 @@ function identityIsUsable(value: unknown): value is TargetIdentityV2 {
  */
 function captureEvidenceIssue(
   identity: TargetIdentityV2,
-  selection?: TargetSelectionPolicy,
+  selection: TargetSelectionPolicy | undefined,
+  /** The page answered the "which one" question itself, by name. */
+  nameSettlesTie: boolean,
 ): Pick<ResolutionResult, 'state' | 'reasonCode'> | null {
   const capture = identity.captureEvidence;
-  const answered = selectionSettlesAmbiguity(selection);
+  const answered = selectionSettlesAmbiguity(selection) || nameSettlesTie;
   if (!answered) {
     if (capture.uniqueCandidateCount !== 1) {
       return { state: 'ambiguous', reasonCode: 'multiple_candidates' };
@@ -1019,6 +1159,61 @@ function captureEvidenceIssue(
     return { state: 'needs_review', reasonCode: 'low_confidence' };
   }
   return null;
+}
+
+/**
+ * Every other gate asks whether the recorded cues are present. Swap two alike
+ * controls and the wrong one carries them all, so nothing complains. Only
+ * disagreement catches that: `wrong-element` when a rival holds what the winner
+ * lacks, `changed-copy` when the copy moved and nobody else claims it.
+ */
+type EvidenceContradiction = 'wrong-element' | 'changed-copy' | null;
+
+function evidenceContradiction(
+  identity: TargetIdentityV2,
+  top: ScoredCandidate,
+  candidates: readonly ScoredCandidate[],
+): EvidenceContradiction {
+  // Only a candidate that could have been the answer may argue about it. With
+  // nobody left to argue, `wrong-element` is unreachable — but the winner's own
+  // copy can still disagree, and returning early there hid that from the result.
+  const rivals = durableRivals(top, candidates);
+
+  if (rivals.length > 0 && supportingEvidencePointsElsewhere(identity, top, rivals)) {
+    return 'wrong-element';
+  }
+
+  const expected = localizedEvidenceFor(identity.localizedEvidence, top.locale);
+  if (!expected || !localizedTextContradicts(top.element, expected)) return null;
+  if (rivals.some((rival) => localizedTextMatches(rival.element, expected))) return 'wrong-element';
+  /*
+   * Nobody on the page claims the recorded name, and what that means depends on
+   * what the step does next.
+   *
+   * If the step points at the control, a rename is a rename: the author sees a
+   * tooltip on a button whose words moved on, which is legible and recoverable.
+   * If the step *clicks* it, the same evidence supports a second reading we
+   * cannot rule out — that this is a different control standing where ours used
+   * to — and we would be taking an action on the user's behalf against an
+   * element we can no longer identify. Withhold the ones that act.
+   */
+  return stepActsOnTarget(identity) ? 'wrong-element' : 'changed-copy';
+}
+
+/**
+ * Losing a supporting cue is normal; finding it on somebody else is not. The
+ * recorded slot is occupied, and not by the winner.
+ */
+function supportingEvidencePointsElsewhere(
+  identity: TargetIdentityV2,
+  top: ScoredCandidate,
+  rivals: readonly ScoredCandidate[],
+): boolean {
+  const matched = new Set(top.evidence.map((entry) => entry.family));
+  return identity.captureEvidence.stableSignalFamilies.some((family) => {
+    if (!SUPPORTING_DURABLE_FAMILIES.has(family) || matched.has(family)) return false;
+    return rivals.some((rival) => candidateHasEvidence(rival, family));
+  });
 }
 
 function stableEvidenceHasDrift(identity: TargetIdentityV2, candidate: ScoredCandidate): boolean {
@@ -1048,6 +1243,41 @@ function visualEvidenceHasDrift(
   return Boolean(
     applicable && !candidate.evidence.some((entry) => entry.family === 'visual-topology'),
   );
+}
+
+/**
+ * Evidence issued to one element rather than to a kind of element.
+ *
+ * `semantic-attribute` is deliberately absent: two dialog triggers side by side
+ * both carry `aria-haspopup="dialog"`, so matching it says what the element is,
+ * not which one it is.
+ */
+function carriesUnsharableEvidence(candidate: ScoredCandidate): boolean {
+  return candidate.evidence.some(
+    (entry) => entry.family === 'configured-attribute' || entry.family === 'registry-contract',
+  );
+}
+
+/** Candidates that could themselves have been the answer, and so may argue about it. */
+function durableRivals(
+  top: ScoredCandidate,
+  candidates: readonly ScoredCandidate[],
+): ScoredCandidate[] {
+  return candidates.filter(
+    (candidate) =>
+      candidate !== top && durableFamilyCount(candidate) >= MIN_INDEPENDENT_IDENTITY_FAMILIES,
+  );
+}
+
+/**
+ * Whether the step does something to the element rather than point at it.
+ *
+ * `anchor` is a highlight: the tour draws a card beside the control and the user
+ * decides. Every other required action reaches into the host page on the user's
+ * behalf, so a mistake there is not a mistake they can see coming.
+ */
+function stepActsOnTarget(identity: TargetIdentityV2): boolean {
+  return (identity.intent.requiredAction ?? 'anchor') !== 'anchor';
 }
 
 function durableFamilyCount(candidate: ScoredCandidate): number {
@@ -1115,7 +1345,7 @@ function resolveVisualAnchorResult(
     };
   }
 
-  const captureIssue = captureEvidenceIssue(identity);
+  const captureIssue = captureEvidenceIssue(identity, undefined, false);
   if (captureIssue) {
     return {
       state: captureIssue.state,
@@ -1338,15 +1568,6 @@ function requiredRunnerUpMargin(topScore: number, minimumMargin = MIN_RUNNER_UP_
     MAX_RUNNER_UP_MARGIN,
     Math.max(minimumMargin, topScore * TARGET_MIN_RESOLUTION_RUNNER_UP_RATIO),
   );
-}
-
-function isOrderedSubsequence(expected: readonly string[], actual: readonly string[]): boolean {
-  let expectedIndex = 0;
-  for (const value of actual) {
-    if (value === expected[expectedIndex]) expectedIndex += 1;
-    if (expectedIndex === expected.length) return true;
-  }
-  return false;
 }
 
 function safeMatches(element: Element, selector: string): boolean {

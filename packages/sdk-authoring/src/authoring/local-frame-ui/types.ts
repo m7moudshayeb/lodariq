@@ -11,11 +11,29 @@ import type {
   ViewportFocus,
   TargetInspectAction,
   AdaptivePolicy,
+  AdaptiveBehaviorEvidence,
   AdoptionImpact,
+  ExperienceAnalyticsBreakdown,
   ApplicationSummary,
   Experiment,
   ExperimentResults,
+  ExperienceSession,
+  ExperienceComment,
+  AuthoringAuditEvent,
+  WorkspaceCommercialUsage,
+  WorkspaceDataCatalog,
+  DeploymentSchedule,
+  DeliveryTransitionHistoryEntry,
+  DemoAnalyticsSummary,
+  DemoArtifactReview,
+  CanonicalTemplateInstantiationResult,
+  AuthoringDocumentVersionSummary,
+  SemanticVersionDiff,
+  ChangeAwareCopySuggestion,
+  RecordToAuthorProposal,
+  LocaleLayoutQaReport,
 } from '@lodariq/schema';
+import type { AccessibilitySweepResult } from '@lodariq/schema/accessibility-governance';
 import type { AuthoringReleaseFinding } from '../local-frame-types';
 import type {
   AuthoringBrandMatchProposal,
@@ -234,10 +252,14 @@ export const AUTHORING_OPERATIONS_TABS = [
   'storyboard',
   'batch',
   'templates',
+  'voice',
+  'record',
+  'diff',
   // Look
   'appearance',
   'translation',
   'narration',
+  'copy',
   // Reach
   'audience',
   'experiment',
@@ -250,17 +272,26 @@ export const AUTHORING_OPERATIONS_TABS = [
   'review',
   'recovery',
   'collaboration',
+  'audit',
   'share',
 ] as const;
 export type AuthoringOperationsTab = (typeof AUTHORING_OPERATIONS_TABS)[number];
 
-/** Nav grouping. Fifteen flat entries is a list; five groups is a menu. */
+export interface AuthoringOperationsViewState {
+  focusKey: string | null;
+  scrollTop: number;
+}
+
+/** Nav grouping. Flat entries become easier to scan in five small groups. */
 export const AUTHORING_OPERATIONS_GROUPS = [
-  { id: 'author', tabs: ['flow', 'storyboard', 'batch', 'templates'] },
-  { id: 'look', tabs: ['appearance', 'translation', 'narration'] },
+  { id: 'author', tabs: ['flow', 'storyboard', 'batch', 'templates', 'voice', 'record'] },
+  { id: 'look', tabs: ['appearance', 'translation', 'narration', 'copy'] },
   { id: 'reach', tabs: ['audience', 'experiment'] },
   { id: 'prove', tabs: ['check', 'analytics'] },
-  { id: 'ship', tabs: ['release', 'review', 'recovery', 'collaboration', 'share'] },
+  {
+    id: 'ship',
+    tabs: ['release', 'review', 'recovery', 'diff', 'collaboration', 'audit', 'share'],
+  },
 ] as const satisfies ReadonlyArray<{
   readonly id: string;
   readonly tabs: readonly AuthoringOperationsTab[];
@@ -299,6 +330,7 @@ export interface AuthoringReleaseRecoveryWorkflowState {
 export interface AuthoringPanelWorkflowState {
   mode: AuthoringPanelMode;
   operationsTab: AuthoringOperationsTab;
+  operationsView: AuthoringOperationsViewState;
   returnMode: AuthoringPanelMode;
   focusToken: number;
   returnFocus: 'appearance' | 'release' | null;
@@ -338,50 +370,83 @@ export interface ExperienceAnalyticsSnapshot {
   readonly funnel: readonly ExperienceFunnelEntry[];
   readonly adoption?: readonly AdoptionImpact[];
   readonly formResponses?: readonly ExperienceFormResponseSummary[];
+  readonly breakdown?: ExperienceAnalyticsBreakdown;
 }
 
 export interface PresencePeer {
   readonly id: string;
   readonly name: string;
-  readonly stepId: string;
+  readonly stepId: string | null;
+  readonly selection?:
+    | { readonly type: 'block'; readonly blockId: string }
+    | { readonly type: 'target'; readonly targetId: string }
+    | null;
+  readonly sameCreator?: boolean;
   readonly holdsLock: boolean;
+  readonly canTakeover?: boolean;
 }
 
-export interface StepComment {
-  readonly id: string;
-  readonly stepId: string;
-  readonly author: string;
-  readonly body: string;
-  readonly resolved: boolean;
-}
-
-export interface DemoCaptureSnapshot {
-  readonly stateCount: number;
-  readonly capturedAtLabel: string;
-  readonly staleStepIds: readonly string[];
-  /** Regions that look like customer data and have not been reviewed. */
-  readonly unreviewedRegions: number;
-}
+export type StepComment = ExperienceComment;
 
 export interface DemoLinkSnapshot {
+  readonly id?: string;
   readonly enabled: boolean;
   readonly url: string;
+  readonly status?: 'active' | 'expired' | 'revoked';
+  readonly expiresAt?: string;
+}
+
+export interface RecordToAuthorSnapshot {
+  readonly recording: boolean;
+  readonly actionCount: number;
+  readonly segmentCount: number;
+  readonly proposal: RecordToAuthorProposal | null;
 }
 
 export interface LocalAuthoringFrameSnapshot {
   documentState: LodariqDocument;
+  /** Unmaterialized copy used by locale coverage and cross-locale QA. */
+  canonicalDocumentState?: LodariqDocument;
   /** Tier 3 reach and proof. Populated from the control plane when available. */
   applications?: readonly ApplicationSummary[];
   knownEventNames?: readonly string[];
-  demonstratedBehaviours?: readonly string[];
+  adaptiveEvidence?: readonly AdaptiveBehaviorEvidence[];
   adaptivePolicy?: AdaptivePolicy;
   experiment?: Experiment;
   experimentResults?: ExperimentResults;
   experienceAnalytics?: ExperienceAnalyticsSnapshot;
-  presence?: { readonly peers: readonly PresencePeer[] };
+  experienceSessions?: readonly ExperienceSession[];
+  presence?: {
+    readonly peers: readonly PresencePeer[];
+    readonly connection?: 'connected' | 'reconnecting';
+    readonly draftChanged?: boolean;
+  };
   comments?: readonly StepComment[];
-  demoCapture?: DemoCaptureSnapshot;
+  auditEvents?: readonly AuthoringAuditEvent[];
+  auditExportAvailable?: boolean;
+  commercialUsage?: WorkspaceCommercialUsage;
+  dataCatalog?: WorkspaceDataCatalog;
+  templateInstantiation?: CanonicalTemplateInstantiationResult;
+  documentVersions?: readonly AuthoringDocumentVersionSummary[];
+  semanticVersionDiff?: SemanticVersionDiff;
+  copySuggestions?: readonly ChangeAwareCopySuggestion[];
+  deploymentSchedules?: readonly DeploymentSchedule[];
+  deliveryTransitionHistory?: readonly DeliveryTransitionHistoryEntry[];
+  operationsUnavailable?: boolean;
+  demoArtifactReview?: DemoArtifactReview;
   demoLink?: DemoLinkSnapshot;
+  demoAnalytics?: DemoAnalyticsSummary;
+  recordToAuthor?: RecordToAuthorSnapshot;
+  localeLayoutQaAvailable?: boolean;
+  localeLayoutQa?: {
+    readonly state: 'running' | 'complete' | 'error';
+    readonly report?: LocaleLayoutQaReport;
+  };
+  accessibilitySweepAvailable?: boolean;
+  accessibilitySweep?: {
+    readonly state: 'running' | 'complete' | 'error';
+    readonly result?: AccessibilitySweepResult;
+  };
   activeStepId?: string | null;
   deliveryCapabilities: Set<AuthoringDeliveryCapability>;
   contentLocale: string;

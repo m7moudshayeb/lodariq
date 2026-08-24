@@ -157,11 +157,13 @@ describe('Operations → Check (§4.6)', () => {
       document,
       steps: [comfortableStep(firstStep(document).id)],
       targetHealth: health(document, 'verified'),
-      locales: ['de', 'fr'],
+      // The fixture's `de` is complete, so it is not a row. `fr` and `es` are
+      // both behind — `es` by twelve strings, which is the point of the test.
+      locales: ['fr', 'es'],
     });
     const translations = report.rows.filter((row) => row.kind === 'translation');
     expect(translations).toHaveLength(2);
-    expect(translations[0]?.message).toContain('de');
+    expect(translations[0]?.message).toContain('fr');
     expect(translations[0]?.jump).toBeUndefined();
   });
 });
@@ -183,5 +185,59 @@ describe('APCA secondary readout (§7.2)', () => {
     // A mid-grey pair that clears WCAG's 4.5 but sits under APCA's body-text Lc.
     const lc = Math.abs(apcaLightnessContrast('#767676', '#ffffff'));
     expect(lc).toBeLessThan(APCA_TARGETS.bodyText);
+  });
+});
+
+describe('region variants with no plain language (§7.6)', () => {
+  it('warns when two regions of one language have nothing plain to fall back to', () => {
+    const document = baseDocument();
+    document.localization = {
+      defaultLocale: 'en',
+      variants: [
+        { locale: 'pt-BR', fallbackLocale: 'en', blocks: [] },
+        { locale: 'pt-PT', fallbackLocale: 'en', blocks: [] },
+      ],
+    };
+    const rows = buildCheckReport({
+      document,
+      steps: [],
+      targetHealth: new Map(),
+    }).rows.filter((row) => /plain/u.test(row.message));
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.message).toContain('pt-BR');
+    expect(rows[0]?.message).toContain('pt-PT');
+    expect(rows[0]?.severity).toBe('warning');
+  });
+
+  it('stays quiet once a plain variant gives the other regions a home', () => {
+    const document = baseDocument();
+    document.localization = {
+      defaultLocale: 'en',
+      variants: [
+        { locale: 'pt', fallbackLocale: 'en', blocks: [] },
+        { locale: 'pt-BR', fallbackLocale: 'pt', blocks: [] },
+        { locale: 'pt-PT', fallbackLocale: 'pt', blocks: [] },
+      ],
+    };
+    const rows = buildCheckReport({
+      document,
+      steps: [],
+      targetHealth: new Map(),
+    }).rows.filter((row) => /plain/u.test(row.message));
+    expect(rows).toHaveLength(0);
+  });
+
+  it('says nothing about a single region variant, which is not ambiguous', () => {
+    const document = baseDocument();
+    document.localization = {
+      defaultLocale: 'en',
+      variants: [{ locale: 'pt-BR', fallbackLocale: 'en', blocks: [] }],
+    };
+    const rows = buildCheckReport({
+      document,
+      steps: [],
+      targetHealth: new Map(),
+    }).rows.filter((row) => /plain/u.test(row.message));
+    expect(rows).toHaveLength(0);
   });
 });

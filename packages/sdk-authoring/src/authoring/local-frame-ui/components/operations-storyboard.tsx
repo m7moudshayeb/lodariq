@@ -1,7 +1,7 @@
 import type { LodariqBlock } from '@lodariq/schema';
 import { useState, type ReactNode } from 'react';
 import { authoringText } from '../../../i18n';
-import { Columns2, Pencil, Search } from '../design-system';
+import { Columns2, GripVertical, Pencil, Search } from '../design-system';
 import { targetVerificationPresentation } from '../../target-verification';
 import { blockDisplayTitle, targetIdOf } from '../utils';
 import type { LocalAuthoringFrameController } from '../controller';
@@ -9,7 +9,7 @@ import type { LocalAuthoringFrameSnapshot } from '../types';
 
 /**
  * Every step on one surface (wishlist 4.1). The filmstrip shows *order*; this
- * shows the whole story, which is how you notice that step 4 repeats step 2.
+ * shows the whole story, which is how a repeated step gives itself away.
  * Editing is inline, and two or three steps can be opened side by side so the
  * voice stays consistent — copy drifts when it is written through a keyhole.
  */
@@ -74,24 +74,7 @@ export function OperationsStoryboard({
               return (
                 <article key={id} className="storyboard-compare-column">
                   <h4>{blockDisplayTitle(step)}</h4>
-                  <label>
-                    <span>{authoringText('Heading')}</span>
-                    <textarea
-                      defaultValue={headingOf(step)}
-                      onBlur={(event) => commitText(controller, headingIdOf(step), event.target.value)}
-                      rows={2}
-                    />
-                  </label>
-                  <label>
-                    <span>
-                      {authoringText('Body · {count} words', { count: wordCount(bodyOf(step)) })}
-                    </span>
-                    <textarea
-                      defaultValue={bodyOf(step)}
-                      onBlur={(event) => commitText(controller, bodyIdOf(step), event.target.value)}
-                      rows={5}
-                    />
-                  </label>
+                  <StoryboardFields context="compare" controller={controller} step={step} />
                 </article>
               );
             })}
@@ -114,14 +97,54 @@ export function OperationsStoryboard({
           const shown = targetVerificationPresentation(health?.presentation ?? 'unverified');
           const overlaps = repetition.some((pair) => pair.includes(step.id));
           const selected = compare.includes(step.id);
+          const dropPosition =
+            snapshot.dragTargetBlockId === step.id ? snapshot.dragTargetPosition : null;
           return (
             <article
               key={step.id}
-              className="ops-box storyboard-card"
+              className={`ops-box storyboard-card ${dropPosition ? `drop-${dropPosition}` : ''}`.trim()}
+              aria-keyshortcuts="Alt+ArrowUp Alt+ArrowDown"
+              aria-label={authoringText('Edit step {number}: {title}', {
+                number: index + 1,
+                title: blockDisplayTitle(step),
+              })}
+              data-block-id={step.id}
+              data-drop-position={dropPosition ?? undefined}
               data-selected={selected ? 'true' : 'false'}
               data-overlaps={overlaps ? 'true' : 'false'}
+              onDragOver={(event) =>
+                controller.handleBlockDragOver(event, {
+                  selector: '.storyboard-card[data-block-id]',
+                })
+              }
+              onDrop={(event) =>
+                controller.handleBlockDrop(event, step.id, {
+                  selector: '.storyboard-card[data-block-id]',
+                })
+              }
+              onFocus={(event) => {
+                if (event.target === event.currentTarget) controller.selectBlock(step.id);
+              }}
+              onKeyDown={(event) => controller.handleBlockKeyDown(event, step.id)}
+              tabIndex={0}
             >
               <h3>
+                <button
+                  aria-keyshortcuts="Alt+ArrowUp Alt+ArrowDown"
+                  aria-label={authoringText('Drag step {number}', { number: index + 1 })}
+                  className="storyboard-card-drag"
+                  data-operations-focus-key={`storyboard-drag:${step.id}`}
+                  draggable
+                  onDragEnd={() => controller.endDraggingBlock()}
+                  onDragStart={(event) => controller.startDraggingBlock(step.id, event)}
+                  onKeyDown={(event) =>
+                    controller.handleBlockReorderKeyDown(event, step.id, 'vertical')
+                  }
+                  title={authoringText('Drag to reorder step')}
+                  type="button"
+                >
+                  <GripVertical size={13} strokeWidth={2} aria-hidden="true" />
+                </button>
                 <span className="storyboard-card-index">{index + 1}</span>
                 {blockDisplayTitle(step)}
                 <span className="ops-box-actions">
@@ -130,17 +153,16 @@ export function OperationsStoryboard({
                   </span>
                 </span>
               </h3>
-              {/* The step's own words, on their own surface — this is a picture
-                  of the card, not a row about it. */}
-              <div className="storyboard-card-preview">
-                <strong>{headingOf(step) || authoringText('No heading')}</strong>
-                <p>{bodyOf(step) || authoringText('No body copy')}</p>
-              </div>
+              <StoryboardFields context="card" controller={controller} step={step} />
               <div className="ops-row storyboard-card-footer">
                 <button
                   className="ops-btn"
                   data-size="sm"
-                  onClick={() => controller.activateTourStep(step.id)}
+                  data-operations-focus-key={`storyboard-open:${step.id}`}
+                  onClick={() => {
+                    controller.activateTourStep(step.id);
+                    controller.closeOperationsMode();
+                  }}
                   type="button"
                 >
                   <Pencil size={11} strokeWidth={2} aria-hidden="true" />
@@ -150,6 +172,7 @@ export function OperationsStoryboard({
                   className="ops-btn"
                   data-size="sm"
                   data-variant={selected ? 'primary' : undefined}
+                  data-operations-focus-key={`storyboard-select:${step.id}`}
                   onClick={() => toggleCompare(step.id)}
                   type="button"
                 >
@@ -157,7 +180,7 @@ export function OperationsStoryboard({
                 </button>
                 <span className="ops-spacer" />
                 <span className="storyboard-card-words">
-                  {authoringText('{count} words', { count: wordCount(bodyOf(step)) })}
+                  {authoringText('{count} words', { count: stepWordCount(step) })}
                 </span>
               </div>
             </article>
@@ -165,6 +188,35 @@ export function OperationsStoryboard({
         })}
       </div>
     </section>
+  );
+}
+
+function StoryboardFields({
+  context,
+  controller,
+  step,
+}: {
+  context: 'card' | 'compare';
+  controller: LocalAuthoringFrameController;
+  step: LodariqBlock;
+}): ReactNode {
+  return (
+    <div className="storyboard-card-fields">
+      {editableTextBlocks(step).map((block) => (
+        <label className="storyboard-inline-field" data-kind={block.type} key={block.id}>
+          <span>{storyboardFieldLabel(block)}</span>
+          <textarea
+            data-action="edit-content"
+            data-block-id={block.id}
+            data-operations-focus-key={`storyboard-${context}:${step.id}:${block.id}`}
+            defaultValue={block.content ?? ''}
+            key={`${block.id}:${block.content ?? ''}`}
+            onBlur={(event) => commitText(controller, block.id, event.currentTarget.value)}
+            rows={block.type === 'paragraph' ? 4 : 2}
+          />
+        </label>
+      ))}
+    </div>
   );
 }
 
@@ -178,10 +230,10 @@ function storyboardTone(tone: string): string | undefined {
 
 function commitText(
   controller: LocalAuthoringFrameController,
-  blockId: string | undefined,
+  blockId: string,
   value: string,
 ): void {
-  if (blockId) controller.commitRichTextContent(blockId, value);
+  controller.commitRichTextContent(blockId, value);
 }
 
 function descendants(block: LodariqBlock): LodariqBlock[] {
@@ -192,10 +244,28 @@ function firstOfType(step: LodariqBlock, type: string): LodariqBlock | undefined
   return descendants(step).find((block) => block.type === type);
 }
 
-const headingOf = (step: LodariqBlock): string => firstOfType(step, 'heading')?.content ?? '';
 const bodyOf = (step: LodariqBlock): string => firstOfType(step, 'paragraph')?.content ?? '';
-const headingIdOf = (step: LodariqBlock): string | undefined => firstOfType(step, 'heading')?.id;
-const bodyIdOf = (step: LodariqBlock): string | undefined => firstOfType(step, 'paragraph')?.id;
+
+function editableTextBlocks(step: LodariqBlock): LodariqBlock[] {
+  return descendants(step).filter((block) =>
+    block.type === 'heading' ||
+    block.type === 'paragraph' ||
+    block.type === 'button' ||
+    block.type === 'link',
+  );
+}
+
+function storyboardFieldLabel(block: LodariqBlock): string {
+  if (block.type === 'heading') return authoringText('Heading');
+  if (block.type === 'paragraph') {
+    return authoringText('Body · {count} words', { count: wordCount(block.content ?? '') });
+  }
+  return authoringText('Action');
+}
+
+function stepWordCount(step: LodariqBlock): number {
+  return editableTextBlocks(step).reduce((count, block) => count + wordCount(block.content ?? ''), 0);
+}
 
 function wordCount(text: string): number {
   return text.split(/\s+/u).filter(Boolean).length;

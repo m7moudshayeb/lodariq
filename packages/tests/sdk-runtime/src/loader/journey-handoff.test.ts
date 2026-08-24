@@ -19,7 +19,7 @@ const token = {
   applicationId: 'billing',
   documentId: 'doc_1',
   stepId: 'step_2',
-  contentHash: 'sha256:abc',
+  contentHash: `sha256-${'a'.repeat(64)}`,
   resumeMode: 'next-step' as const,
   issuedAt: NOW,
 };
@@ -53,6 +53,21 @@ describe('journey handoff token', () => {
     expect(decodeJourneyHandoff('not-base64!!', NOW)).toBeNull();
   });
 
+  it('refuses undeclared fields, invalid identifiers, and non-canonical hashes', () => {
+    expect(
+      decodeJourneyHandoff(
+        btoa(JSON.stringify({ ...token, bearer: 'must-not-cross-origins' })),
+        NOW,
+      ),
+    ).toBeNull();
+    expect(decodeJourneyHandoff(encodeJourneyHandoff({ ...token, stepId: 'bad step' }), NOW)).toBe(
+      null,
+    );
+    expect(
+      decodeJourneyHandoff(encodeJourneyHandoff({ ...token, contentHash: 'sha256:abc' }), NOW),
+    ).toBeNull();
+  });
+
   it('carries no personal data — only where the journey was', () => {
     const decoded = decodeJourneyHandoff(encodeJourneyHandoff(token), NOW)!;
     expect(Object.keys(decoded).sort()).toEqual([
@@ -76,6 +91,17 @@ describe('handoff destination', () => {
       handoffDestinationOrigin({ ...billing, originPatterns: ['*.meridian.test'] }),
     ).toBeNull();
     expect(handoffDestinationUrl({ ...billing, originPatterns: ['*.x.test'] }, token)).toBeNull();
+  });
+
+  it('refuses credentials, paths, and non-web destination schemes', () => {
+    for (const pattern of [
+      'https://user:secret@billing.meridian.test',
+      'https://billing.meridian.test/private',
+      'javascript:alert(1)',
+      'ftp://billing.meridian.test',
+    ]) {
+      expect(handoffDestinationOrigin({ ...billing, originPatterns: [pattern] })).toBeNull();
+    }
   });
 
   it('puts the token in the destination URL', () => {
@@ -108,11 +134,10 @@ describe('resume mode', () => {
   });
 });
 
-
 describe('picking a tour back up after an interruption', () => {
   const tour = {
     documentId: 'doc_1',
-    contentHash: 'sha256:abc',
+    contentHash: token.contentHash,
     steps: [{ id: 'step_1' }, { id: 'step_2' }, { id: 'step_3' }],
   };
 
@@ -124,14 +149,9 @@ describe('picking a tour back up after an interruption', () => {
     return { runtime: { clearTourResume: vi.fn() }, playTour: vi.fn(async () => undefined) };
   }
 
-  const run = async (
-    resume: unknown,
-    runtime: unknown,
-    playTour: unknown,
-  ): Promise<void> => {
-    const { continueInterruptedTour } = await import(
-      '../../../../../packages/sdk-runtime/src/loader/resume-tour'
-    );
+  const run = async (resume: unknown, runtime: unknown, playTour: unknown): Promise<void> => {
+    const { continueInterruptedTour } =
+      await import('../../../../../packages/sdk-runtime/src/loader/resume-tour');
     await (continueInterruptedTour as unknown as (...args: unknown[]) => Promise<void>)(
       resume,
       runtime,

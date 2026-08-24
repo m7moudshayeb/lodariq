@@ -4,12 +4,13 @@ import {
   resolveTourCompositionRecipe,
   resolveTourPopupStyleRecipe,
   resolveTourThemeStyle,
+  tourCompositionPaddingVariables,
   tourPopupStyleVariables,
 } from '@lodariq/sdk-runtime/renderers/tour';
 import { authoringText } from '../../../i18n';
 import type { LocalAuthoringFrameController } from '../controller';
-import { RICH_CONTENT_BLOCK_TYPES } from '../../../editor/rich-content-doc';
-import { RichContentEditor } from '../../../editor/rich-content-editor';
+import { RICH_CONTENT_BLOCK_TYPES } from '../../../editor/rich-content-block-types';
+import { LazyRichContentEditor } from './lazy-rich-content-editor';
 import { GripHorizontal, MoveDiagonal2 } from '../design-system';
 import type { LocalAuthoringFrameSnapshot } from '../types';
 import { targetIdOf, cssString } from '../utils';
@@ -171,6 +172,7 @@ export function RichStepContentEditor({
   const popupCanvasStyle = {
     ...popupStyle,
     ...tourPopupStyleVariables(popupAppearance),
+    ...tourCompositionPaddingVariables(popupComposition),
     '--storyboard-canvas-zoom': String(canvasZoom / 100),
     '--storyboard-popup-x': `${popupOffset.x}px`,
     '--storyboard-popup-y': `${popupOffset.y}px`,
@@ -295,8 +297,9 @@ export function RichStepContentEditor({
               selectPopup();
             }}
           >
-            <RichContentEditor
+            <LazyRichContentEditor
               key={step.id}
+              contentLocale={snapshot.contentLocale}
               inspectorHost={suppressInspector ? null : inspectorHost}
               onChange={(next) => controller.replaceStepRichContent(step.id, next)}
               onInspectOpen={openContentInspector}

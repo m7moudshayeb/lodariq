@@ -584,6 +584,7 @@ create table if not exists analytics_events (
   publication_id text not null,
   content_hash text not null,
   pointer_generation integer not null,
+  adaptive_visitor_key_hash text,
   name text not null,
   step_id text,
   sdk_version text not null,
@@ -599,6 +600,8 @@ create table if not exists analytics_events (
     check (content_hash ~ '^sha256-[0-9a-f]{64}$'),
   constraint analytics_events_pointer_generation_check
     check (pointer_generation >= 1),
+  constraint analytics_events_adaptive_visitor_hash_check
+    check (adaptive_visitor_key_hash is null or adaptive_visitor_key_hash ~ '^[0-9a-f]{64}$'),
   constraint analytics_events_name_check
     check (char_length(name) between 1 and 80 and name ~ '^[a-z][a-z0-9_.-]*$'),
   constraint analytics_events_sdk_version_check
@@ -613,6 +616,8 @@ create index if not exists analytics_events_document_occurred_idx
   on analytics_events(workspace_id, environment_id, document_id, occurred_at);
 create index if not exists analytics_events_publication_idx
   on analytics_events(workspace_id, environment_id, publication_id);
+create index if not exists analytics_events_adaptive_evidence_idx
+  on analytics_events(workspace_id, environment_id, adaptive_visitor_key_hash, name, occurred_at);
 
 alter table analytics_events enable row level security;
 alter table analytics_events force row level security;
@@ -1046,8 +1051,8 @@ alter table authoring_sessions
     capabilities is null
     or (
       jsonb_typeof(capabilities) = 'array'
-      and jsonb_array_length(capabilities) between 1 and 12
-      and capabilities <@ '["document:approve-production","document:preview","document:promote-production","document:publish-staging","document:read","document:read-release-state","document:rollback","brand:sample-product-style","target:select","document:unpublish","document:verify-staging","document:write"]'::jsonb
+      and jsonb_array_length(capabilities) between 1 and 13
+      and capabilities <@ '["document:approve-production","document:preview","document:promote-production","document:publish-staging","document:read","document:read-release-state","document:rollback","document:schedule-release","brand:sample-product-style","target:select","document:unpublish","document:verify-staging","document:write"]'::jsonb
       and jsonb_array_length(capabilities) = (
         (case when capabilities @> '["document:approve-production"]'::jsonb then 1 else 0 end)
         + (case when capabilities @> '["document:preview"]'::jsonb then 1 else 0 end)
@@ -1056,6 +1061,7 @@ alter table authoring_sessions
         + (case when capabilities @> '["document:read"]'::jsonb then 1 else 0 end)
         + (case when capabilities @> '["document:read-release-state"]'::jsonb then 1 else 0 end)
         + (case when capabilities @> '["document:rollback"]'::jsonb then 1 else 0 end)
+        + (case when capabilities @> '["document:schedule-release"]'::jsonb then 1 else 0 end)
         + (case when capabilities @> '["brand:sample-product-style"]'::jsonb then 1 else 0 end)
         + (case when capabilities @> '["target:select"]'::jsonb then 1 else 0 end)
         + (case when capabilities @> '["document:unpublish"]'::jsonb then 1 else 0 end)

@@ -76,7 +76,7 @@ describe('@lodariq/dashboard owned auth UI', () => {
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
     const signUpInit = fetchMock.mock.calls[0]?.[1];
-    expect(fetchMock.mock.calls[0]?.[0]).toBe('/api/auth/sign-up');
+    expect(fetchMock.mock.calls[0]?.[0]).toBe('/v1/auth/sign-up');
     expect(JSON.parse(String(signUpInit?.body))).toEqual({
       email: 'creator@example.test',
       name: 'Creator',
@@ -96,7 +96,7 @@ describe('@lodariq/dashboard owned auth UI', () => {
     });
 
     expect(fetchMock).toHaveBeenCalledTimes(2);
-    expect(fetchMock.mock.calls[1]?.[0]).toBe('/api/auth/verify-email');
+    expect(fetchMock.mock.calls[1]?.[0]).toBe('/v1/auth/verify-email');
     expect(JSON.parse(String(fetchMock.mock.calls[1]?.[1]?.body))).toEqual({
       challengeId: CHALLENGE_ID,
       token: VERIFICATION_TOKEN,
@@ -140,7 +140,9 @@ describe('@lodariq/dashboard owned auth UI', () => {
     expect(signIn.container.textContent).toContain('Use Passkey');
     expect(signIn.container.textContent).toContain('Use a recovery code');
     expect(signIn.container.textContent).toContain('Continue with SSO');
-    expect(signIn.container.querySelector('button[aria-label="Continue with Google"]')).not.toBeNull();
+    expect(
+      signIn.container.querySelector('button[aria-label="Continue with Google"]'),
+    ).not.toBeNull();
     expect(
       signIn.container.querySelector('button[aria-label="Continue with Microsoft"]'),
     ).not.toBeNull();
@@ -206,7 +208,7 @@ describe('@lodariq/dashboard owned auth UI', () => {
       true,
     );
     expect(fetchMock).toHaveBeenCalledWith(
-      '/api/workspaces/wk_enterprise_ui/enterprise/configuration',
+      '/v1/workspaces/wk_enterprise_ui/enterprise/configuration',
       expect.objectContaining({ credentials: 'same-origin' }),
     );
     await unmount(mounted);
@@ -454,7 +456,7 @@ describe('@lodariq/dashboard owned auth UI', () => {
     expect(window.location.hash).toBe('');
     expect(mounted.container.outerHTML).not.toContain(token);
     expect(fetchMock).toHaveBeenCalledOnce();
-    expect(fetchMock.mock.calls[0]?.[0]).toBe('/api/auth/email-change/verify');
+    expect(fetchMock.mock.calls[0]?.[0]).toBe('/v1/auth/email-change/verify');
     expect(JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body))).toEqual({
       challengeId,
       proof: 'new_email',
@@ -536,7 +538,7 @@ describe('@lodariq/dashboard owned auth UI', () => {
       await flushAsyncWork();
     });
     expect(fetchMock).toHaveBeenCalledTimes(2);
-    expect(fetchMock.mock.calls[1]?.[0]).toBe('/api/auth/password-recovery');
+    expect(fetchMock.mock.calls[1]?.[0]).toBe('/v1/auth/password-recovery');
     await unmount(mounted);
   });
 });

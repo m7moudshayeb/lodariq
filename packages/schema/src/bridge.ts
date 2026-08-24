@@ -17,9 +17,12 @@ import {
   TOOLTIP_WIDTH_PX_LIMITS,
 } from './block';
 import { LodariqDocument } from './document';
+import { TargetApproach } from './approach';
 import { StepEmphasis } from './emphasis';
 import { StepTransitionCondition } from './flow';
+import { AdaptiveDecisionContext } from './measurement';
 import { ContentLocale } from './document-localization';
+import { AuthoringCollaborationStepLock, AuthoringPresencePeer } from './experience-measurement';
 import {
   AuthoringBrandDriftCheckResult,
   BrandDriftCheckRequest,
@@ -33,6 +36,7 @@ import {
   RuntimeLifecycleHints,
   TargetIdentityV2,
   TargetLocale,
+  TargetLocalizedEvidence,
   TargetRequiredAction,
   TargetSelectionPolicy,
   TargetSignalFamily,
@@ -59,6 +63,7 @@ import {
   ReleaseRecoveryResult,
   ReleaseRecoveryStateResponse,
 } from './release';
+import { LocaleLayoutQaReport } from './authoring-roadmap';
 
 /**
  * Versioned iframe <-> host-page bridge protocol (PRD §9.5).
@@ -89,6 +94,7 @@ export const AUTHORING_SHELL_CAPABILITIES_TYPE = 'authoring.shell.capabilities' 
 export const AUTHORING_SHELL_PALETTE_OPEN_TYPE = 'authoring.shell.palette-open' as const;
 /** A transient notice the frame wants shown over the page, not inside itself. */
 export const AUTHORING_SHELL_NOTICE_TYPE = 'authoring.shell.notice' as const;
+export const AUTHORING_COLLABORATION_STATE_TYPE = 'authoring.collaboration.state' as const;
 /**
  * Operations, as one RPC pair rather than a message per method.
  *
@@ -114,6 +120,9 @@ export const AUTHORING_PUBLISH_STAGING_REQUEST_TYPE = 'authoring.publish-staging
 export const AUTHORING_PUBLISH_STAGING_RESULT_TYPE = 'authoring.publish-staging.result' as const;
 export const AUTHORING_BROWSER_VERIFY_REQUEST_TYPE = 'authoring.browser-verify.request' as const;
 export const AUTHORING_BROWSER_VERIFY_RESULT_TYPE = 'authoring.browser-verify.result' as const;
+export const AUTHORING_LOCALE_LAYOUT_QA_REQUEST_TYPE =
+  'authoring.locale-layout-qa.request' as const;
+export const AUTHORING_LOCALE_LAYOUT_QA_RESULT_TYPE = 'authoring.locale-layout-qa.result' as const;
 export const AUTHORING_SUBMIT_VERIFICATION_REQUEST_TYPE =
   'authoring.submit-verification.request' as const;
 export const AUTHORING_SUBMIT_VERIFICATION_RESULT_TYPE =
@@ -185,8 +194,6 @@ export const AuthoringChromeActionRequestMessage = Type.Object(
       /** §5 — re-author the document as a different kind of experience. */
       Type.Literal('switch-experience'),
       Type.Literal('toggle-recording'),
-      /** Predictive pass over the draft; the frame opens Check on the findings. */
-      Type.Literal('simulate-user'),
       Type.Literal('canvas-zoom-in'),
       Type.Literal('canvas-zoom-out'),
       Type.Literal('canvas-zoom-reset'),
@@ -351,10 +358,30 @@ export const AUTHORING_OPERATIONS_METHODS = [
   'updateExperiment',
   'listComments',
   'addComment',
+  'replyToComment',
   'resolveComment',
   'listStepLocks',
   'claimStepLock',
+  'releaseStepLock',
+  'heartbeatCollaboration',
+  'leaveCollaboration',
   'listApplications',
+  'readCommercialUsage',
+  'instantiateTemplate',
+  'listDocumentVersions',
+  'compareDocumentVersions',
+  'listCopySuggestions',
+  'createCopySuggestions',
+  'decideCopySuggestion',
+  'requestAiAssist',
+  'generateNarration',
+  'listAuditEvents',
+  'exportAuditCsv',
+  'readDemoLinks',
+  'readDemoAnalytics',
+  'reviewDemoArtifact',
+  'createDemoLink',
+  'revokeDemoLink',
 ] as const;
 export type AuthoringOperationsMethod = (typeof AUTHORING_OPERATIONS_METHODS)[number];
 
@@ -383,6 +410,20 @@ export const AuthoringOperationsResultMessage = Type.Object(
   { $id: 'AuthoringOperationsResultMessage', additionalProperties: false },
 );
 export type AuthoringOperationsResultMessage = Static<typeof AuthoringOperationsResultMessage>;
+
+/** Semantic collaboration state forwarded from the credential-owning iframe. */
+export const AuthoringCollaborationStateMessage = Type.Object(
+  {
+    ...BridgeEnvelope.properties,
+    type: Type.Literal(AUTHORING_COLLABORATION_STATE_TYPE),
+    selfParticipantId: Type.String({ pattern: '^presence_[a-f0-9]{24}$' }),
+    peers: Type.Array(Type.Ref(AuthoringPresencePeer), { maxItems: 100 }),
+    locks: Type.Array(Type.Ref(AuthoringCollaborationStepLock), { maxItems: 200 }),
+    draftChanged: Type.Boolean(),
+  },
+  { $id: 'AuthoringCollaborationStateMessage', additionalProperties: false },
+);
+export type AuthoringCollaborationStateMessage = Static<typeof AuthoringCollaborationStateMessage>;
 
 export const AuthoringShellPopupSizeCommitMessage = Type.Object(
   {
@@ -607,7 +648,9 @@ export const PreviewPatchOperation = Type.Union(
     Type.Object({
       op: Type.Literal('setTeaches'),
       /** Absent means the step teaches nothing measurable. */
-      eventName: Type.Optional(Type.String({ minLength: 1, maxLength: 64, pattern: '^[a-z][a-z0-9_]*$' })),
+      eventName: Type.Optional(
+        Type.String({ minLength: 1, maxLength: 64, pattern: '^[a-z][a-z0-9_]*$' }),
+      ),
     }),
     Type.Object({
       op: Type.Literal('setEmphasis'),
@@ -655,6 +698,8 @@ export const PreviewPatchOperation = Type.Union(
       targetId: Type.String(),
       fingerprint: ElementFingerprint,
       identity: Type.Optional(Type.Ref(TargetIdentityV2)),
+      /** The look-alike answer, or the mirror rebuilds the target without one. */
+      selection: Type.Optional(Type.Ref(TargetSelectionPolicy)),
     }),
     Type.Object({
       op: Type.Literal('updateTargetEvidence'),
@@ -670,6 +715,11 @@ export const PreviewPatchOperation = Type.Union(
       op: Type.Literal('setTargetLifecycle'),
       targetId: Type.String(),
       lifecycle: Type.Optional(RuntimeLifecycleHints),
+    }),
+    Type.Object({
+      op: Type.Literal('setTargetApproach'),
+      targetId: Type.String(),
+      approach: Type.Optional(Type.Ref(TargetApproach)),
     }),
     Type.Object({ op: Type.Literal('replaceDocument'), document: LodariqDocument }),
   ],
@@ -757,6 +807,12 @@ export const AUTHORING_DIAGNOSTIC_EVENT_NAMES = [
   'style.applied',
   'style.recipe-used',
   'style.recipe-updated',
+  'copy-suggestion.applied',
+  'template.instantiated',
+  'record-to-author.applied',
+  'voice-proposal.applied',
+  'locale-layout-qa.completed',
+  'locale-layout-qa.failed',
   'contrast.warning',
   'contrast.blocker',
   'readiness.finding',
@@ -827,6 +883,8 @@ export const ResolverDiagnostic = Type.Object(
         pattern: '^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{1,9})?Z$',
       }),
     ),
+    /** Copy read off a clean win in a language the target has none for. */
+    learnedLocalizedEvidence: Type.Optional(TargetLocalizedEvidence),
   },
   { $id: 'ResolverDiagnostic' },
 );
@@ -888,9 +946,7 @@ export const AuthoringInlineControlOperation = Type.Union(
           Type.Literal('left'),
         ]),
         /** Position along that side, set by the compass dot the creator chose. */
-        align: Type.Optional(
-          Type.Union(ANCHOR_ALIGN_VALUES.map((value) => Type.Literal(value))),
-        ),
+        align: Type.Optional(Type.Union(ANCHOR_ALIGN_VALUES.map((value) => Type.Literal(value)))),
         /** Gap between target and card, set by dragging the dot outward. */
         offsetPx: Type.Optional(
           Type.Integer({
@@ -998,6 +1054,21 @@ export const AuthoringStepPreviewRequestMessage = Type.Object(
 );
 export type AuthoringStepPreviewRequestMessage = Static<typeof AuthoringStepPreviewRequestMessage>;
 
+/** Replays one target recipe without advancing the authored experience. */
+export const AuthoringApproachPreviewRequestMessage = Type.Object(
+  {
+    ...BridgeEnvelope.properties,
+    type: Type.Literal('authoring.preview.request'),
+    mode: Type.Literal('approach'),
+    locale: Type.Optional(Type.Ref(ContentLocale)),
+    stepId: Type.String(BRIDGE_REFERENCE_ID_OPTIONS),
+  },
+  { $id: 'AuthoringApproachPreviewRequestMessage', additionalProperties: false },
+);
+export type AuthoringApproachPreviewRequestMessage = Static<
+  typeof AuthoringApproachPreviewRequestMessage
+>;
+
 export const AuthoringAccessibilityPreviewMode = Type.Union(
   [
     Type.Literal('keyboard'),
@@ -1028,6 +1099,7 @@ export const AuthoringFlowSimulationContext = Type.Object(
   {
     identifyTraits: Type.Optional(AuthoringFlowSimulationValues),
     documentState: Type.Optional(AuthoringFlowSimulationValues),
+    adaptive: Type.Optional(Type.Ref(AdaptiveDecisionContext)),
   },
   { $id: 'AuthoringFlowSimulationContext', additionalProperties: false, minProperties: 1 },
 );
@@ -1187,6 +1259,37 @@ export const AuthoringBrowserVerifyResultMessage = Type.Object(
 );
 export type AuthoringBrowserVerifyResultMessage = Static<
   typeof AuthoringBrowserVerifyResultMessage
+>;
+
+export const AuthoringLocaleLayoutQaRequestMessage = Type.Object(
+  {
+    ...BridgeEnvelope.properties,
+    type: Type.Literal(AUTHORING_LOCALE_LAYOUT_QA_REQUEST_TYPE),
+    expectedDocumentRevision: Type.Integer({ minimum: 0 }),
+  },
+  { $id: 'AuthoringLocaleLayoutQaRequestMessage', additionalProperties: false },
+);
+export type AuthoringLocaleLayoutQaRequestMessage = Static<
+  typeof AuthoringLocaleLayoutQaRequestMessage
+>;
+
+export const AuthoringLocaleLayoutQaResultMessage = Type.Object(
+  {
+    ...BridgeEnvelope.properties,
+    type: Type.Literal(AUTHORING_LOCALE_LAYOUT_QA_RESULT_TYPE),
+    requestCorrelationId: Type.String(BRIDGE_REFERENCE_ID_OPTIONS),
+    result: Type.Union([
+      Type.Object(
+        { ok: Type.Literal(true), report: Type.Ref(LocaleLayoutQaReport) },
+        { additionalProperties: false },
+      ),
+      AuthoringHostOperationFailure,
+    ]),
+  },
+  { $id: 'AuthoringLocaleLayoutQaResultMessage', additionalProperties: false },
+);
+export type AuthoringLocaleLayoutQaResultMessage = Static<
+  typeof AuthoringLocaleLayoutQaResultMessage
 >;
 
 /** Reads complete, server-vetted recovery truth for one exact target environment. */
@@ -1661,6 +1764,7 @@ const ExistingBridgeMessage = Type.Intersect([
   ]),
 ]);
 type BridgeMessageSchema =
+  | typeof AuthoringApproachPreviewRequestMessage
   | typeof AuthoringInlineContentCommitMessage
   | typeof AuthoringInlineControlCommitMessage
   | typeof AuthoringPanelModeOpenMessage
@@ -1675,6 +1779,7 @@ type BridgeMessageSchema =
   | typeof AuthoringShellNoticeMessage
   | typeof AuthoringOperationsRequestMessage
   | typeof AuthoringOperationsResultMessage
+  | typeof AuthoringCollaborationStateMessage
   | typeof AuthoringPanelLayoutRequestMessage
   | typeof AuthoringSaveAndExitRequestMessage
   | typeof AuthoringSaveStateUpdateMessage
@@ -1694,6 +1799,8 @@ type BridgeMessageSchema =
   | typeof AuthoringPublishStagingResultMessage
   | typeof AuthoringBrowserVerifyRequestMessage
   | typeof AuthoringBrowserVerifyResultMessage
+  | typeof AuthoringLocaleLayoutQaRequestMessage
+  | typeof AuthoringLocaleLayoutQaResultMessage
   | typeof AuthoringSubmitVerificationRequestMessage
   | typeof AuthoringSubmitVerificationResultMessage
   | typeof AuthoringStyleSourceSaveRequestMessage
@@ -1717,6 +1824,7 @@ type BridgeMessageSchema =
   | typeof ExistingBridgeMessage;
 
 const BRIDGE_MESSAGE_SCHEMAS: BridgeMessageSchema[] = [
+  AuthoringApproachPreviewRequestMessage,
   AuthoringInlineContentCommitMessage,
   AuthoringInlineControlCommitMessage,
   AuthoringPanelModeOpenMessage,
@@ -1731,6 +1839,7 @@ const BRIDGE_MESSAGE_SCHEMAS: BridgeMessageSchema[] = [
   AuthoringShellNoticeMessage,
   AuthoringOperationsRequestMessage,
   AuthoringOperationsResultMessage,
+  AuthoringCollaborationStateMessage,
   AuthoringPanelLayoutRequestMessage,
   AuthoringSaveAndExitRequestMessage,
   AuthoringSaveStateUpdateMessage,
@@ -1750,6 +1859,8 @@ const BRIDGE_MESSAGE_SCHEMAS: BridgeMessageSchema[] = [
   AuthoringPublishStagingResultMessage,
   AuthoringBrowserVerifyRequestMessage,
   AuthoringBrowserVerifyResultMessage,
+  AuthoringLocaleLayoutQaRequestMessage,
+  AuthoringLocaleLayoutQaResultMessage,
   AuthoringSubmitVerificationRequestMessage,
   AuthoringSubmitVerificationResultMessage,
   AuthoringStyleSourceSaveRequestMessage,

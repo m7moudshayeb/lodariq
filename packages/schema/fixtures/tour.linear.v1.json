@@ -19,6 +19,50 @@
         "nearbyText": ["Projects"],
         "ancestorLandmarks": [{ "role": "main", "accessibleName": "Dashboard" }]
       }
+    },
+    {
+      "id": "target_filter_projects",
+      "fingerprint": {
+        "tagName": "button",
+        "role": "button",
+        "accessibleName": "Filter",
+        "label": "Filter",
+        "nearbyText": ["Import", "Create project"],
+        "ancestorLandmarks": [{ "role": "main", "accessibleName": "Dashboard" }]
+      }
+    },
+    {
+      "id": "target_sort_projects",
+      "fingerprint": {
+        "tagName": "div",
+        "role": "group",
+        "accessibleName": "Sort projects",
+        "label": "Sort projects",
+        "nearbyText": ["Recent", "A–Z", "By owner"],
+        "ancestorLandmarks": [{ "role": "main", "accessibleName": "Dashboard" }]
+      }
+    },
+    {
+      "id": "target_projects_table",
+      "fingerprint": {
+        "tagName": "table",
+        "role": "table",
+        "accessibleName": "Projects",
+        "label": "Projects",
+        "nearbyText": ["Project", "Owner", "Status"],
+        "ancestorLandmarks": [{ "role": "main", "accessibleName": "Dashboard" }]
+      }
+    },
+    {
+      "id": "target_primary_nav",
+      "fingerprint": {
+        "tagName": "a",
+        "role": "link",
+        "accessibleName": "Reports",
+        "label": "Reports",
+        "nearbyText": ["Dashboard", "Projects"],
+        "ancestorLandmarks": [{ "role": "navigation", "accessibleName": "Primary" }]
+      }
     }
   ],
   "blocks": [
@@ -58,6 +102,207 @@
           ]
         }
       ]
+    },
+    {
+      "id": "block_step_2",
+      "type": "tourStep",
+      "props": { "index": 1 },
+      "status": "ready",
+      "children": [
+        {
+          "id": "block_tooltip_2",
+          "type": "tooltip",
+          "props": { "placement": "bottom", "targetId": "target_filter_projects" },
+          "status": "ready",
+          "children": [
+            {
+              "id": "block_heading_2",
+              "type": "heading",
+              "props": { "level": 2 },
+              "content": "Narrow the list",
+              "children": []
+            },
+            {
+              "id": "block_paragraph_2",
+              "type": "paragraph",
+              "content": "Filter by team, status or owner to find work fast.",
+              "props": {},
+              "children": []
+            },
+            {
+              "id": "block_button_2",
+              "type": "button",
+              "content": "Next",
+              "props": { "variant": "primary", "action": { "type": "next" } },
+              "children": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "block_step_3",
+      "type": "tourStep",
+      "props": { "index": 2 },
+      "status": "ready",
+      "children": [
+        {
+          "id": "block_tooltip_3",
+          "type": "tooltip",
+          "props": { "placement": "bottom", "targetId": "target_sort_projects" },
+          "status": "ready",
+          "children": [
+            {
+              "id": "block_heading_3",
+              "type": "heading",
+              "props": { "level": 2 },
+              "content": "Sort how you think",
+              "children": []
+            },
+            {
+              "id": "block_paragraph_3",
+              "type": "paragraph",
+              "content": "Recent, A–Z or by owner. The order sticks for next time.",
+              "props": {},
+              "children": []
+            },
+            {
+              "id": "block_button_3",
+              "type": "button",
+              "content": "Next",
+              "props": { "variant": "primary", "action": { "type": "next" } },
+              "children": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "block_step_4",
+      "type": "tourStep",
+      "props": { "index": 3 },
+      "status": "ready",
+      "children": [
+        {
+          "id": "block_tooltip_4",
+          "type": "tooltip",
+          "props": { "placement": "bottom", "targetId": "target_projects_table" },
+          "status": "ready",
+          "children": [
+            {
+              "id": "block_heading_4",
+              "type": "heading",
+              "props": { "level": 2 },
+              "content": "Everything in one table",
+              "children": []
+            },
+            {
+              "id": "block_paragraph_4",
+              "type": "paragraph",
+              "content": "Progress, owner and status for every project on the team.",
+              "props": {},
+              "children": []
+            },
+            {
+              "id": "block_button_4",
+              "type": "button",
+              "content": "Next",
+              "props": { "variant": "primary", "action": { "type": "next" } },
+              "children": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "block_step_5",
+      "type": "tourStep",
+      "props": { "index": 4 },
+      "status": "ready",
+      "children": [
+        {
+          "id": "block_tooltip_5",
+          "type": "tooltip",
+          "props": { "placement": "bottom", "targetId": "target_primary_nav" },
+          "status": "ready",
+          "children": [
+            {
+              "id": "block_heading_5",
+              "type": "heading",
+              "props": { "level": 2 },
+              "content": "Reports live here",
+              "children": []
+            },
+            {
+              "id": "block_paragraph_5",
+              "type": "paragraph",
+              "content": "Adoption, velocity and quality, updated every morning.",
+              "props": {},
+              "children": []
+            },
+            {
+              "id": "block_button_5",
+              "type": "button",
+              "content": "Finish",
+              "props": { "variant": "primary", "action": { "type": "complete" } },
+              "children": []
+            }
+          ]
+        }
+      ]
     }
-  ]
+  ],
+  "localization": {
+    "defaultLocale": "en",
+    "variants": [
+      {
+        "locale": "de",
+        "fallbackLocale": "en",
+        "title": "Willkommenstour",
+        "blocks": [
+          { "blockId": "block_heading_1", "content": "Erstellen Sie Ihr erstes Projekt" },
+          { "blockId": "block_paragraph_1", "content": "Projekte helfen, die Arbeit Ihres Teams zu organisieren." },
+          { "blockId": "block_button_1", "content": "Weiter" },
+          { "blockId": "block_heading_2", "content": "Die Liste eingrenzen" },
+          { "blockId": "block_paragraph_2", "content": "Filtern Sie nach Team, Status oder Verantwortlichen, um Arbeit schnell zu finden." },
+          { "blockId": "block_button_2", "content": "Weiter" },
+          { "blockId": "block_heading_3", "content": "Sortieren, wie Sie denken" },
+          { "blockId": "block_paragraph_3", "content": "Zuletzt, A–Z oder nach Verantwortlichen. Die Reihenfolge bleibt erhalten." },
+          { "blockId": "block_button_3", "content": "Weiter" },
+          { "blockId": "block_heading_4", "content": "Alles in einer Tabelle" },
+          { "blockId": "block_paragraph_4", "content": "Fortschritt, Verantwortliche und Status für jedes Projekt im Team." },
+          { "blockId": "block_button_4", "content": "Weiter" },
+          { "blockId": "block_heading_5", "content": "Berichte finden Sie hier" },
+          { "blockId": "block_paragraph_5", "content": "Akzeptanz, Tempo und Qualität, jeden Morgen aktualisiert." },
+          { "blockId": "block_button_5", "content": "Fertig" }
+        ]
+      },
+      {
+        "locale": "fr",
+        "fallbackLocale": "en",
+        "title": "Visite de bienvenue",
+        "blocks": [
+          { "blockId": "block_heading_1", "content": "Créez votre premier projet" },
+          { "blockId": "block_paragraph_1", "content": "Les projets aident à organiser le travail de votre équipe." },
+          { "blockId": "block_button_1", "content": "Continuer" },
+          { "blockId": "block_heading_2", "content": "Affiner la liste" },
+          { "blockId": "block_paragraph_2", "content": "Filtrez par équipe, statut ou responsable pour trouver vite." },
+          { "blockId": "block_button_2", "content": "Suivant" },
+          { "blockId": "block_heading_3", "content": "Trier comme vous pensez" },
+          { "blockId": "block_paragraph_3", "content": "Récent, A–Z ou par responsable. L'ordre est conservé." },
+          { "blockId": "block_button_3", "content": "Suivant" }
+        ]
+      },
+      {
+        "locale": "es",
+        "fallbackLocale": "en",
+        "title": "Visita de bienvenida",
+        "blocks": [
+          { "blockId": "block_heading_1", "content": "Cree su primer proyecto" },
+          { "blockId": "block_paragraph_1", "content": "Los proyectos ayudan a organizar el trabajo de su equipo." },
+          { "blockId": "block_button_1", "content": "Continuar" }
+        ]
+      }
+    ]
+  }
 }

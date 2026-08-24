@@ -61,9 +61,7 @@ describe('presence (§15.2 layer 1)', () => {
 
 describe('step-level soft locks (§15.2 layer 2)', () => {
   const held = state({
-    stepLocks: [
-      { stepId: 'step_2', creatorId: 'creator_dina', acquiredAt: NOW, lastEditAt: NOW },
-    ],
+    stepLocks: [{ stepId: 'step_2', creatorId: 'creator_dina', acquiredAt: NOW, lastEditAt: NOW }],
   });
 
   it('makes someone else’s step readable but not editable, and names them', () => {

@@ -15,16 +15,25 @@ describe('a block’s visibility rule', () => {
 
   it('matches an identified trait', () => {
     expect(
-      showWhenMatches({ source: 'identifyTrait', key: 'plan', operator: 'equals', value: 'growth' }, context),
+      showWhenMatches(
+        { source: 'identifyTrait', key: 'plan', operator: 'equals', value: 'growth' },
+        context,
+      ),
     ).toBe(true);
     expect(
-      showWhenMatches({ source: 'identifyTrait', key: 'plan', operator: 'equals', value: 'free' }, context),
+      showWhenMatches(
+        { source: 'identifyTrait', key: 'plan', operator: 'equals', value: 'free' },
+        context,
+      ),
     ).toBe(false);
   });
 
   it('matches declared document state', () => {
     expect(
-      showWhenMatches({ source: 'documentState', key: 'importedRows', operator: 'exists' }, context),
+      showWhenMatches(
+        { source: 'documentState', key: 'importedRows', operator: 'exists' },
+        context,
+      ),
     ).toBe(true);
     expect(
       showWhenMatches({ source: 'documentState', key: 'seats', operator: 'exists' }, context),
@@ -40,7 +49,55 @@ describe('a block’s visibility rule', () => {
 
   it('uses the same vocabulary as branching, so a creator learns it once', () => {
     // Identical shape to a StepTransitionCondition — deliberately one contract.
-    const shared = { source: 'identifyTrait', key: 'role', operator: 'notEquals', value: 'viewer' } as const;
+    const shared = {
+      source: 'identifyTrait',
+      key: 'role',
+      operator: 'notEquals',
+      value: 'viewer',
+    } as const;
     expect(showWhenMatches(shared, context)).toBe(true);
+  });
+
+  it('fails closed when condition context or scalar data is missing', () => {
+    const missingTraitDiagnostics: Array<{ reason: string; source: string }> = [];
+    expect(
+      showWhenMatches(
+        { source: 'identifyTrait', key: 'missing', operator: 'notEquals', value: 'viewer' },
+        context,
+        (diagnostic) => missingTraitDiagnostics.push(diagnostic),
+      ),
+    ).toBe(false);
+    expect(missingTraitDiagnostics).toEqual([
+      { reason: 'missing-context', source: 'identifyTrait' },
+    ]);
+
+    const diagnostics: Array<{ reason: string; source: string }> = [];
+    expect(
+      showWhenMatches(
+        { source: 'documentState', key: 'ready', operator: 'equals', value: true },
+        {
+          identifyTraits: context.identifyTraits,
+          locale: context.locale,
+          completedStepIds: context.completedStepIds,
+        },
+        (diagnostic) => diagnostics.push(diagnostic),
+      ),
+    ).toBe(false);
+    expect(diagnostics).toEqual([{ reason: 'missing-context', source: 'documentState' }]);
+  });
+
+  it('fails closed and diagnoses an unknown operator', () => {
+    const diagnostics: Array<{ reason: string; source: string }> = [];
+    const malformed = {
+      source: 'identifyTrait',
+      key: 'plan',
+      operator: 'contains',
+      value: 'growth',
+    } as never;
+
+    expect(showWhenMatches(malformed, context, (diagnostic) => diagnostics.push(diagnostic))).toBe(
+      false,
+    );
+    expect(diagnostics).toEqual([{ reason: 'invalid-condition', source: 'identifyTrait' }]);
   });
 });

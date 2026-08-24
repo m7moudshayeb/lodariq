@@ -3,12 +3,14 @@ import { resolveTarget } from '@lodariq/sdk-runtime/resolver';
 import { authoringText } from '../../i18n';
 import { AUTHORING_PANEL_LABELS } from '../panel-config';
 import { escapeHtml } from './html';
+import { selectExperienceRootBlocks } from '../experience-authoring-capabilities';
 
 export function tourStepsOf(document: LodariqDocument | null): LodariqBlock[] {
-  return document?.blocks.filter((block) => block.type === 'tourStep') ?? [];
+  return document ? selectExperienceRootBlocks(document) : [];
 }
 
 export function tooltipOfStep(step: LodariqBlock): LodariqBlock | null {
+  if (step.type === 'tooltip') return step;
   return step.children.find((child) => child.type === 'tooltip') ?? null;
 }
 
@@ -279,6 +281,8 @@ function textSpan(doc: Document, className: string, text: string): HTMLElement {
 export interface FilmstripPeer {
   readonly name: string;
   readonly initials: string;
+  /** Human-readable semantic selection, used as a tooltip rather than new chrome. */
+  readonly selectionLabel?: string;
 }
 
 export interface FilmstripPresence {
@@ -302,7 +306,13 @@ function renderPeerAvatars(doc: Document, peers: readonly FilmstripPeer[]): HTML
     const avatar = doc.createElement('span');
     avatar.className = 'overlay-filmstrip-peer';
     avatar.dataset['peer'] = peer.initials;
-    avatar.title = peer.name;
+    if (peer.selectionLabel) avatar.dataset['selecting'] = 'true';
+    avatar.title = peer.selectionLabel
+      ? authoringText('{name} is selecting {selection}', {
+          name: peer.name,
+          selection: peer.selectionLabel,
+        })
+      : peer.name;
     avatar.textContent = peer.initials;
     group.appendChild(avatar);
   }

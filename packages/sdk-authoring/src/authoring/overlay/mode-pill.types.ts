@@ -10,6 +10,8 @@ export type ModePillSaveState = 'saved' | 'saving' | 'retry' | 'reconnecting';
 export interface ModePillPeer {
   readonly creatorId: string;
   readonly name: string;
+  /** Optional semantic selection detail for the existing faces tooltip. */
+  readonly detail?: string;
 }
 
 export interface ModePillState {
@@ -39,6 +41,19 @@ export interface ModePillState {
   readonly recording: boolean;
   /** Selectable environments. `Production` is always printed, always disabled. */
   readonly environments: readonly string[];
+  /**
+   * Launcher quick actions that exist in this build, by id.
+   *
+   * The panel covers the launcher while it is open, so the menu is the only
+   * route left to these (§3.3). Which ones exist is the launcher's decision —
+   * it derives them from capabilities — so the ids are carried rather than
+   * assumed, and an action that is not here is not printed.
+   *
+   * The menu no longer asks the launcher to run them: each row opens the shared
+   * experiences flyout against itself. These ids are still how the pill knows
+   * which rows the build has earned.
+   */
+  readonly launcherActions: readonly string[];
 }
 
 export interface ModePillCallbacks {
@@ -58,12 +73,19 @@ export interface ModePillCallbacks {
   /** `Production` is refused here, not hidden, so the reason can be said out loud. */
   readonly onEnvironmentChange: (environment: string) => void;
   readonly onToggleRecording: () => void;
-  readonly onSimulateUser: () => void;
   readonly onCanvasZoom: (direction: 'in' | 'out' | 'reset') => void;
   readonly onKeyboardMap: () => void;
   /** §7.5's palette. ⌘K opens it too, but a shortcut is never the only route. */
   readonly onCommandPalette: () => void;
   readonly onRestart: () => void;
+  /**
+   * A create or open that failed inside the experiences submenu.
+   *
+   * The submenu is rendered by the pill but the work belongs to whoever owns the
+   * experiences, so a failure has to travel back out to the host's own error
+   * channel rather than the menu inventing a second place to report it.
+   */
+  readonly onExperienceMenuError?: (error: unknown) => void;
 }
 
 export interface ModePill {

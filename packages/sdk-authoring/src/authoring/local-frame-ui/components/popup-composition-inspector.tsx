@@ -4,6 +4,7 @@ import {
   CONTRAST_RATIO_TARGETS,
   evaluateContrast,
   TOOLTIP_HEIGHT_PX_LIMITS,
+  TOOLTIP_PADDING_PX_LIMITS,
   TOOLTIP_WIDTH_PX_LIMITS,
   type LodariqBlock,
   type TooltipLayoutProps,
@@ -26,6 +27,7 @@ import {
   PropertyChoiceField,
   PropertyColorField,
   PropertyNumberField,
+  PropertyRangeField,
 } from '../properties/property-controls';
 import type {
   PopupAppearanceSection,
@@ -34,6 +36,20 @@ import type {
   PopupLayoutScope,
   PopupThemeColors,
 } from './contextual-property-types';
+
+/**
+ * Where each preset leaves the sliders when neither axis is authored.
+ *
+ * The presets resolve through the theme's spacing scale, so these are the
+ * shipped fallback theme's numbers rather than a promise. They position the
+ * thumb and nothing else — an untouched slider still writes no value, so the
+ * popup keeps following whatever its own theme says.
+ */
+const PRESET_PADDING_PX: Record<NonNullable<TooltipLayoutProps['padding']>, number> = {
+  compact: 8,
+  standard: 12,
+  relaxed: 16,
+};
 
 const POPUP_APPEARANCE_SECTIONS = [
   { value: 'surface', label: authoringText('Surface') },
@@ -179,6 +195,39 @@ export function PopupCompositionInspector({
                 padding: padding as NonNullable<TooltipLayoutProps['padding']>,
               })
             }
+          />
+          {/*
+            The preset above is one decision for both axes; these are for when
+            the two need different answers — a wide, short card that wants room
+            at the sides and none above. Left alone they follow the preset.
+          */}
+          <PropertyRangeField
+            fallback={PRESET_PADDING_PX[layout.padding ?? 'standard']}
+            label={authoringText('Vertical padding')}
+            max={TOOLTIP_PADDING_PX_LIMITS.max}
+            min={TOOLTIP_PADDING_PX_LIMITS.min}
+            onChange={(paddingBlockPx) =>
+              controller.setTooltipLayout(tooltip.id, {
+                paddingBlockPx: paddingBlockPx ?? undefined,
+              })
+            }
+            step={TOOLTIP_PADDING_PX_LIMITS.step}
+            suffix={authoringText('px')}
+            value={layout.paddingBlockPx ?? null}
+          />
+          <PropertyRangeField
+            fallback={PRESET_PADDING_PX[layout.padding ?? 'standard']}
+            label={authoringText('Horizontal padding')}
+            max={TOOLTIP_PADDING_PX_LIMITS.max}
+            min={TOOLTIP_PADDING_PX_LIMITS.min}
+            onChange={(paddingInlinePx) =>
+              controller.setTooltipLayout(tooltip.id, {
+                paddingInlinePx: paddingInlinePx ?? undefined,
+              })
+            }
+            step={TOOLTIP_PADDING_PX_LIMITS.step}
+            suffix={authoringText('px')}
+            value={layout.paddingInlinePx ?? null}
           />
           <PropertyChoiceField
             presentation={presentation}

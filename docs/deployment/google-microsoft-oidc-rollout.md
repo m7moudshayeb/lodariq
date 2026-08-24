@@ -9,9 +9,9 @@ it to a shared environment.
 
 Register only the exact callback for the target deployment:
 
-- Development: `https://dev-app.lodariq.io/api/auth/oidc/<provider>/callback`
-- Staging: `https://staging-app.lodariq.io/api/auth/oidc/<provider>/callback`
-- Production: `https://app.lodariq.io/api/auth/oidc/<provider>/callback`
+- Development: `https://dev-app.lodariq.io/v1/auth/oidc/<provider>/callback`
+- Staging: `https://staging-app.lodariq.io/v1/auth/oidc/<provider>/callback`
+- Production: `https://app.lodariq.io/v1/auth/oidc/<provider>/callback`
 
 Do not add wildcard, alternate-domain, localhost, or `lodariq.com` callbacks to
 a hosted client. Use distinct provider clients and secrets per environment.

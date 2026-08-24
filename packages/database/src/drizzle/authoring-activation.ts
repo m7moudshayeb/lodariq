@@ -3,6 +3,7 @@ import { and, desc, eq, isNull, sql } from 'drizzle-orm';
 import {
   AUTHORING_ACTIVATION_CAPABILITIES,
   BRAND_THEME_CONTRACT_VERSION,
+  isDeliverableExperienceType,
   type LodariqDocument,
   type QueryAuthoringDocumentsResult,
 } from '@lodariq/schema';
@@ -16,7 +17,7 @@ import {
   type QueryAuthoringDocumentsFromActivationInput,
   AUTHORING_DOCUMENT_SESSION_MAX_TTL_MS,
   canActivateDocumentIntent,
-  createServerOwnedTourDraft,
+  createServerOwnedExperienceDraft,
   getAuthoringDocumentSessionCapabilities,
   hasValidFutureTtl,
   isAuthoringDocumentQueryScope,
@@ -126,20 +127,21 @@ export class DrizzleRepositoryAuthoringActivation extends DrizzleRepositoryAutho
       const rows = await tx
         .select()
         .from(documents)
-        .where(and(eq(documents.workspaceId, grant.workspaceId), eq(documents.type, 'tour')))
+        .where(eq(documents.workspaceId, grant.workspaceId))
         .orderBy(desc(documents.updatedAt));
       const matchingRows = rows.filter(
         (row) =>
-          row.canonical.type === 'tour' &&
+          isDeliverableExperienceType(row.canonical.type) &&
           (input.scope === 'workspace' ||
             matchesAuthoringPageContext(row.canonical, exactOrigin, pageContext)),
       );
       const summaries: QueryAuthoringDocumentsResult['documents'] = [];
       for (const row of matchingRows) {
+        if (!isDeliverableExperienceType(row.canonical.type)) continue;
         summaries.push({
           id: row.id,
           title: row.canonical.title,
-          type: 'tour' as const,
+          type: row.canonical.type,
           status: row.canonical.status,
           updatedAt: toIsoString(row.updatedAt),
           releases: await this.getLatestPublicationsForDocument(tx, grant.workspaceId, row.id),
@@ -211,11 +213,7 @@ export class DrizzleRepositoryAuthoringActivation extends DrizzleRepositoryAutho
           return null;
         }
 
-        await this.setTenantActorScope(
-          tx,
-          candidate.grant.workspaceId,
-          candidate.grant.creatorId,
-        );
+        await this.setTenantActorScope(tx, candidate.grant.workspaceId, candidate.grant.creatorId);
         if (
           !(await this.hasActiveAuthoringScope(
             tx,
@@ -261,13 +259,12 @@ export class DrizzleRepositoryAuthoringActivation extends DrizzleRepositoryAutho
               and(
                 eq(documents.workspaceId, consumedGrant.workspaceId),
                 eq(documents.id, input.documentIntent.documentId),
-                eq(documents.type, 'tour'),
               ),
             )
             .limit(1);
           if (
             !document ||
-            document.canonical.type !== 'tour' ||
+            !isDeliverableExperienceType(document.canonical.type) ||
             (input.selectionScope === 'page' &&
               !matchesAuthoringPageContext(document.canonical, exactOrigin, { pathname }))
           ) {
@@ -287,11 +284,12 @@ export class DrizzleRepositoryAuthoringActivation extends DrizzleRepositoryAutho
               ),
             )
             .limit(1);
-          const draft = createServerOwnedTourDraft(
+          const draft = createServerOwnedExperienceDraft(
             consumedGrant.workspaceId,
             candidate.environment,
             exactOrigin,
             { pathname },
+            input.documentIntent.documentType,
             defaultTheme ?? null,
           );
           const [document] = await tx

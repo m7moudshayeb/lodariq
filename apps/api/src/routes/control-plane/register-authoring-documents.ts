@@ -1,20 +1,30 @@
 import {
+  AI_CREDIT_METER_VERSION,
   AUTHORING_SESSION_CAPABILITIES,
   AuthoringTranslationRequest,
   AuthoringTranslationResult,
   LodariqDocument,
   ReleaseRecoveryStateResponse,
   documentLocalizationIssues,
+  documentLocaleCount,
+  canonicalContentLocale,
+  resolveDocumentLocalization,
   validate,
+  type AuthoringTranslationRequest as AuthoringTranslationRequestType,
 } from '@lodariq/schema';
 import { Type } from '@sinclair/typebox';
-import { DocumentSaveConflictError } from '@lodariq/database';
+import {
+  assertCommercialFeature,
+  CommercialEntitlementError,
+  DocumentSaveConflictError,
+} from '@lodariq/database';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { createObservabilityEvent } from '../../observability';
 import {
   AuthoringTranslationFailure,
   translateMissingAuthoringCopy,
 } from '../../authoring-translation';
+import { creditsForProviderUsage } from '../../authoring-assist';
 import { emitObservability } from '../control-plane-access';
 import {
   ApiErrorResponse,
@@ -40,6 +50,7 @@ import {
   setCredentialResponseHeaders,
   compileAndValidate,
   resolveDocumentTheme,
+  findAuthoringStepLockConflict,
 } from './helpers';
 
 export function registerAuthoringDocumentRoutes(
@@ -123,6 +134,28 @@ export function registerAuthoringDocumentRoutes(
         return reply.code(403).send({
           error: 'authoring_session_mismatch',
           message: 'Authoring session does not match the document being saved',
+        });
+      }
+
+      const current = await options.repository.getDocument(session.workspaceId, session.documentId);
+      if (!current) {
+        return reply
+          .code(404)
+          .send({ error: 'not_found', message: 'Authoring document not found' });
+      }
+      const lockConflict = await findAuthoringStepLockConflict(
+        options.repository,
+        current.document,
+        document,
+        session.id,
+      );
+      if (lockConflict) {
+        return reply.code(409).send({
+          error: 'step_lock_conflict',
+          message: `${lockConflict.holderName} is editing this step`,
+          stepId: lockConflict.stepId,
+          holderName: lockConflict.holderName,
+          expiresAt: lockConflict.expiresAt,
         });
       }
 
@@ -223,7 +256,7 @@ export function registerAuthoringDocumentRoutes(
         });
       }
 
-      const body = request.body as { document: LodariqDocument; targetLocale: string };
+      const body = request.body as AuthoringTranslationRequestType;
       const document = body.document;
       const localizationIssues = documentLocalizationIssues(document);
       if (localizationIssues.length > 0) {
@@ -245,7 +278,35 @@ export function registerAuthoringDocumentRoutes(
       }
 
       try {
+        const entitlement = await options.repository.readWorkspaceEntitlementSnapshot(
+          session.workspaceId,
+        );
+        assertCommercialFeature(entitlement.entitlements, 'auto-translate');
+        const targetLocale = canonicalContentLocale(body.targetLocale);
+        const localization = resolveDocumentLocalization(document);
+        const addsLocale = !localization.variants.some(
+          (variant) => canonicalContentLocale(variant.locale) === targetLocale,
+        );
+        const localeLimit = entitlement.entitlements.locales;
+        const localeCount = documentLocaleCount(document);
+        if (addsLocale && localeLimit !== null && localeCount + 1 > localeLimit) {
+          throw new CommercialEntitlementError('locales', localeCount, localeLimit);
+        }
         const result = await translateMissingAuthoringCopy(document, body.targetLocale, provider);
+        if (result.providerUsage) {
+          await options.repository.debitAiCredits({
+            workspaceId: session.workspaceId,
+            operationId: body.operationId,
+            provider: result.providerUsage.provider,
+            meterVersion: AI_CREDIT_METER_VERSION,
+            usageUnit: result.providerUsage.usageUnit,
+            inputUnits: result.providerUsage.inputUnits,
+            outputUnits: result.providerUsage.outputUnits,
+            providerCostMicros: result.providerUsage.providerCostMicros,
+            credits: creditsForProviderUsage(result.providerUsage),
+            occurredAt: new Date().toISOString(),
+          });
+        }
         emitObservability(
           options.observability,
           createObservabilityEvent({
@@ -263,8 +324,12 @@ export function registerAuthoringDocumentRoutes(
             },
           }),
         );
-        return result;
+        const { providerUsage: _providerUsage, ...response } = result;
+        return response;
       } catch (error) {
+        if (error instanceof CommercialEntitlementError) {
+          return reply.code(403).send({ error: error.code, message: error.message });
+        }
         if (!(error instanceof AuthoringTranslationFailure)) throw error;
         const clientErrors = new Set([
           'unsupported_locale',

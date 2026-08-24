@@ -292,7 +292,7 @@ describe('Fly deployment workflow', () => {
     expect(probesScript).toContain("new URL('/healthz', editorOrigin)");
     expect(probesScript).toContain("new URL('/readyz', apiOrigin)");
     expect(probesScript).toContain("new URL('/healthz', dashboardOrigin)");
-    expect(probesScript).toContain("new URL('/openapi.json', apiOrigin)");
+    expect(probesScript).toContain("new URL('/v1/openapi.json', apiOrigin)");
     expect(probesScript).toContain("value?.openapi !== '3.0.3'");
     expect(probesScript).toContain('Lodariq Control API');
     expect(probesScript).toContain("new URL('/authoring.html', editorOrigin)");

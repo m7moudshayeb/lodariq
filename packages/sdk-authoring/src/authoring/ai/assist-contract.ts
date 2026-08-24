@@ -14,49 +14,17 @@
  *    loop is preview → accept / reject / refine / undo, never apply-then-explain.
  */
 
-/** Scribe's proven verb set, and deliberately no more (§7.4). */
-export const AI_REWRITE_VERBS = [
-  'shorter',
-  'clearer',
-  'more-formal',
-  'friendlier',
-  'fix-grammar',
-] as const;
-export type AiRewriteVerb = (typeof AI_REWRITE_VERBS)[number];
+import {
+  AI_REWRITE_VERBS,
+  type AiAssistEdit,
+  type AiAssistProposal,
+  type AiAssistRequest,
+  type AiRewriteVerb,
+  type AiTargetContext,
+} from '@lodariq/schema';
 
-export type AiAssistScope = 'selection' | 'step' | 'batch';
-
-export type AiAssistRequest =
-  | { kind: 'rewrite'; scope: 'selection'; verb: AiRewriteVerb; text: string }
-  | { kind: 'draft-step'; scope: 'step'; stepId: string; target: AiTargetContext }
-  | { kind: 'command'; scope: AiAssistScope; prompt: string; stepIds: readonly string[] }
-  | { kind: 'translate'; scope: 'batch'; locale: string; stepIds: readonly string[] };
-
-/**
- * What a step draft is generated from: the accessible tree, not a screenshot.
- * Smaller, cheaper, more accurate, and it never ships page pixels anywhere. It
- * also nudges accessibility — a target with a poor accessible name drafts badly
- * (§7.4).
- */
-export interface AiTargetContext {
-  readonly accessibleName: string;
-  readonly role: string;
-  /** Immediate surrounding text, already bounded by the caller. */
-  readonly nearbyText?: string;
-}
-
-/** One field-level change. `path` is a document path, never a CSS selector. */
-export interface AiAssistEdit {
-  readonly path: string;
-  readonly before: string;
-  readonly after: string;
-  /**
-   * Present for translation drafts. A localized edit writes a locale variant, so
-   * drafts land in the builder for refinement and never touch the default copy
-   * (§7.6, ADR-0018).
-   */
-  readonly locale?: string;
-}
+export { AI_REWRITE_VERBS };
+export type { AiAssistEdit, AiAssistProposal, AiAssistRequest, AiRewriteVerb, AiTargetContext };
 
 const BLOCK_CONTENT_PREFIX = 'block:';
 const BLOCK_CONTENT_SUFFIX = '/content';
@@ -70,13 +38,6 @@ export function parseBlockContentPath(path: string): string | null {
   if (!path.startsWith(BLOCK_CONTENT_PREFIX) || !path.endsWith(BLOCK_CONTENT_SUFFIX)) return null;
   const blockId = path.slice(BLOCK_CONTENT_PREFIX.length, -BLOCK_CONTENT_SUFFIX.length);
   return blockId.length > 0 ? blockId : null;
-}
-
-export interface AiAssistProposal {
-  readonly proposalId: string;
-  /** One line a creator can accept or reject without reading the diff. */
-  readonly summary: string;
-  readonly edits: readonly AiAssistEdit[];
 }
 
 /**

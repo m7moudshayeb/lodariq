@@ -1,6 +1,5 @@
 /** Approved transition and branch rule editor. */
 export const AUTHORING_AGREED_BRANCHING_CSS = `
-  /* Branch rules are ordered path cards, never a cramped side column. */
   .transition-editor {
     display: grid;
     min-width: 0;

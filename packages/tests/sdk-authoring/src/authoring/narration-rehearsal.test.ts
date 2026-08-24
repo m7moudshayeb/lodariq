@@ -20,8 +20,9 @@ const SCRIPTS: Record<string, StepNarration> = {
   step_2: { script: 'Invite the people you work with.' },
 };
 
-const rehearsal = buildNarrationRehearsal([step('step_1'), step('step_2'), step('step_3')], (block) =>
-  SCRIPTS[block.id],
+const rehearsal = buildNarrationRehearsal(
+  [step('step_1'), step('step_2'), step('step_3')],
+  (block) => SCRIPTS[block.id],
 );
 
 describe('splitting a script into captions', () => {

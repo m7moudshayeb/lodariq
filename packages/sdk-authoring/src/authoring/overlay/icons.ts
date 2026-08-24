@@ -17,6 +17,17 @@ const GRIP_DOTS =
 
 export const OVERLAY_GLYPHS = {
   grip: overlayGlyph(GRIP_DOTS, 13, 'currentColor'),
+  /**
+   * The launcher's quick-action shapes, repeated here rather than referenced.
+   *
+   * The menu prints these two rows while the launcher is hidden behind the
+   * panel, and a creator who learned the action by its icon on the launcher
+   * should meet the same icon in the menu. The launcher builds its own SVG from
+   * a path map it cannot export to the overlay without a dependency the layers
+   * do not have, so the paths are kept identical by hand.
+   */
+  plus: overlayGlyph('<path d="M5 12h14M12 5v14"/>'),
+  list: overlayGlyph('<path d="M3 5h.01M3 12h.01M3 19h.01M8 5h13M8 12h13M8 19h13"/>'),
   pencil: overlayGlyph('<path d="M4 20h4L19 9a2.1 2.1 0 10-3-3L5 17z"/>'),
   cursor: overlayGlyph('<path d="M6 3l14 9-6 1 3 6-2.5 1.2-3-6-4.5 4z"/>'),
   eye: overlayGlyph(
@@ -41,7 +52,10 @@ export const OVERLAY_GLYPHS = {
     '<path d="M18 8a6 6 0 10-12 0c0 7-3 8-3 8h18s-3-1-3-8M10.5 21a2 2 0 003 0"/>',
     15,
   ),
-  sparkle: overlayGlyph('<path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/>', 15),
+  sparkle: overlayGlyph(
+    '<path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/>',
+    15,
+  ),
   form: overlayGlyph('<path d="M4 5h16v14H4zM7 9h10M7 13h6"/>', 15),
   check: overlayGlyph('<path d="M20 6L9 17l-5-5"/>', 15),
   layers: overlayGlyph('<path d="M12 3l9 5-9 5-9-5zM3 14l9 5 9-5"/>', 15),
@@ -60,10 +74,9 @@ export const OVERLAY_GLYPHS = {
     '<path d="M8 5h8v4H8zM5 9h14v10H5zM12 5V2"/><circle cx="9.5" cy="14" r="1"/><circle cx="14.5" cy="14" r="1"/>',
     15,
   ),
-  zoomIn: overlayGlyph(
-    '<circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4M11 8v6M8 11h6"/>',
-    15,
-  ),
+  /** The search field's own glyph: a magnifier with nothing in it. */
+  search: overlayGlyph('<circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/>', 14),
+  zoomIn: overlayGlyph('<circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4M11 8v6M8 11h6"/>', 15),
   zoomOut: overlayGlyph('<circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4M8 11h6"/>', 15),
   refresh: overlayGlyph('<path d="M21 12a9 9 0 11-3-6.7M21 4v5h-5"/>', 15),
   help: overlayGlyph(
@@ -85,5 +98,8 @@ export const OVERLAY_GLYPHS = {
   close: overlayGlyph('<path d="M18 6L6 18M6 6l12 12"/>', 13),
   /** Preview transport (§4.7): narration playback and its captions. */
   play: overlayGlyph('<path d="M6 4l14 8-14 8z"/>', 14, 'currentColor'),
-  quote: overlayGlyph('<path d="M7 7h4v6H7zM13 7h4v6h-4zM7 13c0 2 1 3 3 4M13 13c0 2 1 3 3 4"/>', 13),
+  quote: overlayGlyph(
+    '<path d="M7 7h4v6H7zM13 7h4v6h-4zM7 13c0 2 1 3 3 4M13 13c0 2 1 3 3 4"/>',
+    13,
+  ),
 } as const;

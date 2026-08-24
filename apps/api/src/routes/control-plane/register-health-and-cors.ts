@@ -92,15 +92,16 @@ export function registerHealthAndCorsRoutes(
     '/v1/sdk/authoring/verifications',
     '/v1/sdk/authoring/promotions',
     '/v1/sdk/authoring/release-operations/:operationId/approvals',
-    '/v1/sdk/authoring/operations/measurement',
-    '/v1/sdk/authoring/operations/analytics',
-    '/v1/sdk/authoring/operations/sessions',
-    '/v1/sdk/authoring/operations/experiment',
-    '/v1/sdk/authoring/operations/experiment/:experimentId',
-    '/v1/sdk/authoring/operations/comments',
-    '/v1/sdk/authoring/operations/comments/:commentId',
-    '/v1/sdk/authoring/operations/step-locks',
-    '/v1/sdk/authoring/operations/applications',
+    '/v1/sdk/catalog-observations',
+    /*
+     * One wildcard, not a copy of the operations suffix list. The list was
+     * hand-maintained beside routes registered somewhere else entirely, so it
+     * went stale silently: 41 operations routes had a mutating handler and no
+     * preflight, which is a 404 with no `access-control-allow-origin` and a
+     * blocked fetch in every real browser. Server-side tests never noticed
+     * because they do not issue preflights.
+     */
+    '/v1/sdk/authoring/operations/*',
   ]) {
     fastify.options(path, async (request, reply) => {
       setSdkPreflightCorsHeaders(request, reply);
@@ -145,15 +146,8 @@ export function registerHealthAndCorsRoutes(
     '/v1/authoring/promotions',
     '/v1/authoring/release-operations/:operationId/approvals',
     '/v1/authoring/sessions/:sessionId/revoke',
-    '/v1/authoring/operations/measurement',
-    '/v1/authoring/operations/analytics',
-    '/v1/authoring/operations/sessions',
-    '/v1/authoring/operations/experiment',
-    '/v1/authoring/operations/experiment/:experimentId',
-    '/v1/authoring/operations/comments',
-    '/v1/authoring/operations/comments/:commentId',
-    '/v1/authoring/operations/step-locks',
-    '/v1/authoring/operations/applications',
+    /* Same wildcard, same reason, for the editor-origin half of the pair. */
+    '/v1/authoring/operations/*',
   ]) {
     fastify.options(path, async (request, reply) => {
       if (!requireEditorOrigin(request, reply)) return;

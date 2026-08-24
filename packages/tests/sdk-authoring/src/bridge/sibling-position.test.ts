@@ -95,7 +95,7 @@ describe('sibling position as a tie-breaker', () => {
     expect(result.evidenceFamilies).toContain('sibling-position');
   });
 
-  it('abstains instead of sliding over when the row gains an action', () => {
+  it('does not slide over when the row gains an action', () => {
     const buttons = renderActionRow();
     const target = captureOf(buttons[1]!, 'target_schedule_report');
     expect(resolveTarget(target, document).element?.textContent).toBe('Schedule report');
@@ -109,9 +109,10 @@ describe('sibling position as a tie-breaker', () => {
     document.querySelector('.head-actions')!.prepend(shipped);
     layOutPage();
 
+    // The slot moved, so position says nothing any more. The name is the only
+    // thing left, and it still says the same button.
     const result = resolveTarget(target, document);
-    expect(result.state).toBe('ambiguous');
-    expect(result.element).toBeNull();
+    expect(result.element?.textContent).toBe('Schedule report');
     expect(result.evidenceFamilies).not.toContain('sibling-position');
   });
 

@@ -12,6 +12,7 @@ import {
 import * as databaseSchema from '@lodariq/database/schema';
 import type { AuthoritativeAnalyticsEvent } from '@lodariq/schema';
 import { listCheckedInSqlPaths } from './migration-test-utils.js';
+import { businessWorkspaceSubscriptionSql } from './postgres16-test-harness.js';
 
 const ADMIN_DATABASE_URL = process.env.LODARIQ_TEST_POSTGRES_ADMIN_URL?.trim() ?? '';
 const DISPOSABLE_POSTGRES_ENABLED =
@@ -34,6 +35,11 @@ const PUBLICATION_B_STAGING = 'pub_analytics_pg16_b_staging';
 const HASH_A_FIRST = `sha256-${'a'.repeat(64)}`;
 const HASH_A_CURRENT = `sha256-${'b'.repeat(64)}`;
 const HASH_B = `sha256-${'c'.repeat(64)}`;
+const SEGMENT_A = {
+  id: `audseg_${'d'.repeat(64)}`,
+  definitionVersion: 1 as const,
+  ruleCount: 2,
+};
 const TEST_SUFFIX = randomBytes(6).toString('hex');
 const TEST_DATABASE_NAME = `lodariq_analytics_ci_${TEST_SUFFIX}`;
 const RUNTIME_ROLE = `lodariq_analytics_app_${TEST_SUFFIX}`;
@@ -120,6 +126,7 @@ describe.skipIf(!DISPOSABLE_POSTGRES_ENABLED)(
         publicationId: PUBLICATION_A_STAGING,
         contentHash: HASH_A_FIRST,
         pointerGeneration: 2,
+        audienceSegment: SEGMENT_A,
         name: 'tour.opened',
       });
 
@@ -134,10 +141,18 @@ describe.skipIf(!DISPOSABLE_POSTGRES_ENABLED)(
           publicationId: PUBLICATION_A_STAGING,
           contentHash: HASH_A_FIRST,
           pointerGeneration: 2,
+          audienceSegment: SEGMENT_A,
           name: 'tour.opened',
           count: 1,
         }),
       ]);
+
+      await expect(
+        requireRepository().listAnalyticsEvents({
+          workspaceId: WORKSPACE_A,
+          query: { environmentId: STAGING_A, audienceSegmentId: SEGMENT_A.id },
+        }),
+      ).resolves.toHaveLength(1);
 
       const productionAggregates = await requireRepository().aggregateAnalyticsEvents({
         workspaceId: WORKSPACE_A,
@@ -385,6 +400,7 @@ function analyticsEvent(
     publicationId: PUBLICATION_A_STAGING,
     contentHash: HASH_A_FIRST,
     pointerGeneration: 2,
+    audienceSegment: SEGMENT_A,
     name: 'tour.opened',
     sdkVersion: '2.0.0-pg16',
     correlationId: 'correlation:analytics:pg16',
@@ -413,6 +429,9 @@ function seedSql(): string {
     insert into workspaces (id, name, created_at, updated_at) values
       (${sqlLiteral(WORKSPACE_A)}, 'Analytics tenant A', ${sqlLiteral(CREATED_AT)}, ${sqlLiteral(CREATED_AT)}),
       (${sqlLiteral(WORKSPACE_B)}, 'Analytics tenant B', ${sqlLiteral(CREATED_AT)}, ${sqlLiteral(CREATED_AT)});
+
+    ${businessWorkspaceSubscriptionSql(WORKSPACE_A, CREATED_AT)}
+    ${businessWorkspaceSubscriptionSql(WORKSPACE_B, CREATED_AT)}
 
     insert into environments (
       id, workspace_id, kind, name, origin_allowlist, required_approval_count,

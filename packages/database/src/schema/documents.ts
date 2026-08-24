@@ -20,6 +20,7 @@ import type {
   CompiledDocument,
   LodariqDocument,
 } from '@lodariq/schema';
+import { AUTHORING_RESOURCE_LIMITS } from '@lodariq/schema';
 import { themeVersions } from './brand';
 import { environments } from './environments';
 import { users, workspaceMemberships, workspaces } from './identity';
@@ -132,10 +133,88 @@ export const authoringMediaAssets = pgTable(
     index('authoring_media_assets_workspace_created_idx').on(table.workspaceId, table.createdAt),
     check(
       'authoring_media_assets_kind_check',
-      sql`${table.kind} in ('image', 'video', 'captions')`,
+      sql`${table.kind} in ('image', 'video', 'captions', 'audio')`,
     ),
     check('authoring_media_assets_size_check', sql`${table.byteLength} between 1 and 5242880`),
     check('authoring_media_assets_hash_check', sql`${table.contentHash} ~ '^sha256-[0-9a-f]{64}$'`),
+  ],
+);
+
+/** Additive large-asset store; legacy rows remain readable in the original table. */
+export const authoringMediaAssetsV2 = pgTable(
+  'authoring_media_assets_v2',
+  {
+    id: text('id').primaryKey(),
+    workspaceId: text('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    kind: text('kind').$type<AuthoringMediaAssetKind>().notNull(),
+    filename: text('filename').notNull(),
+    contentType: text('content_type').notNull(),
+    byteLength: integer('byte_length').notNull(),
+    contentHash: text('content_hash').notNull(),
+    contentBase64: text('content_base64').notNull(),
+    savedToLibrary: boolean('saved_to_library').notNull().default(false),
+    createdByUserId: text('created_by_user_id').references(() => users.id, {
+      onDelete: 'set null',
+    }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    publishedAt: timestamp('published_at', { withTimezone: true }),
+  },
+  (table) => [
+    uniqueIndex('authoring_media_assets_v2_workspace_id_idx').on(table.workspaceId, table.id),
+    index('authoring_media_assets_v2_workspace_created_idx').on(table.workspaceId, table.createdAt),
+    check(
+      'authoring_media_assets_v2_kind_check',
+      sql`${table.kind} in ('image', 'video', 'captions', 'audio')`,
+    ),
+    check(
+      'authoring_media_assets_v2_size_check',
+      sql`${table.byteLength} between 1 and ${AUTHORING_RESOURCE_LIMITS.assetBytes}`,
+    ),
+    check(
+      'authoring_media_assets_v2_hash_check',
+      sql`${table.contentHash} ~ '^sha256-[0-9a-f]{64}$'`,
+    ),
+  ],
+);
+
+/** Additive audio store; existing media constraints remain untouched. */
+export const authoringNarrationAssets = pgTable(
+  'authoring_narration_assets',
+  {
+    id: text('id').primaryKey(),
+    workspaceId: text('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    kind: text('kind').$type<'audio'>().notNull().default('audio'),
+    filename: text('filename').notNull(),
+    contentType: text('content_type').notNull(),
+    byteLength: integer('byte_length').notNull(),
+    contentHash: text('content_hash').notNull(),
+    contentBase64: text('content_base64').notNull(),
+    savedToLibrary: boolean('saved_to_library').notNull().default(false),
+    createdByUserId: text('created_by_user_id').references(() => users.id, {
+      onDelete: 'set null',
+    }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    publishedAt: timestamp('published_at', { withTimezone: true }),
+  },
+  (table) => [
+    uniqueIndex('authoring_narration_assets_workspace_id_idx').on(table.workspaceId, table.id),
+    index('authoring_narration_assets_workspace_created_idx').on(
+      table.workspaceId,
+      table.createdAt,
+    ),
+    check('authoring_narration_assets_kind_check', sql`${table.kind} = 'audio'`),
+    check(
+      'authoring_narration_assets_size_check',
+      sql`${table.byteLength} between 1 and ${AUTHORING_RESOURCE_LIMITS.assetBytes}`,
+    ),
+    check(
+      'authoring_narration_assets_hash_check',
+      sql`${table.contentHash} ~ '^sha256-[0-9a-f]{64}$'`,
+    ),
   ],
 );
 
@@ -243,6 +322,7 @@ export const documentVersions = pgTable(
       table.id,
     ),
     index('document_versions_workspace_idx').on(table.workspaceId),
+    index('document_versions_workspace_created_idx').on(table.workspaceId, table.createdAt.desc()),
   ],
 );
 

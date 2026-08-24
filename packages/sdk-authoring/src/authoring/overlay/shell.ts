@@ -1,6 +1,7 @@
 import {
   TOOLTIP_HEIGHT_PX_LIMITS,
   TOOLTIP_WIDTH_PX_LIMITS,
+  type LodariqBlock,
   type LodariqDocument,
 } from '@lodariq/schema';
 import {
@@ -19,6 +20,7 @@ import type { OverlayPlacement } from '../canvas/edge-resize';
 import { createCompass, syncCompass } from './compass';
 import {
   createFilmstrip,
+  firstHeadingText,
   renderFilmstripSteps,
   tooltipOfStep,
   tourStepsOf,
@@ -43,7 +45,6 @@ import {
 import { OVERLAY_CHROME_PAD_PX } from './constants';
 import { cornerPreference, createOverlayLayerManager } from './layer-manager';
 import { createBigModal } from './big-modal';
-import { createCaptions } from './captions';
 import { createCommandPalette } from './command-palette';
 import { keyboardMapModal } from './keyboard-map';
 import { createLockBand } from './lock-band';
@@ -70,6 +71,15 @@ const FILMSTRIP_CORNERS: readonly OverlayChromeCorner[] = [
   'bottom-right',
   'top-right',
 ];
+
+function findBlock(blocks: readonly LodariqBlock[], blockId: string): LodariqBlock | null {
+  for (const block of blocks) {
+    if (block.id === blockId) return block;
+    const child = findBlock(block.children, blockId);
+    if (child) return child;
+  }
+  return null;
+}
 
 /** Presentation → what the creator is shown in the pill (§3.3). Four states, two controls. */
 const PILL_MODE_BY_PRESENTATION: Readonly<Record<OverlayShellPresentation, ModePillMode>> = {
@@ -134,8 +144,6 @@ export function createOverlayShell(
   let panelsHidden = false;
   /** Until the frame answers `init` there is no provider, so the AI rows say so. */
   let assistAvailable = false;
-  /** Captions default on, as in the prototype: the script is why they are there. */
-  let captionsOn = true;
   let selectedStepIds: ReadonlySet<string> = new Set();
   /** Who else is here (§15.2 layer 1). Null until a host supplies presence. */
   let presence: PresenceState | null = null;
@@ -150,11 +158,14 @@ export function createOverlayShell(
     onSwitchExperience: (type) => callbacks.onSwitchExperience(type),
     onEnvironmentChange: (environment) => callbacks.onEnvironmentChange(environment),
     onToggleRecording: () => callbacks.onToggleRecording(),
-    onSimulateUser: () => callbacks.onSimulateUser(),
     onCanvasZoom: (direction) => callbacks.onCanvasZoom(direction),
     onKeyboardMap: () => bigModal.open(keyboardMapModal()),
     onCommandPalette: () => palette.open(),
     onRestart: () => callbacks.onRestart(),
+    onExperienceMenuError: (error) =>
+      host.ownerDocument.defaultView?.dispatchEvent(
+        new CustomEvent('lodariq:authoring-error', { detail: { error } }),
+      ),
   });
   const bigModal = createBigModal(host.ownerDocument);
   const palette = createCommandPalette(host.ownerDocument, {
@@ -165,20 +176,14 @@ export function createOverlayShell(
       toggleRecording: () => callbacks.onToggleRecording(),
       openOperations: (tab) => callbacks.onOpenOperations(tab),
       preview: () => callbacks.onStartPreview(),
-      simulateUser: () => callbacks.onSimulateUser(),
       hidePanels: () => setPanelsHidden(true),
       ask: (prompt) => callbacks.onAskLodariq(prompt),
     },
   });
-  const captions = createCaptions(host.ownerDocument);
   const previewBar = createPreviewBar(host.ownerDocument, {
     onStep: (direction) => callbacks.onPreviewStep(direction),
     onEditStep: () => callbacks.onEditPreviewStep(),
     onExit: () => callbacks.onExitPreview(),
-    onToggleCaptions: () => {
-      captionsOn = !captionsOn;
-      syncPill();
-    },
   });
   const showChip = createShowChip(host.ownerDocument);
   showChip.addEventListener('click', () => setPanelsHidden(false));
@@ -204,23 +209,10 @@ export function createOverlayShell(
     showChip,
     lockBand.element,
     previewBar.element,
-    captions.element,
     bigModal.element,
     palette.element,
   );
 
-  const titleInput = filmstrip.querySelector<HTMLInputElement>('[data-panel-document-title]');
-  titleInput?.addEventListener('blur', () => {
-    const title = titleInput.value.trim() || 'Untitled experience';
-    titleInput.value = title;
-    callbacks.onTitleCommit(title);
-  });
-  titleInput?.addEventListener('keydown', (event) => {
-    if (event.key === 'Enter') {
-      event.preventDefault();
-      titleInput.blur();
-    }
-  });
   filmstrip.querySelector('[data-filmstrip-add-step]')?.addEventListener('click', () => {
     callbacks.onAddStep();
   });
@@ -234,9 +226,8 @@ export function createOverlayShell(
   });
   filmstrip.addEventListener('click', (event) => {
     const target = event.target as HTMLElement | null;
-    const insertAt = target?.closest<HTMLButtonElement>('[data-insert-step-at]')?.dataset[
-      'insertStepAt'
-    ];
+    const insertAt =
+      target?.closest<HTMLButtonElement>('[data-insert-step-at]')?.dataset['insertStepAt'];
     if (insertAt !== undefined) {
       const steps = tourStepsOf(previewDocument);
       const neighbour = steps[Number.parseInt(insertAt, 10)];
@@ -245,9 +236,8 @@ export function createOverlayShell(
       else callbacks.onAddStep();
       return;
     }
-    const removeId = target?.closest<HTMLButtonElement>('[data-remove-step-id]')?.dataset[
-      'removeStepId'
-    ];
+    const removeId =
+      target?.closest<HTMLButtonElement>('[data-remove-step-id]')?.dataset['removeStepId'];
     if (removeId) {
       // Undoable, so it does not ask twice — the undo is cheaper than a dialog.
       callbacks.onDeleteStep(removeId);
@@ -320,10 +310,7 @@ export function createOverlayShell(
     },
     onResize: (size, axes) => {
       holdResizeDraft();
-      callbacks.onPopupSizeCommit(
-        axes.width ? size.width : null,
-        axes.height ? size.height : null,
-      );
+      callbacks.onPopupSizeCommit(axes.width ? size.width : null, axes.height ? size.height : null);
       // The limits are the part a creator cannot guess, so the confirmation
       // carries them rather than only echoing the number they just dragged to.
       showToast(
@@ -441,7 +428,13 @@ export function createOverlayShell(
     }
     placeRing();
     syncLockBand();
-    renderFilmstripSteps(filmstrip, previewDocument, activeStepId, selectedStepIds, filmstripPresence());
+    renderFilmstripSteps(
+      filmstrip,
+      previewDocument,
+      activeStepId,
+      selectedStepIds,
+      filmstripPresence(),
+    );
     syncPill();
     placeChrome({ force: true });
   };
@@ -472,6 +465,26 @@ export function createOverlayShell(
     layers.setReserved(presentation === 'overlay' ? [cardRect, targetRect] : []);
     layers.setObstacles(launcherRects());
     layers.solve(options);
+  }
+
+  /**
+   * Which quick actions the launcher is offering, read from the launcher itself.
+   *
+   * It derives them from the creator's capabilities, so asking the DOM keeps one
+   * source of truth: the menu prints exactly the rows whose buttons exist, and
+   * the request below clicks one of those same buttons.
+   */
+  function launcherQuickActionIds(): string[] {
+    const ids = new Set<string>();
+    for (const button of host.ownerDocument.querySelectorAll<HTMLElement>(
+      '[data-lodariq-launcher-action-id]',
+    )) {
+      const id = button.dataset['lodariqLauncherActionId'];
+      // Preview already has its own row under Play, and a menu that offers the
+      // same action twice reads as two different things.
+      if (id && id !== 'preview-as-user') ids.add(id);
+    }
+    return [...ids];
   }
 
   /**
@@ -511,35 +524,36 @@ export function createOverlayShell(
    */
   function syncPill(): void {
     const steps = tourStepsOf(previewDocument);
-    const boundStepId = presentation === 'previewing' ? (runtimeStepId ?? activeStepId) : activeStepId;
+    const boundStepId =
+      presentation === 'previewing' ? (runtimeStepId ?? activeStepId) : activeStepId;
     const index = steps.findIndex((step) => step.id === boundStepId);
     // Preview has its own bar (§4.7); the pill's switch and save state are about
     // composing and mean nothing while the tour is playing.
     const previewing = presentation === 'previewing';
     pill.element.hidden = previewing;
     previewBar.setVisible(previewing);
-    const script = steps[index]?.props.narration?.script ?? null;
     previewBar.setState({
       stepNumber: index >= 0 ? index + 1 : null,
       stepCount: steps.length,
-      captionsOn,
-      hasScript: Boolean(script?.trim()),
     });
-    captions.setScript(script);
-    captions.setVisible(previewing && captionsOn);
     pill.setState({
-      mode: browsing && presentation === 'overlay' ? 'browsing' : PILL_MODE_BY_PRESENTATION[presentation],
+      mode:
+        browsing && presentation === 'overlay'
+          ? 'browsing'
+          : PILL_MODE_BY_PRESENTATION[presentation],
       stepNumber: index >= 0 ? index + 1 : null,
       stepCount: steps.length,
       panelsHidden,
-      // WIRE_BE: presence arrives from the host's collaboration channel. With no
-      // channel configured `presence` is undefined and nobody else is here.
+      // Hosted presence arrives through the semantic authoring bridge. With no
+      // stream or local fixture, `presence` is undefined and nobody else is here.
       peers: presence
         ? livePeers(presence, Date.now()).map((peer) => ({
             creatorId: peer.creatorId,
             name: peer.name,
+            detail: selectionDetail(peer.name, peer.selection),
           }))
         : [],
+      launcherActions: launcherQuickActionIds(),
     });
   }
 
@@ -567,8 +581,33 @@ export function createOverlayShell(
         peersOnStep(state, stepId, Date.now()).map((peer) => ({
           name: peer.name,
           initials: peerInitials(peer.name),
+          selectionLabel: selectionLabel(peer.selection),
         })),
     };
+  }
+
+  function selectionLabel(
+    selection: PresenceState['peers'][number]['selection'],
+  ): string | undefined {
+    if (!selection) return undefined;
+    if (selection.type === 'target') {
+      return (
+        previewDocument?.targets.find((target) => target.id === selection.targetId)?.identity
+          ?.display.authorLabel ?? authoringText('Selected target')
+      );
+    }
+    const block = findBlock(previewDocument?.blocks ?? [], selection.blockId);
+    return block ? firstHeadingText(block) || block.type : undefined;
+  }
+
+  function selectionDetail(
+    name: string,
+    selection: PresenceState['peers'][number]['selection'],
+  ): string | undefined {
+    const label = selectionLabel(selection);
+    return label
+      ? authoringText('{name} is selecting {selection}', { name, selection: label })
+      : undefined;
   }
 
   function setBrowsing(next: boolean): void {
@@ -757,7 +796,6 @@ export function createOverlayShell(
     });
   }
 
-
   /**
    * The frame measures its own content and reports it on the iframe; the host is
    * the only side that can act on it, because it owns the geometry. Nothing
@@ -802,7 +840,6 @@ export function createOverlayShell(
       frame.remove();
       pill.destroy();
       palette.destroy();
-      captions.element.remove();
       if (resizeSettleTimer) clearTimeout(resizeSettleTimer);
       dimmer.remove();
     },
@@ -843,11 +880,8 @@ export function createOverlayShell(
       if (presentation === 'overlay') solveFrame();
       placeChrome();
     },
-    setDocument: (documentState, title) => {
+    setDocument: (documentState) => {
       previewDocument = documentState;
-      if (title && titleInput && titleInput !== host.ownerDocument.activeElement) {
-        titleInput.value = title;
-      }
       // The document is the authority on its own type, so every refresh path
       // corrects the pill rather than only the one that opened it.
       if (documentState) pill.setState({ experienceType: documentState.type });
@@ -871,12 +905,24 @@ export function createOverlayShell(
     },
     setPresence: (next) => {
       presence = next;
-      renderFilmstripSteps(filmstrip, previewDocument, activeStepId, selectedStepIds, filmstripPresence());
+      renderFilmstripSteps(
+        filmstrip,
+        previewDocument,
+        activeStepId,
+        selectedStepIds,
+        filmstripPresence(),
+      );
       syncPill();
     },
     setSelectedStepIds: (stepIds) => {
       selectedStepIds = new Set(stepIds);
-      renderFilmstripSteps(filmstrip, previewDocument, activeStepId, selectedStepIds, filmstripPresence());
+      renderFilmstripSteps(
+        filmstrip,
+        previewDocument,
+        activeStepId,
+        selectedStepIds,
+        filmstripPresence(),
+      );
     },
     setRuntimeStepId: (stepId) => {
       runtimeStepId = stepId;
@@ -900,5 +946,3 @@ function createOperationsDimmer(doc: Document): HTMLElement {
   dimmer.setAttribute('aria-hidden', 'true');
   return dimmer;
 }
-
-

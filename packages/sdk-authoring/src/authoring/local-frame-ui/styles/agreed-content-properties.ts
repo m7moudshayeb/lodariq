@@ -5,6 +5,15 @@ export const AUTHORING_AGREED_CONTENT_PROPERTIES_CSS = `
     min-width: 0;
   }
 
+  /* Holds the popup open while the editor chunk arrives. Sized to one line of
+     body copy so the card does not collapse and re-expand; deliberately blank
+     rather than a spinner, because on a warm cache this lasts a single frame. */
+  .rich-content-pending {
+    display: block;
+    min-width: 0;
+    min-height: calc(var(--lq-font-md) * 1.6);
+  }
+
   .rich-content-editor-chrome {
     display: flex;
     z-index: 9;
@@ -30,23 +39,12 @@ export const AUTHORING_AGREED_CONTENT_PROPERTIES_CSS = `
     min-width: 0;
   }
 
-  /*
-   * One column: the second held a "configure" button that opened the inspector
-   * a click on the field already opens, and it sat outside the card where it
-   * read as part of the customer's page rather than as authoring chrome.
-   */
   .rich-content-form-field-preview {
     position: relative;
     display: grid;
     align-items: start;
     gap: var(--lq-field-gap, 6px);
     width: 100%;
-    /*
-     * The card wears the customer's theme, so its text is the tour's ink. This
-     * fell back to the creator chrome's ink — pale, because that one is written
-     * for dark glass — and every unstyled field label rendered near-invisible on
-     * a white card.
-     */
     color: var(--lq-field-label, var(--lq-tour-text-color, var(--lq-color-ink)));
     outline: none;
   }
@@ -76,22 +74,16 @@ export const AUTHORING_AGREED_CONTENT_PROPERTIES_CSS = `
     font-weight: var(--lq-weight-semibold);
   }
 
-  /* A checkbox's caption reads as body copy, not as a field label. */
   .rich-content-form-field-preview[data-control='checkbox'] > label > span {
     font-size: var(--lq-font-md);
     font-weight: inherit;
   }
 
-  /* Label beside the control: caption takes its own width, the box takes the rest. */
   .rich-content-form-field-preview[data-control='text'][data-lodariq-field-label='beside'] > label {
     grid-template-columns: auto minmax(0, 1fr);
     align-items: center;
   }
 
-  /*
-   * Hidden means off the screen, never removed: the caption is still the field's
-   * accessible name, so a bare box still says what it asks for.
-   */
   .rich-content-form-field-preview[data-lodariq-field-label='hidden'] [data-lodariq-field-caption] {
     position: absolute;
     width: 1px;
@@ -129,12 +121,6 @@ export const AUTHORING_AGREED_CONTENT_PROPERTIES_CSS = `
     width: auto;
   }
 
-  /*
-   * The options inside a radio group, and a checkbox's own row — box then words.
-   * This was written as a bare descendant selector, so it also caught the text
-   * field's outer label and laid its caption beside the box no matter what the
-   * creator chose. The runtime never had the bug, so the preview was lying.
-   */
   .rich-content-form-field-preview fieldset label,
   .rich-content-form-field-preview[data-control='checkbox'] > label {
     display: flex;
@@ -238,6 +224,17 @@ export const AUTHORING_AGREED_CONTENT_PROPERTIES_CSS = `
     min-width: 8px;
   }
 
+  /*
+   * Nothing on this bar shrinks. The collapsible controls are span wrappers, so
+   * the button rule below misses them and they took the flex default — which
+   * meant that in a narrow bar they squeezed instead of overflowing, and the
+   * squeezed width got measured as their natural one. After that the overflow
+   * maths believed everything fit at any width, and the bar clipped in silence.
+   */
+  .rich-content-toolbar > *:not(.rich-content-toolbar-spacer) {
+    flex: 0 0 auto;
+  }
+
   .rich-content-toolbar > button,
   .rich-content-toolbar-popover > button,
   .rich-content-color-control {
@@ -288,7 +285,6 @@ export const AUTHORING_AGREED_CONTENT_PROPERTIES_CSS = `
     white-space: nowrap;
   }
 
-  /* Set by the bar's own measurement when the fixed items alone do not fit. */
   .rich-content-toolbar[data-block-type-label='hidden'] .rich-content-block-style-trigger {
     min-width: 0 !important;
     padding: 0 6px;
@@ -351,12 +347,6 @@ export const AUTHORING_AGREED_CONTENT_PROPERTIES_CSS = `
     max-height: var(--rich-content-floating-available-height, calc(100vh - 16px));
   }
 
-  /**
-   * panel, not page: a menu is a surface, and the page is the ground it floats
-   * over. They happened to be the same white in the workspace, so the distinction
-   * cost nothing there — but over a customer's product the ground is transparent,
-   * and the menu rendered as bare text on whatever was underneath.
-   */
   .rich-content-menu,
   .rich-content-emoji-picker,
   .rich-content-picker-loading {
@@ -381,7 +371,6 @@ export const AUTHORING_AGREED_CONTENT_PROPERTIES_CSS = `
     padding: 8px;
   }
 
-  /* Failure stays the size of the panel that failed, and offers the way out. */
   .rich-content-picker-error {
     display: grid;
     min-width: 180px;
@@ -697,11 +686,6 @@ export const AUTHORING_AGREED_CONTENT_PROPERTIES_CSS = `
     pointer-events: none;
   }
 
-  /*
-   * A 22px column in the card's own gutter (§4.2a rule 6). Grip, insert, options
-   * — stacked, so the block's first line stays the leftmost thing a creator
-   * reads, and nothing Lodariq draws sits inside the published card box.
-   */
   .rich-content-block-handles {
     z-index: 330;
     display: flex;
@@ -747,11 +731,6 @@ export const AUTHORING_AGREED_CONTENT_PROPERTIES_CSS = `
     transform: translateY(-1px);
   }
 
-  /*
-   * Sized by the grid, not by a column of rows: four tiles wide enough to hold
-   * "Icon + text" on one line is what the menu measures, and 236px forced every
-   * two-word label to wrap.
-   */
   .rich-content-insert-menu {
     width: max-content;
     min-width: 236px;
@@ -782,11 +761,6 @@ export const AUTHORING_AGREED_CONTENT_PROPERTIES_CSS = `
     overflow-y: auto;
   }
 
-  /*
-   * Four-up (§4.2a). A block type is recognised by its shape before its label is
-   * read, so the insert menu is a grid of shapes rather than a column of rows —
-   * fourteen rows is a list nobody scans to the bottom of.
-   */
   .rich-content-insert-grid {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
@@ -807,7 +781,6 @@ export const AUTHORING_AGREED_CONTENT_PROPERTIES_CSS = `
     color: var(--lq-color-muted);
     cursor: pointer;
     font-size: var(--lq-font-xs);
-    /* Regular: the tile is read by its shape, and bold labels fought the icons. */
     font-weight: var(--lq-weight-regular);
     padding: 8px 4px;
     text-align: center;
@@ -933,11 +906,6 @@ export const AUTHORING_AGREED_CONTENT_PROPERTIES_CSS = `
     padding: var(--lq-tour-space-sm, 9px);
   }
 
-  /*
-   * The chip that names what this step points at. It takes the brand accent
-   * rather than creator chrome: it renders inside the published card, so it has
-   * to look like part of the customer's product, not part of Lodariq.
-   */
   .rich-content-target-chip {
     display: inline-flex;
     align-items: center;
@@ -958,10 +926,6 @@ export const AUTHORING_AGREED_CONTENT_PROPERTIES_CSS = `
     padding: 4px 9px;
   }
 
-  /*
-   * The crosshair is drawn as a mask rather than an inline SVG child: Lexical
-   * owns this element's children and would export any DOM added here as content.
-   */
   .rich-content-target-chip::before {
     display: block;
     width: 13px;
@@ -973,7 +937,6 @@ export const AUTHORING_AGREED_CONTENT_PROPERTIES_CSS = `
     -webkit-mask: var(--lq-glyph-target) center / contain no-repeat;
   }
 
-  /* The three states are the document's own ValidationLevel, no more. */
   .rich-content-validation-badge {
     display: flex;
     width: fit-content;
@@ -1074,12 +1037,6 @@ export const AUTHORING_AGREED_CONTENT_PROPERTIES_CSS = `
     width: 100%;
   }
 
-  /*
-   * A definite width, not a percentage. The decorator span that wraps this shell
-   * hugs its contents, so a percentage measured the button's own label — a
-   * dragged width committed to the document and changed nothing on screen. The
-   * shell's own max-width still holds it inside the card.
-   */
   .rich-content-button-preview-shell[data-lodariq-action-width='custom'] {
     width: var(--lq-action-width, 100%);
   }
@@ -1158,7 +1115,6 @@ export const AUTHORING_AGREED_CONTENT_PROPERTIES_CSS = `
     vertical-align: middle;
   }
 
-  /* ponytail: group consecutive Lexical button paragraphs with CSS instead of an action-group node. Ceiling: a paragraph that mixes text and a button joins the action row. Upgrade: wrap consecutive action nodes like runtime appendStepBody. */
   .rich-step-content[data-lodariq-composition-gap='none'] {
     --lq-tour-action-gap: 0px;
   }
@@ -1254,11 +1210,6 @@ export const AUTHORING_AGREED_CONTENT_PROPERTIES_CSS = `
     justify-content: space-between;
   }
 
-  /* ponytail: each Lexical button lives in a hug paragraph, so flex-grow eats the
-     free space space-between needs. Auto margin on every action except the last in a
-     run matches runtime .tour-action-group { justify-content: space-between }. Ceiling:
-     a non-action sibling on the same flex line steals the trailing edge. Upgrade: wrap
-     consecutive actions like appendStepBody. */
   .rich-step-content[data-lodariq-action-layout='inline'][data-lodariq-action-align='stretch']
     .rich-content-canvas
     > :has(.rich-content-button-node):has(+ :has(.rich-content-button-node)) {

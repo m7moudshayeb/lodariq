@@ -36,7 +36,7 @@ export async function probeFlyServices(environment = process.env) {
   assertExactHealthContract(await fetchJson(new URL('/healthz', editorOrigin)));
   assertExactHealthContract(await fetchJson(new URL('/readyz', apiOrigin)));
   assertExactHealthContract(await fetchJson(new URL('/healthz', dashboardOrigin)));
-  assertOpenApiContract(await fetchJson(new URL('/openapi.json', apiOrigin)));
+  assertOpenApiContract(await fetchJson(new URL('/v1/openapi.json', apiOrigin)));
 
   const authoring = await fetchText(new URL('/authoring.html', editorOrigin));
   if (!authoring.includes(AUTHORING_MARKER)) {

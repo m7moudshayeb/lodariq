@@ -122,7 +122,9 @@ describe('every type seeds something real (§5)', () => {
 
   it('gives every seeded block a distinct id', () => {
     const ids = BUILT_IN_EXPERIENCES.flatMap((definition) =>
-      definition.seed(seedContext).flatMap((block) => [block.id, ...block.children.map((c) => c.id)]),
+      definition
+        .seed(seedContext)
+        .flatMap((block) => [block.id, ...block.children.map((c) => c.id)]),
     );
     expect(new Set(ids).size).toBe(ids.length);
   });

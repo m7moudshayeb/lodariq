@@ -20,6 +20,14 @@ export function isValid<T extends TSchema>(schema: T, value: unknown): value is 
   return Check(schema, SCHEMA_REGISTRY, value);
 }
 
+export function isValidWithReferences<T extends TSchema>(
+  schema: T,
+  references: readonly TSchema[],
+  value: unknown,
+): value is Static<T> {
+  return Check(schema, [...SCHEMA_REGISTRY, ...references], value);
+}
+
 export interface ValidationIssue {
   path: string;
   message: string;
@@ -35,6 +43,22 @@ export function validate<T extends TSchema>(
   const errors = [...Errors(schema, SCHEMA_REGISTRY, value)].map((e) => ({
     path: e.path,
     message: e.message,
+  }));
+  return { valid: false, errors };
+}
+
+export function validateWithReferences<T extends TSchema>(
+  schema: T,
+  references: readonly TSchema[],
+  value: unknown,
+): { valid: true; value: Static<T> } | { valid: false; errors: ValidationIssue[] } {
+  const registry = [...SCHEMA_REGISTRY, ...references];
+  if (Check(schema, registry, value)) {
+    return { valid: true, value: value as Static<T> };
+  }
+  const errors = [...Errors(schema, registry, value)].map((error) => ({
+    path: error.path,
+    message: error.message,
   }));
   return { valid: false, errors };
 }

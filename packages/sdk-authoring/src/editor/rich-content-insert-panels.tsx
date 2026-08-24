@@ -1,6 +1,6 @@
 import { AUTHORING_RESOURCE_LIMITS, ICON_RECIPE_VALUES } from '@lodariq/schema';
 import { ChevronLeft, Image, Upload } from 'lucide-react';
-import { DynamicIcon } from 'lucide-react/dynamic';
+
 import {
   Component,
   lazy,
@@ -13,7 +13,7 @@ import {
 } from 'react';
 import { authoringText } from '../i18n';
 import { humanizeIconName } from './rich-content-doc';
-import { lucideIconName } from './rich-content-icons';
+import { RichContentIcon } from './rich-content-icon-set';
 
 /**
  * The emoji set is a chunk of its own — thousands of entries nobody should pay
@@ -117,7 +117,7 @@ export function RichContentIconPickerPanel({
             title={humanizeIconName(name)}
             type="button"
           >
-            <DynamicIcon name={lucideIconName(name)} size={19} />
+            <RichContentIcon icon={name} size={19} />
           </button>
         ))}
       </div>

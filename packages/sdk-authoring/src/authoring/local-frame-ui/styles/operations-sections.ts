@@ -10,18 +10,6 @@ export const AUTHORING_OPERATIONS_SECTIONS_CSS = `
     gap: 2px;
   }
 
-  /*
-   * ── The sheet's shared vocabulary ─────────────────────────────────────
-   *
-   * Fourteen sections, one set of parts: a card, a column grid, a button, a
-   * list, a table, a coverage bar, a key/value pair, an inline note, a tag.
-   * The prototype's .box / .cols / .sbtn / .lst / .dt / .meter / .kv / .note /
-   * .tag, under names that cannot collide with the authoring workspace's own.
-   *
-   * These carry no section knowledge. A section that needs something none of
-   * them can express is a section that needs a new part here, not a local
-   * one-off — that is how fourteen screens drift into fourteen designs.
-   */
   .ops-box {
     margin-bottom: 13px;
     border: 1px solid var(--lq-color-border);
@@ -39,7 +27,6 @@ export const AUTHORING_OPERATIONS_SECTIONS_CSS = `
     font-weight: var(--lq-weight-semibold);
   }
 
-  /* Controls that belong to the card's title rather than to its content. */
   .ops-box > h3 .ops-box-actions {
     display: flex;
     align-items: center;
@@ -56,6 +43,44 @@ export const AUTHORING_OPERATIONS_SECTIONS_CSS = `
 
   .ops-box-body:last-child {
     margin-bottom: 0;
+  }
+
+  .ops-row {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .ops-field {
+    display: grid;
+    gap: 5px;
+    margin: 0 0 12px;
+    color: var(--lq-color-subtle);
+    font-size: var(--lq-font-xs);
+    font-weight: var(--lq-weight-bold);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .ops-field input,
+  .ops-field textarea {
+    width: 100%;
+    border: 1px solid var(--lq-color-control-border);
+    border-radius: 8px;
+    background: var(--lq-color-control);
+    color: var(--lq-color-ink);
+    font: inherit;
+    font-size: var(--lq-font-sm);
+    font-weight: var(--lq-weight-regular);
+    letter-spacing: normal;
+    padding: 8px 9px;
+    text-transform: none;
+  }
+
+  .ops-field textarea {
+    min-height: 92px;
+    resize: vertical;
   }
 
   .ops-cols {
@@ -75,7 +100,6 @@ export const AUTHORING_OPERATIONS_SECTIONS_CSS = `
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 
-  /* A card inside a column grid has already been spaced by the grid. */
   .ops-cols > .ops-box {
     margin-bottom: 0;
   }
@@ -123,7 +147,6 @@ export const AUTHORING_OPERATIONS_SECTIONS_CSS = `
     padding: 4px 9px;
   }
 
-  /* Disabled but still printed, with its reason on the control (§3 WIRE_). */
   .ops-btn:disabled {
     cursor: not-allowed;
     opacity: 0.4;
@@ -186,7 +209,6 @@ export const AUTHORING_OPERATIONS_SECTIONS_CSS = `
     border-bottom: none;
   }
 
-  /* The column that identifies the row, so the eye has one anchor per line. */
   .ops-table td.ops-table-key {
     color: var(--lq-color-ink-strong);
     font-weight: var(--lq-weight-medium);
@@ -196,7 +218,6 @@ export const AUTHORING_OPERATIONS_SECTIONS_CSS = `
     background: var(--lq-color-primary-soft);
   }
 
-  /* Coverage, never alone: every meter is captioned with its own number. */
   .ops-meter {
     height: 7px;
     border-radius: 4px;
@@ -253,11 +274,6 @@ export const AUTHORING_OPERATIONS_SECTIONS_CSS = `
     text-align: right;
   }
 
-  /*
-   * An inline note. The left edge is coloured *and* so is the ink, because a
-   * coloured rule alone is exactly the "colour carries the meaning" failure
-   * §13 rules out.
-   */
   .ops-callout {
     margin: 0 0 11px;
     border: 1px solid;
@@ -393,6 +409,39 @@ export const AUTHORING_OPERATIONS_SECTIONS_CSS = `
     gap: 6px;
   }
 
+  .operations-audience-editor {
+    display: grid;
+    gap: 8px;
+    margin-top: 10px;
+  }
+
+  .operations-audience-field {
+    display: grid;
+    gap: 5px;
+    min-width: 0;
+    color: var(--lq-color-subtle);
+    font-size: var(--lq-font-xs);
+    font-weight: var(--lq-weight-semibold);
+  }
+
+  .operations-audience-rule-controls > * {
+    min-width: 0;
+    flex: 1;
+  }
+
+  .operations-audience-schedule {
+    margin-top: 13px;
+  }
+
+  .operations-audience-schedule-grid {
+    align-items: end;
+    margin-bottom: 10px;
+  }
+
+  .operations-audience-schedule-grid .operations-audience-field {
+    flex: 1;
+  }
+
   /* ── Language ──────────────────────────────────────────────────────── */
 
   .operations-language .ops-table-key {
@@ -422,6 +471,40 @@ export const AUTHORING_OPERATIONS_SECTIONS_CSS = `
     text-align: right;
   }
 
+  .operations-language-add {
+    min-width: 132px;
+  }
+
+  .operations-audit-table {
+    overflow-x: auto;
+  }
+
+  .operations-audit-table .ops-table {
+    min-width: 620px;
+    table-layout: fixed;
+  }
+
+  .operations-audit-table th:nth-child(1) {
+    width: 180px;
+  }
+
+  .operations-audit-table th:nth-child(2) {
+    width: 175px;
+  }
+
+  .operations-audit-table th:nth-child(3) {
+    width: 120px;
+  }
+
+  .operations-audit-table td {
+    overflow-wrap: anywhere;
+    vertical-align: top;
+  }
+
+  .operations-audit-more {
+    margin-top: 12px;
+  }
+
   /* ── Audience & triggers ───────────────────────────────────────────── */
 
   .operations-audience-rules {
@@ -446,7 +529,6 @@ export const AUTHORING_OPERATIONS_SECTIONS_CSS = `
     margin-top: 10px;
   }
 
-  /* Absence, in the one colour that is not a status. */
   .operations-audience-none {
     color: var(--lq-color-subtle);
   }
@@ -460,7 +542,6 @@ export const AUTHORING_OPERATIONS_SECTIONS_CSS = `
     font-size: var(--lq-font-sm);
   }
 
-  /* A step this visitor would never be shown, in a table of steps that are. */
   .operations-audience tr[data-skipped='true'] .ops-table-key {
     color: var(--lq-color-subtle);
     text-decoration: line-through;
@@ -478,6 +559,31 @@ export const AUTHORING_OPERATIONS_SECTIONS_CSS = `
     .ops-cols[data-cols='3'],
     .ops-cols[data-cols='4'] {
       grid-template-columns: minmax(0, 1fr);
+    }
+
+    .operations-audience-rule-controls,
+    .operations-audience-schedule-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      align-items: stretch;
+    }
+
+    .operations-audience-rule-controls > *,
+    .operations-audience-schedule-grid .ops-btn {
+      width: 100%;
+    }
+
+    .operations-audience-schedule-grid .ops-btn {
+      justify-content: center;
+    }
+
+    .operations-audience-schedule .ops-list > li {
+      align-items: stretch;
+      flex-direction: column;
+    }
+
+    .operations-audience-schedule .ops-list > li > .ops-row {
+      justify-content: flex-end;
     }
   }
 
@@ -571,7 +677,6 @@ export const AUTHORING_OPERATIONS_SECTIONS_CSS = `
     margin: 0;
   }
 
-  /** Tone is a data attribute so the same pill serves every section. */
   .operations-status,
   .storyboard-card-health {
     padding: 2px 8px;
@@ -607,7 +712,6 @@ export const AUTHORING_OPERATIONS_SECTIONS_CSS = `
     overflow-wrap: anywhere;
   }
 
-  /* ── Storyboard ─────────────────────────────────────────────────────── */
 
   .storyboard-card-index {
     display: inline-grid;
@@ -626,34 +730,76 @@ export const AUTHORING_OPERATIONS_SECTIONS_CSS = `
     border-color: var(--lq-color-primary);
   }
 
+  .storyboard-card:focus-visible {
+    outline: 2px solid var(--lq-color-primary);
+    outline-offset: 2px;
+  }
+
+  .storyboard-card.drop-before {
+    box-shadow: inset 0 3px 0 var(--lq-color-primary);
+  }
+
+  .storyboard-card.drop-after {
+    box-shadow: inset 0 -3px 0 var(--lq-color-primary);
+  }
+
+  .storyboard-card-drag {
+    display: grid;
+    width: 22px;
+    height: 22px;
+    flex: none;
+    place-items: center;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--lq-color-subtle);
+    cursor: grab;
+    padding: 0;
+  }
+
+  .storyboard-card-drag:hover,
+  .storyboard-card-drag:focus-visible {
+    background: var(--lq-color-control-hover);
+    color: var(--lq-color-ink);
+  }
+
   /* Two steps that say the same thing. Marked on the copy itself, because the
      copy is what has to change. */
-  .storyboard-card[data-overlaps='true'] .storyboard-card-preview p {
-    text-decoration: underline wavy var(--lq-color-warning);
-    text-underline-offset: 3px;
-  }
-
-  /* The step's words on their own plate: a picture of the card, not a row. */
-  .storyboard-card-preview {
+  .storyboard-card-fields {
     display: grid;
     gap: 6px;
-    border: 1px solid var(--lq-color-border-soft);
-    border-radius: 8px;
-    background: var(--lq-color-panel-strong);
-    padding: 11px 12px;
   }
 
-  .storyboard-card-preview strong {
-    color: var(--lq-color-ink-strong);
-    font-size: var(--lq-font-sm);
-    line-height: 1.35;
-  }
-
-  .storyboard-card-preview p {
-    margin: 0;
+  .storyboard-inline-field {
+    display: grid;
+    gap: 4px;
     color: var(--lq-color-muted);
+    font-size: var(--lq-font-xs);
+  }
+
+  .storyboard-inline-field textarea {
+    width: 100%;
+    min-width: 0;
+    border: 1px solid var(--lq-color-control-border);
+    border-radius: 8px;
+    background: var(--lq-color-control);
+    color: var(--lq-color-ink);
+    font: inherit;
     font-size: var(--lq-font-sm);
-    line-height: 1.55;
+    line-height: 1.45;
+    padding: 8px 9px;
+    resize: vertical;
+  }
+
+  .storyboard-inline-field textarea:focus {
+    border-color: var(--lq-color-primary);
+    outline: 2px solid var(--lq-color-primary-soft);
+  }
+
+  .storyboard-card[data-overlaps='true']
+    .storyboard-inline-field[data-kind='paragraph'] textarea {
+    text-decoration: underline wavy var(--lq-color-warning);
+    text-underline-offset: 3px;
   }
 
   .storyboard-card-footer {
@@ -677,23 +823,8 @@ export const AUTHORING_OPERATIONS_SECTIONS_CSS = `
     font-size: var(--lq-font-sm);
   }
 
-  .storyboard-compare-column label {
-    display: grid;
-    gap: 4px;
-    margin-bottom: 10px;
-    color: var(--lq-color-muted);
-    font-size: var(--lq-font-sm);
-  }
-
-  .storyboard-compare-column textarea {
-    border: 1px solid var(--lq-color-control-border);
-    border-radius: 8px;
-    background: var(--lq-color-control);
-    color: var(--lq-color-ink);
-    font: inherit;
-    font-size: var(--lq-font-sm);
-    padding: 8px 9px;
-    resize: vertical;
+  .storyboard-compare-column .storyboard-card-fields {
+    gap: 10px;
   }
 
   /* ── A/B testing ────────────────────────────────────────────────────── */
@@ -726,8 +857,6 @@ export const AUTHORING_OPERATIONS_SECTIONS_CSS = `
     letter-spacing: -0.03em;
   }
 
-  /* Taller than a coverage bar: this one is the content of its row, not an
-     annotation on it. */
   .analytics-meter {
     height: 20px;
     border-radius: 6px;
@@ -749,7 +878,6 @@ export const AUTHORING_OPERATIONS_SECTIONS_CSS = `
     font-size: var(--lq-font-sm);
   }
 
-  /* ── Narration ──────────────────────────────────────────────────────── */
 
   .narration-stage {
     display: flex;
@@ -757,8 +885,6 @@ export const AUTHORING_OPERATIONS_SECTIONS_CSS = `
     gap: 12px;
   }
 
-  /* The caption at the size it will actually be read at, on the plate it will
-     actually be read on (§4.7). */
   .narration-caption {
     min-height: 3.2em;
     margin: 0;
@@ -801,23 +927,11 @@ export const AUTHORING_OPERATIONS_SECTIONS_CSS = `
     font-size: var(--lq-font-sm);
   }
 
-  /* A step with nothing to say, in a table of steps that do. */
   .operations-narration tr[data-skipped='true'] .ops-table-key {
     color: var(--lq-color-subtle);
   }
 
-  /* ── Appearance · Release · History, rendered as sections ───────────── */
 
-  /*
-   * These three are also panel modes reached from the canvas, so each wraps
-   * itself in a PanelModeShell: a header with an eyebrow, a title and a back
-   * button, over a body that owns the scroll.
-   *
-   * As sections that chrome is wrong twice over. The sheet's own head already
-   * names the section, so the header is a second title; and the back button
-   * closes a mode the creator is not in. The shell flattens to its content and
-   * lets the sheet body scroll, which is what every other section does.
-   */
   .operations-hub-body .panel-mode-shell {
     display: block;
     height: auto;
@@ -829,8 +943,6 @@ export const AUTHORING_OPERATIONS_SECTIONS_CSS = `
     display: none;
   }
 
-  /* Keeps its own grid and gap — that is the layout its cards are built for.
-     Only the scroll and the outer padding go, because the sheet body owns both. */
   .operations-hub-body .panel-mode-body {
     height: auto;
     min-height: 0;
@@ -838,21 +950,13 @@ export const AUTHORING_OPERATIONS_SECTIONS_CSS = `
     overflow: visible;
   }
 
-  /* Sized for a 320px panel. On the sheet a card is a card, at the sheet's own
-     measure, so the three read as sections rather than as a panel pasted in. */
   .operations-hub-body .panel-mode-card,
   .operations-hub-body .panel-mode-section {
     border-radius: 11px;
     background: var(--lq-sheet-box);
   }
 
-  /* ── Review ─────────────────────────────────────────────────────────── */
 
-  /*
-   * Review also renders as a standalone advanced editor, where its rows are
-   * white plates on a white page. On the sheet that put near-white text on
-   * near-white rows; here it is a card with ruled rows like every other section.
-   */
   .operations-hub-body .tour-review-workspace {
     height: auto;
     border: 1px solid var(--lq-color-border);
@@ -882,7 +986,6 @@ export const AUTHORING_OPERATIONS_SECTIONS_CSS = `
     color: var(--lq-tag-warn-ink);
   }
 
-  /* The advanced editor's back button is a white pill in the light shell. */
   .operations-hub-body .panel-advanced-back {
     border: 1px solid var(--lq-color-control-border);
     background: var(--lq-color-control);
@@ -893,13 +996,7 @@ export const AUTHORING_OPERATIONS_SECTIONS_CSS = `
     background: var(--lq-color-control-hover);
   }
 
-  /* ── Flow map ───────────────────────────────────────────────────────── */
 
-  /*
-   * The map also renders as a standalone focused surface, where its canvas and
-   * inspector are painted for the light workspace. On the sheet the inspector's
-   * white plate put white text on white; both take the sheet's own pair here.
-   */
   .operations-hub-body .tour-flow-canvas {
     background: var(--lq-sheet-map);
     background-image: radial-gradient(circle, var(--lq-sheet-map-dot) 1px, transparent 1px);
@@ -913,7 +1010,6 @@ export const AUTHORING_OPERATIONS_SECTIONS_CSS = `
     box-shadow: var(--lq-shadow-popover);
   }
 
-  /* The workspace and its toolbar are painted white for the light shell. */
   .operations-hub-body .tour-flow-map-workspace,
   .operations-hub-body .tour-flow-toolbar {
     background: var(--lq-sheet-box);
@@ -936,18 +1032,12 @@ export const AUTHORING_OPERATIONS_SECTIONS_CSS = `
     background: var(--lq-color-control-hover);
   }
 
-  /* The selected tool keeps the accent it already had. */
   .operations-hub-body .tour-flow-toolbar button[aria-pressed='true'] {
     border-color: var(--lq-color-primary);
     background: var(--lq-color-primary-soft);
     color: var(--lq-color-primary);
   }
 
-  /*
-   * The branch workbench — rules, conditions and the fallback card. Three light
-   * plates (#ffffff, #f7faf9, #fbfcfb) that read as holes punched in the map.
-   * A rule is a card on the sheet; a condition is the recess inside it.
-   */
   .operations-hub-body .transition-rule,
   .operations-hub-body .transition-fallback-card,
   .operations-hub-body .transition-editor[data-branch-state='empty'] {
@@ -965,13 +1055,7 @@ export const AUTHORING_OPERATIONS_SECTIONS_CSS = `
     color: var(--lq-color-ink);
   }
 
-  /* ── Batch edits ────────────────────────────────────────────────────── */
 
-  /*
-   * The batch workspace also renders as a standalone focused surface, which
-   * paints itself a light plate and pads for a page of its own. Inside the sheet
-   * it is a section like any other.
-   */
   .operations-hub-body .tour-batch-workspace {
     background: none;
     padding: 0;
@@ -985,7 +1069,6 @@ export const AUTHORING_OPERATIONS_SECTIONS_CSS = `
     cursor: pointer;
   }
 
-  /* Nothing selected: the card still says what it would do, and cannot do it. */
   .tour-batch-operation[data-disabled='true'] > h3,
   .tour-batch-operation[data-disabled='true'] .ops-box-body {
     opacity: 0.55;
@@ -995,7 +1078,6 @@ export const AUTHORING_OPERATIONS_SECTIONS_CSS = `
     flex-wrap: wrap;
   }
 
-  /* ── Collaboration ──────────────────────────────────────────────────── */
 
   .presence-person {
     display: flex;
@@ -1004,7 +1086,6 @@ export const AUTHORING_OPERATIONS_SECTIONS_CSS = `
     min-width: 0;
   }
 
-  /* Initials carry the identity; the hue only supports it (§15.2). */
   .presence-avatar {
     display: grid;
     width: 24px;
@@ -1024,12 +1105,10 @@ export const AUTHORING_OPERATIONS_SECTIONS_CSS = `
     font-size: var(--lq-font-sm);
   }
 
-  /* Free, in the one colour that is not a status. */
   .operations-collaboration-free {
     color: var(--lq-color-subtle);
   }
 
-  /* A thread is a stack, not a row: tags, then who, then what they said. */
   .comment-threads li {
     align-items: flex-start;
   }
@@ -1065,6 +1144,27 @@ export const AUTHORING_OPERATIONS_SECTIONS_CSS = `
     line-height: 1.6;
   }
 
+  .comment-replies {
+    display: grid;
+    gap: 8px;
+    margin: 2px 0 0 12px;
+    padding: 0 0 0 12px;
+    border-inline-start: 1px solid var(--lq-color-control-border);
+    list-style: none;
+  }
+
+  .comment-replies li {
+    display: grid;
+    gap: 4px;
+    padding: 0;
+    border: 0;
+  }
+
+  .comment-reply-composer {
+    display: grid;
+    gap: 6px;
+  }
+
   .comment-composer {
     display: grid;
     gap: 8px;
@@ -1083,7 +1183,9 @@ export const AUTHORING_OPERATIONS_SECTIONS_CSS = `
     text-transform: uppercase;
   }
 
-  .comment-composer textarea {
+  .comment-composer textarea,
+  .comment-reply-composer textarea,
+  .comment-composer select {
     width: 100%;
     border: 1px solid var(--lq-color-control-border);
     border-radius: 8px;
@@ -1094,7 +1196,46 @@ export const AUTHORING_OPERATIONS_SECTIONS_CSS = `
     font-weight: var(--lq-weight-regular);
     letter-spacing: normal;
     padding: 8px 9px;
-    resize: vertical;
     text-transform: none;
+  }
+
+  .comment-composer textarea,
+  .comment-reply-composer textarea {
+    resize: vertical;
+  }
+
+  @media (max-width: 720px) {
+    .operations-hub-group {
+      flex-direction: row;
+    }
+
+    .operations-hub-body .tour-flow-toolbar {
+      justify-content: flex-start;
+      overflow-x: auto;
+    }
+
+    .operations-hub-body .tour-flow-heading,
+    .operations-hub-body .tour-flow-toolbar-actions {
+      flex: 0 0 auto;
+    }
+
+    .presence-list > li {
+      flex-direction: column;
+      align-items: stretch;
+    }
+
+    .presence-list > li > .ops-row {
+      flex-wrap: wrap;
+      padding-left: 33px;
+    }
+
+    .comment-threads > li {
+      flex-direction: column;
+      align-items: stretch;
+    }
+
+    .comment-threads > li > .ops-row {
+      flex-wrap: wrap;
+    }
   }
 `;

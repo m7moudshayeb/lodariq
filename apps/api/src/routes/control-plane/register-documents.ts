@@ -13,8 +13,9 @@ import type { FastifyInstance } from 'fastify';
 import { createObservabilityEvent } from '../../observability';
 import {
   authenticate,
+  environmentReleaseCapabilityAllowed,
   emitObservability,
-  releaseRoleHasCapability,
+  requireEnvironmentReleaseCapability,
   requireRole,
   type ReleaseCapability,
 } from '../control-plane-access';
@@ -23,6 +24,7 @@ import {
   DASHBOARD_RELEASE_RECOVERY_PATH,
   DocumentEnvironmentParams,
   DocumentParams,
+  ReleaseRecoveryForbiddenResponse,
   SetDocumentThemeBindingBody,
 } from '../control-plane-contracts';
 import type { ControlPlaneRouteOptions } from '../control-plane-context';
@@ -30,7 +32,6 @@ import { DOCUMENT_RELEASE_MIGRATION_REQUIRED_ERROR } from './support';
 import {
   handleReleaseRecoveryState,
   handleReleaseRecoveryMutation,
-  sendReleaseRecoveryCapabilityDenied,
   createCorrelationId,
   compileAndValidate,
   bindNewDocumentToDefaultTheme,
@@ -142,6 +143,20 @@ export function registerDocumentRoutes(
         documentId: string;
         environmentId: string;
       };
+      const [rollback, unpublish] = await Promise.all([
+        environmentReleaseCapabilityAllowed(
+          options.repository,
+          auth,
+          environmentId,
+          'rollback-release',
+        ),
+        environmentReleaseCapabilityAllowed(
+          options.repository,
+          auth,
+          environmentId,
+          'unpublish-release',
+        ),
+      ]);
       return handleReleaseRecoveryState(
         options.repository,
         {
@@ -151,6 +166,7 @@ export function registerDocumentRoutes(
           actorUserId: auth.userId,
         },
         reply,
+        { rollback, unpublish },
       );
     },
   );
@@ -164,7 +180,7 @@ export function registerDocumentRoutes(
         response: {
           200: ReleaseRecoveryResult,
           201: ReleaseRecoveryResult,
-          403: ReleaseRecoveryResult,
+          403: ReleaseRecoveryForbiddenResponse,
           404: ReleaseRecoveryResult,
           409: ReleaseRecoveryResult,
           500: ReleaseRecoveryResult,
@@ -177,13 +193,21 @@ export function registerDocumentRoutes(
       const recoveryRequest = request.body as ReleaseRecoveryRequestType;
       const requiredCapability: ReleaseCapability =
         recoveryRequest.action === 'rollback' ? 'rollback-release' : 'unpublish-release';
-      if (!releaseRoleHasCapability(auth.role, requiredCapability)) {
-        return sendReleaseRecoveryCapabilityDenied(recoveryRequest, reply);
-      }
       const { documentId, environmentId } = request.params as {
         documentId: string;
         environmentId: string;
       };
+      if (
+        !(await requireEnvironmentReleaseCapability(
+          options.repository,
+          auth,
+          environmentId,
+          requiredCapability,
+          reply,
+        ))
+      ) {
+        return;
+      }
       return handleReleaseRecoveryMutation(
         options.repository,
         {

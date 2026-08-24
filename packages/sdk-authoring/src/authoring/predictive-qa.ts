@@ -70,6 +70,8 @@ export interface QaStepInput {
   readonly placement: QaPlacement;
   /** Longest translated string for this step, per locale. */
   readonly longestText?: { readonly locale: string; readonly characters: number };
+  /** Actual materialized copy size for each configured locale. */
+  readonly localizedText?: readonly { readonly locale: string; readonly characters: number }[];
   readonly tapTargets?: readonly QaTapTarget[];
   /** True when the runtime will scroll the target into view before showing. */
   readonly scrollsIntoView?: boolean;
@@ -154,18 +156,20 @@ export function simulateStep(step: QaStepInput, options: QaOptions = {}): readon
   }
 
   const perLine = options.charactersPerLine ?? step.card.width * DEFAULT_CHARACTERS_PER_LINE_PER_PX;
-  if (step.longestText && perLine > 0) {
-    const lines = Math.ceil(step.longestText.characters / perLine);
+  const localizedText = step.localizedText ?? (step.longestText ? [step.longestText] : []);
+  for (const copy of localizedText) {
+    if (perLine <= 0) break;
+    const lines = Math.ceil(copy.characters / perLine);
     // Body line-height at the recipes' size, plus the card's own padding.
     const requiredHeight = lines * 20 + 48;
     if (requiredHeight > step.card.height) {
       findings.push({
         kind: 'text-overflows-longest-locale',
         stepId: step.stepId,
-        locale: step.longestText.locale,
+        locale: copy.locale,
         severity: 'warning',
         message: authoringText('The {locale} text needs more room than the card has.', {
-          locale: step.longestText.locale,
+          locale: copy.locale,
         }),
         fixSection: 'style',
       });
@@ -262,9 +266,14 @@ const OPPOSITE: Readonly<Record<QaPlacement, QaPlacement>> = {
 };
 
 function placementOrder(preferred: QaPlacement, rtl: boolean): readonly QaPlacement[] {
-  const start = rtl && (preferred === 'left' || preferred === 'right') ? OPPOSITE[preferred] : preferred;
+  const start =
+    rtl && (preferred === 'left' || preferred === 'right') ? OPPOSITE[preferred] : preferred;
   const rest: QaPlacement[] = ['bottom', 'top', 'right', 'left'];
-  return [start, OPPOSITE[start], ...rest.filter((item) => item !== start && item !== OPPOSITE[start])];
+  return [
+    start,
+    OPPOSITE[start],
+    ...rest.filter((item) => item !== start && item !== OPPOSITE[start]),
+  ];
 }
 
 function rectFor(step: QaStepInput, placement: QaPlacement, gap: number): QaRect {

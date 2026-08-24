@@ -15,6 +15,8 @@ import { BrandSystemView, EnvironmentsView, SupportView } from './dashboard-sett
 import { StatusBanner } from './ui/status-banner';
 import { WorkspaceMembersView } from './workspace-members-view';
 
+const BillingView = React.lazy(() => import('./billing-view'));
+
 interface DashboardWorkspaceProps {
   viewModel: DashboardViewModel;
   workspaceId: string;
@@ -146,10 +148,25 @@ function ActiveDashboardView({
       />
     );
   }
+  if (activeView === 'billing') {
+    return (
+      <React.Suspense fallback={<DashboardViewLoading />}>
+        <BillingView currentRole={viewModel.currentRole} workspaceId={workspaceId} />
+      </React.Suspense>
+    );
+  }
   if (activeView === 'support') {
     return <SupportView viewModel={viewModel} workspaceId={workspaceId} />;
   }
   return null;
+}
+
+function DashboardViewLoading(): React.ReactElement {
+  return (
+    <div className="rounded-lg border border-border bg-card p-5 text-sm text-muted-foreground">
+      Loading workspace billing…
+    </div>
+  );
 }
 
 function DashboardError({ message }: { message: string }): React.ReactElement {

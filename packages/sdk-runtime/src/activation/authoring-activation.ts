@@ -1449,7 +1449,7 @@ function sameDocumentIntent(
     return (
       exactRecord(value, ['kind', 'documentType']) &&
       value['kind'] === 'new-draft' &&
-      value['documentType'] === 'tour'
+      value['documentType'] === expected.documentType
     );
   }
   return (

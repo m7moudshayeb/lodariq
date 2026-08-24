@@ -189,7 +189,10 @@ describe('two brand variants (§7.1)', () => {
 
   it('still produces a usable pair when the product is entirely greyscale', () => {
     const { blended, distinct } = generateBrandVariants({
-      colors: [{ hex: '#ffffff', area: 1_000 }, { hex: '#333333', area: 100 }],
+      colors: [
+        { hex: '#ffffff', area: 1_000 },
+        { hex: '#333333', area: 100 },
+      ],
       radii: [],
       paddings: [],
     });

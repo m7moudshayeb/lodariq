@@ -3,6 +3,8 @@ import {
   AUTHORING_APPROVE_PRODUCTION_RESULT_TYPE,
   AUTHORING_BROWSER_VERIFY_REQUEST_TYPE,
   AUTHORING_BROWSER_VERIFY_RESULT_TYPE,
+  AUTHORING_LOCALE_LAYOUT_QA_REQUEST_TYPE,
+  AUTHORING_LOCALE_LAYOUT_QA_RESULT_TYPE,
   AUTHORING_BRAND_DRIFT_CHECK_REQUEST_TYPE,
   AUTHORING_BRAND_DRIFT_CHECK_RESULT_TYPE,
   AUTHORING_BRAND_THEME_ACKNOWLEDGE_REQUEST_TYPE,
@@ -27,6 +29,7 @@ import {
   releaseRecoveryStateMatchesScope,
   type AuthoringApproveProductionResultMessage,
   type AuthoringBrowserVerifyResultMessage,
+  type AuthoringLocaleLayoutQaResultMessage,
   type AuthoringBrandDriftCheckResult,
   type AuthoringBrandDriftCheckResultMessage,
   type AuthoringBrandThemeAcknowledgementRequest,
@@ -43,6 +46,7 @@ import {
   type AuthoringStyleSourceSaveResultMessage,
   type AuthoringSubmitVerificationResultMessage,
   type BrowserVerificationReport,
+  type LocaleLayoutQaReport,
   type BrandDriftCheckRequest,
   type BridgeMessage,
   type ProductStyleProposal,
@@ -62,6 +66,7 @@ import type { DirectAuthoringHostServiceOptions } from './direct-host-service-ty
 
 const DIRECT_HOST_REQUEST_TIMEOUT_MS = 5_000;
 const DIRECT_HOST_BROWSER_VERIFICATION_TIMEOUT_MS = 30_000;
+const DIRECT_HOST_LOCALE_LAYOUT_QA_TIMEOUT_MS = 2 * 60_000;
 const DIRECT_HOST_STYLE_SELECTION_TIMEOUT_MS = 5 * 60_000;
 
 interface PendingRequest<T> {
@@ -94,6 +99,7 @@ export interface DirectAuthoringOptionalPanelServices {
     publicationId: string,
     expectedContentHash: string,
   ) => Promise<BrowserVerificationReport>;
+  runLocaleLayoutQa: (expectedDocumentRevision: number) => Promise<LocaleLayoutQaReport>;
   submitStagingVerification: (
     request: AuthoringStagingVerificationRequest,
   ) => Promise<AuthoringStagingVerificationResult>;
@@ -125,6 +131,7 @@ export function createDirectAuthoringOptionalPanelServices(
     PendingRequest<AuthoringBrandThemeAcknowledgementResult>
   >();
   const browserVerificationRequests = new Map<string, PendingRequest<BrowserVerificationReport>>();
+  const localeLayoutQaRequests = new Map<string, PendingRequest<LocaleLayoutQaReport>>();
   const verificationSubmissionRequests = new Map<
     string,
     PendingRequest<AuthoringStagingVerificationResult>
@@ -191,6 +198,15 @@ export function createDirectAuthoringOptionalPanelServices(
         expectedContentHash,
       );
     },
+    runLocaleLayoutQa: (expectedDocumentRevision) => {
+      if (stopped) return stoppedRequest();
+      return requestLocaleLayoutQa(
+        bridge,
+        options,
+        localeLayoutQaRequests,
+        expectedDocumentRevision,
+      );
+    },
     submitStagingVerification: (request) => {
       if (stopped) return stoppedRequest();
       return requestVerificationSubmission(
@@ -253,6 +269,10 @@ export function createDirectAuthoringOptionalPanelServices(
         settleBrowserVerificationRequest(browserVerificationRequests, message);
         return;
       }
+      if (message.type === AUTHORING_LOCALE_LAYOUT_QA_RESULT_TYPE) {
+        settleLocaleLayoutQaRequest(localeLayoutQaRequests, message);
+        return;
+      }
       if (message.type === AUTHORING_SUBMIT_VERIFICATION_RESULT_TYPE) {
         settleVerificationSubmissionRequest(verificationSubmissionRequests, message);
         return;
@@ -276,6 +296,7 @@ export function createDirectAuthoringOptionalPanelServices(
       rejectPendingRequests(brandDriftRequests);
       rejectPendingRequests(brandAcknowledgementRequests);
       rejectPendingRequests(browserVerificationRequests);
+      rejectPendingRequests(localeLayoutQaRequests);
       rejectPendingRequests(verificationSubmissionRequests);
       rejectPendingRequests(promotionRequests);
       rejectPendingRequests(approvalRequests);
@@ -511,6 +532,33 @@ function requestBrowserVerification(
   return pending;
 }
 
+function requestLocaleLayoutQa(
+  bridge: AuthoringBridge,
+  options: DirectAuthoringHostServiceOptions,
+  requests: Map<string, PendingRequest<LocaleLayoutQaReport>>,
+  expectedDocumentRevision: number,
+): Promise<LocaleLayoutQaReport> {
+  const correlationId = createBridgeCorrelationId('authoring_locale_layout_qa_request');
+  const pending = createPendingRequest(
+    correlationId,
+    requests,
+    DIRECT_HOST_LOCALE_LAYOUT_QA_TIMEOUT_MS,
+  );
+  try {
+    bridge.send({
+      protocol: BRIDGE_PROTOCOL_VERSION,
+      sessionId: options.sessionId,
+      documentId: options.documentId,
+      correlationId,
+      type: AUTHORING_LOCALE_LAYOUT_QA_REQUEST_TYPE,
+      expectedDocumentRevision,
+    });
+  } catch (error) {
+    rejectRequest(correlationId, requests, asError(error));
+  }
+  return pending;
+}
+
 function requestVerificationSubmission(
   bridge: AuthoringBridge,
   options: DirectAuthoringHostServiceOptions,
@@ -711,6 +759,19 @@ function settleBrandAcknowledgementRequest(
 function settleBrowserVerificationRequest(
   requests: Map<string, PendingRequest<BrowserVerificationReport>>,
   message: AuthoringBrowserVerifyResultMessage,
+): void {
+  const pending = takePendingRequest(message.requestCorrelationId, requests);
+  if (!pending) return;
+  if (message.result.ok) {
+    pending.resolve(structuredClone(message.result.report));
+    return;
+  }
+  pending.reject(new Error(message.result.message));
+}
+
+function settleLocaleLayoutQaRequest(
+  requests: Map<string, PendingRequest<LocaleLayoutQaReport>>,
+  message: AuthoringLocaleLayoutQaResultMessage,
 ): void {
   const pending = takePendingRequest(message.requestCorrelationId, requests);
   if (!pending) return;

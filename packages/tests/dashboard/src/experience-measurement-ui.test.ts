@@ -218,6 +218,7 @@ describe('experience measurement panel', () => {
             status: 'running',
             varies: 'copy',
             successEventName: 'invited_teammate',
+            allocationRevision: 1,
             arms: [
               { id: 'A', label: 'Control', trafficPercent: 50 },
               { id: 'B', label: 'Variant', trafficPercent: 50 },
@@ -225,6 +226,7 @@ describe('experience measurement panel', () => {
           },
           results: {
             experimentId: 'exp_1',
+            allocationRevision: 1,
             arms: [
               { armId: 'A', exposures: 40, conversions: 10, conversionRate: 0.25 },
               { armId: 'B', exposures: 40, conversions: 12, conversionRate: 0.3 },
@@ -257,6 +259,7 @@ describe('experience measurement panel', () => {
             status: 'running',
             varies: 'copy',
             successEventName: 'invited_teammate',
+            allocationRevision: 1,
             arms: [
               { id: 'A', label: 'Control', trafficPercent: 50 },
               { id: 'B', label: 'Variant', trafficPercent: 50 },
@@ -264,6 +267,7 @@ describe('experience measurement panel', () => {
           },
           results: {
             experimentId: 'exp_1',
+            allocationRevision: 1,
             arms: [
               { armId: 'A', exposures: 400, conversions: 40, conversionRate: 0.1 },
               { armId: 'B', exposures: 400, conversions: 120, conversionRate: 0.3 },
@@ -279,9 +283,10 @@ describe('experience measurement panel', () => {
       status: 'promoted',
       varies: 'copy',
       successEventName: 'invited_teammate',
+      allocationRevision: 1,
       arms: [
-        { id: 'A', label: 'Control', trafficPercent: 0 },
-        { id: 'B', label: 'Variant', trafficPercent: 100 },
+        { id: 'A', label: 'Control', trafficPercent: 50 },
+        { id: 'B', label: 'Variant', trafficPercent: 50 },
       ],
     });
     const mounted = await mount(

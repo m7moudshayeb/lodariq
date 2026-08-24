@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { Mic, RefreshCw, Trash2, Type, Volume2 } from 'lucide-react';
-import type { LodariqBlock } from '@lodariq/schema';
-import { PRODUCT_LOCALES } from '@lodariq/i18n';
+import { Mic, RefreshCw, Trash2, Volume2 } from 'lucide-react';
+import { NARRATION_OFFSET_MS_LIMITS, type LodariqBlock, type StepNarration } from '@lodariq/schema';
+import { productCapabilityIsImplemented } from '@lodariq/schema/product-capabilities-runtime';
+import { CONTENT_LOCALE_SUGGESTIONS } from '../../content-locales';
 import { authoringText } from '../../../i18n';
 import { AuthoringRange } from '../design-system';
 import { PropertyChoiceField } from '../properties/property-controls';
@@ -13,8 +14,9 @@ import {
 import type { LocalAuthoringFrameController } from '../controller';
 import type { LocalAuthoringFrameSnapshot } from '../types';
 
-/** §4.3 narration: up to three seconds of lead-in, in tenths. */
-const NARRATION_OFFSET_MS_LIMITS = { min: 0, max: 3_000, step: 100 } as const;
+const NARRATION_OFFSET_STEP_MS = 100;
+const NARRATION_AUDIO_AVAILABLE = productCapabilityIsImplemented('authoring.narration-audio');
+const VOICE_AUTHORING_AVAILABLE = productCapabilityIsImplemented('authoring.voice-driven');
 
 /**
  * The inspector's Narration section (§7.7).
@@ -24,8 +26,8 @@ const NARRATION_OFFSET_MS_LIMITS = { min: 0, max: 3_000, step: 100 } as const;
  * and the voice list follows it — that is what prevents a Spanish script narrated
  * by an English voice.
  *
- * Generation and playback are not here: audio has to live inside the immutable
- * artifact, which waits on the ADR-0014 amendment. Writing the script does not.
+ * Generation is server-side; the returned content-addressed asset stays attached
+ * to the step until a generation input changes.
  */
 export function StepNarrationSection({
   controller,
@@ -41,16 +43,20 @@ export function StepNarrationSection({
   const narration = step.props.narration;
   const script = narration?.script ?? '';
   /**
-   * Candidates are the languages the product speaks, not just the ones this
-   * document happens to have variants for — a creator may write a German script
-   * before adding a German variant.
+   * Candidates for guessing the script's language — a creator may write a German
+   * script before adding a German variant. Seeded from the common tags rather
+   * than from the locales Lodariq's own chrome is translated into, which have
+   * nothing to do with what a customer narrates in.
    */
   const locales = [
-    ...PRODUCT_LOCALES,
     ...(snapshot.documentState.localization?.variants.map((variant) => variant.locale) ?? []),
+    ...CONTENT_LOCALE_SUGGESTIONS,
   ];
   const inferred = narration?.localeOverride ?? inferNarrationLocale(script, locales);
   const voices = voicesForNarration(narration, snapshot.narrationVoices ?? [], locales);
+  const narrationEnabled =
+    !snapshot.commercialUsage || snapshot.commercialUsage.features.includes('narration');
+  const [generating, setGenerating] = useState(false);
 
   return (
     <section className="step-narration-section" aria-label={authoringText('Narration')}>
@@ -59,10 +65,16 @@ export function StepNarrationSection({
           'The spoken script is a separate field from the on-screen copy. Text that reads well in a tooltip reads badly aloud.',
         )}
       </p>
+      {!narrationEnabled ? (
+        <p className="step-narration-note" role="status">
+          {authoringText('This tool is not included in the current workspace plan.')}
+        </p>
+      ) : null}
       <label className="step-narration-script">
         <span>{authoringText('Spoken script')}</span>
         <textarea
           data-narration-script=""
+          disabled={!narrationEnabled}
           onChange={(event) =>
             controller.setStepNarration(step.id, { ...narration, script: event.target.value })
           }
@@ -85,6 +97,7 @@ export function StepNarrationSection({
         reads as a form field dropped into a panel of pills.
       */}
       <PropertyChoiceField
+        disabled={!narrationEnabled}
         label={authoringText('Voice')}
         onChange={(voiceId) =>
           controller.setStepNarration(step.id, {
@@ -110,11 +123,17 @@ export function StepNarrationSection({
         value={narration?.voiceId ?? ''}
       />
 
-      <PlaybackControls />
+      <PlaybackControls
+        controller={controller}
+        disabled={!narrationEnabled}
+        narration={narration}
+        stepId={step.id}
+      />
 
       <div className="inspector-menu" data-narration-audio="">
         <button
           data-narration-action="sync"
+          disabled={!narrationEnabled}
           onClick={() =>
             controller.setStepNarration(step.id, {
               ...narration,
@@ -126,17 +145,31 @@ export function StepNarrationSection({
           <RefreshCw size={14} strokeWidth={2.2} aria-hidden="true" />
           {authoringText('Sync from step text')}
         </button>
-        <button data-narration-action="generate" disabled type="button">
+        <button
+          data-narration-action="generate"
+          disabled={
+            !narrationEnabled ||
+            !NARRATION_AUDIO_AVAILABLE ||
+            !controller.canGenerateNarration() ||
+            !script.trim() ||
+            generating
+          }
+          onClick={() => {
+            setGenerating(true);
+            void controller.generateStepNarration(step.id).finally(() => setGenerating(false));
+          }}
+          type="button"
+        >
           <Volume2 size={14} strokeWidth={2.2} aria-hidden="true" />
-          {authoringText('Generate audio')}
+          {generating ? authoringText('Generating…') : authoringText('Generate audio')}
         </button>
-        <button data-narration-action="dictate" disabled type="button">
+        <button
+          data-narration-action="dictate"
+          disabled={!narrationEnabled || !VOICE_AUTHORING_AVAILABLE}
+          type="button"
+        >
           <Mic size={14} strokeWidth={2.2} aria-hidden="true" />
           {authoringText('Dictate it instead…')}
-        </button>
-        <button data-narration-action="lexicon" disabled type="button">
-          <Type size={14} strokeWidth={2.2} aria-hidden="true" />
-          {authoringText('Pronunciation lexicon…')}
         </button>
         {script.trim() ? (
           <button
@@ -151,6 +184,13 @@ export function StepNarrationSection({
       </div>
 
       <p className="step-narration-note">
+        {narration?.audio
+          ? authoringText('Audio ready · {seconds} seconds', {
+              seconds: Math.round(narration.audio.durationMs / 100) / 10,
+            })
+          : authoringText('Generate audio after the script and voice are ready.')}
+      </p>
+      <p className="step-narration-note">
         {authoringText('Pauses and emphasis come from your punctuation.')}
       </p>
       <p className="step-narration-note">
@@ -162,36 +202,52 @@ export function StepNarrationSection({
   );
 }
 
-/**
- * WIRE_BE: playback timing is authored here but has nowhere to land yet. Audio
- * has to live inside the immutable artifact for preview and production to sound
- * identical, which waits on the ADR-0014 amendment; until then these hold their
- * value for the session only, and generation stays disabled.
- */
-function PlaybackControls() {
-  const [advanceOnEnd, setAdvanceOnEnd] = useState(false);
-  const [offsetMs, setOffsetMs] = useState(0);
+function PlaybackControls({
+  controller,
+  disabled,
+  narration,
+  stepId,
+}: {
+  controller: LocalAuthoringFrameController;
+  disabled: boolean;
+  narration: StepNarration | undefined;
+  stepId: string;
+}) {
   return (
     <>
       <PropertyChoiceField
+        disabled={disabled}
         label={authoringText('Advance when the audio ends')}
-        onChange={(value) => setAdvanceOnEnd(value === 'on')}
+        onChange={(value) =>
+          controller.setStepNarration(stepId, {
+            ...narration,
+            script: narration?.script ?? '',
+            advanceOnEnd: value === 'on',
+          })
+        }
         options={[
           { value: 'on', label: authoringText('On') },
           { value: 'off', label: authoringText('Off') },
         ]}
         presentation="menu"
-        value={advanceOnEnd ? 'on' : 'off'}
+        value={narration?.advanceOnEnd ? 'on' : 'off'}
       />
       {/* §4.3 gives the lead-in a slider: it is a feel, not a figure to type. */}
       <AuthoringRange
+        disabled={disabled}
         label={authoringText('Start offset')}
         max={NARRATION_OFFSET_MS_LIMITS.max}
         min={NARRATION_OFFSET_MS_LIMITS.min}
-        onValueChange={setOffsetMs}
-        step={NARRATION_OFFSET_MS_LIMITS.step}
+        onValueChange={(startOffsetMs) =>
+          controller.setStepNarration(stepId, {
+            ...narration,
+            script: narration?.script ?? '',
+            startOffsetMs,
+          })
+        }
+        step={NARRATION_OFFSET_STEP_MS}
         unit={authoringText('ms')}
-        value={offsetMs}
+        value={narration?.startOffsetMs ?? 0}
       />
     </>
   );

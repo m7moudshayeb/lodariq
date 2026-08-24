@@ -1,4 +1,15 @@
-import type { ApplicationSummary, JourneyHandoff } from '@lodariq/schema';
+import {
+  JOURNEY_HANDOFF_PARAM,
+  type JourneyHandoffToken,
+} from './journey-handoff-destination';
+
+export {
+  encodeJourneyHandoff,
+  handoffDestinationOrigin,
+  handoffDestinationUrl,
+  JOURNEY_HANDOFF_PARAM,
+  type JourneyHandoffToken,
+} from './journey-handoff-destination';
 
 /**
  * Continuing one experience in a second application.
@@ -12,22 +23,18 @@ import type { ApplicationSummary, JourneyHandoff } from '@lodariq/schema';
  * Nothing in the token identifies a person. It is progress, not a session.
  */
 
-export const JOURNEY_HANDOFF_PARAM = 'lq_journey';
 /** A handoff is a redirect, not a bookmark. Stale tokens are ignored. */
 export const JOURNEY_HANDOFF_MAX_AGE_MS = 10 * 60 * 1000;
-
-export interface JourneyHandoffToken {
-  applicationId: string;
-  documentId: string;
-  stepId: string;
-  contentHash: string;
-  resumeMode: JourneyHandoff['resumeMode'];
-  issuedAt: number;
-}
-
-export function encodeJourneyHandoff(token: JourneyHandoffToken): string {
-  return base64UrlEncode(JSON.stringify(token));
-}
+const JOURNEY_HANDOFF_KEYS = [
+  'applicationId',
+  'contentHash',
+  'documentId',
+  'issuedAt',
+  'resumeMode',
+  'stepId',
+] as const;
+const JOURNEY_IDENTIFIER_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$/u;
+const CONTENT_HASH_PATTERN = /^sha256-[0-9a-f]{64}$/u;
 
 export function decodeJourneyHandoff(raw: string, now: number): JourneyHandoffToken | null {
   let parsed: unknown;
@@ -39,11 +46,15 @@ export function decodeJourneyHandoff(raw: string, now: number): JourneyHandoffTo
   if (typeof parsed !== 'object' || parsed === null) return null;
   const token = parsed as Partial<JourneyHandoffToken>;
   if (
-    typeof token.applicationId !== 'string' ||
-    typeof token.documentId !== 'string' ||
-    typeof token.stepId !== 'string' ||
+    !hasExactKeys(token, JOURNEY_HANDOFF_KEYS) ||
+    !isJourneyIdentifier(token.applicationId) ||
+    !isJourneyIdentifier(token.documentId) ||
+    !isJourneyIdentifier(token.stepId) ||
     typeof token.contentHash !== 'string' ||
+    !CONTENT_HASH_PATTERN.test(token.contentHash) ||
     typeof token.issuedAt !== 'number' ||
+    !Number.isSafeInteger(token.issuedAt) ||
+    token.issuedAt < 0 ||
     (token.resumeMode !== 'same-step' &&
       token.resumeMode !== 'next-step' &&
       token.resumeMode !== 'restart')
@@ -51,35 +62,14 @@ export function decodeJourneyHandoff(raw: string, now: number): JourneyHandoffTo
     return null;
   }
   if (now - token.issuedAt > JOURNEY_HANDOFF_MAX_AGE_MS || token.issuedAt > now) return null;
-  return token as JourneyHandoffToken;
-}
-
-/**
- * The first origin pattern with no wildcard. A pattern like `*.example.com`
- * names a set of hosts, not a destination, so it cannot be navigated to.
- */
-export function handoffDestinationOrigin(application: ApplicationSummary): string | null {
-  for (const pattern of application.originPatterns) {
-    if (pattern.includes('*')) continue;
-    const origin = pattern.includes('://') ? pattern : `https://${pattern}`;
-    try {
-      return new URL(origin).origin;
-    } catch {
-      continue;
-    }
-  }
-  return null;
-}
-
-export function handoffDestinationUrl(
-  application: ApplicationSummary,
-  token: JourneyHandoffToken,
-): string | null {
-  const origin = handoffDestinationOrigin(application);
-  if (!origin) return null;
-  const url = new URL(origin);
-  url.searchParams.set(JOURNEY_HANDOFF_PARAM, encodeJourneyHandoff(token));
-  return url.toString();
+  return {
+    applicationId: token.applicationId,
+    contentHash: token.contentHash,
+    documentId: token.documentId,
+    issuedAt: token.issuedAt,
+    resumeMode: token.resumeMode,
+    stepId: token.stepId,
+  };
 }
 
 export function readJourneyHandoffFromLocation(
@@ -122,16 +112,21 @@ export function resumeStepIdFor(
   return stepIds[index + 1];
 }
 
-function base64UrlEncode(value: string): string {
-  const bytes = new TextEncoder().encode(value);
-  let binary = '';
-  for (const byte of bytes) binary += String.fromCharCode(byte);
-  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-}
-
 function base64UrlDecode(value: string): string {
   const padded = value.replace(/-/g, '+').replace(/_/g, '/');
   const binary = atob(padded.padEnd(Math.ceil(padded.length / 4) * 4, '='));
   const bytes = Uint8Array.from(binary, (character) => character.charCodeAt(0));
   return new TextDecoder().decode(bytes);
+}
+
+function hasExactKeys<T extends string>(
+  value: object,
+  expected: readonly T[],
+): value is Record<T, unknown> {
+  const keys = Object.keys(value).sort();
+  return keys.length === expected.length && expected.every((key, index) => keys[index] === key);
+}
+
+function isJourneyIdentifier(value: unknown): value is string {
+  return typeof value === 'string' && JOURNEY_IDENTIFIER_PATTERN.test(value);
 }

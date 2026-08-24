@@ -60,6 +60,10 @@ import {
 } from './helpers';
 import { DrizzleRepositoryOidc } from './oidc';
 import type { LodariqTransaction } from './types';
+import {
+  assertCommercialFeature,
+  CommercialEntitlementError,
+} from '../domains/commercial-entitlements';
 
 const ENTERPRISE_DOMAIN_SETTING = 'lodariq.enterprise_domain';
 const ENTERPRISE_SCIM_TOKEN_HASH_SETTING = 'lodariq.enterprise_scim_token_hash';
@@ -122,9 +126,7 @@ export class DrizzleRepositoryEnterpriseIdentity
             isNull(enterpriseValidationEvidence.revokedAt),
           ),
         )
-        .where(
-          and(eq(ssoConnections.id, connectionId), eq(ssoConnections.status, 'verified')),
-        )
+        .where(and(eq(ssoConnections.id, connectionId), eq(ssoConnections.status, 'verified')))
         .limit(1);
       return row ? toEnterpriseSsoConnection(row.connection) : null;
     });
@@ -230,6 +232,11 @@ export class DrizzleRepositoryEnterpriseIdentity
           if (!(await hasRole(tx, input.connection.workspaceId, input.actorUserId, ['owner']))) {
             return 'forbidden';
           }
+          assertCommercialFeature(
+            (await this.resolveWorkspaceEntitlements(tx, input.connection.workspaceId))
+              .entitlements,
+            'sso',
+          );
           if (
             input.connection.status === 'active' ||
             input.connection.validatedAt !== null ||
@@ -293,12 +300,7 @@ export class DrizzleRepositoryEnterpriseIdentity
           await tx
             .update(authSessions)
             .set({ revokedAt: disabledAt })
-            .where(
-              and(
-                inArray(authSessions.userId, userIds),
-                isNull(authSessions.revokedAt),
-              ),
-            );
+            .where(and(inArray(authSessions.userId, userIds), isNull(authSessions.revokedAt)));
           await tx
             .update(authoringActivationGrants)
             .set({ revokedAt: disabledAt })
@@ -396,6 +398,10 @@ export class DrizzleRepositoryEnterpriseIdentity
           if (!(await hasRole(tx, input.domain.workspaceId, input.actorUserId, ['owner']))) {
             return 'forbidden';
           }
+          assertCommercialFeature(
+            (await this.resolveWorkspaceEntitlements(tx, input.domain.workspaceId)).entitlements,
+            'sso',
+          );
           const [connection] = await tx
             .select({ workspaceId: ssoConnections.workspaceId })
             .from(ssoConnections)
@@ -433,24 +439,34 @@ export class DrizzleRepositoryEnterpriseIdentity
   async verifyEnterpriseDomain(
     input: VerifyEnterpriseDomainInput,
   ): Promise<EnterpriseMutationResult> {
-    return runWithTenantActorScope(this.database, input.workspaceId, input.actorUserId, async (tx) => {
-      if (!(await hasRole(tx, input.workspaceId, input.actorUserId, ['owner']))) return 'forbidden';
-      const [updated] = await tx
-        .update(workspaceVerifiedDomains)
-        .set({ status: 'verified', verifiedAt: new Date(input.verifiedAt), updatedAt: new Date(input.verifiedAt) })
-        .where(
-          and(
-            eq(workspaceVerifiedDomains.id, input.domainId),
-            eq(workspaceVerifiedDomains.workspaceId, input.workspaceId),
-            eq(workspaceVerifiedDomains.status, 'pending'),
-            eq(workspaceVerifiedDomains.verificationTokenHash, input.verificationTokenHash),
-          ),
-        )
-        .returning({ id: workspaceVerifiedDomains.id });
-      if (!updated) return 'conflict';
-      await insertEnterpriseAuditEvent(tx, input.auditEvent);
-      return 'completed';
-    });
+    return runWithTenantActorScope(
+      this.database,
+      input.workspaceId,
+      input.actorUserId,
+      async (tx) => {
+        if (!(await hasRole(tx, input.workspaceId, input.actorUserId, ['owner'])))
+          return 'forbidden';
+        const [updated] = await tx
+          .update(workspaceVerifiedDomains)
+          .set({
+            status: 'verified',
+            verifiedAt: new Date(input.verifiedAt),
+            updatedAt: new Date(input.verifiedAt),
+          })
+          .where(
+            and(
+              eq(workspaceVerifiedDomains.id, input.domainId),
+              eq(workspaceVerifiedDomains.workspaceId, input.workspaceId),
+              eq(workspaceVerifiedDomains.status, 'pending'),
+              eq(workspaceVerifiedDomains.verificationTokenHash, input.verificationTokenHash),
+            ),
+          )
+          .returning({ id: workspaceVerifiedDomains.id });
+        if (!updated) return 'conflict';
+        await insertEnterpriseAuditEvent(tx, input.auditEvent);
+        return 'completed';
+      },
+    );
   }
 
   async getEnterpriseDomainForVerification(
@@ -496,65 +512,71 @@ export class DrizzleRepositoryEnterpriseIdentity
     input: UpdateWorkspaceEnterprisePolicyInput,
   ): Promise<EnterpriseMutationResult> {
     if (input.minimumAssurance === 'aal3') return 'invalid_input';
-    return runWithTenantActorScope(this.database, input.workspaceId, input.actorUserId, async (tx) => {
-      if (!(await hasRole(tx, input.workspaceId, input.actorUserId, ['owner']))) return 'forbidden';
-      if (!input.passwordAllowed && !input.ssoRequired) return 'invalid_input';
-      if (input.breakGlassRequestId) {
-        if (!input.breakGlassAuditEvent) return 'invalid_input';
-        const [consumed] = await tx
-          .update(enterpriseBreakGlassRequests)
-          .set({ status: 'consumed', consumedAt: new Date(input.updatedAt) })
+    return runWithTenantActorScope(
+      this.database,
+      input.workspaceId,
+      input.actorUserId,
+      async (tx) => {
+        if (!(await hasRole(tx, input.workspaceId, input.actorUserId, ['owner'])))
+          return 'forbidden';
+        if (!input.passwordAllowed && !input.ssoRequired) return 'invalid_input';
+        if (input.breakGlassRequestId) {
+          if (!input.breakGlassAuditEvent) return 'invalid_input';
+          const [consumed] = await tx
+            .update(enterpriseBreakGlassRequests)
+            .set({ status: 'consumed', consumedAt: new Date(input.updatedAt) })
+            .where(
+              and(
+                eq(enterpriseBreakGlassRequests.id, input.breakGlassRequestId),
+                eq(enterpriseBreakGlassRequests.workspaceId, input.workspaceId),
+                eq(enterpriseBreakGlassRequests.requestedByUserId, input.actorUserId),
+                eq(enterpriseBreakGlassRequests.status, 'approved'),
+                sql`${enterpriseBreakGlassRequests.expiresAt} > ${new Date(input.updatedAt)}`,
+              ),
+            )
+            .returning({ id: enterpriseBreakGlassRequests.id });
+          if (!consumed) return 'forbidden';
+          await insertEnterpriseAuditEvent(tx, input.breakGlassAuditEvent);
+        } else if (input.breakGlassAuditEvent) {
+          return 'invalid_input';
+        }
+        if (input.ssoRequired && !(await hasValidatedConnection(tx, input.workspaceId))) {
+          return 'validation_required';
+        }
+        const [updated] = await tx
+          .update(workspaceAuthPolicies)
+          .set({
+            ssoRequired: input.ssoRequired,
+            minimumAssurance: input.minimumAssurance,
+            passwordAllowed: input.passwordAllowed,
+            updatedAt: new Date(input.updatedAt),
+          })
+          .where(eq(workspaceAuthPolicies.workspaceId, input.workspaceId))
+          .returning({ workspaceId: workspaceAuthPolicies.workspaceId });
+        if (!updated) return 'not_found';
+        const revokedAt = new Date(input.updatedAt);
+        await tx
+          .update(authoringActivationGrants)
+          .set({ revokedAt })
           .where(
             and(
-              eq(enterpriseBreakGlassRequests.id, input.breakGlassRequestId),
-              eq(enterpriseBreakGlassRequests.workspaceId, input.workspaceId),
-              eq(enterpriseBreakGlassRequests.requestedByUserId, input.actorUserId),
-              eq(enterpriseBreakGlassRequests.status, 'approved'),
-              sql`${enterpriseBreakGlassRequests.expiresAt} > ${new Date(input.updatedAt)}`,
+              eq(authoringActivationGrants.workspaceId, input.workspaceId),
+              isNull(authoringActivationGrants.revokedAt),
             ),
-          )
-          .returning({ id: enterpriseBreakGlassRequests.id });
-        if (!consumed) return 'forbidden';
-        await insertEnterpriseAuditEvent(tx, input.breakGlassAuditEvent);
-      } else if (input.breakGlassAuditEvent) {
-        return 'invalid_input';
-      }
-      if (input.ssoRequired && !(await hasValidatedConnection(tx, input.workspaceId))) {
-        return 'validation_required';
-      }
-      const [updated] = await tx
-        .update(workspaceAuthPolicies)
-        .set({
-          ssoRequired: input.ssoRequired,
-          minimumAssurance: input.minimumAssurance,
-          passwordAllowed: input.passwordAllowed,
-          updatedAt: new Date(input.updatedAt),
-        })
-        .where(eq(workspaceAuthPolicies.workspaceId, input.workspaceId))
-        .returning({ workspaceId: workspaceAuthPolicies.workspaceId });
-      if (!updated) return 'not_found';
-      const revokedAt = new Date(input.updatedAt);
-      await tx
-        .update(authoringActivationGrants)
-        .set({ revokedAt })
-        .where(
-          and(
-            eq(authoringActivationGrants.workspaceId, input.workspaceId),
-            isNull(authoringActivationGrants.revokedAt),
-          ),
-        );
-      await tx
-        .update(authoringSessions)
-        .set({ revokedAt })
-        .where(
-          and(
-            eq(authoringSessions.workspaceId, input.workspaceId),
-            isNull(authoringSessions.revokedAt),
-          ),
-        );
-      await insertEnterpriseAuditEvent(tx, input.auditEvent);
-      return 'completed';
-    });
+          );
+        await tx
+          .update(authoringSessions)
+          .set({ revokedAt })
+          .where(
+            and(
+              eq(authoringSessions.workspaceId, input.workspaceId),
+              isNull(authoringSessions.revokedAt),
+            ),
+          );
+        await insertEnterpriseAuditEvent(tx, input.auditEvent);
+        return 'completed';
+      },
+    );
   }
 
   async upsertEnterpriseGroupRoleMapping(
@@ -568,6 +590,10 @@ export class DrizzleRepositoryEnterpriseIdentity
         if (!(await hasRole(tx, input.mapping.workspaceId, input.actorUserId, ['owner']))) {
           return 'forbidden';
         }
+        assertCommercialFeature(
+          (await this.resolveWorkspaceEntitlements(tx, input.mapping.workspaceId)).entitlements,
+          'sso',
+        );
         const [connection] = await tx
           .select({ workspaceId: ssoConnections.workspaceId })
           .from(ssoConnections)
@@ -610,7 +636,18 @@ export class DrizzleRepositoryEnterpriseIdentity
           if (!(await hasRole(tx, input.connection.workspaceId, input.actorUserId, ['owner']))) {
             return 'forbidden';
           }
-          if (!(await hasValidatedConnection(tx, input.connection.workspaceId, input.connection.connectionId))) {
+          assertCommercialFeature(
+            (await this.resolveWorkspaceEntitlements(tx, input.connection.workspaceId))
+              .entitlements,
+            'scim',
+          );
+          if (
+            !(await hasValidatedConnection(
+              tx,
+              input.connection.workspaceId,
+              input.connection.connectionId,
+            ))
+          ) {
             return 'validation_required';
           }
           await tx.insert(enterpriseScimConnections).values({
@@ -703,7 +740,8 @@ export class DrizzleRepositoryEnterpriseIdentity
       if (!scim) return null;
       const conditions = [eq(enterprisePrincipals.connectionId, scim.connectionId)];
       if (input.principalId) conditions.push(eq(enterprisePrincipals.id, input.principalId));
-      if (input.emailNormalized) conditions.push(eq(userEmails.normalizedEmail, input.emailNormalized));
+      if (input.emailNormalized)
+        conditions.push(eq(userEmails.normalizedEmail, input.emailNormalized));
       const [row] = await tx
         .select({
           principal: enterprisePrincipals,
@@ -712,10 +750,7 @@ export class DrizzleRepositoryEnterpriseIdentity
         })
         .from(enterprisePrincipals)
         .innerJoin(users, eq(users.id, enterprisePrincipals.userId))
-        .innerJoin(
-          userEmails,
-          and(eq(userEmails.userId, users.id), eq(userEmails.isPrimary, true)),
-        )
+        .innerJoin(userEmails, and(eq(userEmails.userId, users.id), eq(userEmails.isPrimary, true)))
         .where(and(...conditions))
         .limit(1);
       return row
@@ -752,6 +787,11 @@ export class DrizzleRepositoryEnterpriseIdentity
           return { status: 'invalid_input' };
         }
         const role = (await mappedScimRole(tx, scim.connectionId, input.groupIds)) ?? input.role;
+        if (role !== 'viewer') {
+          const limit = (await this.resolveWorkspaceEntitlements(tx, scim.workspaceId)).entitlements
+            .creatorSeats;
+          await assertDrizzleCreatorSeatAvailable(tx, scim.workspaceId, limit);
+        }
         await tx.insert(users).values({
           id: input.user.id,
           legacyIdentityId: null,
@@ -806,7 +846,10 @@ export class DrizzleRepositoryEnterpriseIdentity
       if (!principal) return 'not_found';
       if (input.active === true && !principal.active) return 'conflict';
       if (input.displayName !== undefined) {
-        await tx.update(users).set({ name: input.displayName }).where(eq(users.id, principal.userId));
+        await tx
+          .update(users)
+          .set({ name: input.displayName })
+          .where(eq(users.id, principal.userId));
       }
       if (input.active === false && principal.active) {
         const revokedAt = new Date(input.occurredAt);
@@ -852,7 +895,9 @@ export class DrizzleRepositoryEnterpriseIdentity
     });
   }
 
-  async bindEnterpriseIdentity(input: BindEnterpriseIdentityInput): Promise<EnterpriseMutationResult> {
+  async bindEnterpriseIdentity(
+    input: BindEnterpriseIdentityInput,
+  ): Promise<EnterpriseMutationResult> {
     try {
       return await this.database.transaction(async (tx) => {
         await tx.execute(
@@ -951,10 +996,7 @@ export class DrizzleRepositoryEnterpriseIdentity
           .select()
           .from(authIdentities)
           .where(
-            and(
-              eq(authIdentities.issuer, input.issuer),
-              eq(authIdentities.subject, input.subject),
-            ),
+            and(eq(authIdentities.issuer, input.issuer), eq(authIdentities.subject, input.subject)),
           )
           .limit(1);
         const [resolvedPrincipal] = await tx
@@ -1109,6 +1151,11 @@ export class DrizzleRepositoryEnterpriseIdentity
         ) {
           return { status: 'conflict' };
         }
+        if (role !== 'viewer') {
+          const limit = (await this.resolveWorkspaceEntitlements(tx, connection.workspaceId))
+            .entitlements.creatorSeats;
+          await assertDrizzleCreatorSeatAvailable(tx, connection.workspaceId, limit);
+        }
         await tx.insert(users).values({
           id: input.candidateUser.id,
           legacyIdentityId: null,
@@ -1165,7 +1212,11 @@ export class DrizzleRepositoryEnterpriseIdentity
           workspaceId: connection.workspaceId,
           targetUserId: input.candidateUser.id,
           eventType: 'enterprise_sso_user_provisioned',
-          metadata: { ...input.auditEvent.metadata, created: true, provisioningMode: connection.provisioningMode },
+          metadata: {
+            ...input.auditEvent.metadata,
+            created: true,
+            provisioningMode: connection.provisioningMode,
+          },
         });
         return createdSession
           ? {
@@ -1234,7 +1285,11 @@ export class DrizzleRepositoryEnterpriseIdentity
       input.request.workspaceId,
       input.request.requestedByUserId,
       async (tx) => {
-        if (!(await hasRole(tx, input.request.workspaceId, input.request.requestedByUserId, ['owner']))) {
+        if (
+          !(await hasRole(tx, input.request.workspaceId, input.request.requestedByUserId, [
+            'owner',
+          ]))
+        ) {
           return 'forbidden';
         }
         await tx.insert(enterpriseBreakGlassRequests).values({
@@ -1258,52 +1313,63 @@ export class DrizzleRepositoryEnterpriseIdentity
   async approveEnterpriseBreakGlass(
     input: ApproveEnterpriseBreakGlassInput,
   ): Promise<EnterpriseMutationResult> {
-    return runWithTenantActorScope(this.database, input.workspaceId, input.approverUserId, async (tx) => {
-      if (!(await hasRole(tx, input.workspaceId, input.approverUserId, ['owner']))) return 'forbidden';
-      const [updated] = await tx
-        .update(enterpriseBreakGlassRequests)
-        .set({
-          approvedByUserId: input.approverUserId,
-          approvedAt: new Date(input.approvedAt),
-          status: 'approved',
-        })
-        .where(
-          and(
-            eq(enterpriseBreakGlassRequests.id, input.requestId),
-            eq(enterpriseBreakGlassRequests.workspaceId, input.workspaceId),
-            eq(enterpriseBreakGlassRequests.status, 'pending_approval'),
-            sql`${enterpriseBreakGlassRequests.requestedByUserId} <> ${input.approverUserId}`,
-            sql`${enterpriseBreakGlassRequests.expiresAt} > ${new Date(input.approvedAt)}`,
-          ),
-        )
-        .returning({ id: enterpriseBreakGlassRequests.id });
-      if (!updated) return 'conflict';
-      await insertEnterpriseAuditEvent(tx, input.auditEvent);
-      return 'completed';
-    });
+    return runWithTenantActorScope(
+      this.database,
+      input.workspaceId,
+      input.approverUserId,
+      async (tx) => {
+        if (!(await hasRole(tx, input.workspaceId, input.approverUserId, ['owner'])))
+          return 'forbidden';
+        const [updated] = await tx
+          .update(enterpriseBreakGlassRequests)
+          .set({
+            approvedByUserId: input.approverUserId,
+            approvedAt: new Date(input.approvedAt),
+            status: 'approved',
+          })
+          .where(
+            and(
+              eq(enterpriseBreakGlassRequests.id, input.requestId),
+              eq(enterpriseBreakGlassRequests.workspaceId, input.workspaceId),
+              eq(enterpriseBreakGlassRequests.status, 'pending_approval'),
+              sql`${enterpriseBreakGlassRequests.requestedByUserId} <> ${input.approverUserId}`,
+              sql`${enterpriseBreakGlassRequests.expiresAt} > ${new Date(input.approvedAt)}`,
+            ),
+          )
+          .returning({ id: enterpriseBreakGlassRequests.id });
+        if (!updated) return 'conflict';
+        await insertEnterpriseAuditEvent(tx, input.auditEvent);
+        return 'completed';
+      },
+    );
   }
 
   async consumeEnterpriseBreakGlass(
     input: ConsumeEnterpriseBreakGlassInput,
   ): Promise<EnterpriseMutationResult> {
-    return runWithTenantActorScope(this.database, input.workspaceId, input.actorUserId, async (tx) => {
-      const [updated] = await tx
-        .update(enterpriseBreakGlassRequests)
-        .set({ status: 'consumed', consumedAt: new Date(input.consumedAt) })
-        .where(
-          and(
-            eq(enterpriseBreakGlassRequests.id, input.requestId),
-            eq(enterpriseBreakGlassRequests.workspaceId, input.workspaceId),
-            eq(enterpriseBreakGlassRequests.requestedByUserId, input.actorUserId),
-            eq(enterpriseBreakGlassRequests.status, 'approved'),
-            sql`${enterpriseBreakGlassRequests.expiresAt} > ${new Date(input.consumedAt)}`,
-          ),
-        )
-        .returning({ id: enterpriseBreakGlassRequests.id });
-      if (!updated) return 'conflict';
-      await insertEnterpriseAuditEvent(tx, input.auditEvent);
-      return 'completed';
-    });
+    return runWithTenantActorScope(
+      this.database,
+      input.workspaceId,
+      input.actorUserId,
+      async (tx) => {
+        const [updated] = await tx
+          .update(enterpriseBreakGlassRequests)
+          .set({ status: 'consumed', consumedAt: new Date(input.consumedAt) })
+          .where(
+            and(
+              eq(enterpriseBreakGlassRequests.id, input.requestId),
+              eq(enterpriseBreakGlassRequests.workspaceId, input.workspaceId),
+              eq(enterpriseBreakGlassRequests.requestedByUserId, input.actorUserId),
+              eq(enterpriseBreakGlassRequests.status, 'approved'),
+              sql`${enterpriseBreakGlassRequests.expiresAt} > ${new Date(input.consumedAt)}`,
+            ),
+          )
+          .returning({ id: enterpriseBreakGlassRequests.id });
+        if (!updated) return 'conflict';
+        await insertEnterpriseAuditEvent(tx, input.auditEvent);
+        return 'completed';
+      },
+    );
   }
 
   async listEnterpriseAuditEvents(
@@ -1412,11 +1478,7 @@ async function hasValidatedConnection(
   return Boolean(row);
 }
 
-async function resolveActiveScim(
-  tx: LodariqTransaction,
-  connectionId: string,
-  tokenHash: string,
-) {
+async function resolveActiveScim(tx: LodariqTransaction, connectionId: string, tokenHash: string) {
   if (!(await bindScimAuthorizationScope(tx, tokenHash))) return null;
   const [row] = await tx
     .select({ scim: enterpriseScimConnections })
@@ -1570,4 +1632,20 @@ function enterpriseSessionForDatabase(
     authenticationMethod: 'oidc' as const,
     durationPolicy: 'managed' as const,
   };
+}
+
+async function assertDrizzleCreatorSeatAvailable(
+  tx: LodariqTransaction,
+  workspaceId: string,
+  limit: number | null,
+): Promise<void> {
+  if (limit === null) return;
+  await tx.execute(
+    sql`select pg_advisory_xact_lock(hashtextextended(${`creator-seats:${workspaceId}`}, 0))`,
+  );
+  const result = await tx.execute<{ used: string }>(
+    sql`select public.lodariq_count_creator_seats(${workspaceId}) as used`,
+  );
+  const used = Number(result.rows[0]?.used ?? 0);
+  if (used + 1 > limit) throw new CommercialEntitlementError('creator-seats', used, limit);
 }

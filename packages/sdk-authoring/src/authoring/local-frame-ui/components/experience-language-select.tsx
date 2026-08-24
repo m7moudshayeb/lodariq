@@ -1,5 +1,7 @@
-import { PRODUCT_LOCALES, localeOption, type ProductLocale } from '@lodariq/i18n';
+import { useMemo, type ReactNode } from 'react';
+import { canonicalContentLocale } from '@lodariq/schema';
 import { authoringText } from '../../../i18n';
+import { contentLocaleLabel, contentLocaleOptions } from '../../content-locales';
 import type { LocalAuthoringFrameController } from '../controller';
 import type { LocalAuthoringFrameSnapshot } from '../types';
 import {
@@ -10,23 +12,74 @@ import {
   Wand2,
 } from '../design-system';
 
-const CONTENT_LOCALE_SEARCH_NAMES = {
-  en: 'English',
-  de: 'German',
-  fr: 'French',
-  es: 'Spanish',
-  pt: 'Portuguese',
-  ar: 'Arabic',
-  tr: 'Turkish',
-  it: 'Italian',
-  'nl-BE': 'Belgian Dutch Flemish Belgium',
-} as const satisfies Record<ProductLocale, string>;
-
-const CONTENT_LOCALE_OPTIONS = PRODUCT_LOCALES.map((locale) => ({
-  value: locale,
-  label: localeOption(locale).label,
-  searchText: CONTENT_LOCALE_SEARCH_NAMES[locale],
-}));
+/**
+ * Which language the experience's copy is being written in.
+ *
+ * The list is the document's own languages then common suggestions, and neither
+ * is a gate: typing any canonical tag commits it. Choosing a language the
+ * document has never had is how a variant gets created — the first edit made
+ * while it is selected writes one.
+ */
+export function ContentLocalePicker({
+  className,
+  controller,
+  disabled,
+  leadingIcon,
+  onPick,
+  size,
+  snapshot,
+  title,
+  triggerLabel,
+}: {
+  className?: string;
+  controller: LocalAuthoringFrameController;
+  disabled?: boolean;
+  leadingIcon?: ReactNode;
+  /** Defaults to switching. `addContentLocale` also creates the variant. */
+  onPick?: (locale: string) => void;
+  size?: 'default' | 'compact';
+  snapshot: LocalAuthoringFrameSnapshot;
+  title?: string;
+  /** Set when the control is an action ("Add a language") rather than a state. */
+  triggerLabel?: string;
+}) {
+  const defaultLocale = snapshot.documentState.localization?.defaultLocale ?? 'en';
+  const options = useMemo(
+    () =>
+      contentLocaleOptions([
+        defaultLocale,
+        ...(snapshot.documentState.localization?.variants.map((variant) => variant.locale) ?? []),
+      ]),
+    [defaultLocale, snapshot.documentState.localization],
+  );
+  return (
+    <AuthoringSelect
+      ariaLabel={triggerLabel ?? authoringText('Experience language')}
+      {...(className ? { className } : {})}
+      dataAction="content-locale"
+      dataBlockId={snapshot.documentState.id}
+      disabled={disabled}
+      {...(leadingIcon ? { leadingIcon } : {})}
+      onValueChange={(locale) =>
+        onPick ? onPick(locale) : controller.setContentLocale(locale)
+      }
+      options={options}
+      search={{
+        emptyLabel: authoringText('No languages found'),
+        label: authoringText('Search languages'),
+        placeholder: authoringText('Search or type a language tag…'),
+        custom: {
+          accept: (query) => canonicalContentLocale(query),
+          label: (query) => authoringText('Use {language}', { language: contentLocaleLabel(query) }),
+        },
+      }}
+      {...(size ? { size } : {})}
+      {...(title ? { title } : {})}
+      {...(triggerLabel ? { triggerLabel } : {})}
+      value={snapshot.contentLocale}
+    />
+  );
+}
 
 export function ExperienceLanguageSelect({
   controller,
@@ -67,23 +120,10 @@ export function ExperienceLanguageSelect({
   return (
     <div className={`experience-language-picker ${studio ? 'studio' : 'compact'}`}>
       <div className="experience-language-controls">
-        <AuthoringSelect
-          ariaLabel={authoringText('Experience language')}
-          dataAction="content-locale"
-          dataBlockId={snapshot.documentState.id}
-          leadingIcon={studio ? <Languages size={16} strokeWidth={2} /> : undefined}
-          onValueChange={(locale) => controller.setContentLocale(locale)}
-          options={CONTENT_LOCALE_OPTIONS}
-          search={
-            studio
-              ? {
-                  emptyLabel: authoringText('No languages found'),
-                  label: authoringText('Search languages'),
-                  placeholder: authoringText('Search languages'),
-                }
-              : undefined
-          }
-          value={snapshot.contentLocale}
+        <ContentLocalePicker
+          controller={controller}
+          {...(studio ? { leadingIcon: <Languages size={16} strokeWidth={2} /> } : {})}
+          snapshot={snapshot}
         />
         {studio ? (
           <div className="experience-translate-action">

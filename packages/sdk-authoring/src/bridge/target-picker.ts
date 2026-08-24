@@ -20,6 +20,7 @@ import {
 import { applyAuthoringLocale, authoringText } from '../i18n';
 import {
   ambiguousCandidates,
+  automaticSelection,
   captureElementFingerprint,
   captureNeedsConfirmation,
   captureTargetEvidence,
@@ -143,7 +144,8 @@ export function startTargetPicker(options: TargetPickerOptions): TargetPicker {
    */
   const freeze = startPageFreeze({
     root: doc,
-    ignore: (element) => Boolean(element.closest('[data-lodariq-bridge]')) || isAuthoringChrome(element),
+    ignore: (element) =>
+      Boolean(element.closest('[data-lodariq-bridge]')) || isAuthoringChrome(element),
     onFroze: () => band.setFrozen(true),
   });
   const cursor = createPickerCursorStyle(doc);
@@ -442,9 +444,6 @@ export function startTargetPicker(options: TargetPickerOptions): TargetPicker {
       identity.captureEvidence.uniqueCandidateCount !== 1;
     const title = controls.querySelector<HTMLElement>('[data-lodariq-bridge="target-card-title"]');
     const copy = controls.querySelector<HTMLElement>('[data-lodariq-bridge="target-card-copy"]');
-    const details = controls.querySelector<HTMLElement>(
-      '[data-lodariq-bridge="target-card-technical-copy"]',
-    );
     const question =
       similar && pendingWeakResult
         ? lookAlikeQuestion(pendingWeakResult.element, {
@@ -473,17 +472,6 @@ export function startTargetPicker(options: TargetPickerOptions): TargetPicker {
           : authoringText(
               'You can keep this in the draft, but release stays blocked until Lodariq can verify it.',
             );
-    }
-    if (details) {
-      const evidence = identity.captureEvidence;
-      details.textContent = authoringText(
-        'Passive samples: {samples}. Similar places: {places}. Stable cue groups: {groups}.',
-        {
-          samples: evidence.sampleCount,
-          places: evidence.uniqueCandidateCount,
-          groups: evidence.stableSignalFamilies.length,
-        },
-      );
     }
     const smaller = controls.querySelector<HTMLButtonElement>('[data-action="deeper"]');
     const larger = controls.querySelector<HTMLButtonElement>('[data-action="parent"]');
@@ -686,6 +674,12 @@ export function startTargetPicker(options: TargetPickerOptions): TargetPicker {
       identity: sampledCapture.identity,
     };
     if (captureNeedsConfirmation(result.identity)) {
+      // Answered rather than asked, wherever the answer is ours to give.
+      const automatic = automaticSelection(result.element, result.identity);
+      if (automatic) {
+        finishPick({ ...result, selection: automatic });
+        return;
+      }
       showWeakTargetCard(result);
       return;
     }
@@ -838,8 +832,7 @@ function createWeakTargetCard(doc: Document): HTMLDivElement {
       <button type="button" data-lodariq-bridge="target-control" data-action="pick-another">${authoringText('Choose another')}</button>
     </div>
     <details data-lodariq-bridge="target-card-details" style="border-top:1px solid ${CREATOR_CHROME_TOKENS.border}; padding-top: 8px; color:${CREATOR_CHROME_TOKENS.muted};">
-      <summary data-lodariq-bridge="target-card-summary" style="cursor:pointer; font-weight: var(--lq-weight-bold); color:${CREATOR_CHROME_TOKENS.ink};">${authoringText('Troubleshooting details')}</summary>
-      <p data-lodariq-bridge="target-card-technical-copy" style="margin: 8px 0;">${authoringText('Lodariq is checking this placement.')}</p>
+      <summary data-lodariq-bridge="target-card-summary" style="cursor:pointer; font-weight: var(--lq-weight-bold); color:${CREATOR_CHROME_TOKENS.ink};">${authoringText('Change the area')}</summary>
       <div style="display:grid; grid-template-columns:1fr 1fr; gap: 8px;">
         <button type="button" data-lodariq-bridge="target-control" data-action="deeper">${authoringText('Smaller area')}</button>
         <button type="button" data-lodariq-bridge="target-control" data-action="parent">${authoringText('Larger area')}</button>

@@ -34,5 +34,10 @@ PRD.
 | [0025](0025-enterprise-identity-boundary.md)           | Enterprise OIDC, SCIM, policy, and recovery boundary             | Accepted |
 | [0026](0026-step-partitioned-concurrent-authoring.md)  | Step-partitioned concurrent authoring, not CRDT co-editing        | Accepted |
 | [0027](0027-idle-page-cost-and-kill-switch.md)          | Idle-page cost, page scoping, and the SDK kill switch             | Accepted |
+| [0028](0028-shareable-demo-links.md)                    | Shareable demos on a dedicated origin with scoped artifacts       | Accepted |
+| [0029](0029-targeting-accuracy-measurement.md)          | Targeting accuracy measured against a mutation corpus, ratcheted  | Accepted |
+| [0030](0030-per-person-experience-progress.md)          | Per-person experience progress derived from the event stream      | Proposed |
+| [0031](0031-billing-residency-and-warehouse-providers.md) | First billing, residency, and warehouse providers                 | Accepted |
+| [0032](0032-analytics-export-worker-boundary.md)         | Worker-thread boundary for analytics export generation             | Accepted |
 
 See [0000-template.md](0000-template.md) for the format.

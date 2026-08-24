@@ -92,10 +92,9 @@ async function reviewing(
   applyBrandMatch: LocalAuthoringFrameServices['applyBrandMatch'],
 ): Promise<LocalAuthoringFrameController> {
   const controller = createController({
-    sampleBrandStyle: vi.fn(async () => brandMatchProposalForFrame(
-      sampledEvidence(),
-      LODARIQ_ACCESSIBLE_FALLBACK_THEME_V1,
-    )),
+    sampleBrandStyle: vi.fn(async () =>
+      brandMatchProposalForFrame(sampledEvidence(), LODARIQ_ACCESSIBLE_FALLBACK_THEME_V1),
+    ),
     applyBrandMatch,
     adoptBrandPreviewTheme: vi.fn(() => true),
   });

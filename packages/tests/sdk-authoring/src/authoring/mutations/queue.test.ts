@@ -66,8 +66,12 @@ function harness(behaviour: (batchIndex: number) => Promise<void> = () => Promis
   return { clock, queue, sent, statuses };
 }
 
-const change = (path: string, label: string, value: string) => ({ path, label, payload: { value } });
-const last = <T,>(items: readonly T[]): T | undefined => items[items.length - 1];
+const change = (path: string, label: string, value: string) => ({
+  path,
+  label,
+  payload: { value },
+});
+const last = <T>(items: readonly T[]): T | undefined => items[items.length - 1];
 const rejecting = (): Promise<void> => Promise.reject(new Error('offline'));
 
 /** Exhaust the whole backoff ladder plus the attempt that trips `retry`. */
@@ -265,7 +269,9 @@ describe('holding the queue when a session lapses (§15.4)', () => {
     expect(queue.status().state).toBe('held');
     // The work is not lost — it is exactly where the creator left it.
     expect(queue.status().pending).toBe(1);
-    expect(queue.pendingCommands().map((command) => command.path)).toEqual(['step:a/style.surface']);
+    expect(queue.pendingCommands().map((command) => command.path)).toEqual([
+      'step:a/style.surface',
+    ]);
 
     queue.resume();
     await tick(clock);

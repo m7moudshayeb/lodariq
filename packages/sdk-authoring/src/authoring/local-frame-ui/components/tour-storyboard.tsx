@@ -40,6 +40,8 @@ export function TourStoryboard({
 }) {
   const health = steps.map((step) => stepHealth(step, snapshot));
   const batchMode = snapshot.selectedStepIds.size > 0;
+  const batchEnabled =
+    !snapshot.commercialUsage || snapshot.commercialUsage.features.includes('batch-operations');
 
   return (
     <nav
@@ -54,23 +56,41 @@ export function TourStoryboard({
             const batchSelected = snapshot.selectedStepIds.has(step.id);
             const itemHealth = health[index]!;
             const preview = storyboardStepPreview(step);
+            const dropPosition =
+              snapshot.dragTargetBlockId === step.id ? snapshot.dragTargetPosition : null;
             return (
               <li
-                className={`tour-storyboard-step ${active ? 'active' : ''} ${itemHealth.tone}`.trim()}
+                className={`tour-storyboard-step ${active ? 'active' : ''} ${itemHealth.tone} ${dropPosition ? `drop-${dropPosition}` : ''}`.trim()}
                 data-block-id={step.id}
                 data-batch-selected={batchSelected ? 'true' : 'false'}
+                data-drop-position={dropPosition ?? undefined}
                 key={step.id}
-                onDragOver={(event) => controller.handleBlockDragOver(event)}
-                onDrop={(event) => controller.handleBlockDrop(event, step.id)}
+                onDragOver={(event) =>
+                  controller.handleBlockDragOver(event, {
+                    axis: 'x',
+                    scrollSelector: '.tour-storyboard-scroll',
+                    selector: '.tour-storyboard-step[data-block-id]',
+                  })
+                }
+                onDrop={(event) =>
+                  controller.handleBlockDrop(event, step.id, {
+                    axis: 'x',
+                    selector: '.tour-storyboard-step[data-block-id]',
+                  })
+                }
               >
                 <button
                   type="button"
                   className="tour-storyboard-drag"
                   draggable
+                  aria-keyshortcuts="Alt+ArrowLeft Alt+ArrowRight"
                   aria-label={authoringText('Drag step {number}', { number: index + 1 })}
                   title={authoringText('Drag to reorder step')}
                   onDragEnd={() => controller.endDraggingBlock()}
                   onDragStart={(event) => controller.startDraggingBlock(step.id, event)}
+                  onKeyDown={(event) =>
+                    controller.handleBlockReorderKeyDown(event, step.id, 'horizontal')
+                  }
                 >
                   <GripVertical size={14} strokeWidth={2} aria-hidden="true" />
                 </button>
@@ -161,7 +181,11 @@ export function TourStoryboard({
         ) : null}
       </div>
       {batchMode ? (
-        <TourStepBatchToolbar controller={controller} count={snapshot.selectedStepIds.size} />
+        <TourStepBatchToolbar
+          controller={controller}
+          count={snapshot.selectedStepIds.size}
+          enabled={batchEnabled}
+        />
       ) : null}
     </nav>
   );
@@ -170,15 +194,18 @@ export function TourStoryboard({
 function TourStepBatchToolbar({
   controller,
   count,
+  enabled,
 }: {
   controller: LocalAuthoringFrameController;
   count: number;
+  enabled: boolean;
 }) {
   return (
     <section className="tour-step-batch-toolbar" aria-label={authoringText('Batch step actions')}>
       <strong>{authoringText('{count} steps selected', { count })}</strong>
       <span className="tour-step-batch-actions">
         <AuthoringButton
+          disabled={!enabled}
           icon={<Copy size={14} strokeWidth={2} aria-hidden="true" />}
           onClick={() => controller.duplicateSelectedSteps()}
           title={authoringText('Duplicate selected')}
@@ -190,6 +217,7 @@ function TourStepBatchToolbar({
           content={
             <div className="tour-step-batch-menu" role="menu">
               <AuthoringButton
+                disabled={!enabled}
                 icon={<ArrowUp size={14} strokeWidth={2} aria-hidden="true" />}
                 onClick={() => controller.moveSelectedSteps('up')}
                 role="menuitem"
@@ -197,6 +225,7 @@ function TourStepBatchToolbar({
                 {authoringText('Move selected up')}
               </AuthoringButton>
               <AuthoringButton
+                disabled={!enabled}
                 icon={<ArrowDown size={14} strokeWidth={2} aria-hidden="true" />}
                 onClick={() => controller.moveSelectedSteps('down')}
                 role="menuitem"
@@ -206,13 +235,17 @@ function TourStepBatchToolbar({
             </div>
           }
           trigger={
-            <AuthoringButton icon={<ArrowRight size={14} strokeWidth={2} aria-hidden="true" />}>
+            <AuthoringButton
+              disabled={!enabled}
+              icon={<ArrowRight size={14} strokeWidth={2} aria-hidden="true" />}
+            >
               {authoringText('Reorder')}
             </AuthoringButton>
           }
         />
-        <BatchPlacementMenu controller={controller} />
+        <BatchPlacementMenu controller={controller} enabled={enabled} />
         <AuthoringButton
+          disabled={!enabled}
           icon={<Trash2 size={14} strokeWidth={2} aria-hidden="true" />}
           tone="danger"
           onClick={() => controller.deleteSelectedSteps()}
@@ -233,7 +266,13 @@ function TourStepBatchToolbar({
   );
 }
 
-function BatchPlacementMenu({ controller }: { controller: LocalAuthoringFrameController }) {
+function BatchPlacementMenu({
+  controller,
+  enabled,
+}: {
+  controller: LocalAuthoringFrameController;
+  enabled: boolean;
+}) {
   const applyPlacement = (value: string): void => {
     if (value === 'top' || value === 'right' || value === 'bottom' || value === 'left') {
       controller.setSelectedStepPlacement(value);
@@ -262,7 +301,11 @@ function BatchPlacementMenu({ controller }: { controller: LocalAuthoringFrameCon
               ['bottom', authoringText('Below')],
               ['left', authoringText('Left')],
             ].map(([value, label]) => (
-              <AuthoringButton key={value} onClick={() => applyPlacement(value!)}>
+              <AuthoringButton
+                disabled={!enabled}
+                key={value}
+                onClick={() => applyPlacement(value!)}
+              >
                 {label}
               </AuthoringButton>
             ))}
@@ -275,14 +318,18 @@ function BatchPlacementMenu({ controller }: { controller: LocalAuthoringFrameCon
               ['skip', authoringText('Skip this step')],
               ['dismiss', authoringText('Exit the tour')],
             ].map(([value, label]) => (
-              <AuthoringButton key={value} onClick={() => applyRecovery(value!)}>
+              <AuthoringButton
+                disabled={!enabled}
+                key={value}
+                onClick={() => applyRecovery(value!)}
+              >
                 {label}
               </AuthoringButton>
             ))}
           </span>
         </div>
       }
-      trigger={<AuthoringButton>{authoringText('Move to…')}</AuthoringButton>}
+      trigger={<AuthoringButton disabled={!enabled}>{authoringText('Move to…')}</AuthoringButton>}
     />
   );
 }
@@ -299,6 +346,11 @@ export function TourStepActionMenu({
   stepIndex: number;
 }) {
   const [open, setOpen] = useState(false);
+  const namedStylesEnabled =
+    !snapshot.commercialUsage || snapshot.commercialUsage.features.includes('named-step-styles');
+  const namedStylesTitle = namedStylesEnabled
+    ? undefined
+    : authoringText('This tool is not included in the current workspace plan.');
   const run = (action: () => void): void => {
     setOpen(false);
     action();
@@ -353,38 +405,45 @@ export function TourStepActionMenu({
           </AuthoringButton>
           <div className="tour-step-action-divider" role="separator" />
           <AuthoringButton
+            disabled={!namedStylesEnabled}
             icon={<Palette size={14} strokeWidth={2.2} />}
             onClick={() => run(() => controller.copyStepStyle(step.id))}
             role="menuitem"
+            title={namedStylesTitle}
           >
             {authoringText('Copy style')}
           </AuthoringButton>
           <AuthoringButton
-            disabled={!snapshot.stepStyleClipboardAvailable}
+            disabled={!namedStylesEnabled || !snapshot.stepStyleClipboardAvailable}
             icon={<Palette size={14} strokeWidth={2.2} />}
             onClick={() => run(() => controller.pasteStepStyle(step.id))}
             role="menuitem"
+            title={namedStylesTitle}
           >
             {authoringText('Paste style')}
           </AuthoringButton>
           <AuthoringButton
-            disabled={!snapshot.stepStyleClipboardAvailable}
+            disabled={!namedStylesEnabled || !snapshot.stepStyleClipboardAvailable}
             icon={<Palette size={14} strokeWidth={2.2} />}
             onClick={() => run(() => controller.applyCopiedStyleToSelected(step.id))}
             role="menuitem"
+            title={namedStylesTitle}
           >
             {authoringText('Apply style to selected steps')}
           </AuthoringButton>
           <AuthoringButton
+            disabled={!namedStylesEnabled}
             icon={<Save size={14} strokeWidth={2.2} />}
             onClick={() => run(() => controller.saveStepStyleRecipe(step.id))}
             role="menuitem"
+            title={namedStylesTitle}
           >
             {authoringText('Save as style recipe')}
           </AuthoringButton>
           {snapshot.stepStyleRecipes.map((recipe) => (
             <div className="style-recipe-menu-row" key={recipe.id}>
               <AuthoringButton
+                disabled={!namedStylesEnabled}
                 icon={
                   <span
                     aria-hidden="true"
@@ -398,15 +457,18 @@ export function TourStepActionMenu({
                 }
                 onClick={() => run(() => controller.applyStepStyleRecipe(recipe.id, step.id))}
                 role="menuitem"
+                title={namedStylesTitle}
               >
                 {authoringText('Apply {name}', { name: recipe.name })}
               </AuthoringButton>
               <AuthoringButton
                 aria-label={authoringText('Delete recipe {name}', { name: recipe.name })}
+                disabled={!namedStylesEnabled}
                 icon={<Trash2 size={13} strokeWidth={2.2} />}
                 onClick={() => run(() => controller.deleteStepStyleRecipe(recipe.id))}
                 role="menuitem"
                 tone="ghost"
+                title={namedStylesTitle}
               />
             </div>
           ))}

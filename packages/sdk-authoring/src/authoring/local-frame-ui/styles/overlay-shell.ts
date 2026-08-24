@@ -79,7 +79,6 @@ const operationsTokens = `
     --lq-color-on-primary: ${CREATOR_CHROME_TOKENS.onAction};
     --lq-color-blue: ${CREATOR_CHROME_TOKENS.focus};
     --lq-shadow-popover: ${CREATOR_CHROME_GLASS.shadowRaised};
-    /* The sheet's own surfaces, used by operations-sections.ts. */
     --lq-sheet-body: ${OPERATIONS_SHEET_TOKENS.body};
     --lq-sheet-nav: ${OPERATIONS_SHEET_TOKENS.nav};
     --lq-sheet-box: ${OPERATIONS_SHEET_TOKENS.box};
@@ -186,20 +185,8 @@ export const AUTHORING_OVERLAY_SHELL_CSS = `
     max-height: 100%;
     min-height: 0;
     overflow: hidden;
-    /**
-     * The document itself is forced transparent above, so the customer's page is
-     * the ground. This token is not the ground though — around twenty controls
-     * fill with it (inputs, popovers, chips), so it has to stay a real surface or
-     * they render as bare text over the product.
-     */
     --lq-color-page: ${CREATOR_CHROME_TOKENS.canvas};
-    /**
-     * normal, not dark. A root color-scheme of dark makes the UA paint its own
-     * dark canvas, and a transparent document then shows *that* rather than the
-     * page underneath — the overlay rendered as a black slab around the card. The
-     * chrome surfaces below opt into the dark scheme individually, which is where
-     * it is actually wanted (form controls inside the inspector).
-     */
+    /* normal, not dark: a dark root paints a UA canvas behind the transparent document. */
     color-scheme: normal;
   }
 
@@ -268,12 +255,6 @@ export const AUTHORING_OVERLAY_SHELL_CSS = `
     padding: 0;
   }
 
-  /**
-   * Three absolutely positioned peers, each at the box the host solved for it —
-   * the prototype's #tbar / #cwrap / #insp. Nothing is in flow, so no
-   * surface can push another: the card stays exactly where the runtime will ship
-   * it, and opening the inspector cannot move it.
-   */
   .overlay-step-shell,
   .overlay-step-main {
     padding: 0;
@@ -285,17 +266,6 @@ export const AUTHORING_OVERLAY_SHELL_CSS = `
     inset: 0;
   }
 
-  /**
-   * The bar takes the width of its controls, centred over the span the solver
-   * cleared for it.
-   *
-   * §4.2a rule 1 is about not being *coupled* to the card — it exists so a text
-   * toolbar is never squeezed into a 260px card and left with 14px hit targets.
-   * Reserving the full 420px minimum for three words satisfied the rule and
-   * looked broken: a mostly-empty bar with the trailing control marooned at the
-   * far end. Content-sized never squeezes either, and the reserved span is still
-   * the ceiling, so the bar cannot leave the frame.
-   */
   .overlay-step-toolbar {
     position: absolute;
     left: var(--overlay-toolbar-center, 50%);
@@ -311,12 +281,6 @@ export const AUTHORING_OVERLAY_SHELL_CSS = `
     left: var(--overlay-card-x, ${OVERLAY_CHROME_PAD_PX}px);
     top: var(--overlay-card-y, ${OVERLAY_TOOLBAR_BAND_PX}px);
     width: var(--overlay-card-width, auto);
-    /*
-     * The card is absolutely positioned, so without a height it is sized by its
-     * content and a creator who drags it taller gets a taller *frame* around an
-     * unchanged card. The authored height is what they chose; content grows past
-     * it, never shrinks below it.
-     */
     min-height: var(--overlay-card-height, auto);
   }
 
@@ -340,12 +304,7 @@ export const AUTHORING_OVERLAY_SHELL_CSS = `
     display: flex;
     flex-direction: column;
     width: ${OVERLAY_INSPECTOR_WIDTH_PX}px;
-    /**
-     * §4.3's 60vh cap is applied by the host, which is the only side that knows
-     * the real viewport: inside the frame, vh resolves against the frame's own
-     * height — which the host sized from this value — so a cap declared here would
-     * shrink to 60% of itself on every pass.
-     */
+    /* The host caps at 60vh: inside the frame, vh resolves against the frame itself. */
     height: var(--overlay-inspector-height, ${OVERLAY_INSPECTOR_MIN_HEIGHT_PX}px);
     overflow: hidden;
     ${glassSurface}
@@ -353,10 +312,6 @@ export const AUTHORING_OVERLAY_SHELL_CSS = `
     box-shadow: var(--lq-shadow-popover);
   }
 
-  /**
-   * §4.3's last resort: no side fits, so the inspector takes a corner and a leader
-   * line keeps the relationship to the card legible.
-   */
   .overlay-step-shell.inspector-corner
     .overlay-step-inspector[data-present='true']::before {
     position: absolute;
@@ -372,11 +327,6 @@ export const AUTHORING_OVERLAY_SHELL_CSS = `
     display: none;
   }
 
-  /**
-   * The tray brings the light workspace surface with it. On glass that painted a
-   * white panel and then drew the inherited light-on-dark text onto it, so the
-   * inspector rendered as white-on-white.
-   */
   .overlay-step-inspector .storyboard-property-tray,
   .overlay-step-inspector .overlay-step-inspector-panel {
     display: flex;
@@ -392,12 +342,6 @@ export const AUTHORING_OVERLAY_SHELL_CSS = `
     box-shadow: none;
   }
 
-  /**
-   * The block inspector (button, media, field) portals in as bare children, and
-   * its header only had a layout inside the wide content tray — here the title and
-   * its close button sat side by side mid-sentence with no rule under them. It
-   * gets the same header and the same scrolling body as the step inspector.
-   */
   ${inspector} [data-rich-content-inspector-slot] {
     display: flex;
     flex: 1 1 auto;
@@ -421,19 +365,12 @@ export const AUTHORING_OVERLAY_SHELL_CSS = `
     letter-spacing: -0.01em;
   }
 
-  /*
-   * The section list is *not* a scroller. It was one, from before the block
-   * inspector grew the same scrolling body the step inspector has — which left
-   * two nested scroll containers, the inner one with nothing to scroll and
-   * overscroll-behavior contain to stop the wheel reaching the outer one. The
-   * panel had 234px of content below the fold and no way to get to it.
-   */
+  /* Not a scroller: nested inside the body it trapped the wheel with nothing to scroll. */
   ${inspector} [data-rich-content-inspector-slot] .inspector-sections {
     flex: 1 1 auto;
     min-height: 0;
   }
 
-  /* The scroller. The header above it stays put, as the prototype's does. */
   .overlay-step-inspector-body {
     flex: 1 1 auto;
     min-height: 0;
@@ -455,13 +392,6 @@ export const AUTHORING_OVERLAY_SHELL_CSS = `
     grid-template-columns: minmax(0, 1fr);
   }
 
-  /**
-   * The prototype's .pk pill: the control the anchored inspector is built from.
-   *
-   * A pill showing the current value, opening its choices in a menu. It replaces
-   * the expanded segmented groups and the inline palette — the same options, at
-   * one visible control each instead of nine, which is the whole density story.
-   */
   ${inspector} .inspector-pill,
   ${inspector} .ui-select-trigger[data-size='compact'] {
     display: inline-flex;
@@ -476,7 +406,6 @@ export const AUTHORING_OVERLAY_SHELL_CSS = `
     border-radius: ${OVERLAY_CONTROL_RADIUS_PX}px;
     background: var(--lq-color-control);
     padding: 5px 9px;
-    /* The value is the answer to the row's question, so it reads at full ink. */
     color: var(--lq-color-ink);
     cursor: pointer;
     font-size: var(--lq-font-sm);
@@ -509,7 +438,6 @@ export const AUTHORING_OVERLAY_SHELL_CSS = `
     white-space: nowrap;
   }
 
-  /* An override is a dot, as the prototype marks it — never a sentence. */
   ${inspector} .inspector-pill-override {
     flex: 0 0 auto;
     width: 6px;
@@ -518,11 +446,6 @@ export const AUTHORING_OVERLAY_SHELL_CSS = `
     background: var(--lq-color-primary);
   }
 
-  /*
-   * A named group inside one section, for the rare case where a section styles
-   * two things and then how they sit together. Quiet enough that it reads as a
-   * divider with a name rather than as a second level of section.
-   */
   ${inspector} .inspector-group-title {
     margin: 10px 0 7px;
     border-top: 1px solid var(--lq-color-border-soft);
@@ -540,7 +463,6 @@ export const AUTHORING_OVERLAY_SHELL_CSS = `
     padding-top: 0;
   }
 
-  /* A fact, not a choice: same row rhythm as a pill, without the affordance. */
   ${inspector} .inspector-readback {
     flex: 0 1 auto;
     overflow: hidden;
@@ -550,11 +472,6 @@ export const AUTHORING_OVERLAY_SHELL_CSS = `
     white-space: nowrap;
   }
 
-  /*
-   * §7.2: shown only when the pair fails, beside the control that failed. The
-   * token was --lq-color-attention, which no stylesheet defines — so every
-   * warning in the inspector fell through to muted grey and read as a caption.
-   */
   ${inspector} .inspector-warning {
     flex: 1 0 100%;
     color: var(--lq-color-warning, var(--lq-color-muted));
@@ -570,7 +487,6 @@ export const AUTHORING_OVERLAY_SHELL_CSS = `
     margin-left: 6px;
   }
 
-  /* The palette, in the pill's menu, where it has the room it always needed. */
   .inspector-pill-menu {
     display: grid;
     gap: 7px;
@@ -592,13 +508,7 @@ export const AUTHORING_OVERLAY_SHELL_CSS = `
     place-items: center;
     border: 1px solid var(--lq-color-border);
     border-radius: 999px;
-    /* The swatch is the control: its own colour, not the menu's surface. */
     background: var(--storyboard-swatch, transparent);
-    /**
-     * The check rides on an arbitrary customer colour, so no single ink reads on
-     * every swatch. The selected ring below is what carries the state; the glyph
-     * only reinforces it where it happens to be legible.
-     */
     color: var(--lq-color-ink);
     padding: 0;
   }
@@ -675,17 +585,6 @@ export const AUTHORING_OVERLAY_SHELL_CSS = `
     padding: 0;
   }
 
-  /*
-   * §4.3's .inum: a fixed, right-aligned box with its unit beside it. Fixed
-   * width so Width and Min height line up down the column, right-aligned and
-   * tabular so the digits do too — a size read against another size is the
-   * whole reason both are on screen.
-   */
-  /*
-   * The unit belongs inside the box, as §4.3 draws it — "396px", one value. Held
-   * outside the border it read as a separate word next to a number, and the row
-   * gained a third thing to look at.
-   */
   ${inspector} .rich-step-number-value {
     display: flex;
     align-items: center;
@@ -723,7 +622,43 @@ export const AUTHORING_OVERLAY_SHELL_CSS = `
     outline-offset: 0;
   }
 
-  /* A full palette needs the width, so its label takes its own line. */
+  ${inspector} .rich-step-range-value {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 26px;
+  }
+
+  ${inspector} .rich-step-range-value input[type='range'] {
+    width: 84px;
+    margin: 0;
+    accent-color: var(--lq-color-blue);
+  }
+
+  ${inspector} .rich-step-range-value output {
+    min-width: 38px;
+    color: var(--lq-color-ink);
+    font-size: var(--lq-font-sm);
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+  }
+
+  ${inspector} .rich-step-range-reset {
+    border: 1px solid var(--lq-color-control-border);
+    border-radius: ${OVERLAY_CONTROL_RADIUS_PX}px;
+    background: var(--lq-color-control);
+    padding: 2px 6px;
+    color: var(--lq-color-muted);
+    font: inherit;
+    font-size: var(--lq-font-xs, 11px);
+    cursor: pointer;
+  }
+
+  ${inspector} .rich-step-range-reset:disabled {
+    opacity: 0.45;
+    cursor: default;
+  }
+
   ${inspector} .rich-step-color-field {
     display: grid;
     gap: 5px;
@@ -732,7 +667,6 @@ export const AUTHORING_OVERLAY_SHELL_CSS = `
     padding: 0;
   }
 
-  /* §4.3's .inum/.itext: the value box sits right, sized to the row. */
   ${inspector} .rich-step-text-value {
     flex: 0 1 auto;
     min-width: 0;
@@ -746,14 +680,12 @@ export const AUTHORING_OVERLAY_SHELL_CSS = `
     font-size: var(--lq-font-sm);
   }
 
-  /* A described image needs more than one line, so alt text takes the full row. */
   ${inspector} textarea.rich-step-text-value {
     flex: 1 0 100%;
     max-width: none;
     resize: vertical;
   }
 
-  /* A detected fact, not a control: the prototype states it as a tag. */
   ${inspector} .step-narration-language-tag {
     flex: none;
     border-radius: 5px;
@@ -767,7 +699,6 @@ export const AUTHORING_OVERLAY_SHELL_CSS = `
     white-space: nowrap;
   }
 
-  /* Behind a pill it is one property again, so it takes the .fld row: 26 and 8. */
   ${inspector} .rich-step-color-field[data-presentation='menu'],
   ${inspector} .rich-step-choice-field[data-presentation='menu'],
   ${inspector} .rich-step-choice-field[data-presentation='text'],
@@ -799,7 +730,6 @@ export const AUTHORING_OVERLAY_SHELL_CSS = `
     text-transform: none;
   }
 
-  /* A chip row rather than a full-width segmented bar (the prototype's .schip). */
   ${inspector} .ui-segmented,
   ${inspector} .rich-step-choice-list,
   ${inspector} .rich-step-color-swatches {
@@ -834,7 +764,6 @@ export const AUTHORING_OVERLAY_SHELL_CSS = `
     font-weight: var(--lq-weight-regular);
   }
 
-  /* Wrap to another row rather than truncating: "Automat…" names nothing. */
   ${inspector} .ui-segmented-option,
   ${inspector} .rich-step-choice-list button {
     flex: 0 0 auto;
@@ -868,12 +797,6 @@ export const AUTHORING_OVERLAY_SHELL_CSS = `
     font-weight: var(--lq-weight-bold);
   }
 
-  /**
-   * One rhythm for both sections, set by the container rather than by each row's
-   * own margin. A note carried margin-top only, so whatever followed it sat
-   * against its last line — which is exactly what happened between the flip note
-   * and Entry motion.
-   */
   ${inspector} .step-actions-section {
     display: flex;
     flex-direction: column;
@@ -885,12 +808,6 @@ export const AUTHORING_OVERLAY_SHELL_CSS = `
     margin-bottom: 0;
   }
 
-  /**
-   * The prototype's .fld.col + .seg, for Actions and Placement: caption over a
-   * recessed track holding every option at once. The chip row above is the right
-   * answer for a long option list that has to wrap; a track is the right answer
-   * for four short ones, because it shows the whole choice without a click.
-   */
   ${inspector} .rich-step-choice-field[data-presentation='track'] {
     display: flex;
     flex-direction: column;
@@ -923,12 +840,6 @@ export const AUTHORING_OVERLAY_SHELL_CSS = `
     color: var(--lq-color-on-primary);
   }
 
-  /**
-   * The appearance editor is a two-column workspace with a review aside, built for
-   * the 640px tray. In a 320px popover the aside pushed the controls into a 100px
-   * gutter and brought the light workspace surface onto glass with it. Stacked, and
-   * the review reads as one line of evidence under the control it belongs to.
-   */
   ${inspector} .popup-appearance-workspace,
   ${inspector} .popup-appearance-progressive {
     display: grid;
@@ -958,7 +869,6 @@ export const AUTHORING_OVERLAY_SHELL_CSS = `
     font-size: var(--lq-font-sm);
   }
 
-  /* Wrap to a second row rather than truncating: "Bord…" names nothing. */
   ${inspector} .progressive-setting-tabs button {
     flex: 0 0 auto;
     max-width: none;
@@ -998,7 +908,6 @@ export const AUTHORING_OVERLAY_SHELL_CSS = `
     font-size: var(--lq-font-sm);
   }
 
-  /* Two readouts on one line ran off a 320px popover; they wrap now. */
   ${inspector} .rich-step-contrast-status {
     display: block;
     color: var(--lq-color-muted);
@@ -1006,17 +915,10 @@ export const AUTHORING_OVERLAY_SHELL_CSS = `
     line-height: 1.5;
   }
 
-  /* The APCA figure rides along after the WCAG verdict, not against it. */
   ${inspector} .rich-step-contrast-status > small {
     margin-left: 6px;
   }
 
-  /**
-   * The prototype's .steps-num: an ordered list of the things a section is
-   * about — the buttons in Actions, the rules in Conditions. Each row is a
-   * whole control, so it gets a control's fill and edge rather than reading as
-   * body copy that happens to be indented.
-   */
   ${inspector} .inspector-numbered-list {
     display: flex;
     flex-direction: column;
@@ -1032,7 +934,6 @@ export const AUTHORING_OVERLAY_SHELL_CSS = `
     background: var(--lq-color-control);
   }
 
-  /* The row is one hit target that selects the button it names. */
   ${inspector} .inspector-numbered-open {
     display: flex;
     flex: 1;
@@ -1075,7 +976,6 @@ export const AUTHORING_OVERLAY_SHELL_CSS = `
     font-weight: var(--lq-weight-bold);
   }
 
-  /* What it looks like and what it does, subordinate to what it says. */
   ${inspector} .inspector-numbered-meta {
     flex: 1 1 auto;
     overflow: hidden;
@@ -1104,7 +1004,6 @@ export const AUTHORING_OVERLAY_SHELL_CSS = `
     opacity: 1;
   }
 
-  /* The empty row states a fact rather than offering one, so it reads back. */
   ${inspector} .inspector-numbered-row[data-empty] {
     padding: 6px 10px;
     color: var(--lq-color-muted);
@@ -1116,7 +1015,6 @@ export const AUTHORING_OVERLAY_SHELL_CSS = `
     border-color: var(--lq-color-control-border);
   }
 
-  /* A rule is one sentence on one line — it truncates rather than wrapping. */
   ${inspector} .step-condition-sentence {
     flex: 1 1 auto;
     overflow: hidden;
@@ -1125,7 +1023,6 @@ export const AUTHORING_OVERLAY_SHELL_CSS = `
     text-overflow: ellipsis;
   }
 
-  /* The prototype's .imenu: a list of one-shot commands, not a row of buttons. */
   ${inspector} .step-style-reuse-actions,
   ${inspector} .inspector-menu {
     gap: 0;
@@ -1140,10 +1037,6 @@ export const AUTHORING_OVERLAY_SHELL_CSS = `
   ${inspector} .inspector-menu > button {
     display: flex;
     align-items: center;
-    /*
-     * Left-aligned, so a leading glyph sits against its label rather than being
-     * flung to the far edge of the row. Trailing hints claim the gap themselves.
-     */
     justify-content: flex-start;
     gap: 8px;
     width: 100%;
@@ -1169,7 +1062,6 @@ export const AUTHORING_OVERLAY_SHELL_CSS = `
     color: var(--lq-color-ink);
   }
 
-  /* A disabled command still says what it will do; it just cannot be reached. */
   ${inspector} .inspector-menu > button:disabled {
     opacity: 0.45;
   }
@@ -1179,7 +1071,6 @@ export const AUTHORING_OVERLAY_SHELL_CSS = `
     color: var(--lq-color-ink-soft);
   }
 
-  /* The shortcut claims the gap the label leaves, right-aligned and quiet. */
   ${inspector} .inspector-menu > button > kbd {
     margin-left: auto;
     color: var(--lq-color-subtle);
@@ -1188,7 +1079,6 @@ export const AUTHORING_OVERLAY_SHELL_CSS = `
     letter-spacing: 0.02em;
   }
 
-  /* An unpointed step states a fact; the icon carries the tone, not colour. */
   ${inspector} .step-target-unpointed {
     display: flex;
     align-items: flex-start;
@@ -1204,10 +1094,6 @@ export const AUTHORING_OVERLAY_SHELL_CSS = `
     margin-top: 1px;
   }
 
-  /**
-   * The workspace sections bring their own padding, border and surface, which is
-   * right in a tray and wrong inside a popover that already has all three.
-   */
   ${inspector} .tour-step-config-section {
     display: grid;
     gap: 7px;
@@ -1217,7 +1103,6 @@ export const AUTHORING_OVERLAY_SHELL_CSS = `
     padding: 0;
   }
 
-  /* Side, as one row: label left, the four sides as chips right. */
   ${inspector} .tour-position-group {
     display: flex;
     flex-wrap: wrap;
@@ -1258,7 +1143,6 @@ export const AUTHORING_OVERLAY_SHELL_CSS = `
     font-size: var(--lq-font-sm);
   }
 
-  /* The word is the affordance at this size; a 24px glyph beside it is noise. */
   ${inspector} .tour-position-options button svg {
     display: none;
   }
@@ -1279,13 +1163,6 @@ export const AUTHORING_OVERLAY_SHELL_CSS = `
     flex: 1 0 100%;
   }
 
-  /**
-   * Advanced (§4.3): collapsed, last, and never on the default path — so it is
-   * the one section that must not read as a second workspace. The live preview
-   * keeps its own light surface, because it is a preview of shipped output, but
-   * it gets a frame and a caption so it reads as a specimen rather than a panel
-   * that has escaped.
-   */
   ${inspector} .step-presentation {
     display: grid;
     gap: 9px;
@@ -1316,25 +1193,11 @@ export const AUTHORING_OVERLAY_SHELL_CSS = `
     padding: 9px;
   }
 
-  /**
-   * The action sequence, as the prototype's Approach list: numbered lines in
-   * plain language, then the controls.
-   *
-   * It ships as a horizontal trigger → wait → continue strip with arrows, which
-   * needs about 600px. At 320 the three cards stacked into an unreadable pile and
-   * the arrows pointed at nothing. Vertical and numbered says the same thing in a
-   * third of the width, and the order is legible at a glance.
-   */
   ${inspector} .sequence-property-editor {
     display: grid;
     gap: 7px;
   }
 
-  /**
-   * The tray's own card surfaces, cleared. Each of these paints a light panel with
-   * a border, which is correct in the workspace and reads as a hole punched in the
-   * glass here — the popover is already the surface.
-   */
   ${inspector} .sequence-property-editor,
   ${inspector} .progressive-setting-panel,
   ${inspector} .step-presentation-settings,
@@ -1345,19 +1208,6 @@ export const AUTHORING_OVERLAY_SHELL_CSS = `
     padding: 0;
   }
 
-  /*
-   * §4.3's rhythm is one pitch the whole way down: a 26px row and 8px under it.
-   * The Style section stacks four panels, each of which used to add its own grid
-   * gap on top of that margin, so the pitch drifted between 33 and 46 depending
-   * on how deep a row happened to sit. The rows own the spacing; wrappers add none.
-   */
-  /*
-   * §4.3's rhythm is one pitch the whole way down: a 26px row and 8px under it.
-   * The Style section stacks four panels, each nesting boxes that exist only to
-   * hang the wide tray's tabs and audit aside off. None of them render here, so
-   * every one becomes a pass-through and the rows share a single flow — which is
-   * what makes the pitch uniform instead of drifting between 33 and 46.
-   */
   ${inspector} .storyboard-tab-panel.popup-layout,
   ${inspector} .popup-appearance-workspace,
   ${inspector} .popup-appearance-progressive,
@@ -1365,14 +1215,12 @@ export const AUTHORING_OVERLAY_SHELL_CSS = `
     display: contents;
   }
 
-  /* The section summary above already names it; this repeated the name and a lede. */
   ${inspector} .sequence-summary-header {
     display: none;
   }
 
   ${inspector} .sequence-summary-strip {
     display: grid;
-    /* One column, explicitly: the tray's five-track strip is what stacked here. */
     grid-template-columns: minmax(0, 1fr);
     gap: 0;
     counter-reset: sequence-step;
@@ -1387,7 +1235,6 @@ export const AUTHORING_OVERLAY_SHELL_CSS = `
     grid-template-columns: 16px minmax(0, 1fr);
     align-items: baseline;
     gap: 8px;
-    /* The tray gives each stage its own light card; on glass they are rows. */
     border: 0;
     border-bottom: 1px solid var(--lq-color-border-soft);
     border-radius: 0;
@@ -1408,7 +1255,6 @@ export const AUTHORING_OVERLAY_SHELL_CSS = `
     font-variant-numeric: tabular-nums;
   }
 
-  /* The number carries the order, so the per-stage icon is one glyph too many. */
   ${inspector} .sequence-summary-card > svg,
   ${inspector} .sequence-summary-arrow {
     display: none;
@@ -1488,7 +1334,6 @@ export const AUTHORING_OVERLAY_SHELL_CSS = `
     font-size: var(--lq-font-sm);
   }
 
-  /* Destructive, and dressed as such: a bordered row, not another menu entry. */
   ${inspector} .step-danger-zone {
     display: grid;
     gap: 4px;
@@ -1526,7 +1371,6 @@ export const AUTHORING_OVERLAY_SHELL_CSS = `
     font-size: var(--lq-font-sm);
   }
 
-  /* How far this step has drifted from the style it wears, and the way back. */
   ${inspector} .step-style-overrides {
     display: flex;
     align-items: center;
@@ -1555,11 +1399,6 @@ export const AUTHORING_OVERLAY_SHELL_CSS = `
     cursor: pointer;
   }
 
-  /*
-   * The .why sentence: why a control is a refinement rather than the tool.
-   * Upright, as §4.3 sets it — a whole paragraph of italics reads as an aside
-   * to skip, and these sentences are the ones that teach the panel.
-   */
   ${inspector} .overlay-step-inspector-note,
   ${inspector} .step-style-reuse-hint,
   ${inspector} .storyboard-property-hint {
@@ -1569,11 +1408,6 @@ export const AUTHORING_OVERLAY_SHELL_CSS = `
     line-height: 1.55;
   }
 
-  /**
-   * §4.2a: a persistent frame with a contextual middle. Insert and the inspector
-   * affordance never move, so the toolbar never reflows under the pointer; only
-   * the middle swaps, and it announces what it is now editing.
-   */
   .overlay-step-toolbar {
     flex: 0 0 ${OVERLAY_TOOLBAR_HEIGHT_PX}px;
     display: flex;
@@ -1583,7 +1417,6 @@ export const AUTHORING_OVERLAY_SHELL_CSS = `
     min-width: 0;
     height: ${OVERLAY_TOOLBAR_HEIGHT_PX}px;
     padding: 0 6px;
-    /* Never sideways: what does not fit moves into the trailing menu (§4.2a). */
     overflow: hidden;
     ${glassSurface}
     border-radius: ${OVERLAY_TOOLBAR_RADIUS_PX}px;
@@ -1591,17 +1424,11 @@ export const AUTHORING_OVERLAY_SHELL_CSS = `
     white-space: nowrap;
   }
 
-  /* Docked: no room above or below the card, so it takes the top edge. */
   .overlay-step-toolbar[data-anchor='docked'] {
     border-top: none;
     border-radius: 0 0 ${OVERLAY_TOOLBAR_RADIUS_PX}px ${OVERLAY_TOOLBAR_RADIUS_PX}px;
   }
 
-  /**
-   * Nothing is selected inside the card, so the middle offers the step's own parts
-   * and nothing else (§4.2a rule 4). The editor's formatting controls appear the
-   * moment the caret lands in text, which is the only moment they mean anything.
-   */
   .overlay-step-toolbar[data-context='step'] .overlay-step-toolbar-slot {
     display: none;
   }
@@ -1620,11 +1447,6 @@ export const AUTHORING_OVERLAY_SHELL_CSS = `
     overflow: hidden;
   }
 
-  /*
-   * Only the middle clips (§4.2a). The frame's own controls — Insert on the left,
-   * assist, undo and the inspector on the right — must survive any context, so
-   * the overflow is contained here rather than on the bar.
-   */
   .overlay-step-toolbar-context {
     display: flex;
     flex: 1 1 auto;
@@ -1634,12 +1456,6 @@ export const AUTHORING_OVERLAY_SHELL_CSS = `
     overflow: hidden;
   }
 
-  /*
-   * Stepped down by useToolbarFit rather than clipped. Labels go first; the
-   * context label goes last, because it is the only part that says what the
-   * middle is editing. No control is ever removed — the glyph and its title
-   * remain, so everything stays reachable at any card width.
-   */
   .overlay-step-toolbar-context[data-toolbar-fit='icons'] .overlay-toolbar-control > span,
   .overlay-step-toolbar-context[data-toolbar-fit='icons'] .toolbar-style-trigger > span,
   .overlay-step-toolbar-context[data-toolbar-fit='compact'] .overlay-toolbar-control > span,
@@ -1669,16 +1485,10 @@ export const AUTHORING_OVERLAY_SHELL_CSS = `
     }
   }
 
-  /* Names what the middle is editing, so the swap is never a guess. */
   .overlay-step-toolbar-label {
     flex: 0 0 auto;
     padding: 0 7px 0 3px;
     color: var(--lq-color-muted);
-    /*
-     * Off the 8/10/12 workspace ladder on purpose: at 8px the label was a smudge
-     * beside 12.5px controls, and this bar is measured against the customer's
-     * product rather than against the workspace.
-     */
     font-size: var(--lq-font-xs);
     font-weight: var(--lq-weight-bold);
     letter-spacing: 0.09em;
@@ -1691,7 +1501,6 @@ export const AUTHORING_OVERLAY_SHELL_CSS = `
     width: 1px;
     height: 18px;
     margin: 0 4px;
-    /* The control border, not the panel border: this divides controls. */
     background: var(--lq-color-control-border);
   }
 
@@ -1708,11 +1517,9 @@ export const AUTHORING_OVERLAY_SHELL_CSS = `
     background: transparent;
     color: var(--lq-color-ink);
     cursor: pointer;
-    /* Half a pixel off the ladder, and the one size the bar reads right at. */
     font-size: var(--lq-font-md);
   }
 
-  /* A named part of the step: icon, current value, chevron. Text, so it reads. */
   .overlay-toolbar-control {
     padding: 0 10px;
     white-space: nowrap;
@@ -1722,11 +1529,7 @@ export const AUTHORING_OVERLAY_SHELL_CSS = `
     background: var(--lq-color-control-hover);
   }
 
-  /*
-   * An icon beside a label is a flex item, and flex will shrink an SVG to zero
-   * before it wraps the text — which is exactly how the Insert glyph vanished the
-   * moment the word was added next to it.
-   */
+  /* Flex shrinks an SVG to zero before it wraps text, which is how the glyph vanished. */
   .overlay-step-toolbar button > svg {
     flex: none;
   }
@@ -1742,11 +1545,6 @@ export const AUTHORING_OVERLAY_SHELL_CSS = `
     font-weight: var(--lq-weight-bold);
   }
 
-  /*
-   * The editor's own toolbar buttons are 36px squares; Insert is a *worded*
-   * control on this bar, so it sizes to its label instead. Without this the
-   * label overflowed a square and printed on top of the context label beside it.
-   */
   .overlay-step-toolbar-insert {
     display: flex;
     flex: none;
@@ -1760,8 +1558,6 @@ export const AUTHORING_OVERLAY_SHELL_CSS = `
     padding: 0 10px !important;
   }
 
-  /* Step context: named parts of the step, not glyphs. Text, so they read. */
-  /* Readiness beside the step's name, worded rather than colour-only. */
   .overlay-step-inspector-status {
     flex: none;
     margin-left: auto;
@@ -1780,7 +1576,6 @@ export const AUTHORING_OVERLAY_SHELL_CSS = `
     border-color: var(--lq-color-danger);
   }
 
-  /* Named step style, on the bar (§6.2). */
   .toolbar-style-picker {
     position: relative;
     display: flex;
@@ -1815,12 +1610,6 @@ export const AUTHORING_OVERLAY_SHELL_CSS = `
     border-radius: 3px;
   }
 
-  /*
-   * The assist loop lands under the card rather than over it: a proposal is read
-   * against the step it changes, and covering that step to show a diff of it is
-   * the one thing this surface must not do. A fourth absolutely positioned peer,
-   * for the same reason as the other three — nothing may push the card.
-   */
   .overlay-step-assist:empty {
     display: none;
   }
@@ -1848,27 +1637,50 @@ export const AUTHORING_OVERLAY_SHELL_CSS = `
   .overlay-step-card.rich-step-content {
     display: flex;
     flex: 1 1 0;
-    /* The authored width, published by the host — never the toolbar's. */
     width: var(--overlay-card-width, 100%);
     max-width: 100%;
     flex-direction: column;
-    /* The authored height. Content may grow past it; it never shrinks below. */
     min-height: var(--overlay-card-height, 0px);
-    /*
-     * ...but only up to what the viewport can show. The card had a floor and no
-     * roof, so a step with a dozen blocks grew past the frame and painted its
-     * content over the page. The overflow rule below was already here and never
-     * fired,
-     * because nothing ever constrained the box for it to overflow.
-     */
     max-height: var(--overlay-card-max-height, none);
     overflow: auto;
     resize: none;
-    padding-left: var(--lq-tour-composition-padding, var(--lq-space-3, 12px));
-    background: var(--lq-tour-surface, #fff);
-    color: var(--lq-tour-text-color, var(--lq-color-ink));
-    border-radius: 12px;
-    box-shadow: var(--lq-shadow-popover);
+    /* All four sides, per axis, as the runtime pads it. This was padding-left alone. */
+    padding: var(
+        --lq-tour-composition-padding-block,
+        var(--lq-tour-composition-padding, var(--lq-tour-spacing, var(--lq-space-3, 12px)))
+      )
+      var(
+        --lq-tour-composition-padding-inline,
+        var(--lq-tour-composition-padding, var(--lq-tour-spacing, var(--lq-space-3, 12px)))
+      );
+    /*
+     * Every declaration below reads the same variable the runtime's own card
+     * reads, in the same fallback order. The variables are already correct here
+     * — the overlay applies the full resolved theme from resolveTourThemeStyle
+     * — so what a creator saw was this sheet not asking for them: the border was
+     * missing entirely, the radius was a hard-coded 12px, the shadow was the
+     * editor's own popover token, and the font was the editor's UI font.
+     *
+     * Editor-token fallbacks stay for the case where no theme has landed yet,
+     * but the theme wins whenever there is one. Anything not listed here is
+     * canvas chrome and is allowed to differ.
+     */
+    background: var(--lq-popup-surface, var(--lq-tour-surface, var(--lq-color-panel)));
+    color: var(--lq-popup-text, var(--lq-tour-text-color, var(--lq-color-ink)));
+    border: var(--lq-tour-border-width, 0px) solid
+      var(--lq-popup-border, var(--lq-tour-border-color, transparent));
+    border-radius: var(--lq-tour-radius, 12px);
+    font-family: var(--lq-tour-font-family, inherit);
+    box-shadow: var(--lq-tour-elevation, var(--lq-shadow-popover));
+  }
+
+  /* The presets lived only in the inspector's sheet, which the overlay never loads. */
+  .overlay-step-card.rich-step-content[data-lodariq-composition-padding='compact'] {
+    --lq-tour-composition-padding: var(--lq-tour-space-sm, var(--lq-space-2, 8px));
+  }
+
+  .overlay-step-card.rich-step-content[data-lodariq-composition-padding='relaxed'] {
+    --lq-tour-composition-padding: var(--lq-tour-space-lg, var(--lq-space-4, 16px));
   }
 
   .overlay-step-card.rich-step-content[data-lodariq-popup-radius='square'] {
@@ -1876,15 +1688,39 @@ export const AUTHORING_OVERLAY_SHELL_CSS = `
   }
 
   .overlay-step-card.rich-step-content[data-lodariq-popup-radius='soft'] {
-    border-radius: 8px;
+    border-radius: var(--lq-tour-radius-sm, 8px);
   }
 
   .overlay-step-card.rich-step-content[data-lodariq-popup-radius='round'] {
-    border-radius: 16px;
+    border-radius: var(--lq-tour-radius-lg, 16px);
+  }
+
+  .overlay-step-card.rich-step-content[data-lodariq-popup-border-weight='none'] {
+    border-width: 0;
+  }
+
+  .overlay-step-card.rich-step-content[data-lodariq-popup-border-weight='hairline'] {
+    border-width: var(--lq-tour-border-width-subtle, 1px);
+  }
+
+  .overlay-step-card.rich-step-content[data-lodariq-popup-border-weight='strong'] {
+    border-width: var(--lq-tour-border-width-strong, 2px);
+  }
+
+  .overlay-step-card.rich-step-content[data-lodariq-popup-elevation='none'] {
+    box-shadow: none;
+  }
+
+  .overlay-step-card.rich-step-content[data-lodariq-popup-elevation='resting'] {
+    box-shadow: var(--lq-tour-elevation-resting, var(--lq-shadow-popover));
+  }
+
+  .overlay-step-card.rich-step-content[data-lodariq-popup-elevation='floating'] {
+    box-shadow: var(--lq-tour-elevation-floating, var(--lq-shadow-popover));
   }
 
   .overlay-step-card.rich-step-content:focus-within {
-    box-shadow: var(--lq-shadow-popover);
+    box-shadow: var(--lq-tour-elevation, var(--lq-shadow-popover));
   }
 
   .overlay-step-card .rich-content-editor {
@@ -1893,22 +1729,24 @@ export const AUTHORING_OVERLAY_SHELL_CSS = `
     overflow: auto;
   }
 
+  /* The step's own text colour first, the theme's second — same order as the card. */
   .overlay-step-card .rich-content-canvas {
     min-height: 0;
-    caret-color: var(--lq-tour-text-color, currentColor);
+    caret-color: var(--lq-popup-text, var(--lq-tour-text-color, currentColor));
     font-size: var(--lq-font-md);
   }
 
   .overlay-step-card .rich-content-placeholder {
     font-size: var(--lq-font-md);
-    color: color-mix(in srgb, var(--lq-tour-text-color, currentColor) 42%, transparent);
+    color: color-mix(
+      in srgb,
+      var(--lq-popup-muted-text, var(--lq-tour-muted-text-color, var(--lq-tour-text-color, currentColor)))
+        42%,
+      transparent
+    );
   }
 
-  /**
-   * Controls sitting on glass need their own fill. The workspace styles paint them
-   * with --lq-color-page, which is transparent here by design — so without this
-   * the block-style chip and the selects lose their edges against the card behind.
-   */
+  /* --lq-color-page is transparent here, so controls on glass need their own fill. */
   .overlay-step-toolbar .rich-content-block-style-trigger,
   .overlay-step-toolbar .ui-select-trigger,
   .overlay-step-toolbar .ui-number-combobox-trigger {
@@ -1923,7 +1761,6 @@ export const AUTHORING_OVERLAY_SHELL_CSS = `
     background: var(--lq-color-control-hover) !important;
   }
 
-  /* Glyph buttons stay transparent until touched, exactly as the prototype has them. */
   .overlay-step-toolbar .rich-content-toolbar > button,
   .overlay-step-toolbar .rich-content-toolbar-popover > button,
   .overlay-step-toolbar .rich-content-color-control {
@@ -1956,7 +1793,6 @@ export const AUTHORING_OVERLAY_SHELL_CSS = `
     color: var(--lq-color-muted);
   }
 
-  /* An unplaced step's one job, so it reads as the action and not as a chip. */
   .overlay-step-toolbar .overlay-choose-target {
     display: flex;
     align-items: center;
@@ -1967,11 +1803,6 @@ export const AUTHORING_OVERLAY_SHELL_CSS = `
     padding: 0 9px;
   }
 
-  /*
-   * With a target set the control is a glyph — the step already shows what it
-   * points at. Without one it keeps its words, because a bare crosshair does not
-   * tell a creator the step is unfinished.
-   */
   .overlay-step-toolbar .overlay-choose-target[data-has-target='true'] {
     border-color: transparent;
     background: transparent;
@@ -1987,12 +1818,6 @@ export const AUTHORING_OVERLAY_SHELL_CSS = `
     background: var(--lq-color-control-hover);
   }
 
-  /*
-   * A glyph button is a toolbar button like any other: same height, ink and
-   * size. This is the shared look; the settings class below is an identity,
-   * worn only by the inspector's single entry point (§4.2a). They were one
-   * class, so Undo and Assist both answered to the inspector's name.
-   */
   .overlay-step-toolbar .overlay-toolbar-glyph {
     color: var(--lq-color-ink);
     font-size: var(--lq-font-md);
@@ -2005,7 +1830,6 @@ export const AUTHORING_OVERLAY_SHELL_CSS = `
     color: var(--lq-color-on-primary);
   }
 
-  /* Sections, not tabs (§4.3). One rule set for every inspector. */
   .content-inspector-title {
     font-size: var(--lq-font-md);
     letter-spacing: -0.01em;
@@ -2021,22 +1845,16 @@ export const AUTHORING_OVERLAY_SHELL_CSS = `
     padding: 9px 10px;
   }
 
-  /*
-   * One row, whatever the step is called. A long heading truncates rather than
-   * wrapping the tag onto a second line and pushing every section down.
-   */
   .overlay-step-inspector-header strong {
     min-width: 0;
     overflow: hidden;
     font-size: var(--lq-font-md);
-    /* Semibold, not the UA's bold: a title, not a shout. */
     font-weight: var(--lq-weight-semibold);
     letter-spacing: -0.01em;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
 
-  /* A 24px square, not a tray-sized button: this popover has no tray chrome. */
   .overlay-step-inspector .storyboard-tray-close {
     display: grid;
     place-items: center;
@@ -2081,22 +1899,15 @@ export const AUTHORING_OVERLAY_SHELL_CSS = `
     display: none;
   }
 
-  /*
-   * Barely there, and deliberately so: the row is 320px wide and full-bleed, so
-   * a control-strength hover reads as a selection rather than as a pointer.
-   */
   .inspector-section > summary:hover {
     background: color-mix(in srgb, var(--lq-color-ink-strong) 4%, transparent);
   }
 
-  /* Pure white: the open section is the one place a list of seven needs to
-     name where the creator is, and ink alone did not separate it enough. */
   .inspector-section[open] > summary {
     color: var(--lq-color-ink-strong);
     font-weight: var(--lq-weight-semibold);
   }
 
-  /* Points right when closed, down when open — the state, not a decoration. */
   .inspector-section-chevron {
     flex: none;
     margin-left: auto;
@@ -2118,24 +1929,11 @@ export const AUTHORING_OVERLAY_SHELL_CSS = `
     padding: 2px 11px 12px;
   }
 
-  /*
-   * The block inspector's rows sit straight in the section body, while the
-   * card's sit inside a grid that adds 8px between them — so the same 26px row
-   * came out on a 33px pitch here and a 41px pitch there, and the two panels
-   * read as different densities. One rhythm, set in one place.
-   */
   ${inspector} .storyboard-property-tray[data-tool-mode='content'] .inspector-section-body {
     display: grid;
     gap: 8px;
   }
 
-  /*
-   * §4.3's field vocabulary. The prototype gives every value in the inspector
-   * the same control size, so a section reads as a column of rows rather than a
-   * collage of differently-sized widgets. These are scoped to the inspector
-   * because the same controls are a comfortable size in the workspace, where
-   * there is room; here there is 320px and seven sections.
-   */
   .overlay-step-inspector input[type='number'],
   .overlay-step-inspector input[type='text'],
   .overlay-step-inspector textarea {
@@ -2143,17 +1941,14 @@ export const AUTHORING_OVERLAY_SHELL_CSS = `
   }
 
   .overlay-step-inspector input[type='number'] {
-    /* Digits that line up down a column read as a scale, not as a list. */
     font-variant-numeric: tabular-nums;
     text-align: right;
   }
 
-  /* Operations → Check (§4.6). Severity is carried by a word plus a count, never colour alone. */
   .operations-check {
     display: block;
   }
 
-  /* How bad, and against how much — four numbers read faster than eleven rows. */
   .operations-check-tally {
     margin-bottom: 14px;
   }
@@ -2191,7 +1986,6 @@ export const AUTHORING_OVERLAY_SHELL_CSS = `
     margin-bottom: 14px;
   }
 
-  /* Target section (§4.4): one of three states, its meaning, and what to do. */
   .step-target-section {
     display: grid;
     gap: 6px;
@@ -2213,7 +2007,6 @@ export const AUTHORING_OVERLAY_SHELL_CSS = `
     color: var(--lq-color-primary);
   }
 
-  /* The token names are success/warning; positive/attention resolve to nothing. */
   .step-target-state[data-tone='positive'] .step-target-state-label {
     background: var(--lq-color-success-soft);
     color: var(--lq-color-success);
@@ -2255,11 +2048,6 @@ export const AUTHORING_OVERLAY_SHELL_CSS = `
     padding: 7px 11px;
   }
 
-  /*
-   * Nested target concerns. Quieter than a top-level section — a row inside a
-   * section has to read as a level down, or the Target section looks like six
-   * sections that lost their heading.
-   */
   .target-subsections {
     display: grid;
     gap: 1px;
@@ -2268,7 +2056,6 @@ export const AUTHORING_OVERLAY_SHELL_CSS = `
     padding-top: 6px;
   }
 
-  /* Smaller and quieter than a section heading, or it reads as a sixth section. */
   .target-subsection > summary {
     display: flex;
     align-items: center;
@@ -2307,7 +2094,6 @@ export const AUTHORING_OVERLAY_SHELL_CSS = `
     padding: 4px 7px 10px;
   }
 
-  /* §4.3 target rows: Evidence, Approach and Repair bodies. */
   .target-evidence-rows {
     display: grid;
     gap: 5px;
@@ -2341,7 +2127,6 @@ export const AUTHORING_OVERLAY_SHELL_CSS = `
     text-align: right;
   }
 
-  /* Numbered, because the order of the legs is the recipe. */
   .target-approach-legs {
     display: grid;
     gap: 5px;
@@ -2360,6 +2145,57 @@ export const AUTHORING_OVERLAY_SHELL_CSS = `
     color: var(--lq-color-ink);
   }
 
+  .target-approach-legs li > span {
+    flex: 1;
+  }
+
+  .target-approach-legs input {
+    min-width: 0;
+    flex: 1;
+    border: 1px solid var(--lq-color-border);
+    border-radius: var(--lq-radius-sm);
+    background: var(--lq-color-panel);
+    color: var(--lq-color-ink);
+    font: inherit;
+    padding: 4px 6px;
+  }
+
+  .target-approach-leg-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+  }
+
+  .target-approach-leg-actions button {
+    display: grid;
+    width: 22px;
+    height: 22px;
+    place-items: center;
+    border: 0;
+    border-radius: var(--lq-radius-sm);
+    background: transparent;
+    color: var(--lq-color-muted);
+  }
+
+  .target-approach-leg-actions button:not(:disabled):hover {
+    background: var(--lq-color-primary-soft);
+    color: var(--lq-color-primary);
+  }
+
+  .target-approach-outcome {
+    margin: 8px 0 0;
+    color: var(--lq-color-muted);
+    font-size: var(--lq-font-xs);
+  }
+
+  .target-approach-outcome.is-pass {
+    color: var(--lq-color-success);
+  }
+
+  .target-approach-outcome.is-fail {
+    color: var(--lq-color-danger);
+  }
+
   .target-approach-index {
     display: grid;
     width: 16px;
@@ -2371,6 +2207,10 @@ export const AUTHORING_OVERLAY_SHELL_CSS = `
     color: var(--lq-color-primary);
     font-size: var(--lq-font-xs);
     font-weight: var(--lq-weight-bold);
+  }
+
+  .target-approach-leg-actions {
+    flex: none;
   }
 
   .target-approach-empty,
@@ -2398,7 +2238,6 @@ export const AUTHORING_OVERLAY_SHELL_CSS = `
     flex: none;
   }
 
-  /* Style reuse (§6.2). Every row is a labelled control, never a bare glyph. */
   .step-style-reuse-actions {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -2475,7 +2314,6 @@ export const AUTHORING_OVERLAY_SHELL_CSS = `
     padding: 5px 6px;
   }
 
-  /* Destructive, so it is stated in words and coloured — never colour alone. */
   .step-danger-zone {
     display: grid;
     gap: 4px;
@@ -2525,7 +2363,6 @@ export const AUTHORING_OVERLAY_SHELL_CSS = `
     min-height: 0;
   }
 
-  /* Nav rail beside a scrolling body — the prototype's #sheet exactly. */
   .operations-hub {
     display: grid;
     grid-template-columns: 214px minmax(0, 1fr);
@@ -2545,7 +2382,6 @@ export const AUTHORING_OVERLAY_SHELL_CSS = `
     padding: 12px 9px;
   }
 
-  /* Names the surface you are standing on, since the sheet has no other chrome. */
   .operations-hub-brand {
     display: flex;
     align-items: center;
@@ -2558,7 +2394,6 @@ export const AUTHORING_OVERLAY_SHELL_CSS = `
     letter-spacing: -0.02em;
   }
 
-  /* The experience's name, where the rest of its document settings live. */
   .operations-hub-title {
     display: flex;
     flex-direction: column;
@@ -2621,14 +2456,22 @@ export const AUTHORING_OVERLAY_SHELL_CSS = `
     color: var(--lq-color-ink-strong);
   }
 
+  .operations-hub-nav button:disabled {
+    cursor: not-allowed;
+    opacity: 0.48;
+  }
+
+  .operations-hub-nav button:disabled:hover {
+    background: none;
+    color: var(--lq-color-muted);
+  }
+
   .operations-hub-nav button[aria-current='page'] {
     background: var(--lq-sheet-nav-active);
     color: var(--lq-color-ink-strong);
     font-weight: var(--lq-weight-semibold);
   }
 
-  /* Fixed box: the glyphs differ in width, and a ragged label column is what
-     makes a sixteen-row list unscannable. */
   .operations-hub-nav-icon {
     display: grid;
     width: 15px;
@@ -2641,8 +2484,6 @@ export const AUTHORING_OVERLAY_SHELL_CSS = `
     flex: 1;
   }
 
-  /* What the section would tell you, on the row instead. Never colour alone —
-     the count is the message and the aria-label spells it out. */
   .operations-hub-badge {
     margin-left: auto;
     border-radius: 9px;
@@ -2663,7 +2504,6 @@ export const AUTHORING_OVERLAY_SHELL_CSS = `
     color: var(--lq-tag-bad-ink);
   }
 
-  /* Pinned to the floor of the nav, under everything the groups put above it. */
   .operations-hub-plan {
     margin-top: auto;
   }
@@ -2683,11 +2523,6 @@ export const AUTHORING_OVERLAY_SHELL_CSS = `
     padding: 22px 26px 46px;
   }
 
-  /*
-   * Over the content it dismisses, not in a bar above it. The sheet has no
-   * header to hold a back button, and a creator who opens Operations by accident
-   * should find the way out without reading anything.
-   */
   .operations-hub-close {
     position: absolute;
     right: 16px;
@@ -2714,18 +2549,11 @@ export const AUTHORING_OVERLAY_SHELL_CSS = `
     font: var(--lq-font-xs) ui-monospace, SFMono-Regular, Menlo, monospace;
   }
 
-  /*
-   * The section's name and opening line, inside the body so they scroll with it
-   * (§4.6). Measured at 74ch, not full width: past about that the eye loses the
-   * start of the next line.
-   */
   .operations-hub-head {
     max-width: 74ch;
     margin-bottom: 18px;
   }
 
-  /* Hugs its text. As a full-width flex block the focus ring drew a box the
-     whole measure wide around a two-word heading. */
   .operations-hub-head h2 {
     display: flex;
     width: max-content;
@@ -2738,16 +2566,11 @@ export const AUTHORING_OVERLAY_SHELL_CSS = `
     letter-spacing: -0.025em;
   }
 
-  /* Focus lands here on every section change, to move the screen reader to the
-     new section. The heading is not interactive and Chrome still treats a
-     scripted focus after a keypress as focus-visible, so it drew a ring around
-     a title nobody had tabbed to. Announcement is the point; the ring is not. */
   .operations-hub-head h2:focus,
   .operations-hub-head h2:focus-visible {
     outline: none;
   }
 
-  /* The glyph is shared with the nav, which needs it at 15. */
   .operations-hub-head h2 svg {
     width: 18px;
     height: 18px;
@@ -2761,7 +2584,6 @@ export const AUTHORING_OVERLAY_SHELL_CSS = `
     line-height: 1.65;
   }
 
-  /* The map is a canvas, not a document: it takes the body whole. */
   .operations-hub-body:has(.tour-flow-map-workspace) {
     display: flex;
     flex-direction: column;
@@ -2795,8 +2617,6 @@ export const AUTHORING_OVERLAY_SHELL_CSS = `
       white-space: nowrap;
     }
 
-    /* A horizontal scroller has no floor to pin these to, and neither is worth a
-       row of one. */
     .operations-hub-brand,
     .operations-hub-group-label,
     .operations-hub-plan,
@@ -2806,6 +2626,10 @@ export const AUTHORING_OVERLAY_SHELL_CSS = `
 
     .operations-hub-body {
       padding: 16px 16px 32px;
+    }
+
+    .operations-hub-head {
+      padding-right: 94px;
     }
 
     .operations-check-tally {

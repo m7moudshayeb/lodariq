@@ -47,6 +47,8 @@ export function trackTourTarget(options: TrackTourTargetOptions): () => void {
   let clearPosition = (): void => {};
   let updatePosition = (): void => {};
   let clearTargetAction = (): void => {};
+  let clearViewportFocus = (): void => {};
+  let bindId = 0;
   let revalidationTimer: ReturnType<typeof setTimeout> | null = null;
   let unavailable = false;
   let focusedOnce = false;
@@ -55,17 +57,22 @@ export function trackTourTarget(options: TrackTourTargetOptions): () => void {
   const markUnavailable = (): void => {
     if (!unavailable) blurHiddenTourCard(options.shadow, options.card);
     options.card.hidden = true;
+    options.card.style.removeProperty('visibility');
     if (options.targetOutline) options.targetOutline.hidden = true;
     if (options.backdrop) options.backdrop.hidden = true;
     unavailable = true;
+    clearViewportFocus();
+    clearViewportFocus = () => {};
     clearTargetAction();
     clearTargetAction = () => {};
   };
 
   const bind = (anchor: ResolvedAnchor): void => {
+    const currentBindId = ++bindId;
     const target = anchor.element;
     clearPosition();
     clearTargetAction();
+    clearViewportFocus();
     currentAnchor = anchor;
     currentTarget = target;
     unavailable = false;
@@ -73,7 +80,33 @@ export function trackTourTarget(options: TrackTourTargetOptions): () => void {
     if (!options.authoringPreviewOwnerId || options.authoringPreviewInteractive) {
       options.scrollForLifecycle(target);
     }
-    const position = positionTrackedTourTarget(options, anchor, handleOwnerAvailability);
+    const viewportFocus = prepareViewportFocus(
+      options,
+      target,
+      () => unavailable || currentTarget !== target || bindId !== currentBindId,
+    );
+    const viewportReady = viewportFocus?.then((cleanup) => {
+      if (!unavailable && currentTarget === target && bindId === currentBindId) {
+        clearViewportFocus = cleanup;
+      } else cleanup();
+    });
+    options.card.style.visibility = 'hidden';
+    options.card.hidden = false;
+    const position = positionTrackedTourTarget(
+      options,
+      anchor,
+      handleOwnerAvailability,
+      viewportReady,
+      () => {
+        if (
+          !focusedOnce &&
+          (!options.authoringPreviewOwnerId || options.authoringPreviewInteractive)
+        ) {
+          focusedOnce = true;
+          focusTourCard(options.card);
+        }
+      },
+    );
     clearPosition = position.stop;
     updatePosition = position.update;
     if (!canOwnPresentation(anchor)) {
@@ -89,17 +122,12 @@ export function trackTourTarget(options: TrackTourTargetOptions): () => void {
       observePresentationOwnerRoots();
       return;
     }
-    options.card.hidden = false;
     clearTargetAction =
       anchor.interactionSafe &&
       (!options.authoringPreviewOwnerId || options.authoringPreviewInteractive) &&
       stepWaitsForTargetClick(options.step)
         ? options.armTargetClickAdvance(target, handleInvalidOwnerClick)
         : () => {};
-    if (!focusedOnce && (!options.authoringPreviewOwnerId || options.authoringPreviewInteractive)) {
-      focusedOnce = true;
-      focusTourCard(options.card);
-    }
     observePresentationOwnerRoots();
   };
 
@@ -179,10 +207,12 @@ export function trackTourTarget(options: TrackTourTargetOptions): () => void {
   observePresentationOwnerRoots();
 
   return () => {
+    bindId += 1;
     observer?.disconnect();
     if (revalidationTimer) clearTimeout(revalidationTimer);
     clearPosition();
     clearTargetAction();
+    clearViewportFocus();
     options.onSurfaceChange?.(null);
   };
 }
@@ -191,15 +221,19 @@ function positionTrackedTourTarget(
   options: TrackTourTargetOptions,
   anchor: ResolvedAnchor,
   onOwnerAvailabilityChange: (available: boolean) => void,
+  viewportReady: Promise<void> | undefined,
+  onPresented: () => void,
 ): { stop: () => void; update: () => void } {
   let active = true;
   let framePending = false;
+  let viewportReadyToPosition = !viewportReady;
+  let presentCard: Promise<void> | null = null;
   const owner = anchor.element;
   const reference = positioningReference(anchor, options.step.presentationAnchor);
   const placement = anchoredPlacement(options.step);
   const updateNow = (): void => {
     framePending = false;
-    if (!active) return;
+    if (!active || !viewportReadyToPosition) return;
     if (!canOwnPresentation(anchor)) {
       onOwnerAvailabilityChange(false);
       return;
@@ -233,14 +267,23 @@ function positionTrackedTourTarget(
       .then(({ x, y, placement: resolvedPlacement, middlewareData }) => {
         if (!active || !canOwnPresentation(anchor)) return;
         Object.assign(options.card.style, { position: 'fixed', left: `${x}px`, top: `${y}px` });
+        presentCard ??= presentTrackedCard(options, anchor, { x, y }, () => active);
+        return presentCard.then(() => ({ resolvedPlacement, middlewareData }));
+      })
+      .then((position) => {
+        if (!position || !active || !canOwnPresentation(anchor)) return;
+        const { resolvedPlacement, middlewareData } = position;
         positionTourArrow(options.arrow, resolvedPlacement, middlewareData.arrow);
         if (options.authoringPreviewOwnerId) {
           options.onSurfaceChange?.(rectFromDomRect(options.card.getBoundingClientRect(), 4));
         }
         options.onPositioned();
+        onPresented();
       })
       .catch((error: unknown) => {
         if (!active) return;
+        options.card.style.removeProperty('visibility');
+        options.card.hidden = true;
         if (options.targetOutline) options.targetOutline.hidden = true;
         if (options.backdrop) options.backdrop.hidden = true;
         options.onPositionError(normalizeTourPresentationError(error));
@@ -258,13 +301,25 @@ function positionTrackedTourTarget(
     ...presentationOwnerObservationRoots(owner).filter((root) => shadowRootHost(root)),
   ];
   resizeObserver?.observe(owner);
-  updateNow();
+  if (viewportReady) {
+    void viewportReady
+      .then(() => {
+        viewportReadyToPosition = true;
+        updateNow();
+      })
+      .catch((error: unknown) => {
+        if (active) options.onPositionError(normalizeTourPresentationError(error));
+      });
+  } else {
+    updateNow();
+  }
   for (const target of scrollTargets) target.addEventListener?.('scroll', update, true);
   ownerWindow.addEventListener?.('resize', update);
   return {
     update,
     stop: () => {
       active = false;
+      options.card.style.removeProperty('visibility');
       if (options.targetOutline) options.targetOutline.hidden = true;
       if (options.backdrop) options.backdrop.hidden = true;
       resizeObserver?.disconnect();
@@ -272,6 +327,39 @@ function positionTrackedTourTarget(
       ownerWindow.removeEventListener?.('resize', update);
     },
   };
+}
+
+function prepareViewportFocus(
+  options: TrackTourTargetOptions,
+  target: Element,
+  isUnavailable: () => boolean,
+): Promise<() => void> | undefined {
+  if (
+    !options.step.emphasis?.viewportFocus ||
+    (options.authoringPreviewOwnerId && !options.authoringPreviewInteractive)
+  ) {
+    return undefined;
+  }
+  return import('./tour-viewport-focus').then(({ applyViewportFocus }) => {
+    if (!options.isCurrentRender() || isUnavailable()) return () => {};
+    return applyViewportFocus(options.step, target, options.host);
+  });
+}
+
+async function presentTrackedCard(
+  options: TrackTourTargetOptions,
+  anchor: ResolvedAnchor,
+  position: { x: number; y: number },
+  isActive: () => boolean,
+): Promise<void> {
+  if (options.step.motion) {
+    const { positionStepMotionOrigin, restartStepEntryMotion } =
+      await import('./tour-presentation-effects');
+    if (!isActive()) return;
+    positionStepMotionOrigin(options.card, anchor.getBoundingClientRect(), position);
+    restartStepEntryMotion(options.card);
+  }
+  if (isActive()) options.card.style.removeProperty('visibility');
 }
 
 function scheduleAnimationFrame(view: Window | null, callback: () => void): void {

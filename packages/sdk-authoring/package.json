@@ -27,6 +27,11 @@
       "types": "./src/authoring/reliability.ts",
       "import": "./dist/authoring/reliability.js"
     },
+    "./authoring-collaboration-transport": {
+      "source": "./src/authoring/operations/collaboration-transport.ts",
+      "types": "./dist/authoring-collaboration-transport.d.ts",
+      "import": "./dist/authoring-collaboration-transport.js"
+    },
     "./hosted-entry": {
       "source": "./src/hosted-entry.ts",
       "types": "./dist/hosted-entry.d.ts",
@@ -104,7 +109,6 @@
     "@lodariq/schema": "workspace:*",
     "@lodariq/sdk-runtime": "workspace:*",
     "@radix-ui/react-popover": "^1.1.17",
-    "@radix-ui/react-select": "^2.3.1",
     "@radix-ui/react-tabs": "^1.1.15",
     "@xyflow/react": "^12.11.3",
     "frimousse": "^0.3.0",

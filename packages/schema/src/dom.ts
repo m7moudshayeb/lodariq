@@ -112,12 +112,30 @@ const COLLECTION_ROLES = new Set([
   'table',
   'grid',
   'treegrid',
-  'menu',
-  'menubar',
-  'tablist',
   'feed',
   'rowgroup',
   'row',
+]);
+
+/**
+ * `menu`, `menubar` and `tablist` are containers of commands, which is what ARIA
+ * defines them as. Their children are the product's own chrome, not its records:
+ * the second tab is the same tab tomorrow. Counting them as collections asked the
+ * creator which of three tabs they meant, about a row of tabs they had just
+ * clicked — the question is only worth asking where position means a record.
+ */
+const CONTROL_TAGS = new Set(['button', 'a', 'input', 'select', 'textarea', 'summary', 'label']);
+const CONTROL_ROLES = new Set([
+  'button',
+  'link',
+  'checkbox',
+  'radio',
+  'switch',
+  'tab',
+  'menuitem',
+  'menuitemcheckbox',
+  'menuitemradio',
+  'option',
 ]);
 
 const COLLECTION_TAGS = new Set(['ul', 'ol', 'table', 'thead', 'tbody', 'tfoot', 'tr', 'dl']);
@@ -127,16 +145,25 @@ const REPEATED_CHILD_THRESHOLD = 3;
 /** Enough to recognise repetition without walking a thousand-row table. */
 const REPEATED_CHILD_SAMPLE = 12;
 
-/** Whether the element sits inside a list, table or other repeated-data container. */
+/**
+ * Whether the element's own position is a fact about data rather than layout.
+ *
+ * The question is whether the element *is* one of the repeated things — not
+ * whether repetition exists somewhere above it. Asking the wider question made
+ * one card grid anywhere on the page refuse positional evidence to every control
+ * on it, including a toolbar button eleven levels away from the grid.
+ */
 export function isInsideCollection(element: Element, maxHops = 12): boolean {
-  let node: Element | null = parentAcrossOpenShadow(element);
+  let node: Element = element;
   let hops = 0;
-  while (node && hops < maxHops) {
-    if (COLLECTION_TAGS.has(node.tagName.toLowerCase())) return true;
-    const role = node.getAttribute('role')?.trim().toLowerCase();
+  while (hops < maxHops) {
+    const parent = parentAcrossOpenShadow(node);
+    if (!parent) return false;
+    if (COLLECTION_TAGS.has(parent.tagName.toLowerCase())) return true;
+    const role = parent.getAttribute('role')?.trim().toLowerCase();
     if (role && COLLECTION_ROLES.has(role)) return true;
-    if (hasRepeatedChildren(node)) return true;
-    node = parentAcrossOpenShadow(node);
+    if (isRepeatedItem(node, parent)) return true;
+    node = parent;
     hops += 1;
   }
   return false;
@@ -147,21 +174,55 @@ export function isInsideCollection(element: Element, maxHops = 12): boolean {
  * reads as layout by role alone, so positional evidence was admitted into the
  * structure the roles exist to keep it out of. Repetition is the signal a product
  * cannot avoid emitting.
+ *
+ * Repeated *controls* are the exception, and they are the common case: three
+ * buttons in a toolbar are three buttons, not three records. Refusing them left
+ * the row of controls positional evidence exists for as the one place it could
+ * not be used.
  */
-function hasRepeatedChildren(container: Element): boolean {
-  const children = container.children;
+function isRepeatedItem(child: Element, parent: Element): boolean {
+  if (isControlLeaf(child) || !namesItself(child)) return false;
+  const children = parent.children;
   if (children.length < REPEATED_CHILD_THRESHOLD) return false;
+  const shape = shapeOf(child);
   const sampled = Math.min(children.length, REPEATED_CHILD_SAMPLE);
-  const shapes = new Map<string, number>();
+  let seen = 0;
   for (let index = 0; index < sampled; index += 1) {
-    const child = children[index];
-    if (!child) continue;
-    const shape = `${child.tagName}.${child.getAttribute('class')?.trim() ?? ''}`;
-    const seen = (shapes.get(shape) ?? 0) + 1;
+    const sibling = children[index];
+    if (!sibling || shapeOf(sibling) !== shape) continue;
+    seen += 1;
     if (seen >= REPEATED_CHILD_THRESHOLD) return true;
-    shapes.set(shape, seen);
   }
   return false;
+}
+
+/** Role is part of the shape: a `div[role=tablist]` is not one of three plain divs. */
+function shapeOf(element: Element): string {
+  const className = element.getAttribute('class')?.trim() ?? '';
+  return `${element.tagName}.${className}|${element.getAttribute('role')?.trim() ?? ''}`;
+}
+
+/**
+ * A product names the things it repeats — `div.card`, `li[data-row]`, a role.
+ * Three bare `<div>`s are the scaffolding every page is built from, and reading
+ * them as a list made the page's own layout a collection, which put every
+ * control on it out of reach of positional evidence.
+ */
+function namesItself(element: Element): boolean {
+  if (element.getAttribute('class')?.trim()) return true;
+  if (element.getAttribute('role')?.trim()) return true;
+  return [...element.attributes].some((attribute) => attribute.name.startsWith('data-'));
+}
+
+/** A control, and not a container that happens to hold one. */
+function isControlLeaf(element: Element): boolean {
+  const role = element.getAttribute('role')?.trim().toLowerCase();
+  const interactive = role
+    ? CONTROL_ROLES.has(role)
+    : CONTROL_TAGS.has(element.tagName.toLowerCase());
+  if (!interactive) return false;
+  // A card with a button inside it is still a card.
+  return element.querySelector('button, a, input, select, textarea') === null;
 }
 
 /** A table inside a shadow root is still a table; every other walk crosses. */

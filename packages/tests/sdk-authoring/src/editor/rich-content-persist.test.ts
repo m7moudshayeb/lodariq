@@ -2,17 +2,9 @@
 import { act, createElement, useState } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import {
-  $getRoot,
-  $getSelection,
-  $isRangeSelection,
-  getNearestEditorFromDOMNode,
-} from 'lexical';
+import { $getRoot, $getSelection, $isRangeSelection, getNearestEditorFromDOMNode } from 'lexical';
 import type { LodariqBlock } from '@lodariq/schema';
-import {
-  RICH_CONTENT_PERSIST_DEBOUNCE_MS,
-  RichContentEditor,
-} from '@lodariq/sdk-authoring/editor';
+import { RICH_CONTENT_PERSIST_DEBOUNCE_MS, RichContentEditor } from '@lodariq/sdk-authoring/editor';
 
 const INITIAL: LodariqBlock[] = [
   { id: 'p1', type: 'paragraph', content: 'Hello', props: {}, children: [] },
@@ -78,15 +70,13 @@ describe('rich content persist debounce', () => {
     const inspectorHost = document.createElement('div');
     document.body.append(inspectorHost);
     await act(async () => {
-      root.render(
-        createElement(InspectorPersistHarness, { inspectorHost, onPersist }),
-      );
+      root.render(createElement(InspectorPersistHarness, { inspectorHost, onPersist }));
     });
 
     await act(async () => {
       document.querySelector<HTMLButtonElement>('.rich-content-button-preview')?.click();
     });
-    const label = document.querySelector<HTMLInputElement>('[aria-label="Button label"]');
+    const label = document.querySelector<HTMLInputElement>('[aria-label="Label"]');
     if (!label) throw new Error('Button label field is missing');
     await act(async () => {
       label.focus();
@@ -100,10 +90,8 @@ describe('rich content persist debounce', () => {
       await vi.advanceTimersByTimeAsync(RICH_CONTENT_PERSIST_DEBOUNCE_MS + 50);
     });
     expect(onPersist).not.toHaveBeenCalled();
-    expect(document.activeElement).toBe(
-      document.querySelector('[aria-label="Button label"]'),
-    );
-    expect(document.querySelector<HTMLInputElement>('[aria-label="Button label"]')?.value).toBe(
+    expect(document.activeElement).toBe(document.querySelector('[aria-label="Label"]'));
+    expect(document.querySelector<HTMLInputElement>('[aria-label="Label"]')?.value).toBe(
       'Continue now',
     );
 
@@ -151,9 +139,9 @@ describe('rich content persist debounce', () => {
       await vi.advanceTimersByTimeAsync(RICH_CONTENT_PERSIST_DEBOUNCE_MS + 50);
     });
     expect(
-      (
-        onPersist.mock.calls[onPersist.mock.calls.length - 1]?.[0] as LodariqBlock[]
-      ).some((block) => block.type === 'divider'),
+      (onPersist.mock.calls[onPersist.mock.calls.length - 1]?.[0] as LodariqBlock[]).some(
+        (block) => block.type === 'divider',
+      ),
     ).toBe(true);
   });
 });
@@ -207,9 +195,9 @@ function typeInCanvas(text: string): void {
 
 /** Insert-menu rows are named by their visible text, not an `aria-label`. */
 function insertMenuItem(label: string): HTMLButtonElement {
-  const item = [
-    ...document.querySelectorAll<HTMLButtonElement>('[role="menuitem"]'),
-  ].find((candidate) => candidate.textContent?.trim() === label);
+  const item = [...document.querySelectorAll<HTMLButtonElement>('[role="menuitem"]')].find(
+    (candidate) => candidate.textContent?.trim() === label,
+  );
   if (!item) throw new Error(`Insert menu did not offer "${label}"`);
   return item;
 }

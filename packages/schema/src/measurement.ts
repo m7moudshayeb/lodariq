@@ -1,13 +1,19 @@
 import { Type, type Static } from '@sinclair/typebox';
 import { Value } from '@sinclair/typebox/value';
+import { TooltipStyleProps } from './block';
+import { StepTransitionCondition } from './flow';
+import { MediaPresentation } from './presentation';
+import { ADAPTIVE_EVIDENCE_MAX_ITEMS, ADAPTIVE_OCCURRENCE_MAX } from './adaptive-limits';
 
 export const SUCCESS_EVENT_WINDOW_DAYS = [1, 7, 14, 30, 90] as const;
 export const EXPERIMENT_STATUSES = ['draft', 'running', 'stopped', 'promoted'] as const;
-export const EXPERIMENT_VARIES = ['copy', 'placement', 'style', 'media'] as const;
+export const EXPERIMENT_VARIES = ['copy', 'placement', 'style', 'conditions', 'media'] as const;
 export const EXPERIMENT_ARM_IDS = ['A', 'B', 'C', 'D'] as const;
 export const EXPERIMENT_MAX_ARMS = 4;
 export const EXPERIMENT_MIN_TRAFFIC_PERCENT = 5;
 export const EXPERIMENT_SIGNIFICANCE_THRESHOLD = 95;
+export const EXPERIMENT_MAX_OVERRIDES_PER_ARM = 100;
+export const EXPERIMENT_PLACEMENTS = ['top', 'right', 'bottom', 'left'] as const;
 
 const EventName = Type.String({
   minLength: 1,
@@ -44,13 +50,72 @@ export const AdoptionImpact = Type.Object(
 );
 export type AdoptionImpact = Static<typeof AdoptionImpact>;
 
+const ExperimentBlockId = Type.String({
+  minLength: 1,
+  maxLength: 128,
+  pattern: '^[A-Za-z0-9][A-Za-z0-9._:-]*$',
+});
+
+/** Closed semantic patches compiled into an immutable artifact. */
+export const ExperimentOverride = Type.Union(
+  [
+    Type.Object(
+      {
+        type: Type.Literal('copy'),
+        blockId: ExperimentBlockId,
+        text: Type.String({ maxLength: 10_000 }),
+      },
+      { additionalProperties: false },
+    ),
+    Type.Object(
+      {
+        type: Type.Literal('placement'),
+        stepId: ExperimentBlockId,
+        placement: Type.Union(EXPERIMENT_PLACEMENTS.map((value) => Type.Literal(value))),
+      },
+      { additionalProperties: false },
+    ),
+    Type.Object(
+      {
+        type: Type.Literal('style'),
+        stepId: ExperimentBlockId,
+        tooltipStyle: Type.Ref(TooltipStyleProps),
+      },
+      { additionalProperties: false },
+    ),
+    Type.Object(
+      {
+        type: Type.Literal('condition'),
+        blockId: ExperimentBlockId,
+        showWhen: Type.Ref(StepTransitionCondition),
+      },
+      { additionalProperties: false },
+    ),
+    Type.Object(
+      {
+        type: Type.Literal('media'),
+        blockId: ExperimentBlockId,
+        media: Type.Ref(MediaPresentation),
+      },
+      { additionalProperties: false },
+    ),
+  ],
+  { $id: 'ExperimentOverride' },
+);
+export type ExperimentOverride = Static<typeof ExperimentOverride>;
+
 export const ExperimentArm = Type.Object(
   {
     id: Type.Union(EXPERIMENT_ARM_IDS.map((value) => Type.Literal(value))),
     label: Type.String({ minLength: 1, maxLength: 160 }),
     trafficPercent: Type.Integer({ minimum: EXPERIMENT_MIN_TRAFFIC_PERCENT, maximum: 100 }),
-    /** Locale-independent content overrides applied on top of the base document. */
+    /** Legacy unresolved references remain readable but cannot start delivery. */
     overridesRef: Type.Optional(Type.String({ minLength: 1, maxLength: 128 })),
+    overrides: Type.Optional(
+      Type.Array(Type.Ref(ExperimentOverride), {
+        maxItems: EXPERIMENT_MAX_OVERRIDES_PER_ARM,
+      }),
+    ),
   },
   { $id: 'ExperimentArm', additionalProperties: false },
 );
@@ -64,6 +129,10 @@ export const Experiment = Type.Object(
     varies: Type.Union(EXPERIMENT_VARIES.map((value) => Type.Literal(value))),
     successEventName: EventName,
     arms: Type.Array(Type.Ref(ExperimentArm), { minItems: 2, maxItems: EXPERIMENT_MAX_ARMS }),
+    allocationRevision: Type.Integer({ minimum: 1 }),
+    promotedArmId: Type.Optional(
+      Type.Union(EXPERIMENT_ARM_IDS.map((value) => Type.Literal(value))),
+    ),
   },
   { $id: 'Experiment', additionalProperties: false },
 );
@@ -83,6 +152,8 @@ export type ExperimentArmResult = Static<typeof ExperimentArmResult>;
 export const ExperimentResults = Type.Object(
   {
     experimentId: Type.String({ minLength: 1, maxLength: 128 }),
+    environmentId: Type.Optional(Type.String({ minLength: 1, maxLength: 128 })),
+    allocationRevision: Type.Integer({ minimum: 1 }),
     arms: Type.Array(Type.Ref(ExperimentArmResult), { minItems: 2, maxItems: EXPERIMENT_MAX_ARMS }),
     leadingArmId: Type.Union([
       ...EXPERIMENT_ARM_IDS.map((value) => Type.Literal(value)),
@@ -106,11 +177,44 @@ export const AdaptivePolicy = Type.Object(
 );
 export type AdaptivePolicy = Static<typeof AdaptivePolicy>;
 
+/** Bounded server-derived aggregate; no raw visitor identifier crosses delivery. */
+export const AdaptiveBehaviorEvidence = Type.Object(
+  {
+    eventName: EventName,
+    occurrences: Type.Integer({ minimum: 0, maximum: ADAPTIVE_OCCURRENCE_MAX }),
+    lastObservedAt: Type.String({ format: 'date-time' }),
+  },
+  { $id: 'AdaptiveBehaviorEvidence', additionalProperties: false },
+);
+export type AdaptiveBehaviorEvidence = Static<typeof AdaptiveBehaviorEvidence>;
+
+export const AdaptiveDecisionContext = Type.Object(
+  {
+    policy: Type.Ref(AdaptivePolicy),
+    evaluatedAt: Type.String({ format: 'date-time' }),
+    evidence: Type.Array(Type.Ref(AdaptiveBehaviorEvidence), {
+      maxItems: ADAPTIVE_EVIDENCE_MAX_ITEMS,
+    }),
+  },
+  { $id: 'AdaptiveDecisionContext', additionalProperties: false },
+);
+export type AdaptiveDecisionContext = Static<typeof AdaptiveDecisionContext>;
+
 export function sanitizeSuccessEvent(value: unknown): SuccessEvent | undefined {
   return check<SuccessEvent>(SuccessEvent, [], value);
 }
 export function sanitizeExperiment(value: unknown): Experiment | undefined {
-  return check<Experiment>(Experiment, [ExperimentArm], value);
+  return check<Experiment>(
+    Experiment,
+    [
+      ExperimentArm,
+      ExperimentOverride,
+      TooltipStyleProps,
+      StepTransitionCondition,
+      MediaPresentation,
+    ],
+    value,
+  );
 }
 export function sanitizeAdaptivePolicy(value: unknown): AdaptivePolicy | undefined {
   return check<AdaptivePolicy>(AdaptivePolicy, [], value);

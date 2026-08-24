@@ -1,6 +1,7 @@
 import { Type, type Static } from '@sinclair/typebox';
 import { Value } from '@sinclair/typebox/value';
 import { TargetApproach } from './approach';
+import { PAGE_KEY_MAX_LENGTH, PAGE_KEY_PATTERN, TARGET_PAGE_MATCHES } from './page-key';
 import { TARGET_COLLECTION_ORDERS, TARGET_SELECTION_ORDINAL_LIMITS } from './target-runtime';
 import {
   TARGET_ATTRIBUTE_VALUE_MAX_LENGTH,
@@ -229,8 +230,28 @@ export const TargetRelationship = Type.Object(
 );
 export type TargetRelationship = Static<typeof TargetRelationship>;
 
+/**
+ * The page the target was picked on. Absent means any page — which is both what
+ * an author asks for on a top nav or help button, and what every target written
+ * before this field existed says by default.
+ */
+export const TargetPageScope = Type.Object(
+  {
+    key: Type.String({
+      minLength: 1,
+      maxLength: PAGE_KEY_MAX_LENGTH,
+      pattern: PAGE_KEY_PATTERN,
+    }),
+    /** Defaults to `exact`; `prefix` is for paths carrying a record id. */
+    match: Type.Optional(Type.Union(TARGET_PAGE_MATCHES.map((value) => Type.Literal(value)))),
+  },
+  { additionalProperties: false },
+);
+export type TargetPageScope = Static<typeof TargetPageScope>;
+
 export const TargetContext = Type.Object(
   {
+    page: Type.Optional(TargetPageScope),
     routePatternId: Type.Optional(TargetStableKey),
     stateId: Type.Optional(TargetStableKey),
     ancestorRoles: Type.Optional(
@@ -362,6 +383,8 @@ export const TargetLocalizedEvidence = Type.Object(
         maxItems: TARGET_MAX_NEARBY_TEXT_ITEMS,
       }),
     ),
+    /** Only the words every sample agreed on. Match by containment, not likeness. */
+    partial: Type.Optional(Type.Boolean()),
   },
   { additionalProperties: false },
 );
@@ -451,7 +474,8 @@ export function isTargetIdentityV2(value: unknown): value is TargetIdentityV2 {
  */
 export const ElementFingerprint = Type.Object(
   {
-    stableAttributes: Type.Record(Type.String(), Type.String()),
+    /** Optional: most pages carry no stable markers, and `{}` is not evidence. */
+    stableAttributes: Type.Optional(Type.Record(Type.String(), Type.String())),
     role: Type.Optional(Type.String()),
     accessibleName: Type.Optional(Type.String()),
     tagName: Type.String(),

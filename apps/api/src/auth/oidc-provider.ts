@@ -9,8 +9,10 @@ import type {
 import { matchesSha256, sha256Hex } from './oidc-crypto';
 
 const GOOGLE_ISSUERS = ['https://accounts.google.com', 'accounts.google.com'];
-const MICROSOFT_TENANT_PATTERN = /^(?:common|organizations|consumers|[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})$/iu;
-const MICROSOFT_TID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu;
+const MICROSOFT_TENANT_PATTERN =
+  /^(?:common|organizations|consumers|[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})$/iu;
+const MICROSOFT_TID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu;
 
 interface ProviderSettings {
   providerId: OidcProviderId;
@@ -42,7 +44,8 @@ export function readOidcConfiguration(
   if (google) providers.set('google', new StandardOidcProviderAdapter(google));
   const microsoft = readMicrosoftSettings(environment);
   if (microsoft) providers.set('microsoft', new StandardOidcProviderAdapter(microsoft));
-  if (providers.size === 0) throw new Error('OIDC is enabled but no complete provider is configured');
+  if (providers.size === 0)
+    throw new Error('OIDC is enabled but no complete provider is configured');
   return { stateSecret, providers };
 }
 
@@ -119,7 +122,11 @@ class StandardOidcProviderAdapter implements IdentityProviderAdapter {
       throw new Error('Microsoft ID token tenant is invalid');
     }
     const configured = this.settings.configuredTenant;
-    if (configured && !['common', 'organizations', 'consumers'].includes(configured) && configured !== tid) {
+    if (
+      configured &&
+      !['common', 'organizations', 'consumers'].includes(configured) &&
+      configured !== tid
+    ) {
       throw new Error('Microsoft ID token tenant is not allowed');
     }
     return `https://login.microsoftonline.com/${tid}/v2.0`;
@@ -152,7 +159,8 @@ function toVerifiedIdentity(
   };
   if (typeof payload.email === 'string') identity.email = payload.email;
   if (typeof payload.email_verified === 'boolean') identity.emailVerified = payload.email_verified;
-  if (typeof payload.name === 'string' && payload.name.trim()) identity.name = payload.name.trim().slice(0, 120);
+  if (typeof payload.name === 'string' && payload.name.trim())
+    identity.name = payload.name.trim().slice(0, 120);
   return identity;
 }
 
@@ -202,7 +210,7 @@ function readProviderValues(prefix: 'GOOGLE' | 'MICROSOFT', environment: NodeJS.
   const redirectUri = requireExactRedirectUri(
     keys[2],
     values[2]!,
-    `/api/auth/oidc/${prefix.toLowerCase()}/callback`,
+    `/v1/auth/oidc/${prefix.toLowerCase()}/callback`,
   );
   return { clientId: values[0]!, clientSecret: values[1]!, redirectUri };
 }
@@ -222,6 +230,7 @@ function requireExactRedirectUri(key: string, value: string, expectedPath: strin
 
 function requireSecret(key: string, environment: NodeJS.ProcessEnv): string {
   const value = environment[key]?.trim() ?? '';
-  if (Buffer.byteLength(value, 'utf8') < 32) throw new Error(`${key} must contain at least 32 bytes`);
+  if (Buffer.byteLength(value, 'utf8') < 32)
+    throw new Error(`${key} must contain at least 32 bytes`);
   return value;
 }

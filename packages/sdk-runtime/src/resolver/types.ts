@@ -3,7 +3,11 @@ import {
   TARGET_MIN_CAPTURE_RUNNER_UP_MARGIN,
   TARGET_MIN_RESOLUTION_RUNNER_UP_MARGIN,
 } from '@lodariq/schema/target-runtime';
-import type { TargetRequiredAction, TargetSignalFamily } from '@lodariq/schema/target';
+import type {
+  TargetLocalizedEvidence,
+  TargetRequiredAction,
+  TargetSignalFamily,
+} from '@lodariq/schema/target';
 import type { TargetResolutionStatus, TargetVerificationReasonCode } from '@lodariq/schema';
 
 export const MIN_IDENTITY_CONFIDENCE = 55;
@@ -52,6 +56,12 @@ export type ResolvedAnchor = ElementResolvedAnchor | VisualRegionResolvedAnchor;
 export interface TargetResolutionContext {
   /** Explicit SDK context wins over document or navigator language. */
   locale?: string;
+  /**
+   * Which page the visitor is on. Read from `location` when absent, so the page
+   * gate needs no host wiring — unlike `routePatternId`, which only the customer
+   * can name and which therefore never arrives.
+   */
+  pageKey?: string;
   /** Opaque route-pattern ID already selected by the delivery layer. */
   routePatternId?: string;
   /** Opaque, customer-configured application-state ID. */
@@ -75,6 +85,11 @@ export interface ResolutionResult {
   evidenceFamilies: TargetSignalFamily[];
   runnerUpConfidence: number | null;
   currentLocale: string | null;
+  /**
+   * Copy read off a clean win in a locale the target has none for. Offered so a
+   * caller can record the translation rather than ask the author for it.
+   */
+  learnedLocalizedEvidence?: TargetLocalizedEvidence;
 }
 
 export type ResolutionState = TargetResolutionStatus;

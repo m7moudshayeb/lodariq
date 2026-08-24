@@ -2,7 +2,7 @@ import {
   BASIC_VISUAL_PREFLIGHT_MAX_ISSUES,
   BASIC_VISUAL_PREFLIGHT_REPORT_SCHEMA_VERSION,
   BasicVisualPreflightReport,
-  CompiledDocumentV4,
+  CompiledDocumentV5,
   RENDERER_CONTRACT_VERSION,
   STRUCTURED_COMPOSITION_BLOCK_TYPE_VALUES,
   CONTRAST_RATIO_TARGETS,
@@ -12,7 +12,7 @@ import {
   type BasicVisualPreflightIssue,
   type BasicVisualPreflightReport as BasicVisualPreflightReportType,
   type BasicVisualPreflightStatus,
-  type CompiledDocumentV4 as CompiledDocumentV4Type,
+  type CompiledDocumentV5 as CompiledDocumentV5Type,
   type ExperienceAppearance,
   type ThemeColorTokens,
   type TourRendererRecipe,
@@ -31,6 +31,13 @@ const APPROXIMATE_GLYPH_WIDTH_EM = 0.55;
 const STRUCTURED_COMPOSITION_BLOCK_TYPES = new Set<string>(
   STRUCTURED_COMPOSITION_BLOCK_TYPE_VALUES,
 );
+const SUPPORTED_EXPERIENCE_TYPES = new Set([
+  'tour',
+  'announcement',
+  'hotspot',
+  'survey',
+  'checklist',
+]);
 
 const TOUR_WIDTH_TOKEN_BY_APPEARANCE = {
   narrow: 'tourNarrowPx',
@@ -53,6 +60,19 @@ interface ContrastCheck {
   unusableRatio: number;
 }
 
+export interface CompiledAccessibilityIssue {
+  locale: string;
+  issue: BasicVisualPreflightIssue;
+}
+
+const ACCESSIBILITY_PREFLIGHT_CODES = new Set<BasicVisualPreflightIssue['code']>([
+  'contrast_unusable',
+  'contrast_below_target',
+  'long_copy_risk',
+  'compact_viewport_risk',
+  'missing_accessible_name',
+]);
+
 /**
  * Runs the deterministic, DOM-free portion of visual preflight.
  *
@@ -61,13 +81,13 @@ interface ContrastCheck {
  * zoom, RTL, and actual clipping remain runtime/browser checks in later slices.
  */
 export async function runBasicVisualPreflight(
-  artifact: CompiledDocumentV4Type,
+  artifact: CompiledDocumentV5Type,
   checkedAt: string,
 ): Promise<BasicVisualPreflightReportType> {
   assertValidCheckedAt(checkedAt);
   const issues: BasicVisualPreflightIssue[] = [];
 
-  if (!isValid(CompiledDocumentV4, artifact)) {
+  if (!isValid(CompiledDocumentV5, artifact)) {
     issues.push({ code: 'artifact_schema_invalid', severity: 'blocker' });
     return createReport(checkedAt, issues);
   }
@@ -83,23 +103,88 @@ export async function runBasicVisualPreflight(
   if (artifact.theme.contentHash !== themeContentHash) {
     issues.push({ code: 'theme_identity_invalid', severity: 'blocker' });
   }
-  if (artifact.type !== 'tour' || artifact.rendererContractVersion !== RENDERER_CONTRACT_VERSION) {
+  if (
+    !SUPPORTED_EXPERIENCE_TYPES.has(artifact.type) ||
+    artifact.rendererContractVersion !== RENDERER_CONTRACT_VERSION
+  ) {
     issues.push({ code: 'renderer_contract_incompatible', severity: 'blocker' });
   }
 
   collectContrastIssues(artifact, issues);
   collectCopyAndViewportIssues(artifact, issues);
   collectCapabilityIssues(artifact, issues);
-  issues.push(...validateCompiledTourFlow(artifact));
+  if (artifact.type === 'tour') issues.push(...validateCompiledTourFlow(artifact));
   return createReport(checkedAt, issues);
 }
 
+/**
+ * Runs the accessibility subset over the default delivery branch and every
+ * compiled locale. It returns bounded codes and indexes only; creator copy and
+ * host-page data never enter governance evidence.
+ */
+export function collectCompiledAccessibilityIssues(
+  artifact: CompiledDocumentV5Type,
+): CompiledAccessibilityIssue[] {
+  if (!isValid(CompiledDocumentV5, artifact)) {
+    return [
+      {
+        locale: 'und',
+        issue: { code: 'artifact_schema_invalid', severity: 'blocker' },
+      },
+    ];
+  }
+
+  const findings: CompiledAccessibilityIssue[] = [];
+  collectAccessibilityBranch(artifact, artifact.localization.defaultLocale, true, findings);
+  for (const variant of artifact.localization.variants) {
+    collectAccessibilityBranch(
+      { ...artifact, steps: variant.steps },
+      variant.locale,
+      false,
+      findings,
+    );
+    if (findings.length >= BASIC_VISUAL_PREFLIGHT_MAX_ISSUES) break;
+  }
+  return findings.slice(0, BASIC_VISUAL_PREFLIGHT_MAX_ISSUES);
+}
+
+function collectAccessibilityBranch(
+  artifact: CompiledDocumentV5Type,
+  locale: string,
+  includeThemeContrast: boolean,
+  findings: CompiledAccessibilityIssue[],
+): void {
+  const issues: BasicVisualPreflightIssue[] = [];
+  if (includeThemeContrast) collectContrastIssues(artifact, issues);
+  collectCopyAndViewportIssues(artifact, issues);
+  collectCapabilityIssues(artifact, issues);
+  for (const issue of issues) {
+    if (!ACCESSIBILITY_PREFLIGHT_CODES.has(issue.code)) continue;
+    findings.push({ locale, issue });
+    if (findings.length >= BASIC_VISUAL_PREFLIGHT_MAX_ISSUES) return;
+  }
+}
+
 function collectCapabilityIssues(
-  artifact: CompiledDocumentV4Type,
+  artifact: CompiledDocumentV5Type,
   issues: BasicVisualPreflightIssue[],
 ): void {
   const targetIds = new Set(artifact.targets.map((target) => target.id));
   const stepIds = new Set(artifact.steps.map((step) => step.id));
+  for (const target of artifact.targets) {
+    if (!target.approach) continue;
+    const stepIndex = Math.max(
+      0,
+      artifact.steps.findIndex((step) => step.targetId === target.id),
+    );
+    const referencedTargetIds = target.approach.legs.flatMap((leg) => [
+      ...(leg.act.kind === 'activateTarget' ? [leg.act.targetId] : []),
+      ...(leg.wait?.type === 'targetAvailable' ? [leg.wait.targetId] : []),
+    ]);
+    if (referencedTargetIds.some((targetId) => !targetIds.has(targetId))) {
+      pushCapabilityIssue('choreography_target_missing', stepIndex, undefined, issues);
+    }
+  }
   for (const [stepIndex, step] of artifact.steps.entries()) {
     collectChoreographyIssues(
       step.entrySequence,
@@ -214,20 +299,20 @@ function createReport(
   };
 }
 
-async function computeArtifactContentHash(artifact: CompiledDocumentV4Type): Promise<string> {
-  const content = structuredClone(artifact) as Partial<CompiledDocumentV4Type>;
+async function computeArtifactContentHash(artifact: CompiledDocumentV5Type): Promise<string> {
+  const content = structuredClone(artifact) as Partial<CompiledDocumentV5Type>;
   delete content.contentHash;
   return `sha256-${await sha256Hex(canonicalJson(content))}`;
 }
 
-async function computeThemeContentHash(artifact: CompiledDocumentV4Type): Promise<string> {
-  const content = structuredClone(artifact.theme) as Partial<CompiledDocumentV4Type['theme']>;
+async function computeThemeContentHash(artifact: CompiledDocumentV5Type): Promise<string> {
+  const content = structuredClone(artifact.theme) as Partial<CompiledDocumentV5Type['theme']>;
   delete content.contentHash;
   return `sha256-${await sha256Hex(canonicalJson(content))}`;
 }
 
 function collectContrastIssues(
-  artifact: CompiledDocumentV4Type,
+  artifact: CompiledDocumentV5Type,
   issues: BasicVisualPreflightIssue[],
 ): void {
   const recipe = artifact.theme.definition.recipes.tour[artifact.appearance.preset];
@@ -354,7 +439,7 @@ function focusContrastCheck(
   };
 }
 
-function activeColorModes(artifact: CompiledDocumentV4Type): ActiveColorMode[] {
+function activeColorModes(artifact: CompiledDocumentV5Type): ActiveColorMode[] {
   const modes = artifact.theme.definition.tokens.modes;
   if (artifact.appearance.colorMode === 'light') {
     return [{ colorMode: 'light', colors: modes.light.colors }];
@@ -425,7 +510,7 @@ function collectNodeContrastIssues({
   colorMode: ActiveColorMode['colorMode'];
   colors: ThemeColorTokens;
   issues: BasicVisualPreflightIssue[];
-  node: CompiledDocumentV4Type['steps'][number]['body'][number];
+  node: CompiledDocumentV5Type['steps'][number]['body'][number];
   nodeIndex: number;
   recipe: TourRendererRecipe;
   stepIndex: number;
@@ -491,7 +576,7 @@ function collectNodeContrastIssues({
 }
 
 function collectCopyAndViewportIssues(
-  artifact: CompiledDocumentV4Type,
+  artifact: CompiledDocumentV5Type,
   issues: BasicVisualPreflightIssue[],
 ): void {
   const charactersPerLine = compactViewportCharactersPerLine(artifact);
@@ -526,7 +611,7 @@ function collectCopyAndViewportIssues(
   }
 }
 
-function compactViewportCharactersPerLine(artifact: CompiledDocumentV4Type): number {
+function compactViewportCharactersPerLine(artifact: CompiledDocumentV5Type): number {
   const tokens = artifact.theme.definition.tokens;
   const recipe = artifact.theme.definition.recipes.tour[artifact.appearance.preset];
   const configuredWidth = tokens.sizing[TOUR_WIDTH_TOKEN_BY_APPEARANCE[artifact.appearance.width]];

@@ -3,15 +3,17 @@
  *
  *  - `identify` runs on every navigation, so conditions, branches and adaptive
  *    skipping evaluate against a real payload rather than a fixture constant.
- *  - the tour is launched from the URL (`?tour=`/`&step=`), so a full page
- *    reload resumes where it stopped instead of restarting.
+ *  - resume is the SDK's, not Meridian's. This host deliberately keeps no
+ *    resume state and puts nothing in its own URL: a fixture that solves the
+ *    problem itself cannot show whether the product solves it.
  */
 import type { LodariqDocument } from '@lodariq/schema';
 import tourFixture from '@lodariq/schema/fixtures/tour.linear.v1.json';
 import { installLocalLodariqAuthoringFromScript } from '@lodariq/sdk-authoring/local-dev/install';
+import { compilePreview, saveDocument } from '@lodariq/sdk-runtime/local-dev';
 import { getState, navigate, subscribe } from './router';
-
-const RESUME_KEY = 'meridian.tour.resume';
+import { approachFixtureDocument } from './approach-fixture';
+import { experienceTypeFixtureDocument } from './experience-type-fixture';
 
 /** What Meridian knows about the signed-in person. `userId` is required. */
 interface MeridianTraits {
@@ -55,8 +57,26 @@ function currentTraits(): MeridianTraits {
 }
 
 async function bootLocalLodariq(): Promise<void> {
+  const params = new URLSearchParams(window.location.hash.split('?')[1] ?? '');
+  const pageParams = new URLSearchParams(window.location.search);
+  const fixtureScenario = pageParams.get('scenario');
+  let baseDocument = tourFixture as LodariqDocument;
+  if (params.get('conditional-content') === '1' || fixtureScenario === 'conditional') {
+    baseDocument = conditionalContentDocument();
+  }
+  if (fixtureScenario === 'presentation') baseDocument = presentationDocument();
+  if (fixtureScenario === 'experience-type') {
+    baseDocument =
+      experienceTypeFixtureDocument(pageParams.get('type'), pageParams.get('surface')) ??
+      baseDocument;
+  }
+  if (fixtureScenario === 'approach') {
+    baseDocument = approachFixtureDocument();
+    baseDocument.id = (tourFixture as LodariqDocument).id;
+    saveDocument(baseDocument);
+  }
   const lodariq = await installLocalLodariqAuthoringFromScript({
-    baseDocument: tourFixture as LodariqDocument,
+    baseDocument,
     iframeSrc: '/authoring.html',
   });
   if (!lodariq) throw new Error('Lodariq loader config is invalid');
@@ -65,34 +85,69 @@ async function bootLocalLodariq(): Promise<void> {
   subscribe(() => lodariq.identify(currentTraits()));
 
   const play = async (documentId?: string): Promise<void> => {
-    sessionStorage.setItem(RESUME_KEY, documentId ?? 'default');
-    if (documentId && lodariq.playTourById) await lodariq.playTourById(documentId);
+    if (documentId === baseDocument.id || fixtureScenario === 'presentation') {
+      const compiled = await compilePreview(baseDocument);
+      await lodariq.playTour(
+        fixtureScenario === 'presentation' ? { ...compiled, showLodariqBadge: true } : compiled,
+      );
+    } else if (documentId && lodariq.playTourById) await lodariq.playTourById(documentId);
     else await lodariq.playTour();
   };
 
   window.__meridian = {
     playTour: play,
     openAuthoring: () => lodariq.openAuthoring(),
-    stopTour: () => {
-      sessionStorage.removeItem(RESUME_KEY);
-      lodariq.stopTour();
-    },
+    stopTour: () => lodariq.stopTour(),
     identify: (traits) => lodariq.identify(traits),
   };
 
   wireLaunchers(play, () => lodariq.openAuthoring());
 
-  // A tour named in the URL wins; otherwise the runtime's own resume applies.
-  const params = new URLSearchParams(window.location.hash.split('?')[1] ?? '');
-  const requested = params.get('tour');
-  if (requested) {
-    await play(requested === '1' ? undefined : requested);
-    return;
+  // An explicit `?tour=` is the harness asking for a fresh run. Everything else
+  // is the SDK's business: `installLodariq` has already restored a stored step
+  // by the time this runs, and re-entering playback here would restart it.
+  const requested = params.get('tour') ?? pageParams.get('tour');
+  if (requested) await play(requested === '1' ? undefined : requested);
+}
+
+function presentationDocument(): LodariqDocument {
+  const document = structuredClone(tourFixture as LodariqDocument);
+  document.id = 'doc_tour_presentation';
+  const step = document.blocks[0];
+  if (step) {
+    step.props.motion = {
+      durationMs: 900,
+      easing: 'standard',
+      recipe: 'lift',
+      reducedMotion: 'none',
+    };
   }
-  if (sessionStorage.getItem(RESUME_KEY)) {
-    // The runtime restores its own step; this only re-enters playback.
-    await play();
-  }
+  return document;
+}
+
+function conditionalContentDocument(): LodariqDocument {
+  const document = structuredClone(tourFixture as LodariqDocument);
+  document.id = 'doc_tour_conditional_content';
+  document.title = 'Conditional content tour';
+  const tooltip = document.blocks[0]?.children.find((block) => block.type === 'tooltip');
+  const heading = tooltip?.children.find((block) => block.type === 'heading');
+  const paragraph = tooltip?.children.find((block) => block.type === 'paragraph');
+  if (!heading || !paragraph) return document;
+  heading.content = 'Growth plan guidance';
+  paragraph.content = 'Free plan guidance should stay hidden';
+  heading.props.showWhen = {
+    source: 'identifyTrait',
+    key: 'plan',
+    operator: 'equals',
+    value: 'growth',
+  };
+  paragraph.props.showWhen = {
+    source: 'identifyTrait',
+    key: 'plan',
+    operator: 'equals',
+    value: 'free',
+  };
+  return document;
 }
 
 /**

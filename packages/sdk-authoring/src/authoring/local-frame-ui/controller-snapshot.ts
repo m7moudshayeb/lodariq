@@ -9,6 +9,7 @@ import {
   type AuthoringDeliveryCapability,
   type BrandThemeSnapshot,
   type LodariqBlock,
+  type LodariqDocument,
   type StepNarration,
 } from '@lodariq/schema';
 import { hasBlock, updateBlockProps, type BlockInsertPosition } from '../document-ops';
@@ -17,26 +18,108 @@ import type { LocalAuthoringFrameSnapshot } from './types';
 import type { LocalAuthoringFrameMetricName } from '../local-frame-types';
 import { findBlockById, isEditableContentBlock } from './utils';
 import { AuthoringBrandDriftController } from '../brand-drift-controller';
-import { isProductLocale } from '@lodariq/i18n';
+import { canonicalContentLocale } from '@lodariq/schema';
+import { contentLocaleLabel } from '../content-locales';
 import { themeHandleOf, themeIsStale } from '../theme-staleness';
 import {
+  addAuthoringDocumentLocale,
   authoringLocalizedTarget,
+  isDefaultDocumentLocale,
   localizedAuthoringDocument,
   setAuthoringLocalizedTarget,
 } from '../document-localization';
 
 export class ControllerSnapshotFeature extends ControllerAssistFeature {
+  /**
+   * The two document copies every snapshot carries, kept until their source
+   * changes.
+   *
+   * `emit` runs far more often than the document changes — a status line, a drag
+   * frame, a presence beat, a save state — and each one used to rebuild the whole
+   * document twice, once localized and once deep-cloned. A mutation always
+   * replaces `documentState` rather than editing it in place, so the object's own
+   * identity is a sound key, and the emits that are not document changes now cost
+   * nothing at all.
+   *
+   * Both copies are read-only to consumers, which is what they already were:
+   * every reader of `canonicalDocumentState` treats it as a source to inspect.
+   */
+  private documentProjection: {
+    source: LodariqDocument;
+    locale: string;
+    localized: LodariqDocument;
+    canonical: LodariqDocument;
+  } | null = null;
+
   supportsDeliveryCapability(capability: AuthoringDeliveryCapability): boolean {
     return this.deliveryCapabilities.has(capability);
   }
 
+  private projectedDocument(): { localized: LodariqDocument; canonical: LodariqDocument } {
+    const cached = this.documentProjection;
+    if (cached?.source === this.documentState && cached.locale === this.contentLocale) {
+      return cached;
+    }
+    const projection = {
+      source: this.documentState,
+      locale: this.contentLocale,
+      localized: localizedAuthoringDocument(this.documentState, this.contentLocale),
+      canonical: structuredClone(this.documentState),
+    };
+    this.documentProjection = projection;
+    return projection;
+  }
+
+  /**
+   * Any canonical language tag, not just the ones Lodariq's own chrome speaks.
+   * Authored copy is opaque text; the tag routes it (§ content-locales).
+   */
   setContentLocale(locale: string): void {
-    if (!isProductLocale(locale) || locale === this.contentLocale) return;
+    const canonical = canonicalContentLocale(locale);
+    if (!canonical) {
+      // It used to return silently, so a rejected tag looked like a dead control.
+      this.setStatus(
+        authoringText('{locale} is not a language tag Lodariq understands.', { locale }),
+      );
+      return;
+    }
+    if (canonical === this.contentLocale) return;
     this.syncFocusedEditControl();
-    this.contentLocale = locale;
+    this.contentLocale = canonical;
     this.translationState = 'idle';
     this.translationRequestVersion += 1;
-    this.setStatus(authoringText('Editing experience copy in {locale}', { locale }));
+    this.setStatus(
+      authoringText('Editing experience copy in {locale}', {
+        locale: contentLocaleLabel(canonical),
+      }),
+    );
+  }
+
+  /**
+   * Adds a language to the experience and starts editing in it.
+   *
+   * The variant is written empty rather than on the first keystroke, so the new
+   * language appears in the table at 0% immediately — otherwise adding one looks
+   * like nothing happened.
+   */
+  addContentLocale(locale: string): void {
+    const canonical = canonicalContentLocale(locale);
+    if (!canonical) {
+      this.setStatus(
+        authoringText('{locale} is not a language tag Lodariq understands.', { locale }),
+      );
+      return;
+    }
+    if (!isDefaultDocumentLocale(this.documentState, canonical)) {
+      this.recordChange();
+      this.documentState = this.normalizeDocument(
+        addAuthoringDocumentLocale(this.documentState, canonical),
+      );
+      this.afterDocumentMutation();
+      this.services.saveDocument(this.documentState);
+    }
+    this.setContentLocale(canonical);
+    this.emit();
   }
 
   /**
@@ -45,7 +128,10 @@ export class ControllerSnapshotFeature extends ControllerAssistFeature {
    * that genuinely differs, and publish resolves it without a manual sync.
    */
   setLocalizedTarget(targetId: string, replacementTargetId: string | null): void {
-    if (authoringLocalizedTarget(this.documentState, this.contentLocale, targetId) === replacementTargetId) {
+    if (
+      authoringLocalizedTarget(this.documentState, this.contentLocale, targetId) ===
+      replacementTargetId
+    ) {
       return;
     }
     this.recordChange();
@@ -61,7 +147,9 @@ export class ControllerSnapshotFeature extends ControllerAssistFeature {
     this.services.saveDocument(this.documentState);
     this.setStatus(
       replacementTargetId
-        ? authoringText('This step points somewhere else in {locale}', { locale: this.contentLocale })
+        ? authoringText('This step points somewhere else in {locale}', {
+            locale: this.contentLocale,
+          })
         : authoringText('This step uses the shared target again'),
     );
     this.emit();
@@ -73,9 +161,23 @@ export class ControllerSnapshotFeature extends ControllerAssistFeature {
    * whole point.
    */
   setStepNarration(stepId: string, narration: Partial<StepNarration> | null): void {
+    if (narration !== null && !this.supportsCommercialFeature('narration')) return;
     const step = findBlockById(this.documentState.blocks, stepId);
     if (!step) return;
-    const next = narration === null ? undefined : sanitizeStepNarration(narration);
+    const previous = step.props.narration;
+    const sanitized = narration === null ? undefined : sanitizeStepNarration(narration);
+    const sourceChanged = Boolean(
+      sanitized &&
+      previous &&
+      (sanitized.script !== previous.script ||
+        sanitized.voiceId !== previous.voiceId ||
+        sanitized.speed !== previous.speed ||
+        sanitized.localeOverride !== previous.localeOverride),
+    );
+    const next =
+      sanitized && sourceChanged
+        ? sanitizeStepNarration({ ...sanitized, audio: undefined })
+        : sanitized;
     this.recordChange();
     this.documentState = this.normalizeDocument({
       ...this.documentState,
@@ -88,6 +190,42 @@ export class ControllerSnapshotFeature extends ControllerAssistFeature {
     this.services.saveDocument(this.documentState);
     this.setStatus(next ? authoringText('Narration saved') : authoringText('Narration removed'));
     this.emit();
+  }
+
+  canGenerateNarration(): boolean {
+    return Boolean(
+      (this.services.generateNarration || this.services.operations?.generateNarration) &&
+      this.supportsCommercialFeature('narration'),
+    );
+  }
+
+  async generateStepNarration(stepId: string): Promise<boolean> {
+    const generate = this.services.generateNarration ?? this.services.operations?.generateNarration;
+    const step = findBlockById(this.documentState.blocks, stepId);
+    if (!generate || !step?.props.narration?.script.trim() || !this.canGenerateNarration()) {
+      return false;
+    }
+    this.setStatus(authoringText('Generating narration…'));
+    this.emit();
+    try {
+      await this.services.persistDocument?.(this.documentState);
+      const result = await generate(stepId);
+      this.mediaAssets = [
+        result.asset,
+        ...this.mediaAssets.filter((asset) => asset.id !== result.asset.id),
+      ];
+      const current = findBlockById(this.documentState.blocks, stepId)?.props.narration;
+      if (!current) return false;
+      this.setStepNarration(stepId, { ...current, audio: result.audio });
+      await this.services.persistDocument?.(this.documentState);
+      this.setStatus(authoringText('Narration audio is ready'));
+      this.emit();
+      return true;
+    } catch {
+      this.setStatus(authoringText('Narration generation failed. Try again.'));
+      this.emit();
+      return false;
+    }
   }
 
   /** The replacement target this locale uses, or null when the shared one applies. */
@@ -134,6 +272,7 @@ export class ControllerSnapshotFeature extends ControllerAssistFeature {
     this.setStatus(authoringText('Translating missing copy…'));
     try {
       const result = await translateDocument({
+        operationId: `aiop_${globalThis.crypto.randomUUID().replace(/-/gu, '')}`,
         document: structuredClone(this.documentState),
         targetLocale,
         mode: 'missing',
@@ -181,6 +320,22 @@ export class ControllerSnapshotFeature extends ControllerAssistFeature {
     name: LocalAuthoringFrameMetricName,
     attributes?: AuthoringDiagnosticAttributes,
   ): void {
+    this.recordMetricWithoutEmit(name, attributes);
+    this.emit();
+  }
+
+  /**
+   * The same record, without the snapshot.
+   *
+   * `recordMetric` emits because most callers record one and do nothing else,
+   * and the diagnostics text has to catch up. A caller that is about to emit
+   * anyway — a document commit does, on the next line — would otherwise pay for
+   * two snapshots to describe one edit.
+   */
+  protected recordMetricWithoutEmit(
+    name: LocalAuthoringFrameMetricName,
+    attributes?: AuthoringDiagnosticAttributes,
+  ): void {
     this.services.recordMetric({
       sessionId: this.metricsSessionId,
       documentId: this.documentState.id,
@@ -188,7 +343,6 @@ export class ControllerSnapshotFeature extends ControllerAssistFeature {
       ...(attributes ? { attributes: structuredClone(attributes) } : {}),
     });
     this.renderMetrics();
-    this.emit();
   }
 
   protected renderMetrics(): void {
@@ -197,6 +351,7 @@ export class ControllerSnapshotFeature extends ControllerAssistFeature {
   }
 
   protected afterDocumentMutation(options?: { skipNormalize?: boolean }): void {
+    this.invalidateLocaleLayoutQa();
     if (this.translationState === 'translating') {
       this.translationState = 'idle';
       this.translationRequestVersion += 1;
@@ -311,7 +466,8 @@ export class ControllerSnapshotFeature extends ControllerAssistFeature {
 
   protected stepContentBlocks(blocks: LodariqBlock[], stepBlockId: string): LodariqBlock[] {
     const step = findBlockById(blocks, stepBlockId);
-    const tooltip = step?.children.find((child) => child.type === 'tooltip');
+    const tooltip =
+      step?.type === 'tooltip' ? step : step?.children.find((child) => child.type === 'tooltip');
     return (tooltip?.children ?? []).filter(isEditableContentBlock);
   }
 
@@ -381,8 +537,10 @@ export class ControllerSnapshotFeature extends ControllerAssistFeature {
   }
 
   protected makeSnapshot(): LocalAuthoringFrameSnapshot {
+    const document = this.projectedDocument();
     return {
-      documentState: localizedAuthoringDocument(this.documentState, this.contentLocale),
+      documentState: document.localized,
+      canonicalDocumentState: document.canonical,
       ...this.operationsSnapshot(),
       activeStepId: this.selectedBlockId ?? null,
       deliveryCapabilities: new Set(this.deliveryCapabilities),
@@ -430,6 +588,9 @@ export class ControllerSnapshotFeature extends ControllerAssistFeature {
       panelWorkflow: {
         mode: this.panelMode,
         operationsTab: this.operationsTab,
+        operationsView: {
+          ...(this.operationsViews.get(this.operationsTab) ?? { focusKey: null, scrollTop: 0 }),
+        },
         returnMode: this.panelReturnMode,
         focusToken: this.panelFocusToken,
         returnFocus: this.panelReturnFocus,
@@ -462,6 +623,7 @@ export class ControllerSnapshotFeature extends ControllerAssistFeature {
   }
 
   protected emit(): void {
+    this.syncCollaborationPresence();
     this.snapshotValue = this.makeSnapshot();
     for (const subscriber of this.subscribers) {
       subscriber(this.snapshotValue);

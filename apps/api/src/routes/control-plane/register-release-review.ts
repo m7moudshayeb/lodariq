@@ -5,7 +5,11 @@ import {
   type ProductionPromotionRequest as ProductionPromotionRequestType,
 } from '@lodariq/schema';
 import type { FastifyInstance } from 'fastify';
-import { authenticate, requireReleaseCapability, requireRole } from '../control-plane-access';
+import {
+  authenticate,
+  requireEnvironmentReleaseCapability,
+  requireRole,
+} from '../control-plane-access';
 import {
   CreateDashboardPublicationVerificationBody,
   ApiErrorResponse,
@@ -37,12 +41,21 @@ export function registerReleaseReviewRoutes(
     async (request, reply) => {
       const auth = await authenticate(options.repository, options.authProvider, request, reply);
       if (!auth) return;
-      if (!requireReleaseCapability(auth, 'verify-staging', reply)) return;
       const { publicationId } = request.params as { publicationId: string };
       const body = request.body as {
         environmentId: string;
         report: AuthoringStagingVerificationRequestType['report'];
       };
+      if (
+        !(await requireEnvironmentReleaseCapability(
+          options.repository,
+          auth,
+          body.environmentId,
+          'verify-staging',
+          reply,
+        ))
+      )
+        return;
       const environment = await findEnvironment(
         options.repository,
         auth.workspaceId,
@@ -81,15 +94,25 @@ export function registerReleaseReviewRoutes(
     async (request, reply) => {
       const auth = await authenticate(options.repository, options.authProvider, request, reply);
       if (!auth) return;
-      if (!requireReleaseCapability(auth, 'promote-production', reply)) return;
       const { documentId } = request.params as { documentId: string };
+      const promotion = request.body as ProductionPromotionRequestType;
+      if (
+        !(await requireEnvironmentReleaseCapability(
+          options.repository,
+          auth,
+          promotion.productionEnvironmentId,
+          'promote-production',
+          reply,
+        ))
+      )
+        return;
       return handleProductionPromotion(
         options,
         {
           workspaceId: auth.workspaceId,
           documentId,
           actorUserId: auth.userId,
-          request: request.body as ProductionPromotionRequestType,
+          request: promotion,
         },
         reply,
       );
@@ -102,8 +125,24 @@ export function registerReleaseReviewRoutes(
     async (request, reply) => {
       const auth = await authenticate(options.repository, options.authProvider, request, reply);
       if (!auth) return;
-      if (!requireReleaseCapability(auth, 'approve-production', reply)) return;
       const { operationId } = request.params as { operationId: string };
+      const operation = await options.repository.getReleaseOperationById(
+        auth.workspaceId,
+        operationId,
+      );
+      if (!operation) {
+        return reply.code(404).send({ error: 'not_found', message: 'Release operation not found' });
+      }
+      if (
+        !(await requireEnvironmentReleaseCapability(
+          options.repository,
+          auth,
+          operation.environmentId,
+          'approve-production',
+          reply,
+        ))
+      )
+        return;
       const body = request.body as { decision: 'approved' | 'rejected'; reason?: string };
       return handleReleaseApproval(
         options,

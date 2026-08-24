@@ -80,6 +80,7 @@ import {
   brandMatchProposalForFrame,
   brandWorkspaceStateFromTheme,
   mountLocalAuthoringFrame,
+  prewarmLocalAuthoringFrame,
   productionArtifactForFrame,
   releaseWorkflowFromState,
   verificationForFrame,
@@ -162,6 +163,15 @@ let directAuthoringHostServices: DirectAuthoringHostServiceHandle | null = null;
 window.addEventListener('message', handleParentMessage);
 window.addEventListener('pagehide', stopListening, { once: true });
 announceEditorReady();
+
+/**
+ * This document exists only to author, so the workspace is certain to be needed
+ * and its download can start now rather than after the handshake and session
+ * fetch that follow. It is the largest asset a creator waits on, and nothing in
+ * it depends on the session — starting it here overlaps it with both round
+ * trips instead of queueing behind them.
+ */
+prewarmLocalAuthoringFrame();
 
 function handleParentMessage(event: MessageEvent): void {
   if (event.source !== window.parent) return;
@@ -386,9 +396,9 @@ function createHostedDocumentRow(
   const heading = document.createElement('span');
   heading.className = 'browse-row-heading';
   const title = document.createElement('strong');
-  title.textContent = summary.title || authoringText('Untitled tour');
+  title.textContent = summary.title || authoringText('Untitled experience');
   const type = document.createElement('span');
-  type.textContent = authoringText('Tour');
+  type.textContent = hostedDocumentTypeLabel(summary.type);
   heading.append(title, type);
   const meta = document.createElement('span');
   meta.className = 'browse-row-meta';
@@ -400,6 +410,14 @@ function createHostedDocumentRow(
   row.append(heading, meta);
   row.addEventListener('click', onSelect);
   return row;
+}
+
+function hostedDocumentTypeLabel(type: AuthoringPageDocumentSummary['type']): string {
+  if (type === 'announcement') return authoringText('Announcement');
+  if (type === 'hotspot') return authoringText('Hotspot');
+  if (type === 'survey') return authoringText('Survey');
+  if (type === 'checklist') return authoringText('Checklist');
+  return authoringText('Tour');
 }
 
 function createHostedBrowserView(): {
@@ -1407,7 +1425,9 @@ function requirePendingApproval(state: AuthoringStagingReleaseState, operationId
 
 async function fetchHostedReleaseRequest(
   url: URL,
-  init: Pick<RequestInit, 'body' | 'headers' | 'method'>,
+  init: Pick<RequestInit, 'body' | 'headers' | 'keepalive' | 'method' | 'signal'> & {
+    longLived?: boolean;
+  },
 ): Promise<Response> {
   const headers = new Headers(init.headers);
   try {
@@ -1604,6 +1624,7 @@ async function acceptAuthoringInit(
             ? session.context.capabilities.includes(AUTHORING_SESSION_CAPABILITIES.VERIFY_STAGING)
             : message.stagingVerificationCapability ===
               AUTHORING_SESSION_CAPABILITIES.VERIFY_STAGING,
+          localeLayoutQa: true,
           submitStagingVerification:
             !session &&
             message.stagingVerificationCapability === AUTHORING_SESSION_CAPABILITIES.VERIFY_STAGING,
@@ -1776,6 +1797,11 @@ function createHostedEditorServices(
     string,
     Pick<ProductionPromotionRequest, 'idempotencyKey' | 'correlationId'>
   >();
+  const hostedOperations = hostedSession
+    ? createHostedOperationsServices(hostedSession.apiOrigin, fetchHostedReleaseRequest, {
+        documentUpdatedAt: () => currentDocumentUpdatedAt || undefined,
+      })
+    : undefined;
   return {
     loadDocument: (documentId) =>
       currentDocument.id === documentId ? structuredClone(currentDocument) : null,
@@ -1846,11 +1872,23 @@ function createHostedEditorServices(
             currentTheme = structuredClone(persisted.theme);
             currentDocumentUpdatedAt = persisted.documentUpdatedAt;
           },
-          operations: createHostedOperationsServices(
-            hostedSession.apiOrigin,
-            fetchHostedReleaseRequest,
-          ),
+          operations: hostedOperations!,
+          ...(hostedOperations?.generateNarration
+            ? { generateNarration: hostedOperations.generateNarration }
+            : {}),
+          ...(hostedSession.context.narration
+            ? { narrationVoices: hostedSession.context.narration.voices }
+            : {}),
+          ...(hostedSession.context.assist?.state === 'available'
+            ? { requestAiAssist: hostedOperations!.requestAiAssist }
+            : {}),
         }
+      : {}),
+    ...(!hostedSession && directHostServices?.operations?.generateNarration
+      ? { generateNarration: directHostServices.operations.generateNarration }
+      : {}),
+    ...(directHostServices?.runLocaleLayoutQa
+      ? { runLocaleLayoutQa: directHostServices.runLocaleLayoutQa }
       : {}),
     ...(hostedSession && canReadReleaseState && loadReleaseState
       ? {

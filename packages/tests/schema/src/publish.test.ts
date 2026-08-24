@@ -7,6 +7,7 @@ import {
   type LodariqBlock,
   type LodariqDocument,
   type PublishReadinessIssueCode,
+  type ResolverDiagnostic,
 } from '@lodariq/schema';
 import tourFixture from '@lodariq/schema/fixtures/tour.linear.v1.json';
 import { createTargetIdentityV2 } from '../../fixtures/target-identity-v2';
@@ -181,16 +182,23 @@ describe('tour publish readiness', () => {
     const unverified = validateTourPublishReadiness(document, {
       requireVerifiedTargets: true,
     });
+    // Every target needs a diagnostic, or the ones without contribute their own
+    // `target_unverified` and the distinction under test is invisible.
     const drifted = validateTourPublishReadiness(document, {
       requireVerifiedTargets: true,
-      targetDiagnostics: {
-        target_new_project: {
-          state: 'needs_review',
-          confidence: 68,
-          candidateCount: 1,
-          reasonCode: 'evidence_drift',
-        },
-      },
+      targetDiagnostics: new Map<string, ResolverDiagnostic>(
+        document.targets.map((target): [string, ResolverDiagnostic] => [
+          target.id,
+          target.id === 'target_new_project'
+            ? {
+                state: 'needs_review',
+                confidence: 68,
+                candidateCount: 1,
+                reasonCode: 'evidence_drift',
+              }
+            : { state: 'found', confidence: 96, candidateCount: 1, reasonCode: 'resolved' },
+        ]),
+      ),
     });
 
     expect(unverified.map((issue) => issue.code)).toContain('target_unverified');
@@ -316,6 +324,39 @@ describe('tour publish readiness', () => {
         ]),
       }).map((issue) => issue.code),
     ).not.toContain('media_asset_invalid');
+  });
+
+  it('requires generated narration and validates its audio asset kind', () => {
+    const document = cloneFixture();
+    const step = document.blocks[0];
+    if (!step || step.type !== 'tourStep') throw new Error('fixture step missing');
+    step.props.narration = { script: 'Create a project, then continue.' };
+
+    expect(issueCodes(document)).toContain('narration_audio_missing');
+
+    step.props.narration.audio = {
+      assetId: 'asset-narration',
+      contentHash: `sha256-${'1'.repeat(64)}`,
+      sourceHash: `sha256-${'2'.repeat(64)}`,
+      contentType: 'audio/wav',
+      durationMs: 1_000,
+      cues: [{ text: 'Create a project.', startMs: 0, durationMs: 1_000 }],
+    };
+    expect(collectTourMediaAssetIds(document)).toContain('asset-narration');
+    expect(
+      validateTourPublishReadiness(document, {
+        requireValidMediaAssets: true,
+        validMediaAssets: new Map([['asset-narration', 'image' as const]]),
+      }),
+    ).toContainEqual(
+      expect.objectContaining({ code: 'narration_audio_invalid', blockId: step.id }),
+    );
+    expect(
+      validateTourPublishReadiness(document, {
+        requireValidMediaAssets: true,
+        validMediaAssets: new Map([['asset-narration', 'audio' as const]]),
+      }).map((issue) => issue.code),
+    ).not.toContain('narration_audio_invalid');
   });
 
   it('keeps an uploaded video in the draft while captions remain a publish requirement', () => {

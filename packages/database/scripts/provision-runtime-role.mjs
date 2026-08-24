@@ -15,14 +15,27 @@ const appendOnlyRuntimeTables = [
   'analytics_events',
   'auth_security_events',
   'tenant_audit_events',
+  'governance_audit_events',
   'account_security_events',
   'enterprise_audit_events',
+  'effective_entitlement_snapshots',
+  'workspace_usage_ledger',
+  'ai_credit_ledger',
+  'delivery_transition_history',
+  'analytics_export_audit_events',
+  'webhook_events',
+  'data_residency_migration_history',
+  'data_residency_migration_evidence',
+  'analytics_warehouse_sync_runs',
+  'accessibility_sweeps',
+  'accessibility_finding_events',
 ];
 const operatorManagedTables = ['enterprise_validation_evidence'];
 const runtimeFunctionSignatures = [
   'public.lodariq_current_workspace_role(text)',
   'public.lodariq_workspace_is_empty(text)',
   'public.lodariq_user_is_workspace_member(text,text)',
+  'public.lodariq_count_creator_seats(text)',
   'public.lodariq_accept_workspace_invitation(text,text,text,timestamp with time zone)',
   'public.lodariq_schedule_account_deletion(text,timestamp with time zone,timestamp with time zone)',
 ];

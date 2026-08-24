@@ -51,7 +51,13 @@ import { createPortal } from 'react-dom';
 import type { AuthoringMediaUploadOptions } from '../authoring/local-frame-types';
 import { authoringText } from '../i18n';
 import { createBlockId } from './ids';
-import { applyBlockSpacingAfter, createFormFieldProps, formFieldInsertLabel, insertNodeAtSelection, insertTextAtSelection } from './rich-content-commands';
+import {
+  applyBlockSpacingAfter,
+  createFormFieldProps,
+  formFieldInsertLabel,
+  insertNodeAtSelection,
+  insertTextAtSelection,
+} from './rich-content-commands';
 import { OVERLAY_CARD_GUTTER_OFFSET_PX } from '../authoring/overlay/constants';
 import { blockIdForNode, type RichContentMetadata } from './rich-content-doc';
 import { readViewportRect, RichContentFloatingMenu } from './rich-content-floating';
@@ -88,7 +94,6 @@ const AUTHORED_LINK_PLACEHOLDER_URL = 'https://docs.example.com';
  * against a card that is not the card their user sees.
  */
 const HANDLE_GUTTER_PX = 44;
-
 
 interface HoveredBlock {
   key: NodeKey;
@@ -232,11 +237,7 @@ export function BlockHandlesPlugin({
     const onPointerMove = (event: PointerEvent): void => {
       if (menuOpenRef.current || draggingKeyRef.current) return;
       const target = event.target;
-      if (
-        target instanceof Element &&
-        target.closest('[data-rich-block-handles="true"]')
-      )
-        return;
+      if (target instanceof Element && target.closest('[data-rich-block-handles="true"]')) return;
       const rootRect = readViewportRect(rootElement);
       const inBounds =
         event.clientX >= rootRect.left - HANDLE_GUTTER_PX &&
@@ -265,7 +266,7 @@ export function BlockHandlesPlugin({
       if (
         target instanceof Element &&
         target.closest(
-          '[data-rich-block-handles="true"], [data-rich-content-floating-menu="true"], [data-rich-content-select-content="true"]',
+          '[data-rich-block-handles="true"], [data-rich-content-floating-menu="true"], .ui-select-content',
         )
       )
         return;
@@ -772,10 +773,7 @@ export function BlockHandlesPlugin({
         />
       ) : null}
       {menuView === 'emoji' ? (
-        <RichContentEmojiPickerPanel
-          onBack={() => setMenuView('list')}
-          onSelect={insertEmoji}
-        />
+        <RichContentEmojiPickerPanel onBack={() => setMenuView('list')} onSelect={insertEmoji} />
       ) : null}
     </div>
   );

@@ -38,18 +38,34 @@ const rewrite: AiAssistRequest = {
   text: 'A much longer body',
 };
 
-const batch: AiAssistRequest = { kind: 'translate', scope: 'batch', locale: 'de', stepIds: ['a', 'b'] };
+const batch: AiAssistRequest = {
+  kind: 'translate',
+  scope: 'batch',
+  locale: 'de',
+  stepIds: ['a', 'b'],
+};
 
 describe('assist scope discipline (§7.4, §7.5)', () => {
   it('ships Scribe’s five verbs and no more', () => {
-    expect(AI_REWRITE_VERBS).toEqual(['shorter', 'clearer', 'more-formal', 'friendlier', 'fix-grammar']);
+    expect(AI_REWRITE_VERBS).toEqual([
+      'shorter',
+      'clearer',
+      'more-formal',
+      'friendlier',
+      'fix-grammar',
+    ]);
   });
 
   it('requires an explicit confirm for anything touching more than one object', () => {
     expect(requiresExplicitConfirm(rewrite)).toBe(false);
     expect(requiresExplicitConfirm(batch)).toBe(true);
     expect(
-      requiresExplicitConfirm({ kind: 'command', scope: 'step', prompt: 'tighten', stepIds: ['a'] }),
+      requiresExplicitConfirm({
+        kind: 'command',
+        scope: 'step',
+        prompt: 'tighten',
+        stepIds: ['a'],
+      }),
     ).toBe(false);
     expect(
       requiresExplicitConfirm({
@@ -100,7 +116,10 @@ describe('design-system guardrail (§7.4)', () => {
 
 describe('preview → accept / reject / refine / undo (§7.5)', () => {
   it('never applies before a preview is accepted', () => {
-    const state = run([{ type: 'ask', request: rewrite }, { type: 'proposed', proposal: proposal('p1') }]);
+    const state = run([
+      { type: 'ask', request: rewrite },
+      { type: 'proposed', proposal: proposal('p1') },
+    ]);
     expect(state.phase).toBe('previewing');
     expect(isAiAssistPreviewing(state)).toBe(true);
     expect(state.appliedRevision).toBe(0);
@@ -164,7 +183,9 @@ describe('preview → accept / reject / refine / undo (§7.5)', () => {
       { type: 'proposed', proposal: proposal('p1') },
       { type: 'reject' },
     ]);
-    expect(aiAssistReducer(rejected, { type: 'proposed', proposal: proposal('p2') })).toBe(rejected);
+    expect(aiAssistReducer(rejected, { type: 'proposed', proposal: proposal('p2') })).toBe(
+      rejected,
+    );
   });
 });
 

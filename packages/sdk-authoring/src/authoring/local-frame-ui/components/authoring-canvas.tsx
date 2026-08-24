@@ -1,5 +1,5 @@
 import { authoringText } from '../../../i18n';
-import { lazy, Suspense, useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import type { LodariqBlock } from '@lodariq/schema';
 import {
   experienceAuthoringProfile,
@@ -44,17 +44,16 @@ export function AuthoringCanvas({
   const profile = experienceAuthoringProfile(snapshot.documentState.type);
   const experienceItems = selectExperienceRootBlocks(snapshot.documentState);
   const tourSteps = profile.workspace === 'sequence' ? experienceItems : [];
-  const activeStepId = activeTourStepId(tourSteps, snapshot.selectedBlockId);
-  const activeStep = tourSteps.find((step) => step.id === activeStepId) ?? null;
+  const activeStepId = activeTourStepId(experienceItems, snapshot.selectedBlockId);
+  const activeStep = experienceItems.find((step) => step.id === activeStepId) ?? null;
+  const initialWorkspaceHandled = useRef(false);
   useEffect(() => {
-    if (
-      frameMode === 'panel' &&
-      initialWorkspace?.kind === 'flowMap' &&
-      snapshot.panelWorkflow.mode === 'edit'
-    ) {
-      controller.openOperationsMode('flow');
-    }
-  }, [controller, frameMode, initialWorkspace, snapshot.panelWorkflow.mode]);
+    if (frameMode !== 'panel' || initialWorkspaceHandled.current) return;
+    initialWorkspaceHandled.current = true;
+    if (initialWorkspace?.focusBlockId) controller.selectBlock(initialWorkspace.focusBlockId);
+    if (initialWorkspace?.kind === 'flowMap') controller.openOperationsMode('flow');
+    if (initialWorkspace?.kind === 'reviewRecovery') controller.openOperationsMode('review');
+  }, [controller, frameMode, initialWorkspace]);
 
   if (frameMode === 'panel') {
     if (snapshot.panelWorkflow.mode === 'operations') {
@@ -100,9 +99,7 @@ export function AuthoringCanvas({
         </section>
       );
     }
-    return (
-      <OverlayStepEditor controller={controller} snapshot={snapshot} step={activeStep} />
-    );
+    return <OverlayStepEditor controller={controller} snapshot={snapshot} step={activeStep} />;
   }
 
   return (

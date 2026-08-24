@@ -3,8 +3,18 @@ import { describe, expect, it, vi } from 'vitest';
 import type { LodariqBlock, LodariqDocument } from '@lodariq/schema';
 import tourFixture from '@lodariq/schema/fixtures/tour.linear.v1.json';
 import { eventInsideOverlayChrome } from '../../../../../packages/sdk-authoring/src/authoring/overlay/click-outside';
-import { applyOverlayGeometry, chooseOverlayToolbarSide, OVERLAY_CHROME_PAD_PX, OVERLAY_HANDLE_GUTTER_PX, OVERLAY_TOOLBAR_BAND_PX, OVERLAY_TOOLBAR_MIN_WIDTH_PX } from '../../../../../packages/sdk-authoring/src/authoring/overlay/geometry';
-import { createCompass, syncCompass } from '../../../../../packages/sdk-authoring/src/authoring/overlay/compass';
+import {
+  applyOverlayGeometry,
+  chooseOverlayToolbarSide,
+  OVERLAY_CHROME_PAD_PX,
+  OVERLAY_HANDLE_GUTTER_PX,
+  OVERLAY_TOOLBAR_BAND_PX,
+  OVERLAY_TOOLBAR_MIN_WIDTH_PX,
+} from '../../../../../packages/sdk-authoring/src/authoring/overlay/geometry';
+import {
+  createCompass,
+  syncCompass,
+} from '../../../../../packages/sdk-authoring/src/authoring/overlay/compass';
 import { syncPulses } from '../../../../../packages/sdk-authoring/src/authoring/overlay/pulses';
 import {
   createFilmstrip,
@@ -140,7 +150,9 @@ describe('live overlay authoring shell', () => {
     expect(iframe.style.width).toBe(
       `${OVERLAY_TOOLBAR_MIN_WIDTH_PX + OVERLAY_CHROME_PAD_PX * 2 + OVERLAY_HANDLE_GUTTER_PX}px`,
     );
-    expect(iframe.style.height).toBe(`${180 + OVERLAY_TOOLBAR_BAND_PX + OVERLAY_CHROME_PAD_PX * 2}px`);
+    expect(iframe.style.height).toBe(
+      `${180 + OVERLAY_TOOLBAR_BAND_PX + OVERLAY_CHROME_PAD_PX * 2}px`,
+    );
     expect(iframe.style.top).toBe(`${200 - OVERLAY_TOOLBAR_BAND_PX - OVERLAY_CHROME_PAD_PX}px`);
     expect(iframe.style.left).toBe(
       `${120 - OVERLAY_CHROME_PAD_PX - OVERLAY_HANDLE_GUTTER_PX - overhang}px`,
@@ -166,7 +178,9 @@ describe('live overlay authoring shell', () => {
       true,
       'above',
     );
-    expect(iframe.style.height).toBe(`${400 + OVERLAY_TOOLBAR_BAND_PX + OVERLAY_CHROME_PAD_PX * 2}px`);
+    expect(iframe.style.height).toBe(
+      `${400 + OVERLAY_TOOLBAR_BAND_PX + OVERLAY_CHROME_PAD_PX * 2}px`,
+    );
     iframe.remove();
     frame.remove();
   });
@@ -240,7 +254,9 @@ describe('live overlay authoring shell', () => {
     const sameSide = compass.querySelector<HTMLButtonElement>(
       '[data-placement="bottom"][data-align="start"]',
     );
-    const other = compass.querySelector<HTMLButtonElement>('[data-placement="top"][data-align="end"]');
+    const other = compass.querySelector<HTMLButtonElement>(
+      '[data-placement="top"][data-align="end"]',
+    );
     expect(current?.hidden).toBe(false);
     expect(current?.getAttribute('aria-pressed')).toBe('true');
     expect(sameSide?.getAttribute('aria-pressed')).toBe('false');
@@ -309,7 +325,7 @@ describe('the filmstrip step, as a thumbnail', () => {
     document.body.append(filmstrip);
     renderFilmstripSteps(
       filmstrip,
-      { blocks: [step] } as unknown as LodariqDocument,
+      { type: 'tour', blocks: [step] } as unknown as LodariqDocument,
       'step_1',
     );
     return filmstrip;
@@ -330,9 +346,7 @@ describe('the filmstrip step, as a thumbnail', () => {
   });
 
   it('shows the media a step carries, which is what a creator scans for', () => {
-    const withMedia = strip(
-      stepWith([{ id: 'm', type: 'media', props: {}, children: [] }]),
-    );
+    const withMedia = strip(stepWith([{ id: 'm', type: 'media', props: {}, children: [] }]));
     expect(withMedia.querySelector('.overlay-filmstrip-step-media')).not.toBeNull();
     const withoutMedia = strip(
       stepWith([{ id: 'p', type: 'paragraph', content: 'Hi', props: {}, children: [] }]),
@@ -351,9 +365,9 @@ describe('the filmstrip step, as a thumbnail', () => {
     const filmstrip = strip(
       stepWith([{ id: 'h', type: 'heading', content: 'Welcome', props: {}, children: [] }]),
     );
-    expect(filmstrip.querySelector('.overlay-filmstrip-step-frame')?.getAttribute('aria-hidden')).toBe(
-      'true',
-    );
+    expect(
+      filmstrip.querySelector('.overlay-filmstrip-step-frame')?.getAttribute('aria-hidden'),
+    ).toBe('true');
     // The state dot is colour; the word after the em dash is how a creator who
     // cannot see that colour still learns the step has no target yet (§4.5).
     expect(filmstrip.querySelector('.overlay-filmstrip-step')?.getAttribute('aria-label')).toBe(

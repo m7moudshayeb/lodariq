@@ -16,7 +16,6 @@ export interface PaletteActions {
   readonly toggleRecording: () => void;
   readonly openOperations: (tab: string) => void;
   readonly preview: () => void;
-  readonly simulateUser: () => void;
   readonly hidePanels: () => void;
   /** Sends the creator's words to the frame, which anchors them to a step (§7.8). */
   readonly ask: (prompt: string) => void;
@@ -40,9 +39,7 @@ export const PALETTE_COPY = {
   freeform: (query: string) => authoringText('Ask Lodariq for “{query}”', { query }),
   proposedEdit: authoringText('Proposed edit'),
   /** Same sentence the frame uses when an ask arrives without a provider (§7.4). */
-  assistUnavailable: authoringText(
-    'Assist is available from an authenticated authoring session.',
-  ),
+  assistUnavailable: authoringText('Assist is available from an authenticated authoring session.'),
 } as const;
 
 const GROUP = {
@@ -54,19 +51,14 @@ const GROUP = {
   language: authoringText('Language'),
   release: authoringText('Release'),
   play: MODE_PILL_COPY.groupPlay,
-  quality: authoringText('Quality'),
   panels: authoringText('Panels'),
 } as const;
 
 /**
  * The catalogue, in the prototype's order.
  *
- * Two of its rows are not here. `Predict the layout at every viewport` is the
- * same pass as `Simulate a confused first-time user` in this build — both run
- * the predictive check and land on its findings — and two rows for one action
- * is how a palette stops being trusted. `Open the flow map` and
- * `Open the storyboard` keep the mode pill's wording rather than the
- * prototype's, so the same destination is not named two ways.
+ * `Open the flow map` and `Open the storyboard` keep the mode pill's wording
+ * rather than the prototype's, so the same destination is not named two ways.
  */
 export const PALETTE_COMMANDS: readonly PaletteCommand[] = [
   {
@@ -107,7 +99,12 @@ export const PALETTE_COMMANDS: readonly PaletteCommand[] = [
     group: GROUP.appearance,
     run: (a) => a.openOperations('appearance'),
   },
-  { id: 'add-step', label: authoringText('Add a step'), group: GROUP.steps, run: (a) => a.addStep() },
+  {
+    id: 'add-step',
+    label: authoringText('Add a step'),
+    group: GROUP.steps,
+    run: (a) => a.addStep(),
+  },
   {
     id: 'retarget',
     label: authoringText('Change this step’s target'),
@@ -162,23 +159,11 @@ export const PALETTE_COMMANDS: readonly PaletteCommand[] = [
     group: GROUP.play,
     run: (a) => a.preview(),
   },
-  /**
-   * WIRE_BE: a narrated demo needs narration audio, which is not in the immutable
-   * artifact yet (§10a). This opens the section where the script is written, which
-   * is as far as the build goes — the same gap the preview bar's play carries.
-   */
   {
     id: 'narrated',
     label: MODE_PILL_COPY.narratedDemo,
     group: GROUP.play,
     run: (a) => a.openOperations('narration'),
-  },
-  {
-    id: 'simulate',
-    label: MODE_PILL_COPY.simulateConfusedUser,
-    group: GROUP.quality,
-    assist: false,
-    run: (a) => a.simulateUser(),
   },
   {
     id: 'hide-panels',
@@ -224,7 +209,6 @@ export function matchedCommands(query: string): readonly PaletteCommand[] {
   if (!needle) return PALETTE_COMMANDS;
   return PALETTE_COMMANDS.filter(
     (command) =>
-      command.label.toLowerCase().includes(needle) ||
-      command.group.toLowerCase().includes(needle),
+      command.label.toLowerCase().includes(needle) || command.group.toLowerCase().includes(needle),
   );
 }

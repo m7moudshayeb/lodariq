@@ -5,6 +5,8 @@ import {
   brandDriftRuns,
   authoringDraftCheckpoints,
   authoringMediaAssets,
+  authoringMediaAssetsV2,
+  authoringNarrationAssets,
   authoringStyleRecipes,
   compiledArtifacts,
   documents,
@@ -71,6 +73,8 @@ export const workspaceRelations = relations(workspaces, ({ many, one }) => ({
   authoringStyleRecipes: many(authoringStyleRecipes),
   authoringDraftCheckpoints: many(authoringDraftCheckpoints),
   authoringMediaAssets: many(authoringMediaAssets),
+  authoringMediaAssetsV2: many(authoringMediaAssetsV2),
+  authoringNarrationAssets: many(authoringNarrationAssets),
   visualCheckRuns: many(visualCheckRuns),
   publicationVerifications: many(publicationVerifications),
   releaseApprovals: many(releaseApprovals),
@@ -168,19 +172,16 @@ export const accountEmailChangeRelations = relations(
   }),
 );
 
-export const accountEmailChangeOutboxRelations = relations(
-  accountEmailChangeOutbox,
-  ({ one }) => ({
-    user: one(users, {
-      fields: [accountEmailChangeOutbox.userId],
-      references: [users.id],
-    }),
-    challenge: one(accountEmailChangeChallenges, {
-      fields: [accountEmailChangeOutbox.challengeId],
-      references: [accountEmailChangeChallenges.id],
-    }),
+export const accountEmailChangeOutboxRelations = relations(accountEmailChangeOutbox, ({ one }) => ({
+  user: one(users, {
+    fields: [accountEmailChangeOutbox.userId],
+    references: [users.id],
   }),
-);
+  challenge: one(accountEmailChangeChallenges, {
+    fields: [accountEmailChangeOutbox.challengeId],
+    references: [accountEmailChangeChallenges.id],
+  }),
+}));
 
 export const identityOnboardingStateRelations = relations(identityOnboardingStates, ({ one }) => ({
   user: one(users, {

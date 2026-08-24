@@ -7,7 +7,7 @@
  * before the creator has seen anything. Dropping the card answers both: the form is
  * a consequence of position, which makes it Tier 1 by definition.
  */
-import type { ExperienceSurfaceForm } from '@lodariq/schema';
+import { HOTSPOT_MARKER_FORMS, type ExperienceSurfaceForm } from '@lodariq/schema';
 
 /** Named so §9's control map and the shipped affordances stay in step. */
 export type ExperienceGesture =
@@ -66,5 +66,5 @@ export function checklistFormFor(region: ViewportRegion): ExperienceSurfaceForm 
 }
 
 /** The four marker forms a hotspot offers inline, rather than in a dropdown (§5). */
-export const HOTSPOT_MARKER_FORMS = ['pulse', 'dot', 'ring', 'number'] as const;
+export { HOTSPOT_MARKER_FORMS };
 export type HotspotMarkerForm = (typeof HOTSPOT_MARKER_FORMS)[number];

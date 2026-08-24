@@ -37,6 +37,7 @@ import {
   updateBlockContentRuns,
 } from './document-ops';
 import { findContainingTourStepId } from './preview-step-state';
+import { selectExperienceRootBlocks } from './experience-authoring-capabilities';
 import {
   isDefaultDocumentLocale,
   setAuthoringLocalizedBlockContent,
@@ -208,7 +209,7 @@ export function applyPreviewPatch(
       const label =
         op.identity?.display.authorLabel ??
         op.fingerprint.accessibleName ??
-        op.fingerprint.stableAttributes['data-lodariq-id'] ??
+        op.fingerprint.stableAttributes?.['data-lodariq-id'] ??
         op.fingerprint.tagName;
       next = {
         ...next,
@@ -220,6 +221,10 @@ export function applyPreviewPatch(
             ...(previousTarget?.lifecycle
               ? { lifecycle: structuredClone(previousTarget.lifecycle) }
               : {}),
+            ...(previousTarget?.approach
+              ? { approach: structuredClone(previousTarget.approach) }
+              : {}),
+            ...(op.selection ? { selection: structuredClone(op.selection) } : {}),
             ...(op.identity
               ? {
                   identity: {
@@ -270,6 +275,16 @@ export function applyPreviewPatch(
         }),
       };
     }
+    if (op.op === 'setTargetApproach') {
+      next = {
+        ...next,
+        targets: next.targets.map((target) => {
+          if (target.id !== op.targetId) return target;
+          const approach = op.approach ? structuredClone(op.approach) : undefined;
+          return approach ? { ...target, approach } : { ...target, approach: undefined };
+        }),
+      };
+    }
     if (op.op === 'replaceDocument') {
       next = structuredClone(op.document);
     }
@@ -281,9 +296,12 @@ export function inlinePreviewControlContext(
   document: LodariqDocument,
   bodyBlockId: string,
 ): InlinePreviewControlContext | null {
-  const stepId = findContainingTourStepId(document.blocks, bodyBlockId);
-  const step = document.blocks.find((block) => block.id === stepId && block.type === 'tourStep');
-  const tooltip = step?.children.find((block) => block.type === 'tooltip');
+  const tourStepId = findContainingTourStepId(document.blocks, bodyBlockId);
+  const step = selectExperienceRootBlocks(document).find(
+    (candidate) => candidate.id === tourStepId || blockContainsId(candidate, bodyBlockId),
+  );
+  const tooltip =
+    step?.type === 'tooltip' ? step : step?.children.find((block) => block.type === 'tooltip');
   if (!step || !tooltip) return null;
   const actionBlock = firstInlineActionBlock(tooltip.children);
   const actionType = inlineActionType(actionBlock?.props.action?.type);
@@ -293,6 +311,10 @@ export function inlinePreviewControlContext(
     placement: tooltip.props.placement ?? 'bottom',
     ...(actionBlock ? { actionBlockId: actionBlock.id, actionType } : {}),
   };
+}
+
+function blockContainsId(block: LodariqBlock, blockId: string): boolean {
+  return block.id === blockId || block.children.some((child) => blockContainsId(child, blockId));
 }
 
 function firstInlineActionBlock(blocks: LodariqBlock[]): LodariqBlock | null {

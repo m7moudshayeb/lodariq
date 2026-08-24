@@ -62,6 +62,25 @@ describe('rebuilding a session from its beats', () => {
     expect(session?.outcome).toBe('abandoned');
   });
 
+  it('replays an adaptive skip without calling it abandonment or a manual skip', () => {
+    const [session] = buildExperienceSessions([
+      event({ name: 'tour_started', occurredAt: AT(0) }),
+      event({
+        name: 'tour_adaptive_step_skipped',
+        stepId: 'step_known',
+        occurredAt: AT(1),
+        props: { reason: 'demonstrated' },
+      }),
+      event({ name: 'tour_completed', occurredAt: AT(2) }),
+    ]);
+    expect(session?.beats.map((beat) => beat.name)).toEqual([
+      'tour_started',
+      'tour_adaptive_step_skipped',
+      'tour_completed',
+    ]);
+    expect(session?.outcome).toBe('completed');
+  });
+
   it('carries nothing about the person beyond the correlation', () => {
     const [session] = buildExperienceSessions(events);
     expect(Object.keys(session!).sort()).toEqual([

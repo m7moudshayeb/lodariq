@@ -1,5 +1,6 @@
 import { hostSafe } from '../host-safety';
 import type { CompiledStep, StepBackdrop, StepEmphasis, TargetOutline } from '@lodariq/schema';
+import type { BackdropTravelRect } from './tour-spotlight-travel';
 
 /**
  * Backdrop, outline treatment and viewport focus — the three things that make a
@@ -20,6 +21,14 @@ import type { CompiledStep, StepBackdrop, StepEmphasis, TargetOutline } from '@l
  */
 const BACKDROP_SOFTNESS_PX = 18;
 const BACKDROP_SPREAD_PX = 9999;
+
+interface BackdropTravelState {
+  animation: Animation | null;
+  rect: BackdropTravelRect;
+  target: Element;
+}
+
+const backdropTravelStates = new WeakMap<HTMLElement, BackdropTravelState>();
 
 /** ADR-0013: a role resolves to a theme variable; a literal colour never persists. */
 const OUTLINE_COLOR_VARIABLES = {
@@ -104,29 +113,46 @@ export function positionTourBackdrop(
   if (!backdrop) return;
   const config = emphasis?.backdrop;
   if (!config) {
-    backdrop.hidden = true;
+    resetTourBackdrop(backdrop);
     return;
   }
   const rect = target.getBoundingClientRect();
   const tint = config.tintRole
     ? `var(${BACKDROP_TINT_VARIABLES[config.tintRole]})`
     : 'rgb(0 0 0 / 100%)';
-  Object.assign(backdrop.style, {
+  const nextRect: BackdropTravelRect = {
+    borderRadius: backdropRadius(target, emphasis),
     left: `${rect.left - offsetPx}px`,
     top: `${rect.top - offsetPx}px`,
     width: `${rect.width + offsetPx * 2}px`,
     height: `${rect.height + offsetPx * 2}px`,
+  };
+  const previous = backdropTravelStates.get(backdrop);
+  previous?.animation?.cancel();
+  backdrop.hidden = false;
+  Object.assign(backdrop.style, {
+    ...nextRect,
     boxShadow: `0 0 ${BACKDROP_SOFTNESS_PX}px ${BACKDROP_SPREAD_PX}px color-mix(in srgb, ${tint} ${config.dimPercent}%, transparent)`,
   });
-  if (emphasis?.targetOutline?.followTargetRadius) {
-    const radius = target.ownerDocument.defaultView?.getComputedStyle(target).borderRadius;
-    if (radius) backdrop.style.borderRadius = radius;
-  } else if (emphasis?.targetOutline?.radiusPx !== undefined) {
-    backdrop.style.borderRadius = `${emphasis.targetOutline.radiusPx}px`;
-  } else {
-    backdrop.style.removeProperty('border-radius');
+  const state: BackdropTravelState = { animation: null, rect: nextRect, target };
+  backdropTravelStates.set(backdrop, state);
+  if (previous && previous.target !== target && !prefersReducedMotion(backdrop)) {
+    void import('./tour-spotlight-travel')
+      .then(({ animateBackdropTravel }) => {
+        if (backdropTravelStates.get(backdrop) !== state || backdrop.hidden) return;
+        state.animation = animateBackdropTravel(backdrop, previous.rect, nextRect);
+      })
+      .catch(() => {});
+  } else if (!previous) {
+    void import('./tour-spotlight-travel').catch(() => {});
   }
-  backdrop.hidden = false;
+}
+
+export function resetTourBackdrop(backdrop: HTMLElement | null): void {
+  if (!backdrop) return;
+  backdropTravelStates.get(backdrop)?.animation?.cancel();
+  backdropTravelStates.delete(backdrop);
+  backdrop.hidden = true;
 }
 
 /**
@@ -161,29 +187,29 @@ export function armBackdropClick(
   return () => doc.removeEventListener('click', safeOnClick, true);
 }
 
-/**
- * `zoom` scales the host document. It is opt-in per step because a page-level
- * transform fights sticky headers and every rect the resolver measures — so the
- * player re-measures on the next frame rather than trusting the pre-zoom rects.
- */
-export function applyViewportZoom(step: CompiledStep, doc: Document): () => void {
-  const focus = step.emphasis?.viewportFocus;
-  if (!focus || focus.behavior !== 'zoom') return () => {};
-  const scale = (focus.scalePercent ?? 100) / 100;
-  if (scale === 1) return () => {};
-  const root = doc.documentElement;
-  const previousTransform = root.style.transform;
-  const previousOrigin = root.style.transformOrigin;
-  root.style.transformOrigin = 'top center';
-  root.style.transform = `scale(${scale})`;
-  return () => {
-    root.style.transform = previousTransform;
-    root.style.transformOrigin = previousOrigin;
-  };
-}
-
 export function stepEmphasisOf(step: CompiledStep): StepEmphasis | undefined {
   return step.emphasis;
 }
 
 export type { StepBackdrop, TargetOutline };
+
+function backdropRadius(target: Element, emphasis: StepEmphasis | undefined): string {
+  if (emphasis?.targetOutline?.followTargetRadius) {
+    const radius = target.ownerDocument.defaultView?.getComputedStyle(target).borderRadius;
+    if (radius) return radius;
+  }
+  if (emphasis?.targetOutline?.radiusPx !== undefined) {
+    return `${emphasis.targetOutline.radiusPx}px`;
+  }
+  return '';
+}
+
+function prefersReducedMotion(element: Element): boolean {
+  const root = element.getRootNode();
+  const ShadowRootConstructor = element.ownerDocument.defaultView?.ShadowRoot;
+  const host = ShadowRootConstructor && root instanceof ShadowRootConstructor ? root.host : null;
+  if (host?.getAttribute('data-lodariq-accessibility-preview') === 'reducedMotion') return true;
+  return Boolean(
+    element.ownerDocument.defaultView?.matchMedia?.('(prefers-reduced-motion: reduce)').matches,
+  );
+}

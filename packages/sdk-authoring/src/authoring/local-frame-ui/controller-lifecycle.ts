@@ -26,10 +26,14 @@ export abstract class ControllerLifecycleFeature extends ControllerBase {
     name: LocalAuthoringFrameMetricName,
     attributes?: AuthoringDiagnosticAttributes,
   ): void;
+  protected abstract recordMetricWithoutEmit(
+    name: LocalAuthoringFrameMetricName,
+    attributes?: AuthoringDiagnosticAttributes,
+  ): void;
   abstract refreshPanelWorkflowState(): void;
   abstract refreshStagingRelease(): void;
   protected abstract sendPreviewRequest(
-    mode: 'full' | 'step',
+    mode: 'approach' | 'full' | 'step',
     stepId?: string,
     accessibilityMode?: AuthoringAccessibilityPreviewMode,
     simulationContext?: AuthoringFlowSimulationContext,
@@ -67,10 +71,14 @@ export abstract class ControllerLifecycleFeature extends ControllerBase {
     this.refreshStagingRelease();
     this.refreshPanelWorkflowState();
     this.brandDriftController?.initialize();
+    this.syncStepLockForSelection(this.selectedBlockId);
+    this.startCollaborationTransport();
   }
 
   destroy(): void {
     this.documentTransactions.flush();
+    this.stopCollaborationTransport();
+    this.releaseStepLockLease();
     this.releaseMediaAssetPreviews();
     if (!this.started) {
       this.interactionActor.stop();
@@ -107,6 +115,7 @@ export abstract class ControllerLifecycleFeature extends ControllerBase {
     if (this.selectedBlockId === blockId) return;
     this.documentTransactions.flush();
     this.selectedBlockId = blockId;
+    this.syncStepLockForSelection(blockId);
     this.emit();
   }
 
@@ -132,6 +141,7 @@ export abstract class ControllerLifecycleFeature extends ControllerBase {
     if (!step) return;
     this.documentTransactions.flush();
     this.selectedBlockId = stepId;
+    this.syncStepLockForSelection(stepId);
     this.advancedEditorStepId = null;
     void this.sendPreviewRequest('step', stepId).catch(() => {
       this.setStatus(authoringText('Step preview could not start'));
@@ -160,6 +170,7 @@ export abstract class ControllerLifecycleFeature extends ControllerBase {
       this.panelFocusToken += 1;
     }
     this.selectedBlockId = stepId;
+    this.syncStepLockForSelection(stepId);
     this.advancedEditorStepId = stepId;
     this.interactionActor.send({ type: 'OPEN_DETAILS' });
     this.setStatus(`Advanced settings for ${blockDisplayTitle(step)}`);

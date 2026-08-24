@@ -10,7 +10,8 @@
     "dev": "vite",
     "lint": "eslint .",
     "preview": "vite preview",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "size": "node ./scripts/check-size.mjs"
   },
   "dependencies": {
     "@lodariq/compiler": "workspace:*",

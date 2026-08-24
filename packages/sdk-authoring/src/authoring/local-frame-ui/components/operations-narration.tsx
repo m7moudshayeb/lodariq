@@ -14,16 +14,8 @@ import type { LocalAuthoringFrameController } from '../controller';
 const TICK_MS = 100;
 
 /**
- * Hearing the shape of the narration before there is any audio.
- *
- * The scripts play as timed captions at a speaking rate, so a creator can see
- * where a step runs long and how much of someone's attention the whole thing
- * asks for. The timing is an estimate and says so — but it is the same estimate
- * a voice would follow, which is what makes it worth trusting for pacing.
- *
- * WIRE_BE: generated audio and cue timing must be compiled into the immutable
- * artifact. This surface is deliberately a caption rehearsal until that artifact
- * path exists; its Play button does not claim to play generated speech.
+ * Caption rehearsal remains useful for pacing; full preview plays the exact
+ * generated assets that production receives.
  */
 export function OperationsNarration({
   controller,
@@ -66,6 +58,7 @@ export function OperationsNarration({
   const cue = cueAt(rehearsal, positionMs);
   const activeStepId = stepIdAt(rehearsal, positionMs);
   const activeStep = steps.find((step) => step.id === activeStepId);
+  const generatedCount = steps.filter((step) => step.props.narration?.audio).length;
 
   // Following the playhead into the filmstrip is the point: a creator watches
   // the step change while the caption runs.
@@ -101,6 +94,26 @@ export function OperationsNarration({
           'Play the scripts as captions to hear the shape of the narration. Timing is estimated from a speaking rate, so it paces like a voice would without waiting on one.',
         )}
       </p>
+
+      <div className="ops-box">
+        <h3>{authoringText('Generated audio')}</h3>
+        <p className="ops-box-body">
+          {authoringText('{ready} of {total} narrated steps are ready.', {
+            ready: generatedCount,
+            total: rehearsal.cues.length ? steps.length - rehearsal.silentStepIds.length : 0,
+          })}
+        </p>
+        <button
+          className="ops-btn"
+          data-variant="primary"
+          disabled={generatedCount === 0}
+          onClick={() => controller.previewFullTour()}
+          type="button"
+        >
+          <Play size={13} strokeWidth={2} aria-hidden="true" />
+          {authoringText('Preview narrated tour')}
+        </button>
+      </div>
 
       <div className="ops-box narration-stage">
         <p className="narration-caption" role="status" aria-live="polite">
@@ -169,6 +182,7 @@ export function OperationsNarration({
               <th scope="col">{authoringText('Step')}</th>
               <th scope="col">{authoringText('Captions')}</th>
               <th scope="col">{authoringText('Spoken length')}</th>
+              <th scope="col">{authoringText('Audio')}</th>
             </tr>
           </thead>
           <tbody>
@@ -184,6 +198,17 @@ export function OperationsNarration({
                   <td>
                     {cues.length ? (
                       formatNarrationClock(spokenMs)
+                    ) : (
+                      <span className="ops-tag">{authoringText('Silent')}</span>
+                    )}
+                  </td>
+                  <td>
+                    {step.props.narration?.audio ? (
+                      <span className="ops-tag" data-tone="positive">
+                        {authoringText('Ready')}
+                      </span>
+                    ) : cues.length ? (
+                      <span className="ops-tag">{authoringText('Generate')}</span>
                     ) : (
                       <span className="ops-tag">{authoringText('Silent')}</span>
                     )}
@@ -204,9 +229,7 @@ export function OperationsNarration({
       </div>
 
       <p className="ops-callout" data-tone="info">
-        {authoringText(
-          'Generated audio is not published yet: it has to live inside the immutable artifact so preview and production sound identical.',
-        )}
+        {authoringText('Preview and production use the same content-addressed narration audio.')}
       </p>
     </section>
   );

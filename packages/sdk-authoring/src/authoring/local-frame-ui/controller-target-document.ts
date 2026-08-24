@@ -14,6 +14,7 @@ import {
   type TargetLocale,
   type TargetViewportClass,
 } from '@lodariq/schema';
+import { pageKeyFrom, pageKeyMatches } from '@lodariq/schema/page-key';
 import {
   hasBlock,
   normalizeTourRootBlocks,
@@ -26,7 +27,10 @@ import {
   type EditableBlockType,
 } from '../document-ops';
 import { createBridgeCorrelationId } from '../../bridge/transport';
-import { fromBlockJson, toBlockJson, type SerializedEditorState } from '../../editor';
+// Imported from the module rather than the directory barrel: the barrel also
+// re-exports the Rich Content editor, and pulling block serialisation through
+// it dragged Lexical and the lucide icon map onto the first-paint path.
+import { fromBlockJson, toBlockJson, type SerializedEditorState } from '../../editor/serialize';
 import type { DocumentTarget, EditableActionType } from './types';
 import {
   localizedAuthoringDocument,
@@ -43,6 +47,8 @@ import {
   previewPatchForAction,
 } from './controller-model';
 import { authoringTargetIdentityKey } from '../target-health-ledger';
+import { registeredExperienceDefinition } from '../experience-authoring-capabilities';
+import { createBlockId } from '../../editor/ids';
 
 export abstract class ControllerTargetDocumentFeature extends ControllerReleaseRecoveryFeature {
   protected handleTargetEvidenceUpdate(
@@ -66,7 +72,11 @@ export abstract class ControllerTargetDocumentFeature extends ControllerReleaseR
               id: targetId,
               fingerprint: structuredClone(message.fingerprint),
               identity,
+              // Evidence-only message; the probe keeps sampling after the pick,
+              // so the creator's decisions have to survive every later sample.
               ...(target.lifecycle ? { lifecycle: structuredClone(target.lifecycle) } : {}),
+              ...(target.selection ? { selection: structuredClone(target.selection) } : {}),
+              ...(target.approach ? { approach: structuredClone(target.approach) } : {}),
             }
           : target,
       ),
@@ -148,8 +158,11 @@ export abstract class ControllerTargetDocumentFeature extends ControllerReleaseR
       }
     }
 
+    const hostPageKey = pageKeyFromRoute(route);
     for (const target of this.documentState.targets) {
+      const page = target.identity?.context.page;
       const requiresAnotherContext =
+        (page && hostPageKey !== null && !pageKeyMatches(page.key, page.match, hostPageKey)) ||
         (target.identity?.context.routePatternId &&
           target.identity.context.routePatternId !== routePatternId) ||
         (target.identity?.context.stateId && target.identity.context.stateId !== stateId) ||
@@ -487,7 +500,12 @@ export abstract class ControllerTargetDocumentFeature extends ControllerReleaseR
   }
 
   protected normalizeDocument(doc: LodariqDocument): LodariqDocument {
-    const lexicalState = fromBlockJson(doc.blocks);
+    const seededBlocks = [
+      ...(doc.type !== 'tour' && doc.blocks.length === 0
+        ? (registeredExperienceDefinition(doc.type)?.seed({ createBlockId }) ?? doc.blocks)
+        : doc.blocks),
+    ];
+    const lexicalState = fromBlockJson(seededBlocks);
     const parsed = this.lexicalEditor.parseEditorState(JSON.stringify(lexicalState)).toJSON();
     const blocks = toBlockJson(parsed as SerializedEditorState);
     return normalizeAuthoringDocumentLocalization({
@@ -515,4 +533,14 @@ function scheduleAnimationFrame(callback: () => void): void {
 
 function routeMatchesLifecycleHint(route: string, expectedRoute: string): boolean {
   return route === expectedRoute || route.startsWith(expectedRoute);
+}
+
+/** The lifecycle route is pathname + search + hash; only two of those count. */
+function pageKeyFromRoute(route: string): string | null {
+  try {
+    const url = new URL(route, 'http://page-key.invalid');
+    return pageKeyFrom(url.pathname || '/', url.hash);
+  } catch {
+    return null;
+  }
 }

@@ -39,6 +39,15 @@ export function AppearanceMode({
     snapshot.documentState.appearance ?? DEFAULT_EXPERIENCE_APPEARANCE,
   );
   const busy = workflow.operation === 'sampling-brand' || workflow.operation === 'applying-brand';
+  const themeRuns = snapshot.commercialUsage?.themeGenerationRuns;
+  const themeGenerationLimitReached =
+    themeRuns !== undefined && themeRuns.limit !== null && themeRuns.used >= themeRuns.limit;
+  const themeGenerationAvailable =
+    (!snapshot.commercialUsage || snapshot.commercialUsage.features.includes('theme-generation')) &&
+    !themeGenerationLimitReached;
+  const themeGenerationTitle = themeGenerationAvailable
+    ? undefined
+    : authoringText('The workspace has reached its Brand theme generation limit.');
   const themeVersion =
     typeof brand.version === 'number'
       ? authoringText('Version {version}', { version: brand.version })
@@ -147,8 +156,9 @@ export function AppearanceMode({
             <div className="panel-mode-primary-actions appearance-match-actions">
               <button
                 className="panel-mode-primary-button"
-                disabled={busy || !brand.canEdit}
+                disabled={busy || !brand.canEdit || !themeGenerationAvailable}
                 onClick={() => controller.matchProductBrand('current-target')}
+                title={themeGenerationTitle}
                 type="button"
               >
                 {busy ? (
@@ -160,8 +170,9 @@ export function AppearanceMode({
               </button>
               <button
                 className="panel-mode-secondary-button"
-                disabled={busy || !brand.canEdit}
+                disabled={busy || !brand.canEdit || !themeGenerationAvailable}
                 onClick={() => controller.matchProductBrand('select-element')}
+                title={themeGenerationTitle}
                 type="button"
               >
                 <ScanSearch size={16} strokeWidth={2.2} aria-hidden="true" />

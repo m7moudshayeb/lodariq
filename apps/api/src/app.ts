@@ -2,14 +2,15 @@ import Fastify, { type FastifyInstance } from 'fastify';
 import fastifySwagger from '@fastify/swagger';
 import {
   createControlPlaneRepositoryFromEnvironment,
+  CommercialEntitlementError,
   type ControlPlaneRepository,
 } from '@lodariq/database';
 import {
   AUTH_PASSWORD_FORMAT,
-  FASTIFY_REFERENCE_SCHEMA_REGISTRY,
   isAuthPassword,
   type CreatorModuleDescriptor,
 } from '@lodariq/schema';
+import { SERVER_FASTIFY_REFERENCE_SCHEMA_REGISTRY } from '@lodariq/schema/server-registry';
 import {
   createAuthProviderFromEnvironment,
   createAuthEmailRuntimeFromEnvironment,
@@ -28,6 +29,7 @@ import {
   type EnterpriseOidcConfiguration,
 } from './auth';
 import { noopObservability, type ObservabilitySink } from './observability';
+import { NarrationGenerationCoordinator, type NarrationProvider } from './authoring-narration';
 import { registerAuthRoutes } from './routes/auth';
 import { registerAccountManagementRoutes } from './routes/account-management';
 import { registerTenantAdministrationRoutes } from './routes/tenant-administration';
@@ -38,10 +40,34 @@ import {
   type EnterpriseDomainVerificationCapability,
 } from './routes/enterprise-identity';
 import { registerControlPlaneRoutes } from './routes/control-plane';
+import { DemoLinkSecretUnavailableError } from './authoring-demo-links';
 import {
   createDeepLAuthoringTranslationProvider,
   type AuthoringTranslationProvider,
 } from './authoring-translation';
+import { AuthoringAssistCoordinator, type AuthoringAssistProvider } from './authoring-assist';
+import {
+  createDeliveryScheduleWorker,
+  type DeliveryScheduleWorker,
+} from './delivery-schedule-worker';
+import { createAnalyticsExportWorker, type AnalyticsExportWorker } from './analytics-export-worker';
+import { createOutboundWebhookWorker, type OutboundWebhookWorker } from './outbound-webhooks';
+import {
+  createBrandDriftEmailNotifierFromEnvironment,
+  type BrandDriftEmailNotifier,
+} from './brand-drift-email';
+import { assertBillingProviderId, type CommercialBillingProvider } from './commercial-billing';
+import {
+  createCommercialBillingWorker,
+  type CommercialBillingWorker,
+} from './commercial-billing-worker';
+import type { DataResidencyProvider } from './data-residency';
+import { createDataResidencyWorker, type DataResidencyWorker } from './data-residency-worker';
+import type { AnalyticsWarehouseProvider } from './analytics-warehouse';
+import {
+  createAnalyticsWarehouseWorker,
+  type AnalyticsWarehouseWorker,
+} from './analytics-warehouse-worker';
 
 export interface CreateApiAppOptions {
   repository?: ControlPlaneRepository;
@@ -63,10 +89,29 @@ export interface CreateApiAppOptions {
   passwordHashAdmissionGate?: PasswordHashAdmissionGateLike;
   authClock?: () => Date;
   authoringTranslationProvider?: AuthoringTranslationProvider | null;
+  authoringAssistProvider?: AuthoringAssistProvider | null;
+  narrationProvider?: NarrationProvider | null;
   webAuthnConfiguration?: WebAuthnConfiguration | null;
   oidcConfiguration?: OidcConfiguration | null;
   enterpriseDomainVerification?: EnterpriseDomainVerificationCapability;
   enterpriseOidcConfiguration?: EnterpriseOidcConfiguration | null;
+  deliveryScheduleWorker?: DeliveryScheduleWorker | null;
+  deliveryScheduleClock?: () => Date;
+  analyticsExportWorker?: AnalyticsExportWorker | null;
+  analyticsExportClock?: () => Date;
+  webhookSigningKey?: string;
+  demoLinkSecret?: string;
+  outboundWebhookWorker?: OutboundWebhookWorker | null;
+  brandDriftEmailNotifier?: BrandDriftEmailNotifier | null;
+  billingProvider?: CommercialBillingProvider | null;
+  commercialBillingWorker?: CommercialBillingWorker | null;
+  commercialBillingClock?: () => Date;
+  dataResidencyProvider?: DataResidencyProvider | null;
+  dataResidencyWorker?: DataResidencyWorker | null;
+  dataResidencyClock?: () => Date;
+  analyticsWarehouseProviders?: readonly AnalyticsWarehouseProvider[];
+  analyticsWarehouseWorker?: AnalyticsWarehouseWorker | null;
+  analyticsWarehouseClock?: () => Date;
 }
 
 export function createApiApp(options: CreateApiAppOptions = {}): FastifyInstance {
@@ -111,6 +156,21 @@ export function createApiApp(options: CreateApiAppOptions = {}): FastifyInstance
     options.authoringTranslationProvider === null
       ? undefined
       : (options.authoringTranslationProvider ?? createDeepLAuthoringTranslationProvider());
+  const authoringAssistProvider = options.authoringAssistProvider ?? undefined;
+  const authoringAssistCoordinator = new AuthoringAssistCoordinator();
+  const narrationProvider = options.narrationProvider ?? undefined;
+  const narrationGenerationCoordinator = new NarrationGenerationCoordinator();
+  const webhookSigningKey =
+    options.webhookSigningKey ?? process.env.LODARIQ_WEBHOOK_SIGNING_KEY?.trim();
+  const brandDriftEmailNotifier =
+    options.brandDriftEmailNotifier === null
+      ? undefined
+      : (options.brandDriftEmailNotifier ??
+        createBrandDriftEmailNotifierFromEnvironment(process.env));
+  const billingProvider = options.billingProvider ?? undefined;
+  if (billingProvider) assertBillingProviderId(billingProvider);
+  const dataResidencyProvider = options.dataResidencyProvider ?? undefined;
+  const analyticsWarehouseProviders = options.analyticsWarehouseProviders ?? [];
   const webAuthnConfiguration =
     options.webAuthnConfiguration === undefined
       ? readWebAuthnConfiguration(process.env)
@@ -182,10 +242,79 @@ export function createApiApp(options: CreateApiAppOptions = {}): FastifyInstance
       ? createAuthLifecycleMaintenanceFromEnvironment(repository, observability)
       : null;
   }
+  let deliveryScheduleWorker = options.deliveryScheduleWorker;
+  if (deliveryScheduleWorker === undefined) {
+    deliveryScheduleWorker = ownsRepository
+      ? createDeliveryScheduleWorker({
+          repository,
+          ...(options.deliveryScheduleClock ? { clock: options.deliveryScheduleClock } : {}),
+        })
+      : null;
+  }
+  let outboundWebhookWorker = options.outboundWebhookWorker;
+  if (outboundWebhookWorker === undefined) {
+    outboundWebhookWorker =
+      ownsRepository && webhookSigningKey
+        ? createOutboundWebhookWorker({ repository, signingKey: webhookSigningKey })
+        : null;
+  }
+  let analyticsExportWorker = options.analyticsExportWorker;
+  if (analyticsExportWorker === undefined) {
+    analyticsExportWorker = ownsRepository
+      ? createAnalyticsExportWorker({
+          repository,
+          ...(options.analyticsExportClock ? { clock: options.analyticsExportClock } : {}),
+        })
+      : null;
+  }
+  let commercialBillingWorker = options.commercialBillingWorker;
+  if (commercialBillingWorker === undefined) {
+    commercialBillingWorker =
+      ownsRepository && billingProvider
+        ? createCommercialBillingWorker({
+            repository,
+            provider: billingProvider,
+            ...(options.commercialBillingClock ? { clock: options.commercialBillingClock } : {}),
+          })
+        : null;
+  }
+  let dataResidencyWorker = options.dataResidencyWorker;
+  if (dataResidencyWorker === undefined) {
+    dataResidencyWorker =
+      ownsRepository && dataResidencyProvider
+        ? createDataResidencyWorker({
+            repository,
+            provider: dataResidencyProvider,
+            ...(options.dataResidencyClock ? { clock: options.dataResidencyClock } : {}),
+          })
+        : null;
+  }
+  let analyticsWarehouseWorker = options.analyticsWarehouseWorker;
+  if (analyticsWarehouseWorker === undefined) {
+    analyticsWarehouseWorker =
+      ownsRepository && analyticsWarehouseProviders.length > 0
+        ? createAnalyticsWarehouseWorker({
+            repository,
+            providers: analyticsWarehouseProviders,
+            ...(options.analyticsWarehouseClock ? { clock: options.analyticsWarehouseClock } : {}),
+          })
+        : null;
+  }
 
-  for (const schema of FASTIFY_REFERENCE_SCHEMA_REGISTRY) {
+  for (const schema of SERVER_FASTIFY_REFERENCE_SCHEMA_REGISTRY) {
     fastify.addSchema(schema);
   }
+
+  fastify.setErrorHandler((error, _request, reply) => {
+    if (error instanceof CommercialEntitlementError) {
+      return reply.code(403).send({ error: error.code, message: error.message });
+    }
+    // Unconfigured, not broken: the caller should stop asking, not retry.
+    if (error instanceof DemoLinkSecretUnavailableError) {
+      return reply.code(503).send({ error: error.code, message: error.message });
+    }
+    return reply.send(error);
+  });
 
   void fastify.register(fastifySwagger, {
     openapi: {
@@ -222,7 +351,7 @@ export function createApiApp(options: CreateApiAppOptions = {}): FastifyInstance
   });
 
   void fastify.register(async (controlPlane) => {
-    controlPlane.get('/openapi.json', { schema: { hide: true } }, async () =>
+    controlPlane.get('/v1/openapi.json', { schema: { hide: true } }, async () =>
       controlPlane.swagger(),
     );
 
@@ -280,6 +409,16 @@ export function createApiApp(options: CreateApiAppOptions = {}): FastifyInstance
       authoringIframeSrc,
       observability,
       authoringTranslationProvider,
+      authoringAssistProvider,
+      authoringAssistCoordinator,
+      narrationProvider,
+      narrationGenerationCoordinator,
+      webhookSigningKey,
+      demoLinkSecret: options.demoLinkSecret ?? process.env.LODARIQ_DEMO_LINK_SECRET?.trim(),
+      dataResidencyExecutorConfigured: Boolean(dataResidencyProvider),
+      analyticsWarehouseExecutorConfigured: analyticsWarehouseProviders.length > 0,
+      brandDriftEmailNotifier,
+      billingProvider,
     });
   });
 
@@ -294,10 +433,56 @@ export function createApiApp(options: CreateApiAppOptions = {}): FastifyInstance
       authLifecycleMaintenance.start();
     });
   }
-  if (activeAuthEmailRuntime || authLifecycleMaintenance || ownsRepository) {
+  if (deliveryScheduleWorker) {
+    fastify.addHook('onReady', () => {
+      deliveryScheduleWorker.start();
+    });
+  }
+  if (analyticsExportWorker) {
+    fastify.addHook('onReady', () => {
+      analyticsExportWorker.start();
+    });
+  }
+  if (outboundWebhookWorker) {
+    fastify.addHook('onReady', () => {
+      outboundWebhookWorker?.start();
+    });
+  }
+  if (commercialBillingWorker) {
+    fastify.addHook('onReady', () => {
+      commercialBillingWorker?.start();
+    });
+  }
+  if (dataResidencyWorker) {
+    fastify.addHook('onReady', () => {
+      dataResidencyWorker?.start();
+    });
+  }
+  if (analyticsWarehouseWorker) {
+    fastify.addHook('onReady', () => {
+      analyticsWarehouseWorker?.start();
+    });
+  }
+  if (
+    activeAuthEmailRuntime ||
+    authLifecycleMaintenance ||
+    deliveryScheduleWorker ||
+    analyticsExportWorker ||
+    outboundWebhookWorker ||
+    commercialBillingWorker ||
+    dataResidencyWorker ||
+    analyticsWarehouseWorker ||
+    ownsRepository
+  ) {
     fastify.addHook('onClose', async () => {
       if (activeAuthEmailRuntime) await activeAuthEmailRuntime.worker.stop();
       if (authLifecycleMaintenance) await authLifecycleMaintenance.stop();
+      if (deliveryScheduleWorker) await deliveryScheduleWorker.stop();
+      if (analyticsExportWorker) await analyticsExportWorker.stop();
+      if (outboundWebhookWorker) await outboundWebhookWorker.stop();
+      if (commercialBillingWorker) await commercialBillingWorker.stop();
+      if (dataResidencyWorker) await dataResidencyWorker.stop();
+      if (analyticsWarehouseWorker) await analyticsWarehouseWorker.stop();
       if (ownsRepository) await repository.close?.();
     });
   }

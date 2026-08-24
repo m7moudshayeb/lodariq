@@ -12,12 +12,20 @@
  * expiry is testable and no clock skew hides in a timer.
  */
 
+import {
+  AUTHORING_PRESENCE_TTL_SECONDS,
+  EXPERIENCE_STEP_LOCK_TTL_SECONDS,
+  type AuthoringPresenceSelection,
+} from '@lodariq/schema';
+
 export interface PresencePeer {
   readonly creatorId: string;
   /** Display name, already resolved by the host. Initials are derived here. */
   readonly name: string;
   /** The step they are on, or null when they are elsewhere in the document. */
   readonly stepId: string | null;
+  readonly selection?: AuthoringPresenceSelection | null;
+  readonly sameCreator?: boolean;
   /** Epoch ms of their last heartbeat. */
   readonly lastSeenAt: number;
 }
@@ -46,9 +54,9 @@ export interface DocumentLock {
 }
 
 /** A peer is gone after this long without a heartbeat. */
-export const PRESENCE_STALE_MS = 30_000;
+export const PRESENCE_STALE_MS = AUTHORING_PRESENCE_TTL_SECONDS * 1_000;
 /** A soft lock lapses this long after the last edit. Expiry *is* the release. */
-export const STEP_LOCK_IDLE_MS = 90_000;
+export const STEP_LOCK_IDLE_MS = EXPERIENCE_STEP_LOCK_TTL_SECONDS * 1_000;
 /** Document operations are all fast; a lock outliving this is a bug, not a hold. */
 export const DOCUMENT_LOCK_MAX_MS = 15_000;
 
@@ -86,11 +94,7 @@ export function peersOnStep(
  * The lock that actually applies to a step: expired ones are ignored rather than
  * cleaned up, because "a lock that survives a closed laptop is worse than no lock".
  */
-export function activeStepLock(
-  state: PresenceState,
-  stepId: string,
-  now: number,
-): StepLock | null {
+export function activeStepLock(state: PresenceState, stepId: string, now: number): StepLock | null {
   const lock = state.stepLocks.find((candidate) => candidate.stepId === stepId);
   if (!lock) return null;
   return now - lock.lastEditAt < STEP_LOCK_IDLE_MS ? lock : null;
@@ -111,7 +115,11 @@ export function stepEditability(
 ): StepEditability {
   if (state.documentLock && state.documentLock.creatorId !== state.selfId) {
     if (now - state.documentLock.acquiredAt < DOCUMENT_LOCK_MAX_MS) {
-      return { editable: false, holder: peerById(state, state.documentLock.creatorId), reason: 'document' };
+      return {
+        editable: false,
+        holder: peerById(state, state.documentLock.creatorId),
+        reason: 'document',
+      };
     }
   }
   const lock = activeStepLock(state, stepId, now);
@@ -143,6 +151,11 @@ export function canAskForStep(state: PresenceState, stepId: string, now: number)
 }
 
 /** Admins can force-release, and the action is recorded by the host. */
-export function canForceRelease(state: PresenceState, stepId: string, now: number, isAdmin: boolean): boolean {
+export function canForceRelease(
+  state: PresenceState,
+  stepId: string,
+  now: number,
+  isAdmin: boolean,
+): boolean {
   return isAdmin && canAskForStep(state, stepId, now);
 }

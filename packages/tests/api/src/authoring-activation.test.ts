@@ -19,6 +19,7 @@ import {
   AUTHORING_SESSION_CAPABILITIES,
   AUTHORING_SESSION_HEADER,
   BRAND_THEME_CONTRACT_VERSION,
+  COMMERCIAL_PLAN_VERSION,
   COMPILER_VERSION,
   AuthoringCodeExchangeResult,
   AuthoringDocumentPayload,
@@ -483,7 +484,14 @@ describe('hosted authoring activation API', () => {
     });
     expect(recovered.statusCode).toBe(200);
     await recoveredApp.close();
-  }, 10_000);
+    /*
+     * No per-test timeout. This built four Fastify apps — each registering the
+     * whole control plane and its OpenAPI document — under a 10s cap, while the
+     * suite's own default is 30s. Nothing it asserts is about timing, so the
+     * cap only decided whether a full-suite run was green: it was the single
+     * failure in a 2,539-test run, and passed alone every time.
+     */
+  });
 
   it('loads the content-addressed creator descriptor from deployment environment values', async () => {
     await withTemporaryEnvironment(
@@ -663,7 +671,37 @@ describe('activation grant document sessions', () => {
     await app.close();
   });
 
-  it('queries page and workspace Tour summaries without consuming the activation grant', async () => {
+  it.each(['announcement', 'hotspot', 'survey', 'checklist'] as const)(
+    'creates a tenant-scoped hosted %s draft through the same activation exchange',
+    async (documentType) => {
+      const repository = createRepository();
+      const app = createApiApp({ repository, creatorModule });
+      const documentIntent = { kind: 'new-draft', documentType } as const;
+      const activation = await issueActivationGrant(app, {
+        requestedCapabilities: [AUTHORING_ACTIVATION_CAPABILITIES.CREATE_DOCUMENT],
+        documentIntent,
+      });
+      const created = await createActivatedSession(app, {
+        installationId: activation.installationId,
+        activationGrant: activation.activationGrant,
+        documentIntent,
+      });
+
+      expect(created.statusCode).toBe(201);
+      const result = created.json<{ context: { documentId: string } }>();
+      const persisted = await repository.getDocument(WORKSPACE_ID, result.context.documentId);
+      expect(persisted?.document).toMatchObject({
+        workspaceId: WORKSPACE_ID,
+        type: documentType,
+        status: 'draft',
+        experience: { type: documentType },
+      });
+      expect(await repository.getDocument('wk_other_tenant', result.context.documentId)).toBeNull();
+      await app.close();
+    },
+  );
+
+  it('queries page and workspace experience summaries without consuming the activation grant', async () => {
     const pageDocument: LodariqDocument = {
       ...existingDocument('doc_page'),
       title: 'Page tour',
@@ -681,8 +719,24 @@ describe('activation grant document sessions', () => {
       ...existingDocument('doc_manual'),
       title: 'Manual tour',
     };
+    const pageAnnouncement: LodariqDocument = {
+      ...existingDocument('doc_page_announcement'),
+      type: 'announcement',
+      title: 'Page announcement',
+      experience: {
+        type: 'announcement',
+        frequency: 'session',
+        dismissible: true,
+      },
+      surfaceForm: 'banner',
+      blocks: [],
+      trigger: {
+        type: 'urlMatch',
+        config: { pattern: `${CUSTOMER_ORIGIN}/projects/123`, mode: 'exact' },
+      },
+    };
     const repository = createRepository({
-      documents: [pageDocument, globalDocument, manualDocument],
+      documents: [pageDocument, pageAnnouncement, globalDocument, manualDocument],
     });
     const app = createApiApp({ repository, creatorModule });
     const activation = await issueActivationGrant(app, {
@@ -711,6 +765,9 @@ describe('activation grant document sessions', () => {
     expect(pageResult.documents.map((document: { id: string }) => document.id)).toEqual(
       expect.arrayContaining([pageDocument.id, globalDocument.id]),
     );
+    expect(pageResult.documents).toContainEqual(
+      expect.objectContaining({ id: pageAnnouncement.id, type: 'announcement' }),
+    );
     expect(pageResult.documents.map((document: { id: string }) => document.id)).not.toContain(
       manualDocument.id,
     );
@@ -719,7 +776,14 @@ describe('activation grant document sessions', () => {
     expect(workspace.statusCode).toBe(200);
     expect(
       workspace.json<{ documents: Array<{ id: string }> }>().documents.map(({ id }) => id),
-    ).toEqual(expect.arrayContaining([pageDocument.id, globalDocument.id, manualDocument.id]));
+    ).toEqual(
+      expect.arrayContaining([
+        pageDocument.id,
+        pageAnnouncement.id,
+        globalDocument.id,
+        manualDocument.id,
+      ]),
+    );
     await app.close();
   });
 
@@ -909,9 +973,16 @@ describe('activation grant document sessions', () => {
 
   it('loads and saves the activated draft with only the editor-owned session bearer', async () => {
     const repository = createRepository();
-    const translateTexts = vi.fn(async ({ texts }: { texts: readonly string[] }) =>
-      texts.map((text) => `FR:${text}`),
-    );
+    const translateTexts = vi.fn(async ({ texts }: { texts: readonly string[] }) => ({
+      texts: texts.map((text) => `FR:${text}`),
+      usage: {
+        provider: 'test-translator',
+        usageUnit: 'characters' as const,
+        inputUnits: texts.reduce((total, text) => total + text.length, 0),
+        outputUnits: texts.reduce((total, text) => total + text.length + 3, 0),
+        providerCostMicros: 400,
+      },
+    }));
     const app = createApiApp({
       repository,
       creatorModule,
@@ -934,7 +1005,7 @@ describe('activation grant document sessions', () => {
     });
     const session = created.json<{
       authoringSessionToken: string;
-      context: { documentId: string; translation?: { state: string } };
+      context: { sessionId: string; documentId: string; translation?: { state: string } };
     }>();
     expect(session.context.translation).toEqual({ state: 'available' });
     const editorHeaders = {
@@ -1044,6 +1115,8 @@ describe('activation grant document sessions', () => {
     const updatedDocument = {
       ...payload.document,
       title: 'Persisted from the hosted editor',
+      targets: structuredClone(baseDocument.targets),
+      blocks: structuredClone(baseDocument.blocks),
     };
     const saved = await app.inject({
       method: 'POST',
@@ -1058,11 +1131,49 @@ describe('activation grant document sessions', () => {
     );
     expect(saved.body).not.toContain(session.authoringSessionToken);
 
+    const lockedDocument = structuredClone(updatedDocument);
+    const lockedHeading = (
+      lockedDocument.blocks[0] as {
+        children: Array<{ children: Array<{ content?: string }> }>;
+      }
+    ).children[0]?.children[0];
+    if (!lockedHeading) throw new Error('hosted fixture heading missing');
+    lockedHeading.content = 'A conflicting edit';
+    await repository.claimExperienceStepLock({
+      workspaceId: WORKSPACE_ID,
+      documentId: session.context.documentId,
+      stepId: lockedDocument.blocks[0]!.id,
+      holderUserId: 'user_other_creator',
+      holderName: 'Another creator',
+      sessionId: 'authsess_other_editor',
+    });
+    const lockedSave = await app.inject({
+      method: 'POST',
+      url: '/v1/authoring/document',
+      headers: editorHeaders,
+      payload: { document: lockedDocument },
+    });
+    expect(lockedSave.statusCode).toBe(409);
+    expect(lockedSave.json()).toMatchObject({
+      error: 'step_lock_conflict',
+      stepId: lockedDocument.blocks[0]!.id,
+      holderName: 'Another creator',
+    });
+    await repository.releaseExperienceStepLock({
+      workspaceId: WORKSPACE_ID,
+      documentId: session.context.documentId,
+      stepId: lockedDocument.blocks[0]!.id,
+      holderUserId: 'user_other_creator',
+      holderName: '',
+      sessionId: 'authsess_other_editor',
+    });
+
     const translated = await app.inject({
       method: 'POST',
       url: '/v1/authoring/document/translation',
       headers: editorHeaders,
       payload: {
+        operationId: `aiop_${'l'.repeat(20)}`,
         document: updatedDocument,
         targetLocale: 'fr',
         mode: 'missing',
@@ -1074,6 +1185,9 @@ describe('activation grant document sessions', () => {
       variants: [{ locale: 'fr', title: 'FR:Persisted from the hosted editor' }],
     });
     expect(translateTexts).toHaveBeenCalledOnce();
+    await expect(repository.readWorkspaceCommercialUsage(WORKSPACE_ID)).resolves.toMatchObject({
+      aiCredits: { used: 1, limit: 15_000 },
+    });
 
     const reloaded = await app.inject({
       method: 'GET',
@@ -1284,6 +1398,20 @@ function createRepository(
         createdAt: now,
       },
     ],
+    workspaceSubscriptions: [
+      {
+        workspaceId: WORKSPACE_ID,
+        planId: 'business',
+        planVersion: COMMERCIAL_PLAN_VERSION,
+        status: 'active',
+        entitlementOverrides: {},
+        currentPeriodStart: '2026-08-01T00:00:00.000Z',
+        currentPeriodEnd: '2026-09-01T00:00:00.000Z',
+        revision: 1,
+        createdAt: now,
+        updatedAt: now,
+      },
+    ],
     workspaceMemberships: [
       {
         workspaceId: WORKSPACE_ID,
@@ -1323,7 +1451,7 @@ async function bootstrapAuthoring(app: ReturnType<typeof createApiApp>): Promise
       authoringEnabled: true,
     },
   });
-  expect(mapping.statusCode).toBe(200);
+  expect(mapping.statusCode, mapping.body).toBe(200);
 
   const bootstrap = await app.inject({
     method: 'POST',

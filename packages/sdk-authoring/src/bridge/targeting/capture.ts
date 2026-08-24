@@ -6,10 +6,14 @@ import {
   TARGET_VIEWPORT_BREAKPOINTS,
   type ElementFingerprint,
   type TargetIdentityV2,
+  type TargetLocalizedEvidence,
+  type TargetPageScope,
+  type TargetSelectionPolicy,
   type TargetSignalFamily,
   type TargetVisualRelation,
   type TargetVisualTopology,
 } from '@lodariq/schema';
+import { currentPageKey, isPageKey } from '@lodariq/schema/page-key';
 import {
   TARGET_MAX_RESOLUTION_RUNNER_UP_MARGIN,
   TARGET_MAX_VISUAL_FINGERPRINT_VARIANTS,
@@ -18,6 +22,9 @@ import {
   TARGET_MIN_RESOLUTION_RUNNER_UP_RATIO,
   TARGET_KEY_MAX_LENGTH,
   TARGET_KEY_PATTERN,
+  TARGET_SELECTION_ORDINAL_LIMITS,
+  ancestorContextSimilarity,
+  stableTextAcrossSamples,
 } from '@lodariq/schema/target-runtime';
 import {
   accessibleNameOf,
@@ -32,6 +39,7 @@ import {
   captureVisualFingerprint,
   localizedEvidenceFor,
   localizedLabelOf,
+  localizedNameAgreement,
   localizedTextMatches,
   matchesRequiredAction,
   visualEvidenceFor,
@@ -166,6 +174,8 @@ export interface TargetCaptureOptions {
   locale?: string;
   requiredAction?: TargetIdentityV2['intent']['requiredAction'];
   resolutionMode?: TargetIdentityV2['intent']['resolutionMode'];
+  /** An author answer; the live page decides when this is absent. */
+  page?: TargetPageScope | null;
   stateId?: string;
   targetId?: string;
 }
@@ -452,11 +462,39 @@ export function captureNeedsConfirmation(identity: TargetIdentityV2): boolean {
   );
 }
 
+/**
+ * The answer we already have, so the creator is not asked for it.
+ *
+ * We know which element was clicked and which others our own description also
+ * matched, so outside a collection "the nth of them" is ours to write down. It
+ * was being asked as a question — in resolver vocabulary, about a toolbar — when
+ * the only party who could not answer it was us.
+ *
+ * Inside a collection it stays a question, and the reason is narrow: the third
+ * row is a different record once the list is sorted, and nothing fails when that
+ * happens. That is the one substitution no warning can catch, which is why it is
+ * the one the author has to decide.
+ */
+export function automaticSelection(
+  element: Element,
+  identity: TargetIdentityV2,
+): TargetSelectionPolicy | null {
+  // Thin evidence is not ambiguity: an ordinal within a set we could not
+  // describe in the first place would be a guess dressed as an answer.
+  if (identity.captureEvidence.ambiguityIsSoleWeakness !== true) return null;
+  if (isInsideCollection(element)) return null;
+  const candidates = ambiguousCandidates(element, identity);
+  const position = candidates.indexOf(element) + 1;
+  if (position < 1 || candidates.length < 2) return null;
+  return position <= TARGET_SELECTION_ORDINAL_LIMITS.max ? { kind: 'ordinal', position } : null;
+}
+
 function createTargetIdentity(
   element: Element,
   fingerprint: ElementFingerprint,
   options: TargetCaptureOptions,
 ): TargetIdentityV2 {
+  const pageScope = capturePageScope(options.page);
   const configuredAttributes = configuredAttributesOf(element);
   const semanticAttributes = semanticAttributesOf(element);
   const ancestorRoles = ancestorRolesOf(element);
@@ -501,6 +539,9 @@ function createTargetIdentity(
       ...controlGroupEntry(element),
     },
     context: {
+      // Scoped by default: an unscoped target matches a lookalike on every other
+      // screen, and only the author knows a top nav genuinely belongs everywhere.
+      ...(pageScope ? { page: pageScope } : {}),
       ...(ancestorRoles.length ? { ancestorRoles } : {}),
       ...(relationships.length ? { relationships } : {}),
     },
@@ -637,16 +678,52 @@ function mergeCaptureSamples(samples: readonly CaptureSample[]): TargetEvidenceC
   return { fingerprint: latest.capture.fingerprint, identity };
 }
 
+const LOCALIZED_TEXT_FIELDS = ['accessibleName', 'label', 'placeholder', 'title'] as const;
+
+/**
+ * One entry per locale, keeping only the copy that held still. Taking the last
+ * sample verbatim wrote down whatever the counter said at that moment.
+ */
 function mergeLocalizedEvidence(
   samples: readonly CaptureSample[],
 ): TargetIdentityV2['localizedEvidence'] {
-  const evidenceByLocale = new Map<string, TargetIdentityV2['localizedEvidence'][number]>();
+  const localeOrder: string[] = [];
+  const samplesByLocale = new Map<string, TargetLocalizedEvidence[]>();
   for (const sample of samples) {
     for (const evidence of sample.capture.identity.localizedEvidence) {
-      evidenceByLocale.set(evidence.locale, evidence);
+      const seen = samplesByLocale.get(evidence.locale);
+      if (seen) seen.push(evidence);
+      else {
+        localeOrder.push(evidence.locale);
+        samplesByLocale.set(evidence.locale, [evidence]);
+      }
     }
   }
-  return [...evidenceByLocale.values()];
+  return localeOrder.map((locale) => stableLocalizedEvidence(samplesByLocale.get(locale)!));
+}
+
+function stableLocalizedEvidence(
+  observed: readonly TargetLocalizedEvidence[],
+): TargetLocalizedEvidence {
+  const latest = observed[observed.length - 1]!;
+  // One sighting says nothing about what moves.
+  if (observed.length < 2) return latest;
+
+  let partial = false;
+  const fields: Partial<Record<(typeof LOCALIZED_TEXT_FIELDS)[number], string>> = {};
+  for (const field of LOCALIZED_TEXT_FIELDS) {
+    const stable = stableTextAcrossSamples(observed.map((entry) => entry[field]));
+    if (!stable) continue;
+    fields[field] = stable.text;
+    partial ||= stable.partial;
+  }
+  const nearbyText = latest.nearbyText;
+  return {
+    locale: latest.locale,
+    ...fields,
+    ...(nearbyText?.length ? { nearbyText } : {}),
+    ...(partial ? { partial: true } : {}),
+  };
 }
 
 function mergeVisualTopologies(samples: readonly CaptureSample[]): TargetVisualTopology[] {
@@ -712,6 +789,16 @@ function hasDurableVariantContinuity(
         existingValues.get(family) === currentValues.get(family),
     )
   );
+}
+
+/** `null` is the author saying any page; `undefined` leaves it to the live page. */
+function capturePageScope(
+  override: TargetPageScope | null | undefined,
+): TargetPageScope | undefined {
+  if (override === null) return undefined;
+  if (override) return isPageKey(override.key) ? { ...override } : undefined;
+  const key = currentPageKey();
+  return key ? { key } : undefined;
 }
 
 function variantKeysOf(identity: TargetIdentityV2): Set<string> {
@@ -969,7 +1056,7 @@ function scoreCandidatePool(
   const availableFamilies = captureComparableFamilies(identity, durableFamilies, selected);
   const pool = candidatePool(selected.ownerDocument, identity, selected);
   const selectedScore = scoreCandidate(selected, identity, availableFamilies);
-  const scores = pool.candidates.map((candidate) => ({
+  const scores = nameComparableRivals(selected, identity, pool.candidates).map((candidate) => ({
     candidate,
     score: scoreCandidate(candidate, identity, availableFamilies),
   }));
@@ -981,6 +1068,29 @@ function scoreCandidatePool(
     truncated: pool.truncated,
     selected,
   };
+}
+
+/**
+ * The rivals the recorded name cannot rule out. Same rule the resolver applies
+ * to settle a tie, so the picker stops asking about elements it will separate.
+ */
+function nameComparableRivals(
+  selected: Element,
+  identity: TargetIdentityV2,
+  candidates: readonly Element[],
+): readonly Element[] {
+  if ((identity.intent.resolutionMode ?? 'semantic') !== 'semantic') return candidates;
+  const expected = localizedEvidenceFor(
+    identity.localizedEvidence,
+    captureLocaleOf(selected, undefined),
+  );
+  if (!expected || localizedNameAgreement(selected, expected) !== 'exact') return candidates;
+  return candidates.filter(
+    (candidate) =>
+      candidate === selected ||
+      localizedNameAgreement(candidate, expected) !== null ||
+      localizedTextMatches(candidate, expected),
+  );
 }
 
 function assessCandidateUniqueness(
@@ -995,8 +1105,9 @@ function assessCandidateUniqueness(
   const uniqueCandidateCount = scores.filter((entry) => entry.score === targetScore).length;
   const runnerUp = scores.find((entry) => entry.candidate !== selected)?.score ?? 0;
   const margin = clampRatio((targetScore - runnerUp) / Math.max(targetScore, 1));
-  if (scored.truncated)
-    return { uniqueCandidateCount: Math.max(2, uniqueCandidateCount), runnerUpMargin: 0 };
+  // A scan that hit its own cap reports what it compared. Rounding that up to a
+  // rival leaves the creator a blocker with no question on it — the tied set is
+  // empty, because there was never a second candidate to name.
   return {
     uniqueCandidateCount: Math.max(1, uniqueCandidateCount),
     runnerUpMargin: scores.length === 1 ? 1 : margin,
@@ -1008,9 +1119,8 @@ function assessCandidateUniqueness(
  *
  * Visible copy is deliberately not enough on its own: two buttons that differ
  * only in their words are not distinguishable in a way worth trusting. An
- * explicit `aria-label` is different — it is metadata the product author wrote
- * about the element, not the element's own text — so it counts, and the runtime
- * still compares it per locale rather than as one global string.
+ * explicit `aria-label` is different — metadata the product author wrote about
+ * the element — so it counts here, per locale rather than as one global string.
  */
 function captureComparableFamilies(
   identity: TargetIdentityV2,
@@ -1057,11 +1167,28 @@ function scoreCandidate(
 ): number {
   let score = 0;
   for (const family of families) {
-    if (candidateMatchesFamily(candidate, identity, family)) {
-      score += TARGET_IDENTITY_SCORE_BY_FAMILY[family] * TARGET_STABLE_SIGNAL_MULTIPLIER;
+    const agreement = candidateFamilyAgreement(candidate, identity, family);
+    if (agreement > 0) {
+      score +=
+        TARGET_IDENTITY_SCORE_BY_FAMILY[family] * TARGET_STABLE_SIGNAL_MULTIPLIER * agreement;
     }
   }
   return score;
+}
+
+/** 0 or 1 for every family but `ancestor-context`, which agrees by degree. */
+function candidateFamilyAgreement(
+  candidate: Element,
+  identity: TargetIdentityV2,
+  family: TargetSignalFamily,
+): number {
+  if (family === 'ancestor-context') {
+    return ancestorContextSimilarity(
+      identity.context.ancestorRoles ?? [],
+      ancestorRolesOf(candidate),
+    );
+  }
+  return candidateMatchesFamily(candidate, identity, family) ? 1 : 0;
 }
 
 function candidateMatchesFamily(
@@ -1083,10 +1210,6 @@ function candidateMatchesFamily(
     const typeMatches =
       !identity.semantics.inputType || inputTypeOf(candidate) === identity.semantics.inputType;
     return tagMatches && roleMatches && typeMatches;
-  }
-  if (family === 'ancestor-context') {
-    const expected = identity.context.ancestorRoles ?? [];
-    return expected.length > 0 && isOrderedSubsequence(expected, ancestorRolesOf(candidate));
   }
   if (family === 'relationship-context') {
     const expected = identity.context.relationships ?? [];
@@ -1889,15 +2012,6 @@ function containsRect(
 
 function rectArea(rect: Pick<DOMRect, 'width' | 'height'>): number {
   return Math.max(0, rect.width) * Math.max(0, rect.height);
-}
-
-function isOrderedSubsequence(expected: readonly string[], actual: readonly string[]): boolean {
-  let expectedIndex = 0;
-  for (const value of actual) {
-    if (value === expected[expectedIndex]) expectedIndex += 1;
-    if (expectedIndex === expected.length) return true;
-  }
-  return expected.length === 0;
 }
 
 function humanizeToken(value: string): string {

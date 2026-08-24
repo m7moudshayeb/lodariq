@@ -127,6 +127,32 @@ export function attachEdgeResize(frame: HTMLElement, options: AttachEdgeResizeOp
           ? clampSnappedSize(next, options.widthLimits, options.heightLimits)
           : { width: clampSnappedWidth(next.width, options.widthLimits), height: next.height };
         /*
+         * Say when the drag has run out of room, and on which axis.
+         *
+         * A card at the width limit takes the drag and does nothing with it, and
+         * nothing on screen says why — the limits were only ever mentioned in a
+         * toast, after the gesture had already ended. A wide, short card
+         * therefore reads as "horizontal resize is broken": the side edges are
+         * pinned at the maximum while the top and bottom still move, because the
+         * two axes have different ceilings (720 against 640).
+         *
+         * Tested against the limits rather than against the clamped result: the
+         * sizes are also snapped to a 4px step, and comparing before and after
+         * would call almost every pixel of an ordinary drag a limit.
+         */
+        const pinned: string[] = [];
+        if (axes.width && outsideLimits(next.width, options.widthLimits)) pinned.push('width');
+        if (
+          axes.height &&
+          options.heightLimits &&
+          outsideLimits(next.height, options.heightLimits)
+        ) {
+          pinned.push('height');
+        }
+        if (pinned.length > 0) frame.dataset['resizeAtLimit'] = pinned.join(' ');
+        else delete frame.dataset['resizeAtLimit'];
+
+        /*
          * An axis the edge does not drive keeps the size it started at, unsnapped
          * and unclamped. Passing it through the clamp rounded a card drawn at its
          * content height up to the authored minimum, so dragging the width alone
@@ -146,7 +172,10 @@ export function attachEdgeResize(frame: HTMLElement, options: AttachEdgeResizeOp
         handle.removeEventListener('pointerup', onUp);
         handle.removeEventListener('pointercancel', onUp);
         delete frame.dataset['resizing'];
-        options.onCommit(apply(upEvent.clientX, upEvent.clientY), axes);
+        const committed = apply(upEvent.clientX, upEvent.clientY);
+        // The limit marker belongs to the gesture, not to the card.
+        delete frame.dataset['resizeAtLimit'];
+        options.onCommit(committed, axes);
       };
       handle.addEventListener('pointermove', onMove);
       handle.addEventListener('pointerup', onUp);
@@ -178,6 +207,11 @@ export function capturePointerForResize(handle: Element, pointerId: number): voi
   } catch {
     /* no capture available — window listeners still cover the in-frame drag */
   }
+}
+
+/** Past a wall, not merely off the 4px grid. */
+function outsideLimits(value: number, limits: EdgeResizeLimits): boolean {
+  return value > limits.max || value < limits.min;
 }
 
 function isEdgeResizeEdge(value: string | undefined): value is EdgeResizeEdge {

@@ -3,6 +3,8 @@ import {
   RELEASE_RECOVERY_HISTORY_MAX_ITEMS,
   ReleaseRecoveryRequest as ReleaseRecoveryRequestSchema,
   evaluateReleaseRecovery,
+  documentLocaleCount,
+  commercialDocumentFeatures,
   validate,
   type ReleaseRecoveryResult,
   type ReleaseRecoveryStateResponse,
@@ -45,6 +47,10 @@ import {
   releaseRecoveryPolicyFailure,
 } from '../domains/release-recovery';
 import { assertArtifactMatchesDocument } from '../domains/authoring-policy';
+import {
+  assertCommercialFeature,
+  CommercialEntitlementError,
+} from '../domains/commercial-entitlements';
 import {
   clone,
   compareArtifactsNewestFirst,
@@ -106,6 +112,9 @@ export class InMemoryRepositoryDocuments extends InMemoryRepositoryThemes {
   }
 
   async saveAuthoringResources(input: SaveAuthoringResourcesInput): Promise<void> {
+    const entitlements = this.resolveWorkspaceEntitlements(input.workspaceId).entitlements;
+    if (input.recipes.length > 0) assertCommercialFeature(entitlements, 'named-step-styles');
+    if (input.checkpoints.length > 0) assertCommercialFeature(entitlements, 'recovery');
     for (const checkpoint of input.checkpoints) {
       assertWorkspaceScope(checkpoint.document.workspaceId, input.workspaceId);
       if (checkpoint.document.id !== input.documentId) {
@@ -122,6 +131,10 @@ export class InMemoryRepositoryDocuments extends InMemoryRepositoryThemes {
   async createAuthoringMediaAsset(
     input: CreateAuthoringMediaAssetInput,
   ): Promise<AuthoringMediaAssetResource> {
+    const limit = this.resolveWorkspaceEntitlements(input.workspaceId).entitlements.assetBytes;
+    if (input.byteLength > limit) {
+      throw new CommercialEntitlementError('asset-bytes', input.byteLength, limit);
+    }
     const id = `asset-${randomUUID()}`;
     const createdAt = new Date().toISOString();
     const asset = {
@@ -181,7 +194,12 @@ export class InMemoryRepositoryDocuments extends InMemoryRepositoryThemes {
     workspaceId: string,
     documentId: string,
   ): Promise<PersistedDocumentVersion[]> {
+    const retentionDays =
+      this.resolveWorkspaceEntitlements(workspaceId).entitlements.versionRetentionDays;
+    const cutoff =
+      retentionDays === null ? null : Date.now() - retentionDays * 24 * 60 * 60 * 1_000;
     return (this.documentVersions.get(this.key(workspaceId, documentId)) ?? [])
+      .filter((version) => cutoff === null || Date.parse(version.createdAt) >= cutoff)
       .map((version) => clone(version))
       .sort((a, b) => b.version - a.version);
   }
@@ -191,8 +209,14 @@ export class InMemoryRepositoryDocuments extends InMemoryRepositoryThemes {
     documentId: string,
     documentVersionId: string,
   ): Promise<PersistedDocumentVersion | null> {
+    const retentionDays =
+      this.resolveWorkspaceEntitlements(workspaceId).entitlements.versionRetentionDays;
+    const cutoff =
+      retentionDays === null ? null : Date.now() - retentionDays * 24 * 60 * 60 * 1_000;
     const version = (this.documentVersions.get(this.key(workspaceId, documentId)) ?? []).find(
-      (candidate) => candidate.id === documentVersionId,
+      (candidate) =>
+        candidate.id === documentVersionId &&
+        (cutoff === null || Date.parse(candidate.createdAt) >= cutoff),
     );
     return version ? clone(version) : null;
   }
@@ -200,6 +224,15 @@ export class InMemoryRepositoryDocuments extends InMemoryRepositoryThemes {
   async saveDocument(input: SaveDocumentInput): Promise<PersistedDocument> {
     assertWorkspaceScope(input.document.workspaceId, input.workspaceId);
     assertArtifactMatchesDocument(input);
+    const localeLimit = this.resolveWorkspaceEntitlements(input.workspaceId).entitlements.locales;
+    const localeCount = documentLocaleCount(input.document);
+    if (localeLimit !== null && localeCount > localeLimit) {
+      throw new CommercialEntitlementError('locales', localeCount, localeLimit);
+    }
+    const entitlements = this.resolveWorkspaceEntitlements(input.workspaceId).entitlements;
+    for (const feature of commercialDocumentFeatures(input.document)) {
+      assertCommercialFeature(entitlements, feature);
+    }
     const existing = this.documents.get(this.key(input.workspaceId, input.document.id));
     if (input.expectedUpdatedAt !== undefined && existing?.updatedAt !== input.expectedUpdatedAt) {
       throw new DocumentSaveConflictError(existing?.updatedAt ?? null);
@@ -241,6 +274,22 @@ export class InMemoryRepositoryDocuments extends InMemoryRepositoryThemes {
   ): Promise<PersistedCompiledArtifact | null> {
     const artifact = this.compiledArtifactsById.get(this.key(workspaceId, artifactId));
     return artifact?.documentId === documentId ? clone(artifact) : null;
+  }
+
+  async getCompiledArtifactForDocumentVersion(
+    workspaceId: string,
+    documentId: string,
+    documentVersionId: string,
+  ): Promise<PersistedCompiledArtifact | null> {
+    const artifact = [...this.compiledArtifactsByIdentity.values()]
+      .filter(
+        (candidate) =>
+          candidate.workspaceId === workspaceId &&
+          candidate.documentId === documentId &&
+          candidate.documentVersionId === documentVersionId,
+      )
+      .sort(compareArtifactsNewestFirst)[0];
+    return artifact ? clone(artifact) : null;
   }
 
   async getCurrentPublication(
@@ -425,6 +474,11 @@ export class InMemoryRepositoryDocuments extends InMemoryRepositoryThemes {
       const replay = this.releaseRecoveryResultFromOperation(existingOperation, true);
       return replay ?? createNonPersistingRecoveryFailure(request, 'internal_error');
     }
+
+    assertCommercialFeature(
+      this.resolveWorkspaceEntitlements(input.workspaceId).entitlements,
+      'recovery',
+    );
 
     const deploymentKey = this.key(input.workspaceId, input.environmentId, input.documentId);
     const deployment = this.documentDeployments.get(deploymentKey) ?? null;

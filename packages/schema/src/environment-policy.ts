@@ -1,5 +1,10 @@
 import { Type, type Static } from '@sinclair/typebox';
 import { CONTROL_PLANE_ROLES } from './control-plane';
+import {
+  EnvironmentGovernanceCapabilitySet,
+  defaultEnvironmentGovernanceCapabilities,
+  type EnvironmentGovernanceCapability,
+} from './governance-capabilities';
 
 export const ENVIRONMENT_POLICY_SCHEMA_VERSION = '1' as const;
 
@@ -21,6 +26,8 @@ export const ENVIRONMENT_POLICY_VALIDATION_CODES = [
   'pipeline_position_duplicate',
   'pipeline_position_invalid',
   'production_authoring_forbidden',
+  'production_authoring_capability_forbidden',
+  'environment_capability_invalid',
   'production_publisher_role_forbidden',
   'origin_invalid',
   'production_https_required',
@@ -36,6 +43,7 @@ export const ENVIRONMENT_POLICY_VALIDATION_CODES = [
 export const ENVIRONMENT_POLICY_DECISION_CODES = [
   'allowed',
   'environment_disabled',
+  'environment_capability_forbidden',
   'direct_publish_forbidden',
   'promotion_source_required',
   'promotion_source_mismatch',
@@ -48,6 +56,7 @@ export const ENVIRONMENT_POLICY_DECISION_CODES = [
 export const ENVIRONMENT_POLICY_DECISION_MESSAGES = {
   allowed: 'The release action is allowed by the environment policy',
   environment_disabled: 'The release environment is disabled',
+  environment_capability_forbidden: 'The environment does not grant this release capability',
   direct_publish_forbidden: 'Direct publishing is disabled for this environment',
   promotion_source_required: 'This environment does not have a promotion source',
   promotion_source_mismatch: 'The release source does not match the configured environment',
@@ -188,6 +197,7 @@ export const WorkspaceEnvironmentPolicyRow = Type.Object(
       uniqueItems: true,
     }),
     authoringEnabled: Type.Boolean(),
+    governanceCapabilities: Type.Optional(EnvironmentGovernanceCapabilitySet),
     promotionSourceEnvironmentId: Type.Optional(EnvironmentPolicyId),
     releasePolicy: EnvironmentReleasePolicy,
   },
@@ -356,6 +366,7 @@ export function createDefaultWorkspaceEnvironmentPolicy(
         pipelinePosition: ENVIRONMENT_PIPELINE_POSITION_BY_KIND.development,
         allowedOrigins: [],
         authoringEnabled: true,
+        governanceCapabilities: defaultEnvironmentGovernanceCapabilities('development'),
         releasePolicy: createDefaultEnvironmentReleasePolicy('development'),
       },
       {
@@ -367,6 +378,7 @@ export function createDefaultWorkspaceEnvironmentPolicy(
         pipelinePosition: ENVIRONMENT_PIPELINE_POSITION_BY_KIND.staging,
         allowedOrigins: [],
         authoringEnabled: true,
+        governanceCapabilities: defaultEnvironmentGovernanceCapabilities('staging'),
         releasePolicy: createDefaultEnvironmentReleasePolicy('staging'),
       },
       {
@@ -378,6 +390,7 @@ export function createDefaultWorkspaceEnvironmentPolicy(
         pipelinePosition: ENVIRONMENT_PIPELINE_POSITION_BY_KIND.production,
         allowedOrigins: [],
         authoringEnabled: false,
+        governanceCapabilities: defaultEnvironmentGovernanceCapabilities('production'),
         promotionSourceEnvironmentId: environmentIds.staging,
         releasePolicy: createDefaultEnvironmentReleasePolicy('production'),
       },
@@ -406,6 +419,18 @@ export function validateWorkspaceEnvironmentPolicy(
     if (row.kind === 'production' && row.authoringEnabled) {
       issues.push(issue('production_authoring_forbidden', 'authoringEnabled', row.id));
     }
+    const governanceCapabilities =
+      row.governanceCapabilities ?? defaultEnvironmentGovernanceCapabilities(row.kind);
+    if (
+      row.kind === 'production' &&
+      (governanceCapabilities.includes('authoring:read') ||
+        governanceCapabilities.includes('authoring:write') ||
+        governanceCapabilities.includes('release:publish'))
+    ) {
+      issues.push(
+        issue('production_authoring_capability_forbidden', 'governanceCapabilities', row.id),
+      );
+    }
     if (
       row.kind === 'production' &&
       row.releasePolicy.publisherRoles.includes(CONTROL_PLANE_ROLES.member)
@@ -424,7 +449,16 @@ export function validateWorkspaceEnvironmentPolicy(
 
 /** Production is never authorable, even if an unvalidated object says otherwise. */
 export function canAuthorInEnvironment(environment: WorkspaceEnvironmentPolicyRow): boolean {
-  return environment.enabled && environment.kind !== 'production' && environment.authoringEnabled;
+  const capabilities =
+    environment.governanceCapabilities ??
+    defaultEnvironmentGovernanceCapabilities(environment.kind);
+  return (
+    environment.enabled &&
+    environment.kind !== 'production' &&
+    environment.authoringEnabled &&
+    capabilities.includes('authoring:read') &&
+    capabilities.includes('authoring:write')
+  );
 }
 
 /** Pure, fail-closed action policy evaluation for publish, promotion, and recovery. */
@@ -439,6 +473,15 @@ export function evaluateEnvironmentReleasePolicy(
   ) {
     return decision('direct_publish_forbidden');
   }
+
+  const requiredCapability = releaseCapabilityForAction(request.action);
+  const environmentCapabilities =
+    request.environment.governanceCapabilities ??
+    defaultEnvironmentGovernanceCapabilities(request.environment.kind);
+  if (!environmentCapabilities.includes(requiredCapability)) {
+    return decision('environment_capability_forbidden');
+  }
+
   if (request.action === 'promote') {
     const configuredSourceId = request.environment.promotionSourceEnvironmentId;
     if (!configuredSourceId) return decision('promotion_source_required');
@@ -476,6 +519,15 @@ export function evaluateEnvironmentReleasePolicy(
   }
 
   return decision('allowed');
+}
+
+function releaseCapabilityForAction(
+  action: EnvironmentPolicyReleaseAction,
+): EnvironmentGovernanceCapability {
+  if (action === 'direct-publish') return 'release:publish';
+  if (action === 'promote') return 'release:promote';
+  if (action === 'rollback') return 'release:rollback';
+  return 'release:unpublish';
 }
 
 function collectDuplicateIdIssues(

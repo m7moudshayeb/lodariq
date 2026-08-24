@@ -30,6 +30,7 @@ import {
   ReleaseRecoveryStateResponse as ReleaseRecoveryStateResponseSchema,
   releaseRecoveryStateMatchesScope,
   validate,
+  validateWithReferences,
   type AnalyticsAggregateResponse,
   type AnalyticsEventAggregate,
   type ApplicationSummary,
@@ -63,6 +64,15 @@ import {
   type ReleaseRecoveryStateResponse,
   type ThemeBinding,
 } from '@lodariq/schema';
+import {
+  BillingOverview as BillingOverviewSchema,
+  BillingRedirectSession as BillingRedirectSessionSchema,
+  COMMERCIAL_BILLING_REFERENCE_SCHEMAS,
+  type BillingOverview,
+  type BillingRedirectSession,
+  type CreateBillingCheckoutSessionRequest,
+  type CreateBillingPortalSessionRequest,
+} from '@lodariq/schema/commercial-billing';
 import {
   dashboardSessionCookieName,
   isDevelopmentHeaderAuthMode,
@@ -695,10 +705,14 @@ export async function saveExperienceMeasurement(
   );
 }
 
-export async function loadDocumentExperiment(documentId: string): Promise<ExperimentResponse> {
+export async function loadDocumentExperiment(
+  documentId: string,
+  environmentId: string,
+): Promise<ExperimentResponse> {
+  const search = new URLSearchParams({ environmentId });
   return validatedControlPlaneFetch<ExperimentResponse>(
     ExperimentResponseSchema,
-    `/v1/documents/${encodeURIComponent(documentId)}/experiment`,
+    `/v1/documents/${encodeURIComponent(documentId)}/experiment?${search.toString()}`,
     {},
     'experiment',
   );
@@ -712,7 +726,10 @@ export async function saveDocumentExperiment(
     `/v1/experiments/${encodeURIComponent(experimentId)}`,
     { method: 'PATCH', body: JSON.stringify(body) },
   );
-  const result = validate(ExperimentResponseSchema, { experiment: value.experiment, results: null });
+  const result = validate(ExperimentResponseSchema, {
+    experiment: value.experiment,
+    results: null,
+  });
   if (!result.valid) throw invalidControlPlaneResponse('experiment');
   return (result.value as ExperimentResponse).experiment;
 }
@@ -722,6 +739,38 @@ export async function loadWorkspaceApplications(): Promise<readonly ApplicationS
     applications: readonly ApplicationSummary[];
   }>(WorkspaceApplicationsResponseSchema, '/v1/applications', {}, 'applications');
   return response.applications;
+}
+
+export async function loadWorkspaceBillingOverview(): Promise<BillingOverview> {
+  const result = validateWithReferences(
+    BillingOverviewSchema,
+    COMMERCIAL_BILLING_REFERENCE_SCHEMAS,
+    await controlPlaneFetch<unknown>('/v1/billing/overview'),
+  );
+  if (!result.valid) throw invalidControlPlaneResponse('billing overview');
+  return result.value;
+}
+
+export async function createWorkspaceBillingCheckoutSession(
+  input: CreateBillingCheckoutSessionRequest,
+): Promise<BillingRedirectSession> {
+  return validatedControlPlaneFetch<BillingRedirectSession>(
+    BillingRedirectSessionSchema,
+    '/v1/billing/checkout-sessions',
+    { method: 'POST', body: JSON.stringify(input) },
+    'billing checkout session',
+  );
+}
+
+export async function createWorkspaceBillingPortalSession(
+  input: CreateBillingPortalSessionRequest,
+): Promise<BillingRedirectSession> {
+  return validatedControlPlaneFetch<BillingRedirectSession>(
+    BillingRedirectSessionSchema,
+    '/v1/billing/portal-sessions',
+    { method: 'POST', body: JSON.stringify(input) },
+    'billing portal session',
+  );
 }
 
 export async function saveWorkspaceApplication(

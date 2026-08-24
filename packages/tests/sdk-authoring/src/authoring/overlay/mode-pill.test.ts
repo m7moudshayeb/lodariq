@@ -9,6 +9,7 @@ import type {
   ModePillCallbacks,
 } from '../../../../../../packages/sdk-authoring/src/authoring/overlay/mode-pill.types';
 import { OVERLAY_CHROME_GEOMETRY } from '../../../../../../packages/sdk-authoring/src/creator-chrome-tokens';
+import { LOCAL_AUTHORING_EXPERIENCE_PROVIDER_EVENT } from '../../../../../../packages/sdk-authoring/src/authoring/constants';
 
 function harness(overrides: Partial<ModePillCallbacks> = {}) {
   const calls: string[] = [];
@@ -20,8 +21,6 @@ function harness(overrides: Partial<ModePillCallbacks> = {}) {
   const pill = createModePill(document, {
     onModeChange: record('mode'),
     onPreview: record('preview'),
-    onExitPreview: record('exit-preview'),
-    onEditPreviewStep: record('edit-step'),
     onOpenOperations: record('operations'),
     onToggleAllPanels: record('toggle-panels'),
     onRetrySave: record('retry'),
@@ -29,9 +28,9 @@ function harness(overrides: Partial<ModePillCallbacks> = {}) {
     onSwitchExperience: record('experience'),
     onEnvironmentChange: record('environment'),
     onToggleRecording: record('record'),
-    onSimulateUser: record('simulate'),
     onCanvasZoom: record('zoom'),
     onKeyboardMap: record('keyboard-map'),
+    onCommandPalette: record('command-palette'),
     onRestart: record('restart'),
     ...overrides,
   });
@@ -80,11 +79,12 @@ describe('mode pill — the two visible controls (§3.3)', () => {
     pill.destroy();
   });
 
-  it('never prints an accelerator, because none of them are wired yet', () => {
+  it('prints only the accelerators wired by the overlay shell', () => {
     const { pill } = harness();
     click(pill, '[data-pill-menu]');
-    expect(pill.element.querySelector('kbd')).toBeNull();
-    expect(pill.element.textContent).not.toContain('⌘');
+    expect(
+      [...pill.element.querySelectorAll('kbd')].map((shortcut) => shortcut.textContent),
+    ).toEqual(['⌘K', 'P', '⌘⇧\\']);
     pill.destroy();
   });
 });
@@ -101,9 +101,8 @@ describe('mode pill — state (§4.1, audit #6)', () => {
     expect(pill.element.textContent).toContain('Step 2 of 6');
     expect(pill.element.textContent).toContain('Staging');
 
-    pill.setState({ mode: 'previewing', stepNumber: 1 });
-    expect(pill.element.textContent).toContain('Preview · 1 of 6');
-    expect(pill.element.textContent).not.toContain('Step 1 of 6');
+    pill.setState({ stepNumber: 1 });
+    expect(pill.element.textContent).toContain('Step 1 of 6');
     pill.destroy();
   });
 
@@ -122,16 +121,6 @@ describe('mode pill — state (§4.1, audit #6)', () => {
     pill.setState({ save: 'saving' });
     expect(pill.element.querySelector('[data-tone]')?.getAttribute('data-tone')).toBe('attention');
     expect(pill.element.textContent).toContain('Saving');
-    pill.destroy();
-  });
-
-  it('keeps the preview bar down to progress, edit and exit', () => {
-    const { calls, pill } = harness();
-    pill.setState({ mode: 'previewing', stepNumber: 3, stepCount: 6 });
-    expect(pill.element.querySelectorAll('button')).toHaveLength(2);
-    click(pill, '[data-pill-edit-step]');
-    click(pill, '[data-pill-exit-preview]');
-    expect(calls).toEqual(['edit-step', 'exit-preview']);
     pill.destroy();
   });
 });
@@ -230,7 +219,7 @@ describe('the menu, grouped as §3.3 lays it out', () => {
   it('names the active environment and says plainly that production is refused', () => {
     const { pill } = harness();
     pill.setState({ environment: 'Staging' });
-    const current = pill.element.querySelector('[data-pill-environment]');
+    const current = pill.element.querySelector('[data-pill-environment][aria-current="true"]');
     expect(current?.textContent).toBe('Staging');
     expect(current?.getAttribute('aria-current')).toBe('true');
     const production = pill.element.querySelector<HTMLButtonElement>(
@@ -249,4 +238,32 @@ describe('the menu, grouped as §3.3 lays it out', () => {
     // Every enabled row either called back or changed the pill's own state.
     expect(calls.length).toBeGreaterThanOrEqual(rows.length - 1);
   });
+
+  it('loads the shared experience submenu from the authoring menu on demand', async () => {
+    const provide = (event: Event): void => {
+      (
+        event as CustomEvent<{
+          provide: (provider: { createExperience: () => void }) => void;
+        }>
+      ).detail.provide({ createExperience: vi.fn() });
+    };
+    window.addEventListener(LOCAL_AUTHORING_EXPERIENCE_PROVIDER_EVENT, provide);
+    const { pill } = harness();
+    pill.setState({ launcherActions: ['new-experience'] });
+    click(pill, '[data-pill-menu]');
+    const row = pill.element.querySelector<HTMLElement>(
+      '[data-pill-launcher-action="new-experience"]',
+    );
+    row?.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, key: 'Enter' }));
+
+    await vi.waitFor(
+      () =>
+        expect(document.querySelector('[data-lodariq-experience-menu]')?.textContent).toContain(
+          'Tour',
+        ),
+      { timeout: 5_000 },
+    );
+    pill.destroy();
+    window.removeEventListener(LOCAL_AUTHORING_EXPERIENCE_PROVIDER_EVENT, provide);
+  }, 10_000);
 });

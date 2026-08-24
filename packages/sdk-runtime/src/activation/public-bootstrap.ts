@@ -56,9 +56,6 @@ const TRUSTED_PUBLIC_API_ORIGINS = new Set([
   'https://staging-api.lodariq.io',
 ]);
 
-const PUBLIC_BOOTSTRAP_PATH = '/v1/sdk/bootstrap';
-const PUBLIC_ELIGIBILITY_PATH_PREFIX = '/v1/sdk/installations/';
-const PUBLIC_ELIGIBILITY_PATH_SUFFIX = '/eligibility';
 const AUTO_INSTALL_ATTRIBUTE = 'data-lodariq-public-installed';
 const PUBLIC_INSTALLATION_ID_PATTERN = /^ins_pub_[A-Za-z0-9_-]{16,128}$/u;
 const LEGACY_SCRIPT_CONFIG_ATTRIBUTES = [
@@ -93,6 +90,7 @@ export function readPublicConfigFromScript(script: HTMLScriptElement): PublicLoa
 export async function fetchPublicSdkBootstrapContext(
   config: PublicLoaderConfig,
   pageIntent: PublicBootstrapPageIntent = readCurrentPageIntent(),
+  assignmentKey?: string,
 ): Promise<PublicSdkBootstrapContext> {
   if (
     !PUBLIC_INSTALLATION_ID_PATTERN.test(config.installationId) ||
@@ -101,10 +99,12 @@ export async function fetchPublicSdkBootstrapContext(
     throw new Error('Lodariq public SDK bootstrap configuration is invalid');
   }
 
-  const body = createRequest(config.installationId, pageIntent);
+  const resolvedAssignmentKey =
+    assignmentKey ?? (await readAssignmentKey(config.installationId));
+  const body = createRequest(config.installationId, pageIntent, resolvedAssignmentKey);
   let response: Response;
   try {
-    response = await fetch(new URL(PUBLIC_BOOTSTRAP_PATH, config.apiBaseUrl), {
+    response = await fetch(new URL('/v1/sdk/bootstrap', config.apiBaseUrl), {
       method: 'POST',
       credentials: 'omit',
       headers: { 'content-type': 'application/json' },
@@ -121,8 +121,12 @@ export async function fetchPublicSdkBootstrapContext(
   } catch {
     throw new Error('Lodariq public SDK bootstrap response is invalid');
   }
+  if (!isPublicContext(value, config.apiBaseUrl)) {
+    throw new Error('Lodariq public SDK bootstrap response is invalid');
+  }
   if (
-    !isPublicContext(value, config.apiBaseUrl) ||
+    (JSON.stringify(value.delivery).includes('"adaptive":') &&
+      !(await import('./adaptive')).valid(value.delivery)) ||
     value.installationId !== config.installationId ||
     (body.origin && value.customerOrigin !== body.origin)
   ) {
@@ -172,11 +176,12 @@ export async function installPublicSdkFromScript(
     return null;
   }
 
-  const context = await fetchPublicSdkBootstrapContext(config, pageIntent);
+  const assignmentKey = await readAssignmentKey(config.installationId);
+  const context = await fetchPublicSdkBootstrapContext(config, pageIntent, assignmentKey);
   const [runtime, authoringModule] = await Promise.all([
     context.delivery.state === 'available'
       ? import('./public-delivery').then(({ installPublicSdkDelivery }) =>
-          installPublicSdkDelivery(context),
+          installPublicSdkDelivery(context, assignmentKey),
         )
       : Promise.resolve(null),
     context.environment !== 'production' && context.authoring.state === 'available'
@@ -190,7 +195,11 @@ export async function installPublicSdkFromScript(
           ...options,
           onPreview: options.onPreview ?? (runtime ? () => runtime.playTour() : undefined),
           refreshContext: async () => {
-            const refreshed = await fetchPublicSdkBootstrapContext(config, pageIntent);
+            const refreshed = await fetchPublicSdkBootstrapContext(
+              config,
+              pageIntent,
+              assignmentKey,
+            );
             if (refreshed.environment === 'production') {
               throw new Error('Lodariq authoring is unavailable');
             }
@@ -208,7 +217,7 @@ export async function installPublicSdkFromScript(
     launcher,
     registerBrandTokens,
     destroy: () => {
-      runtime?.stopTour();
+      runtime?.destroyDelivery();
       launcher?.destroy();
     },
   };
@@ -231,7 +240,7 @@ export async function readPublicSdkEligibility(
   const page = readPageEligibilityContext(pageIntent.href, pageIntent.origin ?? '');
   try {
     const url = new URL(
-      `${PUBLIC_ELIGIBILITY_PATH_PREFIX}${encodeURIComponent(config.installationId)}${PUBLIC_ELIGIBILITY_PATH_SUFFIX}`,
+      `/v1/sdk/installations/${encodeURIComponent(config.installationId)}/eligibility`,
       config.apiBaseUrl,
     );
     const response = await fetch(url, { credentials: 'omit' });
@@ -290,13 +299,25 @@ function isEligibilityDigest(
 function createRequest(
   installationId: string,
   intent: PublicBootstrapPageIntent,
-): { installationId: string; href?: string; origin?: string } {
+  assignmentKey?: string,
+): { installationId: string; assignmentKey?: string; href?: string; origin?: string } {
   const href = nonEmpty(intent.href);
   const origin = nonEmpty(intent.origin);
   if (origin && !isExactOrigin(origin)) {
     throw new Error('Lodariq public SDK bootstrap page intent is invalid');
   }
-  return { installationId, ...(href ? { href } : {}), ...(origin ? { origin } : {}) };
+  return {
+    installationId,
+    ...(assignmentKey ? { assignmentKey } : {}),
+    ...(href ? { href } : {}),
+    ...(origin ? { origin } : {}),
+  };
+}
+
+function readAssignmentKey(installationId: string): Promise<string | undefined> {
+  return import('./experiment-assignment-key').then(({ readExperimentAssignmentKey }) =>
+    readExperimentAssignmentKey(installationId),
+  );
 }
 
 function readCurrentPageIntent(): PublicBootstrapPageIntent {
@@ -332,7 +353,8 @@ function isPublicContext(value: unknown, apiBaseUrl: string): value is PublicSdk
   ];
   if (!exactRecord(value, keys)) return false;
   if (
-    !isInstallationId(value['installationId']) ||
+    typeof value['installationId'] !== 'string' ||
+    !PUBLIC_INSTALLATION_ID_PATTERN.test(value['installationId']) ||
     !nonEmpty(value['environmentId']) ||
     !nonEmpty(value['correlationId']) ||
     !isExactOrigin(value['customerOrigin']) ||
@@ -344,9 +366,9 @@ function isPublicContext(value: unknown, apiBaseUrl: string): value is PublicSdk
   if (value['environment'] === 'production') {
     return value['customerOrigin'].startsWith('https://') && isDisabled(value['authoring']);
   }
-  return Boolean(
+  return (
     (value['environment'] === 'development' || value['environment'] === 'staging') &&
-    (isDisabled(value['authoring']) || isAvailable(value['authoring'], apiBaseUrl)),
+    (isDisabled(value['authoring']) || isAvailable(value['authoring'], apiBaseUrl))
   );
 }
 
@@ -356,25 +378,39 @@ function isDelivery(value: unknown, apiBaseUrl: string): boolean {
   if (value['mode'] === 'document-scoped-v2') {
     return isDocumentScopedDelivery(value, apiBaseUrl);
   }
-  if (!exactRecord(value, ['state', 'manifest', 'currentDocumentUrl', 'ingestUrl'])) return false;
+  if (
+    !exactRecord(
+      value,
+      ['state', 'manifest', 'currentDocumentUrl', 'ingestUrl'],
+      ['catalogUrl'],
+    )
+  ) {
+    return false;
+  }
   return (
     value['state'] === 'available' &&
     isAvailableManifest(value['manifest']) &&
     isApiUrl(value['currentDocumentUrl'], apiBaseUrl) &&
-    isApiUrl(value['ingestUrl'], apiBaseUrl)
+    isApiUrl(value['ingestUrl'], apiBaseUrl) &&
+    (value['catalogUrl'] === undefined || isApiUrl(value['catalogUrl'], apiBaseUrl))
   );
 }
 
 function isDocumentScopedDelivery(value: Record<string, unknown>, apiBaseUrl: string): boolean {
   if (
-    !exactRecord(value, ['state', 'mode', 'manifests', 'defaultDocumentId', 'ingestUrl']) ||
+    !exactRecord(
+      value,
+      ['state', 'mode', 'manifests', 'defaultDocumentId', 'ingestUrl'],
+      ['catalogUrl'],
+    ) ||
     value['state'] !== 'available' ||
     value['mode'] !== 'document-scoped-v2' ||
     !Array.isArray(value['manifests']) ||
     value['manifests'].length === 0 ||
     value['manifests'].length > 100 ||
     !nonEmpty(value['defaultDocumentId']) ||
-    !isApiUrl(value['ingestUrl'], apiBaseUrl)
+    !isApiUrl(value['ingestUrl'], apiBaseUrl) ||
+    (value['catalogUrl'] !== undefined && !isApiUrl(value['catalogUrl'], apiBaseUrl))
   ) {
     return false;
   }
@@ -396,42 +432,46 @@ function isDocumentScopedDelivery(value: Record<string, unknown>, apiBaseUrl: st
     workspaceIds.add(workspaceId);
   }
   const defaultDocumentId = nonEmpty(value['defaultDocumentId']);
-  return Boolean(
-    defaultDocumentId && workspaceIds.size === 1 && documentIds.has(defaultDocumentId),
-  );
+  return !!defaultDocumentId && workspaceIds.size === 1 && documentIds.has(defaultDocumentId);
 }
 
 function isAvailableManifest(value: unknown): boolean {
   if (!record(value) || !nonEmpty(value['documentId'])) return false;
   const versioned = Object.prototype.hasOwnProperty.call(value, 'schemaVersion');
   if (!versioned) {
-    return Boolean(nonEmpty(value['currentVersion']));
+    return !!nonEmpty(value['currentVersion']);
   }
   if (!nonEmpty(value['schemaVersion'])) return false;
   if (
-    !exactRecord(value, [
-      'schemaVersion',
-      'workspaceId',
-      'environmentId',
-      'documentId',
-      'state',
-      'generation',
-      'publicationId',
-      'activatedAt',
-      'artifact',
-    ])
+    !exactRecord(
+      value,
+      [
+        'schemaVersion',
+        'workspaceId',
+        'environmentId',
+        'documentId',
+        'state',
+        'generation',
+        'publicationId',
+        'activatedAt',
+        'artifact',
+      ],
+      ['activation', 'experimentAssignment', 'adaptive'],
+    )
   ) {
     return false;
   }
   const artifact = value['artifact'];
-  return Boolean(
+  return (
     value['state'] === 'active' &&
     Number.isInteger(value['generation']) &&
-    Number(value['generation']) >= 1 &&
-    nonEmpty(value['workspaceId']) &&
-    nonEmpty(value['environmentId']) &&
-    nonEmpty(value['publicationId']) &&
-    nonEmpty(value['activatedAt']) &&
+    (value['generation'] as number) >= 1 &&
+    !!nonEmpty(value['workspaceId']) &&
+    !!nonEmpty(value['environmentId']) &&
+    !!nonEmpty(value['publicationId']) &&
+    !!nonEmpty(value['activatedAt']) &&
+    (value['activation'] === undefined ||
+      exactRecord(value['activation'], ['trigger', 'audience'])) &&
     exactRecord(artifact, [
       'artifactSchemaVersion',
       'contentHash',
@@ -443,15 +483,15 @@ function isAvailableManifest(value: unknown): boolean {
       'url',
       'integrity',
     ]) &&
-    nonEmpty(artifact['artifactSchemaVersion']) &&
+    !!nonEmpty(artifact['artifactSchemaVersion']) &&
     /^sha256-[0-9a-f]{64}$/u.test(String(artifact['contentHash'])) &&
-    nonEmpty(artifact['compilerVersion']) &&
-    nonEmpty(artifact['rendererContractVersion']) &&
-    nonEmpty(artifact['themeContractVersion']) &&
-    nonEmpty(artifact['themeVersionId']) &&
+    !!nonEmpty(artifact['compilerVersion']) &&
+    !!nonEmpty(artifact['rendererContractVersion']) &&
+    !!nonEmpty(artifact['themeContractVersion']) &&
+    !!nonEmpty(artifact['themeVersionId']) &&
     /^sha256-[0-9a-f]{64}$/u.test(String(artifact['themeContentHash'])) &&
     isHttpUrl(artifact['url']) &&
-    /^sha256-[A-Za-z0-9+/]+={0,2}$/u.test(String(artifact['integrity'])),
+    /^sha256-[A-Za-z0-9+/]+={0,2}$/u.test(String(artifact['integrity']))
   );
 }
 
@@ -518,10 +558,6 @@ function isApiUrl(value: unknown, apiBaseUrl: string, pathname?: string): boolea
   }
 }
 
-function isInstallationId(value: unknown): value is string {
-  return typeof value === 'string' && PUBLIC_INSTALLATION_ID_PATTERN.test(value);
-}
-
 function isHttpUrl(value: unknown): value is string {
   const text = nonEmpty(value);
   if (!text) return false;
@@ -553,8 +589,7 @@ function isExactOrigin(value: unknown): value is string {
 
 function isUnexpiredTimestamp(value: unknown): value is string {
   if (typeof value !== 'string') return false;
-  const timestamp = Date.parse(value);
-  return Number.isFinite(timestamp) && timestamp > Date.now();
+  return Date.parse(value) > Date.now();
 }
 
 function nonEmpty(value: unknown): string | undefined {
@@ -565,10 +600,14 @@ function record(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-function exactRecord(value: unknown, keys: readonly string[]): value is Record<string, unknown> {
+function exactRecord(
+  value: unknown,
+  keys: readonly string[],
+  optional: readonly string[] = [],
+): value is Record<string, unknown> {
   return (
     record(value) &&
-    Object.keys(value).every((key) => keys.includes(key)) &&
+    Object.keys(value).every((key) => keys.includes(key) || optional.includes(key)) &&
     keys.every((key) => key in value)
   );
 }

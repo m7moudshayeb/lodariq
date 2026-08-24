@@ -2,7 +2,14 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import type { LodariqBlock, LodariqDocument } from '@lodariq/schema';
+import {
+  COMMERCIAL_PLAN_VERSION,
+  commercialUsageValue,
+  resolveCommercialEntitlements,
+  type LodariqBlock,
+  type LodariqDocument,
+  type WorkspaceCommercialUsage,
+} from '@lodariq/schema';
 import type { LocalAuthoringFrameServices } from '@lodariq/sdk-authoring/authoring-frame';
 import { LocalAuthoringFrameController } from '../../../../../packages/sdk-authoring/src/authoring/local-frame-ui/controller';
 import { StepNarrationSection } from '../../../../../packages/sdk-authoring/src/authoring/local-frame-ui/components/step-narration-section';
@@ -60,7 +67,9 @@ describe('Narration section (§7.7)', () => {
       { id: 'v_en', name: 'Ada', locale: 'en-US' },
       { id: 'v_de', name: 'Bruno', locale: 'de-DE' },
     ]);
-    controller.setStepNarration(STEP_ID, { script: 'Klicken Sie auf die Schaltfläche für das Konto' });
+    controller.setStepNarration(STEP_ID, {
+      script: 'Klicken Sie auf die Schaltfläche für das Konto',
+    });
 
     const markup = render(controller);
     expect(markup).toContain('data-narration-locale="de"');
@@ -71,9 +80,130 @@ describe('Narration section (§7.7)', () => {
   it('says how to get a language rather than guessing from an empty script', () => {
     const markup = render(createController());
     expect(markup).toContain('data-narration-locale=""');
-    expect(markup).toContain('the language is detected');
+    expect(markup).toContain('Not detected yet');
+    expect(markup).not.toContain('data-narration-action="lexicon"');
+  });
+
+  it('keeps existing narration readable and removable after a plan downgrade', () => {
+    const controller = createController();
+    controller.setStepNarration(STEP_ID, { script: 'Keep this existing narration.' });
+    const snapshot = {
+      ...controller.getSnapshot(),
+      commercialUsage: commercialUsageForStarter(),
+    };
+    const markup = renderToStaticMarkup(
+      createElement(StepNarrationSection, {
+        controller,
+        snapshot,
+        step: stepOf(controller)!,
+        tooltip: tooltipOf(controller)!,
+      }),
+    );
+
+    expect(markup).toContain('Keep this existing narration.');
+    expect(markup).toContain('This tool is not included in the current workspace plan.');
+    expect(markup).toMatch(/data-narration-script=""[^>]*disabled/iu);
+    expect(markup).toMatch(/<input[^>]*disabled[^>]*type="range"/iu);
+    expect(markup).toContain('data-narration-action="clear"');
+    expect(markup).not.toMatch(/data-narration-action="clear"[^>]*disabled/iu);
+  });
+
+  it('keeps generated audio for timing edits and invalidates it for source edits', () => {
+    const controller = createController();
+    const audio = generatedAudio();
+    controller.setStepNarration(STEP_ID, {
+      script: 'Choose your plan.',
+      voiceId: 'voice_en',
+      audio,
+    });
+
+    controller.setStepNarration(STEP_ID, {
+      ...stepOf(controller)?.props.narration,
+      script: 'Choose your plan.',
+      voiceId: 'voice_en',
+      startOffsetMs: 500,
+      advanceOnEnd: true,
+    });
+    expect(stepOf(controller)?.props.narration?.audio).toEqual(audio);
+
+    controller.setStepNarration(STEP_ID, {
+      ...stepOf(controller)?.props.narration,
+      script: 'Choose a plan and continue.',
+    });
+    expect(stepOf(controller)?.props.narration?.audio).toBeUndefined();
+  });
+
+  it('attaches generated audio and persists the exact updated draft', async () => {
+    const persistDocument = vi.fn(async (_document: LodariqDocument) => {});
+    const generateNarration = vi.fn(async () => ({
+      operationId: 'narration_operation',
+      replayed: false,
+      audio: generatedAudio(),
+      asset: {
+        id: 'asset_narration',
+        kind: 'audio' as const,
+        filename: 'narration.wav',
+        contentType: 'audio/wav',
+        byteLength: 12,
+        contentHash: `sha256-${'1'.repeat(64)}`,
+        createdAt: '2026-08-21T00:00:00.000Z',
+        downloadPath: '/v1/authoring/media-assets/asset_narration',
+      },
+    }));
+    const controller = createController(undefined, { generateNarration, persistDocument });
+    controller.setStepNarration(STEP_ID, { script: 'Choose your plan.', voiceId: 'voice_en' });
+
+    await expect(controller.generateStepNarration(STEP_ID)).resolves.toBe(true);
+
+    expect(generateNarration).toHaveBeenCalledWith(STEP_ID);
+    expect(stepOf(controller)?.props.narration?.audio).toEqual(generatedAudio());
+    expect(controller.getSnapshot().mediaAssets).toEqual([
+      expect.objectContaining({ id: 'asset_narration', kind: 'audio' }),
+    ]);
+    expect(persistDocument).toHaveBeenCalledTimes(2);
+    expect(persistDocument.mock.calls[1]?.[0].blocks[0]?.props.narration?.audio).toEqual(
+      generatedAudio(),
+    );
+    expect(render(controller)).toContain('Audio ready · 1 seconds');
+  });
+
+  it('keeps the draft unchanged when generation fails', async () => {
+    const controller = createController(undefined, {
+      generateNarration: vi.fn(async () => {
+        throw new Error('provider offline');
+      }),
+    });
+    controller.setStepNarration(STEP_ID, { script: 'Choose your plan.' });
+
+    await expect(controller.generateStepNarration(STEP_ID)).resolves.toBe(false);
+    expect(stepOf(controller)?.props.narration?.audio).toBeUndefined();
+    expect(controller.getSnapshot().status).toBe('Narration generation failed. Try again.');
   });
 });
+
+function commercialUsageForStarter(): WorkspaceCommercialUsage {
+  const limits = resolveCommercialEntitlements('starter');
+  return {
+    planId: 'starter',
+    planVersion: COMMERCIAL_PLAN_VERSION,
+    periodStart: '2026-08-01T00:00:00.000Z',
+    periodEnd: '2026-09-01T00:00:00.000Z',
+    engagedUsers: commercialUsageValue(0, limits.engagedUsersPerMonth, 'soft'),
+    liveExperiences: commercialUsageValue(0, limits.liveExperiences, 'hard'),
+    creatorSeats: commercialUsageValue(1, limits.creatorSeats, 'hard'),
+    applications: commercialUsageValue(1, limits.applications, 'hard'),
+    locales: commercialUsageValue(1, limits.locales, 'hard'),
+    environments: commercialUsageValue(1, limits.environments, 'hard'),
+    aiCredits: commercialUsageValue(0, limits.aiCreditsPerMonth, 'hard'),
+    themeGenerationRuns: commercialUsageValue(0, limits.themeGenerationRuns, 'hard'),
+    analyticsExports: commercialUsageValue(0, limits.analyticsExportsPerMonth, 'hard'),
+    assetBytes: limits.assetBytes,
+    analyticsRetentionDays: limits.analyticsRetentionDays,
+    versionRetentionDays: limits.versionRetentionDays,
+    removeBadge: limits.removeBadge,
+    features: [...limits.features],
+  };
+}
 
 function render(controller: LocalAuthoringFrameController): string {
   const snapshot = controller.getSnapshot();
@@ -94,6 +224,7 @@ function tooltipOf(controller: LocalAuthoringFrameController): LodariqBlock | un
 
 function createController(
   narrationVoices?: LocalAuthoringFrameServices['narrationVoices'],
+  serviceOverrides: Partial<LocalAuthoringFrameServices> = {},
 ): LocalAuthoringFrameController {
   const controller = new LocalAuthoringFrameController({
     root: document.getElementById('authoring')!,
@@ -109,12 +240,24 @@ function createController(
       getMetricsSummary: () => ({}),
       exportMetricsReport: () => '{}',
       ...(narrationVoices ? { narrationVoices } : {}),
+      ...serviceOverrides,
     },
     sessionId: 'session_narration',
     peerWindow: window,
   });
   controller.start();
   return controller;
+}
+
+function generatedAudio() {
+  return {
+    assetId: 'asset_narration',
+    contentHash: `sha256-${'1'.repeat(64)}`,
+    sourceHash: `sha256-${'2'.repeat(64)}`,
+    contentType: 'audio/wav' as const,
+    durationMs: 1_000,
+    cues: [{ text: 'Choose your plan.', startMs: 0, durationMs: 1_000 }],
+  };
 }
 
 function narratedDocument(): LodariqDocument {

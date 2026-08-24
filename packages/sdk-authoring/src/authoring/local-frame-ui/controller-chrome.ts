@@ -1,7 +1,8 @@
 import { ControllerPreviewFeature } from './controller-preview';
 import { authoringText } from '../../i18n';
-import { experienceDefinition, listExperienceDefinitions } from '../experiences/definition';
-import type { DocumentType } from '@lodariq/schema';
+import { listExperienceDefinitions } from '../experiences/definition';
+import { registeredExperienceDefinition } from '../experience-authoring-capabilities';
+import { isDeliverableExperienceType, type DocumentType } from '@lodariq/schema';
 
 /** Matches the storyboard canvas control, so both surfaces zoom in the same steps. */
 export const CANVAS_ZOOM_STEP = 15;
@@ -21,26 +22,34 @@ export abstract class ControllerChromeFeature extends ControllerPreviewFeature {
   protected recordingSteps = false;
 
   /**
-   * §5 — the model is type-agnostic, so this is a document field plus a re-seed,
-   * not a conversion. Undoable, because a creator who picks the wrong type from a
-   * menu should not lose their draft to it.
+   * §5 — changing the type changes which roots the canvas presents; it does not
+   * delete the roots for the previous type. The menu explains that switching
+   * back restores them, so the mutation must keep that promise and remain
+   * undoable.
    */
   switchExperienceType(type: string): void {
     if (type === this.documentState.type) return;
-    const definition = experienceDefinition(type as DocumentType);
-    if (!definition) {
+    const definition = registeredExperienceDefinition(type as DocumentType);
+    if (!definition || !isDeliverableExperienceType(type)) {
       this.setStatus(authoringText('That experience type is not available in this build.'));
       return;
     }
-    this.recordChange();
-    this.documentState = { ...this.documentState, type: type as DocumentType };
-    this.afterDocumentMutation();
-    this.services.saveDocument(this.documentState);
-    this.setStatus(
-      authoringText('Now authoring as {type}.', {
+    const nextType = type as DocumentType;
+    this.commitCoordinatedMutation({
+      blockId: this.documentState.id,
+      coalescingKey: `experience-type:${this.documentState.id}`,
+      operations: [
+        {
+          op: 'replaceDocument',
+          document: structuredClone({ ...this.documentState, type: nextType }),
+        },
+      ],
+      reduce: (document) => ({ ...document, type: nextType }),
+      scope: 'behavior',
+      status: authoringText('Now authoring as {type}.', {
         type: labelForType(type),
       }),
-    );
+    });
     this.recordMetric('experience.type.changed');
     this.emit();
   }

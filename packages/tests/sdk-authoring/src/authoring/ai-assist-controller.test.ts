@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { LodariqDocument } from '@lodariq/schema';
+import type { AiAssistRequest, LodariqDocument } from '@lodariq/schema';
 import type { LocalAuthoringFrameServices } from '@lodariq/sdk-authoring/authoring-frame';
 import { LocalAuthoringFrameController } from '../../../../../packages/sdk-authoring/src/authoring/local-frame-ui/controller';
 import {
@@ -43,7 +43,12 @@ describe('assist wiring (§7.4, §7.5)', () => {
 
   it('rejecting leaves the document untouched', async () => {
     const controller = createController({ requestAiAssist: vi.fn(async () => rewriteProposal()) });
-    controller.askAiAssist({ kind: 'command', scope: 'step', prompt: 'tighten', stepIds: [STEP_ID] });
+    controller.askAiAssist({
+      kind: 'command',
+      scope: 'step',
+      prompt: 'tighten',
+      stepIds: [STEP_ID],
+    });
     await vi.waitFor(() =>
       expect(controller.getSnapshot().panelWorkflow.assist.phase).toBe('previewing'),
     );
@@ -55,7 +60,9 @@ describe('assist wiring (§7.4, §7.5)', () => {
   });
 
   it('holds a batch proposal at a confirm before writing', async () => {
-    const controller = createController({ requestAiAssist: vi.fn(async () => rewriteProposal('de')) });
+    const controller = createController({
+      requestAiAssist: vi.fn(async () => rewriteProposal('de')),
+    });
     controller.askAiAssist({ kind: 'translate', scope: 'batch', locale: 'de', stepIds: [STEP_ID] });
     await vi.waitFor(() =>
       expect(controller.getSnapshot().panelWorkflow.assist.phase).toBe('previewing'),
@@ -83,7 +90,12 @@ describe('assist wiring (§7.4, §7.5)', () => {
       .mockReturnValueOnce(fast.promise);
     const controller = createController({ requestAiAssist });
 
-    const ask = { kind: 'command', scope: 'step', prompt: 'a', stepIds: [STEP_ID] } as const;
+    const ask: AiAssistRequest = {
+      kind: 'command',
+      scope: 'step',
+      prompt: 'a',
+      stepIds: [STEP_ID],
+    };
     controller.askAiAssist(ask);
     controller.askAiAssist({ ...ask, prompt: 'b' });
     fast.resolve(rewriteProposal());
@@ -116,8 +128,15 @@ describe('assist wiring (§7.4, §7.5)', () => {
       })),
     });
 
-    controller.askAiAssist({ kind: 'command', scope: 'step', prompt: 'recolour', stepIds: [STEP_ID] });
-    await vi.waitFor(() => expect(controller.getSnapshot().panelWorkflow.assist.phase).toBe('failed'));
+    controller.askAiAssist({
+      kind: 'command',
+      scope: 'step',
+      prompt: 'recolour',
+      stepIds: [STEP_ID],
+    });
+    await vi.waitFor(() =>
+      expect(controller.getSnapshot().panelWorkflow.assist.phase).toBe('failed'),
+    );
     expect(controller.getSnapshot().panelWorkflow.assist.error).toContain('theme styles');
   });
 });

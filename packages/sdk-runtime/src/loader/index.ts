@@ -89,6 +89,7 @@ export interface InstallOptions {
   openAuthoring?: (manifest: ManifestPointer, context: SdkInstallContext) => Promise<void>;
   observability?: RuntimeConfig['observability'];
   publicInstallationId?: string;
+  assignmentKey?: string | undefined;
   /** Server-issued active pointers used as analytics assertions, never identity. */
   analyticsPointers?: RuntimeConfig['analyticsPointers'];
 }
@@ -226,7 +227,7 @@ export async function loadRuntime(): Promise<RuntimeModule> {
 }
 
 export async function loadTourRenderer(): Promise<TourRendererModule> {
-  return import('../renderers/tour');
+  return import('../renderers/adaptive-tour');
 }
 
 export async function installLodariq(
@@ -259,11 +260,13 @@ export async function installLodariq(
     ...(context.ingestUrl ? { ingestUrl: context.ingestUrl } : {}),
     ...(config.clientToken ? { authorizationToken: config.clientToken } : {}),
     ...(options.publicInstallationId ? { publicInstallationId: options.publicInstallationId } : {}),
+    assignmentKey: options.assignmentKey,
     analyticsPointers: options.analyticsPointers ?? context.analyticsPointers,
   };
   const runtime = new runtimeModule.LodariqRuntime(runtimeConfig);
   const authoring = createAuthoringStatus(config, context, Boolean(openAuthoringFn));
   let activeTour: TourPlayerLike | null = null;
+  let activeTourDocumentId: string | null = null;
   let authoringPreviewController: Promise<AuthoringPreviewController> | null = null;
   let loadedAuthoringPreviewController: AuthoringPreviewController | null = null;
   let tourRequestId = 0;
@@ -288,13 +291,23 @@ export async function installLodariq(
       assertCompiledDocument(candidate);
       const tour = candidate;
       const documentId = tour.documentId;
+      // An automatic play is an offer, not an instruction. The page that a
+      // cross-page tour lands on re-evaluates its own activation triggers from
+      // an empty in-memory state, so without this the resumed tour is torn down
+      // and restarted at step 1 by the activation that was already satisfied.
+      if (
+        playbackOptions.automatic &&
+        (activeTourDocumentId === documentId || (await runtime.experienceOutcome(documentId)))
+      ) {
+        return;
+      }
       playbackManifest = options.resolveManifestForDocument?.(documentId) ?? manifest;
       if ('artifactSchemaVersion' in tour || 'rendererContractVersion' in tour || 'theme' in tour) {
         const artifactManifest = options.resolveArtifactManifestForDocument?.(documentId);
         const { assertPlaybackArtifact } = await import('./artifact-validation');
         assertPlaybackArtifact(tour, Boolean(options.publicInstallationId), artifactManifest);
       }
-      stopTour();
+      teardownActiveTour();
       const [{ TourPlayer }, { createTrackedTourPlayer }] = await Promise.all([
         loadTourRendererFn(),
         import('./tracked-tour-player'),
@@ -308,10 +321,11 @@ export async function installLodariq(
         runtime,
         onStopped: () => {
           activeTour = null;
+          activeTourDocumentId = null;
         },
       });
       activeTour = player;
-      runtime.track('tour_started', { documentId });
+      activeTourDocumentId = documentId;
       player.start();
     } catch (error) {
       if (isArtifactCompatibilityError(error)) throw error;
@@ -357,10 +371,24 @@ export async function installLodariq(
     return authoringPreviewController;
   }
 
+  /**
+   * Ends the tour on the visitor's or host's behalf, so the stored position
+   * goes with it.
+   */
   function stopTour(): void {
+    teardownActiveTour();
+    runtime.clearTourResume();
+  }
+
+  /**
+   * Retires the current player to make room for the next one. Swapping players
+   * is bookkeeping, not the end of a tour, and it must not throw away the step
+   * the visitor had reached.
+   */
+  function teardownActiveTour(): void {
     activeTour?.stop();
     activeTour = null;
-    runtime.clearTourResume();
+    activeTourDocumentId = null;
   }
 
   const api: LodariqBrowserApi = {
@@ -377,10 +405,21 @@ export async function installLodariq(
   window.Lodariq = api;
   // Recovery is sniffed for, not loaded for: only the rare page that carries a
   // handoff token or a stored resume pulls the module that handles them.
-  const resume = runtime.readTourResume(manifest);
+  const resume = runtime.readTourResume(manifest, options.resolveManifestForDocument);
   if (resume || window.location?.search?.includes('lq_journey=')) {
     const { continueInterruptedTour } = await import('./resume-tour');
-    await continueInterruptedTour(resume, runtime, manifest, context, loadCurrentTourFn, playTour);
+    // The remembered experience is not necessarily the default one, so the
+    // manifest handed on is the one that owns the stored step.
+    const resumeManifest =
+      (resume && options.resolveManifestForDocument?.(resume.documentId)) || manifest;
+    await continueInterruptedTour(
+      resume,
+      runtime,
+      resumeManifest,
+      context,
+      loadCurrentTourFn,
+      playTour,
+    );
   }
   return api;
 }

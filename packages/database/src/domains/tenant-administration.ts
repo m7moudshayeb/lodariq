@@ -43,6 +43,8 @@ export interface TenantAuditEventRecord {
   invitationId: string | null;
   previousRole: ControlPlaneRole | null;
   nextRole: ControlPlaneRole | null;
+  environmentId?: string | null;
+  resourceId?: string | null;
   occurredAt: string;
 }
 
@@ -82,7 +84,13 @@ export interface AcceptWorkspaceInvitationInput {
 
 export type AcceptWorkspaceInvitationResult =
   | { status: 'accepted'; workspaceId: string; role: WorkspaceInvitationRole }
-  | { status: 'invalid_or_expired' | 'email_mismatch' | 'membership_conflict' };
+  | {
+      status:
+        | 'invalid_or_expired'
+        | 'email_mismatch'
+        | 'membership_conflict'
+        | 'seat_limit_reached';
+    };
 
 export interface RevokeWorkspaceInvitationInput {
   workspaceId: string;
@@ -133,7 +141,12 @@ export interface CancelWorkspaceDeletionInput {
 }
 
 export type TenantMutationResult =
-  'completed' | 'not_found' | 'forbidden' | 'final_owner' | 'conflict';
+  | 'completed'
+  | 'not_found'
+  | 'forbidden'
+  | 'final_owner'
+  | 'conflict'
+  | 'seat_limit_reached';
 
 export interface WorkspaceDeletionRecord {
   workspaceId: string;

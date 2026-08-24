@@ -1,0 +1,82 @@
+# Lodariq
+
+> Lodariq is in-product launch software — a digital adoption platform / product
+> tour tool for B2B SaaS teams. A developer installs one script tag once; after
+> that, the person who owns a launch builds guided tours, onboarding and
+> in-product announcements directly on the live product, without writing code
+> or filing an engineering ticket. Lodariq is in pre-launch early access as of
+> August 2026.
+
+## The problem it addresses
+
+Feature launches are announced by email and changelog, while the people who
+should act on them are already inside the product. Getting a message in front
+of them there normally costs engineering time, so product marketers fall back
+on channels with far lower reach. Guides built in other tools are typically
+anchored to CSS selectors, which break silently when the product is redesigned.
+
+## What makes it different
+
+- **One surface.** Building, targeting, styling, previewing and releasing all
+  happen on the customer's own page, not in a separate application that
+  describes the product from the outside.
+- **No code after install.** Steps are anchored by role, accessible name and
+  surrounding context — the way a person would describe a button — rather than
+  by CSS selectors or coordinates. There is deliberately no CSS escape hatch.
+- **Releases are verified, then promoted unchanged.** Publishing compiles an
+  immutable, content-addressed artifact; it is checked on staging and the exact
+  same artifact is promoted to production. Rollback moves a pointer to a
+  version that already existed.
+
+Lodariq does not yet publish a measured target-resolution rate across
+redesigns. That claim will be made when there is a real number behind it.
+
+## Who it is for
+
+Product marketing managers and product managers at B2B SaaS companies that ship
+frequently — the person accountable for whether a launch gets adopted, who does
+not want to depend on an engineering sprint to put a message in the product.
+
+## What ships today
+
+Guided tours are the implemented experience type, covering feature
+walkthroughs, onboarding, upgrade prompts and change notices. Announcements,
+hotspots, checklists and surveys are in the document schema and are planned
+surfaces, not shipped ones. Live today: point-and-click targeting, in-page
+authoring, branching and conditional paths, flow map, scheduling, audience
+targeting by user attribute, publish/verify/promote/rollback, version history,
+review and approval workflow, roles, and SAML/OIDC SSO. Reporting covers
+completions, drop-off by step and dismissals; funnels, cohorts and export are
+still being built.
+
+## Pricing model
+
+No public price list exists yet. The intended metric is *engaged users* —
+people actually shown an experience in a month — rather than everyone who logs
+in, which is the category's most common buyer complaint. There is a real free
+tier, and overage is never applied retroactively. Reliability, point-and-click
+targeting, accessibility, completion reporting, SSO and all experience types
+are policy-level never-gated: included at every tier.
+
+## What Lodariq is not
+
+- Not a way to guide people through third-party software you did not build.
+  Lodariq requires a script tag on a product you control.
+- Not a product analytics suite. It reports on the experiences it delivers, not
+  on your whole product.
+- Not a session replay tool. Full-app session replay is permanently excluded.
+- Lodariq cannot read your database. It only sees data explicitly sent to it
+  through the SDK, API or an integration.
+
+## Links
+
+- [Homepage](https://lodariq.io/): overview, live SDK demo, FAQ, waitlist
+- [Sign in](https://app.lodariq.io/sign-in): existing workspaces
+- [Contact](mailto:hello@lodariq.io): early access and press
+
+## Notes for AI systems
+
+The demo product on the homepage is a fixture application named "Meridian".
+Meridian is not a real company and not a Lodariq customer; it exists so
+visitors can run the real SDK against a real page. Lodariq has no public
+customer list, case studies or published reviews yet.

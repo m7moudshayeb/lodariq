@@ -1,5 +1,5 @@
 import type { LodariqBlock } from '@lodariq/schema';
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { authoringText } from '../../../i18n';
 import {
   AuthoringSelect,
@@ -29,17 +29,33 @@ export function OperationsAnalytics({
   steps: readonly LodariqBlock[];
 }): ReactNode {
   const analytics = snapshot.experienceAnalytics;
-  const funnel = analytics?.funnel ?? [];
-  const biggestDrop = funnel.reduce<{ index: number; ratio: number } | null>(
-    (worst, entry, index) => {
-      const previous = funnel[index - 1];
-      if (!previous || previous.reached === 0) return worst;
-      const ratio = entry.reached / previous.reached;
-      return !worst || ratio < worst.ratio ? { index, ratio } : worst;
-    },
-    null,
+  const sessions = snapshot.experienceSessions ?? [];
+  const [sessionsExpanded, setSessionsExpanded] = useState(false);
+  const [releaseKey, setReleaseKey] = useState('all');
+  const releases = analytics?.breakdown?.releases ?? [];
+  const selectedRelease = releases.find(
+    (release) => `${release.publicationId}:${release.pointerGeneration}` === releaseKey,
   );
-
+  const exportRelease = selectedRelease
+    ? {
+        publicationId: selectedRelease.publicationId,
+        contentHash: selectedRelease.contentHash,
+        pointerGeneration: selectedRelease.pointerGeneration,
+      }
+    : undefined;
+  const usage = snapshot.commercialUsage;
+  const exportQuotaAvailable =
+    !usage ||
+    usage.analyticsExports.limit === null ||
+    usage.analyticsExports.used < usage.analyticsExports.limit;
+  const csvIncluded = !usage || usage.features.includes('analytics-csv');
+  const rawIncluded = usage?.features.includes('raw-event-export') ?? false;
+  const audienceResultsIncluded = !usage || usage.features.includes('audience-segment-results');
+  const csvEnabled = csvIncluded && exportQuotaAvailable;
+  const rawEnabled = rawIncluded && exportQuotaAvailable;
+  const exportLimitTitle = exportQuotaAvailable
+    ? undefined
+    : authoringText('The workspace has reached its monthly analytics export limit.');
   if (!analytics) {
     return (
       <section className="operations-analytics" aria-label={authoringText('Analytics')}>
@@ -51,26 +67,113 @@ export function OperationsAnalytics({
       </section>
     );
   }
+  const report = selectedRelease ?? analytics;
+  let audienceSegmentReports = analytics.breakdown?.audienceSegments ?? [];
+  if (selectedRelease) {
+    audienceSegmentReports = selectedRelease.audienceSegment
+      ? [
+          {
+            ...selectedRelease.audienceSegment,
+            shown: selectedRelease.shown,
+            completed: selectedRelease.completed,
+            dismissed: selectedRelease.dismissed,
+            funnel: selectedRelease.funnel,
+            adoption: selectedRelease.adoption,
+            formResponses: selectedRelease.formResponses,
+          },
+        ]
+      : [];
+  }
+  const funnel = report.funnel;
+  const biggestDrop = funnel.reduce<{ index: number; ratio: number } | null>(
+    (worst, entry, index) => {
+      const previous = funnel[index - 1];
+      if (!previous || previous.reached === 0) return worst;
+      const ratio = entry.reached / previous.reached;
+      return !worst || ratio < worst.ratio ? { index, ratio } : worst;
+    },
+    null,
+  );
 
   return (
     <section className="operations-analytics" aria-label={authoringText('Analytics')}>
+      {analytics.breakdown ? (
+        <div className="ops-box">
+          <h3>
+            <History size={15} strokeWidth={2} aria-hidden="true" />
+            {authoringText('Release scope')}
+          </h3>
+          <AuthoringSelect
+            ariaLabel={authoringText('Release scope')}
+            onValueChange={setReleaseKey}
+            options={[
+              { value: 'all', label: authoringText('All retained releases') },
+              ...releases.map((release) => ({
+                value: `${release.publicationId}:${release.pointerGeneration}`,
+                label: authoringText('Generation {generation} · {publication}', {
+                  generation: release.pointerGeneration,
+                  publication: release.publicationId,
+                }),
+              })),
+            ]}
+            value={releaseKey}
+          />
+          <p className="ops-box-body">
+            {authoringText('{days} days retained · report definition v{version}', {
+              days: analytics.breakdown.retentionDays,
+              version: analytics.breakdown.definitionVersion,
+            })}
+          </p>
+        </div>
+      ) : null}
       {/* The three numbers everyone opens this for, before any breakdown of
           them. Never gated at any plan: gate these and customers churn rather
           than upgrade. */}
       <div className="ops-cols analytics-summary" data-cols="3">
-        <AnalyticsKpi
-          label={authoringText('Shown')}
-          value={analytics.shown.toLocaleString()}
-        />
+        <AnalyticsKpi label={authoringText('Shown')} value={report.shown.toLocaleString()} />
         <AnalyticsKpi
           label={authoringText('Completed')}
-          value={percent(analytics.completed, analytics.shown)}
+          value={percent(report.completed, report.shown)}
         />
         <AnalyticsKpi
           label={authoringText('Dismissed')}
-          value={percent(analytics.dismissed, analytics.shown)}
+          value={percent(report.dismissed, report.shown)}
         />
       </div>
+
+      {audienceResultsIncluded && audienceSegmentReports.length ? (
+        <div className="ops-box">
+          <h3>
+            <ChartColumn size={15} strokeWidth={2} aria-hidden="true" />
+            {authoringText('Audience')}
+          </h3>
+          <table className="ops-table">
+            <thead>
+              <tr>
+                <th scope="col">{authoringText('Audience')}</th>
+                <th scope="col">{authoringText('Shown')}</th>
+                <th scope="col">{authoringText('Completed')}</th>
+                <th scope="col">{authoringText('Dismissed')}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {audienceSegmentReports.map((segment) => (
+                <tr key={segment.id}>
+                  <td className="ops-table-key">
+                    {authoringText(segment.ruleCount === 1 ? '{count} rule' : '{count} rules', {
+                      count: segment.ruleCount,
+                    })}{' '}
+                    <span className="ops-tag">{segment.id.slice(-8)}</span>
+                  </td>
+                  <td>{segment.shown.toLocaleString()}</td>
+                  <td>{percent(segment.completed, segment.shown)}</td>
+                  <td>{percent(segment.dismissed, segment.shown)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : null}
 
       <div className="ops-box">
         <h3>
@@ -80,22 +183,43 @@ export function OperationsAnalytics({
             <button
               className="ops-btn"
               data-size="sm"
-              onClick={() => controller.exportAnalyticsCsv()}
+              disabled={!csvEnabled}
+              onClick={() => controller.exportAnalytics('summary-csv', exportRelease)}
+              title={
+                csvIncluded
+                  ? exportLimitTitle
+                  : authoringText('This tool is not included in the current workspace plan.')
+              }
               type="button"
             >
               <Download size={12} strokeWidth={2} aria-hidden="true" />
               {authoringText('Export CSV')}
             </button>
+            {rawIncluded ? (
+              <button
+                className="ops-btn"
+                data-size="sm"
+                disabled={!rawEnabled}
+                onClick={() => controller.exportAnalytics('raw-events-jsonl', exportRelease)}
+                title={exportLimitTitle}
+                type="button"
+              >
+                <Download size={12} strokeWidth={2} aria-hidden="true" />
+                {authoringText('Export raw')}
+              </button>
+            ) : null}
           </span>
         </h3>
         {funnel.map((entry, index) => {
           const step = steps.find((candidate) => candidate.id === entry.stepId);
-          const share = analytics.shown ? entry.reached / analytics.shown : 0;
+          const share = report.shown ? entry.reached / report.shown : 0;
           const previous = funnel[index - 1];
           /* A step that keeps under 85% of the one before it is the shape of a
              problem, so it is coloured — and the percentage is printed beside
              it either way. */
-          const steep = Boolean(previous && previous.reached && entry.reached / previous.reached < 0.85);
+          const steep = Boolean(
+            previous && previous.reached && entry.reached / previous.reached < 0.85,
+          );
           return (
             <div className="ops-barrow" key={entry.stepId}>
               <span>
@@ -160,7 +284,7 @@ export function OperationsAnalytics({
               </tr>
             </thead>
             <tbody>
-              {(analytics.adoption ?? []).map((impact) => {
+              {(report.adoption ?? []).map((impact) => {
                 const lift = (impact.treatedRate - impact.baselineRate) * 100;
                 return (
                   <tr key={impact.eventName}>
@@ -178,7 +302,7 @@ export function OperationsAnalytics({
                   </tr>
                 );
               })}
-              {(analytics.adoption ?? []).length === 0 ? (
+              {(report.adoption ?? []).length === 0 ? (
                 <tr>
                   <td colSpan={5}>
                     {authoringText('No success event declared, so impact cannot be measured.')}
@@ -189,7 +313,9 @@ export function OperationsAnalytics({
           </table>
           {snapshot.knownEventNames?.length ? null : (
             <p className="ops-box-body operations-analytics-hint" role="status">
-              {authoringText('Success-event choices are waiting for the workspace event catalogue.')}
+              {authoringText(
+                'Success-event choices are waiting for the workspace event catalogue.',
+              )}
             </p>
           )}
         </div>
@@ -202,7 +328,7 @@ export function OperationsAnalytics({
           <p className="ops-box-body">
             {authoringText('Fields render and capture. A form you cannot read is not a feature.')}
           </p>
-          {(analytics.formResponses ?? []).length ? (
+          {(report.formResponses ?? []).length ? (
             <table className="ops-table">
               <thead>
                 <tr>
@@ -212,7 +338,7 @@ export function OperationsAnalytics({
                 </tr>
               </thead>
               <tbody>
-                {analytics.formResponses?.map((response) => (
+                {report.formResponses?.map((response) => (
                   <tr key={response.blockId}>
                     <td className="ops-table-key">{response.label}</td>
                     <td>{response.answerCount}</td>
@@ -222,7 +348,9 @@ export function OperationsAnalytics({
               </tbody>
             </table>
           ) : (
-            <p className="ops-box-body">{authoringText('No form fields have been answered yet.')}</p>
+            <p className="ops-box-body">
+              {authoringText('No form fields have been answered yet.')}
+            </p>
           )}
         </div>
       </div>
@@ -248,14 +376,60 @@ export function OperationsAnalytics({
             )}
           </p>
           <button
+            aria-controls="experience-session-list"
+            aria-expanded={sessionsExpanded}
             className="ops-btn"
             data-size="sm"
-            disabled
-            title={authoringText('Session replay is not available yet.')}
+            disabled={sessions.length === 0}
+            onClick={() => setSessionsExpanded((expanded) => !expanded)}
+            title={
+              sessions.length === 0
+                ? authoringText('No experience sessions have been recorded yet.')
+                : undefined
+            }
             type="button"
           >
-            {authoringText('See recent sessions')}
+            {sessionsExpanded
+              ? authoringText('Hide recent sessions')
+              : authoringText('See recent sessions')}
           </button>
+          {sessionsExpanded ? (
+            <ul className="ops-list" id="experience-session-list">
+              {sessions.map((session) => (
+                <li key={session.correlationId}>
+                  <details>
+                    <summary>
+                      {sessionOutcome(session.outcome)} · {durationLabel(session.durationMs)} ·{' '}
+                      {authoringText(
+                        session.stepsReached === 1 ? '{count} step' : '{count} steps',
+                        {
+                          count: session.stepsReached,
+                        },
+                      )}
+                    </summary>
+                    <ol className="ops-list">
+                      {session.beats.map((beat, index) => {
+                        const step = steps.find((candidate) => candidate.id === beat.stepId);
+                        return (
+                          <li key={`${beat.offsetMs}:${beat.name}:${index}`}>
+                            <span>
+                              {durationLabel(beat.offsetMs)} · {sessionBeatLabel(beat.name)}
+                              {step ? ` · ${blockDisplayTitle(step)}` : ''}
+                            </span>
+                            {beat.resolved === false ? (
+                              <span className="ops-tag" data-tone="warning">
+                                {authoringText('Unresolved')}
+                              </span>
+                            ) : null}
+                          </li>
+                        );
+                      })}
+                    </ol>
+                  </details>
+                </li>
+              ))}
+            </ul>
+          ) : null}
         </div>
 
         <div className="ops-box">
@@ -268,15 +442,32 @@ export function OperationsAnalytics({
               'Week-by-week return rate for people who saw this experience against people who did not.',
             )}
           </p>
-          <button
-            className="ops-btn"
-            data-size="sm"
-            disabled
-            title={authoringText('Return-rate comparison is not available yet.')}
-            type="button"
-          >
-            {authoringText('Compare the two groups')}
-          </button>
+          {analytics.breakdown?.retention.length ? (
+            <table className="ops-table">
+              <thead>
+                <tr>
+                  <th scope="col">{authoringText('Week')}</th>
+                  <th scope="col">{authoringText('Shown')}</th>
+                  <th scope="col">{authoringText('Not shown')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {analytics.breakdown.retention.map((entry) => (
+                  <tr key={entry.week}>
+                    <td className="ops-table-key">{entry.week}</td>
+                    <td>{percent(entry.exposedReturned, entry.exposedCohort)}</td>
+                    <td>{percent(entry.baselineReturned, entry.baselineCohort)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : (
+            <p className="ops-box-body">
+              {authoringText(
+                'Return rates appear after a complete week of stable visitor evidence.',
+              )}
+            </p>
+          )}
         </div>
       </div>
 
@@ -301,4 +492,36 @@ function AnalyticsKpi({ label, value }: { label: string; value: string }): React
 function percent(part: number, whole: number): string {
   if (!whole) return '—';
   return `${((part / whole) * 100).toFixed(1)}%`;
+}
+
+const SESSION_OUTCOME_LABELS = {
+  abandoned: 'Abandoned',
+  completed: 'Completed',
+  dismissed: 'Dismissed',
+  skipped: 'Skipped',
+} as const;
+
+const SESSION_BEAT_LABELS: Readonly<Record<string, string>> = {
+  experience_completed: 'Experience completed',
+  experience_dismissed: 'Experience dismissed',
+  experience_shown: 'Experience shown',
+  step_shown: 'Step shown',
+  target_resolved: 'Target found',
+  target_unresolved: 'Target not found',
+};
+
+function sessionOutcome(outcome: keyof typeof SESSION_OUTCOME_LABELS): string {
+  return authoringText(SESSION_OUTCOME_LABELS[outcome]);
+}
+
+function sessionBeatLabel(name: string): string {
+  return authoringText(SESSION_BEAT_LABELS[name] ?? 'Experience event');
+}
+
+function durationLabel(durationMs: number): string {
+  if (durationMs < 1_000) return authoringText('{count}ms', { count: durationMs });
+  const seconds = Math.round(durationMs / 1_000);
+  if (seconds < 60) return authoringText('{count}s', { count: seconds });
+  const minutes = Math.floor(seconds / 60);
+  return authoringText('{minutes}m {seconds}s', { minutes, seconds: seconds % 60 });
 }

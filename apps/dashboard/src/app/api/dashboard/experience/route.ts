@@ -40,7 +40,7 @@ export async function GET(request: Request): Promise<Response> {
     const [analytics, measurement, experiment, sessions] = await Promise.all([
       loadExperienceAnalytics(documentId, environmentId),
       loadExperienceMeasurement(documentId),
-      loadDocumentExperiment(documentId),
+      loadDocumentExperiment(documentId, environmentId),
       loadExperienceSessions(documentId, environmentId),
     ]);
     return dashboardJson({ analytics, measurement, experiment, sessions: sessions.sessions });

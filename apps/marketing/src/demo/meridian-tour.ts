@@ -101,7 +101,6 @@ export const MERIDIAN_TOUR: LodariqDocument = {
         label: 'By owner',
         // The fingerprint contract requires the map even when a product has
         // no stable markers to offer — which is the point of this step.
-        stableAttributes: {},
         nearbyText: ['Recent', 'A–Z'],
       },
     },
@@ -111,7 +110,6 @@ export const MERIDIAN_TOUR: LodariqDocument = {
         tagName: 'input',
         accessibleName: 'Search Meridian',
         label: 'Search Meridian',
-        stableAttributes: {},
         nearbyText: ['Search Meridian'],
       },
     },
@@ -122,7 +120,6 @@ export const MERIDIAN_TOUR: LodariqDocument = {
         role: 'button',
         accessibleName: 'Notifications',
         label: 'Notifications',
-        stableAttributes: {},
         nearbyText: ['Help'],
       },
     },

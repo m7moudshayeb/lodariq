@@ -223,6 +223,9 @@ export async function inspectTarget(
     currentLocale: result.currentLocale,
     viewportClass: authoringViewportClass(window.innerWidth),
     observedAt: new Date().toISOString(),
+    ...(result.learnedLocalizedEvidence
+      ? { learnedLocalizedEvidence: result.learnedLocalizedEvidence }
+      : {}),
     message: targetInspectMessage(action, result),
   };
 }

@@ -41,9 +41,7 @@ describe('unified popup content canvas', () => {
     vi.restoreAllMocks();
   });
 
-  it(
-    'authors continuous rich content in place inside the popup',
-    async () => {
+  it('authors continuous rich content in place inside the popup', async () => {
     const baseDocument = structuredClone(tourFixture) as LodariqDocument;
     const saveDocument = vi.fn();
     const uploadedMediaAsset = {
@@ -60,7 +58,7 @@ describe('unified popup content canvas', () => {
     let resolveMediaUpload!: (asset: AuthoringMediaAssetResource) => void;
     const uploadMediaAsset = vi.fn(
       (
-        _kind: 'image' | 'video' | 'captions',
+        _kind: 'image' | 'video' | 'captions' | 'audio',
         _file: File,
         _options: { onProgress?: (progress: number) => void; savedToLibrary: boolean },
       ) =>
@@ -115,29 +113,29 @@ describe('unified popup content canvas', () => {
     expect(canvas.querySelector('.rich-content-button-preview')).not.toBeNull();
     canvas.querySelector<HTMLButtonElement>('.rich-content-button-preview')?.click();
     await vi.waitFor(() =>
-      expect(document.querySelector('[aria-label="Button label"]')).toBeInstanceOf(HTMLInputElement),
+      expect(document.querySelector('[aria-label="Label"]')).toBeInstanceOf(HTMLInputElement),
     );
-    expect(document.querySelector('[aria-label="After click"]')).toBeInstanceOf(HTMLButtonElement);
+    expect(document.querySelector('[aria-label="On click"]')).toBeInstanceOf(HTMLButtonElement);
     expect(document.querySelector('[data-property-id="button.alignment"]')).toBeNull();
-    expect(document.querySelector('.storyboard-property-tray[data-tool-mode="content"]')).not.toBeNull();
+    expect(
+      document.querySelector('.storyboard-property-tray[data-tool-mode="content"]'),
+    ).not.toBeNull();
     // Sections, not tabs (§4.3): every inspector renders the same section list.
     expect(document.querySelector('.popup-inspector-tabs')).toBeNull();
     expect(document.querySelector('.inspector-section[data-section="button"]')).not.toBeNull();
-    const label = document.querySelector<HTMLInputElement>('[aria-label="Button label"]')!;
+    const label = document.querySelector<HTMLInputElement>('[aria-label="Label"]')!;
     label.focus();
     setNativeInputValue(label, 'Continue now');
     label.dispatchEvent(new Event('input', { bubbles: true }));
     expect(document.activeElement).toBe(label);
     const savesBeforeIdle = saveDocument.mock.calls.length;
     await new Promise((resolve) => setTimeout(resolve, RICH_CONTENT_PERSIST_DEBOUNCE_MS + 50));
-    expect(document.activeElement).toBe(
-      document.querySelector('[aria-label="Button label"]'),
-    );
-    expect(document.querySelector<HTMLInputElement>('[aria-label="Button label"]')?.value).toBe(
+    expect(document.activeElement).toBe(document.querySelector('[aria-label="Label"]'));
+    expect(document.querySelector<HTMLInputElement>('[aria-label="Label"]')?.value).toBe(
       'Continue now',
     );
     expect(saveDocument.mock.calls.length).toBe(savesBeforeIdle);
-    document.querySelector<HTMLInputElement>('[aria-label="Button label"]')?.blur();
+    document.querySelector<HTMLInputElement>('[aria-label="Label"]')?.blur();
     await vi.waitFor(() => {
       const lastCall = saveDocument.mock.calls[saveDocument.mock.calls.length - 1];
       expect(savedButtonLabel(lastCall?.[0] as LodariqDocument)).toBe('Continue now');
@@ -154,7 +152,9 @@ describe('unified popup content canvas', () => {
     expect(document.querySelector('[aria-label="Popup layout settings"]')).toBeNull();
     document.querySelector<HTMLButtonElement>('[aria-label="Close settings"]')?.click();
     await vi.waitFor(() =>
-      expect(document.querySelector('.storyboard-property-tray[data-tool-mode="content"]')).toBeNull(),
+      expect(
+        document.querySelector('.storyboard-property-tray[data-tool-mode="content"]'),
+      ).toBeNull(),
     );
 
     const firstTextHost = canvas.querySelector<HTMLElement>('[data-lexical-text="true"]');
@@ -169,16 +169,18 @@ describe('unified popup content canvas', () => {
     window.getSelection()?.removeAllRanges();
     window.getSelection()?.addRange(range);
     document.dispatchEvent(new Event('selectionchange'));
-    await vi.waitFor(() =>
-      expect(document.querySelector('.rich-content-toolbar')).not.toBeNull(),
-    );
+    await vi.waitFor(() => expect(document.querySelector('.rich-content-toolbar')).not.toBeNull());
     expect(document.querySelector('[aria-label="Italic"]')).not.toBeNull();
     document.querySelector<HTMLButtonElement>('[aria-label="More formatting"]')?.click();
     await vi.waitFor(() =>
       expect(document.querySelector('[aria-label="Underline"]')).not.toBeNull(),
     );
     expect(document.querySelector('[aria-label="Font size"]')).toBeInstanceOf(HTMLButtonElement);
-    expect(document.querySelector('select[aria-label="Font size"]')).toBeNull();
+    expect(
+      document
+        .querySelector('select.ui-native-select-mirror[aria-label="Font size"]')
+        ?.getAttribute('tabindex'),
+    ).toBe('-1');
     expect(document.querySelector('[aria-label="Text color"]')).toBeInstanceOf(HTMLInputElement);
     expect(document.querySelector('[aria-label="Selection background"]')).toBeInstanceOf(
       HTMLInputElement,
@@ -197,18 +199,20 @@ describe('unified popup content canvas', () => {
 
     document.querySelector<HTMLButtonElement>('[aria-label="More formatting"]')?.click();
     await vi.waitFor(() =>
-      expect(document.querySelector('[aria-label="Font size"]')).toBeInstanceOf(HTMLButtonElement),
+      expect(document.querySelector('button[aria-label="Font size"]')).toBeInstanceOf(
+        HTMLButtonElement,
+      ),
     );
-    document.querySelector<HTMLButtonElement>('[aria-label="Font size"]')?.click();
-    await vi.waitFor(() =>
-      expect(document.querySelector('[data-rich-content-select-content="true"]')).not.toBeNull(),
-    );
+    document
+      .querySelector<HTMLButtonElement>('button[aria-label="Font size"]')
+      ?.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }),
+      );
+    await vi.waitFor(() => expect(document.querySelector('.ui-select-content')).not.toBeNull());
     document
       .querySelector<HTMLButtonElement>('[aria-label="Bold"]')
       ?.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true }));
-    await vi.waitFor(() =>
-      expect(document.querySelector('[data-rich-content-select-content="true"]')).toBeNull(),
-    );
+    await vi.waitFor(() => expect(document.querySelector('.ui-select-content')).toBeNull());
 
     document.querySelector<HTMLButtonElement>('[aria-label="Bold"]')?.click();
     await vi.waitFor(() =>
@@ -235,7 +239,11 @@ describe('unified popup content canvas', () => {
         HTMLButtonElement,
       ),
     );
-    expect(document.querySelector('select[aria-label="Animation effect"]')).toBeNull();
+    expect(
+      document
+        .querySelector('select.ui-native-select-mirror[aria-label="Animation effect"]')
+        ?.getAttribute('tabindex'),
+    ).toBe('-1');
     selectFirstTextRun();
     await chooseDesignedSelect('Animation effect', 'Rise in');
     await vi.waitFor(() => {
@@ -308,9 +316,9 @@ describe('unified popup content canvas', () => {
     // "Form field" tile, not one per control — the control is a property on the
     // field and the inspector switches it.
     const insertOption = (label: string): HTMLButtonElement | undefined =>
-      [
-        ...document.querySelectorAll<HTMLButtonElement>('.rich-content-insert-grid button'),
-      ].find((candidate) => candidate.textContent?.trim() === label);
+      [...document.querySelectorAll<HTMLButtonElement>('.rich-content-insert-grid button')].find(
+        (candidate) => candidate.textContent?.trim() === label,
+      );
     expect(insertOption('Heading')).toBeDefined();
     expect(insertOption('Divider')).toBeDefined();
     expect(insertOption('Stat')).toBeDefined();
@@ -367,8 +375,8 @@ describe('unified popup content canvas', () => {
     await vi.waitFor(() =>
       expect(document.querySelector('[aria-label="Field label"]')).toBeInstanceOf(HTMLInputElement),
     );
-    expect(document.querySelector('[aria-label="Field settings"]')).not.toBeNull();
-    expect(document.querySelector('[aria-label="Field type"]')).toBeInstanceOf(HTMLButtonElement);
+    expect(document.querySelector('section[aria-label="Form field"]')).not.toBeNull();
+    expect(document.querySelector('[aria-label="Control"]')).not.toBeNull();
     expect(document.body.textContent).toContain(
       'Answers stay in this experience. Lodariq does not read your product database.',
     );
@@ -378,8 +386,10 @@ describe('unified popup content canvas', () => {
     );
     const fieldColorRow = document.querySelector('.storyboard-property-color-row');
     expect(fieldColorRow?.querySelector('[data-property-id="formField.fillColor"]')).not.toBeNull();
-    expect(fieldColorRow?.querySelector('[data-property-id="formField.labelColor"]')).not.toBeNull();
-    expect(fieldColorRow?.querySelector('[data-property-id="formField.borderColor"]')).not.toBeNull();
+    expect(document.querySelector('[data-property-id="formField.labelColor"]')).not.toBeNull();
+    expect(
+      fieldColorRow?.querySelector('[data-property-id="formField.borderColor"]'),
+    ).not.toBeNull();
     await vi.waitFor(() => {
       const latestCall = saveDocument.mock.calls[saveDocument.mock.calls.length - 1];
       expect(savedDocumentHasBlockType(latestCall?.[0] as LodariqDocument, 'formField')).toBe(true);
@@ -515,9 +525,7 @@ describe('unified popup content canvas', () => {
       );
     });
     expect(canvas.querySelectorAll('video')).toHaveLength(1);
-  },
-  20_000,
-);
+  }, 20_000);
 });
 
 function savedTooltipChildIds(document: LodariqDocument | undefined): string[] {
@@ -641,7 +649,7 @@ async function chooseDesignedSelect(ariaLabel: string, optionLabel: string): Pro
   });
   const trigger = document.querySelector<HTMLButtonElement>(`button[aria-label="${ariaLabel}"]`);
   if (!trigger) throw new Error(`${ariaLabel} select trigger is missing`);
-  trigger.click();
+  trigger.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true }));
   await vi.waitFor(() => {
     expect(findSelectOption(optionLabel), optionLabel).toBeDefined();
   });

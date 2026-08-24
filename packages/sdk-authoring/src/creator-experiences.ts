@@ -1,8 +1,11 @@
 import {
   DEFAULT_EXPERIENCE_APPEARANCE,
+  defaultExperienceBehavior,
   type Environment,
   type LodariqDocument,
 } from '@lodariq/schema';
+import { registeredExperienceDefinition } from './authoring/experience-authoring-capabilities';
+import type { CreatorEnabledExperienceType } from './creator-experience-types';
 
 export {
   CREATOR_ENABLED_EXPERIENCE_TYPES,
@@ -19,6 +22,10 @@ export interface CreateTourDraftInput {
   createBlockId?: () => string;
 }
 
+export interface CreateExperienceDraftInput extends CreateTourDraftInput {
+  type: CreatorEnabledExperienceType;
+}
+
 export function createTourDraft(input: CreateTourDraftInput): LodariqDocument {
   return {
     id: input.documentId,
@@ -31,6 +38,40 @@ export function createTourDraft(input: CreateTourDraftInput): LodariqDocument {
     appearance: structuredClone(DEFAULT_EXPERIENCE_APPEARANCE),
     targets: [],
     blocks: [],
+    schemaVersion: input.schemaVersion,
+  };
+}
+
+const UNTITLED_EXPERIENCE_TITLES: Readonly<Record<CreatorEnabledExperienceType, string>> = {
+  tour: 'Untitled tour',
+  announcement: 'Untitled announcement',
+  hotspot: 'Untitled hotspot',
+  survey: 'Untitled survey',
+  checklist: 'Untitled checklist',
+};
+
+/** Creates a real, editable draft for every experience the creator catalog offers. */
+export function createExperienceDraft(input: CreateExperienceDraftInput): LodariqDocument {
+  if (input.type === 'tour') return createTourDraft(input);
+  const definition = registeredExperienceDefinition(input.type);
+  const blocks =
+    definition?.seed({
+      createBlockId: input.createBlockId ?? (() => `block_${createRandomId()}`),
+    }) ?? [];
+  return {
+    id: input.documentId,
+    workspaceId: input.workspaceId,
+    type: input.type,
+    status: 'draft',
+    title: input.title ?? UNTITLED_EXPERIENCE_TITLES[input.type],
+    trigger: { type: 'manual' },
+    audience: { environments: [input.environment] },
+    appearance: structuredClone(DEFAULT_EXPERIENCE_APPEARANCE),
+    experience: defaultExperienceBehavior(input.type),
+    ...(input.type === 'announcement' ? { surfaceForm: 'modal' as const } : {}),
+    ...(input.type === 'checklist' ? { surfaceForm: 'floating' as const } : {}),
+    targets: [],
+    blocks: structuredClone([...blocks]),
     schemaVersion: input.schemaVersion,
   };
 }

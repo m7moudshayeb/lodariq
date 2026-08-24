@@ -13,13 +13,6 @@
  * Reference: authoring-spec.html → `.menu` / `menu()` · authoring-ux-model.md §4.2a
  */
 export const AUTHORING_CHROME_MENU_CSS = `
-  /*
-   * The toolbar's style menu is listed alongside every rule below rather than
-   * carrying its own copy. Its copy had drifted — no font-size at all, so its
-   * rows inherited the frame body's 16px and rendered half again too large,
-   * with a different radius, padding and gap besides. A menu that looks like
-   * the others because it *is* the others cannot drift again.
-   */
   .chrome-menu,
   .toolbar-style-menu {
     position: fixed;
@@ -28,11 +21,6 @@ export const AUTHORING_CHROME_MENU_CSS = `
     display: flex;
     flex-direction: column;
     min-width: 196px;
-    /*
-     * Sized by its widest line, like the prototype's: a guardrail note that
-     * wraps to three lines reads as a paragraph to skip rather than as the one
-     * sentence that explains the control.
-     */
     max-width: min(440px, calc(100vw - 16px));
     max-height: 70vh;
     margin: 0;
@@ -50,7 +38,6 @@ export const AUTHORING_CHROME_MENU_CSS = `
     display: flex;
   }
 
-  /* Says what the rows under it are, so a menu is never an unlabelled list. */
   .chrome-menu-heading,
   .toolbar-style-group {
     margin: 0;
@@ -83,7 +70,6 @@ export const AUTHORING_CHROME_MENU_CSS = `
     flex: none;
   }
 
-  /* The one step of emphasis chrome has: a hovered row lifts to pure white. */
   .chrome-menu-item:hover:not(:disabled),
   .toolbar-style-menu button:hover:not(:disabled) {
     background: var(--lq-color-control-hover);
@@ -104,10 +90,6 @@ export const AUTHORING_CHROME_MENU_CSS = `
     opacity: 0.4;
   }
 
-  /*
-   * The accelerator is printed beside the control it duplicates, never taught
-   * separately (§3.1a) — so it is decoration on a row that already works.
-   */
   .chrome-menu-item kbd,
   .toolbar-style-menu button kbd {
     margin-left: auto;
@@ -131,7 +113,6 @@ export const AUTHORING_CHROME_MENU_CSS = `
     line-height: 1.5;
   }
 
-  /* Block types are recognised by shape, so they get a grid rather than a list. */
   .chrome-menu-grid {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
@@ -170,7 +151,6 @@ export const AUTHORING_CHROME_MENU_CSS = `
     outline-offset: 2px;
   }
 
-  /* Numeric menus: type it, step it, or drag it — three ways to the same value. */
   .chrome-menu-number {
     padding: 6px 9px 9px;
   }

@@ -23,6 +23,9 @@ import type {
 } from '@lodariq/database';
 import { createWorkspaceThemeDraftPreviewSnapshot } from '@lodariq/database';
 import { mergeProductStyleTokensIntoDraft } from './product-style-theme';
+import { enqueueGovernanceWebhookEvent } from './governance-events';
+import type { BrandDriftEmailNotifier } from './brand-drift-email';
+import type { ObservabilitySink } from './observability';
 
 export const BRAND_DRIFT_CHECK_ERROR_CODES = [
   'invalid_brand_drift_check',
@@ -49,6 +52,8 @@ export interface CheckAuthoringBrandDriftInput {
   request: BrandDriftCheckRequest;
   now?: () => Date;
   createCheckId?: () => string;
+  emailNotifier?: BrandDriftEmailNotifier;
+  observability?: ObservabilitySink;
 }
 
 /**
@@ -102,6 +107,25 @@ export async function checkAuthoringBrandDrift(
     report: createBrandDriftAuditReport(drift),
     actorUserId: input.session.createdByUserId,
   });
+  if (drift.classification !== 'unchanged') {
+    await enqueueGovernanceWebhookEvent(input.repository, {
+      workspaceId: input.session.workspaceId,
+      type: 'brand.drift_detected',
+      occurredAt: drift.checkedAt,
+      data: {
+        checkId: drift.checkId,
+        documentId: input.session.documentId,
+        environmentId: input.session.environmentId,
+        themeId: drift.themeId,
+        baselineThemeVersionId: drift.baselineThemeVersionId,
+        classification: drift.classification,
+        confidence: drift.confidence,
+        changedRoles: [...drift.changedRoles],
+        affectedExperienceCount: drift.affectedExperiences.length,
+      },
+    });
+    await sendBrandDriftEmail(input, drift);
+  }
   const result = validate(AuthoringBrandDriftCheckResultSchema, {
     documentId: input.session.documentId,
     drift,
@@ -113,6 +137,44 @@ export async function checkAuthoringBrandDrift(
     throw new Error('Brand drift result failed canonical schema validation');
   }
   return structuredClone(result.value);
+}
+
+async function sendBrandDriftEmail(
+  input: CheckAuthoringBrandDriftInput,
+  drift: AuthoringBrandDriftCheckResult['drift'],
+): Promise<void> {
+  if (!input.emailNotifier) return;
+  const recipient = await input.repository.getIdentityUser(input.session.createdByUserId);
+  if (!recipient?.emailVerifiedAt) return;
+  try {
+    await input.emailNotifier.send({
+      recipientEmail: recipient.email,
+      recipientName: recipient.name ?? null,
+      workspaceId: input.session.workspaceId,
+      documentId: input.session.documentId,
+      environmentId: input.session.environmentId,
+      drift,
+    });
+    input.observability?.emit({
+      name: 'brand_drift.email_delivered',
+      timestamp: drift.checkedAt,
+      correlationId: drift.checkId,
+      workspaceId: input.session.workspaceId,
+      documentId: input.session.documentId,
+      environmentId: input.session.environmentId,
+      userId: input.session.createdByUserId,
+    });
+  } catch {
+    input.observability?.emit({
+      name: 'brand_drift.email_failed',
+      timestamp: drift.checkedAt,
+      correlationId: drift.checkId,
+      workspaceId: input.session.workspaceId,
+      documentId: input.session.documentId,
+      environmentId: input.session.environmentId,
+      userId: input.session.createdByUserId,
+    });
+  }
 }
 
 interface BrandDriftContext {
